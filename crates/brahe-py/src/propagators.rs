@@ -4986,39 +4986,77 @@ impl PyThirdBody {
         PyThirdBody { body: propagators::ThirdBody::Venus }
     }
 
-    /// Mars.
+    /// Mars (planet center, NAIF 499) with the planet-only GM. For the
+    /// classical third-body formulation about Earth prefer
+    /// `MARS_BARYCENTER`, which is resolvable from the DE kernels alone.
     #[classattr]
     #[allow(non_snake_case)]
     fn MARS() -> Self {
         PyThirdBody { body: propagators::ThirdBody::Mars }
     }
 
-    /// Jupiter.
+    /// Mars system barycenter (NAIF 4): Mars, Phobos, and Deimos with the
+    /// system GM. Used by the default Earth force models.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn MARS_BARYCENTER() -> Self {
+        PyThirdBody { body: propagators::ThirdBody::MarsBarycenter }
+    }
+
+    /// Jupiter (planet center, NAIF 599) with the planet-only GM.
     #[classattr]
     #[allow(non_snake_case)]
     fn JUPITER() -> Self {
         PyThirdBody { body: propagators::ThirdBody::Jupiter }
     }
 
-    /// Saturn.
+    /// Jupiter system barycenter (NAIF 5) with the system GM.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn JUPITER_BARYCENTER() -> Self {
+        PyThirdBody { body: propagators::ThirdBody::JupiterBarycenter }
+    }
+
+    /// Saturn (planet center, NAIF 699) with the planet-only GM.
     #[classattr]
     #[allow(non_snake_case)]
     fn SATURN() -> Self {
         PyThirdBody { body: propagators::ThirdBody::Saturn }
     }
 
-    /// Uranus.
+    /// Saturn system barycenter (NAIF 6) with the system GM.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn SATURN_BARYCENTER() -> Self {
+        PyThirdBody { body: propagators::ThirdBody::SaturnBarycenter }
+    }
+
+    /// Uranus (planet center, NAIF 799) with the planet-only GM.
     #[classattr]
     #[allow(non_snake_case)]
     fn URANUS() -> Self {
         PyThirdBody { body: propagators::ThirdBody::Uranus }
     }
 
-    /// Neptune.
+    /// Uranus system barycenter (NAIF 7) with the system GM.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn URANUS_BARYCENTER() -> Self {
+        PyThirdBody { body: propagators::ThirdBody::UranusBarycenter }
+    }
+
+    /// Neptune (planet center, NAIF 899) with the planet-only GM.
     #[classattr]
     #[allow(non_snake_case)]
     fn NEPTUNE() -> Self {
         PyThirdBody { body: propagators::ThirdBody::Neptune }
+    }
+
+    /// Neptune system barycenter (NAIF 8) with the system GM.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn NEPTUNE_BARYCENTER() -> Self {
+        PyThirdBody { body: propagators::ThirdBody::NeptuneBarycenter }
     }
 
     /// Earth. Only meaningful as a perturber when the central body is not

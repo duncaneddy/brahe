@@ -571,3 +571,26 @@ def test_tides_config_consistent_combinations_do_not_warn():
             ),
             solid=None,
         )
+
+
+def test_third_body_barycenter_planet_split():
+    assert brahe.ThirdBody.MARS.naif_id() == 499
+    assert brahe.ThirdBody.MARS.gm() == brahe.GM_MARS
+    assert brahe.ThirdBody.MARS_BARYCENTER.naif_id() == 4
+    assert brahe.ThirdBody.MARS_BARYCENTER.gm() == brahe.GM_MARS_SYSTEM
+    assert brahe.ThirdBody.JUPITER.naif_id() == 599
+    assert brahe.ThirdBody.JUPITER.gm() == brahe.GM_JUPITER
+    assert brahe.ThirdBody.JUPITER_BARYCENTER.naif_id() == 5
+    assert brahe.ThirdBody.JUPITER_BARYCENTER.gm() == brahe.GM_JUPITER_SYSTEM
+    assert brahe.ThirdBody.SATURN.naif_id() == 699
+    assert brahe.ThirdBody.SATURN.gm() == brahe.GM_SATURN
+    assert brahe.ThirdBody.SATURN_BARYCENTER.naif_id() == 6
+    assert brahe.ThirdBody.SATURN_BARYCENTER.gm() == brahe.GM_SATURN_SYSTEM
+    assert brahe.ThirdBody.URANUS.naif_id() == 799
+    assert brahe.ThirdBody.URANUS.gm() == brahe.GM_URANUS
+    assert brahe.ThirdBody.URANUS_BARYCENTER.naif_id() == 7
+    assert brahe.ThirdBody.URANUS_BARYCENTER.gm() == brahe.GM_URANUS_SYSTEM
+    assert brahe.ThirdBody.NEPTUNE.naif_id() == 899
+    assert brahe.ThirdBody.NEPTUNE.gm() == brahe.GM_NEPTUNE
+    assert brahe.ThirdBody.NEPTUNE_BARYCENTER.naif_id() == 8
+    assert brahe.ThirdBody.NEPTUNE_BARYCENTER.gm() == brahe.GM_NEPTUNE_SYSTEM

@@ -41,11 +41,11 @@ fn main() {
             bh::ThirdBody::Moon,
             bh::ThirdBody::Mercury,
             bh::ThirdBody::Venus,
-            bh::ThirdBody::Mars,
-            bh::ThirdBody::Jupiter,
-            bh::ThirdBody::Saturn,
-            bh::ThirdBody::Uranus,
-            bh::ThirdBody::Neptune,
+            bh::ThirdBody::MarsBarycenter,
+            bh::ThirdBody::JupiterBarycenter,
+            bh::ThirdBody::SaturnBarycenter,
+            bh::ThirdBody::UranusBarycenter,
+            bh::ThirdBody::NeptuneBarycenter,
         ],
     };
 

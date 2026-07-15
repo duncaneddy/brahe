@@ -15,8 +15,9 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 
 use crate::constants::{
-    GM_DEIMOS, GM_EARTH, GM_JUPITER, GM_MARS, GM_MERCURY, GM_MOON, GM_NEPTUNE, GM_PHOBOS,
-    GM_SATURN, GM_SUN, GM_URANUS, GM_VENUS, R_EARTH, R_MARS, R_MOON,
+    GM_DEIMOS, GM_EARTH, GM_JUPITER, GM_JUPITER_SYSTEM, GM_MARS, GM_MARS_SYSTEM, GM_MERCURY,
+    GM_MOON, GM_NEPTUNE, GM_NEPTUNE_SYSTEM, GM_PHOBOS, GM_SATURN, GM_SATURN_SYSTEM, GM_SUN,
+    GM_URANUS, GM_URANUS_SYSTEM, GM_VENUS, R_EARTH, R_MARS, R_MOON,
 };
 use crate::datasets::icgem::ICGEMBody;
 use crate::orbit_dynamics::ParallelMode;
@@ -398,11 +399,11 @@ impl ForceModelConfig {
                     ThirdBody::Sun,
                     ThirdBody::Moon,
                     ThirdBody::Venus,
-                    ThirdBody::Mars,
-                    ThirdBody::Jupiter,
-                    ThirdBody::Saturn,
-                    ThirdBody::Uranus,
-                    ThirdBody::Neptune,
+                    ThirdBody::MarsBarycenter,
+                    ThirdBody::JupiterBarycenter,
+                    ThirdBody::SaturnBarycenter,
+                    ThirdBody::UranusBarycenter,
+                    ThirdBody::NeptuneBarycenter,
                     ThirdBody::Mercury,
                 ],
             }),
@@ -889,16 +890,18 @@ impl ForceModelConfig {
                         self.central_body
                     )));
                 }
-                // ThirdBody::Mars is the Mars system barycenter (NAIF 4),
-                // which sits inside the planet (~0.1-0.2 m from its center):
-                // pairing it with a Mars-centered propagation would divide by
-                // a near-zero perturber distance. Mars's own gravity is the
-                // central-body force, not a third-body perturbation.
-                if matches!(body, ThirdBody::Mars) && matches!(self.central_body, CentralBody::Mars)
+                // ThirdBody::MarsBarycenter (NAIF 4) sits inside the planet
+                // (~0.1-0.2 m from its center): pairing it with a
+                // Mars-centered propagation would divide by a near-zero
+                // perturber distance. The planet itself (NAIF 499 ==
+                // CentralBody::Mars.naif_id()) is caught by the NAIF-ID
+                // equality check above.
+                if matches!(body, ThirdBody::MarsBarycenter)
+                    && matches!(self.central_body, CentralBody::Mars)
                 {
                     return Err(BraheError::Error(
-                        "ThirdBody::Mars (the Mars system barycenter) cannot perturb a \
-                         Mars-centered propagation — Mars's gravity is the central-body force"
+                        "ThirdBody::MarsBarycenter (the Mars system barycenter) cannot perturb \
+                         a Mars-centered propagation — Mars's gravity is the central-body force"
                             .to_string(),
                     ));
                 }
@@ -1423,16 +1426,33 @@ pub enum ThirdBody {
     Mercury,
     /// Venus
     Venus,
-    /// Mars
+    /// Mars (planet center, NAIF 499) with the planet-only GM.
+    ///
+    /// For the classical third-body formulation about Earth prefer
+    /// [`ThirdBody::MarsBarycenter`], which is resolvable from the DE kernels
+    /// alone; the planet-center position additionally requires the Mars
+    /// satellite ephemeris kernel.
     Mars,
-    /// Jupiter
+    /// Mars system barycenter (NAIF 4): Mars, Phobos, and Deimos combined,
+    /// with the system GM. Used by the default Earth force models.
+    MarsBarycenter,
+    /// Jupiter (planet center, NAIF 599) with the planet-only GM. See
+    /// [`ThirdBody::Mars`] on the planet-center vs barycenter distinction.
     Jupiter,
-    /// Saturn
+    /// Jupiter system barycenter (NAIF 5) with the system GM.
+    JupiterBarycenter,
+    /// Saturn (planet center, NAIF 699) with the planet-only GM.
     Saturn,
-    /// Uranus
+    /// Saturn system barycenter (NAIF 6) with the system GM.
+    SaturnBarycenter,
+    /// Uranus (planet center, NAIF 799) with the planet-only GM.
     Uranus,
-    /// Neptune
+    /// Uranus system barycenter (NAIF 7) with the system GM.
+    UranusBarycenter,
+    /// Neptune (planet center, NAIF 899) with the planet-only GM.
     Neptune,
+    /// Neptune system barycenter (NAIF 8) with the system GM.
+    NeptuneBarycenter,
     /// Earth
     ///
     /// Only meaningful as a perturber when the central body is not Earth
@@ -1457,16 +1477,19 @@ impl ThirdBody {
     /// NAIF ID of the perturbing body.
     ///
     /// # Returns
-    /// - `naif_id`: NAIF ID. Planet variants from Mars outward use the
-    ///   planetary-system barycenter (Mars is `4`, not `499`), matching the
-    ///   targets used by the `*_barycenter_position_spice` ephemeris
-    ///   functions; Mercury, Venus, Earth, and the Moon use body centers.
+    /// - `naif_id`: NAIF ID. Planet variants use body centers (Mars is `499`,
+    ///   Jupiter `599`, ...); the `*Barycenter` variants use the
+    ///   planetary-system barycenters (Mars system is `4`, Jupiter system
+    ///   `5`, ...), matching the targets used by the
+    ///   `*_barycenter_position_spice` ephemeris functions.
     ///
     /// # Examples
     /// ```
     /// use brahe::propagators::force_model_config::ThirdBody;
     ///
     /// assert_eq!(ThirdBody::Sun.naif_id(), 10);
+    /// assert_eq!(ThirdBody::Mars.naif_id(), 499);
+    /// assert_eq!(ThirdBody::MarsBarycenter.naif_id(), 4);
     /// assert_eq!(ThirdBody::Phobos.naif_id(), 401);
     /// ```
     pub fn naif_id(&self) -> i32 {
@@ -1475,11 +1498,16 @@ impl ThirdBody {
             ThirdBody::Moon => 301,
             ThirdBody::Mercury => 199,
             ThirdBody::Venus => 299,
-            ThirdBody::Mars => 4,
-            ThirdBody::Jupiter => 5,
-            ThirdBody::Saturn => 6,
-            ThirdBody::Uranus => 7,
-            ThirdBody::Neptune => 8,
+            ThirdBody::Mars => 499,
+            ThirdBody::MarsBarycenter => 4,
+            ThirdBody::Jupiter => 599,
+            ThirdBody::JupiterBarycenter => 5,
+            ThirdBody::Saturn => 699,
+            ThirdBody::SaturnBarycenter => 6,
+            ThirdBody::Uranus => 799,
+            ThirdBody::UranusBarycenter => 7,
+            ThirdBody::Neptune => 899,
+            ThirdBody::NeptuneBarycenter => 8,
             ThirdBody::Earth => 399,
             ThirdBody::Phobos => 401,
             ThirdBody::Deimos => 402,
@@ -1506,10 +1534,15 @@ impl ThirdBody {
             ThirdBody::Mercury => GM_MERCURY,
             ThirdBody::Venus => GM_VENUS,
             ThirdBody::Mars => GM_MARS,
+            ThirdBody::MarsBarycenter => GM_MARS_SYSTEM,
             ThirdBody::Jupiter => GM_JUPITER,
+            ThirdBody::JupiterBarycenter => GM_JUPITER_SYSTEM,
             ThirdBody::Saturn => GM_SATURN,
+            ThirdBody::SaturnBarycenter => GM_SATURN_SYSTEM,
             ThirdBody::Uranus => GM_URANUS,
+            ThirdBody::UranusBarycenter => GM_URANUS_SYSTEM,
             ThirdBody::Neptune => GM_NEPTUNE,
+            ThirdBody::NeptuneBarycenter => GM_NEPTUNE_SYSTEM,
             ThirdBody::Earth => GM_EARTH,
             ThirdBody::Phobos => GM_PHOBOS,
             ThirdBody::Deimos => GM_DEIMOS,
@@ -2240,6 +2273,69 @@ mod tests {
             } else {
                 panic!("expected SH gravity");
             }
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_third_body_barycenter_planet_split() {
+        use crate::constants::{
+            GM_JUPITER, GM_JUPITER_SYSTEM, GM_MARS, GM_MARS_SYSTEM, GM_NEPTUNE, GM_NEPTUNE_SYSTEM,
+            GM_SATURN, GM_SATURN_SYSTEM, GM_URANUS, GM_URANUS_SYSTEM,
+        };
+        // Planet-center variants
+        assert_eq!(ThirdBody::Mars.naif_id(), 499);
+        assert_eq!(ThirdBody::Mars.gm(), GM_MARS);
+        assert_eq!(ThirdBody::Jupiter.naif_id(), 599);
+        assert_eq!(ThirdBody::Jupiter.gm(), GM_JUPITER);
+        assert_eq!(ThirdBody::Saturn.naif_id(), 699);
+        assert_eq!(ThirdBody::Saturn.gm(), GM_SATURN);
+        assert_eq!(ThirdBody::Uranus.naif_id(), 799);
+        assert_eq!(ThirdBody::Uranus.gm(), GM_URANUS);
+        assert_eq!(ThirdBody::Neptune.naif_id(), 899);
+        assert_eq!(ThirdBody::Neptune.gm(), GM_NEPTUNE);
+        // Barycenter variants
+        assert_eq!(ThirdBody::MarsBarycenter.naif_id(), 4);
+        assert_eq!(ThirdBody::MarsBarycenter.gm(), GM_MARS_SYSTEM);
+        assert_eq!(ThirdBody::JupiterBarycenter.naif_id(), 5);
+        assert_eq!(ThirdBody::JupiterBarycenter.gm(), GM_JUPITER_SYSTEM);
+        assert_eq!(ThirdBody::SaturnBarycenter.naif_id(), 6);
+        assert_eq!(ThirdBody::SaturnBarycenter.gm(), GM_SATURN_SYSTEM);
+        assert_eq!(ThirdBody::UranusBarycenter.naif_id(), 7);
+        assert_eq!(ThirdBody::UranusBarycenter.gm(), GM_URANUS_SYSTEM);
+        assert_eq!(ThirdBody::NeptuneBarycenter.naif_id(), 8);
+        assert_eq!(ThirdBody::NeptuneBarycenter.gm(), GM_NEPTUNE_SYSTEM);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_high_fidelity_uses_barycenter_variants() {
+        let config = ForceModelConfig::high_fidelity();
+        let tb = config.third_body.unwrap();
+        assert!(tb.bodies.contains(&ThirdBody::MarsBarycenter));
+        assert!(tb.bodies.contains(&ThirdBody::JupiterBarycenter));
+        assert!(tb.bodies.contains(&ThirdBody::SaturnBarycenter));
+        assert!(tb.bodies.contains(&ThirdBody::UranusBarycenter));
+        assert!(tb.bodies.contains(&ThirdBody::NeptuneBarycenter));
+        assert!(!tb.bodies.contains(&ThirdBody::Mars));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_validate_rejects_mars_bodies_for_mars_central() {
+        // Both the planet (same NAIF ID as the central body) and the
+        // barycenter (inside the planet) must be rejected for a
+        // Mars-centered propagation.
+        for body in [ThirdBody::Mars, ThirdBody::MarsBarycenter] {
+            let config = ForceModelConfig {
+                central_body: CentralBody::Mars,
+                third_body: Some(ThirdBodyConfiguration {
+                    ephemeris_source: EphemerisSource::DE440s,
+                    bodies: vec![body],
+                }),
+                ..ForceModelConfig::two_body_gravity()
+            };
+            assert!(config.validate().is_err());
         }
     }
 }

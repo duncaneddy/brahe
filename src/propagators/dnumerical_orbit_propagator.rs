@@ -1824,7 +1824,10 @@ impl DNumericalOrbitPropagator {
                 // Keep the legacy geocentric call for Earth so Earth
                 // propagation stays bit-identical; other central bodies use
                 // the central-body-aware differential form. `accel_third_body`
-                // only supports the 9 classical planet bodies and panics for
+                // only supports the classical geocentric set (Sun, Moon,
+                // Mercury, Venus, and the planetary-system barycenters) and
+                // panics for the planet-center variants (which need their
+                // satellite-system kernels) and for
                 // Phobos/Deimos/Custom/Earth-as-perturber, so those route
                 // through `accel_third_body_for_body` instead (which returns
                 // an `Err`, not a panic, if body and central body coincide —
@@ -1835,11 +1838,11 @@ impl DNumericalOrbitPropagator {
                         | ThirdBody::Moon
                         | ThirdBody::Mercury
                         | ThirdBody::Venus
-                        | ThirdBody::Mars
-                        | ThirdBody::Jupiter
-                        | ThirdBody::Saturn
-                        | ThirdBody::Uranus
-                        | ThirdBody::Neptune => {
+                        | ThirdBody::MarsBarycenter
+                        | ThirdBody::JupiterBarycenter
+                        | ThirdBody::SaturnBarycenter
+                        | ThirdBody::UranusBarycenter
+                        | ThirdBody::NeptuneBarycenter => {
                             a_total += accel_third_body(
                                 body.clone(),
                                 tb_config.ephemeris_source,
@@ -1847,7 +1850,12 @@ impl DNumericalOrbitPropagator {
                                 r,
                             );
                         }
-                        ThirdBody::Phobos
+                        ThirdBody::Mars
+                        | ThirdBody::Jupiter
+                        | ThirdBody::Saturn
+                        | ThirdBody::Uranus
+                        | ThirdBody::Neptune
+                        | ThirdBody::Phobos
                         | ThirdBody::Deimos
                         | ThirdBody::Custom { .. }
                         | ThirdBody::Earth => {
@@ -9607,7 +9615,11 @@ mod tests {
             srp: None,
             third_body: Some(ThirdBodyConfiguration {
                 ephemeris_source: EphemerisSource::DE440s,
-                bodies: vec![ThirdBody::Sun, ThirdBody::Moon, ThirdBody::Jupiter],
+                bodies: vec![
+                    ThirdBody::Sun,
+                    ThirdBody::Moon,
+                    ThirdBody::JupiterBarycenter,
+                ],
             }),
             relativity: false,
         };
@@ -9648,7 +9660,7 @@ mod tests {
             srp: None,
             third_body: Some(ThirdBodyConfiguration {
                 ephemeris_source: EphemerisSource::DE440s,
-                bodies: vec![ThirdBody::Jupiter],
+                bodies: vec![ThirdBody::JupiterBarycenter],
             }),
             relativity: false,
         };
@@ -9752,7 +9764,7 @@ mod tests {
             srp: None,
             third_body: Some(ThirdBodyConfiguration {
                 ephemeris_source: EphemerisSource::DE440s,
-                bodies: vec![ThirdBody::Mars],
+                bodies: vec![ThirdBody::MarsBarycenter],
             }),
             relativity: false,
         };

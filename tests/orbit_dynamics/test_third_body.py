@@ -646,10 +646,14 @@ class TestThirdBodyForBody:
         r = np.array([1e8, 2e8, -5e7])
         s = bh.spk_position(5, 0, epc)
         d = s - r
-        expected = bh.GM_JUPITER * d / np.linalg.norm(d) ** 3
+        expected = bh.GM_JUPITER_SYSTEM * d / np.linalg.norm(d) ** 3
 
         got = bh.accel_third_body_for_body(
-            bh.CentralBody.SSB, bh.ThirdBody.JUPITER, bh.EphemerisSource.DE440s, epc, r
+            bh.CentralBody.SSB,
+            bh.ThirdBody.JUPITER_BARYCENTER,
+            bh.EphemerisSource.DE440s,
+            epc,
+            r,
         )
 
         assert np.allclose(got, expected, atol=1e-18)

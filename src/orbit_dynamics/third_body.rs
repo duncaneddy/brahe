@@ -20,7 +20,8 @@ use crate::spice::{
 use crate::time::Epoch;
 use crate::utils::BraheError;
 use crate::{
-    GM_JUPITER, GM_MARS, GM_MERCURY, GM_MOON, GM_NEPTUNE, GM_SATURN, GM_SUN, GM_URANUS, GM_VENUS,
+    GM_JUPITER_SYSTEM, GM_MARS_SYSTEM, GM_MERCURY, GM_MOON, GM_NEPTUNE_SYSTEM, GM_SATURN_SYSTEM,
+    GM_SUN, GM_URANUS_SYSTEM, GM_VENUS,
 };
 
 fn de_kernel_from_source(source: EphemerisSource) -> SPICEKernel {
@@ -33,9 +34,14 @@ fn de_kernel_from_source(source: EphemerisSource) -> SPICEKernel {
 /// the specified ephemeris source. This function consolidates all
 /// body-specific and source-specific acceleration functions.
 ///
-/// For the outer planets the system-barycenter position is used with the
-/// system GM; this is the standard third-body formulation and requires only
-/// the DE kernel (no satellite ephemeris kernel download).
+/// Supports the classical geocentric perturber set: Sun, Moon, Mercury,
+/// Venus, and the planetary-system barycenter variants
+/// ([`ThirdBody::MarsBarycenter`] .. [`ThirdBody::NeptuneBarycenter`]), which
+/// use the system-barycenter position with the system GM — the standard
+/// third-body formulation, requiring only the DE kernel (no satellite
+/// ephemeris kernel download). The planet-center variants (`Mars` ..
+/// `Neptune`) need their satellite-system kernels and are only available
+/// through [`accel_third_body_for_body`].
 ///
 /// # Arguments
 ///
@@ -72,8 +78,8 @@ fn de_kernel_from_source(source: EphemerisSource) -> SPICEKernel {
 /// // Low-precision Sun
 /// let a_sun = accel_third_body(ThirdBody::Sun, EphemerisSource::LowPrecision, epc, r_object);
 ///
-/// // High-precision Mars (requires DE440s/DE440)
-/// let a_mars = accel_third_body(ThirdBody::Mars, EphemerisSource::DE440s, epc, r_object);
+/// // High-precision Mars system barycenter (requires DE440s/DE440)
+/// let a_mars = accel_third_body(ThirdBody::MarsBarycenter, EphemerisSource::DE440s, epc, r_object);
 /// ```
 pub fn accel_third_body<P: IntoPosition>(
     body: ThirdBody,
@@ -120,60 +126,68 @@ pub fn accel_third_body<P: IntoPosition>(
             GM_VENUS,
         ),
         (
-            ThirdBody::Mars,
+            ThirdBody::MarsBarycenter,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
             mars_barycenter_position_spice(epc, de_kernel_from_source(source))
-                .expect("Failed to get Mars position"),
-            GM_MARS,
+                .expect("Failed to get Mars system barycenter position"),
+            GM_MARS_SYSTEM,
         ),
         (
-            ThirdBody::Jupiter,
+            ThirdBody::JupiterBarycenter,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
             jupiter_barycenter_position_spice(epc, de_kernel_from_source(source))
-                .expect("Failed to get Jupiter position"),
-            GM_JUPITER,
+                .expect("Failed to get Jupiter system barycenter position"),
+            GM_JUPITER_SYSTEM,
         ),
         (
-            ThirdBody::Saturn,
+            ThirdBody::SaturnBarycenter,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
             saturn_barycenter_position_spice(epc, de_kernel_from_source(source))
-                .expect("Failed to get Saturn position"),
-            GM_SATURN,
+                .expect("Failed to get Saturn system barycenter position"),
+            GM_SATURN_SYSTEM,
         ),
         (
-            ThirdBody::Uranus,
+            ThirdBody::UranusBarycenter,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
             uranus_barycenter_position_spice(epc, de_kernel_from_source(source))
-                .expect("Failed to get Uranus position"),
-            GM_URANUS,
+                .expect("Failed to get Uranus system barycenter position"),
+            GM_URANUS_SYSTEM,
         ),
         (
-            ThirdBody::Neptune,
+            ThirdBody::NeptuneBarycenter,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
             neptune_barycenter_position_spice(epc, de_kernel_from_source(source))
-                .expect("Failed to get Neptune position"),
-            GM_NEPTUNE,
+                .expect("Failed to get Neptune system barycenter position"),
+            GM_NEPTUNE_SYSTEM,
         ),
 
-        // Invalid: bodies only supported through `accel_third_body_for_body`
-        // (Earth, Phobos, Deimos, and Custom only make sense relative to a
+        // Invalid: bodies only supported through `accel_third_body_for_body`.
+        // Earth, Phobos, Deimos, and Custom only make sense relative to a
         // non-Earth central body, which this Earth-centered function does
-        // not model).
+        // not model; the planet-center variants (Mars..Neptune) additionally
+        // require their satellite-system ephemeris kernels, which only the
+        // kernel-scoped resolution in `accel_third_body_for_body` handles.
         (
             body @ (ThirdBody::Earth
             | ThirdBody::Phobos
             | ThirdBody::Deimos
+            | ThirdBody::Mars
+            | ThirdBody::Jupiter
+            | ThirdBody::Saturn
+            | ThirdBody::Uranus
+            | ThirdBody::Neptune
             | ThirdBody::Custom { .. }),
             _,
         ) => {
             panic!(
-                "accel_third_body only supports Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, \
-                Uranus, and Neptune. Requested {:?}. Use accel_third_body_for_body for other bodies.",
+                "accel_third_body only supports Sun, Moon, Mercury, Venus, and the \
+                planetary-system barycenters (MarsBarycenter..NeptuneBarycenter). Requested \
+                {:?}. Use accel_third_body_for_body for other bodies.",
                 body
             )
         }
@@ -595,8 +609,9 @@ pub fn accel_third_body_venus_spice<P: IntoPosition>(
     accel_third_body(ThirdBody::Venus, source, epc, r_object)
 }
 
-/// Calculate the acceleration due to Mars on an object at a given epoch using
-/// the DE high-precision ephemerides.
+/// Calculate the acceleration due to the Mars system barycenter (with the
+/// system GM) on an object at a given epoch using the DE high-precision
+/// ephemerides.
 ///
 /// Accepts either a 3D position vector or a 6D state vector for `r_object`.
 ///
@@ -614,11 +629,12 @@ pub fn accel_third_body_mars_spice<P: IntoPosition>(
     r_object: P,
     source: EphemerisSource,
 ) -> Vector3<f64> {
-    accel_third_body(ThirdBody::Mars, source, epc, r_object)
+    accel_third_body(ThirdBody::MarsBarycenter, source, epc, r_object)
 }
 
-/// Calculate the acceleration due to Jupiter on an object at a given epoch using
-/// the DE high-precision ephemerides.
+/// Calculate the acceleration due to the Jupiter system barycenter (with the
+/// system GM) on an object at a given epoch using the DE high-precision
+/// ephemerides.
 ///
 /// Accepts either a 3D position vector or a 6D state vector for `r_object`.
 ///
@@ -636,11 +652,12 @@ pub fn accel_third_body_jupiter_spice<P: IntoPosition>(
     r_object: P,
     source: EphemerisSource,
 ) -> Vector3<f64> {
-    accel_third_body(ThirdBody::Jupiter, source, epc, r_object)
+    accel_third_body(ThirdBody::JupiterBarycenter, source, epc, r_object)
 }
 
-/// Calculate the acceleration due to Saturn on an object at a given epoch using
-/// the DE high-precision ephemerides.
+/// Calculate the acceleration due to the Saturn system barycenter (with the
+/// system GM) on an object at a given epoch using the DE high-precision
+/// ephemerides.
 ///
 /// Accepts either a 3D position vector or a 6D state vector for `r_object`.
 ///
@@ -658,11 +675,12 @@ pub fn accel_third_body_saturn_spice<P: IntoPosition>(
     r_object: P,
     source: EphemerisSource,
 ) -> Vector3<f64> {
-    accel_third_body(ThirdBody::Saturn, source, epc, r_object)
+    accel_third_body(ThirdBody::SaturnBarycenter, source, epc, r_object)
 }
 
-/// Calculate the acceleration due to Uranus on an object at a given epoch using
-/// the DE high-precision ephemerides.
+/// Calculate the acceleration due to the Uranus system barycenter (with the
+/// system GM) on an object at a given epoch using the DE high-precision
+/// ephemerides.
 ///
 /// Accepts either a 3D position vector or a 6D state vector for `r_object`.
 ///
@@ -680,11 +698,12 @@ pub fn accel_third_body_uranus_spice<P: IntoPosition>(
     r_object: P,
     source: EphemerisSource,
 ) -> Vector3<f64> {
-    accel_third_body(ThirdBody::Uranus, source, epc, r_object)
+    accel_third_body(ThirdBody::UranusBarycenter, source, epc, r_object)
 }
 
-/// Calculate the acceleration due to Neptune on an object at a given epoch using
-/// the DE high-precision ephemerides.
+/// Calculate the acceleration due to the Neptune system barycenter (with the
+/// system GM) on an object at a given epoch using the DE high-precision
+/// ephemerides.
 ///
 /// Accepts either a 3D position vector or a 6D state vector for `r_object`.
 ///
@@ -702,7 +721,7 @@ pub fn accel_third_body_neptune_spice<P: IntoPosition>(
     r_object: P,
     source: EphemerisSource,
 ) -> Vector3<f64> {
-    accel_third_body(ThirdBody::Neptune, source, epc, r_object)
+    accel_third_body(ThirdBody::NeptuneBarycenter, source, epc, r_object)
 }
 
 #[cfg(test)]
@@ -1015,16 +1034,17 @@ mod tests {
         setup_global_test_spice();
 
         // Nothing accelerates the Solar System Barycenter, so every
-        // perturber (here Jupiter) uses the direct term only.
+        // perturber (here the Jupiter system barycenter) uses the direct
+        // term only.
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let r = Vector3::new(1e8, 2e8, -5e7);
         let s = crate::spice::spk_position(5, 0, epc).unwrap();
         let d = s - r;
-        let expected = GM_JUPITER * d / d.norm().powi(3);
+        let expected = GM_JUPITER_SYSTEM * d / d.norm().powi(3);
 
         let got = accel_third_body_for_body(
             &CentralBody::SSB,
-            &ThirdBody::Jupiter,
+            &ThirdBody::JupiterBarycenter,
             EphemerisSource::DE440s,
             epc,
             r,
@@ -1390,15 +1410,21 @@ mod tests {
 
     #[test]
     fn test_accel_third_body_panics_for_unsupported_perturbers() {
-        // The Earth/Phobos/Deimos/Custom arm panics for every source: these
-        // bodies only make sense via `accel_third_body_for_body`. Panics
-        // before any ephemeris query, so this is offline.
+        // The unsupported-bodies arm panics for every source: Earth, Phobos,
+        // Deimos, Custom, and the planet-center variants only make sense via
+        // `accel_third_body_for_body`. Panics before any ephemeris query, so
+        // this is offline.
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
         for body in [
             ThirdBody::Earth,
             ThirdBody::Phobos,
             ThirdBody::Deimos,
+            ThirdBody::Mars,
+            ThirdBody::Jupiter,
+            ThirdBody::Saturn,
+            ThirdBody::Uranus,
+            ThirdBody::Neptune,
             ThirdBody::Custom {
                 name: "Ceres".to_string(),
                 naif_id: 2000001,
@@ -1418,7 +1444,11 @@ mod tests {
         // Panics before any ephemeris query, so this is offline.
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
-        for body in [ThirdBody::Mars, ThirdBody::Jupiter, ThirdBody::Venus] {
+        for body in [
+            ThirdBody::MarsBarycenter,
+            ThirdBody::JupiterBarycenter,
+            ThirdBody::Venus,
+        ] {
             let result = std::panic::catch_unwind(|| {
                 accel_third_body(body.clone(), EphemerisSource::LowPrecision, epc, r)
             });

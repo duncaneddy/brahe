@@ -445,9 +445,6 @@ fn third_body_direct_only(central_body: &CentralBody, body: &ThirdBody) -> bool 
 /// * `Err(BraheError)` - If the body coincides with the central body, the
 ///   ephemeris cannot be queried, or a `ModelType` spherical-harmonic entry
 ///   is missing its resolved model
-// TODO(#387): the dead_code allow is removed when the propagator wiring
-// lands in the next commit.
-#[allow(dead_code)]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn accel_third_body_extended(
     central_body: &CentralBody,

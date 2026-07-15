@@ -5960,3 +5960,52 @@ class TestNumericalOrbitPropagatorCentralBodyStateAccessors:
         x_lci = prop.state_in_frame(ReferenceFrame.LCI, epoch)
         x_central = prop.state_bci(epoch)
         assert np.array_equal(x_lci, x_central)
+
+
+@pytest.mark.integration
+def test_emb_earth_spherical_harmonic_matches_earth_centered(naif_cache_setup):
+    """EMB-centered propagation with Earth as a spherical-harmonic third body
+    reproduces the Earth-centered propagation with the same field (mirrors the
+    Rust test of the same name)."""
+    import brahe as bh
+
+    epoch = create_test_epoch()
+    oe = np.array([bh.R_EARTH + 700e3, 0.001, 51.6, 15.0, 30.0, 45.0])
+    x_earth = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+
+    sh = bh.GravityConfiguration.spherical_harmonic(degree=8, order=8)
+
+    config_earth = ForceModelConfig(
+        gravity=sh,
+        third_bodies=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
+    )
+
+    config_emb = ForceModelConfig.for_body(
+        CentralBody.EMB,
+        GravityConfiguration.point_mass(),
+        third_bodies=[
+            bh.ThirdBodyConfiguration(bh.ThirdBody.EARTH, gravity=sh),
+            bh.ThirdBody.MOON,
+            bh.ThirdBody.SUN,
+        ],
+    )
+
+    earth_wrt_emb = spk_state(399, 3, epoch)
+    x_emb = x_earth + earth_wrt_emb
+
+    prop_earth = NumericalOrbitPropagator(
+        epoch, x_earth, NumericalPropagationConfig.default(), config_earth, None
+    )
+    prop_emb = NumericalOrbitPropagator(
+        epoch, x_emb, NumericalPropagationConfig.default(), config_emb, None
+    )
+
+    epoch_end = epoch + 86400.0
+    prop_earth.propagate_to(epoch_end)
+    prop_emb.propagate_to(epoch_end)
+
+    xf_earth = prop_earth.current_state()
+    xf_emb_in_earth = prop_emb.current_state() - spk_state(399, 3, epoch_end)
+
+    assert np.allclose(xf_emb_in_earth[:3], xf_earth[:3], atol=1.0)
+    assert np.allclose(xf_emb_in_earth[3:], xf_earth[3:], atol=1e-3)

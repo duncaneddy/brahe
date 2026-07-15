@@ -29,6 +29,7 @@ use crate::math::interpolation::{
 use crate::math::jacobian::DNumericalJacobian;
 use crate::math::jacobian::DifferenceMethod;
 use crate::math::sensitivity::DNumericalSensitivity;
+use crate::orbit_dynamics::third_body::accel_third_body_extended;
 use crate::orbit_dynamics::{
     GravityModel, GravityModelTideSystem, SolidTideConfig, accel_drag_for_body,
     accel_gravity_spherical_harmonics, accel_point_mass_gravity, accel_relativity_for_body,
@@ -772,6 +773,34 @@ impl DNumericalOrbitPropagator {
             }
         }
 
+        // Resolve per-third-body gravity models (ModelType sources only;
+        // Global reads the process-wide model at evaluation time). Uses the
+        // same shared-cache + copy-on-write truncation path as the central
+        // body's model above. Index-aligned with
+        // `force_config.third_bodies` entries.
+        let third_body_gravity_models: Vec<Option<Arc<GravityModel>>> =
+            match &force_config.third_bodies {
+                Some(entries) => entries
+                    .iter()
+                    .map(|entry| match &entry.gravity {
+                        GravityConfiguration::SphericalHarmonic {
+                            source: GravityModelSource::ModelType(model_type),
+                            degree,
+                            order,
+                            ..
+                        } => {
+                            let mut arc = GravityModel::shared(model_type)?;
+                            if *degree < arc.n_max || *order < arc.m_max {
+                                Arc::make_mut(&mut arc).set_max_degree_order(*degree, *order)?;
+                            }
+                            Ok(Some(arc))
+                        }
+                        _ => Ok(None),
+                    })
+                    .collect::<Result<Vec<_>, BraheError>>()?,
+                None => Vec::new(),
+            };
+
         // Extract solid-tide config before force_config is moved into the closure.
         let solid_tide = force_config.tides.as_ref().and_then(|t| t.solid);
 
@@ -782,6 +811,7 @@ impl DNumericalOrbitPropagator {
             params.clone(),
             additional_dynamics,
             gravity_model.clone(),
+            third_body_gravity_models,
             solid_tide,
         );
 
@@ -1438,6 +1468,7 @@ impl DNumericalOrbitPropagator {
         params: DVector<f64>,
         additional_dynamics: Option<DStateDynamics>,
         gravity_model: Option<Arc<GravityModel>>,
+        third_body_gravity_models: Vec<Option<Arc<GravityModel>>>,
         solid_tide: Option<SolidTideConfig>,
     ) -> SharedDynamics {
         // Per-propagator rotation cache. Mutex (not RefCell) because
@@ -1449,6 +1480,43 @@ impl DNumericalOrbitPropagator {
             force_config.central_body.clone(),
             force_config.frame_transform.clone(),
         )));
+
+        // Rotation caches for bodies that carry a body-fixed force model but
+        // are not the central body: third-body entries with extended gravity,
+        // and an attributed drag body. Keyed by NAIF ID; empty for
+        // configurations without body attribution, in which case the
+        // per-stage rotation collection below is a no-op.
+        let mut attributed_caches: Vec<(i32, Arc<Mutex<RotationCache>>)> = Vec::new();
+        {
+            let central_id = force_config.central_body.naif_id();
+            let mut add_body = |cb: CentralBody| {
+                let id = cb.naif_id();
+                if id != central_id && !attributed_caches.iter().any(|(i, _)| *i == id) {
+                    attributed_caches.push((
+                        id,
+                        Arc::new(Mutex::new(RotationCache::new(
+                            cb,
+                            force_config.frame_transform.clone(),
+                        ))),
+                    ));
+                }
+            };
+            if let Some(entries) = &force_config.third_bodies {
+                for entry in entries {
+                    if !matches!(entry.gravity, GravityConfiguration::PointMass)
+                        && let Some(cb) = entry.body.as_central_body()
+                    {
+                        add_body(cb);
+                    }
+                }
+            }
+            if let Some(drag) = &force_config.drag
+                && let Some(body) = &drag.body
+            {
+                add_body(body.clone());
+            }
+        }
+
         Arc::new(
             move |t: f64,
                   state: &DVector<f64>,
@@ -1456,6 +1524,10 @@ impl DNumericalOrbitPropagator {
                   -> DVector<f64> {
                 let epoch = epoch_initial + t;
                 let r_i2b = rotation_cache.lock().unwrap().get_or_compute(t, epoch);
+                let attributed_rotations: Vec<(i32, SMatrix3)> = attributed_caches
+                    .iter()
+                    .map(|(id, cache)| (*id, cache.lock().unwrap().get_or_compute(t, epoch)))
+                    .collect();
 
                 // Compute orbital dynamics (first 6 elements) on the stack.
                 // `compute_dynamics` returns a `Vector6<f64>` so the inner
@@ -1468,8 +1540,10 @@ impl DNumericalOrbitPropagator {
                     &force_config,
                     params_opt.or(Some(&params)),
                     gravity_model.as_ref(),
+                    &third_body_gravity_models,
                     solid_tide,
                     r_i2b,
+                    &attributed_rotations,
                 );
 
                 // Widen the orbital derivative to the full state dimension.
@@ -1585,6 +1659,19 @@ impl DNumericalOrbitPropagator {
     /// Computes the state derivative for given time, state, and parameters.
     /// This is the actual force model evaluation logic.
     #[allow(clippy::too_many_arguments)]
+    /// Look up the precomputed inertial→body-fixed rotation for an attributed
+    /// body. Panics if absent — `build_shared_dynamics` registers every
+    /// attributed body at construction, so a miss is a programming error, not
+    /// a user error.
+    fn attributed_rotation(rotations: &[(i32, SMatrix3)], naif_id: i32) -> SMatrix3 {
+        rotations
+            .iter()
+            .find(|(id, _)| *id == naif_id)
+            .map(|(_, r)| *r)
+            .unwrap_or_else(|| panic!("no attributed rotation registered for NAIF ID {naif_id}"))
+    }
+
+    #[allow(clippy::too_many_arguments)]
     fn compute_dynamics(
         t: f64,
         state: &DVector<f64>,
@@ -1592,8 +1679,10 @@ impl DNumericalOrbitPropagator {
         force_config: &ForceModelConfig,
         params_opt: Option<&DVector<f64>>,
         gravity_model: Option<&Arc<GravityModel>>,
+        third_body_gravity_models: &[Option<Arc<GravityModel>>],
         solid_tide: Option<SolidTideConfig>,
         r_i2b: SMatrix3,
+        attributed_rotations: &[(i32, SMatrix3)],
     ) -> Vector6<f64> {
         // Convert relative time to absolute Epoch
         let epoch = epoch_initial + t;
@@ -1820,8 +1909,37 @@ impl DNumericalOrbitPropagator {
 
         // ===== THIRD BODY =====
         if let Some(tb_entries) = &force_config.third_bodies {
-            for entry in tb_entries {
+            for (idx, entry) in tb_entries.iter().enumerate() {
                 let body = &entry.body;
+
+                // Entries with an extended (spherical-harmonic or zonal)
+                // gravity model evaluate the field at the object's position
+                // relative to the body, oriented by the body's own
+                // inertial→body-fixed rotation; the indirect term stays
+                // point-mass (see `accel_third_body_extended`).
+                if !matches!(entry.gravity, GravityConfiguration::PointMass) {
+                    let r_i2b_body =
+                        Self::attributed_rotation(attributed_rotations, body.naif_id());
+                    a_total += accel_third_body_extended(
+                        central,
+                        body,
+                        &entry.gravity,
+                        third_body_gravity_models
+                            .get(idx)
+                            .and_then(|m| m.as_deref()),
+                        r_i2b_body,
+                        entry.ephemeris_source,
+                        epoch,
+                        r,
+                    )
+                    .unwrap_or_else(|e| {
+                        panic!(
+                            "extended third-body evaluation failed for {:?}: {}",
+                            body, e
+                        )
+                    });
+                    continue;
+                }
                 // Keep the legacy geocentric call for Earth so Earth
                 // propagation stays bit-identical; other central bodies use
                 // the central-body-aware differential form. `accel_third_body`
@@ -13439,5 +13557,213 @@ mod tests {
             diff > 1e-4 && diff < 1e3,
             "tide-induced position diff over one orbit = {diff:.6} m (expected mm–m range)"
         );
+    }
+
+    /// EMB-centered propagation with Earth as a spherical-harmonic third
+    /// body must reproduce the Earth-centered propagation with the same
+    /// field, after re-expressing the trajectory about Earth. The two are
+    /// different formulations of the same physics; agreement is limited by
+    /// the EMB direct-only approximation and integrator tolerance.
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::serial]
+    fn test_emb_earth_spherical_harmonic_matches_earth_centered() {
+        use crate::propagators::force_model_config::ThirdBodyConfiguration;
+        use approx::assert_abs_diff_eq;
+
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let oe = DVector::from_vec(vec![R_EARTH + 700e3, 0.001, 51.6, 15.0, 30.0, 45.0]);
+        let x_earth = state_koe_to_eci(
+            nalgebra::Vector6::new(oe[0], oe[1], oe[2], oe[3], oe[4], oe[5]),
+            AngleFormat::Degrees,
+        );
+
+        let sh = |source_type: GravityModelSource| GravityConfiguration::SphericalHarmonic {
+            source: source_type,
+            degree: 8,
+            order: 8,
+            parallel: crate::orbit_dynamics::ParallelMode::Never,
+        };
+
+        let config_earth = ForceModelConfig {
+            central_body: CentralBody::Earth,
+            gravity: sh(GravityModelSource::ModelType(GravityModelType::EGM2008_360)),
+            drag: None,
+            srp: None,
+            third_bodies: Some(vec![ThirdBody::Sun.into(), ThirdBody::Moon.into()]),
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+            tides: None,
+        };
+
+        let config_emb = ForceModelConfig {
+            central_body: CentralBody::EMB,
+            gravity: GravityConfiguration::PointMass,
+            drag: None,
+            srp: None,
+            third_bodies: Some(vec![
+                ThirdBodyConfiguration {
+                    gravity: sh(GravityModelSource::ModelType(GravityModelType::EGM2008_360)),
+                    ..ThirdBody::Earth.into()
+                },
+                ThirdBody::Moon.into(),
+                ThirdBody::Sun.into(),
+            ]),
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+            tides: None,
+        };
+
+        let earth_wrt_emb = crate::spice::spk_state(399, 3, epoch).unwrap();
+        let x_emb = x_earth + earth_wrt_emb;
+
+        let mut prop_earth = DNumericalOrbitPropagator::new(
+            epoch,
+            DVector::from_vec(x_earth.as_slice().to_vec()),
+            NumericalPropagationConfig::default(),
+            config_earth,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let mut prop_emb = DNumericalOrbitPropagator::new(
+            epoch,
+            DVector::from_vec(x_emb.as_slice().to_vec()),
+            NumericalPropagationConfig::default(),
+            config_emb,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let epoch_end = epoch + 86400.0;
+        prop_earth.propagate_to(epoch_end);
+        prop_emb.propagate_to(epoch_end);
+
+        let xf_earth = prop_earth.current_state();
+        let xf_emb = prop_emb.current_state();
+        let earth_wrt_emb_end = crate::spice::spk_state(399, 3, epoch_end).unwrap();
+
+        for i in 0..3 {
+            assert_abs_diff_eq!(xf_emb[i] - earth_wrt_emb_end[i], xf_earth[i], epsilon = 1.0);
+        }
+        for i in 3..6 {
+            assert_abs_diff_eq!(
+                xf_emb[i] - earth_wrt_emb_end[i],
+                xf_earth[i],
+                epsilon = 1e-3
+            );
+        }
+    }
+
+    /// Same equivalence as the spherical-harmonic test, with the Earth J2
+    /// zonal field: central-body EarthZonal about Earth vs Earth-attributed
+    /// EarthZonal third body about the EMB.
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::serial]
+    fn test_emb_earth_zonal_matches_earth_centered() {
+        use crate::propagators::force_model_config::{
+            ThirdBodyConfiguration, ZonalHarmonicsDegree,
+        };
+        use approx::assert_abs_diff_eq;
+
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let x_earth = state_koe_to_eci(
+            nalgebra::Vector6::new(R_EARTH + 700e3, 0.001, 51.6, 15.0, 30.0, 45.0),
+            AngleFormat::Degrees,
+        );
+
+        let config_earth = ForceModelConfig {
+            central_body: CentralBody::Earth,
+            gravity: GravityConfiguration::EarthZonal {
+                degree: ZonalHarmonicsDegree::J2,
+            },
+            drag: None,
+            srp: None,
+            third_bodies: Some(vec![ThirdBody::Sun.into(), ThirdBody::Moon.into()]),
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+            tides: None,
+        };
+
+        let config_emb = ForceModelConfig {
+            central_body: CentralBody::EMB,
+            gravity: GravityConfiguration::PointMass,
+            drag: None,
+            srp: None,
+            third_bodies: Some(vec![
+                ThirdBodyConfiguration {
+                    gravity: GravityConfiguration::EarthZonal {
+                        degree: ZonalHarmonicsDegree::J2,
+                    },
+                    ..ThirdBody::Earth.into()
+                },
+                ThirdBody::Moon.into(),
+                ThirdBody::Sun.into(),
+            ]),
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+            tides: None,
+        };
+
+        let earth_wrt_emb = crate::spice::spk_state(399, 3, epoch).unwrap();
+        let x_emb = x_earth + earth_wrt_emb;
+
+        let mut prop_earth = DNumericalOrbitPropagator::new(
+            epoch,
+            DVector::from_vec(x_earth.as_slice().to_vec()),
+            NumericalPropagationConfig::default(),
+            config_earth,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let mut prop_emb = DNumericalOrbitPropagator::new(
+            epoch,
+            DVector::from_vec(x_emb.as_slice().to_vec()),
+            NumericalPropagationConfig::default(),
+            config_emb,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let epoch_end = epoch + 86400.0;
+        prop_earth.propagate_to(epoch_end);
+        prop_emb.propagate_to(epoch_end);
+
+        let xf_earth = prop_earth.current_state();
+        let xf_emb = prop_emb.current_state();
+        let earth_wrt_emb_end = crate::spice::spk_state(399, 3, epoch_end).unwrap();
+
+        for i in 0..3 {
+            assert_abs_diff_eq!(xf_emb[i] - earth_wrt_emb_end[i], xf_earth[i], epsilon = 1.0);
+        }
+        for i in 3..6 {
+            assert_abs_diff_eq!(
+                xf_emb[i] - earth_wrt_emb_end[i],
+                xf_earth[i],
+                epsilon = 1e-3
+            );
+        }
     }
 }

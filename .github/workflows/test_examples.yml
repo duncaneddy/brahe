@@ -4,13 +4,13 @@ on:
   workflow_call:
     inputs:
       example_args:
-        description: "Arguments passed to `just test-examples` (e.g. --ci-only, --ignore)."
+        description: "Arguments passed to `just test-examples` (e.g. --ci-only, --network)."
         type: string
         default: "--ci-only"
       use_retry:
         description: >-
           Wrap the example run in a retry loop. Use for live-network runs
-          (e.g. --ignore) where third-party services may throttle or blip.
+          (e.g. --network) where third-party services may throttle or blip.
           Also skips doc-plot generation, which is only needed on the PR path.
         type: boolean
         default: false
@@ -119,7 +119,7 @@ jobs:
         if: ${{ !inputs.use_retry }}
         run: just test-examples ${{ inputs.example_args }}
 
-      # Live-network runs (e.g. --ignore, which exercises the ICGEM/Celestrak/
+      # Live-network runs (e.g. --network, which exercises the ICGEM/Celestrak/
       # GCAT/NAIF dataset examples) retry to absorb transient remote throttling.
       - name: Test examples (with retries)
         if: ${{ inputs.use_retry }}

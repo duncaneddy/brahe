@@ -377,7 +377,10 @@ impl ForceModelConfig {
     ///   requires the one-time cached download of the IERS FES2004
     ///   coefficient file (see `brahe::orbit_dynamics::ocean_tides`)
     /// - Tidal Sun/Moon positions sourced from DE440s, matching the third-body
-    ///   configuration so the two force terms share the ephemeris evaluation
+    ///   configuration so the two force terms share the ephemeris evaluation.
+    ///   The tidal path resolves the DE440s kernel at propagator construction
+    ///   (fail-fast; auto-downloads on a cold kernel cache), whereas the
+    ///   third-body path loads it lazily on the first step
     pub fn high_fidelity() -> Self {
         Self {
             central_body: CentralBody::Earth,

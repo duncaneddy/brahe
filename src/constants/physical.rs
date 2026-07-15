@@ -192,6 +192,17 @@ pub const GM_MARS: f64 = 42828.37362069909 * 1e9;
 /// Deimos). This is the GM associated with NAIF ID 4 in the JPL DE
 /// ephemerides. Units: [m^3/s^2]
 ///
+/// Note: this deliberately does **not** equal
+/// `GM_MARS + GM_PHOBOS + GM_DEIMOS` (the difference is ~1.4e6 m³/s²,
+/// ~3e-8 relative). The system value is the DE440 planetary-solution
+/// constant (Park et al. 2021 Table 2, adopting Konopliv et al. 2016),
+/// while the planet and moon GMs are the Horizons-curated satellite-
+/// ephemeris solution values — two estimation solutions of different
+/// epochs that `gm_de440.tpc` combines without reconciling. Pair the
+/// system value with barycenter (NAIF 4) positions from the DE kernels,
+/// which were integrated with it; pair the body values with body-center
+/// dynamics from the satellite kernels.
+///
 /// # References:
 ///
 ///  1. NAIF `gm_de440.tpc` (`BODY4_GM`), JPL DE440 "ASTRO-VALUES";

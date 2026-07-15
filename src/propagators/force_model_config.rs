@@ -2728,6 +2728,30 @@ mod tests {
 
     #[test]
     #[serial_test::parallel]
+    fn test_mars_system_gm_is_not_the_component_sum() {
+        use crate::constants::{GM_DEIMOS, GM_MARS, GM_MARS_SYSTEM, GM_PHOBOS};
+
+        // gm_de440.tpc combines two estimation solutions: the DE440
+        // planetary-solution barycenter GM (BODY4_GM, via Konopliv et al.
+        // 2016) and the older Horizons satellite-solution body GMs
+        // (BODY499/401/402). Their sum therefore does NOT reproduce the
+        // system value; this guard documents the known ~1.4e6 m^3/s^2
+        // offset so it is not "fixed" into an inconsistency with the DE
+        // kernels' barycenter dynamics.
+        let component_sum = GM_MARS + GM_PHOBOS + GM_DEIMOS;
+        let diff = GM_MARS_SYSTEM - component_sum;
+        assert!(
+            diff.abs() > 1.0e6,
+            "expected the known solution-epoch offset, got {diff} m^3/s^2"
+        );
+        assert!(
+            diff.abs() < 2.0e6,
+            "system/component mismatch larger than the documented offset: {diff} m^3/s^2"
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
     fn test_gravity_configuration_zero() {
         // cislunar_default uses the explicit no-central-gravity variant
         let config = ForceModelConfig::cislunar_default();

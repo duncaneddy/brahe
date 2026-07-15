@@ -241,3 +241,12 @@ def test_GM_PHOBOS():
 
 def test_GM_DEIMOS():
     assert brahe.GM_DEIMOS == pytest.approx(9.615569648120313e4, abs=1e-3)
+
+
+def test_mars_system_gm_is_not_the_component_sum():
+    """gm_de440.tpc combines the DE440 planetary-solution barycenter GM with
+    the older Horizons satellite-solution body GMs; their sum deliberately
+    does not reproduce the system value (mirrors the Rust guard test)."""
+    component_sum = brahe.GM_MARS + brahe.GM_PHOBOS + brahe.GM_DEIMOS
+    diff = brahe.GM_MARS_SYSTEM - component_sum
+    assert 1.0e6 < abs(diff) < 2.0e6

@@ -170,17 +170,17 @@ def check_flags(
                 header_lines.append(line)
             else:
                 break
-        first_lines = "\n".join(header_lines)
+        header_block = "\n".join(header_lines)
 
         # Parse TIMEOUT if present
-        if "TIMEOUT = " in first_lines:
-            timeout_match = re.search(r"TIMEOUT = (\d+)", first_lines)
+        if "TIMEOUT = " in header_block:
+            timeout_match = re.search(r"TIMEOUT = (\d+)", header_block)
             if timeout_match:
                 timeout_seconds = int(timeout_match.group(1))
 
         # Parse FLAGS if present
-        if "FLAGS = [" in first_lines:
-            match = re.search(r"FLAGS = \[(.*?)\]", first_lines)
+        if "FLAGS = [" in header_block:
+            match = re.search(r"FLAGS = \[(.*?)\]", header_block)
             if match:
                 flags_str = match.group(1)
                 flags = [f.strip().strip('"').strip("'") for f in flags_str.split(",")]

@@ -549,12 +549,14 @@ def test_epoch_to_time_system(eop):
     epc_gps = epc.to_time_system(bh.TimeSystem.GPS)
 
     # The time system changes...
+    assert epc_gps.time_system == bh.GPS
     assert str(epc_gps) == "2020-01-01 00:00:18.000 GPS"
 
     # ...but the instant does not.
     assert epc == epc_gps
 
     # The original is untouched.
+    assert epc.time_system == bh.UTC
     assert str(epc) == "2020-01-01 00:00:00.000 UTC"
 
     # to_time_system agrees with the projection methods.

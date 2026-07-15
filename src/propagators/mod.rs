@@ -10,6 +10,7 @@ pub mod functions;
 pub mod keplerian_propagator;
 pub mod numerical_propagation_config;
 pub mod sgp_propagator;
+mod tide_field;
 pub mod traits;
 
 pub use central_body::*;

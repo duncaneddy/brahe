@@ -46,7 +46,7 @@ add a coefficient set to an already-loaded model, and `drop_clenshaw_coefficient
 `GravityModelType` selects which spherical harmonic field is loaded into a
 [`GravityModel`](#gravity-model-class) (or wired into a
 [`GravityConfiguration`](../propagators/force_model_config.md)). In addition to
-the packaged constants `EGM2008_360`, `GGM05S`, and `JGM3`, two constructors
+the packaged constants `EGM2008_120`, `GGM05S`, and `JGM3`, two constructors
 load external models:
 
 - `GravityModelType.from_file(path)` — load any `.gfc` file from disk.

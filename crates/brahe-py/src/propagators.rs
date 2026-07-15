@@ -4114,7 +4114,7 @@ impl PyTidesConfiguration {
 ///     order (int, optional): Maximum order of spherical harmonic expansion.
 ///         If None, uses point mass gravity.
 ///     model_type (GravityModelType, optional): Gravity model to use.
-///         Defaults to EGM2008_360.
+///         Defaults to EGM2008_120.
 ///     use_global (bool, optional): If True, use global gravity model.
 ///         Defaults to False.
 ///     parallel (ParallelMode, optional): Parallelization mode for the
@@ -4157,7 +4157,7 @@ impl PyGravityConfiguration {
     ///     order (int, optional): Maximum order of spherical harmonic expansion.
     ///         If None, uses point mass gravity.
     ///     model_type (GravityModelType, optional): Gravity model to use.
-    ///         Defaults to EGM2008_360.
+    ///         Defaults to EGM2008_120.
     ///     use_global (bool, optional): If True, use global gravity model.
     ///         Defaults to False.
     ///     parallel (ParallelMode, optional): Parallelization mode for the
@@ -4197,7 +4197,7 @@ impl PyGravityConfiguration {
                 } else {
                     let model = model_type
                         .map(|mt| mt.model.clone())
-                        .unwrap_or(brahe::orbit_dynamics::gravity::GravityModelType::EGM2008_360);
+                        .unwrap_or(brahe::orbit_dynamics::gravity::GravityModelType::EGM2008_120);
                     propagators::GravityModelSource::ModelType(model)
                 };
                 let parallel_mode = parallel
@@ -4235,7 +4235,7 @@ impl PyGravityConfiguration {
     ///     degree (int): Maximum degree of expansion.
     ///     order (int): Maximum order of expansion.
     ///     model_type (GravityModelType, optional): Gravity model to use.
-    ///         Defaults to EGM2008_360.
+    ///         Defaults to EGM2008_120.
     ///     use_global (bool, optional): If True, use global gravity model.
     ///         Defaults to False.
     ///     parallel (ParallelMode, optional): Parallelization mode for the
@@ -4271,7 +4271,7 @@ impl PyGravityConfiguration {
         } else {
             let model = model_type
                 .map(|mt| mt.model.clone())
-                .unwrap_or(brahe::orbit_dynamics::gravity::GravityModelType::EGM2008_360);
+                .unwrap_or(brahe::orbit_dynamics::gravity::GravityModelType::EGM2008_120);
             propagators::GravityModelSource::ModelType(model)
         };
         let parallel_mode = parallel

@@ -263,7 +263,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
 
     // EGM2008 fully-normalized Stokes coefficients C_n,0
-    // Source: data/gravity_models/EGM2008_360.gfc (degree n, order m=0 entries)
+    // Source: data/gravity_models/EGM2008_120.gfc (degree n, order m=0 entries)
     const EGM2008_C_2_0: f64 = -0.484165143790815e-03;
     const EGM2008_C_3_0: f64 = 0.957161207093473e-06;
     const EGM2008_C_4_0: f64 = 0.539965866638991e-06;

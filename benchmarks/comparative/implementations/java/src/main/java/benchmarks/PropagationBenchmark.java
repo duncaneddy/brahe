@@ -63,7 +63,7 @@ public class PropagationBenchmark {
 
     /** Resolve a normalized spherical-harmonic provider, honoring the
      *  {@code BRAHE_GRAVITY_FILE} env var if set. The file is expected to
-     *  be in ICGEM format (.gfc); brahe ships {@code EGM2008_360.gfc} so
+     *  be in ICGEM format (.gfc); brahe ships {@code EGM2008_120.gfc} so
      *  the benchmark adapter can point Orekit at the same coefficients
      *  brahe integrates against. */
     private static NormalizedSphericalHarmonicsProvider gravityProvider(int degree, int order) {

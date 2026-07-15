@@ -10,7 +10,7 @@ fn main() {
         central_body: bh::CentralBody::Earth,
         // Gravity: Spherical harmonic model (EGM2008, 20x20 degree/order)
         gravity: bh::GravityConfiguration::SphericalHarmonic {
-            source: bh::GravityModelSource::ModelType(GravityModelType::EGM2008_360),
+            source: bh::GravityModelSource::ModelType(GravityModelType::EGM2008_120),
             degree: 20,
             order: 20,
             parallel: bh::orbit_dynamics::ParallelMode::Auto,

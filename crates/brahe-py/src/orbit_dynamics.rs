@@ -2519,15 +2519,15 @@ pub struct PyGravityModelType {
 
 #[pymethods]
 impl PyGravityModelType {
-    /// Earth Gravitational Model 2008, 360x360 degree and order.
+    /// Earth Gravitational Model 2008, 120x120 degree and order.
     ///
     /// High-fidelity gravity model from the National Geospatial-Intelligence Agency (NGA).
     /// Best accuracy but computationally expensive for high degree/order evaluations.
     #[classattr]
     #[allow(non_snake_case)]
-    fn EGM2008_360() -> Self {
+    fn EGM2008_120() -> Self {
         PyGravityModelType {
-            model: orbit_dynamics::GravityModelType::EGM2008_360,
+            model: orbit_dynamics::GravityModelType::EGM2008_120,
         }
     }
 
@@ -3084,8 +3084,8 @@ impl PyGravityModel {
     ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
     ///     print(f"Loaded {model.model_name}")
     ///
-    ///     # Load EGM2008 360x360 model
-    ///     model_hifi = bh.GravityModel.from_model_type(bh.GravityModelType.EGM2008_360)
+    ///     # Load EGM2008 120x120 model
+    ///     model_hifi = bh.GravityModel.from_model_type(bh.GravityModelType.EGM2008_120)
     ///
     ///     # Load from custom file
     ///     custom_type = bh.GravityModelType.from_file("/path/to/model.gfc")
@@ -3416,9 +3416,9 @@ impl PyGravityModel {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     # Load full EGM2008 360x360 model
-    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.EGM2008_360)
-    ///     print(f"Before: {model.n_max}x{model.m_max}")  # 360x360
+    ///     # Load full EGM2008 120x120 model
+    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.EGM2008_120)
+    ///     print(f"Before: {model.n_max}x{model.m_max}")  # 120x120
     ///
     ///     # Truncate to 70x70 to save memory
     ///     model.set_max_degree_order(70, 70)
@@ -3869,7 +3869,7 @@ fn py_set_global_gravity_model_to_tide_system(
 ///     import brahe as bh
 ///
 ///     bh.set_global_gravity_model(
-///         bh.GravityModel.from_model_type(bh.GravityModelType.EGM2008_360))
+///         bh.GravityModel.from_model_type(bh.GravityModelType.EGM2008_120))
 ///     model = bh.get_global_gravity_model()
 ///     print(model.model_name)
 ///     ```

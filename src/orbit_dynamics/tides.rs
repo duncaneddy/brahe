@@ -460,7 +460,7 @@ mod tests {
     #[test]
     fn test_convert_zero_to_tide_free_matches_egm2008_within_tolerance() {
         // EGM2008 is tide-free; load, force-label zero-tide, convert back to tide-free.
-        let mut m = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let mut m = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
         let c20_before = m.get(2, 0).unwrap().0;
         m.tide_system = GravityModelTideSystem::ZeroTide;
         m.convert_tide_system(

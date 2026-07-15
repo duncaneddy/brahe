@@ -2,7 +2,7 @@
 //!
 //! `GravityModelType::ICGEMModel { body, name }` slots into the same
 //! `GravityModelSource::ModelType(...)` slot as the packaged JGM3 / GGM05S /
-//! EGM2008_360 variants. The .gfc file is downloaded into `$BRAHE_CACHE/icgem/`
+//! EGM2008_120 variants. The .gfc file is downloaded into `$BRAHE_CACHE/icgem/`
 //! on first use of the resulting `GravityModel`.
 //!
 //! FLAGS = ["IGNORE"]

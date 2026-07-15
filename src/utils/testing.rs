@@ -316,12 +316,12 @@ pub(crate) fn setup_global_test_eop_original_brahe() {
     set_global_eop_provider(eop);
 }
 
-/// Initialize global gravity model with EGM2008_360 for orbit dynamics tests.
+/// Initialize global gravity model with EGM2008_120 for orbit dynamics tests.
 ///
-/// Sets up EGM2008 (degree/order 360) as the global gravity model. Use at the start
+/// Sets up EGM2008 (degree/order 120) as the global gravity model. Use at the start
 /// of tests requiring high-fidelity gravity for orbit propagation or perturbation analysis.
 pub(crate) fn setup_global_test_gravity_model() {
-    let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+    let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
     set_global_gravity_model(gravity_model);
 }
 

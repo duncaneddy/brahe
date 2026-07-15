@@ -102,7 +102,7 @@ fn accel_spherical_harmonics_run(
 ) -> (Vec<f64>, serde_json::Value) {
     let degree: usize = serde_json::from_value(params["degree"].clone()).unwrap();
     let order: usize = serde_json::from_value(params["order"].clone()).unwrap();
-    let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+    let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 
     run_force_model(params, iterations, move |epc, r| {
         let rot = rotation_eci_to_ecef(epc);

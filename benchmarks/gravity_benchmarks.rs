@@ -14,14 +14,17 @@ const CUNNINGHAM_MAX_VALID_N: usize = 120;
 
 fn bench_spherical_harmonics(c: &mut Criterion) {
     let model = GravityModel::from_model_type_with_coefficients(
-        &GravityModelType::EGM2008_360,
+        &GravityModelType::EGM2008_120,
         GravityModelCoefficients::Both,
     )
     .unwrap();
     let r_body = Vector3::new(6.5e6_f64, 1.2e6_f64, 3.1e6_f64);
 
     let mut group = c.benchmark_group("spherical_harmonics");
-    for &n in &[2usize, 20, 50, 90, 120, 180, 240, 360] {
+    // Capped at 120: the packaged EGM2008_120 model is truncated to degree
+    // 120. Load a higher-degree model via GravityModelType::ICGEMModel to
+    // benchmark larger expansions.
+    for &n in &[2usize, 20, 50, 90, 120] {
         if n <= CUNNINGHAM_MAX_VALID_N {
             group.bench_with_input(
                 criterion::BenchmarkId::new("cunningham_serial", n),
@@ -107,7 +110,7 @@ fn bench_spherical_harmonics(c: &mut Criterion) {
 /// compute-bound before we optimize the recurrence/accumulation loops.
 fn bench_small_n_serial(c: &mut Criterion) {
     let model = GravityModel::from_model_type_with_coefficients(
-        &GravityModelType::EGM2008_360,
+        &GravityModelType::EGM2008_120,
         GravityModelCoefficients::Both,
     )
     .unwrap();

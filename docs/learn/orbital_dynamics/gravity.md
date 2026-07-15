@@ -58,7 +58,7 @@ The most significant non-spherical terms are:
 
 Brahe includes several standard geopotential models with different degrees and orders of expansion, packaged with the library:
 
-- **EGM2008**: Earth Gravitational Model 2008, high-fidelity model to degree/order 360
+- **EGM2008**: Earth Gravitational Model 2008, high-fidelity model to degree/order 120
 - **GGM05S**: GRACE Gravity Model, degree/order 180
 - **JGM3**: Joint Gravity Model 3, degree/order 70
 

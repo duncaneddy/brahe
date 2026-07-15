@@ -682,7 +682,7 @@ impl DNumericalOrbitPropagator {
         //
         // Uses the process-wide cache via `GravityModel::shared`:
         //   - First propagator for a given `GravityModelType` pays the disk
-        //     parse (~60 ms for EGM2008_360); the model lands in the cache.
+        //     parse (~60 ms for EGM2008_120); the model lands in the cache.
         //   - Subsequent propagators get an `Arc::clone` (a few ns).
         //   - When the requested (degree, order) matches the full cached
         //     model, the propagator and the cache share the same allocation
@@ -8717,7 +8717,7 @@ mod tests {
             frame_transform: FrameTransformationModel::default(),
             tides: None,
             gravity: GravityConfiguration::SphericalHarmonic {
-                source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
+                source: GravityModelSource::ModelType(GravityModelType::EGM2008_120),
                 degree: 4,
                 order: 4,
                 parallel: crate::orbit_dynamics::ParallelMode::Auto,
@@ -8774,7 +8774,7 @@ mod tests {
             frame_transform: FrameTransformationModel::default(),
             tides: None,
             gravity: GravityConfiguration::SphericalHarmonic {
-                source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
+                source: GravityModelSource::ModelType(GravityModelType::EGM2008_120),
                 degree: 2,
                 order: 0,
                 parallel: crate::orbit_dynamics::ParallelMode::Auto,
@@ -8845,7 +8845,7 @@ mod tests {
                 frame_transform: FrameTransformationModel::default(),
                 tides: None,
                 gravity: GravityConfiguration::SphericalHarmonic {
-                    source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
+                    source: GravityModelSource::ModelType(GravityModelType::EGM2008_120),
                     degree,
                     order,
                     parallel: crate::orbit_dynamics::ParallelMode::Auto,
@@ -8907,7 +8907,7 @@ mod tests {
             frame_transform: FrameTransformationModel::default(),
             tides: None,
             gravity: GravityConfiguration::SphericalHarmonic {
-                source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
+                source: GravityModelSource::ModelType(GravityModelType::EGM2008_120),
                 degree: 4,
                 order: 4,
                 parallel: crate::orbit_dynamics::ParallelMode::Auto,
@@ -10934,7 +10934,7 @@ mod tests {
             frame_transform: FrameTransformationModel::default(),
             tides: None,
             gravity: GravityConfiguration::SphericalHarmonic {
-                source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
+                source: GravityModelSource::ModelType(GravityModelType::EGM2008_120),
                 degree: 2,
                 order: 0,
                 parallel: crate::orbit_dynamics::ParallelMode::Auto,

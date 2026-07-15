@@ -19,8 +19,8 @@ use crate::math::kronecker_delta;
 use crate::utils::BraheError;
 use crate::utils::threading::get_thread_pool;
 
-/// Packaged EGM2008_360 Data File
-static PACKAGED_EGM2008_360: &[u8] = include_bytes!("../../data/gravity_models/EGM2008_360.gfc");
+/// Packaged EGM2008_120 Data File
+static PACKAGED_EGM2008_120: &[u8] = include_bytes!("../../data/gravity_models/EGM2008_120.gfc");
 
 /// Packaged GGM05S Data File
 static PACKAGED_GGM05S: &[u8] = include_bytes!("../../data/gravity_models/GGM05S.gfc");
@@ -93,7 +93,7 @@ pub fn clear_gravity_model_cache() {
 /// ```
 /// use brahe::gravity::{GravityModel, set_global_gravity_model, GravityModelType};
 ///
-/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 /// set_global_gravity_model(gravity_model);
 /// ```
 pub fn set_global_gravity_model(gravity_model: GravityModel) {
@@ -167,7 +167,7 @@ pub fn set_global_gravity_model_to_tide_system(
 /// ```
 /// use brahe::gravity::{GravityModel, set_global_gravity_model, get_global_gravity_model, GravityModelType};
 ///
-/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 /// set_global_gravity_model(gravity_model);
 ///
 /// let model = get_global_gravity_model();
@@ -566,9 +566,10 @@ const CLENSHAW_SCALE: f64 = f64::from_bits(0x1990_0000_0000_0000); // 2^-614
 /// Models can either be packaged with Brahe or loaded from external files.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, serde::Serialize, serde::Deserialize)]
 pub enum GravityModelType {
-    /// Earth Gravitational Model 2008, truncated to degree/order 360. High-accuracy
-    /// global model developed by NGA. Best for precision orbit determination.
-    EGM2008_360,
+    /// Earth Gravitational Model 2008, truncated to degree/order 120 (truncated
+    /// from the EGM2008 model for package size; download the full model via
+    /// `GravityModelType::ICGEMModel` if higher degrees are needed).
+    EGM2008_120,
     /// Goddard Earth Model from GRACE mission, degree/order 180. Derived from
     /// satellite gravity measurements. Good balance of accuracy and computation speed.
     GGM05S,
@@ -1290,7 +1291,7 @@ impl GravityModel {
     /// use brahe::gravity::GravityModel;
     /// use std::path::Path;
     ///
-    /// let filepath = Path::new("./data/gravity_models/EGM2008_360.gfc");
+    /// let filepath = Path::new("./data/gravity_models/EGM2008_120.gfc");
     /// let gravity_model = GravityModel::from_file(filepath).unwrap();
     /// ```
     pub fn from_file(filepath: &Path) -> Result<Self, BraheError> {
@@ -1318,7 +1319,7 @@ impl GravityModel {
     /// use brahe::gravity::{GravityModel, GravityModelCoefficients};
     /// use std::path::Path;
     ///
-    /// let filepath = Path::new("./data/gravity_models/EGM2008_360.gfc");
+    /// let filepath = Path::new("./data/gravity_models/EGM2008_120.gfc");
     /// let model = GravityModel::from_file_with_coefficients(filepath, GravityModelCoefficients::Both).unwrap();
     /// ```
     pub fn from_file_with_coefficients(
@@ -1333,7 +1334,7 @@ impl GravityModel {
     /// Load a gravity model from packaged models or file.
     ///
     /// The available packaged models are:
-    /// - `EGM2008_360` - a truncated 360x360 version of the full 2190x2190 EGM2008 model.
+    /// - `EGM2008_120` - a truncated 120x120 version of the full 2190x2190 EGM2008 model.
     /// - `GGM05S` - The full 180x180 GGM05S model.
     /// - `JGM3` - The full 70x70 JGM3 model.
     ///
@@ -1346,7 +1347,7 @@ impl GravityModel {
     /// Loads are backed by a process-wide cache: the first call for a given
     /// `GravityModelType` parses the underlying `.gfc` data once, and every
     /// subsequent call returns an owned clone of the cached model (~1 ms
-    /// memcpy instead of ~60 ms disk parse for EGM2008_360). Use
+    /// memcpy instead of ~60 ms disk parse for EGM2008_120). Use
     /// [`clear_gravity_model_cache`] to drop cached entries, or
     /// [`Self::load_uncached`] to bypass the cache entirely (useful when
     /// profiling cold-load behavior or asserting deterministic memory).
@@ -1471,8 +1472,8 @@ impl GravityModel {
     /// - `Result<Self, BraheError>` : Freshly parsed gravity model, or load error.
     pub fn load_uncached(model: &GravityModelType) -> Result<Self, BraheError> {
         match model {
-            GravityModelType::EGM2008_360 => {
-                let reader = BufReader::new(PACKAGED_EGM2008_360);
+            GravityModelType::EGM2008_120 => {
+                let reader = BufReader::new(PACKAGED_EGM2008_120);
                 Self::from_bufreader(reader)
             }
             GravityModelType::GGM05S => {
@@ -1589,10 +1590,10 @@ impl GravityModel {
     /// ```
     /// use brahe::gravity::{GravityModel, GravityModelType};
     ///
-    /// let mut model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
-    /// assert_eq!(model.n_max, 360);
+    /// let mut model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
+    /// assert_eq!(model.n_max, 120);
     ///
-    /// // Reduce from 360×360 to 70×70 to save memory
+    /// // Reduce from 120×120 to 70×70 to save memory
     /// model.set_max_degree_order(70, 70).unwrap();
     /// assert_eq!(model.n_max, 70);
     /// assert_eq!(model.m_max, 70);
@@ -2113,7 +2114,7 @@ impl GravityModel {
     /// use brahe::gravity::{GravityModel, GravityModelType, ParallelMode};
     /// use brahe::R_EARTH;
     ///
-    /// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+    /// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
     /// let r_body = Vector3::new(R_EARTH + 500.0e3, 0.0, 0.0);
     /// let a_grav = gravity_model
     ///     .compute_spherical_harmonics_clenshaw(r_body, 20, 20, ParallelMode::Auto)
@@ -2278,7 +2279,7 @@ impl GravityModel {
     /// use brahe::gravity::{GravityModel, GravityModelType, ParallelMode};
     /// use brahe::R_EARTH;
     ///
-    /// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+    /// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
     /// let r_body = Vector3::new(R_EARTH + 500.0e3, 0.0, 0.0);
     /// let a_grav = gravity_model
     ///     .compute_spherical_harmonics(r_body, 20, 20, ParallelMode::Auto)
@@ -2380,7 +2381,7 @@ impl std::fmt::Debug for GravityModel {
 /// let R_i2b = rotation_eci_to_ecef(epoch);
 ///
 /// // Create a gravity model
-/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 ///
 /// // Compute the acceleration due to gravity
 /// let oe = Vector6::new(R_EARTH + 500.0e3, 0.01, 97.3, 0.0, 0.0, 0.0);
@@ -2408,7 +2409,7 @@ impl std::fmt::Debug for GravityModel {
 /// let R_i2b = rotation_eci_to_ecef(epoch);
 ///
 /// // Create a gravity model
-/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 ///
 /// // Compute the acceleration due to gravity using state vector directly
 /// let oe = Vector6::new(R_EARTH + 500.0e3, 0.01, 97.3, 0.0, 0.0, 0.0);
@@ -2480,7 +2481,7 @@ pub fn accel_gravity_spherical_harmonics<P: IntoPosition>(
 ///
 /// // Create a gravity model with Cunningham coefficients (not built by default)
 /// let gravity_model = GravityModel::from_model_type_with_coefficients(
-///     &GravityModelType::EGM2008_360,
+///     &GravityModelType::EGM2008_120,
 ///     GravityModelCoefficients::Cunningham,
 /// )
 /// .unwrap();
@@ -2561,7 +2562,7 @@ pub fn accel_gravity_spherical_harmonics_cunningham<P: IntoPosition>(
 /// let R_i2b = rotation_eci_to_ecef(epoch);
 ///
 /// // Create a gravity model
-/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 ///
 /// // Compute the acceleration due to gravity
 /// let oe = Vector6::new(R_EARTH + 500.0e3, 0.01, 97.3, 0.0, 0.0, 0.0);
@@ -2589,7 +2590,7 @@ pub fn accel_gravity_spherical_harmonics_cunningham<P: IntoPosition>(
 /// let R_i2b = rotation_eci_to_ecef(epoch);
 ///
 /// // Create a gravity model
-/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 ///
 /// // Compute the acceleration due to gravity using state vector directly
 /// let oe = Vector6::new(R_EARTH + 500.0e3, 0.01, 97.3, 0.0, 0.0, 0.0);
@@ -2652,7 +2653,7 @@ pub fn accel_gravity_spherical_harmonics_clenshaw<P: IntoPosition>(
 /// let R_i2b = rotation_eci_to_ecef(epoch);
 /// // Cunningham coefficients are not built by default; request them explicitly.
 /// let gravity_model = GravityModel::from_model_type_with_coefficients(
-///     &GravityModelType::EGM2008_360,
+///     &GravityModelType::EGM2008_120,
 ///     GravityModelCoefficients::Cunningham,
 /// )
 /// .unwrap();
@@ -2719,14 +2720,14 @@ mod tests {
 
     #[test]
     fn test_gravity_model_from_file() {
-        let filepath = Path::new("data/gravity_models/EGM2008_360.gfc");
+        let filepath = Path::new("data/gravity_models/EGM2008_120.gfc");
         let gravity_model = GravityModel::from_file(filepath).unwrap();
 
         assert_eq!(gravity_model.model_name, "EGM2008");
         assert_eq!(gravity_model.gm, GM_EARTH);
         assert_eq!(gravity_model.radius, R_EARTH);
-        assert_eq!(gravity_model.n_max, 360);
-        assert_eq!(gravity_model.m_max, 360);
+        assert_eq!(gravity_model.n_max, 120);
+        assert_eq!(gravity_model.m_max, 120);
         assert_eq!(gravity_model.tide_system, GravityModelTideSystem::TideFree);
         assert_eq!(gravity_model.model_errors, GravityModelErrors::Calibrated);
         assert_eq!(
@@ -2758,14 +2759,14 @@ mod tests {
     }
 
     #[test]
-    fn test_gravity_model_from_model_type_egm2008_360() {
-        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+    fn test_gravity_model_from_model_type_egm2008_120() {
+        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 
         assert_eq!(gravity_model.model_name, "EGM2008");
         assert_eq!(gravity_model.gm, GM_EARTH);
         assert_eq!(gravity_model.radius, R_EARTH);
-        assert_eq!(gravity_model.n_max, 360);
-        assert_eq!(gravity_model.m_max, 360);
+        assert_eq!(gravity_model.n_max, 120);
+        assert_eq!(gravity_model.m_max, 120);
         assert_eq!(gravity_model.tide_system, GravityModelTideSystem::TideFree);
         assert_eq!(gravity_model.model_errors, GravityModelErrors::Calibrated);
         assert_eq!(
@@ -2854,7 +2855,7 @@ mod tests {
         // We deliberately load all three packaged types and check pairwise
         // distinctness via both Arc-pointer inequality and model-name inequality.
         clear_gravity_model_cache();
-        let egm = GravityModel::shared(&GravityModelType::EGM2008_360).unwrap();
+        let egm = GravityModel::shared(&GravityModelType::EGM2008_120).unwrap();
         let ggm = GravityModel::shared(&GravityModelType::GGM05S).unwrap();
         let jgm = GravityModel::shared(&GravityModelType::JGM3).unwrap();
         assert!(!Arc::ptr_eq(&egm, &ggm));
@@ -3025,7 +3026,7 @@ mod tests {
 
     #[test]
     fn test_gravity_model_get() {
-        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 
         let (c, s) = gravity_model.get(2, 0).unwrap();
         assert_abs_diff_eq!(c, -0.484165143790815e-03, epsilon = 1e-12);
@@ -3035,17 +3036,17 @@ mod tests {
         assert_abs_diff_eq!(c, 0.721321757121568e-06, epsilon = 1e-12);
         assert_abs_diff_eq!(s, 0.141434926192941e-05, epsilon = 1e-12);
 
-        let (c, s) = gravity_model.get(360, 360).unwrap();
-        assert_abs_diff_eq!(c, 0.200046056782130e-10, epsilon = 1e-12);
-        assert_abs_diff_eq!(s, -0.958653755280305e-10, epsilon = 1e-12);
+        let (c, s) = gravity_model.get(120, 120).unwrap();
+        assert_abs_diff_eq!(c, -0.650974846637476e-09, epsilon = 1e-12);
+        assert_abs_diff_eq!(s, -0.147710757794803e-08, epsilon = 1e-12);
 
-        let result = gravity_model.get(361, 0);
+        let result = gravity_model.get(121, 0);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_gravity_model_get_c_get_s() {
-        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 
         assert_abs_diff_eq!(
             gravity_model.get_c(2, 0).unwrap(),
@@ -3141,7 +3142,7 @@ mod tests {
         setup_global_test_eop();
 
         let gravity_model = GravityModel::from_model_type_with_coefficients(
-            &GravityModelType::EGM2008_360,
+            &GravityModelType::EGM2008_120,
             GravityModelCoefficients::Both,
         )
         .unwrap();
@@ -3167,7 +3168,7 @@ mod tests {
     #[test]
     fn test_clenshaw_matches_cunningham() {
         let model = GravityModel::from_model_type_with_coefficients(
-            &GravityModelType::EGM2008_360,
+            &GravityModelType::EGM2008_120,
             GravityModelCoefficients::Both,
         )
         .unwrap();
@@ -3177,7 +3178,7 @@ mod tests {
         // mpmath-confirmed precision loss at exact-equator geometry above
         // n ~ 120); those points are pinned against a 40-digit mpmath
         // reference in `test_clenshaw_high_precision_reference` instead.
-        const ALL_DEGREES: [(usize, usize); 11] = [
+        const ALL_DEGREES: [(usize, usize); 8] = [
             (2, 2),
             (5, 5),
             (10, 10),
@@ -3186,11 +3187,8 @@ mod tests {
             (80, 80),
             (90, 45),
             (120, 120),
-            (160, 160),
-            (200, 200),
-            (200, 100),
         ];
-        const MID_LAT_LEO_DEGREES: [(usize, usize); 9] = [
+        const MID_LAT_LEO_DEGREES: [(usize, usize); 8] = [
             (2, 2),
             (5, 5),
             (10, 10),
@@ -3199,7 +3197,6 @@ mod tests {
             (80, 80),
             (90, 45),
             (120, 120),
-            (200, 100),
         ];
         const EQUATORIAL_LEO_DEGREES: [(usize, usize); 7] = [
             (2, 2),
@@ -3251,36 +3248,66 @@ mod tests {
     #[allow(clippy::excessive_precision)]
     fn test_clenshaw_high_precision_reference() {
         // Reference accelerations from an independent mpmath (40-digit)
-        // evaluation of the same truncated EGM2008_360 sums (forward-column
+        // evaluation of the same truncated EGM2008_120 sums (forward-column
         // normalized-ALF recurrence + analytic theta-derivative identity),
         // generated by `scripts/generate_clenshaw_gravity_reference.py`.
         // Pins the Clenshaw kernel at exactly the (position, degree) points
         // excluded from `test_clenshaw_matches_cunningham` because the
         // Cunningham reference is degraded or overflows there and cannot
         // validate them itself.
-        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
         let mid_lat_leo = Vector3::new(6.5e6, 1.2e6, 3.1e6);
         let equatorial_leo = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 
         let cases: [(Vector3<f64>, usize, usize, Vector3<f64>); 6] = [
             (
                 mid_lat_leo,
-                160,
-                160,
+                80,
+                80,
                 Vector3::new(
-                    -6.6591315830515751841,
-                    -1.2294146745011928897,
-                    -3.1837468168152788115,
+                    -6.6591315832501313647,
+                    -1.2294146745193537451,
+                    -3.1837468163000173342,
                 ),
             ),
             (
                 mid_lat_leo,
-                200,
-                200,
+                120,
+                120,
                 Vector3::new(
-                    -6.6591315830515740167,
-                    -1.2294146745011972695,
-                    -3.1837468168152737831,
+                    -6.6591315830550156814,
+                    -1.2294146744995601873,
+                    -3.183746816815777076,
+                ),
+            ),
+            (
+                equatorial_leo,
+                60,
+                60,
+                Vector3::new(
+                    -8.4373561803435000907,
+                    -2.3378351406397803666e-5,
+                    2.9872522103706018501e-5,
+                ),
+            ),
+            (
+                equatorial_leo,
+                90,
+                90,
+                Vector3::new(
+                    -8.4373560639340267021,
+                    -2.3361624126555661813e-5,
+                    3.0046975679021508159e-5,
+                ),
+            ),
+            (
+                equatorial_leo,
+                120,
+                60,
+                Vector3::new(
+                    -8.4373560918581597986,
+                    -2.3456424417072501052e-5,
+                    3.0008850348723617943e-5,
                 ),
             ),
             (
@@ -3291,36 +3318,6 @@ mod tests {
                     -8.4373560608626760559,
                     -2.3378538552167687078e-5,
                     3.0066034851689928739e-5,
-                ),
-            ),
-            (
-                equatorial_leo,
-                160,
-                160,
-                Vector3::new(
-                    -8.4373560595369940899,
-                    -2.3377716801670622287e-5,
-                    3.0068172954120995242e-5,
-                ),
-            ),
-            (
-                equatorial_leo,
-                200,
-                100,
-                Vector3::new(
-                    -8.4373560583252716778,
-                    -2.3376084094462712969e-5,
-                    3.0067260172799924015e-5,
-                ),
-            ),
-            (
-                equatorial_leo,
-                200,
-                200,
-                Vector3::new(
-                    -8.4373560595550198218,
-                    -2.3377609235339850357e-5,
-                    3.0068241451976491269e-5,
                 ),
             ),
         ];
@@ -3344,7 +3341,7 @@ mod tests {
 
     #[test]
     fn test_clenshaw_point_mass_equivalence() {
-        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
         let r_body = Vector3::new(R_EARTH, 0.0, 0.0);
         let a = model
             .compute_spherical_harmonics_clenshaw(r_body, 0, 0, ParallelMode::Never)
@@ -3743,7 +3740,7 @@ mod tests {
         // elsewhere (the packed triangular layout has an m = 0 column wider
         // than every other column) — exercise it directly here.
         let mut model = GravityModel::from_model_type_with_coefficients(
-            &GravityModelType::EGM2008_360,
+            &GravityModelType::EGM2008_120,
             GravityModelCoefficients::Both,
         )
         .unwrap();
@@ -3776,7 +3773,7 @@ mod tests {
     #[test]
     fn test_gravity_model_type_from_file_valid_path() {
         let model_type =
-            GravityModelType::from_file("data/gravity_models/EGM2008_360.gfc").unwrap();
+            GravityModelType::from_file("data/gravity_models/EGM2008_120.gfc").unwrap();
         assert!(matches!(model_type, GravityModelType::FromFile(_)));
     }
 
@@ -3999,13 +3996,13 @@ mod tests {
 
     #[test]
     fn test_clenshaw_parallel_bitwise_matches_serial() {
-        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
         let positions = [
             Vector3::new(6.5e6, 1.2e6, 3.1e6),
             Vector3::new(0.0, 0.0, 7.0e6),
         ];
         for r_body in positions {
-            for &(n, m) in &[(10usize, 10usize), (60, 60), (90, 45), (240, 240)] {
+            for &(n, m) in &[(10usize, 10usize), (60, 60), (90, 45), (120, 120)] {
                 let serial = model
                     .compute_spherical_harmonics_clenshaw(r_body, n, m, ParallelMode::Never)
                     .unwrap();
@@ -4030,7 +4027,7 @@ mod tests {
 
     #[test]
     fn test_parallel_matches_serial_spherical_harmonics() {
-        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 
         // Off-axis and on-axis (x0=y0=0 zeroes the sectoral/tesseral seeds).
         let positions = [
@@ -4067,7 +4064,7 @@ mod tests {
         // multiply, but far tighter than any real algorithmic bug would survive.
         // Specifically characterizes the Cunningham (V/W recursion) serial path.
         let model = GravityModel::from_model_type_with_coefficients(
-            &GravityModelType::EGM2008_360,
+            &GravityModelType::EGM2008_120,
             GravityModelCoefficients::Both,
         )
         .unwrap();
@@ -4206,7 +4203,7 @@ mod tests {
         // Twin of the Cunningham variant above: guards the main (Clenshaw)
         // dispatch path with goldens captured from the Clenshaw kernel.
         setup_global_test_eop();
-        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
         let r_body = Vector3::new(R_EARTH, 0.0, 0.0);
 
         let a_grav = gravity_model
@@ -4307,7 +4304,7 @@ mod tests {
     #[test]
     fn test_gravity_model_coefficients_truncation_rebuilds_existing_sets() {
         let mut model = GravityModel::from_model_type_with_coefficients(
-            &GravityModelType::EGM2008_360,
+            &GravityModelType::EGM2008_120,
             GravityModelCoefficients::Both,
         )
         .unwrap();
@@ -4326,12 +4323,20 @@ mod tests {
     #[test]
     fn test_cunningham_high_degree_overflow_errors() {
         // Degree 160 at LEO altitude overflows the denormalized V/W recursion;
-        // the kernel must surface a descriptive error, not silent NaN.
-        let model = GravityModel::from_model_type_with_coefficients(
-            &GravityModelType::EGM2008_360,
-            GravityModelCoefficients::Both,
-        )
-        .unwrap();
+        // the kernel must surface a descriptive error, not silent NaN. The
+        // overflow comes from the V/W recursion itself (a function of
+        // geometry and degree only, not the coefficient values), so a
+        // synthetic degree-160 model is used here: the packaged EGM2008_120
+        // model is truncated to degree 120 and can no longer exercise this
+        // degree at all.
+        let gfc = "begin_of_head\n\
+                   modelname synthetic_deg160\n\
+                   earth_gravity_constant 3.986004415e14\n\
+                   radius 6378136.3\n\
+                   max_degree 160\n\
+                   end_of_head\n";
+        let mut model = GravityModel::from_bufreader(BufReader::new(gfc.as_bytes())).unwrap();
+        model.precompute_cunningham_coefficients();
         let r = Vector3::new(6.5e6, 1.2e6, 3.1e6);
         let err = model
             .compute_spherical_harmonics_cunningham(r, 160, 160, ParallelMode::Never)

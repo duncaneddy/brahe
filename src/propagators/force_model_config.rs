@@ -376,7 +376,7 @@ impl ForceModelConfig {
         Self {
             central_body: CentralBody::Earth,
             gravity: GravityConfiguration::SphericalHarmonic {
-                source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
+                source: GravityModelSource::ModelType(GravityModelType::EGM2008_120),
                 degree: 120,
                 order: 120,
                 parallel: ParallelMode::Auto,
@@ -423,7 +423,7 @@ impl ForceModelConfig {
         Self {
             central_body: CentralBody::Earth,
             gravity: GravityConfiguration::SphericalHarmonic {
-                source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
+                source: GravityModelSource::ModelType(GravityModelType::EGM2008_120),
                 degree: 20,
                 order: 20,
                 parallel: ParallelMode::Auto,
@@ -462,7 +462,7 @@ impl ForceModelConfig {
         Self {
             central_body: CentralBody::Earth,
             gravity: GravityConfiguration::SphericalHarmonic {
-                source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
+                source: GravityModelSource::ModelType(GravityModelType::EGM2008_120),
                 degree: 80,
                 order: 80,
                 parallel: ParallelMode::Auto,
@@ -488,7 +488,7 @@ impl ForceModelConfig {
         Self {
             central_body: CentralBody::Earth,
             gravity: GravityConfiguration::SphericalHarmonic {
-                source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
+                source: GravityModelSource::ModelType(GravityModelType::EGM2008_120),
                 degree: 30,
                 order: 30,
                 parallel: ParallelMode::Auto,
@@ -523,7 +523,7 @@ impl ForceModelConfig {
         Self {
             central_body: CentralBody::Earth,
             gravity: GravityConfiguration::SphericalHarmonic {
-                source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
+                source: GravityModelSource::ModelType(GravityModelType::EGM2008_120),
                 degree: 8,
                 order: 8,
                 parallel: ParallelMode::Auto,
@@ -1000,7 +1000,7 @@ pub enum GravityModelSource {
 
 impl Default for GravityModelSource {
     fn default() -> Self {
-        GravityModelSource::ModelType(GravityModelType::EGM2008_360)
+        GravityModelSource::ModelType(GravityModelType::EGM2008_120)
     }
 }
 

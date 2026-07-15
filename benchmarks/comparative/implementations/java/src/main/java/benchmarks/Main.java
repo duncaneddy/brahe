@@ -166,7 +166,7 @@ public class Main {
                 .addProvider(new DirectoryCrawler(orekitData));
 
         // Add brahe's gravity_models directory so we can load the exact same
-        // EGM2008_360 coefficients brahe uses (instead of orekit-data's
+        // EGM2008_120 coefficients brahe uses (instead of orekit-data's
         // eigen-6s.gfc), and register the EGM reader at the front of the chain
         // so getNormalizedProvider() resolves to it first.
         File braheGravityDir = resolveBraheGravityDir();
@@ -174,7 +174,7 @@ public class Main {
             DataContext.getDefault().getDataProvidersManager()
                     .addProvider(new DirectoryCrawler(braheGravityDir));
             GravityFieldFactory.addPotentialCoefficientsReader(
-                    new ICGEMFormatReader("^EGM2008_360\\.gfc$", false));
+                    new ICGEMFormatReader("^EGM2008_120\\.gfc$", false));
         }
     }
 

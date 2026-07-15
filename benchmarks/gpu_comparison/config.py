@@ -17,7 +17,7 @@ REPO_ROOT = FRAMEWORK_DIR.parent.parent
 
 BRAHE_EOP_FILE = REPO_ROOT / "data" / "eop" / "finals.all.iau2000.txt"
 BRAHE_SPACE_WEATHER_FILE = REPO_ROOT / "data" / "space_weather" / "sw19571001.txt"
-BRAHE_GRAVITY_FILE = REPO_ROOT / "data" / "gravity_models" / "EGM2008_360.gfc"
+BRAHE_GRAVITY_FILE = REPO_ROOT / "data" / "gravity_models" / "EGM2008_120.gfc"
 
 RESULTS_DIR = FRAMEWORK_DIR / "results"
 

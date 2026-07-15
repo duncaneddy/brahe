@@ -142,7 +142,7 @@ available:
 <div class="center-table" markdown="1">
 | Constructor                                  | Source                                                  |
 |----------------------------------------------|---------------------------------------------------------|
-| `GravityModelType.EGM2008_360`               | Packaged with Brahe (Earth, 360×360)                    |
+| `GravityModelType.EGM2008_120`               | Packaged with Brahe (Earth, 120×120)                    |
 | `GravityModelType.GGM05S`                    | Packaged with Brahe (Earth, 180×180)                    |
 | `GravityModelType.JGM3`                      | Packaged with Brahe (Earth, 70×70)                      |
 | `GravityModelType.from_file("path.gfc")`     | Any `.gfc` file on disk                                 |

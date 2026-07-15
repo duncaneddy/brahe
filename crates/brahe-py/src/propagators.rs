@@ -4218,6 +4218,20 @@ impl PyGravityConfiguration {
         }
     }
 
+    /// Create a configuration with no gravity term from the propagation
+    /// center. For barycentric propagation centers (``CentralBody.EMB``,
+    /// ``CentralBody.SSB``), which have no mass of their own: every
+    /// gravitational force enters through the third-body entries.
+    ///
+    /// Returns:
+    ///     GravityConfiguration: No central gravity term.
+    #[classmethod]
+    fn zero(_cls: &Bound<'_, PyType>) -> Self {
+        PyGravityConfiguration {
+            config: propagators::GravityConfiguration::Zero,
+        }
+    }
+
     /// Create a point mass gravity configuration.
     ///
     /// Returns:
@@ -4389,6 +4403,9 @@ impl PyGravityConfiguration {
 
     fn __repr__(&self) -> String {
         match &self.config {
+            propagators::GravityConfiguration::Zero => {
+                "GravityConfiguration.zero()".to_string()
+            }
             propagators::GravityConfiguration::PointMass => {
                 "GravityConfiguration.point_mass()".to_string()
             }
@@ -5640,7 +5657,7 @@ impl PyNumericalPropagationConfig {
 ///         Default is None (disabled).
 ///     srp (SolarRadiationPressureConfiguration, optional): Solar radiation pressure configuration.
 ///         Default is None (disabled).
-///     third_bodies (ThirdBodyConfiguration | ThirdBody | list, optional): Third-body
+///     third_body (ThirdBodyConfiguration | ThirdBody | list, optional): Third-body
 ///         perturbation entries; a single entry or a list mixing ThirdBody and
 ///         ThirdBodyConfiguration values. Default is None (disabled).
 ///     relativity (bool, optional): Enable relativistic corrections. Default is False.
@@ -5652,7 +5669,7 @@ impl PyNumericalPropagationConfig {
 ///     gravity (GravityConfiguration): Gravity model configuration
 ///     drag (DragConfiguration or None): Atmospheric drag configuration
 ///     srp (SolarRadiationPressureConfiguration or None): Solar radiation pressure configuration
-///     third_bodies (list[ThirdBodyConfiguration] or None): Third-body perturbation entries
+///     third_body (list[ThirdBodyConfiguration] or None): Third-body perturbation entries
 ///     relativity (bool): Enable relativistic corrections
 ///     mass (ParameterSource or None): Spacecraft mass source
 ///     frame_transform (FrameTransformationModel): ECI-to-body-fixed rotation model
@@ -5687,7 +5704,7 @@ impl PyForceModelConfig {
     ///         Default is point mass gravity.
     ///     drag (DragConfiguration, optional): Atmospheric drag configuration.
     ///     srp (SolarRadiationPressureConfiguration, optional): Solar radiation pressure configuration.
-    ///     third_bodies (ThirdBodyConfiguration | ThirdBody | list, optional): Third-body
+    ///     third_body (ThirdBodyConfiguration | ThirdBody | list, optional): Third-body
     ///         perturbation entries; a single entry or a list mixing ThirdBody and
     ///         ThirdBodyConfiguration values.
     ///     relativity (bool, optional): Enable relativistic corrections. Default is False.
@@ -5707,13 +5724,13 @@ impl PyForceModelConfig {
     ///     )
     ///     ```
     #[new]
-    #[pyo3(signature = (gravity=None, drag=None, srp=None, third_bodies=None, relativity=false, mass=None, frame_transform=None, tides=None))]
+    #[pyo3(signature = (gravity=None, drag=None, srp=None, third_body=None, relativity=false, mass=None, frame_transform=None, tides=None))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         gravity: Option<&PyGravityConfiguration>,
         drag: Option<&PyDragConfiguration>,
         srp: Option<&PySolarRadiationPressureConfiguration>,
-        third_bodies: Option<PyThirdBodiesInput>,
+        third_body: Option<PyThirdBodiesInput>,
         relativity: bool,
         mass: Option<&PyParameterSource>,
         frame_transform: Option<&PyFrameTransformationModel>,
@@ -5727,7 +5744,7 @@ impl PyForceModelConfig {
                     .unwrap_or(propagators::GravityConfiguration::PointMass),
                 drag: drag.map(|d| d.config.clone()),
                 srp: srp.map(|s| s.config.clone()),
-                third_bodies: third_bodies.map(|t| t.into_configs()),
+                third_body: third_body.map(|t| t.into_configs()),
                 relativity,
                 mass: mass.map(|m| m.source.clone()),
                 frame_transform: frame_transform.map(|f| f.model.clone()).unwrap_or_default(),
@@ -5835,7 +5852,7 @@ impl PyForceModelConfig {
     ///     gravity (GravityConfiguration): Gravity model configuration.
     ///     drag (DragConfiguration, optional): Atmospheric drag configuration.
     ///     srp (SolarRadiationPressureConfiguration, optional): Solar radiation pressure configuration.
-    ///     third_bodies (ThirdBodyConfiguration | ThirdBody | list, optional): Third-body
+    ///     third_body (ThirdBodyConfiguration | ThirdBody | list, optional): Third-body
     ///         perturbation entries; a single entry or a list mixing ThirdBody and
     ///         ThirdBodyConfiguration values.
     ///     relativity (bool, optional): Enable relativistic corrections. Default is False.
@@ -5844,7 +5861,7 @@ impl PyForceModelConfig {
     /// Returns:
     ///     ForceModelConfig: A force model configuration for `central_body`.
     #[classmethod]
-    #[pyo3(signature = (central_body, gravity, drag=None, srp=None, third_bodies=None, relativity=false, mass=None))]
+    #[pyo3(signature = (central_body, gravity, drag=None, srp=None, third_body=None, relativity=false, mass=None))]
     #[allow(clippy::too_many_arguments)]
     fn for_body(
         _cls: &Bound<'_, PyType>,
@@ -5852,7 +5869,7 @@ impl PyForceModelConfig {
         gravity: &PyGravityConfiguration,
         drag: Option<&PyDragConfiguration>,
         srp: Option<&PySolarRadiationPressureConfiguration>,
-        third_bodies: Option<PyThirdBodiesInput>,
+        third_body: Option<PyThirdBodiesInput>,
         relativity: bool,
         mass: Option<&PyParameterSource>,
     ) -> Self {
@@ -5862,7 +5879,7 @@ impl PyForceModelConfig {
                 gravity.config.clone(),
                 drag.map(|d| d.config.clone()),
                 srp.map(|s| s.config.clone()),
-                third_bodies.map(|t| t.into_configs()),
+                third_body.map(|t| t.into_configs()),
                 relativity,
                 mass.map(|m| m.source.clone()),
             ),
@@ -5992,8 +6009,8 @@ impl PyForceModelConfig {
 
     /// Get the third-body perturbation entries (None if disabled).
     #[getter]
-    fn third_bodies(&self) -> Option<Vec<PyThirdBodyConfiguration>> {
-        self.config.third_bodies.as_ref().map(|v| {
+    fn third_body(&self) -> Option<Vec<PyThirdBodyConfiguration>> {
+        self.config.third_body.as_ref().map(|v| {
             v.iter()
                 .map(|t| PyThirdBodyConfiguration { config: t.clone() })
                 .collect()
@@ -6003,8 +6020,8 @@ impl PyForceModelConfig {
     /// Set the third-body perturbation entries (None to disable). Accepts a
     /// single ThirdBody or ThirdBodyConfiguration, or a list mixing both.
     #[setter]
-    fn set_third_bodies(&mut self, third_bodies: Option<PyThirdBodiesInput>) {
-        self.config.third_bodies = third_bodies.map(|t| t.into_configs());
+    fn set_third_body(&mut self, third_body: Option<PyThirdBodiesInput>) {
+        self.config.third_body = third_body.map(|t| t.into_configs());
     }
 
     /// Get whether relativistic corrections are enabled.

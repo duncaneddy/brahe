@@ -1023,6 +1023,149 @@ fn py_state_mcmf_to_mci<'py>(
 }
 
 /// Transforms a Cartesian Earth-inertial (ECI) position into the equivalent
+/// Cartesian Earth-Moon-barycenter inertial (EMBI) position.
+///
+/// Both frames share the ICRF orientation, so this is a pure translation by
+/// the Earth's position relative to the Earth-Moon barycenter (NAIF ID 3).
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_eci (numpy.ndarray or list): Cartesian ECI position (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian EMBI position (m), shape `(3,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_emb = bh.position_eci_to_emb(epc, [7e6, 0.0, 0.0])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_eci)")]
+#[pyo3(name = "position_eci_to_emb")]
+fn py_position_eci_to_emb<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_eci: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_eci_to_emb(epc.obj, pyany_to_svector::<3>(&x_eci)?);
+
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a Cartesian Earth-Moon-barycenter inertial (EMBI) position
+/// into the equivalent Cartesian Earth-inertial (ECI) position.
+///
+/// Both frames share the ICRF orientation, so this is a pure translation by
+/// the Earth's position relative to the Earth-Moon barycenter (NAIF ID 3).
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_emb (numpy.ndarray or list): Cartesian EMBI position (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian ECI position (m), shape `(3,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_eci = bh.position_emb_to_eci(epc, [7e6, 0.0, 0.0])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_emb)")]
+#[pyo3(name = "position_emb_to_eci")]
+fn py_position_emb_to_eci<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_emb: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_emb_to_eci(epc.obj, pyany_to_svector::<3>(&x_emb)?);
+
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a Cartesian Earth-inertial (ECI) state (position and velocity)
+/// into the equivalent Cartesian Earth-Moon-barycenter inertial (EMBI)
+/// state.
+///
+/// Both frames share the ICRF orientation, so this is a pure translation by
+/// the Earth's state relative to the Earth-Moon barycenter (NAIF ID 3).
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_eci (numpy.ndarray or list): Cartesian ECI state (m; m/s), shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian EMBI state (m; m/s), shape `(6,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_emb = bh.state_eci_to_emb(epc, [7e6, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_eci)")]
+#[pyo3(name = "state_eci_to_emb")]
+fn py_state_eci_to_emb<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_eci: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_eci_to_emb(epc.obj, pyany_to_svector::<6>(&x_eci)?);
+
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+/// Transforms a Cartesian Earth-Moon-barycenter inertial (EMBI) state
+/// (position and velocity) into the equivalent Cartesian Earth-inertial
+/// (ECI) state.
+///
+/// Both frames share the ICRF orientation, so this is a pure translation by
+/// the Earth's state relative to the Earth-Moon barycenter (NAIF ID 3).
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_emb (numpy.ndarray or list): Cartesian EMBI state (m; m/s), shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian ECI state (m; m/s), shape `(6,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_eci = bh.state_emb_to_eci(epc, [7e6, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_emb)")]
+#[pyo3(name = "state_emb_to_eci")]
+fn py_state_emb_to_eci<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_emb: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_emb_to_eci(epc.obj, pyany_to_svector::<6>(&x_emb)?);
+
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+
+/// Transforms a Cartesian Earth-inertial (ECI) position into the equivalent
 /// Cartesian Mars-inertial (MCI) position.
 ///
 /// The MCI origin is the Mars body center (NAIF ID 499); the `mar099s`

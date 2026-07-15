@@ -293,7 +293,7 @@ def test_forcemodelconfig_for_body_constructs_expected_fields():
     assert config.central_body == CentralBody.Mars
     assert config.drag is None
     assert config.srp is None
-    assert config.third_bodies is None
+    assert config.third_body is None
     assert config.relativity
     # FrameTransformationModel has no __eq__; compare via repr (matches the
     # existing test convention for equality-less config enums in this module).
@@ -369,7 +369,7 @@ def test_forcemodelconfig_validate_rejects_earth_rotation_only_non_earth():
 def test_forcemodelconfig_validate_rejects_low_precision_ephemeris_non_earth():
     """Mirrors test_validate_rejects_low_precision_ephemeris_non_earth"""
     config = ForceModelConfig(
-        third_bodies=ThirdBodyConfiguration(
+        third_body=ThirdBodyConfiguration(
             ThirdBody.SUN, ephemeris_source=EphemerisSource.LowPrecision
         ),
     )
@@ -385,7 +385,7 @@ def test_forcemodelconfig_validate_rejects_low_precision_ephemeris_non_earth():
 def test_forcemodelconfig_validate_allows_low_precision_earth_sun_moon():
     """Mirrors test_validate_allows_low_precision_earth_sun_moon"""
     config = ForceModelConfig(
-        third_bodies=[
+        third_body=[
             ThirdBodyConfiguration(
                 ThirdBody.SUN, ephemeris_source=EphemerisSource.LowPrecision
             ),
@@ -402,7 +402,7 @@ def test_forcemodelconfig_validate_allows_low_precision_earth_sun_moon():
 def test_forcemodelconfig_validate_rejects_low_precision_earth_planet():
     """Mirrors test_validate_rejects_low_precision_earth_planet"""
     config = ForceModelConfig(
-        third_bodies=ThirdBodyConfiguration(
+        third_body=ThirdBodyConfiguration(
             ThirdBody.MARS, ephemeris_source=EphemerisSource.LowPrecision
         ),
     )
@@ -418,7 +418,7 @@ def test_forcemodelconfig_validate_rejects_low_precision_earth_planet():
 def test_forcemodelconfig_validate_rejects_third_body_same_naif_id_as_central_body():
     """Mirrors test_validate_rejects_third_body_same_naif_id_as_central_body"""
     config = ForceModelConfig(
-        third_bodies=[ThirdBody.EARTH],
+        third_body=[ThirdBody.EARTH],
     )
     config.central_body = CentralBody.Earth
 
@@ -604,28 +604,28 @@ def test_third_body_configuration_defaults():
 
 def test_force_model_third_bodies_coercion():
     # Single bare body
-    fc = brahe.ForceModelConfig(third_bodies=brahe.ThirdBody.SUN)
-    assert len(fc.third_bodies) == 1
-    assert fc.third_bodies[0].body == brahe.ThirdBody.SUN
+    fc = brahe.ForceModelConfig(third_body=brahe.ThirdBody.SUN)
+    assert len(fc.third_body) == 1
+    assert fc.third_body[0].body == brahe.ThirdBody.SUN
 
     # Mixed list of bodies and configurations
     fc = brahe.ForceModelConfig(
-        third_bodies=[
+        third_body=[
             brahe.ThirdBody.SUN,
             brahe.ThirdBodyConfiguration(brahe.ThirdBody.MOON),
         ]
     )
-    assert len(fc.third_bodies) == 2
-    assert fc.third_bodies[1].body == brahe.ThirdBody.MOON
+    assert len(fc.third_body) == 2
+    assert fc.third_body[1].body == brahe.ThirdBody.MOON
 
     # Default is None
-    assert brahe.ForceModelConfig().third_bodies is None
+    assert brahe.ForceModelConfig().third_body is None
 
     # Setter accepts the same coercions
-    fc.third_bodies = brahe.ThirdBody.MOON
-    assert len(fc.third_bodies) == 1
-    fc.third_bodies = None
-    assert fc.third_bodies is None
+    fc.third_body = brahe.ThirdBody.MOON
+    assert len(fc.third_body) == 1
+    fc.third_body = None
+    assert fc.third_body is None
 
 
 def test_third_body_body_fixed_frame():
@@ -639,7 +639,7 @@ def test_validate_third_body_gravity_rules():
     """Mirrors the Rust test of the same name."""
     # EarthZonal on a non-Earth third body is rejected
     config = ForceModelConfig.cislunar_default()
-    config.third_bodies = [
+    config.third_body = [
         ThirdBodyConfiguration(
             ThirdBody.MOON,
             gravity=GravityConfiguration.earth_zonal(ZonalHarmonicsDegree.J2),
@@ -649,7 +649,7 @@ def test_validate_third_body_gravity_rules():
         config.validate()
 
     # EarthZonal on ThirdBody.EARTH is accepted
-    config.third_bodies = [
+    config.third_body = [
         ThirdBodyConfiguration(
             ThirdBody.EARTH,
             gravity=GravityConfiguration.earth_zonal(ZonalHarmonicsDegree.J2),
@@ -658,7 +658,7 @@ def test_validate_third_body_gravity_rules():
     config.validate()
 
     # SphericalHarmonic on a barycenter variant is rejected (no fixed frame)
-    config.third_bodies = [
+    config.third_body = [
         ThirdBodyConfiguration(
             ThirdBody.JUPITER_BARYCENTER,
             gravity=GravityConfiguration.spherical_harmonic(degree=8, order=8),
@@ -668,7 +668,7 @@ def test_validate_third_body_gravity_rules():
         config.validate()
 
     # SphericalHarmonic on Earth as a third body is accepted
-    config.third_bodies = [
+    config.third_body = [
         ThirdBodyConfiguration(
             ThirdBody.EARTH,
             gravity=GravityConfiguration.spherical_harmonic(degree=8, order=8),
@@ -677,7 +677,7 @@ def test_validate_third_body_gravity_rules():
     config.validate()
 
     # SphericalHarmonic on a Custom third body is rejected
-    config.third_bodies = [
+    config.third_body = [
         ThirdBodyConfiguration(
             ThirdBody.Custom(name="Ceres", naif_id=2000001, gm=6.26325e10),
             gravity=GravityConfiguration.spherical_harmonic(degree=4, order=4),
@@ -737,7 +737,7 @@ def test_validate_attributed_drag_body():
 def test_high_fidelity_uses_barycenter_variants():
     """Mirrors the Rust test of the same name."""
     config = ForceModelConfig.high_fidelity()
-    bodies = [entry.body for entry in config.third_bodies]
+    bodies = [entry.body for entry in config.third_body]
     assert brahe.ThirdBody.MARS_BARYCENTER in bodies
     assert brahe.ThirdBody.JUPITER_BARYCENTER in bodies
     assert brahe.ThirdBody.SATURN_BARYCENTER in bodies
@@ -752,7 +752,7 @@ def test_validate_rejects_mars_bodies_for_mars_central():
         config = ForceModelConfig.for_body(
             CentralBody.Mars,
             GravityConfiguration.point_mass(),
-            third_bodies=[body],
+            third_body=[body],
         )
         with pytest.raises(RuntimeError):
             config.validate()
@@ -765,3 +765,16 @@ def test_third_body_as_central_body():
     assert brahe.ThirdBody.MARS_BARYCENTER.as_central_body() is None
     custom = ThirdBody.Custom(name="Ceres", naif_id=2000001, gm=6.26325e10)
     assert custom.as_central_body() is None
+
+
+def test_gravity_configuration_zero():
+    """Mirrors the Rust test of the same name."""
+    config = ForceModelConfig.cislunar_default()
+    assert repr(config.gravity) == repr(GravityConfiguration.zero())
+    config.validate()
+
+    config.third_body = [
+        ThirdBodyConfiguration(ThirdBody.SUN, gravity=GravityConfiguration.zero())
+    ]
+    with pytest.raises(RuntimeError, match="Zero"):
+        config.validate()

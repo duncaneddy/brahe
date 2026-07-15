@@ -203,7 +203,8 @@ pub const GM_MARS: f64 = 42828.37362069909 * 1e9;
 /// ```
 /// assert_eq!(brahe::constants::GM_MARS_SYSTEM, 42828.375815756102 * 1e9);
 /// ```
-pub const GM_MARS_SYSTEM: f64 = 42_828.375_815_756_1 * 1e9;
+#[allow(clippy::excessive_precision)]
+pub const GM_MARS_SYSTEM: f64 = 42828.375815756102 * 1e9;
 
 /// Gravitational constant of Jupiter (planet only, without its satellites).
 /// Units: [m^3/s^2]
@@ -237,9 +238,10 @@ pub const GM_JUPITER: f64 = 126686531.9003704 * 1e9;
 ///
 /// # Examples
 /// ```
-/// assert_eq!(brahe::constants::GM_JUPITER_SYSTEM, 126712764.1 * 1e9);
+/// assert_eq!(brahe::constants::GM_JUPITER_SYSTEM, 126712764.09999998 * 1e9);
 /// ```
-pub const GM_JUPITER_SYSTEM: f64 = 126712764.1 * 1e9;
+#[allow(clippy::excessive_precision)]
+pub const GM_JUPITER_SYSTEM: f64 = 126712764.09999998 * 1e9;
 
 /// Gravitational constant of Saturn (planet only, without its satellites).
 /// Units: [m^3/s^2]
@@ -273,9 +275,10 @@ pub const GM_SATURN: f64 = 37931206.23436167 * 1e9;
 ///
 /// # Examples
 /// ```
-/// assert_eq!(brahe::constants::GM_SATURN_SYSTEM, 37940584.8418 * 1e9);
+/// assert_eq!(brahe::constants::GM_SATURN_SYSTEM, 37940584.841799997 * 1e9);
 /// ```
-pub const GM_SATURN_SYSTEM: f64 = 37940584.8418 * 1e9;
+#[allow(clippy::excessive_precision)]
+pub const GM_SATURN_SYSTEM: f64 = 37940584.841799997 * 1e9;
 
 /// Gravitational constant of Uranus (planet only, without its satellites).
 /// Units: [m^3/s^2]
@@ -309,9 +312,10 @@ pub const GM_URANUS: f64 = 5793951.256527211 * 1e9;
 ///
 /// # Examples
 /// ```
-/// assert_eq!(brahe::constants::GM_URANUS_SYSTEM, 5794556.4 * 1e9);
+/// assert_eq!(brahe::constants::GM_URANUS_SYSTEM, 5794556.3999999985 * 1e9);
 /// ```
-pub const GM_URANUS_SYSTEM: f64 = 5794556.4 * 1e9;
+#[allow(clippy::excessive_precision)]
+pub const GM_URANUS_SYSTEM: f64 = 5794556.3999999985 * 1e9;
 
 /// Gravitational constant of Neptune (planet only, without its satellites).
 /// Units: [m^3/s^2]
@@ -347,15 +351,44 @@ pub const GM_NEPTUNE: f64 = 6835103.145462294 * 1e9;
 /// ```
 /// assert_eq!(brahe::constants::GM_NEPTUNE_SYSTEM, 6836527.1005803989 * 1e9);
 /// ```
-pub const GM_NEPTUNE_SYSTEM: f64 = 6_836_527.100_580_399 * 1e9;
+#[allow(clippy::excessive_precision)]
+pub const GM_NEPTUNE_SYSTEM: f64 = 6836527.1005803989 * 1e9;
 
-/// Gravitational constant of the Pluto. Units: [m^3/s^2]
+/// Gravitational constant of Pluto (planet only, without its satellites).
+/// Units: [m^3/s^2]
 ///
 /// # References:
 ///
-///  1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and
-//     Applications*, 2012.
-pub const GM_PLUTO: f64 = 977.000000 * 1e9;
+///  1. NAIF `gm_de440.tpc` (`BODY999_GM`), from the JPL/Horizons-curated
+///     DE440 "ASTRO-VALUES" constant set distributed alongside R.S. Park,
+///     W.M. Folkner, J.G. Williams, and D.H. Boggs, *The JPL Planetary and
+///     Lunar Ephemerides DE440 and DE441*, The Astronomical Journal,
+///     161:105, 2021. doi:10.3847/1538-3881/abd414. The planet-only GMs are
+///     Horizons-curated satellite-solution values; the `GM_*_SYSTEM`
+///     barycentric values are the DE440 solution values.
+///
+/// # Examples
+/// ```
+/// assert_eq!(brahe::constants::GM_PLUTO, 869.6138177608748 * 1e9);
+/// ```
+pub const GM_PLUTO: f64 = 869.6138177608748 * 1e9;
+
+/// Gravitational constant of the Pluto system barycenter (Pluto and its
+/// satellites). This is the GM associated with NAIF ID 9 in the JPL DE
+/// ephemerides. Units: [m^3/s^2]
+///
+/// # References:
+///
+///  1. NAIF `gm_de440.tpc` (`BODY9_GM`), JPL DE440 "ASTRO-VALUES";
+///     R.S. Park, W.M. Folkner, J.G. Williams, and D.H. Boggs, *The JPL
+///     Planetary and Lunar Ephemerides DE440 and DE441*, The Astronomical
+///     Journal, 161:105, 2021. doi:10.3847/1538-3881/abd414
+///
+/// # Examples
+/// ```
+/// assert_eq!(brahe::constants::GM_PLUTO_SYSTEM, 975.5 * 1e9);
+/// ```
+pub const GM_PLUTO_SYSTEM: f64 = 975.5 * 1e9;
 
 /// Mars equatorial radius. Units: (m)
 ///

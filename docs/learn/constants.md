@@ -63,7 +63,8 @@ be well known and do not change frequently.
 | `GM_URANUS_SYSTEM` | Gravitational constant of the Uranus system barycenter (NAIF ID 7).                                      | $5.7945564 \times 10^{15}$           | $\frac{m^3}{s^2}$ | NAIF `gm_de440.tpc` [^6]   |
 | `GM_NEPTUNE`  | Gravitational constant of Neptune (planet only, without its satellites).                                      | $6.835103145462294 \times 10^{15}$   | $\frac{m^3}{s^2}$ | NAIF `gm_de440.tpc` [^6]   |
 | `GM_NEPTUNE_SYSTEM` | Gravitational constant of the Neptune system barycenter (NAIF ID 8).                                    | $6.836527100580399 \times 10^{15}$   | $\frac{m^3}{s^2}$ | NAIF `gm_de440.tpc` [^6]   |
-| `GM_PLUTO`    | Gravitational constant of the Pluto.                                                                          | $9.770 \times 10^{11}$               | $\frac{m^3}{s^2}$ | Montenbruck and Gill [^1]  |
+| `GM_PLUTO`    | Gravitational constant of Pluto (planet only, without its satellites).                                        | $8.696138177608748 \times 10^{11}$   | $\frac{m^3}{s^2}$ | NAIF `gm_de440.tpc` [^6]   |
+| `GM_PLUTO_SYSTEM` | Gravitational constant of the Pluto system barycenter (NAIF ID 9).                                        | $9.755 \times 10^{11}$               | $\frac{m^3}{s^2}$ | NAIF `gm_de440.tpc` [^6]   |
 
 [^1]: O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and Applications*, 2012
 [^2]: D. Vallado, *Fundamentals of Astrodynamics and Applications (4th Ed.)*, 2010

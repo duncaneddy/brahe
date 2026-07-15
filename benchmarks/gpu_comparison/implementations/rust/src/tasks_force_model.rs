@@ -40,7 +40,7 @@ pub fn grav_5x5(input: &BenchmarkInput) -> Result<BenchmarkOutput, String> {
         },
         drag: None,
         srp: None,
-        third_bodies: None,
+        third_body: None,
         relativity: false,
         mass: None,
         frame_transform: FrameTransformationModel::EarthRotationOnly,

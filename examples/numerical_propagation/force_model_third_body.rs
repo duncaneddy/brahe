@@ -71,7 +71,7 @@ fn main() {
         },
         drag: None,
         srp: None,
-        third_bodies: Some(third_bodies_de440s),
+        third_body: Some(third_bodies_de440s),
         relativity: false,
         mass: None,
         frame_transform: bh::FrameTransformationModel::default(),

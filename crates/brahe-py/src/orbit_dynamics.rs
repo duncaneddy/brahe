@@ -2401,6 +2401,105 @@ fn py_accel_third_body_for_body<'py>(
     Ok(vector_to_numpy!(py, a, 3, f64))
 }
 
+/// Third-body acceleration evaluating a configured gravity model for the
+/// perturbing body: point-mass, spherical-harmonic, or Earth-zonal.
+///
+/// Generalizes `accel_third_body_for_body` from point masses to extended
+/// gravity fields: the direct term evaluates the configured field at the
+/// object's position relative to `body`, oriented by the body's own fixed
+/// frame, while the indirect term stays point-mass with the field's own GM
+/// so the far-field limit reduces exactly to the point-mass tidal
+/// formulation. The same barycentric direct-only rules as
+/// `accel_third_body_for_body` apply.
+///
+/// Spherical-harmonic models with a `ModelType` source resolve through the
+/// process-wide gravity-model cache; `Global` sources read the global
+/// gravity model. For repeated evaluation prefer configuring a numerical
+/// propagator with a per-body `ThirdBodyConfiguration`, which caches the
+/// model and the body-fixed rotations across integrator stages.
+///
+/// Accepts either a 3D position vector or a 6D state vector for r_object.
+///
+/// Args:
+///     central_body (CentralBody): Body the object's position and the returned
+///         acceleration are expressed relative to.
+///     body (ThirdBody): Perturbing celestial body carrying the gravity field.
+///         Must have a known body-fixed frame for spherical-harmonic models
+///         (excludes the barycenter variants and Custom bodies); Earth-zonal
+///         models require `ThirdBody.EARTH`.
+///     gravity (GravityConfiguration): Gravity model for the perturber's direct term.
+///     source (EphemerisSource): Ephemeris source for the perturber's position.
+///     epc (Epoch): Epoch for ephemeris lookup.
+///     r_object (np.ndarray): Position (length 3) or state (length 6) of the object,
+///         relative to `central_body`. Units: (m)
+///
+/// Returns:
+///     np.ndarray: Acceleration in the inertial frame centered on `central_body`. Units: (m/s²)
+///
+/// Raises:
+///     RuntimeError: If `body` has the same NAIF ID as `central_body`, lacks a
+///         body-fixed frame required by the gravity model, or the ephemeris or
+///         gravity model cannot be resolved.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///     bh.load_common_spice_kernels()
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     r_object = np.array([3.8e8, 0.0, 0.0])
+///     a_earth = bh.accel_third_body_field_for_body(
+///         bh.CentralBody.EMB,
+///         bh.ThirdBody.EARTH,
+///         bh.GravityConfiguration.spherical_harmonic(degree=8, order=8),
+///         bh.EphemerisSource.DE440s,
+///         epc,
+///         r_object,
+///     )
+///     ```
+#[pyfunction]
+#[pyo3(name = "accel_third_body_field_for_body")]
+fn py_accel_third_body_field_for_body<'py>(
+    py: Python<'py>,
+    central_body: &PyCentralBody,
+    body: &PyThirdBody,
+    gravity: &PyGravityConfiguration,
+    source: PyEphemerisSource,
+    epc: &PyEpoch,
+    r_object: PyReadonlyArray1<f64>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let len = r_object.len();
+    let a = if len == 3 {
+        let r_obj = numpy_to_vector3!(r_object);
+        orbit_dynamics::accel_third_body_field_for_body(
+            &central_body.body,
+            &body.body,
+            &gravity.config,
+            source.into(),
+            epc.obj,
+            r_obj,
+        )
+    } else if len == 6 {
+        let x_obj = numpy_to_vector6!(r_object);
+        orbit_dynamics::accel_third_body_field_for_body(
+            &central_body.body,
+            &body.body,
+            &gravity.config,
+            source.into(),
+            epc.obj,
+            x_obj,
+        )
+    } else {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "r_object must be length 3 (position) or 6 (state)",
+        ));
+    }
+    .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, a, 3, f64))
+}
+
 // ============================================================================
 // Gravity Acceleration Python Bindings
 // ============================================================================

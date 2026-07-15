@@ -258,7 +258,7 @@ with tides enabled and disabled, then prints the peak position difference.
 Solid-tide computation requires Sun and Moon positions in the ECEF frame. The
 propagator computes these internally using its own low-precision analytical
 ephemeris (`sun_position` / `moon_position`) — it does **not** read positions
-from the `third_bodies` force model entries. Enabling or disabling `third_bodies` entries has
+from the `third_body` force model entries. Enabling or disabling `third_body` entries has
 no effect on the tidal correction; you can use solid tides with or without a
 third-body configuration.
 

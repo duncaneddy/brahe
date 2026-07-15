@@ -270,14 +270,14 @@ def _force_model_from_params(params: dict) -> "brahe.ForceModelConfig":
         order=params["gravity_order"],
     )
 
-    third_bodies = None
+    third_body = None
     bodies = []
     if params.get("third_body_sun"):
         bodies.append(brahe.ThirdBody.SUN)
     if params.get("third_body_moon"):
         bodies.append(brahe.ThirdBody.MOON)
     if bodies:
-        third_bodies = bodies
+        third_body = bodies
 
     drag = None
     if params.get("drag"):
@@ -302,7 +302,7 @@ def _force_model_from_params(params: dict) -> "brahe.ForceModelConfig":
         gravity=gravity,
         drag=drag,
         srp=srp,
-        third_bodies=third_bodies,
+        third_body=third_body,
         relativity=False,
         mass=mass,
     )

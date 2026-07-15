@@ -547,6 +547,32 @@ def test_state_eci_to_mci_roundtrip():
     np.testing.assert_allclose(p_eci2, p_eci, atol=1e-6)
 
 
+def test_state_eci_to_emb_matches_spk():
+    # x_emb = x_eci + state_of_earth_relative_to_emb
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x = np.array([7e6, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    brahe.load_spice_kernel("de440s")
+    offset = brahe.spk_state(
+        brahe.NAIFId.EARTH, brahe.NAIFId.EARTH_MOON_BARYCENTER, epc
+    )
+    expected = x + offset
+    got = brahe.state_eci_to_emb(epc, x)
+    np.testing.assert_allclose(got, expected, atol=1e-6)
+
+
+def test_state_eci_to_emb_roundtrip():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x_eci = np.array([7e6, 1e6, -2e6, 1.0, 2.0, 3.0])
+    x_emb = brahe.state_eci_to_emb(epc, x_eci)
+    x_eci2 = brahe.state_emb_to_eci(epc, x_emb)
+    np.testing.assert_allclose(x_eci2, x_eci, atol=1e-6)
+
+    p_eci = x_eci[:3]
+    p_emb = brahe.position_eci_to_emb(epc, p_eci)
+    p_eci2 = brahe.position_emb_to_eci(epc, p_emb)
+    np.testing.assert_allclose(p_eci2, p_eci, atol=1e-6)
+
+
 # Lunar reference frame tests (LCI, LFPA, LFME)
 
 

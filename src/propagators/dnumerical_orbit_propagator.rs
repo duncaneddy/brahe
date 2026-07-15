@@ -30,7 +30,7 @@ use crate::math::jacobian::DNumericalJacobian;
 use crate::math::jacobian::DifferenceMethod;
 use crate::math::sensitivity::DNumericalSensitivity;
 use crate::orbit_dynamics::gravity::GravityModelType;
-use crate::orbit_dynamics::third_body::accel_third_body_extended;
+use crate::orbit_dynamics::third_body::accel_third_body_field_for_body_with_model;
 use crate::orbit_dynamics::{
     GravityModel, GravityModelTideSystem, SolidTideConfig, accel_drag_for_body,
     accel_gravity_spherical_harmonics, accel_point_mass_gravity, accel_relativity_for_body,
@@ -772,9 +772,9 @@ impl DNumericalOrbitPropagator {
         // Global reads the process-wide model at evaluation time). Uses the
         // same shared-cache + copy-on-write truncation path as the central
         // body's model above. Index-aligned with
-        // `force_config.third_bodies` entries.
+        // `force_config.third_body` entries.
         let third_body_gravity_models: Vec<Option<Arc<GravityModel>>> =
-            match &force_config.third_bodies {
+            match &force_config.third_body {
                 Some(entries) => entries
                     .iter()
                     .map(|entry| match &entry.gravity {
@@ -1511,7 +1511,7 @@ impl DNumericalOrbitPropagator {
                     ));
                 }
             };
-            if let Some(entries) = &force_config.third_bodies {
+            if let Some(entries) = &force_config.third_body {
                 for entry in entries {
                     if !matches!(entry.gravity, GravityConfiguration::PointMass)
                         && let Some(cb) = entry.body.as_central_body()
@@ -1742,6 +1742,9 @@ impl DNumericalOrbitPropagator {
 
         // ===== GRAVITY =====
         match &force_config.gravity {
+            // No central gravity term: barycentric propagation centers take
+            // all gravitational forces from the third-body entries.
+            GravityConfiguration::Zero => {}
             GravityConfiguration::PointMass => {
                 // Barycenters (`gm() == 0`) contribute no point-mass term of
                 // their own; their gravity comes entirely from the third-body
@@ -1969,7 +1972,7 @@ impl DNumericalOrbitPropagator {
         }
 
         // ===== THIRD BODY =====
-        if let Some(tb_entries) = &force_config.third_bodies {
+        if let Some(tb_entries) = &force_config.third_body {
             for (idx, entry) in tb_entries.iter().enumerate() {
                 let body = &entry.body;
 
@@ -1977,11 +1980,11 @@ impl DNumericalOrbitPropagator {
                 // gravity model evaluate the field at the object's position
                 // relative to the body, oriented by the body's own
                 // inertial→body-fixed rotation; the indirect term stays
-                // point-mass (see `accel_third_body_extended`).
+                // point-mass (see `accel_third_body_field_for_body_with_model`).
                 if !matches!(entry.gravity, GravityConfiguration::PointMass) {
                     let r_i2b_body =
                         Self::attributed_rotation(attributed_caches, body.naif_id(), t, epoch);
-                    a_total += accel_third_body_extended(
+                    a_total += accel_third_body_field_for_body_with_model(
                         central,
                         body,
                         &entry.gravity,
@@ -2004,10 +2007,8 @@ impl DNumericalOrbitPropagator {
                 // Keep the legacy geocentric call for Earth so Earth
                 // propagation stays bit-identical; other central bodies use
                 // the central-body-aware differential form. `accel_third_body`
-                // only supports the classical geocentric set (Sun, Moon,
-                // Mercury, Venus, and the planetary-system barycenters) and
-                // panics for the planet-center variants (which need their
-                // satellite-system kernels) and for
+                // supports the Sun, the Moon, Mercury, Venus, and the planet
+                // and barycenter variants; it panics for
                 // Phobos/Deimos/Custom/Earth-as-perturber, so those route
                 // through `accel_third_body_for_body` instead (which returns
                 // an `Err`, not a panic, if body and central body coincide —
@@ -2018,20 +2019,20 @@ impl DNumericalOrbitPropagator {
                         | ThirdBody::Moon
                         | ThirdBody::Mercury
                         | ThirdBody::Venus
+                        | ThirdBody::Mars
                         | ThirdBody::MarsBarycenter
+                        | ThirdBody::Jupiter
                         | ThirdBody::JupiterBarycenter
+                        | ThirdBody::Saturn
                         | ThirdBody::SaturnBarycenter
+                        | ThirdBody::Uranus
                         | ThirdBody::UranusBarycenter
+                        | ThirdBody::Neptune
                         | ThirdBody::NeptuneBarycenter => {
                             a_total +=
                                 accel_third_body(body.clone(), entry.ephemeris_source, epoch, r);
                         }
-                        ThirdBody::Mars
-                        | ThirdBody::Jupiter
-                        | ThirdBody::Saturn
-                        | ThirdBody::Uranus
-                        | ThirdBody::Neptune
-                        | ThirdBody::Phobos
+                        ThirdBody::Phobos
                         | ThirdBody::Deimos
                         | ThirdBody::Custom { .. }
                         | ThirdBody::Earth => {
@@ -3491,6 +3492,7 @@ impl Identifiable for DNumericalOrbitPropagator {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::constants::units::AngleFormat;
@@ -3547,7 +3549,7 @@ mod tests {
                 body: None,
             }),
             srp: None,
-            third_bodies: None,
+            third_body: None,
             relativity: false,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
@@ -3611,7 +3613,7 @@ mod tests {
             },
             drag: None,
             srp: None,
-            third_bodies: None,
+            third_body: None,
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -8621,7 +8623,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_bodies: None,
+            third_body: None,
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -8843,7 +8845,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_bodies: None,
+            third_body: None,
             relativity: false,
         };
 
@@ -8904,7 +8906,7 @@ mod tests {
             },
             drag: None,
             srp: None,
-            third_bodies: None,
+            third_body: None,
             relativity: false,
         };
 
@@ -8961,7 +8963,7 @@ mod tests {
             },
             drag: None,
             srp: None,
-            third_bodies: None,
+            third_body: None,
             relativity: false,
         };
 
@@ -9032,7 +9034,7 @@ mod tests {
                 },
                 drag: None,
                 srp: None,
-                third_bodies: None,
+                third_body: None,
                 relativity: false,
             };
 
@@ -9094,7 +9096,7 @@ mod tests {
             },
             drag: None,
             srp: None,
-            third_bodies: None,
+            third_body: None,
             relativity: false,
         };
 
@@ -9124,7 +9126,7 @@ mod tests {
             },
             drag: None,
             srp: None,
-            third_bodies: None,
+            third_body: None,
             relativity: false,
         };
 
@@ -9197,7 +9199,7 @@ mod tests {
                 body: None,
             }),
             srp: None,
-            third_bodies: None,
+            third_body: None,
             relativity: false,
         };
 
@@ -9255,7 +9257,7 @@ mod tests {
                 body: None,
             }),
             srp: None,
-            third_bodies: None,
+            third_body: None,
             relativity: false,
         };
 
@@ -9306,7 +9308,7 @@ mod tests {
                 body: None,
             }),
             srp: None,
-            third_bodies: None,
+            third_body: None,
             relativity: false,
         };
 
@@ -9372,7 +9374,7 @@ mod tests {
                 body: None,
             }),
             srp: None,
-            third_bodies: None,
+            third_body: None,
             relativity: false,
         };
 
@@ -9438,7 +9440,7 @@ mod tests {
                 body: None,
             }),
             srp: None,
-            third_bodies: None,
+            third_body: None,
             relativity: false,
         };
 
@@ -9513,7 +9515,7 @@ mod tests {
                 eclipse_model: EclipseModel::None,
                 occulting_bodies: vec![OccultingBody::Earth],
             }),
-            third_bodies: None,
+            third_body: None,
             relativity: false,
         };
 
@@ -9561,7 +9563,7 @@ mod tests {
                 eclipse_model: EclipseModel::Cylindrical,
                 occulting_bodies: vec![OccultingBody::Earth],
             }),
-            third_bodies: None,
+            third_body: None,
             relativity: false,
         };
 
@@ -9606,7 +9608,7 @@ mod tests {
                 eclipse_model: EclipseModel::Conical,
                 occulting_bodies: vec![OccultingBody::Earth],
             }),
-            third_bodies: None,
+            third_body: None,
             relativity: false,
         };
 
@@ -9652,7 +9654,7 @@ mod tests {
                 eclipse_model: EclipseModel::Conical, // Use conical for penumbra transitions
                 occulting_bodies: vec![OccultingBody::Earth],
             }),
-            third_bodies: None,
+            third_body: None,
             relativity: false,
         };
 
@@ -9708,7 +9710,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_bodies: Some(vec![ThirdBodyConfiguration {
+            third_body: Some(vec![ThirdBodyConfiguration {
                 body: ThirdBody::Sun,
                 ephemeris_source: EphemerisSource::LowPrecision,
                 gravity: GravityConfiguration::PointMass,
@@ -9750,7 +9752,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_bodies: Some(vec![ThirdBodyConfiguration {
+            third_body: Some(vec![ThirdBodyConfiguration {
                 body: ThirdBody::Moon,
                 ephemeris_source: EphemerisSource::LowPrecision,
                 gravity: GravityConfiguration::PointMass,
@@ -9790,7 +9792,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_bodies: Some(vec![
+            third_body: Some(vec![
                 ThirdBody::Sun.into(),
                 ThirdBody::Moon.into(),
                 ThirdBody::JupiterBarycenter.into(),
@@ -9830,7 +9832,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_bodies: Some(vec![ThirdBody::JupiterBarycenter.into()]),
+            third_body: Some(vec![ThirdBody::JupiterBarycenter.into()]),
             relativity: false,
         };
 
@@ -9880,7 +9882,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_bodies: Some(vec![ThirdBody::Phobos.into()]),
+            third_body: Some(vec![ThirdBody::Phobos.into()]),
             relativity: false,
         };
         force_config.validate().unwrap();
@@ -9924,7 +9926,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_bodies: Some(vec![ThirdBody::MarsBarycenter.into()]),
+            third_body: Some(vec![ThirdBody::MarsBarycenter.into()]),
             relativity: false,
         };
 
@@ -9964,7 +9966,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_bodies: None,
+            third_body: None,
             relativity: true, // Enable relativity
         };
 
@@ -10079,7 +10081,7 @@ mod tests {
                 eclipse_model: EclipseModel::Conical,
                 occulting_bodies: vec![OccultingBody::Earth],
             }),
-            third_bodies: Some(vec![
+            third_body: Some(vec![
                 ThirdBodyConfiguration {
                     body: ThirdBody::Sun,
                     ephemeris_source: EphemerisSource::LowPrecision,
@@ -10158,7 +10160,7 @@ mod tests {
                 body: None,
             }),
             srp: None,
-            third_bodies: None,
+            third_body: None,
             relativity: false,
         };
 
@@ -11122,7 +11124,7 @@ mod tests {
             },
             drag: None,
             srp: None,
-            third_bodies: None,
+            third_body: None,
             relativity: false,
         };
 
@@ -11297,7 +11299,7 @@ mod tests {
                 body: None,
             }),
             srp: None,
-            third_bodies: None,
+            third_body: None,
             ..Default::default()
         };
 
@@ -11395,7 +11397,7 @@ mod tests {
                 body: None,
             }),
             srp: None,
-            third_bodies: None,
+            third_body: None,
             ..Default::default()
         };
 
@@ -11458,7 +11460,7 @@ mod tests {
                 body: None,
             }),
             srp: None,
-            third_bodies: None,
+            third_body: None,
             ..Default::default()
         };
 
@@ -11527,7 +11529,7 @@ mod tests {
                 eclipse_model: EclipseModel::None,
                 occulting_bodies: vec![OccultingBody::Earth],
             }),
-            third_bodies: Some(vec![ThirdBodyConfiguration {
+            third_body: Some(vec![ThirdBodyConfiguration {
                 body: ThirdBody::Sun,
                 ephemeris_source: EphemerisSource::LowPrecision,
                 gravity: GravityConfiguration::PointMass,
@@ -11633,7 +11635,7 @@ mod tests {
                 body: None,
             }),
             srp: None,
-            third_bodies: None,
+            third_body: None,
             ..Default::default()
         };
 
@@ -11692,7 +11694,7 @@ mod tests {
                 body: None,
             }),
             srp: None,
-            third_bodies: None,
+            third_body: None,
             ..Default::default()
         };
 
@@ -12987,7 +12989,7 @@ mod tests {
 
         let mut cfg = ForceModelConfig::cislunar_default();
         cfg.srp = None;
-        cfg.third_bodies = Some(vec![ThirdBody::Earth.into(), ThirdBody::Sun.into()]);
+        cfg.third_body = Some(vec![ThirdBody::Earth.into(), ThirdBody::Sun.into()]);
 
         let state = DVector::from_vec(x0.as_slice().to_vec());
 
@@ -13553,7 +13555,7 @@ mod tests {
             tides: None,
             drag: None,
             srp: None,
-            third_bodies: None,
+            third_body: None,
             relativity: false,
             mass: None,
             frame_transform:
@@ -13572,7 +13574,7 @@ mod tests {
             }),
             drag: None,
             srp: None,
-            third_bodies: None,
+            third_body: None,
             relativity: false,
             mass: None,
             frame_transform:
@@ -13626,7 +13628,6 @@ mod tests {
     /// different formulations of the same physics; agreement is limited by
     /// the EMB direct-only approximation and integrator tolerance.
     #[test]
-    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial_test::serial]
     fn test_emb_earth_spherical_harmonic_matches_earth_centered() {
         use crate::propagators::force_model_config::ThirdBodyConfiguration;
@@ -13654,7 +13655,7 @@ mod tests {
             gravity: sh(GravityModelSource::ModelType(GravityModelType::EGM2008_360)),
             drag: None,
             srp: None,
-            third_bodies: Some(vec![ThirdBody::Sun.into(), ThirdBody::Moon.into()]),
+            third_body: Some(vec![ThirdBody::Sun.into(), ThirdBody::Moon.into()]),
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -13666,7 +13667,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_bodies: Some(vec![
+            third_body: Some(vec![
                 ThirdBodyConfiguration {
                     gravity: sh(GravityModelSource::ModelType(GravityModelType::EGM2008_360)),
                     ..ThirdBody::Earth.into()
@@ -13730,7 +13731,6 @@ mod tests {
     /// zonal field: central-body EarthZonal about Earth vs Earth-attributed
     /// EarthZonal third body about the EMB.
     #[test]
-    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial_test::serial]
     fn test_emb_earth_zonal_matches_earth_centered() {
         use crate::propagators::force_model_config::{
@@ -13754,7 +13754,7 @@ mod tests {
             },
             drag: None,
             srp: None,
-            third_bodies: Some(vec![ThirdBody::Sun.into(), ThirdBody::Moon.into()]),
+            third_body: Some(vec![ThirdBody::Sun.into(), ThirdBody::Moon.into()]),
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -13766,7 +13766,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_bodies: Some(vec![
+            third_body: Some(vec![
                 ThirdBodyConfiguration {
                     gravity: GravityConfiguration::EarthZonal {
                         degree: ZonalHarmonicsDegree::J2,
@@ -13835,7 +13835,6 @@ mod tests {
     /// difference between the two gravitational formulations, isolating the
     /// attributed-drag evaluation itself.
     #[test]
-    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial_test::serial]
     fn test_emb_attributed_earth_drag_matches_earth_centered() {
         use crate::propagators::force_model_config::ThirdBodyConfiguration;
@@ -13862,27 +13861,26 @@ mod tests {
             ..drag_earth.clone()
         };
 
-        let base =
-            |central: CentralBody,
-             drag: Option<DragConfiguration>,
-             third_bodies: Vec<ThirdBodyConfiguration>| ForceModelConfig {
-                central_body: central,
-                gravity: GravityConfiguration::PointMass,
-                drag,
-                srp: None,
-                third_bodies: Some(third_bodies),
-                relativity: false,
-                mass: Some(ParameterSource::Value(1000.0)),
-                frame_transform: FrameTransformationModel::default(),
-                tides: None,
-            };
+        let base = |central: CentralBody,
+                    drag: Option<DragConfiguration>,
+                    third_body: Vec<ThirdBodyConfiguration>| ForceModelConfig {
+            central_body: central,
+            gravity: GravityConfiguration::PointMass,
+            drag,
+            srp: None,
+            third_body: Some(third_body),
+            relativity: false,
+            mass: Some(ParameterSource::Value(1000.0)),
+            frame_transform: FrameTransformationModel::default(),
+            tides: None,
+        };
 
         let earth_wrt_emb = crate::spice::spk_state(399, 3, epoch).unwrap();
         let x_emb = x_earth + earth_wrt_emb;
         let epoch_end = epoch + 5400.0; // ~one orbit
 
         let run = |central: CentralBody, drag: Option<DragConfiguration>| -> DVector<f64> {
-            let (x0, third_bodies) = if matches!(central, CentralBody::Earth) {
+            let (x0, third_body) = if matches!(central, CentralBody::Earth) {
                 (x_earth, vec![ThirdBody::Moon.into()])
             } else {
                 (x_emb, vec![ThirdBody::Earth.into(), ThirdBody::Moon.into()])
@@ -13891,7 +13889,7 @@ mod tests {
                 epoch,
                 DVector::from_vec(x0.as_slice().to_vec()),
                 NumericalPropagationConfig::default(),
-                base(central, drag, third_bodies),
+                base(central, drag, third_body),
                 None,
                 None,
                 None,
@@ -13922,5 +13920,155 @@ mod tests {
         for i in 3..6 {
             assert_abs_diff_eq!(delta_emb[i], delta_earth[i], epsilon = 1e-4);
         }
+    }
+
+    /// The full cislunar example configuration — Earth spherical-harmonic
+    /// third body plus Earth-attributed drag about the EMB — must reproduce
+    /// the equivalent Earth-centered configuration within the gravitational
+    /// formulation baseline (~5 m per LEO orbit; see the drag-delta test for
+    /// how that baseline is measured).
+    #[test]
+    #[serial_test::serial]
+    fn test_emb_combined_earth_field_and_drag_matches_earth_centered() {
+        use crate::propagators::force_model_config::ThirdBodyConfiguration;
+        use approx::assert_abs_diff_eq;
+
+        setup_global_test_eop();
+        setup_global_test_space_weather();
+        crate::utils::testing::setup_global_test_spice();
+
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let x_earth = state_koe_to_eci(
+            nalgebra::Vector6::new(R_EARTH + 500e3, 0.001, 51.6, 15.0, 30.0, 45.0),
+            AngleFormat::Degrees,
+        );
+
+        let sh = || GravityConfiguration::SphericalHarmonic {
+            source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
+            degree: 8,
+            order: 8,
+            parallel: crate::orbit_dynamics::ParallelMode::Never,
+        };
+        let drag = |body: Option<CentralBody>| {
+            Some(DragConfiguration {
+                model: AtmosphericModel::NRLMSISE00,
+                area: ParameterSource::Value(10.0),
+                cd: ParameterSource::Value(2.2),
+                body,
+            })
+        };
+
+        let config_earth = ForceModelConfig {
+            central_body: CentralBody::Earth,
+            gravity: sh(),
+            drag: drag(None),
+            srp: None,
+            third_body: Some(vec![ThirdBody::Moon.into(), ThirdBody::Sun.into()]),
+            relativity: false,
+            mass: Some(ParameterSource::Value(1000.0)),
+            frame_transform: FrameTransformationModel::default(),
+            tides: None,
+        };
+        let config_emb = ForceModelConfig {
+            central_body: CentralBody::EMB,
+            gravity: GravityConfiguration::Zero,
+            drag: drag(Some(CentralBody::Earth)),
+            srp: None,
+            third_body: Some(vec![
+                ThirdBodyConfiguration {
+                    gravity: sh(),
+                    ..ThirdBody::Earth.into()
+                },
+                ThirdBody::Moon.into(),
+                ThirdBody::Sun.into(),
+            ]),
+            relativity: false,
+            mass: Some(ParameterSource::Value(1000.0)),
+            frame_transform: FrameTransformationModel::default(),
+            tides: None,
+        };
+
+        let x_emb = crate::frames::state_eci_to_emb(epoch, x_earth);
+
+        let mut prop_earth = DNumericalOrbitPropagator::new(
+            epoch,
+            DVector::from_vec(x_earth.as_slice().to_vec()),
+            NumericalPropagationConfig::default(),
+            config_earth,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let mut prop_emb = DNumericalOrbitPropagator::new(
+            epoch,
+            DVector::from_vec(x_emb.as_slice().to_vec()),
+            NumericalPropagationConfig::default(),
+            config_emb,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let epoch_end = epoch + 5400.0; // ~one orbit
+        prop_earth.propagate_to(epoch_end);
+        prop_emb.propagate_to(epoch_end);
+
+        let xf_earth = prop_earth.current_state();
+        let xf_emb_in_eci = crate::frames::state_emb_to_eci(
+            epoch_end,
+            nalgebra::Vector6::from_iterator(prop_emb.current_state().iter().cloned()),
+        );
+
+        for i in 0..3 {
+            assert_abs_diff_eq!(xf_emb_in_eci[i], xf_earth[i], epsilon = 10.0);
+        }
+        for i in 3..6 {
+            assert_abs_diff_eq!(xf_emb_in_eci[i], xf_earth[i], epsilon = 1e-2);
+        }
+    }
+
+    /// Earth-centered propagation with satellite-system perturbers exercises
+    /// the `accel_third_body_for_body` routing arm of the Earth-central
+    /// third-body dispatch (Phobos/Deimos/Custom/Earth-as-perturber bodies).
+    #[test]
+    #[serial_test::serial]
+    fn test_earth_central_satellite_body_third_body_routing() {
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 35786e3, 0.0, 0.0, 0.0, 3075.0, 0.0]);
+
+        let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
+            gravity: GravityConfiguration::PointMass,
+            drag: None,
+            srp: None,
+            third_body: Some(vec![ThirdBody::Phobos.into(), ThirdBody::Deimos.into()]),
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+            tides: None,
+        };
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            force_config,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        prop.propagate_to(epoch + 600.0);
+        let s = prop.current_state();
+        assert!(s.iter().all(|v| v.is_finite()));
     }
 }

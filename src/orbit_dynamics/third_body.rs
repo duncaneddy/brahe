@@ -19,16 +19,17 @@ use crate::propagators::force_model_config::{
 };
 use crate::spice::positions::{spk_pair_position_from_kernels, spk_strictly_resolvable};
 use crate::spice::{
-    SPICEKernel, jupiter_barycenter_position_spice, load_spice_kernel,
-    mars_barycenter_position_spice, mercury_position_spice, moon_position_spice,
-    neptune_barycenter_position_spice, saturn_barycenter_position_spice, spk_position,
-    sun_position_spice, uranus_barycenter_position_spice, venus_position_spice,
+    SPICEKernel, jupiter_barycenter_position_spice, jupiter_position_spice, load_spice_kernel,
+    mars_barycenter_position_spice, mars_position_spice, mercury_position_spice,
+    moon_position_spice, neptune_barycenter_position_spice, neptune_position_spice,
+    saturn_barycenter_position_spice, saturn_position_spice, spk_position, sun_position_spice,
+    uranus_barycenter_position_spice, uranus_position_spice, venus_position_spice,
 };
 use crate::time::Epoch;
 use crate::utils::BraheError;
 use crate::{
-    GM_JUPITER_SYSTEM, GM_MARS_SYSTEM, GM_MERCURY, GM_MOON, GM_NEPTUNE_SYSTEM, GM_SATURN_SYSTEM,
-    GM_SUN, GM_URANUS_SYSTEM, GM_VENUS,
+    GM_JUPITER, GM_JUPITER_SYSTEM, GM_MARS, GM_MARS_SYSTEM, GM_MERCURY, GM_MOON, GM_NEPTUNE,
+    GM_NEPTUNE_SYSTEM, GM_SATURN, GM_SATURN_SYSTEM, GM_SUN, GM_URANUS, GM_URANUS_SYSTEM, GM_VENUS,
 };
 
 fn de_kernel_from_source(source: EphemerisSource) -> SPICEKernel {
@@ -41,14 +42,13 @@ fn de_kernel_from_source(source: EphemerisSource) -> SPICEKernel {
 /// the specified ephemeris source. This function consolidates all
 /// body-specific and source-specific acceleration functions.
 ///
-/// Supports the classical geocentric perturber set: Sun, Moon, Mercury,
-/// Venus, and the planetary-system barycenter variants
-/// ([`ThirdBody::MarsBarycenter`] .. [`ThirdBody::NeptuneBarycenter`]), which
-/// use the system-barycenter position with the system GM — the standard
-/// third-body formulation, requiring only the DE kernel (no satellite
-/// ephemeris kernel download). The planet-center variants (`Mars` ..
-/// `Neptune`) need their satellite-system kernels and are only available
-/// through [`accel_third_body_for_body`].
+/// Supports the Sun, the Moon, Mercury, Venus, and both planet flavors for
+/// Mars through Neptune: the `*Barycenter` variants use the system-barycenter
+/// position with the system GM — the standard third-body formulation,
+/// requiring only the DE kernel — while the planet-center variants (`Mars` ..
+/// `Neptune`) use the true body-center position with the planet-only GM,
+/// auto-loading the corresponding satellite-system ephemeris kernel (e.g.
+/// `mar099s`, ~68 MB-1.1 GB depending on the planet) on first use.
 ///
 /// # Arguments
 ///
@@ -141,12 +141,28 @@ pub fn accel_third_body<P: IntoPosition>(
             GM_MARS_SYSTEM,
         ),
         (
+            ThirdBody::Mars,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
+            mars_position_spice(epc, de_kernel_from_source(source))
+                .expect("Failed to get Mars body-center position"),
+            GM_MARS,
+        ),
+        (
             ThirdBody::JupiterBarycenter,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
             jupiter_barycenter_position_spice(epc, de_kernel_from_source(source))
                 .expect("Failed to get Jupiter system barycenter position"),
             GM_JUPITER_SYSTEM,
+        ),
+        (
+            ThirdBody::Jupiter,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
+            jupiter_position_spice(epc, de_kernel_from_source(source))
+                .expect("Failed to get Jupiter body-center position"),
+            GM_JUPITER,
         ),
         (
             ThirdBody::SaturnBarycenter,
@@ -157,12 +173,28 @@ pub fn accel_third_body<P: IntoPosition>(
             GM_SATURN_SYSTEM,
         ),
         (
+            ThirdBody::Saturn,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
+            saturn_position_spice(epc, de_kernel_from_source(source))
+                .expect("Failed to get Saturn body-center position"),
+            GM_SATURN,
+        ),
+        (
             ThirdBody::UranusBarycenter,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
             uranus_barycenter_position_spice(epc, de_kernel_from_source(source))
                 .expect("Failed to get Uranus system barycenter position"),
             GM_URANUS_SYSTEM,
+        ),
+        (
+            ThirdBody::Uranus,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
+            uranus_position_spice(epc, de_kernel_from_source(source))
+                .expect("Failed to get Uranus body-center position"),
+            GM_URANUS,
         ),
         (
             ThirdBody::NeptuneBarycenter,
@@ -172,29 +204,30 @@ pub fn accel_third_body<P: IntoPosition>(
                 .expect("Failed to get Neptune system barycenter position"),
             GM_NEPTUNE_SYSTEM,
         ),
+        (
+            ThirdBody::Neptune,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
+            neptune_position_spice(epc, de_kernel_from_source(source))
+                .expect("Failed to get Neptune body-center position"),
+            GM_NEPTUNE,
+        ),
 
         // Invalid: bodies only supported through `accel_third_body_for_body`.
         // Earth, Phobos, Deimos, and Custom only make sense relative to a
         // non-Earth central body, which this Earth-centered function does
-        // not model; the planet-center variants (Mars..Neptune) additionally
-        // require their satellite-system ephemeris kernels, which only the
-        // kernel-scoped resolution in `accel_third_body_for_body` handles.
+        // not model.
         (
             body @ (ThirdBody::Earth
             | ThirdBody::Phobos
             | ThirdBody::Deimos
-            | ThirdBody::Mars
-            | ThirdBody::Jupiter
-            | ThirdBody::Saturn
-            | ThirdBody::Uranus
-            | ThirdBody::Neptune
             | ThirdBody::Custom { .. }),
             _,
         ) => {
             panic!(
-                "accel_third_body only supports Sun, Moon, Mercury, Venus, and the \
-                planetary-system barycenters (MarsBarycenter..NeptuneBarycenter). Requested \
-                {:?}. Use accel_third_body_for_body for other bodies.",
+                "accel_third_body only supports the Sun, the Moon, and the planet and \
+                planetary-system-barycenter variants. Requested {:?}. Use \
+                accel_third_body_for_body for other bodies.",
                 body
             )
         }
@@ -408,21 +441,13 @@ fn third_body_direct_only(central_body: &CentralBody, body: &ThirdBody) -> bool 
     }
 }
 
-/// Third-body acceleration with an extended (spherical-harmonic or Earth
-/// zonal) gravity model for the perturber. Crate-internal: used by the
-/// numerical orbit propagator for per-body gravity configurations.
+/// Third-body acceleration with a configured gravity model for the perturber
+/// and caller-supplied (precomputed) rotation and gravity-model resources.
 ///
-/// The direct term evaluates the configured field at the object's position
-/// relative to `body`, oriented by `r_i2b` (the rotation from the
-/// ICRF-oriented propagation frame to `body`'s body-fixed frame — valid for
-/// any frame center since every propagation inertial frame shares the ICRF
-/// orientation). The indirect term stays point-mass, using the field's own
-/// GM (`model.gm`, or `GM_EARTH` for `EarthZonal`) so the far-field limit
-/// reduces exactly to the point-mass tidal formulation. The same barycentric
-/// direct-only rules as [`accel_third_body_for_body`] apply.
-///
-/// A [`GravityConfiguration::PointMass`] entry is accepted for totality and
-/// delegates to the point-mass formulation with `body.gm()`.
+/// This is the hot-path variant behind [`accel_third_body_field_for_body`],
+/// used by the numerical orbit propagator, which resolves the body-fixed
+/// rotation through a per-body cache and the gravity model once at
+/// construction. See the public function for the physics description.
 ///
 /// # Arguments
 ///
@@ -446,7 +471,7 @@ fn third_body_direct_only(central_body: &CentralBody, body: &ThirdBody) -> bool 
 ///   ephemeris cannot be queried, or a `ModelType` spherical-harmonic entry
 ///   is missing its resolved model
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn accel_third_body_extended(
+pub(crate) fn accel_third_body_field_for_body_with_model(
     central_body: &CentralBody,
     body: &ThirdBody,
     gravity: &GravityConfiguration,
@@ -471,6 +496,10 @@ pub(crate) fn accel_third_body_extended(
     let d = r_object - s;
 
     let (direct, gm_indirect) = match gravity {
+        // A Zero entry contributes nothing; `ForceModelConfig::validate`
+        // rejects it (remove the entry instead), so this arm exists for
+        // totality only.
+        GravityConfiguration::Zero => return Ok(Vector3::zeros()),
         GravityConfiguration::PointMass => {
             let gm = body.gm();
             let sd = s - r_object;
@@ -515,6 +544,133 @@ pub(crate) fn accel_third_body_extended(
     } else {
         direct - gm_indirect * s / s.norm().powi(3)
     })
+}
+
+/// Third-body acceleration evaluating a configured gravity model for the
+/// perturbing body: point-mass, spherical-harmonic, or Earth-zonal.
+///
+/// Generalizes [`accel_third_body_for_body`] from point masses to extended
+/// gravity fields. The direct term evaluates the configured field at the
+/// object's position relative to `body`, oriented by the body's own fixed
+/// frame ([`ThirdBody::body_fixed_frame`]) — valid for any frame center
+/// since every propagation inertial frame shares the ICRF orientation. The
+/// indirect term stays point-mass, using the field's own GM (the model's
+/// GM, or `GM_EARTH` for `EarthZonal`) so the far-field limit reduces
+/// exactly to the point-mass tidal formulation. The same barycentric
+/// direct-only rules as [`accel_third_body_for_body`] apply.
+///
+/// Spherical-harmonic models with a [`GravityModelSource::ModelType`] source
+/// are resolved through the process-wide gravity-model cache;
+/// [`GravityModelSource::Global`] reads the global gravity model. For
+/// repeated evaluation prefer configuring a numerical propagator with a
+/// per-body [`crate::propagators::force_model_config::ThirdBodyConfiguration`],
+/// which resolves the model and caches body-fixed rotations across
+/// integrator stages.
+///
+/// # Arguments
+///
+/// * `central_body` - Body the object's position and the returned
+///   acceleration are expressed relative to
+/// * `body` - Perturbing celestial body carrying the gravity field. Must
+///   have a known body-fixed frame for `SphericalHarmonic` (excludes the
+///   `*Barycenter` variants and `Custom` bodies); `EarthZonal` requires
+///   `ThirdBody::Earth`
+/// * `gravity` - Gravity model for the perturber's direct term
+/// * `source` - Ephemeris source for the perturber's position
+/// * `epc` - Epoch for ephemeris lookup
+/// * `r_object` - Position of the object relative to `central_body` (or a
+///   6D state vector, position only used). Units: [m]
+///
+/// # Returns
+///
+/// * `Ok(Vector3<f64>)` - Acceleration in the inertial frame centered on
+///   `central_body`. Units: [m/s²]
+/// * `Err(BraheError)` - If the body coincides with the central body, lacks
+///   a body-fixed frame required by the gravity model, or the ephemeris or
+///   gravity model cannot be resolved
+///
+/// # Example
+///
+/// ```no_run
+/// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
+/// use brahe::orbit_dynamics::gravity::GravityModelType;
+/// use brahe::propagators::CentralBody;
+/// use brahe::propagators::force_model_config::{
+///     EphemerisSource, GravityConfiguration, GravityModelSource, ThirdBody,
+/// };
+/// use brahe::third_body::accel_third_body_field_for_body;
+/// use brahe::time::Epoch;
+/// use nalgebra::Vector3;
+///
+/// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_date(2024, 2, 25, brahe::TimeSystem::UTC);
+/// // Object near the Moon, expressed about the Earth-Moon barycenter
+/// let r_object = Vector3::new(3.8e8, 0.0, 0.0);
+///
+/// // Earth as an 8x8 spherical-harmonic perturber about the EMB
+/// let a_earth = accel_third_body_field_for_body(
+///     &CentralBody::EMB,
+///     &ThirdBody::Earth,
+///     &GravityConfiguration::SphericalHarmonic {
+///         source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
+///         degree: 8,
+///         order: 8,
+///         parallel: brahe::orbit_dynamics::ParallelMode::Never,
+///     },
+///     EphemerisSource::DE440s,
+///     epc,
+///     r_object,
+/// )
+/// .unwrap();
+/// ```
+pub fn accel_third_body_field_for_body<P: IntoPosition>(
+    central_body: &CentralBody,
+    body: &ThirdBody,
+    gravity: &GravityConfiguration,
+    source: EphemerisSource,
+    epc: Epoch,
+    r_object: P,
+) -> Result<Vector3<f64>, BraheError> {
+    // Body-fixed rotation: identity for models that never rotate into a
+    // body-fixed frame (Zero/PointMass), the body's own fixed frame
+    // otherwise. All propagation inertial frames share the ICRF orientation,
+    // so the GCRF-to-body-fixed rotation applies for any frame center.
+    let r_i2b = match gravity {
+        GravityConfiguration::Zero | GravityConfiguration::PointMass => SMatrix3::identity(),
+        _ => {
+            let frame = body.body_fixed_frame().ok_or_else(|| {
+                BraheError::Error(format!(
+                    "GravityConfiguration::{:?} on third body {:?} requires a body with a \
+                     known body-fixed frame",
+                    gravity, body
+                ))
+            })?;
+            crate::frames::rotation_frame_to_frame(crate::frames::ReferenceFrame::GCRF, frame, epc)?
+        }
+    };
+
+    // Resolve a ModelType spherical-harmonic source through the process-wide
+    // cache; Global sources are read inside the evaluation itself.
+    let model = match gravity {
+        GravityConfiguration::SphericalHarmonic {
+            source: GravityModelSource::ModelType(model_type),
+            ..
+        } => Some(GravityModel::shared(model_type)?),
+        _ => None,
+    };
+
+    accel_third_body_field_for_body_with_model(
+        central_body,
+        body,
+        gravity,
+        model.as_deref(),
+        r_i2b,
+        source,
+        epc,
+        r_object.position(),
+    )
 }
 
 /// Calculate the acceleration due to the Sun on an object at a given epoch.
@@ -1544,7 +1700,7 @@ mod tests {
     #[test]
     fn test_accel_third_body_panics_for_unsupported_perturbers() {
         // The unsupported-bodies arm panics for every source: Earth, Phobos,
-        // Deimos, Custom, and the planet-center variants only make sense via
+        // Deimos, and Custom only make sense via
         // `accel_third_body_for_body`. Panics before any ephemeris query, so
         // this is offline.
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -1553,11 +1709,6 @@ mod tests {
             ThirdBody::Earth,
             ThirdBody::Phobos,
             ThirdBody::Deimos,
-            ThirdBody::Mars,
-            ThirdBody::Jupiter,
-            ThirdBody::Saturn,
-            ThirdBody::Uranus,
-            ThirdBody::Neptune,
             ThirdBody::Custom {
                 name: "Ceres".to_string(),
                 naif_id: 2000001,
@@ -1591,8 +1742,7 @@ mod tests {
 
     #[test]
     #[serial]
-    #[cfg_attr(not(feature = "integration"), ignore)]
-    fn test_accel_third_body_extended_far_field_matches_point_mass() {
+    fn test_accel_third_body_field_for_body_with_model_far_field_matches_point_mass() {
         use crate::orbit_dynamics::gravity::{GravityModel, GravityModelType};
         use crate::propagators::force_model_config::{GravityConfiguration, GravityModelSource};
         use crate::utils::testing::setup_global_test_eop;
@@ -1616,7 +1766,7 @@ mod tests {
 
         let model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
 
-        let a_sh = accel_third_body_extended(
+        let a_sh = accel_third_body_field_for_body_with_model(
             &central,
             &ThirdBody::Earth,
             &GravityConfiguration::SphericalHarmonic {
@@ -1652,8 +1802,7 @@ mod tests {
 
     #[test]
     #[serial]
-    #[cfg_attr(not(feature = "integration"), ignore)]
-    fn test_accel_third_body_extended_zonal_consistency() {
+    fn test_accel_third_body_field_for_body_with_model_zonal_consistency() {
         use crate::propagators::force_model_config::{GravityConfiguration, ZonalHarmonicsDegree};
         use crate::utils::testing::setup_global_test_eop;
 
@@ -1671,7 +1820,7 @@ mod tests {
         )
         .unwrap();
 
-        let a_ext = accel_third_body_extended(
+        let a_ext = accel_third_body_field_for_body_with_model(
             &central,
             &ThirdBody::Earth,
             &GravityConfiguration::EarthZonal {
@@ -1700,8 +1849,7 @@ mod tests {
 
     #[test]
     #[serial]
-    #[cfg_attr(not(feature = "integration"), ignore)]
-    fn test_accel_third_body_extended_moon_harmonics_under_earth_central() {
+    fn test_accel_third_body_field_for_body_with_model_moon_harmonics_under_earth_central() {
         use crate::datasets::icgem::ICGEMBody;
         use crate::orbit_dynamics::gravity::{GravityModel, GravityModelType};
         use crate::propagators::force_model_config::{GravityConfiguration, GravityModelSource};
@@ -1726,7 +1874,7 @@ mod tests {
         };
         let model = GravityModel::from_model_type(&model_type).unwrap();
 
-        let a_sh = accel_third_body_extended(
+        let a_sh = accel_third_body_field_for_body_with_model(
             &CentralBody::Earth,
             &ThirdBody::Moon,
             &GravityConfiguration::SphericalHarmonic {
@@ -1764,7 +1912,6 @@ mod tests {
 
     #[test]
     #[serial]
-    #[cfg_attr(not(feature = "integration"), ignore)]
     fn test_planet_center_third_body_about_earth() {
         // The planet-center variants route through accel_third_body_for_body
         // (satellite-system kernels) — the same path the propagator's
@@ -1793,15 +1940,208 @@ mod tests {
             rel < 5e-3,
             "planet-center vs barycenter relative difference {rel}"
         );
+
+        // accel_third_body accepts the planet-center variant directly and
+        // must agree with the for_body formulation about Earth.
+        let a_direct = accel_third_body(ThirdBody::Mars, EphemerisSource::DE440s, epc, r);
+        for i in 0..3 {
+            assert_abs_diff_eq!(a_direct[i], a_planet[i], epsilon = 1e-18);
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_accel_third_body_field_for_body_public_matches_internal() {
+        use crate::orbit_dynamics::gravity::{GravityModel, GravityModelType};
+        use crate::propagators::force_model_config::{GravityConfiguration, GravityModelSource};
+        use crate::utils::testing::setup_global_test_eop;
+
+        setup_global_test_eop();
+        setup_global_test_spice();
+
+        let epc = Epoch::from_datetime(2024, 2, 25, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let central = CentralBody::EMB;
+        let r_object = Vector3::new(3.8e8, 0.0, 0.0);
+        let gravity = GravityConfiguration::SphericalHarmonic {
+            source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
+            degree: 8,
+            order: 8,
+            parallel: crate::orbit_dynamics::ParallelMode::Never,
+        };
+
+        // Public wrapper resolves the rotation and model itself
+        let a_public = accel_third_body_field_for_body(
+            &central,
+            &ThirdBody::Earth,
+            &gravity,
+            EphemerisSource::DE440s,
+            epc,
+            r_object,
+        )
+        .unwrap();
+
+        // Internal variant with explicitly resolved resources
+        let r_i2b = crate::frames::rotation_frame_to_frame(
+            crate::frames::ReferenceFrame::GCRF,
+            crate::frames::ReferenceFrame::ITRF,
+            epc,
+        )
+        .unwrap();
+        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let a_internal = accel_third_body_field_for_body_with_model(
+            &central,
+            &ThirdBody::Earth,
+            &gravity,
+            Some(&model),
+            r_i2b,
+            EphemerisSource::DE440s,
+            epc,
+            r_object,
+        )
+        .unwrap();
+
+        for i in 0..3 {
+            assert_abs_diff_eq!(a_public[i], a_internal[i], epsilon = 1e-18);
+        }
+
+        // A spherical-harmonic field on a body without a fixed frame errors
+        let err = accel_third_body_field_for_body(
+            &central,
+            &ThirdBody::JupiterBarycenter,
+            &gravity,
+            EphemerisSource::DE440s,
+            epc,
+            r_object,
+        );
+        assert!(err.is_err());
     }
 
     #[test]
     #[serial_test::parallel]
-    fn test_accel_third_body_extended_rejects_central_body_coincidence() {
+    fn test_accel_third_body_field_for_body_with_model_point_mass_and_zero_branches() {
+        use crate::propagators::force_model_config::{GravityConfiguration, GravityModelSource};
+
+        // Offline: LowPrecision Sun about Earth needs no kernels.
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+        let r_i2b = SMatrix3::identity();
+
+        // PointMass delegates to the classical formulation
+        let a_pm = accel_third_body_field_for_body_with_model(
+            &CentralBody::Earth,
+            &ThirdBody::Sun,
+            &GravityConfiguration::PointMass,
+            None,
+            r_i2b,
+            EphemerisSource::LowPrecision,
+            epc,
+            r,
+        )
+        .unwrap();
+        let a_ref = accel_third_body_for_body(
+            &CentralBody::Earth,
+            &ThirdBody::Sun,
+            EphemerisSource::LowPrecision,
+            epc,
+            r,
+        )
+        .unwrap();
+        for i in 0..3 {
+            assert_abs_diff_eq!(a_pm[i], a_ref[i], epsilon = 1e-18);
+        }
+
+        // Zero contributes nothing (validation rejects it in force configs;
+        // the arm exists for totality)
+        let a_zero = accel_third_body_field_for_body_with_model(
+            &CentralBody::Earth,
+            &ThirdBody::Sun,
+            &GravityConfiguration::Zero,
+            None,
+            r_i2b,
+            EphemerisSource::LowPrecision,
+            epc,
+            r,
+        )
+        .unwrap();
+        assert_eq!(a_zero, Vector3::zeros());
+
+        // A ModelType spherical-harmonic source without its resolved model
+        // errors instead of panicking
+        let err = accel_third_body_field_for_body_with_model(
+            &CentralBody::Earth,
+            &ThirdBody::Sun,
+            &GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::ModelType(
+                    crate::orbit_dynamics::gravity::GravityModelType::EGM2008_360,
+                ),
+                degree: 4,
+                order: 4,
+                parallel: crate::orbit_dynamics::ParallelMode::Never,
+            },
+            None,
+            r_i2b,
+            EphemerisSource::LowPrecision,
+            epc,
+            r,
+        );
+        assert!(err.is_err());
+    }
+
+    #[test]
+    #[serial]
+    fn test_accel_third_body_field_for_body_with_model_global_source() {
+        use crate::propagators::force_model_config::{GravityConfiguration, GravityModelSource};
+        use crate::utils::testing::{setup_global_test_eop, setup_global_test_gravity_model};
+
+        setup_global_test_eop();
+        setup_global_test_gravity_model();
+        setup_global_test_spice();
+
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(3.8e8, 0.0, 0.0);
+        let r_i2b = crate::frames::rotation_frame_to_frame(
+            crate::frames::ReferenceFrame::GCRF,
+            crate::frames::ReferenceFrame::ITRF,
+            epc,
+        )
+        .unwrap();
+
+        // Global source reads the process-wide gravity model at evaluation
+        let a_global = accel_third_body_field_for_body_with_model(
+            &CentralBody::EMB,
+            &ThirdBody::Earth,
+            &GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::Global,
+                degree: 8,
+                order: 8,
+                parallel: crate::orbit_dynamics::ParallelMode::Never,
+            },
+            None,
+            r_i2b,
+            EphemerisSource::DE440s,
+            epc,
+            r,
+        )
+        .unwrap();
+        let a_pm = accel_third_body_for_body(
+            &CentralBody::EMB,
+            &ThirdBody::Earth,
+            EphemerisSource::DE440s,
+            epc,
+            r,
+        )
+        .unwrap();
+        let rel = (a_global - a_pm).norm() / a_pm.norm();
+        assert!(rel > 0.0 && rel < 1e-4, "relative difference {rel}");
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_accel_third_body_field_for_body_with_model_rejects_central_body_coincidence() {
         use crate::propagators::force_model_config::{GravityConfiguration, ZonalHarmonicsDegree};
 
         let r_i2b = SMatrix3::identity();
-        let result = accel_third_body_extended(
+        let result = accel_third_body_field_for_body_with_model(
             &CentralBody::Earth,
             &ThirdBody::Earth,
             &GravityConfiguration::EarthZonal {

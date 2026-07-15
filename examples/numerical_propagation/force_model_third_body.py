@@ -61,6 +61,6 @@ third_bodies_all_planets = [
 # Create force model with Sun/Moon perturbations (common case)
 force_config = bh.ForceModelConfig(
     gravity=bh.GravityConfiguration(degree=20, order=20),
-    third_bodies=third_bodies_de440s,
+    third_body=third_bodies_de440s,
 )
-print(f"Third bodies: {force_config.third_bodies}")
+print(f"Third bodies: {force_config.third_body}")

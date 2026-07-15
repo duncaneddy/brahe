@@ -30,7 +30,7 @@ force_config = bh.ForceModelConfig(
     ),
     # Third-body: Sun and Moon with DE440s ephemeris (bare bodies coerce to
     # point-mass entries with the default source)
-    third_bodies=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
+    third_body=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
     # General relativistic corrections
     relativity=True,
     # Spacecraft mass (can also use parameter_index for estimation)
@@ -40,6 +40,6 @@ force_config = bh.ForceModelConfig(
 print(f"Gravity: {force_config.gravity}")
 print(f"Drag: {force_config.drag}")
 print(f"SRP: {force_config.srp}")
-print(f"Third-body: {force_config.third_bodies}")
+print(f"Third-body: {force_config.third_body}")
 print(f"Relativity: {force_config.relativity}")
 print(f"Mass: {force_config.mass}")

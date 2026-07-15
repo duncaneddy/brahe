@@ -701,3 +701,57 @@ class TestThirdBodyForBody:
         )
 
         assert np.allclose(got, expected, rtol=1e-12, atol=0.0)
+
+
+class TestThirdBodyFieldForBody:
+    def test_accel_third_body_field_for_body_point_mass_matches_for_body(self):
+        """With a point-mass gravity model the field function reduces to
+        accel_third_body_for_body exactly."""
+        epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+        r = np.array([3.8e8, 0.0, 0.0])
+
+        a_field = bh.accel_third_body_field_for_body(
+            bh.CentralBody.EMB,
+            bh.ThirdBody.EARTH,
+            bh.GravityConfiguration.point_mass(),
+            bh.EphemerisSource.DE440s,
+            epc,
+            r,
+        )
+        a_pm = bh.accel_third_body_for_body(
+            bh.CentralBody.EMB, bh.ThirdBody.EARTH, bh.EphemerisSource.DE440s, epc, r
+        )
+        np.testing.assert_allclose(a_field, a_pm, atol=1e-18)
+
+    def test_accel_third_body_field_for_body_spherical_harmonic(self, eop):
+        """An Earth spherical-harmonic field about the EMB is a small
+        correction to the point-mass acceleration."""
+        epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+        r = np.array([3.8e8, 0.0, 0.0])
+
+        a_field = bh.accel_third_body_field_for_body(
+            bh.CentralBody.EMB,
+            bh.ThirdBody.EARTH,
+            bh.GravityConfiguration.spherical_harmonic(degree=8, order=8),
+            bh.EphemerisSource.DE440s,
+            epc,
+            r,
+        )
+        a_pm = bh.accel_third_body_for_body(
+            bh.CentralBody.EMB, bh.ThirdBody.EARTH, bh.EphemerisSource.DE440s, epc, r
+        )
+        rel = np.linalg.norm(a_field - a_pm) / np.linalg.norm(a_pm)
+        assert 0.0 < rel < 1e-4
+
+    def test_accel_third_body_field_for_body_rejects_missing_frame(self):
+        """A spherical-harmonic field on a barycenter variant errors."""
+        epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+        with pytest.raises(RuntimeError, match="body-fixed frame"):
+            bh.accel_third_body_field_for_body(
+                bh.CentralBody.Earth,
+                bh.ThirdBody.JUPITER_BARYCENTER,
+                bh.GravityConfiguration.spherical_harmonic(degree=4, order=4),
+                bh.EphemerisSource.DE440s,
+                epc,
+                np.array([7e6, 0.0, 0.0]),
+            )

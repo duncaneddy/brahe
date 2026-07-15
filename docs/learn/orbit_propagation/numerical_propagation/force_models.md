@@ -40,6 +40,7 @@ here is a complete example creating a `ForceModelConfig` exercising all availabl
 ``` .no-linenums
 ForceModelConfig
 ├── gravity: GravityConfiguration
+│   ├── Zero
 │   ├── PointMass
 │   ├── SphericalHarmonic { source, degree, order }
 │   └── EarthZonal { degree }
@@ -52,7 +53,7 @@ ForceModelConfig
 │   ├── area: ParameterSource
 │   ├── cr: ParameterSource
 │   └── eclipse_model: EclipseModel
-├── third_bodies: Vec<ThirdBodyConfiguration>
+├── third_body: Vec<ThirdBodyConfiguration>
 │   └── per entry:
 │       ├── body: ThirdBody
 │       ├── ephemeris_source: EphemerisSource
@@ -63,7 +64,7 @@ ForceModelConfig
 
 Each sub-configuration is optional (`None` disables that force). The configuration is captured at propagator construction time and remains immutable during propagation.
 
-Each third-body entry carries its own ephemeris source and gravity model (point-mass by default), and drag can name a `body` other than the central body — see [Body Attribution](#body-attribution) below. In Python, `third_bodies` accepts a single `ThirdBody` or `ThirdBodyConfiguration`, or a list mixing both; bare bodies become point-mass entries with DE440s ephemerides. Serialized configurations deserialize the same shapes.
+Each third-body entry carries its own ephemeris source and gravity model (point-mass by default), and drag can name a `body` other than the central body — see [Body Attribution](#body-attribution) below. In Python, `third_body` accepts a single `ThirdBody` or `ThirdBodyConfiguration`, or a list mixing both; bare bodies become point-mass entries with DE440s ephemerides. Serialized configurations deserialize the same shapes.
 
 ### Parameter Sources
 
@@ -79,7 +80,7 @@ The [Parameter Configuration](#parameter-configuration) section below provides d
 
 ### Gravity Configuration
 
-Gravity is the primary force in orbital mechanics. Brahe supports two gravity models:
+Gravity is the primary force in orbital mechanics. Brahe supports the following central gravity models (plus `GravityConfiguration.zero()` for barycentric propagation centers, which have no mass of their own and take all gravitational forces from third-body entries):
 
 **Point Mass**: Simple two-body central gravity. Fast but ignores Earth's non-spherical shape.
 

@@ -16,7 +16,7 @@ The propagator integrates in the central body's inertial frame (`LCI` for `Moon`
 | Constructor | Central body | Gravity | Drag | SRP occultation | Third bodies |
 |---|---|---|---|---|---|
 | `lunar_default()` | `Moon` | 50x50 GRGM660PRIM | none | Moon, Earth | Earth, Sun |
-| `cislunar_default()` | `EMB` | Point mass | none | Earth, Moon | Earth, Moon, Sun |
+| `cislunar_default()` | `EMB` | None (`Zero`) | none | Earth, Moon | Earth, Moon, Sun |
 
 Both require a spacecraft parameter vector at propagator construction, since mass/area/coefficients are wired up via `ParameterSource::ParameterIndex`. Each expects `[mass, drag_area, Cd, srp_area, Cr]`; because neither model includes drag, the `drag_area` and `Cd` slots (indices 1 and 2) are unused placeholders but must still be present. `.validate()` can be used on the config to check it up front for inconsistent configuration options. For example, with a `Moon` central body it fails on Earth-specific options (e.g. Harris-Priester or NRLMSISE-00 atmospheric drag attributed to the Moon, `EarthZonal` central gravity), and with the `EMB` barycenter it rejects spherical-harmonic central gravity and drag without an attributed body, since a barycenter has no mass or rotation of its own. The same validation also runs automatically when a `NumericalOrbitPropagator` is constructed, so a misconfigured force model fails at construction even without an explicit `.validate()` call.
 
@@ -28,7 +28,7 @@ This handling is automatic: selecting `CentralBody::EMB` (via `cislunar_default(
 
 ## Earth-Attributed Force Models
 
-An EMB-centered trajectory that passes through low Earth altitudes can carry Earth-fidelity forces without switching central bodies. A third-body entry's `gravity` accepts a `SphericalHarmonic` or `EarthZonal` field evaluated at the object's position relative to that body, and `DragConfiguration.body` attributes atmospheric drag to a body other than the central body (density and relative wind are evaluated at the object's Earth-relative state). See [Force Models: Body Attribution](force_models.md#body-attribution) for the configuration details and a complete EMB-centered example with an 8x8 Earth field and Earth-attributed NRLMSISE-00 drag.
+An EMB-centered trajectory that passes through low Earth altitudes can carry Earth-fidelity forces without switching central bodies. A third-body entry's `gravity` accepts a `SphericalHarmonic` or `EarthZonal` field evaluated at the object's position relative to that body, and `DragConfiguration.body` attributes atmospheric drag to a body other than the central body (density and relative wind are evaluated at the object's body-relative state). See [Force Models: Body Attribution](force_models.md#body-attribution) for the configuration details and a complete EMB-centered example with an 8x8 Earth field and Earth-attributed NRLMSISE-00 drag.
 
 ## Example: Propagating an Orbit About the Moon
 

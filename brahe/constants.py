@@ -74,6 +74,7 @@ from brahe._brahe import (
     GM_NEPTUNE,
     GM_NEPTUNE_SYSTEM,
     GM_PLUTO,
+    GM_PLUTO_SYSTEM,
     # Mars constants
     R_MARS,
     OMEGA_MARS,
@@ -147,6 +148,7 @@ __all__ = [
     "GM_NEPTUNE",
     "GM_NEPTUNE_SYSTEM",
     "GM_PLUTO",
+    "GM_PLUTO_SYSTEM",
     # Mars constants
     "R_MARS",
     "OMEGA_MARS",

@@ -31,7 +31,7 @@ fn main() {
         }),
         // Third-body: Sun and Moon with DE440s ephemeris (the default source
         // for bare bodies converted via .into())
-        third_bodies: Some(vec![bh::ThirdBody::Sun.into(), bh::ThirdBody::Moon.into()]),
+        third_body: Some(vec![bh::ThirdBody::Sun.into(), bh::ThirdBody::Moon.into()]),
         // General relativistic corrections
         relativity: true,
         // Spacecraft mass (can also use ParameterIndex for estimation)
@@ -48,7 +48,7 @@ fn main() {
     println!("Gravity: {:?}", force_config.gravity);
     println!("Drag: {:?}", force_config.drag);
     println!("SRP: {:?}", force_config.srp);
-    println!("Third-body: {:?}", force_config.third_bodies);
+    println!("Third-body: {:?}", force_config.third_body);
     println!("Relativity: {:?}", force_config.relativity);
     println!("Mass: {:?}", force_config.mass);
     println!("Frame transform: {:?}", force_config.frame_transform);

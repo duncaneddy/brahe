@@ -12,7 +12,7 @@ fn main() {
         gravity: bh::GravityConfiguration::PointMass,
         drag: None,
         srp: None,
-        third_bodies: None,
+        third_body: None,
         relativity: false,
         mass: None,
         frame_transform: bh::FrameTransformationModel::default(),

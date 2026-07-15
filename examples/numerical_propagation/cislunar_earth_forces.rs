@@ -21,12 +21,12 @@ fn main() {
 
     let epoch = bh::Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh::TimeSystem::UTC);
 
-    // EMB-centered force model: point-mass "central" gravity (the barycenter
-    // has no mass of its own); Earth carries a spherical-harmonic field and
-    // the atmosphere; the Moon and Sun are point-mass perturbers.
+    // EMB-centered force model: no central gravity term (the barycenter has
+    // no mass of its own); Earth carries a spherical-harmonic field and the
+    // atmosphere; the Moon and Sun are point-mass perturbers.
     let force_config = bh::ForceModelConfig {
         central_body: bh::CentralBody::EMB,
-        gravity: bh::GravityConfiguration::PointMass,
+        gravity: bh::GravityConfiguration::Zero,
         drag: Some(bh::DragConfiguration {
             model: bh::AtmosphericModel::NRLMSISE00,
             area: bh::ParameterSource::Value(10.0),
@@ -36,7 +36,7 @@ fn main() {
             body: Some(bh::CentralBody::Earth),
         }),
         srp: None,
-        third_bodies: Some(vec![
+        third_body: Some(vec![
             bh::ThirdBodyConfiguration {
                 body: bh::ThirdBody::Earth,
                 ephemeris_source: bh::EphemerisSource::DE440s,
@@ -57,12 +57,11 @@ fn main() {
     };
     force_config.validate().unwrap();
 
-    // Start from a 500 km Earth orbit, re-expressed about the EMB by adding
-    // Earth's barycentric state from the DE ephemeris.
+    // Start from a 500 km Earth orbit, re-expressed about the EMB via the
+    // ECI->EMBI frame translation.
     let oe = na::SVector::<f64, 6>::new(bh::R_EARTH + 500e3, 0.001, 51.6, 15.0, 30.0, 45.0);
     let x_earth = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
-    let earth_wrt_emb = bh::spice::spk_state(399, 3, epoch).unwrap();
-    let x_emb = x_earth + earth_wrt_emb;
+    let x_emb = bh::frames::state_eci_to_emb(epoch, x_earth);
 
     let mut prop = bh::DNumericalOrbitPropagator::new(
         epoch,
@@ -88,11 +87,12 @@ fn main() {
     );
 
     // Re-express the final state about Earth for reference
-    let earth_wrt_emb_end = bh::spice::spk_state(399, 3, epoch_end).unwrap();
-    let altitude = ((x_final[0] - earth_wrt_emb_end[0]).powi(2)
-        + (x_final[1] - earth_wrt_emb_end[1]).powi(2)
-        + (x_final[2] - earth_wrt_emb_end[2]).powi(2))
-    .sqrt()
-        - bh::R_EARTH;
+    let x_final_eci = bh::frames::state_emb_to_eci(
+        epoch_end,
+        na::SVector::<f64, 6>::from_iterator(x_final.iter().cloned()),
+    );
+    let altitude =
+        (x_final_eci[0].powi(2) + x_final_eci[1].powi(2) + x_final_eci[2].powi(2)).sqrt()
+            - bh::R_EARTH;
     println!("Final altitude above Earth: {:.1} km", altitude / 1e3);
 }

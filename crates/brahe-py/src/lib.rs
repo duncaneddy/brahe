@@ -631,6 +631,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("GM_NEPTUNE", constants::GM_NEPTUNE)?;
     module.add("GM_NEPTUNE_SYSTEM", constants::GM_NEPTUNE_SYSTEM)?;
     module.add("GM_PLUTO", constants::GM_PLUTO)?;
+    module.add("GM_PLUTO_SYSTEM", constants::GM_PLUTO_SYSTEM)?;
     module.add("R_MARS", constants::R_MARS)?;
     module.add("OMEGA_MARS", constants::OMEGA_MARS)?;
     module.add("OMEGA_MOON", constants::OMEGA_MOON)?;
@@ -852,6 +853,10 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_position_mcmf_to_mci, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_mci_to_mcmf, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_mcmf_to_mci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_eci_to_emb, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_emb_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_emb, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_emb_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_position_eci_to_mci, module)?)?;
     module.add_function(wrap_pyfunction!(py_position_mci_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_mci, module)?)?;
@@ -1193,6 +1198,10 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_accel_third_body_uranus_spice, module)?)?;
     module.add_function(wrap_pyfunction!(py_accel_third_body_neptune_spice, module)?)?;
     module.add_function(wrap_pyfunction!(py_accel_third_body_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_accel_third_body_field_for_body,
+        module
+    )?)?;
 
     // Gravity Accelerations
     module.add_function(wrap_pyfunction!(py_accel_point_mass_gravity, module)?)?;

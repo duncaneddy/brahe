@@ -182,7 +182,7 @@ def test_GM_JUPITER():
 
 
 def test_GM_JUPITER_SYSTEM():
-    assert brahe.GM_JUPITER_SYSTEM == 126712764.1 * 1e9
+    assert brahe.GM_JUPITER_SYSTEM == 126712764.09999998 * 1e9
 
 
 def test_GM_SATURN():
@@ -190,7 +190,7 @@ def test_GM_SATURN():
 
 
 def test_GM_SATURN_SYSTEM():
-    assert brahe.GM_SATURN_SYSTEM == 37940584.8418 * 1e9
+    assert brahe.GM_SATURN_SYSTEM == 37940584.841799997 * 1e9
 
 
 def test_GM_URANUS():
@@ -198,7 +198,7 @@ def test_GM_URANUS():
 
 
 def test_GM_URANUS_SYSTEM():
-    assert brahe.GM_URANUS_SYSTEM == 5794556.4 * 1e9
+    assert brahe.GM_URANUS_SYSTEM == 5794556.3999999985 * 1e9
 
 
 def test_GM_NEPTUNE():
@@ -210,7 +210,11 @@ def test_GM_NEPTUNE_SYSTEM():
 
 
 def test_GM_PLUTO():
-    assert brahe.GM_PLUTO == 977.000000 * 1e9
+    assert brahe.GM_PLUTO == 869.6138177608748 * 1e9
+
+
+def test_GM_PLUTO_SYSTEM():
+    assert brahe.GM_PLUTO_SYSTEM == 975.5 * 1e9
 
 
 def test_R_MARS():

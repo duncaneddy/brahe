@@ -244,7 +244,6 @@ Lunar radius.
       show_root_full_path: false
       heading_level: 5
 
-**Value**: `4.283e13` m³/s²
 
 ---
 
@@ -256,7 +255,6 @@ Lunar radius.
       show_root_full_path: false
       heading_level: 5
 
-**Value**: `4.283e13` m³/s²
 
 ---
 
@@ -270,7 +268,6 @@ Lunar radius.
       show_root_full_path: false
       heading_level: 5
 
-**Value**: `1.267e17` m³/s²
 
 ---
 
@@ -282,7 +279,6 @@ Lunar radius.
       show_root_full_path: false
       heading_level: 5
 
-**Value**: `1.267e17` m³/s²
 
 ---
 
@@ -294,7 +290,6 @@ Lunar radius.
       show_root_full_path: false
       heading_level: 5
 
-**Value**: `3.793e16` m³/s²
 
 ---
 
@@ -306,7 +301,6 @@ Lunar radius.
       show_root_full_path: false
       heading_level: 5
 
-**Value**: `3.794e16` m³/s²
 
 ---
 
@@ -318,7 +312,6 @@ Lunar radius.
       show_root_full_path: false
       heading_level: 5
 
-**Value**: `5.794e15` m³/s²
 
 ---
 
@@ -330,7 +323,6 @@ Lunar radius.
       show_root_full_path: false
       heading_level: 5
 
-**Value**: `5.795e15` m³/s²
 
 ---
 
@@ -342,7 +334,6 @@ Lunar radius.
       show_root_full_path: false
       heading_level: 5
 
-**Value**: `6.835e15` m³/s²
 
 ---
 
@@ -354,7 +345,6 @@ Lunar radius.
       show_root_full_path: false
       heading_level: 5
 
-**Value**: `6.837e15` m³/s²
 
 ---
 
@@ -368,6 +358,15 @@ Lunar radius.
       show_root_full_path: false
       heading_level: 5
 
-**Value**: `9.77e11` m³/s²
+
+---
+
+#### GM_PLUTO_SYSTEM
+
+::: brahe.GM_PLUTO_SYSTEM
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+      heading_level: 5
 
 ---

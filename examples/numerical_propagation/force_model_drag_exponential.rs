@@ -27,7 +27,7 @@ fn main() {
         },
         drag: Some(drag_config),
         srp: None,
-        third_bodies: None,
+        third_body: None,
         relativity: false,
         mass: Some(bh::ParameterSource::ParameterIndex(0)),
         frame_transform: bh::FrameTransformationModel::default(),

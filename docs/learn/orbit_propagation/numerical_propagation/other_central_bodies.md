@@ -53,7 +53,7 @@ The example below builds a Mars force model with `ForceModelConfig.mars_default(
 
 For a body outside the built-in table, construct `CentralBody.Custom(name, naif_id, gm, radius=None, omega=None, fixed_frame=None)` with the body's physical properties. For a body without a catalogued NAIF ID (e.g. a newly observed asteroid), self-assign a unique **negative** `naif_id`, mirroring NAIF's own convention for non-catalogued objects. The ID is used for frame identity and force-model validation; ephemeris queries against it will surface an SPK lookup error unless a kernel covering that ID is loaded.
 
-Pair a custom body with a force model using `ForceModelConfig.for_body(central_body, gravity, drag=None, srp=None, third_bodies=None, relativity=False, mass=None)`, which fills in the frame-transformation default so callers specify only the terms that vary per body. Validation runs automatically when the propagator is constructed, rejecting options incompatible with the central body (for example, spherical-harmonic gravity requires the body to have a `fixed_frame`); `.validate()` can also be called directly to check a configuration earlier.
+Pair a custom body with a force model using `ForceModelConfig.for_body(central_body, gravity, drag=None, srp=None, third_body=None, relativity=False, mass=None)`, which fills in the frame-transformation default so callers specify only the terms that vary per body. Validation runs automatically when the propagator is constructed, rejecting options incompatible with the central body (for example, spherical-harmonic gravity requires the body to have a `fixed_frame`); `.validate()` can also be called directly to check a configuration earlier.
 
 ## Body-Fixed Frames Without SPICE Data
 

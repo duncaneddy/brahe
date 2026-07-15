@@ -63,16 +63,16 @@ planetary-system **barycenter** variants (`MarsBarycenter` ..
 `NeptuneBarycenter`, NAIF IDs 4-8, carrying the system gravitational
 parameters `GM_*_SYSTEM`) from the **planet-center** variants (`Mars` ..
 `Neptune`, NAIF IDs 499-899, carrying the planet-only `GM_*` values).
-`accel_third_body` and the `accel_third_body_<planet>_spice` functions use
-the barycenter variants (from the DE kernel alone) — the standard third-body
-formulation, and the same choice made by `*_barycenter_*_spice` in
-[Ephemerides](../../library_api/orbit_dynamics/ephemerides.md). This avoids
-downloading the ~68 MB-1.1 GB satellite ephemeris kernel that the true
-body-center positions require; the barycenter/body-center difference (up to a
-few hundred km for Jupiter and Saturn) is negligible relative to the
-differential third-body acceleration itself. The planet-center variants
-resolve through `accel_third_body_for_body`, which loads the satellite-system
-kernels on demand.
+`accel_third_body` accepts both flavors: barycenter variants resolve from the
+DE kernel alone — the standard third-body formulation, and the same choice
+made by `*_barycenter_*_spice` in
+[Ephemerides](../../library_api/orbit_dynamics/ephemerides.md) and by the
+`accel_third_body_<planet>_spice` convenience functions — while planet-center
+variants use the true body-center position, auto-loading the ~68 MB-1.1 GB
+satellite ephemeris kernel on first use. The barycenter/body-center position
+difference (up to a few hundred km for Jupiter and Saturn) is negligible
+relative to the differential third-body acceleration itself, so the
+barycenter variants remain the default choice in the built-in force models.
 
 ## Usage Examples
 

@@ -381,7 +381,7 @@ fn force_config_from_params(p: &Rk4ForceParams) -> ForceModelConfig {
     if p.third_body_moon {
         bodies.push(ThirdBody::Moon.into());
     }
-    let third_bodies = if !bodies.is_empty() {
+    let third_body = if !bodies.is_empty() {
         Some(bodies)
     } else {
         None
@@ -418,7 +418,7 @@ fn force_config_from_params(p: &Rk4ForceParams) -> ForceModelConfig {
         gravity,
         drag,
         srp,
-        third_bodies,
+        third_body,
         relativity: false,
         mass,
         frame_transform: Default::default(),

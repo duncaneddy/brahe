@@ -32,7 +32,7 @@ force_config = bh.ForceModelConfig.two_body()
 force_config.gravity = bh.GravityConfiguration.spherical_harmonic(20, 20)
 force_config.drag = drag_config
 force_config.srp = srp_config
-force_config.third_bodies = [
+force_config.third_body = [
     bh.ThirdBodyConfiguration(
         bh.ThirdBody.SUN, ephemeris_source=bh.EphemerisSource.LowPrecision
     ),

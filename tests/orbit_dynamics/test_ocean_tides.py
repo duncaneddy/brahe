@@ -27,13 +27,13 @@ def _leo_state():
         [
             bh.R_EARTH + 800e3,
             0.001,
-            np.radians(98.7),
-            np.radians(30.0),
-            np.radians(40.0),
+            98.7,
+            30.0,
+            40.0,
             0.0,
         ]
     )
-    return bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
+    return bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
 
 # ===========================================================================

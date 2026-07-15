@@ -4564,18 +4564,15 @@ mod tests {
         // Degree 160 at LEO altitude overflows the denormalized V/W recursion;
         // the kernel must surface a descriptive error, not silent NaN. The
         // overflow comes from the V/W recursion itself (a function of
-        // geometry and degree only, not the coefficient values), so a
-        // synthetic degree-160 model is used here: the packaged EGM2008_120
-        // model is truncated to degree 120 and can no longer exercise this
-        // degree at all.
-        let gfc = "begin_of_head\n\
-                   modelname synthetic_deg160\n\
-                   earth_gravity_constant 3.986004415e14\n\
-                   radius 6378136.3\n\
-                   max_degree 160\n\
-                   end_of_head\n";
-        let mut model = GravityModel::from_bufreader(BufReader::new(gfc.as_bytes())).unwrap();
-        model.precompute_cunningham_coefficients();
+        // geometry and degree only, not the coefficient values), so the
+        // bundled GGM05S model (max degree 180) is used here to exercise
+        // degree 160 directly.
+        let model = GravityModel::from_model_type_with_coefficients(
+            &GravityModelType::GGM05S,
+            GravityModelCoefficients::Cunningham,
+        )
+        .unwrap();
+        assert!(model.n_max >= 160);
         let r = Vector3::new(6.5e6, 1.2e6, 3.1e6);
         let err = model
             .compute_spherical_harmonics_cunningham(r, 160, 160, ParallelMode::Never)

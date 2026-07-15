@@ -1,3 +1,6 @@
+# /// script
+# dependencies = ["brahe"]
+# ///
 """Force model configuration with the full tide model: solid Earth tides
 (static + time-varying + pole tide) plus FES2004 ocean tides (admittance +
 ocean pole tide). This mirrors the tide configuration used internally by

@@ -1,16 +1,16 @@
 # /// script
 # dependencies = ["brahe", "numpy"]
+# FLAGS = ["NETWORK"]
 # ///
 """
-Solid Earth tidal corrections to the geopotential.
+Tidal corrections to the geopotential: solid Earth tides, the solid Earth
+and ocean pole tides, and FES2004 ocean tides (30x30, admittance-complete).
 Propagates one LEO orbit with tides ON and OFF, and reports the peak
 position difference to show the tidal perturbation magnitude.
 
-Brahe also supports FES2004 ocean tides (`OceanTideConfig`) and both the
-solid Earth and ocean pole tides. They are omitted from this comparison
-because enabling ocean tides downloads a one-time IERS coefficient file
-(~3.7 MB) into `$BRAHE_CACHE/tides/`, which this offline example avoids; see
-the "Ocean Tides" section of the tidal corrections guide.
+Enabling ocean tides downloads a one-time IERS coefficient file (~3.7 MB)
+into `$BRAHE_CACHE/tides/` the first time a propagator with ocean tides
+enabled is constructed.
 """
 
 import math
@@ -46,10 +46,15 @@ def make_propagator(tides_config):
     )
 
 
-# Tides-ON configuration: IERS Step 1 + Step 2 (frequency-dependent), Auto
-# permanent-tide handling (converts the model's C̄20 to conventional tide-free).
-solid = bh.SolidTideConfig(frequency_dependent=True)
-tides_on = bh.TidesConfiguration(permanent=bh.PermanentTideConfig.AUTO, solid=solid)
+# Tides-ON configuration: IERS Step 1 + Step 2 (frequency-dependent) solid
+# Earth tides plus the solid Earth pole tide, FES2004 ocean tides (30x30,
+# admittance-completed) plus the ocean pole tide, and Auto permanent-tide
+# handling (converts the model's C̄20 to conventional tide-free).
+solid = bh.SolidTideConfig(frequency_dependent=True, pole_tide=True)
+ocean = bh.OceanTideConfig(degree=30, order=30, include_admittance=True, pole_tide=True)
+tides_on = bh.TidesConfiguration(
+    permanent=bh.PermanentTideConfig.AUTO, solid=solid, ocean=ocean
+)
 
 prop_on = make_propagator(tides_on)
 prop_off = make_propagator(None)
@@ -73,7 +78,7 @@ for _ in range(n_steps):
     if diff > max_diff_m:
         max_diff_m = diff
 
-print("Solid Earth tides example")
+print("Tidal corrections example")
 print(f"  Orbital period:               {period / 60.0:.1f} min")
 print(
     f"  Max tidal position difference: {max_diff_m:.3f} m  ({max_diff_m / 1e3:.3f} km)"

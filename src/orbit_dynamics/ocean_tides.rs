@@ -6,7 +6,6 @@ once into `$BRAHE_CACHE/tides/` from
 <https://iers-conventions.obspm.fr/content/chapter6/additional_info/tidemodels/fes2004_Cnm-Snm.dat>.
 */
 
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
@@ -14,6 +13,7 @@ use crate::orbit_dynamics::ocean_tides_admittance::ADMITTANCE_TABLE;
 use crate::orbit_dynamics::tides::TideDeltas;
 use crate::utils::BraheError;
 use crate::utils::cache::get_tides_cache_dir;
+use crate::utils::download::download_bytes;
 use crate::utils::fs::atomic_write;
 
 const FES2004_URL: &str = "https://iers-conventions.obspm.fr/content/chapter6/additional_info/tidemodels/fes2004_Cnm-Snm.dat";
@@ -66,19 +66,13 @@ pub fn fes2004_coefficients_path() -> Result<PathBuf, BraheError> {
         return Ok(path);
     }
 
-    let response = ureq::get(FES2004_URL).call().map_err(|e| {
+    let buf = download_bytes(FES2004_URL).map_err(|e| {
         BraheError::Error(format!(
             "FES2004 ocean tide coefficients are not cached and the download from {FES2004_URL} \
              failed: {e}. Download the file manually to {} to proceed offline.",
             path.display()
         ))
     })?;
-    let mut buf = Vec::new();
-    response
-        .into_body()
-        .into_reader()
-        .read_to_end(&mut buf)
-        .map_err(|e| BraheError::Error(format!("FES2004 download read failed: {e}")))?;
     if buf.is_empty() {
         return Err(BraheError::Error(format!(
             "Empty response downloading FES2004 ocean tide coefficients from {FES2004_URL}"
@@ -465,8 +459,8 @@ impl OceanTideModel {
     /// Enforce the documented truncation bounds (2 <= m_max <= n_max <= 100);
     /// out-of-range values would otherwise silently truncate the model.
     ///
-    /// Shared by [`OceanTideModel::from_file`] and [`OceanTideModel::from_cache`]
-    /// so that `from_cache` can reject bad bounds *before* touching the cache
+    /// Shared by [`OceanTideModel::from_file`] and [`OceanTideModel::new`]
+    /// so that `new` can reject bad bounds *before* touching the cache
     /// file: this is a caller-input error, not evidence of a corrupt cache, and
     /// must never trigger cache deletion.
     ///
@@ -554,9 +548,10 @@ impl OceanTideModel {
     /// (a plain error; the cache is left untouched), if the FES2004
     /// coefficients cannot be located or downloaded (see
     /// [`fes2004_coefficients_path`], likewise left untouched), or if the
-    /// cached file itself fails to parse or is missing main constituents — in
-    /// which case it is treated as corrupt, removed, and the error notes that
-    /// it will be re-downloaded on the next call.
+    /// cached file itself fails to parse, is missing main constituents, or
+    /// does not cover the requested degree — in which case it is treated as
+    /// corrupt, removed, and the error notes that it will be re-downloaded on
+    /// the next call.
     ///
     /// # Example
     ///
@@ -564,14 +559,10 @@ impl OceanTideModel {
     /// use brahe::OceanTideModel;
     ///
     /// // Downloads FES2004 coefficients into the cache on first use.
-    /// let model = OceanTideModel::from_cache(20, 20, true).unwrap();
+    /// let model = OceanTideModel::new(20, 20, true).unwrap();
     /// assert_eq!(model.n_max(), 20);
     /// ```
-    pub fn from_cache(
-        n_max: usize,
-        m_max: usize,
-        include_admittance: bool,
-    ) -> Result<Self, BraheError> {
+    pub fn new(n_max: usize, m_max: usize, include_admittance: bool) -> Result<Self, BraheError> {
         // Reject bad truncation bounds up front: this is a caller-input error,
         // not evidence that the cache is corrupt, so it must propagate as a
         // plain error without touching (and, in particular, without deleting)
@@ -581,11 +572,13 @@ impl OceanTideModel {
         // A truncated download is rejected before caching (see
         // `fes2004_coefficients_path`), but a pre-existing cache file may have
         // been corrupted out-of-band (partial write from an older build,
-        // manual tampering, disk error). Validate it and, on failure, remove
-        // it so the next call re-downloads a fresh copy.
+        // manual tampering, disk error, or a degree-truncated file placed at
+        // the canonical cache path). Validate it and, on failure, remove it so
+        // the next call re-downloads a fresh copy.
         Self::from_file(&path, n_max, m_max, include_admittance)
             .and_then(|model| {
                 model.validate_main_waves()?;
+                model.validate_degree_coverage(n_max)?;
                 Ok(model)
             })
             .map_err(|e| {
@@ -609,6 +602,32 @@ impl OceanTideModel {
             if !present.contains(&parse_doodson(d)?) {
                 return Err(BraheError::Error(format!("missing main constituent {d}")));
             }
+        }
+        Ok(())
+    }
+
+    /// Verify the parsed coefficient lines actually reach the requested
+    /// `n_max`, guarding against a cache file that holds all 18 main waves but
+    /// only a low-degree subset (e.g. a degree-truncated fixture placed under
+    /// the canonical cache name), which would otherwise silently zero out
+    /// every high-degree correction instead of erroring.
+    ///
+    /// [`parse_fes2004_file`] truncates at `n_max`, so a genuine, complete
+    /// FES2004 file (degree 100) always yields a maximum parsed degree equal
+    /// to `n_max`; anything less means the cached file itself stops short.
+    fn validate_degree_coverage(&self, n_max: usize) -> Result<(), BraheError> {
+        let max_parsed_degree = self
+            .constituents
+            .iter()
+            .flat_map(|c| &c.lines)
+            .map(|l| l.n as usize)
+            .max()
+            .unwrap_or(0);
+        if max_parsed_degree < n_max {
+            return Err(BraheError::Error(format!(
+                "requested degree coverage n_max={n_max} but the file only contains \
+                 coefficients up to degree {max_parsed_degree}"
+            )));
         }
         Ok(())
     }
@@ -832,16 +851,16 @@ mod tests {
 
     #[test]
     #[serial_test::serial]
-    fn test_from_cache_rejects_bad_bounds_without_deleting_cache() {
+    fn test_new_rejects_bad_bounds_without_deleting_cache() {
         // Out-of-range truncation bounds are a caller-input error, not cache
-        // corruption: `from_cache` must reject them without ever touching a
+        // corruption: `new` must reject them without ever touching a
         // valid, already-cached file.
         let _guard = crate::utils::testing::setup_test_fes2004_cache();
         let cached = std::path::PathBuf::from(crate::utils::cache::get_tides_cache_dir().unwrap())
             .join("fes2004_Cnm-Snm.dat");
         assert!(cached.exists(), "test fixture must be seeded");
 
-        let result = OceanTideModel::from_cache(20, 1, true);
+        let result = OceanTideModel::new(20, 1, true);
         let msg = match result {
             Err(e) => e.to_string(),
             Ok(_) => panic!("m_max=1 must be rejected"),
@@ -885,7 +904,7 @@ mod tests {
 
     #[test]
     #[serial_test::serial]
-    fn test_from_cache_rejects_and_removes_truncated_cache() {
+    fn test_new_rejects_and_removes_truncated_cache() {
         // A pre-existing cache file missing main constituents must be rejected
         // and deleted so the next call re-downloads.
         let dir = tempfile::tempdir().unwrap();
@@ -904,7 +923,7 @@ mod tests {
         unsafe {
             std::env::set_var("BRAHE_CACHE", dir.path());
         }
-        let result = OceanTideModel::from_cache(20, 20, false);
+        let result = OceanTideModel::new(20, 20, false);
         assert!(result.is_err(), "truncated cache must error");
         assert!(!cached.exists(), "corrupt cache file must be removed");
         unsafe {
@@ -913,6 +932,33 @@ mod tests {
                 None => std::env::remove_var("BRAHE_CACHE"),
             }
         }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_new_rejects_degree_truncated_cache() {
+        // The n30 fixture holds all 18 main waves (so `validate_main_waves`
+        // alone would pass it) but only up to degree 30. Requesting a higher
+        // degree must be rejected as a truncated cache, not silently return a
+        // model with high-degree corrections zeroed out.
+        let _guard = crate::utils::testing::setup_test_fes2004_cache();
+        let cached = std::path::PathBuf::from(crate::utils::cache::get_tides_cache_dir().unwrap())
+            .join("fes2004_Cnm-Snm.dat");
+        assert!(cached.exists(), "test fixture must be seeded");
+
+        let result = OceanTideModel::new(50, 50, true);
+        let msg = match result {
+            Err(e) => e.to_string(),
+            Ok(_) => panic!("degree-truncated cache must be rejected"),
+        };
+        assert!(
+            msg.contains("degree"),
+            "error should mention degree coverage, got: {msg}"
+        );
+        assert!(
+            !cached.exists(),
+            "degree-truncated cache file must be removed"
+        );
     }
 
     #[test]
@@ -1031,10 +1077,10 @@ mod tests {
 
     #[test]
     #[serial_test::serial]
-    fn test_ocean_model_from_cache_magnitude() {
+    fn test_ocean_model_new_magnitude() {
         crate::utils::testing::setup_global_test_eop();
         let _guard = crate::utils::testing::setup_test_fes2004_cache();
-        let model = OceanTideModel::from_cache(20, 20, true).unwrap();
+        let model = OceanTideModel::new(20, 20, true).unwrap();
         assert_eq!(model.n_max(), 20);
         assert_eq!(model.num_constituents(), 81); // 18 main + 63 admittance
 
@@ -1053,8 +1099,8 @@ mod tests {
     #[serial_test::serial]
     fn test_ocean_model_admittance_toggle() {
         let _guard = crate::utils::testing::setup_test_fes2004_cache();
-        let with = OceanTideModel::from_cache(20, 20, true).unwrap();
-        let without = OceanTideModel::from_cache(20, 20, false).unwrap();
+        let with = OceanTideModel::new(20, 20, true).unwrap();
+        let without = OceanTideModel::new(20, 20, false).unwrap();
         assert_eq!(with.num_constituents(), 81);
         assert_eq!(without.num_constituents(), 18);
     }

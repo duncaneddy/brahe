@@ -515,27 +515,18 @@ class TestSphericalHarmonicGravity:
                 rel = np.linalg.norm(a_cun - a_cl) / np.linalg.norm(a_cun)
                 assert rel < 1e-10, f"n={n} m={m} rel={rel:e}"
 
-    def test_cunningham_overflow_raises(self, tmp_path):
+    def test_cunningham_overflow_raises(self):
         """Cunningham kernel raises on V/W overflow at high degree, low altitude.
 
         The overflow comes from the V/W recursion itself (a function of
-        geometry and degree only, not the coefficient values), so a synthetic
-        degree-160 model is used: the packaged EGM2008_120 model is truncated
-        to degree 120 and can no longer exercise this degree at all.
+        geometry and degree only, not the coefficient values), so the bundled
+        GGM05S model (max degree 180) is used here to exercise degree 160
+        directly.
         """
-        gfc = (
-            "begin_of_head\n"
-            "modelname synthetic_deg160\n"
-            "earth_gravity_constant 3.986004415e14\n"
-            "radius 6378136.3\n"
-            "max_degree 160\n"
-            "end_of_head\n"
+        model = bh.GravityModel.from_model_type_with_coefficients(
+            bh.GravityModelType.GGM05S, bh.GravityModelCoefficients.Cunningham
         )
-        gfc_path = tmp_path / "synthetic_deg160.gfc"
-        gfc_path.write_text(gfc)
-        model = bh.GravityModel.from_file_with_coefficients(
-            str(gfc_path), bh.GravityModelCoefficients.Both
-        )
+        assert model.n_max >= 160
         r_body = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
         with pytest.raises(Exception, match="non-finite"):
             model.compute_spherical_harmonics_cunningham(r_body, 160, 160)

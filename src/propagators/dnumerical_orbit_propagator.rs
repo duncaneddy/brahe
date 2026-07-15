@@ -303,7 +303,7 @@ impl TideField {
         }
 
         let ocean_model = match &ocean_cfg {
-            Some(o) => Some(OceanTideModel::from_cache(
+            Some(o) => Some(OceanTideModel::new(
                 o.degree,
                 o.order,
                 o.include_admittance,

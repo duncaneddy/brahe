@@ -5,7 +5,7 @@ the secondary (admittance) waves with their linear-interpolation pivot waves.
 Source: IERS Conventions (2010), TN36, Chapter 6, pp. 92-93.
 URL: <https://iers-conventions.obspm.fr/content/chapter6/icc6.pdf>
 
-Transcription notes (verified against the PDF at 600 DPI):
+Transcription notes:
 - Row `117.655`'s pivot 1 is printed in the source as `135.455`, which is not
   a Doodson number of any FES2004 file constituent. This is an erratum in the
   original document; the correct pivot is `135.655` (Q1), consistent with the

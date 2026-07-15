@@ -33,6 +33,9 @@ def main(
         "-t",
         help="Override timeout in seconds (default: Python=180s, Rust=300s)",
     ),
+    ci_only: bool = typer.Option(False, "--ci-only", help="Include CI-ONLY examples"),
+    slow: bool = typer.Option(False, "--slow", help="Include SLOW examples"),
+    network: bool = typer.Option(False, "--network", help="Include NETWORK examples"),
 ):
     """
     Test a specific example.
@@ -124,7 +127,9 @@ def main(
     # Test Rust if requested and found
     if test_rust_lang and rust_file:
         console.print(f"[blue]Testing Rust: {rust_file.relative_to(REPO_ROOT)}[/blue]")
-        should_skip, reason, rust_timeout = check_flags(rust_file)
+        should_skip, reason, rust_timeout = check_flags(
+            rust_file, ci_only, slow, network
+        )
         if should_skip:
             console.print(f"[yellow]SKIP ({reason})[/yellow]")
         else:
@@ -152,7 +157,7 @@ def main(
     # Test Python if requested and found
     if test_python_lang and py_file:
         console.print(f"[blue]Testing Python: {py_file.relative_to(REPO_ROOT)}[/blue]")
-        should_skip, reason, py_timeout = check_flags(py_file)
+        should_skip, reason, py_timeout = check_flags(py_file, ci_only, slow, network)
         if should_skip:
             console.print(f"[yellow]SKIP ({reason})[/yellow]")
         else:

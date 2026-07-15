@@ -337,7 +337,7 @@ with ocean tides enabled is constructed.
 === "Python"
 
     ```python
-    --8<-- "./examples/numerical_propagation/tides_full.py:6"
+    --8<-- "./examples/numerical_propagation/tides_full.py:9"
     ```
 
 === "Rust"
@@ -360,7 +360,7 @@ with tides enabled and disabled, then prints the peak position difference.
 === "Rust"
 
     ```rust
-    --8<-- "./examples/numerical_propagation/force_model_tides.rs:11"
+    --8<-- "./examples/numerical_propagation/force_model_tides.rs:12"
     ```
 
 ??? example "Output"

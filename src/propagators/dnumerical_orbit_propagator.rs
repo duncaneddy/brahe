@@ -29,6 +29,7 @@ use crate::math::interpolation::{
 use crate::math::jacobian::DNumericalJacobian;
 use crate::math::jacobian::DifferenceMethod;
 use crate::math::sensitivity::DNumericalSensitivity;
+use crate::orbit_dynamics::gravity::GravityModelType;
 use crate::orbit_dynamics::third_body::accel_third_body_extended;
 use crate::orbit_dynamics::{
     GravityModel, GravityModelTideSystem, SolidTideConfig, accel_drag_for_body,
@@ -697,13 +698,7 @@ impl DNumericalOrbitPropagator {
                 degree,
                 order,
                 ..
-            } => {
-                let mut arc = GravityModel::shared(model_type)?;
-                if *degree < arc.n_max || *order < arc.m_max {
-                    Arc::make_mut(&mut arc).set_max_degree_order(*degree, *order)?;
-                }
-                Some(arc)
-            }
+            } => Some(Self::resolve_gravity_model(model_type, *degree, *order)?),
             _ => None,
         };
 
@@ -788,18 +783,33 @@ impl DNumericalOrbitPropagator {
                             degree,
                             order,
                             ..
-                        } => {
-                            let mut arc = GravityModel::shared(model_type)?;
-                            if *degree < arc.n_max || *order < arc.m_max {
-                                Arc::make_mut(&mut arc).set_max_degree_order(*degree, *order)?;
-                            }
-                            Ok(Some(arc))
-                        }
+                        } => Self::resolve_gravity_model(model_type, *degree, *order).map(Some),
                         _ => Ok(None),
                     })
                     .collect::<Result<Vec<_>, BraheError>>()?,
                 None => Vec::new(),
             };
+
+        // Verify the attributed drag body's ephemeris is resolvable up front:
+        // load its kernels and probe the state query once at the initial
+        // epoch, so an unresolvable attribution fails at construction with an
+        // error instead of panicking inside the integrator. This also warms
+        // the kernel registry so the per-stage drag query skips loadability
+        // checks.
+        if let Some(drag) = &force_config.drag
+            && let Some(body) = &drag.body
+            && body.naif_id() != force_config.central_body.naif_id()
+        {
+            crate::spice::registry::ensure_bodies_loadable(&[
+                body.naif_id(),
+                force_config.central_body.naif_id(),
+            ])?;
+            crate::spice::registry::spk_state(
+                body.naif_id(),
+                force_config.central_body.naif_id(),
+                epoch,
+            )?;
+        }
 
         // Extract solid-tide config before force_config is moved into the closure.
         let solid_tide = force_config.tides.as_ref().and_then(|t| t.solid);
@@ -1524,10 +1534,6 @@ impl DNumericalOrbitPropagator {
                   -> DVector<f64> {
                 let epoch = epoch_initial + t;
                 let r_i2b = rotation_cache.lock().unwrap().get_or_compute(t, epoch);
-                let attributed_rotations: Vec<(i32, SMatrix3)> = attributed_caches
-                    .iter()
-                    .map(|(id, cache)| (*id, cache.lock().unwrap().get_or_compute(t, epoch)))
-                    .collect();
 
                 // Compute orbital dynamics (first 6 elements) on the stack.
                 // `compute_dynamics` returns a `Vector6<f64>` so the inner
@@ -1543,7 +1549,7 @@ impl DNumericalOrbitPropagator {
                     &third_body_gravity_models,
                     solid_tide,
                     r_i2b,
-                    &attributed_rotations,
+                    &attributed_caches,
                 );
 
                 // Widen the orbital derivative to the full state dimension.
@@ -1654,23 +1660,47 @@ impl DNumericalOrbitPropagator {
         }
     }
 
+    /// Resolve a gravity model from the process-wide cache, truncating a
+    /// copy-on-write clone to the requested degree/order when the cached
+    /// full-resolution model is larger. Shared by the central-body and
+    /// per-third-body model resolution at construction so cache/truncation
+    /// semantics cannot diverge between the two.
+    fn resolve_gravity_model(
+        model_type: &GravityModelType,
+        degree: usize,
+        order: usize,
+    ) -> Result<Arc<GravityModel>, BraheError> {
+        let mut arc = GravityModel::shared(model_type)?;
+        if degree < arc.n_max || order < arc.m_max {
+            Arc::make_mut(&mut arc).set_max_degree_order(degree, order)?;
+        }
+        Ok(arc)
+    }
+
+    /// Look up (or lazily compute and cache) the inertial→body-fixed rotation
+    /// for an attributed body at the given stage time. Panics if the body was
+    /// never registered — `build_shared_dynamics` registers a cache for every
+    /// attributed body a validated configuration can reference, so a miss is
+    /// a programming error, not a user error.
+    fn attributed_rotation(
+        caches: &[(i32, Arc<Mutex<RotationCache>>)],
+        naif_id: i32,
+        t: f64,
+        epoch: Epoch,
+    ) -> SMatrix3 {
+        caches
+            .iter()
+            .find(|(id, _)| *id == naif_id)
+            .map(|(_, cache)| cache.lock().unwrap().get_or_compute(t, epoch))
+            .unwrap_or_else(|| {
+                panic!("no attributed rotation cache registered for NAIF ID {naif_id}")
+            })
+    }
+
     /// Core dynamics computation function
     ///
     /// Computes the state derivative for given time, state, and parameters.
     /// This is the actual force model evaluation logic.
-    #[allow(clippy::too_many_arguments)]
-    /// Look up the precomputed inertial→body-fixed rotation for an attributed
-    /// body. Panics if absent — `build_shared_dynamics` registers every
-    /// attributed body at construction, so a miss is a programming error, not
-    /// a user error.
-    fn attributed_rotation(rotations: &[(i32, SMatrix3)], naif_id: i32) -> SMatrix3 {
-        rotations
-            .iter()
-            .find(|(id, _)| *id == naif_id)
-            .map(|(_, r)| *r)
-            .unwrap_or_else(|| panic!("no attributed rotation registered for NAIF ID {naif_id}"))
-    }
-
     #[allow(clippy::too_many_arguments)]
     fn compute_dynamics(
         t: f64,
@@ -1682,7 +1712,7 @@ impl DNumericalOrbitPropagator {
         third_body_gravity_models: &[Option<Arc<GravityModel>>],
         solid_tide: Option<SolidTideConfig>,
         r_i2b: SMatrix3,
-        attributed_rotations: &[(i32, SMatrix3)],
+        attributed_caches: &[(i32, Arc<Mutex<RotationCache>>)],
     ) -> Vector6<f64> {
         // Convert relative time to absolute Epoch
         let epoch = epoch_initial + t;
@@ -1812,21 +1842,18 @@ impl DNumericalOrbitPropagator {
             let (x_drag, r_i2b_drag) = if attributed.naif_id() == central.naif_id() {
                 (x_eci, r_i2b)
             } else {
-                let body_state = crate::spice::registry::ensure_bodies_loadable(&[
+                // Kernels for the attributed body are loaded and the query
+                // verified once at propagator construction; this per-stage
+                // query only re-evaluates the (time-varying) state.
+                let body_state = crate::spice::registry::spk_state(
                     attributed.naif_id(),
                     central.naif_id(),
-                ])
-                .and_then(|_| {
-                    crate::spice::registry::spk_state(
-                        attributed.naif_id(),
-                        central.naif_id(),
-                        epoch,
-                    )
-                })
+                    epoch,
+                )
                 .expect("SPK drag-body state query failed");
                 (
                     x_eci - body_state,
-                    Self::attributed_rotation(attributed_rotations, attributed.naif_id()),
+                    Self::attributed_rotation(attributed_caches, attributed.naif_id(), t, epoch),
                 )
             };
             let r_drag = Vector3::new(x_drag[0], x_drag[1], x_drag[2]);
@@ -1953,7 +1980,7 @@ impl DNumericalOrbitPropagator {
                 // point-mass (see `accel_third_body_extended`).
                 if !matches!(entry.gravity, GravityConfiguration::PointMass) {
                     let r_i2b_body =
-                        Self::attributed_rotation(attributed_rotations, body.naif_id());
+                        Self::attributed_rotation(attributed_caches, body.naif_id(), t, epoch);
                     a_total += accel_third_body_extended(
                         central,
                         body,

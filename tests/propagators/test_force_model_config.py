@@ -732,3 +732,36 @@ def test_validate_attributed_drag_body():
 
     # Earth central with NRLMSISE-00, no attribution: still accepted
     ForceModelConfig.leo_default().validate()
+
+
+def test_high_fidelity_uses_barycenter_variants():
+    """Mirrors the Rust test of the same name."""
+    config = ForceModelConfig.high_fidelity()
+    bodies = [entry.body for entry in config.third_bodies]
+    assert brahe.ThirdBody.MARS_BARYCENTER in bodies
+    assert brahe.ThirdBody.JUPITER_BARYCENTER in bodies
+    assert brahe.ThirdBody.SATURN_BARYCENTER in bodies
+    assert brahe.ThirdBody.URANUS_BARYCENTER in bodies
+    assert brahe.ThirdBody.NEPTUNE_BARYCENTER in bodies
+    assert brahe.ThirdBody.MARS not in bodies
+
+
+def test_validate_rejects_mars_bodies_for_mars_central():
+    """Mirrors the Rust test of the same name."""
+    for body in [ThirdBody.MARS, ThirdBody.MARS_BARYCENTER]:
+        config = ForceModelConfig.for_body(
+            CentralBody.Mars,
+            GravityConfiguration.point_mass(),
+            third_bodies=[body],
+        )
+        with pytest.raises(RuntimeError):
+            config.validate()
+
+
+def test_third_body_as_central_body():
+    assert brahe.ThirdBody.EARTH.as_central_body() == CentralBody.Earth
+    assert brahe.ThirdBody.MOON.as_central_body() == CentralBody.Moon
+    assert brahe.ThirdBody.MARS.as_central_body() == CentralBody.Mars
+    assert brahe.ThirdBody.MARS_BARYCENTER.as_central_body() is None
+    custom = ThirdBody.Custom(name="Ceres", naif_id=2000001, gm=6.26325e10)
+    assert custom.as_central_body() is None

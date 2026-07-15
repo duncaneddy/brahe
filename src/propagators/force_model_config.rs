@@ -115,7 +115,7 @@ impl ParameterSource {
 ///     ..Default::default()
 /// };
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ForceModelConfig {
     /// Central body the orbit is propagated relative to.
     ///
@@ -137,8 +137,10 @@ pub struct ForceModelConfig {
     ///
     /// Deserializes from a single entry, a list of entries, or bare
     /// [`ThirdBody`] values (which take DE440s ephemerides and point-mass
-    /// gravity).
-    #[serde(default, deserialize_with = "deserialize_third_bodies")]
+    /// gravity). Configurations serialized before the per-body flattening
+    /// (a `third_body` object with `ephemeris_source` and `bodies`) are
+    /// migrated on load, with the pre-split planet names mapped to the
+    /// `*Barycenter` variants they then denoted.
     pub third_bodies: Option<Vec<ThirdBodyConfiguration>>,
 
     /// Enable general relativistic corrections
@@ -1457,6 +1459,88 @@ impl ThirdBodyConfiguration {
     }
 }
 
+impl<'de> serde::Deserialize<'de> for ForceModelConfig {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        /// Pre-flattening third-body configuration shape (one shared
+        /// ephemeris source, a bare list of bodies).
+        #[derive(Deserialize)]
+        struct LegacyThirdBodyConfiguration {
+            ephemeris_source: EphemerisSource,
+            bodies: Vec<ThirdBody>,
+        }
+
+        #[derive(Deserialize)]
+        struct Repr {
+            #[serde(default)]
+            central_body: CentralBody,
+            gravity: GravityConfiguration,
+            drag: Option<DragConfiguration>,
+            srp: Option<SolarRadiationPressureConfiguration>,
+            #[serde(default, deserialize_with = "deserialize_third_bodies")]
+            third_bodies: Option<Vec<ThirdBodyConfiguration>>,
+            #[serde(default)]
+            third_body: Option<LegacyThirdBodyConfiguration>,
+            relativity: bool,
+            mass: Option<ParameterSource>,
+            #[serde(default)]
+            frame_transform: FrameTransformationModel,
+            #[serde(default)]
+            tides: Option<TidesConfiguration>,
+        }
+
+        let repr = Repr::deserialize(deserializer)?;
+        let third_bodies = match (repr.third_bodies, repr.third_body) {
+            (Some(_), Some(_)) => {
+                return Err(serde::de::Error::custom(
+                    "both `third_bodies` and the legacy `third_body` field are present; \
+                     use `third_bodies`",
+                ));
+            }
+            (entries @ Some(_), None) => entries,
+            (None, Some(legacy)) => Some(
+                legacy
+                    .bodies
+                    .into_iter()
+                    .map(|body| {
+                        // Pre-split configurations used Mars..Neptune to mean
+                        // the planetary-system barycenters; remap so a loaded
+                        // legacy configuration keeps its original physics.
+                        let body = match body {
+                            ThirdBody::Mars => ThirdBody::MarsBarycenter,
+                            ThirdBody::Jupiter => ThirdBody::JupiterBarycenter,
+                            ThirdBody::Saturn => ThirdBody::SaturnBarycenter,
+                            ThirdBody::Uranus => ThirdBody::UranusBarycenter,
+                            ThirdBody::Neptune => ThirdBody::NeptuneBarycenter,
+                            other => other,
+                        };
+                        ThirdBodyConfiguration {
+                            body,
+                            ephemeris_source: legacy.ephemeris_source,
+                            gravity: GravityConfiguration::PointMass,
+                        }
+                    })
+                    .collect(),
+            ),
+            (None, None) => None,
+        };
+
+        Ok(ForceModelConfig {
+            central_body: repr.central_body,
+            gravity: repr.gravity,
+            drag: repr.drag,
+            srp: repr.srp,
+            third_bodies,
+            relativity: repr.relativity,
+            mass: repr.mass,
+            frame_transform: repr.frame_transform,
+            tides: repr.tides,
+        })
+    }
+}
+
 impl<'de> serde::Deserialize<'de> for ThirdBodyConfiguration {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -2741,6 +2825,57 @@ mod tests {
         }"#;
         let config: ForceModelConfig = serde_json::from_str(json).unwrap();
         assert!(config.third_bodies.is_none());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_legacy_third_body_field_migrates_on_load() {
+        // Configurations serialized before the per-body flattening carry a
+        // `third_body` object; it migrates to `third_bodies` entries with the
+        // legacy shared ephemeris source and point-mass gravity.
+        let json = r#"{
+            "gravity": "PointMass", "drag": null, "srp": null,
+            "relativity": false, "mass": null,
+            "third_body": {"ephemeris_source": "DE440", "bodies": ["Sun", "Moon"]}
+        }"#;
+        let config: ForceModelConfig = serde_json::from_str(json).unwrap();
+        let tbs = config.third_bodies.unwrap();
+        assert_eq!(tbs.len(), 2);
+        assert_eq!(tbs[0].body, ThirdBody::Sun);
+        assert_eq!(tbs[0].ephemeris_source, EphemerisSource::DE440);
+        assert_eq!(tbs[0].gravity, GravityConfiguration::PointMass);
+        assert_eq!(tbs[1].body, ThirdBody::Moon);
+
+        // Pre-split planet names meant the system barycenters; the migration
+        // preserves that physics.
+        let json = r#"{
+            "gravity": "PointMass", "drag": null, "srp": null,
+            "relativity": false, "mass": null,
+            "third_body": {"ephemeris_source": "DE440s", "bodies": ["Mars", "Jupiter", "Venus"]}
+        }"#;
+        let config: ForceModelConfig = serde_json::from_str(json).unwrap();
+        let tbs = config.third_bodies.unwrap();
+        assert_eq!(tbs[0].body, ThirdBody::MarsBarycenter);
+        assert_eq!(tbs[1].body, ThirdBody::JupiterBarycenter);
+        assert_eq!(tbs[2].body, ThirdBody::Venus);
+
+        // A null legacy field is treated as absent.
+        let json = r#"{
+            "gravity": "PointMass", "drag": null, "srp": null,
+            "relativity": false, "mass": null, "third_body": null
+        }"#;
+        let config: ForceModelConfig = serde_json::from_str(json).unwrap();
+        assert!(config.third_bodies.is_none());
+
+        // Both fields present is ambiguous and rejected.
+        let json = r#"{
+            "gravity": "PointMass", "drag": null, "srp": null,
+            "relativity": false, "mass": null,
+            "third_body": {"ephemeris_source": "DE440s", "bodies": ["Sun"]},
+            "third_bodies": ["Moon"]
+        }"#;
+        let err = serde_json::from_str::<ForceModelConfig>(json).unwrap_err();
+        assert!(err.to_string().contains("legacy"), "{err}");
     }
 
     #[test]

@@ -5148,6 +5148,16 @@ impl PyThirdBody {
         self.body.gm()
     }
 
+    /// The CentralBody equivalent of this perturber, if it is a physical
+    /// body brahe knows how to treat as a frame/parameter center.
+    ///
+    /// Returns:
+    ///     CentralBody | None: Central-body equivalent, or None for the
+    ///         barycenter variants and Custom bodies.
+    fn as_central_body(&self) -> Option<PyCentralBody> {
+        self.body.as_central_body().map(|b| PyCentralBody { body: b })
+    }
+
     /// The body-fixed reference frame a gravity field attached to this body
     /// is expressed in (e.g. ITRF for Earth, LFPA for the Moon, MCMF for
     /// Mars).

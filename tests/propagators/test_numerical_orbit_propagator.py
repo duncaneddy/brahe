@@ -6066,3 +6066,51 @@ def test_emb_attributed_earth_drag_matches_earth_centered(
     assert np.linalg.norm(delta_earth[:3]) > 1.0
     assert np.allclose(delta_emb[:3], delta_earth[:3], atol=0.1)
     assert np.allclose(delta_emb[3:], delta_earth[3:], atol=1e-4)
+
+
+@pytest.mark.integration
+def test_emb_earth_zonal_matches_earth_centered(naif_cache_setup):
+    """EMB-centered propagation with Earth as a J2 zonal third body reproduces
+    the Earth-centered EarthZonal propagation (mirrors the Rust test of the
+    same name)."""
+    import brahe as bh
+
+    epoch = create_test_epoch()
+    oe = np.array([bh.R_EARTH + 700e3, 0.001, 51.6, 15.0, 30.0, 45.0])
+    x_earth = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+
+    zonal = bh.GravityConfiguration.earth_zonal(bh.ZonalHarmonicsDegree.J2)
+
+    config_earth = ForceModelConfig(
+        gravity=zonal,
+        third_bodies=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
+    )
+    config_emb = ForceModelConfig.for_body(
+        CentralBody.EMB,
+        GravityConfiguration.point_mass(),
+        third_bodies=[
+            bh.ThirdBodyConfiguration(bh.ThirdBody.EARTH, gravity=zonal),
+            bh.ThirdBody.MOON,
+            bh.ThirdBody.SUN,
+        ],
+    )
+
+    earth_wrt_emb = spk_state(399, 3, epoch)
+    x_emb = x_earth + earth_wrt_emb
+
+    prop_earth = NumericalOrbitPropagator(
+        epoch, x_earth, NumericalPropagationConfig.default(), config_earth, None
+    )
+    prop_emb = NumericalOrbitPropagator(
+        epoch, x_emb, NumericalPropagationConfig.default(), config_emb, None
+    )
+
+    epoch_end = epoch + 86400.0
+    prop_earth.propagate_to(epoch_end)
+    prop_emb.propagate_to(epoch_end)
+
+    xf_earth = prop_earth.current_state()
+    xf_emb_in_earth = prop_emb.current_state() - spk_state(399, 3, epoch_end)
+
+    assert np.allclose(xf_emb_in_earth[:3], xf_earth[:3], atol=1.0)
+    assert np.allclose(xf_emb_in_earth[3:], xf_earth[3:], atol=1e-3)

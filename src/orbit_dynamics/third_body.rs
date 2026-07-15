@@ -1763,6 +1763,39 @@ mod tests {
     }
 
     #[test]
+    #[serial]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    fn test_planet_center_third_body_about_earth() {
+        // The planet-center variants route through accel_third_body_for_body
+        // (satellite-system kernels) — the same path the propagator's
+        // Earth-central match arm takes. The result must be close to the
+        // system-barycenter formulation: the barycenter offset is small and
+        // the planet-only vs system GM differ by <0.1% for Mars.
+        setup_global_test_spice();
+
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(R_EARTH + 35786e3, 0.0, 0.0);
+
+        let a_planet = accel_third_body_for_body(
+            &CentralBody::Earth,
+            &ThirdBody::Mars,
+            EphemerisSource::DE440s,
+            epc,
+            r,
+        )
+        .unwrap();
+        let a_barycenter =
+            accel_third_body(ThirdBody::MarsBarycenter, EphemerisSource::DE440s, epc, r);
+
+        assert!(a_planet.norm() > 0.0);
+        let rel = (a_planet - a_barycenter).norm() / a_barycenter.norm();
+        assert!(
+            rel < 5e-3,
+            "planet-center vs barycenter relative difference {rel}"
+        );
+    }
+
+    #[test]
     #[serial_test::parallel]
     fn test_accel_third_body_extended_rejects_central_body_coincidence() {
         use crate::propagators::force_model_config::{GravityConfiguration, ZonalHarmonicsDegree};

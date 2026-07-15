@@ -549,6 +549,24 @@ impl Drop for CacheRedirect {
     }
 }
 
+/// Point `BRAHE_CACHE` at a fresh temp dir pre-seeded with the packaged
+/// FES2004 test fixture (degree/order <= 30), so ocean-tide code paths run
+/// offline. The returned guard must be held for the test's duration; callers
+/// mutate process-global env and must be `#[serial]`.
+pub(crate) fn setup_test_fes2004_cache() -> tempfile::TempDir {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let tides = dir.path().join("tides");
+    fs::create_dir_all(&tides).expect("tides cache subdir");
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("test_data/fes2004_Cnm-Snm_n30.dat");
+    fs::copy(&fixture, tides.join("fes2004_Cnm-Snm.dat")).expect("copy FES2004 fixture");
+    // SAFETY: single-threaded within a #[serial] test; no other thread reads
+    // the environment concurrently.
+    unsafe {
+        env::set_var("BRAHE_CACHE", dir.path());
+    }
+    dir
+}
+
 /// Initialize global space weather provider with test data for unit testing.
 ///
 /// Loads `test_assets/sw19571001.txt` and configures with Hold extrapolation.

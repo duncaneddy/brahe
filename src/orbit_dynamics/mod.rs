@@ -31,5 +31,6 @@ pub mod tides;
 pub mod tides_step2_tables;
 pub use tides::{
     PERM_C20_DIRECT, PERM_C20_INDIRECT, SolidTideConfig, accel_solid_earth_tides,
-    solid_earth_tide_deltas, tide_system_c20_offset,
+    ocean_pole_tide_deltas, secular_pole, solid_earth_pole_tide_deltas, solid_earth_tide_deltas,
+    tide_system_c20_offset, wobble_parameters,
 };

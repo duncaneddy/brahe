@@ -11,11 +11,13 @@ Source: <https://iers-conventions.obspm.fr/content/chapter6/icc6.pdf>
 
 use nalgebra::Vector3;
 
-use crate::constants::{AngleFormat, GM_MOON, GM_SUN};
+use crate::constants::{AS2RAD, AngleFormat, GM_MOON, GM_SUN};
+use crate::eop::get_global_pm;
 use crate::orbit_dynamics::gravity::{
     ClenshawCoefficients, GravityModelTideSystem, ParallelMode, clenshaw_acceleration,
 };
 use crate::time::{Epoch, TimeSystem};
+use crate::utils::BraheError;
 
 /// Permanent-tide DIRECT term on the fully-normalized C̄20: the A0*H0 factor
 /// with no Love number, i.e. the lunisolar permanent tide-raising potential
@@ -462,6 +464,118 @@ pub(crate) fn doodson_delaunay_args(epoch: Epoch) -> [f64; 6] {
     [gmst + PI, l, lp, f, d, om]
 }
 
+/// IERS secular pole (x̄s, ȳs) in arcseconds (updated IERS Conventions
+/// §7.1.4, Eq. (21), version 2018/02/01):
+///   xs = 55.0 + 1.677 (t − 2000.0) \[mas\], ys = 320.5 + 3.460 (t − 2000.0) \[mas\]
+/// with t in Julian years (365.25 d) of TT. Supersedes the TN36 (2010)
+/// cubic mean-pole model (adopted with ITRF2014).
+///
+/// # Arguments
+/// - `epoch`: evaluation epoch.
+///
+/// # Returns
+/// (f64, f64): (x̄s, ȳs). Units: arcseconds.
+///
+/// # Examples
+/// ```
+/// use brahe::orbit_dynamics::secular_pole;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epoch = Epoch::from_datetime(2020, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::TT);
+/// let (xs, ys) = secular_pole(epoch);
+/// assert!(xs > 0.0 && ys > 0.0);
+/// ```
+pub fn secular_pole(epoch: Epoch) -> (f64, f64) {
+    let t = 2000.0 + (epoch.mjd_as_time_system(TimeSystem::TT) - 51544.5) / 365.25;
+    let xs_mas = 55.0 + 1.677 * (t - 2000.0);
+    let ys_mas = 320.5 + 3.460 * (t - 2000.0);
+    (xs_mas * 1.0e-3, ys_mas * 1.0e-3)
+}
+
+/// Wobble parameters (m1, m2) in arcseconds (updated IERS Conventions
+/// §7.1.4, Eq. (25)): m1 = xp − x̄s, m2 = −(yp − ȳs), with (xp, yp) from the
+/// global EOP provider (stored in radians; converted here).
+///
+/// # Arguments
+/// - `epoch`: evaluation epoch.
+///
+/// # Returns
+/// (f64, f64): (m1, m2). Units: arcseconds.
+///
+/// # Errors
+/// `BraheError` if global EOP data is not initialized or out of range.
+///
+/// # Examples
+/// ```
+/// use brahe::eop::*;
+/// use brahe::orbit_dynamics::wobble_parameters;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// // Quick EOP initialization
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epoch = Epoch::from_datetime(2020, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let (m1, m2) = wobble_parameters(epoch).unwrap();
+/// ```
+pub fn wobble_parameters(epoch: Epoch) -> Result<(f64, f64), BraheError> {
+    let (xp_rad, yp_rad) = get_global_pm(epoch.mjd_as_time_system(TimeSystem::TT))?;
+    let (xs, ys) = secular_pole(epoch);
+    Ok((xp_rad / AS2RAD - xs, -(yp_rad / AS2RAD - ys)))
+}
+
+/// Solid Earth pole tide ΔC̄21/ΔS̄21 (IERS TN36 §6.4, formulas following
+/// Eq. (6.22), with k2 = 0.3077 + 0.0036i appropriate to the pole tide):
+///   ΔC̄21 = −1.333e−9 (m1 + 0.0115 m2), ΔS̄21 = −1.333e−9 (m2 − 0.0115 m1).
+///
+/// # Arguments
+/// - `m1_arcsec`, `m2_arcsec`: wobble parameters \[arcsec\] (see
+///   [`wobble_parameters`]).
+///
+/// # Returns
+/// (f64, f64): (ΔC̄21, ΔS̄21), fully normalized, dimensionless.
+///
+/// # Examples
+/// ```
+/// use brahe::orbit_dynamics::solid_earth_pole_tide_deltas;
+///
+/// let (dc21, ds21) = solid_earth_pole_tide_deltas(0.05, 0.35);
+/// assert!(dc21.abs() < 1e-9 && ds21.abs() < 1e-9);
+/// ```
+pub fn solid_earth_pole_tide_deltas(m1_arcsec: f64, m2_arcsec: f64) -> (f64, f64) {
+    (
+        -1.333e-9 * (m1_arcsec + 0.0115 * m2_arcsec),
+        -1.333e-9 * (m2_arcsec - 0.0115 * m1_arcsec),
+    )
+}
+
+/// Ocean pole tide ΔC̄21/ΔS̄21, dominant (2,1) term of the Desai (2002)
+/// self-consistent equilibrium model (IERS TN36 §6.5, Eq. (6.24)):
+///   ΔC̄21 = −2.1778e−10 (m1 − 0.01724 m2)
+///   ΔS̄21 = −1.7232e−10 (m2 − 0.03365 m1)
+/// Captures ~90% of the ocean pole tide potential variance (§6.5); the full
+/// degree-360 coefficient file is intentionally not implemented.
+///
+/// # Arguments
+/// - `m1_arcsec`, `m2_arcsec`: wobble parameters \[arcsec\].
+///
+/// # Returns
+/// (f64, f64): (ΔC̄21, ΔS̄21), fully normalized, dimensionless.
+///
+/// # Examples
+/// ```
+/// use brahe::orbit_dynamics::ocean_pole_tide_deltas;
+///
+/// let (dc21, ds21) = ocean_pole_tide_deltas(0.05, 0.35);
+/// assert!(dc21.abs() < 1e-9 && ds21.abs() < 1e-9);
+/// ```
+pub fn ocean_pole_tide_deltas(m1_arcsec: f64, m2_arcsec: f64) -> (f64, f64) {
+    (
+        -2.1778e-10 * (m1_arcsec - 0.01724 * m2_arcsec),
+        -1.7232e-10 * (m2_arcsec - 0.03365 * m1_arcsec),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -796,6 +910,60 @@ mod tests {
         assert_eq!(d.get(4, 4), (0.0, 0.0));
         d.clear();
         assert_eq!(d.get(2, 0), (0.0, 0.0));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_secular_pole_reference_values() {
+        // icc7 §7.1.4 Eq. (21): xs = 55.0 mas, ys = 320.5 mas at t = 2000.0.
+        let epoch = Epoch::from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::TT);
+        let (xs, ys) = secular_pole(epoch);
+        assert!((xs - 0.0550).abs() < 1e-6, "xs = {xs}");
+        assert!((ys - 0.3205).abs() < 1e-6, "ys = {ys}");
+        // +10 years: xs = 55.0 + 16.77 = 71.77 mas; ys = 320.5 + 34.60 = 355.1 mas.
+        let epoch10 = epoch + 10.0 * 365.25 * 86400.0;
+        let (xs, ys) = secular_pole(epoch10);
+        assert!((xs - 0.07177).abs() < 1e-5, "xs(2010) = {xs}");
+        assert!((ys - 0.35510).abs() < 1e-5, "ys(2010) = {ys}");
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_solid_pole_tide_reference_values() {
+        // TN36 §6.4 (formulas after Eq. 6.22): unit wobble responses.
+        let (dc, ds) = solid_earth_pole_tide_deltas(1.0, 0.0);
+        assert!((dc - (-1.333e-9)).abs() < 1e-13);
+        assert!((ds - (-1.333e-9 * -0.0115)).abs() < 1e-13);
+        let (dc, ds) = solid_earth_pole_tide_deltas(0.0, 1.0);
+        assert!((dc - (-1.333e-9 * 0.0115)).abs() < 1e-13);
+        assert!((ds - (-1.333e-9)).abs() < 1e-13);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_ocean_pole_tide_reference_values() {
+        // TN36 §6.5 Eq. (6.24). Note the DIFFERENT ΔS̄21 leading factor.
+        let (dc, ds) = ocean_pole_tide_deltas(1.0, 0.0);
+        assert!((dc - (-2.1778e-10)).abs() < 1e-15);
+        assert!((ds - (-1.7232e-10 * -0.03365)).abs() < 1e-15);
+        let (dc, ds) = ocean_pole_tide_deltas(0.0, 1.0);
+        assert!((dc - (-2.1778e-10 * -0.01724)).abs() < 1e-15);
+        assert!((ds - (-1.7232e-10)).abs() < 1e-15);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_wobble_parameters_sign_convention() {
+        crate::utils::testing::setup_global_test_eop();
+        let epoch = Epoch::from_datetime(2015, 6, 15, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let (m1, m2) = wobble_parameters(epoch).unwrap();
+        // xp, yp are O(0.1") and the secular pole is O(0.05"); wobbles are
+        // bounded by ~0.8" (icc7 §7.1.4) and m2 = -(yp - ys).
+        assert!(m1.abs() < 1.0 && m2.abs() < 1.0, "m1={m1}, m2={m2}");
+        let (xp, yp) = crate::eop::get_global_pm(epoch.mjd_as_time_system(TimeSystem::TT)).unwrap();
+        let (xs, ys) = secular_pole(epoch);
+        assert!((m1 - (xp / crate::constants::AS2RAD - xs)).abs() < 1e-12);
+        assert!((m2 - (-(yp / crate::constants::AS2RAD - ys))).abs() < 1e-12);
     }
 
     #[test]

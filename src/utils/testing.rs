@@ -549,11 +549,33 @@ impl Drop for CacheRedirect {
     }
 }
 
+/// Guard returned by [`setup_test_fes2004_cache`]. Holds the tempdir alive and
+/// restores the previous `BRAHE_CACHE` value on drop, mirroring
+/// [`CacheRedirect`]'s restoration semantics.
+pub(crate) struct Fes2004CacheGuard {
+    _dir: tempfile::TempDir,
+    prev: Option<String>,
+}
+
+impl Drop for Fes2004CacheGuard {
+    fn drop(&mut self) {
+        // SAFETY: single-threaded within a #[serial] test.
+        unsafe {
+            match &self.prev {
+                Some(v) => env::set_var("BRAHE_CACHE", v),
+                None => env::remove_var("BRAHE_CACHE"),
+            }
+        }
+    }
+}
+
 /// Point `BRAHE_CACHE` at a fresh temp dir pre-seeded with the packaged
 /// FES2004 test fixture (degree/order <= 30), so ocean-tide code paths run
-/// offline. The returned guard must be held for the test's duration; callers
-/// mutate process-global env and must be `#[serial]`.
-pub(crate) fn setup_test_fes2004_cache() -> tempfile::TempDir {
+/// offline. The returned guard must be held for the test's duration and
+/// restores the previous `BRAHE_CACHE` value on drop; callers mutate
+/// process-global env and must be `#[serial]`.
+pub(crate) fn setup_test_fes2004_cache() -> Fes2004CacheGuard {
+    let prev = env::var("BRAHE_CACHE").ok();
     let dir = tempfile::tempdir().expect("tempdir");
     let tides = dir.path().join("tides");
     fs::create_dir_all(&tides).expect("tides cache subdir");
@@ -564,7 +586,7 @@ pub(crate) fn setup_test_fes2004_cache() -> tempfile::TempDir {
     unsafe {
         env::set_var("BRAHE_CACHE", dir.path());
     }
-    dir
+    Fes2004CacheGuard { _dir: dir, prev }
 }
 
 /// Initialize global space weather provider with test data for unit testing.

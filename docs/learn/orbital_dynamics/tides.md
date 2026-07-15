@@ -216,11 +216,17 @@ smaller than, the solid Earth tide. Brahe implements the FES2004 ocean tide
 model (IERS TN36 §6.3):
 
 $$
-\Delta\bar{C}_{nm} - i\,\Delta\bar{S}_{nm} = \sum_f
-\left[ (C_f^{+} + C_f^{-}) + i\,(S_f^{+} + S_f^{-}) \right] e^{i\theta_f}
+\Delta\bar{C}_{nm} = \sum_f \left[ (C_f^{+} + C_f^{-})\cos\theta_f
++ (S_f^{+} + S_f^{-})\sin\theta_f \right]
 $$
 
-(real form of Eq. 6.15, summed over tidal constituents $f$), where
+$$
+\Delta\bar{S}_{nm} = \sum_f \left[ (S_f^{+} - S_f^{-})\cos\theta_f
+- (C_f^{+} - C_f^{-})\sin\theta_f \right]
+$$
+
+(the real form of Eq. 6.15, summed over tidal constituents $f$, exactly as
+implemented), where
 $C_f^{\pm}, S_f^{\pm}$ are the prograde (+) and retrograde (−) fully
 normalized Stokes-coefficient amplitudes of constituent $f$, and $\theta_f$ is
 its Doodson/Delaunay tidal argument (§6.2.1) — the same argument construction
@@ -232,8 +238,9 @@ FES2004 coefficients are not bundled with Brahe. The first time a propagator
 is constructed with ocean tides enabled, Brahe downloads the IERS
 coefficient file (`fes2004_Cnm-Snm.dat`, ~3.7 MB) into `$BRAHE_CACHE/tides/`
 and reuses the cached copy on every subsequent call; no network access is
-needed once the file is cached. Degree-1 geocenter rows present in the file
-are skipped, since Brahe's gravity model has no degree-1 term.
+needed once the file is cached. Degree-1 rows present in the file are skipped:
+they represent geocenter motion, not geopotential coefficients about the
+Earth's center of mass.
 
 ### Degree, Order, and Admittance
 
@@ -241,8 +248,9 @@ are skipped, since Brahe's gravity model has no degree-1 term.
 20). The FES2004 file tabulates 18 main tidal constituents directly; setting
 `include_admittance=True` (the default) completes the model with the ~63
 secondary constituents of Table 6.7, obtained by linear admittance
-interpolation between neighboring main waves (Eq. 6.16), at negligible extra
-evaluation cost.
+interpolation between neighboring main waves (Eq. 6.16). The admittance-wave
+coefficients are constant linear combinations of the main-wave coefficients,
+computed once when the model is loaded.
 
 ### Ocean Pole Tide
 

@@ -283,8 +283,6 @@ pub fn solid_earth_tide_deltas(
     config: &SolidTideConfig,
     deltas: &mut TideDeltas,
 ) {
-    let _ = epoch; // used by Step 2 (frequency-dependent corrections in Task 7)
-
     for (r_body, gm_body) in [(r_moon_ecef, GM_MOON), (r_sun_ecef, GM_SUN)] {
         let r = r_body.norm();
         if r <= radius {

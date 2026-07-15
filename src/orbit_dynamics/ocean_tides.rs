@@ -8,6 +8,7 @@ once into `$BRAHE_CACHE/tides/` from
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use crate::orbit_dynamics::ocean_tides_admittance::ADMITTANCE_TABLE;
 use crate::orbit_dynamics::tides::TideDeltas;
@@ -17,6 +18,21 @@ use crate::utils::fs::atomic_write;
 
 const FES2004_URL: &str = "https://iers-conventions.obspm.fr/content/chapter6/additional_info/tidemodels/fes2004_Cnm-Snm.dat";
 const FES2004_FILENAME: &str = "fes2004_Cnm-Snm.dat";
+
+/// Minimum line count of a complete FES2004 coefficient file (the canonical
+/// IERS file has 59,466 lines). A freshly downloaded file shorter than this is
+/// truncated and is rejected before being written to the cache.
+const FES2004_MIN_LINES: usize = 59_000;
+
+/// The 18 FES2004 main-wave Doodson numbers present in the coefficient file
+/// (TN36 §6.3.2; S1 is excluded — it has no admittance pivots and is not in the
+/// file). Every one must be present for a cached file to be considered intact,
+/// and each is an admittance pivot referenced by Table 6.7.
+pub(crate) const FES2004_MAIN_WAVE_DOODSON: [&str; 18] = [
+    "55.565", "55.575", "56.554", "57.555", "65.455", "75.555", "85.455", "93.555", "135.655",
+    "145.555", "163.555", "165.555", "235.755", "245.655", "255.555", "273.555", "275.555",
+    "455.555",
+];
 
 /// Path to the cached FES2004 ocean tide coefficient file, downloading it
 /// (one-time, ~3.7 MB) from IERS if not already cached.
@@ -38,6 +54,18 @@ pub fn fes2004_coefficients_path() -> Result<PathBuf, BraheError> {
         return Ok(path);
     }
 
+    // Serialize downloads within this process so two threads that both find an
+    // empty cache don't fetch concurrently and collide on the PID-based temp
+    // name used by `atomic_write`. Cross-process races remain possible but are
+    // safe: distinct PIDs produce distinct temp names and the final rename is
+    // atomic, so the worst case is redundant downloads, never a corrupt file.
+    static FES2004_DOWNLOAD_LOCK: Mutex<()> = Mutex::new(());
+    let _download_guard = FES2004_DOWNLOAD_LOCK.lock().unwrap();
+    // Another thread may have completed the download while we waited for the lock.
+    if path.exists() {
+        return Ok(path);
+    }
+
     let response = ureq::get(FES2004_URL).call().map_err(|e| {
         BraheError::Error(format!(
             "FES2004 ocean tide coefficients are not cached and the download from {FES2004_URL} \
@@ -54,6 +82,18 @@ pub fn fes2004_coefficients_path() -> Result<PathBuf, BraheError> {
     if buf.is_empty() {
         return Err(BraheError::Error(format!(
             "Empty response downloading FES2004 ocean tide coefficients from {FES2004_URL}"
+        )));
+    }
+    // Validate the freshly downloaded file is complete before promoting it into
+    // the cache, so a truncated download is never atomically written and later
+    // parsed as if it were valid.
+    let line_count = buf.iter().filter(|&&b| b == b'\n').count();
+    if line_count < FES2004_MIN_LINES {
+        return Err(BraheError::Error(format!(
+            "Downloaded FES2004 ocean tide file from {FES2004_URL} is truncated \
+             ({line_count} lines, expected at least {FES2004_MIN_LINES}); it was not \
+             cached. Retry, or download it manually to {}.",
+            path.display()
         )));
     }
     atomic_write(&path, &buf).map_err(|e| {
@@ -84,9 +124,8 @@ pub(crate) struct OceanTideLine {
 #[derive(Debug, Clone)]
 pub(crate) struct OceanTideConstituent {
     pub doodson: [i8; 6],
-    #[allow(dead_code)] // consumed by Task 9+: ocean tide acceleration model
+    #[allow(dead_code)] // diagnostics only: Darwin name (e.g. "M2") carried for debugging
     pub name: String,
-    #[allow(dead_code)] // consumed by Task 9+: ocean tide acceleration model
     pub delaunay: [i32; 6],
     pub lines: Vec<OceanTideLine>,
 }
@@ -172,7 +211,6 @@ pub(crate) fn doodson_to_delaunay(k: [i8; 6]) -> [i32; 6] {
 /// degrees per hour, used only for the time-independent admittance
 /// interpolation weights of Eq. (6.16). Values reproduce the "deg/hr" column
 /// of TN36 Table 6.5c (e.g. M2 = 2τ̇ = 28.98410).
-#[allow(dead_code)] // consumed by Task 7+: ocean tide admittance interpolation
 const DOODSON_RATES_DEG_PER_HOUR: [f64; 6] = [
     14.49205211,
     0.54901653,
@@ -271,6 +309,16 @@ pub(crate) fn parse_fes2004_file(
         let m: u16 = fields[3].parse().map_err(|e| {
             BraheError::Error(format!("{}:{}: bad order: {e}", path.display(), lineno + 1))
         })?;
+        // Reject physically impossible rows: an order exceeding the degree would
+        // alias another packed (n, m) entry in the accumulator (silently, in
+        // release builds), corrupting the coefficient set.
+        if m > n {
+            return Err(BraheError::Error(format!(
+                "{}:{}: invalid coefficient row: order m={m} exceeds degree n={n}",
+                path.display(),
+                lineno + 1
+            )));
+        }
         if n < 2 || (n as usize) > n_max || (m as usize) > m_max {
             continue;
         }
@@ -454,6 +502,14 @@ impl OceanTideModel {
         m_max: usize,
         include_admittance: bool,
     ) -> Result<Self, BraheError> {
+        // Enforce the documented truncation bounds (2 <= m_max <= n_max <= 100);
+        // out-of-range values would otherwise silently truncate the model.
+        if m_max < 2 || n_max > 100 || m_max > n_max {
+            return Err(BraheError::Error(format!(
+                "invalid FES2004 truncation: require 2 <= m_max <= n_max <= 100, \
+                 got n_max={n_max}, m_max={m_max}"
+            )));
+        }
         let mut constituents = parse_fes2004_file(path, n_max, m_max)?;
         if include_admittance {
             let secondary = expand_admittance(&constituents)?;
@@ -495,7 +551,39 @@ impl OceanTideModel {
         include_admittance: bool,
     ) -> Result<Self, BraheError> {
         let path = fes2004_coefficients_path()?;
+        // A truncated download is rejected before caching (see
+        // `fes2004_coefficients_path`), but a pre-existing cache file may have
+        // been corrupted out-of-band (partial write from an older build,
+        // manual tampering, disk error). Validate it and, on failure, remove
+        // it so the next call re-downloads a fresh copy.
         Self::from_file(&path, n_max, m_max, include_admittance)
+            .and_then(|model| {
+                model.validate_main_waves()?;
+                Ok(model)
+            })
+            .map_err(|e| {
+                let _ = std::fs::remove_file(&path);
+                BraheError::Error(format!(
+                    "The cached FES2004 file {} is corrupt or truncated ({e}); it has \
+                     been removed and will be re-downloaded on the next call, or can be \
+                     fetched manually from {FES2004_URL}.",
+                    path.display()
+                ))
+            })
+    }
+
+    /// Verify that all 18 FES2004 main-wave constituents (the pivots required by
+    /// the Table 6.7 admittance expansion) are present, guarding against a
+    /// corrupt or truncated cache that dropped constituents.
+    fn validate_main_waves(&self) -> Result<(), BraheError> {
+        let present: std::collections::HashSet<[i8; 6]> =
+            self.constituents.iter().map(|c| c.doodson).collect();
+        for d in FES2004_MAIN_WAVE_DOODSON {
+            if !present.contains(&parse_doodson(d)?) {
+                return Err(BraheError::Error(format!("missing main constituent {d}")));
+            }
+        }
+        Ok(())
     }
 
     /// Assemble from already-built constituents (test seam and internal use).
@@ -535,7 +623,7 @@ impl OceanTideModel {
     /// # Returns
     ///
     /// * `usize` - Constituent count.
-    #[allow(dead_code)] // consumed by Task 9+: ocean tide acceleration model
+    #[allow(dead_code)] // test-only diagnostics: asserted by unit tests, not used in the library build
     pub(crate) fn num_constituents(&self) -> usize {
         self.constituents.len()
     }
@@ -700,6 +788,7 @@ mod tests {
     fn test_fes2004_download() {
         // Network-gated: clean cache, real download, file is complete.
         let dir = tempfile::tempdir().unwrap();
+        let prev = std::env::var("BRAHE_CACHE").ok();
         unsafe {
             std::env::set_var("BRAHE_CACHE", dir.path());
         }
@@ -707,7 +796,65 @@ mod tests {
         let len = std::fs::metadata(&path).unwrap().len();
         assert!(len > 3_500_000, "downloaded file too small: {len}");
         unsafe {
-            std::env::remove_var("BRAHE_CACHE");
+            match prev {
+                Some(v) => std::env::set_var("BRAHE_CACHE", v),
+                None => std::env::remove_var("BRAHE_CACHE"),
+            }
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_parse_fes2004_rejects_order_gt_degree() {
+        // A data row with m > n would alias another packed (n, m) entry and must
+        // be rejected outright rather than silently corrupting the model.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("bad.dat");
+        std::fs::write(&path, "255.555 M2 2 3 1.0 2.0 3.0 4.0\n").unwrap();
+        let result = parse_fes2004_file(&path, 30, 30);
+        assert!(result.is_err(), "row with m > n must error");
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_from_file_rejects_out_of_range_bounds() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("test_data/fes2004_Cnm-Snm_n30.dat");
+        // m_max < 2, n_max > 100, and m_max > n_max are all rejected.
+        assert!(OceanTideModel::from_file(&path, 1, 1, false).is_err());
+        assert!(OceanTideModel::from_file(&path, 101, 20, false).is_err());
+        assert!(OceanTideModel::from_file(&path, 10, 20, false).is_err());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_from_cache_rejects_and_removes_truncated_cache() {
+        // A pre-existing cache file missing main constituents must be rejected
+        // and deleted so the next call re-downloads.
+        let dir = tempfile::tempdir().unwrap();
+        let tides = dir.path().join("tides");
+        std::fs::create_dir_all(&tides).unwrap();
+        let cached = tides.join("fes2004_Cnm-Snm.dat");
+        let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("test_data/fes2004_Cnm-Snm_n30.dat");
+        let content = std::fs::read_to_string(&fixture).unwrap();
+        // Keep only the first few hundred lines: far fewer than the 18 required
+        // main constituents, so `validate_main_waves` fails.
+        let truncated: String = content.lines().take(400).collect::<Vec<_>>().join("\n");
+        std::fs::write(&cached, &truncated).unwrap();
+
+        let prev = std::env::var("BRAHE_CACHE").ok();
+        unsafe {
+            std::env::set_var("BRAHE_CACHE", dir.path());
+        }
+        let result = OceanTideModel::from_cache(20, 20, false);
+        assert!(result.is_err(), "truncated cache must error");
+        assert!(!cached.exists(), "corrupt cache file must be removed");
+        unsafe {
+            match prev {
+                Some(v) => std::env::set_var("BRAHE_CACHE", v),
+                None => std::env::remove_var("BRAHE_CACHE"),
+            }
         }
     }
 
@@ -723,14 +870,10 @@ mod tests {
             .count();
         assert_eq!(with_pivots, 63);
         // Every pivot must be a main wave present in the FES2004 file.
-        let file_waves: std::collections::HashSet<[i8; 6]> = [
-            "55.565", "55.575", "56.554", "57.555", "65.455", "75.555", "85.455", "93.555",
-            "135.655", "145.555", "163.555", "165.555", "235.755", "245.655", "255.555", "273.555",
-            "275.555", "455.555",
-        ]
-        .iter()
-        .map(|s| parse_doodson(s).unwrap())
-        .collect();
+        let file_waves: std::collections::HashSet<[i8; 6]> = FES2004_MAIN_WAVE_DOODSON
+            .iter()
+            .map(|s| parse_doodson(s).unwrap())
+            .collect();
         for row in ADMITTANCE_TABLE.iter() {
             if let Some((p1, p2)) = row.pivots {
                 assert!(

@@ -1977,11 +1977,15 @@ impl DNumericalOrbitPropagator {
             // acceptable for the tidal perturbation magnitude.
             let r_sun_ecef = r_i2b * sun_position(epoch);
             let r_moon_ecef = r_i2b * moon_position(epoch);
-            let a_ecef = field
-                .lock()
-                .unwrap()
-                .acceleration(t, epoch, r_ecef, r_sun_ecef, r_moon_ecef)
-                .unwrap_or_else(|e| panic!("tidal field evaluation failed: {e}"));
+            // Drop the lock guard before any panic so a tidal evaluation failure
+            // does not poison the mutex (EOP is validated at construction, so
+            // this panic is an unreachable-in-practice backstop).
+            let tide_result = {
+                let mut guard = field.lock().unwrap();
+                guard.acceleration(t, epoch, r_ecef, r_sun_ecef, r_moon_ecef)
+            };
+            let a_ecef =
+                tide_result.unwrap_or_else(|e| panic!("tidal field evaluation failed: {e}"));
             a_total += r_i2b.transpose() * a_ecef;
         }
 

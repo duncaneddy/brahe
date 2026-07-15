@@ -4392,6 +4392,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_clenshaw_coefficients_get_normalized_roundtrips_set() {
         // get_normalized is the exact inverse of set_normalized at every
         // (n, m); m = 0 reports s = 0.0 (the sine column is not stored).

@@ -13191,6 +13191,7 @@ mod tests {
             tides: Some(TidesConfiguration {
                 permanent: PermanentTideConfig::Auto,
                 solid: None,
+                ocean: None,
             }),
             ..ForceModelConfig::earth_gravity()
         };
@@ -13252,6 +13253,7 @@ mod tests {
             tides: Some(TidesConfiguration {
                 permanent: PermanentTideConfig::Auto,
                 solid: None,
+                ocean: None,
             }),
             ..ForceModelConfig::earth_gravity()
         };
@@ -13318,7 +13320,9 @@ mod tests {
                 permanent: PermanentTideConfig::ConvertTo(GravityModelTideSystem::ZeroTide),
                 solid: Some(SolidTideConfig {
                     frequency_dependent: false,
+                    pole_tide: false,
                 }),
+                ocean: None,
             }),
             ..ForceModelConfig::earth_gravity()
         };
@@ -13383,7 +13387,9 @@ mod tests {
                 permanent: PermanentTideConfig::Auto,
                 solid: Some(SolidTideConfig {
                     frequency_dependent: false,
+                    pole_tide: false,
                 }),
+                ocean: None,
             }),
             drag: None,
             srp: None,

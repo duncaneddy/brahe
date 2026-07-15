@@ -3923,6 +3923,7 @@ impl PySolidTideConfig {
         Self {
             config: brahe::orbit_dynamics::tides::SolidTideConfig {
                 frequency_dependent,
+                pole_tide: false,
             },
         }
     }
@@ -4074,6 +4075,7 @@ impl PyTidesConfiguration {
             config: propagators::TidesConfiguration {
                 permanent: permanent.config.clone(),
                 solid: solid.map(|s| s.config),
+                ocean: None,
             },
         })
     }

@@ -10,7 +10,9 @@ fn main() {
         permanent: bh::PermanentTideConfig::Auto,
         solid: Some(bh::SolidTideConfig {
             frequency_dependent: true,
+            pole_tide: false,
         }),
+        ocean: None,
     };
 
     let mut force_config = bh::ForceModelConfig::earth_gravity();

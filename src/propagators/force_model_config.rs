@@ -371,7 +371,11 @@ impl ForceModelConfig {
     /// - SRP with conical eclipse
     /// - Sun, Moon, and all planets (DE440s ephemerides)
     /// - Relativistic corrections enabled
-    /// - Solid Earth tides with frequency-dependent corrections
+    /// - Solid Earth tides with frequency-dependent corrections and the solid
+    ///   pole tide
+    /// - Ocean tides (FES2004, 30x30) with admittance and the ocean pole tide;
+    ///   requires the one-time cached download of the IERS FES2004
+    ///   coefficient file (see `brahe::orbit_dynamics::ocean_tides`)
     pub fn high_fidelity() -> Self {
         Self {
             central_body: CentralBody::Earth,
@@ -413,6 +417,13 @@ impl ForceModelConfig {
                 permanent: PermanentTideConfig::Auto,
                 solid: Some(SolidTideConfig {
                     frequency_dependent: true,
+                    pole_tide: true,
+                }),
+                ocean: Some(OceanTideConfig {
+                    degree: 30,
+                    order: 30,
+                    include_admittance: true,
+                    pole_tide: true,
                 }),
             }),
         }
@@ -576,6 +587,35 @@ pub enum PermanentTideConfig {
     Off,
 }
 
+/// FES2004 ocean tide configuration (IERS TN36 §6.3), plus the ocean pole
+/// tide (§6.5). Requires the one-time cached download of the IERS FES2004
+/// coefficient file (see `brahe::orbit_dynamics::ocean_tides`).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct OceanTideConfig {
+    /// Truncation degree of the ocean tide expansion (2..=100). Default 20.
+    pub degree: usize,
+    /// Truncation order (<= degree). Default 20.
+    pub order: usize,
+    /// Complement the 18 FES2004 main waves with the ~63 secondary waves of
+    /// TN36 Table 6.7 via linear admittance interpolation (Eq. 6.16).
+    /// Default true.
+    pub include_admittance: bool,
+    /// Apply the ocean pole tide (2,1) main term (TN36 Eq. 6.24). Requires
+    /// initialized global EOP data. Default false.
+    pub pole_tide: bool,
+}
+
+impl Default for OceanTideConfig {
+    fn default() -> Self {
+        OceanTideConfig {
+            degree: 20,
+            order: 20,
+            include_admittance: true,
+            pole_tide: false,
+        }
+    }
+}
+
 /// Tidal correction configuration. `None` on `ForceModelConfig` disables all tides.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TidesConfiguration {
@@ -583,6 +623,8 @@ pub struct TidesConfiguration {
     pub permanent: PermanentTideConfig,
     /// Solid Earth tides. `None` disables solid tides (permanent-only is valid).
     pub solid: Option<SolidTideConfig>,
+    /// Ocean tides. `None` disables ocean tides.
+    pub ocean: Option<OceanTideConfig>,
 }
 
 impl Default for TidesConfiguration {
@@ -590,6 +632,7 @@ impl Default for TidesConfiguration {
         Self {
             permanent: PermanentTideConfig::Auto,
             solid: None,
+            ocean: None,
         }
     }
 }
@@ -768,7 +811,7 @@ impl ForceModelConfig {
 
     /// Validate that this configuration's options are compatible with its central body
     ///
-    /// Checks six classes of central-body-dependent constraints:
+    /// Checks seven classes of central-body-dependent constraints:
     /// 1. Earth-specific options (`AtmosphericModel::HarrisPriester`/`NRLMSISE00`,
     ///    `GravityConfiguration::EarthZonal`, `FrameTransformationModel::EarthRotationOnly`,
     ///    `EphemerisSource::LowPrecision`, `TidesConfiguration`) are rejected for any
@@ -787,6 +830,8 @@ impl ForceModelConfig {
     /// 6. `GravityConfiguration::SphericalHarmonic` on a `CentralBody::Custom` body
     ///    requires `central_body.fixed_frame()` to be set (needed to rotate into the
     ///    body-fixed frame the harmonics are expressed in).
+    /// 7. `OceanTideConfig::degree` must be in `2..=100` (the FES2004 file's truncation
+    ///    limit) and `OceanTideConfig::order` must not exceed `degree`.
     ///
     /// This method is called automatically at propagator construction (e.g.
     /// `DNumericalOrbitPropagator::new`); it may also be called explicitly ahead
@@ -861,6 +906,23 @@ impl ForceModelConfig {
                     "EphemerisSource::LowPrecision requires an Earth central body, but \
                      central_body is {}",
                     self.central_body
+                )));
+            }
+        }
+
+        if let Some(ref tides_cfg) = self.tides
+            && let Some(ref ocean) = tides_cfg.ocean
+        {
+            if ocean.degree < 2 || ocean.degree > 100 {
+                return Err(BraheError::Error(format!(
+                    "OceanTideConfig degree must be in 2..=100 (FES2004 file limit), got {}",
+                    ocean.degree
+                )));
+            }
+            if ocean.order > ocean.degree {
+                return Err(BraheError::Error(format!(
+                    "OceanTideConfig order ({}) must not exceed degree ({})",
+                    ocean.order, ocean.degree
                 )));
             }
         }
@@ -1800,7 +1862,9 @@ mod tests {
             permanent: PermanentTideConfig::ConvertTo(GravityModelTideSystem::ZeroTide),
             solid: Some(crate::orbit_dynamics::tides::SolidTideConfig {
                 frequency_dependent: true,
+                pole_tide: false,
             }),
+            ocean: None,
         };
         let json = serde_json::to_string(&cfg).unwrap();
         let back: TidesConfiguration = serde_json::from_str(&json).unwrap();
@@ -1814,6 +1878,118 @@ mod tests {
             "relativity":false,"mass":null,"frame_transform":"FullEarthRotation"}"#;
         let cfg: ForceModelConfig = serde_json::from_str(json).unwrap();
         assert!(cfg.tides.is_none());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_ocean_tide_config_default() {
+        let c = OceanTideConfig::default();
+        assert_eq!(c.degree, 20);
+        assert_eq!(c.order, 20);
+        assert!(c.include_admittance);
+        assert!(!c.pole_tide);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_ocean_tide_config_validation() {
+        let mut config = ForceModelConfig::earth_gravity();
+        config.tides = Some(TidesConfiguration {
+            permanent: PermanentTideConfig::Auto,
+            solid: None,
+            ocean: Some(OceanTideConfig {
+                degree: 101,
+                order: 20,
+                include_admittance: true,
+                pole_tide: false,
+            }),
+        });
+        assert!(config.validate().is_err(), "degree > 100 must be rejected");
+
+        config.tides = Some(TidesConfiguration {
+            permanent: PermanentTideConfig::Auto,
+            solid: None,
+            ocean: Some(OceanTideConfig {
+                degree: 20,
+                order: 30,
+                include_admittance: true,
+                pole_tide: false,
+            }),
+        });
+        assert!(
+            config.validate().is_err(),
+            "order > degree must be rejected"
+        );
+
+        config.tides = Some(TidesConfiguration {
+            permanent: PermanentTideConfig::Auto,
+            solid: None,
+            ocean: Some(OceanTideConfig {
+                degree: 1,
+                order: 1,
+                include_admittance: true,
+                pole_tide: false,
+            }),
+        });
+        assert!(config.validate().is_err(), "degree < 2 must be rejected");
+
+        config.tides = Some(TidesConfiguration {
+            permanent: PermanentTideConfig::Auto,
+            solid: None,
+            ocean: Some(OceanTideConfig::default()),
+        });
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_tides_configuration_serde_roundtrip() {
+        let tides = TidesConfiguration {
+            permanent: PermanentTideConfig::Auto,
+            solid: Some(SolidTideConfig {
+                frequency_dependent: true,
+                pole_tide: true,
+            }),
+            ocean: Some(OceanTideConfig {
+                degree: 30,
+                order: 30,
+                include_admittance: false,
+                pole_tide: true,
+            }),
+        };
+        let json = serde_json::to_string(&tides).unwrap();
+        let back: TidesConfiguration = serde_json::from_str(&json).unwrap();
+        assert_eq!(tides, back);
+        // pole_tide has a serde default (matches frequency_dependent convention).
+        let solid: SolidTideConfig = serde_json::from_str("{}").unwrap();
+        assert!(!solid.pole_tide);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_tides_configuration_missing_ocean_key_deserializes_none() {
+        // serde_derive deserializes a missing Option field to None even without
+        // #[serde(default)], so configurations serialized before the ocean field
+        // existed load with ocean tides disabled rather than erroring.
+        let tides: TidesConfiguration =
+            serde_json::from_str(r#"{"permanent":"Auto","solid":null}"#).unwrap();
+        assert_eq!(tides.ocean, None);
+        assert_eq!(tides.solid, None);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_high_fidelity_enables_all_tides() {
+        let config = ForceModelConfig::high_fidelity();
+        let tides = config.tides.unwrap();
+        let solid = tides.solid.unwrap();
+        assert!(solid.frequency_dependent);
+        assert!(solid.pole_tide);
+        let ocean = tides.ocean.unwrap();
+        assert_eq!(ocean.degree, 30);
+        assert_eq!(ocean.order, 30);
+        assert!(ocean.include_admittance);
+        assert!(ocean.pole_tide);
     }
 
     #[test]

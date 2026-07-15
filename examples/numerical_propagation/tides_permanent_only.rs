@@ -8,6 +8,7 @@ fn main() {
     let tides = bh::TidesConfiguration {
         permanent: bh::PermanentTideConfig::Auto,
         solid: None,
+        ocean: None,
     };
 
     let mut force_config = bh::ForceModelConfig::earth_gravity();

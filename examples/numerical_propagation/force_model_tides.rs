@@ -66,7 +66,9 @@ fn main() {
         permanent: bh::PermanentTideConfig::Auto,
         solid: Some(bh::SolidTideConfig {
             frequency_dependent: true,
+            pole_tide: false,
         }),
+        ocean: None,
     };
 
     let mut prop_on = make_propagator(epoch, state_dv.clone(), Some(tides_on));

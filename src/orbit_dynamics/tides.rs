@@ -196,6 +196,10 @@ pub struct SolidTideConfig {
     /// Apply IERS Step 2 frequency-dependent corrections (Tables 6.5a/b/c).
     #[serde(default)]
     pub frequency_dependent: bool,
+    /// Apply the solid Earth pole tide ΔC̄21/ΔS̄21 (IERS TN36 §6.4). Requires
+    /// initialized global EOP data (polar motion).
+    #[serde(default)]
+    pub pole_tide: bool,
 }
 
 /// IERS Table 6.3 nominal anelastic Love numbers, (Re, Im), index [n][m].
@@ -673,6 +677,7 @@ mod tests {
         let r_sun = Vector3::new(1.496e11, 0.0, 0.0);
         let cfg = SolidTideConfig {
             frequency_dependent: false,
+            pole_tide: false,
         };
         let mut deltas = TideDeltas::new(4, 4);
         solid_earth_tide_deltas(r_sun, r_moon, epoch, GM_EARTH, R_EARTH, &cfg, &mut deltas);
@@ -703,6 +708,7 @@ mod tests {
         let r_sun = Vector3::new(1.496e11, 0.0, 0.0);
         let cfg = SolidTideConfig {
             frequency_dependent: false,
+            pole_tide: false,
         };
         let a = accel_solid_earth_tides(r_sat, r_sun, r_moon, epoch, GM_EARTH, R_EARTH, &cfg);
         assert!(a.norm().is_finite());
@@ -825,9 +831,11 @@ mod tests {
 
         let cfg_off = SolidTideConfig {
             frequency_dependent: false,
+            pole_tide: false,
         };
         let cfg_on = SolidTideConfig {
             frequency_dependent: true,
+            pole_tide: false,
         };
 
         let mut deltas_off = TideDeltas::new(4, 4);

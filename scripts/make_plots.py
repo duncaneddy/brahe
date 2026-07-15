@@ -34,7 +34,7 @@ def main(
     ),
     ci_only: bool = typer.Option(False, "--ci-only", help="Include CI-ONLY plots"),
     slow: bool = typer.Option(False, "--slow", help="Include SLOW plots"),
-    ignore: bool = typer.Option(False, "--ignore", help="Include IGNORE plots"),
+    network: bool = typer.Option(False, "--network", help="Include NETWORK plots"),
 ):
     """Generate all documentation plots and figures."""
     console.print("\n[bold blue]Generating Documentation Figures[/bold blue]\n")
@@ -67,7 +67,7 @@ def main(
     skipped_count = 0
     for plot_file in plot_files:
         should_skip, reason, file_timeout = check_flags(
-            plot_file, ci_only, slow, ignore
+            plot_file, ci_only, slow, network
         )
 
         if should_skip:

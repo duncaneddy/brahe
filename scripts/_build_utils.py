@@ -150,7 +150,7 @@ def check_flags(
     file_path: Path,
     enable_ci_only: bool = False,
     enable_slow: bool = False,
-    enable_ignore: bool = False,
+    enable_network: bool = False,
 ) -> tuple[bool, str, int | None]:
     """Check if example/plot should be skipped based on FLAGS and return custom TIMEOUT if set.
 
@@ -178,12 +178,13 @@ def check_flags(
                 flags = [f.strip().strip('"').strip("'") for f in flags_str.split(",")]
 
                 # MANUAL examples are never run automatically — not even by
-                # --ignore. Used for scaffolding templates and examples that
-                # require credentials/services that are never wired into CI.
+                # --network. Used for scaffolding templates, examples that
+                # require credentials/services that are never wired into CI,
+                # and scripts that regenerate committed artifacts.
                 if "MANUAL" in flags:
                     return True, "manual", timeout_seconds
-                if "IGNORE" in flags and not enable_ignore:
-                    return True, "ignored", timeout_seconds
+                if "NETWORK" in flags and not enable_network:
+                    return True, "network", timeout_seconds
                 if "CI-ONLY" in flags and not enable_ci_only:
                     return True, "ci-only", timeout_seconds
                 if "SLOW" in flags and not enable_slow:
@@ -291,7 +292,7 @@ def run_files_parallel(
     cli_timeout: Optional[int],
     ci_only: bool,
     slow: bool,
-    ignore: bool,
+    network: bool,
     num_workers: int,
     progress: Progress,
     task_id,
@@ -303,7 +304,7 @@ def run_files_parallel(
     tasks = []
     for file_path in files:
         should_skip, reason, file_timeout = check_flags_fn(
-            file_path, ci_only, slow, ignore
+            file_path, ci_only, slow, network
         )
         results.total += 1
 

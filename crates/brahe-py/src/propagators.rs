@@ -4152,6 +4152,12 @@ impl PyPermanentTideConfig {
 ///         None disables solid tides. Default is None.
 ///     ocean (OceanTideConfig, optional): Ocean tide configuration. None
 ///         disables ocean tides. Default is None.
+///     ephemeris_source (EphemerisSource, optional): Source for the Sun and
+///         Moon positions the tidal corrections are computed from. Defaults to
+///         EphemerisSource.LowPrecision (the analytic geocentric ephemerides),
+///         which is accurate enough for the ~1e-7 m/s^2 tidal perturbation. Set
+///         to a high-precision source to share positions with a third-body
+///         perturbation configured against the same source.
 ///
 /// Example:
 ///     ```python
@@ -4170,12 +4176,13 @@ pub struct PyTidesConfiguration {
 #[pymethods]
 impl PyTidesConfiguration {
     #[new]
-    #[pyo3(signature = (permanent, solid=None, ocean=None))]
+    #[pyo3(signature = (permanent, solid=None, ocean=None, ephemeris_source=PyEphemerisSource::LowPrecision))]
     fn new(
         py: Python,
         permanent: &PyPermanentTideConfig,
         solid: Option<&PySolidTideConfig>,
         ocean: Option<&PyOceanTideConfig>,
+        ephemeris_source: PyEphemerisSource,
     ) -> PyResult<Self> {
         if let propagators::PermanentTideConfig::ConvertTo(sys) = &permanent.config
             && *sys != orbit_dynamics::GravityModelTideSystem::TideFree
@@ -4201,6 +4208,7 @@ impl PyTidesConfiguration {
                 permanent: permanent.config.clone(),
                 solid: solid.map(|s| s.config),
                 ocean: ocean.map(|o| o.config),
+                ephemeris_source: ephemeris_source.into(),
             },
         })
     }
@@ -4225,10 +4233,33 @@ impl PyTidesConfiguration {
         self.config.ocean.map(|o| PyOceanTideConfig { config: o })
     }
 
+    /// Get the ephemeris source for the tidal Sun and Moon positions.
+    #[getter]
+    fn ephemeris_source(&self) -> PyEphemerisSource {
+        match self.config.ephemeris_source {
+            propagators::EphemerisSource::LowPrecision => PyEphemerisSource::LowPrecision,
+            propagators::EphemerisSource::DE440s => PyEphemerisSource::DE440s,
+            propagators::EphemerisSource::DE440 => PyEphemerisSource::DE440,
+            propagators::EphemerisSource::SPK(spice::SPICEKernel::DE440) => {
+                PyEphemerisSource::DE440
+            }
+            // The Python `EphemerisSource` enum exposes only LowPrecision/DE440s/DE440,
+            // so it can never construct any other SPK kernel; map the remainder to
+            // DE440s as the closest Python-visible source.
+            propagators::EphemerisSource::SPK(_) => PyEphemerisSource::DE440s,
+        }
+    }
+
+    /// Set the ephemeris source for the tidal Sun and Moon positions.
+    #[setter]
+    fn set_ephemeris_source(&mut self, source: PyEphemerisSource) {
+        self.config.ephemeris_source = source.into();
+    }
+
     fn __repr__(&self) -> String {
         format!(
-            "TidesConfiguration(permanent={:?}, solid={:?}, ocean={:?})",
-            self.config.permanent, self.config.solid, self.config.ocean
+            "TidesConfiguration(permanent={:?}, solid={:?}, ocean={:?}, ephemeris_source={:?})",
+            self.config.permanent, self.config.solid, self.config.ocean, self.config.ephemeris_source
         )
     }
 }

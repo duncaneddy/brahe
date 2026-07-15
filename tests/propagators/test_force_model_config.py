@@ -525,6 +525,22 @@ def test_tides_config_roundtrip():
     assert cfg.tides.solid.frequency_dependent is True
 
 
+def test_tides_config_ephemeris_source_kwarg():
+    """The ephemeris_source kwarg defaults to LowPrecision and round-trips."""
+    # Default when omitted.
+    default_tides = brahe.TidesConfiguration(permanent=brahe.PermanentTideConfig.AUTO)
+    assert default_tides.ephemeris_source == brahe.EphemerisSource.LowPrecision
+
+    # Explicit high-precision source round-trips through the getter and setter.
+    tides = brahe.TidesConfiguration(
+        permanent=brahe.PermanentTideConfig.AUTO,
+        ephemeris_source=brahe.EphemerisSource.DE440s,
+    )
+    assert tides.ephemeris_source == brahe.EphemerisSource.DE440s
+    tides.ephemeris_source = brahe.EphemerisSource.DE440
+    assert tides.ephemeris_source == brahe.EphemerisSource.DE440
+
+
 def test_forcemodelconfig_tides_kwarg():
     """Test that ForceModelConfig constructor accepts a tides kwarg and round-trips it."""
     solid = brahe.SolidTideConfig(frequency_dependent=True)

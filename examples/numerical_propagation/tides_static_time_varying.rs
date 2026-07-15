@@ -7,6 +7,7 @@ fn main() {
     // of the solid Earth tide correction. `frequency_dependent: true` adds the
     // tidal-line refinements (IERS Tables 6.5a/b/c) on top of the static correction.
     let tides = bh::TidesConfiguration {
+        ephemeris_source: bh::EphemerisSource::LowPrecision,
         permanent: bh::PermanentTideConfig::Auto,
         solid: Some(bh::SolidTideConfig {
             frequency_dependent: true,

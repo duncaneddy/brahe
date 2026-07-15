@@ -276,6 +276,23 @@ global EOP data.
     with `ocean` defaulting to `None` — ocean tides stay disabled unless the
     field is set explicitly.
 
+### Sun and Moon Ephemeris Source
+
+The tidal corrections are driven by the Sun and Moon positions. The
+`ephemeris_source` field of `TidesConfiguration` selects how those positions
+are computed and defaults to `EphemerisSource.LowPrecision` (the analytic
+geocentric ephemerides), which is accurate enough for the ~$10^{-7}$ m/s²
+tidal perturbation. Set it to a high-precision source
+(`EphemerisSource.DE440s`/`DE440`) to match a third-body perturbation
+configured against the same source — when the sources match, the propagator
+evaluates the Sun and Moon positions once per epoch and shares them between the
+tidal and third-body force terms. `ForceModelConfig.high_fidelity()` sets
+`ephemeris_source=EphemerisSource.DE440s` for exactly this consistency with its
+third-body configuration.
+
+A configuration serialized before this field existed deserializes without
+error, defaulting to `EphemerisSource.LowPrecision`.
+
 ### Permanent Tide Only
 
 Normalizes the static field to conventional tide-free without adding any

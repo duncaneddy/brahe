@@ -6,6 +6,7 @@ fn main() {
     // Permanent tide + the static (frequency-independent) solid Earth tide correction.
     // `frequency_dependent: false` keeps only the always-on static part.
     let tides = bh::TidesConfiguration {
+        ephemeris_source: bh::EphemerisSource::LowPrecision,
         permanent: bh::PermanentTideConfig::Auto,
         solid: Some(bh::SolidTideConfig {
             frequency_dependent: false,

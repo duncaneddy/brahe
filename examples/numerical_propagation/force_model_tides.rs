@@ -72,6 +72,7 @@ fn main() {
     // admittance-completed) plus the ocean pole tide, and Auto permanent-tide
     // handling (converts the model's C̄20 to conventional tide-free).
     let tides_on = bh::TidesConfiguration {
+        ephemeris_source: bh::EphemerisSource::LowPrecision,
         permanent: bh::PermanentTideConfig::Auto,
         solid: Some(bh::SolidTideConfig {
             frequency_dependent: true,

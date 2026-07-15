@@ -26,6 +26,7 @@ fn main() {
     };
 
     let tides = bh::TidesConfiguration {
+        ephemeris_source: bh::EphemerisSource::LowPrecision,
         permanent: bh::PermanentTideConfig::Auto,
         solid: Some(solid),
         ocean: Some(ocean),

@@ -321,7 +321,7 @@ mod tests {
     use crate::orbit_dynamics::ParallelMode;
     use crate::orbit_dynamics::gravity::{GravityModel, GravityModelType};
     use crate::orbit_dynamics::{SolidTideConfig, moon_position, sun_position};
-    use crate::propagators::force_model_config::ForceModelConfig;
+    use crate::propagators::force_model_config::{EphemerisSource, ForceModelConfig};
     use crate::propagators::{DNumericalOrbitPropagator, NumericalPropagationConfig};
     use crate::state_koe_to_eci;
     use crate::time::{Epoch, TimeSystem};
@@ -338,6 +338,7 @@ mod tests {
         let _guard = crate::utils::testing::setup_test_fes2004_cache();
         let mut config = ForceModelConfig::earth_gravity(); // 20x20 EGM2008_120
         config.tides = Some(TidesConfiguration {
+            ephemeris_source: EphemerisSource::LowPrecision,
             permanent: PermanentTideConfig::Off,
             solid: Some(SolidTideConfig {
                 frequency_dependent: true,
@@ -377,6 +378,7 @@ mod tests {
         // Tides fully disabled -> no field at all.
         let mut config_off = config.clone();
         config_off.tides = Some(TidesConfiguration {
+            ephemeris_source: EphemerisSource::LowPrecision,
             permanent: PermanentTideConfig::Off,
             solid: None,
             ocean: None,
@@ -399,6 +401,7 @@ mod tests {
         let _guard = crate::utils::testing::setup_test_fes2004_cache();
         let mut config = ForceModelConfig::earth_gravity();
         config.tides = Some(TidesConfiguration {
+            ephemeris_source: EphemerisSource::LowPrecision,
             permanent: PermanentTideConfig::Off,
             solid: Some(SolidTideConfig {
                 frequency_dependent: false,
@@ -426,6 +429,7 @@ mod tests {
         crate::utils::testing::setup_global_test_eop();
         let mut config = ForceModelConfig::two_body_gravity();
         config.tides = Some(TidesConfiguration {
+            ephemeris_source: EphemerisSource::LowPrecision,
             permanent: PermanentTideConfig::Off,
             solid: Some(SolidTideConfig {
                 frequency_dependent: false,
@@ -457,6 +461,7 @@ mod tests {
 
         let mut config = ForceModelConfig::earth_gravity();
         config.tides = Some(TidesConfiguration {
+            ephemeris_source: EphemerisSource::LowPrecision,
             permanent: PermanentTideConfig::Off,
             solid: Some(SolidTideConfig {
                 frequency_dependent: false,

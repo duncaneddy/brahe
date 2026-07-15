@@ -1,9 +1,9 @@
 Downloading GPS GP records from CelesTrak...
-Initialized propagators for 32 GPS satellites in 0.35 seconds.
-Propagated all satellites to one orbit in 0.59 seconds.
+Initialized propagators for 32 GPS satellites in 0.15 seconds.
+Propagated all satellites to one orbit in 0.52 seconds.
 
 Creating 3D visualization of satellites...
-Created base 3D plot in 4.24 seconds.
+Created base 3D plot in 4.12 seconds.
 
 ✓ Generated docs/figures/visualizing_gps_light.html
 ✓ Generated docs/figures/visualizing_gps_dark.html

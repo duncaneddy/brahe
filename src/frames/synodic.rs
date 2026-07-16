@@ -203,7 +203,6 @@ pub(crate) fn body_gm(naif_id: i32) -> Result<f64, BraheError> {
 /// # Returns
 /// - `(R, Ṙ)`: Rotation matrix from ICRF-aligned axes to synodic axes,
 ///   and its time derivative. Units: [-], [1/s]
-#[allow(dead_code)] // groundwork for the upcoming ReferenceFrame::Synodic variant
 pub(crate) fn generic_synodic_axes(
     epc: Epoch,
     primary: i32,

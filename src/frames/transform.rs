@@ -53,6 +53,7 @@
  * | EMR | Earth-Moon barycenter (3) |
  * | SER | Sun-Earth barycenter (synthetic, see [`SUN_EARTH_BARYCENTER_ID`]) |
  * | GSE | Earth (399) |
+ * | `Synodic { origin, primary, secondary }` | `primary`, `secondary`, or the pair's GM-weighted barycenter (synthetic, see [`synodic_barycenter_id`]), per `origin` |
  *
  * Translations involving a satellite-system body center (e.g. Mars, NAIF
  * 499, or an outer-planet moon) auto-load that system's satellite
@@ -86,6 +87,55 @@ use super::mars::rotation_mci_to_mcmf;
 /// states.
 pub const SUN_EARTH_BARYCENTER_ID: i32 = -1_000_010_399;
 
+/// Origin choice for a generic [`ReferenceFrame::Synodic`] frame.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SynodicOrigin {
+    /// Centered on the primary body.
+    Primary,
+    /// Centered on the secondary body.
+    Secondary,
+    /// Centered on the GM-weighted two-body barycenter (computed
+    /// analytically; see [`synodic_barycenter_id`]).
+    Barycenter,
+}
+
+/// Brahe-internal synthetic center ID for the GM-weighted barycenter of a
+/// generic synodic pair: `-(1_000_000_000 + primary*1000 + secondary)`.
+/// Negative following NAIF's convention for non-catalogued objects; never
+/// passed to SPK — `center_offset_state` resolves it analytically.
+/// [`SUN_EARTH_BARYCENTER_ID`] is this encoding evaluated at `(10, 399)`.
+///
+/// # Arguments
+/// - `primary`: NAIF ID of the primary body. Must be in `0..=999`.
+/// - `secondary`: NAIF ID of the secondary body. Must be in `0..=999`.
+///
+/// # Returns
+/// - `id`: Synthetic negative center ID
+///
+/// # Examples
+/// ```
+/// use brahe::frames::{synodic_barycenter_id, SUN_EARTH_BARYCENTER_ID};
+///
+/// assert_eq!(synodic_barycenter_id(10, 399), SUN_EARTH_BARYCENTER_ID);
+/// ```
+pub fn synodic_barycenter_id(primary: i32, secondary: i32) -> i32 {
+    debug_assert!((0..=999).contains(&primary) && (0..=999).contains(&secondary));
+    -(1_000_000_000 + primary * 1000 + secondary)
+}
+
+/// Decodes a synthetic synodic-barycenter center ID back into its
+/// `(primary, secondary)` pair; `None` for ordinary center IDs.
+fn synthetic_barycenter_pair(center: i32) -> Option<(i32, i32)> {
+    if center >= -1_000_000_000 {
+        return None;
+    }
+    let n = -center - 1_000_000_000;
+    if n > 999_999 {
+        return None;
+    }
+    Some((n / 1000, n % 1000))
+}
+
 /// A reference frame supported by the centralized frame router
 /// ([`rotation_frame_to_frame`], [`position_frame_to_frame`],
 /// [`state_frame_to_frame`]).
@@ -94,8 +144,8 @@ pub const SUN_EARTH_BARYCENTER_ID: i32 = -1_000_010_399;
 /// (`GCRF`, `ITRF`, `EME2000`, the lunar frames `LCI`/`LFPA`/`LFME`, and
 /// the Mars frames `MCI`/`MCMF`), the Earth-Moon and Solar System
 /// barycentric inertial frames (`EMBI`, `SSBI`), the synodic (rotating)
-/// frames (`EMR`, `SER`, `GSE`), and three generic variants for bodies
-/// without a dedicated named frame:
+/// frames (`EMR`, `SER`, `GSE`), and several generic variants for bodies
+/// or configurations without a dedicated named frame:
 ///
 /// - `BodyCenteredICRF(naif_id)`: ICRF-aligned axes centered on `naif_id`.
 /// - `BodyFixedIAU(naif_id)`: the IAU/WGCCRE body-fixed frame of
@@ -104,6 +154,10 @@ pub const SUN_EARTH_BARYCENTER_ID: i32 = -1_000_010_399;
 /// - `BodyFixedPCK { center, frame_id }`: a body-fixed frame evaluated
 ///   from a loaded binary PCK's `frame_id` (see
 ///   [`crate::spice::pck_rotation_matrix`]), centered on `center`.
+/// - `Synodic { origin, primary, secondary }`: a generic two-body synodic
+///   (rotating) frame for an arbitrary primary/secondary pair, of which
+///   `EMR`/`SER`/`GSE` are specific configurations (see
+///   [`ReferenceFrame::Synodic`]).
 ///
 /// See the module-level documentation for the full center table and the
 /// hub-and-spoke conversion design.
@@ -169,6 +223,24 @@ pub enum ReferenceFrame {
         /// Registry key the frame's callbacks were registered under.
         key: u32,
     },
+    /// Generic two-body synodic (rotating) frame (NASA TP-20220014814
+    /// §4.6.1): x̂ from `primary` toward `secondary`, ẑ along the
+    /// secondary's instantaneous orbital angular momentum relative to the
+    /// primary, centered per `origin`. NAIF IDs must be in `0..=999` when
+    /// `origin` is `Barycenter` (synthetic-ID encoding; see
+    /// [`synodic_barycenter_id`]), and the pair must have packaged GM
+    /// constants. The named frames are specific configurations:
+    /// `EMR ≡ Synodic{Barycenter, 399, 301}`,
+    /// `SER ≡ Synodic{Barycenter, 10, 399}`,
+    /// `GSE ≡ Synodic{Primary, 399, 10}`.
+    Synodic {
+        /// Origin choice (primary, secondary, or GM-weighted barycenter).
+        origin: SynodicOrigin,
+        /// NAIF ID of the primary body (x̂ base).
+        primary: i32,
+        /// NAIF ID of the secondary body (x̂ target).
+        secondary: i32,
+    },
 }
 
 impl ReferenceFrame {
@@ -211,6 +283,15 @@ impl ReferenceFrame {
             ReferenceFrame::BodyFixedIAU(id) => *id,
             ReferenceFrame::BodyFixedPCK { center, .. } => *center,
             ReferenceFrame::BodyFixedCustom { center, .. } => *center,
+            ReferenceFrame::Synodic {
+                origin,
+                primary,
+                secondary,
+            } => match origin {
+                SynodicOrigin::Primary => *primary,
+                SynodicOrigin::Secondary => *secondary,
+                SynodicOrigin::Barycenter => synodic_barycenter_id(*primary, *secondary),
+            },
         }
     }
 
@@ -250,6 +331,12 @@ impl ReferenceFrame {
             ReferenceFrame::BodyFixedCustom { key, .. } => {
                 let (r_mat, omega) = super::custom::custom_frame_rotation_and_omega(*key, epc)?;
                 Ok(state_rotating_to_icrf(r_mat, omega, x))
+            }
+            ReferenceFrame::Synodic {
+                primary, secondary, ..
+            } => {
+                let (s, s_dot) = super::synodic::generic_synodic_axes(epc, *primary, *secondary)?;
+                Ok(super::synodic::state_synodic_to_inertial(&s, &s_dot, x))
             }
         }
     }
@@ -296,6 +383,14 @@ impl ReferenceFrame {
                 let (r_mat, omega) = super::custom::custom_frame_rotation_and_omega(*key, epc)?;
                 Ok(state_icrf_to_rotating(r_mat, omega, x_icrf))
             }
+            ReferenceFrame::Synodic {
+                primary, secondary, ..
+            } => {
+                let (s, s_dot) = super::synodic::generic_synodic_axes(epc, *primary, *secondary)?;
+                Ok(super::synodic::state_inertial_to_synodic(
+                    &s, &s_dot, x_icrf,
+                ))
+            }
         }
     }
 }
@@ -324,6 +419,15 @@ impl fmt::Display for ReferenceFrame {
             ReferenceFrame::BodyFixedCustom { center, key } => {
                 write!(f, "BodyFixedCustom(center={}, key={})", center, key)
             }
+            ReferenceFrame::Synodic {
+                origin,
+                primary,
+                secondary,
+            } => write!(
+                f,
+                "Synodic(origin={:?}, primary={}, secondary={})",
+                origin, primary, secondary
+            ),
         }
     }
 }
@@ -337,8 +441,8 @@ impl FromStr for ReferenceFrame {
     /// (-> [`ReferenceFrame::ITRF`]).
     ///
     /// The generic variants (`BodyCenteredICRF`, `BodyFixedIAU`,
-    /// `BodyFixedPCK`) are not parseable from a string; construct them
-    /// directly.
+    /// `BodyFixedPCK`, `Synodic`) are not parseable from a string;
+    /// construct them directly.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_uppercase().as_str() {
             "ECI" => Ok(ReferenceFrame::GCRF),
@@ -490,6 +594,9 @@ fn icrf_to_frame_dcm(frame: ReferenceFrame, epc: Epoch) -> Result<SMatrix3, Brah
         ReferenceFrame::BodyFixedCustom { key, .. } => {
             super::custom::custom_frame_rotation(key, epc)
         }
+        ReferenceFrame::Synodic {
+            primary, secondary, ..
+        } => Ok(super::synodic::generic_synodic_axes(epc, primary, secondary)?.0),
     }
 }
 
@@ -666,12 +773,15 @@ pub(crate) fn center_offset_state(
     to_center: i32,
     epc: Epoch,
 ) -> Result<SVector6, BraheError> {
-    // The Sun-Earth barycenter (SER's origin) has no NAIF ID or SPK
-    // segment; resolve either endpoint against the SSB analytically.
-    if from_center == SUN_EARTH_BARYCENTER_ID || to_center == SUN_EARTH_BARYCENTER_ID {
+    // Synthetic synodic-barycenter centers (incl. the Sun-Earth barycenter,
+    // SER's origin) have no NAIF ID or SPK segment; resolve either endpoint
+    // against the SSB analytically as the GM-weighted pair combination.
+    if synthetic_barycenter_pair(from_center).is_some()
+        || synthetic_barycenter_pair(to_center).is_some()
+    {
         let state_rel_ssb = |center: i32| -> Result<SVector6, BraheError> {
-            if center == SUN_EARTH_BARYCENTER_ID {
-                super::synodic::sun_earth_barycenter_state(epc)
+            if let Some((p, s)) = synthetic_barycenter_pair(center) {
+                super::synodic::pair_barycenter_state(epc, p, s)
             } else if center == NAIFId::SolarSystemBarycenter.id() {
                 Ok(SVector6::zeros())
             } else {
@@ -696,7 +806,7 @@ pub(crate) fn center_offset_state(
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
 
     use super::*;
     use crate::constants::{DEGREES, R_EARTH};
@@ -1279,5 +1389,136 @@ mod tests {
         for i in 0..6 {
             assert_abs_diff_eq!(via_iau[i], via_mcmf[i], epsilon = 1e-9);
         }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_synodic_barycenter_id_matches_seb_constant() {
+        assert_eq!(synodic_barycenter_id(10, 399), SUN_EARTH_BARYCENTER_ID);
+        assert_eq!(synodic_barycenter_id(399, 301), -1_000_399_301);
+    }
+
+    #[test]
+    #[serial]
+    fn test_synodic_variant_reproduces_named_frames() {
+        setup_global_test_eop();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let x = state_koe_to_eci(
+            vector6_from_array([R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]),
+            DEGREES,
+        );
+        let cases = [
+            (
+                ReferenceFrame::EMR,
+                ReferenceFrame::Synodic {
+                    origin: SynodicOrigin::Barycenter,
+                    primary: 399,
+                    secondary: 301,
+                },
+                // EMR's origin is the real NAIF Earth-Moon barycenter (body
+                // 3), read directly from the DE kernel's own trajectory for
+                // that body; Synodic{Barycenter} instead computes the
+                // origin analytically from the packaged GM_EARTH/GM_MOON
+                // constants. Those constants and the DE kernel's internal
+                // Earth/Moon mass ratio are two different DE440 solutions
+                // combined without reconciling (the same ~3e-8-relative
+                // pattern documented on GM_MARS_SYSTEM), so the two origins
+                // agree only to that level (~0.1 m for this epoch/state),
+                // not to roundoff.
+                1.0,
+            ),
+            (
+                ReferenceFrame::SER,
+                ReferenceFrame::Synodic {
+                    origin: SynodicOrigin::Barycenter,
+                    primary: 10,
+                    secondary: 399,
+                },
+                // SER's origin is itself pair_barycenter_state(10, 399)
+                // (no dedicated NAIF barycenter body exists for the Sun and
+                // Earth alone), the identical computation Synodic{Barycenter}
+                // performs: exact-to-roundoff agreement.
+                1e-6,
+            ),
+            (
+                ReferenceFrame::GSE,
+                ReferenceFrame::Synodic {
+                    origin: SynodicOrigin::Primary,
+                    primary: 399,
+                    secondary: 10,
+                },
+                // GSE and Synodic{Primary} share the same center (Earth):
+                // no barycenter offset is computed at all.
+                1e-6,
+            ),
+        ];
+        for (named, generic, eps) in cases {
+            let x_named = state_frame_to_frame(ReferenceFrame::GCRF, named, epc, x).unwrap();
+            let x_generic = state_frame_to_frame(ReferenceFrame::GCRF, generic, epc, x).unwrap();
+            assert_abs_diff_eq!(x_named, x_generic, epsilon = eps);
+            let x_rt = state_frame_to_frame(generic, ReferenceFrame::GCRF, epc, x_generic).unwrap();
+            // Looser than the cross-comparison above: this is a pure
+            // floating-point roundoff check on the generic frame's own
+            // round trip (two SPK state queries plus the barycenter
+            // GM-weighted combination), not a comparison against the named
+            // frame.
+            assert_abs_diff_eq!(x_rt, x, epsilon = 1e-4);
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_synodic_novel_pair_sun_mars() {
+        setup_global_test_eop();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let frame = ReferenceFrame::Synodic {
+            origin: SynodicOrigin::Barycenter,
+            primary: 10,
+            secondary: 4,
+        };
+        // Mars (barycenter 4) sits on the +x axis of the Sun-Mars synodic frame.
+        let x_mars_icrf = center_offset_state(frame.center_naif_id(), 4, epc).unwrap();
+        let r = rotation_frame_to_frame(ReferenceFrame::SSBI, frame, epc).unwrap();
+        let p = r * x_mars_icrf.fixed_rows::<3>(0).into_owned();
+        assert!(p[0] > 0.0);
+        assert_abs_diff_eq!(p[1], 0.0, epsilon = 1e-3);
+        assert_abs_diff_eq!(p[2], 0.0, epsilon = 1e-3);
+        // Round-trip a state through the router.
+        let x = state_koe_to_eci(
+            vector6_from_array([R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]),
+            DEGREES,
+        );
+        let x_syn = state_frame_to_frame(ReferenceFrame::GCRF, frame, epc, x).unwrap();
+        let x_back = state_frame_to_frame(frame, ReferenceFrame::GCRF, epc, x_syn).unwrap();
+        assert_abs_diff_eq!(x_back, x, epsilon = 1e-4);
+    }
+
+    #[test]
+    #[serial]
+    fn test_synodic_barycenter_unknown_gm_errs() {
+        setup_global_test_eop();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        // Jupiter-Europa barycenter: Europa (502) has no packaged GM.
+        let frame = ReferenceFrame::Synodic {
+            origin: SynodicOrigin::Barycenter,
+            primary: 599,
+            secondary: 502,
+        };
+        let x = SVector6::new(1e7, 0.0, 0.0, 0.0, 1e3, 0.0);
+        assert!(state_frame_to_frame(ReferenceFrame::GCRF, frame, epc, x).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_synodic_display() {
+        let f = ReferenceFrame::Synodic {
+            origin: SynodicOrigin::Barycenter,
+            primary: 399,
+            secondary: 301,
+        };
+        assert_eq!(
+            f.to_string(),
+            "Synodic(origin=Barycenter, primary=399, secondary=301)"
+        );
     }
 }

@@ -7,8 +7,6 @@ import plotly.graph_objects as go
 
 import brahe as bh
 
-pytestmark = pytest.mark.integration
-
 
 @pytest.fixture
 def test_trajectory():

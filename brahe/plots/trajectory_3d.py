@@ -133,6 +133,20 @@ def plot_trajectory_3d(
             backend='plotly'
         )
 
+        # Create a small lunar orbit
+        epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+        angles = np.linspace(0, 2*np.pi, 20, endpoint=False)
+        radius, speed = bh.R_MOON + 100e3, 1600.0
+        states = np.column_stack([
+            radius*np.cos(angles), radius*np.sin(angles), np.zeros(20),
+            -speed*np.sin(angles), speed*np.cos(angles), np.zeros(20)
+        ])
+        lunar_traj = bh.OrbitTrajectory.from_orbital_data(
+            [epoch + i*60 for i in range(20)], states,
+            bh.OrbitFrame.BodyCenteredInertial(301),
+            bh.OrbitRepresentation.CARTESIAN, None, None
+        )
+
         # Plot a Moon-centered trajectory with an Earth sphere shown for scale
         fig = bh.plot_trajectory_3d(
             [{"trajectory": lunar_traj, "label": "LLO"}],

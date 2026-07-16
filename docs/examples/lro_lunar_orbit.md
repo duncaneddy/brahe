@@ -27,11 +27,20 @@ inclination orbit with perilune fixed over the southern hemisphere
 
 ## Orbit Setup
 
-We define the orbit directly in Moon-centered Keplerian elements: a 30 x 180
-km altitude polar orbit with the frozen-orbit argument of perilune.
-`state_koe_to_eci_for_body` converts Keplerian elements to a Cartesian state
-using an arbitrary body's gravitational parameter, here `GM_MOON`, since
-`state_koe_to_eci` assumes Earth:
+The propagator integrates in the Moon-Centered Inertial (LCI) frame, whose
+axes are ICRF-aligned: the LCI z-axis is the ICRF pole, which sits about 22
+degrees from the Moon's spin pole. `state_koe_to_eci_for_body` is a
+frame-agnostic Keplerian-to-Cartesian conversion that measures inclination
+against the z-axis of whatever basis its output is read in, so interpreting
+its output directly as an LCI state would reference the 85.2 degree
+inclination and the south-pole perilune to the ICRF pole, not the lunar
+equator. To place the orbit correctly, we build a lunar-equatorial inertial
+basis - z-axis on the lunar mean pole (the third row of the LCI-to-LFME
+rotation), x-axis on the ascending node of the lunar equator on the ICRF
+equator - construct the state in that basis, and rotate its position and
+velocity into LCI. `state_koe_to_eci_for_body` converts the Keplerian elements
+to a Cartesian state using an arbitrary body's gravitational parameter, here
+`GM_MOON`, since `state_koe_to_eci` assumes Earth:
 
 ``` python
 --8<-- "./examples/examples/lro_lunar_orbit.py:preamble"
@@ -82,10 +91,10 @@ perturb the orbit:
   <iframe class="only-dark"  src="../figures/lro_lunar_orbit_altitude_dark.html"  loading="lazy"></iframe>
 </div>
 
-Over 7 days, the full and point-mass solutions diverge by about 25.6 km at
-their peak - larger than the orbit's own 150 km altitude range between
-perilune and apolune - while the full-model orbit's perilune altitude stays
-above 21 km, remaining bound to the Moon.
+Over 7 days, the full and point-mass solutions diverge by about 17 km at
+their peak - a substantial fraction of the orbit's own 150 km altitude range
+between perilune and apolune - while the full-model orbit's perilune altitude
+stays above 26 km, remaining bound to the Moon.
 
 ## 3D Visualization
 

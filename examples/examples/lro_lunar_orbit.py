@@ -7,7 +7,8 @@
 Lunar Reconnaissance Orbiter (LRO) Science Orbit
 
 This example demonstrates how to:
-1. Set up a frozen, near-polar low lunar orbit (LLO) in Moon-centered elements
+1. Set up a frozen, near-polar low lunar orbit (LLO) in a lunar-equatorial
+   basis and rotate it into the propagator's frame
 2. Propagate it with the full lunar force model (50x50 GRGM660PRIM gravity,
    SRP, Earth/Sun third bodies) and compare against a point-mass Moon
 3. Quantify how lunar gravity anomalies ("mascons") perturb a low lunar orbit
@@ -18,7 +19,17 @@ The Lunar Reconnaissance Orbiter has flown a ~30 x 216 km polar orbit since
 argument of perilune is chosen so that the long-period perturbation from the
 Moon's lumpy gravity field averages out, keeping the eccentricity and
 perilune altitude nearly constant over many orbits rather than drifting or
-decaying.
+decaying. With the argument of perilune at 270 deg, perilune sits over the
+Moon's south pole, so this frozen geometry is defined relative to the lunar
+spin pole.
+
+The propagator integrates in LCI, whose axes are ICRF-aligned: the LCI z-axis
+is the ICRF pole, which sits ~22 deg from the Moon's spin pole. An inclination
+passed straight to a Keplerian-to-Cartesian conversion is therefore measured
+against the wrong pole. The initial state is instead built in a
+lunar-equatorial inertial basis (z-axis on the lunar mean pole) and rotated
+into LCI, so the 85.2 deg polar inclination and the south-pole perilune are
+referenced to the Moon's equator as intended.
 """
 
 # --8<-- [start:all]
@@ -44,15 +55,36 @@ os.makedirs(OUTDIR, exist_ok=True)
 # --8<-- [start:orbit_setup]
 # LRO-like frozen science orbit: ~30 x 180 km polar orbit. Perilune is
 # kept over the southern hemisphere (argument of perilune 270 deg).
+epoch = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+params = np.array([1000.0, 0.0, 0.0, 10.0, 1.3])  # mass, -, -, srp_area, Cr
+
+# Lunar-equatorial inertial basis expressed in LCI (ICRF-aligned) axes. The
+# lunar mean pole is LFME's z-axis in LCI coordinates, i.e. the third row of
+# the LCI->LFME rotation. x_eq is the ascending node of the lunar equator on
+# the ICRF equator (ICRF pole x lunar pole); y_eq completes the right-handed
+# triad. B_eq_to_lci rotates equator-referenced vectors into LCI.
+R_lci_lfme = bh.rotation_frame_to_frame(
+    bh.ReferenceFrame.LCI, bh.ReferenceFrame.LFME, epoch
+)
+moon_pole = R_lci_lfme[2, :]
+moon_pole /= np.linalg.norm(moon_pole)
+x_eq = np.cross([0.0, 0.0, 1.0], moon_pole)
+x_eq /= np.linalg.norm(x_eq)
+y_eq = np.cross(moon_pole, x_eq)
+B_eq_to_lci = np.column_stack((x_eq, y_eq, moon_pole))
+
 r_p = bh.R_MOON + 30e3
 r_a = bh.R_MOON + 180e3
 a = (r_p + r_a) / 2
 e = (r_a - r_p) / (r_a + r_p)
 oe = np.array([a, e, 85.2, 0.0, 270.0, 0.0])  # [m, -, deg, deg, deg, deg]
-state0 = bh.state_koe_to_eci_for_body(oe, bh.GM_MOON, bh.AngleFormat.DEGREES)
 
-epoch = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-params = np.array([1000.0, 0.0, 0.0, 10.0, 1.3])  # mass, -, -, srp_area, Cr
+# Build the state in the lunar-equatorial basis, then rotate position and
+# velocity into the LCI frame the propagator integrates in.
+state_eq = bh.state_koe_to_eci_for_body(oe, bh.GM_MOON, bh.AngleFormat.DEGREES)
+state0 = np.empty(6)
+state0[:3] = B_eq_to_lci @ state_eq[:3]
+state0[3:] = B_eq_to_lci @ state_eq[3:]
 
 print(
     f"Perilune radius: {r_p / 1e3:.1f} km (altitude: {(r_p - bh.R_MOON) / 1e3:.0f} km)"
@@ -61,6 +93,7 @@ print(
     f"Apolune radius:  {r_a / 1e3:.1f} km (altitude: {(r_a - bh.R_MOON) / 1e3:.0f} km)"
 )
 print(f"Semi-major axis: {a / 1e3:.1f} km, eccentricity: {e:.4f}")
+print(f"Moon spin pole (ICRF): {np.array2string(moon_pole, precision=4)}")
 # --8<-- [end:orbit_setup]
 
 # --8<-- [start:propagation]
@@ -146,9 +179,19 @@ fig_3d = bh.plot_trajectory_3d(
 
 # Validation
 divergence_km = np.abs(alt_full_km - alt_pm_km).max()
-print(f"\nMin perilune altitude (full model): {alt_full_km.min():.2f} km")
+
+# Inclination of the initial state relative to the Moon's spin pole confirms
+# the orbit plane was built about the lunar equator, not the ICRF pole.
+h0 = np.cross(state0[:3], state0[3:])
+h0 /= np.linalg.norm(h0)
+inc0_deg = np.degrees(np.arccos(np.clip(np.dot(h0, moon_pole), -1.0, 1.0)))
+print(f"\nInitial inclination (rel. Moon pole): {inc0_deg:.4f} deg (target: 85.2 deg)")
+print(f"Min perilune altitude (full model): {alt_full_km.min():.2f} km")
 print(f"Max altitude divergence (full vs. point mass): {divergence_km:.3f} km")
 
+assert abs(inc0_deg - 85.2) < 0.1, (
+    f"Initial inclination not at design value rel. Moon pole: {inc0_deg:.4f} deg"
+)
 assert alt_full_km.min() > 0, "Orbit impacted the lunar surface"
 assert divergence_km > 12.0, (
     f"Full and point-mass solutions did not diverge as expected: {divergence_km:.3f} km"

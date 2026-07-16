@@ -27,6 +27,14 @@ planet, an asteroid, or a comet nucleus.
 NASA's Dawn spacecraft orbited Ceres from 2015 to 2018, spending much of its
 final year in LAMO: a ~375 km, near-circular polar orbit used for its highest
 resolution gravity and neutron/gamma-ray mapping.
+
+The propagator integrates in a Ceres-centered inertial frame whose axes are
+ICRF-aligned: its z-axis is the ICRF pole, which sits ~23 deg from Ceres's
+spin pole. An inclination passed straight to a Keplerian-to-Cartesian
+conversion is therefore measured against the wrong pole. The initial state is
+instead built in a Ceres-equatorial inertial basis (z-axis on the Ceres spin
+pole from the IAU pole constants) and rotated into the propagation frame, so
+the 90 deg polar inclination is referenced to Ceres's equator as intended.
 """
 
 # --8<-- [start:all]
@@ -118,12 +126,39 @@ force_config = bh.ForceModelConfig.for_body(ceres, bh.GravityConfiguration.point
 # --8<-- [start:orbit_setup]
 # Dawn LAMO (Low Altitude Mapping Orbit): ~375 km circular polar orbit.
 epoch = bh.Epoch.from_datetime(2016, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+
+# Ceres-equatorial inertial basis expressed in the ICRF-aligned propagation
+# axes. The spin pole comes straight from the IAU pole constants; x_eq is the
+# ascending node of the Ceres equator on the ICRF equator (ICRF pole x spin
+# pole) and y_eq completes the right-handed triad. B_eq_to_bci rotates
+# equator-referenced vectors into the propagation frame.
+_pole_ra = np.radians(CERES_POLE_RA)
+_pole_dec = np.radians(CERES_POLE_DEC)
+ceres_pole = np.array(
+    [
+        np.cos(_pole_dec) * np.cos(_pole_ra),
+        np.cos(_pole_dec) * np.sin(_pole_ra),
+        np.sin(_pole_dec),
+    ]
+)
+x_eq = np.cross([0.0, 0.0, 1.0], ceres_pole)
+x_eq /= np.linalg.norm(x_eq)
+y_eq = np.cross(ceres_pole, x_eq)
+B_eq_to_bci = np.column_stack((x_eq, y_eq, ceres_pole))
+
 oe = np.array(
     [R_CERES + 375e3, 0.001, 90.0, 0.0, 0.0, 0.0]
 )  # [m, -, deg, deg, deg, deg]
-state0 = bh.state_koe_to_eci_for_body(oe, GM_CERES, bh.AngleFormat.DEGREES)
+
+# Build the state in the Ceres-equatorial basis, then rotate position and
+# velocity into the ICRF-aligned frame the propagator integrates in.
+state_eq = bh.state_koe_to_eci_for_body(oe, GM_CERES, bh.AngleFormat.DEGREES)
+state0 = np.empty(6)
+state0[:3] = B_eq_to_bci @ state_eq[:3]
+state0[3:] = B_eq_to_bci @ state_eq[3:]
 
 print(f"LAMO altitude: {(oe[0] - R_CERES) / 1e3:.1f} km, inclination: {oe[2]:.1f} deg")
+print(f"Ceres spin pole (ICRF): {np.array2string(ceres_pole, precision=4)}")
 # --8<-- [end:orbit_setup]
 
 # --8<-- [start:propagation]
@@ -161,6 +196,24 @@ fig_3d = bh.plot_trajectory_3d(
 # --8<-- [end:plot_3d]
 
 # Validation
+# Inclination relative to the Ceres spin pole confirms the orbit plane was
+# built about the Ceres equator, not the ICRF pole. Point-mass gravity has no
+# J2, so this inclination is conserved across the propagation.
+incs_deg = []
+for epc in epochs:
+    x = prop.state_bci(epc)
+    h = np.cross(x[:3], x[3:])
+    h /= np.linalg.norm(h)
+    incs_deg.append(np.degrees(np.arccos(np.clip(np.dot(h, ceres_pole), -1.0, 1.0))))
+incs_deg = np.array(incs_deg)
+print(
+    f"\nInclination rel. Ceres pole: {incs_deg.min():.4f} to {incs_deg.max():.4f} deg"
+)
+
+assert np.all(np.abs(incs_deg - 90.0) < 0.1), (
+    f"Inclination departed from the 90 deg polar design rel. Ceres pole: "
+    f"{incs_deg.min():.4f} to {incs_deg.max():.4f} deg"
+)
 assert radii_km.min() * 1e3 > R_CERES, "Orbit descended below the Ceres surface"
 assert radii_km.max() * 1e3 < R_CERES + 1000e3, (
     "Orbit exceeded the expected LAMO altitude bound"

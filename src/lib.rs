@@ -60,7 +60,7 @@ address and functionality or modeling gaps that exist to address their specific 
 
 ## Documentation
 
-You can find the package documentation [here](https://duncaneddy.github.io/brahe).
+You can find the package documentation [here](https://docs.brahe.space).
 This documentation is meant to provide a human-friendly walk through of the
 software and package. Brahe is currently in the early stages of development so
 the documentation will likely not be complete. Sections marked **[WIP]**

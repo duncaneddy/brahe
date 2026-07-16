@@ -103,7 +103,7 @@ If you want to build Brahe from source (e.g., for development or to use unreleas
 
 ```bash
 # Clone the repository
-git clone https://github.com/duncaneddy/brahe.git
+git clone --single-branch --branch main https://github.com/duncaneddy/brahe.git
 cd brahe
 
 # Install uv if you haven't already
@@ -170,7 +170,7 @@ brahe = "1.6.0"
 
 ```bash
 # Clone the repository (add `--single-branch --branch main` if the clone is slow)
-git clone https://github.com/duncaneddy/brahe.git
+git clone --single-branch --branch main https://github.com/duncaneddy/brahe.git
 cd brahe
 
 # Build the library
@@ -211,7 +211,7 @@ cargo doc --open
 If you encounter issues:
 
 1. Check the [GitHub Issues](https://github.com/duncaneddy/brahe/issues) for similar problems
-2. Review the [documentation](https://duncaneddy.github.io/brahe/)
+2. Review the [documentation](index.md)
 3. Open a new issue with:
    - Your operating system and version
    - Python/Rust version

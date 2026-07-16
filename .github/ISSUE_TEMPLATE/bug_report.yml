@@ -15,7 +15,7 @@ body:
       options:
         - label: I have searched existing issues to ensure this bug hasn't already been reported
           required: true
-        - label: I have checked the [documentation](https://duncaneddy.github.io/brahe/) for relevant guidance
+        - label: I have checked the [documentation](https://docs.brahe.space/) for relevant guidance
           required: true
         - label: I can reproduce this bug with the latest version of Brahe
           required: true

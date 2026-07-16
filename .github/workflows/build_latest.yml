@@ -140,7 +140,7 @@ jobs:
           To install the latest development version:
 
           \`\`\`bash
-          pip install brahe --extra-index-url https://duncaneddy.github.io/brahe/simple/
+          pip install brahe --extra-index-url https://docs.brahe.space/simple/
           \`\`\`
 
           Or download wheels directly from the assets below.
@@ -242,3 +242,4 @@ jobs:
           publish_dir: ./simple-index
           keep_files: true
           destination_dir: .
+          cname: docs.brahe.space

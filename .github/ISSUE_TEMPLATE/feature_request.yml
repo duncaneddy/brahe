@@ -15,7 +15,7 @@ body:
       options:
         - label: I have searched existing issues to ensure this feature hasn't already been requested
           required: true
-        - label: I have checked the [documentation](https://duncaneddy.github.io/brahe/) to confirm this feature doesn't already exist
+        - label: I have checked the [documentation](https://docs.brahe.space/) to confirm this feature doesn't already exist
           required: true
 
   - type: textarea

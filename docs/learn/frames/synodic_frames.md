@@ -24,6 +24,41 @@ Primaries: Sun → Earth. Origin: the Sun-Earth barycenter. The SEB has no NAIF 
 
 Origin: Earth center. $\hat{\boldsymbol{x}}$ points from the Earth to the Sun — the **reversed** sense relative to SER — and $\hat{\boldsymbol{z}}$ is normal to the instantaneous ecliptic plane (~23.44° from the GCRF $z$-axis). GSE is common in space-weather and magnetospheric work. Because GSE is Earth-centered, converting between GCRF and GSE involves no translation.
 
+## Generic Synodic Frames
+
+EMR, SER, and GSE are named instances of a generic two-body synodic frame, `ReferenceFrame.Synodic(origin, primary, secondary)`. `origin` is a `SynodicOrigin` (`Primary`, `Secondary`, or `Barycenter`); `primary` and `secondary` are the NAIF IDs of the two bodies, each required to be in $0 \le \text{id} \le 999$. The axis construction is identical to the formula above, with $\boldsymbol{r}_{12}$ and $\boldsymbol{v}_{12}$ taken between `primary` and `secondary`.
+
+The three named frames are equivalent to these generic configurations:
+
+$$
+\text{EMR} \equiv \texttt{Synodic(Barycenter, 399, 301)}, \qquad
+\text{SER} \equiv \texttt{Synodic(Barycenter, 10, 399)}, \qquad
+\text{GSE} \equiv \texttt{Synodic(Primary, 399, 10)}
+$$
+
+A `Barycenter` origin is computed analytically as the $GM$-weighted combination of the primary and secondary SPK states — the same scheme used for the Sun-Earth barycenter above — rather than read from a dedicated SPK ephemeris entry. Both bodies must therefore have packaged $GM$ constants (the Sun, the planets, the planetary barycenters, and the Moon). For the Earth-Moon pair, this computed barycenter differs from the SPK Earth-Moon Barycenter (NAIF ID 3) by well under a meter.
+
+The origin, primary, and secondary of any synodic frame (`Synodic`, `EMR`, `SER`, or `GSE`) are recoverable via the `frame.synodic_origin`, `frame.synodic_primary`, and `frame.synodic_secondary` properties, which return `None` for non-synodic frames.
+
+The generic frame has no dedicated `rotation_gcrf_to_synodic`-style functions; it is used through the frame router (`rotation_frame_to_frame`, `position_frame_to_frame`, `state_frame_to_frame`). The following example transforms a low Earth orbit state from GCRF into a Sun-Mars rotating frame:
+
+```python
+import numpy as np
+import brahe as bh
+
+bh.initialize_eop()
+bh.load_common_spice_kernels()
+
+epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+frame = bh.ReferenceFrame.Synodic(bh.SynodicOrigin.Barycenter, 10, 4)  # Sun-Mars
+
+x_gcrf = bh.state_koe_to_eci(
+    np.array([bh.R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0]),
+    bh.AngleFormat.DEGREES,
+)
+x_syn = bh.state_frame_to_frame(bh.ReferenceFrame.GCRF, frame, epc, x_gcrf)
+```
+
 ## Function Reference
 
 | Conversion | Function |

@@ -139,31 +139,26 @@ times_days = np.arange(0.0, duration, dt) / 86400.0
 # --8<-- [end:perilune_history]
 
 # --8<-- [start:altitude_plot]
+# Full minus point-mass altitude: overlaying the two raw traces over 7 days
+# (~90 orbits) is an unreadable smear, so plot their difference instead.
+diff_km = alt_full_km - alt_pm_km
+
 fig_altitude = go.Figure()
 
 fig_altitude.add_trace(
     go.Scatter(
         x=times_days.tolist(),
-        y=alt_full_km.tolist(),
+        y=diff_km.tolist(),
         mode="lines",
         line=dict(color="red", width=2),
-        name="Full gravity (50x50 GRGM660PRIM)",
-    )
-)
-fig_altitude.add_trace(
-    go.Scatter(
-        x=times_days.tolist(),
-        y=alt_pm_km.tolist(),
-        mode="lines",
-        line=dict(color="gray", width=2, dash="dash"),
-        name="Point mass",
+        name="Full − point mass",
     )
 )
 
 fig_altitude.update_layout(
-    title="LRO Altitude: Full Gravity Field vs. Point Mass",
+    title="LRO Altitude Difference: Full Gravity − Point Mass",
     xaxis_title="Time (days)",
-    yaxis_title="Altitude (km)",
+    yaxis_title="Altitude difference (km)",
     height=500,
     margin=dict(l=60, r=40, t=60, b=60),
 )

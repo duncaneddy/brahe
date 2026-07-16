@@ -68,9 +68,9 @@ frame:
 ## Element Evolution
 
 Sampling the trajectory over the 2-day propagation and converting each
-Cartesian state back to Keplerian elements with `state_eci_to_koe_for_body`
-shows how semi-major axis, eccentricity, and inclination evolve under the
-full force model:
+Cartesian state back to Keplerian elements with `state_eci_to_koe_for_body`,
+then plotting the full six-element set with `plot_keplerian_trajectory`,
+shows how the orbit evolves under the full force model:
 
 ``` python
 --8<-- "./examples/examples/mro_mars_orbit.py:element_history"
@@ -94,11 +94,18 @@ full force model:
   <iframe class="only-dark"  src="../figures/mro_mars_orbit_elements_dark.html"  loading="lazy"></iframe>
 </div>
 
-The inclination plotted here is measured against Mars's spin pole (the same
-pole the orbit was designed around), not the ICRF pole that
-`state_eci_to_koe_for_body` references, so it is directly comparable to the
-92.6 degree design value. Over this 2-day window it stays within about 0.1
-degree of that value: $J_2$ drives the nodal precession that makes the orbit
+`plot_keplerian_trajectory` renders all six elements in a 2x3 grid: semi-major
+axis, eccentricity, and inclination on the top row, RAAN, argument of
+periapsis, and mean anomaly on the bottom row. RAAN and argument of periapsis
+are plotted as `state_eci_to_koe_for_body` returns them - referenced to the
+ICRF pole - so their absolute values don't match the RAAN and 270 degree
+argument of periapsis used to design the orbit in the Mars-equatorial basis;
+only their evolution over time is meaningful here. Inclination, by contrast,
+is measured against Mars's spin pole (the same pole the orbit was designed
+around), not the ICRF pole that `state_eci_to_koe_for_body` references, so it
+is directly comparable to the 92.6 degree design value. Over this 2-day
+window it stays within about 0.1 degree of that value: $J_2$ drives the
+nodal precession that makes the orbit
 sun-synchronous but produces no secular change in inclination, so the residual
 motion is a bounded short-period oscillation rather than decay. Semi-major
 axis and eccentricity likewise show short-period oscillation without net

@@ -74,9 +74,9 @@ Moon-Centered Inertial (LCI) frame:
 ## Altitude Comparison
 
 Sampling both trajectories over the 7-day propagation and computing altitude
-above `R_MOON` from the Moon-centered radius shows the full gravity field
-solution diverging steadily from the point-mass solution as the mascons
-perturb the orbit:
+above `R_MOON` from the Moon-centered radius, then plotting the difference
+between the full-gravity and point-mass solutions, shows how steadily the
+mascons perturb the orbit:
 
 ``` python
 --8<-- "./examples/examples/lro_lunar_orbit.py:perilune_history"
@@ -91,10 +91,10 @@ perturb the orbit:
   <iframe class="only-dark"  src="../figures/lro_lunar_orbit_altitude_dark.html"  loading="lazy"></iframe>
 </div>
 
-Over 7 days, the full and point-mass solutions diverge by about 17 km at
-their peak - a substantial fraction of the orbit's own 150 km altitude range
-between perilune and apolune - while the full-model orbit's perilune altitude
-stays above 26 km, remaining bound to the Moon.
+Over 7 days, the difference between the full and point-mass solutions grows
+to about 17 km at its peak - a substantial fraction of the orbit's own 150 km
+altitude range between perilune and apolune - while the full-model orbit's
+perilune altitude stays above 26 km, remaining bound to the Moon.
 
 ## 3D Visualization
 

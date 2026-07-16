@@ -35,7 +35,6 @@ import pathlib
 import sys
 
 import numpy as np
-import plotly.graph_objects as go
 
 import brahe as bh
 
@@ -123,12 +122,15 @@ print("  Complete!")
 # Mars's Earth-relative position, which is not what we want here.
 dt = 120.0
 epochs = [epoch + t for t in np.arange(0.0, duration, dt)]
-sma_km, ecc, inc_deg = [], [], []
+sma_km, ecc, inc_deg, raan_deg, argp_deg, anom_deg = [], [], [], [], [], []
 for epc in epochs:
     x = prop.state_bci(epc)
     koe = bh.state_eci_to_koe_for_body(x, bh.GM_MARS, bh.AngleFormat.DEGREES)
     sma_km.append(koe[0] / 1e3)
     ecc.append(koe[1])
+    raan_deg.append(koe[3])
+    argp_deg.append(koe[4])
+    anom_deg.append(koe[5])
     # koe[2] is inclination against the ICRF pole (MCI z-axis). Re-measure it
     # against Mars's spin pole so the plotted value matches the design intent.
     h = np.cross(x[:3], x[3:])
@@ -137,65 +139,35 @@ for epc in epochs:
 sma_km = np.array(sma_km)
 ecc = np.array(ecc)
 inc_deg = np.array(inc_deg)
+raan_deg = np.array(raan_deg)
+argp_deg = np.array(argp_deg)
+anom_deg = np.array(anom_deg)
 times_hours = np.arange(0.0, duration, dt) / 3600.0
 alt_p_km = sma_km * (1 - ecc) - bh.R_MARS / 1e3
 # --8<-- [end:element_history]
 
 # --8<-- [start:element_plot]
-fig_elements = go.Figure()
-
-fig_elements.add_trace(
-    go.Scatter(
-        x=times_hours.tolist(),
-        y=sma_km.tolist(),
-        mode="lines",
-        line=dict(color="orange", width=2),
-        name="Semi-major axis (km)",
-        yaxis="y1",
+# plot_keplerian_trajectory's raw-array input assumes SI/radians (sma in
+# meters, angles in radians) regardless of the display units requested via
+# sma_units/angle_units, matching the units state_eci_to_koe_for_body returns
+# under AngleFormat.RADIANS. Inclination uses the Mars-pole-relative value
+# computed above rather than koe[2], which is measured against the ICRF pole.
+koe_history = np.column_stack(
+    (
+        times_hours,
+        sma_km * 1e3,
+        ecc,
+        np.radians(inc_deg),
+        np.radians(raan_deg),
+        np.radians(argp_deg),
+        np.radians(anom_deg),
     )
 )
-fig_elements.add_trace(
-    go.Scatter(
-        x=times_hours.tolist(),
-        y=ecc.tolist(),
-        mode="lines",
-        line=dict(color="teal", width=2),
-        name="Eccentricity",
-        yaxis="y2",
-    )
-)
-fig_elements.add_trace(
-    go.Scatter(
-        x=times_hours.tolist(),
-        y=inc_deg.tolist(),
-        mode="lines",
-        line=dict(color="purple", width=2),
-        name="Inclination (deg)",
-        yaxis="y3",
-    )
-)
-
-fig_elements.update_layout(
-    title="MRO Osculating Element Evolution",
-    xaxis=dict(title="Time (hours)", domain=[0.0, 0.85]),
-    yaxis=dict(title="Semi-major axis (km)", tickfont=dict(color="orange")),
-    yaxis2=dict(
-        title="Eccentricity",
-        tickfont=dict(color="teal"),
-        overlaying="y",
-        side="right",
-    ),
-    yaxis3=dict(
-        title="Inclination (deg, rel. Mars pole)",
-        tickfont=dict(color="purple"),
-        overlaying="y",
-        side="right",
-        position=1.0,
-        anchor="free",
-    ),
-    height=500,
-    margin=dict(l=60, r=40, t=60, b=60),
-    legend=dict(orientation="h", y=-0.2),
+fig_elements = bh.plot_keplerian_trajectory(
+    [{"trajectory": koe_history, "label": "MRO"}],
+    angle_units="deg",
+    sma_units="km",
+    backend="plotly",
 )
 # --8<-- [end:element_plot]
 

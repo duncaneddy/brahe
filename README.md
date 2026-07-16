@@ -5,7 +5,7 @@
     <em>Brahe - Practical Astrodynamics</em>
 </p>
 <p align="center">
-<a href="https://duncaneddy.github.io/brahe/latest" target="_blank">
+<a href="https://docs.brahe.space/latest" target="_blank">
     <img src="https://img.shields.io/badge/docs-latest-blue.svg" alt="Docs">
 </a>
 <a href="https://github.com/duncaneddy/brahe/actions/workflows/unit_tests.yml" target="_blank">
@@ -32,7 +32,7 @@
 
 ----
 
-**Documentation:** [https://duncaneddy.github.io/brahe/latest](https://duncaneddy.github.io/brahe/latest)
+**Documentation:** [https://docs.brahe.space/latest](https://docs.brahe.space/latest)
 
 **Rust Library Reference:** [https://docs.rs/crate/brahe/latest](https://docs.rs/crate/brahe/latest)
 
@@ -57,10 +57,10 @@ We hope you find Brahe useful for your work!
 
 If you want to learn more about how to use the package the documentation is structured in the following way:
 
-- **[Getting Started](https://duncaneddy.github.io/brahe/latest/getting_started/)**: The getting started guide provides a high-level overview of the main concepts and components of Brahe, along with a quick introduction to using it. It is designed to help new users get up to speed quickly and understand the core ideas behind Brahe before diving into the more detailed documentation in the other sections. If you are new to Brahe, this is a great place to start!
-- **[User Guide](https://duncaneddy.github.io/brahe/latest/learn/)**: The user guide provides more comprehensive module-by-module documentation covering the capabilities each module provides with examples on how to use it.
-- **[Examples](https://duncaneddy.github.io/brahe/latest/examples/)**: This section contains a collection of worked examples that demonstrate how to use Brahe to solve various problems or accomplish specific tasks. The examples are designed to be practical and cover a range of use cases, from basic to more advanced.
-- **[Python API Reference](https://duncaneddy.github.io/brahe/latest/library_api/)**: Provides detailed reference documentation of the Python API, including all public classes, functions, and methods organized by module.
+- **[Getting Started](https://docs.brahe.space/latest/getting_started/)**: The getting started guide provides a high-level overview of the main concepts and components of Brahe, along with a quick introduction to using it. It is designed to help new users get up to speed quickly and understand the core ideas behind Brahe before diving into the more detailed documentation in the other sections. If you are new to Brahe, this is a great place to start!
+- **[User Guide](https://docs.brahe.space/latest/learn/)**: The user guide provides more comprehensive module-by-module documentation covering the capabilities each module provides with examples on how to use it.
+- **[Examples](https://docs.brahe.space/latest/examples/)**: This section contains a collection of worked examples that demonstrate how to use Brahe to solve various problems or accomplish specific tasks. The examples are designed to be practical and cover a range of use cases, from basic to more advanced.
+- **[Python API Reference](https://docs.brahe.space/latest/library_api/)**: Provides detailed reference documentation of the Python API, including all public classes, functions, and methods organized by module.
 - **[Rust API Reference](https://docs.rs/brahe)**: Provides detailed reference documentation of the Rust API, including all public structs, traits, functions, and methods organized by module.
 
 ## Quick Start
@@ -123,7 +123,7 @@ print(f"Number of passes in next 24 hours: {len(passes)}")
 # Example Output: Number of passes in next 24 hours: 5
 ```
 
-If you want to see more examples of how to use brahe, you can find even more with full source code in the [Examples section](https://duncaneddy.github.io/brahe/latest/examples/index.html) of the documentation.
+If you want to see more examples of how to use brahe, you can find even more with full source code in the [Examples section](https://docs.brahe.space/latest/examples/index.html) of the documentation.
 
 ## Citing Brahe
 
@@ -173,7 +173,7 @@ We are pleased to acknowledge the following sponsors for their support:
 >
 > **Deprecation policy (transitional):** The long-term target — matching NumPy — is that backwards-incompatible API changes emit a `DeprecationWarning` for at least two minor releases before removal. **While Brahe is in its early adoption phase, a deprecation may occur and be removed within a single minor release.** This window will expand to multiple minor releases with deprecation warnings as adoption grows.
 >
-> **Pinning:** For most projects `brahe>=1.2` is sufficient. If you need guaranteed stability during the transitional deprecation period, pin to a specific `major.minor.patch` version (e.g., `1.2.3`) rather than using a floating specifier (e.g., `^1.2.0` or `>=1.2.0`). See [the versioning docs](https://duncaneddy.github.io/brahe/latest/about/versioning/) for details, including guidance on treating `DeprecationWarning` as an error in CI.
+> **Pinning:** For most projects `brahe>=1.2` is sufficient. If you need guaranteed stability during the transitional deprecation period, pin to a specific `major.minor.patch` version (e.g., `1.2.3`) rather than using a floating specifier (e.g., `^1.2.0` or `>=1.2.0`). See [the versioning docs](https://docs.brahe.space/latest/about/versioning.html) for details, including guidance on treating `DeprecationWarning` as an error in CI.
 
 ## AI Usage Policy
 

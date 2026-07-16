@@ -211,7 +211,7 @@ cargo doc --open
 If you encounter issues:
 
 1. Check the [GitHub Issues](https://github.com/duncaneddy/brahe/issues) for similar problems
-2. Review the [documentation](https://duncaneddy.github.io/brahe/)
+2. Review the [documentation](index.md)
 3. Open a new issue with:
    - Your operating system and version
    - Python/Rust version

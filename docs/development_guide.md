@@ -481,7 +481,7 @@ After publishing, verify:
 
 - PyPI: [https://pypi.org/project/brahe/](https://pypi.org/project/brahe/)
 - Crates.io: [https://crates.io/crates/brahe](https://crates.io/crates/brahe)
-- Docs: [https://duncaneddy.github.io/brahe/latest/](https://duncaneddy.github.io/brahe/latest/)
+- Docs: [https://docs.brahe.space/latest/](https://docs.brahe.space/latest/)
 - GitHub: [https://github.com/duncaneddy/brahe/releases](https://github.com/duncaneddy/brahe/releases)
 
 ## Benchmarks

@@ -330,15 +330,15 @@ def _synodic_3d_plotly(
     return fig
 
 
-def plot_earth_moon_rotating_3d(trajectories, **kwargs):
+def plot_earth_moon_rotating_3d(trajectories, **kwargs) -> object:
     """Plot 3D trajectories in the Earth-Moon Rotating (EMR) frame.
 
     Alias for ``plot_synodic_3d(trajectories, frame=ReferenceFrame.EMR, ...)``;
     accepts the same keyword arguments.
 
     Args:
-        trajectories: Same trajectory-group input as ``plot_synodic_3d``.
-        **kwargs: Forwarded to ``plot_synodic_3d``.
+        trajectories (list of dict): Same trajectory-group input as ``plot_synodic_3d``.
+        **kwargs (dict): Forwarded to ``plot_synodic_3d``.
 
     Returns:
         object: Generated figure object.

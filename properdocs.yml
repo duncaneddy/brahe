@@ -480,6 +480,7 @@ nav:
           - Ground Tracks: library_api/plots/ground_tracks.md
           - Orbital Trajectories: library_api/plots/orbital_trajectories.md
           - 3D Trajectory: library_api/plots/3d_trajectory.md
+          - Synodic Plots: library_api/plots/synodic_plots.md
           - Access Geometry: library_api/plots/access_geometry.md
           - Gabbard Diagram: library_api/plots/gabbard.md
           - Estimation State Plots: library_api/plots/estimation_state.md

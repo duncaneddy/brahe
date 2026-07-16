@@ -816,6 +816,18 @@ def test_reference_frame_synodic_invalid_ids():
         brahe.ReferenceFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 1301)
 
 
+def test_reference_frame_synodic_non_barycenter_allows_arbitrary_ids():
+    frame = brahe.ReferenceFrame.Synodic(brahe.SynodicOrigin.Primary, 499, 401)
+    assert frame.synodic_primary == 499
+    assert frame.synodic_secondary == 401
+    assert frame.synodic_origin == brahe.SynodicOrigin.Primary
+
+    frame = brahe.ReferenceFrame.Synodic(brahe.SynodicOrigin.Secondary, 10, 2000001)
+    assert frame.synodic_primary == 10
+    assert frame.synodic_secondary == 2000001
+    assert frame.synodic_origin == brahe.SynodicOrigin.Secondary
+
+
 def test_reference_frame_synodic_accessors_named_frames():
     assert brahe.ReferenceFrame.EMR.synodic_primary == 399
     assert brahe.ReferenceFrame.EMR.synodic_secondary == 301

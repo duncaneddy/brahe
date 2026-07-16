@@ -127,9 +127,11 @@ central bodies require the plotted trajectory to already be in
 
 ## Full Code Example
 
-```python title="dawn_ceres_orbit.py"
---8<-- "./examples/examples/dawn_ceres_orbit.py:all"
-```
+??? "Full Code"
+
+    ```python title="dawn_ceres_orbit.py"
+    --8<-- "./examples/examples/dawn_ceres_orbit.py:all"
+    ```
 
 ---
 

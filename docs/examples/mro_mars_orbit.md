@@ -134,9 +134,11 @@ conversion is needed:
 
 ## Full Code Example
 
-```python title="mro_mars_orbit.py"
---8<-- "./examples/examples/mro_mars_orbit.py:all"
-```
+??? "Full Code"
+
+    ```python title="mro_mars_orbit.py"
+    --8<-- "./examples/examples/mro_mars_orbit.py:all"
+    ```
 
 ---
 

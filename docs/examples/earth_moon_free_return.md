@@ -114,9 +114,11 @@ We confirm the trajectory is a genuine free return: the perilune passes above th
 
 ## Full Code Example
 
-```python title="earth_moon_free_return.py"
---8<-- "./examples/examples/earth_moon_free_return.py:all"
-```
+??? "Full Code"
+
+    ```python title="earth_moon_free_return.py"
+    --8<-- "./examples/examples/earth_moon_free_return.py:all"
+    ```
 
 ---
 

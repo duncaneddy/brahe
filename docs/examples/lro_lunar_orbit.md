@@ -119,9 +119,11 @@ trajectory:
 
 ## Full Code Example
 
-```python title="lro_lunar_orbit.py"
---8<-- "./examples/examples/lro_lunar_orbit.py:all"
-```
+??? "Full Code"
+
+    ```python title="lro_lunar_orbit.py"
+    --8<-- "./examples/examples/lro_lunar_orbit.py:all"
+    ```
 
 ---
 

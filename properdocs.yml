@@ -296,6 +296,7 @@ nav:
           - learn/plots/index.md
           - Orbital Trajectories: learn/plots/orbital_trajectories.md
           - 3D Trajectory: learn/plots/3d_trajectory.md
+          - Synodic Plots: learn/plots/synodic_plots.md
           - Ground Tracks: learn/plots/ground_tracks.md
           - Access Geometry: learn/plots/access_geometry.md
           - Gabbard Plots: learn/plots/gabbard_plot.md

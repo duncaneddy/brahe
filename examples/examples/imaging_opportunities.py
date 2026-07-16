@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 

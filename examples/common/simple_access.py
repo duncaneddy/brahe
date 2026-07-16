@@ -1,5 +1,6 @@
 # /// script
 # dependencies = ["brahe", "pytest"]
+# FLAGS = ["NETWORK"]
 # ///
 """
 This example demonstrates how to calculate the orbital period of a satellite

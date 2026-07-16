@@ -1,3 +1,5 @@
+//! FLAGS = ["NETWORK"]
+
 use brahe as bh;
 use brahe::traits::SStatePropagator;
 

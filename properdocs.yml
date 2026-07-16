@@ -339,6 +339,7 @@ nav:
       - examples/using_different_integrators.md
       - examples/geo_hohmann_transfer.md
       - examples/low_thrust_orbit_raising.md
+      - examples/lro_lunar_orbit.md
   - Python API Reference:
       - library_api/index.md
       - Constants:

@@ -80,13 +80,14 @@ full force model:
   <iframe class="only-dark"  src="../figures/mro_mars_orbit_elements_dark.html"  loading="lazy"></iframe>
 </div>
 
-The osculating inclination oscillates by about 1.1 degrees peak-to-peak over
-the 2-day window - the 50x50 gravity field, drag, and SRP all perturb the
-instantaneous element beyond the mean value used to design the orbit - while
-staying centered close to the design inclination of 92.6 degrees. Semi-major
-axis and eccentricity likewise show short-period oscillation without net
-secular decay over this timespan, and periapsis altitude stays comfortably
-above the Mars surface throughout.
+Over this 2-day window the osculating inclination drifts monotonically
+downward by about 1 degree from its initial value of 92.6 degrees. This
+drift is driven almost entirely by $J_2$, not drag or solar radiation
+pressure, and it is the short-window view of a long-period osculating
+oscillation on the apsidal/nodal precession timescale rather than secular
+decay. Semi-major axis and eccentricity likewise show short-period
+oscillation without net secular decay over this timespan, and periapsis
+altitude stays comfortably above the Mars surface throughout.
 
 ## 3D Visualization
 

@@ -169,10 +169,13 @@ print(f"\nMin periapsis altitude: {alt_p_km.min():.2f} km")
 print(f"Mean inclination: {inc_deg.mean():.4f} deg (target: 92.6 deg)")
 
 assert alt_p_km.min() > 0, "Orbit descended below the Mars surface"
-# The osculating inclination oscillates by about 1.1 deg peak-to-peak over
-# the 2-day propagation (50x50 gravity, drag, and SRP all perturb the
-# instantaneous element beyond the mean value used to design the orbit), so
-# the mean sits about 0.4 deg below the design inclination of 92.6 deg.
+assert abs(inc_deg[0] - 92.6) < 0.01, (
+    f"Initial osculating inclination not at design value: {inc_deg[0]:.4f} deg"
+)
+# The osculating inclination drifts monotonically downward by about 1 deg
+# over the 2-day propagation, driven almost entirely by J2. This is the
+# leading edge of a long-period osculating oscillation (apsidal/nodal
+# precession timescale), not a bounded short-period wobble.
 assert abs(inc_deg.mean() - 92.6) < 0.5, (
     f"Mean inclination drifted too far from 92.6 deg: {inc_deg.mean():.4f} deg"
 )

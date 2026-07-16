@@ -14,8 +14,9 @@ This example demonstrates how to:
 3. Quantify how lunar gravity anomalies ("mascons") perturb a low lunar orbit
 4. Visualize the trajectory in 3D around a textured Moon
 
-The Lunar Reconnaissance Orbiter has flown a ~30 x 216 km polar orbit since
-2009, mapping the Moon at high resolution. Its orbit is a "frozen orbit": the
+The Lunar Reconnaissance Orbiter has flown a roughly 30 x 200 km class polar
+science orbit since 2009, mapping the Moon at high resolution. Its orbit is
+a "frozen orbit": the
 argument of perilune is chosen so that the long-period perturbation from the
 Moon's lumpy gravity field averages out, keeping the eccentricity and
 perilune altitude nearly constant over many orbits rather than drifting or

@@ -287,6 +287,30 @@ def test_plot_trajectory_3d_moon_centered_keplerian_rejected():
         )
 
 
+def test_plot_trajectory_3d_custom_body_keplerian_rejected():
+    """A Keplerian-representation trajectory plotted around a custom
+    central_body dict without a naif_id must still be rejected, not
+    silently plotted as bogus Cartesian data (the representation check
+    must not be skipped just because there is no frame to validate)."""
+    epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj = bh.OrbitTrajectory(
+        6,
+        bh.OrbitFrame.BodyCenteredInertial(301),
+        bh.OrbitRepresentation.KEPLERIAN,
+        bh.AngleFormat.DEGREES,
+    )
+    oe = np.array([bh.R_MOON + 100e3, 0.01, 45.0, 0.0, 0.0, 0.0])
+    traj.add(epoch, oe)
+
+    with pytest.raises(ValueError, match="CARTESIAN"):
+        bh.plot_trajectory_3d(
+            [{"trajectory": traj, "label": "Custom"}],
+            central_body={"name": "Custom", "radius": 100e3},
+            texture="simple",
+            backend="matplotlib",
+        )
+
+
 def test_plot_trajectory_3d_additional_bodies(eci_trajectory):
     fig = bh.plot_trajectory_3d(
         [{"trajectory": eci_trajectory}],

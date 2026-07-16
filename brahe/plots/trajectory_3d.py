@@ -117,7 +117,8 @@ def plot_trajectory_3d(
         state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
 
         prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)
-        traj = prop.propagate(epoch, epoch + bh.orbital_period(oe[0]), 60.0)
+        prop.propagate_to(epoch + bh.orbital_period(oe[0]))
+        traj = prop.trajectory
 
         # Plot 3D trajectory around Earth with matplotlib (simple sphere)
         fig = bh.plot_trajectory_3d(
@@ -264,14 +265,15 @@ def _coerce_trajectory_frame(trajectory, body):
                 f"Trajectory frame {trajectory.frame} does not match the expected "
                 f"frame {expected_frame} for central body '{body['name']}'"
             )
-        if trajectory.representation != OrbitRepresentation.CARTESIAN:
-            raise ValueError(
-                f"Trajectory representation {trajectory.representation} is not "
-                f"supported for central body '{body['name']}'; only "
-                "OrbitRepresentation.CARTESIAN can be plotted. Automatic "
-                "conversion is not performed because it would require the "
-                "body's gravitational parameter."
-            )
+
+    if trajectory.representation != OrbitRepresentation.CARTESIAN:
+        raise ValueError(
+            f"Trajectory representation {trajectory.representation} is not "
+            f"supported for central body '{body['name']}'; only "
+            "OrbitRepresentation.CARTESIAN can be plotted. Automatic "
+            "conversion is not performed because it would require the "
+            "body's gravitational parameter."
+        )
 
     return trajectory
 

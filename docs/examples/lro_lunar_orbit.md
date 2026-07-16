@@ -2,9 +2,9 @@
 
 In this example we'll set up the Lunar Reconnaissance Orbiter's (LRO) low
 lunar science orbit and propagate it with brahe's lunar force model. LRO has
-flown a polar, near-frozen orbit around the Moon since 2009 with a perilune
-near 30 km and an apolune near 200 km, mapping the surface at high
-resolution. We'll compare a full-fidelity propagation against a point-mass
+flown a roughly 30 x 200 km class polar, near-frozen science orbit around
+the Moon since 2009, mapping the surface at high resolution. We'll compare
+a full-fidelity propagation against a point-mass
 Moon to quantify how the Moon's lumpy gravity field ("mascons" - dense,
 gravitationally anomalous regions beneath several lunar maria) perturbs a low
 lunar orbit, then visualize the trajectory in 3D around a textured Moon.

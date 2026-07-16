@@ -10,6 +10,7 @@ from PIL import Image
 
 from brahe.plots.texture_utils import (
     PLANET_TEXTURES,
+    _is_valid_jpeg,
     clear_texture_cache,
     download_planet_texture,
     get_blue_marble_texture_path,
@@ -66,6 +67,19 @@ def test_planet_textures_registry():
         assert body in PLANET_TEXTURES
         assert PLANET_TEXTURES[body].startswith("2k_")
         assert PLANET_TEXTURES[body].endswith(".jpg")
+
+
+def test_is_valid_jpeg(tmp_path):
+    """Test that the JPEG validator rejects HTML error pages and accepts a
+    real JPEG (guards against a flaky CDN returning an HTML body with a
+    200 status)."""
+    html_path = tmp_path / "error.html"
+    html_path.write_bytes(b"<html>error</html>")
+    assert _is_valid_jpeg(html_path) is False
+
+    jpeg_path = tmp_path / "valid.jpg"
+    Image.new("RGB", (4, 4)).save(jpeg_path, "JPEG")
+    assert _is_valid_jpeg(jpeg_path) is True
 
 
 def test_load_body_texture_simple_and_unknown():

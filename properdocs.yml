@@ -342,6 +342,7 @@ nav:
       - examples/lro_lunar_orbit.md
       - examples/earth_moon_free_return.md
       - examples/mro_mars_orbit.md
+      - examples/dawn_ceres_orbit.md
   - Python API Reference:
       - library_api/index.md
       - Constants:

@@ -41,6 +41,64 @@ def _is_zip(path: Path) -> bool:
         return False
 
 
+def download_file(
+    url: str,
+    dest: Path,
+    *,
+    description: str,
+    timeout: int = 60,
+    max_retries: int = 3,
+    retry_delay: int = 5,
+) -> Path:
+    """Download a single file to ``dest``, atomically, with caching.
+
+    Args:
+        url: URL of the file to download.
+        dest: Final path the file is published to. If it already exists,
+            the download is skipped.
+        description: Human-readable resource name for log/error messages.
+        timeout: Per-request timeout in seconds.
+        max_retries: Number of download attempts before giving up.
+        retry_delay: Seconds to sleep between attempts.
+
+    Returns:
+        Path: ``dest``.
+
+    Raises:
+        RuntimeError: If the download fails after ``max_retries`` attempts.
+    """
+    if dest.exists():
+        return dest
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    last_error: Optional[Exception] = None
+    for attempt in range(1, max_retries + 1):
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                dir=dest.parent, suffix=".part", delete=False
+            ) as tmp:
+                tmp_path = Path(tmp.name)
+                with httpx.stream(
+                    "GET",
+                    url,
+                    headers=_HEADERS,
+                    timeout=timeout,
+                    follow_redirects=True,
+                ) as response:
+                    response.raise_for_status()
+                    for chunk in response.iter_bytes():
+                        tmp.write(chunk)
+            tmp_path.replace(dest)
+            return dest
+        except Exception as e:  # noqa: BLE001 - retried, re-raised below
+            last_error = e
+            if tmp_path is not None and tmp_path.exists():
+                tmp_path.unlink()
+            if attempt < max_retries:
+                time.sleep(retry_delay)
+    raise RuntimeError(f"Failed to download {description} from {url}: {last_error}")
+
+
 def download_and_extract_zip(
     url: str,
     extract_dir: Path,

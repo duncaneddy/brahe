@@ -12,7 +12,7 @@ from loguru import logger
 
 import brahe as bh
 from brahe.plots.backend import validate_backend, apply_scienceplots_style
-from brahe.plots.texture_utils import load_earth_texture
+from brahe.plots.texture_utils import load_body_texture
 from brahe._brahe import OrbitTrajectory, OrbitFrame, OrbitRepresentation
 
 
@@ -412,7 +412,7 @@ def _plot_earth_sphere_matplotlib(ax, scale):
 def _plot_earth_sphere_plotly(fig, scale, texture, n_lon=360, n_lat=180):
     """Plot Earth sphere on plotly 3D figure using Mesh3d with optional texture mapping."""
     # Load texture if requested
-    texture_img = load_earth_texture(texture)
+    texture_img = load_body_texture(texture)
 
     if texture_img is None:
         # Simple solid sphere using Surface (faster for untextured)

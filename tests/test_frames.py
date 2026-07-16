@@ -798,6 +798,47 @@ def test_synodic_router_matches_pairwise():
         np.testing.assert_allclose(via_router, pairwise, atol=1e-9)
 
 
+def test_synodic_origin_enum():
+    assert brahe.SynodicOrigin.Barycenter != brahe.SynodicOrigin.Primary
+    assert str(brahe.SynodicOrigin.Barycenter) == "Barycenter"
+
+
+def test_reference_frame_synodic_constructor():
+    frame = brahe.ReferenceFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 301)
+    assert frame.synodic_primary == 399
+    assert frame.synodic_secondary == 301
+    assert frame.synodic_origin == brahe.SynodicOrigin.Barycenter
+    assert "Synodic" in str(frame)
+
+
+def test_reference_frame_synodic_invalid_ids():
+    with pytest.raises(ValueError):
+        brahe.ReferenceFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 1301)
+
+
+def test_reference_frame_synodic_accessors_named_frames():
+    assert brahe.ReferenceFrame.EMR.synodic_primary == 399
+    assert brahe.ReferenceFrame.EMR.synodic_secondary == 301
+    assert brahe.ReferenceFrame.SER.synodic_primary == 10
+    assert brahe.ReferenceFrame.GSE.synodic_secondary == 10
+    assert brahe.ReferenceFrame.GCRF.synodic_primary is None
+
+
+def test_synodic_matches_emr_state_transform():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
+    x = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
+    generic = brahe.ReferenceFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 301)
+    x_named = brahe.state_frame_to_frame(
+        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.EMR, epc, x
+    )
+    x_generic = brahe.state_frame_to_frame(brahe.ReferenceFrame.GCRF, generic, epc, x)
+    # EMR is an analytic barycenter, the generic router resolves the same
+    # pair via SPK; the ~0.1 m barycenter discrepancy is expected (mirrors
+    # the Rust equivalence test in src/frames/transform.rs).
+    np.testing.assert_allclose(x_generic, x_named, atol=1.0)
+
+
 def test_router_lci_to_emr():
     # TP §4.6.3: Moon-centered inertial to EMR. The Moon (LCI origin) must
     # land on EMR's +x_hat axis with zero transverse velocity.

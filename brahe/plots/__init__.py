@@ -34,6 +34,8 @@ _PLOT_EXPORTS = {
     "plot_cartesian_trajectory": "trajectories",
     "plot_keplerian_trajectory": "trajectories",
     "plot_trajectory_3d": "trajectory_3d",
+    "plot_synodic_3d": "synodic_3d",
+    "plot_earth_moon_rotating_3d": "synodic_3d",
     "plot_gabbard_diagram": "gabbard",
     "plot_estimator_state_error": "estimation_state",
     "plot_estimator_state_value": "estimation_state",
@@ -99,6 +101,10 @@ if TYPE_CHECKING:
     )
     from brahe.plots.trajectory_3d import (
         plot_trajectory_3d as plot_trajectory_3d,
+    )
+    from brahe.plots.synodic_3d import (
+        plot_earth_moon_rotating_3d as plot_earth_moon_rotating_3d,
+        plot_synodic_3d as plot_synodic_3d,
     )
 
 _INSTALL_HINT = (

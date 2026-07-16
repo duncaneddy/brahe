@@ -67,7 +67,7 @@ GM_CERES = 6.26325e10  # m^3/s^2
 R_CERES = 469.7e3  # m
 CERES_POLE_RA = 291.418  # deg, ICRF right ascension of the spin pole
 CERES_POLE_DEC = 66.764  # deg, ICRF declination of the spin pole
-CERES_W0 = 170.650  # deg, prime meridian angle at J2000 TDB
+CERES_W0 = 170.650  # deg, prime meridian angle at J2000 TT
 CERES_W_RATE = 952.1532635  # deg/day
 # --8<-- [end:body_definition]
 

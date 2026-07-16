@@ -11,8 +11,8 @@ use nalgebra::Vector3;
 
 use crate::constants::{
     GM_EARTH, GM_JUPITER, GM_JUPITER_SYSTEM, GM_MARS, GM_MERCURY, GM_MOON, GM_NEPTUNE,
-    GM_NEPTUNE_SYSTEM, GM_PLUTO, GM_SATURN, GM_SATURN_SYSTEM, GM_SUN, GM_URANUS, GM_URANUS_SYSTEM,
-    GM_VENUS,
+    GM_NEPTUNE_SYSTEM, GM_PLUTO, GM_PLUTO_SYSTEM, GM_SATURN, GM_SATURN_SYSTEM, GM_SUN, GM_URANUS,
+    GM_URANUS_SYSTEM, GM_VENUS,
 };
 use crate::math::{SMatrix3, SVector6};
 use crate::spice::{NAIFId, spk_acceleration, spk_position, spk_state};
@@ -180,7 +180,8 @@ pub(crate) fn body_gm(naif_id: i32) -> Result<f64, BraheError> {
         799 => Ok(GM_URANUS),
         8 => Ok(GM_NEPTUNE_SYSTEM),
         899 => Ok(GM_NEPTUNE),
-        9 | 999 => Ok(GM_PLUTO),
+        9 => Ok(GM_PLUTO_SYSTEM),
+        999 => Ok(GM_PLUTO),
         id => Err(BraheError::Error(format!(
             "No packaged GM constant for NAIF ID {id}; synodic barycenter \
              origins are only supported for the Sun, planets, planetary \
@@ -1250,6 +1251,8 @@ mod tests {
         assert_eq!(body_gm(399).unwrap(), GM_EARTH);
         assert_eq!(body_gm(301).unwrap(), GM_MOON);
         assert_eq!(body_gm(10).unwrap(), GM_SUN);
+        assert_eq!(body_gm(9).unwrap(), GM_PLUTO_SYSTEM);
+        assert_eq!(body_gm(999).unwrap(), GM_PLUTO);
         assert!(body_gm(502).is_err()); // Europa: no packaged GM constant
     }
 

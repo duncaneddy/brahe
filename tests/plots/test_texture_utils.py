@@ -166,6 +166,56 @@ def test_download_planet_texture_moon():
     assert img is not None
 
 
+@pytest.fixture
+def moon_texture_cache_path():
+    """Isolates the on-disk cache slot for the 'moon' planet texture so a
+    test can plant/corrupt it without disturbing a real cached download."""
+    cache_path = (
+        get_texture_cache_dir() / "solar_system_scope" / PLANET_TEXTURES["moon"]
+    )
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    backup = cache_path.read_bytes() if cache_path.exists() else None
+    try:
+        yield cache_path
+    finally:
+        if backup is not None:
+            cache_path.write_bytes(backup)
+        else:
+            cache_path.unlink(missing_ok=True)
+
+
+def test_load_body_texture_self_heals_corrupt_cache(
+    monkeypatch, tmp_path, moon_texture_cache_path
+):
+    """A corrupt cached texture file must self-heal: load_body_texture
+    deletes it and re-downloads once before raising."""
+    moon_texture_cache_path.write_bytes(b"not a jpeg")
+
+    valid_jpeg = tmp_path / "valid.jpg"
+    Image.new("RGB", (4, 4), color="red").save(valid_jpeg, format="JPEG")
+
+    calls = {"n": 0}
+
+    def fake_download_planet_texture(body):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            # Mirrors download_file's cache fast-path: returns the
+            # (still-corrupt) existing cached file on the first call.
+            return moon_texture_cache_path
+        shutil.copy(valid_jpeg, moon_texture_cache_path)
+        return moon_texture_cache_path
+
+    monkeypatch.setattr(
+        "brahe.plots.texture_utils.download_planet_texture",
+        fake_download_planet_texture,
+    )
+
+    img = load_body_texture("moon")
+
+    assert img is not None
+    assert calls["n"] == 2
+
+
 def test_clear_texture_cache():
     """Test clearing texture cache."""
     # Ensure cache directory exists with some content

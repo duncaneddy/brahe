@@ -265,6 +265,28 @@ def test_plot_trajectory_3d_moon_centered(lunar_trajectory):
     plt.close(fig)
 
 
+def test_plot_trajectory_3d_moon_centered_keplerian_rejected():
+    """A Keplerian-representation trajectory in the right frame must be
+    rejected rather than silently plotted as bogus Cartesian data."""
+    epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj = bh.OrbitTrajectory(
+        6,
+        bh.OrbitFrame.BodyCenteredInertial(301),
+        bh.OrbitRepresentation.KEPLERIAN,
+        bh.AngleFormat.DEGREES,
+    )
+    oe = np.array([bh.R_MOON + 100e3, 0.01, 45.0, 0.0, 0.0, 0.0])
+    traj.add(epoch, oe)
+
+    with pytest.raises(ValueError, match="CARTESIAN"):
+        bh.plot_trajectory_3d(
+            [{"trajectory": traj, "label": "LLO"}],
+            central_body="moon",
+            texture="simple",
+            backend="matplotlib",
+        )
+
+
 def test_plot_trajectory_3d_additional_bodies(eci_trajectory):
     fig = bh.plot_trajectory_3d(
         [{"trajectory": eci_trajectory}],
@@ -286,3 +308,11 @@ def test_plot_trajectory_3d_additional_bodies(eci_trajectory):
 def test_plot_trajectory_3d_rejects_removed_kwargs(eci_trajectory):
     with pytest.raises(TypeError):
         bh.plot_trajectory_3d([{"trajectory": eci_trajectory}], earth_texture="simple")
+
+    # Every parameter after `trajectories` is keyword-only: an old caller's
+    # positional `show_earth` slot (now `central_body`) must fail loudly
+    # instead of silently binding to the wrong parameter.
+    with pytest.raises(TypeError):
+        bh.plot_trajectory_3d(
+            [{"trajectory": eci_trajectory}], None, "km", False, "earth"
+        )

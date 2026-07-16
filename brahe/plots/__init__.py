@@ -7,7 +7,7 @@ This module provides high-level plotting functions for common astrodynamics visu
 - Ground track plots with communication cones and polygon zones
 - Access window geometry (polar plots and elevation profiles)
 - Orbital element time series (Keplerian and Cartesian)
-- 3D trajectory visualization in ECI frame
+- 3D trajectory visualization around arbitrary central bodies, including synodic (rotating) frames
 - Gabbard diagrams (orbital period vs apogee/perigee altitude)
 - Estimation state errors, values, residuals, and marginal distributions
 

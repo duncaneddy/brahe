@@ -19,6 +19,7 @@ from brahe._brahe import OrbitTrajectory
 
 def plot_synodic_3d(
     trajectories,
+    *,
     frame="EMR",
     reference_epoch=None,
     bodies=None,

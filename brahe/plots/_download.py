@@ -49,6 +49,7 @@ def download_file(
     timeout: int = 60,
     max_retries: int = 3,
     retry_delay: int = 5,
+    validate: Optional[Callable[[Path], bool]] = None,
 ) -> Path:
     """Download a single file to ``dest``, atomically, with caching.
 
@@ -60,12 +61,18 @@ def download_file(
         timeout: Per-request timeout in seconds.
         max_retries: Number of download attempts before giving up.
         retry_delay: Seconds to sleep between attempts.
+        validate: Optional callable checked against the staged temp file
+            before the atomic rename into ``dest``. A ``False`` return is
+            treated as a failed attempt (the temp file is discarded and the
+            download retried), so a bad CDN response (HTML error page,
+            truncated body) never poisons the cache.
 
     Returns:
         Path: ``dest``.
 
     Raises:
-        RuntimeError: If the download fails after ``max_retries`` attempts.
+        RuntimeError: If the download fails, or fails validation, after
+            ``max_retries`` attempts.
     """
     if dest.exists():
         return dest
@@ -88,6 +95,10 @@ def download_file(
                     response.raise_for_status()
                     for chunk in response.iter_bytes():
                         tmp.write(chunk)
+            if validate is not None and not validate(tmp_path):
+                raise RuntimeError(
+                    f"Downloaded {description} failed content validation"
+                )
             tmp_path.replace(dest)
             return dest
         except Exception as e:  # noqa: BLE001 - retried, re-raised below

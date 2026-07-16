@@ -2748,10 +2748,19 @@ impl PyReferenceFrame {
     ///
     /// Returns:
     ///     ReferenceFrame: Custom body-fixed frame for `key`, centered on `center`
+    ///
+    /// Raises:
+    ///     ValueError: If `center` is at or below -1_000_000_000 — that range is
+    ///         reserved for synthetic synodic barycenter centers (see `Synodic`)
     #[staticmethod]
     #[allow(non_snake_case)]
-    fn BodyFixedCustom(center: i32, key: u32) -> Self {
-        PyReferenceFrame { frame: frames::ReferenceFrame::BodyFixedCustom { center, key } }
+    fn BodyFixedCustom(center: i32, key: u32) -> PyResult<Self> {
+        if center <= -1_000_000_000 {
+            return Err(exceptions::PyValueError::new_err(
+                "center IDs at or below -1_000_000_000 are reserved for synthetic synodic barycenters",
+            ));
+        }
+        Ok(PyReferenceFrame { frame: frames::ReferenceFrame::BodyFixedCustom { center, key } })
     }
 
     /// Generic two-body synodic (rotating) frame: x̂ from `primary` toward

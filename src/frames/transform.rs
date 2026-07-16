@@ -85,6 +85,11 @@ use super::mars::rotation_mci_to_mcmf;
 /// never passed to SPK — `center_offset_state` computes the barycenter
 /// analytically as the GM-weighted combination of the Sun and Earth SPK
 /// states.
+///
+/// All center IDs at or below -1_000_000_000 are reserved for synthetic
+/// synodic barycenters encoded by [`synodic_barycenter_id`] (of which this
+/// constant is one instance); [`ReferenceFrame::BodyFixedCustom`] rejects
+/// self-assigned centers in that range to avoid a collision.
 pub const SUN_EARTH_BARYCENTER_ID: i32 = -1_000_010_399;
 
 /// Origin choice for a generic [`ReferenceFrame::Synodic`] frame.
@@ -104,6 +109,11 @@ pub enum SynodicOrigin {
 /// Negative following NAIF's convention for non-catalogued objects; never
 /// passed to SPK — `center_offset_state` resolves it analytically.
 /// [`SUN_EARTH_BARYCENTER_ID`] is this encoding evaluated at `(10, 399)`.
+///
+/// The full range at or below -1_000_000_000 is reserved for these synthetic
+/// barycenters — [`ReferenceFrame::BodyFixedCustom`] rejects self-assigned
+/// centers in that range so a user-registered custom frame can never collide
+/// with one.
 ///
 /// # Arguments
 /// - `primary`: NAIF ID of the primary body. Must be in `0..=999`.
@@ -216,7 +226,10 @@ pub enum ReferenceFrame {
     /// negative `center` (mirroring NAIF's convention for non-catalogued
     /// objects): rotation-only queries never consult the center, and
     /// translations will surface an SPK lookup error unless an ephemeris
-    /// covering that ID is loaded.
+    /// covering that ID is loaded. Center IDs at or below -1_000_000_000
+    /// are reserved for synthetic synodic barycenters (see
+    /// [`synodic_barycenter_id`]) and are rejected by the Python
+    /// `BodyFixedCustom` constructor to avoid a collision.
     BodyFixedCustom {
         /// NAIF ID of the frame's center (may be self-assigned negative).
         center: i32,

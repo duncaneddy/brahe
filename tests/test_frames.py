@@ -927,6 +927,16 @@ def test_body_fixed_custom_frame_explicit_omega():
     assert brahe.unregister_custom_frame(1043)
 
 
+def test_body_fixed_custom_rejects_reserved_barycenter_center():
+    """Center IDs at or below -1_000_000_000 are reserved for synthetic
+    synodic barycenters (see synodic_barycenter_id) and must not be
+    self-assignable to a custom body-fixed frame."""
+    with pytest.raises(ValueError):
+        brahe.ReferenceFrame.BodyFixedCustom(-1_000_000_000, 1044)
+    with pytest.raises(ValueError):
+        brahe.ReferenceFrame.BodyFixedCustom(-1_000_010_399, 1044)
+
+
 def test_reference_frame_class_aliases():
     """ECI/ECEF class attributes alias GCRF/ITRF."""
     assert brahe.ReferenceFrame.ECI == brahe.ReferenceFrame.GCRF

@@ -16,7 +16,7 @@ The plotly backend creates fully interactive 3D plots. Click and drag to rotate,
 ### Blue Marble Texture
 
 !!! note
-    Textues are provided as image-only in documentation to reduce page load times. Interactive versions can be generated using the provided code.
+    Textures are provided as image-only in documentation to reduce page load times. Interactive versions can be generated using the provided code.
 
 <figure markdown="span">
     ![3D Trajectory with Blue Marble](../../figures/trajectory_3d_plotly_light.svg#only-light)

@@ -135,6 +135,27 @@ def download_natural_earth_texture(resolution: str = "50m") -> Path:
     )
 
 
+def _load_rgb_image(path: Path) -> Image.Image:
+    """Open an image file, forcing a full decode so a corrupt/truncated
+    file raises here rather than lazily on first pixel access."""
+    img = Image.open(path)
+    img.load()
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+    return img
+
+
+def _is_valid_jpeg(path: Path) -> bool:
+    """Check that a file is a loadable JPEG (catches HTML error pages and
+    truncated bodies from a flaky CDN)."""
+    try:
+        with Image.open(path) as img:
+            img.verify()
+        return True
+    except Exception:
+        return False
+
+
 def download_planet_texture(body: str) -> Path:
     """Download and cache a Solar System Scope planet texture.
 
@@ -150,7 +171,7 @@ def download_planet_texture(body: str) -> Path:
 
     Raises:
         ValueError: If ``body`` is not in ``PLANET_TEXTURES``.
-        RuntimeError: If the download fails.
+        RuntimeError: If the download fails or the response is not a valid JPEG.
     """
     if body not in PLANET_TEXTURES:
         raise ValueError(
@@ -164,6 +185,7 @@ def download_planet_texture(body: str) -> Path:
         dest,
         description=f"Solar System Scope '{body}' texture",
         timeout=60,
+        validate=_is_valid_jpeg,
     )
 
 
@@ -225,12 +247,17 @@ def load_body_texture(texture) -> Optional[Image.Image]:
     elif isinstance(texture, str) and texture in PLANET_TEXTURES:
         texture_path = download_planet_texture(texture)
         try:
-            img = Image.open(texture_path)
-            if img.mode != "RGB":
-                img = img.convert("RGB")
-            return img
-        except Exception as e:
-            raise RuntimeError(f"Failed to load '{texture}' texture: {e}")
+            return _load_rgb_image(texture_path)
+        except Exception:
+            # Cached file is corrupt (e.g. a partial download cached before
+            # download_planet_texture validated content) -- delete and
+            # re-download once before giving up.
+            texture_path.unlink(missing_ok=True)
+            texture_path = download_planet_texture(texture)
+            try:
+                return _load_rgb_image(texture_path)
+            except Exception as e:
+                raise RuntimeError(f"Failed to load '{texture}' texture: {e}")
 
     elif isinstance(texture, (str, Path)) and Path(texture).is_file():
         try:

@@ -74,7 +74,7 @@ If you want to build Brahe from source (e.g., for development or to use unreleas
     `main` branch instead:
 
     ```bash
-    git clone -c core.symlinks=true --single-branch --branch main https://github.com/duncaneddy/brahe.git
+    git clone --single-branch --branch main https://github.com/duncaneddy/brahe.git
     ```
 
 ### Prerequisites
@@ -103,7 +103,7 @@ If you want to build Brahe from source (e.g., for development or to use unreleas
 
 ```bash
 # Clone the repository
-git clone -c core.symlinks=true --single-branch --branch main https://github.com/duncaneddy/brahe.git
+git clone --single-branch --branch main https://github.com/duncaneddy/brahe.git
 cd brahe
 
 # Install uv if you haven't already
@@ -170,7 +170,7 @@ brahe = "1.6.0"
 
 ```bash
 # Clone the repository (add `--single-branch --branch main` if the clone is slow)
-git clone -c core.symlinks=true --single-branch --branch main https://github.com/duncaneddy/brahe.git
+git clone --single-branch --branch main https://github.com/duncaneddy/brahe.git
 cd brahe
 
 # Build the library

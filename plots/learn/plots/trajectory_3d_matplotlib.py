@@ -64,7 +64,7 @@ fig = bh.plot_trajectory_3d(
         {"trajectory": traj_polar, "color": "cyan", "label": "Polar 97.8° (~550 km)"},
     ],
     units="km",
-    show_earth=True,
+    show_body=True,
     backend="matplotlib",
 )
 
@@ -89,7 +89,7 @@ with plt.style.context("dark_background"):
             },
         ],
         units="km",
-        show_earth=True,
+        show_body=True,
         backend="matplotlib",
     )
 

@@ -1,5 +1,5 @@
 """
-Earth texture management for 3D plotting.
+Body texture management for 3D plotting.
 
 Handles loading packaged textures and downloading/caching external texture data.
 """

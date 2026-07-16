@@ -21,7 +21,7 @@ use crate::constants::{
 };
 use crate::datasets::icgem::ICGEMBody;
 use crate::orbit_dynamics::ParallelMode;
-use crate::orbit_dynamics::gravity::{GravityModelTideSystem, GravityModelType};
+use crate::orbit_dynamics::gravity::{GravityModel, GravityModelTideSystem, GravityModelType};
 use crate::orbit_dynamics::tides::SolidTideConfig;
 use crate::propagators::central_body::CentralBody;
 use crate::spice::SPICEKernel;
@@ -850,6 +850,10 @@ impl ForceModelConfig {
     /// 5. `GravityConfiguration::SphericalHarmonic` on a `CentralBody::Custom` body
     ///    requires `central_body.fixed_frame()` to be set (needed to rotate into the
     ///    body-fixed frame the harmonics are expressed in).
+    /// 6. `GravityConfiguration::SphericalHarmonic` as the central gravity field must
+    ///    model `central_body` itself — see
+    ///    [`ForceModelConfig::validate_gravity_model_body`] for how the model's body
+    ///    is determined and compared.
     /// 7. `OceanTideConfig::degree` must be in `2..=100` (the FES2004 file's truncation
     ///    limit) and `OceanTideConfig::order` must be in `2..=degree`.
     ///
@@ -1064,6 +1068,165 @@ impl ForceModelConfig {
             )));
         }
 
+        self.validate_gravity_model_body()?;
+
+        Ok(())
+    }
+
+    /// Check that a spherical-harmonic central gravity field's source body
+    /// matches `central_body` (issue: a bare `GravityConfiguration::SphericalHarmonic`
+    /// silently defaults to Earth's EGM2008_120, which — attached to e.g. a Mars
+    /// central body — evaluates a field with Earth's GM and reference radius at a
+    /// Mars-scale orbit radius, producing unphysical accelerations that stall the
+    /// adaptive integrator instead of erroring).
+    ///
+    /// No-op for [`GravityConfiguration::Zero`]/`PointMass`/`EarthZonal`, and for
+    /// [`GravityModelSource::Global`] (a shared, externally managed model whose
+    /// identity cannot be reliably checked here — it may not be populated via
+    /// `set_global_gravity_model` yet at validation time — so callers of a Global
+    /// source are responsible for pairing it with a matching `central_body`
+    /// themselves).
+    ///
+    /// For [`GravityModelSource::ModelType`]:
+    /// - The packaged models ([`GravityModelType::EGM2008_120`],
+    ///   [`GravityModelType::GGM05S`], [`GravityModelType::JGM3`]) are Earth-only
+    ///   models; `central_body`'s NAIF ID must be `399` (Earth).
+    /// - [`GravityModelType::ICGEMModel`] carries its body directly for
+    ///   `ICGEMBody::Earth`/`Moon`/`Mars`; checked the same way (NAIF ID
+    ///   comparison), with no load.
+    /// - Everything else — `ICGEMModel` with `ICGEMBody::Venus`/`Ceres`/`Other`,
+    ///   and `GravityModelType::FromFile` — has no statically known body, so the
+    ///   model itself is loaded (a network fetch on a cold `ICGEMModel` cache;
+    ///   a local parse for `FromFile`) and its header GM and reference radius are
+    ///   compared against `central_body.gm()`/`central_body.radius()` within a 1%
+    ///   relative tolerance. This is generous enough to absorb DE440-vs-model
+    ///   constant differences while still catching body-scale mismatches (e.g.
+    ///   Earth vs. Mars GM differs by ~9x). It is a body-*identity* check, not a
+    ///   model-*quality* check: a crust-only model whose header `gravity_constant`
+    ///   still carries the real body GM (as with the ICGEM Ceres model
+    ///   `sphericalRFM_CERES_2519`, whose C̄00 ≈ 0.126 rather than 1.0) passes.
+    ///   `central_body.gm() <= 0.0` (possible for a `CentralBody::Custom` with an
+    ///   unset/zero `gm` — built-in barycenters are already rejected earlier in
+    ///   `validate()`) always errors here rather than silently skipping the GM
+    ///   comparison, since no real gravity model has a non-positive GM.
+    ///
+    /// # Returns
+    /// `Ok(())` if the gravity model's body matches `central_body` (or the check
+    /// does not apply), `Err(BraheError)` naming both bodies otherwise.
+    fn validate_gravity_model_body(&self) -> Result<(), BraheError> {
+        let source = match &self.gravity {
+            GravityConfiguration::SphericalHarmonic { source, .. } => source,
+            _ => return Ok(()),
+        };
+
+        let model_type = match source {
+            GravityModelSource::Global => return Ok(()),
+            GravityModelSource::ModelType(model_type) => model_type,
+        };
+
+        // Bodies with a statically known identity: compare NAIF IDs, no load.
+        let known_identity: Option<(i32, &str)> = match model_type {
+            GravityModelType::EGM2008_120 | GravityModelType::GGM05S | GravityModelType::JGM3 => {
+                Some((399, "Earth"))
+            }
+            GravityModelType::ICGEMModel { body, .. } => match body {
+                ICGEMBody::Earth => Some((399, body.as_name())),
+                ICGEMBody::Moon => Some((301, body.as_name())),
+                ICGEMBody::Mars => Some((499, body.as_name())),
+                ICGEMBody::Venus | ICGEMBody::Ceres | ICGEMBody::Other(_) => None,
+            },
+            GravityModelType::FromFile(_) => None,
+        };
+
+        if let Some((expected_naif_id, model_body_name)) = known_identity {
+            if self.central_body.naif_id() != expected_naif_id {
+                return Err(BraheError::Error(format!(
+                    "gravity model {:?} is a {} model, but central_body is {} (NAIF {}); a \
+                     spherical-harmonic central gravity field must model the same body the \
+                     orbit is propagated relative to",
+                    model_type,
+                    model_body_name,
+                    self.central_body,
+                    self.central_body.naif_id()
+                )));
+            }
+            return Ok(());
+        }
+
+        // No statically known body: load the model (via the process-wide cache
+        // — an `Arc`, not a deep clone) and compare its header GM and reference
+        // radius against the central body.
+        let model = GravityModel::shared(model_type)?;
+        let central_gm = self.central_body.gm();
+        if central_gm <= 0.0 {
+            // Every real spherical-harmonic model has a positive GM, so a
+            // central body with non-positive GM (e.g. a `Custom` body with an
+            // unset/zero `gm`) can never match one. Built-in barycenters
+            // (`EMB`/`SSB`, `gm() == 0.0`) are already rejected earlier in
+            // `validate()`; this also catches the equivalent `Custom` case,
+            // which has no dedicated barycenter check of its own.
+            return Err(BraheError::Error(format!(
+                "central_body {} has non-positive GM ({:.6e} m^3/s^2), but a spherical-harmonic \
+                 gravity model (which always has a positive GM) is attached; spherical-harmonic \
+                 gravity requires a physical central body with a known positive GM",
+                self.central_body, central_gm
+            )));
+        }
+        Self::check_body_constant_within_tolerance(
+            model_type,
+            &self.central_body,
+            "GM",
+            "m^3/s^2",
+            model.gm,
+            central_gm,
+        )?;
+        if let Some(central_radius) = self.central_body.radius() {
+            Self::check_body_constant_within_tolerance(
+                model_type,
+                &self.central_body,
+                "reference radius",
+                "m",
+                model.radius,
+                central_radius,
+            )?;
+        }
+
+        Ok(())
+    }
+
+    /// Compare a loaded gravity model's header constant against the expected
+    /// value for `central_body`, within a 1% relative tolerance.
+    ///
+    /// # Arguments
+    /// - `model_type`: Gravity model being checked (named in the error).
+    /// - `central_body`: Central body being checked against (named in the error).
+    /// - `label`: Human-readable name of the constant (e.g. `"GM"`), used in the
+    ///   error message.
+    /// - `unit`: Unit string for the constant (e.g. `"m^3/s^2"`), used in the
+    ///   error message.
+    /// - `model_value`: The gravity model's header value for this constant.
+    /// - `central_value`: `central_body`'s value for this constant.
+    ///
+    /// # Returns
+    /// `Ok(())` if the values agree within 1% relative tolerance,
+    /// `Err(BraheError)` naming both otherwise.
+    fn check_body_constant_within_tolerance(
+        model_type: &GravityModelType,
+        central_body: &CentralBody,
+        label: &str,
+        unit: &str,
+        model_value: f64,
+        central_value: f64,
+    ) -> Result<(), BraheError> {
+        let rel_diff = (model_value - central_value).abs() / central_value;
+        if rel_diff > 1e-2 {
+            return Err(BraheError::Error(format!(
+                "gravity model {:?} header {} ({:.6e} {}) does not match central_body {}'s {} \
+                 ({:.6e} {}) within 1% relative tolerance; the spherical-harmonic model does not \
+                 appear to belong to the propagation's central body",
+                model_type, label, model_value, unit, central_body, label, central_value, unit
+            )));
+        }
         Ok(())
     }
 }
@@ -3155,5 +3318,196 @@ mod tests {
             };
             assert!(config.validate().is_err());
         }
+    }
+
+    // =========================================================================
+    // validate_gravity_model_body (issue #400)
+    // =========================================================================
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_validate_rejects_egm2008_on_mars_central() {
+        // A bare SphericalHarmonic configuration (no explicit model_type)
+        // silently defaults to Earth's EGM2008_120; paired with a Mars
+        // central body this must now error instead of silently evaluating
+        // Earth's field at Mars-orbit radii.
+        let config = ForceModelConfig {
+            central_body: CentralBody::Mars,
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::default(),
+                degree: 8,
+                order: 8,
+                parallel: ParallelMode::Auto,
+            },
+            ..ForceModelConfig::two_body_gravity()
+        };
+        let err = config.validate().unwrap_err().to_string();
+        assert!(err.contains("Earth"), "{err}");
+        assert!(err.contains("Mars"), "{err}");
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_validate_rejects_ggm05s_and_jgm3_on_non_earth_central() {
+        for model_type in [GravityModelType::GGM05S, GravityModelType::JGM3] {
+            let config = ForceModelConfig {
+                central_body: CentralBody::Moon,
+                gravity: GravityConfiguration::SphericalHarmonic {
+                    source: GravityModelSource::ModelType(model_type),
+                    degree: 8,
+                    order: 8,
+                    parallel: ParallelMode::Auto,
+                },
+                ..ForceModelConfig::two_body_gravity()
+            };
+            let err = config.validate().unwrap_err().to_string();
+            assert!(err.contains("Earth"), "{err}");
+            assert!(err.contains("Moon"), "{err}");
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_validate_rejects_icgem_body_mismatch() {
+        // ICGEMModel's body is known statically (no load/network needed to
+        // detect the mismatch): Mars model paired with a Moon central body.
+        let config = ForceModelConfig {
+            central_body: CentralBody::Moon,
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::ModelType(GravityModelType::ICGEMModel {
+                    body: ICGEMBody::Mars,
+                    name: "ggm2bc80".to_string(),
+                }),
+                degree: 8,
+                order: 8,
+                parallel: ParallelMode::Auto,
+            },
+            ..ForceModelConfig::two_body_gravity()
+        };
+        let err = config.validate().unwrap_err().to_string();
+        assert!(err.contains("Mars"), "{err}");
+        assert!(err.contains("Moon"), "{err}");
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_validate_allows_matching_icgem_body() {
+        // Same body (Moon), different model name than lunar_default() — the
+        // check is identity-based, not tied to a specific packaged name.
+        let config = ForceModelConfig {
+            central_body: CentralBody::Moon,
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::ModelType(GravityModelType::ICGEMModel {
+                    body: ICGEMBody::Moon,
+                    name: "GRGM1200B".to_string(),
+                }),
+                degree: 8,
+                order: 8,
+                parallel: ParallelMode::Auto,
+            },
+            ..ForceModelConfig::two_body_gravity()
+        };
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_validate_allows_default_configs_matching_central_body() {
+        // Every named constructor pairs its packaged/ICGEM gravity model with
+        // the central body it belongs to; none of these should require a
+        // network fetch to validate (Earth packaged models, and Moon/Mars
+        // ICGEM models, all resolve statically).
+        for config in [
+            ForceModelConfig::default(),
+            ForceModelConfig::high_fidelity(),
+            ForceModelConfig::earth_gravity(),
+            ForceModelConfig::two_body_gravity(),
+            ForceModelConfig::conservative_forces(),
+            ForceModelConfig::leo_default(),
+            ForceModelConfig::geo_default(),
+            ForceModelConfig::lunar_default(),
+            ForceModelConfig::mars_default(),
+            ForceModelConfig::cislunar_default(),
+        ] {
+            assert!(config.validate().is_ok());
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_validate_gravity_model_body_from_file_header_match_and_mismatch() {
+        // GravityModelType::FromFile has no statically known body, so the
+        // check falls back to loading the model and comparing its header GM
+        // and reference radius. Uses a local Moon (GRGM660PRIM) header
+        // fixture — no network access required.
+        let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+        let path = std::path::Path::new(&manifest_dir)
+            .join("test_assets")
+            .join("grgm660prim_header_sample.gfc");
+        let model_type = GravityModelType::from_file(&path).unwrap();
+
+        // Matching central body (Moon): header GM/radius agree within tolerance.
+        let matching = ForceModelConfig {
+            central_body: CentralBody::Moon,
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::ModelType(model_type.clone()),
+                degree: 2,
+                order: 2,
+                parallel: ParallelMode::Auto,
+            },
+            ..ForceModelConfig::two_body_gravity()
+        };
+        assert!(matching.validate().is_ok());
+
+        // Mismatched central body (Mars): header GM/radius are Moon-scale,
+        // well outside the 1% tolerance against Mars's GM/radius.
+        let mismatched = ForceModelConfig {
+            central_body: CentralBody::Mars,
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::ModelType(model_type),
+                degree: 2,
+                order: 2,
+                parallel: ParallelMode::Auto,
+            },
+            ..ForceModelConfig::two_body_gravity()
+        };
+        let err = mismatched.validate().unwrap_err().to_string();
+        assert!(err.contains("Mars"), "{err}");
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_validate_rejects_from_file_on_custom_body_with_zero_gm() {
+        // A `Custom` central body has no dedicated barycenter check (unlike
+        // `EMB`/`SSB`), so a `gm: 0.0` body must still be rejected here rather
+        // than silently skipping the GM/radius comparison (which would
+        // otherwise let any FromFile/ICGEM Venus/Ceres/Other model "pass" a
+        // massless custom body with no check at all).
+        let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+        let path = std::path::Path::new(&manifest_dir)
+            .join("test_assets")
+            .join("grgm660prim_header_sample.gfc");
+        let model_type = GravityModelType::from_file(&path).unwrap();
+
+        let custom = CentralBody::Custom(crate::propagators::central_body::CustomBody {
+            name: "Massless".to_string(),
+            naif_id: -1,
+            gm: 0.0,
+            radius: None,
+            omega: None,
+            fixed_frame: Some(crate::frames::ReferenceFrame::BodyFixedIAU(-1)),
+        });
+        let config = ForceModelConfig {
+            central_body: custom,
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::ModelType(model_type),
+                degree: 2,
+                order: 2,
+                parallel: ParallelMode::Auto,
+            },
+            ..ForceModelConfig::two_body_gravity()
+        };
+        let err = config.validate().unwrap_err().to_string();
+        assert!(err.contains("non-positive GM"), "{err}");
     }
 }

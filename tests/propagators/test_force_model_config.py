@@ -19,6 +19,7 @@ from brahe import (
     ForceModelConfig,
     FrameTransformationModel,
     GravityConfiguration,
+    GravityModelType,
     OccultingBody,
     ParameterSource,
     ThirdBody,
@@ -492,6 +493,110 @@ def test_forcemodelconfig_validate_rejects_custom_spherical_harmonic_without_fix
     message = str(exc_info.value)
     assert "SphericalHarmonic" in message
     assert "TestBody" in message
+
+
+def test_forcemodelconfig_validate_rejects_egm2008_on_mars_central():
+    """Mirrors test_validate_rejects_egm2008_on_mars_central (issue #400)"""
+    config = ForceModelConfig(
+        gravity=GravityConfiguration.spherical_harmonic(degree=8, order=8)
+    )
+    config.central_body = CentralBody.Mars
+
+    with pytest.raises(RuntimeError) as exc_info:
+        config.validate()
+    message = str(exc_info.value)
+    assert "Earth" in message
+    assert "Mars" in message
+
+
+def test_forcemodelconfig_validate_rejects_icgem_body_mismatch():
+    """Mirrors test_validate_rejects_icgem_body_mismatch"""
+    config = ForceModelConfig(
+        gravity=GravityConfiguration.spherical_harmonic(
+            degree=8,
+            order=8,
+            model_type=GravityModelType.icgem("mars", "ggm2bc80"),
+        )
+    )
+    config.central_body = CentralBody.Moon
+
+    with pytest.raises(RuntimeError) as exc_info:
+        config.validate()
+    message = str(exc_info.value)
+    assert "Mars" in message
+    assert "Moon" in message
+
+
+def test_forcemodelconfig_validate_allows_matching_icgem_body():
+    """Mirrors test_validate_allows_matching_icgem_body"""
+    config = ForceModelConfig(
+        gravity=GravityConfiguration.spherical_harmonic(
+            degree=8,
+            order=8,
+            model_type=GravityModelType.icgem("moon", "GRGM1200B"),
+        )
+    )
+    config.central_body = CentralBody.Moon
+
+    config.validate()
+
+
+def test_forcemodelconfig_validate_rejects_ggm05s_and_jgm3_on_non_earth_central():
+    """Mirrors test_validate_rejects_ggm05s_and_jgm3_on_non_earth_central"""
+    for model_type in [GravityModelType.GGM05S, GravityModelType.JGM3]:
+        config = ForceModelConfig(
+            gravity=GravityConfiguration.spherical_harmonic(
+                degree=8, order=8, model_type=model_type
+            )
+        )
+        config.central_body = CentralBody.Moon
+
+        with pytest.raises(RuntimeError) as exc_info:
+            config.validate()
+        message = str(exc_info.value)
+        assert "Earth" in message
+        assert "Moon" in message
+
+
+def test_forcemodelconfig_validate_gravity_model_body_from_file_header_match_and_mismatch():
+    """Mirrors test_validate_gravity_model_body_from_file_header_match_and_mismatch"""
+    model_type = GravityModelType.from_file("test_assets/grgm660prim_header_sample.gfc")
+
+    matching = ForceModelConfig(
+        gravity=GravityConfiguration.spherical_harmonic(
+            degree=2, order=2, model_type=model_type
+        )
+    )
+    matching.central_body = CentralBody.Moon
+    matching.validate()
+
+    mismatched = ForceModelConfig(
+        gravity=GravityConfiguration.spherical_harmonic(
+            degree=2, order=2, model_type=model_type
+        )
+    )
+    mismatched.central_body = CentralBody.Mars
+    with pytest.raises(RuntimeError) as exc_info:
+        mismatched.validate()
+    message = str(exc_info.value)
+    assert "Mars" in message
+
+
+def test_forcemodelconfig_validate_allows_default_configs_matching_central_body():
+    """Mirrors test_validate_allows_default_configs_matching_central_body"""
+    for config in [
+        ForceModelConfig(),
+        ForceModelConfig.high_fidelity(),
+        ForceModelConfig.earth_gravity(),
+        ForceModelConfig.two_body(),
+        ForceModelConfig.conservative_forces(),
+        ForceModelConfig.leo_default(),
+        ForceModelConfig.geo_default(),
+        ForceModelConfig.lunar_default(),
+        ForceModelConfig.mars_default(),
+        ForceModelConfig.cislunar_default(),
+    ]:
+        config.validate()
 
 
 def test_forcemodelconfig_validate_rejects_tides_non_earth():

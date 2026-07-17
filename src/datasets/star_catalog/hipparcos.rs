@@ -65,11 +65,20 @@ pub struct HipparcosRecord {
     pub mult_flag: Option<String>,
     /// Henry Draper (HD) catalog identifier.
     pub hd_id: Option<u32>,
-    /// Bonner Durchmusterung (BD) identifier.
+    /// Bonner Durchmusterung (BD) identifier, as stored in the source file:
+    /// a leading `'B'` (fit into a 10-character column) followed by the
+    /// zone and number, e.g. `"B+00 5077"` for BD+00 5077. See
+    /// [`StarRecord::name`] for the fully expanded form.
     pub bd_id: Option<String>,
-    /// Cordoba Durchmusterung (CoD) identifier.
+    /// Cordoba Durchmusterung (CoD) identifier, as stored in the source
+    /// file: a leading `'C'` followed by the zone and number, e.g.
+    /// `"C-41 15372"` for CoD-41 15372. See [`StarRecord::name`] for the
+    /// fully expanded form.
     pub cod_id: Option<String>,
-    /// Cape Photographic Durchmusterung (CPD) identifier.
+    /// Cape Photographic Durchmusterung (CPD) identifier, as stored in the
+    /// source file: a leading `'P'` followed by the zone and number, e.g.
+    /// `"P-52 12237"` for CPD-52 12237. See [`StarRecord::name`] for the
+    /// fully expanded form.
     pub cpd_id: Option<String>,
     /// Spectral type.
     pub spectral_type: Option<String>,
@@ -83,9 +92,9 @@ impl StarRecord for HipparcosRecord {
     fn name(&self) -> Option<String> {
         self.hd_id
             .map(|hd| format!("HD {hd}"))
-            .or_else(|| self.bd_id.clone())
-            .or_else(|| self.cod_id.clone())
-            .or_else(|| self.cpd_id.clone())
+            .or_else(|| self.bd_id.as_deref().map(|s| expand_dm_id("BD", s)))
+            .or_else(|| self.cod_id.as_deref().map(|s| expand_dm_id("CoD", s)))
+            .or_else(|| self.cpd_id.as_deref().map(|s| expand_dm_id("CPD", s)))
     }
 
     fn ra(&self) -> f64 {
@@ -126,6 +135,26 @@ impl StarRecord for HipparcosRecord {
 /// Extract and trim a 0-indexed pipe-delimited field.
 fn field<'a>(fields: &[&'a str], idx: usize) -> &'a str {
     fields.get(idx).copied().unwrap_or("").trim()
+}
+
+/// Expand a raw Durchmusterung identifier into an unambiguous name.
+///
+/// The source file abbreviates each DM catalog to a single leading letter
+/// to fit a 10-character column (`'B'` for BD, `'C'` for CoD, `'P'` for
+/// CPD), e.g. `"B+00 5077"`. That abbreviation is ambiguous through the
+/// public [`StarRecord::name`] API, so this strips the leading letter and
+/// prepends the full catalog code instead, e.g. `expand_dm_id("BD", "B+00
+/// 5077")` -> `"BD +00 5077"`.
+///
+/// # Arguments
+/// * `catalog_code` - Full catalog code to prepend (`"BD"`, `"CoD"`, or `"CPD"`)
+/// * `raw` - Raw field value, with its single-letter catalog abbreviation still attached
+///
+/// # Returns
+/// * `String` - `catalog_code` followed by a space and the zone/number, with
+///   the source's leading abbreviation letter removed
+fn expand_dm_id(catalog_code: &str, raw: &str) -> String {
+    format!("{catalog_code} {}", raw.get(1..).unwrap_or(""))
 }
 
 /// Parse a single Hipparcos pipe-delimited catalog line into a record.
@@ -456,6 +485,83 @@ mod tests {
         assert_abs_diff_eq!(dec, r1.dec, epsilon = 1e-9);
 
         assert_eq!(r1.radial_velocity(), None);
+    }
+
+    /// Build a `HipparcosRecord` with only the DM-identifier fields set, for
+    /// isolating [`HipparcosRecord::name`]'s fallback-chain behavior from
+    /// what specific identifier combinations happen to occur in the 20-line
+    /// sample asset.
+    fn dm_only_record(
+        hd_id: Option<u32>,
+        bd_id: Option<&str>,
+        cod_id: Option<&str>,
+        cpd_id: Option<&str>,
+    ) -> HipparcosRecord {
+        HipparcosRecord {
+            hip_id: 0,
+            vmag: None,
+            var_flag: None,
+            ra: 0.0,
+            dec: 0.0,
+            parallax: None,
+            pm_ra: None,
+            pm_dec: None,
+            e_ra: None,
+            e_dec: None,
+            e_parallax: None,
+            e_pm_ra: None,
+            e_pm_dec: None,
+            bt_mag: None,
+            vt_mag: None,
+            b_v: None,
+            hp_mag: None,
+            hvar_type: None,
+            mult_flag: None,
+            hd_id,
+            bd_id: bd_id.map(str::to_string),
+            cod_id: cod_id.map(str::to_string),
+            cpd_id: cpd_id.map(str::to_string),
+            spectral_type: None,
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_hipparcos_name_fallback_chain() {
+        let records = parse_hipparcos_text(SAMPLE).unwrap();
+
+        // HIP 7 (real sample data): no HD, has BD ("B+19 5185" -> "BD +19 5185").
+        let r7 = records.iter().find(|r| r.hip_id == 7).unwrap();
+        assert_eq!(r7.hd_id, None);
+        assert_eq!(r7.bd_id.as_deref(), Some("B+19 5185"));
+        assert_eq!(r7.name(), Some("BD +19 5185".to_string()));
+
+        // HIP 16 (real sample data): no HD, no BD, no CoD, has CPD
+        // ("P-55 10131" -> "CPD -55 10131").
+        let r16 = records.iter().find(|r| r.hip_id == 16).unwrap();
+        assert_eq!(r16.hd_id, None);
+        assert_eq!(r16.bd_id, None);
+        assert_eq!(r16.cod_id, None);
+        assert_eq!(r16.cpd_id.as_deref(), Some("P-55 10131"));
+        assert_eq!(r16.name(), Some("CPD -55 10131".to_string()));
+
+        // No sample record has a CoD without also having an HD, so the CoD
+        // branch (and CoD-over-CPD priority) is exercised with a
+        // constructed record instead.
+        let cod_only = dm_only_record(None, None, Some("C-36 16128"), Some("P-36  9818"));
+        assert_eq!(cod_only.name(), Some("CoD -36 16128".to_string()));
+
+        // Full priority order: HD > BD > CoD > CPD.
+        let all_present = dm_only_record(
+            Some(224700),
+            Some("B+00 5077"),
+            Some("C-36 16128"),
+            Some("P-36  9818"),
+        );
+        assert_eq!(all_present.name(), Some("HD 224700".to_string()));
+
+        let none_present = dm_only_record(None, None, None, None);
+        assert_eq!(none_present.name(), None);
     }
 
     #[test]

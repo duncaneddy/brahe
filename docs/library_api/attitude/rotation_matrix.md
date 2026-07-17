@@ -6,10 +6,10 @@ The `RotationMatrix` class represents attitude using Direction Cosine Matrices (
 
 ## Standalone Rotation Matrices
 
-The `rotation_x`, `rotation_y`, and `rotation_z` free functions return bare 3x3 numpy arrays for the elementary axis rotations, using the same convention as the `RotationMatrix.Rx`/`Ry`/`Rz` constructors.
+The `Rx`, `Ry`, and `Rz` free functions return bare 3x3 numpy arrays for the elementary axis rotations, using the same convention as the `RotationMatrix.Rx`/`Ry`/`Rz` constructors.
 
-::: brahe._brahe.rotation_x
+::: brahe._brahe.Rx
 
-::: brahe._brahe.rotation_y
+::: brahe._brahe.Ry
 
-::: brahe._brahe.rotation_z
+::: brahe._brahe.Rz

@@ -1,7 +1,7 @@
 
 #[pyfunction]
 #[pyo3(text_signature = "(angle, angle_format)")]
-#[pyo3(name = "rotation_x")]
+#[pyo3(name = "Rx")]
 /// Elementary rotation matrix about the X axis, returned as a numpy array.
 ///
 /// Free-function form of `RotationMatrix.Rx`: same convention, but returns a
@@ -21,15 +21,15 @@
 ///     ```python
 ///     import brahe as bh
 ///
-///     r = bh.rotation_x(45.0, bh.AngleFormat.DEGREES)
+///     r = bh.Rx(45.0, bh.AngleFormat.DEGREES)
 ///     ```
-fn py_rotation_x<'py>(py: Python<'py>, angle: f64, angle_format: &PyAngleFormat) -> Bound<'py, PyArray<f64, Ix2>> {
-    matrix_to_numpy!(py, attitude::rotation_x(angle, angle_format.value), 3, 3, f64)
+fn py_rx<'py>(py: Python<'py>, angle: f64, angle_format: &PyAngleFormat) -> Bound<'py, PyArray<f64, Ix2>> {
+    matrix_to_numpy!(py, attitude::Rx(angle, angle_format.value), 3, 3, f64)
 }
 
 #[pyfunction]
 #[pyo3(text_signature = "(angle, angle_format)")]
-#[pyo3(name = "rotation_y")]
+#[pyo3(name = "Ry")]
 /// Elementary rotation matrix about the Y axis, returned as a numpy array.
 ///
 /// Free-function form of `RotationMatrix.Ry`: same convention, but returns a
@@ -49,15 +49,15 @@ fn py_rotation_x<'py>(py: Python<'py>, angle: f64, angle_format: &PyAngleFormat)
 ///     ```python
 ///     import brahe as bh
 ///
-///     r = bh.rotation_y(45.0, bh.AngleFormat.DEGREES)
+///     r = bh.Ry(45.0, bh.AngleFormat.DEGREES)
 ///     ```
-fn py_rotation_y<'py>(py: Python<'py>, angle: f64, angle_format: &PyAngleFormat) -> Bound<'py, PyArray<f64, Ix2>> {
-    matrix_to_numpy!(py, attitude::rotation_y(angle, angle_format.value), 3, 3, f64)
+fn py_ry<'py>(py: Python<'py>, angle: f64, angle_format: &PyAngleFormat) -> Bound<'py, PyArray<f64, Ix2>> {
+    matrix_to_numpy!(py, attitude::Ry(angle, angle_format.value), 3, 3, f64)
 }
 
 #[pyfunction]
 #[pyo3(text_signature = "(angle, angle_format)")]
-#[pyo3(name = "rotation_z")]
+#[pyo3(name = "Rz")]
 /// Elementary rotation matrix about the Z axis, returned as a numpy array.
 ///
 /// Free-function form of `RotationMatrix.Rz`: same convention, but returns a
@@ -77,10 +77,10 @@ fn py_rotation_y<'py>(py: Python<'py>, angle: f64, angle_format: &PyAngleFormat)
 ///     ```python
 ///     import brahe as bh
 ///
-///     r = bh.rotation_z(45.0, bh.AngleFormat.DEGREES)
+///     r = bh.Rz(45.0, bh.AngleFormat.DEGREES)
 ///     ```
-fn py_rotation_z<'py>(py: Python<'py>, angle: f64, angle_format: &PyAngleFormat) -> Bound<'py, PyArray<f64, Ix2>> {
-    matrix_to_numpy!(py, attitude::rotation_z(angle, angle_format.value), 3, 3, f64)
+fn py_rz<'py>(py: Python<'py>, angle: f64, angle_format: &PyAngleFormat) -> Bound<'py, PyArray<f64, Ix2>> {
+    matrix_to_numpy!(py, attitude::Rz(angle, angle_format.value), 3, 3, f64)
 }
 
 /// Helper function to convert EOPExtrapolation enumerations into representative string

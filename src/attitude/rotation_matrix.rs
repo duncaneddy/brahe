@@ -297,12 +297,13 @@ impl RotationMatrix {
 /// # Example
 ///
 /// ```
-/// use brahe::attitude::rotation_x;
+/// use brahe::attitude::Rx;
 /// use brahe::AngleFormat;
 ///
-/// let r = rotation_x(45.0, AngleFormat::Degrees);
+/// let r = Rx(45.0, AngleFormat::Degrees);
 /// ```
-pub fn rotation_x(angle: f64, angle_format: AngleFormat) -> SMatrix3 {
+#[allow(non_snake_case)]
+pub fn Rx(angle: f64, angle_format: AngleFormat) -> SMatrix3 {
     RotationMatrix::Rx(angle, angle_format).to_matrix()
 }
 
@@ -339,12 +340,13 @@ pub fn rotation_x(angle: f64, angle_format: AngleFormat) -> SMatrix3 {
 /// # Example
 ///
 /// ```
-/// use brahe::attitude::rotation_y;
+/// use brahe::attitude::Ry;
 /// use brahe::AngleFormat;
 ///
-/// let r = rotation_y(45.0, AngleFormat::Degrees);
+/// let r = Ry(45.0, AngleFormat::Degrees);
 /// ```
-pub fn rotation_y(angle: f64, angle_format: AngleFormat) -> SMatrix3 {
+#[allow(non_snake_case)]
+pub fn Ry(angle: f64, angle_format: AngleFormat) -> SMatrix3 {
     RotationMatrix::Ry(angle, angle_format).to_matrix()
 }
 
@@ -381,12 +383,13 @@ pub fn rotation_y(angle: f64, angle_format: AngleFormat) -> SMatrix3 {
 /// # Example
 ///
 /// ```
-/// use brahe::attitude::rotation_z;
+/// use brahe::attitude::Rz;
 /// use brahe::AngleFormat;
 ///
-/// let r = rotation_z(45.0, AngleFormat::Degrees);
+/// let r = Rz(45.0, AngleFormat::Degrees);
 /// ```
-pub fn rotation_z(angle: f64, angle_format: AngleFormat) -> SMatrix3 {
+#[allow(non_snake_case)]
+pub fn Rz(angle: f64, angle_format: AngleFormat) -> SMatrix3 {
     RotationMatrix::Rz(angle, angle_format).to_matrix()
 }
 
@@ -859,10 +862,11 @@ mod tests {
     }
 
     #[test]
-    fn test_rotation_x_free_function() {
+    #[allow(non_snake_case)]
+    fn test_Rx_free_function() {
         // Hand-computed 45 deg rotation about x, and agreement with the
         // RotationMatrix::Rx constructor.
-        let r = rotation_x(45.0, DEGREES);
+        let r = Rx(45.0, DEGREES);
         let s = std::f64::consts::FRAC_1_SQRT_2;
         let expected = Matrix3::new(1.0, 0.0, 0.0, 0.0, s, s, 0.0, -s, s);
         for i in 0..3 {
@@ -873,8 +877,8 @@ mod tests {
         assert_eq!(r, RotationMatrix::Rx(45.0, DEGREES).to_matrix());
 
         // Zero angle is the identity; orthonormality (R R^T = I, det = +1).
-        assert_eq!(rotation_x(0.0, RADIANS), Matrix3::identity());
-        let r = rotation_x(30.0, DEGREES);
+        assert_eq!(Rx(0.0, RADIANS), Matrix3::identity());
+        let r = Rx(30.0, DEGREES);
         let should_be_identity = r * r.transpose();
         for i in 0..3 {
             for j in 0..3 {
@@ -889,8 +893,9 @@ mod tests {
     }
 
     #[test]
-    fn test_rotation_y_free_function() {
-        let r = rotation_y(45.0, DEGREES);
+    #[allow(non_snake_case)]
+    fn test_Ry_free_function() {
+        let r = Ry(45.0, DEGREES);
         let s = std::f64::consts::FRAC_1_SQRT_2;
         let expected = Matrix3::new(s, 0.0, -s, 0.0, 1.0, 0.0, s, 0.0, s);
         for i in 0..3 {
@@ -899,13 +904,14 @@ mod tests {
             }
         }
         assert_eq!(r, RotationMatrix::Ry(45.0, DEGREES).to_matrix());
-        assert_eq!(rotation_y(0.0, RADIANS), Matrix3::identity());
+        assert_eq!(Ry(0.0, RADIANS), Matrix3::identity());
         assert_abs_diff_eq!(r.determinant(), 1.0, epsilon = 1e-15);
     }
 
     #[test]
-    fn test_rotation_z_free_function() {
-        let r = rotation_z(45.0, DEGREES);
+    #[allow(non_snake_case)]
+    fn test_Rz_free_function() {
+        let r = Rz(45.0, DEGREES);
         let s = std::f64::consts::FRAC_1_SQRT_2;
         let expected = Matrix3::new(s, s, 0.0, -s, s, 0.0, 0.0, 0.0, 1.0);
         for i in 0..3 {
@@ -914,12 +920,9 @@ mod tests {
             }
         }
         assert_eq!(r, RotationMatrix::Rz(45.0, DEGREES).to_matrix());
-        assert_eq!(rotation_z(0.0, RADIANS), Matrix3::identity());
+        assert_eq!(Rz(0.0, RADIANS), Matrix3::identity());
         // Radians and degrees agree for the same physical angle.
-        assert_eq!(
-            rotation_z(std::f64::consts::FRAC_PI_4, RADIANS),
-            rotation_z(45.0, DEGREES)
-        );
+        assert_eq!(Rz(std::f64::consts::FRAC_PI_4, RADIANS), Rz(45.0, DEGREES));
         assert_abs_diff_eq!(r.determinant(), 1.0, epsilon = 1e-15);
     }
 

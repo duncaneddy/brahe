@@ -78,22 +78,16 @@ CERES_W_RATE = 952.1532635  # deg/day
 _J2000_TT_MJD = 51544.5
 
 
-def _rot_x(angle):
-    c, s = np.cos(angle), np.sin(angle)
-    return np.array([[1.0, 0.0, 0.0], [0.0, c, s], [0.0, -s, c]])
-
-
-def _rot_z(angle):
-    c, s = np.cos(angle), np.sin(angle)
-    return np.array([[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]])
-
-
 def ceres_rotation(epc):
     d = epc.mjd_as_time_system(bh.TimeSystem.TT) - _J2000_TT_MJD
     alpha = np.radians(CERES_POLE_RA)
     delta = np.radians(CERES_POLE_DEC)
     w = np.radians((CERES_W0 + CERES_W_RATE * d) % 360.0)
-    return _rot_z(w) @ _rot_x(np.pi / 2 - delta) @ _rot_z(np.pi / 2 + alpha)
+    return (
+        bh.Rz(w, bh.AngleFormat.RADIANS)
+        @ bh.Rx(np.pi / 2 - delta, bh.AngleFormat.RADIANS)
+        @ bh.Rz(np.pi / 2 + alpha, bh.AngleFormat.RADIANS)
+    )
 
 
 def ceres_omega(epc=None):

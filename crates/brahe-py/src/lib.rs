@@ -1059,9 +1059,9 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyEulerAngle>()?;
     module.add_class::<PyEulerAngleOrder>()?;
     module.add_class::<PyRotationMatrix>()?;
-    module.add_function(wrap_pyfunction!(py_rotation_x, module)?)?;
-    module.add_function(wrap_pyfunction!(py_rotation_y, module)?)?;
-    module.add_function(wrap_pyfunction!(py_rotation_z, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rx, module)?)?;
+    module.add_function(wrap_pyfunction!(py_ry, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rz, module)?)?;
 
     //* Datasets *//
     module.add_function(wrap_pyfunction!(py_groundstations_load, module)?)?;

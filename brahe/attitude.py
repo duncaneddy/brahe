@@ -35,9 +35,9 @@ from brahe._brahe import (
     EulerAngleOrder,
     RotationMatrix,
     # Standalone elementary rotation matrices
-    rotation_x,
-    rotation_y,
-    rotation_z,
+    Rx,
+    Ry,
+    Rz,
 )
 
 __all__ = [
@@ -48,7 +48,7 @@ __all__ = [
     "EulerAngleOrder",
     "RotationMatrix",
     # Standalone elementary rotation matrices
-    "rotation_x",
-    "rotation_y",
-    "rotation_z",
+    "Rx",
+    "Ry",
+    "Rz",
 ]

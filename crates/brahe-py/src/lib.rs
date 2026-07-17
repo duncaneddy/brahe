@@ -1023,6 +1023,10 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_state_koe_osc_to_mean, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_koe_mean_to_osc, module)?)?;
 
+    // Equinoctial element conversions
+    module.add_function(wrap_pyfunction!(py_state_koe_to_equinoctial, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_equinoctial_to_koe, module)?)?;
+
     // Walker Constellation Generator
     module.add_class::<PyWalkerPattern>()?;
     module.add_class::<PyWalkerConstellationGenerator>()?;

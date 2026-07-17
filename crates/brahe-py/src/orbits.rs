@@ -1459,6 +1459,69 @@ fn py_state_koe_mean_to_osc<'py>(
     Ok(osc.as_slice().to_pyarray(py))
 }
 
+/// Convert Keplerian elements to equinoctial elements (Vallado 2-99).
+///
+/// Args:
+///     koe (numpy.ndarray): Keplerian `[a, e, i, Ω, ω, M]` (a in meters; angles per angle_format).
+///     angle_format (AngleFormat): Format of angular inputs/outputs.
+///     fr (int): Retrograde factor, +1 for direct orbits, -1 for near-retrograde. Defaults to 1.
+///
+/// Returns:
+///     numpy.ndarray: Equinoctial `[a, h, k, p, q, l]` (a in meters; l per angle_format).
+///
+/// Example:
+///     ```python
+///     import brahe as bh, numpy as np
+///     koe = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
+///     eqn = bh.state_koe_to_equinoctial(koe, bh.AngleFormat.DEGREES)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (koe, angle_format, fr=1), text_signature = "(koe, angle_format, fr=1)")]
+#[pyo3(name = "state_koe_to_equinoctial")]
+fn py_state_koe_to_equinoctial<'py>(
+    py: Python<'py>,
+    koe: &Bound<'_, PyAny>,
+    angle_format: &PyAngleFormat,
+    fr: i8,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let koe_vec = pyany_to_f64_array1(koe, Some(6))?;
+    let koe_svec = SVector::<f64, 6>::from_row_slice(&koe_vec);
+    let eqn = orbits::state_koe_to_equinoctial(&koe_svec, angle_format.value, fr);
+    Ok(eqn.as_slice().to_pyarray(py))
+}
+
+/// Convert equinoctial elements to Keplerian elements (Vallado 2-99).
+///
+/// Args:
+///     eqn (numpy.ndarray): Equinoctial `[a, h, k, p, q, l]` (a in meters; l per angle_format).
+///     angle_format (AngleFormat): Format of angular input/outputs.
+///     fr (int): Retrograde factor matching the forward conversion. Defaults to 1.
+///
+/// Returns:
+///     numpy.ndarray: Keplerian `[a, e, i, Ω, ω, M]` (a in meters; angles per angle_format).
+///
+/// Example:
+///     ```python
+///     import brahe as bh, numpy as np
+///     koe = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
+///     eqn = bh.state_koe_to_equinoctial(koe, bh.AngleFormat.DEGREES)
+///     back = bh.state_equinoctial_to_koe(eqn, bh.AngleFormat.DEGREES)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (eqn, angle_format, fr=1), text_signature = "(eqn, angle_format, fr=1)")]
+#[pyo3(name = "state_equinoctial_to_koe")]
+fn py_state_equinoctial_to_koe<'py>(
+    py: Python<'py>,
+    eqn: &Bound<'_, PyAny>,
+    angle_format: &PyAngleFormat,
+    fr: i8,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let eqn_vec = pyany_to_f64_array1(eqn, Some(6))?;
+    let eqn_svec = SVector::<f64, 6>::from_row_slice(&eqn_vec);
+    let koe = orbits::state_equinoctial_to_koe(&eqn_svec, angle_format.value, fr);
+    Ok(koe.as_slice().to_pyarray(py))
+}
+
 // ============================================================================
 // Walker Constellation Generator
 // ============================================================================

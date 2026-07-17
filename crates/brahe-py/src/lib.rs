@@ -925,8 +925,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Cartesian
     module.add_function(wrap_pyfunction!(py_state_koe_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_koe, module)?)?;
-    module.add_function(wrap_pyfunction!(py_state_eci_to_koe_for_body, module)?)?;
-    module.add_function(wrap_pyfunction!(py_state_koe_to_eci_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_inertial_to_koe_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_koe_to_inertial_for_body, module)?)?;
 
     // Geocentric
     module.add_function(wrap_pyfunction!(py_position_geocentric_to_ecef, module)?)?;

@@ -28,23 +28,21 @@ resonance.
 
 The propagator integrates in the Mars-Centered Inertial (MCI) frame, whose
 axes are ICRF-aligned: the MCI z-axis is the ICRF pole, which sits about 37
-degrees from Mars's spin pole. `state_koe_to_eci_for_body` is a frame-agnostic
-Keplerian-to-Cartesian conversion that measures inclination against the
-z-axis of whatever basis its output is interpreted in, so feeding it 92.6
-degrees and reading the result as an MCI state would reference the inclination
-to the ICRF pole, not Mars's equator. To place the orbit correctly, we build a
-Mars-equatorial inertial basis - z-axis on the Mars spin pole (the third row
-of the MCI-to-MCMF rotation), x-axis on the ascending node of the Mars equator
-on the ICRF equator - construct the state in that basis, and rotate its
-position and velocity into MCI.
+degrees from Mars's spin pole. Passing 92.6 degrees straight to
+`state_koe_to_eci` would measure the inclination against the ICRF pole, not
+Mars's equator. `state_koe_to_inertial_for_body` instead references the
+elements to Mars's mean equator at J2000 - the plane normal to the Mars IAU
+pole, with the x-axis on the ascending node of that equator on the ICRF equator
+- and returns the state directly in MCI. It takes a `CentralBody`, which
+supplies both Mars's gravitational parameter and its pole, so the orbit is
+placed against the Mars equator with no manual basis construction.
 
-The same step derives the ascending node from the Sun's direction rather than
-hardcoding it: the right ascension of the ascending node is set to the Sun's
-right ascension in the Mars-equatorial basis plus 45 degrees, placing the node
-near a 15:00 (mid-afternoon) local solar time. `state_koe_to_eci_for_body`
-converts the Keplerian elements to a Cartesian state using an arbitrary body's
-gravitational parameter, here `GM_MARS`, since `state_koe_to_eci` assumes
-Earth:
+The ascending node is still derived from the Sun's direction rather than
+hardcoded: the right ascension of the ascending node is set to the Sun's right
+ascension in the Mars-equatorial plane plus 45 degrees, placing the node near a
+15:00 (mid-afternoon) local solar time. The Sun direction is projected onto the
+equatorial basis vectors (the ascending node and its quadrature axis) evaluated
+at J2000, the same reference plane the elements are referenced to:
 
 ``` python
 --8<-- "./examples/examples/mro_mars_orbit.py:preamble"
@@ -68,7 +66,7 @@ frame:
 ## Element Evolution
 
 Sampling the trajectory over the 2-day propagation and converting each
-Cartesian state back to Keplerian elements with `state_eci_to_koe_for_body`,
+Cartesian state back to Keplerian elements with `state_inertial_to_koe_for_body`,
 then plotting the full six-element set with `plot_keplerian_trajectory`,
 shows how the orbit evolves under the full force model:
 
@@ -96,18 +94,15 @@ shows how the orbit evolves under the full force model:
 
 `plot_keplerian_trajectory` renders all six elements in a 2x3 grid: semi-major
 axis, eccentricity, and inclination on the top row, RAAN, argument of
-periapsis, and mean anomaly on the bottom row. RAAN and argument of periapsis
-are plotted as `state_eci_to_koe_for_body` returns them - referenced to the
-ICRF pole - so their absolute values don't match the RAAN and 270 degree
-argument of periapsis used to design the orbit in the Mars-equatorial basis;
-only their evolution over time is meaningful here. Inclination, by contrast,
-is measured against Mars's spin pole (the same pole the orbit was designed
-around), not the ICRF pole that `state_eci_to_koe_for_body` references, so it
-is directly comparable to the 92.6 degree design value. Over this 2-day
-window it stays within about 0.1 degree of that value: $J_2$ drives the
-nodal precession that makes the orbit
-sun-synchronous but produces no secular change in inclination, so the residual
-motion is a bounded short-period oscillation rather than decay. Semi-major
+periapsis, and mean anomaly on the bottom row. Because
+`state_inertial_to_koe_for_body` references all six elements to Mars's mean
+equator at J2000 - the same plane the orbit was designed in - the inclination,
+RAAN, and argument of periapsis are directly comparable to their design values
+(92.6 degrees, the sun-synchronous node, and 270 degrees). The inclination
+stays within about 0.1 degree of 92.6 degrees over this 2-day window: $J_2$
+drives the nodal precession that makes the orbit sun-synchronous but produces
+no secular change in inclination, so the residual motion is a bounded
+short-period oscillation rather than decay. Semi-major
 axis and eccentricity likewise show short-period oscillation without net
 secular decay over this timespan, and periapsis altitude stays comfortably
 above the Mars surface throughout.

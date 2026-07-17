@@ -26,11 +26,11 @@ spin pole.
 
 The propagator integrates in LCI, whose axes are ICRF-aligned: the LCI z-axis
 is the ICRF pole, which sits ~22 deg from the Moon's spin pole. An inclination
-passed straight to a Keplerian-to-Cartesian conversion is therefore measured
-against the wrong pole. The initial state is instead built in a
-lunar-equatorial inertial basis (z-axis on the lunar mean pole) and rotated
-into LCI, so the 85.2 deg polar inclination and the south-pole perilune are
-referenced to the Moon's equator as intended.
+passed straight to state_koe_to_eci would therefore be measured against the
+wrong pole. Instead, state_koe_to_inertial_for_body references the elements to
+the Moon's mean equator at J2000 (the plane normal to the lunar IAU pole) and
+returns the state directly in LCI, so the 85.2 deg polar inclination and the
+south-pole perilune are referenced to the Moon's equator as intended.
 """
 
 # --8<-- [start:all]
@@ -59,33 +59,25 @@ os.makedirs(OUTDIR, exist_ok=True)
 epoch = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 params = np.array([1000.0, 0.0, 0.0, 10.0, 1.3])  # mass, -, -, srp_area, Cr
 
-# Lunar-equatorial inertial basis expressed in LCI (ICRF-aligned) axes. The
-# lunar mean pole is LFME's z-axis in LCI coordinates, i.e. the third row of
-# the LCI->LFME rotation. x_eq is the ascending node of the lunar equator on
-# the ICRF equator (ICRF pole x lunar pole); y_eq completes the right-handed
-# triad. B_eq_to_lci rotates equator-referenced vectors into LCI.
-R_lci_lfme = bh.rotation_frame_to_frame(
-    bh.ReferenceFrame.LCI, bh.ReferenceFrame.LFME, epoch
-)
-moon_pole = R_lci_lfme[2, :]
-moon_pole /= np.linalg.norm(moon_pole)
-x_eq = np.cross([0.0, 0.0, 1.0], moon_pole)
-x_eq /= np.linalg.norm(x_eq)
-y_eq = np.cross(moon_pole, x_eq)
-B_eq_to_lci = np.column_stack((x_eq, y_eq, moon_pole))
-
 r_p = bh.R_MOON + 30e3
 r_a = bh.R_MOON + 180e3
 a = (r_p + r_a) / 2
 e = (r_a - r_p) / (r_a + r_p)
 oe = np.array([a, e, 85.2, 0.0, 270.0, 0.0])  # [m, -, deg, deg, deg, deg]
 
-# Build the state in the lunar-equatorial basis, then rotate position and
-# velocity into the LCI frame the propagator integrates in.
-state_eq = bh.state_koe_to_eci_for_body(oe, bh.GM_MOON, bh.AngleFormat.DEGREES)
-state0 = np.empty(6)
-state0[:3] = B_eq_to_lci @ state_eq[:3]
-state0[3:] = B_eq_to_lci @ state_eq[3:]
+# state_koe_to_inertial_for_body references the elements to the Moon's mean
+# equator at J2000 (the plane normal to the lunar IAU pole) and returns the
+# state directly in the LCI frame the propagator integrates in, so the 85.2 deg
+# inclination and south-pole perilune are measured against the Moon's equator
+# rather than the ICRF pole.
+state0 = bh.state_koe_to_inertial_for_body(
+    oe, bh.CentralBody.Moon, bh.AngleFormat.DEGREES
+)
+
+# Lunar mean pole (ICRF) at J2000, used below to confirm the orbit geometry:
+# the third row of the ICRF -> lunar body-fixed (IAU) rotation is the spin pole.
+j2000 = bh.Epoch.from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.TDB)
+moon_pole = np.asarray(bh.rotation_icrf_to_body_fixed_iau(301, j2000))[2, :]
 
 print(
     f"Perilune radius: {r_p / 1e3:.1f} km (altitude: {(r_p - bh.R_MOON) / 1e3:.0f} km)"

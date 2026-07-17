@@ -29,18 +29,17 @@ inclination orbit with perilune fixed over the southern hemisphere
 
 The propagator integrates in the Moon-Centered Inertial (LCI) frame, whose
 axes are ICRF-aligned: the LCI z-axis is the ICRF pole, which sits about 22
-degrees from the Moon's spin pole. `state_koe_to_eci_for_body` is a
-frame-agnostic Keplerian-to-Cartesian conversion that measures inclination
-against the z-axis of whatever basis its output is read in, so interpreting
-its output directly as an LCI state would reference the 85.2 degree
-inclination and the south-pole perilune to the ICRF pole, not the lunar
-equator. To place the orbit correctly, we build a lunar-equatorial inertial
-basis - z-axis on the lunar mean pole (the third row of the LCI-to-LFME
-rotation), x-axis on the ascending node of the lunar equator on the ICRF
-equator - construct the state in that basis, and rotate its position and
-velocity into LCI. `state_koe_to_eci_for_body` converts the Keplerian elements
-to a Cartesian state using an arbitrary body's gravitational parameter, here
-`GM_MOON`, since `state_koe_to_eci` assumes Earth:
+degrees from the Moon's spin pole. Passing the elements straight to
+`state_koe_to_eci` would measure the 85.2 degree inclination and the
+south-pole perilune against the ICRF pole, not the lunar equator.
+`state_koe_to_inertial_for_body` instead references the elements to the body's
+mean equator at J2000 - the plane normal to the body's IAU pole, with the
+x-axis on the ascending node of that equator on the ICRF equator - and returns
+the state directly in the body-centered inertial frame (LCI for the Moon). It
+takes a `CentralBody` (which supplies both the Moon's gravitational parameter
+and its pole), so the orbit is placed against the lunar equator with no manual
+basis construction. We also evaluate the lunar mean pole at J2000 (the third
+row of the ICRF-to-lunar-body-fixed rotation) to confirm the geometry below:
 
 ``` python
 --8<-- "./examples/examples/lro_lunar_orbit.py:preamble"

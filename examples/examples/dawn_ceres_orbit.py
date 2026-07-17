@@ -30,11 +30,11 @@ resolution gravity and neutron/gamma-ray mapping.
 
 The propagator integrates in a Ceres-centered inertial frame whose axes are
 ICRF-aligned: its z-axis is the ICRF pole, which sits ~23 deg from Ceres's
-spin pole. An inclination passed straight to a Keplerian-to-Cartesian
-conversion is therefore measured against the wrong pole. The initial state is
-instead built in a Ceres-equatorial inertial basis (z-axis on the Ceres spin
-pole from the IAU pole constants) and rotated into the propagation frame, so
-the 90 deg polar inclination is referenced to Ceres's equator as intended.
+spin pole. An inclination passed straight to state_koe_to_eci would therefore
+be measured against the wrong pole. Instead, state_koe_to_inertial_for_body
+references the elements to Ceres's mean equator at J2000 -- and because Ceres
+is a Custom body, it reads the pole from the user-registered body-fixed frame
+-- so the 90 deg polar inclination is referenced to Ceres's equator as intended.
 """
 
 # --8<-- [start:all]
@@ -127,11 +127,20 @@ force_config = bh.ForceModelConfig.for_body(ceres, bh.GravityConfiguration.point
 # Dawn LAMO (Low Altitude Mapping Orbit): ~375 km circular polar orbit.
 epoch = bh.Epoch.from_datetime(2016, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 
-# Ceres-equatorial inertial basis expressed in the ICRF-aligned propagation
-# axes. The spin pole comes straight from the IAU pole constants; x_eq is the
-# ascending node of the Ceres equator on the ICRF equator (ICRF pole x spin
-# pole) and y_eq completes the right-handed triad. B_eq_to_bci rotates
-# equator-referenced vectors into the propagation frame.
+oe = np.array(
+    [R_CERES + 375e3, 0.001, 90.0, 0.0, 0.0, 0.0]
+)  # [m, -, deg, deg, deg, deg]
+
+# state_koe_to_inertial_for_body references the elements to Ceres's mean equator
+# at J2000. Because `ceres` is a Custom body, it reads the pole from the
+# registered body-fixed frame (`ceres_fixed`) and returns the state in the
+# Ceres-centered ICRF-aligned frame the propagator integrates in, so the 90 deg
+# inclination is measured against Ceres's equator rather than the ICRF pole.
+state0 = bh.state_koe_to_inertial_for_body(oe, ceres, bh.AngleFormat.DEGREES)
+
+# Ceres spin pole (ICRF) from the IAU pole constants, used below to confirm the
+# orbit geometry (declination / right ascension -> unit pole vector). This is
+# the same pole the registered frame carries, evaluated directly here.
 _pole_ra = np.radians(CERES_POLE_RA)
 _pole_dec = np.radians(CERES_POLE_DEC)
 ceres_pole = np.array(
@@ -141,21 +150,6 @@ ceres_pole = np.array(
         np.sin(_pole_dec),
     ]
 )
-x_eq = np.cross([0.0, 0.0, 1.0], ceres_pole)
-x_eq /= np.linalg.norm(x_eq)
-y_eq = np.cross(ceres_pole, x_eq)
-B_eq_to_bci = np.column_stack((x_eq, y_eq, ceres_pole))
-
-oe = np.array(
-    [R_CERES + 375e3, 0.001, 90.0, 0.0, 0.0, 0.0]
-)  # [m, -, deg, deg, deg, deg]
-
-# Build the state in the Ceres-equatorial basis, then rotate position and
-# velocity into the ICRF-aligned frame the propagator integrates in.
-state_eq = bh.state_koe_to_eci_for_body(oe, GM_CERES, bh.AngleFormat.DEGREES)
-state0 = np.empty(6)
-state0[:3] = B_eq_to_bci @ state_eq[:3]
-state0[3:] = B_eq_to_bci @ state_eq[3:]
 
 print(f"LAMO altitude: {(oe[0] - R_CERES) / 1e3:.1f} km, inclination: {oe[2]:.1f} deg")
 print(f"Ceres spin pole (ICRF): {np.array2string(ceres_pole, precision=4)}")

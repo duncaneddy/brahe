@@ -22,10 +22,12 @@ Sun, keeping the orbit plane's orientation relative to the Sun fixed.
 
 The propagator integrates in MCI, whose axes are ICRF-aligned: the MCI z-axis
 is the ICRF pole, which sits ~37 deg from Mars's spin pole. An inclination
-passed straight to a Keplerian-to-Cartesian conversion is therefore measured
-against the wrong pole. The initial state is instead built in a
-Mars-equatorial inertial basis (z-axis on the Mars spin pole) and rotated into
-MCI, so the 92.6 deg inclination is referenced to Mars's equator as intended.
+passed straight to state_koe_to_eci would therefore be measured against the
+wrong pole. Instead, state_koe_to_inertial_for_body references the elements to
+Mars's mean equator at J2000 (the plane normal to the Mars IAU pole) and
+returns the state directly in MCI, so the 92.6 deg inclination is referenced to
+Mars's equator as intended. state_inertial_to_koe_for_body inverts it, so the
+osculating inclination it reports is already measured against the Mars equator.
 """
 
 # --8<-- [start:all]
@@ -53,28 +55,24 @@ os.makedirs(OUTDIR, exist_ok=True)
 epoch = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 params = np.array([2180.0, 20.0, 2.2, 20.0, 1.3])  # mass, drag_area, Cd, srp_area, Cr
 
-# Mars-equatorial inertial basis expressed in MCI (ICRF-aligned) axes. The
-# Mars spin pole is MCMF's z-axis in MCI coordinates, i.e. the third row of
-# the MCI->MCMF rotation. x_eq is the ascending node of the Mars equator on
-# the ICRF equator (ICRF pole x spin pole); y_eq completes the right-handed
-# triad. B_eq_to_mci rotates equator-referenced vectors into MCI.
-R_mci_mcmf = bh.rotation_frame_to_frame(
-    bh.ReferenceFrame.MCI, bh.ReferenceFrame.MCMF, epoch
-)
-mars_pole = R_mci_mcmf[2, :]
-mars_pole /= np.linalg.norm(mars_pole)
+# Mars mean pole (ICRF) at J2000: the reference plane state_koe_to_inertial_for_body
+# uses is the Mars equator at J2000, whose pole is the third row of the ICRF ->
+# Mars body-fixed (IAU) rotation. x_eq is the ascending node of that equator on
+# the ICRF equator (ICRF pole x spin pole) and y_eq completes the triad; they
+# span the equatorial plane the RAAN below is measured in.
+j2000 = bh.Epoch.from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.TDB)
+mars_pole = np.asarray(bh.rotation_icrf_to_body_fixed_iau(499, j2000))[2, :]
 x_eq = np.cross([0.0, 0.0, 1.0], mars_pole)
 x_eq /= np.linalg.norm(x_eq)
 y_eq = np.cross(mars_pole, x_eq)
-B_eq_to_mci = np.column_stack((x_eq, y_eq, mars_pole))
 
 # Sun-synchronous node placement. At the ascending node the local solar time
 # is 12:00 + (RAAN - sun_ra) / (15 deg/hr), where sun_ra is the Sun's right
 # ascension in the Mars-equatorial basis, so a 15:00 (mid-afternoon) node
 # needs RAAN = sun_ra + 45 deg. The Sun direction is taken from the Mars
 # barycenter (NAIF 4); the barycenter-to-center offset is negligible here.
-sun_eq = B_eq_to_mci.T @ bh.spk_state(10, 4, epoch)[:3]
-sun_ra = np.degrees(np.arctan2(sun_eq[1], sun_eq[0])) % 360.0
+sun_mci = bh.spk_state(10, 4, epoch)[:3]
+sun_ra = np.degrees(np.arctan2(sun_mci @ y_eq, sun_mci @ x_eq)) % 360.0
 raan = (sun_ra + 45.0) % 360.0
 
 r_p = bh.R_MARS + 255e3
@@ -83,12 +81,12 @@ a = (r_p + r_a) / 2
 e = (r_a - r_p) / (r_a + r_p)
 oe = np.array([a, e, 92.6, raan, 270.0, 0.0])  # [m, -, deg, deg, deg, deg]
 
-# Build the state in the Mars-equatorial basis, then rotate position and
-# velocity into the MCI frame the propagator integrates in.
-state_eq = bh.state_koe_to_eci_for_body(oe, bh.GM_MARS, bh.AngleFormat.DEGREES)
-state0 = np.empty(6)
-state0[:3] = B_eq_to_mci @ state_eq[:3]
-state0[3:] = B_eq_to_mci @ state_eq[3:]
+# state_koe_to_inertial_for_body references the elements to Mars's mean equator
+# at J2000 and returns the state directly in the MCI frame the propagator
+# integrates in, so the 92.6 deg inclination is measured against Mars's equator.
+state0 = bh.state_koe_to_inertial_for_body(
+    oe, bh.CentralBody.Mars, bh.AngleFormat.DEGREES
+)
 
 print(
     f"Periapsis radius: {r_p / 1e3:.1f} km (altitude: {(r_p - bh.R_MARS) / 1e3:.0f} km)"
@@ -125,17 +123,18 @@ epochs = [epoch + t for t in np.arange(0.0, duration, dt)]
 sma_km, ecc, inc_deg, raan_deg, argp_deg, anom_deg = [], [], [], [], [], []
 for epc in epochs:
     x = prop.state_bci(epc)
-    koe = bh.state_eci_to_koe_for_body(x, bh.GM_MARS, bh.AngleFormat.DEGREES)
+    # state_inertial_to_koe_for_body references the elements to Mars's mean
+    # equator at J2000, so koe[2] is already the Mars-pole-relative inclination
+    # (no manual re-measurement against the ICRF pole needed).
+    koe = bh.state_inertial_to_koe_for_body(
+        x, bh.CentralBody.Mars, bh.AngleFormat.DEGREES
+    )
     sma_km.append(koe[0] / 1e3)
     ecc.append(koe[1])
+    inc_deg.append(koe[2])
     raan_deg.append(koe[3])
     argp_deg.append(koe[4])
     anom_deg.append(koe[5])
-    # koe[2] is inclination against the ICRF pole (MCI z-axis). Re-measure it
-    # against Mars's spin pole so the plotted value matches the design intent.
-    h = np.cross(x[:3], x[3:])
-    h /= np.linalg.norm(h)
-    inc_deg.append(np.degrees(np.arccos(np.clip(np.dot(h, mars_pole), -1.0, 1.0))))
 sma_km = np.array(sma_km)
 ecc = np.array(ecc)
 inc_deg = np.array(inc_deg)
@@ -149,9 +148,8 @@ alt_p_km = sma_km * (1 - ecc) - bh.R_MARS / 1e3
 # --8<-- [start:element_plot]
 # plot_keplerian_trajectory's raw-array input assumes SI/radians (sma in
 # meters, angles in radians) regardless of the display units requested via
-# sma_units/angle_units, matching the units state_eci_to_koe_for_body returns
-# under AngleFormat.RADIANS. Inclination uses the Mars-pole-relative value
-# computed above rather than koe[2], which is measured against the ICRF pole.
+# sma_units/angle_units. The inclination here is already Mars-pole-relative,
+# since state_inertial_to_koe_for_body references elements to the Mars equator.
 koe_history = np.column_stack(
     (
         times_hours,

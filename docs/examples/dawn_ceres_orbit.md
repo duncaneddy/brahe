@@ -71,18 +71,15 @@ is the standard starting point when defining your own body:
 
 Dawn's LAMO is a ~375 km circular polar orbit. The propagator integrates in a
 Ceres-centered inertial frame whose axes are ICRF-aligned, so its z-axis is
-the ICRF pole - about 23 degrees from Ceres's spin pole.
-`state_koe_to_eci_for_body` is a frame-agnostic Keplerian-to-Cartesian
-conversion that measures inclination against the z-axis of whatever basis its
-output is read in, so interpreting its output directly as the propagation
-state would reference the 90 degree inclination to the ICRF pole, not Ceres's
-equator. To place the orbit correctly, we build a Ceres-equatorial inertial
-basis - z-axis on the Ceres spin pole (straight from the IAU pole constants),
-x-axis on the ascending node of the Ceres equator on the ICRF equator -
-construct the state in that basis, and rotate its position and velocity into
-the propagation frame. `state_koe_to_eci_for_body` converts the Keplerian
-elements using an arbitrary body's gravitational parameter, here `GM_CERES`,
-since `state_koe_to_eci` assumes Earth:
+the ICRF pole - about 23 degrees from Ceres's spin pole. Passing 90 degrees
+straight to `state_koe_to_eci` would measure the inclination against the ICRF
+pole, not Ceres's equator. `state_koe_to_inertial_for_body` instead references
+the elements to the body's mean equator at J2000 and returns the state in the
+Ceres-centered inertial frame. Because `ceres` is a `CentralBody.Custom` that
+carries a body-fixed frame (`ceres_fixed`), the function reads Ceres's pole
+from that registered frame - the same recipe works for any user-defined body -
+so the 90 degree inclination is placed against Ceres's equator with no manual
+basis construction:
 
 ``` python
 --8<-- "./examples/examples/dawn_ceres_orbit.py:orbit_setup"

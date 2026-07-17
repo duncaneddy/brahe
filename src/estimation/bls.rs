@@ -560,7 +560,7 @@ impl BatchLeastSquares {
                 )?;
 
                 // Compute residual: δy = y - h(x_k(t_i))
-                let residual = &obs.measurement - &z_predicted;
+                let residual = model.residual(&obs.measurement, &z_predicted);
 
                 // Get STM Φ(t_i, t_0) from propagator
                 let stm = self
@@ -637,7 +637,7 @@ impl BatchLeastSquares {
                 let state_at_obs = self.dynamics.current_state();
                 let model = &self.measurement_models[obs.model_index];
                 let z_predicted = model.predict(&obs.epoch, &state_at_obs, params.as_ref())?;
-                postfit_residuals.push(&obs.measurement - &z_predicted);
+                postfit_residuals.push(model.residual(&obs.measurement, &z_predicted));
             }
 
             let postfit_rms = if total_meas > 0 {

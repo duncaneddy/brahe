@@ -394,7 +394,7 @@ impl ExtendedKalmanFilter {
         )?;
 
         // Pre-fit residual (innovation)
-        let prefit_residual = &observation.measurement - &z_predicted;
+        let prefit_residual = model.residual(&observation.measurement, &z_predicted);
 
         // Innovation covariance: S = H * P_pred * Hᵀ + R
         let s = &h * &p_predicted * h.transpose() + &r;
@@ -423,7 +423,7 @@ impl ExtendedKalmanFilter {
 
         // Post-fit residual
         let z_postfit = model.predict(&observation.epoch, &state_updated, params.as_ref())?;
-        let postfit_residual = &observation.measurement - &z_postfit;
+        let postfit_residual = model.residual(&observation.measurement, &z_postfit);
 
         // Build record
         let record = FilterRecord {

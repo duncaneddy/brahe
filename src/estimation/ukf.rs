@@ -527,7 +527,7 @@ impl UnscentedKalmanFilter {
         }
 
         // Pre-fit residual (innovation)
-        let prefit_residual = &observation.measurement - &z_predicted;
+        let prefit_residual = model.residual(&observation.measurement, &z_predicted);
 
         // Innovation covariance: S = sum(W_c_i * (Z_i - z_pred)(Z_i - z_pred)^T) + R
         let mut s = DMatrix::zeros(m, m);
@@ -566,7 +566,7 @@ impl UnscentedKalmanFilter {
 
         // Post-fit residual
         let z_postfit = model.predict(&observation.epoch, &state_updated, params.as_ref())?;
-        let postfit_residual = &observation.measurement - &z_postfit;
+        let postfit_residual = model.residual(&observation.measurement, &z_postfit);
 
         // Build record
         let record = FilterRecord {

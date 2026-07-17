@@ -227,6 +227,26 @@ pub trait MeasurementModel: Send + Sync {
     /// Noise covariance matrix (m x m) where m = measurement_dim
     fn noise_covariance(&self) -> DMatrix<f64>;
 
+    /// Compute the measurement residual `measured - predicted`.
+    ///
+    /// The default implementation is plain vector subtraction. Models with
+    /// angular components that wrap (e.g., azimuth crossing 0°/360°) should
+    /// override this to wrap the corresponding residual components so
+    /// residuals near the discontinuity stay small. All estimators (EKF,
+    /// UKF, BLS) compute pre-fit and post-fit residuals through this method.
+    ///
+    /// # Arguments
+    ///
+    /// * `measured` - Observed measurement vector z
+    /// * `predicted` - Predicted measurement vector h(x)
+    ///
+    /// # Returns
+    ///
+    /// Residual vector (m elements)
+    fn residual(&self, measured: &DVector<f64>, predicted: &DVector<f64>) -> DVector<f64> {
+        measured - predicted
+    }
+
     /// Dimension of the measurement vector.
     fn measurement_dim(&self) -> usize;
 
@@ -377,5 +397,14 @@ mod tests {
         )
         .unwrap();
         assert_abs_diff_eq!(h_adaptive, expected, epsilon = 1e-8);
+    }
+
+    #[test]
+    fn test_residual_default_is_subtraction() {
+        let model = InertialPositionMeasurementModel::new(10.0);
+        let measured = DVector::from_vec(vec![10.0, 20.0, 30.0]);
+        let predicted = DVector::from_vec(vec![1.0, 2.0, 3.0]);
+        let r = model.residual(&measured, &predicted);
+        assert_abs_diff_eq!(r, DVector::from_vec(vec![9.0, 18.0, 27.0]), epsilon = 1e-12);
     }
 }

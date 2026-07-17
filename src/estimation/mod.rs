@@ -31,6 +31,9 @@
  * - [`EcefVelocityMeasurementModel`]: 3D ECEF velocity (m/s)
  * - [`EcefStateMeasurementModel`]: 6D ECEF state
  *
+ * **Topocentric (SEZ) frame** — ground-sensor observations:
+ * - [`AzElRangeMeasurementModel`]: Azimuth/elevation/range for ground sensors
+ *
  * Custom models can be defined by implementing the [`MeasurementModel`] trait
  * in Rust or by subclassing `MeasurementModel` in Python.
  */
@@ -51,8 +54,8 @@ pub use config::{
 pub use dynamics_source::DynamicsSource;
 pub use ekf::ExtendedKalmanFilter;
 pub use measurement::{
-    EcefPositionMeasurementModel, EcefStateMeasurementModel, EcefVelocityMeasurementModel,
-    InertialPositionMeasurementModel, InertialStateMeasurementModel,
+    AzElRangeMeasurementModel, EcefPositionMeasurementModel, EcefStateMeasurementModel,
+    EcefVelocityMeasurementModel, InertialPositionMeasurementModel, InertialStateMeasurementModel,
     InertialVelocityMeasurementModel,
 };
 pub use traits::MeasurementModel;

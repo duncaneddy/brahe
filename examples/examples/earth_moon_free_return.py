@@ -273,19 +273,122 @@ fig_distance.update_layout(
 # --8<-- [end:distance_plot]
 
 # --8<-- [start:plot_emr]
-# In the Earth-Moon Rotating frame the Moon is held fixed on the axis, so the
-# free-return path traces the characteristic figure-8 that is invisible in an
-# inertial frame. Place the fixed body spheres at the perilune epoch so the
-# lunar swing-by aligns with the Moon.
+# In the Earth-Moon Rotating (EMR) frame the Moon is held fixed on the axis, so
+# the free-return path traces the characteristic figure-8 that is invisible in
+# an inertial frame. Place the fixed body spheres at the perilune epoch so the
+# lunar swing-by aligns with the Moon, and sample the trajectory in the EMR
+# frame for both a 3D and a top-down (X-Y) view.
 i_perilune = int(np.argmin(moon_dists))
 reference_epoch = sample_epochs[i_perilune]
+
+emr_states = np.array(
+    [prop.state_in_frame(bh.ReferenceFrame.EMR, e) for e in sample_epochs]
+)
+emr_xyz_km = emr_states[:, :3] / 1e3
+emr_vel = emr_states[:, 3:6]
+
+# Direction-of-travel arrows at a handful of points evenly spaced along the arc.
+arrow_idx = np.linspace(len(sample_epochs) * 0.05, len(sample_epochs) * 0.96, 8)
+arrow_idx = arrow_idx.astype(int)
+
+
+def _emr_body_xy_km(naif_id):
+    """Body position in the EMR frame at the perilune epoch [km]."""
+    return (
+        bh.position_frame_to_frame(
+            bh.ReferenceFrame.BodyCenteredICRF(naif_id),
+            bh.ReferenceFrame.EMR,
+            reference_epoch,
+            np.zeros(3),
+        )
+        / 1e3
+    )
+
+
+earth_xy = _emr_body_xy_km(bh.NAIFId.EARTH)
+moon_xy = _emr_body_xy_km(bh.NAIFId.MOON)
+
+# 3D view: textured Earth and Moon with the trajectory, plus cone arrows along
+# the path. The cones use absolute sizing so they stay a fixed size in the scene.
 fig_emr = bh.plot_earth_moon_rotating_3d(
     [{"trajectory": prop.trajectory, "color": "#fc3d21", "label": "Free return"}],
     backend="plotly",
     reference_epoch=reference_epoch,
-    view_elevation=55.0,
-    view_azimuth=-50.0,
-    view_distance=2.2,
+    view_elevation=50.0,
+    view_azimuth=-120.0,
+    view_distance=2.4,
+)
+arrow_dir = emr_vel[arrow_idx] / np.linalg.norm(
+    emr_vel[arrow_idx], axis=1, keepdims=True
+)
+fig_emr.add_trace(
+    go.Cone(
+        x=emr_xyz_km[arrow_idx, 0],
+        y=emr_xyz_km[arrow_idx, 1],
+        z=emr_xyz_km[arrow_idx, 2],
+        u=arrow_dir[:, 0],
+        v=arrow_dir[:, 1],
+        w=arrow_dir[:, 2],
+        sizemode="absolute",
+        sizeref=0.45,
+        anchor="tail",
+        showscale=False,
+        colorscale=[[0, "#fc3d21"], [1, "#fc3d21"]],
+        name="Direction of travel",
+    )
+)
+
+# 2D top-down (X-Y) view: the figure-8 with Earth and Moon drawn to scale and
+# arrow markers rotated to the local direction of travel. The self-crossing near
+# Earth is the signature of the circumlunar free return. Plotly's arrow marker
+# points along +Y at angle 0 and rotates clockwise, so the heading is measured
+# clockwise from +Y.
+heading_deg = np.degrees(np.arctan2(emr_vel[arrow_idx, 0], emr_vel[arrow_idx, 1]))
+fig_emr_2d = go.Figure()
+fig_emr_2d.add_trace(
+    go.Scatter(
+        x=emr_xyz_km[:, 0].tolist(),
+        y=emr_xyz_km[:, 1].tolist(),
+        mode="lines",
+        line=dict(color="#fc3d21", width=2),
+        name="Free return",
+    )
+)
+fig_emr_2d.add_trace(
+    go.Scatter(
+        x=emr_xyz_km[arrow_idx, 0].tolist(),
+        y=emr_xyz_km[arrow_idx, 1].tolist(),
+        mode="markers",
+        marker=dict(
+            symbol="arrow", size=13, angle=heading_deg.tolist(), color="#fc3d21"
+        ),
+        showlegend=False,
+    )
+)
+theta = np.linspace(0.0, 2.0 * np.pi, 120)
+for center, radius, color, name in [
+    (earth_xy, bh.R_EARTH / 1e3, "#3f7bc2", "Earth"),
+    (moon_xy, bh.R_MOON / 1e3, "#9aa0a6", "Moon"),
+]:
+    fig_emr_2d.add_trace(
+        go.Scatter(
+            x=(center[0] + radius * np.cos(theta)).tolist(),
+            y=(center[1] + radius * np.sin(theta)).tolist(),
+            mode="lines",
+            fill="toself",
+            fillcolor=color,
+            line=dict(color=color, width=1),
+            name=name,
+        )
+    )
+fig_emr_2d.update_layout(
+    title="Free Return in the Earth-Moon Rotating Frame (top-down)",
+    xaxis_title="X (km)",
+    yaxis_title="Y (km)",
+    yaxis=dict(scaleanchor="x", scaleratio=1),
+    height=600,
+    margin=dict(l=60, r=40, t=60, b=60),
+    legend=dict(x=0.99, y=0.99, xanchor="right", yanchor="top"),
 )
 # --8<-- [end:plot_emr]
 
@@ -343,6 +446,10 @@ print(f"\n✓ Generated {light_path}")
 print(f"✓ Generated {dark_path}")
 
 light_path, dark_path = save_themed_html(fig_emr, OUTDIR / f"{SCRIPT_NAME}_emr")
+print(f"✓ Generated {light_path}")
+print(f"✓ Generated {dark_path}")
+
+light_path, dark_path = save_themed_html(fig_emr_2d, OUTDIR / f"{SCRIPT_NAME}_emr_2d")
 print(f"✓ Generated {light_path}")
 print(f"✓ Generated {dark_path}")
 

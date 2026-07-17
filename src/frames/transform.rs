@@ -454,8 +454,8 @@ impl FromStr for ReferenceFrame {
     /// (-> [`ReferenceFrame::ITRF`]).
     ///
     /// The generic variants (`BodyCenteredICRF`, `BodyFixedIAU`,
-    /// `BodyFixedPCK`, `Synodic`) are not parseable from a string;
-    /// construct them directly.
+    /// `BodyFixedPCK`, `BodyFixedCustom`, `Synodic`) are not parseable from
+    /// a string; construct them directly.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_uppercase().as_str() {
             "ECI" => Ok(ReferenceFrame::GCRF),
@@ -825,6 +825,7 @@ mod tests {
     use crate::constants::{DEGREES, R_EARTH};
     use crate::coordinates::state_koe_to_eci;
     use crate::math::vector6_from_array;
+    use crate::spice::spk_state;
     use crate::time::TimeSystem;
     use crate::utils::testing::{setup_global_test_eop, setup_global_test_spice};
 
@@ -1013,6 +1014,36 @@ mod tests {
             ReferenceFrame::GCRF
         );
         assert!("bogus".parse::<ReferenceFrame>().is_err());
+    }
+
+    #[test]
+    fn test_reference_frame_from_str_rejects_parameterized_variants() {
+        // The generic variants' own Display output is not a valid FromStr
+        // input -- they must be constructed directly, per the FromStr
+        // doc comment.
+        for s in [
+            ReferenceFrame::BodyCenteredICRF(4).to_string(),
+            ReferenceFrame::BodyFixedIAU(499).to_string(),
+            ReferenceFrame::BodyFixedPCK {
+                center: 301,
+                frame_id: 31008,
+            }
+            .to_string(),
+            ReferenceFrame::BodyFixedCustom {
+                center: -20001,
+                key: 7,
+            }
+            .to_string(),
+            ReferenceFrame::Synodic {
+                origin: SynodicOrigin::Barycenter,
+                primary: 399,
+                secondary: 301,
+            }
+            .to_string(),
+        ] {
+            let err = s.parse::<ReferenceFrame>().unwrap_err().to_string();
+            assert!(err.contains(&s), "error should name the input '{s}': {err}");
+        }
     }
 
     #[test]
@@ -1409,6 +1440,55 @@ mod tests {
     fn test_synodic_barycenter_id_matches_seb_constant() {
         assert_eq!(synodic_barycenter_id(10, 399), SUN_EARTH_BARYCENTER_ID);
         assert_eq!(synodic_barycenter_id(399, 301), -1_000_399_301);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_synthetic_barycenter_pair_none_branches() {
+        // center >= -1_000_000_000: ordinary (non-synthetic) center IDs,
+        // negative self-assigned or a real catalogued NAIF ID.
+        assert_eq!(synthetic_barycenter_pair(-20001), None);
+        assert_eq!(synthetic_barycenter_pair(399), None);
+        // n = -center - 1_000_000_000 > 999_999: below the encodable range
+        // even though center < -1_000_000_000.
+        assert_eq!(synthetic_barycenter_pair(-2_000_000_001), None);
+    }
+
+    #[test]
+    #[serial] // global SPICE registry
+    fn test_synodic_secondary_origin_center_and_round_trip() {
+        // SynodicOrigin::Secondary is centered on the secondary body itself
+        // -- exercise the center_naif_id dispatch arm and a full router
+        // round trip for a Moon-centered (399, 301) pair.
+        setup_global_test_spice();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let frame = ReferenceFrame::Synodic {
+            origin: SynodicOrigin::Secondary,
+            primary: 399,
+            secondary: 301,
+        };
+        assert_eq!(frame.center_naif_id(), 301);
+
+        // The Moon's own GCRF state, transformed into this Moon-centered
+        // synodic frame, must land at the origin (zero position) -- the
+        // secondary body defines the frame's center.
+        let x_moon_gcrf = spk_state(NAIFId::Moon, NAIFId::Earth, epc).unwrap();
+        let x_moon_syn =
+            state_frame_to_frame(ReferenceFrame::GCRF, frame, epc, x_moon_gcrf).unwrap();
+        for i in 0..3 {
+            assert_abs_diff_eq!(x_moon_syn[i], 0.0, epsilon = 1e-3);
+        }
+
+        // Round trip through GCRF recovers an arbitrary input state.
+        let x = vector6_from_array([1.0e8, -2.0e8, 5.0e7, 1.0e3, -2.0e3, 0.5e3]);
+        let x_syn = state_frame_to_frame(ReferenceFrame::GCRF, frame, epc, x).unwrap();
+        let x_back = state_frame_to_frame(frame, ReferenceFrame::GCRF, epc, x_syn).unwrap();
+        for i in 0..3 {
+            assert_abs_diff_eq!(x_back[i], x[i], epsilon = 1e-3);
+        }
+        for i in 3..6 {
+            assert_abs_diff_eq!(x_back[i], x[i], epsilon = 1e-6);
+        }
     }
 
     #[test]

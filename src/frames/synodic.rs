@@ -10,9 +10,9 @@
 use nalgebra::Vector3;
 
 use crate::constants::{
-    GM_EARTH, GM_JUPITER, GM_JUPITER_SYSTEM, GM_MARS, GM_MERCURY, GM_MOON, GM_NEPTUNE,
-    GM_NEPTUNE_SYSTEM, GM_PLUTO, GM_PLUTO_SYSTEM, GM_SATURN, GM_SATURN_SYSTEM, GM_SUN, GM_URANUS,
-    GM_URANUS_SYSTEM, GM_VENUS,
+    GM_EARTH, GM_JUPITER, GM_JUPITER_SYSTEM, GM_MARS, GM_MARS_SYSTEM, GM_MERCURY, GM_MOON,
+    GM_NEPTUNE, GM_NEPTUNE_SYSTEM, GM_PLUTO, GM_PLUTO_SYSTEM, GM_SATURN, GM_SATURN_SYSTEM, GM_SUN,
+    GM_URANUS, GM_URANUS_SYSTEM, GM_VENUS,
 };
 use crate::math::{SMatrix3, SVector6};
 use crate::spice::{NAIFId, spk_acceleration, spk_position, spk_state};
@@ -171,7 +171,8 @@ pub(crate) fn body_gm(naif_id: i32) -> Result<f64, BraheError> {
         399 => Ok(GM_EARTH),
         301 => Ok(GM_MOON),
         3 => Ok(GM_EARTH + GM_MOON),
-        4 | 499 => Ok(GM_MARS),
+        4 => Ok(GM_MARS_SYSTEM),
+        499 => Ok(GM_MARS),
         5 => Ok(GM_JUPITER_SYSTEM),
         599 => Ok(GM_JUPITER),
         6 => Ok(GM_SATURN_SYSTEM),
@@ -1248,9 +1249,24 @@ mod tests {
     #[test]
     #[parallel]
     fn test_body_gm_known_bodies() {
+        assert_eq!(body_gm(10).unwrap(), GM_SUN);
+        assert_eq!(body_gm(1).unwrap(), GM_MERCURY);
+        assert_eq!(body_gm(199).unwrap(), GM_MERCURY);
+        assert_eq!(body_gm(2).unwrap(), GM_VENUS);
+        assert_eq!(body_gm(299).unwrap(), GM_VENUS);
         assert_eq!(body_gm(399).unwrap(), GM_EARTH);
         assert_eq!(body_gm(301).unwrap(), GM_MOON);
-        assert_eq!(body_gm(10).unwrap(), GM_SUN);
+        assert_eq!(body_gm(3).unwrap(), GM_EARTH + GM_MOON);
+        assert_eq!(body_gm(4).unwrap(), GM_MARS_SYSTEM);
+        assert_eq!(body_gm(499).unwrap(), GM_MARS);
+        assert_eq!(body_gm(5).unwrap(), GM_JUPITER_SYSTEM);
+        assert_eq!(body_gm(599).unwrap(), GM_JUPITER);
+        assert_eq!(body_gm(6).unwrap(), GM_SATURN_SYSTEM);
+        assert_eq!(body_gm(699).unwrap(), GM_SATURN);
+        assert_eq!(body_gm(7).unwrap(), GM_URANUS_SYSTEM);
+        assert_eq!(body_gm(799).unwrap(), GM_URANUS);
+        assert_eq!(body_gm(8).unwrap(), GM_NEPTUNE_SYSTEM);
+        assert_eq!(body_gm(899).unwrap(), GM_NEPTUNE);
         assert_eq!(body_gm(9).unwrap(), GM_PLUTO_SYSTEM);
         assert_eq!(body_gm(999).unwrap(), GM_PLUTO);
         assert!(body_gm(502).is_err()); // Europa: no packaged GM constant

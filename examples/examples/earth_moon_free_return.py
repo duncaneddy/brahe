@@ -321,6 +321,10 @@ fig_emr = bh.plot_earth_moon_rotating_3d(
 arrow_dir = emr_vel[arrow_idx] / np.linalg.norm(
     emr_vel[arrow_idx], axis=1, keepdims=True
 )
+# Size the cones relative to the trajectory's extent rather than a fixed
+# constant, so they stay a subtle ~3% of the plot regardless of scale.
+max_extent_km = np.ptp(emr_xyz_km, axis=0).max()
+cone_sizeref_km = 0.03 * max_extent_km
 fig_emr.add_trace(
     go.Cone(
         x=emr_xyz_km[arrow_idx, 0],
@@ -330,7 +334,7 @@ fig_emr.add_trace(
         v=arrow_dir[:, 1],
         w=arrow_dir[:, 2],
         sizemode="absolute",
-        sizeref=0.45,
+        sizeref=cone_sizeref_km,
         anchor="tail",
         showscale=False,
         colorscale=[[0, "#fc3d21"], [1, "#fc3d21"]],

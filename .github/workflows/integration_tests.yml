@@ -48,6 +48,17 @@ jobs:
                     restore-keys: |
                         brahe-data-v1-
 
+            # FK5 + Hipparcos only. Explicit file paths (not the whole
+            # star_catalog/ dir) so the 526 MB Tycho-2 catalog downloaded by
+            # the integration test below is never persisted to this cache.
+            -   name: Cache star catalog downloads
+                uses: actions/cache@v6.1.0
+                with:
+                    path: |
+                        ~/.cache/brahe/star_catalog/FK5_Catalog.txt
+                        ~/.cache/brahe/star_catalog/Hipparcos_Catalog.txt
+                    key: star-catalog-v1
+
             -   name: Install cargo-llvm-cov
                 if: matrix.os == 'ubuntu-latest'
                 uses: taiki-e/install-action@cargo-llvm-cov
@@ -119,6 +130,15 @@ jobs:
                     key: brahe-data-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
                     restore-keys: |
                         brahe-data-v1-
+
+            # FK5 + Hipparcos only, matching the Rust job above.
+            -   name: Cache star catalog downloads
+                uses: actions/cache@v6.1.0
+                with:
+                    path: |
+                        ~/.cache/brahe/star_catalog/FK5_Catalog.txt
+                        ~/.cache/brahe/star_catalog/Hipparcos_Catalog.txt
+                    key: star-catalog-v1
 
             -   name: Install dependencies
                 run: uv sync --group test --all-extras --frozen --python ${{ matrix.python-version }}

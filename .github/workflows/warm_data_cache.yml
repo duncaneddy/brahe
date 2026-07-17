@@ -1,14 +1,16 @@
 name: Warm Brahe Data Cache
 
-# Keeps ~/.cache/brahe (NAIF kernels, ICGEM gravity models) from being evicted
-# by GitHub's 7-day "not accessed" cache eviction policy. The manifest only
-# changes when new artifacts are added to the brahe-data-manifest.txt (which
-# is rare), so most weeks this run restores an exact cache-key hit and does
-# nothing else: actions/cache only *saves* on a cache-key miss, but a restore
-# still counts as an access and resets the 7-day idle-eviction clock — so a
-# restore-only run is sufficient to keep the cache alive for test_python.yml
-# and integration_tests.yml. If the manifest ever changes, this run also
-# downloads the new/changed artifacts and saves them under the new key.
+# Keeps ~/.cache/brahe (NAIF kernels, ICGEM gravity models, FK5/Hipparcos
+# star catalogs) from being evicted by GitHub's 7-day "not accessed" cache
+# eviction policy. The manifest only changes when new artifacts are added to
+# the brahe-data-manifest.txt (which is rare), so most weeks this run
+# restores an exact cache-key hit and does nothing else: actions/cache only
+# *saves* on a cache-key miss, but a restore still counts as an access and
+# resets the 7-day idle-eviction clock — so a restore-only run is sufficient
+# to keep the cache alive for test_python.yml and integration_tests.yml. If
+# the manifest ever changes, this run also downloads the new/changed
+# artifacts and saves them under the new key. The star catalog cache is keyed
+# separately (star-catalog-v1, fixed) since it isn't manifest-driven.
 on:
     schedule:
         - cron: "0 6 * * 1"
@@ -41,6 +43,17 @@ jobs:
                     restore-keys: |
                         brahe-data-v1-
 
+            # FK5 + Hipparcos only. Explicit file paths (not the whole
+            # star_catalog/ dir) so the 526 MB Tycho-2 catalog is never
+            # warmed or cached here.
+            -   name: Cache star catalog downloads
+                uses: actions/cache@v6.1.0
+                with:
+                    path: |
+                        ~/.cache/brahe/star_catalog/FK5_Catalog.txt
+                        ~/.cache/brahe/star_catalog/Hipparcos_Catalog.txt
+                    key: star-catalog-v1
+
             -   name: Install dependencies
                 run: uv sync --all-extras --frozen
 
@@ -49,3 +62,17 @@ jobs:
 
             -   name: Warm data cache (re-download anything evicted)
                 run: uv run --frozen python scripts/warm_data_cache.py
+
+            # The mirror 403s default curl user agents, hence -A. Skips the
+            # download when the file is already cached (restore-only weeks).
+            -   name: Warm star catalog cache (re-download anything evicted)
+                run: |
+                    mkdir -p ~/.cache/brahe/star_catalog
+                    [ -s ~/.cache/brahe/star_catalog/FK5_Catalog.txt ] || \
+                        curl -sL -A "Mozilla/5.0" \
+                            -o ~/.cache/brahe/star_catalog/FK5_Catalog.txt \
+                            https://www.simplespacedata.org/star_catalog/cds/fk5/latest/FK5_Catalog.txt
+                    [ -s ~/.cache/brahe/star_catalog/Hipparcos_Catalog.txt ] || \
+                        curl -sL -A "Mozilla/5.0" \
+                            -o ~/.cache/brahe/star_catalog/Hipparcos_Catalog.txt \
+                            https://www.simplespacedata.org/star_catalog/cds/hipparcos/latest/Hipparcos_Catalog.txt

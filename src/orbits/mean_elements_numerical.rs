@@ -7,11 +7,15 @@
  */
 
 use crate::constants::AngleFormat;
+use crate::coordinates::{state_eci_to_koe, state_koe_to_eci};
 use crate::orbits::equinoctial::{state_equinoctial_to_koe, state_koe_to_equinoctial};
-use crate::orbits::mean_elements::{EdgeHandling, NumericalConfig, WindowAlignment};
+use crate::orbits::mean_elements::{EdgeHandling, InverseConfig, NumericalConfig, WindowAlignment};
+use crate::orbits::{MeanElementMethod, state_koe_mean_to_osc};
+use crate::propagators::DNumericalOrbitPropagator;
+use crate::propagators::traits::{DStatePropagator, DStateProvider};
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
-use nalgebra::SVector;
+use nalgebra::{DVector, SVector};
 
 /// Computes the averaging window bounds for a given anchor epoch, applying edge handling.
 ///
@@ -167,6 +171,188 @@ pub(crate) fn numerical_osc_to_mean(
     Ok(out)
 }
 
+/// Inverts numerical mean-element averaging via fixed-point differential correction.
+///
+/// For each target mean state, seeds a candidate osculating state from the analytical
+/// Brouwer-Lyddane inverse ([`state_koe_mean_to_osc`]), then iterates: propagate the
+/// candidate state across a window bracketing the target epoch with the dynamics in
+/// `config.inverse`, average the resulting trajectory back to mean elements with
+/// [`numerical_osc_to_mean`], and correct the candidate by the angle-aware mean-element
+/// residual. Iteration stops once a mixed-norm residual falls below
+/// `config.inverse.tolerance`, or fails after `config.inverse.max_iterations`.
+///
+/// # Arguments
+///
+/// * `epochs` - Target epochs at which osculating states are desired
+/// * `mean_states_rad` - Target mean Keplerian states `[a, e, i, raan, argp, M]`, radians
+///   (`a` in meters), one per epoch
+/// * `config` - Numerical averaging configuration; `config.inverse` supplies the
+///   propagation dynamics and convergence settings and is required (must not be `None`)
+///
+/// # Returns
+///
+/// Vector of `(epoch, osc_state)` pairs, osculating Keplerian states in radians, one per
+/// input epoch.
+///
+/// # Errors
+///
+/// Returns [`BraheError::Error`] if `config.inverse` is `None`, or if `epochs` and
+/// `mean_states_rad` have unequal length. Returns [`BraheError::NumericalError`] if the
+/// differential correction fails to converge within `max_iterations` for any target
+/// epoch.
+// Not yet called from non-test production code; wired up by a later task.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn numerical_mean_to_osc(
+    epochs: &[Epoch],
+    mean_states_rad: &[SVector<f64, 6>],
+    config: &NumericalConfig,
+) -> Result<Vec<(Epoch, SVector<f64, 6>)>, BraheError> {
+    let inverse = config.inverse.as_ref().ok_or_else(|| {
+        BraheError::Error(
+            "numerical mean-to-osc requires NumericalConfig.inverse (dynamics)".to_string(),
+        )
+    })?;
+    if epochs.len() != mean_states_rad.len() {
+        return Err(BraheError::Error(
+            "epochs and states must have equal length".to_string(),
+        ));
+    }
+
+    let mut out = Vec::with_capacity(epochs.len());
+    for (k, &t) in epochs.iter().enumerate() {
+        let target = mean_states_rad[k];
+
+        // Seed with the analytical Brouwer-Lyddane inverse (radians in/out).
+        let mut x = state_koe_mean_to_osc(
+            &target,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Radians,
+        )?;
+
+        let mut converged = false;
+        for _ in 0..inverse.max_iterations {
+            let m_k = forward_average(t, &x, config, inverse)?;
+            let residual = element_residual(&target, &m_k);
+            if mixed_norm(&residual) < inverse.tolerance {
+                converged = true;
+                break;
+            }
+            x += residual; // fixed-point correction
+            x[1] = x[1].max(0.0); // keep e physical
+        }
+        if !converged {
+            return Err(BraheError::NumericalError(format!(
+                "numerical mean-to-osc did not converge within {} iterations",
+                inverse.max_iterations
+            )));
+        }
+        out.push((t, x));
+    }
+    Ok(out)
+}
+
+/// Propagates a candidate osculating state `x_rad` (defined at epoch `t`) across a
+/// window bracketing `t` and returns the numerically averaged mean elements nearest
+/// `t`.
+///
+/// Samples 100 evenly-spaced epochs across
+/// `[t - 0.6*W, t + 0.6*W]`, where `W = config.window_seconds`, i.e. a window 20%
+/// wider on each side than the averaging window itself. This ensures the
+/// centered-`W` window at `t` (which [`numerical_osc_to_mean`] needs to average
+/// correctly regardless of `config.alignment`) is comfortably supported by the
+/// sampled trajectory, avoiding bit-exact-boundary fragility.
+///
+/// The candidate state is first propagated backward to the window start (to obtain a
+/// valid initial condition there), then a fresh propagator integrates forward across
+/// the full window so the sampled trajectory has a single, monotonically increasing
+/// time history suitable for interpolation.
+fn forward_average(
+    t: Epoch,
+    x_rad: &SVector<f64, 6>,
+    config: &NumericalConfig,
+    inverse: &InverseConfig,
+) -> Result<SVector<f64, 6>, BraheError> {
+    const N_SAMPLES: usize = 100;
+
+    let half_width = 0.6 * config.window_seconds;
+    let start = t - half_width;
+    let end = t + half_width;
+
+    let cart_t = state_koe_to_eci(*x_rad, AngleFormat::Radians);
+
+    // Propagate backward from t to the window start to obtain a valid initial state
+    // there.
+    let mut back = DNumericalOrbitPropagator::builder()
+        .epoch(t)
+        .state(DVector::from_row_slice(cart_t.as_slice()))
+        .force_config(inverse.force_model.clone())
+        .propagation_config(inverse.propagation.clone())
+        .build()?;
+    back.propagate_to(start);
+    let cart_start = back.state(start)?;
+
+    // Integrate forward across the full window from a single starting condition, so
+    // the trajectory samples are in strictly increasing epoch order.
+    let mut fwd = DNumericalOrbitPropagator::builder()
+        .epoch(start)
+        .state(cart_start)
+        .force_config(inverse.force_model.clone())
+        .propagation_config(inverse.propagation.clone())
+        .build()?;
+    fwd.propagate_to(end);
+
+    let mut sample_epochs = Vec::with_capacity(N_SAMPLES);
+    let mut sample_states = Vec::with_capacity(N_SAMPLES);
+    for j in 0..N_SAMPLES {
+        let frac = j as f64 / (N_SAMPLES as f64 - 1.0);
+        let e = start + frac * (end - start);
+        let cart = fwd.state(e)?;
+        let cart6 = SVector::<f64, 6>::from_row_slice(cart.as_slice());
+        let koe = state_eci_to_koe(cart6, AngleFormat::Radians);
+        sample_epochs.push(e);
+        sample_states.push(koe);
+    }
+
+    let averaged = numerical_osc_to_mean(&sample_epochs, &sample_states, config)?;
+    averaged
+        .into_iter()
+        .min_by(|a, b| {
+            (a.0 - t)
+                .abs()
+                .partial_cmp(&(b.0 - t).abs())
+                .expect("epoch difference is never NaN")
+        })
+        .map(|(_, s)| s)
+        .ok_or_else(|| BraheError::NumericalError("empty averaging window".to_string()))
+}
+
+/// Angle-aware element residual `target - value` (`a`, `e` linear; angles wrapped to
+/// `[-pi, pi]` to avoid spurious corrections across the `0`/`2*pi` branch cut).
+fn element_residual(target: &SVector<f64, 6>, value: &SVector<f64, 6>) -> SVector<f64, 6> {
+    let mut r = SVector::<f64, 6>::zeros();
+    r[0] = target[0] - value[0];
+    r[1] = target[1] - value[1];
+    let two_pi = 2.0 * std::f64::consts::PI;
+    for idx in 2..6 {
+        let mut d = target[idx] - value[idx];
+        while d > std::f64::consts::PI {
+            d -= two_pi;
+        }
+        while d < -std::f64::consts::PI {
+            d += two_pi;
+        }
+        r[idx] = d;
+    }
+    r
+}
+
+/// Mixed-norm residual magnitude: meters for `a`, scaled for `e` and the angular
+/// elements (radians) so a single scalar tolerance applies across dissimilar units.
+fn mixed_norm(r: &SVector<f64, 6>) -> f64 {
+    let ang = (r[2] * r[2] + r[3] * r[3] + r[4] * r[4] + r[5] * r[5]).sqrt();
+    r[0].abs() + 1e6 * r[1].abs() + 1e6 * ang
+}
+
 /// Unwraps `l` samples, least-squares fits against relative time, and returns the value
 /// at `t = 0` (the anchor epoch).
 ///
@@ -319,5 +505,103 @@ mod tests {
             numerical_osc_to_mean(&epochs, &states, &base(EdgeHandling::PreserveWindow)).unwrap();
         assert!(trunc.len() < epochs.len());
         assert_eq!(preserve.len(), epochs.len());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_numerical_mean_to_osc_round_trip() {
+        use crate::propagators::{ForceModelConfig, NumericalPropagationConfig};
+        crate::utils::testing::setup_global_test_eop();
+
+        let mean_rad = crate::math::angles::oe_to_radians(
+            SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 0.0),
+            AngleFormat::Degrees,
+        );
+        let period = crate::orbits::orbital_period(mean_rad[0]);
+        let inverse = InverseConfig {
+            force_model: ForceModelConfig::earth_gravity(),
+            propagation: NumericalPropagationConfig::default(),
+            tolerance: 1.0, // mixed-norm tolerance; see mixed_norm()
+            max_iterations: 25,
+        };
+        let cfg = NumericalConfig {
+            window_seconds: period,
+            alignment: WindowAlignment::Centered,
+            edge: EdgeHandling::PreserveWindow,
+            inverse: Some(inverse),
+        };
+        let epochs = vec![Epoch::from_gps_seconds(0.0)];
+        let out = numerical_mean_to_osc(&epochs, &[mean_rad], &cfg).unwrap();
+        assert_eq!(out.len(), 1);
+        let (_, osc) = &out[0];
+        assert!(osc.iter().all(|v| v.is_finite()));
+
+        // Real round-trip: average the recovered osculating state back over a freshly
+        // propagated window and confirm it returns to the target mean a, e, i.
+        let cart = state_koe_to_eci(*osc, AngleFormat::Radians);
+        let anchor = epochs[0];
+        let half = period * 0.6;
+        let start = anchor - half;
+        let end = anchor + half;
+        let inv = cfg.inverse.as_ref().unwrap();
+        let mut back = DNumericalOrbitPropagator::builder()
+            .epoch(anchor)
+            .state(DVector::from_row_slice(cart.as_slice()))
+            .force_config(inv.force_model.clone())
+            .propagation_config(inv.propagation.clone())
+            .build()
+            .unwrap();
+        back.propagate_to(start);
+        let cart_start = back.state(start).unwrap();
+        let mut fwd = DNumericalOrbitPropagator::builder()
+            .epoch(start)
+            .state(cart_start)
+            .force_config(inv.force_model.clone())
+            .propagation_config(inv.propagation.clone())
+            .build()
+            .unwrap();
+        fwd.propagate_to(end);
+
+        let n = 100usize;
+        let mut sample_epochs = Vec::with_capacity(n);
+        let mut sample_states = Vec::with_capacity(n);
+        for j in 0..n {
+            let frac = j as f64 / (n as f64 - 1.0);
+            let e = start + frac * (end - start);
+            let s = fwd.state(e).unwrap();
+            let koe = state_eci_to_koe(
+                SVector::<f64, 6>::from_row_slice(s.as_slice()),
+                AngleFormat::Radians,
+            );
+            sample_epochs.push(e);
+            sample_states.push(koe);
+        }
+        let averaged = numerical_osc_to_mean(&sample_epochs, &sample_states, &cfg).unwrap();
+        let (_, mean_recovered) = averaged
+            .into_iter()
+            .min_by(|a, b| {
+                (a.0 - anchor)
+                    .abs()
+                    .partial_cmp(&(b.0 - anchor).abs())
+                    .unwrap()
+            })
+            .unwrap();
+        assert_abs_diff_eq!(mean_recovered[0], mean_rad[0], epsilon = 500.0);
+        assert_abs_diff_eq!(mean_recovered[1], mean_rad[1], epsilon = 2e-3);
+        assert_abs_diff_eq!(mean_recovered[2], mean_rad[2], epsilon = 2e-3);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_numerical_mean_to_osc_requires_inverse_config() {
+        let mean_rad = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 0.78, 0.5, 1.0, 0.0);
+        let cfg = NumericalConfig {
+            window_seconds: 5400.0,
+            alignment: WindowAlignment::Centered,
+            edge: EdgeHandling::PreserveWindow,
+            inverse: None,
+        };
+        let epochs = vec![Epoch::from_gps_seconds(0.0)];
+        assert!(numerical_mean_to_osc(&epochs, &[mean_rad], &cfg).is_err());
     }
 }

@@ -8,6 +8,8 @@ pub mod equinoctial;
 pub mod keplerian;
 /// Mean-Osculating Keplerian element conversions using Brouwer-Lyddane theory.
 pub mod mean_elements;
+/// Numerical windowed-averaging core for osculating-to-mean conversion (internal).
+pub(crate) mod mean_elements_numerical;
 /// Two-Line Element (TLE) format parsing and handling.
 pub mod tle;
 /// Walker Delta constellation generator.

@@ -10,7 +10,7 @@
  *   Internally converts ECI→ECEF. Uses finite-difference Jacobians since the
  *   rotation is epoch-dependent.
  *
- * - **[azelrange]**: Topocentric az/el/range for ground sensors.
+ * - **[`azelrange`]**: Topocentric az/el/range for ground sensors.
  *
  * New measurement models (e.g., range, range-rate, Doppler) can be added as
  * separate files in this module.

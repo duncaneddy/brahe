@@ -93,7 +93,7 @@ impl AzElRangeMeasurementModel {
                 Vector3::new(station_lon, station_lat, station_alt),
                 angle_format,
             )
-            .unwrap(),
+            .expect("Invalid geodetic coordinates"),
             noise_cov: diagonal_covariance(&[sigma_az, sigma_el, sigma_range]),
             bias: Vector3::zeros(),
             angle_format,
@@ -134,8 +134,7 @@ impl AzElRangeMeasurementModel {
             station_ecef: position_geodetic_to_ecef(
                 Vector3::new(station_lon, station_lat, station_alt),
                 angle_format,
-            )
-            .unwrap(),
+            )?,
             noise_cov: cov,
             bias: Vector3::zeros(),
             angle_format,
@@ -171,8 +170,7 @@ impl AzElRangeMeasurementModel {
             station_ecef: position_geodetic_to_ecef(
                 Vector3::new(station_lon, station_lat, station_alt),
                 angle_format,
-            )
-            .unwrap(),
+            )?,
             noise_cov: covariance_from_upper_triangular(3, upper)?,
             bias: Vector3::zeros(),
             angle_format,
@@ -387,5 +385,18 @@ mod tests {
             )
             .is_ok()
         );
+    }
+
+    #[test]
+    fn test_azelrange_from_covariance_invalid_latitude_errors() {
+        let cov = DMatrix::from_diagonal(&nalgebra::DVector::from_vec(vec![1.0, 2.0, 3.0]));
+        let result = AzElRangeMeasurementModel::from_covariance(
+            0.0,
+            100.0,
+            100.0,
+            cov,
+            AngleFormat::Degrees,
+        );
+        assert!(result.is_err());
     }
 }

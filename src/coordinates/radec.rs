@@ -4,6 +4,7 @@ use std::f64::consts::TAU;
 
 use crate::constants::{AngleFormat, DEG2RAD, RAD2DEG};
 use crate::math::{SVector3, SVector6};
+use crate::time::Epoch;
 
 /// Convert a right ascension, declination, and range into the equivalent
 /// Cartesian inertial position.
@@ -196,6 +197,113 @@ pub fn state_inertial_to_radec(x_inertial: SVector6, angle_format: AngleFormat) 
     }
 }
 
+/// Propagate a star's catalog position from one epoch to another using the
+/// rigorous (direction-only) proper-motion transformation.
+///
+/// The star's unit direction vector is advanced linearly in the tangent plane
+/// by its proper motion, scaled by a first-order perspective-acceleration
+/// correction that accounts for the change in the star's angular rate as its
+/// line-of-sight distance changes (significant for high radial-velocity,
+/// high-parallax stars such as Barnard's Star), and then renormalized.
+///
+/// `pm_ra` follows the standard catalog convention: it is
+/// **μ_α\* = μ_α·cos δ**, not the raw coordinate rate μ_α. This matches the
+/// `pmra`/`pmdec` columns of Hipparcos, Gaia, and most other star catalogs.
+/// If `parallax` or `radial_velocity` is `None`, the perspective-acceleration
+/// term is omitted (equivalent to setting it to zero), reducing to a purely
+/// linear proper-motion propagation.
+///
+/// This function implements the direction part of the transformation only;
+/// it does not apply light-time or Doppler (radial-velocity-rate) corrections
+/// and is otherwise equivalent to IAU SOFA `iauStarpm`'s treatment of the
+/// proper-motion/parallax epoch transformation.
+///
+/// # Arguments
+/// - `ra`: Right ascension at `epoch_from`. Units: (*angle*)
+/// - `dec`: Declination at `epoch_from`. Units: (*angle*)
+/// - `pm_ra`: Proper motion in right ascension, μ_α\* = μ_α·cos δ. Units: (*mas/yr*)
+/// - `pm_dec`: Proper motion in declination, μ_δ. Units: (*mas/yr*)
+/// - `parallax`: Annual parallax, or `None` if unknown/unavailable. Units: (*mas*)
+/// - `radial_velocity`: Radial velocity, or `None` if unknown/unavailable. Units: (*km/s*)
+/// - `epoch_from`: Epoch of the input `(ra, dec)`
+/// - `epoch_to`: Epoch to propagate the position to
+/// - `angle_format`: Format for `ra`/`dec` input and output (Radians or Degrees)
+///
+/// # Returns
+/// - `(ra, dec)`: Right ascension and declination propagated to `epoch_to`. Units: (*angle*, *angle*)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::DEGREES;
+/// use brahe::coordinates::apply_proper_motion;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// // Barnard's Star (HIP 87937), J1991.25 Hipparcos catalog values.
+/// let epoch_from = Epoch::from_mjd(48348.5625, TimeSystem::TT);
+/// let epoch_to = Epoch::from_mjd(48348.5625 + 10.0 * 365.25, TimeSystem::TT);
+///
+/// let (ra, dec) = apply_proper_motion(
+///     269.45402305,
+///     4.66828815,
+///     -797.84,
+///     10326.93,
+///     Some(549.30),
+///     Some(-106.8),
+///     epoch_from,
+///     epoch_to,
+///     DEGREES,
+/// );
+/// ```
+///
+/// # Reference
+/// 1. ESA, *The Hipparcos and Tycho Catalogues*, ESA SP-1200, Vol. 1, §1.5.5, 1997.
+#[allow(clippy::too_many_arguments)]
+pub fn apply_proper_motion(
+    ra: f64,
+    dec: f64,
+    pm_ra: f64,
+    pm_dec: f64,
+    parallax: Option<f64>,
+    radial_velocity: Option<f64>,
+    epoch_from: Epoch,
+    epoch_to: Epoch,
+    angle_format: AngleFormat,
+) -> (f64, f64) {
+    const MAS2RAD: f64 = DEG2RAD / 3.6e6;
+
+    let (ra_rad, dec_rad) = match angle_format {
+        AngleFormat::Degrees => (ra * DEG2RAD, dec * DEG2RAD),
+        AngleFormat::Radians => (ra, dec),
+    };
+
+    let tau = (epoch_to.mjd() - epoch_from.mjd()) / 365.25;
+
+    let (sin_ra, cos_ra) = ra_rad.sin_cos();
+    let (sin_dec, cos_dec) = dec_rad.sin_cos();
+
+    let u0 = SVector3::new(cos_dec * cos_ra, cos_dec * sin_ra, sin_dec);
+    let p_hat = SVector3::new(-sin_ra, cos_ra, 0.0);
+    let q_hat = SVector3::new(-sin_dec * cos_ra, -sin_dec * sin_ra, cos_dec);
+
+    let mu = p_hat * (pm_ra * MAS2RAD) + q_hat * (pm_dec * MAS2RAD);
+
+    let mu_r = match (parallax, radial_velocity) {
+        (Some(plx), Some(rv)) => rv * plx / 4.740470446 * MAS2RAD,
+        _ => 0.0,
+    };
+
+    let b = u0 * (1.0 + mu_r * tau) + mu * tau;
+    let u = b / b.norm();
+
+    let ra_new = u[1].atan2(u[0]).rem_euclid(TAU);
+    let dec_new = u[2].asin();
+
+    match angle_format {
+        AngleFormat::Degrees => (ra_new * RAD2DEG, dec_new * RAD2DEG),
+        AngleFormat::Radians => (ra_new, dec_new),
+    }
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
@@ -203,8 +311,170 @@ mod tests {
     use serial_test::parallel;
 
     use crate::constants::AngleFormat;
+    use crate::time::TimeSystem;
 
     use super::*;
+
+    #[test]
+    #[parallel]
+    fn test_apply_proper_motion_zero_motion() {
+        // Zero proper motion with no parallax/radial velocity leaves (ra, dec)
+        // unchanged regardless of the epoch span.
+        let epoch_from = Epoch::from_mjd(51544.5, TimeSystem::TT);
+        let epoch_to = Epoch::from_mjd(51544.5 + 50.0 * 365.25, TimeSystem::TT);
+
+        let (ra, dec) = apply_proper_motion(
+            123.456,
+            -45.678,
+            0.0,
+            0.0,
+            None,
+            None,
+            epoch_from,
+            epoch_to,
+            AngleFormat::Degrees,
+        );
+
+        assert_abs_diff_eq!(ra, 123.456, epsilon = 1e-13);
+        assert_abs_diff_eq!(dec, -45.678, epsilon = 1e-13);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apply_proper_motion_linear_small_angle() {
+        // At dec=0, mu_ra* == mu_ra (cos(dec) = 1), so a pure RA proper motion of
+        // 1000 mas/yr over 10 years produces a 10000 mas = 10 arcsec shift in RA.
+        let epoch_from = Epoch::from_mjd(51544.5, TimeSystem::TT);
+        let epoch_to = Epoch::from_mjd(51544.5 + 10.0 * 365.25, TimeSystem::TT);
+
+        let (ra, dec) = apply_proper_motion(
+            10.0,
+            0.0,
+            1000.0,
+            0.0,
+            None,
+            None,
+            epoch_from,
+            epoch_to,
+            AngleFormat::Degrees,
+        );
+
+        let delta_ra_arcsec = (ra - 10.0) * 3600.0;
+        assert_abs_diff_eq!(delta_ra_arcsec, 10.0, epsilon = 1e-3);
+        assert_abs_diff_eq!(dec, 0.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apply_proper_motion_round_trip() {
+        // Forward propagation by tau, followed by propagation of the resulting
+        // position by -tau using the same (un-negated) proper motion, recovers
+        // the starting direction to sub-microarcsecond precision in the linear
+        // (no parallax/radial velocity) case. The transform is only invertible
+        // this way for modest total displacement (see task brief); tau and the
+        // proper motion below are chosen to keep the round-trip error well under
+        // 1 uas.
+        let ra0 = 45.0;
+        let dec0 = -20.0;
+        let pm_ra = 25.0;
+        let pm_dec = 15.0;
+
+        let epoch_from = Epoch::from_mjd(51544.5, TimeSystem::TT);
+        let epoch_to = Epoch::from_mjd(51544.5 + 5.0 * 365.25, TimeSystem::TT);
+
+        let (ra1, dec1) = apply_proper_motion(
+            ra0,
+            dec0,
+            pm_ra,
+            pm_dec,
+            None,
+            None,
+            epoch_from,
+            epoch_to,
+            AngleFormat::Degrees,
+        );
+        let (ra2, dec2) = apply_proper_motion(
+            ra1,
+            dec1,
+            pm_ra,
+            pm_dec,
+            None,
+            None,
+            epoch_to,
+            epoch_from,
+            AngleFormat::Degrees,
+        );
+
+        let u0 = position_radec_to_inertial(SVector3::new(ra0, dec0, 1.0), AngleFormat::Degrees);
+        let u2 = position_radec_to_inertial(SVector3::new(ra2, dec2, 1.0), AngleFormat::Degrees);
+        let sep_rad = u0.cross(&u2).norm().atan2(u0.dot(&u2));
+        let sep_uas = sep_rad * RAD2DEG * 3600.0 * 1e6;
+
+        assert!(
+            sep_uas < 1.0,
+            "round-trip separation {sep_uas} uas exceeds 1 uas"
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apply_proper_motion_barnard() {
+        // Barnard's Star (HIP 87937), J1991.25 Hipparcos catalog values.
+        let ra0 = 269.454_023_05;
+        let dec0 = 4.668_288_15;
+        let pm_ra = -797.84;
+        let pm_dec = 10326.93;
+        let plx = 549.30;
+        let rv = -106.8;
+
+        // J1991.25 in MJD (TT): JD = 2451545.0 + (1991.25-2000.0)*365.25 = 2448349.0625
+        let epoch_from = Epoch::from_mjd(48348.5625, TimeSystem::TT);
+        let epoch_to = Epoch::from_mjd(48348.5625 + 10.0 * 365.25, TimeSystem::TT);
+
+        let (ra_lin, dec_lin) = apply_proper_motion(
+            ra0,
+            dec0,
+            pm_ra,
+            pm_dec,
+            None,
+            None,
+            epoch_from,
+            epoch_to,
+            AngleFormat::Degrees,
+        );
+        let (ra_full, dec_full) = apply_proper_motion(
+            ra0,
+            dec0,
+            pm_ra,
+            pm_dec,
+            Some(plx),
+            Some(rv),
+            epoch_from,
+            epoch_to,
+            AngleFormat::Degrees,
+        );
+
+        let u0 = position_radec_to_inertial(SVector3::new(ra0, dec0, 1.0), AngleFormat::Degrees);
+        let u_lin =
+            position_radec_to_inertial(SVector3::new(ra_lin, dec_lin, 1.0), AngleFormat::Degrees);
+        let u_full =
+            position_radec_to_inertial(SVector3::new(ra_full, dec_full, 1.0), AngleFormat::Degrees);
+
+        // Total displacement over 10 years, small-angle approximation.
+        let expected_arcsec = (pm_ra.powi(2) + pm_dec.powi(2)).sqrt() * 10.0 / 1000.0;
+        let sep_full_arcsec = u0.cross(&u_full).norm().atan2(u0.dot(&u_full)) * RAD2DEG * 3600.0;
+        assert_abs_diff_eq!(sep_full_arcsec, expected_arcsec, epsilon = 0.1);
+
+        // Perspective acceleration (from parallax/radial velocity) shifts the
+        // propagated position by more than 1 mas relative to the linear
+        // (proper-motion-only) propagation.
+        let perspective_shift_mas =
+            u_lin.cross(&u_full).norm().atan2(u_lin.dot(&u_full)) * RAD2DEG * 3600.0 * 1000.0;
+        assert!(
+            perspective_shift_mas > 1.0,
+            "perspective acceleration shift {perspective_shift_mas} mas too small"
+        );
+    }
 
     #[test]
     #[parallel]

@@ -42,22 +42,28 @@ The origin, primary, and secondary of any synodic frame (`Synodic`, `EMR`, `SER`
 
 The generic frame has no dedicated `rotation_gcrf_to_synodic`-style functions; it is used through the frame router (`rotation_frame_to_frame`, `position_frame_to_frame`, `state_frame_to_frame`). The following example transforms a low Earth orbit state from GCRF into a Sun-Mars rotating frame:
 
-```python
-import numpy as np
-import brahe as bh
+=== "Python"
 
-bh.initialize_eop()
-bh.load_common_spice_kernels()
+    ```python
+    --8<-- "./examples/frames/generic_synodic_frame.py:9"
+    ```
 
-epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-frame = bh.ReferenceFrame.Synodic(bh.SynodicOrigin.Barycenter, 10, 4)  # Sun-Mars
+=== "Rust"
 
-x_gcrf = bh.state_koe_to_eci(
-    np.array([bh.R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0]),
-    bh.AngleFormat.DEGREES,
-)
-x_syn = bh.state_frame_to_frame(bh.ReferenceFrame.GCRF, frame, epc, x_gcrf)
-```
+    ```rust
+    --8<-- "./examples/frames/generic_synodic_frame.rs:6"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/generic_synodic_frame.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/generic_synodic_frame.rs.txt"
+        ```
 
 ## Function Reference
 

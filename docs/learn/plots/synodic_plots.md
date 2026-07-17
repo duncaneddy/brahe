@@ -24,32 +24,18 @@ See [Synodic Reference Frames](../frames/synodic_frames.md) for the axis constru
 
 ## Example
 
-```python
-import brahe as bh
-import numpy as np
+The example below propagates a LEO trajectory with a `KeplerianPropagator`, then renders it in the Earth-Moon Rotating frame with `plot_earth_moon_rotating_3d` - the `plot_synodic_3d(..., frame="EMR", ...)` alias described above.
 
-eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
-bh.set_global_eop_provider(eop)
+<div class="plotly-embed">
+  <iframe class="only-light" src="../../figures/synodic_plot_plotly_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../../figures/synodic_plot_plotly_dark.html"  loading="lazy"></iframe>
+</div>
 
-epoch = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-oe = np.array([bh.R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
-state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
-prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)
-prop.propagate_to(epoch + 5400.0)
+??? "Plot Source"
 
-# Plot a LEO trajectory in the Earth-Moon Rotating frame
-fig = bh.plot_synodic_3d(
-    [{"trajectory": prop.trajectory, "label": "LEO"}],
-    frame="EMR",
-    backend="plotly",
-)
-
-# Equivalent, using the EMR alias
-fig = bh.plot_earth_moon_rotating_3d(
-    [{"trajectory": prop.trajectory, "label": "LEO"}],
-    backend="plotly",
-)
-```
+    ``` python title="synodic_plot_plotly.py"
+    --8<-- "./plots/learn/plots/synodic_plot_plotly.py"
+    ```
 
 ## Additional Bodies
 

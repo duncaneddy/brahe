@@ -516,9 +516,9 @@ mod tests {
 
     #[test]
     #[parallel]
-    #[cfg_attr(not(feature = "integration"), ignore)]
-    /// Downloads the full Tycho-2 catalog (~526 MB). Only runs with the
-    /// `integration` feature enabled; not part of CI workflows.
+    #[ignore = "downloads the full 526 MB Tycho-2 catalog; run explicitly with -- --ignored"]
+    /// Downloads the full Tycho-2 catalog (~526 MB). Run explicitly with
+    /// `cargo test -- --ignored`; never part of CI or feature runs.
     fn test_tycho2_full_download() {
         let catalog = crate::datasets::star_catalog::get_tycho2_catalog(None).unwrap();
         assert!(catalog.len() > 2_500_000);

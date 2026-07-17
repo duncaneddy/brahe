@@ -114,18 +114,10 @@ ceres = bh.CentralBody.Custom(
     fixed_frame=ceres_fixed,
 )
 
-# Gravity-only, point-mass force model: no third bodies or SRP. The DE
-# kernels brahe loads carry no Ceres ephemeris, so third-body perturbations
-# aren't available out of the box here; a Ceres SPK can be generated through
-# JPL Horizons (https://ssd-api.jpl.nasa.gov/doc/horizons.html) to enable
-# them, and a Horizons client is planned
-# (https://github.com/duncaneddy/brahe/issues/402). This example keeps
-# gravity-only for self-containment. ICGEM's only cataloged Ceres model
-# (sphericalRFM_CERES_2519) is a degree-2519 crustal forward-modeling
-# research product, not a conventional field normalized to the body's true GM
-# (its C(0,0) ~ 0.126, not the usual 1.0), so it isn't a drop-in gravity
-# field here; point mass is the standard starting point when defining your
-# own body from scratch.
+# Gravity-only, point-mass force model: no third bodies or SRP (the loaded
+# DE kernels carry no Ceres ephemeris). See the accompanying docs page for
+# the Horizons SPK path to enabling perturbations and why ICGEM's Ceres
+# product is not a drop-in gravity field.
 force_config = bh.ForceModelConfig.for_body(ceres, bh.GravityConfiguration.point_mass())
 # --8<-- [end:force_model]
 

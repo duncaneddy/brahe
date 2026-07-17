@@ -103,13 +103,6 @@ basis construction:
 --8<-- "./examples/examples/dawn_ceres_orbit.py:propagation"
 ```
 
-!!! note "state_bci vs. state_eci"
-    `state_bci` returns the propagator's native state in the central body's
-    body-centered inertial frame - here, Ceres-centered. `state_eci` would
-    instead try to re-center the state onto Earth via SPK ephemeris data,
-    which raises for Ceres: NAIF ID 2000001 has no SPK coverage in the DE
-    kernels brahe loads. Use `state_bci` for any non-Earth propagator.
-
 Sampling the trajectory over the 2-day propagation confirms the orbit stays
 in a tight band around the design altitude, and `state_in_frame` converts the
 final inertial state directly into the registered Ceres-fixed frame - the

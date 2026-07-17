@@ -256,13 +256,7 @@ pub(crate) fn pair_barycenter_state(
 /// - `(R, Ṙ)`: Rotation matrix from GCRF to EMR axes, and its time
 ///   derivative. Units: [-], [1/s]
 pub(crate) fn emr_axes(epc: Epoch) -> Result<(SMatrix3, SMatrix3), BraheError> {
-    let x12 = spk_state(NAIFId::Moon, NAIFId::Earth, epc)?;
-    let a12 = spk_acceleration(NAIFId::Moon, NAIFId::Earth, epc)?;
-    synodic_axes(
-        x12.fixed_rows::<3>(0).into_owned(),
-        x12.fixed_rows::<3>(3).into_owned(),
-        a12,
-    )
+    generic_synodic_axes(epc, NAIFId::Earth.id(), NAIFId::Moon.id())
 }
 
 /// Computes the rotation matrix from Geocentric Celestial Reference Frame
@@ -492,13 +486,7 @@ pub(crate) fn sun_earth_barycenter_state(epc: Epoch) -> Result<SVector6, BraheEr
 /// - `(R, Ṙ)`: Rotation matrix from GCRF to SER axes, and its time
 ///   derivative. Units: [-], [1/s]
 pub(crate) fn ser_axes(epc: Epoch) -> Result<(SMatrix3, SMatrix3), BraheError> {
-    let x12 = spk_state(NAIFId::Earth, NAIFId::Sun, epc)?;
-    let a12 = spk_acceleration(NAIFId::Earth, NAIFId::Sun, epc)?;
-    synodic_axes(
-        x12.fixed_rows::<3>(0).into_owned(),
-        x12.fixed_rows::<3>(3).into_owned(),
-        a12,
-    )
+    generic_synodic_axes(epc, NAIFId::Sun.id(), NAIFId::Earth.id())
 }
 
 /// GSE (Geocentric Solar Ecliptic) frame axes at `epc`: the inertial→GSE
@@ -514,13 +502,7 @@ pub(crate) fn ser_axes(epc: Epoch) -> Result<(SMatrix3, SMatrix3), BraheError> {
 /// - `(R, Ṙ)`: Rotation matrix from GCRF to GSE axes, and its time
 ///   derivative. Units: [-], [1/s]
 pub(crate) fn gse_axes(epc: Epoch) -> Result<(SMatrix3, SMatrix3), BraheError> {
-    let x12 = spk_state(NAIFId::Sun, NAIFId::Earth, epc)?;
-    let a12 = spk_acceleration(NAIFId::Sun, NAIFId::Earth, epc)?;
-    synodic_axes(
-        x12.fixed_rows::<3>(0).into_owned(),
-        x12.fixed_rows::<3>(3).into_owned(),
-        a12,
-    )
+    generic_synodic_axes(epc, NAIFId::Earth.id(), NAIFId::Sun.id())
 }
 
 /// Earth→SEB origin offset in ICRF axes (SEB state minus Earth state,

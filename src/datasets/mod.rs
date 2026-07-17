@@ -13,6 +13,7 @@ pub mod loaders;
 pub mod naif;
 pub mod parsers;
 pub mod serializers;
+pub mod star_catalog;
 
 // Re-export commonly used functions from groundstations
 pub use groundstations::{

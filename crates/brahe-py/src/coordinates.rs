@@ -147,11 +147,16 @@ fn py_state_eci_to_koe<'py>(
 /// the inclination and RAAN here are measured against the **body mean equator
 /// at J2000**: the reference plane is normal to the body's IAU pole
 /// `(alpha0, delta0)` evaluated at J2000 TDB, with the x-axis at the ascending
-/// node of that equator on the ICRF equator. This is the natural frame for
-/// polar / sun-synchronous / frozen orbits about the Moon, Mars, and other
-/// bodies whose spin pole is tilted relative to the ICRF pole. `CentralBody.Earth`
-/// is an exact passthrough of `state_eci_to_koe`. Inverse of
-/// `state_koe_to_inertial_for_body`.
+/// node of that equator on the ICRF equator - the standard IAU orientation
+/// convention (Archinal et al., "Report of the IAU Working Group on
+/// Cartographic Coordinates and Rotational Elements: 2015", Celest Mech Dyn
+/// Astr 130, 22 (2018), <https://doi.org/10.1007/s10569-017-9805-5>). This
+/// ascending node is where `z_ICRF x p_hat` points: that vector is
+/// perpendicular to both poles, hence lies in both equatorial planes. This
+/// is the natural frame for polar / sun-synchronous / frozen orbits about
+/// the Moon, Mars, and other bodies whose spin pole is tilted relative to
+/// the ICRF pole. `CentralBody.Earth` is an exact passthrough of
+/// `state_eci_to_koe`. Inverse of `state_koe_to_inertial_for_body`.
 ///
 /// Args:
 ///     x_cart (numpy.ndarray or list): Cartesian state `[x, y, z, vx, vy, vz]` in the
@@ -204,8 +209,14 @@ fn py_state_inertial_to_koe_for_body<'py>(
 /// Unlike `state_koe_to_eci` (whose elements are referenced to the ICRF axes),
 /// the inclination and RAAN here are measured against the **body mean equator
 /// at J2000** (the plane normal to the body's IAU pole at J2000 TDB, x-axis at
-/// the ascending node of that equator on the ICRF equator). The output state is
-/// in the body-centered ICRF-aligned frame, so it composes directly with the
+/// the ascending node of that equator on the ICRF equator - the standard IAU
+/// orientation convention (Archinal et al., "Report of the IAU Working Group
+/// on Cartographic Coordinates and Rotational Elements: 2015", Celest Mech
+/// Dyn Astr 130, 22 (2018), <https://doi.org/10.1007/s10569-017-9805-5>);
+/// this ascending node is where `z_ICRF x p_hat` points, since that vector
+/// is perpendicular to both poles and hence lies in both equatorial
+/// planes). The output state is in the body-centered ICRF-aligned frame,
+/// so it composes directly with the
 /// body-fixed transforms (`state_bci_to_bcbf`-style) and with the numerical
 /// propagators, which integrate in that frame. `CentralBody.Earth` is an exact
 /// passthrough of `state_koe_to_eci`.

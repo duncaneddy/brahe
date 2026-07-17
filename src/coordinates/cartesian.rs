@@ -251,10 +251,14 @@ fn j2000_tdb() -> Epoch {
 /// `(x_eq, y_eq, p_hat)`.
 ///
 /// `p_hat` is the body spin pole; `x_eq = z_ICRF × p_hat` (normalized) is
-/// the ascending node of the body equator on the ICRF equator; `y_eq`
-/// completes the right-handed triad. Multiplying an equator-referenced
-/// vector by this matrix rotates it into the BCI frame; its transpose does
-/// the inverse.
+/// the ascending node of the body equator on the ICRF equator, the standard
+/// IAU orientation convention (Archinal et al., "Report of the IAU Working
+/// Group on Cartographic Coordinates and Rotational Elements: 2015", Celest
+/// Mech Dyn Astr 130, 22 (2018), <https://doi.org/10.1007/s10569-017-9805-5>).
+/// `z_ICRF × p_hat` is perpendicular to both poles, hence lies in both
+/// equatorial planes — the line of nodes. `y_eq` completes the
+/// right-handed triad. Multiplying an equator-referenced vector by this
+/// matrix rotates it into the BCI frame; its transpose does the inverse.
 ///
 /// A degenerate pole (within ~1e-9 of the ICRF z-axis, e.g. Earth) leaves
 /// the ascending node undefined, so the identity basis is returned — the

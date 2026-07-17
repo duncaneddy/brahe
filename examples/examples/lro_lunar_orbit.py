@@ -14,15 +14,15 @@ This example demonstrates how to:
 3. Quantify how lunar gravity anomalies ("mascons") perturb a low lunar orbit
 4. Visualize the trajectory in 3D around a textured Moon
 
-The Lunar Reconnaissance Orbiter has flown a roughly 30 x 200 km class polar
-science orbit since 2009, mapping the Moon at high resolution. Its orbit is
-a "frozen orbit": the
-argument of perilune is chosen so that the long-period perturbation from the
-Moon's lumpy gravity field averages out, keeping the eccentricity and
-perilune altitude nearly constant over many orbits rather than drifting or
-decaying. With the argument of perilune at 270 deg, perilune sits over the
-Moon's south pole, so this frozen geometry is defined relative to the lunar
-spin pole.
+This example uses an LRO-like ~30 x 180 km class polar orbit. The Lunar
+Reconnaissance Orbiter has flown a polar, near-frozen low lunar science
+orbit since 2009, mapping the Moon at high resolution. This example's orbit
+is a "frozen orbit": the argument of perilune is chosen so that the
+long-period perturbation from the Moon's lumpy gravity field averages out,
+keeping the eccentricity and perilune altitude nearly constant over many
+orbits rather than drifting or decaying. With the argument of perilune at
+270 deg, perilune sits over the Moon's south pole, so this frozen geometry
+is defined relative to the lunar spin pole.
 
 The propagator integrates in LCI, whose axes are ICRF-aligned: the LCI z-axis
 is the ICRF pole, which sits ~22 deg from the Moon's spin pole. An inclination
@@ -148,7 +148,7 @@ fig_altitude.add_trace(
 )
 
 fig_altitude.update_layout(
-    title="LRO Altitude Difference: Full Gravity − Point Mass",
+    title="Modeled Altitude Difference: 50x50 Gravity Field minus Point Mass",
     xaxis_title="Time (days)",
     yaxis_title="Altitude difference (km)",
     height=500,

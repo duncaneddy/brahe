@@ -1,29 +1,32 @@
 # LRO Lunar Orbit
 
-In this example we'll set up the Lunar Reconnaissance Orbiter's (LRO) low
-lunar science orbit and propagate it with brahe's lunar force model. LRO has
-flown a roughly 30 x 200 km class polar, near-frozen science orbit around
-the Moon since 2009, mapping the surface at high resolution. We'll compare
-a full-fidelity propagation against a point-mass
-Moon to quantify how the Moon's lumpy gravity field ("mascons" - dense,
-gravitationally anomalous regions beneath several lunar maria) perturbs a low
-lunar orbit, then visualize the trajectory in 3D around a textured Moon.
+In this example we'll set up an LRO-like low lunar science orbit and
+propagate it with brahe's lunar force model. The Lunar Reconnaissance
+Orbiter (LRO) has flown a polar, near-frozen low lunar science orbit around
+the Moon since 2009, mapping the surface at high resolution; this example
+uses an LRO-like ~30 x 180 km class orbit rather than reproducing its exact
+orbital history. We'll compare a full-fidelity propagation against a
+point-mass Moon to quantify how the Moon's lumpy gravity field
+("[mascons](https://en.wikipedia.org/wiki/Mass_concentration_%28astronomy%29)" -
+dense, gravitationally anomalous regions beneath several lunar maria)
+perturbs a low lunar orbit, then visualize the trajectory in 3D around a
+textured Moon.
 
 ---
 
 ## Why Lunar Orbits Are Different
 
 Unlike Earth, the Moon's gravity field is dominated by large, irregular mass
-concentrations rather than a smooth oblateness term. These mascons produce
-gravity anomalies strong enough that most low lunar orbits are unstable on
-timescales of weeks to months without station-keeping: eccentricity grows
-until the spacecraft impacts the surface. Orbit designers counter this by
-choosing a "frozen orbit" - an inclination and argument of perilune where the
-long-period perturbation from the gravity field's dominant harmonics
-averages to zero, so eccentricity and perilune altitude stay bounded over
-many orbits instead of drifting monotonically. LRO's polar, ~85 degree
-inclination orbit with perilune fixed over the southern hemisphere
-(argument of perilune 270 degrees) is one such configuration.
+concentrations rather than a smooth oblateness term. Orbit designers counter
+the resulting perturbations by choosing a "frozen orbit" - an inclination and
+argument of perilune where the long-period perturbation from the gravity
+field's dominant harmonics averages to zero, so eccentricity and perilune
+altitude stay bounded over many orbits instead of drifting monotonically.
+Even so, these mascon-driven gravity anomalies are strong enough that most
+low lunar orbits are unstable on timescales of weeks to months without
+station-keeping. Proper modeling of the high-order gravity dynamics enable
+design of station-keeping maneuvers that minimize the growth of these
+instabilities, conserving fuel and extending mission-lifetime.
 
 ## Orbit Setup
 
@@ -62,9 +65,11 @@ Moon-Centered Inertial (LCI) frame:
 ```
 
 !!! note "state_bci vs. state_eci"
-    `state_bci` returns the propagator's native state in the central body's
+    [`state_bci`](../learn/orbit_propagation/numerical_propagation/cislunar_lunar_propagation.md)
+    returns the propagator's native state in the central body's
     body-centered inertial frame (LCI for a Moon-centered propagator).
-    `state_eci` instead always returns an Earth-centered state - for a
+    [`state_eci`](../learn/orbit_propagation/numerical_propagation/numerical_orbit_propagator.md#state-at-arbitrary-epochs)
+    instead always returns an Earth-centered state - for a
     Moon-centered propagator it adds the Moon's Earth-relative position,
     which would report altitudes near the Earth-Moon distance rather than
     above the lunar surface. Use `state_bci` whenever you need the

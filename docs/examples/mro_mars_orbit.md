@@ -1,12 +1,14 @@
 # MRO Mars Orbit
 
-In this example we'll set up the Mars Reconnaissance Orbiter's (MRO)
-sun-synchronous science orbit and propagate it with brahe's Mars force model.
-MRO has flown a ~255 x 320 km, 92.6 degree inclination orbit since 2006,
-imaging the surface at a consistent local solar time on every pass. We'll
-track how the osculating orbital elements evolve under the full force model
-over a two-day propagation, then visualize the trajectory in 3D around a
-textured Mars.
+In this example we'll set up an MRO-like sun-synchronous science orbit and
+propagate it with brahe's Mars force model. The Mars Reconnaissance Orbiter
+(MRO) has flown a sun-synchronous, near-polar science orbit since 2006,
+imaging the surface at a consistent local solar time on every pass
+([Zurek & Smrekar, 2007](https://doi.org/10.1029/2006JE002701)); this example
+uses an MRO-like ~255 x 320 km, 92.6 degree inclination orbit. We'll track
+how the osculating orbital elements evolve under the full force model over a
+two-day propagation, then visualize the trajectory in 3D around a textured
+Mars.
 
 ---
 
@@ -15,14 +17,24 @@ textured Mars.
 A sun-synchronous orbit keeps its orbital plane at a fixed orientation
 relative to the Sun, so the spacecraft crosses each latitude at the same
 local solar time on every pass - valuable for consistent lighting in surface
-imagery. This only works because a planet's oblateness (the J2 zonal
-harmonic) causes the orbital plane to precess: for a near-polar, slightly
-retrograde inclination, the nodal precession rate can be tuned to exactly
-match the planet's mean motion around the Sun. At Mars, that inclination is
-about 92.6 degrees - close to polar, with the small excess over 90 degrees
-giving just enough retrograde precession to track Mars's slower (687-day)
-year. MRO's 255 x 320 km, 92.6 degree orbit is designed around this
-resonance.
+imagery. This only works because a planet's oblateness (the $J_2$ zonal
+harmonic) causes the orbital plane to precess at a rate
+
+$$
+\dot{\Omega} = -\frac{3}{2} n J_2 \left(\frac{R}{p}\right)^2 \cos i
+$$
+
+where $n$ is the orbit's mean motion, $R$ is the planet's radius, $p =
+a(1-e^2)$ is the semi-latus rectum, and $i$ is the inclination. For a
+near-polar, slightly retrograde inclination, this precession rate can be
+tuned to exactly match the planet's mean motion around the Sun. Setting
+$\dot{\Omega}$ equal to Mars's heliocentric mean motion (about 0.524 deg/day,
+from its 687-day year) and solving for $i$ at this example's semi-major axis
+and eccentricity, with Mars's $J_2 = 1.96045 \times 10^{-3}$ and $R =
+R_{\text{Mars}}$, gives $i \approx 92.6$ degrees - close to polar, with the
+small excess over 90 degrees giving just enough retrograde precession to
+track Mars's slower year. This example's 255 x 320 km, 92.6 degree orbit is
+designed around this resonance.
 
 ## Orbit Setup
 
@@ -73,15 +85,6 @@ shows how the orbit evolves under the full force model:
 ``` python
 --8<-- "./examples/examples/mro_mars_orbit.py:element_history"
 ```
-
-!!! note "state_bci vs. state_eci"
-    `state_bci` returns the propagator's native state in the central body's
-    body-centered inertial frame (MCI for a Mars-centered propagator).
-    `state_eci` instead always returns an Earth-centered state - for a
-    Mars-centered propagator it adds Mars's Earth-relative position, which
-    would report a semi-major axis near the Earth-Mars distance rather than
-    Mars orbit elements. Use `state_bci` whenever you need elements or
-    altitude relative to the body being orbited.
 
 ``` python
 --8<-- "./examples/examples/mro_mars_orbit.py:element_plot"

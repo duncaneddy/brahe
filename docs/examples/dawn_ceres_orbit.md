@@ -1,18 +1,21 @@
 # Dawn at Ceres
 
 In this example we'll define Ceres as a fully user-supplied central body and
-fly the Dawn spacecraft's Low Altitude Mapping Orbit (LAMO) around it. Unlike
-Earth, the Moon, and Mars, Ceres has no dedicated support in brahe: no
-built-in `CentralBody` variant, no named inertial/fixed frame pair, no spin
-model. Everything about Ceres here - its gravitational parameter, radius,
-spin pole, prime meridian, and body-fixed frame - is supplied by the user via
-`CentralBody.Custom` and `register_custom_frame`. The same recipe applies to
-any body brahe doesn't know about: another dwarf planet, an asteroid, or a
-comet nucleus.
+fly an orbit inspired by the Dawn spacecraft's Low Altitude Mapping Orbit
+(LAMO) around it. Unlike Earth, the Moon, and Mars, Ceres has no built-in
+constants in brahe: no built-in `CentralBody` variant, no named
+inertial/fixed frame pair, no spin model. Everything about Ceres here - its
+gravitational parameter, radius, spin pole, prime meridian, and body-fixed
+frame - is supplied by the user via `CentralBody.Custom` and
+`register_custom_frame`. The same recipe applies to any body brahe doesn't
+have built-in constants for: another dwarf planet, an asteroid, or a comet
+nucleus.
 
 NASA's Dawn spacecraft orbited Ceres from 2015 to 2018, spending much of its
 final year in LAMO: a ~375 km, near-circular polar orbit used for its
-highest-resolution gravity and neutron/gamma-ray mapping.
+highest-resolution gravity and neutron/gamma-ray mapping. This example is
+inspired by that LAMO phase rather than reproducing its exact mission
+parameters.
 
 ---
 
@@ -44,9 +47,14 @@ $$R = R_z(W) \, R_x\!\left(\frac{\pi}{2} - \delta\right) \, R_z\!\left(\frac{\pi
 
 where $\alpha$, $\delta$ are the pole's ICRF right ascension and declination
 and $W$ is the prime-meridian angle, which advances linearly with time at the
-body's spin rate. Once registered under an integer key,
-`ReferenceFrame.BodyFixedCustom(naif_id, key)` is usable anywhere a
-`ReferenceFrame` is accepted:
+body's spin rate. The x-axis of the underlying equatorial basis (used below
+to compute the orbit's initial state) is the ascending node of the body's
+equator on the ICRF equator - the standard IAU orientation convention
+([Archinal et al., 2018](https://doi.org/10.1007/s10569-017-9805-5)) - since
+$\hat{z}_{\text{ICRF}} \times \hat{p}$ is perpendicular to both poles, hence
+lies in both equatorial planes: the line of nodes. Once registered under an
+integer key, `ReferenceFrame.BodyFixedCustom(naif_id, key)` is usable
+anywhere a `ReferenceFrame` is accepted:
 
 ``` python
 --8<-- "./examples/examples/dawn_ceres_orbit.py:body_fixed_frame"
@@ -61,7 +69,13 @@ degree-2519 crustal forward-modeling research product - impractically large
 to download for this purpose and not normalized to the body's true GM (its
 $C_{0,0} \approx 0.126$, not the conventional 1.0) - so it isn't a drop-in
 gravity field here. This example models Ceres as a point mass instead, which
-is the standard starting point when defining your own body:
+is the standard starting point when defining your own body. It also omits
+third-body perturbations: the DE kernels brahe loads carry no Ceres
+ephemeris. A Ceres SPK can be generated through
+[JPL Horizons](https://ssd-api.jpl.nasa.gov/doc/horizons.html), which would
+enable third-body perturbations, and a Horizons client is planned
+([issue #402](https://github.com/duncaneddy/brahe/issues/402)); this example
+keeps gravity-only for self-containment:
 
 ``` python
 --8<-- "./examples/examples/dawn_ceres_orbit.py:force_model"

@@ -217,6 +217,30 @@ def test_GM_PLUTO_SYSTEM():
     assert brahe.GM_PLUTO_SYSTEM == 975.5 * 1e9
 
 
+def test_R_MERCURY():
+    assert brahe.R_MERCURY == 2439.7e3
+
+
+def test_R_VENUS():
+    assert brahe.R_VENUS == 6051.8e3
+
+
+def test_R_JUPITER():
+    assert brahe.R_JUPITER == 69911.0e3
+
+
+def test_R_SATURN():
+    assert brahe.R_SATURN == 58232.0e3
+
+
+def test_R_URANUS():
+    assert brahe.R_URANUS == 25362.0e3
+
+
+def test_R_NEPTUNE():
+    assert brahe.R_NEPTUNE == 24622.0e3
+
+
 def test_R_MARS():
     assert brahe.R_MARS == pytest.approx(3.39619e6, abs=1.0)
 

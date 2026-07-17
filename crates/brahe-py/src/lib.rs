@@ -632,7 +632,13 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("GM_NEPTUNE_SYSTEM", constants::GM_NEPTUNE_SYSTEM)?;
     module.add("GM_PLUTO", constants::GM_PLUTO)?;
     module.add("GM_PLUTO_SYSTEM", constants::GM_PLUTO_SYSTEM)?;
+    module.add("R_MERCURY", constants::R_MERCURY)?;
+    module.add("R_VENUS", constants::R_VENUS)?;
     module.add("R_MARS", constants::R_MARS)?;
+    module.add("R_JUPITER", constants::R_JUPITER)?;
+    module.add("R_SATURN", constants::R_SATURN)?;
+    module.add("R_URANUS", constants::R_URANUS)?;
+    module.add("R_NEPTUNE", constants::R_NEPTUNE)?;
     module.add("OMEGA_MARS", constants::OMEGA_MARS)?;
     module.add("OMEGA_MOON", constants::OMEGA_MOON)?;
     module.add("GM_PHOBOS", constants::GM_PHOBOS)?;

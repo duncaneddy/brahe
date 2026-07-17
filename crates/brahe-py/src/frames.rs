@@ -2742,25 +2742,23 @@ impl PyReferenceFrame {
     /// rotation-only queries never consult the center, and translations will
     /// raise unless an ephemeris covering that ID is loaded.
     ///
+    /// Center IDs at or below -1_000_000_000 are reserved for synthetic synodic
+    /// barycenter centers (see `Synodic`); self-assigning one to a custom body
+    /// is astronomically unlikely to collide with an actual synodic pair
+    /// (which requires two packaged-GM NAIF IDs in 0..=999) but is not
+    /// rejected, since real user-defined bodies and loaded kernels may
+    /// legitimately need any negative ID.
+    ///
     /// Args:
     ///     center (int): NAIF ID of the frame's center (may be self-assigned negative)
     ///     key (int): Registry key the frame's callbacks were registered under
     ///
     /// Returns:
     ///     ReferenceFrame: Custom body-fixed frame for `key`, centered on `center`
-    ///
-    /// Raises:
-    ///     ValueError: If `center` is at or below -1_000_000_000 — that range is
-    ///         reserved for synthetic synodic barycenter centers (see `Synodic`)
     #[staticmethod]
     #[allow(non_snake_case)]
-    fn BodyFixedCustom(center: i32, key: u32) -> PyResult<Self> {
-        if center <= -1_000_000_000 {
-            return Err(exceptions::PyValueError::new_err(
-                "center IDs at or below -1_000_000_000 are reserved for synthetic synodic barycenters",
-            ));
-        }
-        Ok(PyReferenceFrame { frame: frames::ReferenceFrame::BodyFixedCustom { center, key } })
+    fn BodyFixedCustom(center: i32, key: u32) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::BodyFixedCustom { center, key } }
     }
 
     /// Generic two-body synodic (rotating) frame: x̂ from `primary` toward

@@ -850,8 +850,8 @@ impl ForceModelConfig {
     /// 5. `GravityConfiguration::SphericalHarmonic` on a `CentralBody::Custom` body
     ///    requires `central_body.fixed_frame()` to be set (needed to rotate into the
     ///    body-fixed frame the harmonics are expressed in).
-    /// 6. `GravityConfiguration::SphericalHarmonic` as the central gravity field must
-    ///    model `central_body` itself — see
+    /// 6. The spherical-harmonic gravity field model must be a gravity field for the
+    ///    declared `central_body`; the model's source body must match — see
     ///    [`ForceModelConfig::validate_gravity_model_body`] for how the model's body
     ///    is determined and compared.
     /// 7. `OceanTideConfig::degree` must be in `2..=100` (the FES2004 file's truncation

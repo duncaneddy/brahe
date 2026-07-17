@@ -88,8 +88,8 @@ use super::mars::rotation_mci_to_mcmf;
 ///
 /// All center IDs at or below -1_000_000_000 are reserved for synthetic
 /// synodic barycenters encoded by [`synodic_barycenter_id`] (of which this
-/// constant is one instance); [`ReferenceFrame::BodyFixedCustom`] rejects
-/// self-assigned centers in that range to avoid a collision.
+/// constant is one instance); see [`ReferenceFrame::BodyFixedCustom`] for
+/// why a self-assigned center in that range is not rejected.
 pub const SUN_EARTH_BARYCENTER_ID: i32 = -1_000_010_399;
 
 /// Origin choice for a generic [`ReferenceFrame::Synodic`] frame.
@@ -111,9 +111,9 @@ pub enum SynodicOrigin {
 /// [`SUN_EARTH_BARYCENTER_ID`] is this encoding evaluated at `(10, 399)`.
 ///
 /// The full range at or below -1_000_000_000 is reserved for these synthetic
-/// barycenters — [`ReferenceFrame::BodyFixedCustom`] rejects self-assigned
-/// centers in that range so a user-registered custom frame can never collide
-/// with one.
+/// barycenters; see [`ReferenceFrame::BodyFixedCustom`] for why a
+/// user-registered custom frame is nonetheless allowed to self-assign a
+/// center in that range.
 ///
 /// # Arguments
 /// - `primary`: NAIF ID of the primary body. Must be in `0..=999`.
@@ -228,8 +228,11 @@ pub enum ReferenceFrame {
     /// translations will surface an SPK lookup error unless an ephemeris
     /// covering that ID is loaded. Center IDs at or below -1_000_000_000
     /// are reserved for synthetic synodic barycenters (see
-    /// [`synodic_barycenter_id`]) and are rejected by the Python
-    /// `BodyFixedCustom` constructor to avoid a collision.
+    /// [`synodic_barycenter_id`]); a self-assigned center in that range is
+    /// not rejected (real user-defined bodies and loaded kernels may need
+    /// any negative ID), but colliding with an actual synodic-barycenter
+    /// ID requires two packaged-GM NAIF IDs in `0..=999`, so the
+    /// collision is astronomically unlikely in practice.
     BodyFixedCustom {
         /// NAIF ID of the frame's center (may be self-assigned negative).
         center: i32,

@@ -939,14 +939,16 @@ def test_body_fixed_custom_frame_explicit_omega():
     assert brahe.unregister_custom_frame(1043)
 
 
-def test_body_fixed_custom_rejects_reserved_barycenter_center():
+def test_body_fixed_custom_allows_reserved_barycenter_range_center():
     """Center IDs at or below -1_000_000_000 are reserved for synthetic
-    synodic barycenters (see synodic_barycenter_id) and must not be
-    self-assignable to a custom body-fixed frame."""
-    with pytest.raises(ValueError):
-        brahe.ReferenceFrame.BodyFixedCustom(-1_000_000_000, 1044)
-    with pytest.raises(ValueError):
-        brahe.ReferenceFrame.BodyFixedCustom(-1_000_010_399, 1044)
+    synodic barycenters (see synodic_barycenter_id), but self-assigning one
+    to a custom body-fixed frame is not rejected: real user-defined bodies
+    and loaded kernels may need any negative ID, and colliding with an
+    actual synodic-barycenter ID is astronomically unlikely in practice."""
+    frame = brahe.ReferenceFrame.BodyFixedCustom(-1_000_000_000, 1044)
+    assert str(frame) == "BodyFixedCustom(center=-1000000000, key=1044)"
+    frame2 = brahe.ReferenceFrame.BodyFixedCustom(-1_000_010_399, 1044)
+    assert str(frame2) == "BodyFixedCustom(center=-1000010399, key=1044)"
 
 
 def test_reference_frame_class_aliases():

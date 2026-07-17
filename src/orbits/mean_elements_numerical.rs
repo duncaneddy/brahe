@@ -114,7 +114,7 @@ pub(crate) fn numerical_osc_to_mean(
     let data_end = epochs[epochs.len() - 1];
 
     let mut out = Vec::new();
-    for &anchor in epochs {
+    for (anchor_idx, &anchor) in epochs.iter().enumerate() {
         let Some((start, end)) = window_bounds(anchor, data_start, data_end, config) else {
             continue;
         };
@@ -129,16 +129,23 @@ pub(crate) fn numerical_osc_to_mean(
             continue;
         }
 
+        // Choose a single retrograde factor for this window, derived from the anchor
+        // sample's inclination, and use it consistently for every forward conversion
+        // and the final inverse conversion below. `tan(i/2)^fr` is only invertible when
+        // the same `fr` is used both ways; switching sign only near the i=180 deg
+        // singularity keeps prograde/polar/sun-synchronous orbits at fr=+1.
+        let anchor_inclination = states_rad[anchor_idx][2];
+        let fr: i8 = if anchor_inclination > std::f64::consts::FRAC_PI_2 * 1.999 {
+            -1
+        } else {
+            1
+        };
+
         // Convert each sample to equinoctial; average a,h,k,p,q; detrend l.
         let mut sum = [0.0f64; 5]; // a,h,k,p,q
         let mut ts = Vec::with_capacity(idx.len());
         let mut ls = Vec::with_capacity(idx.len());
         for &j in &idx {
-            let fr = if states_rad[j][2] > std::f64::consts::FRAC_PI_2 * 1.999 {
-                -1
-            } else {
-                1
-            };
             let eqn = state_koe_to_equinoctial(&states_rad[j], AngleFormat::Radians, fr);
             for (c, s) in sum.iter_mut().enumerate() {
                 *s += eqn[c];
@@ -153,12 +160,7 @@ pub(crate) fn numerical_osc_to_mean(
         let l_at_anchor = detrended_fast_angle(&ts, &ls);
 
         let eqn_mean = SVector::<f64, 6>::new(avg[0], avg[1], avg[2], avg[3], avg[4], l_at_anchor);
-        // Recover Keplerian using fr from the averaged (p,q) implied inclination sign.
-        let fr = if (avg[3] * avg[3] + avg[4] * avg[4]).sqrt() > 1.0 {
-            -1
-        } else {
-            1
-        };
+        // Recover Keplerian using the same fr chosen for the forward conversions above.
         let koe = state_equinoctial_to_koe(&eqn_mean, AngleFormat::Radians, fr);
         out.push((anchor, koe));
     }
@@ -222,8 +224,19 @@ mod tests {
 
     // Build a synthetic osculating trajectory by analytically expanding a fixed mean
     // state across one period (varying only M). Averaging must recover the mean a,e,i.
-    fn synthetic_osc_series() -> (Vec<Epoch>, Vec<SVector<f64, 6>>, SVector<f64, 6>) {
-        let mean_deg = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 0.0);
+    fn synthetic_osc_series_with_elements(
+        altitude_m: f64,
+        eccentricity: f64,
+        inclination_deg: f64,
+    ) -> (Vec<Epoch>, Vec<SVector<f64, 6>>, SVector<f64, 6>) {
+        let mean_deg = SVector::<f64, 6>::new(
+            R_EARTH + altitude_m,
+            eccentricity,
+            inclination_deg,
+            30.0,
+            60.0,
+            0.0,
+        );
         let period = crate::orbits::orbital_period(mean_deg[0]);
         let t0 = Epoch::from_gps_seconds(0.0);
         let n = 201usize;
@@ -245,13 +258,39 @@ mod tests {
         (epochs, states, mean_rad)
     }
 
+    fn synthetic_osc_series() -> (Vec<Epoch>, Vec<SVector<f64, 6>>, SVector<f64, 6>) {
+        synthetic_osc_series_with_elements(500e3, 0.01, 45.0)
+    }
+
     #[test]
     #[parallel]
     fn test_numerical_osc_to_mean_recovers_mean_ae_i() {
         let (epochs, states, mean_rad) = synthetic_osc_series();
         let period = crate::orbits::orbital_period(mean_rad[0]);
         let cfg = NumericalConfig {
-            window_seconds: period,
+            window_seconds: period * 0.6,
+            alignment: WindowAlignment::Centered,
+            edge: EdgeHandling::Truncate,
+            inverse: None,
+        };
+        let out = numerical_osc_to_mean(&epochs, &states, &cfg).unwrap();
+        assert!(!out.is_empty());
+        let (_, mid) = &out[out.len() / 2];
+        assert_abs_diff_eq!(mid[0], mean_rad[0], epsilon = 500.0);
+        assert_abs_diff_eq!(mid[1], mean_rad[1], epsilon = 2e-3);
+        assert_abs_diff_eq!(mid[2], mean_rad[2], epsilon = 2e-3);
+    }
+
+    // Regression test for the fr (retrograde factor) inconsistency bug: sun-synchronous
+    // inclinations (~98 deg, in the (90,180) band away from the i=180 singularity) must
+    // recover the true inclination rather than 180-i due to a forward/inverse fr mismatch.
+    #[test]
+    #[parallel]
+    fn test_numerical_osc_to_mean_recovers_mean_ae_i_sun_synchronous() {
+        let (epochs, states, mean_rad) = synthetic_osc_series_with_elements(700e3, 0.01, 98.0);
+        let period = crate::orbits::orbital_period(mean_rad[0]);
+        let cfg = NumericalConfig {
+            window_seconds: period * 0.5,
             alignment: WindowAlignment::Centered,
             edge: EdgeHandling::Truncate,
             inverse: None,

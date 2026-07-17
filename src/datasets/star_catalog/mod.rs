@@ -10,6 +10,66 @@
  */
 
 pub(crate) mod fetch;
+pub mod fk5;
+pub mod traits;
+
+pub use fk5::{FK5Catalog, FK5Record};
+pub use traits::StarRecord;
+
+use crate::utils::BraheError;
 
 /// Default base URL for star catalog data files.
 pub const DEFAULT_BASE_URL: &str = "https://www.simplespacedata.org/star_catalog/cds";
+
+/// Parse an optional `f64` value from a fixed-width text field.
+///
+/// Returns `None` for empty or whitespace-only fields, or if the trimmed
+/// text cannot be parsed as a floating-point number.
+pub(crate) fn opt_f64(value: &str) -> Option<f64> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        trimmed.parse::<f64>().ok()
+    }
+}
+
+/// Parse an optional `String` value from a fixed-width text field.
+///
+/// Returns `None` for empty or whitespace-only fields.
+pub(crate) fn opt_string(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+/// Download and parse the FK5 star catalog.
+///
+/// Fetches the fixed-width FK5 catalog text file with file-based caching.
+/// FK5 is a fixed, published catalog, so the default cache never expires.
+///
+/// # Arguments
+///
+/// * `cache_max_age` - Maximum cache age in seconds. `None` means the
+///   cached copy never goes stale (the default; appropriate since FK5 does
+///   not change once published). Pass `Some(0.0)` to force a fresh download.
+///
+/// # Returns
+///
+/// * `Result<FK5Catalog, BraheError>` - Parsed FK5 catalog container
+///
+/// # Examples
+/// ```no_run
+/// use brahe::datasets::star_catalog::get_fk5_catalog;
+/// let catalog = get_fk5_catalog(None).unwrap();
+/// println!("Loaded {} records", catalog.len());
+/// ```
+pub fn get_fk5_catalog(cache_max_age: Option<f64>) -> Result<FK5Catalog, BraheError> {
+    let url = format!("{}/fk5/latest/FK5_Catalog.txt", DEFAULT_BASE_URL);
+    let data = fetch::fetch_with_cache(&url, "FK5_Catalog.txt", cache_max_age)?;
+    let records = fk5::parse_fk5_text(&data)?;
+    Ok(FK5Catalog::new(records))
+}

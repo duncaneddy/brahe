@@ -27,3 +27,6 @@ pub use naif::download_spice_kernel;
 pub use gcat::{
     GCATPsatcat, GCATPsatcatRecord, GCATSatcat, GCATSatcatRecord, get_psatcat, get_satcat,
 };
+
+// Re-export commonly used types and functions from star_catalog
+pub use star_catalog::{FK5Catalog, FK5Record, StarRecord, get_fk5_catalog};

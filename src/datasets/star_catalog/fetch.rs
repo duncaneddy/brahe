@@ -33,7 +33,6 @@ use crate::utils::cache::get_star_catalog_cache_dir;
 /// # Returns
 ///
 /// * `Result<String, BraheError>` - File contents as a string
-#[allow(dead_code)] // consumed by the FK5/Hipparcos/Tycho-2 catalog loaders (Tasks 5-7)
 pub(crate) fn fetch_with_cache(
     url: &str,
     filename: &str,

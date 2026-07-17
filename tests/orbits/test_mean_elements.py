@@ -385,6 +385,16 @@ class TestMeanOsculatingConversions:
                 mean, brahe.MeanElementMethod.numerical(cfg), brahe.AngleFormat.DEGREES
             )
 
+    def test_config_enum_equality_through_getter(self):
+        """Enum values obtained via getters must compare equal to classattrs."""
+        cfg = brahe.NumericalConfig(
+            5400.0, brahe.WindowAlignment.CENTERED, brahe.EdgeHandling.TRUNCATE
+        )
+        assert cfg.alignment == brahe.WindowAlignment.CENTERED
+        assert cfg.edge == brahe.EdgeHandling.TRUNCATE
+        assert brahe.WindowAlignment.CENTERED != brahe.WindowAlignment.LEADING
+        assert brahe.EdgeHandling.TRUNCATE != brahe.EdgeHandling.PRESERVE_WINDOW
+
 
 class TestStateKoeMeanOnProviders:
     """Tests for state_koe_mean methods on propagators and trajectories."""

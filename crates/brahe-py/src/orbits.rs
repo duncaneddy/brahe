@@ -1453,8 +1453,22 @@ impl PyWindowAlignment {
         }
     }
 
+    fn __str__(&self) -> String {
+        format!("{:?}", self.value)
+    }
+
     fn __repr__(&self) -> String {
         format!("WindowAlignment.{:?}", self.value)
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self.value == other.value),
+            CompareOp::Ne => Ok(self.value != other.value),
+            _ => Err(exceptions::PyNotImplementedError::new_err(
+                "Comparison not supported",
+            )),
+        }
     }
 }
 
@@ -1492,8 +1506,22 @@ impl PyEdgeHandling {
         }
     }
 
+    fn __str__(&self) -> String {
+        format!("{:?}", self.value)
+    }
+
     fn __repr__(&self) -> String {
         format!("EdgeHandling.{:?}", self.value)
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self.value == other.value),
+            CompareOp::Ne => Ok(self.value != other.value),
+            _ => Err(exceptions::PyNotImplementedError::new_err(
+                "Comparison not supported",
+            )),
+        }
     }
 }
 

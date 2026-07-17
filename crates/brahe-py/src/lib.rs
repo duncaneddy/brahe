@@ -941,6 +941,15 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_position_enz_to_azel, module)?)?;
     module.add_function(wrap_pyfunction!(py_position_sez_to_azel, module)?)?;
 
+    // Right Ascension / Declination
+    module.add_function(wrap_pyfunction!(py_position_radec_to_inertial, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_inertial_to_radec, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_radec_to_inertial, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_inertial_to_radec, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_radec_to_azel, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_azel_to_radec, module)?)?;
+    module.add_function(wrap_pyfunction!(py_apply_proper_motion, module)?)?;
+
     //* Orbits *//
     module.add_function(wrap_pyfunction!(py_orbital_period, module)?)?;
     module.add_function(wrap_pyfunction!(py_orbital_period_general, module)?)?;

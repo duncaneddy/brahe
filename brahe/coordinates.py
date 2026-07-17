@@ -23,6 +23,11 @@ This module provides transformations between various coordinate representations:
 - South-East-Zenith (SEZ) local coordinate system
 - Azimuth-Elevation transformations
 - Station-relative position and velocity
+
+**Right Ascension / Declination Coordinates:**
+- Conversions to/from Cartesian inertial position and state
+- Topocentric right ascension/declination to/from azimuth-elevation
+- Proper-motion propagation between epochs
 """
 
 from brahe._brahe import (
@@ -52,6 +57,14 @@ from brahe._brahe import (
     # Azimuth-Elevation
     position_enz_to_azel,
     position_sez_to_azel,
+    # Right Ascension / Declination
+    position_radec_to_inertial,
+    position_inertial_to_radec,
+    state_radec_to_inertial,
+    state_inertial_to_radec,
+    position_radec_to_azel,
+    position_azel_to_radec,
+    apply_proper_motion,
 )
 
 __all__ = [
@@ -81,4 +94,12 @@ __all__ = [
     # Azimuth-Elevation
     "position_enz_to_azel",
     "position_sez_to_azel",
+    # Right Ascension / Declination
+    "position_radec_to_inertial",
+    "position_inertial_to_radec",
+    "state_radec_to_inertial",
+    "state_inertial_to_radec",
+    "position_radec_to_azel",
+    "position_azel_to_radec",
+    "apply_proper_motion",
 ]

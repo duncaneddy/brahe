@@ -9,6 +9,9 @@ from brahe import (
     EulerAxis,
     RotationMatrix,
     AngleFormat,
+    rotation_x,
+    rotation_y,
+    rotation_z,
 )
 
 
@@ -87,6 +90,58 @@ def test_Rx():
     )
 
     assert r == expected
+
+
+def test_rotation_x_free_function():
+    s = sqrt(2.0) / 2.0
+    r = rotation_x(45.0, AngleFormat.DEGREES)
+    expected = np.array([[1.0, 0.0, 0.0], [0.0, s, s], [0.0, -s, s]])
+    assert isinstance(r, np.ndarray)
+    assert r.shape == (3, 3)
+    np.testing.assert_allclose(r, expected, atol=1e-15)
+    # Agreement with the RotationMatrix.Rx constructor.
+    np.testing.assert_allclose(
+        r, RotationMatrix.Rx(45.0, AngleFormat.DEGREES).to_matrix()
+    )
+    # Zero angle is the identity; orthonormality (R R^T = I, det = +1).
+    np.testing.assert_allclose(
+        rotation_x(0.0, AngleFormat.RADIANS), np.eye(3), atol=1e-15
+    )
+    np.testing.assert_allclose(r @ r.T, np.eye(3), atol=1e-15)
+    assert np.linalg.det(r) == pytest.approx(1.0)
+
+
+def test_rotation_y_free_function():
+    s = sqrt(2.0) / 2.0
+    r = rotation_y(45.0, AngleFormat.DEGREES)
+    expected = np.array([[s, 0.0, -s], [0.0, 1.0, 0.0], [s, 0.0, s]])
+    np.testing.assert_allclose(r, expected, atol=1e-15)
+    np.testing.assert_allclose(
+        r, RotationMatrix.Ry(45.0, AngleFormat.DEGREES).to_matrix()
+    )
+    np.testing.assert_allclose(
+        rotation_y(0.0, AngleFormat.RADIANS), np.eye(3), atol=1e-15
+    )
+    assert np.linalg.det(r) == pytest.approx(1.0)
+
+
+def test_rotation_z_free_function():
+    s = sqrt(2.0) / 2.0
+    r = rotation_z(45.0, AngleFormat.DEGREES)
+    expected = np.array([[s, s, 0.0], [-s, s, 0.0], [0.0, 0.0, 1.0]])
+    np.testing.assert_allclose(r, expected, atol=1e-15)
+    np.testing.assert_allclose(
+        r, RotationMatrix.Rz(45.0, AngleFormat.DEGREES).to_matrix()
+    )
+    np.testing.assert_allclose(
+        rotation_z(0.0, AngleFormat.RADIANS), np.eye(3), atol=1e-15
+    )
+    # Radians and degrees agree for the same physical angle.
+    np.testing.assert_allclose(
+        rotation_z(np.pi / 4.0, AngleFormat.RADIANS),
+        rotation_z(45.0, AngleFormat.DEGREES),
+    )
+    assert np.linalg.det(r) == pytest.approx(1.0)
 
 
 def test_Ry():

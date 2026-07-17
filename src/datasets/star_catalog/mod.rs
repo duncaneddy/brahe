@@ -11,9 +11,11 @@
 
 pub(crate) mod fetch;
 pub mod fk5;
+pub mod hipparcos;
 pub mod traits;
 
 pub use fk5::{FK5Catalog, FK5Record};
+pub use hipparcos::{HipparcosCatalog, HipparcosRecord};
 pub use traits::StarRecord;
 
 use crate::utils::BraheError;
@@ -72,4 +74,36 @@ pub fn get_fk5_catalog(cache_max_age: Option<f64>) -> Result<FK5Catalog, BraheEr
     let data = fetch::fetch_with_cache(&url, "FK5_Catalog.txt", cache_max_age)?;
     let records = fk5::parse_fk5_text(&data)?;
     Ok(FK5Catalog::new(records))
+}
+
+/// Download and parse the Hipparcos star catalog.
+///
+/// Fetches the pipe-delimited Hipparcos catalog text file with file-based
+/// caching. Hipparcos is a fixed, published catalog, so the default cache
+/// never expires.
+///
+/// # Arguments
+///
+/// * `cache_max_age` - Maximum cache age in seconds. `None` means the
+///   cached copy never goes stale (the default; appropriate since Hipparcos
+///   does not change once published). Pass `Some(0.0)` to force a fresh download.
+///
+/// # Returns
+///
+/// * `Result<HipparcosCatalog, BraheError>` - Parsed Hipparcos catalog container
+///
+/// # Examples
+/// ```no_run
+/// use brahe::datasets::star_catalog::get_hipparcos_catalog;
+/// let catalog = get_hipparcos_catalog(None).unwrap();
+/// println!("Loaded {} records", catalog.len());
+/// ```
+pub fn get_hipparcos_catalog(cache_max_age: Option<f64>) -> Result<HipparcosCatalog, BraheError> {
+    let url = format!(
+        "{}/hipparcos/latest/Hipparcos_Catalog.txt",
+        DEFAULT_BASE_URL
+    );
+    let data = fetch::fetch_with_cache(&url, "Hipparcos_Catalog.txt", cache_max_age)?;
+    let records = hipparcos::parse_hipparcos_text(&data)?;
+    Ok(HipparcosCatalog::new(records))
 }

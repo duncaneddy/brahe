@@ -13,10 +13,12 @@ pub(crate) mod fetch;
 pub mod fk5;
 pub mod hipparcos;
 pub mod traits;
+pub mod tycho2;
 
 pub use fk5::{FK5Catalog, FK5Record};
 pub use hipparcos::{HipparcosCatalog, HipparcosRecord};
 pub use traits::StarRecord;
+pub use tycho2::{Tycho2Catalog, Tycho2Record};
 
 use crate::utils::BraheError;
 
@@ -106,4 +108,34 @@ pub fn get_hipparcos_catalog(cache_max_age: Option<f64>) -> Result<HipparcosCata
     let data = fetch::fetch_with_cache(&url, "Hipparcos_Catalog.txt", cache_max_age)?;
     let records = hipparcos::parse_hipparcos_text(&data)?;
     Ok(HipparcosCatalog::new(records))
+}
+
+/// Download and parse the Tycho-2 star catalog.
+///
+/// Fetches the pipe-delimited Tycho-2 catalog text file with file-based
+/// caching. Tycho-2 is a fixed, published catalog, so the default cache
+/// never expires. The source file is large (~526 MB, ~2.54 million
+/// records), so the first call may take some time.
+///
+/// # Arguments
+///
+/// * `cache_max_age` - Maximum cache age in seconds. `None` means the
+///   cached copy never goes stale (the default; appropriate since Tycho-2
+///   does not change once published). Pass `Some(0.0)` to force a fresh download.
+///
+/// # Returns
+///
+/// * `Result<Tycho2Catalog, BraheError>` - Parsed Tycho-2 catalog container
+///
+/// # Examples
+/// ```no_run
+/// use brahe::datasets::star_catalog::get_tycho2_catalog;
+/// let catalog = get_tycho2_catalog(None).unwrap();
+/// println!("Loaded {} records", catalog.len());
+/// ```
+pub fn get_tycho2_catalog(cache_max_age: Option<f64>) -> Result<Tycho2Catalog, BraheError> {
+    let url = format!("{}/tycho2/latest/Tycho2_Catalog.txt", DEFAULT_BASE_URL);
+    let data = fetch::fetch_with_cache(&url, "Tycho2_Catalog.txt", cache_max_age)?;
+    let records = tycho2::parse_tycho2_text(&data)?;
+    Ok(Tycho2Catalog::new(records))
 }

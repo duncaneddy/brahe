@@ -21,7 +21,70 @@
 use crate::constants::{AngleFormat, J2_EARTH, R_EARTH};
 use crate::math::angles::{oe_to_degrees, oe_to_radians};
 use crate::orbits::keplerian::anomaly_mean_to_eccentric;
+use crate::propagators::{ForceModelConfig, NumericalPropagationConfig};
+use crate::utils::errors::BraheError;
 use nalgebra::SVector;
+
+/// Algorithm used to map between mean and osculating elements.
+///
+/// The `Numerical` variant carries a large configuration (force-model and
+/// propagation settings for the iterative inverse); the enum is created
+/// transiently rather than stored in bulk, so the size disparity is allowed.
+#[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
+pub enum MeanElementMethod {
+    /// First-order analytical Brouwer-Lyddane J2 mapping.
+    BrouwerLyddane,
+    /// Numerical windowed averaging (batch-only).
+    Numerical(NumericalConfig),
+}
+
+/// Placement of the averaging window relative to the output epoch `t`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WindowAlignment {
+    /// Symmetric window `[t - W/2, t + W/2]`.
+    Centered,
+    /// Causal look-back window `[t - W, t]`.
+    Trailing,
+    /// Look-ahead window `[t, t + W]`.
+    Leading,
+}
+
+/// Handling of output epochs whose window runs past the data bounds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EdgeHandling {
+    /// Drop unsupported output epochs; output is shorter than input.
+    Truncate,
+    /// Hold the window length fixed and slide the anchor within it; output length preserved.
+    PreserveWindow,
+}
+
+/// Configuration for the numerical windowed-averaging method.
+#[derive(Debug, Clone)]
+pub struct NumericalConfig {
+    /// Averaging window length in seconds.
+    pub window_seconds: f64,
+    /// Placement of the averaging window relative to the output epoch.
+    pub alignment: WindowAlignment,
+    /// Handling of output epochs whose window runs past the data bounds.
+    pub edge: EdgeHandling,
+    /// Dynamics for the iterative mean→osc inverse. Required for numerical
+    /// mean→osc; `None` there is an error. Unused for osc→mean.
+    pub inverse: Option<InverseConfig>,
+}
+
+/// Iterative differential-correction dynamics for numerical mean→osc.
+#[derive(Debug, Clone)]
+pub struct InverseConfig {
+    /// Force model used to propagate the trial osculating state.
+    pub force_model: ForceModelConfig,
+    /// Numerical propagation settings (integrator, tolerances) for the trial propagation.
+    pub propagation: NumericalPropagationConfig,
+    /// Convergence tolerance on the mean-element residual (radians / meters mixed norm; see impl).
+    pub tolerance: f64,
+    /// Maximum number of differential-correction iterations before giving up.
+    pub max_iterations: usize,
+}
 
 /// Direction of the mean-osculating transformation
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,11 +110,14 @@ enum TransformDirection {
 ///   - `osc[3]`: Right ascension of ascending node `Ω` (radians or degrees, per `angle_format`)
 ///   - `osc[4]`: Argument of perigee `ω` (radians or degrees, per `angle_format`)
 ///   - `osc[5]`: Mean anomaly `M` (radians or degrees, per `angle_format`)
+/// * `method` - Algorithm used to compute mean elements. `MeanElementMethod::Numerical`
+///   is batch-only and always returns `Err` here; use `batch_state_koe_osc_to_mean`.
 /// * `angle_format` - Format of angular elements in input and output
 ///
 /// # Returns
 ///
-/// Mean Keplerian elements in the same format as the input (radians or degrees).
+/// Mean Keplerian elements in the same format as the input (radians or degrees),
+/// or `Err` if `method` is `MeanElementMethod::Numerical`.
 ///
 /// # Note
 ///
@@ -63,7 +129,7 @@ enum TransformDirection {
 ///
 /// ```
 /// use nalgebra::SVector;
-/// use brahe::orbits::state_koe_osc_to_mean;
+/// use brahe::orbits::{state_koe_osc_to_mean, MeanElementMethod};
 /// use brahe::constants::{R_EARTH, AngleFormat};
 ///
 /// // Define osculating elements for a LEO satellite (angles in degrees)
@@ -76,25 +142,38 @@ enum TransformDirection {
 ///     0.0,              // M = 0
 /// );
 ///
-/// let mean = state_koe_osc_to_mean(&osc, AngleFormat::Degrees);
+/// let mean = state_koe_osc_to_mean(&osc, MeanElementMethod::BrouwerLyddane, AngleFormat::Degrees).unwrap();
 /// ```
 ///
 /// # References
 /// 1. H. Schaub and J. L. Junkins, "Analytical Mechanics of Space Systems,"
 ///    Appendix F: "First-Order Mapping Between Mean and Osculating Orbit Elements".
-pub fn state_koe_osc_to_mean(osc: &SVector<f64, 6>, angle_format: AngleFormat) -> SVector<f64, 6> {
-    // Convert input to radians if needed
-    let osc_rad = oe_to_radians(*osc, angle_format);
+pub fn state_koe_osc_to_mean(
+    osc: &SVector<f64, 6>,
+    method: MeanElementMethod,
+    angle_format: AngleFormat,
+) -> Result<SVector<f64, 6>, BraheError> {
+    match method {
+        MeanElementMethod::BrouwerLyddane => {
+            // Convert input to radians if needed
+            let osc_rad = oe_to_radians(*osc, angle_format);
 
-    // Perform transformation in radians
-    let mean_rad = transform_koe(&osc_rad, TransformDirection::OsculatingToMean);
+            // Perform transformation in radians
+            let mean_rad = transform_koe(&osc_rad, TransformDirection::OsculatingToMean);
 
-    // Convert output back to input format if needed
-    // Note: oe_to_degrees converts radians->degrees when format is Radians,
-    // but we want radians->degrees when format is Degrees (the inverse)
-    match angle_format {
-        AngleFormat::Degrees => oe_to_degrees(mean_rad, AngleFormat::Radians),
-        AngleFormat::Radians => mean_rad,
+            // Convert output back to input format if needed
+            // Note: oe_to_degrees converts radians->degrees when format is Radians,
+            // but we want radians->degrees when format is Degrees (the inverse)
+            Ok(match angle_format {
+                AngleFormat::Degrees => oe_to_degrees(mean_rad, AngleFormat::Radians),
+                AngleFormat::Radians => mean_rad,
+            })
+        }
+        MeanElementMethod::Numerical(_) => Err(BraheError::Error(
+            "Numerical mean-element method requires a batch of states; \
+             use batch_state_koe_osc_to_mean"
+                .to_string(),
+        )),
     }
 }
 
@@ -113,11 +192,14 @@ pub fn state_koe_osc_to_mean(osc: &SVector<f64, 6>, angle_format: AngleFormat) -
 ///   - `mean[3]`: Right ascension of ascending node `Ω` (radians or degrees, per `angle_format`)
 ///   - `mean[4]`: Argument of perigee `ω` (radians or degrees, per `angle_format`)
 ///   - `mean[5]`: Mean anomaly `M` (radians or degrees, per `angle_format`)
+/// * `method` - Algorithm used to compute osculating elements. `MeanElementMethod::Numerical`
+///   is batch-only and always returns `Err` here; use `batch_state_koe_mean_to_osc`.
 /// * `angle_format` - Format of angular elements in input and output
 ///
 /// # Returns
 ///
-/// Osculating Keplerian elements in the same format as the input (radians or degrees).
+/// Osculating Keplerian elements in the same format as the input (radians or degrees),
+/// or `Err` if `method` is `MeanElementMethod::Numerical`.
 ///
 /// # Note
 ///
@@ -129,7 +211,7 @@ pub fn state_koe_osc_to_mean(osc: &SVector<f64, 6>, angle_format: AngleFormat) -
 ///
 /// ```
 /// use nalgebra::SVector;
-/// use brahe::orbits::state_koe_mean_to_osc;
+/// use brahe::orbits::{state_koe_mean_to_osc, MeanElementMethod};
 /// use brahe::constants::{R_EARTH, AngleFormat};
 ///
 /// // Define mean elements for a LEO satellite (angles in degrees)
@@ -142,25 +224,38 @@ pub fn state_koe_osc_to_mean(osc: &SVector<f64, 6>, angle_format: AngleFormat) -
 ///     0.0,              // M = 0
 /// );
 ///
-/// let osc = state_koe_mean_to_osc(&mean, AngleFormat::Degrees);
+/// let osc = state_koe_mean_to_osc(&mean, MeanElementMethod::BrouwerLyddane, AngleFormat::Degrees).unwrap();
 /// ```
 ///
 /// # References
 /// 1. H. Schaub and J. L. Junkins, "Analytical Mechanics of Space Systems,"
 ///    Appendix F: "First-Order Mapping Between Mean and Osculating Orbit Elements".
-pub fn state_koe_mean_to_osc(mean: &SVector<f64, 6>, angle_format: AngleFormat) -> SVector<f64, 6> {
-    // Convert input to radians if needed
-    let mean_rad = oe_to_radians(*mean, angle_format);
+pub fn state_koe_mean_to_osc(
+    mean: &SVector<f64, 6>,
+    method: MeanElementMethod,
+    angle_format: AngleFormat,
+) -> Result<SVector<f64, 6>, BraheError> {
+    match method {
+        MeanElementMethod::BrouwerLyddane => {
+            // Convert input to radians if needed
+            let mean_rad = oe_to_radians(*mean, angle_format);
 
-    // Perform transformation in radians
-    let osc_rad = transform_koe(&mean_rad, TransformDirection::MeanToOsculating);
+            // Perform transformation in radians
+            let osc_rad = transform_koe(&mean_rad, TransformDirection::MeanToOsculating);
 
-    // Convert output back to input format if needed
-    // Note: oe_to_degrees converts radians->degrees when format is Radians,
-    // but we want radians->degrees when format is Degrees (the inverse)
-    match angle_format {
-        AngleFormat::Degrees => oe_to_degrees(osc_rad, AngleFormat::Radians),
-        AngleFormat::Radians => osc_rad,
+            // Convert output back to input format if needed
+            // Note: oe_to_degrees converts radians->degrees when format is Radians,
+            // but we want radians->degrees when format is Degrees (the inverse)
+            Ok(match angle_format {
+                AngleFormat::Degrees => oe_to_degrees(osc_rad, AngleFormat::Radians),
+                AngleFormat::Radians => osc_rad,
+            })
+        }
+        MeanElementMethod::Numerical(_) => Err(BraheError::Error(
+            "Numerical mean-element method requires a batch of states; \
+             use batch_state_koe_mean_to_osc"
+                .to_string(),
+        )),
     }
 }
 
@@ -460,9 +555,11 @@ fn transform_koe(oe: &SVector<f64, 6>, direction: TransformDirection) -> SVector
 mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
 
     /// Test round-trip: mean → osc → mean ≈ original (radians)
     #[test]
+    #[parallel]
     fn test_round_trip_mean_to_osc_to_mean_radians() {
         // Define mean elements for a typical LEO satellite
         let mean = SVector::<f64, 6>::new(
@@ -475,8 +572,18 @@ mod tests {
         );
 
         // Convert mean → osc → mean
-        let osc = state_koe_mean_to_osc(&mean, AngleFormat::Radians);
-        let mean_recovered = state_koe_osc_to_mean(&osc, AngleFormat::Radians);
+        let osc = state_koe_mean_to_osc(
+            &mean,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Radians,
+        )
+        .unwrap();
+        let mean_recovered = state_koe_osc_to_mean(
+            &osc,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Radians,
+        )
+        .unwrap();
 
         // Check that recovered elements are close to original
         // Note: First-order approximation means small errors of order J2² are expected.
@@ -495,6 +602,7 @@ mod tests {
 
     /// Test round-trip: mean → osc → mean ≈ original (degrees)
     #[test]
+    #[parallel]
     fn test_round_trip_mean_to_osc_to_mean_degrees() {
         // Define mean elements for a typical LEO satellite (angles in degrees)
         let mean = SVector::<f64, 6>::new(
@@ -507,8 +615,18 @@ mod tests {
         );
 
         // Convert mean → osc → mean
-        let osc = state_koe_mean_to_osc(&mean, AngleFormat::Degrees);
-        let mean_recovered = state_koe_osc_to_mean(&osc, AngleFormat::Degrees);
+        let osc = state_koe_mean_to_osc(
+            &mean,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Degrees,
+        )
+        .unwrap();
+        let mean_recovered = state_koe_osc_to_mean(
+            &osc,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Degrees,
+        )
+        .unwrap();
 
         // Check that recovered elements are close to original
         let tol_a = 100.0; // 100 m tolerance for semi-major axis
@@ -525,6 +643,7 @@ mod tests {
 
     /// Test round-trip: osc → mean → osc ≈ original
     #[test]
+    #[parallel]
     fn test_round_trip_osc_to_mean_to_osc() {
         // Define osculating elements for a typical LEO satellite
         let osc = SVector::<f64, 6>::new(
@@ -537,8 +656,18 @@ mod tests {
         );
 
         // Convert osc → mean → osc
-        let mean = state_koe_osc_to_mean(&osc, AngleFormat::Radians);
-        let osc_recovered = state_koe_mean_to_osc(&mean, AngleFormat::Radians);
+        let mean = state_koe_osc_to_mean(
+            &osc,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Radians,
+        )
+        .unwrap();
+        let osc_recovered = state_koe_mean_to_osc(
+            &mean,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Radians,
+        )
+        .unwrap();
 
         // Check that recovered elements are close to original
         // Note: First-order approximation means small errors of order J2² are expected
@@ -556,6 +685,7 @@ mod tests {
 
     /// Test near-circular orbit (small eccentricity)
     #[test]
+    #[parallel]
     fn test_near_circular_orbit() {
         let mean = SVector::<f64, 6>::new(
             R_EARTH + 400e3,
@@ -567,8 +697,18 @@ mod tests {
         );
 
         // Should not panic
-        let osc = state_koe_mean_to_osc(&mean, AngleFormat::Radians);
-        let mean_recovered = state_koe_osc_to_mean(&osc, AngleFormat::Radians);
+        let osc = state_koe_mean_to_osc(
+            &mean,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Radians,
+        )
+        .unwrap();
+        let mean_recovered = state_koe_osc_to_mean(
+            &osc,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Radians,
+        )
+        .unwrap();
 
         // Semi-major axis should be close
         assert_abs_diff_eq!(mean[0], mean_recovered[0], epsilon = 100.0);
@@ -576,6 +716,7 @@ mod tests {
 
     /// Test sun-synchronous orbit (high inclination)
     #[test]
+    #[parallel]
     fn test_sun_synchronous_orbit() {
         let mean = SVector::<f64, 6>::new(
             R_EARTH + 700e3,
@@ -586,8 +727,18 @@ mod tests {
             270.0_f64.to_radians(),
         );
 
-        let osc = state_koe_mean_to_osc(&mean, AngleFormat::Radians);
-        let mean_recovered = state_koe_osc_to_mean(&osc, AngleFormat::Radians);
+        let osc = state_koe_mean_to_osc(
+            &mean,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Radians,
+        )
+        .unwrap();
+        let mean_recovered = state_koe_osc_to_mean(
+            &osc,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Radians,
+        )
+        .unwrap();
 
         // Note: For small eccentricity (0.001), the relative J2² error can be larger
         let tol_a = 100.0;
@@ -601,6 +752,7 @@ mod tests {
 
     /// Test that osculating elements differ from mean elements
     #[test]
+    #[parallel]
     fn test_osc_differs_from_mean() {
         let mean = SVector::<f64, 6>::new(
             R_EARTH + 500e3,
@@ -611,7 +763,12 @@ mod tests {
             90.0_f64.to_radians(),
         );
 
-        let osc = state_koe_mean_to_osc(&mean, AngleFormat::Radians);
+        let osc = state_koe_mean_to_osc(
+            &mean,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Radians,
+        )
+        .unwrap();
 
         // Osculating and mean should differ (J2 perturbation effect)
         // The semi-major axis should be different
@@ -620,6 +777,7 @@ mod tests {
 
     /// Test various mean anomaly values
     #[test]
+    #[parallel]
     fn test_various_mean_anomalies() {
         let base_mean = SVector::<f64, 6>::new(
             R_EARTH + 500e3,
@@ -634,8 +792,18 @@ mod tests {
             let mut mean = base_mean;
             mean[5] = m_deg.to_radians();
 
-            let osc = state_koe_mean_to_osc(&mean, AngleFormat::Radians);
-            let mean_recovered = state_koe_osc_to_mean(&osc, AngleFormat::Radians);
+            let osc = state_koe_mean_to_osc(
+                &mean,
+                MeanElementMethod::BrouwerLyddane,
+                AngleFormat::Radians,
+            )
+            .unwrap();
+            let mean_recovered = state_koe_osc_to_mean(
+                &osc,
+                MeanElementMethod::BrouwerLyddane,
+                AngleFormat::Radians,
+            )
+            .unwrap();
 
             // Check semi-major axis recovery
             assert_abs_diff_eq!(mean[0], mean_recovered[0], epsilon = 100.0);
@@ -644,6 +812,7 @@ mod tests {
 
     /// Test GEO orbit
     #[test]
+    #[parallel]
     fn test_geo_orbit() {
         // Geostationary orbit parameters
         let mean = SVector::<f64, 6>::new(
@@ -655,8 +824,18 @@ mod tests {
             0.0,
         );
 
-        let osc = state_koe_mean_to_osc(&mean, AngleFormat::Radians);
-        let mean_recovered = state_koe_osc_to_mean(&osc, AngleFormat::Radians);
+        let osc = state_koe_mean_to_osc(
+            &mean,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Radians,
+        )
+        .unwrap();
+        let mean_recovered = state_koe_osc_to_mean(
+            &osc,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Radians,
+        )
+        .unwrap();
 
         // At GEO altitude, J2 effects are smaller
         assert_abs_diff_eq!(mean[0], mean_recovered[0], epsilon = 10.0);
@@ -664,6 +843,7 @@ mod tests {
 
     /// Test that degrees input produces degrees output
     #[test]
+    #[parallel]
     fn test_degrees_consistency() {
         // Input in degrees
         let mean_deg = SVector::<f64, 6>::new(
@@ -676,12 +856,57 @@ mod tests {
         );
 
         // Convert to osculating with degrees format
-        let osc_deg = state_koe_mean_to_osc(&mean_deg, AngleFormat::Degrees);
+        let osc_deg = state_koe_mean_to_osc(
+            &mean_deg,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Degrees,
+        )
+        .unwrap();
 
         // Verify output angles are in reasonable degree range (not radian range)
         assert!(osc_deg[2] >= 7.0 && osc_deg[2] < 180.0); // Inclination should be in degrees
         assert!(osc_deg[3] >= 7.0 && osc_deg[3] < 360.0); // RAAN should be in degrees
         assert!(osc_deg[4] >= 7.0 && osc_deg[4] < 360.0); // AoP should be in degrees
         assert!(osc_deg[5] >= 7.0 && osc_deg[5] < 360.0); // M should be in degrees
+    }
+
+    /// Numerical mean-element method is batch-only; single-state calls must error.
+    #[test]
+    #[parallel]
+    fn test_single_state_numerical_is_error() {
+        let mean = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0);
+        let cfg = NumericalConfig {
+            window_seconds: 5400.0,
+            alignment: WindowAlignment::Centered,
+            edge: EdgeHandling::Truncate,
+            inverse: None,
+        };
+        let out = state_koe_mean_to_osc(
+            &mean,
+            MeanElementMethod::Numerical(cfg),
+            AngleFormat::Degrees,
+        );
+        assert!(out.is_err());
+    }
+
+    /// Sanity check that the analytical single-state path still round-trips
+    /// correctly through the new `Result`-returning signature.
+    #[test]
+    #[parallel]
+    fn test_analytical_single_state_still_matches() {
+        let mean = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0);
+        let osc = state_koe_mean_to_osc(
+            &mean,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Degrees,
+        )
+        .unwrap();
+        let back = state_koe_osc_to_mean(
+            &osc,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Degrees,
+        )
+        .unwrap();
+        assert_abs_diff_eq!(mean[0], back[0], epsilon = 100.0);
     }
 }

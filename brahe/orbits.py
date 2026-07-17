@@ -72,6 +72,11 @@ from brahe._brahe import (
     # Mean-osculating Keplerian element conversions
     state_koe_osc_to_mean,
     state_koe_mean_to_osc,
+    MeanElementMethod,
+    WindowAlignment,
+    EdgeHandling,
+    NumericalConfig,
+    InverseConfig,
     # Equinoctial element conversions
     state_koe_to_equinoctial,
     state_equinoctial_to_koe,
@@ -128,6 +133,11 @@ __all__ = [
     # Mean-osculating Keplerian element conversions
     "state_koe_osc_to_mean",
     "state_koe_mean_to_osc",
+    "MeanElementMethod",
+    "WindowAlignment",
+    "EdgeHandling",
+    "NumericalConfig",
+    "InverseConfig",
     # Equinoctial element conversions
     "state_koe_to_equinoctial",
     "state_equinoctial_to_koe",

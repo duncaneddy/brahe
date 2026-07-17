@@ -9,6 +9,8 @@ import pytest
 import numpy as np
 import brahe
 
+BROUWER_LYDDANE = brahe.MeanElementMethod.brouwer_lyddane()
+
 
 class TestMeanOsculatingConversions:
     """Tests for mean-osculating Keplerian element conversions."""
@@ -28,8 +30,12 @@ class TestMeanOsculatingConversions:
         )
 
         # Convert mean -> osc -> mean
-        osc = brahe.state_koe_mean_to_osc(mean, brahe.AngleFormat.RADIANS)
-        mean_recovered = brahe.state_koe_osc_to_mean(osc, brahe.AngleFormat.RADIANS)
+        osc = brahe.state_koe_mean_to_osc(
+            mean, BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+        )
+        mean_recovered = brahe.state_koe_osc_to_mean(
+            osc, BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+        )
 
         # Check that recovered elements are close to original
         # Note: First-order approximation means small errors of order J2² are expected
@@ -62,8 +68,12 @@ class TestMeanOsculatingConversions:
         )
 
         # Convert mean -> osc -> mean
-        osc = brahe.state_koe_mean_to_osc(mean, brahe.AngleFormat.DEGREES)
-        mean_recovered = brahe.state_koe_osc_to_mean(osc, brahe.AngleFormat.DEGREES)
+        osc = brahe.state_koe_mean_to_osc(
+            mean, BROUWER_LYDDANE, brahe.AngleFormat.DEGREES
+        )
+        mean_recovered = brahe.state_koe_osc_to_mean(
+            osc, BROUWER_LYDDANE, brahe.AngleFormat.DEGREES
+        )
 
         # Check that recovered elements are close to original
         # Tolerances in degrees (~0.01 radians = ~0.6 degrees)
@@ -89,8 +99,12 @@ class TestMeanOsculatingConversions:
         )
 
         # Convert osc -> mean -> osc
-        mean = brahe.state_koe_osc_to_mean(osc, brahe.AngleFormat.RADIANS)
-        osc_recovered = brahe.state_koe_mean_to_osc(mean, brahe.AngleFormat.RADIANS)
+        mean = brahe.state_koe_osc_to_mean(
+            osc, BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+        )
+        osc_recovered = brahe.state_koe_mean_to_osc(
+            mean, BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+        )
 
         # Check that recovered elements are close to original
         # Tolerances match Rust tests accounting for J2² first-order approximation errors
@@ -121,8 +135,12 @@ class TestMeanOsculatingConversions:
         )
 
         # Should not raise
-        osc = brahe.state_koe_mean_to_osc(mean, brahe.AngleFormat.RADIANS)
-        mean_recovered = brahe.state_koe_osc_to_mean(osc, brahe.AngleFormat.RADIANS)
+        osc = brahe.state_koe_mean_to_osc(
+            mean, BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+        )
+        mean_recovered = brahe.state_koe_osc_to_mean(
+            osc, BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+        )
 
         # Semi-major axis should be close
         assert mean[0] == pytest.approx(mean_recovered[0], abs=100.0)
@@ -140,8 +158,12 @@ class TestMeanOsculatingConversions:
             ]
         )
 
-        osc = brahe.state_koe_mean_to_osc(mean, brahe.AngleFormat.RADIANS)
-        mean_recovered = brahe.state_koe_osc_to_mean(osc, brahe.AngleFormat.RADIANS)
+        osc = brahe.state_koe_mean_to_osc(
+            mean, BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+        )
+        mean_recovered = brahe.state_koe_osc_to_mean(
+            osc, BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+        )
 
         # Note: For small eccentricity (0.001), the relative J2² error can be larger
         # Tolerances match Rust tests
@@ -164,7 +186,9 @@ class TestMeanOsculatingConversions:
             ]
         )
 
-        osc = brahe.state_koe_mean_to_osc(mean, brahe.AngleFormat.RADIANS)
+        osc = brahe.state_koe_mean_to_osc(
+            mean, BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+        )
 
         # Osculating and mean should differ (J2 perturbation effect)
         # The semi-major axis should be different
@@ -187,8 +211,12 @@ class TestMeanOsculatingConversions:
             mean = base_mean.copy()
             mean[5] = np.radians(m_deg)
 
-            osc = brahe.state_koe_mean_to_osc(mean, brahe.AngleFormat.RADIANS)
-            mean_recovered = brahe.state_koe_osc_to_mean(osc, brahe.AngleFormat.RADIANS)
+            osc = brahe.state_koe_mean_to_osc(
+                mean, BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+            )
+            mean_recovered = brahe.state_koe_osc_to_mean(
+                osc, BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+            )
 
             # Check semi-major axis recovery
             assert mean[0] == pytest.approx(mean_recovered[0], abs=100.0), (
@@ -209,8 +237,12 @@ class TestMeanOsculatingConversions:
             ]
         )
 
-        osc = brahe.state_koe_mean_to_osc(mean, brahe.AngleFormat.RADIANS)
-        mean_recovered = brahe.state_koe_osc_to_mean(osc, brahe.AngleFormat.RADIANS)
+        osc = brahe.state_koe_mean_to_osc(
+            mean, BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+        )
+        mean_recovered = brahe.state_koe_osc_to_mean(
+            osc, BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+        )
 
         # At GEO altitude, J2 effects are smaller
         assert mean[0] == pytest.approx(mean_recovered[0], abs=10.0)
@@ -229,7 +261,9 @@ class TestMeanOsculatingConversions:
             ]
         )
 
-        osc = brahe.state_koe_mean_to_osc(mean_np, brahe.AngleFormat.RADIANS)
+        osc = brahe.state_koe_mean_to_osc(
+            mean_np, BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+        )
         assert isinstance(osc, np.ndarray)
         assert len(osc) == 6
 
@@ -245,7 +279,9 @@ class TestMeanOsculatingConversions:
             np.radians(90.0),
         ]
 
-        osc = brahe.state_koe_mean_to_osc(mean_list, brahe.AngleFormat.RADIANS)
+        osc = brahe.state_koe_mean_to_osc(
+            mean_list, BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+        )
         assert isinstance(osc, np.ndarray)
         assert len(osc) == 6
 
@@ -262,8 +298,12 @@ class TestMeanOsculatingConversions:
             ]
         )
 
-        osc = brahe.state_koe_mean_to_osc(mean, brahe.AngleFormat.RADIANS)
-        mean_back = brahe.state_koe_osc_to_mean(osc, brahe.AngleFormat.RADIANS)
+        osc = brahe.state_koe_mean_to_osc(
+            mean, BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+        )
+        mean_back = brahe.state_koe_osc_to_mean(
+            osc, BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+        )
 
         assert isinstance(osc, np.ndarray)
         assert isinstance(mean_back, np.ndarray)
@@ -276,10 +316,14 @@ class TestMeanOsculatingConversions:
         invalid = np.array([1.0, 2.0, 3.0])  # Only 3 elements
 
         with pytest.raises(ValueError):
-            brahe.state_koe_mean_to_osc(invalid, brahe.AngleFormat.RADIANS)
+            brahe.state_koe_mean_to_osc(
+                invalid, BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+            )
 
         with pytest.raises(ValueError):
-            brahe.state_koe_osc_to_mean(invalid, brahe.AngleFormat.RADIANS)
+            brahe.state_koe_osc_to_mean(
+                invalid, BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+            )
 
     def test_moderate_eccentricity(self):
         """Test with moderate eccentricity."""
@@ -294,8 +338,12 @@ class TestMeanOsculatingConversions:
             ]
         )
 
-        osc = brahe.state_koe_mean_to_osc(mean, brahe.AngleFormat.RADIANS)
-        mean_recovered = brahe.state_koe_osc_to_mean(osc, brahe.AngleFormat.RADIANS)
+        osc = brahe.state_koe_mean_to_osc(
+            mean, BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+        )
+        mean_recovered = brahe.state_koe_osc_to_mean(
+            osc, BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+        )
 
         # Should still recover reasonably well
         assert mean[0] == pytest.approx(mean_recovered[0], abs=200.0)
@@ -316,13 +364,26 @@ class TestMeanOsculatingConversions:
         )
 
         # Convert to osculating with degrees format
-        osc_deg = brahe.state_koe_mean_to_osc(mean_deg, brahe.AngleFormat.DEGREES)
+        osc_deg = brahe.state_koe_mean_to_osc(
+            mean_deg, BROUWER_LYDDANE, brahe.AngleFormat.DEGREES
+        )
 
         # Verify output angles are in reasonable degree range (not radian range)
         assert osc_deg[2] >= 7.0 and osc_deg[2] < 180.0
         assert osc_deg[3] >= 7.0 and osc_deg[3] < 360.0  # RAAN should be in degrees
         assert osc_deg[4] >= 7.0 and osc_deg[4] < 360.0  # AoP should be in degrees
         assert osc_deg[5] >= 7.0 and osc_deg[5] < 360.0  # M should be in degrees
+
+    def test_single_state_numerical_raises(self):
+        """Numerical method is batch-only; single-state calls must raise."""
+        mean = np.array([brahe.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
+        cfg = brahe.NumericalConfig(
+            5400.0, brahe.WindowAlignment.CENTERED, brahe.EdgeHandling.TRUNCATE
+        )
+        with pytest.raises(Exception):
+            brahe.state_koe_mean_to_osc(
+                mean, brahe.MeanElementMethod.numerical(cfg), brahe.AngleFormat.DEGREES
+            )
 
 
 class TestStateKoeMeanOnProviders:
@@ -435,7 +496,9 @@ class TestStateKoeMeanOnProviders:
         # Get mean elements via standalone function (osc -> mean conversion)
         # state_koe_osc returns osculating elements
         osc = prop.state_koe_osc(epc, brahe.AngleFormat.DEGREES)
-        mean_via_func = brahe.state_koe_osc_to_mean(osc, brahe.AngleFormat.DEGREES)
+        mean_via_func = brahe.state_koe_osc_to_mean(
+            osc, BROUWER_LYDDANE, brahe.AngleFormat.DEGREES
+        )
 
         # Should be identical
         np.testing.assert_array_almost_equal(mean_via_prop, mean_via_func, decimal=10)

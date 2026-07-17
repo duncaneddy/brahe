@@ -1020,6 +1020,11 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_epoch_from_tle, module)?)?;
 
     // Mean-osculating Keplerian element conversions
+    module.add_class::<PyMeanElementMethod>()?;
+    module.add_class::<PyWindowAlignment>()?;
+    module.add_class::<PyEdgeHandling>()?;
+    module.add_class::<PyNumericalConfig>()?;
+    module.add_class::<PyInverseConfig>()?;
     module.add_function(wrap_pyfunction!(py_state_koe_osc_to_mean, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_koe_mean_to_osc, module)?)?;
 

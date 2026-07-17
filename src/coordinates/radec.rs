@@ -3,6 +3,10 @@
 use std::f64::consts::TAU;
 
 use crate::constants::{AngleFormat, DEG2RAD, RAD2DEG};
+use crate::coordinates::topocentric::{
+    position_enz_to_azel, rotation_ellipsoid_to_enz, rotation_enz_to_ellipsoid,
+};
+use crate::frames::{rotation_ecef_to_eci, rotation_eci_to_ecef};
 use crate::math::{SVector3, SVector6};
 use crate::time::Epoch;
 
@@ -304,16 +308,185 @@ pub fn apply_proper_motion(
     }
 }
 
+/// Convert a topocentric right ascension, declination, and range into the
+/// equivalent azimuth, elevation, and range as seen from a given site.
+///
+/// This is a **direction-only** rotation of the line-of-sight unit vector: no
+/// parallax translation between the geocenter and the site is applied, and
+/// `range` passes through unchanged. The input `(ra, dec)` must already be
+/// the direction *from the site*: for stars (effectively at infinite
+/// distance) this is the same as the geocentric catalog `(ra, dec)`, but for
+/// satellites or other nearby objects the caller must first compute the
+/// topocentric right ascension/declination (e.g. by subtracting the site's
+/// inertial position from the object's inertial position and converting the
+/// resulting relative vector with [`position_inertial_to_radec`]) before
+/// calling this function.
+///
+/// Requires a global Earth orientation parameter (EOP) provider to be
+/// initialized, as with all `frames` conversions between inertial and
+/// Earth-fixed frames.
+///
+/// # Arguments
+/// - `x_radec`: Topocentric right ascension, declination, and range: `[ra, dec, range]`. Units: (*angle*, *angle*, *m*)
+/// - `site_geodetic`: Geodetic coordinates of the observing site: `[lon, lat, alt]`. Units: (*angle*, *angle*, *m*)
+/// - `epc`: Epoch of the observation, used to rotate between the inertial and Earth-fixed frames
+/// - `angle_format`: Format for angular elements (Radians or Degrees)
+///
+/// # Returns
+/// - `x_azel`: Azimuth (clockwise from North), elevation, and range: `[az, el, range]`. Units: (*angle*, *angle*, *m*)
+///
+/// # Examples
+/// ```no_run
+/// use brahe::constants::DEGREES;
+/// use brahe::coordinates::position_radec_to_azel;
+/// use brahe::math::SVector3;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 20, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let site = SVector3::new(-122.17, 37.43, 100.0); // Stanford, deg/deg/m
+/// let x_radec = SVector3::new(101.28, -16.72, 1.0);
+///
+/// // Requires a global EOP provider to be initialized first.
+/// let x_azel = position_radec_to_azel(x_radec, site, epc, DEGREES);
+/// ```
+///
+/// # Reference
+/// 1. D. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th Ed., pp. 265-266, §4.4.3, 2013.
+pub fn position_radec_to_azel(
+    x_radec: SVector3,
+    site_geodetic: SVector3,
+    epc: Epoch,
+    angle_format: AngleFormat,
+) -> SVector3 {
+    let range = x_radec[2];
+
+    let d_eci =
+        position_radec_to_inertial(SVector3::new(x_radec[0], x_radec[1], 1.0), angle_format);
+    let d_ecef = rotation_eci_to_ecef(epc) * d_eci;
+    let d_enz = rotation_ellipsoid_to_enz(site_geodetic, angle_format) * d_ecef;
+
+    position_enz_to_azel(d_enz * range, angle_format)
+}
+
+/// Convert an azimuth, elevation, and range as seen from a given site into
+/// the equivalent topocentric right ascension, declination, and range.
+///
+/// This is the inverse of [`position_radec_to_azel`] and is likewise a
+/// **direction-only** rotation: no parallax translation between the site and
+/// the geocenter is applied, and `range` passes through unchanged. The
+/// returned `(ra, dec)` is the topocentric direction as seen from the site,
+/// which for stars is the same as the geocentric catalog `(ra, dec)`.
+///
+/// Requires a global Earth orientation parameter (EOP) provider to be
+/// initialized, as with all `frames` conversions between inertial and
+/// Earth-fixed frames.
+///
+/// # Arguments
+/// - `x_azel`: Azimuth (clockwise from North), elevation, and range: `[az, el, range]`. Units: (*angle*, *angle*, *m*)
+/// - `site_geodetic`: Geodetic coordinates of the observing site: `[lon, lat, alt]`. Units: (*angle*, *angle*, *m*)
+/// - `epc`: Epoch of the observation, used to rotate between the Earth-fixed and inertial frames
+/// - `angle_format`: Format for angular elements (Radians or Degrees)
+///
+/// # Returns
+/// - `x_radec`: Topocentric right ascension, declination, and range: `[ra, dec, range]`. Units: (*angle*, *angle*, *m*)
+///
+/// # Examples
+/// ```no_run
+/// use brahe::constants::DEGREES;
+/// use brahe::coordinates::position_azel_to_radec;
+/// use brahe::math::SVector3;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 20, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let site = SVector3::new(-122.17, 37.43, 100.0); // Stanford, deg/deg/m
+/// let x_azel = SVector3::new(180.0, 45.0, 1.0);
+///
+/// // Requires a global EOP provider to be initialized first.
+/// let x_radec = position_azel_to_radec(x_azel, site, epc, DEGREES);
+/// ```
+///
+/// # Reference
+/// 1. D. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th Ed., pp. 265-266, §4.4.3, 2013.
+pub fn position_azel_to_radec(
+    x_azel: SVector3,
+    site_geodetic: SVector3,
+    epc: Epoch,
+    angle_format: AngleFormat,
+) -> SVector3 {
+    let (az, el) = match angle_format {
+        AngleFormat::Degrees => (x_azel[0] * DEG2RAD, x_azel[1] * DEG2RAD),
+        AngleFormat::Radians => (x_azel[0], x_azel[1]),
+    };
+    let range = x_azel[2];
+
+    let d_enz = SVector3::new(el.cos() * az.sin(), el.cos() * az.cos(), el.sin());
+    let d_ecef = rotation_enz_to_ellipsoid(site_geodetic, angle_format) * d_enz;
+    let d_eci = rotation_ecef_to_eci(epc) * d_ecef;
+
+    let radec_dir = position_inertial_to_radec(d_eci, angle_format);
+    SVector3::new(radec_dir[0], radec_dir[1], range)
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
-    use serial_test::parallel;
+    use serial_test::{parallel, serial};
 
     use crate::constants::AngleFormat;
+    use crate::coordinates::geodetic::position_geodetic_to_ecef;
+    use crate::frames::rotation_ecef_to_eci;
     use crate::time::TimeSystem;
+    use crate::utils::testing::setup_global_test_eop;
 
     use super::*;
+
+    #[test]
+    #[serial]
+    fn test_radec_azel_round_trip() {
+        setup_global_test_eop();
+        let epc = Epoch::from_datetime(2024, 3, 20, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let site = SVector3::new(-122.17, 37.43, 100.0); // Stanford, deg/deg/m
+        for (ra, dec) in [(0.0, 0.0), (101.28, -16.72), (279.23, 38.78)] {
+            let range = 12345.6;
+            let azel = position_radec_to_azel(
+                SVector3::new(ra, dec, range),
+                site,
+                epc,
+                AngleFormat::Degrees,
+            );
+            let radec = position_azel_to_radec(azel, site, epc, AngleFormat::Degrees);
+
+            assert_abs_diff_eq!(radec[0], ra, epsilon = 1e-9);
+            assert_abs_diff_eq!(radec[1], dec, epsilon = 1e-9);
+            assert_abs_diff_eq!(radec[2], range, epsilon = 1e-9);
+            assert_abs_diff_eq!(azel[2], range, epsilon = 1e-9);
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_radec_to_azel_zenith() {
+        setup_global_test_eop();
+        let epc = Epoch::from_datetime(2024, 3, 20, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        // lon=0, lat=0 so geodetic == geocentric; altitude is irrelevant for direction.
+        let site = SVector3::new(0.0, 0.0, 0.0);
+
+        // Compute the site's zenith direction in ECI: site ECEF position ->
+        // rotate to ECI -> convert to ra/dec (geocentric zenith).
+        let site_ecef = position_geodetic_to_ecef(site, AngleFormat::Degrees).unwrap();
+        let site_eci = rotation_ecef_to_eci(epc) * site_ecef;
+        let zenith_radec = position_inertial_to_radec(site_eci, AngleFormat::Degrees);
+
+        let azel = position_radec_to_azel(
+            SVector3::new(zenith_radec[0], zenith_radec[1], 1.0),
+            site,
+            epc,
+            AngleFormat::Degrees,
+        );
+
+        assert_abs_diff_eq!(azel[1], 90.0, epsilon = 1e-6);
+    }
 
     #[test]
     #[parallel]

@@ -1,0 +1,6 @@
+Inertial state: pos=[4286607.050, 4286607.050, 3500000.000] m
+                vel=[-501.561970, 994.746166, -504.024815] m/s
+RA/Dec round-trip: ra=45.000000 deg, dec=30.000000 deg, range=7000000.000 m
+                   ra_dot=0.010000 deg/s, dec_dot=-0.005000 deg/s, range_dot=50.000 m/s
+
+Topocentric line of sight: ra=31.654779 deg, dec=14.702943 deg, range=1969995.939 m

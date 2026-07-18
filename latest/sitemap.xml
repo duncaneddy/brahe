@@ -105,6 +105,10 @@
          <lastmod>2026-07-18</lastmod>
     </url>
     <url>
+         <loc>https://docs.brahe.space/latest/examples/star_field_simulation.html</loc>
+         <lastmod>2026-07-18</lastmod>
+    </url>
+    <url>
          <loc>https://docs.brahe.space/latest/examples/tessellation_visualization.html</loc>
          <lastmod>2026-07-18</lastmod>
     </url>
@@ -277,6 +281,10 @@
          <lastmod>2026-07-18</lastmod>
     </url>
     <url>
+         <loc>https://docs.brahe.space/latest/learn/coordinates/radec_transformations.html</loc>
+         <lastmod>2026-07-18</lastmod>
+    </url>
+    <url>
          <loc>https://docs.brahe.space/latest/learn/coordinates/topocentric_transformations.html</loc>
          <lastmod>2026-07-18</lastmod>
     </url>
@@ -298,6 +306,10 @@
     </url>
     <url>
          <loc>https://docs.brahe.space/latest/learn/datasets/naif.html</loc>
+         <lastmod>2026-07-18</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.brahe.space/latest/learn/datasets/star_catalogs.html</loc>
          <lastmod>2026-07-18</lastmod>
     </url>
     <url>
@@ -777,6 +789,10 @@
          <lastmod>2026-07-18</lastmod>
     </url>
     <url>
+         <loc>https://docs.brahe.space/latest/library_api/coordinates/radec.html</loc>
+         <lastmod>2026-07-18</lastmod>
+    </url>
+    <url>
          <loc>https://docs.brahe.space/latest/library_api/coordinates/topocentric.html</loc>
          <lastmod>2026-07-18</lastmod>
     </url>
@@ -798,6 +814,10 @@
     </url>
     <url>
          <loc>https://docs.brahe.space/latest/library_api/datasets/naif.html</loc>
+         <lastmod>2026-07-18</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.brahe.space/latest/library_api/datasets/star_catalogs.html</loc>
          <lastmod>2026-07-18</lastmod>
     </url>
     <url>

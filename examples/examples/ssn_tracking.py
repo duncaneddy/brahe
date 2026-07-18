@@ -139,16 +139,19 @@ observations.sort(key=lambda o: o.epoch)
 passes.sort(key=lambda p: p[1].window_open)
 print(f"\nSimulated {len(observations)} measurements over {len(passes)} passes")
 
-print("\n" + "=" * 80)
+print("\n" + "=" * 100)
 print("Pass Table")
-print("=" * 80)
-print(f"{'Site':<28}{'Start':<22}{'Duration (min)':>16}{'Obs':>8}")
-print("-" * 80)
+print("=" * 100)
+print(f"{'Site':<28}{'Start':<22}{'End':<22}{'Duration (min)':>16}{'Obs':>8}")
+print("-" * 100)
 for sensor_name, w, n_obs in passes:
     start_str = str(w.window_open).split(".")[0]
+    end_str = str(w.window_close).split(".")[0]
     duration_min = w.duration / 60.0
-    print(f"{sensor_name:<28}{start_str:<22}{duration_min:>14.1f} m{n_obs:>8}")
-print("=" * 80)
+    print(
+        f"{sensor_name:<28}{start_str:<22}{end_str:<22}{duration_min:>14.1f} m{n_obs:>8}"
+    )
+print("=" * 100)
 
 # Bucket az/el/range measurements per sensor for the measurement figure
 PALETTE = [

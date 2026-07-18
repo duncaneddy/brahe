@@ -11,6 +11,7 @@ Working with satellite and planetary data typically requires gathering informati
 
 - **Planetary ephemeris** (DE kernels) for high-precision solar system body positions
 - **Groundstation locations** for computing contact opportunities
+- **SSN sensor sites** for simulating ground-based radar/optical tracking
 - **Spherical harmonic gravity models** for high-fidelity central-body force modeling
 
 Brahe's datasets module centralizes access to these data sources, handling the details of fetching, parsing, and caching so you can focus on analysis rather than data wrangling.
@@ -62,6 +63,17 @@ Embedded GeoJSON data for commercial groundstation networks. Includes 6 major pr
 
 **Best for**: Contact opportunity analysis, network planning, coverage studies
 
+### [SSN Sensors](ssn_sensors.md)
+
+Embedded GeoJSON data for 21 U.S. Space Surveillance Network sites, from Vallado,
+*Fundamentals of Astrodynamics and Applications*, 4th Ed. Includes:
+
+- **Site locations and field-of-view limits** (azimuth/elevation windows, maximum range)
+- **Bias and noise calibration** for building `SimpleSSNSensor` simulated sensors
+
+**Best for**: Simulating radar/optical tracking, orbit determination testing against a
+multi-site sensor network
+
 ## Data Philosophy
 
 Brahe's datasets module aims to:
@@ -81,4 +93,5 @@ Brahe's datasets module aims to:
 - [GCAT Satellite Catalogs](gcat.md) - GCAT SATCAT and PSATCAT catalogs
 - [ICGEM Gravity Models](icgem.md) - Spherical harmonic gravity model catalog
 - [Groundstation Datasets](groundstations.md) - Ground facility locations
+- [SSN Sensor Datasets](ssn_sensors.md) - Space Surveillance Network sensor sites
 - [Datasets API Reference](../../library_api/datasets/index.md) - Complete function documentation

@@ -284,6 +284,7 @@ nav:
           - learn/datasets/index.md
           - NAIF: learn/datasets/naif.md
           - Groundstations: learn/datasets/groundstations.md
+          - SSN Sensors: learn/datasets/ssn_sensors.md
           - GCAT: learn/datasets/gcat.md
           - ICGEM: learn/datasets/icgem.md
       - CCSDS:
@@ -335,6 +336,7 @@ nav:
       - examples/imaging_data_latency.md
       - examples/imaging_opportunities.md
       - examples/tessellation_visualization.md
+      - examples/ssn_tracking.md
       - examples/using_different_integrators.md
       - examples/geo_hohmann_transfer.md
       - examples/low_thrust_orbit_raising.md
@@ -443,6 +445,8 @@ nav:
           - Unscented Kalman Filter: library_api/estimation/unscented_kalman_filter.md
           - Batch Least Squares: library_api/estimation/batch_least_squares.md
           - Measurement Models: library_api/estimation/measurement_models.md
+          - AzElRangeMeasurementModel: library_api/estimation/azelrange_measurement_model.md
+          - SimpleSSNSensor: library_api/estimation/simple_ssn_sensor.md
       - SPICE Kernels: library_api/spice/index.md
       - Ephemeris Data Sources:
           - library_api/ephemeris/index.md
@@ -465,6 +469,7 @@ nav:
       - Datasets:
           - library_api/datasets/index.md
           - Groundstations: library_api/datasets/groundstations.md
+          - SSN Sensors: library_api/datasets/ssn_sensors.md
           - NAIF: library_api/datasets/naif.md
           - GCAT: library_api/datasets/gcat.md
           - ICGEM: library_api/datasets/icgem.md

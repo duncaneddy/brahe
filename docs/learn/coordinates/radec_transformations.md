@@ -104,7 +104,7 @@ $$
 
 The RA/Dec conversions above assume the input position/state is already relative to the frame's origin. For a ground-based observation, the object's position must first be made relative to the observing site: subtract the site's inertial position (or state) from the object's before converting.
 
-This subtract-then-convert pattern is the vector form of Vallado Algorithm 26 (site-track): applying `state_inertial_to_radec` to the slant-range vector $\vec{r}_{\text{sat}} - \vec{r}_{\text{site}}$ is equivalent to running Algorithm 25 directly on that vector, because the topocentric frame's axes are parallel to the geocentric inertial frame - only the origin is translated to the site.
+This subtract-then-convert pattern is the vector form of Vallado Algorithm 26 (*Topocentric*): applying `state_inertial_to_radec` to the slant-range vector $\vec{r}_{\text{sat}} - \vec{r}_{\text{site}}$ is equivalent to running Algorithm 25 directly on that vector, because the topocentric frame's axes are parallel to the geocentric inertial frame - only the origin is translated to the site.
 
 === "Python"
 

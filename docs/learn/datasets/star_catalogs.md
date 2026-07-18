@@ -64,55 +64,84 @@ Download the Hipparcos catalog, filter to naked-eye-bright stars, and inspect th
 
 ### Filtering
 
-Every catalog supports lookup by identifier, magnitude filtering, and cone-search filtering. Filter methods return a new catalog instance (immutable pattern), so the original catalog is never modified and filters can be chained:
+Every catalog supports lookup by identifier, magnitude filtering, and cone-search filtering. Filter methods return a new catalog instance (immutable pattern), so the original catalog is never modified and filters can be chained. The example below downloads FK5, looks up a star by its running number, then filters by magnitude and cone search, chaining both:
 
-```python
-import brahe as bh
+=== "Python"
 
-fk5 = bh.datasets.star_catalogs.get_fk5()
+    ``` python
+    --8<-- "./examples/datasets/fk5_catalog.py:10"
+    ```
 
-# Magnitude filter: keeps vmag <= max_mag (smaller/more negative is brighter)
-bright = fk5.filter_by_magnitude(3.0)
+=== "Rust"
 
-# Cone search around a right ascension/declination, in degrees
-nearby = fk5.filter_by_cone(101.28, -16.72, 5.0, bh.AngleFormat.DEGREES)
+    ``` rust
+    --8<-- "./examples/datasets/fk5_catalog.rs:6"
+    ```
 
-# Chained: bright stars within 5 degrees of a target
-bright_nearby = fk5.filter_by_magnitude(3.0).filter_by_cone(
-    101.28, -16.72, 5.0, bh.AngleFormat.DEGREES
-)
-```
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/datasets/fk5_catalog.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/datasets/fk5_catalog.rs.txt"
+        ```
 
 ### DataFrame Export
 
 All three catalogs support conversion to [Polars](https://pola.rs/) DataFrames for analysis. In Python, `to_dataframe()` returns a `polars.DataFrame`; in Rust, it returns a `Result<polars::DataFrame, BraheError>`:
 
-```python
-import brahe as bh
+=== "Python"
 
-hipparcos = bh.datasets.star_catalogs.get_hipparcos()
+    ``` python
+    --8<-- "./examples/datasets/star_catalogs_dataframe.py:10"
+    ```
 
-df = hipparcos.to_dataframe()
-print(df.shape)  # (rows, columns)
+=== "Rust"
 
-# Use Polars operations for analysis
-giants = df.filter(df["spectral_type"].str.contains("III"))
-print(f"Giant stars: {giants.shape[0]}")
-```
+    ``` rust
+    --8<-- "./examples/datasets/star_catalogs_dataframe.rs:6"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/datasets/star_catalogs_dataframe.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/datasets/star_catalogs_dataframe.rs.txt"
+        ```
 
 ### Proper Motion
 
-Catalog positions are only valid at the catalog's reference epoch (J2000.0 for FK5, J1991.25 for Hipparcos, J2000.0 for Tycho-2). Every record exposes `radec_at_epoch` to propagate its position to a different epoch using proper motion (and parallax/radial velocity, when known):
+Catalog positions are only valid at the catalog's reference epoch (J2000.0 for FK5, J1991.25 for Hipparcos, J2000.0 for Tycho-2). Every record exposes `radec_at_epoch` to propagate its position to a different epoch using proper motion (and parallax/radial velocity, when known). The example below filters Hipparcos by magnitude and cone search to locate Sirius, then propagates its catalog position forward to J2030.0:
 
-```python
-import brahe as bh
+=== "Python"
 
-hipparcos = bh.datasets.star_catalogs.get_hipparcos()
-sirius = hipparcos.get_by_id(32349)
+    ``` python
+    --8<-- "./examples/datasets/star_catalogs_filtering.py:10"
+    ```
 
-epc = bh.Epoch.from_datetime(2030, 1, 1, 0, 0, 0.0, 0.0, bh.UTC)
-ra, dec = sirius.radec_at_epoch(epc, bh.AngleFormat.DEGREES)
-```
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/datasets/star_catalogs_filtering.rs:7"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/datasets/star_catalogs_filtering.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/datasets/star_catalogs_filtering.rs.txt"
+        ```
 
 This uses the same proper-motion transformation as [`apply_proper_motion`](../../library_api/coordinates/radec.md), per ESA SP-1200 Vol. 1, §1.5.5 - see [RA/Dec Transformations](../coordinates/radec_transformations.md#proper-motion) for the underlying equations.
 

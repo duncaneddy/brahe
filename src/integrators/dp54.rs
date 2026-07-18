@@ -925,6 +925,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54_stm_accuracy() {
         setup_global_test_eop();
 
@@ -1014,6 +1015,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54_stm_vs_direct_perturbation() {
         setup_global_test_eop();
 
@@ -1332,6 +1334,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54d_stm_accuracy() {
         setup_global_test_eop();
 
@@ -1396,6 +1399,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54d_stm_vs_direct_perturbation() {
         setup_global_test_eop();
 

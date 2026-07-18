@@ -98,6 +98,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[serial_test::parallel]
     fn test_time_series() {
         setup_global_test_eop();
 
@@ -117,6 +118,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_time_series_negative() {
         setup_global_test_eop();
 

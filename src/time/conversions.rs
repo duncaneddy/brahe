@@ -649,6 +649,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_time_system_offset() {
         setup_global_test_eop();
 
@@ -817,6 +818,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_time_system_offset_tdb_tcg() {
         setup_global_test_eop();
 
@@ -859,6 +861,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_time_system_offset_tcb() {
         setup_global_test_eop();
 
@@ -895,6 +898,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_time_system_offset_for_mjd() {
         setup_global_test_eop();
 
@@ -1026,6 +1030,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_time_system_offset_for_jd() {
         setup_global_test_eop();
 
@@ -1157,6 +1162,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_time_system_offset_for_datetime() {
         setup_global_test_eop();
 

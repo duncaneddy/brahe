@@ -1994,6 +1994,7 @@ mod tests {
     // SGPPropagator Method Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_from_tle() {
         setup_global_test_eop();
         let propagator = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0);
@@ -2006,6 +2007,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_from_3le() {
         setup_global_test_eop();
         let name = "ISS (ZARYA)";
@@ -2021,6 +2023,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_from_omm_elements() {
         setup_global_test_eop();
 
@@ -2070,6 +2073,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_from_omm_elements_minimal() {
         setup_global_test_eop();
 
@@ -2102,6 +2106,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_from_omm_elements_propagation() {
         setup_global_test_eop();
 
@@ -2139,6 +2144,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_from_omm_elements_invalid_epoch() {
         setup_global_test_eop();
 
@@ -2169,6 +2175,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_from_tle_sets_id_without_name() {
         setup_global_test_eop();
         // Test that from_tle (2-line TLE without name) still sets ID from NORAD catalog number
@@ -2191,6 +2198,7 @@ mod tests {
     // OrbitPropagator Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_orbitpropagator_step() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2208,6 +2216,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_orbitpropagator_step_by() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2227,6 +2236,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_orbitpropagator_propagate_steps() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2244,6 +2254,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_orbitpropagator_step_past() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2265,6 +2276,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_orbitpropagator_propagate_to() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2285,6 +2297,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_orbitpropagator_current_state() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2295,6 +2308,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_orbitpropagator_current_epoch() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2305,6 +2319,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_orbitpropagator_initial_state() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2315,6 +2330,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_orbitpropagator_initial_epoch() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2325,6 +2341,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_orbitpropagator_step_size() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2332,6 +2349,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_orbitpropagator_set_step_size() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2340,6 +2358,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_orbitpropagator_reset() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2355,6 +2374,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_statepropagator_set_eviction_policy_max_size() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2368,6 +2388,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_orbitpropagator_set_eviction_policy_max_age() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2386,6 +2407,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_get_elements_radians() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2402,6 +2424,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_get_elements_degrees() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2418,6 +2441,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_elements() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2434,6 +2458,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_semi_major_axis() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2444,6 +2469,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_eccentricity() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2454,6 +2480,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_inclination() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2465,6 +2492,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_right_ascension() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2476,6 +2504,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_arg_perigee() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2487,6 +2516,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_mean_anomaly() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2498,6 +2528,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_ephemeris_age() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2513,6 +2544,7 @@ mod tests {
     // Identifiable Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_identifiable_with_name() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
@@ -2526,6 +2558,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_identifiable_with_id() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
@@ -2538,6 +2571,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_identifiable_with_uuid() {
         setup_global_test_eop();
         let test_uuid = uuid::Uuid::now_v7();
@@ -2552,6 +2586,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_identifiable_with_new_uuid() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
@@ -2565,6 +2600,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_identifiable_with_identity() {
         setup_global_test_eop();
         let test_uuid = uuid::Uuid::now_v7();
@@ -2578,6 +2614,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_identifiable_set_name() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2590,6 +2627,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_identifiable_set_id() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2602,6 +2640,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_identifiable_generate_uuid() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2622,6 +2661,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_identifiable_set_identity() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2641,6 +2681,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_identifiable_chaining() {
         setup_global_test_eop();
         let test_uuid = uuid::Uuid::now_v7();
@@ -2658,6 +2699,7 @@ mod tests {
     // StateProvider Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_analyticpropagator_state_koe_osc() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2679,6 +2721,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_analyticpropagator_states() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2691,6 +2734,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_analyticpropagator_states_eci() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2707,6 +2751,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_analyticpropagator_states_ecef() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2723,6 +2768,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_analyticpropagator_states_koe() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2742,6 +2788,7 @@ mod tests {
     // State Output Tests - From Older Brahe Versions (for validation)
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_state_teme() {
         setup_global_test_eop_original_brahe();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2761,6 +2808,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_tle_gmst82() {
         setup_global_test_eop_original_brahe();
         let epoch = epoch_from_tle(ISS_LINE1).unwrap();
@@ -2769,6 +2817,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_state_pef() {
         setup_global_test_eop_original_brahe();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -2791,6 +2840,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     #[ignore] // TODO: Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
     fn test_sgppropagator_state_ecef_values() {
         setup_global_test_eop_original_brahe();
@@ -2811,6 +2861,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     #[ignore] // TODO: Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
     fn test_sgppropagator_state_itrf_values() {
         setup_global_test_eop_original_brahe();
@@ -2831,6 +2882,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     #[ignore] // TODO: Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
     fn test_sgppropagator_state_eci_values() {
         setup_global_test_eop_original_brahe();
@@ -2851,6 +2903,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     #[ignore] // TODO: Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
     fn test_sgppropagator_state_gcrf_values() {
         setup_global_test_eop_original_brahe();
@@ -2871,6 +2924,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     #[ignore] // TODO: Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
     fn test_sgppropagator_state_eme2000_values() {
         setup_global_test_eop_original_brahe();
@@ -2894,6 +2948,7 @@ mod tests {
     // with_output_format Method Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_with_output_format_eci_cartesian() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
@@ -2907,6 +2962,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_with_output_format_ecef_cartesian() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
@@ -2923,6 +2979,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_with_output_format_gcrf_cartesian() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
@@ -2939,6 +2996,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_with_output_format_eme2000_cartesian() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
@@ -2955,6 +3013,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_with_output_format_itrf_cartesian() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
@@ -2971,6 +3030,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_with_output_format_eci_keplerian_degrees() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
@@ -2992,6 +3052,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_with_output_format_eci_keplerian_radians() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
@@ -3015,6 +3076,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_with_output_format_resets_trajectory() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3029,6 +3091,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_with_output_format_propagate_in_new_format() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
@@ -3045,6 +3108,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     #[should_panic(expected = "Angle format must be specified for Keplerian elements")]
     fn test_sgppropagator_with_output_format_keplerian_without_angle_format() {
         setup_global_test_eop();
@@ -3054,6 +3118,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     #[should_panic(expected = "Keplerian elements must be in ECI frame")]
     fn test_sgppropagator_with_output_format_keplerian_non_eci_frame() {
         setup_global_test_eop();
@@ -3067,6 +3132,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     #[should_panic(expected = "Angle format should be None for Cartesian representation")]
     fn test_sgppropagator_with_output_format_cartesian_with_angle_format() {
         setup_global_test_eop();
@@ -3082,6 +3148,7 @@ mod tests {
     // state_gcrf and state_eme2000 Tests (non-ignored basic tests)
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_state_gcrf() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3103,6 +3170,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_bci_bcbf_in_frame() {
         // SGPPropagator is Earth-centered: state_bci is its GCRF state,
         // state_bcbf its ITRF state, and state_in_frame converts from GCRF
@@ -3133,6 +3201,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_state_gcrf_at_different_epochs() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3151,6 +3220,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_state_eme2000() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3172,6 +3242,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_state_eme2000_at_different_epochs() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3190,6 +3261,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_state_gcrf_vs_eme2000() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3215,6 +3287,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_state_gcrf_consistency_with_eci() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3237,6 +3310,7 @@ mod tests {
     use crate::events::{DAscendingNodeEvent, DTimeEvent};
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_add_event_detector() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3252,6 +3326,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_time_event_detection() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3275,6 +3350,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_multiple_events() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3298,6 +3374,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_events_by_name() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3324,6 +3401,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_latest_event() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3347,6 +3425,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_events_in_range() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3370,6 +3449,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_events_by_detector_index() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3395,6 +3475,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_terminal_event() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3420,6 +3501,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_reset_clears_events() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3441,6 +3523,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_clear_events() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3462,6 +3545,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_reset_termination() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3484,6 +3568,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_ascending_node_detection() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3502,6 +3587,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_clone_does_not_copy_events() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3523,6 +3609,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_query_events() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3552,6 +3639,7 @@ mod tests {
     // ===== Event Detector Management Tests =====
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_take_event_detectors() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3576,6 +3664,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_set_event_detectors() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3596,6 +3685,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_take_event_log() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3621,6 +3711,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_set_terminated_is_terminated() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3638,6 +3729,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_event_detector_roundtrip() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3708,6 +3800,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_gp_record_full() {
         setup_global_test_eop();
         let record = iss_gp_record_full();
@@ -3730,6 +3823,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_gp_record_minimal() {
         setup_global_test_eop();
         let record = iss_gp_record_minimal();
@@ -3797,6 +3891,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_trajectory_mode_default() {
         setup_global_test_eop();
 
@@ -3808,6 +3903,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_trajectory_mode_disabled() {
         setup_global_test_eop();
 
@@ -3838,6 +3934,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_trajectory_mode_output_steps_only() {
         setup_global_test_eop();
 
@@ -3854,6 +3951,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_set_trajectory_mode_runtime() {
         setup_global_test_eop();
 
@@ -3884,6 +3982,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_trajectory_mode_reset() {
         setup_global_test_eop();
 
@@ -3935,6 +4034,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_propagation_error_terminates() {
         setup_global_test_eop();
 
@@ -3967,6 +4067,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_state_returns_error_on_diverged_epoch() {
         setup_global_test_eop();
 
@@ -3980,6 +4081,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_reset_clears_termination_error() {
         setup_global_test_eop();
 
@@ -3999,6 +4101,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sgppropagator_reset_termination_clears_error() {
         setup_global_test_eop();
 

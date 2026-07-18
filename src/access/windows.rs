@@ -1097,6 +1097,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_bisection_search() {
         setup_global_test_eop();
 
@@ -1146,6 +1147,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_compute_window_properties() {
         setup_global_test_eop();
 
@@ -1236,6 +1238,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_access_window_implements_identifiable() {
         setup_global_test_eop();
 
@@ -1282,6 +1285,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_access_window_auto_naming_with_location_and_satellite() {
         setup_global_test_eop();
 
@@ -1320,6 +1324,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_access_window_auto_naming_without_names() {
         setup_global_test_eop();
 
@@ -1357,6 +1362,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_access_window_counter_increments() {
         setup_global_test_eop();
 
@@ -1510,6 +1516,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_access_window_with_uuid() {
         setup_global_test_eop();
 
@@ -1551,6 +1558,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_access_window_with_identity() {
         setup_global_test_eop();
 
@@ -1600,6 +1608,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_access_window_set_identity() {
         setup_global_test_eop();
 
@@ -1651,6 +1660,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_access_window_generate_uuid() {
         setup_global_test_eop();
 
@@ -1701,6 +1711,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_access_window_time_methods() {
         setup_global_test_eop();
 
@@ -1746,6 +1757,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_compute_window_properties_with_property_computer() {
         setup_global_test_eop();
 

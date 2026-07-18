@@ -43,6 +43,7 @@ mod config;
 mod dynamics_source;
 mod ekf;
 mod measurement;
+mod sensors;
 mod traits;
 mod types;
 mod ukf;
@@ -58,6 +59,7 @@ pub use measurement::{
     EcefVelocityMeasurementModel, InertialPositionMeasurementModel, InertialStateMeasurementModel,
     InertialVelocityMeasurementModel,
 };
+pub use sensors::{SensorType, SimpleSSNSensor};
 pub use traits::MeasurementModel;
 pub use traits::measurement_jacobian_numerical;
 pub use types::{BLSIterationRecord, BLSObservationResidual, FilterRecord, Observation};

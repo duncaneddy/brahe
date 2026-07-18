@@ -600,6 +600,123 @@ impl UnscentedKalmanFilter {
         Ok(())
     }
 
+    /// Propagate the filter to an epoch without a measurement update.
+    ///
+    /// Runs the sigma-point prediction step only: sigma points are
+    /// propagated to `epoch`, the predicted mean and covariance are
+    /// recomputed, and process noise is applied. Use this to advance the
+    /// filter across measurement gaps while recording covariance growth.
+    ///
+    /// # Arguments
+    ///
+    /// * `epoch` - Target epoch (must be at or after the current filter epoch)
+    ///
+    /// # Returns
+    ///
+    /// Filter record for the prediction step (measurement fields empty,
+    /// `measurement_name` = `"Propagation"`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `epoch` is before the current filter epoch or if
+    /// propagation stops short (e.g., a terminal event fired).
+    pub fn propagate_to(&mut self, epoch: Epoch) -> Result<FilterRecord, BraheError> {
+        let current_epoch = self.dynamics.current_epoch();
+        let dt: f64 = epoch - current_epoch;
+        if dt < -1e-9 {
+            return Err(BraheError::Error(format!(
+                "Target epoch is before current filter epoch. \
+                 Filter epoch: {}, target epoch: {}.",
+                current_epoch, epoch
+            )));
+        }
+
+        let entry_state = self.dynamics.current_state();
+
+        match self.predict_only(epoch, current_epoch, dt) {
+            Ok(record) => {
+                if self.config.store_records {
+                    self.records.push(record.clone());
+                }
+                Ok(record)
+            }
+            Err(e) => {
+                self.dynamics.reinitialize(current_epoch, entry_state, None);
+                Err(e)
+            }
+        }
+    }
+
+    /// Fallible body of [`propagate_to`](Self::propagate_to). Mutates the
+    /// propagator; the caller rolls it back if this returns an error.
+    fn predict_only(
+        &mut self,
+        epoch: Epoch,
+        current_epoch: Epoch,
+        dt: f64,
+    ) -> Result<FilterRecord, BraheError> {
+        let n = self.state_dim;
+        let current_state = self.dynamics.current_state();
+
+        let sigma_points =
+            Self::generate_sigma_points(&current_state, &self.covariance, self.lambda, n)?;
+
+        let mut propagated_sigmas = Vec::with_capacity(2 * n + 1);
+        for sp in &sigma_points {
+            self.dynamics.reinitialize(current_epoch, sp.clone(), None);
+            self.dynamics.propagate_to(epoch);
+
+            let reached_epoch = self.dynamics.current_epoch();
+            let epoch_gap: f64 = epoch - reached_epoch;
+            if epoch_gap.abs() > 1e-6 {
+                return Err(BraheError::Error(format!(
+                    "Propagation stopped at {} before reaching target epoch {} \
+                     (a terminal event may have fired)",
+                    reached_epoch, epoch
+                )));
+            }
+            propagated_sigmas.push(self.dynamics.current_state());
+        }
+
+        let mut state_predicted = DVector::zeros(n);
+        for (i, sp) in propagated_sigmas.iter().enumerate() {
+            state_predicted += self.weights_mean[i] * sp;
+        }
+
+        let mut p_predicted = DMatrix::zeros(n, n);
+        for (i, sp) in propagated_sigmas.iter().enumerate() {
+            let diff = sp - &state_predicted;
+            p_predicted += self.weights_cov[i] * &diff * diff.transpose();
+        }
+
+        if let Some(ref pn) = self.config.process_noise {
+            if pn.scale_with_dt {
+                let dt_abs = dt.abs().max(1e-12);
+                p_predicted += &pn.q_matrix * dt_abs;
+            } else {
+                p_predicted += &pn.q_matrix;
+            }
+        }
+        let p_predicted = 0.5 * (&p_predicted + p_predicted.transpose());
+
+        let record = FilterRecord {
+            epoch,
+            state_predicted: state_predicted.clone(),
+            covariance_predicted: p_predicted.clone(),
+            state_updated: state_predicted.clone(),
+            covariance_updated: p_predicted.clone(),
+            prefit_residual: DVector::zeros(0),
+            postfit_residual: DVector::zeros(0),
+            kalman_gain: DMatrix::zeros(0, 0),
+            measurement_name: "Propagation".to_string(),
+        };
+
+        self.covariance = p_predicted;
+        self.dynamics.reinitialize(epoch, state_predicted, None);
+
+        Ok(record)
+    }
+
     /// Get current state estimate.
     pub fn current_state(&self) -> DVector<f64> {
         self.dynamics.current_state()
@@ -1366,6 +1483,36 @@ mod tests {
         }
 
         assert_eq!(ukf.records().len(), 5);
+    }
+
+    #[test]
+    #[serial]
+    fn test_ukf_propagate_to_grows_covariance() {
+        setup_global_test_eop();
+        let (epoch, true_state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+
+        let models: Vec<Box<dyn MeasurementModel>> =
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))];
+
+        let mut ukf = create_two_body_ukf(epoch, true_state, p0, models);
+
+        let p0_trace = ukf.current_covariance().trace();
+        let record = ukf.propagate_to(epoch + 600.0).unwrap();
+        assert_eq!(ukf.current_epoch(), epoch + 600.0);
+        assert_eq!(record.measurement_name, "Propagation");
+        assert_eq!(record.prefit_residual.len(), 0);
+        assert_eq!(record.postfit_residual.len(), 0);
+        assert_eq!(record.kalman_gain.nrows(), 0);
+        assert_eq!(record.kalman_gain.ncols(), 0);
+        assert_eq!(record.state_updated, record.state_predicted);
+        assert_eq!(record.covariance_updated, record.covariance_predicted);
+        // Covariance grows without measurements (Keplerian shear stretches
+        // the along-track uncertainty even with no explicit process noise).
+        assert!(ukf.current_covariance().trace() > p0_trace);
+        // Backwards propagation is rejected without mutating filter state.
+        assert!(ukf.propagate_to(epoch).is_err());
+        assert_eq!(ukf.current_epoch(), epoch + 600.0);
     }
 
     #[test]

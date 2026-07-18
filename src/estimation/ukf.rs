@@ -499,18 +499,31 @@ impl UnscentedKalmanFilter {
         let update_sigmas =
             Self::generate_sigma_points(&state_predicted, &p_predicted, self.lambda, n)?;
 
-        // Transform sigma points through measurement model
+        // Transform sigma points through measurement model. Validate every
+        // prediction's length here, not just z_sigmas[0]: a model returning
+        // inconsistent dimensions across sigma points would otherwise reach
+        // the wrapped-deviation loops and panic in nalgebra rather than
+        // surfacing as a structured error.
         let mut z_sigmas = Vec::with_capacity(2 * n + 1);
         for sp in &update_sigmas {
             let z_i = model.predict(&observation.epoch, sp, params.as_ref())?;
+            if z_i.len() != m {
+                return Err(BraheError::Error(format!(
+                    "Model '{}' predict() returned {} elements, expected measurement_dim {}",
+                    model.name(),
+                    z_i.len(),
+                    m
+                )));
+            }
             z_sigmas.push(z_i);
         }
 
         // Measurement noise covariance
         let r = model.noise_covariance();
 
-        // Measurement models are a user-extension boundary; validate output
-        // shapes so mistakes surface as errors rather than dimension panics.
+        // Measurement models are a user-extension boundary; validate the
+        // observation and noise-covariance shapes so mistakes surface as
+        // errors rather than dimension panics.
         validate_model_outputs(
             model.as_ref(),
             &observation.measurement,
@@ -1210,6 +1223,73 @@ mod tests {
                 epoch_drift
             );
         }
+    }
+
+    /// Model that returns the declared dimension for the first sigma-point
+    /// prediction but a shorter vector for later ones — exercises the
+    /// per-sigma-point length validation (a bug would panic in the wrapped
+    /// deviation loops instead of returning an error).
+    struct InconsistentSigmaDimModel {
+        calls: std::sync::atomic::AtomicUsize,
+    }
+    impl MeasurementModel for InconsistentSigmaDimModel {
+        fn predict(
+            &self,
+            _epoch: &Epoch,
+            state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            let call = self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            // First sigma point (z_0) is the declared length; later ones short.
+            let m = if call == 0 { 3 } else { 2 };
+            Ok(state.rows(0, m).into_owned())
+        }
+        fn noise_covariance(&self) -> DMatrix<f64> {
+            DMatrix::identity(3, 3) * 100.0
+        }
+        fn measurement_dim(&self) -> usize {
+            3
+        }
+        fn name(&self) -> &str {
+            "InconsistentSigmaDim"
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_ukf_inconsistent_sigma_point_dim_errors() {
+        // A model whose predict() length varies across sigma points must
+        // surface as a structured error naming the model, not an nalgebra
+        // dimension panic, and must leave the filter rolled back.
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+
+        let mut ukf = create_two_body_ukf(
+            epoch,
+            state.clone(),
+            p0,
+            vec![Box::new(InconsistentSigmaDimModel {
+                calls: std::sync::atomic::AtomicUsize::new(0),
+            })],
+        );
+
+        let obs = Observation::new(epoch + 60.0, state.rows(0, 3).into_owned(), 0);
+        match ukf.process_observation(&obs) {
+            Err(e) => assert!(
+                e.to_string().contains("predict() returned 2 elements"),
+                "Error should name the mismatched sigma-point dimension: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected an error for inconsistent sigma-point dimensions"),
+        }
+
+        let epoch_drift: f64 = ukf.current_epoch() - epoch;
+        assert!(
+            epoch_drift.abs() < 1e-9,
+            "Filter must be rolled back after the error, drifted {} s",
+            epoch_drift
+        );
     }
 
     /// Model that requires the propagator's parameter vector to be passed

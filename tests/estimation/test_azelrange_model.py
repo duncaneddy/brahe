@@ -33,6 +33,14 @@ class TestAzElRangeMeasurementModel:
         assert r[1] == pytest.approx(0.0, abs=1e-12)
         assert r[2] == pytest.approx(0.0, abs=1e-6)
 
+    def test_residual_rejects_wrong_length(self):
+        model = bh.AzElRangeMeasurementModel(0.0, 0.0, 0.0, 0.01, 0.01, 10.0)
+        # Mismatched / empty arrays must raise, not panic.
+        with pytest.raises(ValueError, match="measurement_dim"):
+            model.residual(np.array([1.0, 2.0]), np.array([1.0, 2.0, 3.0]))
+        with pytest.raises(ValueError, match="measurement_dim"):
+            model.residual(np.array([]), np.array([]))
+
     def test_predict_zenith(self, test_epoch):
         lon, lat, alt = -71.49, 42.62, 123.1
         model = bh.AzElRangeMeasurementModel(lon, lat, alt, 0.01, 0.01, 10.0)
@@ -148,13 +156,20 @@ class TestAzElRangeFilterAzimuthWrap:
         obs = bh.Observation(test_epoch, measured, 0)
         record = ekf.process_observation(obs)
 
-        # A correctly-wrapped residual is small in magnitude, not ~360 deg.
+        # PRIMARY discriminator: the filter's pre-fit azimuth innovation is the
+        # wrapped ~-0.1 deg residual, not the ~-359.9 deg raw difference. This
+        # is the assertion that catches a loss of residual forwarding: if
+        # MeasurementModelHolder no longer dispatched to the model's wrapping
+        # residual() and fell back to plain subtraction, this value would be
+        # ~359.8 deg and the assertion would fail. (raw_diff above is asserted
+        # > 180 deg, so the wrap is genuinely in play.)
         assert abs(record.prefit_residual[0]) < 1.0
 
+        # Secondary sanity bound on the downstream update. With the wrap-aware
+        # Jacobian a ~0.1 deg azimuth innovation drives only a few-hundred-metre
+        # position correction; a lost wrap (raw ~360 deg innovation) would, with
+        # that same correct Jacobian, scale the correction ~3600x into the
+        # ~1000 km range. This guards the update magnitude, not the Jacobian
+        # itself (the primary assertion above is what proves the wrap survives).
         state_updated = ekf.current_state()
-        # With the wrap-aware Jacobian, a ~0.1 deg azimuth residual at this
-        # geometry (~222 km horizontal range) maps to a physically-correct
-        # position correction of a few hundred metres. An unwrapped ~360 deg
-        # residual would scale that by ~3600x, i.e. ~1000 km; the bound below
-        # sits well between the two regimes so a lost wrap still fails loudly.
         assert np.linalg.norm(state_updated - state0) < 2000.0

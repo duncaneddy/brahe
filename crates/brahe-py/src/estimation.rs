@@ -494,8 +494,20 @@ macro_rules! impl_measurement_model_binding {
                 measured: PyReadonlyArray1<f64>,
                 predicted: PyReadonlyArray1<f64>,
             ) -> PyResult<Bound<'py, PyArray<f64, numpy::Ix1>>> {
-                let measured_vec = nalgebra::DVector::from_column_slice(measured.as_slice()?);
-                let predicted_vec = nalgebra::DVector::from_column_slice(predicted.as_slice()?);
+                let measured_slice = measured.as_slice()?;
+                let predicted_slice = predicted.as_slice()?;
+                let m = self.model.measurement_dim();
+                if measured_slice.len() != m || predicted_slice.len() != m {
+                    return Err(exceptions::PyValueError::new_err(format!(
+                        "residual() expects measured and predicted vectors of length {} \
+                         (measurement_dim), got {} and {}",
+                        m,
+                        measured_slice.len(),
+                        predicted_slice.len()
+                    )));
+                }
+                let measured_vec = nalgebra::DVector::from_column_slice(measured_slice);
+                let predicted_vec = nalgebra::DVector::from_column_slice(predicted_slice);
                 let vec = self.model.residual(&measured_vec, &predicted_vec)
                     .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
                 let flat: Vec<f64> = (0..vec.len()).map(|i| vec[i]).collect();

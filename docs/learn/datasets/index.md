@@ -45,7 +45,7 @@ Fixed-epoch star catalogs for reference-frame realization and star-based attitud
 - **FK5**: 1,535 fundamental stars, J2000.0
 - **Hipparcos**: ~118,000 stars, ICRS at epoch J1991.25
 - **Tycho-2**: ~2.54 million stars, ICRS
-- **Never-stale caching**: Cached copies never expire by default, since published catalogs do not change
+- **Never-stale caching**: Cached copies never expire by default, since published catalogs are not expected to change
 - **Proper motion**: Propagate catalog positions to any epoch via `radec_at_epoch`
 
 **Best for**: Star-based attitude determination, reference-frame realization, astrometric cross-matching

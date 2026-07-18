@@ -79,6 +79,20 @@ def test_construction_rejects_negative_noise():
         bh.SimpleSSNSensor(loc, noise=(0.02, -0.02, 50.0))
 
 
+def test_state_length_validation(test_epoch):
+    # A state array shorter than 3 elements must raise ValueError on every
+    # geometry method, not trip the Rust length assertion.
+    loc = bh.PointLocation(-71.49, 42.62, 123.1).with_name("Test")
+    sensor = bh.SimpleSSNSensor(loc, noise=(0.02, 0.02, 50.0), seed=1)
+    short = np.array([1.0, 2.0])
+    with pytest.raises(ValueError, match="at least 3 elements"):
+        sensor.visible(test_epoch, short)
+    with pytest.raises(ValueError, match="at least 3 elements"):
+        sensor.measure(test_epoch, short)
+    with pytest.raises(ValueError, match="at least 3 elements"):
+        sensor.azelrange(test_epoch, short)
+
+
 def test_measure_seeded_and_visible(test_epoch):
     loc = bh.PointLocation(-71.49, 42.62, 123.1).with_name("Test")
     state = make_state_above(test_epoch, -71.49, 42.62, 500e3)

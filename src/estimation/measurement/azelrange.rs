@@ -81,6 +81,14 @@ impl AzElRangeMeasurementModel {
     /// # Returns
     ///
     /// * `AzElRangeMeasurementModel` - New model with zero bias
+    ///
+    /// # Panics
+    ///
+    /// Panics if the station coordinates are not valid geodetic coordinates
+    /// (e.g. latitude outside ±90°), matching the codebase-wide precedent for
+    /// infallible geodetic constructors (`PointLocation::new`). Use
+    /// [`from_covariance`](Self::from_covariance) for a fallible constructor;
+    /// the Python bindings pre-validate the coordinates and raise `ValueError`.
     pub fn new(
         station_lon: f64,
         station_lat: f64,

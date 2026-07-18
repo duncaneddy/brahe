@@ -292,7 +292,19 @@ impl SimpleSSNSensor {
     /// # Returns
     ///
     /// `[azimuth_deg, elevation_deg, range_m]`
+    ///
+    /// # Panics
+    ///
+    /// Panics if `state_eci` has fewer than 3 elements. Passing a shorter
+    /// state is a programming error, consistent with the infallible geometry
+    /// helpers elsewhere in the library; the Python bindings pre-validate the
+    /// length and raise `ValueError` instead.
     pub fn azelrange(&self, epoch: &Epoch, state_eci: &DVector<f64>) -> Vector3<f64> {
+        assert!(
+            state_eci.len() >= 3,
+            "SimpleSSNSensor requires a state vector with at least 3 elements, got {}",
+            state_eci.len()
+        );
         let pos_eci = Vector3::new(state_eci[0], state_eci[1], state_eci[2]);
         let pos_ecef = position_eci_to_ecef(*epoch, pos_eci);
         let sez = relative_position_ecef_to_sez(

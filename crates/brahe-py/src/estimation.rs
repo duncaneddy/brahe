@@ -1052,6 +1052,51 @@ impl_measurement_model_binding!(
     doc: "ECEF state measurement model (6D ECEF state from GNSS).\n\nInternally converts ECI state to ECEF state."
 );
 
+/// Validate station geodetic coordinates before constructing an
+/// `AzElRangeMeasurementModel`, so an out-of-range latitude/longitude raises a
+/// clear `ValueError` instead of tripping the infallible Rust constructor's
+/// `.expect("Invalid geodetic coordinates")` panic. Bounds scale with the
+/// angle format (degrees vs radians). NaN inputs fail the `<=` comparison and
+/// are rejected.
+fn validate_station_coords(
+    station_lon: f64,
+    station_lat: f64,
+    af: constants::AngleFormat,
+) -> PyResult<()> {
+    let (lat_bound, lon_bound) = match af {
+        constants::AngleFormat::Degrees => (90.0_f64, 180.0_f64),
+        constants::AngleFormat::Radians => (std::f64::consts::FRAC_PI_2, std::f64::consts::PI),
+    };
+    // `!is_finite()` rejects NaN/inf; the positive `>` comparison keeps clippy's
+    // partial-ord lint happy while still bounding the coordinate.
+    if !station_lat.is_finite() || station_lat.abs() > lat_bound {
+        return Err(exceptions::PyValueError::new_err(format!(
+            "station_lat {} is out of range [-{}, {}] for the given angle format",
+            station_lat, lat_bound, lat_bound
+        )));
+    }
+    if !station_lon.is_finite() || station_lon.abs() > lon_bound {
+        return Err(exceptions::PyValueError::new_err(format!(
+            "station_lon {} is out of range [-{}, {}] for the given angle format",
+            station_lon, lon_bound, lon_bound
+        )));
+    }
+    Ok(())
+}
+
+/// Validate that a target state array has at least 3 elements before it reaches
+/// the infallible `SimpleSSNSensor` geometry methods, raising a clear
+/// `ValueError` instead of tripping the Rust `azelrange()` length assertion.
+fn require_min_state_len(state: &[f64]) -> PyResult<()> {
+    if state.len() < 3 {
+        return Err(exceptions::PyValueError::new_err(format!(
+            "SimpleSSNSensor requires a state vector with at least 3 elements, got {}",
+            state.len()
+        )));
+    }
+    Ok(())
+}
+
 impl_measurement_model_binding!(
     PyAzElRangeMeasurementModel,
     estimation::AzElRangeMeasurementModel,
@@ -1096,17 +1141,18 @@ impl_measurement_model_binding!(
             bias_az: f64,
             bias_el: f64,
             bias_range: f64,
-        ) -> Self {
+        ) -> PyResult<Self> {
             let af = angle_format
                 .map(|a| a.value)
                 .unwrap_or(constants::AngleFormat::Degrees);
-            PyAzElRangeMeasurementModel {
+            validate_station_coords(station_lon, station_lat, af)?;
+            Ok(PyAzElRangeMeasurementModel {
                 model: estimation::AzElRangeMeasurementModel::new(
                     station_lon, station_lat, station_alt,
                     sigma_az, sigma_el, sigma_range, af,
                 )
                 .with_bias(bias_az, bias_el, bias_range),
-            }
+            })
         }
 
         /// Create from a full 3x3 noise covariance matrix.
@@ -1133,6 +1179,7 @@ impl_measurement_model_binding!(
             let af = angle_format
                 .map(|a| a.value)
                 .unwrap_or(constants::AngleFormat::Degrees);
+            validate_station_coords(station_lon, station_lat, af)?;
             let shape = noise_cov.shape();
             let data = noise_cov.as_slice().map_err(|e| {
                 exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
@@ -1170,6 +1217,7 @@ impl_measurement_model_binding!(
             let af = angle_format
                 .map(|a| a.value)
                 .unwrap_or(constants::AngleFormat::Degrees);
+            validate_station_coords(station_lon, station_lat, af)?;
             let data = upper.as_slice().map_err(|e| {
                 exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
             })?;
@@ -1336,6 +1384,7 @@ impl PySimpleSSNSensor {
         let s = state.as_slice().map_err(|e| {
             exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
         })?;
+        require_min_state_len(s)?;
         Ok(self
             .sensor
             .visible(&epoch.obj, &nalgebra::DVector::from_column_slice(s)))
@@ -1362,6 +1411,7 @@ impl PySimpleSSNSensor {
         let s = state.as_slice().map_err(|e| {
             exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
         })?;
+        require_min_state_len(s)?;
         Ok(self
             .sensor
             .measure(&epoch.obj, &nalgebra::DVector::from_column_slice(s))
@@ -1385,6 +1435,7 @@ impl PySimpleSSNSensor {
         let s = state.as_slice().map_err(|e| {
             exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
         })?;
+        require_min_state_len(s)?;
         let azel = self
             .sensor
             .azelrange(&epoch.obj, &nalgebra::DVector::from_column_slice(s));

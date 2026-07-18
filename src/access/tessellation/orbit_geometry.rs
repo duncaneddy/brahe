@@ -1181,6 +1181,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_point_tessellation_ascending() {
         setup_global_test_eop();
         let tess = make_tessellator(AscDsc::Ascending);
@@ -1206,6 +1207,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_point_tessellation_either() {
         setup_global_test_eop();
         let tess = make_tessellator(AscDsc::Either);
@@ -1223,6 +1225,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_polygon_tessellation_small_rect() {
         setup_global_test_eop();
         let tess = make_tessellator(AscDsc::Ascending);
@@ -1253,6 +1256,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_polygon_tessellation_larger() {
         setup_global_test_eop();
         let tess = make_tessellator(AscDsc::Ascending);
@@ -1274,6 +1278,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_tessellator_name() {
         setup_global_test_eop();
         let tess = make_tessellator(AscDsc::Ascending);

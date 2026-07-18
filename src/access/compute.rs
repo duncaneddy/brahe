@@ -307,6 +307,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_location_accesses_single() {
         setup_global_test_eop();
 
@@ -354,6 +355,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_location_accesses_multiple_sats() {
         setup_global_test_eop();
 
@@ -441,6 +443,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_location_accesses_multiple_locations() {
         setup_global_test_eop();
 
@@ -492,6 +495,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_location_accesses_multiple() {
         setup_global_test_eop();
 
@@ -561,6 +565,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_location_accesses_sequential() {
         setup_global_test_eop();
 
@@ -609,6 +614,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_access_identification_traceability() {
         use crate::propagators::sgp_propagator::SGPPropagator;
         use crate::utils::Identifiable;
@@ -746,6 +752,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_access_default_uuid_traceability() {
         use crate::utils::Identifiable;
         use std::collections::HashSet;

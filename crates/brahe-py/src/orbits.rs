@@ -1347,11 +1347,417 @@ fn py_epoch_from_tle(line1: String) -> PyResult<PyEpoch> {
     }
 }
 
+// =============================================================================
+// Mean-Osculating Conversion Method Selector
+// =============================================================================
+
+/// Algorithm used to map between mean and osculating Keplerian elements.
+///
+/// Note:
+///     This class is created via a class attribute and a class method:
+///     - `MeanElementMethod.BROUWER_LYDDANE` - First-order analytical J2 mapping
+///     - `MeanElementMethod.numerical(config)` - Numerical windowed averaging (batch-only)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Analytical Brouwer-Lyddane method (single-state and batch)
+///     method = bh.MeanElementMethod.BROUWER_LYDDANE
+///
+///     # Numerical windowed-averaging method (batch-only)
+///     cfg = bh.MeanElementNumericalMethodConfig(5400.0, bh.WindowAlignment.CENTERED, bh.WindowEdgeHandling.TRUNCATE)
+///     method = bh.MeanElementMethod.numerical(cfg)
+///     ```
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "MeanElementMethod")]
+#[derive(Clone)]
+pub struct PyMeanElementMethod {
+    pub method: orbits::MeanElementMethod,
+}
+
+#[pymethods]
+impl PyMeanElementMethod {
+    /// First-order analytical Brouwer-Lyddane J2 method.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn BROUWER_LYDDANE() -> Self {
+        PyMeanElementMethod {
+            method: orbits::MeanElementMethod::BrouwerLyddane,
+        }
+    }
+
+    /// Create a numerical windowed-averaging method selector (batch-only).
+    ///
+    /// Args:
+    ///     config (MeanElementNumericalMethodConfig): Numerical averaging window configuration.
+    ///
+    /// Returns:
+    ///     MeanElementMethod: A numerical method selector.
+    #[classmethod]
+    fn numerical(_cls: &Bound<'_, PyType>, config: &PyMeanElementNumericalMethodConfig) -> Self {
+        PyMeanElementMethod {
+            method: orbits::MeanElementMethod::Numerical(config.config.clone()),
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        match &self.method {
+            orbits::MeanElementMethod::BrouwerLyddane => "MeanElementMethod.BROUWER_LYDDANE".to_string(),
+            orbits::MeanElementMethod::Numerical(_) => "MeanElementMethod.numerical(...)".to_string(),
+        }
+    }
+}
+
+/// Placement of the numerical averaging window relative to the output epoch.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     alignment = bh.WindowAlignment.CENTERED
+///     ```
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "WindowAlignment")]
+#[derive(Clone)]
+pub struct PyWindowAlignment {
+    pub value: orbits::WindowAlignment,
+}
+
+#[pymethods]
+#[allow(non_snake_case)]
+impl PyWindowAlignment {
+    /// Symmetric window `[t - W/2, t + W/2]`.
+    #[classattr]
+    fn CENTERED() -> Self {
+        PyWindowAlignment {
+            value: orbits::WindowAlignment::Centered,
+        }
+    }
+
+    /// Causal look-back window `[t - W, t]`.
+    #[classattr]
+    fn TRAILING() -> Self {
+        PyWindowAlignment {
+            value: orbits::WindowAlignment::Trailing,
+        }
+    }
+
+    /// Look-ahead window `[t, t + W]`.
+    #[classattr]
+    fn LEADING() -> Self {
+        PyWindowAlignment {
+            value: orbits::WindowAlignment::Leading,
+        }
+    }
+
+    fn __str__(&self) -> String {
+        format!("{:?}", self.value)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("WindowAlignment.{:?}", self.value)
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self.value == other.value),
+            CompareOp::Ne => Ok(self.value != other.value),
+            _ => Err(exceptions::PyNotImplementedError::new_err(
+                "Comparison not supported",
+            )),
+        }
+    }
+}
+
+/// Handling of output epochs whose averaging window runs past the data bounds.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     edge = bh.WindowEdgeHandling.TRUNCATE
+///     ```
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "WindowEdgeHandling")]
+#[derive(Clone)]
+pub struct PyWindowEdgeHandling {
+    pub value: orbits::WindowEdgeHandling,
+}
+
+#[pymethods]
+#[allow(non_snake_case)]
+impl PyWindowEdgeHandling {
+    /// Drop unsupported output epochs; output is shorter than input.
+    #[classattr]
+    fn TRUNCATE() -> Self {
+        PyWindowEdgeHandling {
+            value: orbits::WindowEdgeHandling::Truncate,
+        }
+    }
+
+    /// Hold the window length fixed and slide the anchor within it; output length preserved.
+    #[classattr]
+    fn PRESERVE_WINDOW() -> Self {
+        PyWindowEdgeHandling {
+            value: orbits::WindowEdgeHandling::PreserveWindow,
+        }
+    }
+
+    fn __str__(&self) -> String {
+        format!("{:?}", self.value)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("WindowEdgeHandling.{:?}", self.value)
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self.value == other.value),
+            CompareOp::Ne => Ok(self.value != other.value),
+            _ => Err(exceptions::PyNotImplementedError::new_err(
+                "Comparison not supported",
+            )),
+        }
+    }
+}
+
+/// Configuration for the numerical windowed-averaging mean-element method.
+///
+/// Args:
+///     window_seconds (float): Averaging window length in seconds.
+///     alignment (WindowAlignment): Placement of the averaging window relative to the output epoch.
+///     edge (WindowEdgeHandling): Handling of output epochs whose window runs past the data bounds.
+///     inverse (MeanElementInverseConfig, optional): Dynamics for the iterative mean-to-osculating inverse.
+///         Required for numerical mean-to-osculating conversion; unused for osculating-to-mean.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     cfg = bh.MeanElementNumericalMethodConfig(5400.0, bh.WindowAlignment.CENTERED, bh.WindowEdgeHandling.TRUNCATE)
+///     ```
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "MeanElementNumericalMethodConfig")]
+#[derive(Clone)]
+pub struct PyMeanElementNumericalMethodConfig {
+    pub config: orbits::MeanElementNumericalMethodConfig,
+}
+
+#[pymethods]
+impl PyMeanElementNumericalMethodConfig {
+    /// Create a numerical windowed-averaging configuration.
+    ///
+    /// Args:
+    ///     window_seconds (float): Averaging window length in seconds.
+    ///     alignment (WindowAlignment): Placement of the averaging window relative to the output epoch.
+    ///     edge (WindowEdgeHandling): Handling of output epochs whose window runs past the data bounds.
+    ///     inverse (MeanElementInverseConfig, optional): Dynamics for the iterative mean-to-osculating inverse.
+    ///
+    /// Returns:
+    ///     MeanElementNumericalMethodConfig: A new numerical averaging configuration.
+    #[new]
+    #[pyo3(signature = (window_seconds, alignment, edge, inverse=None))]
+    fn new(
+        window_seconds: f64,
+        alignment: &PyWindowAlignment,
+        edge: &PyWindowEdgeHandling,
+        inverse: Option<&PyMeanElementInverseConfig>,
+    ) -> Self {
+        PyMeanElementNumericalMethodConfig {
+            config: orbits::MeanElementNumericalMethodConfig {
+                window_seconds,
+                alignment: alignment.value,
+                edge: edge.value,
+                inverse: inverse.map(|i| i.config.clone()),
+            },
+        }
+    }
+
+    /// Averaging window length in seconds.
+    #[getter]
+    fn get_window_seconds(&self) -> f64 {
+        self.config.window_seconds
+    }
+
+    #[setter]
+    fn set_window_seconds(&mut self, value: f64) {
+        self.config.window_seconds = value;
+    }
+
+    /// Placement of the averaging window relative to the output epoch.
+    #[getter]
+    fn get_alignment(&self) -> PyWindowAlignment {
+        PyWindowAlignment {
+            value: self.config.alignment,
+        }
+    }
+
+    #[setter]
+    fn set_alignment(&mut self, value: &PyWindowAlignment) {
+        self.config.alignment = value.value;
+    }
+
+    /// Handling of output epochs whose window runs past the data bounds.
+    #[getter]
+    fn get_edge(&self) -> PyWindowEdgeHandling {
+        PyWindowEdgeHandling {
+            value: self.config.edge,
+        }
+    }
+
+    #[setter]
+    fn set_edge(&mut self, value: &PyWindowEdgeHandling) {
+        self.config.edge = value.value;
+    }
+
+    /// Dynamics for the iterative mean-to-osculating inverse, if configured.
+    #[getter]
+    fn get_inverse(&self) -> Option<PyMeanElementInverseConfig> {
+        self.config
+            .inverse
+            .clone()
+            .map(|config| PyMeanElementInverseConfig { config })
+    }
+
+    #[setter]
+    fn set_inverse(&mut self, value: Option<&PyMeanElementInverseConfig>) {
+        self.config.inverse = value.map(|v| v.config.clone());
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "MeanElementNumericalMethodConfig(window_seconds={}, alignment={:?}, edge={:?})",
+            self.config.window_seconds, self.config.alignment, self.config.edge
+        )
+    }
+}
+
+/// Iterative differential-correction dynamics for numerical mean-to-osculating conversion.
+///
+/// Args:
+///     force_model (ForceModelConfig): Force model used to propagate the trial osculating state.
+///     propagation (NumericalPropagationConfig): Integrator settings for the trial propagation.
+///     tolerance (float): Convergence tolerance on the mean-element residual, compared
+///         against the mixed norm ``|Δa| (m) + 1e6·|Δe| + 1e6·‖Δ(i, Ω, ω, M)‖ (rad)``.
+///         For example, ``tolerance=1.0`` demands roughly 1 m in a, 1e-6 in e, and
+///         1e-6 rad (~0.2 arcsec) in the angles combined.
+///     max_iterations (int): Maximum number of differential-correction iterations.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     cfg = bh.MeanElementInverseConfig(
+///         bh.ForceModelConfig.default(),
+///         bh.NumericalPropagationConfig.default(),
+///         1.0,
+///         50,
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "MeanElementInverseConfig")]
+#[derive(Clone)]
+pub struct PyMeanElementInverseConfig {
+    pub config: orbits::MeanElementInverseConfig,
+}
+
+#[pymethods]
+impl PyMeanElementInverseConfig {
+    /// Create an iterative differential-correction configuration.
+    ///
+    /// Args:
+    ///     force_model (ForceModelConfig): Force model used to propagate the trial osculating state.
+    ///     propagation (NumericalPropagationConfig): Integrator settings for the trial propagation.
+    ///     tolerance (float): Convergence tolerance on the mean-element residual, compared
+///         against the mixed norm ``|Δa| (m) + 1e6·|Δe| + 1e6·‖Δ(i, Ω, ω, M)‖ (rad)``.
+///         For example, ``tolerance=1.0`` demands roughly 1 m in a, 1e-6 in e, and
+///         1e-6 rad (~0.2 arcsec) in the angles combined.
+    ///     max_iterations (int): Maximum number of differential-correction iterations.
+    ///
+    /// Returns:
+    ///     MeanElementInverseConfig: A new inverse-dynamics configuration.
+    #[new]
+    fn new(
+        force_model: &PyForceModelConfig,
+        propagation: &PyNumericalPropagationConfig,
+        tolerance: f64,
+        max_iterations: usize,
+    ) -> Self {
+        PyMeanElementInverseConfig {
+            config: orbits::MeanElementInverseConfig {
+                force_model: force_model.config.clone(),
+                propagation: propagation.config.clone(),
+                tolerance,
+                max_iterations,
+            },
+        }
+    }
+
+    /// Force model used to propagate the trial osculating state.
+    #[getter]
+    fn get_force_model(&self) -> PyForceModelConfig {
+        PyForceModelConfig {
+            config: self.config.force_model.clone(),
+        }
+    }
+
+    #[setter]
+    fn set_force_model(&mut self, value: &PyForceModelConfig) {
+        self.config.force_model = value.config.clone();
+    }
+
+    /// Integrator settings for the trial propagation.
+    #[getter]
+    fn get_propagation(&self) -> PyNumericalPropagationConfig {
+        PyNumericalPropagationConfig {
+            config: self.config.propagation.clone(),
+        }
+    }
+
+    #[setter]
+    fn set_propagation(&mut self, value: &PyNumericalPropagationConfig) {
+        self.config.propagation = value.config.clone();
+    }
+
+    /// Convergence tolerance on the mean-element residual (mixed norm
+    /// `|Δa| (m) + 1e6·|Δe| + 1e6·‖Δ(i, Ω, ω, M)‖ (rad)`).
+    #[getter]
+    fn get_tolerance(&self) -> f64 {
+        self.config.tolerance
+    }
+
+    #[setter]
+    fn set_tolerance(&mut self, value: f64) {
+        self.config.tolerance = value;
+    }
+
+    /// Maximum number of differential-correction iterations.
+    #[getter]
+    fn get_max_iterations(&self) -> usize {
+        self.config.max_iterations
+    }
+
+    #[setter]
+    fn set_max_iterations(&mut self, value: usize) {
+        self.config.max_iterations = value;
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "MeanElementInverseConfig(tolerance={}, max_iterations={})",
+            self.config.tolerance, self.config.max_iterations
+        )
+    }
+}
+
 /// Convert osculating Keplerian elements to mean Keplerian elements.
 ///
-/// Applies the first-order Brouwer-Lyddane transformation to convert osculating
-/// (instantaneous) orbital elements to mean (orbit-averaged) elements. The
-/// transformation accounts for short-period and long-period J2 perturbations.
+/// Applies the selected mean-element method to convert osculating (instantaneous)
+/// orbital elements to mean (orbit-averaged) elements. `MeanElementMethod.numerical()`
+/// is batch-only and raises for single-state calls; use `MeanElementMethod.BROUWER_LYDDANE`
+/// for the first-order analytical J2 mapping.
 ///
 /// Args:
 ///     osc (numpy.ndarray): Osculating Keplerian elements as a 6-element array:
@@ -1362,10 +1768,14 @@ fn py_epoch_from_tle(line1: String) -> PyResult<PyEpoch> {
 ///         - Ω: Right ascension of ascending node (radians or degrees, per angle_format)
 ///         - ω: Argument of perigee (radians or degrees, per angle_format)
 ///         - M: Mean anomaly (radians or degrees, per angle_format)
+///     method (MeanElementMethod): Algorithm used to compute mean elements.
 ///     angle_format (AngleFormat): Format of angular elements (Radians or Degrees)
 ///
 /// Returns:
 ///     numpy.ndarray: Mean Keplerian elements in the same format as input.
+///
+/// Raises:
+///     BraheError: If `method` is `MeanElementMethod.numerical()`.
 ///
 /// Note:
 ///     The forward and inverse transformations are not perfectly inverse due to
@@ -1387,27 +1797,29 @@ fn py_epoch_from_tle(line1: String) -> PyResult<PyEpoch> {
 ///         0.0,                 # M = 0
 ///     ])
 ///
-///     mean = bh.state_koe_osc_to_mean(osc, bh.AngleFormat.DEGREES)
+///     mean = bh.state_koe_osc_to_mean(osc, bh.MeanElementMethod.BROUWER_LYDDANE, bh.AngleFormat.DEGREES)
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(osc, angle_format)")]
+#[pyo3(text_signature = "(osc, method, angle_format)")]
 #[pyo3(name = "state_koe_osc_to_mean")]
 fn py_state_koe_osc_to_mean<'py>(
     py: Python<'py>,
     osc: &Bound<'_, PyAny>,
+    method: &PyMeanElementMethod,
     angle_format: &PyAngleFormat,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let osc_vec = pyany_to_f64_array1(osc, Some(6))?;
     let osc_svec = SVector::<f64, 6>::from_row_slice(&osc_vec);
-    let mean = orbits::state_koe_osc_to_mean(&osc_svec, angle_format.value);
+    let mean = orbits::state_koe_osc_to_mean(&osc_svec, method.method.clone(), angle_format.value)?;
     Ok(mean.as_slice().to_pyarray(py))
 }
 
 /// Convert mean Keplerian elements to osculating Keplerian elements.
 ///
-/// Applies the first-order Brouwer-Lyddane transformation to convert mean
-/// (orbit-averaged) orbital elements to osculating (instantaneous) elements.
-/// The transformation accounts for short-period and long-period J2 perturbations.
+/// Applies the selected mean-element method to convert mean (orbit-averaged)
+/// orbital elements to osculating (instantaneous) elements. `MeanElementMethod.numerical()`
+/// is batch-only and raises for single-state calls; use `MeanElementMethod.BROUWER_LYDDANE`
+/// for the first-order analytical J2 mapping.
 ///
 /// Args:
 ///     mean (numpy.ndarray): Mean Keplerian elements as a 6-element array:
@@ -1418,10 +1830,14 @@ fn py_state_koe_osc_to_mean<'py>(
 ///         - Ω: Right ascension of ascending node (radians or degrees, per angle_format)
 ///         - ω: Argument of perigee (radians or degrees, per angle_format)
 ///         - M: Mean anomaly (radians or degrees, per angle_format)
+///     method (MeanElementMethod): Algorithm used to compute osculating elements.
 ///     angle_format (AngleFormat): Format of angular elements (Radians or Degrees)
 ///
 /// Returns:
 ///     numpy.ndarray: Osculating Keplerian elements in the same format as input.
+///
+/// Raises:
+///     BraheError: If `method` is `MeanElementMethod.numerical()`.
 ///
 /// Note:
 ///     The forward and inverse transformations are not perfectly inverse due to
@@ -1443,20 +1859,253 @@ fn py_state_koe_osc_to_mean<'py>(
 ///         0.0,                 # M = 0
 ///     ])
 ///
-///     osc = bh.state_koe_mean_to_osc(mean, bh.AngleFormat.DEGREES)
+///     osc = bh.state_koe_mean_to_osc(mean, bh.MeanElementMethod.BROUWER_LYDDANE, bh.AngleFormat.DEGREES)
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(mean, angle_format)")]
+#[pyo3(text_signature = "(mean, method, angle_format)")]
 #[pyo3(name = "state_koe_mean_to_osc")]
 fn py_state_koe_mean_to_osc<'py>(
     py: Python<'py>,
     mean: &Bound<'_, PyAny>,
+    method: &PyMeanElementMethod,
     angle_format: &PyAngleFormat,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let mean_vec = pyany_to_f64_array1(mean, Some(6))?;
     let mean_svec = SVector::<f64, 6>::from_row_slice(&mean_vec);
-    let osc = orbits::state_koe_mean_to_osc(&mean_svec, angle_format.value);
+    let osc = orbits::state_koe_mean_to_osc(&mean_svec, method.method.clone(), angle_format.value)?;
     Ok(osc.as_slice().to_pyarray(py))
+}
+
+/// Converts an (M, 6) numpy array view into a `Vec` of 6-element state vectors.
+///
+/// Iterates row-by-row via the ndarray iterator rather than `as_slice()` so that
+/// non-contiguous row views (e.g. from a sliced or transposed input array) are
+/// handled correctly.
+fn states_array2_to_svec6(states: &PyReadonlyArray2<f64>) -> PyResult<Vec<SVector<f64, 6>>> {
+    let arr = states.as_array();
+    if arr.ncols() != 6 {
+        return Err(exceptions::PyValueError::new_err(format!(
+            "States array must have 6 columns, got {}",
+            arr.ncols()
+        )));
+    }
+    Ok((0..arr.nrows())
+        .map(|i| SVector::<f64, 6>::from_iterator(arr.row(i).iter().copied()))
+        .collect())
+}
+
+/// Python return type shared by the batch mean-element conversion functions:
+/// output epochs paired with an (N, 6) numpy array of Keplerian states.
+type BatchKoeResult<'py> = (Vec<PyEpoch>, Bound<'py, PyArray<f64, Ix2>>);
+
+/// Converts a `Vec` of `(epoch, state)` pairs into `(list[Epoch], numpy.ndarray)` for return to Python.
+fn pairs_to_py<'py>(py: Python<'py>, pairs: Vec<(time::Epoch, SVector<f64, 6>)>) -> BatchKoeResult<'py> {
+    let nrows = pairs.len();
+    let mut epochs = Vec::with_capacity(nrows);
+    let mut data = Vec::with_capacity(nrows * 6);
+    for (t, s) in pairs {
+        epochs.push(PyEpoch { obj: t });
+        data.extend_from_slice(s.as_slice());
+    }
+    let states = PyArray::from_vec(py, data).reshape((nrows, 6)).unwrap();
+    (epochs, states)
+}
+
+/// Convert a batch of osculating Keplerian states to mean Keplerian states.
+///
+/// Applies the selected mean-element method across an epoch/state series.
+/// `MeanElementMethod.BROUWER_LYDDANE` maps each `(epoch, state)` pair
+/// independently, so the output has the same length as the input.
+/// `MeanElementMethod.numerical()` instead averages the osculating states
+/// over a moving window (see `MeanElementNumericalMethodConfig`); the output may be shorter
+/// than the input when `edge` is `WindowEdgeHandling.TRUNCATE` and some output
+/// epochs' windows are not fully supported by the input trajectory.
+///
+/// Args:
+///     epochs (list[Epoch]): Epochs of the input osculating states, one per `states` row.
+///     states (numpy.ndarray): Osculating Keplerian elements, shape (M, 6). Each row is
+///         [a, e, i, Ω, ω, M] where:
+///         - a: Semi-major axis (meters)
+///         - e: Eccentricity (dimensionless)
+///         - i: Inclination (radians or degrees, per angle_format)
+///         - Ω: Right ascension of ascending node (radians or degrees, per angle_format)
+///         - ω: Argument of perigee (radians or degrees, per angle_format)
+///         - M: Mean anomaly (radians or degrees, per angle_format)
+///     method (MeanElementMethod): Algorithm used to compute mean elements.
+///     angle_format (AngleFormat): Format of angular elements (Radians or Degrees).
+///
+/// Returns:
+///     tuple: (list[Epoch], numpy.ndarray) of output epochs and mean Keplerian elements,
+///         shape (N, 6). N equals M for `BROUWER_LYDDANE`; for `numerical()` N may be
+///         less than M when `edge` is `WindowEdgeHandling.TRUNCATE`.
+///
+/// Raises:
+///     BraheError: If `epochs` and `states` have different lengths, or if `method` is
+///         `MeanElementMethod.numerical()` and `window_seconds` is not positive.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     e0 = bh.Epoch.from_gps_seconds(0.0)
+///     epochs = [e0, e0 + 60.0, e0 + 120.0]
+///     s = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
+///     states = np.vstack([s, s, s])
+///
+///     out_epochs, out_states = bh.batch_state_koe_osc_to_mean(
+///         epochs, states, bh.MeanElementMethod.BROUWER_LYDDANE, bh.AngleFormat.DEGREES
+///     )
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epochs, states, method, angle_format)")]
+#[pyo3(name = "batch_state_koe_osc_to_mean")]
+fn py_batch_state_koe_osc_to_mean<'py>(
+    py: Python<'py>,
+    epochs: Vec<PyRef<'_, PyEpoch>>,
+    states: PyReadonlyArray2<f64>,
+    method: &PyMeanElementMethod,
+    angle_format: &PyAngleFormat,
+) -> PyResult<BatchKoeResult<'py>> {
+    let epochs_vec: Vec<time::Epoch> = epochs.iter().map(|e| e.obj).collect();
+    let states_vec = states_array2_to_svec6(&states)?;
+    let pairs = orbits::batch_state_koe_osc_to_mean(
+        &epochs_vec,
+        &states_vec,
+        method.method.clone(),
+        angle_format.value,
+    )?;
+    Ok(pairs_to_py(py, pairs))
+}
+
+/// Convert a batch of mean Keplerian states to osculating Keplerian states.
+///
+/// Applies the selected mean-element method across an epoch/state series.
+/// `MeanElementMethod.BROUWER_LYDDANE` maps each `(epoch, state)` pair
+/// independently, so the output has the same length as the input.
+/// `MeanElementMethod.numerical()` instead inverts the windowed averaging via
+/// iterative differential correction (see `MeanElementNumericalMethodConfig` and `MeanElementInverseConfig`);
+/// the output has the same length and epochs as the input.
+///
+/// Args:
+///     epochs (list[Epoch]): Epochs of the input mean states, one per `states` row.
+///     states (numpy.ndarray): Mean Keplerian elements, shape (M, 6). Each row is
+///         [a, e, i, Ω, ω, M] where:
+///         - a: Semi-major axis (meters)
+///         - e: Eccentricity (dimensionless)
+///         - i: Inclination (radians or degrees, per angle_format)
+///         - Ω: Right ascension of ascending node (radians or degrees, per angle_format)
+///         - ω: Argument of perigee (radians or degrees, per angle_format)
+///         - M: Mean anomaly (radians or degrees, per angle_format)
+///     method (MeanElementMethod): Algorithm used to compute osculating elements.
+///     angle_format (AngleFormat): Format of angular elements (Radians or Degrees).
+///
+/// Returns:
+///     tuple: (list[Epoch], numpy.ndarray) of output epochs and osculating Keplerian
+///         elements, shape (M, 6).
+///
+/// Raises:
+///     BraheError: If `epochs` and `states` have different lengths; if `method` is
+///         `MeanElementMethod.numerical()` and `inverse` was not configured on the
+///         `MeanElementNumericalMethodConfig`; or if the differential correction fails to converge
+///         within `inverse.max_iterations` for any state.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     e0 = bh.Epoch.from_gps_seconds(0.0)
+///     epochs = [e0, e0 + 60.0, e0 + 120.0]
+///     s = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
+///     states = np.vstack([s, s, s])
+///
+///     out_epochs, out_states = bh.batch_state_koe_mean_to_osc(
+///         epochs, states, bh.MeanElementMethod.BROUWER_LYDDANE, bh.AngleFormat.DEGREES
+///     )
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epochs, states, method, angle_format)")]
+#[pyo3(name = "batch_state_koe_mean_to_osc")]
+fn py_batch_state_koe_mean_to_osc<'py>(
+    py: Python<'py>,
+    epochs: Vec<PyRef<'_, PyEpoch>>,
+    states: PyReadonlyArray2<f64>,
+    method: &PyMeanElementMethod,
+    angle_format: &PyAngleFormat,
+) -> PyResult<BatchKoeResult<'py>> {
+    let epochs_vec: Vec<time::Epoch> = epochs.iter().map(|e| e.obj).collect();
+    let states_vec = states_array2_to_svec6(&states)?;
+    let pairs = orbits::batch_state_koe_mean_to_osc(
+        &epochs_vec,
+        &states_vec,
+        method.method.clone(),
+        angle_format.value,
+    )?;
+    Ok(pairs_to_py(py, pairs))
+}
+
+/// Convert Keplerian elements to equinoctial elements (Vallado 2-99).
+///
+/// Args:
+///     koe (numpy.ndarray): Keplerian `[a, e, i, Ω, ω, M]` (a in meters; angles per angle_format).
+///     angle_format (AngleFormat): Format of angular inputs/outputs.
+///     fr (int): Retrograde factor, +1 for direct orbits, -1 for near-retrograde. Defaults to 1.
+///
+/// Returns:
+///     numpy.ndarray: Equinoctial `[a, h, k, p, q, l]` (a in meters; l per angle_format).
+///
+/// Example:
+///     ```python
+///     import brahe as bh, numpy as np
+///     koe = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
+///     eqn = bh.state_koe_to_equinoctial(koe, bh.AngleFormat.DEGREES)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (koe, angle_format, fr=1), text_signature = "(koe, angle_format, fr=1)")]
+#[pyo3(name = "state_koe_to_equinoctial")]
+fn py_state_koe_to_equinoctial<'py>(
+    py: Python<'py>,
+    koe: &Bound<'_, PyAny>,
+    angle_format: &PyAngleFormat,
+    fr: i8,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let koe_vec = pyany_to_f64_array1(koe, Some(6))?;
+    let koe_svec = SVector::<f64, 6>::from_row_slice(&koe_vec);
+    let eqn = orbits::state_koe_to_equinoctial(&koe_svec, angle_format.value, fr);
+    Ok(eqn.as_slice().to_pyarray(py))
+}
+
+/// Convert equinoctial elements to Keplerian elements (Vallado 2-99).
+///
+/// Args:
+///     eqn (numpy.ndarray): Equinoctial `[a, h, k, p, q, l]` (a in meters; l per angle_format).
+///     angle_format (AngleFormat): Format of angular input/outputs.
+///     fr (int): Retrograde factor matching the forward conversion. Defaults to 1.
+///
+/// Returns:
+///     numpy.ndarray: Keplerian `[a, e, i, Ω, ω, M]` (a in meters; angles per angle_format).
+///
+/// Example:
+///     ```python
+///     import brahe as bh, numpy as np
+///     koe = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
+///     eqn = bh.state_koe_to_equinoctial(koe, bh.AngleFormat.DEGREES)
+///     back = bh.state_equinoctial_to_koe(eqn, bh.AngleFormat.DEGREES)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (eqn, angle_format, fr=1), text_signature = "(eqn, angle_format, fr=1)")]
+#[pyo3(name = "state_equinoctial_to_koe")]
+fn py_state_equinoctial_to_koe<'py>(
+    py: Python<'py>,
+    eqn: &Bound<'_, PyAny>,
+    angle_format: &PyAngleFormat,
+    fr: i8,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let eqn_vec = pyany_to_f64_array1(eqn, Some(6))?;
+    let eqn_svec = SVector::<f64, 6>::from_row_slice(&eqn_vec);
+    let koe = orbits::state_equinoctial_to_koe(&eqn_svec, angle_format.value, fr);
+    Ok(koe.as_slice().to_pyarray(py))
 }
 
 // ============================================================================

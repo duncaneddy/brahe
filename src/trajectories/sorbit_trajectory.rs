@@ -4375,6 +4375,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_orbitaltrajectory_to_eci() {
         setup_global_test_eop();
         let tol = 1e-6;
@@ -4470,6 +4471,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_orbitaltrajectory_to_ecef() {
         setup_global_test_eop();
         let tol = 1e-6;
@@ -4561,6 +4563,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_orbitaltrajectory_to_itrf() {
         setup_global_test_eop();
         let tol = 1e-6;
@@ -4671,6 +4674,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_orbitaltrajectory_to_keplerian_deg() {
         setup_global_test_eop();
         let tol = 1e-6;
@@ -4752,6 +4756,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_orbitaltrajectory_to_keplerian_rad() {
         setup_global_test_eop();
         let tol = 1e-6;
@@ -4833,6 +4838,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_orbitaltrajectory_to_gcrf() {
         setup_global_test_eop();
         let tol = 1e-6;
@@ -4957,6 +4963,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_orbitaltrajectory_to_eme2000() {
         setup_global_test_eop();
         let tol = 1e-6;
@@ -5112,6 +5119,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stateprovider_state_eci() {
         setup_global_test_eop();
 
@@ -5154,6 +5162,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stateprovider_state_eci_from_ecef() {
         setup_global_test_eop();
 
@@ -5204,6 +5213,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stateprovider_state_gcrf() {
         setup_global_test_eop();
 
@@ -5247,6 +5257,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stateprovider_state_gcrf_from_itrf() {
         setup_global_test_eop();
 
@@ -5270,6 +5281,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stateprovider_state_ecef() {
         setup_global_test_eop();
 
@@ -5290,6 +5302,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stateprovider_state_ecef_from_eci() {
         setup_global_test_eop();
 
@@ -5312,6 +5325,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stateprovider_state_ecef_from_keplerian() {
         setup_global_test_eop();
 
@@ -5339,6 +5353,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stateprovider_state_itrf() {
         setup_global_test_eop();
 
@@ -5359,6 +5374,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stateprovider_state_itrf_from_gcrf() {
         setup_global_test_eop();
 
@@ -5382,6 +5398,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stateprovider_state_itrf_from_keplerian() {
         setup_global_test_eop();
 
@@ -5473,6 +5490,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stateprovider_state_eme2000_from_itrf() {
         setup_global_test_eop();
 
@@ -5565,6 +5583,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stateprovider_state_koe_from_ecef() {
         setup_global_test_eop();
 
@@ -5639,6 +5658,7 @@ mod tests {
 
     // Covariance functionality tests
     #[test]
+    #[serial_test::parallel]
     fn test_from_orbital_data_with_covariances() {
         setup_global_test_eop();
 
@@ -5719,6 +5739,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_add_state_and_covariance() {
         setup_global_test_eop();
 
@@ -5741,6 +5762,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_provider_basic() {
         setup_global_test_eop();
 
@@ -5763,6 +5785,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_rtn() {
         setup_global_test_eop();
 
@@ -5789,6 +5812,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbit_trajectory_covariance_eci() {
         setup_global_test_eop();
 
@@ -5815,6 +5839,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbit_trajectory_covariance_gcrf() {
         setup_global_test_eop();
 
@@ -5841,6 +5866,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_eci_from_eme2000_frame() {
         setup_global_test_eop();
 
@@ -5887,6 +5913,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_gcrf_from_eme2000_frame() {
         setup_global_test_eop();
 
@@ -5922,6 +5949,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_rtn_from_eme2000_frame() {
         setup_global_test_eop();
 
@@ -5966,6 +5994,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_interpolatable_trait_methods() {
         setup_global_test_eop();
 
@@ -6005,6 +6034,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_interpolation_edge_cases_matrix_square_root() {
         setup_global_test_eop();
 
@@ -6055,6 +6085,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_interpolation_edge_cases_two_wasserstein() {
         setup_global_test_eop();
 
@@ -6105,6 +6136,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_interpolation_methods_comparison() {
         setup_global_test_eop();
 
@@ -6175,6 +6207,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_single_point_trajectory() {
         setup_global_test_eop();
 
@@ -6203,6 +6236,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_rtn_elliptical_orbit() {
         setup_global_test_eop();
 

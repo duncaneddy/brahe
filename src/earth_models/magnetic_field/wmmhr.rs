@@ -380,6 +380,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_wmmhr_geodetic_enz_known_values() {
         setup_global_test_eop();
 
@@ -397,6 +398,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_wmmhr_geodetic_enz_equator() {
         setup_global_test_eop();
 
@@ -413,6 +415,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_wmmhr_geodetic_enz_south() {
         setup_global_test_eop();
 
@@ -429,6 +432,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_wmmhr_at_altitude() {
         setup_global_test_eop();
 
@@ -444,6 +448,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_wmmhr_secular_variation() {
         setup_global_test_eop();
 
@@ -459,6 +464,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_wmmhr_nmax_truncation() {
         setup_global_test_eop();
 
@@ -486,6 +492,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_wmmhr_invalid_nmax() {
         setup_global_test_eop();
 
@@ -500,6 +507,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_wmmhr_ecef_enz_consistency() {
         setup_global_test_eop();
 

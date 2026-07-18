@@ -1826,6 +1826,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_interpolatable_interpolate_linear() {
         // Setup EOP for any frame conversions if needed
         setup_global_test_eop();
@@ -1896,6 +1897,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_interpolatable_interpolate() {
         // Setup EOP for any frame conversions if needed
         setup_global_test_eop();
@@ -1928,6 +1930,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_interpolate_before_start() {
         // Setup EOP for any frame conversions if needed
         setup_global_test_eop();
@@ -1962,6 +1965,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_interpolate_after_end() {
         // Setup EOP for any frame conversions if needed
         setup_global_test_eop();
@@ -1996,6 +2000,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_interpolate_empty_trajectory() {
         // Test that interpolating from an empty trajectory returns an error
         setup_global_test_eop();
@@ -2019,6 +2024,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_interpolate_single_state_exact_match() {
         // Test that interpolating at exact epoch in single-state trajectory returns the state
         setup_global_test_eop();
@@ -2041,6 +2047,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_interpolate_single_state_no_match() {
         // Test that interpolating at different epoch in single-state trajectory returns error
         setup_global_test_eop();
@@ -2068,6 +2075,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_covariance_interpolation_config() {
         // Test the CovarianceInterpolationConfig trait implementation
         setup_global_test_eop();
@@ -2102,6 +2110,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_covariance_interpolation_methods() {
         // Test that covariance interpolation produces correct results
         setup_global_test_eop();
@@ -2168,6 +2177,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_covariance_at_exact_epochs() {
         // Test that covariance_at returns exact values at data points
         setup_global_test_eop();

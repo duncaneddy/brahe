@@ -211,6 +211,7 @@ nav:
           - learn/orbits/index.md
           - Anomaly Conversions: learn/orbits/anomalies.md
           - Orbital Properties: learn/orbits/properties.md
+          - Mean Elements: learn/orbits/mean_elements.md
           - learn/orbits/two_line_elements.md
           - Walker Constellations: learn/orbits/walker.md
       - Attitude Representation:
@@ -386,6 +387,7 @@ nav:
       - Orbits:
           - library_api/orbits/index.md
           - Keplerian Elements: library_api/orbits/keplerian.md
+          - Equinoctial Elements: library_api/orbits/equinoctial.md
           - Mean Elements: library_api/orbits/mean_elements.md
           - Two-Line Elements: library_api/orbits/tle.md
           - Walker Constellations: library_api/orbits/walker.md

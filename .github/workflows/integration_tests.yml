@@ -225,11 +225,11 @@ jobs:
                 run: uv pip install -e ".[all]"
             -   name: Install just
                 uses: extractions/setup-just@v4
-            -   name: Refresh Natural Earth 3D textures cache
+            -   name: Refresh 3D body textures cache (Natural Earth + Solar System Scope planets)
                 uses: actions/cache@v6.1.0
                 with:
                     path: ~/.cache/brahe/textures
-                    key: natural-earth-textures-50m-v1
+                    key: brahe-3d-textures-v2
             -   name: Refresh Natural Earth land basemap cache
                 uses: actions/cache@v6.1.0
                 with:

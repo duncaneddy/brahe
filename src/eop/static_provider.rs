@@ -521,12 +521,14 @@ mod tests {
     use super::*;
 
     #[test]
+    #[serial_test::serial]
     fn test_uninitialized_provider() {
         let provider = StaticEOPProvider::new();
         assert!(!provider.is_initialized());
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_zero() {
         let eop = StaticEOPProvider::from_zero();
 
@@ -576,6 +578,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_get_ut1_utc_error() {
         let provider = StaticEOPProvider::new();
         let result = provider.get_ut1_utc(2459455.5);
@@ -595,6 +598,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_get_pm_error() {
         let provider = StaticEOPProvider::new();
         let result = provider.get_pm(2459455.5);
@@ -614,6 +618,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_get_dxdy_error() {
         let provider = StaticEOPProvider::new();
         let result = provider.get_dxdy(2459455.5);
@@ -633,6 +638,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_get_lod_error() {
         let provider = StaticEOPProvider::new();
         let result = provider.get_lod(2459455.5);
@@ -652,6 +658,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_get_eop_error() {
         let provider = StaticEOPProvider::new();
         let result = provider.get_eop(2459455.5);
@@ -664,6 +671,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_default_implementation() {
         // Test that Default::default() is equivalent to new()
         let eop_default = StaticEOPProvider::default();
@@ -710,6 +718,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_mjd_last_lod() {
         // Test that static provider returns f64::MAX for mjd_last_lod
         let eop = StaticEOPProvider::from_zero();
@@ -721,6 +730,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_mjd_last_dxdy() {
         // Test that static provider returns f64::MAX for mjd_last_dxdy
         let eop = StaticEOPProvider::from_zero();

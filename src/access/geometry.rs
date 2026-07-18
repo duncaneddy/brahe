@@ -220,6 +220,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_compute_local_time() {
         setup_global_test_eop();
 

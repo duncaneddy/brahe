@@ -159,6 +159,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_par_propagate_to_s_sgp() {
         setup_global_test_eop();
 
@@ -198,6 +199,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_par_propagate_to_s_matches_sequential() {
         setup_global_test_eop();
 
@@ -261,6 +263,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_par_propagate_to_s_empty_slice() {
         setup_global_test_eop();
 
@@ -274,6 +277,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_par_propagate_to_s_single_propagator() {
         setup_global_test_eop();
 
@@ -293,6 +297,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_par_propagate_to_s_sgp_with_events() {
         use crate::events::DTimeEvent;
 
@@ -365,6 +370,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_par_propagate_with_divergent_propagator() {
         setup_global_test_eop();
 
@@ -421,6 +427,7 @@ mod tests {
     use nalgebra::DVector;
 
     #[test]
+    #[serial_test::parallel]
     fn test_par_propagate_to_d_numerical_orbit() {
         setup_global_test_eop();
 
@@ -549,6 +556,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_par_propagate_to_d_empty_slice() {
         setup_global_test_eop();
 
@@ -562,6 +570,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_par_propagate_to_d_single_propagator() {
         setup_global_test_eop();
 
@@ -590,6 +599,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_par_propagate_to_d_with_events() {
         use crate::events::DTimeEvent;
 

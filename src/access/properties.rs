@@ -1004,6 +1004,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_state_provider_orbit_trajectory() {
         use crate::trajectories::sorbit_trajectory::SOrbitTrajectory;
         use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
@@ -1139,6 +1140,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_compute_local_time() {
         // Initialize EOP for UT1 time conversions
         setup_global_test_eop();
@@ -1228,6 +1230,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_property_computer() {
         use crate::access::{AccessibleLocation, PointLocation};
         use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation};
@@ -1681,6 +1684,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_doppler_computer_uplink() {
         setup_global_test_eop();
 
@@ -1778,6 +1782,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_doppler_computer_both_frequencies() {
         setup_global_test_eop();
 
@@ -1884,6 +1889,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_range_computer() {
         setup_global_test_eop();
 
@@ -1996,6 +2002,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_range_rate_computer() {
         setup_global_test_eop();
 

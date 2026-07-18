@@ -890,6 +890,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_setup_global_test_eop() {
         // Test that setup_global_test_eop runs without panicking
         setup_global_test_eop();
@@ -900,6 +901,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_setup_global_test_eop_original_brahe() {
         // Test that setup with original brahe EOP file works
         setup_global_test_eop_original_brahe();

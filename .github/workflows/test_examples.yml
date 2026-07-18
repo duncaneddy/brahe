@@ -97,11 +97,11 @@ jobs:
       # the warm-up step; GitHub evicts caches by last access, so each restore
       # (a hit) resets the 7-day eviction window and keeps the shared main-branch
       # caches alive. A miss re-populates them via the warm-up step's post-save.
-      - name: Cache Natural Earth 3D textures
+      - name: Cache 3D body textures (Natural Earth + Solar System Scope planets)
         uses: actions/cache@v6.1.0
         with:
           path: ~/.cache/brahe/textures
-          key: natural-earth-textures-50m-v1
+          key: brahe-3d-textures-v2
 
       - name: Cache Natural Earth land basemap
         uses: actions/cache@v6.1.0

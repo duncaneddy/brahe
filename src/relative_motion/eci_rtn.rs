@@ -252,6 +252,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_state_eci_to_rtn_and_back_non_aligned() {
         setup_global_test_eop();
 
@@ -276,6 +277,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_state_rtn_to_eci_and_back_non_aligned() {
         setup_global_test_eop();
 

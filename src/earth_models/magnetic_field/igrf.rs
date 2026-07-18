@@ -376,6 +376,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_igrf_geodetic_enz_known_values() {
         setup_global_test_eop();
 
@@ -403,6 +404,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_igrf_epoch_out_of_range() {
         setup_global_test_eop();
 
@@ -417,6 +419,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_igrf_radians_input() {
         setup_global_test_eop();
 
@@ -435,6 +438,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_igrf_ecef_enz_consistency() {
         setup_global_test_eop();
 

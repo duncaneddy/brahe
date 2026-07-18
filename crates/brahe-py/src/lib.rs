@@ -1027,8 +1027,19 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_epoch_from_tle, module)?)?;
 
     // Mean-osculating Keplerian element conversions
+    module.add_class::<PyMeanElementMethod>()?;
+    module.add_class::<PyWindowAlignment>()?;
+    module.add_class::<PyWindowEdgeHandling>()?;
+    module.add_class::<PyMeanElementNumericalMethodConfig>()?;
+    module.add_class::<PyMeanElementInverseConfig>()?;
     module.add_function(wrap_pyfunction!(py_state_koe_osc_to_mean, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_koe_mean_to_osc, module)?)?;
+    module.add_function(wrap_pyfunction!(py_batch_state_koe_osc_to_mean, module)?)?;
+    module.add_function(wrap_pyfunction!(py_batch_state_koe_mean_to_osc, module)?)?;
+
+    // Equinoctial element conversions
+    module.add_function(wrap_pyfunction!(py_state_koe_to_equinoctial, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_equinoctial_to_koe, module)?)?;
 
     // Walker Constellation Generator
     module.add_class::<PyWalkerPattern>()?;

@@ -3,10 +3,10 @@
 In this example we'll define Ceres as a fully user-supplied central body and
 fly an orbit inspired by the Dawn spacecraft's Low Altitude Mapping Orbit
 (LAMO) around it. Unlike Earth, the Moon, and Mars, Ceres has no built-in
-constants in brahe: no built-in `CentralBody` variant, no named
+constants in brahe: no built-in [`CentralBody`](../library_api/propagators/force_model_config.md#central-body) variant, no named
 inertial/fixed frame pair, no spin model. Everything about Ceres here - its
 gravitational parameter, radius, spin pole, prime meridian, and body-fixed
-frame - is supplied by the user via `CentralBody.Custom` and
+frame - is supplied by the user via [`CentralBody.Custom`](../library_api/propagators/force_model_config.md#brahe.CentralBody.Custom) and
 `register_custom_frame`. The same recipe applies to any body brahe doesn't
 have built-in constants for: another dwarf planet, an asteroid, or a comet
 nucleus.
@@ -54,7 +54,7 @@ equator on the ICRF equator - the standard IAU orientation convention
 $\hat{z}_{\text{ICRF}} \times \hat{p}$ is perpendicular to both poles, hence
 lies in both equatorial planes: the line of nodes. Once registered under an
 integer key, `ReferenceFrame.BodyFixedCustom(naif_id, key)` is usable
-anywhere a `ReferenceFrame` is accepted:
+anywhere a [`ReferenceFrame`](../library_api/frames/router.md#referenceframe) is accepted:
 
 ``` python
 --8<-- "./examples/examples/dawn_ceres_orbit.py:body_fixed_frame"
@@ -63,7 +63,7 @@ anywhere a `ReferenceFrame` is accepted:
 ## Force Model
 
 `CentralBody.Custom` bundles the body's GM, radius, spin vector, and
-body-fixed frame into the object `ForceModelConfig` propagates relative to.
+body-fixed frame into the object [`ForceModelConfig`](../library_api/propagators/force_model_config.md#forcemodelconfig) propagates relative to.
 ICGEM's only cataloged Ceres model, `sphericalRFM_CERES_2519`, is a
 degree-2519 crustal forward-modeling research product - impractically large
 to download for this purpose and not normalized to the body's true GM (its
@@ -86,7 +86,7 @@ keeps gravity-only for self-containment:
 Dawn's LAMO is a ~375 km circular polar orbit. The propagator integrates in a
 Ceres-centered inertial frame whose axes are ICRF-aligned, so its z-axis is
 the ICRF pole - about 23 degrees from Ceres's spin pole. We use
-`state_koe_to_inertial_for_body` to reference the elements to the body's mean
+[`state_koe_to_inertial_for_body`](../library_api/coordinates/cartesian.md#brahe.coordinates.state_koe_to_inertial_for_body) to reference the elements to the body's mean
 equator at J2000 and compute the state in the Ceres-centered, ICRF-aligned
 inertial frame. Because `ceres` is a `CentralBody.Custom` that carries a
 body-fixed frame (`ceres_fixed`), the function reads Ceres's pole from that
@@ -103,19 +103,19 @@ construction:
 ```
 
 Sampling the trajectory over the 2-day propagation confirms the orbit stays
-in a tight band around the design altitude, and `state_in_frame` converts the
+in a tight band around the design altitude, and [`state_in_frame`](../library_api/propagators/numerical_orbit_propagator.md#brahe.NumericalOrbitPropagator.state_in_frame) converts the
 final inertial state directly into the registered Ceres-fixed frame - the
 same frame-router entry point used for the built-in `ITRF`/`LFPA`/`MCMF`
 frames, but backed entirely by the callbacks registered above.
 
 ## 3D Visualization
 
-`plot_trajectory_3d` accepts `central_body="ceres"`: Ceres is already in the
+[`plot_trajectory_3d`](../library_api/plots/3d_trajectory.md) accepts `central_body="ceres"`: Ceres is already in the
 plotting library's body-visuals registry (radius and NAIF ID for frame
 validation, plus a default texture), so no custom dict is needed. Non-Earth
 central bodies require the plotted trajectory to already be in
-`OrbitFrame.BodyCenteredInertial(naif_id)` for that body; a Ceres-centered
-`NumericalOrbitPropagator`'s `.trajectory` is already in that frame:
+[`OrbitFrame.BodyCenteredInertial(naif_id)`](../library_api/orbits/enums.md#brahe.OrbitFrame.BodyCenteredInertial) for that body; a Ceres-centered
+[`NumericalOrbitPropagator`](../library_api/propagators/numerical_orbit_propagator.md)'s `.trajectory` is already in that frame:
 
 ``` python
 --8<-- "./examples/examples/dawn_ceres_orbit.py:plot_3d"

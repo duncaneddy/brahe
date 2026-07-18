@@ -33,13 +33,13 @@ instabilities, conserving fuel and extending mission-lifetime.
 The propagator integrates in the Moon-Centered Inertial (LCI) frame, whose
 axes are ICRF-aligned: the LCI z-axis is the ICRF pole, which sits about 22
 degrees from the Moon's spin pole. Passing the elements straight to
-`state_koe_to_eci` would measure the 85.2 degree inclination and the
+[`state_koe_to_eci`](../library_api/coordinates/cartesian.md#brahe.coordinates.state_koe_to_eci) would measure the 85.2 degree inclination and the
 south-pole perilune against the ICRF pole, not the lunar equator.
-`state_koe_to_inertial_for_body` instead references the elements to the body's
+[`state_koe_to_inertial_for_body`](../library_api/coordinates/cartesian.md#brahe.coordinates.state_koe_to_inertial_for_body) instead references the elements to the body's
 mean equator at J2000 - the plane normal to the body's IAU pole, with the
 x-axis on the ascending node of that equator on the ICRF equator - and returns
 the state directly in the body-centered inertial frame (LCI for the Moon). It
-takes a `CentralBody` (which supplies both the Moon's gravitational parameter
+takes a [`CentralBody`](../library_api/propagators/force_model_config.md#central-body) (which supplies both the Moon's gravitational parameter
 and its pole), so the orbit is placed against the lunar equator with no manual
 basis construction. We also evaluate the lunar mean pole at J2000 (the third
 row of the ICRF-to-lunar-body-fixed rotation) to confirm the geometry below:
@@ -58,7 +58,7 @@ With the standard preamble in place, the next step sets up the frozen orbit geom
 
 We propagate the same initial state under two force models: `lunar_default()`
 (50x50 GRGM660PRIM gravity, SRP occulted by the Moon and Earth, and Earth/Sun
-third-body perturbations) and a point-mass Moon via `ForceModelConfig.for_body`
+third-body perturbations) and a point-mass Moon via [`ForceModelConfig.for_body`](../library_api/propagators/force_model_config.md#brahe.ForceModelConfig.for_body)
 with `GravityConfiguration.point_mass()`. Both propagators integrate in the
 Moon-Centered Inertial (LCI) frame:
 
@@ -104,11 +104,11 @@ perilune altitude stays above 26 km, remaining bound to the Moon.
 
 ## 3D Visualization
 
-`plot_trajectory_3d` accepts `central_body="moon"` to render an interactive
+[`plot_trajectory_3d`](../library_api/plots/3d_trajectory.md) accepts `central_body="moon"` to render an interactive
 3D view of the trajectory around a textured Moon. Non-Earth central bodies
 require the plotted trajectory to already be in
-`OrbitFrame.BodyCenteredInertial(naif_id)` for that body; a Moon-centered
-`NumericalOrbitPropagator`'s `.trajectory` is already in that frame, so no
+[`OrbitFrame.BodyCenteredInertial(naif_id)`](../library_api/orbits/enums.md#brahe.OrbitFrame.BodyCenteredInertial) for that body; a Moon-centered
+[`NumericalOrbitPropagator`](../library_api/propagators/numerical_orbit_propagator.md)'s `.trajectory` is already in that frame, so no
 conversion is needed. We plot the final 12 hours of the full-gravity
 trajectory:
 

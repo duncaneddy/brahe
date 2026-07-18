@@ -41,11 +41,11 @@ designed around this resonance.
 The propagator integrates in the Mars-Centered Inertial (MCI) frame, whose
 axes are ICRF-aligned: the MCI z-axis is the ICRF pole, which sits about 37
 degrees from Mars's spin pole. Passing 92.6 degrees straight to
-`state_koe_to_eci` would measure the inclination against the ICRF pole, not
-Mars's equator. `state_koe_to_inertial_for_body` instead references the
+[`state_koe_to_eci`](../library_api/coordinates/cartesian.md#brahe.coordinates.state_koe_to_eci) would measure the inclination against the ICRF pole, not
+Mars's equator. [`state_koe_to_inertial_for_body`](../library_api/coordinates/cartesian.md#brahe.coordinates.state_koe_to_inertial_for_body) instead references the
 elements to Mars's mean equator at J2000 - the plane normal to the Mars IAU
 pole, with the x-axis on the ascending node of that equator on the ICRF equator
-- and returns the state directly in MCI. It takes a `CentralBody`, which
+- and returns the state directly in MCI. It takes a [`CentralBody`](../library_api/propagators/force_model_config.md#central-body), which
 supplies both Mars's gravitational parameter and its pole, so the orbit is
 placed against the Mars equator with no manual basis construction.
 
@@ -68,7 +68,7 @@ With the standard preamble in place, the next step sets up the sun-synchronous o
 
 ## Propagation
 
-We propagate under `ForceModelConfig.mars_default()`: 50x50 GMM-2B gravity,
+We propagate under [`ForceModelConfig.mars_default()`](../library_api/propagators/force_model_config.md#brahe.ForceModelConfig.mars_default): 50x50 GMM-2B gravity,
 exponential atmospheric drag, SRP occulted by Mars, and Sun third-body
 perturbations. The propagator integrates in the Mars-Centered Inertial (MCI)
 frame:
@@ -80,8 +80,8 @@ frame:
 ## Element Evolution
 
 Sampling the trajectory over the 2-day propagation and converting each
-Cartesian state back to Keplerian elements with `state_inertial_to_koe_for_body`,
-then plotting the full six-element set with `plot_keplerian_trajectory`,
+Cartesian state back to Keplerian elements with [`state_inertial_to_koe_for_body`](../library_api/coordinates/cartesian.md#brahe.coordinates.state_inertial_to_koe_for_body),
+then plotting the full six-element set with [`plot_keplerian_trajectory`](../library_api/plots/orbital_trajectories.md#brahe.plot_keplerian_trajectory),
 shows how the orbit evolves under the full force model:
 
 ``` python
@@ -114,11 +114,11 @@ above the Mars surface throughout.
 
 ## 3D Visualization
 
-`plot_trajectory_3d` accepts `central_body="mars"` to render an interactive
+[`plot_trajectory_3d`](../library_api/plots/3d_trajectory.md) accepts `central_body="mars"` to render an interactive
 3D view of the trajectory around a textured Mars. Non-Earth central bodies
 require the plotted trajectory to already be in
-`OrbitFrame.BodyCenteredInertial(naif_id)` for that body; a Mars-centered
-`NumericalOrbitPropagator`'s `.trajectory` is already in that frame, so no
+[`OrbitFrame.BodyCenteredInertial(naif_id)`](../library_api/orbits/enums.md#brahe.OrbitFrame.BodyCenteredInertial) for that body; a Mars-centered
+[`NumericalOrbitPropagator`](../library_api/propagators/numerical_orbit_propagator.md)'s `.trajectory` is already in that frame, so no
 conversion is needed:
 
 ``` python

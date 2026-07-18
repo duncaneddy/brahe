@@ -256,9 +256,16 @@ mod tests {
     use super::*;
 
     const SAMPLE: &str = include_str!("../../../test_assets/star_catalogs/FK5_Catalog_sample.txt");
+    const HIPPARCOS_SAMPLE: &str =
+        include_str!("../../../test_assets/star_catalogs/Hipparcos_Catalog_sample.txt");
+    const TYCHO2_SAMPLE: &str =
+        include_str!("../../../test_assets/star_catalogs/Tycho2_Catalog_sample.txt");
 
-    // Both tests below read/write the real FK5 cache file
-    // (`FK5_Catalog.txt`), so they must not run concurrently with each other.
+    // All tests below read/write a real star catalog cache file
+    // (`FK5_Catalog.txt`/`Hipparcos_Catalog.txt`/`Tycho2_Catalog.txt`), so
+    // tests sharing the same file must not run concurrently with each other
+    // (tests for different catalogs use distinct files and may still run in
+    // parallel with each other).
     #[test]
     #[serial(fk5_catalog_cache)]
     fn test_get_catalog_does_not_cache_bad_download() {
@@ -314,5 +321,219 @@ mod tests {
         );
 
         let _ = fs::remove_file(&cache_path);
+    }
+
+    #[test]
+    #[serial(fk5_catalog_cache)]
+    fn test_get_fk5_catalog_from_url_cache_hit_skips_download() {
+        // A fresh, valid cache file present on disk is used directly: the
+        // getter must not touch the network at all.
+        let server = httpmock::MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method("GET")
+                .path_includes("/fk5/latest/FK5_Catalog.txt");
+            then.status(200).body(SAMPLE);
+        });
+
+        let cache_dir = get_star_catalogs_cache_dir().unwrap();
+        let cache_path = Path::new(&cache_dir).join("FK5_Catalog.txt");
+        fs::write(&cache_path, SAMPLE).unwrap();
+
+        let result = get_fk5_catalog_from_url(&server.base_url(), None);
+        assert_eq!(result.unwrap().len(), 10);
+        mock.assert_calls(0);
+
+        let _ = fs::remove_file(&cache_path);
+    }
+
+    #[test]
+    #[serial(fk5_catalog_cache)]
+    fn test_get_fk5_catalog_from_url_empty_records_not_cached() {
+        // A download that parses successfully but to zero records (e.g. a
+        // body of only blank lines) is rejected rather than cached.
+        let server = httpmock::MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method("GET")
+                .path_includes("/fk5/latest/FK5_Catalog.txt");
+            then.status(200).body("\n\n");
+        });
+
+        let cache_dir = get_star_catalogs_cache_dir().unwrap();
+        let cache_path = Path::new(&cache_dir).join("FK5_Catalog.txt");
+        let _ = fs::remove_file(&cache_path);
+
+        let result = get_fk5_catalog_from_url(&server.base_url(), None);
+        assert!(result.is_err());
+        assert!(!cache_path.exists());
+
+        mock.assert_calls(1);
+    }
+
+    #[test]
+    #[serial(hipparcos_catalog_cache)]
+    fn test_get_hipparcos_catalog_from_url_does_not_cache_bad_download() {
+        let server = httpmock::MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method("GET")
+                .path_includes("/hipparcos/latest/Hipparcos_Catalog.txt");
+            then.status(200).body("H|not-a-number|garbage\n");
+        });
+
+        let cache_dir = get_star_catalogs_cache_dir().unwrap();
+        let cache_path = Path::new(&cache_dir).join("Hipparcos_Catalog.txt");
+        let _ = fs::remove_file(&cache_path);
+
+        let result = get_hipparcos_catalog_from_url(&server.base_url(), None);
+        assert!(result.is_err());
+        assert!(!cache_path.exists());
+
+        mock.assert_calls(1);
+    }
+
+    #[test]
+    #[serial(hipparcos_catalog_cache)]
+    fn test_get_hipparcos_catalog_from_url_heals_corrupt_cache() {
+        let server = httpmock::MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method("GET")
+                .path_includes("/hipparcos/latest/Hipparcos_Catalog.txt");
+            then.status(200).body(HIPPARCOS_SAMPLE);
+        });
+
+        let cache_dir = get_star_catalogs_cache_dir().unwrap();
+        let cache_path = Path::new(&cache_dir).join("Hipparcos_Catalog.txt");
+        fs::write(&cache_path, "corrupt cache data that will not parse\n").unwrap();
+
+        let result = get_hipparcos_catalog_from_url(&server.base_url(), None);
+        assert_eq!(result.unwrap().len(), 20);
+        mock.assert_calls(1);
+
+        let _ = fs::remove_file(&cache_path);
+    }
+
+    #[test]
+    #[serial(hipparcos_catalog_cache)]
+    fn test_get_hipparcos_catalog_from_url_cache_hit_skips_download() {
+        let server = httpmock::MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method("GET")
+                .path_includes("/hipparcos/latest/Hipparcos_Catalog.txt");
+            then.status(200).body(HIPPARCOS_SAMPLE);
+        });
+
+        let cache_dir = get_star_catalogs_cache_dir().unwrap();
+        let cache_path = Path::new(&cache_dir).join("Hipparcos_Catalog.txt");
+        fs::write(&cache_path, HIPPARCOS_SAMPLE).unwrap();
+
+        let result = get_hipparcos_catalog_from_url(&server.base_url(), None);
+        assert_eq!(result.unwrap().len(), 20);
+        mock.assert_calls(0);
+
+        let _ = fs::remove_file(&cache_path);
+    }
+
+    #[test]
+    #[serial(hipparcos_catalog_cache)]
+    fn test_get_hipparcos_catalog_from_url_empty_records_not_cached() {
+        let server = httpmock::MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method("GET")
+                .path_includes("/hipparcos/latest/Hipparcos_Catalog.txt");
+            then.status(200).body("\n\n");
+        });
+
+        let cache_dir = get_star_catalogs_cache_dir().unwrap();
+        let cache_path = Path::new(&cache_dir).join("Hipparcos_Catalog.txt");
+        let _ = fs::remove_file(&cache_path);
+
+        let result = get_hipparcos_catalog_from_url(&server.base_url(), None);
+        assert!(result.is_err());
+        assert!(!cache_path.exists());
+
+        mock.assert_calls(1);
+    }
+
+    #[test]
+    #[serial(tycho2_catalog_cache)]
+    fn test_get_tycho2_catalog_from_url_does_not_cache_bad_download() {
+        let server = httpmock::MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method("GET")
+                .path_includes("/tycho2/latest/Tycho2_Catalog.txt");
+            then.status(200).body("not a valid tycho2 line\n");
+        });
+
+        let cache_dir = get_star_catalogs_cache_dir().unwrap();
+        let cache_path = Path::new(&cache_dir).join("Tycho2_Catalog.txt");
+        let _ = fs::remove_file(&cache_path);
+
+        let result = get_tycho2_catalog_from_url(&server.base_url(), None);
+        assert!(result.is_err());
+        assert!(!cache_path.exists());
+
+        mock.assert_calls(1);
+    }
+
+    #[test]
+    #[serial(tycho2_catalog_cache)]
+    fn test_get_tycho2_catalog_from_url_heals_corrupt_cache() {
+        let server = httpmock::MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method("GET")
+                .path_includes("/tycho2/latest/Tycho2_Catalog.txt");
+            then.status(200).body(TYCHO2_SAMPLE);
+        });
+
+        let cache_dir = get_star_catalogs_cache_dir().unwrap();
+        let cache_path = Path::new(&cache_dir).join("Tycho2_Catalog.txt");
+        fs::write(&cache_path, "corrupt cache data that will not parse\n").unwrap();
+
+        let result = get_tycho2_catalog_from_url(&server.base_url(), None);
+        assert_eq!(result.unwrap().len(), 20);
+        mock.assert_calls(1);
+
+        let _ = fs::remove_file(&cache_path);
+    }
+
+    #[test]
+    #[serial(tycho2_catalog_cache)]
+    fn test_get_tycho2_catalog_from_url_cache_hit_skips_download() {
+        let server = httpmock::MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method("GET")
+                .path_includes("/tycho2/latest/Tycho2_Catalog.txt");
+            then.status(200).body(TYCHO2_SAMPLE);
+        });
+
+        let cache_dir = get_star_catalogs_cache_dir().unwrap();
+        let cache_path = Path::new(&cache_dir).join("Tycho2_Catalog.txt");
+        fs::write(&cache_path, TYCHO2_SAMPLE).unwrap();
+
+        let result = get_tycho2_catalog_from_url(&server.base_url(), None);
+        assert_eq!(result.unwrap().len(), 20);
+        mock.assert_calls(0);
+
+        let _ = fs::remove_file(&cache_path);
+    }
+
+    #[test]
+    #[serial(tycho2_catalog_cache)]
+    fn test_get_tycho2_catalog_from_url_empty_records_not_cached() {
+        let server = httpmock::MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method("GET")
+                .path_includes("/tycho2/latest/Tycho2_Catalog.txt");
+            then.status(200).body("\n\n");
+        });
+
+        let cache_dir = get_star_catalogs_cache_dir().unwrap();
+        let cache_path = Path::new(&cache_dir).join("Tycho2_Catalog.txt");
+        let _ = fs::remove_file(&cache_path);
+
+        let result = get_tycho2_catalog_from_url(&server.base_url(), None);
+        assert!(result.is_err());
+        assert!(!cache_path.exists());
+
+        mock.assert_calls(1);
     }
 }

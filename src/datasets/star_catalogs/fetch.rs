@@ -227,4 +227,55 @@ mod tests {
         let result = download("http://127.0.0.1:1/nonexistent");
         assert!(result.is_err());
     }
+
+    #[test]
+    #[parallel]
+    fn test_download_errors_on_invalid_utf8_body() {
+        let server = httpmock::MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method("GET").path_includes("/binary.dat");
+            then.status(200).body([0xFF, 0xFE, 0xFD]);
+        });
+
+        let url = format!("{}/binary.dat", server.base_url());
+        let result = download(&url);
+        assert!(result.is_err());
+        mock.assert_calls(1);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_read_cache_errors_when_cache_path_is_a_directory() {
+        // A directory at the cache path passes the `exists()` check in
+        // read_cache but cannot be opened as a file, exercising the
+        // fs::read_to_string I/O error branch.
+        let cache_dir = get_star_catalogs_cache_dir().unwrap();
+        let test_filename = "test_read_cache_is_a_directory.dat";
+        let cache_path = Path::new(&cache_dir).join(test_filename);
+
+        fs::create_dir_all(&cache_path).unwrap();
+
+        let result = read_cache(test_filename, None);
+        assert!(result.is_err());
+
+        let _ = fs::remove_dir_all(&cache_path);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_commit_cache_errors_when_parent_path_is_blocked() {
+        // A regular file sitting where commit_cache's target path needs a
+        // directory component makes atomic_write's `create_dir_all` fail,
+        // exercising commit_cache's I/O error branch.
+        let cache_dir = get_star_catalogs_cache_dir().unwrap();
+        let blocker_name = "test_commit_cache_blocker.dat";
+        let blocker_path = Path::new(&cache_dir).join(blocker_name);
+        fs::write(&blocker_path, "not a directory").unwrap();
+
+        let nested_filename = format!("{}/nested.dat", blocker_name);
+        let result = commit_cache(&nested_filename, "data");
+        assert!(result.is_err());
+
+        let _ = fs::remove_file(&blocker_path);
+    }
 }

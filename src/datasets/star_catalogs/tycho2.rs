@@ -504,6 +504,95 @@ mod tests {
             .unwrap();
         assert_eq!(r_hip.hip_id, Some(416));
         assert_eq!(r_hip.name(), Some("HIP 416".to_string()));
+
+        assert_abs_diff_eq!(r1.magnitude().unwrap(), r1.vmag.unwrap(), epsilon = 1e-9);
+    }
+
+    /// Overwrite the pipe-delimited field at `idx` (0-indexed) with
+    /// `replacement`, for constructing deliberately malformed lines from a
+    /// known-good sample line.
+    fn set_pipe_field(line: &str, idx: usize, replacement: &str) -> String {
+        let mut fields: Vec<&str> = line.split('|').collect();
+        fields[idx] = replacement;
+        fields.join("|")
+    }
+
+    #[test]
+    #[parallel]
+    fn test_tycho2_parse_line_malformed_tyc_identifier() {
+        let line1 = SAMPLE.lines().next().unwrap();
+
+        // Field 0 packs "TYC1 TYC2 TYC3" as whitespace-separated tokens;
+        // corrupt one token at a time.
+        let bad_tyc1 = set_pipe_field(line1, 0, "abcd 00008 1");
+        assert!(parse_tycho2_line(&bad_tyc1).is_err());
+
+        let bad_tyc2 = set_pipe_field(line1, 0, "0001 abcd 1");
+        assert!(parse_tycho2_line(&bad_tyc2).is_err());
+
+        // Missing third token entirely -> TYC3 is None.
+        let missing_tyc3 = set_pipe_field(line1, 0, "0001 00008");
+        assert!(parse_tycho2_line(&missing_tyc3).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_tycho2_parse_line_malformed_observed_position() {
+        let line1 = SAMPLE.lines().next().unwrap();
+
+        let bad_ra_observed = set_pipe_field(line1, 24, "not-a-number");
+        assert!(parse_tycho2_line(&bad_ra_observed).is_err());
+
+        let bad_dec_observed = set_pipe_field(line1, 25, "not-a-number");
+        assert!(parse_tycho2_line(&bad_dec_observed).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_tycho2_vmag_falls_back_to_vt_mag_alone() {
+        // Blank BT magnitude (field 17) with VT magnitude (field 19) present
+        // exercises the `_ => vt_mag` fallback arm of the vmag computation
+        // (as opposed to the `(Some(bt), Some(vt))` subtraction branch
+        // exercised by the plain SAMPLE parse above).
+        let line1 = SAMPLE.lines().next().unwrap();
+        let bt_missing = set_pipe_field(line1, 17, "");
+
+        let record = parse_tycho2_line(&bt_missing).unwrap();
+        assert_eq!(record.bt_mag, None);
+        assert_eq!(record.vmag, record.vt_mag);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_tycho2_catalog_container_methods() {
+        let records = parse_tycho2_text(SAMPLE).unwrap();
+        let catalog = Tycho2Catalog::new(records);
+
+        assert!(!catalog.is_empty());
+        assert_eq!(catalog.records().len(), catalog.len());
+
+        let count = catalog.len();
+        let records = catalog.into_records();
+        assert_eq!(records.len(), count);
+
+        let empty = Tycho2Catalog::new(Vec::new());
+        assert!(empty.is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_tycho2_filter_by_cone_radians() {
+        let records = parse_tycho2_text(SAMPLE).unwrap();
+        let catalog = Tycho2Catalog::new(records);
+
+        let r1 = catalog.get_by_id(1, 8, 1).unwrap();
+        let cone = catalog.filter_by_cone(
+            r1.ra().to_radians(),
+            r1.dec().to_radians(),
+            0.1f64.to_radians(),
+            AngleFormat::Radians,
+        );
+        assert!(cone.get_by_id(1, 8, 1).is_some());
     }
 
     #[test]

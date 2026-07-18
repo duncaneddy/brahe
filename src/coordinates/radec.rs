@@ -499,6 +499,33 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_radec_azel_round_trip_radians() {
+        // Same round trip as test_radec_azel_round_trip, but requesting
+        // Radians throughout, exercising position_azel_to_radec's Radians
+        // input branch (position_radec_to_azel's Radians branch is already
+        // covered via position_radec_to_inertial internally).
+        setup_global_test_eop();
+        let epc = Epoch::from_datetime(2024, 3, 20, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let site = SVector3::new((-122.17f64).to_radians(), 37.43f64.to_radians(), 100.0);
+        let range = 12345.6;
+        let ra = 101.28f64.to_radians();
+        let dec = (-16.72f64).to_radians();
+
+        let azel = position_radec_to_azel(
+            SVector3::new(ra, dec, range),
+            site,
+            epc,
+            AngleFormat::Radians,
+        );
+        let radec = position_azel_to_radec(azel, site, epc, AngleFormat::Radians);
+
+        assert_abs_diff_eq!(radec[0], ra, epsilon = 1e-9);
+        assert_abs_diff_eq!(radec[1], dec, epsilon = 1e-9);
+        assert_abs_diff_eq!(radec[2], range, epsilon = 1e-9);
+    }
+
+    #[test]
+    #[serial]
     fn test_radec_to_azel_zenith() {
         setup_global_test_eop();
         let epc = Epoch::from_datetime(2024, 3, 20, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -543,6 +570,34 @@ mod tests {
 
         assert_abs_diff_eq!(ra, 123.456, epsilon = 1e-13);
         assert_abs_diff_eq!(dec, -45.678, epsilon = 1e-13);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apply_proper_motion_zero_motion_radians() {
+        // Same case as test_apply_proper_motion_zero_motion, but with
+        // Radians input/output throughout, exercising both the input and
+        // output Radians match arms.
+        let epoch_from = Epoch::from_mjd(51544.5, TimeSystem::TT);
+        let epoch_to = Epoch::from_mjd(51544.5 + 50.0 * 365.25, TimeSystem::TT);
+
+        let ra0 = 123.456f64.to_radians();
+        let dec0 = (-45.678f64).to_radians();
+
+        let (ra, dec) = apply_proper_motion(
+            ra0,
+            dec0,
+            0.0,
+            0.0,
+            None,
+            None,
+            epoch_from,
+            epoch_to,
+            AngleFormat::Radians,
+        );
+
+        assert_abs_diff_eq!(ra, ra0, epsilon = 1e-13);
+        assert_abs_diff_eq!(dec, dec0, epsilon = 1e-13);
     }
 
     #[test]
@@ -752,6 +807,24 @@ mod tests {
         assert_abs_diff_eq!(x_radec[0], 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(x_radec[1], 90.0, epsilon = 1e-12);
         assert_abs_diff_eq!(x_radec[2], 7000e3, epsilon = 1e-9);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_position_inertial_to_radec_radians() {
+        // Same case as test_position_inertial_to_radec_ra_normalization, but
+        // requesting Radians output directly (rather than converting a
+        // Degrees result), exercising that output branch.
+        let x_inertial = SVector3::new(1.0, -1e-3, 0.0);
+        let x_radec = position_inertial_to_radec(x_inertial, AngleFormat::Radians);
+
+        assert_abs_diff_eq!(
+            x_radec[0],
+            359.9427042395855f64.to_radians(),
+            epsilon = 1e-12
+        );
+        assert_abs_diff_eq!(x_radec[1], 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(x_radec[2], (1.0f64 + 1e-6).sqrt(), epsilon = 1e-9);
     }
 
     #[test]

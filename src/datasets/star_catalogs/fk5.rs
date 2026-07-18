@@ -424,6 +424,84 @@ mod tests {
         let (ra, dec) = r1.radec_at_epoch(r1.epoch(), AngleFormat::Degrees);
         assert_abs_diff_eq!(ra, r1.ra, epsilon = 1e-9);
         assert_abs_diff_eq!(dec, r1.dec, epsilon = 1e-9);
+
+        assert_abs_diff_eq!(r1.magnitude().unwrap(), r1.vmag.unwrap(), epsilon = 1e-9);
+
+        // Radians branch of radec_at_epoch/StarRecord::radec_at_epoch, mirrored
+        // across catalogs (only exercised once here for the shared trait
+        // default method).
+        let (ra_rad, dec_rad) = r1.radec_at_epoch(r1.epoch(), AngleFormat::Radians);
+        assert_abs_diff_eq!(ra_rad, r1.ra.to_radians(), epsilon = 1e-9);
+        assert_abs_diff_eq!(dec_rad, r1.dec.to_radians(), epsilon = 1e-9);
+    }
+
+    /// Overwrite a 1-indexed, inclusive byte range of `line` with `replacement`
+    /// (which must be exactly as long as the range), for constructing
+    /// deliberately malformed fixed-width test lines from a known-good one.
+    fn set_field(line: &str, start_1idx: usize, end_1idx: usize, replacement: &str) -> String {
+        let mut bytes = line.as_bytes().to_vec();
+        let start = start_1idx - 1;
+        let end = end_1idx;
+        assert_eq!(replacement.len(), end - start);
+        bytes[start..end].copy_from_slice(replacement.as_bytes());
+        String::from_utf8(bytes).unwrap()
+    }
+
+    #[test]
+    #[parallel]
+    fn test_fk5_parse_line_malformed_numeric_fields() {
+        // Corrupt one numeric field at a time (leaving every field parsed
+        // earlier in the line valid) to exercise each field's own
+        // invalid-in-line ParseError branch individually.
+        let line1 = SAMPLE.lines().next().unwrap();
+
+        let bad_ra_m = set_field(line1, 9, 10, "XX");
+        assert!(parse_fk5_line(&bad_ra_m).is_err());
+
+        let bad_ra_s = set_field(line1, 12, 17, "XXXXXX");
+        assert!(parse_fk5_line(&bad_ra_s).is_err());
+
+        let bad_dec_d = set_field(line1, 28, 29, "XX");
+        assert!(parse_fk5_line(&bad_dec_d).is_err());
+
+        let bad_dec_m = set_field(line1, 31, 32, "XX");
+        assert!(parse_fk5_line(&bad_dec_m).is_err());
+
+        let bad_dec_s = set_field(line1, 34, 38, "XXXXX");
+        assert!(parse_fk5_line(&bad_dec_s).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_fk5_catalog_container_methods() {
+        let records = parse_fk5_text(SAMPLE).unwrap();
+        let catalog = FK5Catalog::new(records);
+
+        assert!(!catalog.is_empty());
+        assert_eq!(catalog.records().len(), catalog.len());
+
+        let count = catalog.len();
+        let records = catalog.into_records();
+        assert_eq!(records.len(), count);
+
+        let empty = FK5Catalog::new(Vec::new());
+        assert!(empty.is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_fk5_filter_by_cone_radians() {
+        let records = parse_fk5_text(SAMPLE).unwrap();
+        let catalog = FK5Catalog::new(records);
+
+        let r1 = catalog.get_by_id(1).unwrap();
+        let cone = catalog.filter_by_cone(
+            r1.ra.to_radians(),
+            r1.dec.to_radians(),
+            0.1f64.to_radians(),
+            AngleFormat::Radians,
+        );
+        assert!(cone.get_by_id(1).is_some());
     }
 
     #[test]

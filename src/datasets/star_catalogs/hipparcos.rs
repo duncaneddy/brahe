@@ -485,6 +485,68 @@ mod tests {
         assert_abs_diff_eq!(dec, r1.dec, epsilon = 1e-9);
 
         assert_eq!(r1.radial_velocity(), None);
+        assert_abs_diff_eq!(r1.magnitude().unwrap(), r1.vmag.unwrap(), epsilon = 1e-9);
+    }
+
+    /// Overwrite the pipe-delimited field at `idx` (0-indexed) with
+    /// `replacement`, for constructing deliberately malformed lines from a
+    /// known-good sample line.
+    fn set_pipe_field(line: &str, idx: usize, replacement: &str) -> String {
+        let mut fields: Vec<&str> = line.split('|').collect();
+        fields[idx] = replacement;
+        fields.join("|")
+    }
+
+    #[test]
+    #[parallel]
+    fn test_hipparcos_parse_line_invalid_hip_id() {
+        let line1 = SAMPLE.lines().next().unwrap();
+        let bad_line = set_pipe_field(line1, 1, "not-a-number");
+        assert!(parse_hipparcos_line(&bad_line).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_hipparcos_parse_line_no_astrometric_solution() {
+        // A blank RA field (index 8) means no astrometric solution was
+        // computed for this entry: the line is skipped (`Ok(None)`), not an
+        // error.
+        let line1 = SAMPLE.lines().next().unwrap();
+        let no_solution_line = set_pipe_field(line1, 8, "");
+        assert!(parse_hipparcos_line(&no_solution_line).unwrap().is_none());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_hipparcos_catalog_container_methods() {
+        let records = parse_hipparcos_text(SAMPLE).unwrap();
+        let catalog = HipparcosCatalog::new(records);
+
+        assert!(!catalog.is_empty());
+        assert_eq!(catalog.records().len(), catalog.len());
+
+        let count = catalog.len();
+        let records = catalog.into_records();
+        assert_eq!(records.len(), count);
+
+        let empty = HipparcosCatalog::new(Vec::new());
+        assert!(empty.is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_hipparcos_filter_by_cone_radians() {
+        let records = parse_hipparcos_text(SAMPLE).unwrap();
+        let catalog = HipparcosCatalog::new(records);
+
+        let r1 = catalog.get_by_id(1).unwrap();
+        let cone = catalog.filter_by_cone(
+            r1.ra.to_radians(),
+            r1.dec.to_radians(),
+            0.1f64.to_radians(),
+            AngleFormat::Radians,
+        );
+        assert!(cone.get_by_id(1).is_some());
     }
 
     /// Build a `HipparcosRecord` with only the DM-identifier fields set, for

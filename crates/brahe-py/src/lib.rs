@@ -632,7 +632,13 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("GM_NEPTUNE_SYSTEM", constants::GM_NEPTUNE_SYSTEM)?;
     module.add("GM_PLUTO", constants::GM_PLUTO)?;
     module.add("GM_PLUTO_SYSTEM", constants::GM_PLUTO_SYSTEM)?;
+    module.add("R_MERCURY", constants::R_MERCURY)?;
+    module.add("R_VENUS", constants::R_VENUS)?;
     module.add("R_MARS", constants::R_MARS)?;
+    module.add("R_JUPITER", constants::R_JUPITER)?;
+    module.add("R_SATURN", constants::R_SATURN)?;
+    module.add("R_URANUS", constants::R_URANUS)?;
+    module.add("R_NEPTUNE", constants::R_NEPTUNE)?;
     module.add("OMEGA_MARS", constants::OMEGA_MARS)?;
     module.add("OMEGA_MOON", constants::OMEGA_MOON)?;
     module.add("GM_PHOBOS", constants::GM_PHOBOS)?;
@@ -903,6 +909,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_state_gse_to_gcrf, module)?)?;
 
     // Reference frame router
+    module.add_class::<PySynodicOrigin>()?;
     module.add_class::<PyReferenceFrame>()?;
     module.add_function(wrap_pyfunction!(py_rotation_frame_to_frame, module)?)?;
     module.add_function(wrap_pyfunction!(py_register_custom_frame, module)?)?;
@@ -918,8 +925,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Cartesian
     module.add_function(wrap_pyfunction!(py_state_koe_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_koe, module)?)?;
-    module.add_function(wrap_pyfunction!(py_state_eci_to_koe_for_body, module)?)?;
-    module.add_function(wrap_pyfunction!(py_state_koe_to_eci_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_inertial_to_koe_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_koe_to_inertial_for_body, module)?)?;
 
     // Geocentric
     module.add_function(wrap_pyfunction!(py_position_geocentric_to_ecef, module)?)?;
@@ -1052,6 +1059,9 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyEulerAngle>()?;
     module.add_class::<PyEulerAngleOrder>()?;
     module.add_class::<PyRotationMatrix>()?;
+    module.add_function(wrap_pyfunction!(py_rx, module)?)?;
+    module.add_function(wrap_pyfunction!(py_ry, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rz, module)?)?;
 
     //* Datasets *//
     module.add_function(wrap_pyfunction!(py_groundstations_load, module)?)?;

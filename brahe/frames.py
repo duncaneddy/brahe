@@ -112,6 +112,7 @@ from brahe._brahe import (
     state_gcrf_to_gse,
     state_gse_to_gcrf,
     # Reference frame router
+    SynodicOrigin,
     ReferenceFrame,
     rotation_frame_to_frame,
     register_custom_frame,
@@ -202,6 +203,7 @@ __all__ = [
     "state_gcrf_to_gse",
     "state_gse_to_gcrf",
     # Reference frame router
+    "SynodicOrigin",
     "ReferenceFrame",
     "rotation_frame_to_frame",
     "register_custom_frame",

@@ -31,7 +31,12 @@ extra_javascript:
 
 plugins:
   - search
-  - table-reader
+  - table-reader:
+      # Example-generated CSVs (docs/figures/*.csv) only exist after running
+      # `just test-examples`; NETWORK-flagged examples skip on a plain PR run
+      # and fresh/local checkouts never have them at all. Warn instead of
+      # hard-failing the build when a table file is missing.
+      allow_missing_files: true
   # - awesome-nav # Need to spend more time to configure this
   - minify:
       minify_html: true
@@ -296,6 +301,7 @@ nav:
           - learn/plots/index.md
           - Orbital Trajectories: learn/plots/orbital_trajectories.md
           - 3D Trajectory: learn/plots/3d_trajectory.md
+          - Synodic Plots: learn/plots/synodic_plots.md
           - Ground Tracks: learn/plots/ground_tracks.md
           - Access Geometry: learn/plots/access_geometry.md
           - Gabbard Plots: learn/plots/gabbard_plot.md
@@ -338,6 +344,10 @@ nav:
       - examples/using_different_integrators.md
       - examples/geo_hohmann_transfer.md
       - examples/low_thrust_orbit_raising.md
+      - examples/lro_lunar_orbit.md
+      - examples/earth_moon_free_return.md
+      - examples/mro_mars_orbit.md
+      - examples/dawn_ceres_orbit.md
   - Python API Reference:
       - library_api/index.md
       - Constants:
@@ -479,6 +489,7 @@ nav:
           - Ground Tracks: library_api/plots/ground_tracks.md
           - Orbital Trajectories: library_api/plots/orbital_trajectories.md
           - 3D Trajectory: library_api/plots/3d_trajectory.md
+          - Synodic Plots: library_api/plots/synodic_plots.md
           - Access Geometry: library_api/plots/access_geometry.md
           - Gabbard Diagram: library_api/plots/gabbard.md
           - Estimation State Plots: library_api/plots/estimation_state.md

@@ -8,7 +8,7 @@ This module provides transformations between various coordinate representations:
 **Cartesian Coordinates:**
 - State vector (position + velocity) representations
 - Conversions to/from osculating Keplerian elements
-- state_eci_to_koe_for_body / state_koe_to_eci_for_body: Osculating elements about a central body with arbitrary GM
+- state_inertial_to_koe_for_body / state_koe_to_inertial_for_body: Osculating elements referenced to a central body's mean equator at J2000
 
 **Geocentric Coordinates:**
 - Spherical geocentric coordinates (latitude, longitude, altitude)
@@ -31,8 +31,8 @@ from brahe._brahe import (
     # Cartesian conversions
     state_koe_to_eci,
     state_eci_to_koe,
-    state_eci_to_koe_for_body,
-    state_koe_to_eci_for_body,
+    state_inertial_to_koe_for_body,
+    state_koe_to_inertial_for_body,
     # Geocentric conversions
     position_geocentric_to_ecef,
     position_ecef_to_geocentric,
@@ -60,8 +60,8 @@ __all__ = [
     # Cartesian conversions
     "state_koe_to_eci",
     "state_eci_to_koe",
-    "state_eci_to_koe_for_body",
-    "state_koe_to_eci_for_body",
+    "state_inertial_to_koe_for_body",
+    "state_koe_to_inertial_for_body",
     # Geocentric conversions
     "position_geocentric_to_ecef",
     "position_ecef_to_geocentric",

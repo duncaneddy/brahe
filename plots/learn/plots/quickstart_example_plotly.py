@@ -35,7 +35,7 @@ traj = prop.trajectory
 # Create an interactive 3D plot
 fig = bh.plot_trajectory_3d(
     [{"trajectory": traj, "color": "red", "label": "LEO"}],
-    show_earth=True,
+    show_body=True,
     backend="plotly",
 )
 

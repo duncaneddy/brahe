@@ -264,6 +264,135 @@ impl RotationMatrix {
     }
 }
 
+/// Elementary rotation matrix about the x-axis, returned as a bare
+/// `nalgebra::SMatrix<f64, 3, 3>`.
+///
+/// This is the free-function form of [`RotationMatrix::Rx`]: it shares the
+/// exact same convention and delegates to it, but returns the underlying
+/// matrix directly rather than a checked [`RotationMatrix`]. Use it when a
+/// raw matrix is more convenient (e.g. composing with other `nalgebra`
+/// matrices or vectors); use the constructor when the type-checked
+/// [`RotationMatrix`] is wanted.
+///
+/// The matrix is the passive (coordinate-frame) rotation by `angle` about
+/// the x-axis: it maps a vector's components in the original frame to its
+/// components in a frame rotated by `+angle` about x. For an `angle` `θ`
+/// in radians the layout is
+///
+/// ```text
+/// [ 1,     0,     0   ]
+/// [ 0,  cos θ,  sin θ ]
+/// [ 0, -sin θ,  cos θ ]
+/// ```
+///
+/// # Arguments
+///
+/// - `angle` - The angle of rotation
+/// - `angle_format` - Format for angular elements (Radians or Degrees).
+///
+/// # Returns
+///
+/// - A `nalgebra::SMatrix<f64, 3, 3>` for the rotation about the x-axis
+///
+/// # Example
+///
+/// ```
+/// use brahe::attitude::Rx;
+/// use brahe::AngleFormat;
+///
+/// let r = Rx(45.0, AngleFormat::Degrees);
+/// ```
+#[allow(non_snake_case)]
+pub fn Rx(angle: f64, angle_format: AngleFormat) -> SMatrix3 {
+    RotationMatrix::Rx(angle, angle_format).to_matrix()
+}
+
+/// Elementary rotation matrix about the y-axis, returned as a bare
+/// `nalgebra::SMatrix<f64, 3, 3>`.
+///
+/// This is the free-function form of [`RotationMatrix::Ry`]: it shares the
+/// exact same convention and delegates to it, but returns the underlying
+/// matrix directly rather than a checked [`RotationMatrix`]. Use it when a
+/// raw matrix is more convenient (e.g. composing with other `nalgebra`
+/// matrices or vectors); use the constructor when the type-checked
+/// [`RotationMatrix`] is wanted.
+///
+/// The matrix is the passive (coordinate-frame) rotation by `angle` about
+/// the y-axis: it maps a vector's components in the original frame to its
+/// components in a frame rotated by `+angle` about y. For an `angle` `θ`
+/// in radians the layout is
+///
+/// ```text
+/// [ cos θ, 0, -sin θ ]
+/// [   0,   1,    0   ]
+/// [ sin θ, 0,  cos θ ]
+/// ```
+///
+/// # Arguments
+///
+/// - `angle` - The angle of rotation
+/// - `angle_format` - Format for angular elements (Radians or Degrees).
+///
+/// # Returns
+///
+/// - A `nalgebra::SMatrix<f64, 3, 3>` for the rotation about the y-axis
+///
+/// # Example
+///
+/// ```
+/// use brahe::attitude::Ry;
+/// use brahe::AngleFormat;
+///
+/// let r = Ry(45.0, AngleFormat::Degrees);
+/// ```
+#[allow(non_snake_case)]
+pub fn Ry(angle: f64, angle_format: AngleFormat) -> SMatrix3 {
+    RotationMatrix::Ry(angle, angle_format).to_matrix()
+}
+
+/// Elementary rotation matrix about the z-axis, returned as a bare
+/// `nalgebra::SMatrix<f64, 3, 3>`.
+///
+/// This is the free-function form of [`RotationMatrix::Rz`]: it shares the
+/// exact same convention and delegates to it, but returns the underlying
+/// matrix directly rather than a checked [`RotationMatrix`]. Use it when a
+/// raw matrix is more convenient (e.g. composing with other `nalgebra`
+/// matrices or vectors); use the constructor when the type-checked
+/// [`RotationMatrix`] is wanted.
+///
+/// The matrix is the passive (coordinate-frame) rotation by `angle` about
+/// the z-axis: it maps a vector's components in the original frame to its
+/// components in a frame rotated by `+angle` about z. For an `angle` `θ`
+/// in radians the layout is
+///
+/// ```text
+/// [  cos θ, sin θ, 0 ]
+/// [ -sin θ, cos θ, 0 ]
+/// [    0,     0,   1 ]
+/// ```
+///
+/// # Arguments
+///
+/// - `angle` - The angle of rotation
+/// - `angle_format` - Format for angular elements (Radians or Degrees).
+///
+/// # Returns
+///
+/// - A `nalgebra::SMatrix<f64, 3, 3>` for the rotation about the z-axis
+///
+/// # Example
+///
+/// ```
+/// use brahe::attitude::Rz;
+/// use brahe::AngleFormat;
+///
+/// let r = Rz(45.0, AngleFormat::Degrees);
+/// ```
+#[allow(non_snake_case)]
+pub fn Rz(angle: f64, angle_format: AngleFormat) -> SMatrix3 {
+    RotationMatrix::Rz(angle, angle_format).to_matrix()
+}
+
 impl fmt::Display for RotationMatrix {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // TODO: Accept formatting options per https://doc.rust-lang.org/std/fmt/struct.Formatter.html
@@ -593,6 +722,7 @@ impl ToAttitude for RotationMatrix {
 mod tests {
     use super::*;
     use crate::constants::{DEGREES, RADIANS};
+    use approx::assert_abs_diff_eq;
     use nalgebra::Matrix3;
     use strum::IntoEnumIterator;
 
@@ -729,6 +859,71 @@ mod tests {
         .unwrap();
 
         assert_eq!(r, expected);
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_Rx_free_function() {
+        // Hand-computed 45 deg rotation about x, and agreement with the
+        // RotationMatrix::Rx constructor.
+        let r = Rx(45.0, DEGREES);
+        let s = std::f64::consts::FRAC_1_SQRT_2;
+        let expected = Matrix3::new(1.0, 0.0, 0.0, 0.0, s, s, 0.0, -s, s);
+        for i in 0..3 {
+            for j in 0..3 {
+                assert_abs_diff_eq!(r[(i, j)], expected[(i, j)], epsilon = 1e-15);
+            }
+        }
+        assert_eq!(r, RotationMatrix::Rx(45.0, DEGREES).to_matrix());
+
+        // Zero angle is the identity; orthonormality (R R^T = I, det = +1).
+        assert_eq!(Rx(0.0, RADIANS), Matrix3::identity());
+        let r = Rx(30.0, DEGREES);
+        let should_be_identity = r * r.transpose();
+        for i in 0..3 {
+            for j in 0..3 {
+                assert_abs_diff_eq!(
+                    should_be_identity[(i, j)],
+                    if i == j { 1.0 } else { 0.0 },
+                    epsilon = 1e-15
+                );
+            }
+        }
+        assert_abs_diff_eq!(r.determinant(), 1.0, epsilon = 1e-15);
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_Ry_free_function() {
+        let r = Ry(45.0, DEGREES);
+        let s = std::f64::consts::FRAC_1_SQRT_2;
+        let expected = Matrix3::new(s, 0.0, -s, 0.0, 1.0, 0.0, s, 0.0, s);
+        for i in 0..3 {
+            for j in 0..3 {
+                assert_abs_diff_eq!(r[(i, j)], expected[(i, j)], epsilon = 1e-15);
+            }
+        }
+        assert_eq!(r, RotationMatrix::Ry(45.0, DEGREES).to_matrix());
+        assert_eq!(Ry(0.0, RADIANS), Matrix3::identity());
+        assert_abs_diff_eq!(r.determinant(), 1.0, epsilon = 1e-15);
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_Rz_free_function() {
+        let r = Rz(45.0, DEGREES);
+        let s = std::f64::consts::FRAC_1_SQRT_2;
+        let expected = Matrix3::new(s, s, 0.0, -s, s, 0.0, 0.0, 0.0, 1.0);
+        for i in 0..3 {
+            for j in 0..3 {
+                assert_abs_diff_eq!(r[(i, j)], expected[(i, j)], epsilon = 1e-15);
+            }
+        }
+        assert_eq!(r, RotationMatrix::Rz(45.0, DEGREES).to_matrix());
+        assert_eq!(Rz(0.0, RADIANS), Matrix3::identity());
+        // Radians and degrees agree for the same physical angle.
+        assert_eq!(Rz(std::f64::consts::FRAC_PI_4, RADIANS), Rz(45.0, DEGREES));
+        assert_abs_diff_eq!(r.determinant(), 1.0, epsilon = 1e-15);
     }
 
     #[test]

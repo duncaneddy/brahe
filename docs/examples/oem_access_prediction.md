@@ -78,9 +78,11 @@ Print all OEM-based access windows grouped by station with summary statistics.
 
 ## Full Code Example
 
-```python title="oem_access_prediction.py"
---8<-- "./examples/examples/oem_access_prediction.py:all"
-```
+??? "Full Code"
+
+    ```python title="oem_access_prediction.py"
+    --8<-- "./examples/examples/oem_access_prediction.py:all"
+    ```
 
 ## See Also
 

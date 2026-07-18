@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -87,8 +88,8 @@ fig_3d = bh.plot_trajectory_3d(
         for prop in umbra_props
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
     view_azimuth=45.0,
     view_elevation=30.0,

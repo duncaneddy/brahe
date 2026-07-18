@@ -46,10 +46,15 @@ jobs:
           name: doc-outputs
           path: docs/outputs/
 
+      # Shared with pr_tests.yml's "build-docs" job. This job runs on every
+      # push to main (via unit_tests.yml) and on release tags, so it is what
+      # actually saves the "docs-build" cache; the PR job only restores it.
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
+          cache-shared-key: docs-build
+          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Set default Rust toolchain
         run: |

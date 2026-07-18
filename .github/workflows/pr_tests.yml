@@ -62,10 +62,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.0
 
+      # This job only ever runs on PRs, so it never sees a main-branch save.
+      # warm_data_cache.yml runs the equivalent build weekly on main under the
+      # same shared-key to keep a restorable cache warm for PRs.
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
+          cache-shared-key: validate-rust-package
+          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Set default Rust toolchain
         run: |
@@ -96,10 +101,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.0
 
+      # This job only ever runs on PRs, so it never sees a main-branch save.
+      # warm_data_cache.yml runs the equivalent build weekly on main under the
+      # same shared-key to keep a restorable cache warm for PRs.
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
+          cache-shared-key: validate-python-package
+          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Set default Rust toolchain
         run: |
@@ -130,10 +140,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.0
 
+      # Shared with update_docs.yml/docs_only.yml's doc-build jobs, which both
+      # run on pushes to main and so are the ones that actually save this
+      # cache; this PR job only ever restores it.
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
+          cache-shared-key: docs-build
+          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Set default Rust toolchain
         run: |

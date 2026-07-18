@@ -649,6 +649,8 @@ impl UnscentedKalmanFilter {
 
     /// Fallible body of [`propagate_to`](Self::propagate_to). Mutates the
     /// propagator; the caller rolls it back if this returns an error.
+    ///
+    /// Keep in sync with the predict half of `predict_and_update`.
     fn predict_only(
         &mut self,
         epoch: Epoch,
@@ -755,7 +757,9 @@ mod tests {
     use super::*;
     use crate::constants::physical::GM_EARTH;
     use crate::eop::{EOPExtrapolation, FileEOPProvider, set_global_eop_provider};
-    use crate::estimation::{InertialPositionMeasurementModel, InertialStateMeasurementModel};
+    use crate::estimation::{
+        InertialPositionMeasurementModel, InertialStateMeasurementModel, ProcessNoiseConfig,
+    };
     use crate::propagators::DNumericalOrbitPropagator;
     use crate::propagators::NumericalPropagationConfig;
     use crate::propagators::force_model_config::ForceModelConfig;
@@ -1513,6 +1517,97 @@ mod tests {
         // Backwards propagation is rejected without mutating filter state.
         assert!(ukf.propagate_to(epoch).is_err());
         assert_eq!(ukf.current_epoch(), epoch + 600.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_ukf_propagate_to_respects_store_records() {
+        setup_global_test_eop();
+        let (epoch, true_state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+
+        // store_records = true: records() grows by one per propagate_to call.
+        let models: Vec<Box<dyn MeasurementModel>> =
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))];
+        let mut ukf = create_two_body_ukf(epoch, true_state.clone(), p0.clone(), models);
+        assert_eq!(ukf.records().len(), 0);
+        ukf.propagate_to(epoch + 300.0).unwrap();
+        assert_eq!(ukf.records().len(), 1);
+        ukf.propagate_to(epoch + 600.0).unwrap();
+        assert_eq!(ukf.records().len(), 2);
+
+        // store_records = false: records() stays empty after propagate_to.
+        let prop = create_plain_propagator(epoch, true_state, Some(p0));
+        let mut ukf_no_records = UnscentedKalmanFilter::from_propagator(
+            prop,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            UKFConfig {
+                store_records: false,
+                ..UKFConfig::default()
+            },
+        )
+        .unwrap();
+        ukf_no_records.propagate_to(epoch + 300.0).unwrap();
+        assert_eq!(ukf_no_records.records().len(), 0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_ukf_propagate_to_applies_process_noise() {
+        // With process_noise (scale_with_dt = true) configured, propagate_to
+        // must add Q * dt to the predicted covariance on top of the dynamics-
+        // driven growth; without process noise the same propagation should
+        // leave a smaller trace.
+        setup_global_test_eop();
+        let (epoch, true_state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let dt = 600.0;
+
+        let q_diag = vec![1.0, 1.0, 1.0, 1e-4, 1e-4, 1e-4];
+        let q_matrix = DMatrix::from_diagonal(&DVector::from_vec(q_diag.clone()));
+        let q_trace: f64 = q_diag.iter().sum();
+
+        let models_no_noise: Vec<Box<dyn MeasurementModel>> =
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))];
+        let mut ukf_no_noise =
+            create_two_body_ukf(epoch, true_state.clone(), p0.clone(), models_no_noise);
+        ukf_no_noise.propagate_to(epoch + dt).unwrap();
+        let trace_no_noise = ukf_no_noise.current_covariance().trace();
+
+        let mut ukf_with_noise = UnscentedKalmanFilter::new(
+            epoch,
+            true_state,
+            p0,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            UKFConfig {
+                process_noise: Some(ProcessNoiseConfig {
+                    q_matrix,
+                    scale_with_dt: true,
+                }),
+                ..UKFConfig::default()
+            },
+        )
+        .unwrap();
+        ukf_with_noise.propagate_to(epoch + dt).unwrap();
+        let trace_with_noise = ukf_with_noise.current_covariance().trace();
+
+        let expected_increment = q_trace * dt;
+        let actual_increment = trace_with_noise - trace_no_noise;
+        assert!(
+            actual_increment > 0.0,
+            "process noise should increase the covariance trace, got increment {:.3}",
+            actual_increment
+        );
+        assert_abs_diff_eq!(
+            actual_increment,
+            expected_increment,
+            epsilon = expected_increment * 0.05
+        );
     }
 
     #[test]

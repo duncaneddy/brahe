@@ -517,6 +517,8 @@ impl ExtendedKalmanFilter {
 
     /// Fallible body of [`propagate_to`](Self::propagate_to). Mutates the
     /// propagator; the caller rolls it back if this returns an error.
+    ///
+    /// Keep in sync with the predict half of `predict_and_update`.
     fn predict_only(
         &mut self,
         epoch: Epoch,
@@ -1593,6 +1595,95 @@ mod tests {
         // Backwards propagation is rejected without mutating filter state.
         assert!(ekf.propagate_to(epoch).is_err());
         assert_eq!(ekf.current_epoch(), epoch + 600.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_propagate_to_respects_store_records() {
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+
+        // store_records = true: records() grows by one per propagate_to call.
+        let mut ekf = create_two_body_ekf(
+            epoch,
+            state.clone(),
+            p0.clone(),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            None,
+        );
+        assert_eq!(ekf.records().len(), 0);
+        ekf.propagate_to(epoch + 300.0).unwrap();
+        assert_eq!(ekf.records().len(), 1);
+        ekf.propagate_to(epoch + 600.0).unwrap();
+        assert_eq!(ekf.records().len(), 2);
+
+        // store_records = false: records() stays empty after propagate_to.
+        let prop = create_stm_propagator(epoch, state, Some(p0));
+        let mut ekf_no_records = ExtendedKalmanFilter::from_propagator(
+            prop,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            EKFConfig {
+                process_noise: None,
+                store_records: false,
+            },
+        )
+        .unwrap();
+        ekf_no_records.propagate_to(epoch + 300.0).unwrap();
+        assert_eq!(ekf_no_records.records().len(), 0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_propagate_to_applies_process_noise() {
+        // With process_noise (scale_with_dt = true) configured, propagate_to
+        // must add Q * dt to the predicted covariance on top of the dynamics-
+        // driven growth; without process noise the same propagation should
+        // leave a smaller trace.
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let dt = 600.0;
+
+        let q_diag = vec![1.0, 1.0, 1.0, 1e-4, 1e-4, 1e-4];
+        let q_matrix = DMatrix::from_diagonal(&DVector::from_vec(q_diag.clone()));
+        let q_trace: f64 = q_diag.iter().sum();
+
+        let mut ekf_no_noise = create_two_body_ekf(
+            epoch,
+            state.clone(),
+            p0.clone(),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            None,
+        );
+        ekf_no_noise.propagate_to(epoch + dt).unwrap();
+        let trace_no_noise = ekf_no_noise.current_covariance().trace();
+
+        let mut ekf_with_noise = create_two_body_ekf(
+            epoch,
+            state,
+            p0,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            Some(ProcessNoiseConfig {
+                q_matrix,
+                scale_with_dt: true,
+            }),
+        );
+        ekf_with_noise.propagate_to(epoch + dt).unwrap();
+        let trace_with_noise = ekf_with_noise.current_covariance().trace();
+
+        let expected_increment = q_trace * dt;
+        let actual_increment = trace_with_noise - trace_no_noise;
+        assert!(
+            actual_increment > 0.0,
+            "process noise should increase the covariance trace, got increment {:.3}",
+            actual_increment
+        );
+        assert_abs_diff_eq!(
+            actual_increment,
+            expected_increment,
+            epsilon = expected_increment * 0.05
+        );
     }
 
     #[test]

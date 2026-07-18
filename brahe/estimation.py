@@ -18,6 +18,12 @@ State estimation filters and measurement models for orbit determination.
 - ECEFVelocityMeasurementModel: 3D ECEF velocity observations
 - ECEFStateMeasurementModel: 6D ECEF state observations
 
+**Measurement Models (Ground Sensors):**
+- AzElRangeMeasurementModel: Topocentric azimuth/elevation/range observations
+
+**Sensors:**
+- SimpleSSNSensor: Simulated SSN ground sensor producing az/el/range measurements
+
 **Custom Measurement Models:**
 - MeasurementModel: Base class for Python-defined measurement models
 
@@ -48,6 +54,9 @@ from brahe._brahe import (
     ECEFPositionMeasurementModel,
     ECEFVelocityMeasurementModel,
     ECEFStateMeasurementModel,
+    AzElRangeMeasurementModel,
+    # Sensors
+    SimpleSSNSensor,
     # Covariance matrix helpers
     isotropic_covariance,
     diagonal_covariance,
@@ -76,6 +85,8 @@ __all__ = [
     "ECEFPositionMeasurementModel",
     "ECEFVelocityMeasurementModel",
     "ECEFStateMeasurementModel",
+    "AzElRangeMeasurementModel",
+    "SimpleSSNSensor",
     "isotropic_covariance",
     "diagonal_covariance",
     "EKFConfig",

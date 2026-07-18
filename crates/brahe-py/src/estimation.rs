@@ -1015,6 +1015,465 @@ impl_measurement_model_binding!(
     doc: "ECEF state measurement model (6D ECEF state from GNSS).\n\nInternally converts ECI state to ECEF state."
 );
 
+impl_measurement_model_binding!(
+    PyAzElRangeMeasurementModel,
+    estimation::AzElRangeMeasurementModel,
+    "AzElRangeMeasurementModel",
+    constructors: [
+        /// Create an az/el/range measurement model for a ground station.
+        ///
+        /// Args:
+        ///     station_lon (float): Station geodetic longitude (angle_format units).
+        ///     station_lat (float): Station geodetic latitude (angle_format units).
+        ///     station_alt (float): Station altitude above the WGS84 ellipsoid (meters).
+        ///     sigma_az (float): Azimuth noise standard deviation (angle_format units).
+        ///     sigma_el (float): Elevation noise standard deviation (angle_format units).
+        ///     sigma_range (float): Range noise standard deviation (meters).
+        ///     angle_format (AngleFormat, optional): Angle units. Defaults to degrees.
+        ///     bias_az (float, optional): Azimuth bias applied in predict(). Default 0.
+        ///     bias_el (float, optional): Elevation bias applied in predict(). Default 0.
+        ///     bias_range (float, optional): Range bias (meters). Default 0.
+        ///
+        /// Returns:
+        ///     AzElRangeMeasurementModel: New model instance.
+        ///
+        /// Example:
+        ///     ```python
+        ///     import brahe as bh
+        ///     model = bh.AzElRangeMeasurementModel(
+        ///         -71.49, 42.62, 123.1, 0.01, 0.01, 150.0,
+        ///         bias_range=150.0,
+        ///     )
+        ///     ```
+        #[new]
+        #[pyo3(signature = (station_lon, station_lat, station_alt, sigma_az, sigma_el, sigma_range, angle_format=None, bias_az=0.0, bias_el=0.0, bias_range=0.0))]
+        #[allow(clippy::too_many_arguments)]
+        fn new(
+            station_lon: f64,
+            station_lat: f64,
+            station_alt: f64,
+            sigma_az: f64,
+            sigma_el: f64,
+            sigma_range: f64,
+            angle_format: Option<PyRef<PyAngleFormat>>,
+            bias_az: f64,
+            bias_el: f64,
+            bias_range: f64,
+        ) -> Self {
+            let af = angle_format
+                .map(|a| a.value)
+                .unwrap_or(constants::AngleFormat::Degrees);
+            PyAzElRangeMeasurementModel {
+                model: estimation::AzElRangeMeasurementModel::new(
+                    station_lon, station_lat, station_alt,
+                    sigma_az, sigma_el, sigma_range, af,
+                )
+                .with_bias(bias_az, bias_el, bias_range),
+            }
+        }
+
+        /// Create from a full 3x3 noise covariance matrix.
+        ///
+        /// Args:
+        ///     station_lon (float): Station geodetic longitude (angle_format units).
+        ///     station_lat (float): Station geodetic latitude (angle_format units).
+        ///     station_alt (float): Station altitude above the WGS84 ellipsoid (meters).
+        ///     noise_cov (numpy.ndarray): 3x3 covariance for [azimuth, elevation, range]
+        ///         (angle_format units squared, angle_format units squared, meters squared).
+        ///     angle_format (AngleFormat, optional): Angle units. Defaults to degrees.
+        ///
+        /// Returns:
+        ///     AzElRangeMeasurementModel: New model instance.
+        #[staticmethod]
+        #[pyo3(signature = (station_lon, station_lat, station_alt, noise_cov, angle_format=None))]
+        fn from_covariance(
+            station_lon: f64,
+            station_lat: f64,
+            station_alt: f64,
+            noise_cov: PyReadonlyArray2<f64>,
+            angle_format: Option<PyRef<PyAngleFormat>>,
+        ) -> PyResult<Self> {
+            let af = angle_format
+                .map(|a| a.value)
+                .unwrap_or(constants::AngleFormat::Degrees);
+            let shape = noise_cov.shape();
+            let data = noise_cov.as_slice().map_err(|e| {
+                exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
+            })?;
+            let mat = nalgebra::DMatrix::from_row_slice(shape[0], shape[1], data);
+            let model = estimation::AzElRangeMeasurementModel::from_covariance(
+                station_lon, station_lat, station_alt, mat, af,
+            )
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+            Ok(PyAzElRangeMeasurementModel { model })
+        }
+
+        /// Create from upper-triangular covariance elements.
+        ///
+        /// Elements in row-major packed order: [c00, c01, c02, c11, c12, c22].
+        ///
+        /// Args:
+        ///     station_lon (float): Station geodetic longitude (angle_format units).
+        ///     station_lat (float): Station geodetic latitude (angle_format units).
+        ///     station_alt (float): Station altitude above the WGS84 ellipsoid (meters).
+        ///     upper (numpy.ndarray): Upper-triangular elements (6 for 3x3).
+        ///     angle_format (AngleFormat, optional): Angle units. Defaults to degrees.
+        ///
+        /// Returns:
+        ///     AzElRangeMeasurementModel: New model instance.
+        #[staticmethod]
+        #[pyo3(signature = (station_lon, station_lat, station_alt, upper, angle_format=None))]
+        fn from_upper_triangular(
+            station_lon: f64,
+            station_lat: f64,
+            station_alt: f64,
+            upper: PyReadonlyArray1<f64>,
+            angle_format: Option<PyRef<PyAngleFormat>>,
+        ) -> PyResult<Self> {
+            let af = angle_format
+                .map(|a| a.value)
+                .unwrap_or(constants::AngleFormat::Degrees);
+            let data = upper.as_slice().map_err(|e| {
+                exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
+            })?;
+            let model = estimation::AzElRangeMeasurementModel::from_upper_triangular(
+                station_lon, station_lat, station_alt, data, af,
+            )
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+            Ok(PyAzElRangeMeasurementModel { model })
+        }
+    ],
+    doc: "Topocentric azimuth/elevation/range measurement model for ground sensors.\n\nMeasurement is [azimuth, elevation, range] with optional constant bias applied in predict(). Azimuth residuals wrap across 0/360."
+);
+
+// =============================================================================
+// SimpleSSNSensor
+// =============================================================================
+
+/// A simulated SSN ground sensor producing az/el/range measurements.
+///
+/// Pairs a sensor site (location, field-of-view limits, bias/noise
+/// calibration) with measurement generation. Angles are in degrees, range in
+/// meters. The azimuth window is wrap-aware: `az_min > az_max` means the
+/// window crosses north (e.g. Cape Cod 347deg -> 227deg).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     sites = bh.datasets.ssn_sensors.load()
+///     sensors = bh.SimpleSSNSensor.from_locations(sites, seed=42)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "SimpleSSNSensor")]
+pub struct PySimpleSSNSensor {
+    pub(crate) sensor: estimation::SimpleSSNSensor,
+}
+
+#[pymethods]
+impl PySimpleSSNSensor {
+    /// Create a sensor with explicit limits and calibration values.
+    ///
+    /// Args:
+    ///     location (PointLocation): Sensor site (geodetic; name used for the sensor name).
+    ///     az_min (float, optional): Azimuth window start (degrees). Default 0.
+    ///     az_max (float, optional): Azimuth window end (degrees). Default 360.
+    ///         `az_min > az_max` means the window crosses north.
+    ///     el_min (float, optional): Minimum elevation (degrees). Default 0.
+    ///     el_max (float, optional): Maximum elevation (degrees). Default 90.
+    ///     range_max (float or None, optional): Maximum range (meters), or None for unlimited.
+    ///     bias (tuple[float, float, float], optional): Measurement bias
+    ///         (az_deg, el_deg, range_m). Default (0, 0, 0).
+    ///     noise (tuple[float, float, float], optional): Noise standard
+    ///         deviations (az_deg, el_deg, range_m). Default (0.01, 0.01, 100.0).
+    ///     seed (int or None, optional): RNG seed for reproducible measurements.
+    ///         Defaults to an OS-seeded RNG.
+    ///
+    /// Returns:
+    ///     SimpleSSNSensor: New sensor instance.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     loc = bh.PointLocation(-71.49, 42.62, 123.1).with_name("Millstone")
+    ///     sensor = bh.SimpleSSNSensor(loc, el_min=5.0, noise=(0.01, 0.01, 100.0), seed=1)
+    ///     ```
+    #[new]
+    #[pyo3(signature = (location, az_min=0.0, az_max=360.0, el_min=0.0, el_max=90.0, range_max=None, bias=(0.0, 0.0, 0.0), noise=(0.01, 0.01, 100.0), seed=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        location: PyRef<PyPointLocation>,
+        az_min: f64,
+        az_max: f64,
+        el_min: f64,
+        el_max: f64,
+        range_max: Option<f64>,
+        bias: (f64, f64, f64),
+        noise: (f64, f64, f64),
+        seed: Option<u64>,
+    ) -> Self {
+        let mut sensor = estimation::SimpleSSNSensor::new(
+            location.location.clone(),
+            az_min,
+            az_max,
+            el_min,
+            el_max,
+            range_max,
+            [bias.0, bias.1, bias.2],
+            [noise.0, noise.1, noise.2],
+        );
+        if let Some(s) = seed {
+            sensor = sensor.with_seed(s);
+        }
+        PySimpleSSNSensor { sensor }
+    }
+
+    /// Build a sensor from a dataset site's properties.
+    ///
+    /// Requires `sensor_type == "azel_range"` and the three noise fields
+    /// (`az_noise_deg`, `el_noise_deg`, `range_noise_m`). Bias fields default
+    /// to zero when absent; limits default to an open field of view (azimuth
+    /// 0-360deg, elevation 0-90deg, unlimited range).
+    ///
+    /// Args:
+    ///     location (PointLocation): Site from e.g. `bh.datasets.ssn_sensors.load()`.
+    ///     seed (int or None, optional): RNG seed for reproducible measurements.
+    ///
+    /// Returns:
+    ///     SimpleSSNSensor: New sensor instance.
+    ///
+    /// Raises:
+    ///     ValueError: If the site is missing a supported `sensor_type` or
+    ///         its noise calibration properties.
+    #[staticmethod]
+    #[pyo3(signature = (location, seed=None))]
+    fn from_location(location: PyRef<PyPointLocation>, seed: Option<u64>) -> PyResult<Self> {
+        let mut sensor = estimation::SimpleSSNSensor::from_location(&location.location)
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+        if let Some(s) = seed {
+            sensor = sensor.with_seed(s);
+        }
+        Ok(PySimpleSSNSensor { sensor })
+    }
+
+    /// Build sensors from all supported sites, skipping unsupported ones.
+    ///
+    /// Sites that fail to construct (optical sites, sites without
+    /// calibration values) are skipped. When `seed` is provided, sensor `i`
+    /// is seeded with `seed + i` for reproducible measurement generation.
+    ///
+    /// Args:
+    ///     locations (list[PointLocation]): Candidate sites.
+    ///     seed (int or None, optional): Optional base RNG seed.
+    ///
+    /// Returns:
+    ///     list[SimpleSSNSensor]: One sensor per supported site.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     sites = bh.datasets.ssn_sensors.load()
+    ///     sensors = bh.SimpleSSNSensor.from_locations(sites, seed=42)
+    ///     ```
+    #[staticmethod]
+    #[pyo3(signature = (locations, seed=None))]
+    fn from_locations(locations: Vec<PyRef<PyPointLocation>>, seed: Option<u64>) -> Vec<Self> {
+        let locs: Vec<_> = locations.iter().map(|l| l.location.clone()).collect();
+        estimation::SimpleSSNSensor::from_locations(&locs, seed)
+            .into_iter()
+            .map(|sensor| PySimpleSSNSensor { sensor })
+            .collect()
+    }
+
+    /// Whether a target is inside the sensor's field of view.
+    ///
+    /// Checks elevation limits, the wrap-aware azimuth window, and maximum range.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Measurement epoch.
+    ///     state (numpy.ndarray): Target ECI state (first 3 elements used; meters).
+    ///
+    /// Returns:
+    ///     bool: True if the target is within the field of view.
+    fn visible(&self, epoch: &PyEpoch, state: PyReadonlyArray1<f64>) -> PyResult<bool> {
+        let s = state.as_slice().map_err(|e| {
+            exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
+        })?;
+        Ok(self
+            .sensor
+            .visible(&epoch.obj, &nalgebra::DVector::from_column_slice(s)))
+    }
+
+    /// Generate one measurement if the target is visible (step-wise API).
+    ///
+    /// Visibility is evaluated on the true geometry; the returned
+    /// measurement is truth + bias + noise with azimuth normalized into
+    /// [0, 360).
+    ///
+    /// Args:
+    ///     epoch (Epoch): Measurement epoch.
+    ///     state (numpy.ndarray): True target ECI state (meters).
+    ///
+    /// Returns:
+    ///     numpy.ndarray or None: [az_deg, el_deg, range_m] when visible, None otherwise.
+    fn measure<'py>(
+        &mut self,
+        py: Python<'py>,
+        epoch: &PyEpoch,
+        state: PyReadonlyArray1<f64>,
+    ) -> PyResult<Option<Bound<'py, PyArray<f64, numpy::Ix1>>>> {
+        let s = state.as_slice().map_err(|e| {
+            exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
+        })?;
+        Ok(self
+            .sensor
+            .measure(&epoch.obj, &nalgebra::DVector::from_column_slice(s))
+            .map(|z| z.as_slice().to_vec().into_pyarray(py)))
+    }
+
+    /// True (noise-free, bias-free) az/el/range of a target.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Measurement epoch.
+    ///     state (numpy.ndarray): Target ECI state (first 3 elements used; meters).
+    ///
+    /// Returns:
+    ///     numpy.ndarray: [azimuth_deg, elevation_deg, range_m].
+    fn azelrange<'py>(
+        &self,
+        py: Python<'py>,
+        epoch: &PyEpoch,
+        state: PyReadonlyArray1<f64>,
+    ) -> PyResult<Bound<'py, PyArray<f64, numpy::Ix1>>> {
+        let s = state.as_slice().map_err(|e| {
+            exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
+        })?;
+        let azel = self
+            .sensor
+            .azelrange(&epoch.obj, &nalgebra::DVector::from_column_slice(s));
+        Ok(vec![azel[0], azel[1], azel[2]].into_pyarray(py))
+    }
+
+    /// Generate observations over a trajectory segment (batched API).
+    ///
+    /// Samples the trajectory at cadence `dt` over `[start, end]`
+    /// (inclusive) and calls `measure()` at each sample; non-visible samples
+    /// are skipped. Pass detection is intentionally not performed here.
+    ///
+    /// Args:
+    ///     trajectory (OrbitTrajectory): Interpolatable ECI trajectory of the target.
+    ///     start (Epoch): First sample epoch.
+    ///     end (Epoch): Last sample epoch (inclusive).
+    ///     dt (float): Sample interval (seconds, > 0).
+    ///     model_index (int): Observation.model_index to tag measurements with.
+    ///
+    /// Returns:
+    ///     list[Observation]: Observations for every visible sample.
+    ///
+    /// Raises:
+    ///     ValueError: If dt <= 0.
+    fn simulate_observations(
+        &mut self,
+        trajectory: PyRef<PyOrbitalTrajectory>,
+        start: &PyEpoch,
+        end: &PyEpoch,
+        dt: f64,
+        model_index: usize,
+    ) -> PyResult<Vec<PyObservation>> {
+        self.sensor
+            .simulate_observations(&trajectory.trajectory, start.obj, end.obj, dt, model_index)
+            .map(|v| {
+                v.into_iter()
+                    .map(|o| PyObservation { observation: o })
+                    .collect()
+            })
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    /// Filter-side measurement model matching this sensor.
+    ///
+    /// The model uses the sensor's noise standard deviations for its noise
+    /// covariance and the sensor's bias in predict(), so an estimator
+    /// configured with this model is consistent with measurements generated
+    /// by measure().
+    ///
+    /// Returns:
+    ///     AzElRangeMeasurementModel: Az/el/range model in degrees.
+    fn measurement_model(&self) -> PyAzElRangeMeasurementModel {
+        PyAzElRangeMeasurementModel {
+            model: self.sensor.measurement_model(),
+        }
+    }
+
+    /// Sensor name (from the site location).
+    ///
+    /// Returns:
+    ///     str: Sensor name.
+    #[getter]
+    fn name(&self) -> String {
+        self.sensor.name().to_string()
+    }
+
+    /// Sensor site location.
+    ///
+    /// Returns:
+    ///     PointLocation: Sensor site location.
+    #[getter]
+    fn location(&self) -> PyPointLocation {
+        PyPointLocation {
+            location: self.sensor.location().clone(),
+        }
+    }
+
+    /// Minimum elevation (degrees).
+    ///
+    /// Returns:
+    ///     float: Minimum elevation.
+    #[getter]
+    fn el_min(&self) -> f64 {
+        self.sensor.el_min()
+    }
+
+    /// Maximum elevation (degrees).
+    ///
+    /// Returns:
+    ///     float: Maximum elevation.
+    #[getter]
+    fn el_max(&self) -> f64 {
+        self.sensor.el_max()
+    }
+
+    /// Azimuth window start (degrees).
+    ///
+    /// Returns:
+    ///     float: Azimuth window start.
+    #[getter]
+    fn az_min(&self) -> f64 {
+        self.sensor.az_min()
+    }
+
+    /// Azimuth window end (degrees).
+    ///
+    /// Returns:
+    ///     float: Azimuth window end.
+    #[getter]
+    fn az_max(&self) -> f64 {
+        self.sensor.az_max()
+    }
+
+    /// Maximum range (meters), if limited.
+    ///
+    /// Returns:
+    ///     float or None: Maximum range, or None if unlimited.
+    #[getter]
+    fn range_max(&self) -> Option<f64> {
+        self.sensor.range_max()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("SimpleSSNSensor(name='{}')", self.sensor.name())
+    }
+}
+
 // =============================================================================
 // Covariance Matrix Helper Functions
 // =============================================================================
@@ -1235,6 +1694,30 @@ impl PyMeasurementModel {
             "Subclasses must implement name()",
         ))
     }
+
+    /// Compute the measurement residual `measured - predicted`.
+    ///
+    /// Override to customize residual computation (e.g., angle wrapping for
+    /// azimuth/right-ascension measurements that cross 0/360). Default
+    /// returns the plain difference `measured - predicted`.
+    ///
+    /// Args:
+    ///     measured (numpy.ndarray): Measured value.
+    ///     predicted (numpy.ndarray): Predicted value.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Residual vector.
+    fn residual<'py>(
+        &self,
+        py: Python<'py>,
+        measured: PyReadonlyArray1<f64>,
+        predicted: PyReadonlyArray1<f64>,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+        let m = measured.as_slice()?;
+        let p = predicted.as_slice()?;
+        let diff: Vec<f64> = m.iter().zip(p.iter()).map(|(a, b)| a - b).collect();
+        Ok(diff.into_pyarray(py))
+    }
 }
 
 // Internal wrapper that implements the Rust MeasurementModel trait
@@ -1426,6 +1909,27 @@ impl MeasurementModel for RustMeasurementModelWrapper {
         self.cached_noise_cov.clone()
     }
 
+    fn residual(&self, measured: &DVector<f64>, predicted: &DVector<f64>) -> DVector<f64> {
+        Python::attach(|py| {
+            let m_np = measured.as_slice().to_pyarray(py);
+            let p_np = predicted.as_slice().to_pyarray(py);
+            match self
+                .py_model
+                .bind(py)
+                .call_method1("residual", (m_np, p_np))
+            {
+                Ok(result) => match result.extract::<PyReadonlyArray1<f64>>() {
+                    Ok(arr) => match arr.as_slice() {
+                        Ok(slice) => DVector::from_column_slice(slice),
+                        Err(_) => measured - predicted,
+                    },
+                    Err(_) => measured - predicted,
+                },
+                Err(_) => measured - predicted,
+            }
+        })
+    }
+
     fn measurement_dim(&self) -> usize {
         self.cached_dim
     }
@@ -1473,6 +1977,13 @@ impl MeasurementModel for MeasurementModelHolder {
         match self {
             MeasurementModelHolder::RustNative(m) => m.noise_covariance(),
             MeasurementModelHolder::PythonWrapper(m) => m.noise_covariance(),
+        }
+    }
+
+    fn residual(&self, measured: &DVector<f64>, predicted: &DVector<f64>) -> DVector<f64> {
+        match self {
+            MeasurementModelHolder::RustNative(m) => m.residual(measured, predicted),
+            MeasurementModelHolder::PythonWrapper(m) => m.residual(measured, predicted),
         }
     }
 
@@ -1524,6 +2035,10 @@ fn process_measurement_models(
                 m.model.clone(),
             ))));
         } else if let Ok(m) = obj.extract::<PyRef<PyECEFStateMeasurementModel>>() {
+            result.push(Box::new(MeasurementModelHolder::RustNative(Box::new(
+                m.model.clone(),
+            ))));
+        } else if let Ok(m) = obj.extract::<PyRef<PyAzElRangeMeasurementModel>>() {
             result.push(Box::new(MeasurementModelHolder::RustNative(Box::new(
                 m.model.clone(),
             ))));
@@ -1768,6 +2283,29 @@ impl PyExtendedKalmanFilter {
             .process_observations(&obs_vec)
             .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
         Ok(())
+    }
+
+    /// Propagate the filter to an epoch without a measurement update.
+    ///
+    /// Runs the prediction step only, applying process noise, and records a
+    /// FilterRecord with measurement fields empty (measurement_name is
+    /// "Propagation"). Use to advance the filter across measurement gaps
+    /// while recording covariance growth.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch (at or after the current filter epoch).
+    ///
+    /// Returns:
+    ///     FilterRecord: Record of the prediction step.
+    ///
+    /// Raises:
+    ///     ValueError: If epoch is before the current filter epoch.
+    fn propagate_to(&mut self, epoch: &PyEpoch) -> PyResult<PyFilterRecord> {
+        let record = self
+            .ekf
+            .propagate_to(epoch.obj)
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+        Ok(PyFilterRecord { record })
     }
 
     /// Get current state estimate.
@@ -2143,6 +2681,29 @@ impl PyUnscentedKalmanFilter {
             .process_observations(&obs_vec)
             .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
         Ok(())
+    }
+
+    /// Propagate the filter to an epoch without a measurement update.
+    ///
+    /// Runs the prediction step only, applying process noise, and records a
+    /// FilterRecord with measurement fields empty (measurement_name is
+    /// "Propagation"). Use to advance the filter across measurement gaps
+    /// while recording covariance growth.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch (at or after the current filter epoch).
+    ///
+    /// Returns:
+    ///     FilterRecord: Record of the prediction step.
+    ///
+    /// Raises:
+    ///     ValueError: If epoch is before the current filter epoch.
+    fn propagate_to(&mut self, epoch: &PyEpoch) -> PyResult<PyFilterRecord> {
+        let record = self
+            .ukf
+            .propagate_to(epoch.obj)
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+        Ok(PyFilterRecord { record })
     }
 
     /// Get current state estimate.

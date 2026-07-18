@@ -233,3 +233,40 @@ def test_ukf_invalid_sigma_parameters_raise(two_body_leo):
                 force_config=bh.ForceModelConfig.two_body(),
                 config=bad_config,
             )
+
+
+def test_ukf_propagate_to(two_body_leo):
+    """propagate_to advances the filter without a measurement update."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+    ukf = bh.UnscentedKalmanFilter(
+        epoch,
+        state,
+        p0,
+        measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+        propagation_config=bh.NumericalPropagationConfig.default(),
+        force_config=bh.ForceModelConfig.two_body(),
+    )
+
+    p0_trace = np.trace(ukf.current_covariance())
+    record = ukf.propagate_to(epoch + 600.0)
+
+    assert ukf.current_epoch() == epoch + 600.0
+    assert record.measurement_name == "Propagation"
+    assert len(record.prefit_residual) == 0
+    assert len(record.postfit_residual) == 0
+    assert record.kalman_gain.shape == (0, 0)
+    np.testing.assert_array_equal(record.state_updated, record.state_predicted)
+    np.testing.assert_array_equal(
+        record.covariance_updated, record.covariance_predicted
+    )
+
+    # Covariance grows without measurements (Keplerian shear stretches the
+    # along-track uncertainty even with no explicit process noise).
+    assert np.trace(ukf.current_covariance()) > p0_trace
+
+    # Backwards propagation is rejected without mutating filter state.
+    with pytest.raises(ValueError):
+        ukf.propagate_to(epoch)
+    assert ukf.current_epoch() == epoch + 600.0

@@ -322,3 +322,104 @@ def test_ukf_propagate_to_store_records_and_process_noise(two_body_leo):
     noisy.propagate_to(noisy.current_epoch())
     after = np.trace(noisy.current_covariance())
     assert after == pytest.approx(before, rel=1e-9)
+
+
+class NegativeNoiseModel(bh.MeasurementModel):
+    """Position model with a strongly negative-definite noise covariance R,
+    driving the unscented innovation covariance S non-positive-definite."""
+
+    def predict(self, epoch, state, params=None):
+        return np.array(state[:3])
+
+    def noise_covariance(self):
+        return -1e9 * np.eye(3)
+
+    def measurement_dim(self):
+        return 3
+
+    def name(self):
+        return "NegativeNoise"
+
+
+def _make_ukf(epoch, state, p0, models, config=None):
+    return bh.UnscentedKalmanFilter(
+        epoch,
+        state,
+        p0,
+        measurement_models=models,
+        propagation_config=bh.NumericalPropagationConfig.default(),
+        force_config=bh.ForceModelConfig.two_body(),
+        config=config if config is not None else bh.UKFConfig.default(),
+    )
+
+
+def test_ukf_model_index_out_of_bounds(two_body_leo):
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    ukf = _make_ukf(epoch, state, p0, [bh.InertialPositionMeasurementModel(10.0)])
+    obs = bh.Observation(epoch + 60.0, state[:3], model_index=5)
+    with pytest.raises(RuntimeError, match="out of bounds"):
+        ukf.process_observation(obs)
+
+
+def test_ukf_non_positive_definite_covariance(two_body_leo):
+    """The constructor validates only dimensions; a negative-diagonal initial
+    covariance surfaces at the first sigma-point Cholesky as an error."""
+    epoch, state = two_body_leo
+    bad_p0 = np.diag([-1.0, 1e6, 1e6, 1e2, 1e2, 1e2])
+    ukf = _make_ukf(epoch, state, bad_p0, [bh.InertialPositionMeasurementModel(10.0)])
+    obs = bh.Observation(epoch + 60.0, state[:3], model_index=0)
+    with pytest.raises(RuntimeError, match="positive-definite"):
+        ukf.process_observation(obs)
+
+
+def test_ukf_innovation_covariance_not_positive_definite(two_body_leo):
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    ukf = _make_ukf(epoch, state, p0, [NegativeNoiseModel()])
+    obs = bh.Observation(epoch + 60.0, state[:3], model_index=0)
+    with pytest.raises(RuntimeError, match="positive-definite"):
+        ukf.process_observation(obs)
+    assert ukf.current_epoch() == epoch
+
+
+def test_ukf_observation_process_noise_both_branches(two_body_leo):
+    """The sigma-point predict step adds Q for both scale_with_dt True (Q*dt)
+    and False (Q); the predicted-covariance trace difference vs a no-noise twin
+    equals the Q contribution."""
+    epoch, true_state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    dt = 60.0
+    q_diag = [1.0, 1.0, 1.0, 1e-4, 1e-4, 1e-4]
+    q = np.diag(q_diag)
+    q_trace = sum(q_diag)
+
+    def make(pn):
+        config = (
+            bh.UKFConfig(process_noise=pn) if pn is not None else bh.UKFConfig.default()
+        )
+        return _make_ukf(
+            epoch,
+            true_state.copy(),
+            p0,
+            [bh.InertialPositionMeasurementModel(10.0)],
+            config,
+        )
+
+    obs = bh.Observation(epoch + dt, true_state[:3], model_index=0)
+
+    trace_none = np.trace(make(None).process_observation(obs).covariance_predicted)
+
+    rec_scaled = make(bh.ProcessNoiseConfig(q, scale_with_dt=True)).process_observation(
+        obs
+    )
+    assert np.trace(rec_scaled.covariance_predicted) - trace_none == pytest.approx(
+        q_trace * dt, rel=1e-6
+    )
+
+    rec_fixed = make(bh.ProcessNoiseConfig(q, scale_with_dt=False)).process_observation(
+        obs
+    )
+    assert np.trace(rec_fixed.covariance_predicted) - trace_none == pytest.approx(
+        q_trace, rel=1e-6
+    )

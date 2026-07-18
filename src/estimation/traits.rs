@@ -472,4 +472,52 @@ mod tests {
         let r = compute_residual(&model, &good, &good).unwrap();
         assert_eq!(r.len(), 3);
     }
+
+    /// Model whose `predict()` returns fewer elements than its declared
+    /// `measurement_dim` — exercises the output-length check inside
+    /// [`measurement_jacobian_numerical`].
+    struct WrongPredictLenModel;
+    impl MeasurementModel for WrongPredictLenModel {
+        fn predict(
+            &self,
+            _epoch: &Epoch,
+            state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            // 2 elements against a declared measurement_dim of 3
+            Ok(state.rows(0, 2).into_owned())
+        }
+        fn noise_covariance(&self) -> DMatrix<f64> {
+            DMatrix::identity(3, 3)
+        }
+        fn measurement_dim(&self) -> usize {
+            3
+        }
+        fn name(&self) -> &str {
+            "WrongPredictLen"
+        }
+    }
+
+    #[test]
+    fn test_measurement_jacobian_numerical_rejects_wrong_predict_length() {
+        // A mis-shaped predict() output must surface as a structured error
+        // naming the model, not an nalgebra dimension panic while differencing.
+        let model = WrongPredictLenModel;
+        let epoch = test_epoch();
+        let state = test_state();
+        let e = measurement_jacobian_numerical(
+            &model,
+            &epoch,
+            &state,
+            None,
+            DifferenceMethod::Central,
+            PerturbationStrategy::Adaptive {
+                scale_factor: 1.0,
+                min_value: 1.0,
+            },
+        )
+        .unwrap_err();
+        assert!(e.to_string().contains("predict() returned"), "{}", e);
+        assert!(e.to_string().contains("WrongPredictLen"), "{}", e);
+    }
 }

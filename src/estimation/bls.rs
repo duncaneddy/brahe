@@ -2009,4 +2009,244 @@ mod tests {
             bls.final_cost()
         );
     }
+
+    #[test]
+    #[serial]
+    fn test_bls_debug_format() {
+        // The Debug impl summarizes the estimator's key fields.
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let bls = create_two_body_bls(
+            epoch,
+            state,
+            default_p0(),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            BLSConfig::default(),
+        );
+        let s = format!("{:?}", bls);
+        assert!(s.contains("BatchLeastSquares"), "{}", s);
+        assert!(s.contains("converged"), "{}", s);
+    }
+
+    #[test]
+    #[serial]
+    fn test_bls_consider_n_solve_too_large_errors() {
+        // n_solve must be strictly less than the state dimension when consider
+        // parameters are configured.
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let config = BLSConfig {
+            consider_params: Some(ConsiderParameterConfig {
+                n_solve: 6, // equals state_dim (6) — invalid
+                consider_covariance: DMatrix::zeros(0, 0),
+            }),
+            ..BLSConfig::default()
+        };
+        let result = BatchLeastSquares::new(
+            epoch,
+            state,
+            default_p0(),
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            config,
+        );
+        match result {
+            Err(e) => assert!(e.to_string().contains("n_solve"), "{}", e),
+            Ok(_) => panic!("Expected error for n_solve >= state_dim"),
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_bls_consider_covariance_dim_mismatch_errors() {
+        // The consider covariance must be (state_dim - n_solve) square.
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let config = BLSConfig {
+            consider_params: Some(ConsiderParameterConfig {
+                n_solve: 3, // n_consider = 3, but provide a 2x2 covariance
+                consider_covariance: DMatrix::identity(2, 2),
+            }),
+            ..BLSConfig::default()
+        };
+        let result = BatchLeastSquares::new(
+            epoch,
+            state,
+            default_p0(),
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            config,
+        );
+        match result {
+            Err(e) => assert!(
+                e.to_string().contains("Consider covariance dimensions"),
+                "{}",
+                e
+            ),
+            Ok(_) => panic!("Expected error for consider covariance dimension mismatch"),
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_bls_accessors() {
+        // Touch the accessor surface: dynamics(), current_epoch(),
+        // formal_covariance(), total_covariance() (no-consider branch), and
+        // into_dynamics().
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let bls = create_two_body_bls(
+            epoch,
+            state,
+            default_p0(),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            BLSConfig::default(),
+        );
+        assert_eq!(bls.current_epoch(), epoch);
+        assert_eq!(bls.dynamics().current_epoch(), epoch);
+        assert_eq!(bls.formal_covariance().nrows(), 6);
+        // Without consider parameters, total covariance equals formal covariance.
+        assert_eq!(bls.total_covariance(), *bls.formal_covariance());
+        // into_dynamics consumes the estimator, returning its propagator.
+        let dynamics = bls.into_dynamics();
+        assert_eq!(dynamics.current_epoch(), epoch);
+    }
+
+    #[test]
+    #[serial]
+    fn test_bls_model_index_out_of_bounds_errors() {
+        setup_global_test_eop();
+        let (epoch, true_state) = two_body_leo();
+        let mut bls = create_two_body_bls(
+            epoch,
+            true_state.clone(),
+            default_p0(),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            BLSConfig::default(),
+        );
+        // Single observation tagged with a model_index beyond the one model.
+        let obs = vec![Observation::new(
+            epoch + 30.0,
+            true_state.rows(0, 3).into_owned(),
+            5,
+        )];
+        match bls.solve(&obs) {
+            Err(e) => assert!(e.to_string().contains("model_index"), "{}", e),
+            Ok(_) => panic!("Expected error for out-of-bounds model_index"),
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_bls_singular_apriori_covariance_errors() {
+        // An all-zeros a priori covariance has a singular solve-for partition,
+        // so the information matrix cannot be formed.
+        setup_global_test_eop();
+        let (epoch, true_state) = two_body_leo();
+        let obs = generate_position_observations(epoch, &true_state, 5, 30.0);
+
+        let mut bls = create_two_body_bls(
+            epoch,
+            true_state,
+            DMatrix::zeros(6, 6),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            BLSConfig::default(),
+        );
+        match bls.solve(&obs) {
+            Err(e) => assert!(e.to_string().contains("singular"), "{}", e),
+            Ok(_) => panic!("Expected error for singular a priori covariance"),
+        }
+    }
+
+    /// Model with a rank-deficient measurement noise covariance R (a zero on
+    /// the diagonal). R is neither invertible (Normal Equations) nor
+    /// positive-definite (Stacked Matrix), exercising the singular-R error
+    /// paths of both formulations.
+    struct SingularNoiseModel;
+    impl MeasurementModel for SingularNoiseModel {
+        fn predict(
+            &self,
+            _epoch: &Epoch,
+            state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            Ok(state.rows(0, 3).into_owned())
+        }
+        fn noise_covariance(&self) -> DMatrix<f64> {
+            DMatrix::from_diagonal(&DVector::from_vec(vec![100.0, 100.0, 0.0]))
+        }
+        fn measurement_dim(&self) -> usize {
+            3
+        }
+        fn name(&self) -> &str {
+            "SingularNoise"
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_bls_singular_measurement_covariance_normal_equations_errors() {
+        // Normal Equations inverts R directly; a rank-deficient R must abort
+        // the solve naming the observation.
+        setup_global_test_eop();
+        let (epoch, true_state) = two_body_leo();
+        let obs = generate_position_observations(epoch, &true_state, 5, 30.0);
+
+        let mut bls = create_two_body_bls(
+            epoch,
+            true_state,
+            default_p0(),
+            vec![Box::new(SingularNoiseModel)],
+            BLSConfig {
+                solver_method: BLSSolverMethod::NormalEquations,
+                ..BLSConfig::default()
+            },
+        );
+        match bls.solve(&obs) {
+            Err(e) => assert!(
+                e.to_string().contains("singular"),
+                "Error should mention singular R: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected singular measurement covariance error"),
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_bls_non_pd_measurement_covariance_stacked_matrix_errors() {
+        // The Stacked Matrix formulation whitens with the Cholesky factor of R;
+        // a rank-deficient (non-positive-definite) R must abort the solve
+        // naming the observation.
+        setup_global_test_eop();
+        let (epoch, true_state) = two_body_leo();
+        let obs = generate_position_observations(epoch, &true_state, 5, 30.0);
+
+        let mut bls = create_two_body_bls(
+            epoch,
+            true_state,
+            default_p0(),
+            vec![Box::new(SingularNoiseModel)],
+            BLSConfig {
+                solver_method: BLSSolverMethod::StackedObservationMatrix,
+                ..BLSConfig::default()
+            },
+        );
+        match bls.solve(&obs) {
+            Err(e) => assert!(
+                e.to_string().contains("positive-definite"),
+                "Error should mention positive-definite R: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected non-positive-definite measurement covariance error"),
+        }
+    }
 }

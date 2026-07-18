@@ -793,4 +793,61 @@ mod tests {
         // dt <= 0 is rejected
         assert!(s1.simulate_observations(&traj, start, end, 0.0, 0).is_err());
     }
+
+    #[test]
+    fn test_sensor_type_from_str_name_unknown_errors() {
+        // An unrecognized sensor_type value must error, naming the supported
+        // values.
+        let e = SensorType::from_str_name("optical").unwrap_err();
+        assert!(e.to_string().contains("azel_range"), "{}", e);
+    }
+
+    #[test]
+    fn test_new_rejects_non_finite_bias() {
+        // A non-finite bias component must be rejected at construction.
+        let loc = PointLocation::new(-71.49, 42.62, 123.1).with_name("BadBias");
+        let result = SimpleSSNSensor::new(
+            loc,
+            0.0,
+            360.0,
+            0.0,
+            90.0,
+            None,
+            [f64::NAN, 0.0, 0.0],
+            [0.01, 0.01, 10.0],
+        );
+        match result {
+            Err(e) => assert!(
+                e.to_string().contains("finite"),
+                "Error should mention finite: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected error for non-finite bias"),
+        }
+    }
+
+    #[test]
+    fn test_from_location_missing_sensor_type_errors() {
+        // A bare location with no properties has no sensor_type; from_location
+        // must error naming the missing property.
+        let loc = PointLocation::new(-71.49, 42.62, 123.1);
+        let e = SimpleSSNSensor::from_location(&loc).unwrap_err();
+        assert!(e.to_string().contains("sensor_type"), "{}", e);
+    }
+
+    #[test]
+    fn test_from_locations_no_seed_branch() {
+        // With seed = None the sensors keep their OS-seeded RNGs; the count of
+        // supported sites is unchanged from the seeded case.
+        let sites = load_ssn_sensors().unwrap();
+        let sensors = SimpleSSNSensor::from_locations(&sites, None);
+        assert_eq!(sensors.len(), 13);
+    }
+
+    #[test]
+    fn test_location_and_el_max_accessors() {
+        let sensor = test_sensor();
+        assert_eq!(sensor.location().get_name(), Some("TestSensor"));
+        assert_eq!(sensor.el_max(), 90.0);
+    }
 }

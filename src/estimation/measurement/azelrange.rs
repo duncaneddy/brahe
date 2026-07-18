@@ -526,4 +526,50 @@ mod tests {
         );
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_azelrange_from_upper_triangular_invalid_latitude_errors() {
+        // The geodetic conversion in from_upper_triangular must propagate its
+        // error when the station latitude is invalid, even with valid packed
+        // covariance elements.
+        let upper = [1.0, 0.0, 0.0, 2.0, 0.0, 3.0];
+        let result = AzElRangeMeasurementModel::from_upper_triangular(
+            0.0,
+            100.0, // latitude outside +/-90 deg
+            100.0,
+            &upper,
+            AngleFormat::Degrees,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_azelrange_station_ecef_accessor() {
+        // station_ecef() must return the ECEF position of the constructor's
+        // geodetic station coordinates.
+        let (lon, lat, alt) = (-71.49, 42.62, 123.1);
+        let model =
+            AzElRangeMeasurementModel::new(lon, lat, alt, 0.01, 0.01, 10.0, AngleFormat::Degrees);
+        let expected =
+            position_geodetic_to_ecef(Vector3::new(lon, lat, alt), AngleFormat::Degrees).unwrap();
+        assert_abs_diff_eq!(model.station_ecef(), expected, epsilon = 1e-9);
+    }
+
+    #[test]
+    fn test_azelrange_predict_rejects_short_state() {
+        // predict() must reject a state shorter than 3 elements before any
+        // frame conversion, surfacing a structured error.
+        let model = AzElRangeMeasurementModel::new(
+            -71.49,
+            42.62,
+            123.1,
+            0.01,
+            0.01,
+            10.0,
+            AngleFormat::Degrees,
+        );
+        let state = DVector::from_vec(vec![6878e3, 0.0]); // only 2 elements
+        let e = model.predict(&test_epoch(), &state, None).unwrap_err();
+        assert!(e.to_string().contains("state dimension >= 3"), "{}", e);
+    }
 }

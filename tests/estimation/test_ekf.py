@@ -302,3 +302,91 @@ def test_ekf_propagate_to_store_records_and_process_noise(two_body_leo):
     noisy.propagate_to(noisy.current_epoch())
     after = np.trace(noisy.current_covariance())
     assert after == pytest.approx(before, rel=1e-9)
+
+
+class NegativeNoiseModel(bh.MeasurementModel):
+    """Position model with a strongly negative-definite noise covariance R,
+    driving the innovation covariance S non-positive-definite."""
+
+    def predict(self, epoch, state, params=None):
+        return np.array(state[:3])
+
+    def noise_covariance(self):
+        return -1e9 * np.eye(3)
+
+    def measurement_dim(self):
+        return 3
+
+    def name(self):
+        return "NegativeNoise"
+
+
+def test_ekf_model_index_out_of_bounds(ekf_setup):
+    """An observation tagged with an out-of-range model_index must error."""
+    ekf, epoch, true_state = ekf_setup
+    obs = bh.Observation(epoch + 60.0, true_state[:3], model_index=5)
+    with pytest.raises(RuntimeError, match="out of bounds"):
+        ekf.process_observation(obs)
+
+
+def test_ekf_innovation_covariance_not_positive_definite(two_body_leo):
+    """A negative-definite R makes S non-positive-definite; the update must
+    surface a structured error and roll the filter back."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    ekf = bh.ExtendedKalmanFilter(
+        epoch,
+        state,
+        p0,
+        measurement_models=[NegativeNoiseModel()],
+        propagation_config=bh.NumericalPropagationConfig.default(),
+        force_config=bh.ForceModelConfig.two_body(),
+    )
+    obs = bh.Observation(epoch + 60.0, state[:3], model_index=0)
+    with pytest.raises(RuntimeError, match="positive-definite"):
+        ekf.process_observation(obs)
+    # Rolled back to the entry epoch.
+    assert ekf.current_epoch() == epoch
+
+
+def test_ekf_observation_process_noise_both_branches(two_body_leo):
+    """The measurement predict step adds Q for both scale_with_dt True (Q*dt)
+    and False (Q). The propagated covariance is identical across the three
+    filters, so the predicted-covariance trace difference vs a no-noise twin is
+    exactly the Q contribution."""
+    epoch, true_state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    dt = 60.0
+    q_diag = [1.0, 1.0, 1.0, 1e-4, 1e-4, 1e-4]
+    q = np.diag(q_diag)
+    q_trace = sum(q_diag)
+
+    def make(pn):
+        config = bh.EKFConfig(process_noise=pn) if pn is not None else bh.EKFConfig()
+        return bh.ExtendedKalmanFilter(
+            epoch,
+            true_state.copy(),
+            p0,
+            measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+            propagation_config=bh.NumericalPropagationConfig.default(),
+            force_config=bh.ForceModelConfig.two_body(),
+            config=config,
+        )
+
+    obs = bh.Observation(epoch + dt, true_state[:3], model_index=0)
+
+    trace_none = np.trace(make(None).process_observation(obs).covariance_predicted)
+
+    rec_scaled = make(bh.ProcessNoiseConfig(q, scale_with_dt=True)).process_observation(
+        obs
+    )
+    assert np.trace(rec_scaled.covariance_predicted) - trace_none == pytest.approx(
+        q_trace * dt, rel=1e-6
+    )
+
+    rec_fixed = make(bh.ProcessNoiseConfig(q, scale_with_dt=False)).process_observation(
+        obs
+    )
+    assert np.trace(rec_fixed.covariance_predicted) - trace_none == pytest.approx(
+        q_trace, rel=1e-6
+    )

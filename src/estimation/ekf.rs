@@ -1795,4 +1795,262 @@ mod tests {
         assert_eq!(ekf.current_state().len(), 6);
         assert_eq!(ekf.current_covariance().nrows(), 6);
     }
+
+    #[test]
+    #[serial]
+    fn test_ekf_model_index_out_of_bounds_errors() {
+        // An observation tagged with a model_index beyond the configured models
+        // must error before any propagation.
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+
+        let mut ekf = create_two_body_ekf(
+            epoch,
+            state.clone(),
+            p0,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            None,
+        );
+
+        let obs = Observation::new(epoch + 60.0, state.rows(0, 3).into_owned(), 5);
+        match ekf.process_observation(&obs) {
+            Err(e) => assert!(
+                e.to_string().contains("out of bounds"),
+                "Error should mention out of bounds: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected error for out-of-bounds model_index"),
+        }
+    }
+
+    /// Model with a strongly negative-definite noise covariance R, so the
+    /// innovation covariance S = H·P·Hᵀ + R loses positive-definiteness and the
+    /// Cholesky-based gain solve fails.
+    struct NegativeNoiseModel;
+    impl MeasurementModel for NegativeNoiseModel {
+        fn predict(
+            &self,
+            _epoch: &Epoch,
+            state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            Ok(state.rows(0, 3).into_owned())
+        }
+        fn noise_covariance(&self) -> DMatrix<f64> {
+            DMatrix::identity(3, 3) * -1e9
+        }
+        fn measurement_dim(&self) -> usize {
+            3
+        }
+        fn name(&self) -> &str {
+            "NegativeNoise"
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_innovation_covariance_not_positive_definite_errors() {
+        // A negative-definite R drives S non-positive-definite; the Cholesky
+        // solve must surface a structured error and the filter must roll back.
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+
+        let mut ekf = create_two_body_ekf(
+            epoch,
+            state.clone(),
+            p0,
+            vec![Box::new(NegativeNoiseModel)],
+            None,
+        );
+
+        let obs = Observation::new(epoch + 60.0, state.rows(0, 3).into_owned(), 0);
+        match ekf.process_observation(&obs) {
+            Err(e) => assert!(
+                e.to_string().contains("positive-definite"),
+                "Error should mention positive-definite: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected non-positive-definite innovation covariance error"),
+        }
+
+        // The failed observation must have rolled the filter back.
+        let epoch_drift: f64 = ekf.current_epoch() - epoch;
+        assert!(
+            epoch_drift.abs() < 1e-9,
+            "Filter must be rolled back after the error, drifted {} s",
+            epoch_drift
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_propagate_to_terminal_event_rolls_back() {
+        // A terminal event that stops propagation short of the target epoch
+        // must make propagate_to error and roll the filter back to its entry
+        // epoch and state.
+        use crate::events::DTimeEvent;
+
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let mut prop = create_stm_propagator(epoch, state.clone(), Some(p0));
+        prop.add_event_detector(Box::new(
+            DTimeEvent::new(epoch + 30.0, "Terminal").set_terminal(),
+        ));
+
+        let mut ekf = ExtendedKalmanFilter::from_propagator(
+            prop,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            EKFConfig::default(),
+        )
+        .unwrap();
+
+        let entry_state = ekf.current_state();
+        match ekf.propagate_to(epoch + 60.0) {
+            Err(e) => assert!(
+                e.to_string().contains("before reaching target epoch"),
+                "Error should mention stopping early: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected error when terminal event stops propagation"),
+        }
+
+        let epoch_drift: f64 = ekf.current_epoch() - epoch;
+        assert!(
+            epoch_drift.abs() < 1e-9,
+            "Filter epoch must be unchanged after a terminal-event error, drifted {} s",
+            epoch_drift
+        );
+        assert_abs_diff_eq!(ekf.current_state(), entry_state, epsilon = 1e-9);
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_observation_applies_process_noise_both_branches() {
+        // The measurement predict step adds process noise Q to the predicted
+        // covariance for both scale_with_dt = true (Q·dt) and false (Q). The
+        // propagated covariance is identical across the three filters, so the
+        // predicted-covariance trace difference vs a no-noise twin is exactly
+        // the Q contribution.
+        setup_global_test_eop();
+        let (epoch, true_state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let obs = generate_position_observations(epoch, &true_state, 1, 60.0);
+        let dt = 60.0;
+
+        let q_diag = vec![1.0, 1.0, 1.0, 1e-4, 1e-4, 1e-4];
+        let q_matrix = DMatrix::from_diagonal(&DVector::from_vec(q_diag.clone()));
+        let q_trace: f64 = q_diag.iter().sum();
+
+        let mut ekf_none = create_two_body_ekf(
+            epoch,
+            true_state.clone(),
+            p0.clone(),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            None,
+        );
+        let trace_none = ekf_none
+            .process_observation(&obs[0])
+            .unwrap()
+            .covariance_predicted
+            .trace();
+
+        let mut ekf_scaled = create_two_body_ekf(
+            epoch,
+            true_state.clone(),
+            p0.clone(),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            Some(ProcessNoiseConfig {
+                q_matrix: q_matrix.clone(),
+                scale_with_dt: true,
+            }),
+        );
+        let trace_scaled = ekf_scaled
+            .process_observation(&obs[0])
+            .unwrap()
+            .covariance_predicted
+            .trace();
+        assert_abs_diff_eq!(
+            trace_scaled - trace_none,
+            q_trace * dt,
+            epsilon = q_trace * dt * 1e-6
+        );
+
+        let mut ekf_fixed = create_two_body_ekf(
+            epoch,
+            true_state,
+            p0,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            Some(ProcessNoiseConfig {
+                q_matrix,
+                scale_with_dt: false,
+            }),
+        );
+        let trace_fixed = ekf_fixed
+            .process_observation(&obs[0])
+            .unwrap()
+            .covariance_predicted
+            .trace();
+        assert_abs_diff_eq!(trace_fixed - trace_none, q_trace, epsilon = q_trace * 1e-6);
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_propagate_to_fixed_process_noise_independent_of_dt() {
+        // With scale_with_dt = false, propagate_to adds the same Q regardless of
+        // the propagation duration. The covariance trace increment over a
+        // no-noise twin equals trace(Q) for two different dt values.
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+
+        let q_diag = vec![1.0, 1.0, 1.0, 1e-4, 1e-4, 1e-4];
+        let q_matrix = DMatrix::from_diagonal(&DVector::from_vec(q_diag.clone()));
+        let q_trace: f64 = q_diag.iter().sum();
+
+        let increment_at = |target_dt: f64| -> f64 {
+            let mut with_q = create_two_body_ekf(
+                epoch,
+                state.clone(),
+                p0.clone(),
+                vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+                Some(ProcessNoiseConfig {
+                    q_matrix: q_matrix.clone(),
+                    scale_with_dt: false,
+                }),
+            );
+            let mut without_q = create_two_body_ekf(
+                epoch,
+                state.clone(),
+                p0.clone(),
+                vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+                None,
+            );
+            with_q.propagate_to(epoch + target_dt).unwrap();
+            without_q.propagate_to(epoch + target_dt).unwrap();
+            with_q.current_covariance().trace() - without_q.current_covariance().trace()
+        };
+
+        assert_abs_diff_eq!(increment_at(300.0), q_trace, epsilon = q_trace * 1e-6);
+        assert_abs_diff_eq!(increment_at(600.0), q_trace, epsilon = q_trace * 1e-6);
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_into_dynamics_returns_propagator() {
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let ekf = create_two_body_ekf(
+            epoch,
+            state,
+            p0,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            None,
+        );
+        let dynamics = ekf.into_dynamics();
+        assert_eq!(dynamics.current_epoch(), epoch);
+    }
 }

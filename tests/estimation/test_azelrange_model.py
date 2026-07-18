@@ -218,3 +218,10 @@ class TestAzElRangeJacobianWrap:
             f"azimuth-row magnitudes should be comparable "
             f"(north={az_norm_north:.3e}, east={az_norm_east:.3e}, ratio={ratio:.3f})"
         )
+
+
+def test_azelrange_predict_rejects_short_state(test_epoch):
+    """predict() must reject a state shorter than 3 elements."""
+    model = bh.AzElRangeMeasurementModel(-71.49, 42.62, 123.1, 0.01, 0.01, 10.0)
+    with pytest.raises(RuntimeError, match="state dimension >= 3"):
+        model.predict(test_epoch, np.array([6878e3, 0.0]))

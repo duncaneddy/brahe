@@ -69,13 +69,19 @@ analytical mapping would not capture it.
 ### Averaging in Equinoctial Space
 
 Averaging is performed in equinoctial elements `[a, h, k, p, q, l]` rather than directly on
-Keplerian elements, because equinoctial elements are singularity-free at $e \to 0$ and $i \to 0$
-(or $i \to 180°$) — exactly the regimes where Keplerian angles like $\Omega$ and $\omega$ become
-ill-defined or fast-varying. Within a window, the slowly-varying components $a, h, k, p, q$ are
+Keplerian elements, because equinoctial elements remove the zero-eccentricity singularity where
+Keplerian angles like $\Omega$ and $\omega$ become ill-defined or fast-varying. The retrograde
+factor is selected per window from the orbit's inclination, so the appropriate chart is regular
+for the orbit being averaged. Within a window, the slowly-varying components $a, h, k, p, q$ are
 arithmetic-averaged, while the fast mean longitude $l$ is linearly detrended and evaluated at the
 window's anchor epoch, before the averaged state is converted back to Keplerian elements. See
 [Equinoctial Elements](../../library_api/orbits/equinoctial.md) for the element definitions and
 conversion functions used internally.
+
+The slow components are averaged as an unweighted sample mean, which approximates a true
+time-average when the input samples are (approximately) uniformly spaced in time — the expected
+case for a propagated trajectory. Input epochs must be strictly ascending; markedly non-uniform
+cadence weights densely-sampled portions of the window more heavily.
 
 ### Window Length, Alignment, and Edge Handling
 
@@ -93,7 +99,9 @@ conversion functions used internally.
       than the input; each surviving pair's epoch identifies which input sample it maps to; there is
       no positional correspondence between input and output indices once epochs are dropped.
     - `PreserveWindow`: keep the window length fixed and slide its anchor inside the data bounds
-      instead of shrinking it. Output length always equals input length.
+      instead of shrinking it. Output length always equals input length. (If the entire input
+      trajectory is shorter than $W$, the window is clamped to the available data span, which is
+      then narrower than $W$.)
 
 ### Iterative Mean-to-Osculating Inverse
 
@@ -120,6 +128,13 @@ The solver seeds its first guess from the analytical Brouwer-Lyddane inverse, th
 propagate the trial state, average the result back down with `forward_average`, and apply the
 observed mean-element residual as a fixed-point correction, until the residual falls below
 `tolerance` or `max_iterations` is exhausted.
+
+!!! note "Convergence near singular geometries"
+    The correction is a fixed-point step applied directly to Keplerian elements, whose angles
+    $\Omega$, $\omega$, and $M$ are ill-conditioned near zero eccentricity and near-equatorial or
+    critical ($\approx 63.4°/116.6°$) inclinations. The analytical seed shares these weaknesses.
+    For such geometries the solver may need more iterations or fail to converge — in which case it
+    returns an error rather than a silently biased result.
 
 === "Python"
 

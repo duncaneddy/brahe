@@ -1,8 +1,15 @@
 # Equinoctial Elements
 
 Functions for converting between Keplerian and equinoctial orbital elements. Equinoctial
-elements `[a, h, k, p, q, l]` are singularity-free at zero eccentricity and zero/180°
-inclination, which makes them convenient for averaging and numerical differencing.
+elements `[a, h, k, p, q, l]` are free of the zero-eccentricity singularity of the classical
+elements (where $\Omega$ and $\omega$ become ill-defined), which makes them convenient for
+averaging and numerical differencing.
+
+The formulation is a two-chart one selected by the retrograde factor `fr`, which must be
+either `+1` or `-1` (other values, including `0`, are invalid): `fr = +1` is regular for
+direct orbits and remains well-defined up to (but not including) $i = 180°$, while `fr = -1`
+is regular for retrograde orbits near $i = 180°$ and is singular at $i = 0°$. Use `fr = +1`
+unless working with near-retrograde orbits.
 
 !!! note
     For conceptual background, see [Mean Elements](../../learn/orbits/mean_elements.md) in the

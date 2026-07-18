@@ -1871,6 +1871,175 @@ fn py_state_koe_mean_to_osc<'py>(
     Ok(osc.as_slice().to_pyarray(py))
 }
 
+/// Converts an (M, 6) numpy array view into a `Vec` of 6-element state vectors.
+///
+/// Iterates row-by-row via the ndarray iterator rather than `as_slice()` so that
+/// non-contiguous row views (e.g. from a sliced or transposed input array) are
+/// handled correctly.
+fn states_array2_to_svec6(states: &PyReadonlyArray2<f64>) -> PyResult<Vec<SVector<f64, 6>>> {
+    let arr = states.as_array();
+    if arr.ncols() != 6 {
+        return Err(exceptions::PyValueError::new_err(format!(
+            "States array must have 6 columns, got {}",
+            arr.ncols()
+        )));
+    }
+    Ok((0..arr.nrows())
+        .map(|i| SVector::<f64, 6>::from_iterator(arr.row(i).iter().copied()))
+        .collect())
+}
+
+/// Python return type shared by the batch mean-element conversion functions:
+/// output epochs paired with an (N, 6) numpy array of Keplerian states.
+type BatchKoeResult<'py> = (Vec<PyEpoch>, Bound<'py, PyArray<f64, Ix2>>);
+
+/// Converts a `Vec` of `(epoch, state)` pairs into `(list[Epoch], numpy.ndarray)` for return to Python.
+fn pairs_to_py<'py>(py: Python<'py>, pairs: Vec<(time::Epoch, SVector<f64, 6>)>) -> BatchKoeResult<'py> {
+    let nrows = pairs.len();
+    let mut epochs = Vec::with_capacity(nrows);
+    let mut data = Vec::with_capacity(nrows * 6);
+    for (t, s) in pairs {
+        epochs.push(PyEpoch { obj: t });
+        data.extend_from_slice(s.as_slice());
+    }
+    let states = PyArray::from_vec(py, data).reshape((nrows, 6)).unwrap();
+    (epochs, states)
+}
+
+/// Convert a batch of osculating Keplerian states to mean Keplerian states.
+///
+/// Applies the selected mean-element method across an epoch/state series.
+/// `MeanElementMethod.brouwer_lyddane()` maps each `(epoch, state)` pair
+/// independently, so the output has the same length as the input.
+/// `MeanElementMethod.numerical()` instead averages the osculating states
+/// over a moving window (see `NumericalConfig`); the output may be shorter
+/// than the input when `edge` is `EdgeHandling.TRUNCATE` and some output
+/// epochs' windows are not fully supported by the input trajectory.
+///
+/// Args:
+///     epochs (list[Epoch]): Epochs of the input osculating states, one per `states` row.
+///     states (numpy.ndarray): Osculating Keplerian elements, shape (M, 6). Each row is
+///         [a, e, i, Ω, ω, M] where:
+///         - a: Semi-major axis (meters)
+///         - e: Eccentricity (dimensionless)
+///         - i: Inclination (radians or degrees, per angle_format)
+///         - Ω: Right ascension of ascending node (radians or degrees, per angle_format)
+///         - ω: Argument of perigee (radians or degrees, per angle_format)
+///         - M: Mean anomaly (radians or degrees, per angle_format)
+///     method (MeanElementMethod): Algorithm used to compute mean elements.
+///     angle_format (AngleFormat): Format of angular elements (Radians or Degrees).
+///
+/// Returns:
+///     tuple: (list[Epoch], numpy.ndarray) of output epochs and mean Keplerian elements,
+///         shape (N, 6). N equals M for `brouwer_lyddane()`; for `numerical()` N may be
+///         less than M when `edge` is `EdgeHandling.TRUNCATE`.
+///
+/// Raises:
+///     BraheError: If `epochs` and `states` have different lengths, or if `method` is
+///         `MeanElementMethod.numerical()` and `window_seconds` is not positive.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     e0 = bh.Epoch.from_gps_seconds(0.0)
+///     epochs = [e0, e0 + 60.0, e0 + 120.0]
+///     s = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
+///     states = np.vstack([s, s, s])
+///
+///     out_epochs, out_states = bh.batch_state_koe_osc_to_mean(
+///         epochs, states, bh.MeanElementMethod.brouwer_lyddane(), bh.AngleFormat.DEGREES
+///     )
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epochs, states, method, angle_format)")]
+#[pyo3(name = "batch_state_koe_osc_to_mean")]
+fn py_batch_state_koe_osc_to_mean<'py>(
+    py: Python<'py>,
+    epochs: Vec<PyRef<'_, PyEpoch>>,
+    states: PyReadonlyArray2<f64>,
+    method: &PyMeanElementMethod,
+    angle_format: &PyAngleFormat,
+) -> PyResult<BatchKoeResult<'py>> {
+    let epochs_vec: Vec<time::Epoch> = epochs.iter().map(|e| e.obj).collect();
+    let states_vec = states_array2_to_svec6(&states)?;
+    let pairs = orbits::batch_state_koe_osc_to_mean(
+        &epochs_vec,
+        &states_vec,
+        method.method.clone(),
+        angle_format.value,
+    )?;
+    Ok(pairs_to_py(py, pairs))
+}
+
+/// Convert a batch of mean Keplerian states to osculating Keplerian states.
+///
+/// Applies the selected mean-element method across an epoch/state series.
+/// `MeanElementMethod.brouwer_lyddane()` maps each `(epoch, state)` pair
+/// independently, so the output has the same length as the input.
+/// `MeanElementMethod.numerical()` instead inverts the windowed averaging via
+/// iterative differential correction (see `NumericalConfig` and `InverseConfig`);
+/// the output has the same length and epochs as the input.
+///
+/// Args:
+///     epochs (list[Epoch]): Epochs of the input mean states, one per `states` row.
+///     states (numpy.ndarray): Mean Keplerian elements, shape (M, 6). Each row is
+///         [a, e, i, Ω, ω, M] where:
+///         - a: Semi-major axis (meters)
+///         - e: Eccentricity (dimensionless)
+///         - i: Inclination (radians or degrees, per angle_format)
+///         - Ω: Right ascension of ascending node (radians or degrees, per angle_format)
+///         - ω: Argument of perigee (radians or degrees, per angle_format)
+///         - M: Mean anomaly (radians or degrees, per angle_format)
+///     method (MeanElementMethod): Algorithm used to compute osculating elements.
+///     angle_format (AngleFormat): Format of angular elements (Radians or Degrees).
+///
+/// Returns:
+///     tuple: (list[Epoch], numpy.ndarray) of output epochs and osculating Keplerian
+///         elements, shape (M, 6).
+///
+/// Raises:
+///     BraheError: If `epochs` and `states` have different lengths; if `method` is
+///         `MeanElementMethod.numerical()` and `inverse` was not configured on the
+///         `NumericalConfig`; or if the differential correction fails to converge
+///         within `inverse.max_iterations` for any state.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     e0 = bh.Epoch.from_gps_seconds(0.0)
+///     epochs = [e0, e0 + 60.0, e0 + 120.0]
+///     s = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
+///     states = np.vstack([s, s, s])
+///
+///     out_epochs, out_states = bh.batch_state_koe_mean_to_osc(
+///         epochs, states, bh.MeanElementMethod.brouwer_lyddane(), bh.AngleFormat.DEGREES
+///     )
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epochs, states, method, angle_format)")]
+#[pyo3(name = "batch_state_koe_mean_to_osc")]
+fn py_batch_state_koe_mean_to_osc<'py>(
+    py: Python<'py>,
+    epochs: Vec<PyRef<'_, PyEpoch>>,
+    states: PyReadonlyArray2<f64>,
+    method: &PyMeanElementMethod,
+    angle_format: &PyAngleFormat,
+) -> PyResult<BatchKoeResult<'py>> {
+    let epochs_vec: Vec<time::Epoch> = epochs.iter().map(|e| e.obj).collect();
+    let states_vec = states_array2_to_svec6(&states)?;
+    let pairs = orbits::batch_state_koe_mean_to_osc(
+        &epochs_vec,
+        &states_vec,
+        method.method.clone(),
+        angle_format.value,
+    )?;
+    Ok(pairs_to_py(py, pairs))
+}
+
 /// Convert Keplerian elements to equinoctial elements (Vallado 2-99).
 ///
 /// Args:

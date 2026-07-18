@@ -396,6 +396,115 @@ class TestMeanOsculatingConversions:
         assert brahe.EdgeHandling.TRUNCATE != brahe.EdgeHandling.PRESERVE_WINDOW
 
 
+class TestBatchMeanOsculatingConversions:
+    """Tests for batch mean-osculating Keplerian element conversions."""
+
+    def test_batch_analytical_osc_to_mean_shape(self):
+        """Batch osc->mean with brouwer_lyddane preserves length and matches single-state."""
+        e0 = brahe.Epoch.from_gps_seconds(0.0)
+        epochs = [e0, e0 + 60.0, e0 + 120.0]
+        s = np.array([brahe.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
+        states = np.vstack([s, s, s])
+
+        out_epochs, out_states = brahe.batch_state_koe_osc_to_mean(
+            epochs, states, BROUWER_LYDDANE, brahe.AngleFormat.DEGREES
+        )
+
+        assert len(out_epochs) == 3
+        assert out_states.shape == (3, 6)
+
+        single = brahe.state_koe_osc_to_mean(
+            s, BROUWER_LYDDANE, brahe.AngleFormat.DEGREES
+        )
+        assert out_states[0] == pytest.approx(single)
+
+    def test_batch_analytical_mean_to_osc_shape(self):
+        """Batch mean->osc with brouwer_lyddane preserves length and matches single-state."""
+        e0 = brahe.Epoch.from_gps_seconds(0.0)
+        epochs = [e0, e0 + 60.0, e0 + 120.0]
+        s = np.array([brahe.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
+        states = np.vstack([s, s, s])
+
+        out_epochs, out_states = brahe.batch_state_koe_mean_to_osc(
+            epochs, states, BROUWER_LYDDANE, brahe.AngleFormat.DEGREES
+        )
+
+        assert len(out_epochs) == 3
+        assert out_states.shape == (3, 6)
+
+        single = brahe.state_koe_mean_to_osc(
+            s, BROUWER_LYDDANE, brahe.AngleFormat.DEGREES
+        )
+        assert out_states[0] == pytest.approx(single)
+
+    def test_batch_numerical_osc_to_mean_averages(self):
+        """Numerical osc->mean, windowed over one full period, recovers the seed mean a/e/i.
+
+        Builds a synthetic osculating series by holding a/e/i/raan/argp fixed and
+        analytically expanding the mean anomaly linearly with time (via
+        state_koe_mean_to_osc per sample) over two full orbital periods -- no
+        propagation needed. A centered window exactly one period wide, anchored near
+        the middle of the series, should average out the short-period J2 oscillation
+        and recover the seed mean elements.
+        """
+        a = brahe.R_EARTH + 500e3
+        e = 0.01
+        i = 45.0
+        raan = 30.0
+        argp = 60.0
+
+        period = brahe.orbital_period(a)
+        n_per_period = 60
+        n_periods = 2
+        n_samples = n_per_period * n_periods + 1
+        dt = period / n_per_period
+
+        e0 = brahe.Epoch.from_gps_seconds(0.0)
+        epochs = [e0 + k * dt for k in range(n_samples)]
+        osc_rows = []
+        for k in range(n_samples):
+            mean_anomaly = (k * (360.0 / n_per_period)) % 360.0
+            mean_koe = np.array([a, e, i, raan, argp, mean_anomaly])
+            osc_rows.append(
+                brahe.state_koe_mean_to_osc(
+                    mean_koe, BROUWER_LYDDANE, brahe.AngleFormat.DEGREES
+                )
+            )
+        states = np.vstack(osc_rows)
+
+        cfg = brahe.NumericalConfig(
+            period, brahe.WindowAlignment.CENTERED, brahe.EdgeHandling.TRUNCATE
+        )
+        method = brahe.MeanElementMethod.numerical(cfg)
+
+        out_epochs, out_states = brahe.batch_state_koe_osc_to_mean(
+            epochs, states, method, brahe.AngleFormat.DEGREES
+        )
+
+        assert len(out_epochs) > 0
+        mid = len(out_epochs) // 2
+        assert out_states[mid, 0] == pytest.approx(a, abs=50.0)
+        assert out_states[mid, 1] == pytest.approx(e, abs=1e-3)
+        assert out_states[mid, 2] == pytest.approx(i, abs=0.05)
+
+    def test_batch_numerical_mean_to_osc_requires_inverse_raises(self):
+        """Numerical mean->osc without an InverseConfig must raise (batch wiring smoke test)."""
+        e0 = brahe.Epoch.from_gps_seconds(0.0)
+        epochs = [e0, e0 + 60.0]
+        s = np.array([brahe.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
+        states = np.vstack([s, s])
+
+        cfg = brahe.NumericalConfig(
+            5400.0, brahe.WindowAlignment.CENTERED, brahe.EdgeHandling.TRUNCATE
+        )
+        method = brahe.MeanElementMethod.numerical(cfg)
+
+        with pytest.raises(Exception):
+            brahe.batch_state_koe_mean_to_osc(
+                epochs, states, method, brahe.AngleFormat.DEGREES
+            )
+
+
 class TestStateKoeMeanOnProviders:
     """Tests for state_koe_mean methods on propagators and trajectories."""
 

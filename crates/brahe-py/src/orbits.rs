@@ -1354,8 +1354,8 @@ fn py_epoch_from_tle(line1: String) -> PyResult<PyEpoch> {
 /// Algorithm used to map between mean and osculating Keplerian elements.
 ///
 /// Note:
-///     This class is created via class methods:
-///     - `MeanElementMethod.brouwer_lyddane()` - First-order analytical J2 mapping
+///     This class is created via a class attribute and a class method:
+///     - `MeanElementMethod.BROUWER_LYDDANE` - First-order analytical J2 mapping
 ///     - `MeanElementMethod.numerical(config)` - Numerical windowed averaging (batch-only)
 ///
 /// Example:
@@ -1363,10 +1363,10 @@ fn py_epoch_from_tle(line1: String) -> PyResult<PyEpoch> {
 ///     import brahe as bh
 ///
 ///     # Analytical Brouwer-Lyddane method (single-state and batch)
-///     method = bh.MeanElementMethod.brouwer_lyddane()
+///     method = bh.MeanElementMethod.BROUWER_LYDDANE
 ///
 ///     # Numerical windowed-averaging method (batch-only)
-///     cfg = bh.NumericalConfig(5400.0, bh.WindowAlignment.CENTERED, bh.EdgeHandling.TRUNCATE)
+///     cfg = bh.MeanElementNumericalMethodConfig(5400.0, bh.WindowAlignment.CENTERED, bh.WindowEdgeHandling.TRUNCATE)
 ///     method = bh.MeanElementMethod.numerical(cfg)
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
@@ -1378,12 +1378,10 @@ pub struct PyMeanElementMethod {
 
 #[pymethods]
 impl PyMeanElementMethod {
-    /// Create a first-order analytical Brouwer-Lyddane J2 method selector.
-    ///
-    /// Returns:
-    ///     MeanElementMethod: A Brouwer-Lyddane method selector.
-    #[classmethod]
-    fn brouwer_lyddane(_cls: &Bound<'_, PyType>) -> Self {
+    /// First-order analytical Brouwer-Lyddane J2 method.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn BROUWER_LYDDANE() -> Self {
         PyMeanElementMethod {
             method: orbits::MeanElementMethod::BrouwerLyddane,
         }
@@ -1392,12 +1390,12 @@ impl PyMeanElementMethod {
     /// Create a numerical windowed-averaging method selector (batch-only).
     ///
     /// Args:
-    ///     config (NumericalConfig): Numerical averaging window configuration.
+    ///     config (MeanElementNumericalMethodConfig): Numerical averaging window configuration.
     ///
     /// Returns:
     ///     MeanElementMethod: A numerical method selector.
     #[classmethod]
-    fn numerical(_cls: &Bound<'_, PyType>, config: &PyNumericalConfig) -> Self {
+    fn numerical(_cls: &Bound<'_, PyType>, config: &PyMeanElementNumericalMethodConfig) -> Self {
         PyMeanElementMethod {
             method: orbits::MeanElementMethod::Numerical(config.config.clone()),
         }
@@ -1405,7 +1403,7 @@ impl PyMeanElementMethod {
 
     fn __repr__(&self) -> String {
         match &self.method {
-            orbits::MeanElementMethod::BrouwerLyddane => "MeanElementMethod.brouwer_lyddane()".to_string(),
+            orbits::MeanElementMethod::BrouwerLyddane => "MeanElementMethod.BROUWER_LYDDANE".to_string(),
             orbits::MeanElementMethod::Numerical(_) => "MeanElementMethod.numerical(...)".to_string(),
         }
     }
@@ -1478,31 +1476,31 @@ impl PyWindowAlignment {
 ///     ```python
 ///     import brahe as bh
 ///
-///     edge = bh.EdgeHandling.TRUNCATE
+///     edge = bh.WindowEdgeHandling.TRUNCATE
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
-#[pyo3(name = "EdgeHandling")]
+#[pyo3(name = "WindowEdgeHandling")]
 #[derive(Clone)]
-pub struct PyEdgeHandling {
-    pub value: orbits::EdgeHandling,
+pub struct PyWindowEdgeHandling {
+    pub value: orbits::WindowEdgeHandling,
 }
 
 #[pymethods]
 #[allow(non_snake_case)]
-impl PyEdgeHandling {
+impl PyWindowEdgeHandling {
     /// Drop unsupported output epochs; output is shorter than input.
     #[classattr]
     fn TRUNCATE() -> Self {
-        PyEdgeHandling {
-            value: orbits::EdgeHandling::Truncate,
+        PyWindowEdgeHandling {
+            value: orbits::WindowEdgeHandling::Truncate,
         }
     }
 
     /// Hold the window length fixed and slide the anchor within it; output length preserved.
     #[classattr]
     fn PRESERVE_WINDOW() -> Self {
-        PyEdgeHandling {
-            value: orbits::EdgeHandling::PreserveWindow,
+        PyWindowEdgeHandling {
+            value: orbits::WindowEdgeHandling::PreserveWindow,
         }
     }
 
@@ -1511,7 +1509,7 @@ impl PyEdgeHandling {
     }
 
     fn __repr__(&self) -> String {
-        format!("EdgeHandling.{:?}", self.value)
+        format!("WindowEdgeHandling.{:?}", self.value)
     }
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
@@ -1530,45 +1528,45 @@ impl PyEdgeHandling {
 /// Args:
 ///     window_seconds (float): Averaging window length in seconds.
 ///     alignment (WindowAlignment): Placement of the averaging window relative to the output epoch.
-///     edge (EdgeHandling): Handling of output epochs whose window runs past the data bounds.
-///     inverse (InverseConfig, optional): Dynamics for the iterative mean-to-osculating inverse.
+///     edge (WindowEdgeHandling): Handling of output epochs whose window runs past the data bounds.
+///     inverse (MeanElementInverseConfig, optional): Dynamics for the iterative mean-to-osculating inverse.
 ///         Required for numerical mean-to-osculating conversion; unused for osculating-to-mean.
 ///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
-///     cfg = bh.NumericalConfig(5400.0, bh.WindowAlignment.CENTERED, bh.EdgeHandling.TRUNCATE)
+///     cfg = bh.MeanElementNumericalMethodConfig(5400.0, bh.WindowAlignment.CENTERED, bh.WindowEdgeHandling.TRUNCATE)
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
-#[pyo3(name = "NumericalConfig")]
+#[pyo3(name = "MeanElementNumericalMethodConfig")]
 #[derive(Clone)]
-pub struct PyNumericalConfig {
-    pub config: orbits::NumericalConfig,
+pub struct PyMeanElementNumericalMethodConfig {
+    pub config: orbits::MeanElementNumericalMethodConfig,
 }
 
 #[pymethods]
-impl PyNumericalConfig {
+impl PyMeanElementNumericalMethodConfig {
     /// Create a numerical windowed-averaging configuration.
     ///
     /// Args:
     ///     window_seconds (float): Averaging window length in seconds.
     ///     alignment (WindowAlignment): Placement of the averaging window relative to the output epoch.
-    ///     edge (EdgeHandling): Handling of output epochs whose window runs past the data bounds.
-    ///     inverse (InverseConfig, optional): Dynamics for the iterative mean-to-osculating inverse.
+    ///     edge (WindowEdgeHandling): Handling of output epochs whose window runs past the data bounds.
+    ///     inverse (MeanElementInverseConfig, optional): Dynamics for the iterative mean-to-osculating inverse.
     ///
     /// Returns:
-    ///     NumericalConfig: A new numerical averaging configuration.
+    ///     MeanElementNumericalMethodConfig: A new numerical averaging configuration.
     #[new]
     #[pyo3(signature = (window_seconds, alignment, edge, inverse=None))]
     fn new(
         window_seconds: f64,
         alignment: &PyWindowAlignment,
-        edge: &PyEdgeHandling,
-        inverse: Option<&PyInverseConfig>,
+        edge: &PyWindowEdgeHandling,
+        inverse: Option<&PyMeanElementInverseConfig>,
     ) -> Self {
-        PyNumericalConfig {
-            config: orbits::NumericalConfig {
+        PyMeanElementNumericalMethodConfig {
+            config: orbits::MeanElementNumericalMethodConfig {
                 window_seconds,
                 alignment: alignment.value,
                 edge: edge.value,
@@ -1603,34 +1601,34 @@ impl PyNumericalConfig {
 
     /// Handling of output epochs whose window runs past the data bounds.
     #[getter]
-    fn get_edge(&self) -> PyEdgeHandling {
-        PyEdgeHandling {
+    fn get_edge(&self) -> PyWindowEdgeHandling {
+        PyWindowEdgeHandling {
             value: self.config.edge,
         }
     }
 
     #[setter]
-    fn set_edge(&mut self, value: &PyEdgeHandling) {
+    fn set_edge(&mut self, value: &PyWindowEdgeHandling) {
         self.config.edge = value.value;
     }
 
     /// Dynamics for the iterative mean-to-osculating inverse, if configured.
     #[getter]
-    fn get_inverse(&self) -> Option<PyInverseConfig> {
+    fn get_inverse(&self) -> Option<PyMeanElementInverseConfig> {
         self.config
             .inverse
             .clone()
-            .map(|config| PyInverseConfig { config })
+            .map(|config| PyMeanElementInverseConfig { config })
     }
 
     #[setter]
-    fn set_inverse(&mut self, value: Option<&PyInverseConfig>) {
+    fn set_inverse(&mut self, value: Option<&PyMeanElementInverseConfig>) {
         self.config.inverse = value.map(|v| v.config.clone());
     }
 
     fn __repr__(&self) -> String {
         format!(
-            "NumericalConfig(window_seconds={}, alignment={:?}, edge={:?})",
+            "MeanElementNumericalMethodConfig(window_seconds={}, alignment={:?}, edge={:?})",
             self.config.window_seconds, self.config.alignment, self.config.edge
         )
     }
@@ -1651,7 +1649,7 @@ impl PyNumericalConfig {
 ///     ```python
 ///     import brahe as bh
 ///
-///     cfg = bh.InverseConfig(
+///     cfg = bh.MeanElementInverseConfig(
 ///         bh.ForceModelConfig.default(),
 ///         bh.NumericalPropagationConfig.default(),
 ///         1.0,
@@ -1659,14 +1657,14 @@ impl PyNumericalConfig {
 ///     )
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
-#[pyo3(name = "InverseConfig")]
+#[pyo3(name = "MeanElementInverseConfig")]
 #[derive(Clone)]
-pub struct PyInverseConfig {
-    pub config: orbits::InverseConfig,
+pub struct PyMeanElementInverseConfig {
+    pub config: orbits::MeanElementInverseConfig,
 }
 
 #[pymethods]
-impl PyInverseConfig {
+impl PyMeanElementInverseConfig {
     /// Create an iterative differential-correction configuration.
     ///
     /// Args:
@@ -1679,7 +1677,7 @@ impl PyInverseConfig {
     ///     max_iterations (int): Maximum number of differential-correction iterations.
     ///
     /// Returns:
-    ///     InverseConfig: A new inverse-dynamics configuration.
+    ///     MeanElementInverseConfig: A new inverse-dynamics configuration.
     #[new]
     fn new(
         force_model: &PyForceModelConfig,
@@ -1687,8 +1685,8 @@ impl PyInverseConfig {
         tolerance: f64,
         max_iterations: usize,
     ) -> Self {
-        PyInverseConfig {
-            config: orbits::InverseConfig {
+        PyMeanElementInverseConfig {
+            config: orbits::MeanElementInverseConfig {
                 force_model: force_model.config.clone(),
                 propagation: propagation.config.clone(),
                 tolerance,
@@ -1748,7 +1746,7 @@ impl PyInverseConfig {
 
     fn __repr__(&self) -> String {
         format!(
-            "InverseConfig(tolerance={}, max_iterations={})",
+            "MeanElementInverseConfig(tolerance={}, max_iterations={})",
             self.config.tolerance, self.config.max_iterations
         )
     }
@@ -1758,7 +1756,7 @@ impl PyInverseConfig {
 ///
 /// Applies the selected mean-element method to convert osculating (instantaneous)
 /// orbital elements to mean (orbit-averaged) elements. `MeanElementMethod.numerical()`
-/// is batch-only and raises for single-state calls; use `MeanElementMethod.brouwer_lyddane()`
+/// is batch-only and raises for single-state calls; use `MeanElementMethod.BROUWER_LYDDANE`
 /// for the first-order analytical J2 mapping.
 ///
 /// Args:
@@ -1799,7 +1797,7 @@ impl PyInverseConfig {
 ///         0.0,                 # M = 0
 ///     ])
 ///
-///     mean = bh.state_koe_osc_to_mean(osc, bh.MeanElementMethod.brouwer_lyddane(), bh.AngleFormat.DEGREES)
+///     mean = bh.state_koe_osc_to_mean(osc, bh.MeanElementMethod.BROUWER_LYDDANE, bh.AngleFormat.DEGREES)
 ///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(osc, method, angle_format)")]
@@ -1820,7 +1818,7 @@ fn py_state_koe_osc_to_mean<'py>(
 ///
 /// Applies the selected mean-element method to convert mean (orbit-averaged)
 /// orbital elements to osculating (instantaneous) elements. `MeanElementMethod.numerical()`
-/// is batch-only and raises for single-state calls; use `MeanElementMethod.brouwer_lyddane()`
+/// is batch-only and raises for single-state calls; use `MeanElementMethod.BROUWER_LYDDANE`
 /// for the first-order analytical J2 mapping.
 ///
 /// Args:
@@ -1861,7 +1859,7 @@ fn py_state_koe_osc_to_mean<'py>(
 ///         0.0,                 # M = 0
 ///     ])
 ///
-///     osc = bh.state_koe_mean_to_osc(mean, bh.MeanElementMethod.brouwer_lyddane(), bh.AngleFormat.DEGREES)
+///     osc = bh.state_koe_mean_to_osc(mean, bh.MeanElementMethod.BROUWER_LYDDANE, bh.AngleFormat.DEGREES)
 ///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(mean, method, angle_format)")]
@@ -1916,11 +1914,11 @@ fn pairs_to_py<'py>(py: Python<'py>, pairs: Vec<(time::Epoch, SVector<f64, 6>)>)
 /// Convert a batch of osculating Keplerian states to mean Keplerian states.
 ///
 /// Applies the selected mean-element method across an epoch/state series.
-/// `MeanElementMethod.brouwer_lyddane()` maps each `(epoch, state)` pair
+/// `MeanElementMethod.BROUWER_LYDDANE` maps each `(epoch, state)` pair
 /// independently, so the output has the same length as the input.
 /// `MeanElementMethod.numerical()` instead averages the osculating states
-/// over a moving window (see `NumericalConfig`); the output may be shorter
-/// than the input when `edge` is `EdgeHandling.TRUNCATE` and some output
+/// over a moving window (see `MeanElementNumericalMethodConfig`); the output may be shorter
+/// than the input when `edge` is `WindowEdgeHandling.TRUNCATE` and some output
 /// epochs' windows are not fully supported by the input trajectory.
 ///
 /// Args:
@@ -1938,8 +1936,8 @@ fn pairs_to_py<'py>(py: Python<'py>, pairs: Vec<(time::Epoch, SVector<f64, 6>)>)
 ///
 /// Returns:
 ///     tuple: (list[Epoch], numpy.ndarray) of output epochs and mean Keplerian elements,
-///         shape (N, 6). N equals M for `brouwer_lyddane()`; for `numerical()` N may be
-///         less than M when `edge` is `EdgeHandling.TRUNCATE`.
+///         shape (N, 6). N equals M for `BROUWER_LYDDANE`; for `numerical()` N may be
+///         less than M when `edge` is `WindowEdgeHandling.TRUNCATE`.
 ///
 /// Raises:
 ///     BraheError: If `epochs` and `states` have different lengths, or if `method` is
@@ -1956,7 +1954,7 @@ fn pairs_to_py<'py>(py: Python<'py>, pairs: Vec<(time::Epoch, SVector<f64, 6>)>)
 ///     states = np.vstack([s, s, s])
 ///
 ///     out_epochs, out_states = bh.batch_state_koe_osc_to_mean(
-///         epochs, states, bh.MeanElementMethod.brouwer_lyddane(), bh.AngleFormat.DEGREES
+///         epochs, states, bh.MeanElementMethod.BROUWER_LYDDANE, bh.AngleFormat.DEGREES
 ///     )
 ///     ```
 #[pyfunction]
@@ -1983,10 +1981,10 @@ fn py_batch_state_koe_osc_to_mean<'py>(
 /// Convert a batch of mean Keplerian states to osculating Keplerian states.
 ///
 /// Applies the selected mean-element method across an epoch/state series.
-/// `MeanElementMethod.brouwer_lyddane()` maps each `(epoch, state)` pair
+/// `MeanElementMethod.BROUWER_LYDDANE` maps each `(epoch, state)` pair
 /// independently, so the output has the same length as the input.
 /// `MeanElementMethod.numerical()` instead inverts the windowed averaging via
-/// iterative differential correction (see `NumericalConfig` and `InverseConfig`);
+/// iterative differential correction (see `MeanElementNumericalMethodConfig` and `MeanElementInverseConfig`);
 /// the output has the same length and epochs as the input.
 ///
 /// Args:
@@ -2009,7 +2007,7 @@ fn py_batch_state_koe_osc_to_mean<'py>(
 /// Raises:
 ///     BraheError: If `epochs` and `states` have different lengths; if `method` is
 ///         `MeanElementMethod.numerical()` and `inverse` was not configured on the
-///         `NumericalConfig`; or if the differential correction fails to converge
+///         `MeanElementNumericalMethodConfig`; or if the differential correction fails to converge
 ///         within `inverse.max_iterations` for any state.
 ///
 /// Example:
@@ -2023,7 +2021,7 @@ fn py_batch_state_koe_osc_to_mean<'py>(
 ///     states = np.vstack([s, s, s])
 ///
 ///     out_epochs, out_states = bh.batch_state_koe_mean_to_osc(
-///         epochs, states, bh.MeanElementMethod.brouwer_lyddane(), bh.AngleFormat.DEGREES
+///         epochs, states, bh.MeanElementMethod.BROUWER_LYDDANE, bh.AngleFormat.DEGREES
 ///     )
 ///     ```
 #[pyfunction]

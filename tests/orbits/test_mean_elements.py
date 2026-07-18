@@ -9,7 +9,7 @@ import pytest
 import numpy as np
 import brahe
 
-BROUWER_LYDDANE = brahe.MeanElementMethod.brouwer_lyddane()
+BROUWER_LYDDANE = brahe.MeanElementMethod.BROUWER_LYDDANE
 
 
 class TestMeanOsculatingConversions:
@@ -377,8 +377,8 @@ class TestMeanOsculatingConversions:
     def test_single_state_numerical_raises(self):
         """Numerical method is batch-only; single-state calls must raise."""
         mean = np.array([brahe.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
-        cfg = brahe.NumericalConfig(
-            5400.0, brahe.WindowAlignment.CENTERED, brahe.EdgeHandling.TRUNCATE
+        cfg = brahe.MeanElementNumericalMethodConfig(
+            5400.0, brahe.WindowAlignment.CENTERED, brahe.WindowEdgeHandling.TRUNCATE
         )
         with pytest.raises(Exception):
             brahe.state_koe_mean_to_osc(
@@ -387,13 +387,16 @@ class TestMeanOsculatingConversions:
 
     def test_config_enum_equality_through_getter(self):
         """Enum values obtained via getters must compare equal to classattrs."""
-        cfg = brahe.NumericalConfig(
-            5400.0, brahe.WindowAlignment.CENTERED, brahe.EdgeHandling.TRUNCATE
+        cfg = brahe.MeanElementNumericalMethodConfig(
+            5400.0, brahe.WindowAlignment.CENTERED, brahe.WindowEdgeHandling.TRUNCATE
         )
         assert cfg.alignment == brahe.WindowAlignment.CENTERED
-        assert cfg.edge == brahe.EdgeHandling.TRUNCATE
+        assert cfg.edge == brahe.WindowEdgeHandling.TRUNCATE
         assert brahe.WindowAlignment.CENTERED != brahe.WindowAlignment.LEADING
-        assert brahe.EdgeHandling.TRUNCATE != brahe.EdgeHandling.PRESERVE_WINDOW
+        assert (
+            brahe.WindowEdgeHandling.TRUNCATE
+            != brahe.WindowEdgeHandling.PRESERVE_WINDOW
+        )
 
 
 class TestBatchMeanOsculatingConversions:
@@ -472,8 +475,8 @@ class TestBatchMeanOsculatingConversions:
             )
         states = np.vstack(osc_rows)
 
-        cfg = brahe.NumericalConfig(
-            period, brahe.WindowAlignment.CENTERED, brahe.EdgeHandling.TRUNCATE
+        cfg = brahe.MeanElementNumericalMethodConfig(
+            period, brahe.WindowAlignment.CENTERED, brahe.WindowEdgeHandling.TRUNCATE
         )
         method = brahe.MeanElementMethod.numerical(cfg)
 
@@ -488,14 +491,14 @@ class TestBatchMeanOsculatingConversions:
         assert out_states[mid, 2] == pytest.approx(i, abs=0.05)
 
     def test_batch_numerical_mean_to_osc_requires_inverse_raises(self):
-        """Numerical mean->osc without an InverseConfig must raise (batch wiring smoke test)."""
+        """Numerical mean->osc without an MeanElementInverseConfig must raise (batch wiring smoke test)."""
         e0 = brahe.Epoch.from_gps_seconds(0.0)
         epochs = [e0, e0 + 60.0]
         s = np.array([brahe.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
         states = np.vstack([s, s])
 
-        cfg = brahe.NumericalConfig(
-            5400.0, brahe.WindowAlignment.CENTERED, brahe.EdgeHandling.TRUNCATE
+        cfg = brahe.MeanElementNumericalMethodConfig(
+            5400.0, brahe.WindowAlignment.CENTERED, brahe.WindowEdgeHandling.TRUNCATE
         )
         method = brahe.MeanElementMethod.numerical(cfg)
 

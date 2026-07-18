@@ -38,7 +38,7 @@ pub enum MeanElementMethod {
     /// First-order analytical Brouwer-Lyddane J2 mapping.
     BrouwerLyddane,
     /// Numerical windowed averaging (batch-only).
-    Numerical(NumericalConfig),
+    Numerical(MeanElementNumericalMethodConfig),
 }
 
 /// Placement of the averaging window relative to the output epoch `t`.
@@ -54,7 +54,7 @@ pub enum WindowAlignment {
 
 /// Handling of output epochs whose window runs past the data bounds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EdgeHandling {
+pub enum WindowEdgeHandling {
     /// Drop unsupported output epochs; output is shorter than input.
     Truncate,
     /// Hold the window length fixed and slide the anchor within it; output length preserved.
@@ -63,21 +63,21 @@ pub enum EdgeHandling {
 
 /// Configuration for the numerical windowed-averaging method.
 #[derive(Debug, Clone)]
-pub struct NumericalConfig {
+pub struct MeanElementNumericalMethodConfig {
     /// Averaging window length in seconds.
     pub window_seconds: f64,
     /// Placement of the averaging window relative to the output epoch.
     pub alignment: WindowAlignment,
     /// Handling of output epochs whose window runs past the data bounds.
-    pub edge: EdgeHandling,
+    pub edge: WindowEdgeHandling,
     /// Dynamics for the iterative mean→osc inverse. Required for numerical
     /// mean→osc; `None` there is an error. Unused for osc→mean.
-    pub inverse: Option<InverseConfig>,
+    pub inverse: Option<MeanElementInverseConfig>,
 }
 
 /// Iterative differential-correction dynamics for numerical mean→osc.
 #[derive(Debug, Clone)]
-pub struct InverseConfig {
+pub struct MeanElementInverseConfig {
     /// Force model used to propagate the trial osculating state.
     pub force_model: ForceModelConfig,
     /// Numerical propagation settings (integrator, tolerances) for the trial propagation.
@@ -271,8 +271,8 @@ pub fn state_koe_mean_to_osc(
 /// Dispatches on `method`: [`MeanElementMethod::BrouwerLyddane`] applies the analytical
 /// first-order mapping pointwise to each `(epoch, state)` pair, so the output has the same
 /// length and epochs as the input. [`MeanElementMethod::Numerical`] instead averages the
-/// osculating trajectory over a moving window (see [`NumericalConfig`]); the output may be
-/// shorter than the input when `config.edge` is [`EdgeHandling::Truncate`] and some output
+/// osculating trajectory over a moving window (see [`MeanElementNumericalMethodConfig`]); the output may be
+/// shorter than the input when `config.edge` is [`WindowEdgeHandling::Truncate`] and some output
 /// epochs' windows are not fully supported by the input trajectory.
 ///
 /// # Arguments
@@ -340,8 +340,8 @@ pub fn batch_state_koe_osc_to_mean(
 /// Dispatches on `method`: [`MeanElementMethod::BrouwerLyddane`] applies the analytical
 /// first-order mapping pointwise to each `(epoch, state)` pair, so the output has the same
 /// length and epochs as the input. [`MeanElementMethod::Numerical`] instead inverts the
-/// windowed averaging via iterative differential correction (see [`NumericalConfig`] and
-/// [`InverseConfig`]); the output has the same length and epochs as the input.
+/// windowed averaging via iterative differential correction (see [`MeanElementNumericalMethodConfig`] and
+/// [`MeanElementInverseConfig`]); the output has the same length and epochs as the input.
 ///
 /// # Arguments
 ///
@@ -1036,10 +1036,10 @@ mod tests {
     #[parallel]
     fn test_single_state_numerical_is_error() {
         let mean = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0);
-        let cfg = NumericalConfig {
+        let cfg = MeanElementNumericalMethodConfig {
             window_seconds: 5400.0,
             alignment: WindowAlignment::Centered,
-            edge: EdgeHandling::Truncate,
+            edge: WindowEdgeHandling::Truncate,
             inverse: None,
         };
         let out = state_koe_mean_to_osc(
@@ -1131,16 +1131,16 @@ mod tests {
         use crate::propagators::{ForceModelConfig, NumericalPropagationConfig};
         let mean = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 0.0);
         let period = crate::orbits::orbital_period(mean[0]);
-        let inverse = InverseConfig {
+        let inverse = MeanElementInverseConfig {
             force_model: ForceModelConfig::earth_gravity(),
             propagation: NumericalPropagationConfig::default(),
             tolerance: 1.0,
             max_iterations: 25,
         };
-        let cfg = NumericalConfig {
+        let cfg = MeanElementNumericalMethodConfig {
             window_seconds: period,
             alignment: WindowAlignment::Centered,
-            edge: EdgeHandling::PreserveWindow,
+            edge: WindowEdgeHandling::PreserveWindow,
             inverse: Some(inverse),
         };
         let epochs = vec![Epoch::from_gps_seconds(0.0)];
@@ -1170,16 +1170,16 @@ mod tests {
         use crate::propagators::{ForceModelConfig, NumericalPropagationConfig};
         let mean = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 0.0);
         let period = crate::orbits::orbital_period(mean[0]);
-        let inverse = InverseConfig {
+        let inverse = MeanElementInverseConfig {
             force_model: ForceModelConfig::earth_gravity(),
             propagation: NumericalPropagationConfig::default(),
             tolerance: 1.0,
             max_iterations: 25,
         };
-        let cfg = NumericalConfig {
+        let cfg = MeanElementNumericalMethodConfig {
             window_seconds: period,
             alignment: WindowAlignment::Trailing,
-            edge: EdgeHandling::PreserveWindow,
+            edge: WindowEdgeHandling::PreserveWindow,
             inverse: Some(inverse),
         };
         let epochs = vec![Epoch::from_gps_seconds(0.0)];

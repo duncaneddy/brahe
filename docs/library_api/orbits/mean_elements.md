@@ -24,11 +24,11 @@ first-order Brouwer-Lyddane theory or numerical windowed averaging.
 
 ::: brahe.WindowAlignment
 
-::: brahe.EdgeHandling
+::: brahe.WindowEdgeHandling
 
-::: brahe.NumericalConfig
+::: brahe.MeanElementNumericalMethodConfig
 
-::: brahe.InverseConfig
+::: brahe.MeanElementInverseConfig
 
 ## See Also
 

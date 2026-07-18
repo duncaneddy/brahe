@@ -10,7 +10,9 @@
 use crate::constants::AngleFormat;
 use crate::coordinates::{state_eci_to_koe, state_koe_to_eci};
 use crate::orbits::equinoctial::{state_equinoctial_to_koe, state_koe_to_equinoctial};
-use crate::orbits::mean_elements::{EdgeHandling, InverseConfig, NumericalConfig, WindowAlignment};
+use crate::orbits::mean_elements::{
+    MeanElementInverseConfig, MeanElementNumericalMethodConfig, WindowAlignment, WindowEdgeHandling,
+};
 use crate::orbits::{MeanElementMethod, state_koe_mean_to_osc};
 use crate::propagators::DNumericalOrbitPropagator;
 use crate::propagators::traits::{DStatePropagator, DStateProvider};
@@ -30,7 +32,7 @@ use nalgebra::{DVector, SVector};
 /// # Returns
 ///
 /// `Some((start, end))` window bounds in seconds-comparable [`Epoch`]s, or `None` when
-/// `config.edge` is [`EdgeHandling::Truncate`] and the window would extend past the data
+/// `config.edge` is [`WindowEdgeHandling::Truncate`] and the window would extend past the data
 /// bounds.
 // Not yet called from non-test production code; wired up by a later task.
 #[cfg_attr(not(test), allow(dead_code))]
@@ -38,7 +40,7 @@ pub(crate) fn window_bounds(
     anchor: Epoch,
     data_start: Epoch,
     data_end: Epoch,
-    config: &NumericalConfig,
+    config: &MeanElementNumericalMethodConfig,
 ) -> Option<(Epoch, Epoch)> {
     let w = config.window_seconds;
     let (mut start, mut end) = match config.alignment {
@@ -50,8 +52,8 @@ pub(crate) fn window_bounds(
     let overflow = end - data_end; // >0 if end is after data
     if underflow > 0.0 || overflow > 0.0 {
         match config.edge {
-            EdgeHandling::Truncate => return None,
-            EdgeHandling::PreserveWindow => {
+            WindowEdgeHandling::Truncate => return None,
+            WindowEdgeHandling::PreserveWindow => {
                 // Slide the fixed-length window inside the data bounds.
                 if underflow > 0.0 {
                     start = data_start;
@@ -90,7 +92,7 @@ pub(crate) fn window_bounds(
 ///
 /// Vector of `(epoch, mean_state)` pairs, mean states in radians. Output epochs whose
 /// window lacks full data support are dropped when `config.edge` is
-/// [`EdgeHandling::Truncate`].
+/// [`WindowEdgeHandling::Truncate`].
 ///
 /// # Errors
 ///
@@ -99,7 +101,7 @@ pub(crate) fn window_bounds(
 pub(crate) fn numerical_osc_to_mean(
     epochs: &[Epoch],
     states_rad: &[SVector<f64, 6>],
-    config: &NumericalConfig,
+    config: &MeanElementNumericalMethodConfig,
 ) -> Result<Vec<(Epoch, SVector<f64, 6>)>, BraheError> {
     if epochs.len() != states_rad.len() {
         return Err(BraheError::Error(
@@ -208,11 +210,12 @@ pub(crate) fn numerical_osc_to_mean(
 pub(crate) fn numerical_mean_to_osc(
     epochs: &[Epoch],
     mean_states_rad: &[SVector<f64, 6>],
-    config: &NumericalConfig,
+    config: &MeanElementNumericalMethodConfig,
 ) -> Result<Vec<(Epoch, SVector<f64, 6>)>, BraheError> {
     let inverse = config.inverse.as_ref().ok_or_else(|| {
         BraheError::Error(
-            "numerical mean-to-osc requires NumericalConfig.inverse (dynamics)".to_string(),
+            "numerical mean-to-osc requires MeanElementNumericalMethodConfig.inverse (dynamics)"
+                .to_string(),
         )
     })?;
     if epochs.len() != mean_states_rad.len() {
@@ -305,8 +308,8 @@ pub(crate) fn numerical_mean_to_osc(
 fn forward_average(
     t: Epoch,
     x_rad: &SVector<f64, 6>,
-    config: &NumericalConfig,
-    inverse: &InverseConfig,
+    config: &MeanElementNumericalMethodConfig,
+    inverse: &MeanElementInverseConfig,
 ) -> Result<SVector<f64, 6>, BraheError> {
     let w = config.window_seconds;
     // Sample spacing: 1% of the window length. Combined with the per-alignment grid
@@ -588,10 +591,10 @@ mod tests {
 
         // Centered window spanning the full [0,1] fraction range, anchored at the
         // midpoint (frac=0.5) shared by both sample sets.
-        let cfg = NumericalConfig {
+        let cfg = MeanElementNumericalMethodConfig {
             window_seconds: period,
             alignment: WindowAlignment::Centered,
-            edge: EdgeHandling::Truncate,
+            edge: WindowEdgeHandling::Truncate,
             inverse: None,
         };
         let out_u = numerical_osc_to_mean(&epochs_u, &states_u, &cfg).unwrap();
@@ -626,10 +629,10 @@ mod tests {
     fn test_numerical_osc_to_mean_recovers_mean_ae_i() {
         let (epochs, states, mean_rad) = synthetic_osc_series();
         let period = crate::orbits::orbital_period(mean_rad[0]);
-        let cfg = NumericalConfig {
+        let cfg = MeanElementNumericalMethodConfig {
             window_seconds: period * 0.6,
             alignment: WindowAlignment::Centered,
-            edge: EdgeHandling::Truncate,
+            edge: WindowEdgeHandling::Truncate,
             inverse: None,
         };
         let out = numerical_osc_to_mean(&epochs, &states, &cfg).unwrap();
@@ -648,10 +651,10 @@ mod tests {
     fn test_numerical_osc_to_mean_recovers_mean_ae_i_sun_synchronous() {
         let (epochs, states, mean_rad) = synthetic_osc_series_with_elements(700e3, 0.01, 98.0);
         let period = crate::orbits::orbital_period(mean_rad[0]);
-        let cfg = NumericalConfig {
+        let cfg = MeanElementNumericalMethodConfig {
             window_seconds: period * 0.5,
             alignment: WindowAlignment::Centered,
-            edge: EdgeHandling::Truncate,
+            edge: WindowEdgeHandling::Truncate,
             inverse: None,
         };
         let out = numerical_osc_to_mean(&epochs, &states, &cfg).unwrap();
@@ -667,15 +670,17 @@ mod tests {
     fn test_truncate_shortens_preserve_keeps_length() {
         let (epochs, states, mean_rad) = synthetic_osc_series();
         let period = crate::orbits::orbital_period(mean_rad[0]);
-        let base = |edge| NumericalConfig {
+        let base = |edge| MeanElementNumericalMethodConfig {
             window_seconds: period / 2.0,
             alignment: WindowAlignment::Centered,
             edge,
             inverse: None,
         };
-        let trunc = numerical_osc_to_mean(&epochs, &states, &base(EdgeHandling::Truncate)).unwrap();
+        let trunc =
+            numerical_osc_to_mean(&epochs, &states, &base(WindowEdgeHandling::Truncate)).unwrap();
         let preserve =
-            numerical_osc_to_mean(&epochs, &states, &base(EdgeHandling::PreserveWindow)).unwrap();
+            numerical_osc_to_mean(&epochs, &states, &base(WindowEdgeHandling::PreserveWindow))
+                .unwrap();
         assert!(trunc.len() < epochs.len());
         assert_eq!(preserve.len(), epochs.len());
     }
@@ -691,16 +696,16 @@ mod tests {
             AngleFormat::Degrees,
         );
         let period = crate::orbits::orbital_period(mean_rad[0]);
-        let inverse = InverseConfig {
+        let inverse = MeanElementInverseConfig {
             force_model: ForceModelConfig::earth_gravity(),
             propagation: NumericalPropagationConfig::default(),
             tolerance: 1.0, // mixed-norm tolerance; see mixed_norm()
             max_iterations: 25,
         };
-        let cfg = NumericalConfig {
+        let cfg = MeanElementNumericalMethodConfig {
             window_seconds: period,
             alignment: WindowAlignment::Centered,
-            edge: EdgeHandling::PreserveWindow,
+            edge: WindowEdgeHandling::PreserveWindow,
             inverse: Some(inverse),
         };
         let epochs = vec![Epoch::from_gps_seconds(0.0)];
@@ -787,10 +792,10 @@ mod tests {
     #[serial_test::serial]
     fn test_numerical_mean_to_osc_requires_inverse_config() {
         let mean_rad = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 0.78, 0.5, 1.0, 0.0);
-        let cfg = NumericalConfig {
+        let cfg = MeanElementNumericalMethodConfig {
             window_seconds: 5400.0,
             alignment: WindowAlignment::Centered,
-            edge: EdgeHandling::PreserveWindow,
+            edge: WindowEdgeHandling::PreserveWindow,
             inverse: None,
         };
         let epochs = vec![Epoch::from_gps_seconds(0.0)];
@@ -831,16 +836,16 @@ mod tests {
         );
 
         let period = crate::orbits::orbital_period(mean_rad[0]);
-        let inverse = InverseConfig {
+        let inverse = MeanElementInverseConfig {
             force_model: ForceModelConfig::earth_gravity(),
             propagation: NumericalPropagationConfig::default(),
             tolerance: 1.0,
             max_iterations: 25,
         };
-        let cfg = NumericalConfig {
+        let cfg = MeanElementNumericalMethodConfig {
             window_seconds: period,
             alignment: WindowAlignment::Centered,
-            edge: EdgeHandling::PreserveWindow,
+            edge: WindowEdgeHandling::PreserveWindow,
             inverse: Some(inverse),
         };
         let epochs = vec![Epoch::from_gps_seconds(0.0)];
@@ -859,10 +864,10 @@ mod tests {
     fn test_numerical_osc_to_mean_rejects_unsorted_epochs() {
         let (mut epochs, states, _mean_rad) = synthetic_osc_series();
         epochs.swap(0, 1); // break strict ascending order
-        let cfg = NumericalConfig {
+        let cfg = MeanElementNumericalMethodConfig {
             window_seconds: 3600.0,
             alignment: WindowAlignment::Centered,
-            edge: EdgeHandling::Truncate,
+            edge: WindowEdgeHandling::Truncate,
             inverse: None,
         };
         assert!(numerical_osc_to_mean(&epochs, &states, &cfg).is_err());
@@ -872,10 +877,10 @@ mod tests {
     #[parallel]
     fn test_numerical_osc_to_mean_rejects_non_finite_window_seconds() {
         let (epochs, states, _mean_rad) = synthetic_osc_series();
-        let cfg = NumericalConfig {
+        let cfg = MeanElementNumericalMethodConfig {
             window_seconds: f64::NAN,
             alignment: WindowAlignment::Centered,
-            edge: EdgeHandling::Truncate,
+            edge: WindowEdgeHandling::Truncate,
             inverse: None,
         };
         assert!(numerical_osc_to_mean(&epochs, &states, &cfg).is_err());
@@ -888,30 +893,30 @@ mod tests {
         let mean_rad = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 0.78, 0.5, 1.0, 0.0);
         let epochs = vec![Epoch::from_gps_seconds(0.0)];
 
-        let bad_tolerance = InverseConfig {
+        let bad_tolerance = MeanElementInverseConfig {
             force_model: ForceModelConfig::earth_gravity(),
             propagation: NumericalPropagationConfig::default(),
             tolerance: 0.0,
             max_iterations: 25,
         };
-        let cfg = NumericalConfig {
+        let cfg = MeanElementNumericalMethodConfig {
             window_seconds: 5400.0,
             alignment: WindowAlignment::Centered,
-            edge: EdgeHandling::PreserveWindow,
+            edge: WindowEdgeHandling::PreserveWindow,
             inverse: Some(bad_tolerance),
         };
         assert!(numerical_mean_to_osc(&epochs, &[mean_rad], &cfg).is_err());
 
-        let bad_iterations = InverseConfig {
+        let bad_iterations = MeanElementInverseConfig {
             force_model: ForceModelConfig::earth_gravity(),
             propagation: NumericalPropagationConfig::default(),
             tolerance: 1.0,
             max_iterations: 0,
         };
-        let cfg2 = NumericalConfig {
+        let cfg2 = MeanElementNumericalMethodConfig {
             window_seconds: 5400.0,
             alignment: WindowAlignment::Centered,
-            edge: EdgeHandling::PreserveWindow,
+            edge: WindowEdgeHandling::PreserveWindow,
             inverse: Some(bad_iterations),
         };
         assert!(numerical_mean_to_osc(&epochs, &[mean_rad], &cfg2).is_err());

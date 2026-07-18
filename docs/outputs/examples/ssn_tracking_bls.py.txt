@@ -1,0 +1,7 @@
+Loaded 21 SSN sites, 13 az/el/range sensors
+Simulated 740 measurements
+BLS solved 740 observations in 164.1 s
+BLS position error: 9.5 m  (3-sigma formal = 39.5 m)
+BLS converged: True, iterations: 4, final cost: 2.351706e+03
+
+Example validated successfully!

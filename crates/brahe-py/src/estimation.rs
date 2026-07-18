@@ -1804,6 +1804,16 @@ impl PyMeasurementModel {
     ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
         let m = measured.as_slice()?;
         let p = predicted.as_slice()?;
+        // Guard against zip truncation: mismatched lengths would silently
+        // produce a short residual instead of erroring (mirrors the built-in
+        // models' residual() length check).
+        if m.len() != p.len() {
+            return Err(exceptions::PyValueError::new_err(format!(
+                "residual() expects measured and predicted of equal length, got {} and {}",
+                m.len(),
+                p.len()
+            )));
+        }
         let diff: Vec<f64> = m.iter().zip(p.iter()).map(|(a, b)| a - b).collect();
         Ok(diff.into_pyarray(py))
     }

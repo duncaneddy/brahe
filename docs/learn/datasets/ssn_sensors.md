@@ -56,8 +56,9 @@ Millstone                   Radar           0.0°    40744 km   0.0100°   0.010
 `bh.datasets.ssn_sensors.load()` returns all 21 sites as `PointLocation` objects.
 `SimpleSSNSensor.from_locations()` builds a sensor for every site that has both
 `sensor_type == "azel_range"` and complete noise calibration -- 13 of the 21 sites. The
-remaining 8 are skipped: 6 optical (`radec`) sites, and 2 radar sites (HAX, Haystack) that
-Table 4-2 lists without the Table 4-4 calibration values `SimpleSSNSensor` requires.
+remaining 8 are skipped: 6 optical (`radec`) sites, and 2 sites (HAX, a mechanical tracker,
+and Haystack, a radar) that Table 4-2 lists without the Table 4-4 calibration values
+`SimpleSSNSensor` requires.
 
 ## Properties
 

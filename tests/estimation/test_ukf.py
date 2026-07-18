@@ -270,3 +270,55 @@ def test_ukf_propagate_to(two_body_leo):
     with pytest.raises(ValueError):
         ukf.propagate_to(epoch)
     assert ukf.current_epoch() == epoch + 600.0
+
+
+def test_ukf_propagate_to_store_records_and_process_noise(two_body_leo):
+    """propagate_to gates records on store_records and applies Q*dt (and no
+    process noise on a zero-duration step)."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    dt = 600.0
+    q_diag = [1.0, 1.0, 1.0, 1e-4, 1e-4, 1e-4]
+    q = np.diag(q_diag)
+    q_trace = sum(q_diag)
+
+    def make(config):
+        return bh.UnscentedKalmanFilter(
+            epoch,
+            state.copy(),
+            p0,
+            measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+            propagation_config=bh.NumericalPropagationConfig.default(),
+            force_config=bh.ForceModelConfig.two_body(),
+            config=config,
+        )
+
+    # store_records gating: records() grows by one per call when enabled.
+    rec = make(bh.UKFConfig(store_records=True))
+    assert len(rec.records()) == 0
+    rec.propagate_to(epoch + 300.0)
+    assert len(rec.records()) == 1
+    rec.propagate_to(epoch + 600.0)
+    assert len(rec.records()) == 2
+
+    norec = make(bh.UKFConfig(store_records=False))
+    norec.propagate_to(epoch + 300.0)
+    assert len(norec.records()) == 0
+
+    # process noise: Q*dt increment over the no-noise baseline.
+    plain = make(bh.UKFConfig())
+    noisy = make(
+        bh.UKFConfig(process_noise=bh.ProcessNoiseConfig(q, scale_with_dt=True))
+    )
+    plain.propagate_to(epoch + dt)
+    noisy.propagate_to(epoch + dt)
+    increment = np.trace(noisy.current_covariance()) - np.trace(
+        plain.current_covariance()
+    )
+    assert increment == pytest.approx(q_trace * dt, rel=0.05)
+
+    # A zero-duration propagate_to adds no process noise.
+    before = np.trace(noisy.current_covariance())
+    noisy.propagate_to(noisy.current_epoch())
+    after = np.trace(noisy.current_covariance())
+    assert after == pytest.approx(before, rel=1e-9)

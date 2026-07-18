@@ -308,7 +308,8 @@ impl MeasurementModel for AzElRangeMeasurementModel {
             AngleFormat::Radians => std::f64::consts::TAU,
         };
         let mut r = measured - predicted;
-        // Wrap azimuth residual into (-full/2, full/2]
+        // Wrap azimuth residual into [-full/2, full/2) — round-half-away-from-
+        // zero maps an exact +full/2 to -full/2 (e.g. +180° -> -180°).
         r[0] -= (r[0] / full).round() * full;
         Ok(r)
     }

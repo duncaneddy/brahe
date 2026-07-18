@@ -38,6 +38,9 @@ bh.initialize_eop()
 # Configuration
 MEAS_INTERVAL = 15.0  # seconds between measurements during a pass
 DURATION = 6 * 3600.0  # tracking duration (seconds)
+# The run numbers quoted in the docs depend on this seed AND on the rand
+# crate's StdRng stream; a rand version bump can shift the exact figures while
+# the example's tolerance-based asserts still pass.
 SEED = 42
 GAP_SPLIT = 600.0  # start a new arc when consecutive obs are > 10 min apart
 PROPAGATE_STEP = 60.0  # gap-propagation step (seconds)

@@ -384,3 +384,14 @@ class TestCustomModelWithEKF:
 
         assert received["params"] is not None
         np.testing.assert_allclose(received["params"], expected)
+
+
+def test_base_class_residual_rejects_length_mismatch():
+    """The inherited MeasurementModel.residual must reject mismatched input
+    lengths rather than silently truncating via zip."""
+    model = RangeModel([0.0, 0.0, 0.0], 100.0)  # does not override residual()
+    with pytest.raises(ValueError, match="equal length"):
+        model.residual(np.array([1.0, 2.0]), np.array([1.0, 2.0, 3.0]))
+    # Equal-length inputs still return the plain difference.
+    r = model.residual(np.array([5.0]), np.array([2.0]))
+    np.testing.assert_allclose(r, [3.0])

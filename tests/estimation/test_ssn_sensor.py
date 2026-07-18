@@ -151,3 +151,77 @@ def test_simulate_observations_and_model(test_epoch):
         sensor.simulate_observations(
             prop.trajectory, test_epoch, test_epoch + 3600.0, 0.0, 0
         )
+
+
+def test_azimuth_window_wrap(test_epoch):
+    # Cape-Cod-style window 347 -> 227 crosses north: azimuths through north
+    # are accepted, azimuths in the southern gap (227, 347) are rejected.
+    loc = bh.PointLocation(-70.54, 41.75, 80.3).with_name("CapeCod")
+    sensor = bh.SimpleSSNSensor(
+        loc,
+        az_min=347.0,
+        az_max=227.0,
+        el_min=3.0,
+        el_max=85.0,
+        noise=(0.01, 0.01, 10.0),
+        seed=1,
+    )
+
+    # Target due north of the station -> azimuth ~0/360, inside the window.
+    north = make_state_above(test_epoch, -70.54, 43.75, 500e3)
+    az_north = sensor.azelrange(test_epoch, north)[0]
+    assert az_north < 20.0 or az_north > 340.0
+    assert sensor.visible(test_epoch, north)
+    assert sensor.measure(test_epoch, north) is not None
+
+    # Target due west -> azimuth ~270, in the rejected southern gap.
+    west = make_state_above(test_epoch, -72.54, 41.75, 500e3)
+    az_west = sensor.azelrange(test_epoch, west)[0]
+    assert 227.0 < az_west < 347.0
+    assert not sensor.visible(test_epoch, west)
+    assert sensor.measure(test_epoch, west) is None
+
+
+def test_range_cap_rejects_distant_target(test_epoch):
+    # Overhead target beyond the range cap -> not visible, measure() is None.
+    loc = bh.PointLocation(-71.49, 42.62, 123.1).with_name("ShortRange")
+    sensor = bh.SimpleSSNSensor(loc, range_max=400e3, noise=(0.01, 0.01, 10.0), seed=1)
+    overhead = make_state_above(test_epoch, -71.49, 42.62, 500e3)
+    assert not sensor.visible(test_epoch, overhead)
+    assert sensor.measure(test_epoch, overhead) is None
+
+
+def test_simulate_observations_matches_stepwise(test_epoch):
+    # Batched simulate_observations with a given seed must reproduce the
+    # step-wise measure() output exactly: same epochs, measurements, and index.
+    oe = np.array([bh.R_EARTH + 700e3, 0.001, 55.0, 0.0, 0.0, 0.0])
+    state0 = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    prop = bh.NumericalOrbitPropagator(
+        test_epoch,
+        state0,
+        bh.NumericalPropagationConfig.default(),
+        bh.ForceModelConfig.two_body(),
+    )
+    prop.propagate_to(test_epoch + 3600.0)
+    traj = prop.trajectory
+
+    loc = bh.PointLocation(-71.49, 42.62, 123.1).with_name("Test")
+    start, end, dt = test_epoch, test_epoch + 3600.0, 15.0
+
+    batched = bh.SimpleSSNSensor(loc, el_min=5.0, noise=(0.02, 0.02, 50.0), seed=99)
+    obs = batched.simulate_observations(traj, start, end, dt, 3)
+
+    stepwise = bh.SimpleSSNSensor(loc, el_min=5.0, noise=(0.02, 0.02, 50.0), seed=99)
+    manual = []
+    t = start
+    while (t - end) <= 1e-9:
+        z = stepwise.measure(t, traj.interpolate(t))
+        if z is not None:
+            manual.append((t, z))
+        t = t + dt
+
+    assert len(obs) == len(manual) > 0
+    for o, (t_manual, z) in zip(obs, manual):
+        assert o.epoch == t_manual
+        np.testing.assert_array_equal(o.measurement, z)
+        assert o.model_index == 3

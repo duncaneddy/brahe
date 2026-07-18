@@ -102,8 +102,9 @@ The model accepts a constant bias `[bias_az, bias_el, bias_range]`, applied insi
 values): a filter built with the same bias as the measurement source stays consistent,
 rather than needing to estimate the bias away as an unmodeled error.
 
-`residual()` wraps the azimuth component into $(-180°, 180°]$ (or $(-\pi, \pi]$ in radians)
-so a pass crossing the 0/360° boundary does not produce a spurious ~360° residual:
+`residual()` wraps the azimuth component into $[-180°, 180°)$ (or $[-\pi, \pi)$ in radians;
+round-half-away-from-zero maps an exact $+180°$ to $-180°$) so a pass crossing the 0/360°
+boundary does not produce a spurious ~360° residual:
 
 === "Python"
     ``` python

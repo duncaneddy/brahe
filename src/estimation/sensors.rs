@@ -38,6 +38,11 @@ use crate::utils::identifiable::Identifiable;
 /// Parsed from the `sensor_type` dataset property. Only `AzElRange` is
 /// currently supported for sensor construction; `RaDec` (optical sites) is
 /// reserved for future extension.
+///
+/// This enum is intentionally Rust-only and is not bound to Python: Python
+/// surfaces the same information through [`SimpleSSNSensor::from_location`]
+/// errors, which name the unsupported `sensor_type` when a site cannot be
+/// constructed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SensorType {
     /// Azimuth/elevation/range measurements (radar, phased array, mechanical tracker)

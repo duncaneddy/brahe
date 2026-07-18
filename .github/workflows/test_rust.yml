@@ -100,5 +100,5 @@ jobs:
                     restore-keys: |
                         brahe-data-v1-
             -   name: Run Rust doc tests
-                run: cargo test --doc -- --test-threads=1
+                run: cargo test --doc -- --test-threads=4
     

@@ -54,6 +54,15 @@ The animation starts playing automatically; use the Play/Pause button or drag th
 
 Across the 96 frames of this scenario, the number of visible stars ranges from 15 to 93 (median 27) as the 30° cone sweeps through regions of varying star density.
 
+## Sensor-Frame View
+
+The 3D scene above shows the sensor cone in its orbital context; the animation below shows only what the sensor itself would see. Each visible star's unit vector is projected into boresight-relative angular coordinates - a cross-boresight offset (x) and an elevation-like offset (y), both in degrees - using the same `(u, v)` basis as the FOV cone, so a constant angular separation from the boresight traces an exact circle. The dotted circle marks the 15° half-angle FOV boundary; the axes are fixed at ±15° so the star field's apparent motion through the sensor is directly comparable frame to frame.
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../figures/star_field_sensor_view_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../figures/star_field_sensor_view_dark.html"  loading="lazy"></iframe>
+</div>
+
 ## Full Code Example
 
 ```python title="star_field_simulation.py"

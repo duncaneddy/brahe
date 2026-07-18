@@ -94,12 +94,9 @@ star_shell_radius_km = STAR_SHELL_RADIUS * 1e-3
 
 
 # --8<-- [start:cone]
-def fov_cone_mesh(apex, boresight, length, half_angle_deg, n_segments):
-    """Build FOV cone mesh vertices and triangle faces for `go.Mesh3d`.
-
-    The cone apex sits at the satellite position and its axis is aligned
-    with the boresight direction; vertex 0 is the apex and vertices
-    1..n_segments form the base circle.
+def boresight_basis(boresight):
+    """Build an orthonormal (u, v) basis spanning the plane perpendicular
+    to the boresight direction.
     """
     reference = np.array([0.0, 0.0, 1.0])
     if abs(np.dot(reference, boresight)) > 0.9:
@@ -107,6 +104,17 @@ def fov_cone_mesh(apex, boresight, length, half_angle_deg, n_segments):
     u = np.cross(boresight, reference)
     u /= np.linalg.norm(u)
     v = np.cross(boresight, u)
+    return u, v
+
+
+def fov_cone_mesh(apex, boresight, length, half_angle_deg, n_segments):
+    """Build FOV cone mesh vertices and triangle faces for `go.Mesh3d`.
+
+    The cone apex sits at the satellite position and its axis is aligned
+    with the boresight direction; vertex 0 is the apex and vertices
+    1..n_segments form the base circle.
+    """
+    u, v = boresight_basis(boresight)
 
     radius = length * np.tan(np.radians(half_angle_deg))
     theta = np.linspace(0.0, 2 * np.pi, n_segments, endpoint=False)
@@ -131,6 +139,83 @@ def marker_sizes(vmags):
 
 
 # --8<-- [end:cone]
+
+
+# --8<-- [start:sensor_frame]
+def sensor_frame_angles(star_unit_vectors, boresight):
+    """Project star unit vectors into boresight-relative angular offsets.
+
+    Decomposes each star's angular separation from the boresight into a
+    cross-boresight (x) and an "elevation-like" (y) component, both in
+    degrees, using the same (u, v) basis as the FOV cone. A constant
+    angular separation from the boresight (the FOV boundary) is therefore
+    an exact circle of that radius in (x, y).
+    """
+    u, v = boresight_basis(boresight)
+    cos_theta = np.clip(star_unit_vectors @ boresight, -1.0, 1.0)
+    theta_deg = np.degrees(np.arccos(cos_theta))
+    phi = np.arctan2(star_unit_vectors @ v, star_unit_vectors @ u)
+    return theta_deg * np.cos(phi), theta_deg * np.sin(phi)
+
+
+def animation_controls(n_frames):
+    """Shared Play/Pause buttons + scrub slider for the animated figures."""
+    updatemenus = [
+        dict(
+            type="buttons",
+            showactive=False,
+            x=0.05,
+            y=0.02,
+            xanchor="left",
+            yanchor="bottom",
+            buttons=[
+                dict(
+                    label="Play",
+                    method="animate",
+                    args=[
+                        None,
+                        dict(
+                            frame=dict(duration=80, redraw=True),
+                            fromcurrent=True,
+                            transition=dict(duration=0),
+                        ),
+                    ],
+                ),
+                dict(
+                    label="Pause",
+                    method="animate",
+                    args=[
+                        [None],
+                        dict(frame=dict(duration=0, redraw=False), mode="immediate"),
+                    ],
+                ),
+            ],
+        )
+    ]
+    sliders = [
+        dict(
+            active=0,
+            x=0.15,
+            len=0.85,
+            currentvalue=dict(visible=False),
+            ticklen=0,
+            steps=[
+                dict(
+                    label="",
+                    method="animate",
+                    args=[
+                        [str(k)],
+                        dict(frame=dict(duration=0, redraw=True), mode="immediate"),
+                    ],
+                )
+                for k in range(n_frames)
+            ],
+        )
+    ]
+    return updatemenus, sliders
+
+
+# --8<-- [end:sensor_frame]
 
 
 # --8<-- [start:figure]
@@ -268,6 +353,7 @@ def create_figure(theme):
         )
     fig.frames = frames
 
+    updatemenus, sliders = animation_controls(n_frames)
     axis_range = [-1.05 * star_shell_radius_km, 1.05 * star_shell_radius_km]
     fig.update_layout(
         title="Star-Field Sensor Simulation (SSO, One Orbital Period)",
@@ -278,67 +364,100 @@ def create_figure(theme):
             aspectmode="cube",
             camera=dict(eye=dict(x=1.4, y=1.4, z=0.9)),
         ),
-        updatemenus=[
-            dict(
-                type="buttons",
-                showactive=False,
-                x=0.05,
-                y=0.02,
-                xanchor="left",
-                yanchor="bottom",
-                buttons=[
-                    dict(
-                        label="Play",
-                        method="animate",
-                        args=[
-                            None,
-                            dict(
-                                frame=dict(duration=80, redraw=True),
-                                fromcurrent=True,
-                                transition=dict(duration=0),
-                            ),
-                        ],
-                    ),
-                    dict(
-                        label="Pause",
-                        method="animate",
-                        args=[
-                            [None],
-                            dict(
-                                frame=dict(duration=0, redraw=False),
-                                mode="immediate",
-                            ),
-                        ],
-                    ),
-                ],
-            )
-        ],
-        sliders=[
-            dict(
-                active=0,
-                x=0.15,
-                len=0.85,
-                currentvalue=dict(visible=False),
-                ticklen=0,
-                steps=[
-                    dict(
-                        label="",
-                        method="animate",
-                        args=[
-                            [str(k)],
-                            dict(frame=dict(duration=0, redraw=True), mode="immediate"),
-                        ],
-                    )
-                    for k in range(n_frames)
-                ],
-            )
-        ],
+        updatemenus=updatemenus,
+        sliders=sliders,
     )
 
     return fig
 
 
 # --8<-- [end:figure]
+
+
+# --8<-- [start:sensor_view_figure]
+def create_sensor_view_figure(theme):
+    """2D sensor-frame view: only the visible stars, in boresight-relative
+    angular coordinates, with the fixed FOV boundary drawn as a circle.
+    """
+    colors = get_theme_colors(theme)
+
+    fig = go.Figure()
+
+    # Trace 0: FOV boundary (static) - a constant angular separation from
+    # the boresight is an exact circle of this radius in (x, y)
+    boundary_theta = np.linspace(0.0, 2 * np.pi, 100)
+    fig.add_trace(
+        go.Scatter(
+            x=HALF_ANGLE_DEG * np.cos(boundary_theta),
+            y=HALF_ANGLE_DEG * np.sin(boundary_theta),
+            mode="lines",
+            line=dict(color=colors["accent"], width=2, dash="dot"),
+            name=f"Field of View ({HALF_ANGLE_DEG:.0f}°)",
+            hoverinfo="skip",
+        )
+    )
+
+    # Trace 1: visible stars (animated)
+    frame0_idx = np.nonzero(visible_mask[:, 0])[0]
+    x0, y0 = sensor_frame_angles(star_unit_vectors[frame0_idx], boresights[0])
+    fig.add_trace(
+        go.Scatter(
+            x=x0,
+            y=y0,
+            mode="markers",
+            marker=dict(
+                size=marker_sizes(star_vmags[frame0_idx]),
+                color=colors["quaternary"],
+            ),
+            text=[star_names[i] for i in frame0_idx],
+            hovertemplate="%{text}<extra></extra>",
+            name="Visible Stars",
+        )
+    )
+
+    # Animation frames: only the visible-star trace changes
+    frames = []
+    for k in range(n_frames):
+        idx = np.nonzero(visible_mask[:, k])[0]
+        x_k, y_k = sensor_frame_angles(star_unit_vectors[idx], boresights[k])
+        frames.append(
+            go.Frame(
+                name=str(k),
+                traces=[1],
+                data=[
+                    go.Scatter(
+                        x=x_k,
+                        y=y_k,
+                        marker=dict(size=marker_sizes(star_vmags[idx])),
+                        text=[star_names[i] for i in idx],
+                    )
+                ],
+            )
+        )
+    fig.frames = frames
+
+    updatemenus, sliders = animation_controls(n_frames)
+    axis_range = [-1.05 * HALF_ANGLE_DEG, 1.05 * HALF_ANGLE_DEG]
+    fig.update_layout(
+        title="Star-Field Sensor View (SSO, One Orbital Period)",
+        xaxis=dict(
+            title="Cross-Boresight Offset (deg)", range=axis_range, zeroline=False
+        ),
+        yaxis=dict(
+            title="Elevation-Like Offset (deg)",
+            range=axis_range,
+            zeroline=False,
+            scaleanchor="x",
+            scaleratio=1,
+        ),
+        updatemenus=updatemenus,
+        sliders=sliders,
+    )
+
+    return fig
+
+
+# --8<-- [end:sensor_view_figure]
 # --8<-- [end:all]
 
 light_path, dark_path = save_themed_html(
@@ -346,3 +465,9 @@ light_path, dark_path = save_themed_html(
 )
 print(f"Star field simulation (light) saved to: {light_path}")
 print(f"Star field simulation (dark) saved to: {dark_path}")
+
+sensor_light_path, sensor_dark_path = save_themed_html(
+    create_sensor_view_figure, OUTDIR / "star_field_sensor_view", auto_play=True
+)
+print(f"Star field sensor view (light) saved to: {sensor_light_path}")
+print(f"Star field sensor view (dark) saved to: {sensor_dark_path}")

@@ -78,27 +78,25 @@ $$
 === "Python"
 
     ``` python
-    import brahe as bh
-    import numpy as np
-
-    x_radec = np.array([0.0, 0.0, 7000e3, 0.0, 0.0, 0.0])
-    x_inertial = bh.state_radec_to_inertial(x_radec, bh.AngleFormat.DEGREES)
-
-    x_radec_back = bh.state_inertial_to_radec(x_inertial, bh.AngleFormat.DEGREES)
+    --8<-- "./examples/coordinates/radec_state_transforms.py:state_transforms"
     ```
 
 === "Rust"
 
     ``` rust
-    use brahe::constants::DEGREES;
-    use brahe::coordinates::{state_radec_to_inertial, state_inertial_to_radec};
-    use brahe::math::SVector6;
-
-    let x_radec = SVector6::new(0.0, 0.0, 7000e3, 0.0, 0.0, 0.0);
-    let x_inertial = state_radec_to_inertial(x_radec, DEGREES);
-
-    let x_radec_back = state_inertial_to_radec(x_inertial, DEGREES);
+    --8<-- "./examples/coordinates/radec_state_transforms.rs:state_transforms"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/coordinates/radec_state_transforms.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/coordinates/radec_state_transforms.rs.txt"
+        ```
 
 ## Topocentric Right Ascension/Declination
 
@@ -109,24 +107,16 @@ This subtract-then-convert pattern is the vector form of Vallado Algorithm 26 (*
 === "Python"
 
     ``` python
-    import brahe as bh
-    import numpy as np
-
-    # x_sat, x_site: Cartesian inertial states [x, y, z, vx, vy, vz] (m, m/s)
-    x_topocentric = x_sat - x_site
-    x_radec = bh.state_inertial_to_radec(x_topocentric, bh.AngleFormat.DEGREES)
+    --8<-- "./examples/coordinates/radec_state_transforms.py:topocentric"
     ```
 
 === "Rust"
 
     ``` rust
-    use brahe::constants::DEGREES;
-    use brahe::coordinates::state_inertial_to_radec;
-
-    // x_sat, x_site: Cartesian inertial states [x, y, z, vx, vy, vz] (m, m/s)
-    let x_topocentric = x_sat - x_site;
-    let x_radec = state_inertial_to_radec(x_topocentric, DEGREES);
+    --8<-- "./examples/coordinates/radec_state_transforms.rs:topocentric"
     ```
+
+This continues the same `radec_state_transforms` example above - see its output for the resulting topocentric line of sight.
 
 For stars, which are effectively at infinite range, this correction is unnecessary: the geocentric catalog $(\alpha, \delta)$ and the topocentric $(\alpha, \delta)$ are the same to any achievable precision, so [`position_radec_to_azel`](../../library_api/coordinates/radec.md) can be called directly on the catalog values.
 
@@ -137,34 +127,25 @@ For stars, which are effectively at infinite range, this correction is unnecessa
 === "Python"
 
     ``` python
-    import brahe as bh
-    import numpy as np
-
-    bh.initialize_eop()
-
-    epc = bh.Epoch.from_datetime(2024, 3, 20, 12, 0, 0.0, 0.0, bh.UTC)
-    site = np.array([-122.17, 37.43, 100.0])  # Stanford, deg/deg/m
-    x_radec = np.array([101.28, -16.72, 1.0])
-
-    x_azel = bh.position_radec_to_azel(x_radec, site, epc, bh.AngleFormat.DEGREES)
+    --8<-- "./examples/coordinates/radec_to_azel.py:9"
     ```
 
 === "Rust"
 
     ``` rust
-    use brahe::constants::DEGREES;
-    use brahe::coordinates::position_radec_to_azel;
-    use brahe::math::SVector3;
-    use brahe::time::{Epoch, TimeSystem};
-
-    brahe::initialize_eop().unwrap();
-
-    let epc = Epoch::from_datetime(2024, 3, 20, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-    let site = SVector3::new(-122.17, 37.43, 100.0); // Stanford, deg/deg/m
-    let x_radec = SVector3::new(101.28, -16.72, 1.0);
-
-    let x_azel = position_radec_to_azel(x_radec, site, epc, DEGREES);
+    --8<-- "./examples/coordinates/radec_to_azel.rs:5"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/coordinates/radec_to_azel.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/coordinates/radec_to_azel.rs.txt"
+        ```
 
 !!! info
     Azimuth is measured clockwise from North. This is the same convention used by the [Topocentric Coordinates](topocentric_transformations.md) ENZ/SEZ-to-azimuth-elevation functions, so `position_radec_to_azel` results are directly comparable to `position_enz_to_azel`/`position_sez_to_azel` results.

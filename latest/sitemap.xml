@@ -549,6 +549,10 @@
          <lastmod>2026-07-18</lastmod>
     </url>
     <url>
+         <loc>https://docs.brahe.space/latest/learn/orbits/mean_elements.html</loc>
+         <lastmod>2026-07-18</lastmod>
+    </url>
+    <url>
          <loc>https://docs.brahe.space/latest/learn/orbits/properties.html</loc>
          <lastmod>2026-07-18</lastmod>
     </url>
@@ -1038,6 +1042,10 @@
     </url>
     <url>
          <loc>https://docs.brahe.space/latest/library_api/orbits/enums.html</loc>
+         <lastmod>2026-07-18</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.brahe.space/latest/library_api/orbits/equinoctial.html</loc>
          <lastmod>2026-07-18</lastmod>
     </url>
     <url>

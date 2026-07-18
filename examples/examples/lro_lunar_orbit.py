@@ -86,7 +86,6 @@ print(
     f"Apolune radius:  {r_a / 1e3:.1f} km (altitude: {(r_a - bh.R_MOON) / 1e3:.0f} km)"
 )
 print(f"Semi-major axis: {a / 1e3:.1f} km, eccentricity: {e:.4f}")
-print(f"Moon spin pole (ICRF): {np.array2string(moon_pole, precision=4)}")
 # --8<-- [end:orbit_setup]
 
 # --8<-- [start:propagation]

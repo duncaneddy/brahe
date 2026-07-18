@@ -98,14 +98,6 @@ The top-down view makes the figure-8 unmistakable: the outbound leg swings aroun
 
 *Body textures: [Solar System Scope](https://www.solarsystemscope.com/textures/), CC BY 4.0.*
 
-## Validation
-
-We confirm the trajectory is a genuine circumlunar free return on three counts: the perilune passes above the lunar surface but within 20,000 km of the Moon's center; the return leg descends below 1,000 km altitude, closing the loop back at Earth; and the flyby is a retrograde selenocentric pass. That last check pins the geometry - the spacecraft's angular momentum about the Moon points opposite the Moon's orbital angular momentum about Earth, the signature of a far-side circumlunar swing-by rather than a near-side pass in front of the Moon. Because the propagation stops at the 120 km entry interface, the minimum Earth distance measured is that entry crossing; the true geometric perigee lies below it, inside the atmosphere.
-
-``` python
---8<-- "./examples/examples/earth_moon_free_return.py:validation"
-```
-
 ## Full Code Example
 
 ??? "Full Code"

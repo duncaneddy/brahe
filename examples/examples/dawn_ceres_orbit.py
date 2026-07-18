@@ -94,6 +94,8 @@ def ceres_omega(epc=None):
     return np.array([0.0, 0.0, np.radians(CERES_W_RATE) / 86400.0])
 
 
+# The `1` is an arbitrarily chosen registry key for this custom frame; it
+# just needs to be unique among registered custom frames.
 bh.register_custom_frame(1, ceres_rotation, ceres_omega)
 ceres_fixed = bh.ReferenceFrame.BodyFixedCustom(CERES_NAIF_ID, 1)
 # --8<-- [end:body_fixed_frame]
@@ -121,13 +123,8 @@ epoch = bh.Epoch.from_datetime(2016, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 
 oe = np.array(
     [R_CERES + 375e3, 0.001, 90.0, 0.0, 0.0, 0.0]
-)  # [m, -, deg, deg, deg, deg]
+)  # [a [m], e [-], i [deg], RAAN [deg], argp [deg], M [deg]]
 
-# state_koe_to_inertial_for_body references the elements to Ceres's mean equator
-# at J2000. Because `ceres` is a Custom body, it reads the pole from the
-# registered body-fixed frame (`ceres_fixed`) and returns the state in the
-# Ceres-centered ICRF-aligned frame the propagator integrates in, so the 90 deg
-# inclination is measured against Ceres's equator rather than the ICRF pole.
 state0 = bh.state_koe_to_inertial_for_body(oe, ceres, bh.AngleFormat.DEGREES)
 
 # Ceres spin pole (ICRF) from the IAU pole constants, used below to confirm the

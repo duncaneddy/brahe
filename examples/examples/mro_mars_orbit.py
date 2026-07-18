@@ -141,18 +141,20 @@ inc_deg = np.array(inc_deg)
 raan_deg = np.array(raan_deg)
 argp_deg = np.array(argp_deg)
 anom_deg = np.array(anom_deg)
-times_hours = np.arange(0.0, duration, dt) / 3600.0
+times_sec = np.arange(0.0, duration, dt)
 alt_p_km = sma_km * (1 - ecc) - bh.R_MARS / 1e3
 # --8<-- [end:element_history]
 
 # --8<-- [start:element_plot]
 # plot_keplerian_trajectory's raw-array input assumes SI/radians (sma in
 # meters, angles in radians) regardless of the display units requested via
-# sma_units/angle_units. The inclination here is already Mars-pole-relative,
-# since state_inertial_to_koe_for_body references elements to the Mars equator.
+# sma_units/angle_units. The time column must be elapsed seconds so the
+# plotter's auto hours/minutes axis labeling applies correctly. The
+# inclination here is already Mars-pole-relative, since
+# state_inertial_to_koe_for_body references elements to the Mars equator.
 koe_history = np.column_stack(
     (
-        times_hours,
+        times_sec,
         sma_km * 1e3,
         ecc,
         np.radians(inc_deg),

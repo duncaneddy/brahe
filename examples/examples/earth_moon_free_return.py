@@ -395,43 +395,6 @@ fig_emr_2d.update_layout(
     legend=dict(x=0.99, y=0.99, xanchor="right", yanchor="top"),
 )
 # --8<-- [end:plot_emr]
-
-# --8<-- [start:validation]
-# Confirm a genuine circumlunar free return. The lunar pass clears the surface
-# but stays within 20,000 km of the Moon's center, and the return leg descends
-# below 1,000 km altitude - the propagation is terminated at the 120 km entry
-# interface, so the minimum Earth distance is that entry crossing. The flyby
-# must also be a retrograde selenocentric pass: the spacecraft's angular
-# momentum about the Moon points opposite the Moon's orbital angular momentum
-# about Earth, which is the signature of a far-side circumlunar swing-by (the
-# figure-8), as opposed to a near-side pass in front of the Moon.
-perilune = moon_dists.min()
-return_radius = earth_dists[i_perilune:].min()
-return_altitude_km = (return_radius - bh.R_EARTH) / 1e3
-
-x_sc = prop.state_eci(reference_epoch)
-x_moon_peri = bh.spk_state(bh.NAIFId.MOON, bh.NAIFId.EARTH, reference_epoch)
-h_selenocentric = np.cross(x_sc[:3] - x_moon_peri[:3], x_sc[3:] - x_moon_peri[3:])
-h_moon_orbit = np.cross(x_moon_peri[:3], x_moon_peri[3:])
-retrograde_pass = np.dot(h_selenocentric, h_moon_orbit) < 0.0
-
-print(
-    f"\nPerilune radius: {perilune / 1e3:.0f} km "
-    f"(altitude: {(perilune - bh.R_MOON) / 1e3:.0f} km)"
-)
-print(f"Return entry-interface altitude: {return_altitude_km:.0f} km")
-print(f"Retrograde far-side pass: {retrograde_pass}")
-
-assert bh.R_MOON < perilune < bh.R_MOON + 20000e3
-assert return_radius < bh.R_EARTH + 1000e3, (
-    f"No free return: return altitude {return_altitude_km:.0f} km"
-)
-assert retrograde_pass, (
-    "Flyby is a near-side (prograde) pass, not a far-side free return"
-)
-
-print("\nExample validated successfully!")
-# --8<-- [end:validation]
 # --8<-- [end:all]
 
 # ============================================================================

@@ -51,3 +51,23 @@ def test_plot_keplerian_trajectory_without_times_key_uses_indices():
     trace = fig.data[0]
     np.testing.assert_allclose(trace.x, np.arange(5))
     assert fig.layout.xaxis4.title.text == "Time"
+
+
+def test_plot_keplerian_trajectory_time_column_seconds_uses_hours():
+    """[N x 7] input's time column must be elapsed seconds: a multi-day span
+    (e.g. the MRO example's 2-day propagation) is then auto-labeled in
+    hours, not mislabeled "seconds" from a caller pre-converting to hours."""
+    n = 5
+    dt = 12 * 3600.0  # 12 hours between samples -> 48 hour span
+    koe = _raw_keplerian_array(n, dt)
+    times_sec = np.arange(n) * dt
+    koe_with_time = np.column_stack((times_sec, koe))
+
+    fig = bh.plot_keplerian_trajectory(
+        [{"trajectory": koe_with_time, "label": "Test"}],
+        backend="plotly",
+    )
+
+    trace = fig.data[0]
+    np.testing.assert_allclose(trace.x, times_sec / 3600.0)
+    assert fig.layout.xaxis4.title.text == "Time (hours)"

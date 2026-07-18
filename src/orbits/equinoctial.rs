@@ -45,9 +45,12 @@ pub fn state_koe_to_equinoctial(
     let q = tan_half_i_fr * raan.cos();
     let l = wrap_to_2pi(m + argp + frf * raan);
 
-    let eqn = SVector::<f64, 6>::new(a, h, k, p, q, l);
+    let mut eqn = SVector::<f64, 6>::new(a, h, k, p, q, l);
     match angle_format {
-        AngleFormat::Degrees => equinoctial_l_to_degrees(eqn),
+        AngleFormat::Degrees => {
+            eqn[5] = eqn[5].to_degrees();
+            eqn
+        }
         AngleFormat::Radians => eqn,
     }
 }
@@ -77,7 +80,11 @@ pub fn state_equinoctial_to_koe(
     fr: i8,
 ) -> SVector<f64, 6> {
     let eqn_rad = match angle_format {
-        AngleFormat::Degrees => equinoctial_l_to_radians(*eqn),
+        AngleFormat::Degrees => {
+            let mut e = *eqn;
+            e[5] = e[5].to_radians();
+            e
+        }
         AngleFormat::Radians => *eqn,
     };
     let (a, h, k, p, q, l) = (
@@ -100,18 +107,6 @@ pub fn state_equinoctial_to_koe(
         AngleFormat::Degrees => oe_to_degrees(koe, AngleFormat::Radians),
         AngleFormat::Radians => koe,
     }
-}
-
-/// Convert only the `l` (mean-longitude) component of an equinoctial vector to degrees.
-fn equinoctial_l_to_degrees(mut eqn: SVector<f64, 6>) -> SVector<f64, 6> {
-    eqn[5] = eqn[5].to_degrees();
-    eqn
-}
-
-/// Convert only the `l` (mean-longitude) component of an equinoctial vector to radians.
-fn equinoctial_l_to_radians(mut eqn: SVector<f64, 6>) -> SVector<f64, 6> {
-    eqn[5] = eqn[5].to_radians();
-    eqn
 }
 
 #[cfg(test)]

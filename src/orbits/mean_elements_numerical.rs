@@ -2,8 +2,9 @@
  * Numerical mean-element averaging.
  *
  * Osculating states are averaged over a moving window in equinoctial space
- * (singularity-safe at e→0, i→0). Slow components a,h,k,p,q are arithmetic-averaged;
- * the fast mean-longitude l is linearly detrended and evaluated at the anchor epoch.
+ * (singularity-safe at e→0, i→0). Slow components a,h,k,p,q are trapezoidally
+ * time-weighted over the window (cadence-independent); the fast mean-longitude l is
+ * linearly detrended and evaluated at the anchor epoch.
  */
 
 use crate::constants::AngleFormat;
@@ -72,8 +73,9 @@ pub(crate) fn window_bounds(
 /// Numerically averages osculating Keplerian states into mean Keplerian elements.
 ///
 /// For each input epoch, gathers samples within the configured averaging window,
-/// converts each osculating sample to equinoctial elements, arithmetic-averages the
-/// slow components `a, h, k, p, q`, and linearly detrends the fast mean longitude `l`
+/// converts each osculating sample to equinoctial elements, trapezoidally
+/// time-weights the slow components `a, h, k, p, q` over the window (so the result is
+/// independent of sampling cadence), and linearly detrends the fast mean longitude `l`
 /// to the anchor epoch. The averaged equinoctial state is converted back to Keplerian
 /// elements.
 ///
@@ -150,20 +152,18 @@ pub(crate) fn numerical_osc_to_mean(
             1
         };
 
-        // Convert each sample to equinoctial; average a,h,k,p,q; detrend l.
-        let mut sum = [0.0f64; 5]; // a,h,k,p,q
+        // Convert each sample to equinoctial; trapezoidally time-average a,h,k,p,q;
+        // detrend l.
         let mut ts = Vec::with_capacity(idx.len());
         let mut ls = Vec::with_capacity(idx.len());
+        let mut slow = Vec::with_capacity(idx.len()); // [a,h,k,p,q] per sample
         for &j in &idx {
             let eqn = state_koe_to_equinoctial(&states_rad[j], AngleFormat::Radians, fr);
-            for (c, s) in sum.iter_mut().enumerate() {
-                *s += eqn[c];
-            }
             ts.push(epochs[j] - anchor); // seconds relative to anchor
             ls.push(eqn[5]);
+            slow.push([eqn[0], eqn[1], eqn[2], eqn[3], eqn[4]]);
         }
-        let n = idx.len() as f64;
-        let avg: Vec<f64> = sum.iter().map(|s| s / n).collect();
+        let avg = trapezoidal_time_average(&ts, &slow);
 
         // Linear fit of unwrapped l vs relative time, evaluated at anchor (t=0 => intercept).
         let l_at_anchor = detrended_fast_angle(&ts, &ls);
@@ -403,6 +403,37 @@ fn mixed_norm(r: &SVector<f64, 6>) -> f64 {
     r[0].abs() + 1e6 * r[1].abs() + 1e6 * ang
 }
 
+/// Trapezoidal time-weighted average of the slow equinoctial components `[a,h,k,p,q]`
+/// over the window, so unevenly-sampled windows give the same result as evenly-sampled
+/// ones (an unweighted sample mean would instead be biased toward regions with denser
+/// sampling).
+///
+/// # Arguments
+///
+/// * `ts` - Sample times relative to the anchor epoch, seconds, ascending
+/// * `values` - Per-sample `[a,h,k,p,q]`, one entry per `ts`
+///
+/// # Returns
+///
+/// `Σ 0.5*(v_i + v_{i+1})*(t_{i+1}-t_i) / (t_last - t_first)` for each of the 5
+/// components. Falls back to the single sample's value when only one sample is present
+/// (avoids dividing by a zero-length window).
+fn trapezoidal_time_average(ts: &[f64], values: &[[f64; 5]]) -> [f64; 5] {
+    let n = ts.len();
+    let total = ts[n - 1] - ts[0];
+    if n == 1 || total <= 0.0 {
+        return values[0];
+    }
+    let mut integral = [0.0f64; 5];
+    for w in 0..n - 1 {
+        let dt = ts[w + 1] - ts[w];
+        for c in 0..5 {
+            integral[c] += 0.5 * (values[w][c] + values[w + 1][c]) * dt;
+        }
+    }
+    integral.map(|s| s / total)
+}
+
 /// Unwraps `l` samples, least-squares fits against relative time, and returns the value
 /// at `t = 0` (the anchor epoch).
 ///
@@ -496,6 +527,98 @@ mod tests {
 
     fn synthetic_osc_series() -> (Vec<Epoch>, Vec<SVector<f64, 6>>, SVector<f64, 6>) {
         synthetic_osc_series_with_elements(500e3, 0.01, 45.0)
+    }
+
+    // Analytically evaluates the same underlying osculating trajectory as
+    // `synthetic_osc_series_with_elements` at an arbitrary fraction `frac` of one
+    // period (mean anomaly = frac*360 deg), so it can be resampled at non-uniform
+    // times without re-deriving the trajectory.
+    fn osc_at_frac(
+        mean_deg: SVector<f64, 6>,
+        period: f64,
+        t0: Epoch,
+        frac: f64,
+    ) -> (Epoch, SVector<f64, 6>) {
+        let t = t0 + frac * period;
+        let mut m = mean_deg;
+        m[5] = (frac * 360.0) % 360.0;
+        let osc_deg =
+            state_koe_mean_to_osc(&m, MeanElementMethod::BrouwerLyddane, AngleFormat::Degrees)
+                .unwrap();
+        let osc_rad = crate::math::angles::oe_to_radians(osc_deg, AngleFormat::Degrees);
+        (t, osc_rad)
+    }
+
+    // Cadence-independence regression: an unweighted sample mean over the window
+    // biases the average toward whichever part of the orbit is sampled more densely,
+    // so a non-uniformly-resampled version of the SAME underlying trajectory would
+    // recover a visibly different mean a,e,i than a uniformly-sampled one. The
+    // trapezoidal time-weighted average must agree closely regardless of sampling
+    // cadence.
+    #[test]
+    #[parallel]
+    fn test_numerical_osc_to_mean_cadence_independent() {
+        let mean_deg = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 0.0);
+        let period = crate::orbits::orbital_period(mean_deg[0]);
+        let t0 = Epoch::from_gps_seconds(0.0);
+        let mean_rad = crate::math::angles::oe_to_radians(mean_deg, AngleFormat::Degrees);
+
+        // Uniform sampling: 201 evenly-spaced fractions spanning one full period.
+        let uniform_fracs: Vec<f64> = (0..=200).map(|j| j as f64 / 200.0).collect();
+
+        // Non-uniform resampling of the SAME underlying trajectory: densely clustered
+        // (quadratic warp) over the first half, coarser and uniform over the second
+        // half. Still strictly ascending, still spans the full [0,1] fraction range,
+        // and includes frac=0.5 exactly so both series share a common anchor epoch.
+        let n1 = 150usize;
+        let n2 = 50usize;
+        let mut nonuniform_fracs: Vec<f64> = (0..=n1)
+            .map(|j| 0.5 * (j as f64 / n1 as f64).powi(2))
+            .collect();
+        nonuniform_fracs.extend((1..=n2).map(|j| 0.5 + 0.5 * (j as f64 / n2 as f64)));
+
+        let build = |fracs: &[f64]| -> (Vec<Epoch>, Vec<SVector<f64, 6>>) {
+            fracs
+                .iter()
+                .map(|&frac| osc_at_frac(mean_deg, period, t0, frac))
+                .unzip()
+        };
+        let (epochs_u, states_u) = build(&uniform_fracs);
+        let (epochs_n, states_n) = build(&nonuniform_fracs);
+
+        // Centered window spanning the full [0,1] fraction range, anchored at the
+        // midpoint (frac=0.5) shared by both sample sets.
+        let cfg = NumericalConfig {
+            window_seconds: period,
+            alignment: WindowAlignment::Centered,
+            edge: EdgeHandling::Truncate,
+            inverse: None,
+        };
+        let out_u = numerical_osc_to_mean(&epochs_u, &states_u, &cfg).unwrap();
+        let out_n = numerical_osc_to_mean(&epochs_n, &states_n, &cfg).unwrap();
+
+        let anchor = t0 + 0.5 * period;
+        let (_, mean_u) = out_u
+            .iter()
+            .find(|(t, _)| *t == anchor)
+            .expect("uniform series must produce output at the shared anchor epoch");
+        let (_, mean_n) = out_n
+            .iter()
+            .find(|(t, _)| *t == anchor)
+            .expect("non-uniform series must produce output at the shared anchor epoch");
+
+        // The two cadences must agree closely with each other...
+        assert_abs_diff_eq!(mean_u[0], mean_n[0], epsilon = 50.0);
+        assert_abs_diff_eq!(mean_u[1], mean_n[1], epsilon = 5e-5);
+        assert_abs_diff_eq!(mean_u[2], mean_n[2], epsilon = 5e-5);
+
+        // ...and both with the true analytical mean.
+        assert_abs_diff_eq!(mean_u[0], mean_rad[0], epsilon = 500.0);
+        assert_abs_diff_eq!(mean_n[0], mean_rad[0], epsilon = 500.0);
+        assert_abs_diff_eq!(mean_u[1], mean_rad[1], epsilon = 2e-3);
+        assert_abs_diff_eq!(mean_n[1], mean_rad[1], epsilon = 2e-3);
+        assert_abs_diff_eq!(mean_u[2], mean_rad[2], epsilon = 2e-3);
+        assert_abs_diff_eq!(mean_n[2], mean_rad[2], epsilon = 2e-3);
     }
 
     #[test]

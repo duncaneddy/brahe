@@ -196,18 +196,10 @@ observed mean-element residual as a fixed-point correction, until the residual f
     .unwrap();
     ```
 
-## Trajectory Adapters (Rust)
-
-`batch_state_koe_osc_to_mean_trajectory` and `batch_state_koe_mean_to_osc_trajectory` wrap the
-batch functions above to accept a `DOrbitTrajectory` directly, converting it to Keplerian elements
-internally before dispatching to the same `(epochs, states, method, angle_format)` core. They
-accept the same `MeanElementMethod` values and follow the same truncation/preservation semantics
-described above.
-
 ## Limitations
 
-The numerical method is a first implementation with two known limitations, both of which affect
-accuracy or robustness only in specific regimes and are candidates for future improvement:
+The numerical method is a first implementation with a known limitation that affects robustness
+only in specific regimes and is a candidate for future improvement:
 
 - **Iterative inverse near singular geometries.** The mean → osculating inverse applies its
   fixed-point correction directly to Keplerian elements and seeds from the analytical
@@ -216,11 +208,9 @@ accuracy or robustness only in specific regimes and are candidates for future im
   to converge there. It returns an error rather than a silently biased result, but a correction
   formulated in equinoctial elements (with a proper Jacobian) would extend robust convergence into
   these regimes.
-- **Unweighted averaging is cadence-dependent.** The slow equinoctial components are combined with
-  an unweighted sample mean, which equals a true time-average only when the input samples are
-  uniformly spaced in time (the expected case for a propagated trajectory). Markedly non-uniform
-  input cadence biases the average toward densely-sampled portions of the window; a trapezoidal
-  time-weighted average would remove this dependence.
+
+The slow equinoctial components (`a, h, k, p, q`) are combined with a trapezoidal time-weighted
+average over the window, so the result is independent of input sampling cadence (uniform or not).
 
 ## Function Reference
 
@@ -242,7 +232,7 @@ with angles in the format specified by `AngleFormat`.
 - [Equinoctial Elements](../../library_api/orbits/equinoctial.md) - Element set used internally by numerical averaging
 - [Orbital Properties](properties.md) - `orbital_period` and other properties used to size averaging windows
 - [Force Models Guide](../orbit_propagation/numerical_propagation/force_models.md) - Configuring `ForceModelConfig` for the numerical inverse
-- [Trajectories](../trajectories/index.md) - `DOrbitTrajectory` and the trajectory adapters
+- [Trajectories](../trajectories/index.md) - `DOrbitTrajectory` and trajectory-based orbit representations
 
 [^1]: Brouwer, D., "Solution of the Problem of Artificial Satellite Theory Without Drag," Astronautical Journal, Vol. 64, No. 1274, 1959, pp. 378-397.
 [^2]: Lyddane, R. H., "Small Eccentricities or Inclinations in the Brouwer Theory of the Artificial Satellite," Astronomical Journal, Vol. 68, No. 8, 1963, pp. 555-558.

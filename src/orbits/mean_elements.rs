@@ -24,8 +24,6 @@ use crate::orbits::keplerian::anomaly_mean_to_eccentric;
 use crate::orbits::mean_elements_numerical::{numerical_mean_to_osc, numerical_osc_to_mean};
 use crate::propagators::{ForceModelConfig, NumericalPropagationConfig};
 use crate::time::Epoch;
-use crate::trajectories::DOrbitTrajectory;
-use crate::trajectories::traits::Trajectory;
 use crate::utils::errors::BraheError;
 use nalgebra::SVector;
 
@@ -403,121 +401,6 @@ pub fn batch_state_koe_mean_to_osc(
             Ok(convert_pairs_out(osc_rad, angle_format))
         }
     }
-}
-
-/// Converts a batch of osculating Keplerian states in a trajectory to mean Keplerian states.
-///
-/// Thin wrapper over [`batch_state_koe_osc_to_mean`]: converts `traj` to Keplerian elements
-/// (via [`DOrbitTrajectory::to_keplerian`]) and forwards its `(epoch, state)` pairs to the
-/// slice-based batch function. See that function for method dispatch and truncation semantics.
-///
-/// # Arguments
-///
-/// * `traj` - Osculating orbital trajectory, in any representation/frame supported by
-///   `to_keplerian`
-/// * `method` - Algorithm used to compute mean elements
-/// * `angle_format` - Angle format of the Keplerian elements used for the conversion and output
-///
-/// # Returns
-///
-/// Vector of `(epoch, mean_state)` pairs; see [`batch_state_koe_osc_to_mean`].
-///
-/// # Example
-///
-/// ```
-/// use nalgebra::{DVector, SVector};
-/// use brahe::time::Epoch;
-/// use brahe::orbits::{batch_state_koe_osc_to_mean_trajectory, MeanElementMethod};
-/// use brahe::constants::{R_EARTH, AngleFormat};
-/// use brahe::trajectories::DOrbitTrajectory;
-/// use brahe::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
-///
-/// let mut traj = DOrbitTrajectory::new(
-///     6,
-///     OrbitFrame::ECI,
-///     OrbitRepresentation::Keplerian,
-///     Some(AngleFormat::Degrees),
-/// );
-/// let osc = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.001, 45.0, 30.0, 60.0, 0.0);
-/// traj.add(Epoch::from_gps_seconds(0.0), DVector::from_row_slice(osc.as_slice()));
-/// traj.add(Epoch::from_gps_seconds(60.0), DVector::from_row_slice(osc.as_slice()));
-///
-/// let mean = batch_state_koe_osc_to_mean_trajectory(
-///     &traj, MeanElementMethod::BrouwerLyddane, AngleFormat::Degrees,
-/// ).unwrap();
-/// ```
-pub fn batch_state_koe_osc_to_mean_trajectory(
-    traj: &DOrbitTrajectory,
-    method: MeanElementMethod,
-    angle_format: AngleFormat,
-) -> Result<Vec<(Epoch, SVector<f64, 6>)>, BraheError> {
-    let (epochs, states) = trajectory_to_koe_pairs(traj, angle_format)?;
-    batch_state_koe_osc_to_mean(&epochs, &states, method, angle_format)
-}
-
-/// Converts a batch of mean Keplerian states in a trajectory to osculating Keplerian states.
-///
-/// Thin wrapper over [`batch_state_koe_mean_to_osc`]: converts `traj` to Keplerian elements
-/// (via [`DOrbitTrajectory::to_keplerian`]) and forwards its `(epoch, state)` pairs to the
-/// slice-based batch function. See that function for method dispatch and truncation semantics.
-///
-/// # Arguments
-///
-/// * `traj` - Mean orbital trajectory, in any representation/frame supported by `to_keplerian`
-/// * `method` - Algorithm used to compute osculating elements
-/// * `angle_format` - Angle format of the Keplerian elements used for the conversion and output
-///
-/// # Returns
-///
-/// Vector of `(epoch, osc_state)` pairs; see [`batch_state_koe_mean_to_osc`].
-///
-/// # Example
-///
-/// ```
-/// use nalgebra::{DVector, SVector};
-/// use brahe::time::Epoch;
-/// use brahe::orbits::{batch_state_koe_mean_to_osc_trajectory, MeanElementMethod};
-/// use brahe::constants::{R_EARTH, AngleFormat};
-/// use brahe::trajectories::DOrbitTrajectory;
-/// use brahe::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
-///
-/// let mut traj = DOrbitTrajectory::new(
-///     6,
-///     OrbitFrame::ECI,
-///     OrbitRepresentation::Keplerian,
-///     Some(AngleFormat::Degrees),
-/// );
-/// let mean = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.001, 45.0, 30.0, 60.0, 0.0);
-/// traj.add(Epoch::from_gps_seconds(0.0), DVector::from_row_slice(mean.as_slice()));
-/// traj.add(Epoch::from_gps_seconds(60.0), DVector::from_row_slice(mean.as_slice()));
-///
-/// let osc = batch_state_koe_mean_to_osc_trajectory(
-///     &traj, MeanElementMethod::BrouwerLyddane, AngleFormat::Degrees,
-/// ).unwrap();
-/// ```
-pub fn batch_state_koe_mean_to_osc_trajectory(
-    traj: &DOrbitTrajectory,
-    method: MeanElementMethod,
-    angle_format: AngleFormat,
-) -> Result<Vec<(Epoch, SVector<f64, 6>)>, BraheError> {
-    let (epochs, states) = trajectory_to_koe_pairs(traj, angle_format)?;
-    batch_state_koe_mean_to_osc(&epochs, &states, method, angle_format)
-}
-
-/// Extracts `(epochs, Keplerian states)` from a trajectory, converting to `angle_format` first.
-fn trajectory_to_koe_pairs(
-    traj: &DOrbitTrajectory,
-    angle_format: AngleFormat,
-) -> Result<(Vec<Epoch>, Vec<SVector<f64, 6>>), BraheError> {
-    let kep = traj.to_keplerian(angle_format);
-    let mut epochs = Vec::with_capacity(kep.len());
-    let mut states = Vec::with_capacity(kep.len());
-    for i in 0..kep.len() {
-        let (t, s) = kep.get(i)?;
-        epochs.push(t);
-        states.push(SVector::<f64, 6>::from_row_slice(&s.as_slice()[0..6]));
-    }
-    Ok((epochs, states))
 }
 
 /// Converts a vec of `(epoch, radians-Keplerian)` pairs to the caller's angle format.
@@ -1309,58 +1192,5 @@ mod tests {
         .unwrap();
         assert_eq!(osc.len(), 1);
         assert_abs_diff_eq!(osc[0].1[0], mean[0], epsilon = 30_000.0);
-    }
-
-    /// Trajectory adapter must match the slice-based core: build a small Keplerian
-    /// `DOrbitTrajectory`, run the osc->mean analytical adapter, and confirm it equals
-    /// `batch_state_koe_osc_to_mean` called on the same `(epochs, states)` extracted
-    /// directly from the trajectory.
-    #[test]
-    #[parallel]
-    fn test_trajectory_adapter_matches_slice_core() {
-        use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation};
-        use nalgebra::DVector;
-
-        let mut traj = DOrbitTrajectory::new(
-            6,
-            OrbitFrame::ECI,
-            OrbitRepresentation::Keplerian,
-            Some(AngleFormat::Degrees),
-        );
-        let epochs = vec![
-            Epoch::from_gps_seconds(0.0),
-            Epoch::from_gps_seconds(60.0),
-            Epoch::from_gps_seconds(120.0),
-        ];
-        let states = vec![
-            SVector::<f64, 6>::new(R_EARTH + 500e3, 0.001, 45.0, 30.0, 60.0, 0.0),
-            SVector::<f64, 6>::new(R_EARTH + 500e3, 0.001, 45.0, 30.0, 60.0, 10.0),
-            SVector::<f64, 6>::new(R_EARTH + 500e3, 0.001, 45.0, 30.0, 60.0, 20.0),
-        ];
-        for (t, s) in epochs.iter().zip(states.iter()) {
-            traj.add(*t, DVector::from_row_slice(s.as_slice()));
-        }
-
-        let adapter_out = batch_state_koe_osc_to_mean_trajectory(
-            &traj,
-            MeanElementMethod::BrouwerLyddane,
-            AngleFormat::Degrees,
-        )
-        .unwrap();
-        let core_out = batch_state_koe_osc_to_mean(
-            &epochs,
-            &states,
-            MeanElementMethod::BrouwerLyddane,
-            AngleFormat::Degrees,
-        )
-        .unwrap();
-
-        assert_eq!(adapter_out.len(), core_out.len());
-        for ((t_a, s_a), (t_c, s_c)) in adapter_out.iter().zip(core_out.iter()) {
-            assert_eq!(t_a, t_c);
-            for k in 0..6 {
-                assert_abs_diff_eq!(s_a[k], s_c[k], epsilon = 1e-9);
-            }
-        }
     }
 }

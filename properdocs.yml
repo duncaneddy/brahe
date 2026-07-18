@@ -31,7 +31,12 @@ extra_javascript:
 
 plugins:
   - search
-  - table-reader
+  - table-reader:
+      # Example-generated CSVs (docs/figures/*.csv) only exist after running
+      # `just test-examples`; NETWORK-flagged examples skip on a plain PR run
+      # and fresh/local checkouts never have them at all. Warn instead of
+      # hard-failing the build when a table file is missing.
+      allow_missing_files: true
   # - awesome-nav # Need to spend more time to configure this
   - minify:
       minify_html: true

@@ -304,6 +304,11 @@ pub fn batch_state_koe_osc_to_mean(
     method: MeanElementMethod,
     angle_format: AngleFormat,
 ) -> Result<Vec<(Epoch, SVector<f64, 6>)>, BraheError> {
+    if epochs.len() != states.len() {
+        return Err(BraheError::Error(
+            "epochs and states must have equal length".to_string(),
+        ));
+    }
     match method {
         MeanElementMethod::BrouwerLyddane => epochs
             .iter()
@@ -367,6 +372,11 @@ pub fn batch_state_koe_mean_to_osc(
     method: MeanElementMethod,
     angle_format: AngleFormat,
 ) -> Result<Vec<(Epoch, SVector<f64, 6>)>, BraheError> {
+    if epochs.len() != states.len() {
+        return Err(BraheError::Error(
+            "epochs and states must have equal length".to_string(),
+        ));
+    }
     match method {
         MeanElementMethod::BrouwerLyddane => epochs
             .iter()
@@ -1083,6 +1093,27 @@ mod tests {
             assert_eq!(o.0, *t);
             assert_abs_diff_eq!(o.1[0], single[0], epsilon = 1e-9);
         }
+    }
+
+    /// Batch functions must reject mismatched `epochs`/`states` lengths rather than
+    /// silently truncating via `zip` (analytical path regression guard).
+    #[test]
+    #[parallel]
+    fn test_batch_mismatched_lengths_is_error() {
+        let epochs = vec![
+            Epoch::from_gps_seconds(0.0),
+            Epoch::from_gps_seconds(60.0),
+            Epoch::from_gps_seconds(120.0),
+        ];
+        let s = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0);
+        let states = vec![s, s];
+        let out = batch_state_koe_osc_to_mean(
+            &epochs,
+            &states,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Degrees,
+        );
+        assert!(out.is_err());
     }
 
     /// Numerical mean->osc through the public batch entry point round-trips through

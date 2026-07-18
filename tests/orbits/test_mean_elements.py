@@ -499,9 +499,21 @@ class TestBatchMeanOsculatingConversions:
         )
         method = brahe.MeanElementMethod.numerical(cfg)
 
-        with pytest.raises(Exception):
+        with pytest.raises(brahe.BraheError):
             brahe.batch_state_koe_mean_to_osc(
                 epochs, states, method, brahe.AngleFormat.DEGREES
+            )
+
+    def test_batch_mismatched_lengths_raises(self):
+        """Mismatched epochs/states lengths must raise, not silently truncate."""
+        e0 = brahe.Epoch.from_gps_seconds(0.0)
+        epochs = [e0, e0 + 60.0, e0 + 120.0]
+        s = np.array([brahe.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
+        states = np.vstack([s, s])  # only 2 rows for 3 epochs
+
+        with pytest.raises(brahe.BraheError):
+            brahe.batch_state_koe_osc_to_mean(
+                epochs, states, BROUWER_LYDDANE, brahe.AngleFormat.DEGREES
             )
 
 

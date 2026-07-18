@@ -10,7 +10,7 @@ The `brahe.orbits` module provides two independent methods for converting betwee
 osculating Keplerian elements `[a, e, i, Ω, ω, anomaly]`, selected via the `MeanElementMethod`
 enum:
 
-- **`MeanElementMethod.brouwer_lyddane()`** — first-order analytical $J_2$ mapping (Brouwer-Lyddane
+- **`MeanElementMethod.BROUWER_LYDDANE`** — first-order analytical $J_2$ mapping (Brouwer-Lyddane
   theory), evaluated independently at each state.
 - **`MeanElementMethod.numerical(config)`** — windowed averaging of a numerically propagated
   trajectory, which captures whatever perturbations are present in the force model used to
@@ -27,32 +27,30 @@ for LEO orbits where $J_2$ dominates the short-period variation.
 
 === "Python"
 
-    ```python
-    import brahe as bh
-    import numpy as np
-
-    mean = np.array([bh.R_EARTH + 500e3, 0.001, 45.0, 0.0, 0.0, 0.0])
-    osc = bh.state_koe_mean_to_osc(
-        mean, bh.MeanElementMethod.brouwer_lyddane(), bh.AngleFormat.DEGREES
-    )
+    ``` python
+    --8<-- "./examples/orbits/mean_osculating_analytical.py:14"
     ```
 
 === "Rust"
 
-    ```rust
-    use brahe::constants::{AngleFormat, R_EARTH};
-    use brahe::orbits::{state_koe_mean_to_osc, MeanElementMethod};
-    use nalgebra::SVector;
-
-    let mean = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.001, 45.0, 0.0, 0.0, 0.0);
-    let osc = state_koe_mean_to_osc(&mean, MeanElementMethod::BrouwerLyddane, AngleFormat::Degrees)
-        .unwrap();
+    ``` rust
+    --8<-- "./examples/orbits/mean_osculating_analytical.rs:9"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbits/mean_osculating_analytical.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbits/mean_osculating_analytical.rs.txt"
+        ```
+
 Because the transformation is a first-order truncation of an infinite series, round-tripping
-through it (`mean → osc → mean`) recovers the original state only to $O(J_2^2)$: expect residuals
-on the order of $\pm 100$ m in semi-major axis and $\pm 0.01$ rad ($\approx 0.6°$) in the angular
-elements for typical LEO orbits.
+through it (`mean → osc → mean`) recovers the original state only to $O(J_2^2)$: a residual set by
+the truncated higher-order terms of the series remains, growing with eccentricity and inclination.
 
 `MeanElementMethod::Numerical` is **batch-only**: calling `state_koe_osc_to_mean` or
 `state_koe_mean_to_osc` with it on a single state returns an error. Use the batch functions below.
@@ -65,6 +63,34 @@ produce mean elements that reflect whatever dynamics were used to generate the i
 not just $J_2$. This is the appropriate method when higher-fidelity perturbations (drag, third-body,
 tides, higher-order gravity) meaningfully affect the short-period content of the orbit and an
 analytical mapping would not capture it.
+
+The example below synthesizes one period of osculating states analytically (by evaluating the
+Brouwer-Lyddane mean→osc mapping at a sweep of mean anomalies, with no numerical propagation
+involved) and then recovers a mean state by averaging that trajectory over a centered window
+spanning the full period:
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/orbits/mean_osculating_numerical.py:15"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/orbits/mean_osculating_numerical.rs:10"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbits/mean_osculating_numerical.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbits/mean_osculating_numerical.rs.txt"
+        ```
 
 ### Averaging in Equinoctial Space
 
@@ -85,7 +111,7 @@ cadence weights densely-sampled portions of the window more heavily.
 
 ### Window Length, Alignment, and Edge Handling
 
-`NumericalConfig` controls the averaging window:
+`MeanElementNumericalMethodConfig` controls the averaging window:
 
 - **`window_seconds`** — the window length $W$, in seconds. Typically set to one orbital period
   (`orbital_period(a)`) so the average spans a full revolution.
@@ -93,7 +119,7 @@ cadence weights densely-sampled portions of the window more heavily.
     - `Centered`: $[t - W/2,\ t + W/2]$
     - `Trailing`: $[t - W,\ t]$ (causal — uses only past data)
     - `Leading`: $[t,\ t + W]$ (uses only future data)
-- **`edge`** (`EdgeHandling`) — how to handle output epochs whose window extends past the input
+- **`edge`** (`WindowEdgeHandling`) — how to handle output epochs whose window extends past the input
   trajectory's time bounds:
     - `Truncate`: drop unsupported output epochs. The returned `(epoch, state)` list is shorter
       than the input; each surviving pair's epoch identifies which input sample it maps to; there is
@@ -107,11 +133,11 @@ cadence weights densely-sampled portions of the window more heavily.
 
 Unlike osculating→mean (a direct average), mean→osculating with the numerical method has no
 closed form: it must search for the osculating state whose forward-averaged mean matches the
-target. `numerical(config)` therefore requires `NumericalConfig.inverse` (an `InverseConfig`) when
-used for mean→osc; passing `inverse=None` for that direction raises an error (`inverse` is unused
-for osc→mean).
+target. `numerical(config)` therefore requires `MeanElementNumericalMethodConfig.inverse` (a
+`MeanElementInverseConfig`) when used for mean→osc; passing `inverse=None` for that direction
+raises an error (`inverse` is unused for osc→mean).
 
-`InverseConfig` supplies the dynamics used to test each trial osculating state:
+`MeanElementInverseConfig` supplies the dynamics used to test each trial osculating state:
 
 - **`force_model`** (`ForceModelConfig`) — force model used to numerically propagate the trial state
   across the averaging window.
@@ -138,63 +164,26 @@ observed mean-element residual as a fixed-point correction, until the residual f
 
 === "Python"
 
-    ```python
-    import brahe as bh
-    import numpy as np
-
-    mean = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 0.0])
-    period = bh.orbital_period(mean[0])
-
-    inverse = bh.InverseConfig(
-        bh.ForceModelConfig.earth_gravity(),
-        bh.NumericalPropagationConfig.default(),
-        1.0,   # tolerance
-        25,    # max_iterations
-    )
-    config = bh.NumericalConfig(
-        period, bh.WindowAlignment.CENTERED, bh.EdgeHandling.PRESERVE_WINDOW, inverse
-    )
-
-    epochs = [bh.Epoch.from_gps_seconds(0.0)]
-    osc = bh.batch_state_koe_mean_to_osc(
-        epochs, mean.reshape(1, 6), bh.MeanElementMethod.numerical(config), bh.AngleFormat.DEGREES
-    )
+    ``` python
+    --8<-- "./examples/orbits/mean_osculating_inverse.py:15"
     ```
 
 === "Rust"
 
-    ```rust
-    use brahe::constants::{AngleFormat, R_EARTH};
-    use brahe::orbits::{
-        batch_state_koe_mean_to_osc, orbital_period, EdgeHandling, InverseConfig,
-        MeanElementMethod, NumericalConfig, WindowAlignment,
-    };
-    use brahe::propagators::{ForceModelConfig, NumericalPropagationConfig};
-    use brahe::time::Epoch;
-    use nalgebra::SVector;
-
-    let mean = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 0.0);
-    let period = orbital_period(mean[0]);
-
-    let inverse = InverseConfig {
-        force_model: ForceModelConfig::earth_gravity(),
-        propagation: NumericalPropagationConfig::default(),
-        tolerance: 1.0,
-        max_iterations: 25,
-    };
-    let config = NumericalConfig {
-        window_seconds: period,
-        alignment: WindowAlignment::Centered,
-        edge: EdgeHandling::PreserveWindow,
-        inverse: Some(inverse),
-    };
-
-    let epochs = vec![Epoch::from_gps_seconds(0.0)];
-    let osc = batch_state_koe_mean_to_osc(
-        &epochs, &[mean], MeanElementMethod::Numerical(config), AngleFormat::Degrees,
-    )
-    .unwrap();
+    ``` rust
+    --8<-- "./examples/orbits/mean_osculating_inverse.rs:10"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbits/mean_osculating_inverse.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbits/mean_osculating_inverse.rs.txt"
+        ```
 
 ## Limitations
 

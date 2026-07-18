@@ -198,6 +198,7 @@ nav:
           - learn/coordinates/geocentric_transformations.md
           - learn/coordinates/geodetic_transformations.md
           - learn/coordinates/topocentric_transformations.md
+          - learn/coordinates/radec_transformations.md
       - Reference Frame Transformations:
           - learn/frames/index.md
           - learn/frames/eci_ecef.md
@@ -291,6 +292,7 @@ nav:
           - NAIF: learn/datasets/naif.md
           - Groundstations: learn/datasets/groundstations.md
           - GCAT: learn/datasets/gcat.md
+          - Star Catalogs: learn/datasets/star_catalogs.md
           - ICGEM: learn/datasets/icgem.md
       - CCSDS:
           - learn/ccsds/index.md
@@ -349,6 +351,7 @@ nav:
       - examples/earth_moon_free_return.md
       - examples/mro_mars_orbit.md
       - examples/dawn_ceres_orbit.md
+      - examples/star_field_simulation.md
   - Python API Reference:
       - library_api/index.md
       - Constants:
@@ -374,6 +377,7 @@ nav:
           - Cartesian: library_api/coordinates/cartesian.md
           - Geodetic & Geocentric: library_api/coordinates/geodetic.md
           - Topocentric: library_api/coordinates/topocentric.md
+          - RA/Dec: library_api/coordinates/radec.md
           - Enumerations: library_api/coordinates/enums.md
       - Reference Frame Transformations:
           - library_api/frames/index.md
@@ -479,6 +483,7 @@ nav:
           - Groundstations: library_api/datasets/groundstations.md
           - NAIF: library_api/datasets/naif.md
           - GCAT: library_api/datasets/gcat.md
+          - Star Catalogs: library_api/datasets/star_catalogs.md
           - ICGEM: library_api/datasets/icgem.md
       - CCSDS:
           - library_api/ccsds/index.md

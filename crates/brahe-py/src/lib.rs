@@ -534,6 +534,7 @@ impl PyAngleFormat {
 
 include!("datasets.rs");
 include!("py_gcat.rs");
+include!("py_star_catalogs.rs");
 include!("icgem.rs");
 include!("eop.rs");
 include!("space_weather.rs");
@@ -948,6 +949,15 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_position_enz_to_azel, module)?)?;
     module.add_function(wrap_pyfunction!(py_position_sez_to_azel, module)?)?;
 
+    // Right Ascension / Declination
+    module.add_function(wrap_pyfunction!(py_position_radec_to_inertial, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_inertial_to_radec, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_radec_to_inertial, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_inertial_to_radec, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_radec_to_azel, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_azel_to_radec, module)?)?;
+    module.add_function(wrap_pyfunction!(py_apply_proper_motion, module)?)?;
+
     //* Orbits *//
     module.add_function(wrap_pyfunction!(py_orbital_period, module)?)?;
     module.add_function(wrap_pyfunction!(py_orbital_period_general, module)?)?;
@@ -1088,6 +1098,17 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyGCATPsatcat>()?;
     module.add_function(wrap_pyfunction!(py_gcat_get_satcat, module)?)?;
     module.add_function(wrap_pyfunction!(py_gcat_get_psatcat, module)?)?;
+
+    //* Star Catalogs *//
+    module.add_class::<PyFK5Record>()?;
+    module.add_class::<PyFK5Catalog>()?;
+    module.add_class::<PyHipparcosRecord>()?;
+    module.add_class::<PyHipparcosCatalog>()?;
+    module.add_class::<PyTycho2Record>()?;
+    module.add_class::<PyTycho2Catalog>()?;
+    module.add_function(wrap_pyfunction!(py_star_catalogs_get_fk5, module)?)?;
+    module.add_function(wrap_pyfunction!(py_star_catalogs_get_hipparcos, module)?)?;
+    module.add_function(wrap_pyfunction!(py_star_catalogs_get_tycho2, module)?)?;
 
     //* ICGEM *//
     module.add_class::<PyIndexEntry>()?;

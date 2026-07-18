@@ -38,6 +38,18 @@ Brahe's datasets module centralizes access to these data sources, handling the d
 
 **Best for**: Satellite catalog research, constellation analysis, historical studies
 
+### [Star Catalogs](star_catalogs.md)
+
+Fixed-epoch star catalogs for reference-frame realization and star-based attitude determination. The brahe interface supports:
+
+- **FK5**: 1,535 fundamental stars, J2000.0
+- **Hipparcos**: ~118,000 stars, ICRS at epoch J1991.25
+- **Tycho-2**: ~2.54 million stars, ICRS
+- **Never-stale caching**: Cached copies never expire by default, since published catalogs are not expected to change
+- **Proper motion**: Propagate catalog positions to any epoch via `radec_at_epoch`
+
+**Best for**: Star-based attitude determination, reference-frame realization, astrometric cross-matching
+
 ### [ICGEM Gravity Models](icgem.md)
 
 The [International Centre for Global Earth Models (ICGEM)](https://icgem.gfz.de) hosts spherical harmonic gravity models for Earth and other solar system bodies (Moon, Mars, Venus, Ceres, asteroids, …). The brahe interface supports:
@@ -79,6 +91,7 @@ Brahe's datasets module aims to:
 - [Ephemeris Data Sources](../ephemeris/index.md) - CelesTrak and Space-Track API clients
 - [NAIF Ephemeris Kernels](naif.md) - Planetary ephemeris data
 - [GCAT Satellite Catalogs](gcat.md) - GCAT SATCAT and PSATCAT catalogs
+- [Star Catalogs](star_catalogs.md) - FK5, Hipparcos, and Tycho-2 fixed-epoch star catalogs
 - [ICGEM Gravity Models](icgem.md) - Spherical harmonic gravity model catalog
 - [Groundstation Datasets](groundstations.md) - Ground facility locations
 - [Datasets API Reference](../../library_api/datasets/index.md) - Complete function documentation

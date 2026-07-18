@@ -94,8 +94,6 @@ pub(crate) fn window_bounds(
 ///
 /// Returns [`BraheError::Error`] if `epochs` and `states_rad` have unequal length, or if
 /// `config.window_seconds` is not positive.
-// Not yet called from non-test production code; wired up by a later task.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn numerical_osc_to_mean(
     epochs: &[Epoch],
     states_rad: &[SVector<f64, 6>],
@@ -200,8 +198,6 @@ pub(crate) fn numerical_osc_to_mean(
 /// `mean_states_rad` have unequal length. Returns [`BraheError::NumericalError`] if the
 /// differential correction fails to converge within `max_iterations` for any target
 /// epoch.
-// Not yet called from non-test production code; wired up by a later task.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn numerical_mean_to_osc(
     epochs: &[Epoch],
     mean_states_rad: &[SVector<f64, 6>],
@@ -255,12 +251,14 @@ pub(crate) fn numerical_mean_to_osc(
 /// window bracketing `t` and returns the numerically averaged mean elements nearest
 /// `t`.
 ///
-/// Samples 100 evenly-spaced epochs across
-/// `[t - 0.6*W, t + 0.6*W]`, where `W = config.window_seconds`, i.e. a window 20%
-/// wider on each side than the averaging window itself. This ensures the
-/// centered-`W` window at `t` (which [`numerical_osc_to_mean`] needs to average
-/// correctly regardless of `config.alignment`) is comfortably supported by the
-/// sampled trajectory, avoiding bit-exact-boundary fragility.
+/// Samples 100 evenly-spaced epochs across a span that fully supports a `config.alignment`
+/// window of length `W = config.window_seconds` anchored at `t`, padded by ~10% of `W` on
+/// each side (so the boundary of the alignment's window at `t` is comfortably inside the
+/// sampled trajectory, avoiding bit-exact-boundary fragility):
+///
+/// - [`WindowAlignment::Centered`]: `[t - 0.6*W, t + 0.6*W]`
+/// - [`WindowAlignment::Trailing`]: `[t - 1.1*W, t + 0.1*W]`
+/// - [`WindowAlignment::Leading`]: `[t - 0.1*W, t + 1.1*W]`
 ///
 /// The candidate state is first propagated backward to the window start (to obtain a
 /// valid initial condition there), then a fresh propagator integrates forward across
@@ -274,9 +272,12 @@ fn forward_average(
 ) -> Result<SVector<f64, 6>, BraheError> {
     const N_SAMPLES: usize = 100;
 
-    let half_width = 0.6 * config.window_seconds;
-    let start = t - half_width;
-    let end = t + half_width;
+    let w = config.window_seconds;
+    let (start, end) = match config.alignment {
+        WindowAlignment::Centered => (t - 0.6 * w, t + 0.6 * w),
+        WindowAlignment::Trailing => (t - 1.1 * w, t + 0.1 * w),
+        WindowAlignment::Leading => (t - 0.1 * w, t + 1.1 * w),
+    };
 
     let cart_t = state_koe_to_eci(*x_rad, AngleFormat::Radians);
 

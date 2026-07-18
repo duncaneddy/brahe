@@ -10,12 +10,12 @@ Demonstrating different Earth texture options...
    ✓ Plotly plot with blue marble created
 
 4. Natural Earth 50m texture option available:
-   - Use earth_texture='natural_earth_50m' to download and use
+   - Use texture='natural_earth_50m' to download and use
    - First use downloads ~20MB to ~/.cache/brahe/textures/
    - Subsequent uses load from cache
 
 5. Natural Earth 10m texture option available:
-   - Use earth_texture='natural_earth_10m' for highest quality
+   - Use texture='natural_earth_10m' for highest quality
    - First use downloads ~180MB to ~/.cache/brahe/textures/
    - Best for high-resolution figures
 

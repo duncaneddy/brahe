@@ -3,6 +3,7 @@ Orbital planes: 6
 RAAN spacing: 180/6 = 30 degrees
 
 Propagated all 66 satellites for one orbital period
+Downloading Natural Earth 50m shaded relief texture (attempt 1/3)...
 
 ✓ Generated docs/figures/visualizing_walker_star_light.html
 ✓ Generated docs/figures/visualizing_walker_star_dark.html

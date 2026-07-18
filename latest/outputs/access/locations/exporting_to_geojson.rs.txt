@@ -1,4 +1,4 @@
 Exported GeoJSON:
-{"geometry":{"coordinates":[-122.4194,37.7749,0.0],"type":"Point"},"properties":{"id":1,"name":"San Francisco","uuid":"019f7233-64ac-7002-b671-11d8cf1f8b8a"},"type":"Feature"}
+{"geometry":{"coordinates":[-122.4194,37.7749,0.0],"type":"Point"},"properties":{"id":1,"name":"San Francisco","uuid":"019f738a-e0dc-7bb1-9612-d520485d2d69"},"type":"Feature"}
 
 Reloaded: San Francisco (ID: 1)

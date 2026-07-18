@@ -173,7 +173,7 @@ pub fn state_radec_to_inertial(x_radec: SVector6, angle_format: AngleFormat) -> 
 /// ```
 ///
 /// # Reference
-/// 1. D. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th Ed., pp. 260, Algorithm 25, 2013.
+/// 1. D. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th Ed., pp. 259, Algorithm 25, 2013.
 pub fn state_inertial_to_radec(x_inertial: SVector6, angle_format: AngleFormat) -> SVector6 {
     let ri = x_inertial[0];
     let rj = x_inertial[1];
@@ -235,6 +235,25 @@ pub fn state_inertial_to_radec(x_inertial: SVector6, angle_format: AngleFormat) 
 /// it does not apply light-time or Doppler (radial-velocity-rate) corrections
 /// and is otherwise equivalent to IAU SOFA `iauStarpm`'s treatment of the
 /// proper-motion/parallax epoch transformation.
+///
+/// This follows ESA SP-1200's rigorous epoch-transformation treatment
+/// (Vol. 1, §1.5.5): the barycentric direction is propagated as
+/// **u(τ) ∝ u₀·(1 + ζτ) + μτ**, then renormalized, where SP-1200 writes the
+/// tangential proper-motion vector as **μ = p·μ_α\* + q·μ_δ** (its p/q/r
+/// triad for the tangent-plane basis at the catalog position) and the radial
+/// term as the "radial proper motion" **ζ = μ_r = v_r·π / A** (`A` being the
+/// astronomical unit expressed in km/yr per km/s, `A` = 4.740470446
+/// km·yr/s). The code below uses the following names for these SP-1200
+/// quantities:
+/// - `u0` - SP-1200's **u₀**, the unit direction at `epoch_from`
+/// - `p_hat`, `q_hat` - SP-1200's tangent-plane basis vectors **p**, **q**
+///   (its **r** is `u0` itself)
+/// - `mu` - SP-1200's **μ**, the tangential proper-motion vector
+/// - `mu_r` - SP-1200's **ζ** (radial proper motion)
+/// - `tau` - SP-1200's **τ**, the epoch interval in Julian years
+///
+/// We omit the light-time and space-motion refinements that IAU SOFA's
+/// `iauStarpm` adds on top of this same rigorous treatment.
 ///
 /// # Arguments
 /// - `ra`: Right ascension at `epoch_from`. Units: (*angle*)

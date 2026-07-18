@@ -428,6 +428,36 @@ mod tests {
 
     #[test]
     #[parallel]
+    fn test_fk5_radec_at_epoch_nonzero_tau() {
+        // Covers the tau != 0 proper-motion-unit wiring seam offline: the
+        // trait's radec_at_epoch must forward the record's fields to
+        // apply_proper_motion exactly, over a non-trivial epoch span.
+        let records = parse_fk5_text(SAMPLE).unwrap();
+        let r1 = &records[0];
+
+        let epoch_from = r1.epoch();
+        let epoch_to = Epoch::from_mjd(epoch_from.mjd() + 10.0 * 365.25, TimeSystem::TT);
+
+        let (ra, dec) = r1.radec_at_epoch(epoch_to, AngleFormat::Degrees);
+
+        let (expected_ra, expected_dec) = crate::coordinates::apply_proper_motion(
+            r1.ra,
+            r1.dec,
+            r1.pm_ra,
+            r1.pm_dec,
+            r1.parallax,
+            r1.radial_velocity,
+            epoch_from,
+            epoch_to,
+            AngleFormat::Degrees,
+        );
+
+        assert_abs_diff_eq!(ra, expected_ra, epsilon = 1e-12);
+        assert_abs_diff_eq!(dec, expected_dec, epsilon = 1e-12);
+    }
+
+    #[test]
+    #[parallel]
     fn test_fk5_to_dataframe() {
         let records = parse_fk5_text(SAMPLE).unwrap();
         let catalog = FK5Catalog::new(records);

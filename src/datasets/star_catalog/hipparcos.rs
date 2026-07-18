@@ -551,6 +551,10 @@ mod tests {
         let cod_only = dm_only_record(None, None, Some("C-36 16128"), Some("P-36  9818"));
         assert_eq!(cod_only.name(), Some("CoD -36 16128".to_string()));
 
+        // BD and CoD both present, no HD: BD wins (BD > CoD priority).
+        let bd_and_cod = dm_only_record(None, Some("B+19 5185"), Some("C-36 16128"), None);
+        assert_eq!(bd_and_cod.name(), Some("BD +19 5185".to_string()));
+
         // Full priority order: HD > BD > CoD > CPD.
         let all_present = dm_only_record(
             Some(224700),

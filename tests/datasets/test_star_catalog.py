@@ -53,9 +53,17 @@ def test_star_catalog_get_functions_signature(func):
 
 def test_star_catalog_classes_have_no_public_constructor():
     """Test record classes only come from parsed catalogs (no __init__ exposed)."""
-    for cls_name in ("FK5Record", "HipparcosRecord", "Tycho2Record"):
+    for cls_name in (
+        "FK5Record",
+        "FK5Catalog",
+        "HipparcosRecord",
+        "HipparcosCatalog",
+        "Tycho2Record",
+        "Tycho2Catalog",
+    ):
         cls = getattr(datasets.star_catalog, cls_name)
-        assert cls.__name__ == cls_name
+        with pytest.raises(TypeError):
+            cls()
 
 
 # ─── Network tests (live downloads, CI-gated) ───────────────────────
@@ -80,6 +88,41 @@ def test_fk5_catalog_load():
     df = cat.to_dataframe()
     assert isinstance(df, pl.DataFrame)
     assert df.height == 1535
+
+
+@pytest.mark.integration
+def test_fk5_radec_at_epoch_nonzero_tau():
+    """Test radec_at_epoch forwards a record's fields to apply_proper_motion.
+
+    Mirrors the Rust test of the same name: covers the tau != 0
+    proper-motion-unit wiring seam by comparing radec_at_epoch's output
+    against a direct apply_proper_motion call over the same interval.
+    """
+    cat = datasets.star_catalog.get_fk5()
+    rec = cat.get_by_id(699)
+    assert rec is not None
+
+    # FK5 positions/proper motions are referred to J2000.0 (matches the
+    # fixed epoch hardcoded in FK5Record::epoch on the Rust side).
+    epoch_from = bh.Epoch.from_jd(2451545.0, bh.TimeSystem.TT)
+    epoch_to = bh.Epoch.from_mjd(epoch_from.mjd() + 10.0 * 365.25, bh.TimeSystem.TT)
+
+    ra, dec = rec.radec_at_epoch(epoch_to, bh.AngleFormat.DEGREES)
+
+    expected_ra, expected_dec = bh.apply_proper_motion(
+        rec.ra,
+        rec.dec,
+        rec.pm_ra,
+        rec.pm_dec,
+        rec.parallax,
+        rec.radial_velocity,
+        epoch_from,
+        epoch_to,
+        bh.AngleFormat.DEGREES,
+    )
+
+    assert ra == pytest.approx(expected_ra, abs=1e-12)
+    assert dec == pytest.approx(expected_dec, abs=1e-12)
 
 
 @pytest.mark.integration

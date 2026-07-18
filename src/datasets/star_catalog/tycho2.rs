@@ -110,6 +110,12 @@ impl StarRecord for Tycho2Record {
     fn epoch(&self) -> Epoch {
         // J2000.0 mean epoch for propagated positions; per-star epoch_ra/
         // epoch_dec are retained as fields for users needing exact epochs.
+        //
+        // For pflag == "X" records, ra()/dec() actually return the observed
+        // position (epoch ~1991.5, see struct docs) while this still reports
+        // J2000.0. This is harmless because such records carry no mean
+        // proper motion, so radec_at_epoch's propagation over the
+        // (incorrect) epoch span is a no-op.
         Epoch::from_jd(2451545.0, TimeSystem::TT)
     }
 

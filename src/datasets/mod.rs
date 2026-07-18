@@ -29,4 +29,7 @@ pub use gcat::{
 };
 
 // Re-export commonly used types and functions from star_catalog
-pub use star_catalog::{FK5Catalog, FK5Record, StarRecord, get_fk5_catalog};
+pub use star_catalog::{
+    FK5Catalog, FK5Record, HipparcosCatalog, HipparcosRecord, StarRecord, Tycho2Catalog,
+    Tycho2Record, get_fk5_catalog, get_hipparcos_catalog, get_tycho2_catalog,
+};

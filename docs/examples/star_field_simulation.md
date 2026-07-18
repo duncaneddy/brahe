@@ -61,7 +61,7 @@ Across the 96 frames of this scenario, the number of visible stars ranges from 1
 ```
 
 !!! note "NETWORK"
-    This script downloads the Hipparcos catalog on first use (cached permanently afterward at `~/.cache/brahe/star_catalog/`) and is flagged `NETWORK`, so it is skipped by default when generating documentation figures in bulk (`just make-plots`). Regenerate it directly with `just make-plot star_field_simulation`, or see [`just download-resources`](../development_guide.md) for populating the cache offline-first.
+    This script downloads the Hipparcos catalog on first use (cached permanently afterward at `~/.cache/brahe/star_catalog/`) and is flagged `NETWORK`, so it is skipped by default when generating documentation figures in bulk (`just make-plots`). Regenerate it directly with `just make-plot star_field_simulation`, or run the example itself; either one triggers the one-time download and populates the cache for subsequent runs.
 
 ## See Also
 

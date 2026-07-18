@@ -1,4 +1,6 @@
 //! Initialize Space Weather Providers using caching provider
+//!
+//! FLAGS = ["NETWORK"]
 
 use brahe as bh;
 use bh::space_weather::SpaceWeatherExtrapolation;

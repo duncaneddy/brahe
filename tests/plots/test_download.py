@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from brahe.plots._download import download_and_extract_zip
+from brahe.plots._download import download_and_extract_zip, download_file
 
 
 def _make_zip(path: Path, members: dict[str, bytes]) -> None:
@@ -204,3 +204,25 @@ def test_concurrent_callers_do_not_corrupt(zip_server, tmp_path):
     assert errors == []
     assert len(results) == 6
     assert sentinel.read_bytes() == b"shared-payload"
+
+
+def test_download_file_validation_rejects_bad_content(zip_server, tmp_path):
+    """A validator that rejects the staged content must discard the temp
+    file and raise, rather than publishing (and permanently caching) a bad
+    response to ``dest``."""
+    base_url, served_dir = zip_server
+    (served_dir / "bad.jpg").write_bytes(b"<html>404 from a flaky CDN</html>")
+
+    dest = tmp_path / "cache" / "bad.jpg"
+
+    with pytest.raises(RuntimeError):
+        download_file(
+            f"{base_url}/bad.jpg",
+            dest,
+            description="thing",
+            max_retries=2,
+            retry_delay=0,
+            validate=lambda p: False,
+        )
+
+    assert not dest.exists()

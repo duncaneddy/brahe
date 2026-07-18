@@ -104,52 +104,78 @@ def test_state_eci_to_koe_and_roundtri_rad(eop):
     assert osc_converted[5] == approx(osc_original[5], abs=1e-6)
 
 
-def test_state_eci_to_koe_for_body_matches_legacy_for_earth_gm(eop):
-    """state_eci_to_koe_for_body(x, GM_EARTH, ...) matches state_eci_to_koe exactly."""
-    cart = np.array(
-        [
-            brahe.R_EARTH + 500e3,
-            0.0,
-            0.0,
-            0.0,
-            brahe.perigee_velocity(brahe.R_EARTH + 500e3, 0.0),
-            0.0,
-        ]
-    )
-    osc_legacy = brahe.state_eci_to_koe(cart, AngleFormat.DEGREES)
-    osc_for_body = brahe.state_eci_to_koe_for_body(
-        cart, brahe.GM_EARTH, AngleFormat.DEGREES
-    )
-
-    assert osc_for_body == approx(osc_legacy)
-
-
-def test_state_eci_to_koe_for_body_lunar_circular_orbit(eop):
-    """A circular orbit about the Moon should recover a=r, e=0 using GM_MOON."""
-    a = brahe.R_MOON + 100e3
-    cart = np.array(
-        [a, 0.0, 0.0, 0.0, brahe.periapsis_velocity(a, 0.0, gm=brahe.GM_MOON), 0.0]
-    )
-    osc = brahe.state_eci_to_koe_for_body(cart, brahe.GM_MOON, AngleFormat.DEGREES)
-
-    assert osc[0] == approx(a, abs=1e-6)
-    assert osc[1] == approx(0.0, abs=1e-9)
-
-
-def test_state_koe_to_eci_for_body_earth_matches_legacy(eop):
-    """Mirrors test_state_koe_to_eci_for_body_earth_matches_default."""
+def test_state_koe_to_inertial_for_body_earth_is_exact(eop):
+    """Earth is a bit-identical passthrough of state_koe_to_eci / state_eci_to_koe."""
     osc = np.array([brahe.R_EARTH + 500e3, 0.01, 97.8, 75.0, 25.0, 45.0])
-    via_default = brahe.state_koe_to_eci(osc, AngleFormat.DEGREES)
-    via_body = brahe.state_koe_to_eci_for_body(osc, brahe.GM_EARTH, AngleFormat.DEGREES)
-    np.testing.assert_array_equal(via_default, via_body)
+    oracle = brahe.state_koe_to_eci(osc, AngleFormat.DEGREES)
+    via_body = brahe.state_koe_to_inertial_for_body(
+        osc, brahe.CentralBody.Earth, AngleFormat.DEGREES
+    )
+    np.testing.assert_array_equal(oracle, via_body)
+
+    osc_back = brahe.state_inertial_to_koe_for_body(
+        oracle, brahe.CentralBody.Earth, AngleFormat.DEGREES
+    )
+    np.testing.assert_array_equal(
+        osc_back, brahe.state_eci_to_koe(oracle, AngleFormat.DEGREES)
+    )
 
 
-def test_state_koe_to_eci_for_body_round_trip(eop):
-    """Mirrors test_round_trip_conversion_for_body: koe -> eci -> koe about the Moon."""
-    osc = np.array([1_838_000.0, 0.01, 85.0, 15.0, 30.0, 45.0])
-    cart = brahe.state_koe_to_eci_for_body(osc, brahe.GM_MOON, AngleFormat.DEGREES)
-    osc_back = brahe.state_eci_to_koe_for_body(cart, brahe.GM_MOON, AngleFormat.DEGREES)
+@pytest.mark.parametrize(
+    "central_body,a",
+    [
+        (brahe.CentralBody.Moon, 1_838_000.0),
+        (brahe.CentralBody.Mars, 3_796_000.0),
+    ],
+)
+def test_state_koe_to_inertial_for_body_round_trip(eop, central_body, a):
+    """koe -> inertial -> koe about a non-Earth body recovers the input."""
+    osc = np.array([a, 0.01, 85.0, 15.0, 30.0, 45.0])
+    cart = brahe.state_koe_to_inertial_for_body(osc, central_body, AngleFormat.DEGREES)
+    osc_back = brahe.state_inertial_to_koe_for_body(
+        cart, central_body, AngleFormat.DEGREES
+    )
 
     assert osc_back[0] == approx(osc[0], abs=1e-8)
     for k in range(1, 6):
         assert osc_back[k] == approx(osc[k], abs=1e-9)
+
+
+def test_state_koe_to_inertial_for_body_polar_orbit_vs_mars_pole(eop):
+    """An i=90 deg orbit referenced to Mars's equator has its orbit normal
+    perpendicular to Mars's IAU pole (and not to the ICRF pole)."""
+    osc = np.array([brahe.R_MARS + 300e3, 0.0, 90.0, 20.0, 0.0, 0.0])
+    cart = brahe.state_koe_to_inertial_for_body(
+        osc, brahe.CentralBody.Mars, AngleFormat.DEGREES
+    )
+    h = np.cross(cart[:3], cart[3:])
+    h /= np.linalg.norm(h)
+
+    epc = brahe.Epoch.from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, brahe.TimeSystem.TDB)
+    rmat = brahe.rotation_icrf_to_body_fixed_iau(499, epc)
+    mars_pole = np.asarray(rmat)[2, :]
+
+    assert np.dot(h, mars_pole) == approx(0.0, abs=1e-12)
+    assert abs(h[2]) > 0.1  # not polar relative to the ICRF pole
+
+    osc_back = brahe.state_inertial_to_koe_for_body(
+        cart, brahe.CentralBody.Mars, AngleFormat.DEGREES
+    )
+    assert osc_back[2] == approx(90.0, abs=1e-9)
+
+
+def test_state_koe_to_inertial_for_body_errors(eop):
+    """Barycenters and Custom bodies without a fixed_frame have no mean equator."""
+    osc = np.array([3_796_000.0, 0.01, 85.0, 15.0, 30.0, 45.0])
+    with pytest.raises(RuntimeError):
+        brahe.state_koe_to_inertial_for_body(
+            osc, brahe.CentralBody.EMB, AngleFormat.DEGREES
+        )
+    with pytest.raises(RuntimeError):
+        brahe.state_inertial_to_koe_for_body(
+            osc, brahe.CentralBody.SSB, AngleFormat.DEGREES
+        )
+
+    no_frame = brahe.CentralBody.Custom("Rogue", -99, 1.0e10, radius=1.0e5)
+    with pytest.raises(RuntimeError):
+        brahe.state_koe_to_inertial_for_body(osc, no_frame, AngleFormat.DEGREES)

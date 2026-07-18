@@ -1872,7 +1872,7 @@ impl DOrbitTrajectory {
             .iter()
             .map(|s| {
                 self.convert_orbital_preserving_additional(s, |orbital| {
-                    crate::coordinates::state_koe_to_eci_for_body(orbital, cb.gm(), angle_fmt)
+                    crate::coordinates::state_koe_to_inertial_gm(orbital, cb.gm(), angle_fmt)
                 })
             })
             .collect();
@@ -2759,7 +2759,7 @@ impl DOrbitTrajectory {
                         center
                     )));
                 }
-                Ok(crate::coordinates::state_koe_to_eci_for_body(
+                Ok(crate::coordinates::state_koe_to_inertial_gm(
                     state,
                     cb.gm(),
                     self.angle_format
@@ -3145,7 +3145,7 @@ impl DOrbitStateProvider for DOrbitTrajectory {
                     )));
                 }
                 let x = self.bci_native_cartesian(center, state)?;
-                return Ok(crate::coordinates::state_eci_to_koe_for_body(
+                return Ok(crate::coordinates::state_inertial_to_koe_gm(
                     x,
                     cb.gm(),
                     angle_format,
@@ -6101,7 +6101,7 @@ mod tests {
 
         // Elements about the Moon: round trip through the Moon's GM.
         let koe = traj.state_koe_osc(epoch, AngleFormat::Degrees).unwrap();
-        let back = crate::coordinates::state_koe_to_eci_for_body(
+        let back = crate::coordinates::state_koe_to_inertial_gm(
             koe,
             crate::constants::GM_MOON,
             AngleFormat::Degrees,

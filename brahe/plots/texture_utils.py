@@ -1,5 +1,5 @@
 """
-Earth texture management for 3D plotting.
+Body texture management for 3D plotting.
 
 Handles loading packaged textures and downloading/caching external texture data.
 """
@@ -11,7 +11,7 @@ from PIL import Image
 
 import brahe as bh
 
-from brahe.plots._download import download_and_extract_zip
+from brahe.plots._download import download_and_extract_zip, download_file
 
 
 # Natural Earth texture URLs
@@ -23,6 +23,30 @@ NATURAL_EARTH_10M_URL = (
 # Expected file names after extraction
 NATURAL_EARTH_50M_FILE = "NE1_50M_SR_W.tif"
 NATURAL_EARTH_10M_FILE = "NE1_HR_LC_SR_W.tif"
+
+# Solar System Scope planet textures (https://www.solarsystemscope.com/textures/),
+# distributed under the Creative Commons Attribution 4.0 International
+# license (CC BY 4.0). Small-body textures marked "fictional" by the
+# publisher are artistic impressions, not survey data.
+SOLAR_SYSTEM_SCOPE_BASE_URL = "https://www.solarsystemscope.com/textures/download/"
+
+PLANET_TEXTURES = {
+    "sun": "2k_sun.jpg",
+    "mercury": "2k_mercury.jpg",
+    "venus": "2k_venus_surface.jpg",
+    "venus_atmosphere": "2k_venus_atmosphere.jpg",
+    "earth_daymap": "2k_earth_daymap.jpg",
+    "moon": "2k_moon.jpg",
+    "mars": "2k_mars.jpg",
+    "jupiter": "2k_jupiter.jpg",
+    "saturn": "2k_saturn.jpg",
+    "uranus": "2k_uranus.jpg",
+    "neptune": "2k_neptune.jpg",
+    "ceres": "2k_ceres_fictional.jpg",
+    "eris": "2k_eris_fictional.jpg",
+    "haumea": "2k_haumea_fictional.jpg",
+    "makemake": "2k_makemake_fictional.jpg",
+}
 
 
 def get_texture_cache_dir() -> Path:
@@ -111,31 +135,87 @@ def download_natural_earth_texture(resolution: str = "50m") -> Path:
     )
 
 
-def load_earth_texture(texture_name: str) -> Optional[Image.Image]:
-    """Load an Earth texture image.
+def _load_rgb_image(path: Path) -> Image.Image:
+    """Open an image file, forcing a full decode so a corrupt/truncated
+    file raises here rather than lazily on first pixel access."""
+    img = Image.open(path)
+    img.load()
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+    return img
+
+
+def _is_valid_jpeg(path: Path) -> bool:
+    """Check that a file is a loadable JPEG (catches HTML error pages and
+    truncated bodies from a flaky CDN)."""
+    try:
+        with Image.open(path) as img:
+            img.verify()
+        return True
+    except Exception:
+        return False
+
+
+def download_planet_texture(body: str) -> Path:
+    """Download and cache a Solar System Scope planet texture.
+
+    Textures are provided by Solar System Scope
+    (https://www.solarsystemscope.com/textures/) under the CC BY 4.0
+    license and cached under the brahe cache directory.
 
     Args:
-        texture_name: One of 'simple', 'blue_marble', 'natural_earth_50m', or 'natural_earth_10m'
+        body: Registry key in ``PLANET_TEXTURES`` (e.g. ``'moon'``, ``'mars'``).
 
     Returns:
-        PIL Image object if texture_name is not 'simple', None otherwise
+        Path: Path to the cached texture JPEG.
 
     Raises:
-        ValueError: If texture_name is not recognized
-        FileNotFoundError: If texture file cannot be found
-        RuntimeError: If texture download or loading fails
+        ValueError: If ``body`` is not in ``PLANET_TEXTURES``.
+        RuntimeError: If the download fails or the response is not a valid JPEG.
     """
-    if texture_name == "simple":
+    if body not in PLANET_TEXTURES:
+        raise ValueError(
+            f"Unknown planet texture '{body}'. "
+            f"Available: {', '.join(sorted(PLANET_TEXTURES))}"
+        )
+    filename = PLANET_TEXTURES[body]
+    dest = get_texture_cache_dir() / "solar_system_scope" / filename
+    return download_file(
+        SOLAR_SYSTEM_SCOPE_BASE_URL + filename,
+        dest,
+        description=f"Solar System Scope '{body}' texture",
+        timeout=60,
+        validate=_is_valid_jpeg,
+    )
+
+
+def load_body_texture(texture) -> Optional[Image.Image]:
+    """Load a body texture image for 3D sphere rendering.
+
+    Args:
+        texture: One of ``None``/``'simple'`` (no texture), ``'blue_marble'``,
+            ``'natural_earth_50m'``, ``'natural_earth_10m'``, any
+            ``PLANET_TEXTURES`` key (downloads on first use, CC BY 4.0,
+            Solar System Scope), or a filesystem path to an image file.
+
+    Returns:
+        Optional[PIL.Image.Image]: RGB image, or ``None`` for ``'simple'``.
+
+    Raises:
+        ValueError: If ``texture`` is not a recognized name or existing path.
+        RuntimeError: If a texture download or load fails.
+    """
+    if texture is None or texture == "simple":
         return None
 
-    elif texture_name == "blue_marble":
+    elif texture == "blue_marble":
         texture_path = get_blue_marble_texture_path()
         try:
             return Image.open(texture_path)
         except Exception as e:
             raise RuntimeError(f"Failed to load Blue Marble texture: {e}")
 
-    elif texture_name == "natural_earth_50m":
+    elif texture == "natural_earth_50m":
         texture_path = download_natural_earth_texture("50m")
         try:
             img = Image.open(texture_path)
@@ -146,7 +226,7 @@ def load_earth_texture(texture_name: str) -> Optional[Image.Image]:
         except Exception as e:
             raise RuntimeError(f"Failed to load Natural Earth 50m texture: {e}")
 
-    elif texture_name == "natural_earth_10m":
+    elif texture == "natural_earth_10m":
         texture_path = download_natural_earth_texture("10m")
         try:
             # Increase PIL's max image size for this large texture (21600x10800 = 233M pixels)
@@ -164,10 +244,35 @@ def load_earth_texture(texture_name: str) -> Optional[Image.Image]:
         except Exception as e:
             raise RuntimeError(f"Failed to load Natural Earth 10m texture: {e}")
 
+    elif isinstance(texture, str) and texture in PLANET_TEXTURES:
+        texture_path = download_planet_texture(texture)
+        try:
+            return _load_rgb_image(texture_path)
+        except Exception:
+            # Cached file is corrupt (e.g. a partial download cached before
+            # download_planet_texture validated content) -- delete and
+            # re-download once before giving up.
+            texture_path.unlink(missing_ok=True)
+            texture_path = download_planet_texture(texture)
+            try:
+                return _load_rgb_image(texture_path)
+            except Exception as e:
+                raise RuntimeError(f"Failed to load '{texture}' texture: {e}")
+
+    elif isinstance(texture, (str, Path)) and Path(texture).is_file():
+        try:
+            img = Image.open(texture)
+            if img.mode != "RGB":
+                img = img.convert("RGB")
+            return img
+        except Exception as e:
+            raise RuntimeError(f"Failed to load texture from '{texture}': {e}")
+
     else:
         raise ValueError(
-            f"Unknown texture name '{texture_name}'. "
-            f"Must be one of: 'simple', 'blue_marble', 'natural_earth_50m', 'natural_earth_10m'"
+            f"Unknown texture '{texture}'. Must be 'simple', 'blue_marble', "
+            f"'natural_earth_50m', 'natural_earth_10m', one of "
+            f"{sorted(PLANET_TEXTURES)}, or a path to an image file."
         )
 
 

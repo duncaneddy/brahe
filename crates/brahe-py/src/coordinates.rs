@@ -138,87 +138,126 @@ fn py_state_eci_to_koe<'py>(
 }
 
 #[pyfunction]
-#[pyo3(text_signature = "(x_cart, gm, angle_format)")]
-#[pyo3(name = "state_eci_to_koe_for_body")]
-/// Convert Cartesian state to osculating orbital elements about a central body
-/// with an arbitrary gravitational parameter.
+#[pyo3(text_signature = "(x_cart, central_body, angle_format)")]
+#[pyo3(name = "state_inertial_to_koe_for_body")]
+/// Convert a Cartesian state in a body's ICRF-aligned inertial (BCI) frame to
+/// osculating orbital elements referenced to that body's mean equator at J2000.
 ///
-/// Generalizes `state_eci_to_koe` to central bodies other than Earth (e.g. the
-/// Moon or Mars). `state_eci_to_koe` is equivalent to calling this with
-/// `gm = GM_EARTH`.
+/// Unlike `state_eci_to_koe` (whose elements are referenced to the ICRF axes),
+/// the inclination and RAAN here are measured against the **body mean equator
+/// at J2000**: the reference plane is normal to the body's IAU pole
+/// `(alpha0, delta0)` evaluated at J2000 TDB, with the x-axis at the ascending
+/// node of that equator on the ICRF equator - the standard IAU orientation
+/// convention (Archinal et al., "Report of the IAU Working Group on
+/// Cartographic Coordinates and Rotational Elements: 2015", Celest Mech Dyn
+/// Astr 130, 22 (2018), <https://doi.org/10.1007/s10569-017-9805-5>). This
+/// ascending node is where `z_ICRF x p_hat` points: that vector is
+/// perpendicular to both poles, hence lies in both equatorial planes. This
+/// is the natural frame for polar / sun-synchronous / frozen orbits about
+/// the Moon, Mars, and other bodies whose spin pole is tilted relative to
+/// the ICRF pole. `CentralBody.Earth` is an exact passthrough of
+/// `state_eci_to_koe`. Inverse of `state_koe_to_inertial_for_body`.
 ///
 /// Args:
 ///     x_cart (numpy.ndarray or list): Cartesian state `[x, y, z, vx, vy, vz]` in the
-///         central body's inertial frame, where position is in meters and velocity is
-///         in meters per second.
-///     gm (float): Gravitational parameter of the central body. Units: (m^3/s^2)
+///         body-centered ICRF-aligned frame (e.g. LCI for the Moon, MCI for Mars),
+///         position in meters and velocity in meters per second.
+///     central_body (CentralBody): Central body (supplies the GM and the IAU pole /
+///         body-fixed frame).
 ///     angle_format (AngleFormat): Angle format for output angular elements (`RADIANS` or `DEGREES`).
 ///
 /// Returns:
-///     numpy.ndarray: Osculating orbital elements `[a, e, i, RAAN, omega, M]` about the
-///         central body with gravitational parameter `gm`.
+///     numpy.ndarray: Osculating orbital elements `[a, e, i, RAAN, omega, M]` referenced
+///         to the body mean equator at J2000.
+///
+/// Raises:
+///     RuntimeError: If `central_body` is a barycenter, has no positive GM, or is a
+///         `Custom` body without a pole / `fixed_frame`.
 ///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///     import numpy as np
 ///
-///     # Cartesian state vector about the Moon
+///     # Cartesian state in the Moon-centered inertial (LCI) frame
 ///     x_cart = np.array([1837.4e3, 0.0, 0.0, 0.0, 1600.0, 0.0])
-///     oe = bh.state_eci_to_koe_for_body(x_cart, bh.GM_MOON, bh.AngleFormat.RADIANS)
+///     oe = bh.state_inertial_to_koe_for_body(x_cart, bh.CentralBody.Moon, bh.AngleFormat.RADIANS)
 ///     ```
-fn py_state_eci_to_koe_for_body<'py>(
+fn py_state_inertial_to_koe_for_body<'py>(
     py: Python<'py>,
     x_cart: Bound<'py, PyAny>,
-    gm: f64,
+    central_body: &PyCentralBody,
     angle_format: &PyAngleFormat,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = coordinates::state_eci_to_koe_for_body(
+    let vec = coordinates::state_inertial_to_koe_for_body(
         pyany_to_svector::<6>(&x_cart)?,
-        gm,
+        &central_body.body,
         angle_format.value,
-    );
+    )
+    .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
     Ok(vector_to_numpy!(py, vec, 6, f64))
 }
 
 #[pyfunction]
-#[pyo3(text_signature = "(x_oe, gm, angle_format)")]
-#[pyo3(name = "state_koe_to_eci_for_body")]
-/// Convert osculating orbital elements to a Cartesian state about a central body
-/// with an arbitrary gravitational parameter. Inverse of `state_eci_to_koe_for_body`.
+#[pyo3(text_signature = "(x_oe, central_body, angle_format)")]
+#[pyo3(name = "state_koe_to_inertial_for_body")]
+/// Convert osculating orbital elements referenced to a body's mean equator at
+/// J2000 to the equivalent Cartesian state in that body's ICRF-aligned inertial
+/// (BCI) frame. Inverse of `state_inertial_to_koe_for_body`.
 ///
-/// Generalizes `state_koe_to_eci` to central bodies other than Earth (e.g. the
-/// Moon or Mars). `state_koe_to_eci` is equivalent to calling this with
-/// `gm = GM_EARTH`.
+/// Unlike `state_koe_to_eci` (whose elements are referenced to the ICRF axes),
+/// the inclination and RAAN here are measured against the **body mean equator
+/// at J2000** (the plane normal to the body's IAU pole at J2000 TDB, x-axis at
+/// the ascending node of that equator on the ICRF equator - the standard IAU
+/// orientation convention (Archinal et al., "Report of the IAU Working Group
+/// on Cartographic Coordinates and Rotational Elements: 2015", Celest Mech
+/// Dyn Astr 130, 22 (2018), <https://doi.org/10.1007/s10569-017-9805-5>);
+/// this ascending node is where `z_ICRF x p_hat` points, since that vector
+/// is perpendicular to both poles and hence lies in both equatorial
+/// planes). The output state is in the body-centered ICRF-aligned frame,
+/// so it composes directly with the
+/// body-fixed transforms (`state_bci_to_bcbf`-style) and with the numerical
+/// propagators, which integrate in that frame. `CentralBody.Earth` is an exact
+/// passthrough of `state_koe_to_eci`.
 ///
 /// Args:
-///     x_oe (numpy.ndarray or list): Osculating orbital elements `[a, e, i, RAAN, omega, M]`,
-///         where the semi-major axis is in meters and angles are in the given format.
-///     gm (float): Gravitational parameter of the central body. Units: (m^3/s^2)
+///     x_oe (numpy.ndarray or list): Osculating orbital elements `[a, e, i, RAAN, omega, M]`
+///         referenced to the body mean equator at J2000, where the semi-major axis is in
+///         meters and angles are in the given format.
+///     central_body (CentralBody): Central body (supplies the GM and the IAU pole /
+///         body-fixed frame).
 ///     angle_format (AngleFormat): Angle format for input angular elements (`RADIANS` or `DEGREES`).
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian state `[x, y, z, vx, vy, vz]` in the central body's
-///         inertial frame. Units: (m; m/s)
+///     numpy.ndarray: Cartesian state `[x, y, z, vx, vy, vz]` in the body-centered
+///         ICRF-aligned frame. Units: (m; m/s)
+///
+/// Raises:
+///     RuntimeError: If `central_body` is a barycenter, has no positive GM, or is a
+///         `Custom` body without a pole / `fixed_frame`.
 ///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///     import numpy as np
 ///
-///     # Low lunar orbit elements to a Moon-centered Cartesian state
-///     oe = np.array([bh.R_MOON + 100e3, 0.0, 90.0, 0.0, 0.0, 0.0])
-///     x_cart = bh.state_koe_to_eci_for_body(oe, bh.GM_MOON, bh.AngleFormat.DEGREES)
+///     # A 90 deg polar orbit referenced to Mars's equator (not the ICRF pole)
+///     oe = np.array([bh.R_MARS + 300e3, 0.01, 92.6, 45.0, 270.0, 0.0])
+///     x_cart = bh.state_koe_to_inertial_for_body(oe, bh.CentralBody.Mars, bh.AngleFormat.DEGREES)
 ///     ```
-fn py_state_koe_to_eci_for_body<'py>(
+fn py_state_koe_to_inertial_for_body<'py>(
     py: Python<'py>,
     x_oe: Bound<'py, PyAny>,
-    gm: f64,
+    central_body: &PyCentralBody,
     angle_format: &PyAngleFormat,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec =
-        coordinates::state_koe_to_eci_for_body(pyany_to_svector::<6>(&x_oe)?, gm, angle_format.value);
+    let vec = coordinates::state_koe_to_inertial_for_body(
+        pyany_to_svector::<6>(&x_oe)?,
+        &central_body.body,
+        angle_format.value,
+    )
+    .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
     Ok(vector_to_numpy!(py, vec, 6, f64))
 }

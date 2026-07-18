@@ -104,9 +104,11 @@ The following plots compare the 100W and 300W configurations over 24 hours of co
 
 ## Full Code Example
 
-```python title="low_thrust_orbit_raising.py"
---8<-- "./examples/examples/low_thrust_orbit_raising.py:all"
-```
+??? "Full Code"
+
+    ```python title="low_thrust_orbit_raising.py"
+    --8<-- "./examples/examples/low_thrust_orbit_raising.py:all"
+    ```
 
 ---
 

@@ -2507,6 +2507,47 @@ fn py_state_gse_to_gcrf<'py>(
 // Reference Frame Router
 // ============================================================================
 
+/// Origin choice for a generic synodic frame (`ReferenceFrame.Synodic`):
+/// `Primary`, `Secondary`, or the GM-weighted two-body `Barycenter`.
+#[pyclass(module = "brahe._brahe", eq, from_py_object)]
+#[pyo3(name = "SynodicOrigin")]
+#[derive(Clone, PartialEq)]
+pub struct PySynodicOrigin {
+    pub(crate) origin: frames::SynodicOrigin,
+}
+
+#[pymethods]
+impl PySynodicOrigin {
+    /// Centered on the primary body.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Primary() -> Self {
+        PySynodicOrigin { origin: frames::SynodicOrigin::Primary }
+    }
+
+    /// Centered on the secondary body.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Secondary() -> Self {
+        PySynodicOrigin { origin: frames::SynodicOrigin::Secondary }
+    }
+
+    /// Centered on the GM-weighted two-body barycenter.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Barycenter() -> Self {
+        PySynodicOrigin { origin: frames::SynodicOrigin::Barycenter }
+    }
+
+    fn __str__(&self) -> String {
+        format!("{:?}", self.origin)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("SynodicOrigin.{:?}", self.origin)
+    }
+}
+
 /// A reference frame supported by the centralized frame router
 /// (`rotation_frame_to_frame`, `position_frame_to_frame`, `state_frame_to_frame`).
 ///
@@ -2701,6 +2742,12 @@ impl PyReferenceFrame {
     /// rotation-only queries never consult the center, and translations will
     /// raise unless an ephemeris covering that ID is loaded.
     ///
+    /// Center IDs at or below -1_000_000_000 are reserved for synthetic synodic
+    /// barycenter centers (see `Synodic`); self-assigning one to a custom body
+    /// is unlikely to collide with an actual synodic pair's encoded ID, but is
+    /// not rejected, since real user-defined bodies and loaded kernels may
+    /// legitimately need any negative ID.
+    ///
     /// Args:
     ///     center (int): NAIF ID of the frame's center (may be self-assigned negative)
     ///     key (int): Registry key the frame's callbacks were registered under
@@ -2711,6 +2758,82 @@ impl PyReferenceFrame {
     #[allow(non_snake_case)]
     fn BodyFixedCustom(center: i32, key: u32) -> Self {
         PyReferenceFrame { frame: frames::ReferenceFrame::BodyFixedCustom { center, key } }
+    }
+
+    /// Generic two-body synodic (rotating) frame: x̂ from `primary` toward
+    /// `secondary`, ẑ along the secondary's orbital angular momentum
+    /// relative to the primary, centered per `origin`. The named frames
+    /// are specific configurations: `EMR == Synodic(Barycenter, 399, 301)`,
+    /// `SER == Synodic(Barycenter, 10, 399)`, `GSE == Synodic(Primary, 399, 10)`.
+    ///
+    /// Any NAIF ID is accepted for `primary` and `secondary`. For a
+    /// `Barycenter` origin, the pair is encoded into a synthetic negative
+    /// center ID; this encoding is collision-free when both IDs are in
+    /// 0..=999, and both bodies must have packaged GM constants. IDs
+    /// outside 0..=999 still construct successfully but produce a
+    /// different encoding that no longer maps back to a synthetic
+    /// center — this surfaces as an SPK/GM lookup error at transform
+    /// time rather than a silent collision.
+    ///
+    /// Args:
+    ///     origin (SynodicOrigin): Origin choice (primary, secondary, or barycenter)
+    ///     primary (int): NAIF ID of the primary body
+    ///     secondary (int): NAIF ID of the secondary body
+    ///
+    /// Returns:
+    ///     ReferenceFrame: Generic synodic frame for the pair
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn Synodic(origin: PySynodicOrigin, primary: i32, secondary: i32) -> Self {
+        PyReferenceFrame {
+            frame: frames::ReferenceFrame::Synodic { origin: origin.origin, primary, secondary },
+        }
+    }
+
+    /// Origin choice of a synodic frame (`Synodic`, `EMR`, `SER`, `GSE`).
+    ///
+    /// Returns:
+    ///     Optional[SynodicOrigin]: Origin choice, or `None` for non-synodic frames
+    #[getter]
+    fn synodic_origin(&self) -> Option<PySynodicOrigin> {
+        let origin = match self.frame {
+            frames::ReferenceFrame::Synodic { origin, .. } => origin,
+            frames::ReferenceFrame::EMR | frames::ReferenceFrame::SER => {
+                frames::SynodicOrigin::Barycenter
+            }
+            frames::ReferenceFrame::GSE => frames::SynodicOrigin::Primary,
+            _ => return None,
+        };
+        Some(PySynodicOrigin { origin })
+    }
+
+    /// NAIF ID of the synodic primary (`Synodic`, `EMR`, `SER`, `GSE`).
+    ///
+    /// Returns:
+    ///     Optional[int]: NAIF ID of the primary body, or `None` for non-synodic frames
+    #[getter]
+    fn synodic_primary(&self) -> Option<i32> {
+        match self.frame {
+            frames::ReferenceFrame::Synodic { primary, .. } => Some(primary),
+            frames::ReferenceFrame::EMR | frames::ReferenceFrame::GSE => Some(399),
+            frames::ReferenceFrame::SER => Some(10),
+            _ => None,
+        }
+    }
+
+    /// NAIF ID of the synodic secondary (`Synodic`, `EMR`, `SER`, `GSE`).
+    ///
+    /// Returns:
+    ///     Optional[int]: NAIF ID of the secondary body, or `None` for non-synodic frames
+    #[getter]
+    fn synodic_secondary(&self) -> Option<i32> {
+        match self.frame {
+            frames::ReferenceFrame::Synodic { secondary, .. } => Some(secondary),
+            frames::ReferenceFrame::EMR => Some(301),
+            frames::ReferenceFrame::SER => Some(399),
+            frames::ReferenceFrame::GSE => Some(10),
+            _ => None,
+        }
     }
 
     /// Parses a `ReferenceFrame` from its string representation (named

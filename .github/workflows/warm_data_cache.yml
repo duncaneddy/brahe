@@ -78,3 +78,62 @@ jobs:
                             -o ~/.cache/brahe/star_catalog/Hipparcos_Catalog.txt.tmp \
                             https://www.simplespacedata.org/star_catalog/cds/hipparcos/latest/Hipparcos_Catalog.txt \
                         && mv ~/.cache/brahe/star_catalog/Hipparcos_Catalog.txt.tmp ~/.cache/brahe/star_catalog/Hipparcos_Catalog.txt; }
+
+    # pr_tests.yml's "validate-rust-package" and "validate-python-package" jobs
+    # only ever run on pull requests, so with cache-save-if gated to main (see
+    # those jobs) nothing would otherwise populate their caches. These two jobs
+    # mirror those builds on main's weekly schedule under the same shared-keys
+    # so PRs always find a warm, restorable cache. Ubuntu-only, matching what
+    # pr_tests.yml actually runs on.
+    warm-validate-rust-package-cache:
+        runs-on: ubuntu-latest
+        steps:
+            -   uses: actions/checkout@v7.0.0
+
+            -   name: Set up Rust toolchain
+                uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
+                with:
+                    toolchain: stable
+                    cache-shared-key: validate-rust-package
+                    cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+
+            -   name: Install the latest version of uv
+                uses: astral-sh/setup-uv@v8.3.2
+                with:
+                    enable-cache: true
+
+            -   name: Install Python 3.14
+                run: uv python install 3.14
+
+            -   name: Install just
+                uses: extractions/setup-just@v4
+
+            -   name: Build and validate Rust package
+                run: just build --lang rust
+
+    warm-validate-python-package-cache:
+        runs-on: ubuntu-latest
+        steps:
+            -   uses: actions/checkout@v7.0.0
+
+            -   name: Set up Rust toolchain
+                uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
+                with:
+                    toolchain: stable
+                    cache-shared-key: validate-python-package
+                    cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+
+            -   name: Install the latest version of uv
+                uses: astral-sh/setup-uv@v8.3.2
+                with:
+                    enable-cache: true
+
+            -   name: Install Python 3.14
+                run: uv python install 3.14
+
+            -   name: Install just
+                uses: extractions/setup-just@v4
+
+            -   name: Build and validate Python package
+                run: just build --lang python
+

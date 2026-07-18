@@ -1,4 +1,88 @@
 
+#[pyfunction]
+#[pyo3(text_signature = "(angle, angle_format)")]
+#[pyo3(name = "Rx")]
+/// Elementary rotation matrix about the X axis, returned as a numpy array.
+///
+/// Free-function form of `RotationMatrix.Rx`: same convention, but returns a
+/// bare 3x3 numpy array rather than a `RotationMatrix`. The matrix is the
+/// passive (coordinate-frame) rotation by `angle` about the x-axis, mapping a
+/// vector's components in the original frame to its components in a frame
+/// rotated by `+angle` about x.
+///
+/// Args:
+///     angle (float): Rotation angle in radians or degrees.
+///     angle_format (AngleFormat): Units of input angle (`RADIANS` or `DEGREES`).
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix for the X-axis rotation.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     r = bh.Rx(45.0, bh.AngleFormat.DEGREES)
+///     ```
+fn py_rx<'py>(py: Python<'py>, angle: f64, angle_format: &PyAngleFormat) -> Bound<'py, PyArray<f64, Ix2>> {
+    matrix_to_numpy!(py, attitude::Rx(angle, angle_format.value), 3, 3, f64)
+}
+
+#[pyfunction]
+#[pyo3(text_signature = "(angle, angle_format)")]
+#[pyo3(name = "Ry")]
+/// Elementary rotation matrix about the Y axis, returned as a numpy array.
+///
+/// Free-function form of `RotationMatrix.Ry`: same convention, but returns a
+/// bare 3x3 numpy array rather than a `RotationMatrix`. The matrix is the
+/// passive (coordinate-frame) rotation by `angle` about the y-axis, mapping a
+/// vector's components in the original frame to its components in a frame
+/// rotated by `+angle` about y.
+///
+/// Args:
+///     angle (float): Rotation angle in radians or degrees.
+///     angle_format (AngleFormat): Units of input angle (`RADIANS` or `DEGREES`).
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix for the Y-axis rotation.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     r = bh.Ry(45.0, bh.AngleFormat.DEGREES)
+///     ```
+fn py_ry<'py>(py: Python<'py>, angle: f64, angle_format: &PyAngleFormat) -> Bound<'py, PyArray<f64, Ix2>> {
+    matrix_to_numpy!(py, attitude::Ry(angle, angle_format.value), 3, 3, f64)
+}
+
+#[pyfunction]
+#[pyo3(text_signature = "(angle, angle_format)")]
+#[pyo3(name = "Rz")]
+/// Elementary rotation matrix about the Z axis, returned as a numpy array.
+///
+/// Free-function form of `RotationMatrix.Rz`: same convention, but returns a
+/// bare 3x3 numpy array rather than a `RotationMatrix`. The matrix is the
+/// passive (coordinate-frame) rotation by `angle` about the z-axis, mapping a
+/// vector's components in the original frame to its components in a frame
+/// rotated by `+angle` about z.
+///
+/// Args:
+///     angle (float): Rotation angle in radians or degrees.
+///     angle_format (AngleFormat): Units of input angle (`RADIANS` or `DEGREES`).
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix for the Z-axis rotation.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     r = bh.Rz(45.0, bh.AngleFormat.DEGREES)
+///     ```
+fn py_rz<'py>(py: Python<'py>, angle: f64, angle_format: &PyAngleFormat) -> Bound<'py, PyArray<f64, Ix2>> {
+    matrix_to_numpy!(py, attitude::Rz(angle, angle_format.value), 3, 3, f64)
+}
+
 /// Helper function to convert EOPExtrapolation enumerations into representative string
 fn euler_angle_order_to_string(order: attitude::EulerAngleOrder) -> String {
     match order {

@@ -47,6 +47,12 @@ Transformations between GCRF and the Earth-Moon Rotating (EMR), Sun-Earth Rotati
 
 ::: brahe.state_gse_to_gcrf
 
+## SynodicOrigin
+
+Origin choice for the generic [`ReferenceFrame.Synodic`](router.md) constructor.
+
+::: brahe.SynodicOrigin
+
 ## See Also
 
 - [Synodic Reference Frames](../../learn/frames/synodic_frames.md)

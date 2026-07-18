@@ -3975,10 +3975,17 @@ def test_orbittrajectory_body_centered_inertial_providers(naif_cache_setup):
     ]:
         np.testing.assert_allclose(converted.state(epoch), expected, atol=1e-6)
 
-    # Elements about the Moon round-trip through the Moon's GM.
+    # Osculating elements about the Moon use the Moon's GM. state_koe_osc
+    # references elements to the LCI (ICRF-aligned) axes; the semi-major axis,
+    # eccentricity, and mean anomaly are independent of the reference plane, so
+    # they match the equator-referenced conversion of the same state.
     koe = traj.state_koe_osc(epoch, AngleFormat.DEGREES)
-    back = bh.state_koe_to_eci_for_body(koe, bh.GM_MOON, AngleFormat.DEGREES)
-    np.testing.assert_allclose(back, state, atol=1e-3)
+    koe_eq = bh.state_inertial_to_koe_for_body(
+        state, bh.CentralBody.Moon, AngleFormat.DEGREES
+    )
+    np.testing.assert_allclose(koe[0], koe_eq[0], atol=1e-6)  # semi-major axis
+    np.testing.assert_allclose(koe[1], koe_eq[1], atol=1e-9)  # eccentricity
+    np.testing.assert_allclose(koe[5], koe_eq[5], atol=1e-9)  # mean anomaly
 
     # state_bcbf (LFPA) preserves the position norm of the raw sample.
     bcbf = traj.state_bcbf(epoch)

@@ -38,10 +38,15 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email github-actions[bot]@users.noreply.github.com
 
+      # Shared with pr_tests.yml's "build-docs" job and update_docs.yml. This
+      # workflow only runs on pushes to main (docs-path-filtered), so it is
+      # safe to always allow saves here.
       - name: Set up Rust toolchain with cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
+          cache-shared-key: docs-build
+          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Set default Rust toolchain
         run: |

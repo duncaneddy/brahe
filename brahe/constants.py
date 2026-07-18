@@ -75,6 +75,13 @@ from brahe._brahe import (
     GM_NEPTUNE_SYSTEM,
     GM_PLUTO,
     GM_PLUTO_SYSTEM,
+    # Planetary radii
+    R_MERCURY,
+    R_VENUS,
+    R_JUPITER,
+    R_SATURN,
+    R_URANUS,
+    R_NEPTUNE,
     # Mars constants
     R_MARS,
     OMEGA_MARS,
@@ -149,6 +156,13 @@ __all__ = [
     "GM_NEPTUNE_SYSTEM",
     "GM_PLUTO",
     "GM_PLUTO_SYSTEM",
+    # Planetary radii
+    "R_MERCURY",
+    "R_VENUS",
+    "R_JUPITER",
+    "R_SATURN",
+    "R_URANUS",
+    "R_NEPTUNE",
     # Mars constants
     "R_MARS",
     "OMEGA_MARS",

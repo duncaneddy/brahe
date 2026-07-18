@@ -41,6 +41,14 @@ The Blue Marble images used in Brahe's plotting functions are provided by NASA a
 
 Some map data used in Brahe's plotting functions is sourced from Natural Earth, which is available under the [Public Domain](https://www.naturalearthdata.com/about/terms-of-use/). For more information, visit the [Natural Earth website](https://www.naturalearthdata.com/).
 
+### Solar System Scope Textures
+
+Planet and moon surface textures used in Brahe's plotting functions are
+provided by [Solar System Scope](https://www.solarsystemscope.com/textures/)
+under the [Creative Commons Attribution 4.0 International license](https://creativecommons.org/licenses/by/4.0/)
+(CC BY 4.0). Textures for small bodies marked "fictional" by the publisher
+are artistic impressions rather than survey imagery.
+
 ### FEX-RKN1210
 
 The brahe implementation of the RKN1210 integrator is based on the code by Rody Oldenhuis, which is provided under the following BSD 2-Clause License:

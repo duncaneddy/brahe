@@ -4,21 +4,22 @@
 # ///
 
 """
-SSN Radar Tracking: EKF, UKF, and Batch Least Squares Orbit Determination
+SSN Radar Tracking: Extended and Unscented Kalman Filters
 
-This example demonstrates how to:
-1. Load the Vallado SSN sensor dataset and build az/el/range sensors
-2. Visualize the sensor network's ground coverage against a LEO ground track
-3. Simulate radar measurements during passes over a 6-hour tracking arc
-4. Estimate the orbit sequentially with an Extended and an Unscented Kalman
-   Filter, propagating through gaps between passes
-5. Estimate the orbit in batch with Batch Least Squares over the same
-   observation set
-6. Compare filter consistency (true error vs. formal 3-sigma uncertainty)
-   across all three estimators
+This example simulates Space Surveillance Network (SSN) radar tracking of a
+LEO object and estimates its orbit sequentially with an Extended Kalman
+Filter and an Unscented Kalman Filter. It loads the Vallado SSN sensor
+dataset, builds az/el/range sensors, visualizes the sensor network's ground
+coverage against a simulated LEO ground track, simulates radar measurements
+during passes over a 6-hour tracking arc, processes them sequentially with
+both filters while propagating through the gaps between passes, and
+compares each filter's true position error against its formal 3-sigma
+uncertainty.
 
-The example shows the complete workflow from sensor network setup to
-sequential and batch orbit determination.
+A batch-estimation companion, ssn_tracking_bls.py, reproduces the same
+scenario and solves for the orbit with Batch Least Squares instead; it is
+excluded from the automated example tests because BLS re-propagates the
+full arc at every iteration and takes on the order of three minutes to run.
 """
 
 # --8<-- [start:all]
@@ -122,9 +123,32 @@ fig_network = bh.plot_groundtrack(
 # --8<-- [end:visualize_network]
 
 # --8<-- [start:simulate_measurements]
-# Find passes and simulate measurements only inside them
+# Find passes and simulate measurements only inside them. Sensor measurement
+# buckets for the figure below are filled as each pass is simulated, since
+# per-sensor plotting order doesn't depend on the global time order that the
+# sequential filters need; only `observations` has to be globally sorted.
+PALETTE = [
+    "#1f77b4",
+    "#ff7f0e",
+    "#2ca02c",
+    "#d62728",
+    "#9467bd",
+    "#8c564b",
+    "#e377c2",
+    "#7f7f7f",
+    "#bcbd22",
+    "#17becf",
+    "#aec7e8",
+    "#ffbb78",
+    "#98df8a",
+    "#ff9896",
+    "#c5b0d5",
+]
 observations = []
 passes = []  # (sensor_name, window, n_obs)
+sensor_meas = {
+    i: {"t": [], "az": [], "el": [], "range_km": []} for i in range(len(sensors))
+}
 for i, sensor in enumerate(sensors):
     constraint = bh.ElevationConstraint(min_elevation_deg=max(sensor.el_min, 1.0))
     windows = bh.location_accesses(
@@ -137,6 +161,12 @@ for i, sensor in enumerate(sensors):
         observations.extend(obs)
         if obs:
             passes.append((sensor.name, w, len(obs)))
+        bucket = sensor_meas[i]
+        for o in obs:
+            bucket["t"].append((o.epoch - epoch) / 60.0)
+            bucket["az"].append(o.measurement[0])
+            bucket["el"].append(o.measurement[1])
+            bucket["range_km"].append(o.measurement[2] / 1e3)
 
 observations.sort(key=lambda o: o.epoch)
 passes.sort(key=lambda p: p[1].window_open)
@@ -155,34 +185,6 @@ for sensor_name, w, n_obs in passes:
         f"{sensor_name:<28}{start_str:<22}{end_str:<22}{duration_min:>14.1f} m{n_obs:>8}"
     )
 print("=" * 100)
-
-# Bucket az/el/range measurements per sensor for the measurement figure
-PALETTE = [
-    "#1f77b4",
-    "#ff7f0e",
-    "#2ca02c",
-    "#d62728",
-    "#9467bd",
-    "#8c564b",
-    "#e377c2",
-    "#7f7f7f",
-    "#bcbd22",
-    "#17becf",
-    "#aec7e8",
-    "#ffbb78",
-    "#98df8a",
-    "#ff9896",
-    "#c5b0d5",
-]
-sensor_meas = {
-    i: {"t": [], "az": [], "el": [], "range_km": []} for i in range(len(sensors))
-}
-for obs in observations:
-    bucket = sensor_meas[obs.model_index]
-    bucket["t"].append((obs.epoch - epoch) / 60.0)
-    bucket["az"].append(obs.measurement[0])
-    bucket["el"].append(obs.measurement[1])
-    bucket["range_km"].append(obs.measurement[2] / 1e3)
 
 fig_measurements = make_subplots(
     rows=3,
@@ -320,32 +322,6 @@ print(
 
 ekf_t, ekf_err, ekf_sigma = extract_error_series(ekf, truth_traj, epoch)
 ukf_t, ukf_err, ukf_sigma = extract_error_series(ukf, truth_traj, epoch)
-
-# Batch Least Squares over the full observation set. The default
-# state-correction threshold (1e-8, mixed position/velocity units) is far
-# tighter than the ~cm-level precision this measurement set supports, so a
-# looser threshold is used to stop once corrections are physically
-# insignificant rather than exhausting max_iterations.
-start_time = time.time()
-bls_config = bh.BLSConfig(
-    state_correction_threshold=1e-3, cost_convergence_threshold=1e-6
-)
-bls = bh.BatchLeastSquares(
-    epoch,
-    initial_state,
-    p0,
-    propagation_config=bh.NumericalPropagationConfig.default(),
-    force_config=bh.ForceModelConfig.two_body(),
-    measurement_models=models,
-    config=bls_config,
-)
-bls.solve(observations)
-print(
-    f"BLS solved {len(observations)} observations in {time.time() - start_time:.1f} s"
-)
-
-bls_err = np.linalg.norm(bls.current_state()[:3] - true_state[:3])
-bls_sigma = np.sqrt(np.sum(np.diag(bls.formal_covariance())[:3]))
 # --8<-- [end:run_filters]
 
 # --8<-- [start:analyze_results]
@@ -415,22 +391,11 @@ for _, w, _ in passes:
             col=1,
         )
 
-# BLS final error as a reference line
-fig_filters.add_hline(
-    y=bls_err,
-    line_dash="dot",
-    line_color="black",
-    annotation_text=f"BLS final error: {bls_err:.1f} m",
-    annotation_position="top left",
-    row=1,
-    col=1,
-)
-
 fig_filters.update_xaxes(title_text="Time (minutes)", row=2, col=1)
 fig_filters.update_yaxes(title_text="Position error (m)", row=1, col=1)
 fig_filters.update_yaxes(title_text="3-sigma (m)", type="log", row=2, col=1)
 fig_filters.update_layout(
-    title="EKF / UKF Consistency vs. BLS Reference",
+    title="EKF / UKF Filter Consistency",
     height=800,
     margin=dict(l=60, r=40, t=80, b=60),
 )
@@ -444,18 +409,10 @@ print(
 print(
     f"UKF final position error: {ukf_err[-1]:.1f} m  (3-sigma = {3 * ukf_sigma[-1]:.1f} m)"
 )
-print(
-    f"BLS position error:       {bls_err:.1f} m  (3-sigma formal = {3 * bls_sigma:.1f} m)"
-)
-print(
-    f"BLS converged: {bls.converged()}, iterations: {bls.iterations_completed()}, "
-    f"final cost: {bls.final_cost():.6e}"
-)
 print("=" * 80)
 
 assert ekf_err[-1] < 500.0, "EKF should converge to a small position error"
 assert ukf_err[-1] < 500.0, "UKF should converge to a small position error"
-assert bls_err < 500.0, "BLS should converge to a small position error"
 print("\nExample validated successfully!")
 # --8<-- [end:analyze_results]
 # --8<-- [end:all]

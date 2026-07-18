@@ -1,6 +1,6 @@
 # SSN Radar Tracking: EKF, UKF, and Batch Least Squares
 
-In this example we'll simulate Space Surveillance Network (SSN) radar tracking of a LEO object and estimate its orbit with three different estimators: an Extended Kalman Filter (EKF), an Unscented Kalman Filter (UKF), and Batch Least Squares (BLS). We'll load the Vallado SSN sensor dataset, find the passes visible to each sensor over a 6-hour tracking arc, simulate az/el/range measurements during those passes, and compare how the three estimators converge on the true orbit.
+In this example we'll simulate Space Surveillance Network (SSN) radar tracking of a LEO object and estimate its orbit sequentially with an Extended Kalman Filter (EKF) and an Unscented Kalman Filter (UKF). We'll load the Vallado SSN sensor dataset, find the passes visible to each sensor over a 6-hour tracking arc, simulate az/el/range measurements during those passes, and compare how the two filters converge on the true orbit. A separate manual companion script solves the same scenario with Batch Least Squares (BLS); we walk through it near the end of this page.
 
 ---
 
@@ -60,8 +60,6 @@ The EKF and UKF process observations sequentially in epoch order. Passes are sep
 --8<-- "./examples/examples/ssn_tracking.py:run_filters"
 ```
 
-BLS, by contrast, solves the full 740-observation set at once rather than processing arc-by-arc. Its default state-correction convergence threshold (`1e-8`, in mixed position/velocity units) is far tighter than the centimeter-level precision this measurement set actually supports, so the example loosens `state_correction_threshold` to `1e-3` and adds a `cost_convergence_threshold` -- this stops the solver once corrections are physically insignificant instead of exhausting `max_iterations` on progressively smaller, noise-driven corrections.
-
 ## Analyze Results
 
 Finally, we compare true position error against each filter's formal 3-sigma uncertainty, and check that the uncertainty envelope actually bounds the error (filter consistency):
@@ -75,7 +73,19 @@ Finally, we compare true position error against each filter's formal 3-sigma unc
   <iframe class="only-dark"  src="../figures/ssn_tracking_filters_dark.html"  loading="lazy"></iframe>
 </div>
 
-The EKF and UKF converge to nearly identical results here (6.6 m final position error for both) since the two-body dynamics and az/el/range geometry are only mildly nonlinear over this arc; the UKF's sigma-point propagation does not offer a material advantage at this level of nonlinearity. Azimuth wrapping is handled consistently: `AzElRangeMeasurementModel.residual()` wraps the residual, the model's Jacobian differences through it, and the UKF forms its predicted measurement mean and innovation deviations through `residual()` as well, so a pass whose sigma-point azimuths straddle the 0/360&deg; wrap stays well-behaved. BLS, solving the full arc in one batch rather than propagating through gaps, reaches a 9.5 m final position error -- higher than the sequential filters here because it minimizes the weighted residual cost over the whole arc rather than tracking the most recent state, but with a comparable formal 3-sigma uncertainty (39.5 m vs. 42.1 m for the EKF/UKF).
+The EKF and UKF converge to nearly identical results here (6.6 m final position error for both) since the two-body dynamics and az/el/range geometry are only mildly nonlinear over this arc; the UKF's sigma-point propagation does not offer a material advantage at this level of nonlinearity. Azimuth wrapping is handled consistently: `AzElRangeMeasurementModel.residual()` wraps the residual, the model's Jacobian differences through it, and the UKF forms its predicted measurement mean and innovation deviations through `residual()` as well, so a pass whose sigma-point azimuths straddle the 0/360&deg; wrap stays well-behaved.
+
+## Batch Least Squares (Manual Companion)
+
+BLS solves for the orbit in one batch over the same 740 observations rather than processing them sequentially and stepping through the inter-pass gaps. Each Gauss-Newton iteration re-propagates the full six-hour arc together with the state transition matrix, so solving this scenario takes on the order of three minutes -- far more than the EKF and UKF above, which together run in under a second. Because that runtime is too slow to include in the automated example tests, this variant lives in its own script, `ssn_tracking_bls.py`, carrying `FLAGS = ["MANUAL"]` so it is skipped by `just test-examples` and only runs when invoked directly.
+
+The script reproduces the same scenario as `ssn_tracking.py` -- the sensor dataset, the truth orbit with its Hermite-cubic interpolation, and the simulated measurements -- before solving with BLS. Its default state-correction convergence threshold (`1e-8`, in mixed position/velocity units) is far tighter than the centimeter-level precision this measurement set actually supports, so the script loosens `state_correction_threshold` to `1e-3` and adds a `cost_convergence_threshold`; this stops the solver once corrections are physically insignificant instead of exhausting `max_iterations` on progressively smaller, noise-driven corrections:
+
+``` python
+--8<-- "./examples/examples/ssn_tracking_bls.py:run_bls"
+```
+
+A representative manual run converges in 4 iterations and reaches a 9.5 m final position error, with a formal 3-sigma uncertainty of 39.5 m. That error is somewhat higher than the sequential filters reach (6.6 m) because BLS minimizes the weighted residual cost over the whole arc rather than tracking the most recent state, though the formal uncertainty is comparable to the EKF/UKF's 42.1 m.
 
 ## Full Code Example
 

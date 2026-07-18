@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy"]
-# FLAGS = ["CI-ONLY"]
-# TIMEOUT = 300
+# FLAGS = ["MANUAL"]
 # ///
 
 """
-SSN Radar Tracking: Batch Least Squares (CI-gated companion)
+SSN Radar Tracking: Batch Least Squares (manual companion)
 
 This is the batch-estimation companion to ssn_tracking.py. It reproduces
 the same 6-hour SSN tracking scenario -- the Vallado SSN sensor dataset,
@@ -14,14 +13,12 @@ the 700 km/72 degree LEO truth orbit, and the simulated az/el/range
 measurements -- and estimates the orbit with Batch Least Squares (BLS)
 instead of a sequential filter.
 
-It carries `FLAGS = ["CI-ONLY"]` and is excluded from the default local
-example run because BLS re-propagates the full 6-hour arc at every
-Gauss-Newton iteration; even after loosening the default convergence
-threshold this takes on the order of three minutes, which is too slow to
-run on every `just test-examples` invocation. It still executes in the
-CI-gated example tier (`just test-examples --ci-only`), and its committed
-output (docs/outputs/examples/ssn_tracking_bls.py.txt) keeps the results
-available in the documentation without requiring a local run.
+It carries `FLAGS = ["MANUAL"]` and is never run by the automated example
+tests: BLS re-propagates the full 6-hour arc at every Gauss-Newton
+iteration, which takes minutes locally and exceeds the example-runner
+timeout on CI machines. Run this script directly to regenerate its
+committed output (docs/outputs/examples/ssn_tracking_bls.py.txt), which
+keeps the results available in the documentation without requiring a run.
 """
 
 # --8<-- [start:all]

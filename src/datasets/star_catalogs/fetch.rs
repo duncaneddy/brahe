@@ -7,13 +7,20 @@
  */
 
 use std::fs;
-use std::io::Read;
 use std::path::Path;
 use std::time::SystemTime;
 
 use crate::utils::BraheError;
 use crate::utils::atomic_write;
 use crate::utils::cache::get_star_catalogs_cache_dir;
+use crate::utils::download::download_bytes_with_user_agent;
+
+/// `User-Agent` header sent with star catalog downloads.
+///
+/// The mirror (`simplespacedata.org`) returns `403 Forbidden` to default HTTP
+/// client user agents (e.g. ureq's or curl's default), so a browser-style
+/// User-Agent is required.
+const USER_AGENT: &str = "Mozilla/5.0 (compatible; brahe)";
 
 /// Read a cached copy of a star catalog file, if present and not stale.
 ///
@@ -64,6 +71,11 @@ pub(crate) fn read_cache(
 
 /// Download a file from a URL, without touching the cache.
 ///
+/// Uses the shared [`crate::utils::download`] retry/backoff machinery (with a
+/// browser-style `User-Agent`, see [`USER_AGENT`]) reading the body through a
+/// streaming reader to avoid ureq's default in-memory size limit — the
+/// Tycho-2 catalog is ~526 MB.
+///
 /// # Arguments
 ///
 /// * `url` - Full URL to fetch
@@ -72,7 +84,12 @@ pub(crate) fn read_cache(
 ///
 /// * `Result<String, BraheError>` - File contents as a string
 pub(crate) fn download(url: &str) -> Result<String, BraheError> {
-    execute_get(url)
+    let bytes = download_bytes_with_user_agent(url, USER_AGENT)
+        .map_err(|e| BraheError::IoError(format!("Star catalog request failed: {}", e)))?;
+
+    String::from_utf8(bytes).map_err(|e| {
+        BraheError::IoError(format!("Star catalog response is not valid UTF-8: {}", e))
+    })
 }
 
 /// Write a successfully parsed star catalog file to the cache.
@@ -111,27 +128,6 @@ fn is_cache_stale(path: &Path, cache_max_age: f64) -> Result<bool, BraheError> {
         .unwrap_or_default();
 
     Ok(age.as_secs_f64() >= cache_max_age)
-}
-
-/// Execute an HTTP GET request and return the response body.
-fn execute_get(url: &str) -> Result<String, BraheError> {
-    let agent = ureq::Agent::new_with_defaults();
-    let response = agent
-        .get(url)
-        .call()
-        .map_err(|e| BraheError::IoError(format!("Star catalog request failed: {}", e)))?;
-
-    // Read body manually to avoid ureq's default 10MB size limit.
-    // Tycho-2 is ~526MB.
-    let mut buffer = Vec::new();
-    let mut reader = response.into_body().into_reader();
-    reader
-        .read_to_end(&mut buffer)
-        .map_err(|e| BraheError::IoError(format!("Failed to read star catalog response: {}", e)))?;
-
-    String::from_utf8(buffer).map_err(|e| {
-        BraheError::IoError(format!("Star catalog response is not valid UTF-8: {}", e))
-    })
 }
 
 #[cfg(test)]

@@ -1094,8 +1094,10 @@ impl PyTycho2Catalog {
 ///     ```
 #[pyfunction]
 #[pyo3(name = "star_catalog_get_fk5", signature = (cache_max_age=None))]
-fn py_star_catalog_get_fk5(cache_max_age: Option<f64>) -> PyResult<PyFK5Catalog> {
-    let catalog = star_catalog::get_fk5_catalog(cache_max_age)?;
+fn py_star_catalog_get_fk5(py: Python<'_>, cache_max_age: Option<f64>) -> PyResult<PyFK5Catalog> {
+    // Release the GIL during the (potentially slow) download/parse so other
+    // Python threads can keep running.
+    let catalog = py.detach(|| star_catalog::get_fk5_catalog(cache_max_age))?;
     Ok(PyFK5Catalog { inner: catalog })
 }
 
@@ -1129,8 +1131,13 @@ fn py_star_catalog_get_fk5(cache_max_age: Option<f64>) -> PyResult<PyFK5Catalog>
 ///     ```
 #[pyfunction]
 #[pyo3(name = "star_catalog_get_hipparcos", signature = (cache_max_age=None))]
-fn py_star_catalog_get_hipparcos(cache_max_age: Option<f64>) -> PyResult<PyHipparcosCatalog> {
-    let catalog = star_catalog::get_hipparcos_catalog(cache_max_age)?;
+fn py_star_catalog_get_hipparcos(
+    py: Python<'_>,
+    cache_max_age: Option<f64>,
+) -> PyResult<PyHipparcosCatalog> {
+    // Release the GIL during the (potentially slow) download/parse so other
+    // Python threads can keep running.
+    let catalog = py.detach(|| star_catalog::get_hipparcos_catalog(cache_max_age))?;
     Ok(PyHipparcosCatalog { inner: catalog })
 }
 
@@ -1161,8 +1168,13 @@ fn py_star_catalog_get_hipparcos(cache_max_age: Option<f64>) -> PyResult<PyHippa
 ///     ```
 #[pyfunction]
 #[pyo3(name = "star_catalog_get_tycho2", signature = (cache_max_age=None))]
-fn py_star_catalog_get_tycho2(cache_max_age: Option<f64>) -> PyResult<PyTycho2Catalog> {
-    let catalog = star_catalog::get_tycho2_catalog(cache_max_age)?;
+fn py_star_catalog_get_tycho2(
+    py: Python<'_>,
+    cache_max_age: Option<f64>,
+) -> PyResult<PyTycho2Catalog> {
+    // Release the GIL during the (potentially slow) download/parse so other
+    // Python threads can keep running.
+    let catalog = py.detach(|| star_catalog::get_tycho2_catalog(cache_max_age))?;
     Ok(PyTycho2Catalog { inner: catalog })
 }
 

@@ -78,7 +78,7 @@ pub fn position_inertial_to_radec(x_inertial: SVector3, angle_format: AngleForma
     let r = x_inertial.norm();
     let r_eq = (x_inertial[0].powi(2) + x_inertial[1].powi(2)).sqrt();
     let dec = (x_inertial[2] / r).asin();
-    let ra = if r_eq > 1e-12 {
+    let ra = if r_eq > 1e-12 * r {
         x_inertial[1].atan2(x_inertial[0]).rem_euclid(TAU)
     } else {
         0.0 // RA indeterminate directly over the pole; use state variant to resolve
@@ -145,7 +145,14 @@ pub fn state_radec_to_inertial(x_radec: SVector6, angle_format: AngleFormat) -> 
 /// Right ascension is normalized to the range `[0, 360)` degrees (or `[0, 2π)`
 /// radians). At the polar singularity (`x = y = 0`), where right ascension is
 /// indeterminate from position alone, it is instead resolved from the
-/// velocity components (Vallado Algorithm 25).
+/// velocity components (Vallado Algorithm 25): `ra = atan2(vy, vx)`. In that
+/// same branch `ra_dot`/`dec_dot` are indeterminate by the ordinary formulas
+/// (they divide by the equatorial radius, which is zero at the pole), so they
+/// are resolved geometrically instead: `ra_dot` is taken as `0` (the
+/// instantaneous position-only RA fix above has no rate of its own), and
+/// `dec_dot` is `-sign(z) * sqrt(vx^2 + vy^2) / r` — any horizontal motion
+/// carries the sub-point away from the pole, so declination decreases at the
+/// north pole and increases at the south pole.
 ///
 /// # Arguments
 /// - `x_inertial`: Cartesian inertial position and velocity: `[x, y, z, vx, vy, vz]`. Units: (*m*; *m/s*)
@@ -178,15 +185,22 @@ pub fn state_inertial_to_radec(x_inertial: SVector6, angle_format: AngleFormat) 
     let r = x_inertial.fixed_rows::<3>(0).norm();
     let r_eq = (ri.powi(2) + rj.powi(2)).sqrt();
     let dec = (rk / r).asin();
-    let ra = if r_eq > 1e-12 {
+    let polar = r_eq <= 1e-12 * r;
+    let ra = if !polar {
         rj.atan2(ri).rem_euclid(TAU)
     } else {
         vj.atan2(vi).rem_euclid(TAU)
     };
 
     let r_dot = (ri * vi + rj * vj + rk * vk) / r;
-    let ra_dot = (vj * ri - vi * rj) / (ri.powi(2) + rj.powi(2));
-    let dec_dot = (vk - r_dot * (rk / r)) / r_eq;
+    let (ra_dot, dec_dot) = if !polar {
+        (
+            (vj * ri - vi * rj) / (ri.powi(2) + rj.powi(2)),
+            (vk - r_dot * (rk / r)) / r_eq,
+        )
+    } else {
+        (0.0, -rk.signum() * (vi.powi(2) + vj.powi(2)).sqrt() / r)
+    };
 
     match angle_format {
         AngleFormat::Degrees => SVector6::new(
@@ -769,6 +783,25 @@ mod tests {
         assert_abs_diff_eq!(x_radec[0], 90.0, epsilon = 1e-12);
         assert_abs_diff_eq!(x_radec[1], 90.0, epsilon = 1e-12);
         assert_abs_diff_eq!(x_radec[2], 7000e3, epsilon = 1e-9);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_state_inertial_to_radec_polar_rates() {
+        // r=(0,0,7000e3), v=(100,0,0): directly over the north pole, so
+        // ra_dot is indeterminate and taken as 0, and dec_dot = -v_horiz/r
+        // (horizontal motion carries the sub-point away from the pole).
+        let r = 7000e3;
+        let x_inertial = SVector6::new(0.0, 0.0, r, 100.0, 0.0, 0.0);
+        let x_radec = state_inertial_to_radec(x_inertial, AngleFormat::Radians);
+        assert_abs_diff_eq!(x_radec[3], 0.0, epsilon = 1e-15); // ra_dot
+        assert_abs_diff_eq!(x_radec[4], -100.0 / r, epsilon = 1e-15); // dec_dot
+
+        // South-pole mirror: dec_dot flips sign.
+        let x_inertial = SVector6::new(0.0, 0.0, -r, 100.0, 0.0, 0.0);
+        let x_radec = state_inertial_to_radec(x_inertial, AngleFormat::Radians);
+        assert_abs_diff_eq!(x_radec[3], 0.0, epsilon = 1e-15); // ra_dot
+        assert_abs_diff_eq!(x_radec[4], 100.0 / r, epsilon = 1e-15); // dec_dot
     }
 
     #[test]

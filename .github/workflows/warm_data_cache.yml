@@ -69,10 +69,12 @@ jobs:
                 run: |
                     mkdir -p ~/.cache/brahe/star_catalog
                     [ -s ~/.cache/brahe/star_catalog/FK5_Catalog.txt ] || \
-                        curl -sL -A "Mozilla/5.0" \
-                            -o ~/.cache/brahe/star_catalog/FK5_Catalog.txt \
-                            https://www.simplespacedata.org/star_catalog/cds/fk5/latest/FK5_Catalog.txt
+                        curl -fsSL -A "Mozilla/5.0" \
+                            -o ~/.cache/brahe/star_catalog/FK5_Catalog.txt.tmp \
+                            https://www.simplespacedata.org/star_catalog/cds/fk5/latest/FK5_Catalog.txt \
+                        && mv ~/.cache/brahe/star_catalog/FK5_Catalog.txt.tmp ~/.cache/brahe/star_catalog/FK5_Catalog.txt
                     [ -s ~/.cache/brahe/star_catalog/Hipparcos_Catalog.txt ] || \
-                        curl -sL -A "Mozilla/5.0" \
-                            -o ~/.cache/brahe/star_catalog/Hipparcos_Catalog.txt \
-                            https://www.simplespacedata.org/star_catalog/cds/hipparcos/latest/Hipparcos_Catalog.txt
+                        curl -fsSL -A "Mozilla/5.0" \
+                            -o ~/.cache/brahe/star_catalog/Hipparcos_Catalog.txt.tmp \
+                            https://www.simplespacedata.org/star_catalog/cds/hipparcos/latest/Hipparcos_Catalog.txt \
+                        && mv ~/.cache/brahe/star_catalog/Hipparcos_Catalog.txt.tmp ~/.cache/brahe/star_catalog/Hipparcos_Catalog.txt

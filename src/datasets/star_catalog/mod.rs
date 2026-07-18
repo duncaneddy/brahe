@@ -28,7 +28,14 @@ pub const DEFAULT_BASE_URL: &str = "https://www.simplespacedata.org/star_catalog
 /// Parse an optional `f64` value from a fixed-width text field.
 ///
 /// Returns `None` for empty or whitespace-only fields, or if the trimmed
-/// text cannot be parsed as a floating-point number.
+/// text cannot be parsed as a floating-point number. This is a deliberately
+/// lenient policy: a malformed non-blank numeric field parses as `None`
+/// rather than raising a per-field error, consistent with CDS-catalog
+/// conventions and the `gcat` parsers this module follows. File-level
+/// integrity is instead enforced by the getters (`get_fk5_catalog`,
+/// `get_hipparcos_catalog`, `get_tycho2_catalog`), which validate that a
+/// downloaded file parses to at least one record before it is written to
+/// cache.
 pub(crate) fn opt_f64(value: &str) -> Option<f64> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
@@ -72,9 +79,42 @@ pub(crate) fn opt_string(value: &str) -> Option<String> {
 /// println!("Loaded {} records", catalog.len());
 /// ```
 pub fn get_fk5_catalog(cache_max_age: Option<f64>) -> Result<FK5Catalog, BraheError> {
-    let url = format!("{}/fk5/latest/FK5_Catalog.txt", DEFAULT_BASE_URL);
-    let data = fetch::fetch_with_cache(&url, "FK5_Catalog.txt", cache_max_age)?;
-    let records = fk5::parse_fk5_text(&data)?;
+    get_fk5_catalog_from_url(DEFAULT_BASE_URL, cache_max_age)
+}
+
+/// As [`get_fk5_catalog`], but fetching from a caller-specified base URL.
+///
+/// Not part of the public API; the URL seam exists solely so tests can point
+/// the getter at a mock server without exposing a public URL override.
+///
+/// Tries the cache first; on a cache miss, or if the cached content fails to
+/// parse (including parsing to zero records), forces a fresh download. The
+/// downloaded body is only written to cache after it has been confirmed to
+/// parse successfully with at least one record, so a bad download never
+/// poisons the cache, and a previously poisoned cache self-heals on the next
+/// call.
+pub(crate) fn get_fk5_catalog_from_url(
+    base_url: &str,
+    cache_max_age: Option<f64>,
+) -> Result<FK5Catalog, BraheError> {
+    let filename = "FK5_Catalog.txt";
+
+    if let Some(cached) = fetch::read_cache(filename, cache_max_age)?
+        && let Ok(records) = fk5::parse_fk5_text(&cached)
+        && !records.is_empty()
+    {
+        return Ok(FK5Catalog::new(records));
+    }
+
+    let url = format!("{}/fk5/latest/FK5_Catalog.txt", base_url);
+    let body = fetch::download(&url)?;
+    let records = fk5::parse_fk5_text(&body)?;
+    if records.is_empty() {
+        return Err(BraheError::ParseError(
+            "FK5 catalog download parsed to 0 records".to_string(),
+        ));
+    }
+    fetch::commit_cache(filename, &body)?;
     Ok(FK5Catalog::new(records))
 }
 
@@ -101,12 +141,42 @@ pub fn get_fk5_catalog(cache_max_age: Option<f64>) -> Result<FK5Catalog, BraheEr
 /// println!("Loaded {} records", catalog.len());
 /// ```
 pub fn get_hipparcos_catalog(cache_max_age: Option<f64>) -> Result<HipparcosCatalog, BraheError> {
-    let url = format!(
-        "{}/hipparcos/latest/Hipparcos_Catalog.txt",
-        DEFAULT_BASE_URL
-    );
-    let data = fetch::fetch_with_cache(&url, "Hipparcos_Catalog.txt", cache_max_age)?;
-    let records = hipparcos::parse_hipparcos_text(&data)?;
+    get_hipparcos_catalog_from_url(DEFAULT_BASE_URL, cache_max_age)
+}
+
+/// As [`get_hipparcos_catalog`], but fetching from a caller-specified base URL.
+///
+/// Not part of the public API; the URL seam exists solely so tests can point
+/// the getter at a mock server without exposing a public URL override.
+///
+/// Tries the cache first; on a cache miss, or if the cached content fails to
+/// parse (including parsing to zero records), forces a fresh download. The
+/// downloaded body is only written to cache after it has been confirmed to
+/// parse successfully with at least one record, so a bad download never
+/// poisons the cache, and a previously poisoned cache self-heals on the next
+/// call.
+pub(crate) fn get_hipparcos_catalog_from_url(
+    base_url: &str,
+    cache_max_age: Option<f64>,
+) -> Result<HipparcosCatalog, BraheError> {
+    let filename = "Hipparcos_Catalog.txt";
+
+    if let Some(cached) = fetch::read_cache(filename, cache_max_age)?
+        && let Ok(records) = hipparcos::parse_hipparcos_text(&cached)
+        && !records.is_empty()
+    {
+        return Ok(HipparcosCatalog::new(records));
+    }
+
+    let url = format!("{}/hipparcos/latest/Hipparcos_Catalog.txt", base_url);
+    let body = fetch::download(&url)?;
+    let records = hipparcos::parse_hipparcos_text(&body)?;
+    if records.is_empty() {
+        return Err(BraheError::ParseError(
+            "Hipparcos catalog download parsed to 0 records".to_string(),
+        ));
+    }
+    fetch::commit_cache(filename, &body)?;
     Ok(HipparcosCatalog::new(records))
 }
 
@@ -134,8 +204,115 @@ pub fn get_hipparcos_catalog(cache_max_age: Option<f64>) -> Result<HipparcosCata
 /// println!("Loaded {} records", catalog.len());
 /// ```
 pub fn get_tycho2_catalog(cache_max_age: Option<f64>) -> Result<Tycho2Catalog, BraheError> {
-    let url = format!("{}/tycho2/latest/Tycho2_Catalog.txt", DEFAULT_BASE_URL);
-    let data = fetch::fetch_with_cache(&url, "Tycho2_Catalog.txt", cache_max_age)?;
-    let records = tycho2::parse_tycho2_text(&data)?;
+    get_tycho2_catalog_from_url(DEFAULT_BASE_URL, cache_max_age)
+}
+
+/// As [`get_tycho2_catalog`], but fetching from a caller-specified base URL.
+///
+/// Not part of the public API; the URL seam exists solely so tests can point
+/// the getter at a mock server without exposing a public URL override.
+///
+/// Tries the cache first; on a cache miss, or if the cached content fails to
+/// parse (including parsing to zero records), forces a fresh download. The
+/// downloaded body is only written to cache after it has been confirmed to
+/// parse successfully with at least one record, so a bad download never
+/// poisons the cache, and a previously poisoned cache self-heals on the next
+/// call.
+pub(crate) fn get_tycho2_catalog_from_url(
+    base_url: &str,
+    cache_max_age: Option<f64>,
+) -> Result<Tycho2Catalog, BraheError> {
+    let filename = "Tycho2_Catalog.txt";
+
+    if let Some(cached) = fetch::read_cache(filename, cache_max_age)?
+        && let Ok(records) = tycho2::parse_tycho2_text(&cached)
+        && !records.is_empty()
+    {
+        return Ok(Tycho2Catalog::new(records));
+    }
+
+    let url = format!("{}/tycho2/latest/Tycho2_Catalog.txt", base_url);
+    let body = fetch::download(&url)?;
+    let records = tycho2::parse_tycho2_text(&body)?;
+    if records.is_empty() {
+        return Err(BraheError::ParseError(
+            "Tycho-2 catalog download parsed to 0 records".to_string(),
+        ));
+    }
+    fetch::commit_cache(filename, &body)?;
     Ok(Tycho2Catalog::new(records))
+}
+
+#[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
+mod tests {
+    use std::fs;
+    use std::path::Path;
+
+    use serial_test::serial;
+
+    use crate::utils::cache::get_star_catalog_cache_dir;
+
+    use super::*;
+
+    const SAMPLE: &str = include_str!("../../../test_assets/star_catalog/FK5_Catalog_sample.txt");
+
+    // Both tests below read/write the real FK5 cache file
+    // (`FK5_Catalog.txt`), so they must not run concurrently with each other.
+    #[test]
+    #[serial(fk5_catalog_cache)]
+    fn test_get_catalog_does_not_cache_bad_download() {
+        let server = httpmock::MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method("GET")
+                .path_includes("/fk5/latest/FK5_Catalog.txt");
+            then.status(200)
+                .body("this is not a valid FK5 catalog file\ngarbage\n");
+        });
+
+        let cache_dir = get_star_catalog_cache_dir().unwrap();
+        let cache_path = Path::new(&cache_dir).join("FK5_Catalog.txt");
+        let _ = fs::remove_file(&cache_path); // start from a clean (no-cache) state
+
+        let result = get_fk5_catalog_from_url(&server.base_url(), None);
+        assert!(result.is_err());
+        assert!(
+            !cache_path.exists(),
+            "a failed parse of freshly downloaded data must not be cached"
+        );
+
+        mock.assert_calls(1);
+    }
+
+    #[test]
+    #[serial(fk5_catalog_cache)]
+    fn test_get_catalog_heals_corrupt_cache() {
+        let server = httpmock::MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method("GET")
+                .path_includes("/fk5/latest/FK5_Catalog.txt");
+            then.status(200).body(SAMPLE);
+        });
+
+        let cache_dir = get_star_catalog_cache_dir().unwrap();
+        let cache_path = Path::new(&cache_dir).join("FK5_Catalog.txt");
+        fs::write(&cache_path, "corrupt cache data that will not parse\n").unwrap();
+
+        let result = get_fk5_catalog_from_url(&server.base_url(), None);
+        assert!(
+            result.is_ok(),
+            "corrupt cache must self-heal via re-download"
+        );
+        assert_eq!(result.unwrap().len(), 10);
+
+        mock.assert_calls(1);
+
+        let cached_contents = fs::read_to_string(&cache_path).unwrap();
+        assert_eq!(
+            cached_contents, SAMPLE,
+            "cache must be replaced with the valid download"
+        );
+
+        let _ = fs::remove_file(&cache_path);
+    }
 }

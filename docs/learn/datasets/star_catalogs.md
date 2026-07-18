@@ -1,6 +1,6 @@
 # Star Catalogs
 
-Brahe provides three fixed-epoch star catalogs - **FK5**, **Hipparcos**, and **Tycho-2** - for reference-frame realization and star-based attitude determination. Unlike other datasets, star catalogs are static: once published they do not change, so cached copies never go stale by default.
+Brahe provides three fixed-epoch star catalogs - **FK5**, **Hipparcos**, and **Tycho-2** - for reference-frame realization and star-based attitude determination. Unlike other datasets, star catalogs are static: once published they are not expected to change, so cached copies never go stale by default.
 
 For complete API details, see the [Star Catalogs API Reference](../../library_api/datasets/star_catalogs.md).
 
@@ -28,7 +28,7 @@ A small fraction of Tycho-2 entries (`pflag == "X"`) have no mean astrometric so
 Star catalog data is downloaded from `https://www.simplespacedata.org/star_catalog/cds` with file-based caching:
 
 - **Cache location**: `~/.cache/brahe/star_catalogs/` (or `$BRAHE_CACHE/star_catalogs/` if set)
-- **Default TTL**: none - the cached copy **never goes stale**, since published star catalogs do not change
+- **Default TTL**: none - the cached copy **never goes stale**, since published star catalogs are not expected to change
 - **Force refresh**: Pass `cache_max_age=0` (Python) / `Some(0.0)` (Rust) to bypass the cache and download fresh data
 
 This differs from GCAT's 24-hour TTL: FK5, Hipparcos, and Tycho-2 are fixed, one-time publications, so there is no staleness to guard against by default.

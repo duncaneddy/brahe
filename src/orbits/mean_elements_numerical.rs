@@ -788,6 +788,85 @@ mod tests {
         assert_abs_diff_eq!(d_m, 0.0, epsilon = 1e-3);
     }
 
+    /// `element_residual` wraps angular residuals into `[-pi, pi]` in both directions;
+    /// linear components (`a`, `e`) pass through unwrapped.
+    #[test]
+    #[parallel]
+    fn test_element_residual_wraps_both_directions() {
+        let two_pi = 2.0 * std::f64::consts::PI;
+        let hi = SVector::<f64, 6>::new(7.0e6, 0.01, 3.0, 0.0, 0.0, 0.0);
+        let lo = SVector::<f64, 6>::new(7.0e6, 0.02, -3.0, 0.0, 0.0, 0.0);
+        // target - value = +6 rad > pi: wraps down by 2*pi.
+        let r = element_residual(&hi, &lo);
+        assert_abs_diff_eq!(r[2], 6.0 - two_pi, epsilon = 1e-12);
+        // target - value = -6 rad < -pi: wraps up by 2*pi.
+        let r2 = element_residual(&lo, &hi);
+        assert_abs_diff_eq!(r2[2], -6.0 + two_pi, epsilon = 1e-12);
+        // Linear components are plain differences.
+        assert_abs_diff_eq!(r[0], 0.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(r2[1], 0.01, epsilon = 1e-12);
+    }
+
+    /// `detrended_fast_angle` unwraps a positive `>pi` jump between adjacent samples
+    /// and returns a value normalized to `[0, 2*pi)`.
+    #[test]
+    #[parallel]
+    fn test_detrended_fast_angle_unwraps_positive_jump() {
+        let two_pi = 2.0 * std::f64::consts::PI;
+        let ts = vec![-1.0, 0.0, 1.0];
+        // Consecutive deltas exceed pi (0.1 -> 6.2 is +6.1), forcing the unwrap branch.
+        let ls = vec![0.1, 6.2, 0.2 + two_pi];
+        let val = detrended_fast_angle(&ts, &ls);
+        assert!(val.is_finite());
+        assert!((0.0..two_pi).contains(&val));
+    }
+
+    /// A target whose analytical Brouwer-Lyddane seed is non-finite (exactly equatorial
+    /// inclination makes the seed divide by `tan(i) = 0`) must fall back to seeding from
+    /// the target itself and never return a NaN result.
+    #[test]
+    #[serial_test::serial]
+    fn test_numerical_mean_to_osc_nonfinite_seed_fallback() {
+        use crate::propagators::{ForceModelConfig, NumericalPropagationConfig};
+        crate::utils::testing::setup_global_test_eop();
+
+        let mean_deg = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 0.0, 0.0, 0.0, 0.0);
+        let mean_rad = crate::math::angles::oe_to_radians(mean_deg, AngleFormat::Degrees);
+        // Confirm the analytical seed is genuinely non-finite for this equatorial target,
+        // so this test actually exercises the fallback rather than the normal path.
+        let seed = state_koe_mean_to_osc(
+            &mean_deg,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Degrees,
+        )
+        .unwrap();
+        assert!(
+            !seed.iter().all(|v| v.is_finite()),
+            "expected non-finite Brouwer-Lyddane seed at i = 0"
+        );
+
+        let period = crate::orbits::orbital_period(mean_rad[0]);
+        let cfg = MeanElementNumericalMethodConfig {
+            window_seconds: period,
+            alignment: WindowAlignment::Centered,
+            edge: WindowEdgeHandling::PreserveWindow,
+            inverse: Some(MeanElementInverseConfig {
+                force_model: ForceModelConfig::earth_gravity(),
+                propagation: NumericalPropagationConfig::default(),
+                tolerance: 1.0,
+                max_iterations: 25,
+            }),
+        };
+        let epochs = vec![Epoch::from_gps_seconds(0.0)];
+        // Either converges to a finite osculating state or reports a clean NumericalError,
+        // but never a NaN result or panic.
+        match numerical_mean_to_osc(&epochs, &[mean_rad], &cfg) {
+            Ok(out) => assert!(out[0].1.iter().all(|v| v.is_finite())),
+            Err(BraheError::NumericalError(_)) => {}
+            Err(e) => panic!("unexpected error variant: {e:?}"),
+        }
+    }
+
     #[test]
     #[serial_test::serial]
     fn test_numerical_mean_to_osc_requires_inverse_config() {

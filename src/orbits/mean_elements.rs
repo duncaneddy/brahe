@@ -1261,6 +1261,46 @@ mod tests {
         assert_abs_diff_eq!(mid[2], mean_deg[2], epsilon = 2e-3);
     }
 
+    /// Numerical batch dispatch with `AngleFormat::Radians` output, covering the
+    /// radians branch of `convert_pairs_out` (the degrees case is exercised above).
+    #[test]
+    #[parallel]
+    fn test_batch_osc_to_mean_numerical_radians() {
+        let mean_deg = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 0.0);
+        let period = crate::orbits::orbital_period(mean_deg[0]);
+        let t0 = Epoch::from_gps_seconds(0.0);
+        let n = 201usize;
+        let mut epochs = Vec::with_capacity(n);
+        let mut states = Vec::with_capacity(n);
+        for j in 0..n {
+            let frac = j as f64 / (n as f64 - 1.0);
+            let mut m = mean_deg;
+            m[5] = (frac * 360.0) % 360.0;
+            let osc_deg =
+                state_koe_mean_to_osc(&m, MeanElementMethod::BrouwerLyddane, AngleFormat::Degrees)
+                    .unwrap();
+            epochs.push(t0 + frac * period);
+            states.push(oe_to_radians(osc_deg, AngleFormat::Degrees));
+        }
+        let cfg = MeanElementNumericalMethodConfig {
+            window_seconds: period,
+            alignment: WindowAlignment::Centered,
+            edge: WindowEdgeHandling::Truncate,
+            inverse: None,
+        };
+        let out = batch_state_koe_osc_to_mean(
+            &epochs,
+            &states,
+            MeanElementMethod::Numerical(cfg),
+            AngleFormat::Radians,
+        )
+        .unwrap();
+        assert!(!out.is_empty());
+        let (_, mid) = &out[out.len() / 2];
+        // Output is in radians: inclination recovers ~45 degrees expressed in radians.
+        assert_abs_diff_eq!(mid[2], 45.0_f64.to_radians(), epsilon = 2e-3);
+    }
+
     /// `batch_state_koe_mean_to_osc` must reject mismatched `epochs`/`states` lengths
     /// (mirrors `test_batch_mismatched_lengths_is_error`, which only covers the
     /// osc->mean direction).

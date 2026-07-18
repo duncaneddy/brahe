@@ -142,7 +142,7 @@ For stars, which are effectively at infinite range, this correction is unnecessa
 
     bh.initialize_eop()
 
-    epc = bh.Epoch.from_datetime(2024, 3, 20, 12, 0, 0.0, 0.0, "UTC")
+    epc = bh.Epoch.from_datetime(2024, 3, 20, 12, 0, 0.0, 0.0, bh.UTC)
     site = np.array([-122.17, 37.43, 100.0])  # Stanford, deg/deg/m
     x_radec = np.array([101.28, -16.72, 1.0])
 

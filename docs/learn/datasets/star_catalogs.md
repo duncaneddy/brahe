@@ -110,7 +110,7 @@ import brahe as bh
 hipparcos = bh.datasets.star_catalog.get_hipparcos()
 sirius = hipparcos.get_by_id(32349)
 
-epc = bh.Epoch.from_datetime(2030, 1, 1, 0, 0, 0.0, 0.0, "UTC")
+epc = bh.Epoch.from_datetime(2030, 1, 1, 0, 0, 0.0, 0.0, bh.UTC)
 ra, dec = sirius.radec_at_epoch(epc, bh.AngleFormat.DEGREES)
 ```
 

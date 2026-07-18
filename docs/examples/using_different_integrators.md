@@ -124,9 +124,11 @@ To visualize how each integrator performs over time, we plot the angular momentu
 
 ## Full Code Example
 
-```python title="comparing_methods.py"
---8<-- "./examples/examples/comparing_methods.py:all"
-```
+??? "Full Code"
+
+    ```python title="comparing_methods.py"
+    --8<-- "./examples/examples/comparing_methods.py:all"
+    ```
 
 ## See Also
 

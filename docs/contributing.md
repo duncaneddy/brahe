@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to Brahe! We welcome contributions from everyone—whether you're improving documentation, fixing bugs, or adding new features. We are building software to help everyone on this planet explore the universe. We encourage you to bring your unique perspective to help make us stronger. We appreciate contributions from everyone, no prior space experience is needed to participate.
 
-Checkout the main documentation for the [Contributing Guidelines](https://duncaneddy.github.io/brahe/contributing.html) and [Code of Conduct](https://duncaneddy.github.io/brahe/code_of_conduct.html).
+Checkout the main documentation for the [Contributing Guidelines](https://docs.brahe.space/latest/contributing.html) and [Code of Conduct](https://docs.brahe.space/latest/code_of_conduct.html).
 
 ## How you can contribute  
 
@@ -15,7 +15,7 @@ You can contribute in many ways, including:
 
 ## Getting Started
 
-First, check out the development guidelines in the [developer guidelines](https://duncaneddy.github.io/brahe/developer_guidelines.html) for setting up your development environment, running tests, and the development workflow for implementing new features or fixing bugs.
+First, check out the development guidelines in the [developer guidelines](https://docs.brahe.space/latest/development_guide.html) for setting up your development environment, running tests, and the development workflow for implementing new features or fixing bugs.
 
 ### Workflow
 
@@ -36,14 +36,14 @@ First, check out the development guidelines in the [developer guidelines](https:
 
 ## Communication & Etiquette
 
-- Please review the [Code of Conduct](https://duncaneddy.github.io/brahe/code_of_conduct.html) to understand the expected behaviour in our community.
+- Please review the [Code of Conduct](https://docs.brahe.space/latest/code_of_conduct.html) to understand the expected behaviour in our community.
 - If you’re planning a large or complex change, consider opening an issue first to discuss design and get early feedback.
 - Be responsive to review comments. If you need time, it’s okay to say so.
 - Respect the maintainers’ decision. If they decline your change, you’re free to discuss politely or move on.
 
 ## License & Rights
 
-By submitting a pull request, you agree that your contribution will be available under the project's [MIT License](https://duncaneddy.github.io/brahe/license.html) and you grant the maintainers the right to apply any necessary changes (e.g., rebase, squash) before merging.
+By submitting a pull request, you agree that your contribution will be available under the project's [MIT License](https://docs.brahe.space/latest/about/license.html) and you grant the maintainers the right to apply any necessary changes (e.g., rebase, squash) before merging.
 
 ## Thank You
 

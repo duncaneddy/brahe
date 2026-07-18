@@ -23,10 +23,17 @@ jobs:
                 python-version: ${{ fromJSON(inputs.python-versions) }}
                 rust-toolchain: [stable]
         steps:
+            # Cargo cache scheme: this job runs from both pr_tests.yml (PRs) and
+            # unit_tests.yml (push to main). Shared-key is stable across the
+            # python-version matrix (same Rust build either way), so only main
+            # saves refresh it and PRs restore that warm cache instead of
+            # building their own throwaway, ref-scoped one.
             -   name: Set up Rust toolchain
                 uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
                 with:
                     toolchain: ${{ matrix.rust-toolchain }}
+                    cache-shared-key: test-python
+                    cache-save-if: ${{ github.ref == 'refs/heads/main' }}
             -   name: Set default Rust toolchain
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}

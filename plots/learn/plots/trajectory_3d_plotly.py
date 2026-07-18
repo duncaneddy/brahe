@@ -74,8 +74,8 @@ fig = bh.plot_trajectory_3d(
         {"trajectory": traj_polar, "color": "cyan", "label": "Polar 97.8° (~550 km)"},
     ],
     units="km",
-    show_earth=True,
-    earth_texture="blue_marble",
+    show_body=True,
+    texture="blue_marble",
     backend="plotly",
 )
 
@@ -93,8 +93,8 @@ fig_simple = bh.plot_trajectory_3d(
         {"trajectory": traj_polar, "color": "cyan", "label": "Polar 97.8° (~550 km)"},
     ],
     units="km",
-    show_earth=True,
-    earth_texture="simple",
+    show_body=True,
+    texture="simple",
     backend="plotly",
 )
 
@@ -109,8 +109,8 @@ fig_ne = bh.plot_trajectory_3d(
         {"trajectory": traj_polar, "color": "cyan", "label": "Polar 97.8° (~550 km)"},
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
 )
 

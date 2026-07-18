@@ -7,7 +7,7 @@ This module provides high-level plotting functions for common astrodynamics visu
 - Ground track plots with communication cones and polygon zones
 - Access window geometry (polar plots and elevation profiles)
 - Orbital element time series (Keplerian and Cartesian)
-- 3D trajectory visualization in ECI frame
+- 3D trajectory visualization around arbitrary central bodies, including synodic (rotating) frames
 - Gabbard diagrams (orbital period vs apogee/perigee altitude)
 - Estimation state errors, values, residuals, and marginal distributions
 
@@ -34,6 +34,8 @@ _PLOT_EXPORTS = {
     "plot_cartesian_trajectory": "trajectories",
     "plot_keplerian_trajectory": "trajectories",
     "plot_trajectory_3d": "trajectory_3d",
+    "plot_synodic_3d": "synodic_3d",
+    "plot_earth_moon_rotating_3d": "synodic_3d",
     "plot_gabbard_diagram": "gabbard",
     "plot_estimator_state_error": "estimation_state",
     "plot_estimator_state_value": "estimation_state",
@@ -99,6 +101,10 @@ if TYPE_CHECKING:
     )
     from brahe.plots.trajectory_3d import (
         plot_trajectory_3d as plot_trajectory_3d,
+    )
+    from brahe.plots.synodic_3d import (
+        plot_earth_moon_rotating_3d as plot_earth_moon_rotating_3d,
+        plot_synodic_3d as plot_synodic_3d,
     )
 
 _INSTALL_HINT = (

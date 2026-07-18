@@ -102,9 +102,11 @@ Finally, we'll visualize the 3 longest gaps on a ground track plot to see where 
 
 ## Full Code Example
 
-```python title="max_communications_gap.py"
---8<-- "./examples/examples/max_communications_gap.py:all"
-```
+??? "Full Code"
+
+    ```python title="max_communications_gap.py"
+    --8<-- "./examples/examples/max_communications_gap.py:all"
+    ```
 
 ---
 

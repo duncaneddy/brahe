@@ -1,5 +1,6 @@
 # /// script
 # dependencies = ["brahe"]
+# FLAGS = ["NETWORK"]
 # ///
 """
 Initialize Space Weather Providers using caching provider

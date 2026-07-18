@@ -55,9 +55,11 @@ The resulting plot shows the complete Starlink constellation orbiting Earth. The
 
 ## Full Code Example
 
-```python title="visualizing_starlink.py"
---8<-- "./examples/examples/visualizing_starlink.py:all"
-```
+??? "Full Code"
+
+    ```python title="visualizing_starlink.py"
+    --8<-- "./examples/examples/visualizing_starlink.py:all"
+    ```
 
 ---
 

@@ -152,9 +152,11 @@ The velocity profile reveals the characteristic behavior of elliptical orbits - 
 
 ## Full Code Example
 
-```python title="geo_hohmann_transfer.py"
---8<-- "./examples/examples/geo_hohmann_transfer.py:all"
-```
+??? "Full Code"
+
+    ```python title="geo_hohmann_transfer.py"
+    --8<-- "./examples/examples/geo_hohmann_transfer.py:all"
+    ```
 
 ---
 

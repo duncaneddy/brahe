@@ -24,6 +24,47 @@ Primaries: Sun → Earth. Origin: the Sun-Earth barycenter. The SEB has no NAIF 
 
 Origin: Earth center. $\hat{\boldsymbol{x}}$ points from the Earth to the Sun — the **reversed** sense relative to SER — and $\hat{\boldsymbol{z}}$ is normal to the instantaneous ecliptic plane (~23.44° from the GCRF $z$-axis). GSE is common in space-weather and magnetospheric work. Because GSE is Earth-centered, converting between GCRF and GSE involves no translation.
 
+## Generic Synodic Frames
+
+EMR, SER, and GSE are named instances of a generic two-body synodic frame, `ReferenceFrame.Synodic(origin, primary, secondary)`. `origin` is a `SynodicOrigin` (`Primary`, `Secondary`, or `Barycenter`); `primary` and `secondary` are the NAIF IDs of the two bodies, and any NAIF ID is accepted for any origin. For a `Barycenter` origin, the pair is encoded into a synthetic negative center ID as `primary * 1000 + secondary`; this encoding is collision-free when both IDs are in $0 \le \text{id} \le 999$ (see below), and both bodies must have packaged $GM$ constants. IDs outside that range still work but produce a different encoding that no longer maps back to a synthetic center — this surfaces as an SPK/GM lookup error at transform time rather than a silent collision. The axis construction is identical to the formula above, with $\boldsymbol{r}_{12}$ and $\boldsymbol{v}_{12}$ taken between `primary` and `secondary`.
+
+The three named frames are equivalent to these generic configurations:
+
+$$
+\text{EMR} \equiv \texttt{Synodic(Barycenter, 399, 301)}, \qquad
+\text{SER} \equiv \texttt{Synodic(Barycenter, 10, 399)}, \qquad
+\text{GSE} \equiv \texttt{Synodic(Primary, 399, 10)}
+$$
+
+A `Barycenter` origin is computed analytically as the $GM$-weighted combination of the primary and secondary SPK states — the same scheme used for the Sun-Earth barycenter above — rather than read from a dedicated SPK ephemeris entry. Both bodies must therefore have packaged $GM$ constants (the Sun, the planets, the planetary barycenters, and the Moon). For the Earth-Moon pair, this computed barycenter differs from the SPK Earth-Moon Barycenter (NAIF ID 3) by well under a meter.
+
+The origin, primary, and secondary of any synodic frame (`Synodic`, `EMR`, `SER`, or `GSE`) are recoverable via the `frame.synodic_origin`, `frame.synodic_primary`, and `frame.synodic_secondary` properties, which return `None` for non-synodic frames.
+
+The generic frame has no dedicated `rotation_gcrf_to_synodic`-style functions; it is used through the frame router (`rotation_frame_to_frame`, `position_frame_to_frame`, `state_frame_to_frame`). The following example transforms a low Earth orbit state from GCRF into a Sun-Mars rotating frame:
+
+=== "Python"
+
+    ```python
+    --8<-- "./examples/frames/generic_synodic_frame.py:9"
+    ```
+
+=== "Rust"
+
+    ```rust
+    --8<-- "./examples/frames/generic_synodic_frame.rs:6"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/generic_synodic_frame.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/generic_synodic_frame.rs.txt"
+        ```
+
 ## Function Reference
 
 | Conversion | Function |

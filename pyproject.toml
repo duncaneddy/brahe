@@ -37,7 +37,7 @@ dependencies = [
 ]
 
 [project.urls]
-Documentation = "https://duncaneddy.github.io/brahe/"
+Documentation = "https://docs.brahe.space/"
 Repository = "https://github.com/duncaneddy/brahe"
 Issues = "https://github.com/duncaneddy/brahe/pulls"
 

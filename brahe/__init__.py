@@ -153,6 +153,7 @@ if TYPE_CHECKING:
         plot_access_elevation_azimuth as plot_access_elevation_azimuth,
         plot_access_polar as plot_access_polar,
         plot_cartesian_trajectory as plot_cartesian_trajectory,
+        plot_earth_moon_rotating_3d as plot_earth_moon_rotating_3d,
         plot_estimator_marginal as plot_estimator_marginal,
         plot_estimator_marginal_from_arrays as plot_estimator_marginal_from_arrays,
         plot_estimator_state_error as plot_estimator_state_error,
@@ -172,6 +173,7 @@ if TYPE_CHECKING:
         plot_measurement_residual_grid_from_arrays as plot_measurement_residual_grid_from_arrays,
         plot_measurement_residual_rms as plot_measurement_residual_rms,
         plot_measurement_residual_rms_from_arrays as plot_measurement_residual_rms_from_arrays,
+        plot_synodic_3d as plot_synodic_3d,
         plot_trajectory_3d as plot_trajectory_3d,
         split_ground_track_at_antimeridian as split_ground_track_at_antimeridian,
     )

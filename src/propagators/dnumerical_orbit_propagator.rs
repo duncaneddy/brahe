@@ -57,7 +57,7 @@ use crate::utils::state_providers::{
 };
 use crate::{
     AngleFormat, GM_MOON, GM_SUN, accel_earth_zonal_gravity, state_eci_to_koe,
-    state_eci_to_koe_for_body,
+    state_inertial_to_koe_gm,
 };
 
 use super::TrajectoryMode;
@@ -3443,7 +3443,7 @@ impl DOrbitStateProvider for DNumericalOrbitPropagator {
             ))),
             cb => {
                 let x_central = self.state_central_inertial(epoch)?;
-                Ok(state_eci_to_koe_for_body(x_central, cb.gm(), angle_format))
+                Ok(state_inertial_to_koe_gm(x_central, cb.gm(), angle_format))
             }
         }
     }

@@ -55,9 +55,11 @@ The resulting plot shows the complete GPS constellation orbiting Earth. The inte
 
 ## Full Code Example
 
-```python title="visualizing_gps.py"
---8<-- "./examples/examples/visualizing_gps.py:all"
-```
+??? "Full Code"
+
+    ```python title="visualizing_gps.py"
+    --8<-- "./examples/examples/visualizing_gps.py:all"
+    ```
 
 ---
 

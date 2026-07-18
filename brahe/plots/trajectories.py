@@ -37,7 +37,9 @@ def plot_cartesian_trajectory(
     Args:
         trajectories (list of dict): List of trajectory groups, each with:
             - trajectory: OrbitTrajectory or numpy array [N×6] or [N×7]
-            - times (np.ndarray, optional): Time array if trajectory is numpy array without time column
+            - times (np.ndarray, optional): Elapsed time in seconds for each row, used as the
+              time axis when trajectory is an [N x 6] numpy array (no time column). If omitted,
+              bare sample indices are used and the time axis is labeled without units.
             - color (str, optional): Line/marker color
             - marker (str, optional): Marker style
             - label (str, optional): Legend label
@@ -164,7 +166,9 @@ def plot_keplerian_trajectory(
     Args:
         trajectories (list of dict): List of trajectory groups, each with:
             - trajectory: OrbitTrajectory or numpy array [N×6] or [N×7] as [a, e, i, Ω, ω, M]
-            - times (np.ndarray, optional): Time array if trajectory is numpy array without time column
+            - times (np.ndarray, optional): Elapsed time in seconds for each row, used as the
+              time axis when trajectory is an [N x 6] numpy array (no time column). If omitted,
+              bare sample indices are used and the time axis is labeled without units.
             - color (str, optional): Line/marker color
             - marker (str, optional): Marker style
             - label (str, optional): Legend label
@@ -337,6 +341,7 @@ def _cartesian_elements_matplotlib(
     # Track first epoch and max time for relative time calculation
     first_epoch = None
     max_time = 0
+    saw_real_time = False
 
     # Plot each trajectory
     for i, group in enumerate(traj_groups):
@@ -359,6 +364,7 @@ def _cartesian_elements_matplotlib(
                 first_epoch = epochs[0]
             times = np.array([e - first_epoch for e in epochs])
             max_time = max(max_time, times[-1])
+            saw_real_time = True
 
             # Extract positions and velocities from (N, 6) array
             pos_x = states[:, 0]
@@ -380,9 +386,18 @@ def _cartesian_elements_matplotlib(
                     vel_x = trajectory[:, 4]
                     vel_y = trajectory[:, 5]
                     vel_z = trajectory[:, 6]
+                    saw_real_time = True
+                    max_time = max(max_time, times[-1])
                 else:
-                    # No time column, use indices
-                    times = np.arange(len(trajectory))
+                    # No time column: use the group's "times" array if
+                    # supplied, otherwise fall back to bare sample indices.
+                    group_times = group.get("times")
+                    if group_times is not None:
+                        times = np.asarray(group_times)
+                        saw_real_time = True
+                        max_time = max(max_time, times[-1])
+                    else:
+                        times = np.arange(len(trajectory))
                     pos_x = trajectory[:, 0]
                     pos_y = trajectory[:, 1]
                     pos_z = trajectory[:, 2]
@@ -395,7 +410,7 @@ def _cartesian_elements_matplotlib(
             continue
 
         # Determine time unit and convert if needed
-        if first_epoch is not None:
+        if saw_real_time:
             if max_time > 7200:  # > 2 hours, use hours
                 times_plot = times / 3600
                 time_label = "Time (hours)"
@@ -440,7 +455,7 @@ def _cartesian_elements_matplotlib(
         axes[1, 2].plot(times_plot, vel_z, **plot_kwargs)
 
     # Set time label
-    if first_epoch is None:
+    if not saw_real_time:
         time_label = "Time"
     # time_label already set in the loop
 
@@ -514,6 +529,7 @@ def _cartesian_elements_plotly(
     # Track first epoch and max time for relative time calculation
     first_epoch = None
     max_time = 0
+    saw_real_time = False
 
     # Plot each trajectory
     for i, group in enumerate(traj_groups):
@@ -535,6 +551,7 @@ def _cartesian_elements_plotly(
                 first_epoch = epochs[0]
             times = np.array([e - first_epoch for e in epochs])
             max_time = max(max_time, times[-1])
+            saw_real_time = True
 
             # Extract positions and velocities from (N, 6) array
             pos_x = states[:, 0]
@@ -556,9 +573,18 @@ def _cartesian_elements_plotly(
                     vel_x = trajectory[:, 4]
                     vel_y = trajectory[:, 5]
                     vel_z = trajectory[:, 6]
+                    saw_real_time = True
+                    max_time = max(max_time, times[-1])
                 else:
-                    # No time column, use indices
-                    times = np.arange(len(trajectory))
+                    # No time column: use the group's "times" array if
+                    # supplied, otherwise fall back to bare sample indices.
+                    group_times = group.get("times")
+                    if group_times is not None:
+                        times = np.asarray(group_times)
+                        saw_real_time = True
+                        max_time = max(max_time, times[-1])
+                    else:
+                        times = np.arange(len(trajectory))
                     pos_x = trajectory[:, 0]
                     pos_y = trajectory[:, 1]
                     pos_z = trajectory[:, 2]
@@ -571,7 +597,7 @@ def _cartesian_elements_plotly(
             continue
 
         # Determine time unit and convert if needed
-        if first_epoch is not None:
+        if saw_real_time:
             if max_time > 7200:  # > 2 hours, use hours
                 times_plot = times / 3600
                 time_label = "Time (hours)"
@@ -673,7 +699,7 @@ def _cartesian_elements_plotly(
         )
 
     # Update axes labels with appropriate time unit
-    if first_epoch is None:
+    if not saw_real_time:
         time_label = "Time"
     # time_label already set in the loop
 
@@ -753,6 +779,7 @@ def _keplerian_elements_matplotlib(
     # Track first epoch and max time for relative time calculation
     first_epoch = None
     max_time = 0
+    saw_real_time = False
 
     # Unit conversions (for future use in TODO)
     # sma_scale = 1.0 if sma_units == 'm' else 1e-3
@@ -779,6 +806,7 @@ def _keplerian_elements_matplotlib(
                 first_epoch = epochs[0]
             times = np.array([e - first_epoch for e in epochs])
             max_time = max(max_time, times[-1])
+            saw_real_time = True
 
             # Convert each state to Keplerian elements
             a_list = []
@@ -810,9 +838,18 @@ def _keplerian_elements_matplotlib(
                     raan_list = trajectory[:, 4]
                     argp_list = trajectory[:, 5]
                     anom_list = trajectory[:, 6]
+                    saw_real_time = True
+                    max_time = max(max_time, times[-1])
                 else:
-                    # No time column
-                    times = np.arange(len(trajectory))
+                    # No time column: use the group's "times" array if
+                    # supplied, otherwise fall back to bare sample indices.
+                    group_times = group.get("times")
+                    if group_times is not None:
+                        times = np.asarray(group_times)
+                        saw_real_time = True
+                        max_time = max(max_time, times[-1])
+                    else:
+                        times = np.arange(len(trajectory))
                     a_list = trajectory[:, 0]
                     e_list = trajectory[:, 1]
                     i_list = trajectory[:, 2]
@@ -825,7 +862,7 @@ def _keplerian_elements_matplotlib(
             continue
 
         # Determine time unit and convert if needed
-        if first_epoch is not None:
+        if saw_real_time:
             if max_time > 7200:  # > 2 hours, use hours
                 times_plot = times / 3600
                 time_label = "Time (hours)"
@@ -888,7 +925,7 @@ def _keplerian_elements_matplotlib(
         axes[1, 2].plot(times_plot, anom_arr, **plot_kwargs)
 
     # Set time label
-    if first_epoch is None:
+    if not saw_real_time:
         time_label = "Time"
     # time_label already set in the loop
 
@@ -975,13 +1012,14 @@ def _keplerian_elements_plotly(
             "Arg. Periapsis",
             "Mean Anomaly",
         ),
-        vertical_spacing=0.15,
+        vertical_spacing=0.22,
         horizontal_spacing=0.08,
     )
 
     # Track first epoch and max time for relative time calculation
     first_epoch = None
     max_time = 0
+    saw_real_time = False
 
     # Plot each trajectory
     for i, group in enumerate(traj_groups):
@@ -1003,6 +1041,7 @@ def _keplerian_elements_plotly(
                 first_epoch = epochs[0]
             times = np.array([e - first_epoch for e in epochs])
             max_time = max(max_time, times[-1])
+            saw_real_time = True
 
             # Convert each state to Keplerian elements
             a_list = []
@@ -1034,9 +1073,18 @@ def _keplerian_elements_plotly(
                     raan_list = trajectory[:, 4]
                     argp_list = trajectory[:, 5]
                     anom_list = trajectory[:, 6]
+                    saw_real_time = True
+                    max_time = max(max_time, times[-1])
                 else:
-                    # No time column
-                    times = np.arange(len(trajectory))
+                    # No time column: use the group's "times" array if
+                    # supplied, otherwise fall back to bare sample indices.
+                    group_times = group.get("times")
+                    if group_times is not None:
+                        times = np.asarray(group_times)
+                        saw_real_time = True
+                        max_time = max(max_time, times[-1])
+                    else:
+                        times = np.arange(len(trajectory))
                     a_list = trajectory[:, 0]
                     e_list = trajectory[:, 1]
                     i_list = trajectory[:, 2]
@@ -1080,7 +1128,7 @@ def _keplerian_elements_plotly(
                 anom_arr = np.mod(anom_arr, 2.0 * np.pi)
 
         # Determine time unit and convert if needed
-        if first_epoch is not None:
+        if saw_real_time:
             if max_time > 7200:  # > 2 hours, use hours
                 times_plot = times / 3600
                 time_label = "Time (hours)"
@@ -1169,13 +1217,17 @@ def _keplerian_elements_plotly(
         )
 
     # Update axes labels with appropriate time unit
-    if first_epoch is None:
+    if not saw_real_time:
         time_label = "Time"
     # time_label already set in the loop
 
-    fig.update_xaxes(title_text=time_label, row=1, col=1)
-    fig.update_xaxes(title_text=time_label, row=1, col=2)
-    fig.update_xaxes(title_text=time_label, row=1, col=3)
+    # The top row's x-axis spans the same time range as the bottom row's, so
+    # its tick labels are redundant and, at typical figure heights, crowd
+    # into the bottom row's subplot titles. Only the bottom row gets a title
+    # and visible tick labels.
+    fig.update_xaxes(showticklabels=False, row=1, col=1)
+    fig.update_xaxes(showticklabels=False, row=1, col=2)
+    fig.update_xaxes(showticklabels=False, row=1, col=3)
     fig.update_xaxes(title_text=time_label, row=2, col=1)
     fig.update_xaxes(title_text=time_label, row=2, col=2)
     fig.update_xaxes(title_text=time_label, row=2, col=3)

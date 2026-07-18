@@ -15,10 +15,17 @@ jobs:
             CARGO_TERM_COLOR: always
         steps:
             -   uses: actions/checkout@v7.0.0
+            # Cargo cache scheme: this job runs from both pr_tests.yml (PRs) and
+            # unit_tests.yml (push to main). Give it a stable shared-key so PRs
+            # restore main's cache regardless of matrix/job-name hashing, and
+            # only let main saves refresh it — PR-scoped saves are unrestorable
+            # by any other run (GitHub cache isolation) and just churn quota.
             -   name: Set up Rust toolchain with cache
                 uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
                 with:
                     toolchain: ${{ matrix.rust-toolchain }}
+                    cache-shared-key: test-rust
+                    cache-save-if: ${{ github.ref == 'refs/heads/main' }}
             -   name: Set default Rust toolchain
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}
@@ -74,10 +81,13 @@ jobs:
                 rust-toolchain: [stable]
         steps:
             -   uses: actions/checkout@v7.0.0
+            # See "test-rust" job above for the shared-key/save-if cache scheme.
             -   name: Set up Rust toolchain with cache
                 uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
                 with:
                     toolchain: ${{ matrix.rust-toolchain }}
+                    cache-shared-key: test-rust-docs
+                    cache-save-if: ${{ github.ref == 'refs/heads/main' }}
             -   name: Set default Rust toolchain
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}

@@ -534,7 +534,7 @@ impl PyAngleFormat {
 
 include!("datasets.rs");
 include!("py_gcat.rs");
-include!("py_star_catalog.rs");
+include!("py_star_catalogs.rs");
 include!("icgem.rs");
 include!("eop.rs");
 include!("space_weather.rs");
@@ -1095,9 +1095,9 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyHipparcosCatalog>()?;
     module.add_class::<PyTycho2Record>()?;
     module.add_class::<PyTycho2Catalog>()?;
-    module.add_function(wrap_pyfunction!(py_star_catalog_get_fk5, module)?)?;
-    module.add_function(wrap_pyfunction!(py_star_catalog_get_hipparcos, module)?)?;
-    module.add_function(wrap_pyfunction!(py_star_catalog_get_tycho2, module)?)?;
+    module.add_function(wrap_pyfunction!(py_star_catalogs_get_fk5, module)?)?;
+    module.add_function(wrap_pyfunction!(py_star_catalogs_get_hipparcos, module)?)?;
+    module.add_function(wrap_pyfunction!(py_star_catalogs_get_tycho2, module)?)?;
 
     //* ICGEM *//
     module.add_class::<PyIndexEntry>()?;

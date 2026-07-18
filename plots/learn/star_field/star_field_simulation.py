@@ -57,7 +57,7 @@ boresights = velocities / np.linalg.norm(velocities, axis=1, keepdims=True)
 
 # --8<-- [start:catalog]
 # Load the Hipparcos catalog and keep naked-eye-bright stars
-hipparcos = bh.datasets.star_catalog.get_hipparcos()
+hipparcos = bh.datasets.star_catalogs.get_hipparcos()
 bright_stars = hipparcos.filter_by_magnitude(STAR_MAG_LIMIT)
 star_records = bright_stars.records()
 

@@ -12,7 +12,7 @@ The module is organized by data source:
 - **`brahe.datasets.groundstations`**: Curated groundstation location datasets
 - **`brahe.datasets.naif`**: NASA JPL NAIF planetary ephemeris kernels
 - **`brahe.datasets.gcat`**: GCAT satellite catalogs (SATCAT, PSATCAT)
-- **`brahe.datasets.star_catalog`**: Fixed-epoch star catalogs (FK5, Hipparcos, Tycho-2)
+- **`brahe.datasets.star_catalogs`**: Fixed-epoch star catalogs (FK5, Hipparcos, Tycho-2)
 - **`brahe.datasets.icgem`**: ICGEM spherical harmonic gravity models (Earth + celestial bodies)
 
 ## Submodules

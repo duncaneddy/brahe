@@ -27,7 +27,7 @@ A small fraction of Tycho-2 entries (`pflag == "X"`) have no mean astrometric so
 
 Star catalog data is downloaded from `https://www.simplespacedata.org/star_catalog/cds` with file-based caching:
 
-- **Cache location**: `~/.cache/brahe/star_catalog/` (or `$BRAHE_CACHE/star_catalog/` if set)
+- **Cache location**: `~/.cache/brahe/star_catalogs/` (or `$BRAHE_CACHE/star_catalogs/` if set)
 - **Default TTL**: none - the cached copy **never goes stale**, since published star catalogs do not change
 - **Force refresh**: Pass `cache_max_age=0` (Python) / `Some(0.0)` (Rust) to bypass the cache and download fresh data
 
@@ -69,7 +69,7 @@ Every catalog supports lookup by identifier, magnitude filtering, and cone-searc
 ```python
 import brahe as bh
 
-fk5 = bh.datasets.star_catalog.get_fk5()
+fk5 = bh.datasets.star_catalogs.get_fk5()
 
 # Magnitude filter: keeps vmag <= max_mag (smaller/more negative is brighter)
 bright = fk5.filter_by_magnitude(3.0)
@@ -90,7 +90,7 @@ All three catalogs support conversion to [Polars](https://pola.rs/) DataFrames f
 ```python
 import brahe as bh
 
-hipparcos = bh.datasets.star_catalog.get_hipparcos()
+hipparcos = bh.datasets.star_catalogs.get_hipparcos()
 
 df = hipparcos.to_dataframe()
 print(df.shape)  # (rows, columns)
@@ -107,7 +107,7 @@ Catalog positions are only valid at the catalog's reference epoch (J2000.0 for F
 ```python
 import brahe as bh
 
-hipparcos = bh.datasets.star_catalog.get_hipparcos()
+hipparcos = bh.datasets.star_catalogs.get_hipparcos()
 sirius = hipparcos.get_by_id(32349)
 
 epc = bh.Epoch.from_datetime(2030, 1, 1, 0, 0, 0.0, 0.0, bh.UTC)

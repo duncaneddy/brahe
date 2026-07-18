@@ -2,19 +2,19 @@
 
 Functions and types for accessing fixed-epoch star catalogs (FK5, Hipparcos, Tycho-2).
 
-All functions are available via `brahe.datasets.star_catalog.<function_name>`.
+All functions are available via `brahe.datasets.star_catalogs.<function_name>`.
 
 ## get_fk5
 
-::: brahe._brahe.star_catalog_get_fk5
+::: brahe._brahe.star_catalogs_get_fk5
 
 ## get_hipparcos
 
-::: brahe._brahe.star_catalog_get_hipparcos
+::: brahe._brahe.star_catalogs_get_hipparcos
 
 ## get_tycho2
 
-::: brahe._brahe.star_catalog_get_tycho2
+::: brahe._brahe.star_catalogs_get_tycho2
 
 ## FK5Catalog
 

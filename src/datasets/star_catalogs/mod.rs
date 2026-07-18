@@ -74,7 +74,7 @@ pub(crate) fn opt_string(value: &str) -> Option<String> {
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::datasets::star_catalog::get_fk5_catalog;
+/// use brahe::datasets::star_catalogs::get_fk5_catalog;
 /// let catalog = get_fk5_catalog(None).unwrap();
 /// println!("Loaded {} records", catalog.len());
 /// ```
@@ -136,7 +136,7 @@ pub(crate) fn get_fk5_catalog_from_url(
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::datasets::star_catalog::get_hipparcos_catalog;
+/// use brahe::datasets::star_catalogs::get_hipparcos_catalog;
 /// let catalog = get_hipparcos_catalog(None).unwrap();
 /// println!("Loaded {} records", catalog.len());
 /// ```
@@ -199,7 +199,7 @@ pub(crate) fn get_hipparcos_catalog_from_url(
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::datasets::star_catalog::get_tycho2_catalog;
+/// use brahe::datasets::star_catalogs::get_tycho2_catalog;
 /// let catalog = get_tycho2_catalog(None).unwrap();
 /// println!("Loaded {} records", catalog.len());
 /// ```
@@ -251,11 +251,11 @@ mod tests {
 
     use serial_test::serial;
 
-    use crate::utils::cache::get_star_catalog_cache_dir;
+    use crate::utils::cache::get_star_catalogs_cache_dir;
 
     use super::*;
 
-    const SAMPLE: &str = include_str!("../../../test_assets/star_catalog/FK5_Catalog_sample.txt");
+    const SAMPLE: &str = include_str!("../../../test_assets/star_catalogs/FK5_Catalog_sample.txt");
 
     // Both tests below read/write the real FK5 cache file
     // (`FK5_Catalog.txt`), so they must not run concurrently with each other.
@@ -270,7 +270,7 @@ mod tests {
                 .body("this is not a valid FK5 catalog file\ngarbage\n");
         });
 
-        let cache_dir = get_star_catalog_cache_dir().unwrap();
+        let cache_dir = get_star_catalogs_cache_dir().unwrap();
         let cache_path = Path::new(&cache_dir).join("FK5_Catalog.txt");
         let _ = fs::remove_file(&cache_path); // start from a clean (no-cache) state
 
@@ -294,7 +294,7 @@ mod tests {
             then.status(200).body(SAMPLE);
         });
 
-        let cache_dir = get_star_catalog_cache_dir().unwrap();
+        let cache_dir = get_star_catalogs_cache_dir().unwrap();
         let cache_path = Path::new(&cache_dir).join("FK5_Catalog.txt");
         fs::write(&cache_path, "corrupt cache data that will not parse\n").unwrap();
 

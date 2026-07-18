@@ -13,7 +13,7 @@ use std::time::SystemTime;
 
 use crate::utils::BraheError;
 use crate::utils::atomic_write;
-use crate::utils::cache::get_star_catalog_cache_dir;
+use crate::utils::cache::get_star_catalogs_cache_dir;
 
 /// Read a cached copy of a star catalog file, if present and not stale.
 ///
@@ -41,7 +41,7 @@ pub(crate) fn read_cache(
     filename: &str,
     cache_max_age: Option<f64>,
 ) -> Result<Option<String>, BraheError> {
-    let cache_dir = get_star_catalog_cache_dir()?;
+    let cache_dir = get_star_catalogs_cache_dir()?;
     let cache_path = Path::new(&cache_dir).join(filename);
 
     if !cache_path.exists() {
@@ -90,7 +90,7 @@ pub(crate) fn download(url: &str) -> Result<String, BraheError> {
 ///
 /// * `Result<(), BraheError>` - `Ok(())` on success
 pub(crate) fn commit_cache(filename: &str, body: &str) -> Result<(), BraheError> {
-    let cache_dir = get_star_catalog_cache_dir()?;
+    let cache_dir = get_star_catalogs_cache_dir()?;
     let cache_path = Path::new(&cache_dir).join(filename);
 
     atomic_write(&cache_path, body.as_bytes())
@@ -142,17 +142,17 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_get_star_catalog_cache_dir() {
-        let cache_dir = get_star_catalog_cache_dir().unwrap();
+    fn test_get_star_catalogs_cache_dir() {
+        let cache_dir = get_star_catalogs_cache_dir().unwrap();
         assert!(!cache_dir.is_empty());
-        assert!(cache_dir.contains("star_catalog"));
+        assert!(cache_dir.contains("star_catalogs"));
         assert!(std::path::Path::new(&cache_dir).exists());
     }
 
     #[test]
     #[parallel]
     fn test_read_cache_never_stale() {
-        let cache_dir = get_star_catalog_cache_dir().unwrap();
+        let cache_dir = get_star_catalogs_cache_dir().unwrap();
         let cache_path = Path::new(&cache_dir).join("test_never_stale.dat");
 
         // Write a test file to cache
@@ -180,7 +180,7 @@ mod tests {
     #[test]
     #[parallel]
     fn test_read_cache_force_refresh_reports_stale_as_miss() {
-        let cache_dir = get_star_catalog_cache_dir().unwrap();
+        let cache_dir = get_star_catalogs_cache_dir().unwrap();
         let test_filename = "test_force_refresh.dat";
         let cache_path = Path::new(&cache_dir).join(test_filename);
 
@@ -212,7 +212,7 @@ mod tests {
         assert_eq!(body, "fresh data");
         mock.assert_calls(1);
 
-        let cache_dir = get_star_catalog_cache_dir().unwrap();
+        let cache_dir = get_star_catalogs_cache_dir().unwrap();
         let test_filename = "test_download_and_commit.dat";
         let cache_path = Path::new(&cache_dir).join(test_filename);
 

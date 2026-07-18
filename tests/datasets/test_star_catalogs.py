@@ -16,10 +16,10 @@ import brahe.datasets as datasets
 # Functional behavior is covered by the network-gated tests below.
 
 
-def test_star_catalog_namespace_importable():
-    """Test that the star_catalog namespace and its members are importable."""
-    assert hasattr(datasets, "star_catalog")
-    ns = datasets.star_catalog
+def test_star_catalogs_namespace_importable():
+    """Test that the star_catalogs namespace and its members are importable."""
+    assert hasattr(datasets, "star_catalogs")
+    ns = datasets.star_catalogs
 
     for attr in (
         "get_fk5",
@@ -32,7 +32,7 @@ def test_star_catalog_namespace_importable():
         "Tycho2Record",
         "Tycho2Catalog",
     ):
-        assert hasattr(ns, attr), f"star_catalog namespace missing {attr}"
+        assert hasattr(ns, attr), f"star_catalogs namespace missing {attr}"
 
 
 @pytest.mark.parametrize(
@@ -43,15 +43,15 @@ def test_star_catalog_namespace_importable():
         "get_tycho2",
     ],
 )
-def test_star_catalog_get_functions_signature(func):
+def test_star_catalogs_get_functions_signature(func):
     """Test that catalog getters accept an optional cache_max_age kwarg."""
-    f = getattr(datasets.star_catalog, func)
+    f = getattr(datasets.star_catalogs, func)
     sig = inspect.signature(f)
     assert "cache_max_age" in sig.parameters
     assert sig.parameters["cache_max_age"].default is None
 
 
-def test_star_catalog_classes_have_no_public_constructor():
+def test_star_catalogs_classes_have_no_public_constructor():
     """Test record classes only come from parsed catalogs (no __init__ exposed)."""
     for cls_name in (
         "FK5Record",
@@ -61,7 +61,7 @@ def test_star_catalog_classes_have_no_public_constructor():
         "Tycho2Record",
         "Tycho2Catalog",
     ):
-        cls = getattr(datasets.star_catalog, cls_name)
+        cls = getattr(datasets.star_catalogs, cls_name)
         with pytest.raises(TypeError):
             cls()
 
@@ -76,7 +76,7 @@ def test_star_catalog_classes_have_no_public_constructor():
 @pytest.mark.integration
 def test_fk5_catalog_load():
     """Test downloading, parsing, and querying the FK5 catalog."""
-    cat = datasets.star_catalog.get_fk5()
+    cat = datasets.star_catalogs.get_fk5()
     assert len(cat) == 1535
     assert repr(cat).startswith("FK5Catalog(")
 
@@ -98,7 +98,7 @@ def test_fk5_radec_at_epoch_nonzero_tau():
     proper-motion-unit wiring seam by comparing radec_at_epoch's output
     against a direct apply_proper_motion call over the same interval.
     """
-    cat = datasets.star_catalog.get_fk5()
+    cat = datasets.star_catalogs.get_fk5()
     rec = cat.get_by_id(699)
     assert rec is not None
 
@@ -128,7 +128,7 @@ def test_fk5_radec_at_epoch_nonzero_tau():
 @pytest.mark.integration
 def test_hipparcos_catalog_load():
     """Test downloading, parsing, and querying the Hipparcos catalog."""
-    cat = datasets.star_catalog.get_hipparcos()
+    cat = datasets.star_catalogs.get_hipparcos()
     assert len(cat) > 117_000
 
     sirius = cat.get_by_id(32349)

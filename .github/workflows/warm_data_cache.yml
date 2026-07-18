@@ -10,7 +10,7 @@ name: Warm Brahe Data Cache
 # to keep the cache alive for test_python.yml and integration_tests.yml. If
 # the manifest ever changes, this run also downloads the new/changed
 # artifacts and saves them under the new key. The star catalog cache is keyed
-# separately (star-catalog-v1, fixed) since it isn't manifest-driven.
+# separately (star-catalogs-v1, fixed) since it isn't manifest-driven.
 on:
     schedule:
         - cron: "0 6 * * 1"
@@ -44,15 +44,15 @@ jobs:
                         brahe-data-v1-
 
             # FK5 + Hipparcos only. Explicit file paths (not the whole
-            # star_catalog/ dir) so the 526 MB Tycho-2 catalog is never
+            # star_catalogs/ dir) so the 526 MB Tycho-2 catalog is never
             # warmed or cached here.
             -   name: Cache star catalog downloads
                 uses: actions/cache@v6.1.0
                 with:
                     path: |
-                        ~/.cache/brahe/star_catalog/FK5_Catalog.txt
-                        ~/.cache/brahe/star_catalog/Hipparcos_Catalog.txt
-                    key: star-catalog-v1
+                        ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
+                        ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
+                    key: star-catalogs-v1
 
             -   name: Install dependencies
                 run: uv sync --all-extras --frozen
@@ -67,17 +67,17 @@ jobs:
             # download when the file is already cached (restore-only weeks).
             -   name: Warm star catalog cache (re-download anything evicted)
                 run: |
-                    mkdir -p ~/.cache/brahe/star_catalog
-                    [ -s ~/.cache/brahe/star_catalog/FK5_Catalog.txt ] || { \
+                    mkdir -p ~/.cache/brahe/star_catalogs
+                    [ -s ~/.cache/brahe/star_catalogs/FK5_Catalog.txt ] || { \
                         curl -fsSL -A "Mozilla/5.0" \
-                            -o ~/.cache/brahe/star_catalog/FK5_Catalog.txt.tmp \
+                            -o ~/.cache/brahe/star_catalogs/FK5_Catalog.txt.tmp \
                             https://www.simplespacedata.org/star_catalog/cds/fk5/latest/FK5_Catalog.txt \
-                        && mv ~/.cache/brahe/star_catalog/FK5_Catalog.txt.tmp ~/.cache/brahe/star_catalog/FK5_Catalog.txt; }
-                    [ -s ~/.cache/brahe/star_catalog/Hipparcos_Catalog.txt ] || { \
+                        && mv ~/.cache/brahe/star_catalogs/FK5_Catalog.txt.tmp ~/.cache/brahe/star_catalogs/FK5_Catalog.txt; }
+                    [ -s ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt ] || { \
                         curl -fsSL -A "Mozilla/5.0" \
-                            -o ~/.cache/brahe/star_catalog/Hipparcos_Catalog.txt.tmp \
+                            -o ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt.tmp \
                             https://www.simplespacedata.org/star_catalog/cds/hipparcos/latest/Hipparcos_Catalog.txt \
-                        && mv ~/.cache/brahe/star_catalog/Hipparcos_Catalog.txt.tmp ~/.cache/brahe/star_catalog/Hipparcos_Catalog.txt; }
+                        && mv ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt.tmp ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt; }
 
     # pr_tests.yml's "validate-rust-package" and "validate-python-package" jobs
     # only ever run on pull requests, so with cache-save-if gated to main (see

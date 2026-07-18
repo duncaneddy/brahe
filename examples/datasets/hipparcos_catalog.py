@@ -12,7 +12,7 @@ visual magnitude, and inspecting the result as a Polars DataFrame.
 import brahe as bh
 
 # Download the Hipparcos catalog (cached permanently after the first download)
-hipparcos = bh.datasets.star_catalog.get_hipparcos()
+hipparcos = bh.datasets.star_catalogs.get_hipparcos()
 print(f"Loaded {len(hipparcos)} Hipparcos records")
 
 # Filter to naked-eye-bright stars (Vmag < 5.2)

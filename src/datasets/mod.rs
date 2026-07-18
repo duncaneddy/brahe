@@ -13,7 +13,7 @@ pub mod loaders;
 pub mod naif;
 pub mod parsers;
 pub mod serializers;
-pub mod star_catalog;
+pub mod star_catalogs;
 
 // Re-export commonly used functions from groundstations
 pub use groundstations::{
@@ -28,8 +28,8 @@ pub use gcat::{
     GCATPsatcat, GCATPsatcatRecord, GCATSatcat, GCATSatcatRecord, get_psatcat, get_satcat,
 };
 
-// Re-export commonly used types and functions from star_catalog
-pub use star_catalog::{
+// Re-export commonly used types and functions from star_catalogs
+pub use star_catalogs::{
     FK5Catalog, FK5Record, HipparcosCatalog, HipparcosRecord, StarRecord, Tycho2Catalog,
     Tycho2Record, get_fk5_catalog, get_hipparcos_catalog, get_tycho2_catalog,
 };

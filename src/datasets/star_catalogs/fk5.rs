@@ -10,8 +10,8 @@ use polars::prelude::*;
 
 use crate::constants::AngleFormat;
 use crate::coordinates::position_radec_to_inertial;
-use crate::datasets::star_catalog::traits::StarRecord;
-use crate::datasets::star_catalog::{opt_f64, opt_string};
+use crate::datasets::star_catalogs::traits::StarRecord;
+use crate::datasets::star_catalogs::{opt_f64, opt_string};
 use crate::math::SVector3;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
@@ -362,7 +362,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use serial_test::parallel;
 
-    const SAMPLE: &str = include_str!("../../../test_assets/star_catalog/FK5_Catalog_sample.txt");
+    const SAMPLE: &str = include_str!("../../../test_assets/star_catalogs/FK5_Catalog_sample.txt");
 
     #[test]
     #[parallel]
@@ -474,7 +474,7 @@ mod tests {
     #[parallel]
     #[cfg_attr(not(feature = "integration"), ignore)]
     fn test_fk5_full_download() {
-        let catalog = crate::datasets::star_catalog::get_fk5_catalog(None).unwrap();
+        let catalog = crate::datasets::star_catalogs::get_fk5_catalog(None).unwrap();
         assert_eq!(catalog.len(), 1535);
     }
 }

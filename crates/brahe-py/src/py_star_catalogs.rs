@@ -1,7 +1,7 @@
 // Python bindings for the star catalog datasets module.
 
-use brahe::datasets::star_catalog;
-use brahe::datasets::star_catalog::StarRecord;
+use brahe::datasets::star_catalogs;
+use brahe::datasets::star_catalogs::StarRecord;
 
 // ─── FK5 ────────────────────────────────────────────────────────────
 
@@ -32,7 +32,7 @@ use brahe::datasets::star_catalog::StarRecord;
 ///     ```python
 ///     import brahe.datasets as datasets
 ///
-///     fk5 = datasets.star_catalog.get_fk5()
+///     fk5 = datasets.star_catalogs.get_fk5()
 ///     record = fk5.get_by_id(699)
 ///     if record:
 ///         print(f"RA: {record.ra} deg, Dec: {record.dec} deg")
@@ -40,7 +40,7 @@ use brahe::datasets::star_catalog::StarRecord;
 #[pyclass(name = "FK5Record", module = "brahe._brahe", from_py_object)]
 #[derive(Clone)]
 struct PyFK5Record {
-    inner: star_catalog::FK5Record,
+    inner: star_catalogs::FK5Record,
 }
 
 #[pymethods]
@@ -171,7 +171,7 @@ impl PyFK5Record {
 ///     ```python
 ///     import brahe.datasets as datasets
 ///
-///     fk5 = datasets.star_catalog.get_fk5()
+///     fk5 = datasets.star_catalogs.get_fk5()
 ///     print(f"Loaded {len(fk5)} records")
 ///
 ///     bright = fk5.filter_by_magnitude(3.0)
@@ -182,7 +182,7 @@ impl PyFK5Record {
 ///     ```
 #[pyclass(name = "FK5Catalog", module = "brahe._brahe")]
 struct PyFK5Catalog {
-    inner: star_catalog::FK5Catalog,
+    inner: star_catalogs::FK5Catalog,
 }
 
 #[pymethods]
@@ -362,7 +362,7 @@ impl PyFK5Catalog {
 ///     ```python
 ///     import brahe.datasets as datasets
 ///
-///     hip = datasets.star_catalog.get_hipparcos()
+///     hip = datasets.star_catalogs.get_hipparcos()
 ///     sirius = hip.get_by_id(32349)
 ///     if sirius:
 ///         print(f"Vmag: {sirius.vmag}")
@@ -370,7 +370,7 @@ impl PyFK5Catalog {
 #[pyclass(name = "HipparcosRecord", module = "brahe._brahe", from_py_object)]
 #[derive(Clone)]
 struct PyHipparcosRecord {
-    inner: star_catalog::HipparcosRecord,
+    inner: star_catalogs::HipparcosRecord,
 }
 
 #[pymethods]
@@ -538,7 +538,7 @@ impl PyHipparcosRecord {
 ///     ```python
 ///     import brahe.datasets as datasets
 ///
-///     hip = datasets.star_catalog.get_hipparcos()
+///     hip = datasets.star_catalogs.get_hipparcos()
 ///     print(f"Loaded {len(hip)} records")
 ///
 ///     bright = hip.filter_by_magnitude(5.0)
@@ -549,7 +549,7 @@ impl PyHipparcosRecord {
 ///     ```
 #[pyclass(name = "HipparcosCatalog", module = "brahe._brahe")]
 struct PyHipparcosCatalog {
-    inner: star_catalog::HipparcosCatalog,
+    inner: star_catalogs::HipparcosCatalog,
 }
 
 #[pymethods]
@@ -747,13 +747,13 @@ impl PyHipparcosCatalog {
 ///     ```python
 ///     import brahe.datasets as datasets
 ///
-///     tyc = datasets.star_catalog.get_tycho2()
+///     tyc = datasets.star_catalogs.get_tycho2()
 ///     record = tyc.get_by_id(1, 8, 1)
 ///     ```
 #[pyclass(name = "Tycho2Record", module = "brahe._brahe", from_py_object)]
 #[derive(Clone)]
 struct PyTycho2Record {
-    inner: star_catalog::Tycho2Record,
+    inner: star_catalogs::Tycho2Record,
 }
 
 #[pymethods]
@@ -894,7 +894,7 @@ impl PyTycho2Record {
 ///     ```python
 ///     import brahe.datasets as datasets
 ///
-///     tyc = datasets.star_catalog.get_tycho2()
+///     tyc = datasets.star_catalogs.get_tycho2()
 ///     print(f"Loaded {len(tyc)} records")
 ///
 ///     bright = tyc.filter_by_magnitude(8.0)
@@ -902,7 +902,7 @@ impl PyTycho2Record {
 ///     ```
 #[pyclass(name = "Tycho2Catalog", module = "brahe._brahe")]
 struct PyTycho2Catalog {
-    inner: star_catalog::Tycho2Catalog,
+    inner: star_catalogs::Tycho2Catalog,
 }
 
 #[pymethods]
@@ -1089,15 +1089,15 @@ impl PyTycho2Catalog {
 ///     ```python
 ///     import brahe.datasets as datasets
 ///
-///     fk5 = datasets.star_catalog.get_fk5()
+///     fk5 = datasets.star_catalogs.get_fk5()
 ///     print(f"Loaded {len(fk5)} records")
 ///     ```
 #[pyfunction]
-#[pyo3(name = "star_catalog_get_fk5", signature = (cache_max_age=None))]
-fn py_star_catalog_get_fk5(py: Python<'_>, cache_max_age: Option<f64>) -> PyResult<PyFK5Catalog> {
+#[pyo3(name = "star_catalogs_get_fk5", signature = (cache_max_age=None))]
+fn py_star_catalogs_get_fk5(py: Python<'_>, cache_max_age: Option<f64>) -> PyResult<PyFK5Catalog> {
     // Release the GIL during the (potentially slow) download/parse so other
     // Python threads can keep running.
-    let catalog = py.detach(|| star_catalog::get_fk5_catalog(cache_max_age))?;
+    let catalog = py.detach(|| star_catalogs::get_fk5_catalog(cache_max_age))?;
     Ok(PyFK5Catalog { inner: catalog })
 }
 
@@ -1122,7 +1122,7 @@ fn py_star_catalog_get_fk5(py: Python<'_>, cache_max_age: Option<f64>) -> PyResu
 ///     ```python
 ///     import brahe.datasets as datasets
 ///
-///     hip = datasets.star_catalog.get_hipparcos()
+///     hip = datasets.star_catalogs.get_hipparcos()
 ///     print(f"Loaded {len(hip)} records")
 ///
 ///     sirius = hip.get_by_id(32349)
@@ -1130,14 +1130,14 @@ fn py_star_catalog_get_fk5(py: Python<'_>, cache_max_age: Option<f64>) -> PyResu
 ///         print(f"Sirius Vmag: {sirius.vmag}")
 ///     ```
 #[pyfunction]
-#[pyo3(name = "star_catalog_get_hipparcos", signature = (cache_max_age=None))]
-fn py_star_catalog_get_hipparcos(
+#[pyo3(name = "star_catalogs_get_hipparcos", signature = (cache_max_age=None))]
+fn py_star_catalogs_get_hipparcos(
     py: Python<'_>,
     cache_max_age: Option<f64>,
 ) -> PyResult<PyHipparcosCatalog> {
     // Release the GIL during the (potentially slow) download/parse so other
     // Python threads can keep running.
-    let catalog = py.detach(|| star_catalog::get_hipparcos_catalog(cache_max_age))?;
+    let catalog = py.detach(|| star_catalogs::get_hipparcos_catalog(cache_max_age))?;
     Ok(PyHipparcosCatalog { inner: catalog })
 }
 
@@ -1163,18 +1163,18 @@ fn py_star_catalog_get_hipparcos(
 ///     ```python
 ///     import brahe.datasets as datasets
 ///
-///     tyc = datasets.star_catalog.get_tycho2()
+///     tyc = datasets.star_catalogs.get_tycho2()
 ///     print(f"Loaded {len(tyc)} records")
 ///     ```
 #[pyfunction]
-#[pyo3(name = "star_catalog_get_tycho2", signature = (cache_max_age=None))]
-fn py_star_catalog_get_tycho2(
+#[pyo3(name = "star_catalogs_get_tycho2", signature = (cache_max_age=None))]
+fn py_star_catalogs_get_tycho2(
     py: Python<'_>,
     cache_max_age: Option<f64>,
 ) -> PyResult<PyTycho2Catalog> {
     // Release the GIL during the (potentially slow) download/parse so other
     // Python threads can keep running.
-    let catalog = py.detach(|| star_catalog::get_tycho2_catalog(cache_max_age))?;
+    let catalog = py.detach(|| star_catalogs::get_tycho2_catalog(cache_max_age))?;
     Ok(PyTycho2Catalog { inner: catalog })
 }
 

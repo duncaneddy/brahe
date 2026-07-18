@@ -198,7 +198,7 @@ pub fn get_tides_cache_dir() -> Result<String, BraheError> {
 
 /// Get the star catalog cache directory path.
 ///
-/// Returns `~/.cache/brahe/star_catalog` (or `$BRAHE_CACHE/star_catalog` if environment variable is set).
+/// Returns `~/.cache/brahe/star_catalogs` (or `$BRAHE_CACHE/star_catalogs` if environment variable is set).
 /// The directory is created if it doesn't exist.
 ///
 /// # Returns
@@ -207,12 +207,12 @@ pub fn get_tides_cache_dir() -> Result<String, BraheError> {
 ///
 /// # Examples
 /// ```
-/// use brahe::utils::cache::get_star_catalog_cache_dir;
-/// let star_catalog_cache_dir = get_star_catalog_cache_dir().unwrap();
-/// println!("Star catalog cache directory: {}", star_catalog_cache_dir);
+/// use brahe::utils::cache::get_star_catalogs_cache_dir;
+/// let star_catalogs_cache_dir = get_star_catalogs_cache_dir().unwrap();
+/// println!("Star catalog cache directory: {}", star_catalogs_cache_dir);
 /// ```
-pub fn get_star_catalog_cache_dir() -> Result<String, BraheError> {
-    get_brahe_cache_dir_with_subdir(Some("star_catalog"))
+pub fn get_star_catalogs_cache_dir() -> Result<String, BraheError> {
+    get_brahe_cache_dir_with_subdir(Some("star_catalogs"))
 }
 
 #[cfg(test)]

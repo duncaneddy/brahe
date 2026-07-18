@@ -9,7 +9,7 @@ This module provides a source-specific API organized by data provider:
 - groundstations: Curated groundstation location datasets
 - naif: NASA JPL NAIF ephemeris kernels (DE series)
 - gcat: Jonathan McDowell's GCAT satellite catalogs (SATCAT, PSATCAT)
-- star_catalog: Fixed-epoch star catalogs (FK5, Hipparcos, Tycho-2)
+- star_catalogs: Fixed-epoch star catalogs (FK5, Hipparcos, Tycho-2)
 - icgem: ICGEM spherical harmonic gravity model catalog (Earth + celestial bodies)
 
 For CelestrakClient satellite catalog data, use the `brahe.celestrak` module instead.
@@ -50,10 +50,10 @@ from brahe._brahe import (
     GCATPsatcatRecord,
     GCATSatcat,
     GCATPsatcat,
-    # Star catalog functions and types
-    star_catalog_get_fk5,
-    star_catalog_get_hipparcos,
-    star_catalog_get_tycho2,
+    # Star catalogs functions and types
+    star_catalogs_get_fk5,
+    star_catalogs_get_hipparcos,
+    star_catalogs_get_tycho2,
     FK5Record,
     FK5Catalog,
     HipparcosRecord,
@@ -110,13 +110,13 @@ class _GcatNamespace:
 gcat = _GcatNamespace()
 
 
-# Create a star catalog namespace object
-class _StarCatalogNamespace:
-    """Star catalog (FK5, Hipparcos, Tycho-2) data source namespace"""
+# Create a star catalogs namespace object
+class _StarCatalogsNamespace:
+    """Star catalogs (FK5, Hipparcos, Tycho-2) data source namespace"""
 
-    get_fk5 = staticmethod(star_catalog_get_fk5)
-    get_hipparcos = staticmethod(star_catalog_get_hipparcos)
-    get_tycho2 = staticmethod(star_catalog_get_tycho2)
+    get_fk5 = staticmethod(star_catalogs_get_fk5)
+    get_hipparcos = staticmethod(star_catalogs_get_hipparcos)
+    get_tycho2 = staticmethod(star_catalogs_get_tycho2)
     FK5Record = FK5Record
     FK5Catalog = FK5Catalog
     HipparcosRecord = HipparcosRecord
@@ -125,8 +125,8 @@ class _StarCatalogNamespace:
     Tycho2Catalog = Tycho2Catalog
 
 
-# Create star catalog namespace instance
-star_catalog = _StarCatalogNamespace()
+# Create star catalogs namespace instance
+star_catalogs = _StarCatalogsNamespace()
 
 
 # Create an ICGEM namespace object
@@ -147,6 +147,6 @@ __all__ = [
     "groundstations",
     "naif",
     "gcat",
-    "star_catalog",
+    "star_catalogs",
     "icgem",
 ]

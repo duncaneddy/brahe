@@ -7,12 +7,12 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use bh::datasets::star_catalog;
-use bh::datasets::star_catalog::StarRecord;
+use bh::datasets::star_catalogs;
+use bh::datasets::star_catalogs::StarRecord;
 
 fn main() {
     // Download the Hipparcos catalog (cached permanently after the first download)
-    let hipparcos = star_catalog::get_hipparcos_catalog(None).unwrap();
+    let hipparcos = star_catalogs::get_hipparcos_catalog(None).unwrap();
     println!("Loaded {} Hipparcos records", hipparcos.len());
 
     // Filter to naked-eye-bright stars (Vmag < 5.2)

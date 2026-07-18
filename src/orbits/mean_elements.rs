@@ -84,7 +84,12 @@ pub struct InverseConfig {
     pub force_model: ForceModelConfig,
     /// Numerical propagation settings (integrator, tolerances) for the trial propagation.
     pub propagation: NumericalPropagationConfig,
-    /// Convergence tolerance on the mean-element residual (radians / meters mixed norm; see impl).
+    /// Convergence tolerance on the mean-element residual, compared against a mixed
+    /// norm of the residual `r = target_mean - averaged(trial_osc)`:
+    /// `|Δa| (meters) + 1e6·|Δe| + 1e6·‖Δ(i, Ω, ω, M)‖ (radians)`.
+    /// The `1e6` weights make an eccentricity/angle error commensurate with a
+    /// semi-major-axis error in meters, so e.g. `tolerance = 1.0` demands roughly
+    /// 1 m in `a`, `1e-6` in `e`, and `1e-6` rad (~0.2 arcsec) in the angles combined.
     pub tolerance: f64,
     /// Maximum number of differential-correction iterations before giving up.
     pub max_iterations: usize,

@@ -1641,7 +1641,10 @@ impl PyNumericalConfig {
 /// Args:
 ///     force_model (ForceModelConfig): Force model used to propagate the trial osculating state.
 ///     propagation (NumericalPropagationConfig): Integrator settings for the trial propagation.
-///     tolerance (float): Convergence tolerance on the mean-element residual.
+///     tolerance (float): Convergence tolerance on the mean-element residual, compared
+///         against the mixed norm ``|Δa| (m) + 1e6·|Δe| + 1e6·‖Δ(i, Ω, ω, M)‖ (rad)``.
+///         For example, ``tolerance=1.0`` demands roughly 1 m in a, 1e-6 in e, and
+///         1e-6 rad (~0.2 arcsec) in the angles combined.
 ///     max_iterations (int): Maximum number of differential-correction iterations.
 ///
 /// Example:
@@ -1651,7 +1654,7 @@ impl PyNumericalConfig {
 ///     cfg = bh.InverseConfig(
 ///         bh.ForceModelConfig.default(),
 ///         bh.NumericalPropagationConfig.default(),
-///         1e-9,
+///         1.0,
 ///         50,
 ///     )
 ///     ```
@@ -1669,7 +1672,10 @@ impl PyInverseConfig {
     /// Args:
     ///     force_model (ForceModelConfig): Force model used to propagate the trial osculating state.
     ///     propagation (NumericalPropagationConfig): Integrator settings for the trial propagation.
-    ///     tolerance (float): Convergence tolerance on the mean-element residual.
+    ///     tolerance (float): Convergence tolerance on the mean-element residual, compared
+///         against the mixed norm ``|Δa| (m) + 1e6·|Δe| + 1e6·‖Δ(i, Ω, ω, M)‖ (rad)``.
+///         For example, ``tolerance=1.0`` demands roughly 1 m in a, 1e-6 in e, and
+///         1e-6 rad (~0.2 arcsec) in the angles combined.
     ///     max_iterations (int): Maximum number of differential-correction iterations.
     ///
     /// Returns:
@@ -1717,7 +1723,8 @@ impl PyInverseConfig {
         self.config.propagation = value.config.clone();
     }
 
-    /// Convergence tolerance on the mean-element residual.
+    /// Convergence tolerance on the mean-element residual (mixed norm
+    /// `|Δa| (m) + 1e6·|Δe| + 1e6·‖Δ(i, Ω, ω, M)‖ (rad)`).
     #[getter]
     fn get_tolerance(&self) -> f64 {
         self.config.tolerance

@@ -108,7 +108,11 @@ for osc→mean).
 - **`force_model`** (`ForceModelConfig`) — force model used to numerically propagate the trial state
   across the averaging window.
 - **`propagation`** (`NumericalPropagationConfig`) — integrator settings for that trial propagation.
-- **`tolerance`** — convergence tolerance on the mean-element residual.
+- **`tolerance`** — convergence tolerance on the mean-element residual. The residual is reduced to a
+  single scalar via the mixed norm $|\Delta a|\,(\text{m}) + 10^6\,|\Delta e| + 10^6\,\lVert\Delta(i, \Omega, \omega, M)\rVert\,(\text{rad})$,
+  where the $10^6$ weights make eccentricity and angle errors commensurate with a semi-major-axis
+  error in meters. For example, `tolerance = 1.0` demands roughly 1 m in $a$, $10^{-6}$ in $e$, and
+  $10^{-6}$ rad (~0.2 arcsec) across the angles combined.
 - **`max_iterations`** — maximum number of differential-correction iterations before giving up
   (returns an error if exceeded).
 

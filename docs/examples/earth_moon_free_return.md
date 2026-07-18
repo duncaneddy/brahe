@@ -78,7 +78,7 @@ The Moon-distance curve reaches its minimum - the perilune - a little over three
 
 ## Figure-8 in the Rotating Frame
 
-In an inertial frame the free-return path is an unremarkable elongated loop. Its structure only becomes visible in the **Earth-Moon Rotating (EMR)** frame, which co-rotates with the Earth-Moon line so the Moon sits fixed on one axis. In that frame the outbound leg, the far-side lunar swing-by, and the return leg trace the characteristic figure-8 that is the signature of a free-return trajectory - the outbound and return legs cross near Earth. We build two views: a 3D view around the textured Earth and Moon, and a top-down (X-Y) view with the bodies drawn to scale. Both carry direction-of-travel arrows along the path, and the fixed body spheres are placed at the perilune epoch so the swing-by aligns with the Moon.
+In an inertial frame the free-return path is an unremarkable elongated loop. Its structure only becomes visible in the **Earth-Moon Rotating (EMR)** frame, which co-rotates with the Earth-Moon line so the Moon sits fixed on one axis. In that frame the outbound leg, the far-side lunar swing-by, and the return leg trace the characteristic figure-8 that is the signature of a free-return trajectory - the outbound and return legs cross near Earth. We build two views: a 3D view around the textured Earth and Moon, and a top-down (X-Y) view with the bodies drawn to scale. The top-down view carries direction-of-travel arrows along the path, and the fixed body spheres are placed at the perilune epoch so the swing-by aligns with the Moon.
 
 ``` python
 --8<-- "./examples/examples/earth_moon_free_return.py:plot_emr"

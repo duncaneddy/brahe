@@ -308,8 +308,7 @@ def _emr_body_xy_km(naif_id):
 earth_xy = _emr_body_xy_km(bh.NAIFId.EARTH)
 moon_xy = _emr_body_xy_km(bh.NAIFId.MOON)
 
-# 3D view: textured Earth and Moon with the trajectory, plus cone arrows along
-# the path. The cones use absolute sizing so they stay a fixed size in the scene.
+# 3D view: textured Earth and Moon with the trajectory.
 fig_emr = bh.plot_earth_moon_rotating_3d(
     [{"trajectory": prop.trajectory, "color": "#fc3d21", "label": "Free return"}],
     backend="plotly",
@@ -317,29 +316,6 @@ fig_emr = bh.plot_earth_moon_rotating_3d(
     view_elevation=50.0,
     view_azimuth=-120.0,
     view_distance=2.4,
-)
-arrow_dir = emr_vel[arrow_idx] / np.linalg.norm(
-    emr_vel[arrow_idx], axis=1, keepdims=True
-)
-# Size the cones relative to the trajectory's extent rather than a fixed
-# constant, so they stay a subtle ~3% of the plot regardless of scale.
-max_extent_km = np.ptp(emr_xyz_km, axis=0).max()
-cone_sizeref_km = 0.03 * max_extent_km
-fig_emr.add_trace(
-    go.Cone(
-        x=emr_xyz_km[arrow_idx, 0],
-        y=emr_xyz_km[arrow_idx, 1],
-        z=emr_xyz_km[arrow_idx, 2],
-        u=arrow_dir[:, 0],
-        v=arrow_dir[:, 1],
-        w=arrow_dir[:, 2],
-        sizemode="absolute",
-        sizeref=cone_sizeref_km,
-        anchor="tail",
-        showscale=False,
-        colorscale=[[0, "#fc3d21"], [1, "#fc3d21"]],
-        name="Direction of travel",
-    )
 )
 
 # 2D top-down (X-Y) view: the figure-8 with Earth and Moon drawn to scale and

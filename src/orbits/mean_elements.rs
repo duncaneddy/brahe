@@ -416,6 +416,31 @@ pub fn batch_state_koe_mean_to_osc(
 /// # Returns
 ///
 /// Vector of `(epoch, mean_state)` pairs; see [`batch_state_koe_osc_to_mean`].
+///
+/// # Example
+///
+/// ```
+/// use nalgebra::{DVector, SVector};
+/// use brahe::time::Epoch;
+/// use brahe::orbits::{batch_state_koe_osc_to_mean_trajectory, MeanElementMethod};
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::trajectories::DOrbitTrajectory;
+/// use brahe::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
+///
+/// let mut traj = DOrbitTrajectory::new(
+///     6,
+///     OrbitFrame::ECI,
+///     OrbitRepresentation::Keplerian,
+///     Some(AngleFormat::Degrees),
+/// );
+/// let osc = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.001, 45.0, 30.0, 60.0, 0.0);
+/// traj.add(Epoch::from_gps_seconds(0.0), DVector::from_row_slice(osc.as_slice()));
+/// traj.add(Epoch::from_gps_seconds(60.0), DVector::from_row_slice(osc.as_slice()));
+///
+/// let mean = batch_state_koe_osc_to_mean_trajectory(
+///     &traj, MeanElementMethod::BrouwerLyddane, AngleFormat::Degrees,
+/// ).unwrap();
+/// ```
 pub fn batch_state_koe_osc_to_mean_trajectory(
     traj: &DOrbitTrajectory,
     method: MeanElementMethod,
@@ -440,6 +465,31 @@ pub fn batch_state_koe_osc_to_mean_trajectory(
 /// # Returns
 ///
 /// Vector of `(epoch, osc_state)` pairs; see [`batch_state_koe_mean_to_osc`].
+///
+/// # Example
+///
+/// ```
+/// use nalgebra::{DVector, SVector};
+/// use brahe::time::Epoch;
+/// use brahe::orbits::{batch_state_koe_mean_to_osc_trajectory, MeanElementMethod};
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::trajectories::DOrbitTrajectory;
+/// use brahe::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
+///
+/// let mut traj = DOrbitTrajectory::new(
+///     6,
+///     OrbitFrame::ECI,
+///     OrbitRepresentation::Keplerian,
+///     Some(AngleFormat::Degrees),
+/// );
+/// let mean = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.001, 45.0, 30.0, 60.0, 0.0);
+/// traj.add(Epoch::from_gps_seconds(0.0), DVector::from_row_slice(mean.as_slice()));
+/// traj.add(Epoch::from_gps_seconds(60.0), DVector::from_row_slice(mean.as_slice()));
+///
+/// let osc = batch_state_koe_mean_to_osc_trajectory(
+///     &traj, MeanElementMethod::BrouwerLyddane, AngleFormat::Degrees,
+/// ).unwrap();
+/// ```
 pub fn batch_state_koe_mean_to_osc_trajectory(
     traj: &DOrbitTrajectory,
     method: MeanElementMethod,

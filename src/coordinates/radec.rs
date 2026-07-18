@@ -2,13 +2,13 @@
 
 use std::f64::consts::TAU;
 
-use crate::constants::{AngleFormat, DEG2RAD, RAD2DEG};
+use crate::constants::{AngleFormat, DEG2RAD, JD_J2000, RAD2DEG};
 use crate::coordinates::topocentric::{
     position_enz_to_azel, rotation_ellipsoid_to_enz, rotation_enz_to_ellipsoid,
 };
 use crate::frames::{rotation_ecef_to_eci, rotation_eci_to_ecef};
 use crate::math::{SVector3, SVector6};
-use crate::time::Epoch;
+use crate::time::{Epoch, TimeSystem};
 
 /// Convert a right ascension, declination, and range into the equivalent
 /// Cartesian inertial position.
@@ -215,45 +215,45 @@ pub fn state_inertial_to_radec(x_inertial: SVector6, angle_format: AngleFormat) 
     }
 }
 
-/// Propagate a star's catalog position from one epoch to another using the
-/// rigorous (direction-only) proper-motion transformation.
+/// Propagate a star's catalog position from one epoch to another using IAU
+/// SOFA's `iauPmsafe` space-motion transformation (via the `rsofa` crate).
 ///
-/// The star's unit direction vector is advanced linearly in the tangent plane
-/// by its proper motion, scaled by a first-order perspective-acceleration
-/// correction that accounts for the change in the star's angular rate as its
-/// line-of-sight distance changes (significant for high radial-velocity,
-/// high-parallax stars such as Barnard's Star), and then renormalized.
+/// `iauPmsafe` is `iauStarpm` (see below) plus a proper-motion-scaled
+/// minimum-parallax guard: before propagating, it overrides the parallax to
+/// `max(px, F * annual_proper_motion, PXMIN)` so that stars with a
+/// missing/tiny/zero measured parallax still propagate correctly instead of
+/// SOFA's plain `iauStarpm` treating them as sitting at an arbitrary,
+/// enormous "celestial sphere" distance -- at which even ordinary proper
+/// motions imply a superluminal transverse velocity that `iauStarpm` clamps
+/// to zero, silently turning proper-motion propagation into a no-op. This
+/// override is exactly SOFA's designed handling for the catalog case this
+/// function serves (proper motion known, parallax not).
+///
+/// `iauStarpm`/`iauPmsafe` advance the star's full barycentric
+/// position/velocity (pv-)state from `epoch_from` to `epoch_to` assuming
+/// straight-line motion at constant velocity, including a light-time
+/// correction and the special-relativistic (Doppler) treatment of Stumpff
+/// (1985), then reduce the result back to catalog `(ra, dec)`. This is a
+/// higher-fidelity superset of the rigorous direction-only epoch
+/// transformation described in ESA SP-1200 (Vol. 1, §1.5.5), which remains
+/// the underlying theory: the tangential displacement is still driven by
+/// the same proper-motion vector and "radial proper motion"
+/// (perspective-acceleration) term, but SOFA additionally accounts for
+/// light-time and Doppler effects.
 ///
 /// `pm_ra` follows the standard catalog convention: it is
 /// **μ_α\* = μ_α·cos δ**, not the raw coordinate rate μ_α. This matches the
 /// `pmra`/`pmdec` columns of Hipparcos, Gaia, and most other star catalogs.
-/// If `parallax` or `radial_velocity` is `None`, the perspective-acceleration
-/// term is omitted (equivalent to setting it to zero), reducing to a purely
-/// linear proper-motion propagation.
+/// `iauPmsafe`, however, takes the RA proper motion as the coordinate rate
+/// dα/dt (SOFA's `pmr1`), so it is recovered here as
+/// `pmr1 = (μ_α\*·MAS2RAD) / cos δ`. This conversion is singular at the
+/// pole (`cos δ = 0`); since no real catalog star sits exactly at `δ = ±90°`,
+/// `pmr1` is set to `0` there rather than propagating a divide-by-zero.
 ///
-/// This function implements the direction part of the transformation only;
-/// it does not apply light-time or Doppler (radial-velocity-rate) corrections
-/// and is otherwise equivalent to IAU SOFA `iauStarpm`'s treatment of the
-/// proper-motion/parallax epoch transformation.
-///
-/// This follows ESA SP-1200's rigorous epoch-transformation treatment
-/// (Vol. 1, §1.5.5): the barycentric direction is propagated as
-/// **u(τ) ∝ u₀·(1 + ζτ) + μτ**, then renormalized, where SP-1200 writes the
-/// tangential proper-motion vector as **μ = p·μ_α\* + q·μ_δ** (its p/q/r
-/// triad for the tangent-plane basis at the catalog position) and the radial
-/// term as the "radial proper motion" **ζ = μ_r = v_r·π / A** (`A` being the
-/// astronomical unit expressed in km/yr per km/s, `A` = 4.740470446
-/// km·yr/s). The code below uses the following names for these SP-1200
-/// quantities:
-/// - `u0` - SP-1200's **u₀**, the unit direction at `epoch_from`
-/// - `p_hat`, `q_hat` - SP-1200's tangent-plane basis vectors **p**, **q**
-///   (its **r** is `u0` itself)
-/// - `mu` - SP-1200's **μ**, the tangential proper-motion vector
-/// - `mu_r` - SP-1200's **ζ** (radial proper motion)
-/// - `tau` - SP-1200's **τ**, the epoch interval in Julian years
-///
-/// We omit the light-time and space-motion refinements that IAU SOFA's
-/// `iauStarpm` adds on top of this same rigorous treatment.
+/// If `parallax` is `None` it is passed to `iauPmsafe` as `0`; `iauPmsafe`
+/// then overrides it per its own minimum-parallax guard described above
+/// (rather than "value is simply unknown, ignore this term"). If
+/// `radial_velocity` is `None` it is passed as `0` (no radial motion).
 ///
 /// # Arguments
 /// - `ra`: Right ascension at `epoch_from`. Units: (*angle*)
@@ -294,6 +294,7 @@ pub fn state_inertial_to_radec(x_inertial: SVector6, angle_format: AngleFormat) 
 ///
 /// # Reference
 /// 1. ESA, *The Hipparcos and Tycho Catalogues*, ESA SP-1200, Vol. 1, §1.5.5, 1997.
+/// 2. IAU SOFA Board, *SOFA Tools for Earth Attitude*, `iauPmsafe`, 2023.
 #[allow(clippy::too_many_arguments)]
 pub fn apply_proper_motion(
     ra: f64,
@@ -313,27 +314,56 @@ pub fn apply_proper_motion(
         AngleFormat::Radians => (ra, dec),
     };
 
-    let tau = (epoch_to.mjd() - epoch_from.mjd()) / 365.25;
-
-    let (sin_ra, cos_ra) = ra_rad.sin_cos();
-    let (sin_dec, cos_dec) = dec_rad.sin_cos();
-
-    let u0 = SVector3::new(cos_dec * cos_ra, cos_dec * sin_ra, sin_dec);
-    let p_hat = SVector3::new(-sin_ra, cos_ra, 0.0);
-    let q_hat = SVector3::new(-sin_dec * cos_ra, -sin_dec * sin_ra, cos_dec);
-
-    let mu = p_hat * (pm_ra * MAS2RAD) + q_hat * (pm_dec * MAS2RAD);
-
-    let mu_r = match (parallax, radial_velocity) {
-        (Some(plx), Some(rv)) => rv * plx / 4.740470446 * MAS2RAD,
-        _ => 0.0,
+    // pmr1 is dRA/dt (coordinate rate), not mu_alpha* = mu_alpha * cos(dec);
+    // recover it by dividing out cos(dec). Singular at the pole -- no real
+    // catalog star sits there, so fall back to 0.
+    let cos_dec = dec_rad.cos();
+    let pmr1 = if cos_dec.abs() > 1e-9 {
+        (pm_ra * MAS2RAD) / cos_dec
+    } else {
+        0.0
     };
+    let pmd1 = pm_dec * MAS2RAD;
+    let px1 = parallax.unwrap_or(0.0) / 1000.0; // mas -> arcsec
+    let rv1 = radial_velocity.unwrap_or(0.0);
 
-    let b = u0 * (1.0 + mu_r * tau) + mu * tau;
-    let u = b / b.norm();
+    // Two-part TDB Julian dates (TT used as a TDB proxy); split via the
+    // "J2000 method" (epNa = JD_J2000, epNb = jd - JD_J2000) for the
+    // resolution SOFA's internal handling is optimized for.
+    let (ep1a, ep1b) = (
+        JD_J2000,
+        epoch_from.jd_as_time_system(TimeSystem::TT) - JD_J2000,
+    );
+    let (ep2a, ep2b) = (
+        JD_J2000,
+        epoch_to.jd_as_time_system(TimeSystem::TT) - JD_J2000,
+    );
 
-    let ra_new = u[1].atan2(u[0]).rem_euclid(TAU);
-    let dec_new = u[2].asin();
+    let mut ra2 = 0.0;
+    let mut dec2 = 0.0;
+    let mut pmr2 = 0.0;
+    let mut pmd2 = 0.0;
+    let mut px2 = 0.0;
+    let mut rv2 = 0.0;
+
+    // Status is 0 (OK) or a positive bitmask of non-fatal SOFA warnings (1:
+    // parallax overridden -- either by iauPmsafe's own proper-motion-scaled
+    // minimum-parallax guard, or by iauStarpm's tiny/zero-parallax
+    // "celestial sphere" fallback if iauPmsafe's override still isn't
+    // enough; 2: excessive velocity clamped to zero; 4: relativistic
+    // iteration didn't converge) -- SOFA still returns usable ra2/dec2 in
+    // all of these cases. A negative (system-error) status cannot occur for
+    // the finite inputs constructed above, so it is not specially handled
+    // here.
+    unsafe {
+        rsofa::iauPmsafe(
+            ra_rad, dec_rad, pmr1, pmd1, px1, rv1, ep1a, ep1b, ep2a, ep2b, &mut ra2, &mut dec2,
+            &mut pmr2, &mut pmd2, &mut px2, &mut rv2,
+        );
+    }
+
+    let ra_new = ra2.rem_euclid(TAU);
+    let dec_new = dec2;
 
     match angle_format {
         AngleFormat::Degrees => (ra_new * RAD2DEG, dec_new * RAD2DEG),

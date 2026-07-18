@@ -204,6 +204,24 @@ internally before dispatching to the same `(epochs, states, method, angle_format
 accept the same `MeanElementMethod` values and follow the same truncation/preservation semantics
 described above.
 
+## Limitations
+
+The numerical method is a first implementation with two known limitations, both of which affect
+accuracy or robustness only in specific regimes and are candidates for future improvement:
+
+- **Iterative inverse near singular geometries.** The mean → osculating inverse applies its
+  fixed-point correction directly to Keplerian elements and seeds from the analytical
+  Brouwer-Lyddane mapping. Both are ill-conditioned near zero eccentricity and near-equatorial or
+  critical ($\approx 63.4°/116.6°$) inclinations, so the solver may require more iterations or fail
+  to converge there. It returns an error rather than a silently biased result, but a correction
+  formulated in equinoctial elements (with a proper Jacobian) would extend robust convergence into
+  these regimes.
+- **Unweighted averaging is cadence-dependent.** The slow equinoctial components are combined with
+  an unweighted sample mean, which equals a true time-average only when the input samples are
+  uniformly spaced in time (the expected case for a propagated trajectory). Markedly non-uniform
+  input cadence biases the average toward densely-sampled portions of the window; a trapezoidal
+  time-weighted average would remove this dependence.
+
 ## Function Reference
 
 | Conversion | Scope | Function |

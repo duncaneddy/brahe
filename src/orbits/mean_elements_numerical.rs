@@ -107,10 +107,17 @@ pub(crate) fn numerical_osc_to_mean(
     if epochs.is_empty() {
         return Ok(Vec::new());
     }
-    if config.window_seconds <= 0.0 {
+    if !config.window_seconds.is_finite() || config.window_seconds <= 0.0 {
         return Err(BraheError::Error(
-            "window_seconds must be positive".to_string(),
+            "window_seconds must be finite and positive".to_string(),
         ));
+    }
+    for w in epochs.windows(2) {
+        if (w[1] - w[0]) <= 0.0 {
+            return Err(BraheError::Error(
+                "epochs must be strictly ascending".to_string(),
+            ));
+        }
     }
     let data_start = epochs[0];
     let data_end = epochs[epochs.len() - 1];
@@ -213,17 +220,39 @@ pub(crate) fn numerical_mean_to_osc(
             "epochs and states must have equal length".to_string(),
         ));
     }
+    if !config.window_seconds.is_finite() || config.window_seconds <= 0.0 {
+        return Err(BraheError::Error(
+            "window_seconds must be finite and positive".to_string(),
+        ));
+    }
+    if !inverse.tolerance.is_finite() || inverse.tolerance <= 0.0 {
+        return Err(BraheError::Error(
+            "inverse.tolerance must be finite and positive".to_string(),
+        ));
+    }
+    if inverse.max_iterations < 1 {
+        return Err(BraheError::Error(
+            "inverse.max_iterations must be at least 1".to_string(),
+        ));
+    }
 
     let mut out = Vec::with_capacity(epochs.len());
     for (k, &t) in epochs.iter().enumerate() {
         let target = mean_states_rad[k];
 
-        // Seed with the analytical Brouwer-Lyddane inverse (radians in/out).
+        // Seed with the analytical Brouwer-Lyddane inverse (radians in/out). This
+        // divides by tan(i) and (1 - 5cos^2 i), which is singular at equatorial
+        // (i=0) and critical (~63.435/116.565 deg) inclinations; fall back to
+        // seeding from the target mean elements themselves if that produces a
+        // non-finite candidate.
         let mut x = state_koe_mean_to_osc(
             &target,
             MeanElementMethod::BrouwerLyddane,
             AngleFormat::Radians,
         )?;
+        if !x.iter().all(|v| v.is_finite()) {
+            x = target;
+        }
 
         let mut converged = false;
         for _ in 0..inverse.max_iterations {
@@ -248,36 +277,52 @@ pub(crate) fn numerical_mean_to_osc(
 }
 
 /// Propagates a candidate osculating state `x_rad` (defined at epoch `t`) across a
-/// window bracketing `t` and returns the numerically averaged mean elements nearest
-/// `t`.
+/// window bracketing `t` and returns the numerically averaged mean elements at
+/// exactly `t`.
 ///
-/// Samples 100 evenly-spaced epochs across a span that fully supports a `config.alignment`
-/// window of length `W = config.window_seconds` anchored at `t`, padded by ~10% of `W` on
-/// each side (so the boundary of the alignment's window at `t` is comfortably inside the
-/// sampled trajectory, avoiding bit-exact-boundary fragility):
+/// Samples epochs on a grid `t + j*dt` (integer `j`, `dt = 0.01*W`) spanning a range
+/// that fully supports a `config.alignment` window of length `W = config.window_seconds`
+/// anchored at `t`, padded by ~10% of `W` on each side (so the boundary of the
+/// alignment's window at `t` is comfortably inside the sampled trajectory, avoiding
+/// bit-exact-boundary fragility). Because `j=0` is always a grid point, `t` itself is
+/// always one of the sampled epochs:
 ///
-/// - [`WindowAlignment::Centered`]: `[t - 0.6*W, t + 0.6*W]`
-/// - [`WindowAlignment::Trailing`]: `[t - 1.1*W, t + 0.1*W]`
-/// - [`WindowAlignment::Leading`]: `[t - 0.1*W, t + 1.1*W]`
+/// - [`WindowAlignment::Centered`]: `j` from `-60` to `60`, i.e. `[t - 0.6*W, t + 0.6*W]`
+/// - [`WindowAlignment::Trailing`]: `j` from `-110` to `10`, i.e. `[t - 1.1*W, t + 0.1*W]`
+/// - [`WindowAlignment::Leading`]: `j` from `-10` to `110`, i.e. `[t - 0.1*W, t + 1.1*W]`
 ///
 /// The candidate state is first propagated backward to the window start (to obtain a
 /// valid initial condition there), then a fresh propagator integrates forward across
 /// the full window so the sampled trajectory has a single, monotonically increasing
 /// time history suitable for interpolation.
+///
+/// The averaged output is selected at exactly `t` (not the nearest sample) because the
+/// fast mean-longitude/anomaly is evaluated at the anchor epoch; averaging near-but-not-
+/// at `t` and taking the nearest neighbor would bias the recovered fast angle by up to
+/// one grid step. If no output exists at exactly `t` (which should not happen given `t`
+/// is a grid point), this is treated as a numerical failure rather than silently falling
+/// back to a near neighbor.
 fn forward_average(
     t: Epoch,
     x_rad: &SVector<f64, 6>,
     config: &NumericalConfig,
     inverse: &InverseConfig,
 ) -> Result<SVector<f64, 6>, BraheError> {
-    const N_SAMPLES: usize = 100;
-
     let w = config.window_seconds;
-    let (start, end) = match config.alignment {
-        WindowAlignment::Centered => (t - 0.6 * w, t + 0.6 * w),
-        WindowAlignment::Trailing => (t - 1.1 * w, t + 0.1 * w),
-        WindowAlignment::Leading => (t - 0.1 * w, t + 1.1 * w),
+    // Sample spacing: 1% of the window length. Combined with the per-alignment grid
+    // extents below, this yields 121 samples spanning the padded window (matching the
+    // ~100-sample budget used previously) while guaranteeing `t` is exactly on the grid.
+    let dt = 0.01 * w;
+    // (back_n, fwd_n): number of grid steps behind/ahead of `t` needed to cover the
+    // alignment-aware padded span documented above.
+    let (back_n, fwd_n): (i64, i64) = match config.alignment {
+        WindowAlignment::Centered => (60, 60),
+        WindowAlignment::Trailing => (110, 10),
+        WindowAlignment::Leading => (10, 110),
     };
+
+    let start = t - (back_n as f64) * dt;
+    let end = t + (fwd_n as f64) * dt;
 
     let cart_t = state_koe_to_eci(*x_rad, AngleFormat::Radians);
 
@@ -302,11 +347,14 @@ fn forward_average(
         .build()?;
     fwd.propagate_to(end);
 
-    let mut sample_epochs = Vec::with_capacity(N_SAMPLES);
-    let mut sample_states = Vec::with_capacity(N_SAMPLES);
-    for j in 0..N_SAMPLES {
-        let frac = j as f64 / (N_SAMPLES as f64 - 1.0);
-        let e = start + frac * (end - start);
+    let n_samples = (back_n + fwd_n + 1) as usize;
+    let mut sample_epochs = Vec::with_capacity(n_samples);
+    let mut sample_states = Vec::with_capacity(n_samples);
+    for j in -back_n..=fwd_n {
+        // Use `t` itself (not a recomputed `t + 0*dt`) at j=0 so the exact-anchor
+        // lookup below is a bit-exact match rather than relying on floating-point
+        // round-trip equality through Epoch arithmetic.
+        let e = if j == 0 { t } else { t + (j as f64) * dt };
         let cart = fwd.state(e)?;
         let cart6 = SVector::<f64, 6>::from_row_slice(cart.as_slice());
         let koe = state_eci_to_koe(cart6, AngleFormat::Radians);
@@ -317,14 +365,15 @@ fn forward_average(
     let averaged = numerical_osc_to_mean(&sample_epochs, &sample_states, config)?;
     averaged
         .into_iter()
-        .min_by(|a, b| {
-            (a.0 - t)
-                .abs()
-                .partial_cmp(&(b.0 - t).abs())
-                .expect("epoch difference is never NaN")
-        })
+        .find(|(e, _)| *e == t)
         .map(|(_, s)| s)
-        .ok_or_else(|| BraheError::NumericalError("empty averaging window".to_string()))
+        .ok_or_else(|| {
+            BraheError::NumericalError(
+                "numerical mean-to-osc: averaging window produced no output at the exact \
+                 anchor epoch"
+                    .to_string(),
+            )
+        })
 }
 
 /// Angle-aware element residual `target - value` (`a`, `e` linear; angles wrapped to
@@ -563,12 +612,22 @@ mod tests {
             .unwrap();
         fwd.propagate_to(end);
 
-        let n = 100usize;
+        // Sample on a grid that includes the anchor epoch exactly (mirroring
+        // `forward_average`'s exact-anchor design), so the recovered fast angle
+        // (mean anomaly) is evaluated AT the target epoch rather than at the nearest
+        // sample of an evenly-spaced grid that never lands exactly on it.
+        let back_n = 60i64;
+        let fwd_n = 60i64;
+        let dt = 0.01 * period;
+        let n = (back_n + fwd_n + 1) as usize;
         let mut sample_epochs = Vec::with_capacity(n);
         let mut sample_states = Vec::with_capacity(n);
-        for j in 0..n {
-            let frac = j as f64 / (n as f64 - 1.0);
-            let e = start + frac * (end - start);
+        for j in -back_n..=fwd_n {
+            let e = if j == 0 {
+                anchor
+            } else {
+                anchor + (j as f64) * dt
+            };
             let s = fwd.state(e).unwrap();
             let koe = state_eci_to_koe(
                 SVector::<f64, 6>::from_row_slice(s.as_slice()),
@@ -580,16 +639,25 @@ mod tests {
         let averaged = numerical_osc_to_mean(&sample_epochs, &sample_states, &cfg).unwrap();
         let (_, mean_recovered) = averaged
             .into_iter()
-            .min_by(|a, b| {
-                (a.0 - anchor)
-                    .abs()
-                    .partial_cmp(&(b.0 - anchor).abs())
-                    .unwrap()
-            })
-            .unwrap();
+            .find(|(e, _)| *e == anchor)
+            .expect("averaging window must contain the exact anchor epoch");
         assert_abs_diff_eq!(mean_recovered[0], mean_rad[0], epsilon = 500.0);
         assert_abs_diff_eq!(mean_recovered[1], mean_rad[1], epsilon = 2e-3);
         assert_abs_diff_eq!(mean_recovered[2], mean_rad[2], epsilon = 2e-3);
+
+        // Fast-angle check: with a nearest-sample (rather than exact-anchor) selection,
+        // the recovered mean anomaly is evaluated up to ~0.006*W away from the target
+        // epoch, biasing it by several hundredths of a radian even though a, e, i
+        // converge cleanly. With the exact-anchor pipeline this must match tightly.
+        let two_pi = 2.0 * std::f64::consts::PI;
+        let mut d_m = mean_recovered[5] - mean_rad[5];
+        while d_m > std::f64::consts::PI {
+            d_m -= two_pi;
+        }
+        while d_m < -std::f64::consts::PI {
+            d_m += two_pi;
+        }
+        assert_abs_diff_eq!(d_m, 0.0, epsilon = 1e-3);
     }
 
     #[test]
@@ -604,5 +672,125 @@ mod tests {
         };
         let epochs = vec![Epoch::from_gps_seconds(0.0)];
         assert!(numerical_mean_to_osc(&epochs, &[mean_rad], &cfg).is_err());
+    }
+
+    /// Regression test for the non-finite analytical-seed guard: at the critical
+    /// inclination (~63.435 deg), the Brouwer-Lyddane seed used by
+    /// `numerical_mean_to_osc` divides by `(1 - 5cos^2 i)`, which is exactly zero here
+    /// and produces a non-finite seed. The solver must fall back to seeding from the
+    /// target mean elements rather than propagating NaNs.
+    #[test]
+    #[serial_test::serial]
+    fn test_numerical_mean_to_osc_near_critical_inclination_seed_fallback() {
+        use crate::propagators::{ForceModelConfig, NumericalPropagationConfig};
+        crate::utils::testing::setup_global_test_eop();
+
+        let i_critical = (1.0 / 5.0_f64.sqrt()).acos();
+        let mean_rad = SVector::<f64, 6>::new(
+            R_EARTH + 700e3,
+            0.01,
+            i_critical,
+            30.0_f64.to_radians(),
+            60.0_f64.to_radians(),
+            0.0,
+        );
+        // Confirm this target actually exercises the non-finite-seed path being
+        // guarded against; otherwise the test would pass vacuously.
+        let seed = state_koe_mean_to_osc(
+            &mean_rad,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Radians,
+        )
+        .unwrap();
+        assert!(
+            !seed.iter().all(|v| v.is_finite()),
+            "test target does not exercise a non-finite analytical seed; adjust inclination"
+        );
+
+        let period = crate::orbits::orbital_period(mean_rad[0]);
+        let inverse = InverseConfig {
+            force_model: ForceModelConfig::earth_gravity(),
+            propagation: NumericalPropagationConfig::default(),
+            tolerance: 1.0,
+            max_iterations: 25,
+        };
+        let cfg = NumericalConfig {
+            window_seconds: period,
+            alignment: WindowAlignment::Centered,
+            edge: EdgeHandling::PreserveWindow,
+            inverse: Some(inverse),
+        };
+        let epochs = vec![Epoch::from_gps_seconds(0.0)];
+        match numerical_mean_to_osc(&epochs, &[mean_rad], &cfg) {
+            Ok(out) => {
+                assert_eq!(out.len(), 1);
+                assert!(out[0].1.iter().all(|v| v.is_finite()));
+            }
+            Err(BraheError::NumericalError(_)) => {}
+            Err(e) => panic!("unexpected error variant: {e:?}"),
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_numerical_osc_to_mean_rejects_unsorted_epochs() {
+        let (mut epochs, states, _mean_rad) = synthetic_osc_series();
+        epochs.swap(0, 1); // break strict ascending order
+        let cfg = NumericalConfig {
+            window_seconds: 3600.0,
+            alignment: WindowAlignment::Centered,
+            edge: EdgeHandling::Truncate,
+            inverse: None,
+        };
+        assert!(numerical_osc_to_mean(&epochs, &states, &cfg).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_numerical_osc_to_mean_rejects_non_finite_window_seconds() {
+        let (epochs, states, _mean_rad) = synthetic_osc_series();
+        let cfg = NumericalConfig {
+            window_seconds: f64::NAN,
+            alignment: WindowAlignment::Centered,
+            edge: EdgeHandling::Truncate,
+            inverse: None,
+        };
+        assert!(numerical_osc_to_mean(&epochs, &states, &cfg).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_numerical_mean_to_osc_rejects_invalid_inverse_config() {
+        use crate::propagators::{ForceModelConfig, NumericalPropagationConfig};
+        let mean_rad = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 0.78, 0.5, 1.0, 0.0);
+        let epochs = vec![Epoch::from_gps_seconds(0.0)];
+
+        let bad_tolerance = InverseConfig {
+            force_model: ForceModelConfig::earth_gravity(),
+            propagation: NumericalPropagationConfig::default(),
+            tolerance: 0.0,
+            max_iterations: 25,
+        };
+        let cfg = NumericalConfig {
+            window_seconds: 5400.0,
+            alignment: WindowAlignment::Centered,
+            edge: EdgeHandling::PreserveWindow,
+            inverse: Some(bad_tolerance),
+        };
+        assert!(numerical_mean_to_osc(&epochs, &[mean_rad], &cfg).is_err());
+
+        let bad_iterations = InverseConfig {
+            force_model: ForceModelConfig::earth_gravity(),
+            propagation: NumericalPropagationConfig::default(),
+            tolerance: 1.0,
+            max_iterations: 0,
+        };
+        let cfg2 = NumericalConfig {
+            window_seconds: 5400.0,
+            alignment: WindowAlignment::Centered,
+            edge: EdgeHandling::PreserveWindow,
+            inverse: Some(bad_iterations),
+        };
+        assert!(numerical_mean_to_osc(&epochs, &[mean_rad], &cfg2).is_err());
     }
 }

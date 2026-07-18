@@ -1193,4 +1193,124 @@ mod tests {
         assert_eq!(osc.len(), 1);
         assert_abs_diff_eq!(osc[0].1[0], mean[0], epsilon = 30_000.0);
     }
+
+    /// Numerical mean-element method is batch-only; single-state osc->mean calls must
+    /// error (mirrors `test_single_state_numerical_is_error`, which only covers the
+    /// mean->osc direction).
+    #[test]
+    #[parallel]
+    fn test_single_state_numerical_osc_to_mean_is_error() {
+        let osc = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0);
+        let cfg = MeanElementNumericalMethodConfig {
+            window_seconds: 5400.0,
+            alignment: WindowAlignment::Centered,
+            edge: WindowEdgeHandling::Truncate,
+            inverse: None,
+        };
+        let out = state_koe_osc_to_mean(
+            &osc,
+            MeanElementMethod::Numerical(cfg),
+            AngleFormat::Degrees,
+        );
+        assert!(out.is_err());
+    }
+
+    /// `batch_state_koe_osc_to_mean` dispatches `MeanElementMethod::Numerical` to
+    /// `numerical_osc_to_mean` + `convert_pairs_out`; this path was previously untested
+    /// via the public batch API (only the mean->osc Numerical dispatch was covered).
+    /// Build a synthesized osculating trajectory analytically (sweeping mean anomaly
+    /// through the Brouwer-Lyddane mean->osc mapping over one full period) and confirm
+    /// a full-period centered window recovers the mean a, e, i at its midpoint.
+    #[test]
+    #[parallel]
+    fn test_batch_osc_to_mean_numerical_recovers_mean() {
+        let mean_deg = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 0.0);
+        let period = crate::orbits::orbital_period(mean_deg[0]);
+        let t0 = Epoch::from_gps_seconds(0.0);
+        let n = 201usize;
+        let mut epochs = Vec::with_capacity(n);
+        let mut states = Vec::with_capacity(n);
+        for j in 0..n {
+            let frac = j as f64 / (n as f64 - 1.0);
+            let t = t0 + frac * period;
+            let mut m = mean_deg;
+            m[5] = (frac * 360.0) % 360.0;
+            let osc_deg =
+                state_koe_mean_to_osc(&m, MeanElementMethod::BrouwerLyddane, AngleFormat::Degrees)
+                    .unwrap();
+            epochs.push(t);
+            states.push(osc_deg);
+        }
+        let cfg = MeanElementNumericalMethodConfig {
+            window_seconds: period,
+            alignment: WindowAlignment::Centered,
+            edge: WindowEdgeHandling::Truncate,
+            inverse: None,
+        };
+        let out = batch_state_koe_osc_to_mean(
+            &epochs,
+            &states,
+            MeanElementMethod::Numerical(cfg),
+            AngleFormat::Degrees,
+        )
+        .unwrap();
+        assert!(!out.is_empty());
+        let (_, mid) = &out[out.len() / 2];
+        assert_abs_diff_eq!(mid[0], mean_deg[0], epsilon = 500.0);
+        assert_abs_diff_eq!(mid[1], mean_deg[1], epsilon = 2e-3);
+        assert_abs_diff_eq!(mid[2], mean_deg[2], epsilon = 2e-3);
+    }
+
+    /// `batch_state_koe_mean_to_osc` must reject mismatched `epochs`/`states` lengths
+    /// (mirrors `test_batch_mismatched_lengths_is_error`, which only covers the
+    /// osc->mean direction).
+    #[test]
+    #[parallel]
+    fn test_batch_mean_to_osc_mismatched_lengths_is_error() {
+        let epochs = vec![
+            Epoch::from_gps_seconds(0.0),
+            Epoch::from_gps_seconds(60.0),
+            Epoch::from_gps_seconds(120.0),
+        ];
+        let s = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0);
+        let states = vec![s, s];
+        let out = batch_state_koe_mean_to_osc(
+            &epochs,
+            &states,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Degrees,
+        );
+        assert!(out.is_err());
+    }
+
+    /// Analytical batch mean->osc is pointwise: length is preserved and each output
+    /// matches the single-state analytical result (mirrors
+    /// `test_batch_analytical_pointwise_preserves_length`, which only covers the
+    /// osc->mean direction).
+    #[test]
+    #[parallel]
+    fn test_batch_mean_to_osc_analytical_pointwise_preserves_length() {
+        let epochs = vec![
+            Epoch::from_gps_seconds(0.0),
+            Epoch::from_gps_seconds(60.0),
+            Epoch::from_gps_seconds(120.0),
+        ];
+        let s = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0);
+        let states = vec![s, s, s];
+        let out = batch_state_koe_mean_to_osc(
+            &epochs,
+            &states,
+            MeanElementMethod::BrouwerLyddane,
+            AngleFormat::Degrees,
+        )
+        .unwrap();
+        assert_eq!(out.len(), 3);
+        let single =
+            state_koe_mean_to_osc(&s, MeanElementMethod::BrouwerLyddane, AngleFormat::Degrees)
+                .unwrap();
+        for (t, o) in epochs.iter().zip(out.iter()) {
+            assert_eq!(o.0, *t);
+            assert_abs_diff_eq!(o.1[0], single[0], epsilon = 1e-9);
+        }
+    }
 }

@@ -921,4 +921,376 @@ mod tests {
         };
         assert!(numerical_mean_to_osc(&epochs, &[mean_rad], &cfg2).is_err());
     }
+
+    // ---- window_bounds ----
+
+    #[test]
+    #[parallel]
+    fn test_window_bounds_trailing() {
+        let t0 = Epoch::from_gps_seconds(0.0);
+        let data_start = t0;
+        let data_end = t0 + 10_000.0;
+        let anchor = t0 + 5_000.0;
+        let cfg = MeanElementNumericalMethodConfig {
+            window_seconds: 1_000.0,
+            alignment: WindowAlignment::Trailing,
+            edge: WindowEdgeHandling::Truncate,
+            inverse: None,
+        };
+        let (start, end) = window_bounds(anchor, data_start, data_end, &cfg).unwrap();
+        // Trailing: [anchor - W, anchor]
+        assert_abs_diff_eq!(start - (anchor - 1_000.0), 0.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(end - anchor, 0.0, epsilon = 1e-9);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_window_bounds_leading() {
+        let t0 = Epoch::from_gps_seconds(0.0);
+        let data_start = t0;
+        let data_end = t0 + 10_000.0;
+        let anchor = t0 + 5_000.0;
+        let cfg = MeanElementNumericalMethodConfig {
+            window_seconds: 1_000.0,
+            alignment: WindowAlignment::Leading,
+            edge: WindowEdgeHandling::Truncate,
+            inverse: None,
+        };
+        let (start, end) = window_bounds(anchor, data_start, data_end, &cfg).unwrap();
+        // Leading: [anchor, anchor + W]
+        assert_abs_diff_eq!(start - anchor, 0.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(end - (anchor + 1_000.0), 0.0, epsilon = 1e-9);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_window_bounds_preserve_window_clamps_when_longer_than_data_span() {
+        let t0 = Epoch::from_gps_seconds(0.0);
+        let data_start = t0;
+        let data_end = t0 + 100.0; // total data span is only 100s
+        let anchor = t0 + 50.0;
+        let cfg = MeanElementNumericalMethodConfig {
+            window_seconds: 10_000.0, // much longer than the data span
+            alignment: WindowAlignment::Centered,
+            edge: WindowEdgeHandling::PreserveWindow,
+            inverse: None,
+        };
+        let (start, end) = window_bounds(anchor, data_start, data_end, &cfg).unwrap();
+        // Window is clamped to the data bounds rather than sliding past them.
+        assert_abs_diff_eq!(start - data_start, 0.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(end - data_end, 0.0, epsilon = 1e-9);
+    }
+
+    // ---- numerical_osc_to_mean guards / edge cases ----
+
+    #[test]
+    #[parallel]
+    fn test_numerical_osc_to_mean_mismatched_lengths_is_error() {
+        let epochs = vec![Epoch::from_gps_seconds(0.0), Epoch::from_gps_seconds(60.0)];
+        let states = vec![SVector::<f64, 6>::new(
+            R_EARTH + 500e3,
+            0.01,
+            0.78,
+            0.5,
+            1.0,
+            0.0,
+        )];
+        let cfg = MeanElementNumericalMethodConfig {
+            window_seconds: 3600.0,
+            alignment: WindowAlignment::Centered,
+            edge: WindowEdgeHandling::Truncate,
+            inverse: None,
+        };
+        assert!(numerical_osc_to_mean(&epochs, &states, &cfg).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_numerical_osc_to_mean_empty_input_returns_empty_ok() {
+        let epochs: Vec<Epoch> = Vec::new();
+        let states: Vec<SVector<f64, 6>> = Vec::new();
+        let cfg = MeanElementNumericalMethodConfig {
+            window_seconds: 3600.0,
+            alignment: WindowAlignment::Centered,
+            edge: WindowEdgeHandling::Truncate,
+            inverse: None,
+        };
+        let out = numerical_osc_to_mean(&epochs, &states, &cfg).unwrap();
+        assert!(out.is_empty());
+    }
+
+    // Regression coverage for the `fr = -1` retrograde branch: a near-180-degree
+    // (retrograde) inclination must still recover finite mean elements. Sweeps mean
+    // anomaly across a fixed, unperturbed Keplerian ellipse (rather than routing through
+    // the analytical Brouwer-Lyddane mean->osc mapping, which is itself singular in this
+    // near-180-degree regime and cannot be used to synthesize the input trajectory) so
+    // the averaged elements should reproduce the input a, e, i essentially exactly.
+    #[test]
+    #[parallel]
+    fn test_numerical_osc_to_mean_retrograde_orbit() {
+        let inclination_deg = 179.95_f64;
+        let inclination_rad = inclination_deg.to_radians();
+        let threshold = std::f64::consts::FRAC_PI_2 * 1.999;
+        assert!(
+            inclination_rad > threshold,
+            "test target does not exceed the fr=-1 threshold; adjust inclination"
+        );
+        let a = R_EARTH + 500e3;
+        let e = 0.01;
+        let raan = 30.0_f64.to_radians();
+        let argp = 60.0_f64.to_radians();
+        let period = crate::orbits::orbital_period(a);
+        let t0 = Epoch::from_gps_seconds(0.0);
+        let n = 201usize;
+        let mut epochs = Vec::with_capacity(n);
+        let mut states = Vec::with_capacity(n);
+        for j in 0..n {
+            let frac = j as f64 / (n as f64 - 1.0);
+            let t = t0 + frac * period;
+            let m_anom = frac * 2.0 * std::f64::consts::PI;
+            epochs.push(t);
+            states.push(SVector::<f64, 6>::new(
+                a,
+                e,
+                inclination_rad,
+                raan,
+                argp,
+                m_anom,
+            ));
+        }
+        let cfg = MeanElementNumericalMethodConfig {
+            window_seconds: period * 0.5,
+            alignment: WindowAlignment::Centered,
+            edge: WindowEdgeHandling::Truncate,
+            inverse: None,
+        };
+        let out = numerical_osc_to_mean(&epochs, &states, &cfg).unwrap();
+        assert!(!out.is_empty());
+        let (_, mid) = &out[out.len() / 2];
+        assert!(mid.iter().all(|v| v.is_finite()));
+        assert_abs_diff_eq!(mid[0], a, epsilon = 1e-3);
+        assert_abs_diff_eq!(mid[1], e, epsilon = 1e-9);
+        assert_abs_diff_eq!(mid[2], inclination_rad, epsilon = 1e-9);
+    }
+
+    // ---- numerical_mean_to_osc guards (fire before propagation) ----
+
+    #[test]
+    #[parallel]
+    fn test_numerical_mean_to_osc_mismatched_lengths_is_error() {
+        use crate::propagators::{ForceModelConfig, NumericalPropagationConfig};
+        let inverse = MeanElementInverseConfig {
+            force_model: ForceModelConfig::earth_gravity(),
+            propagation: NumericalPropagationConfig::default(),
+            tolerance: 1.0,
+            max_iterations: 25,
+        };
+        let cfg = MeanElementNumericalMethodConfig {
+            window_seconds: 5400.0,
+            alignment: WindowAlignment::Centered,
+            edge: WindowEdgeHandling::PreserveWindow,
+            inverse: Some(inverse),
+        };
+        let epochs = vec![Epoch::from_gps_seconds(0.0), Epoch::from_gps_seconds(60.0)];
+        let states = vec![SVector::<f64, 6>::new(
+            R_EARTH + 500e3,
+            0.01,
+            0.78,
+            0.5,
+            1.0,
+            0.0,
+        )];
+        assert!(numerical_mean_to_osc(&epochs, &states, &cfg).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_numerical_mean_to_osc_rejects_non_finite_window_seconds() {
+        use crate::propagators::{ForceModelConfig, NumericalPropagationConfig};
+        let inverse = MeanElementInverseConfig {
+            force_model: ForceModelConfig::earth_gravity(),
+            propagation: NumericalPropagationConfig::default(),
+            tolerance: 1.0,
+            max_iterations: 25,
+        };
+        let cfg = MeanElementNumericalMethodConfig {
+            window_seconds: -1.0,
+            alignment: WindowAlignment::Centered,
+            edge: WindowEdgeHandling::PreserveWindow,
+            inverse: Some(inverse),
+        };
+        let epochs = vec![Epoch::from_gps_seconds(0.0)];
+        let states = vec![SVector::<f64, 6>::new(
+            R_EARTH + 500e3,
+            0.01,
+            0.78,
+            0.5,
+            1.0,
+            0.0,
+        )];
+        assert!(numerical_mean_to_osc(&epochs, &states, &cfg).is_err());
+    }
+
+    // ---- numerical_mean_to_osc: propagation-dependent behavior ----
+
+    // Non-convergence: an impossibly tight tolerance combined with a single allowed
+    // iteration must surface a clean `NumericalError` rather than looping forever or
+    // silently returning an under-converged result.
+    #[test]
+    #[serial_test::serial]
+    fn test_numerical_mean_to_osc_non_convergence_returns_numerical_error() {
+        use crate::propagators::{ForceModelConfig, NumericalPropagationConfig};
+        crate::utils::testing::setup_global_test_eop();
+
+        let mean_rad = crate::math::angles::oe_to_radians(
+            SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 0.0),
+            AngleFormat::Degrees,
+        );
+        let period = crate::orbits::orbital_period(mean_rad[0]);
+        let inverse = MeanElementInverseConfig {
+            force_model: ForceModelConfig::earth_gravity(),
+            propagation: NumericalPropagationConfig::default(),
+            tolerance: 1e-30,
+            max_iterations: 1,
+        };
+        let cfg = MeanElementNumericalMethodConfig {
+            window_seconds: period,
+            alignment: WindowAlignment::Centered,
+            edge: WindowEdgeHandling::PreserveWindow,
+            inverse: Some(inverse),
+        };
+        let epochs = vec![Epoch::from_gps_seconds(0.0)];
+        match numerical_mean_to_osc(&epochs, &[mean_rad], &cfg) {
+            Err(BraheError::NumericalError(_)) => {}
+            other => panic!("expected NumericalError, got {other:?}"),
+        }
+    }
+
+    // Trailing/Leading `forward_average` span arms: a single LEO mean state must still
+    // converge and recover a, e, i under both non-centered alignments.
+    #[test]
+    #[serial_test::serial]
+    fn test_numerical_mean_to_osc_trailing_alignment() {
+        use crate::propagators::{ForceModelConfig, NumericalPropagationConfig};
+        crate::utils::testing::setup_global_test_eop();
+
+        let mean_rad = crate::math::angles::oe_to_radians(
+            SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 0.0),
+            AngleFormat::Degrees,
+        );
+        let period = crate::orbits::orbital_period(mean_rad[0]);
+        let inverse = MeanElementInverseConfig {
+            force_model: ForceModelConfig::earth_gravity(),
+            propagation: NumericalPropagationConfig::default(),
+            tolerance: 1.0,
+            max_iterations: 25,
+        };
+        let cfg = MeanElementNumericalMethodConfig {
+            window_seconds: period,
+            alignment: WindowAlignment::Trailing,
+            edge: WindowEdgeHandling::PreserveWindow,
+            inverse: Some(inverse),
+        };
+        let epochs = vec![Epoch::from_gps_seconds(0.0)];
+        let out = numerical_mean_to_osc(&epochs, &[mean_rad], &cfg).unwrap();
+        assert_eq!(out.len(), 1);
+        assert!(out[0].1.iter().all(|v| v.is_finite()));
+        assert_abs_diff_eq!(out[0].1[0], mean_rad[0], epsilon = 30_000.0);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_numerical_mean_to_osc_leading_alignment() {
+        use crate::propagators::{ForceModelConfig, NumericalPropagationConfig};
+        crate::utils::testing::setup_global_test_eop();
+
+        let mean_rad = crate::math::angles::oe_to_radians(
+            SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 0.0),
+            AngleFormat::Degrees,
+        );
+        let period = crate::orbits::orbital_period(mean_rad[0]);
+        let inverse = MeanElementInverseConfig {
+            force_model: ForceModelConfig::earth_gravity(),
+            propagation: NumericalPropagationConfig::default(),
+            tolerance: 1.0,
+            max_iterations: 25,
+        };
+        let cfg = MeanElementNumericalMethodConfig {
+            window_seconds: period,
+            alignment: WindowAlignment::Leading,
+            edge: WindowEdgeHandling::PreserveWindow,
+            inverse: Some(inverse),
+        };
+        let epochs = vec![Epoch::from_gps_seconds(0.0)];
+        let out = numerical_mean_to_osc(&epochs, &[mean_rad], &cfg).unwrap();
+        assert_eq!(out.len(), 1);
+        assert!(out[0].1.iter().all(|v| v.is_finite()));
+        assert_abs_diff_eq!(out[0].1[0], mean_rad[0], epsilon = 30_000.0);
+    }
+
+    // ---- element_residual ----
+
+    // A target/value pair whose raw difference exceeds pi in magnitude must be wrapped
+    // into [-pi, pi] rather than left as the raw (unwrapped) difference.
+    #[test]
+    #[parallel]
+    fn test_element_residual_wraps_large_angular_difference() {
+        let two_pi = 2.0 * std::f64::consts::PI;
+        let target = SVector::<f64, 6>::new(0.0, 0.0, 0.0, 0.0, 0.1, 0.0);
+        let value = SVector::<f64, 6>::new(0.0, 0.0, 0.0, 0.0, two_pi - 0.1, 0.0);
+        // Raw difference is 0.1 - (2*pi - 0.1) ~= -6.083 rad, which exceeds pi in
+        // magnitude and must be wrapped to +0.2 rad.
+        let raw_diff = target[4] - value[4];
+        assert!(raw_diff.abs() > std::f64::consts::PI);
+        let r = element_residual(&target, &value);
+        assert!(r[4] <= std::f64::consts::PI && r[4] >= -std::f64::consts::PI);
+        assert_abs_diff_eq!(r[4], 0.2, epsilon = 1e-9);
+    }
+
+    // ---- trapezoidal_time_average ----
+
+    #[test]
+    #[parallel]
+    fn test_trapezoidal_time_average_single_sample_fallback() {
+        let ts = [0.0];
+        let values = [[1.0, 2.0, 3.0, 4.0, 5.0]];
+        let avg = trapezoidal_time_average(&ts, &values);
+        assert_eq!(avg, values[0]);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_trapezoidal_time_average_zero_elapsed_time_fallback() {
+        let ts = [10.0, 10.0, 10.0];
+        let values = [
+            [1.0, 1.0, 1.0, 1.0, 1.0],
+            [2.0, 2.0, 2.0, 2.0, 2.0],
+            [3.0, 3.0, 3.0, 3.0, 3.0],
+        ];
+        let avg = trapezoidal_time_average(&ts, &values);
+        // Zero elapsed time over the window falls back to the first sample's value.
+        assert_eq!(avg, values[0]);
+    }
+
+    // ---- detrended_fast_angle ----
+
+    // A perfectly linear mean longitude that wraps across 2*pi within the window must
+    // be unwrapped before the linear fit; the intercept at t=0 should recover the true
+    // (unwrapped) anchor value rather than being corrupted by the 2*pi discontinuity.
+    #[test]
+    #[parallel]
+    fn test_detrended_fast_angle_unwraps_across_2pi() {
+        let two_pi = 2.0 * std::f64::consts::PI;
+        let ts: Vec<f64> = (0..100).map(|j| j as f64).collect();
+        let ls: Vec<f64> = ts.iter().map(|&t| (0.1 * t).rem_euclid(two_pi)).collect();
+        // Sanity check: the raw (wrapped) samples do jump by more than pi somewhere in
+        // the window, so this test actually exercises the unwrap loop.
+        assert!(
+            ls.windows(2)
+                .any(|w| (w[1] - w[0]).abs() > std::f64::consts::PI)
+        );
+        let l0 = detrended_fast_angle(&ts, &ls);
+        // The true underlying continuous value at t=0 (the anchor) is exactly 0.
+        assert_abs_diff_eq!(l0, 0.0, epsilon = 1e-6);
+    }
 }

@@ -24,11 +24,17 @@ NATURAL_EARTH_10M_URL = (
 NATURAL_EARTH_50M_FILE = "NE1_50M_SR_W.tif"
 NATURAL_EARTH_10M_FILE = "NE1_HR_LC_SR_W.tif"
 
-# Solar System Scope planet textures (https://www.solarsystemscope.com/textures/),
-# distributed under the Creative Commons Attribution 4.0 International
-# license (CC BY 4.0). Small-body textures marked "fictional" by the
-# publisher are artistic impressions, not survey data.
-SOLAR_SYSTEM_SCOPE_BASE_URL = "https://www.solarsystemscope.com/textures/download/"
+# Solar System Scope planet textures, distributed under the Creative Commons
+# Attribution 4.0 International license (CC BY 4.0) by Solar System Scope
+# (https://www.solarsystemscope.com/textures/). Small-body textures marked
+# "fictional" by the publisher are artistic impressions, not survey data.
+#
+# Fetched from the simplespacedata.org mirror rather than the upstream host,
+# which rate-limits datacenter IPs and returns non-image bodies to CI runners.
+# The mirror lays each texture out as `<base>/<segment>/latest/<filename>`,
+# where `<segment>` is the filename without the `2k_` prefix and `.jpg` suffix
+# (e.g. `2k_ceres_fictional.jpg` -> `ceres_fictional`).
+TEXTURE_MIRROR_BASE_URL = "https://www.simplespacedata.org/texture/solarsystemscope/"
 
 PLANET_TEXTURES = {
     "sun": "2k_sun.jpg",
@@ -161,7 +167,8 @@ def download_planet_texture(body: str) -> Path:
 
     Textures are provided by Solar System Scope
     (https://www.solarsystemscope.com/textures/) under the CC BY 4.0
-    license and cached under the brahe cache directory.
+    license, fetched from the simplespacedata.org mirror, and cached under
+    the brahe cache directory.
 
     Args:
         body: Registry key in ``PLANET_TEXTURES`` (e.g. ``'moon'``, ``'mars'``).
@@ -180,8 +187,11 @@ def download_planet_texture(body: str) -> Path:
         )
     filename = PLANET_TEXTURES[body]
     dest = get_texture_cache_dir() / "solar_system_scope" / filename
+    # Mirror layout: <base>/<segment>/latest/<filename>, where <segment> is the
+    # filename without the "2k_" prefix and ".jpg" suffix.
+    segment = filename.removeprefix("2k_").removesuffix(".jpg")
     return download_file(
-        SOLAR_SYSTEM_SCOPE_BASE_URL + filename,
+        f"{TEXTURE_MIRROR_BASE_URL}{segment}/latest/{filename}",
         dest,
         description=f"Solar System Scope '{body}' texture",
         timeout=60,

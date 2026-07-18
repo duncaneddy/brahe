@@ -114,19 +114,32 @@ pub(crate) fn validate_model_outputs(
     Ok(())
 }
 
-/// Compute a measurement residual through the model and validate its length.
+/// Compute a measurement residual through the model, validating both inputs
+/// and the output against `measurement_dim`.
 ///
 /// [`MeasurementModel::residual`] is a user-extension boundary (including
-/// Python subclasses and wrap-aware overrides); a raising override surfaces as
-/// a structured error, and a wrong-length result is caught here rather than as
-/// an nalgebra dimension panic in the filter update.
+/// Python subclasses and wrap-aware overrides). Both input vectors are checked
+/// *before* the call so the default subtraction (and any override) can never
+/// hit an nalgebra dimension panic, and the result length is checked after, so
+/// no filter call site — pre-fit, post-fit, or UKF sigma-point deviation — can
+/// panic on a mis-shaped measurement, prediction, or override output.
 pub(crate) fn compute_residual(
     model: &dyn MeasurementModel,
     measured: &DVector<f64>,
     predicted: &DVector<f64>,
 ) -> Result<DVector<f64>, BraheError> {
-    let residual = model.residual(measured, predicted)?;
     let m = model.measurement_dim();
+    if measured.len() != m || predicted.len() != m {
+        return Err(BraheError::Error(format!(
+            "Model '{}' residual() inputs have lengths {} (measured) and {} (predicted), \
+             expected measurement_dim {}",
+            model.name(),
+            measured.len(),
+            predicted.len(),
+            m
+        )));
+    }
+    let residual = model.residual(measured, predicted)?;
     if residual.len() != m {
         return Err(BraheError::Error(format!(
             "Model '{}' residual() returned {} elements, expected measurement_dim {}",
@@ -439,5 +452,24 @@ mod tests {
         let predicted = DVector::from_vec(vec![1.0, 2.0, 3.0]);
         let r = model.residual(&measured, &predicted).unwrap();
         assert_abs_diff_eq!(r, DVector::from_vec(vec![9.0, 18.0, 27.0]), epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_compute_residual_rejects_wrong_input_lengths() {
+        // compute_residual must validate both inputs before any subtraction so
+        // no filter call site (pre-fit, post-fit, or UKF sigma-point deviation)
+        // can panic in nalgebra on a mis-shaped measurement or prediction.
+        let model = InertialPositionMeasurementModel::new(10.0); // measurement_dim 3
+        let good = DVector::from_vec(vec![1.0, 2.0, 3.0]);
+        let bad = DVector::from_vec(vec![1.0, 2.0]);
+
+        // Wrong measured length
+        let e = compute_residual(&model, &bad, &good).unwrap_err();
+        assert!(e.to_string().contains("residual() inputs"), "{}", e);
+        // Wrong predicted length
+        assert!(compute_residual(&model, &good, &bad).is_err());
+        // Both correct
+        let r = compute_residual(&model, &good, &good).unwrap();
+        assert_eq!(r.len(), 3);
     }
 }

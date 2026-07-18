@@ -38,6 +38,9 @@ class TestAzElRangeMeasurementModel:
         # Mismatched / empty arrays must raise, not panic.
         with pytest.raises(ValueError, match="measurement_dim"):
             model.residual(np.array([1.0, 2.0]), np.array([1.0, 2.0, 3.0]))
+        # Mixed: valid-length measured, wrong-length predicted.
+        with pytest.raises(ValueError, match="measurement_dim"):
+            model.residual(np.array([1.0, 2.0, 3.0]), np.array([1.0, 2.0]))
         with pytest.raises(ValueError, match="measurement_dim"):
             model.residual(np.array([]), np.array([]))
 
@@ -106,17 +109,20 @@ class TestAzElRangeMeasurementModel:
 
 
 class TestAzElRangeFilterAzimuthWrap:
-    """Proves azimuth-wrap residual survives the Python binding layer.
+    """Verifies azimuth-wrap residual FORWARDING through the binding layer.
 
     Builds an EKF with an AzElRangeMeasurementModel constructed via the
-    normal Python constructor (exercising MeasurementModelHolder's
-    ``residual`` forwarding), then processes an observation with measured
-    azimuth near 359.9 deg against a predicted azimuth near 0.1 deg. If the
-    ~360 deg "phantom" residual were used instead of the wrapped ~-0.1 deg
-    residual, the state update would be enormous.
+    normal Python constructor and processes an observation whose measured
+    azimuth is ~0.1 deg across the 0/360 boundary from the prediction. The
+    test's sole purpose is to prove that ``MeasurementModelHolder`` dispatches
+    to the model's wrapping ``residual()`` rather than falling back to plain
+    subtraction; it does NOT assert anything about Jacobian correctness (see
+    ``test_jacobian_wrap_aware_near_north`` for that). If forwarding were lost,
+    the filter's pre-fit azimuth innovation would be the raw ~-359.9 deg
+    difference instead of the wrapped ~-0.1 deg residual.
     """
 
-    def test_azimuth_wrap_residual_survives_filter(self, test_epoch):
+    def test_residual_forwarding_survives_binding_layer(self, test_epoch):
         lon, lat, alt = -71.49, 42.62, 123.1
         # Small noise sigmas + large initial covariance so the Kalman gain
         # is large enough that an unwrapped ~360 deg residual would blow
@@ -156,20 +162,46 @@ class TestAzElRangeFilterAzimuthWrap:
         obs = bh.Observation(test_epoch, measured, 0)
         record = ekf.process_observation(obs)
 
-        # PRIMARY discriminator: the filter's pre-fit azimuth innovation is the
-        # wrapped ~-0.1 deg residual, not the ~-359.9 deg raw difference. This
-        # is the assertion that catches a loss of residual forwarding: if
-        # MeasurementModelHolder no longer dispatched to the model's wrapping
-        # residual() and fell back to plain subtraction, this value would be
-        # ~359.8 deg and the assertion would fail. (raw_diff above is asserted
-        # > 180 deg, so the wrap is genuinely in play.)
+        # The one discriminating assertion: the filter's pre-fit azimuth
+        # innovation is the wrapped ~-0.1 deg residual, not the ~-359.9 deg raw
+        # difference. If MeasurementModelHolder no longer dispatched to the
+        # model's wrapping residual() and fell back to plain subtraction, this
+        # value would be ~359.8 deg (raw_diff above is asserted > 180 deg, so
+        # the wrap is genuinely in play) and the assertion would fail.
         assert abs(record.prefit_residual[0]) < 1.0
 
-        # Secondary sanity bound on the downstream update. With the wrap-aware
-        # Jacobian a ~0.1 deg azimuth innovation drives only a few-hundred-metre
-        # position correction; a lost wrap (raw ~360 deg innovation) would, with
-        # that same correct Jacobian, scale the correction ~3600x into the
-        # ~1000 km range. This guards the update magnitude, not the Jacobian
-        # itself (the primary assertion above is what proves the wrap survives).
-        state_updated = ekf.current_state()
-        assert np.linalg.norm(state_updated - state0) < 2000.0
+
+class TestAzElRangeJacobianWrap:
+    """Discriminates the wrap-aware finite-difference Jacobian at the Python
+    level. Mirrors the Rust ``test_azelrange_jacobian_wrap_aware_near_north``
+    geometry so the magnitude bound is grounded, not guessed."""
+
+    def test_jacobian_wrap_aware_near_north(self, test_epoch):
+        # Station at (lon, lat) = (0, 0); target ~3 deg due north at 500 km ->
+        # predicted azimuth sits on the 0/360 wrap.
+        model = bh.AzElRangeMeasurementModel(0.0, 0.0, 0.0, 0.01, 0.01, 10.0)
+        state_north = make_state_above(test_epoch, 0.0, 3.0, 500e3)
+
+        z_north = model.predict(test_epoch, state_north)
+        az = float(z_north[0])
+        assert az < 1.0 or az > 359.0  # geometry genuinely on the wrap
+
+        h_north = model.jacobian(test_epoch, state_north)
+        assert h_north.shape == (3, 6)
+        assert np.all(np.isfinite(h_north)), "Jacobian must be finite near wrap"
+
+        # Equivalent geometry rotated due east (azimuth ~90 deg) where the wrap
+        # cannot occur; the azimuth-row magnitude sets the reference scale.
+        state_east = make_state_above(test_epoch, 3.0, 0.0, 500e3)
+        h_east = model.jacobian(test_epoch, state_east)
+
+        az_norm_north = np.linalg.norm(h_north[0, :])
+        az_norm_east = np.linalg.norm(h_east[0, :])
+        ratio = az_norm_north / az_norm_east
+        # Broken raw differencing across the wrap inflates the north azimuth row
+        # by ~360/h, i.e. many orders of magnitude; the wrap-aware Jacobian keeps
+        # the two comparable.
+        assert 0.1 < ratio < 10.0, (
+            f"azimuth-row magnitudes should be comparable "
+            f"(north={az_norm_north:.3e}, east={az_norm_east:.3e}, ratio={ratio:.3f})"
+        )

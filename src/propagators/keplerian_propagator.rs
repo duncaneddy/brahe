@@ -905,6 +905,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_keplerianpropagator_from_ecef() {
         setup_global_test_eop();
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
@@ -1255,6 +1256,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_keplerianpropagator_analyticpropagator_state_ecef() {
         setup_global_test_eop();
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
@@ -1278,6 +1280,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_keplerianpropagator_analyticpropagator_state_itrf() {
         setup_global_test_eop();
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
@@ -1301,6 +1304,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_keplerianpropagator_analyticpropagator_state_gcrf() {
         setup_global_test_eop();
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
@@ -1323,6 +1327,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_keplerianpropagator_analyticpropagator_state_eme2000() {
         setup_global_test_eop();
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
@@ -1425,6 +1430,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_keplerianpropagator_analyticpropagator_states_ecef() {
         setup_global_test_eop();
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
@@ -1470,6 +1476,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_keplerianpropagator_analyticpropagator_states_bcbf() {
         setup_global_test_eop();
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);

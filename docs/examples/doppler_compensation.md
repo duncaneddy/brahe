@@ -210,9 +210,11 @@ Below is a table of sampled Doppler compensation values during the access window
 
 ## Full Code Example
 
-```python title="doppler_compensation.py"
---8<-- "./examples/examples/doppler_compensation.py:all"
-```
+??? "Full Code"
+
+    ```python title="doppler_compensation.py"
+    --8<-- "./examples/examples/doppler_compensation.py:all"
+    ```
 
 ---
 

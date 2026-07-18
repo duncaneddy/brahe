@@ -84,7 +84,7 @@ Visualize orbital trajectories in 3D space with an optional Earth sphere.
 ```python
 fig = bh.plot_trajectory_3d(
     [{"trajectory": traj, "label": "LEO Orbit"}],
-    show_earth=True
+    show_body=True
 )
 ```
 

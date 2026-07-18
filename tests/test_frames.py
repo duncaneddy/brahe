@@ -798,6 +798,75 @@ def test_synodic_router_matches_pairwise():
         np.testing.assert_allclose(via_router, pairwise, atol=1e-9)
 
 
+def test_synodic_origin_enum():
+    assert brahe.SynodicOrigin.Barycenter != brahe.SynodicOrigin.Primary
+    assert str(brahe.SynodicOrigin.Barycenter) == "Barycenter"
+
+
+def test_reference_frame_synodic_constructor():
+    frame = brahe.ReferenceFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 301)
+    assert frame.synodic_primary == 399
+    assert frame.synodic_secondary == 301
+    assert frame.synodic_origin == brahe.SynodicOrigin.Barycenter
+    assert "Synodic" in str(frame)
+
+
+def test_reference_frame_synodic_large_ids_construct():
+    # Any NAIF ID is accepted at construction time, even for a Barycenter
+    # origin outside 0..=999 (no longer validated).
+    frame = brahe.ReferenceFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 1301)
+    assert frame.synodic_primary == 399
+    assert frame.synodic_secondary == 1301
+    assert frame.synodic_origin == brahe.SynodicOrigin.Barycenter
+
+    # 399 * 1000 + 1301 wraps the synthetic-ID encoding onto the (400, 301)
+    # pair; 400 has no packaged GM constant, so the transform-time GM
+    # lookup fails instead of silently colliding. No network access needed:
+    # the GM lookup happens before any SPK query.
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x = brahe.state_koe_to_eci(
+        np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]),
+        brahe.AngleFormat.DEGREES,
+    )
+    with pytest.raises(RuntimeError):
+        brahe.state_frame_to_frame(brahe.ReferenceFrame.GCRF, frame, epc, x)
+
+
+def test_reference_frame_synodic_non_barycenter_allows_arbitrary_ids():
+    frame = brahe.ReferenceFrame.Synodic(brahe.SynodicOrigin.Primary, 499, 401)
+    assert frame.synodic_primary == 499
+    assert frame.synodic_secondary == 401
+    assert frame.synodic_origin == brahe.SynodicOrigin.Primary
+
+    frame = brahe.ReferenceFrame.Synodic(brahe.SynodicOrigin.Secondary, 10, 2000001)
+    assert frame.synodic_primary == 10
+    assert frame.synodic_secondary == 2000001
+    assert frame.synodic_origin == brahe.SynodicOrigin.Secondary
+
+
+def test_reference_frame_synodic_accessors_named_frames():
+    assert brahe.ReferenceFrame.EMR.synodic_primary == 399
+    assert brahe.ReferenceFrame.EMR.synodic_secondary == 301
+    assert brahe.ReferenceFrame.SER.synodic_primary == 10
+    assert brahe.ReferenceFrame.GSE.synodic_secondary == 10
+    assert brahe.ReferenceFrame.GCRF.synodic_primary is None
+
+
+def test_synodic_matches_emr_state_transform():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
+    x = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
+    generic = brahe.ReferenceFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 301)
+    x_named = brahe.state_frame_to_frame(
+        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.EMR, epc, x
+    )
+    x_generic = brahe.state_frame_to_frame(brahe.ReferenceFrame.GCRF, generic, epc, x)
+    # EMR is an analytic barycenter, the generic router resolves the same
+    # pair via SPK; the ~0.1 m barycenter discrepancy is expected (mirrors
+    # the Rust equivalence test in src/frames/transform.rs).
+    np.testing.assert_allclose(x_generic, x_named, atol=1.0)
+
+
 def test_router_lci_to_emr():
     # TP §4.6.3: Moon-centered inertial to EMR. The Moon (LCI origin) must
     # land on EMR's +x_hat axis with zero transverse velocity.
@@ -884,6 +953,18 @@ def test_body_fixed_custom_frame_explicit_omega():
     np.testing.assert_allclose(x_fixed[3:], v_b, atol=1e-9)
 
     assert brahe.unregister_custom_frame(1043)
+
+
+def test_body_fixed_custom_allows_reserved_barycenter_range_center():
+    """Center IDs at or below -1_000_000_000 are reserved for synthetic
+    synodic barycenters (see synodic_barycenter_id), but self-assigning one
+    to a custom body-fixed frame is not rejected: real user-defined bodies
+    and loaded kernels may need any negative ID, and colliding with an
+    actual synodic-barycenter ID is astronomically unlikely in practice."""
+    frame = brahe.ReferenceFrame.BodyFixedCustom(-1_000_000_000, 1044)
+    assert str(frame) == "BodyFixedCustom(center=-1000000000, key=1044)"
+    frame2 = brahe.ReferenceFrame.BodyFixedCustom(-1_000_010_399, 1044)
+    assert str(frame2) == "BodyFixedCustom(center=-1000010399, key=1044)"
 
 
 def test_reference_frame_class_aliases():

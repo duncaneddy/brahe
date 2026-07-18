@@ -31,7 +31,12 @@ extra_javascript:
 
 plugins:
   - search
-  - table-reader
+  - table-reader:
+      # Example-generated CSVs (docs/figures/*.csv) only exist after running
+      # `just test-examples`; NETWORK-flagged examples skip on a plain PR run
+      # and fresh/local checkouts never have them at all. Warn instead of
+      # hard-failing the build when a table file is missing.
+      allow_missing_files: true
   # - awesome-nav # Need to spend more time to configure this
   - minify:
       minify_html: true
@@ -193,6 +198,7 @@ nav:
           - learn/coordinates/geocentric_transformations.md
           - learn/coordinates/geodetic_transformations.md
           - learn/coordinates/topocentric_transformations.md
+          - learn/coordinates/radec_transformations.md
       - Reference Frame Transformations:
           - learn/frames/index.md
           - learn/frames/eci_ecef.md
@@ -206,6 +212,7 @@ nav:
           - learn/orbits/index.md
           - Anomaly Conversions: learn/orbits/anomalies.md
           - Orbital Properties: learn/orbits/properties.md
+          - Mean Elements: learn/orbits/mean_elements.md
           - learn/orbits/two_line_elements.md
           - Walker Constellations: learn/orbits/walker.md
       - Attitude Representation:
@@ -286,6 +293,7 @@ nav:
           - Groundstations: learn/datasets/groundstations.md
           - SSN Sensors: learn/datasets/ssn_sensors.md
           - GCAT: learn/datasets/gcat.md
+          - Star Catalogs: learn/datasets/star_catalogs.md
           - ICGEM: learn/datasets/icgem.md
       - CCSDS:
           - learn/ccsds/index.md
@@ -297,6 +305,7 @@ nav:
           - learn/plots/index.md
           - Orbital Trajectories: learn/plots/orbital_trajectories.md
           - 3D Trajectory: learn/plots/3d_trajectory.md
+          - Synodic Plots: learn/plots/synodic_plots.md
           - Ground Tracks: learn/plots/ground_tracks.md
           - Access Geometry: learn/plots/access_geometry.md
           - Gabbard Plots: learn/plots/gabbard_plot.md
@@ -340,6 +349,11 @@ nav:
       - examples/using_different_integrators.md
       - examples/geo_hohmann_transfer.md
       - examples/low_thrust_orbit_raising.md
+      - examples/lro_lunar_orbit.md
+      - examples/earth_moon_free_return.md
+      - examples/mro_mars_orbit.md
+      - examples/dawn_ceres_orbit.md
+      - examples/star_field_simulation.md
   - Python API Reference:
       - library_api/index.md
       - Constants:
@@ -365,6 +379,7 @@ nav:
           - Cartesian: library_api/coordinates/cartesian.md
           - Geodetic & Geocentric: library_api/coordinates/geodetic.md
           - Topocentric: library_api/coordinates/topocentric.md
+          - RA/Dec: library_api/coordinates/radec.md
           - Enumerations: library_api/coordinates/enums.md
       - Reference Frame Transformations:
           - library_api/frames/index.md
@@ -378,6 +393,7 @@ nav:
       - Orbits:
           - library_api/orbits/index.md
           - Keplerian Elements: library_api/orbits/keplerian.md
+          - Equinoctial Elements: library_api/orbits/equinoctial.md
           - Mean Elements: library_api/orbits/mean_elements.md
           - Two-Line Elements: library_api/orbits/tle.md
           - Walker Constellations: library_api/orbits/walker.md
@@ -472,6 +488,7 @@ nav:
           - SSN Sensors: library_api/datasets/ssn_sensors.md
           - NAIF: library_api/datasets/naif.md
           - GCAT: library_api/datasets/gcat.md
+          - Star Catalogs: library_api/datasets/star_catalogs.md
           - ICGEM: library_api/datasets/icgem.md
       - CCSDS:
           - library_api/ccsds/index.md
@@ -484,6 +501,7 @@ nav:
           - Ground Tracks: library_api/plots/ground_tracks.md
           - Orbital Trajectories: library_api/plots/orbital_trajectories.md
           - 3D Trajectory: library_api/plots/3d_trajectory.md
+          - Synodic Plots: library_api/plots/synodic_plots.md
           - Access Geometry: library_api/plots/access_geometry.md
           - Gabbard Diagram: library_api/plots/gabbard.md
           - Estimation State Plots: library_api/plots/estimation_state.md

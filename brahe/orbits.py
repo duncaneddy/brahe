@@ -72,6 +72,16 @@ from brahe._brahe import (
     # Mean-osculating Keplerian element conversions
     state_koe_osc_to_mean,
     state_koe_mean_to_osc,
+    batch_state_koe_osc_to_mean,
+    batch_state_koe_mean_to_osc,
+    MeanElementMethod,
+    WindowAlignment,
+    WindowEdgeHandling,
+    MeanElementNumericalMethodConfig,
+    MeanElementInverseConfig,
+    # Equinoctial element conversions
+    state_koe_to_equinoctial,
+    state_equinoctial_to_koe,
     # Constellation generators
     WalkerPattern,
     WalkerConstellationGenerator,
@@ -125,6 +135,16 @@ __all__ = [
     # Mean-osculating Keplerian element conversions
     "state_koe_osc_to_mean",
     "state_koe_mean_to_osc",
+    "batch_state_koe_osc_to_mean",
+    "batch_state_koe_mean_to_osc",
+    "MeanElementMethod",
+    "WindowAlignment",
+    "WindowEdgeHandling",
+    "MeanElementNumericalMethodConfig",
+    "MeanElementInverseConfig",
+    # Equinoctial element conversions
+    "state_koe_to_equinoctial",
+    "state_equinoctial_to_koe",
     # Constellation generators
     "WalkerPattern",
     "WalkerConstellationGenerator",

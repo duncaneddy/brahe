@@ -48,6 +48,17 @@ jobs:
                     restore-keys: |
                         brahe-data-v1-
 
+            # FK5 + Hipparcos only. Explicit file paths (not the whole
+            # star_catalogs/ dir) so the 526 MB Tycho-2 catalog downloaded by
+            # the integration test below is never persisted to this cache.
+            -   name: Cache star catalog downloads
+                uses: actions/cache@v6.1.0
+                with:
+                    path: |
+                        ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
+                        ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
+                    key: star-catalogs-v1
+
             -   name: Install cargo-llvm-cov
                 if: matrix.os == 'ubuntu-latest'
                 uses: taiki-e/install-action@cargo-llvm-cov
@@ -119,6 +130,15 @@ jobs:
                     key: brahe-data-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
                     restore-keys: |
                         brahe-data-v1-
+
+            # FK5 + Hipparcos only, matching the Rust job above.
+            -   name: Cache star catalog downloads
+                uses: actions/cache@v6.1.0
+                with:
+                    path: |
+                        ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
+                        ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
+                    key: star-catalogs-v1
 
             -   name: Install dependencies
                 run: uv sync --group test --all-extras --frozen --python ${{ matrix.python-version }}
@@ -225,11 +245,11 @@ jobs:
                 run: uv pip install -e ".[all]"
             -   name: Install just
                 uses: extractions/setup-just@v4
-            -   name: Refresh Natural Earth 3D textures cache
+            -   name: Refresh 3D body textures cache (Natural Earth + Solar System Scope planets)
                 uses: actions/cache@v6.1.0
                 with:
                     path: ~/.cache/brahe/textures
-                    key: natural-earth-textures-50m-v1
+                    key: brahe-3d-textures-v2
             -   name: Refresh Natural Earth land basemap cache
                 uses: actions/cache@v6.1.0
                 with:

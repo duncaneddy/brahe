@@ -534,6 +534,7 @@ impl PyAngleFormat {
 
 include!("datasets.rs");
 include!("py_gcat.rs");
+include!("py_star_catalogs.rs");
 include!("icgem.rs");
 include!("eop.rs");
 include!("space_weather.rs");
@@ -632,7 +633,13 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("GM_NEPTUNE_SYSTEM", constants::GM_NEPTUNE_SYSTEM)?;
     module.add("GM_PLUTO", constants::GM_PLUTO)?;
     module.add("GM_PLUTO_SYSTEM", constants::GM_PLUTO_SYSTEM)?;
+    module.add("R_MERCURY", constants::R_MERCURY)?;
+    module.add("R_VENUS", constants::R_VENUS)?;
     module.add("R_MARS", constants::R_MARS)?;
+    module.add("R_JUPITER", constants::R_JUPITER)?;
+    module.add("R_SATURN", constants::R_SATURN)?;
+    module.add("R_URANUS", constants::R_URANUS)?;
+    module.add("R_NEPTUNE", constants::R_NEPTUNE)?;
     module.add("OMEGA_MARS", constants::OMEGA_MARS)?;
     module.add("OMEGA_MOON", constants::OMEGA_MOON)?;
     module.add("GM_PHOBOS", constants::GM_PHOBOS)?;
@@ -903,6 +910,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_state_gse_to_gcrf, module)?)?;
 
     // Reference frame router
+    module.add_class::<PySynodicOrigin>()?;
     module.add_class::<PyReferenceFrame>()?;
     module.add_function(wrap_pyfunction!(py_rotation_frame_to_frame, module)?)?;
     module.add_function(wrap_pyfunction!(py_register_custom_frame, module)?)?;
@@ -918,8 +926,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Cartesian
     module.add_function(wrap_pyfunction!(py_state_koe_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_koe, module)?)?;
-    module.add_function(wrap_pyfunction!(py_state_eci_to_koe_for_body, module)?)?;
-    module.add_function(wrap_pyfunction!(py_state_koe_to_eci_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_inertial_to_koe_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_koe_to_inertial_for_body, module)?)?;
 
     // Geocentric
     module.add_function(wrap_pyfunction!(py_position_geocentric_to_ecef, module)?)?;
@@ -940,6 +948,15 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_relative_position_sez_to_ecef, module)?)?;
     module.add_function(wrap_pyfunction!(py_position_enz_to_azel, module)?)?;
     module.add_function(wrap_pyfunction!(py_position_sez_to_azel, module)?)?;
+
+    // Right Ascension / Declination
+    module.add_function(wrap_pyfunction!(py_position_radec_to_inertial, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_inertial_to_radec, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_radec_to_inertial, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_inertial_to_radec, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_radec_to_azel, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_azel_to_radec, module)?)?;
+    module.add_function(wrap_pyfunction!(py_apply_proper_motion, module)?)?;
 
     //* Orbits *//
     module.add_function(wrap_pyfunction!(py_orbital_period, module)?)?;
@@ -1020,8 +1037,19 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_epoch_from_tle, module)?)?;
 
     // Mean-osculating Keplerian element conversions
+    module.add_class::<PyMeanElementMethod>()?;
+    module.add_class::<PyWindowAlignment>()?;
+    module.add_class::<PyWindowEdgeHandling>()?;
+    module.add_class::<PyMeanElementNumericalMethodConfig>()?;
+    module.add_class::<PyMeanElementInverseConfig>()?;
     module.add_function(wrap_pyfunction!(py_state_koe_osc_to_mean, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_koe_mean_to_osc, module)?)?;
+    module.add_function(wrap_pyfunction!(py_batch_state_koe_osc_to_mean, module)?)?;
+    module.add_function(wrap_pyfunction!(py_batch_state_koe_mean_to_osc, module)?)?;
+
+    // Equinoctial element conversions
+    module.add_function(wrap_pyfunction!(py_state_koe_to_equinoctial, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_equinoctial_to_koe, module)?)?;
 
     // Walker Constellation Generator
     module.add_class::<PyWalkerPattern>()?;
@@ -1052,6 +1080,9 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyEulerAngle>()?;
     module.add_class::<PyEulerAngleOrder>()?;
     module.add_class::<PyRotationMatrix>()?;
+    module.add_function(wrap_pyfunction!(py_rx, module)?)?;
+    module.add_function(wrap_pyfunction!(py_ry, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rz, module)?)?;
 
     //* Datasets *//
     module.add_function(wrap_pyfunction!(py_groundstations_load, module)?)?;
@@ -1068,6 +1099,17 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyGCATPsatcat>()?;
     module.add_function(wrap_pyfunction!(py_gcat_get_satcat, module)?)?;
     module.add_function(wrap_pyfunction!(py_gcat_get_psatcat, module)?)?;
+
+    //* Star Catalogs *//
+    module.add_class::<PyFK5Record>()?;
+    module.add_class::<PyFK5Catalog>()?;
+    module.add_class::<PyHipparcosRecord>()?;
+    module.add_class::<PyHipparcosCatalog>()?;
+    module.add_class::<PyTycho2Record>()?;
+    module.add_class::<PyTycho2Catalog>()?;
+    module.add_function(wrap_pyfunction!(py_star_catalogs_get_fk5, module)?)?;
+    module.add_function(wrap_pyfunction!(py_star_catalogs_get_hipparcos, module)?)?;
+    module.add_function(wrap_pyfunction!(py_star_catalogs_get_tycho2, module)?)?;
 
     //* ICGEM *//
     module.add_class::<PyIndexEntry>()?;

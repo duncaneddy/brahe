@@ -35,8 +35,8 @@ print("1. Creating plot with 'simple' texture (solid sphere)...")
 fig1 = bh.plot_trajectory_3d(
     [{"trajectory": traj, "color": "red", "label": "LEO Orbit"}],
     units="km",
-    show_earth=True,
-    earth_texture="simple",
+    show_body=True,
+    texture="simple",
     backend="matplotlib",
 )
 print("   ✓ Simple texture plot created")
@@ -47,8 +47,8 @@ print("2. Creating plot with 'blue_marble' texture (packaged)...")
 fig2 = bh.plot_trajectory_3d(
     [{"trajectory": traj, "color": "red", "label": "LEO Orbit"}],
     units="km",
-    show_earth=True,
-    earth_texture="blue_marble",
+    show_body=True,
+    texture="blue_marble",
     backend="matplotlib",
 )
 print("   ✓ Blue Marble texture plot created")
@@ -59,7 +59,7 @@ print("3. Creating plotly plot (defaults to blue_marble)...")
 fig3 = bh.plot_trajectory_3d(
     [{"trajectory": traj, "color": "red", "label": "LEO Orbit"}],
     units="km",
-    show_earth=True,
+    show_body=True,
     backend="plotly",
 )
 print("   ✓ Plotly plot with blue marble created")
@@ -67,14 +67,14 @@ print()
 
 # 4. Natural Earth 50m texture (will download on first use - ~20MB)
 print("4. Natural Earth 50m texture option available:")
-print("   - Use earth_texture='natural_earth_50m' to download and use")
+print("   - Use texture='natural_earth_50m' to download and use")
 print("   - First use downloads ~20MB to ~/.cache/brahe/textures/")
 print("   - Subsequent uses load from cache")
 print()
 
 # 5. Natural Earth 10m texture (will download on first use - ~180MB)
 print("5. Natural Earth 10m texture option available:")
-print("   - Use earth_texture='natural_earth_10m' for highest quality")
+print("   - Use texture='natural_earth_10m' for highest quality")
 print("   - First use downloads ~180MB to ~/.cache/brahe/textures/")
 print("   - Best for high-resolution figures")
 print()

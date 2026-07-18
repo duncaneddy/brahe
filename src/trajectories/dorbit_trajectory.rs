@@ -1872,7 +1872,7 @@ impl DOrbitTrajectory {
             .iter()
             .map(|s| {
                 self.convert_orbital_preserving_additional(s, |orbital| {
-                    crate::coordinates::state_koe_to_eci_for_body(orbital, cb.gm(), angle_fmt)
+                    crate::coordinates::state_koe_to_inertial_gm(orbital, cb.gm(), angle_fmt)
                 })
             })
             .collect();
@@ -2759,7 +2759,7 @@ impl DOrbitTrajectory {
                         center
                     )));
                 }
-                Ok(crate::coordinates::state_koe_to_eci_for_body(
+                Ok(crate::coordinates::state_koe_to_inertial_gm(
                     state,
                     cb.gm(),
                     self.angle_format
@@ -3145,7 +3145,7 @@ impl DOrbitStateProvider for DOrbitTrajectory {
                     )));
                 }
                 let x = self.bci_native_cartesian(center, state)?;
-                return Ok(crate::coordinates::state_eci_to_koe_for_body(
+                return Ok(crate::coordinates::state_inertial_to_koe_gm(
                     x,
                     cb.gm(),
                     angle_format,
@@ -3504,6 +3504,7 @@ mod tests {
     // ========== Conversion Preservation Tests ==========
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_frame_conversion_preserves_additional() {
         setup_global_test_eop();
 
@@ -3552,6 +3553,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_to_itrf_preserves_additional() {
         setup_global_test_eop();
 
@@ -5491,6 +5493,7 @@ mod tests {
     // ========== Frame Conversion Tests ==========
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_to_eci_already_eci() {
         setup_global_test_eop();
 
@@ -5510,6 +5513,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_to_eci_already_gcrf() {
         setup_global_test_eop();
 
@@ -5529,6 +5533,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_to_eci_from_keplerian() {
         setup_global_test_eop();
 
@@ -5552,6 +5557,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_to_eci_from_ecef() {
         setup_global_test_eop();
 
@@ -5568,6 +5574,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_to_gcrf_already_gcrf() {
         setup_global_test_eop();
 
@@ -5586,6 +5593,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_to_gcrf_from_eci() {
         setup_global_test_eop();
 
@@ -5605,6 +5613,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_to_ecef_already_ecef() {
         setup_global_test_eop();
 
@@ -5623,6 +5632,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_to_ecef_from_eci() {
         setup_global_test_eop();
 
@@ -5639,6 +5649,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_to_itrf_already_itrf() {
         setup_global_test_eop();
 
@@ -5657,6 +5668,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_to_itrf_from_eci() {
         setup_global_test_eop();
 
@@ -5672,6 +5684,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_to_eme2000_already_eme2000() {
         setup_global_test_eop();
 
@@ -5690,6 +5703,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_to_eme2000_from_eci() {
         setup_global_test_eop();
 
@@ -5705,6 +5719,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_to_keplerian_from_cartesian_eci() {
         setup_global_test_eop();
 
@@ -5723,6 +5738,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_to_keplerian_already_keplerian_same_format() {
         setup_global_test_eop();
 
@@ -5745,6 +5761,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_to_keplerian_angle_format_conversion() {
         setup_global_test_eop();
 
@@ -5986,6 +6003,7 @@ mod tests {
     // ========== DOrbitStateProvider Trait Tests ==========
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_state_eci_from_eci_cartesian() {
         setup_global_test_eop();
 
@@ -6002,6 +6020,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_state_eci_from_gcrf_cartesian() {
         setup_global_test_eop();
 
@@ -6019,6 +6038,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_state_eci_from_eci_keplerian() {
         setup_global_test_eop();
 
@@ -6039,6 +6059,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_state_eci_from_ecef_cartesian() {
         setup_global_test_eop();
 
@@ -6101,7 +6122,7 @@ mod tests {
 
         // Elements about the Moon: round trip through the Moon's GM.
         let koe = traj.state_koe_osc(epoch, AngleFormat::Degrees).unwrap();
-        let back = crate::coordinates::state_koe_to_eci_for_body(
+        let back = crate::coordinates::state_koe_to_inertial_gm(
             koe,
             crate::constants::GM_MOON,
             AngleFormat::Degrees,
@@ -6320,6 +6341,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_state_gcrf_from_gcrf_cartesian() {
         setup_global_test_eop();
 
@@ -6336,6 +6358,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_state_gcrf_from_eci_cartesian() {
         setup_global_test_eop();
 
@@ -6353,6 +6376,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_state_ecef_from_ecef_cartesian() {
         setup_global_test_eop();
 
@@ -6369,6 +6393,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_state_ecef_from_eci_cartesian() {
         setup_global_test_eop();
 
@@ -6383,6 +6408,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_state_itrf_from_itrf_cartesian() {
         setup_global_test_eop();
 
@@ -6399,6 +6425,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_state_eme2000_from_eme2000_cartesian() {
         setup_global_test_eop();
 
@@ -6415,6 +6442,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_state_koe_osc_from_eci_cartesian() {
         setup_global_test_eop();
 
@@ -6430,6 +6458,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_state_koe_osc_from_eci_keplerian_same_format() {
         setup_global_test_eop();
 
@@ -6452,6 +6481,7 @@ mod tests {
     // ========== DOrbitCovarianceProvider Trait Tests ==========
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_covariance_eci_from_eci() {
         setup_global_test_eop();
 
@@ -6469,6 +6499,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_covariance_eci_from_gcrf() {
         setup_global_test_eop();
 
@@ -6487,6 +6518,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_covariance_eci_error_ecef() {
         setup_global_test_eop();
 
@@ -6505,6 +6537,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_covariance_gcrf() {
         setup_global_test_eop();
 
@@ -6522,6 +6555,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dorbittrajectory_covariance_rtn() {
         setup_global_test_eop();
 

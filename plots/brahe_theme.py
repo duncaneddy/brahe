@@ -119,7 +119,7 @@ def apply_brahe_theme(fig, theme="light", show_grid=True):
     return fig
 
 
-def save_themed_html(fig_generator, outfile_base, custom_css=None):
+def save_themed_html(fig_generator, outfile_base, custom_css=None, auto_play=False):
     """
     Save figure as both light and dark themed HTML files.
 
@@ -128,6 +128,8 @@ def save_themed_html(fig_generator, outfile_base, custom_css=None):
                                                 and returns a figure, or a figure object to theme
         outfile_base (Path or str): Base output path without _light/_dark suffix or .html extension
         custom_css (str, optional): Additional CSS to inject into the HTML
+        auto_play (bool, optional): Whether Plotly animation frames (if any) should start
+            playing automatically on page load. Default: False
 
     Returns:
         tuple: (light_path, dark_path) - Paths to the generated files
@@ -219,7 +221,7 @@ body {
         fig_light,
         include_plotlyjs="cdn",
         full_html=False,
-        auto_play=False,
+        auto_play=auto_play,
         config={"responsive": True},
     )
     html_light = custom_css + html_light + autosize_script
@@ -237,7 +239,7 @@ body {
         fig_dark,
         include_plotlyjs="cdn",
         full_html=False,
-        auto_play=False,
+        auto_play=auto_play,
         config={"responsive": True},
     )
     html_dark = custom_css + html_dark + autosize_script

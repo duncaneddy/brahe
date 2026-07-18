@@ -25,7 +25,7 @@ use nalgebra::{DMatrix, DVector, SMatrix, Vector6};
 
 use crate::constants::AngleFormat;
 use crate::frames::ReferenceFrame;
-use crate::orbits::state_koe_osc_to_mean;
+use crate::orbits::{MeanElementMethod, state_koe_osc_to_mean};
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
 use crate::utils::identifiable::Identifiable;
@@ -316,7 +316,7 @@ pub trait SOrbitStateProvider: SStateProvider {
         angle_format: AngleFormat,
     ) -> Result<Vector6<f64>, BraheError> {
         let osc = self.state_koe_osc(epoch, angle_format)?;
-        Ok(state_koe_osc_to_mean(&osc, angle_format))
+        state_koe_osc_to_mean(&osc, MeanElementMethod::BrouwerLyddane, angle_format)
     }
 
     /// Returns states at multiple epochs in Earth-Centered Inertial (ECI)
@@ -629,7 +629,7 @@ pub trait DOrbitStateProvider: DStateProvider {
         angle_format: AngleFormat,
     ) -> Result<Vector6<f64>, BraheError> {
         let osc = self.state_koe_osc(epoch, angle_format)?;
-        Ok(state_koe_osc_to_mean(&osc, angle_format))
+        state_koe_osc_to_mean(&osc, MeanElementMethod::BrouwerLyddane, angle_format)
     }
 
     /// Returns states at multiple epochs in Earth-Centered Inertial (ECI)
@@ -1121,7 +1121,9 @@ mod tests {
         // state_koe_mean default: osc-to-mean of the osculating elements.
         let mean = prop.state_koe_mean(epoch, DEGREES).unwrap();
         let osc = prop.state_koe_osc(epoch, DEGREES).unwrap();
-        let expected = crate::orbits::state_koe_osc_to_mean(&osc, DEGREES);
+        let expected =
+            crate::orbits::state_koe_osc_to_mean(&osc, MeanElementMethod::BrouwerLyddane, DEGREES)
+                .unwrap();
         for i in 0..6 {
             assert_abs_diff_eq!(mean[i], expected[i], epsilon = 1e-9);
         }

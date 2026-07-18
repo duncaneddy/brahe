@@ -48,6 +48,7 @@ test-integration-python *flags: _setup
 # Pre-download network resources (Natural Earth texture, land basemap, cartopy)
 download-resources: _setup
     @{{python}} -c "from brahe.plots.texture_utils import download_natural_earth_texture; download_natural_earth_texture('50m')"
+    @{{python}} -c "from brahe.plots.texture_utils import download_planet_texture; [download_planet_texture(b) for b in ('moon', 'mars', 'ceres')]"
     @{{python}} -c "from brahe.plots.basemap import get_natural_earth_land_shapefile; get_natural_earth_land_shapefile()"
     @{{python}} {{scripts_dir}}/warm_cartopy.py
     @{{python}} -c "import brahe as bh; bh.load_common_spice_kernels()"

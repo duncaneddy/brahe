@@ -3268,6 +3268,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gravity_model_compute_spherical_harmonics_cunningham() {
         setup_global_test_eop();
 
@@ -3835,6 +3836,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_set_max_degree_order_computation_after_truncation() {
         setup_global_test_eop();
 
@@ -3862,6 +3864,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_clenshaw_coefficients_truncation_m_less_than_n() {
         setup_global_test_eop();
 
@@ -4459,6 +4462,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gravity_model_compute_spherical_harmonics() {
         // Twin of the Cunningham variant above: guards the main (Clenshaw)
         // dispatch path with goldens captured from the Clenshaw kernel.

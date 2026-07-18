@@ -846,6 +846,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45s_stm_accuracy() {
         setup_global_test_eop();
 
@@ -926,6 +927,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45s_stm_vs_direct_perturbation() {
         setup_global_test_eop();
 
@@ -1223,6 +1225,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45d_stm_accuracy() {
         setup_global_test_eop();
 
@@ -1300,6 +1303,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45d_stm_vs_direct_perturbation() {
         setup_global_test_eop();
 

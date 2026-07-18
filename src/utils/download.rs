@@ -114,6 +114,24 @@ pub(crate) fn download_to_file(
 /// response size limit. The returned error carries the URL and attempt count;
 /// callers are expected to wrap it with product-specific context.
 pub(crate) fn download_bytes(url: &str) -> Result<Vec<u8>, BraheError> {
+    download_bytes_impl(url, None)
+}
+
+/// As [`download_bytes`], but sending a caller-specified `User-Agent` header.
+///
+/// Some mirrors (e.g. the star catalog data source) return `403 Forbidden` to
+/// default HTTP client user agents and require a browser-like one instead.
+pub(crate) fn download_bytes_with_user_agent(
+    url: &str,
+    user_agent: &str,
+) -> Result<Vec<u8>, BraheError> {
+    download_bytes_impl(url, Some(user_agent))
+}
+
+/// Shared retry/backoff core for [`download_bytes`] and
+/// [`download_bytes_with_user_agent`]. `user_agent`, if provided, is sent as
+/// the request's `User-Agent` header; `None` leaves ureq's default.
+fn download_bytes_impl(url: &str, user_agent: Option<&str>) -> Result<Vec<u8>, BraheError> {
     let mut attempt: u32 = 0;
 
     loop {
@@ -121,7 +139,11 @@ pub(crate) fn download_bytes(url: &str) -> Result<Vec<u8>, BraheError> {
 
         // Connection/status phase. ureq surfaces 4xx/5xx as `Err(StatusCode)`,
         // so this covers both transport failures and retryable server statuses.
-        let response = match ureq::get(url).call() {
+        let mut request = ureq::get(url);
+        if let Some(ua) = user_agent {
+            request = request.header("User-Agent", ua);
+        }
+        let response = match request.call() {
             Ok(response) => response,
             Err(e) => {
                 if attempt < MAX_DOWNLOAD_ATTEMPTS && is_retryable_error(&e) {
@@ -173,6 +195,28 @@ mod tests {
 
         let bytes = download_bytes(&server.url("/kernel.bsp")).unwrap();
         assert_eq!(bytes, b"kernel-bytes");
+    }
+
+    #[test]
+    fn test_download_bytes_with_user_agent_sends_header() {
+        // Mirrors are known to 403 default HTTP client user agents (e.g. the
+        // star catalog data source); download_bytes_with_user_agent must send
+        // the caller-provided User-Agent header rather than ureq's default.
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/catalog.txt")
+                .header("User-Agent", "Mozilla/5.0 (compatible; brahe)");
+            then.status(200).body("catalog-bytes");
+        });
+
+        let bytes = download_bytes_with_user_agent(
+            &server.url("/catalog.txt"),
+            "Mozilla/5.0 (compatible; brahe)",
+        )
+        .unwrap();
+        assert_eq!(bytes, b"catalog-bytes");
+        mock.assert_calls(1);
     }
 
     #[test]

@@ -23,10 +23,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.0
 
+      # Cargo cache scheme: this job runs from pr_tests.yml (PRs), unit_tests.yml
+      # (push to main), and integration_tests.yml (scheduled/dispatch --network
+      # runs, which resolve to main). Only main saves refresh the shared cache;
+      # PRs restore it instead of paying for their own unrestorable copy.
       - name: Set up Rust toolchain with cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
+          cache-shared-key: test-examples
+          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Set default Rust toolchain
         run: |
@@ -91,11 +97,11 @@ jobs:
       # the warm-up step; GitHub evicts caches by last access, so each restore
       # (a hit) resets the 7-day eviction window and keeps the shared main-branch
       # caches alive. A miss re-populates them via the warm-up step's post-save.
-      - name: Cache Natural Earth 3D textures
+      - name: Cache 3D body textures (Natural Earth + Solar System Scope planets)
         uses: actions/cache@v6.1.0
         with:
           path: ~/.cache/brahe/textures
-          key: natural-earth-textures-50m-v1
+          key: brahe-3d-textures-v2
 
       - name: Cache Natural Earth land basemap
         uses: actions/cache@v6.1.0

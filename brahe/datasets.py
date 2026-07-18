@@ -3,12 +3,13 @@ Datasets Module
 
 Provides access to groundstation location data, NAIF ephemeris kernels,
 GCAT (General Catalog of Artificial Space Objects) satellite catalogs,
-and ICGEM spherical harmonic gravity models.
+fixed-epoch star catalogs, and ICGEM spherical harmonic gravity models.
 
 This module provides a source-specific API organized by data provider:
 - groundstations: Curated groundstation location datasets
 - naif: NASA JPL NAIF ephemeris kernels (DE series)
 - gcat: Jonathan McDowell's GCAT satellite catalogs (SATCAT, PSATCAT)
+- star_catalogs: Fixed-epoch star catalogs (FK5, Hipparcos, Tycho-2)
 - icgem: ICGEM spherical harmonic gravity model catalog (Earth + celestial bodies)
 - ssn_sensors: Vallado Space Surveillance Network sensor site dataset
 
@@ -52,6 +53,16 @@ from brahe._brahe import (
     GCATPsatcatRecord,
     GCATSatcat,
     GCATPsatcat,
+    # Star catalogs functions and types
+    star_catalogs_get_fk5,
+    star_catalogs_get_hipparcos,
+    star_catalogs_get_tycho2,
+    FK5Record,
+    FK5Catalog,
+    HipparcosRecord,
+    HipparcosCatalog,
+    Tycho2Record,
+    Tycho2Catalog,
     # ICGEM functions and types
     icgem_list_models,
     icgem_refresh_index,
@@ -112,6 +123,25 @@ class _GcatNamespace:
 gcat = _GcatNamespace()
 
 
+# Create a star catalogs namespace object
+class _StarCatalogsNamespace:
+    """Star catalogs (FK5, Hipparcos, Tycho-2) data source namespace"""
+
+    get_fk5 = staticmethod(star_catalogs_get_fk5)
+    get_hipparcos = staticmethod(star_catalogs_get_hipparcos)
+    get_tycho2 = staticmethod(star_catalogs_get_tycho2)
+    FK5Record = FK5Record
+    FK5Catalog = FK5Catalog
+    HipparcosRecord = HipparcosRecord
+    HipparcosCatalog = HipparcosCatalog
+    Tycho2Record = Tycho2Record
+    Tycho2Catalog = Tycho2Catalog
+
+
+# Create star catalogs namespace instance
+star_catalogs = _StarCatalogsNamespace()
+
+
 # Create an ICGEM namespace object
 class _ICGEMNamespace:
     """ICGEM gravity model dataset namespace."""
@@ -130,6 +160,7 @@ __all__ = [
     "groundstations",
     "naif",
     "gcat",
+    "star_catalogs",
     "icgem",
     "ssn_sensors",
 ]

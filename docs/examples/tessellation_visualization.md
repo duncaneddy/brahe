@@ -69,9 +69,11 @@ Use an off-nadir constraint (10°–45°) to find all collection windows over a
 
 ## Full Code Example
 
-```python title="tessellation_visualization.py"
---8<-- "./examples/examples/tessellation_visualization.py:all"
-```
+??? "Full Code"
+
+    ```python title="tessellation_visualization.py"
+    --8<-- "./examples/examples/tessellation_visualization.py:all"
+    ```
 
 ---
 

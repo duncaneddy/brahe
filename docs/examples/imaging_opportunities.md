@@ -71,9 +71,11 @@ Below is a table of the first 10 imaging opportunities. Click on any column head
 
 ## Full Code Example
 
-```python title="imaging_opportunities.py"
---8<-- "./examples/examples/imaging_opportunities.py:all"
-```
+??? "Full Code"
+
+    ```python title="imaging_opportunities.py"
+    --8<-- "./examples/examples/imaging_opportunities.py:all"
+    ```
 
 ---
 

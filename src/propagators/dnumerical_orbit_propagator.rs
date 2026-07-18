@@ -57,7 +57,7 @@ use crate::utils::state_providers::{
 };
 use crate::{
     AngleFormat, GM_MOON, GM_SUN, accel_earth_zonal_gravity, state_eci_to_koe,
-    state_eci_to_koe_for_body,
+    state_inertial_to_koe_gm,
 };
 
 use super::TrajectoryMode;
@@ -3443,7 +3443,7 @@ impl DOrbitStateProvider for DNumericalOrbitPropagator {
             ))),
             cb => {
                 let x_central = self.state_central_inertial(epoch)?;
-                Ok(state_eci_to_koe_for_body(x_central, cb.gm(), angle_format))
+                Ok(state_inertial_to_koe_gm(x_central, cb.gm(), angle_format))
             }
         }
     }
@@ -5219,6 +5219,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     #[cfg_attr(not(feature = "manual"), ignore)] // Failing in CI by passing locally. TODO: debug
     fn test_dnumericalorbitpropagator_dorbitcovarianceprovider_positive_definiteness() {
         setup_global_test_eop();
@@ -10376,6 +10377,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_disable_stm_propagation() {
         use approx::assert_abs_diff_eq;
 
@@ -11312,6 +11314,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     #[cfg_attr(not(feature = "manual"), ignore)] // Long test run only manualy. TODO: optimize
     fn test_dnumericalorbitpropagator_stm_accuracy_degradation() {
         setup_global_test_eop();
@@ -11650,6 +11653,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     #[cfg_attr(not(feature = "manual"), ignore)] // Long test run only manualy. TODO: optimize
     fn test_dnumericalorbitpropagator_sensitivity_srp_coefficient() {
         use crate::propagators::force_model_config::{

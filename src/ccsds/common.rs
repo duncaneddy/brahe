@@ -1115,6 +1115,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_ccsds_datetime_ut1() {
         // UT1 is supported but requires EOP initialization
         crate::utils::testing::setup_global_test_eop();

@@ -34,6 +34,12 @@ Two of the most common topocentric coodinate systems are the East-North-Zenith (
 
 Learn more: [Topocentric Transformations](topocentric_transformations.md)
 
+### Right Ascension/Declination
+
+Right ascension/declination coordinates represent directions in an inertial frame using two angles and a range: `[ra, dec, range]` (or with rates for states). These conversions are frame-agnostic - they apply to any inertial Cartesian frame the caller supplies, including the ICRS/GCRF frame used by star catalogs.
+
+Learn more: [RA/Dec Transformations](radec_transformations.md)
+
 ## Common Transformation Patterns
 
 ### Orbital Mechanics
@@ -62,4 +68,5 @@ To compute satellite location from a ground station:
 - [Geocentric Transformations](geocentric_transformations.md) - Spherical Earth coordinates
 - [Geodetic Transformations](geodetic_transformations.md) - WGS84 ellipsoid coordinates
 - [Topocentric Transformations](topocentric_transformations.md) - Local horizon systems
+- [RA/Dec Transformations](radec_transformations.md) - Right ascension/declination coordinates
 - [Coordinates API Reference](../../library_api/coordinates/index.md) - Complete API documentation

@@ -1408,6 +1408,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_elevation_constraint_satisfied() {
         setup_global_test_eop();
 
@@ -1446,6 +1447,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_elevation_constraint_at_limit() {
         setup_global_test_eop();
 
@@ -1551,6 +1553,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_elevation_mask_constraint() {
         setup_global_test_eop();
 
@@ -1629,6 +1632,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_off_nadir_constraint() {
         setup_global_test_eop();
 
@@ -1661,6 +1665,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_local_time_constraint() {
         setup_global_test_eop();
 
@@ -1707,6 +1712,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_look_direction_constraint_asc() {
         setup_global_test_eop();
 
@@ -1726,6 +1732,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_look_direction_constraint_dsc() {
         setup_global_test_eop();
         let (epoch, sat_state, location) = test_geometry_west_dsc();
@@ -2010,6 +2017,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_local_time_constraint_wrap_around_evaluation() {
         setup_global_test_eop();
 
@@ -2050,6 +2058,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_local_time_constraint_multiple_windows_evaluation() {
         setup_global_test_eop();
 
@@ -2078,6 +2087,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_local_time_constraint_boundary_cases() {
         setup_global_test_eop();
 
@@ -2102,6 +2112,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_off_nadir_constraint_evaluate_min_only() {
         setup_global_test_eop();
 
@@ -2144,6 +2155,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_off_nadir_constraint_evaluate_both_bounds() {
         setup_global_test_eop();
 
@@ -2167,6 +2179,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_elevation_mask_constraint_evaluate_interpolation() {
         setup_global_test_eop();
 
@@ -2191,6 +2204,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_elevation_mask_constraint_evaluate_azimuth_wrap() {
         setup_global_test_eop();
 
@@ -2218,6 +2232,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_access_constraint_computer_wrapper_new_and_evaluate() {
         setup_global_test_eop();
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 

@@ -1248,6 +1248,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkn1210s_stm_vs_direct_perturbation() {
         // This test specifically validates the STM weight choice by comparing
         // multiple propagation steps with direct perturbation
@@ -1358,6 +1359,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkn1210d_single_step() {
         setup_global_test_eop();
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
@@ -1400,6 +1402,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkn1210d_integrator_orbit() {
         setup_global_test_eop();
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
@@ -1428,6 +1431,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkn1210d_accuracy() {
         setup_global_test_eop();
         let config = IntegratorConfig::adaptive(1e-13, 1e-11);
@@ -1501,6 +1505,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkn1210d_high_precision() {
         setup_global_test_eop();
         let config = IntegratorConfig::adaptive(1e-14, 1e-12);
@@ -1520,6 +1525,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkn1210d_varmat() {
         setup_global_test_eop();
         let point_earth_for_jacobian = |t: f64,
@@ -1557,6 +1563,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkn1210d_stm_accuracy() {
         setup_global_test_eop();
         let point_earth_for_jacobian = |t: f64,
@@ -1599,6 +1606,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkn1210d_stm_vs_direct_perturbation() {
         setup_global_test_eop();
         let point_earth_for_jacobian = |t: f64,

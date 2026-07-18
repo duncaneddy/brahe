@@ -715,6 +715,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_doodson_k1_equals_gmst_plus_pi() {
         crate::utils::testing::setup_global_test_eop();
         let epoch = Epoch::from_datetime(2015, 6, 15, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -821,6 +822,7 @@ mod tests {
     /// Step-2 corrections change the low-degree (n=2) coefficients at ~1e-11 scale
     /// and do NOT alter degree-3 or degree-4 terms (which come from Step 1 only).
     #[test]
+    #[serial_test::parallel]
     fn test_step2_toggle_changes_low_degree_terms() {
         crate::utils::testing::setup_global_test_eop();
         let epoch = Epoch::from_datetime(2015, 6, 15, 12, 0, 0.0, 0.0, TimeSystem::UTC);

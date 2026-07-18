@@ -7,6 +7,7 @@ pub mod coordinate_types;
 pub mod geocentric;
 pub mod geodetic;
 pub mod polygon;
+pub mod radec;
 pub mod topocentric;
 
 pub use cartesian::*;
@@ -14,4 +15,5 @@ pub use coordinate_types::*;
 pub use geocentric::*;
 pub use geodetic::*;
 pub use polygon::*;
+pub use radec::*;
 pub use topocentric::*;

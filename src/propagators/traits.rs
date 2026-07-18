@@ -531,6 +531,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sorbit_state_provider_states() {
         setup_global_test_eop();
 
@@ -581,6 +582,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sorbit_state_provider_states_eci() {
         setup_global_test_eop();
 
@@ -616,6 +618,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sorbit_state_provider_states_ecef() {
         setup_global_test_eop();
 
@@ -644,6 +647,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sorbit_state_provider_states_gcrf() {
         setup_global_test_eop();
 
@@ -672,6 +676,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sorbit_state_provider_states_itrf() {
         setup_global_test_eop();
 

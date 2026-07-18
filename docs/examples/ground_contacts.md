@@ -89,9 +89,11 @@ The duration histogram shows the distribution of contact lengths, with statistic
 
 ## Full Code Example
 
-```python title="ground_contacts.py"
---8<-- "./examples/examples/ground_contacts.py:all"
-```
+??? "Full Code"
+
+    ```python title="ground_contacts.py"
+    --8<-- "./examples/examples/ground_contacts.py:all"
+    ```
 
 ## See Also
 

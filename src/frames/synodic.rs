@@ -9,7 +9,11 @@
 
 use nalgebra::Vector3;
 
-use crate::constants::{GM_EARTH, GM_SUN};
+use crate::constants::{
+    GM_EARTH, GM_JUPITER, GM_JUPITER_SYSTEM, GM_MARS, GM_MARS_SYSTEM, GM_MERCURY, GM_MOON,
+    GM_NEPTUNE, GM_NEPTUNE_SYSTEM, GM_PLUTO, GM_PLUTO_SYSTEM, GM_SATURN, GM_SATURN_SYSTEM, GM_SUN,
+    GM_URANUS, GM_URANUS_SYSTEM, GM_VENUS,
+};
 use crate::math::{SMatrix3, SVector6};
 use crate::spice::{NAIFId, spk_acceleration, spk_position, spk_state};
 use crate::time::Epoch;
@@ -147,6 +151,99 @@ pub(crate) fn state_synodic_to_inertial(
     SVector6::new(r[0], r[1], r[2], v[0], v[1], v[2])
 }
 
+/// Gravitational parameter for the NAIF IDs supported as generic synodic
+/// frame primaries, from the crate's packaged constants.
+///
+/// # Arguments
+/// - `naif_id`: NAIF ID of the body (planet, Moon, Sun, or planetary
+///   barycenter alias)
+///
+/// # Returns
+/// - `gm`: Gravitational parameter. Units: [m³/s²]
+///
+/// # Errors
+/// Returns [`BraheError::Error`] for IDs without a packaged GM constant.
+pub(crate) fn body_gm(naif_id: i32) -> Result<f64, BraheError> {
+    match naif_id {
+        10 => Ok(GM_SUN),
+        1 | 199 => Ok(GM_MERCURY),
+        2 | 299 => Ok(GM_VENUS),
+        399 => Ok(GM_EARTH),
+        301 => Ok(GM_MOON),
+        3 => Ok(GM_EARTH + GM_MOON),
+        4 => Ok(GM_MARS_SYSTEM),
+        499 => Ok(GM_MARS),
+        5 => Ok(GM_JUPITER_SYSTEM),
+        599 => Ok(GM_JUPITER),
+        6 => Ok(GM_SATURN_SYSTEM),
+        699 => Ok(GM_SATURN),
+        7 => Ok(GM_URANUS_SYSTEM),
+        799 => Ok(GM_URANUS),
+        8 => Ok(GM_NEPTUNE_SYSTEM),
+        899 => Ok(GM_NEPTUNE),
+        9 => Ok(GM_PLUTO_SYSTEM),
+        999 => Ok(GM_PLUTO),
+        id => Err(BraheError::Error(format!(
+            "No packaged GM constant for NAIF ID {id}; synodic barycenter \
+             origins are only supported for the Sun, planets, planetary \
+             barycenters, and the Moon"
+        ))),
+    }
+}
+
+/// Synodic frame axes for an arbitrary primary/secondary pair at `epc`:
+/// the inertial→synodic rotation matrix and its exact time derivative,
+/// built from the secondary's SPK state and acceleration relative to the
+/// primary (NASA TP-20220014814 §4.6.1). x̂ points primary→secondary.
+/// Generic form of [`emr_axes`]/[`ser_axes`]/[`gse_axes`].
+///
+/// # Arguments
+/// - `epc`: Epoch instant for computation of the transformation
+/// - `primary`: NAIF ID of the primary body
+/// - `secondary`: NAIF ID of the secondary body
+///
+/// # Returns
+/// - `(R, Ṙ)`: Rotation matrix from ICRF-aligned axes to synodic axes,
+///   and its time derivative. Units: [-], [1/s]
+pub(crate) fn generic_synodic_axes(
+    epc: Epoch,
+    primary: i32,
+    secondary: i32,
+) -> Result<(SMatrix3, SMatrix3), BraheError> {
+    crate::spice::registry::ensure_bodies_loadable(&[primary, secondary])?;
+    let x12 = spk_state(secondary, primary, epc)?;
+    let a12 = spk_acceleration(secondary, primary, epc)?;
+    synodic_axes(
+        x12.fixed_rows::<3>(0).into_owned(),
+        x12.fixed_rows::<3>(3).into_owned(),
+        a12,
+    )
+}
+
+/// SSB-relative state of the GM-weighted barycenter of a two-body pair
+/// (ICRF axes). Generic form of [`sun_earth_barycenter_state`].
+///
+/// # Arguments
+/// - `epc`: Epoch instant
+/// - `primary`: NAIF ID of the primary body
+/// - `secondary`: NAIF ID of the secondary body
+///
+/// # Returns
+/// - Cartesian state of the pair barycenter relative to the SSB.
+///   Units: [m; m/s]
+pub(crate) fn pair_barycenter_state(
+    epc: Epoch,
+    primary: i32,
+    secondary: i32,
+) -> Result<SVector6, BraheError> {
+    let gm1 = body_gm(primary)?;
+    let gm2 = body_gm(secondary)?;
+    crate::spice::registry::ensure_bodies_loadable(&[primary, secondary])?;
+    let x1 = spk_state(primary, NAIFId::SolarSystemBarycenter, epc)?;
+    let x2 = spk_state(secondary, NAIFId::SolarSystemBarycenter, epc)?;
+    Ok((x1 * gm1 + x2 * gm2) / (gm1 + gm2))
+}
+
 /// EMR (Earth-Moon Rotating) frame axes at `epc`: the inertial→EMR
 /// rotation matrix and its exact time derivative, built from the Moon's
 /// SPK state and acceleration relative to Earth (NASA TP-20220014814
@@ -159,13 +256,7 @@ pub(crate) fn state_synodic_to_inertial(
 /// - `(R, Ṙ)`: Rotation matrix from GCRF to EMR axes, and its time
 ///   derivative. Units: [-], [1/s]
 pub(crate) fn emr_axes(epc: Epoch) -> Result<(SMatrix3, SMatrix3), BraheError> {
-    let x12 = spk_state(NAIFId::Moon, NAIFId::Earth, epc)?;
-    let a12 = spk_acceleration(NAIFId::Moon, NAIFId::Earth, epc)?;
-    synodic_axes(
-        x12.fixed_rows::<3>(0).into_owned(),
-        x12.fixed_rows::<3>(3).into_owned(),
-        a12,
-    )
+    generic_synodic_axes(epc, NAIFId::Earth.id(), NAIFId::Moon.id())
 }
 
 /// Computes the rotation matrix from Geocentric Celestial Reference Frame
@@ -376,10 +467,11 @@ pub fn state_emr_to_gcrf(epc: Epoch, x_emr: SVector6) -> Result<SVector6, BraheE
 /// # Returns
 /// - `x_seb`: Cartesian SEB state (position, velocity) relative to the
 ///   Solar System Barycenter, ICRF axes. Units: (*m*; *m/s*)
+///
+/// Delegates to [`pair_barycenter_state`], the generic form of this
+/// computation.
 pub(crate) fn sun_earth_barycenter_state(epc: Epoch) -> Result<SVector6, BraheError> {
-    let x_sun = spk_state(NAIFId::Sun, NAIFId::SolarSystemBarycenter, epc)?;
-    let x_earth = spk_state(NAIFId::Earth, NAIFId::SolarSystemBarycenter, epc)?;
-    Ok((x_sun * GM_SUN + x_earth * GM_EARTH) / (GM_SUN + GM_EARTH))
+    pair_barycenter_state(epc, NAIFId::Sun.id(), NAIFId::Earth.id())
 }
 
 /// SER (Sun-Earth Rotating) frame axes at `epc`: the inertial→SER rotation
@@ -394,13 +486,7 @@ pub(crate) fn sun_earth_barycenter_state(epc: Epoch) -> Result<SVector6, BraheEr
 /// - `(R, Ṙ)`: Rotation matrix from GCRF to SER axes, and its time
 ///   derivative. Units: [-], [1/s]
 pub(crate) fn ser_axes(epc: Epoch) -> Result<(SMatrix3, SMatrix3), BraheError> {
-    let x12 = spk_state(NAIFId::Earth, NAIFId::Sun, epc)?;
-    let a12 = spk_acceleration(NAIFId::Earth, NAIFId::Sun, epc)?;
-    synodic_axes(
-        x12.fixed_rows::<3>(0).into_owned(),
-        x12.fixed_rows::<3>(3).into_owned(),
-        a12,
-    )
+    generic_synodic_axes(epc, NAIFId::Sun.id(), NAIFId::Earth.id())
 }
 
 /// GSE (Geocentric Solar Ecliptic) frame axes at `epc`: the inertial→GSE
@@ -416,13 +502,7 @@ pub(crate) fn ser_axes(epc: Epoch) -> Result<(SMatrix3, SMatrix3), BraheError> {
 /// - `(R, Ṙ)`: Rotation matrix from GCRF to GSE axes, and its time
 ///   derivative. Units: [-], [1/s]
 pub(crate) fn gse_axes(epc: Epoch) -> Result<(SMatrix3, SMatrix3), BraheError> {
-    let x12 = spk_state(NAIFId::Sun, NAIFId::Earth, epc)?;
-    let a12 = spk_acceleration(NAIFId::Sun, NAIFId::Earth, epc)?;
-    synodic_axes(
-        x12.fixed_rows::<3>(0).into_owned(),
-        x12.fixed_rows::<3>(3).into_owned(),
-        a12,
-    )
+    generic_synodic_axes(epc, NAIFId::Earth.id(), NAIFId::Sun.id())
 }
 
 /// Earth→SEB origin offset in ICRF axes (SEB state minus Earth state,
@@ -817,7 +897,7 @@ mod tests {
     use serial_test::{parallel, serial};
 
     use super::*;
-    use crate::constants::{GM_EARTH, GM_SUN};
+    use crate::constants::{GM_EARTH, GM_MOON, GM_SUN};
     use crate::spice::{NAIFId, spk_state};
     use crate::time::TimeSystem;
     use crate::utils::testing::setup_global_test_spice;
@@ -1146,5 +1226,52 @@ mod tests {
             "SEB-Sun offset {} m",
             offset
         );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_body_gm_known_bodies() {
+        assert_eq!(body_gm(10).unwrap(), GM_SUN);
+        assert_eq!(body_gm(1).unwrap(), GM_MERCURY);
+        assert_eq!(body_gm(199).unwrap(), GM_MERCURY);
+        assert_eq!(body_gm(2).unwrap(), GM_VENUS);
+        assert_eq!(body_gm(299).unwrap(), GM_VENUS);
+        assert_eq!(body_gm(399).unwrap(), GM_EARTH);
+        assert_eq!(body_gm(301).unwrap(), GM_MOON);
+        assert_eq!(body_gm(3).unwrap(), GM_EARTH + GM_MOON);
+        assert_eq!(body_gm(4).unwrap(), GM_MARS_SYSTEM);
+        assert_eq!(body_gm(499).unwrap(), GM_MARS);
+        assert_eq!(body_gm(5).unwrap(), GM_JUPITER_SYSTEM);
+        assert_eq!(body_gm(599).unwrap(), GM_JUPITER);
+        assert_eq!(body_gm(6).unwrap(), GM_SATURN_SYSTEM);
+        assert_eq!(body_gm(699).unwrap(), GM_SATURN);
+        assert_eq!(body_gm(7).unwrap(), GM_URANUS_SYSTEM);
+        assert_eq!(body_gm(799).unwrap(), GM_URANUS);
+        assert_eq!(body_gm(8).unwrap(), GM_NEPTUNE_SYSTEM);
+        assert_eq!(body_gm(899).unwrap(), GM_NEPTUNE);
+        assert_eq!(body_gm(9).unwrap(), GM_PLUTO_SYSTEM);
+        assert_eq!(body_gm(999).unwrap(), GM_PLUTO);
+        assert!(body_gm(502).is_err()); // Europa: no packaged GM constant
+    }
+
+    #[test]
+    #[serial] // SPICE registry global
+    fn test_generic_synodic_axes_matches_emr() {
+        setup_global_test_spice();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let (s_g, sd_g) = generic_synodic_axes(epc, 399, 301).unwrap();
+        let (s_e, sd_e) = emr_axes(epc).unwrap();
+        assert_abs_diff_eq!(s_g, s_e, epsilon = 0.0);
+        assert_abs_diff_eq!(sd_g, sd_e, epsilon = 0.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_pair_barycenter_state_matches_seb() {
+        setup_global_test_spice();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let x_pair = pair_barycenter_state(epc, 10, 399).unwrap();
+        let x_seb = sun_earth_barycenter_state(epc).unwrap();
+        assert_abs_diff_eq!(x_pair, x_seb, epsilon = 0.0);
     }
 }

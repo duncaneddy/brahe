@@ -441,6 +441,84 @@ pub const GM_PHOBOS: f64 = 7.087546066894452e5;
 ///  1. NAIF, *gm_de440.tpc* Planetary Constants Kernel.
 pub const GM_DEIMOS: f64 = 9.615569648120313e4;
 
+/// Mercury mean radius. Units: (m)
+///
+/// # References:
+///
+///  1. Archinal et al., *Report of the IAU Working Group on Cartographic
+///     Coordinates and Rotational Elements: 2015*, Celest Mech Dyn Astr, 2018.
+///
+/// # Examples
+/// ```
+/// assert_eq!(brahe::constants::R_MERCURY, 2439.4e3);
+/// ```
+pub const R_MERCURY: f64 = 2439.4e3;
+
+/// Venus mean radius. Units: (m)
+///
+/// # References:
+///
+///  1. Archinal et al., *Report of the IAU Working Group on Cartographic
+///     Coordinates and Rotational Elements: 2015*, Celest Mech Dyn Astr, 2018.
+///
+/// # Examples
+/// ```
+/// assert_eq!(brahe::constants::R_VENUS, 6051.8e3);
+/// ```
+pub const R_VENUS: f64 = 6051.8e3;
+
+/// Jupiter volumetric mean radius. Units: (m)
+///
+/// # References:
+///
+///  1. Archinal et al., *Report of the IAU Working Group on Cartographic
+///     Coordinates and Rotational Elements: 2015*, Celest Mech Dyn Astr, 2018.
+///
+/// # Examples
+/// ```
+/// assert_eq!(brahe::constants::R_JUPITER, 69911.0e3);
+/// ```
+pub const R_JUPITER: f64 = 69911.0e3;
+
+/// Saturn volumetric mean radius. Units: (m)
+///
+/// # References:
+///
+///  1. Archinal et al., *Report of the IAU Working Group on Cartographic
+///     Coordinates and Rotational Elements: 2015*, Celest Mech Dyn Astr, 2018.
+///
+/// # Examples
+/// ```
+/// assert_eq!(brahe::constants::R_SATURN, 58232.0e3);
+/// ```
+pub const R_SATURN: f64 = 58232.0e3;
+
+/// Uranus volumetric mean radius. Units: (m)
+///
+/// # References:
+///
+///  1. Archinal et al., *Report of the IAU Working Group on Cartographic
+///     Coordinates and Rotational Elements: 2015*, Celest Mech Dyn Astr, 2018.
+///
+/// # Examples
+/// ```
+/// assert_eq!(brahe::constants::R_URANUS, 25362.0e3);
+/// ```
+pub const R_URANUS: f64 = 25362.0e3;
+
+/// Neptune volumetric mean radius. Units: (m)
+///
+/// # References:
+///
+///  1. Archinal et al., *Report of the IAU Working Group on Cartographic
+///     Coordinates and Rotational Elements: 2015*, Celest Mech Dyn Astr, 2018.
+///
+/// # Examples
+/// ```
+/// assert_eq!(brahe::constants::R_NEPTUNE, 24622.0e3);
+/// ```
+pub const R_NEPTUNE: f64 = 24622.0e3;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -531,5 +609,17 @@ mod tests {
         // Values from NAIF gm_de440.tpc (km^3/s^2 -> m^3/s^2); verify against the file
         assert_abs_diff_eq!(GM_PHOBOS, 7.087546066894452e5, epsilon = 1e-3);
         assert_abs_diff_eq!(GM_DEIMOS, 9.615569648120313e4, epsilon = 1e-3);
+    }
+
+    #[test]
+    fn test_planetary_radius_constants() {
+        // IAU/WGCCRE 2015 mean (Mercury, Venus) and volumetric mean (giant
+        // planets) radii, in meters.
+        assert_eq!(R_MERCURY, 2439.4e3);
+        assert_eq!(R_VENUS, 6051.8e3);
+        assert_eq!(R_JUPITER, 69911.0e3);
+        assert_eq!(R_SATURN, 58232.0e3);
+        assert_eq!(R_URANUS, 25362.0e3);
+        assert_eq!(R_NEPTUNE, 24622.0e3);
     }
 }

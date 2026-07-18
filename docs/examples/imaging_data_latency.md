@@ -114,9 +114,11 @@ This visualization helps identify geographic regions where additional ground sta
 
 ## Full Code Example
 
-```python title="imaging_data_latency.py"
---8<-- "./examples/examples/imaging_data_latency.py:all"
-```
+??? "Full Code"
+
+    ```python title="imaging_data_latency.py"
+    --8<-- "./examples/examples/imaging_data_latency.py:all"
+    ```
 
 ---
 

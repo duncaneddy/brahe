@@ -13,6 +13,7 @@ The module is organized by data source:
 - **`brahe.datasets.ssn_sensors`**: Vallado SSN sensor site dataset
 - **`brahe.datasets.naif`**: NASA JPL NAIF planetary ephemeris kernels
 - **`brahe.datasets.gcat`**: GCAT satellite catalogs (SATCAT, PSATCAT)
+- **`brahe.datasets.star_catalogs`**: Fixed-epoch star catalogs (FK5, Hipparcos, Tycho-2)
 - **`brahe.datasets.icgem`**: ICGEM spherical harmonic gravity models (Earth + celestial bodies)
 
 ## Submodules
@@ -21,6 +22,7 @@ The module is organized by data source:
 - [SSN Sensor Functions](ssn_sensors.md) - Vallado SSN sensor site dataset
 - [NAIF Functions](naif.md) - Planetary ephemeris kernels from NASA JPL
 - [GCAT Functions](gcat.md) - GCAT satellite catalog access
+- [Star Catalog Functions](star_catalogs.md) - FK5, Hipparcos, and Tycho-2 star catalog access
 - [ICGEM Functions](icgem.md) - ICGEM spherical harmonic gravity models
 
 ---

@@ -85,15 +85,14 @@ keeps gravity-only for self-containment:
 
 Dawn's LAMO is a ~375 km circular polar orbit. The propagator integrates in a
 Ceres-centered inertial frame whose axes are ICRF-aligned, so its z-axis is
-the ICRF pole - about 23 degrees from Ceres's spin pole. Passing 90 degrees
-straight to `state_koe_to_eci` would measure the inclination against the ICRF
-pole, not Ceres's equator. `state_koe_to_inertial_for_body` instead references
-the elements to the body's mean equator at J2000 and returns the state in the
-Ceres-centered inertial frame. Because `ceres` is a `CentralBody.Custom` that
-carries a body-fixed frame (`ceres_fixed`), the function reads Ceres's pole
-from that registered frame - the same recipe works for any user-defined body -
-so the 90 degree inclination is placed against Ceres's equator with no manual
-basis construction:
+the ICRF pole - about 23 degrees from Ceres's spin pole. We use
+`state_koe_to_inertial_for_body` to reference the elements to the body's mean
+equator at J2000 and compute the state in the Ceres-centered, ICRF-aligned
+inertial frame. Because `ceres` is a `CentralBody.Custom` that carries a
+body-fixed frame (`ceres_fixed`), the function reads Ceres's pole from that
+registered frame - the same recipe works for any user-defined body - so the
+90 degree inclination is placed against Ceres's equator with no manual basis
+construction:
 
 ``` python
 --8<-- "./examples/examples/dawn_ceres_orbit.py:orbit_setup"

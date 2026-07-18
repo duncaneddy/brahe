@@ -10,8 +10,6 @@ We'll use the `NumericalOrbitPropagator` integrated about the Earth-Moon barycen
 
 A free-return trajectory is a solution of the Earth-Moon-spacecraft three-body problem whose outbound leg is aimed so that the lunar flyby rotates the velocity vector back toward Earth. No propulsion is needed after the initial injection: the Moon's gravity does the work of turning the spacecraft around. The defining property is passive safety - once on the trajectory, the spacecraft returns to Earth's vicinity on its own.
 
-The flyby must be a genuine **circumlunar** pass: the spacecraft crosses to the far side of the Moon and swings around it, so its motion about the Moon is retrograde with respect to the Moon's orbital motion about Earth. That far-side geometry is what bends the path steeply back toward home. A pass on the near side, in front of the Moon, deflects the trajectory the wrong way. The pass must also be close enough to bend the path back to Earth but not so close that the perilune drops below the surface. The window between "escapes" and "impacts the Moon" is what makes free-return design a targeting problem rather than a closed-form calculation.
-
 ## Geometry
 
 The departure geometry fixes everything about the transfer except its energy. We depart a 400 km (ISS-like) circular parking orbit from a point near the **antipode** of the Moon's position at the expected arrival time, burning prograde in the Moon's instantaneous orbital plane so the transfer apogee reaches toward the Moon roughly half an orbit later.
@@ -21,6 +19,8 @@ A real mission targets a two-dimensional B-plane at the Moon (a miss distance an
 ``` python
 --8<-- "./examples/examples/earth_moon_free_return.py:preamble"
 ```
+
+With the standard preamble in place, the next step sets up the departure geometry.
 
 ``` python
 --8<-- "./examples/examples/earth_moon_free_return.py:geometry"

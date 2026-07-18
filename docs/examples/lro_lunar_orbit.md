@@ -48,6 +48,8 @@ row of the ICRF-to-lunar-body-fixed rotation) to confirm the geometry below:
 --8<-- "./examples/examples/lro_lunar_orbit.py:preamble"
 ```
 
+With the standard preamble in place, the next step sets up the frozen orbit geometry.
+
 ``` python
 --8<-- "./examples/examples/lro_lunar_orbit.py:orbit_setup"
 ```

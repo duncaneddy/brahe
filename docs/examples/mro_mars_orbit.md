@@ -60,6 +60,8 @@ at J2000, the same reference plane the elements are referenced to:
 --8<-- "./examples/examples/mro_mars_orbit.py:preamble"
 ```
 
+With the standard preamble in place, the next step sets up the sun-synchronous orbit geometry.
+
 ``` python
 --8<-- "./examples/examples/mro_mars_orbit.py:orbit_setup"
 ```

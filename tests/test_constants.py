@@ -218,7 +218,7 @@ def test_GM_PLUTO_SYSTEM():
 
 
 def test_R_MERCURY():
-    assert brahe.R_MERCURY == 2439.7e3
+    assert brahe.R_MERCURY == 2439.4e3
 
 
 def test_R_VENUS():

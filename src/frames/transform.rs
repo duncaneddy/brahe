@@ -115,9 +115,18 @@ pub enum SynodicOrigin {
 /// user-registered custom frame is nonetheless allowed to self-assign a
 /// center in that range.
 ///
+/// Any NAIF ID is accepted for `primary` and `secondary`. When both are in
+/// `0..=999`, the encoding is injective (no two pairs produce the same
+/// ID). Outside that range the encoding can wrap into an ID that decodes
+/// (see [`synthetic_barycenter_pair`]) as an ordinary, non-synthetic
+/// center; that is not caught here — it surfaces downstream as an
+/// SPK/GM lookup error at transform time, since no such NAIF center
+/// exists. Regardless of ID, a `Barycenter` origin also requires both
+/// bodies to have packaged GM constants (see `body_gm`).
+///
 /// # Arguments
-/// - `primary`: NAIF ID of the primary body. Must be in `0..=999`.
-/// - `secondary`: NAIF ID of the secondary body. Must be in `0..=999`.
+/// - `primary`: NAIF ID of the primary body
+/// - `secondary`: NAIF ID of the secondary body
 ///
 /// # Returns
 /// - `id`: Synthetic negative center ID
@@ -129,7 +138,6 @@ pub enum SynodicOrigin {
 /// assert_eq!(synodic_barycenter_id(10, 399), SUN_EARTH_BARYCENTER_ID);
 /// ```
 pub fn synodic_barycenter_id(primary: i32, secondary: i32) -> i32 {
-    debug_assert!((0..=999).contains(&primary) && (0..=999).contains(&secondary));
     -(1_000_000_000 + primary * 1000 + secondary)
 }
 
@@ -231,8 +239,8 @@ pub enum ReferenceFrame {
     /// [`synodic_barycenter_id`]); a self-assigned center in that range is
     /// not rejected (real user-defined bodies and loaded kernels may need
     /// any negative ID), but colliding with an actual synodic-barycenter
-    /// ID requires two packaged-GM NAIF IDs in `0..=999`, so the
-    /// collision is astronomically unlikely in practice.
+    /// ID requires a `primary`/`secondary` pair whose encoding lands on
+    /// the same value, so the collision is unlikely in practice.
     BodyFixedCustom {
         /// NAIF ID of the frame's center (may be self-assigned negative).
         center: i32,
@@ -242,10 +250,15 @@ pub enum ReferenceFrame {
     /// Generic two-body synodic (rotating) frame (NASA TP-20220014814
     /// §4.6.1): x̂ from `primary` toward `secondary`, ẑ along the
     /// secondary's instantaneous orbital angular momentum relative to the
-    /// primary, centered per `origin`. NAIF IDs must be in `0..=999` when
-    /// `origin` is `Barycenter` (synthetic-ID encoding; see
-    /// [`synodic_barycenter_id`]), and the pair must have packaged GM
-    /// constants. The named frames are specific configurations:
+    /// primary, centered per `origin`. Any NAIF ID is accepted for
+    /// `primary` and `secondary`; when `origin` is `Barycenter`, the pair
+    /// is encoded into a synthetic center ID (see
+    /// [`synodic_barycenter_id`]) that is injective for IDs in `0..=999`
+    /// but, outside that range, can decode as an ordinary (non-synthetic)
+    /// center and surface an SPK/GM lookup error at transform time rather
+    /// than silently colliding. A `Barycenter` origin also requires both
+    /// bodies to have packaged GM constants. The named frames are
+    /// specific configurations:
     /// `EMR ≡ Synodic{Barycenter, 399, 301}`,
     /// `SER ≡ Synodic{Barycenter, 10, 399}`,
     /// `GSE ≡ Synodic{Primary, 399, 10}`.

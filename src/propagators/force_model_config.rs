@@ -1073,42 +1073,31 @@ impl ForceModelConfig {
         Ok(())
     }
 
-    /// Check that a spherical-harmonic central gravity field's source body
-    /// matches `central_body` (issue: a bare `GravityConfiguration::SphericalHarmonic`
-    /// silently defaults to Earth's EGM2008_120, which — attached to e.g. a Mars
-    /// central body — evaluates a field with Earth's GM and reference radius at a
-    /// Mars-scale orbit radius, producing unphysical accelerations that stall the
-    /// adaptive integrator instead of erroring).
+    /// Checks that a spherical-harmonic central gravity field's source body
+    /// matches `central_body`, so a config is rejected rather than silently
+    /// evaluating the wrong body's field (e.g. a bare
+    /// `GravityConfiguration::SphericalHarmonic`, which defaults to Earth's
+    /// EGM2008_120, attached to a Mars `central_body`).
     ///
-    /// No-op for [`GravityConfiguration::Zero`]/`PointMass`/`EarthZonal`, and for
-    /// [`GravityModelSource::Global`] (a shared, externally managed model whose
-    /// identity cannot be reliably checked here — it may not be populated via
-    /// `set_global_gravity_model` yet at validation time — so callers of a Global
-    /// source are responsible for pairing it with a matching `central_body`
-    /// themselves).
+    /// No-op for [`GravityConfiguration::Zero`]/`PointMass`/`EarthZonal`, and
+    /// for [`GravityModelSource::Global`] (identity can't be checked before
+    /// `set_global_gravity_model` populates it; the caller owns that
+    /// pairing).
     ///
     /// For [`GravityModelSource::ModelType`]:
-    /// - The packaged models ([`GravityModelType::EGM2008_120`],
-    ///   [`GravityModelType::GGM05S`], [`GravityModelType::JGM3`]) are Earth-only
-    ///   models; `central_body`'s NAIF ID must be `399` (Earth).
-    /// - [`GravityModelType::ICGEMModel`] carries its body directly for
-    ///   `ICGEMBody::Earth`/`Moon`/`Mars`; checked the same way (NAIF ID
-    ///   comparison), with no load.
-    /// - Everything else — `ICGEMModel` with `ICGEMBody::Venus`/`Ceres`/`Other`,
-    ///   and `GravityModelType::FromFile` — has no statically known body, so the
-    ///   model itself is loaded (a network fetch on a cold `ICGEMModel` cache;
-    ///   a local parse for `FromFile`) and its header GM and reference radius are
-    ///   compared against `central_body.gm()`/`central_body.radius()` within a 1%
-    ///   relative tolerance. This is generous enough to absorb DE440-vs-model
-    ///   constant differences while still catching body-scale mismatches (e.g.
-    ///   Earth vs. Mars GM differs by ~9x). It is a body-*identity* check, not a
-    ///   model-*quality* check: a crust-only model whose header `gravity_constant`
-    ///   still carries the real body GM (as with the ICGEM Ceres model
-    ///   `sphericalRFM_CERES_2519`, whose C̄00 ≈ 0.126 rather than 1.0) passes.
-    ///   `central_body.gm() <= 0.0` (possible for a `CentralBody::Custom` with an
-    ///   unset/zero `gm` — built-in barycenters are already rejected earlier in
-    ///   `validate()`) always errors here rather than silently skipping the GM
-    ///   comparison, since no real gravity model has a non-positive GM.
+    /// - The packaged Earth-only models ([`GravityModelType::EGM2008_120`],
+    ///   [`GravityModelType::GGM05S`], [`GravityModelType::JGM3`]) and
+    ///   [`GravityModelType::ICGEMModel`] with `ICGEMBody::Earth`/`Moon`/`Mars`
+    ///   are checked by NAIF ID against `central_body`, no load required.
+    /// - `ICGEMModel` with `ICGEMBody::Venus`/`Ceres`/`Other`, and
+    ///   `GravityModelType::FromFile`, have no statically known body: the
+    ///   model is loaded (a network fetch on a cold `ICGEMModel` cache; a
+    ///   local parse for `FromFile`) and its header GM and reference radius
+    ///   are compared against `central_body.gm()`/`radius()` within a 1%
+    ///   relative tolerance — this is a body-*identity* check only, not a
+    ///   model-*quality* check.
+    /// - `central_body.gm() <= 0.0` always errors here, since no real
+    ///   gravity model has a non-positive GM.
     ///
     /// # Returns
     /// `Ok(())` if the gravity model's body matches `central_body` (or the check

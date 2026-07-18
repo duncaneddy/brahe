@@ -450,9 +450,9 @@ pub const GM_DEIMOS: f64 = 9.615569648120313e4;
 ///
 /// # Examples
 /// ```
-/// assert_eq!(brahe::constants::R_MERCURY, 2439.7e3);
+/// assert_eq!(brahe::constants::R_MERCURY, 2439.4e3);
 /// ```
-pub const R_MERCURY: f64 = 2439.7e3;
+pub const R_MERCURY: f64 = 2439.4e3;
 
 /// Venus mean radius. Units: (m)
 ///
@@ -615,7 +615,7 @@ mod tests {
     fn test_planetary_radius_constants() {
         // IAU/WGCCRE 2015 mean (Mercury, Venus) and volumetric mean (giant
         // planets) radii, in meters.
-        assert_eq!(R_MERCURY, 2439.7e3);
+        assert_eq!(R_MERCURY, 2439.4e3);
         assert_eq!(R_VENUS, 6051.8e3);
         assert_eq!(R_JUPITER, 69911.0e3);
         assert_eq!(R_SATURN, 58232.0e3);

@@ -52,7 +52,39 @@ use crate::utils::BraheError;
 /// 1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and Applications*, pp. 24, eq. 2.43 & 2.44, 2012.
 #[allow(non_snake_case)]
 pub fn state_koe_to_eci(x_oe: SVector6, angle_format: AngleFormat) -> SVector6 {
-    state_koe_to_inertial_gm(x_oe, GM_EARTH, angle_format)
+    // Unpack input
+    let a = x_oe[0];
+    let e = x_oe[1];
+
+    // Convert angles to radians based on format
+    let (i, RAAN, omega, M) = match angle_format {
+        AngleFormat::Degrees => (
+            x_oe[2] * constants::DEG2RAD,
+            x_oe[3] * constants::DEG2RAD,
+            x_oe[4] * constants::DEG2RAD,
+            x_oe[5] * constants::DEG2RAD,
+        ),
+        AngleFormat::Radians => (x_oe[2], x_oe[3], x_oe[4], x_oe[5]),
+    };
+
+    let E = orbits::anomaly_mean_to_eccentric(M, e, AngleFormat::Radians).unwrap();
+
+    let P: Vector3<f64> = Vector3::new(
+        omega.cos() * RAAN.cos() - omega.sin() * i.cos() * RAAN.sin(),
+        omega.cos() * RAAN.sin() + omega.sin() * i.cos() * RAAN.cos(),
+        omega.sin() * i.sin(),
+    );
+
+    let Q: Vector3<f64> = Vector3::new(
+        -omega.sin() * RAAN.cos() - omega.cos() * i.cos() * RAAN.sin(),
+        -omega.sin() * RAAN.sin() + omega.cos() * i.cos() * RAAN.cos(),
+        omega.cos() * i.sin(),
+    );
+
+    let p = a * (E.cos() - e) * P + a * (1.0 - e * e).sqrt() * E.sin() * Q;
+    let v = (constants::GM_EARTH * a).sqrt() / p.norm()
+        * (-E.sin() * P + (1.0 - e * e).sqrt() * E.cos() * Q);
+    SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
 }
 
 /// Convert an osculating orbital element state vector into the equivalent
@@ -154,7 +186,55 @@ pub(crate) fn state_koe_to_inertial_gm(
 /// 1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and Applications*, pp. 28-29, eq. 2.56-2.68, 2012.
 #[allow(non_snake_case)]
 pub fn state_eci_to_koe(x_cart: SVector6, angle_format: AngleFormat) -> SVector6 {
-    state_inertial_to_koe_gm(x_cart, GM_EARTH, angle_format)
+    // # Initialize Cartesian Polistion and Velocity
+    let r: Vector3<f64> = Vector3::from(x_cart.fixed_rows::<3>(0));
+    let v: Vector3<f64> = Vector3::from(x_cart.fixed_rows::<3>(3));
+
+    let h: Vector3<f64> = Vector3::from(r.cross(&v)); // Angular momentum vector
+    let W: Vector3<f64> = h / h.norm();
+
+    let i = ((W[0] * W[0] + W[1] * W[1]).sqrt()).atan2(W[2]); // Compute inclination
+    let RAAN = (W[0]).atan2(-W[1]); // Right ascension of ascending node
+    let p = h.norm() * h.norm() / GM_EARTH; // Semi-latus rectum
+    let a = 1.0 / (2.0 / r.norm() - v.norm() * v.norm() / GM_EARTH); // Semi-major axis
+    let n = (GM_EARTH / a.powi(3)).sqrt(); // Mean motion
+
+    // Numerical stability hack for circular and near-circular orbits
+    // to ensures that (1-p/a) is always positive
+    let p = if is_close!(a, p, abs_tol = 1e-9, rel_tol = 1e-8) {
+        a
+    } else {
+        p
+    };
+
+    let e = (1.0 - p / a).sqrt(); // Eccentricity
+    let E = (r.dot(&v) / (n * a * a)).atan2(1.0 - r.norm() / a); // Eccentric Anomaly
+    let M = orbits::anomaly_eccentric_to_mean(E, e, AngleFormat::Radians); // Mean Anomaly
+    let u = (r[2]).atan2(-r[0] * W[1] + r[1] * W[0]); // Mean longiude
+    let nu = ((1.0 - e * e).sqrt() * E.sin()).atan2(E.cos() - e); // True Anomaly
+    let omega = u - nu; // Argument of perigee
+
+    // # Correct angles to run from 0 to 2PI
+    let RAAN = RAAN + 2.0 * PI;
+    let omega = omega + 2.0 * PI;
+    let M = M + 2.0 * PI;
+
+    let RAAN = RAAN % (2.0 * PI);
+    let omega = omega % (2.0 * PI);
+    let M = M % (2.0 * PI);
+
+    // Convert angles to requested format
+    match angle_format {
+        AngleFormat::Degrees => SVector6::new(
+            a,
+            e,
+            i * constants::RAD2DEG,
+            RAAN * constants::RAD2DEG,
+            omega * constants::RAD2DEG,
+            M * constants::RAD2DEG,
+        ),
+        AngleFormat::Radians => SVector6::new(a, e, i, RAAN, omega, M),
+    }
 }
 
 /// Convert a Cartesian (position and velocity) inertial state into the equivalent

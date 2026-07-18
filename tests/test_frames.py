@@ -811,9 +811,25 @@ def test_reference_frame_synodic_constructor():
     assert "Synodic" in str(frame)
 
 
-def test_reference_frame_synodic_invalid_ids():
-    with pytest.raises(ValueError):
-        brahe.ReferenceFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 1301)
+def test_reference_frame_synodic_large_ids_construct():
+    # Any NAIF ID is accepted at construction time, even for a Barycenter
+    # origin outside 0..=999 (no longer validated).
+    frame = brahe.ReferenceFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 1301)
+    assert frame.synodic_primary == 399
+    assert frame.synodic_secondary == 1301
+    assert frame.synodic_origin == brahe.SynodicOrigin.Barycenter
+
+    # 399 * 1000 + 1301 wraps the synthetic-ID encoding onto the (400, 301)
+    # pair; 400 has no packaged GM constant, so the transform-time GM
+    # lookup fails instead of silently colliding. No network access needed:
+    # the GM lookup happens before any SPK query.
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x = brahe.state_koe_to_eci(
+        np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]),
+        brahe.AngleFormat.DEGREES,
+    )
+    with pytest.raises(RuntimeError):
+        brahe.state_frame_to_frame(brahe.ReferenceFrame.GCRF, frame, epc, x)
 
 
 def test_reference_frame_synodic_non_barycenter_allows_arbitrary_ids():

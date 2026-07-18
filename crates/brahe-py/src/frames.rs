@@ -2744,9 +2744,8 @@ impl PyReferenceFrame {
     ///
     /// Center IDs at or below -1_000_000_000 are reserved for synthetic synodic
     /// barycenter centers (see `Synodic`); self-assigning one to a custom body
-    /// is astronomically unlikely to collide with an actual synodic pair
-    /// (which requires two packaged-GM NAIF IDs in 0..=999) but is not
-    /// rejected, since real user-defined bodies and loaded kernels may
+    /// is unlikely to collide with an actual synodic pair's encoded ID, but is
+    /// not rejected, since real user-defined bodies and loaded kernels may
     /// legitimately need any negative ID.
     ///
     /// Args:
@@ -2767,33 +2766,28 @@ impl PyReferenceFrame {
     /// are specific configurations: `EMR == Synodic(Barycenter, 399, 301)`,
     /// `SER == Synodic(Barycenter, 10, 399)`, `GSE == Synodic(Primary, 399, 10)`.
     ///
+    /// Any NAIF ID is accepted for `primary` and `secondary`. For a
+    /// `Barycenter` origin, the pair is encoded into a synthetic negative
+    /// center ID; this encoding is collision-free when both IDs are in
+    /// 0..=999, and both bodies must have packaged GM constants. IDs
+    /// outside 0..=999 still construct successfully but produce a
+    /// different encoding that no longer maps back to a synthetic
+    /// center — this surfaces as an SPK/GM lookup error at transform
+    /// time rather than a silent collision.
+    ///
     /// Args:
     ///     origin (SynodicOrigin): Origin choice (primary, secondary, or barycenter)
-    ///     primary (int): NAIF ID of the primary body. For `Barycenter` origin,
-    ///         must be in 0..=999
-    ///     secondary (int): NAIF ID of the secondary body. For `Barycenter`
-    ///         origin, must be in 0..=999
+    ///     primary (int): NAIF ID of the primary body
+    ///     secondary (int): NAIF ID of the secondary body
     ///
     /// Returns:
     ///     ReferenceFrame: Generic synodic frame for the pair
-    ///
-    /// Raises:
-    ///     ValueError: If `origin` is `Barycenter` and either NAIF ID is
-    ///         outside 0..=999 (the synthetic-ID encoding and the packaged
-    ///         GM constants only cover that range)
     #[staticmethod]
     #[allow(non_snake_case)]
-    fn Synodic(origin: PySynodicOrigin, primary: i32, secondary: i32) -> PyResult<Self> {
-        if origin.origin == frames::SynodicOrigin::Barycenter
-            && (!(0..=999).contains(&primary) || !(0..=999).contains(&secondary))
-        {
-            return Err(exceptions::PyValueError::new_err(
-                "Synodic primary/secondary NAIF IDs must be in 0..=999 for Barycenter origin",
-            ));
-        }
-        Ok(PyReferenceFrame {
+    fn Synodic(origin: PySynodicOrigin, primary: i32, secondary: i32) -> Self {
+        PyReferenceFrame {
             frame: frames::ReferenceFrame::Synodic { origin: origin.origin, primary, secondary },
-        })
+        }
     }
 
     /// Origin choice of a synodic frame (`Synodic`, `EMR`, `SER`, `GSE`).

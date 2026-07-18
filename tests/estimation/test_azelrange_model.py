@@ -26,6 +26,13 @@ class TestAzElRangeMeasurementModel:
         assert model.measurement_dim() == 3
         assert model.name() == "AzElRange"
 
+    def test_residual_wraps_azimuth(self):
+        model = bh.AzElRangeMeasurementModel(0.0, 0.0, 0.0, 0.01, 0.01, 10.0)
+        r = model.residual(np.array([359.9, 45.0, 1e6]), np.array([0.1, 45.0, 1e6]))
+        assert r[0] == pytest.approx(-0.2, abs=1e-9)
+        assert r[1] == pytest.approx(0.0, abs=1e-12)
+        assert r[2] == pytest.approx(0.0, abs=1e-6)
+
     def test_predict_zenith(self, test_epoch):
         lon, lat, alt = -71.49, 42.62, 123.1
         model = bh.AzElRangeMeasurementModel(lon, lat, alt, 0.01, 0.01, 10.0)
@@ -145,7 +152,9 @@ class TestAzElRangeFilterAzimuthWrap:
         assert abs(record.prefit_residual[0]) < 1.0
 
         state_updated = ekf.current_state()
-        # A correctly-wrapped ~0.1 deg residual should produce only a tiny
-        # state correction; an unwrapped ~360 deg residual would produce a
-        # correction many orders of magnitude larger.
-        assert np.linalg.norm(state_updated - state0) < 100.0
+        # With the wrap-aware Jacobian, a ~0.1 deg azimuth residual at this
+        # geometry (~222 km horizontal range) maps to a physically-correct
+        # position correction of a few hundred metres. An unwrapped ~360 deg
+        # residual would scale that by ~3600x, i.e. ~1000 km; the bound below
+        # sits well between the two regimes so a lost wrap still fails loudly.
+        assert np.linalg.norm(state_updated - state0) < 2000.0

@@ -22,6 +22,7 @@ use crate::frames::position_eci_to_ecef;
 use crate::math::covariance::{
     covariance_from_upper_triangular, diagonal_covariance, validate_covariance,
 };
+use crate::math::jacobian::{PerturbationStrategy, compute_perturbation_offsets};
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
 
@@ -39,8 +40,9 @@ use crate::utils::errors::BraheError;
 ///
 /// [`residual`](MeasurementModel::residual) wraps the azimuth component
 /// into ±180° (±π) so passes crossing north do not produce ~360° residuals.
-/// Note the UKF's sigma-point measurement *mean* can still be distorted if
-/// sigma-point azimuths straddle the wrap; this is a documented limitation.
+/// The [`jacobian`](MeasurementModel::jacobian) override and the UKF's
+/// sigma-point measurement statistics both difference through `residual`, so
+/// passes crossing north are handled wrap-aware end to end.
 ///
 /// # Examples
 ///
@@ -233,7 +235,48 @@ impl MeasurementModel for AzElRangeMeasurementModel {
         ]))
     }
 
-    // Uses default finite-difference Jacobian since ECI→ECEF rotation is epoch-dependent
+    /// Wrap-aware central finite-difference Jacobian.
+    ///
+    /// The ECI→ECEF rotation is epoch-dependent, so the Jacobian is computed
+    /// numerically. Unlike the default engine, each column differences the two
+    /// perturbed predictions through [`residual`](Self::residual) rather than
+    /// by raw subtraction: because `residual` wraps the azimuth component into
+    /// ±half-turn, a perturbation that straddles north yields the true small
+    /// derivative instead of a ~full-turn/h artifact. Perturbation sizing
+    /// matches the shared adaptive strategy used by the default engine.
+    fn jacobian(
+        &self,
+        epoch: &Epoch,
+        state: &DVector<f64>,
+        params: Option<&DVector<f64>>,
+    ) -> Result<DMatrix<f64>, BraheError> {
+        let m = self.measurement_dim();
+        let n = state.len();
+        let offsets = compute_perturbation_offsets(
+            state,
+            PerturbationStrategy::Adaptive {
+                scale_factor: 1.0,
+                min_value: 1.0,
+            },
+        );
+
+        let mut h = DMatrix::zeros(m, n);
+        for j in 0..n {
+            let mut x_plus = state.clone();
+            let mut x_minus = state.clone();
+            x_plus[j] += offsets[j];
+            x_minus[j] -= offsets[j];
+
+            let z_plus = self.predict(epoch, &x_plus, params)?;
+            let z_minus = self.predict(epoch, &x_minus, params)?;
+
+            // residual(z_plus, z_minus) wraps the azimuth difference, so the
+            // column is finite even when the perturbation crosses north.
+            let column = self.residual(&z_plus, &z_minus)? / (2.0 * offsets[j]);
+            h.set_column(j, &column);
+        }
+        Ok(h)
+    }
 
     fn noise_covariance(&self) -> DMatrix<f64> {
         self.noise_cov.clone()
@@ -247,7 +290,11 @@ impl MeasurementModel for AzElRangeMeasurementModel {
         "AzElRange"
     }
 
-    fn residual(&self, measured: &DVector<f64>, predicted: &DVector<f64>) -> DVector<f64> {
+    fn residual(
+        &self,
+        measured: &DVector<f64>,
+        predicted: &DVector<f64>,
+    ) -> Result<DVector<f64>, BraheError> {
         let full = match self.angle_format {
             AngleFormat::Degrees => 360.0,
             AngleFormat::Radians => std::f64::consts::TAU,
@@ -255,7 +302,7 @@ impl MeasurementModel for AzElRangeMeasurementModel {
         let mut r = measured - predicted;
         // Wrap azimuth residual into (-full/2, full/2]
         r[0] -= (r[0] / full).round() * full;
-        r
+        Ok(r)
     }
 }
 
@@ -336,7 +383,7 @@ mod tests {
             AzElRangeMeasurementModel::new(0.0, 0.0, 0.0, 0.01, 0.01, 10.0, AngleFormat::Degrees);
         let measured = DVector::from_vec(vec![359.9, 45.0, 1000.0]);
         let predicted = DVector::from_vec(vec![0.1, 45.0, 1000.0]);
-        let r = model.residual(&measured, &predicted);
+        let r = model.residual(&measured, &predicted).unwrap();
         assert_abs_diff_eq!(r[0], -0.2, epsilon = 1e-9);
         assert_abs_diff_eq!(r[1], 0.0, epsilon = 1e-12);
 
@@ -345,8 +392,79 @@ mod tests {
             AzElRangeMeasurementModel::new(0.0, 0.0, 0.0, 1e-4, 1e-4, 10.0, AngleFormat::Radians);
         let measured = DVector::from_vec(vec![std::f64::consts::TAU - 0.01, 0.5, 1000.0]);
         let predicted = DVector::from_vec(vec![0.01, 0.5, 1000.0]);
-        let r = model_rad.residual(&measured, &predicted);
+        let r = model_rad.residual(&measured, &predicted).unwrap();
         assert_abs_diff_eq!(r[0], -0.02, epsilon = 1e-12);
+    }
+
+    /// The wrap-aware finite-difference Jacobian must stay finite and
+    /// consistent when the predicted azimuth sits on the 0/360 discontinuity.
+    /// A raw-subtraction difference would blow the azimuth row up by ~360/h;
+    /// differencing through `residual` keeps it comparable to the same
+    /// geometry rotated so the azimuth is due east (no wrap possible).
+    #[test]
+    #[serial]
+    fn test_azelrange_jacobian_wrap_aware_near_north() {
+        use crate::estimation::MeasurementModel;
+        setup_global_test_eop();
+        let epoch = test_epoch();
+        let (lon, lat, alt) = (0.0, 0.0, 0.0);
+        let model =
+            AzElRangeMeasurementModel::new(lon, lat, alt, 0.01, 0.01, 10.0, AngleFormat::Degrees);
+
+        // Build a satellite almost due north of the station (azimuth ~0/360),
+        // at moderate elevation and range, so a finite-difference perturbation
+        // straddles the wrap.
+        let target_north =
+            position_geodetic_to_ecef(Vector3::new(lon, lat + 3.0, 500e3), AngleFormat::Degrees)
+                .unwrap();
+        let north_eci = position_ecef_to_eci(epoch, target_north);
+        let state_north = DVector::from_vec(vec![
+            north_eci[0],
+            north_eci[1],
+            north_eci[2],
+            0.0,
+            0.0,
+            0.0,
+        ]);
+
+        // Confirm the geometry actually sits near the wrap.
+        let z_north = model.predict(&epoch, &state_north, None).unwrap();
+        let az = z_north[0];
+        assert!(
+            !(1.0..=359.0).contains(&az),
+            "test geometry azimuth should be near 0/360, got {}",
+            az
+        );
+
+        let h_north = model.jacobian(&epoch, &state_north, None).unwrap();
+        for v in h_north.iter() {
+            assert!(v.is_finite(), "Jacobian entries must be finite near wrap");
+        }
+
+        // Equivalent geometry due east of the station (azimuth ~90°, same
+        // elevation offset and range) where wrap cannot occur.
+        let target_east =
+            position_geodetic_to_ecef(Vector3::new(lon + 3.0, lat, 500e3), AngleFormat::Degrees)
+                .unwrap();
+        let east_eci = position_ecef_to_eci(epoch, target_east);
+        let state_east =
+            DVector::from_vec(vec![east_eci[0], east_eci[1], east_eci[2], 0.0, 0.0, 0.0]);
+        let h_east = model.jacobian(&epoch, &state_east, None).unwrap();
+
+        // The azimuth-row magnitudes must be the same order of magnitude for
+        // the two equivalent geometries; a wrap artifact would inflate the
+        // north case by many orders of magnitude.
+        let az_norm_north = h_north.row(0).iter().map(|x| x * x).sum::<f64>().sqrt();
+        let az_norm_east = h_east.row(0).iter().map(|x| x * x).sum::<f64>().sqrt();
+        let ratio = az_norm_north / az_norm_east;
+        assert!(
+            (0.1..10.0).contains(&ratio),
+            "azimuth-row Jacobian magnitudes should be comparable (north={:.3e}, \
+             east={:.3e}, ratio={:.3}); a wrap artifact would differ by orders of magnitude",
+            az_norm_north,
+            az_norm_east,
+            ratio
+        );
     }
 
     #[test]

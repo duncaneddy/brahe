@@ -276,6 +276,77 @@ class TestCustomModelWithEKF:
         with pytest.raises(RuntimeError, match="noise_covariance"):
             ekf.process_observation(obs)
 
+    def test_custom_residual_reflected_in_prefit(self, two_body_setup):
+        """A Python subclass overriding residual() must be dispatched: the
+        filter's pre-fit residual reflects the custom value, not the raw
+        difference."""
+        epoch, true_state = two_body_setup
+
+        class CustomResidualModel(bh.MeasurementModel):
+            def predict(self, epoch, state, params=None):
+                return np.asarray(state[:3], dtype=float)
+
+            def noise_covariance(self):
+                return np.eye(3) * 100.0
+
+            def measurement_dim(self):
+                return 3
+
+            def name(self):
+                return "CustomResidual"
+
+            def residual(self, measured, predicted):
+                # Marker residual independent of the raw difference
+                return np.array([1.0, 2.0, 3.0])
+
+        p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+        ekf = bh.ExtendedKalmanFilter(
+            epoch,
+            true_state.copy(),
+            p0,
+            measurement_models=[CustomResidualModel()],
+            propagation_config=bh.NumericalPropagationConfig.default(),
+            force_config=bh.ForceModelConfig.two_body(),
+        )
+        obs = bh.Observation(epoch + 60.0, true_state[:3], model_index=0)
+        record = ekf.process_observation(obs)
+        np.testing.assert_allclose(record.prefit_residual, [1.0, 2.0, 3.0])
+
+    def test_raising_residual_raises(self, two_body_setup):
+        """A Python residual() that raises must surface as an error (no silent
+        fallback to subtraction) and leave the filter rolled back."""
+        epoch, true_state = two_body_setup
+
+        class RaisingResidualModel(bh.MeasurementModel):
+            def predict(self, epoch, state, params=None):
+                return np.asarray(state[:3], dtype=float)
+
+            def noise_covariance(self):
+                return np.eye(3) * 100.0
+
+            def measurement_dim(self):
+                return 3
+
+            def name(self):
+                return "RaisingResidual"
+
+            def residual(self, measured, predicted):
+                raise ValueError("boom in residual")
+
+        p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+        ekf = bh.ExtendedKalmanFilter(
+            epoch,
+            true_state.copy(),
+            p0,
+            measurement_models=[RaisingResidualModel()],
+            propagation_config=bh.NumericalPropagationConfig.default(),
+            force_config=bh.ForceModelConfig.two_body(),
+        )
+        obs = bh.Observation(epoch + 60.0, true_state[:3], model_index=0)
+        with pytest.raises(RuntimeError, match="residual"):
+            ekf.process_observation(obs)
+        assert abs(ekf.current_epoch() - epoch) < 1e-9
+
     def test_model_receives_propagator_params(self, two_body_setup):
         """The propagator's consider / force-model params must be passed
         through to Python measurement models."""

@@ -119,8 +119,14 @@ impl SimpleSSNSensor {
     ///
     /// # Returns
     ///
-    /// New sensor with an OS-seeded RNG. Call
+    /// New sensor with an OS-seeded RNG, or an error if any noise sigma is
+    /// negative or non-finite, or any bias is non-finite. Call
     /// [`with_seed`](Self::with_seed) for reproducible measurements.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any `noise` component is negative or non-finite, or
+    /// if any `bias` component is non-finite.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         location: PointLocation,
@@ -131,10 +137,35 @@ impl SimpleSSNSensor {
         range_max: Option<f64>,
         bias: [f64; 3],
         noise: [f64; 3],
-    ) -> Self {
+    ) -> Result<Self, BraheError> {
+        for (label, sigma) in [
+            ("azimuth", noise[0]),
+            ("elevation", noise[1]),
+            ("range", noise[2]),
+        ] {
+            if !sigma.is_finite() || sigma < 0.0 {
+                return Err(BraheError::Error(format!(
+                    "SimpleSSNSensor {} noise sigma must be finite and non-negative, got {}",
+                    label, sigma
+                )));
+            }
+        }
+        for (label, b) in [
+            ("azimuth", bias[0]),
+            ("elevation", bias[1]),
+            ("range", bias[2]),
+        ] {
+            if !b.is_finite() {
+                return Err(BraheError::Error(format!(
+                    "SimpleSSNSensor {} bias must be finite, got {}",
+                    label, b
+                )));
+            }
+        }
+
         let station_ecef = location.center_ecef();
         let name = location.get_name().unwrap_or("SSNSensor").to_string();
-        Self {
+        Ok(Self {
             name,
             location,
             station_ecef,
@@ -146,7 +177,7 @@ impl SimpleSSNSensor {
             bias: Vector3::new(bias[0], bias[1], bias[2]),
             noise: Vector3::new(noise[0], noise[1], noise[2]),
             rng: StdRng::from_os_rng(),
-        }
+        })
     }
 
     /// Build a sensor from a dataset site's properties.
@@ -194,7 +225,7 @@ impl SimpleSSNSensor {
             }
         };
 
-        Ok(Self::new(
+        Self::new(
             location.clone(),
             get_f64_property(location, "az_min_deg").unwrap_or(0.0),
             get_f64_property(location, "az_max_deg").unwrap_or(360.0),
@@ -207,7 +238,7 @@ impl SimpleSSNSensor {
                 get_f64_property(location, "range_bias_m").unwrap_or(0.0),
             ],
             [noise_az, noise_el, noise_range],
-        ))
+        )
     }
 
     /// Build sensors from all supported sites, skipping unsupported ones.
@@ -482,6 +513,30 @@ mod tests {
             [0.01, 0.005, 100.0],
             [0.02, 0.02, 50.0],
         )
+        .unwrap()
+    }
+
+    #[test]
+    fn test_new_rejects_negative_noise() {
+        let loc = PointLocation::new(-71.49, 42.62, 123.1).with_name("BadNoise");
+        let result = SimpleSSNSensor::new(
+            loc,
+            0.0,
+            360.0,
+            0.0,
+            90.0,
+            None,
+            [0.0; 3],
+            [0.01, -0.01, 10.0],
+        );
+        match result {
+            Err(e) => assert!(
+                e.to_string().contains("noise"),
+                "Error should mention noise: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected error for negative noise sigma"),
+        }
     }
 
     #[test]
@@ -497,7 +552,8 @@ mod tests {
             None,
             [0.0; 3],
             [0.01, 0.01, 10.0],
-        );
+        )
+        .unwrap();
         assert!(sensor.az_window_contains(0.0));
         assert!(sensor.az_window_contains(350.0));
         assert!(sensor.az_window_contains(100.0));
@@ -515,7 +571,8 @@ mod tests {
             None,
             [0.0; 3],
             [0.01, 0.01, 10.0],
-        );
+        )
+        .unwrap();
         assert!(s2.az_window_contains(180.0));
         assert!(!s2.az_window_contains(90.0));
     }
@@ -562,7 +619,8 @@ mod tests {
             Some(400e3),
             [0.0; 3],
             [0.01, 0.01, 10.0],
-        );
+        )
+        .unwrap();
         // Directly overhead at 500 km — beyond the 400 km range cap
         let state = state_above(epoch, -71.49, 42.62, 500e3);
         assert!(sensor.measure(&epoch, &state).is_none());

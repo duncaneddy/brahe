@@ -47,7 +47,7 @@ use crate::utils::errors::BraheError;
 
 use super::config::UKFConfig;
 use super::dynamics_source::DynamicsSource;
-use super::traits::{MeasurementModel, validate_model_outputs};
+use super::traits::{MeasurementModel, compute_residual, validate_model_outputs};
 use super::types::{FilterRecord, Observation, sort_by_epoch};
 
 /// Unscented Kalman Filter for sequential state estimation.
@@ -520,28 +520,41 @@ impl UnscentedKalmanFilter {
             n,
         )?;
 
-        // Predicted measurement mean: z_pred = sum(W_m_i * Z_i)
-        let mut z_predicted = DVector::zeros(m);
+        // Predicted measurement mean via the reference-point trick:
+        // z_pred = z_0 + sum(W_m_i * residual(Z_i, z_0)). Angular components
+        // (azimuth) can straddle a wrap; differencing through residual() keeps
+        // the mean well-defined. For plain-subtraction residuals this is
+        // algebraically identical to the weighted sum since the weights sum
+        // to 1, so linear-model UKF results are unchanged.
+        let z_0 = z_sigmas[0].clone();
+        let mut z_predicted = z_0.clone();
         for (i, z_i) in z_sigmas.iter().enumerate() {
-            z_predicted += self.weights_mean[i] * z_i;
+            let dz = compute_residual(model.as_ref(), z_i, &z_0)?;
+            z_predicted += self.weights_mean[i] * dz;
         }
 
         // Pre-fit residual (innovation)
-        let prefit_residual = model.residual(&observation.measurement, &z_predicted);
+        let prefit_residual =
+            compute_residual(model.as_ref(), &observation.measurement, &z_predicted)?;
 
-        // Innovation covariance: S = sum(W_c_i * (Z_i - z_pred)(Z_i - z_pred)^T) + R
+        // Wrapped measurement deviations dz_i = residual(Z_i, z_pred), computed
+        // once per sigma point and reused in both S and the cross-covariance.
+        let dz_all: Vec<DVector<f64>> = z_sigmas
+            .iter()
+            .map(|z_i| compute_residual(model.as_ref(), z_i, &z_predicted))
+            .collect::<Result<_, _>>()?;
+
+        // Innovation covariance: S = sum(W_c_i * dz_i * dz_i^T) + R
         let mut s = DMatrix::zeros(m, m);
-        for (i, z_i) in z_sigmas.iter().enumerate() {
-            let dz = z_i - &z_predicted;
-            s += self.weights_cov[i] * &dz * dz.transpose();
+        for (i, dz) in dz_all.iter().enumerate() {
+            s += self.weights_cov[i] * dz * dz.transpose();
         }
         s += &r;
 
-        // Cross-covariance: P_xz = sum(W_c_i * (chi_i - x_pred)(Z_i - z_pred)^T)
+        // Cross-covariance: P_xz = sum(W_c_i * (chi_i - x_pred) * dz_i^T)
         let mut p_xz = DMatrix::zeros(n, m);
-        for (i, (sp, z_i)) in update_sigmas.iter().zip(z_sigmas.iter()).enumerate() {
+        for (i, (sp, dz)) in update_sigmas.iter().zip(dz_all.iter()).enumerate() {
             let dx = sp - &state_predicted;
-            let dz = z_i - &z_predicted;
             p_xz += self.weights_cov[i] * &dx * dz.transpose();
         }
 
@@ -566,7 +579,8 @@ impl UnscentedKalmanFilter {
 
         // Post-fit residual
         let z_postfit = model.predict(&observation.epoch, &state_updated, params.as_ref())?;
-        let postfit_residual = model.residual(&observation.measurement, &z_postfit);
+        let postfit_residual =
+            compute_residual(model.as_ref(), &observation.measurement, &z_postfit)?;
 
         // Build record
         let record = FilterRecord {
@@ -691,10 +705,13 @@ impl UnscentedKalmanFilter {
             p_predicted += self.weights_cov[i] * &diff * diff.transpose();
         }
 
-        if let Some(ref pn) = self.config.process_noise {
+        // Apply process noise only for a nonzero-duration step; a same-epoch
+        // propagate_to adds zero noise (scaled Q uses the actual dt).
+        if dt > 0.0
+            && let Some(ref pn) = self.config.process_noise
+        {
             if pn.scale_with_dt {
-                let dt_abs = dt.abs().max(1e-12);
-                p_predicted += &pn.q_matrix * dt_abs;
+                p_predicted += &pn.q_matrix * dt;
             } else {
                 p_predicted += &pn.q_matrix;
             }
@@ -1607,6 +1624,109 @@ mod tests {
             actual_increment,
             expected_increment,
             epsilon = expected_increment * 0.05
+        );
+
+        // A same-epoch propagate_to must add no process noise: with dt == 0 the
+        // scaled Q contributes nothing, so the covariance trace is unchanged.
+        let trace_before = ukf_with_noise.current_covariance().trace();
+        ukf_with_noise
+            .propagate_to(ukf_with_noise.current_epoch())
+            .unwrap();
+        let trace_after = ukf_with_noise.current_covariance().trace();
+        assert_abs_diff_eq!(trace_after, trace_before, epsilon = trace_before * 1e-9);
+    }
+
+    #[test]
+    #[serial]
+    fn test_ukf_wrap_aware_measurement_near_north() {
+        // With an AzElRangeMeasurementModel and a near-due-north pass, the
+        // sigma-point azimuths straddle the 0/360 wrap. The reference-point
+        // measurement mean and wrapped S / P_xz deviations must keep the
+        // update sane; the pre-fix raw-average mean lands mid-circle (~180°)
+        // and blows the innovation and state correction up by orders of
+        // magnitude.
+        use crate::constants::AngleFormat;
+        use crate::coordinates::position_geodetic_to_ecef;
+        use crate::estimation::AzElRangeMeasurementModel;
+        use crate::frames::position_ecef_to_eci;
+        use nalgebra::Vector3;
+
+        setup_global_test_eop();
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Station at (lon, lat) = (0, 0); target due north at lat = 3°,
+        // 500 km altitude — predicted azimuth sits on the 0/360 wrap.
+        let model =
+            AzElRangeMeasurementModel::new(0.0, 0.0, 0.0, 0.01, 0.01, 10.0, AngleFormat::Degrees);
+        let target_ecef =
+            position_geodetic_to_ecef(Vector3::new(0.0, 3.0, 500e3), AngleFormat::Degrees).unwrap();
+        let target_eci = position_ecef_to_eci(epoch, target_ecef);
+        let r_mag = target_eci.norm();
+        let v = (GM_EARTH / r_mag).sqrt();
+        let state = DVector::from_vec(vec![
+            target_eci[0],
+            target_eci[1],
+            target_eci[2],
+            0.0,
+            v,
+            0.0,
+        ]);
+
+        // Noise-free observation at the true geometry.
+        let z_true = model.predict(&epoch, &state, None).unwrap();
+        assert!(
+            !(1.0..=359.0).contains(&z_true[0]),
+            "test geometry azimuth should sit near 0/360, got {}",
+            z_true[0]
+        );
+
+        // Inflated position covariance so sigma points straddle the wrap;
+        // alpha = 1 keeps the sigma-point weights well-conditioned.
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let mut ukf = UnscentedKalmanFilter::new(
+            epoch,
+            state.clone(),
+            p0,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            vec![Box::new(model)],
+            UKFConfig {
+                alpha: 1.0,
+                beta: 2.0,
+                kappa: 0.0,
+                store_records: true,
+                process_noise: None,
+            },
+        )
+        .unwrap();
+
+        let obs = Observation::new(epoch, z_true.clone(), 0);
+        let record = ukf.process_observation(&obs).unwrap();
+
+        // Innovation azimuth component stays small (a few degrees), not ~180°.
+        assert!(
+            record.prefit_residual[0].abs() < 5.0,
+            "azimuth innovation should be small near the wrap, got {}",
+            record.prefit_residual[0]
+        );
+
+        // Updated covariance remains positive-definite (Cholesky succeeds).
+        assert!(
+            record.covariance_updated.clone().cholesky().is_some(),
+            "updated covariance must remain positive-definite"
+        );
+
+        // State correction is bounded — the broken mean drives it to
+        // orders of magnitude beyond this.
+        let correction =
+            (record.state_updated.rows(0, 3) - record.state_predicted.rows(0, 3)).norm();
+        assert!(
+            correction < 100_000.0,
+            "position correction should be bounded, got {} m",
+            correction
         );
     }
 

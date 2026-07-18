@@ -114,6 +114,30 @@ pub(crate) fn validate_model_outputs(
     Ok(())
 }
 
+/// Compute a measurement residual through the model and validate its length.
+///
+/// [`MeasurementModel::residual`] is a user-extension boundary (including
+/// Python subclasses and wrap-aware overrides); a raising override surfaces as
+/// a structured error, and a wrong-length result is caught here rather than as
+/// an nalgebra dimension panic in the filter update.
+pub(crate) fn compute_residual(
+    model: &dyn MeasurementModel,
+    measured: &DVector<f64>,
+    predicted: &DVector<f64>,
+) -> Result<DVector<f64>, BraheError> {
+    let residual = model.residual(measured, predicted)?;
+    let m = model.measurement_dim();
+    if residual.len() != m {
+        return Err(BraheError::Error(format!(
+            "Model '{}' residual() returned {} elements, expected measurement_dim {}",
+            model.name(),
+            residual.len(),
+            m
+        )));
+    }
+    Ok(residual)
+}
+
 /// Trait for defining measurement models used in estimation.
 ///
 /// Implement this trait to define how observations relate to the state vector.
@@ -243,8 +267,17 @@ pub trait MeasurementModel: Send + Sync {
     /// # Returns
     ///
     /// Residual vector (m elements)
-    fn residual(&self, measured: &DVector<f64>, predicted: &DVector<f64>) -> DVector<f64> {
-        measured - predicted
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a custom override fails (e.g., a Python subclass
+    /// whose `residual()` raises). The default implementation is infallible.
+    fn residual(
+        &self,
+        measured: &DVector<f64>,
+        predicted: &DVector<f64>,
+    ) -> Result<DVector<f64>, BraheError> {
+        Ok(measured - predicted)
     }
 
     /// Dimension of the measurement vector.
@@ -404,7 +437,7 @@ mod tests {
         let model = InertialPositionMeasurementModel::new(10.0);
         let measured = DVector::from_vec(vec![10.0, 20.0, 30.0]);
         let predicted = DVector::from_vec(vec![1.0, 2.0, 3.0]);
-        let r = model.residual(&measured, &predicted);
+        let r = model.residual(&measured, &predicted).unwrap();
         assert_abs_diff_eq!(r, DVector::from_vec(vec![9.0, 18.0, 27.0]), epsilon = 1e-12);
     }
 }

@@ -73,6 +73,12 @@ def test_construction_and_repr():
     assert "SimpleSSNSensor" in repr(sensor)
 
 
+def test_construction_rejects_negative_noise():
+    loc = bh.PointLocation(-71.49, 42.62, 123.1).with_name("BadNoise")
+    with pytest.raises(ValueError, match="noise"):
+        bh.SimpleSSNSensor(loc, noise=(0.02, -0.02, 50.0))
+
+
 def test_measure_seeded_and_visible(test_epoch):
     loc = bh.PointLocation(-71.49, 42.62, 123.1).with_name("Test")
     state = make_state_above(test_epoch, -71.49, 42.62, 500e3)

@@ -126,14 +126,15 @@ so a pass crossing the 0/360° boundary does not produce a spurious ~360° resid
         --8<-- "./docs/outputs/estimation/ssn_tracking.rs.txt"
         ```
 
-The azimuth wrap in `residual()` only fixes the final residual computation. When this
-model is used with the Unscented Kalman Filter, the sigma points propagated through
-`predict()` are averaged directly to form the predicted measurement mean; if a pass carries
-sigma-point azimuths that straddle the wrap (e.g. some near 359°, others near 1°), that
-mean is computed without wrap-awareness and can be biased toward the middle of the circle
-rather than the correct side. This is a documented limitation for UKF use with wrap-prone
-angular measurements -- the EKF, which linearizes rather than averaging samples, is not
-affected.
+The azimuth wrap is handled consistently everywhere the measurement is differenced. The
+`AzElRangeMeasurementModel` Jacobian override differences its two perturbed predictions
+through `residual()`, and the Unscented Kalman Filter forms its predicted measurement mean
+with the reference-point trick `z_mean = z_0 + Σ wᵢ · residual(zᵢ, z_0)` and computes its
+innovation and cross-covariance deviations through `residual()` as well. So a pass whose
+sigma-point azimuths straddle the wrap (e.g. some near 359°, others near 1°) yields a
+well-defined mean near the true azimuth rather than a value biased toward the middle of the
+circle. For measurement models with plain-subtraction residuals the reference-point mean is
+algebraically identical to the ordinary weighted mean, so non-angular models are unaffected.
 
 `SimpleSSNSensor` pairs a sensor site (location, field-of-view limits, bias/noise
 calibration -- see the [SSN Sensor Datasets](../datasets/ssn_sensors.md) guide) with

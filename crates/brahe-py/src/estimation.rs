@@ -477,6 +477,31 @@ macro_rules! impl_measurement_model_binding {
                 flat.into_pyarray(py).reshape([rows, cols]).unwrap()
             }
 
+            /// Compute the measurement residual (measured - predicted).
+            ///
+            /// Angular components that wrap are handled per model (e.g. the
+            /// az/el/range model wraps the azimuth residual across 0/360).
+            ///
+            /// Args:
+            ///     measured (numpy.ndarray): Measured value.
+            ///     predicted (numpy.ndarray): Predicted value.
+            ///
+            /// Returns:
+            ///     numpy.ndarray: Residual vector.
+            fn residual<'py>(
+                &self,
+                py: Python<'py>,
+                measured: PyReadonlyArray1<f64>,
+                predicted: PyReadonlyArray1<f64>,
+            ) -> PyResult<Bound<'py, PyArray<f64, numpy::Ix1>>> {
+                let measured_vec = nalgebra::DVector::from_column_slice(measured.as_slice()?);
+                let predicted_vec = nalgebra::DVector::from_column_slice(predicted.as_slice()?);
+                let vec = self.model.residual(&measured_vec, &predicted_vec)
+                    .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+                let flat: Vec<f64> = (0..vec.len()).map(|i| vec[i]).collect();
+                Ok(flat.into_pyarray(py))
+            }
+
             /// Get the measurement dimension.
             ///
             /// Returns:
@@ -1210,7 +1235,7 @@ impl PySimpleSSNSensor {
         bias: (f64, f64, f64),
         noise: (f64, f64, f64),
         seed: Option<u64>,
-    ) -> Self {
+    ) -> PyResult<Self> {
         let mut sensor = estimation::SimpleSSNSensor::new(
             location.location.clone(),
             az_min,
@@ -1220,11 +1245,12 @@ impl PySimpleSSNSensor {
             range_max,
             [bias.0, bias.1, bias.2],
             [noise.0, noise.1, noise.2],
-        );
+        )
+        .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
         if let Some(s) = seed {
             sensor = sensor.with_seed(s);
         }
-        PySimpleSSNSensor { sensor }
+        Ok(PySimpleSSNSensor { sensor })
     }
 
     /// Build a sensor from a dataset site's properties.
@@ -1909,24 +1935,37 @@ impl MeasurementModel for RustMeasurementModelWrapper {
         self.cached_noise_cov.clone()
     }
 
-    fn residual(&self, measured: &DVector<f64>, predicted: &DVector<f64>) -> DVector<f64> {
+    fn residual(
+        &self,
+        measured: &DVector<f64>,
+        predicted: &DVector<f64>,
+    ) -> Result<DVector<f64>, brahe::utils::errors::BraheError> {
+        // The base MeasurementModel class defines residual(), so an inherited
+        // call is the legitimate default (plain subtraction) path. A raising
+        // or misbehaving override must propagate as an error — never a silent
+        // fallback to subtraction, which would hide a wrong update.
         Python::attach(|py| {
             let m_np = measured.as_slice().to_pyarray(py);
             let p_np = predicted.as_slice().to_pyarray(py);
-            match self
+            let result = self
                 .py_model
                 .bind(py)
                 .call_method1("residual", (m_np, p_np))
-            {
-                Ok(result) => match result.extract::<PyReadonlyArray1<f64>>() {
-                    Ok(arr) => match arr.as_slice() {
-                        Ok(slice) => DVector::from_column_slice(slice),
-                        Err(_) => measured - predicted,
-                    },
-                    Err(_) => measured - predicted,
-                },
-                Err(_) => measured - predicted,
-            }
+                .map_err(|e| {
+                    brahe::utils::errors::BraheError::Error(format!(
+                        "Python residual() raised an exception: {}",
+                        e
+                    ))
+                })?;
+            let arr: PyReadonlyArray1<f64> = result.extract().map_err(|e| {
+                brahe::utils::errors::BraheError::Error(format!(
+                    "residual() must return a 1D numpy array: {}",
+                    e
+                ))
+            })?;
+            Ok(DVector::from_column_slice(arr.as_slice().map_err(|e| {
+                brahe::utils::errors::BraheError::Error(e.to_string())
+            })?))
         })
     }
 
@@ -1980,7 +2019,11 @@ impl MeasurementModel for MeasurementModelHolder {
         }
     }
 
-    fn residual(&self, measured: &DVector<f64>, predicted: &DVector<f64>) -> DVector<f64> {
+    fn residual(
+        &self,
+        measured: &DVector<f64>,
+        predicted: &DVector<f64>,
+    ) -> Result<DVector<f64>, brahe::utils::errors::BraheError> {
         match self {
             MeasurementModelHolder::RustNative(m) => m.residual(measured, predicted),
             MeasurementModelHolder::PythonWrapper(m) => m.residual(measured, predicted),

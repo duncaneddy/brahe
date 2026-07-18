@@ -35,7 +35,7 @@ use crate::utils::errors::BraheError;
 
 use super::config::EKFConfig;
 use super::dynamics_source::DynamicsSource;
-use super::traits::{MeasurementModel, validate_model_outputs};
+use super::traits::{MeasurementModel, compute_residual, validate_model_outputs};
 use super::types::{FilterRecord, Observation, sort_by_epoch};
 
 /// Extended Kalman Filter for sequential state estimation.
@@ -394,7 +394,8 @@ impl ExtendedKalmanFilter {
         )?;
 
         // Pre-fit residual (innovation)
-        let prefit_residual = model.residual(&observation.measurement, &z_predicted);
+        let prefit_residual =
+            compute_residual(model.as_ref(), &observation.measurement, &z_predicted)?;
 
         // Innovation covariance: S = H * P_pred * Hᵀ + R
         let s = &h * &p_predicted * h.transpose() + &r;
@@ -423,7 +424,8 @@ impl ExtendedKalmanFilter {
 
         // Post-fit residual
         let z_postfit = model.predict(&observation.epoch, &state_updated, params.as_ref())?;
-        let postfit_residual = model.residual(&observation.measurement, &z_postfit);
+        let postfit_residual =
+            compute_residual(model.as_ref(), &observation.measurement, &z_postfit)?;
 
         // Build record
         let record = FilterRecord {
@@ -553,10 +555,13 @@ impl ExtendedKalmanFilter {
             })?
             .clone();
 
-        if let Some(ref pn) = self.config.process_noise {
+        // Apply process noise only for a nonzero-duration step; a same-epoch
+        // propagate_to adds zero noise (scaled Q uses the actual dt).
+        if dt > 0.0
+            && let Some(ref pn) = self.config.process_noise
+        {
             if pn.scale_with_dt {
-                let dt_abs = dt.abs().max(1e-12);
-                p_predicted += &pn.q_matrix * dt_abs;
+                p_predicted += &pn.q_matrix * dt;
             } else {
                 p_predicted += &pn.q_matrix;
             }
@@ -1226,6 +1231,72 @@ mod tests {
         );
     }
 
+    /// Model whose `residual()` override returns a wrong-length vector —
+    /// exercises the residual length validation.
+    struct BadResidualModel;
+    impl MeasurementModel for BadResidualModel {
+        fn predict(
+            &self,
+            _epoch: &Epoch,
+            state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            Ok(state.rows(0, 3).into_owned())
+        }
+        fn noise_covariance(&self) -> DMatrix<f64> {
+            DMatrix::identity(3, 3) * 100.0
+        }
+        fn residual(
+            &self,
+            _measured: &DVector<f64>,
+            _predicted: &DVector<f64>,
+        ) -> Result<DVector<f64>, BraheError> {
+            // Wrong length (2 instead of the declared measurement_dim 3)
+            Ok(DVector::from_vec(vec![0.0, 0.0]))
+        }
+        fn measurement_dim(&self) -> usize {
+            3
+        }
+        fn name(&self) -> &str {
+            "BadResidual"
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_residual_wrong_length_errors() {
+        // A residual() override returning the wrong length must surface as a
+        // structured error, not an nalgebra dimension panic during the update.
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+
+        let mut ekf = create_two_body_ekf(
+            epoch,
+            state.clone(),
+            p0,
+            vec![Box::new(BadResidualModel)],
+            None,
+        );
+
+        let obs = Observation::new(epoch + 60.0, state.rows(0, 3).into_owned(), 0);
+        match ekf.process_observation(&obs) {
+            Err(e) => assert!(
+                e.to_string().contains("residual() returned"),
+                "Error should mention the residual length: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected residual length validation error"),
+        }
+
+        let epoch_drift: f64 = ekf.current_epoch() - epoch;
+        assert!(
+            epoch_drift.abs() < 1e-9,
+            "Filter must be rolled back after residual error, drifted {} s",
+            epoch_drift
+        );
+    }
+
     #[test]
     #[serial]
     fn test_ekf_updated_covariance_is_symmetric() {
@@ -1684,6 +1755,15 @@ mod tests {
             expected_increment,
             epsilon = expected_increment * 0.05
         );
+
+        // A same-epoch propagate_to must add no process noise: with dt == 0 the
+        // scaled Q contributes nothing, so the covariance trace is unchanged.
+        let trace_before = ekf_with_noise.current_covariance().trace();
+        ekf_with_noise
+            .propagate_to(ekf_with_noise.current_epoch())
+            .unwrap();
+        let trace_after = ekf_with_noise.current_covariance().trace();
+        assert_abs_diff_eq!(trace_after, trace_before, epsilon = trace_before * 1e-9);
     }
 
     #[test]

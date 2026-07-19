@@ -471,7 +471,7 @@ impl SimpleSSNSensor {
     /// use brahe::access::location::PointLocation;
     /// use brahe::estimation::SimpleSSNSensor;
     ///
-    /// let loc = PointLocation::new(-71.49, 42.62, 123.1).with_name("Millstone");
+    /// let loc = PointLocation::new(-71.49, 42.62, 123.1);
     /// let sensor = SimpleSSNSensor::new(
     ///     loc, 0.0, 360.0, 5.0, 90.0, None, [0.0; 3], [0.01, 0.01, 100.0],
     /// )

@@ -25,13 +25,11 @@ fn main() {
     let oe = SVector::<f64, 6>::new(bh::R_EARTH + 700e3, 0.001, 72.0, 30.0, 0.0, 0.0);
     let true_state = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
 
-    // Hermite-cubic interpolation is required so the trajectory (stored at
-    // the propagator's ~60 s adaptive-step cadence) can be sampled
-    // accurately at the much finer measurement cadence below; linear
-    // interpolation of a curved orbit between 60 s-spaced points is off by
-    // kilometers at intermediate epochs.
-    let truth_config = bh::NumericalPropagationConfig::default()
-        .with_interpolation_method(bh::InterpolationMethod::HermiteCubic);
+    // Hermite-cubic interpolation (the propagator default) lets the
+    // trajectory, stored at the ~60 s adaptive-step cadence, be sampled
+    // accurately at the much finer measurement cadence used for measurement
+    // simulation.
+    let truth_config = bh::NumericalPropagationConfig::default();
     let mut truth_prop = bh::DNumericalOrbitPropagator::new(
         epoch,
         DVector::from_column_slice(true_state.as_slice()),

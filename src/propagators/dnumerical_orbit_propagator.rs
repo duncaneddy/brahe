@@ -986,8 +986,20 @@ impl DNumericalOrbitPropagator {
             None,
         );
 
-        // Set interpolation method from config
-        trajectory.set_interpolation_method(propagation_config.interpolation_method);
+        // Resolve the interpolation method. An unset config defaults a 6D
+        // orbit state to Hermite-cubic (position+velocity is exact to second
+        // order); extended (>6D) states fall back to Linear, since Hermite
+        // requires exactly a 6D position/velocity structure.
+        let interpolation_method = propagation_config.interpolation_method.unwrap_or({
+            if state_dim == 6 {
+                InterpolationMethod::HermiteCubic
+            } else {
+                InterpolationMethod::Linear
+            }
+        });
+
+        // Set interpolation method from the resolved config
+        trajectory.set_interpolation_method(interpolation_method);
 
         // Enable STM/sensitivity storage in trajectory if configured
         if propagation_config.variational.store_stm_history {
@@ -1078,7 +1090,7 @@ impl DNumericalOrbitPropagator {
             current_covariance,
             trajectory,
             trajectory_mode: TrajectoryMode::AllSteps,
-            interpolation_method: propagation_config.interpolation_method,
+            interpolation_method,
             covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             store_accelerations: propagation_config.store_accelerations,
             shared_dynamics,
@@ -5432,18 +5444,15 @@ mod tests {
         )
         .unwrap();
 
-        // Verify default method is Linear (safe for any state dimension)
+        // A 6D orbit propagator with an unset config resolves to HermiteCubic.
         let initial_method = prop.get_interpolation_method();
-        assert_eq!(initial_method, InterpolationMethod::Linear);
+        assert_eq!(initial_method, InterpolationMethod::HermiteCubic);
 
-        // Test that we can set a different method (HermiteCubic is valid for 6D orbital states)
-        prop.set_interpolation_method(InterpolationMethod::HermiteCubic);
+        // Test that we can set a different method.
+        prop.set_interpolation_method(InterpolationMethod::Linear);
 
         // Verify the method was changed
-        assert_eq!(
-            prop.get_interpolation_method(),
-            InterpolationMethod::HermiteCubic
-        );
+        assert_eq!(prop.get_interpolation_method(), InterpolationMethod::Linear);
     }
 
     // =========================================================================
@@ -8238,7 +8247,7 @@ mod tests {
 
         // Use Linear interpolation for extended states (Hermite requires exactly 6D)
         let config = NumericalPropagationConfig {
-            interpolation_method: InterpolationMethod::Linear,
+            interpolation_method: Some(InterpolationMethod::Linear),
             ..Default::default()
         };
 

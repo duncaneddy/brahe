@@ -89,14 +89,10 @@ epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
 oe = np.array([bh.R_EARTH + 700e3, 0.001, 72.0, 30.0, 0.0, 0.0])
 true_state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
-# Hermite-cubic interpolation is required so the trajectory (stored at the
-# propagator's ~60 s adaptive-step cadence) can be sampled accurately at the
-# much finer measurement cadence below; linear interpolation of a curved
-# orbit between 60 s-spaced points is off by kilometers at intermediate
-# epochs.
-truth_config = bh.NumericalPropagationConfig.default().with_interpolation_method(
-    bh.InterpolationMethod.HERMITE_CUBIC
-)
+# Hermite-cubic interpolation (the propagator default) lets the trajectory,
+# stored at the ~60 s adaptive-step cadence, be sampled accurately at the much
+# finer measurement cadence used for measurement simulation.
+truth_config = bh.NumericalPropagationConfig.default()
 truth_prop = bh.NumericalOrbitPropagator(
     epoch,
     true_state,

@@ -316,14 +316,21 @@ impl DNumericalPropagator {
             ));
         }
 
+        // Resolve the interpolation method. The generic propagator's states are
+        // not necessarily position/velocity, so an unset config resolves to
+        // Linear; an explicitly requested Hermite on non-6D states still errors.
+        let interpolation_method = propagation_config
+            .interpolation_method
+            .unwrap_or(InterpolationMethod::Linear);
+
         // Validate: Hermite interpolation requires 6D states
-        if propagation_config.interpolation_method.requires_6d() && state_dim != 6 {
+        if interpolation_method.requires_6d() && state_dim != 6 {
             return Err(BraheError::PropagatorError(format!(
                 "{:?} interpolation requires 6D states with position/velocity structure \
                  [x, y, z, vx, vy, vz], but state dimension is {}. \
                  Use InterpolationMethod::Linear or InterpolationMethod::Lagrange {{ degree: N }} \
                  for generic N-dimensional systems.",
-                propagation_config.interpolation_method, state_dim
+                interpolation_method, state_dim
             )));
         }
 
@@ -369,8 +376,8 @@ impl DNumericalPropagator {
         // Create trajectory storage (internally always ECI Cartesian)
         let mut trajectory = DTrajectory::new(state_dim);
 
-        // Set interpolation method from config
-        trajectory.set_interpolation_method(propagation_config.interpolation_method);
+        // Set interpolation method from the resolved config
+        trajectory.set_interpolation_method(interpolation_method);
 
         // Enable STM/sensitivity storage in trajectory if configured
         if propagation_config.variational.store_stm_history {
@@ -447,7 +454,7 @@ impl DNumericalPropagator {
             current_covariance,
             trajectory,
             trajectory_mode: TrajectoryMode::AllSteps,
-            interpolation_method: propagation_config.interpolation_method,
+            interpolation_method,
             covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             event_detectors: Vec::new(),
             event_log: Vec::new(),

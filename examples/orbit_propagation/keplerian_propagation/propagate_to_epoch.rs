@@ -12,11 +12,11 @@ fn main() {
     let elements = na::SVector::<f64, 6>::new(bh::R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
     let mut prop = bh::KeplerianPropagator::from_keplerian(
         epoch, elements, bh::AngleFormat::Degrees, 60.0
-    );
+    ).unwrap();
 
     // Propagate exactly 500 seconds (not evenly divisible by step size)
     let target = epoch + 500.0;
-    prop.propagate_to(target);
+    prop.propagate_to(target).unwrap();
 
     println!("Target epoch: {}", target);
     println!("Current epoch: {}", prop.current_epoch());

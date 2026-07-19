@@ -12,25 +12,25 @@ fn main() {
     bh::initialize_eop().unwrap();
 
     // Create and populate trajectory
-    let mut traj = DTrajectory::new(6);
+    let mut traj = DTrajectory::new(6).unwrap();
     let epoch0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0,
         bh::time::TimeSystem::UTC);
     let state0 = na::DVector::from_vec(vec![
         R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0
     ]);
-    traj.add(epoch0, state0);
+    traj.add(epoch0, state0).unwrap();
 
     let epoch1 = epoch0 + 60.0;
     let state1 = na::DVector::from_vec(vec![
         R_EARTH + 600e3, 456000.0, 0.0, -7600.0, 0.0, 0.0
     ]);
-    traj.add(epoch1, state1);
+    traj.add(epoch1, state1).unwrap();
 
     let epoch2 = epoch0 + 120.0;
     let state2 = na::DVector::from_vec(vec![
         R_EARTH + 700e3, 0.0, 0.0, 0.0, -7600.0, 0.0
     ]);
-    traj.add(epoch2, state2);
+    traj.add(epoch2, state2).unwrap();
 
     // Access by index
     let retrieved_epoch = traj.epoch_at_idx(1).unwrap();

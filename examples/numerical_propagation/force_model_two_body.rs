@@ -46,15 +46,15 @@ fn main() {
         epoch,
         state,
         60.0, // step size
-    );
+    ).unwrap();
 
     // Propagate both for 10 orbits
     let sma = bh::R_EARTH + 500e3;
     let orbital_period = 2.0 * PI * (sma.powi(3) / bh::GM_EARTH).sqrt();
     let end_epoch = epoch + 10.0 * orbital_period;
 
-    prop.propagate_to(end_epoch);
-    kep_prop.propagate_to(end_epoch);
+    prop.propagate_to(end_epoch).unwrap();
+    kep_prop.propagate_to(end_epoch).unwrap();
 
     // Compare final states
     let num_state = prop.current_state();

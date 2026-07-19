@@ -45,7 +45,7 @@ fn main() {
                 dx[5] = accel_mag * v_hat[2];
             }
 
-            dx
+            Ok(dx)
         },
     ));
 
@@ -79,8 +79,8 @@ fn main() {
     let orbital_period = 2.0 * PI * (oe[0].powi(3) / bh::GM_EARTH).sqrt();
     let end_time = epoch + 10.0 * orbital_period;
 
-    prop.propagate_to(end_time);
-    prop_ref.propagate_to(end_time);
+    prop.propagate_to(end_time).unwrap();
+    prop_ref.propagate_to(end_time).unwrap();
 
     // Compare orbits
     let koe_thrust = prop

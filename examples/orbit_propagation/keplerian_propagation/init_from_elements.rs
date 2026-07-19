@@ -23,7 +23,7 @@ fn main() {
     // Create propagator with 60-second step size
     let _prop = bh::KeplerianPropagator::from_keplerian(
         epoch, elements, bh::AngleFormat::Degrees, 60.0
-    );
+    ).unwrap();
 
     println!("Orbital period: {:.1} seconds", bh::orbital_period(elements[0]));
 }

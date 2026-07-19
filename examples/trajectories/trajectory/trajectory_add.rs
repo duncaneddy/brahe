@@ -12,7 +12,7 @@ fn main() {
     bh::initialize_eop().unwrap();
 
     // Create empty trajectory
-    let mut traj = DTrajectory::new(6);
+    let mut traj = DTrajectory::new(6).unwrap();
 
     // Add states
     let epoch0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0,
@@ -20,7 +20,7 @@ fn main() {
     let state0 = na::DVector::from_vec(vec![
         R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0
     ]);
-    traj.add(epoch0, state0);
+    traj.add(epoch0, state0).unwrap();
 
     println!("Trajectory length: {}", traj.len());
 
@@ -28,7 +28,7 @@ fn main() {
     let state1 = na::DVector::from_vec(vec![
         R_EARTH + 500e3, 456000.0, 0.0, -7600.0, 0.0, 0.0
     ]);
-    traj.add(epoch1, state1);
+    traj.add(epoch1, state1).unwrap();
 
     println!("Trajectory length: {}", traj.len());
 }

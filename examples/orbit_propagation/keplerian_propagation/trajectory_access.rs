@@ -12,10 +12,10 @@ fn main() {
     let elements = na::SVector::<f64, 6>::new(bh::R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
     let mut prop = bh::KeplerianPropagator::from_keplerian(
         epoch, elements, bh::AngleFormat::Degrees, 60.0
-    );
+    ).unwrap();
 
     // Propagate for several steps
-    prop.propagate_steps(5);
+    prop.propagate_steps(5).unwrap();
 
     // Access trajectory
     let traj = &prop.trajectory;

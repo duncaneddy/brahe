@@ -29,7 +29,7 @@ fn main() {
             let x = state[0];
             let v = state[1];
             let omega_sq = params.map(|p| p[0]).unwrap_or(omega * omega);
-            na::DVector::from_vec(vec![v, -omega_sq * x])
+            Ok(na::DVector::from_vec(vec![v, -omega_sq * x]))
         },
     );
 
@@ -50,7 +50,7 @@ fn main() {
 
     // Propagate for several periods
     let period = 2.0 * PI / omega; // Period = 2*pi/omega = 1 second
-    prop.propagate_to(epoch + 5.0 * period);
+    prop.propagate_to(epoch + 5.0 * period).unwrap();
 
     // Sample trajectory
     println!("Simple Harmonic Oscillator Trajectory:");

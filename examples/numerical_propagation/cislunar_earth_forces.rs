@@ -77,7 +77,7 @@ fn main() {
 
     // Propagate for one day
     let epoch_end = epoch + 86400.0;
-    prop.propagate_to(epoch_end);
+    prop.propagate_to(epoch_end).unwrap();
 
     let x_final = prop.current_state();
     println!("Initial EMB-centered state: {:?}", x_emb.as_slice());

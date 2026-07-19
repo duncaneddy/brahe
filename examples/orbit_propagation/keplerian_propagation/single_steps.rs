@@ -13,14 +13,14 @@ fn main() {
     let elements = na::SVector::<f64, 6>::new(bh::R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
     let mut prop = bh::KeplerianPropagator::from_keplerian(
         epoch, elements, bh::AngleFormat::Degrees, 60.0
-    );
+    ).unwrap();
 
     // Take one step (60 seconds)
-    prop.step();
+    prop.step().unwrap();
     println!("After 1 step: {}", prop.current_epoch());
 
     // Step by custom duration (120 seconds)
-    prop.step_by(120.0);
+    prop.step_by(120.0).unwrap();
     println!("After custom step: {}", prop.current_epoch());
 
     // Trajectory now contains 3 states (initial + 2 steps)

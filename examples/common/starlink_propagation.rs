@@ -40,7 +40,7 @@ fn main() {
     // Propagate all satellites forward by 24 hours in parallel
     propagators.par_iter_mut().for_each(|sat| {
         let target_epoch = sat.current_epoch() + 86400.0; // 24 hours in seconds
-        sat.propagate_to(target_epoch);
+        sat.propagate_to(target_epoch).unwrap();
     });
 
     // Calculate elapsed time

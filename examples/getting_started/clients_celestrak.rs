@@ -16,7 +16,7 @@ fn main() {
     let epoch_end = epoch_start + 7.0 * 86400.0;  
 
     // Step propagator forward by 1 hour
-    propagator.propagate_to(epoch_end);
+    propagator.propagate_to(epoch_end).unwrap();
 
     // Get final epoch and state
     let final_epoch = propagator.current_epoch();

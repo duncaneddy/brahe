@@ -130,7 +130,7 @@ fn main() {
 
     // Propagate through both burns plus one orbit of final orbit
     let final_orbit_period = 2.0 * PI * (r2.powi(3) / bh::GM_EARTH).sqrt();
-    prop.propagate_to(epoch + transfer_time + final_orbit_period);
+    prop.propagate_to(epoch + transfer_time + final_orbit_period).unwrap();
 
     // Check final orbit
     let final_koe = prop

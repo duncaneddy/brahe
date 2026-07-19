@@ -7,10 +7,10 @@ use nalgebra::DVector;
 fn main() {
     // Define dynamics: Van der Pol oscillator (stiff for large mu)
     let mu = 1.0;
-    let dynamics = move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+    let dynamics = move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> Result<DVector<f64>, brahe::utils::BraheError> {
         let x = state[0];
         let v = state[1];
-        DVector::from_vec(vec![v, mu * (1.0 - x.powi(2)) * v - x])
+        Ok(DVector::from_vec(vec![v, mu * (1.0 - x.powi(2)) * v - x]))
     };
 
     // Initial conditions
@@ -40,7 +40,7 @@ fn main() {
     println!("{}", "-".repeat(65));
 
     while t < t_end {
-        let result = integrator.step(t, state, None, Some(dt.min(t_end - t)));
+        let result = integrator.step(t, state, None, Some(dt.min(t_end - t))).unwrap();
 
         // Track step size statistics
         let dt_used = result.dt_used;

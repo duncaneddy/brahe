@@ -17,7 +17,7 @@ fn main() {
         OrbitFrame::ECI,
         OrbitRepresentation::Cartesian,
         None
-    );
+    ).unwrap();
 
     // Add a state
     let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0,
@@ -25,11 +25,11 @@ fn main() {
     let state_original = na::SVector::<f64, 6>::new(
         R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0
     );
-    traj_eci_original.add(epoch, state_original);
+    traj_eci_original.add(epoch, state_original).unwrap();
 
     // Convert to ECEF and back to ECI
-    let traj_ecef = traj_eci_original.to_ecef();
-    let traj_eci_roundtrip = traj_ecef.to_eci();
+    let traj_ecef = traj_eci_original.to_ecef().unwrap();
+    let traj_eci_roundtrip = traj_ecef.to_eci().unwrap();
 
     // Compare original and round-trip states
     let (_, state_roundtrip) = traj_eci_roundtrip.first().unwrap();

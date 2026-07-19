@@ -21,10 +21,10 @@ fn main() {
         bh::time::TimeSystem::UTC);
     let mut propagator = KeplerianPropagator::from_keplerian(
         epoch, oe, AngleFormat::Radians, 60.0
-    );
+    ).unwrap();
 
     // Propagate for several steps
-    propagator.propagate_steps(10);
+    propagator.propagate_steps(10).unwrap();
 
     // Access the trajectory
     let traj = &propagator.trajectory;

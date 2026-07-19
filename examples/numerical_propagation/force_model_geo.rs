@@ -44,7 +44,7 @@ fn main() {
     .unwrap();
 
     // Propagate for 7 days
-    prop.propagate_to(epoch + 7.0 * 86400.0);
+    prop.propagate_to(epoch + 7.0 * 86400.0).unwrap();
 
     // Check orbit evolution (mainly from SRP and third-body)
     let final_koe = prop

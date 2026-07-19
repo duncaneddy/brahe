@@ -61,15 +61,15 @@ fn main() {
         epoch,
         state,
         60.0,
-    );
+    ).unwrap();
 
     // Propagate for 10 orbits
     let orbital_period = 2.0 * PI * (oe[0].powi(3) / bh::GM_EARTH).sqrt();
     let end_time = epoch + 10.0 * orbital_period;
 
-    prop_hp.propagate_to(end_time);
-    prop_std.propagate_to(end_time);
-    kep_prop.propagate_to(end_time);
+    prop_hp.propagate_to(end_time).unwrap();
+    prop_std.propagate_to(end_time).unwrap();
+    kep_prop.propagate_to(end_time).unwrap();
 
     // Compare errors vs analytical
     let kep_state = kep_prop.current_state();

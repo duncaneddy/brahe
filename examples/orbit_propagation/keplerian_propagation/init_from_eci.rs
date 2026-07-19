@@ -15,7 +15,7 @@ fn main() {
     let state_eci = bh::state_koe_to_eci(elements, bh::AngleFormat::Degrees);
 
     // Create propagator from ECI state
-    let _prop = bh::KeplerianPropagator::from_eci(epoch, state_eci, 60.0);
+    let _prop = bh::KeplerianPropagator::from_eci(epoch, state_eci, 60.0).unwrap();
 
     println!("Initial position magnitude: {:.1} km",
              state_eci.fixed_rows::<3>(0).norm() / 1e3);

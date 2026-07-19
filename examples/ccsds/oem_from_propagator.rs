@@ -33,7 +33,7 @@ fn main() {
 
     // Propagate for 90 minutes
     let target_epoch = epoch + 5400.0;
-    prop.propagate_to(target_epoch);
+    prop.propagate_to(target_epoch).unwrap();
     println!("Propagated from {} to {}", epoch, prop.current_epoch());
 
     // Get the accumulated trajectory

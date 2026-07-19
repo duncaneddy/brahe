@@ -51,7 +51,7 @@ fn main() {
     .unwrap();
 
     // Propagate for 1 day
-    prop.propagate_to(epoch + 86400.0);
+    prop.propagate_to(epoch + 86400.0).unwrap();
 
     // Check orbit decay due to drag
     let final_koe = prop

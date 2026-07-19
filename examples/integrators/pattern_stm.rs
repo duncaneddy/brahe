@@ -16,12 +16,12 @@ use nalgebra::{DMatrix, DVector};
 fn main() {
     // Dynamics function: Exponential decay dx/dt = -k*x
     let k = 0.1;
-    let dynamics = move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
-        DVector::from_vec(vec![-k * state[0]])
+    let dynamics = move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> Result<DVector<f64>, brahe::utils::BraheError> {
+        Ok(DVector::from_vec(vec![-k * state[0]]))
     };
     // Clone for Jacobian computation
-    let dynamics_for_jac = move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
-        DVector::from_vec(vec![-k * state[0]])
+    let dynamics_for_jac = move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> Result<DVector<f64>, brahe::utils::BraheError> {
+        Ok(DVector::from_vec(vec![-k * state[0]]))
     };
 
     // Create Jacobian for variational equations
@@ -45,7 +45,7 @@ fn main() {
     let phi = DMatrix::identity(1, 1); // 1x1 identity matrix
     let dt = 60.0;
 
-    let result = integrator.step_with_varmat(t, state, None, phi, Some(dt));
+    let result = integrator.step_with_varmat(t, state, None, phi, Some(dt)).unwrap();
     let new_state = result.state;
     let new_phi = result.phi.unwrap();
     let dt_used = result.dt_used;

@@ -13,7 +13,7 @@ fn main() {
 
     // Propagate to specific epoch
     let target = prop.epoch + 7200.0;  // 2 hours later
-    prop.propagate_to(target);
+    prop.propagate_to(target).unwrap();
 
     println!("Target epoch: {}", target);
     println!("Current epoch: {}", prop.current_epoch());

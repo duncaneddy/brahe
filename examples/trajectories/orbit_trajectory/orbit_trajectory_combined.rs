@@ -17,7 +17,7 @@ fn main() {
         OrbitFrame::ECI,
         OrbitRepresentation::Cartesian,
         None
-    );
+    ).unwrap();
 
     // Add states
     let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0,
@@ -26,26 +26,26 @@ fn main() {
         R_EARTH + 500e3, 0.001, 0.9, 1.0, 0.5, 0.0
     );
     let state_cart = state_koe_to_eci(oe, AngleFormat::Radians);
-    traj_eci_cart.add(epoch, state_cart);
+    traj_eci_cart.add(epoch, state_cart).unwrap();
 
     println!("Original:");
     println!("  Frame: {:?}", traj_eci_cart.frame);
     println!("  Representation: {:?}", traj_eci_cart.representation);
 
     // Convert to ECEF frame (stays Cartesian)
-    let traj_ecef_cart = traj_eci_cart.to_ecef();
+    let traj_ecef_cart = traj_eci_cart.to_ecef().unwrap();
     println!("\nAfter to_ecef():");
     println!("  Frame: {:?}", traj_ecef_cart.frame);
     println!("  Representation: {:?}", traj_ecef_cart.representation);
 
     // Convert back to ECI
-    let traj_eci_cart2 = traj_ecef_cart.to_eci();
+    let traj_eci_cart2 = traj_ecef_cart.to_eci().unwrap();
     println!("\nAfter to_eci():");
     println!("  Frame: {:?}", traj_eci_cart2.frame);
     println!("  Representation: {:?}", traj_eci_cart2.representation);
 
     // Convert to Keplerian (in ECI frame)
-    let traj_eci_kep = traj_eci_cart2.to_keplerian(AngleFormat::Radians);
+    let traj_eci_kep = traj_eci_cart2.to_keplerian(AngleFormat::Radians).unwrap();
     println!("\nAfter to_keplerian():");
     println!("  Frame: {:?}", traj_eci_kep.frame);
     println!("  Representation: {:?}", traj_eci_kep.representation);

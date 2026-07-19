@@ -90,8 +90,8 @@ fn main() {
     let mut t = epoch;
     for _ in 0..n_steps {
         t = t + dt;
-        prop_on.propagate_to(t);
-        prop_off.propagate_to(t);
+        prop_on.propagate_to(t).unwrap();
+        prop_off.propagate_to(t).unwrap();
 
         let pos_on = prop_on.current_state().fixed_rows::<3>(0).into_owned();
         let pos_off = prop_off.current_state().fixed_rows::<3>(0).into_owned();

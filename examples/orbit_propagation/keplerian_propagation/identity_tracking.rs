@@ -14,7 +14,7 @@ fn main() {
     // Create propagator with identity (builder pattern)
     let prop = bh::KeplerianPropagator::from_keplerian(
         epoch, elements, bh::AngleFormat::Degrees, 60.0
-    ).with_name("Satellite-A").with_id(12345);
+    ).unwrap().with_name("Satellite-A").with_id(12345);
 
     println!("Name: {:?}", prop.get_name());
     println!("ID: {:?}", prop.get_id());

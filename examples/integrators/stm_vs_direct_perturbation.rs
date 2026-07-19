@@ -15,7 +15,7 @@ use brahe::*;
 use nalgebra::{DMatrix, DVector, SVector};
 
 /// Two-body point-mass dynamics with Earth gravity (for integrator)
-fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> Result<DVector<f64>, brahe::utils::BraheError> {
     let r = state.rows(0, 3);
     let v = state.rows(3, 3);
     let r_norm = r.norm();
@@ -24,11 +24,11 @@ fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DV
     let mut state_dot = DVector::zeros(6);
     state_dot.rows_mut(0, 3).copy_from(&v);
     state_dot.rows_mut(3, 3).copy_from(&a);
-    state_dot
+    Ok(state_dot)
 }
 
 /// Two-body dynamics (for Jacobian computation - no params)
-fn dynamics_for_jac(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+fn dynamics_for_jac(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> Result<DVector<f64>, brahe::utils::BraheError> {
     let r = state.rows(0, 3);
     let v = state.rows(3, 3);
     let r_norm = r.norm();
@@ -37,7 +37,7 @@ fn dynamics_for_jac(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>
     let mut state_dot = DVector::zeros(6);
     state_dot.rows_mut(0, 3).copy_from(&v);
     state_dot.rows_mut(3, 3).copy_from(&a);
-    state_dot
+    Ok(state_dot)
 }
 
 fn main() {
@@ -109,7 +109,7 @@ fn main() {
             None,
             phi.clone(),
             Some(dt),
-        );
+        ).unwrap();
         let new_state_nominal = result_nominal.state;
         let new_phi = result_nominal.phi.unwrap();
         let dt_used = result_nominal.dt_used;
@@ -120,7 +120,7 @@ fn main() {
             state_pert.clone(),
             None,
             Some(dt),
-        );
+        ).unwrap();
 
         // Predict perturbed state using STM: x_pert ≈ x_nominal + Φ·δx₀
         let state_pert_predicted = &new_state_nominal + &new_phi * &perturbation;

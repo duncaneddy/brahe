@@ -66,8 +66,8 @@ fn main() {
 
     // Propagate both for 1 orbit
     let orbital_period = 2.0 * PI * (oe[0].powi(3) / bh::GM_EARTH).sqrt();
-    prop_default.propagate_to(epoch + orbital_period);
-    prop_tight.propagate_to(epoch + orbital_period);
+    prop_default.propagate_to(epoch + orbital_period).unwrap();
+    prop_tight.propagate_to(epoch + orbital_period).unwrap();
 
     // Compare final states
     let final_default = prop_default.current_state();

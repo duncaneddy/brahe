@@ -23,12 +23,12 @@ fn main() {
     let period = bh::orbital_period(a);
 
     // Two-body dynamics
-    let dynamics = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+    let dynamics = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> Result<DVector<f64>, brahe::utils::BraheError> {
         let r = nalgebra::Vector3::new(state[0], state[1], state[2]);
         let v = nalgebra::Vector3::new(state[3], state[4], state[5]);
         let r_norm = r.norm();
         let a = -GM_EARTH / r_norm.powi(3) * r;
-        DVector::from_vec(vec![v[0], v[1], v[2], a[0], a[1], a[2]])
+        Ok(DVector::from_vec(vec![v[0], v[1], v[2], a[0], a[1], a[2]]))
     };
 
     println!("High-Precision HEO Orbit Propagation");
@@ -53,7 +53,7 @@ fn main() {
     let mut total_error = 0.0;
 
     while t < period {
-        let result = integrator.step(t, state, None, Some(dt.min(period - t)));
+        let result = integrator.step(t, state, None, Some(dt.min(period - t))).unwrap();
 
         let dt_used = result.dt_used;
         t += dt_used;

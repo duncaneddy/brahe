@@ -53,7 +53,7 @@ fn main() {
 
     // Propagate for 6 hours
     let final_epoch = epoch + 6.0 * 3600.0;
-    prop.propagate_to(final_epoch);
+    prop.propagate_to(final_epoch).unwrap();
 
     // state_in_frame routes the propagator's native LCI state through the
     // reference frame router into any other supported frame. LFPA is the

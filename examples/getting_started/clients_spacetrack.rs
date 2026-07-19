@@ -27,7 +27,7 @@ fn main() {
     let epoch_end = epoch_start + 7.0 * 86400.0;
 
     // Propagate forward 7 days
-    propagator.propagate_to(epoch_end);
+    propagator.propagate_to(epoch_end).unwrap();
 
     // Get final epoch and state
     let final_epoch = propagator.current_epoch();

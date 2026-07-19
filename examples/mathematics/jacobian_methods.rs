@@ -8,7 +8,7 @@ use nalgebra::{DMatrix, DVector};
 
 fn main() {
     // Define two-body gravity dynamics: state = [x, y, z, vx, vy, vz]
-    let gravity_dynamics = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+    let gravity_dynamics = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> Result<DVector<f64>, brahe::utils::BraheError> {
         let r = state.fixed_rows::<3>(0);  // Position
         let v = state.fixed_rows::<3>(3);  // Velocity
         let r_norm = r.norm();
@@ -16,7 +16,7 @@ fn main() {
         // Acceleration from two-body gravity: a = -mu * r / |r|^3
         let a = -GM_EARTH * r / r_norm.powi(3);
 
-        DVector::from_iterator(6, v.iter().chain(a.iter()).copied())
+        Ok(DVector::from_iterator(6, v.iter().chain(a.iter()).copied()))
     };
 
     // Analytical Jacobian for two-body gravity
@@ -65,9 +65,9 @@ fn main() {
     let j_analytical = analytical_jacobian(&state);
 
     // Compute Jacobians with each method
-    let j_forward = jacobian_forward.compute(t, &state, None);
-    let j_central = jacobian_central.compute(t, &state, None);
-    let j_backward = jacobian_backward.compute(t, &state, None);
+    let j_forward = jacobian_forward.compute(t, &state, None).unwrap();
+    let j_central = jacobian_central.compute(t, &state, None).unwrap();
+    let j_backward = jacobian_backward.compute(t, &state, None).unwrap();
 
     println!("Forward Difference Jacobian:");
     for i in 0..6 {

@@ -9,21 +9,21 @@ fn main() {
     initialize_eop().unwrap();
 
     // Define two-body dynamics (for integrator - takes optional params)
-    let dynamics = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+    let dynamics = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> Result<DVector<f64>, brahe::utils::BraheError> {
         let r = nalgebra::Vector3::new(state[0], state[1], state[2]);
         let v = nalgebra::Vector3::new(state[3], state[4], state[5]);
         let r_norm = r.norm();
         let a = -GM_EARTH / r_norm.powi(3) * r;
-        DVector::from_vec(vec![v[0], v[1], v[2], a[0], a[1], a[2]])
+        Ok(DVector::from_vec(vec![v[0], v[1], v[2], a[0], a[1], a[2]]))
     };
 
     // Same dynamics for Jacobian (without params argument)
-    let dynamics_for_jac = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+    let dynamics_for_jac = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> Result<DVector<f64>, brahe::utils::BraheError> {
         let r = nalgebra::Vector3::new(state[0], state[1], state[2]);
         let v = nalgebra::Vector3::new(state[3], state[4], state[5]);
         let r_norm = r.norm();
         let a = -GM_EARTH / r_norm.powi(3) * r;
-        DVector::from_vec(vec![v[0], v[1], v[2], a[0], a[1], a[2]])
+        Ok(DVector::from_vec(vec![v[0], v[1], v[2], a[0], a[1], a[2]]))
     };
 
     // Create numerical Jacobian for variational equations
@@ -60,7 +60,7 @@ fn main() {
     let mut steps = 0;
     while t < period {
         // Propagate state and STM together
-        let result = integrator.step_with_varmat(t, state, None, phi, Some(dt.min(period - t)));
+        let result = integrator.step_with_varmat(t, state, None, phi, Some(dt.min(period - t))).unwrap();
 
         let new_state = result.state;
         let new_phi = result.phi.unwrap();

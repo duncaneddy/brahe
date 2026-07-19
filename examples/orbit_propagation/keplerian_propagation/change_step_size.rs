@@ -12,7 +12,7 @@ fn main() {
     let elements = na::SVector::<f64, 6>::new(bh::R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
     let mut prop = bh::KeplerianPropagator::from_keplerian(
         epoch, elements, bh::AngleFormat::Degrees, 60.0
-    );
+    ).unwrap();
 
     println!("Initial step size: {} seconds", prop.step_size());
 
@@ -21,7 +21,7 @@ fn main() {
     println!("New step size: {} seconds", prop.step_size());
 
     // Subsequent steps use new step size
-    prop.step();  // Advances 120 seconds
+    prop.step().unwrap();  // Advances 120 seconds
     println!("After step: {:.1} seconds elapsed", prop.current_epoch() - epoch);
 }
 

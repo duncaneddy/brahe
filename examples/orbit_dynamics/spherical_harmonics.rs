@@ -50,7 +50,7 @@ fn main() {
     let m_max = 10;
     let accel_sh = bh::orbit_dynamics::accel_gravity_spherical_harmonics(
         r_eci, r_eci_ecef, &gravity_model, n_max, m_max, bh::orbit_dynamics::ParallelMode::Auto
-    );
+    ).unwrap();
 
     println!("\nSpherical harmonic acceleration (degree {}, order {}):", n_max, m_max);
     println!("  ax = {:.9} m/s²", accel_sh[0]);

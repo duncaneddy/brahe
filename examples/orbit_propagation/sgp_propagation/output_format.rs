@@ -12,16 +12,16 @@ fn main() {
 
     // Create with ECEF Cartesian output
     let mut prop_ecef = bh::SGPPropagator::from_tle(line1, line2, 60.0).unwrap()
-        .with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None);
+        .with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None).unwrap();
 
     // Or with Keplerian output (ECI only)
     let mut prop_kep = bh::SGPPropagator::from_tle(line1, line2, 60.0).unwrap()
-        .with_output_format(OrbitFrame::ECI, OrbitRepresentation::Keplerian, Some(bh::AngleFormat::Degrees));
+        .with_output_format(OrbitFrame::ECI, OrbitRepresentation::Keplerian, Some(bh::AngleFormat::Degrees)).unwrap();
 
     // Propagate to 1 hour after epoch
     let dt = 3600.0;
-    prop_ecef.propagate_to(prop_ecef.epoch + dt);
-    prop_kep.propagate_to(prop_kep.epoch + dt);
+    prop_ecef.propagate_to(prop_ecef.epoch + dt).unwrap();
+    prop_kep.propagate_to(prop_kep.epoch + dt).unwrap();
 
     let state_ecef = prop_ecef.current_state();
     println!("ECEF position (km): [{:.3}, {:.3}, {:.3}]",

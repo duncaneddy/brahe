@@ -57,7 +57,7 @@ We'll compute the ground contacts between NISAR and the NASA Near Earth Network 
     single location or a list on both sides, evaluates the constraint for
     every location-satellite pairing, and returns one flat list of
     [`AccessWindow`](../library_api/access/windows.md) objects sorted by start
-    time - here all 12 NEN stations against NISAR in a single call. Each
+    time - here every NEN station against NISAR in a single call. Each
     window already carries the core geometric properties (`duration`,
     `elevation_max`, `azimuth_open`, ...), which is why the statistics below
     read them straight off the windows with no extra geometry code. The

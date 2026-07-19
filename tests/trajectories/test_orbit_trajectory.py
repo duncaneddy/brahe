@@ -1021,7 +1021,8 @@ def test_orbittrajectory_interpolatable_set_interpolation_method():
         None,
     )
 
-    assert traj.get_interpolation_method() == InterpolationMethod.LINEAR
+    # Default is HermiteCubic (orbit states carry velocity)
+    assert traj.get_interpolation_method() == InterpolationMethod.HERMITE_CUBIC
 
     traj.set_interpolation_method(InterpolationMethod.LINEAR)
     assert traj.get_interpolation_method() == InterpolationMethod.LINEAR
@@ -1036,8 +1037,8 @@ def test_orbittrajectory_interpolatable_get_interpolation_method():
         None,
     )
 
-    # Test that get_interpolation_method returns Linear
-    assert traj.get_interpolation_method() == InterpolationMethod.LINEAR
+    # Default is HermiteCubic (orbit states carry velocity)
+    assert traj.get_interpolation_method() == InterpolationMethod.HERMITE_CUBIC
 
     # Set it to different methods and verify get_interpolation_method returns the correct value
     traj.set_interpolation_method(InterpolationMethod.LINEAR)
@@ -1132,6 +1133,9 @@ def test_orbittrajectory_interpolatable_interpolate():
         OrbitRepresentation.CARTESIAN,
         None,
     )
+    # The default is now HermiteCubic; request Linear explicitly to compare
+    # interpolate() against interpolate_linear().
+    traj.set_interpolation_method(InterpolationMethod.LINEAR)
 
     # Test that interpolate() with Linear method returns same result as interpolate_linear()
     t0_plus_30 = t0 + 30.0
@@ -1893,6 +1897,9 @@ def test_orbittrajectory_orbitaltrajectory_to_keplerian_rad():
 def test_orbittrajectory_stateprovider_state_eci_cartesian():
     """Test state() for ECI Cartesian trajectory"""
     traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    # Sparse points half a day apart: HermiteCubic (the new default) overshoots
+    # wildly, so request Linear for this midpoint-bracket check.
+    traj.set_interpolation_method(InterpolationMethod.LINEAR)
 
     epoch1 = Epoch.from_jd(2451545.0, TimeSystem.UTC)
     state1 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])

@@ -137,7 +137,7 @@ impl<const R: usize> STrajectory<R> {
             epochs: Vec::new(),
             states: Vec::new(),
             covariances: None,
-            interpolation_method: InterpolationMethod::Linear,
+            interpolation_method: InterpolationMethod::Linear, // Generic states may lack velocity; Hermite is invalid, so default to Linear
             covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
@@ -566,7 +566,7 @@ impl<const R: usize> Trajectory for STrajectory<R> {
             epochs: sorted_epochs,
             states: sorted_states,
             covariances: None,
-            interpolation_method: InterpolationMethod::Linear, // Default to Linear
+            interpolation_method: InterpolationMethod::Linear, // Generic states may lack velocity; Hermite is invalid, so default to Linear
             covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,

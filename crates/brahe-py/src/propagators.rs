@@ -2888,7 +2888,7 @@ impl PyKeplerianPropagator {
     ///     print(f"Trajectory contains {traj.len()} states")
     ///     ```
     #[getter]
-    pub fn trajectory(&self) -> PyOrbitalTrajectory {
+    pub fn trajectory(&self) -> PyResult<PyOrbitalTrajectory> {
         let traj = &self.propagator.trajectory;
 
         // Convert states from SVector to DVector
@@ -2912,12 +2912,12 @@ impl PyKeplerianPropagator {
             traj.representation,
             traj.angle_format,
             covariances,
-        );
+        )?;
 
         // Copy identity from original trajectory
         d_traj.set_identity(traj.get_name(), traj.get_uuid(), traj.get_id());
 
-        PyOrbitalTrajectory { trajectory: d_traj }
+        Ok(PyOrbitalTrajectory { trajectory: d_traj })
     }
 
     // Identity methods

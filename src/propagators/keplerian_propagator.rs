@@ -171,8 +171,8 @@ impl KeplerianPropagator {
         );
 
         // Create initial trajectory (Keplerian propagator always uses 6D states)
-        let mut trajectory = DOrbitTrajectory::new(6, frame, representation, angle_format);
-        trajectory.add(epoch, svec6_to_dvec(state));
+        let mut trajectory = DOrbitTrajectory::new(6, frame, representation, angle_format)?;
+        trajectory.add(epoch, svec6_to_dvec(state))?;
 
         let n = mean_motion(internal_elements[0], AngleFormat::Radians);
 
@@ -304,7 +304,7 @@ impl KeplerianPropagator {
         let uuid = self.trajectory.get_uuid();
         let id = self.trajectory.get_id();
 
-        self.trajectory = DOrbitTrajectory::new(6, frame, representation, angle_format)
+        self.trajectory = DOrbitTrajectory::new(6, frame, representation, angle_format)?
             .with_identity(name.as_deref(), uuid, id);
 
         // Convert initial state to new format and add to trajectory
@@ -313,7 +313,7 @@ impl KeplerianPropagator {
             self.internal_osculating_elements,
         );
         self.trajectory
-            .add(self.initial_epoch, svec6_to_dvec(converted_state));
+            .add(self.initial_epoch, svec6_to_dvec(converted_state))?;
 
         Ok(self)
     }
@@ -455,7 +455,7 @@ impl SStatePropagator for KeplerianPropagator {
         // Convert back to original state format
         let state = self.convert_from_internal_osculating(target_epoch, new_state);
 
-        self.trajectory.add(target_epoch, svec6_to_dvec(state));
+        self.trajectory.add(target_epoch, svec6_to_dvec(state))?;
 
         Ok(())
     }
@@ -500,6 +500,7 @@ impl SStatePropagator for KeplerianPropagator {
 
         self.trajectory =
             DOrbitTrajectory::new(6, self.frame, self.representation, self.angle_format)
+                .expect("trajectory format validated at construction")
                 .with_identity(name.as_deref(), uuid, id);
 
         // Convert initial state to new format and add to trajectory
@@ -508,7 +509,8 @@ impl SStatePropagator for KeplerianPropagator {
             self.internal_osculating_elements,
         );
         self.trajectory
-            .add(self.initial_epoch, svec6_to_dvec(converted_state));
+            .add(self.initial_epoch, svec6_to_dvec(converted_state))
+            .expect("trajectory state validated at construction");
     }
 
     fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
@@ -556,9 +558,9 @@ impl SOrbitPropagator for KeplerianPropagator {
         let uuid = self.trajectory.get_uuid();
         let id = self.trajectory.get_id();
 
-        self.trajectory = DOrbitTrajectory::new(6, frame, representation, angle_format)
+        self.trajectory = DOrbitTrajectory::new(6, frame, representation, angle_format)?
             .with_identity(name.as_deref(), uuid, id);
-        self.trajectory.add(epoch, svec6_to_dvec(state));
+        self.trajectory.add(epoch, svec6_to_dvec(state))?;
 
         Ok(())
     }

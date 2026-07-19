@@ -440,6 +440,10 @@ impl PyOrbitalTrajectory {
     /// Returns:
     ///     OrbitTrajectory: New empty trajectory instance
     ///
+    /// Raises:
+    ///     BraheError: If the trajectory configuration is invalid (e.g. an
+    ///         unsupported dimension or representation).
+    ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
@@ -498,7 +502,7 @@ impl PyOrbitalTrajectory {
             frame.frame,
             representation.representation,
             angle_fmt,
-        );
+        )?;
         Ok(PyOrbitalTrajectory { trajectory })
     }
 
@@ -530,6 +534,10 @@ impl PyOrbitalTrajectory {
     ///
     /// Returns:
     ///     OrbitTrajectory: New trajectory instance populated with data
+    ///
+    /// Raises:
+    ///     BraheError: If the provided data is inconsistent or the trajectory
+    ///         configuration is invalid.
     ///
     /// Example:
     ///     ```python
@@ -645,7 +653,7 @@ impl PyOrbitalTrajectory {
             representation.representation,
             angle_fmt,
             covariances_vec,
-        );
+        )?;
         Ok(PyOrbitalTrajectory { trajectory })
     }
 
@@ -741,6 +749,9 @@ impl PyOrbitalTrajectory {
     /// Returns:
     ///     OrbitTrajectory: Self with updated eviction policy
     ///
+    /// Raises:
+    ///     BraheError: If the eviction policy is invalid for this trajectory.
+    ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
@@ -749,9 +760,9 @@ impl PyOrbitalTrajectory {
     ///     traj = traj.with_eviction_policy_max_size(1000)
     ///     ```
     #[pyo3(text_signature = "(max_size)")]
-    pub fn with_eviction_policy_max_size(mut slf: PyRefMut<'_, Self>, max_size: usize) -> Self {
-        slf.trajectory = slf.trajectory.clone().with_eviction_policy_max_size(max_size);
-        Self { trajectory: slf.trajectory.clone() }
+    pub fn with_eviction_policy_max_size(mut slf: PyRefMut<'_, Self>, max_size: usize) -> PyResult<Self> {
+        slf.trajectory = slf.trajectory.clone().with_eviction_policy_max_size(max_size)?;
+        Ok(Self { trajectory: slf.trajectory.clone() })
     }
 
     /// Set eviction policy to keep states within maximum age using builder pattern.
@@ -762,6 +773,9 @@ impl PyOrbitalTrajectory {
     /// Returns:
     ///     OrbitTrajectory: Self with updated eviction policy
     ///
+    /// Raises:
+    ///     BraheError: If the eviction policy is invalid for this trajectory.
+    ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
@@ -770,9 +784,9 @@ impl PyOrbitalTrajectory {
     ///     traj = traj.with_eviction_policy_max_age(3600.0)
     ///     ```
     #[pyo3(text_signature = "(max_age)")]
-    pub fn with_eviction_policy_max_age(mut slf: PyRefMut<'_, Self>, max_age: f64) -> Self {
-        slf.trajectory = slf.trajectory.clone().with_eviction_policy_max_age(max_age);
-        Self { trajectory: slf.trajectory.clone() }
+    pub fn with_eviction_policy_max_age(mut slf: PyRefMut<'_, Self>, max_age: f64) -> PyResult<Self> {
+        slf.trajectory = slf.trajectory.clone().with_eviction_policy_max_age(max_age)?;
+        Ok(Self { trajectory: slf.trajectory.clone() })
     }
 
     /// Get trajectory dimension (always 6 for orbital trajectories).
@@ -852,6 +866,9 @@ impl PyOrbitalTrajectory {
     ///     state_ext = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0, 1.0, 2.0, 3.0])
     ///     traj_ext.add(epc, state_ext)
     ///     ```
+    ///
+    /// Raises:
+    ///     BraheError: If the state is inconsistent with the trajectory configuration.
     #[pyo3(text_signature = "(epoch, state)")]
     pub fn add(&mut self, epoch: PyRef<PyEpoch>, state: PyReadonlyArray1<f64>) -> PyResult<()> {
         let state_array = state.as_array();
@@ -866,7 +883,7 @@ impl PyOrbitalTrajectory {
 
         let state_vec = na::DVector::from_row_slice(state_array.as_slice().unwrap());
 
-        self.trajectory.add(epoch.obj, state_vec);
+        self.trajectory.add(epoch.obj, state_vec)?;
         Ok(())
     }
 
@@ -1415,6 +1432,9 @@ impl PyOrbitalTrajectory {
     /// Returns:
     ///     OrbitTrajectory: Trajectory in ECI Cartesian frame
     ///
+    /// Raises:
+    ///     BraheError: If the frame conversion fails.
+    ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
@@ -1427,15 +1447,18 @@ impl PyOrbitalTrajectory {
     ///     traj_eci = traj.to_eci()
     ///     ```
     #[pyo3(text_signature = "()")]
-    pub fn to_eci(&self) -> Self {
-        let new_trajectory = self.trajectory.to_eci();
-        PyOrbitalTrajectory { trajectory: new_trajectory }
+    pub fn to_eci(&self) -> PyResult<Self> {
+        let new_trajectory = self.trajectory.to_eci()?;
+        Ok(PyOrbitalTrajectory { trajectory: new_trajectory })
     }
 
     /// Convert to ECEF (Earth-Centered Earth-Fixed) frame in Cartesian representation.
     ///
     /// Returns:
     ///     OrbitTrajectory: Trajectory in ECEF Cartesian frame
+    ///
+    /// Raises:
+    ///     BraheError: If the frame conversion fails.
     ///
     /// Example:
     ///     ```python
@@ -1449,15 +1472,18 @@ impl PyOrbitalTrajectory {
     ///     traj_ecef = traj.to_ecef()
     ///     ```
     #[pyo3(text_signature = "()")]
-    pub fn to_ecef(&self) -> Self {
-        let new_trajectory = self.trajectory.to_ecef();
-        PyOrbitalTrajectory { trajectory: new_trajectory }
+    pub fn to_ecef(&self) -> PyResult<Self> {
+        let new_trajectory = self.trajectory.to_ecef()?;
+        Ok(PyOrbitalTrajectory { trajectory: new_trajectory })
     }
 
     /// Convert to GCRF (Geocentric Celestial Reference Frame) frame in Cartesian representation.
     ///
     /// Returns:
     ///     OrbitTrajectory: Trajectory in GCRF Cartesian frame
+    ///
+    /// Raises:
+    ///     BraheError: If the frame conversion fails.
     ///
     /// Example:
     ///     ```python
@@ -1471,15 +1497,18 @@ impl PyOrbitalTrajectory {
     ///     traj_gcrf = traj.to_gcrf()
     ///     ```
     #[pyo3(text_signature = "()")]
-    pub fn to_gcrf(&self) -> Self {
-        let new_trajectory = self.trajectory.to_gcrf();
-        PyOrbitalTrajectory { trajectory: new_trajectory }
+    pub fn to_gcrf(&self) -> PyResult<Self> {
+        let new_trajectory = self.trajectory.to_gcrf()?;
+        Ok(PyOrbitalTrajectory { trajectory: new_trajectory })
     }
 
     /// Convert to EME2000 (Earth Mean Equator and Equinox of J2000.0) frame in Cartesian representation.
     ///
     /// Returns:
     ///     OrbitTrajectory: Trajectory in EME2000 Cartesian frame
+    ///
+    /// Raises:
+    ///     BraheError: If the frame conversion fails.
     ///
     /// Example:
     ///     ```python
@@ -1493,15 +1522,18 @@ impl PyOrbitalTrajectory {
     ///     traj_eme2000 = traj.to_eme2000()
     ///     ```
     #[pyo3(text_signature = "()")]
-    pub fn to_eme2000(&self) -> Self {
-        let new_trajectory = self.trajectory.to_eme2000();
-        PyOrbitalTrajectory { trajectory: new_trajectory }
+    pub fn to_eme2000(&self) -> PyResult<Self> {
+        let new_trajectory = self.trajectory.to_eme2000()?;
+        Ok(PyOrbitalTrajectory { trajectory: new_trajectory })
     }
 
     /// Convert to ITRF (International Terrestrial Reference Frame) frame in Cartesian representation.
     ///
     /// Returns:
     ///     OrbitTrajectory: Trajectory in ITRF Cartesian frame
+    ///
+    /// Raises:
+    ///     BraheError: If the frame conversion fails.
     ///
     /// Example:
     ///     ```python
@@ -1515,9 +1547,9 @@ impl PyOrbitalTrajectory {
     ///     traj_itrf = traj.to_itrf()
     ///     ```
     #[pyo3(text_signature = "()")]
-    pub fn to_itrf(&self) -> Self {
-        let new_trajectory = self.trajectory.to_itrf();
-        PyOrbitalTrajectory { trajectory: new_trajectory }
+    pub fn to_itrf(&self) -> PyResult<Self> {
+        let new_trajectory = self.trajectory.to_itrf()?;
+        Ok(PyOrbitalTrajectory { trajectory: new_trajectory })
     }
 
     /// Convert to Keplerian representation in ECI frame.
@@ -1527,6 +1559,9 @@ impl PyOrbitalTrajectory {
     ///
     /// Returns:
     ///     OrbitTrajectory: Trajectory in ECI Keplerian representation
+    ///
+    /// Raises:
+    ///     BraheError: If the representation conversion fails.
     ///
     /// Example:
     ///     ```python
@@ -1540,9 +1575,9 @@ impl PyOrbitalTrajectory {
     ///     traj_kep = traj.to_keplerian(bh.AngleFormat.RADIANS)
     ///     ```
     #[pyo3(text_signature = "(angle_format)")]
-    pub fn to_keplerian(&self, angle_format: PyRef<PyAngleFormat>) -> Self {
-        let new_trajectory = self.trajectory.to_keplerian(angle_format.value);
-        PyOrbitalTrajectory { trajectory: new_trajectory }
+    pub fn to_keplerian(&self, angle_format: PyRef<PyAngleFormat>) -> PyResult<Self> {
+        let new_trajectory = self.trajectory.to_keplerian(angle_format.value)?;
+        Ok(PyOrbitalTrajectory { trajectory: new_trajectory })
     }
 
     /// Convert trajectory to matrix representation.
@@ -2391,7 +2426,7 @@ impl PyOrbitalTrajectory {
             epoch.obj,
             na::DVector::from_iterator(6, state_vec.iter().copied()),
             cov_mat
-        );
+        )?;
         Ok(())
     }
 
@@ -2552,6 +2587,9 @@ impl PyOrbitalTrajectory {
     /// Returns:
     ///     OrbitTrajectory: Self with acceleration storage enabled
     ///
+    /// Raises:
+    ///     BraheError: If acceleration storage cannot be enabled for this trajectory.
+    ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
@@ -2565,9 +2603,9 @@ impl PyOrbitalTrajectory {
     ///     acc = np.array([-9.0, 0.0, 0.0])  # Gravity acceleration
     ///     traj.add_with_acceleration(epoch, state, acc)
     ///     ```
-    fn enable_acceleration_storage(mut slf: PyRefMut<'_, Self>, dimension: usize) -> PyRefMut<'_, Self> {
-        slf.trajectory.enable_acceleration_storage(dimension);
-        slf
+    fn enable_acceleration_storage(mut slf: PyRefMut<'_, Self>, dimension: usize) -> PyResult<PyRefMut<'_, Self>> {
+        slf.trajectory.enable_acceleration_storage(dimension)?;
+        Ok(slf)
     }
 
     /// Check if this trajectory has acceleration storage enabled.
@@ -2671,7 +2709,7 @@ impl PyOrbitalTrajectory {
             ));
         }
         let acc = DVector::from_vec(acceleration.as_slice()?.to_vec());
-        self.trajectory.set_acceleration_at(index, acc);
+        self.trajectory.set_acceleration_at(index, acc)?;
         Ok(())
     }
 
@@ -2717,7 +2755,7 @@ impl PyOrbitalTrajectory {
         }
         let state_vec = DVector::from_vec(state.as_slice()?.to_vec());
         let acc_vec = DVector::from_vec(acceleration.as_slice()?.to_vec());
-        self.trajectory.add_with_acceleration(epoch.obj, state_vec, acc_vec);
+        self.trajectory.add_with_acceleration(epoch.obj, state_vec, acc_vec)?;
         Ok(())
     }
 }
@@ -2789,6 +2827,9 @@ impl PyTrajectory {
     /// Returns:
     ///     DTrajectory: New empty trajectory instance with linear interpolation
     ///
+    /// Raises:
+    ///     BraheError: If the trajectory dimension is invalid.
+    ///
     /// Examples:
     ///     DTrajectory()    # 6D trajectory (default)
     ///     DTrajectory(3)   # 3D trajectory
@@ -2802,7 +2843,7 @@ impl PyTrajectory {
             ));
         }
 
-        let trajectory = trajectories::DTrajectory::new(dimension);
+        let trajectory = trajectories::DTrajectory::new(dimension)?;
         Ok(PyTrajectory { trajectory })
     }
 
@@ -2816,6 +2857,9 @@ impl PyTrajectory {
     ///
     /// Returns:
     ///     DTrajectory: New trajectory instance populated with data
+    ///
+    /// Raises:
+    ///     BraheError: If the trajectory configuration or provided data is invalid.
     #[classmethod]
     #[pyo3(signature = (epochs, states, interpolation_method=None))]
     pub fn from_data(
@@ -2853,14 +2897,14 @@ impl PyTrajectory {
             ));
         }
 
-        let mut trajectory = trajectories::DTrajectory::new(dimension)
+        let mut trajectory = trajectories::DTrajectory::new(dimension)?
             .with_interpolation_method(method);
 
         for (i, &epoch) in epochs_vec.iter().enumerate().take(num_epochs) {
             let state_row = states_array.row(i);
             let state_vec = na::DVector::from_iterator(dimension, state_row.iter().copied());
 
-            trajectory.add(epoch, state_vec)
+            trajectory.add(epoch, state_vec)?;
         }
 
         Ok(PyTrajectory { trajectory })
@@ -2902,10 +2946,13 @@ impl PyTrajectory {
     ///     traj = bh.DTrajectory(6)
     ///     traj = traj.with_eviction_policy_max_size(1000)
     ///     ```
+    ///
+    /// Raises:
+    ///     BraheError: If the eviction policy is invalid for this trajectory.
     #[pyo3(text_signature = "(max_size)")]
-    pub fn with_eviction_policy_max_size(mut slf: PyRefMut<'_, Self>, max_size: usize) -> Self {
-        slf.trajectory = slf.trajectory.clone().with_eviction_policy_max_size(max_size);
-        Self { trajectory: slf.trajectory.clone() }
+    pub fn with_eviction_policy_max_size(mut slf: PyRefMut<'_, Self>, max_size: usize) -> PyResult<Self> {
+        slf.trajectory = slf.trajectory.clone().with_eviction_policy_max_size(max_size)?;
+        Ok(Self { trajectory: slf.trajectory.clone() })
     }
 
     /// Set eviction policy to keep states within maximum age using builder pattern
@@ -2923,10 +2970,13 @@ impl PyTrajectory {
     ///     traj = bh.DTrajectory(6)
     ///     traj = traj.with_eviction_policy_max_age(3600.0)
     ///     ```
+    ///
+    /// Raises:
+    ///     BraheError: If the eviction policy is invalid for this trajectory.
     #[pyo3(text_signature = "(max_age)")]
-    pub fn with_eviction_policy_max_age(mut slf: PyRefMut<'_, Self>, max_age: f64) -> Self {
-        slf.trajectory = slf.trajectory.clone().with_eviction_policy_max_age(max_age);
-        Self { trajectory: slf.trajectory.clone() }
+    pub fn with_eviction_policy_max_age(mut slf: PyRefMut<'_, Self>, max_age: f64) -> PyResult<Self> {
+        slf.trajectory = slf.trajectory.clone().with_eviction_policy_max_age(max_age)?;
+        Ok(Self { trajectory: slf.trajectory.clone() })
     }
 
     /// Get the trajectory dimension.
@@ -2980,6 +3030,9 @@ impl PyTrajectory {
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
     ///     ```
+    ///
+    /// Raises:
+    ///     BraheError: If the state is inconsistent with the trajectory configuration.
     #[pyo3(text_signature = "(epoch, state)")]
     pub fn add(&mut self, epoch: PyRef<PyEpoch>, state: PyReadonlyArray1<f64>) -> PyResult<()> {
         let state_array = state.as_array();
@@ -2991,7 +3044,7 @@ impl PyTrajectory {
         }
 
         let state_vec = na::DVector::from_column_slice(state_array.as_slice().unwrap());
-        self.trajectory.add(epoch.obj, state_vec);
+        self.trajectory.add(epoch.obj, state_vec)?;
         Ok(())
     }
 
@@ -3719,6 +3772,9 @@ impl PyTrajectory {
     ///     cov = np.eye(6) * 100.0  # 100 m²/m²/s² diagonal covariance
     ///     traj.add_with_covariance(epc, state, cov)
     ///     ```
+    ///
+    /// Raises:
+    ///     BraheError: If the state or covariance is inconsistent with the trajectory.
     #[pyo3(text_signature = "(epoch, state, covariance)")]
     pub fn add_with_covariance(
         &mut self,
@@ -3752,7 +3808,7 @@ impl PyTrajectory {
             }
         }
 
-        self.trajectory.add_with_covariance(epoch.obj, state_vec, cov_matrix);
+        self.trajectory.add_with_covariance(epoch.obj, state_vec, cov_matrix)?;
         Ok(())
     }
 
@@ -3774,6 +3830,9 @@ impl PyTrajectory {
     ///     cov = np.eye(6) * 100.0
     ///     traj.set_covariance_at(0, cov)
     ///     ```
+    ///
+    /// Raises:
+    ///     BraheError: If the index is out of bounds or the covariance is inconsistent.
     #[pyo3(text_signature = "(index, covariance)")]
     pub fn set_covariance_at(
         &mut self,
@@ -3796,7 +3855,7 @@ impl PyTrajectory {
             }
         }
 
-        self.trajectory.set_covariance_at(index, cov_matrix);
+        self.trajectory.set_covariance_at(index, cov_matrix)?;
         Ok(())
     }
 

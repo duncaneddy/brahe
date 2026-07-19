@@ -422,7 +422,7 @@ impl SGPPropagator {
 
         // Create trajectory with initial state
         let mut trajectory =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)?;
 
         // Set trajectory identity from propagator identity
         if let Some(n) = name {
@@ -431,7 +431,7 @@ impl SGPPropagator {
         // NORAD ID is always available (norad_id: u32)
         trajectory = trajectory.with_id(norad_id as u64);
 
-        trajectory.add(epoch, svec6_to_dvec(&initial_state));
+        trajectory.add(epoch, svec6_to_dvec(&initial_state))?;
 
         let mut result = Ok(SGPPropagator {
             line1: line1.to_string(),
@@ -685,7 +685,7 @@ impl SGPPropagator {
 
         // Create trajectory with initial state
         let mut trajectory =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)?;
 
         // Set trajectory identity from propagator identity
         if let Some(n) = object_name {
@@ -693,7 +693,7 @@ impl SGPPropagator {
         }
         trajectory = trajectory.with_id(norad_id);
 
-        trajectory.add(brahe_epoch, svec6_to_dvec(&initial_state));
+        trajectory.add(brahe_epoch, svec6_to_dvec(&initial_state))?;
 
         let mut result = Ok(SGPPropagator {
             line1,
@@ -887,7 +887,7 @@ impl SGPPropagator {
         let uuid = self.trajectory.get_uuid();
         let id = self.trajectory.get_id();
 
-        self.trajectory = DOrbitTrajectory::new(6, frame, representation, angle_format)
+        self.trajectory = DOrbitTrajectory::new(6, frame, representation, angle_format)?
             .with_identity(name.as_deref(), uuid, id);
 
         // Propagate to initial epoch and add to trajectory
@@ -917,7 +917,7 @@ impl SGPPropagator {
         self.epoch_current = self.epoch;
         self.state_current = initial_state;
         self.trajectory
-            .add(self.epoch, svec6_to_dvec(&initial_state));
+            .add(self.epoch, svec6_to_dvec(&initial_state))?;
 
         Ok(self)
     }
@@ -1636,7 +1636,7 @@ impl SStatePropagator for SGPPropagator {
                 // Gate trajectory storage on mode
                 if self.should_store_state() {
                     self.trajectory
-                        .add(event.window_open, svec6_to_dvec(&event_state_output));
+                        .add(event.window_open, svec6_to_dvec(&event_state_output))?;
                 }
 
                 // Check for terminal action
@@ -1670,7 +1670,8 @@ impl SStatePropagator for SGPPropagator {
 
         // Gate trajectory storage on mode
         if self.should_store_state() {
-            self.trajectory.add(target_epoch, svec6_to_dvec(&new_state));
+            self.trajectory
+                .add(target_epoch, svec6_to_dvec(&new_state))?;
         }
 
         Ok(())
@@ -1711,7 +1712,8 @@ impl SStatePropagator for SGPPropagator {
         self.state_current = self.initial_state;
         self.trajectory.clear();
         self.trajectory
-            .add(self.epoch, svec6_to_dvec(&self.initial_state));
+            .add(self.epoch, svec6_to_dvec(&self.initial_state))
+            .expect("trajectory state validated at construction");
 
         // Clear event detection state
         self.event_log.clear();

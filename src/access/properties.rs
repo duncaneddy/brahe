@@ -1027,9 +1027,10 @@ mod tests {
         let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
         let state2 = Vector6::new(7000e3, 100e3, 10e3, 10.0, 7500.0, 100.0);
 
-        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
-        traj.add(epoch1, state1);
-        traj.add(epoch2, state2);
+        let mut traj =
+            SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
+        traj.add(epoch1, state1).unwrap();
+        traj.add(epoch2, state2).unwrap();
 
         // Use StateProvider trait directly (now implemented by SOrbitTrajectory)
         let mid_epoch = epoch1 + 30.0;

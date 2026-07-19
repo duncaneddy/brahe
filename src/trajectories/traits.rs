@@ -177,7 +177,7 @@ pub trait Trajectory {
     /// # Returns
     /// * `Ok(())` - State successfully added
     /// * `Err(BraheError)` - If addition fails (e.g., dimension mismatch)
-    fn add(&mut self, epoch: Epoch, state: Self::StateVector) -> ();
+    fn add(&mut self, epoch: Epoch, state: Self::StateVector) -> Result<(), BraheError>;
 
     /// Get the epoch at a specific index
     ///
@@ -574,15 +574,16 @@ pub trait InterpolatableTrajectory: Trajectory + InterpolationConfig {
 ///     OrbitFrame::ECI,
 ///     OrbitRepresentation::Cartesian,
 ///     None,
-/// );
+/// )
+/// .unwrap();
 ///
 /// // Add state
 /// let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 /// let state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
-/// traj.add(epoch, state);
+/// traj.add(epoch, state).unwrap();
 ///
 /// // Convert to Keplerian in degrees
-/// let kep_traj = traj.to_keplerian(AngleFormat::Degrees);
+/// let kep_traj = traj.to_keplerian(AngleFormat::Degrees).unwrap();
 /// ```
 pub trait OrbitalTrajectory: InterpolatableTrajectory {
     /// Create orbital trajectory from data with specified orbital properties.
@@ -596,12 +597,10 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
     /// * `covariances` - Optional vector of 6x6 covariance matrices corresponding to states
     ///
     /// # Returns
-    /// New orbital trajectory with data
-    ///
-    /// # Panics
-    /// Panics if parameters are invalid (e.g., None angle_format with Keplerian, or Keplerian with ECEF)
-    /// Panics if covariances are provided but frame is not ECI or GCRF
-    /// Panics if covariances length does not match states length
+    /// New orbital trajectory with data, or an error if parameters are
+    /// invalid (e.g., None angle_format with Keplerian, Keplerian with ECEF,
+    /// covariances provided for a non-inertial frame, or a covariances length
+    /// that does not match the states length).
     fn from_orbital_data(
         epochs: Vec<Epoch>,
         states: Vec<Self::StateVector>,
@@ -609,7 +608,7 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
         covariances: Option<Vec<SMatrix<f64, 6, 6>>>,
-    ) -> Self
+    ) -> Result<Self, BraheError>
     where
         Self: Sized;
 
@@ -620,7 +619,7 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
     /// # Returns
     /// * `Ok(Self)` - New trajectory in ECI frame
     /// * `Err(BraheError)` - If conversion fails
-    fn to_eci(&self) -> Self
+    fn to_eci(&self) -> Result<Self, BraheError>
     where
         Self: Sized;
 
@@ -631,7 +630,7 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
     /// # Returns
     /// * `Ok(Self)` - New trajectory in ECEF frame
     /// * `Err(BraheError)` - If conversion fails
-    fn to_ecef(&self) -> Self
+    fn to_ecef(&self) -> Result<Self, BraheError>
     where
         Self: Sized;
 
@@ -640,8 +639,9 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
     /// Returns a new trajectory in the GCRF frame.
     ///
     /// # Returns
-    /// * `Self` - New trajectory in GCRF frame
-    fn to_gcrf(&self) -> Self
+    /// * `Ok(Self)` - New trajectory in GCRF frame
+    /// * `Err(BraheError)` - If conversion fails
+    fn to_gcrf(&self) -> Result<Self, BraheError>
     where
         Self: Sized;
 
@@ -650,8 +650,9 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
     /// Returns a new trajectory in the EME2000 frame.
     ///
     /// # Returns
-    /// * `Self` - New trajectory in EME2000 frame
-    fn to_eme2000(&self) -> Self
+    /// * `Ok(Self)` - New trajectory in EME2000 frame
+    /// * `Err(BraheError)` - If conversion fails
+    fn to_eme2000(&self) -> Result<Self, BraheError>
     where
         Self: Sized;
 
@@ -660,8 +661,9 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
     /// Returns a new trajectory in the ITRF frame.
     ///
     /// # Returns
-    /// * `Self` - New trajectory in ITRF frame
-    fn to_itrf(&self) -> Self
+    /// * `Ok(Self)` - New trajectory in ITRF frame
+    /// * `Err(BraheError)` - If conversion fails
+    fn to_itrf(&self) -> Result<Self, BraheError>
     where
         Self: Sized;
 
@@ -674,8 +676,8 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
     ///
     /// # Returns
     /// * `Ok(Self)` - New trajectory in Keplerian representation
-    /// * `Err(BraheError)` - If angle_format is None or conversion fails
-    fn to_keplerian(&self, angle_format: AngleFormat) -> Self
+    /// * `Err(BraheError)` - If the frame is unsupported or conversion fails
+    fn to_keplerian(&self, angle_format: AngleFormat) -> Result<Self, BraheError>
     where
         Self: Sized;
 }
@@ -693,7 +695,11 @@ pub trait STMStorage: Trajectory {
     fn stm_at_idx(&self, index: usize) -> Option<&DMatrix<f64>>;
 
     /// Set STM at a specific index (auto-enables storage if needed)
-    fn set_stm_at(&mut self, index: usize, stm: DMatrix<f64>);
+    ///
+    /// # Returns
+    /// `Ok(())` on success, or an error if the index is out of bounds or the
+    /// STM dimensions do not match the trajectory's STM dimensions.
+    fn set_stm_at(&mut self, index: usize, stm: DMatrix<f64>) -> Result<(), BraheError>;
 
     /// Get STM dimensions as (rows, cols)
     fn stm_dimensions(&self) -> (usize, usize);
@@ -747,13 +753,24 @@ pub trait STMStorage: Trajectory {
 /// method has a default implementation using linear interpolation.
 pub trait SensitivityStorage: Trajectory {
     /// Enable sensitivity storage with specified parameter dimension
-    fn enable_sensitivity_storage(&mut self, param_dim: usize);
+    ///
+    /// # Returns
+    /// `Ok(())` on success, or an error if `param_dim` is zero.
+    fn enable_sensitivity_storage(&mut self, param_dim: usize) -> Result<(), BraheError>;
 
     /// Get sensitivity matrix at a specific index (returns None if storage disabled)
     fn sensitivity_at_idx(&self, index: usize) -> Option<&DMatrix<f64>>;
 
     /// Set sensitivity matrix at a specific index (auto-enables storage if needed)
-    fn set_sensitivity_at(&mut self, index: usize, sensitivity: DMatrix<f64>);
+    ///
+    /// # Returns
+    /// `Ok(())` on success, or an error if the index is out of bounds or the
+    /// sensitivity dimensions do not match existing storage.
+    fn set_sensitivity_at(
+        &mut self,
+        index: usize,
+        sensitivity: DMatrix<f64>,
+    ) -> Result<(), BraheError>;
 
     /// Get sensitivity dimensions as (state_dim, param_dim), or None if not enabled
     fn sensitivity_dimensions(&self) -> Option<(usize, usize)>;

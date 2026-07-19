@@ -370,7 +370,7 @@ impl DNumericalPropagator {
         );
 
         // Create trajectory storage (internally always ECI Cartesian)
-        let mut trajectory = DTrajectory::new(state_dim);
+        let mut trajectory = DTrajectory::new(state_dim)?;
 
         // Set interpolation method from config
         trajectory.set_interpolation_method(propagation_config.interpolation_method);
@@ -380,7 +380,7 @@ impl DNumericalPropagator {
             trajectory.enable_stm_storage();
         }
         if propagation_config.variational.store_sensitivity_history && !params.is_empty() {
-            trajectory.enable_sensitivity_storage(params.len());
+            trajectory.enable_sensitivity_storage(params.len())?;
         }
 
         // Note: DNumericalPropagator does not support acceleration storage
@@ -404,7 +404,7 @@ impl DNumericalPropagator {
             initial_covariance.clone(),
             initial_stm,
             initial_sensitivity,
-        );
+        )?;
 
         // Determine propagation mode based on what's enabled
         let propagation_mode = match (enable_stm, enable_sensitivity) {
@@ -699,7 +699,7 @@ impl DNumericalPropagator {
                     // Add to trajectory at exact event time if configured
                     if !matches!(self.trajectory_mode, TrajectoryMode::Disabled) {
                         self.trajectory
-                            .add(event.window_open, event.entry_state.clone());
+                            .add(event.window_open, event.entry_state.clone())?;
                     }
 
                     // Check if this event is terminal (no callback but has terminal action)
@@ -729,7 +729,7 @@ impl DNumericalPropagator {
 
                     if !matches!(self.trajectory_mode, TrajectoryMode::Disabled) {
                         self.trajectory
-                            .add(event.window_open, event.entry_state.clone());
+                            .add(event.window_open, event.entry_state.clone())?;
                     }
                 }
 
@@ -745,7 +745,7 @@ impl DNumericalPropagator {
                     self.trajectory.add(
                         callback_event.window_open,
                         callback_event.entry_state.clone(),
-                    );
+                    )?;
                 }
 
                 // Execute callback
@@ -761,7 +761,7 @@ impl DNumericalPropagator {
                         // Add post-callback state to trajectory (same time, different state)
                         if !matches!(self.trajectory_mode, TrajectoryMode::Disabled) {
                             self.trajectory
-                                .add(callback_event.window_open, y_new.clone());
+                                .add(callback_event.window_open, y_new.clone())?;
                         }
                         y_new
                     } else {
@@ -1548,9 +1548,9 @@ impl DNumericalPropagator {
                             cov,
                             stm_to_store,
                             sens_to_store,
-                        );
+                        )?;
                     } else {
-                        self.trajectory.add(epoch_new, self.x_curr.clone());
+                        self.trajectory.add(epoch_new, self.x_curr.clone())?;
                     }
                 }
             }
@@ -1598,9 +1598,9 @@ impl DNumericalPropagator {
                             cov,
                             stm_to_store,
                             sens_to_store,
-                        );
+                        )?;
                     } else {
-                        self.trajectory.add(term_epoch, term_state);
+                        self.trajectory.add(term_epoch, term_state)?;
                     }
                 }
             }
@@ -1792,7 +1792,8 @@ impl super::traits::DStatePropagator for DNumericalPropagator {
         }
 
         // Clear trajectory
-        self.trajectory = DTrajectory::new(self.state_dim);
+        self.trajectory =
+            DTrajectory::new(self.state_dim).expect("state dimension validated at construction");
 
         // Clear event state
         self.event_log.clear();

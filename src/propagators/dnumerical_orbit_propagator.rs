@@ -981,7 +981,7 @@ impl DNumericalOrbitPropagator {
             CentralBody::Earth => OrbitFrame::ECI,
             ref cb => OrbitFrame::BodyCenteredInertial(cb.naif_id()),
         };
-        let mut trajectory = DOrbitTrajectory::new(
+        let trajectory = DOrbitTrajectory::new(
             state_dim,
             trajectory_frame,
             OrbitRepresentation::Cartesian,
@@ -989,6 +989,7 @@ impl DNumericalOrbitPropagator {
         );
 
         // Set interpolation method from config
+        let mut trajectory = trajectory?;
         trajectory.set_interpolation_method(propagation_config.interpolation_method);
 
         // Enable STM/sensitivity storage in trajectory if configured
@@ -996,11 +997,11 @@ impl DNumericalOrbitPropagator {
             trajectory.enable_stm_storage();
         }
         if propagation_config.variational.store_sensitivity_history && !params.is_empty() {
-            trajectory.enable_sensitivity_storage(params.len());
+            trajectory.enable_sensitivity_storage(params.len())?;
         }
         // Enable acceleration storage if configured
         if propagation_config.store_accelerations {
-            trajectory.enable_acceleration_storage(3); // 3D acceleration for orbit propagator
+            trajectory.enable_acceleration_storage(3)?; // 3D acceleration for orbit propagator
         }
 
         // Store initial state in trajectory with identity STM and zero sensitivity if needed
@@ -1033,7 +1034,7 @@ impl DNumericalOrbitPropagator {
             initial_stm,
             initial_sensitivity,
             initial_acceleration,
-        );
+        )?;
 
         // Determine propagation mode based on what's enabled
         let propagation_mode = match (enable_stm, enable_sensitivity) {
@@ -1463,7 +1464,7 @@ impl DNumericalOrbitPropagator {
                     // Add to trajectory at exact event time if configured
                     if !matches!(self.trajectory_mode, TrajectoryMode::Disabled) {
                         self.trajectory
-                            .add(event.window_open, event.entry_state.clone());
+                            .add(event.window_open, event.entry_state.clone())?;
                     }
 
                     // Check if this event is terminal (no callback but has terminal action)
@@ -1493,7 +1494,7 @@ impl DNumericalOrbitPropagator {
 
                     if !matches!(self.trajectory_mode, TrajectoryMode::Disabled) {
                         self.trajectory
-                            .add(event.window_open, event.entry_state.clone());
+                            .add(event.window_open, event.entry_state.clone())?;
                     }
                 }
 
@@ -1517,7 +1518,7 @@ impl DNumericalOrbitPropagator {
                         None,
                         None,
                         acc,
-                    );
+                    )?;
                 }
 
                 // Execute callback
@@ -1541,7 +1542,7 @@ impl DNumericalOrbitPropagator {
                                 None,
                                 None,
                                 acc,
-                            );
+                            )?;
                         }
                         y_new
                     } else {
@@ -2925,7 +2926,7 @@ impl DNumericalOrbitPropagator {
                         stm_to_store,
                         sens_to_store,
                         acc,
-                    );
+                    )?;
                 }
             }
 
@@ -2972,7 +2973,7 @@ impl DNumericalOrbitPropagator {
                         stm_to_store,
                         sens_to_store,
                         acc,
-                    );
+                    )?;
                 }
             }
         }
@@ -3173,7 +3174,8 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
             trajectory_frame,
             OrbitRepresentation::Cartesian,
             None,
-        );
+        )
+        .expect("trajectory format validated at construction");
 
         // Clear event state
         self.event_log.clear();

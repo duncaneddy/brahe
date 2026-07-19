@@ -23,7 +23,7 @@
  * let mut traj = STrajectory6::new();
  * let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
  * let state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
- * traj.add(epoch, state);
+ * traj.add(epoch, state).unwrap();
  * ```
  */
 
@@ -178,26 +178,22 @@ impl<const R: usize> STrajectory<R> {
     /// * `max_size` - Maximum number of states to retain (must be >= 1)
     ///
     /// # Returns
-    /// Self with updated eviction policy
+    /// * `Ok(Self)` - Self with updated eviction policy
+    /// * `Err(BraheError)` - If max_size is less than 1
     ///
-    /// # Panics
-    /// Panics if max_size is less than 1
+    /// # Errors
+    /// Returns an error if max_size is less than 1.
     ///
     /// # Examples
     /// ```rust
     /// use brahe::trajectories::STrajectory6;
     /// use brahe::traits::InterpolationMethod;
     /// let traj = STrajectory6::new()
-    ///     .with_eviction_policy_max_size(100);
+    ///     .with_eviction_policy_max_size(100).unwrap();
     /// ```
-    pub fn with_eviction_policy_max_size(mut self, max_size: usize) -> Self {
-        if max_size < 1 {
-            panic!("Maximum size must be >= 1");
-        }
-        self.eviction_policy = TrajectoryEvictionPolicy::KeepCount;
-        self.max_size = Some(max_size);
-        self.max_age = None;
-        self
+    pub fn with_eviction_policy_max_size(mut self, max_size: usize) -> Result<Self, BraheError> {
+        self.set_eviction_policy_max_size(max_size)?;
+        Ok(self)
     }
 
     /// Sets the eviction policy to keep states within a maximum age using builder pattern.
@@ -209,26 +205,22 @@ impl<const R: usize> STrajectory<R> {
     /// * `max_age` - Maximum age of states to retain in seconds (must be > 0.0)
     ///
     /// # Returns
-    /// Self with updated eviction policy
+    /// * `Ok(Self)` - Self with updated eviction policy
+    /// * `Err(BraheError)` - If max_age is not positive
     ///
-    /// # Panics
-    /// Panics if max_age is not positive
+    /// # Errors
+    /// Returns an error if max_age is not positive.
     ///
     /// # Examples
     /// ```rust
     /// use brahe::trajectories::STrajectory6;
     /// use brahe::traits::InterpolationMethod;
     /// let traj = STrajectory6::new()
-    ///     .with_eviction_policy_max_age(3600.0);
+    ///     .with_eviction_policy_max_age(3600.0).unwrap();
     /// ```
-    pub fn with_eviction_policy_max_age(mut self, max_age: f64) -> Self {
-        if max_age <= 0.0 {
-            panic!("Maximum age must be > 0.0");
-        }
-        self.eviction_policy = TrajectoryEvictionPolicy::KeepWithinDuration;
-        self.max_age = Some(max_age);
-        self.max_size = None;
-        self
+    pub fn with_eviction_policy_max_age(mut self, max_age: f64) -> Result<Self, BraheError> {
+        self.set_eviction_policy_max_age(max_age)?;
+        Ok(self)
     }
 
     /// Apply eviction policy to manage trajectory memory
@@ -368,15 +360,19 @@ impl<const R: usize> STrajectory<R> {
     /// * `index` - Index in the trajectory
     /// * `covariance` - Covariance matrix
     ///
-    /// # Panics
-    /// Panics if index is out of bounds
-    pub fn set_covariance_at(&mut self, index: usize, covariance: SMatrix<f64, R, R>) {
+    /// # Errors
+    /// Returns an error if index is out of bounds
+    pub fn set_covariance_at(
+        &mut self,
+        index: usize,
+        covariance: SMatrix<f64, R, R>,
+    ) -> Result<(), BraheError> {
         if index >= self.states.len() {
-            panic!(
+            return Err(BraheError::OutOfBoundsError(format!(
                 "Index {} out of bounds for trajectory with {} states",
                 index,
                 self.states.len()
-            );
+            )));
         }
 
         // Enable covariance storage if not already enabled
@@ -388,6 +384,8 @@ impl<const R: usize> STrajectory<R> {
         if let Some(ref mut covs) = self.covariances {
             covs[index] = covariance;
         }
+
+        Ok(())
     }
 
     /// Get covariance matrix at a specific epoch (with interpolation)
@@ -582,7 +580,7 @@ impl<const R: usize> Trajectory for STrajectory<R> {
         })
     }
 
-    fn add(&mut self, epoch: Epoch, state: Self::StateVector) {
+    fn add(&mut self, epoch: Epoch, state: Self::StateVector) -> Result<(), BraheError> {
         // Find the correct position to insert based on epoch
         // Insert after any existing states at the same epoch to support
         // impulsive maneuvers where we want both pre- and post-maneuver states
@@ -606,6 +604,8 @@ impl<const R: usize> Trajectory for STrajectory<R> {
 
         // Apply eviction policy after adding state
         self.apply_eviction_policy();
+
+        Ok(())
     }
 
     fn epoch_at_idx(&self, index: usize) -> Result<Epoch, BraheError> {
@@ -1028,7 +1028,7 @@ mod tests {
         let mut traj = STrajectory6::new().with_interpolation_method(InterpolationMethod::Linear);
         let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let state = Vector6::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0);
-        traj.add(t0, state);
+        traj.add(t0, state).unwrap();
         assert_eq!(traj.len(), 1);
         assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
     }
@@ -1036,7 +1036,9 @@ mod tests {
     #[test]
     fn test_strajectory_with_eviction_policy_max_size_builder() {
         // Test builder pattern for max size eviction policy
-        let traj = STrajectory6::new().with_eviction_policy_max_size(5);
+        let traj = STrajectory6::new()
+            .with_eviction_policy_max_size(5)
+            .unwrap();
 
         assert_eq!(
             traj.get_eviction_policy(),
@@ -1048,7 +1050,9 @@ mod tests {
     #[test]
     fn test_strajectory_with_eviction_policy_max_age_builder() {
         // Test builder pattern for max age eviction policy
-        let traj = STrajectory6::new().with_eviction_policy_max_age(300.0);
+        let traj = STrajectory6::new()
+            .with_eviction_policy_max_age(300.0)
+            .unwrap();
 
         assert_eq!(
             traj.get_eviction_policy(),
@@ -1062,7 +1066,8 @@ mod tests {
         // Test chaining multiple builder methods
         let mut traj = STrajectory6::new()
             .with_interpolation_method(InterpolationMethod::Linear)
-            .with_eviction_policy_max_size(10);
+            .with_eviction_policy_max_size(10)
+            .unwrap();
 
         assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
         assert_eq!(
@@ -1075,7 +1080,7 @@ mod tests {
         for i in 0..15 {
             let epoch = t0 + (i as f64 * 60.0);
             let state = Vector6::new(7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-            traj.add(epoch, state);
+            traj.add(epoch, state).unwrap();
         }
 
         // Should only have 10 states due to eviction policy
@@ -1245,16 +1250,16 @@ mod tests {
         // Add states in order
         let epoch1 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        trajectory.add(epoch1, state1);
+        trajectory.add(epoch1, state1).unwrap();
 
         let epoch3 = Epoch::from_jd(2451545.2, TimeSystem::UTC);
         let state3 = Vector6::new(7200e3, 0.0, 0.0, 0.0, 7.7e3, 0.0);
-        trajectory.add(epoch3, state3);
+        trajectory.add(epoch3, state3).unwrap();
 
         // Add a state in between
         let epoch2 = Epoch::from_jd(2451545.1, TimeSystem::UTC);
         let state2 = Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0);
-        trajectory.add(epoch2, state2);
+        trajectory.add(epoch2, state2).unwrap();
 
         assert_eq!(trajectory.len(), 3);
         assert_eq!(trajectory.epochs[0].jd(), 2451545.0);
@@ -1268,12 +1273,12 @@ mod tests {
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
 
-        trajectory.add(epoch, state1);
+        trajectory.add(epoch, state1).unwrap();
         assert_eq!(trajectory.len(), 1);
         assert_eq!(trajectory.states[0][0], 7000e3);
 
         let state2 = Vector6::new(7100e3, 100e3, 50e3, 10.0, 7.6e3, 5.0);
-        trajectory.add(epoch, state2);
+        trajectory.add(epoch, state2).unwrap();
         assert_eq!(trajectory.len(), 2); // Length should increase (append, not replace)
         assert_eq!(trajectory.states[0][0], 7000e3); // First state unchanged
         assert_eq!(trajectory.states[1][0], 7100e3); // Second state appended
@@ -1355,16 +1360,20 @@ mod tests {
         let mut trajectory = STrajectory6::new();
         assert_eq!(trajectory.len(), 0);
 
-        trajectory.add(
-            Epoch::from_jd(2451545.0, TimeSystem::UTC),
-            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
-        );
+        trajectory
+            .add(
+                Epoch::from_jd(2451545.0, TimeSystem::UTC),
+                Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            )
+            .unwrap();
         assert_eq!(trajectory.len(), 1);
 
-        trajectory.add(
-            Epoch::from_jd(2451545.1, TimeSystem::UTC),
-            Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0),
-        );
+        trajectory
+            .add(
+                Epoch::from_jd(2451545.1, TimeSystem::UTC),
+                Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0),
+            )
+            .unwrap();
         assert_eq!(trajectory.len(), 2);
     }
 
@@ -1373,10 +1382,12 @@ mod tests {
         let mut trajectory = STrajectory6::new();
         assert!(trajectory.is_empty());
 
-        trajectory.add(
-            Epoch::from_jd(2451545.0, TimeSystem::UTC),
-            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
-        );
+        trajectory
+            .add(
+                Epoch::from_jd(2451545.0, TimeSystem::UTC),
+                Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            )
+            .unwrap();
         assert!(!trajectory.is_empty());
 
         trajectory.clear();
@@ -1416,10 +1427,12 @@ mod tests {
 
         // Test single state trajectory
         let mut single_trajectory = STrajectory6::new();
-        single_trajectory.add(
-            Epoch::from_jd(2451545.0, TimeSystem::UTC),
-            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
-        );
+        single_trajectory
+            .add(
+                Epoch::from_jd(2451545.0, TimeSystem::UTC),
+                Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            )
+            .unwrap();
         assert!(single_trajectory.timespan().is_none());
 
         // Test empty trajectory
@@ -1437,7 +1450,7 @@ mod tests {
         let mut single_trajectory = STrajectory6::new();
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        single_trajectory.add(epoch, state);
+        single_trajectory.add(epoch, state).unwrap();
 
         let (first_epoch, first_state) = single_trajectory.first().unwrap();
         assert_eq!(first_epoch.jd(), 2451545.0);
@@ -1460,7 +1473,7 @@ mod tests {
         let mut single_trajectory = STrajectory6::new();
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        single_trajectory.add(epoch, state);
+        single_trajectory.add(epoch, state).unwrap();
 
         let (last_epoch, last_state) = single_trajectory.last().unwrap();
         assert_eq!(last_epoch.jd(), 2451545.0);
@@ -1760,7 +1773,7 @@ mod tests {
         for i in 0..5 {
             let epoch = t0 + (i as f64 * 60.0);
             let state = Vector6::new(7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-            traj.add(epoch, state);
+            traj.add(epoch, state).unwrap();
         }
 
         assert_eq!(traj.len(), 5);
@@ -1778,7 +1791,7 @@ mod tests {
         // Add another state - should still maintain max size
         let new_epoch = t0 + 5.0 * 60.0;
         let new_state = Vector6::new(7000e3 + 5000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        traj.add(new_epoch, new_state);
+        traj.add(new_epoch, new_state).unwrap();
 
         assert_eq!(traj.len(), 3);
         assert_eq!(traj.state_at_idx(0).unwrap()[0], 7000e3 + 3000.0);
@@ -1796,7 +1809,7 @@ mod tests {
         for i in 0..6 {
             let epoch = t0 + (i as f64 * 60.0); // 0, 60, 120, 180, 240, 300 seconds
             let state = Vector6::new(7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-            traj.add(epoch, state);
+            traj.add(epoch, state).unwrap();
         }
 
         assert_eq!(traj.len(), 6);
@@ -2040,7 +2053,7 @@ mod tests {
         let state0 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
 
         let mut traj = STrajectory6::new();
-        traj.add(t0, state0);
+        traj.add(t0, state0).unwrap();
 
         // Test interpolation at exact epoch - should return the state
         let result = traj.interpolate_linear(&t0).unwrap();
@@ -2063,7 +2076,7 @@ mod tests {
         let state0 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
 
         let mut traj = STrajectory6::new();
-        traj.add(t0, state0);
+        traj.add(t0, state0).unwrap();
 
         // Test interpolation at different epoch - should error
         let t_different = t0 + 60.0;
@@ -2139,10 +2152,10 @@ mod tests {
         // Create trajectory with covariances
         let mut traj = STrajectory6::new();
         traj.enable_covariance_storage();
-        traj.add(t0, state1);
-        traj.add(t1, state2);
-        traj.set_covariance_at(0, cov1);
-        traj.set_covariance_at(1, cov2);
+        traj.add(t0, state1).unwrap();
+        traj.add(t1, state2).unwrap();
+        traj.set_covariance_at(0, cov1).unwrap();
+        traj.set_covariance_at(1, cov2).unwrap();
 
         // Test matrix square root interpolation at midpoint
         traj.set_covariance_interpolation_method(CovarianceInterpolationMethod::MatrixSquareRoot);
@@ -2200,10 +2213,10 @@ mod tests {
 
         let mut traj = STrajectory6::new();
         traj.enable_covariance_storage();
-        traj.add(t0, state1);
-        traj.add(t1, state2);
-        traj.set_covariance_at(0, cov1);
-        traj.set_covariance_at(1, cov2);
+        traj.add(t0, state1).unwrap();
+        traj.add(t1, state2).unwrap();
+        traj.set_covariance_at(0, cov1).unwrap();
+        traj.set_covariance_at(1, cov2).unwrap();
 
         // At exact t0, should return cov1
         let result = traj.covariance_at(t0).unwrap().unwrap();

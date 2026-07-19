@@ -71,6 +71,11 @@ pub fn position_geodetic_to_ecef(
 /// # Returns
 /// - `x_geod`: Geodetic coordinates (lon, lat, altitude). Units: (*rad* or *deg* and *m*)
 ///
+/// # Panics
+/// Panics if the iterative refinement fails to converge within 10 iterations.
+/// This can only occur for positions near the Earth's center, where the
+/// geodetic conversion is ill-conditioned.
+///
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, DEGREES};
@@ -111,8 +116,12 @@ pub fn position_ecef_to_geodetic(x_ecef: Vector3<f64>, angle_format: AngleFormat
         iter += 1;
     }
 
-    if iter == 20 {
-        panic!("Reached maximum number of iterations.");
+    if iter == 10 {
+        panic!(
+            "Geodetic conversion failed to converge after {} iterations for ECEF position \
+             [{}, {}, {}]; the conversion is ill-conditioned near the Earth's center",
+            iter, x, y, z
+        );
     }
 
     // Extract geodetic coordiantes

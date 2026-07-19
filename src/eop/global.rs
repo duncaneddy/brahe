@@ -19,7 +19,7 @@ static GLOBAL_EOP: Lazy<Arc<RwLock<Box<dyn EarthOrientationProvider + Sync + Sen
 /// Set the crate-wide static Earth orientation data provider. This function should be called
 /// before any other function in the crate which accesses the global Earth orientation data.
 /// If this function is not called, the crate-wide static Earth orientation data provider will
-/// not be initialized and any function which accesses it will panic.
+/// not be initialized and any function which accesses it will return an error.
 ///
 /// The global provider can be set to any object which implements the `EarthOrientationProvider`
 /// trait. This includes the `StaticEOPProvider` and `FileEOPProvider` objects. The global
@@ -51,7 +51,7 @@ pub fn set_global_eop_provider<T: EarthOrientationProvider + Sync + Send + 'stat
 
 /// Get UT1-UTC offset set for specified date from the crate-wide static Earth orientation data
 /// provider. The crate-wide provider must be initialized before this function is called or
-/// the function will panic.
+/// the function will return an error.
 ///
 /// Function will return the UT1-UTC time scale for the given date.
 /// Function is guaranteed to return a value. If the request value is beyond the end of the
@@ -60,7 +60,7 @@ pub fn set_global_eop_provider<T: EarthOrientationProvider + Sync + Send + 'stat
 /// data are:
 /// - `Zero`: Returned values will be `0.0` where data is not available
 /// - `Hold`: Will return the last available returned value when data is not available
-/// - `Error`: Function call will panic and terminate the program
+/// - `Error`: Function call will return an error
 ///
 /// If the date is in between data points, which typically are at integer day intervals, the
 /// function will linearly interpolate between adjacent data points if `interpolate` was set
@@ -91,7 +91,7 @@ pub fn get_global_ut1_utc(mjd: f64) -> Result<f64, BraheError> {
 
 /// Get polar motion offset set for specified date from the crate-wide static Earth orientation data
 /// provider. The crate-wide provider must be initialized before this function is called or
-/// the function will panic.
+/// the function will return an error.
 ///
 /// Function will return the pm-x and pm-y for the given date.
 /// Function is guaranteed to return a value. If the request value is beyond the end of the
@@ -100,7 +100,7 @@ pub fn get_global_ut1_utc(mjd: f64) -> Result<f64, BraheError> {
 /// data are:
 /// - `Zero`: Returned values will be `0.0` where data is not available
 /// - `Hold`: Will return the last available returned value when data is not available
-/// - `Error`: Function call will panic and terminate the program
+/// - `Error`: Function call will return an error
 ///
 /// If the date is in between data points, which typically are at integer day intervals, the
 /// function will linearly interpolate between adjacent data points if `interpolate` was set
@@ -132,7 +132,7 @@ pub fn get_global_pm(mjd: f64) -> Result<(f64, f64), BraheError> {
 
 /// Get precession-nutation for specified date from the crate-wide static Earth orientation data
 /// provider. The crate-wide provider must be initialized before this function is called or
-/// the function will panic.
+/// the function will return an error.
 ///
 /// Function will return the dX and dY for the given date.
 /// Function is guaranteed to return a value. If the request value is beyond the end of the
@@ -141,7 +141,7 @@ pub fn get_global_pm(mjd: f64) -> Result<(f64, f64), BraheError> {
 /// data are:
 /// - `Zero`: Returned values will be `0.0` where data is not available
 /// - `Hold`: Will return the last available returned value when data is not available
-/// - `Error`: Function call will panic and terminate the program
+/// - `Error`: Function call will return an error
 ///
 /// If the date is in between data points, which typically are at integer day intervals, the
 /// function will linearly interpolate between adjacent data points if `interpolate` was set
@@ -173,7 +173,7 @@ pub fn get_global_dxdy(mjd: f64) -> Result<(f64, f64), BraheError> {
 
 /// Get length of day offset set for specified date from the crate-wide static Earth orientation data
 /// provider. The crate-wide provider must be initialized before this function is called or
-/// the function will panic.
+/// the function will return an error.
 ///
 /// Function will return the LOD offset for the given date.
 /// Function is guaranteed to return a value. If the request value is beyond the end of the
@@ -182,7 +182,7 @@ pub fn get_global_dxdy(mjd: f64) -> Result<(f64, f64), BraheError> {
 /// data are:
 /// - `Zero`: Returned values will be `0.0` where data is not available
 /// - `Hold`: Will return the last available returned value when data is not available
-/// - `Error`: Function call will panic and terminate the program
+/// - `Error`: Function call will return an error
 ///
 /// If the date is in between data points, which typically are at integer day intervals, the
 /// function will linearly interpolate between adjacent data points if `interpolate` was set
@@ -214,7 +214,7 @@ pub fn get_global_lod(mjd: f64) -> Result<f64, BraheError> {
 
 /// Get Earth orientation parameter set for specified date from the crate-wide static Earth orientation data
 /// provider. The crate-wide provider must be initialized before this function is called or
-/// the function will panic.
+/// the function will return an error.
 ///
 /// Function will return the full set of Earth orientation parameters for the given date.
 /// Function is guaranteed to provide the full set of Earth Orientation parameters according
@@ -222,7 +222,7 @@ pub fn get_global_lod(mjd: f64) -> Result<f64, BraheError> {
 /// `EarthOrientationData` object. The possible behaviors for the returned data are:
 /// - `Zero`: Returned values will be `0.0` where data is not available
 /// - `Hold`: Will return the last available returned value when data is not available
-/// - `Error`: Function call will panic and terminate the program
+/// - `Error`: Function call will return an error
 ///
 /// Note, if the type is `Hold` for an StandardBulletinB file which does not contain LOD data
 /// a value of `0.0` for LOD will be returned instead.

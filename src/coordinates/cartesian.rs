@@ -37,6 +37,12 @@ use crate::utils::BraheError;
 /// # Returns
 /// - `x_cart`: Cartesian inertial state. Units: (_m_; _m/s_)
 ///
+/// # Panics
+/// Panics if Kepler's equation fails to converge for the given mean anomaly
+/// and eccentricity, which can only occur for near-parabolic eccentricities
+/// (e approaching 1). Use `anomaly_mean_to_eccentric` directly to handle
+/// non-convergence as an error.
+///
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, RADIANS};
@@ -67,7 +73,13 @@ pub fn state_koe_to_eci(x_oe: SVector6, angle_format: AngleFormat) -> SVector6 {
         AngleFormat::Radians => (x_oe[2], x_oe[3], x_oe[4], x_oe[5]),
     };
 
-    let E = orbits::anomaly_mean_to_eccentric(M, e, AngleFormat::Radians).unwrap();
+    let E = orbits::anomaly_mean_to_eccentric(M, e, AngleFormat::Radians).unwrap_or_else(|err| {
+        panic!(
+            "Kepler's equation failed to converge for M={} rad, e={} ({}); near-parabolic \
+             eccentricities are not supported by this conversion",
+            M, e, err
+        )
+    });
 
     let P: Vector3<f64> = Vector3::new(
         omega.cos() * RAAN.cos() - omega.sin() * i.cos() * RAAN.sin(),
@@ -133,7 +145,13 @@ pub(crate) fn state_koe_to_inertial_gm(
         AngleFormat::Radians => (x_oe[2], x_oe[3], x_oe[4], x_oe[5]),
     };
 
-    let E = orbits::anomaly_mean_to_eccentric(M, e, AngleFormat::Radians).unwrap();
+    let E = orbits::anomaly_mean_to_eccentric(M, e, AngleFormat::Radians).unwrap_or_else(|err| {
+        panic!(
+            "Kepler's equation failed to converge for M={} rad, e={} ({}); near-parabolic \
+             eccentricities are not supported by this conversion",
+            M, e, err
+        )
+    });
 
     let P: Vector3<f64> = Vector3::new(
         omega.cos() * RAAN.cos() - omega.sin() * i.cos() * RAAN.sin(),

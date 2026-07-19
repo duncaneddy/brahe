@@ -5,9 +5,8 @@ Convert between coordinate systems and reference frames.
 ## Overview
 
 The `transform` command group provides conversions between:
-- **Reference frames**: ECI (Earth-Centered Inertial) ↔ ECEF (Earth-Centered Earth-Fixed)
+- **Reference frames**: full frame-to-frame transforms across all named frames (`ECI`/`GCRF`, `ECEF`/`ITRF`, `EME2000`, lunar `LCI`/`LFPA`/`LFME`, Mars `MCI`/`MCMF`, `EMBI`, `SSBI`, and synodic `EMR`/`SER`/`GSE`)
 - **Coordinate systems**: Keplerian, Cartesian, Geodetic, Geocentric
-- **Attitude representations**: Quaternions, Euler angles, rotation matrices (planned)
 
 ## Commands
 
@@ -21,8 +20,8 @@ brahe transform frame <FROM_FRAME> <TO_FRAME> <EPOCH> <x> <y> <z> <vx> <vy> <vz>
 ```
 
 **Arguments:**
-- `FROM_FRAME` - Source reference frame: `ECI` or `ECEF`
-- `TO_FRAME` - Target reference frame: `ECI` or `ECEF`
+- `FROM_FRAME` - Source reference frame (any named frame: `ECI`, `ECEF`, `GCRF`, `ITRF`, `EME2000`, `LCI`, `LFPA`, `LFME`, `MCI`, `MCMF`, `EMBI`, `SSBI`, `EMR`, `SER`, `GSE`)
+- `TO_FRAME` - Target reference frame (same set as `FROM_FRAME`)
 - `EPOCH` - Epoch for the transformation (ISO-8601 format with timezone)
 - `x y z vx vy vz` - State vector [m, m, m, m/s, m/s, m/s]
 
@@ -57,6 +56,64 @@ Output:
 ```bash
 # [1234308.01, 6766461.20, 15974.24, -6884.83, 1255.90, 0.25]
 ```
+
+---
+
+### `position`
+
+Transform a position vector between reference frames.
+
+**Syntax:**
+```bash
+brahe transform position <FROM_FRAME> <TO_FRAME> <EPOCH> <x> <y> <z> [OPTIONS]
+```
+
+**Arguments:**
+- `FROM_FRAME` / `TO_FRAME` - Any named frame (see `frame`)
+- `EPOCH` - Epoch (ISO-8601 format with timezone)
+- `x y z` - Position vector [m, m, m]
+
+**Options:**
+- `--format <fmt>` - Output format string (default: `f`)
+
+**Example:**
+```bash
+brahe transform position GCRF ITRF "2024-01-01T00:00:00Z" 6878137 0 0
+```
+
+---
+
+### `rotation`
+
+Emit the 3x3 rotation matrix between two reference frames at an epoch.
+
+**Syntax:**
+```bash
+brahe transform rotation <FROM_FRAME> <TO_FRAME> <EPOCH> [OPTIONS]
+```
+
+**Arguments:**
+- `FROM_FRAME` / `TO_FRAME` - Any named frame (see `frame`)
+- `EPOCH` - Epoch (ISO-8601 format with timezone)
+
+**Options:**
+- `--format <fmt>` - Output format string (default: `f`)
+
+**Example:**
+```bash
+brahe transform rotation GCRF ITRF "2024-01-01T00:00:00Z"
+```
+Output (three matrix rows):
+```bash
+# [-0.170986, 0.985273, 0.000365]
+# [-0.985271, -0.170986, 0.002292]
+# [0.002321, 0.000032, 0.999997]
+```
+
+!!! note "Non-Earth frames need SPK kernels"
+    Transforms involving lunar, Mars, barycentric, or synodic frames require
+    SPICE ephemeris kernels, which are downloaded to the cache on first use.
+    See [`state_frame_to_frame`](../../library_api/frames/router.md#brahe.state_frame_to_frame).
 
 ---
 

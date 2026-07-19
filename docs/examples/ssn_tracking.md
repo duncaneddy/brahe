@@ -63,7 +63,7 @@ Passes from different sensors can overlap -- Cavalier and Millstone, for instanc
 
 ## Analyze Results
 
-Finally, we compare true position error against each filter's formal 3-sigma uncertainty, and check that the uncertainty envelope actually bounds the error (filter consistency):
+Finally, we check filter consistency -- whether the formal uncertainty actually bounds the true error -- by rotating each record's position error and position-covariance block into the radial/along-track/cross-track (RTN) frame of the truth state at that epoch with `bh.rotation_eci_to_rtn()`. Each per-axis row shades a &plusmn;3&sigma; band from the rotated covariance diagonal and draws the signed error on top, so a consistent filter keeps its error line inside the shaded band; a bottom row shows the unsigned total position error on a linear scale:
 
 ``` python
 --8<-- "./examples/examples/ssn_tracking.py:analyze_results"
@@ -73,6 +73,8 @@ Finally, we compare true position error against each filter's formal 3-sigma unc
   <iframe class="only-light" src="../figures/ssn_tracking_filters_light.html" loading="lazy"></iframe>
   <iframe class="only-dark"  src="../figures/ssn_tracking_filters_dark.html"  loading="lazy"></iframe>
 </div>
+
+Along-track error typically dominates the other two axes between passes: along-track position error grows from an along-track velocity or timing error integrated over time, while radial and cross-track errors stay comparatively small once the orbit plane and semi-major axis are well observed. The shaded bands widen visibly during the gaps between passes -- reflecting the same covariance growth visible in the `"Propagation"` records -- and narrow again once a new pass starts feeding measurements back in.
 
 The EKF and UKF converge to nearly identical results here, both reaching meter-level final position error, since the two-body dynamics and az/el/range geometry are only mildly nonlinear over this arc; the UKF's sigma-point propagation does not offer a material advantage at this level of nonlinearity. Azimuth wrapping is handled consistently: `AzElRangeMeasurementModel.residual()` wraps the residual, the model's Jacobian differences through it, and the UKF forms its predicted measurement mean and innovation deviations through `residual()` as well, so a pass whose sigma-point azimuths straddle the 0/360&deg; wrap stays well-behaved.
 

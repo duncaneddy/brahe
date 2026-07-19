@@ -270,17 +270,44 @@ fig_measurements.update_layout(
 # --8<-- [start:run_filters]
 
 
-def extract_error_series(filt, truth_trajectory, t0):
-    """Extract (time_min, position_error_m, position_1sigma_m) from filter records."""
-    t_min, errors, sigmas = [], [], []
+def extract_rtn_error_series(filt, truth_trajectory, t0):
+    """Extract per-axis RTN error/1-sigma and total position error from filter records.
+
+    Rotates each record's ECI position error and position-covariance block
+    into the radial/along-track/cross-track (RTN) frame of the truth state
+    at that epoch, using the library's ECI-to-RTN rotation.
+    """
+    t_min = []
+    err_r, err_t, err_n, err_total = [], [], [], []
+    sig_r, sig_t, sig_n, sig_total = [], [], [], []
     for rec in filt.records():
         truth_state = truth_trajectory.interpolate(rec.epoch)
-        err = np.linalg.norm(rec.state_updated[:3] - truth_state[:3])
-        sigma = np.sqrt(np.sum(np.diag(rec.covariance_updated)[:3]))
+        error_eci = rec.state_updated[:3] - truth_state[:3]
+        rot = bh.rotation_eci_to_rtn(truth_state)
+        error_rtn = rot @ error_eci
+        cov_rtn = rot @ rec.covariance_updated[:3, :3] @ rot.T
+        sigma_rtn = np.sqrt(np.diag(cov_rtn))
+
         t_min.append((rec.epoch - t0) / 60.0)
-        errors.append(err)
-        sigmas.append(sigma)
-    return np.array(t_min), np.array(errors), np.array(sigmas)
+        err_r.append(error_rtn[0])
+        err_t.append(error_rtn[1])
+        err_n.append(error_rtn[2])
+        sig_r.append(sigma_rtn[0])
+        sig_t.append(sigma_rtn[1])
+        sig_n.append(sigma_rtn[2])
+        err_total.append(np.linalg.norm(error_eci))
+        sig_total.append(np.linalg.norm(sigma_rtn))
+    return {
+        "t": np.array(t_min),
+        "err_r": np.array(err_r),
+        "err_t": np.array(err_t),
+        "err_n": np.array(err_n),
+        "sig_r": np.array(sig_r),
+        "sig_t": np.array(sig_t),
+        "sig_n": np.array(sig_n),
+        "err_total": np.array(err_total),
+        "sig_total": np.array(sig_total),
+    }
 
 
 # Shared initial guess: perturbed by 1 km in x-position, 1 m/s in y-velocity
@@ -339,83 +366,126 @@ for name, filt in (("EKF", ekf), ("UKF", ukf)):
         f"{name} processed {len(observations)} observations in {time.time() - start_time:.1f} s"
     )
 
-ekf_t, ekf_err, ekf_sigma = extract_error_series(ekf, truth_traj, epoch)
-ukf_t, ukf_err, ukf_sigma = extract_error_series(ukf, truth_traj, epoch)
+ekf_rtn = extract_rtn_error_series(ekf, truth_traj, epoch)
+ukf_rtn = extract_rtn_error_series(ukf, truth_traj, epoch)
 # --8<-- [end:run_filters]
 
 # --8<-- [start:analyze_results]
+FILTER_STYLES = {
+    "EKF": {"color": "steelblue", "fill": "rgba(70, 130, 180, 0.2)"},
+    "UKF": {"color": "coral", "fill": "rgba(255, 127, 80, 0.2)"},
+}
+
 fig_filters = make_subplots(
-    rows=2,
-    cols=1,
+    rows=4,
+    cols=2,
     shared_xaxes=True,
     subplot_titles=(
-        "True Position Error vs. 3-sigma Envelope",
-        "Formal 3-sigma Position Uncertainty (log scale)",
+        "EKF Radial",
+        "UKF Radial",
+        "EKF Along-track",
+        "UKF Along-track",
+        "EKF Cross-track",
+        "UKF Cross-track",
+        "EKF Total Position Error",
+        "UKF Total Position Error",
     ),
-    vertical_spacing=0.1,
+    vertical_spacing=0.06,
 )
 
-for t_min, err, sigma, name, color in (
-    (ekf_t, ekf_err, ekf_sigma, "EKF", "steelblue"),
-    (ukf_t, ukf_err, ukf_sigma, "UKF", "coral"),
-):
-    fig_filters.add_trace(
+
+def add_band_and_error(fig, row, col, t_min, sigma, err, style):
+    """Add a shaded +/- 3-sigma band with the signed error line drawn over it."""
+    fig.add_trace(
+        go.Scatter(
+            x=t_min,
+            y=3 * sigma,
+            mode="lines",
+            line=dict(width=0),
+            showlegend=False,
+            hoverinfo="skip",
+        ),
+        row=row,
+        col=col,
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=t_min,
+            y=-3 * sigma,
+            mode="lines",
+            line=dict(width=0),
+            fill="tonexty",
+            fillcolor=style["fill"],
+            showlegend=False,
+            hoverinfo="skip",
+        ),
+        row=row,
+        col=col,
+    )
+    fig.add_trace(
         go.Scatter(
             x=t_min,
             y=err,
             mode="lines",
-            name=f"{name} true error",
-            line=dict(color=color, width=2),
-        ),
-        row=1,
-        col=1,
-    )
-    fig_filters.add_trace(
-        go.Scatter(
-            x=t_min,
-            y=3 * sigma,
-            mode="lines",
-            name=f"{name} 3-sigma",
-            line=dict(color=color, width=1.5, dash="dash"),
-        ),
-        row=1,
-        col=1,
-    )
-    fig_filters.add_trace(
-        go.Scatter(
-            x=t_min,
-            y=3 * sigma,
-            mode="lines",
-            name=f"{name} 3-sigma",
-            legendgroup=f"{name} 3-sigma",
+            line=dict(color=style["color"], width=1.5),
             showlegend=False,
-            line=dict(color=color, width=2),
         ),
-        row=2,
-        col=1,
+        row=row,
+        col=col,
     )
 
-# Shade pass windows on both rows
+
+for col, (name, result) in enumerate((("EKF", ekf_rtn), ("UKF", ukf_rtn)), start=1):
+    style = FILTER_STYLES[name]
+    add_band_and_error(
+        fig_filters, 1, col, result["t"], result["sig_r"], result["err_r"], style
+    )
+    add_band_and_error(
+        fig_filters, 2, col, result["t"], result["sig_t"], result["err_t"], style
+    )
+    add_band_and_error(
+        fig_filters, 3, col, result["t"], result["sig_n"], result["err_n"], style
+    )
+    fig_filters.add_trace(
+        go.Scatter(
+            x=result["t"],
+            y=result["err_total"],
+            mode="lines",
+            line=dict(color=style["color"], width=2),
+            showlegend=False,
+        ),
+        row=4,
+        col=col,
+    )
+
+# Shade pass windows on every row/column
 for _, w, _ in passes:
     t0_min = (w.window_open - epoch) / 60.0
     t1_min = (w.window_close - epoch) / 60.0
-    for row in (1, 2):
-        fig_filters.add_vrect(
-            x0=t0_min,
-            x1=t1_min,
-            fillcolor="gray",
-            opacity=0.15,
-            line_width=0,
-            row=row,
-            col=1,
-        )
+    for row in (1, 2, 3, 4):
+        for col in (1, 2):
+            fig_filters.add_vrect(
+                x0=t0_min,
+                x1=t1_min,
+                fillcolor="gray",
+                opacity=0.15,
+                line_width=0,
+                row=row,
+                col=col,
+            )
 
-fig_filters.update_xaxes(title_text="Time (minutes)", row=2, col=1)
-fig_filters.update_yaxes(title_text="Position error (m)", row=1, col=1)
-fig_filters.update_yaxes(title_text="3-sigma (m)", type="log", row=2, col=1)
+for row, label in (
+    (1, "Radial (m)"),
+    (2, "Along-track (m)"),
+    (3, "Cross-track (m)"),
+    (4, "Position error (m)"),
+):
+    fig_filters.update_yaxes(title_text=label, row=row, col=1)
+fig_filters.update_xaxes(title_text="Time (minutes)", row=4, col=1)
+fig_filters.update_xaxes(title_text="Time (minutes)", row=4, col=2)
 fig_filters.update_layout(
-    title="EKF / UKF Filter Consistency",
-    height=800,
+    title="EKF / UKF Filter Consistency (RTN)",
+    height=1100,
     margin=dict(l=60, r=40, t=80, b=60),
 )
 
@@ -423,15 +493,17 @@ print("\n" + "=" * 80)
 print("Filter Summary")
 print("=" * 80)
 print(
-    f"EKF final position error: {ekf_err[-1]:.1f} m  (3-sigma = {3 * ekf_sigma[-1]:.1f} m)"
+    f"EKF final position error: {ekf_rtn['err_total'][-1]:.1f} m  "
+    f"(3-sigma = {3 * ekf_rtn['sig_total'][-1]:.1f} m)"
 )
 print(
-    f"UKF final position error: {ukf_err[-1]:.1f} m  (3-sigma = {3 * ukf_sigma[-1]:.1f} m)"
+    f"UKF final position error: {ukf_rtn['err_total'][-1]:.1f} m  "
+    f"(3-sigma = {3 * ukf_rtn['sig_total'][-1]:.1f} m)"
 )
 print("=" * 80)
 
-assert ekf_err[-1] < 500.0, "EKF should converge to a small position error"
-assert ukf_err[-1] < 500.0, "UKF should converge to a small position error"
+assert ekf_rtn["err_total"][-1] < 500.0, "EKF should converge to a small position error"
+assert ukf_rtn["err_total"][-1] < 500.0, "UKF should converge to a small position error"
 print("\nExample validated successfully!")
 # --8<-- [end:analyze_results]
 # --8<-- [end:all]

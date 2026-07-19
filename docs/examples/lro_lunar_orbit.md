@@ -68,9 +68,11 @@ Moon-Centered Inertial (LCI) frame:
 
 !!! note "state_bci vs. state_eci"
     [`state_bci`](../learn/orbit_propagation/numerical_propagation/cislunar_lunar_propagation.md)
+    ([API](../library_api/propagators/numerical_orbit_propagator.md#brahe.NumericalOrbitPropagator.state_bci))
     returns the propagator's native state in the central body's
     body-centered inertial frame (LCI for a Moon-centered propagator).
     [`state_eci`](../learn/orbit_propagation/numerical_propagation/numerical_orbit_propagator.md#state-at-arbitrary-epochs)
+    ([API](../library_api/propagators/numerical_orbit_propagator.md#brahe.NumericalOrbitPropagator.state_eci))
     instead always returns an Earth-centered state - for a
     Moon-centered propagator it adds the Moon's Earth-relative position,
     which would report altitudes near the Earth-Moon distance rather than

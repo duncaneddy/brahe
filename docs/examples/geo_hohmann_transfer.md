@@ -59,6 +59,14 @@ $$T_{transfer} = \pi \sqrt{\frac{a_{transfer}^3}{\mu}}$$
 
 The total delta-v of approximately 3.85 km/s is substantial - this is why geostationary satellites require large launch vehicles or are launched into geostationary transfer orbits (GTO) where the rocket provides the first burn and the satellite provides the circularization burn.
 
+!!! note "Hohmann is optimal only up to a radius ratio near 11.9"
+    The two-impulse Hohmann transfer is the minimum-delta-v maneuver between
+    coplanar circular orbits only when the ratio of final to initial radius
+    stays below about 11.94. Above that, a three-burn bi-elliptic transfer -
+    coasting out past the target and back - costs less total delta-v despite
+    the extra burn and a much longer flight time. The LEO-to-GEO radius ratio
+    here is about 6.6, comfortably inside the regime where Hohmann wins.
+
 ## Implementation
 
 ### Initial State

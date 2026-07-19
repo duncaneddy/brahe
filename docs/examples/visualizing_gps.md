@@ -38,6 +38,15 @@ computes the or orbital period of the satellite by converting the semi-major axi
 
 It then propagates the satellite to one full orbit past its epoch using the `propagate_to` method to ensure that the trajectory contains position data for one complete orbit.
 
+!!! note "GPS satellites are semi-synchronous, not geosynchronous"
+    The orbital period computed from each satellite's semi-major axis comes out
+    near 11 hours 58 minutes - half a sidereal day - not 24 hours. GPS flies a
+    semi-synchronous medium Earth orbit at about 20,200 km altitude, so each
+    satellite completes two revolutions per sidereal day and repeats its ground
+    track once daily. Propagating for "one orbit" here therefore covers roughly
+    twelve hours, which is why the constellation arcs are much larger than in a
+    LEO example.
+
 ## Visualize in 3D
 
 We'll create an interactive 3D visualization of the entire GPS constellation using Plotly. We'll use the Natural Earth 50m texture for a realistic Earth representation:

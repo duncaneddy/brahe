@@ -138,6 +138,9 @@ $$
 !!! note "Frequency Scaling"
     The magnitude of Doppler compensation scales with carrier frequency. X-band (8.4 GHz) experiences about $8.4/2.2 \approx 3.8\times$ the frequency shift of S-band (2.2 GHz) for the same line-of-sight velocity.
 
+!!! note "Uplink and downlink compensation are not symmetric"
+    Downlink compensation is a single first-order shift ($\Delta f_r = -f_x^d\, v_{los}/c$), but uplink carries the extra $(c - v_{los})$ denominator. The asymmetry is not rounding: the ground station must pre-distort its transmit frequency so that, after the Doppler shift the signal accrues in flight, it arrives at the spacecraft's fixed design frequency. Solving that inverse condition introduces the denominator, so uplink and downlink compensations differ in both sign and magnitude for the same $v_{los}$.
+
 ### Implementation
 
 We create a custom property computer that calculates the line-of-sight velocity from the satellite state and computes Doppler compensation for both S-band uplink (2.2 GHz) and X-band downlink (8.4 GHz):

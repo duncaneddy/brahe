@@ -53,6 +53,14 @@ The resulting plot shows the complete Starlink constellation orbiting Earth. The
   <iframe class="only-dark"  src="../figures/visualizing_starlink_dark.html"  loading="lazy"></iframe>
 </div>
 
+!!! note "The snapshot shows orbital shells, not random scatter"
+    Most Starlink satellites operate near 550 km altitude, with the largest
+    group at about 53 degrees inclination and further groups at higher
+    inclinations. The banded structure in the single-epoch snapshot is the
+    superposition of these discrete orbital shells' planes, each populated with
+    many evenly phased satellites. The markers are drawn at one common epoch, so
+    the view is an instantaneous geometry rather than swept orbit paths.
+
 ## Full Code Example
 
 ??? "Full Code"

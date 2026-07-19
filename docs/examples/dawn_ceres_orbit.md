@@ -60,6 +60,17 @@ anywhere a [`ReferenceFrame`](../library_api/frames/router.md#referenceframe) is
 --8<-- "./examples/examples/dawn_ceres_orbit.py:body_fixed_frame"
 ```
 
+!!! note "The angular-velocity callback drives the velocity transport term"
+    `register_custom_frame` accepts an optional `omega(epoch)` callback
+    returning the body-fixed angular velocity. When it is omitted, the rate is
+    recovered by central-differencing `rotation(epoch)`, which costs extra
+    rotation evaluations per query and is only as accurate as the
+    finite-difference step. Supplying `omega` analytically - as this example
+    does from the constant IAU spin rate - makes the velocity transport term
+    exact and avoids that overhead. See
+    [Reference Frame Router](../learn/frames/frame_transformations.md) and
+    [Propagation Around Other Central Bodies](../learn/orbit_propagation/numerical_propagation/other_central_bodies.md).
+
 ## Force Model
 
 `CentralBody.Custom` bundles the body's GM, radius, spin vector, and
@@ -80,6 +91,15 @@ keeps gravity-only for self-containment:
 ``` python
 --8<-- "./examples/examples/dawn_ceres_orbit.py:force_model"
 ```
+
+!!! note "A custom body has no ephemeris until you supply one"
+    Third-body perturbations require the perturbing body's position from a
+    loaded SPK kernel. The DE kernels brahe ships carry no Ceres ephemeris, so
+    a `CentralBody.Custom` defined this way can be neither perturbed by nor
+    perturb other bodies until a Ceres SPK is loaded. Point-mass, gravity-only
+    propagation is therefore the self-contained starting point for a
+    user-defined body; adding third-body forces means first generating and
+    loading a Ceres SPK.
 
 ## Propagation
 

@@ -87,6 +87,15 @@ The duration histogram shows the distribution of contact lengths, with statistic
   <iframe class="only-dark"  src="../figures/ground_contacts_duration_dist_dark.html"  loading="lazy"></iframe>
 </div>
 
+!!! note "Station latitude drives contact frequency for polar orbits"
+    NISAR flies a near-polar orbit, so its orbital planes converge near the
+    poles. A high-latitude station falls under many more passes per day than a
+    low-latitude one, which the satellite overflies only on the fraction of
+    revolutions whose ground track happens to cross it. Most of the spread in
+    the daily-contacts bar chart is this latitude geometry rather than
+    differences in station capability, and it is why polar and high-latitude
+    ground sites dominate networks that support sun-synchronous missions.
+
 ## Full Code Example
 
 ??? "Full Code"

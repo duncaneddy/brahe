@@ -689,6 +689,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_get_global_eop_mjd_last_lod, module)?)?;
     module.add_function(wrap_pyfunction!(py_get_global_eop_mjd_last_dxdy, module)?)?;
     module.add_function(wrap_pyfunction!(py_initialize_eop, module)?)?;
+    module.add_function(wrap_pyfunction!(py_ensure_global_eop_coverage, module)?)?;
 
     //* Space Weather *//
 

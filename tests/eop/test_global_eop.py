@@ -293,3 +293,45 @@ def test_initialize_eop():
     cache_dir = brahe.get_brahe_cache_dir()
     expected_path = os.path.join(cache_dir, "eop", "finals.all.iau2000.txt")
     assert os.path.exists(expected_path)
+
+
+def test_ensure_global_eop_coverage_within_range(iau2000_standard_filepath):
+    eop = brahe.FileEOPProvider.from_standard_file(
+        iau2000_standard_filepath, True, "Error"
+    )
+    brahe.set_global_eop_provider(eop)
+
+    brahe.ensure_global_eop_coverage(58000.0, 58001.0)
+
+
+def test_ensure_global_eop_coverage_outside_range_error_extrapolation(
+    iau2000_standard_filepath,
+):
+    eop = brahe.FileEOPProvider.from_standard_file(
+        iau2000_standard_filepath, True, "Error"
+    )
+    brahe.set_global_eop_provider(eop)
+
+    with pytest.raises(brahe.BraheError, match="extrapolation"):
+        brahe.ensure_global_eop_coverage(58000.0, 99999.0)
+
+
+def test_ensure_global_eop_coverage_outside_range_hold_extrapolation(
+    iau2000_standard_filepath,
+):
+    eop = brahe.FileEOPProvider.from_standard_file(
+        iau2000_standard_filepath, True, "Hold"
+    )
+    brahe.set_global_eop_provider(eop)
+
+    brahe.ensure_global_eop_coverage(58000.0, 99999.0)
+
+
+def test_ensure_global_eop_coverage_reversed_range(iau2000_standard_filepath):
+    eop = brahe.FileEOPProvider.from_standard_file(
+        iau2000_standard_filepath, True, "Hold"
+    )
+    brahe.set_global_eop_provider(eop)
+
+    with pytest.raises(brahe.BraheError, match="after end"):
+        brahe.ensure_global_eop_coverage(58001.0, 58000.0)

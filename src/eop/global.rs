@@ -536,6 +536,76 @@ pub fn initialize_eop() -> Result<(), BraheError> {
     Ok(())
 }
 
+/// Validate that the global Earth orientation provider can serve every epoch
+/// in the given Modified Julian Date range without error.
+///
+/// This is an upfront check intended to be called once per run — at
+/// application startup or before a propagation — so that Earth orientation
+/// availability is confirmed at setup time rather than discovered as a panic
+/// deep inside a frame rotation or time conversion.
+///
+/// The check succeeds when the global provider is initialized and either the
+/// requested range lies within the loaded data span or the provider's
+/// extrapolation setting (`Hold` or `Zero`) guarantees a value for
+/// out-of-range dates. With `EOPExtrapolation::Error`, any epoch outside the
+/// loaded span fails the check.
+///
+/// # Arguments
+/// - `mjd_start`: Start of the range to validate, as a Modified Julian Date. Units: (days)
+/// - `mjd_end`: End of the range to validate, as a Modified Julian Date. Units: (days)
+///
+/// # Returns
+/// - `Ok(())` if every epoch in `[mjd_start, mjd_end]` can be served
+/// - `Err(BraheError::EOPError)` if the provider is uninitialized, the range
+///   is reversed, or part of the range is outside the loaded data with
+///   extrapolation set to `Error`
+///
+/// # Examples
+///
+/// ```
+/// use brahe::eop::*;
+///
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Hold).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// // Validate EOP availability for a propagation span up front
+/// ensure_global_eop_coverage(59000.0, 59007.0).unwrap();
+/// ```
+pub fn ensure_global_eop_coverage(mjd_start: f64, mjd_end: f64) -> Result<(), BraheError> {
+    if mjd_start > mjd_end {
+        return Err(BraheError::EOPError(format!(
+            "Invalid EOP coverage range: start MJD {} is after end MJD {}",
+            mjd_start, mjd_end
+        )));
+    }
+
+    let provider = GLOBAL_EOP.read().unwrap();
+
+    if !provider.is_initialized() {
+        return Err(BraheError::EOPError(
+            "Global EOP provider is not initialized. Initialize one with \
+             set_global_eop_provider or initialize_eop before use."
+                .to_string(),
+        ));
+    }
+
+    if provider.extrapolation() == EOPExtrapolation::Error
+        && (mjd_start < provider.mjd_min() || mjd_end > provider.mjd_max())
+    {
+        return Err(BraheError::EOPError(format!(
+            "EOP data covers MJD [{}, {}] but coverage of [{}, {}] was requested and \
+             extrapolation is set to Error. Load data covering the full range or set \
+             extrapolation to Hold or Zero.",
+            provider.mjd_min(),
+            provider.mjd_max(),
+            mjd_start,
+            mjd_end
+        )));
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 #[serial]
@@ -564,6 +634,63 @@ mod tests {
 
     fn clear_test_global_eop() {
         set_global_eop_provider(StaticEOPProvider::new());
+    }
+
+    #[test]
+    #[serial]
+    fn test_ensure_global_eop_coverage_uninitialized() {
+        clear_test_global_eop();
+
+        let result = ensure_global_eop_coverage(58000.0, 58001.0);
+        assert!(matches!(result, Err(BraheError::EOPError(_))));
+    }
+
+    #[test]
+    #[serial]
+    fn test_ensure_global_eop_coverage_within_range() {
+        setup_test_global_eop(true, EOPExtrapolation::Error);
+
+        assert!(ensure_global_eop_coverage(58000.0, 58001.0).is_ok());
+
+        clear_test_global_eop();
+    }
+
+    #[test]
+    #[serial]
+    fn test_ensure_global_eop_coverage_outside_range_error_extrapolation() {
+        setup_test_global_eop(true, EOPExtrapolation::Error);
+
+        // Far beyond the end of any loaded EOP file
+        let result = ensure_global_eop_coverage(58000.0, 99999.0);
+        assert!(matches!(result, Err(BraheError::EOPError(_))));
+
+        // Before the start of the loaded data (finals.all starts MJD 41684)
+        let result = ensure_global_eop_coverage(10000.0, 58001.0);
+        assert!(matches!(result, Err(BraheError::EOPError(_))));
+
+        clear_test_global_eop();
+    }
+
+    #[test]
+    #[serial]
+    fn test_ensure_global_eop_coverage_outside_range_hold_extrapolation() {
+        setup_test_global_eop(true, EOPExtrapolation::Hold);
+
+        // Extrapolation covers out-of-range epochs
+        assert!(ensure_global_eop_coverage(58000.0, 99999.0).is_ok());
+
+        clear_test_global_eop();
+    }
+
+    #[test]
+    #[serial]
+    fn test_ensure_global_eop_coverage_reversed_range() {
+        setup_test_global_eop(true, EOPExtrapolation::Hold);
+
+        let result = ensure_global_eop_coverage(58001.0, 58000.0);
+        assert!(matches!(result, Err(BraheError::EOPError(_))));
+
+        clear_test_global_eop();
     }
 
     #[test]

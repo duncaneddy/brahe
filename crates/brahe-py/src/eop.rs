@@ -1670,3 +1670,45 @@ pub fn py_get_global_eop_mjd_last_dxdy() -> f64 {
 pub fn py_initialize_eop() -> Result<(), RustBraheError> {
     eop::initialize_eop()
 }
+
+/// Validate that the global Earth orientation provider can serve every epoch
+/// in the given Modified Julian Date range without error.
+///
+/// This is an upfront check intended to be called once per run, at application
+/// startup or before a propagation, so that Earth orientation availability is
+/// confirmed at setup time rather than discovered as an error deep inside a
+/// frame rotation or time conversion.
+///
+/// The check succeeds when the global provider is initialized and either the
+/// requested range lies within the loaded data span or the provider's
+/// extrapolation setting ("Hold" or "Zero") guarantees a value for
+/// out-of-range dates. With "Error" extrapolation, any epoch outside the
+/// loaded span fails the check.
+///
+/// Args:
+///     mjd_start (float): Start of the range to validate, as a Modified Julian Date. Units: (days)
+///     mjd_end (float): End of the range to validate, as a Modified Julian Date. Units: (days)
+///
+/// Returns:
+///     None: Returns without error when the full range can be served.
+///
+/// Raises:
+///     BraheError: If the provider is uninitialized, the range is reversed, or
+///         part of the range is outside the loaded data with extrapolation set
+///         to "Error".
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.initialize_eop()
+///
+///     # Validate EOP availability for a propagation span up front
+///     bh.ensure_global_eop_coverage(59000.0, 59007.0)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(mjd_start, mjd_end)")]
+#[pyo3(name = "ensure_global_eop_coverage")]
+pub fn py_ensure_global_eop_coverage(mjd_start: f64, mjd_end: f64) -> Result<(), RustBraheError> {
+    eop::ensure_global_eop_coverage(mjd_start, mjd_end)
+}

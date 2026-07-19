@@ -5,8 +5,11 @@ Tests all conversion paths for coordinates and frame conversions.
 """
 
 import pytest
+import typer
+import brahe
 from typer.testing import CliRunner
 from brahe.cli.__main__ import app
+from brahe.cli.transform import _parse_vector
 
 runner = CliRunner()
 
@@ -747,6 +750,101 @@ class TestRotationCommand:
             for j in range(3):
                 expected = 1.0 if i == j else 0.0
                 assert matrix[i][j] == pytest.approx(expected, abs=1e-9)
+
+
+class TestTransformErrorPaths:
+    """Error-surfacing paths must produce a clean CLI error, not a traceback."""
+
+    def test_parse_vector_rejects_invalid_expression(self):
+        # A component that is neither a number nor a known constant expression
+        # must raise a clean typer.Exit(1), not propagate the ValueError.
+        with pytest.raises(typer.Exit) as exc:
+            _parse_vector(["notanumber", "0", "0"], 3)
+        assert exc.value.exit_code == 1
+
+    def test_frame_transform_error_surfaces_cleanly(self, monkeypatch):
+        def boom(*args, **kwargs):
+            raise RuntimeError("kernel unavailable")
+
+        monkeypatch.setattr(brahe, "state_frame_to_frame", boom)
+        result = runner.invoke(
+            app,
+            [
+                "transform",
+                "frame",
+                "GCRF",
+                "ITRF",
+                "2024-01-01T00:00:00Z",
+                "6878137",
+                "0",
+                "0",
+                "0",
+                "7500",
+                "0",
+            ],
+        )
+        assert result.exit_code == 1
+        assert "ERROR: frame transform failed" in result.stdout
+
+    def test_position_transform_error_surfaces_cleanly(self, monkeypatch):
+        def boom(*args, **kwargs):
+            raise RuntimeError("kernel unavailable")
+
+        monkeypatch.setattr(brahe, "position_frame_to_frame", boom)
+        result = runner.invoke(
+            app,
+            [
+                "transform",
+                "position",
+                "GCRF",
+                "ITRF",
+                "2024-01-01T00:00:00Z",
+                "6878137",
+                "0",
+                "0",
+            ],
+        )
+        assert result.exit_code == 1
+        assert "ERROR: position transform failed" in result.stdout
+
+    def test_rotation_transform_error_surfaces_cleanly(self, monkeypatch):
+        def boom(*args, **kwargs):
+            raise RuntimeError("kernel unavailable")
+
+        monkeypatch.setattr(brahe, "rotation_frame_to_frame", boom)
+        result = runner.invoke(
+            app,
+            ["transform", "rotation", "GCRF", "ITRF", "2024-01-01T00:00:00Z"],
+        )
+        assert result.exit_code == 1
+        assert "ERROR: rotation transform failed" in result.stdout
+
+
+class TestCoordinatesCartesianFrameConversion:
+    def test_cartesian_ecef_to_eci(self):
+        # Exercises the ECEF->ECI cartesian frame-conversion branch.
+        result = runner.invoke(
+            app,
+            [
+                "transform",
+                "coordinates",
+                "cartesian",
+                "cartesian",
+                "2024-01-01T00:00:00Z",
+                "6878137",
+                "0",
+                "0",
+                "0",
+                "7500",
+                "0",
+                "--from-frame",
+                "ECEF",
+                "--to-frame",
+                "ECI",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "[" in result.stdout
 
 
 if __name__ == "__main__":

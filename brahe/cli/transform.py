@@ -44,14 +44,11 @@ class CartesianFrame(str, Enum):
 def _resolve_frame(frame: Frame) -> "brahe.ReferenceFrame":
     """Convert a CLI `Frame` value into a core `ReferenceFrame`.
 
-    Raises a Typer error with a clean message if the frame string is not
-    recognized by the core router.
+    Every `Frame` member mirrors a string accepted by
+    `ReferenceFrame.from_string`; Typer rejects any other value before this
+    is reached.
     """
-    try:
-        return brahe.ReferenceFrame.from_string(frame.value)
-    except Exception as e:  # noqa: BLE001 - surface as CLI error
-        typer.echo(f"ERROR: unknown reference frame '{frame.value}': {e}")
-        raise typer.Exit(code=1)
+    return brahe.ReferenceFrame.from_string(frame.value)
 
 
 class StateRepresentation(str, Enum):

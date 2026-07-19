@@ -1420,7 +1420,8 @@ impl PySimpleSSNSensor {
     /// `RangeConstraint`, `LookDirectionConstraint`).
     ///
     /// Args:
-    ///     constraint: An access constraint object.
+    ///     constraint (AccessConstraint): An access constraint object, e.g.
+    ///         ElevationConstraint, AzimuthConstraint, or RangeConstraint.
     ///
     /// Returns:
     ///     SimpleSSNSensor: The sensor with the constraint appended.

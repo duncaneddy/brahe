@@ -112,6 +112,19 @@ Key observations:
 
 The energy and angular momentum errors reveal an important pattern: adaptive lower-order methods (RKF45, DP54) can accumulate more error over long integrations despite taking fewer steps, while higher-order methods such as RKF78 and RKN1210 are useful when tight tolerances justify the additional stage evaluations.
 
+!!! note "RKN1210 exploits the second-order structure of orbital motion"
+    Orbital dynamics is a second-order system - acceleration as a function of
+    position, $\ddot{\mathbf{r}} = -\mu\,\mathbf{r}/r^3$ plus perturbations.
+    [RKN1210](../learn/integrators/index.md)
+    ([API](../library_api/integrators/rkn1210.md#brahe.RKN1210Integrator)) is a
+    Runge-Kutta-Nyström method that integrates position and velocity directly
+    from acceleration instead of first flattening the problem into a
+    first-order system, and its high order holds tight tolerances across large
+    steps. That structural match is why it needs far fewer steps than RK4 here.
+    The comparison also shows step count is no measure of accuracy on its own:
+    adaptive control bounds the local error per step, not the global error
+    accumulated over 106 orbits.
+
 ## Angular Momentum Conservation
 
 To visualize how each integrator performs over time, we plot the angular momentum magnitude error:

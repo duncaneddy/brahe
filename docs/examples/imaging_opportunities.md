@@ -55,6 +55,21 @@ This creates a composite constraint that requires **all three conditions** to be
 - `LookDirectionConstraint`: Requires right-looking geometry
 - `OffNadirConstraint`: Limits imaging angle to 35-45° off-nadir
 
+!!! note "Look direction and pass direction jointly fix the imaged geometry"
+    A side-looking SAR images to one side of its ground track, so the
+    right-looking [`LookDirectionConstraint`](../learn/access_computation/constraints.md)
+    ([API](../library_api/access/constraints.md#brahe.LookDirectionConstraint))
+    combined with a descending
+    [`AscDscConstraint`](../learn/access_computation/constraints.md)
+    ([API](../library_api/access/constraints.md#brahe.AscDscConstraint))
+    selects a specific illumination geometry: which side of the track, and
+    from which heading, the target is viewed. Composed with an
+    [`OffNadirConstraint`](../learn/access_computation/constraints.md)
+    ([API](../library_api/access/constraints.md#brahe.OffNadirConstraint))
+    into an all-of constraint, a pass is reported only when it satisfies every
+    condition at once - relaxing any one changes which opportunities survive,
+    not merely how many.
+
 ## Compute Collection Opportunities
 
 Now we'll compute all imaging opportunities between the constellation and San Francisco over a 7-day period:

@@ -222,6 +222,7 @@ pub fn refresh_all_icgem_indexes() -> Result<(), BraheError> {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::utils::testing::CacheRedirect;
 
     #[test]
     fn test_index_entry_round_trip_json() {
@@ -316,10 +317,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_list_models_uses_fresh_cache() {
-        let dir = tempfile::tempdir().unwrap();
-        unsafe {
-            std::env::set_var("BRAHE_CACHE", dir.path());
-        }
+        let _cache = CacheRedirect::new();
 
         let path = index_path_for(&ICGEMBody::Earth).unwrap();
         let file = IndexFile {
@@ -338,20 +336,13 @@ mod tests {
         let entries = list_icgem_models_with_url(&ICGEMBody::Earth, "http://127.0.0.1:1").unwrap();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].name, "JGM3");
-
-        unsafe {
-            std::env::remove_var("BRAHE_CACHE");
-        }
     }
 
     #[test]
     #[serial_test::serial]
     fn test_list_models_refreshes_stale_cache() {
         use httpmock::prelude::*;
-        let dir = tempfile::tempdir().unwrap();
-        unsafe {
-            std::env::set_var("BRAHE_CACHE", dir.path());
-        }
+        let _cache = CacheRedirect::new();
 
         let path = index_path_for(&ICGEMBody::Earth).unwrap();
         let stale = IndexFile {
@@ -370,19 +361,12 @@ mod tests {
 
         let entries = list_icgem_models_with_url(&ICGEMBody::Earth, &server.base_url()).unwrap();
         assert!(!entries.is_empty());
-
-        unsafe {
-            std::env::remove_var("BRAHE_CACHE");
-        }
     }
 
     #[test]
     #[serial_test::serial]
     fn test_list_models_stale_fallback_on_network_failure() {
-        let dir = tempfile::tempdir().unwrap();
-        unsafe {
-            std::env::set_var("BRAHE_CACHE", dir.path());
-        }
+        let _cache = CacheRedirect::new();
 
         let path = index_path_for(&ICGEMBody::Earth).unwrap();
         let stale = IndexFile {
@@ -401,10 +385,6 @@ mod tests {
         let entries = list_icgem_models_with_url(&ICGEMBody::Earth, "http://127.0.0.1:1").unwrap();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].name, "STALE");
-
-        unsafe {
-            std::env::remove_var("BRAHE_CACHE");
-        }
     }
 
     #[test]
@@ -413,10 +393,7 @@ mod tests {
         // The celestial cache file holds entries for ALL non-Earth bodies.
         // list_icgem_models(Mars) must return only Mars entries — not Moon,
         // Venus, or Ceres ones that share the same file.
-        let dir = tempfile::tempdir().unwrap();
-        unsafe {
-            std::env::set_var("BRAHE_CACHE", dir.path());
-        }
+        let _cache = CacheRedirect::new();
 
         let path = index_path_for(&ICGEMBody::Moon).unwrap(); // celestial index file
         let file = IndexFile {
@@ -468,9 +445,5 @@ mod tests {
         let ceres_entries =
             list_icgem_models_with_url(&ICGEMBody::Ceres, "http://127.0.0.1:1").unwrap();
         assert!(ceres_entries.is_empty());
-
-        unsafe {
-            std::env::remove_var("BRAHE_CACHE");
-        }
     }
 }

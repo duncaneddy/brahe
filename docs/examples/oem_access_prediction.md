@@ -68,6 +68,17 @@ Compare each OEM-based access window against the corresponding direct propagator
 --8<-- "./examples/examples/oem_access_prediction.py:compare_results"
 ```
 
+!!! note "Ephemeris-file access accuracy is set by sampling, not the algorithm"
+    Access windows from an
+    [`OrbitTrajectory`](../library_api/trajectories/orbit_trajectory.md#brahe.OrbitTrajectory)
+    built from a [CCSDS OEM](../learn/ccsds/oem.md) are only as accurate as
+    that ephemeris. Between samples the state is interpolated, so rise and set
+    edge timing is bounded by the sample spacing (60 s here) and the
+    interpolation order, not by the access search itself. The sub-5-second,
+    sub-0.5-degree agreement with the direct propagator measures interpolation
+    fidelity; coarser OEM spacing widens that gap while the algorithm is
+    unchanged.
+
 ## Display Results
 
 Print all OEM-based access windows grouped by station with summary statistics.

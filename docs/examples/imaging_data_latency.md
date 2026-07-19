@@ -68,6 +68,15 @@ For each AOI exit event, we find the next ground contact for that satellite and 
 --8<-- "./examples/examples/imaging_data_latency.py:compute_latencies"
 ```
 
+!!! note "This latency is a lower bound on delivery time"
+    The metric measures from AOI exit to the start of the next ground contact.
+    It excludes the time to actually downlink the collected data during that
+    contact, onboard processing and buffering before downlink, and
+    ground-segment processing after receipt. Treat it as the orbital-geometry
+    floor on data-delivery latency, not an end-to-end delivery time - the
+    excluded terms can dominate for large collections or contended downlink
+    schedules.
+
 ## Results
 
 ### Top 5 Worst Latencies

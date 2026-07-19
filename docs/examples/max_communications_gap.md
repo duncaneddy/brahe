@@ -87,6 +87,15 @@ To better understand what percentage of gaps fall below a certain duration, we c
 
 The cumulative distribution plot includes reference lines at the 25th, 50th, 75th, and 90th percentiles, making it easy to determine what fraction of gaps are below a specific value.
 
+!!! note "The maximum gap grows with the observation window"
+    Maximum contact gap is an extreme-value statistic, not an average: the
+    longest gap observed tends to increase the longer the simulation runs,
+    because rare unfavorable geometries only surface given enough time. A
+    seven-day maximum is therefore a floor on the true worst case, not a
+    converged value. The median and percentile gaps from the cumulative
+    distribution are far more stable and are the better basis for sizing
+    routine reactivity and latency budgets.
+
 ## Contact Gap Visualization
 
 Finally, we'll visualize the 3 longest gaps on a ground track plot to see where they occur. For each gap, we extract the satellite's ground track during that time period and plot it as a colored segment. We also interpolate to the ±180° edges to avoid visual gaps at the antimeridian. This type of visualization can be helpful in understanding ground network design and where additional ground stations might help:

@@ -234,6 +234,7 @@ pub(crate) fn download_icgem_model_with_url(
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::utils::testing::CacheRedirect;
 
     fn entry(body: ICGEMBody, name: &str, degree: u32) -> IndexEntry {
         IndexEntry {
@@ -319,10 +320,7 @@ mod tests {
     fn test_download_end_to_end_with_mock_server() {
         use httpmock::prelude::*;
 
-        let dir = tempfile::tempdir().unwrap();
-        unsafe {
-            std::env::set_var("BRAHE_CACHE", dir.path());
-        }
+        let _cache = CacheRedirect::new();
 
         let html = std::fs::read_to_string("test_assets/icgem/tom_longtime_sample.html").unwrap();
         let gfc = std::fs::read_to_string("data/gravity_models/JGM3.gfc").unwrap();
@@ -351,10 +349,6 @@ mod tests {
         assert!(path.exists());
         assert!(path.to_string_lossy().contains("models"));
         assert!(path.to_string_lossy().contains("earth"));
-
-        unsafe {
-            std::env::remove_var("BRAHE_CACHE");
-        }
     }
 
     #[test]
@@ -362,10 +356,7 @@ mod tests {
     fn test_download_uses_cache_on_second_call() {
         use httpmock::prelude::*;
 
-        let dir = tempfile::tempdir().unwrap();
-        unsafe {
-            std::env::set_var("BRAHE_CACHE", dir.path());
-        }
+        let _cache = CacheRedirect::new();
 
         let html = std::fs::read_to_string("test_assets/icgem/tom_longtime_sample.html").unwrap();
         let gfc = std::fs::read_to_string("data/gravity_models/JGM3.gfc").unwrap();
@@ -394,10 +385,6 @@ mod tests {
         // disk with fetched_at = now, so the second call finds a fresh cache
         // and skips the network entirely.
         list_mock.assert_calls(1);
-
-        unsafe {
-            std::env::remove_var("BRAHE_CACHE");
-        }
     }
 
     // TODO: This test is super flakey because it depends on the live ICGEM service

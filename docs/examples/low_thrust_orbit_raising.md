@@ -89,6 +89,16 @@ The Tsiolkovsky rocket equation provides a theoretical check on our mass trackin
 
 $$\Delta v = I_{sp} \cdot g_0 \cdot \ln\left(\frac{m_0}{m_f}\right)$$
 
+!!! note "Low-thrust transfers cost more delta-v but far less propellant"
+    Spreading thrust continuously around the orbit is less delta-v-efficient
+    than the two impulses of a Hohmann transfer: the burn is never confined to
+    the optimal points, so a spiral raise accumulates steering and gravity
+    losses and its total delta-v exceeds the impulsive value for the same
+    altitude change. Electric propulsion still wins on mass because its
+    specific impulse is several times higher - the Tsiolkovsky equation turns
+    that into an exponentially smaller propellant fraction, which is the
+    quantity the extended mass state tracks here.
+
 ## Performance Comparison
 
 The following plots compare the 100W and 300W configurations over 24 hours of continuous thrust:

@@ -43,7 +43,6 @@ DURATION = 6 * 3600.0  # tracking duration (seconds)
 # crate's StdRng stream; a rand version bump can shift the exact figures while
 # the example's tolerance-based asserts still pass.
 SEED = 42
-GAP_SPLIT = 600.0  # start a new arc when consecutive obs are > 10 min apart
 PROPAGATE_STEP = 60.0  # gap-propagation step (seconds)
 # --8<-- [end:preamble]
 
@@ -53,9 +52,11 @@ OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
 os.makedirs(OUTDIR, exist_ok=True)
 
 # --8<-- [start:load_sensors]
-# Load the Vallado SSN sensor sites and build az/el/range sensors. Sites
-# without azel_range calibration (optical trackers, sites missing noise
-# values) are skipped.
+# Load the Vallado SSN sensor sites and build sensors from the fully
+# calibrated radar sites. Optical (radec) sites are a different sensor type
+# entirely and never construct; a couple of radar sites (Haystack, HAX) lack
+# Table 4-4 noise values, so from_locations_calibrated excludes them too --
+# from_locations would include them instead, defaulted to zero noise.
 sites = bh.datasets.ssn_sensors.load()
 sensors = bh.SimpleSSNSensor.from_locations_calibrated(sites, seed=SEED)
 print(f"Loaded {len(sites)} SSN sites, {len(sensors)} az/el/range sensors")
@@ -104,25 +105,9 @@ truth_prop.propagate_to(epoch_end)
 truth_traj = truth_prop.trajectory
 
 # --8<-- [start:visualize_network]
-fig_network = bh.plot_groundtrack(
-    trajectories=[
-        {"trajectory": truth_prop.trajectory, "color": "red", "line_width": 2}
-    ],
-    ground_stations=[
-        {"stations": [s.location for s in sensors], "color": "blue", "alpha": 0.15}
-    ],
-    gs_cone_altitude=700e3,
-    gs_min_elevation=5.0,
-    basemap="natural_earth",
-    backend="plotly",
-)
-# --8<-- [end:visualize_network]
-
-# --8<-- [start:simulate_measurements]
-# Find passes and simulate measurements only inside them. Sensor measurement
-# buckets for the figure below are filled as each pass is simulated, since
-# per-sensor plotting order doesn't depend on the global time order that the
-# sequential filters need; only `observations` has to be globally sorted.
+# Assign each sensor a stable color, reused for its measurement traces in the
+# figure below, so a comm cone's color on the map identifies the same sensor
+# in the az/el/range plot.
 PALETTE = [
     "#1f77b4",
     "#ff7f0e",
@@ -140,6 +125,44 @@ PALETTE = [
     "#ff9896",
     "#c5b0d5",
 ]
+sensor_colors = {s.name: PALETTE[i % len(PALETTE)] for i, s in enumerate(sensors)}
+
+fig_network = bh.plot_groundtrack(
+    trajectories=[
+        {"trajectory": truth_prop.trajectory, "color": "red", "line_width": 2}
+    ],
+    ground_stations=[
+        {"stations": [s.location], "color": sensor_colors[s.name], "alpha": 0.25}
+        for s in sensors
+    ],
+    gs_cone_altitude=700e3,
+    gs_min_elevation=5.0,
+    basemap="natural_earth",
+    backend="plotly",
+)
+
+# plot_groundtrack's built-in legend can't label per-sensor groups (every
+# station-marker trace is named "Ground Stations"), so add a small manual
+# legend mapping each sensor's name to its color.
+for s in sensors:
+    fig_network.add_trace(
+        go.Scattergeo(
+            lat=[None],
+            lon=[None],
+            mode="markers",
+            marker=dict(size=8, color=sensor_colors[s.name]),
+            name=s.name,
+            showlegend=True,
+        )
+    )
+fig_network.update_layout(showlegend=True)
+# --8<-- [end:visualize_network]
+
+# --8<-- [start:simulate_measurements]
+# Find passes and simulate measurements only inside them. Sensor measurement
+# buckets for the figure below are filled as each pass is simulated, since
+# per-sensor plotting order doesn't depend on the global time order that the
+# sequential filters need; only `observations` has to be globally sorted.
 observations = []
 passes = []  # (sensor_name, window, n_obs)
 sensor_meas = {
@@ -193,7 +216,7 @@ for i, sensor in enumerate(sensors):
     bucket = sensor_meas[i]
     if not bucket["t"]:
         continue
-    color = PALETTE[i % len(PALETTE)]
+    color = sensor_colors[sensor.name]
     fig_measurements.add_trace(
         go.Scatter(
             x=bucket["t"],
@@ -247,25 +270,6 @@ fig_measurements.update_layout(
 # --8<-- [start:run_filters]
 
 
-def run_sequential_filter(filt, obs_list, t0, gap_split, propagate_step):
-    """Process observations in epoch order, propagating through gaps.
-
-    Advances the filter through gaps between passes in fixed steps so that
-    covariance growth during the gap is recorded, then processes each
-    observation in turn.
-    """
-    prev_epoch = t0
-    for observation in obs_list:
-        if observation.epoch - prev_epoch > gap_split:
-            t = prev_epoch + propagate_step
-            while t < observation.epoch:
-                filt.propagate_to(t)
-                t = t + propagate_step
-        filt.process_observation(observation)
-        prev_epoch = observation.epoch
-    return filt
-
-
 def extract_error_series(filt, truth_trajectory, t0):
     """Extract (time_min, position_error_m, position_1sigma_m) from filter records."""
     t_min, errors, sigmas = [], [], []
@@ -286,8 +290,6 @@ initial_state[4] += 1.0
 p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
 models = [s.measurement_model() for s in sensors]
 
-# Extended Kalman Filter
-start_time = time.time()
 ekf = bh.ExtendedKalmanFilter(
     epoch,
     initial_state,
@@ -296,13 +298,6 @@ ekf = bh.ExtendedKalmanFilter(
     propagation_config=bh.NumericalPropagationConfig.default(),
     force_config=bh.ForceModelConfig.two_body(),
 )
-run_sequential_filter(ekf, observations, epoch, GAP_SPLIT, PROPAGATE_STEP)
-print(
-    f"\nEKF processed {len(observations)} observations in {time.time() - start_time:.1f} s"
-)
-
-# Unscented Kalman Filter
-start_time = time.time()
 ukf = bh.UnscentedKalmanFilter(
     epoch,
     initial_state,
@@ -311,10 +306,38 @@ ukf = bh.UnscentedKalmanFilter(
     force_config=bh.ForceModelConfig.two_body(),
     measurement_models=models,
 )
-run_sequential_filter(ukf, observations, epoch, GAP_SPLIT, PROPAGATE_STEP)
-print(
-    f"UKF processed {len(observations)} observations in {time.time() - start_time:.1f} s"
-)
+
+# Merge the (possibly overlapping) per-sensor pass windows -- e.g. Cavalier
+# and Millstone both track the object around the same time -- into
+# non-overlapping tracking intervals, sorted by start time.
+interval_bounds = sorted((w.window_open, w.window_close) for _, w, _ in passes)
+intervals = []
+for start, end in interval_bounds:
+    if intervals and start <= intervals[-1][1]:
+        intervals[-1][1] = max(intervals[-1][1], end)
+    else:
+        intervals.append([start, end])
+
+# Step each filter window-by-window: propagate through the gap before an
+# interval at a fixed cadence (prediction-only, so covariance growth during
+# the gap is recorded), then process every observation within the interval
+# in time order.
+print()
+for name, filt in (("EKF", ekf), ("UKF", ukf)):
+    start_time = time.time()
+    prev_epoch = epoch
+    for start, end in intervals:
+        t = prev_epoch + PROPAGATE_STEP
+        while t < start:
+            filt.propagate_to(t)
+            t = t + PROPAGATE_STEP
+        for obs in observations:
+            if start <= obs.epoch <= end:
+                filt.process_observation(obs)
+        prev_epoch = end
+    print(
+        f"{name} processed {len(observations)} observations in {time.time() - start_time:.1f} s"
+    )
 
 ekf_t, ekf_err, ekf_sigma = extract_error_series(ekf, truth_traj, epoch)
 ukf_t, ukf_err, ukf_sigma = extract_error_series(ukf, truth_traj, epoch)

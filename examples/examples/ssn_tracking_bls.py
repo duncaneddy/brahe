@@ -34,9 +34,11 @@ MEAS_INTERVAL = 15.0  # seconds between measurements during a pass
 DURATION = 6 * 3600.0  # tracking duration (seconds)
 SEED = 42
 
-# Load the Vallado SSN sensor sites and build az/el/range sensors. Sites
-# without azel_range calibration (optical trackers, sites missing noise
-# values) are skipped.
+# Load the Vallado SSN sensor sites and build sensors from the fully
+# calibrated radar sites. Optical (radec) sites are a different sensor type
+# entirely and never construct; a couple of radar sites (Haystack, HAX) lack
+# Table 4-4 noise values, so from_locations_calibrated excludes them too --
+# from_locations would include them instead, defaulted to zero noise.
 sites = bh.datasets.ssn_sensors.load()
 sensors = bh.SimpleSSNSensor.from_locations_calibrated(sites, seed=SEED)
 print(f"Loaded {len(sites)} SSN sites, {len(sensors)} az/el/range sensors")

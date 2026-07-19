@@ -450,7 +450,7 @@ impl UnscentedKalmanFilter {
         let mut propagated_sigmas = Vec::with_capacity(2 * n + 1);
         for sp in &sigma_points {
             self.dynamics.reinitialize(current_epoch, sp.clone(), None);
-            self.dynamics.propagate_to(observation.epoch);
+            self.dynamics.propagate_to(observation.epoch)?;
 
             // Guard against the propagator stopping short of the observation
             // epoch (e.g., a terminal event fired during propagation).
@@ -680,7 +680,7 @@ mod tests {
         (1..=num_obs)
             .map(|i| {
                 let t = epoch + (i as f64) * interval_s;
-                prop.propagate_to(t);
+                prop.propagate_to(t).unwrap();
                 Observation::new(t, prop.current_state().rows(0, 3).into_owned(), 0)
             })
             .collect()
@@ -738,7 +738,7 @@ mod tests {
             None,
         )
         .unwrap();
-        prop.propagate_to(target);
+        prop.propagate_to(target).unwrap();
         prop.current_state()
     }
 
@@ -1303,7 +1303,7 @@ mod tests {
         let observations: Vec<Observation> = (1..=20)
             .map(|i| {
                 let t = epoch + (i as f64) * 60.0;
-                prop.propagate_to(t);
+                prop.propagate_to(t).unwrap();
                 Observation::new(t, prop.current_state().rows(0, 6).into_owned(), 0)
             })
             .collect();

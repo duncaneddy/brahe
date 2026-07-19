@@ -2437,7 +2437,10 @@ impl PyWalkerConstellationGenerator {
             .map(|props| {
                 props
                     .into_iter()
-                    .map(|p| PyNumericalOrbitPropagator { propagator: p })
+                    .map(|p| PyNumericalOrbitPropagator {
+                        propagator: p,
+                        err_slot: Arc::new(Mutex::new(None)),
+                    })
                     .collect()
             })
             .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))

@@ -14,6 +14,7 @@ use nalgebra::{DMatrix, DVector};
 use crate::propagators::traits::DStatePropagator;
 use crate::propagators::{DNumericalOrbitPropagator, DNumericalPropagator, TrajectoryMode};
 use crate::time::Epoch;
+use crate::utils::BraheError;
 
 /// Dynamics source for estimation filters.
 ///
@@ -57,7 +58,7 @@ impl From<DNumericalPropagator> for DynamicsSource {
 
 impl DynamicsSource {
     /// Propagate to a target epoch.
-    pub fn propagate_to(&mut self, epoch: Epoch) {
+    pub fn propagate_to(&mut self, epoch: Epoch) -> Result<(), BraheError> {
         match self {
             DynamicsSource::OrbitPropagator(p) => p.propagate_to(epoch),
             DynamicsSource::GenericPropagator(p) => p.propagate_to(epoch),

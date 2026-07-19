@@ -25,6 +25,7 @@ use crate::integrators::traits::{
     compute_next_step_size, compute_normalized_error, compute_normalized_error_s,
     compute_reduced_step_size,
 };
+use crate::utils::errors::BraheError;
 
 /// Implementation of the RKN12(10) Runge-Kutta-Nyström numerical integrator.
 ///
@@ -68,7 +69,7 @@ use crate::integrators::traits::{
 /// use brahe::constants::GM_EARTH;
 ///
 /// // Define dynamics for two-body problem (second-order)
-/// let f = |_t: f64, state: &SVector<f64, 6>, _params: Option<&SVector<f64, 0>>| -> SVector<f64, 6> {
+/// let f = |_t: f64, state: &SVector<f64, 6>, _params: Option<&SVector<f64, 0>>| -> Result<SVector<f64, 6>, brahe::utils::errors::BraheError> {
 ///     let r = state.fixed_rows::<3>(0);
 ///     let v = state.fixed_rows::<3>(3);
 ///     let r_norm = r.norm();
@@ -77,7 +78,7 @@ use crate::integrators::traits::{
 ///     let mut state_dot = SVector::<f64, 6>::zeros();
 ///     state_dot.fixed_rows_mut::<3>(0).copy_from(&v);
 ///     state_dot.fixed_rows_mut::<3>(3).copy_from(&a);
-///     state_dot
+///     Ok(state_dot)
 /// };
 ///
 /// // Create integrator with tight tolerances
@@ -88,7 +89,7 @@ use crate::integrators::traits::{
 /// let t = 0.0;
 /// let state = SVector::<f64, 6>::new(7000e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
 /// let dt = 10.0;
-/// let result = rkn.step(t, state, None, Some(dt));
+/// let result = rkn.step(t, state, None, Some(dt)).unwrap();
 ///
 /// println!("New state: {:?}", result.state);
 /// println!("Suggested next dt: {}", result.dt_next);
@@ -118,7 +119,7 @@ impl<const S: usize, const P: usize> RKN1210SIntegrator<S, P> {
         sens: Option<SMatrix<f64, S, P>>,
         params: Option<&SVector<f64, P>>,
         dt: f64,
-    ) -> SIntegratorStepResult<S, P> {
+    ) -> Result<SIntegratorStepResult<S, P>, BraheError> {
         assert!(
             S.is_multiple_of(2),
             "RKN integrator requires even-dimensional state (position + velocity)"
@@ -180,11 +181,11 @@ impl<const S: usize, const P: usize> RKN1210SIntegrator<S, P> {
 
                 // Evaluate dynamics and extract acceleration
                 let t_i = t + self.bt.c[i] * h;
-                let mut state_dot = (self.f)(t_i, &stage_state, params);
+                let mut state_dot = (self.f)(t_i, &stage_state, params)?;
 
                 // Apply control input if present
                 if let Some(ref ctrl) = self.control {
-                    state_dot += ctrl(t_i, &stage_state, params);
+                    state_dot += ctrl(t_i, &stage_state, params)?;
                 }
 
                 for dim in 0..half_dim {
@@ -196,8 +197,13 @@ impl<const S: usize, const P: usize> RKN1210SIntegrator<S, P> {
                     let a_i = self
                         .varmat
                         .as_ref()
-                        .expect("varmat required for step_with_varmat or step_with_sensmat")
-                        .compute(t_i, &stage_state, params);
+                        .ok_or_else(|| {
+                            BraheError::PropagatorError(
+                                "varmat required for step_with_varmat or step_with_sensmat"
+                                    .to_string(),
+                            )
+                        })?
+                        .compute(t_i, &stage_state, params)?;
 
                     // Variational: dΦ/dt = A*Φ
                     if has_phi {
@@ -217,8 +223,12 @@ impl<const S: usize, const P: usize> RKN1210SIntegrator<S, P> {
                         let b_i = self
                             .sensmat
                             .as_ref()
-                            .expect("sensmat required for step_with_sensmat")
-                            .compute(t_i, &stage_state, params.unwrap());
+                            .ok_or_else(|| {
+                                BraheError::PropagatorError(
+                                    "sensmat required for step_with_sensmat".to_string(),
+                                )
+                            })?
+                            .compute(t_i, &stage_state, params.unwrap())?;
                         k_sens[i] = a_i * (current_sens + h * k_sens_sum) + b_i;
                     }
                 }
@@ -293,14 +303,14 @@ impl<const S: usize, const P: usize> RKN1210SIntegrator<S, P> {
                 // RKN12(10) uses 12th order for accept
                 let dt_next = compute_next_step_size(error, h, 1.0 / 12.0, &self.config);
 
-                return SIntegratorStepResult {
+                return Ok(SIntegratorStepResult {
                     state: state_high,
                     phi: phi_new,
                     sens: sens_new,
                     dt_used: h,
                     error_estimate: Some(error),
                     dt_next,
-                };
+                });
             }
 
             // Step rejected - reduce step size
@@ -308,7 +318,10 @@ impl<const S: usize, const P: usize> RKN1210SIntegrator<S, P> {
             h = compute_reduced_step_size(error, h, 1.0 / 10.0, &self.config);
         }
 
-        panic!("RKN1210S integrator exceeded maximum step attempts");
+        Err(BraheError::NumericalError(format!(
+            "RKN1210S exceeded maximum step attempts ({}) at t={}",
+            self.config.max_step_attempts, t
+        )))
     }
 }
 
@@ -323,8 +336,10 @@ impl<const S: usize, const P: usize> SIntegrator<S, P> for RKN1210SIntegrator<S,
         state: SVector<f64, S>,
         params: Option<&SVector<f64, P>>,
         dt: Option<f64>,
-    ) -> SIntegratorStepResult<S, P> {
-        let dt = dt.expect("Adaptive integrators require dt");
+    ) -> Result<SIntegratorStepResult<S, P>, BraheError> {
+        let dt = dt.ok_or_else(|| {
+            BraheError::PropagatorError("Adaptive integrators require dt".to_string())
+        })?;
         self.step_internal(t, state, None, None, params, dt)
     }
 
@@ -335,8 +350,10 @@ impl<const S: usize, const P: usize> SIntegrator<S, P> for RKN1210SIntegrator<S,
         params: Option<&SVector<f64, P>>,
         phi: SMatrix<f64, S, S>,
         dt: Option<f64>,
-    ) -> SIntegratorStepResult<S, P> {
-        let dt = dt.expect("Adaptive integrators require dt");
+    ) -> Result<SIntegratorStepResult<S, P>, BraheError> {
+        let dt = dt.ok_or_else(|| {
+            BraheError::PropagatorError("Adaptive integrators require dt".to_string())
+        })?;
         self.step_internal(t, state, Some(phi), None, params, dt)
     }
 
@@ -347,8 +364,10 @@ impl<const S: usize, const P: usize> SIntegrator<S, P> for RKN1210SIntegrator<S,
         sens: SMatrix<f64, S, P>,
         params: &SVector<f64, P>,
         dt: Option<f64>,
-    ) -> SIntegratorStepResult<S, P> {
-        let dt = dt.expect("Adaptive integrators require dt");
+    ) -> Result<SIntegratorStepResult<S, P>, BraheError> {
+        let dt = dt.ok_or_else(|| {
+            BraheError::PropagatorError("Adaptive integrators require dt".to_string())
+        })?;
         self.step_internal(t, state, None, Some(sens), Some(params), dt)
     }
 
@@ -360,8 +379,10 @@ impl<const S: usize, const P: usize> SIntegrator<S, P> for RKN1210SIntegrator<S,
         sens: SMatrix<f64, S, P>,
         params: &SVector<f64, P>,
         dt: Option<f64>,
-    ) -> SIntegratorStepResult<S, P> {
-        let dt = dt.expect("Adaptive integrators require dt");
+    ) -> Result<SIntegratorStepResult<S, P>, BraheError> {
+        let dt = dt.ok_or_else(|| {
+            BraheError::PropagatorError("Adaptive integrators require dt".to_string())
+        })?;
         self.step_internal(t, state, Some(phi), Some(sens), Some(params), dt)
     }
 }
@@ -418,7 +439,7 @@ impl<const S: usize, const P: usize> SIntegratorConstructor<S, P> for RKN1210SIn
 /// use brahe::constants::GM_EARTH;
 ///
 /// // Define dynamics for two-body problem
-/// let f = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+/// let f = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> Result<DVector<f64>, brahe::utils::errors::BraheError> {
 ///     let r = state.rows(0, 3);
 ///     let v = state.rows(3, 3);
 ///     let r_norm = r.norm();
@@ -427,14 +448,14 @@ impl<const S: usize, const P: usize> SIntegratorConstructor<S, P> for RKN1210SIn
 ///     let mut state_dot = DVector::zeros(6);
 ///     state_dot.rows_mut(0, 3).copy_from(&v);
 ///     state_dot.rows_mut(3, 3).copy_from(&a);
-///     state_dot
+///     Ok(state_dot)
 /// };
 ///
 /// let config = IntegratorConfig::adaptive(1e-12, 1e-10);
 /// let rkn = RKN1210DIntegrator::with_config(6, Box::new(f), None, None, None, config);
 ///
 /// let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
-/// let result = rkn.step(0.0, state, None, Some(10.0));
+/// let result = rkn.step(0.0, state, None, Some(10.0)).unwrap();
 /// ```
 pub struct RKN1210DIntegrator {
     dimension: usize,
@@ -520,8 +541,10 @@ impl DIntegrator for RKN1210DIntegrator {
         state: DVector<f64>,
         params: Option<&DVector<f64>>,
         dt: Option<f64>,
-    ) -> DIntegratorStepResult {
-        let dt = dt.expect("Adaptive integrators require dt");
+    ) -> Result<DIntegratorStepResult, BraheError> {
+        let dt = dt.ok_or_else(|| {
+            BraheError::PropagatorError("Adaptive integrators require dt".to_string())
+        })?;
         self.step_internal(t, state, None, None, params, dt)
     }
 
@@ -532,8 +555,10 @@ impl DIntegrator for RKN1210DIntegrator {
         params: Option<&DVector<f64>>,
         phi: DMatrix<f64>,
         dt: Option<f64>,
-    ) -> DIntegratorStepResult {
-        let dt = dt.expect("Adaptive integrators require dt");
+    ) -> Result<DIntegratorStepResult, BraheError> {
+        let dt = dt.ok_or_else(|| {
+            BraheError::PropagatorError("Adaptive integrators require dt".to_string())
+        })?;
         self.step_internal(t, state, Some(phi), None, params, dt)
     }
 
@@ -544,8 +569,10 @@ impl DIntegrator for RKN1210DIntegrator {
         sens: DMatrix<f64>,
         params: &DVector<f64>,
         dt: Option<f64>,
-    ) -> DIntegratorStepResult {
-        let dt = dt.expect("Adaptive integrators require dt");
+    ) -> Result<DIntegratorStepResult, BraheError> {
+        let dt = dt.ok_or_else(|| {
+            BraheError::PropagatorError("Adaptive integrators require dt".to_string())
+        })?;
         self.step_internal(t, state, None, Some(sens), Some(params), dt)
     }
 
@@ -557,8 +584,10 @@ impl DIntegrator for RKN1210DIntegrator {
         sens: DMatrix<f64>,
         params: &DVector<f64>,
         dt: Option<f64>,
-    ) -> DIntegratorStepResult {
-        let dt = dt.expect("Adaptive integrators require dt");
+    ) -> Result<DIntegratorStepResult, BraheError> {
+        let dt = dt.ok_or_else(|| {
+            BraheError::PropagatorError("Adaptive integrators require dt".to_string())
+        })?;
         self.step_internal(t, state, Some(phi), Some(sens), Some(params), dt)
     }
 }
@@ -596,7 +625,7 @@ impl RKN1210DIntegrator {
         sens: Option<DMatrix<f64>>,
         params: Option<&DVector<f64>>,
         dt: f64,
-    ) -> DIntegratorStepResult {
+    ) -> Result<DIntegratorStepResult, BraheError> {
         let half_dim = self.dimension / 2;
         let has_phi = phi.is_some();
         let has_sens = sens.is_some();
@@ -665,11 +694,11 @@ impl RKN1210DIntegrator {
                 // Evaluate dynamics and extract acceleration
                 let t_i = t + self.bt.c[i] * h;
                 // Always pass params for parameter-dependent dynamics
-                let mut state_dot = (self.f)(t_i, &stage_state, params);
+                let mut state_dot = (self.f)(t_i, &stage_state, params)?;
 
                 // Apply control input if present
                 if let Some(ref ctrl) = self.control {
-                    state_dot += ctrl(t_i, &stage_state, params);
+                    state_dot += ctrl(t_i, &stage_state, params)?;
                 }
 
                 for dim in 0..half_dim {
@@ -681,8 +710,13 @@ impl RKN1210DIntegrator {
                     let a_i = self
                         .varmat
                         .as_ref()
-                        .expect("varmat required for step_with_varmat or step_with_sensmat")
-                        .compute(t_i, &stage_state, params);
+                        .ok_or_else(|| {
+                            BraheError::PropagatorError(
+                                "varmat required for step_with_varmat or step_with_sensmat"
+                                    .to_string(),
+                            )
+                        })?
+                        .compute(t_i, &stage_state, params)?;
 
                     // Variational: dΦ/dt = A*Φ
                     if has_phi {
@@ -704,8 +738,12 @@ impl RKN1210DIntegrator {
                         let b_i = self
                             .sensmat
                             .as_ref()
-                            .expect("sensmat required for step_with_sensmat")
-                            .compute(t_i, &stage_state, params.unwrap());
+                            .ok_or_else(|| {
+                                BraheError::PropagatorError(
+                                    "sensmat required for step_with_sensmat".to_string(),
+                                )
+                            })?
+                            .compute(t_i, &stage_state, params.unwrap())?;
                         k_sens[i] = &a_i * (&current_sens + h * k_sens_sum) + b_i;
                     }
                 }
@@ -780,14 +818,14 @@ impl RKN1210DIntegrator {
                 // RKN12(10) uses 12th order for accept
                 let dt_next = compute_next_step_size(error, h, 1.0 / 12.0, &self.config);
 
-                return DIntegratorStepResult {
+                return Ok(DIntegratorStepResult {
                     state: state_high,
                     phi: phi_new,
                     sens: sens_new,
                     dt_used: h,
                     error_estimate: Some(error),
                     dt_next,
-                };
+                });
             }
 
             // Step rejected - reduce step size
@@ -795,7 +833,10 @@ impl RKN1210DIntegrator {
             h = compute_reduced_step_size(error, h, 1.0 / 10.0, &self.config);
         }
 
-        panic!("RKN1210D integrator exceeded maximum step attempts");
+        Err(BraheError::NumericalError(format!(
+            "RKN1210D exceeded maximum step attempts ({}) at t={}",
+            self.config.max_step_attempts, t
+        )))
     }
 }
 
@@ -812,6 +853,7 @@ mod tests {
     use crate::integrators::traits::{SIntegrator, SIntegratorConstructor};
     use crate::math::jacobian::{DNumericalJacobian, DifferenceMethod, SNumericalJacobian};
     use crate::time::{Epoch, TimeSystem};
+    use crate::utils::errors::BraheError;
     use crate::{GM_EARTH, R_EARTH, orbital_period, state_koe_to_eci};
 
     #[test]
@@ -852,7 +894,7 @@ mod tests {
         _: f64,
         x: &SVector<f64, 6>,
         _params: Option<&SVector<f64, 0>>,
-    ) -> SVector<f64, 6> {
+    ) -> Result<SVector<f64, 6>, BraheError> {
         let r = x.fixed_rows::<3>(0);
         let v = x.fixed_rows::<3>(3);
 
@@ -865,7 +907,7 @@ mod tests {
         x_dot.fixed_rows_mut::<3>(0).copy_from(&v);
         x_dot.fixed_rows_mut::<3>(3).copy_from(&a);
 
-        x_dot
+        Ok(x_dot)
     }
 
     #[test]
@@ -874,9 +916,9 @@ mod tests {
         let f = |_t: f64,
                  state: &SVector<f64, 2>,
                  _params: Option<&SVector<f64, 0>>|
-         -> SVector<f64, 2> {
+         -> Result<SVector<f64, 2>, BraheError> {
             // state = [x, v], state_dot = [v, a] where a = 2
-            SVector::<f64, 2>::new(state[1], 2.0)
+            Ok(SVector::<f64, 2>::new(state[1], 2.0))
         };
 
         let config = IntegratorConfig::adaptive(1e-10, 1e-8);
@@ -886,7 +928,7 @@ mod tests {
         let state = SVector::<f64, 2>::new(0.0, 0.0); // [x, v] = [0, 0]
         let dt = 0.01;
 
-        let result = rkn.step(0.0, state, None, Some(dt));
+        let result = rkn.step(0.0, state, None, Some(dt)).unwrap();
 
         println!("After one step:");
         println!("  state: [{}, {}]", result.state[0], result.state[1]);
@@ -908,10 +950,10 @@ mod tests {
         let f = |_t: f64,
                  state: &SVector<f64, 2>,
                  _params: Option<&SVector<f64, 0>>|
-         -> SVector<f64, 2> {
+         -> Result<SVector<f64, 2>, BraheError> {
             // state = [x, v]
             // state_dot = [v, a] where a = 2
-            SVector::<f64, 2>::new(state[1], 2.0)
+            Ok(SVector::<f64, 2>::new(state[1], 2.0))
         };
 
         let config = IntegratorConfig::adaptive(1e-10, 1e-8);
@@ -928,7 +970,7 @@ mod tests {
         while t < t_final {
             // Clip dt to not overshoot target time
             let dt_actual = f64::min(dt, t_final - t);
-            let result = rkn.step(t, state, None, Some(dt_actual));
+            let result = rkn.step(t, state, None, Some(dt_actual)).unwrap();
             state = result.state;
             dt = result.dt_next;
             t += result.dt_used;
@@ -969,7 +1011,7 @@ mod tests {
 
         while epc < epcf {
             let dt_actual = f64::min(dt, epcf - epc);
-            let result = rkn.step(epc - epc0, state, None, Some(dt_actual));
+            let result = rkn.step(epc - epc0, state, None, Some(dt_actual)).unwrap();
             state = result.state;
             dt = result.dt_next;
             epc += result.dt_used;
@@ -986,7 +1028,9 @@ mod tests {
         let f = |_t: f64,
                  state: &SVector<f64, 2>,
                  _params: Option<&SVector<f64, 0>>|
-         -> SVector<f64, 2> { SVector::<f64, 2>::new(state[1], 2.0) };
+         -> Result<SVector<f64, 2>, BraheError> {
+            Ok(SVector::<f64, 2>::new(state[1], 2.0))
+        };
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let rkn: RKN1210SIntegrator<2, 0> =
@@ -999,7 +1043,7 @@ mod tests {
 
         while t < t_final {
             let dt_actual = f64::min(dt, t_final - t);
-            let result = rkn.step(t, state, None, Some(dt_actual));
+            let result = rkn.step(t, state, None, Some(dt_actual)).unwrap();
             state = result.state;
             dt = result.dt_next;
             t += result.dt_used;
@@ -1014,7 +1058,9 @@ mod tests {
         let f = |_t: f64,
                  state: &SVector<f64, 2>,
                  _params: Option<&SVector<f64, 0>>|
-         -> SVector<f64, 2> { SVector::<f64, 2>::new(state[1], 2.0) };
+         -> Result<SVector<f64, 2>, BraheError> {
+            Ok(SVector::<f64, 2>::new(state[1], 2.0))
+        };
 
         let config = IntegratorConfig::adaptive(1e-6, 1e-3);
         let rkn: RKN1210SIntegrator<2, 0> =
@@ -1023,7 +1069,7 @@ mod tests {
         let state = SVector::<f64, 2>::new(0.0, 0.0);
         let dt = 0.01;
 
-        let result = rkn.step(0.0, state, None, Some(dt));
+        let result = rkn.step(0.0, state, None, Some(dt)).unwrap();
 
         // With loose tolerances on smooth problem, should suggest larger step
         assert!(result.dt_next > dt);
@@ -1038,11 +1084,11 @@ mod tests {
         let f = |_t: f64,
                  state: &SVector<f64, 2>,
                  _params: Option<&SVector<f64, 0>>|
-         -> SVector<f64, 2> {
+         -> Result<SVector<f64, 2>, BraheError> {
             let x = state[0];
             let v = state[1];
             let accel = -100.0 * x - 20.0 * v;
-            SVector::<f64, 2>::new(v, accel)
+            Ok(SVector::<f64, 2>::new(v, accel))
         };
 
         let config = IntegratorConfig::adaptive(1e-14, 1e-12);
@@ -1052,7 +1098,7 @@ mod tests {
         let state = SVector::<f64, 2>::new(1.0, 0.0);
         let dt = 1.0;
 
-        let result = rkn.step(0.0, state, None, Some(dt));
+        let result = rkn.step(0.0, state, None, Some(dt)).unwrap();
 
         // Verify adaptive mechanism produces valid output
         assert!(result.dt_used > 0.0);
@@ -1067,7 +1113,9 @@ mod tests {
         let f = |_t: f64,
                  state: &SVector<f64, 2>,
                  _params: Option<&SVector<f64, 0>>|
-         -> SVector<f64, 2> { SVector::<f64, 2>::new(state[1], 2.0) };
+         -> Result<SVector<f64, 2>, BraheError> {
+            Ok(SVector::<f64, 2>::new(state[1], 2.0))
+        };
 
         let config = IntegratorConfig {
             abs_tol: 1e-8,
@@ -1092,7 +1140,9 @@ mod tests {
         let f = |_t: f64,
                  state: &SVector<f64, 2>,
                  _params: Option<&SVector<f64, 0>>|
-         -> SVector<f64, 2> { SVector::<f64, 2>::new(state[1], 2.0) };
+         -> Result<SVector<f64, 2>, BraheError> {
+            Ok(SVector::<f64, 2>::new(state[1], 2.0))
+        };
 
         let config = IntegratorConfig::adaptive(1e-13, 1e-11);
         let rkn: RKN1210SIntegrator<2, 0> =
@@ -1105,7 +1155,7 @@ mod tests {
 
         while t < t_final {
             let dt_actual = f64::min(dt, t_final - t);
-            let result = rkn.step(t, state, None, Some(dt_actual));
+            let result = rkn.step(t, state, None, Some(dt_actual)).unwrap();
             state = result.state;
             dt = result.dt_next;
             t += result.dt_used;
@@ -1138,7 +1188,9 @@ mod tests {
         let phi0 = SMatrix::<f64, 6, 6>::identity();
 
         // Take no step and confirm the variational matrix is the identity matrix
-        let result = rkn.step_with_varmat(0.0, state0, None, phi0, Some(0.0));
+        let result = rkn
+            .step_with_varmat(0.0, state0, None, phi0, Some(0.0))
+            .unwrap();
         let phi1 = result.phi;
         for i in 0..6 {
             for j in 0..6 {
@@ -1151,7 +1203,9 @@ mod tests {
         }
 
         // Propagate one step and verify STM updated
-        let result = rkn.step_with_varmat(0.0, state0, None, phi0, Some(1.0));
+        let result = rkn
+            .step_with_varmat(0.0, state0, None, phi0, Some(1.0))
+            .unwrap();
         let phi2 = result.phi;
         for i in 0..6 {
             for j in 0..6 {
@@ -1192,7 +1246,9 @@ mod tests {
 
         // Propagate with STM for a significant time step
         let dt = 10.0; // 10 seconds
-        let result = rkn.step_with_varmat(0.0, state0, None, phi0, Some(dt));
+        let result = rkn
+            .step_with_varmat(0.0, state0, None, phi0, Some(dt))
+            .unwrap();
         let state_final = result.state;
         let phi_final = result.phi.unwrap();
 
@@ -1207,7 +1263,7 @@ mod tests {
 
             // Propagate perturbed state directly
             let state_pert0 = state0 + perturbation;
-            let result_pert = rkn.step(0.0, state_pert0, None, Some(dt));
+            let result_pert = rkn.step(0.0, state_pert0, None, Some(dt)).unwrap();
             let state_pert_direct = result_pert.state;
 
             // Predict perturbed state using STM
@@ -1285,13 +1341,13 @@ mod tests {
 
         for step in 0..num_steps {
             // Propagate with STM
-            let result = rkn.step_with_varmat(t, state, None, phi, Some(dt));
+            let result = rkn.step_with_varmat(t, state, None, phi, Some(dt)).unwrap();
             let state_new = result.state;
             let phi_new = result.phi;
             let dt_used = result.dt_used;
 
             // Propagate perturbed state directly
-            let result_pert = rkn.step(t, state_pert, None, Some(dt));
+            let result_pert = rkn.step(t, state_pert, None, Some(dt)).unwrap();
 
             // Predict perturbed state using STM
             let state_pert_predicted = state_new + phi_new.unwrap() * perturbation;
@@ -1334,7 +1390,7 @@ mod tests {
         _t: f64,
         state: &DVector<f64>,
         _params: Option<&DVector<f64>>,
-    ) -> DVector<f64> {
+    ) -> Result<DVector<f64>, BraheError> {
         let r = state.rows(0, 3);
         let v = state.rows(3, 3);
         let r_norm = r.norm();
@@ -1342,7 +1398,7 @@ mod tests {
         let mut state_dot = DVector::zeros(6);
         state_dot.rows_mut(0, 3).copy_from(&v);
         state_dot.rows_mut(3, 3).copy_from(&a);
-        state_dot
+        Ok(state_dot)
     }
 
     #[test]
@@ -1375,7 +1431,7 @@ mod tests {
         let state0_static = state_koe_to_eci(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let dt = 10.0;
-        let result = rkn.step(0.0, state0, None, Some(dt));
+        let result = rkn.step(0.0, state0, None, Some(dt)).unwrap();
         assert!(result.state.len() == 6);
         assert!(result.dt_used > 0.0);
         assert!(result.error_estimate.unwrap() >= 0.0);
@@ -1384,17 +1440,20 @@ mod tests {
 
     #[test]
     fn test_rkn1210d_integrator_parabola() {
-        let f = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+        let f = |_t: f64,
+                 state: &DVector<f64>,
+                 _params: Option<&DVector<f64>>|
+         -> Result<DVector<f64>, BraheError> {
             let mut state_dot = DVector::zeros(2);
             state_dot[0] = state[1];
             state_dot[1] = 2.0;
-            state_dot
+            Ok(state_dot)
         };
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let rkn = RKN1210DIntegrator::with_config(2, Box::new(f), None, None, None, config);
         let state = DVector::from_vec(vec![0.0, 0.0]);
         let dt = 1.0;
-        let result = rkn.step(0.0, state, None, Some(dt));
+        let result = rkn.step(0.0, state, None, Some(dt)).unwrap();
         let expected_pos = 0.5 * 2.0 * dt * dt;
         let expected_vel = 2.0 * dt;
         assert_abs_diff_eq!(result.state[0], expected_pos, epsilon = 1e-10);
@@ -1422,7 +1481,7 @@ mod tests {
         let mut state = state0.clone();
         let mut t = 0.0;
         for _ in 0..100 {
-            let result = rkn.step(t, state.clone(), None, Some(dt));
+            let result = rkn.step(t, state.clone(), None, Some(dt)).unwrap();
             state = result.state;
             t += result.dt_used;
         }
@@ -1447,48 +1506,59 @@ mod tests {
         let state0_static = state_koe_to_eci(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let dt = 60.0;
-        let result = rkn.step(0.0, state0, None, Some(dt));
+        let result = rkn.step(0.0, state0, None, Some(dt)).unwrap();
         assert!(result.error_estimate.unwrap() < 1.0);
     }
 
     #[test]
     fn test_rkn1210d_step_size_increases() {
-        let f = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+        let f = |_t: f64,
+                 state: &DVector<f64>,
+                 _params: Option<&DVector<f64>>|
+         -> Result<DVector<f64>, BraheError> {
             let mut state_dot = DVector::zeros(2);
             state_dot[0] = state[1];
             state_dot[1] = 0.0;
-            state_dot
+            Ok(state_dot)
         };
         let config = IntegratorConfig::adaptive(1e-8, 1e-6);
         let rkn = RKN1210DIntegrator::with_config(2, Box::new(f), None, None, None, config);
         let state = DVector::from_vec(vec![0.0, 1.0]);
-        let result = rkn.step(0.0, state, None, Some(0.1));
+        let result = rkn.step(0.0, state, None, Some(0.1)).unwrap();
         assert!(result.dt_next > 0.1);
     }
 
     #[test]
     fn test_rkn1210d_adaptive_mechanism() {
-        let f = |t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+        let f = |t: f64,
+                 state: &DVector<f64>,
+                 _params: Option<&DVector<f64>>|
+         -> Result<DVector<f64>, BraheError> {
             let mut state_dot = DVector::zeros(2);
             state_dot[0] = state[1];
             state_dot[1] = -t.sin();
-            state_dot
+            Ok(state_dot)
         };
         let config = IntegratorConfig::adaptive(1e-8, 1e-6);
         let rkn = RKN1210DIntegrator::with_config(2, Box::new(f), None, None, None, config);
         let state = DVector::from_vec(vec![0.0, 1.0]);
-        let result1 = rkn.step(0.0, state.clone(), None, Some(0.1));
-        let result2 = rkn.step(result1.dt_used, result1.state, None, Some(0.1));
+        let result1 = rkn.step(0.0, state.clone(), None, Some(0.1)).unwrap();
+        let result2 = rkn
+            .step(result1.dt_used, result1.state, None, Some(0.1))
+            .unwrap();
         assert!(result2.dt_used > 0.0);
     }
 
     #[test]
     fn test_rkn1210d_config_parameters() {
-        let f = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+        let f = |_t: f64,
+                 state: &DVector<f64>,
+                 _params: Option<&DVector<f64>>|
+         -> Result<DVector<f64>, BraheError> {
             let mut state_dot = DVector::zeros(2);
             state_dot[0] = state[1];
             state_dot[1] = 0.0;
-            state_dot
+            Ok(state_dot)
         };
         let config = IntegratorConfig {
             abs_tol: 1e-8,
@@ -1520,7 +1590,7 @@ mod tests {
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
         let state0_static = state_koe_to_eci(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
-        let result = rkn.step(0.0, state0, None, Some(10.0));
+        let result = rkn.step(0.0, state0, None, Some(10.0)).unwrap();
         assert!(result.error_estimate.unwrap() < 1.0);
     }
 
@@ -1528,10 +1598,11 @@ mod tests {
     #[serial_test::parallel]
     fn test_rkn1210d_varmat() {
         setup_global_test_eop();
-        let point_earth_for_jacobian = |t: f64,
-                                        x: &DVector<f64>,
-                                        _params: Option<&DVector<f64>>|
-         -> DVector<f64> { point_earth_dynamic(t, x, None) };
+        let point_earth_for_jacobian =
+            |t: f64,
+             x: &DVector<f64>,
+             _params: Option<&DVector<f64>>|
+             -> Result<DVector<f64>, BraheError> { point_earth_dynamic(t, x, None) };
         let jacobian = DNumericalJacobian::new(Box::new(point_earth_for_jacobian))
             .with_method(DifferenceMethod::Central)
             .with_fixed_offset(0.1);
@@ -1548,7 +1619,9 @@ mod tests {
         let state0_static = state_koe_to_eci(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let dt = 10.0;
-        let result = rkn.step_with_varmat(0.0, state0, None, DMatrix::identity(6, 6), Some(dt));
+        let result = rkn
+            .step_with_varmat(0.0, state0, None, DMatrix::identity(6, 6), Some(dt))
+            .unwrap();
         let state_new = result.state;
         let phi_new = result.phi.unwrap();
         let dt_used = result.dt_used;
@@ -1566,10 +1639,11 @@ mod tests {
     #[serial_test::parallel]
     fn test_rkn1210d_stm_accuracy() {
         setup_global_test_eop();
-        let point_earth_for_jacobian = |t: f64,
-                                        x: &DVector<f64>,
-                                        _params: Option<&DVector<f64>>|
-         -> DVector<f64> { point_earth_dynamic(t, x, None) };
+        let point_earth_for_jacobian =
+            |t: f64,
+             x: &DVector<f64>,
+             _params: Option<&DVector<f64>>|
+             -> Result<DVector<f64>, BraheError> { point_earth_dynamic(t, x, None) };
         let jacobian = DNumericalJacobian::new(Box::new(point_earth_for_jacobian))
             .with_method(DifferenceMethod::Central)
             .with_fixed_offset(1.0);
@@ -1587,7 +1661,9 @@ mod tests {
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let phi0 = DMatrix::identity(6, 6);
         let dt = 10.0;
-        let result = rkn.step_with_varmat(0.0, state0.clone(), None, phi0, Some(dt));
+        let result = rkn
+            .step_with_varmat(0.0, state0.clone(), None, phi0, Some(dt))
+            .unwrap();
         let state_final = result.state;
         let phi_final = result.phi.unwrap();
         let pert_size = 1.0;
@@ -1595,7 +1671,7 @@ mod tests {
             let mut perturbation = DVector::zeros(6);
             perturbation[i] = pert_size;
             let state_pert0 = &state0 + &perturbation;
-            let result_pert = rkn.step(0.0, state_pert0, None, Some(dt));
+            let result_pert = rkn.step(0.0, state_pert0, None, Some(dt)).unwrap();
             let state_pert_direct = result_pert.state;
             let state_pert_predicted = &state_final + &phi_final * &perturbation;
             let error = (&state_pert_direct - &state_pert_predicted).norm();
@@ -1609,10 +1685,11 @@ mod tests {
     #[serial_test::parallel]
     fn test_rkn1210d_stm_vs_direct_perturbation() {
         setup_global_test_eop();
-        let point_earth_for_jacobian = |t: f64,
-                                        x: &DVector<f64>,
-                                        _params: Option<&DVector<f64>>|
-         -> DVector<f64> { point_earth_dynamic(t, x, None) };
+        let point_earth_for_jacobian =
+            |t: f64,
+             x: &DVector<f64>,
+             _params: Option<&DVector<f64>>|
+             -> Result<DVector<f64>, BraheError> { point_earth_dynamic(t, x, None) };
         let jacobian = DNumericalJacobian::new(Box::new(point_earth_for_jacobian))
             .with_method(DifferenceMethod::Central)
             .with_fixed_offset(0.1);
@@ -1645,12 +1722,15 @@ mod tests {
         let mut state_pert = &state0 + &perturbation;
         let mut t = 0.0;
         for step in 0..num_steps {
-            let result =
-                rkn_nominal.step_with_varmat(t, state.clone(), None, phi.clone(), Some(dt));
+            let result = rkn_nominal
+                .step_with_varmat(t, state.clone(), None, phi.clone(), Some(dt))
+                .unwrap();
             let state_new = result.state;
             let phi_new = result.phi.unwrap();
             let dt_used = result.dt_used;
-            let result_pert = rkn_pert.step(t, state_pert.clone(), None, Some(dt));
+            let result_pert = rkn_pert
+                .step(t, state_pert.clone(), None, Some(dt))
+                .unwrap();
             let state_pert_predicted = &state_new + &phi_new * &perturbation;
             let error = (&result_pert.state - &state_pert_predicted).norm();
             let max_error = 0.001 * (step + 1) as f64;
@@ -1668,11 +1748,15 @@ mod tests {
         let f_static = |_t: f64,
                         x: &SVector<f64, 2>,
                         _params: Option<&SVector<f64, 0>>|
-         -> SVector<f64, 2> { SVector::<f64, 2>::new(x[1], 2.0) };
+         -> Result<SVector<f64, 2>, BraheError> {
+            Ok(SVector::<f64, 2>::new(x[1], 2.0))
+        };
         let f_dynamic = |_t: f64,
                          x: &DVector<f64>,
                          _params: Option<&DVector<f64>>|
-         -> DVector<f64> { DVector::from_vec(vec![x[1], 2.0]) };
+         -> Result<DVector<f64>, BraheError> {
+            Ok(DVector::from_vec(vec![x[1], 2.0]))
+        };
 
         let config = IntegratorConfig::adaptive(1e-10, 1e-8);
         let rkn_s: RKN1210SIntegrator<2, 0> =
@@ -1684,8 +1768,8 @@ mod tests {
         let state_d = DVector::from_vec(vec![0.0, 0.0]);
         let dt = 0.1;
 
-        let result_s = rkn_s.step(0.0, state_s, None, Some(dt));
-        let result_d = rkn_d.step(0.0, state_d, None, Some(dt));
+        let result_s = rkn_s.step(0.0, state_s, None, Some(dt)).unwrap();
+        let result_d = rkn_d.step(0.0, state_d, None, Some(dt)).unwrap();
 
         // State results should be identical to machine precision
         assert_abs_diff_eq!(result_s.state[0], result_d.state[0], epsilon = 1.0e-15);
@@ -1721,8 +1805,8 @@ mod tests {
                 _t: f64,
                 _state: &SVector<f64, 2>,
                 _params: Option<&SVector<f64, 1>>,
-            ) -> SMatrix<f64, 2, 2> {
-                SMatrix::<f64, 2, 2>::new(0.0, 1.0, -1.0, 0.0)
+            ) -> Result<SMatrix<f64, 2, 2>, BraheError> {
+                Ok(SMatrix::<f64, 2, 2>::new(0.0, 1.0, -1.0, 0.0))
             }
         }
 
@@ -1734,8 +1818,8 @@ mod tests {
                 _t: f64,
                 state: &SVector<f64, 2>,
                 _params: &SVector<f64, 1>,
-            ) -> SMatrix<f64, 2, 1> {
-                SMatrix::<f64, 2, 1>::new(0.0, -state[0])
+            ) -> Result<SMatrix<f64, 2, 1>, BraheError> {
+                Ok(SMatrix::<f64, 2, 1>::new(0.0, -state[0]))
             }
         }
 
@@ -1743,7 +1827,9 @@ mod tests {
         let f = |_t: f64,
                  x: &SVector<f64, 2>,
                  _params: Option<&SVector<f64, 1>>|
-         -> SVector<f64, 2> { SVector::<f64, 2>::new(x[1], -x[0]) };
+         -> Result<SVector<f64, 2>, BraheError> {
+            Ok(SVector::<f64, 2>::new(x[1], -x[0]))
+        };
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let rkn: RKN1210SIntegrator<2, 1> = RKN1210SIntegrator::with_config(
@@ -1766,7 +1852,9 @@ mod tests {
 
         while t < 1.0 {
             let dt = (1.0_f64 - t).min(0.1);
-            let result = rkn.step_with_sensmat(t, state, sens, &params, Some(dt));
+            let result = rkn
+                .step_with_sensmat(t, state, sens, &params, Some(dt))
+                .unwrap();
             let new_state = result.state;
             let new_sens = result.sens;
             let dt_used = result.dt_used;
@@ -1799,8 +1887,8 @@ mod tests {
                 _t: f64,
                 _state: &DVector<f64>,
                 _params: Option<&DVector<f64>>,
-            ) -> DMatrix<f64> {
-                DMatrix::from_row_slice(2, 2, &[0.0, 1.0, -1.0, 0.0])
+            ) -> Result<DMatrix<f64>, BraheError> {
+                Ok(DMatrix::from_row_slice(2, 2, &[0.0, 1.0, -1.0, 0.0]))
             }
         }
 
@@ -1811,15 +1899,17 @@ mod tests {
                 _t: f64,
                 state: &DVector<f64>,
                 _params: &DVector<f64>,
-            ) -> DMatrix<f64> {
-                DMatrix::from_column_slice(2, 1, &[0.0, -state[0]])
+            ) -> Result<DMatrix<f64>, BraheError> {
+                Ok(DMatrix::from_column_slice(2, 1, &[0.0, -state[0]]))
             }
         }
 
         let dynamics = |_t: f64,
                         x: &DVector<f64>,
                         _params: Option<&DVector<f64>>|
-         -> DVector<f64> { DVector::from_vec(vec![x[1], -x[0]]) };
+         -> Result<DVector<f64>, BraheError> {
+            Ok(DVector::from_vec(vec![x[1], -x[0]]))
+        };
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let rkn = RKN1210DIntegrator::with_config(
@@ -1842,7 +1932,9 @@ mod tests {
 
         while t < 1.0 {
             let dt = (1.0_f64 - t).min(0.1);
-            let result = rkn.step_with_sensmat(t, state, sens, &params, Some(dt));
+            let result = rkn
+                .step_with_sensmat(t, state, sens, &params, Some(dt))
+                .unwrap();
             let new_state = result.state;
             let new_sens = result.sens;
             let dt_used = result.dt_used;
@@ -1873,8 +1965,8 @@ mod tests {
                 _t: f64,
                 _state: &SVector<f64, 2>,
                 _params: Option<&SVector<f64, 1>>,
-            ) -> SMatrix<f64, 2, 2> {
-                SMatrix::<f64, 2, 2>::new(0.0, 1.0, -1.0, 0.0)
+            ) -> Result<SMatrix<f64, 2, 2>, BraheError> {
+                Ok(SMatrix::<f64, 2, 2>::new(0.0, 1.0, -1.0, 0.0))
             }
         }
 
@@ -1885,15 +1977,17 @@ mod tests {
                 _t: f64,
                 state: &SVector<f64, 2>,
                 _params: &SVector<f64, 1>,
-            ) -> SMatrix<f64, 2, 1> {
-                SMatrix::<f64, 2, 1>::new(0.0, -state[0])
+            ) -> Result<SMatrix<f64, 2, 1>, BraheError> {
+                Ok(SMatrix::<f64, 2, 1>::new(0.0, -state[0]))
             }
         }
 
         let f = |_t: f64,
                  x: &SVector<f64, 2>,
                  _params: Option<&SVector<f64, 1>>|
-         -> SVector<f64, 2> { SVector::<f64, 2>::new(x[1], -x[0]) };
+         -> Result<SVector<f64, 2>, BraheError> {
+            Ok(SVector::<f64, 2>::new(x[1], -x[0]))
+        };
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let rkn: RKN1210SIntegrator<2, 1> = RKN1210SIntegrator::with_config(
@@ -1917,7 +2011,9 @@ mod tests {
 
         while t < 1.0 {
             let dt = (1.0_f64 - t).min(0.1);
-            let result = rkn.step_with_varmat_sensmat(t, state, phi, sens, &params, Some(dt));
+            let result = rkn
+                .step_with_varmat_sensmat(t, state, phi, sens, &params, Some(dt))
+                .unwrap();
             let new_state = result.state;
             let new_phi = result.phi;
             let new_sens = result.sens;
@@ -1955,8 +2051,8 @@ mod tests {
                 _t: f64,
                 _state: &DVector<f64>,
                 _params: Option<&DVector<f64>>,
-            ) -> DMatrix<f64> {
-                DMatrix::from_row_slice(2, 2, &[0.0, 1.0, -1.0, 0.0])
+            ) -> Result<DMatrix<f64>, BraheError> {
+                Ok(DMatrix::from_row_slice(2, 2, &[0.0, 1.0, -1.0, 0.0]))
             }
         }
 
@@ -1967,15 +2063,17 @@ mod tests {
                 _t: f64,
                 state: &DVector<f64>,
                 _params: &DVector<f64>,
-            ) -> DMatrix<f64> {
-                DMatrix::from_column_slice(2, 1, &[0.0, -state[0]])
+            ) -> Result<DMatrix<f64>, BraheError> {
+                Ok(DMatrix::from_column_slice(2, 1, &[0.0, -state[0]]))
             }
         }
 
         let dynamics = |_t: f64,
                         x: &DVector<f64>,
                         _params: Option<&DVector<f64>>|
-         -> DVector<f64> { DVector::from_vec(vec![x[1], -x[0]]) };
+         -> Result<DVector<f64>, BraheError> {
+            Ok(DVector::from_vec(vec![x[1], -x[0]]))
+        };
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let rkn = RKN1210DIntegrator::with_config(
@@ -2000,7 +2098,9 @@ mod tests {
 
         while t < 1.0 {
             let dt = (1.0_f64 - t).min(0.1);
-            let result = rkn.step_with_varmat_sensmat(t, state, phi, sens, &params, Some(dt));
+            let result = rkn
+                .step_with_varmat_sensmat(t, state, phi, sens, &params, Some(dt))
+                .unwrap();
             let new_state = result.state;
             let new_phi = result.phi;
             let new_sens = result.sens;
@@ -2035,8 +2135,8 @@ mod tests {
             _t: f64,
             state: &SVector<f64, 2>,
             _params: Option<&SVector<f64, 0>>,
-        ) -> SVector<f64, 2> {
-            SVector::<f64, 2>::new(state[1], -state[0])
+        ) -> Result<SVector<f64, 2>, BraheError> {
+            Ok(SVector::<f64, 2>::new(state[1], -state[0]))
         }
 
         let integrator: RKN1210SIntegrator<2, 0> =
@@ -2057,8 +2157,8 @@ mod tests {
             _t: f64,
             state: &SVector<f64, 2>,
             _params: Option<&SVector<f64, 0>>,
-        ) -> SVector<f64, 2> {
-            SVector::<f64, 2>::new(state[1], -state[0])
+        ) -> Result<SVector<f64, 2>, BraheError> {
+            Ok(SVector::<f64, 2>::new(state[1], -state[0]))
         }
 
         let custom_config = IntegratorConfig {
@@ -2096,8 +2196,8 @@ mod tests {
             _t: f64,
             state: &SVector<f64, 2>,
             _params: Option<&SVector<f64, 0>>,
-        ) -> SVector<f64, 2> {
-            SVector::<f64, 2>::new(state[1], -state[0])
+        ) -> Result<SVector<f64, 2>, BraheError> {
+            Ok(SVector::<f64, 2>::new(state[1], -state[0]))
         }
 
         let integrator: RKN1210SIntegrator<2, 0> =
@@ -2113,8 +2213,12 @@ mod tests {
 
     #[test]
     fn test_rkn1210d_new_uses_default_config() {
-        fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
-            DVector::from_vec(vec![state[1], -state[0]])
+        fn dynamics(
+            _t: f64,
+            state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            Ok(DVector::from_vec(vec![state[1], -state[0]]))
         }
 
         let integrator = RKN1210DIntegrator::new(2, Box::new(dynamics), None, None, None);
@@ -2130,8 +2234,12 @@ mod tests {
 
     #[test]
     fn test_rkn1210d_with_config_stores_config() {
-        fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
-            DVector::from_vec(vec![state[1], -state[0]])
+        fn dynamics(
+            _t: f64,
+            state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            Ok(DVector::from_vec(vec![state[1], -state[0]]))
         }
 
         let custom_config = IntegratorConfig {
@@ -2166,8 +2274,12 @@ mod tests {
 
     #[test]
     fn test_rkn1210d_config_returns_reference() {
-        fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
-            DVector::from_vec(vec![state[1], -state[0]])
+        fn dynamics(
+            _t: f64,
+            state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            Ok(DVector::from_vec(vec![state[1], -state[0]]))
         }
 
         let integrator = RKN1210DIntegrator::new(2, Box::new(dynamics), None, None, None);
@@ -2182,8 +2294,12 @@ mod tests {
 
     #[test]
     fn test_rkn1210d_dimension_method() {
-        fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
-            DVector::from_vec(vec![state[1], -state[0]])
+        fn dynamics(
+            _t: f64,
+            state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            Ok(DVector::from_vec(vec![state[1], -state[0]]))
         }
 
         let integrator = RKN1210DIntegrator::new(6, Box::new(dynamics), None, None, None);
@@ -2198,15 +2314,14 @@ mod tests {
     // =============================================================================
 
     #[test]
-    #[should_panic(expected = "exceeded maximum step attempts")]
-    fn test_rkn1210s_panics_on_max_attempts_exceeded() {
+    fn test_rkn1210s_errors_on_max_attempts_exceeded() {
         fn stiff_dynamics(
             _t: f64,
             state: &SVector<f64, 2>,
             _params: Option<&SVector<f64, 0>>,
-        ) -> SVector<f64, 2> {
+        ) -> Result<SVector<f64, 2>, BraheError> {
             // Rapidly varying dynamics
-            SVector::<f64, 2>::new(1e10 * state[1], 1e10 * state[0])
+            Ok(SVector::<f64, 2>::new(1e10 * state[1], 1e10 * state[0]))
         }
 
         let config = IntegratorConfig {
@@ -2226,18 +2341,18 @@ mod tests {
             RKN1210SIntegrator::with_config(Box::new(stiff_dynamics), None, None, None, config);
 
         let state = SVector::<f64, 2>::new(1.0, 0.0);
-        let _ = integrator.step(0.0, state, None, Some(1.0));
+        let result = integrator.step(0.0, state, None, Some(1.0));
+        assert!(matches!(result, Err(BraheError::NumericalError(_))));
     }
 
     #[test]
-    #[should_panic(expected = "exceeded maximum step attempts")]
-    fn test_rkn1210d_panics_on_max_attempts_exceeded() {
+    fn test_rkn1210d_errors_on_max_attempts_exceeded() {
         fn stiff_dynamics(
             _t: f64,
             state: &DVector<f64>,
             _params: Option<&DVector<f64>>,
-        ) -> DVector<f64> {
-            DVector::from_vec(vec![1e10 * state[1], 1e10 * state[0]])
+        ) -> Result<DVector<f64>, BraheError> {
+            Ok(DVector::from_vec(vec![1e10 * state[1], 1e10 * state[0]]))
         }
 
         let config = IntegratorConfig {
@@ -2257,7 +2372,8 @@ mod tests {
             RKN1210DIntegrator::with_config(2, Box::new(stiff_dynamics), None, None, None, config);
 
         let state = DVector::from_vec(vec![1.0, 0.0]);
-        let _ = integrator.step(0.0, state, None, Some(1.0));
+        let result = integrator.step(0.0, state, None, Some(1.0));
+        assert!(matches!(result, Err(BraheError::NumericalError(_))));
     }
 
     // =========================================================================
@@ -2281,10 +2397,10 @@ mod tests {
         let f = |_t: f64,
                  state: &SVector<f64, 2>,
                  params: Option<&SVector<f64, 1>>|
-         -> SVector<f64, 2> {
+         -> Result<SVector<f64, 2>, BraheError> {
             let k = params.map(|p| p[0]).unwrap_or(1.0);
             // dx/dt = v, dv/dt = -k*x
-            SVector::<f64, 2>::new(state[1], -k * state[0])
+            Ok(SVector::<f64, 2>::new(state[1], -k * state[0]))
         };
 
         let rkn1210: RKN1210SIntegrator<2, 1> =
@@ -2297,11 +2413,11 @@ mod tests {
 
         // Step with k=1.0 (period = 2*pi)
         let params_slow = SVector::<f64, 1>::new(1.0);
-        let result_slow = rkn1210.step(t, x0, Some(&params_slow), Some(dt));
+        let result_slow = rkn1210.step(t, x0, Some(&params_slow), Some(dt)).unwrap();
 
         // Step with k=4.0 (period = pi, oscillates twice as fast)
         let params_fast = SVector::<f64, 1>::new(4.0);
-        let result_fast = rkn1210.step(t, x0, Some(&params_fast), Some(dt));
+        let result_fast = rkn1210.step(t, x0, Some(&params_fast), Some(dt)).unwrap();
 
         // Verify different params give different results
         // With k=1, x(0.1) ≈ cos(0.1) ≈ 0.995
@@ -2318,9 +2434,12 @@ mod tests {
     fn test_rkn1210d_params_affect_step_output() {
         // Same test for dynamic-sized integrator
 
-        let f = |_t: f64, state: &DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
+        let f = |_t: f64,
+                 state: &DVector<f64>,
+                 params: Option<&DVector<f64>>|
+         -> Result<DVector<f64>, BraheError> {
             let k = params.map(|p| p[0]).unwrap_or(1.0);
-            DVector::from_vec(vec![state[1], -k * state[0]])
+            Ok(DVector::from_vec(vec![state[1], -k * state[0]]))
         };
 
         let rkn1210 = RKN1210DIntegrator::new(2, Box::new(f), None, None, None);
@@ -2331,11 +2450,13 @@ mod tests {
 
         // Step with k=1.0
         let params_slow = DVector::from_element(1, 1.0);
-        let result_slow = rkn1210.step(t, x0.clone(), Some(&params_slow), Some(dt));
+        let result_slow = rkn1210
+            .step(t, x0.clone(), Some(&params_slow), Some(dt))
+            .unwrap();
 
         // Step with k=4.0
         let params_fast = DVector::from_element(1, 4.0);
-        let result_fast = rkn1210.step(t, x0, Some(&params_fast), Some(dt));
+        let result_fast = rkn1210.step(t, x0, Some(&params_fast), Some(dt)).unwrap();
 
         // Verify different params give different results
         assert!(
@@ -2354,9 +2475,9 @@ mod tests {
         let f = |_t: f64,
                  state: &SVector<f64, 2>,
                  params: Option<&SVector<f64, 1>>|
-         -> SVector<f64, 2> {
+         -> Result<SVector<f64, 2>, BraheError> {
             let k = params.map(|p| p[0]).unwrap_or(1.0);
-            SVector::<f64, 2>::new(state[1], -k * state[0])
+            Ok(SVector::<f64, 2>::new(state[1], -k * state[0]))
         };
 
         let rkn1210: RKN1210SIntegrator<2, 1> =
@@ -2373,7 +2494,9 @@ mod tests {
         while t_slow < t_final - 1e-10 {
             // Limit step to not overshoot target
             let dt_use = dt.min(t_final - t_slow);
-            let result = rkn1210.step(t_slow, state_slow, Some(&params_slow), Some(dt_use));
+            let result = rkn1210
+                .step(t_slow, state_slow, Some(&params_slow), Some(dt_use))
+                .unwrap();
             state_slow = result.state;
             t_slow += result.dt_used;
             dt = result.dt_next;
@@ -2386,7 +2509,9 @@ mod tests {
         let mut dt: f64 = 0.1;
         while t_fast < t_final - 1e-10 {
             let dt_use = dt.min(t_final - t_fast);
-            let result = rkn1210.step(t_fast, state_fast, Some(&params_fast), Some(dt_use));
+            let result = rkn1210
+                .step(t_fast, state_fast, Some(&params_fast), Some(dt_use))
+                .unwrap();
             state_fast = result.state;
             t_fast += result.dt_used;
             dt = result.dt_next;
@@ -2423,20 +2548,20 @@ mod tests {
                 _t: f64,
                 _state: &SVector<f64, 2>,
                 params: Option<&SVector<f64, 1>>,
-            ) -> SMatrix<f64, 2, 2> {
+            ) -> Result<SMatrix<f64, 2, 2>, BraheError> {
                 let k = params.map(|p| p[0]).unwrap_or(1.0);
                 // Jacobian of [v, -k*x] w.r.t. [x, v]
                 // ∂f/∂x = [0, -k], ∂f/∂v = [1, 0]
-                SMatrix::<f64, 2, 2>::new(0.0, 1.0, -k, 0.0)
+                Ok(SMatrix::<f64, 2, 2>::new(0.0, 1.0, -k, 0.0))
             }
         }
 
         let f = |_t: f64,
                  state: &SVector<f64, 2>,
                  params: Option<&SVector<f64, 1>>|
-         -> SVector<f64, 2> {
+         -> Result<SVector<f64, 2>, BraheError> {
             let k = params.map(|p| p[0]).unwrap_or(1.0);
-            SVector::<f64, 2>::new(state[1], -k * state[0])
+            Ok(SVector::<f64, 2>::new(state[1], -k * state[0]))
         };
 
         let rkn1210: RKN1210SIntegrator<2, 1> = RKN1210SIntegrator::new(
@@ -2453,11 +2578,15 @@ mod tests {
 
         // Step with k=1.0
         let params_slow = SVector::<f64, 1>::new(1.0);
-        let result_slow = rkn1210.step_with_varmat(t, x0, Some(&params_slow), phi0, Some(dt));
+        let result_slow = rkn1210
+            .step_with_varmat(t, x0, Some(&params_slow), phi0, Some(dt))
+            .unwrap();
 
         // Step with k=4.0
         let params_fast = SVector::<f64, 1>::new(4.0);
-        let result_fast = rkn1210.step_with_varmat(t, x0, Some(&params_fast), phi0, Some(dt));
+        let result_fast = rkn1210
+            .step_with_varmat(t, x0, Some(&params_fast), phi0, Some(dt))
+            .unwrap();
 
         // Verify states differ
         assert!(
@@ -2489,15 +2618,18 @@ mod tests {
                 _t: f64,
                 _state: &DVector<f64>,
                 params: Option<&DVector<f64>>,
-            ) -> DMatrix<f64> {
+            ) -> Result<DMatrix<f64>, BraheError> {
                 let k = params.map(|p| p[0]).unwrap_or(1.0);
-                DMatrix::from_row_slice(2, 2, &[0.0, 1.0, -k, 0.0])
+                Ok(DMatrix::from_row_slice(2, 2, &[0.0, 1.0, -k, 0.0]))
             }
         }
 
-        let f = |_t: f64, state: &DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
+        let f = |_t: f64,
+                 state: &DVector<f64>,
+                 params: Option<&DVector<f64>>|
+         -> Result<DVector<f64>, BraheError> {
             let k = params.map(|p| p[0]).unwrap_or(1.0);
-            DVector::from_vec(vec![state[1], -k * state[0]])
+            Ok(DVector::from_vec(vec![state[1], -k * state[0]]))
         };
 
         let rkn1210 = RKN1210DIntegrator::new(
@@ -2515,12 +2647,15 @@ mod tests {
 
         // Step with k=1.0
         let params_slow = DVector::from_element(1, 1.0);
-        let result_slow =
-            rkn1210.step_with_varmat(t, x0.clone(), Some(&params_slow), phi0.clone(), Some(dt));
+        let result_slow = rkn1210
+            .step_with_varmat(t, x0.clone(), Some(&params_slow), phi0.clone(), Some(dt))
+            .unwrap();
 
         // Step with k=4.0
         let params_fast = DVector::from_element(1, 4.0);
-        let result_fast = rkn1210.step_with_varmat(t, x0, Some(&params_fast), phi0, Some(dt));
+        let result_fast = rkn1210
+            .step_with_varmat(t, x0, Some(&params_fast), phi0, Some(dt))
+            .unwrap();
 
         // Verify states and STMs differ
         assert!(

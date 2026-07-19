@@ -71,11 +71,6 @@ pub fn position_geodetic_to_ecef(
 /// # Returns
 /// - `x_geod`: Geodetic coordinates (lon, lat, altitude). Units: (*rad* or *deg* and *m*)
 ///
-/// # Panics
-/// Panics if the iterative refinement fails to converge within 10 iterations.
-/// This can only occur for positions near the Earth's center, where the
-/// geodetic conversion is ill-conditioned.
-///
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, DEGREES};
@@ -98,7 +93,13 @@ pub fn position_ecef_to_geodetic(x_ecef: Vector3<f64>, angle_format: AngleFormat
     let mut dz = ECC2 * z;
     let mut N = 0.0;
 
-    // Iterative refine coordinate estimate
+    // Iteratively refine the coordinate estimate. The fixed-point iteration
+    // contracts by roughly e² (~0.0067) per pass, so 10 iterations reduce the
+    // initial error by ~20 orders of magnitude — full f64 accuracy for any
+    // physically meaningful input. The absolute-eps early exit only triggers
+    // for small |z|, where dz itself is tiny; for large |z| the loop simply
+    // runs all 10 iterations, which is the converged result at machine
+    // precision.
     let mut iter = 0;
     while iter < 10 {
         let zdz = z + dz;
@@ -114,14 +115,6 @@ pub fn position_ecef_to_geodetic(x_ecef: Vector3<f64>, angle_format: AngleFormat
 
         dz = dz_new;
         iter += 1;
-    }
-
-    if iter == 10 {
-        panic!(
-            "Geodetic conversion failed to converge after {} iterations for ECEF position \
-             [{}, {}, {}]; the conversion is ill-conditioned near the Earth's center",
-            iter, x, y, z
-        );
     }
 
     // Extract geodetic coordiantes

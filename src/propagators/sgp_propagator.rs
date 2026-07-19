@@ -1529,10 +1529,10 @@ impl SGPPropagator {
 }
 
 impl SStatePropagator for SGPPropagator {
-    fn step_by(&mut self, step_size: f64) {
+    fn step_by(&mut self, step_size: f64) -> Result<(), BraheError> {
         // Check termination flag - stop immediately if already terminated
         if self.terminated {
-            return;
+            return Ok(());
         }
 
         let current_epoch = self.current_epoch();
@@ -1545,7 +1545,7 @@ impl SStatePropagator for SGPPropagator {
             Err(e) => {
                 self.terminated = true;
                 self.termination_error = Some(e);
-                return;
+                return Ok(());
             }
         };
         let state_curr_eci = match self.state_eci_cartesian(target_epoch) {
@@ -1555,7 +1555,7 @@ impl SStatePropagator for SGPPropagator {
                 // Keep current state as the last valid state.
                 self.terminated = true;
                 self.termination_error = Some(e);
-                return;
+                return Ok(());
             }
         };
 
@@ -1601,7 +1601,7 @@ impl SStatePropagator for SGPPropagator {
                     Err(e) => {
                         self.terminated = true;
                         self.termination_error = Some(e);
-                        return;
+                        return Ok(());
                     }
                 };
                 let event_state_output = convert_state_from_spg4_frame(
@@ -1625,7 +1625,7 @@ impl SStatePropagator for SGPPropagator {
                 // Check for terminal action
                 if action == EventAction::Stop {
                     self.terminated = true;
-                    return; // Stop propagation, don't add target state
+                    return Ok(()); // Stop propagation, don't add target state
                 }
             }
         }
@@ -1636,7 +1636,7 @@ impl SStatePropagator for SGPPropagator {
             Err(e) => {
                 self.terminated = true;
                 self.termination_error = Some(e);
-                return;
+                return Ok(());
             }
         };
         let new_state = convert_state_from_spg4_frame(
@@ -1655,6 +1655,8 @@ impl SStatePropagator for SGPPropagator {
         if self.should_store_state() {
             self.trajectory.add(target_epoch, svec6_to_dvec(&new_state));
         }
+
+        Ok(())
     }
 
     // Default implementation from trait is used for:
@@ -1713,13 +1715,13 @@ impl SStatePropagator for SGPPropagator {
         self.trajectory.set_eviction_policy_max_age(max_age)
     }
 
-    fn propagate_to(&mut self, target_epoch: Epoch) {
+    fn propagate_to(&mut self, target_epoch: Epoch) -> Result<(), BraheError> {
         let step = self.step_size();
 
         if step >= 0.0 {
             // Forward propagation - only proceed if target is in the future
             if target_epoch <= self.current_epoch() {
-                return;
+                return Ok(());
             }
             while !self.terminated && self.current_epoch() < target_epoch {
                 let remaining_time = target_epoch - self.current_epoch();
@@ -1730,12 +1732,12 @@ impl SStatePropagator for SGPPropagator {
                     break;
                 }
 
-                self.step_by(step_size);
+                self.step_by(step_size)?;
             }
         } else {
             // Backward propagation - only proceed if target is in the past
             if target_epoch >= self.current_epoch() {
-                return;
+                return Ok(());
             }
             while !self.terminated && self.current_epoch() > target_epoch {
                 let remaining_time = self.current_epoch() - target_epoch;
@@ -1746,9 +1748,11 @@ impl SStatePropagator for SGPPropagator {
                     break;
                 }
 
-                self.step_by(step_size);
+                self.step_by(step_size)?;
             }
         }
+
+        Ok(())
     }
 }
 
@@ -2140,7 +2144,7 @@ mod tests {
         assert!(initial_state.iter().all(|x| x.is_finite()));
 
         // Propagate forward
-        prop.step();
+        prop.step().unwrap();
         let new_state = prop.current_state();
         assert!(new_state.iter().all(|x| x.is_finite()));
         assert_ne!(new_state, initial_state);
@@ -2207,7 +2211,7 @@ mod tests {
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let initial_epoch = prop.current_epoch();
 
-        prop.step();
+        prop.step().unwrap();
         let new_epoch = prop.current_epoch();
 
         assert_abs_diff_eq!(new_epoch - initial_epoch, 60.0, epsilon = 0.1);
@@ -2225,7 +2229,7 @@ mod tests {
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let initial_epoch = prop.current_epoch();
 
-        prop.step_by(120.0);
+        prop.step_by(120.0).unwrap();
         let new_epoch = prop.current_epoch();
 
         assert_abs_diff_eq!(new_epoch - initial_epoch, 120.0, epsilon = 0.1);
@@ -2245,7 +2249,7 @@ mod tests {
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let initial_epoch = prop.current_epoch();
 
-        prop.propagate_steps(5);
+        prop.propagate_steps(5).unwrap();
         let new_epoch = prop.current_epoch();
 
         assert_abs_diff_eq!(new_epoch - initial_epoch, 300.0, epsilon = 0.1);
@@ -2264,7 +2268,7 @@ mod tests {
         let initial_epoch = prop.initial_epoch();
 
         let target_epoch = initial_epoch + 250.0;
-        prop.step_past(target_epoch);
+        prop.step_past(target_epoch).unwrap();
 
         let current_epoch = prop.current_epoch();
         assert!(current_epoch > target_epoch);
@@ -2286,7 +2290,7 @@ mod tests {
         let initial_epoch = prop.initial_epoch();
         let target_epoch = initial_epoch + 90.0; // 90 seconds forward
 
-        prop.propagate_to(target_epoch);
+        prop.propagate_to(target_epoch).unwrap();
         let current_epoch = prop.current_epoch();
 
         assert_eq!(current_epoch, target_epoch);
@@ -2367,7 +2371,7 @@ mod tests {
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
 
         // Propagate forward
-        prop.propagate_steps(5);
+        prop.propagate_steps(5).unwrap();
         assert_eq!(prop.trajectory.len(), 6);
 
         // Reset
@@ -2384,7 +2388,7 @@ mod tests {
         prop.set_eviction_policy_max_size(5).unwrap();
 
         // Propagate 10 steps
-        prop.propagate_steps(10);
+        prop.propagate_steps(10).unwrap();
 
         // Should only keep 5 states
         assert_eq!(prop.trajectory.len(), 5);
@@ -2401,7 +2405,7 @@ mod tests {
         assert!(result.is_ok());
 
         // Propagate several steps (10 * 60s = 600s total)
-        prop.propagate_steps(10);
+        prop.propagate_steps(10).unwrap();
 
         // Should have evicted old states - should keep only last ~3 states (120s / 60s step)
         // Plus current state: 3 previous + current = 4 states max
@@ -3085,7 +3089,7 @@ mod tests {
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
 
         // Propagate to add states
-        prop.propagate_steps(5);
+        prop.propagate_steps(5).unwrap();
         assert_eq!(prop.trajectory.len(), 6);
 
         // Change output format - should reset trajectory
@@ -3102,7 +3106,7 @@ mod tests {
             .with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None);
 
         // Propagate in new format
-        prop.propagate_steps(3);
+        prop.propagate_steps(3).unwrap();
         assert_eq!(prop.trajectory.len(), 4);
 
         // All states should be valid
@@ -3341,7 +3345,7 @@ mod tests {
         prop.add_event_detector(Box::new(detector));
 
         // Propagate past the event
-        prop.propagate_to(epoch + 300.0);
+        prop.propagate_to(epoch + 300.0).unwrap();
 
         // Event should have been detected
         let events = prop.event_log();
@@ -3369,7 +3373,7 @@ mod tests {
         prop.add_event_detector(Box::new(detector3));
 
         // Propagate past all events
-        prop.propagate_to(epoch + 400.0);
+        prop.propagate_to(epoch + 400.0).unwrap();
 
         // All events should be detected
         let events = prop.event_log();
@@ -3392,7 +3396,7 @@ mod tests {
         prop.add_event_detector(Box::new(detector2));
         prop.add_event_detector(Box::new(detector3));
 
-        prop.propagate_to(epoch + 400.0);
+        prop.propagate_to(epoch + 400.0).unwrap();
 
         // Search for "Alpha" events
         let alpha_events = prop.events_by_name("Alpha");
@@ -3420,7 +3424,7 @@ mod tests {
         prop.add_event_detector(Box::new(detector1));
         prop.add_event_detector(Box::new(detector2));
 
-        prop.propagate_to(epoch + 250.0);
+        prop.propagate_to(epoch + 250.0).unwrap();
 
         // Latest event should be "Second"
         let latest = prop.latest_event().unwrap();
@@ -3443,7 +3447,7 @@ mod tests {
         prop.add_event_detector(Box::new(detector2));
         prop.add_event_detector(Box::new(detector3));
 
-        prop.propagate_to(epoch + 400.0);
+        prop.propagate_to(epoch + 400.0).unwrap();
 
         // Events between 150-250 seconds
         let range_events = prop.events_in_range(epoch + 150.0, epoch + 250.0);
@@ -3465,7 +3469,7 @@ mod tests {
         prop.add_event_detector(Box::new(detector1));
         prop.add_event_detector(Box::new(detector2));
 
-        prop.propagate_to(epoch + 300.0);
+        prop.propagate_to(epoch + 300.0).unwrap();
 
         // Get events by detector index
         let events_0 = prop.events_by_detector_index(0);
@@ -3490,7 +3494,7 @@ mod tests {
         prop.add_event_detector(Box::new(detector));
 
         // Try to propagate to 300 seconds
-        prop.propagate_to(epoch + 300.0);
+        prop.propagate_to(epoch + 300.0).unwrap();
 
         // Should be terminated
         assert!(prop.is_terminated());
@@ -3513,7 +3517,7 @@ mod tests {
         // Add and trigger an event
         let detector = DTimeEvent::new(epoch + 100.0, "Test Event");
         prop.add_event_detector(Box::new(detector));
-        prop.propagate_to(epoch + 200.0);
+        prop.propagate_to(epoch + 200.0).unwrap();
 
         assert_eq!(prop.event_log().len(), 1);
 
@@ -3535,7 +3539,7 @@ mod tests {
         // Add and trigger events
         let detector = DTimeEvent::new(epoch + 100.0, "Test Event");
         prop.add_event_detector(Box::new(detector));
-        prop.propagate_to(epoch + 200.0);
+        prop.propagate_to(epoch + 200.0).unwrap();
 
         assert_eq!(prop.event_log().len(), 1);
 
@@ -3558,7 +3562,7 @@ mod tests {
         let detector = DTimeEvent::new(epoch + 100.0, "Terminal").set_terminal();
         prop.add_event_detector(Box::new(detector));
 
-        prop.propagate_to(epoch + 200.0);
+        prop.propagate_to(epoch + 200.0).unwrap();
         assert!(prop.is_terminated());
 
         // Reset termination
@@ -3566,7 +3570,7 @@ mod tests {
         assert!(!prop.is_terminated());
 
         // Should be able to propagate again
-        prop.propagate_to(epoch + 300.0);
+        prop.propagate_to(epoch + 300.0).unwrap();
         assert!(prop.current_epoch() > epoch + 250.0);
     }
 
@@ -3582,7 +3586,7 @@ mod tests {
         prop.add_event_detector(Box::new(detector));
 
         // Propagate for one full orbit (~92 minutes for ISS)
-        prop.propagate_to(epoch + 5600.0);
+        prop.propagate_to(epoch + 5600.0).unwrap();
 
         // Should detect at least one ascending node crossing
         let events = prop.event_log();
@@ -3599,7 +3603,7 @@ mod tests {
         // Add an event
         let detector = DTimeEvent::new(epoch + 100.0, "Test Event");
         prop.add_event_detector(Box::new(detector));
-        prop.propagate_to(epoch + 200.0);
+        prop.propagate_to(epoch + 200.0).unwrap();
 
         assert_eq!(prop.event_log().len(), 1);
 
@@ -3627,7 +3631,7 @@ mod tests {
         prop.add_event_detector(Box::new(detector2));
         prop.add_event_detector(Box::new(detector3));
 
-        prop.propagate_to(epoch + 400.0);
+        prop.propagate_to(epoch + 400.0).unwrap();
 
         // Use query builder
         let filtered: Vec<_> = prop
@@ -3662,7 +3666,7 @@ mod tests {
 
         // Verify propagator now has empty detectors
         // (can't directly access, but propagating should not detect events)
-        prop.propagate_to(epoch + 300.0);
+        prop.propagate_to(epoch + 300.0).unwrap();
         assert!(prop.event_log().is_empty());
     }
 
@@ -3683,7 +3687,7 @@ mod tests {
         prop.set_event_detectors(detectors);
 
         // Propagate and verify events are detected
-        prop.propagate_to(epoch + 300.0);
+        prop.propagate_to(epoch + 300.0).unwrap();
         assert_eq!(prop.event_log().len(), 2);
     }
 
@@ -3697,7 +3701,7 @@ mod tests {
         // Add detector and propagate to trigger event
         let detector = DTimeEvent::new(epoch + 100.0, "TestEvent");
         prop.add_event_detector(Box::new(detector));
-        prop.propagate_to(epoch + 200.0);
+        prop.propagate_to(epoch + 200.0).unwrap();
 
         // Verify event was detected
         assert_eq!(prop.event_log().len(), 1);
@@ -3747,14 +3751,14 @@ mod tests {
         assert_eq!(taken.len(), 1);
 
         // Propagate - should not detect (no detectors)
-        prop.propagate_to(epoch + 100.0);
+        prop.propagate_to(epoch + 100.0).unwrap();
         assert!(prop.event_log().is_empty());
 
         // Set detectors back
         prop.set_event_detectors(taken);
 
         // Continue propagation past event time
-        prop.propagate_to(epoch + 200.0);
+        prop.propagate_to(epoch + 200.0).unwrap();
 
         // Now event should be detected
         assert_eq!(prop.event_log().len(), 1);
@@ -3920,9 +3924,9 @@ mod tests {
         let initial_state = prop.initial_state();
 
         // Propagate multiple steps
-        prop.step_by(60.0);
-        prop.step_by(60.0);
-        prop.step_by(60.0);
+        prop.step_by(60.0).unwrap();
+        prop.step_by(60.0).unwrap();
+        prop.step_by(60.0).unwrap();
 
         // Trajectory should only contain the initial state (from construction)
         assert_eq!(prop.trajectory.len(), 1);
@@ -3946,8 +3950,8 @@ mod tests {
         let mut prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
 
         // Default mode - should store states
-        prop.step_by(60.0);
-        prop.step_by(60.0);
+        prop.step_by(60.0).unwrap();
+        prop.step_by(60.0).unwrap();
 
         // Should have initial state + 2 propagation steps
         assert_eq!(prop.trajectory.len(), 3);
@@ -3963,7 +3967,7 @@ mod tests {
         let mut prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
 
         // Start with default mode, propagate
-        prop.step_by(60.0);
+        prop.step_by(60.0).unwrap();
         assert_eq!(prop.trajectory.len(), 2); // initial + 1 step
 
         // Switch to disabled mode
@@ -3971,8 +3975,8 @@ mod tests {
         assert_eq!(prop.trajectory_mode(), TrajectoryMode::Disabled);
 
         // Propagate more - trajectory should not grow
-        prop.step_by(60.0);
-        prop.step_by(60.0);
+        prop.step_by(60.0).unwrap();
+        prop.step_by(60.0).unwrap();
         assert_eq!(prop.trajectory.len(), 2); // still 2
 
         // But current state should reflect the latest propagation
@@ -3994,8 +3998,8 @@ mod tests {
         let mut prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
 
         prop.set_trajectory_mode(TrajectoryMode::Disabled);
-        prop.step_by(60.0);
-        prop.step_by(60.0);
+        prop.step_by(60.0).unwrap();
+        prop.step_by(60.0).unwrap();
 
         // Reset should restore to initial state
         prop.reset();
@@ -4047,7 +4051,7 @@ mod tests {
 
         // Propagate 2 days — this satellite diverges within ~24 hours
         let target_epoch = initial_epoch + 2.0 * 86400.0;
-        prop.propagate_to(target_epoch);
+        prop.propagate_to(target_epoch).unwrap();
 
         // Propagator should have terminated due to error
         assert!(prop.is_terminated());
@@ -4093,7 +4097,7 @@ mod tests {
 
         // Trigger termination via propagation error
         let target_epoch = initial_epoch + 2.0 * 86400.0;
-        prop.propagate_to(target_epoch);
+        prop.propagate_to(target_epoch).unwrap();
         assert!(prop.is_terminated());
         assert!(prop.termination_error().is_some());
 
@@ -4113,7 +4117,7 @@ mod tests {
 
         // Trigger termination via propagation error
         let target_epoch = initial_epoch + 2.0 * 86400.0;
-        prop.propagate_to(target_epoch);
+        prop.propagate_to(target_epoch).unwrap();
         assert!(prop.is_terminated());
         assert!(prop.termination_error().is_some());
 

@@ -333,7 +333,7 @@ impl ExtendedKalmanFilter {
             .reinitialize(current_epoch, current_state, Some(self.covariance.clone()));
 
         // Propagate state and covariance to observation epoch
-        self.dynamics.propagate_to(observation.epoch);
+        self.dynamics.propagate_to(observation.epoch)?;
 
         // Guard against the propagator stopping short of the observation
         // epoch (e.g., a terminal event fired during propagation).
@@ -553,7 +553,7 @@ mod tests {
         (1..=num_obs)
             .map(|i| {
                 let t = epoch + (i as f64) * interval_s;
-                prop.propagate_to(t);
+                prop.propagate_to(t).unwrap();
                 Observation::new(t, prop.current_state().rows(0, 3).into_owned(), 0)
             })
             .collect()
@@ -581,7 +581,7 @@ mod tests {
         (1..=num_obs)
             .map(|i| {
                 let t = epoch + (i as f64) * interval_s;
-                prop.propagate_to(t);
+                prop.propagate_to(t).unwrap();
                 Observation::new(t, prop.current_state().rows(0, 6).into_owned(), 0)
             })
             .collect()
@@ -647,7 +647,7 @@ mod tests {
             None,
         )
         .unwrap();
-        prop.propagate_to(target);
+        prop.propagate_to(target).unwrap();
         prop.current_state()
     }
 

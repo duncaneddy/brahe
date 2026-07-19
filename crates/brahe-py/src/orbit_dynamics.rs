@@ -1945,10 +1945,10 @@ fn py_accel_third_body_sun<'py>(
     let len = r_object.len();
     let a = if len == 3 {
         let r_obj = numpy_to_vector3!(r_object);
-        orbit_dynamics::accel_third_body_sun(epc.obj, r_obj)
+        orbit_dynamics::accel_third_body_sun(epc.obj, r_obj).map_err(PyErr::from)?
     } else if len == 6 {
         let x_obj = numpy_to_vector6!(r_object);
-        orbit_dynamics::accel_third_body_sun(epc.obj, x_obj)
+        orbit_dynamics::accel_third_body_sun(epc.obj, x_obj).map_err(PyErr::from)?
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "r_object must be length 3 (position) or 6 (state)",
@@ -1987,10 +1987,10 @@ fn py_accel_third_body_moon<'py>(
     let len = r_object.len();
     let a = if len == 3 {
         let r_obj = numpy_to_vector3!(r_object);
-        orbit_dynamics::accel_third_body_moon(epc.obj, r_obj)
+        orbit_dynamics::accel_third_body_moon(epc.obj, r_obj).map_err(PyErr::from)?
     } else if len == 6 {
         let x_obj = numpy_to_vector6!(r_object);
-        orbit_dynamics::accel_third_body_moon(epc.obj, x_obj)
+        orbit_dynamics::accel_third_body_moon(epc.obj, x_obj).map_err(PyErr::from)?
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "r_object must be length 3 (position) or 6 (state)",
@@ -2032,10 +2032,10 @@ fn py_accel_third_body_sun_spice<'py>(
     let len = r_object.len();
     let a = if len == 3 {
         let r_obj = numpy_to_vector3!(r_object);
-        orbit_dynamics::accel_third_body_sun_spice(epc.obj, r_obj, source.into())
+        orbit_dynamics::accel_third_body_sun_spice(epc.obj, r_obj, source.into()).map_err(PyErr::from)?
     } else if len == 6 {
         let x_obj = numpy_to_vector6!(r_object);
-        orbit_dynamics::accel_third_body_sun_spice(epc.obj, x_obj, source.into())
+        orbit_dynamics::accel_third_body_sun_spice(epc.obj, x_obj, source.into()).map_err(PyErr::from)?
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "r_object must be length 3 (position) or 6 (state)",
@@ -2077,10 +2077,10 @@ fn py_accel_third_body_moon_spice<'py>(
     let len = r_object.len();
     let a = if len == 3 {
         let r_obj = numpy_to_vector3!(r_object);
-        orbit_dynamics::accel_third_body_moon_spice(epc.obj, r_obj, source.into())
+        orbit_dynamics::accel_third_body_moon_spice(epc.obj, r_obj, source.into()).map_err(PyErr::from)?
     } else if len == 6 {
         let x_obj = numpy_to_vector6!(r_object);
-        orbit_dynamics::accel_third_body_moon_spice(epc.obj, x_obj, source.into())
+        orbit_dynamics::accel_third_body_moon_spice(epc.obj, x_obj, source.into()).map_err(PyErr::from)?
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "r_object must be length 3 (position) or 6 (state)",
@@ -2111,10 +2111,10 @@ fn py_accel_third_body_mercury_spice<'py>(
     let len = r_object.len();
     let a = if len == 3 {
         let r_obj = numpy_to_vector3!(r_object);
-        orbit_dynamics::accel_third_body_mercury_spice(epc.obj, r_obj, source.into())
+        orbit_dynamics::accel_third_body_mercury_spice(epc.obj, r_obj, source.into()).map_err(PyErr::from)?
     } else if len == 6 {
         let x_obj = numpy_to_vector6!(r_object);
-        orbit_dynamics::accel_third_body_mercury_spice(epc.obj, x_obj, source.into())
+        orbit_dynamics::accel_third_body_mercury_spice(epc.obj, x_obj, source.into()).map_err(PyErr::from)?
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "r_object must be length 3 (position) or 6 (state)",
@@ -2145,10 +2145,10 @@ fn py_accel_third_body_venus_spice<'py>(
     let len = r_object.len();
     let a = if len == 3 {
         let r_obj = numpy_to_vector3!(r_object);
-        orbit_dynamics::accel_third_body_venus_spice(epc.obj, r_obj, source.into())
+        orbit_dynamics::accel_third_body_venus_spice(epc.obj, r_obj, source.into()).map_err(PyErr::from)?
     } else if len == 6 {
         let x_obj = numpy_to_vector6!(r_object);
-        orbit_dynamics::accel_third_body_venus_spice(epc.obj, x_obj, source.into())
+        orbit_dynamics::accel_third_body_venus_spice(epc.obj, x_obj, source.into()).map_err(PyErr::from)?
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "r_object must be length 3 (position) or 6 (state)",
@@ -2179,10 +2179,10 @@ fn py_accel_third_body_mars_spice<'py>(
     let len = r_object.len();
     let a = if len == 3 {
         let r_obj = numpy_to_vector3!(r_object);
-        orbit_dynamics::accel_third_body_mars_spice(epc.obj, r_obj, source.into())
+        orbit_dynamics::accel_third_body_mars_spice(epc.obj, r_obj, source.into()).map_err(PyErr::from)?
     } else if len == 6 {
         let x_obj = numpy_to_vector6!(r_object);
-        orbit_dynamics::accel_third_body_mars_spice(epc.obj, x_obj, source.into())
+        orbit_dynamics::accel_third_body_mars_spice(epc.obj, x_obj, source.into()).map_err(PyErr::from)?
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "r_object must be length 3 (position) or 6 (state)",
@@ -2213,10 +2213,10 @@ fn py_accel_third_body_jupiter_spice<'py>(
     let len = r_object.len();
     let a = if len == 3 {
         let r_obj = numpy_to_vector3!(r_object);
-        orbit_dynamics::accel_third_body_jupiter_spice(epc.obj, r_obj, source.into())
+        orbit_dynamics::accel_third_body_jupiter_spice(epc.obj, r_obj, source.into()).map_err(PyErr::from)?
     } else if len == 6 {
         let x_obj = numpy_to_vector6!(r_object);
-        orbit_dynamics::accel_third_body_jupiter_spice(epc.obj, x_obj, source.into())
+        orbit_dynamics::accel_third_body_jupiter_spice(epc.obj, x_obj, source.into()).map_err(PyErr::from)?
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "r_object must be length 3 (position) or 6 (state)",
@@ -2247,10 +2247,10 @@ fn py_accel_third_body_saturn_spice<'py>(
     let len = r_object.len();
     let a = if len == 3 {
         let r_obj = numpy_to_vector3!(r_object);
-        orbit_dynamics::accel_third_body_saturn_spice(epc.obj, r_obj, source.into())
+        orbit_dynamics::accel_third_body_saturn_spice(epc.obj, r_obj, source.into()).map_err(PyErr::from)?
     } else if len == 6 {
         let x_obj = numpy_to_vector6!(r_object);
-        orbit_dynamics::accel_third_body_saturn_spice(epc.obj, x_obj, source.into())
+        orbit_dynamics::accel_third_body_saturn_spice(epc.obj, x_obj, source.into()).map_err(PyErr::from)?
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "r_object must be length 3 (position) or 6 (state)",
@@ -2281,10 +2281,10 @@ fn py_accel_third_body_uranus_spice<'py>(
     let len = r_object.len();
     let a = if len == 3 {
         let r_obj = numpy_to_vector3!(r_object);
-        orbit_dynamics::accel_third_body_uranus_spice(epc.obj, r_obj, source.into())
+        orbit_dynamics::accel_third_body_uranus_spice(epc.obj, r_obj, source.into()).map_err(PyErr::from)?
     } else if len == 6 {
         let x_obj = numpy_to_vector6!(r_object);
-        orbit_dynamics::accel_third_body_uranus_spice(epc.obj, x_obj, source.into())
+        orbit_dynamics::accel_third_body_uranus_spice(epc.obj, x_obj, source.into()).map_err(PyErr::from)?
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "r_object must be length 3 (position) or 6 (state)",
@@ -2315,10 +2315,10 @@ fn py_accel_third_body_neptune_spice<'py>(
     let len = r_object.len();
     let a = if len == 3 {
         let r_obj = numpy_to_vector3!(r_object);
-        orbit_dynamics::accel_third_body_neptune_spice(epc.obj, r_obj, source.into())
+        orbit_dynamics::accel_third_body_neptune_spice(epc.obj, r_obj, source.into()).map_err(PyErr::from)?
     } else if len == 6 {
         let x_obj = numpy_to_vector6!(r_object);
-        orbit_dynamics::accel_third_body_neptune_spice(epc.obj, x_obj, source.into())
+        orbit_dynamics::accel_third_body_neptune_spice(epc.obj, x_obj, source.into()).map_err(PyErr::from)?
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "r_object must be length 3 (position) or 6 (state)",

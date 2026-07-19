@@ -10,6 +10,7 @@
  */
 
 use crate::math::jacobian::{DifferenceMethod, PerturbationStrategy, numerical_jacobian};
+use crate::utils::errors::BraheError;
 use nalgebra::{DMatrix, DVector, SMatrix, SVector};
 
 // ============================================================================
@@ -17,19 +18,28 @@ use nalgebra::{DMatrix, DVector, SMatrix, SVector};
 // ============================================================================
 
 /// Sensitivity function type for static-sized systems.
-type SSensitivityFn<const S: usize, const P: usize> =
-    Box<dyn Fn(f64, &SVector<f64, S>, &SVector<f64, P>) -> SMatrix<f64, S, P> + Send + Sync>;
+type SSensitivityFn<const S: usize, const P: usize> = Box<
+    dyn Fn(f64, &SVector<f64, S>, &SVector<f64, P>) -> Result<SMatrix<f64, S, P>, BraheError>
+        + Send
+        + Sync,
+>;
 
 /// Sensitivity function type for dynamic-sized systems.
-type DSensitivityFn = Box<dyn Fn(f64, &DVector<f64>, &DVector<f64>) -> DMatrix<f64> + Send + Sync>;
+type DSensitivityFn = Box<
+    dyn Fn(f64, &DVector<f64>, &DVector<f64>) -> Result<DMatrix<f64>, BraheError> + Send + Sync,
+>;
 
 /// Dynamics function type for static-sized sensitivity computation.
-type SDynamicsWithParams<const S: usize, const P: usize> =
-    Box<dyn Fn(f64, &SVector<f64, S>, &SVector<f64, P>) -> SVector<f64, S> + Send + Sync>;
+type SDynamicsWithParams<const S: usize, const P: usize> = Box<
+    dyn Fn(f64, &SVector<f64, S>, &SVector<f64, P>) -> Result<SVector<f64, S>, BraheError>
+        + Send
+        + Sync,
+>;
 
 /// Dynamics function type for dynamic-sized sensitivity computation.
-type DDynamicsWithParams =
-    Box<dyn Fn(f64, &DVector<f64>, &DVector<f64>) -> DVector<f64> + Send + Sync>;
+type DDynamicsWithParams = Box<
+    dyn Fn(f64, &DVector<f64>, &DVector<f64>) -> Result<DVector<f64>, BraheError> + Send + Sync,
+>;
 
 /// Trait for static-sized sensitivity providers.
 ///
@@ -54,7 +64,7 @@ pub trait SSensitivityProvider<const S: usize, const P: usize>: Send + Sync {
         t: f64,
         state: &SVector<f64, S>,
         params: &SVector<f64, P>,
-    ) -> SMatrix<f64, S, P>;
+    ) -> Result<SMatrix<f64, S, P>, BraheError>;
 }
 
 /// Trait for dynamic-sized sensitivity providers.
@@ -71,7 +81,12 @@ pub trait DSensitivityProvider: Send + Sync {
     ///
     /// # Returns
     /// Sensitivity matrix ∂f/∂p (S×P matrix)
-    fn compute(&self, t: f64, state: &DVector<f64>, params: &DVector<f64>) -> DMatrix<f64>;
+    fn compute(
+        &self,
+        t: f64,
+        state: &DVector<f64>,
+        params: &DVector<f64>,
+    ) -> Result<DMatrix<f64>, BraheError>;
 }
 
 /// Analytical sensitivity provider for static-sized systems.
@@ -94,7 +109,7 @@ impl<const S: usize, const P: usize> SSensitivityProvider<S, P> for SAnalyticSen
         t: f64,
         state: &SVector<f64, S>,
         params: &SVector<f64, P>,
-    ) -> SMatrix<f64, S, P> {
+    ) -> Result<SMatrix<f64, S, P>, BraheError> {
         (self.sensitivity_fn)(t, state, params)
     }
 }
@@ -114,7 +129,12 @@ impl DAnalyticSensitivity {
 }
 
 impl DSensitivityProvider for DAnalyticSensitivity {
-    fn compute(&self, t: f64, state: &DVector<f64>, params: &DVector<f64>) -> DMatrix<f64> {
+    fn compute(
+        &self,
+        t: f64,
+        state: &DVector<f64>,
+        params: &DVector<f64>,
+    ) -> Result<DMatrix<f64>, BraheError> {
         (self.sensitivity_fn)(t, state, params)
     }
 }
@@ -200,7 +220,7 @@ impl<const S: usize, const P: usize> SSensitivityProvider<S, P> for SNumericalSe
         t: f64,
         state: &SVector<f64, S>,
         params: &SVector<f64, P>,
-    ) -> SMatrix<f64, S, P> {
+    ) -> Result<SMatrix<f64, S, P>, BraheError> {
         let mut sensitivity = SMatrix::<f64, S, P>::zeros();
 
         for j in 0..P {
@@ -210,8 +230,8 @@ impl<const S: usize, const P: usize> SSensitivityProvider<S, P> for SNumericalSe
                 DifferenceMethod::Forward => {
                     let mut params_plus = *params;
                     params_plus[j] += h;
-                    let f_plus = (self.dynamics_fn)(t, state, &params_plus);
-                    let f_0 = (self.dynamics_fn)(t, state, params);
+                    let f_plus = (self.dynamics_fn)(t, state, &params_plus)?;
+                    let f_0 = (self.dynamics_fn)(t, state, params)?;
                     (f_plus - f_0) / h
                 }
                 DifferenceMethod::Central => {
@@ -219,15 +239,15 @@ impl<const S: usize, const P: usize> SSensitivityProvider<S, P> for SNumericalSe
                     let mut params_minus = *params;
                     params_plus[j] += h;
                     params_minus[j] -= h;
-                    let f_plus = (self.dynamics_fn)(t, state, &params_plus);
-                    let f_minus = (self.dynamics_fn)(t, state, &params_minus);
+                    let f_plus = (self.dynamics_fn)(t, state, &params_plus)?;
+                    let f_minus = (self.dynamics_fn)(t, state, &params_minus)?;
                     (f_plus - f_minus) / (2.0 * h)
                 }
                 DifferenceMethod::Backward => {
                     let mut params_minus = *params;
                     params_minus[j] -= h;
-                    let f_0 = (self.dynamics_fn)(t, state, params);
-                    let f_minus = (self.dynamics_fn)(t, state, &params_minus);
+                    let f_0 = (self.dynamics_fn)(t, state, params)?;
+                    let f_minus = (self.dynamics_fn)(t, state, &params_minus)?;
                     (f_0 - f_minus) / h
                 }
             };
@@ -235,7 +255,7 @@ impl<const S: usize, const P: usize> SSensitivityProvider<S, P> for SNumericalSe
             sensitivity.set_column(j, &column);
         }
 
-        sensitivity
+        Ok(sensitivity)
     }
 }
 
@@ -301,17 +321,21 @@ impl DNumericalSensitivity {
 }
 
 impl DSensitivityProvider for DNumericalSensitivity {
-    fn compute(&self, t: f64, state: &DVector<f64>, params: &DVector<f64>) -> DMatrix<f64> {
+    fn compute(
+        &self,
+        t: f64,
+        state: &DVector<f64>,
+        params: &DVector<f64>,
+    ) -> Result<DMatrix<f64>, BraheError> {
         // The sensitivity matrix ∂f/∂p is the Jacobian of the dynamics with
         // respect to the parameter vector; delegate to the shared
         // finite-difference engine, differentiating over `params`.
         numerical_jacobian(
-            |p| Ok((self.dynamics_fn)(t, state, p)),
+            |p| (self.dynamics_fn)(t, state, p),
             params,
             self.method,
             self.strategy,
         )
-        .expect("infallible dynamics function cannot produce a finite-difference error")
     }
 }
 
@@ -323,16 +347,17 @@ mod tests {
     #[test]
     fn test_dynamic_numerical_sensitivity() {
         // Dynamics: f(t, x, p) = p[0] * x
-        let dynamics = |_t: f64, state: &DVector<f64>, params: &DVector<f64>| -> DVector<f64> {
-            params[0] * state
-        };
+        let dynamics = |_t: f64,
+                        state: &DVector<f64>,
+                        params: &DVector<f64>|
+         -> Result<DVector<f64>, BraheError> { Ok(params[0] * state) };
 
         let provider = DNumericalSensitivity::central(Box::new(dynamics));
 
         let state = DVector::from_vec(vec![1.0, 2.0]);
         let params = DVector::from_vec(vec![3.0]);
 
-        let sens = provider.compute(0.0, &state, &params);
+        let sens = provider.compute(0.0, &state, &params).unwrap();
 
         // ∂f/∂p = x, so sensitivity should be [[1], [2]]
         assert_eq!(sens.nrows(), 2);
@@ -344,17 +369,19 @@ mod tests {
     #[test]
     fn test_dynamic_analytical_sensitivity() {
         // Analytical sensitivity: ∂f/∂p = x
-        let sensitivity_fn =
-            |_t: f64, state: &DVector<f64>, _params: &DVector<f64>| -> DMatrix<f64> {
-                DMatrix::from_column_slice(state.len(), 1, state.as_slice())
-            };
+        let sensitivity_fn = |_t: f64,
+                              state: &DVector<f64>,
+                              _params: &DVector<f64>|
+         -> Result<DMatrix<f64>, BraheError> {
+            Ok(DMatrix::from_column_slice(state.len(), 1, state.as_slice()))
+        };
 
         let provider = DAnalyticSensitivity::new(Box::new(sensitivity_fn));
 
         let state = DVector::from_vec(vec![1.0, 2.0]);
         let params = DVector::from_vec(vec![3.0]);
 
-        let sens = provider.compute(0.0, &state, &params);
+        let sens = provider.compute(0.0, &state, &params).unwrap();
 
         assert_eq!(sens.nrows(), 2);
         assert_eq!(sens.ncols(), 1);
@@ -365,17 +392,22 @@ mod tests {
     #[test]
     fn test_static_numerical_sensitivity() {
         // Dynamics: f(t, x, p) = [p[0] * x[0], p[1] * x[1]]
-        let dynamics =
-            |_t: f64, state: &SVector<f64, 2>, params: &SVector<f64, 2>| -> SVector<f64, 2> {
-                SVector::<f64, 2>::new(params[0] * state[0], params[1] * state[1])
-            };
+        let dynamics = |_t: f64,
+                        state: &SVector<f64, 2>,
+                        params: &SVector<f64, 2>|
+         -> Result<SVector<f64, 2>, BraheError> {
+            Ok(SVector::<f64, 2>::new(
+                params[0] * state[0],
+                params[1] * state[1],
+            ))
+        };
 
         let provider = SNumericalSensitivity::central(Box::new(dynamics));
 
         let state = SVector::<f64, 2>::new(1.0, 2.0);
         let params = SVector::<f64, 2>::new(3.0, 4.0);
 
-        let sens = provider.compute(0.0, &state, &params);
+        let sens = provider.compute(0.0, &state, &params).unwrap();
 
         // ∂f/∂p = [[x[0], 0], [0, x[1]]]
         assert_abs_diff_eq!(sens[(0, 0)], 1.0, epsilon = 1e-6);
@@ -387,17 +419,19 @@ mod tests {
     #[test]
     fn test_static_analytical_sensitivity() {
         // Analytical sensitivity
-        let sensitivity_fn =
-            |_t: f64, state: &SVector<f64, 2>, _params: &SVector<f64, 2>| -> SMatrix<f64, 2, 2> {
-                SMatrix::<f64, 2, 2>::new(state[0], 0.0, 0.0, state[1])
-            };
+        let sensitivity_fn = |_t: f64,
+                              state: &SVector<f64, 2>,
+                              _params: &SVector<f64, 2>|
+         -> Result<SMatrix<f64, 2, 2>, BraheError> {
+            Ok(SMatrix::<f64, 2, 2>::new(state[0], 0.0, 0.0, state[1]))
+        };
 
         let provider = SAnalyticSensitivity::new(Box::new(sensitivity_fn));
 
         let state = SVector::<f64, 2>::new(1.0, 2.0);
         let params = SVector::<f64, 2>::new(3.0, 4.0);
 
-        let sens = provider.compute(0.0, &state, &params);
+        let sens = provider.compute(0.0, &state, &params).unwrap();
 
         assert_abs_diff_eq!(sens[(0, 0)], 1.0, epsilon = 1e-10);
         assert_abs_diff_eq!(sens[(0, 1)], 0.0, epsilon = 1e-10);
@@ -408,8 +442,11 @@ mod tests {
     #[test]
     fn test_forward_vs_central_difference() {
         // Simple quadratic dynamics to test difference methods
-        let dynamics = |_t: f64, state: &DVector<f64>, params: &DVector<f64>| -> DVector<f64> {
-            DVector::from_vec(vec![params[0] * params[0] * state[0]])
+        let dynamics = |_t: f64,
+                        state: &DVector<f64>,
+                        params: &DVector<f64>|
+         -> Result<DVector<f64>, BraheError> {
+            Ok(DVector::from_vec(vec![params[0] * params[0] * state[0]]))
         };
 
         let state = DVector::from_vec(vec![1.0]);
@@ -418,8 +455,8 @@ mod tests {
         let forward = DNumericalSensitivity::forward(Box::new(dynamics));
         let central = DNumericalSensitivity::central(Box::new(dynamics));
 
-        let sens_forward = forward.compute(0.0, &state, &params);
-        let sens_central = central.compute(0.0, &state, &params);
+        let sens_forward = forward.compute(0.0, &state, &params).unwrap();
+        let sens_central = central.compute(0.0, &state, &params).unwrap();
 
         // Analytical: ∂f/∂p = 2*p*x = 4
         // Central should be more accurate
@@ -430,17 +467,22 @@ mod tests {
     #[test]
     fn test_static_numerical_sensitivity_forward() {
         // Dynamics: f(t, x, p) = [p[0] * x[0], p[1] * x[1]]
-        let dynamics =
-            |_t: f64, state: &SVector<f64, 2>, params: &SVector<f64, 2>| -> SVector<f64, 2> {
-                SVector::<f64, 2>::new(params[0] * state[0], params[1] * state[1])
-            };
+        let dynamics = |_t: f64,
+                        state: &SVector<f64, 2>,
+                        params: &SVector<f64, 2>|
+         -> Result<SVector<f64, 2>, BraheError> {
+            Ok(SVector::<f64, 2>::new(
+                params[0] * state[0],
+                params[1] * state[1],
+            ))
+        };
 
         let provider = SNumericalSensitivity::forward(Box::new(dynamics));
 
         let state = SVector::<f64, 2>::new(1.0, 2.0);
         let params = SVector::<f64, 2>::new(3.0, 4.0);
 
-        let sens = provider.compute(0.0, &state, &params);
+        let sens = provider.compute(0.0, &state, &params).unwrap();
 
         // ∂f/∂p = [[x[0], 0], [0, x[1]]]
         assert_abs_diff_eq!(sens[(0, 0)], 1.0, epsilon = 1e-6);
@@ -452,17 +494,22 @@ mod tests {
     #[test]
     fn test_static_numerical_sensitivity_backward() {
         // Dynamics: f(t, x, p) = [p[0] * x[0], p[1] * x[1]]
-        let dynamics =
-            |_t: f64, state: &SVector<f64, 2>, params: &SVector<f64, 2>| -> SVector<f64, 2> {
-                SVector::<f64, 2>::new(params[0] * state[0], params[1] * state[1])
-            };
+        let dynamics = |_t: f64,
+                        state: &SVector<f64, 2>,
+                        params: &SVector<f64, 2>|
+         -> Result<SVector<f64, 2>, BraheError> {
+            Ok(SVector::<f64, 2>::new(
+                params[0] * state[0],
+                params[1] * state[1],
+            ))
+        };
 
         let provider = SNumericalSensitivity::backward(Box::new(dynamics));
 
         let state = SVector::<f64, 2>::new(1.0, 2.0);
         let params = SVector::<f64, 2>::new(3.0, 4.0);
 
-        let sens = provider.compute(0.0, &state, &params);
+        let sens = provider.compute(0.0, &state, &params).unwrap();
 
         // ∂f/∂p = [[x[0], 0], [0, x[1]]]
         assert_abs_diff_eq!(sens[(0, 0)], 1.0, epsilon = 1e-6);
@@ -474,10 +521,15 @@ mod tests {
     #[test]
     fn test_static_numerical_sensitivity_with_strategy_fixed() {
         // Dynamics: f(t, x, p) = [p[0] * x[0], p[1] * x[1]]
-        let dynamics =
-            |_t: f64, state: &SVector<f64, 2>, params: &SVector<f64, 2>| -> SVector<f64, 2> {
-                SVector::<f64, 2>::new(params[0] * state[0], params[1] * state[1])
-            };
+        let dynamics = |_t: f64,
+                        state: &SVector<f64, 2>,
+                        params: &SVector<f64, 2>|
+         -> Result<SVector<f64, 2>, BraheError> {
+            Ok(SVector::<f64, 2>::new(
+                params[0] * state[0],
+                params[1] * state[1],
+            ))
+        };
 
         let provider = SNumericalSensitivity::new(Box::new(dynamics))
             .with_strategy(PerturbationStrategy::Fixed(1e-6));
@@ -485,7 +537,7 @@ mod tests {
         let state = SVector::<f64, 2>::new(1.0, 2.0);
         let params = SVector::<f64, 2>::new(3.0, 4.0);
 
-        let sens = provider.compute(0.0, &state, &params);
+        let sens = provider.compute(0.0, &state, &params).unwrap();
 
         // ∂f/∂p = [[x[0], 0], [0, x[1]]]
         assert_abs_diff_eq!(sens[(0, 0)], 1.0, epsilon = 1e-5);
@@ -497,10 +549,15 @@ mod tests {
     #[test]
     fn test_static_numerical_sensitivity_with_strategy_percentage() {
         // Dynamics: f(t, x, p) = [p[0] * x[0], p[1] * x[1]]
-        let dynamics =
-            |_t: f64, state: &SVector<f64, 2>, params: &SVector<f64, 2>| -> SVector<f64, 2> {
-                SVector::<f64, 2>::new(params[0] * state[0], params[1] * state[1])
-            };
+        let dynamics = |_t: f64,
+                        state: &SVector<f64, 2>,
+                        params: &SVector<f64, 2>|
+         -> Result<SVector<f64, 2>, BraheError> {
+            Ok(SVector::<f64, 2>::new(
+                params[0] * state[0],
+                params[1] * state[1],
+            ))
+        };
 
         let provider = SNumericalSensitivity::new(Box::new(dynamics))
             .with_strategy(PerturbationStrategy::Percentage(1e-6));
@@ -508,7 +565,7 @@ mod tests {
         let state = SVector::<f64, 2>::new(1.0, 2.0);
         let params = SVector::<f64, 2>::new(3.0, 4.0);
 
-        let sens = provider.compute(0.0, &state, &params);
+        let sens = provider.compute(0.0, &state, &params).unwrap();
 
         // ∂f/∂p = [[x[0], 0], [0, x[1]]]
         assert_abs_diff_eq!(sens[(0, 0)], 1.0, epsilon = 1e-5);
@@ -520,16 +577,17 @@ mod tests {
     #[test]
     fn test_dynamic_numerical_sensitivity_backward() {
         // Dynamics: f(t, x, p) = p[0] * x
-        let dynamics = |_t: f64, state: &DVector<f64>, params: &DVector<f64>| -> DVector<f64> {
-            params[0] * state
-        };
+        let dynamics = |_t: f64,
+                        state: &DVector<f64>,
+                        params: &DVector<f64>|
+         -> Result<DVector<f64>, BraheError> { Ok(params[0] * state) };
 
         let provider = DNumericalSensitivity::backward(Box::new(dynamics));
 
         let state = DVector::from_vec(vec![1.0, 2.0]);
         let params = DVector::from_vec(vec![3.0]);
 
-        let sens = provider.compute(0.0, &state, &params);
+        let sens = provider.compute(0.0, &state, &params).unwrap();
 
         // ∂f/∂p = x, so sensitivity should be [[1], [2]]
         assert_eq!(sens.nrows(), 2);
@@ -541,9 +599,10 @@ mod tests {
     #[test]
     fn test_dynamic_numerical_sensitivity_with_strategy() {
         // Dynamics: f(t, x, p) = p[0] * x
-        let dynamics = |_t: f64, state: &DVector<f64>, params: &DVector<f64>| -> DVector<f64> {
-            params[0] * state
-        };
+        let dynamics = |_t: f64,
+                        state: &DVector<f64>,
+                        params: &DVector<f64>|
+         -> Result<DVector<f64>, BraheError> { Ok(params[0] * state) };
 
         let provider = DNumericalSensitivity::new(Box::new(dynamics))
             .with_strategy(PerturbationStrategy::Fixed(1e-6));
@@ -551,7 +610,7 @@ mod tests {
         let state = DVector::from_vec(vec![1.0, 2.0]);
         let params = DVector::from_vec(vec![3.0]);
 
-        let sens = provider.compute(0.0, &state, &params);
+        let sens = provider.compute(0.0, &state, &params).unwrap();
 
         // ∂f/∂p = x, so sensitivity should be [[1], [2]]
         assert_eq!(sens.nrows(), 2);
@@ -564,9 +623,11 @@ mod tests {
     fn test_dynamic_numerical_sensitivity_fixed_perturbation() {
         // Test that Fixed perturbation strategy is used correctly
         // Dynamics: f(t, x, p) = p[0]^2 * x
-        let dynamics = |_t: f64, state: &DVector<f64>, params: &DVector<f64>| -> DVector<f64> {
-            params[0] * params[0] * state
-        };
+        let dynamics =
+            |_t: f64,
+             state: &DVector<f64>,
+             params: &DVector<f64>|
+             -> Result<DVector<f64>, BraheError> { Ok(params[0] * params[0] * state) };
 
         let provider = DNumericalSensitivity::central(Box::new(dynamics))
             .with_strategy(PerturbationStrategy::Fixed(1e-5));
@@ -574,7 +635,7 @@ mod tests {
         let state = DVector::from_vec(vec![1.0]);
         let params = DVector::from_vec(vec![2.0]);
 
-        let sens = provider.compute(0.0, &state, &params);
+        let sens = provider.compute(0.0, &state, &params).unwrap();
 
         // ∂f/∂p = 2*p*x = 4
         assert_abs_diff_eq!(sens[(0, 0)], 4.0, epsilon = 1e-4);
@@ -584,9 +645,11 @@ mod tests {
     fn test_dynamic_numerical_sensitivity_percentage_perturbation() {
         // Test that Percentage perturbation strategy is used correctly
         // Dynamics: f(t, x, p) = p[0]^2 * x
-        let dynamics = |_t: f64, state: &DVector<f64>, params: &DVector<f64>| -> DVector<f64> {
-            params[0] * params[0] * state
-        };
+        let dynamics =
+            |_t: f64,
+             state: &DVector<f64>,
+             params: &DVector<f64>|
+             -> Result<DVector<f64>, BraheError> { Ok(params[0] * params[0] * state) };
 
         let provider = DNumericalSensitivity::central(Box::new(dynamics))
             .with_strategy(PerturbationStrategy::Percentage(1e-6));
@@ -594,7 +657,7 @@ mod tests {
         let state = DVector::from_vec(vec![1.0]);
         let params = DVector::from_vec(vec![2.0]);
 
-        let sens = provider.compute(0.0, &state, &params);
+        let sens = provider.compute(0.0, &state, &params).unwrap();
 
         // ∂f/∂p = 2*p*x = 4
         assert_abs_diff_eq!(sens[(0, 0)], 4.0, epsilon = 1e-4);
@@ -603,10 +666,12 @@ mod tests {
     #[test]
     fn test_static_forward_vs_central_vs_backward() {
         // Quadratic dynamics to compare difference methods
-        let dynamics =
-            |_t: f64, state: &SVector<f64, 1>, params: &SVector<f64, 1>| -> SVector<f64, 1> {
-                SVector::<f64, 1>::new(params[0] * params[0] * state[0])
-            };
+        let dynamics = |_t: f64,
+                        state: &SVector<f64, 1>,
+                        params: &SVector<f64, 1>|
+         -> Result<SVector<f64, 1>, BraheError> {
+            Ok(SVector::<f64, 1>::new(params[0] * params[0] * state[0]))
+        };
 
         let state = SVector::<f64, 1>::new(1.0);
         let params = SVector::<f64, 1>::new(2.0);
@@ -615,9 +680,9 @@ mod tests {
         let central = SNumericalSensitivity::central(Box::new(dynamics));
         let backward = SNumericalSensitivity::backward(Box::new(dynamics));
 
-        let sens_forward = forward.compute(0.0, &state, &params);
-        let sens_central = central.compute(0.0, &state, &params);
-        let sens_backward = backward.compute(0.0, &state, &params);
+        let sens_forward = forward.compute(0.0, &state, &params).unwrap();
+        let sens_central = central.compute(0.0, &state, &params).unwrap();
+        let sens_backward = backward.compute(0.0, &state, &params).unwrap();
 
         // Analytical: ∂f/∂p = 2*p*x = 4
         // Central should be most accurate
@@ -629,8 +694,11 @@ mod tests {
     #[test]
     fn test_dynamic_backward_vs_central() {
         // Quadratic dynamics to compare backward and central
-        let dynamics = |_t: f64, state: &DVector<f64>, params: &DVector<f64>| -> DVector<f64> {
-            DVector::from_vec(vec![params[0] * params[0] * state[0]])
+        let dynamics = |_t: f64,
+                        state: &DVector<f64>,
+                        params: &DVector<f64>|
+         -> Result<DVector<f64>, BraheError> {
+            Ok(DVector::from_vec(vec![params[0] * params[0] * state[0]]))
         };
 
         let state = DVector::from_vec(vec![1.0]);
@@ -639,8 +707,8 @@ mod tests {
         let backward = DNumericalSensitivity::backward(Box::new(dynamics));
         let central = DNumericalSensitivity::central(Box::new(dynamics));
 
-        let sens_backward = backward.compute(0.0, &state, &params);
-        let sens_central = central.compute(0.0, &state, &params);
+        let sens_backward = backward.compute(0.0, &state, &params).unwrap();
+        let sens_central = central.compute(0.0, &state, &params).unwrap();
 
         // Analytical: ∂f/∂p = 2*p*x = 4
         // Central should be more accurate

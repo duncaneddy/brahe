@@ -826,7 +826,10 @@ impl PyGPRecord {
         )
         .map_err(|e| BraheError::new_err(e.to_string()))?;
 
-        Ok(PyNumericalOrbitPropagator { propagator })
+        Ok(PyNumericalOrbitPropagator {
+            propagator,
+            err_slot: Arc::new(Mutex::new(None)),
+        })
     }
 
     /// Convert this GPRecord to a CCSDS OMM message.

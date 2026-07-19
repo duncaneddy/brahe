@@ -14,7 +14,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use nalgebra as na;
 use nalgebra::{DMatrix, DVector, SVector, Vector3, Vector6};
@@ -66,6 +66,36 @@ macro_rules! vector_to_numpy {
         let flat_vec: Vec<$typ> = (0..$l).map(|i| $vec[i]).collect();
         flat_vec.into_pyarray($py)
     }};
+}
+
+/// Shared slot used to preserve the original Python exception raised inside a
+/// dynamics/control trampoline. The closure records the `PyErr` here before
+/// surfacing a [`RustBraheError`] to the Rust core; the binding method that
+/// drives propagation re-raises the stashed exception so Python callers see the
+/// original error rather than a wrapped message.
+type PyErrSlot = Arc<Mutex<Option<PyErr>>>;
+
+/// Record a Python callback failure in `slot` and convert it into a
+/// [`RustBraheError`] the Rust core can propagate.
+///
+/// The `PyErr` message is embedded in the returned error so the failure remains
+/// legible even if the slot is not consulted, while the original exception is
+/// preserved in `slot` for [`raise_callback_err`] to re-raise verbatim.
+fn stash_callback_err(slot: &PyErrSlot, err: PyErr) -> RustBraheError {
+    let message = format!("Python callback raised: {err}");
+    *slot.lock().unwrap() = Some(err);
+    RustBraheError::Error(message)
+}
+
+/// Convert a core [`RustBraheError`] surfaced by a driven propagation back into a
+/// `PyErr`, re-raising the original Python exception stashed in `slot` when the
+/// failure originated in a Python trampoline.
+fn raise_callback_err(slot: &PyErrSlot, err: RustBraheError) -> PyErr {
+    if let Some(py_err) = slot.lock().unwrap().take() {
+        py_err
+    } else {
+        PyErr::from(err)
+    }
 }
 
 macro_rules! numpy_to_vector3 {

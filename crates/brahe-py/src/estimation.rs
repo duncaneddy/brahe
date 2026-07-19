@@ -1569,6 +1569,10 @@ fn process_measurement_models(
 #[pyo3(name = "ExtendedKalmanFilter")]
 pub struct PyExtendedKalmanFilter {
     ekf: estimation::ExtendedKalmanFilter,
+    /// Holds the original Python exception raised inside the additional-dynamics
+    /// or control-input trampoline, so observation processing can re-raise it
+    /// verbatim instead of the wrapped BraheError message.
+    err_slot: PyErrSlot,
 }
 
 #[pymethods]
@@ -1630,15 +1634,20 @@ impl PyExtendedKalmanFilter {
         let params_vec =
             params.map(|p| DVector::from_column_slice(p.as_slice().unwrap()));
 
+        // Slot shared with the Python trampolines below; a callback that raises
+        // records its exception here so observation processing can re-raise it.
+        let err_slot: PyErrSlot = Arc::new(Mutex::new(None));
+
         // Wrap additional_dynamics callable
         let additional_dynamics_fn: Option<brahe::integrators::traits::DStateDynamics> =
             additional_dynamics.map(|dyn_py| {
                 let dyn_py = dyn_py.clone_ref(py);
+                let err_slot = err_slot.clone();
                 Box::new(
                     move |t: f64,
                           x: &DVector<f64>,
                           p: Option<&DVector<f64>>|
-                          -> DVector<f64> {
+                          -> Result<DVector<f64>, RustBraheError> {
                         Python::attach(|py| {
                             let x_np = x.as_slice().to_pyarray(py);
                             let p_np: Option<Bound<'_, PyArray<f64, Ix1>>> =
@@ -1649,18 +1658,15 @@ impl PyExtendedKalmanFilter {
                                 None => dyn_py.call1(py, (t, x_np, py.None())),
                             };
 
-                            match result {
-                                Ok(res) => {
-                                    let res_arr: PyReadonlyArray1<f64> =
-                                        res.extract(py).unwrap();
-                                    DVector::from_column_slice(
-                                        res_arr.as_slice().unwrap(),
-                                    )
-                                }
-                                Err(e) => {
-                                    panic!("Error calling additional_dynamics: {e}")
-                                }
-                            }
+                            let res = result.map_err(|e| stash_callback_err(&err_slot, e))?;
+                            let res_arr: PyReadonlyArray1<f64> =
+                                res.extract(py).map_err(|e| stash_callback_err(&err_slot, PyErr::from(e)))?;
+                            let res_slice = res_arr.as_slice().map_err(|e| {
+                                RustBraheError::Error(format!(
+                                    "callback returned non-contiguous array: {e}"
+                                ))
+                            })?;
+                            Ok(DVector::from_column_slice(res_slice))
                         })
                     },
                 ) as brahe::integrators::traits::DStateDynamics
@@ -1670,11 +1676,12 @@ impl PyExtendedKalmanFilter {
         let control_input_fn: brahe::integrators::traits::DControlInput =
             control_input.map(|ctrl_py| {
                 let ctrl_py = ctrl_py.clone_ref(py);
+                let err_slot = err_slot.clone();
                 Box::new(
                     move |t: f64,
                           x: &DVector<f64>,
                           p: Option<&DVector<f64>>|
-                          -> DVector<f64> {
+                          -> Result<DVector<f64>, RustBraheError> {
                         Python::attach(|py| {
                             let x_np = x.as_slice().to_pyarray(py);
                             let p_np: Option<Bound<'_, PyArray<f64, Ix1>>> =
@@ -1685,23 +1692,25 @@ impl PyExtendedKalmanFilter {
                                 None => ctrl_py.call1(py, (t, x_np, py.None())),
                             };
 
-                            match result {
-                                Ok(res) => {
-                                    let res_arr: PyReadonlyArray1<f64> =
-                                        res.extract(py).unwrap();
-                                    DVector::from_column_slice(
-                                        res_arr.as_slice().unwrap(),
-                                    )
-                                }
-                                Err(e) => {
-                                    panic!("Error calling control_input: {e}")
-                                }
-                            }
+                            let res = result.map_err(|e| stash_callback_err(&err_slot, e))?;
+                            let res_arr: PyReadonlyArray1<f64> =
+                                res.extract(py).map_err(|e| stash_callback_err(&err_slot, PyErr::from(e)))?;
+                            let res_slice = res_arr.as_slice().map_err(|e| {
+                                RustBraheError::Error(format!(
+                                    "callback returned non-contiguous array: {e}"
+                                ))
+                            })?;
+                            Ok(DVector::from_column_slice(res_slice))
                         })
                     },
                 )
                     as Box<
-                        dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64>
+                        dyn Fn(
+                                f64,
+                                &DVector<f64>,
+                                Option<&DVector<f64>>,
+                            )
+                                -> Result<DVector<f64>, RustBraheError>
                             + Send
                             + Sync,
                     >
@@ -1729,7 +1738,7 @@ impl PyExtendedKalmanFilter {
         )
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
-        Ok(PyExtendedKalmanFilter { ekf })
+        Ok(PyExtendedKalmanFilter { ekf, err_slot })
     }
 
     /// Process a single observation.
@@ -1741,6 +1750,11 @@ impl PyExtendedKalmanFilter {
     ///
     /// Returns:
     ///     FilterRecord: Record containing pre/post-fit residuals, Kalman gain, etc.
+    ///
+    /// Raises:
+    ///     Exception: Propagates the original exception raised by an
+    ///         additional-dynamics or control-input callback, or a BraheError if
+    ///         propagation or the measurement update fails.
     fn process_observation(
         &mut self,
         observation: &PyObservation,
@@ -1748,7 +1762,7 @@ impl PyExtendedKalmanFilter {
         let record = self
             .ekf
             .process_observation(&observation.observation)
-            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+            .map_err(|e| raise_callback_err(&self.err_slot, e))?;
         Ok(PyFilterRecord { record })
     }
 
@@ -1756,6 +1770,11 @@ impl PyExtendedKalmanFilter {
     ///
     /// Args:
     ///     observations (list[Observation]): List of observations.
+    ///
+    /// Raises:
+    ///     Exception: Propagates the original exception raised by an
+    ///         additional-dynamics or control-input callback, or a BraheError if
+    ///         propagation or a measurement update fails.
     fn process_observations(
         &mut self,
         observations: Vec<PyRef<PyObservation>>,
@@ -1766,7 +1785,7 @@ impl PyExtendedKalmanFilter {
             .collect();
         self.ekf
             .process_observations(&obs_vec)
-            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+            .map_err(|e| raise_callback_err(&self.err_slot, e))?;
         Ok(())
     }
 
@@ -1948,6 +1967,10 @@ impl PyUKFConfig {
 #[pyo3(name = "UnscentedKalmanFilter")]
 pub struct PyUnscentedKalmanFilter {
     ukf: estimation::UnscentedKalmanFilter,
+    /// Holds the original Python exception raised inside the additional-dynamics
+    /// or control-input trampoline, so observation processing can re-raise it
+    /// verbatim instead of the wrapped BraheError message.
+    err_slot: PyErrSlot,
 }
 
 #[pymethods]
@@ -2009,15 +2032,20 @@ impl PyUnscentedKalmanFilter {
         let params_vec =
             params.map(|p| nalgebra::DVector::from_column_slice(p.as_slice().unwrap()));
 
+        // Slot shared with the Python trampolines below; a callback that raises
+        // records its exception here so observation processing can re-raise it.
+        let err_slot: PyErrSlot = Arc::new(Mutex::new(None));
+
         // Wrap additional_dynamics callable
         let additional_dynamics_fn: Option<brahe::integrators::traits::DStateDynamics> =
             additional_dynamics.map(|dyn_py| {
                 let dyn_py = dyn_py.clone_ref(py);
+                let err_slot = err_slot.clone();
                 Box::new(
                     move |t: f64,
                           x: &nalgebra::DVector<f64>,
                           p: Option<&nalgebra::DVector<f64>>|
-                          -> nalgebra::DVector<f64> {
+                          -> Result<nalgebra::DVector<f64>, RustBraheError> {
                         Python::attach(|py| {
                             let x_np = x.as_slice().to_pyarray(py);
                             let p_np: Option<Bound<'_, numpy::PyArray<f64, numpy::Ix1>>> =
@@ -2026,18 +2054,16 @@ impl PyUnscentedKalmanFilter {
                                 Some(params_arr) => dyn_py.call1(py, (t, x_np, params_arr)),
                                 None => dyn_py.call1(py, (t, x_np, py.None())),
                             };
-                            match result {
-                                Ok(res) => {
-                                    let res_arr: PyReadonlyArray1<f64> =
-                                        res.extract(py).unwrap();
-                                    nalgebra::DVector::from_column_slice(
-                                        res_arr.as_slice().unwrap(),
-                                    )
-                                }
-                                Err(e) => {
-                                    panic!("Error calling additional_dynamics: {e}")
-                                }
-                            }
+                            let res = result.map_err(|e| stash_callback_err(&err_slot, e))?;
+                            let res_arr: PyReadonlyArray1<f64> = res
+                                .extract(py)
+                                .map_err(|e| stash_callback_err(&err_slot, PyErr::from(e)))?;
+                            let res_slice = res_arr.as_slice().map_err(|e| {
+                                RustBraheError::Error(format!(
+                                    "callback returned non-contiguous array: {e}"
+                                ))
+                            })?;
+                            Ok(nalgebra::DVector::from_column_slice(res_slice))
                         })
                     },
                 ) as brahe::integrators::traits::DStateDynamics
@@ -2047,11 +2073,12 @@ impl PyUnscentedKalmanFilter {
         let control_input_fn: brahe::integrators::traits::DControlInput =
             control_input.map(|ctrl_py| {
                 let ctrl_py = ctrl_py.clone_ref(py);
+                let err_slot = err_slot.clone();
                 Box::new(
                     move |t: f64,
                           x: &nalgebra::DVector<f64>,
                           p: Option<&nalgebra::DVector<f64>>|
-                          -> nalgebra::DVector<f64> {
+                          -> Result<nalgebra::DVector<f64>, RustBraheError> {
                         Python::attach(|py| {
                             let x_np = x.as_slice().to_pyarray(py);
                             let p_np: Option<Bound<'_, numpy::PyArray<f64, numpy::Ix1>>> =
@@ -2060,18 +2087,16 @@ impl PyUnscentedKalmanFilter {
                                 Some(params_arr) => ctrl_py.call1(py, (t, x_np, params_arr)),
                                 None => ctrl_py.call1(py, (t, x_np, py.None())),
                             };
-                            match result {
-                                Ok(res) => {
-                                    let res_arr: PyReadonlyArray1<f64> =
-                                        res.extract(py).unwrap();
-                                    nalgebra::DVector::from_column_slice(
-                                        res_arr.as_slice().unwrap(),
-                                    )
-                                }
-                                Err(e) => {
-                                    panic!("Error calling control_input: {e}")
-                                }
-                            }
+                            let res = result.map_err(|e| stash_callback_err(&err_slot, e))?;
+                            let res_arr: PyReadonlyArray1<f64> = res
+                                .extract(py)
+                                .map_err(|e| stash_callback_err(&err_slot, PyErr::from(e)))?;
+                            let res_slice = res_arr.as_slice().map_err(|e| {
+                                RustBraheError::Error(format!(
+                                    "callback returned non-contiguous array: {e}"
+                                ))
+                            })?;
+                            Ok(nalgebra::DVector::from_column_slice(res_slice))
                         })
                     },
                 )
@@ -2080,7 +2105,8 @@ impl PyUnscentedKalmanFilter {
                                 f64,
                                 &nalgebra::DVector<f64>,
                                 Option<&nalgebra::DVector<f64>>,
-                            ) -> nalgebra::DVector<f64>
+                            )
+                                -> Result<nalgebra::DVector<f64>, RustBraheError>
                             + Send
                             + Sync,
                     >
@@ -2106,7 +2132,7 @@ impl PyUnscentedKalmanFilter {
         )
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
-        Ok(PyUnscentedKalmanFilter { ukf })
+        Ok(PyUnscentedKalmanFilter { ukf, err_slot })
     }
 
     /// Process a single observation.
@@ -2116,6 +2142,11 @@ impl PyUnscentedKalmanFilter {
     ///
     /// Returns:
     ///     FilterRecord: Record containing pre/post-fit residuals, gain, etc.
+    ///
+    /// Raises:
+    ///     Exception: Propagates the original exception raised by an
+    ///         additional-dynamics or control-input callback, or a BraheError if
+    ///         propagation or the measurement update fails.
     fn process_observation(
         &mut self,
         observation: &PyObservation,
@@ -2123,7 +2154,7 @@ impl PyUnscentedKalmanFilter {
         let record = self
             .ukf
             .process_observation(&observation.observation)
-            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+            .map_err(|e| raise_callback_err(&self.err_slot, e))?;
         Ok(PyFilterRecord { record })
     }
 
@@ -2131,6 +2162,11 @@ impl PyUnscentedKalmanFilter {
     ///
     /// Args:
     ///     observations (list[Observation]): List of observations.
+    ///
+    /// Raises:
+    ///     Exception: Propagates the original exception raised by an
+    ///         additional-dynamics or control-input callback, or a BraheError if
+    ///         propagation or a measurement update fails.
     fn process_observations(
         &mut self,
         observations: Vec<PyRef<PyObservation>>,
@@ -2141,7 +2177,7 @@ impl PyUnscentedKalmanFilter {
             .collect();
         self.ukf
             .process_observations(&obs_vec)
-            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+            .map_err(|e| raise_callback_err(&self.err_slot, e))?;
         Ok(())
     }
 
@@ -2703,6 +2739,10 @@ impl PyBLSObservationResidual {
 #[pyo3(name = "BatchLeastSquares")]
 pub struct PyBatchLeastSquares {
     bls: estimation::BatchLeastSquares,
+    /// Holds the original Python exception raised inside the additional-dynamics
+    /// or control-input trampoline, so solving can re-raise it verbatim instead
+    /// of the wrapped BraheError message.
+    err_slot: PyErrSlot,
 }
 
 #[pymethods]
@@ -2761,15 +2801,20 @@ impl PyBatchLeastSquares {
         let params_vec =
             params.map(|p| DVector::from_column_slice(p.as_slice().unwrap()));
 
+        // Slot shared with the Python trampolines below; a callback that raises
+        // records its exception here so observation processing can re-raise it.
+        let err_slot: PyErrSlot = Arc::new(Mutex::new(None));
+
         // Wrap additional_dynamics callable
         let additional_dynamics_fn: Option<brahe::integrators::traits::DStateDynamics> =
             additional_dynamics.map(|dyn_py| {
                 let dyn_py = dyn_py.clone_ref(py);
+                let err_slot = err_slot.clone();
                 Box::new(
                     move |t: f64,
                           x: &DVector<f64>,
                           p: Option<&DVector<f64>>|
-                          -> DVector<f64> {
+                          -> Result<DVector<f64>, RustBraheError> {
                         Python::attach(|py| {
                             let x_np = x.as_slice().to_pyarray(py);
                             let p_np: Option<Bound<'_, PyArray<f64, Ix1>>> =
@@ -2780,18 +2825,15 @@ impl PyBatchLeastSquares {
                                 None => dyn_py.call1(py, (t, x_np, py.None())),
                             };
 
-                            match result {
-                                Ok(res) => {
-                                    let res_arr: PyReadonlyArray1<f64> =
-                                        res.extract(py).unwrap();
-                                    DVector::from_column_slice(
-                                        res_arr.as_slice().unwrap(),
-                                    )
-                                }
-                                Err(e) => {
-                                    panic!("Error calling additional_dynamics: {e}")
-                                }
-                            }
+                            let res = result.map_err(|e| stash_callback_err(&err_slot, e))?;
+                            let res_arr: PyReadonlyArray1<f64> =
+                                res.extract(py).map_err(|e| stash_callback_err(&err_slot, PyErr::from(e)))?;
+                            let res_slice = res_arr.as_slice().map_err(|e| {
+                                RustBraheError::Error(format!(
+                                    "callback returned non-contiguous array: {e}"
+                                ))
+                            })?;
+                            Ok(DVector::from_column_slice(res_slice))
                         })
                     },
                 ) as brahe::integrators::traits::DStateDynamics
@@ -2801,11 +2843,12 @@ impl PyBatchLeastSquares {
         let control_input_fn: brahe::integrators::traits::DControlInput =
             control_input.map(|ctrl_py| {
                 let ctrl_py = ctrl_py.clone_ref(py);
+                let err_slot = err_slot.clone();
                 Box::new(
                     move |t: f64,
                           x: &DVector<f64>,
                           p: Option<&DVector<f64>>|
-                          -> DVector<f64> {
+                          -> Result<DVector<f64>, RustBraheError> {
                         Python::attach(|py| {
                             let x_np = x.as_slice().to_pyarray(py);
                             let p_np: Option<Bound<'_, PyArray<f64, Ix1>>> =
@@ -2816,23 +2859,25 @@ impl PyBatchLeastSquares {
                                 None => ctrl_py.call1(py, (t, x_np, py.None())),
                             };
 
-                            match result {
-                                Ok(res) => {
-                                    let res_arr: PyReadonlyArray1<f64> =
-                                        res.extract(py).unwrap();
-                                    DVector::from_column_slice(
-                                        res_arr.as_slice().unwrap(),
-                                    )
-                                }
-                                Err(e) => {
-                                    panic!("Error calling control_input: {e}")
-                                }
-                            }
+                            let res = result.map_err(|e| stash_callback_err(&err_slot, e))?;
+                            let res_arr: PyReadonlyArray1<f64> =
+                                res.extract(py).map_err(|e| stash_callback_err(&err_slot, PyErr::from(e)))?;
+                            let res_slice = res_arr.as_slice().map_err(|e| {
+                                RustBraheError::Error(format!(
+                                    "callback returned non-contiguous array: {e}"
+                                ))
+                            })?;
+                            Ok(DVector::from_column_slice(res_slice))
                         })
                     },
                 )
                     as Box<
-                        dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64>
+                        dyn Fn(
+                                f64,
+                                &DVector<f64>,
+                                Option<&DVector<f64>>,
+                            )
+                                -> Result<DVector<f64>, RustBraheError>
                             + Send
                             + Sync,
                     >
@@ -2860,7 +2905,7 @@ impl PyBatchLeastSquares {
         )
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
-        Ok(PyBatchLeastSquares { bls })
+        Ok(PyBatchLeastSquares { bls, err_slot })
     }
 
     /// Solve the batch least squares problem.
@@ -2877,6 +2922,11 @@ impl PyBatchLeastSquares {
     ///     print(f"Converged: {bls.converged()}")
     ///     print(f"Iterations: {bls.iterations_completed()}")
     ///     ```
+    ///
+    /// Raises:
+    ///     Exception: Propagates the original exception raised by an
+    ///         additional-dynamics or control-input callback, or a BraheError if
+    ///         propagation or the least-squares solve fails.
     fn solve(&mut self, observations: Vec<PyRef<PyObservation>>) -> PyResult<()> {
         let obs_vec: Vec<estimation::Observation> = observations
             .iter()
@@ -2884,7 +2934,7 @@ impl PyBatchLeastSquares {
             .collect();
         self.bls
             .solve(&obs_vec)
-            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+            .map_err(|e| raise_callback_err(&self.err_slot, e))?;
         Ok(())
     }
 

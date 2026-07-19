@@ -441,7 +441,7 @@ impl KeplerianPropagator {
 }
 
 impl SStatePropagator for KeplerianPropagator {
-    fn step_by(&mut self, step_size: f64) {
+    fn step_by(&mut self, step_size: f64) -> Result<(), BraheError> {
         let current_epoch = self.current_epoch();
         let target_epoch = current_epoch + step_size;
         let new_state = self.propagate_internal(target_epoch);
@@ -449,7 +449,9 @@ impl SStatePropagator for KeplerianPropagator {
         // Convert back to original state format
         let state = self.convert_from_internal_osculating(target_epoch, new_state);
 
-        self.trajectory.add(target_epoch, svec6_to_dvec(state))
+        self.trajectory.add(target_epoch, svec6_to_dvec(state));
+
+        Ok(())
     }
 
     // Default implementation from trait is used for:
@@ -928,7 +930,7 @@ mod tests {
         let mut propagator =
             KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
 
-        propagator.step();
+        propagator.step().unwrap();
 
         let new_epoch = propagator.current_epoch();
         assert_eq!(new_epoch, epoch + 60.0);
@@ -951,7 +953,7 @@ mod tests {
         let mut propagator =
             KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
 
-        propagator.step_by(120.0);
+        propagator.step_by(120.0).unwrap();
 
         let new_epoch = propagator.current_epoch();
         assert_eq!(new_epoch, epoch + 120.0);
@@ -977,7 +979,7 @@ mod tests {
             KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
 
         let target_epoch = epoch + 250.0;
-        propagator.step_past(target_epoch);
+        propagator.step_past(target_epoch).unwrap();
 
         let current_epoch = propagator.current_epoch();
         assert!(current_epoch > target_epoch);
@@ -1003,7 +1005,7 @@ mod tests {
         let mut propagator =
             KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
 
-        propagator.propagate_steps(5);
+        propagator.propagate_steps(5).unwrap();
 
         assert_eq!(propagator.trajectory.len(), 6); // Initial + 5 steps
         let new_epoch = propagator.current_epoch();
@@ -1027,7 +1029,7 @@ mod tests {
             KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
 
         let target_epoch = epoch + 90.0;
-        propagator.propagate_to(target_epoch);
+        propagator.propagate_to(target_epoch).unwrap();
 
         let current_epoch = propagator.current_epoch();
         assert_eq!(current_epoch, target_epoch);
@@ -1055,7 +1057,7 @@ mod tests {
         assert_eq!(propagator.current_epoch(), epoch);
 
         // step and check epoch advanced
-        propagator.step();
+        propagator.step().unwrap();
         assert_ne!(propagator.current_epoch(), epoch);
     }
 
@@ -1071,7 +1073,7 @@ mod tests {
         assert_eq!(propagator.current_state(), elements);
 
         // After step, should be different
-        propagator.step();
+        propagator.step().unwrap();
         let current_state = propagator.current_state();
         assert_ne!(current_state, elements);
     }
@@ -1087,7 +1089,7 @@ mod tests {
         assert_eq!(propagator.initial_epoch(), epoch);
 
         // Step and confirm initial epoch unchanged
-        propagator.step();
+        propagator.step().unwrap();
         assert_eq!(propagator.initial_epoch(), epoch);
     }
 
@@ -1102,7 +1104,7 @@ mod tests {
         assert_eq!(propagator.initial_state(), elements);
 
         // Step and confirm initial state unchanged
-        propagator.step();
+        propagator.step().unwrap();
         assert_eq!(propagator.initial_state(), elements);
     }
 
@@ -1142,7 +1144,7 @@ mod tests {
             KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
 
         // Propagate forward
-        propagator.propagate_steps(5);
+        propagator.propagate_steps(5).unwrap();
         assert_eq!(propagator.trajectory.len(), 6);
 
         // Reset
@@ -1186,7 +1188,7 @@ mod tests {
         propagator.set_eviction_policy_max_size(5).unwrap();
 
         // Propagate 10 steps
-        propagator.propagate_steps(10);
+        propagator.propagate_steps(10).unwrap();
 
         // Should only keep 5 states
         assert_eq!(propagator.trajectory.len(), 5);
@@ -1205,7 +1207,7 @@ mod tests {
         assert!(result.is_ok());
 
         // Propagate several steps (10 * 60s = 600s total)
-        propagator.propagate_steps(10);
+        propagator.propagate_steps(10).unwrap();
 
         // Should have evicted old states - should keep only last ~3 states (120s / 60s step)
         // Plus current state: 3 previous + current = 4 states max

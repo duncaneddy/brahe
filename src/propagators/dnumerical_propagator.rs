@@ -94,8 +94,11 @@ enum EventProcessingResult {
 ///
 /// This ensures consistency - all three use the exact same dynamics function,
 /// including any `additional_dynamics` that were provided.
-type SharedDynamics =
-    Arc<dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync>;
+type SharedDynamics = Arc<
+    dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> Result<DVector<f64>, BraheError>
+        + Send
+        + Sync,
+>;
 
 // =============================================================================
 // Numerical Orbit Propagator
@@ -137,7 +140,7 @@ type SharedDynamics =
 /// // dx/dt = v, dv/dt = -ω²x
 /// let omega = 1.0;
 /// let dynamics = Box::new(move |_t: f64, x: &DVector<f64>, _p: Option<&DVector<f64>>| {
-///     DVector::from_vec(vec![x[1], -omega * omega * x[0]])
+///     Ok(DVector::from_vec(vec![x[1], -omega * omega * x[0]]))
 /// });
 ///
 /// // Create initial state
@@ -156,7 +159,7 @@ type SharedDynamics =
 /// ).unwrap();
 ///
 /// // Propagate one period
-/// prop.propagate_to(epoch + 2.0 * std::f64::consts::PI);
+/// prop.propagate_to(epoch + 2.0 * std::f64::consts::PI).unwrap();
 /// ```
 pub struct DNumericalPropagator {
     // ===== Time Management =====
@@ -266,7 +269,7 @@ impl DNumericalPropagator {
     /// // Define simple harmonic oscillator dynamics
     /// let omega = 1.0;
     /// let dynamics = Box::new(move |_t: f64, x: &DVector<f64>, _p: Option<&DVector<f64>>| {
-    ///     DVector::from_vec(vec![x[1], -omega * omega * x[0]])
+    ///     Ok(DVector::from_vec(vec![x[1], -omega * omega * x[0]]))
     /// });
     ///
     /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -475,9 +478,9 @@ impl DNumericalPropagator {
     /// propagation start time (e.g., `TimeEvent` at T+0.0s). Normal event
     /// scanning requires a completed integration step to detect crossings,
     /// so events exactly at the initial epoch would otherwise be missed.
-    fn process_initial_events(&mut self) {
+    fn process_initial_events(&mut self) -> Result<(), BraheError> {
         if self.event_detectors.is_empty() || self.terminated {
-            return;
+            return Ok(());
         }
 
         let epoch = self.current_epoch();
@@ -522,7 +525,7 @@ impl DNumericalPropagator {
                 self.event_detectors[idx].mark_processed();
             }
 
-            match self.process_events_smart(events_to_process) {
+            match self.process_events_smart(events_to_process)? {
                 EventProcessingResult::NoEvents => {}
                 EventProcessingResult::Restart { epoch, state } => {
                     self.t_rel = epoch - self.epoch_initial;
@@ -539,6 +542,8 @@ impl DNumericalPropagator {
                 }
             }
         }
+
+        Ok(())
     }
 
     /// Scan all event detectors for events in the interval [epoch_prev, epoch_new]
@@ -605,9 +610,9 @@ impl DNumericalPropagator {
         events: &mut [(usize, DDetectedEvent)],
         epoch_prev: Epoch,
         x_prev: &DVector<f64>,
-    ) {
+    ) -> Result<(), BraheError> {
         if events.is_empty() {
-            return;
+            return Ok(());
         }
 
         let t_prev_rel = epoch_prev - self.epoch_initial;
@@ -641,7 +646,7 @@ impl DNumericalPropagator {
             let mut x = x_prev.clone();
 
             for _ in 0..n_steps {
-                let result = self.integrator.step(t, x, params_ref, Some(sub_dt));
+                let result = self.integrator.step(t, x, params_ref, Some(sub_dt))?;
                 x = result.state;
                 t += result.dt_used;
             }
@@ -652,6 +657,8 @@ impl DNumericalPropagator {
 
         // Clear again — sub-steps cached derivatives at intermediate times.
         self.integrator.reset_cache();
+
+        Ok(())
     }
 
     /// Process detected events using smart sequential algorithm
@@ -665,9 +672,9 @@ impl DNumericalPropagator {
     fn process_events_smart(
         &mut self,
         detected_events: Vec<(usize, DDetectedEvent)>,
-    ) -> EventProcessingResult {
+    ) -> Result<EventProcessingResult, BraheError> {
         if detected_events.is_empty() {
-            return EventProcessingResult::NoEvents;
+            return Ok(EventProcessingResult::NoEvents);
         }
 
         // 1. Sort events chronologically by window_open time
@@ -705,13 +712,13 @@ impl DNumericalPropagator {
 
                 if let Some(term_event) = terminal_event {
                     self.terminated = true;
-                    return EventProcessingResult::Terminal {
+                    return Ok(EventProcessingResult::Terminal {
                         epoch: term_event.window_open,
                         state: term_event.entry_state.clone(),
-                    };
+                    });
                 }
 
-                EventProcessingResult::NoEvents // Continue with step
+                Ok(EventProcessingResult::NoEvents) // Continue with step
             }
 
             Some(callback_idx) => {
@@ -772,17 +779,17 @@ impl DNumericalPropagator {
                     // Check terminal
                     if action == EventAction::Stop {
                         self.terminated = true;
-                        return EventProcessingResult::Terminal {
+                        return Ok(EventProcessingResult::Terminal {
                             epoch: callback_event.window_open,
                             state: y_after,
-                        };
+                        });
                     }
 
                     // Restart integration from event time with new state/params
-                    return EventProcessingResult::Restart {
+                    return Ok(EventProcessingResult::Restart {
                         epoch: callback_event.window_open,
                         state: y_after,
-                    };
+                    });
                 }
 
                 unreachable!("Callback event must have callback");
@@ -796,9 +803,10 @@ impl DNumericalPropagator {
     /// so this is a simple Arc->Box conversion that moves the Arc into a boxed closure.
     fn wrap_for_integrator(shared: SharedDynamics) -> DStateDynamics {
         Box::new(
-            move |t: f64, state: &DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
-                shared(t, state, params)
-            },
+            move |t: f64,
+                  state: &DVector<f64>,
+                  params: Option<&DVector<f64>>|
+                  -> Result<DVector<f64>, BraheError> { shared(t, state, params) },
         )
     }
 
@@ -821,7 +829,10 @@ impl DNumericalPropagator {
         // Wrap shared dynamics for the Jacobian provider signature
         // Both SharedDynamics and DStateDynamics use references, so this is a simple conversion
         let dynamics_for_jacobian = Box::new(
-            move |t: f64, state: &DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
+            move |t: f64,
+                  state: &DVector<f64>,
+                  params: Option<&DVector<f64>>|
+                  -> Result<DVector<f64>, BraheError> {
                 shared_dynamics(t, state, params)
             },
         );
@@ -853,7 +864,10 @@ impl DNumericalPropagator {
     ) -> Box<dyn crate::math::sensitivity::DSensitivityProvider> {
         // Wrap shared dynamics for the Sensitivity provider signature
         let dynamics_with_params = Box::new(
-            move |t: f64, state: &DVector<f64>, params: &DVector<f64>| -> DVector<f64> {
+            move |t: f64,
+                  state: &DVector<f64>,
+                  params: &DVector<f64>|
+                  -> Result<DVector<f64>, BraheError> {
                 shared_dynamics(t, state, Some(params))
             },
         );
@@ -1227,7 +1241,7 @@ impl DNumericalPropagator {
     /// # let state = DVector::from_vec(vec![1.0, 0.0]);
     /// # let omega = 1.0;
     /// # let dynamics = Box::new(move |_t: f64, x: &DVector<f64>, _p: Option<&DVector<f64>>| {
-    /// #     DVector::from_vec(vec![x[1], -omega * omega * x[0]])
+    /// #     Ok(DVector::from_vec(vec![x[1], -omega * omega * x[0]]))
     /// # });
     /// # let mut prop = DNumericalPropagator::new(
     /// #     epoch, state, dynamics, NumericalPropagationConfig::default(),
@@ -1268,7 +1282,7 @@ impl DNumericalPropagator {
     /// # let state = DVector::from_vec(vec![1.0, 0.0]);
     /// # let omega = 1.0;
     /// # let dynamics = Box::new(move |_t: f64, x: &DVector<f64>, _p: Option<&DVector<f64>>| {
-    /// #     DVector::from_vec(vec![x[1], -omega * omega * x[0]])
+    /// #     Ok(DVector::from_vec(vec![x[1], -omega * omega * x[0]]))
     /// # });
     /// # let mut prop = DNumericalPropagator::new(
     /// #     epoch, state, dynamics, NumericalPropagationConfig::default(),
@@ -1301,7 +1315,7 @@ impl DNumericalPropagator {
     /// # let state = DVector::from_vec(vec![1.0, 0.0]);
     /// # let omega = 1.0;
     /// # let dynamics = Box::new(move |_t: f64, x: &DVector<f64>, _p: Option<&DVector<f64>>| {
-    /// #     DVector::from_vec(vec![x[1], -omega * omega * x[0]])
+    /// #     Ok(DVector::from_vec(vec![x[1], -omega * omega * x[0]]))
     /// # });
     /// # let mut prop = DNumericalPropagator::new(
     /// #     epoch, state, dynamics, NumericalPropagationConfig::default(),
@@ -1342,7 +1356,7 @@ impl DNumericalPropagator {
     /// # let state = DVector::from_vec(vec![1.0, 0.0]);
     /// # let omega = 1.0;
     /// # let dynamics = Box::new(move |_t: f64, x: &DVector<f64>, _p: Option<&DVector<f64>>| {
-    /// #     DVector::from_vec(vec![x[1], -omega * omega * x[0]])
+    /// #     Ok(DVector::from_vec(vec![x[1], -omega * omega * x[0]]))
     /// # });
     /// # let mut prop = DNumericalPropagator::new(
     /// #     epoch, state, dynamics, NumericalPropagationConfig::default(),
@@ -1390,7 +1404,7 @@ impl DNumericalPropagator {
     /// Includes event detection: if events with callbacks are detected that modify state,
     /// the propagator resets to the event time with the modified state and returns to the
     /// caller so that `propagate_to()` can re-clamp `dt_next` before the next step.
-    fn step_once(&mut self) {
+    fn step_once(&mut self) -> Result<(), BraheError> {
         // Save state before integration step (for event detection)
         let epoch_prev = self.current_epoch();
         let x_prev = self.x_curr.clone();
@@ -1414,7 +1428,7 @@ impl DNumericalPropagator {
                     self.x_curr.clone(),
                     params_ref,
                     Some(dt_requested),
-                );
+                )?;
 
                 self.x_curr = result.state;
                 self.dt = result.dt_used;
@@ -1430,7 +1444,7 @@ impl DNumericalPropagator {
                     params_ref,
                     phi,
                     Some(dt_requested),
-                );
+                )?;
 
                 self.x_curr = result.state;
                 self.stm = result.phi;
@@ -1456,7 +1470,7 @@ impl DNumericalPropagator {
                     sens,
                     &self.params,
                     Some(dt_requested),
-                );
+                )?;
 
                 self.x_curr = result.state;
                 self.sensitivity = result.sens;
@@ -1475,7 +1489,7 @@ impl DNumericalPropagator {
                     sens,
                     &self.params,
                     Some(dt_requested),
-                );
+                )?;
 
                 self.x_curr = result.state;
                 self.stm = result.phi.clone();
@@ -1505,10 +1519,10 @@ impl DNumericalPropagator {
 
         // Refine event states: replace linearly-interpolated states with
         // precisely-integrated states for accurate callback input.
-        self.refine_event_states(&mut detected_events, epoch_prev, &x_prev);
+        self.refine_event_states(&mut detected_events, epoch_prev, &x_prev)?;
 
         // Process events using smart sequential algorithm
-        match self.process_events_smart(detected_events) {
+        match self.process_events_smart(detected_events)? {
             EventProcessingResult::NoEvents => {
                 // No events or all events processed without callbacks
                 // Accept step and store in trajectory if needed
@@ -1591,6 +1605,8 @@ impl DNumericalPropagator {
                 }
             }
         }
+
+        Ok(())
     }
 
     /// Helper to determine if current state should be stored
@@ -1608,11 +1624,11 @@ impl DNumericalPropagator {
 // =============================================================================
 
 impl super::traits::DStatePropagator for DNumericalPropagator {
-    fn step_by(&mut self, step_size: f64) {
+    fn step_by(&mut self, step_size: f64) -> Result<(), BraheError> {
         let target_t = self.t_rel + step_size;
 
         // Check for events at the current epoch before taking any steps.
-        self.process_initial_events();
+        self.process_initial_events()?;
 
         // Support both forward and backward propagation
         let is_forward = step_size >= 0.0;
@@ -1649,7 +1665,7 @@ impl super::traits::DStatePropagator for DNumericalPropagator {
             self.dt_next = dt_max;
 
             // Take one adaptive step (includes event detection)
-            self.step_once();
+            self.step_once()?;
 
             // Restore suggested dt_next for subsequent steps
             // (unless step_once updated it to something smaller)
@@ -1657,15 +1673,17 @@ impl super::traits::DStatePropagator for DNumericalPropagator {
                 self.dt_next = saved_dt_next;
             }
         }
+
+        Ok(())
     }
 
-    fn propagate_to(&mut self, target_epoch: Epoch) {
+    fn propagate_to(&mut self, target_epoch: Epoch) -> Result<(), BraheError> {
         let target_rel = target_epoch - self.epoch_initial;
 
         // Check for events at the current epoch before taking any steps.
         // This handles the edge case where an event is scheduled at the exact
         // propagation start time (e.g., TimeEvent at T+0.0s).
-        self.process_initial_events();
+        self.process_initial_events()?;
 
         // Support both forward and backward propagation
         let is_forward = target_rel >= self.t_rel;
@@ -1699,13 +1717,15 @@ impl super::traits::DStatePropagator for DNumericalPropagator {
             self.dt_next = dt_max;
 
             // Take one adaptive step (includes event detection)
-            self.step_once();
+            self.step_once()?;
 
             // Restore suggested dt_next for subsequent steps
             if self.dt_next.abs() > saved_dt_next.abs() {
                 self.dt_next = saved_dt_next;
             }
         }
+
+        Ok(())
     }
 
     fn current_epoch(&self) -> Epoch {
@@ -2011,7 +2031,7 @@ mod tests {
             move |_t: f64, x: &DVector<f64>, _p: Option<&DVector<f64>>| {
                 let pos = x[0];
                 let vel = x[1];
-                DVector::from_vec(vec![vel, -omega * omega * pos])
+                Ok(DVector::from_vec(vec![vel, -omega * omega * pos]))
             },
         )
     }
@@ -2029,7 +2049,10 @@ mod tests {
             let zeta = params[1];
             let pos = x[0];
             let vel = x[1];
-            DVector::from_vec(vec![vel, -omega * omega * pos - 2.0 * zeta * omega * vel])
+            Ok(DVector::from_vec(vec![
+                vel,
+                -omega * omega * pos - 2.0 * zeta * omega * vel,
+            ]))
         })
     }
 
@@ -2166,8 +2189,8 @@ mod tests {
         )
         .unwrap();
 
-        prop.propagate_to(epoch + 5.0);
-        reference.propagate_to(epoch + 5.0);
+        prop.propagate_to(epoch + 5.0).unwrap();
+        reference.propagate_to(epoch + 5.0).unwrap();
         assert_abs_diff_eq!(
             prop.current_state(),
             reference.current_state(),
@@ -2204,7 +2227,7 @@ mod tests {
 
         // Propagate forward by one period (2π seconds for ω=1)
         let period = 2.0 * PI;
-        prop.step_by(period);
+        prop.step_by(period).unwrap();
 
         // Should be back at initial position (approximately)
         let state = prop.current_state();
@@ -2226,7 +2249,7 @@ mod tests {
 
         // Propagate to half period
         let target_epoch = initial_epoch + PI;
-        prop.propagate_to(target_epoch);
+        prop.propagate_to(target_epoch).unwrap();
 
         // Should be at opposite position
         let state = prop.current_state();
@@ -2245,11 +2268,11 @@ mod tests {
         let mut prop = create_test_sho_propagator();
 
         // First propagate forward
-        prop.step_by(PI);
+        prop.step_by(PI).unwrap();
         let _mid_state = prop.current_state();
 
         // Then propagate backward
-        prop.step_by(-PI);
+        prop.step_by(-PI).unwrap();
 
         // Should be back at initial state
         let state = prop.current_state();
@@ -2263,8 +2286,8 @@ mod tests {
         let initial_epoch = prop.current_epoch();
 
         // Propagate forward then back
-        prop.propagate_to(initial_epoch + PI);
-        prop.propagate_to(initial_epoch);
+        prop.propagate_to(initial_epoch + PI).unwrap();
+        prop.propagate_to(initial_epoch).unwrap();
 
         // Should be back at initial state
         let state = prop.current_state();
@@ -2277,7 +2300,7 @@ mod tests {
         let mut prop = create_test_sho_propagator();
 
         // Propagate 10 steps
-        prop.propagate_steps(10);
+        prop.propagate_steps(10).unwrap();
 
         // Should have taken multiple steps (trajectory should have entries)
         assert!(prop.trajectory().len() >= 10);
@@ -2294,7 +2317,7 @@ mod tests {
         let initial_state = prop.initial_state();
 
         // Propagate forward
-        prop.propagate_to(initial_epoch + 10.0);
+        prop.propagate_to(initial_epoch + 10.0).unwrap();
 
         // State should have changed
         assert!((prop.current_state()[0] - initial_state[0]).abs() > 1e-6);
@@ -2319,7 +2342,7 @@ mod tests {
         assert_eq!(prop.initial_state(), DVector::from_vec(vec![1.0, 0.0]));
 
         // Propagate and check getters update
-        prop.step_by(1.0);
+        prop.step_by(1.0).unwrap();
         assert!(prop.current_epoch() > initial_epoch);
         assert_ne!(prop.current_state(), prop.initial_state());
     }
@@ -2331,7 +2354,7 @@ mod tests {
     #[test]
     fn test_dstateprovider_state_at_current() {
         let mut prop = create_test_sho_propagator();
-        prop.propagate_to(prop.initial_epoch() + 1.0);
+        prop.propagate_to(prop.initial_epoch() + 1.0).unwrap();
 
         let current_epoch = prop.current_epoch();
         let state = prop.state(current_epoch).unwrap();
@@ -2346,7 +2369,7 @@ mod tests {
         let initial_epoch = prop.initial_epoch();
 
         // Propagate to build trajectory (default interpolation is now Linear)
-        prop.propagate_to(initial_epoch + 10.0);
+        prop.propagate_to(initial_epoch + 10.0).unwrap();
 
         // Get state at intermediate epoch
         let mid_epoch = initial_epoch + 5.0;
@@ -2377,7 +2400,7 @@ mod tests {
     fn test_dstateprovider_state_dimension_preservation() {
         let mut prop = create_test_sho_propagator();
         // Propagate to build trajectory (default interpolation is now Linear)
-        prop.propagate_to(prop.initial_epoch() + 5.0);
+        prop.propagate_to(prop.initial_epoch() + 5.0).unwrap();
 
         let mid_epoch = prop.initial_epoch() + 2.5;
         let state = prop.state(mid_epoch).unwrap();
@@ -2421,7 +2444,7 @@ mod tests {
         .unwrap();
 
         // Propagate
-        prop.propagate_to(epoch + 5.0);
+        prop.propagate_to(epoch + 5.0).unwrap();
 
         // Should be able to get covariance
         let cov = prop.covariance(prop.current_epoch()).unwrap();
@@ -2451,7 +2474,7 @@ mod tests {
         )
         .unwrap();
 
-        prop.propagate_to(epoch + 5.0);
+        prop.propagate_to(epoch + 5.0).unwrap();
 
         let cov = prop.covariance(prop.current_epoch()).unwrap();
 
@@ -2485,7 +2508,7 @@ mod tests {
         )
         .unwrap();
 
-        prop.propagate_to(epoch + 10.0);
+        prop.propagate_to(epoch + 10.0).unwrap();
 
         // Get covariance at intermediate time
         let mid_epoch = epoch + 5.0;
@@ -2517,7 +2540,7 @@ mod tests {
         )
         .unwrap();
 
-        prop.propagate_to(epoch + 10.0);
+        prop.propagate_to(epoch + 10.0).unwrap();
 
         // Try to get covariance outside trajectory
         let result = prop.covariance(epoch + 20.0);
@@ -2548,7 +2571,7 @@ mod tests {
         let mut prop = create_test_sho_with_stm();
 
         // Propagate forward
-        prop.propagate_to(prop.initial_epoch() + 5.0);
+        prop.propagate_to(prop.initial_epoch() + 5.0).unwrap();
 
         let stm = prop.stm().expect("STM should be available");
 
@@ -2565,7 +2588,7 @@ mod tests {
         let mut prop = create_test_sho_with_stm();
 
         // Propagate to build trajectory
-        prop.propagate_to(prop.initial_epoch() + 10.0);
+        prop.propagate_to(prop.initial_epoch() + 10.0).unwrap();
 
         // Check STM is stored at various indices
         assert!(prop.trajectory().len() > 0);
@@ -2584,7 +2607,7 @@ mod tests {
         let initial_epoch = prop.initial_epoch();
 
         // Propagate to build trajectory
-        prop.propagate_to(initial_epoch + 10.0);
+        prop.propagate_to(initial_epoch + 10.0).unwrap();
 
         // Get STM at intermediate time
         let mid_epoch = initial_epoch + 5.0;
@@ -2601,7 +2624,7 @@ mod tests {
         let mut prop = create_test_sho_with_stm();
 
         // Propagate forward
-        prop.propagate_to(prop.initial_epoch() + 5.0);
+        prop.propagate_to(prop.initial_epoch() + 5.0).unwrap();
 
         let stm_after_prop = prop.stm().unwrap().clone();
         assert!((stm_after_prop[(0, 0)] - 1.0).abs() > 1e-6); // STM has evolved
@@ -2626,7 +2649,7 @@ mod tests {
 
         // Propagate one full period
         let period = 2.0 * PI;
-        prop.propagate_to(prop.initial_epoch() + period);
+        prop.propagate_to(prop.initial_epoch() + period).unwrap();
 
         // State should return to initial (approximately)
         let state = prop.current_state();
@@ -2662,7 +2685,7 @@ mod tests {
         let mut prop = create_test_damped_sho_with_sensitivity();
 
         // Propagate forward
-        prop.propagate_to(prop.initial_epoch() + 5.0);
+        prop.propagate_to(prop.initial_epoch() + 5.0).unwrap();
 
         let sens = prop.sensitivity().expect("Sensitivity should be available");
 
@@ -2717,8 +2740,8 @@ mod tests {
         .unwrap();
 
         // Propagate both
-        prop1.propagate_to(epoch + 5.0);
-        prop2.propagate_to(epoch + 5.0);
+        prop1.propagate_to(epoch + 5.0).unwrap();
+        prop2.propagate_to(epoch + 5.0).unwrap();
 
         // States should differ due to different damping
         let state1 = prop1.current_state();
@@ -2743,7 +2766,7 @@ mod tests {
                 .unwrap();
 
         // Propagate to build trajectory
-        prop.propagate_to(epoch + 10.0);
+        prop.propagate_to(epoch + 10.0).unwrap();
 
         // Check sensitivity is stored
         assert!(prop.trajectory().len() > 0);
@@ -2768,7 +2791,7 @@ mod tests {
                 .unwrap();
 
         // Propagate to build trajectory
-        prop.propagate_to(epoch + 10.0);
+        prop.propagate_to(epoch + 10.0).unwrap();
 
         // Get sensitivity at intermediate time
         let mid_epoch = epoch + 5.0;
@@ -2785,7 +2808,7 @@ mod tests {
         let mut prop = create_test_damped_sho_with_sensitivity();
 
         // Propagate forward
-        prop.propagate_to(prop.initial_epoch() + 5.0);
+        prop.propagate_to(prop.initial_epoch() + 5.0).unwrap();
 
         let sens_after_prop = prop.sensitivity().unwrap().clone();
 
@@ -2868,7 +2891,7 @@ mod tests {
         prop.set_interpolation_method(InterpolationMethod::Linear);
 
         // Propagate
-        prop.propagate_to(prop.initial_epoch() + 5.0);
+        prop.propagate_to(prop.initial_epoch() + 5.0).unwrap();
 
         // Setting should persist
         assert_eq!(prop.get_interpolation_method(), InterpolationMethod::Linear);
@@ -3001,7 +3024,7 @@ mod tests {
         prop.set_covariance_interpolation_method(CovarianceInterpolationMethod::MatrixSquareRoot);
 
         // Propagate
-        prop.propagate_to(prop.initial_epoch() + 5.0);
+        prop.propagate_to(prop.initial_epoch() + 5.0).unwrap();
 
         // Setting should persist
         assert_eq!(
@@ -3162,7 +3185,7 @@ mod tests {
         prop.set_id(Some(42));
 
         // Propagate
-        prop.propagate_to(prop.initial_epoch() + 5.0);
+        prop.propagate_to(prop.initial_epoch() + 5.0).unwrap();
 
         // Identity should persist
         assert_eq!(prop.get_name(), Some("TestProp"));
@@ -3183,7 +3206,7 @@ mod tests {
         prop.add_event_detector(Box::new(event));
 
         // Propagate past event
-        prop.propagate_to(initial_epoch + 10.0);
+        prop.propagate_to(initial_epoch + 10.0).unwrap();
 
         // Event should be detected
         let events = prop.event_log();
@@ -3210,7 +3233,7 @@ mod tests {
         prop.add_event_detector(Box::new(event));
 
         // Propagate through multiple crossings
-        prop.propagate_to(initial_epoch + 10.0);
+        prop.propagate_to(initial_epoch + 10.0).unwrap();
 
         // Should have detected crossings
         let events = prop.event_log();
@@ -3244,7 +3267,7 @@ mod tests {
         prop.add_event_detector(Box::new(event));
 
         // Propagate
-        prop.propagate_to(initial_epoch + 3.0);
+        prop.propagate_to(initial_epoch + 3.0).unwrap();
 
         // Event should have been detected and velocity modified
         let events = prop.event_log();
@@ -3271,7 +3294,7 @@ mod tests {
         prop.add_event_detector(Box::new(event));
 
         // Try to propagate to time 10
-        prop.propagate_to(initial_epoch + 10.0);
+        prop.propagate_to(initial_epoch + 10.0).unwrap();
 
         // Should have stopped at event (around time 5)
         assert!(prop.terminated());
@@ -3295,7 +3318,7 @@ mod tests {
         )));
 
         // Propagate
-        prop.propagate_to(initial_epoch + 5.0);
+        prop.propagate_to(initial_epoch + 5.0).unwrap();
 
         // Query events by detector index
         let events_0 = prop.events_by_detector_index(0);
@@ -3321,7 +3344,7 @@ mod tests {
         )));
 
         // Propagate
-        prop.propagate_to(initial_epoch + 10.0);
+        prop.propagate_to(initial_epoch + 10.0).unwrap();
 
         // Query events in range
         let events_early = prop.events_in_range(initial_epoch, initial_epoch + 5.0);
@@ -3353,7 +3376,7 @@ mod tests {
         prop.add_event_detector(Box::new(event));
 
         // Propagate and hit terminal
-        prop.propagate_to(initial_epoch + 10.0);
+        prop.propagate_to(initial_epoch + 10.0).unwrap();
         assert!(prop.terminated());
 
         // Clear events and reset termination
@@ -3364,7 +3387,7 @@ mod tests {
         assert_eq!(prop.event_log().len(), 0);
 
         // Can continue propagating
-        prop.propagate_to(initial_epoch + 15.0);
+        prop.propagate_to(initial_epoch + 15.0).unwrap();
     }
 
     #[test]
@@ -3384,7 +3407,7 @@ mod tests {
         prop.add_event_detector(Box::new(event4));
 
         // Propagate
-        prop.propagate_to(initial_epoch + 10.0);
+        prop.propagate_to(initial_epoch + 10.0).unwrap();
 
         // Test combining filters:
         // 1. Get events by detector index
@@ -3432,7 +3455,7 @@ mod tests {
         prop.set_trajectory_mode(TrajectoryMode::AllSteps);
 
         // Propagate
-        prop.propagate_to(prop.initial_epoch() + 5.0);
+        prop.propagate_to(prop.initial_epoch() + 5.0).unwrap();
 
         // Trajectory should have multiple entries
         assert!(prop.trajectory().len() > 1);
@@ -3446,7 +3469,7 @@ mod tests {
         prop.set_trajectory_mode(TrajectoryMode::Disabled);
 
         // Propagate
-        prop.propagate_to(prop.initial_epoch() + 5.0);
+        prop.propagate_to(prop.initial_epoch() + 5.0).unwrap();
 
         // Trajectory should be empty since disabled mode prevents storage
         assert_eq!(prop.trajectory().len(), 0);
@@ -3460,7 +3483,7 @@ mod tests {
         prop.set_eviction_policy_max_size(10).unwrap();
 
         // Propagate to generate many steps
-        prop.propagate_to(prop.initial_epoch() + 50.0);
+        prop.propagate_to(prop.initial_epoch() + 50.0).unwrap();
 
         // Trajectory should be limited
         assert!(prop.trajectory().len() <= 10);
@@ -3484,7 +3507,7 @@ mod tests {
                 .unwrap();
 
         // Propagate
-        prop.propagate_to(epoch + 5.0);
+        prop.propagate_to(epoch + 5.0).unwrap();
 
         // Both STM and sensitivity should be stored
         assert!(prop.stm_at_idx(0).is_some());
@@ -3503,7 +3526,7 @@ mod tests {
         assert_eq!(prop.current_params().len(), 0);
 
         // Should propagate successfully
-        prop.propagate_to(prop.initial_epoch() + 5.0);
+        prop.propagate_to(prop.initial_epoch() + 5.0).unwrap();
 
         let state = prop.current_state();
         assert_eq!(state.len(), 2);
@@ -3514,7 +3537,7 @@ mod tests {
         // Create dynamics with single parameter
         let single_param_dynamics: DStateDynamics = Box::new(|_t, x, p| {
             let k = p.map(|params| params[0]).unwrap_or(1.0);
-            DVector::from_vec(vec![x[1], -k * k * x[0]])
+            Ok(DVector::from_vec(vec![x[1], -k * k * x[0]]))
         });
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -3536,7 +3559,7 @@ mod tests {
         .unwrap();
 
         // Propagate
-        prop.propagate_to(epoch + 5.0);
+        prop.propagate_to(epoch + 5.0).unwrap();
 
         // Sensitivity should be 2x1 (state_dim x param_dim)
         let sens = prop.sensitivity().unwrap();
@@ -3565,7 +3588,7 @@ mod tests {
         let initial_epoch = prop.initial_epoch();
 
         // Propagate by tiny amount
-        prop.propagate_to(initial_epoch + 1e-6);
+        prop.propagate_to(initial_epoch + 1e-6).unwrap();
 
         // Should still work
         assert!(prop.current_epoch() > initial_epoch);
@@ -3594,7 +3617,7 @@ mod tests {
 
         // Verify propagator now has empty detectors
         // (propagating should not detect events)
-        prop.propagate_to(initial_epoch + 5.0);
+        prop.propagate_to(initial_epoch + 5.0).unwrap();
         assert!(prop.event_log().is_empty());
     }
 
@@ -3613,7 +3636,7 @@ mod tests {
         prop.set_event_detectors(detectors);
 
         // Propagate and verify events are detected
-        prop.propagate_to(initial_epoch + 5.0);
+        prop.propagate_to(initial_epoch + 5.0).unwrap();
         assert_eq!(prop.event_log().len(), 2);
     }
 
@@ -3625,7 +3648,7 @@ mod tests {
         // Add detector and propagate to trigger event
         let detector = DTimeEvent::new(initial_epoch + 2.0, "TestEvent");
         prop.add_event_detector(Box::new(detector));
-        prop.propagate_to(initial_epoch + 3.0);
+        prop.propagate_to(initial_epoch + 3.0).unwrap();
 
         // Verify event was detected
         assert_eq!(prop.event_log().len(), 1);
@@ -3671,14 +3694,14 @@ mod tests {
         assert_eq!(taken.len(), 1);
 
         // Propagate - should not detect (no detectors)
-        prop.propagate_to(initial_epoch + 2.0);
+        prop.propagate_to(initial_epoch + 2.0).unwrap();
         assert!(prop.event_log().is_empty());
 
         // Set detectors back
         prop.set_event_detectors(taken);
 
         // Continue propagation past event time
-        prop.propagate_to(initial_epoch + 4.0);
+        prop.propagate_to(initial_epoch + 4.0).unwrap();
 
         // Now event should be detected
         assert_eq!(prop.event_log().len(), 1);
@@ -3698,7 +3721,7 @@ mod tests {
                 .unwrap();
 
         // Propagate forward
-        prop.propagate_to(epoch + 1.0);
+        prop.propagate_to(epoch + 1.0).unwrap();
         let state_at_1 = prop.current_state();
         assert_ne!(state_at_1[0], 1.0, "State should have changed");
 
@@ -3711,7 +3734,7 @@ mod tests {
         assert_eq!(prop.current_state(), new_state);
 
         // Propagate forward again
-        prop.propagate_to(new_epoch + 1.0);
+        prop.propagate_to(new_epoch + 1.0).unwrap();
         let state_at_2 = prop.current_state();
         assert_ne!(
             state_at_2, new_state,
@@ -3737,7 +3760,7 @@ mod tests {
         assert_eq!(stm, DMatrix::identity(2, 2));
 
         // Propagate - STM should change
-        prop.propagate_to(epoch + 1.0);
+        prop.propagate_to(epoch + 1.0).unwrap();
         let stm_after = prop.stm().unwrap().clone();
         assert_ne!(stm_after, DMatrix::identity(2, 2));
 
@@ -3765,7 +3788,7 @@ mod tests {
 
         // Propagate to π/2
         let half_pi = PI / 2.0;
-        prop.propagate_to(epoch + half_pi);
+        prop.propagate_to(epoch + half_pi).unwrap();
         let state_half_pi = prop.current_state();
 
         // Should be approximately (0, -1)
@@ -3776,7 +3799,7 @@ mod tests {
         prop.reinitialize(epoch + half_pi, state_half_pi.clone(), None);
 
         // Propagate another π/2 to reach t=π
-        prop.propagate_to(epoch + PI);
+        prop.propagate_to(epoch + PI).unwrap();
         let state_pi = prop.current_state();
 
         // Should be approximately (-1, 0) at t=π

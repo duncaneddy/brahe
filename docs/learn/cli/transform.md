@@ -12,7 +12,7 @@ The `transform` command group provides conversions between:
 
 ### `frame`
 
-Transform state vectors between ECI and ECEF reference frames.
+Transform a Cartesian state vector between reference frames.
 
 **Syntax:**
 ```bash

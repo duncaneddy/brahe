@@ -694,6 +694,13 @@ class TestRotationCommand:
         assert result.exit_code == 0
         rows = [ln for ln in result.stdout.splitlines() if ln.strip().startswith("[")]
         assert len(rows) == 3
+        matrix = [
+            [float(v) for v in row.strip().strip("[]").split(",")] for row in rows
+        ]
+        for i in range(3):
+            for j in range(3):
+                expected = 1.0 if i == j else 0.0
+                assert matrix[i][j] == pytest.approx(expected, abs=1e-9)
 
 
 if __name__ == "__main__":

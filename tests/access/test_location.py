@@ -35,6 +35,11 @@ class TestPointLocationBasic:
         loc = bh.PointLocation(lon=15.4, lat=78.2)
         assert loc.alt == 0.0
 
+    def test_point_location_invalid_latitude_raises(self):
+        """Test that an out-of-range latitude raises rather than aborting."""
+        with pytest.raises(ValueError):
+            bh.PointLocation(lon=0.0, lat=100.0, alt=0.0)
+
     def test_point_location_identifiable(self):
         """Test Identifiable trait methods."""
         loc = (

@@ -9,7 +9,7 @@ use bh::AccessibleLocation;
 fn main() {
     bh::initialize_eop().unwrap();
 
-    let location = bh::PointLocation::new(-122.4194, 37.7749, 0.0)
+    let location = bh::PointLocation::new(-122.4194, 37.7749, 0.0).unwrap()
         .with_name("San Francisco")
         .with_id(1);
 

@@ -14,7 +14,7 @@ fn main() {
     bh::initialize_eop().unwrap();
 
     // Set the location
-    let location = PointLocation::new(-122.4194, 37.7749, 0.0)
+    let location = PointLocation::new(-122.4194, 37.7749, 0.0).unwrap()
         .with_name("San Francisco");
 
     // Get the latest TLE for the ISS (NORAD ID 25544) from Celestrak

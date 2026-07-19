@@ -229,6 +229,10 @@ impl Epoch {
     /// `Epoch`: Returns an `Epoch` struct that represents the instant in time
     /// specified by the inputs
     ///
+    /// # Errors
+    /// Returns [`BraheError::Error`](crate::utils::BraheError) if `day_of_year`
+    /// is less than 1.0.
+    ///
     /// # Examples
     /// ```
     /// use brahe::eop::*;
@@ -239,21 +243,28 @@ impl Epoch {
     /// set_global_eop_provider(eop);
     ///
     /// // Day 100.5 of 2023 (April 10th, noon)
-    /// let epoch = Epoch::from_day_of_year(2023, 100.5, TimeSystem::UTC);
+    /// let epoch = Epoch::from_day_of_year(2023, 100.5, TimeSystem::UTC).unwrap();
     /// assert_eq!(epoch.month(), 4);
     /// assert_eq!(epoch.day(), 10);
     /// assert_eq!(epoch.hour(), 12);
     /// ```
-    pub fn from_day_of_year(year: u32, day_of_year: f64, time_system: TimeSystem) -> Self {
+    pub fn from_day_of_year(
+        year: u32,
+        day_of_year: f64,
+        time_system: TimeSystem,
+    ) -> Result<Self, crate::utils::BraheError> {
         if day_of_year < 1.0 {
-            panic!("day_of_year must be >= 1.0, got {}", day_of_year);
+            return Err(crate::utils::BraheError::Error(format!(
+                "day_of_year must be >= 1.0, got {}",
+                day_of_year
+            )));
         }
 
         // Create epoch for January 1st of the given year
         let jan1 = Epoch::from_date(year, 1, 1, time_system);
 
         // Add (day_of_year - 1) * 86400 seconds to get to the desired day
-        jan1 + (day_of_year - 1.0) * 86400.0
+        Ok(jan1 + (day_of_year - 1.0) * 86400.0)
     }
 
     /// Create an `Epoch` from a Gregorian calendar datetime.
@@ -4028,7 +4039,7 @@ mod tests {
         setup_global_test_eop();
 
         // Test January 1st (day 1.0)
-        let epoch_jan1 = Epoch::from_day_of_year(2023, 1.0, TimeSystem::UTC);
+        let epoch_jan1 = Epoch::from_day_of_year(2023, 1.0, TimeSystem::UTC).unwrap();
         assert_eq!(epoch_jan1.year(), 2023);
         assert_eq!(epoch_jan1.month(), 1);
         assert_eq!(epoch_jan1.day(), 1);
@@ -4037,7 +4048,7 @@ mod tests {
         assert_eq!(epoch_jan1.second(), 0.0);
 
         // Test January 2nd (day 2.0)
-        let epoch_jan2 = Epoch::from_day_of_year(2023, 2.0, TimeSystem::UTC);
+        let epoch_jan2 = Epoch::from_day_of_year(2023, 2.0, TimeSystem::UTC).unwrap();
         assert_eq!(epoch_jan2.year(), 2023);
         assert_eq!(epoch_jan2.month(), 1);
         assert_eq!(epoch_jan2.day(), 2);
@@ -4046,7 +4057,7 @@ mod tests {
         assert_eq!(epoch_jan2.second(), 0.0);
 
         // Test day 100.5 (should be around April 10th, noon)
-        let epoch_100_5 = Epoch::from_day_of_year(2023, 100.5, TimeSystem::UTC);
+        let epoch_100_5 = Epoch::from_day_of_year(2023, 100.5, TimeSystem::UTC).unwrap();
         assert_eq!(epoch_100_5.year(), 2023);
         assert_eq!(epoch_100_5.month(), 4);
         assert_eq!(epoch_100_5.day(), 10);
@@ -4061,14 +4072,14 @@ mod tests {
         setup_global_test_eop();
 
         // Test February 29th in a leap year (day 60.0)
-        let epoch_feb29 = Epoch::from_day_of_year(2020, 60.0, TimeSystem::UTC);
+        let epoch_feb29 = Epoch::from_day_of_year(2020, 60.0, TimeSystem::UTC).unwrap();
         assert_eq!(epoch_feb29.year(), 2020);
         assert_eq!(epoch_feb29.month(), 2);
         assert_eq!(epoch_feb29.day(), 29);
         assert_eq!(epoch_feb29.hour(), 0);
 
         // Test March 1st in a leap year (day 61.0)
-        let epoch_mar1 = Epoch::from_day_of_year(2020, 61.0, TimeSystem::UTC);
+        let epoch_mar1 = Epoch::from_day_of_year(2020, 61.0, TimeSystem::UTC).unwrap();
         assert_eq!(epoch_mar1.year(), 2020);
         assert_eq!(epoch_mar1.month(), 3);
         assert_eq!(epoch_mar1.day(), 1);
@@ -4080,7 +4091,7 @@ mod tests {
         setup_global_test_eop();
 
         // Test fractional day (day 1.25 = January 1st, 6:00 AM)
-        let epoch_frac = Epoch::from_day_of_year(2023, 1.25, TimeSystem::UTC);
+        let epoch_frac = Epoch::from_day_of_year(2023, 1.25, TimeSystem::UTC).unwrap();
         assert_eq!(epoch_frac.year(), 2023);
         assert_eq!(epoch_frac.month(), 1);
         assert_eq!(epoch_frac.day(), 1);
@@ -4089,7 +4100,7 @@ mod tests {
         assert_eq!(epoch_frac.second(), 0.0);
 
         // Test fractional day (day 1.75 = January 1st, 6:00 PM)
-        let epoch_frac2 = Epoch::from_day_of_year(2023, 1.75, TimeSystem::UTC);
+        let epoch_frac2 = Epoch::from_day_of_year(2023, 1.75, TimeSystem::UTC).unwrap();
         assert_eq!(epoch_frac2.year(), 2023);
         assert_eq!(epoch_frac2.month(), 1);
         assert_eq!(epoch_frac2.day(), 1);
@@ -4112,7 +4123,7 @@ mod tests {
         ];
 
         for time_system in test_cases {
-            let epoch = Epoch::from_day_of_year(2023, 100.0, time_system);
+            let epoch = Epoch::from_day_of_year(2023, 100.0, time_system).unwrap();
             assert_eq!(epoch.year(), 2023);
             assert_eq!(epoch.month(), 4);
             assert_eq!(epoch.day(), 10);
@@ -4122,12 +4133,13 @@ mod tests {
 
     #[test]
     #[serial_test::parallel]
-    #[should_panic(expected = "day_of_year must be >= 1.0, got 0.5")]
     fn test_epoch_from_day_of_year_invalid_day() {
         setup_global_test_eop();
 
-        // Test that day_of_year < 1.0 panics
-        Epoch::from_day_of_year(2023, 0.5, TimeSystem::UTC);
+        // Test that day_of_year < 1.0 returns an error
+        let result = Epoch::from_day_of_year(2023, 0.5, TimeSystem::UTC);
+        assert!(result.is_err());
+        assert!(format!("{}", result.unwrap_err()).contains("day_of_year must be >= 1.0, got 0.5"));
     }
 
     #[test]

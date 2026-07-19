@@ -1924,7 +1924,7 @@ impl DCovarianceProvider for DNumericalPropagator {
         }
 
         // Try to get from trajectory
-        self.trajectory.covariance_at(epoch).ok_or_else(|| {
+        self.trajectory.covariance_at(epoch)?.ok_or_else(|| {
             BraheError::OutOfBoundsError(format!(
                 "Cannot get covariance at epoch {}: no covariance data available at this epoch",
                 epoch

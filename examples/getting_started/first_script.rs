@@ -13,7 +13,7 @@ fn main() {
         -122.4194,      // Longitude [deg]
         37.7749,        // Latitude [deg]
         0.0             // Altitude [m]
-    )
+    ).unwrap()
         .with_name("San Francisco");
 
     // Get the latest TLE for the ISS (NORAD ID 25544) from Celestrak

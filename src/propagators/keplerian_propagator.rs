@@ -75,6 +75,45 @@ pub struct KeplerianPropagator {
 }
 
 impl KeplerianPropagator {
+    /// Validate a frame / representation / angle-format combination.
+    ///
+    /// # Returns
+    /// `Ok(())` when the combination is supported, or an error describing the
+    /// incompatibility.
+    fn validate_format(
+        frame: OrbitFrame,
+        representation: OrbitRepresentation,
+        angle_format: Option<AngleFormat>,
+    ) -> Result<(), BraheError> {
+        if representation == OrbitRepresentation::Keplerian && angle_format.is_none() {
+            return Err(BraheError::PropagatorError(
+                "Angle format must be specified for Keplerian elements".to_string(),
+            ));
+        }
+
+        if representation == OrbitRepresentation::Keplerian && frame != OrbitFrame::ECI {
+            return Err(BraheError::PropagatorError(
+                "Keplerian elements must be in ECI frame".to_string(),
+            ));
+        }
+
+        if representation == OrbitRepresentation::Cartesian && angle_format.is_some() {
+            return Err(BraheError::PropagatorError(
+                "Angle format should be None for Cartesian representation".to_string(),
+            ));
+        }
+
+        if matches!(frame, OrbitFrame::BodyCenteredInertial(_)) {
+            return Err(BraheError::PropagatorError(
+                "OrbitFrame::BodyCenteredInertial is not supported by KeplerianPropagator \
+                 (Earth-only)"
+                    .to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
     /// Create a new KeplerianPropagator from orbital elements or Cartesian state.
     /// The input state is assumed to be in the specified frame and representation. The
     /// input frame, representation, and angle format is assumed to be the desired output format
@@ -97,14 +136,11 @@ impl KeplerianPropagator {
     /// * `step_size` - Step size in seconds for propagation
     ///
     /// # Returns
-    /// New KeplerianPropagator instance
-    ///
-    /// # Panics
-    /// Panics if:
+    /// New KeplerianPropagator instance, or an error if:
     /// - Angle format is None for Keplerian representation
     /// - Keplerian elements are not in ECI frame
-    /// - Angle format is None for Keplerian representation
     /// - Angle format is not None for Cartesian representation
+    /// - The frame is body-centered inertial (Earth-only propagator)
     /// - Step size is not positive
     pub fn new(
         epoch: Epoch,
@@ -113,22 +149,13 @@ impl KeplerianPropagator {
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
         step_size: f64,
-    ) -> Self {
-        // Validate inputs
-        if representation == OrbitRepresentation::Keplerian && angle_format.is_none() {
-            panic!("Angle format must be specified for Keplerian elements");
-        }
-
-        if representation == OrbitRepresentation::Keplerian && frame != OrbitFrame::ECI {
-            panic!("Keplerian elements must be in ECI frame");
-        }
-
-        if representation == OrbitRepresentation::Cartesian && angle_format.is_some() {
-            panic!("Angle format should be None for Cartesian representation");
-        }
+    ) -> Result<Self, BraheError> {
+        Self::validate_format(frame, representation, angle_format)?;
 
         if step_size <= 0.0 {
-            panic!("Step size must be positive");
+            return Err(BraheError::PropagatorError(
+                "Step size must be positive".to_string(),
+            ));
         }
 
         // Unwrap angle_format for internal conversion (use RADIANS for Cartesian)
@@ -169,7 +196,7 @@ impl KeplerianPropagator {
         prop.uuid = Some(uuid);
         prop.trajectory.uuid = Some(uuid);
 
-        prop
+        Ok(prop)
     }
 
     /// Create a new KeplerianPropagator from Keplerian orbital elements
@@ -181,16 +208,13 @@ impl KeplerianPropagator {
     /// * `step_size` - Step size in seconds for propagation. Must be positive.
     ///
     /// # Returns
-    /// * New KeplerianPropagator instance
-    ///
-    /// # Panics
-    /// Panics if step_size is not positive
+    /// * New KeplerianPropagator instance, or an error if step_size is not positive
     pub fn from_keplerian(
         epoch: Epoch,
         elements: Vector6<f64>,
         angle_format: AngleFormat,
         step_size: f64,
-    ) -> Self {
+    ) -> Result<Self, BraheError> {
         Self::new(
             epoch,
             elements,
@@ -210,11 +234,8 @@ impl KeplerianPropagator {
     /// * `step_size` - Step size in seconds for propagation. Must be positive.
     ///
     /// # Returns
-    /// * New KeplerianPropagator instance
-    ///
-    /// # Panics
-    /// Panics if step_size is not positive
-    pub fn from_eci(epoch: Epoch, state: Vector6<f64>, step_size: f64) -> Self {
+    /// * New KeplerianPropagator instance, or an error if step_size is not positive
+    pub fn from_eci(epoch: Epoch, state: Vector6<f64>, step_size: f64) -> Result<Self, BraheError> {
         Self::new(
             epoch,
             state,
@@ -233,11 +254,12 @@ impl KeplerianPropagator {
     /// * `step_size` - Step size in seconds for propagation. Must be positive.
     ///
     /// # Returns
-    /// * New KeplerianPropagator instance
-    ///
-    /// # Panics
-    /// Panics if step_size is not positive
-    pub fn from_ecef(epoch: Epoch, state: Vector6<f64>, step_size: f64) -> Self {
+    /// * New KeplerianPropagator instance, or an error if step_size is not positive
+    pub fn from_ecef(
+        epoch: Epoch,
+        state: Vector6<f64>,
+        step_size: f64,
+    ) -> Result<Self, BraheError> {
         Self::new(
             epoch,
             state,
@@ -262,32 +284,16 @@ impl KeplerianPropagator {
     /// * `angle_format` - Desired angle format (only for Keplerian)
     ///
     /// # Returns
-    /// * Updated KeplerianPropagator instance
-    ///
-    /// # Panics
-    /// Panics if:
-    /// - Angle format is None for Keplerian representation
-    /// - Keplerian elements are not in ECI frame
-    /// - Angle format is not None for Cartesian representation
+    /// * Updated KeplerianPropagator instance, or an error if the format
+    ///   combination is unsupported
     #[allow(dead_code)]
     fn with_output_format(
         mut self,
         frame: OrbitFrame,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
-    ) -> Self {
-        // Validate inputs
-        if representation == OrbitRepresentation::Keplerian && angle_format.is_none() {
-            panic!("Angle format must be specified for Keplerian elements");
-        }
-
-        if representation == OrbitRepresentation::Keplerian && frame != OrbitFrame::ECI {
-            panic!("Keplerian elements must be in ECI frame");
-        }
-
-        if representation == OrbitRepresentation::Cartesian && angle_format.is_some() {
-            panic!("Angle format should be None for Cartesian representation");
-        }
+    ) -> Result<Self, BraheError> {
+        Self::validate_format(frame, representation, angle_format)?;
 
         self.frame = frame;
         self.representation = representation;
@@ -309,7 +315,7 @@ impl KeplerianPropagator {
         self.trajectory
             .add(self.initial_epoch, svec6_to_dvec(converted_state));
 
-        self
+        Ok(self)
     }
 
     /// Convert any state to internal osculating elements (ECI, radians)
@@ -339,9 +345,9 @@ impl KeplerianPropagator {
                 // First convert to ECI frame if needed
                 let eci_state = match frame {
                     OrbitFrame::BodyCenteredInertial(_) => {
-                        panic!(
-                            "{}",
-                            "OrbitFrame::BodyCenteredInertial is not supported by KeplerianPropagator (Earth-only)"
+                        unreachable!(
+                            "BodyCenteredInertial frames are rejected by validate_format at \
+                             construction"
                         )
                     }
                     OrbitFrame::ECI => state,
@@ -384,9 +390,9 @@ impl KeplerianPropagator {
                 // Convert to original frame if needed
                 match self.frame {
                     OrbitFrame::BodyCenteredInertial(_) => {
-                        panic!(
-                            "{}",
-                            "OrbitFrame::BodyCenteredInertial is not supported by KeplerianPropagator (Earth-only)"
+                        unreachable!(
+                            "BodyCenteredInertial frames are rejected by validate_format at \
+                             construction"
                         )
                     }
                     OrbitFrame::ECI => eci_cartesian,
@@ -522,19 +528,8 @@ impl SOrbitPropagator for KeplerianPropagator {
         frame: OrbitFrame,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
-    ) {
-        // Validate inputs
-        if representation == OrbitRepresentation::Keplerian && angle_format.is_none() {
-            panic!("Angle format must be specified for Keplerian elements");
-        }
-
-        if representation == OrbitRepresentation::Keplerian && frame != OrbitFrame::ECI {
-            panic!("Keplerian elements must be in ECI frame");
-        }
-
-        if representation == OrbitRepresentation::Cartesian && angle_format.is_some() {
-            panic!("Angle format should be None for Cartesian representation");
-        }
+    ) -> Result<(), BraheError> {
+        Self::validate_format(frame, representation, angle_format)?;
 
         // Unwrap angle_format for internal conversion (use RADIANS for Cartesian)
         let angle_format_unwrapped = angle_format.unwrap_or(RADIANS);
@@ -564,6 +559,8 @@ impl SOrbitPropagator for KeplerianPropagator {
         self.trajectory = DOrbitTrajectory::new(6, frame, representation, angle_format)
             .with_identity(name.as_deref(), uuid, id);
         self.trajectory.add(epoch, svec6_to_dvec(state));
+
+        Ok(())
     }
 }
 
@@ -790,7 +787,8 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(RADIANS),
             60.0,
-        );
+        )
+        .unwrap();
 
         assert_eq!(propagator.initial_epoch(), epoch);
         assert_eq!(propagator.current_epoch(), epoch);
@@ -812,7 +810,8 @@ mod tests {
             OrbitRepresentation::Keplerian,
             None,
             60.0,
-        );
+        )
+        .unwrap();
     }
 
     #[test]
@@ -829,7 +828,8 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(RADIANS),
             60.0,
-        );
+        )
+        .unwrap();
     }
 
     #[test]
@@ -846,7 +846,8 @@ mod tests {
             OrbitRepresentation::Cartesian,
             Some(RADIANS),
             60.0,
-        );
+        )
+        .unwrap();
     }
 
     #[test]
@@ -863,7 +864,8 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(RADIANS),
             -10.0,
-        );
+        )
+        .unwrap();
     }
 
     #[test]
@@ -880,7 +882,8 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(RADIANS),
             0.0,
-        );
+        )
+        .unwrap();
     }
 
     #[test]
@@ -889,7 +892,8 @@ mod tests {
         let elements = create_test_elements();
 
         let propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         assert_eq!(propagator.initial_epoch(), epoch);
         assert_eq!(propagator.step_size(), 60.0);
@@ -900,7 +904,7 @@ mod tests {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let cartesian = create_cartesian_state();
 
-        let propagator = KeplerianPropagator::from_eci(epoch, cartesian, 60.0);
+        let propagator = KeplerianPropagator::from_eci(epoch, cartesian, 60.0).unwrap();
 
         assert_eq!(propagator.initial_epoch(), epoch);
         assert_eq!(propagator.step_size(), 60.0);
@@ -913,7 +917,7 @@ mod tests {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let cartesian = state_ecef_to_eci(epoch, create_cartesian_state());
 
-        let propagator = KeplerianPropagator::from_ecef(epoch, cartesian, 60.0);
+        let propagator = KeplerianPropagator::from_ecef(epoch, cartesian, 60.0).unwrap();
 
         assert_eq!(propagator.initial_epoch(), epoch);
         assert_eq!(propagator.step_size(), 60.0);
@@ -928,7 +932,8 @@ mod tests {
         let elements = create_test_elements();
 
         let mut propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         propagator.step().unwrap();
 
@@ -951,7 +956,8 @@ mod tests {
         let elements = create_test_elements();
 
         let mut propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         propagator.step_by(120.0).unwrap();
 
@@ -976,7 +982,8 @@ mod tests {
         let elements = create_test_elements();
 
         let mut propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         let target_epoch = epoch + 250.0;
         propagator.step_past(target_epoch).unwrap();
@@ -1003,7 +1010,8 @@ mod tests {
         let elements = create_test_elements();
 
         let mut propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         propagator.propagate_steps(5).unwrap();
 
@@ -1026,7 +1034,8 @@ mod tests {
         let elements = create_test_elements();
 
         let mut propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         let target_epoch = epoch + 90.0;
         propagator.propagate_to(target_epoch).unwrap();
@@ -1052,7 +1061,8 @@ mod tests {
         let elements = create_test_elements();
 
         let mut propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         assert_eq!(propagator.current_epoch(), epoch);
 
@@ -1067,7 +1077,8 @@ mod tests {
         let elements = create_test_elements();
 
         let mut propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         // Initial state should match
         assert_eq!(propagator.current_state(), elements);
@@ -1084,7 +1095,8 @@ mod tests {
         let elements = create_test_elements();
 
         let mut propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         assert_eq!(propagator.initial_epoch(), epoch);
 
@@ -1099,7 +1111,8 @@ mod tests {
         let elements = create_test_elements();
 
         let mut propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         assert_eq!(propagator.initial_state(), elements);
 
@@ -1114,7 +1127,8 @@ mod tests {
         let elements = create_test_elements();
 
         let propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         assert_eq!(propagator.step_size(), 60.0);
     }
@@ -1125,7 +1139,8 @@ mod tests {
         let elements = create_test_elements();
 
         let mut propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         // Confirm initial step size
         assert_eq!(propagator.step_size(), 60.0);
@@ -1141,7 +1156,8 @@ mod tests {
         let elements = create_test_elements();
 
         let mut propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         // Propagate forward
         propagator.propagate_steps(5).unwrap();
@@ -1159,19 +1175,22 @@ mod tests {
         let elements = create_test_elements();
 
         let mut propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         // Set new initial conditions
         let new_epoch = Epoch::from_jd(TEST_EPOCH_JD + 1.0, TimeSystem::UTC);
         let new_elements = create_circular_elements();
 
-        propagator.set_initial_conditions(
-            new_epoch,
-            new_elements,
-            OrbitFrame::ECI,
-            OrbitRepresentation::Keplerian,
-            Some(AngleFormat::Radians),
-        );
+        propagator
+            .set_initial_conditions(
+                new_epoch,
+                new_elements,
+                OrbitFrame::ECI,
+                OrbitRepresentation::Keplerian,
+                Some(AngleFormat::Radians),
+            )
+            .unwrap();
 
         assert_eq!(propagator.initial_epoch(), new_epoch);
         assert_eq!(propagator.initial_state(), new_elements);
@@ -1183,7 +1202,8 @@ mod tests {
         let elements = create_test_elements();
 
         let mut propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         propagator.set_eviction_policy_max_size(5).unwrap();
 
@@ -1200,7 +1220,8 @@ mod tests {
         let elements = create_test_elements();
 
         let mut propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         // Set eviction policy - only keep states within 120 seconds of current
         let result = propagator.set_eviction_policy_max_age(120.0);
@@ -1223,7 +1244,8 @@ mod tests {
         let elements = create_test_elements();
 
         let propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         let target_epoch = epoch + orbital_period(elements[0]);
         let state = propagator.state(target_epoch).unwrap();
@@ -1240,7 +1262,8 @@ mod tests {
         let elements = create_test_elements();
 
         let propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         let state = propagator
             .state_eci(epoch + orbital_period(elements[0]))
@@ -1265,7 +1288,8 @@ mod tests {
         let elements = create_test_elements();
 
         let propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         let state = propagator
             .state_ecef(epoch + orbital_period(elements[0]))
@@ -1289,7 +1313,8 @@ mod tests {
         let elements = create_test_elements();
 
         let propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         let state = propagator
             .state_itrf(epoch + orbital_period(elements[0]))
@@ -1313,7 +1338,8 @@ mod tests {
         let elements = create_test_elements();
 
         let propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         let state = propagator
             .state_gcrf(epoch + orbital_period(elements[0]))
@@ -1336,7 +1362,8 @@ mod tests {
         let elements = create_test_elements();
 
         let propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         let state = propagator
             .state_eme2000(epoch + orbital_period(elements[0]))
@@ -1358,7 +1385,8 @@ mod tests {
         let elements = create_test_elements();
 
         let propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         let osc_elements = propagator
             .state_koe_osc(epoch + orbital_period(elements[0]), AngleFormat::Degrees)
@@ -1387,7 +1415,8 @@ mod tests {
         let elements = create_test_elements();
 
         let propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         let epochs = vec![
             epoch,
@@ -1412,7 +1441,8 @@ mod tests {
         let elements = create_test_elements();
 
         let propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         let epochs = vec![
             epoch,
@@ -1439,7 +1469,8 @@ mod tests {
         let elements = create_test_elements();
 
         let propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         let epochs = vec![
             epoch,
@@ -1464,7 +1495,8 @@ mod tests {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
         let propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         let epochs = vec![epoch, epoch + 60.0, epoch + 120.0];
         let states = propagator.states_bci(&epochs).unwrap();
@@ -1484,7 +1516,8 @@ mod tests {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
         let propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         let epochs = vec![epoch, epoch + 60.0, epoch + 120.0];
         let states = propagator.states_bcbf(&epochs).unwrap();
@@ -1502,7 +1535,8 @@ mod tests {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
         let propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         let epochs = vec![epoch, epoch + 60.0, epoch + 120.0];
         let states = propagator
@@ -1525,7 +1559,8 @@ mod tests {
         let elements = create_test_elements();
 
         let propagator =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         let epochs = vec![
             epoch,
@@ -1569,6 +1604,7 @@ mod tests {
         let elements = create_test_elements();
 
         let prop = KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+            .unwrap()
             .with_name("My Orbit");
 
         assert_eq!(prop.get_name(), Some("My Orbit"));
@@ -1582,6 +1618,7 @@ mod tests {
         let elements = create_test_elements();
 
         let prop = KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+            .unwrap()
             .with_id(54321);
 
         assert_eq!(prop.get_id(), Some(54321));
@@ -1596,6 +1633,7 @@ mod tests {
         let test_uuid = uuid::Uuid::now_v7();
 
         let prop = KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+            .unwrap()
             .with_uuid(test_uuid);
 
         assert_eq!(prop.get_uuid(), Some(test_uuid));
@@ -1609,6 +1647,7 @@ mod tests {
         let elements = create_test_elements();
 
         let prop = KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+            .unwrap()
             .with_new_uuid();
 
         assert!(prop.get_uuid().is_some());
@@ -1623,6 +1662,7 @@ mod tests {
         let test_uuid = uuid::Uuid::now_v7();
 
         let prop = KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+            .unwrap()
             .with_identity(Some("Orbit X"), Some(test_uuid), Some(888));
 
         assert_eq!(prop.get_name(), Some("Orbit X"));
@@ -1636,7 +1676,8 @@ mod tests {
         let elements = create_test_elements();
 
         let mut prop =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         prop.set_name(Some("Name 1"));
         assert_eq!(prop.get_name(), Some("Name 1"));
@@ -1651,7 +1692,8 @@ mod tests {
         let elements = create_test_elements();
 
         let mut prop =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         prop.set_id(Some(100));
         assert_eq!(prop.get_id(), Some(100));
@@ -1666,7 +1708,8 @@ mod tests {
         let elements = create_test_elements();
 
         let mut prop =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         // UUID is auto-generated in constructor
         let initial_uuid = prop.get_uuid();
@@ -1690,7 +1733,8 @@ mod tests {
         let test_uuid = uuid::Uuid::now_v7();
 
         let mut prop =
-            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+                .unwrap();
 
         prop.set_identity(Some("ID Test"), Some(test_uuid), Some(555));
 
@@ -1712,6 +1756,7 @@ mod tests {
         let test_uuid = uuid::Uuid::now_v7();
 
         let prop = KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+            .unwrap()
             .with_name("Chained Orbit")
             .with_id(999)
             .with_uuid(test_uuid);

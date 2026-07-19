@@ -1987,11 +1987,11 @@ impl DNumericalOrbitPropagator {
                         "Mass must be configured for drag calculation".to_string(),
                     )
                 })?
-                .get_value(params_opt);
+                .get_value(params_opt)?;
 
             // Get drag parameters (area, Cd)
-            let drag_area = drag_config.area.get_value(params_opt);
-            let cd = drag_config.cd.get_value(params_opt);
+            let drag_area = drag_config.area.get_value(params_opt)?;
+            let cd = drag_config.cd.get_value(params_opt)?;
 
             // Body whose atmosphere produces the drag. When attributed to a
             // body other than the central body, the object's state, the
@@ -2069,11 +2069,11 @@ impl DNumericalOrbitPropagator {
                         "Mass must be configured for SRP calculation".to_string(),
                     )
                 })?
-                .get_value(params_opt);
+                .get_value(params_opt)?;
 
             // Get SRP parameters (area, Cr)
-            let srp_area = srp_config.area.get_value(params_opt);
-            let cr = srp_config.cr.get_value(params_opt);
+            let srp_area = srp_config.area.get_value(params_opt)?;
+            let cr = srp_config.cr.get_value(params_opt)?;
 
             // Sun position relative to the central body. For Earth this uses
             // the analytic `sun_position` ephemeris (bit-identical to the
@@ -3515,7 +3515,7 @@ impl DCovarianceProvider for DNumericalOrbitPropagator {
         }
 
         // Try to get from trajectory
-        self.trajectory.covariance_at(epoch).ok_or_else(|| {
+        self.trajectory.covariance_at(epoch)?.ok_or_else(|| {
             BraheError::OutOfBoundsError(format!(
                 "Cannot get covariance at epoch {}: no covariance data available at this epoch",
                 epoch
@@ -7270,7 +7270,8 @@ mod tests {
             OrbitRepresentation::Cartesian,
             None,
             60.0,
-        );
+        )
+        .unwrap();
 
         // Propagate both for one orbit
         let orbital_period = orbital_period(oe[0]);

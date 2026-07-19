@@ -21,7 +21,7 @@ fn main() {
     bh::initialize_eop().unwrap();
 
     // Set thread pool to use 100% of available CPU cores
-    bh::utils::set_max_threads();
+    bh::utils::set_max_threads().unwrap();
 
     // Start timing
     let start = Instant::now();

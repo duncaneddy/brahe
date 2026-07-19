@@ -391,35 +391,42 @@ impl DTrajectory {
     ///
     /// # Returns
     /// Covariance matrix at the requested epoch (interpolated if necessary)
-    pub fn covariance_at(&self, epoch: Epoch) -> Option<DMatrix<f64>> {
+    pub fn covariance_at(&self, epoch: Epoch) -> Result<Option<DMatrix<f64>>, BraheError> {
         // Check if covariance storage is enabled
-        let covs = self.covariances.as_ref()?;
+        let Some(covs) = self.covariances.as_ref() else {
+            return Ok(None);
+        };
 
         // Check if trajectory has data
         if self.epochs.is_empty() {
-            return None;
+            return Ok(None);
         }
 
         // Handle exact match at endpoint
         if let Some((idx, _)) = self.epochs.iter().enumerate().find(|(_, e)| **e == epoch) {
-            return Some(covs[idx].clone());
+            return Ok(Some(covs[idx].clone()));
         }
 
         // Find surrounding indices for interpolation
-        let (idx_before, idx_after) = self.find_surrounding_indices(epoch)?;
+        let Some((idx_before, idx_after)) = self.find_surrounding_indices(epoch) else {
+            return Ok(None);
+        };
 
         // Handle exact matches
         if self.epochs[idx_before] == epoch {
-            return Some(covs[idx_before].clone());
+            return Ok(Some(covs[idx_before].clone()));
         }
         if self.epochs[idx_after] == epoch {
-            return Some(covs[idx_after].clone());
+            return Ok(Some(covs[idx_after].clone()));
         }
 
         // Interpolation parameter
-        let t0 = self.epochs[idx_before] - self.epoch_initial()?;
-        let t1 = self.epochs[idx_after] - self.epoch_initial()?;
-        let t = epoch - self.epoch_initial()?;
+        let Some(epoch_initial) = self.epoch_initial() else {
+            return Ok(None);
+        };
+        let t0 = self.epochs[idx_before] - epoch_initial;
+        let t1 = self.epochs[idx_after] - epoch_initial;
+        let t = epoch - epoch_initial;
         let alpha = (t - t0) / (t1 - t0);
 
         let cov0 = &covs[idx_before];
@@ -428,14 +435,14 @@ impl DTrajectory {
         // Dispatch based on covariance interpolation method
         let cov = match self.covariance_interpolation_method {
             CovarianceInterpolationMethod::MatrixSquareRoot => {
-                interpolate_covariance_sqrt_dmatrix(cov0, cov1, alpha)
+                interpolate_covariance_sqrt_dmatrix(cov0, cov1, alpha)?
             }
             CovarianceInterpolationMethod::TwoWasserstein => {
-                interpolate_covariance_two_wasserstein_dmatrix(cov0, cov1, alpha)
+                interpolate_covariance_two_wasserstein_dmatrix(cov0, cov1, alpha)?
             }
         };
 
-        Some(cov)
+        Ok(Some(cov))
     }
 
     /// Helper to find initial epoch for interpolation
@@ -2404,7 +2411,7 @@ mod tests {
         // Test matrix square root interpolation at midpoint
         traj.set_covariance_interpolation_method(CovarianceInterpolationMethod::MatrixSquareRoot);
         let t_mid = t0 + 30.0;
-        let cov_sqrt = traj.covariance_at(t_mid).unwrap();
+        let cov_sqrt = traj.covariance_at(t_mid).unwrap().unwrap();
 
         // Check symmetry and positive semi-definiteness
         for i in 0..6 {
@@ -2419,7 +2426,7 @@ mod tests {
 
         // Test two-Wasserstein interpolation at midpoint
         traj.set_covariance_interpolation_method(CovarianceInterpolationMethod::TwoWasserstein);
-        let cov_wasserstein = traj.covariance_at(t_mid).unwrap();
+        let cov_wasserstein = traj.covariance_at(t_mid).unwrap().unwrap();
 
         // Check symmetry and positive semi-definiteness
         for i in 0..6 {
@@ -2461,11 +2468,11 @@ mod tests {
         traj.set_covariance_at(1, cov2);
 
         // At exact t0, should return cov1
-        let result = traj.covariance_at(t0).unwrap();
+        let result = traj.covariance_at(t0).unwrap().unwrap();
         assert_abs_diff_eq!(result[(0, 0)], 100.0, epsilon = 1e-10);
 
         // At exact t1, should return cov2
-        let result = traj.covariance_at(t1).unwrap();
+        let result = traj.covariance_at(t1).unwrap().unwrap();
         assert_abs_diff_eq!(result[(0, 0)], 200.0, epsilon = 1e-10);
     }
 

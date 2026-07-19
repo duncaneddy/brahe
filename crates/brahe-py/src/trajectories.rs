@@ -3810,6 +3810,10 @@ impl PyTrajectory {
     /// Returns:
     ///     numpy.ndarray or None: Covariance matrix at the requested epoch (interpolated if necessary)
     ///
+    /// Raises:
+    ///     RuntimeError: If covariance interpolation fails numerically (e.g. a
+    ///         stored covariance is not positive-definite).
+    ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
@@ -3827,7 +3831,7 @@ impl PyTrajectory {
         epoch: PyRef<PyEpoch>,
     ) -> PyResult<Option<Bound<'a, PyArray<f64, Ix2>>>> {
         match self.trajectory.covariance_at(epoch.obj) {
-            Some(cov_matrix) => {
+            Ok(Some(cov_matrix)) => {
                 // Convert DMatrix to 2D numpy array
                 let dim = self.trajectory.dimension;
                 let mut array = ndarray::Array2::<f64>::zeros((dim, dim));
@@ -3838,7 +3842,8 @@ impl PyTrajectory {
                 }
                 Ok(Some(array.to_pyarray(py).to_owned()))
             }
-            None => Ok(None),
+            Ok(None) => Ok(None),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
 

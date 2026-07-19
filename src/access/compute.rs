@@ -181,12 +181,12 @@ where
 /// set_global_eop_provider(eop);
 ///
 /// // Create a location (latitude, longitude in degrees, altitude in meters)
-/// let location = PointLocation::new(40.7128, -74.0060, 0.0);
+/// let location = PointLocation::new(40.7128, -74.0060, 0.0).unwrap();
 ///
 /// // Create epoch and orbital state
 /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 /// let state = Vector6::new(R_EARTH + 600e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-/// let propagator = KeplerianPropagator::from_eci(epoch, state, 60.0);
+/// let propagator = KeplerianPropagator::from_eci(epoch, state, 60.0).unwrap();
 ///
 /// // Create constraint
 /// let constraint = ElevationConstraint::new(Some(10.0), None).unwrap();
@@ -304,6 +304,7 @@ mod tests {
             Some(AngleFormat::Radians),
             60.0,
         )
+        .unwrap()
     }
 
     #[test]
@@ -311,7 +312,7 @@ mod tests {
     fn test_location_accesses_single() {
         setup_global_test_eop();
 
-        let location = PointLocation::new(45.0, 0.0, 0.0);
+        let location = PointLocation::new(45.0, 0.0, 0.0).unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let propagator = create_test_propagator(epoch);
 
@@ -359,7 +360,7 @@ mod tests {
     fn test_location_accesses_multiple_sats() {
         setup_global_test_eop();
 
-        let location = PointLocation::new(45.0, 0.0, 0.0);
+        let location = PointLocation::new(45.0, 0.0, 0.0).unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
         // Create 3 propagators with different RAANs
@@ -382,6 +383,7 @@ mod tests {
                     Some(AngleFormat::Radians),
                     60.0,
                 )
+                .unwrap()
             },
             {
                 let oe = Vector6::new(
@@ -400,6 +402,7 @@ mod tests {
                     Some(AngleFormat::Radians),
                     60.0,
                 )
+                .unwrap()
             },
         ];
 
@@ -448,8 +451,8 @@ mod tests {
         setup_global_test_eop();
 
         let locations = vec![
-            PointLocation::new(0.0, 45.0, 0.0),    // 45°N, 0°E (lon, lat, alt)
-            PointLocation::new(-120.0, 30.0, 0.0), // 30°N, 120°W
+            PointLocation::new(0.0, 45.0, 0.0).unwrap(), // 45°N, 0°E (lon, lat, alt)
+            PointLocation::new(-120.0, 30.0, 0.0).unwrap(), // 30°N, 120°W
         ];
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -500,8 +503,8 @@ mod tests {
         setup_global_test_eop();
 
         let locations = vec![
-            PointLocation::new(0.0, 45.0, 0.0),    // 45°N, 0°E (lon, lat, alt)
-            PointLocation::new(-120.0, 30.0, 0.0), // 30°N, 120°W
+            PointLocation::new(0.0, 45.0, 0.0).unwrap(), // 45°N, 0°E (lon, lat, alt)
+            PointLocation::new(-120.0, 30.0, 0.0).unwrap(), // 30°N, 120°W
         ];
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -523,6 +526,7 @@ mod tests {
                 Some(AngleFormat::Radians),
                 60.0,
             )
+            .unwrap()
         }];
 
         let period = 5674.0;
@@ -569,7 +573,7 @@ mod tests {
     fn test_location_accesses_sequential() {
         setup_global_test_eop();
 
-        let location = PointLocation::new(45.0, 0.0, 0.0);
+        let location = PointLocation::new(45.0, 0.0, 0.0).unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let propagator = create_test_propagator(epoch);
 
@@ -623,9 +627,11 @@ mod tests {
 
         // -- Locations --
         let new_york = PointLocation::new(-74.006, 40.7128, 0.0)
+            .unwrap()
             .with_name("NewYork")
             .with_id(1);
         let london = PointLocation::new(-0.1276, 51.5074, 0.0)
+            .unwrap()
             .with_name("London")
             .with_id(2);
         let locations = vec![new_york, london];
@@ -655,7 +661,7 @@ mod tests {
         assert_eq!(hubble.get_id(), Some(20580));
 
         // Verify PointLocation defaults before builder methods
-        let bare = PointLocation::new(0.0, 0.0, 0.0);
+        let bare = PointLocation::new(0.0, 0.0, 0.0).unwrap();
         assert_eq!(bare.get_name(), None);
         assert_eq!(bare.get_id(), None);
         assert!(bare.get_uuid().is_some()); // Auto-generated in constructor
@@ -760,8 +766,8 @@ mod tests {
         setup_global_test_eop();
 
         // Create locations with NO explicit identity — only auto-generated UUIDs
-        let loc1 = PointLocation::new(0.0, 45.0, 0.0);
-        let loc2 = PointLocation::new(-120.0, 30.0, 0.0);
+        let loc1 = PointLocation::new(0.0, 45.0, 0.0).unwrap();
+        let loc2 = PointLocation::new(-120.0, 30.0, 0.0).unwrap();
 
         // Create propagators with NO explicit name/id/uuid
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -783,6 +789,7 @@ mod tests {
                 Some(AngleFormat::Radians),
                 60.0,
             )
+            .unwrap()
         };
 
         // All objects should have auto-generated UUIDs

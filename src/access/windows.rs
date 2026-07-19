@@ -788,7 +788,8 @@ pub fn compute_window_properties<L: AccessibleLocation, P: DIdentifiableStatePro
             let sampling_config = computer.sampling_config();
 
             // Generate sample epochs based on configuration
-            let sample_epochs = sampling_config.generate_sample_epochs(window_open, window_close);
+            let sample_epochs =
+                sampling_config.generate_sample_epochs(window_open, window_close)?;
 
             // Get states at sample epochs
             let sample_states: Vec<nalgebra::SVector<f64, 6>> = sample_epochs
@@ -1043,7 +1044,7 @@ mod tests {
         setup_global_test_eop();
 
         // Create a location at 45° latitude (more likely to have access with 45° inclination orbit)
-        let location = PointLocation::new(45.0, 0.0, 0.0);
+        let location = PointLocation::new(45.0, 0.0, 0.0).unwrap();
 
         // Create a LEO satellite (500 km altitude, 45° inclination)
         let oe = Vector6::new(
@@ -1062,7 +1063,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         // Search for two orbital periods to increase chances of finding access
         let period = 5674.0; // ~94 minutes for 500 km LEO
@@ -1101,7 +1103,7 @@ mod tests {
     fn test_bisection_search() {
         setup_global_test_eop();
 
-        let location = PointLocation::new(0.0, 0.0, 0.0);
+        let location = PointLocation::new(0.0, 0.0, 0.0).unwrap();
 
         let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -1112,7 +1114,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         let constraint = ElevationConstraint::new(Some(10.0), None).unwrap();
 
@@ -1151,7 +1154,7 @@ mod tests {
     fn test_compute_window_properties() {
         setup_global_test_eop();
 
-        let location = PointLocation::new(0.0, 45.0, 0.0);
+        let location = PointLocation::new(0.0, 45.0, 0.0).unwrap();
 
         let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -1162,7 +1165,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         let window_open = epoch;
         let window_close = epoch + 300.0;
@@ -1186,7 +1190,7 @@ mod tests {
     fn test_find_access_windows() {
         setup_global_test_eop();
 
-        let location = PointLocation::new(45.0, 0.0, 0.0);
+        let location = PointLocation::new(45.0, 0.0, 0.0).unwrap();
 
         let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -1197,7 +1201,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         let period = 5674.0;
         let search_end = epoch + (period * 2.0);
@@ -1242,7 +1247,7 @@ mod tests {
     fn test_access_window_implements_identifiable() {
         setup_global_test_eop();
 
-        let location = PointLocation::new(0.0, 45.0, 0.0);
+        let location = PointLocation::new(0.0, 45.0, 0.0).unwrap();
         let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let propagator = KeplerianPropagator::new(
@@ -1252,7 +1257,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         let window_open = epoch;
         let window_close = epoch + 300.0;
@@ -1290,7 +1296,9 @@ mod tests {
         setup_global_test_eop();
 
         // Create location and satellite with names
-        let location = PointLocation::new(15.4, 78.2, 0.0).with_name("Svalbard");
+        let location = PointLocation::new(15.4, 78.2, 0.0)
+            .unwrap()
+            .with_name("Svalbard");
         let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let mut propagator = KeplerianPropagator::new(
@@ -1300,7 +1308,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
         propagator.set_name(Some("Sentinel1"));
 
         let window_open = epoch;
@@ -1329,7 +1338,7 @@ mod tests {
         setup_global_test_eop();
 
         // Create location and satellite WITHOUT names
-        let location = PointLocation::new(0.0, 0.0, 0.0);
+        let location = PointLocation::new(0.0, 0.0, 0.0).unwrap();
         let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let propagator = KeplerianPropagator::new(
@@ -1339,7 +1348,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         let window_open = epoch;
         let window_close = epoch + 300.0;
@@ -1366,7 +1376,7 @@ mod tests {
     fn test_access_window_counter_increments() {
         setup_global_test_eop();
 
-        let location = PointLocation::new(0.0, 0.0, 0.0);
+        let location = PointLocation::new(0.0, 0.0, 0.0).unwrap();
         let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let propagator = KeplerianPropagator::new(
@@ -1376,7 +1386,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         let window_open = epoch;
         let window_close = epoch + 300.0;
@@ -1431,7 +1442,7 @@ mod tests {
         setup_global_test_eop();
 
         // Create NYC ground station (lon, lat, alt)
-        let location = PointLocation::new(-74.0060, 40.7128, 0.0);
+        let location = PointLocation::new(-74.0060, 40.7128, 0.0).unwrap();
 
         // Create LEO satellite (500 km altitude, 97.8° inclination - typical sun-synchronous)
         let oe = Vector6::new(
@@ -1450,7 +1461,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         // Search for 24 hours with 5.0° elevation constraint
         let search_end = epoch + 86400.0; // 24 hours in seconds
@@ -1520,7 +1532,7 @@ mod tests {
     fn test_access_window_with_uuid() {
         setup_global_test_eop();
 
-        let location = PointLocation::new(0.0, 0.0, 0.0);
+        let location = PointLocation::new(0.0, 0.0, 0.0).unwrap();
         let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let propagator = KeplerianPropagator::new(
@@ -1530,7 +1542,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         let window_open = epoch;
         let window_close = epoch + 300.0;
@@ -1562,7 +1575,7 @@ mod tests {
     fn test_access_window_with_identity() {
         setup_global_test_eop();
 
-        let location = PointLocation::new(0.0, 0.0, 0.0);
+        let location = PointLocation::new(0.0, 0.0, 0.0).unwrap();
         let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let propagator = KeplerianPropagator::new(
@@ -1572,7 +1585,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         let window_open = epoch;
         let window_close = epoch + 300.0;
@@ -1612,7 +1626,7 @@ mod tests {
     fn test_access_window_set_identity() {
         setup_global_test_eop();
 
-        let location = PointLocation::new(0.0, 0.0, 0.0);
+        let location = PointLocation::new(0.0, 0.0, 0.0).unwrap();
         let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let propagator = KeplerianPropagator::new(
@@ -1622,7 +1636,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         let window_open = epoch;
         let window_close = epoch + 300.0;
@@ -1664,7 +1679,7 @@ mod tests {
     fn test_access_window_generate_uuid() {
         setup_global_test_eop();
 
-        let location = PointLocation::new(0.0, 0.0, 0.0);
+        let location = PointLocation::new(0.0, 0.0, 0.0).unwrap();
         let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let propagator = KeplerianPropagator::new(
@@ -1674,7 +1689,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         let window_open = epoch;
         let window_close = epoch + 300.0;
@@ -1715,7 +1731,7 @@ mod tests {
     fn test_access_window_time_methods() {
         setup_global_test_eop();
 
-        let location = PointLocation::new(0.0, 0.0, 0.0);
+        let location = PointLocation::new(0.0, 0.0, 0.0).unwrap();
         let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let propagator = KeplerianPropagator::new(
@@ -1725,7 +1741,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         let window_open = epoch;
         let window_close = epoch + 300.0;
@@ -1761,7 +1778,7 @@ mod tests {
     fn test_compute_window_properties_with_property_computer() {
         setup_global_test_eop();
 
-        let location = PointLocation::new(0.0, 45.0, 0.0);
+        let location = PointLocation::new(0.0, 45.0, 0.0).unwrap();
 
         let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -1772,7 +1789,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         let window_open = epoch;
         let window_close = epoch + 300.0;
@@ -1863,7 +1881,7 @@ mod tests {
         setup_global_test_eop();
 
         // Create a location at 45° latitude
-        let location = PointLocation::new(45.0, 0.0, 0.0);
+        let location = PointLocation::new(45.0, 0.0, 0.0).unwrap();
 
         // Create a LEO satellite (500 km altitude, 45° inclination)
         let oe = Vector6::new(
@@ -1882,7 +1900,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         // Search for several orbital periods
         let period = 5674.0; // ~94 minutes for 500 km LEO
@@ -1978,7 +1997,7 @@ mod tests {
     fn test_find_access_windows_with_subdivisions() {
         setup_global_test_eop();
 
-        let location = PointLocation::new(45.0, 0.0, 0.0);
+        let location = PointLocation::new(45.0, 0.0, 0.0).unwrap();
 
         let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -1989,7 +2008,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         let period = 5674.0;
         let search_end = epoch + (period * 2.0);
@@ -2094,7 +2114,7 @@ mod tests {
     fn test_find_access_windows_no_subdivisions_preserves_behavior() {
         setup_global_test_eop();
 
-        let location = PointLocation::new(45.0, 0.0, 0.0);
+        let location = PointLocation::new(45.0, 0.0, 0.0).unwrap();
 
         let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -2105,7 +2125,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         let period = 5674.0;
         let search_end = epoch + (period * 2.0);
@@ -2187,7 +2208,7 @@ mod tests {
     fn test_find_access_windows_fixed_duration() {
         setup_global_test_eop();
 
-        let location = PointLocation::new(45.0, 0.0, 0.0);
+        let location = PointLocation::new(45.0, 0.0, 0.0).unwrap();
         let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let propagator = KeplerianPropagator::new(
@@ -2197,7 +2218,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         let period = 5674.0;
         let search_end = epoch + (period * 2.0);
@@ -2257,7 +2279,7 @@ mod tests {
     fn test_find_access_windows_fixed_duration_with_gap() {
         setup_global_test_eop();
 
-        let location = PointLocation::new(45.0, 0.0, 0.0);
+        let location = PointLocation::new(45.0, 0.0, 0.0).unwrap();
         let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let propagator = KeplerianPropagator::new(
@@ -2267,7 +2289,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         let period = 5674.0;
         let search_end = epoch + (period * 2.0);
@@ -2315,7 +2338,7 @@ mod tests {
     fn test_find_access_windows_fixed_duration_truncate() {
         setup_global_test_eop();
 
-        let location = PointLocation::new(45.0, 0.0, 0.0);
+        let location = PointLocation::new(45.0, 0.0, 0.0).unwrap();
         let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let propagator = KeplerianPropagator::new(
@@ -2325,7 +2348,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         let period = 5674.0;
         let search_end = epoch + (period * 2.0);
@@ -2406,7 +2430,7 @@ mod tests {
     fn test_find_access_windows_fixed_duration_with_offset() {
         setup_global_test_eop();
 
-        let location = PointLocation::new(45.0, 0.0, 0.0);
+        let location = PointLocation::new(45.0, 0.0, 0.0).unwrap();
         let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let propagator = KeplerianPropagator::new(
@@ -2416,7 +2440,8 @@ mod tests {
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         let period = 5674.0;
         let search_end = epoch + (period * 2.0);

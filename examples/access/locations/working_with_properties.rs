@@ -9,7 +9,7 @@ use serde_json::json;
 fn main() {
     bh::initialize_eop().unwrap();
 
-    let location = bh::PointLocation::new(-122.4194, 37.7749, 0.0)
+    let location = bh::PointLocation::new(-122.4194, 37.7749, 0.0).unwrap()
         .add_property("antenna_gain_db", json!(42.5))
         .add_property("frequency_mhz", json!(8450.0))
         .add_property("operator", json!("NOAA"))

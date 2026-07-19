@@ -8,6 +8,8 @@
 use rayon::ThreadPool;
 use std::sync::{Arc, LazyLock, Mutex};
 
+use crate::utils::BraheError;
+
 // Global thread pool singleton - can be reinitialized
 static THREAD_POOL: LazyLock<Mutex<Option<Arc<ThreadPool>>>> = LazyLock::new(|| Mutex::new(None));
 
@@ -20,33 +22,36 @@ static THREAD_POOL: LazyLock<Mutex<Option<Arc<ThreadPool>>>> = LazyLock::new(|| 
 /// # Arguments
 /// * `n` - Number of threads to use. Must be at least 1.
 ///
-/// # Panics
-/// Panics if n < 1 or if the thread pool fails to build.
+/// # Errors
+/// Returns [`BraheError::Error`] if `n` < 1 or if the thread pool fails to build.
 ///
 /// # Examples
 /// ```
 /// use brahe::utils::threading::set_num_threads;
 ///
 /// // Use 4 threads for parallel computation
-/// set_num_threads(4);
+/// set_num_threads(4).unwrap();
 ///
 /// // Can be called again to change thread count
-/// set_num_threads(8);
+/// set_num_threads(8).unwrap();
 /// ```
-pub fn set_num_threads(n: usize) {
+pub fn set_num_threads(n: usize) -> Result<(), BraheError> {
     if n == 0 {
-        panic!("Number of threads must be at least 1");
+        return Err(BraheError::Error(
+            "Number of threads must be at least 1".to_string(),
+        ));
     }
 
     let new_pool = Arc::new(
         rayon::ThreadPoolBuilder::new()
             .num_threads(n)
             .build()
-            .expect("Failed to build thread pool"),
+            .map_err(|e| BraheError::Error(format!("Failed to build thread pool: {}", e)))?,
     );
 
     let mut pool = THREAD_POOL.lock().expect("Thread pool mutex poisoned");
     *pool = Some(new_pool);
+    Ok(())
 }
 
 /// Set the thread pool to use all available CPU cores.
@@ -54,15 +59,18 @@ pub fn set_num_threads(n: usize) {
 /// This is a convenience function that sets the number of threads to 100%
 /// of available CPU cores. Can be called multiple times to reinitialize.
 ///
+/// # Errors
+/// Returns [`BraheError::Error`] if the thread pool fails to build.
+///
 /// # Examples
 /// ```
 /// use brahe::utils::threading::set_max_threads;
 ///
 /// // Use all available CPU cores
-/// set_max_threads();
+/// set_max_threads().unwrap();
 /// ```
-pub fn set_max_threads() {
-    set_num_threads(num_cpus::get());
+pub fn set_max_threads() -> Result<(), BraheError> {
+    set_num_threads(num_cpus::get())
 }
 
 /// LUDICROUS SPEED! GO!
@@ -72,15 +80,18 @@ pub fn set_max_threads() {
 /// This is a fun alias for `set_max_threads()`. Can be called multiple times
 /// to reinitialize.
 ///
+/// # Errors
+/// Returns [`BraheError::Error`] if the thread pool fails to build.
+///
 /// # Examples
 /// ```
 /// use brahe::utils::threading::set_ludicrous_speed;
 ///
 /// // MAXIMUM POWER! Use all available CPU cores
-/// set_ludicrous_speed();
+/// set_ludicrous_speed().unwrap();
 /// ```
-pub fn set_ludicrous_speed() {
-    set_max_threads();
+pub fn set_ludicrous_speed() -> Result<(), BraheError> {
+    set_max_threads()
 }
 
 /// Get the global thread pool, creating it with default settings if needed.
@@ -135,7 +146,7 @@ pub fn get_thread_pool() -> Arc<ThreadPool> {
 /// use brahe::utils::threading::{set_num_threads, get_max_threads};
 ///
 /// // Set explicitly before any operations
-/// set_num_threads(4);
+/// set_num_threads(4).unwrap();
 /// assert_eq!(get_max_threads(), 4);
 /// ```
 pub fn get_max_threads() -> usize {
@@ -173,24 +184,27 @@ mod tests {
 
     #[test]
     #[serial]
-    #[should_panic(expected = "Number of threads must be at least 1")]
-    fn test_set_num_threads_zero_panics() {
-        set_num_threads(0);
+    fn test_set_num_threads_zero_errors() {
+        let result = set_num_threads(0);
+        assert!(result.is_err());
+        assert!(
+            format!("{}", result.unwrap_err()).contains("Number of threads must be at least 1")
+        );
     }
 
     #[test]
     #[serial]
     fn test_set_num_threads_reinitialize() {
         // Test that we can reinitialize the thread pool without panicking
-        set_num_threads(2);
+        set_num_threads(2).unwrap();
         assert_eq!(get_max_threads(), 2);
 
         // Reinitialize with different thread count
-        set_num_threads(4);
+        set_num_threads(4).unwrap();
         assert_eq!(get_max_threads(), 4);
 
         // Reinitialize again
-        set_num_threads(1);
+        set_num_threads(1).unwrap();
         assert_eq!(get_max_threads(), 1);
     }
 
@@ -200,11 +214,11 @@ mod tests {
         let num_cpus_val = num_cpus::get();
 
         // Set to max threads
-        set_max_threads();
+        set_max_threads().unwrap();
         assert_eq!(get_max_threads(), num_cpus_val);
 
         // Should be able to call again
-        set_max_threads();
+        set_max_threads().unwrap();
         assert_eq!(get_max_threads(), num_cpus_val);
     }
 
@@ -214,11 +228,11 @@ mod tests {
         let num_cpus_val = num_cpus::get();
 
         // Set to ludicrous speed
-        set_ludicrous_speed();
+        set_ludicrous_speed().unwrap();
         assert_eq!(get_max_threads(), num_cpus_val);
 
         // Should be able to call again
-        set_ludicrous_speed();
+        set_ludicrous_speed().unwrap();
         assert_eq!(get_max_threads(), num_cpus_val);
     }
 
@@ -236,12 +250,12 @@ mod tests {
     #[serial]
     fn test_reinitialize_changes_thread_count() {
         // Initialize with specific thread count
-        set_num_threads(3);
+        set_num_threads(3).unwrap();
         let pool1 = get_thread_pool();
         assert_eq!(pool1.current_num_threads(), 3);
 
         // Reinitialize with different count
-        set_num_threads(5);
+        set_num_threads(5).unwrap();
         let pool2 = get_thread_pool();
         assert_eq!(pool2.current_num_threads(), 5);
 
@@ -253,24 +267,24 @@ mod tests {
     #[serial]
     fn test_mixed_function_reinitialization() {
         // Start with specific thread count
-        set_num_threads(2);
+        set_num_threads(2).unwrap();
         assert_eq!(get_max_threads(), 2);
 
         // Switch to max threads
-        set_max_threads();
+        set_max_threads().unwrap();
         let max_threads = get_max_threads();
         assert!(max_threads >= 2);
 
         // Switch to ludicrous speed (should be same as max)
-        set_ludicrous_speed();
+        set_ludicrous_speed().unwrap();
         assert_eq!(get_max_threads(), max_threads);
 
         // Go back to specific count
-        set_num_threads(1);
+        set_num_threads(1).unwrap();
         assert_eq!(get_max_threads(), 1);
 
         // Back to max again
-        set_max_threads();
+        set_max_threads().unwrap();
         assert_eq!(get_max_threads(), max_threads);
     }
 
@@ -280,7 +294,7 @@ mod tests {
         let test_values = [1, 2, 4, 8];
 
         for n in test_values {
-            set_num_threads(n);
+            set_num_threads(n).unwrap();
             assert_eq!(
                 get_max_threads(),
                 n,
@@ -295,7 +309,7 @@ mod tests {
     #[serial]
     fn test_thread_pool_arc_cloning() {
         // Set initial pool
-        set_num_threads(4);
+        set_num_threads(4).unwrap();
 
         // Get multiple references to the pool
         let pool1 = get_thread_pool();
@@ -308,7 +322,7 @@ mod tests {
         assert_eq!(pool3.current_num_threads(), 4);
 
         // After reinitialization, new references should see new count
-        set_num_threads(6);
+        set_num_threads(6).unwrap();
         let pool4 = get_thread_pool();
         assert_eq!(pool4.current_num_threads(), 6);
 

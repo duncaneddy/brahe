@@ -12,7 +12,7 @@ fn main() {
         -122.4194,
         37.7749,
         0.0
-    );
+    ).unwrap();
 
     // Access geodetic coordinates (in degrees)
     let geodetic = location.center_geodetic();

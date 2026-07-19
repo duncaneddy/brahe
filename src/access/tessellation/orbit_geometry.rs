@@ -1185,7 +1185,7 @@ mod tests {
     fn test_point_tessellation_ascending() {
         setup_global_test_eop();
         let tess = make_tessellator(AscDsc::Ascending);
-        let point = PointLocation::new(0.0, 30.0, 0.0);
+        let point = PointLocation::new(0.0, 30.0, 0.0).unwrap();
         let tiles = tess.tessellate(&point).unwrap();
 
         // Should get 1 tile for ascending only
@@ -1211,7 +1211,7 @@ mod tests {
     fn test_point_tessellation_either() {
         setup_global_test_eop();
         let tess = make_tessellator(AscDsc::Either);
-        let point = PointLocation::new(10.0, 30.0, 0.0);
+        let point = PointLocation::new(10.0, 30.0, 0.0).unwrap();
         let tiles = tess.tessellate(&point).unwrap();
 
         // Should get 1-2 tiles for ascending and descending

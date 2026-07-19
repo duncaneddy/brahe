@@ -15,7 +15,7 @@ fn main() {
         -122.4194,  // longitude in degrees
         37.7749,    // latitude in degrees
         0.0         // altitude in meters
-    ).with_name("San Francisco");
+    ).unwrap().with_name("San Francisco");
 
     let geodetic = sf.center_geodetic();
     println!("Location: {}", sf.get_name().unwrap_or_default());

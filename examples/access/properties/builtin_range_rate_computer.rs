@@ -27,7 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let epoch_end = epoch_start + 24.0 * 3600.0;
 
     // Ground station
-    let location = bh::PointLocation::new(-74.0060, 40.7128, 0.0);
+    let location = bh::PointLocation::new(-74.0060, 40.7128, 0.0).unwrap();
 
     // Compute accesses with range rate
     let constraint = bh::ElevationConstraint::new(Some(10.0), None)?;

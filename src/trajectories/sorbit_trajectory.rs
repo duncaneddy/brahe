@@ -2832,10 +2832,10 @@ impl SCovarianceProvider for SOrbitTrajectory {
         // Dispatch based on interpolation method
         let cov_interp = match self.covariance_interpolation_method {
             CovarianceInterpolationMethod::MatrixSquareRoot => {
-                interpolate_covariance_sqrt_smatrix(cov0, cov1, t)
+                interpolate_covariance_sqrt_smatrix(cov0, cov1, t)?
             }
             CovarianceInterpolationMethod::TwoWasserstein => {
-                interpolate_covariance_two_wasserstein_smatrix(cov0, cov1, t)
+                interpolate_covariance_two_wasserstein_smatrix(cov0, cov1, t)?
             }
         };
 

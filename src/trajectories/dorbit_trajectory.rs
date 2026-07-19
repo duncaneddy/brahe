@@ -609,33 +609,40 @@ impl DOrbitTrajectory {
     ///
     /// # Returns
     /// Covariance matrix at the requested epoch (interpolated if necessary)
-    pub fn covariance_at(&self, epoch: Epoch) -> Option<DMatrix<f64>> {
-        let covs = self.covariances.as_ref()?;
+    pub fn covariance_at(&self, epoch: Epoch) -> Result<Option<DMatrix<f64>>, BraheError> {
+        let Some(covs) = self.covariances.as_ref() else {
+            return Ok(None);
+        };
 
         if self.epochs.is_empty() {
-            return None;
+            return Ok(None);
         }
 
         // Handle exact match at endpoint
         if let Some((idx, _)) = self.epochs.iter().enumerate().find(|(_, e)| **e == epoch) {
-            return Some(covs[idx].clone());
+            return Ok(Some(covs[idx].clone()));
         }
 
         // Find surrounding indices for interpolation
-        let (idx_before, idx_after) = self.find_surrounding_indices(epoch)?;
+        let Some((idx_before, idx_after)) = self.find_surrounding_indices(epoch) else {
+            return Ok(None);
+        };
 
         // Handle exact matches
         if self.epochs[idx_before] == epoch {
-            return Some(covs[idx_before].clone());
+            return Ok(Some(covs[idx_before].clone()));
         }
         if self.epochs[idx_after] == epoch {
-            return Some(covs[idx_after].clone());
+            return Ok(Some(covs[idx_after].clone()));
         }
 
         // Interpolation parameter
-        let t0 = self.epochs[idx_before] - self.epoch_initial()?;
-        let t1 = self.epochs[idx_after] - self.epoch_initial()?;
-        let t = epoch - self.epoch_initial()?;
+        let Some(epoch_initial) = self.epoch_initial() else {
+            return Ok(None);
+        };
+        let t0 = self.epochs[idx_before] - epoch_initial;
+        let t1 = self.epochs[idx_after] - epoch_initial;
+        let t = epoch - epoch_initial;
         let alpha = (t - t0) / (t1 - t0);
 
         let cov0 = &covs[idx_before];
@@ -644,14 +651,14 @@ impl DOrbitTrajectory {
         // Dispatch based on covariance interpolation method
         let cov = match self.covariance_interpolation_method {
             CovarianceInterpolationMethod::MatrixSquareRoot => {
-                interpolate_covariance_sqrt_dmatrix(cov0, cov1, alpha)
+                interpolate_covariance_sqrt_dmatrix(cov0, cov1, alpha)?
             }
             CovarianceInterpolationMethod::TwoWasserstein => {
-                interpolate_covariance_two_wasserstein_dmatrix(cov0, cov1, alpha)
+                interpolate_covariance_two_wasserstein_dmatrix(cov0, cov1, alpha)?
             }
         };
 
-        Some(cov)
+        Ok(Some(cov))
     }
 
     /// Add a complete state record with all optional data
@@ -2717,7 +2724,7 @@ impl DCovarianceProvider for DOrbitTrajectory {
         }
 
         // Delegate to existing method - returns FULL covariance matrix (all dimensions)
-        self.covariance_at(epoch).ok_or_else(|| {
+        self.covariance_at(epoch)?.ok_or_else(|| {
             BraheError::OutOfBoundsError(format!(
                 "Cannot get covariance at epoch {}: no covariance data available",
                 epoch
@@ -3634,7 +3641,7 @@ mod tests {
             Some(vec![cov.clone()]),
         );
 
-        let retrieved_cov = traj.covariance_at(epoch).unwrap();
+        let retrieved_cov = traj.covariance_at(epoch).unwrap().unwrap();
         assert_eq!(retrieved_cov.nrows(), 6);
         assert_eq!(retrieved_cov.ncols(), 6);
     }
@@ -3913,7 +3920,7 @@ mod tests {
             Some(vec![cov.clone()]),
         );
 
-        let retrieved = traj.covariance_at(epoch).unwrap();
+        let retrieved = traj.covariance_at(epoch).unwrap().unwrap();
         assert_abs_diff_eq!(retrieved[(0, 0)], 42.0, epsilon = 1e-10);
     }
 
@@ -3936,7 +3943,7 @@ mod tests {
 
         // Query at midpoint
         let mid_epoch = Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC);
-        let retrieved = traj.covariance_at(mid_epoch).unwrap();
+        let retrieved = traj.covariance_at(mid_epoch).unwrap().unwrap();
         // TwoWasserstein interpolation should give approximately midpoint for symmetric matrices
         assert!(retrieved[(0, 0)] > 100.0 && retrieved[(0, 0)] < 200.0);
     }
@@ -3950,7 +3957,7 @@ mod tests {
         traj.add(epoch, state);
 
         let result = traj.covariance_at(epoch);
-        assert!(result.is_none());
+        assert!(result.unwrap().is_none());
     }
 
     #[test]
@@ -3961,7 +3968,7 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let result = traj.covariance_at(epoch);
-        assert!(result.is_none());
+        assert!(result.unwrap().is_none());
     }
 
     #[test]
@@ -3981,8 +3988,8 @@ mod tests {
 
         let before = Epoch::from_datetime(2024, 1, 1, 11, 0, 0.0, 0.0, TimeSystem::UTC);
         let after = Epoch::from_datetime(2024, 1, 1, 13, 0, 0.0, 0.0, TimeSystem::UTC);
-        assert!(traj.covariance_at(before).is_none());
-        assert!(traj.covariance_at(after).is_none());
+        assert!(traj.covariance_at(before).unwrap().is_none());
+        assert!(traj.covariance_at(after).unwrap().is_none());
     }
 
     // ========== add_full Tests ==========

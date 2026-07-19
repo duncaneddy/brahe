@@ -15,22 +15,22 @@ fn main() {
     println!("Default thread count: {}", default_threads);
 
     // Set a specific number of threads
-    bh::utils::set_num_threads(4);
+    bh::utils::set_num_threads(4).unwrap();
     let threads_after_set = bh::utils::get_max_threads();
     println!("Thread count after setting to 4: {}", threads_after_set);
 
     // Set to maximum available (100% of CPU cores)
-    bh::utils::set_max_threads();
+    bh::utils::set_max_threads().unwrap();
     let max_threads = bh::utils::get_max_threads();
     println!("Maximum thread count: {}", max_threads);
 
     // Alternative: use the fun alias!
-    bh::utils::set_ludicrous_speed();
+    bh::utils::set_ludicrous_speed().unwrap();
     let ludicrous_threads = bh::utils::get_max_threads();
     println!("Ludicrous speed thread count: {}", ludicrous_threads);
 
     // The thread pool can be reconfigured at any time
-    bh::utils::set_num_threads(2);
+    bh::utils::set_num_threads(2).unwrap();
     let final_threads = bh::utils::get_max_threads();
     println!("Final thread count: {}", final_threads);
 

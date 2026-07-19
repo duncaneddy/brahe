@@ -36,7 +36,7 @@ fn main() {
     );
 
     // Tessellate the same point with both spacecraft
-    let point = PointLocation::new(10.0, 30.0, 0.0);
+    let point = PointLocation::new(10.0, 30.0, 0.0).unwrap();
     let tiles_sc1 = tess1.tessellate(&point).unwrap();
     let tiles_sc2 = tess2.tessellate(&point).unwrap();
     let mut all_tiles = tiles_sc1;

@@ -64,13 +64,27 @@ impl ParameterSource {
     /// * `params` - Optional parameter vector (required if using ParameterIndex)
     ///
     /// # Returns
-    /// The parameter value, or default if parameter vector is missing
-    pub fn get_value(&self, params: Option<&nalgebra::DVector<f64>>) -> f64 {
+    /// The parameter value.
+    ///
+    /// # Errors
+    /// Returns [`BraheError::OutOfBoundsError`] if this source is a
+    /// [`ParameterSource::ParameterIndex`] but the parameter vector is missing
+    /// or the index is out of bounds.
+    pub fn get_value(&self, params: Option<&nalgebra::DVector<f64>>) -> Result<f64, BraheError> {
         match self {
-            ParameterSource::Value(v) => *v,
-            ParameterSource::ParameterIndex(idx) => params.map(|p| p[*idx]).unwrap_or_else(|| {
-                panic!("Parameter vector missing or index {} out of bounds", idx)
-            }),
+            ParameterSource::Value(v) => Ok(*v),
+            ParameterSource::ParameterIndex(idx) => match params {
+                Some(p) if *idx < p.len() => Ok(p[*idx]),
+                Some(p) => Err(BraheError::OutOfBoundsError(format!(
+                    "parameter index {} out of bounds for parameter vector of length {}",
+                    idx,
+                    p.len()
+                ))),
+                None => Err(BraheError::OutOfBoundsError(format!(
+                    "parameter vector missing but parameter index {} was requested",
+                    idx
+                ))),
+            },
         }
     }
 

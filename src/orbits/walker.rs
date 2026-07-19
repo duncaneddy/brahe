@@ -42,10 +42,10 @@
 //!     epoch,
 //!     AngleFormat::Degrees,
 //!     WalkerPattern::Delta,  // Walker Delta pattern (360° RAAN spread)
-//! );
+//! ).unwrap();
 //!
 //! // Generate propagators
-//! let propagators = generator.as_keplerian_propagators(60.0);
+//! let propagators = generator.as_keplerian_propagators(60.0).unwrap();
 //! assert_eq!(propagators.len(), 24);
 //! ```
 
@@ -157,9 +157,9 @@ impl WalkerConstellationGenerator {
     ///
     /// New `WalkerConstellationGenerator` instance
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if:
+    /// Returns [`BraheError::Error`] if:
     /// - `p` is zero
     /// - `t` is not divisible by `p`
     /// - `f` >= `p`
@@ -181,7 +181,7 @@ impl WalkerConstellationGenerator {
     ///     epoch,
     ///     AngleFormat::Degrees,
     ///     WalkerPattern::Delta,        // 360° RAAN spread
-    /// );
+    /// ).unwrap();
     /// ```
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -197,22 +197,24 @@ impl WalkerConstellationGenerator {
         epoch: Epoch,
         angle_format: AngleFormat,
         pattern: WalkerPattern,
-    ) -> Self {
+    ) -> Result<Self, BraheError> {
         // Validation
         if p == 0 {
-            panic!("Number of planes (P) must be greater than zero");
+            return Err(BraheError::Error(
+                "Number of planes (P) must be greater than zero".to_string(),
+            ));
         }
         if !t.is_multiple_of(p) {
-            panic!(
+            return Err(BraheError::Error(format!(
                 "Total satellites ({}) must be divisible by number of planes ({})",
                 t, p
-            );
+            )));
         }
         if f >= p {
-            panic!(
+            return Err(BraheError::Error(format!(
                 "Phasing factor ({}) must be less than number of planes ({})",
                 f, p
-            );
+            )));
         }
 
         // Convert angles to radians if needed
@@ -231,7 +233,7 @@ impl WalkerConstellationGenerator {
             ),
         };
 
-        Self {
+        Ok(Self {
             total_satellites: t,
             num_planes: p,
             phasing: f,
@@ -244,7 +246,7 @@ impl WalkerConstellationGenerator {
             epoch,
             pattern,
             base_name: None,
-        }
+        })
     }
 
     /// Set a base name for satellite naming.
@@ -271,7 +273,7 @@ impl WalkerConstellationGenerator {
     /// let walker = WalkerConstellationGenerator::new(
     ///     12, 3, 1, R_EARTH + 780e3, 0.001, 98.0, 0.0, 0.0, 0.0,
     ///     epoch, AngleFormat::Degrees, WalkerPattern::Delta,
-    /// ).with_base_name("Constellation");
+    /// ).unwrap().with_base_name("Constellation");
     /// ```
     pub fn with_base_name(mut self, name: &str) -> Self {
         self.base_name = Some(name.to_string());
@@ -405,7 +407,8 @@ impl WalkerConstellationGenerator {
     ///
     /// # Returns
     ///
-    /// Vector of `KeplerianPropagator` instances, one per satellite
+    /// Result containing a vector of `KeplerianPropagator` instances, one per
+    /// satellite, or an error if propagator creation fails.
     ///
     /// # Example
     ///
@@ -418,12 +421,15 @@ impl WalkerConstellationGenerator {
     /// let walker = WalkerConstellationGenerator::new(
     ///     12, 3, 1, R_EARTH + 780e3, 0.001, 98.0, 0.0, 0.0, 0.0,
     ///     epoch, AngleFormat::Degrees, WalkerPattern::Delta,
-    /// ).with_base_name("Sat");
+    /// ).unwrap().with_base_name("Sat");
     ///
-    /// let propagators = walker.as_keplerian_propagators(60.0);
+    /// let propagators = walker.as_keplerian_propagators(60.0).unwrap();
     /// assert_eq!(propagators.len(), 12);
     /// ```
-    pub fn as_keplerian_propagators(&self, step_size: f64) -> Vec<KeplerianPropagator> {
+    pub fn as_keplerian_propagators(
+        &self,
+        step_size: f64,
+    ) -> Result<Vec<KeplerianPropagator>, BraheError> {
         let sats_per_plane = self.satellites_per_plane();
         let mut propagators = Vec::with_capacity(self.total_satellites);
 
@@ -436,7 +442,7 @@ impl WalkerConstellationGenerator {
                     elements,
                     AngleFormat::Radians,
                     step_size,
-                );
+                )?;
 
                 // Apply naming and ID
                 let id = self.satellite_id(plane, sat);
@@ -450,7 +456,7 @@ impl WalkerConstellationGenerator {
             }
         }
 
-        propagators
+        Ok(propagators)
     }
 
     /// Generate SGP propagators for all satellites in the constellation.
@@ -491,7 +497,7 @@ impl WalkerConstellationGenerator {
     /// let walker = WalkerConstellationGenerator::new(
     ///     6, 3, 1, R_EARTH + 780e3, 0.001, 98.0, 0.0, 0.0, 0.0,
     ///     epoch, AngleFormat::Degrees, WalkerPattern::Delta,
-    /// );
+    /// ).unwrap();
     ///
     /// let propagators = walker.as_sgp_propagators(60.0, 0.0, 0.0, 0.0).unwrap();
     /// assert_eq!(propagators.len(), 6);
@@ -596,7 +602,7 @@ impl WalkerConstellationGenerator {
     /// let walker = WalkerConstellationGenerator::new(
     ///     6, 3, 1, R_EARTH + 780e3, 0.001, 98.0, 0.0, 0.0, 0.0,
     ///     epoch, AngleFormat::Degrees, WalkerPattern::Delta,
-    /// );
+    /// ).unwrap();
     ///
     /// let propagators = walker.as_numerical_propagators(
     ///     NumericalPropagationConfig::default(),
@@ -674,7 +680,8 @@ mod tests {
             test_epoch(),
             AngleFormat::Degrees,
             WalkerPattern::Delta,
-        );
+        )
+        .unwrap();
 
         assert_eq!(walker.total_satellites, 12);
         assert_eq!(walker.num_planes, 3);
@@ -686,9 +693,8 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Number of planes (P) must be greater than zero")]
     fn test_walker_zero_planes() {
-        WalkerConstellationGenerator::new(
+        let result = WalkerConstellationGenerator::new(
             12,
             0,
             0,
@@ -702,12 +708,17 @@ mod tests {
             AngleFormat::Degrees,
             WalkerPattern::Delta,
         );
+
+        assert!(result.is_err());
+        assert!(
+            format!("{}", result.unwrap_err())
+                .contains("Number of planes (P) must be greater than zero")
+        );
     }
 
     #[test]
-    #[should_panic(expected = "must be divisible by")]
     fn test_walker_not_divisible() {
-        WalkerConstellationGenerator::new(
+        let result = WalkerConstellationGenerator::new(
             10,
             3,
             1,
@@ -721,12 +732,14 @@ mod tests {
             AngleFormat::Degrees,
             WalkerPattern::Delta,
         );
+
+        assert!(result.is_err());
+        assert!(format!("{}", result.unwrap_err()).contains("must be divisible by"));
     }
 
     #[test]
-    #[should_panic(expected = "Phasing factor")]
     fn test_walker_phasing_too_large() {
-        WalkerConstellationGenerator::new(
+        let result = WalkerConstellationGenerator::new(
             12,
             3,
             3,
@@ -740,6 +753,9 @@ mod tests {
             AngleFormat::Degrees,
             WalkerPattern::Delta,
         );
+
+        assert!(result.is_err());
+        assert!(format!("{}", result.unwrap_err()).contains("Phasing factor"));
     }
 
     #[test]
@@ -758,7 +774,8 @@ mod tests {
             test_epoch(),
             AngleFormat::Degrees,
             WalkerPattern::Delta,
-        );
+        )
+        .unwrap();
 
         let elem0 = walker.satellite_elements(0, 0);
         let elem1 = walker.satellite_elements(1, 0);
@@ -786,7 +803,8 @@ mod tests {
             test_epoch(),
             AngleFormat::Degrees,
             WalkerPattern::Star,
-        );
+        )
+        .unwrap();
 
         let elem0 = walker.satellite_elements(0, 0);
         let elem1 = walker.satellite_elements(1, 0);
@@ -814,7 +832,8 @@ mod tests {
             test_epoch(),
             AngleFormat::Degrees,
             WalkerPattern::Delta,
-        );
+        )
+        .unwrap();
 
         let elem0 = walker.satellite_elements(0, 0);
         let elem1 = walker.satellite_elements(0, 1);
@@ -843,7 +862,8 @@ mod tests {
             test_epoch(),
             AngleFormat::Degrees,
             WalkerPattern::Delta,
-        );
+        )
+        .unwrap();
 
         // First satellite in each plane
         let elem_p0_s0 = walker.satellite_elements(0, 0);
@@ -873,7 +893,8 @@ mod tests {
             test_epoch(),
             AngleFormat::Degrees,
             WalkerPattern::Delta,
-        );
+        )
+        .unwrap();
 
         let all = walker.all_elements();
         assert_eq!(all.len(), 6);
@@ -903,6 +924,7 @@ mod tests {
             AngleFormat::Degrees,
             WalkerPattern::Delta,
         )
+        .unwrap()
         .with_base_name("TestSat");
 
         assert_eq!(
@@ -934,7 +956,8 @@ mod tests {
             test_epoch(),
             AngleFormat::Degrees,
             WalkerPattern::Delta,
-        );
+        )
+        .unwrap();
 
         // 3 satellites per plane
         assert_eq!(walker.satellite_id(0, 0), 0);
@@ -961,9 +984,10 @@ mod tests {
             AngleFormat::Degrees,
             WalkerPattern::Delta,
         )
+        .unwrap()
         .with_base_name("Sat");
 
-        let props = walker.as_keplerian_propagators(60.0);
+        let props = walker.as_keplerian_propagators(60.0).unwrap();
 
         assert_eq!(props.len(), 6);
 
@@ -990,7 +1014,8 @@ mod tests {
             test_epoch(),
             AngleFormat::Degrees,
             WalkerPattern::Delta,
-        );
+        )
+        .unwrap();
 
         let elem0 = walker.satellite_elements(0, 0);
 
@@ -1014,7 +1039,8 @@ mod tests {
             test_epoch(),
             AngleFormat::Radians,
             WalkerPattern::Delta,
-        );
+        )
+        .unwrap();
 
         assert_abs_diff_eq!(
             walker.inclination,
@@ -1039,7 +1065,8 @@ mod tests {
             test_epoch(),
             AngleFormat::Degrees,
             WalkerPattern::Star,
-        );
+        )
+        .unwrap();
 
         assert_eq!(walker.pattern, WalkerPattern::Star);
         assert_eq!(walker.total_satellites, 66);

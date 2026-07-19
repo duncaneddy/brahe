@@ -14,11 +14,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             -122.4194,
             37.7749,
             0.0,
-        )
+        ).unwrap()
         .with_name("San Francisco"),
-        bh::PointLocation::new(-71.0589, 42.3601, 0.0)
+        bh::PointLocation::new(-71.0589, 42.3601, 0.0).unwrap()
             .with_name("Boston"),
-        bh::PointLocation::new(15.4038, 78.2232, 458.0)
+        bh::PointLocation::new(15.4038, 78.2232, 458.0).unwrap()
             .with_name("Svalbard"),
     ];
 

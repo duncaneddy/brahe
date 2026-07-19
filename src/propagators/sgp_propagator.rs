@@ -113,9 +113,8 @@ fn convert_state_from_spg4_frame(
     match representation {
         OrbitRepresentation::Cartesian => match frame {
             OrbitFrame::BodyCenteredInertial(_) => {
-                panic!(
-                    "{}",
-                    "OrbitFrame::BodyCenteredInertial is not supported by SGPPropagator (Earth-only)"
+                unreachable!(
+                    "BodyCenteredInertial frames are rejected when the output format is set"
                 )
             }
             OrbitFrame::ECI => state_ecef_to_eci(epoch, ecef_state),
@@ -129,13 +128,18 @@ fn convert_state_from_spg4_frame(
         },
         OrbitRepresentation::Keplerian => {
             if frame != OrbitFrame::ECI && frame != OrbitFrame::GCRF {
-                panic!("Keplerian elements must be in ECI or GCRF frame");
+                unreachable!(
+                    "Keplerian output outside ECI/GCRF is rejected when the output format is set"
+                );
             }
 
             if let Some(format) = angle_format {
                 state_eci_to_koe(state_ecef_to_eci(epoch, ecef_state), format)
             } else {
-                panic!("Angle format must be specified for Keplerian elements");
+                unreachable!(
+                    "Keplerian output without an angle format is rejected when the output \
+                     format is set"
+                );
             }
         }
     }
@@ -835,30 +839,43 @@ impl SGPPropagator {
     /// - `representation`: State representation (Cartesian or Keplerian)
     /// - `angle_format`: Angle units (Degrees/Radians) - required for Keplerian, None for Cartesian
     ///
-    /// # Panics
-    /// - If Keplerian representation requested without angle_format
-    /// - If Keplerian representation requested in ECEF frame
-    /// - If Cartesian representation given with angle_format
-    ///
     /// # Returns
-    /// Self for method chaining
+    /// Self for method chaining, or an error if:
+    /// - Keplerian representation is requested without angle_format
+    /// - Keplerian representation is requested outside the ECI frame
+    /// - Cartesian representation is given with angle_format
+    /// - The frame is body-centered inertial (Earth-only propagator)
+    /// - SGP4 propagation of the TLE epoch state fails
     pub fn with_output_format(
         mut self,
         frame: OrbitFrame,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
-    ) -> Self {
+    ) -> Result<Self, BraheError> {
         // Validate inputs
         if representation == OrbitRepresentation::Keplerian && angle_format.is_none() {
-            panic!("Angle format must be specified for Keplerian elements");
+            return Err(BraheError::PropagatorError(
+                "Angle format must be specified for Keplerian elements".to_string(),
+            ));
         }
 
         if representation == OrbitRepresentation::Keplerian && frame != OrbitFrame::ECI {
-            panic!("Keplerian elements must be in ECI frame");
+            return Err(BraheError::PropagatorError(
+                "Keplerian elements must be in ECI frame".to_string(),
+            ));
         }
 
         if representation == OrbitRepresentation::Cartesian && angle_format.is_some() {
-            panic!("Angle format should be None for Cartesian representation");
+            return Err(BraheError::PropagatorError(
+                "Angle format should be None for Cartesian representation".to_string(),
+            ));
+        }
+
+        if matches!(frame, OrbitFrame::BodyCenteredInertial(_)) {
+            return Err(BraheError::PropagatorError(
+                "OrbitFrame::BodyCenteredInertial is not supported by SGPPropagator (Earth-only)"
+                    .to_string(),
+            ));
         }
 
         self.frame = frame;
@@ -877,7 +894,7 @@ impl SGPPropagator {
         let prediction = self
             .constants
             .propagate(sgp4::MinutesSinceEpoch(0.0))
-            .expect("SGP4 propagation failed");
+            .map_err(|e| BraheError::PropagatorError(format!("SGP4 propagation failed: {}", e)))?;
 
         // Convert from km to m and km/s to m/s
         let tle_state = Vector6::new(
@@ -902,7 +919,7 @@ impl SGPPropagator {
         self.trajectory
             .add(self.epoch, svec6_to_dvec(&initial_state));
 
-        self
+        Ok(self)
     }
 
     /// Internal propagation to target epoch, returning state in the internal
@@ -2960,7 +2977,8 @@ mod tests {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
-            .with_output_format(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+            .with_output_format(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .unwrap();
 
         assert_eq!(prop.frame, OrbitFrame::ECI);
         assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
@@ -2974,7 +2992,8 @@ mod tests {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
-            .with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None);
+            .with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None)
+            .unwrap();
 
         assert_eq!(prop.frame, OrbitFrame::ECEF);
         assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
@@ -2991,7 +3010,8 @@ mod tests {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
-            .with_output_format(OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None);
+            .with_output_format(OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None)
+            .unwrap();
 
         assert_eq!(prop.frame, OrbitFrame::GCRF);
         assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
@@ -3008,7 +3028,8 @@ mod tests {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
-            .with_output_format(OrbitFrame::EME2000, OrbitRepresentation::Cartesian, None);
+            .with_output_format(OrbitFrame::EME2000, OrbitRepresentation::Cartesian, None)
+            .unwrap();
 
         assert_eq!(prop.frame, OrbitFrame::EME2000);
         assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
@@ -3025,7 +3046,8 @@ mod tests {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
-            .with_output_format(OrbitFrame::ITRF, OrbitRepresentation::Cartesian, None);
+            .with_output_format(OrbitFrame::ITRF, OrbitRepresentation::Cartesian, None)
+            .unwrap();
 
         assert_eq!(prop.frame, OrbitFrame::ITRF);
         assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
@@ -3046,7 +3068,8 @@ mod tests {
                 OrbitFrame::ECI,
                 OrbitRepresentation::Keplerian,
                 Some(AngleFormat::Degrees),
-            );
+            )
+            .unwrap();
 
         assert_eq!(prop.frame, OrbitFrame::ECI);
         assert_eq!(prop.representation, OrbitRepresentation::Keplerian);
@@ -3068,7 +3091,8 @@ mod tests {
                 OrbitFrame::ECI,
                 OrbitRepresentation::Keplerian,
                 Some(AngleFormat::Radians),
-            );
+            )
+            .unwrap();
 
         assert_eq!(prop.frame, OrbitFrame::ECI);
         assert_eq!(prop.representation, OrbitRepresentation::Keplerian);
@@ -3093,7 +3117,9 @@ mod tests {
         assert_eq!(prop.trajectory.len(), 6);
 
         // Change output format - should reset trajectory
-        let prop = prop.with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None);
+        let prop = prop
+            .with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None)
+            .unwrap();
         assert_eq!(prop.trajectory.len(), 1); // Only initial state in new format
     }
 
@@ -3103,7 +3129,8 @@ mod tests {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
-            .with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None);
+            .with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None)
+            .unwrap();
 
         // Propagate in new format
         prop.propagate_steps(3).unwrap();
@@ -3121,7 +3148,8 @@ mod tests {
         setup_global_test_eop();
         let _prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
-            .with_output_format(OrbitFrame::ECI, OrbitRepresentation::Keplerian, None);
+            .with_output_format(OrbitFrame::ECI, OrbitRepresentation::Keplerian, None)
+            .unwrap();
     }
 
     #[test]
@@ -3135,7 +3163,8 @@ mod tests {
                 OrbitFrame::ECEF,
                 OrbitRepresentation::Keplerian,
                 Some(AngleFormat::Degrees),
-            );
+            )
+            .unwrap();
     }
 
     #[test]
@@ -3149,7 +3178,8 @@ mod tests {
                 OrbitFrame::ECI,
                 OrbitRepresentation::Cartesian,
                 Some(AngleFormat::Degrees),
-            );
+            )
+            .unwrap();
     }
 
     // state_gcrf and state_eme2000 Tests (non-ignored basic tests)

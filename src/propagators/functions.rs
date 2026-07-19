@@ -49,13 +49,13 @@ use crate::utils::threading::get_thread_pool;
 ///         na::SVector::<f64, 6>::new(7000e3, 0.001, 98.0, 0.0, 0.0, 0.0),
 ///         AngleFormat::Degrees,
 ///         60.0,
-///     ),
+///     ).unwrap(),
 ///     KeplerianPropagator::from_keplerian(
 ///         epoch,
 ///         na::SVector::<f64, 6>::new(7200e3, 0.002, 97.0, 10.0, 20.0, 30.0),
 ///         AngleFormat::Degrees,
 ///         60.0,
-///     ),
+///     ).unwrap(),
 /// ];
 ///
 /// // Propagate all to target epoch in parallel
@@ -129,19 +129,22 @@ mod tests {
                 na::SVector::<f64, 6>::new(7000e3, 0.001, 98.0, 0.0, 0.0, 0.0),
                 AngleFormat::Degrees,
                 60.0,
-            ),
+            )
+            .unwrap(),
             KeplerianPropagator::from_keplerian(
                 epoch,
                 na::SVector::<f64, 6>::new(7200e3, 0.002, 97.0, 10.0, 20.0, 30.0),
                 AngleFormat::Degrees,
                 60.0,
-            ),
+            )
+            .unwrap(),
             KeplerianPropagator::from_keplerian(
                 epoch,
                 na::SVector::<f64, 6>::new(6800e3, 0.0005, 51.6, 45.0, 90.0, 120.0),
                 AngleFormat::Degrees,
                 60.0,
-            ),
+            )
+            .unwrap(),
         ];
 
         // Propagate in parallel
@@ -217,13 +220,15 @@ mod tests {
                 na::SVector::<f64, 6>::new(7000e3, 0.001, 98.0, 0.0, 0.0, 0.0),
                 AngleFormat::Degrees,
                 60.0,
-            ),
+            )
+            .unwrap(),
             KeplerianPropagator::from_keplerian(
                 epoch,
                 na::SVector::<f64, 6>::new(7200e3, 0.002, 97.0, 10.0, 20.0, 30.0),
                 AngleFormat::Degrees,
                 60.0,
-            ),
+            )
+            .unwrap(),
         ];
 
         // Create identical propagators for sequential test
@@ -233,13 +238,15 @@ mod tests {
                 na::SVector::<f64, 6>::new(7000e3, 0.001, 98.0, 0.0, 0.0, 0.0),
                 AngleFormat::Degrees,
                 60.0,
-            ),
+            )
+            .unwrap(),
             KeplerianPropagator::from_keplerian(
                 epoch,
                 na::SVector::<f64, 6>::new(7200e3, 0.002, 97.0, 10.0, 20.0, 30.0),
                 AngleFormat::Degrees,
                 60.0,
-            ),
+            )
+            .unwrap(),
         ];
 
         // Propagate in parallel
@@ -288,12 +295,15 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, crate::TimeSystem::UTC);
         let target = epoch + 3600.0;
 
-        let mut propagators = vec![KeplerianPropagator::from_keplerian(
-            epoch,
-            na::SVector::<f64, 6>::new(7000e3, 0.001, 98.0, 0.0, 0.0, 0.0),
-            AngleFormat::Degrees,
-            60.0,
-        )];
+        let mut propagators = vec![
+            KeplerianPropagator::from_keplerian(
+                epoch,
+                na::SVector::<f64, 6>::new(7000e3, 0.001, 98.0, 0.0, 0.0, 0.0),
+                AngleFormat::Degrees,
+                60.0,
+            )
+            .unwrap(),
+        ];
 
         par_propagate_to_s(&mut propagators, target).unwrap();
 

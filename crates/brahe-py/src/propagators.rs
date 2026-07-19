@@ -375,13 +375,15 @@ impl PySGPPropagator {
         frame: PyRef<PyOrbitFrame>,
         representation: PyRef<PyOrbitRepresentation>,
         angle_format: Option<PyRef<PyAngleFormat>>,
-    ) {
+    ) -> PyResult<()> {
         let angle_fmt = angle_format.map(|af| af.value);
         self.propagator = self.propagator.clone().with_output_format(
             frame.frame,
             representation.representation,
             angle_fmt,
-        );
+        )?;
+
+        Ok(())
     }
 
     /// Get current state vector.
@@ -1974,7 +1976,7 @@ impl PyKeplerianPropagator {
             representation.representation,
             Some(angle_format.value),
             step_size,
-        );
+        )?;
 
         Ok(PyKeplerianPropagator { propagator })
     }
@@ -2012,7 +2014,7 @@ impl PyKeplerianPropagator {
             elements_vec,
             angle_format.value,
             step_size,
-        );
+        )?;
 
         Ok(PyKeplerianPropagator { propagator })
     }
@@ -2044,7 +2046,7 @@ impl PyKeplerianPropagator {
         let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
 
         let propagator =
-            propagators::KeplerianPropagator::from_eci(epoch.obj, state_vec, step_size);
+            propagators::KeplerianPropagator::from_eci(epoch.obj, state_vec, step_size)?;
 
         Ok(PyKeplerianPropagator { propagator })
     }
@@ -2076,7 +2078,7 @@ impl PyKeplerianPropagator {
         let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
 
         let propagator =
-            propagators::KeplerianPropagator::from_ecef(epoch.obj, state_vec, step_size);
+            propagators::KeplerianPropagator::from_ecef(epoch.obj, state_vec, step_size)?;
 
         Ok(PyKeplerianPropagator { propagator })
     }
@@ -2357,7 +2359,7 @@ impl PyKeplerianPropagator {
             frame.frame,
             representation.representation,
             Some(angle_format.value),
-        );
+        )?;
 
         Ok(())
     }

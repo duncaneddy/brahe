@@ -29,6 +29,7 @@ fn main() {
         bh::constants::AngleFormat::Degrees,
         bh::orbits::WalkerPattern::Star, // Star pattern uses 180 deg RAAN spread
     )
+    .unwrap()
     .with_base_name("IRIDIUM");
 
     // Print constellation properties
@@ -54,7 +55,7 @@ fn main() {
     println!("Walker Delta spreads planes over 360 deg (0-300 deg)");
 
     // Generate Keplerian propagators
-    let propagators = walker.as_keplerian_propagators(60.0);
+    let propagators = walker.as_keplerian_propagators(60.0).unwrap();
     println!("\nGenerated {} Keplerian propagators", propagators.len());
 
 }

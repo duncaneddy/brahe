@@ -404,8 +404,9 @@ pub trait SOrbitPropagator: SStatePropagator {
     /// * `representation` - Type of orbital representation
     /// * `angle_format` - Format for angular elements (None for Cartesian, Some(format) for Keplerian)
     ///
-    /// # Panics
-    /// May panic if the combination of frame, representation, and angle_format is incompatible
+    /// # Returns
+    /// `Ok(())` on success, or an error if the combination of frame,
+    /// representation, and angle_format is incompatible.
     fn set_initial_conditions(
         &mut self,
         epoch: Epoch,
@@ -413,7 +414,7 @@ pub trait SOrbitPropagator: SStatePropagator {
         frame: OrbitFrame,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
-    );
+    ) -> Result<(), BraheError>;
 }
 
 /// Orbit-specific propagator trait that extends [`DStatePropagator`] with orbital initialization
@@ -436,8 +437,9 @@ pub trait DOrbitPropagator: DStatePropagator {
     /// * `representation` - Type of orbital representation
     /// * `angle_format` - Format for angular elements (None for Cartesian, Some(format) for Keplerian)
     ///
-    /// # Panics
-    /// May panic if the combination of frame, representation, and angle_format is incompatible
+    /// # Returns
+    /// `Ok(())` on success, or an error if the combination of frame,
+    /// representation, and angle_format is incompatible.
     fn set_initial_conditions(
         &mut self,
         epoch: Epoch,
@@ -445,7 +447,7 @@ pub trait DOrbitPropagator: DStatePropagator {
         frame: OrbitFrame,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
-    );
+    ) -> Result<(), BraheError>;
 }
 
 #[cfg(test)]
@@ -480,6 +482,7 @@ mod tests {
             Some(AngleFormat::Radians),
             60.0,
         )
+        .unwrap()
     }
 
     #[test]
@@ -603,7 +606,8 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
             60.0,
-        );
+        )
+        .unwrap();
 
         // Create multiple epochs
         let epochs = vec![epoch, epoch + 120.0, epoch + 240.0];
@@ -653,7 +657,8 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
             60.0,
-        );
+        )
+        .unwrap();
 
         let epochs = vec![epoch, epoch + 120.0, epoch + 240.0];
         let states = prop.states_eci(&epochs).unwrap();
@@ -689,7 +694,8 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
             60.0,
-        );
+        )
+        .unwrap();
 
         let epochs = vec![epoch, epoch + 120.0, epoch + 240.0];
         let states = prop.states_ecef(&epochs).unwrap();
@@ -718,7 +724,8 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
             60.0,
-        );
+        )
+        .unwrap();
 
         let epochs = vec![epoch, epoch + 120.0, epoch + 240.0];
         let states = prop.states_gcrf(&epochs).unwrap();
@@ -747,7 +754,8 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
             60.0,
-        );
+        )
+        .unwrap();
 
         let epochs = vec![epoch, epoch + 120.0, epoch + 240.0];
         let states = prop.states_itrf(&epochs).unwrap();

@@ -187,13 +187,7 @@ pub fn py_set_num_threads(n: usize) -> PyResult<()> {
         ));
     }
 
-    // Use panic::catch_unwind only for thread pool build failures
-    match std::panic::catch_unwind(|| set_num_threads(n)) {
-        Ok(_) => Ok(()),
-        Err(_) => Err(exceptions::PyRuntimeError::new_err(
-            "Failed to build thread pool"
-        )),
-    }
+    set_num_threads(n).map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
 }
 
 /// Set the thread pool to use all available CPU cores.
@@ -227,13 +221,7 @@ pub fn py_set_num_threads(n: usize) -> PyResult<()> {
 #[pyfunction]
 #[pyo3(name = "set_max_threads")]
 pub fn py_set_max_threads() -> PyResult<()> {
-    // Use panic::catch_unwind only for thread pool build failures
-    match std::panic::catch_unwind(set_max_threads) {
-        Ok(_) => Ok(()),
-        Err(_) => Err(exceptions::PyRuntimeError::new_err(
-            "Failed to build thread pool"
-        )),
-    }
+    set_max_threads().map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
 }
 
 /// LUDICROUS SPEED! GO!

@@ -1967,7 +1967,7 @@ impl PyKeplerianPropagator {
             ));
         }
 
-        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
+        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().ok_or_else(|| exceptions::PyValueError::new_err("array must be C-contiguous; use numpy.ascontiguousarray"))?);
 
         let propagator = propagators::KeplerianPropagator::new(
             epoch.obj,
@@ -2007,7 +2007,7 @@ impl PyKeplerianPropagator {
             ));
         }
 
-        let elements_vec = na::Vector6::from_row_slice(elements_array.as_slice().unwrap());
+        let elements_vec = na::Vector6::from_row_slice(elements_array.as_slice().ok_or_else(|| exceptions::PyValueError::new_err("array must be C-contiguous; use numpy.ascontiguousarray"))?);
 
         let propagator = propagators::KeplerianPropagator::from_keplerian(
             epoch.obj,
@@ -2043,7 +2043,7 @@ impl PyKeplerianPropagator {
             ));
         }
 
-        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
+        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().ok_or_else(|| exceptions::PyValueError::new_err("array must be C-contiguous; use numpy.ascontiguousarray"))?);
 
         let propagator =
             propagators::KeplerianPropagator::from_eci(epoch.obj, state_vec, step_size)?;
@@ -2075,7 +2075,7 @@ impl PyKeplerianPropagator {
             ));
         }
 
-        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
+        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().ok_or_else(|| exceptions::PyValueError::new_err("array must be C-contiguous; use numpy.ascontiguousarray"))?);
 
         let propagator =
             propagators::KeplerianPropagator::from_ecef(epoch.obj, state_vec, step_size)?;
@@ -2351,7 +2351,7 @@ impl PyKeplerianPropagator {
             ));
         }
 
-        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
+        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().ok_or_else(|| exceptions::PyValueError::new_err("array must be C-contiguous; use numpy.ascontiguousarray"))?);
 
         self.propagator.set_initial_conditions(
             epoch.obj,
@@ -6422,7 +6422,16 @@ impl PyNumericalOrbitPropagator {
         let state_vec = nalgebra::DVector::from_column_slice(state.as_slice()?);
 
         let params_vec =
-            params.map(|p| nalgebra::DVector::from_column_slice(p.as_slice().unwrap()));
+            params
+            .map(|p| {
+                let slice = p.as_slice().map_err(|_| {
+                    exceptions::PyValueError::new_err(
+                        "array must be C-contiguous; use numpy.ascontiguousarray",
+                    )
+                })?;
+                Ok::<_, PyErr>(nalgebra::DVector::from_column_slice(slice))
+            })
+            .transpose()?;
 
         let cov_matrix = if let Some(cov) = initial_covariance {
             let cov_shape = cov.shape();
@@ -6564,7 +6573,16 @@ impl PyNumericalOrbitPropagator {
 
         let state_vec = nalgebra::DVector::from_column_slice(state_slice);
         let params_vec =
-            params.map(|p| nalgebra::DVector::from_column_slice(p.as_slice().unwrap()));
+            params
+            .map(|p| {
+                let slice = p.as_slice().map_err(|_| {
+                    exceptions::PyValueError::new_err(
+                        "array must be C-contiguous; use numpy.ascontiguousarray",
+                    )
+                })?;
+                Ok::<_, PyErr>(nalgebra::DVector::from_column_slice(slice))
+            })
+            .transpose()?;
 
         let fc = force_config.map(|c| c.config.clone()).unwrap_or_default();
 
@@ -8243,7 +8261,16 @@ impl PyNumericalPropagator {
         let state_dim = state_vec.len();
 
         let params_vec =
-            params.map(|p| nalgebra::DVector::from_column_slice(p.as_slice().unwrap()));
+            params
+            .map(|p| {
+                let slice = p.as_slice().map_err(|_| {
+                    exceptions::PyValueError::new_err(
+                        "array must be C-contiguous; use numpy.ascontiguousarray",
+                    )
+                })?;
+                Ok::<_, PyErr>(nalgebra::DVector::from_column_slice(slice))
+            })
+            .transpose()?;
 
         let cov_matrix = if let Some(cov) = initial_covariance {
             let cov_shape = cov.shape();

@@ -238,7 +238,7 @@ class TestCustomModelWithEKF:
         )
 
         obs = bh.Observation(epoch + 60.0, true_state[:3], model_index=0)
-        with pytest.raises(RuntimeError, match="predict"):
+        with pytest.raises(bh.BraheError, match="predict"):
             ekf.process_observation(obs)
 
         # Filter must be rolled back to its pre-observation epoch
@@ -273,7 +273,7 @@ class TestCustomModelWithEKF:
         )
 
         obs = bh.Observation(epoch + 60.0, true_state[:3], model_index=0)
-        with pytest.raises(RuntimeError, match="noise_covariance"):
+        with pytest.raises(bh.BraheError, match="noise_covariance"):
             ekf.process_observation(obs)
 
     def test_model_receives_propagator_params(self, two_body_setup):

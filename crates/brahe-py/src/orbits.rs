@@ -1183,7 +1183,7 @@ fn py_keplerian_elements_to_tle(
     norad_id: &str,
 ) -> PyResult<(String, String)> {
     let elements_array = elements.as_array();
-    let elements_vec = na::Vector6::from_row_slice(elements_array.as_slice().unwrap());
+    let elements_vec = na::Vector6::from_row_slice(elements_array.as_slice().ok_or_else(|| exceptions::PyValueError::new_err("array must be C-contiguous; use numpy.ascontiguousarray"))?);
 
     match orbits::keplerian_elements_to_tle(
         &epoch.obj,

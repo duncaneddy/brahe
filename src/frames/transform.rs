@@ -1217,7 +1217,7 @@ mod tests {
             move |epc: Epoch| {
                 let theta = rate * (epc - t0);
                 let (s, c) = theta.sin_cos();
-                SMatrix3::new(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0)
+                Ok(SMatrix3::new(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0))
             },
             None,
         );

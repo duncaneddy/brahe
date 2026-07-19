@@ -1632,7 +1632,16 @@ impl PyExtendedKalmanFilter {
         let prop_config = propagation_config.config.clone();
 
         let params_vec =
-            params.map(|p| DVector::from_column_slice(p.as_slice().unwrap()));
+            params
+            .map(|p| {
+                let slice = p.as_slice().map_err(|_| {
+                    exceptions::PyValueError::new_err(
+                        "array must be C-contiguous; use numpy.ascontiguousarray",
+                    )
+                })?;
+                Ok::<_, PyErr>(DVector::from_column_slice(slice))
+            })
+            .transpose()?;
 
         // Slot shared with the Python trampolines below; a callback that raises
         // records its exception here so observation processing can re-raise it.
@@ -2030,7 +2039,16 @@ impl PyUnscentedKalmanFilter {
         let prop_config = propagation_config.config.clone();
 
         let params_vec =
-            params.map(|p| nalgebra::DVector::from_column_slice(p.as_slice().unwrap()));
+            params
+            .map(|p| {
+                let slice = p.as_slice().map_err(|_| {
+                    exceptions::PyValueError::new_err(
+                        "array must be C-contiguous; use numpy.ascontiguousarray",
+                    )
+                })?;
+                Ok::<_, PyErr>(nalgebra::DVector::from_column_slice(slice))
+            })
+            .transpose()?;
 
         // Slot shared with the Python trampolines below; a callback that raises
         // records its exception here so observation processing can re-raise it.
@@ -2799,7 +2817,16 @@ impl PyBatchLeastSquares {
         let cov_matrix = DMatrix::from_row_slice(state_dim, state_dim, &cov_data);
 
         let params_vec =
-            params.map(|p| DVector::from_column_slice(p.as_slice().unwrap()));
+            params
+            .map(|p| {
+                let slice = p.as_slice().map_err(|_| {
+                    exceptions::PyValueError::new_err(
+                        "array must be C-contiguous; use numpy.ascontiguousarray",
+                    )
+                })?;
+                Ok::<_, PyErr>(DVector::from_column_slice(slice))
+            })
+            .transpose()?;
 
         // Slot shared with the Python trampolines below; a callback that raises
         // records its exception here so observation processing can re-raise it.

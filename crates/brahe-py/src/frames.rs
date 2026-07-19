@@ -2954,25 +2954,35 @@ unsafe fn py_rotation_frame_to_frame<'py>(
 #[pyo3(name = "register_custom_frame")]
 #[pyo3(signature = (key, rotation, omega=None))]
 fn py_register_custom_frame(key: u32, rotation: Py<PyAny>, omega: Option<Py<PyAny>>) {
-    let rotation_fn = move |epc: time::Epoch| -> SMatrix3 {
+    let rotation_fn = move |epc: time::Epoch| -> Result<SMatrix3, RustBraheError> {
         Python::attach(|py| {
             let py_epc = PyEpoch { obj: epc };
-            let result = rotation
-                .call1(py, (py_epc,))
-                .expect("custom frame rotation callback raised an exception");
-            pyany_to_smatrix::<3, 3>(result.bind(py))
-                .expect("custom frame rotation callback must return a 3x3 matrix")
+            let result = rotation.call1(py, (py_epc,)).map_err(|e| {
+                RustBraheError::Error(format!(
+                    "custom frame rotation callback raised an exception: {e}"
+                ))
+            })?;
+            pyany_to_smatrix::<3, 3>(result.bind(py)).map_err(|e| {
+                RustBraheError::Error(format!(
+                    "custom frame rotation callback must return a 3x3 matrix: {e}"
+                ))
+            })
         })
     };
     let omega_fn = omega.map(|omega| -> Box<frames::CustomFrameOmega> {
         Box::new(move |epc: time::Epoch| {
             Python::attach(|py| {
                 let py_epc = PyEpoch { obj: epc };
-                let result = omega
-                    .call1(py, (py_epc,))
-                    .expect("custom frame omega callback raised an exception");
-                pyany_to_svector::<3>(result.bind(py))
-                    .expect("custom frame omega callback must return a length-3 vector")
+                let result = omega.call1(py, (py_epc,)).map_err(|e| {
+                    RustBraheError::Error(format!(
+                        "custom frame omega callback raised an exception: {e}"
+                    ))
+                })?;
+                pyany_to_svector::<3>(result.bind(py)).map_err(|e| {
+                    RustBraheError::Error(format!(
+                        "custom frame omega callback must return a length-3 vector: {e}"
+                    ))
+                })
             })
         })
     });

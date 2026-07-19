@@ -811,10 +811,16 @@ impl PyGPRecord {
         propagation_config: Option<&PyNumericalPropagationConfig>,
         params: Option<PyReadonlyArray1<f64>>,
     ) -> PyResult<PyNumericalOrbitPropagator> {
-        let params_dvec = params.map(|p| {
-            let vec = p.to_vec().unwrap();
-            DVector::from_vec(vec)
-        });
+        let params_dvec = params
+            .map(|p| {
+                let vec = p.to_vec().map_err(|_| {
+                    exceptions::PyValueError::new_err(
+                        "array must be C-contiguous; use numpy.ascontiguousarray",
+                    )
+                })?;
+                Ok::<_, PyErr>(DVector::from_vec(vec))
+            })
+            .transpose()?;
 
         let prop_config = propagation_config.map(|c| c.config.clone());
 

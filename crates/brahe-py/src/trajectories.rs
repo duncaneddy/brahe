@@ -881,7 +881,7 @@ impl PyOrbitalTrajectory {
             ));
         }
 
-        let state_vec = na::DVector::from_row_slice(state_array.as_slice().unwrap());
+        let state_vec = na::DVector::from_row_slice(state_array.as_slice().ok_or_else(|| exceptions::PyValueError::new_err("array must be C-contiguous; use numpy.ascontiguousarray"))?);
 
         self.trajectory.add(epoch.obj, state_vec)?;
         Ok(())
@@ -2408,7 +2408,7 @@ impl PyOrbitalTrajectory {
                 state_array.len()
             )));
         }
-        let state_vec = SVector::<f64, 6>::from_column_slice(state_array.as_slice().unwrap());
+        let state_vec = SVector::<f64, 6>::from_column_slice(state_array.as_slice().ok_or_else(|| exceptions::PyValueError::new_err("array must be C-contiguous; use numpy.ascontiguousarray"))?);
 
         // Convert covariance array to DMatrix
         let cov_array = covariance.as_array();
@@ -2418,7 +2418,7 @@ impl PyOrbitalTrajectory {
                 cov_array.shape()
             )));
         }
-        let cov_slice = cov_array.as_slice().unwrap();
+        let cov_slice = cov_array.as_slice().ok_or_else(|| exceptions::PyValueError::new_err("array must be C-contiguous; use numpy.ascontiguousarray"))?;
         let cov_mat = na::DMatrix::<f64>::from_column_slice(6, 6, cov_slice);
 
         // Call Rust method
@@ -3043,7 +3043,7 @@ impl PyTrajectory {
             ));
         }
 
-        let state_vec = na::DVector::from_column_slice(state_array.as_slice().unwrap());
+        let state_vec = na::DVector::from_column_slice(state_array.as_slice().ok_or_else(|| exceptions::PyValueError::new_err("array must be C-contiguous; use numpy.ascontiguousarray"))?);
         self.trajectory.add(epoch.obj, state_vec)?;
         Ok(())
     }
@@ -3798,7 +3798,7 @@ impl PyTrajectory {
             ));
         }
 
-        let state_vec = na::DVector::from_column_slice(state_array.as_slice().unwrap());
+        let state_vec = na::DVector::from_column_slice(state_array.as_slice().ok_or_else(|| exceptions::PyValueError::new_err("array must be C-contiguous; use numpy.ascontiguousarray"))?);
 
         // Convert 2D array to DMatrix
         let mut cov_matrix = na::DMatrix::zeros(self.trajectory.dimension, self.trajectory.dimension);

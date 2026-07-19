@@ -1,6 +1,6 @@
 # SSN Radar Tracking: EKF, UKF, and Batch Least Squares
 
-In this example we'll simulate Space Surveillance Network (SSN) radar tracking of a LEO object and estimate its orbit sequentially with an Extended Kalman Filter (EKF) and an Unscented Kalman Filter (UKF). We'll load the Vallado SSN sensor dataset, find the passes visible to each sensor over a 6-hour tracking arc, simulate az/el/range measurements during those passes, and compare how the two filters converge on the true orbit. A separate companion script solves the same scenario with Batch Least Squares (BLS); we walk through it near the end of this page.
+In this example we'll simulate Space Surveillance Network (SSN) radar tracking of a LEO object and estimate its orbit sequentially with an Extended Kalman Filter (EKF) and an Unscented Kalman Filter (UKF). We'll load the Vallado SSN sensor dataset, find the passes visible to each sensor over a 6-hour tracking arc, simulate az/el/range measurements during those passes, and compare how the two filters converge on the true orbit. A separate script, `ssn_tracking_bls.py`, solves the same scenario with Batch Least Squares (BLS) instead; we walk through it near the end of this page.
 
 ---
 
@@ -14,7 +14,7 @@ First, we'll import the necessary libraries, initialize Earth orientation parame
 
 ## Load the Sensor Network
 
-We load the Vallado SSN sensor sites and build az/el/range sensors from them. Of the 21 sites in the dataset, 13 construct as `SimpleSSNSensor` instances -- the remaining 8 are optical (`radec`) trackers or sites (HAX, Haystack) that Table 4-2 lists without the az/el/range calibration values `SimpleSSNSensor` requires:
+We load the Vallado SSN sensor sites and build sensors from the radar sites. The dataset's sites split into two sensor types: optical (`radec`) trackers (Socorro, Maui, Diego Garcia, MSSS, MOTIF, Moron), which `SimpleSSNSensor` doesn't support, and radar/phased-array/mechanical (`azel_range`) sites. `SimpleSSNSensor.from_locations()` builds a sensor for every radar site, defaulting the two that lack Table 4-3/4-4 calibration (Haystack, HAX) to zero noise and bias -- overridable with `with_noise()`/`with_bias()`. `from_locations_calibrated()` restricts to the fully-calibrated sites; this example uses the calibrated set so simulated measurement noise always matches Table 4-4:
 
 ``` python
 --8<-- "./examples/examples/ssn_tracking.py:load_sensors"
@@ -22,13 +22,14 @@ We load the Vallado SSN sensor sites and build az/el/range sensors from them. Of
 
 ## Visualize the Sensor Network
 
-Next we propagate a truth trajectory -- a 700 km, 72&deg; inclination LEO orbit -- and plot its ground track against the sensor network's coverage cones, using each sensor's minimum elevation angle:
+Next we propagate a truth trajectory -- a 700 km, 72&deg; inclination LEO orbit -- and plot its ground track against the sensor network's coverage cones, using each sensor's minimum elevation angle. Each sensor gets a stable color, reused for its measurement traces in the next figure, so a comm cone's color on the map identifies the same sensor in the az/el/range plot below:
 
 ``` python
 --8<-- "./examples/examples/ssn_tracking.py:visualize_network"
 ```
 
-The truth trajectory is generated with Hermite-cubic interpolation. The propagator stores states at its adaptive-step cadence (roughly 60 s); linear interpolation between those points would be off by kilometers when sampled at the much finer measurement cadence used below, so Hermite-cubic interpolation is required to keep the simulated measurements consistent with the true orbit.
+!!! tip "Interpolation"
+    Normally sampling measurements at a finer time step (15 s) than the propagation step (~60 s) would introduce interpolation error; brahe's orbit propagators use Hermite-cubic interpolation by default, which avoids these artifacts. See [InterpolationMethod](../library_api/orbits/enums.md#interpolationmethod) for the available interpolation algorithms.
 
 <div class="plotly-embed">
   <iframe class="only-light" src="../figures/ssn_tracking_network_light.html" loading="lazy"></iframe>
@@ -43,7 +44,7 @@ Access windows bound the simulation: for each sensor we compute the elevation-co
 --8<-- "./examples/examples/ssn_tracking.py:simulate_measurements"
 ```
 
-Over the 6-hour arc, the network produces 740 observations across 22 passes. Each measurement is `[azimuth, elevation, range]`, generated with each sensor's own bias and noise from Vallado Table 4-4:
+Over the 6-hour arc, the network produces hundreds of observations across dozens of passes. Each measurement is `[azimuth, elevation, range]`, generated with each sensor's own bias and noise from Vallado Table 4-4, and colored to match its sensor in the network figure above:
 
 <div class="plotly-embed">
   <iframe class="only-light" src="../figures/ssn_tracking_measurements_light.html" loading="lazy"></iframe>
@@ -54,7 +55,7 @@ Over the 6-hour arc, the network produces 740 observations across 22 passes. Eac
 
 Each sensor exposes a `measurement_model()` that carries the same bias and noise used to generate its measurements. Because the model applies bias inside `predict()`, a filter built from these models is consistent with the simulated observations -- this is the calibrated-sensor assumption: the filter is told about the same bias the sensor introduces, rather than having to estimate it away.
 
-The EKF and UKF process observations sequentially in epoch order. Passes are separated by long gaps with no sensor visibility, so between passes the filter is stepped forward with `propagate_to()` at a fixed 60 s cadence rather than jumping straight to the next observation. This is prediction-only -- no measurement update -- and it records a `FilterRecord` at each step (named `"Propagation"`, with empty measurement fields) so covariance growth during the gap is visible in the diagnostic output:
+Passes from different sensors can overlap -- Cavalier and Millstone, for instance, both track the object around the same time -- so the per-sensor pass windows are first merged into non-overlapping tracking intervals. The EKF and UKF then each walk the intervals in order: the filter is stepped forward through the gap before an interval with `propagate_to()` at a fixed 60 s cadence (prediction-only, no measurement update, recording a `FilterRecord` named `"Propagation"` at each step so covariance growth during the gap is visible in the diagnostic output), and every observation within the interval is then processed in time order:
 
 ``` python
 --8<-- "./examples/examples/ssn_tracking.py:run_filters"
@@ -73,13 +74,13 @@ Finally, we compare true position error against each filter's formal 3-sigma unc
   <iframe class="only-dark"  src="../figures/ssn_tracking_filters_dark.html"  loading="lazy"></iframe>
 </div>
 
-The EKF and UKF converge to nearly identical results here (6.6 m final position error for both) since the two-body dynamics and az/el/range geometry are only mildly nonlinear over this arc; the UKF's sigma-point propagation does not offer a material advantage at this level of nonlinearity. Azimuth wrapping is handled consistently: `AzElRangeMeasurementModel.residual()` wraps the residual, the model's Jacobian differences through it, and the UKF forms its predicted measurement mean and innovation deviations through `residual()` as well, so a pass whose sigma-point azimuths straddle the 0/360&deg; wrap stays well-behaved.
+The EKF and UKF converge to nearly identical results here, both reaching meter-level final position error, since the two-body dynamics and az/el/range geometry are only mildly nonlinear over this arc; the UKF's sigma-point propagation does not offer a material advantage at this level of nonlinearity. Azimuth wrapping is handled consistently: `AzElRangeMeasurementModel.residual()` wraps the residual, the model's Jacobian differences through it, and the UKF forms its predicted measurement mean and innovation deviations through `residual()` as well, so a pass whose sigma-point azimuths straddle the 0/360&deg; wrap stays well-behaved.
 
-## Batch Least Squares (CI-Gated Companion)
+## Batch Least Squares
 
-BLS solves for the orbit in one batch over the same 740 observations rather than processing them sequentially and stepping through the inter-pass gaps. Each Gauss-Newton iteration re-propagates the full six-hour arc together with the state transition matrix, so solving this scenario takes on the order of three minutes -- far more than the EKF and UKF above, which together run in under a second. Because that runtime is too slow for the automated example runs, this variant lives in its own script, `ssn_tracking_bls.py`, carrying `FLAGS = ["MANUAL"]`: the example tests never execute it, and it is instead run directly when its results need to be regenerated. Its committed output below keeps the results available in the documentation without requiring a run.
+BLS solves for the orbit in one batch, minimizing the weighted residual cost over the entire observation set at once, rather than the sequential filters' approach of recursively updating a running state estimate and letting covariance grow between passes. Each Gauss-Newton iteration re-propagates the full arc together with the state transition matrix, which makes BLS substantially slower than the sequential filters above, so this variant lives in its own script, `ssn_tracking_bls.py`.
 
-The script reproduces the same scenario as `ssn_tracking.py` -- the sensor dataset, the truth orbit with its Hermite-cubic interpolation, and the simulated measurements -- before solving with BLS. Its default state-correction convergence threshold (`1e-8`, in mixed position/velocity units) is far tighter than the centimeter-level precision this measurement set actually supports, so the script loosens `state_correction_threshold` to `1e-3` and adds a `cost_convergence_threshold`; this stops the solver once corrections are physically insignificant instead of exhausting `max_iterations` on progressively smaller, noise-driven corrections:
+The script reproduces the same scenario as `ssn_tracking.py` -- the sensor dataset, the truth orbit, and the simulated measurements -- before solving with BLS. Its default state-correction convergence threshold (`1e-8`, in mixed position/velocity units) is far tighter than the centimeter-level precision this measurement set actually supports, so the script loosens `state_correction_threshold` and adds a `cost_convergence_threshold`; this stops the solver once corrections are physically insignificant instead of exhausting `max_iterations` on progressively smaller, noise-driven corrections:
 
 ``` python
 --8<-- "./examples/examples/ssn_tracking_bls.py:run_bls"
@@ -90,7 +91,7 @@ The script reproduces the same scenario as `ssn_tracking.py` -- the sensor datas
     --8<-- "./docs/outputs/examples/ssn_tracking_bls.py.txt"
     ```
 
-The ~9.5 m final position error shown above is somewhat higher than the sequential filters reach (6.6 m) because BLS minimizes the weighted residual cost over the whole arc rather than tracking the most recent state, though its formal 3-sigma uncertainty is comparable to the EKF/UKF's 42.1 m.
+BLS's final position error is somewhat higher than the sequential filters reach, since it minimizes the residual cost over the whole arc rather than tracking the most recent state, though its formal uncertainty remains comparable to the sequential filters', as shown in the output above.
 
 ??? "Full Code"
 

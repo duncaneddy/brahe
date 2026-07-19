@@ -20,45 +20,38 @@ Brahe includes embedded GeoJSON data for 21 SSN sites. The data is:
 
 ## Loading
 
-Load all SSN sensor sites and build `SimpleSSNSensor` instances from the ones that support
-az/el/range simulation:
+Load all SSN sensor sites, filter by sensor type, and inspect a site's properties:
 
-``` python
---8<-- "./examples/examples/ssn_tracking.py:load_sensors"
-```
+=== "Python"
 
-This prints:
+    ``` python
+    --8<-- "./examples/datasets/ssn_sensors_load.py:11"
+    ```
 
-```
-Loaded 21 SSN sites, 13 az/el/range sensors
+=== "Rust"
 
-====================================================================================================
-SSN Sensor Network
-====================================================================================================
-Name                        System        El Min   Range Max  Az Noise  El Noise  Range Noise
-----------------------------------------------------------------------------------------------------
-Eglin                       Phased Array    1.0°    13210 km   0.0154°   0.0147°       32.1 m
-Fylingdales                 Phased Array    4.0°     4820 km   0.0220°   0.0200°       50.0 m
-Ascension                   Radar           1.0°     1900 km   0.0283°   0.0248°      101.7 m
-Clear                       Radar           1.0°     4910 km   0.0791°   0.0240°       62.5 m
-Antigua                     Radar           0.0°     2550 km   0.0224°   0.0139°       92.5 m
-Cape Cod                    Phased Array    3.0°     5555 km   0.0260°   0.0220°       26.0 m
-Beale                       Phased Array    3.0°     5555 km   0.0320°   0.0330°       35.0 m
-Shemya                      Phased Array    0.0°   unlimited   0.0540°   0.0530°        2.9 m
-Thule                       Phased Array    3.0°     5555 km   0.0260°   0.0220°       26.0 m
-Cavalier                    Phased Array    2.0°     3300 km   0.0125°   0.0086°       28.0 m
-Kaena Point                 Radar           0.0°     6380 km   0.0224°   0.0139°       92.5 m
-Kwajalein                   Radar (ALCOR/ALTAIR/TRADEX)    1.0°     4500 km   0.0318°   0.0129°      162.9 m
-Millstone                   Radar           0.0°    40744 km   0.0100°   0.0100°      150.0 m
-====================================================================================================
-```
+    ``` rust
+    --8<-- "./examples/datasets/ssn_sensors_load.rs:7"
+    ```
 
-`bh.datasets.ssn_sensors.load()` returns all 21 sites as `PointLocation` objects.
-`SimpleSSNSensor.from_locations()` builds a sensor for every site that has both
-`sensor_type == "azel_range"` and complete noise calibration -- 13 of the 21 sites. The
-remaining 8 are skipped: 6 optical (`radec`) sites, and 2 sites (HAX, a mechanical tracker,
-and Haystack, a radar) that Table 4-2 lists without the Table 4-4 calibration values
-`SimpleSSNSensor` requires.
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/datasets/ssn_sensors_load.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/datasets/ssn_sensors_load.rs.txt"
+        ```
+
+`bh.datasets.ssn_sensors.load()` returns every site as a `PointLocation`.
+`SimpleSSNSensor.from_locations()` builds a sensor for every radar (`azel_range`) site,
+defaulting the sites that lack full Table 4-4 calibration to zero noise and bias (flagged
+`calibrated == False`, overridable with `with_noise()`/`with_bias()`); optical (`radec`)
+sites are a different sensor type and are never included. `from_locations_calibrated()`
+restricts the result to the fully-calibrated sites -- this is the set used throughout the
+[SSN Radar Tracking example](../../examples/ssn_tracking.md).
 
 ## Properties
 
@@ -86,25 +79,38 @@ Each site is a `PointLocation` with geodetic coordinates (`lon()`, `lat()`, `alt
 `sensor_type` determines which fields are present: `radec` sites carry no range fields at
 all, and sites appearing only in Table 4-2 (location and field-of-view, no calibration)
 carry no bias/noise fields. `SimpleSSNSensor.from_location()` requires `sensor_type ==
-"azel_range"` plus all three noise fields; it raises `ValueError` otherwise, and
-`from_locations()` silently skips sites that don't qualify.
+"azel_range"`; a site missing one or more noise fields still constructs, defaulted to zero
+noise and flagged uncalibrated, rather than raising an error.
 
 ## Building Sensors and Measurement Models
 
-Filter and simulate on the same sensor with `measurement_model()`, which builds an
-`AzElRangeMeasurementModel` using the sensor's own bias and noise so the two stay
-consistent:
+Build a sensor from a single site, generate a measurement, and inspect the matching
+`AzElRangeMeasurementModel` that `measurement_model()` builds from the sensor's own bias
+and noise -- the model and the sensor stay consistent because both read the same
+calibration:
 
-```python
-import brahe as bh
+=== "Python"
 
-sites = bh.datasets.ssn_sensors.load()
-radars = [s for s in sites if s.properties["sensor_type"] == "azel_range"]
-sensors = bh.SimpleSSNSensor.from_locations(sites, seed=42)
+    ``` python
+    --8<-- "./examples/datasets/ssn_sensors_sensor.py:12"
+    ```
 
-sensor = sensors[0]
-model = sensor.measurement_model()  # AzElRangeMeasurementModel matching this sensor
-```
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/datasets/ssn_sensors_sensor.rs:9"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/datasets/ssn_sensors_sensor.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/datasets/ssn_sensors_sensor.rs.txt"
+        ```
 
 See [Azimuth/Elevation/Range Measurements](../estimation/measurement_models.md#azimuthelevationrange)
 for how the resulting model is used in a filter.

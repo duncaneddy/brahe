@@ -186,6 +186,27 @@ class TestSphericalHarmonicGravity:
         with pytest.raises(IsADirectoryError, match="not a file"):
             bh.GravityModelType.from_file("data/gravity_models")
 
+    def test_gravity_model_from_file_truncated_raises(self, tmp_path):
+        """Test GravityModel.from_file raises on a truncated model file."""
+        truncated = tmp_path / "truncated.gfc"
+        truncated.write_text("product_type gravity_field\nmodelname TRUNCATED\n")
+        with pytest.raises(Exception, match="end_of_head"):
+            bh.GravityModel.from_file(str(truncated))
+
+    def test_gravity_model_from_file_missing_row_values_raises(self, tmp_path):
+        """Test GravityModel.from_file raises on a coefficient row missing values."""
+        malformed = tmp_path / "malformed.gfc"
+        malformed.write_text(
+            "modelname TEST\n"
+            "gravity_constant 3.986004415E+14\n"
+            "radius 6.3781363000E+06\n"
+            "max_degree 2\n"
+            "end_of_head\n"
+            "gfc 2 0\n"
+        )
+        with pytest.raises(Exception, match="coefficient row"):
+            bh.GravityModel.from_file(str(malformed))
+
     def test_gravity_model_tide_system_enum(self):
         """Test GravityModelTideSystem enum."""
         tide1 = bh.GravityModelTideSystem.TideFree

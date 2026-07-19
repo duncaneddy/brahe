@@ -436,46 +436,22 @@ impl Epoch {
 
         for regex in VALID_EPOCH_REGEX.into_iter() {
             if let Some(caps) = Regex::new(regex).unwrap().captures(date_string) {
-                year = caps
-                    .get(1)
-                    .map_or("", |s| s.as_str())
-                    .parse::<u32>()
-                    .unwrap();
-                month = caps
-                    .get(2)
-                    .map_or("", |s| s.as_str())
-                    .parse::<u8>()
-                    .unwrap();
-                day = caps
-                    .get(3)
-                    .map_or("", |s| s.as_str())
-                    .parse::<u8>()
-                    .unwrap();
+                year = caps.get(1).map_or("", |s| s.as_str()).parse::<u32>().ok()?;
+                month = caps.get(2).map_or("", |s| s.as_str()).parse::<u8>().ok()?;
+                day = caps.get(3).map_or("", |s| s.as_str()).parse::<u8>().ok()?;
 
                 if caps.len() >= 6 {
-                    hour = caps
-                        .get(4)
-                        .map_or("", |s| s.as_str())
-                        .parse::<u8>()
-                        .unwrap();
-                    minute = caps
-                        .get(5)
-                        .map_or("", |s| s.as_str())
-                        .parse::<u8>()
-                        .unwrap();
-                    second = caps
-                        .get(6)
-                        .map_or("", |s| s.as_str())
-                        .parse::<f64>()
-                        .unwrap();
+                    hour = caps.get(4).map_or("", |s| s.as_str()).parse::<u8>().ok()?;
+                    minute = caps.get(5).map_or("", |s| s.as_str()).parse::<u8>().ok()?;
+                    second = caps.get(6).map_or("", |s| s.as_str()).parse::<f64>().ok()?;
 
                     if caps.len() >= 8 {
                         let mut ps_str = caps.get(7).map_or("0.0", |s| s.as_str());
                         if ps_str.is_empty() {
                             ps_str = "0.0"
                         }; // Some parses return a "" which causes issues for the below
-                        nanoseconds = ps_str.parse::<f64>().unwrap()
-                            * 10_f64.powi((9 - ps_str.len() as u32).try_into().unwrap());
+                        nanoseconds =
+                            ps_str.parse::<f64>().ok()? * 10_f64.powi(9i32 - ps_str.len() as i32);
 
                         if caps.len() >= 9 {
                             time_system = match caps.get(8).map_or("", |s| s.as_str()) {
@@ -2237,6 +2213,20 @@ mod tests {
             "Epoch::now() differs from system time by {} seconds",
             diff
         );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_epoch_from_string_long_subseconds() {
+        setup_global_test_eop();
+
+        // Sub-second strings longer than 9 digits previously panicked on a
+        // u32 underflow when computing the nanosecond scaling exponent.
+        let epc = Epoch::from_string("2022-04-01 01:02:03.1234567890 GPS").unwrap();
+        let (_, _, _, _, _, second, nanoseconds) = epc.to_datetime();
+        assert_eq!(second, 3.0);
+        assert_abs_diff_eq!(nanoseconds, 123456789.0, epsilon = 1.0);
+        assert_eq!(epc.time_system, TimeSystem::GPS);
     }
 
     #[test]

@@ -1364,10 +1364,22 @@ impl GravityModel {
     }
 
     fn from_bufreader<T: Read>(reader: BufReader<T>) -> Result<Self, BraheError> {
+        // Extract the value token from a "key value" header line, erroring if
+        // the line has no value after the key.
+        fn header_value<'a>(line: &'a str, key: &str) -> Result<&'a str, BraheError> {
+            line.split_whitespace().skip(1).last().ok_or_else(|| {
+                BraheError::ParseError(format!(
+                    "Gravity model file: \"{key}\" header line has no value"
+                ))
+            })
+        }
+
         let mut lines = reader.lines();
 
         // Read the header
-        let mut line = lines.next().unwrap()?;
+        let mut line = lines
+            .next()
+            .ok_or_else(|| BraheError::ParseError("Gravity model file is empty".to_string()))??;
 
         let mut model_name = String::from("Unknown");
         let mut gm = 0.0;
@@ -1380,53 +1392,57 @@ impl GravityModel {
 
         while !line.starts_with("end_of_head") {
             // Read the header line
-            line = lines.next().unwrap()?;
+            line = lines.next().ok_or_else(|| {
+                BraheError::ParseError(
+                    "Gravity model file header truncated: missing \"end_of_head\"".to_string(),
+                )
+            })??;
 
             // Parse the header
             if line.starts_with("modelname") {
-                model_name = String::from(line.split_whitespace().last().unwrap());
+                model_name = String::from(header_value(&line, "modelname")?);
             } else if line.starts_with("earth_gravity_constant")
                 || line.starts_with("gravity_constant")
             {
                 // Non-Earth ICGEM models (Moon, Mars, ...) use the unprefixed
                 // "gravity_constant" key and, like the coefficient rows, may use
                 // Fortran-style "D" exponents (e.g. "0.4902799806931690D+13").
-                let token = line.split_whitespace().last().unwrap();
+                let token = header_value(&line, "gravity_constant")?;
                 gm = token.replace(['D', 'd'], "e").parse::<f64>()?;
             } else if line.starts_with("radius") {
-                let token = line.split_whitespace().last().unwrap();
+                let token = header_value(&line, "radius")?;
                 radius = token.replace(['D', 'd'], "e").parse::<f64>()?;
             } else if line.starts_with("max_degree") {
-                n_max = line.split_whitespace().last().unwrap().parse::<usize>()?;
+                n_max = header_value(&line, "max_degree")?.parse::<usize>()?;
                 m_max = n_max;
             } else if line.starts_with("tide_system") {
-                tide_system = match line.split_whitespace().last().unwrap() {
+                tide_system = match header_value(&line, "tide_system")? {
                     "zero_tide" => GravityModelTideSystem::ZeroTide,
                     "tide_free" => GravityModelTideSystem::TideFree,
                     "mean_tide" => GravityModelTideSystem::MeanTide,
                     _ => GravityModelTideSystem::Unknown,
                 };
             } else if line.starts_with("errors") {
-                model_errors = match line.split_whitespace().last().unwrap() {
+                model_errors = match header_value(&line, "errors")? {
                     "no" => GravityModelErrors::No,
                     "calibrated" => GravityModelErrors::Calibrated,
                     "formal" => GravityModelErrors::Formal,
                     "calibrated_and_formal" => GravityModelErrors::CalibratedAndFormal,
-                    _ => {
+                    other => {
                         return Err(BraheError::ParseError(format!(
                             "Invalid model_errors value: \"{}\". Expected \"no\", \"calibrated\", \"formal\", or \"calibrated_and_formal\".",
-                            line.split_whitespace().last().unwrap()
+                            other
                         )));
                     }
                 };
             } else if line.starts_with("normalization") {
-                normalization = match line.split_whitespace().last().unwrap() {
+                normalization = match header_value(&line, "normalization")? {
                     "fully_normalized" => GravityModelNormalization::FullyNormalized,
                     "unnormalized" => GravityModelNormalization::Unnormalized,
-                    _ => {
+                    other => {
                         return Err(BraheError::ParseError(format!(
                             "Invalid normalization value: \"{}\". Expected \"fully_normalized\" or \"unnormalized\".",
-                            line.split_whitespace().last().unwrap()
+                            other
                         )));
                     }
                 };
@@ -1460,11 +1476,18 @@ impl GravityModel {
             let mut values = l.split_whitespace();
 
             // Convert values from string to numeric types
+            let row_value = |v: Option<&str>, field: &str| {
+                v.map(str::to_string).ok_or_else(|| {
+                    BraheError::ParseError(format!(
+                        "Gravity model file: coefficient row missing \"{field}\" value: \"{l}\""
+                    ))
+                })
+            };
             values.next(); // Skip the first value
-            let n = values.next().unwrap().parse::<usize>()?;
-            let m = values.next().unwrap().parse::<usize>()?;
-            let c = values.next().unwrap().parse::<f64>()?;
-            let s = values.next().unwrap().parse::<f64>()?;
+            let n = row_value(values.next(), "degree")?.parse::<usize>()?;
+            let m = row_value(values.next(), "order")?.parse::<usize>()?;
+            let c = row_value(values.next(), "C")?.parse::<f64>()?;
+            let s = row_value(values.next(), "S")?.parse::<f64>()?;
             // let sig_C = values.next().unwrap().parse::<f64>()?;
             // let sig_S = values.next().unwrap().parse::<f64>()?;
 
@@ -2886,6 +2909,40 @@ mod tests {
         assert_abs_diff_eq!(gravity_model.radius, 1.738e6, epsilon = 1e-6);
         assert_eq!(gravity_model.n_max, 2);
         assert_eq!(gravity_model.m_max, 2);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_gravity_model_from_bufreader_empty_file_errors() {
+        let result = GravityModel::from_bufreader(BufReader::new("".as_bytes()));
+        assert!(matches!(result, Err(BraheError::ParseError(_))));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_gravity_model_from_bufreader_truncated_header_errors() {
+        // Header ends before "end_of_head" is reached
+        let content = "product_type gravity_field\nmodelname TRUNCATED\n";
+        let result = GravityModel::from_bufreader(BufReader::new(content.as_bytes()));
+        assert!(matches!(result, Err(BraheError::ParseError(_))));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_gravity_model_from_bufreader_header_key_without_value_errors() {
+        // "max_degree" line has no value token
+        let content = "modelname TEST\ngravity_constant 3.986004415E+14\nradius 6.3781363000E+06\nmax_degree\nend_of_head\n";
+        let result = GravityModel::from_bufreader(BufReader::new(content.as_bytes()));
+        assert!(matches!(result, Err(BraheError::ParseError(_))));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_gravity_model_from_bufreader_truncated_data_row_errors() {
+        // Coefficient row is missing the C and S values
+        let content = "modelname TEST\ngravity_constant 3.986004415E+14\nradius 6.3781363000E+06\nmax_degree 2\nend_of_head\ngfc 2 0\n";
+        let result = GravityModel::from_bufreader(BufReader::new(content.as_bytes()));
+        assert!(matches!(result, Err(BraheError::ParseError(_))));
     }
 
     #[test]

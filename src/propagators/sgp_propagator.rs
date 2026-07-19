@@ -1031,8 +1031,11 @@ impl SGPPropagator {
     /// println!("Inclination: {:.4} deg", elements[2]);
     /// ```
     pub fn elements(&self) -> Vector6<f64> {
+        // Infallible: the TLE lines were validated when the propagator was
+        // constructed, so re-extracting elements from the same lines cannot
+        // fail. Use `get_elements` for a fallible variant.
         self.get_elements(AngleFormat::Degrees)
-            .expect("Failed to extract elements from TLE")
+            .expect("TLE validated at construction can no longer be parsed")
     }
 
     /// Get semi-major axis at TLE epoch.

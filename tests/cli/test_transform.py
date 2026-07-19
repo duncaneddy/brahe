@@ -586,6 +586,52 @@ class TestCoordinatesCommand:
         assert "ERROR" in result.stdout
 
 
+class TestCoordinatesFrameValidation:
+    def test_coordinates_rejects_non_eci_ecef_frame(self):
+        result = runner.invoke(
+            app,
+            [
+                "transform",
+                "coordinates",
+                "keplerian",
+                "cartesian",
+                "2024-01-01T00:00:00Z",
+                "6878137",
+                "0.01",
+                "45",
+                "0",
+                "0",
+                "0",
+                "--to-frame",
+                "GCRF",
+            ],
+        )
+        # A non-ECI/ECEF frame must be rejected by CLI validation, not silently mis-routed.
+        assert result.exit_code != 0
+
+    def test_coordinates_accepts_ecef_frame(self):
+        result = runner.invoke(
+            app,
+            [
+                "transform",
+                "coordinates",
+                "keplerian",
+                "cartesian",
+                "2024-01-01T00:00:00Z",
+                "6878137",
+                "0.01",
+                "45",
+                "0",
+                "0",
+                "0",
+                "--to-frame",
+                "ECEF",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "[" in result.stdout
+
+
 class TestFrameNamedFrames:
     """Frame transforms across the full named-frame set."""
 

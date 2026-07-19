@@ -34,6 +34,13 @@ class Frame(str, Enum):
     GSE = "GSE"
 
 
+class CartesianFrame(str, Enum):
+    """Reference frame for cartesian coordinate input/output (ECI or ECEF)."""
+
+    ECI = "ECI"
+    ECEF = "ECEF"
+
+
 def _resolve_frame(frame: Frame) -> "brahe.ReferenceFrame":
     """Convert a CLI `Frame` value into a core `ReferenceFrame`.
 
@@ -202,13 +209,13 @@ def coordinates(
         typer.Argument(..., help="The state to convert"),
     ],
     from_frame: Annotated[
-        Frame,
+        CartesianFrame,
         typer.Option(help="Reference frame for cartesian input (ECI or ECEF)"),
-    ] = Frame.ECI,
+    ] = CartesianFrame.ECI,
     to_frame: Annotated[
-        Frame,
+        CartesianFrame,
         typer.Option(help="Reference frame for cartesian output (ECI or ECEF)"),
-    ] = Frame.ECI,
+    ] = CartesianFrame.ECI,
     as_degrees: Annotated[
         bool, typer.Option(help="Output format in degrees if applicable")
     ] = True,
@@ -255,7 +262,7 @@ def coordinates(
         x_eci = brahe.state_koe_to_eci(x, angle_format)
 
         if to_system == StateRepresentation.cartesian:
-            if to_frame == Frame.ECEF:
+            if to_frame == CartesianFrame.ECEF:
                 if not epoch:
                     typer.echo("ERROR: --epoch required for frame conversion to ECEF")
                     raise typer.Exit(code=1)
@@ -281,16 +288,16 @@ def coordinates(
             # Need ECI for Keplerian
             x_eci = (
                 x
-                if from_frame == Frame.ECI
+                if from_frame == CartesianFrame.ECI
                 else brahe.state_ecef_to_eci(brahe.Epoch(epoch), x)
             )
             x = brahe.state_eci_to_koe(x_eci, angle_format)
         elif to_system == StateRepresentation.cartesian:
             # Frame conversion
             epc = brahe.Epoch(epoch)
-            if from_frame == Frame.ECI and to_frame == Frame.ECEF:
+            if from_frame == CartesianFrame.ECI and to_frame == CartesianFrame.ECEF:
                 x = brahe.state_eci_to_ecef(epc, x)
-            elif from_frame == Frame.ECEF and to_frame == Frame.ECI:
+            elif from_frame == CartesianFrame.ECEF and to_frame == CartesianFrame.ECI:
                 x = brahe.state_ecef_to_eci(epc, x)
         elif to_system in (
             StateRepresentation.geodetic,
@@ -299,7 +306,7 @@ def coordinates(
             # Need ECEF for geodetic/geocentric
             x_ecef = (
                 brahe.state_eci_to_ecef(brahe.Epoch(epoch), x)
-                if from_frame == Frame.ECI
+                if from_frame == CartesianFrame.ECI
                 else x
             )
             if to_system == StateRepresentation.geodetic:
@@ -317,7 +324,7 @@ def coordinates(
             # Geodetic->ECEF gives position only
             x = (
                 brahe.position_ecef_to_eci(brahe.Epoch(epoch), x_ecef)
-                if to_frame == Frame.ECI
+                if to_frame == CartesianFrame.ECI
                 else x_ecef
             )
         elif to_system == StateRepresentation.keplerian:
@@ -336,7 +343,7 @@ def coordinates(
             # Geodetic->ECEF gives position only
             x = (
                 brahe.position_ecef_to_eci(brahe.Epoch(epoch), x_ecef)
-                if to_frame == Frame.ECI
+                if to_frame == CartesianFrame.ECI
                 else x_ecef
             )
         elif to_system == StateRepresentation.keplerian:

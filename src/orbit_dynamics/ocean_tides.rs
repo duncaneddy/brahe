@@ -863,20 +863,10 @@ mod tests {
     #[cfg_attr(not(feature = "integration"), ignore)]
     fn test_fes2004_download() {
         // Network-gated: clean cache, real download, file is complete.
-        let dir = tempfile::tempdir().unwrap();
-        let prev = std::env::var("BRAHE_CACHE").ok();
-        unsafe {
-            std::env::set_var("BRAHE_CACHE", dir.path());
-        }
+        let _cache = crate::utils::testing::CacheRedirect::new();
         let path = fes2004_coefficients_path().unwrap();
         let len = std::fs::metadata(&path).unwrap().len();
         assert!(len > 3_500_000, "downloaded file too small: {len}");
-        unsafe {
-            match prev {
-                Some(v) => std::env::set_var("BRAHE_CACHE", v),
-                None => std::env::remove_var("BRAHE_CACHE"),
-            }
-        }
     }
 
     #[test]

@@ -138,9 +138,6 @@ $$
 !!! note "Frequency Scaling"
     The magnitude of Doppler compensation scales with carrier frequency. X-band (8.4 GHz) experiences about $8.4/2.2 \approx 3.8\times$ the frequency shift of S-band (2.2 GHz) for the same line-of-sight velocity.
 
-!!! note "Uplink and downlink compensation are not symmetric"
-    Downlink compensation is a single first-order shift ($\Delta f_r = -f_x^d\, v_{los}/c$), but uplink carries the extra $(c - v_{los})$ denominator. The asymmetry is not rounding: the ground station must pre-distort its transmit frequency so that, after the Doppler shift the signal accrues in flight, it arrives at the spacecraft's fixed design frequency. Solving that inverse condition introduces the denominator, so uplink and downlink compensations differ in both sign and magnitude for the same $v_{los}$.
-
 ### Implementation
 
 We create a custom property computer that calculates the line-of-sight velocity from the satellite state and computes Doppler compensation for both S-band uplink (2.2 GHz) and X-band downlink (8.4 GHz):
@@ -150,6 +147,25 @@ We create a custom property computer that calculates the line-of-sight velocity 
 ```
 
 The property computer extracts the satellite velocity from the provided ECEF state, projects it onto the line-of-sight unit vector to get the line-of-sight velocity, and applies the Doppler formula for both frequency bands.
+
+!!! note "AccessPropertyComputer attaches custom measurements to every window"
+    [`AccessPropertyComputer`](../learn/access_computation/properties.md)
+    ([API](../library_api/access/properties.md#brahe.AccessPropertyComputer))
+    is the extension point for computing quantities beyond the core window
+    properties. A subclass implements three methods: `sampling_config` picks
+    the epochs sampled inside each window (here
+    [`SamplingConfig.fixed_interval`](../library_api/access/properties.md#brahe.SamplingConfig)
+    at 0.1 s; `relative_points`, `fixed_count`, and `midpoint` are the other
+    modes), `compute` turns the sampled states into property values, and
+    `property_names` declares the keys produced. Pass instances to
+    `location_accesses` via `property_computers` and the results appear on
+    each window's `properties`. The sampled states arrive in ECEF, not ECI -
+    convenient for line-of-sight work like this, but inertial quantities need
+    a frame conversion first. For plain Doppler shift brahe also ships a
+    Rust-native
+    [`DopplerComputer`](../library_api/access/properties.md#brahe.DopplerComputer);
+    the custom computer here exists to also record the line-of-sight velocity
+    time series.
 
 
 

@@ -46,12 +46,25 @@ impl PyProcessNoiseConfig {
     ///     q_matrix (numpy.ndarray): Process noise matrix Q (state_dim x state_dim).
     ///     scale_with_dt (bool): If True, Q scales with time step (continuous-time model).
     ///         Defaults to False.
+    ///     max_noise_dt (float or None): Maximum time step (seconds) over which
+    ///         continuous process noise is accumulated per chunk. None (default)
+    ///         keeps the single-shot behavior. Some(h) sub-steps predict
+    ///         intervals longer than h, adding Q * dt_chunk per chunk. Applies
+    ///         only when scale_with_dt is True. See issue #408 for the exact
+    ///         continuous formulation.
     ///
     /// Returns:
     ///     ProcessNoiseConfig: New process noise configuration.
+    ///
+    /// Raises:
+    ///     ValueError: If max_noise_dt is not finite and positive.
     #[new]
-    #[pyo3(signature = (q_matrix, scale_with_dt=false))]
-    fn new(q_matrix: PyReadonlyArray2<f64>, scale_with_dt: bool) -> PyResult<Self> {
+    #[pyo3(signature = (q_matrix, scale_with_dt=false, max_noise_dt=None))]
+    fn new(
+        q_matrix: PyReadonlyArray2<f64>,
+        scale_with_dt: bool,
+        max_noise_dt: Option<f64>,
+    ) -> PyResult<Self> {
         let shape = q_matrix.shape();
         let n = shape[0];
         if shape[1] != n {
@@ -62,12 +75,15 @@ impl PyProcessNoiseConfig {
         let data: Vec<f64> = q_matrix.as_slice()?.to_vec();
         let q = DMatrix::from_row_slice(n, n, &data);
 
-        Ok(PyProcessNoiseConfig {
-            config: estimation::ProcessNoiseConfig {
-                q_matrix: q,
-                scale_with_dt,
-            },
-        })
+        let config = estimation::ProcessNoiseConfig {
+            q_matrix: q,
+            scale_with_dt,
+            max_noise_dt,
+        };
+        config
+            .validate()
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+        Ok(PyProcessNoiseConfig { config })
     }
 
     /// Get the process noise matrix Q.
@@ -88,6 +104,15 @@ impl PyProcessNoiseConfig {
     #[getter]
     fn scale_with_dt(&self) -> bool {
         self.config.scale_with_dt
+    }
+
+    /// Maximum time step (seconds) for continuous process-noise accumulation.
+    ///
+    /// Returns:
+    ///     float or None: The sub-step cap, or None for single-shot behavior.
+    #[getter]
+    fn max_noise_dt(&self) -> Option<f64> {
+        self.config.max_noise_dt
     }
 
     fn __repr__(&self) -> String {

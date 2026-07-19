@@ -390,3 +390,70 @@ def test_ekf_observation_process_noise_both_branches(two_body_leo):
     assert np.trace(rec_fixed.covariance_predicted) - trace_none == pytest.approx(
         q_trace, rel=1e-6
     )
+
+
+def _substep_ekf(epoch, state, p0, q, max_noise_dt):
+    pn = bh.ProcessNoiseConfig(q, scale_with_dt=True, max_noise_dt=max_noise_dt)
+    return bh.ExtendedKalmanFilter(
+        epoch,
+        state,
+        p0,
+        measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+        propagation_config=bh.NumericalPropagationConfig.default(),
+        force_config=bh.ForceModelConfig.two_body(),
+        config=bh.EKFConfig(process_noise=pn),
+    )
+
+
+def test_process_noise_config_max_noise_dt_roundtrip():
+    q = np.diag([1e-6] * 3 + [1e-8] * 3)
+    # Default is None.
+    assert bh.ProcessNoiseConfig(q, scale_with_dt=True).max_noise_dt is None
+    # Round-trips a set value.
+    assert bh.ProcessNoiseConfig(
+        q, scale_with_dt=True, max_noise_dt=60.0
+    ).max_noise_dt == pytest.approx(60.0)
+    # Rejects non-positive / non-finite.
+    for bad in (0.0, -1.0, float("nan")):
+        with pytest.raises(ValueError):
+            bh.ProcessNoiseConfig(q, scale_with_dt=True, max_noise_dt=bad)
+
+
+def test_ekf_substep_single_chunk_equals_none(two_body_leo):
+    # max_noise_dt >= interval matches the single-shot (None) behavior exactly.
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    q = np.diag([1.0, 1.0, 1.0, 1e-4, 1e-4, 1e-4])
+    dt = 300.0
+
+    f_none = _substep_ekf(epoch, state, p0, q, None)
+    f_none.propagate_to(epoch + dt)
+    f_big = _substep_ekf(epoch, state, p0, q, dt * 2.0)
+    f_big.propagate_to(epoch + dt)
+
+    np.testing.assert_allclose(f_none.current_state(), f_big.current_state(), atol=1e-9)
+    np.testing.assert_allclose(
+        f_none.current_covariance(), f_big.current_covariance(), atol=1e-6
+    )
+
+
+def test_ekf_substep_definitional_equivalence(two_body_leo):
+    # One sub-stepped propagate_to equals chained single-shot calls at cadence h.
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    q = np.diag([1.0, 1.0, 1.0, 1e-4, 1e-4, 1e-4])
+    h = 60.0
+
+    f_sub = _substep_ekf(epoch, state, p0, q, h)
+    f_sub.propagate_to(epoch + 300.0)
+
+    f_chain = _substep_ekf(epoch, state, p0, q, None)
+    for step in range(1, 6):
+        f_chain.propagate_to(epoch + step * h)
+
+    np.testing.assert_allclose(
+        f_sub.current_state(), f_chain.current_state(), atol=1e-6
+    )
+    np.testing.assert_allclose(
+        f_sub.current_covariance(), f_chain.current_covariance(), atol=1e-3
+    )

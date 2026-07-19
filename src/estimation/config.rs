@@ -7,6 +7,9 @@
 
 use nalgebra::DMatrix;
 
+use crate::time::Epoch;
+use crate::utils::errors::BraheError;
+
 /// Process noise configuration for sequential filters.
 ///
 /// Controls how process noise Q is applied to the predicted covariance
@@ -22,6 +25,99 @@ pub struct ProcessNoiseConfig {
     /// update. Q must then be a noise *rate* (units of state² per second).
     /// If false: Q_effective = Q (discrete-time, applied as-is per update)
     pub scale_with_dt: bool,
+
+    /// Maximum time step (seconds) over which continuous process noise is
+    /// accumulated in a single chunk.
+    ///
+    /// `None` (the default) preserves the single-shot behavior exactly: the
+    /// process noise for a predict interval is added once, scaled by the full
+    /// `|dt|` when `scale_with_dt` is `true`.
+    ///
+    /// `Some(h)` (with `h > 0`) sub-steps the predict interval: when the
+    /// interval `|dt|` exceeds `h`, the filter splits it into chunks of at most
+    /// `h` seconds, propagates the covariance through each chunk, and adds
+    /// `q_matrix · δt_chunk` per chunk. This more faithfully accumulates the
+    /// covariance growth of the underlying (nonlinear) dynamics over long coast
+    /// arcs than a single end-to-end step, because the process noise is injected
+    /// along the trajectory rather than all at the start.
+    ///
+    /// Sub-stepping applies **only** when `scale_with_dt` is `true`: `q_matrix`
+    /// is then a continuous noise *rate* accumulated as `Q · δt`. When
+    /// `scale_with_dt` is `false`, `q_matrix` is a discrete per-update
+    /// covariance and is applied once per predict interval regardless of
+    /// `max_noise_dt` (sub-stepping a per-update `Q` would multiply the noise by
+    /// the number of chunks).
+    ///
+    /// This is an approximation: it uses the same constant rate `Q` on every
+    /// chunk and relies on the state-transition-matrix propagation of `P`
+    /// between chunk boundaries. The exact variational discrete-time `Q_d`
+    /// integration is tracked separately in issue #408.
+    pub max_noise_dt: Option<f64>,
+}
+
+impl ProcessNoiseConfig {
+    /// Validate the configuration.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `max_noise_dt` is `Some(h)` with `h` non-positive or
+    /// non-finite.
+    pub fn validate(&self) -> Result<(), BraheError> {
+        if let Some(h) = self.max_noise_dt
+            && (!h.is_finite() || h <= 0.0)
+        {
+            return Err(BraheError::Error(format!(
+                "ProcessNoiseConfig max_noise_dt must be finite and positive, got {}",
+                h
+            )));
+        }
+        Ok(())
+    }
+}
+
+/// Compute process-noise sub-step chunk boundaries over `[start, target]`.
+///
+/// Returns `Some(boundaries)` only when continuous sub-stepping applies: the
+/// config carries `scale_with_dt == true` and `max_noise_dt == Some(h)` with
+/// `h > 0`, and the signed interval `|target − start|` strictly exceeds `h`.
+/// The boundaries step from `start` toward `target` in the signed direction in
+/// increments of `h` (direction-aware, consistent with bidirectional
+/// `propagate_to`), with the final entry clamped to exactly `target`.
+///
+/// Returns `None` (single-shot: apply the process noise once) otherwise —
+/// including when there is no process noise, when `scale_with_dt` is `false`
+/// (a discrete per-update `Q`), when `max_noise_dt` is unset, or when the
+/// interval already fits in one chunk.
+pub(crate) fn noise_chunk_boundaries(
+    process_noise: Option<&ProcessNoiseConfig>,
+    start: Epoch,
+    target: Epoch,
+) -> Option<Vec<Epoch>> {
+    let pn = process_noise?;
+    if !pn.scale_with_dt {
+        return None;
+    }
+    let h = pn.max_noise_dt?;
+    let dt = target - start;
+    if dt.abs() <= h {
+        return None;
+    }
+
+    let sign = if dt >= 0.0 { 1.0 } else { -1.0 };
+    let n_full = (dt.abs() / h).floor() as usize;
+    let mut boundaries = Vec::with_capacity(n_full + 1);
+    for i in 1..=n_full {
+        boundaries.push(start + (i as f64) * h * sign);
+    }
+    // Clamp the final chunk to exactly the target: replace a boundary that
+    // lands on the target (exact multiple of h) or append the remainder chunk.
+    match boundaries.last() {
+        Some(&last) if (target - last).abs() <= 1e-9 => {
+            *boundaries.last_mut().unwrap() = target;
+        }
+        _ => boundaries.push(target),
+    }
+    Some(boundaries)
 }
 
 /// Configuration for the Extended Kalman Filter.

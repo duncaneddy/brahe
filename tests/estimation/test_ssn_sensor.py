@@ -23,12 +23,24 @@ def make_state_above(epoch, lon, lat, alt):
 def test_from_locations_dataset():
     sites = bh.datasets.ssn_sensors.load()
     sensors = bh.SimpleSSNSensor.from_locations(sites, seed=42)
-    assert len(sensors) == 13
+    # All 15 azel_range sites, incl. HAX + Haystack loaded with zero noise.
+    assert len(sensors) == 15
     names = {s.name for s in sensors}
     assert "Eglin" in names
     assert "Millstone" in names
     assert "Socorro" not in names  # optical site is skipped
-    assert "Haystack" not in names  # no calibration values
+    assert "Haystack" in names  # loaded with zero noise (uncalibrated)
+
+
+def test_from_locations_calibrated_only():
+    sites = bh.datasets.ssn_sensors.load()
+    sensors = bh.SimpleSSNSensor.from_locations_calibrated(sites, seed=42)
+    # 15 azel_range sites minus HAX and Haystack (no calibration) = 13.
+    assert len(sensors) == 13
+    assert all(s.calibrated for s in sensors)
+    names = {s.name for s in sensors}
+    assert "Haystack" not in names
+    assert "HAX" not in names
 
 
 def test_from_location_dataset_roundtrip():
@@ -40,17 +52,33 @@ def test_from_location_dataset_roundtrip():
     assert sensor.az_max == pytest.approx(215.0)
     assert sensor.el_min == pytest.approx(1.0)
     assert sensor.range_max == pytest.approx(13_210_000.0)
+    assert sensor.calibrated
 
 
-def test_from_location_errors_on_unsupported_site():
+def test_from_location_optical_errors_uncalibrated_loads():
     sites = bh.datasets.ssn_sensors.load()
+    # Optical (radec) site is unsupported and still errors.
     socorro = next(s for s in sites if s.get_name() == "Socorro")
     with pytest.raises(ValueError):
         bh.SimpleSSNSensor.from_location(socorro)
 
+    # Uncalibrated azel_range site now loads with zero noise instead of erroring.
     haystack = next(s for s in sites if s.get_name() == "Haystack")
+    sensor = bh.SimpleSSNSensor.from_location(haystack)
+    assert not sensor.calibrated
+    r = sensor.measurement_model().noise_covariance()
+    assert r[0, 0] == pytest.approx(0.0)
+
+
+def test_with_noise_override():
+    sites = bh.datasets.ssn_sensors.load()
+    hax = next(s for s in sites if s.get_name() == "HAX")
+    sensor = bh.SimpleSSNSensor.from_location(hax).with_noise(0.05, 0.06, 120.0)
+    r = sensor.measurement_model().noise_covariance()
+    assert r[0, 0] == pytest.approx(0.05**2)
+    assert r[2, 2] == pytest.approx(120.0**2)
     with pytest.raises(ValueError):
-        bh.SimpleSSNSensor.from_location(haystack)
+        bh.SimpleSSNSensor.from_location(hax).with_noise(-1.0, 0.0, 0.0)
 
 
 def test_construction_and_repr():
@@ -225,3 +253,18 @@ def test_simulate_observations_matches_stepwise(test_epoch):
         assert o.epoch == t_manual
         np.testing.assert_array_equal(o.measurement, z)
         assert o.model_index == 3
+
+
+def test_with_constraint_rejects_everything(test_epoch):
+    # A user-supplied constraint that always fails makes the target invisible,
+    # so measure returns None even when the standard limits would admit it.
+    loc = bh.PointLocation(-71.49, 42.62, 123.1).with_name("Test")
+    sensor = bh.SimpleSSNSensor(loc, noise=(0.02, 0.02, 50.0), seed=1)
+    state = make_state_above(test_epoch, -71.49, 42.62, 500e3)
+    assert sensor.visible(test_epoch, state)
+
+    # An impossible elevation window (>= 91 deg) rejects everything.
+    reject_all = bh.ElevationConstraint(min_elevation_deg=91.0, max_elevation_deg=None)
+    extended = sensor.with_constraint(reject_all)
+    assert not extended.visible(test_epoch, state)
+    assert extended.measure(test_epoch, state) is None

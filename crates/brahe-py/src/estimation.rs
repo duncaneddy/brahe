@@ -804,7 +804,7 @@ impl_measurement_model_binding!(
 
 impl_measurement_model_binding!(
     PyECEFPositionMeasurementModel,
-    estimation::EcefPositionMeasurementModel,
+    estimation::ECEFPositionMeasurementModel,
     "ECEFPositionMeasurementModel",
     constructors: [
         /// Create an ECEF position measurement model.
@@ -823,7 +823,7 @@ impl_measurement_model_binding!(
         #[new]
         fn new(sigma: f64) -> Self {
             PyECEFPositionMeasurementModel {
-                model: estimation::EcefPositionMeasurementModel::new(sigma),
+                model: estimation::ECEFPositionMeasurementModel::new(sigma),
             }
         }
 
@@ -839,7 +839,7 @@ impl_measurement_model_binding!(
         #[staticmethod]
         fn per_axis(sigma_x: f64, sigma_y: f64, sigma_z: f64) -> Self {
             PyECEFPositionMeasurementModel {
-                model: estimation::EcefPositionMeasurementModel::new_per_axis(sigma_x, sigma_y, sigma_z),
+                model: estimation::ECEFPositionMeasurementModel::new_per_axis(sigma_x, sigma_y, sigma_z),
             }
         }
 
@@ -857,7 +857,7 @@ impl_measurement_model_binding!(
                 exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
             })?;
             let mat = nalgebra::DMatrix::from_row_slice(shape[0], shape[1], data);
-            let model = estimation::EcefPositionMeasurementModel::from_covariance(mat)
+            let model = estimation::ECEFPositionMeasurementModel::from_covariance(mat)
                 .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
             Ok(PyECEFPositionMeasurementModel { model })
         }
@@ -874,7 +874,7 @@ impl_measurement_model_binding!(
             let data = upper.as_slice().map_err(|e| {
                 exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
             })?;
-            let model = estimation::EcefPositionMeasurementModel::from_upper_triangular(data)
+            let model = estimation::ECEFPositionMeasurementModel::from_upper_triangular(data)
                 .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
             Ok(PyECEFPositionMeasurementModel { model })
         }
@@ -884,7 +884,7 @@ impl_measurement_model_binding!(
 
 impl_measurement_model_binding!(
     PyECEFVelocityMeasurementModel,
-    estimation::EcefVelocityMeasurementModel,
+    estimation::ECEFVelocityMeasurementModel,
     "ECEFVelocityMeasurementModel",
     constructors: [
         /// Create an ECEF velocity measurement model.
@@ -903,7 +903,7 @@ impl_measurement_model_binding!(
         #[new]
         fn new(sigma: f64) -> Self {
             PyECEFVelocityMeasurementModel {
-                model: estimation::EcefVelocityMeasurementModel::new(sigma),
+                model: estimation::ECEFVelocityMeasurementModel::new(sigma),
             }
         }
 
@@ -919,7 +919,7 @@ impl_measurement_model_binding!(
         #[staticmethod]
         fn per_axis(sigma_x: f64, sigma_y: f64, sigma_z: f64) -> Self {
             PyECEFVelocityMeasurementModel {
-                model: estimation::EcefVelocityMeasurementModel::new_per_axis(sigma_x, sigma_y, sigma_z),
+                model: estimation::ECEFVelocityMeasurementModel::new_per_axis(sigma_x, sigma_y, sigma_z),
             }
         }
 
@@ -937,7 +937,7 @@ impl_measurement_model_binding!(
                 exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
             })?;
             let mat = nalgebra::DMatrix::from_row_slice(shape[0], shape[1], data);
-            let model = estimation::EcefVelocityMeasurementModel::from_covariance(mat)
+            let model = estimation::ECEFVelocityMeasurementModel::from_covariance(mat)
                 .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
             Ok(PyECEFVelocityMeasurementModel { model })
         }
@@ -954,7 +954,7 @@ impl_measurement_model_binding!(
             let data = upper.as_slice().map_err(|e| {
                 exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
             })?;
-            let model = estimation::EcefVelocityMeasurementModel::from_upper_triangular(data)
+            let model = estimation::ECEFVelocityMeasurementModel::from_upper_triangular(data)
                 .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
             Ok(PyECEFVelocityMeasurementModel { model })
         }
@@ -964,7 +964,7 @@ impl_measurement_model_binding!(
 
 impl_measurement_model_binding!(
     PyECEFStateMeasurementModel,
-    estimation::EcefStateMeasurementModel,
+    estimation::ECEFStateMeasurementModel,
     "ECEFStateMeasurementModel",
     constructors: [
         /// Create an ECEF state measurement model.
@@ -984,7 +984,7 @@ impl_measurement_model_binding!(
         #[new]
         fn new(pos_sigma: f64, vel_sigma: f64) -> Self {
             PyECEFStateMeasurementModel {
-                model: estimation::EcefStateMeasurementModel::new(pos_sigma, vel_sigma),
+                model: estimation::ECEFStateMeasurementModel::new(pos_sigma, vel_sigma),
             }
         }
 
@@ -1006,7 +1006,7 @@ impl_measurement_model_binding!(
             vel_sigma_x: f64, vel_sigma_y: f64, vel_sigma_z: f64,
         ) -> Self {
             PyECEFStateMeasurementModel {
-                model: estimation::EcefStateMeasurementModel::new_per_axis(
+                model: estimation::ECEFStateMeasurementModel::new_per_axis(
                     pos_sigma_x, pos_sigma_y, pos_sigma_z,
                     vel_sigma_x, vel_sigma_y, vel_sigma_z,
                 ),
@@ -1027,7 +1027,7 @@ impl_measurement_model_binding!(
                 exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
             })?;
             let mat = nalgebra::DMatrix::from_row_slice(shape[0], shape[1], data);
-            let model = estimation::EcefStateMeasurementModel::from_covariance(mat)
+            let model = estimation::ECEFStateMeasurementModel::from_covariance(mat)
                 .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
             Ok(PyECEFStateMeasurementModel { model })
         }
@@ -1044,45 +1044,13 @@ impl_measurement_model_binding!(
             let data = upper.as_slice().map_err(|e| {
                 exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
             })?;
-            let model = estimation::EcefStateMeasurementModel::from_upper_triangular(data)
+            let model = estimation::ECEFStateMeasurementModel::from_upper_triangular(data)
                 .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
             Ok(PyECEFStateMeasurementModel { model })
         }
     ],
     doc: "ECEF state measurement model (6D ECEF state from GNSS).\n\nInternally converts ECI state to ECEF state."
 );
-
-/// Validate station geodetic coordinates before constructing an
-/// `AzElRangeMeasurementModel`, so an out-of-range latitude/longitude raises a
-/// clear `ValueError` instead of tripping the infallible Rust constructor's
-/// `.expect("Invalid geodetic coordinates")` panic. Bounds scale with the
-/// angle format (degrees vs radians). NaN inputs fail the `<=` comparison and
-/// are rejected.
-fn validate_station_coords(
-    station_lon: f64,
-    station_lat: f64,
-    af: constants::AngleFormat,
-) -> PyResult<()> {
-    let (lat_bound, lon_bound) = match af {
-        constants::AngleFormat::Degrees => (90.0_f64, 180.0_f64),
-        constants::AngleFormat::Radians => (std::f64::consts::FRAC_PI_2, std::f64::consts::PI),
-    };
-    // `!is_finite()` rejects NaN/inf; the positive `>` comparison keeps clippy's
-    // partial-ord lint happy while still bounding the coordinate.
-    if !station_lat.is_finite() || station_lat.abs() > lat_bound {
-        return Err(exceptions::PyValueError::new_err(format!(
-            "station_lat {} is out of range [-{}, {}] for the given angle format",
-            station_lat, lat_bound, lat_bound
-        )));
-    }
-    if !station_lon.is_finite() || station_lon.abs() > lon_bound {
-        return Err(exceptions::PyValueError::new_err(format!(
-            "station_lon {} is out of range [-{}, {}] for the given angle format",
-            station_lon, lon_bound, lon_bound
-        )));
-    }
-    Ok(())
-}
 
 /// Validate that a target state array has at least 3 elements before it reaches
 /// the infallible `SimpleSSNSensor` geometry methods, raising a clear
@@ -1145,14 +1113,13 @@ impl_measurement_model_binding!(
             let af = angle_format
                 .map(|a| a.value)
                 .unwrap_or(constants::AngleFormat::Degrees);
-            validate_station_coords(station_lon, station_lat, af)?;
-            Ok(PyAzElRangeMeasurementModel {
-                model: estimation::AzElRangeMeasurementModel::new(
-                    station_lon, station_lat, station_alt,
-                    sigma_az, sigma_el, sigma_range, af,
-                )
-                .with_bias(bias_az, bias_el, bias_range),
-            })
+            let model = estimation::AzElRangeMeasurementModel::new(
+                station_lon, station_lat, station_alt,
+                sigma_az, sigma_el, sigma_range, af,
+            )
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?
+            .with_bias(bias_az, bias_el, bias_range);
+            Ok(PyAzElRangeMeasurementModel { model })
         }
 
         /// Create from a full 3x3 noise covariance matrix.
@@ -1179,7 +1146,6 @@ impl_measurement_model_binding!(
             let af = angle_format
                 .map(|a| a.value)
                 .unwrap_or(constants::AngleFormat::Degrees);
-            validate_station_coords(station_lon, station_lat, af)?;
             let shape = noise_cov.shape();
             let data = noise_cov.as_slice().map_err(|e| {
                 exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
@@ -1217,7 +1183,6 @@ impl_measurement_model_binding!(
             let af = angle_format
                 .map(|a| a.value)
                 .unwrap_or(constants::AngleFormat::Degrees);
-            validate_station_coords(station_lon, station_lat, af)?;
             let data = upper.as_slice().map_err(|e| {
                 exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
             })?;
@@ -1341,18 +1306,20 @@ impl PySimpleSSNSensor {
         Ok(PySimpleSSNSensor { sensor })
     }
 
-    /// Build sensors from all supported sites, skipping unsupported ones.
+    /// Build sensors from all constructible sites, skipping unsupported ones.
     ///
-    /// Sites that fail to construct (optical sites, sites without
-    /// calibration values) are skipped. When `seed` is provided, sensor `i`
-    /// is seeded with `seed + i` for reproducible measurement generation.
+    /// Sites that fail to construct (optical sites, unsupported `sensor_type`)
+    /// are skipped, but sites lacking calibration are still included with zero
+    /// noise. When `seed` is provided, sensor `i` is seeded with `seed + i` for
+    /// reproducible measurement generation. Use `from_locations_calibrated` to
+    /// keep only fully-calibrated sites.
     ///
     /// Args:
     ///     locations (list[PointLocation]): Candidate sites.
     ///     seed (int or None, optional): Optional base RNG seed.
     ///
     /// Returns:
-    ///     list[SimpleSSNSensor]: One sensor per supported site.
+    ///     list[SimpleSSNSensor]: One sensor per constructible site.
     ///
     /// Example:
     ///     ```python
@@ -1368,6 +1335,109 @@ impl PySimpleSSNSensor {
             .into_iter()
             .map(|sensor| PySimpleSSNSensor { sensor })
             .collect()
+    }
+
+    /// Build sensors from constructible, fully-calibrated sites only.
+    ///
+    /// Like `from_locations` but drops sites that did not supply all three
+    /// noise fields (`az/el/range`), i.e. sensors whose `calibrated` is False.
+    ///
+    /// Args:
+    ///     locations (list[PointLocation]): Candidate sites.
+    ///     seed (int or None, optional): Optional base RNG seed.
+    ///
+    /// Returns:
+    ///     list[SimpleSSNSensor]: One sensor per constructible, calibrated site.
+    #[staticmethod]
+    #[pyo3(signature = (locations, seed=None))]
+    fn from_locations_calibrated(
+        locations: Vec<PyRef<PyPointLocation>>,
+        seed: Option<u64>,
+    ) -> Vec<Self> {
+        let locs: Vec<_> = locations.iter().map(|l| l.location.clone()).collect();
+        estimation::SimpleSSNSensor::from_locations_calibrated(&locs, seed)
+            .into_iter()
+            .map(|sensor| PySimpleSSNSensor { sensor })
+            .collect()
+    }
+
+    /// Override the sensor's noise standard deviations.
+    ///
+    /// The derived `measurement_model` reads these values.
+    ///
+    /// Args:
+    ///     sigma_az_deg (float): Azimuth noise standard deviation (degrees).
+    ///     sigma_el_deg (float): Elevation noise standard deviation (degrees).
+    ///     sigma_range_m (float): Range noise standard deviation (meters).
+    ///
+    /// Returns:
+    ///     SimpleSSNSensor: The sensor with updated noise.
+    ///
+    /// Raises:
+    ///     ValueError: If any sigma is negative or non-finite.
+    fn with_noise(
+        &self,
+        sigma_az_deg: f64,
+        sigma_el_deg: f64,
+        sigma_range_m: f64,
+    ) -> PyResult<Self> {
+        let sensor = self
+            .sensor
+            .clone()
+            .with_noise(sigma_az_deg, sigma_el_deg, sigma_range_m)
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+        Ok(PySimpleSSNSensor { sensor })
+    }
+
+    /// Override the sensor's measurement bias.
+    ///
+    /// The derived `measurement_model` reads these values.
+    ///
+    /// Args:
+    ///     bias_az_deg (float): Azimuth bias (degrees).
+    ///     bias_el_deg (float): Elevation bias (degrees).
+    ///     bias_range_m (float): Range bias (meters).
+    ///
+    /// Returns:
+    ///     SimpleSSNSensor: The sensor with updated bias.
+    ///
+    /// Raises:
+    ///     ValueError: If any bias is non-finite.
+    fn with_bias(&self, bias_az_deg: f64, bias_el_deg: f64, bias_range_m: f64) -> PyResult<Self> {
+        let sensor = self
+            .sensor
+            .clone()
+            .with_bias(bias_az_deg, bias_el_deg, bias_range_m)
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+        Ok(PySimpleSSNSensor { sensor })
+    }
+
+    /// Add an extra field-of-view constraint (extension point).
+    ///
+    /// The constraint is evaluated by `visible` alongside the limits-derived
+    /// constraints, so users can extend visibility with arbitrary access
+    /// constraints (e.g. `ElevationConstraint`, `AzimuthConstraint`,
+    /// `RangeConstraint`, `LookDirectionConstraint`).
+    ///
+    /// Args:
+    ///     constraint: An access constraint object.
+    ///
+    /// Returns:
+    ///     SimpleSSNSensor: The sensor with the constraint appended.
+    fn with_constraint(&self, py: Python, constraint: Py<PyAny>) -> PyResult<Self> {
+        let rust_constraint = py_constraint_to_rust(py, constraint)?;
+        let sensor = self.sensor.clone().with_constraint(rust_constraint);
+        Ok(PySimpleSSNSensor { sensor })
+    }
+
+    /// Whether the sensor's site supplied full noise calibration.
+    ///
+    /// Returns:
+    ///     bool: True if all three noise fields were present; False for sensors
+    ///         loaded with default zero noise.
+    #[getter]
+    fn calibrated(&self) -> bool {
+        self.sensor.calibrated()
     }
 
     /// Whether a target is inside the sensor's field of view.

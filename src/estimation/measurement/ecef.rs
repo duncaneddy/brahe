@@ -28,7 +28,7 @@ use crate::time::Epoch;
 use crate::utils::errors::BraheError;
 
 // =============================================================================
-// EcefPositionMeasurementModel
+// ECEFPositionMeasurementModel
 // =============================================================================
 
 /// GNSS position measurement model (ECEF frame).
@@ -46,18 +46,19 @@ use crate::utils::errors::BraheError;
 /// # Examples
 ///
 /// ```no_run
-/// use brahe::estimation::{EcefPositionMeasurementModel, MeasurementModel};
+/// use brahe::estimation::{ECEFPositionMeasurementModel, MeasurementModel};
 ///
 /// // Isotropic 5m noise (typical GNSS accuracy)
-/// let model = EcefPositionMeasurementModel::new(5.0);
+/// let model = ECEFPositionMeasurementModel::new(5.0);
 /// assert_eq!(model.measurement_dim(), 3);
 /// ```
 #[derive(Clone, Debug)]
-pub struct EcefPositionMeasurementModel {
+#[allow(clippy::upper_case_acronyms)]
+pub struct ECEFPositionMeasurementModel {
     noise_cov: DMatrix<f64>,
 }
 
-impl EcefPositionMeasurementModel {
+impl ECEFPositionMeasurementModel {
     /// Create an ECEF position model with isotropic noise.
     ///
     /// # Arguments
@@ -91,7 +92,7 @@ impl EcefPositionMeasurementModel {
         let cov = validate_covariance(noise_cov)?;
         if cov.nrows() != 3 {
             return Err(BraheError::Error(format!(
-                "EcefPositionMeasurementModel requires 3x3 covariance, got {}x{}",
+                "ECEFPositionMeasurementModel requires 3x3 covariance, got {}x{}",
                 cov.nrows(),
                 cov.ncols()
             )));
@@ -114,7 +115,7 @@ impl EcefPositionMeasurementModel {
     }
 }
 
-impl MeasurementModel for EcefPositionMeasurementModel {
+impl MeasurementModel for ECEFPositionMeasurementModel {
     fn predict(
         &self,
         epoch: &Epoch,
@@ -123,7 +124,7 @@ impl MeasurementModel for EcefPositionMeasurementModel {
     ) -> Result<DVector<f64>, BraheError> {
         if state.len() < 3 {
             return Err(BraheError::Error(format!(
-                "EcefPositionMeasurementModel requires state dimension >= 3, got {}",
+                "ECEFPositionMeasurementModel requires state dimension >= 3, got {}",
                 state.len()
             )));
         }
@@ -155,7 +156,7 @@ impl MeasurementModel for EcefPositionMeasurementModel {
 }
 
 // =============================================================================
-// EcefVelocityMeasurementModel
+// ECEFVelocityMeasurementModel
 // =============================================================================
 
 /// GNSS velocity measurement model (ECEF frame).
@@ -170,18 +171,19 @@ impl MeasurementModel for EcefPositionMeasurementModel {
 /// # Examples
 ///
 /// ```no_run
-/// use brahe::estimation::{EcefVelocityMeasurementModel, MeasurementModel};
+/// use brahe::estimation::{ECEFVelocityMeasurementModel, MeasurementModel};
 ///
 /// // Isotropic 0.05 m/s noise
-/// let model = EcefVelocityMeasurementModel::new(0.05);
+/// let model = ECEFVelocityMeasurementModel::new(0.05);
 /// assert_eq!(model.measurement_dim(), 3);
 /// ```
 #[derive(Clone, Debug)]
-pub struct EcefVelocityMeasurementModel {
+#[allow(clippy::upper_case_acronyms)]
+pub struct ECEFVelocityMeasurementModel {
     noise_cov: DMatrix<f64>,
 }
 
-impl EcefVelocityMeasurementModel {
+impl ECEFVelocityMeasurementModel {
     /// Create an ECEF velocity model with isotropic noise.
     ///
     /// # Arguments
@@ -215,7 +217,7 @@ impl EcefVelocityMeasurementModel {
         let cov = validate_covariance(noise_cov)?;
         if cov.nrows() != 3 {
             return Err(BraheError::Error(format!(
-                "EcefVelocityMeasurementModel requires 3x3 covariance, got {}x{}",
+                "ECEFVelocityMeasurementModel requires 3x3 covariance, got {}x{}",
                 cov.nrows(),
                 cov.ncols()
             )));
@@ -238,7 +240,7 @@ impl EcefVelocityMeasurementModel {
     }
 }
 
-impl MeasurementModel for EcefVelocityMeasurementModel {
+impl MeasurementModel for ECEFVelocityMeasurementModel {
     fn predict(
         &self,
         epoch: &Epoch,
@@ -247,7 +249,7 @@ impl MeasurementModel for EcefVelocityMeasurementModel {
     ) -> Result<DVector<f64>, BraheError> {
         if state.len() < 6 {
             return Err(BraheError::Error(format!(
-                "EcefVelocityMeasurementModel requires state dimension >= 6, got {}",
+                "ECEFVelocityMeasurementModel requires state dimension >= 6, got {}",
                 state.len()
             )));
         }
@@ -279,7 +281,7 @@ impl MeasurementModel for EcefVelocityMeasurementModel {
 }
 
 // =============================================================================
-// EcefStateMeasurementModel
+// ECEFStateMeasurementModel
 // =============================================================================
 
 /// GNSS state measurement model (ECEF frame, position + velocity).
@@ -294,18 +296,19 @@ impl MeasurementModel for EcefVelocityMeasurementModel {
 /// # Examples
 ///
 /// ```no_run
-/// use brahe::estimation::{EcefStateMeasurementModel, MeasurementModel};
+/// use brahe::estimation::{ECEFStateMeasurementModel, MeasurementModel};
 ///
 /// // 5m position noise, 0.05 m/s velocity noise
-/// let model = EcefStateMeasurementModel::new(5.0, 0.05);
+/// let model = ECEFStateMeasurementModel::new(5.0, 0.05);
 /// assert_eq!(model.measurement_dim(), 6);
 /// ```
 #[derive(Clone, Debug)]
-pub struct EcefStateMeasurementModel {
+#[allow(clippy::upper_case_acronyms)]
+pub struct ECEFStateMeasurementModel {
     noise_cov: DMatrix<f64>,
 }
 
-impl EcefStateMeasurementModel {
+impl ECEFStateMeasurementModel {
     /// Create an ECEF state model with isotropic noise per component type.
     ///
     /// # Arguments
@@ -357,7 +360,7 @@ impl EcefStateMeasurementModel {
         let cov = validate_covariance(noise_cov)?;
         if cov.nrows() != 6 {
             return Err(BraheError::Error(format!(
-                "EcefStateMeasurementModel requires 6x6 covariance, got {}x{}",
+                "ECEFStateMeasurementModel requires 6x6 covariance, got {}x{}",
                 cov.nrows(),
                 cov.ncols()
             )));
@@ -379,7 +382,7 @@ impl EcefStateMeasurementModel {
     }
 }
 
-impl MeasurementModel for EcefStateMeasurementModel {
+impl MeasurementModel for ECEFStateMeasurementModel {
     fn predict(
         &self,
         epoch: &Epoch,
@@ -388,7 +391,7 @@ impl MeasurementModel for EcefStateMeasurementModel {
     ) -> Result<DVector<f64>, BraheError> {
         if state.len() < 6 {
             return Err(BraheError::Error(format!(
-                "EcefStateMeasurementModel requires state dimension >= 6, got {}",
+                "ECEFStateMeasurementModel requires state dimension >= 6, got {}",
                 state.len()
             )));
         }
@@ -446,7 +449,7 @@ mod tests {
     #[test]
     fn test_ecef_position_model_constructors() {
         // Isotropic
-        let m = EcefPositionMeasurementModel::new(5.0);
+        let m = ECEFPositionMeasurementModel::new(5.0);
         assert_eq!(m.measurement_dim(), 3);
         assert_eq!(m.name(), "EcefPosition");
         let r = m.noise_covariance();
@@ -456,7 +459,7 @@ mod tests {
         assert_abs_diff_eq!(r[(0, 1)], 0.0, epsilon = 1e-12);
 
         // Per-axis
-        let m = EcefPositionMeasurementModel::new_per_axis(1.0, 2.0, 3.0);
+        let m = ECEFPositionMeasurementModel::new_per_axis(1.0, 2.0, 3.0);
         let r = m.noise_covariance();
         assert_abs_diff_eq!(r[(0, 0)], 1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(r[(1, 1)], 4.0, epsilon = 1e-12);
@@ -464,13 +467,13 @@ mod tests {
 
         // From covariance
         let cov = DMatrix::from_diagonal(&DVector::from_vec(vec![4.0, 9.0, 16.0]));
-        let m = EcefPositionMeasurementModel::from_covariance(cov).unwrap();
+        let m = ECEFPositionMeasurementModel::from_covariance(cov).unwrap();
         let r = m.noise_covariance();
         assert_abs_diff_eq!(r[(0, 0)], 4.0, epsilon = 1e-12);
 
         // From upper triangular
         let m =
-            EcefPositionMeasurementModel::from_upper_triangular(&[4.0, 0.0, 0.0, 9.0, 0.0, 16.0])
+            ECEFPositionMeasurementModel::from_upper_triangular(&[4.0, 0.0, 0.0, 9.0, 0.0, 16.0])
                 .unwrap();
         let r = m.noise_covariance();
         assert_abs_diff_eq!(r[(2, 2)], 16.0, epsilon = 1e-12);
@@ -483,7 +486,7 @@ mod tests {
         let epoch = test_epoch();
         let state = test_eci_state();
 
-        let model = EcefPositionMeasurementModel::new(5.0);
+        let model = ECEFPositionMeasurementModel::new(5.0);
         let z = model.predict(&epoch, &state, None).unwrap();
         assert_eq!(z.len(), 3);
 
@@ -504,7 +507,7 @@ mod tests {
     fn test_ecef_position_model_from_covariance_wrong_dim() {
         // 2x2 instead of 3x3
         let cov = DMatrix::from_diagonal(&DVector::from_vec(vec![1.0, 1.0]));
-        let result = EcefPositionMeasurementModel::from_covariance(cov);
+        let result = ECEFPositionMeasurementModel::from_covariance(cov);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("3x3"));
     }
@@ -516,7 +519,7 @@ mod tests {
         let epoch = test_epoch();
         let state = test_eci_state();
 
-        let model = EcefPositionMeasurementModel::new(5.0);
+        let model = ECEFPositionMeasurementModel::new(5.0);
         let h = model.jacobian(&epoch, &state, None).unwrap();
 
         // H should be 3x6 (3 measurement dims, 6 state dims)
@@ -545,24 +548,24 @@ mod tests {
 
     #[test]
     fn test_ecef_velocity_model_constructors() {
-        let m = EcefVelocityMeasurementModel::new(0.05);
+        let m = ECEFVelocityMeasurementModel::new(0.05);
         assert_eq!(m.measurement_dim(), 3);
         assert_eq!(m.name(), "EcefVelocity");
         let r = m.noise_covariance();
         assert_abs_diff_eq!(r[(0, 0)], 0.0025, epsilon = 1e-12);
 
-        let m = EcefVelocityMeasurementModel::new_per_axis(0.01, 0.02, 0.03);
+        let m = ECEFVelocityMeasurementModel::new_per_axis(0.01, 0.02, 0.03);
         let r = m.noise_covariance();
         assert_abs_diff_eq!(r[(0, 0)], 0.0001, epsilon = 1e-12);
         assert_abs_diff_eq!(r[(1, 1)], 0.0004, epsilon = 1e-12);
         assert_abs_diff_eq!(r[(2, 2)], 0.0009, epsilon = 1e-12);
 
         let cov = DMatrix::from_diagonal(&DVector::from_vec(vec![0.01, 0.02, 0.03]));
-        let m = EcefVelocityMeasurementModel::from_covariance(cov).unwrap();
+        let m = ECEFVelocityMeasurementModel::from_covariance(cov).unwrap();
         assert_abs_diff_eq!(m.noise_covariance()[(2, 2)], 0.03, epsilon = 1e-12);
 
         let m =
-            EcefVelocityMeasurementModel::from_upper_triangular(&[0.01, 0.0, 0.0, 0.02, 0.0, 0.03])
+            ECEFVelocityMeasurementModel::from_upper_triangular(&[0.01, 0.0, 0.0, 0.02, 0.0, 0.03])
                 .unwrap();
         assert_abs_diff_eq!(m.noise_covariance()[(1, 1)], 0.02, epsilon = 1e-12);
     }
@@ -574,7 +577,7 @@ mod tests {
         let epoch = test_epoch();
         let state = test_eci_state();
 
-        let model = EcefVelocityMeasurementModel::new(0.05);
+        let model = ECEFVelocityMeasurementModel::new(0.05);
         let z = model.predict(&epoch, &state, None).unwrap();
         assert_eq!(z.len(), 3);
 
@@ -589,14 +592,14 @@ mod tests {
     #[test]
     fn test_ecef_velocity_model_from_covariance_wrong_dim() {
         let cov = DMatrix::from_diagonal(&DVector::from_vec(vec![1.0; 6]));
-        let result = EcefVelocityMeasurementModel::from_covariance(cov);
+        let result = ECEFVelocityMeasurementModel::from_covariance(cov);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("3x3"));
     }
 
     #[test]
     fn test_ecef_velocity_model_predict_short_state_errors() {
-        let model = EcefVelocityMeasurementModel::new(0.05);
+        let model = ECEFVelocityMeasurementModel::new(0.05);
         let short_state = DVector::from_vec(vec![1.0, 2.0, 3.0]); // only 3 elements
         let epoch = test_epoch();
         let result = model.predict(&epoch, &short_state, None);
@@ -610,7 +613,7 @@ mod tests {
 
     #[test]
     fn test_ecef_state_model_constructors() {
-        let m = EcefStateMeasurementModel::new(5.0, 0.05);
+        let m = ECEFStateMeasurementModel::new(5.0, 0.05);
         assert_eq!(m.measurement_dim(), 6);
         assert_eq!(m.name(), "EcefState");
         let r = m.noise_covariance();
@@ -618,13 +621,13 @@ mod tests {
         assert_abs_diff_eq!(r[(0, 0)], 25.0, epsilon = 1e-12);
         assert_abs_diff_eq!(r[(3, 3)], 0.0025, epsilon = 1e-12);
 
-        let m = EcefStateMeasurementModel::new_per_axis(1.0, 2.0, 3.0, 0.1, 0.2, 0.3);
+        let m = ECEFStateMeasurementModel::new_per_axis(1.0, 2.0, 3.0, 0.1, 0.2, 0.3);
         let r = m.noise_covariance();
         assert_abs_diff_eq!(r[(0, 0)], 1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(r[(5, 5)], 0.09, epsilon = 1e-12);
 
         let cov = DMatrix::from_diagonal(&DVector::from_vec(vec![1.0; 6]));
-        let m = EcefStateMeasurementModel::from_covariance(cov).unwrap();
+        let m = ECEFStateMeasurementModel::from_covariance(cov).unwrap();
         assert_eq!(m.noise_covariance().nrows(), 6);
 
         let upper: Vec<f64> = vec![
@@ -635,7 +638,7 @@ mod tests {
             1.0, 0.0, // row 4
             1.0, // row 5
         ];
-        let m = EcefStateMeasurementModel::from_upper_triangular(&upper).unwrap();
+        let m = ECEFStateMeasurementModel::from_upper_triangular(&upper).unwrap();
         assert_eq!(m.noise_covariance().nrows(), 6);
     }
 
@@ -646,7 +649,7 @@ mod tests {
         let epoch = test_epoch();
         let state = test_eci_state();
 
-        let model = EcefStateMeasurementModel::new(5.0, 0.05);
+        let model = ECEFStateMeasurementModel::new(5.0, 0.05);
         let z = model.predict(&epoch, &state, None).unwrap();
         assert_eq!(z.len(), 6);
 
@@ -661,14 +664,14 @@ mod tests {
     #[test]
     fn test_ecef_state_model_from_covariance_wrong_dim() {
         let cov = DMatrix::from_diagonal(&DVector::from_vec(vec![1.0; 3]));
-        let result = EcefStateMeasurementModel::from_covariance(cov);
+        let result = ECEFStateMeasurementModel::from_covariance(cov);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("6x6"));
     }
 
     #[test]
     fn test_ecef_state_model_predict_short_state_errors() {
-        let model = EcefStateMeasurementModel::new(5.0, 0.05);
+        let model = ECEFStateMeasurementModel::new(5.0, 0.05);
         let short_state = DVector::from_vec(vec![1.0, 2.0, 3.0]); // only 3 elements
         let epoch = test_epoch();
         let result = model.predict(&epoch, &short_state, None);

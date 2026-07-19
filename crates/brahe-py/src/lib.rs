@@ -1308,6 +1308,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Constraints
     module.add_class::<PyElevationConstraint>()?;
+    module.add_class::<PyAzimuthConstraint>()?;
+    module.add_class::<PyRangeConstraint>()?;
     module.add_class::<PyElevationMaskConstraint>()?;
     module.add_class::<PyOffNadirConstraint>()?;
     module.add_class::<PyLocalTimeConstraint>()?;

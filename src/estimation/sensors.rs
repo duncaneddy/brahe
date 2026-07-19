@@ -14,19 +14,25 @@
  * the estimator uses the same noise covariance and bias as the simulation.
  */
 
-use nalgebra::{DVector, Vector3};
+use std::sync::Arc;
+
+use nalgebra::{DVector, Vector3, Vector6};
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rand_distr::{Distribution, Normal};
 
+use crate::access::constraints::{
+    AccessConstraint, AzimuthConstraint, ElevationConstraint, RangeConstraint,
+};
 use crate::access::location::{AccessibleLocation, PointLocation};
 use crate::constants::AngleFormat;
 use crate::coordinates::{
-    EllipsoidalConversionType, position_sez_to_azel, relative_position_ecef_to_sez,
+    EllipsoidalConversionType, position_enz_to_azel, relative_position_ecef_to_enz,
 };
 use crate::estimation::measurement::AzElRangeMeasurementModel;
 use crate::estimation::types::Observation;
-use crate::frames::position_eci_to_ecef;
+use crate::frames::{position_eci_to_ecef, state_eci_to_ecef};
+use crate::math::linalg::SVector6;
 use crate::time::Epoch;
 use crate::traits::InterpolatableTrajectory;
 use crate::utils::errors::BraheError;
@@ -92,9 +98,9 @@ fn get_f64_property(location: &PointLocation, key: &str) -> Option<f64> {
 ///
 /// let sites = load_ssn_sensors().unwrap();
 /// let sensors = SimpleSSNSensor::from_locations(&sites, Some(42));
-/// assert_eq!(sensors.len(), 13);
+/// assert_eq!(sensors.len(), 15);
 /// ```
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct SimpleSSNSensor {
     name: String,
     location: PointLocation,
@@ -106,7 +112,36 @@ pub struct SimpleSSNSensor {
     range_max: Option<f64>,
     bias: Vector3<f64>,
     noise: Vector3<f64>,
+    /// Whether the site supplied all three noise fields (`az/el/range`). Sites
+    /// loaded with default zero noise are `false`.
+    calibrated: bool,
+    /// Field-of-view constraints, built at construction from the sensor's
+    /// limits and evaluated by [`visible`](Self::visible). Stored behind `Arc`
+    /// so the sensor stays cloneable (the Python builder methods rely on it).
+    constraints: Vec<Arc<dyn AccessConstraint>>,
     rng: StdRng,
+}
+
+impl std::fmt::Debug for SimpleSSNSensor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SimpleSSNSensor")
+            .field("name", &self.name)
+            .field("az_min", &self.az_min)
+            .field("az_max", &self.az_max)
+            .field("el_min", &self.el_min)
+            .field("el_max", &self.el_max)
+            .field("range_max", &self.range_max)
+            .field("calibrated", &self.calibrated)
+            .field(
+                "constraints",
+                &self
+                    .constraints
+                    .iter()
+                    .map(|c| c.name())
+                    .collect::<Vec<_>>(),
+            )
+            .finish()
+    }
 }
 
 impl SimpleSSNSensor {
@@ -170,6 +205,23 @@ impl SimpleSSNSensor {
 
         let station_ecef = location.center_ecef();
         let name = location.get_name().unwrap_or("SSNSensor").to_string();
+
+        // Build the field-of-view constraints from the sensor's limits. The
+        // elevation cut is always meaningful (rejects below-horizon targets);
+        // the azimuth window is skipped when fully open (0–360°), and the
+        // range cap is added only when a maximum range is set.
+        let mut constraints: Vec<Arc<dyn AccessConstraint>> = Vec::new();
+        constraints.push(Arc::new(ElevationConstraint::new(
+            Some(el_min),
+            Some(el_max),
+        )?));
+        if !(az_min <= 0.0 && az_max >= 360.0) {
+            constraints.push(Arc::new(AzimuthConstraint::new(az_min, az_max)?));
+        }
+        if let Some(rmax) = range_max {
+            constraints.push(Arc::new(RangeConstraint::new(None, Some(rmax))?));
+        }
+
         Ok(Self {
             name,
             location,
@@ -181,15 +233,20 @@ impl SimpleSSNSensor {
             range_max,
             bias: Vector3::new(bias[0], bias[1], bias[2]),
             noise: Vector3::new(noise[0], noise[1], noise[2]),
+            calibrated: true,
+            constraints,
             rng: StdRng::from_os_rng(),
         })
     }
 
     /// Build a sensor from a dataset site's properties.
     ///
-    /// Requires `sensor_type == "azel_range"` and the three noise fields
-    /// (`az_noise_deg`, `el_noise_deg`, `range_noise_m`). Bias fields
-    /// default to zero when absent; limits default to an open field of view
+    /// Requires `sensor_type == "azel_range"`. The three noise fields
+    /// (`az_noise_deg`, `el_noise_deg`, `range_noise_m`) default to **zero**
+    /// noise when absent, and the sensor is flagged as uncalibrated
+    /// ([`calibrated`](Self::calibrated) returns `false`); supply calibration
+    /// afterwards with [`with_noise`](Self::with_noise). Bias fields default
+    /// to zero when absent; limits default to an open field of view
     /// (azimuth 0–360°, elevation 0–90°, unlimited range).
     ///
     /// # Arguments
@@ -219,18 +276,14 @@ impl SimpleSSNSensor {
         let noise_az = get_f64_property(location, "az_noise_deg");
         let noise_el = get_f64_property(location, "el_noise_deg");
         let noise_range = get_f64_property(location, "range_noise_m");
-        let (noise_az, noise_el, noise_range) = match (noise_az, noise_el, noise_range) {
-            (Some(a), Some(e), Some(r)) => (a, e, r),
-            _ => {
-                return Err(BraheError::Error(format!(
-                    "Site '{}' is missing noise properties \
-                     (az_noise_deg, el_noise_deg, range_noise_m)",
-                    name
-                )));
-            }
+        // Sites lacking any noise field load with zero noise and are flagged
+        // as uncalibrated rather than erroring.
+        let (noise, calibrated) = match (noise_az, noise_el, noise_range) {
+            (Some(a), Some(e), Some(r)) => ([a, e, r], true),
+            _ => ([0.0, 0.0, 0.0], false),
         };
 
-        Self::new(
+        let mut sensor = Self::new(
             location.clone(),
             get_f64_property(location, "az_min_deg").unwrap_or(0.0),
             get_f64_property(location, "az_max_deg").unwrap_or(360.0),
@@ -242,16 +295,20 @@ impl SimpleSSNSensor {
                 get_f64_property(location, "el_bias_deg").unwrap_or(0.0),
                 get_f64_property(location, "range_bias_m").unwrap_or(0.0),
             ],
-            [noise_az, noise_el, noise_range],
-        )
+            noise,
+        )?;
+        sensor.calibrated = calibrated;
+        Ok(sensor)
     }
 
-    /// Build sensors from all supported sites, skipping unsupported ones.
+    /// Build sensors from all constructible sites, skipping unsupported ones.
     ///
-    /// Sites that fail [`from_location`](Self::from_location) (optical
-    /// sites, sites without calibration values) are skipped. When `seed`
-    /// is provided, sensor `i` is seeded with `seed + i` for reproducible
-    /// measurement generation.
+    /// Sites that fail [`from_location`](Self::from_location) (optical sites,
+    /// unsupported `sensor_type`) are skipped, but sites lacking calibration
+    /// are still included with zero noise. When `seed` is provided, sensor
+    /// `i` is seeded with `seed + i` for reproducible measurement generation.
+    /// Use [`from_locations_calibrated`](Self::from_locations_calibrated) to
+    /// keep only fully-calibrated sites.
     ///
     /// # Arguments
     ///
@@ -260,17 +317,171 @@ impl SimpleSSNSensor {
     ///
     /// # Returns
     ///
-    /// One sensor per supported site.
+    /// One sensor per constructible site.
     pub fn from_locations(locations: &[PointLocation], seed: Option<u64>) -> Vec<Self> {
+        Self::build_sensors(locations, seed, false)
+    }
+
+    /// Build sensors from constructible, fully-calibrated sites only.
+    ///
+    /// Like [`from_locations`](Self::from_locations) but drops sites that did
+    /// not supply all three noise fields (`az/el/range`), i.e. sensors for
+    /// which [`calibrated`](Self::calibrated) would be `false`.
+    ///
+    /// # Arguments
+    ///
+    /// * `locations` - Candidate sites
+    /// * `seed` - Optional base RNG seed
+    ///
+    /// # Returns
+    ///
+    /// One sensor per constructible, fully-calibrated site.
+    pub fn from_locations_calibrated(locations: &[PointLocation], seed: Option<u64>) -> Vec<Self> {
+        Self::build_sensors(locations, seed, true)
+    }
+
+    /// Shared builder for [`from_locations`](Self::from_locations) and
+    /// [`from_locations_calibrated`](Self::from_locations_calibrated).
+    fn build_sensors(
+        locations: &[PointLocation],
+        seed: Option<u64>,
+        calibrated_only: bool,
+    ) -> Vec<Self> {
         locations
             .iter()
             .filter_map(|loc| Self::from_location(loc).ok())
+            .filter(|sensor| !calibrated_only || sensor.calibrated)
             .enumerate()
             .map(|(i, sensor)| match seed {
                 Some(s) => sensor.with_seed(s + i as u64),
                 None => sensor,
             })
             .collect()
+    }
+
+    /// Whether the sensor's site supplied full noise calibration.
+    ///
+    /// # Returns
+    ///
+    /// `true` if all three noise fields were present; `false` for sensors
+    /// loaded with default zero noise.
+    pub fn calibrated(&self) -> bool {
+        self.calibrated
+    }
+
+    /// Override the sensor's noise standard deviations.
+    ///
+    /// The derived [`measurement_model`](Self::measurement_model) reads these
+    /// values, so the override flows through to filter-side consistency.
+    ///
+    /// # Arguments
+    ///
+    /// * `sigma_az_deg` - Azimuth noise standard deviation (degrees)
+    /// * `sigma_el_deg` - Elevation noise standard deviation (degrees)
+    /// * `sigma_range_m` - Range noise standard deviation (meters)
+    ///
+    /// # Returns
+    ///
+    /// The sensor with updated noise, or an error if any sigma is negative or
+    /// non-finite.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any noise component is negative or non-finite.
+    pub fn with_noise(
+        mut self,
+        sigma_az_deg: f64,
+        sigma_el_deg: f64,
+        sigma_range_m: f64,
+    ) -> Result<Self, BraheError> {
+        for (label, sigma) in [
+            ("azimuth", sigma_az_deg),
+            ("elevation", sigma_el_deg),
+            ("range", sigma_range_m),
+        ] {
+            if !sigma.is_finite() || sigma < 0.0 {
+                return Err(BraheError::Error(format!(
+                    "SimpleSSNSensor {} noise sigma must be finite and non-negative, got {}",
+                    label, sigma
+                )));
+            }
+        }
+        self.noise = Vector3::new(sigma_az_deg, sigma_el_deg, sigma_range_m);
+        Ok(self)
+    }
+
+    /// Override the sensor's measurement bias.
+    ///
+    /// The derived [`measurement_model`](Self::measurement_model) reads these
+    /// values.
+    ///
+    /// # Arguments
+    ///
+    /// * `bias_az_deg` - Azimuth bias (degrees)
+    /// * `bias_el_deg` - Elevation bias (degrees)
+    /// * `bias_range_m` - Range bias (meters)
+    ///
+    /// # Returns
+    ///
+    /// The sensor with updated bias, or an error if any bias is non-finite.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any bias component is non-finite.
+    pub fn with_bias(
+        mut self,
+        bias_az_deg: f64,
+        bias_el_deg: f64,
+        bias_range_m: f64,
+    ) -> Result<Self, BraheError> {
+        for (label, b) in [
+            ("azimuth", bias_az_deg),
+            ("elevation", bias_el_deg),
+            ("range", bias_range_m),
+        ] {
+            if !b.is_finite() {
+                return Err(BraheError::Error(format!(
+                    "SimpleSSNSensor {} bias must be finite, got {}",
+                    label, b
+                )));
+            }
+        }
+        self.bias = Vector3::new(bias_az_deg, bias_el_deg, bias_range_m);
+        Ok(self)
+    }
+
+    /// Add an extra field-of-view constraint (extension point).
+    ///
+    /// The constraint is evaluated by [`visible`](Self::visible) alongside the
+    /// limits-derived constraints, so users can extend visibility with
+    /// arbitrary [`AccessConstraint`] implementations.
+    ///
+    /// # Arguments
+    ///
+    /// * `constraint` - Additional constraint to enforce
+    ///
+    /// # Returns
+    ///
+    /// The sensor with the constraint appended.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::access::{LookDirectionConstraint, LookDirection};
+    /// use brahe::access::location::PointLocation;
+    /// use brahe::estimation::SimpleSSNSensor;
+    ///
+    /// let loc = PointLocation::new(-71.49, 42.62, 123.1).with_name("Millstone");
+    /// let sensor = SimpleSSNSensor::new(
+    ///     loc, 0.0, 360.0, 5.0, 90.0, None, [0.0; 3], [0.01, 0.01, 100.0],
+    /// )
+    /// .unwrap()
+    /// .with_constraint(Box::new(LookDirectionConstraint::new(LookDirection::Right)));
+    /// let _ = sensor;
+    /// ```
+    pub fn with_constraint(mut self, constraint: Box<dyn AccessConstraint>) -> Self {
+        self.constraints.push(Arc::from(constraint));
+        self
     }
 
     /// Seed the sensor's noise RNG for reproducible measurements.
@@ -312,46 +523,61 @@ impl SimpleSSNSensor {
         );
         let pos_eci = Vector3::new(state_eci[0], state_eci[1], state_eci[2]);
         let pos_ecef = position_eci_to_ecef(*epoch, pos_eci);
-        let sez = relative_position_ecef_to_sez(
+        let enz = relative_position_ecef_to_enz(
             self.station_ecef,
             pos_ecef,
             EllipsoidalConversionType::Geodetic,
         );
-        position_sez_to_azel(sez, AngleFormat::Degrees)
-    }
-
-    /// Whether the azimuth window contains an azimuth (wrap-aware).
-    fn az_window_contains(&self, az: f64) -> bool {
-        if self.az_min <= self.az_max {
-            az >= self.az_min && az <= self.az_max
-        } else {
-            az >= self.az_min || az <= self.az_max
-        }
+        position_enz_to_azel(enz, AngleFormat::Degrees)
     }
 
     /// Whether a target is inside the sensor's field of view.
     ///
-    /// Checks elevation limits, the wrap-aware azimuth window, and maximum
-    /// range.
+    /// Converts the target ECI state to ECEF once and evaluates every
+    /// configured [`AccessConstraint`] (the limits-derived elevation/azimuth/
+    /// range constraints plus any added via
+    /// [`with_constraint`](Self::with_constraint)).
     ///
     /// # Arguments
     ///
     /// * `epoch` - Measurement epoch
-    /// * `state_eci` - Target ECI state (meters)
+    /// * `state_eci` - Target ECI state (meters); the full 6-vector is used
+    ///   when present, otherwise position with zero velocity
     ///
     /// # Returns
     ///
-    /// `true` if the target is within the field of view.
+    /// `true` if the target satisfies every constraint.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `state_eci` has fewer than 3 elements, matching
+    /// [`azelrange`](Self::azelrange).
     pub fn visible(&self, epoch: &Epoch, state_eci: &DVector<f64>) -> bool {
-        let azel = self.azelrange(epoch, state_eci);
-        self.in_fov(&azel)
-    }
-
-    fn in_fov(&self, azel: &Vector3<f64>) -> bool {
-        azel[1] >= self.el_min
-            && azel[1] <= self.el_max
-            && self.az_window_contains(azel[0])
-            && self.range_max.is_none_or(|rmax| azel[2] <= rmax)
+        assert!(
+            state_eci.len() >= 3,
+            "SimpleSSNSensor requires a state vector with at least 3 elements, got {}",
+            state_eci.len()
+        );
+        let state_ecef: Vector6<f64> = if state_eci.len() >= 6 {
+            let state = SVector6::new(
+                state_eci[0],
+                state_eci[1],
+                state_eci[2],
+                state_eci[3],
+                state_eci[4],
+                state_eci[5],
+            );
+            state_eci_to_ecef(*epoch, state)
+        } else {
+            let pos_ecef = position_eci_to_ecef(
+                *epoch,
+                Vector3::new(state_eci[0], state_eci[1], state_eci[2]),
+            );
+            Vector6::new(pos_ecef[0], pos_ecef[1], pos_ecef[2], 0.0, 0.0, 0.0)
+        };
+        self.constraints
+            .iter()
+            .all(|c| c.evaluate(epoch, &state_ecef, &self.station_ecef))
     }
 
     /// Generate one measurement if the target is visible (step-wise API).
@@ -369,10 +595,10 @@ impl SimpleSSNSensor {
     ///
     /// `Some([az_deg, el_deg, range_m])` when visible, `None` otherwise.
     pub fn measure(&mut self, epoch: &Epoch, state_eci: &DVector<f64>) -> Option<DVector<f64>> {
-        let azel = self.azelrange(epoch, state_eci);
-        if !self.in_fov(&azel) {
+        if !self.visible(epoch, state_eci) {
             return None;
         }
+        let azel = self.azelrange(epoch, state_eci);
         let mut z = DVector::zeros(3);
         for i in 0..3 {
             let n = Normal::new(0.0, self.noise[i]).unwrap();
@@ -450,6 +676,9 @@ impl SimpleSSNSensor {
             self.noise[2],
             AngleFormat::Degrees,
         )
+        // The sensor's location was validated at `PointLocation` construction,
+        // so the station coordinates are always valid here.
+        .expect("sensor location produces a valid measurement model")
         .with_bias(self.bias[0], self.bias[1], self.bias[2])
     }
 
@@ -496,10 +725,11 @@ mod tests {
     use crate::coordinates::position_geodetic_to_ecef;
     use crate::datasets::ssn_sensors::load_ssn_sensors;
     use crate::eop::{EOPExtrapolation, FileEOPProvider, set_global_eop_provider};
+    use crate::estimation::MeasurementModel;
     use crate::frames::position_ecef_to_eci;
     use crate::time::TimeSystem;
     use approx::assert_abs_diff_eq;
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
 
     fn setup_global_test_eop() {
         let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
@@ -515,6 +745,33 @@ mod tests {
         let ecef =
             position_geodetic_to_ecef(Vector3::new(lon, lat, alt), AngleFormat::Degrees).unwrap();
         let eci = position_ecef_to_eci(epoch, ecef);
+        DVector::from_vec(vec![eci[0], eci[1], eci[2], 0.0, 0.0, 0.0])
+    }
+
+    /// ECI state at a given azimuth/elevation/range from a station, for
+    /// wrap-window visibility tests.
+    fn state_at_azel(
+        epoch: Epoch,
+        lon: f64,
+        lat: f64,
+        alt: f64,
+        az_deg: f64,
+        el_deg: f64,
+        range_m: f64,
+    ) -> DVector<f64> {
+        use crate::coordinates::relative_position_enz_to_ecef;
+        let station =
+            position_geodetic_to_ecef(Vector3::new(lon, lat, alt), AngleFormat::Degrees).unwrap();
+        let (az, el) = (az_deg.to_radians(), el_deg.to_radians());
+        let e = range_m * el.cos() * az.sin();
+        let n = range_m * el.cos() * az.cos();
+        let z = range_m * el.sin();
+        let sat_ecef = relative_position_enz_to_ecef(
+            station,
+            Vector3::new(e, n, z),
+            EllipsoidalConversionType::Geodetic,
+        );
+        let eci = position_ecef_to_eci(epoch, sat_ecef);
         DVector::from_vec(vec![eci[0], eci[1], eci[2], 0.0, 0.0, 0.0])
     }
 
@@ -534,6 +791,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_new_rejects_negative_noise() {
         let loc = PointLocation::new(-71.49, 42.62, 123.1).with_name("BadNoise");
         let result = SimpleSSNSensor::new(
@@ -557,9 +815,15 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_az_window_wrap() {
-        // Cape-Cod-style window 347 -> 227 crossing north
-        let loc = PointLocation::new(-70.54, 41.75, 80.3).with_name("CapeCod");
+        // The wrap-aware azimuth window is now enforced by the AzimuthConstraint
+        // built from the sensor's limits and evaluated in `visible`. Cape-Cod-
+        // style window 347 -> 227 crossing north, elevation 3-80.
+        setup_global_test_eop();
+        let epoch = test_epoch();
+        let (lon, lat, alt) = (-70.54, 41.75, 80.3);
+        let loc = PointLocation::new(lon, lat, alt).with_name("CapeCod");
         let sensor = SimpleSSNSensor::new(
             loc,
             347.0,
@@ -571,13 +835,26 @@ mod tests {
             [0.01, 0.01, 10.0],
         )
         .unwrap();
-        assert!(sensor.az_window_contains(0.0));
-        assert!(sensor.az_window_contains(350.0));
-        assert!(sensor.az_window_contains(100.0));
-        assert!(!sensor.az_window_contains(300.0));
-        assert!(!sensor.az_window_contains(250.0));
+        // Azimuths inside the wrap window (north, north-east) are visible.
+        assert!(sensor.visible(
+            &epoch,
+            &state_at_azel(epoch, lon, lat, alt, 0.0, 30.0, 1000e3)
+        ));
+        assert!(sensor.visible(
+            &epoch,
+            &state_at_azel(epoch, lon, lat, alt, 100.0, 30.0, 1000e3)
+        ));
+        // Azimuths outside the wrap window (south, south-west) are not.
+        assert!(!sensor.visible(
+            &epoch,
+            &state_at_azel(epoch, lon, lat, alt, 300.0, 30.0, 1000e3)
+        ));
+        assert!(!sensor.visible(
+            &epoch,
+            &state_at_azel(epoch, lon, lat, alt, 250.0, 30.0, 1000e3)
+        ));
 
-        // Non-wrapping window
+        // Non-wrapping window (Eglin 145-215): due-south visible, due-east not.
         let loc2 = PointLocation::new(-86.21, 30.57, 34.7).with_name("Eglin");
         let s2 = SimpleSSNSensor::new(
             loc2,
@@ -590,8 +867,14 @@ mod tests {
             [0.01, 0.01, 10.0],
         )
         .unwrap();
-        assert!(s2.az_window_contains(180.0));
-        assert!(!s2.az_window_contains(90.0));
+        assert!(s2.visible(
+            &epoch,
+            &state_at_azel(epoch, -86.21, 30.57, 34.7, 180.0, 30.0, 1000e3)
+        ));
+        assert!(!s2.visible(
+            &epoch,
+            &state_at_azel(epoch, -86.21, 30.57, 34.7, 90.0, 30.0, 1000e3)
+        ));
     }
 
     #[test]
@@ -657,6 +940,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_from_location_dataset_roundtrip() {
         let sites = load_ssn_sensors().unwrap();
         let eglin = sites
@@ -669,6 +953,7 @@ mod tests {
         assert_eq!(sensor.az_max(), 215.0);
         assert_eq!(sensor.el_min(), 1.0);
         assert_eq!(sensor.range_max(), Some(13_210_000.0));
+        assert!(sensor.calibrated());
 
         // Optical site is rejected with a clear error
         let socorro = sites
@@ -677,12 +962,14 @@ mod tests {
             .unwrap();
         assert!(SimpleSSNSensor::from_location(socorro).is_err());
 
-        // Haystack (no calibration) is rejected
+        // Haystack (no calibration) now constructs with zero noise, flagged
+        // uncalibrated instead of erroring.
         let haystack = sites
             .iter()
             .find(|s| s.get_name() == Some("Haystack"))
             .unwrap();
-        assert!(SimpleSSNSensor::from_location(haystack).is_err());
+        let haystack_sensor = SimpleSSNSensor::from_location(haystack).unwrap();
+        assert!(!haystack_sensor.calibrated());
 
         // Shemya constructs with open limits
         let shemya = sites
@@ -696,11 +983,58 @@ mod tests {
     }
 
     #[test]
-    fn test_from_locations_skips_unsupported() {
+    #[parallel]
+    fn test_from_locations_returns_all_constructible() {
         let sites = load_ssn_sensors().unwrap();
         let sensors = SimpleSSNSensor::from_locations(&sites, Some(7));
-        // 15 azel_range sites minus HAX and Haystack (no calibration) = 13
+        // All 15 azel_range sites (incl. HAX + Haystack with zero noise).
+        assert_eq!(sensors.len(), 15);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_from_locations_calibrated_only() {
+        let sites = load_ssn_sensors().unwrap();
+        let sensors = SimpleSSNSensor::from_locations_calibrated(&sites, Some(7));
+        // 15 azel_range sites minus HAX and Haystack (no calibration) = 13.
         assert_eq!(sensors.len(), 13);
+        assert!(sensors.iter().all(|s| s.calibrated()));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_hax_loads_with_zero_noise() {
+        let sites = load_ssn_sensors().unwrap();
+        let hax = sites.iter().find(|s| s.get_name() == Some("HAX")).unwrap();
+        let sensor = SimpleSSNSensor::from_location(hax).unwrap();
+        assert!(!sensor.calibrated());
+        // The derived measurement model carries zero noise covariance.
+        let r = sensor.measurement_model().noise_covariance();
+        assert_abs_diff_eq!(r[(0, 0)], 0.0, epsilon = 1e-15);
+        assert_abs_diff_eq!(r[(1, 1)], 0.0, epsilon = 1e-15);
+        assert_abs_diff_eq!(r[(2, 2)], 0.0, epsilon = 1e-15);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_with_noise_override_flows_to_measurement_model() {
+        let sites = load_ssn_sensors().unwrap();
+        let hax = sites.iter().find(|s| s.get_name() == Some("HAX")).unwrap();
+        let sensor = SimpleSSNSensor::from_location(hax)
+            .unwrap()
+            .with_noise(0.05, 0.06, 120.0)
+            .unwrap();
+        let r = sensor.measurement_model().noise_covariance();
+        assert_abs_diff_eq!(r[(0, 0)], 0.05_f64.powi(2), epsilon = 1e-12);
+        assert_abs_diff_eq!(r[(1, 1)], 0.06_f64.powi(2), epsilon = 1e-12);
+        assert_abs_diff_eq!(r[(2, 2)], 120.0_f64.powi(2), epsilon = 1e-9);
+        // Negative sigma is rejected.
+        assert!(
+            SimpleSSNSensor::from_location(hax)
+                .unwrap()
+                .with_noise(-1.0, 0.0, 0.0)
+                .is_err()
+        );
     }
 
     #[test]
@@ -713,7 +1047,6 @@ mod tests {
         let state = state_above(epoch, -71.0, 43.0, 700e3);
 
         // Model prediction must equal true geometry + bias
-        use crate::estimation::MeasurementModel;
         let z_model = model.predict(&epoch, &state, None).unwrap();
         let truth = sensor.azelrange(&epoch, &state);
         assert_abs_diff_eq!(z_model[0], truth[0] + 0.01, epsilon = 1e-9);
@@ -795,6 +1128,28 @@ mod tests {
     }
 
     #[test]
+    #[serial]
+    fn test_with_constraint_rejects_everything() {
+        // A user-supplied constraint that always fails must make the target
+        // invisible, so `measure` returns None even when the standard limits
+        // would admit it.
+        setup_global_test_eop();
+        let epoch = test_epoch();
+        let state = state_above(epoch, -71.49, 42.62, 500e3);
+
+        // Baseline: visible without the extra constraint.
+        let mut baseline = test_sensor().with_seed(1);
+        assert!(baseline.measure(&epoch, &state).is_some());
+
+        // An impossible elevation window (>= 91°) rejects everything.
+        let reject_all = Box::new(ElevationConstraint::new(Some(91.0), None).unwrap());
+        let mut sensor = test_sensor().with_seed(1).with_constraint(reject_all);
+        assert!(!sensor.visible(&epoch, &state));
+        assert!(sensor.measure(&epoch, &state).is_none());
+    }
+
+    #[test]
+    #[parallel]
     fn test_sensor_type_from_str_name_unknown_errors() {
         // An unrecognized sensor_type value must error, naming the supported
         // values.
@@ -803,6 +1158,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_new_rejects_non_finite_bias() {
         // A non-finite bias component must be rejected at construction.
         let loc = PointLocation::new(-71.49, 42.62, 123.1).with_name("BadBias");
@@ -827,6 +1183,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_from_location_missing_sensor_type_errors() {
         // A bare location with no properties has no sensor_type; from_location
         // must error naming the missing property.
@@ -836,15 +1193,17 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_from_locations_no_seed_branch() {
         // With seed = None the sensors keep their OS-seeded RNGs; the count of
-        // supported sites is unchanged from the seeded case.
+        // constructible sites is unchanged from the seeded case.
         let sites = load_ssn_sensors().unwrap();
         let sensors = SimpleSSNSensor::from_locations(&sites, None);
-        assert_eq!(sensors.len(), 13);
+        assert_eq!(sensors.len(), 15);
     }
 
     #[test]
+    #[parallel]
     fn test_location_and_el_max_accessors() {
         let sensor = test_sensor();
         assert_eq!(sensor.location().get_name(), Some("TestSensor"));

@@ -45,7 +45,7 @@ fn main() {
 
     // Build sensors from the Vallado SSN dataset (radar sites with calibration)
     let sites = load_ssn_sensors().unwrap();
-    let mut sensors = SimpleSSNSensor::from_locations(&sites, Some(seed));
+    let mut sensors = SimpleSSNSensor::from_locations_calibrated(&sites, Some(seed));
     println!(
         "Loaded {} SSN sites, {} az/el/range sensors",
         sites.len(),

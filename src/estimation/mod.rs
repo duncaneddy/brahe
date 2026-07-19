@@ -27,9 +27,9 @@
  * - [`InertialStateMeasurementModel`]: 6D inertial state
  *
  * **GNSS (ECEF) frame** — receiver outputs with ECI→ECEF conversion:
- * - [`EcefPositionMeasurementModel`]: 3D ECEF position (meters)
- * - [`EcefVelocityMeasurementModel`]: 3D ECEF velocity (m/s)
- * - [`EcefStateMeasurementModel`]: 6D ECEF state
+ * - [`ECEFPositionMeasurementModel`]: 3D ECEF position (meters)
+ * - [`ECEFVelocityMeasurementModel`]: 3D ECEF velocity (m/s)
+ * - [`ECEFStateMeasurementModel`]: 6D ECEF state
  *
  * **Topocentric (SEZ) frame** — ground-sensor observations:
  * - [`AzElRangeMeasurementModel`]: Azimuth/elevation/range for ground sensors
@@ -55,8 +55,8 @@ pub use config::{
 pub use dynamics_source::DynamicsSource;
 pub use ekf::ExtendedKalmanFilter;
 pub use measurement::{
-    AzElRangeMeasurementModel, EcefPositionMeasurementModel, EcefStateMeasurementModel,
-    EcefVelocityMeasurementModel, InertialPositionMeasurementModel, InertialStateMeasurementModel,
+    AzElRangeMeasurementModel, ECEFPositionMeasurementModel, ECEFStateMeasurementModel,
+    ECEFVelocityMeasurementModel, InertialPositionMeasurementModel, InertialStateMeasurementModel,
     InertialVelocityMeasurementModel,
 };
 pub use sensors::{SensorType, SimpleSSNSensor};

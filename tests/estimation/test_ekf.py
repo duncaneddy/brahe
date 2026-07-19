@@ -246,10 +246,10 @@ def test_ekf_propagate_to(two_body_leo):
     # along-track uncertainty even with no explicit process noise).
     assert np.trace(ekf.current_covariance()) > p0_trace
 
-    # Backwards propagation is rejected without mutating filter state.
-    with pytest.raises(ValueError):
-        ekf.propagate_to(epoch)
-    assert ekf.current_epoch() == epoch + 600.0
+    # Backwards propagation is supported (e.g. for smoothing): the filter
+    # epoch moves back to the target.
+    ekf.propagate_to(epoch)
+    assert ekf.current_epoch() == epoch
 
 
 def test_ekf_propagate_to_store_records_and_process_noise(two_body_leo):

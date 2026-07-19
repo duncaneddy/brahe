@@ -266,10 +266,10 @@ def test_ukf_propagate_to(two_body_leo):
     # along-track uncertainty even with no explicit process noise).
     assert np.trace(ukf.current_covariance()) > p0_trace
 
-    # Backwards propagation is rejected without mutating filter state.
-    with pytest.raises(ValueError):
-        ukf.propagate_to(epoch)
-    assert ukf.current_epoch() == epoch + 600.0
+    # Backwards propagation is supported (e.g. for smoothing): the filter
+    # epoch moves back to the target.
+    ukf.propagate_to(epoch)
+    assert ukf.current_epoch() == epoch
 
 
 def test_ukf_propagate_to_store_records_and_process_noise(two_body_leo):

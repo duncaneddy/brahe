@@ -2,9 +2,9 @@
  * Topocentric azimuth/elevation/range measurement model.
  *
  * Models a ground-based radar/tracking sensor observing a satellite in the
- * local topocentric (SEZ) frame of a fixed station. The estimator state is
+ * local topocentric (ENZ) frame of a fixed station. The estimator state is
  * assumed to be in an inertial (ECI) frame; the model internally converts
- * ECI→ECEF and then to the station-relative SEZ frame.
+ * ECI→ECEF and then to the station-relative ENZ frame.
  *
  * The Jacobian uses the default finite-difference implementation since the
  * ECI→ECEF rotation is epoch-dependent.
@@ -14,8 +14,8 @@ use nalgebra::{DMatrix, DVector, Vector3};
 
 use crate::constants::AngleFormat;
 use crate::coordinates::{
-    EllipsoidalConversionType, position_geodetic_to_ecef, position_sez_to_azel,
-    relative_position_ecef_to_sez,
+    EllipsoidalConversionType, position_enz_to_azel, position_geodetic_to_ecef,
+    relative_position_ecef_to_enz,
 };
 use crate::estimation::traits::MeasurementModel;
 use crate::frames::position_eci_to_ecef;
@@ -29,7 +29,7 @@ use crate::utils::errors::BraheError;
 /// Ground-sensor azimuth/elevation/range measurement model.
 ///
 /// Measurement: `z = [azimuth, elevation, range] + bias`, computed in the
-/// station's topocentric SEZ frame. Azimuth is measured clockwise from
+/// station's topocentric ENZ frame. Azimuth is measured clockwise from
 /// north in `[0, 360)` degrees (or `[0, 2π)` radians), elevation from the
 /// local horizon, range in meters.
 ///
@@ -54,6 +54,7 @@ use crate::utils::errors::BraheError;
 /// let model = AzElRangeMeasurementModel::new(
 ///     -71.49, 42.62, 123.1, 0.01, 0.01, 150.0, AngleFormat::Degrees,
 /// )
+/// .unwrap()
 /// .with_bias(0.0001, 0.0001, 150.0);
 /// assert_eq!(model.measurement_dim(), 3);
 /// ```
@@ -80,15 +81,13 @@ impl AzElRangeMeasurementModel {
     ///
     /// # Returns
     ///
-    /// * `AzElRangeMeasurementModel` - New model with zero bias
+    /// * `Result<AzElRangeMeasurementModel, BraheError>` - New model with zero
+    ///   bias, or an error if the station coordinates are invalid
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the station coordinates are not valid geodetic coordinates
-    /// (e.g. latitude outside ±90°), matching the codebase-wide precedent for
-    /// infallible geodetic constructors (`PointLocation::new`). Use
-    /// [`from_covariance`](Self::from_covariance) for a fallible constructor;
-    /// the Python bindings pre-validate the coordinates and raise `ValueError`.
+    /// Returns an error if any station coordinate is non-finite, or if the
+    /// geodetic-to-ECEF conversion rejects them (e.g. latitude outside ±90°).
     pub fn new(
         station_lon: f64,
         station_lat: f64,
@@ -97,17 +96,28 @@ impl AzElRangeMeasurementModel {
         sigma_el: f64,
         sigma_range: f64,
         angle_format: AngleFormat,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, BraheError> {
+        for (label, value) in [
+            ("station_lon", station_lon),
+            ("station_lat", station_lat),
+            ("station_alt", station_alt),
+        ] {
+            if !value.is_finite() {
+                return Err(BraheError::Error(format!(
+                    "AzElRangeMeasurementModel {} must be finite, got {}",
+                    label, value
+                )));
+            }
+        }
+        Ok(Self {
             station_ecef: position_geodetic_to_ecef(
                 Vector3::new(station_lon, station_lat, station_alt),
                 angle_format,
-            )
-            .expect("Invalid geodetic coordinates"),
+            )?,
             noise_cov: diagonal_covariance(&[sigma_az, sigma_el, sigma_range]),
             bias: Vector3::zeros(),
             angle_format,
-        }
+        })
     }
 
     /// Create from a full 3×3 noise covariance matrix.
@@ -229,12 +239,12 @@ impl MeasurementModel for AzElRangeMeasurementModel {
 
         let pos_eci = Vector3::new(state[0], state[1], state[2]);
         let pos_ecef = position_eci_to_ecef(*epoch, pos_eci);
-        let sez = relative_position_ecef_to_sez(
+        let enz = relative_position_ecef_to_enz(
             self.station_ecef,
             pos_ecef,
             EllipsoidalConversionType::Geodetic,
         );
-        let azel = position_sez_to_azel(sez, self.angle_format);
+        let azel = position_enz_to_azel(enz, self.angle_format);
 
         Ok(DVector::from_vec(vec![
             azel[0] + self.bias[0],
@@ -324,7 +334,7 @@ mod tests {
     use crate::frames::position_ecef_to_eci;
     use crate::time::TimeSystem;
     use approx::assert_abs_diff_eq;
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
 
     fn setup_global_test_eop() {
         let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
@@ -343,7 +353,8 @@ mod tests {
         let epoch = test_epoch();
         let (lon, lat, alt) = (-71.49, 42.62, 123.1);
         let model =
-            AzElRangeMeasurementModel::new(lon, lat, alt, 0.01, 0.01, 10.0, AngleFormat::Degrees);
+            AzElRangeMeasurementModel::new(lon, lat, alt, 0.01, 0.01, 10.0, AngleFormat::Degrees)
+                .unwrap();
 
         // Build the satellite 500 km above the station along the geodetic normal
         let sat_ecef =
@@ -370,7 +381,8 @@ mod tests {
             0.01,
             10.0,
             AngleFormat::Degrees,
-        );
+        )
+        .unwrap();
         let biased = base.clone().with_bias(0.5, -0.25, 100.0);
 
         let sat_ecef =
@@ -387,9 +399,11 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_azelrange_residual_wraps_azimuth() {
         let model =
-            AzElRangeMeasurementModel::new(0.0, 0.0, 0.0, 0.01, 0.01, 10.0, AngleFormat::Degrees);
+            AzElRangeMeasurementModel::new(0.0, 0.0, 0.0, 0.01, 0.01, 10.0, AngleFormat::Degrees)
+                .unwrap();
         let measured = DVector::from_vec(vec![359.9, 45.0, 1000.0]);
         let predicted = DVector::from_vec(vec![0.1, 45.0, 1000.0]);
         let r = model.residual(&measured, &predicted).unwrap();
@@ -398,7 +412,8 @@ mod tests {
 
         // Radians variant
         let model_rad =
-            AzElRangeMeasurementModel::new(0.0, 0.0, 0.0, 1e-4, 1e-4, 10.0, AngleFormat::Radians);
+            AzElRangeMeasurementModel::new(0.0, 0.0, 0.0, 1e-4, 1e-4, 10.0, AngleFormat::Radians)
+                .unwrap();
         let measured = DVector::from_vec(vec![std::f64::consts::TAU - 0.01, 0.5, 1000.0]);
         let predicted = DVector::from_vec(vec![0.01, 0.5, 1000.0]);
         let r = model_rad.residual(&measured, &predicted).unwrap();
@@ -418,7 +433,8 @@ mod tests {
         let epoch = test_epoch();
         let (lon, lat, alt) = (0.0, 0.0, 0.0);
         let model =
-            AzElRangeMeasurementModel::new(lon, lat, alt, 0.01, 0.01, 10.0, AngleFormat::Degrees);
+            AzElRangeMeasurementModel::new(lon, lat, alt, 0.01, 0.01, 10.0, AngleFormat::Degrees)
+                .unwrap();
 
         // Build a satellite almost due north of the station (azimuth ~0/360),
         // at moderate elevation and range, so a finite-difference perturbation
@@ -477,6 +493,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_azelrange_noise_constructors() {
         let m = AzElRangeMeasurementModel::new(
             0.0,
@@ -486,7 +503,8 @@ mod tests {
             0.03,
             50.0,
             AngleFormat::Degrees,
-        );
+        )
+        .unwrap();
         let r = m.noise_covariance();
         assert_abs_diff_eq!(r[(0, 0)], 0.02_f64.powi(2), epsilon = 1e-15);
         assert_abs_diff_eq!(r[(1, 1)], 0.03_f64.powi(2), epsilon = 1e-15);
@@ -515,6 +533,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_azelrange_from_covariance_invalid_latitude_errors() {
         let cov = DMatrix::from_diagonal(&nalgebra::DVector::from_vec(vec![1.0, 2.0, 3.0]));
         let result = AzElRangeMeasurementModel::from_covariance(
@@ -528,6 +547,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_azelrange_from_upper_triangular_invalid_latitude_errors() {
         // The geodetic conversion in from_upper_triangular must propagate its
         // error when the station latitude is invalid, even with valid packed
@@ -544,18 +564,21 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_azelrange_station_ecef_accessor() {
         // station_ecef() must return the ECEF position of the constructor's
         // geodetic station coordinates.
         let (lon, lat, alt) = (-71.49, 42.62, 123.1);
         let model =
-            AzElRangeMeasurementModel::new(lon, lat, alt, 0.01, 0.01, 10.0, AngleFormat::Degrees);
+            AzElRangeMeasurementModel::new(lon, lat, alt, 0.01, 0.01, 10.0, AngleFormat::Degrees)
+                .unwrap();
         let expected =
             position_geodetic_to_ecef(Vector3::new(lon, lat, alt), AngleFormat::Degrees).unwrap();
         assert_abs_diff_eq!(model.station_ecef(), expected, epsilon = 1e-9);
     }
 
     #[test]
+    #[parallel]
     fn test_azelrange_predict_rejects_short_state() {
         // predict() must reject a state shorter than 3 elements before any
         // frame conversion, surfacing a structured error.
@@ -567,7 +590,8 @@ mod tests {
             0.01,
             10.0,
             AngleFormat::Degrees,
-        );
+        )
+        .unwrap();
         let state = DVector::from_vec(vec![6878e3, 0.0]); // only 2 elements
         let e = model.predict(&test_epoch(), &state, None).unwrap_err();
         assert!(e.to_string().contains("state dimension >= 3"), "{}", e);

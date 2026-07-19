@@ -57,7 +57,7 @@ os.makedirs(OUTDIR, exist_ok=True)
 # without azel_range calibration (optical trackers, sites missing noise
 # values) are skipped.
 sites = bh.datasets.ssn_sensors.load()
-sensors = bh.SimpleSSNSensor.from_locations(sites, seed=SEED)
+sensors = bh.SimpleSSNSensor.from_locations_calibrated(sites, seed=SEED)
 print(f"Loaded {len(sites)} SSN sites, {len(sensors)} az/el/range sensors")
 
 print("\n" + "=" * 100)

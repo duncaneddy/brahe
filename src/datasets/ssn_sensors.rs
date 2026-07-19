@@ -51,8 +51,10 @@ mod tests {
     use super::*;
     use crate::access::location::AccessibleLocation;
     use crate::utils::identifiable::Identifiable;
+    use serial_test::parallel;
 
     #[test]
+    #[parallel]
     fn test_load_ssn_sensors() {
         let sensors = load_ssn_sensors().unwrap();
         assert_eq!(sensors.len(), 21);
@@ -69,6 +71,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_ssn_sensor_values_against_vallado_tables() {
         let sensors = load_ssn_sensors().unwrap();
         let eglin = sensors
@@ -113,6 +116,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_ssn_sensor_type_counts() {
         let sensors = load_ssn_sensors().unwrap();
         let azel = sensors

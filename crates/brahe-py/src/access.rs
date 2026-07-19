@@ -467,6 +467,163 @@ impl PyElevationConstraint {
     }
 }
 
+/// Azimuth window constraint for satellite visibility.
+///
+/// Constrains access based on the azimuth angle of the satellite measured
+/// clockwise from north at the ground location. The window is wrap-aware:
+/// `min_azimuth_deg > max_azimuth_deg` means the window crosses north.
+///
+/// Args:
+///     min_azimuth_deg (float): Window start (degrees, clockwise from north).
+///     max_azimuth_deg (float): Window end (degrees, clockwise from north).
+///
+/// Raises:
+///     ValueError: If either bound is non-finite or outside [0, 360].
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Non-wrapping window (south-east sector)
+///     constraint = bh.AzimuthConstraint(90.0, 180.0)
+///
+///     # Wrap-around window crossing north (e.g. Cape Cod)
+///     constraint = bh.AzimuthConstraint(347.0, 227.0)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "AzimuthConstraint")]
+pub struct PyAzimuthConstraint {
+    pub constraint: AzimuthConstraint,
+}
+
+#[pymethods]
+impl PyAzimuthConstraint {
+    #[new]
+    fn new(min_azimuth_deg: f64, max_azimuth_deg: f64) -> PyResult<Self> {
+        AzimuthConstraint::new(min_azimuth_deg, max_azimuth_deg)
+            .map(|constraint| PyAzimuthConstraint { constraint })
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    /// Get the constraint name
+    fn name(&self) -> &str {
+        self.constraint.name()
+    }
+
+    /// Evaluate whether the constraint is satisfied.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Time of evaluation
+    ///     sat_state_ecef (ndarray or list): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+    ///     location_ecef (ndarray or list): Ground location in ECEF [x, y, z] (meters)
+    ///
+    /// Returns:
+    ///     bool: True if constraint is satisfied, False otherwise
+    fn evaluate(
+        &self,
+        _py: Python,
+        epoch: &PyEpoch,
+        sat_state_ecef: &Bound<'_, PyAny>,
+        location_ecef: &Bound<'_, PyAny>,
+    ) -> PyResult<bool> {
+        let sat_state = pyany_to_svector::<6>(sat_state_ecef)?;
+        let location = pyany_to_svector::<3>(location_ecef)?;
+        Ok(self.constraint.evaluate(&epoch.obj, &sat_state, &location))
+    }
+
+    fn __str__(&self) -> String {
+        self.constraint.name().to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "AzimuthConstraint(min_azimuth_deg={}, max_azimuth_deg={})",
+            self.constraint.min_azimuth_deg, self.constraint.max_azimuth_deg
+        )
+    }
+}
+
+/// Slant-range constraint for satellite visibility.
+///
+/// Constrains access based on the slant range (straight-line distance)
+/// between the satellite and the ground location.
+///
+/// Args:
+///     min_range_m (float | None): Minimum slant range in meters, or None for no minimum.
+///     max_range_m (float | None): Maximum slant range in meters, or None for no maximum.
+///
+/// Raises:
+///     ValueError: If both bounds are None, or any bound is non-finite or negative.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Maximum-range radar cap
+///     constraint = bh.RangeConstraint(min_range_m=None, max_range_m=5_000_000.0)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "RangeConstraint")]
+pub struct PyRangeConstraint {
+    pub constraint: RangeConstraint,
+}
+
+#[pymethods]
+impl PyRangeConstraint {
+    #[new]
+    #[pyo3(signature = (min_range_m=None, max_range_m=None))]
+    fn new(min_range_m: Option<f64>, max_range_m: Option<f64>) -> PyResult<Self> {
+        RangeConstraint::new(min_range_m, max_range_m)
+            .map(|constraint| PyRangeConstraint { constraint })
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    /// Get the constraint name
+    fn name(&self) -> &str {
+        self.constraint.name()
+    }
+
+    /// Evaluate whether the constraint is satisfied.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Time of evaluation
+    ///     sat_state_ecef (ndarray or list): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+    ///     location_ecef (ndarray or list): Ground location in ECEF [x, y, z] (meters)
+    ///
+    /// Returns:
+    ///     bool: True if constraint is satisfied, False otherwise
+    fn evaluate(
+        &self,
+        _py: Python,
+        epoch: &PyEpoch,
+        sat_state_ecef: &Bound<'_, PyAny>,
+        location_ecef: &Bound<'_, PyAny>,
+    ) -> PyResult<bool> {
+        let sat_state = pyany_to_svector::<6>(sat_state_ecef)?;
+        let location = pyany_to_svector::<3>(location_ecef)?;
+        Ok(self.constraint.evaluate(&epoch.obj, &sat_state, &location))
+    }
+
+    fn __str__(&self) -> String {
+        self.constraint.name().to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        let min_str = match self.constraint.min_range_m {
+            Some(v) => format!("Some({})", v),
+            None => "None".to_string(),
+        };
+        let max_str = match self.constraint.max_range_m {
+            Some(v) => format!("Some({})", v),
+            None => "None".to_string(),
+        };
+        format!(
+            "RangeConstraint(min_range_m={}, max_range_m={})",
+            min_str, max_str
+        )
+    }
+}
+
 /// Azimuth-dependent elevation mask constraint.
 ///
 /// Constrains access based on azimuth-dependent elevation masks.
@@ -897,6 +1054,10 @@ pub struct PyConstraintAll {
 
 fn py_constraint_to_rust(py: Python, py_obj: Py<PyAny>) -> PyResult<Box<dyn AccessConstraint>> {
     if let Ok(c) = py_obj.extract::<PyRef<PyElevationConstraint>>(py) {
+        Ok(Box::new(c.constraint.clone()))
+    } else if let Ok(c) = py_obj.extract::<PyRef<PyAzimuthConstraint>>(py) {
+        Ok(Box::new(c.constraint.clone()))
+    } else if let Ok(c) = py_obj.extract::<PyRef<PyRangeConstraint>>(py) {
         Ok(Box::new(c.constraint.clone()))
     } else if let Ok(c) = py_obj.extract::<PyRef<PyElevationMaskConstraint>>(py) {
         Ok(Box::new(c.constraint.clone()))

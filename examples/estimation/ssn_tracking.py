@@ -45,7 +45,7 @@ truth_traj = truth_prop.trajectory
 
 # Build sensors from the Vallado SSN dataset (radar sites with calibration)
 sites = bh.datasets.ssn_sensors.load()
-sensors = bh.SimpleSSNSensor.from_locations(sites, seed=SEED)
+sensors = bh.SimpleSSNSensor.from_locations_calibrated(sites, seed=SEED)
 print(f"Loaded {len(sites)} SSN sites, {len(sensors)} az/el/range sensors")
 
 # Find passes and simulate measurements only inside them

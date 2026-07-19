@@ -477,7 +477,8 @@ impl ExtendedKalmanFilter {
     ///
     /// # Arguments
     ///
-    /// * `epoch` - Target epoch (must be at or after the current filter epoch)
+    /// * `epoch` - Target epoch. May be before or after the current filter
+    ///   epoch; backwards propagation is supported (e.g. for smoothing).
     ///
     /// # Returns
     ///
@@ -488,22 +489,13 @@ impl ExtendedKalmanFilter {
     ///
     /// # Errors
     ///
-    /// Returns an error if `epoch` is before the current filter epoch or if
-    /// propagation stops short (e.g., a terminal event fired).
+    /// Returns an error if propagation stops short of the target epoch
+    /// (e.g., a terminal event fired).
     pub fn propagate_to(&mut self, epoch: Epoch) -> Result<FilterRecord, BraheError> {
         let current_epoch = self.dynamics.current_epoch();
-        let dt: f64 = epoch - current_epoch;
-        if dt < -1e-9 {
-            return Err(BraheError::Error(format!(
-                "Target epoch is before current filter epoch. \
-                 Filter epoch: {}, target epoch: {}.",
-                current_epoch, epoch
-            )));
-        }
-
         let entry_state = self.dynamics.current_state();
 
-        match self.predict_only(epoch, current_epoch, dt) {
+        match self.predict_only(current_epoch, epoch) {
             Ok(record) => {
                 if self.config.store_records {
                     self.records.push(record.clone());
@@ -523,22 +515,22 @@ impl ExtendedKalmanFilter {
     /// Keep in sync with the predict half of `predict_and_update`.
     fn predict_only(
         &mut self,
-        epoch: Epoch,
         current_epoch: Epoch,
-        dt: f64,
+        target_epoch: Epoch,
     ) -> Result<FilterRecord, BraheError> {
+        let dt: f64 = target_epoch - current_epoch;
         let current_state = self.dynamics.current_state();
         self.dynamics
             .reinitialize(current_epoch, current_state, Some(self.covariance.clone()));
-        self.dynamics.propagate_to(epoch);
+        self.dynamics.propagate_to(target_epoch);
 
         let reached_epoch = self.dynamics.current_epoch();
-        let epoch_gap: f64 = epoch - reached_epoch;
+        let epoch_gap: f64 = target_epoch - reached_epoch;
         if epoch_gap.abs() > 1e-6 {
             return Err(BraheError::Error(format!(
                 "Propagation stopped at {} before reaching target epoch {} \
                  (a terminal event may have fired)",
-                reached_epoch, epoch
+                reached_epoch, target_epoch
             )));
         }
 
@@ -556,12 +548,13 @@ impl ExtendedKalmanFilter {
             .clone();
 
         // Apply process noise only for a nonzero-duration step; a same-epoch
-        // propagate_to adds zero noise (scaled Q uses the actual dt).
-        if dt > 0.0
+        // propagate_to adds zero noise. Scaled Q uses |dt| so backwards
+        // propagation accumulates the same process noise as forwards.
+        if dt.abs() > 0.0
             && let Some(ref pn) = self.config.process_noise
         {
             if pn.scale_with_dt {
-                p_predicted += &pn.q_matrix * dt;
+                p_predicted += &pn.q_matrix * dt.abs();
             } else {
                 p_predicted += &pn.q_matrix;
             }
@@ -569,7 +562,7 @@ impl ExtendedKalmanFilter {
         let p_predicted = 0.5 * (&p_predicted + p_predicted.transpose());
 
         let record = FilterRecord {
-            epoch,
+            epoch: target_epoch,
             state_predicted: state_predicted.clone(),
             covariance_predicted: p_predicted.clone(),
             state_updated: state_predicted.clone(),
@@ -581,7 +574,8 @@ impl ExtendedKalmanFilter {
         };
 
         self.covariance = p_predicted;
-        self.dynamics.reinitialize(epoch, state_predicted, None);
+        self.dynamics
+            .reinitialize(target_epoch, state_predicted, None);
 
         Ok(record)
     }
@@ -1663,9 +1657,10 @@ mod tests {
         // Covariance grows without measurements (Keplerian shear stretches
         // the along-track uncertainty even with no explicit process noise).
         assert!(ekf.current_covariance().trace() > p0_trace);
-        // Backwards propagation is rejected without mutating filter state.
-        assert!(ekf.propagate_to(epoch).is_err());
-        assert_eq!(ekf.current_epoch(), epoch + 600.0);
+        // Backwards propagation is supported (e.g. for smoothing): the filter
+        // epoch moves back to the target.
+        ekf.propagate_to(epoch).unwrap();
+        assert_eq!(ekf.current_epoch(), epoch);
     }
 
     #[test]
@@ -1764,6 +1759,36 @@ mod tests {
             .unwrap();
         let trace_after = ekf_with_noise.current_covariance().trace();
         assert_abs_diff_eq!(trace_after, trace_before, epsilon = trace_before * 1e-9);
+
+        // Backwards propagation applies the same |dt|-scaled process noise as
+        // forward propagation: over a backward step the noisy filter's trace
+        // grows by Q * |dt| relative to the noise-free filter.
+        let (epoch_b, state_b) = two_body_leo();
+        let p0_b = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let mut back_no_noise = create_two_body_ekf(
+            epoch_b,
+            state_b.clone(),
+            p0_b.clone(),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            None,
+        );
+        back_no_noise.propagate_to(epoch_b - dt).unwrap();
+        let back_trace_no_noise = back_no_noise.current_covariance().trace();
+
+        let mut back_with_noise = create_two_body_ekf(
+            epoch_b,
+            state_b,
+            p0_b,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            Some(ProcessNoiseConfig {
+                q_matrix: DMatrix::from_diagonal(&DVector::from_vec(q_diag.clone())),
+                scale_with_dt: true,
+            }),
+        );
+        back_with_noise.propagate_to(epoch_b - dt).unwrap();
+        assert_eq!(back_with_noise.current_epoch(), epoch_b - dt);
+        let back_increment = back_with_noise.current_covariance().trace() - back_trace_no_noise;
+        assert_abs_diff_eq!(back_increment, q_trace * dt, epsilon = q_trace * dt * 0.05);
     }
 
     #[test]

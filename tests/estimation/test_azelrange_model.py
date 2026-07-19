@@ -27,16 +27,17 @@ class TestAzElRangeMeasurementModel:
         assert model.name() == "AzElRange"
 
     def test_constructor_rejects_invalid_latitude(self):
-        # Latitude out of [-90, 90] must raise ValueError, not trip the Rust
-        # constructor's geodetic panic.
-        with pytest.raises(ValueError, match="station_lat"):
+        # Latitude out of [-90, 90] must raise ValueError (the Rust constructor
+        # now returns a Result mapped to a Python exception).
+        with pytest.raises(ValueError, match="latitude"):
             bh.AzElRangeMeasurementModel(-71.49, 100.0, 123.1, 0.01, 0.01, 10.0)
-        with pytest.raises(ValueError, match="station_lon"):
-            bh.AzElRangeMeasurementModel(200.0, 42.62, 123.1, 0.01, 0.01, 10.0)
+        # Non-finite coordinates are rejected with a finite-value error.
+        with pytest.raises(ValueError, match="finite"):
+            bh.AzElRangeMeasurementModel(float("nan"), 42.62, 123.1, 0.01, 0.01, 10.0)
 
     def test_from_covariance_rejects_invalid_latitude(self):
         cov = np.diag([1.0, 2.0, 3.0])
-        with pytest.raises(ValueError, match="station_lat"):
+        with pytest.raises(ValueError, match="latitude"):
             bh.AzElRangeMeasurementModel.from_covariance(0.0, 100.0, 100.0, cov)
 
     def test_residual_wraps_azimuth(self):

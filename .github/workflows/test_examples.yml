@@ -136,6 +136,19 @@ jobs:
           retry_wait_seconds: 60
           command: just test-examples ${{ inputs.example_args }}
 
+      # The --network run is the only place NETWORK-flagged examples execute,
+      # so it is the only producer of their doc figures. Persist docs/figures
+      # to the actions cache so the docs deploys (update_docs.yml,
+      # docs_only.yml), whose own --ci-only example runs skip these examples,
+      # can restore and overlay them. The per-run key is unique; consumers use
+      # restore-keys prefix matching, which returns the most recent entry.
+      - name: Save network example figures to cache
+        if: ${{ inputs.use_retry }}
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: docs/figures/
+          key: network-example-figures-${{ github.run_id }}
+
       - name: Generate documentation plots
         if: ${{ !inputs.use_retry }}
         run: just make-plots

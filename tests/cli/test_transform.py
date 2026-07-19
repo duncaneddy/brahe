@@ -586,5 +586,115 @@ class TestCoordinatesCommand:
         assert "ERROR" in result.stdout
 
 
+class TestFrameNamedFrames:
+    """Frame transforms across the full named-frame set."""
+
+    def test_gcrf_itrf_matches_eci_ecef(self):
+        """GCRF->ITRF is the ECI->ECEF alias and must agree numerically."""
+        args_tail = ["2024-01-01T00:00:00Z", "6878137", "0", "0", "0", "7500", "0"]
+        r_named = runner.invoke(app, ["transform", "frame", "GCRF", "ITRF", *args_tail])
+        r_alias = runner.invoke(app, ["transform", "frame", "ECI", "ECEF", *args_tail])
+        assert r_named.exit_code == 0
+        assert r_alias.exit_code == 0
+        assert r_named.stdout.strip() == r_alias.stdout.strip()
+
+    def test_same_frame_returns_input(self):
+        result = runner.invoke(
+            app,
+            [
+                "transform",
+                "frame",
+                "GCRF",
+                "GCRF",
+                "2024-01-01T00:00:00Z",
+                "6878137",
+                "0",
+                "0",
+                "0",
+                "7500",
+                "0",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "6878137" in result.stdout
+
+    def test_unknown_frame_errors_cleanly(self):
+        result = runner.invoke(
+            app,
+            [
+                "transform",
+                "frame",
+                "NOPE",
+                "ECEF",
+                "2024-01-01T00:00:00Z",
+                "1",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+            ],
+        )
+        assert result.exit_code != 0
+
+
+class TestPositionCommand:
+    def test_position_gcrf_itrf(self):
+        result = runner.invoke(
+            app,
+            [
+                "transform",
+                "position",
+                "GCRF",
+                "ITRF",
+                "2024-01-01T00:00:00Z",
+                "6878137",
+                "0",
+                "0",
+            ],
+        )
+        assert result.exit_code == 0
+        assert result.stdout.count(",") == 2  # three components -> two commas
+
+    def test_position_same_frame_returns_input(self):
+        result = runner.invoke(
+            app,
+            [
+                "transform",
+                "position",
+                "ITRF",
+                "ITRF",
+                "2024-01-01T00:00:00Z",
+                "6878137",
+                "0",
+                "0",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "6878137" in result.stdout
+
+
+class TestRotationCommand:
+    def test_rotation_emits_three_rows(self):
+        result = runner.invoke(
+            app,
+            ["transform", "rotation", "GCRF", "ITRF", "2024-01-01T00:00:00Z"],
+        )
+        assert result.exit_code == 0
+        rows = [ln for ln in result.stdout.splitlines() if ln.strip().startswith("[")]
+        assert len(rows) == 3
+        for row in rows:
+            assert row.count(",") == 2
+
+    def test_rotation_same_frame_is_identity(self):
+        result = runner.invoke(
+            app,
+            ["transform", "rotation", "GCRF", "GCRF", "2024-01-01T00:00:00Z"],
+        )
+        assert result.exit_code == 0
+        rows = [ln for ln in result.stdout.splitlines() if ln.strip().startswith("[")]
+        assert len(rows) == 3
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

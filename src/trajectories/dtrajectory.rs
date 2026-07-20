@@ -592,43 +592,32 @@ impl DTrajectory {
             )));
         }
 
-        // Validate and auto-enable covariance storage
-        if let Some(ref cov) = covariance {
-            if cov.nrows() != self.dimension || cov.ncols() != self.dimension {
-                return Err(BraheError::OutOfBoundsError(format!(
-                    "Covariance dimensions {}×{} do not match expected {}×{}",
-                    cov.nrows(),
-                    cov.ncols(),
-                    self.dimension,
-                    self.dimension
-                )));
-            }
-            if self.covariances.is_none() {
-                self.covariances = Some(vec![
-                    DMatrix::zeros(self.dimension, self.dimension);
-                    self.states.len()
-                ]);
-            }
+        // Validate every supplied field before mutating any storage so an
+        // Err return leaves the trajectory unchanged.
+        if let Some(ref cov) = covariance
+            && (cov.nrows() != self.dimension || cov.ncols() != self.dimension)
+        {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Covariance dimensions {}×{} do not match expected {}×{}",
+                cov.nrows(),
+                cov.ncols(),
+                self.dimension,
+                self.dimension
+            )));
         }
 
-        // Validate and auto-enable STM storage
-        if let Some(ref stm_val) = stm {
-            if stm_val.nrows() != self.dimension || stm_val.ncols() != self.dimension {
-                return Err(BraheError::OutOfBoundsError(format!(
-                    "STM dimensions {}×{} do not match expected {}×{}",
-                    stm_val.nrows(),
-                    stm_val.ncols(),
-                    self.dimension,
-                    self.dimension
-                )));
-            }
-            if self.stms.is_none() {
-                let identity = DMatrix::identity(self.dimension, self.dimension);
-                self.stms = Some(vec![identity; self.states.len()]);
-            }
+        if let Some(ref stm_val) = stm
+            && (stm_val.nrows() != self.dimension || stm_val.ncols() != self.dimension)
+        {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "STM dimensions {}×{} do not match expected {}×{}",
+                stm_val.nrows(),
+                stm_val.ncols(),
+                self.dimension,
+                self.dimension
+            )));
         }
 
-        // Validate and auto-enable sensitivity storage
         if let Some(ref sens) = sensitivity {
             if sens.nrows() != self.dimension {
                 return Err(BraheError::OutOfBoundsError(format!(
@@ -639,19 +628,36 @@ impl DTrajectory {
             }
 
             // Check consistency with existing sensitivity dimension
-            if let Some((_, existing_cols)) = self.sensitivity_dimension {
-                if sens.ncols() != existing_cols {
-                    return Err(BraheError::OutOfBoundsError(format!(
-                        "Sensitivity column count {} does not match existing {}",
-                        sens.ncols(),
-                        existing_cols
-                    )));
-                }
-            } else if self.sensitivities.is_none() {
-                let zero_sens = DMatrix::zeros(self.dimension, sens.ncols());
-                self.sensitivities = Some(vec![zero_sens; self.states.len()]);
-                self.sensitivity_dimension = Some((self.dimension, sens.ncols()));
+            if let Some((_, existing_cols)) = self.sensitivity_dimension
+                && sens.ncols() != existing_cols
+            {
+                return Err(BraheError::OutOfBoundsError(format!(
+                    "Sensitivity column count {} does not match existing {}",
+                    sens.ncols(),
+                    existing_cols
+                )));
             }
+        }
+
+        // All validation passed — auto-enable storage as needed.
+        if covariance.is_some() && self.covariances.is_none() {
+            self.covariances = Some(vec![
+                DMatrix::zeros(self.dimension, self.dimension);
+                self.states.len()
+            ]);
+        }
+
+        if stm.is_some() && self.stms.is_none() {
+            let identity = DMatrix::identity(self.dimension, self.dimension);
+            self.stms = Some(vec![identity; self.states.len()]);
+        }
+
+        if let Some(ref sens) = sensitivity
+            && self.sensitivities.is_none()
+        {
+            let zero_sens = DMatrix::zeros(self.dimension, sens.ncols());
+            self.sensitivities = Some(vec![zero_sens; self.states.len()]);
+            self.sensitivity_dimension = Some((self.dimension, sens.ncols()));
         }
 
         // Find insertion index (maintain sorted order)
@@ -2970,6 +2976,39 @@ mod tests {
             traj.add_full(epoch, state, None, Some(wrong_stm), None)
                 .is_err()
         );
+    }
+
+    #[test]
+    fn test_dtrajectory_add_full_err_leaves_trajectory_unchanged() {
+        // A rejected add_full must not mutate the trajectory: a valid
+        // covariance combined with an invalid STM must not auto-enable
+        // covariance storage or insert any data.
+        let mut traj = DTrajectory::new(6).unwrap();
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state.clone()).unwrap();
+
+        let good_cov = DMatrix::identity(6, 6);
+        let wrong_stm = DMatrix::identity(3, 3);
+        let result = traj.add_full(
+            epoch + 60.0,
+            state.clone(),
+            Some(good_cov.clone()),
+            Some(wrong_stm),
+            None,
+        );
+        assert!(result.is_err());
+        assert_eq!(traj.len(), 1);
+        assert!(traj.covariances.is_none());
+        assert!(traj.stms.is_none());
+
+        // Same for a valid covariance with an invalid sensitivity.
+        let wrong_sens = DMatrix::zeros(3, 2);
+        let result = traj.add_full(epoch + 60.0, state, Some(good_cov), None, Some(wrong_sens));
+        assert!(result.is_err());
+        assert_eq!(traj.len(), 1);
+        assert!(traj.covariances.is_none());
+        assert!(traj.sensitivities.is_none());
     }
 
     #[test]

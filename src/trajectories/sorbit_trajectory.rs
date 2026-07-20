@@ -670,15 +670,9 @@ impl SOrbitTrajectory {
         stm: Option<SMatrix<f64, 6, 6>>,
         sensitivity: Option<DMatrix<f64>>,
     ) -> Result<(), BraheError> {
-        // Validate and enable storage as needed
-        if covariance.is_some() && self.covariances.is_none() {
-            self.covariances = Some(vec![SMatrix::<f64, 6, 6>::zeros(); self.states.len()]);
-        }
-
-        if stm.is_some() && self.stms.is_none() {
-            self.enable_stm_storage();
-        }
-
+        // Validate every supplied field before mutating any storage so an
+        // Err return leaves the trajectory unchanged. Covariance and STM are
+        // statically sized, so only the sensitivity dimensions can fail.
         if let Some(ref sens) = sensitivity {
             if sens.nrows() != 6 {
                 return Err(BraheError::OutOfBoundsError(
@@ -692,9 +686,21 @@ impl SOrbitTrajectory {
                     "Sensitivity column dimension mismatch".to_string(),
                 ));
             }
-            if self.sensitivities.is_none() {
-                self.enable_sensitivity_storage(sens.ncols())?;
-            }
+        }
+
+        // All validation passed — auto-enable storage as needed.
+        if covariance.is_some() && self.covariances.is_none() {
+            self.covariances = Some(vec![SMatrix::<f64, 6, 6>::zeros(); self.states.len()]);
+        }
+
+        if stm.is_some() && self.stms.is_none() {
+            self.enable_stm_storage();
+        }
+
+        if let Some(ref sens) = sensitivity
+            && self.sensitivities.is_none()
+        {
+            self.enable_sensitivity_storage(sens.ncols())?;
         }
 
         // Find insert position
@@ -7793,6 +7799,27 @@ mod tests {
         traj.add_full(t0, state, Some(cov), None, None).unwrap();
 
         assert!(traj.covariances.is_some());
+    }
+
+    #[test]
+    fn test_orbittrajectory_add_full_err_leaves_trajectory_unchanged() {
+        // A rejected add_full must not mutate the trajectory: a valid
+        // covariance combined with an invalid sensitivity must not
+        // auto-enable covariance storage or insert any data.
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj =
+            SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
+        let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        traj.add(t0, state).unwrap();
+
+        let good_cov = SMatrix::<f64, 6, 6>::identity();
+        let wrong_sens = DMatrix::zeros(3, 2);
+        let result = traj.add_full(t0 + 60.0, state, Some(good_cov), None, Some(wrong_sens));
+        assert!(result.is_err());
+        assert_eq!(traj.len(), 1);
+        assert!(traj.covariances.is_none());
+        assert!(traj.sensitivities.is_none());
     }
 
     #[test]

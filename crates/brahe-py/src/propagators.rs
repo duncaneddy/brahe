@@ -3339,13 +3339,20 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
         // On failure, re-raise the original Python exception stashed by whichever
         // propagator's additional-dynamics/control callback raised it, falling
         // back to the wrapped BraheError when the failure is purely numerical.
+        // Drain EVERY propagator's slot — with concurrent failures more than one
+        // slot may be populated, and any exception left behind would be
+        // misattributed to an unrelated error on a later call using the same
+        // propagator object.
         if let Err(e) = result {
+            let mut first_py_err: Option<PyErr> = None;
             for guard in &borrow_guards {
-                if let Some(py_err) = guard.err_slot.lock().unwrap().take() {
-                    return Err(py_err);
+                if let Some(py_err) = guard.err_slot.lock().unwrap().take()
+                    && first_py_err.is_none()
+                {
+                    first_py_err = Some(py_err);
                 }
             }
-            return Err(PyErr::from(e));
+            return Err(first_py_err.unwrap_or_else(|| PyErr::from(e)));
         }
 
         // borrow_guards are dropped here, releasing the borrows

@@ -743,27 +743,22 @@ impl DOrbitTrajectory {
             )));
         }
 
-        // Validate and enable storage as needed
-        if let Some(ref cov) = covariance {
-            if cov.nrows() != 6 || cov.ncols() != 6 {
-                return Err(BraheError::OutOfBoundsError(
-                    "Covariance dimension mismatch".to_string(),
-                ));
-            }
-            if self.covariances.is_none() {
-                self.covariances = Some(vec![DMatrix::zeros(6, 6); self.states.len()]);
-            }
+        // Validate every supplied field before mutating any storage so an
+        // Err return leaves the trajectory unchanged.
+        if let Some(ref cov) = covariance
+            && (cov.nrows() != 6 || cov.ncols() != 6)
+        {
+            return Err(BraheError::OutOfBoundsError(
+                "Covariance dimension mismatch".to_string(),
+            ));
         }
 
-        if let Some(ref s) = stm {
-            if s.nrows() != 6 || s.ncols() != 6 {
-                return Err(BraheError::OutOfBoundsError(
-                    "STM dimension mismatch".to_string(),
-                ));
-            }
-            if self.stms.is_none() {
-                STMStorage::enable_stm_storage(self);
-            }
+        if let Some(ref s) = stm
+            && (s.nrows() != 6 || s.ncols() != 6)
+        {
+            return Err(BraheError::OutOfBoundsError(
+                "STM dimension mismatch".to_string(),
+            ));
         }
 
         if let Some(ref sens) = sensitivity {
@@ -779,26 +774,40 @@ impl DOrbitTrajectory {
                     "Sensitivity column dimension mismatch".to_string(),
                 ));
             }
-            if self.sensitivities.is_none() {
-                SensitivityStorage::enable_sensitivity_storage(self, sens.ncols())?;
-            }
         }
 
-        if let Some(ref acc) = acceleration {
-            if let Some(acc_dim) = self.acceleration_dimension
-                && acc.len() != acc_dim
-            {
-                return Err(BraheError::OutOfBoundsError(format!(
-                    "Acceleration dimension {} does not match trajectory acceleration dimension {}",
-                    acc.len(),
-                    acc_dim
-                )));
-            }
-            if self.accelerations.is_none() {
-                let acc_dim = acc.len();
-                self.acceleration_dimension = Some(acc_dim);
-                self.accelerations = Some(vec![DVector::zeros(acc_dim); self.states.len()]);
-            }
+        if let Some(ref acc) = acceleration
+            && let Some(acc_dim) = self.acceleration_dimension
+            && acc.len() != acc_dim
+        {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Acceleration dimension {} does not match trajectory acceleration dimension {}",
+                acc.len(),
+                acc_dim
+            )));
+        }
+
+        // All validation passed — auto-enable storage as needed.
+        if covariance.is_some() && self.covariances.is_none() {
+            self.covariances = Some(vec![DMatrix::zeros(6, 6); self.states.len()]);
+        }
+
+        if stm.is_some() && self.stms.is_none() {
+            STMStorage::enable_stm_storage(self);
+        }
+
+        if let Some(ref sens) = sensitivity
+            && self.sensitivities.is_none()
+        {
+            SensitivityStorage::enable_sensitivity_storage(self, sens.ncols())?;
+        }
+
+        if let Some(ref acc) = acceleration
+            && self.accelerations.is_none()
+        {
+            let acc_dim = acc.len();
+            self.acceleration_dimension = Some(acc_dim);
+            self.accelerations = Some(vec![DVector::zeros(acc_dim); self.states.len()]);
         }
 
         // Find insert position
@@ -4323,6 +4332,49 @@ mod tests {
             traj.add_full(epoch2, state, None, None, None, Some(accel2))
                 .is_err()
         );
+    }
+
+    #[test]
+    fn test_dorbittrajectory_add_full_err_leaves_trajectory_unchanged() {
+        // A rejected add_full must not mutate the trajectory: a valid
+        // covariance combined with an invalid STM must not auto-enable
+        // covariance storage or insert any data.
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state.clone()).unwrap();
+
+        let good_cov = DMatrix::identity(6, 6);
+        let wrong_stm = DMatrix::identity(5, 6);
+        let result = traj.add_full(
+            epoch + 60.0,
+            state.clone(),
+            Some(good_cov.clone()),
+            Some(wrong_stm),
+            None,
+            None,
+        );
+        assert!(result.is_err());
+        assert_eq!(traj.len(), 1);
+        assert!(traj.covariances.is_none());
+        assert!(traj.stms.is_none());
+
+        // Same for a valid covariance with an invalid sensitivity.
+        let wrong_sens = DMatrix::zeros(3, 2);
+        let result = traj.add_full(
+            epoch + 60.0,
+            state,
+            Some(good_cov),
+            None,
+            Some(wrong_sens),
+            None,
+        );
+        assert!(result.is_err());
+        assert_eq!(traj.len(), 1);
+        assert!(traj.covariances.is_none());
+        assert!(traj.sensitivities.is_none());
     }
 
     // ========== Trajectory Trait Tests ==========

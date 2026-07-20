@@ -5,6 +5,7 @@ These tests mirror the Rust tests from src/propagators/dnumerical_propagator.rs
 """
 
 import numpy as np
+import pytest
 from brahe import (
     Epoch,
     TimeSystem,
@@ -1917,3 +1918,50 @@ def test_trajectory_stm_sensitivity_storage():
     # STM should be available (or None if not configured for history storage)
     _ = prop.stm()
     # The test mainly verifies no error occurs and trajectory is built
+
+
+# =============================================================================
+# Builder Tests
+# =============================================================================
+
+
+def test_numericalpropagator_builder():
+    """Test NumericalPropagator.builder() matches the flat constructor"""
+    epoch = create_test_epoch()
+    state = np.array([1.0, 0.0])
+
+    prop = (
+        NumericalPropagator.builder(epoch, state, sho_dynamics)
+        .propagation_config(NumericalPropagationConfig.default())
+        .build()
+    )
+    flat = NumericalPropagator(
+        epoch, state, sho_dynamics, NumericalPropagationConfig.default()
+    )
+    prop.step_by(0.1)
+    flat.step_by(0.1)
+    np.testing.assert_allclose(prop.current_state(), flat.current_state())
+
+
+def test_numericalpropagator_builder_consumed():
+    """Test that calling build() twice on the same builder raises RuntimeError"""
+    epoch = create_test_epoch()
+    state = np.array([1.0, 0.0])
+
+    builder = NumericalPropagator.builder(epoch, state, sho_dynamics)
+    builder.build()
+    with pytest.raises(RuntimeError, match="builder already consumed"):
+        builder.build()
+
+
+def test_numericalpropagator_builder_build_error():
+    """Test that build() surfaces Rust-side validation failures as RuntimeError"""
+    epoch = create_test_epoch()
+    state = np.array([1.0, 0.0])
+
+    # Sensitivity propagation is enabled but no params are supplied to the builder.
+    builder = NumericalPropagator.builder(
+        epoch, state, sho_dynamics
+    ).propagation_config(NumericalPropagationConfig.default().with_sensitivity())
+    with pytest.raises(RuntimeError):
+        builder.build()

@@ -11,6 +11,7 @@ This module provides:
 - NumericalOrbitPropagator: High-fidelity numerical orbit propagator with force models
 - NumericalOrbitPropagatorBuilder: Builder for NumericalOrbitPropagator
 - NumericalPropagator: Generic numerical propagator for arbitrary dynamics
+- NumericalPropagatorBuilder: Builder for NumericalPropagator
 
 **Configuration Classes:**
 - IntegrationMethod: Integration method selection (RK4, RKF45, RKF78, DP54, RKN1210)
@@ -50,6 +51,7 @@ from brahe._brahe import (
     NumericalOrbitPropagator,
     NumericalOrbitPropagatorBuilder,
     NumericalPropagator,
+    NumericalPropagatorBuilder,
     # Configuration Classes
     IntegrationMethod,
     AtmosphericModel,
@@ -84,6 +86,7 @@ __all__ = [
     "NumericalOrbitPropagator",
     "NumericalOrbitPropagatorBuilder",
     "NumericalPropagator",
+    "NumericalPropagatorBuilder",
     # Configuration Classes
     "IntegrationMethod",
     "AtmosphericModel",

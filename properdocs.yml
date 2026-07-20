@@ -294,7 +294,7 @@ nav:
           - SSN Sensors: learn/datasets/ssn_sensors.md
           - GCAT: learn/datasets/gcat.md
           - Star Catalogs: learn/datasets/star_catalogs.md
-          - ICGEM: learn/datasets/icgem.md
+          - ICGEM (Gravity Models): learn/datasets/icgem.md
       - CCSDS:
           - learn/ccsds/index.md
           - OEM - Orbit Ephemeris Message: learn/ccsds/oem.md

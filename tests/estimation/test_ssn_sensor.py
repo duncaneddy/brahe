@@ -23,24 +23,26 @@ def make_state_above(epoch, lon, lat, alt):
 def test_from_locations_dataset():
     sites = bh.datasets.ssn_sensors.load()
     sensors = bh.SimpleSSNSensor.from_locations(sites, seed=42)
-    # All 15 azel_range sites, incl. HAX + Haystack loaded with zero noise.
-    assert len(sensors) == 15
+    # All 21 sites: 15 azel_range + 6 optical, incl. HAX + Haystack (zero noise).
+    assert len(sensors) == 21
     names = {s.name for s in sensors}
     assert "Eglin" in names
     assert "Millstone" in names
-    assert "Socorro" not in names  # optical site is skipped
+    assert "Socorro" in names  # optical site now constructs
     assert "Haystack" in names  # loaded with zero noise (uncalibrated)
 
 
 def test_from_locations_calibrated_only():
     sites = bh.datasets.ssn_sensors.load()
     sensors = bh.SimpleSSNSensor.from_locations_calibrated(sites, seed=42)
-    # 15 azel_range sites minus HAX and Haystack (no calibration) = 13.
-    assert len(sensors) == 13
+    # 13 calibrated azel_range + 3 calibrated optical (Socorro, Maui,
+    # Diego Garcia) = 16.
+    assert len(sensors) == 16
     assert all(s.calibrated for s in sensors)
     names = {s.name for s in sensors}
     assert "Haystack" not in names
     assert "HAX" not in names
+    assert "Socorro" in names  # calibrated optical site is included
 
 
 def test_from_location_dataset_roundtrip():
@@ -55,17 +57,23 @@ def test_from_location_dataset_roundtrip():
     assert sensor.calibrated
 
 
-def test_from_location_optical_errors_uncalibrated_loads():
+def test_from_location_optical_and_uncalibrated_load():
     sites = bh.datasets.ssn_sensors.load()
-    # Optical (radec) site is unsupported and still errors.
+    # Optical site now constructs as an angles-only (2-dim) sensor whose
+    # matching model is the AzElMeasurementModel.
     socorro = next(s for s in sites if s.get_name() == "Socorro")
-    with pytest.raises(ValueError):
-        bh.SimpleSSNSensor.from_location(socorro)
+    sensor = bh.SimpleSSNSensor.from_location(socorro)
+    assert sensor.measurement_dim == 2
+    assert sensor.calibrated
+    model = sensor.measurement_model()
+    assert model.name() == "AzEl"
+    assert model.measurement_dim() == 2
 
-    # Uncalibrated azel_range site now loads with zero noise instead of erroring.
+    # Uncalibrated azel_range site loads with zero noise instead of erroring.
     haystack = next(s for s in sites if s.get_name() == "Haystack")
     sensor = bh.SimpleSSNSensor.from_location(haystack)
     assert not sensor.calibrated
+    assert sensor.measurement_dim == 3
     r = sensor.measurement_model().noise_covariance()
     assert r[0, 0] == pytest.approx(0.0)
 
@@ -268,3 +276,80 @@ def test_with_constraint_rejects_everything(test_epoch):
     extended = sensor.with_constraint(reject_all)
     assert not extended.visible(test_epoch, state)
     assert extended.measure(test_epoch, state) is None
+
+
+def _optical_sensor(lon, lat, alt, name, seed):
+    """Build a co-located optical sensor via dataset-style properties."""
+    loc = bh.PointLocation(lon, lat, alt).with_name(name)
+    loc.properties["sensor_type"] = "optical"
+    loc.properties["el_min_deg"] = 5.0
+    loc.properties["az_noise_deg"] = 0.005
+    loc.properties["el_noise_deg"] = 0.005
+    return bh.SimpleSSNSensor.from_location(loc, seed=seed)
+
+
+def test_optical_sensor_measures_angles_only(test_epoch):
+    # An optical sensor produces 2-dim [az, el] measurements and an AzEl model.
+    sensor = _optical_sensor(-106.66, 33.82, 1510.2, "Optical", 7)
+    assert sensor.measurement_dim == 2
+    state = make_state_above(test_epoch, -106.66, 33.82, 500e3)
+    z = sensor.measure(test_epoch, state)
+    assert z is not None
+    assert len(z) == 2
+    assert z[1] > 89.0  # near zenith
+    model = sensor.measurement_model()
+    assert model.name() == "AzEl"
+    assert model.measurement_dim() == 2
+
+
+def test_mixed_network_ekf_processes_both_models(test_epoch):
+    # A co-located radar (az/el/range) and optical (az/el) sensor feed an EKF
+    # via distinct model indices; the mixed models must process without error
+    # and reduce the position error over a short arc.
+    oe = np.array([bh.R_EARTH + 700e3, 0.001, 55.0, 0.0, 0.0, 0.0])
+    state0 = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    prop = bh.NumericalOrbitPropagator(
+        test_epoch,
+        state0,
+        bh.NumericalPropagationConfig.default(),
+        bh.ForceModelConfig.two_body(),
+    )
+    end = test_epoch + 2 * 3600.0
+    prop.propagate_to(end)
+    traj = prop.trajectory
+
+    lon, lat, alt = -71.49, 42.62, 123.1
+    radar_loc = bh.PointLocation(lon, lat, alt).with_name("Radar")
+    radar = bh.SimpleSSNSensor(
+        radar_loc, el_min=5.0, range_max=5_000_000.0, noise=(0.01, 0.01, 25.0), seed=11
+    )
+    optical = _optical_sensor(lon, lat, alt, "Optical", 23)
+
+    observations = radar.simulate_observations(traj, test_epoch, end, 30.0, 0)
+    observations += optical.simulate_observations(traj, test_epoch, end, 30.0, 1)
+    observations.sort(key=lambda o: o.epoch)
+    assert any(o.model_index == 0 for o in observations)
+    assert any(o.model_index == 1 for o in observations)
+
+    initial = np.array(state0)
+    initial[0] += 500.0
+    initial[4] += 0.5
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    ekf = bh.ExtendedKalmanFilter(
+        test_epoch,
+        initial,
+        p0,
+        measurement_models=[radar.measurement_model(), optical.measurement_model()],
+        propagation_config=bh.NumericalPropagationConfig.default(),
+        force_config=bh.ForceModelConfig.two_body(),
+    )
+    for obs in observations:
+        ekf.process_observation(obs)
+
+    truth_final = traj.interpolate(ekf.current_epoch())
+    final_err = np.linalg.norm(ekf.current_state()[:3] - truth_final[:3])
+    assert final_err < 500.0
+
+    names = {rec.measurement_name for rec in ekf.records()}
+    assert "AzElRange" in names
+    assert "AzEl" in names

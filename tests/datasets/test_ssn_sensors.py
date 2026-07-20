@@ -25,13 +25,13 @@ def test_ssn_sensor_values_against_vallado_tables():
     assert props["az_noise_deg"] == 0.0154
 
     socorro = next(s for s in sensors if s.get_name() == "Socorro")
-    assert socorro.properties["sensor_type"] == "radec"
+    assert socorro.properties["sensor_type"] == "optical"
     assert "range_max_m" not in socorro.properties
 
 
 def test_ssn_sensor_type_counts():
     sensors = bh.datasets.ssn_sensors.load()
     azel = [s for s in sensors if s.properties["sensor_type"] == "azel_range"]
-    radec = [s for s in sensors if s.properties["sensor_type"] == "radec"]
+    optical = [s for s in sensors if s.properties["sensor_type"] == "optical"]
     assert len(azel) == 15
-    assert len(radec) == 6
+    assert len(optical) == 6

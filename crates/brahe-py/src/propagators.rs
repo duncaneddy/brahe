@@ -1994,9 +1994,9 @@ impl PySGPPropagatorBuilder {
     ///
     /// Returns:
     ///     SGPPropagatorBuilder: The builder, for method chaining.
-    fn step_size(mut slf: PyRefMut<'_, Self>, step_size: f64) -> Self {
-        let inner = slf.inner.take().map(|b| b.step_size(step_size));
-        Self { inner }
+    fn step_size(mut slf: PyRefMut<'_, Self>, step_size: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.step_size(step_size));
+        slf
     }
 
     /// Set the satellite name (OMM `OBJECT_NAME`).
@@ -2006,9 +2006,9 @@ impl PySGPPropagatorBuilder {
     ///
     /// Returns:
     ///     SGPPropagatorBuilder: The builder, for method chaining.
-    fn object_name(mut slf: PyRefMut<'_, Self>, object_name: &str) -> Self {
-        let inner = slf.inner.take().map(|b| b.object_name(object_name));
-        Self { inner }
+    fn object_name<'a>(mut slf: PyRefMut<'a, Self>, object_name: &str) -> PyRefMut<'a, Self> {
+        slf.inner = slf.inner.take().map(|b| b.object_name(object_name));
+        slf
     }
 
     /// Set the international designator (OMM `OBJECT_ID`, e.g. `"1998-067A"`).
@@ -2018,9 +2018,9 @@ impl PySGPPropagatorBuilder {
     ///
     /// Returns:
     ///     SGPPropagatorBuilder: The builder, for method chaining.
-    fn object_id(mut slf: PyRefMut<'_, Self>, object_id: &str) -> Self {
-        let inner = slf.inner.take().map(|b| b.object_id(object_id));
-        Self { inner }
+    fn object_id<'a>(mut slf: PyRefMut<'a, Self>, object_id: &str) -> PyRefMut<'a, Self> {
+        slf.inner = slf.inner.take().map(|b| b.object_id(object_id));
+        slf
     }
 
     /// Set the classification (OMM `CLASSIFICATION_TYPE`).
@@ -2032,9 +2032,9 @@ impl PySGPPropagatorBuilder {
     ///
     /// Returns:
     ///     SGPPropagatorBuilder: The builder, for method chaining.
-    fn classification(mut slf: PyRefMut<'_, Self>, classification: char) -> Self {
-        let inner = slf.inner.take().map(|b| b.classification(classification));
-        Self { inner }
+    fn classification(mut slf: PyRefMut<'_, Self>, classification: char) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.classification(classification));
+        slf
     }
 
     /// Set the B* drag term (OMM `BSTAR`).
@@ -2046,9 +2046,9 @@ impl PySGPPropagatorBuilder {
     ///
     /// Returns:
     ///     SGPPropagatorBuilder: The builder, for method chaining.
-    fn bstar(mut slf: PyRefMut<'_, Self>, bstar: f64) -> Self {
-        let inner = slf.inner.take().map(|b| b.bstar(bstar));
-        Self { inner }
+    fn bstar(mut slf: PyRefMut<'_, Self>, bstar: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.bstar(bstar));
+        slf
     }
 
     /// Set the first derivative of mean motion divided by 2 (OMM `MEAN_MOTION_DOT`).
@@ -2060,9 +2060,9 @@ impl PySGPPropagatorBuilder {
     ///
     /// Returns:
     ///     SGPPropagatorBuilder: The builder, for method chaining.
-    fn mean_motion_dot(mut slf: PyRefMut<'_, Self>, mean_motion_dot: f64) -> Self {
-        let inner = slf.inner.take().map(|b| b.mean_motion_dot(mean_motion_dot));
-        Self { inner }
+    fn mean_motion_dot(mut slf: PyRefMut<'_, Self>, mean_motion_dot: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.mean_motion_dot(mean_motion_dot));
+        slf
     }
 
     /// Set the second derivative of mean motion divided by 6 (OMM `MEAN_MOTION_DDOT`).
@@ -2074,12 +2074,12 @@ impl PySGPPropagatorBuilder {
     ///
     /// Returns:
     ///     SGPPropagatorBuilder: The builder, for method chaining.
-    fn mean_motion_ddot(mut slf: PyRefMut<'_, Self>, mean_motion_ddot: f64) -> Self {
-        let inner = slf
+    fn mean_motion_ddot(mut slf: PyRefMut<'_, Self>, mean_motion_ddot: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf
             .inner
             .take()
             .map(|b| b.mean_motion_ddot(mean_motion_ddot));
-        Self { inner }
+        slf
     }
 
     /// Set the ephemeris type (OMM `EPHEMERIS_TYPE`).
@@ -2091,9 +2091,9 @@ impl PySGPPropagatorBuilder {
     ///
     /// Returns:
     ///     SGPPropagatorBuilder: The builder, for method chaining.
-    fn ephemeris_type(mut slf: PyRefMut<'_, Self>, ephemeris_type: u8) -> Self {
-        let inner = slf.inner.take().map(|b| b.ephemeris_type(ephemeris_type));
-        Self { inner }
+    fn ephemeris_type(mut slf: PyRefMut<'_, Self>, ephemeris_type: u8) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.ephemeris_type(ephemeris_type));
+        slf
     }
 
     /// Set the element set number (OMM `ELEMENT_SET_NO`).
@@ -2105,9 +2105,9 @@ impl PySGPPropagatorBuilder {
     ///
     /// Returns:
     ///     SGPPropagatorBuilder: The builder, for method chaining.
-    fn element_set_no(mut slf: PyRefMut<'_, Self>, element_set_no: u64) -> Self {
-        let inner = slf.inner.take().map(|b| b.element_set_no(element_set_no));
-        Self { inner }
+    fn element_set_no(mut slf: PyRefMut<'_, Self>, element_set_no: u64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.element_set_no(element_set_no));
+        slf
     }
 
     /// Set the revolution number at epoch (OMM `REV_AT_EPOCH`).
@@ -2119,9 +2119,9 @@ impl PySGPPropagatorBuilder {
     ///
     /// Returns:
     ///     SGPPropagatorBuilder: The builder, for method chaining.
-    fn rev_at_epoch(mut slf: PyRefMut<'_, Self>, rev_at_epoch: u64) -> Self {
-        let inner = slf.inner.take().map(|b| b.rev_at_epoch(rev_at_epoch));
-        Self { inner }
+    fn rev_at_epoch(mut slf: PyRefMut<'_, Self>, rev_at_epoch: u64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.rev_at_epoch(rev_at_epoch));
+        slf
     }
 
     /// Set output format (frame, representation, and angle format) for propagated states.
@@ -2137,18 +2137,18 @@ impl PySGPPropagatorBuilder {
     ///
     /// Returns:
     ///     SGPPropagatorBuilder: The builder, for method chaining.
-    fn output_format(
-        mut slf: PyRefMut<'_, Self>,
+    fn output_format<'a>(
+        mut slf: PyRefMut<'a, Self>,
         frame: PyRef<PyOrbitFrame>,
         representation: PyRef<PyOrbitRepresentation>,
         angle_format: Option<PyRef<PyAngleFormat>>,
-    ) -> Self {
+    ) -> PyRefMut<'a, Self> {
         let angle_fmt = angle_format.map(|af| af.value);
-        let inner = slf
+        slf.inner = slf
             .inner
             .take()
             .map(|b| b.output_format(frame.frame, representation.representation, angle_fmt));
-        Self { inner }
+        slf
     }
 
     /// Construct the propagator from the accumulated configuration.
@@ -2158,17 +2158,17 @@ impl PySGPPropagatorBuilder {
     ///
     /// Note:
     ///     If `output_format()` was called with an invalid frame/representation/
-    ///     angle-format combination, the underlying Rust `build()` panics rather
-    ///     than raising an error. See `SGPPropagator.set_output_format()` for the
-    ///     valid combinations.
+    ///     angle-format combination, `build()` raises `RuntimeError`. See
+    ///     `SGPPropagator.set_output_format()` for the valid combinations.
     ///
     /// Returns:
     ///     SGPPropagator: Initialized propagator ready for propagation.
     ///
     /// Raises:
     ///     RuntimeError: If the builder was already consumed by a prior `build()`
-    ///         call, or if the epoch string cannot be parsed or other OMM
-    ///         validation fails.
+    ///         call, if the epoch string cannot be parsed or other OMM
+    ///         validation fails, or if `output_format()` was called with an
+    ///         invalid frame/representation/angle-format combination.
     fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PySGPPropagator> {
         let builder = slf
             .inner
@@ -8413,15 +8413,15 @@ impl PyNumericalOrbitPropagatorBuilder {
     ///
     /// Returns:
     ///     NumericalOrbitPropagatorBuilder: The builder, for method chaining.
-    fn propagation_config(
-        mut slf: PyRefMut<'_, Self>,
+    fn propagation_config<'a>(
+        mut slf: PyRefMut<'a, Self>,
         config: &PyNumericalPropagationConfig,
-    ) -> Self {
-        let inner = slf
+    ) -> PyRefMut<'a, Self> {
+        slf.inner = slf
             .inner
             .take()
             .map(|b| b.propagation_config(config.config.clone()));
-        Self { inner }
+        slf
     }
 
     /// Set the parameter vector `[mass, drag_area, Cd, srp_area, Cr, ...]`.
@@ -8433,10 +8433,13 @@ impl PyNumericalOrbitPropagatorBuilder {
     ///
     /// Returns:
     ///     NumericalOrbitPropagatorBuilder: The builder, for method chaining.
-    fn params(mut slf: PyRefMut<'_, Self>, params: PyReadonlyArray1<f64>) -> PyResult<Self> {
+    fn params<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        params: PyReadonlyArray1<f64>,
+    ) -> PyResult<PyRefMut<'a, Self>> {
         let vec = nalgebra::DVector::from_column_slice(params.as_slice()?);
-        let inner = slf.inner.take().map(|b| b.params(vec));
-        Ok(Self { inner })
+        slf.inner = slf.inner.take().map(|b| b.params(vec));
+        Ok(slf)
     }
 
     /// Set additional dynamics for extended state dimensions beyond the 6D orbital state.
@@ -8448,14 +8451,14 @@ impl PyNumericalOrbitPropagatorBuilder {
     ///
     /// Returns:
     ///     NumericalOrbitPropagatorBuilder: The builder, for method chaining.
-    fn additional_dynamics(
-        mut slf: PyRefMut<'_, Self>,
+    fn additional_dynamics<'a>(
+        mut slf: PyRefMut<'a, Self>,
         py: Python<'_>,
         dynamics: Py<PyAny>,
-    ) -> Self {
+    ) -> PyRefMut<'a, Self> {
         let f = wrap_additional_dynamics(py, dynamics);
-        let inner = slf.inner.take().map(|b| b.additional_dynamics(f));
-        Self { inner }
+        slf.inner = slf.inner.take().map(|b| b.additional_dynamics(f));
+        slf
     }
 
     /// Set a continuous control-input function that adds an acceleration perturbation.
@@ -8466,10 +8469,14 @@ impl PyNumericalOrbitPropagatorBuilder {
     ///
     /// Returns:
     ///     NumericalOrbitPropagatorBuilder: The builder, for method chaining.
-    fn control_input(mut slf: PyRefMut<'_, Self>, py: Python<'_>, control: Py<PyAny>) -> Self {
+    fn control_input<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        py: Python<'_>,
+        control: Py<PyAny>,
+    ) -> PyRefMut<'a, Self> {
         let f = wrap_control_input(py, control);
-        let inner = slf.inner.take().map(|b| b.control_input(f));
-        Self { inner }
+        slf.inner = slf.inner.take().map(|b| b.control_input(f));
+        slf
     }
 
     /// Set an initial covariance matrix P0, which also enables STM propagation.
@@ -8479,10 +8486,10 @@ impl PyNumericalOrbitPropagatorBuilder {
     ///
     /// Returns:
     ///     NumericalOrbitPropagatorBuilder: The builder, for method chaining.
-    fn initial_covariance(
-        mut slf: PyRefMut<'_, Self>,
+    fn initial_covariance<'a>(
+        mut slf: PyRefMut<'a, Self>,
         covariance: PyReadonlyArray2<f64>,
-    ) -> PyResult<Self> {
+    ) -> PyResult<PyRefMut<'a, Self>> {
         let cov_shape = covariance.shape();
         if cov_shape[0] != 6 || cov_shape[1] != 6 {
             return Err(exceptions::PyValueError::new_err(
@@ -8491,8 +8498,8 @@ impl PyNumericalOrbitPropagatorBuilder {
         }
         let cov_data: Vec<f64> = covariance.as_slice()?.to_vec();
         let cov_matrix = nalgebra::DMatrix::from_row_slice(6, 6, &cov_data);
-        let inner = slf.inner.take().map(|b| b.initial_covariance(cov_matrix));
-        Ok(Self { inner })
+        slf.inner = slf.inner.take().map(|b| b.initial_covariance(cov_matrix));
+        Ok(slf)
     }
 
     /// Construct the propagator from the accumulated configuration.
@@ -9510,18 +9517,15 @@ impl PyNumericalPropagatorBuilder {
     ///
     /// Returns:
     ///     NumericalPropagatorBuilder: The builder, for method chaining.
-    fn propagation_config(
-        mut slf: PyRefMut<'_, Self>,
+    fn propagation_config<'a>(
+        mut slf: PyRefMut<'a, Self>,
         config: &PyNumericalPropagationConfig,
-    ) -> Self {
-        let inner = slf
+    ) -> PyRefMut<'a, Self> {
+        slf.inner = slf
             .inner
             .take()
             .map(|b| b.propagation_config(config.config.clone()));
-        Self {
-            inner,
-            state_dim: slf.state_dim,
-        }
+        slf
     }
 
     /// Set the parameter vector consumed by the dynamics function, control input,
@@ -9532,13 +9536,13 @@ impl PyNumericalPropagatorBuilder {
     ///
     /// Returns:
     ///     NumericalPropagatorBuilder: The builder, for method chaining.
-    fn params(mut slf: PyRefMut<'_, Self>, params: PyReadonlyArray1<f64>) -> PyResult<Self> {
+    fn params<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        params: PyReadonlyArray1<f64>,
+    ) -> PyResult<PyRefMut<'a, Self>> {
         let vec = nalgebra::DVector::from_column_slice(params.as_slice()?);
-        let inner = slf.inner.take().map(|b| b.params(vec));
-        Ok(Self {
-            inner,
-            state_dim: slf.state_dim,
-        })
+        slf.inner = slf.inner.take().map(|b| b.params(vec));
+        Ok(slf)
     }
 
     /// Set a continuous control-input function that adds a perturbation to the dynamics output.
@@ -9549,13 +9553,14 @@ impl PyNumericalPropagatorBuilder {
     ///
     /// Returns:
     ///     NumericalPropagatorBuilder: The builder, for method chaining.
-    fn control_input(mut slf: PyRefMut<'_, Self>, py: Python<'_>, control: Py<PyAny>) -> Self {
+    fn control_input<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        py: Python<'_>,
+        control: Py<PyAny>,
+    ) -> PyRefMut<'a, Self> {
         let f = wrap_control_input(py, control);
-        let inner = slf.inner.take().map(|b| b.control_input(f));
-        Self {
-            inner,
-            state_dim: slf.state_dim,
-        }
+        slf.inner = slf.inner.take().map(|b| b.control_input(f));
+        slf
     }
 
     /// Set an initial covariance matrix P0, which also enables STM propagation.
@@ -9566,10 +9571,10 @@ impl PyNumericalPropagatorBuilder {
     ///
     /// Returns:
     ///     NumericalPropagatorBuilder: The builder, for method chaining.
-    fn initial_covariance(
-        mut slf: PyRefMut<'_, Self>,
+    fn initial_covariance<'a>(
+        mut slf: PyRefMut<'a, Self>,
         covariance: PyReadonlyArray2<f64>,
-    ) -> PyResult<Self> {
+    ) -> PyResult<PyRefMut<'a, Self>> {
         let state_dim = slf.state_dim;
         let cov_shape = covariance.shape();
         if cov_shape[0] != state_dim || cov_shape[1] != state_dim {
@@ -9580,8 +9585,8 @@ impl PyNumericalPropagatorBuilder {
         }
         let cov_data: Vec<f64> = covariance.as_slice()?.to_vec();
         let cov_matrix = nalgebra::DMatrix::from_row_slice(state_dim, state_dim, &cov_data);
-        let inner = slf.inner.take().map(|b| b.initial_covariance(cov_matrix));
-        Ok(Self { inner, state_dim })
+        slf.inner = slf.inner.take().map(|b| b.initial_covariance(cov_matrix));
+        Ok(slf)
     }
 
     /// Construct the propagator from the accumulated configuration.

@@ -698,6 +698,8 @@ impl DNumericalOrbitPropagatorBuilder {
     /// Returns `BraheError` if:
     /// - Force model references parameter indices but no parameter vector is provided
     /// - Parameter vector is too short for the force model configuration
+    /// - `initial_covariance` is provided and its dimensions do not match the
+    ///   state dimension
     ///
     /// # Examples
     ///
@@ -760,6 +762,8 @@ impl DNumericalOrbitPropagator {
     /// Returns `BraheError` if:
     /// - Force model references parameter indices but no parameter vector is provided
     /// - Parameter vector is too short for the force model configuration
+    /// - `initial_covariance` is provided and its dimensions do not match the
+    ///   state dimension
     ///
     /// # Example
     ///
@@ -822,6 +826,19 @@ impl DNumericalOrbitPropagator {
 
         // Get state dimension
         let state_dim = state_eci.len();
+
+        // Validate: initial covariance must be square with dimension matching the
+        // state, since STM propagation computes Φ·P₀·Φᵀ with Φ sized state_dim × state_dim.
+        if let Some(ref p0) = initial_covariance
+            && (p0.nrows() != state_dim || p0.ncols() != state_dim)
+        {
+            return Err(BraheError::PropagatorError(format!(
+                "initial_covariance must be a {state_dim}x{state_dim} matrix matching the \
+                 state dimension, but got {}x{}",
+                p0.nrows(),
+                p0.ncols()
+            )));
+        }
 
         // Determine what to propagate based on config and provided data
         // STM is auto-enabled if initial_covariance is provided, or can be explicitly enabled
@@ -13045,6 +13062,44 @@ mod tests {
         from_builder.step_by(60.0);
         from_new.step_by(60.0);
         assert_eq!(from_builder.current_state(), from_new.current_state());
+    }
+
+    #[rstest]
+    #[serial_test::parallel]
+    fn test_dnumericalorbitpropagator_new_rejects_mismatched_covariance_dim() {
+        setup_global_test_eop();
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
+        let p0 = DMatrix::identity(5, 5); // mismatched: state is 6D
+
+        let result = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::earth_gravity(),
+            None,
+            None,
+            None,
+            Some(p0),
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[rstest]
+    #[serial_test::parallel]
+    fn test_dnumericalorbitpropagator_builder_rejects_mismatched_covariance_dim() {
+        setup_global_test_eop();
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
+        let p0 = DMatrix::identity(5, 5); // mismatched: state is 6D
+
+        let result =
+            DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::earth_gravity())
+                .initial_covariance(p0)
+                .build();
+
+        assert!(result.is_err());
     }
 
     #[rstest]

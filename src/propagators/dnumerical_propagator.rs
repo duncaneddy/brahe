@@ -484,6 +484,8 @@ impl DNumericalPropagator {
     /// Returns `BraheError` if:
     /// - Sensitivity propagation is enabled but no parameters are provided
     /// - Hermite interpolation methods are configured for non-6D states
+    /// - `initial_covariance` is provided and its dimensions do not match the
+    ///   state dimension
     ///
     /// # Example
     ///
@@ -532,6 +534,19 @@ impl DNumericalPropagator {
 
         // Get state dimension
         let state_dim = state_eci.len();
+
+        // Validate: initial covariance must be square with dimension matching the
+        // state, since STM propagation computes Φ·P₀·Φᵀ with Φ sized state_dim × state_dim.
+        if let Some(ref p0) = initial_covariance
+            && (p0.nrows() != state_dim || p0.ncols() != state_dim)
+        {
+            return Err(BraheError::PropagatorError(format!(
+                "initial_covariance must be a {state_dim}x{state_dim} matrix matching the \
+                 state dimension, but got {}x{}",
+                p0.nrows(),
+                p0.ncols()
+            )));
+        }
 
         // Determine what to propagate based on config and provided data
         // STM is auto-enabled if initial_covariance is provided, or can be explicitly enabled
@@ -2500,6 +2515,38 @@ mod tests {
         from_builder.step_by(1.0);
         from_new.step_by(1.0);
         assert_eq!(from_builder.current_state(), from_new.current_state());
+    }
+
+    #[test]
+    fn test_dnumericalpropagator_new_rejects_mismatched_covariance_dim() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0, 0.0]); // 2D state
+        let p0 = DMatrix::<f64>::identity(3, 3); // mismatched 3x3 covariance
+
+        let result = DNumericalPropagator::new(
+            epoch,
+            state,
+            sho_dynamics(1.0),
+            NumericalPropagationConfig::default(),
+            None,
+            None,
+            Some(p0),
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_dnumericalpropagator_builder_rejects_mismatched_covariance_dim() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0, 0.0]); // 2D state
+        let p0 = DMatrix::<f64>::identity(3, 3); // mismatched 3x3 covariance
+
+        let result = DNumericalPropagator::builder(epoch, state, sho_dynamics(1.0))
+            .initial_covariance(p0)
+            .build();
+
+        assert!(result.is_err());
     }
 
     #[test]

@@ -2538,9 +2538,9 @@ impl PyWalkerConstellationGeneratorBuilder {
     ///
     /// Returns:
     ///     WalkerConstellationGeneratorBuilder: The builder, for method chaining.
-    fn eccentricity(mut slf: PyRefMut<'_, Self>, eccentricity: f64) -> Self {
-        let inner = slf.inner.take().map(|b| b.eccentricity(eccentricity));
-        Self { inner }
+    fn eccentricity(mut slf: PyRefMut<'_, Self>, eccentricity: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.eccentricity(eccentricity));
+        slf
     }
 
     /// Set the argument of perigee.
@@ -2553,12 +2553,15 @@ impl PyWalkerConstellationGeneratorBuilder {
     ///
     /// Returns:
     ///     WalkerConstellationGeneratorBuilder: The builder, for method chaining.
-    fn argument_of_perigee(mut slf: PyRefMut<'_, Self>, argument_of_perigee: f64) -> Self {
-        let inner = slf
+    fn argument_of_perigee(
+        mut slf: PyRefMut<'_, Self>,
+        argument_of_perigee: f64,
+    ) -> PyRefMut<'_, Self> {
+        slf.inner = slf
             .inner
             .take()
             .map(|b| b.argument_of_perigee(argument_of_perigee));
-        Self { inner }
+        slf
     }
 
     /// Set the reference RAAN for plane 0.
@@ -2571,9 +2574,9 @@ impl PyWalkerConstellationGeneratorBuilder {
     ///
     /// Returns:
     ///     WalkerConstellationGeneratorBuilder: The builder, for method chaining.
-    fn reference_raan(mut slf: PyRefMut<'_, Self>, reference_raan: f64) -> Self {
-        let inner = slf.inner.take().map(|b| b.reference_raan(reference_raan));
-        Self { inner }
+    fn reference_raan(mut slf: PyRefMut<'_, Self>, reference_raan: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.reference_raan(reference_raan));
+        slf
     }
 
     /// Set the reference mean anomaly for the first satellite.
@@ -2586,12 +2589,15 @@ impl PyWalkerConstellationGeneratorBuilder {
     ///
     /// Returns:
     ///     WalkerConstellationGeneratorBuilder: The builder, for method chaining.
-    fn reference_mean_anomaly(mut slf: PyRefMut<'_, Self>, reference_mean_anomaly: f64) -> Self {
-        let inner = slf
+    fn reference_mean_anomaly(
+        mut slf: PyRefMut<'_, Self>,
+        reference_mean_anomaly: f64,
+    ) -> PyRefMut<'_, Self> {
+        slf.inner = slf
             .inner
             .take()
             .map(|b| b.reference_mean_anomaly(reference_mean_anomaly));
-        Self { inner }
+        slf
     }
 
     /// Set the angle format for `inclination`, `argument_of_perigee`,
@@ -2604,10 +2610,13 @@ impl PyWalkerConstellationGeneratorBuilder {
     ///
     /// Returns:
     ///     WalkerConstellationGeneratorBuilder: The builder, for method chaining.
-    fn angle_format(mut slf: PyRefMut<'_, Self>, angle_format: &PyAngleFormat) -> Self {
+    fn angle_format<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        angle_format: &PyAngleFormat,
+    ) -> PyRefMut<'a, Self> {
         let value = angle_format.value;
-        let inner = slf.inner.take().map(|b| b.angle_format(value));
-        Self { inner }
+        slf.inner = slf.inner.take().map(|b| b.angle_format(value));
+        slf
     }
 
     /// Set the Walker pattern type.
@@ -2619,10 +2628,10 @@ impl PyWalkerConstellationGeneratorBuilder {
     ///
     /// Returns:
     ///     WalkerConstellationGeneratorBuilder: The builder, for method chaining.
-    fn pattern(mut slf: PyRefMut<'_, Self>, pattern: &PyWalkerPattern) -> Self {
+    fn pattern<'a>(mut slf: PyRefMut<'a, Self>, pattern: &PyWalkerPattern) -> PyRefMut<'a, Self> {
         let value = orbits::WalkerPattern::from(*pattern);
-        let inner = slf.inner.take().map(|b| b.pattern(value));
-        Self { inner }
+        slf.inner = slf.inner.take().map(|b| b.pattern(value));
+        slf
     }
 
     /// Set a base name for satellite naming.
@@ -2635,9 +2644,9 @@ impl PyWalkerConstellationGeneratorBuilder {
     ///
     /// Returns:
     ///     WalkerConstellationGeneratorBuilder: The builder, for method chaining.
-    fn base_name(mut slf: PyRefMut<'_, Self>, name: &str) -> Self {
-        let inner = slf.inner.take().map(|b| b.base_name(name));
-        Self { inner }
+    fn base_name<'a>(mut slf: PyRefMut<'a, Self>, name: &str) -> PyRefMut<'a, Self> {
+        slf.inner = slf.inner.take().map(|b| b.base_name(name));
+        slf
     }
 
     /// Construct the generator from the accumulated configuration.

@@ -4872,6 +4872,34 @@ def test_numericalorbitpropagator_construction_with_additional_dynamics():
     assert abs(final_mass - (initial_mass - 1.0)) < 1e-3
 
 
+def test_numericalorbitpropagator_rejects_mismatched_covariance_dim():
+    """A covariance sized for the base 6D state does not match an extended
+    (7D) state, and construction must raise rather than panic in the
+    underlying STM propagation (Phi @ P0 @ Phi.T)."""
+    epoch = create_test_epoch()
+
+    # 6D orbital state + 1 additional state (e.g., spacecraft mass)
+    extended_state = np.array(
+        [R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0, 1000.0]  # mass [kg]
+    )
+
+    def additional_dyn(epc, state, params):
+        dx = np.zeros(len(state))
+        dx[6] = -0.1  # dm/dt = -0.1 kg/s
+        return dx
+
+    with pytest.raises(RuntimeError, match="7x7"):
+        NumericalOrbitPropagator(
+            epoch,
+            extended_state,
+            NumericalPropagationConfig.default(),
+            ForceModelConfig.earth_gravity(),
+            None,
+            np.eye(6),  # mismatched: state_dim is 7, not 6
+            additional_dyn,
+        )
+
+
 def test_numericalorbitpropagator_trajectory_stores_additional_states():
     """Test trajectory stores additional states (mirrors Rust test)"""
     epoch = create_test_epoch()
@@ -6201,6 +6229,19 @@ def test_numericalorbitpropagator_builder():
     prop.step_by(60.0)
     flat.step_by(60.0)
     np.testing.assert_allclose(prop.current_state(), flat.current_state())
+
+
+def test_numericalorbitpropagator_builder_unchained_setter():
+    """Calling a setter without reassigning its return value must not orphan
+    the original builder variable -- build() on the original must succeed."""
+    epoch = create_test_epoch()
+    state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+
+    builder = NumericalOrbitPropagator.builder(epoch, state, ForceModelConfig())
+    builder.propagation_config(NumericalPropagationConfig.default())  # not reassigned
+    prop = builder.build()
+
+    assert prop.state_dim == 6
 
 
 def test_numericalorbitpropagator_builder_consumed():

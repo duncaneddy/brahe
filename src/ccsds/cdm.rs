@@ -1042,7 +1042,10 @@ impl CDMObjectMetadataBuilder {
     ///
     /// # Errors
     /// Returns `BraheError::InitializationError` naming every mandatory
-    /// field that was never set, if any.
+    /// field that was never set, if any. Also returns
+    /// `BraheError::InitializationError` if `ephemeris_name` is `"ODM"` but
+    /// `odm_msg_link` was never set, or if `alt_cov_type` was set but
+    /// `alt_cov_ref_frame` was never set.
     ///
     /// # Examples
     /// ```
@@ -1098,6 +1101,24 @@ impl CDMObjectMetadataBuilder {
                 "CDMObjectMetadata builder missing required fields: {}",
                 missing.join(", ")
             )));
+        }
+
+        // Conditionally mandatory fields (see field docs above): ODM_MSG_LINK
+        // is mandatory when EPHEMERIS_NAME=ODM, and ALT_COV_REF_FRAME is
+        // mandatory whenever ALT_COV_TYPE is present.
+        if self.ephemeris_name.as_deref() == Some("ODM") && self.odm_msg_link.is_none() {
+            return Err(BraheError::InitializationError(
+                "CDMObjectMetadata builder missing odm_msg_link: mandatory when \
+                 ephemeris_name is \"ODM\""
+                    .to_string(),
+            ));
+        }
+        if self.alt_cov_type.is_some() && self.alt_cov_ref_frame.is_none() {
+            return Err(BraheError::InitializationError(
+                "CDMObjectMetadata builder missing alt_cov_ref_frame: mandatory when \
+                 alt_cov_type is present"
+                    .to_string(),
+            ));
         }
 
         let mut metadata = CDMObjectMetadata::new(
@@ -1491,6 +1512,67 @@ mod tests {
             .to_string();
         assert!(err.contains("object_designator"));
         assert!(err.contains("ref_frame"));
+    }
+
+    /// Base builder covering all mandatory fields, used by the conditional-field
+    /// tests below.
+    fn required_metadata_builder() -> CDMObjectMetadataBuilder {
+        CDMObjectMetadata::builder()
+            .object("OBJECT1")
+            .object_designator("12345")
+            .catalog_name("SATCAT")
+            .object_name("SAT A")
+            .international_designator("2020-001A")
+            .covariance_method("CALCULATED")
+            .maneuverable("YES")
+            .ref_frame(CCSDSRefFrame::EME2000)
+    }
+
+    #[test]
+    fn test_cdmobjectmetadata_builder_odm_requires_msg_link() {
+        let err = required_metadata_builder()
+            .ephemeris_name("ODM")
+            .build()
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("odm_msg_link"));
+    }
+
+    #[test]
+    fn test_cdmobjectmetadata_builder_odm_with_msg_link_succeeds() {
+        let metadata = required_metadata_builder()
+            .ephemeris_name("ODM")
+            .odm_msg_link("ccsds.org/msg/12345")
+            .build()
+            .unwrap();
+        assert_eq!(metadata.ephemeris_name, "ODM");
+        assert_eq!(
+            metadata.odm_msg_link.as_deref(),
+            Some("ccsds.org/msg/12345")
+        );
+    }
+
+    #[test]
+    fn test_cdmobjectmetadata_builder_alt_cov_type_requires_ref_frame() {
+        let err = required_metadata_builder()
+            .ephemeris_name("NONE")
+            .alt_cov_type("XYZ")
+            .build()
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("alt_cov_ref_frame"));
+    }
+
+    #[test]
+    fn test_cdmobjectmetadata_builder_alt_cov_type_with_ref_frame_succeeds() {
+        let metadata = required_metadata_builder()
+            .ephemeris_name("NONE")
+            .alt_cov_type("XYZ")
+            .alt_cov_ref_frame(CCSDSRefFrame::ITRF2000)
+            .build()
+            .unwrap();
+        assert_eq!(metadata.alt_cov_type.as_deref(), Some("XYZ"));
+        assert_eq!(metadata.alt_cov_ref_frame, Some(CCSDSRefFrame::ITRF2000));
     }
 
     #[test]

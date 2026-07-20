@@ -3185,9 +3185,9 @@ impl PyAccessPropertiesBuilder {
     ///
     /// Returns:
     ///     AccessPropertiesBuilder: The builder, for method chaining.
-    fn azimuth_open(mut slf: PyRefMut<'_, Self>, azimuth_open: f64) -> Self {
-        let inner = slf.inner.take().map(|b| b.azimuth_open(azimuth_open));
-        Self { inner }
+    fn azimuth_open(mut slf: PyRefMut<'_, Self>, azimuth_open: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.azimuth_open(azimuth_open));
+        slf
     }
 
     /// Set the azimuth at window close.
@@ -3197,9 +3197,9 @@ impl PyAccessPropertiesBuilder {
     ///
     /// Returns:
     ///     AccessPropertiesBuilder: The builder, for method chaining.
-    fn azimuth_close(mut slf: PyRefMut<'_, Self>, azimuth_close: f64) -> Self {
-        let inner = slf.inner.take().map(|b| b.azimuth_close(azimuth_close));
-        Self { inner }
+    fn azimuth_close(mut slf: PyRefMut<'_, Self>, azimuth_close: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.azimuth_close(azimuth_close));
+        slf
     }
 
     /// Set the minimum elevation angle during access.
@@ -3209,9 +3209,9 @@ impl PyAccessPropertiesBuilder {
     ///
     /// Returns:
     ///     AccessPropertiesBuilder: The builder, for method chaining.
-    fn elevation_min(mut slf: PyRefMut<'_, Self>, elevation_min: f64) -> Self {
-        let inner = slf.inner.take().map(|b| b.elevation_min(elevation_min));
-        Self { inner }
+    fn elevation_min(mut slf: PyRefMut<'_, Self>, elevation_min: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.elevation_min(elevation_min));
+        slf
     }
 
     /// Set the maximum elevation angle during access.
@@ -3221,9 +3221,9 @@ impl PyAccessPropertiesBuilder {
     ///
     /// Returns:
     ///     AccessPropertiesBuilder: The builder, for method chaining.
-    fn elevation_max(mut slf: PyRefMut<'_, Self>, elevation_max: f64) -> Self {
-        let inner = slf.inner.take().map(|b| b.elevation_max(elevation_max));
-        Self { inner }
+    fn elevation_max(mut slf: PyRefMut<'_, Self>, elevation_max: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.elevation_max(elevation_max));
+        slf
     }
 
     /// Set the elevation angle at window open.
@@ -3233,9 +3233,9 @@ impl PyAccessPropertiesBuilder {
     ///
     /// Returns:
     ///     AccessPropertiesBuilder: The builder, for method chaining.
-    fn elevation_open(mut slf: PyRefMut<'_, Self>, elevation_open: f64) -> Self {
-        let inner = slf.inner.take().map(|b| b.elevation_open(elevation_open));
-        Self { inner }
+    fn elevation_open(mut slf: PyRefMut<'_, Self>, elevation_open: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.elevation_open(elevation_open));
+        slf
     }
 
     /// Set the elevation angle at window close.
@@ -3245,9 +3245,9 @@ impl PyAccessPropertiesBuilder {
     ///
     /// Returns:
     ///     AccessPropertiesBuilder: The builder, for method chaining.
-    fn elevation_close(mut slf: PyRefMut<'_, Self>, elevation_close: f64) -> Self {
-        let inner = slf.inner.take().map(|b| b.elevation_close(elevation_close));
-        Self { inner }
+    fn elevation_close(mut slf: PyRefMut<'_, Self>, elevation_close: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.elevation_close(elevation_close));
+        slf
     }
 
     /// Set the minimum off-nadir angle during access.
@@ -3257,9 +3257,9 @@ impl PyAccessPropertiesBuilder {
     ///
     /// Returns:
     ///     AccessPropertiesBuilder: The builder, for method chaining.
-    fn off_nadir_min(mut slf: PyRefMut<'_, Self>, off_nadir_min: f64) -> Self {
-        let inner = slf.inner.take().map(|b| b.off_nadir_min(off_nadir_min));
-        Self { inner }
+    fn off_nadir_min(mut slf: PyRefMut<'_, Self>, off_nadir_min: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.off_nadir_min(off_nadir_min));
+        slf
     }
 
     /// Set the maximum off-nadir angle during access.
@@ -3269,9 +3269,9 @@ impl PyAccessPropertiesBuilder {
     ///
     /// Returns:
     ///     AccessPropertiesBuilder: The builder, for method chaining.
-    fn off_nadir_max(mut slf: PyRefMut<'_, Self>, off_nadir_max: f64) -> Self {
-        let inner = slf.inner.take().map(|b| b.off_nadir_max(off_nadir_max));
-        Self { inner }
+    fn off_nadir_max(mut slf: PyRefMut<'_, Self>, off_nadir_max: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.off_nadir_max(off_nadir_max));
+        slf
     }
 
     /// Set the local solar time at window midtime.
@@ -3281,9 +3281,9 @@ impl PyAccessPropertiesBuilder {
     ///
     /// Returns:
     ///     AccessPropertiesBuilder: The builder, for method chaining.
-    fn local_time(mut slf: PyRefMut<'_, Self>, local_time: f64) -> Self {
-        let inner = slf.inner.take().map(|b| b.local_time(local_time));
-        Self { inner }
+    fn local_time(mut slf: PyRefMut<'_, Self>, local_time: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.local_time(local_time));
+        slf
     }
 
     /// Set the look direction.
@@ -3293,10 +3293,13 @@ impl PyAccessPropertiesBuilder {
     ///
     /// Returns:
     ///     AccessPropertiesBuilder: The builder, for method chaining.
-    fn look_direction(mut slf: PyRefMut<'_, Self>, look_direction: &PyLookDirection) -> Self {
+    fn look_direction<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        look_direction: &PyLookDirection,
+    ) -> PyRefMut<'a, Self> {
         let value = look_direction.value;
-        let inner = slf.inner.take().map(|b| b.look_direction(value));
-        Self { inner }
+        slf.inner = slf.inner.take().map(|b| b.look_direction(value));
+        slf
     }
 
     /// Set the ascending/descending pass indicator.
@@ -3306,10 +3309,10 @@ impl PyAccessPropertiesBuilder {
     ///
     /// Returns:
     ///     AccessPropertiesBuilder: The builder, for method chaining.
-    fn asc_dsc(mut slf: PyRefMut<'_, Self>, asc_dsc: &PyAscDsc) -> Self {
+    fn asc_dsc<'a>(mut slf: PyRefMut<'a, Self>, asc_dsc: &PyAscDsc) -> PyRefMut<'a, Self> {
         let value = asc_dsc.value;
-        let inner = slf.inner.take().map(|b| b.asc_dsc(value));
-        Self { inner }
+        slf.inner = slf.inner.take().map(|b| b.asc_dsc(value));
+        slf
     }
 
     /// Set the location center longitude.
@@ -3319,9 +3322,9 @@ impl PyAccessPropertiesBuilder {
     ///
     /// Returns:
     ///     AccessPropertiesBuilder: The builder, for method chaining.
-    fn center_lon(mut slf: PyRefMut<'_, Self>, center_lon: f64) -> Self {
-        let inner = slf.inner.take().map(|b| b.center_lon(center_lon));
-        Self { inner }
+    fn center_lon(mut slf: PyRefMut<'_, Self>, center_lon: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.center_lon(center_lon));
+        slf
     }
 
     /// Set the location center latitude.
@@ -3331,9 +3334,9 @@ impl PyAccessPropertiesBuilder {
     ///
     /// Returns:
     ///     AccessPropertiesBuilder: The builder, for method chaining.
-    fn center_lat(mut slf: PyRefMut<'_, Self>, center_lat: f64) -> Self {
-        let inner = slf.inner.take().map(|b| b.center_lat(center_lat));
-        Self { inner }
+    fn center_lat(mut slf: PyRefMut<'_, Self>, center_lat: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.center_lat(center_lat));
+        slf
     }
 
     /// Set the location center altitude.
@@ -3343,9 +3346,9 @@ impl PyAccessPropertiesBuilder {
     ///
     /// Returns:
     ///     AccessPropertiesBuilder: The builder, for method chaining.
-    fn center_alt(mut slf: PyRefMut<'_, Self>, center_alt: f64) -> Self {
-        let inner = slf.inner.take().map(|b| b.center_alt(center_alt));
-        Self { inner }
+    fn center_alt(mut slf: PyRefMut<'_, Self>, center_alt: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.center_alt(center_alt));
+        slf
     }
 
     /// Set the location center ECEF coordinates.
@@ -3355,9 +3358,9 @@ impl PyAccessPropertiesBuilder {
     ///
     /// Returns:
     ///     AccessPropertiesBuilder: The builder, for method chaining.
-    fn center_ecef(mut slf: PyRefMut<'_, Self>, center_ecef: [f64; 3]) -> Self {
-        let inner = slf.inner.take().map(|b| b.center_ecef(center_ecef));
-        Self { inner }
+    fn center_ecef(mut slf: PyRefMut<'_, Self>, center_ecef: [f64; 3]) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.center_ecef(center_ecef));
+        slf
     }
 
     /// Build the AccessProperties, validating that every field was set.

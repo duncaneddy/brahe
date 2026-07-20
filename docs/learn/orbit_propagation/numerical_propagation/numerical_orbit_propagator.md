@@ -23,7 +23,7 @@ All force models read from the first 6 elements and contribute accelerations to 
 
 ### Builder Construction
 
-`NumericalOrbitPropagator.builder()` (`DNumericalOrbitPropagator::builder()` in Rust) is the primary way to construct a propagator. It takes the three required fields -- `epoch`, `state`, and `force_config` -- directly as arguments, and every optional field (propagation configuration, parameters, additional dynamics, control input, initial covariance) is set through a chained setter, defaulting when omitted. This keeps construction readable regardless of how many optional fields a given setup needs.
+`NumericalOrbitPropagator.builder()` (`DNumericalOrbitPropagator::builder()` in Rust) is the primary way to construct a propagator. It takes the three required fields -- `epoch`, `state`, and `force_config` -- directly as arguments, and every optional field (propagation configuration, parameters, additional dynamics, control input, initial covariance) is set through a chained setter, defaulting when omitted. The required argument list stays fixed regardless of how many optional fields a given setup needs.
 
 === "Python"
 

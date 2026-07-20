@@ -178,10 +178,10 @@ Parameters allow passing constants to the dynamics function without hardcoding t
         ...
 
     # Create propagator with parameters
-    prop = bh.NumericalPropagator(
-        epoch, initial_state, dynamics,
-        bh.NumericalPropagationConfig.default(),
-        params  # Pass parameters here
+    prop = (
+        bh.NumericalPropagator.builder(epoch, initial_state, dynamics)
+        .params(params)
+        .build()
     )
     ```
 

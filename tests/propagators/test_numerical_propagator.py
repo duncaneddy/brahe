@@ -1943,6 +1943,19 @@ def test_numericalpropagator_builder():
     np.testing.assert_allclose(prop.current_state(), flat.current_state())
 
 
+def test_numericalpropagator_builder_unchained_setter():
+    """Calling a setter without reassigning its return value must not orphan
+    the original builder variable -- build() on the original must succeed."""
+    epoch = create_test_epoch()
+    state = np.array([1.0, 0.0])
+
+    builder = NumericalPropagator.builder(epoch, state, sho_dynamics)
+    builder.propagation_config(NumericalPropagationConfig.default())  # not reassigned
+    prop = builder.build()
+
+    assert prop.state_dim == 2
+
+
 def test_numericalpropagator_builder_consumed():
     """Test that calling build() twice on the same builder raises RuntimeError"""
     epoch = create_test_epoch()

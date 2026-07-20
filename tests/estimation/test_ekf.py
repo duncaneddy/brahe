@@ -256,6 +256,27 @@ def test_ekf_builder_equivalence(two_body_leo):
     )
 
 
+def test_ekf_builder_unchained_setter(two_body_leo):
+    """Calling a setter without reassigning its return value must not orphan
+    the original builder variable -- build() on the original must succeed."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+    builder = bh.ExtendedKalmanFilter.builder(
+        epoch,
+        state,
+        p0,
+        bh.ForceModelConfig.two_body(),
+        bh.EKFConfig.default(),
+    ).measurement_model(bh.InertialPositionMeasurementModel(10.0))
+    builder.propagation_config(
+        bh.NumericalPropagationConfig.default()
+    )  # not reassigned
+    ekf = builder.build()
+
+    assert len(ekf.current_state()) == 6
+
+
 def test_ekf_builder_double_build_raises(two_body_leo):
     """Calling build() twice on the same builder should raise RuntimeError."""
     epoch, state = two_body_leo

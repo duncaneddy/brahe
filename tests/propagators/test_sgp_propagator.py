@@ -1883,6 +1883,16 @@ class TestSGPPropagatorBuilder:
             built.state(built.epoch), flat.state(flat.epoch), rtol=1e-10
         )
 
+    def test_sgppropagator_builder_unchained_setter(self):
+        """Calling a setter without reassigning its return value must not
+        orphan the original builder variable -- build() on the original
+        must succeed."""
+        builder = brahe.SGPPropagator.builder(*self._omm_args())
+        builder.object_name("ISS (ZARYA)")  # not reassigned
+        prop = builder.build()
+
+        assert prop.satellite_name == "ISS (ZARYA)"
+
     def test_sgppropagator_builder_consumed(self):
         """Calling build() twice on the same builder raises RuntimeError."""
         builder = brahe.SGPPropagator.builder(*self._omm_args())
@@ -1893,5 +1903,15 @@ class TestSGPPropagatorBuilder:
     def test_sgppropagator_builder_build_error(self):
         """Rust-side build failures (invalid classification) raise RuntimeError."""
         builder = brahe.SGPPropagator.builder(*self._omm_args()).classification("X")
+        with pytest.raises(RuntimeError):
+            builder.build()
+
+    def test_sgppropagator_builder_invalid_output_format_raises(self):
+        """An invalid output_format combination (Keplerian without an
+        angle_format) must raise RuntimeError from build() rather than
+        crashing the interpreter with an unrecoverable Rust panic."""
+        builder = brahe.SGPPropagator.builder(*self._omm_args()).output_format(
+            brahe.OrbitFrame.ECI, brahe.OrbitRepresentation.KEPLERIAN, None
+        )
         with pytest.raises(RuntimeError):
             builder.build()

@@ -478,6 +478,16 @@ class TestWalkerConstellationGeneratorBuilder:
         assert props_builder[0].get_name() == props_constructor[0].get_name()
         assert props_builder[3].get_name() == props_constructor[3].get_name()
 
+    def test_builder_unchained_setter(self, epoch):
+        """Calling a setter without reassigning its return value must not
+        orphan the original builder variable -- build() on the original
+        must succeed."""
+        builder = bh.WalkerConstellationGenerator.builder(12, 3, 1, 7000e3, 98.0, epoch)
+        builder.eccentricity(0.001)  # not reassigned
+        generator = builder.build()
+
+        assert generator.total_satellites == 12
+
     def test_builder_invalid_tpf_raises(self, epoch):
         """Test that invalid T/P/F combinations raise RuntimeError on build()."""
         with pytest.raises(RuntimeError):

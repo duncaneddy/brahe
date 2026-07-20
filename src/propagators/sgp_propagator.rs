@@ -147,6 +147,43 @@ fn svec6_to_dvec(sv: &Vector6<f64>) -> DVector<f64> {
     DVector::from_column_slice(sv.as_slice())
 }
 
+/// Validate a frame/representation/angle-format output combination.
+///
+/// Shared by [`SGPPropagator::with_output_format`] (which panics on an
+/// invalid combination, preserving its existing public contract) and
+/// [`SGPPropagatorBuilder::build`] (which returns `Err` instead).
+///
+/// # Errors
+/// Returns `BraheError` if:
+/// - Keplerian representation is requested without `angle_format`
+/// - Keplerian representation is requested in a non-ECI frame
+/// - Cartesian representation is given with `angle_format`
+fn validate_output_format(
+    frame: OrbitFrame,
+    representation: OrbitRepresentation,
+    angle_format: Option<AngleFormat>,
+) -> Result<(), BraheError> {
+    if representation == OrbitRepresentation::Keplerian && angle_format.is_none() {
+        return Err(BraheError::PropagatorError(
+            "Angle format must be specified for Keplerian elements".to_string(),
+        ));
+    }
+
+    if representation == OrbitRepresentation::Keplerian && frame != OrbitFrame::ECI {
+        return Err(BraheError::PropagatorError(
+            "Keplerian elements must be in ECI frame".to_string(),
+        ));
+    }
+
+    if representation == OrbitRepresentation::Cartesian && angle_format.is_some() {
+        return Err(BraheError::PropagatorError(
+            "Angle format should be None for Cartesian representation".to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
 /// SGP4 propagator
 #[allow(non_camel_case_types)]
 pub struct SGPPropagator {
@@ -678,10 +715,10 @@ impl SGPPropagatorBuilder {
     /// * `representation` - State representation (Cartesian or Keplerian)
     /// * `angle_format` - Angle units (required for Keplerian, `None` for Cartesian)
     ///
-    /// # Panics
-    /// This setter itself never panics; it only stores the combination. But
-    /// [`SGPPropagatorBuilder::build`] panics via [`SGPPropagator::with_output_format`]
-    /// (not `Err`) if the stored combination is invalid:
+    /// # Errors
+    /// This setter itself never errors; it only stores the combination.
+    /// [`SGPPropagatorBuilder::build`] returns `Err` if the stored
+    /// combination is invalid:
     /// - Keplerian representation requested without `angle_format`
     /// - Keplerian representation requested in a non-ECI frame
     /// - Cartesian representation given with `angle_format`
@@ -728,15 +765,13 @@ impl SGPPropagatorBuilder {
     /// Initialized propagator ready for propagation
     ///
     /// # Errors
-    /// Returns `BraheError` if the epoch string cannot be parsed
-    ///
-    /// # Panics
-    /// If [`SGPPropagatorBuilder::output_format`] was called with an invalid
-    /// combination, `build()` panics via [`SGPPropagator::with_output_format`]
-    /// rather than returning `Err`:
-    /// - Keplerian representation requested without `angle_format`
-    /// - Keplerian representation requested in a non-ECI frame
-    /// - Cartesian representation given with `angle_format`
+    /// Returns `BraheError` if:
+    /// - The epoch string cannot be parsed
+    /// - [`SGPPropagatorBuilder::output_format`] was called with an invalid
+    ///   combination:
+    ///   - Keplerian representation requested without `angle_format`
+    ///   - Keplerian representation requested in a non-ECI frame
+    ///   - Cartesian representation given with `angle_format`
     ///
     /// # Examples
     ///
@@ -755,6 +790,10 @@ impl SGPPropagatorBuilder {
     /// .unwrap();
     /// ```
     pub fn build(self) -> Result<SGPPropagator, BraheError> {
+        if let Some((frame, representation, angle_format)) = self.output_format {
+            validate_output_format(frame, representation, angle_format)?;
+        }
+
         let prop = SGPPropagator::from_omm_elements(
             &self.epoch,
             self.mean_motion,
@@ -1416,18 +1455,8 @@ impl SGPPropagator {
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
     ) -> Self {
-        // Validate inputs
-        if representation == OrbitRepresentation::Keplerian && angle_format.is_none() {
-            panic!("Angle format must be specified for Keplerian elements");
-        }
-
-        if representation == OrbitRepresentation::Keplerian && frame != OrbitFrame::ECI {
-            panic!("Keplerian elements must be in ECI frame");
-        }
-
-        if representation == OrbitRepresentation::Cartesian && angle_format.is_some() {
-            panic!("Angle format should be None for Cartesian representation");
-        }
+        validate_output_format(frame, representation, angle_format)
+            .expect("invalid output format combination");
 
         self.frame = frame;
         self.representation = representation;
@@ -2865,6 +2894,95 @@ mod tests {
         assert_eq!(prop.frame, OrbitFrame::ECI);
         assert_eq!(prop.representation, OrbitRepresentation::Keplerian);
         assert_eq!(prop.angle_format, Some(AngleFormat::Degrees));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sgppropagator_builder_output_format_keplerian_missing_angle_format() {
+        setup_global_test_eop();
+
+        let result = SGPPropagator::builder(
+            "2025-11-29T20:01:44.058144",
+            15.49193835,
+            0.0003723,
+            51.6312,
+            206.3646,
+            184.1118,
+            175.9840,
+            25544,
+        )
+        .output_format(OrbitFrame::ECI, OrbitRepresentation::Keplerian, None)
+        .build();
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Angle format must be specified for Keplerian elements")
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sgppropagator_builder_output_format_keplerian_non_eci_frame() {
+        setup_global_test_eop();
+
+        let result = SGPPropagator::builder(
+            "2025-11-29T20:01:44.058144",
+            15.49193835,
+            0.0003723,
+            51.6312,
+            206.3646,
+            184.1118,
+            175.9840,
+            25544,
+        )
+        .output_format(
+            OrbitFrame::ECEF,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+        )
+        .build();
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Keplerian elements must be in ECI frame")
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sgppropagator_builder_output_format_cartesian_with_angle_format() {
+        setup_global_test_eop();
+
+        let result = SGPPropagator::builder(
+            "2025-11-29T20:01:44.058144",
+            15.49193835,
+            0.0003723,
+            51.6312,
+            206.3646,
+            184.1118,
+            175.9840,
+            25544,
+        )
+        .output_format(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            Some(AngleFormat::Degrees),
+        )
+        .build();
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Angle format should be None for Cartesian representation")
+        );
     }
 
     #[test]

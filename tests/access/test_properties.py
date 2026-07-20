@@ -570,6 +570,32 @@ def test_access_properties_builder_equivalence():
     assert via_builder.center_ecef == pytest.approx(via_constructor.center_ecef)
 
 
+def test_access_properties_builder_unchained_setter():
+    """Calling a setter without reassigning its return value must not orphan
+    the original builder variable -- build() on the original must succeed."""
+    builder = bh.AccessProperties.builder()
+    builder.azimuth_open(45.0)  # not reassigned
+    props = (
+        builder.azimuth_close(135.0)
+        .elevation_min(10.0)
+        .elevation_max(85.0)
+        .elevation_open(12.0)
+        .elevation_close(10.5)
+        .off_nadir_min(5.0)
+        .off_nadir_max(80.0)
+        .local_time(43200.0)
+        .look_direction(bh.LookDirection.RIGHT)
+        .asc_dsc(bh.AscDsc.ASCENDING)
+        .center_lon(0.0)
+        .center_lat(45.0)
+        .center_alt(0.0)
+        .center_ecef([4517.59e3, 4517.59e3, 0.0])
+        .build()
+    )
+
+    assert props.azimuth_open == pytest.approx(45.0)
+
+
 def test_access_properties_builder_missing_fields_raises():
     """Test that build() with unset required fields raises RuntimeError naming them."""
     with pytest.raises(RuntimeError, match="azimuth_close"):

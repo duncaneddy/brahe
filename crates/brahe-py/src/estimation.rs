@@ -1930,15 +1930,15 @@ impl PyExtendedKalmanFilterBuilder {
     ///
     /// Returns:
     ///     ExtendedKalmanFilterBuilder: The builder, for method chaining.
-    fn propagation_config(
-        mut slf: PyRefMut<'_, Self>,
+    fn propagation_config<'a>(
+        mut slf: PyRefMut<'a, Self>,
         config: &PyNumericalPropagationConfig,
-    ) -> Self {
-        let inner = slf
+    ) -> PyRefMut<'a, Self> {
+        slf.inner = slf
             .inner
             .take()
             .map(|b| b.propagation_config(config.config.clone()));
-        Self { inner }
+        slf
     }
 
     /// Set the parameter vector `[mass, drag_area, Cd, srp_area, Cr, ...]`.
@@ -1950,10 +1950,13 @@ impl PyExtendedKalmanFilterBuilder {
     ///
     /// Returns:
     ///     ExtendedKalmanFilterBuilder: The builder, for method chaining.
-    fn params(mut slf: PyRefMut<'_, Self>, params: PyReadonlyArray1<f64>) -> PyResult<Self> {
+    fn params<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        params: PyReadonlyArray1<f64>,
+    ) -> PyResult<PyRefMut<'a, Self>> {
         let vec = DVector::from_column_slice(params.as_slice()?);
-        let inner = slf.inner.take().map(|b| b.params(vec));
-        Ok(Self { inner })
+        slf.inner = slf.inner.take().map(|b| b.params(vec));
+        Ok(slf)
     }
 
     /// Set additional dynamics for extended state dimensions beyond the orbital state.
@@ -1964,14 +1967,14 @@ impl PyExtendedKalmanFilterBuilder {
     ///
     /// Returns:
     ///     ExtendedKalmanFilterBuilder: The builder, for method chaining.
-    fn additional_dynamics(
-        mut slf: PyRefMut<'_, Self>,
+    fn additional_dynamics<'a>(
+        mut slf: PyRefMut<'a, Self>,
         py: Python<'_>,
         dynamics: Py<PyAny>,
-    ) -> Self {
+    ) -> PyRefMut<'a, Self> {
         let f = wrap_additional_dynamics(py, dynamics);
-        let inner = slf.inner.take().map(|b| b.additional_dynamics(f));
-        Self { inner }
+        slf.inner = slf.inner.take().map(|b| b.additional_dynamics(f));
+        slf
     }
 
     /// Set a continuous control-input function that adds an acceleration perturbation.
@@ -1982,10 +1985,14 @@ impl PyExtendedKalmanFilterBuilder {
     ///
     /// Returns:
     ///     ExtendedKalmanFilterBuilder: The builder, for method chaining.
-    fn control_input(mut slf: PyRefMut<'_, Self>, py: Python<'_>, control: Py<PyAny>) -> Self {
+    fn control_input<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        py: Python<'_>,
+        control: Py<PyAny>,
+    ) -> PyRefMut<'a, Self> {
         let f = wrap_control_input(py, control);
-        let inner = slf.inner.take().map(|b| b.control_input(f));
-        Self { inner }
+        slf.inner = slf.inner.take().map(|b| b.control_input(f));
+        slf
     }
 
     /// Append a measurement model.
@@ -1998,15 +2005,15 @@ impl PyExtendedKalmanFilterBuilder {
     ///
     /// Returns:
     ///     ExtendedKalmanFilterBuilder: The builder, for method chaining.
-    fn measurement_model(
-        mut slf: PyRefMut<'_, Self>,
+    fn measurement_model<'a>(
+        mut slf: PyRefMut<'a, Self>,
         py: Python<'_>,
         model: Py<PyAny>,
-    ) -> PyResult<Self> {
+    ) -> PyResult<PyRefMut<'a, Self>> {
         let mut models = process_measurement_models(py, vec![model])?;
         let model = models.pop().unwrap();
-        let inner = slf.inner.take().map(|b| b.measurement_model(model));
-        Ok(Self { inner })
+        slf.inner = slf.inner.take().map(|b| b.measurement_model(model));
+        Ok(slf)
     }
 
     /// Replace the full list of measurement models.
@@ -2016,14 +2023,14 @@ impl PyExtendedKalmanFilterBuilder {
     ///
     /// Returns:
     ///     ExtendedKalmanFilterBuilder: The builder, for method chaining.
-    fn measurement_models(
-        mut slf: PyRefMut<'_, Self>,
+    fn measurement_models<'a>(
+        mut slf: PyRefMut<'a, Self>,
         py: Python<'_>,
         models: Vec<Py<PyAny>>,
-    ) -> PyResult<Self> {
+    ) -> PyResult<PyRefMut<'a, Self>> {
         let models = process_measurement_models(py, models)?;
-        let inner = slf.inner.take().map(|b| b.measurement_models(models));
-        Ok(Self { inner })
+        slf.inner = slf.inner.take().map(|b| b.measurement_models(models));
+        Ok(slf)
     }
 
     /// Construct the filter from the accumulated configuration.
@@ -2534,15 +2541,15 @@ impl PyUnscentedKalmanFilterBuilder {
     ///
     /// Returns:
     ///     UnscentedKalmanFilterBuilder: The builder, for method chaining.
-    fn propagation_config(
-        mut slf: PyRefMut<'_, Self>,
+    fn propagation_config<'a>(
+        mut slf: PyRefMut<'a, Self>,
         config: &PyNumericalPropagationConfig,
-    ) -> Self {
-        let inner = slf
+    ) -> PyRefMut<'a, Self> {
+        slf.inner = slf
             .inner
             .take()
             .map(|b| b.propagation_config(config.config.clone()));
-        Self { inner }
+        slf
     }
 
     /// Set the parameter vector `[mass, drag_area, Cd, srp_area, Cr, ...]`.
@@ -2554,10 +2561,13 @@ impl PyUnscentedKalmanFilterBuilder {
     ///
     /// Returns:
     ///     UnscentedKalmanFilterBuilder: The builder, for method chaining.
-    fn params(mut slf: PyRefMut<'_, Self>, params: PyReadonlyArray1<f64>) -> PyResult<Self> {
+    fn params<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        params: PyReadonlyArray1<f64>,
+    ) -> PyResult<PyRefMut<'a, Self>> {
         let vec = nalgebra::DVector::from_column_slice(params.as_slice()?);
-        let inner = slf.inner.take().map(|b| b.params(vec));
-        Ok(Self { inner })
+        slf.inner = slf.inner.take().map(|b| b.params(vec));
+        Ok(slf)
     }
 
     /// Set additional dynamics for extended state dimensions beyond the orbital state.
@@ -2568,14 +2578,14 @@ impl PyUnscentedKalmanFilterBuilder {
     ///
     /// Returns:
     ///     UnscentedKalmanFilterBuilder: The builder, for method chaining.
-    fn additional_dynamics(
-        mut slf: PyRefMut<'_, Self>,
+    fn additional_dynamics<'a>(
+        mut slf: PyRefMut<'a, Self>,
         py: Python<'_>,
         dynamics: Py<PyAny>,
-    ) -> Self {
+    ) -> PyRefMut<'a, Self> {
         let f = wrap_additional_dynamics(py, dynamics);
-        let inner = slf.inner.take().map(|b| b.additional_dynamics(f));
-        Self { inner }
+        slf.inner = slf.inner.take().map(|b| b.additional_dynamics(f));
+        slf
     }
 
     /// Set a continuous control-input function that adds an acceleration perturbation.
@@ -2586,10 +2596,14 @@ impl PyUnscentedKalmanFilterBuilder {
     ///
     /// Returns:
     ///     UnscentedKalmanFilterBuilder: The builder, for method chaining.
-    fn control_input(mut slf: PyRefMut<'_, Self>, py: Python<'_>, control: Py<PyAny>) -> Self {
+    fn control_input<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        py: Python<'_>,
+        control: Py<PyAny>,
+    ) -> PyRefMut<'a, Self> {
         let f = wrap_control_input(py, control);
-        let inner = slf.inner.take().map(|b| b.control_input(f));
-        Self { inner }
+        slf.inner = slf.inner.take().map(|b| b.control_input(f));
+        slf
     }
 
     /// Append a measurement model.
@@ -2602,15 +2616,15 @@ impl PyUnscentedKalmanFilterBuilder {
     ///
     /// Returns:
     ///     UnscentedKalmanFilterBuilder: The builder, for method chaining.
-    fn measurement_model(
-        mut slf: PyRefMut<'_, Self>,
+    fn measurement_model<'a>(
+        mut slf: PyRefMut<'a, Self>,
         py: Python<'_>,
         model: Py<PyAny>,
-    ) -> PyResult<Self> {
+    ) -> PyResult<PyRefMut<'a, Self>> {
         let mut models = process_measurement_models(py, vec![model])?;
         let model = models.pop().unwrap();
-        let inner = slf.inner.take().map(|b| b.measurement_model(model));
-        Ok(Self { inner })
+        slf.inner = slf.inner.take().map(|b| b.measurement_model(model));
+        Ok(slf)
     }
 
     /// Replace the full list of measurement models.
@@ -2620,14 +2634,14 @@ impl PyUnscentedKalmanFilterBuilder {
     ///
     /// Returns:
     ///     UnscentedKalmanFilterBuilder: The builder, for method chaining.
-    fn measurement_models(
-        mut slf: PyRefMut<'_, Self>,
+    fn measurement_models<'a>(
+        mut slf: PyRefMut<'a, Self>,
         py: Python<'_>,
         models: Vec<Py<PyAny>>,
-    ) -> PyResult<Self> {
+    ) -> PyResult<PyRefMut<'a, Self>> {
         let models = process_measurement_models(py, models)?;
-        let inner = slf.inner.take().map(|b| b.measurement_models(models));
-        Ok(Self { inner })
+        slf.inner = slf.inner.take().map(|b| b.measurement_models(models));
+        Ok(slf)
     }
 
     /// Construct the filter from the accumulated configuration.
@@ -3599,15 +3613,15 @@ impl PyBatchLeastSquaresBuilder {
     ///
     /// Returns:
     ///     BatchLeastSquaresBuilder: The builder, for method chaining.
-    fn propagation_config(
-        mut slf: PyRefMut<'_, Self>,
+    fn propagation_config<'a>(
+        mut slf: PyRefMut<'a, Self>,
         config: &PyNumericalPropagationConfig,
-    ) -> Self {
-        let inner = slf
+    ) -> PyRefMut<'a, Self> {
+        slf.inner = slf
             .inner
             .take()
             .map(|b| b.propagation_config(config.config.clone()));
-        Self { inner }
+        slf
     }
 
     /// Set the parameter vector `[mass, drag_area, Cd, srp_area, Cr, ...]`.
@@ -3619,10 +3633,13 @@ impl PyBatchLeastSquaresBuilder {
     ///
     /// Returns:
     ///     BatchLeastSquaresBuilder: The builder, for method chaining.
-    fn params(mut slf: PyRefMut<'_, Self>, params: PyReadonlyArray1<f64>) -> PyResult<Self> {
+    fn params<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        params: PyReadonlyArray1<f64>,
+    ) -> PyResult<PyRefMut<'a, Self>> {
         let vec = DVector::from_column_slice(params.as_slice()?);
-        let inner = slf.inner.take().map(|b| b.params(vec));
-        Ok(Self { inner })
+        slf.inner = slf.inner.take().map(|b| b.params(vec));
+        Ok(slf)
     }
 
     /// Set additional dynamics for extended state dimensions beyond the orbital state.
@@ -3633,14 +3650,14 @@ impl PyBatchLeastSquaresBuilder {
     ///
     /// Returns:
     ///     BatchLeastSquaresBuilder: The builder, for method chaining.
-    fn additional_dynamics(
-        mut slf: PyRefMut<'_, Self>,
+    fn additional_dynamics<'a>(
+        mut slf: PyRefMut<'a, Self>,
         py: Python<'_>,
         dynamics: Py<PyAny>,
-    ) -> Self {
+    ) -> PyRefMut<'a, Self> {
         let f = wrap_additional_dynamics(py, dynamics);
-        let inner = slf.inner.take().map(|b| b.additional_dynamics(f));
-        Self { inner }
+        slf.inner = slf.inner.take().map(|b| b.additional_dynamics(f));
+        slf
     }
 
     /// Set a continuous control-input function that adds an acceleration perturbation.
@@ -3651,10 +3668,14 @@ impl PyBatchLeastSquaresBuilder {
     ///
     /// Returns:
     ///     BatchLeastSquaresBuilder: The builder, for method chaining.
-    fn control_input(mut slf: PyRefMut<'_, Self>, py: Python<'_>, control: Py<PyAny>) -> Self {
+    fn control_input<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        py: Python<'_>,
+        control: Py<PyAny>,
+    ) -> PyRefMut<'a, Self> {
         let f = wrap_control_input(py, control);
-        let inner = slf.inner.take().map(|b| b.control_input(f));
-        Self { inner }
+        slf.inner = slf.inner.take().map(|b| b.control_input(f));
+        slf
     }
 
     /// Append a measurement model.
@@ -3667,15 +3688,15 @@ impl PyBatchLeastSquaresBuilder {
     ///
     /// Returns:
     ///     BatchLeastSquaresBuilder: The builder, for method chaining.
-    fn measurement_model(
-        mut slf: PyRefMut<'_, Self>,
+    fn measurement_model<'a>(
+        mut slf: PyRefMut<'a, Self>,
         py: Python<'_>,
         model: Py<PyAny>,
-    ) -> PyResult<Self> {
+    ) -> PyResult<PyRefMut<'a, Self>> {
         let mut models = process_measurement_models(py, vec![model])?;
         let model = models.pop().unwrap();
-        let inner = slf.inner.take().map(|b| b.measurement_model(model));
-        Ok(Self { inner })
+        slf.inner = slf.inner.take().map(|b| b.measurement_model(model));
+        Ok(slf)
     }
 
     /// Replace the full list of measurement models.
@@ -3685,14 +3706,14 @@ impl PyBatchLeastSquaresBuilder {
     ///
     /// Returns:
     ///     BatchLeastSquaresBuilder: The builder, for method chaining.
-    fn measurement_models(
-        mut slf: PyRefMut<'_, Self>,
+    fn measurement_models<'a>(
+        mut slf: PyRefMut<'a, Self>,
         py: Python<'_>,
         models: Vec<Py<PyAny>>,
-    ) -> PyResult<Self> {
+    ) -> PyResult<PyRefMut<'a, Self>> {
         let models = process_measurement_models(py, models)?;
-        let inner = slf.inner.take().map(|b| b.measurement_models(models));
-        Ok(Self { inner })
+        slf.inner = slf.inner.take().map(|b| b.measurement_models(models));
+        Ok(slf)
     }
 
     /// Construct the estimator from the accumulated configuration.

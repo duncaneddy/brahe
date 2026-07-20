@@ -294,7 +294,7 @@ nav:
           - SSN Sensors: learn/datasets/ssn_sensors.md
           - GCAT: learn/datasets/gcat.md
           - Star Catalogs: learn/datasets/star_catalogs.md
-          - ICGEM: learn/datasets/icgem.md
+          - ICGEM (Gravity Models): learn/datasets/icgem.md
       - CCSDS:
           - learn/ccsds/index.md
           - OEM - Orbit Ephemeris Message: learn/ccsds/oem.md
@@ -344,7 +344,6 @@ nav:
       - examples/imaging_data_latency.md
       - examples/imaging_opportunities.md
       - examples/tessellation_visualization.md
-      - examples/ssn_tracking.md
       - examples/using_different_integrators.md
       - examples/geo_hohmann_transfer.md
       - examples/low_thrust_orbit_raising.md
@@ -352,6 +351,7 @@ nav:
       - examples/earth_moon_free_return.md
       - examples/mro_mars_orbit.md
       - examples/dawn_ceres_orbit.md
+      - examples/ssn_tracking.md
       - examples/star_field_simulation.md
   - Python API Reference:
       - library_api/index.md

@@ -662,6 +662,7 @@ mod tests {
     use httpmock::prelude::*;
 
     #[test]
+    #[serial_test::parallel]
     fn test_client_creation() {
         let client = CelestrakClient::new();
         assert_eq!(client.base_url, DEFAULT_BASE_URL);
@@ -669,6 +670,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_client_with_cache_age() {
         let client = CelestrakClient::with_cache_age(3600.0);
         assert_eq!(client.base_url, DEFAULT_BASE_URL);
@@ -676,18 +678,21 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_client_with_base_url() {
         let client = CelestrakClient::with_base_url("https://test.celestrak.org/");
         assert_eq!(client.base_url, "https://test.celestrak.org");
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_client_with_base_url_no_trailing_slash() {
         let client = CelestrakClient::with_base_url("https://test.celestrak.org");
         assert_eq!(client.base_url, "https://test.celestrak.org");
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_client_with_base_url_and_cache_age() {
         let client =
             CelestrakClient::with_base_url_and_cache_age("https://test.celestrak.org", 1800.0);
@@ -696,12 +701,14 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_client_default() {
         let client = CelestrakClient::default();
         assert_eq!(client.base_url, DEFAULT_BASE_URL);
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_build_full_url_gp_with_params() {
         let client = CelestrakClient::new();
         let query = CelestrakQuery::gp().group("stations");
@@ -713,6 +720,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_build_full_url_gp_empty() {
         let client = CelestrakClient::new();
         let query = CelestrakQuery::gp();
@@ -721,6 +729,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_build_full_url_sup_gp() {
         let client = CelestrakClient::new();
         let query = CelestrakQuery::sup_gp().source(crate::celestrak::SupGPSource::SpaceX);
@@ -732,6 +741,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_build_full_url_satcat() {
         let client = CelestrakClient::new();
         let query = CelestrakQuery::satcat().active(true);
@@ -740,6 +750,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_query_raw_gp() {
         let server = MockServer::start();
 
@@ -764,6 +775,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_query_gp_typed() {
         let server = MockServer::start();
 
@@ -793,6 +805,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_query_gp_with_client_side_filter() {
         let server = MockServer::start();
 
@@ -822,6 +835,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_query_gp_with_order_and_limit() {
         let server = MockServer::start();
 
@@ -852,6 +866,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_query_satcat_typed() {
         let server = MockServer::start();
 
@@ -880,6 +895,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_query_raw_tle_format() {
         let server = MockServer::start();
 
@@ -904,6 +920,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_http_error_404() {
         let server = MockServer::start();
 
@@ -920,6 +937,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_invalid_json_response() {
         let server = MockServer::start();
 
@@ -937,6 +955,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_empty_json_response() {
         let server = MockServer::start();
 
@@ -954,6 +973,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_download_to_file() {
         let server = MockServer::start();
 
@@ -983,6 +1003,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_cache_key_generation() {
         let client = CelestrakClient::new();
         let key = client.cache_key_for_url("https://celestrak.org/gp.php?GROUP=stations");
@@ -995,6 +1016,7 @@ mod tests {
     // -- Convenience method tests --
 
     #[test]
+    #[serial_test::serial]
     fn test_get_gp_by_catnr() {
         let server = MockServer::start();
 
@@ -1018,6 +1040,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_get_gp_by_group() {
         let server = MockServer::start();
 
@@ -1039,6 +1062,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_get_gp_by_name() {
         let server = MockServer::start();
 
@@ -1061,6 +1085,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_get_gp_by_intdes() {
         let server = MockServer::start();
 
@@ -1082,6 +1107,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_get_sup_gp() {
         let server = MockServer::start();
 
@@ -1103,6 +1129,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_get_satcat_by_catnr() {
         let server = MockServer::start();
 
@@ -1126,6 +1153,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_get_sgp_propagator_by_catnr_empty_results() {
         let server = MockServer::start();
 
@@ -1150,6 +1178,7 @@ mod tests {
     // -- Retry behavior tests --
 
     #[test]
+    #[serial_test::serial]
     fn test_retry_on_503() {
         let server = MockServer::start();
 
@@ -1168,6 +1197,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_no_retry_on_404() {
         let server = MockServer::start();
 
@@ -1186,6 +1216,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_max_retries_zero_no_retry() {
         let server = MockServer::start();
 
@@ -1204,6 +1235,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_max_retries_builder() {
         let client = CelestrakClient::new().max_retries(5);
         assert_eq!(client.max_retries, 5);

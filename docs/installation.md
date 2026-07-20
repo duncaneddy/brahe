@@ -50,25 +50,6 @@ uv pip install brahe
 uv pip install "brahe[plots]"
 ```
 
-### Installing Development Builds
-
-Every push to `main` publishes rolling `latest` wheels and an sdist to a
-[PEP 503](https://peps.python.org/pep-0503/) package index served from
-`docs.brahe.space`. These are automatically-built development snapshots — use
-them to test unreleased features without building from source. They may be
-unstable; prefer the PyPI release for production use.
-
-```bash
-# pip
-pip install brahe --extra-index-url https://docs.brahe.space/simple/
-
-# uv
-uv pip install brahe --extra-index-url https://docs.brahe.space/simple/
-```
-
-The `--extra-index-url` flag keeps PyPI as the primary index and adds the
-development index as a fallback, so dependencies still resolve from PyPI.
-
 ### Verifying Installation
 
 After installation, verify that Brahe is working correctly:

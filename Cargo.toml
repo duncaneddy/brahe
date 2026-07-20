@@ -70,6 +70,11 @@ dirs = "6"
 polars = { version = "0.54", default-features = false, features = ["lazy"] }
 lru = "0.18.1"
 rand = "0.9"
+# Pinned to the rand-0.9-compatible line. rand_distr 0.6 requires rand 0.10,
+# but polars and rv (transitive) hold the tree on rand 0.9 / rand_distr 0.5, so
+# bumping would duplicate both crates and drop `StdRng: Clone` (which
+# SimpleSSNSensor relies on). Dependabot is configured to ignore rand_distr for
+# the same reason; revisit once polars and rv adopt rand 0.10.
 rand_distr = "0.5"
 
 # pyo3 is an optional dependency used only by the `python` feature, which enables

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
-# FLAGS = ["NETWORK"]
 # ///
 """
 Mars Reconnaissance Orbiter (MRO) Science Orbit

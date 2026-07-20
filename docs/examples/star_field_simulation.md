@@ -9,17 +9,20 @@ In this example we'll simulate a star tracker's field of view sweeping across th
 First, we import the required modules and define the sensor and orbit configuration. The sensor half-angle sets a 30° full field of view, and stars are displayed on a fixed shell at three Earth radii so they stay clear of the orbit and Earth sphere:
 
 ``` python
---8<-- "./plots/learn/star_field/star_field_simulation.py:scenario"
+--8<-- "./examples/examples/star_field_simulation.py:scenario"
 ```
 
 `state_koe_to_eci` converts the Keplerian elements `[a, e, i, raan, argp, mean_anomaly]` to a Cartesian ECI state, which seeds a `KeplerianPropagator`. Propagating to `epoch + period` with a 60 s step produces one frame per step for the full orbit. The sensor boresight is simply the normalized velocity vector at each step — the sensor points along-track.
 
 ## Load the Star Catalog
 
+!!! tip "Star Catalog Cache"
+    Star catalogs are downloaded from remote servers and cached permanently at `~/.cache/brahe/star_catalogs/`. Subsequent runs read from the cache and do not make any network requests. To force a re-download, delete the cached catalog files.
+
 Next we download (or load from cache) the Hipparcos catalog and filter to naked-eye-bright stars. Each record's `unit_vector()` gives its direction in the same inertial frame as the propagated orbit, so no additional frame transformation is needed:
 
 ``` python
---8<-- "./plots/learn/star_field/star_field_simulation.py:catalog"
+--8<-- "./examples/examples/star_field_simulation.py:catalog"
 ```
 
 !!! note
@@ -30,7 +33,7 @@ Next we download (or load from cache) the Hipparcos catalog and filter to naked-
 A star is inside the field of view when the angle between the boresight and the star direction is smaller than the sensor half-angle, i.e. `dot(star_hat, boresight_hat) > cos(half_angle)`. Computing the full dot product matrix up front (stars × frames) lets us evaluate visibility for every frame in one vectorized operation:
 
 ``` python
---8<-- "./plots/learn/star_field/star_field_simulation.py:visibility"
+--8<-- "./examples/examples/star_field_simulation.py:visibility"
 ```
 
 ## Field of View Cone
@@ -38,7 +41,7 @@ A star is inside the field of view when the angle between the boresight and the 
 The sensor cone is rendered as a `Mesh3d` triangle fan: the apex sits at the satellite position, and a 24-segment base circle is built from two vectors orthogonal to the boresight, positioned `CONE_LENGTH` along the boresight direction:
 
 ``` python
---8<-- "./plots/learn/star_field/star_field_simulation.py:cone"
+--8<-- "./examples/examples/star_field_simulation.py:cone"
 ```
 
 ## Animation
@@ -65,13 +68,13 @@ The 3D scene above shows the sensor cone in its orbital context; the animation b
 
 ## Full Code Example
 
-```python title="star_field_simulation.py"
---8<-- "./plots/learn/star_field/star_field_simulation.py:all"
-```
+??? "Full Code"
 
-!!! note "NETWORK"
-    This script downloads the Hipparcos catalog on first use (cached permanently afterward at `~/.cache/brahe/star_catalogs/`) and is flagged `NETWORK`, so it is skipped by default when generating documentation figures in bulk (`just make-plots`). Regenerate it directly with `just make-plot star_field_simulation`, or run the example itself; either one triggers the one-time download and populates the cache for subsequent runs.
+  ```python title="star_field_simulation.py"
+  --8<-- "./examples/examples/star_field_simulation.py:all"
+  ```
 
+    
 ## See Also
 
 - [Star Catalogs](../learn/datasets/star_catalogs.md)

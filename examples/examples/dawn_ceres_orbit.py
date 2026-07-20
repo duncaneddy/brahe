@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
-# FLAGS = ["NETWORK"]
 # ///
 """
 Dawn at Ceres: a user-defined rotating central body

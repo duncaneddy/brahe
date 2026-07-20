@@ -4158,4 +4158,71 @@ mod tests {
         assert!(!prop.is_terminated());
         assert!(prop.termination_error().is_none());
     }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sgppropagator_with_output_format_rejects_bci() {
+        setup_global_test_eop();
+
+        // SGPPropagator is Earth-only; body-centered inertial output is rejected
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let result = prop.with_output_format(
+            OrbitFrame::BodyCenteredInertial(399),
+            OrbitRepresentation::Cartesian,
+            None,
+        );
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("BodyCenteredInertial is not supported")
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sgppropagator_step_by_noop_when_terminated() {
+        setup_global_test_eop();
+
+        // Once terminated, step_by is a no-op that leaves the epoch unchanged
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        prop.set_terminated(true);
+        let before = prop.current_epoch();
+        prop.step_by(60.0).unwrap();
+        assert_eq!(prop.current_epoch(), before);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sgppropagator_propagate_to_forward_past_target_noop() {
+        setup_global_test_eop();
+
+        // Forward propagation with a target in the past is a no-op
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let start = prop.current_epoch();
+        prop.propagate_to(start - 100.0).unwrap();
+        assert_eq!(prop.current_epoch(), start);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sgppropagator_propagate_to_backward() {
+        setup_global_test_eop();
+
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        prop.set_step_size(-60.0);
+        let start = prop.current_epoch();
+
+        // Backward propagation with a future target is a no-op
+        prop.propagate_to(start + 100.0).unwrap();
+        assert_eq!(prop.current_epoch(), start);
+
+        // Backward propagation to a past target advances the epoch backward
+        prop.propagate_to(start - 180.0).unwrap();
+        assert!(prop.current_epoch() < start);
+        let time_diff: f64 = prop.current_epoch() - (start - 180.0);
+        assert!(time_diff.abs() < 1e-6);
+    }
 }

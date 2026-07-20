@@ -2814,7 +2814,9 @@ impl DNumericalOrbitPropagator {
             }
             PropagationMode::WithSTM => {
                 // Propagate state and STM (variational matrix)
-                let phi = self.stm.take().unwrap();
+                // Clone rather than take so a failed step leaves the STM
+                // intact for a subsequent retry or inspection.
+                let phi = self.stm.as_ref().unwrap().clone();
 
                 let result = self.integrator.step_with_varmat(
                     self.t_rel,
@@ -2840,7 +2842,9 @@ impl DNumericalOrbitPropagator {
             }
             PropagationMode::WithSensitivity => {
                 // Propagate state and sensitivity
-                let sens = self.sensitivity.take().unwrap();
+                // Clone rather than take so a failed step leaves the
+                // sensitivity intact for a subsequent retry or inspection.
+                let sens = self.sensitivity.as_ref().unwrap().clone();
 
                 let result = self.integrator.step_with_sensmat(
                     self.t_rel,
@@ -2857,8 +2861,12 @@ impl DNumericalOrbitPropagator {
             }
             PropagationMode::WithSTMAndSensitivity => {
                 // Propagate state, STM, and sensitivity
-                let phi = self.stm.take().unwrap();
-                let sens = self.sensitivity.take().unwrap();
+                // Clone rather than take so a failed step leaves the STM
+                // intact for a subsequent retry or inspection.
+                let phi = self.stm.as_ref().unwrap().clone();
+                // Clone rather than take so a failed step leaves the
+                // sensitivity intact for a subsequent retry or inspection.
+                let sens = self.sensitivity.as_ref().unwrap().clone();
 
                 let result = self.integrator.step_with_varmat_sensmat(
                     self.t_rel,
@@ -13046,6 +13054,83 @@ mod tests {
     /// Construction must fail fast when the force-model configuration is
     /// incompatible with its central body — here NRLMSISE-00 drag (Earth-only)
     /// paired with a Moon central body.
+    #[test]
+    #[serial_test::parallel]
+    fn test_step_errors_when_mass_unconfigured_for_drag() {
+        setup_global_test_eop();
+
+        // Exponential atmosphere needs no space-weather data, and mass: None
+        // passes construction (only parameter indices are validated there),
+        // so the missing-mass backstop surfaces as Err on the first step.
+        let mut cfg = ForceModelConfig::two_body_gravity();
+        cfg.mass = None;
+        cfg.drag = Some(DragConfiguration {
+            model: AtmosphericModel::Exponential {
+                scale_height: 50e3,
+                rho0: 1e-12,
+                h0: 500e3,
+            },
+            area: ParameterSource::Value(1.0),
+            cd: ParameterSource::Value(2.2),
+            body: None,
+        });
+
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0]);
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            cfg,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let result = prop.step_by(60.0);
+        assert!(matches!(result, Err(BraheError::PropagatorError(_))));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_step_errors_when_mass_unconfigured_for_srp() {
+        setup_global_test_eop();
+
+        // EclipseModel::None keeps SRP fully analytic (no SPK queries), so
+        // the missing-mass backstop is the first failure on the step.
+        let mut cfg = ForceModelConfig::two_body_gravity();
+        cfg.mass = None;
+        use crate::propagators::force_model_config::SolarRadiationPressureConfiguration;
+
+        cfg.srp = Some(SolarRadiationPressureConfiguration {
+            area: ParameterSource::Value(1.0),
+            cr: ParameterSource::Value(1.3),
+            eclipse_model: EclipseModel::None,
+            occulting_bodies: vec![OccultingBody::Earth],
+        });
+
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0]);
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            cfg,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let result = prop.step_by(60.0);
+        assert!(matches!(result, Err(BraheError::PropagatorError(_))));
+    }
+
     #[test]
     #[serial_test::parallel]
     fn test_new_rejects_invalid_config() {

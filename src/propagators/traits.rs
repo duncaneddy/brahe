@@ -485,6 +485,161 @@ mod tests {
         .unwrap()
     }
 
+    /// Minimal [`DStatePropagator`] backed by a scalar clock.
+    ///
+    /// Every production `DStatePropagator` overrides `step_by` and
+    /// `propagate_to`, so this double exists purely to exercise the trait's
+    /// default `step_past`, `propagate_to`, and `propagate_trajectory`
+    /// implementations for both forward and backward propagation.
+    struct MockDPropagator {
+        initial_epoch: Epoch,
+        current_epoch: Epoch,
+        step_size: f64,
+        steps_taken: usize,
+    }
+
+    impl MockDPropagator {
+        fn new(epoch: Epoch, step_size: f64) -> Self {
+            Self {
+                initial_epoch: epoch,
+                current_epoch: epoch,
+                step_size,
+                steps_taken: 0,
+            }
+        }
+    }
+
+    impl DStatePropagator for MockDPropagator {
+        fn step_by(&mut self, step_size: f64) -> Result<(), BraheError> {
+            self.current_epoch += step_size;
+            self.steps_taken += 1;
+            Ok(())
+        }
+
+        fn current_epoch(&self) -> Epoch {
+            self.current_epoch
+        }
+
+        fn current_state(&self) -> DVector<f64> {
+            DVector::from_vec(vec![self.steps_taken as f64])
+        }
+
+        fn initial_epoch(&self) -> Epoch {
+            self.initial_epoch
+        }
+
+        fn initial_state(&self) -> DVector<f64> {
+            DVector::zeros(1)
+        }
+
+        fn state_dim(&self) -> usize {
+            1
+        }
+
+        fn step_size(&self) -> f64 {
+            self.step_size
+        }
+
+        fn set_step_size(&mut self, step_size: f64) {
+            self.step_size = step_size;
+        }
+
+        fn reset(&mut self) {
+            self.current_epoch = self.initial_epoch;
+            self.steps_taken = 0;
+        }
+
+        fn set_eviction_policy_max_size(&mut self, _max_size: usize) -> Result<(), BraheError> {
+            Ok(())
+        }
+
+        fn set_eviction_policy_max_age(&mut self, _max_age: f64) -> Result<(), BraheError> {
+            Ok(())
+        }
+    }
+
+    fn mock_epoch() -> Epoch {
+        setup_global_test_eop();
+        Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC)
+    }
+
+    #[test]
+    fn test_dstate_default_step_past_forward() {
+        let epoch = mock_epoch();
+        let mut prop = MockDPropagator::new(epoch, 60.0);
+        prop.step_past(epoch + 250.0).unwrap();
+        assert!(prop.current_epoch() >= epoch + 250.0);
+    }
+
+    #[test]
+    fn test_dstate_default_step_past_forward_wrong_direction() {
+        let epoch = mock_epoch();
+        let mut prop = MockDPropagator::new(epoch, 60.0);
+        // Forward propagation with a past target is a no-op
+        prop.step_past(epoch - 100.0).unwrap();
+        assert_eq!(prop.current_epoch(), epoch);
+    }
+
+    #[test]
+    fn test_dstate_default_step_past_backward() {
+        let epoch = mock_epoch();
+        let mut prop = MockDPropagator::new(epoch, -60.0);
+        prop.step_past(epoch - 250.0).unwrap();
+        assert!(prop.current_epoch() <= epoch - 250.0);
+    }
+
+    #[test]
+    fn test_dstate_default_step_past_backward_wrong_direction() {
+        let epoch = mock_epoch();
+        let mut prop = MockDPropagator::new(epoch, -60.0);
+        // Backward propagation with a future target is a no-op
+        prop.step_past(epoch + 100.0).unwrap();
+        assert_eq!(prop.current_epoch(), epoch);
+    }
+
+    #[test]
+    fn test_dstate_default_propagate_to_forward() {
+        let epoch = mock_epoch();
+        let mut prop = MockDPropagator::new(epoch, 60.0);
+        let target = epoch + 157.0; // Not a multiple of step_size
+        prop.propagate_to(target).unwrap();
+        assert!((prop.current_epoch() - target).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_dstate_default_propagate_to_forward_wrong_direction() {
+        let epoch = mock_epoch();
+        let mut prop = MockDPropagator::new(epoch, 60.0);
+        prop.propagate_to(epoch - 100.0).unwrap();
+        assert_eq!(prop.current_epoch(), epoch);
+    }
+
+    #[test]
+    fn test_dstate_default_propagate_to_backward() {
+        let epoch = mock_epoch();
+        let mut prop = MockDPropagator::new(epoch, -60.0);
+        let target = epoch - 157.0;
+        prop.propagate_to(target).unwrap();
+        assert!((prop.current_epoch() - target).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_dstate_default_propagate_to_backward_wrong_direction() {
+        let epoch = mock_epoch();
+        let mut prop = MockDPropagator::new(epoch, -60.0);
+        prop.propagate_to(epoch + 100.0).unwrap();
+        assert_eq!(prop.current_epoch(), epoch);
+    }
+
+    #[test]
+    fn test_dstate_default_propagate_trajectory() {
+        let epoch = mock_epoch();
+        let mut prop = MockDPropagator::new(epoch, 60.0);
+        let epochs = vec![epoch + 60.0, epoch + 120.0, epoch + 180.0];
+        prop.propagate_trajectory(&epochs).unwrap();
+        assert!((prop.current_epoch() - epochs[2]).abs() < 1e-6);
+    }
+
     #[test]
     fn test_sorbit_propagator_step() {
         let mut prop = create_test_propagator();
@@ -569,6 +724,57 @@ mod tests {
 
         // Should not have changed
         assert_eq!(prop.current_epoch(), initial_epoch);
+    }
+
+    #[test]
+    fn test_sorbit_propagator_step_past_backward() {
+        let mut prop = create_test_propagator();
+        prop.set_step_size(-60.0);
+        let start = prop.current_epoch();
+        let target = start - 250.0; // 250 seconds in the past
+
+        // Step past a target behind us while propagating backward
+        prop.step_past(target).unwrap();
+
+        // Verify we've gone past the target (backward)
+        assert!(prop.current_epoch() <= target);
+    }
+
+    #[test]
+    fn test_sorbit_propagator_step_past_backward_wrong_direction() {
+        let mut prop = create_test_propagator();
+        prop.set_step_size(-60.0);
+        let start = prop.current_epoch();
+
+        // Target is in the future but propagation is backward: no-op
+        prop.step_past(start + 100.0).unwrap();
+
+        assert_eq!(prop.current_epoch(), start);
+    }
+
+    #[test]
+    fn test_sorbit_propagator_propagate_to_backward() {
+        let mut prop = create_test_propagator();
+        prop.set_step_size(-60.0);
+        let start = prop.current_epoch();
+        let target = start - 157.0; // Not a multiple of step_size
+
+        prop.propagate_to(target).unwrap();
+
+        // Verify we reached the target (within tolerance)
+        assert!((prop.current_epoch() - target).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_sorbit_propagator_propagate_to_backward_wrong_direction() {
+        let mut prop = create_test_propagator();
+        prop.set_step_size(-60.0);
+        let start = prop.current_epoch();
+
+        // Target is in the future but propagation is backward: no-op
+        prop.propagate_to(start + 100.0).unwrap();
+
+        assert_eq!(prop.current_epoch(), start);
     }
 
     #[test]

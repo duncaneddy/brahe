@@ -838,6 +838,46 @@ mod tests {
     }
 
     #[test]
+    fn test_interpolate_out_of_range_t_errors() {
+        // Every interpolation entry point rejects t outside [0, 1].
+        let sv1 = SVector::<f64, 3>::new(0.0, 0.0, 0.0);
+        let sv2 = SVector::<f64, 3>::new(1.0, 2.0, 3.0);
+        let dv1 = DVector::from_vec(vec![0.0, 0.0, 0.0]);
+        let dv2 = DVector::from_vec(vec![1.0, 2.0, 3.0]);
+        let sm1 = SMatrix::<f64, 3, 3>::identity();
+        let sm2 = SMatrix::<f64, 3, 3>::identity() * 2.0;
+        let dm1 = DMatrix::<f64>::identity(3, 3);
+        let dm2 = DMatrix::<f64>::identity(3, 3) * 2.0;
+
+        for t in [-0.1, 1.5] {
+            assert!(matches!(
+                interpolate_linear_svector(sv1, sv2, t),
+                Err(BraheError::OutOfBoundsError(_))
+            ));
+            assert!(matches!(
+                interpolate_linear_dvector(&dv1, &dv2, t),
+                Err(BraheError::OutOfBoundsError(_))
+            ));
+            assert!(matches!(
+                interpolate_covariance_sqrt_smatrix(sm1, sm2, t),
+                Err(BraheError::OutOfBoundsError(_))
+            ));
+            assert!(matches!(
+                interpolate_covariance_two_wasserstein_smatrix(sm1, sm2, t),
+                Err(BraheError::OutOfBoundsError(_))
+            ));
+            assert!(matches!(
+                interpolate_covariance_sqrt_dmatrix(&dm1, &dm2, t),
+                Err(BraheError::OutOfBoundsError(_))
+            ));
+            assert!(matches!(
+                interpolate_covariance_two_wasserstein_dmatrix(&dm1, &dm2, t),
+                Err(BraheError::OutOfBoundsError(_))
+            ));
+        }
+    }
+
+    #[test]
     fn test_interpolate_linear_svector() {
         let v1 = SVector::<f64, 3>::new(0.0, 0.0, 0.0);
         let v2 = SVector::<f64, 3>::new(1.0, 2.0, 3.0);

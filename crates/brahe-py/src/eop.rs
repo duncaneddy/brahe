@@ -1683,7 +1683,10 @@ pub fn py_initialize_eop() -> Result<(), RustBraheError> {
 /// requested range lies within the loaded data span or the provider's
 /// extrapolation setting ("Hold" or "Zero") guarantees a value for
 /// out-of-range dates. With "Error" extrapolation, any epoch outside the
-/// loaded span fails the check.
+/// loaded span fails the check. The validated span covers every field the
+/// frame and time functions consume: UT1-UTC and polar motion (through the
+/// provider's mjd_max) and the dX/dY corrections, whose data series
+/// typically ends earlier (mjd_last_dxdy).
 ///
 /// Args:
 ///     mjd_start (float): Start of the range to validate, as a Modified Julian Date. Units: (days)

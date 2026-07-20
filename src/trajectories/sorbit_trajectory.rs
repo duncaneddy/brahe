@@ -8115,4 +8115,92 @@ mod tests {
         // Matrix square root interpolation gives ~145.71 for this case
         assert_abs_diff_eq!(cov_mid[(0, 0)], 145.71067811865476, epsilon = 1e-6);
     }
+
+    #[test]
+    fn test_sorbittrajectory_set_acceleration_at_index_out_of_bounds() {
+        let mut traj =
+            SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
+        let acc = SVector::<f64, 3>::new(0.0, 0.0, 0.0);
+        let result = traj.set_acceleration_at(5, acc);
+        assert!(matches!(result, Err(BraheError::OutOfBoundsError(_))));
+    }
+
+    #[test]
+    fn test_sorbittrajectory_from_orbital_data_ecef_keplerian_err() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let result = SOrbitTrajectory::from_orbital_data(
+            vec![epoch],
+            vec![Vector6::zeros()],
+            OrbitFrame::ECEF,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+            None,
+        );
+        assert!(matches!(result, Err(BraheError::Error(_))));
+    }
+
+    #[test]
+    fn test_sorbittrajectory_bci_keplerian_barycenter_conversions_err() {
+        // Keplerian elements about the Earth-Moon barycenter (NAIF 3) are
+        // undefined; every batch conversion that redirects through
+        // bci_keplerian_to_cartesian must surface the barycenter error.
+        let mut traj = SOrbitTrajectory::new(
+            OrbitFrame::BodyCenteredInertial(3),
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+        )
+        .unwrap();
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let oe = Vector6::new(7000e3, 0.01, 45.0, 15.0, 30.0, 45.0);
+        traj.add(epoch, oe).unwrap();
+
+        assert!(matches!(traj.to_gcrf(), Err(BraheError::Error(_))));
+        assert!(matches!(traj.to_ecef(), Err(BraheError::Error(_))));
+        assert!(matches!(traj.to_itrf(), Err(BraheError::Error(_))));
+        assert!(matches!(traj.to_eme2000(), Err(BraheError::Error(_))));
+    }
+
+    #[test]
+    fn test_sorbittrajectory_to_keplerian_missing_angle_format_err() {
+        let mut traj = SOrbitTrajectory::new(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+        )
+        .unwrap();
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let oe = Vector6::new(7000e3, 0.01, 45.0, 15.0, 30.0, 45.0);
+        traj.add(epoch, oe).unwrap();
+        // Force the invalid state of a Keplerian representation without an
+        // angle format so to_keplerian hits its defensive error arm.
+        traj.angle_format = None;
+        let result = traj.to_keplerian(AngleFormat::Radians);
+        assert!(matches!(result, Err(BraheError::Error(_))));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sorbittrajectory_earth_bci_cartesian_conversions_ok() {
+        // An Earth-centered (NAIF 399) BodyCenteredInertial Cartesian
+        // trajectory routes each batch conversion through the Cartesian
+        // re-centering arm (state_frame_to_frame against GCRF). Earth's
+        // native frame is GCRF, so these run offline against the test EOP.
+        setup_global_test_eop();
+
+        let mut traj = SOrbitTrajectory::new(
+            OrbitFrame::BodyCenteredInertial(399),
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        traj.add(epoch, state).unwrap();
+
+        assert_eq!(traj.to_eci().unwrap().len(), 1);
+        assert_eq!(traj.to_gcrf().unwrap().len(), 1);
+        assert_eq!(traj.to_ecef().unwrap().len(), 1);
+        assert_eq!(traj.to_itrf().unwrap().len(), 1);
+        assert_eq!(traj.to_eme2000().unwrap().len(), 1);
+    }
 }

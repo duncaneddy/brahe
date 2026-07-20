@@ -1436,7 +1436,9 @@ impl DNumericalPropagator {
             }
             PropagationMode::WithSTM => {
                 // Propagate state and STM (variational matrix)
-                let phi = self.stm.take().unwrap();
+                // Clone rather than take so a failed step leaves the STM
+                // intact for a subsequent retry or inspection.
+                let phi = self.stm.as_ref().unwrap().clone();
 
                 let result = self.integrator.step_with_varmat(
                     self.t_rel,
@@ -1462,7 +1464,9 @@ impl DNumericalPropagator {
             }
             PropagationMode::WithSensitivity => {
                 // Propagate state and sensitivity
-                let sens = self.sensitivity.take().unwrap();
+                // Clone rather than take so a failed step leaves the
+                // sensitivity intact for a subsequent retry or inspection.
+                let sens = self.sensitivity.as_ref().unwrap().clone();
 
                 let result = self.integrator.step_with_sensmat(
                     self.t_rel,
@@ -1479,8 +1483,12 @@ impl DNumericalPropagator {
             }
             PropagationMode::WithSTMAndSensitivity => {
                 // Propagate state, STM, and sensitivity
-                let phi = self.stm.take().unwrap();
-                let sens = self.sensitivity.take().unwrap();
+                // Clone rather than take so a failed step leaves the STM
+                // intact for a subsequent retry or inspection.
+                let phi = self.stm.as_ref().unwrap().clone();
+                // Clone rather than take so a failed step leaves the
+                // sensitivity intact for a subsequent retry or inspection.
+                let sens = self.sensitivity.as_ref().unwrap().clone();
 
                 let result = self.integrator.step_with_varmat_sensmat(
                     self.t_rel,
@@ -2346,6 +2354,104 @@ mod tests {
         prop.step_by(1.0).unwrap();
         assert!(prop.current_epoch() > initial_epoch);
         assert_ne!(prop.current_state(), prop.initial_state());
+    }
+
+    // =============================================================================
+    // Step Error Propagation Tests
+    // =============================================================================
+
+    /// Dynamics that always fail, used to drive the `step_once` error edges
+    /// across every propagation mode.
+    fn failing_dynamics() -> DStateDynamics {
+        Box::new(|_t: f64, _x: &DVector<f64>, _p: Option<&DVector<f64>>| {
+            Err(BraheError::Error("dynamics failure".to_string()))
+        })
+    }
+
+    #[test]
+    fn test_dnumericalpropagator_step_error_state_only() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0, 0.0]);
+
+        let mut prop = DNumericalPropagator::new(
+            epoch,
+            state,
+            failing_dynamics(),
+            NumericalPropagationConfig::default(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        assert!(prop.step_by(1.0).is_err());
+    }
+
+    #[test]
+    fn test_dnumericalpropagator_step_error_with_stm() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0, 0.0]);
+        let p0 = DMatrix::<f64>::identity(2, 2); // auto-enables STM propagation
+
+        let mut prop = DNumericalPropagator::new(
+            epoch,
+            state,
+            failing_dynamics(),
+            NumericalPropagationConfig::default(),
+            None,
+            None,
+            Some(p0),
+        )
+        .unwrap();
+
+        assert!(prop.step_by(1.0).is_err());
+    }
+
+    #[test]
+    fn test_dnumericalpropagator_step_error_with_sensitivity() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0, 0.0]);
+        let params = DVector::from_vec(vec![1.0, 0.1]);
+
+        let mut config = NumericalPropagationConfig::default();
+        config.variational.enable_sensitivity = true;
+
+        let mut prop = DNumericalPropagator::new(
+            epoch,
+            state,
+            failing_dynamics(),
+            config,
+            Some(params),
+            None,
+            None,
+        )
+        .unwrap();
+
+        assert!(prop.step_by(1.0).is_err());
+    }
+
+    #[test]
+    fn test_dnumericalpropagator_step_error_with_stm_and_sensitivity() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0, 0.0]);
+        let params = DVector::from_vec(vec![1.0, 0.1]);
+
+        let mut config = NumericalPropagationConfig::default();
+        config.variational.enable_stm = true;
+        config.variational.enable_sensitivity = true;
+
+        let mut prop = DNumericalPropagator::new(
+            epoch,
+            state,
+            failing_dynamics(),
+            config,
+            Some(params),
+            None,
+            None,
+        )
+        .unwrap();
+
+        assert!(prop.step_by(1.0).is_err());
     }
 
     // =============================================================================
@@ -3301,6 +3407,61 @@ mod tests {
         assert!(prop.terminated());
         let time_diff: f64 = prop.current_epoch() - (initial_epoch + 5.0);
         assert!(time_diff.abs() < 1.0);
+    }
+
+    #[test]
+    fn test_event_at_initial_epoch() {
+        let mut prop = create_test_sho_propagator();
+        let initial_epoch = prop.initial_epoch();
+
+        // An event scheduled exactly at the start epoch is caught by the
+        // initial-epoch scan before any integration step is taken.
+        prop.add_event_detector(Box::new(DTimeEvent::new(
+            initial_epoch,
+            "AtStart".to_string(),
+        )));
+
+        prop.propagate_to(initial_epoch + 1.0).unwrap();
+
+        let events = prop.event_log();
+        assert!(events.iter().any(|e| e.name.contains("AtStart")));
+    }
+
+    #[test]
+    fn test_event_terminal_no_callback() {
+        let mut prop = create_test_sho_propagator();
+        let initial_epoch = prop.initial_epoch();
+
+        // A terminal event with no callback exercises the no-callback terminal
+        // branch of the event processor.
+        let event = DTimeEvent::new(initial_epoch + 5.0, "TerminalNoCb".to_string()).set_terminal();
+        prop.add_event_detector(Box::new(event));
+
+        prop.propagate_to(initial_epoch + 10.0).unwrap();
+
+        assert!(prop.terminated());
+        let time_diff: f64 = prop.current_epoch() - (initial_epoch + 5.0);
+        assert!(time_diff.abs() < 1.0);
+    }
+
+    #[test]
+    fn test_event_terminal_with_stm_storage() {
+        // STM storage forces the trajectory to record full entries. Combined
+        // with a terminal event this exercises both add_full storage arms
+        // (accepted steps and the terminal event).
+        let mut prop = create_test_sho_with_stm();
+        let initial_epoch = prop.initial_epoch();
+
+        let event = DTimeEvent::new(initial_epoch + 3.0, "TerminalSTM".to_string()).set_terminal();
+        prop.add_event_detector(Box::new(event));
+
+        prop.propagate_to(initial_epoch + 10.0).unwrap();
+
+        assert!(prop.terminated());
+        assert!(prop.trajectory().len() > 0);
+        // STM is stored at the terminal entry
+        let last_idx = prop.trajectory().len() - 1;
+        assert!(prop.stm_at_idx(last_idx).is_some());
     }
 
     #[test]

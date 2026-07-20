@@ -55,6 +55,17 @@ impl<const S: usize, const P: usize> DormandPrince54SIntegrator<S, P> {
         let compute_phi = phi.is_some();
         let compute_sens = sens.is_some();
 
+        if (compute_phi || compute_sens) && self.varmat.is_none() {
+            return Err(BraheError::PropagatorError(
+                "varmat required for step_with_varmat or step_with_sensmat".to_string(),
+            ));
+        }
+        if compute_sens && self.sensmat.is_none() {
+            return Err(BraheError::PropagatorError(
+                "sensmat required for step_with_sensmat".to_string(),
+            ));
+        }
+
         let mut h = dt;
         let mut attempts = 0;
 
@@ -470,6 +481,18 @@ impl DormandPrince54DIntegrator {
     ) -> Result<DIntegratorStepResult, BraheError> {
         let compute_phi = phi.is_some();
         let compute_sens = sens.is_some();
+
+        if (compute_phi || compute_sens) && self.varmat.is_none() {
+            return Err(BraheError::PropagatorError(
+                "varmat required for step_with_varmat or step_with_sensmat".to_string(),
+            ));
+        }
+        if compute_sens && self.sensmat.is_none() {
+            return Err(BraheError::PropagatorError(
+                "sensmat required for step_with_sensmat".to_string(),
+            ));
+        }
+
         let num_params = sens.as_ref().map(|s| s.ncols()).unwrap_or(0);
 
         let current_phi = phi.unwrap_or_else(|| DMatrix::zeros(0, 0));
@@ -2055,6 +2078,14 @@ mod tests {
 
         let integrator: DormandPrince54SIntegrator<1, 0> =
             DormandPrince54SIntegrator::new(Box::new(dynamics), None, None, None);
+
+        // Exercise the dynamics closure with a single step.
+        assert!(
+            integrator
+                .step(0.0, SVector::<f64, 1>::new(1.0), None, Some(0.1))
+                .is_ok()
+        );
+
         let config = integrator.config();
 
         let default_config = IntegratorConfig::default();
@@ -2095,6 +2126,14 @@ mod tests {
             None,
             custom_config.clone(),
         );
+
+        // Exercise the dynamics closure with a single step.
+        assert!(
+            integrator
+                .step(0.0, SVector::<f64, 1>::new(1.0), None, Some(0.1))
+                .is_ok()
+        );
+
         let config = integrator.config();
 
         assert_eq!(config.abs_tol, 1e-10);
@@ -2117,6 +2156,13 @@ mod tests {
         let integrator: DormandPrince54SIntegrator<1, 0> =
             DormandPrince54SIntegrator::new(Box::new(dynamics), None, None, None);
 
+        // Exercise the dynamics closure with a single step.
+        assert!(
+            integrator
+                .step(0.0, SVector::<f64, 1>::new(1.0), None, Some(0.1))
+                .is_ok()
+        );
+
         let config1 = integrator.config();
         let config2 = integrator.config();
 
@@ -2136,6 +2182,14 @@ mod tests {
         }
 
         let integrator = DormandPrince54DIntegrator::new(1, Box::new(dynamics), None, None, None);
+
+        // Exercise the dynamics closure with a single step.
+        assert!(
+            integrator
+                .step(0.0, DVector::from_vec(vec![1.0]), None, Some(0.1))
+                .is_ok()
+        );
+
         let config = integrator.config();
 
         let default_config = IntegratorConfig::default();
@@ -2177,6 +2231,14 @@ mod tests {
             None,
             custom_config.clone(),
         );
+
+        // Exercise the dynamics closure with a single step.
+        assert!(
+            integrator
+                .step(0.0, DVector::from_vec(vec![1.0]), None, Some(0.1))
+                .is_ok()
+        );
+
         let config = integrator.config();
 
         assert_eq!(config.abs_tol, 1e-10);
@@ -2197,6 +2259,13 @@ mod tests {
         }
 
         let integrator = DormandPrince54DIntegrator::new(1, Box::new(dynamics), None, None, None);
+
+        // Exercise the dynamics closure with a single step.
+        assert!(
+            integrator
+                .step(0.0, DVector::from_vec(vec![1.0]), None, Some(0.1))
+                .is_ok()
+        );
 
         let config1 = integrator.config();
         let config2 = integrator.config();
@@ -2221,6 +2290,18 @@ mod tests {
 
         let integrator2 = DormandPrince54DIntegrator::new(12, Box::new(dynamics), None, None, None);
         assert_eq!(integrator2.dimension(), 12);
+
+        // Exercise the dynamics closure with a single step at each dimension.
+        assert!(
+            integrator
+                .step(0.0, DVector::zeros(6), None, Some(0.1))
+                .is_ok()
+        );
+        assert!(
+            integrator2
+                .step(0.0, DVector::zeros(12), None, Some(0.1))
+                .is_ok()
+        );
     }
 
     // =============================================================================
@@ -2602,5 +2683,492 @@ mod tests {
             (phi_slow[(0, 0)] - phi_fast[(0, 0)]).abs() > 0.1,
             "Different params should produce different STMs"
         );
+    }
+
+    // =========================================================================
+    // Result Error-Path Coverage Tests
+    // =========================================================================
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_dp54s_step_methods_require_dt() {
+        fn decay(
+            _t: f64,
+            state: &SVector<f64, 1>,
+            _params: Option<&SVector<f64, 1>>,
+        ) -> Result<SVector<f64, 1>, BraheError> {
+            Ok(-state)
+        }
+
+        let integrator: DormandPrince54SIntegrator<1, 1> =
+            DormandPrince54SIntegrator::new(Box::new(decay), None, None, None);
+        let state = SVector::<f64, 1>::new(1.0);
+        let phi = SMatrix::<f64, 1, 1>::identity();
+        let sens = SMatrix::<f64, 1, 1>::zeros();
+        let params = SVector::<f64, 1>::new(1.0);
+
+        assert!(matches!(
+            integrator.step(0.0, state, None, None),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            integrator.step_with_varmat(0.0, state, None, phi, None),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            integrator.step_with_sensmat(0.0, state, sens, &params, None),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            integrator.step_with_varmat_sensmat(0.0, state, phi, sens, &params, None),
+            Err(BraheError::PropagatorError(_))
+        ));
+
+        // A successful step exercises the dynamics helper body.
+        assert!(integrator.step(0.0, state, None, Some(0.1)).is_ok());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_dp54d_step_methods_require_dt() {
+        fn decay(
+            _t: f64,
+            state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            Ok(-state)
+        }
+
+        let integrator = DormandPrince54DIntegrator::new(1, Box::new(decay), None, None, None);
+        let state = DVector::from_vec(vec![1.0]);
+        let phi = DMatrix::<f64>::identity(1, 1);
+        let sens = DMatrix::<f64>::zeros(1, 1);
+        let params = DVector::from_vec(vec![1.0]);
+
+        assert!(matches!(
+            integrator.step(0.0, state.clone(), None, None),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            integrator.step_with_varmat(0.0, state.clone(), None, phi.clone(), None),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            integrator.step_with_sensmat(0.0, state.clone(), sens.clone(), &params, None),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            integrator.step_with_varmat_sensmat(
+                0.0,
+                state.clone(),
+                phi.clone(),
+                sens.clone(),
+                &params,
+                None
+            ),
+            Err(BraheError::PropagatorError(_))
+        ));
+
+        // A successful step exercises the dynamics helper body.
+        assert!(integrator.step(0.0, state.clone(), None, Some(0.1)).is_ok());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_dp54s_step_with_providers_requires_provider() {
+        use crate::math::jacobian::SJacobianProvider;
+
+        struct ConstJacobian;
+        impl SJacobianProvider<1, 1> for ConstJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &SVector<f64, 1>,
+                _params: Option<&SVector<f64, 1>>,
+            ) -> Result<SMatrix<f64, 1, 1>, BraheError> {
+                Ok(SMatrix::<f64, 1, 1>::new(-1.0))
+            }
+        }
+
+        fn decay(
+            _t: f64,
+            state: &SVector<f64, 1>,
+            _params: Option<&SVector<f64, 1>>,
+        ) -> Result<SVector<f64, 1>, BraheError> {
+            Ok(-state)
+        }
+
+        let state = SVector::<f64, 1>::new(1.0);
+        let phi = SMatrix::<f64, 1, 1>::identity();
+        let sens = SMatrix::<f64, 1, 1>::zeros();
+        let params = SVector::<f64, 1>::new(1.0);
+
+        // Without a variational-matrix provider, STM/sensitivity steps must error.
+        let no_providers: DormandPrince54SIntegrator<1, 1> =
+            DormandPrince54SIntegrator::new(Box::new(decay), None, None, None);
+        assert!(matches!(
+            no_providers.step_with_varmat(0.0, state, None, phi, Some(0.1)),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            no_providers.step_with_varmat_sensmat(0.0, state, phi, sens, &params, Some(0.1)),
+            Err(BraheError::PropagatorError(_))
+        ));
+
+        // With a variational provider but no sensitivity provider, sensitivity steps error.
+        let varmat_only: DormandPrince54SIntegrator<1, 1> = DormandPrince54SIntegrator::new(
+            Box::new(decay),
+            Some(Box::new(ConstJacobian)),
+            None,
+            None,
+        );
+        assert!(matches!(
+            varmat_only.step_with_sensmat(0.0, state, sens, &params, Some(0.1)),
+            Err(BraheError::PropagatorError(_))
+        ));
+
+        // A successful STM step exercises the dynamics and Jacobian helper bodies.
+        assert!(
+            varmat_only
+                .step_with_varmat(0.0, state, None, phi, Some(0.1))
+                .is_ok()
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_dp54d_step_with_providers_requires_provider() {
+        use crate::math::jacobian::DJacobianProvider;
+
+        struct ConstJacobian;
+        impl DJacobianProvider for ConstJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &DVector<f64>,
+                _params: Option<&DVector<f64>>,
+            ) -> Result<DMatrix<f64>, BraheError> {
+                Ok(DMatrix::from_element(1, 1, -1.0))
+            }
+        }
+
+        fn decay(
+            _t: f64,
+            state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            Ok(-state)
+        }
+
+        let state = DVector::from_vec(vec![1.0]);
+        let phi = DMatrix::<f64>::identity(1, 1);
+        let sens = DMatrix::<f64>::zeros(1, 1);
+        let params = DVector::from_vec(vec![1.0]);
+
+        let no_providers = DormandPrince54DIntegrator::new(1, Box::new(decay), None, None, None);
+        assert!(matches!(
+            no_providers.step_with_varmat(0.0, state.clone(), None, phi.clone(), Some(0.1)),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            no_providers.step_with_varmat_sensmat(
+                0.0,
+                state.clone(),
+                phi.clone(),
+                sens.clone(),
+                &params,
+                Some(0.1)
+            ),
+            Err(BraheError::PropagatorError(_))
+        ));
+
+        let varmat_only = DormandPrince54DIntegrator::new(
+            1,
+            Box::new(decay),
+            Some(Box::new(ConstJacobian)),
+            None,
+            None,
+        );
+        assert!(matches!(
+            varmat_only.step_with_sensmat(0.0, state.clone(), sens.clone(), &params, Some(0.1)),
+            Err(BraheError::PropagatorError(_))
+        ));
+
+        // A successful STM step exercises the dynamics and Jacobian helper bodies.
+        assert!(
+            varmat_only
+                .step_with_varmat(0.0, state.clone(), None, phi.clone(), Some(0.1))
+                .is_ok()
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_dp54s_control_and_providers_step() {
+        use crate::math::jacobian::SJacobianProvider;
+        use crate::math::sensitivity::SSensitivityProvider;
+
+        struct ConstJacobian;
+        impl SJacobianProvider<1, 1> for ConstJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &SVector<f64, 1>,
+                _params: Option<&SVector<f64, 1>>,
+            ) -> Result<SMatrix<f64, 1, 1>, BraheError> {
+                Ok(SMatrix::<f64, 1, 1>::new(-1.0))
+            }
+        }
+
+        struct ConstSensitivity;
+        impl SSensitivityProvider<1, 1> for ConstSensitivity {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &SVector<f64, 1>,
+                _params: &SVector<f64, 1>,
+            ) -> Result<SMatrix<f64, 1, 1>, BraheError> {
+                Ok(SMatrix::<f64, 1, 1>::zeros())
+            }
+        }
+
+        fn decay(
+            _t: f64,
+            state: &SVector<f64, 1>,
+            _params: Option<&SVector<f64, 1>>,
+        ) -> Result<SVector<f64, 1>, BraheError> {
+            Ok(-state)
+        }
+
+        // Additive control perturbation exercises the control-input branch.
+        fn control(
+            _t: f64,
+            _state: &SVector<f64, 1>,
+            _params: Option<&SVector<f64, 1>>,
+        ) -> Result<SVector<f64, 1>, BraheError> {
+            Ok(SVector::<f64, 1>::new(0.1))
+        }
+
+        let integrator: DormandPrince54SIntegrator<1, 1> = DormandPrince54SIntegrator::with_config(
+            Box::new(decay),
+            Some(Box::new(ConstJacobian)),
+            Some(Box::new(ConstSensitivity)),
+            Some(Box::new(control)),
+            IntegratorConfig::adaptive(1e-9, 1e-7),
+        );
+
+        let state = SVector::<f64, 1>::new(1.0);
+        let phi = SMatrix::<f64, 1, 1>::identity();
+        let sens = SMatrix::<f64, 1, 1>::zeros();
+        let params = SVector::<f64, 1>::new(1.0);
+
+        let result = integrator
+            .step_with_varmat_sensmat(0.0, state, phi, sens, &params, Some(0.1))
+            .unwrap();
+        assert!(result.phi.is_some());
+        assert!(result.sens.is_some());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_dp54d_control_and_providers_step() {
+        use crate::math::jacobian::DJacobianProvider;
+        use crate::math::sensitivity::DSensitivityProvider;
+
+        struct ConstJacobian;
+        impl DJacobianProvider for ConstJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &DVector<f64>,
+                _params: Option<&DVector<f64>>,
+            ) -> Result<DMatrix<f64>, BraheError> {
+                Ok(DMatrix::from_element(1, 1, -1.0))
+            }
+        }
+
+        struct ConstSensitivity;
+        impl DSensitivityProvider for ConstSensitivity {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &DVector<f64>,
+                _params: &DVector<f64>,
+            ) -> Result<DMatrix<f64>, BraheError> {
+                Ok(DMatrix::zeros(1, 1))
+            }
+        }
+
+        fn decay(
+            _t: f64,
+            state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            Ok(-state)
+        }
+
+        // Additive control perturbation exercises the control-input branch.
+        fn control(
+            _t: f64,
+            _state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            Ok(DVector::from_vec(vec![0.1]))
+        }
+
+        let integrator = DormandPrince54DIntegrator::with_config(
+            1,
+            Box::new(decay),
+            Some(Box::new(ConstJacobian)),
+            Some(Box::new(ConstSensitivity)),
+            Some(Box::new(control)),
+            IntegratorConfig::adaptive(1e-9, 1e-7),
+        );
+
+        let state = DVector::from_vec(vec![1.0]);
+        let phi = DMatrix::<f64>::identity(1, 1);
+        let sens = DMatrix::<f64>::zeros(1, 1);
+        let params = DVector::from_vec(vec![1.0]);
+
+        let result = integrator
+            .step_with_varmat_sensmat(0.0, state, phi, sens, &params, Some(0.1))
+            .unwrap();
+        assert!(result.phi.is_some());
+        assert!(result.sens.is_some());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_dp54s_sensmat_compute_error_propagates() {
+        use crate::math::jacobian::SJacobianProvider;
+        use crate::math::sensitivity::SSensitivityProvider;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        struct OkJacobian;
+        impl SJacobianProvider<1, 1> for OkJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &SVector<f64, 1>,
+                _params: Option<&SVector<f64, 1>>,
+            ) -> Result<SMatrix<f64, 1, 1>, BraheError> {
+                Ok(SMatrix::<f64, 1, 1>::new(-1.0))
+            }
+        }
+
+        // Succeeds on the first (stage-0) evaluation, then fails on a later stage so the
+        // error propagates through the stage-loop sensitivity `?`.
+        struct FailAfterFirst {
+            calls: AtomicUsize,
+        }
+        impl SSensitivityProvider<1, 1> for FailAfterFirst {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &SVector<f64, 1>,
+                _params: &SVector<f64, 1>,
+            ) -> Result<SMatrix<f64, 1, 1>, BraheError> {
+                if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                    Ok(SMatrix::<f64, 1, 1>::zeros())
+                } else {
+                    Err(BraheError::NumericalError(
+                        "sensitivity failure".to_string(),
+                    ))
+                }
+            }
+        }
+
+        fn decay(
+            _t: f64,
+            state: &SVector<f64, 1>,
+            _params: Option<&SVector<f64, 1>>,
+        ) -> Result<SVector<f64, 1>, BraheError> {
+            Ok(-state)
+        }
+
+        let integrator: DormandPrince54SIntegrator<1, 1> = DormandPrince54SIntegrator::new(
+            Box::new(decay),
+            Some(Box::new(OkJacobian)),
+            Some(Box::new(FailAfterFirst {
+                calls: AtomicUsize::new(0),
+            })),
+            None,
+        );
+
+        let state = SVector::<f64, 1>::new(1.0);
+        let phi = SMatrix::<f64, 1, 1>::identity();
+        let sens = SMatrix::<f64, 1, 1>::zeros();
+        let params = SVector::<f64, 1>::new(1.0);
+
+        let result = integrator.step_with_varmat_sensmat(0.0, state, phi, sens, &params, Some(0.1));
+        assert!(matches!(result, Err(BraheError::NumericalError(_))));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_dp54d_sensmat_compute_error_propagates() {
+        use crate::math::jacobian::DJacobianProvider;
+        use crate::math::sensitivity::DSensitivityProvider;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        struct OkJacobian;
+        impl DJacobianProvider for OkJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &DVector<f64>,
+                _params: Option<&DVector<f64>>,
+            ) -> Result<DMatrix<f64>, BraheError> {
+                Ok(DMatrix::from_element(1, 1, -1.0))
+            }
+        }
+
+        // Succeeds on the first (stage-0) evaluation, then fails on a later stage so the
+        // error propagates through the stage-loop sensitivity `?`.
+        struct FailAfterFirst {
+            calls: AtomicUsize,
+        }
+        impl DSensitivityProvider for FailAfterFirst {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &DVector<f64>,
+                _params: &DVector<f64>,
+            ) -> Result<DMatrix<f64>, BraheError> {
+                if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                    Ok(DMatrix::zeros(1, 1))
+                } else {
+                    Err(BraheError::NumericalError(
+                        "sensitivity failure".to_string(),
+                    ))
+                }
+            }
+        }
+
+        fn decay(
+            _t: f64,
+            state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            Ok(-state)
+        }
+
+        let integrator = DormandPrince54DIntegrator::new(
+            1,
+            Box::new(decay),
+            Some(Box::new(OkJacobian)),
+            Some(Box::new(FailAfterFirst {
+                calls: AtomicUsize::new(0),
+            })),
+            None,
+        );
+
+        let state = DVector::from_vec(vec![1.0]);
+        let phi = DMatrix::<f64>::identity(1, 1);
+        let sens = DMatrix::<f64>::zeros(1, 1);
+        let params = DVector::from_vec(vec![1.0]);
+
+        let result = integrator.step_with_varmat_sensmat(0.0, state, phi, sens, &params, Some(0.1));
+        assert!(matches!(result, Err(BraheError::NumericalError(_))));
     }
 }

@@ -2226,4 +2226,37 @@ mod tests {
         let result = traj.covariance_at(t1).unwrap().unwrap();
         assert_abs_diff_eq!(result[(0, 0)], 200.0, epsilon = 1e-10);
     }
+
+    #[test]
+    fn test_strajectory_set_covariance_at_index_out_of_bounds() {
+        let mut traj = create_test_trajectory();
+        let cov = na::SMatrix::<f64, 6, 6>::identity();
+        let result = traj.set_covariance_at(10, cov);
+        assert!(matches!(result, Err(BraheError::OutOfBoundsError(_))));
+    }
+
+    #[test]
+    fn test_strajectory_covariance_at_without_storage_returns_none() {
+        let traj = create_test_trajectory();
+        let epoch = Epoch::from_jd(2451545.05, TimeSystem::UTC);
+        assert!(traj.covariance_at(epoch).unwrap().is_none());
+    }
+
+    #[test]
+    fn test_strajectory_covariance_at_empty_returns_none() {
+        let mut traj = STrajectory6::new();
+        traj.enable_covariance_storage();
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        assert!(traj.covariance_at(epoch).unwrap().is_none());
+    }
+
+    #[test]
+    fn test_strajectory_covariance_at_out_of_range_returns_none() {
+        let mut traj = create_test_trajectory();
+        traj.enable_covariance_storage();
+        // Query an epoch before the trajectory start so no surrounding
+        // indices exist for interpolation.
+        let epoch = Epoch::from_jd(2451544.0, TimeSystem::UTC);
+        assert!(traj.covariance_at(epoch).unwrap().is_none());
+    }
 }

@@ -2928,6 +2928,66 @@ mod tests {
 
     #[test]
     #[serial_test::parallel]
+    fn test_gravity_model_from_bufreader_invalid_errors_value_errors() {
+        let content = "modelname TEST\ngravity_constant 3.986004415E+14\nradius 6.3781363000E+06\nmax_degree 2\nerrors bogus\nend_of_head\n";
+        let result = GravityModel::from_bufreader(BufReader::new(content.as_bytes()));
+        assert!(matches!(result, Err(BraheError::ParseError(_))));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_gravity_model_from_bufreader_invalid_normalization_value_errors() {
+        let content = "modelname TEST\ngravity_constant 3.986004415E+14\nradius 6.3781363000E+06\nmax_degree 2\nnormalization bogus\nend_of_head\n";
+        let result = GravityModel::from_bufreader(BufReader::new(content.as_bytes()));
+        assert!(matches!(result, Err(BraheError::ParseError(_))));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_accel_gravity_spherical_harmonics_out_of_range_errors() {
+        // Requesting a degree beyond the loaded model must surface as Err
+        // through every acceleration wrapper.
+        let rot = SMatrix3::identity();
+        let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+
+        let model = GravityModel::from_model_type_with_coefficients(
+            &GravityModelType::JGM3,
+            GravityModelCoefficients::Both,
+        )
+        .unwrap();
+        let n = model.n_max + 10;
+
+        assert!(
+            accel_gravity_spherical_harmonics(r, rot, &model, n, n, ParallelMode::Never).is_err()
+        );
+        assert!(
+            accel_gravity_spherical_harmonics_cunningham(r, rot, &model, n, n, ParallelMode::Never)
+                .is_err()
+        );
+        assert!(
+            accel_gravity_spherical_harmonics_clenshaw(r, rot, &model, n, n, ParallelMode::Never)
+                .is_err()
+        );
+
+        let mut v_workspace = DMatrix::<f64>::zeros(2, 2);
+        let mut w_workspace = DMatrix::<f64>::zeros(2, 2);
+        assert!(
+            accel_gravity_spherical_harmonics_cunningham_with_workspace(
+                r,
+                rot,
+                &model,
+                n,
+                n,
+                ParallelMode::Never,
+                &mut v_workspace,
+                &mut w_workspace,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
     fn test_gravity_model_from_bufreader_truncated_data_row_errors() {
         // Coefficient row is missing the C and S values
         let content = "modelname TEST\ngravity_constant 3.986004415E+14\nradius 6.3781363000E+06\nmax_degree 2\nend_of_head\ngfc 2 0\n";

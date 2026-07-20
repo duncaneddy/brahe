@@ -2056,6 +2056,12 @@ mod tests {
         assert_eq!(config.max_step_attempts, default_config.max_step_attempts);
         assert_eq!(config.min_step, default_config.min_step);
         assert_eq!(config.max_step, default_config.max_step);
+
+        // Exercise the dynamics closure to confirm the integrator steps
+        let result = integrator
+            .step(0.0, SVector::<f64, 1>::new(1.0), None, Some(0.1))
+            .unwrap();
+        assert!(result.state[0].is_finite());
     }
 
     #[test]
@@ -2095,6 +2101,12 @@ mod tests {
         assert_eq!(config.max_step_attempts, 20);
         assert_eq!(config.min_step, Some(1e-15));
         assert_eq!(config.max_step, Some(100.0));
+
+        // Exercise the dynamics closure to confirm the integrator steps
+        let result = integrator
+            .step(0.0, SVector::<f64, 1>::new(1.0), None, Some(0.1))
+            .unwrap();
+        assert!(result.state[0].is_finite());
     }
 
     #[test]
@@ -2116,6 +2128,12 @@ mod tests {
         assert_eq!(config1.abs_tol, config2.abs_tol);
         assert_eq!(config1.rel_tol, config2.rel_tol);
         assert_eq!(config1.max_step_attempts, config2.max_step_attempts);
+
+        // Exercise the dynamics closure to confirm the integrator steps
+        let result = integrator
+            .step(0.0, SVector::<f64, 1>::new(1.0), None, Some(0.1))
+            .unwrap();
+        assert!(result.state[0].is_finite());
     }
 
     #[test]
@@ -2137,6 +2155,12 @@ mod tests {
         assert_eq!(config.max_step_attempts, default_config.max_step_attempts);
         assert_eq!(config.min_step, default_config.min_step);
         assert_eq!(config.max_step, default_config.max_step);
+
+        // Exercise the dynamics closure to confirm the integrator steps
+        let result = integrator
+            .step(0.0, DVector::from_vec(vec![1.0]), None, Some(0.1))
+            .unwrap();
+        assert!(result.state[0].is_finite());
     }
 
     #[test]
@@ -2177,6 +2201,12 @@ mod tests {
         assert_eq!(config.max_step_attempts, 20);
         assert_eq!(config.min_step, Some(1e-15));
         assert_eq!(config.max_step, Some(100.0));
+
+        // Exercise the dynamics closure to confirm the integrator steps
+        let result = integrator
+            .step(0.0, DVector::from_vec(vec![1.0]), None, Some(0.1))
+            .unwrap();
+        assert!(result.state[0].is_finite());
     }
 
     #[test]
@@ -2197,6 +2227,12 @@ mod tests {
         assert_eq!(config1.abs_tol, config2.abs_tol);
         assert_eq!(config1.rel_tol, config2.rel_tol);
         assert_eq!(config1.max_step_attempts, config2.max_step_attempts);
+
+        // Exercise the dynamics closure to confirm the integrator steps
+        let result = integrator
+            .step(0.0, DVector::from_vec(vec![1.0]), None, Some(0.1))
+            .unwrap();
+        assert!(result.state[0].is_finite());
     }
 
     #[test]
@@ -2214,6 +2250,12 @@ mod tests {
 
         let integrator2 = RKF78DIntegrator::new(12, Box::new(dynamics), None, None, None);
         assert_eq!(integrator2.dimension(), 12);
+
+        // Exercise the dynamics closure to confirm the integrator steps
+        let result = integrator
+            .step(0.0, DVector::from_vec(vec![1.0; 6]), None, Some(0.1))
+            .unwrap();
+        assert!(result.state[0].is_finite());
     }
 
     // =============================================================================
@@ -2584,5 +2626,157 @@ mod tests {
             (phi_slow[(0, 0)] - phi_fast[(0, 0)]).abs() > 0.1,
             "Different params should produce different STMs"
         );
+    }
+
+    // =============================================================================
+    // Error Tests - dt Contract and Missing sensmat Provider
+    // =============================================================================
+
+    fn simple_decay_s(
+        _t: f64,
+        x: &SVector<f64, 1>,
+        _params: Option<&SVector<f64, 0>>,
+    ) -> Result<SVector<f64, 1>, BraheError> {
+        Ok(-x)
+    }
+
+    fn simple_decay_d(
+        _t: f64,
+        x: &DVector<f64>,
+        _params: Option<&DVector<f64>>,
+    ) -> Result<DVector<f64>, BraheError> {
+        Ok(-x)
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_rkf78s_step_methods_require_dt() {
+        // Adaptive integrators require an explicit dt; all four step variants must
+        // return PropagatorError when dt is None.
+        let integrator: RKF78SIntegrator<1, 0> =
+            RKF78SIntegrator::new(Box::new(simple_decay_s), None, None, None);
+        let state = SVector::<f64, 1>::new(1.0);
+        let phi = SMatrix::<f64, 1, 1>::identity();
+        let sens = SMatrix::<f64, 1, 0>::zeros();
+        let params = SVector::<f64, 0>::zeros();
+
+        assert!(matches!(
+            integrator.step(0.0, state, None, None),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            integrator.step_with_varmat(0.0, state, None, phi, None),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            integrator.step_with_sensmat(0.0, state, sens, &params, None),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            integrator.step_with_varmat_sensmat(0.0, state, phi, sens, &params, None),
+            Err(BraheError::PropagatorError(_))
+        ));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_rkf78d_step_methods_require_dt() {
+        let integrator = RKF78DIntegrator::new(1, Box::new(simple_decay_d), None, None, None);
+        let state = DVector::from_vec(vec![1.0]);
+        let phi = DMatrix::<f64>::identity(1, 1);
+        let sens = DMatrix::<f64>::zeros(1, 0);
+        let params = DVector::<f64>::zeros(0);
+
+        assert!(matches!(
+            integrator.step(0.0, state.clone(), None, None),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            integrator.step_with_varmat(0.0, state.clone(), None, phi.clone(), None),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            integrator.step_with_sensmat(0.0, state.clone(), sens.clone(), &params, None),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            integrator.step_with_varmat_sensmat(0.0, state, phi, sens, &params, None),
+            Err(BraheError::PropagatorError(_))
+        ));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_rkf78s_control_input_applied() {
+        // Zero dynamics with a constant control input exercises the control branch
+        // in step_internal and produces a nonzero state derivative.
+        let f = |_t: f64,
+                 _x: &SVector<f64, 1>,
+                 _p: Option<&SVector<f64, 0>>|
+         -> Result<SVector<f64, 1>, BraheError> { Ok(SVector::<f64, 1>::zeros()) };
+        let control =
+            |_t: f64,
+             _x: &SVector<f64, 1>,
+             _p: Option<&SVector<f64, 0>>|
+             -> Result<SVector<f64, 1>, BraheError> { Ok(SVector::<f64, 1>::new(1.0)) };
+        let integrator: RKF78SIntegrator<1, 0> =
+            RKF78SIntegrator::new(Box::new(f), None, None, Some(Box::new(control)));
+        let state = SVector::<f64, 1>::new(0.0);
+        let result = integrator.step(0.0, state, None, Some(0.1)).unwrap();
+        assert!(result.state[0] > 0.0);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_rkf78d_control_input_applied() {
+        let f = |_t: f64,
+                 x: &DVector<f64>,
+                 _p: Option<&DVector<f64>>|
+         -> Result<DVector<f64>, BraheError> { Ok(DVector::zeros(x.len())) };
+        let control =
+            |_t: f64,
+             _x: &DVector<f64>,
+             _p: Option<&DVector<f64>>|
+             -> Result<DVector<f64>, BraheError> { Ok(DVector::from_vec(vec![1.0])) };
+        let integrator = RKF78DIntegrator::new(1, Box::new(f), None, None, Some(Box::new(control)));
+        let state = DVector::from_vec(vec![0.0]);
+        let result = integrator.step(0.0, state, None, Some(0.1)).unwrap();
+        assert!(result.state[0] > 0.0);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_rkf78s_step_with_sensmat_requires_sensmat() {
+        // varmat present but sensmat missing: the sensmat ok_or_else closure must fire
+        let jacobian = SNumericalJacobian::new(Box::new(simple_decay_s));
+        let integrator: RKF78SIntegrator<1, 0> = RKF78SIntegrator::new(
+            Box::new(simple_decay_s),
+            Some(Box::new(jacobian)),
+            None,
+            None,
+        );
+        let state = SVector::<f64, 1>::new(1.0);
+        let sens = SMatrix::<f64, 1, 0>::zeros();
+        let params = SVector::<f64, 0>::zeros();
+        let result = integrator.step_with_sensmat(0.0, state, sens, &params, Some(0.1));
+        assert!(matches!(result, Err(BraheError::PropagatorError(_))));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_rkf78d_step_with_sensmat_requires_sensmat() {
+        let jacobian = DNumericalJacobian::new(Box::new(simple_decay_d));
+        let integrator = RKF78DIntegrator::new(
+            1,
+            Box::new(simple_decay_d),
+            Some(Box::new(jacobian)),
+            None,
+            None,
+        );
+        let state = DVector::from_vec(vec![1.0]);
+        let sens = DMatrix::<f64>::zeros(1, 0);
+        let params = DVector::<f64>::zeros(0);
+        let result = integrator.step_with_sensmat(0.0, state, sens, &params, Some(0.1));
+        assert!(matches!(result, Err(BraheError::PropagatorError(_))));
     }
 }

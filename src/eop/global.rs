@@ -548,7 +548,11 @@ pub fn initialize_eop() -> Result<(), BraheError> {
 /// requested range lies within the loaded data span or the provider's
 /// extrapolation setting (`Hold` or `Zero`) guarantees a value for
 /// out-of-range dates. With `EOPExtrapolation::Error`, any epoch outside the
-/// loaded span fails the check.
+/// loaded span fails the check. The validated span covers every field the
+/// infallible frame and time functions consume: UT1-UTC and polar motion
+/// (available through the provider's `mjd_max`) and the Celestial
+/// Intermediate Pole dX/dY corrections, whose data series typically ends
+/// earlier (`mjd_last_dxdy`).
 ///
 /// # Arguments
 /// - `mjd_start`: Start of the range to validate, as a Modified Julian Date. Units: (days)
@@ -589,18 +593,23 @@ pub fn ensure_global_eop_coverage(mjd_start: f64, mjd_end: f64) -> Result<(), Br
         ));
     }
 
-    if provider.extrapolation() == EOPExtrapolation::Error
-        && (mjd_start < provider.mjd_min() || mjd_end > provider.mjd_max())
-    {
-        return Err(BraheError::EOPError(format!(
-            "EOP data covers MJD [{}, {}] but coverage of [{}, {}] was requested and \
-             extrapolation is set to Error. Load data covering the full range or set \
-             extrapolation to Hold or Zero.",
-            provider.mjd_min(),
-            provider.mjd_max(),
-            mjd_start,
-            mjd_end
-        )));
+    if provider.extrapolation() == EOPExtrapolation::Error {
+        // dX/dY (used by bias_precession_nutation) typically ends earlier
+        // than the UT1-UTC and polar-motion series, so the usable upper
+        // bound is the shorter of the two.
+        let mjd_usable_max = provider.mjd_max().min(provider.mjd_last_dxdy());
+        if mjd_start < provider.mjd_min() || mjd_end > mjd_usable_max {
+            return Err(BraheError::EOPError(format!(
+                "EOP data covers MJD [{}, {}] (dX/dY through {}) but coverage of [{}, {}] was \
+                 requested and extrapolation is set to Error. Load data covering the full \
+                 range or set extrapolation to Hold or Zero.",
+                provider.mjd_min(),
+                provider.mjd_max(),
+                provider.mjd_last_dxdy(),
+                mjd_start,
+                mjd_end
+            )));
+        }
     }
 
     Ok(())
@@ -667,6 +676,30 @@ mod tests {
         // Before the start of the loaded data (finals.all starts MJD 41684)
         let result = ensure_global_eop_coverage(10000.0, 58001.0);
         assert!(matches!(result, Err(BraheError::EOPError(_))));
+
+        clear_test_global_eop();
+    }
+
+    #[test]
+    #[serial]
+    fn test_ensure_global_eop_coverage_dxdy_gap_error_extrapolation() {
+        setup_test_global_eop(true, EOPExtrapolation::Error);
+
+        // Standard Bulletin A predictions extend UT1-UTC and polar motion
+        // beyond the last dX/dY sample. A range ending in that window is not
+        // fully servable: bias_precession_nutation would fail on dX/dY.
+        let last_dxdy = get_global_eop_mjd_last_dxdy();
+        let mjd_max = get_global_eop_mjd_max();
+        assert!(
+            last_dxdy < mjd_max,
+            "test file must have a dX/dY gap for this test to be meaningful"
+        );
+
+        let result = ensure_global_eop_coverage(58000.0, (last_dxdy + mjd_max) / 2.0);
+        assert!(matches!(result, Err(BraheError::EOPError(_))));
+
+        // Up to the dX/dY bound is fully servable.
+        assert!(ensure_global_eop_coverage(58000.0, last_dxdy).is_ok());
 
         clear_test_global_eop();
     }

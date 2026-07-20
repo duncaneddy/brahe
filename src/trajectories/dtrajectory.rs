@@ -3335,4 +3335,84 @@ mod tests {
             _ => panic!("Expected Lagrange interpolation method"),
         }
     }
+
+    #[test]
+    fn test_dtrajectory_add_with_covariance_state_dimension_mismatch() {
+        let mut traj = DTrajectory::new(6).unwrap();
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let bad_state = DVector::from_vec(vec![1.0, 2.0, 3.0]);
+        let cov = DMatrix::identity(6, 6);
+        let result = traj.add_with_covariance(epoch, bad_state, cov);
+        assert!(matches!(result, Err(BraheError::OutOfBoundsError(_))));
+    }
+
+    #[test]
+    fn test_dtrajectory_add_with_covariance_covariance_dimension_mismatch() {
+        let mut traj = DTrajectory::new(6).unwrap();
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let bad_cov = DMatrix::identity(3, 3);
+        let result = traj.add_with_covariance(epoch, state, bad_cov);
+        assert!(matches!(result, Err(BraheError::OutOfBoundsError(_))));
+    }
+
+    #[test]
+    fn test_dtrajectory_set_covariance_at_index_out_of_bounds() {
+        let mut traj = create_test_trajectory();
+        let cov = DMatrix::identity(6, 6);
+        let result = traj.set_covariance_at(10, cov);
+        assert!(matches!(result, Err(BraheError::OutOfBoundsError(_))));
+    }
+
+    #[test]
+    fn test_dtrajectory_set_covariance_at_covariance_dimension_mismatch() {
+        let mut traj = create_test_trajectory();
+        let bad_cov = DMatrix::identity(3, 3);
+        let result = traj.set_covariance_at(0, bad_cov);
+        assert!(matches!(result, Err(BraheError::OutOfBoundsError(_))));
+    }
+
+    #[test]
+    fn test_dtrajectory_covariance_at_without_storage_returns_none() {
+        let traj = create_test_trajectory();
+        let epoch = Epoch::from_jd(2451545.05, TimeSystem::UTC);
+        assert!(traj.covariance_at(epoch).unwrap().is_none());
+    }
+
+    #[test]
+    fn test_dtrajectory_covariance_at_empty_returns_none() {
+        let mut traj = DTrajectory::new(6).unwrap();
+        traj.enable_covariance_storage();
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        assert!(traj.covariance_at(epoch).unwrap().is_none());
+    }
+
+    #[test]
+    fn test_dtrajectory_covariance_at_out_of_range_returns_none() {
+        let mut traj = create_test_trajectory();
+        traj.enable_covariance_storage();
+        // Query an epoch before the trajectory start so no surrounding
+        // indices exist for interpolation.
+        let epoch = Epoch::from_jd(2451544.0, TimeSystem::UTC);
+        assert!(traj.covariance_at(epoch).unwrap().is_none());
+    }
+
+    #[test]
+    fn test_dtrajectory_add_full_covariance_dimension_mismatch() {
+        let mut traj = DTrajectory::new(6).unwrap();
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let bad_cov = DMatrix::identity(3, 3);
+        let result = traj.add_full(epoch, state, Some(bad_cov), None, None);
+        assert!(matches!(result, Err(BraheError::OutOfBoundsError(_))));
+    }
+
+    #[test]
+    fn test_dtrajectory_set_sensitivity_at_index_out_of_bounds() {
+        let mut traj = create_test_trajectory();
+        traj.enable_sensitivity_storage(2).unwrap();
+        let sens = DMatrix::from_element(6, 2, 1.0);
+        let result = traj.set_sensitivity_at(10, sens);
+        assert!(matches!(result, Err(BraheError::OutOfBoundsError(_))));
+    }
 }

@@ -1129,6 +1129,12 @@ mod tests {
         let rkn: RKN1210SIntegrator<2, 0> =
             RKN1210SIntegrator::with_config(Box::new(f), None, None, None, config);
 
+        // Exercise the dynamics closure with a single step.
+        assert!(
+            rkn.step(0.0, SVector::<f64, 2>::new(0.0, 0.0), None, Some(0.1))
+                .is_ok()
+        );
+
         assert_eq!(rkn.config().step_safety_factor, Some(0.8));
         assert_eq!(rkn.config().min_step_scale_factor, Some(0.5));
         assert_eq!(rkn.config().max_step_scale_factor, Some(5.0));
@@ -1569,6 +1575,13 @@ mod tests {
             ..Default::default()
         };
         let rkn = RKN1210DIntegrator::with_config(2, Box::new(f), None, None, None, config);
+
+        // Exercise the dynamics closure with a single step.
+        assert!(
+            rkn.step(0.0, DVector::from_vec(vec![0.0, 0.0]), None, Some(0.1))
+                .is_ok()
+        );
+
         assert_eq!(rkn.config().step_safety_factor, Some(0.8));
         assert_eq!(rkn.config().min_step_scale_factor, Some(0.5));
         assert_eq!(rkn.config().max_step_scale_factor, Some(5.0));
@@ -2141,6 +2154,14 @@ mod tests {
 
         let integrator: RKN1210SIntegrator<2, 0> =
             RKN1210SIntegrator::new(Box::new(dynamics), None, None, None);
+
+        // Exercise the dynamics closure with a single step.
+        assert!(
+            integrator
+                .step(0.0, SVector::<f64, 2>::new(1.0, 0.0), None, Some(0.1))
+                .is_ok()
+        );
+
         let config = integrator.config();
 
         let default_config = IntegratorConfig::default();
@@ -2181,6 +2202,14 @@ mod tests {
             None,
             custom_config.clone(),
         );
+
+        // Exercise the dynamics closure with a single step.
+        assert!(
+            integrator
+                .step(0.0, SVector::<f64, 2>::new(1.0, 0.0), None, Some(0.1))
+                .is_ok()
+        );
+
         let config = integrator.config();
 
         assert_eq!(config.abs_tol, 1e-10);
@@ -2203,6 +2232,13 @@ mod tests {
         let integrator: RKN1210SIntegrator<2, 0> =
             RKN1210SIntegrator::new(Box::new(dynamics), None, None, None);
 
+        // Exercise the dynamics closure with a single step.
+        assert!(
+            integrator
+                .step(0.0, SVector::<f64, 2>::new(1.0, 0.0), None, Some(0.1))
+                .is_ok()
+        );
+
         let config1 = integrator.config();
         let config2 = integrator.config();
 
@@ -2222,6 +2258,14 @@ mod tests {
         }
 
         let integrator = RKN1210DIntegrator::new(2, Box::new(dynamics), None, None, None);
+
+        // Exercise the dynamics closure with a single step.
+        assert!(
+            integrator
+                .step(0.0, DVector::from_vec(vec![1.0, 0.0]), None, Some(0.1))
+                .is_ok()
+        );
+
         let config = integrator.config();
 
         let default_config = IntegratorConfig::default();
@@ -2263,6 +2307,14 @@ mod tests {
             None,
             custom_config.clone(),
         );
+
+        // Exercise the dynamics closure with a single step.
+        assert!(
+            integrator
+                .step(0.0, DVector::from_vec(vec![1.0, 0.0]), None, Some(0.1))
+                .is_ok()
+        );
+
         let config = integrator.config();
 
         assert_eq!(config.abs_tol, 1e-10);
@@ -2283,6 +2335,13 @@ mod tests {
         }
 
         let integrator = RKN1210DIntegrator::new(2, Box::new(dynamics), None, None, None);
+
+        // Exercise the dynamics closure with a single step.
+        assert!(
+            integrator
+                .step(0.0, DVector::from_vec(vec![1.0, 0.0]), None, Some(0.1))
+                .is_ok()
+        );
 
         let config1 = integrator.config();
         let config2 = integrator.config();
@@ -2307,6 +2366,14 @@ mod tests {
 
         let integrator2 = RKN1210DIntegrator::new(12, Box::new(dynamics), None, None, None);
         assert_eq!(integrator2.dimension(), 12);
+
+        // Exercise the dynamics closure with a single step on a matching two-state system.
+        let integrator3 = RKN1210DIntegrator::new(2, Box::new(dynamics), None, None, None);
+        assert!(
+            integrator3
+                .step(0.0, DVector::from_vec(vec![1.0, 0.0]), None, Some(0.1))
+                .is_ok()
+        );
     }
 
     // =============================================================================
@@ -2669,5 +2736,343 @@ mod tests {
             (phi_slow[(1, 0)] - phi_fast[(1, 0)]).abs() > 0.01,
             "Different params should produce different STMs"
         );
+    }
+
+    // =========================================================================
+    // Result Error-Path Coverage Tests
+    // =========================================================================
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_rkn1210s_step_methods_require_dt() {
+        fn harmonic(
+            _t: f64,
+            state: &SVector<f64, 2>,
+            _params: Option<&SVector<f64, 1>>,
+        ) -> Result<SVector<f64, 2>, BraheError> {
+            Ok(SVector::<f64, 2>::new(state[1], -state[0]))
+        }
+
+        let integrator: RKN1210SIntegrator<2, 1> =
+            RKN1210SIntegrator::new(Box::new(harmonic), None, None, None);
+        let state = SVector::<f64, 2>::new(1.0, 0.0);
+        let phi = SMatrix::<f64, 2, 2>::identity();
+        let sens = SMatrix::<f64, 2, 1>::zeros();
+        let params = SVector::<f64, 1>::new(1.0);
+
+        assert!(matches!(
+            integrator.step(0.0, state, None, None),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            integrator.step_with_varmat(0.0, state, None, phi, None),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            integrator.step_with_sensmat(0.0, state, sens, &params, None),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            integrator.step_with_varmat_sensmat(0.0, state, phi, sens, &params, None),
+            Err(BraheError::PropagatorError(_))
+        ));
+
+        // A successful step exercises the dynamics helper body.
+        assert!(integrator.step(0.0, state, None, Some(0.1)).is_ok());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_rkn1210d_step_methods_require_dt() {
+        fn harmonic(
+            _t: f64,
+            state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            Ok(DVector::from_vec(vec![state[1], -state[0]]))
+        }
+
+        let integrator = RKN1210DIntegrator::new(2, Box::new(harmonic), None, None, None);
+        let state = DVector::from_vec(vec![1.0, 0.0]);
+        let phi = DMatrix::<f64>::identity(2, 2);
+        let sens = DMatrix::<f64>::zeros(2, 1);
+        let params = DVector::from_vec(vec![1.0]);
+
+        assert!(matches!(
+            integrator.step(0.0, state.clone(), None, None),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            integrator.step_with_varmat(0.0, state.clone(), None, phi.clone(), None),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            integrator.step_with_sensmat(0.0, state.clone(), sens.clone(), &params, None),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            integrator.step_with_varmat_sensmat(
+                0.0,
+                state.clone(),
+                phi.clone(),
+                sens.clone(),
+                &params,
+                None
+            ),
+            Err(BraheError::PropagatorError(_))
+        ));
+
+        // A successful step exercises the dynamics helper body.
+        assert!(integrator.step(0.0, state.clone(), None, Some(0.1)).is_ok());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_rkn1210s_step_with_providers_requires_provider() {
+        use crate::math::jacobian::SJacobianProvider;
+
+        struct ConstJacobian;
+        impl SJacobianProvider<2, 1> for ConstJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &SVector<f64, 2>,
+                _params: Option<&SVector<f64, 1>>,
+            ) -> Result<SMatrix<f64, 2, 2>, BraheError> {
+                Ok(SMatrix::<f64, 2, 2>::identity())
+            }
+        }
+
+        fn harmonic(
+            _t: f64,
+            state: &SVector<f64, 2>,
+            _params: Option<&SVector<f64, 1>>,
+        ) -> Result<SVector<f64, 2>, BraheError> {
+            Ok(SVector::<f64, 2>::new(state[1], -state[0]))
+        }
+
+        let state = SVector::<f64, 2>::new(1.0, 0.0);
+        let phi = SMatrix::<f64, 2, 2>::identity();
+        let sens = SMatrix::<f64, 2, 1>::zeros();
+        let params = SVector::<f64, 1>::new(1.0);
+
+        // Without a variational-matrix provider, STM/sensitivity steps must error.
+        let no_providers: RKN1210SIntegrator<2, 1> =
+            RKN1210SIntegrator::new(Box::new(harmonic), None, None, None);
+        assert!(matches!(
+            no_providers.step_with_varmat(0.0, state, None, phi, Some(0.1)),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            no_providers.step_with_varmat_sensmat(0.0, state, phi, sens, &params, Some(0.1)),
+            Err(BraheError::PropagatorError(_))
+        ));
+
+        // With a variational provider but no sensitivity provider, sensitivity steps error.
+        let varmat_only: RKN1210SIntegrator<2, 1> = RKN1210SIntegrator::new(
+            Box::new(harmonic),
+            Some(Box::new(ConstJacobian)),
+            None,
+            None,
+        );
+        assert!(matches!(
+            varmat_only.step_with_sensmat(0.0, state, sens, &params, Some(0.1)),
+            Err(BraheError::PropagatorError(_))
+        ));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_rkn1210d_step_with_providers_requires_provider() {
+        use crate::math::jacobian::DJacobianProvider;
+
+        struct ConstJacobian;
+        impl DJacobianProvider for ConstJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &DVector<f64>,
+                _params: Option<&DVector<f64>>,
+            ) -> Result<DMatrix<f64>, BraheError> {
+                Ok(DMatrix::identity(2, 2))
+            }
+        }
+
+        fn harmonic(
+            _t: f64,
+            state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            Ok(DVector::from_vec(vec![state[1], -state[0]]))
+        }
+
+        let state = DVector::from_vec(vec![1.0, 0.0]);
+        let phi = DMatrix::<f64>::identity(2, 2);
+        let sens = DMatrix::<f64>::zeros(2, 1);
+        let params = DVector::from_vec(vec![1.0]);
+
+        let no_providers = RKN1210DIntegrator::new(2, Box::new(harmonic), None, None, None);
+        assert!(matches!(
+            no_providers.step_with_varmat(0.0, state.clone(), None, phi.clone(), Some(0.1)),
+            Err(BraheError::PropagatorError(_))
+        ));
+        assert!(matches!(
+            no_providers.step_with_varmat_sensmat(
+                0.0,
+                state.clone(),
+                phi.clone(),
+                sens.clone(),
+                &params,
+                Some(0.1)
+            ),
+            Err(BraheError::PropagatorError(_))
+        ));
+
+        let varmat_only = RKN1210DIntegrator::new(
+            2,
+            Box::new(harmonic),
+            Some(Box::new(ConstJacobian)),
+            None,
+            None,
+        );
+        assert!(matches!(
+            varmat_only.step_with_sensmat(0.0, state.clone(), sens.clone(), &params, Some(0.1)),
+            Err(BraheError::PropagatorError(_))
+        ));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_rkn1210s_control_and_providers_step() {
+        use crate::math::jacobian::SJacobianProvider;
+        use crate::math::sensitivity::SSensitivityProvider;
+
+        struct ConstJacobian;
+        impl SJacobianProvider<2, 1> for ConstJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &SVector<f64, 2>,
+                _params: Option<&SVector<f64, 1>>,
+            ) -> Result<SMatrix<f64, 2, 2>, BraheError> {
+                Ok(SMatrix::<f64, 2, 2>::zeros())
+            }
+        }
+
+        struct ConstSensitivity;
+        impl SSensitivityProvider<2, 1> for ConstSensitivity {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &SVector<f64, 2>,
+                _params: &SVector<f64, 1>,
+            ) -> Result<SMatrix<f64, 2, 1>, BraheError> {
+                Ok(SMatrix::<f64, 2, 1>::zeros())
+            }
+        }
+
+        fn harmonic(
+            _t: f64,
+            state: &SVector<f64, 2>,
+            _params: Option<&SVector<f64, 1>>,
+        ) -> Result<SVector<f64, 2>, BraheError> {
+            Ok(SVector::<f64, 2>::new(state[1], -state[0]))
+        }
+
+        // Additive control perturbation exercises the control-input branch.
+        fn control(
+            _t: f64,
+            _state: &SVector<f64, 2>,
+            _params: Option<&SVector<f64, 1>>,
+        ) -> Result<SVector<f64, 2>, BraheError> {
+            Ok(SVector::<f64, 2>::new(0.0, 0.1))
+        }
+
+        let integrator: RKN1210SIntegrator<2, 1> = RKN1210SIntegrator::with_config(
+            Box::new(harmonic),
+            Some(Box::new(ConstJacobian)),
+            Some(Box::new(ConstSensitivity)),
+            Some(Box::new(control)),
+            IntegratorConfig::adaptive(1e-9, 1e-7),
+        );
+
+        let state = SVector::<f64, 2>::new(1.0, 0.0);
+        let phi = SMatrix::<f64, 2, 2>::identity();
+        let sens = SMatrix::<f64, 2, 1>::zeros();
+        let params = SVector::<f64, 1>::new(1.0);
+
+        let result = integrator
+            .step_with_varmat_sensmat(0.0, state, phi, sens, &params, Some(0.1))
+            .unwrap();
+        assert!(result.phi.is_some());
+        assert!(result.sens.is_some());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_rkn1210d_control_and_providers_step() {
+        use crate::math::jacobian::DJacobianProvider;
+        use crate::math::sensitivity::DSensitivityProvider;
+
+        struct ConstJacobian;
+        impl DJacobianProvider for ConstJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &DVector<f64>,
+                _params: Option<&DVector<f64>>,
+            ) -> Result<DMatrix<f64>, BraheError> {
+                Ok(DMatrix::zeros(2, 2))
+            }
+        }
+
+        struct ConstSensitivity;
+        impl DSensitivityProvider for ConstSensitivity {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &DVector<f64>,
+                _params: &DVector<f64>,
+            ) -> Result<DMatrix<f64>, BraheError> {
+                Ok(DMatrix::zeros(2, 1))
+            }
+        }
+
+        fn harmonic(
+            _t: f64,
+            state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            Ok(DVector::from_vec(vec![state[1], -state[0]]))
+        }
+
+        // Additive control perturbation exercises the control-input branch.
+        fn control(
+            _t: f64,
+            _state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            Ok(DVector::from_vec(vec![0.0, 0.1]))
+        }
+
+        let integrator = RKN1210DIntegrator::with_config(
+            2,
+            Box::new(harmonic),
+            Some(Box::new(ConstJacobian)),
+            Some(Box::new(ConstSensitivity)),
+            Some(Box::new(control)),
+            IntegratorConfig::adaptive(1e-9, 1e-7),
+        );
+
+        let state = DVector::from_vec(vec![1.0, 0.0]);
+        let phi = DMatrix::<f64>::identity(2, 2);
+        let sens = DMatrix::<f64>::zeros(2, 1);
+        let params = DVector::from_vec(vec![1.0]);
+
+        let result = integrator
+            .step_with_varmat_sensmat(0.0, state, phi, sens, &params, Some(0.1))
+            .unwrap();
+        assert!(result.phi.is_some());
+        assert!(result.sens.is_some());
     }
 }

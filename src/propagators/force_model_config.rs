@@ -2150,6 +2150,36 @@ mod tests {
     }
 
     #[test]
+    fn test_parametersource_get_value_valid() {
+        // Fixed value resolves without a parameter vector; an in-range index
+        // resolves from the provided vector.
+        assert_eq!(ParameterSource::Value(2.2).get_value(None).unwrap(), 2.2);
+
+        let params = nalgebra::DVector::from_vec(vec![10.0, 20.0]);
+        assert_eq!(
+            ParameterSource::ParameterIndex(1)
+                .get_value(Some(&params))
+                .unwrap(),
+            20.0
+        );
+    }
+
+    #[test]
+    fn test_parametersource_get_value_missing_params() {
+        // A ParameterIndex source with no parameter vector is out of bounds.
+        let result = ParameterSource::ParameterIndex(2).get_value(None);
+        assert!(matches!(result, Err(BraheError::OutOfBoundsError(_))));
+    }
+
+    #[test]
+    fn test_parametersource_get_value_index_out_of_bounds() {
+        // A ParameterIndex beyond the vector length is out of bounds.
+        let params = nalgebra::DVector::from_vec(vec![1.0, 2.0]);
+        let result = ParameterSource::ParameterIndex(4).get_value(Some(&params));
+        assert!(matches!(result, Err(BraheError::OutOfBoundsError(_))));
+    }
+
+    #[test]
     fn test_high_fidelity_configuration() {
         let config = ForceModelConfig::high_fidelity();
 

@@ -26,7 +26,7 @@ from brahe import (
     state_gcrf_to_eme2000,
     state_eme2000_to_gcrf,
 )
-from brahe._brahe import BraheError
+from brahe import BraheError
 
 
 def create_test_trajectory():

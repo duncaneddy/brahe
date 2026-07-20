@@ -7139,4 +7139,116 @@ mod tests {
         let retrieved_accel = traj.acceleration_at_idx(0).unwrap();
         assert_abs_diff_eq!(retrieved_accel[0], -9.8, epsilon = 1e-10);
     }
+
+    #[test]
+    fn test_dorbittrajectory_enable_acceleration_storage_dimension_mismatch() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
+        traj.enable_acceleration_storage(3).unwrap();
+        // Re-enabling with the same dimension is a no-op that returns Ok.
+        assert!(traj.enable_acceleration_storage(3).is_ok());
+        // Re-enabling with a different dimension is rejected.
+        let result = traj.enable_acceleration_storage(4);
+        assert!(matches!(result, Err(BraheError::Error(_))));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_set_acceleration_at_index_out_of_bounds() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
+        traj.enable_acceleration_storage(3).unwrap();
+        let acc = DVector::zeros(3);
+        let result = traj.set_acceleration_at(5, acc);
+        assert!(matches!(result, Err(BraheError::OutOfBoundsError(_))));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_bci_keplerian_barycenter_conversions_err() {
+        // Keplerian elements about the Earth-Moon barycenter (NAIF 3) are
+        // undefined; every batch conversion that redirects through
+        // bci_keplerian_to_cartesian must surface the barycenter error.
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            OrbitFrame::BodyCenteredInertial(3),
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+        )
+        .unwrap();
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let oe = DVector::from_vec(vec![7000e3, 0.01, 45.0, 15.0, 30.0, 45.0]);
+        traj.add(epoch, oe).unwrap();
+
+        assert!(matches!(traj.to_gcrf(), Err(BraheError::Error(_))));
+        assert!(matches!(traj.to_ecef(), Err(BraheError::Error(_))));
+        assert!(matches!(traj.to_itrf(), Err(BraheError::Error(_))));
+        assert!(matches!(traj.to_eme2000(), Err(BraheError::Error(_))));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_to_keplerian_missing_angle_format_err() {
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+        )
+        .unwrap();
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let oe = DVector::from_vec(vec![7000e3, 0.01, 45.0, 15.0, 30.0, 45.0]);
+        traj.add(epoch, oe).unwrap();
+        // Force the invalid state of a Keplerian representation without an
+        // angle format so to_keplerian hits its defensive error arm.
+        traj.angle_format = None;
+        let result = traj.to_keplerian(AngleFormat::Radians);
+        assert!(matches!(result, Err(BraheError::Error(_))));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_keplerian_conversion_preserves_additional_states() {
+        // Extended Keplerian state (dimension > 6): to_gcrf must convert the
+        // first six elements and carry the extra components through
+        // convert_orbital_preserving_additional unchanged.
+        let mut traj = DOrbitTrajectory::new(
+            8,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+        )
+        .unwrap();
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.01, 45.0, 15.0, 30.0, 45.0, 11.0, 22.0]);
+        traj.add(epoch, state).unwrap();
+
+        let converted = traj.to_gcrf().unwrap();
+        let s0 = &converted.states[0];
+        assert_eq!(s0.len(), 8);
+        // Additional states pass through untouched.
+        assert_abs_diff_eq!(s0[6], 11.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(s0[7], 22.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_covariance_at_sqrt_singular_err() {
+        // Matrix-square-root interpolation over a singular covariance cannot
+        // compute the required matrix square root and must surface the error.
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
+        traj.covariances = Some(Vec::new());
+        traj.set_covariance_interpolation_method(CovarianceInterpolationMethod::MatrixSquareRoot);
+
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        // First covariance is singular (all zeros) so sqrtm fails.
+        traj.add_state_and_covariance(t0, state.clone(), DMatrix::zeros(6, 6))
+            .unwrap();
+        traj.add_state_and_covariance(t1, state, DMatrix::identity(6, 6))
+            .unwrap();
+
+        let result = traj.covariance_at(t0 + 30.0);
+        assert!(matches!(result, Err(BraheError::NumericalError(_))));
+    }
 }

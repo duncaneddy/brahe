@@ -21,13 +21,6 @@ use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
 use crate::utils::state_providers::{DOrbitStateProvider, DStateProvider};
 use crate::utils::{BraheError, Identifiable};
 
-/// Convert DVector to Vector6 (panics if not exactly 6 elements)
-#[inline]
-fn dvec_to_svec6(dv: DVector<f64>) -> Vector6<f64> {
-    assert_eq!(dv.len(), 6, "DVector must have exactly 6 elements");
-    Vector6::from_iterator(dv.iter().copied())
-}
-
 /// Convert Vector6 to DVector
 #[inline]
 fn svec6_to_dvec(sv: Vector6<f64>) -> DVector<f64> {
@@ -55,8 +48,14 @@ pub struct KeplerianPropagator {
     /// Step size in seconds for stepping operations
     pub step_size: f64,
 
-    /// Accumulated trajectory (current state is always the last entry)
+    /// Accumulated trajectory of all propagated states, ordered by epoch
     pub trajectory: DOrbitTrajectory,
+
+    /// Current propagation epoch
+    epoch_current: Epoch,
+
+    /// Current state vector in the original representation and frame
+    state_current: Vector6<f64>,
 
     /// Internal osculating orbital elements (always in radians, ECI frame)
     internal_osculating_elements: Vector6<f64>,
@@ -184,6 +183,8 @@ impl KeplerianPropagator {
             angle_format,
             internal_osculating_elements: internal_elements,
             trajectory,
+            epoch_current: epoch,
+            state_current: state,
             step_size,
             n,
             name: None,
@@ -314,6 +315,9 @@ impl KeplerianPropagator {
         );
         self.trajectory
             .add(self.initial_epoch, svec6_to_dvec(converted_state))?;
+
+        self.epoch_current = self.initial_epoch;
+        self.state_current = converted_state;
 
         Ok(self)
     }
@@ -456,6 +460,8 @@ impl SStatePropagator for KeplerianPropagator {
         let state = self.convert_from_internal_osculating(target_epoch, new_state);
 
         self.trajectory.add(target_epoch, svec6_to_dvec(state))?;
+        self.epoch_current = target_epoch;
+        self.state_current = state;
 
         Ok(())
     }
@@ -467,13 +473,11 @@ impl SStatePropagator for KeplerianPropagator {
     // - propagate_to()
 
     fn current_epoch(&self) -> Epoch {
-        // Return the most recent epoch from trajectory
-        self.trajectory.last().unwrap().0
+        self.epoch_current
     }
 
     fn current_state(&self) -> Vector6<f64> {
-        // Return the most recent state from trajectory
-        dvec_to_svec6(self.trajectory.last().unwrap().1)
+        self.state_current
     }
 
     fn initial_epoch(&self) -> Epoch {
@@ -511,6 +515,9 @@ impl SStatePropagator for KeplerianPropagator {
         self.trajectory
             .add(self.initial_epoch, svec6_to_dvec(converted_state))
             .expect("trajectory state validated at construction");
+
+        self.epoch_current = self.initial_epoch;
+        self.state_current = converted_state;
     }
 
     fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
@@ -561,6 +568,9 @@ impl SOrbitPropagator for KeplerianPropagator {
         self.trajectory = DOrbitTrajectory::new(6, frame, representation, angle_format)?
             .with_identity(name.as_deref(), uuid, id);
         self.trajectory.add(epoch, svec6_to_dvec(state))?;
+
+        self.epoch_current = epoch;
+        self.state_current = state;
 
         Ok(())
     }
@@ -796,6 +806,84 @@ mod tests {
         assert_eq!(propagator.current_epoch(), epoch);
         assert_abs_diff_eq!(propagator.initial_state()[0], 7000e3, epsilon = 1.0);
         assert_abs_diff_eq!(propagator.initial_state()[1], 0.01, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_new_rejects_bci_frame() {
+        // KeplerianPropagator is Earth-only; body-centered inertial frames are rejected
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let state = create_cartesian_state();
+
+        let result = KeplerianPropagator::new(
+            epoch,
+            state,
+            OrbitFrame::BodyCenteredInertial(301),
+            OrbitRepresentation::Cartesian,
+            None,
+            60.0,
+        );
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("BodyCenteredInertial is not supported")
+        );
+    }
+
+    #[test]
+    fn test_keplerianpropagator_with_output_format_success() {
+        // Changing the output format from radians to degrees resets the
+        // trajectory to the initial state expressed in the new format.
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements(); // degrees in [i, raan, argp, M]
+
+        let prop = KeplerianPropagator::new(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(DEGREES),
+            60.0,
+        )
+        .unwrap();
+
+        let prop = prop
+            .with_output_format(
+                OrbitFrame::ECI,
+                OrbitRepresentation::Keplerian,
+                Some(RADIANS),
+            )
+            .unwrap();
+
+        assert_eq!(prop.angle_format, Some(RADIANS));
+        // Inclination of 97.8 degrees expressed in radians
+        assert_abs_diff_eq!(
+            prop.current_state()[2],
+            97.8_f64.to_radians(),
+            epsilon = 1e-9
+        );
+    }
+
+    #[test]
+    fn test_keplerianpropagator_with_output_format_invalid() {
+        // Keplerian representation without an angle format is rejected
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements();
+
+        let prop = KeplerianPropagator::new(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(DEGREES),
+            60.0,
+        )
+        .unwrap();
+
+        let result = prop.with_output_format(OrbitFrame::ECI, OrbitRepresentation::Keplerian, None);
+        assert!(result.is_err());
     }
 
     #[test]

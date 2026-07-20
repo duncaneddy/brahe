@@ -10,7 +10,8 @@
  *   Internally converts ECI→ECEF. Uses finite-difference Jacobians since the
  *   rotation is epoch-dependent.
  *
- * - **[`azelrange`]**: Topocentric az/el/range for ground sensors.
+ * - **[`azelrange`]**: Topocentric az/el/range (radar) and angles-only az/el
+ *   (optical) models for ground sensors.
  *
  * New measurement models (e.g., range, range-rate, Doppler) can be added as
  * separate files in this module.
@@ -22,7 +23,7 @@ mod azelrange;
 mod ecef;
 mod inertial;
 
-pub use azelrange::AzElRangeMeasurementModel;
+pub use azelrange::{AzElMeasurementModel, AzElRangeMeasurementModel};
 pub use ecef::{
     ECEFPositionMeasurementModel, ECEFStateMeasurementModel, ECEFVelocityMeasurementModel,
 };

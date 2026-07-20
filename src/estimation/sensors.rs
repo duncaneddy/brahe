@@ -29,7 +29,8 @@ use crate::constants::AngleFormat;
 use crate::coordinates::{
     EllipsoidalConversionType, position_enz_to_azel, relative_position_ecef_to_enz,
 };
-use crate::estimation::measurement::AzElRangeMeasurementModel;
+use crate::estimation::measurement::{AzElMeasurementModel, AzElRangeMeasurementModel};
+use crate::estimation::traits::MeasurementModel;
 use crate::estimation::types::Observation;
 use crate::frames::{position_eci_to_ecef, state_eci_to_ecef};
 use crate::math::linalg::SVector6;
@@ -41,20 +42,22 @@ use crate::utils::identifiable::Identifiable;
 /// Sensor measurement type, driving measurement-model selection and the
 /// dataset property fields a sensor expects.
 ///
-/// Parsed from the `sensor_type` dataset property. Only `AzElRange` is
-/// currently supported for sensor construction; `RaDec` (optical sites) is
-/// reserved for future extension.
+/// Parsed from the `sensor_type` dataset property. `AzElRange` sensors
+/// (radar/phased-array/mechanical trackers) measure `[az, el, range]`;
+/// `Optical` sensors (angles-only optical trackers) measure `[az, el]`.
 ///
 /// This enum is intentionally Rust-only and is not bound to Python: Python
-/// surfaces the same information through [`SimpleSSNSensor::from_location`]
-/// errors, which name the unsupported `sensor_type` when a site cannot be
-/// constructed.
+/// surfaces the same information through the sensor's `measurement_dim` and
+/// the class of the model returned by
+/// [`SimpleSSNSensor::measurement_model`], and through
+/// [`SimpleSSNSensor::from_location`] errors, which name an unsupported
+/// `sensor_type` when a site cannot be constructed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SensorType {
     /// Azimuth/elevation/range measurements (radar, phased array, mechanical tracker)
     AzElRange,
-    /// Right-ascension/declination measurements (optical telescopes) — not yet supported
-    RaDec,
+    /// Angles-only azimuth/elevation measurements (optical telescopes)
+    Optical,
 }
 
 impl SensorType {
@@ -62,7 +65,7 @@ impl SensorType {
     ///
     /// # Arguments
     ///
-    /// * `s` - Property string (`"azel_range"` or `"radec"`)
+    /// * `s` - Property string (`"azel_range"` or `"optical"`)
     ///
     /// # Returns
     ///
@@ -70,9 +73,9 @@ impl SensorType {
     pub fn from_str_name(s: &str) -> Result<Self, BraheError> {
         match s {
             "azel_range" => Ok(SensorType::AzElRange),
-            "radec" => Ok(SensorType::RaDec),
+            "optical" => Ok(SensorType::Optical),
             other => Err(BraheError::Error(format!(
-                "Unknown sensor_type '{}' (expected 'azel_range' or 'radec')",
+                "Unknown sensor_type '{}' (expected 'azel_range' or 'optical')",
                 other
             ))),
         }
@@ -84,11 +87,14 @@ fn get_f64_property(location: &PointLocation, key: &str) -> Option<f64> {
     location.properties().get(key).and_then(|v| v.as_f64())
 }
 
-/// A simulated SSN ground sensor producing az/el/range measurements.
+/// A simulated SSN ground sensor producing az/el/range or angles-only az/el
+/// measurements.
 ///
 /// Angles are in **degrees**, range in **meters** throughout, matching the
-/// Vallado SSN dataset conventions. The azimuth window is wrap-aware:
-/// `az_min > az_max` means the window crosses north (e.g. Cape Cod 347°→227°).
+/// Vallado SSN dataset conventions. `AzElRange` sensors (radar) measure
+/// `[az, el, range]`; `Optical` sensors measure `[az, el]`. The azimuth
+/// window is wrap-aware: `az_min > az_max` means the window crosses north
+/// (e.g. Cape Cod 347°→227°).
 ///
 /// # Examples
 ///
@@ -98,11 +104,12 @@ fn get_f64_property(location: &PointLocation, key: &str) -> Option<f64> {
 ///
 /// let sites = load_ssn_sensors().unwrap();
 /// let sensors = SimpleSSNSensor::from_locations(&sites, Some(42));
-/// assert_eq!(sensors.len(), 15);
+/// assert_eq!(sensors.len(), 21);
 /// ```
 #[derive(Clone)]
 pub struct SimpleSSNSensor {
     name: String,
+    sensor_type: SensorType,
     location: PointLocation,
     station_ecef: Vector3<f64>,
     az_min: f64,
@@ -126,6 +133,7 @@ impl std::fmt::Debug for SimpleSSNSensor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SimpleSSNSensor")
             .field("name", &self.name)
+            .field("sensor_type", &self.sensor_type)
             .field("az_min", &self.az_min)
             .field("az_max", &self.az_max)
             .field("el_min", &self.el_min)
@@ -224,6 +232,7 @@ impl SimpleSSNSensor {
 
         Ok(Self {
             name,
+            sensor_type: SensorType::AzElRange,
             location,
             station_ecef,
             az_min,
@@ -241,13 +250,18 @@ impl SimpleSSNSensor {
 
     /// Build a sensor from a dataset site's properties.
     ///
-    /// Requires `sensor_type == "azel_range"`. The three noise fields
-    /// (`az_noise_deg`, `el_noise_deg`, `range_noise_m`) default to **zero**
-    /// noise when absent, and the sensor is flagged as uncalibrated
+    /// Supports both `sensor_type == "azel_range"` (radar; `[az, el, range]`
+    /// measurements) and `sensor_type == "optical"` (angles-only;
+    /// `[az, el]` measurements). The noise fields default to **zero** noise
+    /// when absent and the sensor is flagged as uncalibrated
     /// ([`calibrated`](Self::calibrated) returns `false`); supply calibration
-    /// afterwards with [`with_noise`](Self::with_noise). Bias fields default
-    /// to zero when absent; limits default to an open field of view
-    /// (azimuth 0–360°, elevation 0–90°, unlimited range).
+    /// afterwards with [`with_noise`](Self::with_noise). A site is
+    /// `calibrated` when it supplies all noise fields for its type — the three
+    /// `az/el/range` fields for `azel_range`, the two `az/el` fields for
+    /// `optical`. Bias fields default to zero when absent; limits default to
+    /// an open field of view (azimuth 0–360°, elevation 0–90°, unlimited
+    /// range). Optical sites carry no range fields, so they have no range
+    /// constraint.
     ///
     /// # Arguments
     ///
@@ -266,21 +280,27 @@ impl SimpleSSNSensor {
                 BraheError::Error(format!("Site '{}' has no 'sensor_type' property", name))
             })?;
         let sensor_type = SensorType::from_str_name(sensor_type_str)?;
-        if sensor_type != SensorType::AzElRange {
-            return Err(BraheError::Error(format!(
-                "Site '{}' has sensor_type '{}', which SimpleSSNSensor does not support yet",
-                name, sensor_type_str
-            )));
-        }
 
         let noise_az = get_f64_property(location, "az_noise_deg");
         let noise_el = get_f64_property(location, "el_noise_deg");
-        let noise_range = get_f64_property(location, "range_noise_m");
-        // Sites lacking any noise field load with zero noise and are flagged
-        // as uncalibrated rather than erroring.
-        let (noise, calibrated) = match (noise_az, noise_el, noise_range) {
-            (Some(a), Some(e), Some(r)) => ([a, e, r], true),
-            _ => ([0.0, 0.0, 0.0], false),
+        // Sites lacking a required noise field load with zero noise and are
+        // flagged as uncalibrated rather than erroring. Optical sites need
+        // only az/el noise; radar sites also need range noise.
+        let (noise, calibrated) = match sensor_type {
+            SensorType::AzElRange => {
+                match (
+                    noise_az,
+                    noise_el,
+                    get_f64_property(location, "range_noise_m"),
+                ) {
+                    (Some(a), Some(e), Some(r)) => ([a, e, r], true),
+                    _ => ([0.0, 0.0, 0.0], false),
+                }
+            }
+            SensorType::Optical => match (noise_az, noise_el) {
+                (Some(a), Some(e)) => ([a, e, 0.0], true),
+                _ => ([0.0, 0.0, 0.0], false),
+            },
         };
 
         let mut sensor = Self::new(
@@ -297,18 +317,20 @@ impl SimpleSSNSensor {
             ],
             noise,
         )?;
+        sensor.sensor_type = sensor_type;
         sensor.calibrated = calibrated;
         Ok(sensor)
     }
 
     /// Build sensors from all constructible sites, skipping unsupported ones.
     ///
-    /// Sites that fail [`from_location`](Self::from_location) (optical sites,
-    /// unsupported `sensor_type`) are skipped, but sites lacking calibration
-    /// are still included with zero noise. When `seed` is provided, sensor
-    /// `i` is seeded with `seed + i` for reproducible measurement generation.
-    /// Use [`from_locations_calibrated`](Self::from_locations_calibrated) to
-    /// keep only fully-calibrated sites.
+    /// Sites that fail [`from_location`](Self::from_location) (unknown
+    /// `sensor_type`) are skipped, but sites lacking calibration are still
+    /// included with zero noise. Both radar (`azel_range`) and optical
+    /// (`optical`) sites construct. When `seed` is provided, sensor `i` is
+    /// seeded with `seed + i` for reproducible measurement generation. Use
+    /// [`from_locations_calibrated`](Self::from_locations_calibrated) to keep
+    /// only fully-calibrated sites.
     ///
     /// # Arguments
     ///
@@ -584,7 +606,8 @@ impl SimpleSSNSensor {
     ///
     /// Visibility is evaluated on the true geometry; the returned
     /// measurement is `truth + bias + noise` with azimuth normalized into
-    /// `[0, 360)`.
+    /// `[0, 360)`. The measurement is 3-dim `[az, el, range]` for
+    /// `AzElRange` sensors and 2-dim `[az, el]` for `Optical` sensors.
     ///
     /// # Arguments
     ///
@@ -593,14 +616,16 @@ impl SimpleSSNSensor {
     ///
     /// # Returns
     ///
-    /// `Some([az_deg, el_deg, range_m])` when visible, `None` otherwise.
+    /// `Some([az_deg, el_deg, range_m])` (or `Some([az_deg, el_deg])` for
+    /// optical sensors) when visible, `None` otherwise.
     pub fn measure(&mut self, epoch: &Epoch, state_eci: &DVector<f64>) -> Option<DVector<f64>> {
         if !self.visible(epoch, state_eci) {
             return None;
         }
         let azel = self.azelrange(epoch, state_eci);
-        let mut z = DVector::zeros(3);
-        for i in 0..3 {
+        let dim = self.measurement_dim();
+        let mut z = DVector::zeros(dim);
+        for i in 0..dim {
             let n = Normal::new(0.0, self.noise[i]).unwrap();
             z[i] = azel[i] + self.bias[i] + n.sample(&mut self.rng);
         }
@@ -661,12 +686,32 @@ impl SimpleSSNSensor {
     /// The model uses the sensor's noise standard deviations for its noise
     /// covariance and the sensor's bias in `predict()`, so an estimator
     /// configured with this model is consistent with measurements generated
-    /// by [`measure`](Self::measure).
+    /// by [`measure`](Self::measure). Returns an
+    /// [`AzElRangeMeasurementModel`] for `AzElRange` sensors and an
+    /// [`AzElMeasurementModel`] for `Optical` sensors, type-erased behind a
+    /// `Box<dyn MeasurementModel>`.
     ///
     /// # Returns
     ///
-    /// Az/el/range model in degrees.
-    pub fn measurement_model(&self) -> AzElRangeMeasurementModel {
+    /// Boxed measurement model in degrees matching the sensor's type.
+    pub fn measurement_model(&self) -> Box<dyn MeasurementModel> {
+        match self.sensor_type {
+            SensorType::AzElRange => Box::new(self.azel_range_model()),
+            SensorType::Optical => Box::new(self.azel_model()),
+        }
+    }
+
+    /// Az/el/range measurement model for this sensor (degrees).
+    ///
+    /// The concrete model carried by [`measurement_model`](Self::measurement_model)
+    /// for `AzElRange` sensors; also valid for `Optical` sensors, though the
+    /// range component then carries the sensor's (zero) range noise/bias and
+    /// is not observed.
+    ///
+    /// # Returns
+    ///
+    /// * `AzElRangeMeasurementModel` - Az/el/range model in degrees
+    pub fn azel_range_model(&self) -> AzElRangeMeasurementModel {
         AzElRangeMeasurementModel::new(
             self.location.lon(),
             self.location.lat(),
@@ -680,6 +725,48 @@ impl SimpleSSNSensor {
         // so the station coordinates are always valid here.
         .expect("sensor location produces a valid measurement model")
         .with_bias(self.bias[0], self.bias[1], self.bias[2])
+    }
+
+    /// Angles-only az/el measurement model for this sensor (degrees).
+    ///
+    /// The concrete model carried by [`measurement_model`](Self::measurement_model)
+    /// for `Optical` sensors, using the sensor's az/el noise and bias.
+    ///
+    /// # Returns
+    ///
+    /// * `AzElMeasurementModel` - Angles-only az/el model in degrees
+    pub fn azel_model(&self) -> AzElMeasurementModel {
+        AzElMeasurementModel::new(
+            self.location.lon(),
+            self.location.lat(),
+            self.location.alt(),
+            self.noise[0],
+            self.noise[1],
+            AngleFormat::Degrees,
+        )
+        .expect("sensor location produces a valid measurement model")
+        .with_bias(self.bias[0], self.bias[1])
+    }
+
+    /// Sensor measurement type (`AzElRange` or `Optical`).
+    ///
+    /// # Returns
+    ///
+    /// * `SensorType` - The sensor's measurement type
+    pub fn sensor_type(&self) -> SensorType {
+        self.sensor_type
+    }
+
+    /// Measurement dimension: 3 for `AzElRange`, 2 for `Optical`.
+    ///
+    /// # Returns
+    ///
+    /// * `usize` - Length of the vector returned by [`measure`](Self::measure)
+    pub fn measurement_dim(&self) -> usize {
+        match self.sensor_type {
+            SensorType::AzElRange => 3,
+            SensorType::Optical => 2,
+        }
     }
 
     /// Sensor name (from the site location).
@@ -955,12 +1042,16 @@ mod tests {
         assert_eq!(sensor.range_max(), Some(13_210_000.0));
         assert!(sensor.calibrated());
 
-        // Optical site is rejected with a clear error
+        // Optical site now constructs as an angles-only sensor
         let socorro = sites
             .iter()
             .find(|s| s.get_name() == Some("Socorro"))
             .unwrap();
-        assert!(SimpleSSNSensor::from_location(socorro).is_err());
+        let socorro_sensor = SimpleSSNSensor::from_location(socorro).unwrap();
+        assert_eq!(socorro_sensor.sensor_type(), SensorType::Optical);
+        assert_eq!(socorro_sensor.measurement_dim(), 2);
+        assert!(socorro_sensor.calibrated());
+        assert_eq!(socorro_sensor.range_max(), None);
 
         // Haystack (no calibration) now constructs with zero noise, flagged
         // uncalibrated instead of erroring.
@@ -987,8 +1078,9 @@ mod tests {
     fn test_from_locations_returns_all_constructible() {
         let sites = load_ssn_sensors().unwrap();
         let sensors = SimpleSSNSensor::from_locations(&sites, Some(7));
-        // All 15 azel_range sites (incl. HAX + Haystack with zero noise).
-        assert_eq!(sensors.len(), 15);
+        // All 21 sites: 15 azel_range (incl. HAX + Haystack with zero noise)
+        // plus 6 optical.
+        assert_eq!(sensors.len(), 21);
     }
 
     #[test]
@@ -996,8 +1088,9 @@ mod tests {
     fn test_from_locations_calibrated_only() {
         let sites = load_ssn_sensors().unwrap();
         let sensors = SimpleSSNSensor::from_locations_calibrated(&sites, Some(7));
-        // 15 azel_range sites minus HAX and Haystack (no calibration) = 13.
-        assert_eq!(sensors.len(), 13);
+        // 13 calibrated azel_range sites (15 minus HAX and Haystack) plus the
+        // 3 calibrated optical sites (Socorro, Maui, Diego Garcia) = 16.
+        assert_eq!(sensors.len(), 16);
         assert!(sensors.iter().all(|s| s.calibrated()));
     }
 
@@ -1152,9 +1245,10 @@ mod tests {
     #[parallel]
     fn test_sensor_type_from_str_name_unknown_errors() {
         // An unrecognized sensor_type value must error, naming the supported
-        // values.
-        let e = SensorType::from_str_name("optical").unwrap_err();
+        // values. The former "radec" spelling was removed with no alias.
+        let e = SensorType::from_str_name("radec").unwrap_err();
         assert!(e.to_string().contains("azel_range"), "{}", e);
+        assert!(e.to_string().contains("optical"), "{}", e);
     }
 
     #[test]
@@ -1199,7 +1293,7 @@ mod tests {
         // constructible sites is unchanged from the seeded case.
         let sites = load_ssn_sensors().unwrap();
         let sensors = SimpleSSNSensor::from_locations(&sites, None);
-        assert_eq!(sensors.len(), 15);
+        assert_eq!(sensors.len(), 21);
     }
 
     #[test]
@@ -1208,5 +1302,162 @@ mod tests {
         let sensor = test_sensor();
         assert_eq!(sensor.location().get_name(), Some("TestSensor"));
         assert_eq!(sensor.el_max(), 90.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_optical_sensor_construction_and_measure() {
+        // An optical dataset site constructs as an angles-only sensor: 2-dim
+        // measurements and an AzEl matching model.
+        setup_global_test_eop();
+        let epoch = test_epoch();
+        let sites = load_ssn_sensors().unwrap();
+        let socorro = sites
+            .iter()
+            .find(|s| s.get_name() == Some("Socorro"))
+            .unwrap();
+        let mut sensor = SimpleSSNSensor::from_location(socorro)
+            .unwrap()
+            .with_seed(7);
+        assert_eq!(sensor.sensor_type(), SensorType::Optical);
+        assert_eq!(sensor.measurement_dim(), 2);
+        assert!(sensor.calibrated());
+
+        // Overhead target: visible, 2-dim [az, el] measurement near zenith.
+        let state = state_above(epoch, -106.66, 33.82, 500e3);
+        let z = sensor.measure(&epoch, &state).unwrap();
+        assert_eq!(z.len(), 2);
+        assert!(z[1] > 89.0, "elevation should be near zenith, got {}", z[1]);
+
+        let model = sensor.measurement_model();
+        assert_eq!(model.measurement_dim(), 2);
+        assert_eq!(model.name(), "AzEl");
+    }
+
+    #[test]
+    #[serial]
+    fn test_mixed_network_ekf_converges() {
+        // A co-located radar (az/el/range) and optical (az/el) sensor feed an
+        // EKF via distinct model indices; the mixed models must process
+        // without error and reduce the position error over a short arc.
+        use crate::coordinates::state_koe_to_eci;
+        use crate::estimation::{EKFConfig, ExtendedKalmanFilter};
+        use crate::math::linalg::SVector6;
+        use crate::propagators::traits::DStatePropagator;
+        use crate::propagators::{
+            DNumericalOrbitPropagator, ForceModelConfig, NumericalPropagationConfig,
+        };
+        use nalgebra::DMatrix;
+        use serde_json::json;
+
+        setup_global_test_eop();
+        let epoch = test_epoch();
+
+        let oe = SVector6::new(
+            crate::constants::R_EARTH + 700e3,
+            0.001,
+            55.0,
+            0.0,
+            0.0,
+            0.0,
+        );
+        let state0 = state_koe_to_eci(oe, AngleFormat::Degrees);
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            DVector::from_row_slice(state0.as_slice()),
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let end = epoch + 2.0 * 3600.0;
+        prop.propagate_to(end);
+        let traj = prop.trajectory().clone();
+
+        let (lon, lat, alt) = (-71.49, 42.62, 123.1);
+        let mut radar = SimpleSSNSensor::new(
+            PointLocation::new(lon, lat, alt).with_name("Radar"),
+            0.0,
+            360.0,
+            5.0,
+            90.0,
+            Some(5_000_000.0),
+            [0.0; 3],
+            [0.01, 0.01, 25.0],
+        )
+        .unwrap()
+        .with_seed(11);
+
+        // Build a co-located optical site via dataset-style properties.
+        let mut optical_loc = PointLocation::new(lon, lat, alt).with_name("Optical");
+        {
+            let props = optical_loc.properties_mut();
+            props.insert("sensor_type".to_string(), json!("optical"));
+            props.insert("el_min_deg".to_string(), json!(5.0));
+            props.insert("az_noise_deg".to_string(), json!(0.005));
+            props.insert("el_noise_deg".to_string(), json!(0.005));
+        }
+        let mut optical = SimpleSSNSensor::from_location(&optical_loc)
+            .unwrap()
+            .with_seed(23);
+        assert_eq!(optical.sensor_type(), SensorType::Optical);
+
+        let mut observations = radar
+            .simulate_observations(&traj, epoch, end, 30.0, 0)
+            .unwrap();
+        observations.extend(
+            optical
+                .simulate_observations(&traj, epoch, end, 30.0, 1)
+                .unwrap(),
+        );
+        observations.sort_by(|a, b| a.epoch.partial_cmp(&b.epoch).unwrap());
+        assert!(observations.iter().any(|o| o.model_index == 0));
+        assert!(observations.iter().any(|o| o.model_index == 1));
+
+        let mut initial = DVector::from_row_slice(state0.as_slice());
+        initial[0] += 500.0;
+        initial[4] += 0.5;
+        let initial_err = 500.0;
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let models: Vec<Box<dyn MeasurementModel>> =
+            vec![radar.measurement_model(), optical.measurement_model()];
+        let mut ekf = ExtendedKalmanFilter::new(
+            epoch,
+            initial,
+            p0,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            models,
+            EKFConfig::default(),
+        )
+        .unwrap();
+
+        for obs in &observations {
+            ekf.process_observation(obs).unwrap();
+        }
+
+        let truth_final = traj.interpolate(&ekf.current_epoch()).unwrap();
+        let final_err = (ekf.current_state().rows(0, 3) - truth_final.rows(0, 3)).norm();
+        assert!(
+            final_err < initial_err,
+            "mixed-network EKF should reduce position error (initial={:.1} m, final={:.1} m)",
+            initial_err,
+            final_err
+        );
+
+        // Both measurement types were actually used.
+        let names: std::collections::HashSet<String> = ekf
+            .records()
+            .iter()
+            .map(|r| r.measurement_name.clone())
+            .collect();
+        assert!(names.contains("AzElRange"), "radar model should be used");
+        assert!(names.contains("AzEl"), "optical model should be used");
     }
 }

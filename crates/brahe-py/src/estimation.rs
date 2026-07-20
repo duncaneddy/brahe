@@ -1221,16 +1221,146 @@ impl_measurement_model_binding!(
     doc: "Topocentric azimuth/elevation/range measurement model for ground sensors.\n\nMeasurement is [azimuth, elevation, range] with optional constant bias applied in predict(). Azimuth residuals wrap across 0/360."
 );
 
+impl_measurement_model_binding!(
+    PyAzElMeasurementModel,
+    estimation::AzElMeasurementModel,
+    "AzElMeasurementModel",
+    constructors: [
+        /// Create an angles-only az/el measurement model for a ground station.
+        ///
+        /// Args:
+        ///     station_lon (float): Station geodetic longitude (angle_format units).
+        ///     station_lat (float): Station geodetic latitude (angle_format units).
+        ///     station_alt (float): Station altitude above the WGS84 ellipsoid (meters).
+        ///     sigma_az (float): Azimuth noise standard deviation (angle_format units).
+        ///     sigma_el (float): Elevation noise standard deviation (angle_format units).
+        ///     angle_format (AngleFormat, optional): Angle units. Defaults to degrees.
+        ///     bias_az (float, optional): Azimuth bias applied in predict(). Default 0.
+        ///     bias_el (float, optional): Elevation bias applied in predict(). Default 0.
+        ///
+        /// Returns:
+        ///     AzElMeasurementModel: New model instance.
+        ///
+        /// Example:
+        ///     ```python
+        ///     import brahe as bh
+        ///     model = bh.AzElMeasurementModel(
+        ///         -106.66, 33.82, 1510.2, 0.0033, 0.0027,
+        ///         bias_az=0.0017, bias_el=0.0010,
+        ///     )
+        ///     ```
+        #[new]
+        #[pyo3(signature = (station_lon, station_lat, station_alt, sigma_az, sigma_el, angle_format=None, bias_az=0.0, bias_el=0.0))]
+        #[allow(clippy::too_many_arguments)]
+        fn new(
+            station_lon: f64,
+            station_lat: f64,
+            station_alt: f64,
+            sigma_az: f64,
+            sigma_el: f64,
+            angle_format: Option<PyRef<PyAngleFormat>>,
+            bias_az: f64,
+            bias_el: f64,
+        ) -> PyResult<Self> {
+            let af = angle_format
+                .map(|a| a.value)
+                .unwrap_or(constants::AngleFormat::Degrees);
+            let model = estimation::AzElMeasurementModel::new(
+                station_lon, station_lat, station_alt,
+                sigma_az, sigma_el, af,
+            )
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?
+            .with_bias(bias_az, bias_el);
+            Ok(PyAzElMeasurementModel { model })
+        }
+
+        /// Create from a full 2x2 noise covariance matrix.
+        ///
+        /// Args:
+        ///     station_lon (float): Station geodetic longitude (angle_format units).
+        ///     station_lat (float): Station geodetic latitude (angle_format units).
+        ///     station_alt (float): Station altitude above the WGS84 ellipsoid (meters).
+        ///     noise_cov (numpy.ndarray): 2x2 covariance for [azimuth, elevation]
+        ///         (angle_format units squared).
+        ///     angle_format (AngleFormat, optional): Angle units. Defaults to degrees.
+        ///
+        /// Returns:
+        ///     AzElMeasurementModel: New model instance.
+        #[staticmethod]
+        #[pyo3(signature = (station_lon, station_lat, station_alt, noise_cov, angle_format=None))]
+        fn from_covariance(
+            station_lon: f64,
+            station_lat: f64,
+            station_alt: f64,
+            noise_cov: PyReadonlyArray2<f64>,
+            angle_format: Option<PyRef<PyAngleFormat>>,
+        ) -> PyResult<Self> {
+            let af = angle_format
+                .map(|a| a.value)
+                .unwrap_or(constants::AngleFormat::Degrees);
+            let shape = noise_cov.shape();
+            let data = noise_cov.as_slice().map_err(|e| {
+                exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
+            })?;
+            let mat = nalgebra::DMatrix::from_row_slice(shape[0], shape[1], data);
+            let model = estimation::AzElMeasurementModel::from_covariance(
+                station_lon, station_lat, station_alt, mat, af,
+            )
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+            Ok(PyAzElMeasurementModel { model })
+        }
+
+        /// Create from upper-triangular covariance elements.
+        ///
+        /// Elements in row-major packed order: [c00, c01, c11].
+        ///
+        /// Args:
+        ///     station_lon (float): Station geodetic longitude (angle_format units).
+        ///     station_lat (float): Station geodetic latitude (angle_format units).
+        ///     station_alt (float): Station altitude above the WGS84 ellipsoid (meters).
+        ///     upper (numpy.ndarray): Upper-triangular elements (3 for 2x2).
+        ///     angle_format (AngleFormat, optional): Angle units. Defaults to degrees.
+        ///
+        /// Returns:
+        ///     AzElMeasurementModel: New model instance.
+        #[staticmethod]
+        #[pyo3(signature = (station_lon, station_lat, station_alt, upper, angle_format=None))]
+        fn from_upper_triangular(
+            station_lon: f64,
+            station_lat: f64,
+            station_alt: f64,
+            upper: PyReadonlyArray1<f64>,
+            angle_format: Option<PyRef<PyAngleFormat>>,
+        ) -> PyResult<Self> {
+            let af = angle_format
+                .map(|a| a.value)
+                .unwrap_or(constants::AngleFormat::Degrees);
+            let data = upper.as_slice().map_err(|e| {
+                exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
+            })?;
+            let model = estimation::AzElMeasurementModel::from_upper_triangular(
+                station_lon, station_lat, station_alt, data, af,
+            )
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+            Ok(PyAzElMeasurementModel { model })
+        }
+    ],
+    doc: "Topocentric angles-only azimuth/elevation measurement model for optical ground sensors.\n\nMeasurement is [azimuth, elevation] with optional constant bias applied in predict(). Azimuth residuals wrap across 0/360."
+);
+
 // =============================================================================
 // SimpleSSNSensor
 // =============================================================================
 
-/// A simulated SSN ground sensor producing az/el/range measurements.
+/// A simulated SSN ground sensor producing az/el/range or angles-only az/el
+/// measurements.
 ///
 /// Pairs a sensor site (location, field-of-view limits, bias/noise
-/// calibration) with measurement generation. Angles are in degrees, range in
-/// meters. The azimuth window is wrap-aware: `az_min > az_max` means the
-/// window crosses north (e.g. Cape Cod 347deg -> 227deg).
+/// calibration) with measurement generation. Radar (`azel_range`) sensors
+/// measure `[az, el, range]`; optical sensors measure `[az, el]`. Angles are
+/// in degrees, range in meters. The azimuth window is wrap-aware:
+/// `az_min > az_max` means the window crosses north (e.g. Cape Cod 347deg ->
+/// 227deg).
 ///
 /// Example:
 ///     ```python
@@ -1305,10 +1435,13 @@ impl PySimpleSSNSensor {
 
     /// Build a sensor from a dataset site's properties.
     ///
-    /// Requires `sensor_type == "azel_range"` and the three noise fields
-    /// (`az_noise_deg`, `el_noise_deg`, `range_noise_m`). Bias fields default
-    /// to zero when absent; limits default to an open field of view (azimuth
-    /// 0-360deg, elevation 0-90deg, unlimited range).
+    /// Supports `sensor_type == "azel_range"` (radar; `[az, el, range]`) and
+    /// `sensor_type == "optical"` (angles-only; `[az, el]`). Noise fields
+    /// default to zero when absent, flagging the sensor uncalibrated; radar
+    /// sites read `az/el/range` noise, optical sites read `az/el` noise. Bias
+    /// fields default to zero when absent; limits default to an open field of
+    /// view (azimuth 0-360deg, elevation 0-90deg, unlimited range). Optical
+    /// sites carry no range fields, so they have no range constraint.
     ///
     /// Args:
     ///     location (PointLocation): Site from e.g. `bh.datasets.ssn_sensors.load()`.
@@ -1318,8 +1451,8 @@ impl PySimpleSSNSensor {
     ///     SimpleSSNSensor: New sensor instance.
     ///
     /// Raises:
-    ///     ValueError: If the site is missing a supported `sensor_type` or
-    ///         its noise calibration properties.
+    ///     ValueError: If the site is missing a `sensor_type` property or has
+    ///         an unrecognized one.
     #[staticmethod]
     #[pyo3(signature = (location, seed=None))]
     fn from_location(location: PyRef<PyPointLocation>, seed: Option<u64>) -> PyResult<Self> {
@@ -1579,14 +1712,38 @@ impl PySimpleSSNSensor {
     /// The model uses the sensor's noise standard deviations for its noise
     /// covariance and the sensor's bias in predict(), so an estimator
     /// configured with this model is consistent with measurements generated
-    /// by measure().
+    /// by measure(). Returns an ``AzElRangeMeasurementModel`` for radar
+    /// (az/el/range) sensors and an ``AzElMeasurementModel`` for optical
+    /// (angles-only) sensors.
     ///
     /// Returns:
-    ///     AzElRangeMeasurementModel: Az/el/range model in degrees.
-    fn measurement_model(&self) -> PyAzElRangeMeasurementModel {
-        PyAzElRangeMeasurementModel {
-            model: self.sensor.measurement_model(),
+    ///     AzElRangeMeasurementModel | AzElMeasurementModel: Matching model in degrees.
+    fn measurement_model(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        match self.sensor.sensor_type() {
+            estimation::SensorType::AzElRange => Ok(Py::new(
+                py,
+                PyAzElRangeMeasurementModel {
+                    model: self.sensor.azel_range_model(),
+                },
+            )?
+            .into_any()),
+            estimation::SensorType::Optical => Ok(Py::new(
+                py,
+                PyAzElMeasurementModel {
+                    model: self.sensor.azel_model(),
+                },
+            )?
+            .into_any()),
         }
+    }
+
+    /// Measurement dimension: 3 for radar (az/el/range), 2 for optical (az/el).
+    ///
+    /// Returns:
+    ///     int: Length of the vector returned by measure().
+    #[getter]
+    fn measurement_dim(&self) -> usize {
+        self.sensor.measurement_dim()
     }
 
     /// Sensor name (from the site location).
@@ -2251,6 +2408,10 @@ fn process_measurement_models(
                 m.model.clone(),
             ))));
         } else if let Ok(m) = obj.extract::<PyRef<PyAzElRangeMeasurementModel>>() {
+            result.push(Box::new(MeasurementModelHolder::RustNative(Box::new(
+                m.model.clone(),
+            ))));
+        } else if let Ok(m) = obj.extract::<PyRef<PyAzElMeasurementModel>>() {
             result.push(Box::new(MeasurementModelHolder::RustNative(Box::new(
                 m.model.clone(),
             ))));

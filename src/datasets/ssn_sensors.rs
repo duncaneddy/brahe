@@ -20,7 +20,7 @@ use crate::utils::errors::BraheError;
 ///
 /// Each returned [`PointLocation`] carries properties:
 /// - `sensor_type`: `"azel_range"` (radar/phased-array/mechanical trackers)
-///   or `"radec"` (optical sites; no measurement-model support yet)
+///   or `"optical"` (angles-only optical trackers)
 /// - `system`, `category`, `sensor_numbers`: descriptive metadata
 /// - Optional limits (degrees / meters): `az_min_deg`, `az_max_deg`
 ///   (`az_min_deg > az_max_deg` means the window crosses north),
@@ -103,7 +103,7 @@ mod tests {
             .find(|s| s.get_name() == Some("Socorro"))
             .unwrap();
         let p = socorro.properties();
-        assert_eq!(p["sensor_type"], "radec");
+        assert_eq!(p["sensor_type"], "optical");
         assert!(!p.contains_key("range_max_m"));
         assert!(!p.contains_key("range_noise_m"));
 
@@ -123,11 +123,11 @@ mod tests {
             .iter()
             .filter(|s| s.properties()["sensor_type"] == "azel_range")
             .count();
-        let radec = sensors
+        let optical = sensors
             .iter()
-            .filter(|s| s.properties()["sensor_type"] == "radec")
+            .filter(|s| s.properties()["sensor_type"] == "optical")
             .count();
         assert_eq!(azel, 15);
-        assert_eq!(radec, 6);
+        assert_eq!(optical, 6);
     }
 }

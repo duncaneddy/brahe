@@ -135,20 +135,17 @@ impl ExtendedKalmanFilter {
         let mut prop_config = propagation_config;
         prop_config.variational.enable_stm = true;
 
-        let mut builder = DNumericalOrbitPropagator::builder(epoch, state, force_config)
-            .propagation_config(prop_config);
-        if let Some(params) = params {
-            builder = builder.params(params);
-        }
-        if let Some(additional_dynamics) = additional_dynamics {
-            builder = builder.additional_dynamics(additional_dynamics);
-        }
-        if let Some(control_input) = control_input {
-            builder = builder.control_input(control_input);
-        }
-        let prop = builder
-            .build()
-            .map_err(|e| BraheError::Error(format!("Failed to create propagator: {}", e)))?;
+        let prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            prop_config,
+            force_config,
+            params,
+            additional_dynamics,
+            control_input,
+            None,
+        )
+        .map_err(|e| BraheError::Error(format!("Failed to create propagator: {}", e)))?;
 
         Self::from_parts(prop.into(), initial_covariance, measurement_models, config)
     }

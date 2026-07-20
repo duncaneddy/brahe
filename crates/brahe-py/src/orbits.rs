@@ -2448,6 +2448,7 @@ impl PyWalkerConstellationGenerator {
                     .map(|p| PyNumericalOrbitPropagator {
                         propagator: p,
                         err_slot: Arc::new(Mutex::new(None)),
+                        has_python_callbacks: false,
                     })
                     .collect()
             })

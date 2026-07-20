@@ -3213,6 +3213,21 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
         } else if item.is_instance_of::<PySGPPropagator>() {
             sgp_idx.push(i);
         } else if item.is_instance_of::<PyNumericalOrbitPropagator>() {
+            // Propagators carrying Python callbacks cannot run in parallel:
+            // the callback would need the GIL from a worker thread while the
+            // calling thread holds it, deadlocking the interpreter.
+            if item
+                .cast::<PyNumericalOrbitPropagator>()?
+                .borrow()
+                .has_python_callbacks
+            {
+                return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                    "NumericalOrbitPropagator instances with Python additional_dynamics or \
+                     control_input callbacks cannot be used with par_propagate_to because the \
+                     callbacks cannot safely execute in parallel due to the GIL. Call \
+                     propagate_to() sequentially on these propagators instead.",
+                ));
+            }
             num_orbit_idx.push(i);
         } else if item.is_instance_of::<PyNumericalPropagator>() {
             // NumericalPropagator uses Python callbacks for dynamics, which cannot
@@ -6363,6 +6378,10 @@ pub struct PyNumericalOrbitPropagator {
     /// or control-input trampoline, so a driven propagation can re-raise it
     /// verbatim instead of the wrapped BraheError message.
     err_slot: PyErrSlot,
+    /// Whether this propagator carries Python callbacks (additional dynamics
+    /// or control input). Such propagators cannot run under par_propagate_to:
+    /// the callbacks would need the GIL from worker threads and deadlock.
+    has_python_callbacks: bool,
 }
 
 #[pymethods]
@@ -6459,6 +6478,8 @@ impl PyNumericalOrbitPropagator {
         let err_slot: PyErrSlot = Arc::new(Mutex::new(None));
 
         // Wrap additional_dynamics Python callable if provided
+        let has_python_callbacks = additional_dynamics.is_some() || control_input.is_some();
+
         let additional_dynamics_fn: Option<brahe::integrators::traits::DStateDynamics> =
             additional_dynamics.map(|dyn_py| {
                 let dyn_py = dyn_py.clone_ref(py);
@@ -6549,6 +6570,7 @@ impl PyNumericalOrbitPropagator {
         Ok(PyNumericalOrbitPropagator {
             propagator: prop,
             err_slot,
+            has_python_callbacks,
         })
     }
 
@@ -6608,6 +6630,7 @@ impl PyNumericalOrbitPropagator {
         Ok(PyNumericalOrbitPropagator {
             propagator: prop,
             err_slot: Arc::new(Mutex::new(None)),
+            has_python_callbacks: false,
         })
     }
 

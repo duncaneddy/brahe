@@ -835,6 +835,7 @@ impl PyGPRecord {
         Ok(PyNumericalOrbitPropagator {
             propagator,
             err_slot: Arc::new(Mutex::new(None)),
+            has_python_callbacks: false,
         })
     }
 

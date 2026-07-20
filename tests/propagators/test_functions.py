@@ -269,6 +269,30 @@ def test_par_propagate_to_numerical_propagator_raises_error():
 # =============================================================================
 
 
+def test_par_propagate_to_numerical_orbit_with_callbacks_raises_error():
+    """Orbit propagators carrying Python callbacks are rejected by
+    par_propagate_to: the callbacks cannot run on worker threads (GIL)."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    extended_state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0, 1000.0])
+
+    def additional_dyn(epc, state, params):
+        dx = np.zeros(len(state))
+        dx[6] = -0.1
+        return dx
+
+    prop = NumericalOrbitPropagator(
+        epoch,
+        extended_state,
+        NumericalPropagationConfig.default(),
+        ForceModelConfig.earth_gravity(),
+        None,
+        additional_dynamics=additional_dyn,
+    )
+
+    with pytest.raises(TypeError, match="GIL"):
+        par_propagate_to([prop], epoch + 60.0)
+
+
 def test_par_propagate_to_numerical_orbit():
     """Test parallel propagation of NumericalOrbitPropagator"""
     epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)

@@ -627,6 +627,12 @@ impl DTrajectory {
                 )));
             }
 
+            if sens.ncols() == 0 {
+                return Err(BraheError::Error(
+                    "Parameter dimension must be > 0".to_string(),
+                ));
+            }
+
             // Check consistency with existing sensitivity dimension
             if let Some((_, existing_cols)) = self.sensitivity_dimension
                 && sens.ncols() != existing_cols
@@ -3004,11 +3010,36 @@ mod tests {
 
         // Same for a valid covariance with an invalid sensitivity.
         let wrong_sens = DMatrix::zeros(3, 2);
-        let result = traj.add_full(epoch + 60.0, state, Some(good_cov), None, Some(wrong_sens));
+        let result = traj.add_full(
+            epoch + 60.0,
+            state.clone(),
+            Some(good_cov.clone()),
+            None,
+            Some(wrong_sens),
+        );
         assert!(result.is_err());
         assert_eq!(traj.len(), 1);
         assert!(traj.covariances.is_none());
         assert!(traj.sensitivities.is_none());
+
+        // A zero-column sensitivity fails the parameter-dimension invariant;
+        // covariance and STM storage must not be enabled beforehand.
+        let zero_col_sens = DMatrix::zeros(6, 0);
+        let result = traj.add_full(
+            epoch + 60.0,
+            state.clone(),
+            Some(good_cov),
+            Some(DMatrix::identity(6, 6)),
+            Some(zero_col_sens),
+        );
+        assert!(result.is_err());
+        assert_eq!(traj.len(), 1);
+        assert_eq!(traj.epochs, vec![epoch]);
+        assert_eq!(traj.states, vec![state]);
+        assert!(traj.covariances.is_none());
+        assert!(traj.stms.is_none());
+        assert!(traj.sensitivities.is_none());
+        assert!(traj.sensitivity_dimension.is_none());
     }
 
     #[test]

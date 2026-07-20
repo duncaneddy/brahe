@@ -679,6 +679,11 @@ impl SOrbitTrajectory {
                     "Sensitivity row dimension mismatch".to_string(),
                 ));
             }
+            if sens.ncols() == 0 {
+                return Err(BraheError::Error(
+                    "Parameter dimension must be > 0".to_string(),
+                ));
+            }
             if let Some(cols) = self.sensitivity_param_dim
                 && sens.ncols() != cols
             {
@@ -7820,6 +7825,25 @@ mod tests {
         assert_eq!(traj.len(), 1);
         assert!(traj.covariances.is_none());
         assert!(traj.sensitivities.is_none());
+
+        // A zero-column sensitivity fails the parameter-dimension invariant;
+        // covariance and STM storage must not be enabled beforehand.
+        let zero_col_sens = DMatrix::zeros(6, 0);
+        let result = traj.add_full(
+            t0 + 60.0,
+            state,
+            Some(good_cov),
+            Some(SMatrix::<f64, 6, 6>::identity()),
+            Some(zero_col_sens),
+        );
+        assert!(result.is_err());
+        assert_eq!(traj.len(), 1);
+        assert_eq!(traj.epochs, vec![t0]);
+        assert_eq!(traj.states, vec![state]);
+        assert!(traj.covariances.is_none());
+        assert!(traj.stms.is_none());
+        assert!(traj.sensitivities.is_none());
+        assert!(traj.sensitivity_param_dim.is_none());
     }
 
     #[test]

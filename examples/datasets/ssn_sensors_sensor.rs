@@ -8,7 +8,7 @@
 #[allow(unused_imports)]
 use brahe as bh;
 use bh::datasets::ssn_sensors::load_ssn_sensors;
-use bh::estimation::{MeasurementModel, SimpleSSNSensor};
+use bh::estimation::SimpleSSNSensor;
 use bh::utils::Identifiable;
 use bh::AccessibleLocation;
 use nalgebra::{SVector, Vector3};

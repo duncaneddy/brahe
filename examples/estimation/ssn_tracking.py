@@ -39,10 +39,11 @@ epoch_end = epoch + DURATION
 truth_prop.propagate_to(epoch_end)
 truth_traj = truth_prop.trajectory
 
-# Build sensors from the Vallado SSN dataset (radar sites with calibration)
+# Build sensors from the Vallado SSN dataset (calibrated radar and optical
+# sites; radar measures az/el/range, optical measures angles-only az/el)
 sites = bh.datasets.ssn_sensors.load()
 sensors = bh.SimpleSSNSensor.from_locations_calibrated(sites, seed=SEED)
-print(f"Loaded {len(sites)} SSN sites, {len(sensors)} az/el/range sensors")
+print(f"Loaded {len(sites)} SSN sites, {len(sensors)} calibrated sensors")
 
 # Find passes and simulate measurements only inside them
 observations = []

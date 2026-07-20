@@ -35,13 +35,14 @@ DURATION = 6 * 3600.0  # tracking duration (seconds)
 SEED = 42
 
 # Load the Vallado SSN sensor sites and build sensors from the fully
-# calibrated radar sites. Optical (radec) sites are a different sensor type
-# entirely and never construct; a couple of radar sites (Haystack, HAX) lack
-# Table 4-4 noise values, so from_locations_calibrated excludes them too --
+# calibrated sites. The dataset mixes radar/phased-array (azel_range, az/el/
+# range) and optical (angles-only az/el) trackers; both are supported.
+# from_locations_calibrated keeps only sites with full Table 4-4 calibration --
+# it drops two radar sites (Haystack, HAX) that lack noise values, while
 # from_locations would include them instead, defaulted to zero noise.
 sites = bh.datasets.ssn_sensors.load()
 sensors = bh.SimpleSSNSensor.from_locations_calibrated(sites, seed=SEED)
-print(f"Loaded {len(sites)} SSN sites, {len(sensors)} az/el/range sensors")
+print(f"Loaded {len(sites)} SSN sites, {len(sensors)} calibrated sensors")
 
 # Truth orbit: LEO at 700 km, 72 degree inclination
 epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)

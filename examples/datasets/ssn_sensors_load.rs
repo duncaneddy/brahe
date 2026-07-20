@@ -17,17 +17,17 @@ fn main() {
     println!("Total SSN sites: {}", sites.len());
 
     // Filter by sensor type: radar/phased-array/mechanical trackers report
-    // az/el/range, optical trackers report right ascension/declination instead
+    // az/el/range, optical trackers report angles-only az/el
     let radars: Vec<_> = sites
         .iter()
         .filter(|s| s.properties()["sensor_type"] == "azel_range")
         .collect();
     let optical: Vec<_> = sites
         .iter()
-        .filter(|s| s.properties()["sensor_type"] == "radec")
+        .filter(|s| s.properties()["sensor_type"] == "optical")
         .collect();
     println!("Radar/phased-array/mechanical sites: {}", radars.len());
-    println!("Optical (radec) sites: {}", optical.len());
+    println!("Optical (angles-only) sites: {}", optical.len());
 
     // Inspect one site's properties
     let eglin = sites.iter().find(|s| s.get_name() == Some("Eglin")).unwrap();

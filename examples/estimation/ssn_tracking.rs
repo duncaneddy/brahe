@@ -41,11 +41,12 @@ fn main() {
     truth_prop.propagate_to(epoch_end);
     let truth_traj = truth_prop.trajectory().clone();
 
-    // Build sensors from the Vallado SSN dataset (radar sites with calibration)
+    // Build sensors from the Vallado SSN dataset (calibrated radar and optical
+    // sites; radar measures az/el/range, optical measures angles-only az/el)
     let sites = load_ssn_sensors().unwrap();
     let mut sensors = SimpleSSNSensor::from_locations_calibrated(&sites, Some(seed));
     println!(
-        "Loaded {} SSN sites, {} az/el/range sensors",
+        "Loaded {} SSN sites, {} calibrated sensors",
         sites.len(),
         sensors.len()
     );
@@ -90,10 +91,8 @@ fn main() {
         1e6, 1e6, 1e6, 1e2, 1e2, 1e2,
     ]));
 
-    let models: Vec<Box<dyn MeasurementModel>> = sensors
-        .iter()
-        .map(|s| Box::new(s.measurement_model()) as Box<dyn MeasurementModel>)
-        .collect();
+    let models: Vec<Box<dyn MeasurementModel>> =
+        sensors.iter().map(|s| s.measurement_model()).collect();
 
     let mut ekf = ExtendedKalmanFilter::new(
         epoch,

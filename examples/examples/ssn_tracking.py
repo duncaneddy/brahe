@@ -39,9 +39,6 @@ bh.initialize_eop()
 # Configuration
 MEAS_INTERVAL = 15.0  # seconds between measurements during a pass
 DURATION = 6 * 3600.0  # tracking duration (seconds)
-# The run numbers quoted in the docs depend on this seed AND on the rand
-# crate's StdRng stream; a rand version bump can shift the exact figures while
-# the example's tolerance-based asserts still pass.
 SEED = 42
 PROPAGATE_STEP = 60.0  # gap-propagation step (seconds)
 # --8<-- [end:preamble]
@@ -53,13 +50,14 @@ os.makedirs(OUTDIR, exist_ok=True)
 
 # --8<-- [start:load_sensors]
 # Load the Vallado SSN sensor sites and build sensors from the fully
-# calibrated radar sites. Optical (radec) sites are a different sensor type
-# entirely and never construct; a couple of radar sites (Haystack, HAX) lack
-# Table 4-4 noise values, so from_locations_calibrated excludes them too --
+# calibrated sites. The dataset mixes radar/phased-array (azel_range, measuring
+# az/el/range) and optical (angles-only az/el) trackers; both are supported.
+# from_locations_calibrated keeps only sites with full Table 4-4 calibration --
+# it drops two radar sites (Haystack, HAX) that lack noise values, while
 # from_locations would include them instead, defaulted to zero noise.
 sites = bh.datasets.ssn_sensors.load()
 sensors = bh.SimpleSSNSensor.from_locations_calibrated(sites, seed=SEED)
-print(f"Loaded {len(sites)} SSN sites, {len(sensors)} az/el/range sensors")
+print(f"Loaded {len(sites)} SSN sites, {len(sensors)} calibrated sensors")
 
 print("\n" + "=" * 100)
 print("SSN Sensor Network")
@@ -185,7 +183,9 @@ for i, sensor in enumerate(sensors):
             bucket["t"].append((o.epoch - epoch) / 60.0)
             bucket["az"].append(o.measurement[0])
             bucket["el"].append(o.measurement[1])
-            bucket["range_km"].append(o.measurement[2] / 1e3)
+            # Optical sensors are angles-only (2-dim); they have no range trace.
+            if len(o.measurement) > 2:
+                bucket["range_km"].append(o.measurement[2] / 1e3)
 
 observations.sort(key=lambda o: o.epoch)
 passes.sort(key=lambda p: p[1].window_open)
@@ -242,19 +242,21 @@ for i, sensor in enumerate(sensors):
         row=2,
         col=1,
     )
-    fig_measurements.add_trace(
-        go.Scatter(
-            x=bucket["t"],
-            y=bucket["range_km"],
-            mode="markers",
-            name=sensor.name,
-            legendgroup=sensor.name,
-            showlegend=False,
-            marker=dict(color=color, size=5),
-        ),
-        row=3,
-        col=1,
-    )
+    # Angles-only optical sensors contribute no range trace.
+    if bucket["range_km"]:
+        fig_measurements.add_trace(
+            go.Scatter(
+                x=bucket["t"][: len(bucket["range_km"])],
+                y=bucket["range_km"],
+                mode="markers",
+                name=sensor.name,
+                legendgroup=sensor.name,
+                showlegend=False,
+                marker=dict(color=color, size=5),
+            ),
+            row=3,
+            col=1,
+        )
 
 fig_measurements.update_xaxes(title_text="Time (minutes)", row=3, col=1)
 fig_measurements.update_yaxes(title_text="Azimuth (deg)", row=1, col=1)

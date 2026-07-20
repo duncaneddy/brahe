@@ -105,6 +105,10 @@
          <lastmod>2026-07-20</lastmod>
     </url>
     <url>
+         <loc>https://docs.brahe.space/latest/examples/ssn_tracking.html</loc>
+         <lastmod>2026-07-20</lastmod>
+    </url>
+    <url>
          <loc>https://docs.brahe.space/latest/examples/star_field_simulation.html</loc>
          <lastmod>2026-07-20</lastmod>
     </url>
@@ -302,6 +306,10 @@
     </url>
     <url>
          <loc>https://docs.brahe.space/latest/learn/datasets/naif.html</loc>
+         <lastmod>2026-07-20</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.brahe.space/latest/learn/datasets/ssn_sensors.html</loc>
          <lastmod>2026-07-20</lastmod>
     </url>
     <url>
@@ -813,6 +821,10 @@
          <lastmod>2026-07-20</lastmod>
     </url>
     <url>
+         <loc>https://docs.brahe.space/latest/library_api/datasets/ssn_sensors.html</loc>
+         <lastmod>2026-07-20</lastmod>
+    </url>
+    <url>
          <loc>https://docs.brahe.space/latest/library_api/datasets/star_catalogs.html</loc>
          <lastmod>2026-07-20</lastmod>
     </url>
@@ -914,6 +926,10 @@
     </url>
     <url>
          <loc>https://docs.brahe.space/latest/library_api/estimation/measurement_models.html</loc>
+         <lastmod>2026-07-20</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.brahe.space/latest/library_api/estimation/sensor_models.html</loc>
          <lastmod>2026-07-20</lastmod>
     </url>
     <url>

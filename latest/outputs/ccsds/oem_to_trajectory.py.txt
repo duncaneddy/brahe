@@ -12,7 +12,7 @@ First state:
   Velocity: [-6879.497, 1449.531, 3081.318] m/s
 
 Interpolated state at 2017-04-11 22:46:43.122 UTC:
-  Position: [-1917.595, 1696.341, 2465.366] km
+  Position: [-3497.863, 3095.768, 4508.504] km
 
 Multi-segment OEM: 3 trajectories
   [0] 4 states, span=898080s

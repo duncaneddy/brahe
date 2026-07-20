@@ -215,6 +215,74 @@ impl PySGPPropagator {
         }
     }
 
+    /// Create a builder for constructing an SGP4 propagator from CCSDS OMM elements.
+    ///
+    /// The builder takes the eight required OMM inputs directly; optional inputs
+    /// are provided through chained setter calls before calling `build()`.
+    ///
+    /// Args:
+    ///     epoch (str): ISO 8601 datetime string (e.g., "2025-11-29T20:01:44.058144").
+    ///     mean_motion (float): Mean motion in revolutions per day.
+    ///     eccentricity (float): Orbital eccentricity (dimensionless).
+    ///     inclination (float): Orbital inclination in degrees.
+    ///     raan (float): Right ascension of ascending node in degrees.
+    ///     arg_of_pericenter (float): Argument of pericenter in degrees.
+    ///     mean_anomaly (float): Mean anomaly in degrees.
+    ///     norad_id (int): NORAD catalog ID.
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: New builder instance, with `step_size` defaulted
+    ///     to 60.0 and all other optional fields defaulted to their
+    ///     `from_omm_elements` defaults.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     prop = (
+    ///         bh.SGPPropagator.builder(
+    ///             "2025-11-29T20:01:44.058144",
+    ///             15.49193835,
+    ///             0.0003723,
+    ///             51.6312,
+    ///             206.3646,
+    ///             184.1118,
+    ///             175.9840,
+    ///             25544,
+    ///         )
+    ///         .object_name("ISS (ZARYA)")
+    ///         .bstar(0.15237e-3)
+    ///         .build()
+    ///     )
+    ///     ```
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    pub fn builder(
+        epoch: &str,
+        mean_motion: f64,
+        eccentricity: f64,
+        inclination: f64,
+        raan: f64,
+        arg_of_pericenter: f64,
+        mean_anomaly: f64,
+        norad_id: u64,
+    ) -> PySGPPropagatorBuilder {
+        PySGPPropagatorBuilder {
+            inner: Some(propagators::SGPPropagator::builder(
+                epoch,
+                mean_motion,
+                eccentricity,
+                inclination,
+                raan,
+                arg_of_pericenter,
+                mean_anomaly,
+                norad_id,
+            )),
+        }
+    }
+
     /// Get NORAD ID.
     ///
     /// Returns:
@@ -1870,6 +1938,246 @@ impl PySGPPropagator {
     /// String conversion.
     fn __str__(&self) -> String {
         self.__repr__()
+    }
+}
+
+// =============================================================================
+// SGPPropagatorBuilder
+// =============================================================================
+
+/// Builder for [`SGPPropagator`] from CCSDS OMM (Orbit Mean-elements Message) elements.
+///
+/// Created by `SGPPropagator.builder()`, which takes the eight required OMM
+/// inputs (`epoch`, `mean_motion`, `eccentricity`, `inclination`, `raan`,
+/// `arg_of_pericenter`, `mean_anomaly`, `norad_id`). Optional inputs are
+/// provided through chained setters and default to `None` (matching
+/// `SGPPropagator.from_omm_elements()`'s defaults), except `step_size` which
+/// defaults to 60.0 seconds. `build()` constructs the propagator; the builder
+/// is single-use, and calling `build()` a second time raises `RuntimeError`.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.initialize_eop()
+///
+///     prop = (
+///         bh.SGPPropagator.builder(
+///             "2025-11-29T20:01:44.058144",
+///             15.49193835,
+///             0.0003723,
+///             51.6312,
+///             206.3646,
+///             184.1118,
+///             175.9840,
+///             25544,
+///         )
+///         .object_name("ISS (ZARYA)")
+///         .bstar(0.15237e-3)
+///         .build()
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "SGPPropagatorBuilder")]
+pub struct PySGPPropagatorBuilder {
+    inner: Option<propagators::SGPPropagatorBuilder>,
+}
+
+#[pymethods]
+impl PySGPPropagatorBuilder {
+    /// Set the propagation step size.
+    ///
+    /// Defaults to 60.0 seconds if not called.
+    ///
+    /// Args:
+    ///     step_size (float): Default step size in seconds.
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn step_size(mut slf: PyRefMut<'_, Self>, step_size: f64) -> Self {
+        let inner = slf.inner.take().map(|b| b.step_size(step_size));
+        Self { inner }
+    }
+
+    /// Set the satellite name (OMM `OBJECT_NAME`).
+    ///
+    /// Args:
+    ///     object_name (str): Satellite name.
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn object_name(mut slf: PyRefMut<'_, Self>, object_name: &str) -> Self {
+        let inner = slf.inner.take().map(|b| b.object_name(object_name));
+        Self { inner }
+    }
+
+    /// Set the international designator (OMM `OBJECT_ID`, e.g. `"1998-067A"`).
+    ///
+    /// Args:
+    ///     object_id (str): International designator.
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn object_id(mut slf: PyRefMut<'_, Self>, object_id: &str) -> Self {
+        let inner = slf.inner.take().map(|b| b.object_id(object_id));
+        Self { inner }
+    }
+
+    /// Set the classification (OMM `CLASSIFICATION_TYPE`).
+    ///
+    /// Defaults to `'U'` (unclassified) if not called.
+    ///
+    /// Args:
+    ///     classification (str): Classification character (`'U'`, `'C'`, or `'S'`).
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn classification(mut slf: PyRefMut<'_, Self>, classification: char) -> Self {
+        let inner = slf.inner.take().map(|b| b.classification(classification));
+        Self { inner }
+    }
+
+    /// Set the B* drag term (OMM `BSTAR`).
+    ///
+    /// Defaults to 0.0 if not called.
+    ///
+    /// Args:
+    ///     bstar (float): B* drag term (1/Earth radii).
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn bstar(mut slf: PyRefMut<'_, Self>, bstar: f64) -> Self {
+        let inner = slf.inner.take().map(|b| b.bstar(bstar));
+        Self { inner }
+    }
+
+    /// Set the first derivative of mean motion divided by 2 (OMM `MEAN_MOTION_DOT`).
+    ///
+    /// Defaults to 0.0 if not called.
+    ///
+    /// Args:
+    ///     mean_motion_dot (float): First derivative of mean motion / 2 (rev/day^2).
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn mean_motion_dot(mut slf: PyRefMut<'_, Self>, mean_motion_dot: f64) -> Self {
+        let inner = slf.inner.take().map(|b| b.mean_motion_dot(mean_motion_dot));
+        Self { inner }
+    }
+
+    /// Set the second derivative of mean motion divided by 6 (OMM `MEAN_MOTION_DDOT`).
+    ///
+    /// Defaults to 0.0 if not called.
+    ///
+    /// Args:
+    ///     mean_motion_ddot (float): Second derivative of mean motion / 6 (rev/day^3).
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn mean_motion_ddot(mut slf: PyRefMut<'_, Self>, mean_motion_ddot: f64) -> Self {
+        let inner = slf
+            .inner
+            .take()
+            .map(|b| b.mean_motion_ddot(mean_motion_ddot));
+        Self { inner }
+    }
+
+    /// Set the ephemeris type (OMM `EPHEMERIS_TYPE`).
+    ///
+    /// Defaults to 0 if not called.
+    ///
+    /// Args:
+    ///     ephemeris_type (int): Ephemeris type (usually 0).
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn ephemeris_type(mut slf: PyRefMut<'_, Self>, ephemeris_type: u8) -> Self {
+        let inner = slf.inner.take().map(|b| b.ephemeris_type(ephemeris_type));
+        Self { inner }
+    }
+
+    /// Set the element set number (OMM `ELEMENT_SET_NO`).
+    ///
+    /// Defaults to 999 if not called.
+    ///
+    /// Args:
+    ///     element_set_no (int): Element set number.
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn element_set_no(mut slf: PyRefMut<'_, Self>, element_set_no: u64) -> Self {
+        let inner = slf.inner.take().map(|b| b.element_set_no(element_set_no));
+        Self { inner }
+    }
+
+    /// Set the revolution number at epoch (OMM `REV_AT_EPOCH`).
+    ///
+    /// Defaults to 0 if not called.
+    ///
+    /// Args:
+    ///     rev_at_epoch (int): Revolution number at epoch.
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn rev_at_epoch(mut slf: PyRefMut<'_, Self>, rev_at_epoch: u64) -> Self {
+        let inner = slf.inner.take().map(|b| b.rev_at_epoch(rev_at_epoch));
+        Self { inner }
+    }
+
+    /// Set output format (frame, representation, and angle format) for propagated states.
+    ///
+    /// Applied to the propagator after construction, via
+    /// `SGPPropagator.set_output_format()`; see that method for the
+    /// frame/representation/angle-format combinations it accepts.
+    ///
+    /// Args:
+    ///     frame (OrbitFrame): Output frame (ECI or ECEF).
+    ///     representation (OrbitRepresentation): Output representation (Cartesian or Keplerian).
+    ///     angle_format (AngleFormat or None): Angle format for Keplerian (None for Cartesian).
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn output_format(
+        mut slf: PyRefMut<'_, Self>,
+        frame: PyRef<PyOrbitFrame>,
+        representation: PyRef<PyOrbitRepresentation>,
+        angle_format: Option<PyRef<PyAngleFormat>>,
+    ) -> Self {
+        let angle_fmt = angle_format.map(|af| af.value);
+        let inner = slf
+            .inner
+            .take()
+            .map(|b| b.output_format(frame.frame, representation.representation, angle_fmt));
+        Self { inner }
+    }
+
+    /// Construct the propagator from the accumulated configuration.
+    ///
+    /// This consumes the builder. The builder is single-use: calling `build()`
+    /// a second time raises `RuntimeError`.
+    ///
+    /// Note:
+    ///     If `output_format()` was called with an invalid frame/representation/
+    ///     angle-format combination, the underlying Rust `build()` panics rather
+    ///     than raising an error. See `SGPPropagator.set_output_format()` for the
+    ///     valid combinations.
+    ///
+    /// Returns:
+    ///     SGPPropagator: Initialized propagator ready for propagation.
+    ///
+    /// Raises:
+    ///     RuntimeError: If the builder was already consumed by a prior `build()`
+    ///         call, or if the epoch string cannot be parsed or other OMM
+    ///         validation fails.
+    fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PySGPPropagator> {
+        let builder = slf
+            .inner
+            .take()
+            .ok_or_else(|| exceptions::PyRuntimeError::new_err("builder already consumed"))?;
+        let prop = builder
+            .build()
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(PySGPPropagator { propagator: prop })
     }
 }
 

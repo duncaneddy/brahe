@@ -995,6 +995,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Propagator Support
     module.add_class::<PySGPPropagator>()?;
+    module.add_class::<PySGPPropagatorBuilder>()?;
     module.add_class::<PyKeplerianPropagator>()?;
     module.add_class::<PyIntegrationMethod>()?;
     module.add_class::<PyAtmosphericModel>()?;

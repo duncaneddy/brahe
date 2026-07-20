@@ -1808,3 +1808,90 @@ def test_sgppropagator_bci_bcbf_in_frame(iss_tle):
         prop.state_itrf(epoch),
         atol=1e-6,
     )
+
+
+class TestSGPPropagatorBuilder:
+    """Test SGPPropagatorBuilder Python bindings."""
+
+    def _omm_args(self):
+        """Positional args for SGPPropagator.builder(), matching the
+        from_omm_elements ISS example used elsewhere in this file."""
+        return (
+            "2025-11-29T20:01:44.058144",
+            15.49193835,
+            0.0003723,
+            51.6312,
+            206.3646,
+            184.1118,
+            175.9840,
+            25544,
+        )
+
+    def test_sgppropagator_builder_equivalence(self):
+        """Builder with chained setters matches from_omm_elements with the
+        equivalent keyword arguments."""
+        args = self._omm_args()
+
+        built = (
+            brahe.SGPPropagator.builder(*args)
+            .step_size(120.0)
+            .object_name("ISS (ZARYA)")
+            .object_id("1998-067A")
+            .classification("U")
+            .bstar(0.15237e-3)
+            .mean_motion_dot(0.801e-4)
+            .mean_motion_ddot(0.0)
+            .ephemeris_type(0)
+            .element_set_no(999)
+            .rev_at_epoch(54085)
+            .build()
+        )
+
+        flat = brahe.SGPPropagator.from_omm_elements(
+            epoch=args[0],
+            mean_motion=args[1],
+            eccentricity=args[2],
+            inclination=args[3],
+            raan=args[4],
+            arg_of_pericenter=args[5],
+            mean_anomaly=args[6],
+            norad_id=args[7],
+            step_size=120.0,
+            object_name="ISS (ZARYA)",
+            object_id="1998-067A",
+            classification="U",
+            bstar=0.15237e-3,
+            mean_motion_dot=0.801e-4,
+            mean_motion_ddot=0.0,
+            ephemeris_type=0,
+            element_set_no=999,
+            rev_at_epoch=54085,
+        )
+
+        assert built.norad_id == flat.norad_id
+        assert built.step_size == flat.step_size
+        assert built.satellite_name == flat.satellite_name
+        assert built.get_name() == flat.get_name()
+        assert built.get_id() == flat.get_id()
+        assert built.eccentricity == pytest.approx(flat.eccentricity)
+        assert built.inclination == pytest.approx(flat.inclination)
+        assert built.right_ascension == pytest.approx(flat.right_ascension)
+        assert built.arg_perigee == pytest.approx(flat.arg_perigee)
+        assert built.mean_anomaly == pytest.approx(flat.mean_anomaly)
+
+        np.testing.assert_allclose(
+            built.state(built.epoch), flat.state(flat.epoch), rtol=1e-10
+        )
+
+    def test_sgppropagator_builder_consumed(self):
+        """Calling build() twice on the same builder raises RuntimeError."""
+        builder = brahe.SGPPropagator.builder(*self._omm_args())
+        builder.build()
+        with pytest.raises(RuntimeError, match="builder already consumed"):
+            builder.build()
+
+    def test_sgppropagator_builder_build_error(self):
+        """Rust-side build failures (invalid classification) raise RuntimeError."""
+        builder = brahe.SGPPropagator.builder(*self._omm_args()).classification("X")
+        with pytest.raises(RuntimeError):
+            builder.build()

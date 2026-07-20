@@ -62,6 +62,8 @@ Both implement the `AccessibleLocation` trait, which provides coordinate access,
 - **`LocalTimeConstraint`** - Local solar time windows (e.g., daylight imaging)
 - **`LookDirectionConstraint`** - Left/right/either relative to velocity vector
 - **`AscDscConstraint`** - Ascending/descending pass filter
+- **`AzimuthConstraint`** - Wrap-aware azimuth window at the ground location
+- **`RangeConstraint`** - Minimum/maximum slant range
 
 Constraints can be combined using the `ConstraintComposite` system to express sophisticated requirements like "elevation > 10° AND (daylight OR look-right)". Python users can create custom constraints by implementing the `AccessConstraintComputer` interface.
 

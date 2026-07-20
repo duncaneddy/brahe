@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
-# FLAGS = ["NETWORK"]
 # ///
 """
 Lunar Reconnaissance Orbiter (LRO) Science Orbit

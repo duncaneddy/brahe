@@ -148,6 +148,25 @@ We create a custom property computer that calculates the line-of-sight velocity 
 
 The property computer extracts the satellite velocity from the provided ECEF state, projects it onto the line-of-sight unit vector to get the line-of-sight velocity, and applies the Doppler formula for both frequency bands.
 
+!!! note "AccessPropertyComputer attaches custom measurements to every window"
+    [`AccessPropertyComputer`](../learn/access_computation/properties.md)
+    ([API](../library_api/access/properties.md#brahe.AccessPropertyComputer))
+    is the extension point for computing quantities beyond the core window
+    properties. A subclass implements three methods: `sampling_config` picks
+    the epochs sampled inside each window (here
+    [`SamplingConfig.fixed_interval`](../library_api/access/properties.md#brahe.SamplingConfig)
+    at 0.1 s; `relative_points`, `fixed_count`, and `midpoint` are the other
+    modes), `compute` turns the sampled states into property values, and
+    `property_names` declares the keys produced. Pass instances to
+    `location_accesses` via `property_computers` and the results appear on
+    each window's `properties`. The sampled states arrive in ECEF, not ECI -
+    convenient for line-of-sight work like this, but inertial quantities need
+    a frame conversion first. For plain Doppler shift brahe also ships a
+    Rust-native
+    [`DopplerComputer`](../library_api/access/properties.md#brahe.DopplerComputer);
+    the custom computer here exists to also record the line-of-sight velocity
+    time series.
+
 
 
 ## Access Computation

@@ -27,6 +27,8 @@ from brahe._brahe import (
     AscDsc,
     # Constraints
     ElevationConstraint,
+    AzimuthConstraint,
+    RangeConstraint,
     ElevationMaskConstraint,
     OffNadirConstraint,
     LocalTimeConstraint,
@@ -71,6 +73,8 @@ __all__ = [
     "AscDsc",
     # Constraints
     "ElevationConstraint",
+    "AzimuthConstraint",
+    "RangeConstraint",
     "ElevationMaskConstraint",
     "OffNadirConstraint",
     "LocalTimeConstraint",

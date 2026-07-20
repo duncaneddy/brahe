@@ -33,9 +33,9 @@ use crate::propagators::{DNumericalOrbitPropagator, NumericalPropagationConfig, 
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
 
-use super::config::EKFConfig;
+use super::config::{EKFConfig, noise_chunk_boundaries};
 use super::dynamics_source::DynamicsSource;
-use super::traits::{MeasurementModel, validate_model_outputs};
+use super::traits::{MeasurementModel, compute_residual, validate_model_outputs};
 use super::types::{FilterRecord, Observation, sort_by_epoch};
 
 /// Extended Kalman Filter for sequential state estimation.
@@ -233,6 +233,10 @@ impl ExtendedKalmanFilter {
             ));
         }
 
+        if let Some(ref pn) = config.process_noise {
+            pn.validate()?;
+        }
+
         dynamics.set_trajectory_mode(TrajectoryMode::Disabled);
 
         Ok(Self {
@@ -310,6 +314,71 @@ impl ExtendedKalmanFilter {
         }
     }
 
+    /// Sub-stepped predict: propagate the state and covariance across the
+    /// provided chunk `boundaries`, injecting continuous process noise
+    /// `Q · δt_chunk` at each chunk boundary rather than all at once.
+    ///
+    /// Used only when [`ProcessNoiseConfig::max_noise_dt`] sub-stepping is
+    /// active (see [`noise_chunk_boundaries`]); the process noise is therefore
+    /// always a continuous rate (`scale_with_dt == true`). The propagator must
+    /// be positioned at the interval start on entry; on success it is left at
+    /// the final boundary (the target). Returns the predicted `(state, P)`.
+    ///
+    /// This is an approximation using a constant `Q` per chunk; the exact
+    /// variational discrete-time `Q_d` integration is tracked in issue #408.
+    fn predict_substepped(
+        &mut self,
+        boundaries: &[Epoch],
+        stopped_short: impl Fn(Epoch, Epoch) -> BraheError,
+    ) -> Result<(DVector<f64>, DMatrix<f64>), BraheError> {
+        let q = self
+            .config
+            .process_noise
+            .as_ref()
+            .expect("sub-stepping requires a process-noise configuration")
+            .q_matrix
+            .clone();
+        let target = *boundaries
+            .last()
+            .expect("noise_chunk_boundaries never returns an empty Vec");
+
+        let mut chunk_start = self.dynamics.current_epoch();
+        let mut state = self.dynamics.current_state();
+        let mut p = self.covariance.clone();
+
+        for &chunk_target in boundaries {
+            let dt_chunk = (chunk_target - chunk_start).abs();
+            // Seed the propagator with the running state/covariance and reset
+            // the STM to identity for this chunk.
+            self.dynamics
+                .reinitialize(chunk_start, state.clone(), Some(p.clone()));
+            self.dynamics.propagate_to(chunk_target);
+
+            let reached = self.dynamics.current_epoch();
+            if (chunk_target - reached).abs() > 1e-6 {
+                return Err(stopped_short(reached, target));
+            }
+
+            state = self.dynamics.current_state();
+            let mut p_prop = self
+                .dynamics
+                .current_covariance()
+                .ok_or_else(|| {
+                    BraheError::NumericalError(
+                        "Propagator did not provide a propagated covariance during the \
+                         EKF predict step"
+                            .to_string(),
+                    )
+                })?
+                .clone();
+            p_prop += &q * dt_chunk;
+            p = 0.5 * (&p_prop + p_prop.transpose());
+            chunk_start = chunk_target;
+        }
+
+        Ok((state, p))
+    }
+
     /// Fallible predict/update body of [`process_observation`]. Mutates the
     /// propagator; the caller rolls it back if this returns an error.
     fn predict_and_update(
@@ -318,61 +387,84 @@ impl ExtendedKalmanFilter {
         current_epoch: Epoch,
         dt: f64,
     ) -> Result<FilterRecord, BraheError> {
-        let model = &self.measurement_models[observation.model_index];
-
         // Propagator force-model / consider parameters, passed through to the
         // measurement model so consider values can affect the measurement.
         let params = self.dynamics.params().cloned();
 
         // === PREDICT (time update) ===
-        // Seed the propagator with the filter's current covariance and reset
-        // the STM to identity, so it computes P(t) = Φ(t,t_k)·P_k·Φ(t,t_k)ᵀ
-        // relative to the current filter epoch during propagation.
-        let current_state = self.dynamics.current_state();
-        self.dynamics
-            .reinitialize(current_epoch, current_state, Some(self.covariance.clone()));
+        // When continuous process-noise sub-stepping is active the interval is
+        // split into chunks (noise injected along the trajectory); otherwise a
+        // single end-to-end step reproduces the original behavior exactly.
+        let (state_predicted, p_predicted) = match noise_chunk_boundaries(
+            self.config.process_noise.as_ref(),
+            current_epoch,
+            observation.epoch,
+        ) {
+            Some(boundaries) => self.predict_substepped(&boundaries, |reached, target| {
+                BraheError::Error(format!(
+                    "Propagation stopped at {} before reaching observation epoch {} \
+                     (a terminal event may have fired); the observation was not processed",
+                    reached, target
+                ))
+            })?,
+            None => {
+                // Seed the propagator with the filter's current covariance and
+                // reset the STM to identity, so it computes
+                // P(t) = Φ(t,t_k)·P_k·Φ(t,t_k)ᵀ relative to the current filter
+                // epoch during propagation.
+                let current_state = self.dynamics.current_state();
+                self.dynamics.reinitialize(
+                    current_epoch,
+                    current_state,
+                    Some(self.covariance.clone()),
+                );
 
-        // Propagate state and covariance to observation epoch
-        self.dynamics.propagate_to(observation.epoch);
+                // Propagate state and covariance to observation epoch
+                self.dynamics.propagate_to(observation.epoch);
 
-        // Guard against the propagator stopping short of the observation
-        // epoch (e.g., a terminal event fired during propagation).
-        let reached_epoch = self.dynamics.current_epoch();
-        let epoch_gap: f64 = observation.epoch - reached_epoch;
-        if epoch_gap.abs() > 1e-6 {
-            return Err(BraheError::Error(format!(
-                "Propagation stopped at {} before reaching observation epoch {} \
-                 (a terminal event may have fired); the observation was not processed",
-                reached_epoch, observation.epoch
-            )));
-        }
+                // Guard against the propagator stopping short of the observation
+                // epoch (e.g., a terminal event fired during propagation).
+                let reached_epoch = self.dynamics.current_epoch();
+                let epoch_gap: f64 = observation.epoch - reached_epoch;
+                if epoch_gap.abs() > 1e-6 {
+                    return Err(BraheError::Error(format!(
+                        "Propagation stopped at {} before reaching observation epoch {} \
+                         (a terminal event may have fired); the observation was not processed",
+                        reached_epoch, observation.epoch
+                    )));
+                }
 
-        let state_predicted = self.dynamics.current_state();
+                let state_predicted = self.dynamics.current_state();
 
-        // Read propagated covariance from the propagator
-        let mut p_predicted = self
-            .dynamics
-            .current_covariance()
-            .ok_or_else(|| {
-                BraheError::NumericalError(
-                    "Propagator did not provide a propagated covariance during the \
-                     EKF predict step"
-                        .to_string(),
-                )
-            })?
-            .clone();
+                // Read propagated covariance from the propagator
+                let mut p_predicted = self
+                    .dynamics
+                    .current_covariance()
+                    .ok_or_else(|| {
+                        BraheError::NumericalError(
+                            "Propagator did not provide a propagated covariance during the \
+                             EKF predict step"
+                                .to_string(),
+                        )
+                    })?
+                    .clone();
 
-        // Add process noise Q
-        if let Some(ref pn) = self.config.process_noise {
-            if pn.scale_with_dt {
-                let dt_abs = dt.abs().max(1e-12); // avoid zero
-                p_predicted += &pn.q_matrix * dt_abs;
-            } else {
-                p_predicted += &pn.q_matrix;
+                // Add process noise Q
+                if let Some(ref pn) = self.config.process_noise {
+                    if pn.scale_with_dt {
+                        let dt_abs = dt.abs().max(1e-12); // avoid zero
+                        p_predicted += &pn.q_matrix * dt_abs;
+                    } else {
+                        p_predicted += &pn.q_matrix;
+                    }
+                }
+                (state_predicted, p_predicted)
             }
-        }
+        };
 
         // === UPDATE (measurement incorporation) ===
+        let model = &self.measurement_models[observation.model_index];
+
         // Predicted measurement
         let z_predicted = model.predict(&observation.epoch, &state_predicted, params.as_ref())?;
 
@@ -394,7 +486,8 @@ impl ExtendedKalmanFilter {
         )?;
 
         // Pre-fit residual (innovation)
-        let prefit_residual = &observation.measurement - &z_predicted;
+        let prefit_residual =
+            compute_residual(model.as_ref(), &observation.measurement, &z_predicted)?;
 
         // Innovation covariance: S = H * P_pred * Hᵀ + R
         let s = &h * &p_predicted * h.transpose() + &r;
@@ -423,7 +516,8 @@ impl ExtendedKalmanFilter {
 
         // Post-fit residual
         let z_postfit = model.predict(&observation.epoch, &state_updated, params.as_ref())?;
-        let postfit_residual = &observation.measurement - &z_postfit;
+        let postfit_residual =
+            compute_residual(model.as_ref(), &observation.measurement, &z_postfit)?;
 
         // Build record
         let record = FilterRecord {
@@ -461,6 +555,145 @@ impl ExtendedKalmanFilter {
             self.process_observation(obs)?;
         }
         Ok(())
+    }
+
+    /// Propagate the filter to an epoch without a measurement update.
+    ///
+    /// Runs the prediction (time-update) step only: state and covariance are
+    /// propagated to `epoch` via the internal dynamics (the numerical
+    /// integrator takes its own internal steps and lands exactly on the
+    /// target epoch) and process noise is applied. Use this to advance the
+    /// filter across measurement gaps — e.g. between tracking passes — while
+    /// recording covariance growth, or to step a filter forward in
+    /// sequential-planning loops.
+    ///
+    /// # Arguments
+    ///
+    /// * `epoch` - Target epoch. May be before or after the current filter
+    ///   epoch; backwards propagation is supported (e.g. for smoothing).
+    ///
+    /// # Returns
+    ///
+    /// Filter record for the prediction step. Measurement-specific fields
+    /// are empty (`measurement_name` is `"Propagation"`, residuals are
+    /// zero-length, Kalman gain is 0×0); `state_updated` and
+    /// `covariance_updated` equal the predicted values.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if propagation stops short of the target epoch
+    /// (e.g., a terminal event fired).
+    pub fn propagate_to(&mut self, epoch: Epoch) -> Result<FilterRecord, BraheError> {
+        let current_epoch = self.dynamics.current_epoch();
+        let entry_state = self.dynamics.current_state();
+
+        match self.predict_only(current_epoch, epoch) {
+            Ok(record) => {
+                if self.config.store_records {
+                    self.records.push(record.clone());
+                }
+                Ok(record)
+            }
+            Err(e) => {
+                self.dynamics.reinitialize(current_epoch, entry_state, None);
+                Err(e)
+            }
+        }
+    }
+
+    /// Fallible body of [`propagate_to`](Self::propagate_to). Mutates the
+    /// propagator; the caller rolls it back if this returns an error.
+    ///
+    /// Keep in sync with the predict half of `predict_and_update`.
+    fn predict_only(
+        &mut self,
+        current_epoch: Epoch,
+        target_epoch: Epoch,
+    ) -> Result<FilterRecord, BraheError> {
+        let dt: f64 = target_epoch - current_epoch;
+
+        // When continuous process-noise sub-stepping is active the interval is
+        // split into chunks (noise injected along the trajectory); otherwise a
+        // single end-to-end step reproduces the original behavior exactly.
+        let (state_predicted, p_predicted) = match noise_chunk_boundaries(
+            self.config.process_noise.as_ref(),
+            current_epoch,
+            target_epoch,
+        ) {
+            Some(boundaries) => self.predict_substepped(&boundaries, |reached, target| {
+                BraheError::Error(format!(
+                    "Propagation stopped at {} before reaching target epoch {} \
+                     (a terminal event may have fired)",
+                    reached, target
+                ))
+            })?,
+            None => {
+                let current_state = self.dynamics.current_state();
+                self.dynamics.reinitialize(
+                    current_epoch,
+                    current_state,
+                    Some(self.covariance.clone()),
+                );
+                self.dynamics.propagate_to(target_epoch);
+
+                let reached_epoch = self.dynamics.current_epoch();
+                let epoch_gap: f64 = target_epoch - reached_epoch;
+                if epoch_gap.abs() > 1e-6 {
+                    return Err(BraheError::Error(format!(
+                        "Propagation stopped at {} before reaching target epoch {} \
+                         (a terminal event may have fired)",
+                        reached_epoch, target_epoch
+                    )));
+                }
+
+                let state_predicted = self.dynamics.current_state();
+                let mut p_predicted = self
+                    .dynamics
+                    .current_covariance()
+                    .ok_or_else(|| {
+                        BraheError::NumericalError(
+                            "Propagator did not provide a propagated covariance during the \
+                             EKF predict step"
+                                .to_string(),
+                        )
+                    })?
+                    .clone();
+
+                // Apply process noise only for a nonzero-duration step; a
+                // same-epoch propagate_to adds zero noise. Scaled Q uses |dt|
+                // so backwards propagation accumulates the same process noise
+                // as forwards.
+                if dt.abs() > 0.0
+                    && let Some(ref pn) = self.config.process_noise
+                {
+                    if pn.scale_with_dt {
+                        p_predicted += &pn.q_matrix * dt.abs();
+                    } else {
+                        p_predicted += &pn.q_matrix;
+                    }
+                }
+                let p_predicted = 0.5 * (&p_predicted + p_predicted.transpose());
+                (state_predicted, p_predicted)
+            }
+        };
+
+        let record = FilterRecord {
+            epoch: target_epoch,
+            state_predicted: state_predicted.clone(),
+            covariance_predicted: p_predicted.clone(),
+            state_updated: state_predicted.clone(),
+            covariance_updated: p_predicted.clone(),
+            prefit_residual: DVector::zeros(0),
+            postfit_residual: DVector::zeros(0),
+            kalman_gain: DMatrix::zeros(0, 0),
+            measurement_name: "Propagation".to_string(),
+        };
+
+        self.covariance = p_predicted;
+        self.dynamics
+            .reinitialize(target_epoch, state_predicted, None);
+
+        Ok(record)
     }
 
     /// Get current state estimate.
@@ -1509,6 +1742,72 @@ mod tests {
         );
     }
 
+    /// Model whose `residual()` override returns a wrong-length vector —
+    /// exercises the residual length validation.
+    struct BadResidualModel;
+    impl MeasurementModel for BadResidualModel {
+        fn predict(
+            &self,
+            _epoch: &Epoch,
+            state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            Ok(state.rows(0, 3).into_owned())
+        }
+        fn noise_covariance(&self) -> DMatrix<f64> {
+            DMatrix::identity(3, 3) * 100.0
+        }
+        fn residual(
+            &self,
+            _measured: &DVector<f64>,
+            _predicted: &DVector<f64>,
+        ) -> Result<DVector<f64>, BraheError> {
+            // Wrong length (2 instead of the declared measurement_dim 3)
+            Ok(DVector::from_vec(vec![0.0, 0.0]))
+        }
+        fn measurement_dim(&self) -> usize {
+            3
+        }
+        fn name(&self) -> &str {
+            "BadResidual"
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_residual_wrong_length_errors() {
+        // A residual() override returning the wrong length must surface as a
+        // structured error, not an nalgebra dimension panic during the update.
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+
+        let mut ekf = create_two_body_ekf(
+            epoch,
+            state.clone(),
+            p0,
+            vec![Box::new(BadResidualModel)],
+            None,
+        );
+
+        let obs = Observation::new(epoch + 60.0, state.rows(0, 3).into_owned(), 0);
+        match ekf.process_observation(&obs) {
+            Err(e) => assert!(
+                e.to_string().contains("residual() returned"),
+                "Error should mention the residual length: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected residual length validation error"),
+        }
+
+        let epoch_drift: f64 = ekf.current_epoch() - epoch;
+        assert!(
+            epoch_drift.abs() < 1e-9,
+            "Filter must be rolled back after residual error, drifted {} s",
+            epoch_drift
+        );
+    }
+
     #[test]
     #[serial]
     fn test_ekf_updated_covariance_is_symmetric() {
@@ -1847,36 +2146,6 @@ mod tests {
         assert_eq!(ekf.current_covariance().nrows(), 6);
     }
 
-    #[test]
-    #[serial]
-    fn test_ekf_store_records_disabled() {
-        setup_global_test_eop();
-        let (epoch, true_state) = two_body_leo();
-        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
-        let obs = generate_position_observations(epoch, &true_state, 5, 60.0);
-
-        let prop = create_stm_propagator(epoch, true_state, Some(p0));
-
-        let mut ekf = ExtendedKalmanFilter::from_propagator(
-            prop,
-            vec![Box::new(InertialPositionMeasurementModel::new(50.0))],
-            EKFConfig {
-                process_noise: None,
-                store_records: false,
-            },
-        )
-        .unwrap();
-
-        ekf.process_observations(&obs).unwrap();
-
-        // Records should NOT be stored
-        assert_eq!(ekf.records().len(), 0);
-
-        // But state/covariance should still be updated
-        assert_eq!(ekf.current_state().len(), 6);
-        assert_eq!(ekf.current_covariance().nrows(), 6);
-    }
-
     // =========================================================================
     // Builder tests
     // =========================================================================
@@ -1941,5 +2210,679 @@ mod tests {
 
         let obs = Observation::new(epoch + 60.0, state.rows(0, 3).into_owned(), 1);
         assert!(ekf.process_observation(&obs).is_ok());
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_propagate_to_grows_covariance() {
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+
+        let mut ekf = create_two_body_ekf(
+            epoch,
+            state,
+            p0,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            None,
+        );
+
+        let p0_trace = ekf.current_covariance().trace();
+        let record = ekf.propagate_to(epoch + 600.0).unwrap();
+        assert_eq!(ekf.current_epoch(), epoch + 600.0);
+        assert_eq!(record.measurement_name, "Propagation");
+        assert_eq!(record.prefit_residual.len(), 0);
+        assert_eq!(record.postfit_residual.len(), 0);
+        assert_eq!(record.kalman_gain.nrows(), 0);
+        assert_eq!(record.kalman_gain.ncols(), 0);
+        assert_eq!(record.state_updated, record.state_predicted);
+        assert_eq!(record.covariance_updated, record.covariance_predicted);
+        // Covariance grows without measurements (Keplerian shear stretches
+        // the along-track uncertainty even with no explicit process noise).
+        assert!(ekf.current_covariance().trace() > p0_trace);
+        // Backwards propagation is supported (e.g. for smoothing): the filter
+        // epoch moves back to the target.
+        ekf.propagate_to(epoch).unwrap();
+        assert_eq!(ekf.current_epoch(), epoch);
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_propagate_to_respects_store_records() {
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+
+        // store_records = true: records() grows by one per propagate_to call.
+        let mut ekf = create_two_body_ekf(
+            epoch,
+            state.clone(),
+            p0.clone(),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            None,
+        );
+        assert_eq!(ekf.records().len(), 0);
+        ekf.propagate_to(epoch + 300.0).unwrap();
+        assert_eq!(ekf.records().len(), 1);
+        ekf.propagate_to(epoch + 600.0).unwrap();
+        assert_eq!(ekf.records().len(), 2);
+
+        // store_records = false: records() stays empty after propagate_to.
+        let prop = create_stm_propagator(epoch, state, Some(p0));
+        let mut ekf_no_records = ExtendedKalmanFilter::from_propagator(
+            prop,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            EKFConfig {
+                process_noise: None,
+                store_records: false,
+            },
+        )
+        .unwrap();
+        ekf_no_records.propagate_to(epoch + 300.0).unwrap();
+        assert_eq!(ekf_no_records.records().len(), 0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_propagate_to_applies_process_noise() {
+        // With process_noise (scale_with_dt = true) configured, propagate_to
+        // must add Q * dt to the predicted covariance on top of the dynamics-
+        // driven growth; without process noise the same propagation should
+        // leave a smaller trace.
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let dt = 600.0;
+
+        let q_diag = vec![1.0, 1.0, 1.0, 1e-4, 1e-4, 1e-4];
+        let q_matrix = DMatrix::from_diagonal(&DVector::from_vec(q_diag.clone()));
+        let q_trace: f64 = q_diag.iter().sum();
+
+        let mut ekf_no_noise = create_two_body_ekf(
+            epoch,
+            state.clone(),
+            p0.clone(),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            None,
+        );
+        ekf_no_noise.propagate_to(epoch + dt).unwrap();
+        let trace_no_noise = ekf_no_noise.current_covariance().trace();
+
+        let mut ekf_with_noise = create_two_body_ekf(
+            epoch,
+            state,
+            p0,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            Some(ProcessNoiseConfig {
+                q_matrix,
+                scale_with_dt: true,
+                max_noise_dt: None,
+            }),
+        );
+        ekf_with_noise.propagate_to(epoch + dt).unwrap();
+        let trace_with_noise = ekf_with_noise.current_covariance().trace();
+
+        let expected_increment = q_trace * dt;
+        let actual_increment = trace_with_noise - trace_no_noise;
+        assert!(
+            actual_increment > 0.0,
+            "process noise should increase the covariance trace, got increment {:.3}",
+            actual_increment
+        );
+        assert_abs_diff_eq!(
+            actual_increment,
+            expected_increment,
+            epsilon = expected_increment * 0.05
+        );
+
+        // A same-epoch propagate_to must add no process noise: with dt == 0 the
+        // scaled Q contributes nothing, so the covariance trace is unchanged.
+        let trace_before = ekf_with_noise.current_covariance().trace();
+        ekf_with_noise
+            .propagate_to(ekf_with_noise.current_epoch())
+            .unwrap();
+        let trace_after = ekf_with_noise.current_covariance().trace();
+        assert_abs_diff_eq!(trace_after, trace_before, epsilon = trace_before * 1e-9);
+
+        // Backwards propagation applies the same |dt|-scaled process noise as
+        // forward propagation: over a backward step the noisy filter's trace
+        // grows by Q * |dt| relative to the noise-free filter.
+        let (epoch_b, state_b) = two_body_leo();
+        let p0_b = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let mut back_no_noise = create_two_body_ekf(
+            epoch_b,
+            state_b.clone(),
+            p0_b.clone(),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            None,
+        );
+        back_no_noise.propagate_to(epoch_b - dt).unwrap();
+        let back_trace_no_noise = back_no_noise.current_covariance().trace();
+
+        let mut back_with_noise = create_two_body_ekf(
+            epoch_b,
+            state_b,
+            p0_b,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            Some(ProcessNoiseConfig {
+                q_matrix: DMatrix::from_diagonal(&DVector::from_vec(q_diag.clone())),
+                scale_with_dt: true,
+                max_noise_dt: None,
+            }),
+        );
+        back_with_noise.propagate_to(epoch_b - dt).unwrap();
+        assert_eq!(back_with_noise.current_epoch(), epoch_b - dt);
+        let back_increment = back_with_noise.current_covariance().trace() - back_trace_no_noise;
+        assert_abs_diff_eq!(back_increment, q_trace * dt, epsilon = q_trace * dt * 0.05);
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_store_records_disabled() {
+        setup_global_test_eop();
+        let (epoch, true_state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let obs = generate_position_observations(epoch, &true_state, 5, 60.0);
+
+        let prop = create_stm_propagator(epoch, true_state, Some(p0));
+
+        let mut ekf = ExtendedKalmanFilter::from_propagator(
+            prop,
+            vec![Box::new(InertialPositionMeasurementModel::new(50.0))],
+            EKFConfig {
+                process_noise: None,
+                store_records: false,
+            },
+        )
+        .unwrap();
+
+        ekf.process_observations(&obs).unwrap();
+
+        // Records should NOT be stored
+        assert_eq!(ekf.records().len(), 0);
+
+        // But state/covariance should still be updated
+        assert_eq!(ekf.current_state().len(), 6);
+        assert_eq!(ekf.current_covariance().nrows(), 6);
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_model_index_out_of_bounds_errors() {
+        // An observation tagged with a model_index beyond the configured models
+        // must error before any propagation.
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+
+        let mut ekf = create_two_body_ekf(
+            epoch,
+            state.clone(),
+            p0,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            None,
+        );
+
+        let obs = Observation::new(epoch + 60.0, state.rows(0, 3).into_owned(), 5);
+        match ekf.process_observation(&obs) {
+            Err(e) => assert!(
+                e.to_string().contains("out of bounds"),
+                "Error should mention out of bounds: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected error for out-of-bounds model_index"),
+        }
+    }
+
+    /// Model with a strongly negative-definite noise covariance R, so the
+    /// innovation covariance S = H·P·Hᵀ + R loses positive-definiteness and the
+    /// Cholesky-based gain solve fails.
+    struct NegativeNoiseModel;
+    impl MeasurementModel for NegativeNoiseModel {
+        fn predict(
+            &self,
+            _epoch: &Epoch,
+            state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            Ok(state.rows(0, 3).into_owned())
+        }
+        fn noise_covariance(&self) -> DMatrix<f64> {
+            DMatrix::identity(3, 3) * -1e9
+        }
+        fn measurement_dim(&self) -> usize {
+            3
+        }
+        fn name(&self) -> &str {
+            "NegativeNoise"
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_innovation_covariance_not_positive_definite_errors() {
+        // A negative-definite R drives S non-positive-definite; the Cholesky
+        // solve must surface a structured error and the filter must roll back.
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+
+        let mut ekf = create_two_body_ekf(
+            epoch,
+            state.clone(),
+            p0,
+            vec![Box::new(NegativeNoiseModel)],
+            None,
+        );
+
+        let obs = Observation::new(epoch + 60.0, state.rows(0, 3).into_owned(), 0);
+        match ekf.process_observation(&obs) {
+            Err(e) => assert!(
+                e.to_string().contains("positive-definite"),
+                "Error should mention positive-definite: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected non-positive-definite innovation covariance error"),
+        }
+
+        // The failed observation must have rolled the filter back.
+        let epoch_drift: f64 = ekf.current_epoch() - epoch;
+        assert!(
+            epoch_drift.abs() < 1e-9,
+            "Filter must be rolled back after the error, drifted {} s",
+            epoch_drift
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_propagate_to_terminal_event_rolls_back() {
+        // A terminal event that stops propagation short of the target epoch
+        // must make propagate_to error and roll the filter back to its entry
+        // epoch and state.
+        use crate::events::DTimeEvent;
+
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let mut prop = create_stm_propagator(epoch, state.clone(), Some(p0));
+        prop.add_event_detector(Box::new(
+            DTimeEvent::new(epoch + 30.0, "Terminal").set_terminal(),
+        ));
+
+        let mut ekf = ExtendedKalmanFilter::from_propagator(
+            prop,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            EKFConfig::default(),
+        )
+        .unwrap();
+
+        let entry_state = ekf.current_state();
+        match ekf.propagate_to(epoch + 60.0) {
+            Err(e) => assert!(
+                e.to_string().contains("before reaching target epoch"),
+                "Error should mention stopping early: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected error when terminal event stops propagation"),
+        }
+
+        let epoch_drift: f64 = ekf.current_epoch() - epoch;
+        assert!(
+            epoch_drift.abs() < 1e-9,
+            "Filter epoch must be unchanged after a terminal-event error, drifted {} s",
+            epoch_drift
+        );
+        assert_abs_diff_eq!(ekf.current_state(), entry_state, epsilon = 1e-9);
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_observation_applies_process_noise_both_branches() {
+        // The measurement predict step adds process noise Q to the predicted
+        // covariance for both scale_with_dt = true (Q·dt) and false (Q). The
+        // propagated covariance is identical across the three filters, so the
+        // predicted-covariance trace difference vs a no-noise twin is exactly
+        // the Q contribution.
+        setup_global_test_eop();
+        let (epoch, true_state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let obs = generate_position_observations(epoch, &true_state, 1, 60.0);
+        let dt = 60.0;
+
+        let q_diag = vec![1.0, 1.0, 1.0, 1e-4, 1e-4, 1e-4];
+        let q_matrix = DMatrix::from_diagonal(&DVector::from_vec(q_diag.clone()));
+        let q_trace: f64 = q_diag.iter().sum();
+
+        let mut ekf_none = create_two_body_ekf(
+            epoch,
+            true_state.clone(),
+            p0.clone(),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            None,
+        );
+        let trace_none = ekf_none
+            .process_observation(&obs[0])
+            .unwrap()
+            .covariance_predicted
+            .trace();
+
+        let mut ekf_scaled = create_two_body_ekf(
+            epoch,
+            true_state.clone(),
+            p0.clone(),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            Some(ProcessNoiseConfig {
+                q_matrix: q_matrix.clone(),
+                scale_with_dt: true,
+                max_noise_dt: None,
+            }),
+        );
+        let trace_scaled = ekf_scaled
+            .process_observation(&obs[0])
+            .unwrap()
+            .covariance_predicted
+            .trace();
+        assert_abs_diff_eq!(
+            trace_scaled - trace_none,
+            q_trace * dt,
+            epsilon = q_trace * dt * 1e-6
+        );
+
+        let mut ekf_fixed = create_two_body_ekf(
+            epoch,
+            true_state,
+            p0,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            Some(ProcessNoiseConfig {
+                q_matrix,
+                scale_with_dt: false,
+                max_noise_dt: None,
+            }),
+        );
+        let trace_fixed = ekf_fixed
+            .process_observation(&obs[0])
+            .unwrap()
+            .covariance_predicted
+            .trace();
+        assert_abs_diff_eq!(trace_fixed - trace_none, q_trace, epsilon = q_trace * 1e-6);
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_propagate_to_fixed_process_noise_independent_of_dt() {
+        // With scale_with_dt = false, propagate_to adds the same Q regardless of
+        // the propagation duration. The covariance trace increment over a
+        // no-noise twin equals trace(Q) for two different dt values.
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+
+        let q_diag = vec![1.0, 1.0, 1.0, 1e-4, 1e-4, 1e-4];
+        let q_matrix = DMatrix::from_diagonal(&DVector::from_vec(q_diag.clone()));
+        let q_trace: f64 = q_diag.iter().sum();
+
+        let increment_at = |target_dt: f64| -> f64 {
+            let mut with_q = create_two_body_ekf(
+                epoch,
+                state.clone(),
+                p0.clone(),
+                vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+                Some(ProcessNoiseConfig {
+                    q_matrix: q_matrix.clone(),
+                    scale_with_dt: false,
+                    max_noise_dt: None,
+                }),
+            );
+            let mut without_q = create_two_body_ekf(
+                epoch,
+                state.clone(),
+                p0.clone(),
+                vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+                None,
+            );
+            with_q.propagate_to(epoch + target_dt).unwrap();
+            without_q.propagate_to(epoch + target_dt).unwrap();
+            with_q.current_covariance().trace() - without_q.current_covariance().trace()
+        };
+
+        assert_abs_diff_eq!(increment_at(300.0), q_trace, epsilon = q_trace * 1e-6);
+        assert_abs_diff_eq!(increment_at(600.0), q_trace, epsilon = q_trace * 1e-6);
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_into_dynamics_returns_propagator() {
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let ekf = create_two_body_ekf(
+            epoch,
+            state,
+            p0,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            None,
+        );
+        let dynamics = ekf.into_dynamics();
+        assert_eq!(dynamics.current_epoch(), epoch);
+    }
+
+    // =========================================================================
+    // Sub-stepped process noise (max_noise_dt)
+    // =========================================================================
+
+    fn substep_setup() -> (Epoch, DVector<f64>, DMatrix<f64>, DMatrix<f64>) {
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let q = DMatrix::from_diagonal(&DVector::from_vec(vec![1.0, 1.0, 1.0, 1e-4, 1e-4, 1e-4]));
+        (epoch, state, p0, q)
+    }
+
+    fn substep_ekf(
+        epoch: Epoch,
+        state: DVector<f64>,
+        p0: DMatrix<f64>,
+        q: DMatrix<f64>,
+        max_noise_dt: Option<f64>,
+    ) -> ExtendedKalmanFilter {
+        create_two_body_ekf(
+            epoch,
+            state,
+            p0,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            Some(ProcessNoiseConfig {
+                q_matrix: q,
+                scale_with_dt: true,
+                max_noise_dt,
+            }),
+        )
+    }
+
+    fn assert_cov_close(a: &DMatrix<f64>, b: &DMatrix<f64>, eps: f64) {
+        for i in 0..a.nrows() {
+            for j in 0..a.ncols() {
+                assert_abs_diff_eq!(a[(i, j)], b[(i, j)], epsilon = eps);
+            }
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_substep_single_chunk_equals_none_propagate() {
+        // max_noise_dt >= interval takes the single-shot path: identical to None.
+        setup_global_test_eop();
+        let (epoch, state, p0, q) = substep_setup();
+        let dt = 300.0;
+
+        let mut f_none = substep_ekf(epoch, state.clone(), p0.clone(), q.clone(), None);
+        f_none.propagate_to(epoch + dt).unwrap();
+
+        let mut f_big = substep_ekf(epoch, state, p0, q, Some(dt * 2.0));
+        f_big.propagate_to(epoch + dt).unwrap();
+
+        assert_abs_diff_eq!(
+            f_none.current_state(),
+            f_big.current_state(),
+            epsilon = 1e-12
+        );
+        assert_cov_close(
+            f_none.current_covariance(),
+            f_big.current_covariance(),
+            1e-9,
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_substep_single_chunk_equals_none_observation() {
+        // Single-chunk equality also holds through process_observation.
+        setup_global_test_eop();
+        let (epoch, state, p0, q) = substep_setup();
+        let obs = generate_position_observations(epoch, &state, 1, 300.0);
+
+        let mut f_none = substep_ekf(epoch, state.clone(), p0.clone(), q.clone(), None);
+        f_none.process_observation(&obs[0]).unwrap();
+
+        let mut f_big = substep_ekf(epoch, state, p0, q, Some(600.0));
+        f_big.process_observation(&obs[0]).unwrap();
+
+        assert_abs_diff_eq!(
+            f_none.current_state(),
+            f_big.current_state(),
+            epsilon = 1e-9
+        );
+        assert_cov_close(
+            f_none.current_covariance(),
+            f_big.current_covariance(),
+            1e-6,
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_substep_definitional_equivalence() {
+        // One sub-stepped propagate_to(target) equals the chained sequence of
+        // single-shot propagate_to calls at cadence h over the same span.
+        setup_global_test_eop();
+        let (epoch, state, p0, q) = substep_setup();
+        let h = 60.0;
+        let span = 300.0; // exactly 5 chunks
+
+        let mut f_sub = substep_ekf(epoch, state.clone(), p0.clone(), q.clone(), Some(h));
+        f_sub.propagate_to(epoch + span).unwrap();
+
+        let mut f_chain = substep_ekf(epoch, state, p0, q, None);
+        let mut steps = 0;
+        while steps < 5 {
+            steps += 1;
+            f_chain.propagate_to(epoch + (steps as f64) * h).unwrap();
+        }
+
+        assert_abs_diff_eq!(
+            f_sub.current_state(),
+            f_chain.current_state(),
+            epsilon = 1e-6
+        );
+        assert_cov_close(
+            f_sub.current_covariance(),
+            f_chain.current_covariance(),
+            1e-3,
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_substep_shear_increases_along_track_variance() {
+        // Over a long coast arc, radial process noise injected along the
+        // trajectory (small h) shears into greater along-track variance than
+        // the same noise injected all at once at the end (single shot).
+        use crate::math::linalg::SVector6;
+        use crate::relative_motion::rotation_eci_to_rtn;
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e2, 1e2, 1e2, 1e-2, 1e-2, 1e-2]));
+        // Process noise concentrated on the radial (x) position axis.
+        let mut q = DMatrix::zeros(6, 6);
+        q[(0, 0)] = 1e2;
+        let span = 1500.0;
+
+        let mut f_single = substep_ekf(epoch, state.clone(), p0.clone(), q.clone(), None);
+        f_single.propagate_to(epoch + span).unwrap();
+
+        let mut f_sub = substep_ekf(epoch, state, p0, q, Some(60.0));
+        f_sub.propagate_to(epoch + span).unwrap();
+
+        let x = f_sub.current_state();
+        let x6 = SVector6::from_iterator(x.iter().copied());
+        let r = rotation_eci_to_rtn(x6);
+
+        let t_var = |f: &ExtendedKalmanFilter| -> f64 {
+            let p = f.current_covariance();
+            let pos = p.view((0, 0), (3, 3)).into_owned();
+            let pos3 = nalgebra::Matrix3::from_iterator(pos.iter().copied());
+            let rtn = r * pos3 * r.transpose();
+            rtn[(1, 1)] // along-track (transverse) variance
+        };
+
+        let t_single = t_var(&f_single);
+        let t_sub = t_var(&f_sub);
+        assert!(
+            t_sub > t_single,
+            "sub-stepped along-track variance ({}) should exceed single-shot ({})",
+            t_sub,
+            t_single
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_process_noise_config_validate_rejects_bad_max_noise_dt() {
+        let q = DMatrix::identity(6, 6);
+        for bad in [0.0, -1.0, f64::NAN] {
+            let pn = ProcessNoiseConfig {
+                q_matrix: q.clone(),
+                scale_with_dt: true,
+                max_noise_dt: Some(bad),
+            };
+            assert!(
+                pn.validate().is_err(),
+                "max_noise_dt = {} should be rejected",
+                bad
+            );
+        }
+        let ok = ProcessNoiseConfig {
+            q_matrix: q,
+            scale_with_dt: true,
+            max_noise_dt: Some(60.0),
+        };
+        assert!(ok.validate().is_ok());
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_construction_rejects_bad_max_noise_dt() {
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::identity(6, 6);
+        let result = ExtendedKalmanFilter::new(
+            epoch,
+            state,
+            p0,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            EKFConfig {
+                process_noise: Some(ProcessNoiseConfig {
+                    q_matrix: DMatrix::identity(6, 6),
+                    scale_with_dt: true,
+                    max_noise_dt: Some(-1.0),
+                }),
+                store_records: true,
+            },
+        );
+        assert!(result.is_err());
     }
 }

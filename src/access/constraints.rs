@@ -250,6 +250,202 @@ impl std::fmt::Display for ElevationConstraint {
     }
 }
 
+/// Azimuth window constraint
+///
+/// Constrains access based on the azimuth angle of the satellite measured
+/// clockwise from north at the ground location. The window is wrap-aware:
+/// when `min_azimuth_deg > max_azimuth_deg` the allowed window crosses north
+/// (e.g. 347° → 227°).
+#[derive(Debug, Clone)]
+pub struct AzimuthConstraint {
+    /// Minimum azimuth angle (degrees, clockwise from north)
+    pub min_azimuth_deg: f64,
+
+    /// Maximum azimuth angle (degrees, clockwise from north)
+    pub max_azimuth_deg: f64,
+
+    name: String,
+}
+
+impl AzimuthConstraint {
+    /// Create a new azimuth window constraint
+    ///
+    /// # Arguments
+    /// - `min_azimuth_deg`: Window start (degrees, clockwise from north)
+    /// - `max_azimuth_deg`: Window end (degrees, clockwise from north).
+    ///   `min > max` means the window crosses north.
+    ///
+    /// # Returns
+    /// `Ok(AzimuthConstraint)` if both bounds are finite and within [0, 360]
+    ///
+    /// # Errors
+    /// Returns an error if either bound is non-finite or outside [0, 360].
+    ///
+    /// # Example
+    /// ```
+    /// use brahe::access::AzimuthConstraint;
+    ///
+    /// // Non-wrapping window (south-east sector)
+    /// let constraint = AzimuthConstraint::new(90.0, 180.0).unwrap();
+    ///
+    /// // Wrap-around window crossing north (e.g. Cape Cod)
+    /// let constraint = AzimuthConstraint::new(347.0, 227.0).unwrap();
+    /// ```
+    pub fn new(min_azimuth_deg: f64, max_azimuth_deg: f64) -> Result<Self, BraheError> {
+        for (label, value) in [
+            ("min_azimuth_deg", min_azimuth_deg),
+            ("max_azimuth_deg", max_azimuth_deg),
+        ] {
+            if !value.is_finite() || !(0.0..=360.0).contains(&value) {
+                return Err(BraheError::Error(format!(
+                    "{} must be finite and within [0, 360] degrees, got {}",
+                    label, value
+                )));
+            }
+        }
+
+        Ok(Self {
+            min_azimuth_deg,
+            max_azimuth_deg,
+            name: format!(
+                "AzimuthConstraint({:.2}° - {:.2}°)",
+                min_azimuth_deg, max_azimuth_deg
+            ),
+        })
+    }
+}
+
+impl AccessConstraint for AzimuthConstraint {
+    fn evaluate(
+        &self,
+        _epoch: &Epoch,
+        sat_state_ecef: &Vector6<f64>,
+        location_ecef: &Vector3<f64>,
+    ) -> bool {
+        let sat_pos = sat_state_ecef.fixed_rows::<3>(0).into_owned();
+        let azimuth = compute_azimuth(&sat_pos, location_ecef);
+
+        if self.min_azimuth_deg <= self.max_azimuth_deg {
+            azimuth >= self.min_azimuth_deg && azimuth <= self.max_azimuth_deg
+        } else {
+            // Wrap-around window crossing north
+            azimuth >= self.min_azimuth_deg || azimuth <= self.max_azimuth_deg
+        }
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
+
+impl std::fmt::Display for AzimuthConstraint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name())
+    }
+}
+
+/// Slant-range constraint
+///
+/// Constrains access based on the slant range (straight-line distance)
+/// between the satellite and the ground location.
+///
+/// Either or both bounds can be omitted by using `None`.
+#[derive(Debug, Clone)]
+pub struct RangeConstraint {
+    /// Minimum slant range (meters), if specified
+    pub min_range_m: Option<f64>,
+
+    /// Maximum slant range (meters), if specified
+    pub max_range_m: Option<f64>,
+
+    name: String,
+}
+
+impl RangeConstraint {
+    /// Create a new slant-range constraint
+    ///
+    /// # Arguments
+    /// - `min_range_m`: Minimum slant range (meters, >= 0), or None for no minimum
+    /// - `max_range_m`: Maximum slant range (meters, >= 0), or None for no maximum
+    ///
+    /// # Returns
+    /// `Ok(RangeConstraint)` if at least one bound is specified and all values
+    /// are non-negative and finite
+    ///
+    /// # Errors
+    /// - Returns an error if both bounds are None (unbounded constraint is meaningless)
+    /// - Returns an error if any bound is non-finite or negative
+    ///
+    /// # Example
+    /// ```
+    /// use brahe::access::RangeConstraint;
+    ///
+    /// // Maximum-range radar cap
+    /// let constraint = RangeConstraint::new(None, Some(5_000_000.0)).unwrap();
+    ///
+    /// // Both None returns error
+    /// assert!(RangeConstraint::new(None, None).is_err());
+    /// ```
+    pub fn new(min_range_m: Option<f64>, max_range_m: Option<f64>) -> Result<Self, BraheError> {
+        if min_range_m.is_none() && max_range_m.is_none() {
+            return Err(BraheError::Error(
+                "At least one bound (min or max) must be specified for RangeConstraint".to_string(),
+            ));
+        }
+
+        for (label, bound) in [("min_range_m", min_range_m), ("max_range_m", max_range_m)] {
+            if let Some(value) = bound
+                && (!value.is_finite() || value < 0.0)
+            {
+                return Err(BraheError::Error(format!(
+                    "{} must be finite and non-negative, got {}",
+                    label, value
+                )));
+            }
+        }
+
+        let name = match (min_range_m, max_range_m) {
+            (Some(min), Some(max)) => format!("RangeConstraint({:.1} m - {:.1} m)", min, max),
+            (Some(min), None) => format!("RangeConstraint(>= {:.1} m)", min),
+            (None, Some(max)) => format!("RangeConstraint(<= {:.1} m)", max),
+            (None, None) => unreachable!(),
+        };
+
+        Ok(Self {
+            min_range_m,
+            max_range_m,
+            name,
+        })
+    }
+}
+
+impl AccessConstraint for RangeConstraint {
+    fn evaluate(
+        &self,
+        _epoch: &Epoch,
+        sat_state_ecef: &Vector6<f64>,
+        location_ecef: &Vector3<f64>,
+    ) -> bool {
+        let sat_pos = sat_state_ecef.fixed_rows::<3>(0).into_owned();
+        let range = (sat_pos - location_ecef).norm();
+
+        let min_satisfied = self.min_range_m.is_none_or(|min| range >= min);
+        let max_satisfied = self.max_range_m.is_none_or(|max| range <= max);
+
+        min_satisfied && max_satisfied
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
+
+impl std::fmt::Display for RangeConstraint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name())
+    }
+}
+
 impl ElevationMaskConstraint {
     /// Create a new elevation mask constraint
     ///
@@ -2285,5 +2481,89 @@ mod tests {
 
         // Test name() method
         assert_eq!(wrapper.name(), "TestConstraintComputer");
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_azimuth_constraint_window() {
+        let location = Vector3::new(0.0, 0.0, 0.0);
+        let location_ecef = position_geodetic_to_ecef(location, AngleFormat::Degrees).unwrap();
+        let sat_pos = compute_sat_position_from_azel(0.0, 0.0, 0.0, 100.0, 30.0, 1000e3);
+        let sat_state = Vector6::new(sat_pos.x, sat_pos.y, sat_pos.z, 0.0, 0.0, 0.0);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Non-wrapping window containing 100°
+        let c = AzimuthConstraint::new(90.0, 180.0).unwrap();
+        assert!(c.evaluate(&epoch, &sat_state, &location_ecef));
+        // Non-wrapping window excluding 100°
+        let c = AzimuthConstraint::new(180.0, 270.0).unwrap();
+        assert!(!c.evaluate(&epoch, &sat_state, &location_ecef));
+        // Wrap-around window crossing north excludes 100°
+        let c = AzimuthConstraint::new(350.0, 50.0).unwrap();
+        assert!(!c.evaluate(&epoch, &sat_state, &location_ecef));
+
+        // Validation and naming
+        assert!(AzimuthConstraint::new(-1.0, 10.0).is_err());
+        assert!(AzimuthConstraint::new(0.0, 361.0).is_err());
+        assert_eq!(
+            AzimuthConstraint::new(90.0, 180.0).unwrap().name(),
+            "AzimuthConstraint(90.00° - 180.00°)"
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_range_constraint_bounds() {
+        let location = Vector3::new(0.0, 0.0, 0.0);
+        let location_ecef = position_geodetic_to_ecef(location, AngleFormat::Degrees).unwrap();
+        let sat_pos = compute_sat_position_from_azel(0.0, 0.0, 0.0, 100.0, 30.0, 1000e3);
+        let sat_state = Vector6::new(sat_pos.x, sat_pos.y, sat_pos.z, 0.0, 0.0, 0.0);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Within max cap (slant range ~1000 km)
+        assert!(RangeConstraint::new(None, Some(2_000e3)).unwrap().evaluate(
+            &epoch,
+            &sat_state,
+            &location_ecef
+        ));
+        // Beyond max cap
+        assert!(!RangeConstraint::new(None, Some(500e3)).unwrap().evaluate(
+            &epoch,
+            &sat_state,
+            &location_ecef
+        ));
+        // Above min
+        assert!(RangeConstraint::new(Some(500e3), None).unwrap().evaluate(
+            &epoch,
+            &sat_state,
+            &location_ecef
+        ));
+        // Below min
+        assert!(
+            !RangeConstraint::new(Some(2_000e3), None).unwrap().evaluate(
+                &epoch,
+                &sat_state,
+                &location_ecef
+            )
+        );
+
+        // Validation
+        assert!(RangeConstraint::new(None, None).is_err());
+        assert!(RangeConstraint::new(Some(-1.0), None).is_err());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_azimuth_range_constraint_name_and_display() {
+        let az = AzimuthConstraint::new(90.0, 180.0).unwrap();
+        assert_eq!(format!("{}", az), az.name());
+
+        let both = RangeConstraint::new(Some(500e3), Some(2_000e3)).unwrap();
+        assert_eq!(both.name(), "RangeConstraint(500000.0 m - 2000000.0 m)");
+        assert_eq!(format!("{}", both), both.name());
+        let min_only = RangeConstraint::new(Some(500e3), None).unwrap();
+        assert_eq!(min_only.name(), "RangeConstraint(>= 500000.0 m)");
+        let max_only = RangeConstraint::new(None, Some(2_000e3)).unwrap();
+        assert_eq!(max_only.name(), "RangeConstraint(<= 2000000.0 m)");
     }
 }

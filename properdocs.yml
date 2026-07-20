@@ -291,9 +291,10 @@ nav:
           - learn/datasets/index.md
           - NAIF: learn/datasets/naif.md
           - Groundstations: learn/datasets/groundstations.md
+          - SSN Sensors: learn/datasets/ssn_sensors.md
           - GCAT: learn/datasets/gcat.md
           - Star Catalogs: learn/datasets/star_catalogs.md
-          - ICGEM: learn/datasets/icgem.md
+          - ICGEM (Gravity Models): learn/datasets/icgem.md
       - CCSDS:
           - learn/ccsds/index.md
           - OEM - Orbit Ephemeris Message: learn/ccsds/oem.md
@@ -336,7 +337,6 @@ nav:
   - Examples:
       - examples/index.md
       - examples/visualizing_gps.md
-      - examples/visualizing_starlink.md
       - examples/ground_contacts.md
       - examples/oem_access_prediction.md
       - examples/doppler_compensation.md
@@ -351,6 +351,7 @@ nav:
       - examples/earth_moon_free_return.md
       - examples/mro_mars_orbit.md
       - examples/dawn_ceres_orbit.md
+      - examples/ssn_tracking.md
       - examples/star_field_simulation.md
   - Python API Reference:
       - library_api/index.md
@@ -467,6 +468,7 @@ nav:
           - Batch Least Squares: library_api/estimation/batch_least_squares.md
           - Batch Least Squares Builder: library_api/estimation/batch_least_squares_builder.md
           - Measurement Models: library_api/estimation/measurement_models.md
+          - Sensor Models: library_api/estimation/sensor_models.md
       - SPICE Kernels: library_api/spice/index.md
       - Ephemeris Data Sources:
           - library_api/ephemeris/index.md
@@ -489,6 +491,7 @@ nav:
       - Datasets:
           - library_api/datasets/index.md
           - Groundstations: library_api/datasets/groundstations.md
+          - SSN Sensors: library_api/datasets/ssn_sensors.md
           - NAIF: library_api/datasets/naif.md
           - GCAT: library_api/datasets/gcat.md
           - Star Catalogs: library_api/datasets/star_catalogs.md

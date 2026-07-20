@@ -2837,7 +2837,7 @@ mod tests {
 
     use crate::constants::{GM_EARTH, R_EARTH};
     use crate::traits::DStatePropagator;
-    use crate::utils::testing::setup_global_test_eop;
+    use crate::utils::testing::{CacheRedirect, setup_global_test_eop};
     use crate::{
         AngleFormat, CentralBody, DNumericalOrbitPropagator, EOPExtrapolation, Epoch,
         FileEOPProvider, FileSpaceWeatherProvider, ForceModelConfig, FrameTransformationModel,
@@ -3929,10 +3929,7 @@ mod tests {
     fn test_gravity_model_type_icgem_variant_loads_jgm3() {
         use crate::datasets::icgem::ICGEMBody;
 
-        let dir = tempfile::tempdir().unwrap();
-        unsafe {
-            std::env::set_var("BRAHE_CACHE", dir.path());
-        }
+        let _cache = CacheRedirect::new();
 
         // Seed the icgem cache with a manually-placed gfc file so no network
         // fetch is required.
@@ -3966,10 +3963,6 @@ mod tests {
         };
         let model = GravityModel::from_model_type(&mt).unwrap();
         assert_eq!(model.n_max, 70);
-
-        unsafe {
-            std::env::remove_var("BRAHE_CACHE");
-        }
     }
 
     #[test]
@@ -3987,10 +3980,7 @@ mod tests {
         let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
         set_global_eop_provider(eop);
 
-        let dir = tempfile::tempdir().unwrap();
-        unsafe {
-            std::env::set_var("BRAHE_CACHE", dir.path());
-        }
+        let _cache = CacheRedirect::new();
 
         // Seed the ICGEM cache with JGM3 so no network fetch is required.
         let cache_dir =
@@ -4083,10 +4073,6 @@ mod tests {
         let dz = final_state[2] - dstate[2];
         let drift = (dx * dx + dy * dy + dz * dz).sqrt();
         assert!(drift > 100e3, "state barely moved: drift = {} m", drift);
-
-        unsafe {
-            std::env::remove_var("BRAHE_CACHE");
-        }
     }
 
     #[test]

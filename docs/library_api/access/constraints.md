@@ -28,6 +28,14 @@ Constraints define criteria that must be satisfied for satellite access.
 
 ::: brahe.AscDscConstraint
 
+### AzimuthConstraint
+
+::: brahe.AzimuthConstraint
+
+### RangeConstraint
+
+::: brahe.RangeConstraint
+
 ## Logical Composition
 
 ### ConstraintAll

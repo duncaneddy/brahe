@@ -2,8 +2,6 @@
 
 In this example we'll show how to visualize the orbits of GPS satellites using Brahe. We'll download the latest TLE data for the GPS constellation from CelesTrak, propagate each satellite for one orbit, and create an interactive 3D plot showing their trajectories around Earth.
 
-This example is similar to the [Downloading & Visualizing TLE Data For Starlink Satellites](visualizing_starlink.md) example, but adds propagation for one full orbit before visualization.
-
 ---
 
 ## Initialize Earth Orientation Parameters
@@ -37,6 +35,20 @@ The line
 computes the or orbital period of the satellite by converting the semi-major axis associated with the `SGP4Propagator` into an orbital period using Brahe's `orbital_period` function.
 
 It then propagates the satellite to one full orbit past its epoch using the `propagate_to` method to ensure that the trajectory contains position data for one complete orbit.
+
+!!! note "to_sgp_propagator builds a propagator without TLE round-tripping"
+    [`GPRecord.to_sgp_propagator`](../learn/ephemeris/celestrak.md)
+    ([API](../library_api/ephemeris/shared_types.md#brahe.GPRecord.to_sgp_propagator))
+    constructs an [`SGPPropagator`](../library_api/propagators/sgp_propagator.md)
+    directly from the record's OMM orbital elements rather than serializing
+    them through fixed-width TLE text first, so no numeric precision is lost
+    to the TLE format. Its argument is the propagator step size in seconds
+    (60 s here), which sets the spacing of the recorded trajectory states -
+    the markers the 3D plot below draws. Each propagator is initialized at
+    its own record's epoch, and GP epochs differ across a constellation, so
+    "one orbital period past `prop.epoch`" is a slightly different absolute
+    time span for every satellite. Propagate all satellites to a shared epoch
+    first for any analysis that compares the constellation at one instant.
 
 ## Visualize in 3D
 

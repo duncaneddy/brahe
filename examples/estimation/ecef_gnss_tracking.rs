@@ -31,7 +31,7 @@ fn main() {
     ]));
 
     // ECEF position model with typical GNSS accuracy (5 m noise)
-    let ecef_model = bh::estimation::EcefPositionMeasurementModel::new(5.0);
+    let ecef_model = bh::estimation::ECEFPositionMeasurementModel::new(5.0);
     let models: Vec<Box<dyn bh::estimation::MeasurementModel>> = vec![
         Box::new(ecef_model),
     ];
@@ -71,7 +71,7 @@ fn main() {
     let pos_error = (final_state.rows(0, 3) - truth_final.rows(0, 3)).norm();
     let vel_error = (final_state.rows(3, 3) - truth_final.rows(3, 3)).norm();
 
-    println!("ECEF GNSS tracking with EcefPositionMeasurementModel:");
+    println!("ECEF GNSS tracking with ECEFPositionMeasurementModel:");
     println!("  Initial position error: 1000.0 m");
     println!("  Final position error:   {:.2} m", pos_error);
     println!("  Final velocity error:   {:.4} m/s", vel_error);

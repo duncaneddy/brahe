@@ -79,6 +79,22 @@ One way to implement the impulsive burns is by propagating to the burn times, ex
 
 The callbacks apply delta-v in the prograde direction (along the velocity vector) to raise the orbit. Returning `EventAction.CONTINUE` tells the propagator to proceed with the modified state.
 
+!!! note "TimeEvent callbacks can rewrite the propagated state"
+    [`TimeEvent`](../learn/orbit_propagation/numerical_propagation/event_callbacks.md)
+    ([API](../library_api/events/detectors.md#brahe.TimeEvent)) fires when the
+    propagator reaches a fixed epoch, rather than when some state quantity
+    crosses a threshold, making it the right detector for scheduled maneuvers.
+    Attaching a callback with `with_callback` lets the event act on the
+    propagation itself: the callback receives the event epoch and state and
+    returns a replacement state plus an
+    [`EventAction`](../library_api/events/enums.md#brahe.EventAction) -
+    `CONTINUE` to keep integrating from the new state, `STOP` to halt there.
+    Replacing the state mid-propagation is how an impulsive delta-v is
+    injected without splitting the mission into separate propagator arcs. The
+    returned vector must be the full state in the propagator's inertial
+    frame; returning the state unchanged turns the event into a pure logging
+    hook.
+
 ### Single Propagator with Events
 
 We use a single propagator with `TimeEvent` detectors to trigger the burns at the appropriate times. This is cleaner than multi-stage propagation for simple maneuver sequences:

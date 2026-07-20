@@ -66,10 +66,11 @@ jobs:
       # test_assets/de440s.bsp always wins over a stale cached copy; only
       # moon_pa_de440/mar099s (not provided as test assets) are served from
       # this cache, which is why it can't sit with the other cache steps.
-      # Fixed key: actions/cache never re-saves after the first hit, so bump
-      # to naif-kernels-v2 when the examples' kernel set changes.
-      - name: Cache NAIF kernels
-        uses: actions/cache@v6.1.0
+      # Restore-only: the matching save below runs on main only. Bump to
+      # naif-kernels-v2 when the examples' kernel set changes.
+      - name: Restore NAIF kernels cache
+        id: naif-cache
+        uses: actions/cache/restore@v6.1.0
         with:
           path: ~/.cache/brahe/naif
           key: naif-kernels-v1
@@ -97,8 +98,10 @@ jobs:
       # the warm-up step; GitHub evicts caches by last access, so each restore
       # (a hit) resets the 7-day eviction window and keeps the shared main-branch
       # caches alive. A miss re-populates them via the warm-up step's post-save.
-      - name: Cache 3D body textures (Natural Earth + Solar System Scope planets)
-        uses: actions/cache@v6.1.0
+      # Restore-only: the matching save below runs on main only.
+      - name: Restore 3D body textures cache (Natural Earth + Solar System Scope planets)
+        id: textures-cache
+        uses: actions/cache/restore@v6.1.0
         with:
           path: ~/.cache/brahe/textures
           key: brahe-3d-textures-v2
@@ -115,11 +118,75 @@ jobs:
           path: ~/.local/share/cartopy
           key: cartopy-natural-earth-v1
 
+      # FK5 + Hipparcos only (the catalogs the star_field_simulation example
+      # reads). Explicit file paths — never the whole star_catalogs/ dir — so
+      # the 526 MB Tycho-2 catalog is never persisted here. Restore-only; the
+      # matching save below runs on main only. Key kept in sync with the
+      # "Cache star catalog downloads" step in integration_tests.yml.
+      - name: Restore star catalog downloads
+        id: star-catalogs-cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: |
+            ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
+            ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
+          key: star-catalogs-v1
+
+      # ICGEM gravity models for the lro (GRGM660PRIM) and mro (ggm2bc80)
+      # examples' default lunar/mars force models. Without this the examples
+      # download from icgem.gfz.de live on every run. Restore-only; the
+      # matching save below runs on main only. Bump to brahe-icgem-v2 when the
+      # examples' ICGEM model set changes (keep in sync with the icgem: entries
+      # in .github/brahe-data-manifest.txt).
+      - name: Restore ICGEM gravity models cache
+        id: icgem-cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: ~/.cache/brahe/icgem
+          key: brahe-icgem-v1
+
       # Serial, retrying download of all plot/example network resources. On a
       # cache hit this is an instant no-op; on a miss it warms the caches once so
       # the parallel pools below never hit the network.
       - name: Pre-download plot/example resources
         run: just download-resources
+
+      # Save from main only, immediately after the warm-up populates the
+      # directories. A PR-scoped save of these fixed keys is worse than
+      # useless: it is unreadable from main and from other PRs, yet it blocks
+      # every later same-key save repo-wide ("Unable to reserve cache ...").
+      # That is exactly how naif-kernels-v1 ended up stranded on a merged
+      # PR's ref while every other run silently fell back to live NAIF
+      # downloads - a hard failure whenever naif.jpl.nasa.gov blips.
+      - name: Save NAIF kernels cache (main only)
+        if: ${{ github.ref == 'refs/heads/main' && steps.naif-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: ~/.cache/brahe/naif
+          key: naif-kernels-v1
+
+      - name: Save 3D body textures cache (main only)
+        if: ${{ github.ref == 'refs/heads/main' && steps.textures-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: ~/.cache/brahe/textures
+          key: brahe-3d-textures-v2
+
+      - name: Save star catalog downloads (main only)
+        if: ${{ github.ref == 'refs/heads/main' && steps.star-catalogs-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: |
+            ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
+            ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
+          key: star-catalogs-v1
+
+      - name: Save ICGEM gravity models cache (main only)
+        if: ${{ github.ref == 'refs/heads/main' && steps.icgem-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: ~/.cache/brahe/icgem
+          key: brahe-icgem-v1
 
       - name: Test examples
         if: ${{ !inputs.use_retry }}
@@ -135,6 +202,19 @@ jobs:
           max_attempts: 3
           retry_wait_seconds: 60
           command: just test-examples ${{ inputs.example_args }}
+
+      # The --network run is the only place NETWORK-flagged examples execute,
+      # so it is the only producer of their doc figures. Persist docs/figures
+      # to the actions cache so the docs deploys (update_docs.yml,
+      # docs_only.yml), whose own --ci-only example runs skip these examples,
+      # can restore and overlay them. The per-run key is unique; consumers use
+      # restore-keys prefix matching, which returns the most recent entry.
+      - name: Save network example figures to cache
+        if: ${{ inputs.use_retry }}
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: docs/figures/
+          key: network-example-figures-${{ github.run_id }}
 
       - name: Generate documentation plots
         if: ${{ !inputs.use_retry }}

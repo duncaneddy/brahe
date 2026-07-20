@@ -324,12 +324,20 @@ pub struct NumericalPropagationConfig {
     /// Higher-order methods (Lagrange, Hermite) provide better accuracy but
     /// may require more stored points or acceleration data.
     ///
+    /// `None` (the default) means "let the propagator choose": orbit
+    /// propagators resolve a 6D state to [`InterpolationMethod::HermiteCubic`]
+    /// (orbit states carry velocity, so cubic Hermite is exact to second
+    /// order) and any non-6D / extended state to
+    /// [`InterpolationMethod::Linear`]; the generic propagator resolves to
+    /// [`InterpolationMethod::Linear`] (its states may not be
+    /// position/velocity). `Some(method)` pins the method explicitly.
+    ///
     /// **Note**: Hermite interpolation methods (`HermiteCubic`, `HermiteQuintic`)
     /// require 6D state vectors with position/velocity structure `[x, y, z, vx, vy, vz]`.
     /// For non-6D systems, use `Linear` or `Lagrange` interpolation.
     ///
-    /// Default: `InterpolationMethod::Linear`
-    pub interpolation_method: InterpolationMethod,
+    /// Default: `None` (propagator-chosen)
+    pub interpolation_method: Option<InterpolationMethod>,
 }
 
 impl Default for NumericalPropagationConfig {
@@ -340,14 +348,14 @@ impl Default for NumericalPropagationConfig {
     /// - Default tolerances (abs=1e-6, rel=1e-3)
     /// - No variational matrix propagation (central differences when enabled)
     /// - Acceleration storage disabled
-    /// - Linear interpolation (safe for any state dimension)
+    /// - Propagator-chosen interpolation (`None`)
     fn default() -> Self {
         Self {
             method: IntegratorMethod::default(),
             integrator: IntegratorConfig::default(),
             variational: VariationalConfig::default(),
             store_accelerations: false,
-            interpolation_method: InterpolationMethod::Linear,
+            interpolation_method: None,
         }
     }
 }
@@ -421,7 +429,7 @@ impl NumericalPropagationConfig {
     /// - Tight tolerances (abs=1e-10, rel=1e-8)
     /// - No variational matrix propagation (central differences when enabled)
     /// - Acceleration storage enabled
-    /// - Linear interpolation (safe for any state dimension)
+    /// - Propagator-chosen interpolation (`None`)
     ///
     /// # Example
     ///
@@ -436,7 +444,7 @@ impl NumericalPropagationConfig {
             integrator: IntegratorConfig::adaptive(1e-10, 1e-8),
             variational: VariationalConfig::default(),
             store_accelerations: true,
-            interpolation_method: InterpolationMethod::Linear,
+            interpolation_method: None,
         }
     }
 
@@ -460,7 +468,7 @@ impl NumericalPropagationConfig {
     /// # Returns
     /// Self for method chaining
     pub fn with_interpolation_method(mut self, method: InterpolationMethod) -> Self {
-        self.interpolation_method = method;
+        self.interpolation_method = Some(method);
         self
     }
 
@@ -481,7 +489,7 @@ impl NumericalPropagationConfig {
     pub fn validate(&self) -> Result<(), BraheError> {
         if matches!(
             self.interpolation_method,
-            InterpolationMethod::HermiteQuintic
+            Some(InterpolationMethod::HermiteQuintic)
         ) && !self.store_accelerations
         {
             return Err(BraheError::PropagatorError(
@@ -623,7 +631,7 @@ mod tests {
         assert!(!config.variational.enable_sensitivity);
         // New fields should have defaults
         assert!(!config.store_accelerations);
-        assert_eq!(config.interpolation_method, InterpolationMethod::Linear);
+        assert_eq!(config.interpolation_method, None);
     }
 
     #[test]
@@ -632,8 +640,8 @@ mod tests {
 
         // Acceleration storage should be disabled by default
         assert!(!config.store_accelerations);
-        // Default interpolation is Linear (safe for any state dimension)
-        assert_eq!(config.interpolation_method, InterpolationMethod::Linear);
+        // Default interpolation is unset (propagator-chosen)
+        assert_eq!(config.interpolation_method, None);
     }
 
     #[test]
@@ -651,21 +659,21 @@ mod tests {
             .with_interpolation_method(InterpolationMethod::Lagrange { degree: 5 });
         assert_eq!(
             config.interpolation_method,
-            InterpolationMethod::Lagrange { degree: 5 }
+            Some(InterpolationMethod::Lagrange { degree: 5 })
         );
 
         let config = NumericalPropagationConfig::default()
             .with_interpolation_method(InterpolationMethod::HermiteCubic);
         assert_eq!(
             config.interpolation_method,
-            InterpolationMethod::HermiteCubic
+            Some(InterpolationMethod::HermiteCubic)
         );
 
         let config = NumericalPropagationConfig::default()
             .with_interpolation_method(InterpolationMethod::HermiteQuintic);
         assert_eq!(
             config.interpolation_method,
-            InterpolationMethod::HermiteQuintic
+            Some(InterpolationMethod::HermiteQuintic)
         );
     }
 
@@ -678,7 +686,7 @@ mod tests {
         assert!(!config.store_accelerations);
         assert_eq!(
             config.interpolation_method,
-            InterpolationMethod::Lagrange { degree: 7 }
+            Some(InterpolationMethod::Lagrange { degree: 7 })
         );
     }
 
@@ -688,8 +696,8 @@ mod tests {
 
         // High precision should also have defaults for new fields
         assert!(config.store_accelerations);
-        // Default interpolation is Linear (safe for any state dimension)
-        assert_eq!(config.interpolation_method, InterpolationMethod::Linear);
+        // Default interpolation is unset (propagator-chosen)
+        assert_eq!(config.interpolation_method, None);
     }
 
     #[test]

@@ -27,9 +27,13 @@
  * - [`InertialStateMeasurementModel`]: 6D inertial state
  *
  * **GNSS (ECEF) frame** — receiver outputs with ECI→ECEF conversion:
- * - [`EcefPositionMeasurementModel`]: 3D ECEF position (meters)
- * - [`EcefVelocityMeasurementModel`]: 3D ECEF velocity (m/s)
- * - [`EcefStateMeasurementModel`]: 6D ECEF state
+ * - [`ECEFPositionMeasurementModel`]: 3D ECEF position (meters)
+ * - [`ECEFVelocityMeasurementModel`]: 3D ECEF velocity (m/s)
+ * - [`ECEFStateMeasurementModel`]: 6D ECEF state
+ *
+ * **Topocentric (ENZ) frame** — ground-sensor observations:
+ * - [`AzElRangeMeasurementModel`]: Azimuth/elevation/range for radar sensors
+ * - [`AzElMeasurementModel`]: Angles-only azimuth/elevation for optical sensors
  *
  * Custom models can be defined by implementing the [`MeasurementModel`] trait
  * in Rust or by subclassing `MeasurementModel` in Python.
@@ -40,6 +44,7 @@ mod config;
 mod dynamics_source;
 mod ekf;
 mod measurement;
+mod sensors;
 mod traits;
 mod types;
 mod ukf;
@@ -51,10 +56,11 @@ pub use config::{
 pub use dynamics_source::DynamicsSource;
 pub use ekf::{ExtendedKalmanFilter, ExtendedKalmanFilterBuilder};
 pub use measurement::{
-    EcefPositionMeasurementModel, EcefStateMeasurementModel, EcefVelocityMeasurementModel,
-    InertialPositionMeasurementModel, InertialStateMeasurementModel,
-    InertialVelocityMeasurementModel,
+    AzElMeasurementModel, AzElRangeMeasurementModel, ECEFPositionMeasurementModel,
+    ECEFStateMeasurementModel, ECEFVelocityMeasurementModel, InertialPositionMeasurementModel,
+    InertialStateMeasurementModel, InertialVelocityMeasurementModel,
 };
+pub use sensors::{SensorType, SimpleSSNSensor};
 pub use traits::MeasurementModel;
 pub use traits::measurement_jacobian_numerical;
 pub use types::{BLSIterationRecord, BLSObservationResidual, FilterRecord, Observation};

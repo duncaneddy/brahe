@@ -55,6 +55,23 @@ This creates a composite constraint that requires **all three conditions** to be
 - `LookDirectionConstraint`: Requires right-looking geometry
 - `OffNadirConstraint`: Limits imaging angle to 35-45° off-nadir
 
+!!! note "ConstraintAll composes constraints with AND semantics"
+    [`ConstraintAll`](../learn/access_computation/constraints.md)
+    ([API](../library_api/access/constraints.md#brahe.ConstraintAll)) wraps a
+    list of constraints and is satisfied only at instants where every child
+    holds simultaneously;
+    [`ConstraintAny`](../library_api/access/constraints.md#brahe.ConstraintAny)
+    is the OR counterpart and
+    [`ConstraintNot`](../library_api/access/constraints.md#brahe.ConstraintNot)
+    inverts a condition, and composites nest, so complex imaging rules build
+    from the same few primitives. Because the composite is evaluated
+    instant-by-instant during the window search, adding a child does not just
+    filter the windows a looser constraint would find - it reshapes them.
+    A window is trimmed to the sub-interval where all conditions hold at
+    once, and may split into several windows or vanish entirely, which is why
+    relaxing any one member changes which opportunities are reported rather
+    than merely how many.
+
 ## Compute Collection Opportunities
 
 Now we'll compute all imaging opportunities between the constellation and San Francisco over a 7-day period:

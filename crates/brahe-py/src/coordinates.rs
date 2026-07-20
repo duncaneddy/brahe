@@ -1007,24 +1007,27 @@ fn py_position_azel_to_radec<'py>(
 #[pyo3(text_signature = "(ra, dec, pm_ra, pm_dec, parallax, radial_velocity, epoch_from, epoch_to, angle_format)")]
 #[pyo3(name = "apply_proper_motion")]
 #[pyo3(signature = (ra, dec, pm_ra, pm_dec, parallax, radial_velocity, epoch_from, epoch_to, angle_format))]
-/// Propagate a star's catalog position from one epoch to another using the
-/// rigorous (direction-only) proper-motion transformation.
+/// Propagate a star's catalog position from one epoch to another using IAU
+/// SOFA's `iauPmsafe` space-motion transformation.
 ///
-/// The star's unit direction vector is advanced linearly in the tangent plane
-/// by its proper motion, scaled by a first-order perspective-acceleration
-/// correction that accounts for the change in the star's angular rate as its
-/// line-of-sight distance changes (significant for high radial-velocity,
-/// high-parallax stars such as Barnard's Star), and then renormalized.
+/// `iauPmsafe` reconstructs the star's full barycentric position/velocity
+/// state from the catalog `(ra, dec)`, proper motion, parallax, and radial
+/// velocity; advances it assuming straight-line motion at constant velocity
+/// (including a light-time correction and the special-relativistic Doppler
+/// treatment of Stumpff, 1985); and reduces the result back to catalog
+/// `(ra, dec)` at `epoch_to`. To first order this is the rigorous
+/// direction-only epoch transformation of ESA SP-1200 (Vol. 1, §1.5.5): a
+/// tangential proper-motion displacement plus a radial "perspective
+/// acceleration" term that is significant for high radial-velocity,
+/// high-parallax stars such as Barnard's Star.
 ///
 /// `pm_ra` follows the standard catalog convention: it is
 /// mu_alpha* = mu_alpha * cos(dec), not the raw coordinate rate mu_alpha. This
 /// matches the `pmra`/`pmdec` columns of Hipparcos, Gaia, and most other star
-/// catalogs. If `parallax` or `radial_velocity` is `None`, the
-/// perspective-acceleration term is omitted (equivalent to setting it to
-/// zero), reducing to a purely linear proper-motion propagation.
-///
-/// This function implements the direction part of the transformation only;
-/// it does not apply light-time or Doppler (radial-velocity-rate) corrections.
+/// catalogs. If `parallax` or `radial_velocity` is `None` it is treated as
+/// zero; `iauPmsafe` additionally applies a proper-motion-scaled
+/// minimum-parallax guard so a star with a missing or tiny parallax still
+/// propagates correctly rather than being clamped to a no-op.
 ///
 /// Args:
 ///     ra (float): Right ascension at `epoch_from`. Units: (radians or degrees)

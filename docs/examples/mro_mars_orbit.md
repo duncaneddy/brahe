@@ -77,6 +77,16 @@ frame:
 --8<-- "./examples/examples/mro_mars_orbit.py:propagation"
 ```
 
+!!! note "state_bci vs. state_eci for Mars orbits"
+    A Mars-centered propagator's [`state_bci`](../learn/orbit_propagation/numerical_propagation/cislunar_lunar_propagation.md)
+    returns the state in the Mars body-centered inertial frame (MCI), while
+    [`state_eci`](../library_api/propagators/numerical_orbit_propagator.md#brahe.NumericalOrbitPropagator.state_eci)
+    always returns an Earth-centered state - for a Mars-centered propagator it
+    adds Mars's Earth-relative position, reporting distances near the
+    Earth-Mars range rather than above the Martian surface. Use
+    [`state_bci`](../library_api/propagators/numerical_orbit_propagator.md#brahe.NumericalOrbitPropagator.state_bci)
+    whenever you need the distance from the body being orbited.
+
 ## Element Evolution
 
 Sampling the trajectory over the 2-day propagation and converting each

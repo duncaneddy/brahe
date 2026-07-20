@@ -69,6 +69,23 @@ The `NumericalOrbitPropagator` accepts two functions for extended state modeling
 
 The control input computes thrust acceleration using the current mass from the extended state, applying it in the prograde (velocity) direction. The additional dynamics function returns the negative mass flow rate to model propellant consumption.
 
+!!! note "additional_dynamics and control_input extend the integrated state"
+    [`NumericalOrbitPropagator`](../library_api/propagators/numerical_orbit_propagator.md)
+    integrates whatever state vector it is seeded with: start it with the
+    7-element `[x, y, z, vx, vy, vz, m]` state and the
+    [`additional_dynamics`](../learn/orbit_propagation/numerical_propagation/extending_state.md)
+    callback supplies derivatives for the elements beyond the orbital six,
+    while `control_input` adds commanded accelerations on top of the force
+    model. Both receive `(t, state, params)` and must return a vector sized
+    to the full state, which the propagator adds to the force-model
+    derivative: `additional_dynamics` puts the mass flow rate in index 6 and
+    zeros in the first six slots, and `control_input` writes accelerations
+    into the velocity slots (indices 3-5). Because the extra elements ride in
+    the integrated state, the control law can read the current mass from
+    `state[6]` at every internal integrator step. A nonzero value left in an
+    unintended slot is silently added to the dynamics, so zero-fill the
+    returned vector before setting the entries you mean to use.
+
 ## Propagation
 
 We create two propagators - one for each power configuration - and propagate for 24 hours of continuous thrusting:

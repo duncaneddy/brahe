@@ -863,20 +863,10 @@ mod tests {
     #[cfg_attr(not(feature = "integration"), ignore)]
     fn test_fes2004_download() {
         // Network-gated: clean cache, real download, file is complete.
-        let dir = tempfile::tempdir().unwrap();
-        let prev = std::env::var("BRAHE_CACHE").ok();
-        unsafe {
-            std::env::set_var("BRAHE_CACHE", dir.path());
-        }
+        let _cache = crate::utils::testing::CacheRedirect::new();
         let path = fes2004_coefficients_path().unwrap();
         let len = std::fs::metadata(&path).unwrap().len();
         assert!(len > 3_500_000, "downloaded file too small: {len}");
-        unsafe {
-            match prev {
-                Some(v) => std::env::set_var("BRAHE_CACHE", v),
-                None => std::env::remove_var("BRAHE_CACHE"),
-            }
-        }
     }
 
     #[test]
@@ -937,8 +927,8 @@ mod tests {
     fn test_new_rejects_and_removes_truncated_cache() {
         // A pre-existing cache file missing main constituents must be rejected
         // and deleted so the next call re-downloads.
-        let dir = tempfile::tempdir().unwrap();
-        let tides = dir.path().join("tides");
+        let cache = crate::utils::testing::CacheRedirect::new();
+        let tides = cache.cache_path().join("tides");
         std::fs::create_dir_all(&tides).unwrap();
         let cached = tides.join("fes2004_Cnm-Snm.dat");
         let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -949,19 +939,9 @@ mod tests {
         let truncated: String = content.lines().take(400).collect::<Vec<_>>().join("\n");
         std::fs::write(&cached, &truncated).unwrap();
 
-        let prev = std::env::var("BRAHE_CACHE").ok();
-        unsafe {
-            std::env::set_var("BRAHE_CACHE", dir.path());
-        }
         let result = OceanTideModel::new(20, 20, false);
         assert!(result.is_err(), "truncated cache must error");
         assert!(!cached.exists(), "corrupt cache file must be removed");
-        unsafe {
-            match prev {
-                Some(v) => std::env::set_var("BRAHE_CACHE", v),
-                None => std::env::remove_var("BRAHE_CACHE"),
-            }
-        }
     }
 
     #[test]

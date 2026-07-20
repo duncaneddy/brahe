@@ -6212,3 +6212,15 @@ def test_numericalorbitpropagator_builder_consumed():
     builder.build()
     with pytest.raises(RuntimeError, match="builder already consumed"):
         builder.build()
+
+
+def test_numericalorbitpropagator_builder_build_error():
+    """Test that build() surfaces Rust-side validation failures as RuntimeError"""
+    epoch = create_test_epoch()
+    state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+
+    # ForceModelConfig.default() references parameter indices for mass, drag,
+    # and SRP, but no params vector is supplied to the builder.
+    builder = NumericalOrbitPropagator.builder(epoch, state, ForceModelConfig.default())
+    with pytest.raises(RuntimeError):
+        builder.build()

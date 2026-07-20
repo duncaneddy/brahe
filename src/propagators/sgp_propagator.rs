@@ -678,6 +678,14 @@ impl SGPPropagatorBuilder {
     /// * `representation` - State representation (Cartesian or Keplerian)
     /// * `angle_format` - Angle units (required for Keplerian, `None` for Cartesian)
     ///
+    /// # Panics
+    /// This setter itself never panics; it only stores the combination. But
+    /// [`SGPPropagatorBuilder::build`] panics via [`SGPPropagator::with_output_format`]
+    /// (not `Err`) if the stored combination is invalid:
+    /// - Keplerian representation requested without `angle_format`
+    /// - Keplerian representation requested in a non-ECI frame
+    /// - Cartesian representation given with `angle_format`
+    ///
     /// # Returns
     /// Builder for method chaining
     ///
@@ -721,6 +729,14 @@ impl SGPPropagatorBuilder {
     ///
     /// # Errors
     /// Returns `BraheError` if the epoch string cannot be parsed
+    ///
+    /// # Panics
+    /// If [`SGPPropagatorBuilder::output_format`] was called with an invalid
+    /// combination, `build()` panics via [`SGPPropagator::with_output_format`]
+    /// rather than returning `Err`:
+    /// - Keplerian representation requested without `angle_format`
+    /// - Keplerian representation requested in a non-ECI frame
+    /// - Cartesian representation given with `angle_format`
     ///
     /// # Examples
     ///
@@ -2874,6 +2890,33 @@ mod tests {
                 .unwrap_err()
                 .to_string()
                 .contains("Invalid epoch format")
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sgppropagator_builder_invalid_classification() {
+        setup_global_test_eop();
+
+        let result = SGPPropagator::builder(
+            "2025-11-29T20:01:44.058144",
+            15.49193835,
+            0.0003723,
+            51.6312,
+            206.3646,
+            184.1118,
+            175.9840,
+            25544,
+        )
+        .classification('X')
+        .build();
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Invalid classification character")
         );
     }
 

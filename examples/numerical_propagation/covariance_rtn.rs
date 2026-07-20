@@ -28,16 +28,14 @@ fn main() {
     ]));
 
     // Create propagator with initial covariance
-    let mut prop = bh::DNumericalOrbitPropagator::new(
+    let mut prop = bh::DNumericalOrbitPropagator::builder(
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
-        prop_config,
         bh::ForceModelConfig::two_body_gravity(),
-        None,
-        None,
-        None,
-        Some(p0),
     )
+    .propagation_config(prop_config)
+    .initial_covariance(p0)
+    .build()
     .unwrap();
 
     println!("=== Covariance in RTN Frame ===\n");

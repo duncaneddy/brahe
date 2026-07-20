@@ -32,9 +32,11 @@ fn main() {
     let mut prop_config = bh::propagators::NumericalPropagationConfig::default();
     prop_config.variational.enable_stm = true;
 
-    let prop = bh::propagators::DNumericalPropagator::new(
-        epoch, state.clone(), dynamics, prop_config, None, None, Some(p0),
-    ).unwrap();
+    let prop = bh::propagators::DNumericalPropagator::builder(epoch, state.clone(), dynamics)
+        .propagation_config(prop_config)
+        .initial_covariance(p0)
+        .build()
+        .unwrap();
 
     // Create EKF from the pre-built propagator (converts into a DynamicsSource
     // automatically; the filter starts from the propagator's initial covariance)

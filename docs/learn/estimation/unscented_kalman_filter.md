@@ -36,8 +36,7 @@ chained setters.
         --8<-- "./docs/outputs/estimation/ukf_builder_construction.rs.txt"
         ```
 
-The flat constructor remains available as an alternative, taking every field as a keyword
-argument. The full example below processes a batch of observations after construction:
+The full example below processes a batch of observations after construction:
 
 === "Python"
     ``` python
@@ -60,9 +59,9 @@ argument. The full example below processes a batch of observations after constru
         --8<-- "./docs/outputs/estimation/ukf_position_tracking.rs.txt"
         ```
 
-Either construction path internally builds a numerical propagator, generates sigma point
-weights from the `UKFConfig` parameters, and validates that the initial covariance matches
-the state dimension.
+Construction internally builds a numerical propagator, generates sigma point weights from
+the `UKFConfig` parameters, and validates that the initial covariance matches the state
+dimension.
 
 ## How It Works
 

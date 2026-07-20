@@ -35,16 +35,15 @@ fn main() {
 
     // Create propagator with full force model
     // Arguments: epoch, state, config, force_config, params, additional_dynamics, control_input, initial_covariance
-    let mut prop = bh::DNumericalOrbitPropagator::new(
+    let mut prop = bh::DNumericalOrbitPropagator::builder(
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
-        prop_config,
         bh::ForceModelConfig::default(),
-        Some(params.clone()),
-        None,  // additional_dynamics
-        None,  // control_input
-        Some(p0.clone()),  // initial_covariance
     )
+    .propagation_config(prop_config)
+    .params(params.clone())
+    .initial_covariance(p0.clone())
+    .build()
     .unwrap();
 
     println!("=== Variational Propagation Overview ===\n");

@@ -20,16 +20,13 @@ fn main() {
     prop_config.variational.enable_stm = true;
 
     // Create propagator (two-body for clean demonstration)
-    let mut prop = bh::DNumericalOrbitPropagator::new(
+    let mut prop = bh::DNumericalOrbitPropagator::builder(
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
-        prop_config,
         bh::ForceModelConfig::two_body_gravity(),
-        None,
-        None,
-        None,
-        None,
     )
+    .propagation_config(prop_config)
+    .build()
     .unwrap();
 
     // Define initial covariance (diagonal)

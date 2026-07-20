@@ -27,21 +27,15 @@ print("  Tolerances: Very tight (1e-14 rel, 1e-16 abs)")
 config_std = bh.NumericalPropagationConfig.default()
 
 # Create propagators (use two-body for analytical comparison)
-prop_hp = bh.NumericalOrbitPropagator(
-    epoch,
-    state,
-    config_hp,
-    bh.ForceModelConfig.two_body(),
-    None,
+prop_hp = (
+    bh.NumericalOrbitPropagator.builder(epoch, state, bh.ForceModelConfig.two_body())
+    .propagation_config(config_hp)
+    .build()
 )
 
-prop_std = bh.NumericalOrbitPropagator(
-    epoch,
-    state,
-    config_std,
-    bh.ForceModelConfig.two_body(),
-    None,
-)
+prop_std = bh.NumericalOrbitPropagator.builder(
+    epoch, state, bh.ForceModelConfig.two_body()
+).build()
 
 # Keplerian propagator as analytical reference (use Cartesian for direct comparison)
 kep_prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)

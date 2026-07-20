@@ -40,28 +40,22 @@ fn main() {
     println!("  rel_tol: 1e-10");
 
     // Create two propagators with different configs
-    let mut prop_default = bh::DNumericalOrbitPropagator::new(
+    let mut prop_default = bh::DNumericalOrbitPropagator::builder(
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
-        config_default,
         bh::ForceModelConfig::two_body_gravity(), // Two-body for cleaner comparison
-        None,
-        None,
-        None,
-        None,
     )
+    .propagation_config(config_default)
+    .build()
     .unwrap();
 
-    let mut prop_tight = bh::DNumericalOrbitPropagator::new(
+    let mut prop_tight = bh::DNumericalOrbitPropagator::builder(
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
-        config_tight,
         bh::ForceModelConfig::two_body_gravity(),
-        None,
-        None,
-        None,
-        None,
     )
+    .propagation_config(config_tight)
+    .build()
     .unwrap();
 
     // Propagate both for 1 orbit

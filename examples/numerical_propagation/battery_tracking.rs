@@ -3,7 +3,7 @@
 
 use brahe as bh;
 use bh::integrators::traits::DStateDynamics;
-use bh::propagators::{DNumericalOrbitPropagator, ForceModelConfig, NumericalPropagationConfig};
+use bh::propagators::{DNumericalOrbitPropagator, ForceModelConfig};
 use bh::time::Epoch;
 use bh::traits::{DStatePropagator, InterpolatableTrajectory};
 use nalgebra as na;
@@ -82,16 +82,13 @@ fn main() {
     });
 
     // Create propagator with two-body dynamics
-    let mut prop = DNumericalOrbitPropagator::new(
+    let mut prop = DNumericalOrbitPropagator::builder(
         epoch,
         initial_state.clone(),
-        NumericalPropagationConfig::default(),
         ForceModelConfig::two_body_gravity(),
-        None, // params
-        Some(additional_dynamics),
-        None, // control_input
-        None, // initial_covariance
     )
+    .additional_dynamics(additional_dynamics)
+    .build()
     .unwrap();
 
     // Calculate orbital period and propagate for 3 orbits

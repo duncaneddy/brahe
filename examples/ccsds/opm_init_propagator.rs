@@ -54,16 +54,13 @@ fn main() {
     let state_dyn = na::DVector::from_column_slice(state_eci.as_slice());
 
     // Initialize propagator from OPM state
-    let mut prop = bh::DNumericalOrbitPropagator::new(
+    let mut prop = bh::DNumericalOrbitPropagator::builder(
         opm.state_vector.epoch,
         state_dyn,
-        bh::NumericalPropagationConfig::default(),
         bh::ForceModelConfig::default(),
-        Some(params),
-        None,
-        None,
-        None,
     )
+    .params(params)
+    .build()
     .unwrap();
 
     // Propagate for ~1 orbit period

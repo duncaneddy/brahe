@@ -76,16 +76,12 @@ fn main() {
     );
 
     // Create propagator
-    let mut prop = bh::DNumericalOrbitPropagator::new(
+    let mut prop = bh::DNumericalOrbitPropagator::builder(
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
-        bh::NumericalPropagationConfig::default(),
         bh::ForceModelConfig::two_body_gravity(),
-        None,
-        None,
-        None,
-        None,
     )
+    .build()
     .unwrap();
 
     // Create time events with logging callbacks
@@ -123,16 +119,12 @@ fn main() {
         },
     );
 
-    let mut prop2 = bh::DNumericalOrbitPropagator::new(
+    let mut prop2 = bh::DNumericalOrbitPropagator::builder(
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
-        bh::NumericalPropagationConfig::default(),
         bh::ForceModelConfig::two_body_gravity(),
-        None,
-        None,
-        None,
-        None,
     )
+    .build()
     .unwrap();
 
     // Event that stops propagation at t+500s

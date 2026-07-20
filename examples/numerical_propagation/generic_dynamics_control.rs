@@ -50,40 +50,29 @@ fn main() {
     // The control_input function returns a state derivative contribution
     // that is added to the dynamics output at each integration step.
     let damping_coeff = 2.0 * damping_ratio * omega;
-    let damping_control: bh::DControlInput = Some(Box::new(
+    let damping_control: bh::DStateDynamics = Box::new(
         move |_t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| {
             let v = state[1];
             // Control adds acceleration that opposes velocity
             na::DVector::from_vec(vec![0.0, -damping_coeff * v])
         },
-    ));
+    );
 
     // Parameters (omega^2)
     let params = na::DVector::from_vec(vec![omega * omega]);
 
     // Create propagator with dynamics AND control_input
-    let mut prop_damped = bh::DNumericalPropagator::new(
-        epoch,
-        initial_state.clone(),
-        sho_dynamics,
-        bh::NumericalPropagationConfig::default(),
-        Some(params.clone()),
-        damping_control, // Separate control function
-        None,            // No initial covariance
-    )
-    .unwrap();
+    let mut prop_damped = bh::DNumericalPropagator::builder(epoch, initial_state.clone(), sho_dynamics)
+        .params(params.clone())
+        .control_input(damping_control) // Separate control function
+        .build()
+        .unwrap();
 
     // Create undamped propagator for comparison (no control_input)
-    let mut prop_undamped = bh::DNumericalPropagator::new(
-        epoch,
-        initial_state,
-        sho_dynamics_undamped,
-        bh::NumericalPropagationConfig::default(),
-        Some(params),
-        None, // No control input
-        None,
-    )
-    .unwrap();
+    let mut prop_undamped = bh::DNumericalPropagator::builder(epoch, initial_state, sho_dynamics_undamped)
+        .params(params)
+        .build()
+        .unwrap();
 
     // Propagate for several periods
     let period = 2.0 * PI / omega; // Period = 1 second

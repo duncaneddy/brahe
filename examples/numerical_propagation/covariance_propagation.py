@@ -21,12 +21,10 @@ state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 prop_config = bh.NumericalPropagationConfig.default().with_stm()
 
 # Create propagator (two-body for clean demonstration)
-prop = bh.NumericalOrbitPropagator(
-    epoch,
-    state,
-    prop_config,
-    bh.ForceModelConfig.two_body(),
-    None,
+prop = (
+    bh.NumericalOrbitPropagator.builder(epoch, state, bh.ForceModelConfig.two_body())
+    .propagation_config(prop_config)
+    .build()
 )
 
 # Define initial covariance (diagonal)

@@ -26,7 +26,7 @@ fn main() {
     // For 6D orbital state:
     // - Elements 0-2: position derivatives (zeros for control)
     // - Elements 3-5: velocity derivatives (acceleration)
-    let control_fn: bh::DControlInput = Some(Box::new(
+    let control_fn: bh::DStateDynamics = Box::new(
         move |_t: f64, state_vec: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| {
             let v = state_vec.fixed_rows::<3>(3);
             let v_mag = v.norm();
@@ -47,32 +47,25 @@ fn main() {
 
             dx
         },
-    ));
+    );
 
     // Create propagator with continuous control
-    let mut prop = bh::DNumericalOrbitPropagator::new(
+    let mut prop = bh::DNumericalOrbitPropagator::builder(
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
-        bh::NumericalPropagationConfig::default(),
         bh::ForceModelConfig::two_body_gravity(), // Two-body + control
-        None,
-        None,
-        control_fn,
-        None,
     )
+    .control_input(control_fn)
+    .build()
     .unwrap();
 
     // Also create reference propagator without thrust
-    let mut prop_ref = bh::DNumericalOrbitPropagator::new(
+    let mut prop_ref = bh::DNumericalOrbitPropagator::builder(
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
-        bh::NumericalPropagationConfig::default(),
         bh::ForceModelConfig::two_body_gravity(),
-        None,
-        None,
-        None,
-        None,
     )
+    .build()
     .unwrap();
 
     // Propagate for 10 orbits

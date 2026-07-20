@@ -204,12 +204,10 @@ Parameters allow passing constants to the dynamics function without hardcoding t
     );
 
     // Create propagator with parameters
-    let prop = bh::DNumericalPropagator::new(
-        epoch, initial_state, dynamics_fn,
-        bh::NumericalPropagationConfig::default(),
-        Some(params),  // Pass parameters here
-        None, None
-    ).unwrap();
+    let prop = bh::DNumericalPropagator::builder(epoch, initial_state, dynamics_fn)
+        .params(params)
+        .build()
+        .unwrap();
     ```
 
 ## Control Inputs

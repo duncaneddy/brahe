@@ -52,23 +52,20 @@ def tangential_thrust(t, state_vec, params_vec):
 
 
 # Create propagator with continuous control
-prop = bh.NumericalOrbitPropagator(
-    epoch,
-    state,
-    bh.NumericalPropagationConfig.default(),
-    bh.ForceModelConfig.two_body(),  # Two-body + control
-    None,
-    control_input=tangential_thrust,
+prop = (
+    bh.NumericalOrbitPropagator.builder(
+        epoch,
+        state,
+        bh.ForceModelConfig.two_body(),  # Two-body + control
+    )
+    .control_input(tangential_thrust)
+    .build()
 )
 
 # Also create reference propagator without thrust
-prop_ref = bh.NumericalOrbitPropagator(
-    epoch,
-    state,
-    bh.NumericalPropagationConfig.default(),
-    bh.ForceModelConfig.two_body(),
-    None,
-)
+prop_ref = bh.NumericalOrbitPropagator.builder(
+    epoch, state, bh.ForceModelConfig.two_body()
+).build()
 
 # Propagate for 10 orbits
 orbital_period = bh.orbital_period(oe[0])

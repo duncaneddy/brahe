@@ -14,13 +14,13 @@ fn main() {
     let true_state = DVector::from_vec(vec![r, 0.0, 0.0, 0.0, v, 0.0]);
 
     // Truth propagator for generating simulated GNSS observations
-    let mut truth_prop = bh::propagators::DNumericalOrbitPropagator::new(
+    let mut truth_prop = bh::propagators::DNumericalOrbitPropagator::builder(
         epoch,
         true_state.clone(),
-        bh::propagators::NumericalPropagationConfig::default(),
         bh::propagators::force_model_config::ForceModelConfig::two_body_gravity(),
-        None, None, None, None,
-    ).unwrap();
+    )
+    .build()
+    .unwrap();
 
     // Perturbed initial state: 1 km position error
     let mut initial_state = true_state.clone();
@@ -36,18 +36,16 @@ fn main() {
         Box::new(ecef_model),
     ];
 
-    let mut ekf = bh::estimation::ExtendedKalmanFilter::new(
+    let mut ekf = bh::estimation::ExtendedKalmanFilter::builder(
         epoch,
         initial_state,
         p0,
-        bh::propagators::NumericalPropagationConfig::default(),
         bh::propagators::force_model_config::ForceModelConfig::two_body_gravity(),
-        None,
-        None,
-        None,
-        models,
         bh::estimation::EKFConfig::default(),
-    ).unwrap();
+    )
+    .measurement_models(models)
+    .build()
+    .unwrap();
 
     // Simulate GNSS observations: get truth ECI state, convert to ECEF
     let dt = 60.0;

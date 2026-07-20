@@ -999,16 +999,13 @@ impl WalkerConstellationGenerator {
                 let state = DVector::from_iterator(6, state_vec6.iter().copied());
 
                 // Create numerical propagator
-                let mut prop = DNumericalOrbitPropagator::new(
-                    self.epoch,
-                    state,
-                    propagation_config.clone(),
-                    force_config.clone(),
-                    params.clone(),
-                    None, // additional_dynamics
-                    None, // control_input
-                    None, // initial_covariance
-                )?;
+                let mut builder =
+                    DNumericalOrbitPropagator::builder(self.epoch, state, force_config.clone())
+                        .propagation_config(propagation_config.clone());
+                if let Some(p) = params.clone() {
+                    builder = builder.params(p);
+                }
+                let mut prop = builder.build()?;
 
                 // Apply naming and ID
                 let global_id = self.satellite_id(plane, sat);

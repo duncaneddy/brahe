@@ -50,13 +50,7 @@ oe = np.array([bh.R_EARTH + 500e3, 0.001, 51.6, 15.0, 30.0, 45.0])
 x_earth = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 x_emb = bh.state_eci_to_emb(epoch, x_earth)
 
-prop = bh.NumericalOrbitPropagator(
-    epoch,
-    x_emb,
-    bh.NumericalPropagationConfig.default(),
-    force_config,
-    None,
-)
+prop = bh.NumericalOrbitPropagator.builder(epoch, x_emb, force_config).build()
 
 # Propagate for one day
 epoch_end = epoch + 86400.0

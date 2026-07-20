@@ -55,25 +55,30 @@ The flat constructor (`NumericalOrbitPropagator(...)` in Python, `DNumericalOrbi
 === "Python"
 
     ``` python
-    --8<-- "./examples/numerical_propagation/basic_propagation.py:8"
+    prop = bh.NumericalOrbitPropagator(
+        epoch,
+        state,
+        bh.NumericalPropagationConfig.default(),
+        bh.ForceModelConfig.default(),
+        params,
+    )
     ```
 
 === "Rust"
 
     ``` rust
-    --8<-- "./examples/numerical_propagation/basic_propagation.rs:4"
+    let mut prop = bh::DNumericalOrbitPropagator::new(
+        epoch,
+        state,
+        bh::NumericalPropagationConfig::default(),
+        bh::ForceModelConfig::default(),
+        Some(params),
+        None,
+        None,
+        None,
+    )
+    .unwrap();
     ```
-
-??? example "Output"
-    === "Python"
-        ```
-        --8<-- "./docs/outputs/numerical_propagation/basic_propagation.py.txt"
-        ```
-
-    === "Rust"
-        ```
-        --8<-- "./docs/outputs/numerical_propagation/basic_propagation.rs.txt"
-        ```
 
 ## Stepping Through Time
 

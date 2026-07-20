@@ -15,13 +15,13 @@ fn main() {
     let true_state = DVector::from_vec(vec![r, 0.0, 0.0, 0.0, v, 0.0]);
 
     // Create a truth propagator for generating observations
-    let mut truth_prop = bh::propagators::DNumericalOrbitPropagator::new(
+    let mut truth_prop = bh::propagators::DNumericalOrbitPropagator::builder(
         epoch,
         true_state.clone(),
-        bh::propagators::NumericalPropagationConfig::default(),
         bh::propagators::force_model_config::ForceModelConfig::two_body_gravity(),
-        None, None, None, None,
-    ).unwrap();
+    )
+    .build()
+    .unwrap();
 
     // Generate 20 noise-free position observations at 30-second intervals
     let mut observations = Vec::new();
@@ -46,18 +46,16 @@ fn main() {
         Box::new(bh::estimation::InertialPositionMeasurementModel::new(10.0)),
     ];
 
-    let mut bls = bh::estimation::BatchLeastSquares::new(
+    let mut bls = bh::estimation::BatchLeastSquares::builder(
         epoch,
         initial_state,
         p0,
-        bh::propagators::NumericalPropagationConfig::default(),
         bh::propagators::force_model_config::ForceModelConfig::two_body_gravity(),
-        None,
-        None,
-        None,
-        models,
         bh::estimation::BLSConfig::default(),
-    ).unwrap();
+    )
+    .measurement_models(models)
+    .build()
+    .unwrap();
 
     bls.solve(&observations).unwrap();
 

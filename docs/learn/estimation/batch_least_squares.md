@@ -35,9 +35,8 @@ through chained setters.
 
 ## Golden-Path Example
 
-The flat constructor remains available as an alternative, taking every field as a keyword
-argument. The full example below builds a truth trajectory, generates observations, and
-solves for the initial state:
+The full example below builds a truth trajectory, generates observations, and solves for
+the initial state:
 
 === "Python"
     ``` python

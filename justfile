@@ -12,19 +12,58 @@ _setup:
 
 # ───── Testing ─────
 
-# Run all tests (Rust + Python)
+# Run all tests (Rust + Python) with coverage
 test *flags: test-rust test-python
+
+# Run all tests (Rust + Python) without coverage — fast iteration
+test-fast *flags: test-rust-fast test-python-fast
 
 # Update Rust crates locally
 _update-rust:
     cargo update
 
-# Run Rust tests
+# Mirrors test_rust.yml: instrument the core `brahe` crate → lcov.info, then
+# print a terminal summary from the same profdata.
+
+# Run Rust tests with coverage (mirrors CI test_rust.yml)
 test-rust *flags: _update-rust
+    cargo llvm-cov -p brahe {{flags}} --lcov --output-path lcov.info
+    @cargo llvm-cov report -p brahe
+    @cargo llvm-cov report -p brahe --html
+    @echo "Rust coverage → lcov.info + target/llvm-cov/html/index.html"
+
+# Run Rust tests without coverage — fast iteration
+test-rust-fast *flags: _update-rust
     cargo test {{flags}}
 
-# Run Python tests
+# Mirrors test_python.yml's coverage job: instrument Rust via cargo-llvm-cov,
+# rebuild with maturin, run pytest --cov → python-coverage.xml +
+# python-rust-coverage.lcov.
+
+# Run Python tests with combined Python+Rust coverage (mirrors CI test_python.yml)
 test-python *flags: _setup
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo llvm-cov clean --workspace
+    eval "$(cargo llvm-cov show-env --export-prefix)"
+    uv pip install maturin --quiet
+    uv run maturin develop --uv --features pyo3/extension-module
+    {{python}} -m pytest tests/ \
+        --cov=brahe \
+        --cov-report=html \
+        --cov-report=xml:python-coverage.xml \
+        --cov-report=term {{flags}}
+    cargo llvm-cov report --lcov --output-path python-rust-coverage.lcov
+    cargo llvm-cov report --html
+    echo ""
+    echo "Coverage reports:"
+    echo "  Python HTML:  htmlcov/index.html"
+    echo "  Python XML:   python-coverage.xml"
+    echo "  Rust HTML:    target/llvm-cov/html/index.html"
+    echo "  Rust LCOV:    python-rust-coverage.lcov"
+
+# Run Python tests without coverage — fast iteration
+test-python-fast *flags: _setup
     uv pip install -e . --quiet
     {{python}} -m pytest tests/ -v {{flags}}
 
@@ -64,36 +103,13 @@ test-example *args: _setup
 
 # ───── Coverage ─────
 
-# Run Rust tests with coverage (core crate only — `brahe-py` has no unit tests;
-# its Rust coverage is captured by `just coverage-combined` via pytest).
-coverage-rust:
-    cargo llvm-cov -p brahe --lcov --output-path lcov.info
-    @echo "Rust coverage → lcov.info"
+# No Rust instrumentation — faster than `test-python` when you only need `.py`
+# line coverage.
 
-# Run Python tests with coverage
+# Run Python tests with Python-only coverage (no Rust instrumentation)
 coverage-python: _setup
     uv pip install -e . --quiet
     {{python}} -m pytest tests/ --cov=brahe --cov-report=html --cov-report=xml:python-coverage.xml --cov-report=term
-
-# Run Python tests with instrumented Rust extension (combined coverage)
-coverage-combined: _setup
-    #!/usr/bin/env bash
-    set -euo pipefail
-    cargo llvm-cov clean --workspace
-    eval "$(cargo llvm-cov show-env --export-prefix)"
-    uv pip install maturin --quiet
-    uv run maturin develop --uv --features pyo3/extension-module
-    {{python}} -m pytest tests/ \
-        --cov=brahe \
-        --cov-report=html \
-        --cov-report=xml:python-coverage.xml \
-        --cov-report=term
-    cargo llvm-cov report --lcov --output-path python-rust-coverage.lcov
-    echo ""
-    echo "Coverage reports:"
-    echo "  Python HTML:  htmlcov/index.html"
-    echo "  Python XML:   python-coverage.xml"
-    echo "  Rust LCOV:    python-rust-coverage.lcov"
 
 # ───── Benchmarks ─────
 

@@ -92,6 +92,7 @@ download-resources: _setup
     @{{python}} {{scripts_dir}}/warm_cartopy.py
     @{{python}} -c "import brahe as bh; bh.load_common_spice_kernels()"
     @{{python}} -c "import brahe as bh; bh.load_spice_kernel('mar099s')"
+    @{{python}} -c "import brahe as bh; bh.datasets.star_catalogs.get_fk5(); bh.datasets.star_catalogs.get_hipparcos()"
 
 # Test all documentation examples (delegates to scripts/test_examples.py)
 test-examples *args: _setup

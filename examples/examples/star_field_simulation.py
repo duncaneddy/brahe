@@ -1,6 +1,5 @@
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
-# FLAGS = ["NETWORK"]
 # ///
 """
 Star-Field Sensor Simulation
@@ -18,10 +17,6 @@ import numpy as np
 import plotly.graph_objects as go
 
 import brahe as bh
-
-# Add plots directory to path for importing brahe_theme
-sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
-from brahe_theme import get_theme_colors, save_themed_html
 
 SCRIPT_NAME = pathlib.Path(__file__).stem
 OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
@@ -459,6 +454,10 @@ def create_sensor_view_figure(theme):
 
 # --8<-- [end:sensor_view_figure]
 # --8<-- [end:all]
+
+# Add plots directory to path for importing brahe_theme
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
+from brahe_theme import get_theme_colors, save_themed_html  # noqa: E402
 
 light_path, dark_path = save_themed_html(
     create_figure, OUTDIR / SCRIPT_NAME, auto_play=True

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
-# FLAGS = ["NETWORK"]
 # ///
 """
 Earth-Moon Free-Return Trajectory

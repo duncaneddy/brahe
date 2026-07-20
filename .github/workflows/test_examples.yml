@@ -118,6 +118,20 @@ jobs:
           path: ~/.local/share/cartopy
           key: cartopy-natural-earth-v1
 
+      # FK5 + Hipparcos only (the catalogs the star_field_simulation example
+      # reads). Explicit file paths — never the whole star_catalogs/ dir — so
+      # the 526 MB Tycho-2 catalog is never persisted here. Restore-only; the
+      # matching save below runs on main only. Key kept in sync with the
+      # "Cache star catalog downloads" step in integration_tests.yml.
+      - name: Restore star catalog downloads
+        id: star-catalogs-cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: |
+            ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
+            ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
+          key: star-catalogs-v1
+
       # Serial, retrying download of all plot/example network resources. On a
       # cache hit this is an instant no-op; on a miss it warms the caches once so
       # the parallel pools below never hit the network.
@@ -144,6 +158,15 @@ jobs:
         with:
           path: ~/.cache/brahe/textures
           key: brahe-3d-textures-v2
+
+      - name: Save star catalog downloads (main only)
+        if: ${{ github.ref == 'refs/heads/main' && steps.star-catalogs-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: |
+            ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
+            ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
+          key: star-catalogs-v1
 
       - name: Test examples
         if: ${{ !inputs.use_retry }}

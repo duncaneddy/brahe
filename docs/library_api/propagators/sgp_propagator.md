@@ -11,6 +11,7 @@ The SGP4/SDP4 propagator for satellite orbit propagation using Two-Line Element 
 
 ## See Also
 
+- [SGPPropagatorBuilder](sgp_propagator_builder.md) - Builder for constructing this propagator from OMM elements
 - [KeplerianPropagator](keplerian_propagator.md) - Analytical two-body propagator
 - [TLE](../orbits/tle.md) - Two-Line Element format details
 - [Keplerian Elements](../orbits/keplerian.md) - Orbital element functions

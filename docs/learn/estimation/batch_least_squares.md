@@ -5,7 +5,39 @@ to minimize the weighted sum of squared residuals. Unlike the EKF and UKF which 
 sequentially, BLS re-linearizes the full problem at each iteration, making it the standard
 approach for offline orbit determination when the complete observation set is available.
 
+## Setting Up
+
+`BatchLeastSquares.builder()` is the primary way to construct a BLS estimator: it takes the
+five required inputs -- `epoch`, `state`, `apriori_covariance`, `force_config`, and `config`
+-- directly as arguments, and measurement models and remaining optional inputs are set
+through chained setters.
+
+=== "Python"
+    ``` python
+    --8<-- "./examples/estimation/bls_builder_construction.py:12"
+    ```
+
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/estimation/bls_builder_construction.rs:7"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/estimation/bls_builder_construction.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/estimation/bls_builder_construction.rs.txt"
+        ```
+
 ## Golden-Path Example
+
+The flat constructor remains available as an alternative, taking every field as a keyword
+argument. The full example below builds a truth trajectory, generates observations, and
+solves for the initial state:
 
 === "Python"
     ``` python
@@ -119,4 +151,5 @@ status without inspecting individual records.
 - [Unscented Kalman Filter](unscented_kalman_filter.md) -- UKF sigma-point estimation
 - [Measurement Models](measurement_models.md) -- Built-in and custom measurement types
 - [BLS API Reference](../../library_api/estimation/batch_least_squares.md) -- Complete method documentation
+- [BatchLeastSquaresBuilder API Reference](../../library_api/estimation/batch_least_squares_builder.md)
 - [Covariance and Sensitivity](../orbit_propagation/numerical_propagation/covariance_sensitivity.md) -- STM propagation details

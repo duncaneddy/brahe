@@ -44,5 +44,6 @@ Iterative batch least squares estimator for offline orbit determination.
 
 ## See Also
 
+- [BatchLeastSquaresBuilder](batch_least_squares_builder.md) -- builder for constructing this estimator
 - [Batch Least Squares (Learn)](../../learn/estimation/batch_least_squares.md) -- conceptual guide
 - [Measurement Models](measurement_models.md) -- built-in and custom models

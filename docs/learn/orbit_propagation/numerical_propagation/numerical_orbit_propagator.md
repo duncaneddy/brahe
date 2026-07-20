@@ -21,9 +21,36 @@ State Vector (6+ elements)
 
 All force models read from the first 6 elements and contribute accelerations to indices 3-5. Extended state elements (index 6+) are available for user-defined dynamics such as mass depletion, battery state, attitude dynamics, or other user-defined states.
 
-### Minimal Setup
+### Builder Construction
 
-The simplest setup uses default configurations:
+`NumericalOrbitPropagator.builder()` (`DNumericalOrbitPropagator::builder()` in Rust) is the primary way to construct a propagator. It takes the three required fields -- `epoch`, `state`, and `force_config` -- directly as arguments, and every optional field (propagation configuration, parameters, additional dynamics, control input, initial covariance) is set through a chained setter, defaulting when omitted. This keeps construction readable regardless of how many optional fields a given setup needs.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/numerical_propagation/propagator_builder.py:12"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/numerical_propagation/propagator_builder.rs:6"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/propagator_builder.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/propagator_builder.rs.txt"
+        ```
+
+### Flat Constructor
+
+The flat constructor (`NumericalOrbitPropagator(...)` in Python, `DNumericalOrbitPropagator::new(...)` in Rust) takes every field positionally, including the optional ones. It is an alternative to the builder when all fields are already at hand and naming each one is unnecessary:
 
 === "Python"
 
@@ -47,22 +74,6 @@ The simplest setup uses default configurations:
         ```
         --8<-- "./docs/outputs/numerical_propagation/basic_propagation.rs.txt"
         ```
-
-
-### Builder API (Rust)
-
-`DNumericalOrbitPropagator::builder()` is a idiomatic Rust alternative to `new()` that lets you name only the fields you care about and omit the rest. This is particularly useful when only a subset of optional fields are needed, keeping construction readable without sacrificing access to the full configuration surface.
-
-``` rust
---8<-- "./examples/numerical_propagation/propagator_builder.rs:4"
-```
-
-??? example "Output"
-    ```
-    --8<-- "./docs/outputs/numerical_propagation/propagator_builder.rs.txt"
-    ```
-
-Python uses keyword arguments natively, so no separate builder is needed there.
 
 ## Stepping Through Time
 
@@ -184,3 +195,4 @@ For Rust, ensure the dynamics closure captures minimal state and avoids unnecess
 - [Force Models](force_models.md) - Configuring force models
 - [Integrator Configuration](integrator_configuration.md) - Integration method selection
 - [NumericalOrbitPropagator API Reference](../../../library_api/propagators/numerical_orbit_propagator.md)
+- [NumericalOrbitPropagatorBuilder API Reference](../../../library_api/propagators/numerical_orbit_propagator_builder.md)

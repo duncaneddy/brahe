@@ -65,7 +65,36 @@ Brahe supports two Walker patterns:
 
 ## Generating Walker Constellations
 
+### Builder Construction
+
+`WalkerConstellationGenerator.builder()` is the primary way to construct a generator: it takes the six required inputs -- `t`, `p`, `f`, `semi_major_axis`, `inclination`, and `epoch` -- directly as arguments, and optional geometry fields (eccentricity, argument of perigee, reference RAAN, reference mean anomaly, pattern) default to the same values as the flat constructor and are set through chained setters.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/orbits/walker_builder.py:13"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/orbits/walker_builder.rs:8"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbits/walker_builder.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbits/walker_builder.rs.txt"
+        ```
+
 ### Basic Walker Delta (GPS-like)
+
+The flat constructor takes every field positionally, including the optional geometry fields, and remains available as an alternative to the builder when all fields are already at hand:
 
 === "Python"
 
@@ -188,6 +217,7 @@ The Walker Star pattern concentrates planes over 180° of RAAN for polar coverag
 ## See Also
 
 - [Walker Constellations API Reference](../../library_api/orbits/walker.md) - Complete API documentation
+- [WalkerConstellationGeneratorBuilder API Reference](../../library_api/orbits/walker_constellation_generator_builder.md)
 - [Keplerian Elements](properties.md) - Orbital element fundamentals
 - [SGP4 Propagation](../orbit_propagation/sgp_propagation.md) - TLE-based propagation
 - [Numerical Propagation](../orbit_propagation/numerical_propagation/index.md) - High-fidelity propagation

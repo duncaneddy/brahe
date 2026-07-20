@@ -18,5 +18,6 @@ Sequential state estimator using sigma points to capture nonlinear dynamics with
 
 ## See Also
 
+- [UnscentedKalmanFilterBuilder](unscented_kalman_filter_builder.md) - Builder for constructing this filter
 - [UKF Guide](../../learn/estimation/unscented_kalman_filter.md) - Setup, sigma points, and EKF comparison
 - [Common Types](common_types.md) - Observation, FilterRecord, configuration types

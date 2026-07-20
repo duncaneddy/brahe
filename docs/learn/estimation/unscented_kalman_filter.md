@@ -7,8 +7,37 @@ second order without computing Jacobians or a State Transition Matrix.
 
 ## Setting Up
 
-The UKF constructor takes the same arguments as the EKF, plus UKF-specific tuning
-parameters (alpha, beta, kappa) via `UKFConfig`. It does not require STM propagation.
+The UKF takes the same arguments as the EKF, plus UKF-specific tuning parameters (alpha,
+beta, kappa) via `UKFConfig`. It does not require STM propagation.
+
+`UnscentedKalmanFilter.builder()` is the primary way to construct a UKF: it takes the five
+required inputs -- `epoch`, `state`, `initial_covariance`, `force_config`, and `config` --
+directly as arguments, and measurement models and remaining optional inputs are set through
+chained setters.
+
+=== "Python"
+    ``` python
+    --8<-- "./examples/estimation/ukf_builder_construction.py:12"
+    ```
+
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/estimation/ukf_builder_construction.rs:7"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/estimation/ukf_builder_construction.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/estimation/ukf_builder_construction.rs.txt"
+        ```
+
+The flat constructor remains available as an alternative, taking every field as a keyword
+argument. The full example below processes a batch of observations after construction:
 
 === "Python"
     ``` python
@@ -31,9 +60,9 @@ parameters (alpha, beta, kappa) via `UKFConfig`. It does not require STM propaga
         --8<-- "./docs/outputs/estimation/ukf_position_tracking.rs.txt"
         ```
 
-The constructor internally builds a numerical propagator, generates sigma point weights
-from the `UKFConfig` parameters, and validates that the initial covariance matches the
-state dimension.
+Either construction path internally builds a numerical propagator, generates sigma point
+weights from the `UKFConfig` parameters, and validates that the initial covariance matches
+the state dimension.
 
 ## How It Works
 
@@ -201,3 +230,4 @@ $$
 - [Extended Kalman Filter](extended_kalman_filter.md) -- EKF setup and processing
 - [Measurement Models](measurement_models.md) -- Built-in and custom measurement types
 - [UKF API Reference](../../library_api/estimation/unscented_kalman_filter.md) -- Complete method documentation
+- [UnscentedKalmanFilterBuilder API Reference](../../library_api/estimation/unscented_kalman_filter_builder.md)

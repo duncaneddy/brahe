@@ -8,8 +8,10 @@ state and covariance forward in time (predict step), then incorporates the measu
 
 ## Setting Up
 
-The EKF constructor takes the initial conditions, measurement models, and propagation
-configuration. It internally builds a numerical orbit propagator with STM enabled.
+`ExtendedKalmanFilter.builder()` is the primary way to construct an EKF: it takes the five
+required inputs -- `epoch`, `state`, `initial_covariance`, `force_config`, and `config` --
+directly as arguments, and measurement models and remaining optional inputs are set through
+chained setters. It internally builds a numerical orbit propagator with STM enabled.
 
 ```python
 import brahe as bh
@@ -21,6 +23,19 @@ epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
 state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
 p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
 
+ekf = (
+    bh.ExtendedKalmanFilter.builder(
+        epoch, state, p0, bh.ForceModelConfig.two_body(), bh.EKFConfig()
+    )
+    .measurement_model(bh.InertialPositionMeasurementModel(10.0))
+    .build()
+)
+```
+
+The flat constructor remains available as an alternative, taking every field as a keyword
+argument:
+
+```python
 ekf = bh.ExtendedKalmanFilter(
     epoch, state, p0,
     measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
@@ -29,8 +44,8 @@ ekf = bh.ExtendedKalmanFilter(
 )
 ```
 
-The constructor ensures STM propagation is enabled regardless of the propagation config
-passed in. The initial covariance matrix dimensions must match the state vector length.
+Both paths ensure STM propagation is enabled regardless of the propagation config passed
+in. The initial covariance matrix dimensions must match the state vector length.
 
 ## Processing Observations
 
@@ -221,4 +236,5 @@ positive semi-definite.
 - [Measurement Models](measurement_models.md) -- Built-in and custom measurement types
 - [Custom Models](custom_models.md) -- Defining measurement models in Python
 - [EKF API Reference](../../library_api/estimation/extended_kalman_filter.md) -- Complete method documentation
+- [ExtendedKalmanFilterBuilder API Reference](../../library_api/estimation/extended_kalman_filter_builder.md)
 - [Covariance and Sensitivity](../orbit_propagation/numerical_propagation/covariance_sensitivity.md) -- STM propagation details

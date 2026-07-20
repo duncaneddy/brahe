@@ -395,6 +395,7 @@ nav:
           - Mean Elements: library_api/orbits/mean_elements.md
           - Two-Line Elements: library_api/orbits/tle.md
           - Walker Constellations: library_api/orbits/walker.md
+          - Walker Constellation Generator Builder: library_api/orbits/walker_constellation_generator_builder.md
           - Altitude Functions: library_api/orbits/altitude_functions.md
           - Enumerations: library_api/orbits/enums.md
       - Attitude Representation:
@@ -427,8 +428,11 @@ nav:
           - library_api/propagators/index.md
           - Keplerian Propagator: library_api/propagators/keplerian_propagator.md
           - SGP Propagator: library_api/propagators/sgp_propagator.md
+          - SGP Propagator Builder: library_api/propagators/sgp_propagator_builder.md
           - Numerical Orbit Propagator: library_api/propagators/numerical_orbit_propagator.md
+          - Numerical Orbit Propagator Builder: library_api/propagators/numerical_orbit_propagator_builder.md
           - Numerical Propagator: library_api/propagators/numerical_propagator.md
+          - Numerical Propagator Builder: library_api/propagators/numerical_propagator_builder.md
           - Numerical Propagation Config: library_api/propagators/numerical_propagation_config.md
           - Force Model Config: library_api/propagators/force_model_config.md
           - Functions: library_api/propagators/functions.md
@@ -450,14 +454,18 @@ nav:
           - Constraint Computer: library_api/access/constraint_computer.md
           - Properties: library_api/access/properties.md
           - Windows: library_api/access/windows.md
+          - Access Properties Builder: library_api/access/access_properties_builder.md
           - Tessellation: library_api/access/tessellation.md
           - Enumerations: library_api/access/enums.md
       - Estimation:
           - library_api/estimation/index.md
           - Common Types: library_api/estimation/common_types.md
           - Extended Kalman Filter: library_api/estimation/extended_kalman_filter.md
+          - Extended Kalman Filter Builder: library_api/estimation/extended_kalman_filter_builder.md
           - Unscented Kalman Filter: library_api/estimation/unscented_kalman_filter.md
+          - Unscented Kalman Filter Builder: library_api/estimation/unscented_kalman_filter_builder.md
           - Batch Least Squares: library_api/estimation/batch_least_squares.md
+          - Batch Least Squares Builder: library_api/estimation/batch_least_squares_builder.md
           - Measurement Models: library_api/estimation/measurement_models.md
       - SPICE Kernels: library_api/spice/index.md
       - Ephemeris Data Sources:

@@ -1994,7 +1994,7 @@ impl PyExtendedKalmanFilterBuilder {
     /// `Observation`'s `model_index` selects among them.
     ///
     /// Args:
-    ///     model: Measurement model to append (built-in or custom).
+    ///     model (MeasurementModel): Measurement model to append (built-in or custom).
     ///
     /// Returns:
     ///     ExtendedKalmanFilterBuilder: The builder, for method chaining.
@@ -2598,7 +2598,7 @@ impl PyUnscentedKalmanFilterBuilder {
     /// `Observation`'s `model_index` selects among them.
     ///
     /// Args:
-    ///     model: Measurement model to append (built-in or custom).
+    ///     model (MeasurementModel): Measurement model to append (built-in or custom).
     ///
     /// Returns:
     ///     UnscentedKalmanFilterBuilder: The builder, for method chaining.
@@ -3663,7 +3663,7 @@ impl PyBatchLeastSquaresBuilder {
     /// `Observation`'s `model_index` selects among them.
     ///
     /// Args:
-    ///     model: Measurement model to append (built-in or custom).
+    ///     model (MeasurementModel): Measurement model to append (built-in or custom).
     ///
     /// Returns:
     ///     BatchLeastSquaresBuilder: The builder, for method chaining.

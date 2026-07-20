@@ -71,6 +71,24 @@ Build a CDM programmatically by constructing state vectors, covariance matrices,
         --8<-- "./docs/outputs/ccsds/cdm_create_write.rs.txt"
         ```
 
+### Building Object Metadata (Rust)
+
+Each object's metadata (9 mandatory fields plus optional CCSDS fields) can also be
+constructed with `CDMObjectMetadata::builder()`, which is Rust-only -- there is no Python
+binding for this builder. The mandatory fields are set through chained named setters, and
+`build()` returns an error naming any mandatory field left unset instead of applying a
+default. The flat constructor used above remains available as an alternative, taking the
+9 mandatory fields positionally:
+
+``` rust
+--8<-- "./examples/ccsds/cdm_object_metadata_builder.rs:9"
+```
+
+??? example "Output"
+    ```
+    --8<-- "./docs/outputs/ccsds/cdm_object_metadata_builder.rs.txt"
+    ```
+
 ## What a CDM Contains
 
 Every CDM has a **header** (version, creation date, originator, message ID), **relative metadata** (TCA, miss distance, optional collision probability and screening volume), and exactly **two object sections**.

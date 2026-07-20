@@ -52,6 +52,23 @@ Using the `AOIExitEvent` detector with `SGPPropagator`, we detect every time a C
 --8<-- "./examples/examples/imaging_data_latency.py:compute_aoi_exits"
 ```
 
+!!! note "AOIExitEvent watches the sub-satellite point during propagation"
+    [`AOIExitEvent`](../learn/orbit_propagation/numerical_propagation/event_detection.md)
+    ([API](../library_api/events/premade.md#brahe.AOIExitEvent)) detects the
+    instant a satellite's sub-satellite point - the geodetic
+    longitude/latitude directly beneath the spacecraft - leaves a polygonal
+    area of interest;
+    [`AOIEntryEvent`](../library_api/events/premade.md#brahe.AOIEntryEvent)
+    is the entry counterpart. The polygon comes from a `PolygonLocation` or,
+    as here, raw (longitude, latitude) pairs via `from_coordinates`.
+    Detection runs inside propagation: register the detector with
+    `add_event_detector`, propagate, then read the timestamped hits back from
+    the propagator's `event_log()`. Two things to watch: a detector instance
+    is consumed when added, so each propagator needs its own (hence one per
+    satellite in the loop above), and the test is on the nadir point rather
+    than the sensor footprint - an off-nadir imager can still see an AOI
+    after its ground track has crossed the boundary.
+
 ## Compute Ground Contacts
 
 We reset the propagators and use the access computation pipeline to find all ground station contacts over the 7-day period:
@@ -67,15 +84,6 @@ For each AOI exit event, we find the next ground contact for that satellite and 
 ``` python
 --8<-- "./examples/examples/imaging_data_latency.py:compute_latencies"
 ```
-
-!!! note "This latency is a lower bound on delivery time"
-    The metric measures from AOI exit to the start of the next ground contact.
-    It excludes the time to actually downlink the collected data during that
-    contact, onboard processing and buffering before downlink, and
-    ground-segment processing after receipt. Treat it as the orbital-geometry
-    floor on data-delivery latency, not an end-to-end delivery time - the
-    excluded terms can dominate for large collections or contended downlink
-    schedules.
 
 ## Results
 

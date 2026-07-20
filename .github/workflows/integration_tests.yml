@@ -260,5 +260,16 @@ jobs:
                 with:
                     path: ~/.local/share/cartopy
                     key: cartopy-natural-earth-v1
+            # Without this step the NAIF kernels downloaded by
+            # download-resources below are discarded, so no main-scoped
+            # naif-kernels cache exists and every PR/main test_examples run
+            # falls back to a live NAIF download (a hard failure whenever
+            # naif.jpl.nasa.gov blips). Keep the key in sync with the
+            # "Cache NAIF kernels" step in test_examples.yml.
+            -   name: Refresh NAIF kernels cache
+                uses: actions/cache@v6.1.0
+                with:
+                    path: ~/.cache/brahe/naif
+                    key: naif-kernels-v1
             -   name: Warm resources (re-download any evicted)
                 run: just download-resources

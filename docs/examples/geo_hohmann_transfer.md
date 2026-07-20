@@ -59,14 +59,6 @@ $$T_{transfer} = \pi \sqrt{\frac{a_{transfer}^3}{\mu}}$$
 
 The total delta-v of approximately 3.85 km/s is substantial - this is why geostationary satellites require large launch vehicles or are launched into geostationary transfer orbits (GTO) where the rocket provides the first burn and the satellite provides the circularization burn.
 
-!!! note "Hohmann is optimal only up to a radius ratio near 11.9"
-    The two-impulse Hohmann transfer is the minimum-delta-v maneuver between
-    coplanar circular orbits only when the ratio of final to initial radius
-    stays below about 11.94. Above that, a three-burn bi-elliptic transfer -
-    coasting out past the target and back - costs less total delta-v despite
-    the extra burn and a much longer flight time. The LEO-to-GEO radius ratio
-    here is about 6.6, comfortably inside the regime where Hohmann wins.
-
 ## Implementation
 
 ### Initial State
@@ -86,6 +78,22 @@ One way to implement the impulsive burns is by propagating to the burn times, ex
 ```
 
 The callbacks apply delta-v in the prograde direction (along the velocity vector) to raise the orbit. Returning `EventAction.CONTINUE` tells the propagator to proceed with the modified state.
+
+!!! note "TimeEvent callbacks can rewrite the propagated state"
+    [`TimeEvent`](../learn/orbit_propagation/numerical_propagation/event_callbacks.md)
+    ([API](../library_api/events/detectors.md#brahe.TimeEvent)) fires when the
+    propagator reaches a fixed epoch, rather than when some state quantity
+    crosses a threshold, making it the right detector for scheduled maneuvers.
+    Attaching a callback with `with_callback` lets the event act on the
+    propagation itself: the callback receives the event epoch and state and
+    returns a replacement state plus an
+    [`EventAction`](../library_api/events/enums.md#brahe.EventAction) -
+    `CONTINUE` to keep integrating from the new state, `STOP` to halt there.
+    Replacing the state mid-propagation is how an impulsive delta-v is
+    injected without splitting the mission into separate propagator arcs. The
+    returned vector must be the full state in the propagator's inertial
+    frame; returning the state unchanged turns the event into a pure logging
+    hook.
 
 ### Single Propagator with Events
 

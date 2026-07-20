@@ -51,6 +51,22 @@ We'll compute the ground contacts between NISAR and the NASA Near Earth Network 
 --8<-- "./examples/examples/ground_contacts.py:compute_contacts"
 ```
 
+!!! note "location_accesses searches every location-satellite pair in one call"
+    [`location_accesses`](../learn/access_computation/computation.md)
+    ([API](../library_api/access/index.md#brahe.location_accesses)) accepts a
+    single location or a list on both sides, evaluates the constraint for
+    every location-satellite pairing, and returns one flat list of
+    [`AccessWindow`](../library_api/access/windows.md) objects sorted by start
+    time - here every NEN station against NISAR in a single call. Each
+    window already carries the core geometric properties (`duration`,
+    `elevation_max`, `azimuth_open`, ...), which is why the statistics below
+    read them straight off the windows with no extra geometry code. The
+    search locates candidate windows by stepping the constraint at
+    `initial_time_step` (60 s by default) before refining the edges by binary
+    search, so a contact shorter than that step can be missed entirely - pass
+    an [`AccessSearchConfig`](../library_api/access/index.md#brahe.AccessSearchConfig)
+    with a smaller step when hunting brief passes.
+
 Below is the table of the first 20 contact windows. Click on any column header to sort:
 
 <div class="center-table" markdown="1">
@@ -86,15 +102,6 @@ The duration histogram shows the distribution of contact lengths, with statistic
   <iframe class="only-light" src="../figures/ground_contacts_duration_dist_light.html" loading="lazy"></iframe>
   <iframe class="only-dark"  src="../figures/ground_contacts_duration_dist_dark.html"  loading="lazy"></iframe>
 </div>
-
-!!! note "Station latitude drives contact frequency for polar orbits"
-    NISAR flies a near-polar orbit, so its orbital planes converge near the
-    poles. A high-latitude station falls under many more passes per day than a
-    low-latitude one, which the satellite overflies only on the fraction of
-    revolutions whose ground track happens to cross it. Most of the spread in
-    the daily-contacts bar chart is this latitude geometry rather than
-    differences in station capability, and it is why polar and high-latitude
-    ground sites dominate networks that support sun-synchronous missions.
 
 ## Full Code Example
 

@@ -3083,6 +3083,46 @@ impl PyAccessProperties {
         Ok(())
     }
 
+    /// Create a builder for constructing AccessProperties.
+    ///
+    /// Every field is required and is set through a chained setter call;
+    /// `build()` returns an error naming every field left unset instead of
+    /// applying a default.
+    ///
+    /// Returns:
+    ///     AccessPropertiesBuilder: New builder instance, with all fields unset.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     props = (
+    ///         bh.AccessProperties.builder()
+    ///         .azimuth_open(45.0)
+    ///         .azimuth_close(135.0)
+    ///         .elevation_min(10.0)
+    ///         .elevation_max(85.0)
+    ///         .elevation_open(12.0)
+    ///         .elevation_close(10.5)
+    ///         .off_nadir_min(5.0)
+    ///         .off_nadir_max(80.0)
+    ///         .local_time(43200.0)
+    ///         .look_direction(bh.LookDirection.RIGHT)
+    ///         .asc_dsc(bh.AscDsc.ASCENDING)
+    ///         .center_lon(0.0)
+    ///         .center_lat(45.0)
+    ///         .center_alt(0.0)
+    ///         .center_ecef([4517.59e3, 4517.59e3, 0.0])
+    ///         .build()
+    ///     )
+    ///     ```
+    #[staticmethod]
+    fn builder() -> PyAccessPropertiesBuilder {
+        PyAccessPropertiesBuilder {
+            inner: Some(access::AccessProperties::builder()),
+        }
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "AccessProperties(az=[{:.1}°, {:.1}°], el=[{:.1}°, {:.1}°], off_nadir=[{:.1}°, {:.1}°])",
@@ -3093,6 +3133,253 @@ impl PyAccessProperties {
             self.properties.off_nadir_min,
             self.properties.off_nadir_max
         )
+    }
+}
+
+// ================================
+// AccessPropertiesBuilder
+// ================================
+
+/// Builder for `AccessProperties`.
+///
+/// Created by `AccessProperties.builder()`. Every field is required and is
+/// set through a chained setter call; `build()` returns an error listing
+/// every field left unset instead of applying a default.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     props = (
+///         bh.AccessProperties.builder()
+///         .azimuth_open(45.0)
+///         .azimuth_close(135.0)
+///         .elevation_min(10.0)
+///         .elevation_max(85.0)
+///         .elevation_open(12.0)
+///         .elevation_close(10.5)
+///         .off_nadir_min(5.0)
+///         .off_nadir_max(80.0)
+///         .local_time(43200.0)
+///         .look_direction(bh.LookDirection.RIGHT)
+///         .asc_dsc(bh.AscDsc.ASCENDING)
+///         .center_lon(0.0)
+///         .center_lat(45.0)
+///         .center_alt(0.0)
+///         .center_ecef([4517.59e3, 4517.59e3, 0.0])
+///         .build()
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "AccessPropertiesBuilder")]
+pub struct PyAccessPropertiesBuilder {
+    inner: Option<access::AccessPropertiesBuilder>,
+}
+
+#[pymethods]
+impl PyAccessPropertiesBuilder {
+    /// Set the azimuth at window open.
+    ///
+    /// Args:
+    ///     azimuth_open (float): Azimuth at window open (degrees, 0-360)
+    ///
+    /// Returns:
+    ///     AccessPropertiesBuilder: The builder, for method chaining.
+    fn azimuth_open(mut slf: PyRefMut<'_, Self>, azimuth_open: f64) -> Self {
+        let inner = slf.inner.take().map(|b| b.azimuth_open(azimuth_open));
+        Self { inner }
+    }
+
+    /// Set the azimuth at window close.
+    ///
+    /// Args:
+    ///     azimuth_close (float): Azimuth at window close (degrees, 0-360)
+    ///
+    /// Returns:
+    ///     AccessPropertiesBuilder: The builder, for method chaining.
+    fn azimuth_close(mut slf: PyRefMut<'_, Self>, azimuth_close: f64) -> Self {
+        let inner = slf.inner.take().map(|b| b.azimuth_close(azimuth_close));
+        Self { inner }
+    }
+
+    /// Set the minimum elevation angle during access.
+    ///
+    /// Args:
+    ///     elevation_min (float): Minimum elevation angle (degrees)
+    ///
+    /// Returns:
+    ///     AccessPropertiesBuilder: The builder, for method chaining.
+    fn elevation_min(mut slf: PyRefMut<'_, Self>, elevation_min: f64) -> Self {
+        let inner = slf.inner.take().map(|b| b.elevation_min(elevation_min));
+        Self { inner }
+    }
+
+    /// Set the maximum elevation angle during access.
+    ///
+    /// Args:
+    ///     elevation_max (float): Maximum elevation angle (degrees)
+    ///
+    /// Returns:
+    ///     AccessPropertiesBuilder: The builder, for method chaining.
+    fn elevation_max(mut slf: PyRefMut<'_, Self>, elevation_max: f64) -> Self {
+        let inner = slf.inner.take().map(|b| b.elevation_max(elevation_max));
+        Self { inner }
+    }
+
+    /// Set the elevation angle at window open.
+    ///
+    /// Args:
+    ///     elevation_open (float): Elevation at window open (degrees)
+    ///
+    /// Returns:
+    ///     AccessPropertiesBuilder: The builder, for method chaining.
+    fn elevation_open(mut slf: PyRefMut<'_, Self>, elevation_open: f64) -> Self {
+        let inner = slf.inner.take().map(|b| b.elevation_open(elevation_open));
+        Self { inner }
+    }
+
+    /// Set the elevation angle at window close.
+    ///
+    /// Args:
+    ///     elevation_close (float): Elevation at window close (degrees)
+    ///
+    /// Returns:
+    ///     AccessPropertiesBuilder: The builder, for method chaining.
+    fn elevation_close(mut slf: PyRefMut<'_, Self>, elevation_close: f64) -> Self {
+        let inner = slf.inner.take().map(|b| b.elevation_close(elevation_close));
+        Self { inner }
+    }
+
+    /// Set the minimum off-nadir angle during access.
+    ///
+    /// Args:
+    ///     off_nadir_min (float): Minimum off-nadir angle (degrees)
+    ///
+    /// Returns:
+    ///     AccessPropertiesBuilder: The builder, for method chaining.
+    fn off_nadir_min(mut slf: PyRefMut<'_, Self>, off_nadir_min: f64) -> Self {
+        let inner = slf.inner.take().map(|b| b.off_nadir_min(off_nadir_min));
+        Self { inner }
+    }
+
+    /// Set the maximum off-nadir angle during access.
+    ///
+    /// Args:
+    ///     off_nadir_max (float): Maximum off-nadir angle (degrees)
+    ///
+    /// Returns:
+    ///     AccessPropertiesBuilder: The builder, for method chaining.
+    fn off_nadir_max(mut slf: PyRefMut<'_, Self>, off_nadir_max: f64) -> Self {
+        let inner = slf.inner.take().map(|b| b.off_nadir_max(off_nadir_max));
+        Self { inner }
+    }
+
+    /// Set the local solar time at window midtime.
+    ///
+    /// Args:
+    ///     local_time (float): Local solar time at midtime (seconds since midnight)
+    ///
+    /// Returns:
+    ///     AccessPropertiesBuilder: The builder, for method chaining.
+    fn local_time(mut slf: PyRefMut<'_, Self>, local_time: f64) -> Self {
+        let inner = slf.inner.take().map(|b| b.local_time(local_time));
+        Self { inner }
+    }
+
+    /// Set the look direction.
+    ///
+    /// Args:
+    ///     look_direction (LookDirection): Look direction (Left or Right)
+    ///
+    /// Returns:
+    ///     AccessPropertiesBuilder: The builder, for method chaining.
+    fn look_direction(mut slf: PyRefMut<'_, Self>, look_direction: &PyLookDirection) -> Self {
+        let value = look_direction.value;
+        let inner = slf.inner.take().map(|b| b.look_direction(value));
+        Self { inner }
+    }
+
+    /// Set the ascending/descending pass indicator.
+    ///
+    /// Args:
+    ///     asc_dsc (AscDsc): Ascending or descending pass
+    ///
+    /// Returns:
+    ///     AccessPropertiesBuilder: The builder, for method chaining.
+    fn asc_dsc(mut slf: PyRefMut<'_, Self>, asc_dsc: &PyAscDsc) -> Self {
+        let value = asc_dsc.value;
+        let inner = slf.inner.take().map(|b| b.asc_dsc(value));
+        Self { inner }
+    }
+
+    /// Set the location center longitude.
+    ///
+    /// Args:
+    ///     center_lon (float): Location longitude (degrees)
+    ///
+    /// Returns:
+    ///     AccessPropertiesBuilder: The builder, for method chaining.
+    fn center_lon(mut slf: PyRefMut<'_, Self>, center_lon: f64) -> Self {
+        let inner = slf.inner.take().map(|b| b.center_lon(center_lon));
+        Self { inner }
+    }
+
+    /// Set the location center latitude.
+    ///
+    /// Args:
+    ///     center_lat (float): Location latitude (degrees)
+    ///
+    /// Returns:
+    ///     AccessPropertiesBuilder: The builder, for method chaining.
+    fn center_lat(mut slf: PyRefMut<'_, Self>, center_lat: f64) -> Self {
+        let inner = slf.inner.take().map(|b| b.center_lat(center_lat));
+        Self { inner }
+    }
+
+    /// Set the location center altitude.
+    ///
+    /// Args:
+    ///     center_alt (float): Location altitude (meters)
+    ///
+    /// Returns:
+    ///     AccessPropertiesBuilder: The builder, for method chaining.
+    fn center_alt(mut slf: PyRefMut<'_, Self>, center_alt: f64) -> Self {
+        let inner = slf.inner.take().map(|b| b.center_alt(center_alt));
+        Self { inner }
+    }
+
+    /// Set the location center ECEF coordinates.
+    ///
+    /// Args:
+    ///     center_ecef (list[float]): Location ECEF coordinates [x, y, z] (meters)
+    ///
+    /// Returns:
+    ///     AccessPropertiesBuilder: The builder, for method chaining.
+    fn center_ecef(mut slf: PyRefMut<'_, Self>, center_ecef: [f64; 3]) -> Self {
+        let inner = slf.inner.take().map(|b| b.center_ecef(center_ecef));
+        Self { inner }
+    }
+
+    /// Build the AccessProperties, validating that every field was set.
+    ///
+    /// This consumes the builder. The builder is single-use: calling
+    /// `build()` a second time raises `RuntimeError`.
+    ///
+    /// Returns:
+    ///     AccessProperties: The constructed properties.
+    ///
+    /// Raises:
+    ///     RuntimeError: If the builder was already consumed by a prior
+    ///         `build()` call, or if any required field was never set.
+    fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PyAccessProperties> {
+        let builder = slf
+            .inner
+            .take()
+            .ok_or_else(|| exceptions::PyRuntimeError::new_err("builder already consumed"))?;
+        let properties = builder
+            .build()
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(PyAccessProperties { properties })
     }
 }
 

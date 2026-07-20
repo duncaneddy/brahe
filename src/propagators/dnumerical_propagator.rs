@@ -2528,6 +2528,29 @@ mod tests {
         assert_eq!(stm.ncols(), 2);
     }
 
+    #[test]
+    fn test_dnumericalpropagator_builder_control_input() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![0.0, 0.0]);
+
+        // Zero dynamics: state stays constant absent a control input.
+        let dynamics: DStateDynamics = Box::new(|_t, x, _p| DVector::zeros(x.len()));
+        // Constant control perturbation: dx/dt = [1.0, 2.0]
+        let control: DStateDynamics = Box::new(|_t, _x, _p| DVector::from_vec(vec![1.0, 2.0]));
+
+        let mut prop = DNumericalPropagator::builder(epoch, state, dynamics)
+            .control_input(control)
+            .build()
+            .unwrap();
+
+        prop.step_by(1.0);
+
+        // With zero dynamics, the constant control perturbation is the entire
+        // derivative, so after 1s the state should equal the perturbation exactly.
+        assert_abs_diff_eq!(prop.current_state()[0], 1.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(prop.current_state()[1], 2.0, epsilon = 1e-9);
+    }
+
     // =============================================================================
     // DStatePropagator Trait Tests
     // =============================================================================

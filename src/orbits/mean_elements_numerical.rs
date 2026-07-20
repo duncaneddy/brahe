@@ -331,23 +331,22 @@ fn forward_average(
 
     // Propagate backward from t to the window start to obtain a valid initial state
     // there.
-    let mut back = DNumericalOrbitPropagator::builder()
-        .epoch(t)
-        .state(DVector::from_row_slice(cart_t.as_slice()))
-        .force_config(inverse.force_model.clone())
-        .propagation_config(inverse.propagation.clone())
-        .build()?;
+    let mut back = DNumericalOrbitPropagator::builder(
+        t,
+        DVector::from_row_slice(cart_t.as_slice()),
+        inverse.force_model.clone(),
+    )
+    .propagation_config(inverse.propagation.clone())
+    .build()?;
     back.propagate_to(start);
     let cart_start = back.state(start)?;
 
     // Integrate forward across the full window from a single starting condition, so
     // the trajectory samples are in strictly increasing epoch order.
-    let mut fwd = DNumericalOrbitPropagator::builder()
-        .epoch(start)
-        .state(cart_start)
-        .force_config(inverse.force_model.clone())
-        .propagation_config(inverse.propagation.clone())
-        .build()?;
+    let mut fwd =
+        DNumericalOrbitPropagator::builder(start, cart_start, inverse.force_model.clone())
+            .propagation_config(inverse.propagation.clone())
+            .build()?;
     fwd.propagate_to(end);
 
     let n_samples = (back_n + fwd_n + 1) as usize;
@@ -722,22 +721,21 @@ mod tests {
         let start = anchor - half;
         let end = anchor + half;
         let inv = cfg.inverse.as_ref().unwrap();
-        let mut back = DNumericalOrbitPropagator::builder()
-            .epoch(anchor)
-            .state(DVector::from_row_slice(cart.as_slice()))
-            .force_config(inv.force_model.clone())
-            .propagation_config(inv.propagation.clone())
-            .build()
-            .unwrap();
+        let mut back = DNumericalOrbitPropagator::builder(
+            anchor,
+            DVector::from_row_slice(cart.as_slice()),
+            inv.force_model.clone(),
+        )
+        .propagation_config(inv.propagation.clone())
+        .build()
+        .unwrap();
         back.propagate_to(start);
         let cart_start = back.state(start).unwrap();
-        let mut fwd = DNumericalOrbitPropagator::builder()
-            .epoch(start)
-            .state(cart_start)
-            .force_config(inv.force_model.clone())
-            .propagation_config(inv.propagation.clone())
-            .build()
-            .unwrap();
+        let mut fwd =
+            DNumericalOrbitPropagator::builder(start, cart_start, inv.force_model.clone())
+                .propagation_config(inv.propagation.clone())
+                .build()
+                .unwrap();
         fwd.propagate_to(end);
 
         // Sample on a grid that includes the anchor epoch exactly (mirroring

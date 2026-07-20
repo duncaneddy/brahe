@@ -442,32 +442,14 @@ pub struct DNumericalOrbitPropagator {
     pub uuid: Option<uuid::Uuid>,
 }
 
-/// Marker type: required builder field has been set.
-pub struct Set;
-/// Marker type: required builder field has not yet been set.
-pub struct Unset;
-
-// Holds all builder fields in one place so typestate transitions only need to
-// move this struct and change the phantom — no per-field repetition.
-struct BuilderData {
-    epoch: Option<Epoch>,
-    state: Option<DVector<f64>>,
-    force_config: Option<ForceModelConfig>,
-    propagation_config: Option<super::NumericalPropagationConfig>,
-    params: Option<DVector<f64>>,
-    additional_dynamics: Option<DStateDynamics>,
-    control_input: DControlInput,
-    initial_covariance: Option<DMatrix<f64>>,
-}
-
-/// Typestate builder for [`DNumericalOrbitPropagator`].
+/// Builder for [`DNumericalOrbitPropagator`].
 ///
-/// The type parameters `E`, `S`, `F` track whether `epoch`, `state`, and
-/// `force_config` have been set. [`build`][`DNumericalOrbitPropagatorBuilder::build`]
-/// is only available when all three are [`Set`]; forgetting a required field is
-/// a compile error rather than a runtime panic.
-///
-/// Construct with [`DNumericalOrbitPropagator::builder`].
+/// Created by [`DNumericalOrbitPropagator::builder`], which takes the three
+/// required inputs (`epoch`, `state`, `force_config`). Optional inputs are
+/// provided through chained setters and default to `None`
+/// ([`NumericalPropagationConfig::default`] for the propagation configuration).
+/// [`DNumericalOrbitPropagatorBuilder::build`] validates the configuration and
+/// constructs the propagator.
 ///
 /// # Example
 ///
@@ -485,78 +467,23 @@ struct BuilderData {
 /// let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 /// let p0 = DMatrix::<f64>::identity(6, 6) * 1e6;
 ///
-/// let prop = DNumericalOrbitPropagator::builder()
-///     .epoch(epoch)
-///     .state(state)
-///     .force_config(ForceModelConfig::earth_gravity())
+/// let prop = DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::earth_gravity())
 ///     .initial_covariance(p0)
 ///     .build()
 ///     .unwrap();
 /// ```
-pub struct DNumericalOrbitPropagatorBuilder<E, S, F> {
-    data: BuilderData,
-    _phantom: std::marker::PhantomData<(E, S, F)>,
+pub struct DNumericalOrbitPropagatorBuilder {
+    epoch: Epoch,
+    state: DVector<f64>,
+    force_config: ForceModelConfig,
+    propagation_config: super::NumericalPropagationConfig,
+    params: Option<DVector<f64>>,
+    additional_dynamics: Option<DStateDynamics>,
+    control_input: DControlInput,
+    initial_covariance: Option<DMatrix<f64>>,
 }
 
-// --- Required field setters — each transitions one type parameter Unset → Set ---
-
-impl<S, F> DNumericalOrbitPropagatorBuilder<Unset, S, F> {
-    /// Set the initial epoch.
-    ///
-    /// # Arguments
-    /// * `epoch` - Initial epoch
-    ///
-    /// # Returns
-    /// Builder with `E` transitioned to [`Set`]
-    pub fn epoch(mut self, epoch: Epoch) -> DNumericalOrbitPropagatorBuilder<Set, S, F> {
-        self.data.epoch = Some(epoch);
-        DNumericalOrbitPropagatorBuilder {
-            data: self.data,
-            _phantom: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<E, F> DNumericalOrbitPropagatorBuilder<E, Unset, F> {
-    /// Set the initial state vector in ECI Cartesian format (6D or 6+N dimensional).
-    ///
-    /// # Arguments
-    /// * `state` - Initial state vector
-    ///
-    /// # Returns
-    /// Builder with `S` transitioned to [`Set`]
-    pub fn state(mut self, state: DVector<f64>) -> DNumericalOrbitPropagatorBuilder<E, Set, F> {
-        self.data.state = Some(state);
-        DNumericalOrbitPropagatorBuilder {
-            data: self.data,
-            _phantom: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<E, S> DNumericalOrbitPropagatorBuilder<E, S, Unset> {
-    /// Set the force model configuration (gravity, drag, SRP, third-body, etc.).
-    ///
-    /// # Arguments
-    /// * `config` - Force model configuration
-    ///
-    /// # Returns
-    /// Builder with `F` transitioned to [`Set`]
-    pub fn force_config(
-        mut self,
-        config: ForceModelConfig,
-    ) -> DNumericalOrbitPropagatorBuilder<E, S, Set> {
-        self.data.force_config = Some(config);
-        DNumericalOrbitPropagatorBuilder {
-            data: self.data,
-            _phantom: std::marker::PhantomData,
-        }
-    }
-}
-
-// --- Optional field setters — available on all typestate variants ---
-
-impl<E, S, F> DNumericalOrbitPropagatorBuilder<E, S, F> {
+impl DNumericalOrbitPropagatorBuilder {
     /// Set the propagation configuration (integrator method, tolerances, and step sizes).
     ///
     /// Defaults to [`NumericalPropagationConfig::default`] if not called.
@@ -566,8 +493,29 @@ impl<E, S, F> DNumericalOrbitPropagatorBuilder<E, S, F> {
     ///
     /// # Returns
     /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::{DNumericalOrbitPropagator, NumericalPropagationConfig, ForceModelConfig};
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use brahe::constants::R_EARTH;
+    /// use nalgebra::DVector;
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+    ///
+    /// let prop = DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::earth_gravity())
+    ///     .propagation_config(NumericalPropagationConfig::high_precision())
+    ///     .build()
+    ///     .unwrap();
+    /// ```
     pub fn propagation_config(mut self, config: super::NumericalPropagationConfig) -> Self {
-        self.data.propagation_config = Some(config);
+        self.propagation_config = config;
         self
     }
 
@@ -580,8 +528,51 @@ impl<E, S, F> DNumericalOrbitPropagatorBuilder<E, S, F> {
     ///
     /// # Returns
     /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::{
+    ///     AtmosphericModel, CentralBody, DNumericalOrbitPropagator, DragConfiguration,
+    ///     ForceModelConfig, FrameTransformationModel, GravityConfiguration, ParameterSource,
+    /// };
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use brahe::constants::R_EARTH;
+    /// use nalgebra::DVector;
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+    ///
+    /// // Harris-Priester drag references parameter indices 0 (area) and 1 (Cd),
+    /// // and does not require space weather data like NRLMSISE-00 does.
+    /// let force_config = ForceModelConfig {
+    ///     central_body: CentralBody::Earth,
+    ///     gravity: GravityConfiguration::PointMass,
+    ///     drag: Some(DragConfiguration {
+    ///         model: AtmosphericModel::HarrisPriester,
+    ///         area: ParameterSource::ParameterIndex(0),
+    ///         cd: ParameterSource::ParameterIndex(1),
+    ///         body: None,
+    ///     }),
+    ///     srp: None,
+    ///     third_body: None,
+    ///     relativity: false,
+    ///     mass: None,
+    ///     frame_transform: FrameTransformationModel::default(),
+    ///     tides: None,
+    /// };
+    ///
+    /// let prop = DNumericalOrbitPropagator::builder(epoch, state, force_config)
+    ///     .params(DVector::from_vec(vec![10.0, 2.2])) // drag area [m²], Cd
+    ///     .build()
+    ///     .unwrap();
+    /// ```
     pub fn params(mut self, params: DVector<f64>) -> Self {
-        self.data.params = Some(params);
+        self.params = Some(params);
         self
     }
 
@@ -592,8 +583,36 @@ impl<E, S, F> DNumericalOrbitPropagatorBuilder<E, S, F> {
     ///
     /// # Returns
     /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::{DNumericalOrbitPropagator, ForceModelConfig};
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use brahe::constants::R_EARTH;
+    /// use nalgebra::DVector;
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// // 6D orbital state + 1 mass state
+    /// let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0, 1000.0]);
+    ///
+    /// let dynamics: brahe::integrators::traits::DStateDynamics = Box::new(|_t, state, _params| {
+    ///     let mut dx = DVector::zeros(state.len());
+    ///     dx[6] = -0.1; // dm/dt = -0.1 kg/s
+    ///     dx
+    /// });
+    ///
+    /// let prop = DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::earth_gravity())
+    ///     .additional_dynamics(dynamics)
+    ///     .build()
+    ///     .unwrap();
+    /// ```
     pub fn additional_dynamics(mut self, dynamics: DStateDynamics) -> Self {
-        self.data.additional_dynamics = Some(dynamics);
+        self.additional_dynamics = Some(dynamics);
         self
     }
 
@@ -604,8 +623,35 @@ impl<E, S, F> DNumericalOrbitPropagatorBuilder<E, S, F> {
     ///
     /// # Returns
     /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::{DNumericalOrbitPropagator, ForceModelConfig};
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use brahe::constants::R_EARTH;
+    /// use nalgebra::DVector;
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+    ///
+    /// let control: brahe::integrators::traits::DStateDynamics = Box::new(|_t, state, _params| {
+    ///     let mut dx = DVector::zeros(state.len());
+    ///     dx[3] = 0.0001; // small perturbing acceleration
+    ///     dx
+    /// });
+    ///
+    /// let prop = DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::earth_gravity())
+    ///     .control_input(control)
+    ///     .build()
+    ///     .unwrap();
+    /// ```
     pub fn control_input(mut self, control: DStateDynamics) -> Self {
-        self.data.control_input = Some(control);
+        self.control_input = Some(control);
         self
     }
 
@@ -616,15 +662,33 @@ impl<E, S, F> DNumericalOrbitPropagatorBuilder<E, S, F> {
     ///
     /// # Returns
     /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::{DNumericalOrbitPropagator, ForceModelConfig};
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use brahe::constants::R_EARTH;
+    /// use nalgebra::{DMatrix, DVector};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+    /// let p0 = DMatrix::<f64>::identity(6, 6) * 1e6;
+    ///
+    /// let prop = DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::earth_gravity())
+    ///     .initial_covariance(p0)
+    ///     .build()
+    ///     .unwrap();
+    /// ```
     pub fn initial_covariance(mut self, covariance: DMatrix<f64>) -> Self {
-        self.data.initial_covariance = Some(covariance);
+        self.initial_covariance = Some(covariance);
         self
     }
-}
 
-// --- build() is only available once all three required fields are Set ---
-
-impl DNumericalOrbitPropagatorBuilder<Set, Set, Set> {
     /// Construct the propagator from the accumulated configuration.
     ///
     /// # Returns
@@ -634,18 +698,36 @@ impl DNumericalOrbitPropagatorBuilder<Set, Set, Set> {
     /// Returns `BraheError` if:
     /// - Force model references parameter indices but no parameter vector is provided
     /// - Parameter vector is too short for the force model configuration
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::{DNumericalOrbitPropagator, ForceModelConfig};
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use brahe::constants::R_EARTH;
+    /// use nalgebra::DVector;
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+    ///
+    /// let prop = DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::earth_gravity())
+    ///     .build()
+    ///     .unwrap();
+    /// ```
     pub fn build(self) -> Result<DNumericalOrbitPropagator, BraheError> {
-        // SAFETY: Each Option is Some because the corresponding type parameter is
-        // Set, and the only way to reach Set is via the setter that populates the field.
         DNumericalOrbitPropagator::new(
-            self.data.epoch.unwrap(),
-            self.data.state.unwrap(),
-            self.data.propagation_config.unwrap_or_default(),
-            self.data.force_config.unwrap(),
-            self.data.params,
-            self.data.additional_dynamics,
-            self.data.control_input,
-            self.data.initial_covariance,
+            self.epoch,
+            self.state,
+            self.propagation_config,
+            self.force_config,
+            self.params,
+            self.additional_dynamics,
+            self.control_input,
+            self.initial_covariance,
         )
     }
 }
@@ -1148,15 +1230,19 @@ impl DNumericalOrbitPropagator {
         )
     }
 
-    /// Create a typestate builder for [`DNumericalOrbitPropagator`].
+    /// Create a builder for [`DNumericalOrbitPropagator`].
     ///
-    /// Returns a builder where each required field (`epoch`, `state`, `force_config`)
-    /// starts as [`Unset`]. [`build`][`DNumericalOrbitPropagatorBuilder::build`] is
-    /// only available once all three are marked [`Set`], so an incomplete configuration
-    /// is a compile error rather than a runtime failure.
+    /// Takes the three required inputs directly; optional inputs are provided
+    /// through chained setters on the returned builder and default to `None`
+    /// ([`NumericalPropagationConfig::default`] for the propagation configuration).
+    ///
+    /// # Arguments
+    /// * `epoch` - Initial epoch
+    /// * `state` - Initial state vector in ECI Cartesian format (6D or 6+N dimensional)
+    /// * `force_config` - Force model configuration (gravity, drag, SRP, third-body, etc.)
     ///
     /// # Returns
-    /// Builder with all required fields unset
+    /// Builder with the three required fields set and all optional fields defaulted
     ///
     /// # Example
     ///
@@ -1174,27 +1260,25 @@ impl DNumericalOrbitPropagator {
     /// let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
     /// let p0 = DMatrix::<f64>::identity(6, 6) * 1e6;
     ///
-    /// let prop = DNumericalOrbitPropagator::builder()
-    ///     .epoch(epoch)
-    ///     .state(state)
-    ///     .force_config(ForceModelConfig::earth_gravity())
+    /// let prop = DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::earth_gravity())
     ///     .initial_covariance(p0)
     ///     .build()
     ///     .unwrap();
     /// ```
-    pub fn builder() -> DNumericalOrbitPropagatorBuilder<Unset, Unset, Unset> {
+    pub fn builder(
+        epoch: Epoch,
+        state: DVector<f64>,
+        force_config: ForceModelConfig,
+    ) -> DNumericalOrbitPropagatorBuilder {
         DNumericalOrbitPropagatorBuilder {
-            data: BuilderData {
-                epoch: None,
-                state: None,
-                force_config: None,
-                propagation_config: None,
-                params: None,
-                additional_dynamics: None,
-                control_input: None,
-                initial_covariance: None,
-            },
-            _phantom: std::marker::PhantomData,
+            epoch,
+            state,
+            force_config,
+            propagation_config: super::NumericalPropagationConfig::default(),
+            params: None,
+            additional_dynamics: None,
+            control_input: None,
+            initial_covariance: None,
         }
     }
 
@@ -3674,6 +3758,7 @@ mod tests {
     use crate::time::TimeSystem;
     use crate::utils::testing::setup_global_test_gravity_model;
     use crate::{orbital_period, state_koe_to_eci};
+    use rstest::rstest;
 
     fn setup_global_test_eop() {
         let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
@@ -12766,11 +12851,9 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let prop = DNumericalOrbitPropagator::builder()
-            .epoch(epoch)
-            .state(state)
-            .force_config(ForceModelConfig::earth_gravity())
-            .build();
+        let prop =
+            DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::earth_gravity())
+                .build();
 
         assert!(prop.is_ok());
     }
@@ -12783,12 +12866,10 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let prop = DNumericalOrbitPropagator::builder()
-            .epoch(epoch)
-            .state(state)
-            .force_config(ForceModelConfig::earth_gravity())
-            .propagation_config(NumericalPropagationConfig::high_precision())
-            .build();
+        let prop =
+            DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::earth_gravity())
+                .propagation_config(NumericalPropagationConfig::high_precision())
+                .build();
 
         assert!(prop.is_ok());
     }
@@ -12802,12 +12883,10 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let prop = DNumericalOrbitPropagator::builder()
-            .epoch(epoch)
-            .state(state)
-            .force_config(ForceModelConfig::leo_default())
-            .params(default_test_params())
-            .build();
+        let prop =
+            DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::leo_default())
+                .params(default_test_params())
+                .build();
 
         assert!(prop.is_ok());
     }
@@ -12821,12 +12900,10 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
         let p0 = DMatrix::<f64>::identity(6, 6) * 1e6;
 
-        let prop = DNumericalOrbitPropagator::builder()
-            .epoch(epoch)
-            .state(state)
-            .force_config(ForceModelConfig::earth_gravity())
-            .initial_covariance(p0)
-            .build();
+        let prop =
+            DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::earth_gravity())
+                .initial_covariance(p0)
+                .build();
 
         assert!(prop.is_ok());
         assert!(prop.unwrap().current_covariance().is_some());
@@ -12842,14 +12919,12 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
         let p0 = DMatrix::<f64>::identity(6, 6) * 1e6;
 
-        let prop = DNumericalOrbitPropagator::builder()
-            .epoch(epoch)
-            .state(state)
-            .force_config(ForceModelConfig::leo_default())
-            .propagation_config(NumericalPropagationConfig::default())
-            .params(default_test_params())
-            .initial_covariance(p0)
-            .build();
+        let prop =
+            DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::leo_default())
+                .propagation_config(NumericalPropagationConfig::default())
+                .params(default_test_params())
+                .initial_covariance(p0)
+                .build();
 
         assert!(prop.is_ok());
         let prop = prop.unwrap();
@@ -12894,13 +12969,11 @@ mod tests {
             dx
         });
 
-        let prop = DNumericalOrbitPropagator::builder()
-            .epoch(epoch)
-            .state(state)
-            .force_config(ForceModelConfig::earth_gravity())
-            .additional_dynamics(additional_dynamics)
-            .control_input(control)
-            .build();
+        let prop =
+            DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::earth_gravity())
+                .additional_dynamics(additional_dynamics)
+                .control_input(control)
+                .build();
 
         assert!(prop.is_ok());
         let mut prop = prop.unwrap();
@@ -12931,18 +13004,65 @@ mod tests {
         )
         .unwrap();
 
-        let via_builder = DNumericalOrbitPropagator::builder()
-            .epoch(epoch)
-            .state(state)
-            .force_config(ForceModelConfig::earth_gravity())
-            .build()
-            .unwrap();
+        let via_builder =
+            DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::earth_gravity())
+                .build()
+                .unwrap();
 
         assert_eq!(via_new.initial_epoch(), via_builder.initial_epoch());
         assert_eq!(
             DStatePropagator::state_dim(&via_new),
             DStatePropagator::state_dim(&via_builder)
         );
+    }
+
+    #[rstest]
+    #[serial_test::parallel]
+    fn test_dnumericalorbitpropagator_builder_equivalence() {
+        setup_global_test_eop();
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
+
+        let mut from_builder = DNumericalOrbitPropagator::builder(
+            epoch,
+            state.clone(),
+            ForceModelConfig::earth_gravity(),
+        )
+        .build()
+        .unwrap();
+        let mut from_new = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        from_builder.step_by(60.0);
+        from_new.step_by(60.0);
+        assert_eq!(from_builder.current_state(), from_new.current_state());
+    }
+
+    #[rstest]
+    #[serial_test::parallel]
+    fn test_dnumericalorbitpropagator_builder_optionals() {
+        setup_global_test_eop();
+        setup_global_test_space_weather();
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
+        let p0 = DMatrix::identity(6, 6);
+
+        let prop = DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::default())
+            .propagation_config(NumericalPropagationConfig::default())
+            .params(default_test_params())
+            .initial_covariance(p0)
+            .build()
+            .unwrap();
+        assert!(prop.current_covariance().is_some());
     }
 
     // =========================================================================

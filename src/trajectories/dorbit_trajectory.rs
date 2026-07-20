@@ -333,7 +333,7 @@ impl DOrbitTrajectory {
             sensitivities: None,
             sensitivity_dimension: None,
             dimension,
-            interpolation_method: InterpolationMethod::Linear,
+            interpolation_method: InterpolationMethod::HermiteCubic, // Orbit states carry velocity; Hermite-cubic is exact-to-2nd-order
             covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
@@ -1089,7 +1089,7 @@ impl Trajectory for DOrbitTrajectory {
             sensitivities: None,
             sensitivity_dimension: None,
             dimension,
-            interpolation_method: InterpolationMethod::Linear, // Default to Linear
+            interpolation_method: InterpolationMethod::HermiteCubic, // Orbit states carry velocity; Hermite-cubic is exact-to-2nd-order
             covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
@@ -1834,7 +1834,7 @@ impl DOrbitTrajectory {
             sensitivities: None,
             sensitivity_dimension: None,
             dimension,
-            interpolation_method: InterpolationMethod::Linear,
+            interpolation_method: InterpolationMethod::HermiteCubic, // Orbit states carry velocity; Hermite-cubic is exact-to-2nd-order
             covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
@@ -4727,8 +4727,11 @@ mod tests {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
 
-        // Default is Linear
-        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
+        // Default is HermiteCubic (orbit states carry velocity)
+        assert_eq!(
+            traj.get_interpolation_method(),
+            InterpolationMethod::HermiteCubic
+        );
 
         // Set to Lagrange
         traj.set_interpolation_method(InterpolationMethod::Lagrange { degree: 5 });
@@ -4769,6 +4772,9 @@ mod tests {
     fn test_dorbittrajectory_interpolate_linear_basic() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        // This test exercises linear interpolation of sparse points; the
+        // default is now HermiteCubic, so request Linear explicitly.
+        traj.set_interpolation_method(InterpolationMethod::Linear);
         let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
         let state1 = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);

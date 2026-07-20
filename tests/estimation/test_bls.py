@@ -262,3 +262,52 @@ class TestBatchLeastSquares:
         assert formal.shape == (3, 3)
         total = bls.total_covariance()
         assert np.all(np.diag(total) >= np.diag(formal) - 1e-12)
+
+
+class SingularNoiseModel(bh.MeasurementModel):
+    """Position model with a rank-deficient measurement noise covariance R (a
+    zero on the diagonal), exercising the singular-R solve error path."""
+
+    def predict(self, epoch, state, params=None):
+        return np.array(state[:3])
+
+    def noise_covariance(self):
+        return np.diag([100.0, 100.0, 0.0])
+
+    def measurement_dim(self):
+        return 3
+
+    def name(self):
+        return "SingularNoise"
+
+
+def test_bls_model_index_out_of_bounds(two_body_leo):
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    bls = bh.BatchLeastSquares(
+        epoch,
+        state,
+        p0,
+        propagation_config=bh.NumericalPropagationConfig.default(),
+        force_config=bh.ForceModelConfig.two_body(),
+        measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+    )
+    obs = [bh.Observation(epoch + 30.0, state[:3], model_index=5)]
+    with pytest.raises(RuntimeError, match="model_index"):
+        bls.solve(obs)
+
+
+def test_bls_singular_measurement_covariance(two_body_leo, position_observations):
+    """A rank-deficient measurement covariance R must abort the solve."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    bls = bh.BatchLeastSquares(
+        epoch,
+        state,
+        p0,
+        propagation_config=bh.NumericalPropagationConfig.default(),
+        force_config=bh.ForceModelConfig.two_body(),
+        measurement_models=[SingularNoiseModel()],
+    )
+    with pytest.raises(RuntimeError, match="singular"):
+        bls.solve(position_observations)

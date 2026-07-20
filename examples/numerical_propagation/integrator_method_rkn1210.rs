@@ -12,7 +12,7 @@ fn main() {
         integrator: bh::IntegratorConfig::adaptive(1e-12, 1e-10),
         variational: bh::VariationalConfig::default(),
         store_accelerations: true,
-        interpolation_method: bh::InterpolationMethod::Linear,
+        interpolation_method: Some(bh::InterpolationMethod::Linear),
     };
 
     println!("Method: {:?}", config.method);

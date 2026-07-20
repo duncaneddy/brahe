@@ -991,3 +991,69 @@ class TestConstraintCompositionMixedTypes:
         """Test ConstraintNot with invalid constraint type raises TypeError."""
         with pytest.raises(TypeError):
             bh.ConstraintNot(constraint="not_a_constraint")
+
+
+class TestAzimuthConstraint:
+    """Test AzimuthConstraint class (Python parity with Rust)."""
+
+    def _state_and_location(self, az_deg):
+        location_ecef = bh.position_geodetic_to_ecef(
+            np.array([0.0, 0.0, 0.0]), bh.AngleFormat.DEGREES
+        )
+        sat = compute_sat_position_from_azel(0.0, 0.0, 0.0, az_deg, 30.0, 1000e3)
+        state = np.array([sat[0], sat[1], sat[2], 0.0, 0.0, 0.0])
+        return state, location_ecef
+
+    def test_window_and_wrap(self):
+        epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+        state, loc = self._state_and_location(100.0)
+        # Non-wrapping window containing 100 degrees
+        assert bh.AzimuthConstraint(90.0, 180.0).evaluate(epoch, state, loc) is True
+        # Non-wrapping window excluding 100 degrees
+        assert bh.AzimuthConstraint(180.0, 270.0).evaluate(epoch, state, loc) is False
+        # Wrap-around window crossing north excludes 100 degrees
+        assert bh.AzimuthConstraint(350.0, 50.0).evaluate(epoch, state, loc) is False
+
+    def test_validation_and_repr(self):
+        with pytest.raises(ValueError):
+            bh.AzimuthConstraint(-1.0, 10.0)
+        with pytest.raises(ValueError):
+            bh.AzimuthConstraint(0.0, 361.0)
+        c = bh.AzimuthConstraint(90.0, 180.0)
+        assert "AzimuthConstraint" in repr(c)
+        assert "AzimuthConstraint" in str(c)
+
+
+class TestRangeConstraint:
+    """Test RangeConstraint class (Python parity with Rust)."""
+
+    def _state_and_location(self):
+        location_ecef = bh.position_geodetic_to_ecef(
+            np.array([0.0, 0.0, 0.0]), bh.AngleFormat.DEGREES
+        )
+        sat = compute_sat_position_from_azel(0.0, 0.0, 0.0, 100.0, 30.0, 1000e3)
+        state = np.array([sat[0], sat[1], sat[2], 0.0, 0.0, 0.0])
+        return state, location_ecef
+
+    def test_bounds(self):
+        epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+        state, loc = self._state_and_location()  # slant range ~1000 km
+        assert (
+            bh.RangeConstraint(max_range_m=2_000e3).evaluate(epoch, state, loc) is True
+        )
+        assert (
+            bh.RangeConstraint(max_range_m=500e3).evaluate(epoch, state, loc) is False
+        )
+        assert bh.RangeConstraint(min_range_m=500e3).evaluate(epoch, state, loc) is True
+        assert (
+            bh.RangeConstraint(min_range_m=2_000e3).evaluate(epoch, state, loc) is False
+        )
+
+    def test_validation_and_repr(self):
+        with pytest.raises(ValueError):
+            bh.RangeConstraint()
+        with pytest.raises(ValueError):
+            bh.RangeConstraint(min_range_m=-1.0)
+        c = bh.RangeConstraint(max_range_m=5_000_000.0)
+        assert "RangeConstraint" in repr(c)
+        assert "RangeConstraint" in str(c)

@@ -198,4 +198,40 @@ fn py_download_spice_kernel(name: &str, output_path: Option<&str>) -> PyResult<S
         .map(|s| s.to_string())
 }
 
+/// Load the Vallado SSN sensor sites.
+///
+/// Returns representative US Space Surveillance Network sensor sites with
+/// locations from Vallado 4th Ed. Table 4-2, az/el/range limits from Table
+/// 4-3, and bias/noise calibration values from Table 4-4. Data is embedded;
+/// no network access is required.
+///
+/// Returns:
+///     list[PointLocation]: 21 sensor sites with properties:
+///         - sensor_type: "azel_range" or "radec"
+///         - system, category, sensor_numbers: descriptive metadata
+///         - az_min_deg/az_max_deg/el_min_deg/el_max_deg/range_max_m: optional limits
+///         - range_bias_m/az_bias_deg/el_bias_deg and
+///           range_noise_m/az_noise_deg/el_noise_deg: optional calibration
+///
+/// Raises:
+///     RuntimeError: If the embedded data cannot be parsed.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     sensors = bh.datasets.ssn_sensors.load()
+///     radars = [s for s in sensors if s.properties["sensor_type"] == "azel_range"]
+///     ```
+#[pyfunction]
+#[pyo3(name = "ssn_sensors_load")]
+fn py_ssn_sensors_load() -> PyResult<Vec<PyPointLocation>> {
+    let locations = ssn_sensors::load_ssn_sensors()
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+    Ok(locations
+        .into_iter()
+        .map(|loc| PyPointLocation { location: loc })
+        .collect())
+}
+
 // Functions are registered in mod.rs via add_function() calls

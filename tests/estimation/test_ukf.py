@@ -233,3 +233,193 @@ def test_ukf_invalid_sigma_parameters_raise(two_body_leo):
                 force_config=bh.ForceModelConfig.two_body(),
                 config=bad_config,
             )
+
+
+def test_ukf_propagate_to(two_body_leo):
+    """propagate_to advances the filter without a measurement update."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+    ukf = bh.UnscentedKalmanFilter(
+        epoch,
+        state,
+        p0,
+        measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+        propagation_config=bh.NumericalPropagationConfig.default(),
+        force_config=bh.ForceModelConfig.two_body(),
+    )
+
+    p0_trace = np.trace(ukf.current_covariance())
+    record = ukf.propagate_to(epoch + 600.0)
+
+    assert ukf.current_epoch() == epoch + 600.0
+    assert record.measurement_name == "Propagation"
+    assert len(record.prefit_residual) == 0
+    assert len(record.postfit_residual) == 0
+    assert record.kalman_gain.shape == (0, 0)
+    np.testing.assert_array_equal(record.state_updated, record.state_predicted)
+    np.testing.assert_array_equal(
+        record.covariance_updated, record.covariance_predicted
+    )
+
+    # Covariance grows without measurements (Keplerian shear stretches the
+    # along-track uncertainty even with no explicit process noise).
+    assert np.trace(ukf.current_covariance()) > p0_trace
+
+    # Backwards propagation is supported (e.g. for smoothing): the filter
+    # epoch moves back to the target.
+    ukf.propagate_to(epoch)
+    assert ukf.current_epoch() == epoch
+
+
+def test_ukf_propagate_to_store_records_and_process_noise(two_body_leo):
+    """propagate_to gates records on store_records and applies Q*dt (and no
+    process noise on a zero-duration step)."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    dt = 600.0
+    q_diag = [1.0, 1.0, 1.0, 1e-4, 1e-4, 1e-4]
+    q = np.diag(q_diag)
+    q_trace = sum(q_diag)
+
+    def make(config):
+        return bh.UnscentedKalmanFilter(
+            epoch,
+            state.copy(),
+            p0,
+            measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+            propagation_config=bh.NumericalPropagationConfig.default(),
+            force_config=bh.ForceModelConfig.two_body(),
+            config=config,
+        )
+
+    # store_records gating: records() grows by one per call when enabled.
+    rec = make(bh.UKFConfig(store_records=True))
+    assert len(rec.records()) == 0
+    rec.propagate_to(epoch + 300.0)
+    assert len(rec.records()) == 1
+    rec.propagate_to(epoch + 600.0)
+    assert len(rec.records()) == 2
+
+    norec = make(bh.UKFConfig(store_records=False))
+    norec.propagate_to(epoch + 300.0)
+    assert len(norec.records()) == 0
+
+    # process noise: Q*dt increment over the no-noise baseline.
+    plain = make(bh.UKFConfig())
+    noisy = make(
+        bh.UKFConfig(process_noise=bh.ProcessNoiseConfig(q, scale_with_dt=True))
+    )
+    plain.propagate_to(epoch + dt)
+    noisy.propagate_to(epoch + dt)
+    increment = np.trace(noisy.current_covariance()) - np.trace(
+        plain.current_covariance()
+    )
+    assert increment == pytest.approx(q_trace * dt, rel=0.05)
+
+    # A zero-duration propagate_to adds no process noise.
+    before = np.trace(noisy.current_covariance())
+    noisy.propagate_to(noisy.current_epoch())
+    after = np.trace(noisy.current_covariance())
+    assert after == pytest.approx(before, rel=1e-9)
+
+
+class NegativeNoiseModel(bh.MeasurementModel):
+    """Position model with a strongly negative-definite noise covariance R,
+    driving the unscented innovation covariance S non-positive-definite."""
+
+    def predict(self, epoch, state, params=None):
+        return np.array(state[:3])
+
+    def noise_covariance(self):
+        return -1e9 * np.eye(3)
+
+    def measurement_dim(self):
+        return 3
+
+    def name(self):
+        return "NegativeNoise"
+
+
+def _make_ukf(epoch, state, p0, models, config=None):
+    return bh.UnscentedKalmanFilter(
+        epoch,
+        state,
+        p0,
+        measurement_models=models,
+        propagation_config=bh.NumericalPropagationConfig.default(),
+        force_config=bh.ForceModelConfig.two_body(),
+        config=config if config is not None else bh.UKFConfig.default(),
+    )
+
+
+def test_ukf_model_index_out_of_bounds(two_body_leo):
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    ukf = _make_ukf(epoch, state, p0, [bh.InertialPositionMeasurementModel(10.0)])
+    obs = bh.Observation(epoch + 60.0, state[:3], model_index=5)
+    with pytest.raises(RuntimeError, match="out of bounds"):
+        ukf.process_observation(obs)
+
+
+def test_ukf_non_positive_definite_covariance(two_body_leo):
+    """The constructor validates only dimensions; a negative-diagonal initial
+    covariance surfaces at the first sigma-point Cholesky as an error."""
+    epoch, state = two_body_leo
+    bad_p0 = np.diag([-1.0, 1e6, 1e6, 1e2, 1e2, 1e2])
+    ukf = _make_ukf(epoch, state, bad_p0, [bh.InertialPositionMeasurementModel(10.0)])
+    obs = bh.Observation(epoch + 60.0, state[:3], model_index=0)
+    with pytest.raises(RuntimeError, match="positive-definite"):
+        ukf.process_observation(obs)
+
+
+def test_ukf_innovation_covariance_not_positive_definite(two_body_leo):
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    ukf = _make_ukf(epoch, state, p0, [NegativeNoiseModel()])
+    obs = bh.Observation(epoch + 60.0, state[:3], model_index=0)
+    with pytest.raises(RuntimeError, match="positive-definite"):
+        ukf.process_observation(obs)
+    assert ukf.current_epoch() == epoch
+
+
+def test_ukf_observation_process_noise_both_branches(two_body_leo):
+    """The sigma-point predict step adds Q for both scale_with_dt True (Q*dt)
+    and False (Q); the predicted-covariance trace difference vs a no-noise twin
+    equals the Q contribution."""
+    epoch, true_state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    dt = 60.0
+    q_diag = [1.0, 1.0, 1.0, 1e-4, 1e-4, 1e-4]
+    q = np.diag(q_diag)
+    q_trace = sum(q_diag)
+
+    def make(pn):
+        config = (
+            bh.UKFConfig(process_noise=pn) if pn is not None else bh.UKFConfig.default()
+        )
+        return _make_ukf(
+            epoch,
+            true_state.copy(),
+            p0,
+            [bh.InertialPositionMeasurementModel(10.0)],
+            config,
+        )
+
+    obs = bh.Observation(epoch + dt, true_state[:3], model_index=0)
+
+    trace_none = np.trace(make(None).process_observation(obs).covariance_predicted)
+
+    rec_scaled = make(bh.ProcessNoiseConfig(q, scale_with_dt=True)).process_observation(
+        obs
+    )
+    assert np.trace(rec_scaled.covariance_predicted) - trace_none == pytest.approx(
+        q_trace * dt, rel=1e-6
+    )
+
+    rec_fixed = make(bh.ProcessNoiseConfig(q, scale_with_dt=False)).process_observation(
+        obs
+    )
+    assert np.trace(rec_fixed.covariance_predicted) - trace_none == pytest.approx(
+        q_trace, rel=1e-6
+    )

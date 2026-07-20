@@ -576,6 +576,565 @@ impl CDMObjectMetadata {
             comments: Vec::new(),
         }
     }
+
+    /// Create a builder for [`CDMObjectMetadata`].
+    ///
+    /// The 9 mandatory fields must be set via chained setters;
+    /// [`CDMObjectMetadataBuilder::build`] returns an error naming any
+    /// mandatory field left unset. Every optional CCSDS field is also
+    /// settable, and `comment` appends to the comments list.
+    ///
+    /// # Returns
+    /// Builder with all fields unset
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::cdm::CDMObjectMetadata;
+    /// use brahe::ccsds::common::CCSDSRefFrame;
+    ///
+    /// let metadata = CDMObjectMetadata::builder()
+    ///     .object("OBJECT1")
+    ///     .object_designator("12345")
+    ///     .catalog_name("SATCAT")
+    ///     .object_name("SAT A")
+    ///     .international_designator("2020-001A")
+    ///     .ephemeris_name("NONE")
+    ///     .covariance_method("CALCULATED")
+    ///     .maneuverable("YES")
+    ///     .ref_frame(CCSDSRefFrame::EME2000)
+    ///     .object_type("PAYLOAD")
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    pub fn builder() -> CDMObjectMetadataBuilder {
+        CDMObjectMetadataBuilder {
+            object: None,
+            object_designator: None,
+            catalog_name: None,
+            object_name: None,
+            international_designator: None,
+            object_type: None,
+            ops_status: None,
+            operator_contact_position: None,
+            operator_organization: None,
+            operator_phone: None,
+            operator_email: None,
+            ephemeris_name: None,
+            odm_msg_link: None,
+            adm_msg_link: None,
+            obs_before_next_message: None,
+            covariance_method: None,
+            covariance_source: None,
+            maneuverable: None,
+            orbit_center: None,
+            ref_frame: None,
+            alt_cov_type: None,
+            alt_cov_ref_frame: None,
+            gravity_model: None,
+            atmospheric_model: None,
+            n_body_perturbations: None,
+            solar_rad_pressure: None,
+            earth_tides: None,
+            intrack_thrust: None,
+            comments: Vec::new(),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Object Metadata Builder
+// ---------------------------------------------------------------------------
+
+/// Builder for [`CDMObjectMetadata`].
+///
+/// Created by [`CDMObjectMetadata::builder`]. The 9 mandatory CDM fields are
+/// set through chained setters and validated by [`CDMObjectMetadataBuilder::build`],
+/// which returns an error listing every mandatory field left unset instead of
+/// applying a default. All optional CCSDS fields are also settable, and
+/// `comment` appends to the comments list.
+#[derive(Debug, Clone, Default)]
+pub struct CDMObjectMetadataBuilder {
+    object: Option<String>,
+    object_designator: Option<String>,
+    catalog_name: Option<String>,
+    object_name: Option<String>,
+    international_designator: Option<String>,
+    object_type: Option<String>,
+    ops_status: Option<String>,
+    operator_contact_position: Option<String>,
+    operator_organization: Option<String>,
+    operator_phone: Option<String>,
+    operator_email: Option<String>,
+    ephemeris_name: Option<String>,
+    odm_msg_link: Option<String>,
+    adm_msg_link: Option<String>,
+    obs_before_next_message: Option<String>,
+    covariance_method: Option<String>,
+    covariance_source: Option<String>,
+    maneuverable: Option<String>,
+    orbit_center: Option<String>,
+    ref_frame: Option<CCSDSRefFrame>,
+    alt_cov_type: Option<String>,
+    alt_cov_ref_frame: Option<CCSDSRefFrame>,
+    gravity_model: Option<String>,
+    atmospheric_model: Option<String>,
+    n_body_perturbations: Option<String>,
+    solar_rad_pressure: Option<String>,
+    earth_tides: Option<String>,
+    intrack_thrust: Option<String>,
+    comments: Vec<String>,
+}
+
+impl CDMObjectMetadataBuilder {
+    /// Set OBJECT — "OBJECT1" or "OBJECT2".
+    ///
+    /// # Arguments
+    /// * `object` - "OBJECT1" or "OBJECT2"
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn object(mut self, object: &str) -> Self {
+        self.object = Some(object.to_string());
+        self
+    }
+
+    /// Set OBJECT_DESIGNATOR — catalog ID.
+    ///
+    /// # Arguments
+    /// * `object_designator` - Catalog ID
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn object_designator(mut self, object_designator: &str) -> Self {
+        self.object_designator = Some(object_designator.to_string());
+        self
+    }
+
+    /// Set CATALOG_NAME.
+    ///
+    /// # Arguments
+    /// * `catalog_name` - Catalog name
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn catalog_name(mut self, catalog_name: &str) -> Self {
+        self.catalog_name = Some(catalog_name.to_string());
+        self
+    }
+
+    /// Set OBJECT_NAME.
+    ///
+    /// # Arguments
+    /// * `object_name` - Object name
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn object_name(mut self, object_name: &str) -> Self {
+        self.object_name = Some(object_name.to_string());
+        self
+    }
+
+    /// Set INTERNATIONAL_DESIGNATOR — COSPAR format.
+    ///
+    /// # Arguments
+    /// * `international_designator` - International designator, COSPAR format
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn international_designator(mut self, international_designator: &str) -> Self {
+        self.international_designator = Some(international_designator.to_string());
+        self
+    }
+
+    /// Set OBJECT_TYPE — PAYLOAD, DEBRIS, ROCKET BODY, UNKNOWN, etc.
+    ///
+    /// # Arguments
+    /// * `object_type` - Object type
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn object_type(mut self, object_type: &str) -> Self {
+        self.object_type = Some(object_type.to_string());
+        self
+    }
+
+    /// Set OPS_STATUS (v2.0).
+    ///
+    /// # Arguments
+    /// * `ops_status` - Operational status
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn ops_status(mut self, ops_status: &str) -> Self {
+        self.ops_status = Some(ops_status.to_string());
+        self
+    }
+
+    /// Set OPERATOR_CONTACT_POSITION.
+    ///
+    /// # Arguments
+    /// * `operator_contact_position` - Operator contact position
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn operator_contact_position(mut self, operator_contact_position: &str) -> Self {
+        self.operator_contact_position = Some(operator_contact_position.to_string());
+        self
+    }
+
+    /// Set OPERATOR_ORGANIZATION.
+    ///
+    /// # Arguments
+    /// * `operator_organization` - Operator organization
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn operator_organization(mut self, operator_organization: &str) -> Self {
+        self.operator_organization = Some(operator_organization.to_string());
+        self
+    }
+
+    /// Set OPERATOR_PHONE.
+    ///
+    /// # Arguments
+    /// * `operator_phone` - Operator phone number
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn operator_phone(mut self, operator_phone: &str) -> Self {
+        self.operator_phone = Some(operator_phone.to_string());
+        self
+    }
+
+    /// Set OPERATOR_EMAIL.
+    ///
+    /// # Arguments
+    /// * `operator_email` - Operator email address
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn operator_email(mut self, operator_email: &str) -> Self {
+        self.operator_email = Some(operator_email.to_string());
+        self
+    }
+
+    /// Set EPHEMERIS_NAME.
+    ///
+    /// # Arguments
+    /// * `ephemeris_name` - Ephemeris name, or "NONE"
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn ephemeris_name(mut self, ephemeris_name: &str) -> Self {
+        self.ephemeris_name = Some(ephemeris_name.to_string());
+        self
+    }
+
+    /// Set ODM_MSG_LINK (v2.0) — mandatory if EPHEMERIS_NAME=ODM.
+    ///
+    /// # Arguments
+    /// * `odm_msg_link` - Link to the referenced ODM message
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn odm_msg_link(mut self, odm_msg_link: &str) -> Self {
+        self.odm_msg_link = Some(odm_msg_link.to_string());
+        self
+    }
+
+    /// Set ADM_MSG_LINK (v2.0).
+    ///
+    /// # Arguments
+    /// * `adm_msg_link` - Link to the referenced ADM message
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn adm_msg_link(mut self, adm_msg_link: &str) -> Self {
+        self.adm_msg_link = Some(adm_msg_link.to_string());
+        self
+    }
+
+    /// Set OBS_BEFORE_NEXT_MESSAGE (v2.0).
+    ///
+    /// # Arguments
+    /// * `obs_before_next_message` - Observations before next message
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn obs_before_next_message(mut self, obs_before_next_message: &str) -> Self {
+        self.obs_before_next_message = Some(obs_before_next_message.to_string());
+        self
+    }
+
+    /// Set COVARIANCE_METHOD — CALCULATED or DEFAULT.
+    ///
+    /// # Arguments
+    /// * `covariance_method` - "CALCULATED" or "DEFAULT"
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn covariance_method(mut self, covariance_method: &str) -> Self {
+        self.covariance_method = Some(covariance_method.to_string());
+        self
+    }
+
+    /// Set COVARIANCE_SOURCE (v2.0).
+    ///
+    /// # Arguments
+    /// * `covariance_source` - Covariance source
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn covariance_source(mut self, covariance_source: &str) -> Self {
+        self.covariance_source = Some(covariance_source.to_string());
+        self
+    }
+
+    /// Set MANEUVERABLE — YES, NO, N/A, UNKNOWN.
+    ///
+    /// # Arguments
+    /// * `maneuverable` - "YES", "NO", "N/A", or "UNKNOWN"
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn maneuverable(mut self, maneuverable: &str) -> Self {
+        self.maneuverable = Some(maneuverable.to_string());
+        self
+    }
+
+    /// Set ORBIT_CENTER — defaults to EARTH.
+    ///
+    /// # Arguments
+    /// * `orbit_center` - Orbit center body
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn orbit_center(mut self, orbit_center: &str) -> Self {
+        self.orbit_center = Some(orbit_center.to_string());
+        self
+    }
+
+    /// Set REF_FRAME.
+    ///
+    /// # Arguments
+    /// * `ref_frame` - Reference frame of the object's state vector
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn ref_frame(mut self, ref_frame: CCSDSRefFrame) -> Self {
+        self.ref_frame = Some(ref_frame);
+        self
+    }
+
+    /// Set ALT_COV_TYPE — XYZ.
+    ///
+    /// # Arguments
+    /// * `alt_cov_type` - Alternate covariance type, e.g. "XYZ"
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn alt_cov_type(mut self, alt_cov_type: &str) -> Self {
+        self.alt_cov_type = Some(alt_cov_type.to_string());
+        self
+    }
+
+    /// Set ALT_COV_REF_FRAME — mandatory if ALT_COV_TYPE present.
+    ///
+    /// # Arguments
+    /// * `alt_cov_ref_frame` - Reference frame of the alternate covariance
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn alt_cov_ref_frame(mut self, alt_cov_ref_frame: CCSDSRefFrame) -> Self {
+        self.alt_cov_ref_frame = Some(alt_cov_ref_frame);
+        self
+    }
+
+    /// Set GRAVITY_MODEL.
+    ///
+    /// # Arguments
+    /// * `gravity_model` - Gravity model used, e.g. "EGM-96: 36D 36O"
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn gravity_model(mut self, gravity_model: &str) -> Self {
+        self.gravity_model = Some(gravity_model.to_string());
+        self
+    }
+
+    /// Set ATMOSPHERIC_MODEL.
+    ///
+    /// # Arguments
+    /// * `atmospheric_model` - Atmospheric model used
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn atmospheric_model(mut self, atmospheric_model: &str) -> Self {
+        self.atmospheric_model = Some(atmospheric_model.to_string());
+        self
+    }
+
+    /// Set N_BODY_PERTURBATIONS.
+    ///
+    /// # Arguments
+    /// * `n_body_perturbations` - N-body perturbations modeled
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn n_body_perturbations(mut self, n_body_perturbations: &str) -> Self {
+        self.n_body_perturbations = Some(n_body_perturbations.to_string());
+        self
+    }
+
+    /// Set SOLAR_RAD_PRESSURE — YES/NO.
+    ///
+    /// # Arguments
+    /// * `solar_rad_pressure` - "YES" or "NO"
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn solar_rad_pressure(mut self, solar_rad_pressure: &str) -> Self {
+        self.solar_rad_pressure = Some(solar_rad_pressure.to_string());
+        self
+    }
+
+    /// Set EARTH_TIDES — YES/NO.
+    ///
+    /// # Arguments
+    /// * `earth_tides` - "YES" or "NO"
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn earth_tides(mut self, earth_tides: &str) -> Self {
+        self.earth_tides = Some(earth_tides.to_string());
+        self
+    }
+
+    /// Set INTRACK_THRUST — YES/NO.
+    ///
+    /// # Arguments
+    /// * `intrack_thrust` - "YES" or "NO"
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn intrack_thrust(mut self, intrack_thrust: &str) -> Self {
+        self.intrack_thrust = Some(intrack_thrust.to_string());
+        self
+    }
+
+    /// Append a comment.
+    ///
+    /// # Arguments
+    /// * `comment` - Comment text to append
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn comment(mut self, comment: &str) -> Self {
+        self.comments.push(comment.to_string());
+        self
+    }
+
+    /// Build the [`CDMObjectMetadata`], validating that every mandatory
+    /// field was set.
+    ///
+    /// # Returns
+    /// The constructed [`CDMObjectMetadata`]
+    ///
+    /// # Errors
+    /// Returns `BraheError::InitializationError` naming every mandatory
+    /// field that was never set, if any.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::cdm::CDMObjectMetadata;
+    /// use brahe::ccsds::common::CCSDSRefFrame;
+    ///
+    /// let metadata = CDMObjectMetadata::builder()
+    ///     .object("OBJECT1")
+    ///     .object_designator("12345")
+    ///     .catalog_name("SATCAT")
+    ///     .object_name("SAT A")
+    ///     .international_designator("2020-001A")
+    ///     .ephemeris_name("NONE")
+    ///     .covariance_method("CALCULATED")
+    ///     .maneuverable("YES")
+    ///     .ref_frame(CCSDSRefFrame::EME2000)
+    ///     .build()
+    ///     .unwrap();
+    /// assert_eq!(metadata.object, "OBJECT1");
+    /// ```
+    pub fn build(self) -> Result<CDMObjectMetadata, BraheError> {
+        let mut missing: Vec<&str> = Vec::new();
+        if self.object.is_none() {
+            missing.push("object");
+        }
+        if self.object_designator.is_none() {
+            missing.push("object_designator");
+        }
+        if self.catalog_name.is_none() {
+            missing.push("catalog_name");
+        }
+        if self.object_name.is_none() {
+            missing.push("object_name");
+        }
+        if self.international_designator.is_none() {
+            missing.push("international_designator");
+        }
+        if self.ephemeris_name.is_none() {
+            missing.push("ephemeris_name");
+        }
+        if self.covariance_method.is_none() {
+            missing.push("covariance_method");
+        }
+        if self.maneuverable.is_none() {
+            missing.push("maneuverable");
+        }
+        if self.ref_frame.is_none() {
+            missing.push("ref_frame");
+        }
+
+        if !missing.is_empty() {
+            return Err(BraheError::InitializationError(format!(
+                "CDMObjectMetadata builder missing required fields: {}",
+                missing.join(", ")
+            )));
+        }
+
+        let mut metadata = CDMObjectMetadata::new(
+            self.object.unwrap(),
+            self.object_designator.unwrap(),
+            self.catalog_name.unwrap(),
+            self.object_name.unwrap(),
+            self.international_designator.unwrap(),
+            self.ephemeris_name.unwrap(),
+            self.covariance_method.unwrap(),
+            self.maneuverable.unwrap(),
+            self.ref_frame.unwrap(),
+        );
+
+        metadata.object_type = self.object_type;
+        metadata.ops_status = self.ops_status;
+        metadata.operator_contact_position = self.operator_contact_position;
+        metadata.operator_organization = self.operator_organization;
+        metadata.operator_phone = self.operator_phone;
+        metadata.operator_email = self.operator_email;
+        metadata.odm_msg_link = self.odm_msg_link;
+        metadata.adm_msg_link = self.adm_msg_link;
+        metadata.obs_before_next_message = self.obs_before_next_message;
+        metadata.covariance_source = self.covariance_source;
+        metadata.orbit_center = self.orbit_center;
+        metadata.alt_cov_type = self.alt_cov_type;
+        metadata.alt_cov_ref_frame = self.alt_cov_ref_frame;
+        metadata.gravity_model = self.gravity_model;
+        metadata.atmospheric_model = self.atmospheric_model;
+        metadata.n_body_perturbations = self.n_body_perturbations;
+        metadata.solar_rad_pressure = self.solar_rad_pressure;
+        metadata.earth_tides = self.earth_tides;
+        metadata.intrack_thrust = self.intrack_thrust;
+        metadata.comments = self.comments;
+
+        Ok(metadata)
+    }
 }
 
 impl CDMStateVector {
@@ -866,6 +1425,72 @@ mod tests {
 
         assert!(cdm.collision_probability().is_none());
         assert!(cdm.relative_position_rtn().is_none());
+    }
+
+    #[test]
+    fn test_cdmobjectmetadata_builder_equivalence() {
+        let from_builder = CDMObjectMetadata::builder()
+            .object("OBJECT1")
+            .object_designator("12345")
+            .catalog_name("SATCAT")
+            .object_name("SAT A")
+            .international_designator("2020-001A")
+            .ephemeris_name("NONE")
+            .covariance_method("CALCULATED")
+            .maneuverable("YES")
+            .ref_frame(CCSDSRefFrame::EME2000)
+            .build()
+            .unwrap();
+        let from_new = CDMObjectMetadata::new(
+            "OBJECT1".to_string(),
+            "12345".to_string(),
+            "SATCAT".to_string(),
+            "SAT A".to_string(),
+            "2020-001A".to_string(),
+            "NONE".to_string(),
+            "CALCULATED".to_string(),
+            "YES".to_string(),
+            CCSDSRefFrame::EME2000,
+        );
+        assert_eq!(from_builder.object_designator, from_new.object_designator);
+        assert_eq!(from_builder.ref_frame, from_new.ref_frame);
+        assert!(from_builder.object_type.is_none());
+    }
+
+    #[test]
+    fn test_cdmobjectmetadata_builder_optional_fields() {
+        let metadata = CDMObjectMetadata::builder()
+            .object("OBJECT1")
+            .object_designator("12345")
+            .catalog_name("SATCAT")
+            .object_name("SAT A")
+            .international_designator("2020-001A")
+            .ephemeris_name("NONE")
+            .covariance_method("CALCULATED")
+            .maneuverable("YES")
+            .ref_frame(CCSDSRefFrame::EME2000)
+            .object_type("PAYLOAD")
+            .gravity_model("EGM-96: 36D 36O")
+            .comment("first")
+            .comment("second")
+            .build()
+            .unwrap();
+        assert_eq!(metadata.object_type.as_deref(), Some("PAYLOAD"));
+        assert_eq!(
+            metadata.comments,
+            vec!["first".to_string(), "second".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_cdmobjectmetadata_builder_missing_fields() {
+        let err = CDMObjectMetadata::builder()
+            .object("OBJECT1")
+            .build()
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("object_designator"));
+        assert!(err.contains("ref_frame"));
     }
 
     #[test]

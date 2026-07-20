@@ -5817,7 +5817,7 @@ impl PyNumericalPropagationConfig {
         mut slf: PyRefMut<'_, Self>,
         method: PyInterpolationMethod,
     ) -> PyRefMut<'_, Self> {
-        slf.config.interpolation_method = method.method;
+        slf.config.interpolation_method = Some(method.method);
         slf
     }
 
@@ -5867,18 +5867,20 @@ impl PyNumericalPropagationConfig {
         self.config.store_accelerations = value;
     }
 
-    /// Get the interpolation method.
+    /// Get the interpolation method, or None when propagator-chosen (the
+    /// default: orbit propagators use Hermite-cubic for 6D states, the generic
+    /// propagator uses Linear).
     #[getter]
-    fn interpolation_method(&self) -> PyInterpolationMethod {
-        PyInterpolationMethod {
-            method: self.config.interpolation_method,
-        }
+    fn interpolation_method(&self) -> Option<PyInterpolationMethod> {
+        self.config
+            .interpolation_method
+            .map(|method| PyInterpolationMethod { method })
     }
 
-    /// Set the interpolation method.
+    /// Set the interpolation method (None resets to propagator-chosen).
     #[setter]
-    fn set_interpolation_method(&mut self, value: PyInterpolationMethod) {
-        self.config.interpolation_method = value.method;
+    fn set_interpolation_method(&mut self, value: Option<PyInterpolationMethod>) {
+        self.config.interpolation_method = value.map(|v| v.method);
     }
 
     /// Validate that the configuration is internally consistent.

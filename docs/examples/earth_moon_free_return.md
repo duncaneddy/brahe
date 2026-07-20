@@ -57,6 +57,17 @@ We fly the tuned design as it would be flown. The propagator starts in the parki
 --8<-- "./examples/examples/earth_moon_free_return.py:final_run"
 ```
 
+!!! note "Event geometry follows the integration center, not Earth"
+    Because the state is integrated about the Earth-Moon barycenter, any
+    detector or maneuver that assumes an Earth-centered state is wrong by the
+    Earth-barycenter offset (thousands of kilometers). A plain
+    [`AltitudeEvent`](../library_api/events/premade.md#brahe.AltitudeEvent)
+    measures altitude above the barycenter, and an impulsive burn added to the
+    raw integration velocity would be along the barycentric velocity - so both
+    must translate to ECI first. This example's terminal entry cutoff uses a
+    custom [`ValueEvent`](../library_api/events/detectors.md#brahe.ValueEvent)
+    that re-centers on Earth before computing geodetic altitude.
+
 ## Distance History
 
 Sampling the recorded trajectory gives the distance from Earth and from the Moon over the whole flight. The Earth distance climbs to nearly lunar distance and returns to the entry interface; the Moon distance dips sharply at the flyby. The final epoch is appended to the sample times so the re-entry point itself is captured.

@@ -228,7 +228,7 @@ impl SOrbitTrajectory {
             sensitivities: None,
             sensitivity_param_dim: None,
             accelerations: None,
-            interpolation_method: InterpolationMethod::Linear,
+            interpolation_method: InterpolationMethod::HermiteCubic, // Orbit states carry velocity; Hermite-cubic is exact-to-2nd-order
             covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
@@ -1115,7 +1115,7 @@ impl Trajectory for SOrbitTrajectory {
             sensitivities: None,
             sensitivity_param_dim: None,
             accelerations: None,
-            interpolation_method: InterpolationMethod::Linear, // Default to Linear
+            interpolation_method: InterpolationMethod::HermiteCubic, // Orbit states carry velocity; Hermite-cubic is exact-to-2nd-order
             covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
@@ -1700,7 +1700,7 @@ impl OrbitalTrajectory for SOrbitTrajectory {
             sensitivities: None,
             sensitivity_param_dim: None,
             accelerations: None,
-            interpolation_method: InterpolationMethod::Linear,
+            interpolation_method: InterpolationMethod::HermiteCubic, // Orbit states carry velocity; Hermite-cubic is exact-to-2nd-order
             covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
@@ -4208,7 +4208,11 @@ mod tests {
         let mut traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
 
-        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
+        // Default is HermiteCubic (orbit states carry velocity)
+        assert_eq!(
+            traj.get_interpolation_method(),
+            InterpolationMethod::HermiteCubic
+        );
 
         traj.set_interpolation_method(InterpolationMethod::Linear);
         assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
@@ -4219,8 +4223,11 @@ mod tests {
         let mut traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
 
-        // Test that get_interpolation_method returns Linear
-        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
+        // Default is HermiteCubic (orbit states carry velocity)
+        assert_eq!(
+            traj.get_interpolation_method(),
+            InterpolationMethod::HermiteCubic
+        );
 
         // Set it to different methods and verify get_interpolation_method returns the correct value
 
@@ -4309,7 +4316,7 @@ mod tests {
             Vector6::new(120.0, 240.0, 360.0, 480.0, 600.0, 720.0),
         ];
 
-        let traj = SOrbitTrajectory::from_orbital_data(
+        let mut traj = SOrbitTrajectory::from_orbital_data(
             epochs,
             states,
             OrbitFrame::ECI,
@@ -4318,6 +4325,9 @@ mod tests {
             None,
         )
         .unwrap();
+        // The default is now HermiteCubic; request Linear explicitly to
+        // compare interpolate() against interpolate_linear().
+        traj.set_interpolation_method(InterpolationMethod::Linear);
 
         // Test that interpolate() with Linear method returns same result as interpolate_linear()
         let t0_plus_30 = t0 + 30.0;
@@ -5183,6 +5193,9 @@ mod tests {
         // Test SOrbitStateProvider::state() for ECI Cartesian trajectory
         let mut traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
+        // Sparse points half a day apart: HermiteCubic (the new default)
+        // overshoots wildly, so request Linear for this midpoint-bracket check.
+        traj.set_interpolation_method(InterpolationMethod::Linear);
 
         let epoch1 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
@@ -5279,6 +5292,9 @@ mod tests {
         // Test SOrbitStateProvider::state() for ECI Cartesian trajectory
         let mut traj =
             SOrbitTrajectory::new(OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None).unwrap();
+        // Sparse points half a day apart: HermiteCubic (the new default)
+        // overshoots wildly, so request Linear for this midpoint-bracket check.
+        traj.set_interpolation_method(InterpolationMethod::Linear);
 
         let epoch1 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);

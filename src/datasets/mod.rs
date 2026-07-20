@@ -13,12 +13,16 @@ pub mod loaders;
 pub mod naif;
 pub mod parsers;
 pub mod serializers;
+pub mod ssn_sensors;
 pub mod star_catalogs;
 
 // Re-export commonly used functions from groundstations
 pub use groundstations::{
     list_providers, load_all_groundstations, load_groundstations, load_groundstations_from_file,
 };
+
+// Re-export commonly used functions from ssn_sensors
+pub use ssn_sensors::load_ssn_sensors;
 
 // Re-export commonly used functions from naif
 pub use naif::download_spice_kernel;

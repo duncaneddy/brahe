@@ -535,6 +535,15 @@ impl CacheRedirect {
             fs::copy(&src, self.naif_dir.join("de440s.bsp")).unwrap();
         }
     }
+
+    /// Root of the redirected cache (the tempdir `BRAHE_CACHE` points at).
+    /// Tests seed synthetic files under the model-specific subdirectories
+    /// (e.g. `icgem/models/earth/`) resolved from this root via the
+    /// `crate::utils::cache::get_*_cache_dir` helpers while the redirect is
+    /// active.
+    pub(crate) fn cache_path(&self) -> &std::path::Path {
+        self._dir.path()
+    }
 }
 
 impl Drop for CacheRedirect {
@@ -549,44 +558,18 @@ impl Drop for CacheRedirect {
     }
 }
 
-/// Guard returned by [`setup_test_fes2004_cache`]. Holds the tempdir alive and
-/// restores the previous `BRAHE_CACHE` value on drop, mirroring
-/// [`CacheRedirect`]'s restoration semantics.
-pub(crate) struct Fes2004CacheGuard {
-    _dir: tempfile::TempDir,
-    prev: Option<String>,
-}
-
-impl Drop for Fes2004CacheGuard {
-    fn drop(&mut self) {
-        // SAFETY: single-threaded within a #[serial] test.
-        unsafe {
-            match &self.prev {
-                Some(v) => env::set_var("BRAHE_CACHE", v),
-                None => env::remove_var("BRAHE_CACHE"),
-            }
-        }
-    }
-}
-
 /// Point `BRAHE_CACHE` at a fresh temp dir pre-seeded with the packaged
 /// FES2004 test fixture (degree/order <= 30), so ocean-tide code paths run
-/// offline. The returned guard must be held for the test's duration and
-/// restores the previous `BRAHE_CACHE` value on drop; callers mutate
-/// process-global env and must be `#[serial]`.
-pub(crate) fn setup_test_fes2004_cache() -> Fes2004CacheGuard {
-    let prev = env::var("BRAHE_CACHE").ok();
-    let dir = tempfile::tempdir().expect("tempdir");
-    let tides = dir.path().join("tides");
+/// offline. Returns a [`CacheRedirect`]; hold it for the test's duration. The
+/// prior `BRAHE_CACHE` value is restored on drop. Callers mutate process-global
+/// env and MUST be `#[serial]`.
+pub(crate) fn setup_test_fes2004_cache() -> CacheRedirect {
+    let redirect = CacheRedirect::new();
+    let tides = redirect.cache_path().join("tides");
     fs::create_dir_all(&tides).expect("tides cache subdir");
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("test_data/fes2004_Cnm-Snm_n30.dat");
     fs::copy(&fixture, tides.join("fes2004_Cnm-Snm.dat")).expect("copy FES2004 fixture");
-    // SAFETY: single-threaded within a #[serial] test; no other thread reads
-    // the environment concurrently.
-    unsafe {
-        env::set_var("BRAHE_CACHE", dir.path());
-    }
-    Fes2004CacheGuard { _dir: dir, prev }
+    redirect
 }
 
 /// Initialize global space weather provider with test data for unit testing.

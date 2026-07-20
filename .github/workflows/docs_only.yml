@@ -85,6 +85,18 @@ jobs:
           restore-keys: |
             brahe-data-v1-
 
+      # NETWORK-flagged examples are skipped by the --ci-only run below, so
+      # their figures only exist in the cache saved by the weekly --network
+      # integration run (test_examples.yml with use_retry). Restore it first
+      # so the fresher figures generated below overwrite any overlap.
+      - name: Restore network example figures
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: docs/figures/
+          key: network-example-figures-
+          restore-keys: |
+            network-example-figures-
+
       - name: Test examples (including CI-ONLY)
         run: just test-examples --ci-only
 

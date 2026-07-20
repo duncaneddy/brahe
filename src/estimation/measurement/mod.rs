@@ -10,17 +10,22 @@
  *   Internally converts ECI→ECEF. Uses finite-difference Jacobians since the
  *   rotation is epoch-dependent.
  *
+ * - **[`azelrange`]**: Topocentric az/el/range (radar) and angles-only az/el
+ *   (optical) models for ground sensors.
+ *
  * New measurement models (e.g., range, range-rate, Doppler) can be added as
  * separate files in this module.
  *
  * [`MeasurementModel`]: crate::estimation::MeasurementModel
  */
 
+mod azelrange;
 mod ecef;
 mod inertial;
 
+pub use azelrange::{AzElMeasurementModel, AzElRangeMeasurementModel};
 pub use ecef::{
-    EcefPositionMeasurementModel, EcefStateMeasurementModel, EcefVelocityMeasurementModel,
+    ECEFPositionMeasurementModel, ECEFStateMeasurementModel, ECEFVelocityMeasurementModel,
 };
 pub use inertial::{
     InertialPositionMeasurementModel, InertialStateMeasurementModel,
@@ -305,7 +310,7 @@ mod tests {
     fn test_gnss_position_predict() {
         setup_global_test_eop();
 
-        let model = EcefPositionMeasurementModel::new(5.0);
+        let model = ECEFPositionMeasurementModel::new(5.0);
         let state = test_state();
         let epoch = test_epoch();
 
@@ -321,7 +326,7 @@ mod tests {
 
     #[test]
     fn test_gnss_position_name_and_dim() {
-        let model = EcefPositionMeasurementModel::new(5.0);
+        let model = ECEFPositionMeasurementModel::new(5.0);
         assert_eq!(model.name(), "EcefPosition");
         assert_eq!(model.measurement_dim(), 3);
     }
@@ -331,7 +336,7 @@ mod tests {
     fn test_gnss_state_predict() {
         setup_global_test_eop();
 
-        let model = EcefStateMeasurementModel::new(5.0, 0.05);
+        let model = ECEFStateMeasurementModel::new(5.0, 0.05);
         let state = test_state();
         let epoch = test_epoch();
 
@@ -348,21 +353,21 @@ mod tests {
 
     #[test]
     fn test_gnss_state_name_and_dim() {
-        let model = EcefStateMeasurementModel::new(5.0, 0.05);
+        let model = ECEFStateMeasurementModel::new(5.0, 0.05);
         assert_eq!(model.name(), "EcefState");
         assert_eq!(model.measurement_dim(), 6);
     }
 
     #[test]
     fn test_gnss_velocity_name_and_dim() {
-        let model = EcefVelocityMeasurementModel::new(0.05);
+        let model = ECEFVelocityMeasurementModel::new(0.05);
         assert_eq!(model.name(), "EcefVelocity");
         assert_eq!(model.measurement_dim(), 3);
     }
 
     #[test]
     fn test_gnss_position_noise() {
-        let model = EcefPositionMeasurementModel::new_per_axis(3.0, 5.0, 8.0);
+        let model = ECEFPositionMeasurementModel::new_per_axis(3.0, 5.0, 8.0);
         let r = model.noise_covariance();
         assert_abs_diff_eq!(r[(0, 0)], 9.0, epsilon = 1e-10);
         assert_abs_diff_eq!(r[(1, 1)], 25.0, epsilon = 1e-10);
@@ -371,7 +376,7 @@ mod tests {
 
     #[test]
     fn test_gnss_state_too_short() {
-        let model = EcefStateMeasurementModel::new(5.0, 0.05);
+        let model = ECEFStateMeasurementModel::new(5.0, 0.05);
         let state = DVector::from_vec(vec![1.0, 2.0, 3.0]);
         let epoch = test_epoch();
         assert!(model.predict(&epoch, &state, None).is_err());
@@ -447,7 +452,7 @@ mod tests {
         cov[(0, 1)] = 2.0;
         cov[(1, 0)] = 2.0;
 
-        let model = EcefPositionMeasurementModel::from_covariance(cov).unwrap();
+        let model = ECEFPositionMeasurementModel::from_covariance(cov).unwrap();
         let r = model.noise_covariance();
         assert_abs_diff_eq!(r[(2, 2)], 100.0, epsilon = 1e-10);
         assert_abs_diff_eq!(r[(0, 1)], 2.0, epsilon = 1e-10);
@@ -465,7 +470,7 @@ mod tests {
         upper[18] = 0.01;
         upper[20] = 0.04;
 
-        let model = EcefStateMeasurementModel::from_upper_triangular(&upper).unwrap();
+        let model = ECEFStateMeasurementModel::from_upper_triangular(&upper).unwrap();
         let r = model.noise_covariance();
         assert_eq!(r.nrows(), 6);
         assert_abs_diff_eq!(r[(0, 0)], 100.0, epsilon = 1e-10);

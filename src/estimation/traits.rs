@@ -114,6 +114,43 @@ pub(crate) fn validate_model_outputs(
     Ok(())
 }
 
+/// Compute a measurement residual through the model, validating both inputs
+/// and the output against `measurement_dim`.
+///
+/// [`MeasurementModel::residual`] is a user-extension boundary (including
+/// Python subclasses and wrap-aware overrides). Both input vectors are checked
+/// *before* the call so the default subtraction (and any override) can never
+/// hit an nalgebra dimension panic, and the result length is checked after, so
+/// no filter call site — pre-fit, post-fit, or UKF sigma-point deviation — can
+/// panic on a mis-shaped measurement, prediction, or override output.
+pub(crate) fn compute_residual(
+    model: &dyn MeasurementModel,
+    measured: &DVector<f64>,
+    predicted: &DVector<f64>,
+) -> Result<DVector<f64>, BraheError> {
+    let m = model.measurement_dim();
+    if measured.len() != m || predicted.len() != m {
+        return Err(BraheError::Error(format!(
+            "Model '{}' residual() inputs have lengths {} (measured) and {} (predicted), \
+             expected measurement_dim {}",
+            model.name(),
+            measured.len(),
+            predicted.len(),
+            m
+        )));
+    }
+    let residual = model.residual(measured, predicted)?;
+    if residual.len() != m {
+        return Err(BraheError::Error(format!(
+            "Model '{}' residual() returned {} elements, expected measurement_dim {}",
+            model.name(),
+            residual.len(),
+            m
+        )));
+    }
+    Ok(residual)
+}
+
 /// Trait for defining measurement models used in estimation.
 ///
 /// Implement this trait to define how observations relate to the state vector.
@@ -226,6 +263,35 @@ pub trait MeasurementModel: Send + Sync {
     ///
     /// Noise covariance matrix (m x m) where m = measurement_dim
     fn noise_covariance(&self) -> DMatrix<f64>;
+
+    /// Compute the measurement residual `measured - predicted`.
+    ///
+    /// The default implementation is plain vector subtraction. Models with
+    /// angular components that wrap (e.g., azimuth crossing 0°/360°) should
+    /// override this to wrap the corresponding residual components so
+    /// residuals near the discontinuity stay small. All estimators (EKF,
+    /// UKF, BLS) compute pre-fit and post-fit residuals through this method.
+    ///
+    /// # Arguments
+    ///
+    /// * `measured` - Observed measurement vector z
+    /// * `predicted` - Predicted measurement vector h(x)
+    ///
+    /// # Returns
+    ///
+    /// Residual vector (m elements)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a custom override fails (e.g., a Python subclass
+    /// whose `residual()` raises). The default implementation is infallible.
+    fn residual(
+        &self,
+        measured: &DVector<f64>,
+        predicted: &DVector<f64>,
+    ) -> Result<DVector<f64>, BraheError> {
+        Ok(measured - predicted)
+    }
 
     /// Dimension of the measurement vector.
     fn measurement_dim(&self) -> usize;
@@ -377,5 +443,81 @@ mod tests {
         )
         .unwrap();
         assert_abs_diff_eq!(h_adaptive, expected, epsilon = 1e-8);
+    }
+
+    #[test]
+    fn test_residual_default_is_subtraction() {
+        let model = InertialPositionMeasurementModel::new(10.0);
+        let measured = DVector::from_vec(vec![10.0, 20.0, 30.0]);
+        let predicted = DVector::from_vec(vec![1.0, 2.0, 3.0]);
+        let r = model.residual(&measured, &predicted).unwrap();
+        assert_abs_diff_eq!(r, DVector::from_vec(vec![9.0, 18.0, 27.0]), epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_compute_residual_rejects_wrong_input_lengths() {
+        // compute_residual must validate both inputs before any subtraction so
+        // no filter call site (pre-fit, post-fit, or UKF sigma-point deviation)
+        // can panic in nalgebra on a mis-shaped measurement or prediction.
+        let model = InertialPositionMeasurementModel::new(10.0); // measurement_dim 3
+        let good = DVector::from_vec(vec![1.0, 2.0, 3.0]);
+        let bad = DVector::from_vec(vec![1.0, 2.0]);
+
+        // Wrong measured length
+        let e = compute_residual(&model, &bad, &good).unwrap_err();
+        assert!(e.to_string().contains("residual() inputs"), "{}", e);
+        // Wrong predicted length
+        assert!(compute_residual(&model, &good, &bad).is_err());
+        // Both correct
+        let r = compute_residual(&model, &good, &good).unwrap();
+        assert_eq!(r.len(), 3);
+    }
+
+    /// Model whose `predict()` returns fewer elements than its declared
+    /// `measurement_dim` — exercises the output-length check inside
+    /// [`measurement_jacobian_numerical`].
+    struct WrongPredictLenModel;
+    impl MeasurementModel for WrongPredictLenModel {
+        fn predict(
+            &self,
+            _epoch: &Epoch,
+            state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            // 2 elements against a declared measurement_dim of 3
+            Ok(state.rows(0, 2).into_owned())
+        }
+        fn noise_covariance(&self) -> DMatrix<f64> {
+            DMatrix::identity(3, 3)
+        }
+        fn measurement_dim(&self) -> usize {
+            3
+        }
+        fn name(&self) -> &str {
+            "WrongPredictLen"
+        }
+    }
+
+    #[test]
+    fn test_measurement_jacobian_numerical_rejects_wrong_predict_length() {
+        // A mis-shaped predict() output must surface as a structured error
+        // naming the model, not an nalgebra dimension panic while differencing.
+        let model = WrongPredictLenModel;
+        let epoch = test_epoch();
+        let state = test_state();
+        let e = measurement_jacobian_numerical(
+            &model,
+            &epoch,
+            &state,
+            None,
+            DifferenceMethod::Central,
+            PerturbationStrategy::Adaptive {
+                scale_factor: 1.0,
+                min_value: 1.0,
+            },
+        )
+        .unwrap_err();
+        assert!(e.to_string().contains("predict() returned"), "{}", e);
+        assert!(e.to_string().contains("WrongPredictLen"), "{}", e);
     }
 }

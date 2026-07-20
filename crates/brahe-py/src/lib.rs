@@ -1120,6 +1120,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_groundstations_load_from_file, module)?)?;
     module.add_function(wrap_pyfunction!(py_groundstations_load_all, module)?)?;
     module.add_function(wrap_pyfunction!(py_groundstations_list_providers, module)?)?;
+    module.add_function(wrap_pyfunction!(py_ssn_sensors_load, module)?)?;
     module.add_function(wrap_pyfunction!(py_download_spice_kernel, module)?)?;
 
     //* GCAT *//
@@ -1338,6 +1339,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Constraints
     module.add_class::<PyElevationConstraint>()?;
+    module.add_class::<PyAzimuthConstraint>()?;
+    module.add_class::<PyRangeConstraint>()?;
     module.add_class::<PyElevationMaskConstraint>()?;
     module.add_class::<PyOffNadirConstraint>()?;
     module.add_class::<PyLocalTimeConstraint>()?;
@@ -1513,6 +1516,10 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyECEFPositionMeasurementModel>()?;
     module.add_class::<PyECEFVelocityMeasurementModel>()?;
     module.add_class::<PyECEFStateMeasurementModel>()?;
+    module.add_class::<PyAzElRangeMeasurementModel>()?;
+    module.add_class::<PyAzElMeasurementModel>()?;
+    module.add_class::<PySensorType>()?;
+    module.add_class::<PySimpleSSNSensor>()?;
     module.add_class::<PyExtendedKalmanFilter>()?;
     module.add_class::<PyUKFConfig>()?;
     module.add_class::<PyUnscentedKalmanFilter>()?;

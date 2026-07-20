@@ -1,6 +1,7 @@
 # Measurement Models
 
-Built-in measurement models for GPS-like observations in inertial and ECEF frames.
+Built-in measurement models for GPS-like observations in inertial and ECEF
+frames, and topocentric ground-sensor observations.
 
 ## Inertial Frame Models
 
@@ -44,6 +45,26 @@ Built-in measurement models for GPS-like observations in inertial and ECEF frame
 ---
 
 ::: brahe.ECEFStateMeasurementModel
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+
+## Topocentric Ground-Sensor Models
+
+Topocentric az/el/range (radar) and angles-only az/el (optical) models for
+fixed ground stations. Both convert the ECI state to the station's ENZ frame
+and wrap the azimuth residual across 0/360.
+
+---
+
+::: brahe.AzElRangeMeasurementModel
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+
+---
+
+::: brahe.AzElMeasurementModel
     options:
       show_root_heading: true
       show_root_full_path: false

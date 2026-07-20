@@ -31,12 +31,12 @@ use crate::utils::errors::BraheError;
 /// in an inertial frame with layout `[x, y, z, vx, vy, vz, ...]`.
 ///
 /// For ECEF-frame position measurements (e.g., from a GNSS receiver), use
-/// [`EcefPositionMeasurementModel`] instead.
+/// [`ECEFPositionMeasurementModel`] instead.
 ///
 /// Measurement: `z = [x, y, z]` (inertial)
 /// Jacobian: `H = [I₃ₓ₃ | 0₃ₓ₍ₙ₋₃₎]`
 ///
-/// [`EcefPositionMeasurementModel`]: crate::estimation::EcefPositionMeasurementModel
+/// [`ECEFPositionMeasurementModel`]: crate::estimation::ECEFPositionMeasurementModel
 ///
 /// # Examples
 ///
@@ -169,12 +169,12 @@ impl MeasurementModel for InertialPositionMeasurementModel {
 /// in an inertial frame with layout `[x, y, z, vx, vy, vz, ...]`.
 ///
 /// For ECEF-frame velocity measurements (e.g., from a GNSS receiver), use
-/// [`EcefVelocityMeasurementModel`] instead.
+/// [`ECEFVelocityMeasurementModel`] instead.
 ///
 /// Measurement: `z = [vx, vy, vz]` (inertial)
 /// Jacobian: `H = [0₃ₓ₃ | I₃ₓ₃ | 0₃ₓ₍ₙ₋₆₎]`
 ///
-/// [`EcefVelocityMeasurementModel`]: crate::estimation::EcefVelocityMeasurementModel
+/// [`ECEFVelocityMeasurementModel`]: crate::estimation::ECEFVelocityMeasurementModel
 ///
 /// # Examples
 ///
@@ -301,12 +301,12 @@ impl MeasurementModel for InertialVelocityMeasurementModel {
 /// with layout `[x, y, z, vx, vy, vz, ...]`.
 ///
 /// For ECEF-frame state measurements (e.g., from a GNSS receiver), use
-/// [`EcefStateMeasurementModel`] instead.
+/// [`ECEFStateMeasurementModel`] instead.
 ///
 /// Measurement: `z = [x, y, z, vx, vy, vz]` (inertial)
 /// Jacobian: `H = [I₆ₓ₆ | 0₆ₓ₍ₙ₋₆₎]`
 ///
-/// [`EcefStateMeasurementModel`]: crate::estimation::EcefStateMeasurementModel
+/// [`ECEFStateMeasurementModel`]: crate::estimation::ECEFStateMeasurementModel
 ///
 /// # Examples
 ///

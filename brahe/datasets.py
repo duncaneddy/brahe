@@ -11,6 +11,7 @@ This module provides a source-specific API organized by data provider:
 - gcat: Jonathan McDowell's GCAT satellite catalogs (SATCAT, PSATCAT)
 - star_catalogs: Fixed-epoch star catalogs (FK5, Hipparcos, Tycho-2)
 - icgem: ICGEM spherical harmonic gravity model catalog (Earth + celestial bodies)
+- ssn_sensors: Vallado Space Surveillance Network sensor site dataset
 
 For CelestrakClient satellite catalog data, use the `brahe.celestrak` module instead.
 
@@ -41,6 +42,8 @@ from brahe._brahe import (
     groundstations_load_from_file,
     groundstations_load_all,
     groundstations_list_providers,
+    # SSN sensor functions
+    ssn_sensors_load,
     # NAIF functions
     download_spice_kernel,
     # GCAT functions and types
@@ -81,6 +84,16 @@ class _GroundstationsNamespace:
 
 # Create groundstations namespace instance
 groundstations = _GroundstationsNamespace()
+
+
+class _SSNSensorsNamespace:
+    """Namespace for SSN sensor dataset functions."""
+
+    load = staticmethod(ssn_sensors_load)
+
+
+# Create ssn_sensors namespace instance
+ssn_sensors = _SSNSensorsNamespace()
 
 
 # Create a NAIF namespace object
@@ -149,4 +162,5 @@ __all__ = [
     "gcat",
     "star_catalogs",
     "icgem",
+    "ssn_sensors",
 ]

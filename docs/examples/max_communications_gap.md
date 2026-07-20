@@ -26,6 +26,20 @@ Next, we load the 5 specific KSAT ground stations that will support communicatio
 --8<-- "./examples/examples/max_communications_gap.py:load_ksat"
 ```
 
+!!! note "Bundled ground station networks load without network access"
+    [`datasets.groundstations.load`](../learn/datasets/groundstations.md)
+    ([API](../library_api/datasets/groundstations.md#load)) returns a named
+    provider network - Atlas, AWS, KSAT, Leaf, NASA DSN, NASA NEN, SSC, or
+    Viasat - as a list of
+    [`PointLocation`](../library_api/access/locations.md#brahe.PointLocation)
+    objects built from GeoJSON bundled with the library, so no download or
+    account is involved and results are reproducible offline. The returned
+    locations plug directly into access computation and plotting, and each
+    carries its station name and metadata. It always returns the provider's
+    full network, which is rarely what a mission actually has under contract -
+    filter by `get_name()` as done here to model the five contracted KSAT
+    stations rather than every KSAT site worldwide.
+
 ## Constellation Visualization
 
 Before getting further into the analysis, it's useful to visualize the 3D geometry of the constellation. We propagate each satellite for one orbit and plot their trajectories:

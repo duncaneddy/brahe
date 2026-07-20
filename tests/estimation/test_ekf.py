@@ -213,3 +213,247 @@ def test_ekf_with_multiple_measurement_models(two_body_leo):
     obs_vel = bh.Observation(epoch + 120.0, state[3:6], model_index=1)
     record = ekf.process_observation(obs_vel)
     assert record.measurement_name == "InertialVelocity"
+
+
+def test_ekf_propagate_to(two_body_leo):
+    """propagate_to advances the filter without a measurement update."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+    ekf = bh.ExtendedKalmanFilter(
+        epoch,
+        state,
+        p0,
+        measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+        propagation_config=bh.NumericalPropagationConfig.default(),
+        force_config=bh.ForceModelConfig.two_body(),
+    )
+
+    p0_trace = np.trace(ekf.current_covariance())
+    record = ekf.propagate_to(epoch + 600.0)
+
+    assert ekf.current_epoch() == epoch + 600.0
+    assert record.measurement_name == "Propagation"
+    assert len(record.prefit_residual) == 0
+    assert len(record.postfit_residual) == 0
+    assert record.kalman_gain.shape == (0, 0)
+    np.testing.assert_array_equal(record.state_updated, record.state_predicted)
+    np.testing.assert_array_equal(
+        record.covariance_updated, record.covariance_predicted
+    )
+
+    # Covariance grows without measurements (Keplerian shear stretches the
+    # along-track uncertainty even with no explicit process noise).
+    assert np.trace(ekf.current_covariance()) > p0_trace
+
+    # Backwards propagation is supported (e.g. for smoothing): the filter
+    # epoch moves back to the target.
+    ekf.propagate_to(epoch)
+    assert ekf.current_epoch() == epoch
+
+
+def test_ekf_propagate_to_store_records_and_process_noise(two_body_leo):
+    """propagate_to gates records on store_records and applies Q*dt (and no
+    process noise on a zero-duration step)."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    dt = 600.0
+    q_diag = [1.0, 1.0, 1.0, 1e-4, 1e-4, 1e-4]
+    q = np.diag(q_diag)
+    q_trace = sum(q_diag)
+
+    def make(config):
+        return bh.ExtendedKalmanFilter(
+            epoch,
+            state.copy(),
+            p0,
+            measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+            propagation_config=bh.NumericalPropagationConfig.default(),
+            force_config=bh.ForceModelConfig.two_body(),
+            config=config,
+        )
+
+    # store_records gating: records() grows by one per call when enabled.
+    rec = make(bh.EKFConfig(store_records=True))
+    assert len(rec.records()) == 0
+    rec.propagate_to(epoch + 300.0)
+    assert len(rec.records()) == 1
+    rec.propagate_to(epoch + 600.0)
+    assert len(rec.records()) == 2
+
+    norec = make(bh.EKFConfig(store_records=False))
+    norec.propagate_to(epoch + 300.0)
+    assert len(norec.records()) == 0
+
+    # process noise: Q*dt increment over the no-noise baseline.
+    plain = make(bh.EKFConfig())
+    noisy = make(
+        bh.EKFConfig(process_noise=bh.ProcessNoiseConfig(q, scale_with_dt=True))
+    )
+    plain.propagate_to(epoch + dt)
+    noisy.propagate_to(epoch + dt)
+    increment = np.trace(noisy.current_covariance()) - np.trace(
+        plain.current_covariance()
+    )
+    assert increment == pytest.approx(q_trace * dt, rel=0.05)
+
+    # A zero-duration propagate_to adds no process noise.
+    before = np.trace(noisy.current_covariance())
+    noisy.propagate_to(noisy.current_epoch())
+    after = np.trace(noisy.current_covariance())
+    assert after == pytest.approx(before, rel=1e-9)
+
+
+class NegativeNoiseModel(bh.MeasurementModel):
+    """Position model with a strongly negative-definite noise covariance R,
+    driving the innovation covariance S non-positive-definite."""
+
+    def predict(self, epoch, state, params=None):
+        return np.array(state[:3])
+
+    def noise_covariance(self):
+        return -1e9 * np.eye(3)
+
+    def measurement_dim(self):
+        return 3
+
+    def name(self):
+        return "NegativeNoise"
+
+
+def test_ekf_model_index_out_of_bounds(ekf_setup):
+    """An observation tagged with an out-of-range model_index must error."""
+    ekf, epoch, true_state = ekf_setup
+    obs = bh.Observation(epoch + 60.0, true_state[:3], model_index=5)
+    with pytest.raises(bh.BraheError, match="out of bounds"):
+        ekf.process_observation(obs)
+
+
+def test_ekf_innovation_covariance_not_positive_definite(two_body_leo):
+    """A negative-definite R makes S non-positive-definite; the update must
+    surface a structured error and roll the filter back."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    ekf = bh.ExtendedKalmanFilter(
+        epoch,
+        state,
+        p0,
+        measurement_models=[NegativeNoiseModel()],
+        propagation_config=bh.NumericalPropagationConfig.default(),
+        force_config=bh.ForceModelConfig.two_body(),
+    )
+    obs = bh.Observation(epoch + 60.0, state[:3], model_index=0)
+    with pytest.raises(bh.BraheError, match="positive-definite"):
+        ekf.process_observation(obs)
+    # Rolled back to the entry epoch.
+    assert ekf.current_epoch() == epoch
+
+
+def test_ekf_observation_process_noise_both_branches(two_body_leo):
+    """The measurement predict step adds Q for both scale_with_dt True (Q*dt)
+    and False (Q). The propagated covariance is identical across the three
+    filters, so the predicted-covariance trace difference vs a no-noise twin is
+    exactly the Q contribution."""
+    epoch, true_state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    dt = 60.0
+    q_diag = [1.0, 1.0, 1.0, 1e-4, 1e-4, 1e-4]
+    q = np.diag(q_diag)
+    q_trace = sum(q_diag)
+
+    def make(pn):
+        config = bh.EKFConfig(process_noise=pn) if pn is not None else bh.EKFConfig()
+        return bh.ExtendedKalmanFilter(
+            epoch,
+            true_state.copy(),
+            p0,
+            measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+            propagation_config=bh.NumericalPropagationConfig.default(),
+            force_config=bh.ForceModelConfig.two_body(),
+            config=config,
+        )
+
+    obs = bh.Observation(epoch + dt, true_state[:3], model_index=0)
+
+    trace_none = np.trace(make(None).process_observation(obs).covariance_predicted)
+
+    rec_scaled = make(bh.ProcessNoiseConfig(q, scale_with_dt=True)).process_observation(
+        obs
+    )
+    assert np.trace(rec_scaled.covariance_predicted) - trace_none == pytest.approx(
+        q_trace * dt, rel=1e-6
+    )
+
+    rec_fixed = make(bh.ProcessNoiseConfig(q, scale_with_dt=False)).process_observation(
+        obs
+    )
+    assert np.trace(rec_fixed.covariance_predicted) - trace_none == pytest.approx(
+        q_trace, rel=1e-6
+    )
+
+
+def _substep_ekf(epoch, state, p0, q, max_noise_dt):
+    pn = bh.ProcessNoiseConfig(q, scale_with_dt=True, max_noise_dt=max_noise_dt)
+    return bh.ExtendedKalmanFilter(
+        epoch,
+        state,
+        p0,
+        measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+        propagation_config=bh.NumericalPropagationConfig.default(),
+        force_config=bh.ForceModelConfig.two_body(),
+        config=bh.EKFConfig(process_noise=pn),
+    )
+
+
+def test_process_noise_config_max_noise_dt_roundtrip():
+    q = np.diag([1e-6] * 3 + [1e-8] * 3)
+    # Default is None.
+    assert bh.ProcessNoiseConfig(q, scale_with_dt=True).max_noise_dt is None
+    # Round-trips a set value.
+    assert bh.ProcessNoiseConfig(
+        q, scale_with_dt=True, max_noise_dt=60.0
+    ).max_noise_dt == pytest.approx(60.0)
+    # Rejects non-positive / non-finite.
+    for bad in (0.0, -1.0, float("nan")):
+        with pytest.raises(ValueError):
+            bh.ProcessNoiseConfig(q, scale_with_dt=True, max_noise_dt=bad)
+
+
+def test_ekf_substep_single_chunk_equals_none(two_body_leo):
+    # max_noise_dt >= interval matches the single-shot (None) behavior exactly.
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    q = np.diag([1.0, 1.0, 1.0, 1e-4, 1e-4, 1e-4])
+    dt = 300.0
+
+    f_none = _substep_ekf(epoch, state, p0, q, None)
+    f_none.propagate_to(epoch + dt)
+    f_big = _substep_ekf(epoch, state, p0, q, dt * 2.0)
+    f_big.propagate_to(epoch + dt)
+
+    np.testing.assert_allclose(f_none.current_state(), f_big.current_state(), atol=1e-9)
+    np.testing.assert_allclose(
+        f_none.current_covariance(), f_big.current_covariance(), atol=1e-6
+    )
+
+
+def test_ekf_substep_definitional_equivalence(two_body_leo):
+    # One sub-stepped propagate_to equals chained single-shot calls at cadence h.
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    q = np.diag([1.0, 1.0, 1.0, 1e-4, 1e-4, 1e-4])
+    h = 60.0
+
+    f_sub = _substep_ekf(epoch, state, p0, q, h)
+    f_sub.propagate_to(epoch + 300.0)
+
+    f_chain = _substep_ekf(epoch, state, p0, q, None)
+    for step in range(1, 6):
+        f_chain.propagate_to(epoch + step * h)
+
+    np.testing.assert_allclose(
+        f_sub.current_state(), f_chain.current_state(), atol=1e-6
+    )
+    np.testing.assert_allclose(
+        f_sub.current_covariance(), f_chain.current_covariance(), atol=1e-3
+    )

@@ -161,7 +161,7 @@ impl DTrajectory {
             sensitivities: None,
             sensitivity_dimension: None,
             dimension,
-            interpolation_method: InterpolationMethod::Linear,
+            interpolation_method: InterpolationMethod::Linear, // Generic states may lack velocity; Hermite is invalid, so default to Linear
             covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
@@ -821,7 +821,7 @@ impl Trajectory for DTrajectory {
             sensitivities: None,
             sensitivity_dimension: None,
             dimension,
-            interpolation_method: InterpolationMethod::Linear,
+            interpolation_method: InterpolationMethod::Linear, // Generic states may lack velocity; Hermite is invalid, so default to Linear
             covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,

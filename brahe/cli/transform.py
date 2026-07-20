@@ -10,11 +10,45 @@ from brahe.cli.utils import set_cli_eop, parse_numeric_expression
 app = typer.Typer()
 
 
-class OrbitFrame(str, Enum):
-    """Reference frame for orbital states (matches brahe.OrbitFrame)"""
+class Frame(str, Enum):
+    """Named reference frames accepted by the transform commands.
+
+    Values mirror the strings understood by
+    [`ReferenceFrame.from_string`](../library_api/frames/router.md#brahe.ReferenceFrame.from_string).
+    """
 
     ECI = "ECI"
     ECEF = "ECEF"
+    GCRF = "GCRF"
+    ITRF = "ITRF"
+    EME2000 = "EME2000"
+    LCI = "LCI"
+    LFPA = "LFPA"
+    LFME = "LFME"
+    MCI = "MCI"
+    MCMF = "MCMF"
+    EMBI = "EMBI"
+    SSBI = "SSBI"
+    EMR = "EMR"
+    SER = "SER"
+    GSE = "GSE"
+
+
+class CartesianFrame(str, Enum):
+    """Reference frame for cartesian coordinate input/output (ECI or ECEF)."""
+
+    ECI = "ECI"
+    ECEF = "ECEF"
+
+
+def _resolve_frame(frame: Frame) -> "brahe.ReferenceFrame":
+    """Convert a CLI `Frame` value into a core `ReferenceFrame`.
+
+    Every `Frame` member mirrors a string accepted by
+    `ReferenceFrame.from_string`; Typer rejects any other value before this
+    is reached.
+    """
+    return brahe.ReferenceFrame.from_string(frame.value)
 
 
 class StateRepresentation(str, Enum):
@@ -26,71 +60,129 @@ class StateRepresentation(str, Enum):
     geocentric = "geocentric"  # Geocentric coordinates [lat, lon, radius, 0, 0, 0]
 
 
-class AttitudeRepresentation(str, Enum):
-    quaternion = "quaternion"
-    euler_angles = "euler_angles"
-    euler_axis = "euler_axis"
-    rotation_matrix = "rotation_matrix"
+def _parse_vector(values, n: int):
+    """Parse `n` state components, each allowing constant expressions."""
+    try:
+        return np.array([parse_numeric_expression(values[i]) for i in range(n)])
+    except ValueError as e:
+        typer.echo(f"Error parsing state values: {e}")
+        raise typer.Exit(code=1)
+
+
+def _echo_vector(x, format_string: str):
+    typer.echo("[" + ", ".join(f"{v:{format_string}}" for v in x) + "]")
 
 
 @app.command()
 def frame(
     from_frame: Annotated[
-        OrbitFrame, typer.Argument(help="The reference frame to convert from")
+        Frame, typer.Argument(help="The reference frame to convert from")
     ],
     to_frame: Annotated[
-        OrbitFrame, typer.Argument(help="The reference frame to convert to")
+        Frame, typer.Argument(help="The reference frame to convert to")
     ],
-    epoch: Annotated[
-        str, typer.Argument(help="Epoch to perform the conversion at if required")
-    ],
+    epoch: Annotated[str, typer.Argument(help="Epoch to perform the conversion at")],
     state: Annotated[
         Tuple[float, float, float, float, float, float],
-        typer.Argument(..., help="The state to convert"),
+        typer.Argument(..., help="The state to convert [x, y, z, vx, vy, vz]"),
     ],
     format_string: Annotated[
         str, typer.Option("--format", help="The format of the output")
     ] = "f",
 ):
+    """Transform a Cartesian state vector between reference frames."""
     logger.info(
         f"Converting state between frames: {from_frame.value} -> {to_frame.value}"
     )
     logger.debug(f"Epoch: {epoch}, State: {state}")
     set_cli_eop()
     epc = brahe.Epoch(epoch)
-
-    # Parse state values (may contain constant expressions)
-    try:
-        x = np.array(
-            [
-                parse_numeric_expression(state[0]),
-                parse_numeric_expression(state[1]),
-                parse_numeric_expression(state[2]),
-                parse_numeric_expression(state[3]),
-                parse_numeric_expression(state[4]),
-                parse_numeric_expression(state[5]),
-            ]
-        )
-    except ValueError as e:
-        typer.echo(f"Error parsing state values: {e}")
-        raise typer.Exit(code=1)
+    x = _parse_vector(state, 6)
 
     if from_frame == to_frame:
-        typer.echo(
-            f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}, {x[3]:{format_string}}, {x[4]:{format_string}}, {x[5]:{format_string}}]"
-        )
+        _echo_vector(x, format_string)
+        return
 
-    if from_frame == OrbitFrame.ECI and to_frame == OrbitFrame.ECEF:
-        x = brahe.state_eci_to_ecef(epc, x)
-        typer.echo(
-            f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}, {x[3]:{format_string}}, {x[4]:{format_string}}, {x[5]:{format_string}}]"
-        )
+    src = _resolve_frame(from_frame)
+    dst = _resolve_frame(to_frame)
+    try:
+        y = brahe.state_frame_to_frame(src, dst, epc, x)
+    except Exception as e:  # noqa: BLE001 - surface as CLI error
+        typer.echo(f"ERROR: frame transform failed: {e}")
+        raise typer.Exit(code=1)
+    _echo_vector(y, format_string)
 
-    if from_frame == OrbitFrame.ECEF and to_frame == OrbitFrame.ECI:
-        x = brahe.state_ecef_to_eci(epc, x)
-        typer.echo(
-            f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}, {x[3]:{format_string}}, {x[4]:{format_string}}, {x[5]:{format_string}}]"
-        )
+
+@app.command()
+def position(
+    from_frame: Annotated[
+        Frame, typer.Argument(help="The reference frame to convert from")
+    ],
+    to_frame: Annotated[
+        Frame, typer.Argument(help="The reference frame to convert to")
+    ],
+    epoch: Annotated[str, typer.Argument(help="Epoch to perform the conversion at")],
+    pos: Annotated[
+        Tuple[float, float, float],
+        typer.Argument(..., help="The position to convert [x, y, z]"),
+    ],
+    format_string: Annotated[
+        str, typer.Option("--format", help="The format of the output")
+    ] = "f",
+):
+    """Transform a position vector between reference frames."""
+    logger.info(
+        f"Converting position between frames: {from_frame.value} -> {to_frame.value}"
+    )
+    logger.debug(f"Epoch: {epoch}, Position: {pos}")
+    set_cli_eop()
+    epc = brahe.Epoch(epoch)
+    x = _parse_vector(pos, 3)
+
+    if from_frame == to_frame:
+        _echo_vector(x, format_string)
+        return
+
+    src = _resolve_frame(from_frame)
+    dst = _resolve_frame(to_frame)
+    try:
+        y = brahe.position_frame_to_frame(src, dst, epc, x)
+    except Exception as e:  # noqa: BLE001 - surface as CLI error
+        typer.echo(f"ERROR: position transform failed: {e}")
+        raise typer.Exit(code=1)
+    _echo_vector(y, format_string)
+
+
+@app.command()
+def rotation(
+    from_frame: Annotated[
+        Frame, typer.Argument(help="The reference frame to convert from")
+    ],
+    to_frame: Annotated[
+        Frame, typer.Argument(help="The reference frame to convert to")
+    ],
+    epoch: Annotated[str, typer.Argument(help="Epoch to perform the conversion at")],
+    format_string: Annotated[
+        str, typer.Option("--format", help="The format of the output")
+    ] = "f",
+):
+    """Emit the 3x3 rotation matrix between two reference frames."""
+    logger.info(
+        f"Computing rotation between frames: {from_frame.value} -> {to_frame.value}"
+    )
+    logger.debug(f"Epoch: {epoch}")
+    set_cli_eop()
+    epc = brahe.Epoch(epoch)
+
+    src = _resolve_frame(from_frame)
+    dst = _resolve_frame(to_frame)
+    try:
+        r = brahe.rotation_frame_to_frame(src, dst, epc)
+    except Exception as e:  # noqa: BLE001 - surface as CLI error
+        typer.echo(f"ERROR: rotation transform failed: {e}")
+        raise typer.Exit(code=1)
+    for row in np.asarray(r):
+        _echo_vector(row, format_string)
 
 
 @app.command()
@@ -114,13 +206,13 @@ def coordinates(
         typer.Argument(..., help="The state to convert"),
     ],
     from_frame: Annotated[
-        OrbitFrame,
+        CartesianFrame,
         typer.Option(help="Reference frame for cartesian input (ECI or ECEF)"),
-    ] = OrbitFrame.ECI,
+    ] = CartesianFrame.ECI,
     to_frame: Annotated[
-        OrbitFrame,
+        CartesianFrame,
         typer.Option(help="Reference frame for cartesian output (ECI or ECEF)"),
-    ] = OrbitFrame.ECI,
+    ] = CartesianFrame.ECI,
     as_degrees: Annotated[
         bool, typer.Option(help="Output format in degrees if applicable")
     ] = True,
@@ -167,7 +259,7 @@ def coordinates(
         x_eci = brahe.state_koe_to_eci(x, angle_format)
 
         if to_system == StateRepresentation.cartesian:
-            if to_frame == OrbitFrame.ECEF:
+            if to_frame == CartesianFrame.ECEF:
                 if not epoch:
                     typer.echo("ERROR: --epoch required for frame conversion to ECEF")
                     raise typer.Exit(code=1)
@@ -193,16 +285,16 @@ def coordinates(
             # Need ECI for Keplerian
             x_eci = (
                 x
-                if from_frame == OrbitFrame.ECI
+                if from_frame == CartesianFrame.ECI
                 else brahe.state_ecef_to_eci(brahe.Epoch(epoch), x)
             )
             x = brahe.state_eci_to_koe(x_eci, angle_format)
         elif to_system == StateRepresentation.cartesian:
             # Frame conversion
             epc = brahe.Epoch(epoch)
-            if from_frame == OrbitFrame.ECI and to_frame == OrbitFrame.ECEF:
+            if from_frame == CartesianFrame.ECI and to_frame == CartesianFrame.ECEF:
                 x = brahe.state_eci_to_ecef(epc, x)
-            elif from_frame == OrbitFrame.ECEF and to_frame == OrbitFrame.ECI:
+            elif from_frame == CartesianFrame.ECEF and to_frame == CartesianFrame.ECI:
                 x = brahe.state_ecef_to_eci(epc, x)
         elif to_system in (
             StateRepresentation.geodetic,
@@ -211,7 +303,7 @@ def coordinates(
             # Need ECEF for geodetic/geocentric
             x_ecef = (
                 brahe.state_eci_to_ecef(brahe.Epoch(epoch), x)
-                if from_frame == OrbitFrame.ECI
+                if from_frame == CartesianFrame.ECI
                 else x
             )
             if to_system == StateRepresentation.geodetic:
@@ -229,7 +321,7 @@ def coordinates(
             # Geodetic->ECEF gives position only
             x = (
                 brahe.position_ecef_to_eci(brahe.Epoch(epoch), x_ecef)
-                if to_frame == OrbitFrame.ECI
+                if to_frame == CartesianFrame.ECI
                 else x_ecef
             )
         elif to_system == StateRepresentation.keplerian:
@@ -248,7 +340,7 @@ def coordinates(
             # Geodetic->ECEF gives position only
             x = (
                 brahe.position_ecef_to_eci(brahe.Epoch(epoch), x_ecef)
-                if to_frame == OrbitFrame.ECI
+                if to_frame == CartesianFrame.ECI
                 else x_ecef
             )
         elif to_system == StateRepresentation.keplerian:

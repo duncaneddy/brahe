@@ -282,6 +282,60 @@ Filters passes by whether the satellite is ascending (moving south-to-north) or 
         --8<-- "./docs/outputs/access/constraints/asc_dsc_ascending.rs.txt"
         ```
 
+### Azimuth Constraint
+
+Requires the satellite's azimuth, as seen from the ground location, to fall within a window. The window is wrap-aware: a minimum greater than the maximum means the window crosses north (e.g. a sensor's field of view spanning 347&deg; to 227&deg;).
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/access/constraints/azimuth_basic.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/access/constraints/azimuth_basic.rs:4"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/constraints/azimuth_basic.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/constraints/azimuth_basic.rs.txt"
+        ```
+
+### Range Constraint
+
+Requires the slant range between the satellite and the ground location to fall within a minimum and/or maximum bound. At least one bound must be specified.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/access/constraints/range_basic.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/access/constraints/range_basic.rs:4"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/constraints/range_basic.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/constraints/range_basic.rs.txt"
+        ```
+
 ## Constraint Composition
 
 Combine constraints using Boolean logic to express complex requirements.

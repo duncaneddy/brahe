@@ -5,8 +5,11 @@ Tests all conversion paths for coordinates and frame conversions.
 """
 
 import pytest
+import typer
+import brahe
 from typer.testing import CliRunner
 from brahe.cli.__main__ import app
+from brahe.cli.transform import _parse_vector
 
 runner = CliRunner()
 
@@ -584,6 +587,264 @@ class TestCoordinatesCommand:
         )
         assert result.exit_code == 1
         assert "ERROR" in result.stdout
+
+
+class TestCoordinatesFrameValidation:
+    def test_coordinates_rejects_non_eci_ecef_frame(self):
+        result = runner.invoke(
+            app,
+            [
+                "transform",
+                "coordinates",
+                "keplerian",
+                "cartesian",
+                "2024-01-01T00:00:00Z",
+                "6878137",
+                "0.01",
+                "45",
+                "0",
+                "0",
+                "0",
+                "--to-frame",
+                "GCRF",
+            ],
+        )
+        # A non-ECI/ECEF frame must be rejected by CLI validation, not silently mis-routed.
+        assert result.exit_code != 0
+
+    def test_coordinates_accepts_ecef_frame(self):
+        result = runner.invoke(
+            app,
+            [
+                "transform",
+                "coordinates",
+                "keplerian",
+                "cartesian",
+                "2024-01-01T00:00:00Z",
+                "6878137",
+                "0.01",
+                "45",
+                "0",
+                "0",
+                "0",
+                "--to-frame",
+                "ECEF",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "[" in result.stdout
+
+
+class TestFrameNamedFrames:
+    """Frame transforms across the full named-frame set."""
+
+    def test_gcrf_itrf_matches_eci_ecef(self):
+        """GCRF->ITRF is the ECI->ECEF alias and must agree numerically."""
+        args_tail = ["2024-01-01T00:00:00Z", "6878137", "0", "0", "0", "7500", "0"]
+        r_named = runner.invoke(app, ["transform", "frame", "GCRF", "ITRF", *args_tail])
+        r_alias = runner.invoke(app, ["transform", "frame", "ECI", "ECEF", *args_tail])
+        assert r_named.exit_code == 0
+        assert r_alias.exit_code == 0
+        assert r_named.stdout.strip() == r_alias.stdout.strip()
+
+    def test_same_frame_returns_input(self):
+        result = runner.invoke(
+            app,
+            [
+                "transform",
+                "frame",
+                "GCRF",
+                "GCRF",
+                "2024-01-01T00:00:00Z",
+                "6878137",
+                "0",
+                "0",
+                "0",
+                "7500",
+                "0",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "6878137" in result.stdout
+
+    def test_unknown_frame_errors_cleanly(self):
+        result = runner.invoke(
+            app,
+            [
+                "transform",
+                "frame",
+                "NOPE",
+                "ECEF",
+                "2024-01-01T00:00:00Z",
+                "1",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+            ],
+        )
+        assert result.exit_code != 0
+
+
+class TestPositionCommand:
+    def test_position_gcrf_itrf(self):
+        result = runner.invoke(
+            app,
+            [
+                "transform",
+                "position",
+                "GCRF",
+                "ITRF",
+                "2024-01-01T00:00:00Z",
+                "6878137",
+                "0",
+                "0",
+            ],
+        )
+        assert result.exit_code == 0
+        assert result.stdout.count(",") == 2  # three components -> two commas
+
+    def test_position_same_frame_returns_input(self):
+        result = runner.invoke(
+            app,
+            [
+                "transform",
+                "position",
+                "ITRF",
+                "ITRF",
+                "2024-01-01T00:00:00Z",
+                "6878137",
+                "0",
+                "0",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "6878137" in result.stdout
+
+
+class TestRotationCommand:
+    def test_rotation_emits_three_rows(self):
+        result = runner.invoke(
+            app,
+            ["transform", "rotation", "GCRF", "ITRF", "2024-01-01T00:00:00Z"],
+        )
+        assert result.exit_code == 0
+        rows = [ln for ln in result.stdout.splitlines() if ln.strip().startswith("[")]
+        assert len(rows) == 3
+        for row in rows:
+            assert row.count(",") == 2
+
+    def test_rotation_same_frame_is_identity(self):
+        result = runner.invoke(
+            app,
+            ["transform", "rotation", "GCRF", "GCRF", "2024-01-01T00:00:00Z"],
+        )
+        assert result.exit_code == 0
+        rows = [ln for ln in result.stdout.splitlines() if ln.strip().startswith("[")]
+        assert len(rows) == 3
+        matrix = [
+            [float(v) for v in row.strip().strip("[]").split(",")] for row in rows
+        ]
+        for i in range(3):
+            for j in range(3):
+                expected = 1.0 if i == j else 0.0
+                assert matrix[i][j] == pytest.approx(expected, abs=1e-9)
+
+
+class TestTransformErrorPaths:
+    """Error-surfacing paths must produce a clean CLI error, not a traceback."""
+
+    def test_parse_vector_rejects_invalid_expression(self):
+        # A component that is neither a number nor a known constant expression
+        # must raise a clean typer.Exit(1), not propagate the ValueError.
+        with pytest.raises(typer.Exit) as exc:
+            _parse_vector(["notanumber", "0", "0"], 3)
+        assert exc.value.exit_code == 1
+
+    def test_frame_transform_error_surfaces_cleanly(self, monkeypatch):
+        def boom(*args, **kwargs):
+            raise RuntimeError("kernel unavailable")
+
+        monkeypatch.setattr(brahe, "state_frame_to_frame", boom)
+        result = runner.invoke(
+            app,
+            [
+                "transform",
+                "frame",
+                "GCRF",
+                "ITRF",
+                "2024-01-01T00:00:00Z",
+                "6878137",
+                "0",
+                "0",
+                "0",
+                "7500",
+                "0",
+            ],
+        )
+        assert result.exit_code == 1
+        assert "ERROR: frame transform failed" in result.stdout
+
+    def test_position_transform_error_surfaces_cleanly(self, monkeypatch):
+        def boom(*args, **kwargs):
+            raise RuntimeError("kernel unavailable")
+
+        monkeypatch.setattr(brahe, "position_frame_to_frame", boom)
+        result = runner.invoke(
+            app,
+            [
+                "transform",
+                "position",
+                "GCRF",
+                "ITRF",
+                "2024-01-01T00:00:00Z",
+                "6878137",
+                "0",
+                "0",
+            ],
+        )
+        assert result.exit_code == 1
+        assert "ERROR: position transform failed" in result.stdout
+
+    def test_rotation_transform_error_surfaces_cleanly(self, monkeypatch):
+        def boom(*args, **kwargs):
+            raise RuntimeError("kernel unavailable")
+
+        monkeypatch.setattr(brahe, "rotation_frame_to_frame", boom)
+        result = runner.invoke(
+            app,
+            ["transform", "rotation", "GCRF", "ITRF", "2024-01-01T00:00:00Z"],
+        )
+        assert result.exit_code == 1
+        assert "ERROR: rotation transform failed" in result.stdout
+
+
+class TestCoordinatesCartesianFrameConversion:
+    def test_cartesian_ecef_to_eci(self):
+        # Exercises the ECEF->ECI cartesian frame-conversion branch.
+        result = runner.invoke(
+            app,
+            [
+                "transform",
+                "coordinates",
+                "cartesian",
+                "cartesian",
+                "2024-01-01T00:00:00Z",
+                "6878137",
+                "0",
+                "0",
+                "0",
+                "7500",
+                "0",
+                "--from-frame",
+                "ECEF",
+                "--to-frame",
+                "ECI",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "[" in result.stdout
 
 
 if __name__ == "__main__":

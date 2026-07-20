@@ -34,6 +34,19 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email github-actions[bot]@users.noreply.github.com
 
+      # NETWORK-flagged examples are skipped by the --ci-only run that builds
+      # the doc-figures artifact, so their figures only exist in the cache
+      # saved by the weekly --network integration run (test_examples.yml with
+      # use_retry). Restore it BEFORE the artifact download so the fresher
+      # --ci-only figures overwrite any overlapping files.
+      - name: Restore network example figures
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: docs/figures/
+          key: network-example-figures-
+          restore-keys: |
+            network-example-figures-
+
       - name: Download figures artifact
         uses: actions/download-artifact@v8
         with:

@@ -5,6 +5,13 @@ Simulated SSN ground sensor producing az/el/range (radar) or angles-only az/el
 
 ---
 
+::: brahe.SensorType
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+
+---
+
 ::: brahe.SimpleSSNSensor
     options:
       show_root_heading: true

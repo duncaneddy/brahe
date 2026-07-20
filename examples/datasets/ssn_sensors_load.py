@@ -20,7 +20,7 @@ print(f"Total SSN sites: {len(sites)}")
 # Filter by sensor type: radar/phased-array/mechanical trackers report
 # az/el/range, optical trackers report angles-only az/el
 radars = [s for s in sites if s.properties["sensor_type"] == "azel_range"]
-optical = [s for s in sites if s.properties["sensor_type"] == "optical"]
+optical = [s for s in sites if s.properties["sensor_type"] == "azel"]
 print(f"Radar/phased-array/mechanical sites: {len(radars)}")
 print(f"Optical (angles-only) sites: {len(optical)}")
 

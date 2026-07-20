@@ -24,7 +24,7 @@ fn main() {
         .collect();
     let optical: Vec<_> = sites
         .iter()
-        .filter(|s| s.properties()["sensor_type"] == "optical")
+        .filter(|s| s.properties()["sensor_type"] == "azel")
         .collect();
     println!("Radar/phased-array/mechanical sites: {}", radars.len());
     println!("Optical (angles-only) sites: {}", optical.len());

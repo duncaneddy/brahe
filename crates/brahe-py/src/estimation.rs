@@ -1349,6 +1349,72 @@ impl_measurement_model_binding!(
 );
 
 // =============================================================================
+// SensorType
+// =============================================================================
+
+/// Sensor measurement type, driving measurement-model selection.
+///
+/// Parsed from the `sensor_type` dataset property: `AZEL_RANGE` sensors
+/// (radar/phased-array/mechanical trackers, dataset value `"azel_range"`)
+/// measure `[az, el, range]`; `AZEL` sensors (angles-only optical trackers,
+/// dataset value `"azel"`) measure `[az, el]`.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     sites = bh.datasets.ssn_sensors.load()
+///     sensor = bh.SimpleSSNSensor.from_location(sites[0])
+///     if sensor.sensor_type == bh.SensorType.AZEL_RANGE:
+///         print("radar sensor")
+///     ```
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "SensorType")]
+#[derive(Clone)]
+pub struct PySensorType {
+    pub(crate) value: estimation::SensorType,
+}
+
+#[pymethods]
+impl PySensorType {
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn AZEL_RANGE() -> Self {
+        PySensorType {
+            value: estimation::SensorType::AzElRange,
+        }
+    }
+
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn AZEL() -> Self {
+        PySensorType {
+            value: estimation::SensorType::AzEl,
+        }
+    }
+
+    fn __str__(&self) -> String {
+        format!("{:?}", self.value)
+    }
+
+    fn __repr__(&self) -> String {
+        match self.value {
+            estimation::SensorType::AzElRange => "SensorType.AZEL_RANGE".to_string(),
+            estimation::SensorType::AzEl => "SensorType.AZEL".to_string(),
+        }
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self.value == other.value),
+            CompareOp::Ne => Ok(self.value != other.value),
+            _ => Err(exceptions::PyNotImplementedError::new_err(
+                "Comparison not supported",
+            )),
+        }
+    }
+}
+
+// =============================================================================
 // SimpleSSNSensor
 // =============================================================================
 
@@ -1436,9 +1502,10 @@ impl PySimpleSSNSensor {
     /// Build a sensor from a dataset site's properties.
     ///
     /// Supports `sensor_type == "azel_range"` (radar; `[az, el, range]`) and
-    /// `sensor_type == "optical"` (angles-only; `[az, el]`). Noise fields
-    /// default to zero when absent, flagging the sensor uncalibrated; radar
-    /// sites read `az/el/range` noise, optical sites read `az/el` noise. Bias
+    /// `sensor_type == "azel"` (angles-only optical trackers; `[az, el]`). Noise
+    /// fields default to zero when absent, flagging the sensor uncalibrated;
+    /// radar sites read `az/el/range` noise, optical sites read `az/el` noise.
+    /// Bias
     /// fields default to zero when absent; limits default to an open field of
     /// view (azimuth 0-360deg, elevation 0-90deg, unlimited range). Optical
     /// sites carry no range fields, so they have no range constraint.
@@ -1468,7 +1535,7 @@ impl PySimpleSSNSensor {
     ///
     /// Sites with an unknown `sensor_type` are skipped, but sites lacking
     /// calibration are still included with zero noise. Both radar
-    /// (`azel_range`) and optical (`optical`) sites construct. When `seed` is
+    /// (`azel_range`) and optical (`azel`) sites construct. When `seed` is
     /// provided, sensor `i` is seeded with `seed + i` for reproducible
     /// measurement generation. Use `from_locations_calibrated` to keep only
     /// fully-calibrated sites.
@@ -1730,7 +1797,7 @@ impl PySimpleSSNSensor {
                 },
             )?
             .into_any()),
-            estimation::SensorType::Optical => Ok(Py::new(
+            estimation::SensorType::AzEl => Ok(Py::new(
                 py,
                 PyAzElMeasurementModel {
                     model: self.sensor.azel_model(),
@@ -1747,6 +1814,17 @@ impl PySimpleSSNSensor {
     #[getter]
     fn measurement_dim(&self) -> usize {
         self.sensor.measurement_dim()
+    }
+
+    /// Sensor measurement type.
+    ///
+    /// Returns:
+    ///     SensorType: `SensorType.AZEL_RANGE` (radar; `[az, el, range]`) or `SensorType.AZEL` (optical; `[az, el]`).
+    #[getter]
+    fn sensor_type(&self) -> PySensorType {
+        PySensorType {
+            value: self.sensor.sensor_type(),
+        }
     }
 
     /// Sensor name (from the site location).

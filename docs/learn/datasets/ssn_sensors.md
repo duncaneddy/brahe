@@ -47,7 +47,7 @@ Load all SSN sensor sites, filter by sensor type, and inspect a site's propertie
 
 `bh.datasets.ssn_sensors.load()` returns every site as a `PointLocation`.
 `SimpleSSNSensor.from_locations()` builds a sensor for every site -- radar (`azel_range`,
-measuring az/el/range) and optical (`optical`, angles-only az/el) alike -- defaulting the
+measuring az/el/range) and optical (`azel`, angles-only az/el) alike -- defaulting the
 sites that lack full Table 4-4 calibration to zero noise and bias (flagged
 `calibrated == False`, overridable with `with_noise()`/`with_bias()`).
 `from_locations_calibrated()` restricts the result to the fully-calibrated sites -- this is
@@ -60,7 +60,7 @@ Each site is a `PointLocation` with geodetic coordinates (`lon()`, `lat()`, `alt
 
 | Field | Type | Units | Description |
 |-------|------|-------|--------------|
-| `sensor_type` | `str` | -- | `"azel_range"` (radar/phased-array/mechanical trackers, az/el/range) or `"optical"` (angles-only optical trackers, az/el) |
+| `sensor_type` | `str` | -- | `"azel_range"` (radar/phased-array/mechanical trackers, az/el/range) or `"azel"` (angles-only optical trackers, az/el) |
 | `system` | `str` | -- | Sensor system description, e.g. `"Phased Array"`, `"Radar"`, `"GEODSS"` |
 | `category` | `str` | -- | Vallado network category, e.g. `"dedicated"`, `"collateral"`, `"contributing"` |
 | `sensor_numbers` | `list[int]` | -- | SSN sensor ID number(s) at the site |
@@ -76,10 +76,10 @@ Each site is a `PointLocation` with geodetic coordinates (`lon()`, `lat()`, `alt
 | `el_noise_deg` | `float`, optional | degrees | Elevation measurement noise standard deviation |
 | `range_noise_m` | `float`, optional | meters | Range measurement noise standard deviation |
 
-`sensor_type` determines which fields are present: `optical` sites carry no range fields at
+`sensor_type` determines which fields are present: `azel` sites carry no range fields at
 all, and sites appearing only in Table 4-2 (location and field-of-view, no calibration)
 carry no bias/noise fields. `SimpleSSNSensor.from_location()` accepts both `azel_range` and
-`optical` sites; a site missing one or more noise fields still constructs, defaulted to zero
+`azel` sites; a site missing one or more noise fields still constructs, defaulted to zero
 noise and flagged uncalibrated, rather than raising an error.
 
 ## Building Sensors and Measurement Models

@@ -44,20 +44,14 @@ use crate::utils::identifiable::Identifiable;
 ///
 /// Parsed from the `sensor_type` dataset property. `AzElRange` sensors
 /// (radar/phased-array/mechanical trackers) measure `[az, el, range]`;
-/// `Optical` sensors (angles-only optical trackers) measure `[az, el]`.
+/// `AzEl` sensors (angles-only optical trackers) measure `[az, el]`.
 ///
-/// This enum is intentionally Rust-only and is not bound to Python: Python
-/// surfaces the same information through the sensor's `measurement_dim` and
-/// the class of the model returned by
-/// [`SimpleSSNSensor::measurement_model`], and through
-/// [`SimpleSSNSensor::from_location`] errors, which name an unsupported
-/// `sensor_type` when a site cannot be constructed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SensorType {
     /// Azimuth/elevation/range measurements (radar, phased array, mechanical tracker)
     AzElRange,
     /// Angles-only azimuth/elevation measurements (optical telescopes)
-    Optical,
+    AzEl,
 }
 
 impl SensorType {
@@ -65,7 +59,7 @@ impl SensorType {
     ///
     /// # Arguments
     ///
-    /// * `s` - Property string (`"azel_range"` or `"optical"`)
+    /// * `s` - Property string (`"azel_range"` or `"azel"`)
     ///
     /// # Returns
     ///
@@ -73,9 +67,9 @@ impl SensorType {
     pub fn from_str_name(s: &str) -> Result<Self, BraheError> {
         match s {
             "azel_range" => Ok(SensorType::AzElRange),
-            "optical" => Ok(SensorType::Optical),
+            "azel" => Ok(SensorType::AzEl),
             other => Err(BraheError::Error(format!(
-                "Unknown sensor_type '{}' (expected 'azel_range' or 'optical')",
+                "Unknown sensor_type '{}' (expected 'azel_range' or 'azel')",
                 other
             ))),
         }
@@ -92,7 +86,8 @@ fn get_f64_property(location: &PointLocation, key: &str) -> Option<f64> {
 ///
 /// Angles are in **degrees**, range in **meters** throughout, matching the
 /// Vallado SSN dataset conventions. `AzElRange` sensors (radar) measure
-/// `[az, el, range]`; `Optical` sensors measure `[az, el]`. The azimuth
+/// `[az, el, range]`; `AzEl` sensors (optical trackers) measure `[az, el]`.
+/// The azimuth
 /// window is wrap-aware: `az_min > az_max` means the window crosses north
 /// (e.g. Cape Cod 347°→227°).
 ///
@@ -251,7 +246,7 @@ impl SimpleSSNSensor {
     /// Build a sensor from a dataset site's properties.
     ///
     /// Supports both `sensor_type == "azel_range"` (radar; `[az, el, range]`
-    /// measurements) and `sensor_type == "optical"` (angles-only;
+    /// measurements) and `sensor_type == "azel"` (angles-only;
     /// `[az, el]` measurements). The noise fields default to **zero** noise
     /// when absent and the sensor is flagged as uncalibrated
     /// ([`calibrated`](Self::calibrated) returns `false`); supply calibration
@@ -297,7 +292,7 @@ impl SimpleSSNSensor {
                     _ => ([0.0, 0.0, 0.0], false),
                 }
             }
-            SensorType::Optical => match (noise_az, noise_el) {
+            SensorType::AzEl => match (noise_az, noise_el) {
                 (Some(a), Some(e)) => ([a, e, 0.0], true),
                 _ => ([0.0, 0.0, 0.0], false),
             },
@@ -608,7 +603,7 @@ impl SimpleSSNSensor {
     /// Visibility is evaluated on the true geometry; the returned
     /// measurement is `truth + bias + noise` with azimuth normalized into
     /// `[0, 360)`. The measurement is 3-dim `[az, el, range]` for
-    /// `AzElRange` sensors and 2-dim `[az, el]` for `Optical` sensors.
+    /// `AzElRange` sensors and 2-dim `[az, el]` for `AzEl` sensors.
     ///
     /// # Arguments
     ///
@@ -689,7 +684,7 @@ impl SimpleSSNSensor {
     /// configured with this model is consistent with measurements generated
     /// by [`measure`](Self::measure). Returns an
     /// [`AzElRangeMeasurementModel`] for `AzElRange` sensors and an
-    /// [`AzElMeasurementModel`] for `Optical` sensors, type-erased behind a
+    /// [`AzElMeasurementModel`] for `AzEl` sensors, type-erased behind a
     /// `Box<dyn MeasurementModel>`.
     ///
     /// # Returns
@@ -698,14 +693,14 @@ impl SimpleSSNSensor {
     pub fn measurement_model(&self) -> Box<dyn MeasurementModel> {
         match self.sensor_type {
             SensorType::AzElRange => Box::new(self.azel_range_model()),
-            SensorType::Optical => Box::new(self.azel_model()),
+            SensorType::AzEl => Box::new(self.azel_model()),
         }
     }
 
     /// Az/el/range measurement model for this sensor (degrees).
     ///
     /// The concrete model carried by [`measurement_model`](Self::measurement_model)
-    /// for `AzElRange` sensors; also valid for `Optical` sensors, though the
+    /// for `AzElRange` sensors; also valid for `AzEl` sensors, though the
     /// range component then carries the sensor's (zero) range noise/bias and
     /// is not observed.
     ///
@@ -731,7 +726,7 @@ impl SimpleSSNSensor {
     /// Angles-only az/el measurement model for this sensor (degrees).
     ///
     /// The concrete model carried by [`measurement_model`](Self::measurement_model)
-    /// for `Optical` sensors, using the sensor's az/el noise and bias.
+    /// for `AzEl` sensors, using the sensor's az/el noise and bias.
     ///
     /// # Returns
     ///
@@ -749,7 +744,7 @@ impl SimpleSSNSensor {
         .with_bias(self.bias[0], self.bias[1])
     }
 
-    /// Sensor measurement type (`AzElRange` or `Optical`).
+    /// Sensor measurement type (`AzElRange` or `AzEl`).
     ///
     /// # Returns
     ///
@@ -758,7 +753,7 @@ impl SimpleSSNSensor {
         self.sensor_type
     }
 
-    /// Measurement dimension: 3 for `AzElRange`, 2 for `Optical`.
+    /// Measurement dimension: 3 for `AzElRange`, 2 for `AzEl`.
     ///
     /// # Returns
     ///
@@ -766,7 +761,7 @@ impl SimpleSSNSensor {
     pub fn measurement_dim(&self) -> usize {
         match self.sensor_type {
             SensorType::AzElRange => 3,
-            SensorType::Optical => 2,
+            SensorType::AzEl => 2,
         }
     }
 
@@ -1049,7 +1044,7 @@ mod tests {
             .find(|s| s.get_name() == Some("Socorro"))
             .unwrap();
         let socorro_sensor = SimpleSSNSensor::from_location(socorro).unwrap();
-        assert_eq!(socorro_sensor.sensor_type(), SensorType::Optical);
+        assert_eq!(socorro_sensor.sensor_type(), SensorType::AzEl);
         assert_eq!(socorro_sensor.measurement_dim(), 2);
         assert!(socorro_sensor.calibrated());
         assert_eq!(socorro_sensor.range_max(), None);
@@ -1304,7 +1299,7 @@ mod tests {
         // values. The former "radec" spelling was removed with no alias.
         let e = SensorType::from_str_name("radec").unwrap_err();
         assert!(e.to_string().contains("azel_range"), "{}", e);
-        assert!(e.to_string().contains("optical"), "{}", e);
+        assert!(e.to_string().contains("'azel'"), "{}", e);
     }
 
     #[test]
@@ -1375,7 +1370,7 @@ mod tests {
         let mut sensor = SimpleSSNSensor::from_location(socorro)
             .unwrap()
             .with_seed(7);
-        assert_eq!(sensor.sensor_type(), SensorType::Optical);
+        assert_eq!(sensor.sensor_type(), SensorType::AzEl);
         assert_eq!(sensor.measurement_dim(), 2);
         assert!(sensor.calibrated());
 
@@ -1451,7 +1446,7 @@ mod tests {
         let mut optical_loc = PointLocation::new(lon, lat, alt).with_name("Optical");
         {
             let props = optical_loc.properties_mut();
-            props.insert("sensor_type".to_string(), json!("optical"));
+            props.insert("sensor_type".to_string(), json!("azel"));
             props.insert("el_min_deg".to_string(), json!(5.0));
             props.insert("az_noise_deg".to_string(), json!(0.005));
             props.insert("el_noise_deg".to_string(), json!(0.005));
@@ -1459,7 +1454,7 @@ mod tests {
         let mut optical = SimpleSSNSensor::from_location(&optical_loc)
             .unwrap()
             .with_seed(23);
-        assert_eq!(optical.sensor_type(), SensorType::Optical);
+        assert_eq!(optical.sensor_type(), SensorType::AzEl);
 
         let mut observations = radar
             .simulate_observations(&traj, epoch, end, 30.0, 0)

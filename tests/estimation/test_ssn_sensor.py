@@ -78,6 +78,19 @@ def test_from_location_optical_and_uncalibrated_load():
     assert r[0, 0] == pytest.approx(0.0)
 
 
+def test_sensor_type_enum():
+    sites = bh.datasets.ssn_sensors.load()
+    eglin = next(s for s in sites if s.get_name() == "Eglin")
+    socorro = next(s for s in sites if s.get_name() == "Socorro")
+    radar = bh.SimpleSSNSensor.from_location(eglin)
+    optical = bh.SimpleSSNSensor.from_location(socorro)
+    assert radar.sensor_type == bh.SensorType.AZEL_RANGE
+    assert optical.sensor_type == bh.SensorType.AZEL
+    assert optical.sensor_type != bh.SensorType.AZEL_RANGE
+    assert repr(bh.SensorType.AZEL) == "SensorType.AZEL"
+    assert str(bh.SensorType.AZEL_RANGE) == "AzElRange"
+
+
 def test_with_noise_override():
     sites = bh.datasets.ssn_sensors.load()
     hax = next(s for s in sites if s.get_name() == "HAX")
@@ -306,7 +319,7 @@ def test_with_constraint_rejects_everything(test_epoch):
 def _optical_sensor(lon, lat, alt, name, seed):
     """Build a co-located optical sensor via dataset-style properties."""
     loc = bh.PointLocation(lon, lat, alt).with_name(name)
-    loc.properties["sensor_type"] = "optical"
+    loc.properties["sensor_type"] = "azel"
     loc.properties["el_min_deg"] = 5.0
     loc.properties["az_noise_deg"] = 0.005
     loc.properties["el_noise_deg"] = 0.005

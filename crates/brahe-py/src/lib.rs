@@ -1487,6 +1487,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyECEFStateMeasurementModel>()?;
     module.add_class::<PyAzElRangeMeasurementModel>()?;
     module.add_class::<PyAzElMeasurementModel>()?;
+    module.add_class::<PySensorType>()?;
     module.add_class::<PySimpleSSNSensor>()?;
     module.add_class::<PyExtendedKalmanFilter>()?;
     module.add_class::<PyUKFConfig>()?;

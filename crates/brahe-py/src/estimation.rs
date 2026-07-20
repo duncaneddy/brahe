@@ -1466,11 +1466,12 @@ impl PySimpleSSNSensor {
 
     /// Build sensors from all constructible sites, skipping unsupported ones.
     ///
-    /// Sites that fail to construct (optical sites, unsupported `sensor_type`)
-    /// are skipped, but sites lacking calibration are still included with zero
-    /// noise. When `seed` is provided, sensor `i` is seeded with `seed + i` for
-    /// reproducible measurement generation. Use `from_locations_calibrated` to
-    /// keep only fully-calibrated sites.
+    /// Sites with an unknown `sensor_type` are skipped, but sites lacking
+    /// calibration are still included with zero noise. Both radar
+    /// (`azel_range`) and optical (`optical`) sites construct. When `seed` is
+    /// provided, sensor `i` is seeded with `seed + i` for reproducible
+    /// measurement generation. Use `from_locations_calibrated` to keep only
+    /// fully-calibrated sites.
     ///
     /// Args:
     ///     locations (list[PointLocation]): Candidate sites.
@@ -1497,8 +1498,9 @@ impl PySimpleSSNSensor {
 
     /// Build sensors from constructible, fully-calibrated sites only.
     ///
-    /// Like `from_locations` but drops sites that did not supply all three
-    /// noise fields (`az/el/range`), i.e. sensors whose `calibrated` is False.
+    /// Like `from_locations` but drops sites that did not supply every noise
+    /// field their type measures (`az/el/range` for radar, `az/el` for
+    /// optical), i.e. sensors whose `calibrated` is False.
     ///
     /// Args:
     ///     locations (list[PointLocation]): Candidate sites.
@@ -1623,14 +1625,15 @@ impl PySimpleSSNSensor {
     ///
     /// Visibility is evaluated on the true geometry; the returned
     /// measurement is truth + bias + noise with azimuth normalized into
-    /// [0, 360).
+    /// [0, 360). The measurement is 3-dim [az, el, range] for `azel_range`
+    /// sensors and 2-dim [az, el] for optical sensors.
     ///
     /// Args:
     ///     epoch (Epoch): Measurement epoch.
     ///     state (numpy.ndarray): True target ECI state (meters).
     ///
     /// Returns:
-    ///     numpy.ndarray or None: [az_deg, el_deg, range_m] when visible, None otherwise.
+    ///     numpy.ndarray or None: [az_deg, el_deg, range_m] ([az_deg, el_deg] for optical) when visible, None otherwise.
     fn measure<'py>(
         &mut self,
         py: Python<'py>,

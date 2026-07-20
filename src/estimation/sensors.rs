@@ -347,8 +347,9 @@ impl SimpleSSNSensor {
     /// Build sensors from constructible, fully-calibrated sites only.
     ///
     /// Like [`from_locations`](Self::from_locations) but drops sites that did
-    /// not supply all three noise fields (`az/el/range`), i.e. sensors for
-    /// which [`calibrated`](Self::calibrated) would be `false`.
+    /// not supply every noise field their type measures (`az/el/range` for
+    /// radar, `az/el` for optical), i.e. sensors for which
+    /// [`calibrated`](Self::calibrated) would be `false`.
     ///
     /// # Arguments
     ///

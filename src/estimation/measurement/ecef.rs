@@ -424,7 +424,7 @@ mod tests {
     use crate::frames::{position_eci_to_ecef, state_eci_to_ecef};
     use crate::time::TimeSystem;
     use approx::assert_abs_diff_eq;
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
 
     fn setup_global_test_eop() {
         let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
@@ -447,6 +447,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_ecef_position_model_constructors() {
         // Isotropic
         let m = ECEFPositionMeasurementModel::new(5.0);
@@ -504,6 +505,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_ecef_position_model_from_covariance_wrong_dim() {
         // 2x2 instead of 3x3
         let cov = DMatrix::from_diagonal(&DVector::from_vec(vec![1.0, 1.0]));
@@ -547,6 +549,18 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
+    fn test_ecef_position_model_predict_short_state_errors() {
+        let model = ECEFPositionMeasurementModel::new(5.0);
+        let short_state = DVector::from_vec(vec![1.0, 2.0]); // only 2 elements
+        let epoch = test_epoch();
+        let result = model.predict(&epoch, &short_state, None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains(">= 3"));
+    }
+
+    #[test]
+    #[parallel]
     fn test_ecef_velocity_model_constructors() {
         let m = ECEFVelocityMeasurementModel::new(0.05);
         assert_eq!(m.measurement_dim(), 3);
@@ -590,6 +604,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_ecef_velocity_model_from_covariance_wrong_dim() {
         let cov = DMatrix::from_diagonal(&DVector::from_vec(vec![1.0; 6]));
         let result = ECEFVelocityMeasurementModel::from_covariance(cov);
@@ -598,6 +613,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_ecef_velocity_model_predict_short_state_errors() {
         let model = ECEFVelocityMeasurementModel::new(0.05);
         let short_state = DVector::from_vec(vec![1.0, 2.0, 3.0]); // only 3 elements
@@ -612,6 +628,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_ecef_state_model_constructors() {
         let m = ECEFStateMeasurementModel::new(5.0, 0.05);
         assert_eq!(m.measurement_dim(), 6);
@@ -662,6 +679,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_ecef_state_model_from_covariance_wrong_dim() {
         let cov = DMatrix::from_diagonal(&DVector::from_vec(vec![1.0; 3]));
         let result = ECEFStateMeasurementModel::from_covariance(cov);
@@ -670,6 +688,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_ecef_state_model_predict_short_state_errors() {
         let model = ECEFStateMeasurementModel::new(5.0, 0.05);
         let short_state = DVector::from_vec(vec![1.0, 2.0, 3.0]); // only 3 elements

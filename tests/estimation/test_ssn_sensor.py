@@ -89,6 +89,31 @@ def test_with_noise_override():
         bh.SimpleSSNSensor.from_location(hax).with_noise(-1.0, 0.0, 0.0)
 
 
+def test_with_bias_override(test_epoch):
+    loc = bh.PointLocation(-71.49, 42.62, 123.1).with_name("Test")
+    base = bh.SimpleSSNSensor(loc, noise=(0.02, 0.02, 50.0), seed=1)
+    biased = base.with_bias(0.1, -0.05, 25.0)
+    state = make_state_above(test_epoch, -71.49, 42.62, 500e3)
+    z_base = base.measurement_model().predict(test_epoch, state)
+    z_biased = biased.measurement_model().predict(test_epoch, state)
+    # predict() returns geometry + bias, so the difference is the bias delta
+    # (the base sensor carries zero bias).
+    assert z_biased[0] - z_base[0] == pytest.approx(0.1, abs=1e-9)
+    assert z_biased[1] - z_base[1] == pytest.approx(-0.05, abs=1e-9)
+    assert z_biased[2] - z_base[2] == pytest.approx(25.0, abs=1e-6)
+    with pytest.raises(ValueError, match="finite"):
+        base.with_bias(float("nan"), 0.0, 0.0)
+
+
+def test_visible_accepts_position_only_state(test_epoch):
+    loc = bh.PointLocation(-71.49, 42.62, 123.1).with_name("Test")
+    sensor = bh.SimpleSSNSensor(loc, el_min=5.0, noise=(0.02, 0.02, 50.0), seed=1)
+    full = make_state_above(test_epoch, -71.49, 42.62, 500e3)
+    pos_only = full[:3]
+    assert sensor.visible(test_epoch, pos_only)
+    assert sensor.visible(test_epoch, pos_only) == sensor.visible(test_epoch, full)
+
+
 def test_construction_and_repr():
     loc = bh.PointLocation(-71.49, 42.62, 123.1).with_name("Test")
     sensor = bh.SimpleSSNSensor(

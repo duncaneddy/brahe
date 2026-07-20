@@ -2551,4 +2551,19 @@ mod tests {
         assert!(RangeConstraint::new(None, None).is_err());
         assert!(RangeConstraint::new(Some(-1.0), None).is_err());
     }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_azimuth_range_constraint_name_and_display() {
+        let az = AzimuthConstraint::new(90.0, 180.0).unwrap();
+        assert_eq!(format!("{}", az), az.name());
+
+        let both = RangeConstraint::new(Some(500e3), Some(2_000e3)).unwrap();
+        assert_eq!(both.name(), "RangeConstraint(500000.0 m - 2000000.0 m)");
+        assert_eq!(format!("{}", both), both.name());
+        let min_only = RangeConstraint::new(Some(500e3), None).unwrap();
+        assert_eq!(min_only.name(), "RangeConstraint(>= 500000.0 m)");
+        let max_only = RangeConstraint::new(None, Some(2_000e3)).unwrap();
+        assert_eq!(max_only.name(), "RangeConstraint(<= 2000000.0 m)");
+    }
 }

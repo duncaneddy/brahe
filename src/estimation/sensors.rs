@@ -1132,6 +1132,61 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_with_bias_override_flows_to_measurement_model() {
+        setup_global_test_eop();
+        let epoch = test_epoch();
+        // test_sensor carries bias [0.01, 0.005, 100.0]; with_bias replaces it.
+        let base = test_sensor();
+        let biased = test_sensor().with_bias(0.1, -0.05, 25.0).unwrap();
+        let state = state_above(epoch, -71.49, 42.62, 500e3);
+
+        let z_base = base
+            .measurement_model()
+            .predict(&epoch, &state, None)
+            .unwrap();
+        let z_biased = biased
+            .measurement_model()
+            .predict(&epoch, &state, None)
+            .unwrap();
+        // predict() returns geometry + bias, so the difference is the bias delta.
+        assert_abs_diff_eq!(z_biased[0] - z_base[0], 0.1 - 0.01, epsilon = 1e-9);
+        assert_abs_diff_eq!(z_biased[1] - z_base[1], -0.05 - 0.005, epsilon = 1e-9);
+        assert_abs_diff_eq!(z_biased[2] - z_base[2], 25.0 - 100.0, epsilon = 1e-6);
+
+        // Non-finite bias components are rejected.
+        assert!(test_sensor().with_bias(f64::NAN, 0.0, 0.0).is_err());
+    }
+
+    #[test]
+    #[serial]
+    fn test_visible_accepts_position_only_state() {
+        setup_global_test_eop();
+        let epoch = test_epoch();
+        let sensor = test_sensor();
+        let full = state_above(epoch, -71.49, 42.62, 500e3);
+        let pos_only = DVector::from_vec(vec![full[0], full[1], full[2]]);
+        assert!(sensor.visible(&epoch, &pos_only));
+        assert_eq!(
+            sensor.visible(&epoch, &pos_only),
+            sensor.visible(&epoch, &full)
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_sensor_debug_lists_constraints() {
+        let sensor = test_sensor();
+        let repr = format!("{:?}", sensor);
+        assert!(repr.contains("SimpleSSNSensor"));
+        assert!(repr.contains("TestSensor"));
+        // test_sensor has a fully-open azimuth window, so only the elevation
+        // and range constraints are built.
+        assert!(repr.contains("ElevationConstraint"));
+        assert!(repr.contains("RangeConstraint"));
+    }
+
+    #[test]
+    #[serial]
     fn test_measurement_model_consistency() {
         setup_global_test_eop();
         let epoch = test_epoch();

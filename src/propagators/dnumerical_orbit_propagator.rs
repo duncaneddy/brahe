@@ -12779,6 +12779,18 @@ mod tests {
             10.0,
             "reinitialize should reset the step size to the initial value"
         );
+
+        // step_size() reads dt, but the next integration step is seeded from
+        // dt_next — observe it through behavior: the first post-reinitialize
+        // step must advance by exactly the configured initial step (a 10 s
+        // step at LEO is accepted by the default tolerances).
+        prop.step();
+        let first_step: f64 = prop.current_epoch() - (epoch + 123.0);
+        assert!(
+            (first_step - 10.0).abs() < 1e-9,
+            "first post-reinitialize step should be the configured initial step, got {}",
+            first_step
+        );
     }
 
     #[test]

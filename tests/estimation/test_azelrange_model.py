@@ -226,3 +226,40 @@ def test_azelrange_predict_rejects_short_state(test_epoch):
     model = bh.AzElRangeMeasurementModel(-71.49, 42.62, 123.1, 0.01, 0.01, 10.0)
     with pytest.raises(RuntimeError, match="state dimension >= 3"):
         model.predict(test_epoch, np.array([6878e3, 0.0]))
+
+
+class TestAzElMeasurementModel:
+    def test_construction(self):
+        model = bh.AzElMeasurementModel(-71.49, 42.62, 123.1, 0.01, 0.01)
+        assert model.measurement_dim() == 2
+        assert model.name() == "AzEl"
+
+    def test_constructor_rejects_invalid_station(self):
+        with pytest.raises(ValueError, match="latitude"):
+            bh.AzElMeasurementModel(0.0, 100.0, 123.1, 0.01, 0.01)
+        with pytest.raises(ValueError, match="finite"):
+            bh.AzElMeasurementModel(-71.49, 42.62, float("nan"), 0.01, 0.01)
+
+    def test_from_upper_triangular_rejects_invalid_latitude(self):
+        with pytest.raises(ValueError, match="latitude"):
+            bh.AzElMeasurementModel.from_upper_triangular(
+                0.0, 100.0, 123.1, np.array([1.0, 0.0, 2.0])
+            )
+
+    def test_from_covariance(self):
+        cov = np.diag([0.01**2, 0.02**2])
+        model = bh.AzElMeasurementModel.from_covariance(-71.49, 42.62, 123.1, cov)
+        assert model.noise_covariance() == pytest.approx(cov)
+        with pytest.raises(ValueError, match="latitude"):
+            bh.AzElMeasurementModel.from_covariance(0.0, 100.0, 123.1, cov)
+
+    def test_residual_wraps_azimuth(self):
+        model = bh.AzElMeasurementModel(0.0, 0.0, 0.0, 0.01, 0.01)
+        r = model.residual(np.array([359.9, 45.0]), np.array([0.1, 45.0]))
+        assert r[0] == pytest.approx(-0.2, abs=1e-9)
+        assert r[1] == pytest.approx(0.0, abs=1e-12)
+
+    def test_predict_rejects_short_state(self, test_epoch):
+        model = bh.AzElMeasurementModel(-71.49, 42.62, 123.1, 0.01, 0.01)
+        with pytest.raises(RuntimeError, match="state dimension >= 3"):
+            model.predict(test_epoch, np.array([6878e3, 0.0]))

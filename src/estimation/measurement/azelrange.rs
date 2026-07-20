@@ -1118,4 +1118,72 @@ mod tests {
         let e = model.predict(&test_epoch(), &state, None).unwrap_err();
         assert!(e.to_string().contains("state dimension >= 3"), "{}", e);
     }
+
+    #[test]
+    #[parallel]
+    fn test_azelrange_new_rejects_invalid_station() {
+        // Non-finite coordinates are rejected before conversion.
+        let e = AzElRangeMeasurementModel::new(
+            f64::NAN,
+            42.62,
+            123.1,
+            0.01,
+            0.01,
+            10.0,
+            AngleFormat::Degrees,
+        )
+        .unwrap_err();
+        assert!(e.to_string().contains("finite"), "{}", e);
+        // Latitude outside ±90° is rejected by the geodetic conversion.
+        assert!(
+            AzElRangeMeasurementModel::new(
+                0.0,
+                100.0,
+                123.1,
+                0.01,
+                0.01,
+                10.0,
+                AngleFormat::Degrees
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_azel_new_rejects_invalid_station() {
+        // Non-finite coordinates are rejected before conversion.
+        let e =
+            AzElMeasurementModel::new(-71.49, 42.62, f64::NAN, 0.01, 0.01, AngleFormat::Degrees)
+                .unwrap_err();
+        assert!(e.to_string().contains("finite"), "{}", e);
+        // Latitude outside ±90° is rejected by the geodetic conversion.
+        assert!(
+            AzElMeasurementModel::new(0.0, 100.0, 123.1, 0.01, 0.01, AngleFormat::Degrees).is_err()
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_azel_from_upper_triangular_invalid_latitude_errors() {
+        let result = AzElMeasurementModel::from_upper_triangular(
+            0.0,
+            100.0,
+            123.1,
+            &[1.0, 0.0, 2.0],
+            AngleFormat::Degrees,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_azel_station_ecef_accessor() {
+        let (lon, lat, alt) = (-71.49, 42.62, 123.1);
+        let model =
+            AzElMeasurementModel::new(lon, lat, alt, 0.01, 0.01, AngleFormat::Degrees).unwrap();
+        let expected =
+            position_geodetic_to_ecef(Vector3::new(lon, lat, alt), AngleFormat::Degrees).unwrap();
+        assert_abs_diff_eq!(model.station_ecef(), expected, epsilon = 1e-6);
+    }
 }

@@ -240,9 +240,12 @@ impl Default for BLSConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::time::TimeSystem;
     use nalgebra::DMatrix;
+    use serial_test::parallel;
 
     #[test]
+    #[parallel]
     fn test_bls_config_default() {
         let config = BLSConfig::default();
         assert_eq!(config.max_iterations, 10);
@@ -258,6 +261,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_bls_solver_method_clone_debug() {
         let method = BLSSolverMethod::StackedObservationMatrix;
         let cloned = method.clone();
@@ -266,6 +270,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_consider_parameter_config() {
         let cov = DMatrix::identity(2, 2) * 100.0;
         let config = ConsiderParameterConfig {
@@ -274,5 +279,49 @@ mod tests {
         };
         assert_eq!(config.n_solve, 6);
         assert_eq!(config.consider_covariance.nrows(), 2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_noise_chunk_boundaries() {
+        let pn = ProcessNoiseConfig {
+            q_matrix: DMatrix::identity(6, 6),
+            scale_with_dt: true,
+            max_noise_dt: Some(10.0),
+        };
+        let start = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Exact multiple of the chunk size: last boundary lands on the target.
+        let b = noise_chunk_boundaries(Some(&pn), start, start + 30.0).unwrap();
+        assert_eq!(b.len(), 3);
+        assert!((b[0] - start - 10.0).abs() < 1e-9);
+        assert!((b[2] - start - 30.0).abs() < 1e-9);
+
+        // Non-multiple interval: a remainder chunk is appended.
+        let b = noise_chunk_boundaries(Some(&pn), start, start + 25.0).unwrap();
+        assert_eq!(b.len(), 3);
+        assert!((b[1] - start - 20.0).abs() < 1e-9);
+        assert!((b[2] - start - 25.0).abs() < 1e-9);
+
+        // Backward interval steps in the negative direction.
+        let b = noise_chunk_boundaries(Some(&pn), start, start - 25.0).unwrap();
+        assert_eq!(b.len(), 3);
+        assert!((b[0] - start + 10.0).abs() < 1e-9);
+        assert!((b[2] - start + 25.0).abs() < 1e-9);
+
+        // Single-shot cases: interval fits in one chunk, discrete-time Q,
+        // no chunk cap, or no process noise at all.
+        assert!(noise_chunk_boundaries(Some(&pn), start, start + 5.0).is_none());
+        let discrete = ProcessNoiseConfig {
+            scale_with_dt: false,
+            ..pn.clone()
+        };
+        assert!(noise_chunk_boundaries(Some(&discrete), start, start + 30.0).is_none());
+        let uncapped = ProcessNoiseConfig {
+            max_noise_dt: None,
+            ..pn.clone()
+        };
+        assert!(noise_chunk_boundaries(Some(&uncapped), start, start + 30.0).is_none());
+        assert!(noise_chunk_boundaries(None, start, start + 30.0).is_none());
     }
 }

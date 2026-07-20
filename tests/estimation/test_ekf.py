@@ -213,3 +213,62 @@ def test_ekf_with_multiple_measurement_models(two_body_leo):
     obs_vel = bh.Observation(epoch + 120.0, state[3:6], model_index=1)
     record = ekf.process_observation(obs_vel)
     assert record.measurement_name == "InertialVelocity"
+
+
+def test_ekf_builder_equivalence(two_body_leo):
+    """Builder-constructed EKF should behave identically to the flat constructor."""
+    epoch, true_state = two_body_leo
+    initial_state = true_state.copy()
+    initial_state[0] += 1000.0
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+    via_builder = (
+        bh.ExtendedKalmanFilter.builder(
+            epoch,
+            initial_state,
+            p0,
+            bh.ForceModelConfig.two_body(),
+            bh.EKFConfig.default(),
+        )
+        .propagation_config(bh.NumericalPropagationConfig.default())
+        .measurement_model(bh.InertialPositionMeasurementModel(10.0))
+        .build()
+    )
+
+    via_constructor = bh.ExtendedKalmanFilter(
+        epoch,
+        initial_state,
+        p0,
+        measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+        propagation_config=bh.NumericalPropagationConfig.default(),
+        force_config=bh.ForceModelConfig.two_body(),
+    )
+
+    obs = bh.Observation(epoch + 60.0, true_state[:3], model_index=0)
+    via_builder.process_observation(obs)
+    via_constructor.process_observation(obs)
+
+    np.testing.assert_allclose(
+        via_builder.current_state(), via_constructor.current_state()
+    )
+    np.testing.assert_allclose(
+        via_builder.current_covariance(), via_constructor.current_covariance()
+    )
+
+
+def test_ekf_builder_double_build_raises(two_body_leo):
+    """Calling build() twice on the same builder should raise RuntimeError."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+    builder = bh.ExtendedKalmanFilter.builder(
+        epoch,
+        state,
+        p0,
+        bh.ForceModelConfig.two_body(),
+        bh.EKFConfig.default(),
+    ).measurement_model(bh.InertialPositionMeasurementModel(10.0))
+    builder.build()
+
+    with pytest.raises(RuntimeError, match="builder already consumed"):
+        builder.build()

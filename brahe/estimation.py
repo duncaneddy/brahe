@@ -5,8 +5,11 @@ State estimation filters and measurement models for orbit determination.
 
 **Filters:**
 - ExtendedKalmanFilter: Sequential filter using linearized dynamics and measurements
+- ExtendedKalmanFilterBuilder: Builder for ExtendedKalmanFilter
 - UnscentedKalmanFilter: Sequential filter using sigma points (no linearization)
+- UnscentedKalmanFilterBuilder: Builder for UnscentedKalmanFilter
 - BatchLeastSquares: Batch estimator using iterative Gauss-Newton
+- BatchLeastSquaresBuilder: Builder for BatchLeastSquares
 
 **Measurement Models (Inertial):**
 - InertialPositionMeasurementModel: 3D ECI position observations
@@ -37,8 +40,11 @@ State estimation filters and measurement models for orbit determination.
 from brahe._brahe import (
     # Filters
     ExtendedKalmanFilter,
+    ExtendedKalmanFilterBuilder,
     UnscentedKalmanFilter,
+    UnscentedKalmanFilterBuilder,
     BatchLeastSquares,
+    BatchLeastSquaresBuilder,
     # Base class for custom models
     MeasurementModel,
     # Built-in measurement models
@@ -67,8 +73,11 @@ from brahe._brahe import (
 
 __all__ = [
     "ExtendedKalmanFilter",
+    "ExtendedKalmanFilterBuilder",
     "UnscentedKalmanFilter",
+    "UnscentedKalmanFilterBuilder",
     "BatchLeastSquares",
+    "BatchLeastSquaresBuilder",
     "MeasurementModel",
     "InertialPositionMeasurementModel",
     "InertialVelocityMeasurementModel",

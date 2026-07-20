@@ -262,3 +262,62 @@ class TestBatchLeastSquares:
         assert formal.shape == (3, 3)
         total = bls.total_covariance()
         assert np.all(np.diag(total) >= np.diag(formal) - 1e-12)
+
+
+class TestBatchLeastSquaresBuilder:
+    """Tests for BatchLeastSquaresBuilder."""
+
+    def test_builder_equivalence(self, bls_setup):
+        """Builder-constructed BLS should behave identically to the flat constructor."""
+        _, epoch, true_state, initial_state, observations = bls_setup
+        p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+        via_builder = (
+            bh.BatchLeastSquares.builder(
+                epoch,
+                initial_state,
+                p0,
+                bh.ForceModelConfig.two_body(),
+                bh.BLSConfig.default(),
+            )
+            .propagation_config(bh.NumericalPropagationConfig.default())
+            .measurement_model(bh.InertialPositionMeasurementModel(10.0))
+            .build()
+        )
+
+        via_constructor = bh.BatchLeastSquares(
+            epoch,
+            initial_state,
+            p0,
+            propagation_config=bh.NumericalPropagationConfig.default(),
+            force_config=bh.ForceModelConfig.two_body(),
+            measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+        )
+
+        via_builder.solve(observations)
+        via_constructor.solve(observations)
+
+        assert via_builder.converged() == via_constructor.converged()
+        np.testing.assert_allclose(
+            via_builder.current_state(), via_constructor.current_state()
+        )
+        np.testing.assert_allclose(
+            via_builder.current_covariance(), via_constructor.current_covariance()
+        )
+
+    def test_builder_double_build_raises(self, two_body_leo):
+        """Calling build() twice on the same builder should raise RuntimeError."""
+        epoch, state = two_body_leo
+        p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+        builder = bh.BatchLeastSquares.builder(
+            epoch,
+            state,
+            p0,
+            bh.ForceModelConfig.two_body(),
+            bh.BLSConfig.default(),
+        ).measurement_model(bh.InertialPositionMeasurementModel(10.0))
+        builder.build()
+
+        with pytest.raises(RuntimeError, match="builder already consumed"):
+            builder.build()

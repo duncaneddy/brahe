@@ -44,12 +44,12 @@ mod traits;
 mod types;
 mod ukf;
 
-pub use bls::BatchLeastSquares;
+pub use bls::{BatchLeastSquares, BatchLeastSquaresBuilder};
 pub use config::{
     BLSConfig, BLSSolverMethod, ConsiderParameterConfig, EKFConfig, ProcessNoiseConfig, UKFConfig,
 };
 pub use dynamics_source::DynamicsSource;
-pub use ekf::ExtendedKalmanFilter;
+pub use ekf::{ExtendedKalmanFilter, ExtendedKalmanFilterBuilder};
 pub use measurement::{
     EcefPositionMeasurementModel, EcefStateMeasurementModel, EcefVelocityMeasurementModel,
     InertialPositionMeasurementModel, InertialStateMeasurementModel,
@@ -58,4 +58,4 @@ pub use measurement::{
 pub use traits::MeasurementModel;
 pub use traits::measurement_jacobian_numerical;
 pub use types::{BLSIterationRecord, BLSObservationResidual, FilterRecord, Observation};
-pub use ukf::UnscentedKalmanFilter;
+pub use ukf::{UnscentedKalmanFilter, UnscentedKalmanFilterBuilder};

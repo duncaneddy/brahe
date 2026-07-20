@@ -14,7 +14,7 @@ First, we'll import the necessary libraries, initialize Earth orientation parame
 
 ## Load the Sensor Network
 
-We load the Vallado SSN sensor sites and build sensors from the radar sites. The dataset's sites split into two sensor types: optical (`radec`) trackers (Socorro, Maui, Diego Garcia, MSSS, MOTIF, Moron), which `SimpleSSNSensor` doesn't support, and radar/phased-array/mechanical (`azel_range`) sites. `SimpleSSNSensor.from_locations()` builds a sensor for every radar site, defaulting the two that lack Table 4-3/4-4 calibration (Haystack, HAX) to zero noise and bias -- overridable with `with_noise()`/`with_bias()`. `from_locations_calibrated()` restricts to the fully-calibrated sites; this example uses the calibrated set so simulated measurement noise always matches Table 4-4:
+We load the Vallado SSN sensor sites and build sensors from them. The dataset's 21 sites split into two sensor types, both supported by `SimpleSSNSensor`: radar/phased-array/mechanical (`azel_range`) trackers, which measure `[azimuth, elevation, range]`, and optical (`optical`) trackers, which are angles-only and measure `[azimuth, elevation]` via the [`AzElMeasurementModel`](../library_api/estimation/measurement_models.md). Each sensor's `measurement_model()` returns the model matching its type. `SimpleSSNSensor.from_locations()` builds a sensor for every site, defaulting sites that lack Table 4-4 calibration to zero noise and bias -- overridable with `with_noise()`/`with_bias()`. `from_locations_calibrated()` restricts to the fully-calibrated sites (16 of the 21: 13 radar plus the 3 calibrated optical trackers Socorro, Maui, and Diego Garcia); this example uses the calibrated set so simulated measurement noise always matches Table 4-4:
 
 ``` python
 --8<-- "./examples/examples/ssn_tracking.py:load_sensors"
@@ -44,7 +44,7 @@ Access windows bound the simulation: for each sensor we compute the elevation-co
 --8<-- "./examples/examples/ssn_tracking.py:simulate_measurements"
 ```
 
-Over the 6-hour arc, the network produces hundreds of observations across dozens of passes. Each measurement is `[azimuth, elevation, range]`, generated with each sensor's own bias and noise from Vallado Table 4-4, and colored to match its sensor in the network figure above:
+Over the 6-hour arc, the network produces hundreds of observations across dozens of passes. Radar measurements are `[azimuth, elevation, range]`; optical measurements are angles-only `[azimuth, elevation]` and so contribute no points to the range subplot. Each is generated with its sensor's own bias and noise from Vallado Table 4-4, and colored to match its sensor in the network figure above:
 
 <div class="plotly-embed">
   <iframe class="only-light" src="../figures/ssn_tracking_measurements_light.html" loading="lazy"></iframe>

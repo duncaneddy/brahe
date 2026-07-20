@@ -9,6 +9,5 @@ The estimation module provides sequential filters for processing measurements an
 - [Estimation Guide](../../learn/estimation/index.md) - Concepts, workflows, and examples
 - [Common Types](common_types.md) - Configuration and data structures
 - [Extended Kalman Filter](extended_kalman_filter.md) - EKF class reference
-- [Measurement Models](measurement_models.md) - Built-in model reference
-- [AzElRangeMeasurementModel](azelrange_measurement_model.md) - Az/el/range model reference
-- [SimpleSSNSensor](simple_ssn_sensor.md) - Simulated SSN sensor reference
+- [Measurement Models](measurement_models.md) - Built-in model reference (including az/el/range and angles-only az/el)
+- [Sensor Models](sensor_models.md) - Simulated SSN sensor reference

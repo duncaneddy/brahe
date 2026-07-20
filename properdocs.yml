@@ -461,8 +461,7 @@ nav:
           - Unscented Kalman Filter: library_api/estimation/unscented_kalman_filter.md
           - Batch Least Squares: library_api/estimation/batch_least_squares.md
           - Measurement Models: library_api/estimation/measurement_models.md
-          - AzElRangeMeasurementModel: library_api/estimation/azelrange_measurement_model.md
-          - SimpleSSNSensor: library_api/estimation/simple_ssn_sensor.md
+          - Sensor Models: library_api/estimation/sensor_models.md
       - SPICE Kernels: library_api/spice/index.md
       - Ephemeris Data Sources:
           - library_api/ephemeris/index.md

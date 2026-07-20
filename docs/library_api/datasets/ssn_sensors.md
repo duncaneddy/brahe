@@ -11,4 +11,4 @@ All functions are available via `brahe.datasets.ssn_sensors.<function_name>`.
 ## See Also
 
 - [SSN Sensor Datasets Guide](../../learn/datasets/ssn_sensors.md) - Usage guidance and property reference
-- [SimpleSSNSensor](../estimation/simple_ssn_sensor.md) - Simulated sensor built from these sites
+- [Sensor Models](../estimation/sensor_models.md) - Simulated SimpleSSNSensor built from these sites

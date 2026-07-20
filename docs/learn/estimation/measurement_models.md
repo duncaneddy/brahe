@@ -189,5 +189,5 @@ models in a single filter, is covered in the [Custom Models](custom_models.md) g
 - [Unscented Kalman Filter](unscented_kalman_filter.md) -- Using models with the UKF
 - [SSN Sensor Datasets](../datasets/ssn_sensors.md) -- Sensor sites backing `SimpleSSNSensor`
 - [Measurement Models API Reference](../../library_api/estimation/measurement_models.md) -- Complete class documentation
-- [AzElRangeMeasurementModel API Reference](../../library_api/estimation/azelrange_measurement_model.md) -- Complete class documentation
-- [SimpleSSNSensor API Reference](../../library_api/estimation/simple_ssn_sensor.md) -- Complete class documentation
+- [Measurement Models API Reference](../../library_api/estimation/measurement_models.md) -- Complete class documentation for AzElRangeMeasurementModel and AzElMeasurementModel
+- [Sensor Models API Reference](../../library_api/estimation/sensor_models.md) -- Complete SimpleSSNSensor documentation

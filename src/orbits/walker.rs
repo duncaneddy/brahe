@@ -135,6 +135,314 @@ pub struct WalkerConstellationGenerator {
     base_name: Option<String>,
 }
 
+/// Builder for [`WalkerConstellationGenerator`].
+///
+/// Created by [`WalkerConstellationGenerator::builder`], which takes the six
+/// required inputs (`t`, `p`, `f`, `semi_major_axis`, `inclination`, `epoch`).
+/// Optional inputs are provided through chained setters and default to the
+/// same values as [`WalkerConstellationGenerator::new`]'s optional parameters.
+/// [`WalkerConstellationGeneratorBuilder::build`] validates the `t`/`p`/`f`
+/// invariants and constructs the generator, returning `Err` instead of
+/// panicking (unlike [`WalkerConstellationGenerator::new`]) if they are violated.
+///
+/// # Example
+///
+/// ```rust
+/// use brahe::orbits::WalkerConstellationGenerator;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::constants::R_EARTH;
+///
+/// let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let walker = WalkerConstellationGenerator::builder(12, 3, 1, R_EARTH + 780e3, 98.0, epoch)
+///     .eccentricity(0.001)
+///     .base_name("Constellation")
+///     .build()
+///     .unwrap();
+/// ```
+pub struct WalkerConstellationGeneratorBuilder {
+    t: usize,
+    p: usize,
+    f: usize,
+    semi_major_axis: f64,
+    eccentricity: f64,
+    inclination: f64,
+    argument_of_perigee: f64,
+    reference_raan: f64,
+    reference_mean_anomaly: f64,
+    epoch: Epoch,
+    angle_format: AngleFormat,
+    pattern: WalkerPattern,
+    base_name: Option<String>,
+}
+
+impl WalkerConstellationGeneratorBuilder {
+    /// Set the eccentricity.
+    ///
+    /// Defaults to `0.0` if not called.
+    ///
+    /// # Arguments
+    /// * `eccentricity` - Eccentricity (dimensionless, typically near 0 for Walker)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::orbits::WalkerConstellationGenerator;
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use brahe::constants::R_EARTH;
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let walker = WalkerConstellationGenerator::builder(12, 3, 1, R_EARTH + 780e3, 98.0, epoch)
+    ///     .eccentricity(0.001)
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    pub fn eccentricity(mut self, eccentricity: f64) -> Self {
+        self.eccentricity = eccentricity;
+        self
+    }
+
+    /// Set the argument of perigee.
+    ///
+    /// Defaults to `0.0` if not called.
+    ///
+    /// # Arguments
+    /// * `argument_of_perigee` - Argument of perigee. Units: (rad) or (deg) based on `angle_format`
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::orbits::WalkerConstellationGenerator;
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use brahe::constants::R_EARTH;
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let walker = WalkerConstellationGenerator::builder(12, 3, 1, R_EARTH + 780e3, 98.0, epoch)
+    ///     .argument_of_perigee(15.0)
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    pub fn argument_of_perigee(mut self, argument_of_perigee: f64) -> Self {
+        self.argument_of_perigee = argument_of_perigee;
+        self
+    }
+
+    /// Set the reference RAAN for plane 0.
+    ///
+    /// Defaults to `0.0` if not called.
+    ///
+    /// # Arguments
+    /// * `reference_raan` - RAAN for plane 0. Units: (rad) or (deg) based on `angle_format`
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::orbits::WalkerConstellationGenerator;
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use brahe::constants::R_EARTH;
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let walker = WalkerConstellationGenerator::builder(12, 3, 1, R_EARTH + 780e3, 98.0, epoch)
+    ///     .reference_raan(30.0)
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    pub fn reference_raan(mut self, reference_raan: f64) -> Self {
+        self.reference_raan = reference_raan;
+        self
+    }
+
+    /// Set the reference mean anomaly for the first satellite.
+    ///
+    /// Defaults to `0.0` if not called.
+    ///
+    /// # Arguments
+    /// * `reference_mean_anomaly` - Mean anomaly for first satellite. Units: (rad) or (deg) based on `angle_format`
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::orbits::WalkerConstellationGenerator;
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use brahe::constants::R_EARTH;
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let walker = WalkerConstellationGenerator::builder(12, 3, 1, R_EARTH + 780e3, 98.0, epoch)
+    ///     .reference_mean_anomaly(15.0)
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    pub fn reference_mean_anomaly(mut self, reference_mean_anomaly: f64) -> Self {
+        self.reference_mean_anomaly = reference_mean_anomaly;
+        self
+    }
+
+    /// Set the angle format for `inclination`, `argument_of_perigee`, `reference_raan`,
+    /// and `reference_mean_anomaly`.
+    ///
+    /// Defaults to [`AngleFormat::Degrees`] if not called.
+    ///
+    /// # Arguments
+    /// * `angle_format` - Format for angular inputs (Degrees or Radians)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::orbits::WalkerConstellationGenerator;
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use brahe::constants::{AngleFormat, R_EARTH};
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let walker = WalkerConstellationGenerator::builder(12, 3, 1, R_EARTH + 780e3, 98.0, epoch)
+    ///     .angle_format(AngleFormat::Degrees)
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    pub fn angle_format(mut self, angle_format: AngleFormat) -> Self {
+        self.angle_format = angle_format;
+        self
+    }
+
+    /// Set the Walker pattern type.
+    ///
+    /// Defaults to [`WalkerPattern::Delta`] if not called.
+    ///
+    /// # Arguments
+    /// * `pattern` - Walker pattern type (Delta for 360° RAAN, Star for 180° RAAN)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::orbits::{WalkerConstellationGenerator, WalkerPattern};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use brahe::constants::R_EARTH;
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let walker = WalkerConstellationGenerator::builder(12, 3, 1, R_EARTH + 780e3, 98.0, epoch)
+    ///     .pattern(WalkerPattern::Star)
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    pub fn pattern(mut self, pattern: WalkerPattern) -> Self {
+        self.pattern = pattern;
+        self
+    }
+
+    /// Set a base name for satellite naming.
+    ///
+    /// Applied to the generator after construction via
+    /// [`WalkerConstellationGenerator::with_base_name`]. Unset by default.
+    ///
+    /// # Arguments
+    /// * `name` - Base name for the constellation satellites
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::orbits::WalkerConstellationGenerator;
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use brahe::constants::R_EARTH;
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let walker = WalkerConstellationGenerator::builder(12, 3, 1, R_EARTH + 780e3, 98.0, epoch)
+    ///     .base_name("Constellation")
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    pub fn base_name(mut self, name: &str) -> Self {
+        self.base_name = Some(name.to_string());
+        self
+    }
+
+    /// Construct the generator from the accumulated configuration.
+    ///
+    /// Validates the `t`/`p`/`f` invariants and constructs the generator via
+    /// [`WalkerConstellationGenerator::new`], then applies `base_name` (if set)
+    /// via [`WalkerConstellationGenerator::with_base_name`].
+    ///
+    /// # Returns
+    /// Initialized `WalkerConstellationGenerator`
+    ///
+    /// # Errors
+    /// Returns `Err(BraheError::InitializationError)` instead of panicking
+    /// (unlike [`WalkerConstellationGenerator::new`]) if:
+    /// - `p` is zero
+    /// - `t` is not divisible by `p`
+    /// - `f` >= `p`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::orbits::WalkerConstellationGenerator;
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use brahe::constants::R_EARTH;
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let walker = WalkerConstellationGenerator::builder(12, 3, 1, R_EARTH + 780e3, 98.0, epoch)
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    pub fn build(self) -> Result<WalkerConstellationGenerator, BraheError> {
+        if self.p == 0 {
+            return Err(BraheError::InitializationError(
+                "Number of planes (P) must be greater than zero".to_string(),
+            ));
+        }
+        if !self.t.is_multiple_of(self.p) {
+            return Err(BraheError::InitializationError(format!(
+                "Total satellites ({}) must be divisible by number of planes ({})",
+                self.t, self.p
+            )));
+        }
+        if self.f >= self.p {
+            return Err(BraheError::InitializationError(format!(
+                "Phasing factor ({}) must be less than number of planes ({})",
+                self.f, self.p
+            )));
+        }
+
+        let generator = WalkerConstellationGenerator::new(
+            self.t,
+            self.p,
+            self.f,
+            self.semi_major_axis,
+            self.eccentricity,
+            self.inclination,
+            self.argument_of_perigee,
+            self.reference_raan,
+            self.reference_mean_anomaly,
+            self.epoch,
+            self.angle_format,
+            self.pattern,
+        );
+
+        Ok(match self.base_name {
+            Some(name) => generator.with_base_name(&name),
+            None => generator,
+        })
+    }
+}
+
 impl WalkerConstellationGenerator {
     /// Create a new Walker constellation generator.
     ///
@@ -276,6 +584,74 @@ impl WalkerConstellationGenerator {
     pub fn with_base_name(mut self, name: &str) -> Self {
         self.base_name = Some(name.to_string());
         self
+    }
+
+    /// Create a builder for [`WalkerConstellationGenerator`].
+    ///
+    /// Takes the six required inputs (`t`, `p`, `f`, `semi_major_axis`,
+    /// `inclination`, `epoch`) directly; optional inputs are provided through
+    /// chained setters on the returned builder and default to the same values
+    /// as [`WalkerConstellationGenerator::new`]'s optional parameters
+    /// (`eccentricity`, `argument_of_perigee`, `reference_raan`, and
+    /// `reference_mean_anomaly` all `0.0`; `angle_format` [`AngleFormat::Degrees`];
+    /// `pattern` [`WalkerPattern::Delta`]).
+    ///
+    /// # Arguments
+    ///
+    /// * `t` - Total number of satellites (must be divisible by `p`)
+    /// * `p` - Number of orbital planes
+    /// * `f` - Phasing factor (0 to p-1)
+    /// * `semi_major_axis` - Semi-major axis. Units: (m)
+    /// * `inclination` - Inclination. Units: (deg) by default, or (rad) if `angle_format` is set to [`AngleFormat::Radians`]
+    /// * `epoch` - Reference epoch for ephemeris generation
+    ///
+    /// # Returns
+    ///
+    /// Builder with the six required fields set and all optional fields
+    /// defaulted, as described above
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use brahe::orbits::{WalkerConstellationGenerator, WalkerPattern};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use brahe::constants::R_EARTH;
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// // Walker Delta 12:3:1 constellation
+    /// let walker = WalkerConstellationGenerator::builder(
+    ///     12, 3, 1,                    // T:P:F = 12:3:1
+    ///     R_EARTH + 780e3,             // ~780 km altitude
+    ///     98.0,                        // inclination (degrees)
+    ///     epoch,
+    /// )
+    /// .eccentricity(0.001)
+    /// .build()
+    /// .unwrap();
+    /// ```
+    pub fn builder(
+        t: usize,
+        p: usize,
+        f: usize,
+        semi_major_axis: f64,
+        inclination: f64,
+        epoch: Epoch,
+    ) -> WalkerConstellationGeneratorBuilder {
+        WalkerConstellationGeneratorBuilder {
+            t,
+            p,
+            f,
+            semi_major_axis,
+            eccentricity: 0.0,
+            inclination,
+            argument_of_perigee: 0.0,
+            reference_raan: 0.0,
+            reference_mean_anomaly: 0.0,
+            epoch,
+            angle_format: AngleFormat::Degrees,
+            pattern: WalkerPattern::Delta,
+            base_name: None,
+        }
     }
 
     /// Get the number of satellites per plane (T/P).
@@ -653,6 +1029,7 @@ impl WalkerConstellationGenerator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::R_EARTH;
     use approx::assert_abs_diff_eq;
 
     fn test_epoch() -> Epoch {
@@ -1052,5 +1429,78 @@ mod tests {
 
         assert_abs_diff_eq!(elem0[3], 0.0, epsilon = 1e-10);
         assert_abs_diff_eq!(elem1[3], 30.0 * DEG2RAD, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_walkerconstellationgenerator_builder_equivalence() {
+        let epoch = test_epoch();
+
+        let from_builder =
+            WalkerConstellationGenerator::builder(12, 3, 1, R_EARTH + 780e3, 98.0, epoch)
+                .eccentricity(0.001)
+                .base_name("Constellation")
+                .build()
+                .unwrap();
+
+        let from_new = WalkerConstellationGenerator::new(
+            12,
+            3,
+            1,
+            R_EARTH + 780e3,
+            0.001,
+            98.0,
+            0.0,
+            0.0,
+            0.0,
+            epoch,
+            AngleFormat::Degrees,
+            WalkerPattern::Delta,
+        )
+        .with_base_name("Constellation");
+
+        assert_eq!(from_builder.total_satellites, from_new.total_satellites);
+        assert_eq!(from_builder.num_planes, from_new.num_planes);
+        assert_eq!(
+            from_builder.satellites_per_plane(),
+            from_new.satellites_per_plane()
+        );
+        assert_eq!(
+            from_builder.satellite_name(0, 0),
+            from_new.satellite_name(0, 0)
+        );
+
+        let elem_builder_first = from_builder.satellite_elements(0, 0);
+        let elem_new_first = from_new.satellite_elements(0, 0);
+        assert_eq!(elem_builder_first, elem_new_first);
+
+        let last_plane = from_builder.num_planes - 1;
+        let last_sat = from_builder.satellites_per_plane() - 1;
+        let elem_builder_last = from_builder.satellite_elements(last_plane, last_sat);
+        let elem_new_last = from_new.satellite_elements(last_plane, last_sat);
+        assert_eq!(elem_builder_last, elem_new_last);
+    }
+
+    #[test]
+    fn test_walkerconstellationgenerator_builder_invalid() {
+        let epoch = test_epoch();
+
+        // p == 0
+        assert!(
+            WalkerConstellationGenerator::builder(12, 0, 0, R_EARTH + 780e3, 98.0, epoch)
+                .build()
+                .is_err()
+        );
+        // t not divisible by p
+        assert!(
+            WalkerConstellationGenerator::builder(10, 3, 1, R_EARTH + 780e3, 98.0, epoch)
+                .build()
+                .is_err()
+        );
+        // f >= p
+        assert!(
+            WalkerConstellationGenerator::builder(12, 3, 3, R_EARTH + 780e3, 98.0, epoch)
+                .build()
+                .is_err()
+        );
     }
 }

@@ -2390,7 +2390,20 @@ impl DNumericalOrbitPropagator {
         self.epoch_current = epoch;
         self.x_curr = state;
 
-        // Keep dt/dt_next (preserve step size)
+        // Reset the adaptive step size to the configured initial value so a
+        // reused propagator restarts stepping identically to a freshly
+        // constructed one. Preserving the step from a prior propagation lets a
+        // stale, mis-scaled step carry into the new run: the state and STM have
+        // changed, so the previous step is no longer appropriate, and a bad
+        // seed can trigger a cascade of rejected steps (each re-integrating the
+        // full varmat) that makes a re-propagation orders of magnitude slower
+        // than the same arc from a fresh propagator. This matters most for
+        // Batch Least Squares, which re-propagates a long observation arc after
+        // every Gauss-Newton reinitialize.
+        let initial_dt = self.integrator.config().initial_step.unwrap_or(60.0);
+        self.dt = initial_dt;
+        self.dt_next = initial_dt;
+
         // Keep shared_dynamics, integrator, Jacobian/sensitivity providers unchanged
 
         // Reset STM to identity, sensitivity to zero
@@ -12707,6 +12720,64 @@ mod tests {
             stm_at_120,
             DMatrix::identity(6, 6),
             "STM should change after propagation from reinitialize"
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_dnumericalorbitpropagator_reinitialize_resets_step_size() {
+        // Regression: reinitialize must reset the adaptive step size to the
+        // configured initial value so a reused propagator restarts stepping
+        // like a freshly constructed one. Preserving a stale step from a prior
+        // propagation could seed the integrator with a mis-scaled step; on a
+        // long re-propagation (e.g. a Batch Least Squares Gauss-Newton
+        // iteration) the resulting cascade of rejected steps made the same arc
+        // orders of magnitude slower than from a fresh propagator.
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![6878.0e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
+
+        let mut config = NumericalPropagationConfig::default();
+        config.integrator.initial_step = Some(10.0);
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state.clone(),
+            config,
+            ForceModelConfig::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // A fresh propagator starts at the configured initial step.
+        assert_eq!(
+            prop.step_size(),
+            10.0,
+            "fresh propagator should start at the configured initial step"
+        );
+
+        // Drive the step away from the initial value (as an adaptive
+        // propagation over a long arc leaves it), then propagate.
+        prop.set_step_size(0.5);
+        prop.propagate_to(epoch + 123.0);
+        assert_ne!(
+            prop.step_size(),
+            10.0,
+            "step should differ from the initial value before reinitialize"
+        );
+
+        // Reinitialize must restore the configured initial step, matching a
+        // freshly constructed propagator rather than carrying the stale step.
+        let new_state = prop.current_state();
+        prop.reinitialize(epoch + 123.0, new_state, None);
+        assert_eq!(
+            prop.step_size(),
+            10.0,
+            "reinitialize should reset the step size to the initial value"
         );
     }
 

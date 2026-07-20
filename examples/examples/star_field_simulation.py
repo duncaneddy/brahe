@@ -30,14 +30,18 @@ STAR_MAG_LIMIT = 5.2  # Naked-eye-bright Hipparcos stars
 STAR_SHELL_RADIUS = 3.0 * bh.R_EARTH  # Display radius for the star sphere
 CONE_LENGTH = 3000e3  # FOV cone visualization length, meters
 CONE_SEGMENTS = 24  # Cone base polygon resolution
+PROPAGATION_STEP = (
+    20.0  # Propagation/animation frame step, seconds (smaller = smoother)
+)
 
 epoch = bh.Epoch.from_datetime(2026, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 oe = np.array([bh.R_EARTH + 500e3, 0.001, 97.4, 0.0, 0.0, 0.0])
 state0 = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 period = bh.orbital_period(oe[0])
 
-# Propagate one orbital period at 60 s steps with the Keplerian propagator
-prop = bh.KeplerianPropagator.from_eci(epoch, state0, 60.0)
+# Propagate one orbital period with the Keplerian propagator, one animation
+# frame per PROPAGATION_STEP (a fine step keeps the boresight/star motion smooth)
+prop = bh.KeplerianPropagator.from_eci(epoch, state0, PROPAGATION_STEP)
 prop.propagate_to(epoch + period)
 traj = prop.trajectory
 
@@ -170,7 +174,7 @@ def animation_controls(n_frames):
                     args=[
                         None,
                         dict(
-                            frame=dict(duration=80, redraw=True),
+                            frame=dict(duration=40, redraw=True),
                             fromcurrent=True,
                             transition=dict(duration=0),
                         ),
@@ -217,6 +221,9 @@ def animation_controls(n_frames):
 def create_figure(theme):
     colors = get_theme_colors(theme)
     earth_color = "#a9c6e8" if theme == "light" else "#2f4f6f"
+    # Stars sit on the solid (axis-free) background: the pale gold reads well on
+    # the dark theme, but the white light-theme background needs a darker gold.
+    star_color = colors["quaternary"] if theme == "dark" else "#8a6d1f"
 
     r_earth_km = bh.R_EARTH * 1e-3
     lon = np.linspace(0, 2 * np.pi, 60)
@@ -299,7 +306,7 @@ def create_figure(theme):
             mode="markers",
             marker=dict(
                 size=marker_sizes(star_vmags[frame0_idx]),
-                color=colors["quaternary"],
+                color=star_color,
             ),
             text=[star_names[i] for i in frame0_idx],
             hovertemplate="%{text}<extra></extra>",
@@ -353,9 +360,11 @@ def create_figure(theme):
     fig.update_layout(
         title="Star-Field Sensor Simulation (SSO, One Orbital Period)",
         scene=dict(
-            xaxis=dict(title="X (km)", range=axis_range),
-            yaxis=dict(title="Y (km)", range=axis_range),
-            zaxis=dict(title="Z (km)", range=axis_range),
+            # Hide the axes, ticks, labels, and grid panes so the stars sit on
+            # a clean solid background rather than the default light-grey cube
+            xaxis=dict(visible=False, range=axis_range),
+            yaxis=dict(visible=False, range=axis_range),
+            zaxis=dict(visible=False, range=axis_range),
             aspectmode="cube",
             camera=dict(eye=dict(x=1.4, y=1.4, z=0.9)),
         ),
@@ -375,6 +384,7 @@ def create_sensor_view_figure(theme):
     angular coordinates, with the fixed FOV boundary drawn as a circle.
     """
     colors = get_theme_colors(theme)
+    star_color = colors["quaternary"] if theme == "dark" else "#8a6d1f"
 
     fig = go.Figure()
 
@@ -402,7 +412,7 @@ def create_sensor_view_figure(theme):
             mode="markers",
             marker=dict(
                 size=marker_sizes(star_vmags[frame0_idx]),
-                color=colors["quaternary"],
+                color=star_color,
             ),
             text=[star_names[i] for i in frame0_idx],
             hovertemplate="%{text}<extra></extra>",

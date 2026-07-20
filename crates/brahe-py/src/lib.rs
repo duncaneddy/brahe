@@ -1057,6 +1057,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Walker Constellation Generator
     module.add_class::<PyWalkerPattern>()?;
     module.add_class::<PyWalkerConstellationGenerator>()?;
+    module.add_class::<PyWalkerConstellationGeneratorBuilder>()?;
 
     //* Relative Motion *//
     module.add_function(wrap_pyfunction!(py_rotation_rtn_to_eci, module)?)?;

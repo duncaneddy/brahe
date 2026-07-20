@@ -435,6 +435,65 @@ class TestWalkerConstellationGeneratorGPSExample:
         assert props[23].get_name() == "GPS-P5-S3"
 
 
+class TestWalkerConstellationGeneratorBuilder:
+    """Tests for WalkerConstellationGeneratorBuilder."""
+
+    def test_builder_equivalence(self, epoch):
+        """Test that the builder produces the same generator as the flat constructor."""
+        via_builder = (
+            bh.WalkerConstellationGenerator.builder(12, 3, 1, 7000e3, 98.0, epoch)
+            .eccentricity(0.001)
+            .base_name("Sat")
+            .build()
+        )
+
+        via_constructor = bh.WalkerConstellationGenerator(
+            t=12,
+            p=3,
+            f=1,
+            semi_major_axis=7000e3,
+            eccentricity=0.001,
+            inclination=98.0,
+            argument_of_perigee=0.0,
+            reference_raan=0.0,
+            reference_mean_anomaly=0.0,
+            epoch=epoch,
+            angle_format=AngleFormat.DEGREES,
+            pattern=WalkerPattern.DELTA,
+        ).with_base_name("Sat")
+
+        assert via_builder.total_satellites == via_constructor.total_satellites
+        assert via_builder.num_planes == via_constructor.num_planes
+        assert via_builder.phasing == via_constructor.phasing
+        assert via_builder.semi_major_axis == pytest.approx(
+            via_constructor.semi_major_axis
+        )
+        assert via_builder.eccentricity == pytest.approx(via_constructor.eccentricity)
+        assert via_builder.pattern == via_constructor.pattern
+
+        props_builder = via_builder.as_keplerian_propagators(60.0)
+        props_constructor = via_constructor.as_keplerian_propagators(60.0)
+
+        assert len(props_builder) == len(props_constructor)
+        assert props_builder[0].get_name() == props_constructor[0].get_name()
+        assert props_builder[3].get_name() == props_constructor[3].get_name()
+
+    def test_builder_invalid_tpf_raises(self, epoch):
+        """Test that invalid T/P/F combinations raise RuntimeError on build()."""
+        with pytest.raises(RuntimeError):
+            bh.WalkerConstellationGenerator.builder(
+                10, 3, 1, 7000e3, 98.0, epoch
+            ).build()
+
+    def test_builder_double_build_raises(self, epoch):
+        """Test that calling build() twice raises RuntimeError."""
+        builder = bh.WalkerConstellationGenerator.builder(12, 3, 1, 7000e3, 98.0, epoch)
+        builder.build()
+
+        with pytest.raises(RuntimeError, match="builder already consumed"):
+            builder.build()
+
+
 class TestWalkerConstellationGeneratorIridiumExample:
     """Test an Iridium-like Walker Star constellation."""
 

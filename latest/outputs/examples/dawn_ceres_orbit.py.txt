@@ -1,0 +1,19 @@
+LAMO altitude: 375.0 km, inclination: 90.0 deg
+Ceres spin pole (ICRF): [ 0.1441 -0.3673  0.9189]
+
+Propagating 2 days...
+  Complete!
+
+Min radius: 843.86 km, max radius: 845.54 km
+(Ceres radius: 469.7 km)
+
+Body-fixed state at t+2 d: [ 5.1e+05 -2.2e+05 -6.3e+05  1.4e+02 -1.8e+02  1.8e+02]
+
+Inclination rel. Ceres pole: 90.0000 to 90.0000 deg
+
+Example validated successfully!
+
+✓ Generated docs/figures/dawn_ceres_orbit_3d_light.html
+✓ Generated docs/figures/dawn_ceres_orbit_3d_dark.html
+
+Dawn at Ceres Example Complete!

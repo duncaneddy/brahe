@@ -41,6 +41,10 @@
 #[pyo3(name = "SGPPropagator")]
 pub struct PySGPPropagator {
     pub propagator: propagators::SGPPropagator,
+    /// Whether any attached event detector carries a Python callback or value
+    /// function. Such propagators cannot run under par_propagate_to: the
+    /// callback would need the GIL from a worker thread and deadlock.
+    pub has_python_callbacks: bool,
 }
 
 #[pymethods]
@@ -64,7 +68,10 @@ impl PySGPPropagator {
     ) -> PyResult<Self> {
         let step_size = step_size.unwrap_or(60.0);
         match propagators::SGPPropagator::from_tle(&line1, &line2, step_size) {
-            Ok(propagator) => Ok(PySGPPropagator { propagator }),
+            Ok(propagator) => Ok(PySGPPropagator {
+                propagator,
+                has_python_callbacks: false,
+            }),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
@@ -90,7 +97,10 @@ impl PySGPPropagator {
     ) -> PyResult<Self> {
         let step_size = step_size.unwrap_or(60.0);
         match propagators::SGPPropagator::from_3le(Some(&name), &line1, &line2, step_size) {
-            Ok(propagator) => Ok(PySGPPropagator { propagator }),
+            Ok(propagator) => Ok(PySGPPropagator {
+                propagator,
+                has_python_callbacks: false,
+            }),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
@@ -210,7 +220,10 @@ impl PySGPPropagator {
             element_set_no,
             rev_at_epoch,
         ) {
-            Ok(propagator) => Ok(PySGPPropagator { propagator }),
+            Ok(propagator) => Ok(PySGPPropagator {
+                propagator,
+                has_python_callbacks: false,
+            }),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
@@ -1628,6 +1641,7 @@ impl PySGPPropagator {
         // Try TimeEvent - extract and directly use D-type event
         if let Ok(mut time_event) = event.extract::<PyRefMut<PyTimeEvent>>() {
             if let Some(d_event) = time_event.take_d_event() {
+                self.has_python_callbacks |= time_event.py_callback.is_some();
                 self.propagator.add_event_detector(Box::new(d_event));
                 return Ok(());
             }
@@ -1639,6 +1653,8 @@ impl PySGPPropagator {
         // Try ValueEvent - extract and directly use D-type event
         if let Ok(mut value_event) = event.extract::<PyRefMut<PyValueEvent>>() {
             if let Some(d_event) = value_event.take_d_event() {
+                // The value function is always a Python callable.
+                self.has_python_callbacks = true;
                 self.propagator.add_event_detector(Box::new(d_event));
                 return Ok(());
             }
@@ -1650,6 +1666,8 @@ impl PySGPPropagator {
         // Try BinaryEvent - extract and directly use D-type event
         if let Ok(mut binary_event) = event.extract::<PyRefMut<PyBinaryEvent>>() {
             if let Some(d_event) = binary_event.take_d_event() {
+                // The value function is always a Python callable.
+                self.has_python_callbacks = true;
                 self.propagator.add_event_detector(Box::new(d_event));
                 return Ok(());
             }
@@ -1661,6 +1679,7 @@ impl PySGPPropagator {
         // Try AltitudeEvent - extract and directly use D-type event
         if let Ok(mut alt_event) = event.extract::<PyRefMut<PyAltitudeEvent>>() {
             if let Some(d_event) = alt_event.take_d_event() {
+                self.has_python_callbacks |= alt_event.py_callback.is_some();
                 self.propagator.add_event_detector(Box::new(d_event));
                 return Ok(());
             }
@@ -3211,6 +3230,16 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
         if item.is_instance_of::<PyKeplerianPropagator>() {
             kep_idx.push(i);
         } else if item.is_instance_of::<PySGPPropagator>() {
+            // See the NumericalOrbitPropagator guard below: Python event
+            // callbacks cannot execute on worker threads (GIL deadlock).
+            if item.cast::<PySGPPropagator>()?.borrow().has_python_callbacks {
+                return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                    "SGPPropagator instances with Python event callbacks or value functions \
+                     cannot be used with par_propagate_to because the callbacks cannot safely \
+                     execute in parallel due to the GIL. Call propagate_to() sequentially on \
+                     these propagators instead.",
+                ));
+            }
             sgp_idx.push(i);
         } else if item.is_instance_of::<PyNumericalOrbitPropagator>() {
             // Propagators carrying Python callbacks cannot run in parallel:
@@ -7437,6 +7466,7 @@ impl PyNumericalOrbitPropagator {
         // Try each event type
         if let Ok(mut time_event) = event.extract::<PyRefMut<PyTimeEvent>>() {
             if let Some(inner) = time_event.event.take() {
+                self.has_python_callbacks |= time_event.py_callback.is_some();
                 self.propagator.add_event_detector(Box::new(inner));
                 return Ok(());
             }
@@ -7447,6 +7477,8 @@ impl PyNumericalOrbitPropagator {
 
         if let Ok(mut value_event) = event.extract::<PyRefMut<PyValueEvent>>() {
             if let Some(inner) = value_event.event.take() {
+                // The value function is always a Python callable.
+                self.has_python_callbacks = true;
                 self.propagator.add_event_detector(Box::new(inner));
                 return Ok(());
             }
@@ -7457,6 +7489,8 @@ impl PyNumericalOrbitPropagator {
 
         if let Ok(mut binary_event) = event.extract::<PyRefMut<PyBinaryEvent>>() {
             if let Some(inner) = binary_event.event.take() {
+                // The value function is always a Python callable.
+                self.has_python_callbacks = true;
                 self.propagator.add_event_detector(Box::new(inner));
                 return Ok(());
             }
@@ -7467,6 +7501,7 @@ impl PyNumericalOrbitPropagator {
 
         if let Ok(mut altitude_event) = event.extract::<PyRefMut<PyAltitudeEvent>>() {
             if let Some(inner) = altitude_event.event.take() {
+                self.has_python_callbacks |= altitude_event.py_callback.is_some();
                 self.propagator.add_event_detector(Box::new(inner));
                 return Ok(());
             }

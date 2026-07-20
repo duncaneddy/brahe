@@ -2406,7 +2406,10 @@ impl PyWalkerConstellationGenerator {
             .map(|props| {
                 props
                     .into_iter()
-                    .map(|p| PySGPPropagator { propagator: p })
+                    .map(|p| PySGPPropagator {
+                        propagator: p,
+                        has_python_callbacks: false,
+                    })
                     .collect()
             })
             .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))

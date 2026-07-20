@@ -1073,7 +1073,10 @@ impl PyCelestrakClient {
             .inner
             .get_sgp_propagator_by_catnr(catnr, step_size)
             .map_err(|e| BraheError::new_err(e.to_string()))?;
-        Ok(PySGPPropagator { propagator })
+        Ok(PySGPPropagator {
+            propagator,
+            has_python_callbacks: false,
+        })
     }
 
     // -- Tier 2: Query builder methods --

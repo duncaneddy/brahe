@@ -772,7 +772,10 @@ impl PyGPRecord {
     fn to_sgp_propagator(&self, step_size: f64) -> PyResult<PySGPPropagator> {
         let propagator = propagators::SGPPropagator::from_gp_record(&self.inner, step_size)
             .map_err(|e| BraheError::new_err(e.to_string()))?;
-        Ok(PySGPPropagator { propagator })
+        Ok(PySGPPropagator {
+            propagator,
+            has_python_callbacks: false,
+        })
     }
 
     /// Create a NumericalOrbitPropagator from this GP record.

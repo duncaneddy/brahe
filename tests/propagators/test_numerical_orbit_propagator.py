@@ -6173,3 +6173,42 @@ def test_emb_combined_earth_field_and_drag_matches_earth_centered(
 
     assert np.allclose(xf_emb_in_eci[:3], xf_earth[:3], atol=10.0)
     assert np.allclose(xf_emb_in_eci[3:], xf_earth[3:], atol=1e-2)
+
+
+# =============================================================================
+# Builder Tests
+# =============================================================================
+
+
+def test_numericalorbitpropagator_builder():
+    """Test NumericalOrbitPropagator.builder() matches the flat constructor"""
+    epoch = create_test_epoch()
+    state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+
+    prop = (
+        NumericalOrbitPropagator.builder(epoch, state, ForceModelConfig())
+        .propagation_config(NumericalPropagationConfig.default())
+        .initial_covariance(np.eye(6))
+        .build()
+    )
+    flat = NumericalOrbitPropagator(
+        epoch,
+        state,
+        NumericalPropagationConfig.default(),
+        ForceModelConfig(),
+        initial_covariance=np.eye(6),
+    )
+    prop.step_by(60.0)
+    flat.step_by(60.0)
+    np.testing.assert_allclose(prop.current_state(), flat.current_state())
+
+
+def test_numericalorbitpropagator_builder_consumed():
+    """Test that calling build() twice on the same builder raises RuntimeError"""
+    epoch = create_test_epoch()
+    state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+
+    builder = NumericalOrbitPropagator.builder(epoch, state, ForceModelConfig())
+    builder.build()
+    with pytest.raises(RuntimeError, match="builder already consumed"):
+        builder.build()

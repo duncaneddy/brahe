@@ -1018,6 +1018,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyTidesConfiguration>()?;
     module.add_class::<PyForceModelConfig>()?;
     module.add_class::<PyNumericalOrbitPropagator>()?;
+    module.add_class::<PyNumericalOrbitPropagatorBuilder>()?;
     module.add_class::<PyNumericalPropagator>()?;
     module.add_class::<PyTrajectoryMode>()?;
     module.add_function(wrap_pyfunction!(py_par_propagate_to, module)?)?;

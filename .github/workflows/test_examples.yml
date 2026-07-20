@@ -132,6 +132,19 @@ jobs:
             ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
           key: star-catalogs-v1
 
+      # ICGEM gravity models for the lro (GRGM660PRIM) and mro (ggm2bc80)
+      # examples' default lunar/mars force models. Without this the examples
+      # download from icgem.gfz.de live on every run. Restore-only; the
+      # matching save below runs on main only. Bump to brahe-icgem-v2 when the
+      # examples' ICGEM model set changes (keep in sync with the icgem: entries
+      # in .github/brahe-data-manifest.txt).
+      - name: Restore ICGEM gravity models cache
+        id: icgem-cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: ~/.cache/brahe/icgem
+          key: brahe-icgem-v1
+
       # Serial, retrying download of all plot/example network resources. On a
       # cache hit this is an instant no-op; on a miss it warms the caches once so
       # the parallel pools below never hit the network.
@@ -167,6 +180,13 @@ jobs:
             ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
             ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
           key: star-catalogs-v1
+
+      - name: Save ICGEM gravity models cache (main only)
+        if: ${{ github.ref == 'refs/heads/main' && steps.icgem-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: ~/.cache/brahe/icgem
+          key: brahe-icgem-v1
 
       - name: Test examples
         if: ${{ !inputs.use_retry }}

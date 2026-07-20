@@ -70,7 +70,7 @@ dirs = "6"
 polars = { version = "0.54", default-features = false, features = ["lazy"] }
 lru = "0.18.1"
 rand = "0.9"
-rand_distr = "0.5"
+rand_distr = "0.6"
 
 # pyo3 is an optional dependency used only by the `python` feature, which enables
 # the `python_interop` module holding the `BraheError` PyErr conversion. The

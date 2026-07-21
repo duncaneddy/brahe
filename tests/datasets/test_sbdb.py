@@ -33,8 +33,8 @@ class TestSBDBIntegration:
     def test_lookup_ceres(self):
         client = bh.datasets.sbdb.SBDBClient(cache_max_age=0)
         obj = client.lookup("Ceres")
-        assert obj.spkid == 2000001
-        assert obj.naif_id() == 2000001
+        assert obj.spkid == 20000001
+        assert obj.naif_id() == 20000001
         assert "Ceres" in obj.full_name
         assert obj.gm is not None and obj.gm > 6.0e10
         assert obj.radius is not None and obj.radius > 400e3

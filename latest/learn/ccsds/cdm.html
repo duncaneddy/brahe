@@ -371,7 +371,7 @@
 </span><span id=__span-4-2><a id=__codelineno-4-2 name=__codelineno-4-2></a>Miss distance: 502.3 m
 </span><span id=__span-4-3><a id=__codelineno-4-3 name=__codelineno-4-3></a>Collision probability: 0.00015
 </span><span id=__span-4-4><a id=__codelineno-4-4 name=__codelineno-4-4></a>
-</span><span id=__span-4-5><a id=__codelineno-4-5 name=__codelineno-4-5></a>KVN output (5857 chars)
+</span><span id=__span-4-5><a id=__codelineno-4-5 name=__codelineno-4-5></a>KVN output (5858 chars)
 </span><span id=__span-4-6><a id=__codelineno-4-6 name=__codelineno-4-6></a>Round-trip: SATELLITE A vs DEBRIS FRAGMENT
 </span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-5-1>1</a></span>
 <span class=normal><a href=#__codelineno-5-2>2</a></span>
@@ -382,7 +382,7 @@
 </span><span id=__span-5-2><a id=__codelineno-5-2 name=__codelineno-5-2></a>Miss distance: 502.3 m
 </span><span id=__span-5-3><a id=__codelineno-5-3 name=__codelineno-5-3></a>Collision probability: Some(0.00015)
 </span><span id=__span-5-4><a id=__codelineno-5-4 name=__codelineno-5-4></a>
-</span><span id=__span-5-5><a id=__codelineno-5-5 name=__codelineno-5-5></a>KVN output (5857 chars)
+</span><span id=__span-5-5><a id=__codelineno-5-5 name=__codelineno-5-5></a>KVN output (5858 chars)
 </span><span id=__span-5-6><a id=__codelineno-5-6 name=__codelineno-5-6></a>Round-trip: SATELLITE A vs DEBRIS FRAGMENT
 </span></code></pre></div></td></tr></table></div> </div> </div> </div> </details> <h3 id=building-object-metadata-rust>Building Object Metadata (Rust)<a class=headerlink href=#building-object-metadata-rust title="Permanent link">&para;</a></h3> <p>Each object's metadata (9 mandatory fields plus optional CCSDS fields) can also be constructed with <code>CDMObjectMetadata::builder()</code>, which is Rust-only -- there is no Python binding for this builder. The mandatory fields are set through chained named setters, and <code>build()</code> returns an error naming any mandatory field left unset instead of applying a default. The flat constructor used above remains available as an alternative, taking the 9 mandatory fields positionally:</p> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-6-1> 1</a></span>
 <span class=normal><a href=#__codelineno-6-2> 2</a></span>

@@ -400,6 +400,20 @@ mod tests {
     }
 
     #[test]
+    fn test_download_to_file_writes_body_to_disk() {
+        let server = MockServer::start();
+        let _mock = server.mock(|when, then| {
+            when.method(GET).path("/kernel.bsp");
+            then.status(200).body("kernel-bytes");
+        });
+
+        let dir = tempfile::tempdir().unwrap();
+        let filepath = dir.path().join("kernel.bsp");
+        download_to_file(&server.url("/kernel.bsp"), "test", &filepath).unwrap();
+        assert_eq!(std::fs::read_to_string(&filepath).unwrap(), "kernel-bytes");
+    }
+
+    #[test]
     fn test_urlencode_reserved_chars() {
         assert_eq!(urlencode("Ceres"), "Ceres");
         assert_eq!(urlencode("DES=2000001;"), "DES%3D2000001%3B");

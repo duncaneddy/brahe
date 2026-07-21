@@ -1754,14 +1754,17 @@ mod tests {
     }
 
     /// Load the single type-21 segment from the Ceres fixture, verifying it
-    /// dispatches through `SpkSegment` to the `Type21` arm.
-    fn load_ceres_type21() -> Option<Type21Segment> {
-        let path = ceres_type21_path()?;
+    /// dispatches through `SpkSegment` to the `Type21` arm. The fixture is
+    /// committed to `test_assets/`, so its absence is a hard failure rather
+    /// than an environment quirk to silently tolerate.
+    fn load_ceres_type21() -> Type21Segment {
+        let path = ceres_type21_path()
+            .expect("ceres_horizons_type21.bsp fixture is committed to test_assets/");
         let daf = crate::spice::daf::DAFFile::from_file(&path).unwrap();
         assert_eq!(daf.summaries.len(), 1, "fixture has one segment");
         let seg = SpkSegment::from_spk_summary(&daf, &daf.summaries[0]).unwrap();
         match seg {
-            SpkSegment::Type21(s) => Some(s),
+            SpkSegment::Type21(s) => s,
             SpkSegment::Chebyshev(_) => panic!("type-21 segment dispatched to Chebyshev arm"),
         }
     }
@@ -1783,9 +1786,7 @@ mod tests {
         // Gate 1: the fixture loads as a Type21 segment with self-consistent
         // metadata (target/center/frame, MAXDIM/N, and a directory that
         // matches the record count and spans the descriptor coverage).
-        let Some(seg) = load_ceres_type21() else {
-            return;
-        };
+        let seg = load_ceres_type21();
         assert_eq!(seg.target, 20000001);
         assert_eq!(seg.center, 10); // Sun, not SSB
         assert_eq!(seg.frame, 1);
@@ -1810,9 +1811,7 @@ mod tests {
         // difference term vanishes and the evaluated state must reduce to the
         // stored reference position/velocity. Validates parsing + the
         // interpolation base case, deterministically, for several records.
-        let Some(seg) = load_ceres_type21() else {
-            return;
-        };
+        let seg = load_ceres_type21();
         let mut max_rel = 0.0f64;
         for idx in [0usize, 4, seg.n / 2, seg.n - 1] {
             let rec = &seg.records[idx * seg.dlsize..(idx + 1) * seg.dlsize];
@@ -1835,9 +1834,7 @@ mod tests {
         // Gate 3: at an interior record boundary the records on each side
         // must agree. Record i covers up to epochs[i]; record i+1 begins
         // there. Evaluate both at that shared epoch.
-        let Some(seg) = load_ceres_type21() else {
-            return;
-        };
+        let seg = load_ceres_type21();
         let k = 5usize;
         let boundary = seg.epochs[k];
         let rec_a = &seg.records[k * seg.dlsize..(k + 1) * seg.dlsize];
@@ -1856,9 +1853,7 @@ mod tests {
         // Gate 4: Ceres's distance from its center (the Sun) at a mid-span
         // epoch must be ~2.77 AU (Ceres semimajor axis). Catches unit/scale
         // errors such as a missing km->m factor or a mis-sized record.
-        let Some(seg) = load_ceres_type21() else {
-            return;
-        };
+        let seg = load_ceres_type21();
         const AU_KM: f64 = 1.495978707e8;
         let et_mid = 0.5 * (seg.start_et + seg.end_et);
         let d_au = seg.position(et_mid).unwrap().norm() / AU_KM;
@@ -1882,9 +1877,7 @@ mod tests {
         // `test_type21_horizons_vectors_cross_check` (an independent JPL
         // Horizons solution). Our reader reproduces CSPICE to floating-point
         // round-off (far under the 1 km / 1e-3 km·s⁻¹ gate).
-        let Some(seg) = load_ceres_type21() else {
-            return;
-        };
+        let seg = load_ceres_type21();
         // (et [s past J2000 TDB], [x, y, z, vx, vy, vz] km, km/s from CSPICE)
         let cases: [(f64, [f64; 6]); 3] = [
             (
@@ -1936,7 +1929,10 @@ mod tests {
 
     #[test]
     #[serial]
-    #[cfg_attr(not(feature = "integration"), ignore)]
+    // Compile-gated (not `#[ignore]`d) so its large hardcoded reference-state
+    // body does not count against default-run patch coverage; it still runs
+    // under `--features integration`.
+    #[cfg(feature = "integration")]
     fn test_type21_horizons_vectors_cross_check() {
         // Independent cross-check against a JPL Horizons VECTORS solution
         // (a different code path and orbit fit than the fixture kernel, so
@@ -1959,9 +1955,7 @@ mod tests {
         // error: exact-at-reference-epoch is bit-exact, and the reader's
         // position is the exact antiderivative of its velocity. The
         // tolerances below are set with margin around that physical offset.
-        let Some(seg) = load_ceres_type21() else {
-            return;
-        };
+        let seg = load_ceres_type21();
         // (et [s past J2000 TDB], [x, y, z, vx, vy, vz] km, km/s from Horizons)
         let cases: [(f64, [f64; 6]); 3] = [
             (
@@ -2020,9 +2014,7 @@ mod tests {
     fn test_type21_out_of_coverage_errors() {
         // Epochs outside the descriptor interval yield a coverage error that
         // the chain fallback can recognize.
-        let Some(seg) = load_ceres_type21() else {
-            return;
-        };
+        let seg = load_ceres_type21();
         let err = seg.position(seg.start_et - 1.0).unwrap_err();
         assert!(is_coverage_error(&err));
         assert!(seg.position(seg.end_et + 1.0).is_err());
@@ -2037,9 +2029,7 @@ mod tests {
         // A record whose KQMAX1 exceeds MAXDIM+1 would drive out-of-bounds
         // indexing of the stepsize/difference arrays; it must be rejected
         // cleanly rather than panicking.
-        let Some(mut seg) = load_ceres_type21() else {
-            return;
-        };
+        let mut seg = load_ceres_type21();
         let slot = 4 * seg.maxdim + 7; // KQMAX1 word of record 0
         seg.records[slot] = 999.0;
         let et = seg.start_et + 1.0; // inside record 0
@@ -2053,20 +2043,257 @@ mod tests {
         // `state` agrees with separate `position`/`velocity` calls, and the
         // finite-difference acceleration matches a central difference of
         // `velocity` across neighboring records.
-        let Some(seg) = load_ceres_type21() else {
-            return;
-        };
+        let seg = load_ceres_type21();
         let et = 0.5 * (seg.start_et + seg.end_et);
         let (p, v) = seg.state(et).unwrap();
         assert_eq!(p, seg.position(et).unwrap());
         assert_eq!(v, seg.velocity(et).unwrap());
         // Acceleration ~ GM_sun / r^2 for Ceres at ~2.98 AU: ~6.7e-7 km/s^2.
         let a = seg.acceleration(et).unwrap();
+        let a_norm = a.norm();
         assert!(
-            (1.0e-8..1.0e-5).contains(&a.norm()),
+            (1.0e-8..1.0e-5).contains(&a_norm),
             "accel {} km/s^2",
-            a.norm()
+            a_norm
         );
+    }
+
+    /// Build a minimal DAF/SPK container (`NSUM = 0`, so it carries no real
+    /// summaries of its own) whose only purpose is to host `payload` as raw
+    /// words starting at word address 385 (matching
+    /// `synthetic_spk_kernel_bytes`'s convention). Tests construct their own
+    /// `DAFSummary` literal pointing at a chosen sub-range of `payload`,
+    /// giving full control over the type-21 record/directory layout without
+    /// depending on real kernel data.
+    fn synthetic_type21_daf_bytes(payload: &[f64]) -> Vec<u8> {
+        let data_words_start = 385usize;
+        let last_word = data_words_start - 1 + payload.len();
+        let n_records = (last_word * 8).div_ceil(1024).max(4);
+        let mut file = vec![0u8; n_records * 1024];
+
+        file[..8].copy_from_slice(b"DAF/SPK ");
+        file[8..12].copy_from_slice(&2i32.to_le_bytes()); // ND
+        file[12..16].copy_from_slice(&6i32.to_le_bytes()); // NI
+        file[76..80].copy_from_slice(&2i32.to_le_bytes()); // FWARD -> record 2
+        file[80..84].copy_from_slice(&2i32.to_le_bytes()); // BWARD
+        file[84..88].copy_from_slice(&500i32.to_le_bytes()); // FREE
+        file[88..96].copy_from_slice(b"LTL-IEEE");
+        // Summary record (record 2) is left as NEXT=0, NSUM=0: this kernel
+        // carries no summaries of its own.
+
+        let d_off = (data_words_start - 1) * 8;
+        for (j, v) in payload.iter().enumerate() {
+            file[d_off + j * 8..d_off + j * 8 + 8].copy_from_slice(&v.to_le_bytes());
+        }
+        file
+    }
+
+    #[test]
+    fn test_type21_rejects_short_summary() {
+        let daf = DAFFile::from_bytes(&synthetic_type21_daf_bytes(&[])).unwrap();
+        let summary = DAFSummary {
+            name: "TEST".to_string(),
+            doubles: vec![0.0],                   // one short of the required 2
+            ints: vec![20000001, 10, 1, 21, 385], // one short of the required 6
+        };
+        let err = Type21Segment::from_spk_summary(&daf, &summary).unwrap_err();
+        assert!(format!("{}", err).contains("expected 6 ints and at least 2 doubles"));
+    }
+
+    #[test]
+    fn test_type21_rejects_non_j2000_frame() {
+        let daf = DAFFile::from_bytes(&synthetic_type21_daf_bytes(&[0.0, 1.0])).unwrap();
+        let summary = DAFSummary {
+            name: "TEST".to_string(),
+            doubles: vec![0.0, 1000.0],
+            ints: vec![20000001, 10, 17, 21, 385, 386], // frame 17 (ECLIPJ2000) != 1
+        };
+        let err = Type21Segment::from_spk_summary(&daf, &summary).unwrap_err();
+        assert!(format!("{}", err).contains("only frame 1"));
+    }
+
+    #[test]
+    fn test_type21_rejects_invalid_address_range() {
+        let daf = DAFFile::from_bytes(&synthetic_type21_daf_bytes(&[])).unwrap();
+        let summary = DAFSummary {
+            name: "TEST".to_string(),
+            doubles: vec![0.0, 1000.0],
+            ints: vec![20000001, 10, 1, 21, 0, 5], // start_addr < 1
+        };
+        let err = Type21Segment::from_spk_summary(&daf, &summary).unwrap_err();
+        assert!(format!("{}", err).contains("invalid address range"));
+    }
+
+    #[test]
+    fn test_type21_rejects_segment_too_short() {
+        let daf = DAFFile::from_bytes(&synthetic_type21_daf_bytes(&[42.0])).unwrap();
+        let summary = DAFSummary {
+            name: "TEST".to_string(),
+            doubles: vec![0.0, 1000.0],
+            ints: vec![20000001, 10, 1, 21, 385, 385], // one-word range
+        };
+        let err = Type21Segment::from_spk_summary(&daf, &summary).unwrap_err();
+        assert!(format!("{}", err).contains("too short"));
+    }
+
+    #[test]
+    fn test_type21_rejects_maxdim_out_of_range() {
+        // MAXDIM == 0.
+        let daf = DAFFile::from_bytes(&synthetic_type21_daf_bytes(&[0.0, 1.0])).unwrap();
+        let summary = DAFSummary {
+            name: "TEST".to_string(),
+            doubles: vec![0.0, 1000.0],
+            ints: vec![20000001, 10, 1, 21, 385, 386], // words = [MAXDIM=0, N=1]
+        };
+        let err = Type21Segment::from_spk_summary(&daf, &summary).unwrap_err();
+        assert!(format!("{}", err).contains("MAXDIM"));
+
+        // MAXDIM > TYPE21_MAXTRM.
+        let daf = DAFFile::from_bytes(&synthetic_type21_daf_bytes(&[26.0, 1.0])).unwrap();
+        let err = Type21Segment::from_spk_summary(&daf, &summary).unwrap_err();
+        assert!(format!("{}", err).contains("MAXDIM"));
+    }
+
+    #[test]
+    fn test_type21_rejects_inconsistent_directory() {
+        // MAXDIM=1, N=1 (dlsize=15) claims a directory needing 18 words, but
+        // only 3 are supplied.
+        let daf = DAFFile::from_bytes(&synthetic_type21_daf_bytes(&[0.0, 1.0, 1.0])).unwrap();
+        let summary = DAFSummary {
+            name: "TEST".to_string(),
+            doubles: vec![0.0, 1000.0],
+            ints: vec![20000001, 10, 1, 21, 385, 387],
+        };
+        let err = Type21Segment::from_spk_summary(&daf, &summary).unwrap_err();
+        assert!(format!("{}", err).contains("inconsistent type-21 directory"));
+    }
+
+    #[test]
+    fn test_type21_rejects_non_finite_epoch_directory() {
+        // MAXDIM=1, N=2 (dlsize=15): 30 record words + 2 epoch words + 2
+        // trailer words = 34. The first epoch is NaN.
+        let mut payload = vec![0.0f64; 34];
+        payload[30] = f64::NAN;
+        payload[31] = 100.0;
+        payload[32] = 1.0; // MAXDIM
+        payload[33] = 2.0; // N
+        let daf = DAFFile::from_bytes(&synthetic_type21_daf_bytes(&payload)).unwrap();
+        let summary = DAFSummary {
+            name: "TEST".to_string(),
+            doubles: vec![0.0, 1000.0],
+            ints: vec![20000001, 10, 1, 21, 385, 418],
+        };
+        let err = Type21Segment::from_spk_summary(&daf, &summary).unwrap_err();
+        assert!(format!("{}", err).contains("non-finite or non-ascending"));
+    }
+
+    #[test]
+    fn test_type21_rejects_directory_not_covering_descriptor() {
+        // Same layout as above, but with a finite ascending epoch directory
+        // that starts after the descriptor's claimed start_et.
+        let mut payload = vec![0.0f64; 34];
+        payload[30] = 50.0;
+        payload[31] = 60.0;
+        payload[32] = 1.0; // MAXDIM
+        payload[33] = 2.0; // N
+        let daf = DAFFile::from_bytes(&synthetic_type21_daf_bytes(&payload)).unwrap();
+        let summary = DAFSummary {
+            name: "TEST".to_string(),
+            doubles: vec![1000.0, 2000.0],
+            ints: vec![20000001, 10, 1, 21, 385, 418],
+        };
+        let err = Type21Segment::from_spk_summary(&daf, &summary).unwrap_err();
+        assert!(format!("{}", err).contains("does not cover descriptor interval"));
+    }
+
+    #[test]
+    fn test_type21_spke21_rejects_zero_stepsize() {
+        // A record with a zero stepsize G[0] would divide by zero in the
+        // interpolation loop; it must be rejected explicitly rather than
+        // silently propagating NaN/inf into the returned state.
+        let maxdim = 2usize;
+        let dlsize = 4 * maxdim + 11;
+        let mut record = vec![0.0f64; dlsize];
+        record[1] = 0.0; // G[0], the defect
+        record[2] = 1.0; // G[1]
+        record[4 * maxdim + 7] = 3.0; // KQMAX1
+        record[4 * maxdim + 8] = 1.0; // KQ[0]
+        record[4 * maxdim + 9] = 1.0; // KQ[1]
+        record[4 * maxdim + 10] = 1.0; // KQ[2]
+        let seg = Type21Segment {
+            target: 20000001,
+            center: 10,
+            frame: 1,
+            start_et: 0.0,
+            end_et: 100.0,
+            maxdim,
+            dlsize,
+            n: 1,
+            records: record,
+            epochs: vec![100.0],
+        };
+        let err = seg.spke21(&seg.records, 1.0).unwrap_err();
+        assert!(format!("{}", err).contains("zero stepsize"));
+    }
+
+    #[test]
+    #[serial]
+    fn test_spk_segment_type21_delegates_to_inner_type21_methods() {
+        // Exercise the `SpkSegment` enum's own methods (not the inner
+        // `Type21Segment` directly), so the Type21 arm of every delegation
+        // match actually runs, and its dispatch in `from_spk_summary`.
+        let path = ceres_type21_path()
+            .expect("ceres_horizons_type21.bsp fixture is committed to test_assets/");
+        let daf = DAFFile::from_file(&path).unwrap();
+        let seg_enum = SpkSegment::from_spk_summary(&daf, &daf.summaries[0]).unwrap();
+        let inner = match &seg_enum {
+            SpkSegment::Type21(s) => s,
+            SpkSegment::Chebyshev(_) => panic!("Ceres fixture must dispatch to the Type21 arm"),
+        };
+        let et = 0.5 * (inner.start_et + inner.end_et);
+        assert_eq!(seg_enum.target(), inner.target);
+        assert_eq!(seg_enum.center(), inner.center);
+        assert_eq!(seg_enum.start_et(), inner.start_et);
+        assert_eq!(seg_enum.end_et(), inner.end_et);
+        assert_eq!(seg_enum.covers(et), inner.covers(et));
+        assert_eq!(seg_enum.position(et).unwrap(), inner.position(et).unwrap());
+        assert_eq!(seg_enum.velocity(et).unwrap(), inner.velocity(et).unwrap());
+        assert_eq!(seg_enum.state(et).unwrap(), inner.state(et).unwrap());
+        assert_eq!(
+            seg_enum.acceleration(et).unwrap(),
+            inner.acceleration(et).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_spk_segment_from_spk_summary_propagates_type21_error() {
+        // The `?` in the Type21 dispatch arm must surface the inner
+        // `Type21Segment::from_spk_summary` error rather than swallowing it.
+        let daf = DAFFile::from_bytes(&synthetic_type21_daf_bytes(&[0.0, 1.0])).unwrap();
+        let summary = DAFSummary {
+            name: "TEST".to_string(),
+            doubles: vec![0.0, 1000.0],
+            ints: vec![20000001, 10, 17, 21, 385, 386], // non-J2000 frame -> inner error
+        };
+        let err = SpkSegment::from_spk_summary(&daf, &summary).unwrap_err();
+        assert!(format!("{}", err).contains("only frame 1"));
+    }
+
+    #[test]
+    fn test_spk_segment_from_spk_summary_propagates_chebyshev_error() {
+        // The `?` in the Chebyshev dispatch arm must surface the inner
+        // `ChebyshevSegment::from_spk_summary` error rather than swallowing
+        // it. A short-ints summary (ints.len() < 6) both routes to the
+        // Chebyshev arm (the Type21 dispatch check requires len >= 6) and
+        // fails inside it.
+        let daf = DAFFile::from_bytes(&crate::utils::testing::synthetic_spk_kernel_bytes(&[(
+            10, 0, 1.0,
+        )]))
+        .unwrap();
+        let mut summary = daf.summaries[0].clone();
+        summary.ints.truncate(5);
+        let err = SpkSegment::from_spk_summary(&daf, &summary).unwrap_err();
+        assert!(format!("{}", err).contains('5'));
     }
 
     #[test]

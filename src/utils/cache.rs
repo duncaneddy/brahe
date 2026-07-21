@@ -277,6 +277,18 @@ pub fn short_hash(input: &str) -> String {
 mod tests {
     use super::*;
 
+    /// Restore `BRAHE_CACHE` to `original`: set it back if it was
+    /// previously set, or leave it unset otherwise. Shared by the
+    /// sbdb/horizons cache-dir tests below so both restore arms are
+    /// exercised across their two scenarios (BRAHE_CACHE ambient-unset vs.
+    /// already-set).
+    fn restore_brahe_cache(original: Option<String>) {
+        match original {
+            Some(v) => unsafe { env::set_var("BRAHE_CACHE", v) },
+            None => unsafe { env::remove_var("BRAHE_CACHE") },
+        }
+    }
+
     #[test]
     #[serial_test::serial]
     fn test_get_brahe_cache_dir() {
@@ -536,27 +548,63 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_get_sbdb_cache_dir() {
-        let original = env::var("BRAHE_CACHE").ok();
+        let true_original = env::var("BRAHE_CACHE").ok();
+
+        // BRAHE_CACHE unset: falls back to the ~/.cache/brahe default, and
+        // restoring afterward takes the "leave unset" arm.
         unsafe { env::remove_var("BRAHE_CACHE") };
+        let original = env::var("BRAHE_CACHE").ok();
         let dir = get_sbdb_cache_dir().unwrap();
         assert!(dir.ends_with("brahe/sbdb"));
-        match original {
-            Some(v) => unsafe { env::set_var("BRAHE_CACHE", v) },
-            None => unsafe { env::remove_var("BRAHE_CACHE") },
-        }
+        restore_brahe_cache(original);
+
+        // BRAHE_CACHE already set: the directory nests under it instead,
+        // and restoring afterward takes the "put back the previous value"
+        // arm.
+        let sentinel = std::env::temp_dir().join("brahe_test_sbdb_cache_sentinel");
+        unsafe { env::set_var("BRAHE_CACHE", sentinel.to_str().unwrap()) };
+        let original = env::var("BRAHE_CACHE").ok();
+        let test_dir = std::env::temp_dir().join("brahe_test_sbdb_cache_env");
+        unsafe { env::set_var("BRAHE_CACHE", test_dir.to_str().unwrap()) };
+        let dir = get_sbdb_cache_dir().unwrap();
+        assert!(dir.ends_with("sbdb"));
+        assert!(dir.starts_with(test_dir.to_str().unwrap()));
+        let _ = std::fs::remove_dir_all(&test_dir);
+        restore_brahe_cache(original);
+        assert_eq!(env::var("BRAHE_CACHE").ok().as_deref(), sentinel.to_str());
+
+        restore_brahe_cache(true_original);
     }
 
     #[test]
     #[serial_test::serial]
     fn test_get_horizons_cache_dir() {
-        let original = env::var("BRAHE_CACHE").ok();
+        let true_original = env::var("BRAHE_CACHE").ok();
+
+        // BRAHE_CACHE unset: falls back to the ~/.cache/brahe default, and
+        // restoring afterward takes the "leave unset" arm.
         unsafe { env::remove_var("BRAHE_CACHE") };
+        let original = env::var("BRAHE_CACHE").ok();
         let dir = get_horizons_cache_dir().unwrap();
         assert!(dir.ends_with("brahe/horizons"));
-        match original {
-            Some(v) => unsafe { env::set_var("BRAHE_CACHE", v) },
-            None => unsafe { env::remove_var("BRAHE_CACHE") },
-        }
+        restore_brahe_cache(original);
+
+        // BRAHE_CACHE already set: the directory nests under it instead,
+        // and restoring afterward takes the "put back the previous value"
+        // arm.
+        let sentinel = std::env::temp_dir().join("brahe_test_horizons_cache_sentinel");
+        unsafe { env::set_var("BRAHE_CACHE", sentinel.to_str().unwrap()) };
+        let original = env::var("BRAHE_CACHE").ok();
+        let test_dir = std::env::temp_dir().join("brahe_test_horizons_cache_env");
+        unsafe { env::set_var("BRAHE_CACHE", test_dir.to_str().unwrap()) };
+        let dir = get_horizons_cache_dir().unwrap();
+        assert!(dir.ends_with("horizons"));
+        assert!(dir.starts_with(test_dir.to_str().unwrap()));
+        let _ = std::fs::remove_dir_all(&test_dir);
+        restore_brahe_cache(original);
+        assert_eq!(env::var("BRAHE_CACHE").ok().as_deref(), sentinel.to_str());
+
+        restore_brahe_cache(true_original);
     }
 
     #[test]

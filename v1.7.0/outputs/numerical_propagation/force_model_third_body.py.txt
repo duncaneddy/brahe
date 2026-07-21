@@ -1,0 +1,1 @@
+Third bodies: [ThirdBodyConfiguration(body=Sun, ephemeris_source=DE440s, gravity=PointMass), ThirdBodyConfiguration(body=Moon, ephemeris_source=DE440s, gravity=PointMass)]

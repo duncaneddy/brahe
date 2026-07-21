@@ -1,0 +1,4 @@
+Mean state:            a=6878136.300 m, e=0.010000, i=45.000 deg, raan=30.000 deg, argp=60.000 deg, M=0.000 deg
+Recovered osculating:  a=6875824.053 m, e=0.010070, i=44.990 deg, raan=30.025 deg, argp=61.150 deg, M=358.858 deg
+
+Semi-major axis, osculating - mean: -2312.247 m

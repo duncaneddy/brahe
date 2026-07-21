@@ -1,0 +1,76 @@
+Loaded 21 SSN sites, 16 calibrated sensors
+
+====================================================================================================
+SSN Sensor Network
+====================================================================================================
+Name                        System        El Min   Range Max  Az Noise  El Noise  Range Noise
+----------------------------------------------------------------------------------------------------
+Socorro                     GEODSS         20.0°   unlimited   0.0033°   0.0027°        nan m
+Maui                        GEODSS         20.0°   unlimited   0.0037°   0.0030°        nan m
+Diego Garcia                GEODSS         20.0°   unlimited   0.0043°   0.0043°        nan m
+Eglin                       Phased Array    1.0°    13210 km   0.0154°   0.0147°       32.1 m
+Fylingdales                 Phased Array    4.0°     4820 km   0.0220°   0.0200°       50.0 m
+Ascension                   Radar           1.0°     1900 km   0.0283°   0.0248°      101.7 m
+Clear                       Radar           1.0°     4910 km   0.0791°   0.0240°       62.5 m
+Antigua                     Radar           0.0°     2550 km   0.0224°   0.0139°       92.5 m
+Cape Cod                    Phased Array    3.0°     5555 km   0.0260°   0.0220°       26.0 m
+Beale                       Phased Array    3.0°     5555 km   0.0320°   0.0330°       35.0 m
+Shemya                      Phased Array    0.0°   unlimited   0.0540°   0.0530°        2.9 m
+Thule                       Phased Array    3.0°     5555 km   0.0260°   0.0220°       26.0 m
+Cavalier                    Phased Array    2.0°     3300 km   0.0125°   0.0086°       28.0 m
+Kaena Point                 Radar           0.0°     6380 km   0.0224°   0.0139°       92.5 m
+Kwajalein                   Radar (ALCOR/ALTAIR/TRADEX)    1.0°     4500 km   0.0318°   0.0129°      162.9 m
+Millstone                   Radar           0.0°    40744 km   0.0100°   0.0100°      150.0 m
+====================================================================================================
+
+Simulated 792 measurements over 24 passes
+
+====================================================================================================
+Pass Table
+====================================================================================================
+Site                        Start                 End                     Duration (min)     Obs
+----------------------------------------------------------------------------------------------------
+Antigua                     2024-01-01 00:00:00   2024-01-01 00:12:01             12.0 m      44
+Millstone                   2024-01-01 00:05:17   2024-01-01 00:17:38             12.3 m      50
+Cape Cod                    2024-01-01 00:05:33   2024-01-01 00:16:58             11.4 m      45
+Thule                       2024-01-01 00:16:12   2024-01-01 00:25:35              9.4 m      37
+Fylingdales                 2024-01-01 00:17:43   2024-01-01 00:26:24              8.7 m      34
+Eglin                       2024-01-01 01:40:39   2024-01-01 01:54:28             13.8 m      27
+Millstone                   2024-01-01 01:45:11   2024-01-01 01:58:46             13.6 m      55
+Cape Cod                    2024-01-01 01:45:40   2024-01-01 01:58:01             12.4 m      19
+Cavalier                    2024-01-01 01:46:20   2024-01-01 01:57:22             11.0 m      11
+Thule                       2024-01-01 01:54:32   2024-01-01 02:06:00             11.5 m      39
+Fylingdales                 2024-01-01 02:01:03   2024-01-01 02:09:22              8.3 m      33
+Diego Garcia                2024-01-01 02:26:43   2024-01-01 02:33:27              6.7 m      26
+Beale                       2024-01-01 03:22:23   2024-01-01 03:33:40             11.3 m      16
+Socorro                     2024-01-01 03:24:09   2024-01-01 03:30:51              6.7 m      26
+Cavalier                    2024-01-01 03:25:25   2024-01-01 03:38:47             13.4 m      21
+Millstone                   2024-01-01 03:29:48   2024-01-01 03:38:25              8.6 m      35
+Thule                       2024-01-01 03:33:59   2024-01-01 03:46:22             12.4 m      29
+Fylingdales                 2024-01-01 03:42:24   2024-01-01 03:53:25             11.0 m      44
+Kaena Point                 2024-01-01 04:56:40   2024-01-01 05:06:06              9.4 m      38
+Beale                       2024-01-01 05:02:28   2024-01-01 05:14:44             12.3 m      43
+Cavalier                    2024-01-01 05:08:22   2024-01-01 05:19:16             10.9 m      24
+Clear                       2024-01-01 05:08:29   2024-01-01 05:18:56             10.5 m      25
+Thule                       2024-01-01 05:14:06   2024-01-01 05:26:47             12.7 m      26
+Fylingdales                 2024-01-01 05:23:11   2024-01-01 05:35:42             12.5 m      45
+====================================================================================================
+
+EKF processed 792 observations in 0.2 s
+UKF processed 792 observations in 0.2 s
+
+================================================================================
+Filter Summary
+================================================================================
+EKF final position error: 6.1 m  (3-sigma = 25.4 m)
+UKF final position error: 6.1 m  (3-sigma = 25.4 m)
+================================================================================
+
+Example validated successfully!
+
+✓ Generated docs/figures/ssn_tracking_network_light.html
+✓ Generated docs/figures/ssn_tracking_network_dark.html
+✓ Generated docs/figures/ssn_tracking_measurements_light.html
+✓ Generated docs/figures/ssn_tracking_measurements_dark.html
+✓ Generated docs/figures/ssn_tracking_filters_light.html
+✓ Generated docs/figures/ssn_tracking_filters_dark.html

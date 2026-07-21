@@ -1,0 +1,10 @@
+Length: 10
+Timespan: 540.0 seconds
+Start epoch: 2024-01-01 00:00:00.000 UTC
+End epoch: 2024-01-01 00:09:00.000 UTC
+
+Interpolated state at 2024-01-01 00:00:45.000 UTC:
+  Position (km): [1144.00623245 6101.79399601 2941.41760274]
+  Velocity (m/s): [-8741.34565452 -2005.46489375  7903.75194728]
+State 0: Epoch=2024-01-01 00:00:00.000 UTC, Position magnitude=6871.26 km
+State 1: Epoch=2024-01-01 00:01:00.000 UTC, Position magnitude=6871.29 km

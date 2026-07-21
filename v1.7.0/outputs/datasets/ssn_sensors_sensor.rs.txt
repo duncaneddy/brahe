@@ -1,0 +1,11 @@
+Sensor: Eglin
+Azimuth window: 145.0 - 215.0 deg
+Elevation limits: 1.0 - 90.0 deg
+Range max: 13210 km
+Calibrated: true
+Measurement model: AzElRange
+
+True az/el/range: [180.00 deg, 45.00 deg, 500.0 km]
+Measured az/el/range: [180.01 deg, 45.01 deg, 500.0 km]
+
+Example validated successfully!

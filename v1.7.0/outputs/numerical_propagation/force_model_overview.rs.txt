@@ -1,0 +1,7 @@
+Gravity: SphericalHarmonic { source: ModelType(EGM2008_120), degree: 20, order: 20, parallel: Auto }
+Drag: Some(DragConfiguration { model: HarrisPriester, area: ParameterIndex(1), cd: ParameterIndex(2), body: None })
+SRP: Some(SolarRadiationPressureConfiguration { area: ParameterIndex(3), cr: ParameterIndex(4), eclipse_model: Conical, occulting_bodies: [Earth] })
+Third-body: Some([ThirdBodyConfiguration { body: Sun, ephemeris_source: DE440s, gravity: PointMass }, ThirdBodyConfiguration { body: Moon, ephemeris_source: DE440s, gravity: PointMass }])
+Relativity: true
+Mass: Some(Value(1000.0))
+Frame transform: FullEarthRotation

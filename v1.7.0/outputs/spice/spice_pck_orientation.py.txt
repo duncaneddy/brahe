@@ -1,0 +1,8 @@
+Euler angles [phi, delta, w] (rad): [-3.16931030e-03  3.81694347e-01  4.66419052e+03]
+Euler angle rates (rad/s): [-2.13863841e-09  1.68051671e-09  2.66374634e-06]
+
+ICRF -> Moon principal-axis rotation matrix:
+[[-0.47351708  0.81760746  0.32756621]
+ [-0.88078385 -0.43905364 -0.17734633]
+ [-0.00118055 -0.37249155  0.92803483]]
+Orthogonality check |R @ R^T - I|: 3.940e-16

@@ -1,0 +1,14 @@
+Scalar (5 m isotropic):
+  diag = [25.0, 25.0, 25.0]
+
+Per-axis (3, 3, 8 m):
+  diag = [9.0, 9.0, 64.0]
+
+Full covariance (with correlations):
+  (0,0)=9.0 (0,1)=1.0 (2,2)=64.0
+
+Upper-triangular packed:
+  (0,0)=9.0 (0,1)=1.0 (2,2)=64.0
+
+isotropic_covariance(3, 10.0) diag: [100, 100, 100]
+diagonal_covariance([5, 10, 15]) diag: [25, 100, 225]

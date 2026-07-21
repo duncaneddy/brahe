@@ -1,0 +1,26 @@
+Simple Harmonic Oscillator Zero Crossings:
+  omega = 6.2832 rad/s (1 Hz)
+  Period = 1.0000 s
+  Expected crossings per period: 2 (one each direction)
+
+Total events detected: 10
+  Positive crossings: 5
+  Negative crossings: 5
+
+Event details:
+  Time (s)   Type               Position     Velocity
+------------------------------------------------------------
+  0.2481     Negative Crossing  +0.011835   -6.282514
+  0.7513     Positive Crossing  +0.009265   +6.282130
+  1.2491     Negative Crossing  +0.004147   -6.281693
+  1.7487     Positive Crossing  -0.006423   +6.281086
+  2.2509     Negative Crossing  -0.008173   -6.280373
+  2.7501     Positive Crossing  +0.003269   +6.279893
+  3.2479     Negative Crossing  +0.009803   -6.279071
+  3.7496     Positive Crossing  +0.001403   +6.278765
+  4.2509     Negative Crossing  -0.009828   -6.277819
+  4.7485     Positive Crossing  -0.004753   +6.277415
+
+Timing verified: all crossings within 0.02s of expected times
+
+Example validated successfully!

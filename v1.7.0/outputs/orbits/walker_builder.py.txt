@@ -1,0 +1,5 @@
+Total satellites: 24
+Number of planes: 6
+Pattern: WalkerPattern.DELTA
+Generated 24 Keplerian propagators
+First propagator name: GPS-P0-S0

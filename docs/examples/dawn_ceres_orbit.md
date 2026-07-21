@@ -4,9 +4,10 @@ In this example we'll define Ceres as a fully user-supplied central body and
 fly an orbit inspired by the Dawn spacecraft's Low Altitude Mapping Orbit
 (LAMO) around it. Unlike Earth, the Moon, and Mars, Ceres has no built-in
 constants in brahe: no built-in [`CentralBody`](../library_api/propagators/force_model_config.md#central-body) variant, no named
-inertial/fixed frame pair, no spin model. Everything about Ceres here - its
-gravitational parameter, radius, spin pole, prime meridian, and body-fixed
-frame - is supplied by the user via [`CentralBody.Custom`](../library_api/propagators/force_model_config.md#brahe.CentralBody.Custom) and
+inertial/fixed frame pair, no spin model. Its gravitational parameter and
+radius are resolved from the JPL Small-Body Database (SBDB); its spin pole,
+prime meridian, and body-fixed frame - which SBDB does not provide - are
+supplied by the user via [`CentralBody.Custom`](../library_api/propagators/force_model_config.md#brahe.CentralBody.Custom) and
 `register_custom_frame`. The same recipe applies to any body brahe doesn't
 have built-in constants for: another dwarf planet, an asteroid, or a comet
 nucleus.
@@ -21,10 +22,12 @@ parameters.
 
 ## Body Definition
 
-Ceres's physical model is four numbers plus a spin rate: a gravitational
-parameter, a mean radius, and an IAU-style pole (right ascension,
-declination) and prime-meridian angle that together define the orientation
-and rotation of the body-fixed frame at any epoch.
+Ceres's orientation model is an IAU-style pole (right ascension,
+declination), a prime-meridian angle at J2000, and a spin rate, which
+together define the rotation of the body-fixed frame at any epoch. SBDB
+doesn't provide these, so they're set here from the IAU WGCCRE 2015 values.
+The gravitational parameter and mean radius, which SBDB does provide, are
+resolved separately below.
 
 ``` python
 --8<-- "./examples/examples/dawn_ceres_orbit.py:preamble"
@@ -33,6 +36,27 @@ and rotation of the body-fixed frame at any epoch.
 ``` python
 --8<-- "./examples/examples/dawn_ceres_orbit.py:body_definition"
 ```
+
+## Resolving Ceres and Loading an Ephemeris
+
+Ceres's NAIF/SPK ID and SI physical parameters - gravitational parameter and
+mean radius - come from the JPL Small-Body Database (SBDB) rather than being
+hardcoded. A targeted SPK covering the propagation span is then generated and
+loaded from JPL Horizons, so the Sun/Jupiter third-body accelerations and the
+solar radiation pressure model below have an ephemeris to resolve Ceres's
+position against. Both the SBDB lookup and the Horizons SPK are cached under
+the brahe cache directory, so the network is used only on the first run per
+machine.
+
+``` python
+--8<-- "./examples/examples/dawn_ceres_orbit.py:body_resolution"
+```
+
+The returned SPK segment is centered on the Sun (NAIF ID 10), not the solar
+system barycenter. Chaining it through the `de440s` kernel loaded above -
+which does carry the Sun's position relative to the barycenter - is what lets
+brahe resolve Ceres's position relative to the Sun, Jupiter, or any other
+body with a loaded ephemeris.
 
 ## Body-Fixed Frame
 
@@ -79,27 +103,20 @@ ICGEM's only cataloged Ceres model, `sphericalRFM_CERES_2519`, is a
 degree-2519 crustal forward-modeling research product - impractically large
 to download for this purpose and not normalized to the body's true GM (its
 $C_{0,0} \approx 0.126$, not the conventional 1.0) - so it isn't a drop-in
-gravity field here. This example models Ceres as a point mass instead, which
-is the standard starting point when defining your own body. It also omits
-third-body perturbations: the DE kernels brahe loads carry no Ceres
-ephemeris. A Ceres SPK can be generated through
-[JPL Horizons](https://ssd-api.jpl.nasa.gov/doc/horizons.html), which would
-enable third-body perturbations, and a Horizons client is planned
-([issue #402](https://github.com/duncaneddy/brahe/issues/402)); this example
-keeps gravity-only for self-containment:
+gravity field here. This example models Ceres's gravity as a point mass
+instead, which is the standard starting point when defining your own body.
+
+With the Ceres SPK loaded above, third-body and solar radiation pressure
+perturbations resolve around Ceres. The Sun (`ThirdBody.SUN`) and Jupiter -
+added as a `ThirdBody.Custom` barycenter (NAIF ID 5), since Jupiter has no
+built-in `ThirdBody` variant - dominate the third-body signal at Ceres's
+distance from the Sun. The SRP occulting body is Ceres itself, supplied as an
+`OccultingBody.Custom`: an SRP shadow cast by Earth is meaningless 2.8 AU
+away:
 
 ``` python
 --8<-- "./examples/examples/dawn_ceres_orbit.py:force_model"
 ```
-
-!!! note "A custom body has no ephemeris until you supply one"
-    Third-body perturbations require the perturbing body's position from a
-    loaded SPK kernel. The DE kernels brahe ships carry no Ceres ephemeris, so
-    a `CentralBody.Custom` defined this way can be neither perturbed by nor
-    perturb other bodies until a Ceres SPK is loaded. Point-mass, gravity-only
-    propagation is therefore the self-contained starting point for a
-    user-defined body; adding third-body forces means first generating and
-    loading a Ceres SPK.
 
 ## Propagation
 
@@ -122,11 +139,33 @@ construction:
 --8<-- "./examples/examples/dawn_ceres_orbit.py:propagation"
 ```
 
-Sampling the trajectory over the 2-day propagation confirms the orbit stays
-in a tight band around the design altitude, and [`state_in_frame`](../library_api/propagators/numerical_orbit_propagator.md#brahe.NumericalOrbitPropagator.state_in_frame) converts the
+[`state_bci`](../library_api/propagators/numerical_orbit_propagator.md#brahe.NumericalOrbitPropagator.state_bci) returns the propagator's native state in the central
+body's body-centered inertial frame - here, Ceres-centered - the frame the
+orbit is actually integrated in. Sampling it over the 2-day propagation
+confirms the orbit stays in a tight band around the design altitude.
+`state_eci` would instead re-center the state onto Earth via SPK ephemeris -
+which now resolves, since the Ceres SPK is loaded - but that isn't the frame
+wanted here. [`state_in_frame`](../library_api/propagators/numerical_orbit_propagator.md#brahe.NumericalOrbitPropagator.state_in_frame) converts the
 final inertial state directly into the registered Ceres-fixed frame - the
 same frame-router entry point used for the built-in `ITRF`/`LFPA`/`MCMF`
 frames, but backed entirely by the callbacks registered above.
+
+## Two-Body Baseline Comparison
+
+To confirm the third-body and SRP perturbations are actually doing something
+- rather than just adding integration noise - a second propagator is built
+from the same initial state with a two-body (point-mass, no third-body, no
+SRP) force model, and the two trajectories are compared over the same span:
+
+``` python
+--8<-- "./examples/examples/dawn_ceres_orbit.py:baseline_comparison"
+```
+
+At a ~375 km, ~5.4-hour LAMO orbit, the solar and Jovian third-body
+accelerations and SRP are small enough that they perturb the trajectory by
+tens of meters over 2 days (~9 revolutions) rather than reshaping it, but the
+divergence from the two-body baseline is measurable and grows with time - a
+signature a pure two-body run cannot reproduce.
 
 ## 3D Visualization
 

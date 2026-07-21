@@ -569,3 +569,38 @@ def test_ekf_builder_double_build_raises(two_body_leo):
 
     with pytest.raises(RuntimeError, match="builder already consumed"):
         builder.build()
+
+
+def test_ekf_propagate_to_raising_callback_reraised(two_body_leo):
+    """A raising control-input callback inside propagate_to re-raises the
+    original Python exception (not a wrapped BraheError), and the stashed-error
+    slot is drained so a second failing call raises a fresh exception."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+    class CallbackBoom(Exception):
+        pass
+
+    def raising_control(t, state, p):
+        raise CallbackBoom("callback exploded")
+
+    ekf = (
+        bh.ExtendedKalmanFilter.builder(
+            epoch,
+            state,
+            p0,
+            bh.ForceModelConfig.two_body(),
+            bh.EKFConfig.default(),
+        )
+        .control_input(raising_control)
+        .measurement_model(bh.InertialPositionMeasurementModel(10.0))
+        .build()
+    )
+
+    with pytest.raises(CallbackBoom, match="callback exploded") as first:
+        ekf.propagate_to(epoch + 60.0)
+
+    with pytest.raises(CallbackBoom, match="callback exploded") as second:
+        ekf.propagate_to(epoch + 120.0)
+
+    assert first.value is not second.value

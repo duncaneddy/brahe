@@ -2781,12 +2781,14 @@ impl PyExtendedKalmanFilter {
     ///     FilterRecord: Record of the prediction step.
     ///
     /// Raises:
-    ///     ValueError: If epoch is before the current filter epoch.
+    ///     Exception: Propagates the original exception raised by an
+    ///         additional-dynamics or control-input callback, or a BraheError if
+    ///         epoch is before the current filter epoch or propagation fails.
     fn propagate_to(&mut self, epoch: &PyEpoch) -> PyResult<PyFilterRecord> {
         let record = self
             .ekf
             .propagate_to(epoch.obj)
-            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+            .map_err(|e| raise_callback_err(&self.err_slot, e))?;
         Ok(PyFilterRecord { record })
     }
 
@@ -3447,12 +3449,14 @@ impl PyUnscentedKalmanFilter {
     ///     FilterRecord: Record of the prediction step.
     ///
     /// Raises:
-    ///     ValueError: If epoch is before the current filter epoch.
+    ///     Exception: Propagates the original exception raised by an
+    ///         additional-dynamics or control-input callback, or a BraheError if
+    ///         epoch is before the current filter epoch or propagation fails.
     fn propagate_to(&mut self, epoch: &PyEpoch) -> PyResult<PyFilterRecord> {
         let record = self
             .ukf
             .propagate_to(epoch.obj)
-            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+            .map_err(|e| raise_callback_err(&self.err_slot, e))?;
         Ok(PyFilterRecord { record })
     }
 

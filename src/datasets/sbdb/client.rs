@@ -73,6 +73,19 @@ impl SBDBClient {
         }
     }
 
+    /// Create a client with a custom base URL and cache max age.
+    ///
+    /// # Arguments
+    ///
+    /// * `base_url` - Base URL without a trailing slash.
+    /// * `seconds` - Maximum cache age in seconds (0 = always refetch).
+    pub fn with_base_url_and_cache_age(base_url: &str, seconds: u64) -> Self {
+        SBDBClient {
+            base_url: base_url.trim_end_matches('/').to_string(),
+            cache_max_age: seconds,
+        }
+    }
+
     /// Resolve a search string (name or designation) to an [`SBDBObject`].
     ///
     /// # Arguments
@@ -190,6 +203,14 @@ mod tests {
         let client = SBDBClient::with_base_url(&server.base_url());
         let err = client.lookup("C").unwrap_err();
         assert!(err.to_string().contains("multiple"));
+    }
+
+    #[test]
+    #[serial]
+    fn test_with_base_url_and_cache_age_ctor() {
+        let c = SBDBClient::with_base_url_and_cache_age("https://example.test/", 123);
+        assert_eq!(c.base_url, "https://example.test");
+        assert_eq!(c.cache_max_age, 123);
     }
 
     #[test]

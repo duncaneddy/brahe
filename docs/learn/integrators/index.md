@@ -2,9 +2,6 @@
 
 Numerical integration is fundamental to spacecraft trajectory propagation, orbit determination, and mission planning. Brahe provides multiple integration methods optimized for different accuracy and performance requirements.
 
-!!! warning "Experimental Feature"
-    The integrators module is currently experimental. While the core functionality should be stable, the API may change in future **MINOR** releases as we refine the design and add features.
-
 ## What is Numerical Integration?
 
 Numerical integration solves ordinary differential equations (ODEs) of the form:

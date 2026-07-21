@@ -6,6 +6,12 @@ provides an Extended Kalman Filter (EKF) with built-in and custom measurement mo
 primary workflow is: create a filter with an initial state estimate, feed it observations,
 and read the refined state.
 
+!!! Warning "Experimental"
+    The estimation module is currently experimental. The API and internal implementation may 
+    change in future releases. During this period please report any issues or feedback on the 
+    [GitHub issue tracker](https://github.com/duncaneddy/brahe/issues). Feedback helps
+    us improve the module and stabilize it more quickly.
+
 ## The Core Workflow
 
 Set up an EKF with a propagator, measurement model, and initial covariance, then process

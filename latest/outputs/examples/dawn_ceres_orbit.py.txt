@@ -1,3 +1,6 @@
+Ceres: 1 Ceres (A801 AA), NAIF ID 20000001
+  GM = 6.262840e+10 m^3/s^2, radius = 469.7 km
+Loaded Ceres SPK: /home/runner/.cache/brahe/horizons/DES_20000001_a6a0c3fd79a45e7b.bsp
 LAMO altitude: 375.0 km, inclination: 90.0 deg
 Ceres spin pole (ICRF): [ 0.1441 -0.3673  0.9189]
 
@@ -9,11 +12,15 @@ Min radius: 843.86 km, max radius: 845.54 km
 
 Body-fixed state at t+2 d: [ 5.1e+05 -2.2e+05 -6.3e+05  1.4e+02 -1.8e+02  1.8e+02]
 
-Inclination rel. Ceres pole: 90.0000 to 90.0000 deg
+Max perturbed-vs-two-body position divergence: 36.17 m (0 for a two-body-only run)
+Inclination rel. Ceres pole: 89.999994 to 90.000040 deg
+Max excursion from 90 deg polar design: 0.000040 deg
 
-Example validated successfully!
+Perturbations active: 36.2 m divergence from the two-body baseline; orbit stays polar (excursion 4.0e-05 deg) and bounded (843.9-845.5 km radius).
 
 ✓ Generated docs/figures/dawn_ceres_orbit_3d_light.html
 ✓ Generated docs/figures/dawn_ceres_orbit_3d_dark.html
+✓ Generated docs/figures/dawn_ceres_orbit_divergence_light.html
+✓ Generated docs/figures/dawn_ceres_orbit_divergence_dark.html
 
 Dawn at Ceres Example Complete!

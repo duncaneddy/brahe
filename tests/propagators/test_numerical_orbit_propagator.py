@@ -4925,6 +4925,12 @@ def test_numericalorbitpropagator_builder_accepts_extended_covariance():
 
     assert prop.state_dim == 7
 
+    # Trajectory covariance retrieval must preserve the full 7x7 matrix
+    prop.step_by(10.0)
+    cov = prop.trajectory.covariance(epoch)
+    assert cov.shape == (7, 7)
+    np.testing.assert_allclose(cov, np.eye(7))
+
 
 def test_numericalorbitpropagator_trajectory_stores_additional_states():
     """Test trajectory stores additional states (mirrors Rust test)"""

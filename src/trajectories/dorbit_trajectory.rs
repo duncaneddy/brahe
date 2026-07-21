@@ -162,25 +162,24 @@ pub struct DOrbitTrajectory {
     pub states: Vec<DVector<f64>>,
 
     /// Optional covariance matrices corresponding to states.
-    /// Each covariance is a 6×6 symmetric matrix representing **orbital** state uncertainty only.
-    /// Additional state elements (6+) are not included in covariance tracking.
-    /// Units: [m², m·m/s, (m/s)²] for Cartesian states.
+    /// Each covariance is a symmetric dimension×dimension matrix covering the
+    /// full state, including any additional state elements (6+).
+    /// Units: [m², m·m/s, (m/s)²] for the Cartesian orbital block.
     /// If present, must have same length as states vector.
     pub covariances: Option<Vec<DMatrix<f64>>>,
 
     /// Optional state transition matrices (STM) corresponding to each state.
-    /// Each STM is 6×6 relating orbital state changes: Φ(t,t₀) = ∂x_orbital(t)/∂x_orbital(t₀).
-    /// Additional state elements (6+) are not included in STM computation.
-    /// If present, must have the same length as `states` and each matrix must be 6×6.
+    /// Each STM is dimension×dimension relating full-state changes:
+    /// Φ(t,t₀) = ∂x(t)/∂x(t₀), including any additional state elements (6+).
+    /// If present, must have the same length as `states`.
     pub stms: Option<Vec<DMatrix<f64>>>,
 
     /// Optional sensitivity matrices corresponding to each state.
-    /// Each matrix is 6×param_dim: ∂x_orbital/∂p where x_orbital is the orbital state only.
-    /// Additional state elements (6+) are not included in sensitivity computation.
+    /// Each matrix is dimension×param_dim: ∂x/∂p over the full state.
     /// If present, must have the same length as `states`.
     pub sensitivities: Option<Vec<DMatrix<f64>>>,
 
-    /// Dimension of sensitivity matrices as (rows, cols) = (6, param_dim).
+    /// Dimension of sensitivity matrices as (rows, cols) = (dimension, param_dim).
     /// Set when sensitivity storage is enabled.
     sensitivity_dimension: Option<(usize, usize)>,
 
@@ -1672,9 +1671,9 @@ impl SensitivityStorage for DOrbitTrajectory {
             panic!("Parameter dimension must be > 0");
         }
         if self.sensitivities.is_none() {
-            let zero_sens = DMatrix::zeros(6, param_dim);
+            let zero_sens = DMatrix::zeros(self.dimension, param_dim);
             self.sensitivities = Some(vec![zero_sens; self.states.len()]);
-            self.sensitivity_dimension = Some((6, param_dim));
+            self.sensitivity_dimension = Some((self.dimension, param_dim));
         }
     }
 
@@ -2690,7 +2689,10 @@ impl DStateProvider for DOrbitTrajectory {
 
     fn state_dim(&self) -> usize {
         // Return actual dimension from first state (can be >6 for extended states)
-        self.states.first().map(|s| s.len()).unwrap_or(6)
+        self.states
+            .first()
+            .map(|s| s.len())
+            .unwrap_or(self.dimension)
     }
 }
 
@@ -2741,7 +2743,7 @@ impl DCovarianceProvider for DOrbitTrajectory {
             .as_ref()
             .and_then(|covs| covs.first())
             .map(|c| c.nrows())
-            .unwrap_or(6)
+            .unwrap_or(self.dimension)
     }
 }
 

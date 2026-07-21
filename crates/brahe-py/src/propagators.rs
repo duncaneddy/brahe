@@ -2169,9 +2169,8 @@ impl PySGPPropagatorBuilder {
     ///
     /// Raises:
     ///     RuntimeError: If the builder was already consumed by a prior `build()`
-    ///         call, if the epoch string cannot be parsed or other OMM
-    ///         validation fails, or if `output_format()` was called with an
-    ///         invalid frame/representation/angle-format combination.
+    ///         call, if OMM validation fails, or if `output_format()` was called
+    ///         with an invalid frame/representation/angle-format combination.
     fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PySGPPropagator> {
         let builder = slf
             .inner

@@ -789,7 +789,7 @@ impl SGPPropagatorBuilder {
     ///
     /// # Errors
     /// Returns `BraheError` if:
-    /// - The epoch string cannot be parsed
+    /// - The epoch is not representable as a calendar datetime
     /// - [`SGPPropagatorBuilder::output_format`] was called with an invalid
     ///   combination:
     ///   - Keplerian representation requested without `angle_format`
@@ -1108,11 +1108,13 @@ impl SGPPropagator {
             epoch.to_datetime_as_time_system(TimeSystem::UTC);
         let datetime = NaiveDate::from_ymd_opt(year as i32, month as u32, day as u32)
             .and_then(|d| {
+                // Truncate sub-nanosecond fraction: rounding could yield
+                // 1_000_000_000 ns, which chrono rejects instead of carrying.
                 d.and_hms_nano_opt(
                     hour as u32,
                     minute as u32,
                     second as u32,
-                    nanoseconds.round() as u32,
+                    nanoseconds as u32,
                 )
             })
             .ok_or_else(|| {

@@ -214,6 +214,45 @@ mod tests {
     }
 
     #[test]
+    fn test_new_and_default_ctors() {
+        let c = SBDBClient::new();
+        assert_eq!(c.base_url, DEFAULT_BASE_URL);
+        assert_eq!(c.cache_max_age, DEFAULT_CACHE_MAX_AGE);
+
+        let d = SBDBClient::default();
+        assert_eq!(d.base_url, DEFAULT_BASE_URL);
+        assert_eq!(d.cache_max_age, DEFAULT_CACHE_MAX_AGE);
+    }
+
+    #[test]
+    fn test_with_cache_age_ctor() {
+        let c = SBDBClient::with_cache_age(3600);
+        assert_eq!(c.base_url, DEFAULT_BASE_URL);
+        assert_eq!(c.cache_max_age, 3600);
+    }
+
+    #[test]
+    #[serial]
+    fn test_lookup_write_cache_failure_errors() {
+        let _redirect = CacheRedirect::new();
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/sbdb.api");
+            then.status(200).body(CERES_BODY);
+        });
+
+        // Pre-create a directory at the exact cache-file path so the
+        // write's final rename fails, exercising the atomic_write error arm.
+        let cache_path = PathBuf::from(get_sbdb_cache_dir().unwrap())
+            .join(format!("{}.json", short_hash("Ceres")));
+        std::fs::create_dir_all(&cache_path).unwrap();
+
+        let client = SBDBClient::with_base_url(&server.base_url());
+        let err = client.lookup("Ceres").unwrap_err();
+        assert!(matches!(err, BraheError::IoError(_)));
+    }
+
+    #[test]
     #[serial]
     fn test_lookup_zero_cache_age_refetches() {
         let _redirect = CacheRedirect::new();

@@ -199,4 +199,24 @@ mod tests {
         let err = SBDBObject::from_json("not json").unwrap_err();
         assert!(matches!(err, BraheError::ParseError(_)));
     }
+
+    #[test]
+    fn test_parse_invalid_spkid_errors() {
+        let json = r#"{"object":{"spkid":"notanumber","fullname":"X",
+                       "des":"1","neo":false,"kind":"an"}}"#;
+        let err = SBDBObject::from_json(json).unwrap_err();
+        assert!(matches!(err, BraheError::ParseError(_)));
+    }
+
+    #[test]
+    fn test_parse_phys_par_skips_unparseable_and_unknown_names() {
+        // "GM" with a non-numeric value hits the `None => continue` skip arm;
+        // "albedo" is an unrecognized name and hits the `_ => {}` arm.
+        let json = r#"{"object":{"spkid":"2000001","fullname":"1 Ceres",
+                       "des":"1","neo":false,"kind":"an"},
+            "phys_par":[{"name":"GM","value":"n/a"},{"name":"albedo","value":"0.09"}]}"#;
+        let obj = SBDBObject::from_json(json).unwrap();
+        assert_eq!(obj.gm, None);
+        assert_eq!(obj.radius, None);
+    }
 }

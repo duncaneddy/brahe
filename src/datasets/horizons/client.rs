@@ -227,4 +227,90 @@ mod tests {
         let err = client.get_spk(&req()).unwrap_err();
         assert!(err.to_string().contains("Cannot interpret COMMAND"));
     }
+
+    #[test]
+    fn test_new_and_default_ctors() {
+        let c = HorizonsClient::new();
+        assert_eq!(c.base_url, DEFAULT_BASE_URL);
+
+        let d = HorizonsClient::default();
+        assert_eq!(d.base_url, DEFAULT_BASE_URL);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_spk_non_json_response_errors() {
+        let _redirect = CacheRedirect::new();
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/api/horizons.api");
+            then.status(200).body("not json");
+        });
+
+        let client = HorizonsClient::with_base_url(&server.base_url());
+        let err = client.get_spk(&req()).unwrap_err();
+        assert!(matches!(err, BraheError::ParseError(_)));
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_spk_empty_spk_errors() {
+        let _redirect = CacheRedirect::new();
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/api/horizons.api");
+            then.status(200).body(r#"{"spk":""}"#);
+        });
+
+        let client = HorizonsClient::with_base_url(&server.base_url());
+        let err = client.get_spk(&req()).unwrap_err();
+        assert!(err.to_string().contains("empty SPK"));
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_spk_invalid_base64_errors() {
+        let _redirect = CacheRedirect::new();
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/api/horizons.api");
+            then.status(200).body(r#"{"spk":"@@@not-base64@@@"}"#);
+        });
+
+        let client = HorizonsClient::with_base_url(&server.base_url());
+        let err = client.get_spk(&req()).unwrap_err();
+        assert!(matches!(err, BraheError::ParseError(_)));
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_spk_write_cache_failure_errors() {
+        let _redirect = CacheRedirect::new();
+        let payload_bytes = b"DAF/SPK fake kernel payload";
+        let b64 = BASE64.encode(payload_bytes);
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/api/horizons.api");
+            then.status(200).body(format!(r#"{{"spk":"{}"}}"#, b64));
+        });
+
+        // The cache_path.exists() short-circuit means a pre-created
+        // directory at cache_path would be reused as a hit, not hit the
+        // write path. Instead, strip the owner write bit from the (already
+        // created) horizons cache directory so atomic_write's file create
+        // fails, exercising the same error arm.
+        let cache_dir = get_horizons_cache_dir().unwrap();
+        let original_perms = std::fs::metadata(&cache_dir).unwrap().permissions();
+        let mut readonly_perms = original_perms.clone();
+        readonly_perms.set_readonly(true);
+        std::fs::set_permissions(&cache_dir, readonly_perms).unwrap();
+
+        let client = HorizonsClient::with_base_url(&server.base_url());
+        let result = client.get_spk(&req());
+
+        std::fs::set_permissions(&cache_dir, original_perms).unwrap();
+
+        let err = result.unwrap_err();
+        assert!(matches!(err, BraheError::IoError(_)));
+    }
 }

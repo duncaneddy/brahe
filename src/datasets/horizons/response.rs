@@ -101,4 +101,17 @@ mod tests {
         let resp = HorizonsSPKResponse::new(PathBuf::from("does/not/exist.bsp"), None);
         assert!(resp.bytes().is_err());
     }
+
+    #[test]
+    #[cfg(unix)]
+    #[serial]
+    fn test_load_non_utf8_path_errors() {
+        use std::ffi::OsStr;
+        use std::os::unix::ffi::OsStrExt;
+
+        let path = PathBuf::from(OsStr::from_bytes(&[0xff, 0x2e, 0x62, 0x73, 0x70]));
+        let resp = HorizonsSPKResponse::new(path, None);
+        let err = resp.load().unwrap_err();
+        assert!(err.to_string().contains("not valid UTF-8"));
+    }
 }

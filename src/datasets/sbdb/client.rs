@@ -27,7 +27,7 @@ const DEFAULT_CACHE_MAX_AGE: u64 = 30 * 24 * 60 * 60;
 ///
 /// let client = SBDBClient::new();
 /// let ceres = client.lookup("Ceres").unwrap();
-/// assert_eq!(ceres.naif_id(), 2000001);
+/// assert_eq!(ceres.naif_id(), 20000001);
 /// ```
 pub struct SBDBClient {
     base_url: String,
@@ -90,7 +90,7 @@ impl SBDBClient {
     ///
     /// # Arguments
     ///
-    /// * `sstr` - Object search string, e.g. `"Ceres"` or `"2000001"`.
+    /// * `sstr` - Object search string, e.g. `"Ceres"` or `"20000001"`.
     ///
     /// # Returns
     ///

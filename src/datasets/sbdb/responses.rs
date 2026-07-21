@@ -10,7 +10,7 @@ use crate::utils::BraheError;
 /// provides them, converted to SI units on parse.
 #[derive(Debug, Clone)]
 pub struct SBDBObject {
-    /// Primary SPK-ID (NAIF ID), e.g. `2000001` for Ceres.
+    /// Primary SPK-ID (NAIF ID), e.g. `20000001` for Ceres.
     pub spkid: i32,
     /// Full designation and name, e.g. `"1 Ceres"`.
     pub full_name: String,

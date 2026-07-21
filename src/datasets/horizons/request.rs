@@ -11,7 +11,7 @@ use crate::utils::download::urlencode;
 /// ephemeris for third-body and SRP force resolution.
 #[derive(Debug, Clone)]
 pub struct HorizonsSPKRequest {
-    /// Horizons `COMMAND` target, e.g. `"DES=2000001;"`.
+    /// Horizons `COMMAND` target, e.g. `"DES=20000001;"`.
     pub command: String,
     /// SPK span start.
     pub start: Epoch,
@@ -26,7 +26,7 @@ impl HorizonsSPKRequest {
     ///
     /// # Arguments
     ///
-    /// * `command` - Horizons target command (e.g. `"DES=2000001;"`).
+    /// * `command` - Horizons target command (e.g. `"DES=20000001;"`).
     /// * `start` - SPK span start epoch.
     /// * `stop` - SPK span stop epoch.
     pub fn new(command: &str, start: Epoch, stop: Epoch) -> Self {
@@ -42,7 +42,7 @@ impl HorizonsSPKRequest {
     ///
     /// # Arguments
     ///
-    /// * `spkid` - Small-body SPK-ID (NAIF ID), e.g. `2000001` for Ceres.
+    /// * `spkid` - Small-body SPK-ID (NAIF ID), e.g. `20000001` for Ceres.
     /// * `start` - SPK span start epoch.
     /// * `stop` - SPK span stop epoch.
     pub fn for_spkid(spkid: i32, start: Epoch, stop: Epoch) -> Self {

@@ -5,7 +5,7 @@ use brahe::datasets::horizons::{HorizonsClient, HorizonsSPKRequest, HorizonsSPKR
 /// A request to generate a small-body SPK over a time span.
 ///
 /// Args:
-///     command (str): Horizons COMMAND target, e.g. "DES=2000001;".
+///     command (str): Horizons COMMAND target, e.g. "DES=20000001;".
 ///     start (Epoch): SPK span start.
 ///     stop (Epoch): SPK span stop.
 #[pyclass(
@@ -119,7 +119,7 @@ impl PyHorizonsSPKResponse {
 ///     ```python
 ///     import brahe as bh
 ///     client = bh.datasets.horizons.HorizonsClient()
-///     req = bh.datasets.horizons.HorizonsSPKRequest.for_spkid(2000001, t0, t1)
+///     req = bh.datasets.horizons.HorizonsSPKRequest.for_spkid(20000001, t0, t1)
 ///     resp = client.get_spk(req)
 ///     resp.load()
 ///     ```

@@ -81,7 +81,7 @@ impl PySBDBObject {
 ///     import brahe as bh
 ///     client = bh.datasets.sbdb.SBDBClient()
 ///     ceres = client.lookup("Ceres")
-///     print(ceres.naif_id())  # 2000001
+///     print(ceres.naif_id())  # 20000001
 ///     ```
 #[pyclass(name = "SBDBClient", module = "brahe._brahe")]
 pub struct PySBDBClient {
@@ -105,7 +105,7 @@ impl PySBDBClient {
     /// Resolve a search string to an SBDBObject.
     ///
     /// Args:
-    ///     sstr (str): Object search string, e.g. "Ceres" or "2000001".
+    ///     sstr (str): Object search string, e.g. "Ceres" or "20000001".
     ///
     /// Returns:
     ///     SBDBObject: The resolved object.

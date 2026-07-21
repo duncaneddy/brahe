@@ -41,7 +41,7 @@ struct HorizonsSPKPayload {
 /// let client = HorizonsClient::new();
 /// let t0 = Epoch::from_datetime(2015, 12, 1, 0, 0, 0.0, 0.0, TimeSystem::TDB);
 /// let t1 = Epoch::from_datetime(2016, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::TDB);
-/// let resp = client.get_spk(&HorizonsSPKRequest::for_spkid(2000001, t0, t1)).unwrap();
+/// let resp = client.get_spk(&HorizonsSPKRequest::for_spkid(20000001, t0, t1)).unwrap();
 /// resp.load().unwrap();
 /// ```
 pub struct HorizonsClient {

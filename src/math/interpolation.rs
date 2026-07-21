@@ -8,6 +8,7 @@
  */
 
 use crate::math::linalg::{sqrtm, sqrtm_dmatrix};
+use crate::utils::errors::BraheError;
 use nalgebra::{DMatrix, DVector, SMatrix, SVector};
 use serde::{Deserialize, Serialize};
 
@@ -174,6 +175,9 @@ pub trait CovarianceInterpolationConfig {
 /// # Returns
 /// The interpolated vector: `(1 - t) * v1 + t * v2`
 ///
+/// # Errors
+/// Returns [`BraheError::OutOfBoundsError`] if `t` is not in the range [0, 1].
+///
 /// # Example
 /// ```rust
 /// use brahe::interpolate_linear_svector;
@@ -182,19 +186,21 @@ pub trait CovarianceInterpolationConfig {
 /// let v1 = SVector::<f64, 3>::new(0.0, 0.0, 0.0);
 /// let v2 = SVector::<f64, 3>::new(1.0, 2.0, 3.0);
 /// let t = 0.5;
-/// let interpolated = interpolate_linear_svector(v1, v2, t);
+/// let interpolated = interpolate_linear_svector(v1, v2, t).unwrap();
 /// ```
 pub fn interpolate_linear_svector<const S: usize>(
     v1: SVector<f64, S>,
     v2: SVector<f64, S>,
     t: f64,
-) -> SVector<f64, S> {
+) -> Result<SVector<f64, S>, BraheError> {
     // Confirm that t is within [0, 1]
     if !(0.0..=1.0).contains(&t) {
-        panic!("Interpolation factor t must be in the range [0, 1]");
+        return Err(BraheError::OutOfBoundsError(
+            "Interpolation factor t must be in the range [0, 1]".to_string(),
+        ));
     }
 
-    v1 + t * (v2 - v1)
+    Ok(v1 + t * (v2 - v1))
 }
 
 /// Linearly interpolates between two dynamic-sized vectors.
@@ -207,8 +213,9 @@ pub fn interpolate_linear_svector<const S: usize>(
 /// # Returns
 /// The interpolated vector: `(1 - t) * v1 + t * v2`
 ///
-/// # Panics
-/// Panics if the vectors have different dimensions or if t is not in [0, 1].
+/// # Errors
+/// Returns [`BraheError::OutOfBoundsError`] if the vectors have different
+/// dimensions or if `t` is not in the range [0, 1].
 ///
 /// # Example
 /// ```rust
@@ -218,24 +225,30 @@ pub fn interpolate_linear_svector<const S: usize>(
 /// let v1 = DVector::<f64>::from_vec(vec![0.0, 0.0, 0.0]);
 /// let v2 = DVector::<f64>::from_vec(vec![1.0, 2.0, 3.0]);
 /// let t = 0.5;
-/// let interpolated = interpolate_linear_dvector(&v1, &v2, t);
+/// let interpolated = interpolate_linear_dvector(&v1, &v2, t).unwrap();
 /// ```
-pub fn interpolate_linear_dvector(v1: &DVector<f64>, v2: &DVector<f64>, t: f64) -> DVector<f64> {
+pub fn interpolate_linear_dvector(
+    v1: &DVector<f64>,
+    v2: &DVector<f64>,
+    t: f64,
+) -> Result<DVector<f64>, BraheError> {
     // Confirm that t is within [0, 1]
     if !(0.0..=1.0).contains(&t) {
-        panic!("Interpolation factor t must be in the range [0, 1]");
+        return Err(BraheError::OutOfBoundsError(
+            "Interpolation factor t must be in the range [0, 1]".to_string(),
+        ));
     }
 
     // Confirm that vectors have the same dimension
     if v1.len() != v2.len() {
-        panic!(
+        return Err(BraheError::OutOfBoundsError(format!(
             "Vectors must have the same dimension for interpolation: got {} and {}",
             v1.len(),
             v2.len()
-        );
+        )));
     }
 
-    v1 + t * (v2 - v1)
+    Ok(v1 + t * (v2 - v1))
 }
 
 /// Interpolates between two static-sized covariance matrices using square root interpolation.
@@ -248,6 +261,11 @@ pub fn interpolate_linear_dvector(v1: &DVector<f64>, v2: &DVector<f64>, t: f64) 
 /// # Returns
 /// The interpolated covariance matrix.
 ///
+/// # Errors
+/// Returns [`BraheError::OutOfBoundsError`] if `t` is not in the range [0, 1],
+/// or [`BraheError::NumericalError`] if the matrix square root of either
+/// covariance cannot be computed (e.g. non-positive-definite input).
+///
 /// # Example
 /// ```rust
 /// use brahe::interpolate_covariance_sqrt_smatrix;
@@ -256,26 +274,28 @@ pub fn interpolate_linear_dvector(v1: &DVector<f64>, v2: &DVector<f64>, t: f64) 
 /// let cov1 = SMatrix6::identity();
 /// let cov2 = SMatrix6::identity() * 4.0;
 /// let t = 0.5;
-/// let interpolated_cov = interpolate_covariance_sqrt_smatrix(cov1, cov2, t);
+/// let interpolated_cov = interpolate_covariance_sqrt_smatrix(cov1, cov2, t).unwrap();
 /// ```
 pub fn interpolate_covariance_sqrt_smatrix<const N: usize>(
     cov1: SMatrix<f64, N, N>,
     cov2: SMatrix<f64, N, N>,
     t: f64,
-) -> SMatrix<f64, N, N>
+) -> Result<SMatrix<f64, N, N>, BraheError>
 where
     nalgebra::Const<N>: nalgebra::DimName,
 {
     // Confirm that t is within [0, 1]
     if !(0.0..=1.0).contains(&t) {
-        panic!("Interpolation factor t must be in the range [0, 1]");
+        return Err(BraheError::OutOfBoundsError(
+            "Interpolation factor t must be in the range [0, 1]".to_string(),
+        ));
     }
 
-    let sqrt_cov1 = sqrtm(cov1).unwrap();
-    let sqrt_cov2 = sqrtm(cov2).unwrap();
+    let sqrt_cov1 = sqrtm(cov1).map_err(BraheError::NumericalError)?;
+    let sqrt_cov2 = sqrtm(cov2).map_err(BraheError::NumericalError)?;
 
     let interpolated_sqrt = (1.0 - t) * sqrt_cov1 + t * sqrt_cov2;
-    interpolated_sqrt * interpolated_sqrt.transpose()
+    Ok(interpolated_sqrt * interpolated_sqrt.transpose())
 }
 
 /// Interpolates between two static-sized covariance matrices using the two-Wasserstein metric.
@@ -288,6 +308,11 @@ where
 /// # Returns
 /// The interpolated covariance matrix.
 ///
+/// # Errors
+/// Returns [`BraheError::OutOfBoundsError`] if `t` is not in the range [0, 1],
+/// or [`BraheError::NumericalError`] if the matrix square root of either
+/// covariance product cannot be computed.
+///
 /// # Example
 /// ```rust
 /// use brahe::interpolate_covariance_two_wasserstein_smatrix;
@@ -296,7 +321,7 @@ where
 /// let cov1 = SMatrix6::identity();
 /// let cov2 = SMatrix6::identity() * 4.0;
 /// let t = 0.5;
-/// let interpolated_cov = interpolate_covariance_two_wasserstein_smatrix(cov1, cov2, t);
+/// let interpolated_cov = interpolate_covariance_two_wasserstein_smatrix(cov1, cov2, t).unwrap();
 /// ```
 ///
 /// # References
@@ -305,18 +330,21 @@ pub fn interpolate_covariance_two_wasserstein_smatrix<const N: usize>(
     cov1: SMatrix<f64, N, N>,
     cov2: SMatrix<f64, N, N>,
     t: f64,
-) -> SMatrix<f64, N, N>
+) -> Result<SMatrix<f64, N, N>, BraheError>
 where
     nalgebra::Const<N>: nalgebra::DimName,
 {
     // Confirm that t is within [0, 1]
     if !(0.0..=1.0).contains(&t) {
-        panic!("Interpolation factor t must be in the range [0, 1]");
+        return Err(BraheError::OutOfBoundsError(
+            "Interpolation factor t must be in the range [0, 1]".to_string(),
+        ));
     }
 
-    (1.0 - t).powi(2) * cov1
-        + t.powi(2) * cov2
-        + t * (1.0 - t) * (sqrtm(cov1 * cov2).unwrap() + sqrtm(cov2 * cov1).unwrap())
+    let sqrt_12 = sqrtm(cov1 * cov2).map_err(BraheError::NumericalError)?;
+    let sqrt_21 = sqrtm(cov2 * cov1).map_err(BraheError::NumericalError)?;
+
+    Ok((1.0 - t).powi(2) * cov1 + t.powi(2) * cov2 + t * (1.0 - t) * (sqrt_12 + sqrt_21))
 }
 
 /// Interpolates between two dynamic-sized covariance matrices using square root interpolation.
@@ -329,8 +357,11 @@ where
 /// # Returns
 /// The interpolated covariance matrix.
 ///
-/// # Panics
-/// Panics if matrices have different dimensions, are not square, or if t is not in [0, 1].
+/// # Errors
+/// Returns [`BraheError::OutOfBoundsError`] if the matrices have different
+/// dimensions or if `t` is not in the range [0, 1], or
+/// [`BraheError::NumericalError`] if the matrix square root of either
+/// covariance cannot be computed (e.g. non-positive-definite input).
 ///
 /// # Example
 /// ```rust
@@ -340,34 +371,36 @@ where
 /// let cov1 = DMatrix::<f64>::identity(6, 6);
 /// let cov2 = DMatrix::<f64>::identity(6, 6) * 4.0;
 /// let t = 0.5;
-/// let interpolated_cov = interpolate_covariance_sqrt_dmatrix(&cov1, &cov2, t);
+/// let interpolated_cov = interpolate_covariance_sqrt_dmatrix(&cov1, &cov2, t).unwrap();
 /// ```
 pub fn interpolate_covariance_sqrt_dmatrix(
     cov1: &DMatrix<f64>,
     cov2: &DMatrix<f64>,
     t: f64,
-) -> DMatrix<f64> {
+) -> Result<DMatrix<f64>, BraheError> {
     // Confirm that t is within [0, 1]
     if !(0.0..=1.0).contains(&t) {
-        panic!("Interpolation factor t must be in the range [0, 1]");
+        return Err(BraheError::OutOfBoundsError(
+            "Interpolation factor t must be in the range [0, 1]".to_string(),
+        ));
     }
 
     // Confirm matrices have same dimensions
     if cov1.nrows() != cov2.nrows() || cov1.ncols() != cov2.ncols() {
-        panic!(
+        return Err(BraheError::OutOfBoundsError(format!(
             "Covariance matrices must have same dimensions: got {}x{} and {}x{}",
             cov1.nrows(),
             cov1.ncols(),
             cov2.nrows(),
             cov2.ncols()
-        );
+        )));
     }
 
-    let sqrt_cov1 = sqrtm_dmatrix(cov1).unwrap();
-    let sqrt_cov2 = sqrtm_dmatrix(cov2).unwrap();
+    let sqrt_cov1 = sqrtm_dmatrix(cov1).map_err(BraheError::NumericalError)?;
+    let sqrt_cov2 = sqrtm_dmatrix(cov2).map_err(BraheError::NumericalError)?;
 
     let interpolated_sqrt = (1.0 - t) * &sqrt_cov1 + t * &sqrt_cov2;
-    &interpolated_sqrt * interpolated_sqrt.transpose()
+    Ok(&interpolated_sqrt * interpolated_sqrt.transpose())
 }
 
 /// Interpolates between two dynamic-sized covariance matrices using the two-Wasserstein metric.
@@ -380,8 +413,11 @@ pub fn interpolate_covariance_sqrt_dmatrix(
 /// # Returns
 /// The interpolated covariance matrix.
 ///
-/// # Panics
-/// Panics if matrices have different dimensions, are not square, or if t is not in [0, 1].
+/// # Errors
+/// Returns [`BraheError::OutOfBoundsError`] if the matrices have different
+/// dimensions or if `t` is not in the range [0, 1], or
+/// [`BraheError::NumericalError`] if the matrix square root of either
+/// covariance product cannot be computed.
 ///
 /// # Example
 /// ```rust
@@ -391,7 +427,7 @@ pub fn interpolate_covariance_sqrt_dmatrix(
 /// let cov1 = DMatrix::<f64>::identity(6, 6);
 /// let cov2 = DMatrix::<f64>::identity(6, 6) * 4.0;
 /// let t = 0.5;
-/// let interpolated_cov = interpolate_covariance_two_wasserstein_dmatrix(&cov1, &cov2, t);
+/// let interpolated_cov = interpolate_covariance_two_wasserstein_dmatrix(&cov1, &cov2, t).unwrap();
 /// ```
 ///
 /// # References
@@ -400,29 +436,32 @@ pub fn interpolate_covariance_two_wasserstein_dmatrix(
     cov1: &DMatrix<f64>,
     cov2: &DMatrix<f64>,
     t: f64,
-) -> DMatrix<f64> {
+) -> Result<DMatrix<f64>, BraheError> {
     // Confirm that t is within [0, 1]
     if !(0.0..=1.0).contains(&t) {
-        panic!("Interpolation factor t must be in the range [0, 1]");
+        return Err(BraheError::OutOfBoundsError(
+            "Interpolation factor t must be in the range [0, 1]".to_string(),
+        ));
     }
 
     // Confirm matrices have same dimensions
     if cov1.nrows() != cov2.nrows() || cov1.ncols() != cov2.ncols() {
-        panic!(
+        return Err(BraheError::OutOfBoundsError(format!(
             "Covariance matrices must have same dimensions: got {}x{} and {}x{}",
             cov1.nrows(),
             cov1.ncols(),
             cov2.nrows(),
             cov2.ncols()
-        );
+        )));
     }
 
     let prod12 = cov1 * cov2;
     let prod21 = cov2 * cov1;
 
-    (1.0 - t).powi(2) * cov1
-        + t.powi(2) * cov2
-        + t * (1.0 - t) * (sqrtm_dmatrix(&prod12).unwrap() + sqrtm_dmatrix(&prod21).unwrap())
+    let sqrt_12 = sqrtm_dmatrix(&prod12).map_err(BraheError::NumericalError)?;
+    let sqrt_21 = sqrtm_dmatrix(&prod21).map_err(BraheError::NumericalError)?;
+
+    Ok((1.0 - t).powi(2) * cov1 + t.powi(2) * cov2 + t * (1.0 - t) * (sqrt_12 + sqrt_21))
 }
 
 // ============================================================================
@@ -799,24 +838,64 @@ mod tests {
     }
 
     #[test]
+    fn test_interpolate_out_of_range_t_errors() {
+        // Every interpolation entry point rejects t outside [0, 1].
+        let sv1 = SVector::<f64, 3>::new(0.0, 0.0, 0.0);
+        let sv2 = SVector::<f64, 3>::new(1.0, 2.0, 3.0);
+        let dv1 = DVector::from_vec(vec![0.0, 0.0, 0.0]);
+        let dv2 = DVector::from_vec(vec![1.0, 2.0, 3.0]);
+        let sm1 = SMatrix::<f64, 3, 3>::identity();
+        let sm2 = SMatrix::<f64, 3, 3>::identity() * 2.0;
+        let dm1 = DMatrix::<f64>::identity(3, 3);
+        let dm2 = DMatrix::<f64>::identity(3, 3) * 2.0;
+
+        for t in [-0.1, 1.5] {
+            assert!(matches!(
+                interpolate_linear_svector(sv1, sv2, t),
+                Err(BraheError::OutOfBoundsError(_))
+            ));
+            assert!(matches!(
+                interpolate_linear_dvector(&dv1, &dv2, t),
+                Err(BraheError::OutOfBoundsError(_))
+            ));
+            assert!(matches!(
+                interpolate_covariance_sqrt_smatrix(sm1, sm2, t),
+                Err(BraheError::OutOfBoundsError(_))
+            ));
+            assert!(matches!(
+                interpolate_covariance_two_wasserstein_smatrix(sm1, sm2, t),
+                Err(BraheError::OutOfBoundsError(_))
+            ));
+            assert!(matches!(
+                interpolate_covariance_sqrt_dmatrix(&dm1, &dm2, t),
+                Err(BraheError::OutOfBoundsError(_))
+            ));
+            assert!(matches!(
+                interpolate_covariance_two_wasserstein_dmatrix(&dm1, &dm2, t),
+                Err(BraheError::OutOfBoundsError(_))
+            ));
+        }
+    }
+
+    #[test]
     fn test_interpolate_linear_svector() {
         let v1 = SVector::<f64, 3>::new(0.0, 0.0, 0.0);
         let v2 = SVector::<f64, 3>::new(1.0, 2.0, 3.0);
 
         // Test at t = 0.0 (should return v1)
-        let result = interpolate_linear_svector(v1, v2, 0.0);
+        let result = interpolate_linear_svector(v1, v2, 0.0).unwrap();
         assert_abs_diff_eq!(result[0], 0.0, epsilon = 1e-10);
         assert_abs_diff_eq!(result[1], 0.0, epsilon = 1e-10);
         assert_abs_diff_eq!(result[2], 0.0, epsilon = 1e-10);
 
         // Test at t = 1.0 (should return v2)
-        let result = interpolate_linear_svector(v1, v2, 1.0);
+        let result = interpolate_linear_svector(v1, v2, 1.0).unwrap();
         assert_abs_diff_eq!(result[0], 1.0, epsilon = 1e-10);
         assert_abs_diff_eq!(result[1], 2.0, epsilon = 1e-10);
         assert_abs_diff_eq!(result[2], 3.0, epsilon = 1e-10);
 
         // Test at t = 0.5 (should return midpoint)
-        let result = interpolate_linear_svector(v1, v2, 0.5);
+        let result = interpolate_linear_svector(v1, v2, 0.5).unwrap();
         assert_abs_diff_eq!(result[0], 0.5, epsilon = 1e-10);
         assert_abs_diff_eq!(result[1], 1.0, epsilon = 1e-10);
         assert_abs_diff_eq!(result[2], 1.5, epsilon = 1e-10);
@@ -828,30 +907,30 @@ mod tests {
         let v2 = DVector::<f64>::from_vec(vec![1.0, 2.0, 3.0]);
 
         // Test at t = 0.0 (should return v1)
-        let result = interpolate_linear_dvector(&v1, &v2, 0.0);
+        let result = interpolate_linear_dvector(&v1, &v2, 0.0).unwrap();
         assert_abs_diff_eq!(result[0], 0.0, epsilon = 1e-10);
         assert_abs_diff_eq!(result[1], 0.0, epsilon = 1e-10);
         assert_abs_diff_eq!(result[2], 0.0, epsilon = 1e-10);
 
         // Test at t = 1.0 (should return v2)
-        let result = interpolate_linear_dvector(&v1, &v2, 1.0);
+        let result = interpolate_linear_dvector(&v1, &v2, 1.0).unwrap();
         assert_abs_diff_eq!(result[0], 1.0, epsilon = 1e-10);
         assert_abs_diff_eq!(result[1], 2.0, epsilon = 1e-10);
         assert_abs_diff_eq!(result[2], 3.0, epsilon = 1e-10);
 
         // Test at t = 0.5 (should return midpoint)
-        let result = interpolate_linear_dvector(&v1, &v2, 0.5);
+        let result = interpolate_linear_dvector(&v1, &v2, 0.5).unwrap();
         assert_abs_diff_eq!(result[0], 0.5, epsilon = 1e-10);
         assert_abs_diff_eq!(result[1], 1.0, epsilon = 1e-10);
         assert_abs_diff_eq!(result[2], 1.5, epsilon = 1e-10);
     }
 
     #[test]
-    #[should_panic(expected = "Vectors must have the same dimension")]
     fn test_interpolate_linear_dvector_dimension_mismatch() {
         let v1 = DVector::<f64>::from_vec(vec![0.0, 0.0]);
         let v2 = DVector::<f64>::from_vec(vec![1.0, 2.0, 3.0]);
-        let _ = interpolate_linear_dvector(&v1, &v2, 0.5);
+        let result = interpolate_linear_dvector(&v1, &v2, 0.5);
+        assert!(matches!(result, Err(BraheError::OutOfBoundsError(_))));
     }
 
     #[test]
@@ -859,7 +938,7 @@ mod tests {
         let cov1 = SMatrix6::identity();
         let cov2 = SMatrix6::identity() * 4.0;
         let t = 0.5;
-        let result = interpolate_covariance_sqrt_smatrix(cov1, cov2, t);
+        let result = interpolate_covariance_sqrt_smatrix(cov1, cov2, t).unwrap();
 
         for i in 0..6 {
             for j in 0..6 {
@@ -874,7 +953,7 @@ mod tests {
         let cov1 = SMatrix6::identity();
         let cov2 = SMatrix6::identity() * 4.0;
         let t = 0.5;
-        let result = interpolate_covariance_two_wasserstein_smatrix(cov1, cov2, t);
+        let result = interpolate_covariance_two_wasserstein_smatrix(cov1, cov2, t).unwrap();
         for i in 0..6 {
             for j in 0..6 {
                 let expected = if i == j { 2.25 } else { 0.0 };
@@ -888,7 +967,7 @@ mod tests {
         let cov1 = DMatrix::<f64>::identity(6, 6);
         let cov2 = DMatrix::<f64>::identity(6, 6) * 4.0;
         let t = 0.5;
-        let result = interpolate_covariance_sqrt_dmatrix(&cov1, &cov2, t);
+        let result = interpolate_covariance_sqrt_dmatrix(&cov1, &cov2, t).unwrap();
 
         for i in 0..6 {
             for j in 0..6 {
@@ -903,7 +982,7 @@ mod tests {
         let cov1 = DMatrix::<f64>::identity(6, 6);
         let cov2 = DMatrix::<f64>::identity(6, 6) * 4.0;
         let t = 0.5;
-        let result = interpolate_covariance_two_wasserstein_dmatrix(&cov1, &cov2, t);
+        let result = interpolate_covariance_two_wasserstein_dmatrix(&cov1, &cov2, t).unwrap();
         for i in 0..6 {
             for j in 0..6 {
                 let expected = if i == j { 2.25 } else { 0.0 };
@@ -913,19 +992,19 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Covariance matrices must have same dimensions")]
     fn test_interpolate_covariance_sqrt_dmatrix_dimension_mismatch() {
         let cov1 = DMatrix::<f64>::identity(3, 3);
         let cov2 = DMatrix::<f64>::identity(4, 4);
-        let _ = interpolate_covariance_sqrt_dmatrix(&cov1, &cov2, 0.5);
+        let result = interpolate_covariance_sqrt_dmatrix(&cov1, &cov2, 0.5);
+        assert!(matches!(result, Err(BraheError::OutOfBoundsError(_))));
     }
 
     #[test]
-    #[should_panic(expected = "Covariance matrices must have same dimensions")]
     fn test_interpolate_covariance_two_wasserstein_dmatrix_dimension_mismatch() {
         let cov1 = DMatrix::<f64>::identity(3, 3);
         let cov2 = DMatrix::<f64>::identity(4, 4);
-        let _ = interpolate_covariance_two_wasserstein_dmatrix(&cov1, &cov2, 0.5);
+        let result = interpolate_covariance_two_wasserstein_dmatrix(&cov1, &cov2, 0.5);
+        assert!(matches!(result, Err(BraheError::OutOfBoundsError(_))));
     }
 
     // =========================================================================

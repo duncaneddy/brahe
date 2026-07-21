@@ -28,7 +28,7 @@ fn main() {
             let x = state[0];
             let v = state[1];
             let omega_sq = params.map(|p| p[0]).unwrap_or(omega * omega);
-            na::DVector::from_vec(vec![v, -omega_sq * x])
+            Ok(na::DVector::from_vec(vec![v, -omega_sq * x]))
         },
     );
 
@@ -39,7 +39,7 @@ fn main() {
         .unwrap();
 
     let period = 2.0 * PI / omega; // Period = 2*pi/omega = 1 second
-    prop.propagate_to(epoch + 5.0 * period);
+    prop.propagate_to(epoch + 5.0 * period).unwrap();
 
     let final_state = prop.state(epoch + 5.0 * period).unwrap();
     println!("Position after 5 periods: {:+.6} m", final_state[0]);

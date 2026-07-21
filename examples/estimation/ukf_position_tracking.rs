@@ -52,7 +52,7 @@ fn main() {
     let dt = 60.0;
     for i in 1..=30 {
         let obs_epoch = epoch + dt * i as f64;
-        truth_prop.propagate_to(obs_epoch);
+        truth_prop.propagate_to(obs_epoch).unwrap();
         let truth_pos = truth_prop.current_state().rows(0, 3).into_owned();
 
         let obs = bh::estimation::Observation::new(obs_epoch, truth_pos, 0);
@@ -61,7 +61,7 @@ fn main() {
 
     // Compare final state to truth
     use bh::propagators::traits::DStatePropagator;
-    truth_prop.propagate_to(ukf.current_epoch());
+    truth_prop.propagate_to(ukf.current_epoch()).unwrap();
     let truth_final = truth_prop.current_state();
     let final_state = ukf.current_state();
 

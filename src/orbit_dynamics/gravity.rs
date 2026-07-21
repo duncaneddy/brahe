@@ -1364,10 +1364,22 @@ impl GravityModel {
     }
 
     fn from_bufreader<T: Read>(reader: BufReader<T>) -> Result<Self, BraheError> {
+        // Extract the value token from a "key value" header line, erroring if
+        // the line has no value after the key.
+        fn header_value<'a>(line: &'a str, key: &str) -> Result<&'a str, BraheError> {
+            line.split_whitespace().skip(1).last().ok_or_else(|| {
+                BraheError::ParseError(format!(
+                    "Gravity model file: \"{key}\" header line has no value"
+                ))
+            })
+        }
+
         let mut lines = reader.lines();
 
         // Read the header
-        let mut line = lines.next().unwrap()?;
+        let mut line = lines
+            .next()
+            .ok_or_else(|| BraheError::ParseError("Gravity model file is empty".to_string()))??;
 
         let mut model_name = String::from("Unknown");
         let mut gm = 0.0;
@@ -1380,53 +1392,57 @@ impl GravityModel {
 
         while !line.starts_with("end_of_head") {
             // Read the header line
-            line = lines.next().unwrap()?;
+            line = lines.next().ok_or_else(|| {
+                BraheError::ParseError(
+                    "Gravity model file header truncated: missing \"end_of_head\"".to_string(),
+                )
+            })??;
 
             // Parse the header
             if line.starts_with("modelname") {
-                model_name = String::from(line.split_whitespace().last().unwrap());
+                model_name = String::from(header_value(&line, "modelname")?);
             } else if line.starts_with("earth_gravity_constant")
                 || line.starts_with("gravity_constant")
             {
                 // Non-Earth ICGEM models (Moon, Mars, ...) use the unprefixed
                 // "gravity_constant" key and, like the coefficient rows, may use
                 // Fortran-style "D" exponents (e.g. "0.4902799806931690D+13").
-                let token = line.split_whitespace().last().unwrap();
+                let token = header_value(&line, "gravity_constant")?;
                 gm = token.replace(['D', 'd'], "e").parse::<f64>()?;
             } else if line.starts_with("radius") {
-                let token = line.split_whitespace().last().unwrap();
+                let token = header_value(&line, "radius")?;
                 radius = token.replace(['D', 'd'], "e").parse::<f64>()?;
             } else if line.starts_with("max_degree") {
-                n_max = line.split_whitespace().last().unwrap().parse::<usize>()?;
+                n_max = header_value(&line, "max_degree")?.parse::<usize>()?;
                 m_max = n_max;
             } else if line.starts_with("tide_system") {
-                tide_system = match line.split_whitespace().last().unwrap() {
+                tide_system = match header_value(&line, "tide_system")? {
                     "zero_tide" => GravityModelTideSystem::ZeroTide,
                     "tide_free" => GravityModelTideSystem::TideFree,
                     "mean_tide" => GravityModelTideSystem::MeanTide,
                     _ => GravityModelTideSystem::Unknown,
                 };
             } else if line.starts_with("errors") {
-                model_errors = match line.split_whitespace().last().unwrap() {
+                model_errors = match header_value(&line, "errors")? {
                     "no" => GravityModelErrors::No,
                     "calibrated" => GravityModelErrors::Calibrated,
                     "formal" => GravityModelErrors::Formal,
                     "calibrated_and_formal" => GravityModelErrors::CalibratedAndFormal,
-                    _ => {
+                    other => {
                         return Err(BraheError::ParseError(format!(
                             "Invalid model_errors value: \"{}\". Expected \"no\", \"calibrated\", \"formal\", or \"calibrated_and_formal\".",
-                            line.split_whitespace().last().unwrap()
+                            other
                         )));
                     }
                 };
             } else if line.starts_with("normalization") {
-                normalization = match line.split_whitespace().last().unwrap() {
+                normalization = match header_value(&line, "normalization")? {
                     "fully_normalized" => GravityModelNormalization::FullyNormalized,
                     "unnormalized" => GravityModelNormalization::Unnormalized,
-                    _ => {
+                    other => {
                         return Err(BraheError::ParseError(format!(
                             "Invalid normalization value: \"{}\". Expected \"fully_normalized\" or \"unnormalized\".",
-                            line.split_whitespace().last().unwrap()
+                            other
                         )));
                     }
                 };
@@ -1460,11 +1476,18 @@ impl GravityModel {
             let mut values = l.split_whitespace();
 
             // Convert values from string to numeric types
+            let row_value = |v: Option<&str>, field: &str| {
+                v.map(str::to_string).ok_or_else(|| {
+                    BraheError::ParseError(format!(
+                        "Gravity model file: coefficient row missing \"{field}\" value: \"{l}\""
+                    ))
+                })
+            };
             values.next(); // Skip the first value
-            let n = values.next().unwrap().parse::<usize>()?;
-            let m = values.next().unwrap().parse::<usize>()?;
-            let c = values.next().unwrap().parse::<f64>()?;
-            let s = values.next().unwrap().parse::<f64>()?;
+            let n = row_value(values.next(), "degree")?.parse::<usize>()?;
+            let m = row_value(values.next(), "order")?.parse::<usize>()?;
+            let c = row_value(values.next(), "C")?.parse::<f64>()?;
+            let s = row_value(values.next(), "S")?.parse::<f64>()?;
             // let sig_C = values.next().unwrap().parse::<f64>()?;
             // let sig_S = values.next().unwrap().parse::<f64>()?;
 
@@ -2481,16 +2504,12 @@ impl std::fmt::Debug for GravityModel {
 ///
 /// - `Vector3<f64>` : Acceleration due to gravity in the ECI frame.
 ///
-/// # Panics
+/// # Errors
 ///
-/// Panics if [`GravityModel::compute_spherical_harmonics`] returns an
-/// error: `n_max`/`m_max` out of bounds for `gravity_model`, no precomputed
+/// Returns an error if [`GravityModel::compute_spherical_harmonics`] fails:
+/// `n_max`/`m_max` out of bounds for `gravity_model`, no precomputed
 /// coefficients present, or (Cunningham fallback only) a non-finite result from
-/// high-degree denormalized-coefficient overflow. This function is used on
-/// the numerical propagator's hot path, so these conditions surface as
-/// descriptive panics mid-integration rather than at construction time.
-/// Callers that need `Result` semantics instead should call
-/// [`GravityModel::compute_spherical_harmonics`] directly.
+/// high-degree denormalized-coefficient overflow.
 ///
 /// # Examples
 ///
@@ -2519,7 +2538,7 @@ impl std::fmt::Debug for GravityModel {
 /// let r_eci: Vector3<f64> = x_eci.fixed_rows::<3>(0).into();
 ///
 /// // Compute the acceleration due to gravity
-/// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics(r_eci, R_i2b, &gravity_model, 20, 20, ParallelMode::Auto);
+/// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics(r_eci, R_i2b, &gravity_model, 20, 20, ParallelMode::Auto).unwrap();
 /// ```
 ///
 /// Using a state vector:
@@ -2546,7 +2565,7 @@ impl std::fmt::Debug for GravityModel {
 /// let x_eci = state_koe_to_eci(oe, AngleFormat::Degrees);
 ///
 /// // Pass state vector directly - no need to extract position
-/// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics(x_eci, R_i2b, &gravity_model, 20, 20, ParallelMode::Auto);
+/// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics(x_eci, R_i2b, &gravity_model, 20, 20, ParallelMode::Auto).unwrap();
 /// ```
 #[allow(non_snake_case)]
 pub fn accel_gravity_spherical_harmonics<P: IntoPosition>(
@@ -2556,13 +2575,11 @@ pub fn accel_gravity_spherical_harmonics<P: IntoPosition>(
     n_max: usize,
     m_max: usize,
     parallel: ParallelMode,
-) -> Vector3<f64> {
+) -> Result<Vector3<f64>, BraheError> {
     let r = r_eci.position();
     let r_bf = R_i2b * r;
-    let a_ecef = gravity_model
-        .compute_spherical_harmonics(r_bf, n_max, m_max, parallel)
-        .unwrap();
-    R_i2b.transpose() * a_ecef
+    let a_ecef = gravity_model.compute_spherical_harmonics(r_bf, n_max, m_max, parallel)?;
+    Ok(R_i2b.transpose() * a_ecef)
 }
 
 /// Compute the acceleration due to gravity using the Cunningham (Montenbruck
@@ -2585,9 +2602,9 @@ pub fn accel_gravity_spherical_harmonics<P: IntoPosition>(
 ///
 /// - `Vector3<f64>` : Acceleration due to gravity in the ECI frame.
 ///
-/// # Panics
+/// # Errors
 ///
-/// Panics if `gravity_model` has no precomputed Cunningham coefficients (see
+/// Returns an error if `gravity_model` has no precomputed Cunningham coefficients (see
 /// [`GravityModel::precompute_cunningham_coefficients`] / [`GravityModelCoefficients`]),
 /// `n_max`/`m_max` are out of bounds, or the denormalized recursion
 /// overflows to a non-finite result at high degree and low altitude.
@@ -2622,7 +2639,7 @@ pub fn accel_gravity_spherical_harmonics<P: IntoPosition>(
 /// let r_eci: Vector3<f64> = x_eci.fixed_rows::<3>(0).into();
 ///
 /// // Compute the acceleration due to gravity
-/// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics_cunningham(r_eci, R_i2b, &gravity_model, 20, 20, ParallelMode::Auto);
+/// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics_cunningham(r_eci, R_i2b, &gravity_model, 20, 20, ParallelMode::Auto).unwrap();
 /// ```
 #[allow(non_snake_case)]
 pub fn accel_gravity_spherical_harmonics_cunningham<P: IntoPosition>(
@@ -2632,18 +2649,17 @@ pub fn accel_gravity_spherical_harmonics_cunningham<P: IntoPosition>(
     n_max: usize,
     m_max: usize,
     parallel: ParallelMode,
-) -> Vector3<f64> {
+) -> Result<Vector3<f64>, BraheError> {
     // Extract position and compute body-fixed position
     let r = r_eci.position();
     let r_bf = R_i2b * r;
 
     // Compute spherical harmonic acceleration
-    let a_ecef = gravity_model
-        .compute_spherical_harmonics_cunningham(r_bf, n_max, m_max, parallel)
-        .unwrap();
+    let a_ecef =
+        gravity_model.compute_spherical_harmonics_cunningham(r_bf, n_max, m_max, parallel)?;
 
     // Inertial acceleration
-    R_i2b.transpose() * a_ecef
+    Ok(R_i2b.transpose() * a_ecef)
 }
 
 /// Compute the acceleration due to gravity using the Clenshaw-summation
@@ -2668,9 +2684,9 @@ pub fn accel_gravity_spherical_harmonics_cunningham<P: IntoPosition>(
 ///
 /// - `Vector3<f64>` : Acceleration due to gravity in the ECI frame.
 ///
-/// # Panics
+/// # Errors
 ///
-/// Panics if `gravity_model` has no precomputed Clenshaw coefficients (see
+/// Returns an error if `gravity_model` has no precomputed Clenshaw coefficients (see
 /// [`GravityModel::precompute_clenshaw_coefficients`] / [`GravityModelCoefficients`]) or if
 /// `n_max`/`m_max` are out of bounds for the model.
 ///
@@ -2700,7 +2716,7 @@ pub fn accel_gravity_spherical_harmonics_cunningham<P: IntoPosition>(
 /// let r_eci: Vector3<f64> = x_eci.fixed_rows::<3>(0).into();
 ///
 /// // Compute the acceleration due to gravity
-/// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics_clenshaw(r_eci, R_i2b, &gravity_model, 20, 20, ParallelMode::Auto);
+/// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics_clenshaw(r_eci, R_i2b, &gravity_model, 20, 20, ParallelMode::Auto).unwrap();
 /// ```
 ///
 /// Using a state vector:
@@ -2727,7 +2743,7 @@ pub fn accel_gravity_spherical_harmonics_cunningham<P: IntoPosition>(
 /// let x_eci = state_koe_to_eci(oe, AngleFormat::Degrees);
 ///
 /// // Pass state vector directly - no need to extract position
-/// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics_clenshaw(x_eci, R_i2b, &gravity_model, 20, 20, ParallelMode::Auto);
+/// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics_clenshaw(x_eci, R_i2b, &gravity_model, 20, 20, ParallelMode::Auto).unwrap();
 /// ```
 #[allow(non_snake_case)]
 pub fn accel_gravity_spherical_harmonics_clenshaw<P: IntoPosition>(
@@ -2737,13 +2753,12 @@ pub fn accel_gravity_spherical_harmonics_clenshaw<P: IntoPosition>(
     n_max: usize,
     m_max: usize,
     parallel: ParallelMode,
-) -> Vector3<f64> {
+) -> Result<Vector3<f64>, BraheError> {
     let r = r_eci.position();
     let r_bf = R_i2b * r;
-    let a_ecef = gravity_model
-        .compute_spherical_harmonics_clenshaw(r_bf, n_max, m_max, parallel)
-        .unwrap();
-    R_i2b.transpose() * a_ecef
+    let a_ecef =
+        gravity_model.compute_spherical_harmonics_clenshaw(r_bf, n_max, m_max, parallel)?;
+    Ok(R_i2b.transpose() * a_ecef)
 }
 
 /// Variant of [`accel_gravity_spherical_harmonics_cunningham`] that reuses
@@ -2759,9 +2774,9 @@ pub fn accel_gravity_spherical_harmonics_clenshaw<P: IntoPosition>(
 /// no longer uses it — it routes through [`GravityModel::compute_spherical_harmonics`],
 /// which dispatches to the allocation-free Clenshaw kernel by default.
 ///
-/// # Panics
+/// # Errors
 ///
-/// Panics if `gravity_model` has no precomputed Cunningham coefficients (see
+/// Returns an error if `gravity_model` has no precomputed Cunningham coefficients (see
 /// [`GravityModel::precompute_cunningham_coefficients`] / [`GravityModelCoefficients`]),
 /// `n_max`/`m_max` are out of bounds, or the denormalized recursion
 /// overflows to a non-finite result at high degree and low altitude.
@@ -2794,7 +2809,7 @@ pub fn accel_gravity_spherical_harmonics_clenshaw<P: IntoPosition>(
 ///
 /// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics_cunningham_with_workspace(
 ///     r_eci, R_i2b, &gravity_model, 20, 20, ParallelMode::Auto, &mut v_workspace, &mut w_workspace,
-/// );
+/// ).unwrap();
 /// ```
 #[allow(non_snake_case)]
 // Workspace-reuse variant: the V/W buffers plus model/degree/order/mode are all
@@ -2809,22 +2824,20 @@ pub fn accel_gravity_spherical_harmonics_cunningham_with_workspace<P: IntoPositi
     parallel: ParallelMode,
     v_workspace: &mut DMatrix<f64>,
     w_workspace: &mut DMatrix<f64>,
-) -> Vector3<f64> {
+) -> Result<Vector3<f64>, BraheError> {
     let r = r_eci.position();
     let r_bf = R_i2b * r;
 
-    let a_ecef = gravity_model
-        .compute_spherical_harmonics_cunningham_with_workspace(
-            r_bf,
-            n_max,
-            m_max,
-            parallel,
-            v_workspace,
-            w_workspace,
-        )
-        .unwrap();
+    let a_ecef = gravity_model.compute_spherical_harmonics_cunningham_with_workspace(
+        r_bf,
+        n_max,
+        m_max,
+        parallel,
+        v_workspace,
+        w_workspace,
+    )?;
 
-    R_i2b.transpose() * a_ecef
+    Ok(R_i2b.transpose() * a_ecef)
 }
 
 #[cfg(test)]
@@ -2886,6 +2899,100 @@ mod tests {
         assert_abs_diff_eq!(gravity_model.radius, 1.738e6, epsilon = 1e-6);
         assert_eq!(gravity_model.n_max, 2);
         assert_eq!(gravity_model.m_max, 2);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_gravity_model_from_bufreader_empty_file_errors() {
+        let result = GravityModel::from_bufreader(BufReader::new("".as_bytes()));
+        assert!(matches!(result, Err(BraheError::ParseError(_))));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_gravity_model_from_bufreader_truncated_header_errors() {
+        // Header ends before "end_of_head" is reached
+        let content = "product_type gravity_field\nmodelname TRUNCATED\n";
+        let result = GravityModel::from_bufreader(BufReader::new(content.as_bytes()));
+        assert!(matches!(result, Err(BraheError::ParseError(_))));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_gravity_model_from_bufreader_header_key_without_value_errors() {
+        // "max_degree" line has no value token
+        let content = "modelname TEST\ngravity_constant 3.986004415E+14\nradius 6.3781363000E+06\nmax_degree\nend_of_head\n";
+        let result = GravityModel::from_bufreader(BufReader::new(content.as_bytes()));
+        assert!(matches!(result, Err(BraheError::ParseError(_))));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_gravity_model_from_bufreader_invalid_errors_value_errors() {
+        let content = "modelname TEST\ngravity_constant 3.986004415E+14\nradius 6.3781363000E+06\nmax_degree 2\nerrors bogus\nend_of_head\n";
+        let result = GravityModel::from_bufreader(BufReader::new(content.as_bytes()));
+        assert!(matches!(result, Err(BraheError::ParseError(_))));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_gravity_model_from_bufreader_invalid_normalization_value_errors() {
+        let content = "modelname TEST\ngravity_constant 3.986004415E+14\nradius 6.3781363000E+06\nmax_degree 2\nnormalization bogus\nend_of_head\n";
+        let result = GravityModel::from_bufreader(BufReader::new(content.as_bytes()));
+        assert!(matches!(result, Err(BraheError::ParseError(_))));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_accel_gravity_spherical_harmonics_out_of_range_errors() {
+        // Requesting a degree beyond the loaded model must surface as Err
+        // through every acceleration wrapper.
+        let rot = SMatrix3::identity();
+        let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+
+        let model = GravityModel::from_model_type_with_coefficients(
+            &GravityModelType::JGM3,
+            GravityModelCoefficients::Both,
+        )
+        .unwrap();
+        let n = model.n_max + 10;
+
+        assert!(
+            accel_gravity_spherical_harmonics(r, rot, &model, n, n, ParallelMode::Never).is_err()
+        );
+        assert!(
+            accel_gravity_spherical_harmonics_cunningham(r, rot, &model, n, n, ParallelMode::Never)
+                .is_err()
+        );
+        assert!(
+            accel_gravity_spherical_harmonics_clenshaw(r, rot, &model, n, n, ParallelMode::Never)
+                .is_err()
+        );
+
+        let mut v_workspace = DMatrix::<f64>::zeros(2, 2);
+        let mut w_workspace = DMatrix::<f64>::zeros(2, 2);
+        assert!(
+            accel_gravity_spherical_harmonics_cunningham_with_workspace(
+                r,
+                rot,
+                &model,
+                n,
+                n,
+                ParallelMode::Never,
+                &mut v_workspace,
+                &mut w_workspace,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_gravity_model_from_bufreader_truncated_data_row_errors() {
+        // Coefficient row is missing the C and S values
+        let content = "modelname TEST\ngravity_constant 3.986004415E+14\nradius 6.3781363000E+06\nmax_degree 2\nend_of_head\ngfc 2 0\n";
+        let result = GravityModel::from_bufreader(BufReader::new(content.as_bytes()));
+        assert!(matches!(result, Err(BraheError::ParseError(_))));
     }
 
     #[test]
@@ -3565,8 +3672,8 @@ mod tests {
         )
         .unwrap();
 
-        prop_spherical.propagate_to(target);
-        prop_zonal_fast.propagate_to(target);
+        prop_spherical.propagate_to(target).unwrap();
+        prop_zonal_fast.propagate_to(target).unwrap();
         let s_state = prop_spherical.current_state();
         let z_state = prop_zonal_fast.current_state();
         print!("{} <> {}", s_state, z_state);
@@ -3635,8 +3742,8 @@ mod tests {
         });
         let mut prop_zonal = make_prop(GravityConfiguration::EarthZonal { degree });
 
-        prop_spherical.propagate_to(target);
-        prop_zonal.propagate_to(target);
+        prop_spherical.propagate_to(target).unwrap();
+        prop_zonal.propagate_to(target).unwrap();
 
         let s = prop_spherical.current_state();
         let z = prop_zonal.current_state();
@@ -3691,7 +3798,8 @@ mod tests {
             n,
             m,
             ParallelMode::Auto,
-        );
+        )
+        .unwrap();
 
         // This could potentially be validated to a higher degree of accuracy, but currently the
         // parameters provided by the Satellite Orbits book are only accurate to seven decimal
@@ -4055,7 +4163,7 @@ mod tests {
         // model is wired in (a wiring failure typically shows up here as a
         // panic or NaN state).
         let target = epoch + 60.0;
-        prop.propagate_to(target);
+        prop.propagate_to(target).unwrap();
         let final_state = prop.current_state();
 
         assert_eq!(final_state.len(), 6);
@@ -4634,7 +4742,8 @@ mod tests {
             n,
             m,
             ParallelMode::Never,
-        );
+        )
+        .unwrap();
         assert_eq!(a_clenshaw, rot.transpose() * a_body_cl);
 
         let a_body_cun = model
@@ -4647,12 +4756,14 @@ mod tests {
             n,
             m,
             ParallelMode::Never,
-        );
+        )
+        .unwrap();
         assert_eq!(a_cunningham, rot.transpose() * a_body_cun);
 
         // Dispatcher routes through Clenshaw when both coefficient sets exist.
         let a_dispatch =
-            accel_gravity_spherical_harmonics(r_eci, rot, &model, n, m, ParallelMode::Never);
+            accel_gravity_spherical_harmonics(r_eci, rot, &model, n, m, ParallelMode::Never)
+                .unwrap();
         assert_eq!(a_dispatch, a_clenshaw);
     }
 
@@ -4681,7 +4792,8 @@ mod tests {
             n,
             m,
             ParallelMode::Never,
-        );
+        )
+        .unwrap();
 
         // Oversized (40 > needed 22) and poisoned with non-zero sentinels.
         let mut v_workspace = DMatrix::<f64>::from_element(40, 40, 7.0e300);
@@ -4695,7 +4807,8 @@ mod tests {
             ParallelMode::Never,
             &mut v_workspace,
             &mut w_workspace,
-        );
+        )
+        .unwrap();
         assert_eq!(a_workspace, a_alloc);
     }
 
@@ -4716,7 +4829,8 @@ mod tests {
             20,
             20,
             ParallelMode::Never,
-        );
+        )
+        .unwrap();
         let a_pos = accel_gravity_spherical_harmonics_clenshaw(
             r_eci,
             rot,
@@ -4724,7 +4838,8 @@ mod tests {
             20,
             20,
             ParallelMode::Never,
-        );
+        )
+        .unwrap();
         assert_eq!(a_state, a_pos);
     }
 

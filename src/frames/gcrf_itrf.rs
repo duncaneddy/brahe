@@ -30,6 +30,14 @@ use crate::time::{Epoch, TimeSystem};
 /// # Returns:
 /// - `rc2i`: 3x3 Rotation matrix transforming GCRS -> CIRS
 ///
+/// # Panics
+/// Panics if Earth orientation data is unavailable for the requested epoch —
+/// that is, if no global EOP provider has been initialized, or the epoch is
+/// outside the loaded data range with extrapolation set to `Error`. Initialize
+/// a provider covering the propagation span (see
+/// `ensure_global_eop_coverage`) before transforming to or from Earth-fixed
+/// frames.
+///
 /// # Examples:
 /// ```
 /// use brahe::eop::*;
@@ -67,7 +75,14 @@ pub fn bias_precession_nutation(epc: Epoch) -> SMatrix3 {
     }
 
     // Apply Celestial Intermediate Pole corrections
-    let (dX, dY) = eop::get_global_dxdy(epc.mjd_as_time_system(TimeSystem::UTC)).unwrap();
+    let (dX, dY) =
+        eop::get_global_dxdy(epc.mjd_as_time_system(TimeSystem::UTC)).unwrap_or_else(|e| {
+            panic!(
+                "EOP dX/dY corrections unavailable for epoch {} ({}); initialize a global EOP \
+                 provider covering this epoch or set extrapolation to Hold or Zero",
+                epc, e
+            )
+        });
     x += dX;
     y += dY;
 
@@ -139,6 +154,14 @@ pub fn earth_rotation(epc: Epoch) -> SMatrix3 {
 /// # Returns:
 /// - `rpm`: 3x3 Rotation matrix transforming TIRS -> ITRF
 ///
+/// # Panics
+/// Panics if Earth orientation data is unavailable for the requested epoch —
+/// that is, if no global EOP provider has been initialized, or the epoch is
+/// outside the loaded data range with extrapolation set to `Error`. Initialize
+/// a provider covering the propagation span (see
+/// `ensure_global_eop_coverage`) before transforming to or from Earth-fixed
+/// frames.
+///
 /// # Examples:
 /// ```
 /// use brahe::eop::*;
@@ -159,7 +182,14 @@ pub fn earth_rotation(epc: Epoch) -> SMatrix3 {
 pub fn polar_motion(epc: Epoch) -> SMatrix3 {
     let mut rpm = [[0.0; 3]; 3];
 
-    let (pm_x, pm_y) = eop::get_global_pm(epc.mjd_as_time_system(TimeSystem::TT)).unwrap();
+    let (pm_x, pm_y) =
+        eop::get_global_pm(epc.mjd_as_time_system(TimeSystem::TT)).unwrap_or_else(|e| {
+            panic!(
+                "EOP polar motion unavailable for epoch {} ({}); initialize a global EOP \
+                 provider covering this epoch or set extrapolation to Hold or Zero",
+                epc, e
+            )
+        });
 
     unsafe {
         rsofa::iauPom00(

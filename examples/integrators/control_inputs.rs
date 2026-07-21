@@ -11,7 +11,7 @@ use nalgebra::DVector;
 fn main() {
     // Orbital dynamics (gravity only)
     let dynamics =
-        move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+        move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> Result<DVector<f64>, brahe::utils::BraheError> {
             let r = state.fixed_rows::<3>(0);
             let v = state.fixed_rows::<3>(3);
             let r_norm = r.norm();
@@ -22,11 +22,11 @@ fn main() {
                 .fixed_rows_mut::<3>(0)
                 .copy_from(&v.clone_owned());
             state_dot.fixed_rows_mut::<3>(3).copy_from(&a_grav);
-            state_dot
+            Ok(state_dot)
         };
 
     // Control input: constant low thrust in velocity direction
-    let control_input = move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+    let control_input = move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> Result<DVector<f64>, brahe::utils::BraheError> {
         let v = state.fixed_rows::<3>(3);
         let v_norm = v.norm();
 
@@ -36,7 +36,7 @@ fn main() {
             let a_thrust = thrust_magnitude * v / v_norm;
             control.fixed_rows_mut::<3>(3).copy_from(&a_thrust);
         }
-        control
+        Ok(control)
     };
 
     // Create integrator with control input
@@ -70,7 +70,7 @@ fn main() {
     );
 
     while t < period {
-        let result = integrator.step(t, current_state, None, Some(dt));
+        let result = integrator.step(t, current_state, None, Some(dt)).unwrap();
         current_state = result.state;
         t += result.dt_used;
         dt = result.dt_next;

@@ -12,7 +12,7 @@ fn main() {
     bh::initialize_eop().unwrap();
 
     // Create trajectory
-    let mut traj = DTrajectory::new(6);
+    let mut traj = DTrajectory::new(6).unwrap();
     let epoch0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0,
         bh::time::TimeSystem::UTC);
 
@@ -21,7 +21,7 @@ fn main() {
         let state = na::DVector::from_vec(vec![
             R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0 + (i as f64) * 10.0, 0.0
         ]);
-        traj.add(epoch, state);
+        traj.add(epoch, state).unwrap();
     }
 
     // Convert to matrix (rows are states, columns are dimensions)

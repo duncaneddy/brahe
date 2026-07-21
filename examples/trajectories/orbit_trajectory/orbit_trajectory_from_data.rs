@@ -39,7 +39,7 @@ fn main() {
         OrbitRepresentation::Cartesian,
         None, // Angle Format
         None  // No covariances
-    );
+    ).unwrap();
 
     println!("Trajectory length: {}", traj.len());
 }

@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         -122.4194,
         37.7749,
         0.0,
-    )
+    ).unwrap()
     .with_name("San Francisco");
 
     // Create propagator from TLE

@@ -489,7 +489,7 @@ impl SimpleSSNSensor {
     /// use brahe::access::location::PointLocation;
     /// use brahe::estimation::SimpleSSNSensor;
     ///
-    /// let loc = PointLocation::new(-71.49, 42.62, 123.1);
+    /// let loc = PointLocation::new(-71.49, 42.62, 123.1).unwrap();
     /// let sensor = SimpleSSNSensor::new(
     ///     loc, 0.0, 360.0, 5.0, 90.0, None, [0.0; 3], [0.01, 0.01, 100.0],
     /// )
@@ -859,7 +859,9 @@ mod tests {
     }
 
     fn test_sensor() -> SimpleSSNSensor {
-        let loc = PointLocation::new(-71.49, 42.62, 123.1).with_name("TestSensor");
+        let loc = PointLocation::new(-71.49, 42.62, 123.1)
+            .unwrap()
+            .with_name("TestSensor");
         SimpleSSNSensor::new(
             loc,
             0.0,
@@ -876,7 +878,9 @@ mod tests {
     #[test]
     #[parallel]
     fn test_new_rejects_negative_noise() {
-        let loc = PointLocation::new(-71.49, 42.62, 123.1).with_name("BadNoise");
+        let loc = PointLocation::new(-71.49, 42.62, 123.1)
+            .unwrap()
+            .with_name("BadNoise");
         let result = SimpleSSNSensor::new(
             loc,
             0.0,
@@ -906,7 +910,9 @@ mod tests {
         setup_global_test_eop();
         let epoch = test_epoch();
         let (lon, lat, alt) = (-70.54, 41.75, 80.3);
-        let loc = PointLocation::new(lon, lat, alt).with_name("CapeCod");
+        let loc = PointLocation::new(lon, lat, alt)
+            .unwrap()
+            .with_name("CapeCod");
         let sensor = SimpleSSNSensor::new(
             loc,
             347.0,
@@ -938,7 +944,9 @@ mod tests {
         ));
 
         // Non-wrapping window (Eglin 145-215): due-south visible, due-east not.
-        let loc2 = PointLocation::new(-86.21, 30.57, 34.7).with_name("Eglin");
+        let loc2 = PointLocation::new(-86.21, 30.57, 34.7)
+            .unwrap()
+            .with_name("Eglin");
         let s2 = SimpleSSNSensor::new(
             loc2,
             145.0,
@@ -992,7 +1000,9 @@ mod tests {
     fn test_measure_range_limit() {
         setup_global_test_eop();
         let epoch = test_epoch();
-        let loc = PointLocation::new(-71.49, 42.62, 123.1).with_name("ShortRange");
+        let loc = PointLocation::new(-71.49, 42.62, 123.1)
+            .unwrap()
+            .with_name("ShortRange");
         let mut sensor = SimpleSSNSensor::new(
             loc,
             0.0,
@@ -1236,7 +1246,7 @@ mod tests {
             None,
         )
         .unwrap();
-        prop.propagate_to(epoch + 3600.0);
+        prop.propagate_to(epoch + 3600.0).unwrap();
         let traj = prop.trajectory().clone();
 
         let start = epoch;
@@ -1306,7 +1316,9 @@ mod tests {
     #[parallel]
     fn test_new_rejects_non_finite_bias() {
         // A non-finite bias component must be rejected at construction.
-        let loc = PointLocation::new(-71.49, 42.62, 123.1).with_name("BadBias");
+        let loc = PointLocation::new(-71.49, 42.62, 123.1)
+            .unwrap()
+            .with_name("BadBias");
         let result = SimpleSSNSensor::new(
             loc,
             0.0,
@@ -1332,7 +1344,7 @@ mod tests {
     fn test_from_location_missing_sensor_type_errors() {
         // A bare location with no properties has no sensor_type; from_location
         // must error naming the missing property.
-        let loc = PointLocation::new(-71.49, 42.62, 123.1);
+        let loc = PointLocation::new(-71.49, 42.62, 123.1).unwrap();
         let e = SimpleSSNSensor::from_location(&loc).unwrap_err();
         assert!(e.to_string().contains("sensor_type"), "{}", e);
     }
@@ -1425,12 +1437,14 @@ mod tests {
         )
         .unwrap();
         let end = epoch + 2.0 * 3600.0;
-        prop.propagate_to(end);
+        prop.propagate_to(end).unwrap();
         let traj = prop.trajectory().clone();
 
         let (lon, lat, alt) = (-71.49, 42.62, 123.1);
         let mut radar = SimpleSSNSensor::new(
-            PointLocation::new(lon, lat, alt).with_name("Radar"),
+            PointLocation::new(lon, lat, alt)
+                .unwrap()
+                .with_name("Radar"),
             0.0,
             360.0,
             5.0,
@@ -1443,7 +1457,9 @@ mod tests {
         .with_seed(11);
 
         // Build a co-located optical site via dataset-style properties.
-        let mut optical_loc = PointLocation::new(lon, lat, alt).with_name("Optical");
+        let mut optical_loc = PointLocation::new(lon, lat, alt)
+            .unwrap()
+            .with_name("Optical");
         {
             let props = optical_loc.properties_mut();
             props.insert("sensor_type".to_string(), json!("azel"));

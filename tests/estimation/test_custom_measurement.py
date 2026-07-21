@@ -238,7 +238,7 @@ class TestCustomModelWithEKF:
         )
 
         obs = bh.Observation(epoch + 60.0, true_state[:3], model_index=0)
-        with pytest.raises(RuntimeError, match="predict"):
+        with pytest.raises(bh.BraheError, match="predict"):
             ekf.process_observation(obs)
 
         # Filter must be rolled back to its pre-observation epoch
@@ -273,7 +273,7 @@ class TestCustomModelWithEKF:
         )
 
         obs = bh.Observation(epoch + 60.0, true_state[:3], model_index=0)
-        with pytest.raises(RuntimeError, match="noise_covariance"):
+        with pytest.raises(bh.BraheError, match="noise_covariance"):
             ekf.process_observation(obs)
 
     def test_custom_residual_reflected_in_prefit(self, two_body_setup):
@@ -343,7 +343,7 @@ class TestCustomModelWithEKF:
             force_config=bh.ForceModelConfig.two_body(),
         )
         obs = bh.Observation(epoch + 60.0, true_state[:3], model_index=0)
-        with pytest.raises(RuntimeError, match="residual"):
+        with pytest.raises(bh.BraheError, match="residual"):
             ekf.process_observation(obs)
         assert abs(ekf.current_epoch() - epoch) < 1e-9
 

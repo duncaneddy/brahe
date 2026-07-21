@@ -62,7 +62,7 @@ class TestWalkerConstellationGeneratorBasic:
 
     def test_invalid_not_divisible(self, epoch):
         """Test that T not divisible by P raises error."""
-        with pytest.raises(bh.PanicException):
+        with pytest.raises(ValueError):
             bh.WalkerConstellationGenerator(
                 t=10,
                 p=3,
@@ -80,7 +80,7 @@ class TestWalkerConstellationGeneratorBasic:
 
     def test_invalid_phasing(self, epoch):
         """Test that phasing >= P raises error."""
-        with pytest.raises(bh.PanicException):
+        with pytest.raises(ValueError):
             bh.WalkerConstellationGenerator(
                 t=12,
                 p=3,
@@ -98,7 +98,7 @@ class TestWalkerConstellationGeneratorBasic:
 
     def test_invalid_zero_planes(self, epoch):
         """Test that P=0 raises error."""
-        with pytest.raises(bh.PanicException):
+        with pytest.raises(ValueError):
             bh.WalkerConstellationGenerator(
                 t=12,
                 p=0,

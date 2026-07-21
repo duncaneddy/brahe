@@ -64,13 +64,27 @@ impl ParameterSource {
     /// * `params` - Optional parameter vector (required if using ParameterIndex)
     ///
     /// # Returns
-    /// The parameter value, or default if parameter vector is missing
-    pub fn get_value(&self, params: Option<&nalgebra::DVector<f64>>) -> f64 {
+    /// The parameter value.
+    ///
+    /// # Errors
+    /// Returns [`BraheError::OutOfBoundsError`] if this source is a
+    /// [`ParameterSource::ParameterIndex`] but the parameter vector is missing
+    /// or the index is out of bounds.
+    pub fn get_value(&self, params: Option<&nalgebra::DVector<f64>>) -> Result<f64, BraheError> {
         match self {
-            ParameterSource::Value(v) => *v,
-            ParameterSource::ParameterIndex(idx) => params.map(|p| p[*idx]).unwrap_or_else(|| {
-                panic!("Parameter vector missing or index {} out of bounds", idx)
-            }),
+            ParameterSource::Value(v) => Ok(*v),
+            ParameterSource::ParameterIndex(idx) => match params {
+                Some(p) if *idx < p.len() => Ok(p[*idx]),
+                Some(p) => Err(BraheError::OutOfBoundsError(format!(
+                    "parameter index {} out of bounds for parameter vector of length {}",
+                    idx,
+                    p.len()
+                ))),
+                None => Err(BraheError::OutOfBoundsError(format!(
+                    "parameter vector missing but parameter index {} was requested",
+                    idx
+                ))),
+            },
         }
     }
 
@@ -2133,6 +2147,36 @@ mod tests {
 
         // Check relativity is disabled
         assert!(!config.relativity);
+    }
+
+    #[test]
+    fn test_parametersource_get_value_valid() {
+        // Fixed value resolves without a parameter vector; an in-range index
+        // resolves from the provided vector.
+        assert_eq!(ParameterSource::Value(2.2).get_value(None).unwrap(), 2.2);
+
+        let params = nalgebra::DVector::from_vec(vec![10.0, 20.0]);
+        assert_eq!(
+            ParameterSource::ParameterIndex(1)
+                .get_value(Some(&params))
+                .unwrap(),
+            20.0
+        );
+    }
+
+    #[test]
+    fn test_parametersource_get_value_missing_params() {
+        // A ParameterIndex source with no parameter vector is out of bounds.
+        let result = ParameterSource::ParameterIndex(2).get_value(None);
+        assert!(matches!(result, Err(BraheError::OutOfBoundsError(_))));
+    }
+
+    #[test]
+    fn test_parametersource_get_value_index_out_of_bounds() {
+        // A ParameterIndex beyond the vector length is out of bounds.
+        let params = nalgebra::DVector::from_vec(vec![1.0, 2.0]);
+        let result = ParameterSource::ParameterIndex(4).get_value(Some(&params));
+        assert!(matches!(result, Err(BraheError::OutOfBoundsError(_))));
     }
 
     #[test]

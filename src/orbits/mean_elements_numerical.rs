@@ -338,7 +338,7 @@ fn forward_average(
     )
     .propagation_config(inverse.propagation.clone())
     .build()?;
-    back.propagate_to(start);
+    back.propagate_to(start)?;
     let cart_start = back.state(start)?;
 
     // Integrate forward across the full window from a single starting condition, so
@@ -347,7 +347,7 @@ fn forward_average(
         DNumericalOrbitPropagator::builder(start, cart_start, inverse.force_model.clone())
             .propagation_config(inverse.propagation.clone())
             .build()?;
-    fwd.propagate_to(end);
+    fwd.propagate_to(end)?;
 
     let n_samples = (back_n + fwd_n + 1) as usize;
     let mut sample_epochs = Vec::with_capacity(n_samples);
@@ -729,14 +729,14 @@ mod tests {
         .propagation_config(inv.propagation.clone())
         .build()
         .unwrap();
-        back.propagate_to(start);
+        back.propagate_to(start).unwrap();
         let cart_start = back.state(start).unwrap();
         let mut fwd =
             DNumericalOrbitPropagator::builder(start, cart_start, inv.force_model.clone())
                 .propagation_config(inv.propagation.clone())
                 .build()
                 .unwrap();
-        fwd.propagate_to(end);
+        fwd.propagate_to(end).unwrap();
 
         // Sample on a grid that includes the anchor epoch exactly (mirroring
         // `forward_average`'s exact-anchor design), so the recovered fast angle

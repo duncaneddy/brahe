@@ -13,7 +13,7 @@ use nalgebra::{DMatrix, DVector, SVector};
 
 fn main() {
     // Dynamics function that takes consider parameters
-    let dynamics = |_t: f64, state: &DVector<f64>, params: &DVector<f64>| -> DVector<f64> {
+    let dynamics = |_t: f64, state: &DVector<f64>, params: &DVector<f64>| -> Result<DVector<f64>, brahe::utils::BraheError> {
         let cd_area_m = params[0];
 
         let r = state.fixed_rows::<3>(0);
@@ -43,12 +43,12 @@ fn main() {
         state_dot
             .fixed_rows_mut::<3>(3)
             .copy_from(&(a_grav + a_drag));
-        state_dot
+        Ok(state_dot)
     };
 
     // Analytical sensitivity function
     let analytical_sensitivity =
-        |_t: f64, state: &DVector<f64>, _params: &DVector<f64>| -> DMatrix<f64> {
+        |_t: f64, state: &DVector<f64>, _params: &DVector<f64>| -> Result<DMatrix<f64>, brahe::utils::BraheError> {
             let r = state.fixed_rows::<3>(0);
             let v = state.fixed_rows::<3>(3);
             let r_norm = r.norm();
@@ -70,7 +70,7 @@ fn main() {
                 }
             }
 
-            sens
+            Ok(sens)
         };
 
     // Initial state (400 km LEO circular orbit)
@@ -85,7 +85,7 @@ fn main() {
     let numerical_sens = DNumericalSensitivity::central(Box::new(dynamics.clone()));
 
     // Compute sensitivity matrix numerically
-    let sens_numerical = numerical_sens.compute(0.0, &state, &params);
+    let sens_numerical = numerical_sens.compute(0.0, &state, &params).unwrap();
 
     println!("Numerical sensitivity (∂f/∂p):");
     println!(
@@ -105,7 +105,7 @@ fn main() {
     let analytic_sens = DAnalyticSensitivity::new(Box::new(analytical_sensitivity));
 
     // Compute sensitivity matrix analytically
-    let sens_analytical = analytic_sens.compute(0.0, &state, &params);
+    let sens_analytical = analytic_sens.compute(0.0, &state, &params).unwrap();
 
     println!("\nAnalytical sensitivity (∂f/∂p):");
     println!(

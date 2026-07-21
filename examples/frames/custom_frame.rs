@@ -24,14 +24,14 @@ fn main() {
     let rotation = move |epc: bh::Epoch| {
         let theta = rate * (epc - t0);
         let (s, c) = theta.sin_cos();
-        na::Matrix3::new(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0)
+        Ok(na::Matrix3::new(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0))
     };
 
     // The optional omega callback is also a function of the epoch, returning
     // the frame's angular velocity vector (rad/s) for the exact velocity
     // transport term. Passing None falls back to numeric differentiation of
     // the rotation callback.
-    let omega = move |_epc: bh::Epoch| na::Vector3::new(0.0, 0.0, rate);
+    let omega = move |_epc: bh::Epoch| Ok(na::Vector3::new(0.0, 0.0, rate));
 
     bh::register_custom_frame(KEY, rotation, Some(Box::new(omega)));
 
@@ -56,8 +56,8 @@ fn main() {
     assert!((x_back - x_inertial).norm() < 1e-6);
 
     // A point co-rotating with the body is stationary in the body-fixed frame.
-    let r_surf = rotation(epc).transpose() * na::Vector3::new(1.0e3, 0.0, 0.0);
-    let v_surf = omega(epc).cross(&r_surf);
+    let r_surf = rotation(epc).unwrap().transpose() * na::Vector3::new(1.0e3, 0.0, 0.0);
+    let v_surf = omega(epc).unwrap().cross(&r_surf);
     let x_surf = na::SVector::<f64, 6>::new(
         r_surf[0], r_surf[1], r_surf[2], v_surf[0], v_surf[1], v_surf[2],
     );

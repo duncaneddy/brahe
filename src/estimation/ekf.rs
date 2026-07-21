@@ -352,7 +352,7 @@ impl ExtendedKalmanFilter {
             // the STM to identity for this chunk.
             self.dynamics
                 .reinitialize(chunk_start, state.clone(), Some(p.clone()));
-            self.dynamics.propagate_to(chunk_target);
+            self.dynamics.propagate_to(chunk_target)?;
 
             let reached = self.dynamics.current_epoch();
             if (chunk_target - reached).abs() > 1e-6 {
@@ -420,7 +420,7 @@ impl ExtendedKalmanFilter {
                 );
 
                 // Propagate state and covariance to observation epoch
-                self.dynamics.propagate_to(observation.epoch);
+                self.dynamics.propagate_to(observation.epoch)?;
 
                 // Guard against the propagator stopping short of the observation
                 // epoch (e.g., a terminal event fired during propagation).
@@ -634,7 +634,7 @@ impl ExtendedKalmanFilter {
                     current_state,
                     Some(self.covariance.clone()),
                 );
-                self.dynamics.propagate_to(target_epoch);
+                self.dynamics.propagate_to(target_epoch)?;
 
                 let reached_epoch = self.dynamics.current_epoch();
                 let epoch_gap: f64 = target_epoch - reached_epoch;
@@ -946,7 +946,7 @@ impl ExtendedKalmanFilterBuilder {
     /// let dynamics: brahe::integrators::traits::DStateDynamics = Box::new(|_t, state, _params| {
     ///     let mut dx = DVector::zeros(state.len());
     ///     dx[6] = -0.1; // dm/dt = -0.1 kg/s
-    ///     dx
+    ///     Ok(dx)
     /// });
     ///
     /// let ekf = ExtendedKalmanFilter::builder(
@@ -989,7 +989,7 @@ impl ExtendedKalmanFilterBuilder {
     /// let control: brahe::integrators::traits::DStateDynamics = Box::new(|_t, state, _params| {
     ///     let mut dx = DVector::zeros(state.len());
     ///     dx[3] = 0.0001; // small perturbing acceleration
-    ///     dx
+    ///     Ok(dx)
     /// });
     ///
     /// let ekf = ExtendedKalmanFilter::builder(
@@ -1187,7 +1187,7 @@ mod tests {
         (1..=num_obs)
             .map(|i| {
                 let t = epoch + (i as f64) * interval_s;
-                prop.propagate_to(t);
+                prop.propagate_to(t).unwrap();
                 Observation::new(t, prop.current_state().rows(0, 3).into_owned(), 0)
             })
             .collect()
@@ -1215,7 +1215,7 @@ mod tests {
         (1..=num_obs)
             .map(|i| {
                 let t = epoch + (i as f64) * interval_s;
-                prop.propagate_to(t);
+                prop.propagate_to(t).unwrap();
                 Observation::new(t, prop.current_state().rows(0, 6).into_owned(), 0)
             })
             .collect()
@@ -1281,7 +1281,7 @@ mod tests {
             None,
         )
         .unwrap();
-        prop.propagate_to(target);
+        prop.propagate_to(target).unwrap();
         prop.current_state()
     }
 
@@ -2198,7 +2198,7 @@ mod tests {
 
         let zero_dynamics = || {
             Box::new(|_t: f64, state: &DVector<f64>, _p: Option<&DVector<f64>>| {
-                DVector::zeros(state.len())
+                Ok(DVector::zeros(state.len()))
             })
         };
 

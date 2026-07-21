@@ -96,7 +96,7 @@ fn main() {
     // Propagate for half an orbit
     let orbital_period = 2.0 * PI * (oe[0].powi(3) / bh::GM_EARTH).sqrt();
     println!("Propagating with logging callbacks:");
-    prop.propagate_to(epoch + orbital_period / 2.0);
+    prop.propagate_to(epoch + orbital_period / 2.0).unwrap();
 
     let final_count = callback_count.load(Ordering::SeqCst);
     println!("\nCallback invoked {} times", final_count);
@@ -133,7 +133,7 @@ fn main() {
     prop2.add_event_detector(Box::new(stop_event));
 
     // Try to propagate for one full orbit
-    prop2.propagate_to(epoch + orbital_period);
+    prop2.propagate_to(epoch + orbital_period).unwrap();
 
     // Check where propagation actually stopped
     let actual_duration = prop2.current_epoch() - epoch;

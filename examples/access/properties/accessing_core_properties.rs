@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         -122.4194,
         37.7749,
         0.0
-    );
+    ).unwrap();
 
     // Create propagator from TLE (ISS example)
     let tle_line1 = "1 25544U 98067A   25306.42331346  .00010070  00000-0  18610-3 0  9999";

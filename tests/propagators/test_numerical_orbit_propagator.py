@@ -4833,6 +4833,62 @@ def test_numericalorbitpropagator_construction_extended_state():
     assert prop.state_dim == 9
 
 
+def test_numericalorbitpropagator_raising_callback_reraised_fresh_each_call():
+    """A raising additional-dynamics callback surfaces as the original Python
+    exception, and each failing call re-raises a fresh exception rather than a
+    stale one left over from a previous call."""
+    epoch = create_test_epoch()
+    extended_state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0, 1000.0])
+
+    def raising_dyn(epc, state, params):
+        raise ValueError("callback exploded")
+
+    prop = NumericalOrbitPropagator(
+        epoch,
+        extended_state,
+        NumericalPropagationConfig.default(),
+        ForceModelConfig.earth_gravity(),
+        None,
+        additional_dynamics=raising_dyn,
+    )
+
+    with pytest.raises(ValueError, match="callback exploded") as first:
+        prop.step_by(10.0)
+
+    # A second failing call must raise its own fresh exception instance,
+    # proving the stashed-error slot was drained by the first call.
+    with pytest.raises(ValueError, match="callback exploded") as second:
+        prop.step_by(10.0)
+
+    assert first.value is not second.value
+
+
+def test_numericalorbitpropagator_construction_raising_callback_reraised():
+    """A callback that raises while construction computes the initial stored
+    acceleration surfaces as the original Python exception, not a wrapped
+    RuntimeError."""
+    epoch = create_test_epoch()
+    extended_state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0, 1000.0])
+
+    class CallbackBoom(Exception):
+        pass
+
+    def raising_dyn(epc, state, params):
+        raise CallbackBoom("callback exploded")
+
+    config = NumericalPropagationConfig.default().with_store_accelerations(True)
+
+    with pytest.raises(CallbackBoom, match="callback exploded"):
+        NumericalOrbitPropagator(
+            epoch,
+            extended_state,
+            config,
+            ForceModelConfig.earth_gravity(),
+            None,
+            additional_dynamics=raising_dyn,
+        )
+
+
 def test_numericalorbitpropagator_construction_with_additional_dynamics():
     """Test construction with additional dynamics (mirrors Rust test)"""
     epoch = create_test_epoch()

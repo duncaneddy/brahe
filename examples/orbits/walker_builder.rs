@@ -30,6 +30,6 @@ fn main() {
     println!("Number of planes: {}", walker.num_planes);
     println!("Pattern: {:?}", walker.pattern);
 
-    let propagators = walker.as_keplerian_propagators(60.0);
+    let propagators = walker.as_keplerian_propagators(60.0).unwrap();
     println!("Generated {} Keplerian propagators", propagators.len());
 }

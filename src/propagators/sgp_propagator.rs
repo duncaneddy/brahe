@@ -113,9 +113,8 @@ fn convert_state_from_spg4_frame(
     match representation {
         OrbitRepresentation::Cartesian => match frame {
             OrbitFrame::BodyCenteredInertial(_) => {
-                panic!(
-                    "{}",
-                    "OrbitFrame::BodyCenteredInertial is not supported by SGPPropagator (Earth-only)"
+                unreachable!(
+                    "BodyCenteredInertial frames are rejected when the output format is set"
                 )
             }
             OrbitFrame::ECI => state_ecef_to_eci(epoch, ecef_state),
@@ -129,13 +128,18 @@ fn convert_state_from_spg4_frame(
         },
         OrbitRepresentation::Keplerian => {
             if frame != OrbitFrame::ECI && frame != OrbitFrame::GCRF {
-                panic!("Keplerian elements must be in ECI or GCRF frame");
+                unreachable!(
+                    "Keplerian output outside ECI/GCRF is rejected when the output format is set"
+                );
             }
 
             if let Some(format) = angle_format {
                 state_eci_to_koe(state_ecef_to_eci(epoch, ecef_state), format)
             } else {
-                panic!("Angle format must be specified for Keplerian elements");
+                unreachable!(
+                    "Keplerian output without an angle format is rejected when the output \
+                     format is set"
+                );
             }
         }
     }
@@ -149,15 +153,15 @@ fn svec6_to_dvec(sv: &Vector6<f64>) -> DVector<f64> {
 
 /// Validate a frame/representation/angle-format output combination.
 ///
-/// Shared by [`SGPPropagator::with_output_format`] (which panics on an
-/// invalid combination, preserving its existing public contract) and
-/// [`SGPPropagatorBuilder::build`] (which returns `Err` instead).
+/// Shared by [`SGPPropagator::with_output_format`] and
+/// [`SGPPropagatorBuilder::build`].
 ///
 /// # Errors
 /// Returns `BraheError` if:
 /// - Keplerian representation is requested without `angle_format`
 /// - Keplerian representation is requested in a non-ECI frame
 /// - Cartesian representation is given with `angle_format`
+/// - The frame is body-centered inertial (Earth-only propagator)
 fn validate_output_format(
     frame: OrbitFrame,
     representation: OrbitRepresentation,
@@ -178,6 +182,13 @@ fn validate_output_format(
     if representation == OrbitRepresentation::Cartesian && angle_format.is_some() {
         return Err(BraheError::PropagatorError(
             "Angle format should be None for Cartesian representation".to_string(),
+        ));
+    }
+
+    if matches!(frame, OrbitFrame::BodyCenteredInertial(_)) {
+        return Err(BraheError::PropagatorError(
+            "OrbitFrame::BodyCenteredInertial is not supported by SGPPropagator (Earth-only)"
+                .to_string(),
         ));
     }
 
@@ -795,6 +806,7 @@ impl SGPPropagatorBuilder {
     ///   - Keplerian representation requested without `angle_format`
     ///   - Keplerian representation requested in a non-ECI frame
     ///   - Cartesian representation given with `angle_format`
+    ///   - A body-centered inertial frame (Earth-only propagator)
     ///
     /// # Examples
     ///
@@ -841,7 +853,7 @@ impl SGPPropagatorBuilder {
         )?;
         Ok(match self.output_format {
             Some((frame, representation, angle_format)) => {
-                prop.with_output_format(frame, representation, angle_format)
+                prop.with_output_format(frame, representation, angle_format)?
             }
             None => prop,
         })
@@ -972,7 +984,7 @@ impl SGPPropagator {
 
         // Create trajectory with initial state
         let mut trajectory =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)?;
 
         // Set trajectory identity from propagator identity
         if let Some(n) = name {
@@ -981,7 +993,7 @@ impl SGPPropagator {
         // NORAD ID is always available (norad_id: u32)
         trajectory = trajectory.with_id(norad_id as u64);
 
-        trajectory.add(epoch, svec6_to_dvec(&initial_state));
+        trajectory.add(epoch, svec6_to_dvec(&initial_state))?;
 
         let mut result = Ok(SGPPropagator {
             line1: line1.to_string(),
@@ -1243,7 +1255,7 @@ impl SGPPropagator {
 
         // Create trajectory with initial state
         let mut trajectory =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)?;
 
         // Set trajectory identity from propagator identity
         if let Some(n) = object_name {
@@ -1251,7 +1263,7 @@ impl SGPPropagator {
         }
         trajectory = trajectory.with_id(norad_id);
 
-        trajectory.add(brahe_epoch, svec6_to_dvec(&initial_state));
+        trajectory.add(brahe_epoch, svec6_to_dvec(&initial_state))?;
 
         let mut result = Ok(SGPPropagator {
             line1,
@@ -1493,21 +1505,20 @@ impl SGPPropagator {
     /// - `representation`: State representation (Cartesian or Keplerian)
     /// - `angle_format`: Angle units (Degrees/Radians) - required for Keplerian, None for Cartesian
     ///
-    /// # Panics
-    /// - If Keplerian representation requested without angle_format
-    /// - If Keplerian representation requested in ECEF frame
-    /// - If Cartesian representation given with angle_format
-    ///
     /// # Returns
-    /// Self for method chaining
+    /// Self for method chaining, or an error if:
+    /// - Keplerian representation is requested without angle_format
+    /// - Keplerian representation is requested outside the ECI frame
+    /// - Cartesian representation is given with angle_format
+    /// - The frame is body-centered inertial (Earth-only propagator)
+    /// - SGP4 propagation of the TLE epoch state fails
     pub fn with_output_format(
         mut self,
         frame: OrbitFrame,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
-    ) -> Self {
-        validate_output_format(frame, representation, angle_format)
-            .expect("invalid output format combination");
+    ) -> Result<Self, BraheError> {
+        validate_output_format(frame, representation, angle_format)?;
 
         self.frame = frame;
         self.representation = representation;
@@ -1518,14 +1529,14 @@ impl SGPPropagator {
         let uuid = self.trajectory.get_uuid();
         let id = self.trajectory.get_id();
 
-        self.trajectory = DOrbitTrajectory::new(6, frame, representation, angle_format)
+        self.trajectory = DOrbitTrajectory::new(6, frame, representation, angle_format)?
             .with_identity(name.as_deref(), uuid, id);
 
         // Propagate to initial epoch and add to trajectory
         let prediction = self
             .constants
             .propagate(sgp4::MinutesSinceEpoch(0.0))
-            .expect("SGP4 propagation failed");
+            .map_err(|e| BraheError::PropagatorError(format!("SGP4 propagation failed: {}", e)))?;
 
         // Convert from km to m and km/s to m/s
         let tle_state = Vector6::new(
@@ -1548,9 +1559,9 @@ impl SGPPropagator {
         self.epoch_current = self.epoch;
         self.state_current = initial_state;
         self.trajectory
-            .add(self.epoch, svec6_to_dvec(&initial_state));
+            .add(self.epoch, svec6_to_dvec(&initial_state))?;
 
-        self
+        Ok(self)
     }
 
     /// Internal propagation to target epoch, returning state in the internal
@@ -1679,8 +1690,11 @@ impl SGPPropagator {
     /// println!("Inclination: {:.4} deg", elements[2]);
     /// ```
     pub fn elements(&self) -> Vector6<f64> {
+        // Infallible: the TLE lines were validated when the propagator was
+        // constructed, so re-extracting elements from the same lines cannot
+        // fail. Use `get_elements` for a fallible variant.
         self.get_elements(AngleFormat::Degrees)
-            .expect("Failed to extract elements from TLE")
+            .expect("TLE validated at construction can no longer be parsed")
     }
 
     /// Get semi-major axis at TLE epoch.
@@ -2174,10 +2188,10 @@ impl SGPPropagator {
 }
 
 impl SStatePropagator for SGPPropagator {
-    fn step_by(&mut self, step_size: f64) {
+    fn step_by(&mut self, step_size: f64) -> Result<(), BraheError> {
         // Check termination flag - stop immediately if already terminated
         if self.terminated {
-            return;
+            return Ok(());
         }
 
         let current_epoch = self.current_epoch();
@@ -2190,7 +2204,7 @@ impl SStatePropagator for SGPPropagator {
             Err(e) => {
                 self.terminated = true;
                 self.termination_error = Some(e);
-                return;
+                return Ok(());
             }
         };
         let state_curr_eci = match self.state_eci_cartesian(target_epoch) {
@@ -2200,7 +2214,7 @@ impl SStatePropagator for SGPPropagator {
                 // Keep current state as the last valid state.
                 self.terminated = true;
                 self.termination_error = Some(e);
-                return;
+                return Ok(());
             }
         };
 
@@ -2246,7 +2260,7 @@ impl SStatePropagator for SGPPropagator {
                     Err(e) => {
                         self.terminated = true;
                         self.termination_error = Some(e);
-                        return;
+                        return Ok(());
                     }
                 };
                 let event_state_output = convert_state_from_spg4_frame(
@@ -2264,13 +2278,13 @@ impl SStatePropagator for SGPPropagator {
                 // Gate trajectory storage on mode
                 if self.should_store_state() {
                     self.trajectory
-                        .add(event.window_open, svec6_to_dvec(&event_state_output));
+                        .add(event.window_open, svec6_to_dvec(&event_state_output))?;
                 }
 
                 // Check for terminal action
                 if action == EventAction::Stop {
                     self.terminated = true;
-                    return; // Stop propagation, don't add target state
+                    return Ok(()); // Stop propagation, don't add target state
                 }
             }
         }
@@ -2281,7 +2295,7 @@ impl SStatePropagator for SGPPropagator {
             Err(e) => {
                 self.terminated = true;
                 self.termination_error = Some(e);
-                return;
+                return Ok(());
             }
         };
         let new_state = convert_state_from_spg4_frame(
@@ -2298,8 +2312,11 @@ impl SStatePropagator for SGPPropagator {
 
         // Gate trajectory storage on mode
         if self.should_store_state() {
-            self.trajectory.add(target_epoch, svec6_to_dvec(&new_state));
+            self.trajectory
+                .add(target_epoch, svec6_to_dvec(&new_state))?;
         }
+
+        Ok(())
     }
 
     // Default implementation from trait is used for:
@@ -2337,7 +2354,8 @@ impl SStatePropagator for SGPPropagator {
         self.state_current = self.initial_state;
         self.trajectory.clear();
         self.trajectory
-            .add(self.epoch, svec6_to_dvec(&self.initial_state));
+            .add(self.epoch, svec6_to_dvec(&self.initial_state))
+            .expect("trajectory state validated at construction");
 
         // Clear event detection state
         self.event_log.clear();
@@ -2358,13 +2376,13 @@ impl SStatePropagator for SGPPropagator {
         self.trajectory.set_eviction_policy_max_age(max_age)
     }
 
-    fn propagate_to(&mut self, target_epoch: Epoch) {
+    fn propagate_to(&mut self, target_epoch: Epoch) -> Result<(), BraheError> {
         let step = self.step_size();
 
         if step >= 0.0 {
             // Forward propagation - only proceed if target is in the future
             if target_epoch <= self.current_epoch() {
-                return;
+                return Ok(());
             }
             while !self.terminated && self.current_epoch() < target_epoch {
                 let remaining_time = target_epoch - self.current_epoch();
@@ -2375,12 +2393,12 @@ impl SStatePropagator for SGPPropagator {
                     break;
                 }
 
-                self.step_by(step_size);
+                self.step_by(step_size)?;
             }
         } else {
             // Backward propagation - only proceed if target is in the past
             if target_epoch >= self.current_epoch() {
-                return;
+                return Ok(());
             }
             while !self.terminated && self.current_epoch() > target_epoch {
                 let remaining_time = self.current_epoch() - target_epoch;
@@ -2391,9 +2409,11 @@ impl SStatePropagator for SGPPropagator {
                     break;
                 }
 
-                self.step_by(step_size);
+                self.step_by(step_size)?;
             }
         }
+
+        Ok(())
     }
 }
 
@@ -2785,7 +2805,7 @@ mod tests {
         assert!(initial_state.iter().all(|x| x.is_finite()));
 
         // Propagate forward
-        prop.step();
+        prop.step().unwrap();
         let new_state = prop.current_state();
         assert!(new_state.iter().all(|x| x.is_finite()));
         assert_ne!(new_state, initial_state);
@@ -3086,7 +3106,7 @@ mod tests {
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let initial_epoch = prop.current_epoch();
 
-        prop.step();
+        prop.step().unwrap();
         let new_epoch = prop.current_epoch();
 
         assert_abs_diff_eq!(new_epoch - initial_epoch, 60.0, epsilon = 0.1);
@@ -3104,7 +3124,7 @@ mod tests {
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let initial_epoch = prop.current_epoch();
 
-        prop.step_by(120.0);
+        prop.step_by(120.0).unwrap();
         let new_epoch = prop.current_epoch();
 
         assert_abs_diff_eq!(new_epoch - initial_epoch, 120.0, epsilon = 0.1);
@@ -3124,7 +3144,7 @@ mod tests {
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let initial_epoch = prop.current_epoch();
 
-        prop.propagate_steps(5);
+        prop.propagate_steps(5).unwrap();
         let new_epoch = prop.current_epoch();
 
         assert_abs_diff_eq!(new_epoch - initial_epoch, 300.0, epsilon = 0.1);
@@ -3143,7 +3163,7 @@ mod tests {
         let initial_epoch = prop.initial_epoch();
 
         let target_epoch = initial_epoch + 250.0;
-        prop.step_past(target_epoch);
+        prop.step_past(target_epoch).unwrap();
 
         let current_epoch = prop.current_epoch();
         assert!(current_epoch > target_epoch);
@@ -3165,7 +3185,7 @@ mod tests {
         let initial_epoch = prop.initial_epoch();
         let target_epoch = initial_epoch + 90.0; // 90 seconds forward
 
-        prop.propagate_to(target_epoch);
+        prop.propagate_to(target_epoch).unwrap();
         let current_epoch = prop.current_epoch();
 
         assert_eq!(current_epoch, target_epoch);
@@ -3246,7 +3266,7 @@ mod tests {
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
 
         // Propagate forward
-        prop.propagate_steps(5);
+        prop.propagate_steps(5).unwrap();
         assert_eq!(prop.trajectory.len(), 6);
 
         // Reset
@@ -3263,7 +3283,7 @@ mod tests {
         prop.set_eviction_policy_max_size(5).unwrap();
 
         // Propagate 10 steps
-        prop.propagate_steps(10);
+        prop.propagate_steps(10).unwrap();
 
         // Should only keep 5 states
         assert_eq!(prop.trajectory.len(), 5);
@@ -3280,7 +3300,7 @@ mod tests {
         assert!(result.is_ok());
 
         // Propagate several steps (10 * 60s = 600s total)
-        prop.propagate_steps(10);
+        prop.propagate_steps(10).unwrap();
 
         // Should have evicted old states - should keep only last ~3 states (120s / 60s step)
         // Plus current state: 3 previous + current = 4 states max
@@ -3835,7 +3855,8 @@ mod tests {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
-            .with_output_format(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+            .with_output_format(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .unwrap();
 
         assert_eq!(prop.frame, OrbitFrame::ECI);
         assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
@@ -3849,7 +3870,8 @@ mod tests {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
-            .with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None);
+            .with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None)
+            .unwrap();
 
         assert_eq!(prop.frame, OrbitFrame::ECEF);
         assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
@@ -3866,7 +3888,8 @@ mod tests {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
-            .with_output_format(OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None);
+            .with_output_format(OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None)
+            .unwrap();
 
         assert_eq!(prop.frame, OrbitFrame::GCRF);
         assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
@@ -3883,7 +3906,8 @@ mod tests {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
-            .with_output_format(OrbitFrame::EME2000, OrbitRepresentation::Cartesian, None);
+            .with_output_format(OrbitFrame::EME2000, OrbitRepresentation::Cartesian, None)
+            .unwrap();
 
         assert_eq!(prop.frame, OrbitFrame::EME2000);
         assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
@@ -3900,7 +3924,8 @@ mod tests {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
-            .with_output_format(OrbitFrame::ITRF, OrbitRepresentation::Cartesian, None);
+            .with_output_format(OrbitFrame::ITRF, OrbitRepresentation::Cartesian, None)
+            .unwrap();
 
         assert_eq!(prop.frame, OrbitFrame::ITRF);
         assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
@@ -3921,7 +3946,8 @@ mod tests {
                 OrbitFrame::ECI,
                 OrbitRepresentation::Keplerian,
                 Some(AngleFormat::Degrees),
-            );
+            )
+            .unwrap();
 
         assert_eq!(prop.frame, OrbitFrame::ECI);
         assert_eq!(prop.representation, OrbitRepresentation::Keplerian);
@@ -3943,7 +3969,8 @@ mod tests {
                 OrbitFrame::ECI,
                 OrbitRepresentation::Keplerian,
                 Some(AngleFormat::Radians),
-            );
+            )
+            .unwrap();
 
         assert_eq!(prop.frame, OrbitFrame::ECI);
         assert_eq!(prop.representation, OrbitRepresentation::Keplerian);
@@ -3964,11 +3991,13 @@ mod tests {
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
 
         // Propagate to add states
-        prop.propagate_steps(5);
+        prop.propagate_steps(5).unwrap();
         assert_eq!(prop.trajectory.len(), 6);
 
         // Change output format - should reset trajectory
-        let prop = prop.with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None);
+        let prop = prop
+            .with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None)
+            .unwrap();
         assert_eq!(prop.trajectory.len(), 1); // Only initial state in new format
     }
 
@@ -3978,10 +4007,11 @@ mod tests {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
-            .with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None);
+            .with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None)
+            .unwrap();
 
         // Propagate in new format
-        prop.propagate_steps(3);
+        prop.propagate_steps(3).unwrap();
         assert_eq!(prop.trajectory.len(), 4);
 
         // All states should be valid
@@ -3996,7 +4026,8 @@ mod tests {
         setup_global_test_eop();
         let _prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
-            .with_output_format(OrbitFrame::ECI, OrbitRepresentation::Keplerian, None);
+            .with_output_format(OrbitFrame::ECI, OrbitRepresentation::Keplerian, None)
+            .unwrap();
     }
 
     #[test]
@@ -4010,7 +4041,8 @@ mod tests {
                 OrbitFrame::ECEF,
                 OrbitRepresentation::Keplerian,
                 Some(AngleFormat::Degrees),
-            );
+            )
+            .unwrap();
     }
 
     #[test]
@@ -4024,7 +4056,8 @@ mod tests {
                 OrbitFrame::ECI,
                 OrbitRepresentation::Cartesian,
                 Some(AngleFormat::Degrees),
-            );
+            )
+            .unwrap();
     }
 
     // state_gcrf and state_eme2000 Tests (non-ignored basic tests)
@@ -4220,7 +4253,7 @@ mod tests {
         prop.add_event_detector(Box::new(detector));
 
         // Propagate past the event
-        prop.propagate_to(epoch + 300.0);
+        prop.propagate_to(epoch + 300.0).unwrap();
 
         // Event should have been detected
         let events = prop.event_log();
@@ -4248,7 +4281,7 @@ mod tests {
         prop.add_event_detector(Box::new(detector3));
 
         // Propagate past all events
-        prop.propagate_to(epoch + 400.0);
+        prop.propagate_to(epoch + 400.0).unwrap();
 
         // All events should be detected
         let events = prop.event_log();
@@ -4271,7 +4304,7 @@ mod tests {
         prop.add_event_detector(Box::new(detector2));
         prop.add_event_detector(Box::new(detector3));
 
-        prop.propagate_to(epoch + 400.0);
+        prop.propagate_to(epoch + 400.0).unwrap();
 
         // Search for "Alpha" events
         let alpha_events = prop.events_by_name("Alpha");
@@ -4299,7 +4332,7 @@ mod tests {
         prop.add_event_detector(Box::new(detector1));
         prop.add_event_detector(Box::new(detector2));
 
-        prop.propagate_to(epoch + 250.0);
+        prop.propagate_to(epoch + 250.0).unwrap();
 
         // Latest event should be "Second"
         let latest = prop.latest_event().unwrap();
@@ -4322,7 +4355,7 @@ mod tests {
         prop.add_event_detector(Box::new(detector2));
         prop.add_event_detector(Box::new(detector3));
 
-        prop.propagate_to(epoch + 400.0);
+        prop.propagate_to(epoch + 400.0).unwrap();
 
         // Events between 150-250 seconds
         let range_events = prop.events_in_range(epoch + 150.0, epoch + 250.0);
@@ -4344,7 +4377,7 @@ mod tests {
         prop.add_event_detector(Box::new(detector1));
         prop.add_event_detector(Box::new(detector2));
 
-        prop.propagate_to(epoch + 300.0);
+        prop.propagate_to(epoch + 300.0).unwrap();
 
         // Get events by detector index
         let events_0 = prop.events_by_detector_index(0);
@@ -4369,7 +4402,7 @@ mod tests {
         prop.add_event_detector(Box::new(detector));
 
         // Try to propagate to 300 seconds
-        prop.propagate_to(epoch + 300.0);
+        prop.propagate_to(epoch + 300.0).unwrap();
 
         // Should be terminated
         assert!(prop.is_terminated());
@@ -4392,7 +4425,7 @@ mod tests {
         // Add and trigger an event
         let detector = DTimeEvent::new(epoch + 100.0, "Test Event");
         prop.add_event_detector(Box::new(detector));
-        prop.propagate_to(epoch + 200.0);
+        prop.propagate_to(epoch + 200.0).unwrap();
 
         assert_eq!(prop.event_log().len(), 1);
 
@@ -4414,7 +4447,7 @@ mod tests {
         // Add and trigger events
         let detector = DTimeEvent::new(epoch + 100.0, "Test Event");
         prop.add_event_detector(Box::new(detector));
-        prop.propagate_to(epoch + 200.0);
+        prop.propagate_to(epoch + 200.0).unwrap();
 
         assert_eq!(prop.event_log().len(), 1);
 
@@ -4437,7 +4470,7 @@ mod tests {
         let detector = DTimeEvent::new(epoch + 100.0, "Terminal").set_terminal();
         prop.add_event_detector(Box::new(detector));
 
-        prop.propagate_to(epoch + 200.0);
+        prop.propagate_to(epoch + 200.0).unwrap();
         assert!(prop.is_terminated());
 
         // Reset termination
@@ -4445,7 +4478,7 @@ mod tests {
         assert!(!prop.is_terminated());
 
         // Should be able to propagate again
-        prop.propagate_to(epoch + 300.0);
+        prop.propagate_to(epoch + 300.0).unwrap();
         assert!(prop.current_epoch() > epoch + 250.0);
     }
 
@@ -4461,7 +4494,7 @@ mod tests {
         prop.add_event_detector(Box::new(detector));
 
         // Propagate for one full orbit (~92 minutes for ISS)
-        prop.propagate_to(epoch + 5600.0);
+        prop.propagate_to(epoch + 5600.0).unwrap();
 
         // Should detect at least one ascending node crossing
         let events = prop.event_log();
@@ -4478,7 +4511,7 @@ mod tests {
         // Add an event
         let detector = DTimeEvent::new(epoch + 100.0, "Test Event");
         prop.add_event_detector(Box::new(detector));
-        prop.propagate_to(epoch + 200.0);
+        prop.propagate_to(epoch + 200.0).unwrap();
 
         assert_eq!(prop.event_log().len(), 1);
 
@@ -4506,7 +4539,7 @@ mod tests {
         prop.add_event_detector(Box::new(detector2));
         prop.add_event_detector(Box::new(detector3));
 
-        prop.propagate_to(epoch + 400.0);
+        prop.propagate_to(epoch + 400.0).unwrap();
 
         // Use query builder
         let filtered: Vec<_> = prop
@@ -4541,7 +4574,7 @@ mod tests {
 
         // Verify propagator now has empty detectors
         // (can't directly access, but propagating should not detect events)
-        prop.propagate_to(epoch + 300.0);
+        prop.propagate_to(epoch + 300.0).unwrap();
         assert!(prop.event_log().is_empty());
     }
 
@@ -4562,7 +4595,7 @@ mod tests {
         prop.set_event_detectors(detectors);
 
         // Propagate and verify events are detected
-        prop.propagate_to(epoch + 300.0);
+        prop.propagate_to(epoch + 300.0).unwrap();
         assert_eq!(prop.event_log().len(), 2);
     }
 
@@ -4576,7 +4609,7 @@ mod tests {
         // Add detector and propagate to trigger event
         let detector = DTimeEvent::new(epoch + 100.0, "TestEvent");
         prop.add_event_detector(Box::new(detector));
-        prop.propagate_to(epoch + 200.0);
+        prop.propagate_to(epoch + 200.0).unwrap();
 
         // Verify event was detected
         assert_eq!(prop.event_log().len(), 1);
@@ -4626,14 +4659,14 @@ mod tests {
         assert_eq!(taken.len(), 1);
 
         // Propagate - should not detect (no detectors)
-        prop.propagate_to(epoch + 100.0);
+        prop.propagate_to(epoch + 100.0).unwrap();
         assert!(prop.event_log().is_empty());
 
         // Set detectors back
         prop.set_event_detectors(taken);
 
         // Continue propagation past event time
-        prop.propagate_to(epoch + 200.0);
+        prop.propagate_to(epoch + 200.0).unwrap();
 
         // Now event should be detected
         assert_eq!(prop.event_log().len(), 1);
@@ -4799,9 +4832,9 @@ mod tests {
         let initial_state = prop.initial_state();
 
         // Propagate multiple steps
-        prop.step_by(60.0);
-        prop.step_by(60.0);
-        prop.step_by(60.0);
+        prop.step_by(60.0).unwrap();
+        prop.step_by(60.0).unwrap();
+        prop.step_by(60.0).unwrap();
 
         // Trajectory should only contain the initial state (from construction)
         assert_eq!(prop.trajectory.len(), 1);
@@ -4825,8 +4858,8 @@ mod tests {
         let mut prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
 
         // Default mode - should store states
-        prop.step_by(60.0);
-        prop.step_by(60.0);
+        prop.step_by(60.0).unwrap();
+        prop.step_by(60.0).unwrap();
 
         // Should have initial state + 2 propagation steps
         assert_eq!(prop.trajectory.len(), 3);
@@ -4842,7 +4875,7 @@ mod tests {
         let mut prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
 
         // Start with default mode, propagate
-        prop.step_by(60.0);
+        prop.step_by(60.0).unwrap();
         assert_eq!(prop.trajectory.len(), 2); // initial + 1 step
 
         // Switch to disabled mode
@@ -4850,8 +4883,8 @@ mod tests {
         assert_eq!(prop.trajectory_mode(), TrajectoryMode::Disabled);
 
         // Propagate more - trajectory should not grow
-        prop.step_by(60.0);
-        prop.step_by(60.0);
+        prop.step_by(60.0).unwrap();
+        prop.step_by(60.0).unwrap();
         assert_eq!(prop.trajectory.len(), 2); // still 2
 
         // But current state should reflect the latest propagation
@@ -4873,8 +4906,8 @@ mod tests {
         let mut prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
 
         prop.set_trajectory_mode(TrajectoryMode::Disabled);
-        prop.step_by(60.0);
-        prop.step_by(60.0);
+        prop.step_by(60.0).unwrap();
+        prop.step_by(60.0).unwrap();
 
         // Reset should restore to initial state
         prop.reset();
@@ -4926,7 +4959,7 @@ mod tests {
 
         // Propagate 2 days — this satellite diverges within ~24 hours
         let target_epoch = initial_epoch + 2.0 * 86400.0;
-        prop.propagate_to(target_epoch);
+        prop.propagate_to(target_epoch).unwrap();
 
         // Propagator should have terminated due to error
         assert!(prop.is_terminated());
@@ -4972,7 +5005,7 @@ mod tests {
 
         // Trigger termination via propagation error
         let target_epoch = initial_epoch + 2.0 * 86400.0;
-        prop.propagate_to(target_epoch);
+        prop.propagate_to(target_epoch).unwrap();
         assert!(prop.is_terminated());
         assert!(prop.termination_error().is_some());
 
@@ -4992,7 +5025,7 @@ mod tests {
 
         // Trigger termination via propagation error
         let target_epoch = initial_epoch + 2.0 * 86400.0;
-        prop.propagate_to(target_epoch);
+        prop.propagate_to(target_epoch).unwrap();
         assert!(prop.is_terminated());
         assert!(prop.termination_error().is_some());
 
@@ -5000,5 +5033,72 @@ mod tests {
         prop.reset_termination();
         assert!(!prop.is_terminated());
         assert!(prop.termination_error().is_none());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sgppropagator_with_output_format_rejects_bci() {
+        setup_global_test_eop();
+
+        // SGPPropagator is Earth-only; body-centered inertial output is rejected
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let result = prop.with_output_format(
+            OrbitFrame::BodyCenteredInertial(399),
+            OrbitRepresentation::Cartesian,
+            None,
+        );
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("BodyCenteredInertial is not supported")
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sgppropagator_step_by_noop_when_terminated() {
+        setup_global_test_eop();
+
+        // Once terminated, step_by is a no-op that leaves the epoch unchanged
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        prop.set_terminated(true);
+        let before = prop.current_epoch();
+        prop.step_by(60.0).unwrap();
+        assert_eq!(prop.current_epoch(), before);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sgppropagator_propagate_to_forward_past_target_noop() {
+        setup_global_test_eop();
+
+        // Forward propagation with a target in the past is a no-op
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let start = prop.current_epoch();
+        prop.propagate_to(start - 100.0).unwrap();
+        assert_eq!(prop.current_epoch(), start);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sgppropagator_propagate_to_backward() {
+        setup_global_test_eop();
+
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        prop.set_step_size(-60.0);
+        let start = prop.current_epoch();
+
+        // Backward propagation with a future target is a no-op
+        prop.propagate_to(start + 100.0).unwrap();
+        assert_eq!(prop.current_epoch(), start);
+
+        // Backward propagation to a past target advances the epoch backward
+        prop.propagate_to(start - 180.0).unwrap();
+        assert!(prop.current_epoch() < start);
+        let time_diff: f64 = prop.current_epoch() - (start - 180.0);
+        assert!(time_diff.abs() < 1e-6);
     }
 }

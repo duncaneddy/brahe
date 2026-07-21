@@ -45,7 +45,7 @@ fn bench_sgp4_24hour(c: &mut Criterion) {
                 SGPPropagator::from_tle(black_box(line1), black_box(line2), black_box(60.0))
                     .unwrap();
             let target = prop.current_epoch() + black_box(86400.0);
-            prop.propagate_to(target);
+            prop.propagate_to(target).unwrap();
         })
     });
 
@@ -71,7 +71,7 @@ fn bench_numerical_conservative_24hour(
             )
             .unwrap();
             let target = black_box(epoch + 86400.0);
-            prop.propagate_to(target);
+            prop.propagate_to(target).unwrap();
         })
     });
 }
@@ -110,7 +110,7 @@ fn bench_numerical_fast_j6_zonal_earth_rotation_only_24hour(
             )
             .unwrap();
             let target = black_box(epoch + 86400.0);
-            prop.propagate_to(target);
+            prop.propagate_to(target).unwrap();
         })
     });
 }
@@ -149,7 +149,7 @@ fn bench_numerical_fast_j6_zonal_full_rotation_24hour(
             )
             .unwrap();
             let target = black_box(epoch + 86400.0);
-            prop.propagate_to(target);
+            prop.propagate_to(target).unwrap();
         })
     });
 }
@@ -191,7 +191,7 @@ fn bench_spherical_harmonic_j6_equivalent_24hour(
             )
             .unwrap();
             let target = black_box(epoch + 86400.0);
-            prop.propagate_to(target);
+            prop.propagate_to(target).unwrap();
         })
     });
 }

@@ -25,16 +25,23 @@ pub use crate::utils::state_providers::{
 /// See also: [`DStatePropagator`] for dynamic-sized version, [`SOrbitPropagator`] for orbit-specific initialization
 pub trait SStatePropagator {
     /// Step forward by the default step size
-    /// Returns Result indicating success/failure, use getters to access state
-    fn step(&mut self) {
-        self.step_by(self.step_size());
+    ///
+    /// # Returns
+    /// `Ok(())` on success, or an error if the underlying integration or
+    /// force-model evaluation fails.
+    fn step(&mut self) -> Result<(), BraheError> {
+        self.step_by(self.step_size())
     }
 
     /// Step by a specified time duration (positive or negative)
     ///
     /// # Arguments
     /// * `step_size` - Time step in seconds (positive for forward, negative for backward)
-    fn step_by(&mut self, step_size: f64);
+    ///
+    /// # Returns
+    /// `Ok(())` on success, or an error if the underlying integration or
+    /// force-model evaluation fails.
+    fn step_by(&mut self, step_size: f64) -> Result<(), BraheError>;
 
     /// Step past a specified target epoch in the current propagation direction.
     ///
@@ -43,37 +50,48 @@ pub trait SStatePropagator {
     /// - For backward propagation (step_size < 0): steps until current_epoch <= target_epoch
     ///
     /// If the target is in the opposite direction of propagation, no action is taken.
-    fn step_past(&mut self, target_epoch: Epoch) {
+    ///
+    /// # Returns
+    /// `Ok(())` on success, or an error if the underlying integration or
+    /// force-model evaluation fails.
+    fn step_past(&mut self, target_epoch: Epoch) -> Result<(), BraheError> {
         let current = self.current_epoch();
         let step = self.step_size();
 
         if step >= 0.0 {
             // Forward propagation - only proceed if target is in the future
             if target_epoch <= current {
-                return;
+                return Ok(());
             }
             while self.current_epoch() < target_epoch {
-                self.step();
+                self.step()?;
             }
         } else {
             // Backward propagation - only proceed if target is in the past
             if target_epoch >= current {
-                return;
+                return Ok(());
             }
             while self.current_epoch() > target_epoch {
-                self.step();
+                self.step()?;
             }
         }
+
+        Ok(())
     }
 
     /// Step by default step size for a specified number of steps
     ///
     /// # Arguments
     /// * `num_steps` - Number of steps to take
-    fn propagate_steps(&mut self, num_steps: usize) {
+    ///
+    /// # Returns
+    /// `Ok(())` on success, or an error if the underlying integration or
+    /// force-model evaluation fails.
+    fn propagate_steps(&mut self, num_steps: usize) -> Result<(), BraheError> {
         for _ in 0..num_steps {
-            self.step();
+            self.step()?;
         }
+        Ok(())
     }
 
     /// Propagate to a specific target epoch, respecting propagation direction.
@@ -86,14 +104,18 @@ pub trait SStatePropagator {
     ///
     /// # Arguments
     /// * `target_epoch` - The epoch to propagate to
-    fn propagate_to(&mut self, target_epoch: Epoch) {
+    ///
+    /// # Returns
+    /// `Ok(())` on success, or an error if the underlying integration or
+    /// force-model evaluation fails.
+    fn propagate_to(&mut self, target_epoch: Epoch) -> Result<(), BraheError> {
         let mut current_epoch = self.current_epoch();
         let step = self.step_size();
 
         if step >= 0.0 {
             // Forward propagation - only proceed if target is in the future
             if target_epoch <= current_epoch {
-                return;
+                return Ok(());
             }
             while current_epoch < target_epoch {
                 let remaining_time = target_epoch - current_epoch;
@@ -104,13 +126,13 @@ pub trait SStatePropagator {
                     break;
                 }
 
-                self.step_by(step_size);
+                self.step_by(step_size)?;
                 current_epoch = self.current_epoch();
             }
         } else {
             // Backward propagation - only proceed if target is in the past
             if target_epoch >= current_epoch {
-                return;
+                return Ok(());
             }
             while current_epoch > target_epoch {
                 let remaining_time = current_epoch - target_epoch;
@@ -121,10 +143,12 @@ pub trait SStatePropagator {
                     break;
                 }
 
-                self.step_by(step_size);
+                self.step_by(step_size)?;
                 current_epoch = self.current_epoch();
             }
         }
+
+        Ok(())
     }
 
     // Getter methods for accessing state
@@ -155,10 +179,15 @@ pub trait SStatePropagator {
     ///
     /// # Arguments
     /// * `epochs` - Epochs to propagate to and add to trajectory
-    fn propagate_trajectory(&mut self, epochs: &[Epoch]) {
+    ///
+    /// # Returns
+    /// `Ok(())` on success, or an error if the underlying integration or
+    /// force-model evaluation fails.
+    fn propagate_trajectory(&mut self, epochs: &[Epoch]) -> Result<(), BraheError> {
         for &epoch in epochs {
-            self.propagate_to(epoch);
+            self.propagate_to(epoch)?;
         }
+        Ok(())
     }
 
     // Memory management for trajectory
@@ -179,16 +208,23 @@ pub trait SStatePropagator {
 /// See also: [`SStatePropagator`] for static-sized (6D) version, [`DOrbitPropagator`] for orbit-specific initialization
 pub trait DStatePropagator {
     /// Step forward by the default step size
-    /// Returns Result indicating success/failure, use getters to access state
-    fn step(&mut self) {
-        self.step_by(self.step_size());
+    ///
+    /// # Returns
+    /// `Ok(())` on success, or an error if the underlying integration or
+    /// force-model evaluation fails.
+    fn step(&mut self) -> Result<(), BraheError> {
+        self.step_by(self.step_size())
     }
 
     /// Step by a specified time duration (positive or negative)
     ///
     /// # Arguments
     /// * `step_size` - Time step in seconds (positive for forward, negative for backward)
-    fn step_by(&mut self, step_size: f64);
+    ///
+    /// # Returns
+    /// `Ok(())` on success, or an error if the underlying integration or
+    /// force-model evaluation fails.
+    fn step_by(&mut self, step_size: f64) -> Result<(), BraheError>;
 
     /// Step past a specified target epoch in the current propagation direction.
     ///
@@ -197,37 +233,48 @@ pub trait DStatePropagator {
     /// - For backward propagation (step_size < 0): steps until current_epoch <= target_epoch
     ///
     /// If the target is in the opposite direction of propagation, no action is taken.
-    fn step_past(&mut self, target_epoch: Epoch) {
+    ///
+    /// # Returns
+    /// `Ok(())` on success, or an error if the underlying integration or
+    /// force-model evaluation fails.
+    fn step_past(&mut self, target_epoch: Epoch) -> Result<(), BraheError> {
         let current = self.current_epoch();
         let step = self.step_size();
 
         if step >= 0.0 {
             // Forward propagation - only proceed if target is in the future
             if target_epoch <= current {
-                return;
+                return Ok(());
             }
             while self.current_epoch() < target_epoch {
-                self.step();
+                self.step()?;
             }
         } else {
             // Backward propagation - only proceed if target is in the past
             if target_epoch >= current {
-                return;
+                return Ok(());
             }
             while self.current_epoch() > target_epoch {
-                self.step();
+                self.step()?;
             }
         }
+
+        Ok(())
     }
 
     /// Step by default step size for a specified number of steps
     ///
     /// # Arguments
     /// * `num_steps` - Number of steps to take
-    fn propagate_steps(&mut self, num_steps: usize) {
+    ///
+    /// # Returns
+    /// `Ok(())` on success, or an error if the underlying integration or
+    /// force-model evaluation fails.
+    fn propagate_steps(&mut self, num_steps: usize) -> Result<(), BraheError> {
         for _ in 0..num_steps {
-            self.step();
+            self.step()?;
         }
+        Ok(())
     }
 
     /// Propagate to a specific target epoch, respecting propagation direction.
@@ -240,14 +287,18 @@ pub trait DStatePropagator {
     ///
     /// # Arguments
     /// * `target_epoch` - The epoch to propagate to
-    fn propagate_to(&mut self, target_epoch: Epoch) {
+    ///
+    /// # Returns
+    /// `Ok(())` on success, or an error if the underlying integration or
+    /// force-model evaluation fails.
+    fn propagate_to(&mut self, target_epoch: Epoch) -> Result<(), BraheError> {
         let mut current_epoch = self.current_epoch();
         let step = self.step_size();
 
         if step >= 0.0 {
             // Forward propagation - only proceed if target is in the future
             if target_epoch <= current_epoch {
-                return;
+                return Ok(());
             }
             while current_epoch < target_epoch {
                 let remaining_time = target_epoch - current_epoch;
@@ -258,13 +309,13 @@ pub trait DStatePropagator {
                     break;
                 }
 
-                self.step_by(step_size);
+                self.step_by(step_size)?;
                 current_epoch = self.current_epoch();
             }
         } else {
             // Backward propagation - only proceed if target is in the past
             if target_epoch >= current_epoch {
-                return;
+                return Ok(());
             }
             while current_epoch > target_epoch {
                 let remaining_time = current_epoch - target_epoch;
@@ -275,10 +326,12 @@ pub trait DStatePropagator {
                     break;
                 }
 
-                self.step_by(step_size);
+                self.step_by(step_size)?;
                 current_epoch = self.current_epoch();
             }
         }
+
+        Ok(())
     }
 
     // Getter methods for accessing state
@@ -312,10 +365,15 @@ pub trait DStatePropagator {
     ///
     /// # Arguments
     /// * `epochs` - Epochs to propagate to and add to trajectory
-    fn propagate_trajectory(&mut self, epochs: &[Epoch]) {
+    ///
+    /// # Returns
+    /// `Ok(())` on success, or an error if the underlying integration or
+    /// force-model evaluation fails.
+    fn propagate_trajectory(&mut self, epochs: &[Epoch]) -> Result<(), BraheError> {
         for &epoch in epochs {
-            self.propagate_to(epoch);
+            self.propagate_to(epoch)?;
         }
+        Ok(())
     }
 
     // Memory management for trajectory
@@ -346,8 +404,9 @@ pub trait SOrbitPropagator: SStatePropagator {
     /// * `representation` - Type of orbital representation
     /// * `angle_format` - Format for angular elements (None for Cartesian, Some(format) for Keplerian)
     ///
-    /// # Panics
-    /// May panic if the combination of frame, representation, and angle_format is incompatible
+    /// # Returns
+    /// `Ok(())` on success, or an error if the combination of frame,
+    /// representation, and angle_format is incompatible.
     fn set_initial_conditions(
         &mut self,
         epoch: Epoch,
@@ -355,7 +414,7 @@ pub trait SOrbitPropagator: SStatePropagator {
         frame: OrbitFrame,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
-    );
+    ) -> Result<(), BraheError>;
 }
 
 /// Orbit-specific propagator trait that extends [`DStatePropagator`] with orbital initialization
@@ -378,8 +437,9 @@ pub trait DOrbitPropagator: DStatePropagator {
     /// * `representation` - Type of orbital representation
     /// * `angle_format` - Format for angular elements (None for Cartesian, Some(format) for Keplerian)
     ///
-    /// # Panics
-    /// May panic if the combination of frame, representation, and angle_format is incompatible
+    /// # Returns
+    /// `Ok(())` on success, or an error if the combination of frame,
+    /// representation, and angle_format is incompatible.
     fn set_initial_conditions(
         &mut self,
         epoch: Epoch,
@@ -387,7 +447,7 @@ pub trait DOrbitPropagator: DStatePropagator {
         frame: OrbitFrame,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
-    );
+    ) -> Result<(), BraheError>;
 }
 
 #[cfg(test)]
@@ -422,6 +482,162 @@ mod tests {
             Some(AngleFormat::Radians),
             60.0,
         )
+        .unwrap()
+    }
+
+    /// Minimal [`DStatePropagator`] backed by a scalar clock.
+    ///
+    /// Every production `DStatePropagator` overrides `step_by` and
+    /// `propagate_to`, so this double exists purely to exercise the trait's
+    /// default `step_past`, `propagate_to`, and `propagate_trajectory`
+    /// implementations for both forward and backward propagation.
+    struct MockDPropagator {
+        initial_epoch: Epoch,
+        current_epoch: Epoch,
+        step_size: f64,
+        steps_taken: usize,
+    }
+
+    impl MockDPropagator {
+        fn new(epoch: Epoch, step_size: f64) -> Self {
+            Self {
+                initial_epoch: epoch,
+                current_epoch: epoch,
+                step_size,
+                steps_taken: 0,
+            }
+        }
+    }
+
+    impl DStatePropagator for MockDPropagator {
+        fn step_by(&mut self, step_size: f64) -> Result<(), BraheError> {
+            self.current_epoch += step_size;
+            self.steps_taken += 1;
+            Ok(())
+        }
+
+        fn current_epoch(&self) -> Epoch {
+            self.current_epoch
+        }
+
+        fn current_state(&self) -> DVector<f64> {
+            DVector::from_vec(vec![self.steps_taken as f64])
+        }
+
+        fn initial_epoch(&self) -> Epoch {
+            self.initial_epoch
+        }
+
+        fn initial_state(&self) -> DVector<f64> {
+            DVector::zeros(1)
+        }
+
+        fn state_dim(&self) -> usize {
+            1
+        }
+
+        fn step_size(&self) -> f64 {
+            self.step_size
+        }
+
+        fn set_step_size(&mut self, step_size: f64) {
+            self.step_size = step_size;
+        }
+
+        fn reset(&mut self) {
+            self.current_epoch = self.initial_epoch;
+            self.steps_taken = 0;
+        }
+
+        fn set_eviction_policy_max_size(&mut self, _max_size: usize) -> Result<(), BraheError> {
+            Ok(())
+        }
+
+        fn set_eviction_policy_max_age(&mut self, _max_age: f64) -> Result<(), BraheError> {
+            Ok(())
+        }
+    }
+
+    fn mock_epoch() -> Epoch {
+        setup_global_test_eop();
+        Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC)
+    }
+
+    #[test]
+    fn test_dstate_default_step_past_forward() {
+        let epoch = mock_epoch();
+        let mut prop = MockDPropagator::new(epoch, 60.0);
+        prop.step_past(epoch + 250.0).unwrap();
+        assert!(prop.current_epoch() >= epoch + 250.0);
+    }
+
+    #[test]
+    fn test_dstate_default_step_past_forward_wrong_direction() {
+        let epoch = mock_epoch();
+        let mut prop = MockDPropagator::new(epoch, 60.0);
+        // Forward propagation with a past target is a no-op
+        prop.step_past(epoch - 100.0).unwrap();
+        assert_eq!(prop.current_epoch(), epoch);
+    }
+
+    #[test]
+    fn test_dstate_default_step_past_backward() {
+        let epoch = mock_epoch();
+        let mut prop = MockDPropagator::new(epoch, -60.0);
+        prop.step_past(epoch - 250.0).unwrap();
+        assert!(prop.current_epoch() <= epoch - 250.0);
+    }
+
+    #[test]
+    fn test_dstate_default_step_past_backward_wrong_direction() {
+        let epoch = mock_epoch();
+        let mut prop = MockDPropagator::new(epoch, -60.0);
+        // Backward propagation with a future target is a no-op
+        prop.step_past(epoch + 100.0).unwrap();
+        assert_eq!(prop.current_epoch(), epoch);
+    }
+
+    #[test]
+    fn test_dstate_default_propagate_to_forward() {
+        let epoch = mock_epoch();
+        let mut prop = MockDPropagator::new(epoch, 60.0);
+        let target = epoch + 157.0; // Not a multiple of step_size
+        prop.propagate_to(target).unwrap();
+        assert!((prop.current_epoch() - target).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_dstate_default_propagate_to_forward_wrong_direction() {
+        let epoch = mock_epoch();
+        let mut prop = MockDPropagator::new(epoch, 60.0);
+        prop.propagate_to(epoch - 100.0).unwrap();
+        assert_eq!(prop.current_epoch(), epoch);
+    }
+
+    #[test]
+    fn test_dstate_default_propagate_to_backward() {
+        let epoch = mock_epoch();
+        let mut prop = MockDPropagator::new(epoch, -60.0);
+        let target = epoch - 157.0;
+        prop.propagate_to(target).unwrap();
+        assert!((prop.current_epoch() - target).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_dstate_default_propagate_to_backward_wrong_direction() {
+        let epoch = mock_epoch();
+        let mut prop = MockDPropagator::new(epoch, -60.0);
+        prop.propagate_to(epoch + 100.0).unwrap();
+        assert_eq!(prop.current_epoch(), epoch);
+    }
+
+    #[test]
+    fn test_dstate_default_propagate_trajectory() {
+        let epoch = mock_epoch();
+        let mut prop = MockDPropagator::new(epoch, 60.0);
+        let epochs = vec![epoch + 60.0, epoch + 120.0, epoch + 180.0];
+        prop.propagate_trajectory(&epochs).unwrap();
+        assert!((prop.current_epoch() - epochs[2]).abs() < 1e-6);
     }
 
     #[test]
@@ -431,7 +647,7 @@ mod tests {
         let step_size = prop.step_size();
 
         // Step forward using default step() method
-        prop.step();
+        prop.step().unwrap();
 
         // Verify epoch advanced by step_size
         let new_epoch = prop.current_epoch();
@@ -445,7 +661,7 @@ mod tests {
         let target = initial_epoch + 250.0; // 250 seconds in the future
 
         // Use step_past to reach target
-        prop.step_past(target);
+        prop.step_past(target).unwrap();
 
         // Verify we've gone past the target
         assert!(prop.current_epoch() >= target);
@@ -457,11 +673,11 @@ mod tests {
         let initial_epoch = prop.current_epoch();
 
         // Step forward first
-        prop.step_by(120.0);
+        prop.step_by(120.0).unwrap();
         let current = prop.current_epoch();
 
         // Try to step_past to an epoch in the past
-        prop.step_past(initial_epoch);
+        prop.step_past(initial_epoch).unwrap();
 
         // Should not have changed (already past)
         assert_eq!(prop.current_epoch(), current);
@@ -475,7 +691,7 @@ mod tests {
         let num_steps = 5;
 
         // Propagate for 5 steps
-        prop.propagate_steps(num_steps);
+        prop.propagate_steps(num_steps).unwrap();
 
         // Verify epoch advanced by num_steps * step_size
         let new_epoch = prop.current_epoch();
@@ -490,7 +706,7 @@ mod tests {
         let target = initial_epoch + 157.0; // Not a multiple of step_size
 
         // Propagate to exact target
-        prop.propagate_to(target);
+        prop.propagate_to(target).unwrap();
 
         // Verify we reached the target (within tolerance)
         let final_epoch = prop.current_epoch();
@@ -504,10 +720,61 @@ mod tests {
 
         // Try to propagate to a past epoch
         let past = initial_epoch - 100.0;
-        prop.propagate_to(past);
+        prop.propagate_to(past).unwrap();
 
         // Should not have changed
         assert_eq!(prop.current_epoch(), initial_epoch);
+    }
+
+    #[test]
+    fn test_sorbit_propagator_step_past_backward() {
+        let mut prop = create_test_propagator();
+        prop.set_step_size(-60.0);
+        let start = prop.current_epoch();
+        let target = start - 250.0; // 250 seconds in the past
+
+        // Step past a target behind us while propagating backward
+        prop.step_past(target).unwrap();
+
+        // Verify we've gone past the target (backward)
+        assert!(prop.current_epoch() <= target);
+    }
+
+    #[test]
+    fn test_sorbit_propagator_step_past_backward_wrong_direction() {
+        let mut prop = create_test_propagator();
+        prop.set_step_size(-60.0);
+        let start = prop.current_epoch();
+
+        // Target is in the future but propagation is backward: no-op
+        prop.step_past(start + 100.0).unwrap();
+
+        assert_eq!(prop.current_epoch(), start);
+    }
+
+    #[test]
+    fn test_sorbit_propagator_propagate_to_backward() {
+        let mut prop = create_test_propagator();
+        prop.set_step_size(-60.0);
+        let start = prop.current_epoch();
+        let target = start - 157.0; // Not a multiple of step_size
+
+        prop.propagate_to(target).unwrap();
+
+        // Verify we reached the target (within tolerance)
+        assert!((prop.current_epoch() - target).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_sorbit_propagator_propagate_to_backward_wrong_direction() {
+        let mut prop = create_test_propagator();
+        prop.set_step_size(-60.0);
+        let start = prop.current_epoch();
+
+        // Target is in the future but propagation is backward: no-op
+        prop.propagate_to(start + 100.0).unwrap();
+
+        assert_eq!(prop.current_epoch(), start);
     }
 
     #[test]
@@ -523,7 +790,7 @@ mod tests {
         ];
 
         // Propagate through all epochs
-        prop.propagate_trajectory(&epochs);
+        prop.propagate_trajectory(&epochs).unwrap();
 
         // Verify final epoch is the last target
         let final_epoch = prop.current_epoch();
@@ -545,7 +812,8 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
             60.0,
-        );
+        )
+        .unwrap();
 
         // Create multiple epochs
         let epochs = vec![epoch, epoch + 120.0, epoch + 240.0];
@@ -595,7 +863,8 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
             60.0,
-        );
+        )
+        .unwrap();
 
         let epochs = vec![epoch, epoch + 120.0, epoch + 240.0];
         let states = prop.states_eci(&epochs).unwrap();
@@ -631,7 +900,8 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
             60.0,
-        );
+        )
+        .unwrap();
 
         let epochs = vec![epoch, epoch + 120.0, epoch + 240.0];
         let states = prop.states_ecef(&epochs).unwrap();
@@ -660,7 +930,8 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
             60.0,
-        );
+        )
+        .unwrap();
 
         let epochs = vec![epoch, epoch + 120.0, epoch + 240.0];
         let states = prop.states_gcrf(&epochs).unwrap();
@@ -689,7 +960,8 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
             60.0,
-        );
+        )
+        .unwrap();
 
         let epochs = vec![epoch, epoch + 120.0, epoch + 240.0];
         let states = prop.states_itrf(&epochs).unwrap();

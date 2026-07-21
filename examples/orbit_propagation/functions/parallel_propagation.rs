@@ -31,7 +31,7 @@ fn main() {
             (i as f64) * 36.0,
         );
         let state = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
-        let prop = bh::KeplerianPropagator::from_eci(epoch, state, 60.0);
+        let prop = bh::KeplerianPropagator::from_eci(epoch, state, 60.0).unwrap();
         propagators.push(prop);
     }
 
@@ -40,7 +40,7 @@ fn main() {
 
     // Propagate all satellites in parallel
     let start = std::time::Instant::now();
-    bh::par_propagate_to_s(&mut propagators, target);
+    bh::par_propagate_to_s(&mut propagators, target).unwrap();
     let parallel_time = start.elapsed();
 
     println!(

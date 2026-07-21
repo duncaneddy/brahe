@@ -41,6 +41,10 @@
 #[pyo3(name = "SGPPropagator")]
 pub struct PySGPPropagator {
     pub propagator: propagators::SGPPropagator,
+    /// Whether any attached event detector carries a Python callback or value
+    /// function. Such propagators cannot run under par_propagate_to: the
+    /// callback would need the GIL from a worker thread and deadlock.
+    pub has_python_callbacks: bool,
 }
 
 #[pymethods]
@@ -64,7 +68,10 @@ impl PySGPPropagator {
     ) -> PyResult<Self> {
         let step_size = step_size.unwrap_or(60.0);
         match propagators::SGPPropagator::from_tle(&line1, &line2, step_size) {
-            Ok(propagator) => Ok(PySGPPropagator { propagator }),
+            Ok(propagator) => Ok(PySGPPropagator {
+                propagator,
+                has_python_callbacks: false,
+            }),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
@@ -90,7 +97,10 @@ impl PySGPPropagator {
     ) -> PyResult<Self> {
         let step_size = step_size.unwrap_or(60.0);
         match propagators::SGPPropagator::from_3le(Some(&name), &line1, &line2, step_size) {
-            Ok(propagator) => Ok(PySGPPropagator { propagator }),
+            Ok(propagator) => Ok(PySGPPropagator {
+                propagator,
+                has_python_callbacks: false,
+            }),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
@@ -211,7 +221,10 @@ impl PySGPPropagator {
             element_set_no,
             rev_at_epoch,
         ) {
-            Ok(propagator) => Ok(PySGPPropagator { propagator }),
+            Ok(propagator) => Ok(PySGPPropagator {
+                propagator,
+                has_python_callbacks: false,
+            }),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
@@ -445,13 +458,15 @@ impl PySGPPropagator {
         frame: PyRef<PyOrbitFrame>,
         representation: PyRef<PyOrbitRepresentation>,
         angle_format: Option<PyRef<PyAngleFormat>>,
-    ) {
+    ) -> PyResult<()> {
         let angle_fmt = angle_format.map(|af| af.value);
         self.propagator = self.propagator.clone().with_output_format(
             frame.frame,
             representation.representation,
             angle_fmt,
-        );
+        )?;
+
+        Ok(())
     }
 
     /// Get current state vector.
@@ -862,9 +877,12 @@ impl PySGPPropagator {
     ///     prop.step()  # Advance by default step_size
     ///     print(f"Advanced to: {prop.current_epoch()}")
     ///     ```
+    ///
+    /// Raises:
+    ///     BraheError: If propagation fails.
     #[pyo3(text_signature = "()")]
-    pub fn step(&mut self) {
-        self.propagator.step();
+    pub fn step(&mut self) -> PyResult<()> {
+        Ok(self.propagator.step()?)
     }
 
     /// Step forward by a specified time duration.
@@ -882,9 +900,12 @@ impl PySGPPropagator {
     ///     prop.step_by(120.0)  # Advance by 2 minutes
     ///     print(f"Advanced to: {prop.current_epoch()}")
     ///     ```
+    ///
+    /// Raises:
+    ///     BraheError: If propagation fails.
     #[pyo3(text_signature = "(step_size)")]
-    pub fn step_by(&mut self, step_size: f64) {
-        self.propagator.step_by(step_size);
+    pub fn step_by(&mut self, step_size: f64) -> PyResult<()> {
+        Ok(self.propagator.step_by(step_size)?)
     }
 
     /// Step past a specified target epoch.
@@ -903,9 +924,12 @@ impl PySGPPropagator {
     ///     prop.step_past(target)
     ///     print(f"Stepped past target")
     ///     ```
+    ///
+    /// Raises:
+    ///     BraheError: If propagation fails.
     #[pyo3(text_signature = "(target_epoch)")]
-    pub fn step_past(&mut self, target_epoch: PyRef<PyEpoch>) {
-        self.propagator.step_past(target_epoch.obj);
+    pub fn step_past(&mut self, target_epoch: PyRef<PyEpoch>) -> PyResult<()> {
+        Ok(self.propagator.step_past(target_epoch.obj)?)
     }
 
     /// Propagate forward by specified number of steps.
@@ -923,9 +947,12 @@ impl PySGPPropagator {
     ///     prop.propagate_steps(10)  # Advance by 10 steps (600 seconds)
     ///     print(f"After 10 steps: {prop.current_epoch()}")
     ///     ```
+    ///
+    /// Raises:
+    ///     BraheError: If propagation fails.
     #[pyo3(text_signature = "(num_steps)")]
-    pub fn propagate_steps(&mut self, num_steps: usize) {
-        self.propagator.propagate_steps(num_steps);
+    pub fn propagate_steps(&mut self, num_steps: usize) -> PyResult<()> {
+        Ok(self.propagator.propagate_steps(num_steps)?)
     }
 
     /// Propagate to a specific target epoch.
@@ -944,9 +971,12 @@ impl PySGPPropagator {
     ///     prop.propagate_to(target)
     ///     print(f"Propagated to: {prop.current_epoch()}")
     ///     ```
+    ///
+    /// Raises:
+    ///     BraheError: If propagation fails.
     #[pyo3(text_signature = "(target_epoch)")]
-    pub fn propagate_to(&mut self, target_epoch: PyRef<PyEpoch>) {
-        self.propagator.propagate_to(target_epoch.obj);
+    pub fn propagate_to(&mut self, target_epoch: PyRef<PyEpoch>) -> PyResult<()> {
+        Ok(self.propagator.propagate_to(target_epoch.obj)?)
     }
 
     /// Reset propagator to initial conditions.
@@ -1681,6 +1711,7 @@ impl PySGPPropagator {
         // Try TimeEvent - extract and directly use D-type event
         if let Ok(mut time_event) = event.extract::<PyRefMut<PyTimeEvent>>() {
             if let Some(d_event) = time_event.take_d_event() {
+                self.has_python_callbacks |= time_event.py_callback.is_some();
                 self.propagator.add_event_detector(Box::new(d_event));
                 return Ok(());
             }
@@ -1692,6 +1723,8 @@ impl PySGPPropagator {
         // Try ValueEvent - extract and directly use D-type event
         if let Ok(mut value_event) = event.extract::<PyRefMut<PyValueEvent>>() {
             if let Some(d_event) = value_event.take_d_event() {
+                // The value function is always a Python callable.
+                self.has_python_callbacks = true;
                 self.propagator.add_event_detector(Box::new(d_event));
                 return Ok(());
             }
@@ -1703,6 +1736,8 @@ impl PySGPPropagator {
         // Try BinaryEvent - extract and directly use D-type event
         if let Ok(mut binary_event) = event.extract::<PyRefMut<PyBinaryEvent>>() {
             if let Some(d_event) = binary_event.take_d_event() {
+                // The value function is always a Python callable.
+                self.has_python_callbacks = true;
                 self.propagator.add_event_detector(Box::new(d_event));
                 return Ok(());
             }
@@ -1714,6 +1749,7 @@ impl PySGPPropagator {
         // Try AltitudeEvent - extract and directly use D-type event
         if let Ok(mut alt_event) = event.extract::<PyRefMut<PyAltitudeEvent>>() {
             if let Some(d_event) = alt_event.take_d_event() {
+                self.has_python_callbacks |= alt_event.py_callback.is_some();
                 self.propagator.add_event_detector(Box::new(d_event));
                 return Ok(());
             }
@@ -2179,7 +2215,10 @@ impl PySGPPropagatorBuilder {
         let prop = builder
             .build()
             .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-        Ok(PySGPPropagator { propagator: prop })
+        Ok(PySGPPropagator {
+            propagator: prop,
+            has_python_callbacks: false,
+        })
     }
 }
 
@@ -2260,7 +2299,7 @@ impl PyKeplerianPropagator {
             ));
         }
 
-        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
+        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().ok_or_else(|| exceptions::PyValueError::new_err("array must be C-contiguous; use numpy.ascontiguousarray"))?);
 
         let propagator = propagators::KeplerianPropagator::new(
             epoch.obj,
@@ -2269,7 +2308,7 @@ impl PyKeplerianPropagator {
             representation.representation,
             Some(angle_format.value),
             step_size,
-        );
+        )?;
 
         Ok(PyKeplerianPropagator { propagator })
     }
@@ -2300,14 +2339,14 @@ impl PyKeplerianPropagator {
             ));
         }
 
-        let elements_vec = na::Vector6::from_row_slice(elements_array.as_slice().unwrap());
+        let elements_vec = na::Vector6::from_row_slice(elements_array.as_slice().ok_or_else(|| exceptions::PyValueError::new_err("array must be C-contiguous; use numpy.ascontiguousarray"))?);
 
         let propagator = propagators::KeplerianPropagator::from_keplerian(
             epoch.obj,
             elements_vec,
             angle_format.value,
             step_size,
-        );
+        )?;
 
         Ok(PyKeplerianPropagator { propagator })
     }
@@ -2336,10 +2375,10 @@ impl PyKeplerianPropagator {
             ));
         }
 
-        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
+        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().ok_or_else(|| exceptions::PyValueError::new_err("array must be C-contiguous; use numpy.ascontiguousarray"))?);
 
         let propagator =
-            propagators::KeplerianPropagator::from_eci(epoch.obj, state_vec, step_size);
+            propagators::KeplerianPropagator::from_eci(epoch.obj, state_vec, step_size)?;
 
         Ok(PyKeplerianPropagator { propagator })
     }
@@ -2368,10 +2407,10 @@ impl PyKeplerianPropagator {
             ));
         }
 
-        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
+        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().ok_or_else(|| exceptions::PyValueError::new_err("array must be C-contiguous; use numpy.ascontiguousarray"))?);
 
         let propagator =
-            propagators::KeplerianPropagator::from_ecef(epoch.obj, state_vec, step_size);
+            propagators::KeplerianPropagator::from_ecef(epoch.obj, state_vec, step_size)?;
 
         Ok(PyKeplerianPropagator { propagator })
     }
@@ -2472,9 +2511,12 @@ impl PyKeplerianPropagator {
     ///     prop.step()  # Advance by default step_size (60 seconds)
     ///     print(f"Advanced to: {prop.current_epoch()}")
     ///     ```
+    ///
+    /// Raises:
+    ///     BraheError: If propagation fails.
     #[pyo3(text_signature = "()")]
-    pub fn step(&mut self) {
-        self.propagator.step();
+    pub fn step(&mut self) -> PyResult<()> {
+        Ok(self.propagator.step()?)
     }
 
     /// Step forward by a specified time duration.
@@ -2494,9 +2536,12 @@ impl PyKeplerianPropagator {
     ///     prop.step_by(120.0)  # Advance by 120 seconds
     ///     print(f"Advanced to: {prop.current_epoch()}")
     ///     ```
+    ///
+    /// Raises:
+    ///     BraheError: If propagation fails.
     #[pyo3(text_signature = "(step_size)")]
-    pub fn step_by(&mut self, step_size: f64) {
-        self.propagator.step_by(step_size);
+    pub fn step_by(&mut self, step_size: f64) -> PyResult<()> {
+        Ok(self.propagator.step_by(step_size)?)
     }
 
     /// Step past a specified target epoch.
@@ -2517,9 +2562,12 @@ impl PyKeplerianPropagator {
     ///     prop.step_past(target)
     ///     print(f"Advanced to: {prop.current_epoch()}")
     ///     ```
+    ///
+    /// Raises:
+    ///     BraheError: If propagation fails.
     #[pyo3(text_signature = "(target_epoch)")]
-    pub fn step_past(&mut self, target_epoch: PyRef<PyEpoch>) {
-        self.propagator.step_past(target_epoch.obj);
+    pub fn step_past(&mut self, target_epoch: PyRef<PyEpoch>) -> PyResult<()> {
+        Ok(self.propagator.step_past(target_epoch.obj)?)
     }
 
     /// Propagate forward by specified number of steps.
@@ -2539,9 +2587,12 @@ impl PyKeplerianPropagator {
     ///     prop.propagate_steps(10)  # Take 10 steps (600 seconds total)
     ///     print(f"Advanced to: {prop.current_epoch()}")
     ///     ```
+    ///
+    /// Raises:
+    ///     BraheError: If propagation fails.
     #[pyo3(text_signature = "(num_steps)")]
-    pub fn propagate_steps(&mut self, num_steps: usize) {
-        self.propagator.propagate_steps(num_steps);
+    pub fn propagate_steps(&mut self, num_steps: usize) -> PyResult<()> {
+        Ok(self.propagator.propagate_steps(num_steps)?)
     }
 
     /// Propagate to a specific target epoch.
@@ -2562,9 +2613,12 @@ impl PyKeplerianPropagator {
     ///     prop.propagate_to(target)
     ///     print(f"Propagated to: {prop.current_epoch()}")
     ///     ```
+    ///
+    /// Raises:
+    ///     BraheError: If propagation fails.
     #[pyo3(text_signature = "(target_epoch)")]
-    pub fn propagate_to(&mut self, target_epoch: PyRef<PyEpoch>) {
-        self.propagator.propagate_to(target_epoch.obj);
+    pub fn propagate_to(&mut self, target_epoch: PyRef<PyEpoch>) -> PyResult<()> {
+        Ok(self.propagator.propagate_to(target_epoch.obj)?)
     }
 
     /// Reset propagator to initial conditions.
@@ -2629,7 +2683,7 @@ impl PyKeplerianPropagator {
             ));
         }
 
-        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
+        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().ok_or_else(|| exceptions::PyValueError::new_err("array must be C-contiguous; use numpy.ascontiguousarray"))?);
 
         self.propagator.set_initial_conditions(
             epoch.obj,
@@ -2637,7 +2691,7 @@ impl PyKeplerianPropagator {
             frame.frame,
             representation.representation,
             Some(angle_format.value),
-        );
+        )?;
 
         Ok(())
     }
@@ -3166,7 +3220,7 @@ impl PyKeplerianPropagator {
     ///     print(f"Trajectory contains {traj.len()} states")
     ///     ```
     #[getter]
-    pub fn trajectory(&self) -> PyOrbitalTrajectory {
+    pub fn trajectory(&self) -> PyResult<PyOrbitalTrajectory> {
         let traj = &self.propagator.trajectory;
 
         // Convert states from SVector to DVector
@@ -3190,12 +3244,12 @@ impl PyKeplerianPropagator {
             traj.representation,
             traj.angle_format,
             covariances,
-        );
+        )?;
 
         // Copy identity from original trajectory
         d_traj.set_identity(traj.get_name(), traj.get_uuid(), traj.get_id());
 
-        PyOrbitalTrajectory { trajectory: d_traj }
+        Ok(PyOrbitalTrajectory { trajectory: d_traj })
     }
 
     // Identity methods
@@ -3489,8 +3543,33 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
         if item.is_instance_of::<PyKeplerianPropagator>() {
             kep_idx.push(i);
         } else if item.is_instance_of::<PySGPPropagator>() {
+            // See the NumericalOrbitPropagator guard below: Python event
+            // callbacks cannot execute on worker threads (GIL deadlock).
+            if item.cast::<PySGPPropagator>()?.borrow().has_python_callbacks {
+                return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                    "SGPPropagator instances with Python event callbacks or value functions \
+                     cannot be used with par_propagate_to because the callbacks cannot safely \
+                     execute in parallel due to the GIL. Call propagate_to() sequentially on \
+                     these propagators instead.",
+                ));
+            }
             sgp_idx.push(i);
         } else if item.is_instance_of::<PyNumericalOrbitPropagator>() {
+            // Propagators carrying Python callbacks cannot run in parallel:
+            // the callback would need the GIL from a worker thread while the
+            // calling thread holds it, deadlocking the interpreter.
+            if item
+                .cast::<PyNumericalOrbitPropagator>()?
+                .borrow()
+                .has_python_callbacks
+            {
+                return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                    "NumericalOrbitPropagator instances with Python additional_dynamics or \
+                     control_input callbacks cannot be used with par_propagate_to because the \
+                     callbacks cannot safely execute in parallel due to the GIL. Call \
+                     propagate_to() sequentially on these propagators instead.",
+                ));
+            }
             num_orbit_idx.push(i);
         } else if item.is_instance_of::<PyNumericalPropagator>() {
             // NumericalPropagator uses Python callbacks for dynamics, which cannot
@@ -3519,7 +3598,7 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
         }
 
         // Call Rust parallel propagation function
-        propagators::par_propagate_to_s(&mut props, target_epoch.obj);
+        propagators::par_propagate_to_s(&mut props, target_epoch.obj)?;
 
         // Update Python objects with new state
         for (k, &i) in kep_idx.iter().enumerate() {
@@ -3550,7 +3629,7 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
         }
 
         // Call Rust parallel propagation function
-        propagators::par_propagate_to_s(&mut props, target_epoch.obj);
+        propagators::par_propagate_to_s(&mut props, target_epoch.obj)?;
 
         // Transfer results back to Python objects
         for (k, &i) in sgp_idx.iter().enumerate() {
@@ -3605,15 +3684,33 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
         // Each propagator (DNumericalOrbitPropagator) is accessed by exactly one thread,
         // and the borrow_guards are kept alive throughout this scope to ensure validity.
         let target = target_epoch.obj;
-        brahe::utils::threading::get_thread_pool().install(|| {
-            prop_ptrs.par_iter().for_each(|SendPtr(ptr)| {
-                // SAFETY: ptr is valid because it points to data owned by borrow_guards
-                // which are still alive in the outer scope
-                unsafe {
-                    (*(*ptr)).propagate_to(target);
-                }
+        let result: Result<(), RustBraheError> =
+            brahe::utils::threading::get_thread_pool().install(|| {
+                prop_ptrs.par_iter().try_for_each(|SendPtr(ptr)| {
+                    // SAFETY: ptr is valid because it points to data owned by borrow_guards
+                    // which are still alive in the outer scope
+                    unsafe { (*(*ptr)).propagate_to(target) }
+                })
             });
-        });
+
+        // On failure, re-raise the original Python exception stashed by whichever
+        // propagator's additional-dynamics/control callback raised it, falling
+        // back to the wrapped BraheError when the failure is purely numerical.
+        // Drain EVERY propagator's slot — with concurrent failures more than one
+        // slot may be populated, and any exception left behind would be
+        // misattributed to an unrelated error on a later call using the same
+        // propagator object.
+        if let Err(e) = result {
+            let mut first_py_err: Option<PyErr> = None;
+            for guard in &borrow_guards {
+                if let Some(py_err) = guard.err_slot.lock().unwrap().take()
+                    && first_py_err.is_none()
+                {
+                    first_py_err = Some(py_err);
+                }
+            }
+            return Err(first_py_err.unwrap_or_else(|| PyErr::from(e)));
+        }
 
         // borrow_guards are dropped here, releasing the borrows
     }
@@ -6573,15 +6670,20 @@ impl PyForceModelConfig {
 // NumericalOrbitPropagator
 // =============================================================================
 
-/// Wrap a Python callable as a `DStateDynamics` closure for extended-state dynamics.
+/// Wrap a Python callable as a `DStateDynamics` closure. A raised exception is
+/// stashed in `err_slot` and surfaced to the core as a `BraheError`; the driving
+/// step/propagate method re-raises the stashed exception verbatim.
 ///
-/// Shared by [`PyNumericalOrbitPropagator::new`] and
-/// [`PyNumericalOrbitPropagatorBuilder::additional_dynamics`].
-fn wrap_additional_dynamics(
+/// Shared by the `NumericalOrbitPropagator`/`NumericalPropagator` constructors
+/// and their builders for dynamics, additional-dynamics, and control-input
+/// callbacks (all share the `f(t, state, params) -> vector` signature).
+fn wrap_state_dynamics(
     py: Python<'_>,
-    dyn_py: Py<PyAny>,
+    callback: Py<PyAny>,
+    err_slot: &PyErrSlot,
 ) -> brahe::integrators::traits::DStateDynamics {
-    let dyn_py = dyn_py.clone_ref(py);
+    let callback = callback.clone_ref(py);
+    let err_slot = err_slot.clone();
     Box::new(
         move |t: f64, x: &nalgebra::DVector<f64>, p: Option<&nalgebra::DVector<f64>>| {
             Python::attach(|py| {
@@ -6590,89 +6692,18 @@ fn wrap_additional_dynamics(
                     p.map(|pv| pv.as_slice().to_pyarray(py).to_owned());
 
                 let result = match p_np {
-                    Some(params_arr) => dyn_py.call1(py, (t, x_np, params_arr)),
-                    None => dyn_py.call1(py, (t, x_np, py.None())),
+                    Some(params_arr) => callback.call1(py, (t, x_np, params_arr)),
+                    None => callback.call1(py, (t, x_np, py.None())),
                 };
 
-                match result {
-                    Ok(res) => {
-                        let res_arr: PyReadonlyArray1<f64> = res.extract(py).unwrap();
-                        nalgebra::DVector::from_column_slice(res_arr.as_slice().unwrap())
-                    }
-                    Err(e) => {
-                        panic!("Error calling additional_dynamics: {e}")
-                    }
-                }
-            })
-        },
-    ) as brahe::integrators::traits::DStateDynamics
-}
-
-/// Wrap a Python callable as a `DStateDynamics` closure for generic N-dimensional dynamics.
-///
-/// Shared by [`PyNumericalPropagator::new`] and
-/// [`PyNumericalPropagatorBuilder::builder`][PyNumericalPropagator::builder].
-fn wrap_dynamics(
-    py: Python<'_>,
-    dynamics_py: Py<PyAny>,
-) -> brahe::integrators::traits::DStateDynamics {
-    let dynamics_py = dynamics_py.clone_ref(py);
-    Box::new(
-        move |t: f64, x: &nalgebra::DVector<f64>, p: Option<&nalgebra::DVector<f64>>| {
-            Python::attach(|py| {
-                let x_np = x.as_slice().to_pyarray(py);
-                let p_np: Option<Bound<'_, PyArray<f64, Ix1>>> =
-                    p.map(|pv| pv.as_slice().to_pyarray(py).to_owned());
-
-                let result = match p_np {
-                    Some(params_arr) => dynamics_py.call1(py, (t, x_np, params_arr)),
-                    None => dynamics_py.call1(py, (t, x_np, py.None())),
-                };
-
-                match result {
-                    Ok(res) => {
-                        let res_arr: PyReadonlyArray1<f64> = res.extract(py).unwrap();
-                        nalgebra::DVector::from_column_slice(res_arr.as_slice().unwrap())
-                    }
-                    Err(e) => {
-                        panic!("Error calling dynamics function: {e}")
-                    }
-                }
-            })
-        },
-    ) as brahe::integrators::traits::DStateDynamics
-}
-
-/// Wrap a Python callable as a control-input closure returning an acceleration perturbation.
-///
-/// Shared by [`PyNumericalOrbitPropagator::new`] and
-/// [`PyNumericalOrbitPropagatorBuilder::control_input`].
-fn wrap_control_input(
-    py: Python<'_>,
-    ctrl_py: Py<PyAny>,
-) -> brahe::integrators::traits::DStateDynamics {
-    let ctrl_py = ctrl_py.clone_ref(py);
-    Box::new(
-        move |t: f64, x: &nalgebra::DVector<f64>, p: Option<&nalgebra::DVector<f64>>| {
-            Python::attach(|py| {
-                let x_np = x.as_slice().to_pyarray(py);
-                let p_np: Option<Bound<'_, PyArray<f64, Ix1>>> =
-                    p.map(|pv| pv.as_slice().to_pyarray(py).to_owned());
-
-                let result = match p_np {
-                    Some(params_arr) => ctrl_py.call1(py, (t, x_np, params_arr)),
-                    None => ctrl_py.call1(py, (t, x_np, py.None())),
-                };
-
-                match result {
-                    Ok(res) => {
-                        let res_arr: PyReadonlyArray1<f64> = res.extract(py).unwrap();
-                        nalgebra::DVector::from_column_slice(res_arr.as_slice().unwrap())
-                    }
-                    Err(e) => {
-                        panic!("Error calling control_input: {e}")
-                    }
-                }
+                let res = result.map_err(|e| stash_callback_err(&err_slot, e))?;
+                let res_arr: PyReadonlyArray1<f64> = res
+                    .extract(py)
+                    .map_err(|e| stash_callback_err(&err_slot, PyErr::from(e)))?;
+                let res_slice = res_arr.as_slice().map_err(|e| {
+                    RustBraheError::Error(format!("callback returned non-contiguous array: {e}"))
+                })?;
+                Ok(nalgebra::DVector::from_column_slice(res_slice))
             })
         },
     ) as brahe::integrators::traits::DStateDynamics
@@ -6726,6 +6757,14 @@ fn wrap_control_input(
 #[pyo3(name = "NumericalOrbitPropagator")]
 pub struct PyNumericalOrbitPropagator {
     pub propagator: propagators::DNumericalOrbitPropagator,
+    /// Holds the original Python exception raised inside the additional-dynamics
+    /// or control-input trampoline, so a driven propagation can re-raise it
+    /// verbatim instead of the wrapped BraheError message.
+    err_slot: PyErrSlot,
+    /// Whether this propagator carries Python callbacks (additional dynamics
+    /// or control input). Such propagators cannot run under par_propagate_to:
+    /// the callbacks would need the GIL from worker threads and deadlock.
+    has_python_callbacks: bool,
 }
 
 #[pymethods]
@@ -6754,6 +6793,9 @@ impl PyNumericalOrbitPropagator {
     ///
     /// Raises:
     ///     RuntimeError: If configuration is invalid or params are missing when required.
+    ///     Exception: Propagates the original exception raised by a dynamics or
+    ///         control-input callback invoked during construction (e.g. computing the
+    ///         initial acceleration when `store_accelerations` is enabled).
     ///
     /// Example:
     ///     ```python
@@ -6793,7 +6835,16 @@ impl PyNumericalOrbitPropagator {
         let state_vec = nalgebra::DVector::from_column_slice(state.as_slice()?);
 
         let params_vec =
-            params.map(|p| nalgebra::DVector::from_column_slice(p.as_slice().unwrap()));
+            params
+            .map(|p| {
+                let slice = p.as_slice().map_err(|_| {
+                    exceptions::PyValueError::new_err(
+                        "array must be C-contiguous; use numpy.ascontiguousarray",
+                    )
+                })?;
+                Ok::<_, PyErr>(nalgebra::DVector::from_column_slice(slice))
+            })
+            .transpose()?;
 
         let state_dim = state_vec.len();
         let cov_matrix = if let Some(cov) = initial_covariance {
@@ -6812,13 +6863,20 @@ impl PyNumericalOrbitPropagator {
             None
         };
 
+        // Slot shared with the Python trampolines below. A callback that raises
+        // records its exception here and surfaces a BraheError to the core; the
+        // driving step/propagate method re-raises the stashed exception.
+        let err_slot: PyErrSlot = Arc::new(Mutex::new(None));
+
         // Wrap additional_dynamics Python callable if provided
+        let has_python_callbacks = additional_dynamics.is_some() || control_input.is_some();
+
         let additional_dynamics_fn: Option<brahe::integrators::traits::DStateDynamics> =
-            additional_dynamics.map(|dyn_py| wrap_additional_dynamics(py, dyn_py));
+            additional_dynamics.map(|dyn_py| wrap_state_dynamics(py, dyn_py, &err_slot));
 
         // Wrap control_input Python callable if provided
         let control_input_fn: brahe::integrators::traits::DControlInput =
-            control_input.map(|ctrl_py| wrap_control_input(py, ctrl_py));
+            control_input.map(|ctrl_py| wrap_state_dynamics(py, ctrl_py, &err_slot));
 
         let prop = propagators::DNumericalOrbitPropagator::new(
             epoch.obj,
@@ -6830,9 +6888,13 @@ impl PyNumericalOrbitPropagator {
             control_input_fn,
             cov_matrix,
         )
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        .map_err(|e| raise_callback_err_or_runtime(&err_slot, e))?;
 
-        Ok(PyNumericalOrbitPropagator { propagator: prop })
+        Ok(PyNumericalOrbitPropagator {
+            propagator: prop,
+            err_slot,
+            has_python_callbacks,
+        })
     }
 
     /// Create a propagator from ECI Cartesian state with simplified configuration.
@@ -6863,7 +6925,16 @@ impl PyNumericalOrbitPropagator {
 
         let state_vec = nalgebra::DVector::from_column_slice(state_slice);
         let params_vec =
-            params.map(|p| nalgebra::DVector::from_column_slice(p.as_slice().unwrap()));
+            params
+            .map(|p| {
+                let slice = p.as_slice().map_err(|_| {
+                    exceptions::PyValueError::new_err(
+                        "array must be C-contiguous; use numpy.ascontiguousarray",
+                    )
+                })?;
+                Ok::<_, PyErr>(nalgebra::DVector::from_column_slice(slice))
+            })
+            .transpose()?;
 
         let fc = force_config.map(|c| c.config.clone()).unwrap_or_default();
 
@@ -6879,7 +6950,11 @@ impl PyNumericalOrbitPropagator {
         )
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
-        Ok(PyNumericalOrbitPropagator { propagator: prop })
+        Ok(PyNumericalOrbitPropagator {
+            propagator: prop,
+            err_slot: Arc::new(Mutex::new(None)),
+            has_python_callbacks: false,
+        })
     }
 
     /// Create a builder for constructing a numerical orbit propagator.
@@ -6928,6 +7003,8 @@ impl PyNumericalOrbitPropagator {
                 force_config.config.clone(),
             )),
             state_dim,
+            err_slot: Arc::new(Mutex::new(None)),
+            has_python_callbacks: false,
         })
     }
 
@@ -6984,45 +7061,75 @@ impl PyNumericalOrbitPropagator {
     }
 
     /// Step forward by the default step size.
+    ///
+    /// Raises:
+    ///     Exception: Propagates the original exception raised by an
+    ///         additional-dynamics or control-input callback, or a BraheError
+    ///         if propagation fails.
     #[pyo3(text_signature = "()")]
-    pub fn step(&mut self) {
-        DStatePropagator::step(&mut self.propagator);
+    pub fn step(&mut self) -> PyResult<()> {
+        DStatePropagator::step(&mut self.propagator)
+            .map_err(|e| raise_callback_err(&self.err_slot, e))
     }
 
     /// Step forward by a specified time duration.
     ///
     /// Args:
     ///     step_size (float): Time step in seconds.
+    ///
+    /// Raises:
+    ///     Exception: Propagates the original exception raised by an
+    ///         additional-dynamics or control-input callback, or a BraheError
+    ///         if propagation fails.
     #[pyo3(text_signature = "(step_size)")]
-    pub fn step_by(&mut self, step_size: f64) {
-        DStatePropagator::step_by(&mut self.propagator, step_size);
+    pub fn step_by(&mut self, step_size: f64) -> PyResult<()> {
+        DStatePropagator::step_by(&mut self.propagator, step_size)
+            .map_err(|e| raise_callback_err(&self.err_slot, e))
     }
 
     /// Step past a specified target epoch.
     ///
     /// Args:
     ///     target_epoch (Epoch): The epoch to step past.
+    ///
+    /// Raises:
+    ///     Exception: Propagates the original exception raised by an
+    ///         additional-dynamics or control-input callback, or a BraheError
+    ///         if propagation fails.
     #[pyo3(text_signature = "(target_epoch)")]
-    pub fn step_past(&mut self, target_epoch: &PyEpoch) {
-        DStatePropagator::step_past(&mut self.propagator, target_epoch.obj);
+    pub fn step_past(&mut self, target_epoch: &PyEpoch) -> PyResult<()> {
+        DStatePropagator::step_past(&mut self.propagator, target_epoch.obj)
+            .map_err(|e| raise_callback_err(&self.err_slot, e))
     }
 
     /// Propagate forward by specified number of steps.
     ///
     /// Args:
     ///     num_steps (int): Number of steps to take.
+    ///
+    /// Raises:
+    ///     Exception: Propagates the original exception raised by an
+    ///         additional-dynamics or control-input callback, or a BraheError
+    ///         if propagation fails.
     #[pyo3(text_signature = "(num_steps)")]
-    pub fn propagate_steps(&mut self, num_steps: usize) {
-        DStatePropagator::propagate_steps(&mut self.propagator, num_steps);
+    pub fn propagate_steps(&mut self, num_steps: usize) -> PyResult<()> {
+        DStatePropagator::propagate_steps(&mut self.propagator, num_steps)
+            .map_err(|e| raise_callback_err(&self.err_slot, e))
     }
 
     /// Propagate to a specific target epoch.
     ///
     /// Args:
     ///     target_epoch (Epoch): The epoch to propagate to.
+    ///
+    /// Raises:
+    ///     Exception: Propagates the original exception raised by an
+    ///         additional-dynamics or control-input callback, or a BraheError
+    ///         if propagation fails.
     #[pyo3(text_signature = "(target_epoch)")]
-    pub fn propagate_to(&mut self, target_epoch: &PyEpoch) {
-        DStatePropagator::propagate_to(&mut self.propagator, target_epoch.obj);
+    pub fn propagate_to(&mut self, target_epoch: &PyEpoch) -> PyResult<()> {
+        DStatePropagator::propagate_to(&mut self.propagator, target_epoch.obj)
+            .map_err(|e| raise_callback_err(&self.err_slot, e))
     }
 
     /// Reset propagator to initial conditions.
@@ -7704,6 +7811,7 @@ impl PyNumericalOrbitPropagator {
         // Try each event type
         if let Ok(mut time_event) = event.extract::<PyRefMut<PyTimeEvent>>() {
             if let Some(inner) = time_event.event.take() {
+                self.has_python_callbacks |= time_event.py_callback.is_some();
                 self.propagator.add_event_detector(Box::new(inner));
                 return Ok(());
             }
@@ -7714,6 +7822,8 @@ impl PyNumericalOrbitPropagator {
 
         if let Ok(mut value_event) = event.extract::<PyRefMut<PyValueEvent>>() {
             if let Some(inner) = value_event.event.take() {
+                // The value function is always a Python callable.
+                self.has_python_callbacks = true;
                 self.propagator.add_event_detector(Box::new(inner));
                 return Ok(());
             }
@@ -7724,6 +7834,8 @@ impl PyNumericalOrbitPropagator {
 
         if let Ok(mut binary_event) = event.extract::<PyRefMut<PyBinaryEvent>>() {
             if let Some(inner) = binary_event.event.take() {
+                // The value function is always a Python callable.
+                self.has_python_callbacks = true;
                 self.propagator.add_event_detector(Box::new(inner));
                 return Ok(());
             }
@@ -7734,6 +7846,7 @@ impl PyNumericalOrbitPropagator {
 
         if let Ok(mut altitude_event) = event.extract::<PyRefMut<PyAltitudeEvent>>() {
             if let Some(inner) = altitude_event.event.take() {
+                self.has_python_callbacks |= altitude_event.py_callback.is_some();
                 self.propagator.add_event_detector(Box::new(inner));
                 return Ok(());
             }
@@ -8412,6 +8525,10 @@ impl PyNumericalOrbitPropagator {
 pub struct PyNumericalOrbitPropagatorBuilder {
     inner: Option<propagators::DNumericalOrbitPropagatorBuilder>,
     state_dim: usize,
+    /// Exception slot shared with the callback trampolines wrapped by the
+    /// setters; transferred to the built propagator so it can re-raise.
+    err_slot: PyErrSlot,
+    has_python_callbacks: bool,
 }
 
 #[pymethods]
@@ -8468,8 +8585,9 @@ impl PyNumericalOrbitPropagatorBuilder {
         py: Python<'_>,
         dynamics: Py<PyAny>,
     ) -> PyRefMut<'a, Self> {
-        let f = wrap_additional_dynamics(py, dynamics);
+        let f = wrap_state_dynamics(py, dynamics, &slf.err_slot);
         slf.inner = slf.inner.take().map(|b| b.additional_dynamics(f));
+        slf.has_python_callbacks = true;
         slf
     }
 
@@ -8486,8 +8604,9 @@ impl PyNumericalOrbitPropagatorBuilder {
         py: Python<'_>,
         control: Py<PyAny>,
     ) -> PyRefMut<'a, Self> {
-        let f = wrap_control_input(py, control);
+        let f = wrap_state_dynamics(py, control, &slf.err_slot);
         slf.inner = slf.inner.take().map(|b| b.control_input(f));
+        slf.has_python_callbacks = true;
         slf
     }
 
@@ -8529,6 +8648,9 @@ impl PyNumericalOrbitPropagatorBuilder {
     ///     RuntimeError: If the builder was already consumed by a prior `build()`
     ///         call, or if the force model references parameter indices but no
     ///         parameter vector was provided.
+    ///     Exception: Propagates the original exception raised by a dynamics or
+    ///         control-input callback invoked during construction (e.g. computing the
+    ///         initial acceleration when `store_accelerations` is enabled).
     fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PyNumericalOrbitPropagator> {
         let builder = slf
             .inner
@@ -8536,8 +8658,12 @@ impl PyNumericalOrbitPropagatorBuilder {
             .ok_or_else(|| exceptions::PyRuntimeError::new_err("builder already consumed"))?;
         let prop = builder
             .build()
-            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-        Ok(PyNumericalOrbitPropagator { propagator: prop })
+            .map_err(|e| raise_callback_err_or_runtime(&slf.err_slot, e))?;
+        Ok(PyNumericalOrbitPropagator {
+            propagator: prop,
+            err_slot: slf.err_slot.clone(),
+            has_python_callbacks: slf.has_python_callbacks,
+        })
     }
 }
 
@@ -8681,6 +8807,10 @@ impl PyTrajectoryMode {
 #[pyo3(name = "NumericalPropagator")]
 pub struct PyNumericalPropagator {
     pub propagator: propagators::DNumericalPropagator,
+    /// Holds the original Python exception raised inside the dynamics or
+    /// control-input trampoline, so a driven propagation can re-raise it
+    /// verbatim instead of the wrapped BraheError message.
+    err_slot: PyErrSlot,
 }
 
 #[pymethods]
@@ -8718,7 +8848,16 @@ impl PyNumericalPropagator {
         let state_dim = state_vec.len();
 
         let params_vec =
-            params.map(|p| nalgebra::DVector::from_column_slice(p.as_slice().unwrap()));
+            params
+            .map(|p| {
+                let slice = p.as_slice().map_err(|_| {
+                    exceptions::PyValueError::new_err(
+                        "array must be C-contiguous; use numpy.ascontiguousarray",
+                    )
+                })?;
+                Ok::<_, PyErr>(nalgebra::DVector::from_column_slice(slice))
+            })
+            .transpose()?;
 
         let cov_matrix = if let Some(cov) = initial_covariance {
             let cov_shape = cov.shape();
@@ -8736,12 +8875,17 @@ impl PyNumericalPropagator {
             None
         };
 
+        // Slot shared with the Python trampolines below. A callback that raises
+        // records its exception here and surfaces a BraheError to the core; the
+        // driving step/propagate method re-raises the stashed exception.
+        let err_slot: PyErrSlot = Arc::new(Mutex::new(None));
+
         // Create a wrapper that calls the Python dynamics function
-        let dynamics_fn = wrap_dynamics(py, dynamics);
+        let dynamics_fn = wrap_state_dynamics(py, dynamics, &err_slot);
 
         // Wrap control_input Python callable if provided
         let control_input_fn: brahe::integrators::traits::DControlInput =
-            control_input.map(|ctrl_py| wrap_control_input(py, ctrl_py));
+            control_input.map(|ctrl_py| wrap_state_dynamics(py, ctrl_py, &err_slot));
 
         let prop = propagators::DNumericalPropagator::new(
             epoch.obj,
@@ -8754,7 +8898,10 @@ impl PyNumericalPropagator {
         )
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
-        Ok(PyNumericalPropagator { propagator: prop })
+        Ok(PyNumericalPropagator {
+            propagator: prop,
+            err_slot,
+        })
     }
 
     /// Create a builder for constructing a generic numerical propagator.
@@ -8799,12 +8946,14 @@ impl PyNumericalPropagator {
     ) -> PyResult<PyNumericalPropagatorBuilder> {
         let state_vec = nalgebra::DVector::from_column_slice(state.as_slice()?);
         let state_dim = state_vec.len();
-        let dynamics_fn = wrap_dynamics(py, dynamics);
+        let err_slot: PyErrSlot = Arc::new(Mutex::new(None));
+        let dynamics_fn = wrap_state_dynamics(py, dynamics, &err_slot);
         Ok(PyNumericalPropagatorBuilder {
             inner: Some(propagators::DNumericalPropagator::builder(
                 epoch.obj, state_vec, dynamics_fn,
             )),
             state_dim,
+            err_slot,
         })
     }
 
@@ -8861,33 +9010,58 @@ impl PyNumericalPropagator {
     }
 
     /// Step forward by the default step size.
+    ///
+    /// Raises:
+    ///     Exception: Propagates the original exception raised by the dynamics
+    ///         or control-input callback, or a BraheError if propagation fails.
     #[pyo3(text_signature = "()")]
-    pub fn step(&mut self) {
-        DStatePropagator::step(&mut self.propagator);
+    pub fn step(&mut self) -> PyResult<()> {
+        DStatePropagator::step(&mut self.propagator)
+            .map_err(|e| raise_callback_err(&self.err_slot, e))
     }
 
     /// Step forward by a specified time duration.
+    ///
+    /// Raises:
+    ///     Exception: Propagates the original exception raised by the dynamics
+    ///         or control-input callback, or a BraheError if propagation fails.
     #[pyo3(text_signature = "(step_size)")]
-    pub fn step_by(&mut self, step_size: f64) {
-        DStatePropagator::step_by(&mut self.propagator, step_size);
+    pub fn step_by(&mut self, step_size: f64) -> PyResult<()> {
+        DStatePropagator::step_by(&mut self.propagator, step_size)
+            .map_err(|e| raise_callback_err(&self.err_slot, e))
     }
 
     /// Step past a specified target epoch.
+    ///
+    /// Raises:
+    ///     Exception: Propagates the original exception raised by the dynamics
+    ///         or control-input callback, or a BraheError if propagation fails.
     #[pyo3(text_signature = "(target_epoch)")]
-    pub fn step_past(&mut self, target_epoch: &PyEpoch) {
-        DStatePropagator::step_past(&mut self.propagator, target_epoch.obj);
+    pub fn step_past(&mut self, target_epoch: &PyEpoch) -> PyResult<()> {
+        DStatePropagator::step_past(&mut self.propagator, target_epoch.obj)
+            .map_err(|e| raise_callback_err(&self.err_slot, e))
     }
 
     /// Propagate forward by specified number of steps.
+    ///
+    /// Raises:
+    ///     Exception: Propagates the original exception raised by the dynamics
+    ///         or control-input callback, or a BraheError if propagation fails.
     #[pyo3(text_signature = "(num_steps)")]
-    pub fn propagate_steps(&mut self, num_steps: usize) {
-        DStatePropagator::propagate_steps(&mut self.propagator, num_steps);
+    pub fn propagate_steps(&mut self, num_steps: usize) -> PyResult<()> {
+        DStatePropagator::propagate_steps(&mut self.propagator, num_steps)
+            .map_err(|e| raise_callback_err(&self.err_slot, e))
     }
 
     /// Propagate to a specific target epoch.
+    ///
+    /// Raises:
+    ///     Exception: Propagates the original exception raised by the dynamics
+    ///         or control-input callback, or a BraheError if propagation fails.
     #[pyo3(text_signature = "(target_epoch)")]
-    pub fn propagate_to(&mut self, target_epoch: &PyEpoch) {
-        DStatePropagator::propagate_to(&mut self.propagator, target_epoch.obj);
+    pub fn propagate_to(&mut self, target_epoch: &PyEpoch) -> PyResult<()> {
+        DStatePropagator::propagate_to(&mut self.propagator, target_epoch.obj)
+            .map_err(|e| raise_callback_err(&self.err_slot, e))
     }
 
     /// Reset propagator to initial conditions.
@@ -9519,6 +9693,10 @@ impl PyNumericalPropagator {
 pub struct PyNumericalPropagatorBuilder {
     inner: Option<propagators::DNumericalPropagatorBuilder>,
     state_dim: usize,
+    /// Exception slot shared with the callback trampolines wrapped by
+    /// `builder()` and the setters; transferred to the built propagator so it
+    /// can re-raise.
+    err_slot: PyErrSlot,
 }
 
 #[pymethods]
@@ -9573,7 +9751,7 @@ impl PyNumericalPropagatorBuilder {
         py: Python<'_>,
         control: Py<PyAny>,
     ) -> PyRefMut<'a, Self> {
-        let f = wrap_control_input(py, control);
+        let f = wrap_state_dynamics(py, control, &slf.err_slot);
         slf.inner = slf.inner.take().map(|b| b.control_input(f));
         slf
     }
@@ -9624,6 +9802,9 @@ impl PyNumericalPropagatorBuilder {
         let prop = builder
             .build()
             .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-        Ok(PyNumericalPropagator { propagator: prop })
+        Ok(PyNumericalPropagator {
+            propagator: prop,
+            err_slot: slf.err_slot.clone(),
+        })
     }
 }

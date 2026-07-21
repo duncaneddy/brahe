@@ -36,7 +36,7 @@ fn main() {
     println!("  Altitude: {:.1} km", (r_sat.norm() - bh::constants::R_EARTH) / 1e3);
 
     // Compute Sun perturbation using analytical model
-    let accel_sun = bh::orbit_dynamics::accel_third_body_sun(epoch, r_sat);
+    let accel_sun = bh::orbit_dynamics::accel_third_body_sun(epoch, r_sat).unwrap();
 
     println!("\nSun third-body acceleration (analytical):");
     println!("  ax = {:.12} m/s²", accel_sun[0]);
@@ -45,7 +45,7 @@ fn main() {
     println!("  Magnitude: {:.12} m/s²", accel_sun.norm());
 
     // Compute Moon perturbation using analytical model
-    let accel_moon = bh::orbit_dynamics::accel_third_body_moon(epoch, r_sat);
+    let accel_moon = bh::orbit_dynamics::accel_third_body_moon(epoch, r_sat).unwrap();
 
     println!("\nMoon third-body acceleration (analytical):");
     println!("  ax = {:.12} m/s²", accel_moon[0]);

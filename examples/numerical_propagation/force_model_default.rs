@@ -55,7 +55,7 @@ fn main() {
     // Propagate for 1 orbital period (~94 minutes for LEO)
     let sma = bh::R_EARTH + 500e3;
     let orbital_period = 2.0 * PI * (sma.powi(3) / bh::GM_EARTH).sqrt();
-    prop.propagate_to(epoch + orbital_period);
+    prop.propagate_to(epoch + orbital_period).unwrap();
 
     // Check orbit evolution
     let final_koe = prop

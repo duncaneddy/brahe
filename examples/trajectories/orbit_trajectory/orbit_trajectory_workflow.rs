@@ -20,12 +20,12 @@ fn main() {
         bh::time::TimeSystem::UTC);
     let mut propagator = KeplerianPropagator::from_keplerian(
         epoch, oe, AngleFormat::Radians, 60.0
-    );
+    ).unwrap();
 
     // 2. Propagate for one orbit period
     let period = orbital_period(R_EARTH + 500e3);
     let end_epoch = epoch + period;
-    propagator.propagate_to(end_epoch);
+    propagator.propagate_to(end_epoch).unwrap();
 
     // 3. Get trajectory in ECI Cartesian
     let traj_eci = &propagator.trajectory;
@@ -33,7 +33,7 @@ fn main() {
         traj_eci.len(), traj_eci.timespan().unwrap() / 60.0);
 
     // 4. Convert to ECEF
-    let traj_ecef = traj_eci.to_ecef();
+    let traj_ecef = traj_eci.to_ecef().unwrap();
     println!("\nGround track in ECEF frame:");
     for (i, (epoch, state_ecef)) in traj_ecef.into_iter().enumerate() {
         if i % 10 == 0 {
@@ -45,7 +45,7 @@ fn main() {
     }
 
     // 5. Convert to Keplerian
-    let traj_kep = traj_eci.to_keplerian(AngleFormat::Radians);
+    let traj_kep = traj_eci.to_keplerian(AngleFormat::Radians).unwrap();
     let first_oe = traj_kep.state_at_idx(0).unwrap();
     let last_oe = traj_kep.state_at_idx(traj_kep.len() - 1).unwrap();
 

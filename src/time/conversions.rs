@@ -336,6 +336,14 @@ fn tcb_tdb_offset(jd_tt: f64) -> f64 {
 /// Returns:
 ///     offset (float): Offset between soruce and destination time systems in seconds.
 ///
+/// # Panics
+/// Panics when converting to or from UT1 if Earth orientation data is
+/// unavailable for the requested epoch — that is, if no global EOP provider
+/// has been initialized, or the epoch is outside the loaded data range with
+/// extrapolation set to `Error`. Initialize a provider covering the epochs in
+/// use (see `ensure_global_eop_coverage`). Conversions between all other time
+/// systems do not require Earth orientation data.
+///
 /// Example:
 /// ```
 /// use brahe::constants::MJD_ZERO;
@@ -381,7 +389,14 @@ pub fn time_system_offset(
             offset += utc_jdfd_to_utc_offset(jd, fd);
         }
         TimeSystem::UT1 => {
-            let dut1 = get_global_ut1_utc((jd - MJD_ZERO) + fd).unwrap();
+            let dut1 = get_global_ut1_utc((jd - MJD_ZERO) + fd).unwrap_or_else(|e| {
+                panic!(
+                    "UT1-UTC offset unavailable for MJD {} ({}); initialize a global EOP \
+                     provider covering this epoch or set extrapolation to Hold or Zero",
+                    (jd - MJD_ZERO) + fd,
+                    e
+                )
+            });
 
             // UTC -> TAI offset
             offset += utc_jdfd_to_utc_offset(jd, fd - dut1);
@@ -435,7 +450,15 @@ pub fn time_system_offset(
             offset -= tai_jdfd_to_utc_offset(jd, fd + offset / 86400.0);
 
             // Add UTC -> UT1 correction to offset
-            offset += get_global_ut1_utc(jd + fd + offset / 86400.0 - MJD_ZERO).unwrap();
+            offset +=
+                get_global_ut1_utc(jd + fd + offset / 86400.0 - MJD_ZERO).unwrap_or_else(|e| {
+                    panic!(
+                        "UT1-UTC offset unavailable for MJD {} ({}); initialize a global EOP \
+                         provider covering this epoch or set extrapolation to Hold or Zero",
+                        jd + fd + offset / 86400.0 - MJD_ZERO,
+                        e
+                    )
+                });
         }
         TimeSystem::TDB => {
             // Compute JD_TT from the accumulated TAI offset

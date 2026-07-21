@@ -12,14 +12,14 @@ fn main() {
     let mut prop = bh::SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
 
     // Single step (60 seconds)
-    prop.step();
+    prop.step().unwrap();
     println!("After 1 step: {}", prop.current_epoch());
 
     // Multiple steps
-    prop.propagate_steps(10);
+    prop.propagate_steps(10).unwrap();
     println!("After 11 total steps: {} states", prop.trajectory.len());
 
     // Step by custom duration
-    prop.step_by(120.0);
+    prop.step_by(120.0).unwrap();
     println!("After custom step: {}", prop.current_epoch());
 }

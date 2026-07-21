@@ -17,7 +17,7 @@ fn main() {
         OrbitFrame::ECI,
         OrbitRepresentation::Cartesian,
         None
-    );
+    ).unwrap();
 
     // Add states
     let epoch0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0,
@@ -28,7 +28,7 @@ fn main() {
             R_EARTH + 500e3, 0.001, 0.9, 1.0, 0.5, (i as f64) * 0.1
         );
         let state = state_koe_to_eci(oe, AngleFormat::Radians);
-        traj.add(epoch, state);
+        traj.add(epoch, state).unwrap();
     }
 
     // Query properties

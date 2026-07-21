@@ -26,7 +26,7 @@ from brahe import (
     state_gcrf_to_eme2000,
     state_eme2000_to_gcrf,
 )
-from brahe._brahe import PanicException
+from brahe import BraheError
 
 
 def create_test_trajectory():
@@ -104,9 +104,7 @@ def test_orbittrajectory_new_invalid_cartesian_radians():
 
 def test_orbittrajectory_new_invalid_keplerian_ecef_degrees():
     """Rust: test_orbittrajectory_new_invalid_keplerian_ecef_degrees"""
-    with pytest.raises(
-        PanicException, match="Keplerian elements should be in ECI frame"
-    ):
+    with pytest.raises(BraheError, match="Keplerian elements should be in ECI frame"):
         OrbitTrajectory(
             6,
             OrbitFrame.ECEF,
@@ -117,9 +115,7 @@ def test_orbittrajectory_new_invalid_keplerian_ecef_degrees():
 
 def test_orbittrajectory_new_invalid_keplerian_ecef_radians():
     """Rust: test_orbittrajectory_new_invalid_keplerian_ecef_radians"""
-    with pytest.raises(
-        PanicException, match="Keplerian elements should be in ECI frame"
-    ):
+    with pytest.raises(BraheError, match="Keplerian elements should be in ECI frame"):
         OrbitTrajectory(
             6,
             OrbitFrame.ECEF,

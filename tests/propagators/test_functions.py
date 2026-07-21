@@ -19,6 +19,8 @@ from brahe import (
     NumericalOrbitPropagator,
     ForceModelConfig,
     TimeEvent,
+    ValueEvent,
+    EventDirection,
     R_EARTH,
 )
 
@@ -267,6 +269,73 @@ def test_par_propagate_to_numerical_propagator_raises_error():
 # =============================================================================
 # NumericalOrbitPropagator Parallel Propagation Tests
 # =============================================================================
+
+
+def test_par_propagate_to_numerical_orbit_with_callbacks_raises_error():
+    """Orbit propagators carrying Python callbacks are rejected by
+    par_propagate_to: the callbacks cannot run on worker threads (GIL)."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    extended_state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0, 1000.0])
+
+    def additional_dyn(epc, state, params):
+        dx = np.zeros(len(state))
+        dx[6] = -0.1
+        return dx
+
+    prop = NumericalOrbitPropagator(
+        epoch,
+        extended_state,
+        NumericalPropagationConfig.default(),
+        ForceModelConfig.earth_gravity(),
+        None,
+        additional_dynamics=additional_dyn,
+    )
+
+    with pytest.raises(TypeError, match="GIL"):
+        par_propagate_to([prop], epoch + 60.0)
+
+
+def test_par_propagate_to_numerical_orbit_with_python_event_raises_error():
+    """Python-backed event detectors (ValueEvent) added after construction
+    must also be rejected by par_propagate_to (GIL deadlock hazard)."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+
+    prop = NumericalOrbitPropagator(
+        epoch,
+        state,
+        NumericalPropagationConfig.default(),
+        ForceModelConfig.two_body(),
+        None,
+    )
+    event = ValueEvent(
+        "radial crossing", lambda epc, s, params: s[0], 0.0, EventDirection.ANY
+    )
+    prop.add_event_detector(event)
+
+    with pytest.raises(TypeError, match="GIL"):
+        par_propagate_to([prop], epoch + 60.0)
+
+
+def test_par_propagate_to_sgp_with_python_event_raises_error():
+    """SGP propagators carrying Python-backed event detectors are rejected by
+    par_propagate_to; plain Rust-native events remain allowed."""
+    line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+
+    prop = SGPPropagator.from_tle(line1, line2, 60.0)
+    event = ValueEvent(
+        "radial crossing", lambda epc, s, params: s[0], 0.0, EventDirection.ANY
+    )
+    prop.add_event_detector(event)
+
+    with pytest.raises(TypeError, match="GIL"):
+        par_propagate_to([prop], prop.epoch + 60.0)
+
+    # A Rust-native event without a Python callback does not trigger the gate.
+    prop2 = SGPPropagator.from_tle(line1, line2, 60.0)
+    prop2.add_event_detector(TimeEvent(prop2.epoch + 30.0, "halfway"))
+    par_propagate_to([prop2], prop2.epoch + 60.0)
 
 
 def test_par_propagate_to_numerical_orbit():

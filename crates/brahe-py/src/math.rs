@@ -386,6 +386,10 @@ impl PyDNumericalJacobian {
     ///     jac = jacobian.compute(0.0, state)
     ///     # Expected: [[0, 1], [-1, 0]] approximately
     ///     ```
+    ///
+    /// Raises:
+    ///     Exception: Propagates the original exception raised by the dynamics
+    ///         callback, or a BraheError if the finite-difference evaluation fails.
     #[allow(deprecated)]
     pub fn compute<'py>(
         &self,
@@ -398,23 +402,30 @@ impl PyDNumericalJacobian {
         let dimension = state_vec.len();
         let state_dvec = DVector::from_vec(state_vec);
 
-        // Create a Rust closure that calls the Python function
+        // Create a Rust closure that calls the Python function. Any exception
+        // raised by the callback is stashed in `err_slot` and surfaced to the
+        // Rust core as a BraheError, then re-raised verbatim below.
+        let err_slot: PyErrSlot = Arc::new(Mutex::new(None));
         let dynamics_closure = {
             let dynamics_fn_clone = self.dynamics_fn.clone_ref(py);
-            move |t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+            let err_slot = err_slot.clone();
+            move |t: f64,
+                  state: &DVector<f64>,
+                  _params: Option<&DVector<f64>>|
+                  -> Result<DVector<f64>, RustBraheError> {
                 Python::attach(|py| {
                     // Convert state to NumPy array
                     let state_py = state.as_slice().to_pyarray(py);
 
-                // Call Python function
-                let result = dynamics_fn_clone
-                    .call1(py, (t, state_py))
-                    .expect("Failed to call dynamics function");
+                    // Call Python function
+                    let result = dynamics_fn_clone
+                        .call1(py, (t, state_py))
+                        .map_err(|e| stash_callback_err(&err_slot, e))?;
 
                     // Convert result back to DVector
                     let result_vec = pyany_to_f64_array1(result.bind(py), Some(dimension))
-                        .expect("Dynamics function returned invalid array");
-                    DVector::from_vec(result_vec)
+                        .map_err(|e| stash_callback_err(&err_slot, e))?;
+                    Ok(DVector::from_vec(result_vec))
                 })
             }
         };
@@ -443,7 +454,9 @@ impl PyDNumericalJacobian {
         };
 
         // Compute Jacobian
-        let jac_matrix = provider.compute(t, &state_dvec, None);
+        let jac_matrix = provider
+            .compute(t, &state_dvec, None)
+            .map_err(|e| raise_callback_err(&err_slot, e))?;
 
         // Convert DMatrix to NumPy 2D array (row-major order)
         let rows = jac_matrix.nrows();
@@ -738,6 +751,10 @@ impl PyDNumericalSensitivity {
     ///
     /// Returns:
     ///     ndarray: Sensitivity matrix ∂f/∂p (state_dim × param_dim)
+    ///
+    /// Raises:
+    ///     Exception: Propagates the original exception raised by the dynamics
+    ///         callback, or a BraheError if the finite-difference evaluation fails.
     #[allow(deprecated)]
     pub fn compute<'py>(
         &self,
@@ -754,21 +771,28 @@ impl PyDNumericalSensitivity {
         let state_dvec = DVector::from_vec(state_vec);
         let params_dvec = DVector::from_vec(params_vec);
 
-        // Create a Rust closure that calls the Python function
+        // Create a Rust closure that calls the Python function. Any exception
+        // raised by the callback is stashed in `err_slot` and surfaced to the
+        // Rust core as a BraheError, then re-raised verbatim below.
+        let err_slot: PyErrSlot = Arc::new(Mutex::new(None));
         let dynamics_closure = {
             let dynamics_fn_clone = self.dynamics_fn.clone_ref(py);
-            move |t: f64, state: &DVector<f64>, params: &DVector<f64>| -> DVector<f64> {
+            let err_slot = err_slot.clone();
+            move |t: f64,
+                  state: &DVector<f64>,
+                  params: &DVector<f64>|
+                  -> Result<DVector<f64>, RustBraheError> {
                 Python::attach(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let params_py = params.as_slice().to_pyarray(py);
 
                     let result = dynamics_fn_clone
                         .call1(py, (t, state_py, params_py))
-                        .expect("Failed to call dynamics function");
+                        .map_err(|e| stash_callback_err(&err_slot, e))?;
 
                     let result_vec = pyany_to_f64_array1(result.bind(py), Some(state.len()))
-                        .expect("Dynamics function returned invalid array");
-                    DVector::from_vec(result_vec)
+                        .map_err(|e| stash_callback_err(&err_slot, e))?;
+                    Ok(DVector::from_vec(result_vec))
                 })
             }
         };
@@ -804,7 +828,9 @@ impl PyDNumericalSensitivity {
         };
 
         // Compute sensitivity
-        let sens_matrix = provider.compute(t, &state_dvec, &params_dvec);
+        let sens_matrix = provider
+            .compute(t, &state_dvec, &params_dvec)
+            .map_err(|e| raise_callback_err(&err_slot, e))?;
 
         // Convert DMatrix to NumPy 2D array
         let rows = sens_matrix.nrows();

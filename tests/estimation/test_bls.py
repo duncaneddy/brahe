@@ -293,7 +293,7 @@ def test_bls_model_index_out_of_bounds(two_body_leo):
         measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
     )
     obs = [bh.Observation(epoch + 30.0, state[:3], model_index=5)]
-    with pytest.raises(RuntimeError, match="model_index"):
+    with pytest.raises(bh.BraheError, match="model_index"):
         bls.solve(obs)
 
 
@@ -309,7 +309,7 @@ def test_bls_singular_measurement_covariance(two_body_leo, position_observations
         force_config=bh.ForceModelConfig.two_body(),
         measurement_models=[SingularNoiseModel()],
     )
-    with pytest.raises(RuntimeError, match="singular"):
+    with pytest.raises(bh.BraheError, match="singular"):
         bls.solve(position_observations)
 
 

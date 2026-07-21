@@ -1291,6 +1291,9 @@ impl PyConstraintNot {
 ///     lat (float): Latitude in degrees (-90 to 90)
 ///     alt (float): Altitude above ellipsoid in meters (default: 0.0)
 ///
+/// Raises:
+///     BraheError: If the latitude is outside the range [-90, 90] degrees.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -1323,10 +1326,10 @@ pub struct PyPointLocation {
 impl PyPointLocation {
     #[new]
     #[pyo3(signature = (lon, lat, alt=0.0))]
-    fn new(lon: f64, lat: f64, alt: f64) -> Self {
-        PyPointLocation {
-            location: PointLocation::new(lon, lat, alt),
-        }
+    fn new(lon: f64, lat: f64, alt: f64) -> PyResult<Self> {
+        PointLocation::new(lon, lat, alt)
+            .map(|location| PyPointLocation { location })
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Create from GeoJSON Point Feature.

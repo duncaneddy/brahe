@@ -69,7 +69,7 @@ fn main() {
     println!("\nEstimated period: {:.0}s ({:.1} min)", period, period / 60.0);
 
     let target_epoch = opm.state_vector.epoch + period;
-    prop.propagate_to(target_epoch);
+    prop.propagate_to(target_epoch).unwrap();
 
     // Check final state
     let final_state = prop.current_state();

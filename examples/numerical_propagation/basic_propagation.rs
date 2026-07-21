@@ -39,7 +39,7 @@ fn main() {
     .unwrap();
 
     // Propagate for 1 hour
-    prop.propagate_to(epoch + 3600.0);
+    prop.propagate_to(epoch + 3600.0).unwrap();
 
     // Get final state
     let final_epoch = prop.current_epoch();

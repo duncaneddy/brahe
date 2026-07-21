@@ -17,7 +17,7 @@ fn main() {
         OrbitFrame::ECI,
         OrbitRepresentation::Cartesian,
         None
-    );
+    ).unwrap();
 
     // Add a state
     let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0,
@@ -26,14 +26,14 @@ fn main() {
         R_EARTH + 500e3, 0.001, 0.9, 1.0, 0.5, 0.0
     );
     let state_cart = state_koe_to_eci(oe, AngleFormat::Radians);
-    traj_cart.add(epoch, state_cart);
+    traj_cart.add(epoch, state_cart).unwrap();
 
     // Convert to Keplerian with radians
-    let traj_kep_rad = traj_cart.to_keplerian(AngleFormat::Radians);
+    let traj_kep_rad = traj_cart.to_keplerian(AngleFormat::Radians).unwrap();
     let (_, oe_rad) = traj_kep_rad.first().unwrap();
 
     // Convert to Keplerian with degrees
-    let traj_kep_deg = traj_cart.to_keplerian(AngleFormat::Degrees);
+    let traj_kep_deg = traj_cart.to_keplerian(AngleFormat::Degrees).unwrap();
     let (_, oe_deg) = traj_kep_deg.first().unwrap();
 
     println!("Radians version:");

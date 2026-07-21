@@ -122,6 +122,7 @@ fn compute_accesses_for_location(
     constraint: &ElevationConstraint,
 ) -> Vec<AccessOutput> {
     let point = PointLocation::new(location.lon, location.lat, location.alt)
+        .unwrap()
         .with_name(&location.name);
 
     let windows = location_accesses(&point, propagator, epoch_start, epoch_end, constraint, None, None)
@@ -199,7 +200,7 @@ fn benchmark_parallel(
     let points: Vec<PointLocation> = locations
         .iter()
         .map(|loc| {
-            PointLocation::new(loc.lon, loc.lat, loc.alt).with_name(&loc.name)
+            PointLocation::new(loc.lon, loc.lat, loc.alt).unwrap().with_name(&loc.name)
         })
         .collect();
 

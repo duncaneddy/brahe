@@ -573,7 +573,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Invalid geodetic coordinates")]
     fn test_load_groundstations_from_file_invalid_coordinates() {
         // Coordinates outside valid range - latitude > 90
         let geojson = r#"{
@@ -597,8 +596,11 @@ mod tests {
         temp_file.flush().unwrap();
         let temp_path = temp_file.path().to_str().unwrap();
 
-        // PointLocation validates coordinates and panics on out-of-range values
-        let _ = load_groundstations_from_file(temp_path);
+        // PointLocation validates coordinates and returns an error for
+        // out-of-range values; the loader skips the invalid feature with a
+        // warning and errors because no valid features remain.
+        let result = load_groundstations_from_file(temp_path);
+        assert!(matches!(result, Err(BraheError::ParseError(_))));
     }
 
     #[test]

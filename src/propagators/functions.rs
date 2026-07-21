@@ -6,6 +6,7 @@ use rayon::prelude::*;
 
 use crate::propagators::traits::SStatePropagator;
 use crate::time::Epoch;
+use crate::utils::BraheError;
 use crate::utils::threading::get_thread_pool;
 
 /// Propagate multiple propagators to a target epoch in parallel.
@@ -48,29 +49,32 @@ use crate::utils::threading::get_thread_pool;
 ///         na::SVector::<f64, 6>::new(7000e3, 0.001, 98.0, 0.0, 0.0, 0.0),
 ///         AngleFormat::Degrees,
 ///         60.0,
-///     ),
+///     ).unwrap(),
 ///     KeplerianPropagator::from_keplerian(
 ///         epoch,
 ///         na::SVector::<f64, 6>::new(7200e3, 0.002, 97.0, 10.0, 20.0, 30.0),
 ///         AngleFormat::Degrees,
 ///         60.0,
-///     ),
+///     ).unwrap(),
 /// ];
 ///
 /// // Propagate all to target epoch in parallel
 /// let target = epoch + 3600.0; // 1 hour later
-/// par_propagate_to_s(&mut propagators, target);
+/// par_propagate_to_s(&mut propagators, target).unwrap();
 ///
 /// // All propagators are now at target epoch
 /// assert_eq!(propagators[0].current_epoch(), target);
 /// assert_eq!(propagators[1].current_epoch(), target);
 /// ```
-pub fn par_propagate_to_s<P: SStatePropagator + Send>(propagators: &mut [P], target_epoch: Epoch) {
+pub fn par_propagate_to_s<P: SStatePropagator + Send>(
+    propagators: &mut [P],
+    target_epoch: Epoch,
+) -> Result<(), BraheError> {
     get_thread_pool().install(|| {
         propagators
             .par_iter_mut()
-            .for_each(|prop| prop.propagate_to(target_epoch));
-    });
+            .try_for_each(|prop| prop.propagate_to(target_epoch))
+    })
 }
 
 /// Propagate multiple dynamic-state propagators to a target epoch in parallel.
@@ -91,12 +95,12 @@ pub fn par_propagate_to_s<P: SStatePropagator + Send>(propagators: &mut [P], tar
 pub fn par_propagate_to_d<P: super::traits::DStatePropagator + Send>(
     propagators: &mut [P],
     target_epoch: Epoch,
-) {
+) -> Result<(), BraheError> {
     get_thread_pool().install(|| {
         propagators
             .par_iter_mut()
-            .for_each(|prop| prop.propagate_to(target_epoch));
-    });
+            .try_for_each(|prop| prop.propagate_to(target_epoch))
+    })
 }
 
 #[cfg(test)]
@@ -126,23 +130,26 @@ mod tests {
                 na::SVector::<f64, 6>::new(7000e3, 0.001, 98.0, 0.0, 0.0, 0.0),
                 AngleFormat::Degrees,
                 60.0,
-            ),
+            )
+            .unwrap(),
             KeplerianPropagator::from_keplerian(
                 epoch,
                 na::SVector::<f64, 6>::new(7200e3, 0.002, 97.0, 10.0, 20.0, 30.0),
                 AngleFormat::Degrees,
                 60.0,
-            ),
+            )
+            .unwrap(),
             KeplerianPropagator::from_keplerian(
                 epoch,
                 na::SVector::<f64, 6>::new(6800e3, 0.0005, 51.6, 45.0, 90.0, 120.0),
                 AngleFormat::Degrees,
                 60.0,
-            ),
+            )
+            .unwrap(),
         ];
 
         // Propagate in parallel
-        par_propagate_to_s(&mut propagators, target);
+        par_propagate_to_s(&mut propagators, target).unwrap();
 
         // Verify all propagators reached target epoch
         for prop in &propagators {
@@ -181,7 +188,7 @@ mod tests {
 
         // Propagate all forward 1 hour from TLE epoch
         let target = epoch_iss + 3600.0;
-        par_propagate_to_s(&mut propagators, target);
+        par_propagate_to_s(&mut propagators, target).unwrap();
 
         // Verify all reached target epoch
         for prop in &propagators {
@@ -214,13 +221,15 @@ mod tests {
                 na::SVector::<f64, 6>::new(7000e3, 0.001, 98.0, 0.0, 0.0, 0.0),
                 AngleFormat::Degrees,
                 60.0,
-            ),
+            )
+            .unwrap(),
             KeplerianPropagator::from_keplerian(
                 epoch,
                 na::SVector::<f64, 6>::new(7200e3, 0.002, 97.0, 10.0, 20.0, 30.0),
                 AngleFormat::Degrees,
                 60.0,
-            ),
+            )
+            .unwrap(),
         ];
 
         // Create identical propagators for sequential test
@@ -230,21 +239,23 @@ mod tests {
                 na::SVector::<f64, 6>::new(7000e3, 0.001, 98.0, 0.0, 0.0, 0.0),
                 AngleFormat::Degrees,
                 60.0,
-            ),
+            )
+            .unwrap(),
             KeplerianPropagator::from_keplerian(
                 epoch,
                 na::SVector::<f64, 6>::new(7200e3, 0.002, 97.0, 10.0, 20.0, 30.0),
                 AngleFormat::Degrees,
                 60.0,
-            ),
+            )
+            .unwrap(),
         ];
 
         // Propagate in parallel
-        par_propagate_to_s(&mut parallel_props, target);
+        par_propagate_to_s(&mut parallel_props, target).unwrap();
 
         // Propagate sequentially
         for prop in &mut sequential_props {
-            prop.propagate_to(target);
+            prop.propagate_to(target).unwrap();
         }
 
         // Results should be identical
@@ -274,7 +285,7 @@ mod tests {
         let mut propagators: Vec<KeplerianPropagator> = vec![];
 
         // Should not panic with empty slice
-        par_propagate_to_s(&mut propagators, target);
+        par_propagate_to_s(&mut propagators, target).unwrap();
     }
 
     #[test]
@@ -285,14 +296,17 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, crate::TimeSystem::UTC);
         let target = epoch + 3600.0;
 
-        let mut propagators = vec![KeplerianPropagator::from_keplerian(
-            epoch,
-            na::SVector::<f64, 6>::new(7000e3, 0.001, 98.0, 0.0, 0.0, 0.0),
-            AngleFormat::Degrees,
-            60.0,
-        )];
+        let mut propagators = vec![
+            KeplerianPropagator::from_keplerian(
+                epoch,
+                na::SVector::<f64, 6>::new(7000e3, 0.001, 98.0, 0.0, 0.0, 0.0),
+                AngleFormat::Degrees,
+                60.0,
+            )
+            .unwrap(),
+        ];
 
-        par_propagate_to_s(&mut propagators, target);
+        par_propagate_to_s(&mut propagators, target).unwrap();
 
         assert_eq!(propagators[0].current_epoch(), target);
     }
@@ -321,7 +335,7 @@ mod tests {
 
         // Propagate in parallel
         let target = epoch + 400.0;
-        par_propagate_to_s(&mut propagators, target);
+        par_propagate_to_s(&mut propagators, target).unwrap();
 
         // Verify events were detected
         for (i, prop) in propagators.iter().enumerate() {
@@ -390,7 +404,7 @@ mod tests {
 
         // Target 2 days — this satellite diverges within ~24 hours
         let target = epoch + 2.0 * 86400.0;
-        par_propagate_to_s(&mut propagators, target);
+        par_propagate_to_s(&mut propagators, target).unwrap();
 
         // Both propagators should have terminated due to divergence
         // The key test is that NO PANIC occurred - the batch completed
@@ -404,8 +418,8 @@ mod tests {
         let mut prop_decay = make_decaying_propagator(step);
 
         let short_target = prop_good.initial_epoch() + 3600.0; // 1 hour
-        prop_good.propagate_to(short_target);
-        prop_decay.propagate_to(target);
+        prop_good.propagate_to(short_target).unwrap();
+        prop_decay.propagate_to(target).unwrap();
 
         // Short propagation of good orbit should succeed
         assert!(!prop_good.is_terminated());
@@ -460,7 +474,7 @@ mod tests {
             .collect();
 
         // Propagate in parallel
-        par_propagate_to_d(&mut propagators, target);
+        par_propagate_to_d(&mut propagators, target).unwrap();
 
         // Verify all propagators reached target epoch
         for prop in &propagators {
@@ -527,11 +541,11 @@ mod tests {
             .collect();
 
         // Propagate in parallel
-        par_propagate_to_d(&mut parallel_props, target);
+        par_propagate_to_d(&mut parallel_props, target).unwrap();
 
         // Propagate sequentially
         for prop in &mut sequential_props {
-            prop.propagate_to(target);
+            prop.propagate_to(target).unwrap();
         }
 
         // Results should be identical
@@ -567,7 +581,7 @@ mod tests {
         let mut propagators: Vec<DNumericalOrbitPropagator> = vec![];
 
         // Should not panic with empty slice
-        par_propagate_to_d(&mut propagators, target);
+        par_propagate_to_d(&mut propagators, target).unwrap();
     }
 
     #[test]
@@ -594,7 +608,7 @@ mod tests {
             .unwrap(),
         ];
 
-        par_propagate_to_d(&mut propagators, target);
+        par_propagate_to_d(&mut propagators, target).unwrap();
 
         assert_eq!(propagators[0].current_epoch(), target);
     }
@@ -634,7 +648,7 @@ mod tests {
 
         // Propagate in parallel
         let target = epoch + 2400.0;
-        par_propagate_to_d(&mut propagators, target);
+        par_propagate_to_d(&mut propagators, target).unwrap();
 
         // Verify events were detected
         for (i, prop) in propagators.iter().enumerate() {

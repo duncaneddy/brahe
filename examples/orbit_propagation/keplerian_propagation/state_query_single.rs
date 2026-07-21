@@ -12,7 +12,7 @@ fn main() {
     let elements = na::SVector::<f64, 6>::new(bh::R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
     let prop = bh::KeplerianPropagator::from_keplerian(
         epoch, elements, bh::AngleFormat::Degrees, 60.0
-    );
+    ).unwrap();
 
     // Query state 1 hour later (doesn't add to trajectory)
     let query_epoch = epoch + 3600.0;

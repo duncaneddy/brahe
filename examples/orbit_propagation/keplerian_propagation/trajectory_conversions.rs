@@ -12,13 +12,13 @@ fn main() {
     let elements = na::SVector::<f64, 6>::new(bh::R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
     let mut prop = bh::KeplerianPropagator::from_keplerian(
         epoch, elements, bh::AngleFormat::Degrees, 60.0
-    );
-    prop.propagate_steps(10);
+    ).unwrap();
+    prop.propagate_steps(10).unwrap();
 
     // Convert entire trajectory to different frames
-    let traj_eci = prop.trajectory.to_eci();       // ECI Cartesian
-    let traj_ecef = prop.trajectory.to_ecef();     // ECEF Cartesian
-    let traj_kep = prop.trajectory.to_keplerian(bh::AngleFormat::Radians);
+    let traj_eci = prop.trajectory.to_eci().unwrap();       // ECI Cartesian
+    let traj_ecef = prop.trajectory.to_ecef().unwrap();     // ECEF Cartesian
+    let traj_kep = prop.trajectory.to_keplerian(bh::AngleFormat::Radians).unwrap();
 
     println!("ECI trajectory: {} states", traj_eci.len());
     println!("ECEF trajectory: {} states", traj_ecef.len());

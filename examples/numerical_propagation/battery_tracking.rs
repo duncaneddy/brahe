@@ -78,7 +78,7 @@ fn main() {
         }
 
         dx[6] = charge_rate;
-        dx
+        Ok(dx)
     });
 
     // Create propagator with two-body dynamics
@@ -108,7 +108,7 @@ fn main() {
     );
 
     // Propagate
-    prop.propagate_to(epoch + total_time);
+    prop.propagate_to(epoch + total_time).unwrap();
 
     // Check final state
     let final_state = prop.current_state();

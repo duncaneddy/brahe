@@ -772,7 +772,10 @@ impl PyGPRecord {
     fn to_sgp_propagator(&self, step_size: f64) -> PyResult<PySGPPropagator> {
         let propagator = propagators::SGPPropagator::from_gp_record(&self.inner, step_size)
             .map_err(|e| BraheError::new_err(e.to_string()))?;
-        Ok(PySGPPropagator { propagator })
+        Ok(PySGPPropagator {
+            propagator,
+            has_python_callbacks: false,
+        })
     }
 
     /// Create a NumericalOrbitPropagator from this GP record.
@@ -811,10 +814,16 @@ impl PyGPRecord {
         propagation_config: Option<&PyNumericalPropagationConfig>,
         params: Option<PyReadonlyArray1<f64>>,
     ) -> PyResult<PyNumericalOrbitPropagator> {
-        let params_dvec = params.map(|p| {
-            let vec = p.to_vec().unwrap();
-            DVector::from_vec(vec)
-        });
+        let params_dvec = params
+            .map(|p| {
+                let vec = p.to_vec().map_err(|_| {
+                    exceptions::PyValueError::new_err(
+                        "array must be C-contiguous; use numpy.ascontiguousarray",
+                    )
+                })?;
+                Ok::<_, PyErr>(DVector::from_vec(vec))
+            })
+            .transpose()?;
 
         let prop_config = propagation_config.map(|c| c.config.clone());
 
@@ -826,7 +835,11 @@ impl PyGPRecord {
         )
         .map_err(|e| BraheError::new_err(e.to_string()))?;
 
-        Ok(PyNumericalOrbitPropagator { propagator })
+        Ok(PyNumericalOrbitPropagator {
+            propagator,
+            err_slot: Arc::new(Mutex::new(None)),
+            has_python_callbacks: false,
+        })
     }
 
     /// Convert this GPRecord to a CCSDS OMM message.

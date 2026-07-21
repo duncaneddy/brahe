@@ -17,7 +17,7 @@ fn main() {
         OrbitFrame::ECEF,
         OrbitRepresentation::Cartesian,
         None
-    );
+    ).unwrap();
 
     // Add dummy states in ECEF
     let epoch0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0,
@@ -27,13 +27,13 @@ fn main() {
         let state_ecef = na::SVector::<f64, 6>::new(
             R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 7600.0
         );
-        traj_ecef.add(epoch, state_ecef);
+        traj_ecef.add(epoch, state_ecef).unwrap();
     }
 
     println!("Original frame: {:?}", traj_ecef.frame);
 
     // Convert to ECI
-    let traj_eci = traj_ecef.to_eci();
+    let traj_eci = traj_ecef.to_eci().unwrap();
 
     println!("Converted frame: {:?}", traj_eci.frame);
     println!("Trajectory length: {}", traj_eci.len());

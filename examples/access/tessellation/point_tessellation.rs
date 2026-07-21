@@ -25,7 +25,7 @@ fn main() {
     );
 
     // Tessellate a point
-    let point = PointLocation::new(10.0, 30.0, 0.0);
+    let point = PointLocation::new(10.0, 30.0, 0.0).unwrap();
     let tiles = tess.tessellate(&point).unwrap();
 
     println!("Number of tiles: {}", tiles.len());

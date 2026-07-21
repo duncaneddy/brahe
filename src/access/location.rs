@@ -93,29 +93,31 @@ impl PointLocation {
     /// - `alt`: Altitude above ellipsoid (meters)
     ///
     /// # Returns
-    /// New PointLocation instance
+    /// New PointLocation instance or error if the coordinates are invalid
+    ///
+    /// # Errors
+    /// Returns [`BraheError`] if the latitude is outside the range [-90, 90] degrees.
     ///
     /// # Example
     /// ```
     /// use brahe::access::PointLocation;
     ///
-    /// let svalbard = PointLocation::new(15.4, 78.2, 0.0);
+    /// let svalbard = PointLocation::new(15.4, 78.2, 0.0).unwrap();
     /// ```
-    pub fn new(lon: f64, lat: f64, alt: f64) -> Self {
+    pub fn new(lon: f64, lat: f64, alt: f64) -> Result<Self, BraheError> {
         let center = Vector3::new(lon, lat, alt);
 
         // Compute ECEF position
-        let center_ecef = position_geodetic_to_ecef(center, AngleFormat::Degrees)
-            .expect("Invalid geodetic coordinates");
+        let center_ecef = position_geodetic_to_ecef(center, AngleFormat::Degrees)?;
 
-        Self {
+        Ok(Self {
             center,
             center_ecef: Some(center_ecef),
             properties: HashMap::new(),
             name: None,
             id: None,
             uuid: Some(Uuid::now_v7()),
-        }
+        })
     }
 
     /// Create from GeoJSON Point Feature
@@ -185,7 +187,7 @@ impl PointLocation {
         let alt = coords.get(2).and_then(|a| a.as_f64()).unwrap_or(0.0);
 
         // Create point location
-        let mut location = Self::new(lon, lat, alt);
+        let mut location = Self::new(lon, lat, alt)?;
 
         // Extract properties if present
         if let Some(props) = geojson.get("properties").and_then(|p| p.as_object()) {
@@ -234,7 +236,7 @@ impl PointLocation {
     /// use brahe::access::PointLocation;
     /// use serde_json::json;
     ///
-    /// let location = PointLocation::new(15.4, 78.2, 0.0)
+    /// let location = PointLocation::new(15.4, 78.2, 0.0).unwrap()
     ///     .add_property("country", json!("Norway"))
     ///     .add_property("elevation_mask_deg", json!(5.0));
     /// ```
@@ -268,7 +270,7 @@ impl PointLocation {
     /// use brahe::access::PointLocation;
     /// use brahe::constants::AngleFormat;
     ///
-    /// let loc = PointLocation::new(15.4, 78.2, 0.0);
+    /// let loc = PointLocation::new(15.4, 78.2, 0.0).unwrap();
     /// let lon_deg = loc.longitude(AngleFormat::Degrees);
     /// let lon_rad = loc.longitude(AngleFormat::Radians);
     /// ```
@@ -302,10 +304,11 @@ impl AccessibleLocation for PointLocation {
     }
 
     fn center_ecef(&self) -> Vector3<f64> {
-        // Return cached value or recompute if needed
+        // Return cached value or recompute if needed. Coordinates were validated at
+        // construction, so this recomputation is infallible.
         self.center_ecef.unwrap_or_else(|| {
             position_geodetic_to_ecef(self.center, AngleFormat::Degrees)
-                .expect("Invalid geodetic coordinates")
+                .expect("coordinates validated at construction")
         })
     }
 
@@ -511,9 +514,9 @@ impl PolygonLocation {
             sum_alt / num_unique as f64,
         );
 
-        // Compute ECEF center
-        let center_ecef = position_geodetic_to_ecef(center, AngleFormat::Degrees)
-            .expect("Invalid geodetic coordinates");
+        // Compute ECEF center. The centroid latitude is bounded by the vertex
+        // latitudes, so the conversion is propagated as an error if it fails.
+        let center_ecef = position_geodetic_to_ecef(center, AngleFormat::Degrees)?;
 
         Ok(Self {
             center,
@@ -738,9 +741,10 @@ impl AccessibleLocation for PolygonLocation {
     }
 
     fn center_ecef(&self) -> Vector3<f64> {
+        // Coordinates were validated at construction, so this recomputation is infallible.
         self.center_ecef.unwrap_or_else(|| {
             position_geodetic_to_ecef(self.center, AngleFormat::Degrees)
-                .expect("Invalid geodetic coordinates")
+                .expect("coordinates validated at construction")
         })
     }
 
@@ -851,7 +855,7 @@ mod tests {
 
     #[test]
     fn test_point_location_new() {
-        let loc = PointLocation::new(15.4, 78.2, 0.0);
+        let loc = PointLocation::new(15.4, 78.2, 0.0).unwrap();
 
         assert_eq!(loc.lon(), 15.4);
         assert_eq!(loc.lat(), 78.2);
@@ -865,6 +869,7 @@ mod tests {
     #[test]
     fn test_point_location_identifiable() {
         let loc = PointLocation::new(15.4, 78.2, 0.0)
+            .unwrap()
             .with_name("Svalbard")
             .with_id(42)
             .with_new_uuid();
@@ -877,6 +882,7 @@ mod tests {
     #[test]
     fn test_point_location_properties() {
         let loc = PointLocation::new(15.4, 78.2, 0.0)
+            .unwrap()
             .add_property("country", json!("Norway"))
             .add_property("population", json!(2500));
 
@@ -887,6 +893,7 @@ mod tests {
     #[test]
     fn test_point_location_geojson_roundtrip() {
         let original = PointLocation::new(15.4, 78.2, 100.0)
+            .unwrap()
             .with_name("Svalbard")
             .add_property("country", json!("Norway"));
 
@@ -986,7 +993,7 @@ mod tests {
 
     #[test]
     fn test_point_location_coordinate_accessors() {
-        let loc = PointLocation::new(15.4, 78.2, 500.0);
+        let loc = PointLocation::new(15.4, 78.2, 500.0).unwrap();
 
         // Quick accessors (always degrees/meters)
         assert_eq!(loc.lon(), 15.4);
@@ -1007,7 +1014,7 @@ mod tests {
 
     #[test]
     fn test_point_location_center_geodetic() {
-        let loc = PointLocation::new(15.4, 78.2, 500.0);
+        let loc = PointLocation::new(15.4, 78.2, 500.0).unwrap();
         let center = loc.center_geodetic();
 
         assert_eq!(center.x, 15.4);
@@ -1017,7 +1024,7 @@ mod tests {
 
     #[test]
     fn test_point_location_center_ecef() {
-        let loc = PointLocation::new(0.0, 0.0, 0.0);
+        let loc = PointLocation::new(0.0, 0.0, 0.0).unwrap();
         let ecef = loc.center_ecef();
 
         // At equator, longitude 0, ECEF should be approximately [R_EARTH, 0, 0]
@@ -1028,7 +1035,7 @@ mod tests {
 
     #[test]
     fn test_point_location_properties_accessor() {
-        let mut loc = PointLocation::new(15.4, 78.2, 0.0);
+        let mut loc = PointLocation::new(15.4, 78.2, 0.0).unwrap();
 
         // Test properties() getter
         assert!(loc.properties().is_empty());
@@ -1043,6 +1050,7 @@ mod tests {
     #[test]
     fn test_point_location_add_property_builder() {
         let loc = PointLocation::new(15.4, 78.2, 0.0)
+            .unwrap()
             .add_property("key1", json!("value1"))
             .add_property("key2", json!(42))
             .add_property("key3", json!(true));
@@ -1055,6 +1063,7 @@ mod tests {
     #[test]
     fn test_point_location_to_geojson_required_fields() {
         let loc = PointLocation::new(15.4, 78.2, 100.0)
+            .unwrap()
             .with_name("TestLocation")
             .with_id(42)
             .with_new_uuid()
@@ -1146,23 +1155,23 @@ mod tests {
         let uuid = Uuid::now_v7();
 
         // Test with_name
-        let loc = PointLocation::new(0.0, 0.0, 0.0).with_name("Test");
+        let loc = PointLocation::new(0.0, 0.0, 0.0).unwrap().with_name("Test");
         assert_eq!(loc.get_name(), Some("Test"));
 
         // Test with_id
-        let loc = PointLocation::new(0.0, 0.0, 0.0).with_id(123);
+        let loc = PointLocation::new(0.0, 0.0, 0.0).unwrap().with_id(123);
         assert_eq!(loc.get_id(), Some(123));
 
         // Test with_uuid
-        let loc = PointLocation::new(0.0, 0.0, 0.0).with_uuid(uuid);
+        let loc = PointLocation::new(0.0, 0.0, 0.0).unwrap().with_uuid(uuid);
         assert_eq!(loc.get_uuid(), Some(uuid));
 
         // Test with_new_uuid
-        let loc = PointLocation::new(0.0, 0.0, 0.0).with_new_uuid();
+        let loc = PointLocation::new(0.0, 0.0, 0.0).unwrap().with_new_uuid();
         assert!(loc.get_uuid().is_some());
 
         // Test with_identity
-        let loc = PointLocation::new(0.0, 0.0, 0.0).with_identity(
+        let loc = PointLocation::new(0.0, 0.0, 0.0).unwrap().with_identity(
             Some("Combined"),
             Some(uuid),
             Some(456),
@@ -1172,24 +1181,24 @@ mod tests {
         assert_eq!(loc.get_id(), Some(456));
 
         // Test set_identity
-        let mut loc = PointLocation::new(0.0, 0.0, 0.0);
+        let mut loc = PointLocation::new(0.0, 0.0, 0.0).unwrap();
         loc.set_identity(Some("NewName"), Some(uuid), Some(789));
         assert_eq!(loc.get_name(), Some("NewName"));
         assert_eq!(loc.get_uuid(), Some(uuid));
         assert_eq!(loc.get_id(), Some(789));
 
         // Test set_id
-        let mut loc = PointLocation::new(0.0, 0.0, 0.0);
+        let mut loc = PointLocation::new(0.0, 0.0, 0.0).unwrap();
         loc.set_id(Some(999));
         assert_eq!(loc.get_id(), Some(999));
 
         // Test set_name
-        let mut loc = PointLocation::new(0.0, 0.0, 0.0);
+        let mut loc = PointLocation::new(0.0, 0.0, 0.0).unwrap();
         loc.set_name(Some("SetName"));
         assert_eq!(loc.get_name(), Some("SetName"));
 
         // Test generate_uuid
-        let mut loc = PointLocation::new(0.0, 0.0, 0.0);
+        let mut loc = PointLocation::new(0.0, 0.0, 0.0).unwrap();
         loc.generate_uuid();
         assert!(loc.get_uuid().is_some());
     }

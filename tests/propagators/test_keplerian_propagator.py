@@ -21,7 +21,7 @@ from brahe import (
     state_ecef_to_eci,
     state_itrf_to_gcrf,
     state_eme2000_to_gcrf,
-    PanicException,
+    BraheError,
 )
 
 # Test data constants
@@ -94,12 +94,12 @@ def test_keplerianpropagator_new_invalid_angle_format():
 
 
 def test_keplerianpropagator_new_invalid_frame():
-    """Test that new() panics with invalid frame"""
+    """Test that new() raises with invalid frame"""
     epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
     elements = create_test_elements()
 
-    # This should panic because Keplerian elements are not in ECI frame
-    with pytest.raises(PanicException):
+    # This should raise because Keplerian elements are not in ECI frame
+    with pytest.raises(BraheError):
         KeplerianPropagator(
             epoch,
             elements,
@@ -111,12 +111,12 @@ def test_keplerianpropagator_new_invalid_frame():
 
 
 def test_keplerianpropagator_new_invalid_cartesian_angle_format():
-    """Test that new() panics with invalid Cartesian angle format"""
+    """Test that new() raises with invalid Cartesian angle format"""
     epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
     state = create_test_elements()  # Using elements for simplicity
 
-    # This should panic because angle format is not None for Cartesian
-    with pytest.raises(PanicException):
+    # This should raise because angle format is not None for Cartesian
+    with pytest.raises(BraheError):
         KeplerianPropagator(
             epoch,
             state,
@@ -128,12 +128,12 @@ def test_keplerianpropagator_new_invalid_cartesian_angle_format():
 
 
 def test_keplerianpropagator_new_invalid_step_size_negative():
-    """Test that new() panics with negative step size"""
+    """Test that new() raises with negative step size"""
     epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
     elements = create_test_elements()
 
-    # This should panic because step size is not positive
-    with pytest.raises(PanicException):
+    # This should raise because step size is not positive
+    with pytest.raises(BraheError):
         KeplerianPropagator(
             epoch,
             elements,
@@ -145,12 +145,12 @@ def test_keplerianpropagator_new_invalid_step_size_negative():
 
 
 def test_keplerianpropagator_new_invalid_step_size_zero():
-    """Test that new() panics with zero step size"""
+    """Test that new() raises with zero step size"""
     epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
     elements = create_test_elements()
 
-    # This should panic because step size is not positive
-    with pytest.raises(PanicException):
+    # This should raise because step size is not positive
+    with pytest.raises(BraheError):
         KeplerianPropagator(
             epoch,
             elements,

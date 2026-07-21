@@ -28,7 +28,7 @@ fn main() {
     );
     let state = bh::state_koe_to_eci(oe, bh::AngleFormat::Radians);
     let propagator =
-        bh::KeplerianPropagator::from_eci(epoch, state, 60.0).with_name("EO-Sat");
+        bh::KeplerianPropagator::from_eci(epoch, state, 60.0).unwrap().with_name("EO-Sat");
 
     // Define access constraint (minimum 5° elevation)
     let constraint = bh::ElevationConstraint::new(Some(5.0), None).unwrap();

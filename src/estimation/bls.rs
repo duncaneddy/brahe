@@ -798,7 +798,7 @@ impl BatchLeastSquares {
     /// Propagate the dynamics to a target epoch, erroring if the propagator
     /// stopped short (e.g., a terminal event fired during propagation).
     fn propagate_dynamics_to(&mut self, epoch: Epoch) -> Result<(), BraheError> {
-        self.dynamics.propagate_to(epoch);
+        self.dynamics.propagate_to(epoch)?;
         let reached_epoch = self.dynamics.current_epoch();
         let epoch_gap: f64 = epoch - reached_epoch;
         if epoch_gap.abs() > 1e-6 {
@@ -1189,7 +1189,7 @@ impl BatchLeastSquaresBuilder {
     /// let dynamics: brahe::integrators::traits::DStateDynamics = Box::new(|_t, state, _params| {
     ///     let mut dx = DVector::zeros(state.len());
     ///     dx[6] = -0.1; // dm/dt = -0.1 kg/s
-    ///     dx
+    ///     Ok(dx)
     /// });
     ///
     /// let bls = BatchLeastSquares::builder(
@@ -1232,7 +1232,7 @@ impl BatchLeastSquaresBuilder {
     /// let control: brahe::integrators::traits::DStateDynamics = Box::new(|_t, state, _params| {
     ///     let mut dx = DVector::zeros(state.len());
     ///     dx[3] = 0.0001; // small perturbing acceleration
-    ///     dx
+    ///     Ok(dx)
     /// });
     ///
     /// let bls = BatchLeastSquares::builder(
@@ -1430,7 +1430,7 @@ mod tests {
         (1..=num_obs)
             .map(|i| {
                 let t = epoch + (i as f64) * interval_s;
-                prop.propagate_to(t);
+                prop.propagate_to(t).unwrap();
                 Observation::new(t, prop.current_state().rows(0, 3).into_owned(), 0)
             })
             .collect()
@@ -2465,7 +2465,7 @@ mod tests {
 
         let zero_dynamics = || {
             Box::new(|_t: f64, state: &DVector<f64>, _p: Option<&DVector<f64>>| {
-                DVector::zeros(state.len())
+                Ok(DVector::zeros(state.len()))
             })
         };
 

@@ -14,13 +14,13 @@ fn main() {
         OrbitFrame::ECI,
         OrbitRepresentation::Keplerian,
         Some(AngleFormat::Radians)
-    );
+    ).unwrap();
 
     // Create trajectory in ECI frame, Keplerian representation with degrees
     let _traj_kep_deg = SOrbitTrajectory::new(
         OrbitFrame::ECI,
         OrbitRepresentation::Keplerian,
         Some(AngleFormat::Degrees)
-    );
+    ).unwrap();
 }
 

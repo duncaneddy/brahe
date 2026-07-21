@@ -32,7 +32,7 @@ fn main() {
             let x = state[0];
             let v = state[1];
             let omega_sq = params.map(|p| p[0]).unwrap_or(omega * omega);
-            na::DVector::from_vec(vec![v, -omega_sq * x])
+            Ok(na::DVector::from_vec(vec![v, -omega_sq * x]))
         },
     );
 
@@ -42,7 +42,7 @@ fn main() {
             let x = state[0];
             let v = state[1];
             let omega_sq = params.map(|p| p[0]).unwrap_or(omega * omega);
-            na::DVector::from_vec(vec![v, -omega_sq * x])
+            Ok(na::DVector::from_vec(vec![v, -omega_sq * x]))
         },
     );
 
@@ -54,7 +54,7 @@ fn main() {
         move |_t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| {
             let v = state[1];
             // Control adds acceleration that opposes velocity
-            na::DVector::from_vec(vec![0.0, -damping_coeff * v])
+            Ok(na::DVector::from_vec(vec![0.0, -damping_coeff * v]))
         },
     );
 
@@ -76,8 +76,8 @@ fn main() {
 
     // Propagate for several periods
     let period = 2.0 * PI / omega; // Period = 1 second
-    prop_damped.propagate_to(epoch + 10.0 * period);
-    prop_undamped.propagate_to(epoch + 10.0 * period);
+    prop_damped.propagate_to(epoch + 10.0 * period).unwrap();
+    prop_undamped.propagate_to(epoch + 10.0 * period).unwrap();
 
     // Sample trajectory and compare
     println!("Damped vs Undamped Harmonic Oscillator:");

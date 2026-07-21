@@ -90,7 +90,7 @@ fn main() {
     // Propagate past all maneuvers
     let target = last_man_epoch + 3600.0;
     println!("\nPropagating to {}...", target);
-    prop.propagate_to(target);
+    prop.propagate_to(target).unwrap();
 
     // Report final state
     let final_state = prop.current_state();

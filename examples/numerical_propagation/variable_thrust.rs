@@ -35,7 +35,7 @@ fn main() {
 
             // Check if within burn window
             if t_maneuver < 0.0 || t_maneuver > burn_duration {
-                return dx;
+                return Ok(dx);
             }
 
             // Compute thrust magnitude with ramp profile
@@ -63,7 +63,7 @@ fn main() {
                 dx[5] = accel_mag * v_hat[2];
             }
 
-            dx
+            Ok(dx)
         },
     );
 
@@ -89,8 +89,8 @@ fn main() {
     // Propagate for duration covering the entire maneuver
     let end_time = epoch + 3600.0; // 1 hour (covers 30-min burn starting at 10 min)
 
-    prop.propagate_to(end_time);
-    prop_ref.propagate_to(end_time);
+    prop.propagate_to(end_time).unwrap();
+    prop_ref.propagate_to(end_time).unwrap();
 
     // Compare final orbits
     let koe_thrust = prop.state_koe_osc(end_time, bh::AngleFormat::Degrees).unwrap();

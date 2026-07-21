@@ -24,7 +24,7 @@ fn main() {
             let mut dx = DVector::zeros(6);
             dx.rows_mut(0, 3).copy_from(&v_vec);
             dx.rows_mut(3, 3).copy_from(&a);
-            dx
+            Ok(dx)
         },
     );
 

@@ -29,7 +29,7 @@ fn main() {
 
     // Dynamics function with parameters
     let dynamics_with_params =
-        |_t: f64, state: &DVector<f64>, params: &DVector<f64>| -> DVector<f64> {
+        |_t: f64, state: &DVector<f64>, params: &DVector<f64>| -> Result<DVector<f64>, brahe::utils::BraheError> {
             let cd_area_m = params[0];
 
             let r = state.fixed_rows::<3>(0);
@@ -59,7 +59,7 @@ fn main() {
             state_dot
                 .fixed_rows_mut::<3>(3)
                 .copy_from(&(a_grav + a_drag));
-            state_dot
+            Ok(state_dot)
         };
 
     // Create sensitivity provider
@@ -68,7 +68,7 @@ fn main() {
 
     // Create Jacobian provider (dynamics without explicit params for Jacobian)
     let params_clone = params.clone();
-    let dynamics_for_jacobian = move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+    let dynamics_for_jacobian = move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> Result<DVector<f64>, brahe::utils::BraheError> {
         let cd_area_m = params_clone[0];
 
         let r = state.fixed_rows::<3>(0);
@@ -96,7 +96,7 @@ fn main() {
         state_dot
             .fixed_rows_mut::<3>(3)
             .copy_from(&(a_grav + a_drag));
-        state_dot
+        Ok(state_dot)
     };
 
     let jacobian_provider = DNumericalJacobian::central(Box::new(dynamics_for_jacobian));
@@ -106,7 +106,7 @@ fn main() {
     let augmented_dynamics = move |t: f64,
                                    aug_state: &DVector<f64>,
                                    _params: Option<&DVector<f64>>|
-          -> DVector<f64> {
+          -> Result<DVector<f64>, brahe::utils::BraheError> {
         // Extract state and sensitivity matrix
         let state = aug_state.rows(0, 6).into_owned();
         let phi_flat = aug_state.rows(6, 6 * num_params).into_owned();
@@ -120,13 +120,13 @@ fn main() {
         }
 
         // State derivative
-        let state_dot = dynamics_with_params(t, &state, &params_for_aug);
+        let state_dot = dynamics_with_params(t, &state, &params_for_aug).unwrap();
 
         // Compute Jacobian ∂f/∂x
-        let jacobian = jacobian_provider.compute(t, &state, None);
+        let jacobian = jacobian_provider.compute(t, &state, None).unwrap();
 
         // Compute sensitivity ∂f/∂p
-        let sensitivity = sensitivity_provider.compute(t, &state, &params_for_aug);
+        let sensitivity = sensitivity_provider.compute(t, &state, &params_for_aug).unwrap();
 
         // Sensitivity matrix derivative: dΦ/dt = J*Φ + S
         let phi_dot = &jacobian * &phi + &sensitivity;
@@ -143,7 +143,7 @@ fn main() {
         let mut aug_dot = DVector::<f64>::zeros(6 + 6 * num_params);
         aug_dot.rows_mut(0, 6).copy_from(&state_dot);
         aug_dot.rows_mut(6, 6 * num_params).copy_from(&phi_dot_flat);
-        aug_dot
+        Ok(aug_dot)
     };
 
     // Initial state (200 km LEO for significant drag effects)
@@ -178,7 +178,7 @@ fn main() {
     let dt = 1.0;
 
     while t < t_final {
-        aug_state = integrator.step(t, aug_state, None, None).state;
+        aug_state = integrator.step(t, aug_state, None, None).unwrap().state;
         t += dt;
     }
 

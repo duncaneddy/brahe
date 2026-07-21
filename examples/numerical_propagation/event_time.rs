@@ -47,7 +47,7 @@ fn main() {
     prop.add_event_detector(Box::new(event_terminal));
 
     // Propagate for 2 hours (will stop at 90 minutes due to terminal event)
-    prop.propagate_to(epoch + 7200.0);
+    prop.propagate_to(epoch + 7200.0).unwrap();
 
     // Check detected events
     let events = prop.event_log();

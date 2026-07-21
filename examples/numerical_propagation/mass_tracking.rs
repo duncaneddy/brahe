@@ -58,7 +58,7 @@ fn main() {
         if burn_start <= t && t < burn_end {
             dx[6] = -mass_flow_rate; // dm/dt = -F/(Isp*g0)
         }
-        dx
+        Ok(dx)
     });
 
     // Control input for thrust acceleration
@@ -74,7 +74,7 @@ fn main() {
             dx[4] = acc[1];
             dx[5] = acc[2];
         }
-        dx
+        Ok(dx)
     });
 
     // Create propagator with two-body dynamics (no drag/SRP for clean mass tracking)
@@ -93,7 +93,7 @@ fn main() {
     println!("  Semi-major axis: {:.1} km", oe[0] / 1e3);
 
     // Propagate through pre-burn coast, burn, and post-burn coast
-    prop.propagate_to(epoch + total_time);
+    prop.propagate_to(epoch + total_time).unwrap();
 
     // Check final state
     let final_state = prop.current_state();

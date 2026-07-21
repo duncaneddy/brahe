@@ -34,7 +34,7 @@ fn main() {
     .build()
     .unwrap();
 
-    prop.propagate_to(epoch + 3600.0);
+    prop.propagate_to(epoch + 3600.0).unwrap();
     println!("Minimal builder — epoch: {}", prop.current_epoch());
 
     // With optional fields: custom propagation config and initial covariance
@@ -50,7 +50,7 @@ fn main() {
     .build()
     .unwrap();
 
-    prop_with_cov.propagate_to(epoch + 3600.0);
+    prop_with_cov.propagate_to(epoch + 3600.0).unwrap();
 
     assert_eq!(DStatePropagator::state_dim(&prop_with_cov), 6);
     assert!(prop_with_cov.current_covariance().is_some());

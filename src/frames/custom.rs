@@ -31,11 +31,11 @@ use crate::time::Epoch;
 use crate::utils::BraheError;
 
 /// Rotation callback: ICRF→body-fixed DCM at an epoch.
-pub type CustomFrameRotation = dyn Fn(Epoch) -> SMatrix3 + Send + Sync;
+pub type CustomFrameRotation = dyn Fn(Epoch) -> Result<SMatrix3, BraheError> + Send + Sync;
 
 /// Angular-velocity callback: the frame's angular velocity at an epoch,
 /// expressed in the body-fixed frame. Units: (rad/s)
-pub type CustomFrameOmega = dyn Fn(Epoch) -> Vector3<f64> + Send + Sync;
+pub type CustomFrameOmega = dyn Fn(Epoch) -> Result<Vector3<f64>, BraheError> + Send + Sync;
 
 struct CustomFrameEntry {
     rotation: Arc<CustomFrameRotation>,
@@ -80,7 +80,7 @@ const OMEGA_DIFF_STEP: f64 = 1.0;
 ///     move |epc: Epoch| {
 ///         let theta = 0.001 * (epc - t0);
 ///         let (s, c) = theta.sin_cos();
-///         SMatrix3::new(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0)
+///         Ok(SMatrix3::new(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0))
 ///     },
 ///     None,
 /// );
@@ -90,7 +90,7 @@ const OMEGA_DIFF_STEP: f64 = 1.0;
 /// ```
 pub fn register_custom_frame<R>(key: u32, rotation: R, omega: Option<Box<CustomFrameOmega>>)
 where
-    R: Fn(Epoch) -> SMatrix3 + Send + Sync + 'static,
+    R: Fn(Epoch) -> Result<SMatrix3, BraheError> + Send + Sync + 'static,
 {
     CUSTOM_FRAMES.write().unwrap().insert(
         key,
@@ -130,7 +130,7 @@ fn entry(
 /// ICRF→body-fixed DCM of the custom frame `key` at `epc`.
 pub(crate) fn custom_frame_rotation(key: u32, epc: Epoch) -> Result<SMatrix3, BraheError> {
     let (rotation, _) = entry(key)?;
-    Ok(rotation(epc))
+    rotation(epc)
 }
 
 /// Rotation and body-frame angular velocity of the custom frame `key` at
@@ -142,12 +142,12 @@ pub(crate) fn custom_frame_rotation_and_omega(
     epc: Epoch,
 ) -> Result<(SMatrix3, Vector3<f64>), BraheError> {
     let (rotation, omega) = entry(key)?;
-    let r = rotation(epc);
+    let r = rotation(epc)?;
     let w = match omega {
-        Some(omega) => omega(epc),
+        Some(omega) => omega(epc)?,
         None => {
-            let r_plus = rotation(epc + OMEGA_DIFF_STEP);
-            let r_minus = rotation(epc - OMEGA_DIFF_STEP);
+            let r_plus = rotation(epc + OMEGA_DIFF_STEP)?;
+            let r_minus = rotation(epc - OMEGA_DIFF_STEP)?;
             let r_dot = (r_plus - r_minus) / (2.0 * OMEGA_DIFF_STEP);
             // [omega]× = -Ṙ Rᵀ for r_b = R r_i; extract the vector from the
             // skew-symmetric part.
@@ -171,11 +171,14 @@ mod tests {
     use crate::time::TimeSystem;
 
     /// Uniform rotation about z at `rate` rad/s from `t0`.
-    fn spin_z(t0: Epoch, rate: f64) -> impl Fn(Epoch) -> SMatrix3 + Send + Sync + Clone {
+    fn spin_z(
+        t0: Epoch,
+        rate: f64,
+    ) -> impl Fn(Epoch) -> Result<SMatrix3, BraheError> + Send + Sync + Clone {
         move |epc: Epoch| {
             let theta = rate * (epc - t0);
             let (s, c) = theta.sin_cos();
-            SMatrix3::new(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0)
+            Ok(SMatrix3::new(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0))
         }
     }
 
@@ -189,7 +192,7 @@ mod tests {
         let (r, w) = custom_frame_rotation_and_omega(9001, epc).unwrap();
 
         // Rotation matches the callback directly.
-        let expected_r = spin_z(t0, rate)(epc);
+        let expected_r = spin_z(t0, rate)(epc).unwrap();
         for i in 0..3 {
             for j in 0..3 {
                 assert_abs_diff_eq!(r[(i, j)], expected_r[(i, j)], epsilon = 1e-15);
@@ -211,7 +214,7 @@ mod tests {
         register_custom_frame(
             9002,
             spin_z(t0, rate),
-            Some(Box::new(move |_| Vector3::new(0.0, 0.0, rate))),
+            Some(Box::new(move |_| Ok(Vector3::new(0.0, 0.0, rate)))),
         );
 
         let (_, w) = custom_frame_rotation_and_omega(9002, t0 + 10.0).unwrap();

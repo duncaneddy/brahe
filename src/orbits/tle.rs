@@ -251,7 +251,7 @@ pub fn epoch_from_tle(line1: &str) -> Result<Epoch, BraheError> {
         .parse()
         .map_err(|_| BraheError::Error("Invalid day of year in TLE".to_string()))?;
 
-    Ok(Epoch::from_day_of_year(year, day_of_year, TimeSystem::UTC))
+    Epoch::from_day_of_year(year, day_of_year, TimeSystem::UTC)
 }
 
 /// Extract Keplerian orbital elements from TLE lines

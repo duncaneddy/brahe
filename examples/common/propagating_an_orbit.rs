@@ -27,16 +27,16 @@ fn main() {
         initial_state,
         AngleFormat::Degrees,
         dt
-    );
+    ).unwrap();
 
     // Propagate the orbit for 3 time steps
-    propagator.propagate_steps(3);
+    propagator.propagate_steps(3).unwrap();
 
     // States are stored as a Trajectory object
     assert_eq!(propagator.trajectory.len(), 4);  // Initial state + 3 propagated states
 
     // Convert trajectory to ECI coordinates
-    let eci_trajectory = propagator.trajectory.to_eci();
+    let eci_trajectory = propagator.trajectory.to_eci().unwrap();
 
     // Iterate over all stored states
     for i in 0..eci_trajectory.len() {
@@ -58,7 +58,7 @@ fn main() {
 
     // Propagate for 7 days
     let end_epoch = epoch + 86400.0 * 7.0;  // 7 days later
-    propagator.propagate_to(end_epoch);
+    propagator.propagate_to(end_epoch).unwrap();
 
     // Confirm the final epoch is close to expected time
     let time_diff = (propagator.current_epoch() - end_epoch).abs();

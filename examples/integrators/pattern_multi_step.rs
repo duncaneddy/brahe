@@ -16,8 +16,8 @@ use nalgebra::DVector;
 fn main() {
     // Dynamics function: Exponential decay dx/dt = -k*x
     let k = 0.1;
-    let dynamics = move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
-        DVector::from_vec(vec![-k * state[0]])
+    let dynamics = move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> Result<DVector<f64>, brahe::utils::BraheError> {
+        Ok(DVector::from_vec(vec![-k * state[0]]))
     };
 
     // Create adaptive integrator
@@ -39,7 +39,7 @@ fn main() {
 
     let mut step_count = 0;
     while t < t_end {
-        let result = integrator.step(t, state, None, Some(dt.min(t_end - t)));
+        let result = integrator.step(t, state, None, Some(dt.min(t_end - t))).unwrap();
         t += result.dt_used;
         state = result.state;
         dt = result.dt_next;

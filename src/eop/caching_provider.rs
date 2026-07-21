@@ -420,9 +420,11 @@ impl CachingEOPProvider {
         let system_time = *self.file_loaded_at.lock().unwrap();
         let now = SystemTime::now();
 
+        // Saturate to zero if the wall clock stepped backwards (e.g. NTP
+        // adjustment) between load time and now.
         let duration = now
             .duration_since(system_time)
-            .expect("System time went backwards");
+            .unwrap_or(std::time::Duration::ZERO);
 
         duration.as_secs_f64()
     }

@@ -12,10 +12,10 @@ fn main() {
     let elements = na::SVector::<f64, 6>::new(bh::R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
     let mut prop = bh::KeplerianPropagator::from_keplerian(
         epoch, elements, bh::AngleFormat::Degrees, 60.0
-    );
+    ).unwrap();
 
     // Take 10 steps (10 × 60 = 600 seconds)
-    prop.propagate_steps(10);
+    prop.propagate_steps(10).unwrap();
     println!("After 10 steps: {:.1} seconds elapsed",
              prop.current_epoch() - epoch);
     println!("Trajectory length: {}", prop.trajectory.len());

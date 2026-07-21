@@ -61,10 +61,13 @@ fn de_kernel_from_source(source: EphemerisSource) -> SPICEKernel {
 ///
 /// * Acceleration vector in GCRF frame. Units: [m/s²]
 ///
-/// # Panics
+/// # Errors
 ///
-/// Panics if requesting a planet body with `EphemerisSource::LowPrecision`
-/// (only Sun and Moon supported for low-precision).
+/// Returns `Err(BraheError)` if requesting an unsupported perturber (Earth,
+/// Phobos, Deimos, or a `Custom` body — use `accel_third_body_for_body`
+/// instead), if requesting a planet body with `EphemerisSource::LowPrecision`
+/// (only the Sun and Moon are supported for low-precision), or if the
+/// ephemeris kernel cannot be loaded or queried.
 ///
 /// # Example
 ///
@@ -83,17 +86,17 @@ fn de_kernel_from_source(source: EphemerisSource) -> SPICEKernel {
 /// let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 ///
 /// // Low-precision Sun
-/// let a_sun = accel_third_body(ThirdBody::Sun, EphemerisSource::LowPrecision, epc, r_object);
+/// let a_sun = accel_third_body(ThirdBody::Sun, EphemerisSource::LowPrecision, epc, r_object).unwrap();
 ///
 /// // High-precision Mars system barycenter (requires DE440s/DE440)
-/// let a_mars = accel_third_body(ThirdBody::MarsBarycenter, EphemerisSource::DE440s, epc, r_object);
+/// let a_mars = accel_third_body(ThirdBody::MarsBarycenter, EphemerisSource::DE440s, epc, r_object).unwrap();
 /// ```
 pub fn accel_third_body<P: IntoPosition>(
     body: ThirdBody,
     source: EphemerisSource,
     epc: Epoch,
     r_object: P,
-) -> Vector3<f64> {
+) -> Result<Vector3<f64>, BraheError> {
     let (r_body, gm) = match (body, source) {
         // Low-precision - Sun/Moon only
         (ThirdBody::Sun, EphemerisSource::LowPrecision) => (sun_position(epc), GM_SUN),
@@ -104,112 +107,98 @@ pub fn accel_third_body<P: IntoPosition>(
             ThirdBody::Sun,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            sun_position_spice(epc, de_kernel_from_source(source))
-                .expect("Failed to get Sun position"),
+            sun_position_spice(epc, de_kernel_from_source(source))?,
             GM_SUN,
         ),
         (
             ThirdBody::Moon,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            moon_position_spice(epc, de_kernel_from_source(source))
-                .expect("Failed to get Moon position"),
+            moon_position_spice(epc, de_kernel_from_source(source))?,
             GM_MOON,
         ),
         (
             ThirdBody::Mercury,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            mercury_position_spice(epc, de_kernel_from_source(source))
-                .expect("Failed to get Mercury position"),
+            mercury_position_spice(epc, de_kernel_from_source(source))?,
             GM_MERCURY,
         ),
         (
             ThirdBody::Venus,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            venus_position_spice(epc, de_kernel_from_source(source))
-                .expect("Failed to get Venus position"),
+            venus_position_spice(epc, de_kernel_from_source(source))?,
             GM_VENUS,
         ),
         (
             ThirdBody::MarsBarycenter,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            mars_barycenter_position_spice(epc, de_kernel_from_source(source))
-                .expect("Failed to get Mars system barycenter position"),
+            mars_barycenter_position_spice(epc, de_kernel_from_source(source))?,
             GM_MARS_SYSTEM,
         ),
         (
             ThirdBody::Mars,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            mars_position_spice(epc, de_kernel_from_source(source))
-                .expect("Failed to get Mars body-center position"),
+            mars_position_spice(epc, de_kernel_from_source(source))?,
             GM_MARS,
         ),
         (
             ThirdBody::JupiterBarycenter,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            jupiter_barycenter_position_spice(epc, de_kernel_from_source(source))
-                .expect("Failed to get Jupiter system barycenter position"),
+            jupiter_barycenter_position_spice(epc, de_kernel_from_source(source))?,
             GM_JUPITER_SYSTEM,
         ),
         (
             ThirdBody::Jupiter,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            jupiter_position_spice(epc, de_kernel_from_source(source))
-                .expect("Failed to get Jupiter body-center position"),
+            jupiter_position_spice(epc, de_kernel_from_source(source))?,
             GM_JUPITER,
         ),
         (
             ThirdBody::SaturnBarycenter,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            saturn_barycenter_position_spice(epc, de_kernel_from_source(source))
-                .expect("Failed to get Saturn system barycenter position"),
+            saturn_barycenter_position_spice(epc, de_kernel_from_source(source))?,
             GM_SATURN_SYSTEM,
         ),
         (
             ThirdBody::Saturn,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            saturn_position_spice(epc, de_kernel_from_source(source))
-                .expect("Failed to get Saturn body-center position"),
+            saturn_position_spice(epc, de_kernel_from_source(source))?,
             GM_SATURN,
         ),
         (
             ThirdBody::UranusBarycenter,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            uranus_barycenter_position_spice(epc, de_kernel_from_source(source))
-                .expect("Failed to get Uranus system barycenter position"),
+            uranus_barycenter_position_spice(epc, de_kernel_from_source(source))?,
             GM_URANUS_SYSTEM,
         ),
         (
             ThirdBody::Uranus,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            uranus_position_spice(epc, de_kernel_from_source(source))
-                .expect("Failed to get Uranus body-center position"),
+            uranus_position_spice(epc, de_kernel_from_source(source))?,
             GM_URANUS,
         ),
         (
             ThirdBody::NeptuneBarycenter,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            neptune_barycenter_position_spice(epc, de_kernel_from_source(source))
-                .expect("Failed to get Neptune system barycenter position"),
+            neptune_barycenter_position_spice(epc, de_kernel_from_source(source))?,
             GM_NEPTUNE_SYSTEM,
         ),
         (
             ThirdBody::Neptune,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            neptune_position_spice(epc, de_kernel_from_source(source))
-                .expect("Failed to get Neptune body-center position"),
+            neptune_position_spice(epc, de_kernel_from_source(source))?,
             GM_NEPTUNE,
         ),
 
@@ -224,25 +213,25 @@ pub fn accel_third_body<P: IntoPosition>(
             | ThirdBody::Custom { .. }),
             _,
         ) => {
-            panic!(
+            return Err(BraheError::Error(format!(
                 "accel_third_body only supports the Sun, the Moon, and the planet and \
                 planetary-system-barycenter variants. Requested {:?}. Use \
                 accel_third_body_for_body for other bodies.",
                 body
-            )
+            )));
         }
 
         // Invalid: planets with low-precision
         (body, EphemerisSource::LowPrecision) => {
-            panic!(
+            return Err(BraheError::Error(format!(
                 "Low-precision ephemerides only support Sun and Moon. \
                 Requested {:?}. Use EphemerisSource::DE440s, DE440, or SPK(...) for planets.",
                 body
-            )
+            )));
         }
     };
 
-    accel_point_mass_gravity(r_object, r_body, gm)
+    Ok(accel_point_mass_gravity(r_object, r_body, gm))
 }
 
 /// Central-body-aware third-body acceleration, including barycenter handling.
@@ -519,7 +508,9 @@ pub(crate) fn accel_third_body_field_for_body_with_model(
             GravityModelSource::Global => {
                 let model = get_global_gravity_model();
                 (
-                    accel_gravity_spherical_harmonics(d, r_i2b, &model, *degree, *order, *parallel),
+                    accel_gravity_spherical_harmonics(
+                        d, r_i2b, &model, *degree, *order, *parallel,
+                    )?,
                     model.gm,
                 )
             }
@@ -532,7 +523,7 @@ pub(crate) fn accel_third_body_field_for_body_with_model(
                     )
                 })?;
                 (
-                    accel_gravity_spherical_harmonics(d, r_i2b, model, *degree, *order, *parallel),
+                    accel_gravity_spherical_harmonics(d, r_i2b, model, *degree, *order, *parallel)?,
                     model.gm,
                 )
             }
@@ -708,9 +699,12 @@ pub fn accel_third_body_field_for_body<P: IntoPosition>(
 /// let epc = Epoch::from_date(2024, 2, 25, brahe::TimeSystem::UTC);
 /// let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 ///
-/// let a = accel_third_body_sun(epc, r_object);
+/// let a = accel_third_body_sun(epc, r_object).unwrap();
 /// ```
-pub fn accel_third_body_sun<P: IntoPosition>(epc: Epoch, r_object: P) -> Vector3<f64> {
+pub fn accel_third_body_sun<P: IntoPosition>(
+    epc: Epoch,
+    r_object: P,
+) -> Result<Vector3<f64>, BraheError> {
     accel_third_body(ThirdBody::Sun, EphemerisSource::LowPrecision, epc, r_object)
 }
 
@@ -749,9 +743,12 @@ pub fn accel_third_body_sun<P: IntoPosition>(epc: Epoch, r_object: P) -> Vector3
 /// let epc = Epoch::from_date(2024, 2, 25, brahe::TimeSystem::UTC);
 /// let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 ///
-/// let a = accel_third_body_moon(epc, r_object);
+/// let a = accel_third_body_moon(epc, r_object).unwrap();
 /// ```
-pub fn accel_third_body_moon<P: IntoPosition>(epc: Epoch, r_object: P) -> Vector3<f64> {
+pub fn accel_third_body_moon<P: IntoPosition>(
+    epc: Epoch,
+    r_object: P,
+) -> Result<Vector3<f64>, BraheError> {
     accel_third_body(
         ThirdBody::Moon,
         EphemerisSource::LowPrecision,
@@ -797,13 +794,13 @@ pub fn accel_third_body_moon<P: IntoPosition>(epc: Epoch, r_object: P) -> Vector
 /// let epc = Epoch::from_date(2024, 2, 25, brahe::TimeSystem::UTC);
 /// let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 ///
-/// let a = accel_third_body_sun_spice(epc, r_object, EphemerisSource::DE440s);
+/// let a = accel_third_body_sun_spice(epc, r_object, EphemerisSource::DE440s).unwrap();
 /// ```
 pub fn accel_third_body_sun_spice<P: IntoPosition>(
     epc: Epoch,
     r_object: P,
     source: EphemerisSource,
-) -> Vector3<f64> {
+) -> Result<Vector3<f64>, BraheError> {
     accel_third_body(ThirdBody::Sun, source, epc, r_object)
 }
 
@@ -844,13 +841,13 @@ pub fn accel_third_body_sun_spice<P: IntoPosition>(
 /// let epc = Epoch::from_date(2024, 2, 25, brahe::TimeSystem::UTC);
 /// let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 ///
-/// let a = accel_third_body_moon_spice(epc, r_object, EphemerisSource::DE440s);
+/// let a = accel_third_body_moon_spice(epc, r_object, EphemerisSource::DE440s).unwrap();
 /// ```
 pub fn accel_third_body_moon_spice<P: IntoPosition>(
     epc: Epoch,
     r_object: P,
     source: EphemerisSource,
-) -> Vector3<f64> {
+) -> Result<Vector3<f64>, BraheError> {
     accel_third_body(ThirdBody::Moon, source, epc, r_object)
 }
 
@@ -872,7 +869,7 @@ pub fn accel_third_body_mercury_spice<P: IntoPosition>(
     epc: Epoch,
     r_object: P,
     source: EphemerisSource,
-) -> Vector3<f64> {
+) -> Result<Vector3<f64>, BraheError> {
     accel_third_body(ThirdBody::Mercury, source, epc, r_object)
 }
 
@@ -894,7 +891,7 @@ pub fn accel_third_body_venus_spice<P: IntoPosition>(
     epc: Epoch,
     r_object: P,
     source: EphemerisSource,
-) -> Vector3<f64> {
+) -> Result<Vector3<f64>, BraheError> {
     accel_third_body(ThirdBody::Venus, source, epc, r_object)
 }
 
@@ -917,7 +914,7 @@ pub fn accel_third_body_mars_spice<P: IntoPosition>(
     epc: Epoch,
     r_object: P,
     source: EphemerisSource,
-) -> Vector3<f64> {
+) -> Result<Vector3<f64>, BraheError> {
     accel_third_body(ThirdBody::MarsBarycenter, source, epc, r_object)
 }
 
@@ -940,7 +937,7 @@ pub fn accel_third_body_jupiter_spice<P: IntoPosition>(
     epc: Epoch,
     r_object: P,
     source: EphemerisSource,
-) -> Vector3<f64> {
+) -> Result<Vector3<f64>, BraheError> {
     accel_third_body(ThirdBody::JupiterBarycenter, source, epc, r_object)
 }
 
@@ -963,7 +960,7 @@ pub fn accel_third_body_saturn_spice<P: IntoPosition>(
     epc: Epoch,
     r_object: P,
     source: EphemerisSource,
-) -> Vector3<f64> {
+) -> Result<Vector3<f64>, BraheError> {
     accel_third_body(ThirdBody::SaturnBarycenter, source, epc, r_object)
 }
 
@@ -986,7 +983,7 @@ pub fn accel_third_body_uranus_spice<P: IntoPosition>(
     epc: Epoch,
     r_object: P,
     source: EphemerisSource,
-) -> Vector3<f64> {
+) -> Result<Vector3<f64>, BraheError> {
     accel_third_body(ThirdBody::UranusBarycenter, source, epc, r_object)
 }
 
@@ -1009,7 +1006,7 @@ pub fn accel_third_body_neptune_spice<P: IntoPosition>(
     epc: Epoch,
     r_object: P,
     source: EphemerisSource,
-) -> Vector3<f64> {
+) -> Result<Vector3<f64>, BraheError> {
     accel_third_body(ThirdBody::NeptuneBarycenter, source, epc, r_object)
 }
 
@@ -1052,7 +1049,7 @@ mod tests {
         let epc = Epoch::from_mjd(mjd_tt, TimeSystem::TT);
         let r_object = Vector3::new(rx, ry, rz);
 
-        let a = accel_third_body_sun(epc, r_object);
+        let a = accel_third_body_sun(epc, r_object).unwrap();
 
         assert_abs_diff_eq!(a[0], ax, epsilon = 1e-9);
         assert_abs_diff_eq!(a[1], ay, epsilon = 1e-9);
@@ -1088,7 +1085,7 @@ mod tests {
         let epc = Epoch::from_mjd(mjd_tt, TimeSystem::TT);
         let r_object = Vector3::new(rx, ry, rz);
 
-        let a = accel_third_body_moon(epc, r_object);
+        let a = accel_third_body_moon(epc, r_object).unwrap();
 
         assert_abs_diff_eq!(a[0], ax, epsilon = 1e-9);
         assert_abs_diff_eq!(a[1], ay, epsilon = 1e-9);
@@ -1105,7 +1102,7 @@ mod tests {
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
 
-        let a = accel_third_body_sun_spice(epc, r_object, EphemerisSource::DE440s);
+        let a = accel_third_body_sun_spice(epc, r_object, EphemerisSource::DE440s).unwrap();
 
         // Should return a valid acceleration vector
         assert!(a.norm() > 0.0);
@@ -1120,7 +1117,7 @@ mod tests {
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
 
-        let a = accel_third_body_moon_spice(epc, r_object, EphemerisSource::DE440s);
+        let a = accel_third_body_moon_spice(epc, r_object, EphemerisSource::DE440s).unwrap();
 
         // Should return a valid acceleration vector
         assert!(a.norm() > 0.0);
@@ -1135,7 +1132,7 @@ mod tests {
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
 
-        let a = accel_third_body_mercury_spice(epc, r_object, EphemerisSource::DE440s);
+        let a = accel_third_body_mercury_spice(epc, r_object, EphemerisSource::DE440s).unwrap();
 
         // Should return a valid acceleration vector (very small for Mercury)
         assert!(a.norm() > 0.0);
@@ -1150,7 +1147,7 @@ mod tests {
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
 
-        let a = accel_third_body_venus_spice(epc, r_object, EphemerisSource::DE440s);
+        let a = accel_third_body_venus_spice(epc, r_object, EphemerisSource::DE440s).unwrap();
 
         // Should return a valid acceleration vector
         assert!(a.norm() > 0.0);
@@ -1165,7 +1162,7 @@ mod tests {
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
 
-        let a = accel_third_body_mars_spice(epc, r_object, EphemerisSource::DE440s);
+        let a = accel_third_body_mars_spice(epc, r_object, EphemerisSource::DE440s).unwrap();
 
         // Should return a valid acceleration vector
         assert!(a.norm() > 0.0);
@@ -1180,7 +1177,7 @@ mod tests {
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
 
-        let a = accel_third_body_jupiter_spice(epc, r_object, EphemerisSource::DE440s);
+        let a = accel_third_body_jupiter_spice(epc, r_object, EphemerisSource::DE440s).unwrap();
 
         // Should return a valid acceleration vector
         assert!(a.norm() > 0.0);
@@ -1195,7 +1192,7 @@ mod tests {
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
 
-        let a = accel_third_body_saturn_spice(epc, r_object, EphemerisSource::DE440s);
+        let a = accel_third_body_saturn_spice(epc, r_object, EphemerisSource::DE440s).unwrap();
 
         // Should return a valid acceleration vector
         assert!(a.norm() > 0.0);
@@ -1210,7 +1207,7 @@ mod tests {
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
 
-        let a = accel_third_body_uranus_spice(epc, r_object, EphemerisSource::DE440s);
+        let a = accel_third_body_uranus_spice(epc, r_object, EphemerisSource::DE440s).unwrap();
 
         // Should return a valid acceleration vector
         assert!(a.norm() > 0.0);
@@ -1225,7 +1222,7 @@ mod tests {
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
 
-        let a = accel_third_body_neptune_spice(epc, r_object, EphemerisSource::DE440s);
+        let a = accel_third_body_neptune_spice(epc, r_object, EphemerisSource::DE440s).unwrap();
 
         // Should return a valid acceleration vector
         assert!(a.norm() > 0.0);
@@ -1244,7 +1241,7 @@ mod tests {
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 
-        let legacy = accel_third_body(ThirdBody::Sun, EphemerisSource::DE440s, epc, r);
+        let legacy = accel_third_body(ThirdBody::Sun, EphemerisSource::DE440s, epc, r).unwrap();
         let new = accel_third_body_for_body(
             &CentralBody::Earth,
             &ThirdBody::Sun,
@@ -1380,7 +1377,8 @@ mod tests {
         let r = Vector3::new(R_EARTH + 500e3, 1e5, 2e5);
 
         for body in [ThirdBody::Sun, ThirdBody::Moon] {
-            let legacy = accel_third_body(body.clone(), EphemerisSource::LowPrecision, epc, r);
+            let legacy =
+                accel_third_body(body.clone(), EphemerisSource::LowPrecision, epc, r).unwrap();
             let new = accel_third_body_for_body(
                 &CentralBody::Earth,
                 &body,
@@ -1698,10 +1696,10 @@ mod tests {
     }
 
     #[test]
-    fn test_accel_third_body_panics_for_unsupported_perturbers() {
-        // The unsupported-bodies arm panics for every source: Earth, Phobos,
+    fn test_accel_third_body_errors_for_unsupported_perturbers() {
+        // The unsupported-bodies arm errors for every source: Earth, Phobos,
         // Deimos, and Custom only make sense via
-        // `accel_third_body_for_body`. Panics before any ephemeris query, so
+        // `accel_third_body_for_body`. Errors before any ephemeris query, so
         // this is offline.
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
@@ -1715,17 +1713,19 @@ mod tests {
                 gm: 6.26325e10,
             },
         ] {
-            let result = std::panic::catch_unwind(|| {
-                accel_third_body(body.clone(), EphemerisSource::DE440s, epc, r)
-            });
-            assert!(result.is_err(), "expected panic for {:?}", body);
+            let result = accel_third_body(body.clone(), EphemerisSource::DE440s, epc, r);
+            assert!(
+                matches!(result, Err(BraheError::Error(_))),
+                "expected error for {:?}",
+                body
+            );
         }
     }
 
     #[test]
-    fn test_accel_third_body_panics_for_planet_with_low_precision() {
-        // The low-precision arm panics for any body other than Sun/Moon.
-        // Panics before any ephemeris query, so this is offline.
+    fn test_accel_third_body_errors_for_planet_with_low_precision() {
+        // The low-precision arm errors for any body other than Sun/Moon.
+        // Errors before any ephemeris query, so this is offline.
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
         for body in [
@@ -1733,10 +1733,12 @@ mod tests {
             ThirdBody::JupiterBarycenter,
             ThirdBody::Venus,
         ] {
-            let result = std::panic::catch_unwind(|| {
-                accel_third_body(body.clone(), EphemerisSource::LowPrecision, epc, r)
-            });
-            assert!(result.is_err(), "expected panic for {:?}", body);
+            let result = accel_third_body(body.clone(), EphemerisSource::LowPrecision, epc, r);
+            assert!(
+                matches!(result, Err(BraheError::Error(_))),
+                "expected error for {:?}",
+                body
+            );
         }
     }
 
@@ -1932,7 +1934,7 @@ mod tests {
         )
         .unwrap();
         let a_barycenter =
-            accel_third_body(ThirdBody::MarsBarycenter, EphemerisSource::DE440s, epc, r);
+            accel_third_body(ThirdBody::MarsBarycenter, EphemerisSource::DE440s, epc, r).unwrap();
 
         assert!(a_planet.norm() > 0.0);
         let rel = (a_planet - a_barycenter).norm() / a_barycenter.norm();
@@ -1943,7 +1945,7 @@ mod tests {
 
         // accel_third_body accepts the planet-center variant directly and
         // must agree with the for_body formulation about Earth.
-        let a_direct = accel_third_body(ThirdBody::Mars, EphemerisSource::DE440s, epc, r);
+        let a_direct = accel_third_body(ThirdBody::Mars, EphemerisSource::DE440s, epc, r).unwrap();
         for i in 0..3 {
             assert_abs_diff_eq!(a_direct[i], a_planet[i], epsilon = 1e-18);
         }

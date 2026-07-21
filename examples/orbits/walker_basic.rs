@@ -32,6 +32,7 @@ fn main() {
         bh::constants::AngleFormat::Degrees,
         bh::orbits::WalkerPattern::Delta,
     )
+    .unwrap()
     .with_base_name("GPS");
 
     // Print constellation properties
@@ -51,7 +52,7 @@ fn main() {
     }
 
     // Generate Keplerian propagators for all satellites
-    let propagators = walker.as_keplerian_propagators(60.0); // 60 second step size
+    let propagators = walker.as_keplerian_propagators(60.0).unwrap(); // 60 second step size
     println!("\nGenerated {} Keplerian propagators", propagators.len());
     println!("First propagator name: {}", propagators[0].get_name().unwrap_or_default());
     println!("Last propagator name: {}", propagators.last().unwrap().get_name().unwrap_or_default());

@@ -8,6 +8,7 @@ use std::num::{ParseFloatError, ParseIntError};
 
 /// Brahe library error types for consistent error handling across modules.
 #[derive(Debug, PartialEq)]
+#[non_exhaustive]
 pub enum BraheError {
     /// General-purpose error for situations not covered by other specific error types.
     /// Use when no other error category applies. Contains descriptive error message.

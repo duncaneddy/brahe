@@ -12,11 +12,11 @@ fn main() {
     println!("Dimension: {}", traj.dimension());
 
     // Create 3D trajectory
-    let traj_3d = DTrajectory::new(3);
+    let traj_3d = DTrajectory::new(3).unwrap();
     println!("Dimension: {}", traj_3d.dimension());
 
     // Create 12D trajectory
-    let traj_12d = DTrajectory::new(12);
+    let traj_12d = DTrajectory::new(12).unwrap();
     println!("Dimension: {}", traj_12d.dimension());
 }
 

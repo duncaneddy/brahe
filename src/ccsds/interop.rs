@@ -77,7 +77,7 @@ impl OEM {
 
         let orbit_frame = ccsds_ref_frame_to_orbit_frame(&segment.metadata.ref_frame)?;
 
-        let mut traj = DOrbitTrajectory::new(6, orbit_frame, OrbitRepresentation::Cartesian, None);
+        let mut traj = DOrbitTrajectory::new(6, orbit_frame, OrbitRepresentation::Cartesian, None)?;
 
         traj.name = Some(segment.metadata.object_name.clone());
 
@@ -90,7 +90,7 @@ impl OEM {
                 sv.velocity[1],
                 sv.velocity[2],
             ]);
-            traj.add(sv.epoch, state);
+            traj.add(sv.epoch, state)?;
         }
 
         Ok(traj)
@@ -124,7 +124,7 @@ impl OEM {
 
         let orbit_frame = ccsds_ref_frame_to_orbit_frame(&segment.metadata.ref_frame)?;
 
-        let mut traj = SOrbitTrajectory::new(orbit_frame, OrbitRepresentation::Cartesian, None);
+        let mut traj = SOrbitTrajectory::new(orbit_frame, OrbitRepresentation::Cartesian, None)?;
 
         traj.name = Some(segment.metadata.object_name.clone());
 
@@ -137,7 +137,7 @@ impl OEM {
                 sv.velocity[1],
                 sv.velocity[2],
             );
-            traj.add(sv.epoch, state);
+            traj.add(sv.epoch, state)?;
         }
 
         Ok(traj)

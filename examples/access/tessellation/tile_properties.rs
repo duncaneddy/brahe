@@ -25,7 +25,7 @@ fn main() {
     );
 
     // Tessellate a point and inspect properties
-    let point = PointLocation::new(10.0, 30.0, 0.0);
+    let point = PointLocation::new(10.0, 30.0, 0.0).unwrap();
     let tiles = tess.tessellate(&point).unwrap();
     let props = tiles[0].properties();
 

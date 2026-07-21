@@ -150,10 +150,10 @@ impl SamplingConfig {
     /// # Returns
     /// Vector of sample epochs
     ///
-    /// # Panics
-    /// - `FixedInterval`: Panics if interval ≤ 0, offset < 0, or no samples generated within window
-    /// - `FixedCount`: Panics if count = 0
-    /// - `RelativePoints`: Panics if empty or any value outside [0.0, 1.0]
+    /// # Errors
+    /// - `FixedInterval`: Errors if interval ≤ 0, offset < 0, or no samples generated within window
+    /// - `FixedCount`: Errors if count = 0
+    /// - `RelativePoints`: Errors if empty or any value outside [0.0, 1.0]
     ///
     /// # Examples
     /// ```
@@ -165,67 +165,72 @@ impl SamplingConfig {
     ///
     /// // Midpoint
     /// let config = SamplingConfig::Midpoint;
-    /// let epochs = config.generate_sample_epochs(window_open, window_close);
+    /// let epochs = config.generate_sample_epochs(window_open, window_close).unwrap();
     /// assert_eq!(epochs.len(), 1);
     /// assert_eq!(epochs[0], window_open + 1800.0);
     ///
     /// // Relative points
     /// let config = SamplingConfig::RelativePoints(vec![0.0, 0.5, 1.0]);
-    /// let epochs = config.generate_sample_epochs(window_open, window_close);
+    /// let epochs = config.generate_sample_epochs(window_open, window_close).unwrap();
     /// assert_eq!(epochs.len(), 3);
     /// assert_eq!(epochs[0], window_open);
     /// assert_eq!(epochs[1], window_open + 1800.0);
     /// assert_eq!(epochs[2], window_close);
     /// ```
-    pub fn generate_sample_epochs(&self, window_open: Epoch, window_close: Epoch) -> Vec<Epoch> {
+    pub fn generate_sample_epochs(
+        &self,
+        window_open: Epoch,
+        window_close: Epoch,
+    ) -> Result<Vec<Epoch>, BraheError> {
         let duration = window_close - window_open; // seconds
 
         match self {
-            SamplingConfig::Midpoint => {
-                vec![window_open + duration * 0.5]
-            }
+            SamplingConfig::Midpoint => Ok(vec![window_open + duration * 0.5]),
 
             SamplingConfig::RelativePoints(relative_times) => {
                 if relative_times.is_empty() {
-                    panic!("SamplingConfig::RelativePoints: relative_times cannot be empty");
+                    return Err(BraheError::Error(
+                        "SamplingConfig::RelativePoints: relative_times cannot be empty"
+                            .to_string(),
+                    ));
                 }
 
                 // Validate all points are in [0.0, 1.0]
                 for &t in relative_times.iter() {
                     if !(0.0..=1.0).contains(&t) {
-                        panic!(
+                        return Err(BraheError::Error(format!(
                             "SamplingConfig::RelativePoints: all relative times must be in [0.0, 1.0], got {}",
                             t
-                        );
+                        )));
                     }
                 }
 
-                relative_times
+                Ok(relative_times
                     .iter()
                     .map(|&t| window_open + duration * t)
-                    .collect()
+                    .collect())
             }
 
             SamplingConfig::FixedInterval { interval, offset } => {
                 if *interval <= 0.0 {
-                    panic!(
+                    return Err(BraheError::Error(format!(
                         "SamplingConfig::FixedInterval: interval must be positive, got {}",
                         interval
-                    );
+                    )));
                 }
 
                 if *offset < 0.0 {
-                    panic!(
+                    return Err(BraheError::Error(format!(
                         "SamplingConfig::FixedInterval: offset must be non-negative, got {}",
                         offset
-                    );
+                    )));
                 }
 
                 if *offset > duration {
-                    panic!(
+                    return Err(BraheError::Error(format!(
                         "SamplingConfig::FixedInterval: offset ({}) exceeds window duration ({})",
                         offset, duration
-                    );
+                    )));
                 }
 
                 let mut epochs = Vec::new();
@@ -237,30 +242,32 @@ impl SamplingConfig {
                 }
 
                 if epochs.is_empty() {
-                    panic!(
-                        "SamplingConfig::FixedInterval: no samples generated within window (interval too large)"
-                    );
+                    return Err(BraheError::Error(
+                        "SamplingConfig::FixedInterval: no samples generated within window (interval too large)".to_string(),
+                    ));
                 }
 
-                epochs
+                Ok(epochs)
             }
 
             SamplingConfig::FixedCount(count) => {
                 if *count == 0 {
-                    panic!("SamplingConfig::FixedCount: count must be positive, got 0");
+                    return Err(BraheError::Error(
+                        "SamplingConfig::FixedCount: count must be positive, got 0".to_string(),
+                    ));
                 }
 
                 if *count == 1 {
-                    return vec![window_open + duration * 0.5];
+                    return Ok(vec![window_open + duration * 0.5]);
                 }
 
                 // Generate N evenly-spaced points including endpoints
-                (0..*count)
+                Ok((0..*count)
                     .map(|i| {
                         let fraction = i as f64 / (*count as f64 - 1.0);
                         window_open + duration * fraction
                     })
-                    .collect()
+                    .collect())
             }
         }
     }
@@ -1391,7 +1398,8 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
         // Use StateProvider trait directly
         let state = prop.state_ecef(epoch).unwrap();
@@ -1417,9 +1425,10 @@ mod tests {
         let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
         let state2 = Vector6::new(7000e3, 100e3, 10e3, 10.0, 7500.0, 100.0);
 
-        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
-        traj.add(epoch1, state1);
-        traj.add(epoch2, state2);
+        let mut traj =
+            SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
+        traj.add(epoch1, state1).unwrap();
+        traj.add(epoch2, state2).unwrap();
 
         // Use StateProvider trait directly (now implemented by SOrbitTrajectory)
         let mid_epoch = epoch1 + 30.0;
@@ -1765,17 +1774,19 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
-        );
+        )
+        .unwrap();
 
-        let location = PointLocation::new(0.0, 45.0, 0.0);
+        let location = PointLocation::new(0.0, 45.0, 0.0).unwrap();
         let location_ecef = location.center_ecef();
         let location_geodetic = Vector3::new(0.0_f64.to_radians(), 45.0_f64.to_radians(), 0.0);
 
         // Get sampling configuration and generate sample epochs
         let computer = TestPropertyComputer;
         let sampling_config = computer.sampling_config();
-        let sample_epochs =
-            sampling_config.generate_sample_epochs(window.window_open, window.window_close);
+        let sample_epochs = sampling_config
+            .generate_sample_epochs(window.window_open, window.window_close)
+            .unwrap();
 
         // Get states at sample epochs using StateProvider trait
         let sample_states: Vec<nalgebra::SVector<f64, 6>> = sample_epochs
@@ -1815,7 +1826,9 @@ mod tests {
             crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let window_close = window_open + 3600.0; // 1 hour later
 
-        let epochs = config.generate_sample_epochs(window_open, window_close);
+        let epochs = config
+            .generate_sample_epochs(window_open, window_close)
+            .unwrap();
 
         assert_eq!(epochs.len(), 1);
         assert_eq!(epochs[0], window_open + 1800.0); // Midpoint
@@ -1828,7 +1841,9 @@ mod tests {
             crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let window_close = window_open + 3600.0; // 1 hour later
 
-        let epochs = config.generate_sample_epochs(window_open, window_close);
+        let epochs = config
+            .generate_sample_epochs(window_open, window_close)
+            .unwrap();
 
         assert_eq!(epochs.len(), 3);
         assert_eq!(epochs[0], window_open); // Start
@@ -1837,39 +1852,48 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "all relative times must be in [0.0, 1.0]")]
     fn test_sampling_config_relative_points_out_of_bounds_negative() {
-        // Values outside [0, 1] should panic
+        // Values outside [0, 1] should error
         let config = SamplingConfig::RelativePoints(vec![-0.5, 0.0, 0.5]);
         let window_open =
             crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let window_close = window_open + 3600.0;
 
-        config.generate_sample_epochs(window_open, window_close);
+        assert!(
+            config
+                .generate_sample_epochs(window_open, window_close)
+                .is_err()
+        );
     }
 
     #[test]
-    #[should_panic(expected = "all relative times must be in [0.0, 1.0]")]
     fn test_sampling_config_relative_points_out_of_bounds_positive() {
-        // Values outside [0, 1] should panic
+        // Values outside [0, 1] should error
         let config = SamplingConfig::RelativePoints(vec![0.0, 0.5, 1.5]);
         let window_open =
             crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let window_close = window_open + 3600.0;
 
-        config.generate_sample_epochs(window_open, window_close);
+        assert!(
+            config
+                .generate_sample_epochs(window_open, window_close)
+                .is_err()
+        );
     }
 
     #[test]
-    #[should_panic(expected = "relative_times cannot be empty")]
     fn test_sampling_config_relative_points_empty() {
-        // Empty vector should panic
+        // Empty vector should error
         let config = SamplingConfig::RelativePoints(vec![]);
         let window_open =
             crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let window_close = window_open + 3600.0;
 
-        config.generate_sample_epochs(window_open, window_close);
+        assert!(
+            config
+                .generate_sample_epochs(window_open, window_close)
+                .is_err()
+        );
     }
 
     #[test]
@@ -1882,7 +1906,9 @@ mod tests {
             crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let window_close = window_open + 3000.0; // 50 minutes later
 
-        let epochs = config.generate_sample_epochs(window_open, window_close);
+        let epochs = config
+            .generate_sample_epochs(window_open, window_close)
+            .unwrap();
 
         // Should have samples at 0, 600, 1200, 1800, 2400, 3000 seconds from open
         assert_eq!(epochs.len(), 6);
@@ -1904,7 +1930,9 @@ mod tests {
             crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let window_close = window_open + 3000.0; // 50 minutes later
 
-        let epochs = config.generate_sample_epochs(window_open, window_close);
+        let epochs = config
+            .generate_sample_epochs(window_open, window_close)
+            .unwrap();
 
         // Should have samples at 600, 1800, 3000 seconds from open
         assert_eq!(epochs.len(), 3);
@@ -1914,9 +1942,8 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "interval must be positive")]
     fn test_sampling_config_fixed_interval_zero() {
-        // Zero interval should panic
+        // Zero interval should error
         let config = SamplingConfig::FixedInterval {
             interval: 0.0,
             offset: 0.0,
@@ -1925,13 +1952,16 @@ mod tests {
             crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let window_close = window_open + 3600.0;
 
-        config.generate_sample_epochs(window_open, window_close);
+        assert!(
+            config
+                .generate_sample_epochs(window_open, window_close)
+                .is_err()
+        );
     }
 
     #[test]
-    #[should_panic(expected = "interval must be positive")]
     fn test_sampling_config_fixed_interval_negative() {
-        // Negative interval should panic
+        // Negative interval should error
         let config = SamplingConfig::FixedInterval {
             interval: -0.1,
             offset: 0.0,
@@ -1940,13 +1970,16 @@ mod tests {
             crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let window_close = window_open + 3600.0;
 
-        config.generate_sample_epochs(window_open, window_close);
+        assert!(
+            config
+                .generate_sample_epochs(window_open, window_close)
+                .is_err()
+        );
     }
 
     #[test]
-    #[should_panic(expected = "offset must be non-negative")]
     fn test_sampling_config_fixed_interval_negative_offset() {
-        // Negative offset should panic
+        // Negative offset should error
         let config = SamplingConfig::FixedInterval {
             interval: 600.0,
             offset: -100.0,
@@ -1955,13 +1988,16 @@ mod tests {
             crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let window_close = window_open + 3600.0;
 
-        config.generate_sample_epochs(window_open, window_close);
+        assert!(
+            config
+                .generate_sample_epochs(window_open, window_close)
+                .is_err()
+        );
     }
 
     #[test]
-    #[should_panic(expected = "offset")]
     fn test_sampling_config_fixed_interval_offset_beyond_window() {
-        // If offset is beyond window duration, should panic
+        // If offset is beyond window duration, should error
         let config = SamplingConfig::FixedInterval {
             interval: 600.0,
             offset: 4000.0, // Offset beyond window duration
@@ -1970,7 +2006,11 @@ mod tests {
             crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let window_close = window_open + 3600.0; // 1 hour = 3600 seconds
 
-        config.generate_sample_epochs(window_open, window_close);
+        assert!(
+            config
+                .generate_sample_epochs(window_open, window_close)
+                .is_err()
+        );
     }
 
     #[test]
@@ -1980,7 +2020,9 @@ mod tests {
             crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let window_close = window_open + 2400.0; // 40 minutes
 
-        let epochs = config.generate_sample_epochs(window_open, window_close);
+        let epochs = config
+            .generate_sample_epochs(window_open, window_close)
+            .unwrap();
 
         // 5 evenly-spaced points: 0, 600, 1200, 1800, 2400 seconds
         assert_eq!(epochs.len(), 5);
@@ -1998,7 +2040,9 @@ mod tests {
             crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let window_close = window_open + 3600.0;
 
-        let epochs = config.generate_sample_epochs(window_open, window_close);
+        let epochs = config
+            .generate_sample_epochs(window_open, window_close)
+            .unwrap();
 
         // Single point should be at midpoint
         assert_eq!(epochs.len(), 1);
@@ -2012,7 +2056,9 @@ mod tests {
             crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let window_close = window_open + 3600.0;
 
-        let epochs = config.generate_sample_epochs(window_open, window_close);
+        let epochs = config
+            .generate_sample_epochs(window_open, window_close)
+            .unwrap();
 
         // Two points: start and end
         assert_eq!(epochs.len(), 2);
@@ -2021,15 +2067,18 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "count must be positive")]
     fn test_sampling_config_fixed_count_zero() {
-        // Zero count should panic
+        // Zero count should error
         let config = SamplingConfig::FixedCount(0);
         let window_open =
             crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let window_close = window_open + 3600.0;
 
-        config.generate_sample_epochs(window_open, window_close);
+        assert!(
+            config
+                .generate_sample_epochs(window_open, window_close)
+                .is_err()
+        );
     }
 
     #[test]
@@ -2288,7 +2337,9 @@ mod tests {
         let window_close: crate::time::Epoch = window_open + 120.0; // 2 minutes
 
         let config = SamplingConfig::FixedCount(3);
-        let sample_epochs = config.generate_sample_epochs(window_open, window_close);
+        let sample_epochs = config
+            .generate_sample_epochs(window_open, window_close)
+            .unwrap();
 
         let sample_states = vec![
             nalgebra::SVector::<f64, 6>::new(
@@ -2391,7 +2442,9 @@ mod tests {
         let window_close: crate::time::Epoch = window_open + 60.0;
 
         let config = SamplingConfig::FixedCount(2);
-        let sample_epochs = config.generate_sample_epochs(window_open, window_close);
+        let sample_epochs = config
+            .generate_sample_epochs(window_open, window_close)
+            .unwrap();
 
         let location_ecef = nalgebra::Vector3::new(4000000.0, 1000000.0, 4500000.0);
 

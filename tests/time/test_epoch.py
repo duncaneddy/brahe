@@ -98,6 +98,16 @@ def test_epoch_now(eop):
     assert diff < 1.0, f"Epoch.now() differs from datetime by {diff} seconds"
 
 
+def test_epoch_from_string_long_subseconds(eop):
+    # Sub-second strings longer than 9 digits previously panicked in the
+    # Rust core instead of parsing.
+    epc = bh.Epoch.from_string("2022-04-01 01:02:03.1234567890 GPS")
+    (_, _, _, _, _, second, nanosecond) = epc.to_datetime()
+    assert second == 3.0
+    assert nanosecond == pytest.approx(123456789.0, abs=1.0)
+    assert epc.time_system == bh.GPS
+
+
 def test_epoch_from_string(eop):
     epc = bh.Epoch.from_string("2018-12-20")
     (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime()

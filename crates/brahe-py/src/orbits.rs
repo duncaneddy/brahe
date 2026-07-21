@@ -1183,7 +1183,7 @@ fn py_keplerian_elements_to_tle(
     norad_id: &str,
 ) -> PyResult<(String, String)> {
     let elements_array = elements.as_array();
-    let elements_vec = na::Vector6::from_row_slice(elements_array.as_slice().unwrap());
+    let elements_vec = na::Vector6::from_row_slice(elements_array.as_slice().ok_or_else(|| exceptions::PyValueError::new_err("array must be C-contiguous; use numpy.ascontiguousarray"))?);
 
     match orbits::keplerian_elements_to_tle(
         &epoch.obj,
@@ -2187,6 +2187,9 @@ impl From<orbits::WalkerPattern> for PyWalkerPattern {
 ///     angle_format (AngleFormat): Format for angular inputs
 ///     pattern (WalkerPattern): Pattern type (DELTA for 360° RAAN, STAR for 180° RAAN)
 ///
+/// Raises:
+///     ValueError: If p is zero, t is not divisible by p, or f >= p.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -2236,8 +2239,8 @@ impl PyWalkerConstellationGenerator {
         epoch: &PyEpoch,
         angle_format: &PyAngleFormat,
         pattern: &PyWalkerPattern,
-    ) -> Self {
-        Self {
+    ) -> PyResult<Self> {
+        Ok(Self {
             generator: orbits::WalkerConstellationGenerator::new(
                 t,
                 p,
@@ -2251,8 +2254,9 @@ impl PyWalkerConstellationGenerator {
                 epoch.obj,
                 angle_format.value,
                 orbits::WalkerPattern::from(*pattern),
-            ),
-        }
+            )
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?,
+        })
     }
 
     /// Set a base name for satellite naming.
@@ -2364,12 +2368,16 @@ impl PyWalkerConstellationGenerator {
     /// Returns:
     ///     list[KeplerianPropagator]: List of propagators, one per satellite
     #[pyo3(signature = (step_size))]
-    fn as_keplerian_propagators(&self, step_size: f64) -> Vec<PyKeplerianPropagator> {
+    fn as_keplerian_propagators(&self, step_size: f64) -> PyResult<Vec<PyKeplerianPropagator>> {
         self.generator
             .as_keplerian_propagators(step_size)
-            .into_iter()
-            .map(|p| PyKeplerianPropagator { propagator: p })
-            .collect()
+            .map(|props| {
+                props
+                    .into_iter()
+                    .map(|p| PyKeplerianPropagator { propagator: p })
+                    .collect()
+            })
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
     }
 
     /// Generate SGP propagators for all satellites in the constellation.
@@ -2398,7 +2406,10 @@ impl PyWalkerConstellationGenerator {
             .map(|props| {
                 props
                     .into_iter()
-                    .map(|p| PySGPPropagator { propagator: p })
+                    .map(|p| PySGPPropagator {
+                        propagator: p,
+                        has_python_callbacks: false,
+                    })
                     .collect()
             })
             .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
@@ -2437,7 +2448,11 @@ impl PyWalkerConstellationGenerator {
             .map(|props| {
                 props
                     .into_iter()
-                    .map(|p| PyNumericalOrbitPropagator { propagator: p })
+                    .map(|p| PyNumericalOrbitPropagator {
+                        propagator: p,
+                        err_slot: Arc::new(Mutex::new(None)),
+                        has_python_callbacks: false,
+                    })
                     .collect()
             })
             .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))

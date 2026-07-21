@@ -1032,6 +1032,7 @@ mod tests {
             Some(DEGREES),
             60.0,
         )
+        .unwrap()
     }
 
     #[test]

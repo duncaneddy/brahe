@@ -117,8 +117,11 @@ enum EventProcessingResult {
 ///
 /// This ensures consistency - all three use the exact same dynamics function,
 /// including any `additional_dynamics` that were provided.
-type SharedDynamics =
-    Arc<dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync>;
+type SharedDynamics = Arc<
+    dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> Result<DVector<f64>, BraheError>
+        + Send
+        + Sync,
+>;
 
 // =============================================================================
 // Per-propagator rotation cache
@@ -178,9 +181,9 @@ impl RotationCache {
     /// Return the cached rotation for `t`, or compute and insert it on miss.
     /// `epoch` is the absolute time corresponding to `t` (passed in by the
     /// caller since the rotation chain operates on `Epoch`).
-    fn get_or_compute(&mut self, t: f64, epoch: Epoch) -> SMatrix3 {
+    fn get_or_compute(&mut self, t: f64, epoch: Epoch) -> Result<SMatrix3, BraheError> {
         if let Some(r) = self.entries.get(&t.to_bits()) {
-            return *r;
+            return Ok(*r);
         }
         let r = match (&self.central_body, &self.model) {
             (CentralBody::Earth, FrameTransformationModel::FullEarthRotation) => {
@@ -196,15 +199,14 @@ impl RotationCache {
             // applied to a real acceleration.
             (CentralBody::EMB, _) | (CentralBody::SSB, _) => SMatrix3::identity(),
             (cb @ CentralBody::Custom(c), _) => match c.fixed_frame {
-                Some(ff) => rotation_frame_to_frame(cb.inertial_frame(), ff, epoch)
-                    .expect("custom body fixed_frame rotation failed"),
+                Some(ff) => rotation_frame_to_frame(cb.inertial_frame(), ff, epoch)?,
                 // No fixed frame configured; validation forbids body-fixed
                 // force terms in this case (see `ForceModelConfig::validate`).
                 None => SMatrix3::identity(),
             },
         };
         self.entries.put(t.to_bits(), r);
-        r
+        Ok(r)
     }
 }
 
@@ -603,7 +605,7 @@ impl DNumericalOrbitPropagatorBuilder {
     /// let dynamics: brahe::integrators::traits::DStateDynamics = Box::new(|_t, state, _params| {
     ///     let mut dx = DVector::zeros(state.len());
     ///     dx[6] = -0.1; // dm/dt = -0.1 kg/s
-    ///     dx
+    ///     Ok(dx)
     /// });
     ///
     /// let prop = DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::earth_gravity())
@@ -642,7 +644,7 @@ impl DNumericalOrbitPropagatorBuilder {
     /// let control: brahe::integrators::traits::DStateDynamics = Box::new(|_t, state, _params| {
     ///     let mut dx = DVector::zeros(state.len());
     ///     dx[3] = 0.0001; // small perturbing acceleration
-    ///     dx
+    ///     Ok(dx)
     /// });
     ///
     /// let prop = DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::earth_gravity())
@@ -1078,12 +1080,14 @@ impl DNumericalOrbitPropagator {
             CentralBody::Earth => OrbitFrame::ECI,
             ref cb => OrbitFrame::BodyCenteredInertial(cb.naif_id()),
         };
-        let mut trajectory = DOrbitTrajectory::new(
+        let trajectory = DOrbitTrajectory::new(
             state_dim,
             trajectory_frame,
             OrbitRepresentation::Cartesian,
             None,
         );
+
+        let mut trajectory = trajectory?;
 
         // Resolve the interpolation method. An unset config defaults a 6D
         // orbit state to Hermite-cubic (position+velocity is exact to second
@@ -1105,11 +1109,11 @@ impl DNumericalOrbitPropagator {
             trajectory.enable_stm_storage();
         }
         if propagation_config.variational.store_sensitivity_history && !params.is_empty() {
-            trajectory.enable_sensitivity_storage(params.len());
+            trajectory.enable_sensitivity_storage(params.len())?;
         }
         // Enable acceleration storage if configured
         if propagation_config.store_accelerations {
-            trajectory.enable_acceleration_storage(3); // 3D acceleration for orbit propagator
+            trajectory.enable_acceleration_storage(3)?; // 3D acceleration for orbit propagator
         }
 
         // Store initial state in trajectory with identity STM and zero sensitivity if needed
@@ -1129,7 +1133,7 @@ impl DNumericalOrbitPropagator {
         let initial_acceleration = if propagation_config.store_accelerations {
             // Use shared_dynamics to get the state derivative
             // Elements [3], [4], [5] are the accelerations (derivative of velocity)
-            let dx = shared_dynamics(0.0, &state_eci, Some(&params));
+            let dx = shared_dynamics(0.0, &state_eci, Some(&params))?;
             Some(DVector::from_vec(vec![dx[3], dx[4], dx[5]]))
         } else {
             None
@@ -1142,7 +1146,7 @@ impl DNumericalOrbitPropagator {
             initial_stm,
             initial_sensitivity,
             initial_acceleration,
-        );
+        )?;
 
         // Determine propagation mode based on what's enabled
         let propagation_mode = match (enable_stm, enable_sensitivity) {
@@ -1326,9 +1330,13 @@ impl DNumericalOrbitPropagator {
     ///
     /// # Returns
     /// 3D acceleration vector if store_accelerations is true, None otherwise
-    fn compute_acceleration(&self, epoch: Epoch, state: &DVector<f64>) -> Option<DVector<f64>> {
+    fn compute_acceleration(
+        &self,
+        epoch: Epoch,
+        state: &DVector<f64>,
+    ) -> Result<Option<DVector<f64>>, BraheError> {
         if !self.store_accelerations {
-            return None;
+            return Ok(None);
         }
 
         // Convert absolute epoch to relative time for shared_dynamics
@@ -1336,9 +1344,9 @@ impl DNumericalOrbitPropagator {
 
         // Use shared_dynamics to get the state derivative
         // Elements [3], [4], [5] are the accelerations
-        let dx = (self.shared_dynamics)(t_rel, state, Some(&self.params));
+        let dx = (self.shared_dynamics)(t_rel, state, Some(&self.params))?;
 
-        Some(DVector::from_vec(vec![dx[3], dx[4], dx[5]]))
+        Ok(Some(DVector::from_vec(vec![dx[3], dx[4], dx[5]])))
     }
 
     // =========================================================================
@@ -1351,9 +1359,9 @@ impl DNumericalOrbitPropagator {
     /// propagation start time (e.g., `TimeEvent` at T+0.0s). Normal event
     /// scanning requires a completed integration step to detect crossings,
     /// so events exactly at the initial epoch would otherwise be missed.
-    fn process_initial_events(&mut self) {
+    fn process_initial_events(&mut self) -> Result<(), BraheError> {
         if self.event_detectors.is_empty() || self.terminated {
-            return;
+            return Ok(());
         }
 
         let epoch = self.current_epoch();
@@ -1398,7 +1406,7 @@ impl DNumericalOrbitPropagator {
                 self.event_detectors[idx].mark_processed();
             }
 
-            match self.process_events_smart(events_to_process) {
+            match self.process_events_smart(events_to_process)? {
                 EventProcessingResult::NoEvents => {}
                 EventProcessingResult::Restart { epoch, state } => {
                     self.t_rel = epoch - self.epoch_initial;
@@ -1415,6 +1423,8 @@ impl DNumericalOrbitPropagator {
                 }
             }
         }
+
+        Ok(())
     }
 
     /// Scan all event detectors for events in the interval [epoch_prev, epoch_new]
@@ -1473,9 +1483,9 @@ impl DNumericalOrbitPropagator {
         events: &mut [(usize, DDetectedEvent)],
         epoch_prev: Epoch,
         x_prev: &DVector<f64>,
-    ) {
+    ) -> Result<(), BraheError> {
         if events.is_empty() {
-            return;
+            return Ok(());
         }
 
         let t_prev_rel = epoch_prev - self.epoch_initial;
@@ -1513,7 +1523,7 @@ impl DNumericalOrbitPropagator {
             let mut x = x_prev.clone();
 
             for _ in 0..n_steps {
-                let result = self.integrator.step(t, x, params_ref, Some(sub_dt));
+                let result = self.integrator.step(t, x, params_ref, Some(sub_dt))?;
                 x = result.state;
                 t += result.dt_used;
             }
@@ -1526,6 +1536,8 @@ impl DNumericalOrbitPropagator {
         // but the main integration already accepted the full step. The next
         // step_once() will start from the post-event state with a fresh cache.
         self.integrator.reset_cache();
+
+        Ok(())
     }
 
     /// Process detected events using smart sequential algorithm
@@ -1539,9 +1551,9 @@ impl DNumericalOrbitPropagator {
     fn process_events_smart(
         &mut self,
         detected_events: Vec<(usize, DDetectedEvent)>,
-    ) -> EventProcessingResult {
+    ) -> Result<EventProcessingResult, BraheError> {
         if detected_events.is_empty() {
-            return EventProcessingResult::NoEvents;
+            return Ok(EventProcessingResult::NoEvents);
         }
 
         // 1. Sort events chronologically by window_open time
@@ -1566,7 +1578,7 @@ impl DNumericalOrbitPropagator {
                     // Add to trajectory at exact event time if configured
                     if !matches!(self.trajectory_mode, TrajectoryMode::Disabled) {
                         self.trajectory
-                            .add(event.window_open, event.entry_state.clone());
+                            .add(event.window_open, event.entry_state.clone())?;
                     }
 
                     // Check if this event is terminal (no callback but has terminal action)
@@ -1579,13 +1591,13 @@ impl DNumericalOrbitPropagator {
 
                 if let Some(term_event) = terminal_event {
                     self.terminated = true;
-                    return EventProcessingResult::Terminal {
+                    return Ok(EventProcessingResult::Terminal {
                         epoch: term_event.window_open,
                         state: term_event.entry_state.clone(),
-                    };
+                    });
                 }
 
-                EventProcessingResult::NoEvents // Continue with step
+                Ok(EventProcessingResult::NoEvents) // Continue with step
             }
 
             Some(callback_idx) => {
@@ -1596,7 +1608,7 @@ impl DNumericalOrbitPropagator {
 
                     if !matches!(self.trajectory_mode, TrajectoryMode::Disabled) {
                         self.trajectory
-                            .add(event.window_open, event.entry_state.clone());
+                            .add(event.window_open, event.entry_state.clone())?;
                     }
                 }
 
@@ -1612,7 +1624,7 @@ impl DNumericalOrbitPropagator {
                     let acc = self.compute_acceleration(
                         callback_event.window_open,
                         &callback_event.entry_state,
-                    );
+                    )?;
                     self.trajectory.add_full(
                         callback_event.window_open,
                         callback_event.entry_state.clone(),
@@ -1620,7 +1632,7 @@ impl DNumericalOrbitPropagator {
                         None,
                         None,
                         acc,
-                    );
+                    )?;
                 }
 
                 // Execute callback
@@ -1635,7 +1647,8 @@ impl DNumericalOrbitPropagator {
                     let y_after = if let Some(y_new) = new_state {
                         // Add post-callback state to trajectory (same time, different state)
                         if !matches!(self.trajectory_mode, TrajectoryMode::Disabled) {
-                            let acc = self.compute_acceleration(callback_event.window_open, &y_new);
+                            let acc =
+                                self.compute_acceleration(callback_event.window_open, &y_new)?;
                             self.trajectory.add_full(
                                 callback_event.window_open,
                                 y_new.clone(),
@@ -1643,7 +1656,7 @@ impl DNumericalOrbitPropagator {
                                 None,
                                 None,
                                 acc,
-                            );
+                            )?;
                         }
                         y_new
                     } else {
@@ -1661,17 +1674,17 @@ impl DNumericalOrbitPropagator {
                     // Check terminal
                     if action == EventAction::Stop {
                         self.terminated = true;
-                        return EventProcessingResult::Terminal {
+                        return Ok(EventProcessingResult::Terminal {
                             epoch: callback_event.window_open,
                             state: y_after,
-                        };
+                        });
                     }
 
                     // Restart integration from event time with new state/params
-                    return EventProcessingResult::Restart {
+                    return Ok(EventProcessingResult::Restart {
                         epoch: callback_event.window_open,
                         state: y_after,
-                    };
+                    });
                 }
 
                 unreachable!("Callback event must have callback");
@@ -1753,9 +1766,10 @@ impl DNumericalOrbitPropagator {
             move |t: f64,
                   state: &DVector<f64>,
                   params_opt: Option<&DVector<f64>>|
-                  -> DVector<f64> {
+                  -> Result<DVector<f64>, BraheError> {
                 let epoch = epoch_initial + t;
-                let r_i2b = rotation_cache.lock().unwrap().get_or_compute(t, epoch);
+                let rotation_result = { rotation_cache.lock().unwrap().get_or_compute(t, epoch) };
+                let r_i2b = rotation_result?;
 
                 // Compute orbital dynamics (first 6 elements) on the stack.
                 // `compute_dynamics` returns a `Vector6<f64>` so the inner
@@ -1773,7 +1787,7 @@ impl DNumericalOrbitPropagator {
                     &third_body_gravity_models,
                     r_i2b,
                     &attributed_caches,
-                );
+                )?;
 
                 // Widen the orbital derivative to the full state dimension.
                 // This is the one heap allocation we cannot avoid without
@@ -1794,10 +1808,10 @@ impl DNumericalOrbitPropagator {
                 if let Some(ref add_dyn) = additional_dynamics
                     && state.len() > 6
                 {
-                    dx += add_dyn(t, state, params_opt);
+                    dx += add_dyn(t, state, params_opt)?;
                 }
 
-                dx
+                Ok(dx)
             },
         )
     }
@@ -1808,9 +1822,10 @@ impl DNumericalOrbitPropagator {
     /// so this is a simple Arc->Box conversion that moves the Arc into a boxed closure.
     fn wrap_for_integrator(shared: SharedDynamics) -> DStateDynamics {
         Box::new(
-            move |t: f64, state: &DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
-                shared(t, state, params)
-            },
+            move |t: f64,
+                  state: &DVector<f64>,
+                  params: Option<&DVector<f64>>|
+                  -> Result<DVector<f64>, BraheError> { shared(t, state, params) },
         )
     }
 
@@ -1833,7 +1848,10 @@ impl DNumericalOrbitPropagator {
         // Wrap shared dynamics for the Jacobian provider signature
         // Both SharedDynamics and DStateDynamics use references, so this is a simple conversion
         let dynamics_for_jacobian = Box::new(
-            move |t: f64, state: &DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
+            move |t: f64,
+                  state: &DVector<f64>,
+                  params: Option<&DVector<f64>>|
+                  -> Result<DVector<f64>, BraheError> {
                 shared_dynamics(t, state, params)
             },
         );
@@ -1865,7 +1883,10 @@ impl DNumericalOrbitPropagator {
     ) -> Box<dyn crate::math::sensitivity::DSensitivityProvider> {
         // Wrap shared dynamics for the Sensitivity provider signature
         let dynamics_with_params = Box::new(
-            move |t: f64, state: &DVector<f64>, params: &DVector<f64>| -> DVector<f64> {
+            move |t: f64,
+                  state: &DVector<f64>,
+                  params: &DVector<f64>|
+                  -> Result<DVector<f64>, BraheError> {
                 shared_dynamics(t, state, Some(params))
             },
         );
@@ -1910,7 +1931,7 @@ impl DNumericalOrbitPropagator {
         naif_id: i32,
         t: f64,
         epoch: Epoch,
-    ) -> SMatrix3 {
+    ) -> Result<SMatrix3, BraheError> {
         caches
             .iter()
             .find(|(id, _)| *id == naif_id)
@@ -1937,7 +1958,7 @@ impl DNumericalOrbitPropagator {
         third_body_gravity_models: &[Option<Arc<GravityModel>>],
         r_i2b: SMatrix3,
         attributed_caches: &[(i32, Arc<Mutex<RotationCache>>)],
-    ) -> Vector6<f64> {
+    ) -> Result<Vector6<f64>, BraheError> {
         // Convert relative time to absolute Epoch
         let epoch = epoch_initial + t;
 
@@ -2007,7 +2028,7 @@ impl DNumericalOrbitPropagator {
                                 *degree,
                                 *order,
                                 *parallel,
-                            );
+                            )?;
                         }
                         GravityModelSource::ModelType(_) => {
                             // Use the model loaded at construction (passed in)
@@ -2019,7 +2040,7 @@ impl DNumericalOrbitPropagator {
                                     *degree,
                                     *order,
                                     *parallel,
-                                );
+                                )?;
                             }
                         }
                     }
@@ -2039,27 +2060,34 @@ impl DNumericalOrbitPropagator {
             // resolved through the shared cache so a third-body perturbation
             // on the same source reuses them. The cache is present whenever the
             // tidal field is; the fallback is an unreachable-in-practice guard.
-            // Drop the guard before any panic so an ephemeris failure does not
-            // poison the shared cache mutex (SPICE sources are validated at
-            // construction, so this panic is an unreachable-in-practice backstop).
+            // Drop the guard before propagating any error so an ephemeris
+            // failure does not poison the shared cache mutex (SPICE sources
+            // are validated at construction, so this is an
+            // unreachable-in-practice backstop).
             let (r_sun_eci, r_moon_eci) = match sun_moon_cache {
                 Some(cache) => {
                     let result = { cache.lock().unwrap().get_or_compute(t, epoch) };
-                    result.unwrap_or_else(|e| panic!("tidal Sun/Moon ephemeris query failed: {e}"))
+                    result.map_err(|e| {
+                        BraheError::PropagatorError(format!(
+                            "tidal Sun/Moon ephemeris query failed: {e}"
+                        ))
+                    })?
                 }
                 None => (sun_position(epoch), moon_position(epoch)),
             };
             let r_sun_ecef = r_i2b * r_sun_eci;
             let r_moon_ecef = r_i2b * r_moon_eci;
-            // Drop the lock guard before any panic so a tidal evaluation failure
-            // does not poison the mutex (EOP is validated at construction, so
-            // this panic is an unreachable-in-practice backstop).
+            // Drop the lock guard before propagating any error so a tidal
+            // evaluation failure does not poison the mutex (EOP is validated
+            // at construction, so this is an unreachable-in-practice
+            // backstop).
             let tide_result = {
                 let mut guard = field.lock().unwrap();
                 guard.acceleration(t, epoch, r_ecef, r_sun_ecef, r_moon_ecef)
             };
-            let a_ecef =
-                tide_result.unwrap_or_else(|e| panic!("tidal field evaluation failed: {e}"));
+            let a_ecef = tide_result.map_err(|e| {
+                BraheError::PropagatorError(format!("tidal field evaluation failed: {e}"))
+            })?;
             a_total += r_i2b.transpose() * a_ecef;
         }
 
@@ -2069,12 +2097,16 @@ impl DNumericalOrbitPropagator {
             let mass = force_config
                 .mass
                 .as_ref()
-                .expect("Mass must be configured for drag calculation")
-                .get_value(params_opt);
+                .ok_or_else(|| {
+                    BraheError::PropagatorError(
+                        "Mass must be configured for drag calculation".to_string(),
+                    )
+                })?
+                .get_value(params_opt)?;
 
             // Get drag parameters (area, Cd)
-            let drag_area = drag_config.area.get_value(params_opt);
-            let cd = drag_config.cd.get_value(params_opt);
+            let drag_area = drag_config.area.get_value(params_opt)?;
+            let cd = drag_config.cd.get_value(params_opt)?;
 
             // Body whose atmosphere produces the drag. When attributed to a
             // body other than the central body, the object's state, the
@@ -2094,11 +2126,10 @@ impl DNumericalOrbitPropagator {
                     attributed.naif_id(),
                     central.naif_id(),
                     epoch,
-                )
-                .expect("SPK drag-body state query failed");
+                )?;
                 (
                     x_eci - body_state,
-                    Self::attributed_rotation(attributed_caches, attributed.naif_id(), t, epoch),
+                    Self::attributed_rotation(attributed_caches, attributed.naif_id(), t, epoch)?,
                 )
             };
             let r_drag = Vector3::new(x_drag[0], x_drag[1], x_drag[2]);
@@ -2148,12 +2179,16 @@ impl DNumericalOrbitPropagator {
             let mass = force_config
                 .mass
                 .as_ref()
-                .expect("Mass must be configured for SRP calculation")
-                .get_value(params_opt);
+                .ok_or_else(|| {
+                    BraheError::PropagatorError(
+                        "Mass must be configured for SRP calculation".to_string(),
+                    )
+                })?
+                .get_value(params_opt)?;
 
             // Get SRP parameters (area, Cr)
-            let srp_area = srp_config.area.get_value(params_opt);
-            let cr = srp_config.cr.get_value(params_opt);
+            let srp_area = srp_config.area.get_value(params_opt)?;
+            let cr = srp_config.cr.get_value(params_opt)?;
 
             // Sun position relative to the central body. For Earth this uses
             // the analytic `sun_position` ephemeris (bit-identical to the
@@ -2166,8 +2201,7 @@ impl DNumericalOrbitPropagator {
                 // for the central body (e.g. mar099s for Mars, NAIF 499)
                 // are loaded before the registry query.
                 crate::spice::registry::ensure_bodies_loadable(&[central.naif_id()])
-                    .and_then(|_| spk_position(10, central.naif_id(), epoch))
-                    .expect("SPK sun query failed")
+                    .and_then(|_| spk_position(10, central.naif_id(), epoch))?
             };
 
             // Compute SRP acceleration (P0 = 4.56e-6 N/m² at 1 AU)
@@ -2192,8 +2226,7 @@ impl DNumericalOrbitPropagator {
                         ])
                         .and_then(|_| {
                             spk_position(occ.naif_position_id(), central.naif_id(), epoch)
-                        })
-                        .expect("SPK occulting-body query failed")
+                        })?
                     };
                     let factor = match srp_config.eclipse_model {
                         EclipseModel::Cylindrical => {
@@ -2225,7 +2258,7 @@ impl DNumericalOrbitPropagator {
                 // point-mass (see `accel_third_body_field_for_body_with_model`).
                 if !matches!(entry.gravity, GravityConfiguration::PointMass) {
                     let r_i2b_body =
-                        Self::attributed_rotation(attributed_caches, body.naif_id(), t, epoch);
+                        Self::attributed_rotation(attributed_caches, body.naif_id(), t, epoch)?;
                     a_total += accel_third_body_field_for_body_with_model(
                         central,
                         body,
@@ -2237,13 +2270,7 @@ impl DNumericalOrbitPropagator {
                         entry.ephemeris_source,
                         epoch,
                         r,
-                    )
-                    .unwrap_or_else(|e| {
-                        panic!(
-                            "extended third-body evaluation failed for {:?}: {}",
-                            body, e
-                        )
-                    });
+                    )?;
                     continue;
                 }
                 // Keep the legacy geocentric call for Earth so Earth
@@ -2274,9 +2301,11 @@ impl DNumericalOrbitPropagator {
                                 .then(|| guard.get_or_compute(t, epoch))
                         };
                         if let Some(result) = matched_result {
-                            let (r_sun_eci, r_moon_eci) = result.unwrap_or_else(|e| {
-                                panic!("third-body Sun/Moon ephemeris query failed: {e}")
-                            });
+                            let (r_sun_eci, r_moon_eci) = result.map_err(|e| {
+                                BraheError::PropagatorError(format!(
+                                    "third-body Sun/Moon ephemeris query failed: {e}"
+                                ))
+                            })?;
                             let (r_body, gm) = match body {
                                 ThirdBody::Sun => (r_sun_eci, GM_SUN),
                                 ThirdBody::Moon => (r_moon_eci, GM_MOON),
@@ -2302,7 +2331,7 @@ impl DNumericalOrbitPropagator {
                         | ThirdBody::Neptune
                         | ThirdBody::NeptuneBarycenter => {
                             a_total +=
-                                accel_third_body(body.clone(), entry.ephemeris_source, epoch, r);
+                                accel_third_body(body.clone(), entry.ephemeris_source, epoch, r)?;
                         }
                         ThirdBody::Phobos
                         | ThirdBody::Deimos
@@ -2314,16 +2343,12 @@ impl DNumericalOrbitPropagator {
                                 entry.ephemeris_source,
                                 epoch,
                                 r,
-                            )
-                            .unwrap_or_else(|e| {
-                                panic!("third-body query failed for {:?}: {}", body, e)
-                            });
+                            )?;
                         }
                     }
                 } else {
                     a_total +=
-                        accel_third_body_for_body(central, body, entry.ephemeris_source, epoch, r)
-                            .expect("third-body query failed");
+                        accel_third_body_for_body(central, body, entry.ephemeris_source, epoch, r)?;
                 }
             }
         }
@@ -2340,7 +2365,9 @@ impl DNumericalOrbitPropagator {
         // indices ≥ 6. Returning a stack-allocated `Vector6<f64>` here
         // eliminates one heap allocation per integrator stage (the prior
         // `DVector::zeros(state.len())` + element writes).
-        Vector6::new(v[0], v[1], v[2], a_total[0], a_total[1], a_total[2])
+        Ok(Vector6::new(
+            v[0], v[1], v[2], a_total[0], a_total[1], a_total[2],
+        ))
     }
 
     // =========================================================================
@@ -2882,7 +2909,7 @@ impl DNumericalOrbitPropagator {
     /// Includes event detection: if events with callbacks are detected that modify state,
     /// the propagator resets to the event time with the modified state and returns to the
     /// caller so that `propagate_to()` can re-clamp `dt_next` before the next step.
-    fn step_once(&mut self) {
+    fn step_once(&mut self) -> Result<(), BraheError> {
         // Save state before integration step (for event detection)
         let epoch_prev = self.current_epoch();
         let x_prev = self.x_curr.clone();
@@ -2906,7 +2933,7 @@ impl DNumericalOrbitPropagator {
                     self.x_curr.clone(),
                     params_ref,
                     Some(dt_requested),
-                );
+                )?;
 
                 self.x_curr = result.state;
                 self.dt = result.dt_used;
@@ -2914,7 +2941,9 @@ impl DNumericalOrbitPropagator {
             }
             PropagationMode::WithSTM => {
                 // Propagate state and STM (variational matrix)
-                let phi = self.stm.take().unwrap();
+                // Clone rather than take so a failed step leaves the STM
+                // intact for a subsequent retry or inspection.
+                let phi = self.stm.as_ref().unwrap().clone();
 
                 let result = self.integrator.step_with_varmat(
                     self.t_rel,
@@ -2922,7 +2951,7 @@ impl DNumericalOrbitPropagator {
                     params_ref,
                     phi,
                     Some(dt_requested),
-                );
+                )?;
 
                 self.x_curr = result.state;
                 self.stm = result.phi;
@@ -2940,7 +2969,9 @@ impl DNumericalOrbitPropagator {
             }
             PropagationMode::WithSensitivity => {
                 // Propagate state and sensitivity
-                let sens = self.sensitivity.take().unwrap();
+                // Clone rather than take so a failed step leaves the
+                // sensitivity intact for a subsequent retry or inspection.
+                let sens = self.sensitivity.as_ref().unwrap().clone();
 
                 let result = self.integrator.step_with_sensmat(
                     self.t_rel,
@@ -2948,7 +2979,7 @@ impl DNumericalOrbitPropagator {
                     sens,
                     &self.params,
                     Some(dt_requested),
-                );
+                )?;
 
                 self.x_curr = result.state;
                 self.sensitivity = result.sens;
@@ -2957,8 +2988,12 @@ impl DNumericalOrbitPropagator {
             }
             PropagationMode::WithSTMAndSensitivity => {
                 // Propagate state, STM, and sensitivity
-                let phi = self.stm.take().unwrap();
-                let sens = self.sensitivity.take().unwrap();
+                // Clone rather than take so a failed step leaves the STM
+                // intact for a subsequent retry or inspection.
+                let phi = self.stm.as_ref().unwrap().clone();
+                // Clone rather than take so a failed step leaves the
+                // sensitivity intact for a subsequent retry or inspection.
+                let sens = self.sensitivity.as_ref().unwrap().clone();
 
                 let result = self.integrator.step_with_varmat_sensmat(
                     self.t_rel,
@@ -2967,7 +3002,7 @@ impl DNumericalOrbitPropagator {
                     sens,
                     &self.params,
                     Some(dt_requested),
-                );
+                )?;
 
                 self.x_curr = result.state;
                 self.stm = result.phi.clone();
@@ -2997,10 +3032,10 @@ impl DNumericalOrbitPropagator {
 
         // Refine event states: replace linearly-interpolated states with
         // precisely-integrated states for events near the step start.
-        self.refine_event_states(&mut detected_events, epoch_prev, &x_prev);
+        self.refine_event_states(&mut detected_events, epoch_prev, &x_prev)?;
 
         // Process events using smart sequential algorithm
-        match self.process_events_smart(detected_events) {
+        match self.process_events_smart(detected_events)? {
             EventProcessingResult::NoEvents => {
                 // No events or all events processed without callbacks
                 // Accept step and store in trajectory if needed
@@ -3017,7 +3052,7 @@ impl DNumericalOrbitPropagator {
                     } else {
                         None
                     };
-                    let acc = self.compute_acceleration(epoch_new, &self.x_curr);
+                    let acc = self.compute_acceleration(epoch_new, &self.x_curr)?;
 
                     self.trajectory.add_full(
                         epoch_new,
@@ -3026,7 +3061,7 @@ impl DNumericalOrbitPropagator {
                         stm_to_store,
                         sens_to_store,
                         acc,
-                    );
+                    )?;
                 }
             }
 
@@ -3064,7 +3099,7 @@ impl DNumericalOrbitPropagator {
                     } else {
                         None
                     };
-                    let acc = self.compute_acceleration(term_epoch, &term_state);
+                    let acc = self.compute_acceleration(term_epoch, &term_state)?;
 
                     self.trajectory.add_full(
                         term_epoch,
@@ -3073,10 +3108,12 @@ impl DNumericalOrbitPropagator {
                         stm_to_store,
                         sens_to_store,
                         acc,
-                    );
+                    )?;
                 }
             }
         }
+
+        Ok(())
     }
 
     /// Helper to determine if current state should be stored
@@ -3094,11 +3131,11 @@ impl DNumericalOrbitPropagator {
 // =============================================================================
 
 impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
-    fn step_by(&mut self, step_size: f64) {
+    fn step_by(&mut self, step_size: f64) -> Result<(), BraheError> {
         let target_t = self.t_rel + step_size;
 
         // Check for events at the current epoch before taking any steps.
-        self.process_initial_events();
+        self.process_initial_events()?;
 
         // Support both forward and backward propagation
         let is_forward = step_size >= 0.0;
@@ -3135,7 +3172,7 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
             self.dt_next = dt_max;
 
             // Take one adaptive step (includes event detection)
-            self.step_once();
+            self.step_once()?;
 
             // Restore suggested dt_next for subsequent steps
             // (unless step_once updated it to something smaller)
@@ -3143,15 +3180,17 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
                 self.dt_next = saved_dt_next;
             }
         }
+
+        Ok(())
     }
 
-    fn propagate_to(&mut self, target_epoch: Epoch) {
+    fn propagate_to(&mut self, target_epoch: Epoch) -> Result<(), BraheError> {
         let target_rel = target_epoch - self.epoch_initial;
 
         // Check for events at the current epoch before taking any steps.
         // This handles the edge case where an event is scheduled at the exact
         // propagation start time (e.g., TimeEvent at T+0.0s).
-        self.process_initial_events();
+        self.process_initial_events()?;
 
         // Support both forward and backward propagation
         let is_forward = target_rel >= self.t_rel;
@@ -3185,13 +3224,15 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
             self.dt_next = dt_max;
 
             // Take one adaptive step (includes event detection)
-            self.step_once();
+            self.step_once()?;
 
             // Restore suggested dt_next for subsequent steps
             if self.dt_next.abs() >= saved_dt_next.abs() {
                 self.dt_next = saved_dt_next;
             }
         }
+
+        Ok(())
     }
 
     fn current_epoch(&self) -> Epoch {
@@ -3268,7 +3309,8 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
             trajectory_frame,
             OrbitRepresentation::Cartesian,
             None,
-        );
+        )
+        .expect("trajectory format validated at construction");
 
         // Clear event state
         self.event_log.clear();
@@ -3610,7 +3652,7 @@ impl DCovarianceProvider for DNumericalOrbitPropagator {
         }
 
         // Try to get from trajectory
-        self.trajectory.covariance_at(epoch).ok_or_else(|| {
+        self.trajectory.covariance_at(epoch)?.ok_or_else(|| {
             BraheError::OutOfBoundsError(format!(
                 "Cannot get covariance at epoch {}: no covariance data available at this epoch",
                 epoch
@@ -4042,7 +4084,7 @@ mod tests {
         );
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
-        let cached = cache.get_or_compute(0.0, epoch);
+        let cached = cache.get_or_compute(0.0, epoch).unwrap();
         let fresh = rotation_eci_to_ecef(epoch);
         assert_eq!(
             cached, fresh,
@@ -4087,7 +4129,7 @@ mod tests {
         );
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
-        let cached = cache.get_or_compute(0.0, epoch);
+        let cached = cache.get_or_compute(0.0, epoch).unwrap();
         let fresh = earth_rotation(epoch);
         assert_eq!(
             cached, fresh,
@@ -4148,7 +4190,7 @@ mod tests {
         let inserts: Vec<(f64, SMatrix3)> = (0..=ROTATION_CACHE_CAPACITY)
             .map(|i| {
                 let t = i as f64;
-                let r = cache.get_or_compute(t, epoch + t);
+                let r = cache.get_or_compute(t, epoch + t).unwrap();
                 (t, r)
             })
             .collect();
@@ -4160,7 +4202,7 @@ mod tests {
         // a stale or wrong entry, the values would diverge.
         for &(t, expected) in &inserts[1..] {
             assert_eq!(
-                cache.get_or_compute(t, epoch + t),
+                cache.get_or_compute(t, epoch + t).unwrap(),
                 expected,
                 "entry at t={t} should still be cached"
             );
@@ -4169,7 +4211,7 @@ mod tests {
         // The oldest entry (t=0) should have been evicted. We can't observe
         // a miss directly without instrumentation, but we can verify the
         // returned value is still correct (recomputed from scratch).
-        let recomputed = cache.get_or_compute(0.0, epoch);
+        let recomputed = cache.get_or_compute(0.0, epoch).unwrap();
         assert_eq!(
             recomputed, inserts[0].1,
             "post-eviction recompute must still match the original value"
@@ -4219,7 +4261,7 @@ mod tests {
             let _state_dim = prop.state_dim();
 
             // Take a step
-            prop.step_by(60.0);
+            prop.step_by(60.0).unwrap();
 
             let current_epoch = prop.current_epoch();
             let _current_state = prop.current_state();
@@ -4264,7 +4306,7 @@ mod tests {
         let target_epoch = epoch + target_time;
 
         // Propagate to target epoch
-        prop.propagate_to(target_epoch);
+        prop.propagate_to(target_epoch).unwrap();
 
         // Verify we reached the target time
         assert!(
@@ -4312,7 +4354,7 @@ mod tests {
         let step_size = -1800.0; // 30 minutes backward
 
         // Propagate backward using step_by with negative step
-        prop.step_by(step_size);
+        prop.step_by(step_size).unwrap();
 
         // Verify we went backward in time
         let time_diff: f64 = prop.current_epoch() - epoch;
@@ -4369,7 +4411,7 @@ mod tests {
         let target_epoch = epoch + target_time;
 
         // Propagate backward to target epoch
-        prop.propagate_to(target_epoch);
+        prop.propagate_to(target_epoch).unwrap();
 
         // Verify we reached the target time (going backward)
         assert!(
@@ -4423,7 +4465,7 @@ mod tests {
         let num_steps = 10;
 
         // Propagate N steps
-        prop.propagate_steps(num_steps);
+        prop.propagate_steps(num_steps).unwrap();
 
         // Verify we advanced by approximately N steps
         // Note: Adaptive integrator may take different step sizes
@@ -4479,7 +4521,7 @@ mod tests {
         .unwrap();
 
         // Propagate forward
-        prop.propagate_to(epoch + 1800.0);
+        prop.propagate_to(epoch + 1800.0).unwrap();
 
         // Verify state changed
         let state_after = prop.current_state();
@@ -4516,7 +4558,7 @@ mod tests {
 
         // Propagate again and verify it works
         let target = epoch + 900.0;
-        prop.propagate_to(target);
+        prop.propagate_to(target).unwrap();
         let time_diff: f64 = prop.current_epoch() - target;
         assert!(
             time_diff.abs() < 0.1,
@@ -4550,7 +4592,7 @@ mod tests {
         .unwrap();
 
         // Propagate forward
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         // Get ECI state at a propagated epoch
         let query_epoch = epoch + 900.0;
@@ -4588,7 +4630,7 @@ mod tests {
         .unwrap();
 
         // Propagate forward
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         // Get ECEF state at a propagated epoch
         let query_epoch = epoch + 900.0;
@@ -4625,7 +4667,7 @@ mod tests {
             None,
         )
         .unwrap();
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
         let query_epoch = epoch + 900.0;
 
         let bci = prop.state_bci(query_epoch).unwrap();
@@ -4690,7 +4732,7 @@ mod tests {
         .unwrap();
 
         // Propagate forward
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         // Get GCRF state at a propagated epoch
         let query_epoch = epoch + 900.0;
@@ -4726,7 +4768,7 @@ mod tests {
         .unwrap();
 
         // Propagate forward
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         // Get ITRF state at a propagated epoch
         let query_epoch = epoch + 900.0;
@@ -4762,7 +4804,7 @@ mod tests {
         .unwrap();
 
         // Propagate forward
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         // Get EME2000 state at a propagated epoch
         let query_epoch = epoch + 900.0;
@@ -4798,7 +4840,7 @@ mod tests {
         .unwrap();
 
         // Propagate forward
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         // Get osculating elements in radians
         let query_epoch = epoch + 900.0;
@@ -4840,7 +4882,7 @@ mod tests {
         .unwrap();
 
         // Propagate forward
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         // Get osculating elements in degrees
         let query_epoch = epoch + 900.0;
@@ -4882,7 +4924,7 @@ mod tests {
         .unwrap();
 
         // Propagate forward
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         let query_epoch = epoch + 900.0;
 
@@ -4927,7 +4969,7 @@ mod tests {
         .unwrap();
 
         // Propagate forward
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         let query_epoch = epoch + 900.0;
 
@@ -4984,7 +5026,7 @@ mod tests {
         .unwrap();
 
         // Propagate forward
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         let query_epoch = epoch + 900.0;
 
@@ -5033,7 +5075,7 @@ mod tests {
         .unwrap();
 
         // Propagate forward
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         let query_epoch = epoch + 900.0;
 
@@ -5092,7 +5134,7 @@ mod tests {
         .unwrap();
 
         // Propagate with multiple steps to build trajectory
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         // Query at intermediate epoch (should interpolate)
         let query_epoch = epoch + 450.0; // Quarter way through
@@ -5151,7 +5193,7 @@ mod tests {
         .unwrap();
 
         // Propagate forward
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         // Get ECI covariance at propagated epoch
         let query_epoch = epoch + 900.0;
@@ -5191,7 +5233,7 @@ mod tests {
         .unwrap();
 
         // Propagate forward
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         // Get GCRF covariance
         let query_epoch = epoch + 900.0;
@@ -5234,7 +5276,7 @@ mod tests {
         .unwrap();
 
         // Propagate forward
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         // Get RTN covariance
         let query_epoch = epoch + 900.0;
@@ -5305,7 +5347,7 @@ mod tests {
 
         // Propagate with multiple small steps to build a detailed trajectory
         for _ in 0..10 {
-            prop.step_by(180.0); // 10 steps of 3 minutes each
+            prop.step_by(180.0).unwrap(); // 10 steps of 3 minutes each
         }
 
         // Query at intermediate epochs within the trajectory
@@ -5378,7 +5420,7 @@ mod tests {
         .unwrap();
 
         // Propagate forward
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         let query_epoch = epoch + 900.0;
 
@@ -5442,7 +5484,7 @@ mod tests {
         )
         .unwrap();
 
-        prop_no_cov.step_by(1800.0);
+        prop_no_cov.step_by(1800.0).unwrap();
 
         let query_epoch = epoch + 900.0;
         let result = prop_no_cov.covariance_eci(query_epoch);
@@ -5462,7 +5504,7 @@ mod tests {
         )
         .unwrap();
 
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         let before_epoch = epoch - 1000.0; // Before trajectory start
         let result = prop.covariance_eci(before_epoch);
@@ -5895,7 +5937,7 @@ mod tests {
         assert_eq!(prop.get_uuid(), Some(test_uuid));
 
         // Propagate forward
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         // Verify identifiers persist after propagation
         assert_eq!(prop.get_name(), Some("PersistentSat"));
@@ -5984,7 +6026,7 @@ mod tests {
         prop.add_event_detector(Box::new(time_event));
 
         // Propagate to 1 hour
-        prop.propagate_to(epoch + 3600.0);
+        prop.propagate_to(epoch + 3600.0).unwrap();
 
         // Event should be detected
         let events = prop.event_log();
@@ -6035,7 +6077,7 @@ mod tests {
 
         // Propagate for one orbit period
         let period = 2.0 * orbital_period(a);
-        prop.propagate_to(epoch + period);
+        prop.propagate_to(epoch + period).unwrap();
 
         // Should detect 2 events for elliptical orbit (ascending and descending)
         let events = prop.event_log();
@@ -6086,7 +6128,7 @@ mod tests {
 
         // Propagate for one orbit period
         let period = 2.0 * orbital_period(a);
-        prop.propagate_to(epoch + period);
+        prop.propagate_to(epoch + period).unwrap();
 
         // Should detect 2 events for elliptical orbit (ascending and descending)
         let events = prop.event_log();
@@ -6170,8 +6212,8 @@ mod tests {
 
         // Propagate for one orbit period
         let period = 2.0 * orbital_period(a);
-        prop_builtin.propagate_to(epoch + period);
-        prop_manual.propagate_to(epoch + period);
+        prop_builtin.propagate_to(epoch + period).unwrap();
+        prop_manual.propagate_to(epoch + period).unwrap();
 
         // Compare event counts
         let events_builtin = prop_builtin.events_by_name("Altitude");
@@ -6233,7 +6275,7 @@ mod tests {
         prop.add_event_detector(Box::new(maneuver));
 
         // Propagate past maneuver
-        prop.propagate_to(epoch + 3600.0);
+        prop.propagate_to(epoch + 3600.0).unwrap();
 
         // Event should be detected
         assert_eq!(prop.event_log().len(), 1);
@@ -6281,7 +6323,7 @@ mod tests {
         prop.add_event_detector(Box::new(mass_update));
 
         // Propagate past event
-        prop.propagate_to(epoch + 3600.0);
+        prop.propagate_to(epoch + 3600.0).unwrap();
 
         // Parameter should have changed
         let final_mass = prop.current_params()[0];
@@ -6316,7 +6358,7 @@ mod tests {
         prop.add_event_detector(Box::new(terminal_event));
 
         // Try to propagate to 1 hour
-        prop.propagate_to(epoch + 3600.0);
+        prop.propagate_to(epoch + 3600.0).unwrap();
 
         // Check if event was detected
         let events = prop.event_log();
@@ -6370,7 +6412,7 @@ mod tests {
         prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 2400.0, "Event 3")));
 
         // Propagate
-        prop.propagate_to(epoch + 3600.0);
+        prop.propagate_to(epoch + 3600.0).unwrap();
 
         // All events should be detected
         let events = prop.event_log();
@@ -6414,7 +6456,7 @@ mod tests {
         prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 2400.0, "Event 4 - No CB")));
 
         // Propagate
-        prop.propagate_to(epoch + 3600.0);
+        prop.propagate_to(epoch + 3600.0).unwrap();
 
         // All events should be detected
         let events = prop.event_log();
@@ -6453,7 +6495,7 @@ mod tests {
         prop.add_event_detector(Box::new(DTimeEvent::new(event_time, "Near-Initial Event")));
 
         // Propagate forward
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         // Event near initial epoch should be detected
         let events = prop.event_log();
@@ -6492,7 +6534,7 @@ mod tests {
         prop.add_event_detector(Box::new(DTimeEvent::new(target_epoch, "Final Epoch Event")));
 
         // Propagate to exactly that epoch
-        prop.propagate_to(target_epoch);
+        prop.propagate_to(target_epoch).unwrap();
 
         // Event at final epoch should be detected
         let events = prop.event_log();
@@ -6528,7 +6570,7 @@ mod tests {
         prop.add_event_detector(Box::new(DTimeEvent::new(event_time, "Event C")));
 
         // Propagate
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         // All simultaneous events should be detected
         let events = prop.event_log();
@@ -6580,7 +6622,7 @@ mod tests {
         }
 
         // Propagate with large step size that would normally skip over them
-        prop.step_by(360.0); // 6 minutes, should catch all 10 events in 5 minutes
+        prop.step_by(360.0).unwrap(); // 6 minutes, should catch all 10 events in 5 minutes
 
         // All rapid events should be detected
         let events = prop.event_log();
@@ -6621,7 +6663,7 @@ mod tests {
 
         // First propagate forward and detect an event
         prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 900.0, "Forward Event")));
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         // Should have detected one event
         assert_eq!(prop.event_log().len(), 1);
@@ -6630,7 +6672,7 @@ mod tests {
         // Now test that we can propagate backward (state propagation works)
         // Note: With the improved bisection algorithm, event detection now works
         // during backward propagation, so the event will be detected again
-        prop.step_by(-900.0);
+        prop.step_by(-900.0).unwrap();
 
         // Verify backward propagation changed the state
         assert!(
@@ -6678,7 +6720,7 @@ mod tests {
         prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 1800.0, "Post-Terminal")));
 
         // Propagate - should stop at terminal event
-        prop.step_by(3600.0);
+        prop.step_by(3600.0).unwrap();
 
         // Should have 1 event and be terminated
         assert_eq!(prop.event_log().len(), 1);
@@ -6696,7 +6738,7 @@ mod tests {
         );
 
         // Continue propagation
-        prop.step_by(1800.0);
+        prop.step_by(1800.0).unwrap();
 
         // Should now have both events
         let events = prop.event_log();
@@ -6734,7 +6776,7 @@ mod tests {
         prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 1200.0, "Event 2")));
 
         // Propagate to trigger first event
-        prop.step_by(900.0);
+        prop.step_by(900.0).unwrap();
         assert_eq!(prop.event_log().len(), 1);
 
         // Clear events log (but keep detectors)
@@ -6746,7 +6788,7 @@ mod tests {
         );
 
         // Continue propagation - should detect second event
-        prop.step_by(900.0);
+        prop.step_by(900.0).unwrap();
         assert_eq!(
             prop.event_log().len(),
             1,
@@ -6759,7 +6801,7 @@ mod tests {
 
         // Add new event and propagate
         prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 600.0, "Reset Event")));
-        prop.step_by(900.0);
+        prop.step_by(900.0).unwrap();
 
         // Should have events from both before and after reset
         // (detectors persist, but event log was cleared)
@@ -6853,7 +6895,7 @@ mod tests {
         // Propagate for one quarter orbit (from ~362 km perigee to ~638 km apogee,
         // crossing both 380 km and 410 km on the ascending leg)
         let period = orbital_period(a);
-        prop.propagate_to(epoch + period / 4.0);
+        prop.propagate_to(epoch + period / 4.0).unwrap();
 
         // Verify both events were detected
         assert!(
@@ -6932,7 +6974,7 @@ mod tests {
         prop.add_event_detector(Box::new(event2));
 
         // Propagate to 1 hour - this should complete in reasonable time
-        prop.propagate_to(epoch + 3600.0);
+        prop.propagate_to(epoch + 3600.0).unwrap();
 
         // Each callback should fire exactly once
         let cb1_executions = callback1_count.load(std::sync::atomic::Ordering::SeqCst);
@@ -7004,7 +7046,7 @@ mod tests {
                     None,
                 )
                 .unwrap();
-                p.propagate_to(target_epoch);
+                p.propagate_to(target_epoch).unwrap();
                 p.current_state().clone()
             } else {
                 let mut p1 = DNumericalOrbitPropagator::new(
@@ -7018,7 +7060,7 @@ mod tests {
                     None,
                 )
                 .unwrap();
-                p1.propagate_to(epoch + offset);
+                p1.propagate_to(epoch + offset).unwrap();
                 let mut state_at_burn = p1.current_state().clone();
                 for i in 3..6 {
                     state_at_burn[i] += dv[i];
@@ -7034,7 +7076,7 @@ mod tests {
                     None,
                 )
                 .unwrap();
-                p2.propagate_to(target_epoch);
+                p2.propagate_to(target_epoch).unwrap();
                 p2.current_state().clone()
             };
 
@@ -7064,7 +7106,7 @@ mod tests {
             );
 
             prop_te.add_event_detector(Box::new(event));
-            prop_te.propagate_to(target_epoch);
+            prop_te.propagate_to(target_epoch).unwrap();
             let te_state = prop_te.current_state();
 
             // --- Compare ---
@@ -7142,7 +7184,7 @@ mod tests {
                     None,
                 )
                 .unwrap();
-                p.propagate_to(burn_ep);
+                p.propagate_to(burn_ep).unwrap();
                 x_state = p.current_state().clone();
                 cur_ep = burn_ep;
             }
@@ -7161,7 +7203,7 @@ mod tests {
             None,
         )
         .unwrap();
-        p_final.propagate_to(target_epoch);
+        p_final.propagate_to(target_epoch).unwrap();
         let baseline_state = p_final.current_state().clone();
 
         // --- TimeEvent approach: single propagator with 3 events ---
@@ -7193,7 +7235,7 @@ mod tests {
             prop_te.add_event_detector(Box::new(event));
         }
 
-        prop_te.propagate_to(target_epoch);
+        prop_te.propagate_to(target_epoch).unwrap();
         let te_state = prop_te.current_state();
 
         // Compare
@@ -7253,7 +7295,7 @@ mod tests {
                 dx[3] = a_control[0]; // dvx/dt
                 dx[4] = a_control[1]; // dvy/dt
                 dx[5] = a_control[2]; // dvz/dt
-                dx
+                Ok(dx)
             }));
 
         // Create reference propagator WITHOUT control
@@ -7284,8 +7326,8 @@ mod tests {
 
         // Propagate both for one orbital period
         let period = orbital_period(a);
-        prop_ref.propagate_to(epoch + period);
-        prop_test.propagate_to(epoch + period);
+        prop_ref.propagate_to(epoch + period).unwrap();
+        prop_test.propagate_to(epoch + period).unwrap();
 
         // Extract final semi-major axes
         let state_ref = prop_ref.current_state();
@@ -7363,12 +7405,13 @@ mod tests {
             OrbitRepresentation::Cartesian,
             None,
             60.0,
-        );
+        )
+        .unwrap();
 
         // Propagate both for one orbit
         let orbital_period = orbital_period(oe[0]);
-        num_prop.step_by(orbital_period);
-        kep_prop.step_by(orbital_period);
+        num_prop.step_by(orbital_period).unwrap();
+        kep_prop.step_by(orbital_period).unwrap();
 
         // Compare final states
         let num_final = num_prop.current_state();
@@ -7418,7 +7461,7 @@ mod tests {
 
         // Propagate for 5 complete orbits
         let n_orbits = 5.0;
-        prop.step_by(n_orbits * t_theory);
+        prop.step_by(n_orbits * t_theory).unwrap();
 
         // Actual time elapsed
         let t_actual = (prop.current_epoch() - epoch) / n_orbits;
@@ -7474,8 +7517,8 @@ mod tests {
         .unwrap();
 
         // Propagate both for same duration
-        prop_tight.step_by(1800.0);
-        prop_loose.step_by(1800.0);
+        prop_tight.step_by(1800.0).unwrap();
+        prop_loose.step_by(1800.0).unwrap();
 
         // Tight tolerance should produce more accurate results
         let state_tight = prop_tight.current_state();
@@ -7523,7 +7566,7 @@ mod tests {
 
         // Propagate for 10 orbits
         let orbital_period = orbital_period(oe[0]);
-        prop.step_by(10.0 * orbital_period);
+        prop.step_by(10.0 * orbital_period).unwrap();
 
         // Calculate final specific energy
         let final_state = prop.current_state();
@@ -7569,7 +7612,7 @@ mod tests {
 
         // Propagate for 10 orbits
         let orbital_period = orbital_period(oe[0]);
-        prop.step_by(10.0 * orbital_period);
+        prop.step_by(10.0 * orbital_period).unwrap();
 
         // Calculate final angular momentum
         let final_state = prop.current_state();
@@ -7621,7 +7664,7 @@ mod tests {
 
         // Propagate for 100 orbits
         let orbital_period = orbital_period(oe[0]);
-        prop.step_by(100.0 * orbital_period);
+        prop.step_by(100.0 * orbital_period).unwrap();
 
         // Calculate final specific energy
         let final_state = prop.current_state();
@@ -7664,7 +7707,7 @@ mod tests {
 
         // Propagate for 100 orbits
         let orbital_period = orbital_period(oe_initial[0]);
-        prop.step_by(100.0 * orbital_period);
+        prop.step_by(100.0 * orbital_period).unwrap();
 
         // Get final orbital elements
         let final_state = prop.current_state();
@@ -7721,7 +7764,7 @@ mod tests {
         .unwrap();
 
         // Propagate for 3 days
-        prop.step_by(3.0 * 86400.0);
+        prop.step_by(3.0 * 86400.0).unwrap();
 
         // Should successfully complete propagation
         assert!(
@@ -7770,7 +7813,7 @@ mod tests {
         .unwrap();
 
         // Propagate for 7 days
-        prop.step_by(7.0 * 86400.0);
+        prop.step_by(7.0 * 86400.0).unwrap();
 
         // Should successfully complete propagation
         assert!(
@@ -7819,7 +7862,7 @@ mod tests {
 
         // Propagate for 2 complete orbits
         let orbital_period = orbital_period(oe[0]);
-        prop.step_by(2.0 * orbital_period);
+        prop.step_by(2.0 * orbital_period).unwrap();
 
         // Should successfully complete propagation
         assert!(
@@ -7871,7 +7914,7 @@ mod tests {
 
         // Propagate for 50 orbits
         let orbital_period = orbital_period(oe[0]);
-        prop.step_by(50.0 * orbital_period);
+        prop.step_by(50.0 * orbital_period).unwrap();
 
         // Verify orbit remains nearly circular
         let final_state = prop.current_state();
@@ -7928,7 +7971,7 @@ mod tests {
 
         // Propagate for one complete orbit
         let orbital_period = orbital_period(oe[0]);
-        prop.step_by(orbital_period);
+        prop.step_by(orbital_period).unwrap();
 
         // Should successfully handle high eccentricity
         assert!(
@@ -7978,7 +8021,7 @@ mod tests {
 
         // Propagate for 10 orbits
         let orbital_period = orbital_period(oe[0]);
-        prop.step_by(10.0 * orbital_period);
+        prop.step_by(10.0 * orbital_period).unwrap();
 
         // Should handle equatorial orbit without numerical issues
         assert!(
@@ -8018,7 +8061,7 @@ mod tests {
 
         // Propagate for 10 orbits
         let orbital_period = orbital_period(oe[0]);
-        prop.step_by(10.0 * orbital_period);
+        prop.step_by(10.0 * orbital_period).unwrap();
 
         // Verify polar inclination is preserved (two-body gravity preserves inclination exactly)
         let final_state = prop.current_state();
@@ -8055,7 +8098,7 @@ mod tests {
         let initial_state = prop.current_state().clone();
 
         // Very short propagation (0.01 seconds)
-        prop.step_by(0.01);
+        prop.step_by(0.01).unwrap();
 
         // Should propagate even very short steps
         assert!(
@@ -8094,7 +8137,7 @@ mod tests {
         .unwrap();
 
         // Propagate to same epoch (no-op)
-        prop.propagate_to(epoch);
+        prop.propagate_to(epoch).unwrap();
 
         // State should remain unchanged
         let final_state = prop.current_state();
@@ -8126,12 +8169,12 @@ mod tests {
         .unwrap();
 
         // Propagate backward
-        prop.step_by(-900.0);
+        prop.step_by(-900.0).unwrap();
         let backward_epoch = prop.current_epoch();
         assert!(backward_epoch < epoch, "Should propagate backward");
 
         // Then propagate forward to original epoch
-        prop.propagate_to(epoch);
+        prop.propagate_to(epoch).unwrap();
 
         // Should return close to original state
         let final_state = prop.current_state();
@@ -8164,7 +8207,7 @@ mod tests {
         .unwrap();
 
         // Single very small step
-        prop.step_by(1.0); // 1 second
+        prop.step_by(1.0).unwrap(); // 1 second
 
         // Should successfully take single step
         assert_eq!(
@@ -8303,7 +8346,7 @@ mod tests {
         let additional_dynamics: DStateDynamics = Box::new(|_t, state, _params| {
             let mut dx = DVector::zeros(state.len());
             dx[6] = -0.1; // dm/dt = -0.1 kg/s
-            dx
+            Ok(dx)
         });
 
         let prop = DNumericalOrbitPropagator::new(
@@ -8324,7 +8367,7 @@ mod tests {
         let initial_mass = prop.current_state()[6];
 
         // Propagate for 10 seconds
-        prop.step_by(10.0);
+        prop.step_by(10.0).unwrap();
 
         let final_mass = prop.current_state()[6];
 
@@ -8357,7 +8400,7 @@ mod tests {
             let mut dx = DVector::zeros(state.len());
             dx[6] = -0.1; // dm/dt = -0.1 kg/s
             dx[7] = -0.05; // dfuel/dt = -0.05 kg/s
-            dx
+            Ok(dx)
         });
 
         // Use Linear interpolation for extended states (Hermite requires exactly 6D)
@@ -8389,7 +8432,7 @@ mod tests {
         assert_eq!(prop.trajectory().additional_dimension(), 2);
 
         // Propagate for 10 seconds
-        prop.step_by(10.0);
+        prop.step_by(10.0).unwrap();
 
         // Verify trajectory has stored states
         let traj = prop.trajectory();
@@ -8530,7 +8573,7 @@ mod tests {
         assert_eq!(prop.current_epoch(), epoch);
 
         // After stepping, should advance
-        prop.step_by(100.0);
+        prop.step_by(100.0).unwrap();
         let new_epoch = prop.current_epoch();
         assert!((new_epoch - epoch - 100.0).abs() < 1.0);
     }
@@ -8637,7 +8680,7 @@ mod tests {
         assert_eq!(prop.initial_epoch(), epoch);
 
         // Even after propagation
-        prop.step_by(1000.0);
+        prop.step_by(1000.0).unwrap();
         assert_eq!(prop.initial_epoch(), epoch);
     }
 
@@ -8669,7 +8712,7 @@ mod tests {
         }
 
         // Should remain constant after propagation
-        prop.step_by(1000.0);
+        prop.step_by(1000.0).unwrap();
         let initial_after = prop.initial_state();
         for i in 0..6 {
             assert!((initial_after[i] - state[i]).abs() < 1e-6);
@@ -8752,8 +8795,8 @@ mod tests {
         assert_eq!(traj.len(), 1);
 
         // After propagation, trajectory should have more states
-        prop.step_by(100.0);
-        prop.step_by(100.0);
+        prop.step_by(100.0).unwrap();
+        prop.step_by(100.0).unwrap();
 
         let traj_after = prop.trajectory();
         assert!(traj_after.len() > 1);
@@ -8883,7 +8926,7 @@ mod tests {
         prop.add_event_detector(Box::new(terminal_event));
 
         // Propagate past event
-        prop.propagate_to(epoch + 200.0);
+        prop.propagate_to(epoch + 200.0).unwrap();
 
         // Should be terminated
         assert!(prop.terminated());
@@ -8930,8 +8973,8 @@ mod tests {
         prop.set_trajectory_mode(TrajectoryMode::AllSteps);
         assert_eq!(prop.trajectory_mode(), TrajectoryMode::AllSteps);
 
-        prop.step_by(100.0);
-        prop.step_by(100.0);
+        prop.step_by(100.0).unwrap();
+        prop.step_by(100.0).unwrap();
         assert!(prop.trajectory().len() > 0);
 
         // Test Disabled mode
@@ -8939,8 +8982,8 @@ mod tests {
         prop.set_trajectory_mode(TrajectoryMode::Disabled);
         assert_eq!(prop.trajectory_mode(), TrajectoryMode::Disabled);
 
-        prop.step_by(100.0);
-        prop.step_by(100.0);
+        prop.step_by(100.0).unwrap();
+        prop.step_by(100.0).unwrap();
         assert_eq!(prop.trajectory().len(), 0); // No trajectory storage
 
         // Test OutputStepsOnly mode
@@ -9053,7 +9096,7 @@ mod tests {
 
         // Propagate and verify trajectory doesn't exceed max size
         for _ in 0..20 {
-            prop.step_by(10.0);
+            prop.step_by(10.0).unwrap();
         }
 
         let traj_len = prop.trajectory().len();
@@ -9090,7 +9133,7 @@ mod tests {
 
         // Propagate for 200 seconds
         for _ in 0..20 {
-            prop.step_by(10.0);
+            prop.step_by(10.0).unwrap();
         }
 
         // Trajectory should only contain recent states (within 100s)
@@ -9148,7 +9191,7 @@ mod tests {
         let initial_energy = compute_orbital_energy(&state);
 
         // Propagate for one orbit
-        prop.step_by(5400.0); // ~90 minutes
+        prop.step_by(5400.0).unwrap(); // ~90 minutes
 
         let final_state = prop.current_state();
         let final_energy = compute_orbital_energy(&final_state);
@@ -9264,7 +9307,7 @@ mod tests {
         .unwrap();
 
         // Propagate for one day
-        prop.step_by(86400.0);
+        prop.step_by(86400.0).unwrap();
 
         let state_final = prop.current_state();
         let oe_final =
@@ -9335,7 +9378,7 @@ mod tests {
             .unwrap();
 
             // Propagate for 1 orbit
-            prop.step_by(5400.0);
+            prop.step_by(5400.0).unwrap();
             let state_vec: Vector6<f64> = prop.current_state().fixed_rows::<6>(0).into();
             final_states.push(state_vec);
         }
@@ -9434,7 +9477,7 @@ mod tests {
         // Test ModelType source
         // Propagation may fail if gravity coefficients not loaded - that's ok for this API test
         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            prop_modeltype.step_by(1800.0);
+            prop_modeltype.step_by(1800.0).unwrap();
         }));
 
         // Test Global source
@@ -9442,7 +9485,7 @@ mod tests {
             Ok(mut prop_global) => {
                 // Propagation may fail if gravity coefficients not loaded - that's ok for this API test
                 let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    prop_global.step_by(1800.0);
+                    prop_global.step_by(1800.0).unwrap();
                 }));
             }
             Err(_) => {
@@ -9502,7 +9545,7 @@ mod tests {
         let initial_energy = compute_orbital_energy(&state);
 
         // Propagate for 10 minutes
-        prop.step_by(600.0);
+        prop.step_by(600.0).unwrap();
 
         let final_state = prop.current_state();
         let final_energy = compute_orbital_energy(&final_state);
@@ -9560,7 +9603,7 @@ mod tests {
         let initial_energy = compute_orbital_energy(&state);
 
         // Propagate
-        prop.step_by(600.0);
+        prop.step_by(600.0).unwrap();
 
         let final_energy = compute_orbital_energy(&prop.current_state());
 
@@ -9618,7 +9661,7 @@ mod tests {
         if let Ok(mut prop) = prop_result {
             // Try to propagate (may fail if space weather data not loaded)
             let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                prop.step_by(600.0);
+                prop.step_by(600.0).unwrap();
             }));
 
             // This test primarily verifies that NRLMSISE00 is accepted as a configuration option
@@ -9675,7 +9718,7 @@ mod tests {
         .unwrap();
 
         // Propagate for short time
-        prop.step_by(60.0); // 1 minute
+        prop.step_by(60.0).unwrap(); // 1 minute
 
         let final_state = prop.current_state();
 
@@ -9742,7 +9785,7 @@ mod tests {
 
         // Propagate for multiple orbits (10 orbits ≈ 15 hours)
         let orbital_period = orbital_period(oe_initial[0]);
-        prop.step_by(10.0 * orbital_period);
+        prop.step_by(10.0 * orbital_period).unwrap();
 
         let final_state = prop.current_state();
         let oe_final =
@@ -9816,7 +9859,7 @@ mod tests {
         .unwrap();
 
         // Propagate
-        prop.step_by(3600.0);
+        prop.step_by(3600.0).unwrap();
 
         // Should complete without error
         assert!(prop.current_epoch() > epoch);
@@ -9863,7 +9906,7 @@ mod tests {
         )
         .unwrap();
 
-        prop.step_by(5400.0);
+        prop.step_by(5400.0).unwrap();
         assert!(prop.current_epoch() > epoch);
     }
 
@@ -9908,7 +9951,7 @@ mod tests {
         )
         .unwrap();
 
-        prop.step_by(5400.0);
+        prop.step_by(5400.0).unwrap();
         assert!(prop.current_epoch() > epoch);
     }
 
@@ -9956,7 +9999,7 @@ mod tests {
 
         // Propagate through one full orbit to encounter eclipse transitions
         let orbital_period = orbital_period(R_EARTH + 800e3);
-        prop.step_by(orbital_period);
+        prop.step_by(orbital_period).unwrap();
 
         // Should successfully propagate through eclipse transitions
         assert!(
@@ -10014,7 +10057,7 @@ mod tests {
         )
         .unwrap();
 
-        prop.step_by(86400.0); // 1 day
+        prop.step_by(86400.0).unwrap(); // 1 day
         assert!(prop.current_epoch() > epoch);
     }
 
@@ -10056,7 +10099,7 @@ mod tests {
         )
         .unwrap();
 
-        prop.step_by(86400.0);
+        prop.step_by(86400.0).unwrap();
         assert!(prop.current_epoch() > epoch);
     }
 
@@ -10096,7 +10139,7 @@ mod tests {
         )
         .unwrap();
 
-        prop.step_by(86400.0);
+        prop.step_by(86400.0).unwrap();
         assert!(prop.current_epoch() > epoch);
     }
 
@@ -10133,7 +10176,7 @@ mod tests {
         .unwrap();
 
         // Jupiter's effect is smaller but should still propagate successfully
-        prop.step_by(86400.0);
+        prop.step_by(86400.0).unwrap();
         assert!(
             prop.current_epoch() > epoch,
             "Should successfully propagate with Jupiter perturbation"
@@ -10183,7 +10226,7 @@ mod tests {
         )
         .unwrap();
 
-        prop.propagate_to(epoch + 600.0); // 10 minutes
+        prop.propagate_to(epoch + 600.0).unwrap(); // 10 minutes
 
         let s = prop.current_state();
         assert!(
@@ -10227,7 +10270,7 @@ mod tests {
         .unwrap();
 
         // Mars' effect is smaller but should still propagate successfully
-        prop.step_by(86400.0);
+        prop.step_by(86400.0).unwrap();
         assert!(
             prop.current_epoch() > epoch,
             "Should successfully propagate with Mars perturbation"
@@ -10266,7 +10309,7 @@ mod tests {
         )
         .unwrap();
 
-        prop.step_by(5400.0);
+        prop.step_by(5400.0).unwrap();
         assert!(prop.current_epoch() > epoch);
     }
 
@@ -10399,7 +10442,7 @@ mod tests {
             0.5 * v * v - GM_EARTH / r
         };
 
-        prop.step_by(3600.0); // 1 hour
+        prop.step_by(3600.0).unwrap(); // 1 hour
 
         let final_energy = {
             let r = prop.current_state().fixed_rows::<3>(0).norm();
@@ -10461,7 +10504,7 @@ mod tests {
         .unwrap();
 
         // Propagate with default Cd=2.2
-        prop1.step_by(600.0);
+        prop1.step_by(600.0).unwrap();
         let final_state1 = prop1.current_state().clone();
 
         // Create second propagator and modify Cd parameter
@@ -10482,7 +10525,7 @@ mod tests {
         let params = prop2.current_params();
         assert_eq!(params[2], 2.2); // Default Cd
 
-        prop2.step_by(600.0);
+        prop2.step_by(600.0).unwrap();
         let final_state2 = prop2.current_state();
 
         // States should be very similar since we used same Cd
@@ -10547,8 +10590,8 @@ mod tests {
         )
         .unwrap();
 
-        prop.propagate_to(epoch + 300.0);
-        reference.propagate_to(epoch + 300.0);
+        prop.propagate_to(epoch + 300.0).unwrap();
+        reference.propagate_to(epoch + 300.0).unwrap();
         assert_abs_diff_eq!(
             prop.current_state(),
             reference.current_state(),
@@ -10609,7 +10652,7 @@ mod tests {
         assert!(prop.sensitivity().is_none());
 
         // Propagate
-        prop.step_by(100.0);
+        prop.step_by(100.0).unwrap();
 
         // STM should have evolved
         let stm = prop.stm().unwrap();
@@ -10662,7 +10705,7 @@ mod tests {
         assert!(prop.sensitivity().is_some());
 
         // Propagate
-        prop.step_by(100.0);
+        prop.step_by(100.0).unwrap();
 
         // Sensitivity should exist
         let sens = prop.sensitivity().unwrap();
@@ -10702,7 +10745,7 @@ mod tests {
         assert!(prop.sensitivity().is_some());
 
         // Propagate
-        prop.step_by(100.0);
+        prop.step_by(100.0).unwrap();
 
         // Both should exist and have correct dimensions
         assert_eq!(prop.stm().unwrap().nrows(), 6);
@@ -10869,7 +10912,7 @@ mod tests {
         .unwrap();
 
         // Propagate forward in time
-        prop.propagate_to(epoch + 600.0); // 10 minutes
+        prop.propagate_to(epoch + 600.0).unwrap(); // 10 minutes
 
         // Covariance should have changed
         let final_cov = prop.current_covariance.as_ref().unwrap();
@@ -10908,7 +10951,7 @@ mod tests {
         .unwrap();
 
         // Propagate with multiple steps
-        prop.propagate_steps(5);
+        prop.propagate_steps(5).unwrap();
 
         // Check trajectory has covariance data
         assert!(prop.trajectory().covariances.is_some());
@@ -10996,7 +11039,7 @@ mod tests {
 
         // Propagate forward
         let orbital_period = orbital_period(oe[0]);
-        prop.step_by(orbital_period);
+        prop.step_by(orbital_period).unwrap();
 
         let det_final = prop.stm().unwrap().determinant();
         assert!(
@@ -11034,7 +11077,7 @@ mod tests {
 
         // Propagate to t₁
         let t1 = epoch + 600.0;
-        prop1.propagate_to(t1);
+        prop1.propagate_to(t1).unwrap();
         let phi_t1_t0 = prop1.stm().unwrap().clone();
         let state_t1 = prop1.current_state();
 
@@ -11053,7 +11096,7 @@ mod tests {
 
         // Propagate to t₂
         let t2 = t1 + 600.0;
-        prop2.propagate_to(t2);
+        prop2.propagate_to(t2).unwrap();
         let phi_t2_t1 = prop2.stm().unwrap().clone();
 
         // Create third propagator for direct t₀ → t₂
@@ -11069,7 +11112,7 @@ mod tests {
         )
         .unwrap();
 
-        prop3.propagate_to(t2);
+        prop3.propagate_to(t2).unwrap();
         let phi_t2_t0 = prop3.stm().unwrap().clone();
 
         // Verify composition: Φ(t₂,t₀) = Φ(t₂,t₁)·Φ(t₁,t₀)
@@ -11117,7 +11160,7 @@ mod tests {
         )
         .unwrap();
 
-        prop_nominal.step_by(100.0);
+        prop_nominal.step_by(100.0).unwrap();
         let stm = prop_nominal.stm().unwrap().clone();
         let state_nominal = prop_nominal.current_state();
 
@@ -11138,7 +11181,7 @@ mod tests {
         )
         .unwrap();
 
-        prop_perturbed.step_by(100.0);
+        prop_perturbed.step_by(100.0).unwrap();
         let state_perturbed_final = prop_perturbed.current_state();
 
         // Compare: δx(t) from direct integration vs STM prediction
@@ -11181,7 +11224,7 @@ mod tests {
         .unwrap();
 
         // Propagate with multiple steps
-        prop.propagate_steps(5);
+        prop.propagate_steps(5).unwrap();
 
         // Test stm_at_idx - should be able to retrieve at any stored index
         let traj = prop.trajectory();
@@ -11244,7 +11287,7 @@ mod tests {
         )
         .unwrap();
 
-        prop_forward.step_by(100.0);
+        prop_forward.step_by(100.0).unwrap();
         let stm_forward = prop_forward.stm().unwrap().clone();
 
         // Test with Central difference
@@ -11264,7 +11307,7 @@ mod tests {
         )
         .unwrap();
 
-        prop_central.step_by(100.0);
+        prop_central.step_by(100.0).unwrap();
         let stm_central = prop_central.stm().unwrap().clone();
 
         // Test with Backward difference
@@ -11284,7 +11327,7 @@ mod tests {
         )
         .unwrap();
 
-        prop_backward.step_by(100.0);
+        prop_backward.step_by(100.0).unwrap();
         let stm_backward = prop_backward.stm().unwrap().clone();
 
         // All methods should produce similar results (within 1% relative error)
@@ -11342,7 +11385,7 @@ mod tests {
 
         // Propagate for half an orbit
         let orbital_period = orbital_period(oe[0]);
-        prop.step_by(orbital_period / 2.0);
+        prop.step_by(orbital_period / 2.0).unwrap();
 
         let stm = prop.stm().unwrap().clone();
 
@@ -11388,7 +11431,7 @@ mod tests {
         )
         .unwrap();
 
-        prop_gravity.step_by(300.0);
+        prop_gravity.step_by(300.0).unwrap();
         let stm_gravity = prop_gravity.stm().unwrap();
 
         // STM should be non-singular
@@ -11425,7 +11468,7 @@ mod tests {
         )
         .unwrap();
 
-        prop_j2.step_by(300.0);
+        prop_j2.step_by(300.0).unwrap();
         let stm_j2 = prop_j2.stm().unwrap();
 
         // STM should be different from gravity-only case
@@ -11466,11 +11509,11 @@ mod tests {
         let orbital_period = orbital_period(oe[0]);
 
         // Propagate for 1 orbit
-        prop.step_by(orbital_period);
+        prop.step_by(orbital_period).unwrap();
         let det_1_orbit = prop.stm().unwrap().determinant();
 
         // Propagate for 10 orbits total
-        prop.step_by(9.0 * orbital_period);
+        prop.step_by(9.0 * orbital_period).unwrap();
         let det_10_orbits = prop.stm().unwrap().determinant();
 
         // Determinant should remain close to 1 even after 10 orbits
@@ -11514,7 +11557,7 @@ mod tests {
 
         // Propagate with 60s steps
         for _ in 0..10 {
-            prop.step_by(60.0);
+            prop.step_by(60.0).unwrap();
         }
 
         // Interpolate STM at mid-point
@@ -11535,7 +11578,7 @@ mod tests {
         )
         .unwrap();
 
-        prop_exact.propagate_to(mid_epoch);
+        prop_exact.propagate_to(mid_epoch).unwrap();
         let stm_exact = prop_exact.stm().unwrap();
 
         // Compare interpolated vs exact
@@ -11602,7 +11645,7 @@ mod tests {
         )
         .unwrap();
 
-        prop_sens.step_by(300.0); // 5 minutes
+        prop_sens.step_by(300.0).unwrap(); // 5 minutes
         let sensitivity = prop_sens.sensitivity().unwrap().clone();
         let state_nominal = prop_sens.current_state();
 
@@ -11623,7 +11666,7 @@ mod tests {
         )
         .unwrap();
 
-        prop_perturbed.step_by(300.0);
+        prop_perturbed.step_by(300.0).unwrap();
         let state_perturbed = prop_perturbed.current_state();
 
         // Compute finite difference: ds/dp ≈ (s(p+δp) - s(p)) / δp
@@ -11701,7 +11744,7 @@ mod tests {
 
         // Propagate for 1 orbit
         let orbital_period = orbital_period(oe[0]);
-        prop.step_by(orbital_period);
+        prop.step_by(orbital_period).unwrap();
 
         let sensitivity = prop.sensitivity().unwrap();
 
@@ -11763,7 +11806,7 @@ mod tests {
         .unwrap();
 
         let orbital_period = orbital_period(oe[0]);
-        prop.step_by(orbital_period);
+        prop.step_by(orbital_period).unwrap();
 
         let sensitivity = prop.sensitivity().unwrap();
 
@@ -11837,7 +11880,7 @@ mod tests {
         .unwrap();
 
         // Propagate for 1 day
-        prop.step_by(86400.0);
+        prop.step_by(86400.0).unwrap();
 
         let sensitivity = prop.sensitivity().unwrap();
 
@@ -11881,7 +11924,7 @@ mod tests {
         )
         .unwrap();
 
-        prop.step_by(300.0);
+        prop.step_by(300.0).unwrap();
 
         let sensitivity = prop.sensitivity().unwrap();
 
@@ -11939,7 +11982,7 @@ mod tests {
         .unwrap();
 
         // Propagate with multiple steps
-        prop.propagate_steps(5);
+        prop.propagate_steps(5).unwrap();
 
         // Check trajectory has sensitivity matrices
         assert!(
@@ -11998,7 +12041,7 @@ mod tests {
         .unwrap();
 
         // Propagate with multiple steps
-        prop.propagate_steps(5);
+        prop.propagate_steps(5).unwrap();
 
         // Test sensitivity_at_idx - should be able to retrieve at any stored index
         let traj = prop.trajectory();
@@ -12082,7 +12125,7 @@ mod tests {
         .unwrap();
 
         // Propagate
-        prop.step_by(300.0); // 5 minutes
+        prop.step_by(300.0).unwrap(); // 5 minutes
 
         // Get STM and current covariance
         let phi = prop.stm().unwrap();
@@ -12135,7 +12178,7 @@ mod tests {
         .unwrap();
 
         let dt = 300.0; // 5 minutes
-        prop_cov.step_by(dt);
+        prop_cov.step_by(dt).unwrap();
         let p_propagated = prop_cov.current_covariance.as_ref().unwrap();
 
         // Monte Carlo: propagate 100 perturbed states
@@ -12171,7 +12214,7 @@ mod tests {
             )
             .unwrap();
 
-            prop_mc.step_by(dt);
+            prop_mc.step_by(dt).unwrap();
             final_states.push(prop_mc.current_state_ref().clone());
         }
 
@@ -12227,7 +12270,7 @@ mod tests {
         prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 2700.0, "Event B"))); // idx 1
         prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 3600.0, "Event C"))); // idx 2
 
-        prop.propagate_to(epoch + 7200.0);
+        prop.propagate_to(epoch + 7200.0).unwrap();
 
         // Test single detector query
         let events_0 = prop.events_by_detector_index(0);
@@ -12275,7 +12318,7 @@ mod tests {
         prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 2000.0, "Mid Event")));
         prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 3000.0, "Late Event")));
 
-        prop.propagate_to(epoch + 4000.0);
+        prop.propagate_to(epoch + 4000.0).unwrap();
 
         // Test detector + time range
         let events_in_range = prop.events_by_detector_index_in_range(0, epoch, epoch + 1500.0);
@@ -12324,7 +12367,7 @@ mod tests {
             )));
         }
 
-        prop.propagate_to(epoch + 6000.0);
+        prop.propagate_to(epoch + 6000.0).unwrap();
 
         // Test count
         let count = prop.query_events().by_name_contains("Event").count();
@@ -12377,7 +12420,7 @@ mod tests {
         // Add detector that will fire at index 1
         prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 1800.0, "Fires")));
 
-        prop.propagate_to(epoch + 3600.0);
+        prop.propagate_to(epoch + 3600.0).unwrap();
 
         // Test detector with no events
         let events_0 = prop.events_by_detector_index(0);
@@ -12423,7 +12466,7 @@ mod tests {
         prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 2000.0, "Range Event")));
         prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 3000.0, "Altitude Check")));
 
-        prop.propagate_to(epoch + 4000.0);
+        prop.propagate_to(epoch + 4000.0).unwrap();
 
         // Test events_by_name still works with substring matching
         let altitude_events = prop.events_by_name("Altitude");
@@ -12481,7 +12524,7 @@ mod tests {
 
         // Verify propagator now has empty detectors
         // (propagating should not detect events)
-        prop.propagate_to(epoch + 3000.0);
+        prop.propagate_to(epoch + 3000.0).unwrap();
         assert!(prop.event_log().is_empty());
     }
 
@@ -12515,7 +12558,7 @@ mod tests {
         prop.set_event_detectors(detectors);
 
         // Propagate and verify events are detected
-        prop.propagate_to(epoch + 3000.0);
+        prop.propagate_to(epoch + 3000.0).unwrap();
         assert_eq!(prop.event_log().len(), 2);
     }
 
@@ -12542,7 +12585,7 @@ mod tests {
         // Add detector and propagate to trigger event
         let detector = DTimeEvent::new(epoch + 1000.0, "TestEvent");
         prop.add_event_detector(Box::new(detector));
-        prop.propagate_to(epoch + 1500.0);
+        prop.propagate_to(epoch + 1500.0).unwrap();
 
         // Verify event was detected
         assert_eq!(prop.event_log().len(), 1);
@@ -12619,14 +12662,14 @@ mod tests {
         assert_eq!(taken.len(), 1);
 
         // Propagate to 1000s - should not detect (no detectors)
-        prop.propagate_to(epoch + 1000.0);
+        prop.propagate_to(epoch + 1000.0).unwrap();
         assert!(prop.event_log().is_empty());
 
         // Set detectors back
         prop.set_event_detectors(taken);
 
         // Continue propagation past event time
-        prop.propagate_to(epoch + 2000.0);
+        prop.propagate_to(epoch + 2000.0).unwrap();
 
         // Now event should be detected
         assert_eq!(prop.event_log().len(), 1);
@@ -12732,7 +12775,7 @@ mod tests {
         .unwrap();
 
         // Propagate forward 60 seconds
-        prop.propagate_to(epoch + 60.0);
+        prop.propagate_to(epoch + 60.0).unwrap();
         let state_at_60 = prop.current_state();
         assert_ne!(
             state_at_60, state,
@@ -12752,7 +12795,7 @@ mod tests {
         assert_eq!(prop.current_state(), new_state);
 
         // Propagate forward another 60 seconds from the new state
-        prop.propagate_to(new_epoch + 60.0);
+        prop.propagate_to(new_epoch + 60.0).unwrap();
         let state_at_120 = prop.current_state();
 
         // Verify the state changed (propagation is working after reinitialize)
@@ -12797,7 +12840,7 @@ mod tests {
         assert_eq!(stm_initial, DMatrix::identity(6, 6));
 
         // Propagate forward - STM should change
-        prop.propagate_to(epoch + 60.0);
+        prop.propagate_to(epoch + 60.0).unwrap();
         let stm_at_60 = prop.stm().unwrap().clone();
         assert_ne!(
             stm_at_60,
@@ -12816,7 +12859,7 @@ mod tests {
         );
 
         // Propagate again - STM should change from identity
-        prop.propagate_to(epoch + 120.0);
+        prop.propagate_to(epoch + 120.0).unwrap();
         let stm_at_120 = prop.stm().unwrap().clone();
         assert_ne!(
             stm_at_120,
@@ -12865,7 +12908,7 @@ mod tests {
         // Drive the step away from the initial value (as an adaptive
         // propagation over a long arc leaves it), then propagate.
         prop.set_step_size(0.5);
-        prop.propagate_to(epoch + 123.0);
+        prop.propagate_to(epoch + 123.0).unwrap();
         assert_ne!(
             prop.step_size(),
             10.0,
@@ -12886,7 +12929,7 @@ mod tests {
         // dt_next — observe it through behavior: the first post-reinitialize
         // step must advance by exactly the configured initial step (a 10 s
         // step at LEO is accepted by the default tolerances).
-        prop.step();
+        prop.step().unwrap();
         let first_step: f64 = prop.current_epoch() - (epoch + 123.0);
         assert!(
             (first_step - 10.0).abs() < 1e-9,
@@ -12918,10 +12961,10 @@ mod tests {
             None,
         )
         .unwrap();
-        prop1.propagate_to(epoch + 60.0);
+        prop1.propagate_to(epoch + 60.0).unwrap();
         let state_at_60 = prop1.current_state();
         prop1.reinitialize(epoch + 60.0, state_at_60.clone(), None);
-        prop1.propagate_to(epoch + 120.0);
+        prop1.propagate_to(epoch + 120.0).unwrap();
         let result_reinit = prop1.current_state();
 
         // Propagator 2: construct fresh at epoch+60s with state_at_60, propagate 60s
@@ -12936,7 +12979,7 @@ mod tests {
             None,
         )
         .unwrap();
-        prop2.propagate_to(epoch + 120.0);
+        prop2.propagate_to(epoch + 120.0).unwrap();
         let result_fresh = prop2.current_state();
 
         // Results should be very close (not exact due to floating-point, but within integration tolerance)
@@ -13061,7 +13104,7 @@ mod tests {
         let additional_dynamics: DStateDynamics = Box::new(|_t, state, _params| {
             let mut dx = DVector::zeros(state.len());
             dx[6] = -0.1; // dm/dt = -0.1 kg/s
-            dx
+            Ok(dx)
         });
 
         let control: DStateDynamics = Box::new(|_t, state, _params| {
@@ -13075,7 +13118,7 @@ mod tests {
                 dx[4] = a[1];
                 dx[5] = a[2];
             }
-            dx
+            Ok(dx)
         });
 
         let prop =
@@ -13089,7 +13132,7 @@ mod tests {
         assert_eq!(DStatePropagator::state_dim(&prop), 7);
 
         let initial_mass = prop.current_state()[6];
-        prop.step_by(10.0);
+        prop.step_by(10.0).unwrap();
         assert!((prop.current_state()[6] - (initial_mass - 1.0)).abs() < 1e-3);
     }
 
@@ -13151,8 +13194,8 @@ mod tests {
         )
         .unwrap();
 
-        from_builder.step_by(60.0);
-        from_new.step_by(60.0);
+        from_builder.step_by(60.0).unwrap();
+        from_new.step_by(60.0).unwrap();
         assert_eq!(from_builder.current_state(), from_new.current_state());
     }
 
@@ -13205,7 +13248,7 @@ mod tests {
         let additional_dynamics: DStateDynamics = Box::new(|_t, state, _params| {
             let mut dx = DVector::zeros(state.len());
             dx[6] = -0.1; // dm/dt = -0.1 kg/s
-            dx
+            Ok(dx)
         });
 
         let mut prop =
@@ -13216,7 +13259,7 @@ mod tests {
                 .unwrap();
 
         assert_eq!(DStatePropagator::state_dim(&prop), 7);
-        prop.step_by(10.0);
+        prop.step_by(10.0).unwrap();
         let cov = prop.current_covariance().unwrap();
         assert_eq!(cov.nrows(), 7);
         assert_eq!(cov.ncols(), 7);
@@ -13287,7 +13330,7 @@ mod tests {
         // milliseconds, and 1e-6 m (relative ~1.5e-13) still catches any real
         // Earth-path regression, which would perturb the state by many orders
         // of magnitude more over a 60 s step.
-        prop.step_by(60.0);
+        prop.step_by(60.0).unwrap();
         let s = prop.current_state();
 
         // Reference state after one 60 s step of the `default()` Earth config.
@@ -13307,6 +13350,83 @@ mod tests {
     /// Construction must fail fast when the force-model configuration is
     /// incompatible with its central body — here NRLMSISE-00 drag (Earth-only)
     /// paired with a Moon central body.
+    #[test]
+    #[serial_test::parallel]
+    fn test_step_errors_when_mass_unconfigured_for_drag() {
+        setup_global_test_eop();
+
+        // Exponential atmosphere needs no space-weather data, and mass: None
+        // passes construction (only parameter indices are validated there),
+        // so the missing-mass backstop surfaces as Err on the first step.
+        let mut cfg = ForceModelConfig::two_body_gravity();
+        cfg.mass = None;
+        cfg.drag = Some(DragConfiguration {
+            model: AtmosphericModel::Exponential {
+                scale_height: 50e3,
+                rho0: 1e-12,
+                h0: 500e3,
+            },
+            area: ParameterSource::Value(1.0),
+            cd: ParameterSource::Value(2.2),
+            body: None,
+        });
+
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0]);
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            cfg,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let result = prop.step_by(60.0);
+        assert!(matches!(result, Err(BraheError::PropagatorError(_))));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_step_errors_when_mass_unconfigured_for_srp() {
+        setup_global_test_eop();
+
+        // EclipseModel::None keeps SRP fully analytic (no SPK queries), so
+        // the missing-mass backstop is the first failure on the step.
+        let mut cfg = ForceModelConfig::two_body_gravity();
+        cfg.mass = None;
+        use crate::propagators::force_model_config::SolarRadiationPressureConfiguration;
+
+        cfg.srp = Some(SolarRadiationPressureConfiguration {
+            area: ParameterSource::Value(1.0),
+            cr: ParameterSource::Value(1.3),
+            eclipse_model: EclipseModel::None,
+            occulting_bodies: vec![OccultingBody::Earth],
+        });
+
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0]);
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            cfg,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let result = prop.step_by(60.0);
+        assert!(matches!(result, Err(BraheError::PropagatorError(_))));
+    }
+
     #[test]
     #[serial_test::parallel]
     fn test_new_rejects_invalid_config() {
@@ -13416,7 +13536,7 @@ mod tests {
         )
         .unwrap();
 
-        prop.propagate_to(epoch + 86400.0);
+        prop.propagate_to(epoch + 86400.0).unwrap();
         let s = prop.current_state();
         let r1 = (s[0] * s[0] + s[1] * s[1] + s[2] * s[2]).sqrt();
         let v1 = (s[3] * s[3] + s[4] * s[4] + s[5] * s[5]).sqrt();
@@ -13464,7 +13584,7 @@ mod tests {
         .unwrap();
 
         let dt = 172800.0; // 2 days
-        prop.propagate_to(epc0 + dt);
+        prop.propagate_to(epc0 + dt).unwrap();
         let s = prop.current_state();
 
         let x_ref = crate::spice::spk_state(301, 3, epc0 + dt).unwrap();
@@ -13595,7 +13715,7 @@ mod tests {
         )
         .unwrap();
 
-        prop.propagate_to(epoch + 86400.0);
+        prop.propagate_to(epoch + 86400.0).unwrap();
         let s = prop.current_state();
         let r_final = (s[0] * s[0] + s[1] * s[1] + s[2] * s[2]).sqrt();
 
@@ -13667,7 +13787,7 @@ mod tests {
         // trajectory's state_eci matches the propagator's own state_eci, and
         // its provider trait accessors are frame-aware.
         crate::utils::testing::setup_global_test_spice();
-        prop.propagate_to(epoch0 + 60.0);
+        prop.propagate_to(epoch0 + 60.0).unwrap();
         use approx::assert_abs_diff_eq;
         let x_eci_traj = prop.trajectory().state_eci(epoch0).unwrap();
         let x_eci_prop = DOrbitStateProvider::state_eci(&prop, epoch0).unwrap();
@@ -13717,7 +13837,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(earth_prop.trajectory().frame, OrbitFrame::ECI);
-        earth_prop.propagate_to(epoch + 60.0);
+        earth_prop.propagate_to(epoch + 60.0).unwrap();
         assert!(earth_prop.trajectory().state_eci(epoch).is_ok());
     }
 
@@ -14065,7 +14185,7 @@ mod tests {
             None,
         )
         .unwrap();
-        prop_off.propagate_to(target_epoch);
+        prop_off.propagate_to(target_epoch).unwrap();
         let state_off = prop_off.current_state();
 
         // Propagate one orbit with tides ON
@@ -14080,7 +14200,7 @@ mod tests {
             None,
         )
         .unwrap();
-        prop_on.propagate_to(target_epoch);
+        prop_on.propagate_to(target_epoch).unwrap();
         let state_on = prop_on.current_state();
 
         let diff = (&state_off - &state_on).fixed_rows::<3>(0).norm();
@@ -14137,8 +14257,8 @@ mod tests {
             None,
         )
         .unwrap();
-        prop_tides.step_by(86400.0);
-        prop_free.step_by(86400.0);
+        prop_tides.step_by(86400.0).unwrap();
+        prop_free.step_by(86400.0).unwrap();
         let d = (prop_tides.current_state() - prop_free.current_state())
             .rows(0, 3)
             .norm();
@@ -14206,8 +14326,8 @@ mod tests {
             None,
         )
         .unwrap();
-        p0.step_by(86400.0);
-        p1.step_by(86400.0);
+        p0.step_by(86400.0).unwrap();
+        p1.step_by(86400.0).unwrap();
         let d = (p1.current_state() - p0.current_state()).rows(0, 3).norm();
         assert!(
             d > 1e-3 && d < 50.0,
@@ -14264,8 +14384,8 @@ mod tests {
 
         let mut prop_low = make(EphemerisSource::LowPrecision);
         let mut prop_de = make(EphemerisSource::DE440s);
-        prop_low.step_by(86400.0);
-        prop_de.step_by(86400.0);
+        prop_low.step_by(86400.0).unwrap();
+        prop_de.step_by(86400.0).unwrap();
 
         let x_low = prop_low.current_state();
         let x_de = prop_de.current_state();
@@ -14366,8 +14486,8 @@ mod tests {
         .unwrap();
 
         let epoch_end = epoch + 86400.0;
-        prop_earth.propagate_to(epoch_end);
-        prop_emb.propagate_to(epoch_end);
+        prop_earth.propagate_to(epoch_end).unwrap();
+        prop_emb.propagate_to(epoch_end).unwrap();
 
         let xf_earth = prop_earth.current_state();
         let xf_emb = prop_emb.current_state();
@@ -14467,8 +14587,8 @@ mod tests {
         .unwrap();
 
         let epoch_end = epoch + 86400.0;
-        prop_earth.propagate_to(epoch_end);
-        prop_emb.propagate_to(epoch_end);
+        prop_earth.propagate_to(epoch_end).unwrap();
+        prop_emb.propagate_to(epoch_end).unwrap();
 
         let xf_earth = prop_earth.current_state();
         let xf_emb = prop_emb.current_state();
@@ -14554,7 +14674,7 @@ mod tests {
                 None,
             )
             .unwrap();
-            prop.propagate_to(epoch_end);
+            prop.propagate_to(epoch_end).unwrap();
             prop.current_state().clone()
         };
 
@@ -14672,8 +14792,8 @@ mod tests {
         .unwrap();
 
         let epoch_end = epoch + 5400.0; // ~one orbit
-        prop_earth.propagate_to(epoch_end);
-        prop_emb.propagate_to(epoch_end);
+        prop_earth.propagate_to(epoch_end).unwrap();
+        prop_emb.propagate_to(epoch_end).unwrap();
 
         let xf_earth = prop_earth.current_state();
         let xf_emb_in_eci = crate::frames::state_emb_to_eci(
@@ -14725,7 +14845,7 @@ mod tests {
         )
         .unwrap();
 
-        prop.propagate_to(epoch + 600.0);
+        prop.propagate_to(epoch + 600.0).unwrap();
         let s = prop.current_state();
         assert!(s.iter().all(|v| v.is_finite()));
     }

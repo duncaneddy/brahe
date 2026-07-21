@@ -7,10 +7,10 @@ use nalgebra::DVector;
 fn main() {
     // Define simple harmonic oscillator
     let omega: f64 = 1.0;
-    let dynamics = move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+    let dynamics = move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> Result<DVector<f64>, brahe::utils::BraheError> {
         let x = state[0];
         let v = state[1];
-        DVector::from_vec(vec![v, -omega.powi(2) * x])
+        Ok(DVector::from_vec(vec![v, -omega.powi(2) * x]))
     };
 
     // Analytical solution
@@ -41,7 +41,7 @@ fn main() {
 
         // Integrate to end
         while t < t_end - 1e-10 {
-            state = integrator.step(t, state, None, None).state;
+            state = integrator.step(t, state, None, None).unwrap().state;
             t += dt;
             steps += 1;
         }

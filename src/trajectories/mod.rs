@@ -16,7 +16,7 @@
  * use brahe::traits::{Trajectory, OrbitFrame, OrbitRepresentation};
  *
  * // Dynamic trajectory - any dimension
- * let mut dyn_traj = DTrajectory::new(7); // 7-dimensional
+ * let mut dyn_traj = DTrajectory::new(7).unwrap(); // 7-dimensional
  *
  * // Static trajectory - compile-time sized
  * let mut static_traj = STrajectory6::new(); // 6-dimensional

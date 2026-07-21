@@ -413,7 +413,7 @@ pub fn parse_ccsds_datetime(
                 + whole_second / 86400.0
                 + frac_second / 86400.0;
 
-            return Ok(Epoch::from_day_of_year(year, fractional_day, ts));
+            return Epoch::from_day_of_year(year, fractional_day, ts);
         }
     }
 

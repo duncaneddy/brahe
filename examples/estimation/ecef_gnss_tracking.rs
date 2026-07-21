@@ -51,7 +51,7 @@ fn main() {
     let dt = 60.0;
     for i in 1..=20 {
         let obs_epoch = epoch + dt * i as f64;
-        truth_prop.propagate_to(obs_epoch);
+        truth_prop.propagate_to(obs_epoch).unwrap();
         let truth_eci = truth_prop.current_state();
 
         // Simulate GNSS: convert truth position to ECEF
@@ -65,7 +65,7 @@ fn main() {
 
     // Compare final state to truth
     use bh::propagators::traits::DStatePropagator;
-    truth_prop.propagate_to(ekf.current_epoch());
+    truth_prop.propagate_to(ekf.current_epoch()).unwrap();
     let truth_final = truth_prop.current_state();
     let final_state = ekf.current_state();
     let pos_error = (final_state.rows(0, 3) - truth_final.rows(0, 3)).norm();

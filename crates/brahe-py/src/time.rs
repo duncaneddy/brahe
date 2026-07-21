@@ -761,6 +761,9 @@ impl PyEpoch {
     /// Returns:
     ///     Epoch: The epoch representing the specified day of year
     ///
+    /// Raises:
+    ///     ValueError: If day_of_year is less than 1.0.
+    ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
@@ -784,7 +787,8 @@ impl PyEpoch {
         time_system: PyRef<PyTimeSystem>,
     ) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
-            obj: time::Epoch::from_day_of_year(year, day_of_year, time_system.ts),
+            obj: time::Epoch::from_day_of_year(year, day_of_year, time_system.ts)
+                .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?,
         })
     }
 

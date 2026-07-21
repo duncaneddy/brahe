@@ -47,7 +47,7 @@ fn main() {
 
     // Propagate for 3 orbits
     let orbital_period = 2.0 * PI * (oe[0].powi(3) / bh::GM_EARTH).sqrt();
-    prop.propagate_to(epoch + 3.0 * orbital_period);
+    prop.propagate_to(epoch + 3.0 * orbital_period).unwrap();
 
     // Check detected events
     let events = prop.event_log();

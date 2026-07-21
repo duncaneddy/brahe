@@ -104,7 +104,7 @@ mod tests {
     #[test]
     fn test_mock_tessellator() {
         let tess = MockTessellator;
-        let point = PointLocation::new(10.5, 50.5, 0.0);
+        let point = PointLocation::new(10.5, 50.5, 0.0).unwrap();
         let tiles = tess.tessellate(&point).unwrap();
         assert_eq!(tiles.len(), 1);
         assert_eq!(tess.name(), "MockTessellator");
@@ -113,8 +113,8 @@ mod tests {
     #[test]
     fn test_tessellate_batch_default() {
         let tess = MockTessellator;
-        let p1 = PointLocation::new(10.5, 50.5, 0.0);
-        let p2 = PointLocation::new(20.0, 40.0, 0.0);
+        let p1 = PointLocation::new(10.5, 50.5, 0.0).unwrap();
+        let p2 = PointLocation::new(20.0, 40.0, 0.0).unwrap();
         let locations: Vec<&dyn AccessibleLocation> = vec![&p1, &p2];
         let results = tess.tessellate_batch(&locations).unwrap();
         assert_eq!(results.len(), 2);
@@ -126,7 +126,7 @@ mod tests {
     fn test_tessellate_with_point_and_polygon() {
         let tess = MockTessellator;
 
-        let point = PointLocation::new(10.0, 50.0, 0.0);
+        let point = PointLocation::new(10.0, 50.0, 0.0).unwrap();
         let tiles = tess.tessellate(&point).unwrap();
         assert_eq!(tiles.len(), 1);
 

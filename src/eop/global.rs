@@ -19,7 +19,7 @@ static GLOBAL_EOP: Lazy<Arc<RwLock<Box<dyn EarthOrientationProvider + Sync + Sen
 /// Set the crate-wide static Earth orientation data provider. This function should be called
 /// before any other function in the crate which accesses the global Earth orientation data.
 /// If this function is not called, the crate-wide static Earth orientation data provider will
-/// not be initialized and any function which accesses it will panic.
+/// not be initialized and any function which accesses it will return an error.
 ///
 /// The global provider can be set to any object which implements the `EarthOrientationProvider`
 /// trait. This includes the `StaticEOPProvider` and `FileEOPProvider` objects. The global
@@ -51,7 +51,7 @@ pub fn set_global_eop_provider<T: EarthOrientationProvider + Sync + Send + 'stat
 
 /// Get UT1-UTC offset set for specified date from the crate-wide static Earth orientation data
 /// provider. The crate-wide provider must be initialized before this function is called or
-/// the function will panic.
+/// the function will return an error.
 ///
 /// Function will return the UT1-UTC time scale for the given date.
 /// Function is guaranteed to return a value. If the request value is beyond the end of the
@@ -60,7 +60,7 @@ pub fn set_global_eop_provider<T: EarthOrientationProvider + Sync + Send + 'stat
 /// data are:
 /// - `Zero`: Returned values will be `0.0` where data is not available
 /// - `Hold`: Will return the last available returned value when data is not available
-/// - `Error`: Function call will panic and terminate the program
+/// - `Error`: Function call will return an error
 ///
 /// If the date is in between data points, which typically are at integer day intervals, the
 /// function will linearly interpolate between adjacent data points if `interpolate` was set
@@ -91,7 +91,7 @@ pub fn get_global_ut1_utc(mjd: f64) -> Result<f64, BraheError> {
 
 /// Get polar motion offset set for specified date from the crate-wide static Earth orientation data
 /// provider. The crate-wide provider must be initialized before this function is called or
-/// the function will panic.
+/// the function will return an error.
 ///
 /// Function will return the pm-x and pm-y for the given date.
 /// Function is guaranteed to return a value. If the request value is beyond the end of the
@@ -100,7 +100,7 @@ pub fn get_global_ut1_utc(mjd: f64) -> Result<f64, BraheError> {
 /// data are:
 /// - `Zero`: Returned values will be `0.0` where data is not available
 /// - `Hold`: Will return the last available returned value when data is not available
-/// - `Error`: Function call will panic and terminate the program
+/// - `Error`: Function call will return an error
 ///
 /// If the date is in between data points, which typically are at integer day intervals, the
 /// function will linearly interpolate between adjacent data points if `interpolate` was set
@@ -132,7 +132,7 @@ pub fn get_global_pm(mjd: f64) -> Result<(f64, f64), BraheError> {
 
 /// Get precession-nutation for specified date from the crate-wide static Earth orientation data
 /// provider. The crate-wide provider must be initialized before this function is called or
-/// the function will panic.
+/// the function will return an error.
 ///
 /// Function will return the dX and dY for the given date.
 /// Function is guaranteed to return a value. If the request value is beyond the end of the
@@ -141,7 +141,7 @@ pub fn get_global_pm(mjd: f64) -> Result<(f64, f64), BraheError> {
 /// data are:
 /// - `Zero`: Returned values will be `0.0` where data is not available
 /// - `Hold`: Will return the last available returned value when data is not available
-/// - `Error`: Function call will panic and terminate the program
+/// - `Error`: Function call will return an error
 ///
 /// If the date is in between data points, which typically are at integer day intervals, the
 /// function will linearly interpolate between adjacent data points if `interpolate` was set
@@ -173,7 +173,7 @@ pub fn get_global_dxdy(mjd: f64) -> Result<(f64, f64), BraheError> {
 
 /// Get length of day offset set for specified date from the crate-wide static Earth orientation data
 /// provider. The crate-wide provider must be initialized before this function is called or
-/// the function will panic.
+/// the function will return an error.
 ///
 /// Function will return the LOD offset for the given date.
 /// Function is guaranteed to return a value. If the request value is beyond the end of the
@@ -182,7 +182,7 @@ pub fn get_global_dxdy(mjd: f64) -> Result<(f64, f64), BraheError> {
 /// data are:
 /// - `Zero`: Returned values will be `0.0` where data is not available
 /// - `Hold`: Will return the last available returned value when data is not available
-/// - `Error`: Function call will panic and terminate the program
+/// - `Error`: Function call will return an error
 ///
 /// If the date is in between data points, which typically are at integer day intervals, the
 /// function will linearly interpolate between adjacent data points if `interpolate` was set
@@ -214,7 +214,7 @@ pub fn get_global_lod(mjd: f64) -> Result<f64, BraheError> {
 
 /// Get Earth orientation parameter set for specified date from the crate-wide static Earth orientation data
 /// provider. The crate-wide provider must be initialized before this function is called or
-/// the function will panic.
+/// the function will return an error.
 ///
 /// Function will return the full set of Earth orientation parameters for the given date.
 /// Function is guaranteed to provide the full set of Earth Orientation parameters according
@@ -222,7 +222,7 @@ pub fn get_global_lod(mjd: f64) -> Result<f64, BraheError> {
 /// `EarthOrientationData` object. The possible behaviors for the returned data are:
 /// - `Zero`: Returned values will be `0.0` where data is not available
 /// - `Hold`: Will return the last available returned value when data is not available
-/// - `Error`: Function call will panic and terminate the program
+/// - `Error`: Function call will return an error
 ///
 /// Note, if the type is `Hold` for an StandardBulletinB file which does not contain LOD data
 /// a value of `0.0` for LOD will be returned instead.
@@ -536,6 +536,85 @@ pub fn initialize_eop() -> Result<(), BraheError> {
     Ok(())
 }
 
+/// Validate that the global Earth orientation provider can serve every epoch
+/// in the given Modified Julian Date range without error.
+///
+/// This is an upfront check intended to be called once per run — at
+/// application startup or before a propagation — so that Earth orientation
+/// availability is confirmed at setup time rather than discovered as a panic
+/// deep inside a frame rotation or time conversion.
+///
+/// The check succeeds when the global provider is initialized and either the
+/// requested range lies within the loaded data span or the provider's
+/// extrapolation setting (`Hold` or `Zero`) guarantees a value for
+/// out-of-range dates. With `EOPExtrapolation::Error`, any epoch outside the
+/// loaded span fails the check. The validated span covers every field the
+/// infallible frame and time functions consume: UT1-UTC and polar motion
+/// (available through the provider's `mjd_max`) and the Celestial
+/// Intermediate Pole dX/dY corrections, whose data series typically ends
+/// earlier (`mjd_last_dxdy`).
+///
+/// # Arguments
+/// - `mjd_start`: Start of the range to validate, as a Modified Julian Date. Units: (days)
+/// - `mjd_end`: End of the range to validate, as a Modified Julian Date. Units: (days)
+///
+/// # Returns
+/// - `Ok(())` if every epoch in `[mjd_start, mjd_end]` can be served
+/// - `Err(BraheError::EOPError)` if the provider is uninitialized, the range
+///   is reversed, or part of the range is outside the loaded data with
+///   extrapolation set to `Error`
+///
+/// # Examples
+///
+/// ```
+/// use brahe::eop::*;
+///
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Hold).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// // Validate EOP availability for a propagation span up front
+/// ensure_global_eop_coverage(59000.0, 59007.0).unwrap();
+/// ```
+pub fn ensure_global_eop_coverage(mjd_start: f64, mjd_end: f64) -> Result<(), BraheError> {
+    if mjd_start > mjd_end {
+        return Err(BraheError::EOPError(format!(
+            "Invalid EOP coverage range: start MJD {} is after end MJD {}",
+            mjd_start, mjd_end
+        )));
+    }
+
+    let provider = GLOBAL_EOP.read().unwrap();
+
+    if !provider.is_initialized() {
+        return Err(BraheError::EOPError(
+            "Global EOP provider is not initialized. Initialize one with \
+             set_global_eop_provider or initialize_eop before use."
+                .to_string(),
+        ));
+    }
+
+    if provider.extrapolation() == EOPExtrapolation::Error {
+        // dX/dY (used by bias_precession_nutation) typically ends earlier
+        // than the UT1-UTC and polar-motion series, so the usable upper
+        // bound is the shorter of the two.
+        let mjd_usable_max = provider.mjd_max().min(provider.mjd_last_dxdy());
+        if mjd_start < provider.mjd_min() || mjd_end > mjd_usable_max {
+            return Err(BraheError::EOPError(format!(
+                "EOP data covers MJD [{}, {}] (dX/dY through {}) but coverage of [{}, {}] was \
+                 requested and extrapolation is set to Error. Load data covering the full \
+                 range or set extrapolation to Hold or Zero.",
+                provider.mjd_min(),
+                provider.mjd_max(),
+                provider.mjd_last_dxdy(),
+                mjd_start,
+                mjd_end
+            )));
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 #[serial]
@@ -564,6 +643,87 @@ mod tests {
 
     fn clear_test_global_eop() {
         set_global_eop_provider(StaticEOPProvider::new());
+    }
+
+    #[test]
+    #[serial]
+    fn test_ensure_global_eop_coverage_uninitialized() {
+        clear_test_global_eop();
+
+        let result = ensure_global_eop_coverage(58000.0, 58001.0);
+        assert!(matches!(result, Err(BraheError::EOPError(_))));
+    }
+
+    #[test]
+    #[serial]
+    fn test_ensure_global_eop_coverage_within_range() {
+        setup_test_global_eop(true, EOPExtrapolation::Error);
+
+        assert!(ensure_global_eop_coverage(58000.0, 58001.0).is_ok());
+
+        clear_test_global_eop();
+    }
+
+    #[test]
+    #[serial]
+    fn test_ensure_global_eop_coverage_outside_range_error_extrapolation() {
+        setup_test_global_eop(true, EOPExtrapolation::Error);
+
+        // Far beyond the end of any loaded EOP file
+        let result = ensure_global_eop_coverage(58000.0, 99999.0);
+        assert!(matches!(result, Err(BraheError::EOPError(_))));
+
+        // Before the start of the loaded data (finals.all starts MJD 41684)
+        let result = ensure_global_eop_coverage(10000.0, 58001.0);
+        assert!(matches!(result, Err(BraheError::EOPError(_))));
+
+        clear_test_global_eop();
+    }
+
+    #[test]
+    #[serial]
+    fn test_ensure_global_eop_coverage_dxdy_gap_error_extrapolation() {
+        setup_test_global_eop(true, EOPExtrapolation::Error);
+
+        // Standard Bulletin A predictions extend UT1-UTC and polar motion
+        // beyond the last dX/dY sample. A range ending in that window is not
+        // fully servable: bias_precession_nutation would fail on dX/dY.
+        let last_dxdy = get_global_eop_mjd_last_dxdy();
+        let mjd_max = get_global_eop_mjd_max();
+        assert!(
+            last_dxdy < mjd_max,
+            "test file must have a dX/dY gap for this test to be meaningful"
+        );
+
+        let result = ensure_global_eop_coverage(58000.0, (last_dxdy + mjd_max) / 2.0);
+        assert!(matches!(result, Err(BraheError::EOPError(_))));
+
+        // Up to the dX/dY bound is fully servable.
+        assert!(ensure_global_eop_coverage(58000.0, last_dxdy).is_ok());
+
+        clear_test_global_eop();
+    }
+
+    #[test]
+    #[serial]
+    fn test_ensure_global_eop_coverage_outside_range_hold_extrapolation() {
+        setup_test_global_eop(true, EOPExtrapolation::Hold);
+
+        // Extrapolation covers out-of-range epochs
+        assert!(ensure_global_eop_coverage(58000.0, 99999.0).is_ok());
+
+        clear_test_global_eop();
+    }
+
+    #[test]
+    #[serial]
+    fn test_ensure_global_eop_coverage_reversed_range() {
+        setup_test_global_eop(true, EOPExtrapolation::Hold);
+
+        let result = ensure_global_eop_coverage(58001.0, 58000.0);
+        assert!(matches!(result, Err(BraheError::EOPError(_))));
+
+        clear_test_global_eop();
     }
 
     #[test]

@@ -18,7 +18,7 @@ fn main() {
     let epoch =
         bh::Epoch::from_datetime(2024, 6, 15, 0, 0, 0.0, 0.0, bh::TimeSystem::UTC);
     let oe = na::SVector::<f64, 6>::new(bh::R_EARTH + 500e3, 0.001, 51.6, 15.0, 30.0, 0.0);
-    let prop = bh::KeplerianPropagator::from_keplerian(epoch, oe, bh::AngleFormat::Degrees, 60.0);
+    let prop = bh::KeplerianPropagator::from_keplerian(epoch, oe, bh::AngleFormat::Degrees, 60.0).unwrap();
 
     // Create segment metadata
     let step = 60.0_f64; // 60-second spacing

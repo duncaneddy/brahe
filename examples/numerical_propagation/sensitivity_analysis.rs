@@ -44,7 +44,7 @@ fn main() {
 
     // Propagate for one orbital period
     let orbital_period = 2.0 * PI * (oe[0].powi(3) / bh::GM_EARTH).sqrt();
-    prop.propagate_to(epoch + orbital_period);
+    prop.propagate_to(epoch + orbital_period).unwrap();
 
     // Get the sensitivity matrix (6 x 5)
     if let Some(sens) = prop.sensitivity() {

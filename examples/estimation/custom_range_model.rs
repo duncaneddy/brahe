@@ -91,7 +91,7 @@ fn main() {
     let dt = 60.0;
     for i in 1..=20 {
         let obs_epoch = epoch + dt * i as f64;
-        truth_prop.propagate_to(obs_epoch);
+        truth_prop.propagate_to(obs_epoch).unwrap();
         let truth_st = truth_prop.current_state();
 
         let obs = if i % 2 == 0 {
@@ -110,7 +110,7 @@ fn main() {
 
     // Summary
     use bh::propagators::traits::DStatePropagator;
-    truth_prop.propagate_to(ekf.current_epoch());
+    truth_prop.propagate_to(ekf.current_epoch()).unwrap();
     let pos_error = (ekf.current_state().rows(0, 3) - truth_prop.current_state().rows(0, 3)).norm();
     println!("\nFinal position error: {:.2} m", pos_error);
     println!("Records: {} (InertialPosition: {}, Range: {})",

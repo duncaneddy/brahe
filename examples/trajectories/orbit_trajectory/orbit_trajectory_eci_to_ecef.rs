@@ -17,7 +17,7 @@ fn main() {
         OrbitFrame::ECI,
         OrbitRepresentation::Cartesian,
         None
-    );
+    ).unwrap();
 
     // Add states in ECI
     let epoch0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0,
@@ -27,14 +27,14 @@ fn main() {
         let state_eci = na::SVector::<f64, 6>::new(
             R_EARTH + 500e3, (i as f64) * 100e3, 0.0, 0.0, 7600.0, 0.0
         );
-        traj_eci.add(epoch, state_eci);
+        traj_eci.add(epoch, state_eci).unwrap();
     }
 
     println!("Original frame: {:?}", traj_eci.frame);
     println!("Original representation: {:?}", traj_eci.representation);
 
     // Convert all states in trajectory to ECEF
-    let traj_ecef = traj_eci.to_ecef();
+    let traj_ecef = traj_eci.to_ecef().unwrap();
 
     println!("\nConverted frame: {:?}", traj_ecef.frame);
     println!("Converted representation: {:?}", traj_ecef.representation);

@@ -27,7 +27,7 @@ fn main() {
     let mut observations = Vec::new();
     for i in 1..=20 {
         let obs_epoch = epoch + 30.0 * i as f64;
-        truth_prop.propagate_to(obs_epoch);
+        truth_prop.propagate_to(obs_epoch).unwrap();
         let truth_pos = truth_prop.current_state().rows(0, 3).into_owned();
         observations.push(bh::estimation::Observation::new(obs_epoch, truth_pos, 0));
     }

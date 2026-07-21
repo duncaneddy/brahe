@@ -12,6 +12,12 @@ age exceeds the client's `cache_max_age` (default 30 days); pass
 `cache_max_age=0` to always refetch. Ambiguous search strings and unknown
 objects raise an error.
 
+!!! tip "Ephemerides for bodies outside the DE distributions"
+    Pair SBDB with the [Horizons](horizons.md) client to obtain SPK files for
+    bodies that are not included in the major DE or planetary-system SPK
+    distributions: resolve the body's NAIF/SPK ID here, then request a targeted
+    SPK for that ID from Horizons and load it into the SPICE registry.
+
 ## Resolving an Object
 
 ``` python

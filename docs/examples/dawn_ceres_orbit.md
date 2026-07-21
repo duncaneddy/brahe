@@ -44,9 +44,7 @@ mean radius - come from the JPL Small-Body Database (SBDB) rather than being
 hardcoded. A targeted SPK covering the propagation span is then generated and
 loaded from JPL Horizons, so the Sun/Jupiter third-body accelerations and the
 solar radiation pressure model below have an ephemeris to resolve Ceres's
-position against. Both the SBDB lookup and the Horizons SPK are cached under
-the brahe cache directory, so the network is used only on the first run per
-machine.
+position against.
 
 ``` python
 --8<-- "./examples/examples/dawn_ceres_orbit.py:body_resolution"
@@ -166,6 +164,18 @@ accelerations and SRP are small enough that they perturb the trajectory by
 tens of meters over 2 days (~9 revolutions) rather than reshaping it, but the
 divergence from the two-body baseline is measurable and grows with time - a
 signature a pure two-body run cannot reproduce.
+
+Plotting the position and velocity difference between the two runs over the
+propagation shows this divergence accumulating from zero:
+
+``` python
+--8<-- "./examples/examples/dawn_ceres_orbit.py:plot_divergence"
+```
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../figures/dawn_ceres_orbit_divergence_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../figures/dawn_ceres_orbit_divergence_dark.html"  loading="lazy"></iframe>
+</div>
 
 ## 3D Visualization
 

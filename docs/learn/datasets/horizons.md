@@ -4,7 +4,8 @@ The `brahe.datasets.horizons` module generates, caches, and loads targeted SPK
 (`.bsp`) kernels for small bodies without packaged DE-kernel coverage via the
 [JPL Horizons API](https://ssd-api.jpl.nasa.gov/doc/horizons.html). This
 unblocks third-body and solar radiation pressure perturbations for bodies such
-as Ceres, which carry no ephemeris in the DE kernels brahe ships.
+as Ceres, which are not contained in the DE kernels and therefore must be
+loaded separately.
 
 `HorizonsClient.get_spk(request)` returns a `HorizonsSPKResponse`. The `.bsp`
 is cached under `$BRAHE_CACHE/horizons` (default `~/.cache/brahe/horizons`) and

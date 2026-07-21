@@ -7,5 +7,7 @@
  */
 
 pub mod request;
+pub mod response;
 
 pub use request::HorizonsSPKRequest;
+pub use response::HorizonsSPKResponse;

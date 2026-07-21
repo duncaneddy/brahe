@@ -13,6 +13,7 @@ This module provides a source-specific API organized by data provider:
 - icgem: ICGEM spherical harmonic gravity model catalog (Earth + celestial bodies)
 - ssn_sensors: Vallado Space Surveillance Network sensor site dataset
 - sbdb: JPL Small-Body Database (SBDB) Lookup client
+- horizons: JPL Horizons SPK generation client for small bodies
 
 For CelestrakClient satellite catalog data, use the `brahe.celestrak` module instead.
 
@@ -73,6 +74,10 @@ from brahe._brahe import (
     # SBDB client and types
     SBDBClient,
     SBDBObject,
+    # Horizons client and types
+    HorizonsClient,
+    HorizonsSPKRequest,
+    HorizonsSPKResponse,
 )
 
 
@@ -171,6 +176,18 @@ class _SBDBNamespace:
 # Create SBDB namespace instance
 sbdb = _SBDBNamespace()
 
+
+class _HorizonsNamespace:
+    """JPL Horizons SPK generation namespace."""
+
+    HorizonsClient = HorizonsClient
+    HorizonsSPKRequest = HorizonsSPKRequest
+    HorizonsSPKResponse = HorizonsSPKResponse
+
+
+# Create Horizons namespace instance
+horizons = _HorizonsNamespace()
+
 __all__ = [
     "groundstations",
     "naif",
@@ -179,4 +196,5 @@ __all__ = [
     "icgem",
     "ssn_sensors",
     "sbdb",
+    "horizons",
 ]

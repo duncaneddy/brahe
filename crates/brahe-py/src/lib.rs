@@ -581,6 +581,7 @@ include!("py_gcat.rs");
 include!("py_star_catalogs.rs");
 include!("icgem.rs");
 include!("sbdb.rs");
+include!("horizons.rs");
 include!("eop.rs");
 include!("space_weather.rs");
 include!("time.rs");
@@ -1171,6 +1172,11 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     //* SBDB *//
     module.add_class::<PySBDBClient>()?;
     module.add_class::<PySBDBObject>()?;
+
+    //* Horizons *//
+    module.add_class::<PyHorizonsClient>()?;
+    module.add_class::<PyHorizonsSPKRequest>()?;
+    module.add_class::<PyHorizonsSPKResponse>()?;
 
     //* SPICE Kernel Registry *//
     module.add_function(wrap_pyfunction!(py_load_kernel, module)?)?;

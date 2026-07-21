@@ -6,9 +6,10 @@ use crate::utils::download::urlencode;
 
 /// A request to generate an SPK kernel for a small body over a time span.
 ///
-/// `center` defaults to `"500@0"` (Solar System Barycenter), which produces an
-/// SSB-relative segment that chains cleanly with the SSB-relative `de440s`
-/// ephemeris for third-body and SRP force resolution.
+/// `center` defaults to `"500@0"`. Horizons returns small-body SPKs centered on
+/// the Sun (NAIF 10) in the J2000/ICRF frame; loading `de440s` alongside supplies
+/// the Sun's position relative to the Solar System barycenter, so the kernels
+/// chain for third-body and SRP force resolution.
 #[derive(Debug, Clone)]
 pub struct HorizonsSPKRequest {
     /// Horizons `COMMAND` target, e.g. `"DES=20000001;"`.

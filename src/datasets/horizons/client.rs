@@ -282,6 +282,10 @@ mod tests {
         assert!(matches!(err, BraheError::ParseError(_)));
     }
 
+    // Unix only: the failure is forced by stripping the cache dir's write bit,
+    // which does not block file creation on Windows (directory read-only there
+    // is advisory), so the write would succeed and the assertion would not hold.
+    #[cfg(unix)]
     #[test]
     #[serial]
     fn test_get_spk_write_cache_failure_errors() {

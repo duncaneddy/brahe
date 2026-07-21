@@ -555,7 +555,8 @@ mod tests {
         unsafe { env::remove_var("BRAHE_CACHE") };
         let original = env::var("BRAHE_CACHE").ok();
         let dir = get_sbdb_cache_dir().unwrap();
-        assert!(dir.ends_with("brahe/sbdb"));
+        // Component-based match so it holds regardless of the OS path separator.
+        assert!(std::path::Path::new(&dir).ends_with("brahe/sbdb"));
         restore_brahe_cache(original);
 
         // BRAHE_CACHE already set: the directory nests under it instead,
@@ -586,7 +587,8 @@ mod tests {
         unsafe { env::remove_var("BRAHE_CACHE") };
         let original = env::var("BRAHE_CACHE").ok();
         let dir = get_horizons_cache_dir().unwrap();
-        assert!(dir.ends_with("brahe/horizons"));
+        // Component-based match so it holds regardless of the OS path separator.
+        assert!(std::path::Path::new(&dir).ends_with("brahe/horizons"));
         restore_brahe_cache(original);
 
         // BRAHE_CACHE already set: the directory nests under it instead,

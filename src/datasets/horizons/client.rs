@@ -105,7 +105,10 @@ impl HorizonsClient {
             BraheError::Error(format!("Horizons SPK generation failed: {}", detail))
         })?;
 
-        let decoded = BASE64.decode(spk_b64.trim()).map_err(|e| {
+        // Horizons wraps the base64-encoded SPK at 76 columns, so strip all
+        // embedded whitespace before decoding (the standard engine rejects it).
+        let spk_b64: String = spk_b64.chars().filter(|c| !c.is_whitespace()).collect();
+        let decoded = BASE64.decode(&spk_b64).map_err(|e| {
             BraheError::ParseError(format!("Failed to base64-decode Horizons SPK: {}", e))
         })?;
         if decoded.is_empty() {
@@ -159,6 +162,34 @@ mod tests {
         let resp = client.get_spk(&req()).unwrap();
         assert!(resp.path().exists());
         assert_eq!(resp.spk_file_id(), Some("2000001"));
+        assert_eq!(resp.bytes().unwrap(), payload_bytes);
+        mock.assert();
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_spk_decodes_line_wrapped_base64() {
+        // Horizons wraps the base64 SPK at 76 columns with newlines; the
+        // decoder must strip embedded whitespace rather than choke on it.
+        let _redirect = CacheRedirect::new();
+        let payload_bytes = b"DAF/SPK a longer fake kernel payload spanning wrapped base64 lines";
+        let b64 = BASE64.encode(payload_bytes);
+        // Escaped `\n` in the JSON body decodes to real newlines in the
+        // String, reproducing Horizons' 76-column line wrapping.
+        let wrapped = b64
+            .as_bytes()
+            .chunks(76)
+            .map(|c| std::str::from_utf8(c).unwrap())
+            .collect::<Vec<_>>()
+            .join("\\n");
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/api/horizons.api");
+            then.status(200).body(format!(r#"{{"spk":"{}"}}"#, wrapped));
+        });
+
+        let client = HorizonsClient::with_base_url(&server.base_url());
+        let resp = client.get_spk(&req()).unwrap();
         assert_eq!(resp.bytes().unwrap(), payload_bytes);
         mock.assert();
     }

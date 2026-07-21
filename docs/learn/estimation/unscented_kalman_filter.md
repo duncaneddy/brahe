@@ -229,4 +229,3 @@ $$
 - [Extended Kalman Filter](extended_kalman_filter.md) -- EKF setup and processing
 - [Measurement Models](measurement_models.md) -- Built-in and custom measurement types
 - [UKF API Reference](../../library_api/estimation/unscented_kalman_filter.md) -- Complete method documentation
-- [UnscentedKalmanFilterBuilder API Reference](../../library_api/estimation/unscented_kalman_filter_builder.md)

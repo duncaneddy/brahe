@@ -9,9 +9,12 @@ High-fidelity numerical orbit propagator with built-in force models. The `Numeri
 
 ---
 
+::: brahe.NumericalOrbitPropagatorBuilder
+
+---
+
 ## See Also
 
-- [NumericalOrbitPropagatorBuilder](numerical_orbit_propagator_builder.md) - Builder for constructing this propagator
 - [NumericalPropagator](numerical_propagator.md) - Generic numerical propagator for arbitrary dynamics
 - [ForceModelConfig](force_model_config.md) - Force model configuration
 - [Event Detection](../events/index.md) - Event detection system

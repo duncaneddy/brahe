@@ -272,4 +272,4 @@ fields positionally as an alternative, without naming each one:
 - [Constraints](constraints.md)
 - [Locations](locations.md)
 - [Computation Configuration](computation.md)
-- [AccessPropertiesBuilder API Reference](../../library_api/access/access_properties_builder.md)
+- [AccessProperties API Reference](../../library_api/access/windows.md)

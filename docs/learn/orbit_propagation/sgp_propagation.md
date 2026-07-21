@@ -411,4 +411,3 @@ Like Keplerian propagators, SGP propagators support identity tracking:
 - [Two-Line Elements](../orbits/two_line_elements.md) - Working with TLE data
 - [Ephemeris Data Sources](../ephemeris/index.md) - Querying live satellite data from CelesTrak and Space-Track
 - [SGPPropagator API Reference](../../library_api/propagators/sgp_propagator.md)
-- [SGPPropagatorBuilder API Reference](../../library_api/propagators/sgp_propagator_builder.md)

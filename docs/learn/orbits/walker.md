@@ -217,7 +217,6 @@ The Walker Star pattern concentrates planes over 180° of RAAN for polar coverag
 ## See Also
 
 - [Walker Constellations API Reference](../../library_api/orbits/walker.md) - Complete API documentation
-- [WalkerConstellationGeneratorBuilder API Reference](../../library_api/orbits/walker_constellation_generator_builder.md)
 - [Keplerian Elements](properties.md) - Orbital element fundamentals
 - [SGP4 Propagation](../orbit_propagation/sgp_propagation.md) - TLE-based propagation
 - [Numerical Propagation](../orbit_propagation/numerical_propagation/index.md) - High-fidelity propagation

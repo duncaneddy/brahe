@@ -18,7 +18,7 @@ bh.initialize_eop()
 # ISS OMM mean elements
 prop = (
     bh.SGPPropagator.builder(
-        "2025-11-29T20:01:44.058144",
+        bh.Epoch.from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, bh.TimeSystem.UTC),
         15.49193835,  # mean_motion (rev/day)
         0.0003723,  # eccentricity
         51.6312,  # inclination (degrees)

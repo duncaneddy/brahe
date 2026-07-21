@@ -3524,6 +3524,28 @@ impl PyAccessPropertiesBuilder {
         slf
     }
 
+    /// Add a custom property to the additional-properties map.
+    ///
+    /// May be called repeatedly; each call inserts one key/value pair. Unlike
+    /// the named fields, additional properties are optional and never reported
+    /// as missing by `build()`.
+    ///
+    /// Args:
+    ///     key (str): Property name.
+    ///     value (float or list[float] or bool or str or dict): Property value.
+    ///
+    /// Returns:
+    ///     AccessPropertiesBuilder: The builder, for method chaining.
+    fn additional<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        key: String,
+        value: &Bound<'_, PyAny>,
+    ) -> PyResult<PyRefMut<'a, Self>> {
+        let property_value = PyPropertyValue::new(value)?.value;
+        slf.inner = slf.inner.take().map(|b| b.additional(key, property_value));
+        Ok(slf)
+    }
+
     /// Build the AccessProperties, validating that every field was set.
     ///
     /// This consumes the builder. The builder is single-use: calling

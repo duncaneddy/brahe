@@ -570,6 +570,37 @@ def test_access_properties_builder_equivalence():
     assert via_builder.center_ecef == pytest.approx(via_constructor.center_ecef)
 
 
+def test_access_properties_builder_additional():
+    """Test that the builder accumulates additional custom properties."""
+    props = (
+        bh.AccessProperties.builder()
+        .azimuth_open(45.0)
+        .azimuth_close(135.0)
+        .elevation_min(10.0)
+        .elevation_max(85.0)
+        .elevation_open(12.0)
+        .elevation_close(10.5)
+        .off_nadir_min(5.0)
+        .off_nadir_max(80.0)
+        .local_time(43200.0)
+        .look_direction(bh.LookDirection.RIGHT)
+        .asc_dsc(bh.AscDsc.ASCENDING)
+        .center_lon(0.0)
+        .center_lat(45.0)
+        .center_alt(0.0)
+        .center_ecef([4517.59e3, 4517.59e3, 0.0])
+        .additional("doppler_shift", 2500.0)
+        .additional("look_angles", [45.0, 30.0])
+        .additional("station", "svalbard")
+        .build()
+    )
+
+    assert len(props.additional) == 3
+    assert props.additional["doppler_shift"] == pytest.approx(2500.0)
+    assert props.additional["look_angles"] == pytest.approx([45.0, 30.0])
+    assert props.additional["station"] == "svalbard"
+
+
 def test_access_properties_builder_unchained_setter():
     """Calling a setter without reassigning its return value must not orphan
     the original builder variable -- build() on the original must succeed."""

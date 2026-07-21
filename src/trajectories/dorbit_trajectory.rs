@@ -663,9 +663,9 @@ impl DOrbitTrajectory {
     /// # Arguments
     /// * `epoch` - Time epoch
     /// * `state` - State vector (must match trajectory dimension)
-    /// * `covariance` - Optional covariance matrix (6x6)
-    /// * `stm` - Optional state transition matrix (6x6)
-    /// * `sensitivity` - Optional sensitivity matrix (6 x param_dim)
+    /// * `covariance` - Optional covariance matrix (dimension x dimension)
+    /// * `stm` - Optional state transition matrix (dimension x dimension)
+    /// * `sensitivity` - Optional sensitivity matrix (dimension x param_dim)
     /// * `acceleration` - Optional acceleration vector (must match acceleration_dimension if set)
     ///
     /// # Panics
@@ -690,16 +690,19 @@ impl DOrbitTrajectory {
 
         // Validate and enable storage as needed
         if let Some(ref cov) = covariance {
-            if cov.nrows() != 6 || cov.ncols() != 6 {
+            if cov.nrows() != self.dimension || cov.ncols() != self.dimension {
                 panic!("Covariance dimension mismatch");
             }
             if self.covariances.is_none() {
-                self.covariances = Some(vec![DMatrix::zeros(6, 6); self.states.len()]);
+                self.covariances = Some(vec![
+                    DMatrix::zeros(self.dimension, self.dimension);
+                    self.states.len()
+                ]);
             }
         }
 
         if let Some(ref s) = stm {
-            if s.nrows() != 6 || s.ncols() != 6 {
+            if s.nrows() != self.dimension || s.ncols() != self.dimension {
                 panic!("STM dimension mismatch");
             }
             if self.stms.is_none() {
@@ -708,7 +711,7 @@ impl DOrbitTrajectory {
         }
 
         if let Some(ref sens) = sensitivity {
-            if sens.nrows() != 6 {
+            if sens.nrows() != self.dimension {
                 panic!("Sensitivity row dimension mismatch");
             }
             if let Some((_, cols)) = self.sensitivity_dimension
@@ -753,18 +756,19 @@ impl DOrbitTrajectory {
 
         // Insert optional data or placeholders
         if let Some(ref mut covs) = self.covariances {
-            let cov_val = covariance.unwrap_or_else(|| DMatrix::zeros(6, 6));
+            let cov_val =
+                covariance.unwrap_or_else(|| DMatrix::zeros(self.dimension, self.dimension));
             covs.insert(insert_idx, cov_val);
         }
 
         if let Some(ref mut stms) = self.stms {
-            let stm_val = stm.unwrap_or_else(|| DMatrix::identity(6, 6));
+            let stm_val = stm.unwrap_or_else(|| DMatrix::identity(self.dimension, self.dimension));
             stms.insert(insert_idx, stm_val);
         }
 
         if let Some(ref mut sens) = self.sensitivities {
             let (_, param_dim) = self.sensitivity_dimension.unwrap();
-            let sens_val = sensitivity.unwrap_or_else(|| DMatrix::zeros(6, param_dim));
+            let sens_val = sensitivity.unwrap_or_else(|| DMatrix::zeros(self.dimension, param_dim));
             sens.insert(insert_idx, sens_val);
         }
 
@@ -1134,18 +1138,21 @@ impl Trajectory for DOrbitTrajectory {
 
         // Insert placeholder covariance if storage is enabled
         if let Some(ref mut covs) = self.covariances {
-            covs.insert(insert_idx, DMatrix::zeros(6, 6));
+            covs.insert(insert_idx, DMatrix::zeros(self.dimension, self.dimension));
         }
 
         // Insert placeholder STM if storage is enabled
         if let Some(ref mut stms) = self.stms {
-            stms.insert(insert_idx, DMatrix::identity(6, 6));
+            stms.insert(
+                insert_idx,
+                DMatrix::identity(self.dimension, self.dimension),
+            );
         }
 
         // Insert placeholder sensitivity if storage is enabled
         if let Some(ref mut sens) = self.sensitivities {
             let (_, param_dim) = self.sensitivity_dimension.unwrap();
-            sens.insert(insert_idx, DMatrix::zeros(6, param_dim));
+            sens.insert(insert_idx, DMatrix::zeros(self.dimension, param_dim));
         }
 
         // Insert placeholder acceleration if storage is enabled
@@ -1607,7 +1614,7 @@ impl STMStorage for DOrbitTrajectory {
     fn enable_stm_storage(&mut self) {
         if self.stms.is_none() {
             // Initialize with identity matrices for all existing states
-            let identity = DMatrix::identity(6, 6);
+            let identity = DMatrix::identity(self.dimension, self.dimension);
             self.stms = Some(vec![identity; self.states.len()]);
         }
     }
@@ -1624,11 +1631,13 @@ impl STMStorage for DOrbitTrajectory {
                 self.states.len()
             );
         }
-        if stm.nrows() != 6 || stm.ncols() != 6 {
+        if stm.nrows() != self.dimension || stm.ncols() != self.dimension {
             panic!(
-                "STM dimensions {}x{} do not match expected 6x6",
+                "STM dimensions {}x{} do not match expected {}x{}",
                 stm.nrows(),
-                stm.ncols()
+                stm.ncols(),
+                self.dimension,
+                self.dimension
             );
         }
 
@@ -1643,7 +1652,7 @@ impl STMStorage for DOrbitTrajectory {
     }
 
     fn stm_dimensions(&self) -> (usize, usize) {
-        (6, 6)
+        (self.dimension, self.dimension)
     }
 
     fn stm_storage(&self) -> Option<&Vec<DMatrix<f64>>> {
@@ -1681,10 +1690,11 @@ impl SensitivityStorage for DOrbitTrajectory {
                 self.states.len()
             );
         }
-        if sensitivity.nrows() != 6 {
+        if sensitivity.nrows() != self.dimension {
             panic!(
-                "Sensitivity row count {} does not match state dimension 6",
-                sensitivity.nrows()
+                "Sensitivity row count {} does not match state dimension {}",
+                sensitivity.nrows(),
+                self.dimension
             );
         }
 

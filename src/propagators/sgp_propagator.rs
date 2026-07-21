@@ -44,7 +44,7 @@ use crate::trajectories::DOrbitTrajectory;
 use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
 use crate::utils::{BraheError, Identifiable};
 use nalgebra::{DVector, Vector3, Vector6};
-use sgp4::chrono::{Datelike, NaiveDateTime, Timelike};
+use sgp4::chrono::{Datelike, NaiveDate, NaiveDateTime, Timelike};
 
 // Event detection imports
 use crate::events::{DDetectedEvent, DEventDetector, EventAction, EventQuery, dscan_for_event};
@@ -346,12 +346,13 @@ impl std::fmt::Debug for SGPPropagator {
 /// ```rust
 /// use brahe::propagators::SGPPropagator;
 /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+/// use brahe::time::{Epoch, TimeSystem};
 ///
 /// let eop = StaticEOPProvider::from_zero();
 /// set_global_eop_provider(eop);
 ///
 /// let prop = SGPPropagator::builder(
-///     "2025-11-29T20:01:44.058144",
+///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
 ///     15.49193835, // mean_motion (rev/day)
 ///     0.0003723,   // eccentricity
 ///     51.6312,     // inclination (degrees)
@@ -366,7 +367,7 @@ impl std::fmt::Debug for SGPPropagator {
 /// .unwrap();
 /// ```
 pub struct SGPPropagatorBuilder {
-    epoch: String,
+    epoch: Epoch,
     mean_motion: f64,
     eccentricity: f64,
     inclination: f64,
@@ -403,12 +404,14 @@ impl SGPPropagatorBuilder {
     /// ```rust
     /// use brahe::propagators::SGPPropagator;
     /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let eop = StaticEOPProvider::from_zero();
     /// set_global_eop_provider(eop);
     ///
     /// let prop = SGPPropagator::builder(
-    ///     "2025-11-29T20:01:44.058144", 15.49193835, 0.0003723, 51.6312,
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
     ///     206.3646, 184.1118, 175.9840, 25544,
     /// )
     /// .step_size(30.0)
@@ -433,12 +436,14 @@ impl SGPPropagatorBuilder {
     /// ```rust
     /// use brahe::propagators::SGPPropagator;
     /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let eop = StaticEOPProvider::from_zero();
     /// set_global_eop_provider(eop);
     ///
     /// let prop = SGPPropagator::builder(
-    ///     "2025-11-29T20:01:44.058144", 15.49193835, 0.0003723, 51.6312,
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
     ///     206.3646, 184.1118, 175.9840, 25544,
     /// )
     /// .object_name("ISS (ZARYA)")
@@ -463,12 +468,14 @@ impl SGPPropagatorBuilder {
     /// ```rust
     /// use brahe::propagators::SGPPropagator;
     /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let eop = StaticEOPProvider::from_zero();
     /// set_global_eop_provider(eop);
     ///
     /// let prop = SGPPropagator::builder(
-    ///     "2025-11-29T20:01:44.058144", 15.49193835, 0.0003723, 51.6312,
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
     ///     206.3646, 184.1118, 175.9840, 25544,
     /// )
     /// .object_id("1998-067A")
@@ -495,12 +502,14 @@ impl SGPPropagatorBuilder {
     /// ```rust
     /// use brahe::propagators::SGPPropagator;
     /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let eop = StaticEOPProvider::from_zero();
     /// set_global_eop_provider(eop);
     ///
     /// let prop = SGPPropagator::builder(
-    ///     "2025-11-29T20:01:44.058144", 15.49193835, 0.0003723, 51.6312,
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
     ///     206.3646, 184.1118, 175.9840, 25544,
     /// )
     /// .classification('U')
@@ -527,12 +536,14 @@ impl SGPPropagatorBuilder {
     /// ```rust
     /// use brahe::propagators::SGPPropagator;
     /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let eop = StaticEOPProvider::from_zero();
     /// set_global_eop_provider(eop);
     ///
     /// let prop = SGPPropagator::builder(
-    ///     "2025-11-29T20:01:44.058144", 15.49193835, 0.0003723, 51.6312,
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
     ///     206.3646, 184.1118, 175.9840, 25544,
     /// )
     /// .bstar(0.15237e-3)
@@ -559,12 +570,14 @@ impl SGPPropagatorBuilder {
     /// ```rust
     /// use brahe::propagators::SGPPropagator;
     /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let eop = StaticEOPProvider::from_zero();
     /// set_global_eop_provider(eop);
     ///
     /// let prop = SGPPropagator::builder(
-    ///     "2025-11-29T20:01:44.058144", 15.49193835, 0.0003723, 51.6312,
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
     ///     206.3646, 184.1118, 175.9840, 25544,
     /// )
     /// .mean_motion_dot(0.801e-4)
@@ -591,12 +604,14 @@ impl SGPPropagatorBuilder {
     /// ```rust
     /// use brahe::propagators::SGPPropagator;
     /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let eop = StaticEOPProvider::from_zero();
     /// set_global_eop_provider(eop);
     ///
     /// let prop = SGPPropagator::builder(
-    ///     "2025-11-29T20:01:44.058144", 15.49193835, 0.0003723, 51.6312,
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
     ///     206.3646, 184.1118, 175.9840, 25544,
     /// )
     /// .mean_motion_ddot(0.0)
@@ -623,12 +638,14 @@ impl SGPPropagatorBuilder {
     /// ```rust
     /// use brahe::propagators::SGPPropagator;
     /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let eop = StaticEOPProvider::from_zero();
     /// set_global_eop_provider(eop);
     ///
     /// let prop = SGPPropagator::builder(
-    ///     "2025-11-29T20:01:44.058144", 15.49193835, 0.0003723, 51.6312,
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
     ///     206.3646, 184.1118, 175.9840, 25544,
     /// )
     /// .ephemeris_type(0)
@@ -655,12 +672,14 @@ impl SGPPropagatorBuilder {
     /// ```rust
     /// use brahe::propagators::SGPPropagator;
     /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let eop = StaticEOPProvider::from_zero();
     /// set_global_eop_provider(eop);
     ///
     /// let prop = SGPPropagator::builder(
-    ///     "2025-11-29T20:01:44.058144", 15.49193835, 0.0003723, 51.6312,
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
     ///     206.3646, 184.1118, 175.9840, 25544,
     /// )
     /// .element_set_no(999)
@@ -687,12 +706,14 @@ impl SGPPropagatorBuilder {
     /// ```rust
     /// use brahe::propagators::SGPPropagator;
     /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let eop = StaticEOPProvider::from_zero();
     /// set_global_eop_provider(eop);
     ///
     /// let prop = SGPPropagator::builder(
-    ///     "2025-11-29T20:01:44.058144", 15.49193835, 0.0003723, 51.6312,
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
     ///     206.3646, 184.1118, 175.9840, 25544,
     /// )
     /// .rev_at_epoch(54085)
@@ -733,12 +754,14 @@ impl SGPPropagatorBuilder {
     /// use brahe::traits::{OrbitFrame, OrbitRepresentation};
     /// use brahe::constants::AngleFormat;
     /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let eop = StaticEOPProvider::from_zero();
     /// set_global_eop_provider(eop);
     ///
     /// let prop = SGPPropagator::builder(
-    ///     "2025-11-29T20:01:44.058144", 15.49193835, 0.0003723, 51.6312,
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
     ///     206.3646, 184.1118, 175.9840, 25544,
     /// )
     /// .output_format(OrbitFrame::ECI, OrbitRepresentation::Keplerian, Some(AngleFormat::Degrees))
@@ -778,12 +801,14 @@ impl SGPPropagatorBuilder {
     /// ```rust
     /// use brahe::propagators::SGPPropagator;
     /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let eop = StaticEOPProvider::from_zero();
     /// set_global_eop_provider(eop);
     ///
     /// let prop = SGPPropagator::builder(
-    ///     "2025-11-29T20:01:44.058144", 15.49193835, 0.0003723, 51.6312,
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
     ///     206.3646, 184.1118, 175.9840, 25544,
     /// )
     /// .build()
@@ -795,7 +820,7 @@ impl SGPPropagatorBuilder {
         }
 
         let prop = SGPPropagator::from_omm_elements(
-            &self.epoch,
+            self.epoch,
             self.mean_motion,
             self.eccentricity,
             self.inclination,
@@ -1002,7 +1027,7 @@ impl SGPPropagator {
     /// bypassing TLE parsing. It creates synthetic TLE lines for API consistency.
     ///
     /// # Arguments
-    /// * `epoch` - ISO 8601 datetime string (e.g., "2025-11-29T20:01:44.058144")
+    /// * `epoch` - Element set epoch (UTC)
     /// * `mean_motion` - Mean motion in revolutions per day
     /// * `eccentricity` - Orbital eccentricity (dimensionless)
     /// * `inclination` - Orbital inclination in degrees
@@ -1028,14 +1053,16 @@ impl SGPPropagator {
     /// ```
     /// use brahe::propagators::SGPPropagator;
     /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// // Initialize EOP provider
     /// let eop = StaticEOPProvider::from_zero();
     /// set_global_eop_provider(eop);
     ///
     /// // ISS OMM data
+    /// let epoch = Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC);
     /// let prop = SGPPropagator::from_omm_elements(
-    ///     "2025-11-29T20:01:44.058144",  // EPOCH
+    ///     epoch,                          // EPOCH
     ///     15.49193835,                    // MEAN_MOTION (rev/day)
     ///     0.0003723,                      // ECCENTRICITY
     ///     51.6312,                        // INCLINATION (degrees)
@@ -1057,7 +1084,7 @@ impl SGPPropagator {
     /// ```
     #[allow(clippy::too_many_arguments)]
     pub fn from_omm_elements(
-        epoch: &str,
+        epoch: Epoch,
         mean_motion: f64,
         eccentricity: f64,
         inclination: f64,
@@ -1076,10 +1103,24 @@ impl SGPPropagator {
         element_set_no: Option<u64>,
         rev_at_epoch: Option<u64>,
     ) -> Result<Self, BraheError> {
-        // Parse epoch (OMM format: "2025-11-29T20:01:44.058144")
-        let datetime = NaiveDateTime::parse_from_str(epoch, "%Y-%m-%dT%H:%M:%S%.f")
-            .or_else(|_| NaiveDateTime::parse_from_str(epoch, "%Y-%m-%dT%H:%M:%S"))
-            .map_err(|e| BraheError::Error(format!("Invalid epoch format '{}': {}", epoch, e)))?;
+        // Convert the epoch to a chrono::NaiveDateTime (UTC) for the sgp4 crate
+        let (year, month, day, hour, minute, second, nanoseconds) =
+            epoch.to_datetime_as_time_system(TimeSystem::UTC);
+        let datetime = NaiveDate::from_ymd_opt(year as i32, month as u32, day as u32)
+            .and_then(|d| {
+                d.and_hms_nano_opt(
+                    hour as u32,
+                    minute as u32,
+                    second as u32,
+                    nanoseconds.round() as u32,
+                )
+            })
+            .ok_or_else(|| {
+                BraheError::Error(format!(
+                    "Epoch {} is not representable as a datetime",
+                    epoch
+                ))
+            })?;
 
         // Map classification character to sgp4::Classification
         let classification_char = classification.unwrap_or('U');
@@ -1128,17 +1169,7 @@ impl SGPPropagator {
         let constants = sgp4::Constants::from_elements(&elements)
             .map_err(|e| BraheError::Error(format!("SGP4 constants error: {:?}", e)))?;
 
-        // Convert chrono::NaiveDateTime to brahe Epoch
-        let brahe_epoch = Epoch::from_datetime(
-            datetime.year() as u32,
-            datetime.month() as u8,
-            datetime.day() as u8,
-            datetime.hour() as u8,
-            datetime.minute() as u8,
-            datetime.second() as f64 + datetime.nanosecond() as f64 / 1e9,
-            0.0, // nanoseconds already included in seconds
-            TimeSystem::UTC,
-        );
+        let brahe_epoch = epoch;
 
         // Generate synthetic TLE lines for API consistency
         // Convert OBJECT_ID from OMM format (e.g., "1998-067A") to TLE format (e.g., "98067A")
@@ -1265,7 +1296,7 @@ impl SGPPropagator {
     /// except `step_size` which defaults to `60.0` seconds.
     ///
     /// # Arguments
-    /// * `epoch` - ISO 8601 datetime string (e.g., "2025-11-29T20:01:44.058144")
+    /// * `epoch` - Element set epoch (UTC)
     /// * `mean_motion` - Mean motion in revolutions per day
     /// * `eccentricity` - Orbital eccentricity (dimensionless)
     /// * `inclination` - Orbital inclination in degrees
@@ -1282,12 +1313,14 @@ impl SGPPropagator {
     /// ```
     /// use brahe::propagators::SGPPropagator;
     /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let eop = StaticEOPProvider::from_zero();
     /// set_global_eop_provider(eop);
     ///
+    /// let epoch = Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC);
     /// let prop = SGPPropagator::builder(
-    ///     "2025-11-29T20:01:44.058144", // EPOCH
+    ///     epoch,                          // EPOCH
     ///     15.49193835,                    // MEAN_MOTION (rev/day)
     ///     0.0003723,                      // ECCENTRICITY
     ///     51.6312,                        // INCLINATION (degrees)
@@ -1303,7 +1336,7 @@ impl SGPPropagator {
     /// ```
     #[allow(clippy::too_many_arguments)]
     pub fn builder(
-        epoch: &str,
+        epoch: Epoch,
         mean_motion: f64,
         eccentricity: f64,
         inclination: f64,
@@ -1313,7 +1346,7 @@ impl SGPPropagator {
         norad_id: u64,
     ) -> SGPPropagatorBuilder {
         SGPPropagatorBuilder {
-            epoch: epoch.to_string(),
+            epoch,
             mean_motion,
             eccentricity,
             inclination,
@@ -1359,9 +1392,25 @@ impl SGPPropagator {
         step_size: f64,
     ) -> Result<Self, BraheError> {
         // Validate required fields
-        let epoch = record.epoch.as_deref().ok_or_else(|| {
+        let epoch_str = record.epoch.as_deref().ok_or_else(|| {
             BraheError::Error("GPRecord missing required field: epoch".to_string())
         })?;
+        // Parse epoch (OMM format: "2025-11-29T20:01:44.058144")
+        let datetime = NaiveDateTime::parse_from_str(epoch_str, "%Y-%m-%dT%H:%M:%S%.f")
+            .or_else(|_| NaiveDateTime::parse_from_str(epoch_str, "%Y-%m-%dT%H:%M:%S"))
+            .map_err(|e| {
+                BraheError::Error(format!("Invalid epoch format '{}': {}", epoch_str, e))
+            })?;
+        let epoch = Epoch::from_datetime(
+            datetime.year() as u32,
+            datetime.month() as u8,
+            datetime.day() as u8,
+            datetime.hour() as u8,
+            datetime.minute() as u8,
+            datetime.second() as f64,
+            datetime.nanosecond() as f64,
+            TimeSystem::UTC,
+        );
         let mean_motion = record.mean_motion.ok_or_else(|| {
             BraheError::Error("GPRecord missing required field: mean_motion".to_string())
         })?;
@@ -2626,7 +2675,7 @@ mod tests {
 
         // ISS OMM data
         let propagator = SGPPropagator::from_omm_elements(
-            "2025-11-29T20:01:44.058144",
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
             15.49193835, // mean_motion (rev/day)
             0.0003723,   // eccentricity
             51.6312,     // inclination (degrees)
@@ -2676,7 +2725,7 @@ mod tests {
 
         // Test with minimal required parameters (all optionals as None)
         let propagator = SGPPropagator::from_omm_elements(
-            "2025-11-29T20:01:44.058144",
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
             15.49193835,
             0.0003723,
             51.6312,
@@ -2708,7 +2757,7 @@ mod tests {
         setup_global_test_eop();
 
         let mut prop = SGPPropagator::from_omm_elements(
-            "2025-11-29T20:01:44.058144",
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
             15.49193835,
             0.0003723,
             51.6312,
@@ -2742,29 +2791,22 @@ mod tests {
 
     #[test]
     #[serial_test::parallel]
-    fn test_sgppropagator_from_omm_elements_invalid_epoch() {
+    fn test_sgppropagator_from_gp_record_invalid_epoch() {
         setup_global_test_eop();
 
-        let propagator = SGPPropagator::from_omm_elements(
-            "not-a-valid-date",
-            15.49193835,
-            0.0003723,
-            51.6312,
-            206.3646,
-            184.1118,
-            175.9840,
-            25544,
-            60.0,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        );
+        let json = r#"{
+            "EPOCH": "not-a-valid-date",
+            "MEAN_MOTION": 15.50000000,
+            "ECCENTRICITY": 0.00010000,
+            "INCLINATION": 51.6400,
+            "RA_OF_ASC_NODE": 200.0000,
+            "ARG_OF_PERICENTER": 100.0000,
+            "MEAN_ANOMALY": 260.0000,
+            "NORAD_CAT_ID": 25544
+        }"#;
+        let record: crate::types::GPRecord = serde_json::from_str(json).unwrap();
+
+        let propagator = SGPPropagator::from_gp_record(&record, 60.0);
 
         assert!(propagator.is_err());
         let err = propagator.unwrap_err();
@@ -2777,7 +2819,7 @@ mod tests {
         setup_global_test_eop();
 
         let from_builder = SGPPropagator::builder(
-            "2025-11-29T20:01:44.058144",
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
             15.49193835,
             0.0003723,
             51.6312,
@@ -2799,7 +2841,7 @@ mod tests {
         .unwrap();
 
         let from_ctor = SGPPropagator::from_omm_elements(
-            "2025-11-29T20:01:44.058144",
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
             15.49193835,
             0.0003723,
             51.6312,
@@ -2831,7 +2873,7 @@ mod tests {
         setup_global_test_eop();
 
         let prop = SGPPropagator::builder(
-            "2025-11-29T20:01:44.058144",
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
             15.49193835,
             0.0003723,
             51.6312,
@@ -2852,7 +2894,7 @@ mod tests {
         setup_global_test_eop();
 
         let prop = SGPPropagator::builder(
-            "2025-11-29T20:01:44.058144",
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
             15.49193835,
             0.0003723,
             51.6312,
@@ -2874,7 +2916,7 @@ mod tests {
         setup_global_test_eop();
 
         let prop = SGPPropagator::builder(
-            "2025-11-29T20:01:44.058144",
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
             15.49193835,
             0.0003723,
             51.6312,
@@ -2902,7 +2944,7 @@ mod tests {
         setup_global_test_eop();
 
         let result = SGPPropagator::builder(
-            "2025-11-29T20:01:44.058144",
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
             15.49193835,
             0.0003723,
             51.6312,
@@ -2929,7 +2971,7 @@ mod tests {
         setup_global_test_eop();
 
         let result = SGPPropagator::builder(
-            "2025-11-29T20:01:44.058144",
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
             15.49193835,
             0.0003723,
             51.6312,
@@ -2960,7 +3002,7 @@ mod tests {
         setup_global_test_eop();
 
         let result = SGPPropagator::builder(
-            "2025-11-29T20:01:44.058144",
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
             15.49193835,
             0.0003723,
             51.6312,
@@ -2987,37 +3029,11 @@ mod tests {
 
     #[test]
     #[serial_test::parallel]
-    fn test_sgppropagator_builder_invalid_epoch() {
-        setup_global_test_eop();
-
-        let result = SGPPropagator::builder(
-            "not-a-valid-date",
-            15.49193835,
-            0.0003723,
-            51.6312,
-            206.3646,
-            184.1118,
-            175.9840,
-            25544,
-        )
-        .build();
-
-        assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("Invalid epoch format")
-        );
-    }
-
-    #[test]
-    #[serial_test::parallel]
     fn test_sgppropagator_builder_invalid_classification() {
         setup_global_test_eop();
 
         let result = SGPPropagator::builder(
-            "2025-11-29T20:01:44.058144",
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
             15.49193835,
             0.0003723,
             51.6312,
@@ -4875,7 +4891,7 @@ mod tests {
     /// that triggers SGP4 eccentricity divergence when propagated ~24 hours.
     fn make_decaying_propagator(step_size: f64) -> SGPPropagator {
         SGPPropagator::from_omm_elements(
-            "2026-04-06T00:15:48.265056",
+            Epoch::from_datetime(2026, 4, 6, 0, 15, 48.265056, 0.0, TimeSystem::UTC),
             16.25673795, // mean_motion (rev/day) - very high, decaying orbit
             0.00191239,  // eccentricity
             42.9658,     // inclination (degrees)

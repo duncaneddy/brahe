@@ -4874,8 +4874,8 @@ def test_numericalorbitpropagator_construction_with_additional_dynamics():
 
 def test_numericalorbitpropagator_rejects_mismatched_covariance_dim():
     """A covariance sized for the base 6D state does not match an extended
-    (7D) state, and construction must raise rather than panic in the
-    underlying STM propagation (Phi @ P0 @ Phi.T)."""
+    (7D) state, and construction must raise rather than panic later in the
+    STM propagation (Phi @ P0 @ Phi.T)."""
     epoch = create_test_epoch()
 
     # 6D orbital state + 1 additional state (e.g., spacecraft mass)
@@ -4888,7 +4888,7 @@ def test_numericalorbitpropagator_rejects_mismatched_covariance_dim():
         dx[6] = -0.1  # dm/dt = -0.1 kg/s
         return dx
 
-    with pytest.raises(RuntimeError, match="7x7"):
+    with pytest.raises(ValueError, match="7x7"):
         NumericalOrbitPropagator(
             epoch,
             extended_state,
@@ -4898,6 +4898,32 @@ def test_numericalorbitpropagator_rejects_mismatched_covariance_dim():
             np.eye(6),  # mismatched: state_dim is 7, not 6
             additional_dyn,
         )
+
+
+def test_numericalorbitpropagator_builder_accepts_extended_covariance():
+    """The builder must accept a covariance sized for an extended (7D) state
+    rather than rejecting anything that is not 6x6."""
+    epoch = create_test_epoch()
+
+    extended_state = np.array(
+        [R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0, 1000.0]  # mass [kg]
+    )
+
+    def additional_dyn(epc, state, params):
+        dx = np.zeros(len(state))
+        dx[6] = -0.1  # dm/dt = -0.1 kg/s
+        return dx
+
+    prop = (
+        NumericalOrbitPropagator.builder(
+            epoch, extended_state, ForceModelConfig.earth_gravity()
+        )
+        .additional_dynamics(additional_dyn)
+        .initial_covariance(np.eye(7))
+        .build()
+    )
+
+    assert prop.state_dim == 7
 
 
 def test_numericalorbitpropagator_trajectory_stores_additional_states():

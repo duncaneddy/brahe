@@ -59,7 +59,9 @@ class TestSGPPropagatorMethods:
         """Test SGPPropagator creation from OMM elements."""
         # ISS OMM data from user example
         prop = brahe.SGPPropagator.from_omm_elements(
-            epoch="2025-11-29T20:01:44.058144",
+            epoch=brahe.Epoch.from_datetime(
+                2025, 11, 29, 20, 1, 44.058144, 0.0, brahe.TimeSystem.UTC
+            ),
             mean_motion=15.49193835,
             eccentricity=0.0003723,
             inclination=51.6312,
@@ -78,7 +80,9 @@ class TestSGPPropagatorMethods:
     def test_sgppropagator_from_omm_elements_with_optional_fields(self):
         """Test SGPPropagator creation from OMM elements with all optional fields."""
         prop = brahe.SGPPropagator.from_omm_elements(
-            epoch="2025-11-29T20:01:44.058144",
+            epoch=brahe.Epoch.from_datetime(
+                2025, 11, 29, 20, 1, 44.058144, 0.0, brahe.TimeSystem.UTC
+            ),
             mean_motion=15.49193835,
             eccentricity=0.0003723,
             inclination=51.6312,
@@ -107,7 +111,9 @@ class TestSGPPropagatorMethods:
     def test_sgppropagator_from_omm_elements_propagation(self):
         """Test that SGPPropagator from OMM elements can propagate."""
         prop = brahe.SGPPropagator.from_omm_elements(
-            epoch="2025-11-29T20:01:44.058144",
+            epoch=brahe.Epoch.from_datetime(
+                2025, 11, 29, 20, 1, 44.058144, 0.0, brahe.TimeSystem.UTC
+            ),
             mean_motion=15.49193835,
             eccentricity=0.0003723,
             inclination=51.6312,
@@ -135,7 +141,9 @@ class TestSGPPropagatorMethods:
     def test_sgppropagator_from_omm_elements_tle_generation(self):
         """Test that from_omm_elements generates valid TLE lines."""
         prop = brahe.SGPPropagator.from_omm_elements(
-            epoch="2025-11-29T20:01:44.058144",
+            epoch=brahe.Epoch.from_datetime(
+                2025, 11, 29, 20, 1, 44.058144, 0.0, brahe.TimeSystem.UTC
+            ),
             mean_motion=15.49193835,
             eccentricity=0.0003723,
             inclination=51.6312,
@@ -160,10 +168,10 @@ class TestSGPPropagatorMethods:
         assert all(np.isfinite(state))
 
     def test_sgppropagator_from_omm_elements_invalid_epoch(self):
-        """Test error handling for invalid epoch format."""
-        with pytest.raises(RuntimeError, match="Invalid epoch format"):
+        """Epoch must be an Epoch instance; string epochs are rejected."""
+        with pytest.raises(TypeError):
             brahe.SGPPropagator.from_omm_elements(
-                epoch="not-a-valid-date",
+                epoch="2025-11-29T20:01:44.058144",
                 mean_motion=15.49193835,
                 eccentricity=0.0003723,
                 inclination=51.6312,
@@ -176,7 +184,9 @@ class TestSGPPropagatorMethods:
     def test_sgppropagator_from_omm_elements_orbital_elements(self):
         """Test that orbital elements match input OMM values."""
         prop = brahe.SGPPropagator.from_omm_elements(
-            epoch="2025-11-29T20:01:44.058144",
+            epoch=brahe.Epoch.from_datetime(
+                2025, 11, 29, 20, 1, 44.058144, 0.0, brahe.TimeSystem.UTC
+            ),
             mean_motion=15.49193835,
             eccentricity=0.0003723,
             inclination=51.6312,
@@ -1817,7 +1827,9 @@ class TestSGPPropagatorBuilder:
         """Positional args for SGPPropagator.builder(), matching the
         from_omm_elements ISS example used elsewhere in this file."""
         return (
-            "2025-11-29T20:01:44.058144",
+            brahe.Epoch.from_datetime(
+                2025, 11, 29, 20, 1, 44.058144, 0.0, brahe.TimeSystem.UTC
+            ),
             15.49193835,
             0.0003723,
             51.6312,

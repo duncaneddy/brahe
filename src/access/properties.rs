@@ -496,6 +496,7 @@ impl AccessProperties {
             center_lat: None,
             center_alt: None,
             center_ecef: None,
+            additional: HashMap::new(),
         }
     }
 }
@@ -526,6 +527,7 @@ pub struct AccessPropertiesBuilder {
     center_lat: Option<f64>,
     center_alt: Option<f64>,
     center_ecef: Option<[f64; 3]>,
+    additional: HashMap<String, PropertyValue>,
 }
 
 impl AccessPropertiesBuilder {
@@ -709,6 +711,32 @@ impl AccessPropertiesBuilder {
         self
     }
 
+    /// Add a custom property to the `additional` map.
+    ///
+    /// May be called repeatedly; each call inserts one key/value pair. Unlike
+    /// the named fields, additional properties are optional and never reported
+    /// as missing by [`AccessPropertiesBuilder::build`].
+    ///
+    /// # Arguments
+    /// * `key` - Property name
+    /// * `value` - Property value
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::access::{AccessProperties, PropertyValue};
+    ///
+    /// let builder = AccessProperties::builder()
+    ///     .additional("doppler_shift", PropertyValue::Scalar(2500.0))
+    ///     .additional("look_angles", PropertyValue::Vector(vec![45.0, 30.0]));
+    /// ```
+    pub fn additional(mut self, key: impl Into<String>, value: PropertyValue) -> Self {
+        self.additional.insert(key.into(), value);
+        self
+    }
+
     /// Build the [`AccessProperties`], validating that every field was set.
     ///
     /// # Returns
@@ -797,7 +825,7 @@ impl AccessPropertiesBuilder {
             )));
         }
 
-        Ok(AccessProperties::new(
+        let mut props = AccessProperties::new(
             self.azimuth_open.unwrap(),
             self.azimuth_close.unwrap(),
             self.elevation_min.unwrap(),
@@ -813,7 +841,9 @@ impl AccessPropertiesBuilder {
             self.center_lat.unwrap(),
             self.center_alt.unwrap(),
             self.center_ecef.unwrap(),
-        ))
+        );
+        props.additional = self.additional;
+        Ok(props)
     }
 }
 
@@ -1484,6 +1514,40 @@ mod tests {
         assert!(err.contains("azimuth_close"));
         assert!(err.contains("center_ecef"));
         assert!(!err.contains("azimuth_open"));
+    }
+
+    #[test]
+    fn test_accessproperties_builder_additional() {
+        let props = AccessProperties::builder()
+            .azimuth_open(45.0)
+            .azimuth_close(135.0)
+            .elevation_min(10.0)
+            .elevation_max(85.0)
+            .elevation_open(12.0)
+            .elevation_close(10.5)
+            .off_nadir_min(5.0)
+            .off_nadir_max(80.0)
+            .local_time(43200.0)
+            .look_direction(LookDirection::Right)
+            .asc_dsc(AscDsc::Ascending)
+            .center_lon(0.0)
+            .center_lat(45.0)
+            .center_alt(0.0)
+            .center_ecef([4517.59e3, 4517.59e3, 0.0])
+            .additional("doppler_shift", PropertyValue::Scalar(2500.0))
+            .additional("look_angles", PropertyValue::Vector(vec![45.0, 30.0]))
+            .build()
+            .unwrap();
+
+        assert_eq!(props.additional.len(), 2);
+        match props.get_property("doppler_shift").unwrap() {
+            PropertyValue::Scalar(val) => assert_eq!(*val, 2500.0),
+            _ => panic!("Expected Scalar"),
+        }
+        match props.get_property("look_angles").unwrap() {
+            PropertyValue::Vector(vals) => assert_eq!(vals, &vec![45.0, 30.0]),
+            _ => panic!("Expected Vector"),
+        }
     }
 
     #[test]

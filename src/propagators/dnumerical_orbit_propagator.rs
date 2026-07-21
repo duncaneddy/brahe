@@ -13196,6 +13196,34 @@ mod tests {
 
     #[rstest]
     #[serial_test::parallel]
+    fn test_dnumericalorbitpropagator_builder_accepts_extended_covariance() {
+        setup_global_test_eop();
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        // 6D orbital state + 1 mass state
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0, 1000.0]);
+
+        let additional_dynamics: DStateDynamics = Box::new(|_t, state, _params| {
+            let mut dx = DVector::zeros(state.len());
+            dx[6] = -0.1; // dm/dt = -0.1 kg/s
+            dx
+        });
+
+        let mut prop =
+            DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::earth_gravity())
+                .additional_dynamics(additional_dynamics)
+                .initial_covariance(DMatrix::identity(7, 7))
+                .build()
+                .unwrap();
+
+        assert_eq!(DStatePropagator::state_dim(&prop), 7);
+        prop.step_by(10.0);
+        let cov = prop.current_covariance().unwrap();
+        assert_eq!(cov.nrows(), 7);
+        assert_eq!(cov.ncols(), 7);
+    }
+
+    #[rstest]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_builder_optionals() {
         setup_global_test_eop();
         setup_global_test_space_weather();

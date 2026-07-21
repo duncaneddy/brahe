@@ -101,7 +101,7 @@ impl PySGPPropagator {
     /// bypassing TLE parsing. It creates synthetic TLE lines for API consistency.
     ///
     /// Args:
-    ///     epoch (str): ISO 8601 datetime string (e.g., "2025-11-29T20:01:44.058144").
+    ///     epoch (Epoch): Element set epoch (UTC).
     ///     mean_motion (float): Mean motion in revolutions per day.
     ///     eccentricity (float): Orbital eccentricity (dimensionless).
     ///     inclination (float): Orbital inclination in degrees.
@@ -128,8 +128,9 @@ impl PySGPPropagator {
     ///     import brahe as bh
     ///
     ///     # ISS OMM data
+    ///     epoch = bh.Epoch.from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, bh.TimeSystem.UTC)
     ///     prop = bh.SGPPropagator.from_omm_elements(
-    ///         epoch="2025-11-29T20:01:44.058144",
+    ///         epoch=epoch,
     ///         mean_motion=15.49193835,
     ///         eccentricity=0.0003723,
     ///         inclination=51.6312,
@@ -170,7 +171,7 @@ impl PySGPPropagator {
     #[allow(clippy::too_many_arguments)]
     pub fn from_omm_elements(
         _cls: &Bound<'_, PyType>,
-        epoch: &str,
+        epoch: &PyEpoch,
         mean_motion: f64,
         eccentricity: f64,
         inclination: f64,
@@ -191,7 +192,7 @@ impl PySGPPropagator {
     ) -> PyResult<Self> {
         let step_size = step_size.unwrap_or(60.0);
         match propagators::SGPPropagator::from_omm_elements(
-            epoch,
+            epoch.obj,
             mean_motion,
             eccentricity,
             inclination,
@@ -221,7 +222,7 @@ impl PySGPPropagator {
     /// are provided through chained setter calls before calling `build()`.
     ///
     /// Args:
-    ///     epoch (str): ISO 8601 datetime string (e.g., "2025-11-29T20:01:44.058144").
+    ///     epoch (Epoch): Element set epoch (UTC).
     ///     mean_motion (float): Mean motion in revolutions per day.
     ///     eccentricity (float): Orbital eccentricity (dimensionless).
     ///     inclination (float): Orbital inclination in degrees.
@@ -241,9 +242,10 @@ impl PySGPPropagator {
     ///
     ///     bh.initialize_eop()
     ///
+    ///     epoch = bh.Epoch.from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, bh.TimeSystem.UTC)
     ///     prop = (
     ///         bh.SGPPropagator.builder(
-    ///             "2025-11-29T20:01:44.058144",
+    ///             epoch,
     ///             15.49193835,
     ///             0.0003723,
     ///             51.6312,
@@ -260,7 +262,7 @@ impl PySGPPropagator {
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
     pub fn builder(
-        epoch: &str,
+        epoch: &PyEpoch,
         mean_motion: f64,
         eccentricity: f64,
         inclination: f64,
@@ -271,7 +273,7 @@ impl PySGPPropagator {
     ) -> PySGPPropagatorBuilder {
         PySGPPropagatorBuilder {
             inner: Some(propagators::SGPPropagator::builder(
-                epoch,
+                epoch.obj,
                 mean_motion,
                 eccentricity,
                 inclination,
@@ -1961,9 +1963,10 @@ impl PySGPPropagator {
 ///
 ///     bh.initialize_eop()
 ///
+///     epoch = bh.Epoch.from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, bh.TimeSystem.UTC)
 ///     prop = (
 ///         bh.SGPPropagator.builder(
-///             "2025-11-29T20:01:44.058144",
+///             epoch,
 ///             15.49193835,
 ///             0.0003723,
 ///             51.6312,
@@ -6738,7 +6741,8 @@ impl PyNumericalOrbitPropagator {
     ///     force_config (ForceModelConfig): Force model configuration.
     ///     params (numpy.ndarray or None): Parameter vector [mass, drag_area, Cd, srp_area, Cr, ...].
     ///                                    Required if force_config references parameter indices.
-    ///     initial_covariance (numpy.ndarray or None): Optional 6x6 initial covariance matrix (enables STM).
+    ///     initial_covariance (numpy.ndarray or None): Optional initial covariance matrix (enables STM).
+    ///         Must be square with dimension matching the state size.
     ///     additional_dynamics (callable or None): Optional function for extended state dynamics beyond 6D.
     ///                                            Signature: f(t, state, params) -> derivative.
     ///                                            Should return derivatives for extended state elements only.
@@ -6792,15 +6796,19 @@ impl PyNumericalOrbitPropagator {
         let params_vec =
             params.map(|p| nalgebra::DVector::from_column_slice(p.as_slice().unwrap()));
 
+        let state_dim = state_vec.len();
         let cov_matrix = if let Some(cov) = initial_covariance {
             let cov_shape = cov.shape();
-            if cov_shape[0] != 6 || cov_shape[1] != 6 {
-                return Err(exceptions::PyValueError::new_err(
-                    "Initial covariance must be a 6x6 matrix",
-                ));
+            if cov_shape[0] != state_dim || cov_shape[1] != state_dim {
+                return Err(exceptions::PyValueError::new_err(format!(
+                    "Initial covariance must be a {}x{} matrix",
+                    state_dim, state_dim
+                )));
             }
             let cov_data: Vec<f64> = cov.as_slice()?.to_vec();
-            Some(nalgebra::DMatrix::from_row_slice(6, 6, &cov_data))
+            Some(nalgebra::DMatrix::from_row_slice(
+                state_dim, state_dim, &cov_data,
+            ))
         } else {
             None
         };
@@ -6913,12 +6921,14 @@ impl PyNumericalOrbitPropagator {
         force_config: &PyForceModelConfig,
     ) -> PyResult<PyNumericalOrbitPropagatorBuilder> {
         let state_vec = nalgebra::DVector::from_column_slice(state.as_slice()?);
+        let state_dim = state_vec.len();
         Ok(PyNumericalOrbitPropagatorBuilder {
             inner: Some(propagators::DNumericalOrbitPropagator::builder(
                 epoch.obj,
                 state_vec,
                 force_config.config.clone(),
             )),
+            state_dim,
         })
     }
 
@@ -8402,6 +8412,7 @@ impl PyNumericalOrbitPropagator {
 #[pyo3(name = "NumericalOrbitPropagatorBuilder")]
 pub struct PyNumericalOrbitPropagatorBuilder {
     inner: Option<propagators::DNumericalOrbitPropagatorBuilder>,
+    state_dim: usize,
 }
 
 #[pymethods]
@@ -8484,7 +8495,8 @@ impl PyNumericalOrbitPropagatorBuilder {
     /// Set an initial covariance matrix P0, which also enables STM propagation.
     ///
     /// Args:
-    ///     covariance (numpy.ndarray): Initial 6x6 covariance matrix.
+    ///     covariance (numpy.ndarray): Initial covariance matrix. Must be square with
+    ///         dimension matching the state size.
     ///
     /// Returns:
     ///     NumericalOrbitPropagatorBuilder: The builder, for method chaining.
@@ -8492,14 +8504,16 @@ impl PyNumericalOrbitPropagatorBuilder {
         mut slf: PyRefMut<'a, Self>,
         covariance: PyReadonlyArray2<f64>,
     ) -> PyResult<PyRefMut<'a, Self>> {
+        let state_dim = slf.state_dim;
         let cov_shape = covariance.shape();
-        if cov_shape[0] != 6 || cov_shape[1] != 6 {
-            return Err(exceptions::PyValueError::new_err(
-                "Initial covariance must be a 6x6 matrix",
-            ));
+        if cov_shape[0] != state_dim || cov_shape[1] != state_dim {
+            return Err(exceptions::PyValueError::new_err(format!(
+                "Initial covariance must be a {}x{} matrix",
+                state_dim, state_dim
+            )));
         }
         let cov_data: Vec<f64> = covariance.as_slice()?.to_vec();
-        let cov_matrix = nalgebra::DMatrix::from_row_slice(6, 6, &cov_data);
+        let cov_matrix = nalgebra::DMatrix::from_row_slice(state_dim, state_dim, &cov_data);
         slf.inner = slf.inner.take().map(|b| b.initial_covariance(cov_matrix));
         Ok(slf)
     }

@@ -10,3 +10,5 @@ mar099s
 # ICGEM gravity models (icgem:<body>:<model name>):
 icgem:moon:GRGM660PRIM
 icgem:mars:ggm2bc80
+# Horizons SPK (Ceres, for the dawn_ceres_orbit example):
+horizons:ceres:2015-12-01:2016-03-01

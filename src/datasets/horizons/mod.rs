@@ -6,8 +6,10 @@
  * (`https://ssd.jpl.nasa.gov/api/horizons.api`).
  */
 
+pub mod client;
 pub mod request;
 pub mod response;
 
+pub use client::HorizonsClient;
 pub use request::HorizonsSPKRequest;
 pub use response::HorizonsSPKResponse;

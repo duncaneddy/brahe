@@ -69,7 +69,6 @@ impl HorizonsSPKRequest {
     }
 
     /// Build the URL query string (leading `?`) for the SPK request.
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn query(&self) -> String {
         let start = Self::horizons_time(self.start);
         let stop = Self::horizons_time(self.stop);
@@ -84,7 +83,6 @@ impl HorizonsSPKRequest {
     }
 
     /// Build the deterministic `.bsp` cache filename for this request.
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn cache_key(&self) -> String {
         let sanitized = self
             .command

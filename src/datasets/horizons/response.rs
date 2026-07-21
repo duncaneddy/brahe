@@ -19,7 +19,6 @@ pub struct HorizonsSPKResponse {
 
 impl HorizonsSPKResponse {
     /// Construct a response wrapping a cached SPK path.
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn new(path: PathBuf, spk_file_id: Option<String>) -> Self {
         HorizonsSPKResponse { path, spk_file_id }
     }

@@ -1,0 +1,199 @@
+/*!
+ * Horizons SPK HTTP client with on-disk caching.
+ */
+
+use std::path::PathBuf;
+
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD as BASE64;
+use serde::Deserialize;
+
+use crate::datasets::horizons::request::HorizonsSPKRequest;
+use crate::datasets::horizons::response::HorizonsSPKResponse;
+use crate::utils::cache::get_horizons_cache_dir;
+use crate::utils::download::download_string;
+use crate::utils::{BraheError, atomic_write};
+
+/// Default base URL for the JPL Horizons API host.
+const DEFAULT_BASE_URL: &str = "https://ssd.jpl.nasa.gov";
+
+#[derive(Deserialize)]
+struct HorizonsSPKPayload {
+    spk: Option<String>,
+    spk_file_id: Option<String>,
+    error: Option<String>,
+    result: Option<String>,
+}
+
+/// Client for the JPL Horizons SPK generation API.
+///
+/// Generates a targeted SPK for a small body over a time span, caches the
+/// `.bsp` under the Horizons cache directory, and returns a
+/// [`HorizonsSPKResponse`] handle. A cached kernel for the same request is
+/// reused without a network call.
+///
+/// # Examples
+///
+/// ```no_run
+/// use brahe::datasets::horizons::{HorizonsClient, HorizonsSPKRequest};
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let client = HorizonsClient::new();
+/// let t0 = Epoch::from_datetime(2015, 12, 1, 0, 0, 0.0, 0.0, TimeSystem::TDB);
+/// let t1 = Epoch::from_datetime(2016, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::TDB);
+/// let resp = client.get_spk(&HorizonsSPKRequest::for_spkid(2000001, t0, t1)).unwrap();
+/// resp.load().unwrap();
+/// ```
+pub struct HorizonsClient {
+    base_url: String,
+}
+
+impl Default for HorizonsClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl HorizonsClient {
+    /// Create a client with the default Horizons base URL.
+    pub fn new() -> Self {
+        HorizonsClient {
+            base_url: DEFAULT_BASE_URL.to_string(),
+        }
+    }
+
+    /// Create a client pointed at a custom base URL (e.g. a mock server).
+    ///
+    /// # Arguments
+    ///
+    /// * `base_url` - Base URL without a trailing slash.
+    pub fn with_base_url(base_url: &str) -> Self {
+        HorizonsClient {
+            base_url: base_url.trim_end_matches('/').to_string(),
+        }
+    }
+
+    /// Generate (or reuse a cached) SPK for `request`.
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - The SPK generation request.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(HorizonsSPKResponse)` - Handle to the cached `.bsp`.
+    /// * `Err(BraheError)` - On network, server, decode, or IO errors.
+    pub fn get_spk(&self, request: &HorizonsSPKRequest) -> Result<HorizonsSPKResponse, BraheError> {
+        let cache_path = PathBuf::from(get_horizons_cache_dir()?).join(request.cache_key());
+
+        if cache_path.exists() {
+            return Ok(HorizonsSPKResponse::new(cache_path, None));
+        }
+
+        let url = format!("{}/api/horizons.api{}", self.base_url, request.query());
+        let body = download_string(&url, "Horizons SPK")?;
+
+        let payload: HorizonsSPKPayload = serde_json::from_str(&body).map_err(|e| {
+            BraheError::ParseError(format!("Failed to parse Horizons response: {}", e))
+        })?;
+
+        let spk_b64 = payload.spk.ok_or_else(|| {
+            let detail = payload
+                .error
+                .or(payload.result)
+                .unwrap_or_else(|| "no 'spk' field in response".to_string());
+            BraheError::Error(format!("Horizons SPK generation failed: {}", detail))
+        })?;
+
+        let decoded = BASE64.decode(spk_b64.trim()).map_err(|e| {
+            BraheError::ParseError(format!("Failed to base64-decode Horizons SPK: {}", e))
+        })?;
+        if decoded.is_empty() {
+            return Err(BraheError::Error(
+                "Horizons returned an empty SPK".to_string(),
+            ));
+        }
+
+        atomic_write(&cache_path, &decoded).map_err(|e| {
+            BraheError::IoError(format!(
+                "Failed to write SPK cache {}: {}",
+                cache_path.display(),
+                e
+            ))
+        })?;
+
+        Ok(HorizonsSPKResponse::new(cache_path, payload.spk_file_id))
+    }
+}
+
+#[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
+mod tests {
+    use super::*;
+    use crate::time::{Epoch, TimeSystem};
+    use crate::utils::testing::CacheRedirect;
+    use base64::Engine;
+    use httpmock::prelude::*;
+    use serial_test::serial;
+
+    fn req() -> HorizonsSPKRequest {
+        let t0 = Epoch::from_datetime(2015, 12, 1, 0, 0, 0.0, 0.0, TimeSystem::TDB);
+        let t1 = Epoch::from_datetime(2016, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::TDB);
+        HorizonsSPKRequest::for_spkid(2000001, t0, t1)
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_spk_success_writes_cache() {
+        let _redirect = CacheRedirect::new();
+        let payload_bytes = b"DAF/SPK fake kernel payload";
+        let b64 = BASE64.encode(payload_bytes);
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/api/horizons.api");
+            then.status(200)
+                .body(format!(r#"{{"spk_file_id":"2000001","spk":"{}"}}"#, b64));
+        });
+
+        let client = HorizonsClient::with_base_url(&server.base_url());
+        let resp = client.get_spk(&req()).unwrap();
+        assert!(resp.path().exists());
+        assert_eq!(resp.spk_file_id(), Some("2000001"));
+        assert_eq!(resp.bytes().unwrap(), payload_bytes);
+        mock.assert();
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_spk_reuses_cache() {
+        let _redirect = CacheRedirect::new();
+        let b64 = BASE64.encode(b"DAF/SPK payload");
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/api/horizons.api");
+            then.status(200).body(format!(r#"{{"spk":"{}"}}"#, b64));
+        });
+
+        let client = HorizonsClient::with_base_url(&server.base_url());
+        let _ = client.get_spk(&req()).unwrap();
+        let _ = client.get_spk(&req()).unwrap();
+        // Second call served from cache: exactly one HTTP call.
+        mock.assert_calls(1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_spk_error_response() {
+        let _redirect = CacheRedirect::new();
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/api/horizons.api");
+            then.status(200)
+                .body(r#"{"error":"Cannot interpret COMMAND"}"#);
+        });
+
+        let client = HorizonsClient::with_base_url(&server.base_url());
+        let err = client.get_spk(&req()).unwrap_err();
+        assert!(err.to_string().contains("Cannot interpret COMMAND"));
+    }
+}

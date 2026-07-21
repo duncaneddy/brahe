@@ -32,6 +32,9 @@ pub use naif::download_spice_kernel;
 // Re-export commonly used types from sbdb
 pub use sbdb::{SBDBClient, SBDBObject};
 
+// Re-export commonly used types from horizons
+pub use horizons::{HorizonsClient, HorizonsSPKRequest, HorizonsSPKResponse};
+
 // Re-export commonly used types and functions from gcat
 pub use gcat::{
     GCATPsatcat, GCATPsatcatRecord, GCATSatcat, GCATSatcatRecord, get_psatcat, get_satcat,

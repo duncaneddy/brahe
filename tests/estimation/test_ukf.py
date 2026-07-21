@@ -466,6 +466,38 @@ def test_ukf_builder_equivalence(two_body_leo):
     )
 
 
+def test_ukf_builder_optionals(two_body_leo):
+    """Every optional setter: propagation_config, params, additional dynamics,
+    control input, and wholesale measurement_models."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    params = np.array([500.0, 2.0, 2.2, 2.0, 1.3])
+
+    def zero_dynamics(t, state, p):
+        return np.zeros(len(state))
+
+    ukf = (
+        bh.UnscentedKalmanFilter.builder(
+            epoch,
+            state,
+            p0,
+            bh.ForceModelConfig.two_body(),
+            bh.UKFConfig.default(),
+        )
+        .propagation_config(bh.NumericalPropagationConfig.default())
+        .params(params)
+        .additional_dynamics(zero_dynamics)
+        .control_input(zero_dynamics)
+        .measurement_models([bh.InertialPositionMeasurementModel(10.0)])
+        .build()
+    )
+
+    obs = bh.Observation(epoch + 60.0, state[:3], model_index=0)
+    ukf.process_observation(obs)
+
+    assert ukf.current_epoch() == epoch + 60.0
+
+
 def test_ukf_builder_unchained_setter(two_body_leo):
     """Calling a setter without reassigning its return value must not orphan
     the original builder variable -- build() on the original must succeed."""

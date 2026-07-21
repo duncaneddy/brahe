@@ -354,6 +354,35 @@ class TestBatchLeastSquaresBuilder:
             via_builder.current_covariance(), via_constructor.current_covariance()
         )
 
+    def test_builder_optionals(self, two_body_leo, position_observations):
+        """Every optional setter: propagation_config, params, additional
+        dynamics, control input, and wholesale measurement_models."""
+        epoch, state = two_body_leo
+        p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+        params = np.array([500.0, 2.0, 2.2, 2.0, 1.3])
+
+        def zero_dynamics(t, state, p):
+            return np.zeros(len(state))
+
+        bls = (
+            bh.BatchLeastSquares.builder(
+                epoch,
+                state,
+                p0,
+                bh.ForceModelConfig.two_body(),
+                bh.BLSConfig.default(),
+            )
+            .propagation_config(bh.NumericalPropagationConfig.default())
+            .params(params)
+            .additional_dynamics(zero_dynamics)
+            .control_input(zero_dynamics)
+            .measurement_models([bh.InertialPositionMeasurementModel(10.0)])
+            .build()
+        )
+
+        bls.solve(position_observations)
+        assert bls.converged()
+
     def test_builder_unchained_setter(self, two_body_leo):
         """Calling a setter without reassigning its return value must not
         orphan the original builder variable -- build() on the original

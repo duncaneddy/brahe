@@ -2188,6 +2188,61 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_ekf_builder_optionals() {
+        // Every optional setter: propagation_config, params, additional
+        // dynamics, control input, and wholesale measurement_models.
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let params = DVector::from_vec(vec![500.0, 2.0, 2.2, 2.0, 1.3]);
+
+        let zero_dynamics = || {
+            Box::new(|_t: f64, state: &DVector<f64>, _p: Option<&DVector<f64>>| {
+                DVector::zeros(state.len())
+            })
+        };
+
+        let mut built = ExtendedKalmanFilter::builder(
+            epoch,
+            state.clone(),
+            p0.clone(),
+            ForceModelConfig::two_body_gravity(),
+            EKFConfig::default(),
+        )
+        .propagation_config(NumericalPropagationConfig::default())
+        .params(params.clone())
+        .additional_dynamics(zero_dynamics())
+        .control_input(zero_dynamics())
+        .measurement_models(vec![Box::new(InertialPositionMeasurementModel::new(10.0))])
+        .build()
+        .unwrap();
+
+        let mut flat = ExtendedKalmanFilter::new(
+            epoch,
+            state.clone(),
+            p0,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            Some(params),
+            Some(zero_dynamics()),
+            Some(zero_dynamics()),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            EKFConfig::default(),
+        )
+        .unwrap();
+
+        // Process one observation so the zero additional-dynamics and control
+        // closures are exercised during propagation.
+        let obs = Observation::new(epoch + 60.0, state.rows(0, 3).into_owned(), 0);
+        built.process_observation(&obs).unwrap();
+        flat.process_observation(&obs).unwrap();
+
+        assert_eq!(built.current_state(), flat.current_state());
+        assert_eq!(built.current_covariance(), flat.current_covariance());
+    }
+
+    #[test]
+    #[serial]
     fn test_ekf_builder_measurement_model_accumulates() {
         // Calling measurement_model() twice should register two models; an
         // observation targeting model_index 1 should be accepted rather than

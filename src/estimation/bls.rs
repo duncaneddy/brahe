@@ -2455,6 +2455,61 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_bls_builder_optionals() {
+        // Every optional setter: propagation_config, params, additional
+        // dynamics, control input, and wholesale measurement_models.
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = default_p0();
+        let params = DVector::from_vec(vec![500.0, 2.0, 2.2, 2.0, 1.3]);
+
+        let zero_dynamics = || {
+            Box::new(|_t: f64, state: &DVector<f64>, _p: Option<&DVector<f64>>| {
+                DVector::zeros(state.len())
+            })
+        };
+
+        let mut built = BatchLeastSquares::builder(
+            epoch,
+            state.clone(),
+            p0.clone(),
+            ForceModelConfig::two_body_gravity(),
+            BLSConfig::default(),
+        )
+        .propagation_config(NumericalPropagationConfig::default())
+        .params(params.clone())
+        .additional_dynamics(zero_dynamics())
+        .control_input(zero_dynamics())
+        .measurement_models(vec![Box::new(InertialPositionMeasurementModel::new(10.0))])
+        .build()
+        .unwrap();
+
+        let mut flat = BatchLeastSquares::new(
+            epoch,
+            state.clone(),
+            p0,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            Some(params),
+            Some(zero_dynamics()),
+            Some(zero_dynamics()),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            BLSConfig::default(),
+        )
+        .unwrap();
+
+        // Solve so the zero additional-dynamics and control closures are
+        // exercised during propagation.
+        let observations = generate_position_observations(epoch, &state, 3, 60.0);
+        built.solve(&observations).unwrap();
+        flat.solve(&observations).unwrap();
+
+        assert_eq!(built.current_state(), flat.current_state());
+        assert_eq!(built.current_covariance(), flat.current_covariance());
+    }
+
+    #[test]
+    #[serial]
     fn test_bls_builder_measurement_model_accumulates() {
         // Calling measurement_model() twice should register two models; an
         // observation targeting model_index 1 should be accepted rather than

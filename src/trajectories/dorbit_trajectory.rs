@@ -3402,6 +3402,36 @@ mod tests {
     }
 
     #[test]
+    fn test_dorbittrajectory_add_state_inserts_dimension_sized_placeholders() {
+        // With covariance/STM/sensitivity storage enabled on an extended-state
+        // trajectory, add() must insert placeholders sized to the trajectory
+        // dimension, not a hard-coded 6.
+        let mut traj =
+            DOrbitTrajectory::new(7, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.covariances = Some(Vec::new());
+        STMStorage::enable_stm_storage(&mut traj);
+        SensitivityStorage::enable_sensitivity_storage(&mut traj, 3);
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0, 1000.0]);
+
+        traj.add(epoch, state.clone());
+        // Out-of-order add exercises the epoch-ordered insert path
+        traj.add(epoch - 60.0, state);
+
+        assert_eq!(traj.len(), 2);
+        assert_eq!(STMStorage::stm_dimensions(&traj), (7, 7));
+        for idx in 0..2 {
+            let cov = &traj.covariances.as_ref().unwrap()[idx];
+            assert_eq!((cov.nrows(), cov.ncols()), (7, 7));
+            let stm = STMStorage::stm_at_idx(&traj, idx).unwrap();
+            assert_eq!((stm.nrows(), stm.ncols()), (7, 7));
+            let sens = SensitivityStorage::sensitivity_at_idx(&traj, idx).unwrap();
+            assert_eq!((sens.nrows(), sens.ncols()), (7, 3));
+        }
+    }
+
+    #[test]
     fn test_dorbittrajectory_display() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
         let display = format!("{}", traj);

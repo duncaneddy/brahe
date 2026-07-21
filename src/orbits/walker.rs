@@ -1478,6 +1478,77 @@ mod tests {
     }
 
     #[test]
+    fn test_walkerconstellationgenerator_builder_all_setters() {
+        let epoch = test_epoch();
+
+        // No base_name: exercises the default-naming branch of build()
+        let from_builder =
+            WalkerConstellationGenerator::builder(8, 4, 1, R_EARTH + 780e3, 98.0, epoch)
+                .eccentricity(0.001)
+                .argument_of_perigee(15.0)
+                .reference_raan(30.0)
+                .reference_mean_anomaly(45.0)
+                .angle_format(AngleFormat::Degrees)
+                .pattern(WalkerPattern::Star)
+                .build()
+                .unwrap();
+
+        let from_new = WalkerConstellationGenerator::new(
+            8,
+            4,
+            1,
+            R_EARTH + 780e3,
+            0.001,
+            98.0,
+            15.0,
+            30.0,
+            45.0,
+            epoch,
+            AngleFormat::Degrees,
+            WalkerPattern::Star,
+        );
+
+        assert_eq!(from_builder.total_satellites, from_new.total_satellites);
+        assert_eq!(
+            from_builder.satellite_name(0, 0),
+            from_new.satellite_name(0, 0)
+        );
+        for plane in 0..from_builder.num_planes {
+            for sat in 0..from_builder.satellites_per_plane() {
+                assert_eq!(
+                    from_builder.satellite_elements(plane, sat),
+                    from_new.satellite_elements(plane, sat)
+                );
+            }
+        }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_walker_as_numerical_propagators() {
+        crate::utils::testing::setup_global_test_eop();
+        let epoch = test_epoch();
+
+        let walker = WalkerConstellationGenerator::builder(4, 2, 0, R_EARTH + 780e3, 98.0, epoch)
+            .build()
+            .unwrap();
+
+        let params = DVector::from_vec(vec![500.0, 2.0, 2.2, 2.0, 1.3]);
+        let props = walker
+            .as_numerical_propagators(
+                crate::propagators::NumericalPropagationConfig::default(),
+                crate::propagators::ForceModelConfig::earth_gravity(),
+                Some(params),
+            )
+            .unwrap();
+
+        assert_eq!(props.len(), 4);
+        for prop in &props {
+            assert_eq!(crate::traits::DStatePropagator::state_dim(prop), 6);
+        }
+    }
+
+    #[test]
     fn test_walkerconstellationgenerator_builder_invalid() {
         let epoch = test_epoch();
 

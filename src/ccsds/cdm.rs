@@ -1514,6 +1514,85 @@ mod tests {
         assert!(err.contains("ref_frame"));
     }
 
+    #[test]
+    fn test_cdmobjectmetadata_builder_missing_all_fields() {
+        // An untouched builder must report every required field, including
+        // `object` itself.
+        let err = CDMObjectMetadata::builder()
+            .build()
+            .unwrap_err()
+            .to_string();
+        for field in [
+            "object",
+            "object_designator",
+            "catalog_name",
+            "object_name",
+            "international_designator",
+            "ephemeris_name",
+            "covariance_method",
+            "maneuverable",
+            "ref_frame",
+        ] {
+            assert!(
+                err.contains(field),
+                "missing field {} not named: {}",
+                field,
+                err
+            );
+        }
+    }
+
+    #[test]
+    fn test_cdmobjectmetadata_builder_all_optional_setters() {
+        let metadata = required_metadata_builder()
+            .ephemeris_name("NONE")
+            .object_type("PAYLOAD")
+            .ops_status("OPERATIONAL")
+            .operator_contact_position("CONJUNCTION ASSESSMENT LEAD")
+            .operator_organization("EXAMPLE ORG")
+            .operator_phone("+1-555-0100")
+            .operator_email("ops@example.org")
+            .adm_msg_link("ADM_MSG_35132.txt")
+            .obs_before_next_message("YES")
+            .covariance_source("EXAMPLE SOURCE")
+            .orbit_center("EARTH")
+            .gravity_model("EGM-96: 36D 36O")
+            .atmospheric_model("JACCHIA 70 DCA")
+            .n_body_perturbations("MOON, SUN")
+            .solar_rad_pressure("NO")
+            .earth_tides("NO")
+            .intrack_thrust("NO")
+            .build()
+            .unwrap();
+
+        assert_eq!(metadata.ops_status.as_deref(), Some("OPERATIONAL"));
+        assert_eq!(
+            metadata.operator_contact_position.as_deref(),
+            Some("CONJUNCTION ASSESSMENT LEAD")
+        );
+        assert_eq!(
+            metadata.operator_organization.as_deref(),
+            Some("EXAMPLE ORG")
+        );
+        assert_eq!(metadata.operator_phone.as_deref(), Some("+1-555-0100"));
+        assert_eq!(metadata.operator_email.as_deref(), Some("ops@example.org"));
+        assert_eq!(metadata.adm_msg_link.as_deref(), Some("ADM_MSG_35132.txt"));
+        assert_eq!(metadata.obs_before_next_message.as_deref(), Some("YES"));
+        assert_eq!(
+            metadata.covariance_source.as_deref(),
+            Some("EXAMPLE SOURCE")
+        );
+        assert_eq!(metadata.orbit_center.as_deref(), Some("EARTH"));
+        assert_eq!(
+            metadata.atmospheric_model.as_deref(),
+            Some("JACCHIA 70 DCA")
+        );
+        assert_eq!(metadata.n_body_perturbations.as_deref(), Some("MOON, SUN"));
+        assert_eq!(metadata.solar_rad_pressure.as_deref(), Some("NO"));
+        assert_eq!(metadata.earth_tides.as_deref(), Some("NO"));
+        assert_eq!(metadata.intrack_thrust.as_deref(), Some("NO"));
+    }
+
     /// Base builder covering all mandatory fields, used by the conditional-field
     /// tests below.
     fn required_metadata_builder() -> CDMObjectMetadataBuilder {

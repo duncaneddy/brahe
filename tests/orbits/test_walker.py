@@ -478,6 +478,48 @@ class TestWalkerConstellationGeneratorBuilder:
         assert props_builder[0].get_name() == props_constructor[0].get_name()
         assert props_builder[3].get_name() == props_constructor[3].get_name()
 
+    def test_builder_all_setters(self, epoch):
+        """Every optional setter, without base_name (default naming path)."""
+        via_builder = (
+            bh.WalkerConstellationGenerator.builder(8, 4, 1, 7000e3, 98.0, epoch)
+            .eccentricity(0.001)
+            .argument_of_perigee(15.0)
+            .reference_raan(30.0)
+            .reference_mean_anomaly(45.0)
+            .angle_format(AngleFormat.DEGREES)
+            .pattern(WalkerPattern.STAR)
+            .build()
+        )
+
+        via_constructor = bh.WalkerConstellationGenerator(
+            t=8,
+            p=4,
+            f=1,
+            semi_major_axis=7000e3,
+            eccentricity=0.001,
+            inclination=98.0,
+            argument_of_perigee=15.0,
+            reference_raan=30.0,
+            reference_mean_anomaly=45.0,
+            epoch=epoch,
+            angle_format=AngleFormat.DEGREES,
+            pattern=WalkerPattern.STAR,
+        )
+
+        assert via_builder.total_satellites == via_constructor.total_satellites
+        assert via_builder.pattern == via_constructor.pattern
+        for plane in range(via_builder.num_planes):
+            for sat in range(via_builder.total_satellites // via_builder.num_planes):
+                assert list(
+                    via_builder.satellite_elements(plane, sat, AngleFormat.DEGREES)
+                ) == pytest.approx(
+                    list(
+                        via_constructor.satellite_elements(
+                            plane, sat, AngleFormat.DEGREES
+                        )
+                    )
+                )
+
     def test_builder_unchained_setter(self, epoch):
         """Calling a setter without reassigning its return value must not
         orphan the original builder variable -- build() on the original

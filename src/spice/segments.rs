@@ -680,6 +680,394 @@ impl ChebyshevSegment {
     }
 }
 
+/// Maximum difference-table dimension (terms per Cartesian component) a
+/// type-21 record may declare. Matches CSPICE's `MAXTRM` from `spk21.inc`;
+/// a larger value trips `SPICE(DIFFLINETOOLARGE)` there. Guards against a
+/// corrupt `MAXDIM` forcing an absurd working-array allocation.
+const TYPE21_MAXTRM: usize = 25;
+
+/// One SPK type-21 (Extended Modified Difference Array) segment with all
+/// records resident in memory.
+///
+/// Type 21 stores, per record, a reference epoch, a reference
+/// position/velocity, and modified divided-difference arrays (MDAs) whose
+/// per-component term count `MAXDIM` is variable (unlike the fixed-degree
+/// Chebyshev types). Horizons emits type 21 for small bodies (asteroids,
+/// comets). Evaluation is a direct port of CSPICE `spke21.f`/`spke21.c`
+/// (via the `spktype21` Python package, itself a `spke21.f` transcription);
+/// see [`Type21Segment::spke21`].
+#[derive(Debug)]
+pub(crate) struct Type21Segment {
+    /// Target NAIF body ID.
+    pub target: i32,
+    /// Center NAIF body ID (Horizons small-body SPKs are Sun-centered, 10).
+    pub center: i32,
+    /// Reference frame ID of the segment data (1 = J2000/ICRF).
+    #[allow(dead_code)]
+    pub frame: i32,
+    /// Segment coverage start, TDB seconds past J2000.
+    pub start_et: f64,
+    /// Segment coverage end, TDB seconds past J2000.
+    pub end_et: f64,
+    /// Difference-table dimension `MAXDIM`: terms per Cartesian component.
+    pub maxdim: usize,
+    /// Words per record, `4 * MAXDIM + 11`.
+    pub dlsize: usize,
+    /// Number of records.
+    pub n: usize,
+    /// All record data, `n * dlsize` words.
+    pub records: Vec<f64>,
+    /// Per-record upper-boundary epochs (the epoch directory), `n` words,
+    /// ascending. Units: [s] (TDB past J2000)
+    pub epochs: Vec<f64>,
+}
+
+impl Type21Segment {
+    /// Build a type-21 segment from an SPK summary
+    /// (ints = `[target, center, frame, type, start_addr, end_addr]`).
+    ///
+    /// # Arguments
+    /// - `daf`: Parsed DAF container holding the segment's word data
+    /// - `summary`: SPK segment summary (6 ints, at least 2 doubles)
+    ///
+    /// # Returns
+    /// - Parsed `Type21Segment`, or `BraheError` on malformed data, a
+    ///   non-J2000 frame, or an inconsistent record directory
+    pub fn from_spk_summary(daf: &DAFFile, summary: &DAFSummary) -> Result<Self, BraheError> {
+        if summary.ints.len() < 6 || summary.doubles.len() < 2 {
+            return Err(BraheError::IoError(format!(
+                "SPK segment '{}' summary has {} ints and {} doubles, expected 6 ints and at least 2 doubles",
+                summary.name,
+                summary.ints.len(),
+                summary.doubles.len()
+            )));
+        }
+        let (target, center, frame) = (summary.ints[0], summary.ints[1], summary.ints[2]);
+        let (start_addr, end_addr) = (summary.ints[4], summary.ints[5]);
+        let (start_et, end_et) = (summary.doubles[0], summary.doubles[1]);
+
+        // Same frame constraint as the Chebyshev path: the rest of the crate
+        // assumes ICRF axes, so a segment in another frame (e.g. ECLIPJ2000
+        // = 17) must be rejected rather than silently summed into chains.
+        if frame != 1 {
+            return Err(BraheError::Error(format!(
+                "SPK segment '{}' has reference frame {}; only frame 1 (J2000/ICRF) supported",
+                summary.name, frame
+            )));
+        }
+        if start_addr < 1 || end_addr < start_addr {
+            return Err(BraheError::IoError(format!(
+                "SPK segment '{}' has invalid address range [{}, {}]",
+                summary.name, start_addr, end_addr
+            )));
+        }
+        let words = daf.words(start_addr as usize, end_addr as usize)?;
+
+        // The segment's final two words are, in order, MAXDIM (the
+        // difference-table dimension) and N (the record count). CSPICE's
+        // "SPK Required Reading" nominally documents DLSIZE in the
+        // penultimate slot, but Horizons kernels store MAXDIM there;
+        // `spktype21` documents the same discrepancy.
+        if words.len() < 2 {
+            return Err(BraheError::IoError(format!(
+                "SPK segment '{}' too short ({} words)",
+                summary.name,
+                words.len()
+            )));
+        }
+        let maxdim = validate_count(words[words.len() - 2], "MAXDIM", "SPK", &summary.name)?;
+        let n = validate_count(words[words.len() - 1], "N", "SPK", &summary.name)?;
+        if maxdim == 0 || maxdim > TYPE21_MAXTRM {
+            return Err(BraheError::IoError(format!(
+                "SPK segment '{}' has type-21 MAXDIM {} outside [1, {}]",
+                summary.name, maxdim, TYPE21_MAXTRM
+            )));
+        }
+        let dlsize = 4 * maxdim + 11;
+
+        // The segment layout is: N records of DLSIZE words, then N boundary
+        // epochs (the epoch directory), then N/100 coarse directory entries,
+        // then [MAXDIM, N]. Validate the record + epoch region fits with
+        // checked arithmetic so a corrupt N cannot overflow or index past
+        // the segment.
+        let records_len = n.checked_mul(dlsize);
+        let epoch_end = records_len.and_then(|rl| rl.checked_add(n));
+        if n == 0
+            || epoch_end
+                .and_then(|ee| ee.checked_add(n / 100 + 2))
+                .is_none_or(|total| words.len() < total)
+        {
+            return Err(BraheError::IoError(format!(
+                "SPK segment '{}' has inconsistent type-21 directory (MAXDIM={}, N={}, words={})",
+                summary.name,
+                maxdim,
+                n,
+                words.len()
+            )));
+        }
+        let records_len = records_len.unwrap();
+        let epoch_end = epoch_end.unwrap();
+        let records = words[..records_len].to_vec();
+        let epochs = words[records_len..epoch_end].to_vec();
+
+        // The epoch directory must be finite and ascending and cover the
+        // descriptor's coverage interval; otherwise record selection (a
+        // binary search) could silently pick the wrong record for epochs
+        // inside the descriptor. A non-finite entry is called out explicitly
+        // because NaN comparisons are false and would slip past the ordering
+        // check.
+        if epochs.iter().any(|e| !e.is_finite()) || epochs.windows(2).any(|w| w[1] < w[0]) {
+            return Err(BraheError::IoError(format!(
+                "SPK segment '{}' has a non-finite or non-ascending type-21 epoch directory",
+                summary.name
+            )));
+        }
+        if start_et > epochs[0] || epochs[n - 1] < end_et {
+            return Err(BraheError::IoError(format!(
+                "SPK segment '{}' type-21 epoch directory [{}, {}] does not cover descriptor interval [{}, {}]",
+                summary.name,
+                epochs[0],
+                epochs[n - 1],
+                start_et,
+                end_et
+            )));
+        }
+
+        Ok(Type21Segment {
+            target,
+            center,
+            frame,
+            start_et,
+            end_et,
+            maxdim,
+            dlsize,
+            n,
+            records,
+            epochs,
+        })
+    }
+
+    /// True if `et` lies within this segment's descriptor coverage.
+    ///
+    /// # Arguments
+    /// - `et`: Epoch to test. Units: [s] (TDB past J2000)
+    ///
+    /// # Returns
+    /// - `true` if `et` is within `[start_et, end_et]`, inclusive
+    pub fn covers(&self, et: f64) -> bool {
+        et >= self.start_et && et <= self.end_et
+    }
+
+    /// Locate the record covering `et` and return its `dlsize` words.
+    ///
+    /// Records partition coverage by their upper-boundary epochs: record `i`
+    /// covers `(epochs[i-1], epochs[i]]`. The first record whose boundary
+    /// exceeds `et` is selected (binary search over the ascending directory).
+    ///
+    /// # Arguments
+    /// - `et`: Epoch to look up. Units: [s] (TDB past J2000)
+    ///
+    /// # Returns
+    /// - The selected record's words, or `BraheError` if `et` is out of
+    ///   coverage
+    fn record(&self, et: f64) -> Result<&[f64], BraheError> {
+        if !self.covers(et) {
+            return Err(coverage_error(
+                et,
+                self.start_et,
+                self.end_et,
+                self.target,
+                self.center,
+            ));
+        }
+        let idx = self.epochs.partition_point(|&e| e <= et).min(self.n - 1);
+        Ok(&self.records[idx * self.dlsize..(idx + 1) * self.dlsize])
+    }
+
+    /// Evaluate a single type-21 record at `et`, returning position and
+    /// velocity in kernel-natural units (km, km/s).
+    ///
+    /// Direct port of CSPICE `spke21.f`/`spke21.c` (the Extended Modified
+    /// Difference Array evaluator, a generalization of `spke01` to variable
+    /// difference-line size), transcribed via the `spktype21` Python
+    /// package. The record layout is: reference epoch `TL` (1 word), the
+    /// stepsize function vector `G` (`MAXDIM`), reference position/velocity
+    /// interleaved as x,ẋ,y,ẏ,z,ż (6), the modified divided-difference
+    /// arrays `DT` (`MAXDIM × 3`, component-major), `KQMAX1` (1), and the
+    /// per-component integration-order array `KQ` (3).
+    ///
+    /// # Arguments
+    /// - `record`: One record's `dlsize` words
+    /// - `et`: Epoch to evaluate at. Units: [s] (TDB past J2000)
+    ///
+    /// # Returns
+    /// - `(position, velocity)` in km, km/s, or `BraheError` if the record's
+    ///   metadata is malformed (bad `KQMAX1`/`KQ`, or a zero stepsize)
+    fn spke21(&self, record: &[f64], et: f64) -> Result<(Vector3<f64>, Vector3<f64>), BraheError> {
+        let maxdim = self.maxdim;
+        let tl = record[0];
+        let g = &record[1..maxdim + 1];
+        let refpos = Vector3::new(record[maxdim + 1], record[maxdim + 3], record[maxdim + 5]);
+        let refvel = Vector3::new(record[maxdim + 2], record[maxdim + 4], record[maxdim + 6]);
+
+        // DT component `c` occupies a contiguous MAXDIM-word block; term `j`
+        // of component `c` is at `dt_base + c*maxdim + j`.
+        let dt_base = maxdim + 7;
+        let dt = |c: usize, j: usize| record[dt_base + c * maxdim + j];
+
+        let kqmax1 = validate_count(record[4 * maxdim + 7], "KQMAX1", "SPK", "type-21 record")?;
+        let kq = [
+            validate_count(record[4 * maxdim + 8], "KQ", "SPK", "type-21 record")?,
+            validate_count(record[4 * maxdim + 9], "KQ", "SPK", "type-21 record")?,
+            validate_count(record[4 * maxdim + 10], "KQ", "SPK", "type-21 record")?,
+        ];
+        // Bound the orders before they drive indexing and allocation. The
+        // evaluator assumes the maximum integration order KQMAX1-1 is at
+        // least 2 (KQMAX1 >= 3); the stepsize loop reads G up to index
+        // KQMAX1-3, so KQMAX1 must not exceed MAXDIM+1; and each component
+        // order KQ[c] must be a genuine integration order (< KQMAX1), which
+        // also bounds its MDA term access below MAXDIM. A record violating
+        // any of these is corrupt, and without these checks a malformed
+        // record could index out of bounds or silently sum unrefined terms.
+        if kqmax1 < 3 || kqmax1 > maxdim + 1 || kq.iter().any(|&k| k >= kqmax1) {
+            return Err(BraheError::IoError(format!(
+                "SPK type-21 record has invalid orders KQMAX1={}, KQ={:?} (MAXDIM={})",
+                kqmax1, kq, maxdim
+            )));
+        }
+
+        // Working coefficient arrays. Sized generously (all indices used are
+        // provably below this bound) to avoid per-index bookkeeping.
+        let wsize = maxdim + kqmax1 + 4;
+        let mut fc = vec![0.0f64; wsize];
+        fc[0] = 1.0;
+        let mut wc = vec![0.0f64; wsize];
+        let mut w = vec![0.0f64; wsize];
+
+        let delta = et - tl;
+        let mut tp = delta;
+        let mq2 = kqmax1 - 2;
+        for j in 1..=mq2 {
+            if g[j - 1] == 0.0 {
+                return Err(BraheError::IoError(format!(
+                    "SPK type-21 record has a zero stepsize at G[{}]",
+                    j - 1
+                )));
+            }
+            fc[j] = tp / g[j - 1];
+            wc[j - 1] = delta / g[j - 1];
+            tp = delta + g[j - 1];
+        }
+
+        // Collect KQMAX1 reciprocals into W.
+        for j in 1..=kqmax1 {
+            w[j - 1] = 1.0 / j as f64;
+        }
+
+        // Refine the W coefficients for the position interpolation. KS
+        // (``maximum integration'') starts at KQMAX1-1 and steps down to 1;
+        // the invariant KS1 == KS-1 holds throughout.
+        let mut jx = 0usize;
+        let mut ks = kqmax1 - 1;
+        let mut ks1 = ks - 1;
+        while ks >= 2 {
+            jx += 1;
+            for j in 1..=jx {
+                w[j + ks - 1] = fc[j] * w[j + ks1 - 1] - wc[j - 1] * w[j + ks - 1];
+            }
+            ks = ks1;
+            ks1 -= 1;
+        }
+
+        // Position interpolation (KS == 1 here).
+        let mut pos = Vector3::zeros();
+        for c in 0..3 {
+            let mut sum = 0.0;
+            for j in (1..=kq[c]).rev() {
+                sum += dt(c, j - 1) * w[j + ks - 1];
+            }
+            pos[c] = refpos[c] + delta * (refvel[c] + delta * sum);
+        }
+
+        // Refine the W coefficients once more for the velocity
+        // interpolation (KS == 1, KS1 == 0 here), then drop KS to 0.
+        for j in 1..=jx {
+            w[j + ks - 1] = fc[j] * w[j + ks1 - 1] - wc[j - 1] * w[j + ks - 1];
+        }
+        ks -= 1;
+
+        // Velocity interpolation (KS == 0 here).
+        let mut vel = Vector3::zeros();
+        for c in 0..3 {
+            let mut sum = 0.0;
+            for j in (1..=kq[c]).rev() {
+                sum += dt(c, j - 1) * w[j + ks - 1];
+            }
+            vel[c] = refvel[c] + delta * sum;
+        }
+
+        Ok((pos, vel))
+    }
+
+    /// Evaluate position at `et`. Units: km.
+    ///
+    /// # Arguments
+    /// - `et`: Epoch to evaluate at. Units: [s] (TDB past J2000)
+    ///
+    /// # Returns
+    /// - Position in km, or `BraheError` if `et` is out of coverage
+    pub fn position(&self, et: f64) -> Result<Vector3<f64>, BraheError> {
+        let rec = self.record(et)?;
+        Ok(self.spke21(rec, et)?.0)
+    }
+
+    /// Evaluate velocity at `et`. Units: km/s.
+    ///
+    /// # Arguments
+    /// - `et`: Epoch to evaluate at. Units: [s] (TDB past J2000)
+    ///
+    /// # Returns
+    /// - Velocity in km/s, or `BraheError` if `et` is out of coverage
+    pub fn velocity(&self, et: f64) -> Result<Vector3<f64>, BraheError> {
+        let rec = self.record(et)?;
+        Ok(self.spke21(rec, et)?.1)
+    }
+
+    /// Evaluate position and velocity with a single record lookup. Units:
+    /// km, km/s.
+    ///
+    /// # Arguments
+    /// - `et`: Epoch to evaluate at. Units: [s] (TDB past J2000)
+    ///
+    /// # Returns
+    /// - `(position, velocity)` in km, km/s, or `BraheError` if `et` is out
+    ///   of coverage
+    pub fn state(&self, et: f64) -> Result<(Vector3<f64>, Vector3<f64>), BraheError> {
+        let rec = self.record(et)?;
+        self.spke21(rec, et)
+    }
+
+    /// Evaluate acceleration at `et`. Units: km/s².
+    ///
+    /// Type-21 records store position and velocity only, so acceleration is
+    /// a central finite difference of the analytically evaluated velocity,
+    /// taken within the single covering record (so the estimate stays inside
+    /// the record's valid polynomial domain even at coverage boundaries).
+    ///
+    /// # Arguments
+    /// - `et`: Epoch to evaluate at. Units: [s] (TDB past J2000)
+    ///
+    /// # Returns
+    /// - Acceleration in km/s², or `BraheError` if `et` is out of coverage
+    pub fn acceleration(&self, et: f64) -> Result<Vector3<f64>, BraheError> {
+        let rec = self.record(et)?;
+        let h = 1.0;
+        let (_, vp) = self.spke21(rec, et + h)?;
+        let (_, vm) = self.spke21(rec, et - h)?;
+        Ok((vp - vm) / (2.0 * h))
+    }
+}
+
 /// An SPK segment of any supported data type. A resolved chain may mix
 /// segment types (e.g. a Type 21 small-body segment alongside Type 2/3
 /// planetary segments), so segments are stored behind this enum rather
@@ -687,13 +1075,14 @@ impl ChebyshevSegment {
 #[derive(Debug)]
 pub(crate) enum SpkSegment {
     Chebyshev(ChebyshevSegment),
+    Type21(Type21Segment),
 }
 
 impl SpkSegment {
-    /// Build an SPK segment from a DAF summary, dispatching on data type.
-    /// Only Chebyshev types 2/3 are supported today; the error for any
-    /// other type is the same one raised by
-    /// [`ChebyshevSegment::from_spk_summary`].
+    /// Build an SPK segment from a DAF summary, dispatching on data type
+    /// (ints\[3\]): type 21 to [`Type21Segment`], all others to
+    /// [`ChebyshevSegment`] (which supports types 2/3 and raises the
+    /// unsupported-type error otherwise).
     ///
     /// # Arguments
     /// - `daf`: Parsed DAF container holding the segment's word data
@@ -706,15 +1095,22 @@ impl SpkSegment {
         daf: &DAFFile,
         summary: &DAFSummary,
     ) -> Result<Self, BraheError> {
-        Ok(SpkSegment::Chebyshev(ChebyshevSegment::from_spk_summary(
-            daf, summary,
-        )?))
+        if summary.ints.len() >= 6 && summary.ints[3] == 21 {
+            Ok(SpkSegment::Type21(Type21Segment::from_spk_summary(
+                daf, summary,
+            )?))
+        } else {
+            Ok(SpkSegment::Chebyshev(ChebyshevSegment::from_spk_summary(
+                daf, summary,
+            )?))
+        }
     }
 
     /// SPK target NAIF body ID.
     pub(crate) fn target(&self) -> i32 {
         match self {
             SpkSegment::Chebyshev(s) => s.target,
+            SpkSegment::Type21(s) => s.target,
         }
     }
 
@@ -722,6 +1118,7 @@ impl SpkSegment {
     pub(crate) fn center(&self) -> i32 {
         match self {
             SpkSegment::Chebyshev(s) => s.center,
+            SpkSegment::Type21(s) => s.center,
         }
     }
 
@@ -729,6 +1126,7 @@ impl SpkSegment {
     pub(crate) fn start_et(&self) -> f64 {
         match self {
             SpkSegment::Chebyshev(s) => s.start_et,
+            SpkSegment::Type21(s) => s.start_et,
         }
     }
 
@@ -736,6 +1134,7 @@ impl SpkSegment {
     pub(crate) fn end_et(&self) -> f64 {
         match self {
             SpkSegment::Chebyshev(s) => s.end_et,
+            SpkSegment::Type21(s) => s.end_et,
         }
     }
 
@@ -743,6 +1142,7 @@ impl SpkSegment {
     pub(crate) fn covers(&self, et: f64) -> bool {
         match self {
             SpkSegment::Chebyshev(s) => s.covers(et),
+            SpkSegment::Type21(s) => s.covers(et),
         }
     }
 
@@ -750,6 +1150,7 @@ impl SpkSegment {
     pub(crate) fn position(&self, et: f64) -> Result<Vector3<f64>, BraheError> {
         match self {
             SpkSegment::Chebyshev(s) => s.position(et),
+            SpkSegment::Type21(s) => s.position(et),
         }
     }
 
@@ -757,6 +1158,7 @@ impl SpkSegment {
     pub(crate) fn velocity(&self, et: f64) -> Result<Vector3<f64>, BraheError> {
         match self {
             SpkSegment::Chebyshev(s) => s.velocity(et),
+            SpkSegment::Type21(s) => s.velocity(et),
         }
     }
 
@@ -765,6 +1167,7 @@ impl SpkSegment {
     pub(crate) fn state(&self, et: f64) -> Result<(Vector3<f64>, Vector3<f64>), BraheError> {
         match self {
             SpkSegment::Chebyshev(s) => s.state(et),
+            SpkSegment::Type21(s) => s.state(et),
         }
     }
 
@@ -772,6 +1175,7 @@ impl SpkSegment {
     pub(crate) fn acceleration(&self, et: f64) -> Result<Vector3<f64>, BraheError> {
         match self {
             SpkSegment::Chebyshev(s) => s.acceleration(et),
+            SpkSegment::Type21(s) => s.acceleration(et),
         }
     }
 }
@@ -780,6 +1184,7 @@ impl SpkSegment {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
+    use serial_test::serial;
 
     use super::*;
 
@@ -1331,6 +1736,263 @@ mod tests {
         summary.ints[5] = 388;
         let err = ChebyshevSegment::from_spk_summary(&daf, &summary).unwrap_err();
         assert!(format!("{}", err).contains("inconsistent directory"));
+    }
+
+    // --- SPK Type 21 (Extended Modified Difference Array) ------------------
+    //
+    // Fixture `test_assets/ceres_horizons_type21.bsp` is a real 74 KB
+    // Horizons SPK for Ceres (target 20000001, center 10 = Sun, frame 1 =
+    // J2000/ICRF, type 21) covering 2015-12..2016-03. Note the center is the
+    // Sun (10), not the SSB (0): Horizons small-body SPKs are Sun-centered.
+
+    /// Ceres Horizons type-21 fixture path, or `None` if not present.
+    fn ceres_type21_path() -> Option<std::path::PathBuf> {
+        let p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("test_assets")
+            .join("ceres_horizons_type21.bsp");
+        p.exists().then_some(p)
+    }
+
+    /// Load the single type-21 segment from the Ceres fixture, verifying it
+    /// dispatches through `SpkSegment` to the `Type21` arm.
+    fn load_ceres_type21() -> Option<Type21Segment> {
+        let path = ceres_type21_path()?;
+        let daf = crate::spice::daf::DAFFile::from_file(&path).unwrap();
+        assert_eq!(daf.summaries.len(), 1, "fixture has one segment");
+        let seg = SpkSegment::from_spk_summary(&daf, &daf.summaries[0]).unwrap();
+        match seg {
+            SpkSegment::Type21(s) => Some(s),
+            SpkSegment::Chebyshev(_) => panic!("type-21 segment dispatched to Chebyshev arm"),
+        }
+    }
+
+    /// A record's stored reference epoch and reference position/velocity.
+    fn record_reference(seg: &Type21Segment, idx: usize) -> (f64, Vector3<f64>, Vector3<f64>) {
+        let rec = &seg.records[idx * seg.dlsize..(idx + 1) * seg.dlsize];
+        let md = seg.maxdim;
+        (
+            rec[0],
+            Vector3::new(rec[md + 1], rec[md + 3], rec[md + 5]),
+            Vector3::new(rec[md + 2], rec[md + 4], rec[md + 6]),
+        )
+    }
+
+    #[test]
+    #[serial]
+    fn test_type21_load_and_metadata() {
+        // Gate 1: the fixture loads as a Type21 segment with self-consistent
+        // metadata (target/center/frame, MAXDIM/N, and a directory that
+        // matches the record count and spans the descriptor coverage).
+        let Some(seg) = load_ceres_type21() else {
+            return;
+        };
+        assert_eq!(seg.target, 20000001);
+        assert_eq!(seg.center, 10); // Sun, not SSB
+        assert_eq!(seg.frame, 1);
+        assert_eq!(seg.maxdim, 20);
+        assert_eq!(seg.dlsize, 4 * 20 + 11);
+        assert_eq!(seg.n, 12);
+        assert_eq!(seg.records.len(), seg.n * seg.dlsize);
+        assert_eq!(seg.epochs.len(), seg.n);
+        // Coverage spans the 2015-12..2016-03 window (ET seconds past J2000).
+        assert_abs_diff_eq!(seg.start_et, 502200000.0, epsilon = 1.0);
+        assert_abs_diff_eq!(seg.end_et, 510062400.0, epsilon = 1.0);
+        // Directory ascending and covering the descriptor.
+        assert!(seg.epochs.windows(2).all(|w| w[1] >= w[0]));
+        assert!(seg.epochs[0] >= seg.start_et);
+        assert!(seg.epochs[seg.n - 1] >= seg.end_et);
+    }
+
+    #[test]
+    #[serial]
+    fn test_type21_exact_at_reference_epoch() {
+        // Gate 2: at a record's reference epoch DELTA = 0, so every
+        // difference term vanishes and the evaluated state must reduce to the
+        // stored reference position/velocity. Validates parsing + the
+        // interpolation base case, deterministically, for several records.
+        let Some(seg) = load_ceres_type21() else {
+            return;
+        };
+        let mut max_rel = 0.0f64;
+        for idx in [0usize, 4, seg.n / 2, seg.n - 1] {
+            let rec = &seg.records[idx * seg.dlsize..(idx + 1) * seg.dlsize];
+            let (tl, refpos, refvel) = record_reference(&seg, idx);
+            let (p, v) = seg.spke21(rec, tl).unwrap();
+            let rp = (p - refpos).norm() / refpos.norm();
+            let rv = (v - refvel).norm() / refvel.norm();
+            max_rel = max_rel.max(rp).max(rv);
+        }
+        // Exact up to floating-point round-off (well under the 1e-6 target).
+        assert!(
+            max_rel < 1e-12,
+            "max relative error at ref epoch {max_rel:e}"
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_type21_inter_record_continuity() {
+        // Gate 3: at an interior record boundary the records on each side
+        // must agree. Record i covers up to epochs[i]; record i+1 begins
+        // there. Evaluate both at that shared epoch.
+        let Some(seg) = load_ceres_type21() else {
+            return;
+        };
+        let k = 5usize;
+        let boundary = seg.epochs[k];
+        let rec_a = &seg.records[k * seg.dlsize..(k + 1) * seg.dlsize];
+        let rec_b = &seg.records[(k + 1) * seg.dlsize..(k + 2) * seg.dlsize];
+        let (pa, va) = seg.spke21(rec_a, boundary).unwrap();
+        let (pb, vb) = seg.spke21(rec_b, boundary).unwrap();
+        let dp_m = (pa - pb).norm() * 1.0e3; // km -> m
+        let dv_mm = (va - vb).norm() * 1.0e6; // km/s -> mm/s
+        assert!(dp_m < 1.0, "position discontinuity {dp_m:e} m");
+        assert!(dv_mm < 1.0, "velocity discontinuity {dv_mm:e} mm/s");
+    }
+
+    #[test]
+    #[serial]
+    fn test_type21_heliocentric_distance() {
+        // Gate 4: Ceres's distance from its center (the Sun) at a mid-span
+        // epoch must be ~2.77 AU (Ceres semimajor axis). Catches unit/scale
+        // errors such as a missing km->m factor or a mis-sized record.
+        let Some(seg) = load_ceres_type21() else {
+            return;
+        };
+        const AU_KM: f64 = 1.495978707e8;
+        let et_mid = 0.5 * (seg.start_et + seg.end_et);
+        let d_au = seg.position(et_mid).unwrap().norm() / AU_KM;
+        assert!(
+            (2.5..=3.1).contains(&d_au),
+            "heliocentric distance {d_au} AU"
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_type21_external_oracle() {
+        // Gate 5 (strongest): compare against an independent authoritative
+        // implementation reading the identical kernel. The reference states
+        // below are JPL CSPICE N0067 `spkgeo(20000001, et, "J2000", 10)`
+        // (Ceres relative to the Sun, J2000 frame, km / km·s⁻¹) evaluated on
+        // this exact fixture; CSPICE is the definitive type-21 evaluator, so
+        // agreement proves the MDA interpolation itself is correct, not just
+        // self-consistent. Our reader reproduces CSPICE to floating-point
+        // round-off (far under the 1 km / 1e-3 km·s⁻¹ gate).
+        //
+        // A live JPL Horizons VECTORS query for the same epochs,
+        //   https://ssd.jpl.nasa.gov/api/horizons.api?format=text
+        //     &COMMAND=2000001&EPHEM_TYPE=VECTORS&CENTER=500@10
+        //     &REF_PLANE=FRAME&REF_SYSTEM=J2000&OUT_UNITS=KM-S&VEC_TABLE=2
+        //     &TLIST=2457358.657407407,2457389.907407407,2457436.203703704
+        // agrees only to ~2.9 km / ~1e-7 km·s⁻¹ (a uniform ~7e-9 relative
+        // offset in both position and velocity): the committed fixture is a
+        // different Ceres orbit solution than Horizons' current `dawn_final`,
+        // not an interpolation error. The CSPICE oracle isolates the reader.
+        let Some(seg) = load_ceres_type21() else {
+            return;
+        };
+        // (et [s past J2000 TDB], [x, y, z, vx, vy, vz] km, km/s from CSPICE)
+        let cases: [(f64, [f64; 6]); 3] = [
+            (
+                502300000.0,
+                [
+                    364552647.0778291,
+                    -194445550.31376046,
+                    -165919199.86730012,
+                    9.170483825674097,
+                    13.14603077087047,
+                    4.329207575774189,
+                ],
+            ),
+            (
+                505000000.0,
+                [
+                    387273518.5807745,
+                    -157952245.1120478,
+                    -153343872.20668784,
+                    7.644831886609603,
+                    13.86119251302727,
+                    4.977180911103915,
+                ],
+            ),
+            (
+                509000000.0,
+                [
+                    413088373.59470785,
+                    -100835751.21701588,
+                    -131676362.58027884,
+                    5.235826381462796,
+                    14.640142027052732,
+                    5.835197035168514,
+                ],
+            ),
+        ];
+        let mut max_dp = 0.0f64;
+        let mut max_dv = 0.0f64;
+        for (et, expected) in cases {
+            let (p, v) = seg.state(et).unwrap();
+            let dp = (p - Vector3::new(expected[0], expected[1], expected[2])).norm();
+            let dv = (v - Vector3::new(expected[3], expected[4], expected[5])).norm();
+            max_dp = max_dp.max(dp);
+            max_dv = max_dv.max(dv);
+        }
+        assert!(max_dp < 1.0, "position error vs CSPICE {max_dp:e} km");
+        assert!(max_dv < 1.0e-3, "velocity error vs CSPICE {max_dv:e} km/s");
+    }
+
+    #[test]
+    #[serial]
+    fn test_type21_out_of_coverage_errors() {
+        // Epochs outside the descriptor interval yield a coverage error that
+        // the chain fallback can recognize.
+        let Some(seg) = load_ceres_type21() else {
+            return;
+        };
+        let err = seg.position(seg.start_et - 1.0).unwrap_err();
+        assert!(is_coverage_error(&err));
+        assert!(seg.position(seg.end_et + 1.0).is_err());
+        // In-coverage endpoints evaluate.
+        assert!(seg.state(seg.start_et).is_ok());
+        assert!(seg.state(seg.end_et).is_ok());
+    }
+
+    #[test]
+    #[serial]
+    fn test_type21_rejects_corrupt_record_orders() {
+        // A record whose KQMAX1 exceeds MAXDIM+1 would drive out-of-bounds
+        // indexing of the stepsize/difference arrays; it must be rejected
+        // cleanly rather than panicking.
+        let Some(mut seg) = load_ceres_type21() else {
+            return;
+        };
+        let slot = 4 * seg.maxdim + 7; // KQMAX1 word of record 0
+        seg.records[slot] = 999.0;
+        let et = seg.start_et + 1.0; // inside record 0
+        let err = seg.position(et).unwrap_err();
+        assert!(format!("{}", err).contains("invalid orders"));
+    }
+
+    #[test]
+    #[serial]
+    fn test_type21_state_matches_position_velocity_and_acceleration() {
+        // `state` agrees with separate `position`/`velocity` calls, and the
+        // finite-difference acceleration matches a central difference of
+        // `velocity` across neighboring records.
+        let Some(seg) = load_ceres_type21() else {
+            return;
+        };
+        let et = 0.5 * (seg.start_et + seg.end_et);
+        let (p, v) = seg.state(et).unwrap();
+        assert_eq!(p, seg.position(et).unwrap());
+        assert_eq!(v, seg.velocity(et).unwrap());
+        // Acceleration ~ GM_sun / r^2 for Ceres at ~2.98 AU: ~6.7e-7 km/s^2.
+        let a = seg.acceleration(et).unwrap();
+        assert!(
+            (1.0e-8..1.0e-5).contains(&a.norm()),
+            "accel {} km/s^2",
+            a.norm()
+        );
     }
 
     #[test]

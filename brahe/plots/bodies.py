@@ -15,7 +15,7 @@ BODY_VISUALS = {
     "saturn": {"radius": bh.R_SATURN, "texture": "saturn", "naif_id": 699},
     "uranus": {"radius": bh.R_URANUS, "texture": "uranus", "naif_id": 799},
     "neptune": {"radius": bh.R_NEPTUNE, "texture": "neptune", "naif_id": 899},
-    "ceres": {"radius": 469.7e3, "texture": "ceres", "naif_id": 2000001},
+    "ceres": {"radius": 469.7e3, "texture": "ceres", "naif_id": 20000001},
 }
 
 BODY_VISUALS_BY_NAIF_ID = {

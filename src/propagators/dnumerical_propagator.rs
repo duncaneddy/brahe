@@ -251,7 +251,7 @@ pub struct DNumericalPropagator {
 /// // Simple harmonic oscillator: dx/dt = v, dv/dt = -ω²x
 /// let omega = 1.0;
 /// let dynamics = Box::new(move |_t: f64, x: &DVector<f64>, _p: Option<&DVector<f64>>| {
-///     DVector::from_vec(vec![x[1], -omega * omega * x[0]])
+///     Ok(DVector::from_vec(vec![x[1], -omega * omega * x[0]]))
 /// });
 ///
 /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -291,7 +291,7 @@ impl DNumericalPropagatorBuilder {
     ///
     /// let omega = 1.0;
     /// let dynamics = Box::new(move |_t: f64, x: &DVector<f64>, _p: Option<&DVector<f64>>| {
-    ///     DVector::from_vec(vec![x[1], -omega * omega * x[0]])
+    ///     Ok(DVector::from_vec(vec![x[1], -omega * omega * x[0]]))
     /// });
     ///
     /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -330,7 +330,7 @@ impl DNumericalPropagatorBuilder {
     /// let dynamics = Box::new(|_t: f64, x: &DVector<f64>, p: Option<&DVector<f64>>| {
     ///     let params = p.unwrap();
     ///     let (omega, zeta) = (params[0], params[1]);
-    ///     DVector::from_vec(vec![x[1], -omega * omega * x[0] - 2.0 * zeta * omega * x[1]])
+    ///     Ok(DVector::from_vec(vec![x[1], -omega * omega * x[0] - 2.0 * zeta * omega * x[1]]))
     /// });
     ///
     /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -363,7 +363,7 @@ impl DNumericalPropagatorBuilder {
     ///
     /// let omega = 1.0;
     /// let dynamics = Box::new(move |_t: f64, x: &DVector<f64>, _p: Option<&DVector<f64>>| {
-    ///     DVector::from_vec(vec![x[1], -omega * omega * x[0]])
+    ///     Ok(DVector::from_vec(vec![x[1], -omega * omega * x[0]]))
     /// });
     ///
     /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -372,7 +372,7 @@ impl DNumericalPropagatorBuilder {
     /// let control = Box::new(|_t: f64, state: &DVector<f64>, _p: Option<&DVector<f64>>| {
     ///     let mut dx = DVector::zeros(state.len());
     ///     dx[1] = 0.01; // small perturbing acceleration
-    ///     dx
+    ///     Ok(dx)
     /// });
     ///
     /// let prop = DNumericalPropagator::builder(epoch, state, dynamics)
@@ -402,7 +402,7 @@ impl DNumericalPropagatorBuilder {
     ///
     /// let omega = 1.0;
     /// let dynamics = Box::new(move |_t: f64, x: &DVector<f64>, _p: Option<&DVector<f64>>| {
-    ///     DVector::from_vec(vec![x[1], -omega * omega * x[0]])
+    ///     Ok(DVector::from_vec(vec![x[1], -omega * omega * x[0]]))
     /// });
     ///
     /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -438,7 +438,7 @@ impl DNumericalPropagatorBuilder {
     ///
     /// let omega = 1.0;
     /// let dynamics = Box::new(move |_t: f64, x: &DVector<f64>, _p: Option<&DVector<f64>>| {
-    ///     DVector::from_vec(vec![x[1], -omega * omega * x[0]])
+    ///     Ok(DVector::from_vec(vec![x[1], -omega * omega * x[0]]))
     /// });
     ///
     /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -742,7 +742,7 @@ impl DNumericalPropagator {
     ///
     /// let omega = 1.0;
     /// let dynamics = Box::new(move |_t: f64, x: &DVector<f64>, _p: Option<&DVector<f64>>| {
-    ///     DVector::from_vec(vec![x[1], -omega * omega * x[0]])
+    ///     Ok(DVector::from_vec(vec![x[1], -omega * omega * x[0]]))
     /// });
     ///
     /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);

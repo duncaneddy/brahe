@@ -1107,7 +1107,7 @@ impl UnscentedKalmanFilterBuilder {
     /// let dynamics: brahe::integrators::traits::DStateDynamics = Box::new(|_t, state, _params| {
     ///     let mut dx = DVector::zeros(state.len());
     ///     dx[6] = -0.1; // dm/dt = -0.1 kg/s
-    ///     dx
+    ///     Ok(dx)
     /// });
     ///
     /// let ukf = UnscentedKalmanFilter::builder(
@@ -1150,7 +1150,7 @@ impl UnscentedKalmanFilterBuilder {
     /// let control: brahe::integrators::traits::DStateDynamics = Box::new(|_t, state, _params| {
     ///     let mut dx = DVector::zeros(state.len());
     ///     dx[3] = 0.0001; // small perturbing acceleration
-    ///     dx
+    ///     Ok(dx)
     /// });
     ///
     /// let ukf = UnscentedKalmanFilter::builder(

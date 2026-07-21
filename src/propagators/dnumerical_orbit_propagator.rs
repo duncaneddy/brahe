@@ -605,7 +605,7 @@ impl DNumericalOrbitPropagatorBuilder {
     /// let dynamics: brahe::integrators::traits::DStateDynamics = Box::new(|_t, state, _params| {
     ///     let mut dx = DVector::zeros(state.len());
     ///     dx[6] = -0.1; // dm/dt = -0.1 kg/s
-    ///     dx
+    ///     Ok(dx)
     /// });
     ///
     /// let prop = DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::earth_gravity())
@@ -644,7 +644,7 @@ impl DNumericalOrbitPropagatorBuilder {
     /// let control: brahe::integrators::traits::DStateDynamics = Box::new(|_t, state, _params| {
     ///     let mut dx = DVector::zeros(state.len());
     ///     dx[3] = 0.0001; // small perturbing acceleration
-    ///     dx
+    ///     Ok(dx)
     /// });
     ///
     /// let prop = DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::earth_gravity())

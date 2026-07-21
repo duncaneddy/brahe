@@ -215,6 +215,63 @@ pub fn get_star_catalogs_cache_dir() -> Result<String, BraheError> {
     get_brahe_cache_dir_with_subdir(Some("star_catalogs"))
 }
 
+/// Get the SBDB cache directory path.
+///
+/// Returns `~/.cache/brahe/sbdb` (or `$BRAHE_CACHE/sbdb` if the environment
+/// variable is set). The directory is created if it doesn't exist.
+///
+/// # Returns
+///
+/// * `Result<String, BraheError>` - The full path to the SBDB cache directory.
+///
+/// # Examples
+/// ```
+/// use brahe::utils::cache::get_sbdb_cache_dir;
+/// let dir = get_sbdb_cache_dir().unwrap();
+/// println!("SBDB cache directory: {}", dir);
+/// ```
+pub fn get_sbdb_cache_dir() -> Result<String, BraheError> {
+    get_brahe_cache_dir_with_subdir(Some("sbdb"))
+}
+
+/// Get the Horizons cache directory path.
+///
+/// Returns `~/.cache/brahe/horizons` (or `$BRAHE_CACHE/horizons` if the
+/// environment variable is set). The directory is created if it doesn't exist.
+///
+/// # Returns
+///
+/// * `Result<String, BraheError>` - The full path to the Horizons cache directory.
+///
+/// # Examples
+/// ```
+/// use brahe::utils::cache::get_horizons_cache_dir;
+/// let dir = get_horizons_cache_dir().unwrap();
+/// println!("Horizons cache directory: {}", dir);
+/// ```
+pub fn get_horizons_cache_dir() -> Result<String, BraheError> {
+    get_brahe_cache_dir_with_subdir(Some("horizons"))
+}
+
+/// Compute a stable 16-hex-character hash of `input` for cache-key filenames.
+///
+/// Used to derive collision-resistant cache filenames from request parameters
+/// (e.g. an SBDB search string, or a Horizons command + time span + center).
+///
+/// # Arguments
+///
+/// * `input` - The string to hash.
+///
+/// # Returns
+///
+/// * `String` - A 16-character lowercase hexadecimal digest.
+pub fn short_hash(input: &str) -> String {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    input.hash(&mut hasher);
+    format!("{:016x}", hasher.finish())
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
@@ -474,5 +531,41 @@ mod tests {
                 env::set_var("BRAHE_CACHE", original);
             }
         }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_get_sbdb_cache_dir() {
+        let original = env::var("BRAHE_CACHE").ok();
+        unsafe { env::remove_var("BRAHE_CACHE") };
+        let dir = get_sbdb_cache_dir().unwrap();
+        assert!(dir.ends_with("brahe/sbdb"));
+        match original {
+            Some(v) => unsafe { env::set_var("BRAHE_CACHE", v) },
+            None => unsafe { env::remove_var("BRAHE_CACHE") },
+        }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_get_horizons_cache_dir() {
+        let original = env::var("BRAHE_CACHE").ok();
+        unsafe { env::remove_var("BRAHE_CACHE") };
+        let dir = get_horizons_cache_dir().unwrap();
+        assert!(dir.ends_with("brahe/horizons"));
+        match original {
+            Some(v) => unsafe { env::set_var("BRAHE_CACHE", v) },
+            None => unsafe { env::remove_var("BRAHE_CACHE") },
+        }
+    }
+
+    #[test]
+    fn test_short_hash_is_stable_and_hex() {
+        let a = short_hash("DES=2000001;|2015-12-01|2016-03-01|500@0");
+        let b = short_hash("DES=2000001;|2015-12-01|2016-03-01|500@0");
+        assert_eq!(a, b);
+        assert_eq!(a.len(), 16);
+        assert!(a.chars().all(|c| c.is_ascii_hexdigit()));
+        assert_ne!(a, short_hash("different"));
     }
 }

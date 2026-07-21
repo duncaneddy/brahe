@@ -66,27 +66,33 @@ fn backoff_delay(attempt: u32) -> Duration {
     Duration::from_millis(jittered_ms)
 }
 
-/// Fetch the body of `url` as a string, retrying transient failures with exponential
-/// backoff and jitter, then write it atomically to `filepath`.
+/// Fetch the body of `url` as a string, retrying transient failures with
+/// exponential backoff and jitter.
 ///
-/// `description` is a short human-readable label for the product being downloaded
-/// (e.g. `"Standard EOP"`, `"space weather"`) that, together with `url`, is included
-/// in any error message to make failures actionable.
-pub(crate) fn download_to_file(
-    url: &str,
-    description: &str,
-    filepath: &Path,
-) -> Result<(), BraheError> {
+/// `description` is a short human-readable label for the product being fetched
+/// (e.g. `"SBDB lookup"`) that, together with `url`, is included in any error
+/// message to make failures actionable.
+///
+/// # Arguments
+///
+/// * `url` - The URL to fetch.
+/// * `description` - Human-readable product label for error messages.
+///
+/// # Returns
+///
+/// * `Ok(String)` - The response body.
+/// * `Err(BraheError)` - On a non-retryable status or exhausted retries.
+pub(crate) fn download_string(url: &str, description: &str) -> Result<String, BraheError> {
     let mut attempt: u32 = 0;
 
-    let body = loop {
+    loop {
         attempt += 1;
 
         match ureq::get(url)
             .call()
             .and_then(|mut response| response.body_mut().read_to_string())
         {
-            Ok(body) => break body,
+            Ok(body) => return Ok(body),
             Err(e) => {
                 if attempt < MAX_DOWNLOAD_ATTEMPTS && is_retryable_error(&e) {
                     sleep(backoff_delay(attempt));
@@ -98,10 +104,50 @@ pub(crate) fn download_to_file(
                 )));
             }
         }
-    };
+    }
+}
 
+/// Percent-encode `input` for use as a URL query-parameter value.
+///
+/// Encodes every byte that is not an RFC 3986 unreserved character
+/// (`A-Z a-z 0-9 - _ . ~`), so reserved characters such as `=`, `;`, `@`, and
+/// space are escaped. Suitable for building JPL SSD/Horizons query strings.
+///
+/// # Arguments
+///
+/// * `input` - The raw string to encode.
+///
+/// # Returns
+///
+/// * `String` - The percent-encoded string.
+// Not yet called from non-test production code; wired up by a later task.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn urlencode(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    for b in input.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char)
+            }
+            _ => out.push_str(&format!("%{:02X}", b)),
+        }
+    }
+    out
+}
+
+/// Fetch the body of `url` as a string, retrying transient failures with exponential
+/// backoff and jitter, then write it atomically to `filepath`.
+///
+/// `description` is a short human-readable label for the product being downloaded
+/// (e.g. `"Standard EOP"`, `"space weather"`) that, together with `url`, is included
+/// in any error message to make failures actionable.
+pub(crate) fn download_to_file(
+    url: &str,
+    description: &str,
+    filepath: &Path,
+) -> Result<(), BraheError> {
+    let body = download_string(url, description)?;
     atomic_write(filepath, body.as_bytes())?;
-
     Ok(())
 }
 
@@ -283,5 +329,39 @@ mod tests {
                 assert!(delay <= BACKOFF_MAX_DELAY);
             }
         }
+    }
+
+    #[test]
+    fn test_download_string_returns_body() {
+        let server = MockServer::start();
+        let _mock = server.mock(|when, then| {
+            when.method(GET).path("/data.json");
+            then.status(200).body(r#"{"ok":true}"#);
+        });
+
+        let body = download_string(&server.url("/data.json"), "test").unwrap();
+        assert_eq!(body, r#"{"ok":true}"#);
+    }
+
+    #[test]
+    fn test_download_string_retries_transient_then_errors() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/data.json");
+            then.status(503);
+        });
+
+        let result = download_string(&server.url("/data.json"), "test");
+        assert!(result.is_err());
+        assert_eq!(mock.calls(), MAX_DOWNLOAD_ATTEMPTS as usize);
+    }
+
+    #[test]
+    fn test_urlencode_reserved_chars() {
+        assert_eq!(urlencode("Ceres"), "Ceres");
+        assert_eq!(urlencode("DES=2000001;"), "DES%3D2000001%3B");
+        assert_eq!(urlencode("500@0"), "500%400");
+        assert_eq!(urlencode("2015-12-01"), "2015-12-01");
+        assert_eq!(urlencode("a b"), "a%20b");
     }
 }

@@ -1870,25 +1870,18 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_type21_external_oracle() {
-        // Gate 5 (strongest): compare against an independent authoritative
-        // implementation reading the identical kernel. The reference states
-        // below are JPL CSPICE N0067 `spkgeo(20000001, et, "J2000", 10)`
-        // (Ceres relative to the Sun, J2000 frame, km / km·s⁻¹) evaluated on
-        // this exact fixture; CSPICE is the definitive type-21 evaluator, so
-        // agreement proves the MDA interpolation itself is correct, not just
-        // self-consistent. Our reader reproduces CSPICE to floating-point
+    fn test_type21_transcription_fidelity_vs_cspice() {
+        // Transcription-fidelity gate: reproduce JPL CSPICE N0067
+        // `spkgeo(20000001, et, "J2000", 10)` (Ceres relative to the Sun,
+        // J2000 frame, km / km·s⁻¹) evaluated on this exact fixture. CSPICE
+        // is the definitive type-21 evaluator, but this port and CSPICE share
+        // algorithm lineage (both descend from `spke21.f`), so bit-exact
+        // agreement proves the transcription is faithful — not, on its own,
+        // that the algorithm is physically correct. Independent correctness
+        // comes from `test_type21_heliocentric_distance` (physical scale) and
+        // `test_type21_horizons_vectors_cross_check` (an independent JPL
+        // Horizons solution). Our reader reproduces CSPICE to floating-point
         // round-off (far under the 1 km / 1e-3 km·s⁻¹ gate).
-        //
-        // A live JPL Horizons VECTORS query for the same epochs,
-        //   https://ssd.jpl.nasa.gov/api/horizons.api?format=text
-        //     &COMMAND=2000001&EPHEM_TYPE=VECTORS&CENTER=500@10
-        //     &REF_PLANE=FRAME&REF_SYSTEM=J2000&OUT_UNITS=KM-S&VEC_TABLE=2
-        //     &TLIST=2457358.657407407,2457389.907407407,2457436.203703704
-        // agrees only to ~2.9 km / ~1e-7 km·s⁻¹ (a uniform ~7e-9 relative
-        // offset in both position and velocity): the committed fixture is a
-        // different Ceres orbit solution than Horizons' current `dawn_final`,
-        // not an interpolation error. The CSPICE oracle isolates the reader.
         let Some(seg) = load_ceres_type21() else {
             return;
         };
@@ -1939,6 +1932,87 @@ mod tests {
         }
         assert!(max_dp < 1.0, "position error vs CSPICE {max_dp:e} km");
         assert!(max_dv < 1.0e-3, "velocity error vs CSPICE {max_dv:e} km/s");
+    }
+
+    #[test]
+    #[serial]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    fn test_type21_horizons_vectors_cross_check() {
+        // Independent cross-check against a JPL Horizons VECTORS solution
+        // (a different code path and orbit fit than the fixture kernel, so
+        // this — unlike the CSPICE transcription gate — does not share
+        // lineage with the port). Integration-gated: it asserts hardcoded
+        // reference numbers rather than making a network call, but it is
+        // segregated from the default gate as an on-demand independent check.
+        //
+        // Reference states from a live query on 2026-07-21 (Ceres relative to
+        // the Sun, J2000/ICRF, km / km·s⁻¹):
+        //   https://ssd.jpl.nasa.gov/api/horizons.api?format=text
+        //     &COMMAND=2000001&EPHEM_TYPE=VECTORS&CENTER=500@10
+        //     &REF_PLANE=FRAME&REF_SYSTEM=J2000&OUT_UNITS=KM-S&VEC_TABLE=2
+        //     &TLIST=2457358.657407407,2457389.907407407,2457436.203703704
+        //
+        // The reader agrees to ~2.9 km / ~1e-7 km·s⁻¹ — a uniform ~7e-9
+        // relative offset in BOTH position and velocity. That is the
+        // signature of a solution-vintage difference (the committed fixture
+        // predates Horizons' current `dawn_final` fit), NOT an interpolation
+        // error: exact-at-reference-epoch is bit-exact, and the reader's
+        // position is the exact antiderivative of its velocity. The
+        // tolerances below are set with margin around that physical offset.
+        let Some(seg) = load_ceres_type21() else {
+            return;
+        };
+        // (et [s past J2000 TDB], [x, y, z, vx, vy, vz] km, km/s from Horizons)
+        let cases: [(f64, [f64; 6]); 3] = [
+            (
+                502300000.0,
+                [
+                    3.645526491447987e8,
+                    -1.944455484833567e8,
+                    -1.65919200671872e8,
+                    9.170483728168245e0,
+                    1.314603079056034e1,
+                    4.329207566312728e0,
+                ],
+            ),
+            (
+                505000000.0,
+                [
+                    3.872735203899039e8,
+                    -1.579522432469829e8,
+                    -1.533438730395891e8,
+                    7.644831793452791e0,
+                    1.386119251920006e1,
+                    4.977180899644783e0,
+                ],
+            ),
+            (
+                509000000.0,
+                [
+                    4.130883750499314e8,
+                    -1.008357493617283e8,
+                    -1.316763634622429e8,
+                    5.235826297983635e0,
+                    1.464014201601533e1,
+                    5.835197022125968e0,
+                ],
+            ),
+        ];
+        let mut max_dp = 0.0f64;
+        let mut max_dv = 0.0f64;
+        for (et, expected) in cases {
+            let (p, v) = seg.state(et).unwrap();
+            let dp = (p - Vector3::new(expected[0], expected[1], expected[2])).norm();
+            let dv = (v - Vector3::new(expected[3], expected[4], expected[5])).norm();
+            max_dp = max_dp.max(dp);
+            max_dv = max_dv.max(dv);
+        }
+        // Actual residual ~2.9 km / ~1e-7 km·s⁻¹; margined tolerances.
+        assert!(max_dp < 5.0, "position error vs Horizons {max_dp:e} km");
+        assert!(
+            max_dv < 1.0e-6,
+            "velocity error vs Horizons {max_dv:e} km/s"
+        );
     }
 
     #[test]

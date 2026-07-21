@@ -788,7 +788,7 @@
 </span><span id=__span-9-15><a id=__codelineno-9-15 name=__codelineno-9-15></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>epoch</span><span class=w> </span><span class=o>=</span>
 </span><span id=__span-9-16><a id=__codelineno-9-16 name=__codelineno-9-16></a><span class=w>        </span><span class=n>bh</span><span class=p>::</span><span class=n>Epoch</span><span class=p>::</span><span class=n>from_datetime</span><span class=p>(</span><span class=mi>2024</span><span class=p>,</span><span class=w> </span><span class=mi>6</span><span class=p>,</span><span class=w> </span><span class=mi>15</span><span class=p>,</span><span class=w> </span><span class=mi>0</span><span class=p>,</span><span class=w> </span><span class=mi>0</span><span class=p>,</span><span class=w> </span><span class=mf>0.0</span><span class=p>,</span><span class=w> </span><span class=mf>0.0</span><span class=p>,</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>TimeSystem</span><span class=p>::</span><span class=n>UTC</span><span class=p>);</span>
 </span><span id=__span-9-17><a id=__codelineno-9-17 name=__codelineno-9-17></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>oe</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>na</span><span class=p>::</span><span class=n>SVector</span><span class=p>::</span><span class=o>&lt;</span><span class=kt>f64</span><span class=p>,</span><span class=w> </span><span class=mi>6</span><span class=o>&gt;</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>bh</span><span class=p>::</span><span class=n>R_EARTH</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=mf>500e3</span><span class=p>,</span><span class=w> </span><span class=mf>0.001</span><span class=p>,</span><span class=w> </span><span class=mf>51.6</span><span class=p>,</span><span class=w> </span><span class=mf>15.0</span><span class=p>,</span><span class=w> </span><span class=mf>30.0</span><span class=p>,</span><span class=w> </span><span class=mf>0.0</span><span class=p>);</span>
-</span><span id=__span-9-18><a id=__codelineno-9-18 name=__codelineno-9-18></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>prop</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>KeplerianPropagator</span><span class=p>::</span><span class=n>from_keplerian</span><span class=p>(</span><span class=n>epoch</span><span class=p>,</span><span class=w> </span><span class=n>oe</span><span class=p>,</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>AngleFormat</span><span class=p>::</span><span class=n>Degrees</span><span class=p>,</span><span class=w> </span><span class=mf>60.0</span><span class=p>);</span>
+</span><span id=__span-9-18><a id=__codelineno-9-18 name=__codelineno-9-18></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>prop</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>KeplerianPropagator</span><span class=p>::</span><span class=n>from_keplerian</span><span class=p>(</span><span class=n>epoch</span><span class=p>,</span><span class=w> </span><span class=n>oe</span><span class=p>,</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>AngleFormat</span><span class=p>::</span><span class=n>Degrees</span><span class=p>,</span><span class=w> </span><span class=mf>60.0</span><span class=p>).</span><span class=n>unwrap</span><span class=p>();</span>
 </span><span id=__span-9-19><a id=__codelineno-9-19 name=__codelineno-9-19></a>
 </span><span id=__span-9-20><a id=__codelineno-9-20 name=__codelineno-9-20></a><span class=w>    </span><span class=c1>// Create segment metadata</span>
 </span><span id=__span-9-21><a id=__codelineno-9-21 name=__codelineno-9-21></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>step</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>60.0_</span><span class=k>f64</span><span class=p>;</span><span class=w> </span><span class=c1>// 60-second spacing</span>
@@ -869,10 +869,10 @@
 <span class=normal><a href=#__codelineno-10-23>23</a></span>
 <span class=normal><a href=#__codelineno-10-24>24</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-10-1><a id=__codelineno-10-1 name=__codelineno-10-1></a>Created OEM with 1 segment, 5 states
 </span><span id=__span-10-2><a id=__codelineno-10-2 name=__codelineno-10-2></a>
-</span><span id=__span-10-3><a id=__codelineno-10-3 name=__codelineno-10-3></a>KVN output (998 chars):
+</span><span id=__span-10-3><a id=__codelineno-10-3 name=__codelineno-10-3></a>KVN output (997 chars):
 </span><span id=__span-10-4><a id=__codelineno-10-4 name=__codelineno-10-4></a>CCSDS_OEM_VERS = 3.0
 </span><span id=__span-10-5><a id=__codelineno-10-5 name=__codelineno-10-5></a>CLASSIFICATION = unclassified
-</span><span id=__span-10-6><a id=__codelineno-10-6 name=__codelineno-10-6></a>CREATION_DATE = 2026-07-21T01:55:21.3129538271
+</span><span id=__span-10-6><a id=__codelineno-10-6 name=__codelineno-10-6></a>CREATION_DATE = 2026-07-21T04:21:55.402111858
 </span><span id=__span-10-7><a id=__codelineno-10-7 name=__codelineno-10-7></a>ORIGINATOR = BRAHE_EXAMPLE
 </span><span id=__span-10-8><a id=__codelineno-10-8 name=__codelineno-10-8></a>MESSAGE_ID = OEM-2024-001
 </span><span id=__span-10-9><a id=__codelineno-10-9 name=__codelineno-10-9></a>
@@ -887,7 +887,7 @@
 </span><span id=__span-10-18><a id=__codelineno-10-18 name=__codelineno-10-18></a>INTERPOLATION = LAGRANGE
 </span><span id=__span-10-19><a id=__codelineno-10-19 name=__codelineno-10-19></a>INTERPOLATION_DEGREE = 7
 </span><span id=__span-10-20><a id=__codelineno-10-20 name=__codelineno-10-20></a>META_STOP
-</span><span id=__span-10-21><a id=__codelineno-10-21 name=__codelineno-10-21></a>2024-06-15T00:00:00.000     5195.590962     3601.468794     2692.479496    -4.741222842     2.97334092
+</span><span id=__span-10-21><a id=__codelineno-10-21 name=__codelineno-10-21></a>2024-06-15T00:00:00.000     5195.590962     3601.468794     2692.479496    -4.741222842     2.973340926
 </span><span id=__span-10-22><a id=__codelineno-10-22 name=__codelineno-10-22></a>
 </span><span id=__span-10-23><a id=__codelineno-10-23 name=__codelineno-10-23></a>Written to /tmp/brahe_example_oem.txt
 </span><span id=__span-10-24><a id=__codelineno-10-24 name=__codelineno-10-24></a>Round-trip: 1 segment, 5 states
@@ -915,9 +915,9 @@
 <span class=normal><a href=#__codelineno-11-22>22</a></span>
 <span class=normal><a href=#__codelineno-11-23>23</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-11-1><a id=__codelineno-11-1 name=__codelineno-11-1></a>Created OEM with 1 segment, 5 states
 </span><span id=__span-11-2><a id=__codelineno-11-2 name=__codelineno-11-2></a>
-</span><span id=__span-11-3><a id=__codelineno-11-3 name=__codelineno-11-3></a>KVN output (942 chars):
+</span><span id=__span-11-3><a id=__codelineno-11-3 name=__codelineno-11-3></a>KVN output (941 chars):
 </span><span id=__span-11-4><a id=__codelineno-11-4 name=__codelineno-11-4></a>CCSDS_OEM_VERS = 3.0
-</span><span id=__span-11-5><a id=__codelineno-11-5 name=__codelineno-11-5></a>CREATION_DATE = 2026-07-21T01:51:11.6229651791
+</span><span id=__span-11-5><a id=__codelineno-11-5 name=__codelineno-11-5></a>CREATION_DATE = 2026-07-21T04:18:14.269029884
 </span><span id=__span-11-6><a id=__codelineno-11-6 name=__codelineno-11-6></a>ORIGINATOR = BRAHE_EXAMPLE
 </span><span id=__span-11-7><a id=__codelineno-11-7 name=__codelineno-11-7></a>
 </span><span id=__span-11-8><a id=__codelineno-11-8 name=__codelineno-11-8></a>META_START
@@ -932,7 +932,7 @@
 </span><span id=__span-11-17><a id=__codelineno-11-17 name=__codelineno-11-17></a>INTERPOLATION_DEGREE = 7
 </span><span id=__span-11-18><a id=__codelineno-11-18 name=__codelineno-11-18></a>META_STOP
 </span><span id=__span-11-19><a id=__codelineno-11-19 name=__codelineno-11-19></a>2024-06-15T00:00:00.000     6878.136300        0.000001        0.051600     0.015000000     0.030000000     0.000000000
-</span><span id=__span-11-20><a id=__codelineno-11-20 name=__codelineno-11-20></a>2024-06-15T00:01:00.000     6878.13630
+</span><span id=__span-11-20><a id=__codelineno-11-20 name=__codelineno-11-20></a>2024-06-15T00:01:00.000     6878.136300
 </span><span id=__span-11-21><a id=__codelineno-11-21 name=__codelineno-11-21></a>
 </span><span id=__span-11-22><a id=__codelineno-11-22 name=__codelineno-11-22></a>Written to /tmp/brahe_example_oem.txt
 </span><span id=__span-11-23><a id=__codelineno-11-23 name=__codelineno-11-23></a>Round-trip: 1 segment, 5 states
@@ -1156,7 +1156,7 @@
 </span><span id=__span-13-27><a id=__codelineno-13-27 name=__codelineno-13-27></a>
 </span><span id=__span-13-28><a id=__codelineno-13-28 name=__codelineno-13-28></a><span class=w>    </span><span class=c1>// Propagate for 90 minutes</span>
 </span><span id=__span-13-29><a id=__codelineno-13-29 name=__codelineno-13-29></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>target_epoch</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>epoch</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=mf>5400.0</span><span class=p>;</span>
-</span><span id=__span-13-30><a id=__codelineno-13-30 name=__codelineno-13-30></a><span class=w>    </span><span class=n>prop</span><span class=p>.</span><span class=n>propagate_to</span><span class=p>(</span><span class=n>target_epoch</span><span class=p>);</span>
+</span><span id=__span-13-30><a id=__codelineno-13-30 name=__codelineno-13-30></a><span class=w>    </span><span class=n>prop</span><span class=p>.</span><span class=n>propagate_to</span><span class=p>(</span><span class=n>target_epoch</span><span class=p>).</span><span class=n>unwrap</span><span class=p>();</span>
 </span><span id=__span-13-31><a id=__codelineno-13-31 name=__codelineno-13-31></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Propagated from {} to {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>epoch</span><span class=p>,</span><span class=w> </span><span class=n>prop</span><span class=p>.</span><span class=n>current_epoch</span><span class=p>());</span>
 </span><span id=__span-13-32><a id=__codelineno-13-32 name=__codelineno-13-32></a>
 </span><span id=__span-13-33><a id=__codelineno-13-33 name=__codelineno-13-33></a><span class=w>    </span><span class=c1>// Get the accumulated trajectory</span>
@@ -1215,7 +1215,7 @@
 </span><span id=__span-14-2><a id=__codelineno-14-2 name=__codelineno-14-2></a>Trajectory: 91 states, span=5400s
 </span><span id=__span-14-3><a id=__codelineno-14-3 name=__codelineno-14-3></a>
 </span><span id=__span-14-4><a id=__codelineno-14-4 name=__codelineno-14-4></a>OEM: 1 segment, 91 states
-</span><span id=__span-14-5><a id=__codelineno-14-5 name=__codelineno-14-5></a>KVN output: 11259 characters
+</span><span id=__span-14-5><a id=__codelineno-14-5 name=__codelineno-14-5></a>KVN output: 11257 characters
 </span><span id=__span-14-6><a id=__codelineno-14-6 name=__codelineno-14-6></a>Round-trip: 91 states
 </span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-15-1>1</a></span>
 <span class=normal><a href=#__codelineno-15-2>2</a></span>
@@ -1226,7 +1226,7 @@
 </span><span id=__span-15-2><a id=__codelineno-15-2 name=__codelineno-15-2></a>Trajectory: 91 states, span=5400s
 </span><span id=__span-15-3><a id=__codelineno-15-3 name=__codelineno-15-3></a>
 </span><span id=__span-15-4><a id=__codelineno-15-4 name=__codelineno-15-4></a>OEM: 1 segment, 91 states
-</span><span id=__span-15-5><a id=__codelineno-15-5 name=__codelineno-15-5></a>KVN output: 11259 characters
+</span><span id=__span-15-5><a id=__codelineno-15-5 name=__codelineno-15-5></a>KVN output: 11258 characters
 </span><span id=__span-15-6><a id=__codelineno-15-6 name=__codelineno-15-6></a>Round-trip: 91 states
 </span></code></pre></div></td></tr></table></div> </div> </div> </div> </details> <h2 id=kvn-format-example>KVN Format Example<a class=headerlink href=#kvn-format-example title="Permanent link">&para;</a></h2> <p>A minimal OEM KVN file looks like:</p> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-16-1> 1</a></span>
 <span class=normal><a href=#__codelineno-16-2> 2</a></span>

@@ -140,7 +140,7 @@
 </span><span id=__span-1-24><a id=__codelineno-1-24 name=__codelineno-1-24></a><span class=w>            </span><span class=p>(</span><span class=n>i</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=kt>f64</span><span class=p>)</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=mf>36.0</span><span class=p>,</span>
 </span><span id=__span-1-25><a id=__codelineno-1-25 name=__codelineno-1-25></a><span class=w>        </span><span class=p>);</span>
 </span><span id=__span-1-26><a id=__codelineno-1-26 name=__codelineno-1-26></a><span class=w>        </span><span class=kd>let</span><span class=w> </span><span class=n>state</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>state_koe_to_eci</span><span class=p>(</span><span class=n>oe</span><span class=p>,</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>AngleFormat</span><span class=p>::</span><span class=n>Degrees</span><span class=p>);</span>
-</span><span id=__span-1-27><a id=__codelineno-1-27 name=__codelineno-1-27></a><span class=w>        </span><span class=kd>let</span><span class=w> </span><span class=n>prop</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>KeplerianPropagator</span><span class=p>::</span><span class=n>from_eci</span><span class=p>(</span><span class=n>epoch</span><span class=p>,</span><span class=w> </span><span class=n>state</span><span class=p>,</span><span class=w> </span><span class=mf>60.0</span><span class=p>);</span>
+</span><span id=__span-1-27><a id=__codelineno-1-27 name=__codelineno-1-27></a><span class=w>        </span><span class=kd>let</span><span class=w> </span><span class=n>prop</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>KeplerianPropagator</span><span class=p>::</span><span class=n>from_eci</span><span class=p>(</span><span class=n>epoch</span><span class=p>,</span><span class=w> </span><span class=n>state</span><span class=p>,</span><span class=w> </span><span class=mf>60.0</span><span class=p>).</span><span class=n>unwrap</span><span class=p>();</span>
 </span><span id=__span-1-28><a id=__codelineno-1-28 name=__codelineno-1-28></a><span class=w>        </span><span class=n>propagators</span><span class=p>.</span><span class=n>push</span><span class=p>(</span><span class=n>prop</span><span class=p>);</span>
 </span><span id=__span-1-29><a id=__codelineno-1-29 name=__codelineno-1-29></a><span class=w>    </span><span class=p>}</span>
 </span><span id=__span-1-30><a id=__codelineno-1-30 name=__codelineno-1-30></a>
@@ -149,7 +149,7 @@
 </span><span id=__span-1-33><a id=__codelineno-1-33 name=__codelineno-1-33></a>
 </span><span id=__span-1-34><a id=__codelineno-1-34 name=__codelineno-1-34></a><span class=w>    </span><span class=c1>// Propagate all satellites in parallel</span>
 </span><span id=__span-1-35><a id=__codelineno-1-35 name=__codelineno-1-35></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>start</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>std</span><span class=p>::</span><span class=n>time</span><span class=p>::</span><span class=n>Instant</span><span class=p>::</span><span class=n>now</span><span class=p>();</span>
-</span><span id=__span-1-36><a id=__codelineno-1-36 name=__codelineno-1-36></a><span class=w>    </span><span class=n>bh</span><span class=p>::</span><span class=n>par_propagate_to_s</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=n>propagators</span><span class=p>,</span><span class=w> </span><span class=n>target</span><span class=p>);</span>
+</span><span id=__span-1-36><a id=__codelineno-1-36 name=__codelineno-1-36></a><span class=w>    </span><span class=n>bh</span><span class=p>::</span><span class=n>par_propagate_to_s</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=n>propagators</span><span class=p>,</span><span class=w> </span><span class=n>target</span><span class=p>).</span><span class=n>unwrap</span><span class=p>();</span>
 </span><span id=__span-1-37><a id=__codelineno-1-37 name=__codelineno-1-37></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>parallel_time</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>start</span><span class=p>.</span><span class=n>elapsed</span><span class=p>();</span>
 </span><span id=__span-1-38><a id=__codelineno-1-38 name=__codelineno-1-38></a>
 </span><span id=__span-1-39><a id=__codelineno-1-39 name=__codelineno-1-39></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span>
@@ -176,7 +176,7 @@
 <span class=normal><a href=#__codelineno-2-10>10</a></span>
 <span class=normal><a href=#__codelineno-2-11>11</a></span>
 <span class=normal><a href=#__codelineno-2-12>12</a></span>
-<span class=normal><a href=#__codelineno-2-13>13</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-2-1><a id=__codelineno-2-1 name=__codelineno-2-1></a>Propagated 10 satellites in parallel: 0.0170 seconds
+<span class=normal><a href=#__codelineno-2-13>13</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-2-1><a id=__codelineno-2-1 name=__codelineno-2-1></a>Propagated 10 satellites in parallel: 0.0236 seconds
 </span><span id=__span-2-2><a id=__codelineno-2-2 name=__codelineno-2-2></a>
 </span><span id=__span-2-3><a id=__codelineno-2-3 name=__codelineno-2-3></a>Final states:
 </span><span id=__span-2-4><a id=__codelineno-2-4 name=__codelineno-2-4></a>  Satellite 0: r = 6876.8 km
@@ -201,7 +201,7 @@
 <span class=normal><a href=#__codelineno-3-10>10</a></span>
 <span class=normal><a href=#__codelineno-3-11>11</a></span>
 <span class=normal><a href=#__codelineno-3-12>12</a></span>
-<span class=normal><a href=#__codelineno-3-13>13</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-3-1><a id=__codelineno-3-1 name=__codelineno-3-1></a>Propagated 10 satellites in parallel: 0.0072 seconds
+<span class=normal><a href=#__codelineno-3-13>13</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-3-1><a id=__codelineno-3-1 name=__codelineno-3-1></a>Propagated 10 satellites in parallel: 0.0149 seconds
 </span><span id=__span-3-2><a id=__codelineno-3-2 name=__codelineno-3-2></a>
 </span><span id=__span-3-3><a id=__codelineno-3-3 name=__codelineno-3-3></a>Final states:
 </span><span id=__span-3-4><a id=__codelineno-3-4 name=__codelineno-3-4></a>  Satellite 0: r = 6876.8 km

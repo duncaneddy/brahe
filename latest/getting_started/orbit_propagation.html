@@ -169,7 +169,7 @@
 </span><span id=__span-1-36><a id=__codelineno-1-36 name=__codelineno-1-36></a><span class=w>    </span><span class=p>.</span><span class=n>unwrap</span><span class=p>();</span>
 </span><span id=__span-1-37><a id=__codelineno-1-37 name=__codelineno-1-37></a>
 </span><span id=__span-1-38><a id=__codelineno-1-38 name=__codelineno-1-38></a><span class=w>    </span><span class=c1>// Propagate for 1 hour</span>
-</span><span id=__span-1-39><a id=__codelineno-1-39 name=__codelineno-1-39></a><span class=w>    </span><span class=n>prop</span><span class=p>.</span><span class=n>propagate_to</span><span class=p>(</span><span class=n>epoch</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=mf>3600.0</span><span class=p>);</span>
+</span><span id=__span-1-39><a id=__codelineno-1-39 name=__codelineno-1-39></a><span class=w>    </span><span class=n>prop</span><span class=p>.</span><span class=n>propagate_to</span><span class=p>(</span><span class=n>epoch</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=mf>3600.0</span><span class=p>).</span><span class=n>unwrap</span><span class=p>();</span>
 </span><span id=__span-1-40><a id=__codelineno-1-40 name=__codelineno-1-40></a>
 </span><span id=__span-1-41><a id=__codelineno-1-41 name=__codelineno-1-41></a><span class=w>    </span><span class=c1>// Get final state</span>
 </span><span id=__span-1-42><a id=__codelineno-1-42 name=__codelineno-1-42></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>final_epoch</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>prop</span><span class=p>.</span><span class=n>current_epoch</span><span class=p>();</span>

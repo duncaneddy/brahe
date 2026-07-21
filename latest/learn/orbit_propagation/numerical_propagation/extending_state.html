@@ -492,7 +492,7 @@
 </span><span id=__span-5-55><a id=__codelineno-5-55 name=__codelineno-5-55></a><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=n>burn_start</span><span class=w> </span><span class=o>&lt;=</span><span class=w> </span><span class=n>t</span><span class=w> </span><span class=o>&amp;&amp;</span><span class=w> </span><span class=n>t</span><span class=w> </span><span class=o>&lt;</span><span class=w> </span><span class=n>burn_end</span><span class=w> </span><span class=p>{</span>
 </span><span id=__span-5-56><a id=__codelineno-5-56 name=__codelineno-5-56></a><span class=w>            </span><span class=n>dx</span><span class=p>[</span><span class=mi>6</span><span class=p>]</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=o>-</span><span class=n>mass_flow_rate</span><span class=p>;</span><span class=w> </span><span class=c1>// dm/dt = -F/(Isp*g0)</span>
 </span><span id=__span-5-57><a id=__codelineno-5-57 name=__codelineno-5-57></a><span class=w>        </span><span class=p>}</span>
-</span><span id=__span-5-58><a id=__codelineno-5-58 name=__codelineno-5-58></a><span class=w>        </span><span class=n>dx</span>
+</span><span id=__span-5-58><a id=__codelineno-5-58 name=__codelineno-5-58></a><span class=w>        </span><span class=nb>Ok</span><span class=p>(</span><span class=n>dx</span><span class=p>)</span>
 </span><span id=__span-5-59><a id=__codelineno-5-59 name=__codelineno-5-59></a><span class=w>    </span><span class=p>});</span>
 </span><span id=__span-5-60><a id=__codelineno-5-60 name=__codelineno-5-60></a>
 </span><span id=__span-5-61><a id=__codelineno-5-61 name=__codelineno-5-61></a><span class=w>    </span><span class=c1>// Control input for thrust acceleration</span>
@@ -508,7 +508,7 @@
 </span><span id=__span-5-71><a id=__codelineno-5-71 name=__codelineno-5-71></a><span class=w>            </span><span class=n>dx</span><span class=p>[</span><span class=mi>4</span><span class=p>]</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>acc</span><span class=p>[</span><span class=mi>1</span><span class=p>];</span>
 </span><span id=__span-5-72><a id=__codelineno-5-72 name=__codelineno-5-72></a><span class=w>            </span><span class=n>dx</span><span class=p>[</span><span class=mi>5</span><span class=p>]</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>acc</span><span class=p>[</span><span class=mi>2</span><span class=p>];</span>
 </span><span id=__span-5-73><a id=__codelineno-5-73 name=__codelineno-5-73></a><span class=w>        </span><span class=p>}</span>
-</span><span id=__span-5-74><a id=__codelineno-5-74 name=__codelineno-5-74></a><span class=w>        </span><span class=n>dx</span>
+</span><span id=__span-5-74><a id=__codelineno-5-74 name=__codelineno-5-74></a><span class=w>        </span><span class=nb>Ok</span><span class=p>(</span><span class=n>dx</span><span class=p>)</span>
 </span><span id=__span-5-75><a id=__codelineno-5-75 name=__codelineno-5-75></a><span class=w>    </span><span class=p>});</span>
 </span><span id=__span-5-76><a id=__codelineno-5-76 name=__codelineno-5-76></a>
 </span><span id=__span-5-77><a id=__codelineno-5-77 name=__codelineno-5-77></a><span class=w>    </span><span class=c1>// Create propagator with two-body dynamics (no drag/SRP for clean mass tracking)</span>
@@ -527,7 +527,7 @@
 </span><span id=__span-5-90><a id=__codelineno-5-90 name=__codelineno-5-90></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;  Semi-major axis: {:.1} km&quot;</span><span class=p>,</span><span class=w> </span><span class=n>oe</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span><span class=w> </span><span class=o>/</span><span class=w> </span><span class=mf>1e3</span><span class=p>);</span>
 </span><span id=__span-5-91><a id=__codelineno-5-91 name=__codelineno-5-91></a>
 </span><span id=__span-5-92><a id=__codelineno-5-92 name=__codelineno-5-92></a><span class=w>    </span><span class=c1>// Propagate through pre-burn coast, burn, and post-burn coast</span>
-</span><span id=__span-5-93><a id=__codelineno-5-93 name=__codelineno-5-93></a><span class=w>    </span><span class=n>prop</span><span class=p>.</span><span class=n>propagate_to</span><span class=p>(</span><span class=n>epoch</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=n>total_time</span><span class=p>);</span>
+</span><span id=__span-5-93><a id=__codelineno-5-93 name=__codelineno-5-93></a><span class=w>    </span><span class=n>prop</span><span class=p>.</span><span class=n>propagate_to</span><span class=p>(</span><span class=n>epoch</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=n>total_time</span><span class=p>).</span><span class=n>unwrap</span><span class=p>();</span>
 </span><span id=__span-5-94><a id=__codelineno-5-94 name=__codelineno-5-94></a>
 </span><span id=__span-5-95><a id=__codelineno-5-95 name=__codelineno-5-95></a><span class=w>    </span><span class=c1>// Check final state</span>
 </span><span id=__span-5-96><a id=__codelineno-5-96 name=__codelineno-5-96></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>final_state</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>prop</span><span class=p>.</span><span class=n>current_state</span><span class=p>();</span>
@@ -2153,7 +2153,7 @@
 </span><span id=__span-13-75><a id=__codelineno-13-75 name=__codelineno-13-75></a><span class=w>        </span><span class=p>}</span>
 </span><span id=__span-13-76><a id=__codelineno-13-76 name=__codelineno-13-76></a>
 </span><span id=__span-13-77><a id=__codelineno-13-77 name=__codelineno-13-77></a><span class=w>        </span><span class=n>dx</span><span class=p>[</span><span class=mi>6</span><span class=p>]</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>charge_rate</span><span class=p>;</span>
-</span><span id=__span-13-78><a id=__codelineno-13-78 name=__codelineno-13-78></a><span class=w>        </span><span class=n>dx</span>
+</span><span id=__span-13-78><a id=__codelineno-13-78 name=__codelineno-13-78></a><span class=w>        </span><span class=nb>Ok</span><span class=p>(</span><span class=n>dx</span><span class=p>)</span>
 </span><span id=__span-13-79><a id=__codelineno-13-79 name=__codelineno-13-79></a><span class=w>    </span><span class=p>});</span>
 </span><span id=__span-13-80><a id=__codelineno-13-80 name=__codelineno-13-80></a>
 </span><span id=__span-13-81><a id=__codelineno-13-81 name=__codelineno-13-81></a><span class=w>    </span><span class=c1>// Create propagator with two-body dynamics</span>
@@ -2183,7 +2183,7 @@
 </span><span id=__span-13-105><a id=__codelineno-13-105 name=__codelineno-13-105></a><span class=w>    </span><span class=p>);</span>
 </span><span id=__span-13-106><a id=__codelineno-13-106 name=__codelineno-13-106></a>
 </span><span id=__span-13-107><a id=__codelineno-13-107 name=__codelineno-13-107></a><span class=w>    </span><span class=c1>// Propagate</span>
-</span><span id=__span-13-108><a id=__codelineno-13-108 name=__codelineno-13-108></a><span class=w>    </span><span class=n>prop</span><span class=p>.</span><span class=n>propagate_to</span><span class=p>(</span><span class=n>epoch</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=n>total_time</span><span class=p>);</span>
+</span><span id=__span-13-108><a id=__codelineno-13-108 name=__codelineno-13-108></a><span class=w>    </span><span class=n>prop</span><span class=p>.</span><span class=n>propagate_to</span><span class=p>(</span><span class=n>epoch</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=n>total_time</span><span class=p>).</span><span class=n>unwrap</span><span class=p>();</span>
 </span><span id=__span-13-109><a id=__codelineno-13-109 name=__codelineno-13-109></a>
 </span><span id=__span-13-110><a id=__codelineno-13-110 name=__codelineno-13-110></a><span class=w>    </span><span class=c1>// Check final state</span>
 </span><span id=__span-13-111><a id=__codelineno-13-111 name=__codelineno-13-111></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>final_state</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>prop</span><span class=p>.</span><span class=n>current_state</span><span class=p>();</span>

@@ -227,7 +227,7 @@
 </span><span id=__span-1-32><a id=__codelineno-1-32 name=__codelineno-1-32></a>
 </span><span id=__span-1-33><a id=__codelineno-1-33 name=__codelineno-1-33></a><span class=w>    </span><span class=c1>// Propagate for 6 hours</span>
 </span><span id=__span-1-34><a id=__codelineno-1-34 name=__codelineno-1-34></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>final_epoch</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>epoch</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=mf>6.0</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=mf>3600.0</span><span class=p>;</span>
-</span><span id=__span-1-35><a id=__codelineno-1-35 name=__codelineno-1-35></a><span class=w>    </span><span class=n>prop</span><span class=p>.</span><span class=n>propagate_to</span><span class=p>(</span><span class=n>final_epoch</span><span class=p>);</span>
+</span><span id=__span-1-35><a id=__codelineno-1-35 name=__codelineno-1-35></a><span class=w>    </span><span class=n>prop</span><span class=p>.</span><span class=n>propagate_to</span><span class=p>(</span><span class=n>final_epoch</span><span class=p>).</span><span class=n>unwrap</span><span class=p>();</span>
 </span><span id=__span-1-36><a id=__codelineno-1-36 name=__codelineno-1-36></a>
 </span><span id=__span-1-37><a id=__codelineno-1-37 name=__codelineno-1-37></a><span class=w>    </span><span class=c1>// state_in_frame routes the propagator&#39;s native LCI state through the</span>
 </span><span id=__span-1-38><a id=__codelineno-1-38 name=__codelineno-1-38></a><span class=w>    </span><span class=c1>// reference frame router into any other supported frame. LFPA is the</span>

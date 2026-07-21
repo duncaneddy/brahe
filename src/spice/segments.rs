@@ -680,6 +680,102 @@ impl ChebyshevSegment {
     }
 }
 
+/// An SPK segment of any supported data type. A resolved chain may mix
+/// segment types (e.g. a Type 21 small-body segment alongside Type 2/3
+/// planetary segments), so segments are stored behind this enum rather
+/// than the concrete Chebyshev type.
+#[derive(Debug)]
+pub(crate) enum SpkSegment {
+    Chebyshev(ChebyshevSegment),
+}
+
+impl SpkSegment {
+    /// Build an SPK segment from a DAF summary, dispatching on data type.
+    /// Only Chebyshev types 2/3 are supported today; the error for any
+    /// other type is the same one raised by
+    /// [`ChebyshevSegment::from_spk_summary`].
+    ///
+    /// # Arguments
+    /// - `daf`: Parsed DAF container holding the segment's word data
+    /// - `summary`: SPK segment summary (6 ints, at least 2 doubles)
+    ///
+    /// # Returns
+    /// - Parsed `SpkSegment`, or `BraheError` on malformed data or an
+    ///   unsupported segment type
+    pub(crate) fn from_spk_summary(
+        daf: &DAFFile,
+        summary: &DAFSummary,
+    ) -> Result<Self, BraheError> {
+        Ok(SpkSegment::Chebyshev(ChebyshevSegment::from_spk_summary(
+            daf, summary,
+        )?))
+    }
+
+    /// SPK target NAIF body ID.
+    pub(crate) fn target(&self) -> i32 {
+        match self {
+            SpkSegment::Chebyshev(s) => s.target,
+        }
+    }
+
+    /// SPK center NAIF body ID.
+    pub(crate) fn center(&self) -> i32 {
+        match self {
+            SpkSegment::Chebyshev(s) => s.center,
+        }
+    }
+
+    /// Segment coverage start, TDB seconds past J2000.
+    pub(crate) fn start_et(&self) -> f64 {
+        match self {
+            SpkSegment::Chebyshev(s) => s.start_et,
+        }
+    }
+
+    /// Segment coverage end, TDB seconds past J2000.
+    pub(crate) fn end_et(&self) -> f64 {
+        match self {
+            SpkSegment::Chebyshev(s) => s.end_et,
+        }
+    }
+
+    /// True if `et` lies within this segment's descriptor coverage.
+    pub(crate) fn covers(&self, et: f64) -> bool {
+        match self {
+            SpkSegment::Chebyshev(s) => s.covers(et),
+        }
+    }
+
+    /// Evaluate position at `et`. Units: kernel-natural (km).
+    pub(crate) fn position(&self, et: f64) -> Result<Vector3<f64>, BraheError> {
+        match self {
+            SpkSegment::Chebyshev(s) => s.position(et),
+        }
+    }
+
+    /// Evaluate velocity at `et`. Units: kernel-natural (km/s).
+    pub(crate) fn velocity(&self, et: f64) -> Result<Vector3<f64>, BraheError> {
+        match self {
+            SpkSegment::Chebyshev(s) => s.velocity(et),
+        }
+    }
+
+    /// Evaluate position and velocity with a single record lookup. Units:
+    /// kernel-natural (km, km/s).
+    pub(crate) fn state(&self, et: f64) -> Result<(Vector3<f64>, Vector3<f64>), BraheError> {
+        match self {
+            SpkSegment::Chebyshev(s) => s.state(et),
+        }
+    }
+
+    /// Evaluate acceleration at `et`. Units: kernel-natural (km/s²).
+    pub(crate) fn acceleration(&self, et: f64) -> Result<Vector3<f64>, BraheError> {
+        match self {
+            SpkSegment::Chebyshev(s) => s.acceleration(et),
+        }
+    }
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {

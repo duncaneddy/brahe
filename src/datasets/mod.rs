@@ -12,6 +12,7 @@ pub mod icgem;
 pub mod loaders;
 pub mod naif;
 pub mod parsers;
+pub mod sbdb;
 pub mod serializers;
 pub mod ssn_sensors;
 pub mod star_catalogs;
@@ -26,6 +27,9 @@ pub use ssn_sensors::load_ssn_sensors;
 
 // Re-export commonly used functions from naif
 pub use naif::download_spice_kernel;
+
+// Re-export commonly used types from sbdb
+pub use sbdb::SBDBObject;
 
 // Re-export commonly used types and functions from gcat
 pub use gcat::{

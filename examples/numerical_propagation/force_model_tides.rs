@@ -26,17 +26,9 @@ fn make_propagator(
     force_config.third_body = Some(vec![bh::ThirdBody::Sun.into(), bh::ThirdBody::Moon.into()]);
     force_config.tides = tides;
 
-    bh::DNumericalOrbitPropagator::new(
-        epoch,
-        state,
-        bh::NumericalPropagationConfig::default(),
-        force_config,
-        None,
-        None,
-        None,
-        None,
-    )
-    .unwrap()
+    bh::DNumericalOrbitPropagator::builder(epoch, state, force_config)
+        .build()
+        .unwrap()
 }
 
 fn main() {

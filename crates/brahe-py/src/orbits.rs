@@ -2457,4 +2457,234 @@ impl PyWalkerConstellationGenerator {
             })
             .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
     }
+
+    /// Create a builder for constructing a Walker constellation generator.
+    ///
+    /// The builder takes the six required inputs directly; optional inputs
+    /// are provided through chained setter calls before calling `build()`.
+    ///
+    /// Args:
+    ///     t (int): Total number of satellites (must be divisible by p)
+    ///     p (int): Number of orbital planes
+    ///     f (int): Phasing factor (0 to p-1)
+    ///     semi_major_axis (float): Semi-major axis in meters
+    ///     inclination (float): Inclination in degrees by default, or radians if
+    ///         `angle_format()` is set to `AngleFormat.RADIANS`
+    ///     epoch (Epoch): Reference epoch for ephemeris generation
+    ///
+    /// Returns:
+    ///     WalkerConstellationGeneratorBuilder: New builder instance, with
+    ///     `eccentricity`, `argument_of_perigee`, `reference_raan`, and
+    ///     `reference_mean_anomaly` defaulted to `0.0`, `angle_format` defaulted
+    ///     to `AngleFormat.DEGREES`, and `pattern` defaulted to `WalkerPattern.DELTA`.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     gen = (
+    ///         bh.WalkerConstellationGenerator.builder(
+    ///             12, 3, 1, bh.R_EARTH + 780e3, 98.0, epoch
+    ///         )
+    ///         .eccentricity(0.001)
+    ///         .base_name("Constellation")
+    ///         .build()
+    ///     )
+    ///     ```
+    #[staticmethod]
+    #[pyo3(signature = (t, p, f, semi_major_axis, inclination, epoch))]
+    fn builder(
+        t: usize,
+        p: usize,
+        f: usize,
+        semi_major_axis: f64,
+        inclination: f64,
+        epoch: &PyEpoch,
+    ) -> PyWalkerConstellationGeneratorBuilder {
+        PyWalkerConstellationGeneratorBuilder {
+            inner: Some(orbits::WalkerConstellationGenerator::builder(
+                t,
+                p,
+                f,
+                semi_major_axis,
+                inclination,
+                epoch.obj,
+            )),
+        }
+    }
+}
+
+/// Builder for `WalkerConstellationGenerator`.
+///
+/// Created by `WalkerConstellationGenerator.builder()`, which takes the six
+/// required inputs (`t`, `p`, `f`, `semi_major_axis`, `inclination`, `epoch`).
+/// Optional inputs are provided through chained setters and default to the
+/// same values as the flat constructor's optional parameters. `build()`
+/// validates the `t`/`p`/`f` invariants and constructs the generator, raising
+/// `RuntimeError` instead of panicking if they are violated.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     gen = (
+///         bh.WalkerConstellationGenerator.builder(12, 3, 1, bh.R_EARTH + 780e3, 98.0, epoch)
+///         .eccentricity(0.001)
+///         .base_name("Constellation")
+///         .build()
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "WalkerConstellationGeneratorBuilder")]
+pub struct PyWalkerConstellationGeneratorBuilder {
+    inner: Option<orbits::WalkerConstellationGeneratorBuilder>,
+}
+
+#[pymethods]
+impl PyWalkerConstellationGeneratorBuilder {
+    /// Set the eccentricity.
+    ///
+    /// Defaults to `0.0` if not called.
+    ///
+    /// Args:
+    ///     eccentricity (float): Eccentricity (dimensionless, typically near 0 for Walker)
+    ///
+    /// Returns:
+    ///     WalkerConstellationGeneratorBuilder: The builder, for method chaining.
+    fn eccentricity(mut slf: PyRefMut<'_, Self>, eccentricity: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.eccentricity(eccentricity));
+        slf
+    }
+
+    /// Set the argument of perigee.
+    ///
+    /// Defaults to `0.0` if not called.
+    ///
+    /// Args:
+    ///     argument_of_perigee (float): Argument of perigee. Units: (deg) by
+    ///         default, or (rad) based on `angle_format`
+    ///
+    /// Returns:
+    ///     WalkerConstellationGeneratorBuilder: The builder, for method chaining.
+    fn argument_of_perigee(
+        mut slf: PyRefMut<'_, Self>,
+        argument_of_perigee: f64,
+    ) -> PyRefMut<'_, Self> {
+        slf.inner = slf
+            .inner
+            .take()
+            .map(|b| b.argument_of_perigee(argument_of_perigee));
+        slf
+    }
+
+    /// Set the reference RAAN for plane 0.
+    ///
+    /// Defaults to `0.0` if not called.
+    ///
+    /// Args:
+    ///     reference_raan (float): RAAN for plane 0. Units: (deg) by default,
+    ///         or (rad) based on `angle_format`
+    ///
+    /// Returns:
+    ///     WalkerConstellationGeneratorBuilder: The builder, for method chaining.
+    fn reference_raan(mut slf: PyRefMut<'_, Self>, reference_raan: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.reference_raan(reference_raan));
+        slf
+    }
+
+    /// Set the reference mean anomaly for the first satellite.
+    ///
+    /// Defaults to `0.0` if not called.
+    ///
+    /// Args:
+    ///     reference_mean_anomaly (float): Mean anomaly for first satellite.
+    ///         Units: (deg) by default, or (rad) based on `angle_format`
+    ///
+    /// Returns:
+    ///     WalkerConstellationGeneratorBuilder: The builder, for method chaining.
+    fn reference_mean_anomaly(
+        mut slf: PyRefMut<'_, Self>,
+        reference_mean_anomaly: f64,
+    ) -> PyRefMut<'_, Self> {
+        slf.inner = slf
+            .inner
+            .take()
+            .map(|b| b.reference_mean_anomaly(reference_mean_anomaly));
+        slf
+    }
+
+    /// Set the angle format for `inclination`, `argument_of_perigee`,
+    /// `reference_raan`, and `reference_mean_anomaly`.
+    ///
+    /// Defaults to `AngleFormat.DEGREES` if not called.
+    ///
+    /// Args:
+    ///     angle_format (AngleFormat): Format for angular inputs
+    ///
+    /// Returns:
+    ///     WalkerConstellationGeneratorBuilder: The builder, for method chaining.
+    fn angle_format<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        angle_format: &PyAngleFormat,
+    ) -> PyRefMut<'a, Self> {
+        let value = angle_format.value;
+        slf.inner = slf.inner.take().map(|b| b.angle_format(value));
+        slf
+    }
+
+    /// Set the Walker pattern type.
+    ///
+    /// Defaults to `WalkerPattern.DELTA` if not called.
+    ///
+    /// Args:
+    ///     pattern (WalkerPattern): Pattern type (DELTA for 360° RAAN, STAR for 180° RAAN)
+    ///
+    /// Returns:
+    ///     WalkerConstellationGeneratorBuilder: The builder, for method chaining.
+    fn pattern<'a>(mut slf: PyRefMut<'a, Self>, pattern: &PyWalkerPattern) -> PyRefMut<'a, Self> {
+        let value = orbits::WalkerPattern::from(*pattern);
+        slf.inner = slf.inner.take().map(|b| b.pattern(value));
+        slf
+    }
+
+    /// Set a base name for satellite naming.
+    ///
+    /// Applied to the generator after construction, via
+    /// `WalkerConstellationGenerator.with_base_name()`. Unset by default.
+    ///
+    /// Args:
+    ///     name (str): Base name for the constellation satellites
+    ///
+    /// Returns:
+    ///     WalkerConstellationGeneratorBuilder: The builder, for method chaining.
+    fn base_name<'a>(mut slf: PyRefMut<'a, Self>, name: &str) -> PyRefMut<'a, Self> {
+        slf.inner = slf.inner.take().map(|b| b.base_name(name));
+        slf
+    }
+
+    /// Construct the generator from the accumulated configuration.
+    ///
+    /// Validates the `t`/`p`/`f` invariants and constructs the generator. This
+    /// consumes the builder. The builder is single-use: calling `build()` a
+    /// second time raises `RuntimeError`.
+    ///
+    /// Returns:
+    ///     WalkerConstellationGenerator: Initialized generator.
+    ///
+    /// Raises:
+    ///     RuntimeError: If the builder was already consumed by a prior
+    ///         `build()` call, or if `p` is zero, `t` is not divisible by
+    ///         `p`, or `f` >= `p`.
+    fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PyWalkerConstellationGenerator> {
+        let builder = slf
+            .inner
+            .take()
+            .ok_or_else(|| exceptions::PyRuntimeError::new_err("builder already consumed"))?;
+        let generator = builder
+            .build()
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(PyWalkerConstellationGenerator { generator })
+    }
 }

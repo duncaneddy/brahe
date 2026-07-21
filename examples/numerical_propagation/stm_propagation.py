@@ -21,12 +21,10 @@ state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 prop_config = bh.NumericalPropagationConfig.default().with_stm().with_stm_history()
 
 # Create propagator with two-body gravity
-prop = bh.NumericalOrbitPropagator(
-    epoch,
-    state,
-    prop_config,
-    bh.ForceModelConfig.two_body(),
-    None,
+prop = (
+    bh.NumericalOrbitPropagator.builder(epoch, state, bh.ForceModelConfig.two_body())
+    .propagation_config(prop_config)
+    .build()
 )
 
 print("=== STM Propagation Example ===\n")

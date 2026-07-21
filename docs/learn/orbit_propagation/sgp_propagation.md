@@ -98,6 +98,33 @@ Three-line TLE format includes an optional satellite name on the first line.
         --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/from_3le.rs.txt"
         ```
 
+### From OMM Mean Elements
+
+When mean elements are already available as discrete values (rather than as a TLE string), `SGPPropagator.builder()` is the primary way to construct a propagator: it takes the eight required OMM inputs -- `epoch`, `mean_motion`, `eccentricity`, `inclination`, `raan`, `arg_of_pericenter`, `mean_anomaly`, and `norad_id` -- directly as arguments, and optional fields such as `object_name` and `bstar` are set through chained setters, defaulting when omitted. The flat constructor `from_omm_elements()` remains available as an alternative, taking every optional field as a keyword argument.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/orbit_propagation/sgp_propagation/from_omm_elements_builder.py:13"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/orbit_propagation/sgp_propagation/from_omm_elements_builder.rs:8"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/from_omm_elements_builder.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/from_omm_elements_builder.rs.txt"
+        ```
+
 ### Configuring Output Format
 
 By default, SGP4 outputs states in ECI Cartesian coordinates. Use `with_output_format()` to configure the output frame and representation.

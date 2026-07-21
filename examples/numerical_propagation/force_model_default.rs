@@ -43,16 +43,13 @@ fn main() {
     ]);
 
     // Create propagator
-    let mut prop = bh::DNumericalOrbitPropagator::new(
+    let mut prop = bh::DNumericalOrbitPropagator::builder(
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
-        bh::NumericalPropagationConfig::default(),
         force_config.clone(),
-        Some(params),
-        None,
-        None,
-        None,
     )
+    .params(params)
+    .build()
     .unwrap();
 
     // Propagate for 1 orbital period (~94 minutes for LEO)

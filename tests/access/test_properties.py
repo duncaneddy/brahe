@@ -506,3 +506,162 @@ def test_access_properties_center_coordinates():
     assert props.center_lat == pytest.approx(40.0150)
     assert props.center_alt == pytest.approx(1655.0)
     assert props.center_ecef == pytest.approx([1234.0, 5678.0, 9012.0])
+
+
+# ================================
+# AccessPropertiesBuilder Tests
+# ================================
+
+
+def test_access_properties_builder_equivalence():
+    """Test that the builder produces the same properties as the flat constructor."""
+    via_builder = (
+        bh.AccessProperties.builder()
+        .azimuth_open(45.0)
+        .azimuth_close(135.0)
+        .elevation_min(10.0)
+        .elevation_max(85.0)
+        .elevation_open(12.0)
+        .elevation_close(10.5)
+        .off_nadir_min(5.0)
+        .off_nadir_max(80.0)
+        .local_time(43200.0)
+        .look_direction(bh.LookDirection.RIGHT)
+        .asc_dsc(bh.AscDsc.ASCENDING)
+        .center_lon(0.0)
+        .center_lat(45.0)
+        .center_alt(0.0)
+        .center_ecef([4517.59e3, 4517.59e3, 0.0])
+        .build()
+    )
+
+    via_constructor = bh.AccessProperties(
+        azimuth_open=45.0,
+        azimuth_close=135.0,
+        elevation_min=10.0,
+        elevation_max=85.0,
+        elevation_open=12.0,
+        elevation_close=10.5,
+        off_nadir_min=5.0,
+        off_nadir_max=80.0,
+        local_time=43200.0,
+        look_direction=bh.LookDirection.RIGHT,
+        asc_dsc=bh.AscDsc.ASCENDING,
+        center_lon=0.0,
+        center_lat=45.0,
+        center_alt=0.0,
+        center_ecef=[4517.59e3, 4517.59e3, 0.0],
+    )
+
+    assert via_builder.azimuth_open == pytest.approx(via_constructor.azimuth_open)
+    assert via_builder.azimuth_close == pytest.approx(via_constructor.azimuth_close)
+    assert via_builder.elevation_min == pytest.approx(via_constructor.elevation_min)
+    assert via_builder.elevation_max == pytest.approx(via_constructor.elevation_max)
+    assert via_builder.elevation_open == pytest.approx(via_constructor.elevation_open)
+    assert via_builder.elevation_close == pytest.approx(via_constructor.elevation_close)
+    assert via_builder.off_nadir_min == pytest.approx(via_constructor.off_nadir_min)
+    assert via_builder.off_nadir_max == pytest.approx(via_constructor.off_nadir_max)
+    assert via_builder.local_time == pytest.approx(via_constructor.local_time)
+    assert via_builder.look_direction == via_constructor.look_direction
+    assert via_builder.asc_dsc == via_constructor.asc_dsc
+    assert via_builder.center_lon == pytest.approx(via_constructor.center_lon)
+    assert via_builder.center_lat == pytest.approx(via_constructor.center_lat)
+    assert via_builder.center_alt == pytest.approx(via_constructor.center_alt)
+    assert via_builder.center_ecef == pytest.approx(via_constructor.center_ecef)
+
+
+def test_access_properties_builder_additional():
+    """Test that the builder accumulates additional custom properties."""
+    props = (
+        bh.AccessProperties.builder()
+        .azimuth_open(45.0)
+        .azimuth_close(135.0)
+        .elevation_min(10.0)
+        .elevation_max(85.0)
+        .elevation_open(12.0)
+        .elevation_close(10.5)
+        .off_nadir_min(5.0)
+        .off_nadir_max(80.0)
+        .local_time(43200.0)
+        .look_direction(bh.LookDirection.RIGHT)
+        .asc_dsc(bh.AscDsc.ASCENDING)
+        .center_lon(0.0)
+        .center_lat(45.0)
+        .center_alt(0.0)
+        .center_ecef([4517.59e3, 4517.59e3, 0.0])
+        .additional("doppler_shift", 2500.0)
+        .additional("look_angles", [45.0, 30.0])
+        .additional("station", "svalbard")
+        .build()
+    )
+
+    assert len(props.additional) == 3
+    assert props.additional["doppler_shift"] == pytest.approx(2500.0)
+    assert props.additional["look_angles"] == pytest.approx([45.0, 30.0])
+    assert props.additional["station"] == "svalbard"
+
+
+def test_access_properties_builder_unchained_setter():
+    """Calling a setter without reassigning its return value must not orphan
+    the original builder variable -- build() on the original must succeed."""
+    builder = bh.AccessProperties.builder()
+    builder.azimuth_open(45.0)  # not reassigned
+    props = (
+        builder.azimuth_close(135.0)
+        .elevation_min(10.0)
+        .elevation_max(85.0)
+        .elevation_open(12.0)
+        .elevation_close(10.5)
+        .off_nadir_min(5.0)
+        .off_nadir_max(80.0)
+        .local_time(43200.0)
+        .look_direction(bh.LookDirection.RIGHT)
+        .asc_dsc(bh.AscDsc.ASCENDING)
+        .center_lon(0.0)
+        .center_lat(45.0)
+        .center_alt(0.0)
+        .center_ecef([4517.59e3, 4517.59e3, 0.0])
+        .build()
+    )
+
+    assert props.azimuth_open == pytest.approx(45.0)
+
+
+def test_access_properties_builder_missing_fields_raises():
+    """Test that build() with unset required fields raises RuntimeError naming them."""
+    with pytest.raises(RuntimeError, match="azimuth_close"):
+        bh.AccessProperties.builder().azimuth_open(45.0).build()
+
+
+def test_access_properties_builder_missing_fields_excludes_set_field():
+    """Test that the missing-fields error does not name a field that was set."""
+    with pytest.raises(RuntimeError) as exc_info:
+        bh.AccessProperties.builder().azimuth_open(45.0).build()
+
+    assert "azimuth_open" not in str(exc_info.value)
+
+
+def test_access_properties_builder_double_build_raises():
+    """Test that calling build() twice raises RuntimeError."""
+    builder = (
+        bh.AccessProperties.builder()
+        .azimuth_open(45.0)
+        .azimuth_close(135.0)
+        .elevation_min(10.0)
+        .elevation_max(85.0)
+        .elevation_open(12.0)
+        .elevation_close(10.5)
+        .off_nadir_min(5.0)
+        .off_nadir_max(80.0)
+        .local_time(43200.0)
+        .look_direction(bh.LookDirection.RIGHT)
+        .asc_dsc(bh.AscDsc.ASCENDING)
+        .center_lon(0.0)
+        .center_lat(45.0)
+        .center_alt(0.0)
+        .center_ecef([4517.59e3, 4517.59e3, 0.0])
+    )
+    builder.build()
+
+    with pytest.raises(RuntimeError, match="builder already consumed"):
+        builder.build()

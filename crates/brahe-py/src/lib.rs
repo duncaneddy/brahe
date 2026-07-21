@@ -1026,6 +1026,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Propagator Support
     module.add_class::<PySGPPropagator>()?;
+    module.add_class::<PySGPPropagatorBuilder>()?;
     module.add_class::<PyKeplerianPropagator>()?;
     module.add_class::<PyIntegrationMethod>()?;
     module.add_class::<PyAtmosphericModel>()?;
@@ -1049,7 +1050,9 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyTidesConfiguration>()?;
     module.add_class::<PyForceModelConfig>()?;
     module.add_class::<PyNumericalOrbitPropagator>()?;
+    module.add_class::<PyNumericalOrbitPropagatorBuilder>()?;
     module.add_class::<PyNumericalPropagator>()?;
+    module.add_class::<PyNumericalPropagatorBuilder>()?;
     module.add_class::<PyTrajectoryMode>()?;
     module.add_function(wrap_pyfunction!(py_par_propagate_to, module)?)?;
 
@@ -1085,6 +1088,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Walker Constellation Generator
     module.add_class::<PyWalkerPattern>()?;
     module.add_class::<PyWalkerConstellationGenerator>()?;
+    module.add_class::<PyWalkerConstellationGeneratorBuilder>()?;
 
     //* Relative Motion *//
     module.add_function(wrap_pyfunction!(py_rotation_rtn_to_eci, module)?)?;
@@ -1360,6 +1364,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Access Properties
     module.add_class::<PyAccessWindow>()?;
     module.add_class::<PyAccessProperties>()?;
+    module.add_class::<PyAccessPropertiesBuilder>()?;
     module.add_class::<PyAccessPropertiesView>()?;
     module.add_class::<PySubdivisionConfig>()?;
     module.add_class::<PyAccessSearchConfig>()?;
@@ -1521,14 +1526,17 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PySensorType>()?;
     module.add_class::<PySimpleSSNSensor>()?;
     module.add_class::<PyExtendedKalmanFilter>()?;
+    module.add_class::<PyExtendedKalmanFilterBuilder>()?;
     module.add_class::<PyUKFConfig>()?;
     module.add_class::<PyUnscentedKalmanFilter>()?;
+    module.add_class::<PyUnscentedKalmanFilterBuilder>()?;
     module.add_class::<PyBLSSolverMethod>()?;
     module.add_class::<PyConsiderParameterConfig>()?;
     module.add_class::<PyBLSConfig>()?;
     module.add_class::<PyBLSIterationRecord>()?;
     module.add_class::<PyBLSObservationResidual>()?;
     module.add_class::<PyBatchLeastSquares>()?;
+    module.add_class::<PyBatchLeastSquaresBuilder>()?;
     module.add_function(wrap_pyfunction!(py_isotropic_covariance, module)?)?;
     module.add_function(wrap_pyfunction!(py_diagonal_covariance, module)?)?;
 

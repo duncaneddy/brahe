@@ -21,16 +21,13 @@ fn main() {
     prop_config.variational.store_stm_history = true;
 
     // Create propagator with two-body gravity
-    let mut prop = bh::DNumericalOrbitPropagator::new(
+    let mut prop = bh::DNumericalOrbitPropagator::builder(
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
-        prop_config,
         bh::ForceModelConfig::two_body_gravity(),
-        None,
-        None,
-        None,
-        None,
     )
+    .propagation_config(prop_config)
+    .build()
     .unwrap();
 
     println!("=== STM Propagation Example ===\n");

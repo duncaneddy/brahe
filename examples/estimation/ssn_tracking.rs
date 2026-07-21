@@ -38,7 +38,7 @@ fn main() {
         None, None, None, None,
     ).unwrap();
     let epoch_end = epoch + duration;
-    truth_prop.propagate_to(epoch_end);
+    truth_prop.propagate_to(epoch_end).unwrap();
     let truth_traj = truth_prop.trajectory().clone();
 
     // Build sensors from the Vallado SSN dataset (calibrated radar and optical

@@ -5,7 +5,38 @@ to minimize the weighted sum of squared residuals. Unlike the EKF and UKF which 
 sequentially, BLS re-linearizes the full problem at each iteration, making it the standard
 approach for offline orbit determination when the complete observation set is available.
 
+## Setting Up
+
+`BatchLeastSquares.builder()` is the primary way to construct a BLS estimator: it takes the
+five required inputs -- `epoch`, `state`, `apriori_covariance`, `force_config`, and `config`
+-- directly as arguments, and measurement models and remaining optional inputs are set
+through chained setters.
+
+=== "Python"
+    ``` python
+    --8<-- "./examples/estimation/bls_builder_construction.py:12"
+    ```
+
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/estimation/bls_builder_construction.rs:7"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/estimation/bls_builder_construction.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/estimation/bls_builder_construction.rs.txt"
+        ```
+
 ## Golden-Path Example
+
+The full example below builds a truth trajectory, generates observations, and solves for
+the initial state:
 
 === "Python"
     ``` python

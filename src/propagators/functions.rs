@@ -110,6 +110,7 @@ mod tests {
     use crate::constants::AngleFormat;
     use crate::propagators::{KeplerianPropagator, SGPPropagator};
     use crate::time::Epoch;
+    use crate::time::TimeSystem;
     use crate::traits::SStatePropagator;
     use crate::utils::testing::setup_global_test_eop;
     use nalgebra as na;
@@ -361,7 +362,7 @@ mod tests {
     /// that triggers SGP4 eccentricity divergence when propagated ~24 hours.
     fn make_decaying_propagator(step_size: f64) -> SGPPropagator {
         SGPPropagator::from_omm_elements(
-            "2026-04-06T00:15:48.265056",
+            Epoch::from_datetime(2026, 4, 6, 0, 15, 48.265056, 0.0, TimeSystem::UTC),
             16.25673795,
             0.00191239,
             42.9658,

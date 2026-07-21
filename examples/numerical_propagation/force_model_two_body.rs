@@ -29,16 +29,12 @@ fn main() {
     println!("Two-body requires params: {}", force_config.requires_params());
 
     // Create propagator (no params needed)
-    let mut prop = bh::DNumericalOrbitPropagator::new(
+    let mut prop = bh::DNumericalOrbitPropagator::builder(
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
-        bh::NumericalPropagationConfig::default(),
         force_config.clone(),
-        None, // No params required
-        None,
-        None,
-        None,
     )
+    .build()
     .unwrap();
 
     // Create Keplerian propagator for comparison (use Cartesian state for direct comparison)

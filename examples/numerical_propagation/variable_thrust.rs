@@ -25,7 +25,7 @@ fn main() {
 
     // Define variable thrust control input
     // The closure captures the maneuver parameters
-    let control_fn: bh::DControlInput = Some(Box::new(
+    let control_fn: bh::DStateDynamics = Box::new(
         move |t: f64, state_vec: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| {
             // Return zeros if outside burn window
             let mut dx = na::DVector::zeros(state_vec.len());
@@ -65,32 +65,25 @@ fn main() {
 
             Ok(dx)
         },
-    ));
+    );
 
     // Create propagator with variable thrust control
-    let mut prop = bh::DNumericalOrbitPropagator::new(
+    let mut prop = bh::DNumericalOrbitPropagator::builder(
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
-        bh::NumericalPropagationConfig::default(),
         bh::ForceModelConfig::two_body_gravity(),
-        None,
-        None,
-        control_fn,
-        None,
     )
+    .control_input(control_fn)
+    .build()
     .unwrap();
 
     // Create reference propagator without thrust
-    let mut prop_ref = bh::DNumericalOrbitPropagator::new(
+    let mut prop_ref = bh::DNumericalOrbitPropagator::builder(
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
-        bh::NumericalPropagationConfig::default(),
         bh::ForceModelConfig::two_body_gravity(),
-        None,
-        None,
-        None,
-        None,
     )
+    .build()
     .unwrap();
 
     // Propagate for duration covering the entire maneuver

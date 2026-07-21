@@ -14,13 +14,13 @@ fn main() {
     let true_state = DVector::from_vec(vec![r, 0.0, 0.0, 0.0, v, 0.0]);
 
     // Create a truth propagator for generating observations
-    let mut truth_prop = bh::propagators::DNumericalOrbitPropagator::new(
+    let mut truth_prop = bh::propagators::DNumericalOrbitPropagator::builder(
         epoch,
         true_state.clone(),
-        bh::propagators::NumericalPropagationConfig::default(),
         bh::propagators::force_model_config::ForceModelConfig::two_body_gravity(),
-        None, None, None, None,
-    ).unwrap();
+    )
+    .build()
+    .unwrap();
 
     // Perturbed initial state: 1 km position error, 1 m/s velocity error
     let mut initial_state = true_state.clone();
@@ -37,18 +37,16 @@ fn main() {
         Box::new(bh::estimation::InertialPositionMeasurementModel::new(10.0)),
     ];
 
-    let mut ukf = bh::estimation::UnscentedKalmanFilter::new(
+    let mut ukf = bh::estimation::UnscentedKalmanFilter::builder(
         epoch,
         initial_state,
         p0,
-        bh::propagators::NumericalPropagationConfig::default(),
         bh::propagators::force_model_config::ForceModelConfig::two_body_gravity(),
-        None,
-        None,
-        None,
-        models,
         bh::estimation::UKFConfig::default(),
-    ).unwrap();
+    )
+    .measurement_models(models)
+    .build()
+    .unwrap();
 
     // Process 30 observations at 60-second intervals
     let dt = 60.0;

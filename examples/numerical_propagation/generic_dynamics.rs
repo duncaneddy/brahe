@@ -37,16 +37,10 @@ fn main() {
     let params = na::DVector::from_vec(vec![omega * omega]);
 
     // Create generic numerical propagator
-    let mut prop = bh::DNumericalPropagator::new(
-        epoch,
-        initial_state,
-        dynamics_fn,
-        bh::NumericalPropagationConfig::default(),
-        Some(params),
-        None, // No control input
-        None, // No initial covariance
-    )
-    .unwrap();
+    let mut prop = bh::DNumericalPropagator::builder(epoch, initial_state, dynamics_fn)
+        .params(params)
+        .build()
+        .unwrap();
 
     // Propagate for several periods
     let period = 2.0 * PI / omega; // Period = 2*pi/omega = 1 second

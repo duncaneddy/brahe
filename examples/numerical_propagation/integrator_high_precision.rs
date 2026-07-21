@@ -32,28 +32,22 @@ fn main() {
     let config_std = bh::NumericalPropagationConfig::default();
 
     // Create propagators (use two-body for analytical comparison)
-    let mut prop_hp = bh::DNumericalOrbitPropagator::new(
+    let mut prop_hp = bh::DNumericalOrbitPropagator::builder(
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
-        config_hp,
         bh::ForceModelConfig::two_body_gravity(),
-        None,
-        None,
-        None,
-        None,
     )
+    .propagation_config(config_hp)
+    .build()
     .unwrap();
 
-    let mut prop_std = bh::DNumericalOrbitPropagator::new(
+    let mut prop_std = bh::DNumericalOrbitPropagator::builder(
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
-        config_std,
         bh::ForceModelConfig::two_body_gravity(),
-        None,
-        None,
-        None,
-        None,
     )
+    .propagation_config(config_std)
+    .build()
     .unwrap();
 
     // Keplerian propagator as analytical reference (use Cartesian for direct comparison)

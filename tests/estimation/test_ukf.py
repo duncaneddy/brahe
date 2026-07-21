@@ -423,3 +423,132 @@ def test_ukf_observation_process_noise_both_branches(two_body_leo):
     assert np.trace(rec_fixed.covariance_predicted) - trace_none == pytest.approx(
         q_trace, rel=1e-6
     )
+
+
+def test_ukf_builder_equivalence(two_body_leo):
+    """Builder-constructed UKF should behave identically to the flat constructor."""
+    epoch, true_state = two_body_leo
+    initial_state = true_state.copy()
+    initial_state[0] += 1000.0
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+    via_builder = (
+        bh.UnscentedKalmanFilter.builder(
+            epoch,
+            initial_state,
+            p0,
+            bh.ForceModelConfig.two_body(),
+            bh.UKFConfig.default(),
+        )
+        .propagation_config(bh.NumericalPropagationConfig.default())
+        .measurement_model(bh.InertialPositionMeasurementModel(10.0))
+        .build()
+    )
+
+    via_constructor = bh.UnscentedKalmanFilter(
+        epoch,
+        initial_state,
+        p0,
+        measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+        propagation_config=bh.NumericalPropagationConfig.default(),
+        force_config=bh.ForceModelConfig.two_body(),
+    )
+
+    obs = bh.Observation(epoch + 60.0, true_state[:3], model_index=0)
+    via_builder.process_observation(obs)
+    via_constructor.process_observation(obs)
+
+    np.testing.assert_allclose(
+        via_builder.current_state(), via_constructor.current_state()
+    )
+    np.testing.assert_allclose(
+        via_builder.current_covariance(), via_constructor.current_covariance()
+    )
+
+
+def test_ukf_builder_optionals(two_body_leo):
+    """Every optional setter: propagation_config, params, additional dynamics,
+    control input, and wholesale measurement_models."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    params = np.array([500.0, 2.0, 2.2, 2.0, 1.3])
+
+    def zero_dynamics(t, state, p):
+        return np.zeros(len(state))
+
+    ukf = (
+        bh.UnscentedKalmanFilter.builder(
+            epoch,
+            state,
+            p0,
+            bh.ForceModelConfig.two_body(),
+            bh.UKFConfig.default(),
+        )
+        .propagation_config(bh.NumericalPropagationConfig.default())
+        .params(params)
+        .additional_dynamics(zero_dynamics)
+        .control_input(zero_dynamics)
+        .measurement_models([bh.InertialPositionMeasurementModel(10.0)])
+        .build()
+    )
+
+    obs = bh.Observation(epoch + 60.0, state[:3], model_index=0)
+    ukf.process_observation(obs)
+
+    assert ukf.current_epoch() == epoch + 60.0
+
+
+def test_ukf_builder_unchained_setter(two_body_leo):
+    """Calling a setter without reassigning its return value must not orphan
+    the original builder variable -- build() on the original must succeed."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+    builder = bh.UnscentedKalmanFilter.builder(
+        epoch,
+        state,
+        p0,
+        bh.ForceModelConfig.two_body(),
+        bh.UKFConfig.default(),
+    ).measurement_model(bh.InertialPositionMeasurementModel(10.0))
+    builder.propagation_config(
+        bh.NumericalPropagationConfig.default()
+    )  # not reassigned
+    ukf = builder.build()
+
+    assert len(ukf.current_state()) == 6
+
+
+def test_ukf_builder_double_build_raises(two_body_leo):
+    """Calling build() twice on the same builder should raise RuntimeError."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+    builder = bh.UnscentedKalmanFilter.builder(
+        epoch,
+        state,
+        p0,
+        bh.ForceModelConfig.two_body(),
+        bh.UKFConfig.default(),
+    ).measurement_model(bh.InertialPositionMeasurementModel(10.0))
+    builder.build()
+
+    with pytest.raises(RuntimeError, match="builder already consumed"):
+        builder.build()
+
+
+def test_ukf_builder_build_failure_raises(two_body_leo):
+    """Degenerate sigma-point parameters must fail at build() with RuntimeError."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+    builder = bh.UnscentedKalmanFilter.builder(
+        epoch,
+        state,
+        p0,
+        bh.ForceModelConfig.two_body(),
+        bh.UKFConfig(alpha=0.0),
+    ).measurement_model(bh.InertialPositionMeasurementModel(10.0))
+
+    with pytest.raises(RuntimeError):
+        builder.build()

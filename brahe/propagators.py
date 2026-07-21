@@ -7,9 +7,12 @@ This module provides:
 
 **Propagators:**
 - SGPPropagator: SGP4/SDP4 propagator for TLE-based orbit prediction
+- SGPPropagatorBuilder: Builder for SGPPropagator
 - KeplerianPropagator: Analytical two-body orbit propagator
 - NumericalOrbitPropagator: High-fidelity numerical orbit propagator with force models
+- NumericalOrbitPropagatorBuilder: Builder for NumericalOrbitPropagator
 - NumericalPropagator: Generic numerical propagator for arbitrary dynamics
+- NumericalPropagatorBuilder: Builder for NumericalPropagator
 
 **Configuration Classes:**
 - IntegrationMethod: Integration method selection (RK4, RKF45, RKF78, DP54, RKN1210)
@@ -45,9 +48,12 @@ accumulation).
 from brahe._brahe import (
     # Propagators
     SGPPropagator,
+    SGPPropagatorBuilder,
     KeplerianPropagator,
     NumericalOrbitPropagator,
+    NumericalOrbitPropagatorBuilder,
     NumericalPropagator,
+    NumericalPropagatorBuilder,
     # Configuration Classes
     IntegrationMethod,
     AtmosphericModel,
@@ -78,9 +84,12 @@ from brahe._brahe import (
 __all__ = [
     # Propagators
     "SGPPropagator",
+    "SGPPropagatorBuilder",
     "KeplerianPropagator",
     "NumericalOrbitPropagator",
+    "NumericalOrbitPropagatorBuilder",
     "NumericalPropagator",
+    "NumericalPropagatorBuilder",
     # Configuration Classes
     "IntegrationMethod",
     "AtmosphericModel",

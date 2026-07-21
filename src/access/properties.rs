@@ -454,6 +454,404 @@ impl AccessProperties {
     pub fn get_property(&self, key: &str) -> Option<&PropertyValue> {
         self.additional.get(key)
     }
+
+    /// Create a builder for [`AccessProperties`].
+    ///
+    /// Every field is required and set via a chained setter; [`AccessPropertiesBuilder::build`]
+    /// returns an error naming any field left unset.
+    ///
+    /// # Returns
+    /// Builder with all fields unset
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::access::{AccessProperties, AscDsc, LookDirection};
+    ///
+    /// let props = AccessProperties::builder()
+    ///     .azimuth_open(45.0)
+    ///     .azimuth_close(135.0)
+    ///     .elevation_min(10.0)
+    ///     .elevation_max(85.0)
+    ///     .elevation_open(12.0)
+    ///     .elevation_close(10.5)
+    ///     .off_nadir_min(5.0)
+    ///     .off_nadir_max(80.0)
+    ///     .local_time(43200.0)
+    ///     .look_direction(LookDirection::Right)
+    ///     .asc_dsc(AscDsc::Ascending)
+    ///     .center_lon(0.0)
+    ///     .center_lat(45.0)
+    ///     .center_alt(0.0)
+    ///     .center_ecef([4517.59e3, 4517.59e3, 0.0])
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    pub fn builder() -> AccessPropertiesBuilder {
+        AccessPropertiesBuilder {
+            azimuth_open: None,
+            azimuth_close: None,
+            elevation_min: None,
+            elevation_max: None,
+            elevation_open: None,
+            elevation_close: None,
+            off_nadir_min: None,
+            off_nadir_max: None,
+            local_time: None,
+            look_direction: None,
+            asc_dsc: None,
+            center_lon: None,
+            center_lat: None,
+            center_alt: None,
+            center_ecef: None,
+            additional: HashMap::new(),
+        }
+    }
+}
+
+// ================================
+// AccessPropertiesBuilder
+// ================================
+
+/// Builder for [`AccessProperties`].
+///
+/// Created by [`AccessProperties::builder`]. Every field is required and is set
+/// through a chained setter; [`AccessPropertiesBuilder::build`] returns an error
+/// listing every field left unset instead of applying a default.
+#[derive(Debug, Clone, Default)]
+pub struct AccessPropertiesBuilder {
+    azimuth_open: Option<f64>,
+    azimuth_close: Option<f64>,
+    elevation_min: Option<f64>,
+    elevation_max: Option<f64>,
+    elevation_open: Option<f64>,
+    elevation_close: Option<f64>,
+    off_nadir_min: Option<f64>,
+    off_nadir_max: Option<f64>,
+    local_time: Option<f64>,
+    look_direction: Option<LookDirection>,
+    asc_dsc: Option<AscDsc>,
+    center_lon: Option<f64>,
+    center_lat: Option<f64>,
+    center_alt: Option<f64>,
+    center_ecef: Option<[f64; 3]>,
+    additional: HashMap<String, PropertyValue>,
+}
+
+impl AccessPropertiesBuilder {
+    /// Set the azimuth at window open.
+    ///
+    /// # Arguments
+    /// * `azimuth_open` - Azimuth at window open (degrees, 0-360)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn azimuth_open(mut self, azimuth_open: f64) -> Self {
+        self.azimuth_open = Some(azimuth_open);
+        self
+    }
+
+    /// Set the azimuth at window close.
+    ///
+    /// # Arguments
+    /// * `azimuth_close` - Azimuth at window close (degrees, 0-360)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn azimuth_close(mut self, azimuth_close: f64) -> Self {
+        self.azimuth_close = Some(azimuth_close);
+        self
+    }
+
+    /// Set the minimum elevation angle during access.
+    ///
+    /// # Arguments
+    /// * `elevation_min` - Minimum elevation angle (degrees)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn elevation_min(mut self, elevation_min: f64) -> Self {
+        self.elevation_min = Some(elevation_min);
+        self
+    }
+
+    /// Set the maximum elevation angle during access.
+    ///
+    /// # Arguments
+    /// * `elevation_max` - Maximum elevation angle (degrees)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn elevation_max(mut self, elevation_max: f64) -> Self {
+        self.elevation_max = Some(elevation_max);
+        self
+    }
+
+    /// Set the elevation angle at window open.
+    ///
+    /// # Arguments
+    /// * `elevation_open` - Elevation at window open (degrees)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn elevation_open(mut self, elevation_open: f64) -> Self {
+        self.elevation_open = Some(elevation_open);
+        self
+    }
+
+    /// Set the elevation angle at window close.
+    ///
+    /// # Arguments
+    /// * `elevation_close` - Elevation at window close (degrees)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn elevation_close(mut self, elevation_close: f64) -> Self {
+        self.elevation_close = Some(elevation_close);
+        self
+    }
+
+    /// Set the minimum off-nadir angle during access.
+    ///
+    /// # Arguments
+    /// * `off_nadir_min` - Minimum off-nadir angle (degrees)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn off_nadir_min(mut self, off_nadir_min: f64) -> Self {
+        self.off_nadir_min = Some(off_nadir_min);
+        self
+    }
+
+    /// Set the maximum off-nadir angle during access.
+    ///
+    /// # Arguments
+    /// * `off_nadir_max` - Maximum off-nadir angle (degrees)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn off_nadir_max(mut self, off_nadir_max: f64) -> Self {
+        self.off_nadir_max = Some(off_nadir_max);
+        self
+    }
+
+    /// Set the local solar time at window midtime.
+    ///
+    /// # Arguments
+    /// * `local_time` - Local solar time at midtime (seconds since midnight)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn local_time(mut self, local_time: f64) -> Self {
+        self.local_time = Some(local_time);
+        self
+    }
+
+    /// Set the look direction.
+    ///
+    /// # Arguments
+    /// * `look_direction` - Look direction (Left or Right)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn look_direction(mut self, look_direction: LookDirection) -> Self {
+        self.look_direction = Some(look_direction);
+        self
+    }
+
+    /// Set the ascending/descending pass indicator.
+    ///
+    /// # Arguments
+    /// * `asc_dsc` - Ascending or descending pass
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn asc_dsc(mut self, asc_dsc: AscDsc) -> Self {
+        self.asc_dsc = Some(asc_dsc);
+        self
+    }
+
+    /// Set the location center longitude.
+    ///
+    /// # Arguments
+    /// * `center_lon` - Location longitude (degrees)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn center_lon(mut self, center_lon: f64) -> Self {
+        self.center_lon = Some(center_lon);
+        self
+    }
+
+    /// Set the location center latitude.
+    ///
+    /// # Arguments
+    /// * `center_lat` - Location latitude (degrees)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn center_lat(mut self, center_lat: f64) -> Self {
+        self.center_lat = Some(center_lat);
+        self
+    }
+
+    /// Set the location center altitude.
+    ///
+    /// # Arguments
+    /// * `center_alt` - Location altitude (meters)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn center_alt(mut self, center_alt: f64) -> Self {
+        self.center_alt = Some(center_alt);
+        self
+    }
+
+    /// Set the location center ECEF coordinates.
+    ///
+    /// # Arguments
+    /// * `center_ecef` - Location ECEF coordinates [x, y, z] (meters)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    pub fn center_ecef(mut self, center_ecef: [f64; 3]) -> Self {
+        self.center_ecef = Some(center_ecef);
+        self
+    }
+
+    /// Add a custom property to the `additional` map.
+    ///
+    /// May be called repeatedly; each call inserts one key/value pair. Unlike
+    /// the named fields, additional properties are optional and never reported
+    /// as missing by [`AccessPropertiesBuilder::build`].
+    ///
+    /// # Arguments
+    /// * `key` - Property name
+    /// * `value` - Property value
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::access::{AccessProperties, PropertyValue};
+    ///
+    /// let builder = AccessProperties::builder()
+    ///     .additional("doppler_shift", PropertyValue::Scalar(2500.0))
+    ///     .additional("look_angles", PropertyValue::Vector(vec![45.0, 30.0]));
+    /// ```
+    pub fn additional(mut self, key: impl Into<String>, value: PropertyValue) -> Self {
+        self.additional.insert(key.into(), value);
+        self
+    }
+
+    /// Build the [`AccessProperties`], validating that every field was set.
+    ///
+    /// # Returns
+    /// The constructed [`AccessProperties`]
+    ///
+    /// # Errors
+    /// Returns `BraheError::InitializationError` naming every field that was
+    /// never set, if any.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::access::{AccessProperties, AscDsc, LookDirection};
+    ///
+    /// let props = AccessProperties::builder()
+    ///     .azimuth_open(45.0)
+    ///     .azimuth_close(135.0)
+    ///     .elevation_min(10.0)
+    ///     .elevation_max(85.0)
+    ///     .elevation_open(12.0)
+    ///     .elevation_close(10.5)
+    ///     .off_nadir_min(5.0)
+    ///     .off_nadir_max(80.0)
+    ///     .local_time(43200.0)
+    ///     .look_direction(LookDirection::Right)
+    ///     .asc_dsc(AscDsc::Ascending)
+    ///     .center_lon(0.0)
+    ///     .center_lat(45.0)
+    ///     .center_alt(0.0)
+    ///     .center_ecef([4517.59e3, 4517.59e3, 0.0])
+    ///     .build()
+    ///     .unwrap();
+    /// assert_eq!(props.azimuth_open, 45.0);
+    /// ```
+    pub fn build(self) -> Result<AccessProperties, BraheError> {
+        let mut missing: Vec<&str> = Vec::new();
+        if self.azimuth_open.is_none() {
+            missing.push("azimuth_open");
+        }
+        if self.azimuth_close.is_none() {
+            missing.push("azimuth_close");
+        }
+        if self.elevation_min.is_none() {
+            missing.push("elevation_min");
+        }
+        if self.elevation_max.is_none() {
+            missing.push("elevation_max");
+        }
+        if self.elevation_open.is_none() {
+            missing.push("elevation_open");
+        }
+        if self.elevation_close.is_none() {
+            missing.push("elevation_close");
+        }
+        if self.off_nadir_min.is_none() {
+            missing.push("off_nadir_min");
+        }
+        if self.off_nadir_max.is_none() {
+            missing.push("off_nadir_max");
+        }
+        if self.local_time.is_none() {
+            missing.push("local_time");
+        }
+        if self.look_direction.is_none() {
+            missing.push("look_direction");
+        }
+        if self.asc_dsc.is_none() {
+            missing.push("asc_dsc");
+        }
+        if self.center_lon.is_none() {
+            missing.push("center_lon");
+        }
+        if self.center_lat.is_none() {
+            missing.push("center_lat");
+        }
+        if self.center_alt.is_none() {
+            missing.push("center_alt");
+        }
+        if self.center_ecef.is_none() {
+            missing.push("center_ecef");
+        }
+
+        if !missing.is_empty() {
+            return Err(BraheError::InitializationError(format!(
+                "AccessProperties builder missing required fields: {}",
+                missing.join(", ")
+            )));
+        }
+
+        let mut props = AccessProperties::new(
+            self.azimuth_open.unwrap(),
+            self.azimuth_close.unwrap(),
+            self.elevation_min.unwrap(),
+            self.elevation_max.unwrap(),
+            self.elevation_open.unwrap(),
+            self.elevation_close.unwrap(),
+            self.off_nadir_min.unwrap(),
+            self.off_nadir_max.unwrap(),
+            self.local_time.unwrap(),
+            self.look_direction.unwrap(),
+            self.asc_dsc.unwrap(),
+            self.center_lon.unwrap(),
+            self.center_lat.unwrap(),
+            self.center_alt.unwrap(),
+            self.center_ecef.unwrap(),
+        );
+        props.additional = self.additional;
+        Ok(props)
+    }
 }
 
 // ================================
@@ -1074,6 +1472,91 @@ mod tests {
         assert_eq!(props.center_alt, 0.0);
         assert_eq!(props.center_ecef, [4517.59e3, 4517.59e3, 0.0]);
         assert!(props.additional.is_empty());
+    }
+
+    #[test]
+    fn test_accessproperties_builder_equivalence() {
+        let from_builder = AccessProperties::builder()
+            .azimuth_open(45.0)
+            .azimuth_close(135.0)
+            .elevation_min(10.0)
+            .elevation_max(85.0)
+            .elevation_open(12.0)
+            .elevation_close(10.5)
+            .off_nadir_min(5.0)
+            .off_nadir_max(80.0)
+            .local_time(43200.0)
+            .look_direction(LookDirection::Right)
+            .asc_dsc(AscDsc::Ascending)
+            .center_lon(0.0)
+            .center_lat(45.0)
+            .center_alt(0.0)
+            .center_ecef([4517.59e3, 4517.59e3, 0.0])
+            .build()
+            .unwrap();
+        let from_new = AccessProperties::new(
+            45.0,
+            135.0,
+            10.0,
+            85.0,
+            12.0,
+            10.5,
+            5.0,
+            80.0,
+            43200.0,
+            LookDirection::Right,
+            AscDsc::Ascending,
+            0.0,
+            45.0,
+            0.0,
+            [4517.59e3, 4517.59e3, 0.0],
+        );
+        assert_eq!(from_builder.azimuth_open, from_new.azimuth_open);
+        assert_eq!(from_builder.center_ecef, from_new.center_ecef);
+        assert_eq!(from_builder.look_direction, from_new.look_direction);
+    }
+
+    #[test]
+    fn test_accessproperties_builder_missing_fields() {
+        let result = AccessProperties::builder().azimuth_open(45.0).build();
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("azimuth_close"));
+        assert!(err.contains("center_ecef"));
+        assert!(!err.contains("azimuth_open"));
+    }
+
+    #[test]
+    fn test_accessproperties_builder_additional() {
+        let props = AccessProperties::builder()
+            .azimuth_open(45.0)
+            .azimuth_close(135.0)
+            .elevation_min(10.0)
+            .elevation_max(85.0)
+            .elevation_open(12.0)
+            .elevation_close(10.5)
+            .off_nadir_min(5.0)
+            .off_nadir_max(80.0)
+            .local_time(43200.0)
+            .look_direction(LookDirection::Right)
+            .asc_dsc(AscDsc::Ascending)
+            .center_lon(0.0)
+            .center_lat(45.0)
+            .center_alt(0.0)
+            .center_ecef([4517.59e3, 4517.59e3, 0.0])
+            .additional("doppler_shift", PropertyValue::Scalar(2500.0))
+            .additional("look_angles", PropertyValue::Vector(vec![45.0, 30.0]))
+            .build()
+            .unwrap();
+
+        assert_eq!(props.additional.len(), 2);
+        match props.get_property("doppler_shift").unwrap() {
+            PropertyValue::Scalar(val) => assert_eq!(*val, 2500.0),
+            _ => panic!("Expected Scalar"),
+        }
+        match props.get_property("look_angles").unwrap() {
+            PropertyValue::Vector(vals) => assert_eq!(vals, &vec![45.0, 30.0]),
+            _ => panic!("Expected Vector"),
+        }
     }
 
     #[test]

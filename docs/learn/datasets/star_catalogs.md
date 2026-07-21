@@ -143,7 +143,51 @@ Catalog positions are only valid at the catalog's reference epoch (J2000.0 for F
         --8<-- "./docs/outputs/datasets/star_catalogs_filtering.rs.txt"
         ```
 
-This uses the same proper-motion transformation as [`apply_proper_motion`](../../library_api/coordinates/radec.md), per ESA SP-1200 Vol. 1, §1.5.5 - see [RA/Dec Transformations](../coordinates/radec_transformations.md#proper-motion) for the underlying equations.
+This uses the same proper-motion transformation as [`apply_proper_motion`](../../library_api/coordinates/radec.md) - IAU SOFA's `iauPmsafe` space-motion routine - see [RA/Dec Transformations](../coordinates/radec_transformations.md#proper-motion) for details.
+
+## Reference Frames
+
+Catalog positions are returned in the catalog's **native reference frame**, exactly as published. Brahe applies no frame correction: `ra`/`dec`, `unit_vector`, and `radec_at_epoch` all return raw catalog-frame values. Which frame that is differs by catalog, and this matters when catalog directions are combined with a GCRF orbit state or fed into the IAU 2006/2000A (CIO-based) [frame transformations](../../library_api/frames/index.md).
+
+<div class="center-table" markdown="1">
+
+| Catalog | Native frame | Relation to Brahe's GCRF/ECI |
+|---|---|---|
+| Hipparcos | ICRS | Same axes (aligned to ~10 µas); no rotation needed |
+| Tycho-2 | ICRS | Same axes; no rotation needed |
+| FK5 | Mean equator/equinox of J2000.0 (EME2000) | Offset by the ~23 mas frame bias; rotate EME2000 → GCRF |
+
+</div>
+
+!!! tip "ICRS catalogs are GCRF-ready; FK5 is not"
+    The "epoch" in a catalog's description refers to two different things depending on the catalog. For Hipparcos, **ICRS at epoch J1991.25** means the ICRS *axes* (which are fixed and epoch-independent, tied to extragalactic radio sources) with each star's *position* measured at J1991.25. Because Brahe's GCRF is aligned to the ICRS by construction, Hipparcos and Tycho-2 directions are already GCRF directions - the only step needed to use them at another date is proper-motion propagation via `radec_at_epoch`.
+
+    For **FK5 at epoch J2000.0**, J2000.0 pins both the position epoch *and* the axes: FK5 realizes the dynamical mean equator and equinox of J2000.0, which is the same frame Brahe exposes as EME2000, **not** the ICRS/GCRF axes. FK5 directions therefore differ from GCRF by the ~23 mas frame bias and must be rotated with [`position_eme2000_to_gcrf`](../../library_api/frames/eme2000_gcrf.md) (or [`rotation_eme2000_to_gcrf`](../../library_api/frames/eme2000_gcrf.md)) before they are mixed with a GCRF state or passed to the GCRF → ITRF transform. (To FK5's own systematic accuracy this identification is exact; it does not carry FK5's residual zonal/equinox errors.)
+
+The example below propagates an FK5 star to an observation epoch, rotates the resulting direction from EME2000 into GCRF, and then into the Earth-fixed ITRF frame with the IAU 2006/2000A transform - the full catalog → GCRF → ITRF chain:
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/datasets/fk5_frame_correction.py:17"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/datasets/fk5_frame_correction.rs:13"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/datasets/fk5_frame_correction.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/datasets/fk5_frame_correction.rs.txt"
+        ```
 
 ## Field Reference
 

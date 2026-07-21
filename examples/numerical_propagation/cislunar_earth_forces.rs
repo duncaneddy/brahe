@@ -63,16 +63,12 @@ fn main() {
     let x_earth = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
     let x_emb = bh::frames::state_eci_to_emb(epoch, x_earth);
 
-    let mut prop = bh::DNumericalOrbitPropagator::new(
+    let mut prop = bh::DNumericalOrbitPropagator::builder(
         epoch,
         na::DVector::from_column_slice(x_emb.as_slice()),
-        bh::NumericalPropagationConfig::default(),
         force_config,
-        None,
-        None,
-        None,
-        None,
     )
+    .build()
     .unwrap();
 
     // Propagate for one day

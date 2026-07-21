@@ -152,9 +152,13 @@ For stars, which are effectively at infinite range, this correction is unnecessa
 
 ## Proper Motion
 
-Catalog positions are only valid at their reference epoch. `apply_proper_motion` propagates $(\alpha, \delta)$ from a catalog epoch to a target epoch using the star's proper motion and, when available, its parallax and radial velocity.
+Catalog positions are only valid at their reference epoch. `apply_proper_motion` propagates $(\alpha, \delta)$ from a catalog epoch to a target epoch using IAU SOFA's `iauPmsafe` space-motion routine, given the star's proper motion and, when available, its parallax and radial velocity.
 
-The star's unit direction vector $\hat{u}_0$ is advanced linearly in the tangent plane spanned by
+`iauPmsafe` reconstructs the star's full barycentric position/velocity (pv-)state from the catalog $(\alpha, \delta)$, proper motion, parallax, and radial velocity; advances it assuming **straight-line motion at constant velocity** - including a light-time correction and the special-relativistic (Doppler) treatment of Stumpff (1985) - and reduces the result back to catalog $(\alpha, \delta)$ at the target epoch. The `pm_ra` argument follows the standard catalog convention $\mu_{\alpha*} = \mu_\alpha \cos\delta$ (matching the `pmRA`/`pmDE` columns of Hipparcos, Tycho-2, Gaia, and most other catalogs), not the raw coordinate rate $\dot\alpha$. When `parallax` or `radial_velocity` is unavailable it is treated as zero; `iauPmsafe` additionally applies a proper-motion-scaled minimum-parallax guard so a star with a missing or tiny parallax still propagates correctly rather than being clamped to a no-op.
+
+### Underlying model
+
+To first order the direction change `iauPmsafe` produces is the rigorous epoch transformation of ESA SP-1200 §1.5.5. The star's unit direction $\hat{u}_0$ moves in the tangent plane spanned by
 
 $$
 \hat{u}_0 = \begin{bmatrix} \cos\delta\cos\alpha \\ \cos\delta\sin\alpha \\ \sin\delta \end{bmatrix}, \qquad
@@ -162,24 +166,18 @@ $$
 \hat{q} = \begin{bmatrix} -\sin\delta\cos\alpha \\ -\sin\delta\sin\alpha \\ \cos\delta \end{bmatrix}
 $$
 
-by its proper motion vector $\vec{\mu} = \hat{p}\,\mu_{\alpha*} + \hat{q}\,\mu_\delta$ (where $\mu_{\alpha*} = \mu_\alpha \cos\delta$ is the standard catalog convention, and $\mu_{\alpha*}$, $\mu_\delta$ are converted from mas/yr to rad/yr before use), scaled by a first-order perspective-acceleration term $\mu_r$ that accounts for the change in angular rate as the star's line-of-sight distance changes:
+driven by the tangential proper-motion vector $\vec{\mu} = \hat{p}\,\mu_{\alpha*} + \hat{q}\,\mu_\delta$ (with $\mu_{\alpha*}$, $\mu_\delta$ converted from mas/yr to rad/yr) and a radial "perspective-acceleration" term $\mu_r$ that captures the change in angular rate as the star's line-of-sight distance changes:
 
 $$
 \mu_r = \frac{v_r \, \varpi_{\text{rad}}}{4.740470446\ \text{km/s per AU/yr}} \qquad \left[\text{yr}^{-1}\right]
 $$
 
-where $v_r$ is the radial velocity (km/s), $\varpi_{\text{rad}}$ is the parallax converted from mas to radians, and $4.740470446\ \text{km/s}$ is the speed of one astronomical unit per year - the standard constant relating radial velocity to line-of-sight distance rate. The propagated direction, for elapsed time $\tau$ in years, is
-
-$$
-\vec{b}(\tau) = \hat{u}_0 \left(1 + \mu_r \tau\right) + \vec{\mu}\,\tau, \qquad \hat{u}(\tau) = \frac{\vec{b}(\tau)}{\lVert \vec{b}(\tau) \rVert}
-$$
-
-renormalized to a unit vector, from which the propagated $(\alpha, \delta)$ are recovered. The perspective-acceleration term is significant for high radial-velocity, high-parallax stars such as Barnard's Star; if `parallax` or `radial_velocity` is unavailable, $\mu_r$ is treated as zero, reducing to a purely linear proper-motion propagation. This implements the direction part of the transformation only - it does not apply light-time or Doppler (radial-velocity-rate) corrections, and is otherwise equivalent to IAU SOFA `iauStarpm`'s treatment of the proper-motion/parallax epoch transformation.
+where $v_r$ is the radial velocity (km/s), $\varpi_{\text{rad}}$ is the parallax in radians, and $4.740470446\ \text{km/s}$ is the speed of one astronomical unit per year. The perspective term is significant only for high radial-velocity, high-parallax stars such as Barnard's Star; when parallax or radial velocity is unknown it vanishes and the propagation reduces to purely linear proper motion. `iauPmsafe` goes beyond this first-order model by carrying the full pv-state and adding the light-time and Doppler corrections noted above.
 
 The worked example above (Position Conversions) continues past the round-trip check to call `apply_proper_motion` on Barnard's Star, propagating it 10 years forward using its Hipparcos catalog proper motion, parallax, and radial velocity - see its output for the resulting $(\alpha, \delta)$ shift.
 
 !!! info "Reference"
-    Proper motion propagation follows ESA, *The Hipparcos and Tycho Catalogues*, ESA SP-1200, Vol. 1, §1.5.5, 1997. The RA/Dec position, state, and topocentric conversions follow D. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th Ed., §4.4 (Eq. 4-1, Eq. 4-2, Algorithm 25, Algorithm 26), 2013.
+    Proper motion propagation is performed by IAU SOFA's `iauPmsafe` (SOFA Tools for Earth Attitude, 2023); the underlying epoch-transformation theory is ESA, *The Hipparcos and Tycho Catalogues*, ESA SP-1200, Vol. 1, §1.5.5, 1997. The RA/Dec position, state, and topocentric conversions follow D. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th Ed., §4.4 (Eq. 4-1, Eq. 4-2, Algorithm 25, Algorithm 26), 2013.
 
     Star catalog records expose this transformation directly via `radec_at_epoch` - see [Star Catalogs](../datasets/star_catalogs.md).
 

@@ -44,7 +44,7 @@ use crate::trajectories::DOrbitTrajectory;
 use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
 use crate::utils::{BraheError, Identifiable};
 use nalgebra::{DVector, Vector3, Vector6};
-use sgp4::chrono::{Datelike, NaiveDateTime, Timelike};
+use sgp4::chrono::{Datelike, NaiveDate, NaiveDateTime, Timelike};
 
 // Event detection imports
 use crate::events::{DDetectedEvent, DEventDetector, EventAction, EventQuery, dscan_for_event};
@@ -149,6 +149,50 @@ fn convert_state_from_spg4_frame(
 #[inline]
 fn svec6_to_dvec(sv: &Vector6<f64>) -> DVector<f64> {
     DVector::from_column_slice(sv.as_slice())
+}
+
+/// Validate a frame/representation/angle-format output combination.
+///
+/// Shared by [`SGPPropagator::with_output_format`] and
+/// [`SGPPropagatorBuilder::build`].
+///
+/// # Errors
+/// Returns `BraheError` if:
+/// - Keplerian representation is requested without `angle_format`
+/// - Keplerian representation is requested in a non-ECI frame
+/// - Cartesian representation is given with `angle_format`
+/// - The frame is body-centered inertial (Earth-only propagator)
+fn validate_output_format(
+    frame: OrbitFrame,
+    representation: OrbitRepresentation,
+    angle_format: Option<AngleFormat>,
+) -> Result<(), BraheError> {
+    if representation == OrbitRepresentation::Keplerian && angle_format.is_none() {
+        return Err(BraheError::PropagatorError(
+            "Angle format must be specified for Keplerian elements".to_string(),
+        ));
+    }
+
+    if representation == OrbitRepresentation::Keplerian && frame != OrbitFrame::ECI {
+        return Err(BraheError::PropagatorError(
+            "Keplerian elements must be in ECI frame".to_string(),
+        ));
+    }
+
+    if representation == OrbitRepresentation::Cartesian && angle_format.is_some() {
+        return Err(BraheError::PropagatorError(
+            "Angle format should be None for Cartesian representation".to_string(),
+        ));
+    }
+
+    if matches!(frame, OrbitFrame::BodyCenteredInertial(_)) {
+        return Err(BraheError::PropagatorError(
+            "OrbitFrame::BodyCenteredInertial is not supported by SGPPropagator (Earth-only)"
+                .to_string(),
+        ));
+    }
+
+    Ok(())
 }
 
 /// SGP4 propagator
@@ -295,6 +339,524 @@ impl std::fmt::Debug for SGPPropagator {
             .field("terminated", &self.terminated)
             .field("termination_error", &self.termination_error)
             .finish()
+    }
+}
+
+/// Builder for [`SGPPropagator`] from CCSDS OMM (Orbit Mean-elements Message) elements.
+///
+/// Created by [`SGPPropagator::builder`], which takes the eight required OMM
+/// inputs (`epoch`, `mean_motion`, `eccentricity`, `inclination`, `raan`,
+/// `arg_of_pericenter`, `mean_anomaly`, `norad_id`). Optional inputs are provided
+/// through chained setters and default to `None` (matching [`SGPPropagator::from_omm_elements`]'s
+/// defaults), except `step_size` which defaults to `60.0` seconds.
+/// [`SGPPropagatorBuilder::build`] constructs the propagator and, if `output_format`
+/// was set, applies it afterward.
+///
+/// # Example
+///
+/// ```rust
+/// use brahe::propagators::SGPPropagator;
+/// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let eop = StaticEOPProvider::from_zero();
+/// set_global_eop_provider(eop);
+///
+/// let prop = SGPPropagator::builder(
+///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+///     15.49193835, // mean_motion (rev/day)
+///     0.0003723,   // eccentricity
+///     51.6312,     // inclination (degrees)
+///     206.3646,    // raan (degrees)
+///     184.1118,    // arg_of_pericenter (degrees)
+///     175.9840,    // mean_anomaly (degrees)
+///     25544,       // norad_id
+/// )
+/// .object_name("ISS (ZARYA)")
+/// .bstar(0.15237e-3)
+/// .build()
+/// .unwrap();
+/// ```
+pub struct SGPPropagatorBuilder {
+    epoch: Epoch,
+    mean_motion: f64,
+    eccentricity: f64,
+    inclination: f64,
+    raan: f64,
+    arg_of_pericenter: f64,
+    mean_anomaly: f64,
+    norad_id: u64,
+    step_size: f64,
+    object_name: Option<String>,
+    object_id: Option<String>,
+    classification: Option<char>,
+    bstar: Option<f64>,
+    mean_motion_dot: Option<f64>,
+    mean_motion_ddot: Option<f64>,
+    ephemeris_type: Option<u8>,
+    element_set_no: Option<u64>,
+    rev_at_epoch: Option<u64>,
+    output_format: Option<(OrbitFrame, OrbitRepresentation, Option<AngleFormat>)>,
+}
+
+impl SGPPropagatorBuilder {
+    /// Set the propagation step size.
+    ///
+    /// Defaults to `60.0` seconds if not called.
+    ///
+    /// # Arguments
+    /// * `step_size` - Default step size in seconds
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::SGPPropagator;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let prop = SGPPropagator::builder(
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
+    ///     206.3646, 184.1118, 175.9840, 25544,
+    /// )
+    /// .step_size(30.0)
+    /// .build()
+    /// .unwrap();
+    /// ```
+    pub fn step_size(mut self, step_size: f64) -> Self {
+        self.step_size = step_size;
+        self
+    }
+
+    /// Set the satellite name (OMM `OBJECT_NAME`).
+    ///
+    /// # Arguments
+    /// * `object_name` - Satellite name
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::SGPPropagator;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let prop = SGPPropagator::builder(
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
+    ///     206.3646, 184.1118, 175.9840, 25544,
+    /// )
+    /// .object_name("ISS (ZARYA)")
+    /// .build()
+    /// .unwrap();
+    /// ```
+    pub fn object_name(mut self, object_name: &str) -> Self {
+        self.object_name = Some(object_name.to_string());
+        self
+    }
+
+    /// Set the international designator (OMM `OBJECT_ID`, e.g. `"1998-067A"`).
+    ///
+    /// # Arguments
+    /// * `object_id` - International designator
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::SGPPropagator;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let prop = SGPPropagator::builder(
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
+    ///     206.3646, 184.1118, 175.9840, 25544,
+    /// )
+    /// .object_id("1998-067A")
+    /// .build()
+    /// .unwrap();
+    /// ```
+    pub fn object_id(mut self, object_id: &str) -> Self {
+        self.object_id = Some(object_id.to_string());
+        self
+    }
+
+    /// Set the classification (OMM `CLASSIFICATION_TYPE`).
+    ///
+    /// Defaults to `'U'` (unclassified) if not called.
+    ///
+    /// # Arguments
+    /// * `classification` - Classification character (`'U'`, `'C'`, or `'S'`)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::SGPPropagator;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let prop = SGPPropagator::builder(
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
+    ///     206.3646, 184.1118, 175.9840, 25544,
+    /// )
+    /// .classification('U')
+    /// .build()
+    /// .unwrap();
+    /// ```
+    pub fn classification(mut self, classification: char) -> Self {
+        self.classification = Some(classification);
+        self
+    }
+
+    /// Set the B* drag term (OMM `BSTAR`).
+    ///
+    /// Defaults to `0.0` if not called.
+    ///
+    /// # Arguments
+    /// * `bstar` - B* drag term (1/Earth radii)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::SGPPropagator;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let prop = SGPPropagator::builder(
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
+    ///     206.3646, 184.1118, 175.9840, 25544,
+    /// )
+    /// .bstar(0.15237e-3)
+    /// .build()
+    /// .unwrap();
+    /// ```
+    pub fn bstar(mut self, bstar: f64) -> Self {
+        self.bstar = Some(bstar);
+        self
+    }
+
+    /// Set the first derivative of mean motion divided by 2 (OMM `MEAN_MOTION_DOT`).
+    ///
+    /// Defaults to `0.0` if not called.
+    ///
+    /// # Arguments
+    /// * `mean_motion_dot` - First derivative of mean motion / 2 (rev/day²)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::SGPPropagator;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let prop = SGPPropagator::builder(
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
+    ///     206.3646, 184.1118, 175.9840, 25544,
+    /// )
+    /// .mean_motion_dot(0.801e-4)
+    /// .build()
+    /// .unwrap();
+    /// ```
+    pub fn mean_motion_dot(mut self, mean_motion_dot: f64) -> Self {
+        self.mean_motion_dot = Some(mean_motion_dot);
+        self
+    }
+
+    /// Set the second derivative of mean motion divided by 6 (OMM `MEAN_MOTION_DDOT`).
+    ///
+    /// Defaults to `0.0` if not called.
+    ///
+    /// # Arguments
+    /// * `mean_motion_ddot` - Second derivative of mean motion / 6 (rev/day³)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::SGPPropagator;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let prop = SGPPropagator::builder(
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
+    ///     206.3646, 184.1118, 175.9840, 25544,
+    /// )
+    /// .mean_motion_ddot(0.0)
+    /// .build()
+    /// .unwrap();
+    /// ```
+    pub fn mean_motion_ddot(mut self, mean_motion_ddot: f64) -> Self {
+        self.mean_motion_ddot = Some(mean_motion_ddot);
+        self
+    }
+
+    /// Set the ephemeris type (OMM `EPHEMERIS_TYPE`).
+    ///
+    /// Defaults to `0` if not called.
+    ///
+    /// # Arguments
+    /// * `ephemeris_type` - Ephemeris type (usually `0`)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::SGPPropagator;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let prop = SGPPropagator::builder(
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
+    ///     206.3646, 184.1118, 175.9840, 25544,
+    /// )
+    /// .ephemeris_type(0)
+    /// .build()
+    /// .unwrap();
+    /// ```
+    pub fn ephemeris_type(mut self, ephemeris_type: u8) -> Self {
+        self.ephemeris_type = Some(ephemeris_type);
+        self
+    }
+
+    /// Set the element set number (OMM `ELEMENT_SET_NO`).
+    ///
+    /// Defaults to `999` if not called.
+    ///
+    /// # Arguments
+    /// * `element_set_no` - Element set number
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::SGPPropagator;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let prop = SGPPropagator::builder(
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
+    ///     206.3646, 184.1118, 175.9840, 25544,
+    /// )
+    /// .element_set_no(999)
+    /// .build()
+    /// .unwrap();
+    /// ```
+    pub fn element_set_no(mut self, element_set_no: u64) -> Self {
+        self.element_set_no = Some(element_set_no);
+        self
+    }
+
+    /// Set the revolution number at epoch (OMM `REV_AT_EPOCH`).
+    ///
+    /// Defaults to `0` if not called.
+    ///
+    /// # Arguments
+    /// * `rev_at_epoch` - Revolution number at epoch
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::SGPPropagator;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let prop = SGPPropagator::builder(
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
+    ///     206.3646, 184.1118, 175.9840, 25544,
+    /// )
+    /// .rev_at_epoch(54085)
+    /// .build()
+    /// .unwrap();
+    /// ```
+    pub fn rev_at_epoch(mut self, rev_at_epoch: u64) -> Self {
+        self.rev_at_epoch = Some(rev_at_epoch);
+        self
+    }
+
+    /// Configure output format for propagated states.
+    ///
+    /// Applied to the propagator after [`SGPPropagator::from_omm_elements`]
+    /// succeeds, via [`SGPPropagator::with_output_format`]; see that method
+    /// for the frame/representation/angle-format combinations it accepts.
+    ///
+    /// # Arguments
+    /// * `frame` - Target reference frame (ECI or ECEF)
+    /// * `representation` - State representation (Cartesian or Keplerian)
+    /// * `angle_format` - Angle units (required for Keplerian, `None` for Cartesian)
+    ///
+    /// # Errors
+    /// This setter itself never errors; it only stores the combination.
+    /// [`SGPPropagatorBuilder::build`] returns `Err` if the stored
+    /// combination is invalid:
+    /// - Keplerian representation requested without `angle_format`
+    /// - Keplerian representation requested in a non-ECI frame
+    /// - Cartesian representation given with `angle_format`
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::SGPPropagator;
+    /// use brahe::traits::{OrbitFrame, OrbitRepresentation};
+    /// use brahe::constants::AngleFormat;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let prop = SGPPropagator::builder(
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
+    ///     206.3646, 184.1118, 175.9840, 25544,
+    /// )
+    /// .output_format(OrbitFrame::ECI, OrbitRepresentation::Keplerian, Some(AngleFormat::Degrees))
+    /// .build()
+    /// .unwrap();
+    /// ```
+    pub fn output_format(
+        mut self,
+        frame: OrbitFrame,
+        representation: OrbitRepresentation,
+        angle_format: Option<AngleFormat>,
+    ) -> Self {
+        self.output_format = Some((frame, representation, angle_format));
+        self
+    }
+
+    /// Construct the propagator from the accumulated configuration.
+    ///
+    /// Calls [`SGPPropagator::from_omm_elements`] with the required OMM fields
+    /// and any optional fields set through the builder's setters, then applies
+    /// `output_format` (if set) via [`SGPPropagator::with_output_format`].
+    ///
+    /// # Returns
+    /// Initialized propagator ready for propagation
+    ///
+    /// # Errors
+    /// Returns `BraheError` if:
+    /// - The epoch is not representable as a calendar datetime
+    /// - [`SGPPropagatorBuilder::output_format`] was called with an invalid
+    ///   combination:
+    ///   - Keplerian representation requested without `angle_format`
+    ///   - Keplerian representation requested in a non-ECI frame
+    ///   - Cartesian representation given with `angle_format`
+    ///   - A body-centered inertial frame (Earth-only propagator)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::SGPPropagator;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let prop = SGPPropagator::builder(
+    ///     Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+    ///     15.49193835, 0.0003723, 51.6312,
+    ///     206.3646, 184.1118, 175.9840, 25544,
+    /// )
+    /// .build()
+    /// .unwrap();
+    /// ```
+    pub fn build(self) -> Result<SGPPropagator, BraheError> {
+        if let Some((frame, representation, angle_format)) = self.output_format {
+            validate_output_format(frame, representation, angle_format)?;
+        }
+
+        let prop = SGPPropagator::from_omm_elements(
+            self.epoch,
+            self.mean_motion,
+            self.eccentricity,
+            self.inclination,
+            self.raan,
+            self.arg_of_pericenter,
+            self.mean_anomaly,
+            self.norad_id,
+            self.step_size,
+            self.object_name.as_deref(),
+            self.object_id.as_deref(),
+            self.classification,
+            self.bstar,
+            self.mean_motion_dot,
+            self.mean_motion_ddot,
+            self.ephemeris_type,
+            self.element_set_no,
+            self.rev_at_epoch,
+        )?;
+        Ok(match self.output_format {
+            Some((frame, representation, angle_format)) => {
+                prop.with_output_format(frame, representation, angle_format)?
+            }
+            None => prop,
+        })
     }
 }
 
@@ -477,7 +1039,7 @@ impl SGPPropagator {
     /// bypassing TLE parsing. It creates synthetic TLE lines for API consistency.
     ///
     /// # Arguments
-    /// * `epoch` - ISO 8601 datetime string (e.g., "2025-11-29T20:01:44.058144")
+    /// * `epoch` - Element set epoch (UTC)
     /// * `mean_motion` - Mean motion in revolutions per day
     /// * `eccentricity` - Orbital eccentricity (dimensionless)
     /// * `inclination` - Orbital inclination in degrees
@@ -503,14 +1065,16 @@ impl SGPPropagator {
     /// ```
     /// use brahe::propagators::SGPPropagator;
     /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// // Initialize EOP provider
     /// let eop = StaticEOPProvider::from_zero();
     /// set_global_eop_provider(eop);
     ///
     /// // ISS OMM data
+    /// let epoch = Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC);
     /// let prop = SGPPropagator::from_omm_elements(
-    ///     "2025-11-29T20:01:44.058144",  // EPOCH
+    ///     epoch,                          // EPOCH
     ///     15.49193835,                    // MEAN_MOTION (rev/day)
     ///     0.0003723,                      // ECCENTRICITY
     ///     51.6312,                        // INCLINATION (degrees)
@@ -532,7 +1096,7 @@ impl SGPPropagator {
     /// ```
     #[allow(clippy::too_many_arguments)]
     pub fn from_omm_elements(
-        epoch: &str,
+        epoch: Epoch,
         mean_motion: f64,
         eccentricity: f64,
         inclination: f64,
@@ -551,10 +1115,26 @@ impl SGPPropagator {
         element_set_no: Option<u64>,
         rev_at_epoch: Option<u64>,
     ) -> Result<Self, BraheError> {
-        // Parse epoch (OMM format: "2025-11-29T20:01:44.058144")
-        let datetime = NaiveDateTime::parse_from_str(epoch, "%Y-%m-%dT%H:%M:%S%.f")
-            .or_else(|_| NaiveDateTime::parse_from_str(epoch, "%Y-%m-%dT%H:%M:%S"))
-            .map_err(|e| BraheError::Error(format!("Invalid epoch format '{}': {}", epoch, e)))?;
+        // Convert the epoch to a chrono::NaiveDateTime (UTC) for the sgp4 crate
+        let (year, month, day, hour, minute, second, nanoseconds) =
+            epoch.to_datetime_as_time_system(TimeSystem::UTC);
+        let datetime = NaiveDate::from_ymd_opt(year as i32, month as u32, day as u32)
+            .and_then(|d| {
+                // Truncate sub-nanosecond fraction: rounding could yield
+                // 1_000_000_000 ns, which chrono rejects instead of carrying.
+                d.and_hms_nano_opt(
+                    hour as u32,
+                    minute as u32,
+                    second as u32,
+                    nanoseconds as u32,
+                )
+            })
+            .ok_or_else(|| {
+                BraheError::Error(format!(
+                    "Epoch {} is not representable as a datetime",
+                    epoch
+                ))
+            })?;
 
         // Map classification character to sgp4::Classification
         let classification_char = classification.unwrap_or('U');
@@ -603,17 +1183,7 @@ impl SGPPropagator {
         let constants = sgp4::Constants::from_elements(&elements)
             .map_err(|e| BraheError::Error(format!("SGP4 constants error: {:?}", e)))?;
 
-        // Convert chrono::NaiveDateTime to brahe Epoch
-        let brahe_epoch = Epoch::from_datetime(
-            datetime.year() as u32,
-            datetime.month() as u8,
-            datetime.day() as u8,
-            datetime.hour() as u8,
-            datetime.minute() as u8,
-            datetime.second() as f64 + datetime.nanosecond() as f64 / 1e9,
-            0.0, // nanoseconds already included in seconds
-            TimeSystem::UTC,
-        );
+        let brahe_epoch = epoch;
 
         // Generate synthetic TLE lines for API consistency
         // Convert OBJECT_ID from OMM format (e.g., "1998-067A") to TLE format (e.g., "98067A")
@@ -732,6 +1302,86 @@ impl SGPPropagator {
         result
     }
 
+    /// Create a builder for [`SGPPropagator`] from CCSDS OMM elements.
+    ///
+    /// Takes the eight required OMM inputs directly; optional inputs are
+    /// provided through chained setters on the returned builder and default
+    /// to `None` (matching [`SGPPropagator::from_omm_elements`]'s defaults),
+    /// except `step_size` which defaults to `60.0` seconds.
+    ///
+    /// # Arguments
+    /// * `epoch` - Element set epoch (UTC)
+    /// * `mean_motion` - Mean motion in revolutions per day
+    /// * `eccentricity` - Orbital eccentricity (dimensionless)
+    /// * `inclination` - Orbital inclination in degrees
+    /// * `raan` - Right ascension of ascending node in degrees
+    /// * `arg_of_pericenter` - Argument of pericenter in degrees
+    /// * `mean_anomaly` - Mean anomaly in degrees
+    /// * `norad_id` - NORAD catalog ID
+    ///
+    /// # Returns
+    /// Builder with the eight required fields set, `step_size` defaulted to
+    /// `60.0`, and all other optional fields defaulted to `None`
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::propagators::SGPPropagator;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let epoch = Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC);
+    /// let prop = SGPPropagator::builder(
+    ///     epoch,                          // EPOCH
+    ///     15.49193835,                    // MEAN_MOTION (rev/day)
+    ///     0.0003723,                      // ECCENTRICITY
+    ///     51.6312,                        // INCLINATION (degrees)
+    ///     206.3646,                       // RA_OF_ASC_NODE (degrees)
+    ///     184.1118,                       // ARG_OF_PERICENTER (degrees)
+    ///     175.9840,                       // MEAN_ANOMALY (degrees)
+    ///     25544,                          // NORAD_CAT_ID
+    /// )
+    /// .object_name("ISS (ZARYA)")
+    /// .bstar(0.15237e-3)
+    /// .build()
+    /// .unwrap();
+    /// ```
+    #[allow(clippy::too_many_arguments)]
+    pub fn builder(
+        epoch: Epoch,
+        mean_motion: f64,
+        eccentricity: f64,
+        inclination: f64,
+        raan: f64,
+        arg_of_pericenter: f64,
+        mean_anomaly: f64,
+        norad_id: u64,
+    ) -> SGPPropagatorBuilder {
+        SGPPropagatorBuilder {
+            epoch,
+            mean_motion,
+            eccentricity,
+            inclination,
+            raan,
+            arg_of_pericenter,
+            mean_anomaly,
+            norad_id,
+            step_size: 60.0,
+            object_name: None,
+            object_id: None,
+            classification: None,
+            bstar: None,
+            mean_motion_dot: None,
+            mean_motion_ddot: None,
+            ephemeris_type: None,
+            element_set_no: None,
+            rev_at_epoch: None,
+            output_format: None,
+        }
+    }
+
     /// Create an SGP4 propagator from a GPRecord (OMM data).
     ///
     /// Validates required fields and delegates to [`from_omm_elements`](Self::from_omm_elements),
@@ -756,9 +1406,25 @@ impl SGPPropagator {
         step_size: f64,
     ) -> Result<Self, BraheError> {
         // Validate required fields
-        let epoch = record.epoch.as_deref().ok_or_else(|| {
+        let epoch_str = record.epoch.as_deref().ok_or_else(|| {
             BraheError::Error("GPRecord missing required field: epoch".to_string())
         })?;
+        // Parse epoch (OMM format: "2025-11-29T20:01:44.058144")
+        let datetime = NaiveDateTime::parse_from_str(epoch_str, "%Y-%m-%dT%H:%M:%S%.f")
+            .or_else(|_| NaiveDateTime::parse_from_str(epoch_str, "%Y-%m-%dT%H:%M:%S"))
+            .map_err(|e| {
+                BraheError::Error(format!("Invalid epoch format '{}': {}", epoch_str, e))
+            })?;
+        let epoch = Epoch::from_datetime(
+            datetime.year() as u32,
+            datetime.month() as u8,
+            datetime.day() as u8,
+            datetime.hour() as u8,
+            datetime.minute() as u8,
+            datetime.second() as f64,
+            datetime.nanosecond() as f64,
+            TimeSystem::UTC,
+        );
         let mean_motion = record.mean_motion.ok_or_else(|| {
             BraheError::Error("GPRecord missing required field: mean_motion".to_string())
         })?;
@@ -852,31 +1518,7 @@ impl SGPPropagator {
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
     ) -> Result<Self, BraheError> {
-        // Validate inputs
-        if representation == OrbitRepresentation::Keplerian && angle_format.is_none() {
-            return Err(BraheError::PropagatorError(
-                "Angle format must be specified for Keplerian elements".to_string(),
-            ));
-        }
-
-        if representation == OrbitRepresentation::Keplerian && frame != OrbitFrame::ECI {
-            return Err(BraheError::PropagatorError(
-                "Keplerian elements must be in ECI frame".to_string(),
-            ));
-        }
-
-        if representation == OrbitRepresentation::Cartesian && angle_format.is_some() {
-            return Err(BraheError::PropagatorError(
-                "Angle format should be None for Cartesian representation".to_string(),
-            ));
-        }
-
-        if matches!(frame, OrbitFrame::BodyCenteredInertial(_)) {
-            return Err(BraheError::PropagatorError(
-                "OrbitFrame::BodyCenteredInertial is not supported by SGPPropagator (Earth-only)"
-                    .to_string(),
-            ));
-        }
+        validate_output_format(frame, representation, angle_format)?;
 
         self.frame = frame;
         self.representation = representation;
@@ -2055,7 +2697,7 @@ mod tests {
 
         // ISS OMM data
         let propagator = SGPPropagator::from_omm_elements(
-            "2025-11-29T20:01:44.058144",
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
             15.49193835, // mean_motion (rev/day)
             0.0003723,   // eccentricity
             51.6312,     // inclination (degrees)
@@ -2105,7 +2747,7 @@ mod tests {
 
         // Test with minimal required parameters (all optionals as None)
         let propagator = SGPPropagator::from_omm_elements(
-            "2025-11-29T20:01:44.058144",
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
             15.49193835,
             0.0003723,
             51.6312,
@@ -2137,7 +2779,7 @@ mod tests {
         setup_global_test_eop();
 
         let mut prop = SGPPropagator::from_omm_elements(
-            "2025-11-29T20:01:44.058144",
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
             15.49193835,
             0.0003723,
             51.6312,
@@ -2171,11 +2813,57 @@ mod tests {
 
     #[test]
     #[serial_test::parallel]
-    fn test_sgppropagator_from_omm_elements_invalid_epoch() {
+    fn test_sgppropagator_from_gp_record_invalid_epoch() {
         setup_global_test_eop();
 
-        let propagator = SGPPropagator::from_omm_elements(
-            "not-a-valid-date",
+        let json = r#"{
+            "EPOCH": "not-a-valid-date",
+            "MEAN_MOTION": 15.50000000,
+            "ECCENTRICITY": 0.00010000,
+            "INCLINATION": 51.6400,
+            "RA_OF_ASC_NODE": 200.0000,
+            "ARG_OF_PERICENTER": 100.0000,
+            "MEAN_ANOMALY": 260.0000,
+            "NORAD_CAT_ID": 25544
+        }"#;
+        let record: crate::types::GPRecord = serde_json::from_str(json).unwrap();
+
+        let propagator = SGPPropagator::from_gp_record(&record, 60.0);
+
+        assert!(propagator.is_err());
+        let err = propagator.unwrap_err();
+        assert!(err.to_string().contains("Invalid epoch format"));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sgppropagator_builder_equivalence() {
+        setup_global_test_eop();
+
+        let from_builder = SGPPropagator::builder(
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+            15.49193835,
+            0.0003723,
+            51.6312,
+            206.3646,
+            184.1118,
+            175.9840,
+            25544,
+        )
+        .object_name("ISS (ZARYA)")
+        .object_id("1998-067A")
+        .classification('U')
+        .bstar(0.15237e-3)
+        .mean_motion_dot(0.801e-4)
+        .mean_motion_ddot(0.0)
+        .ephemeris_type(0)
+        .element_set_no(999)
+        .rev_at_epoch(54085)
+        .build()
+        .unwrap();
+
+        let from_ctor = SGPPropagator::from_omm_elements(
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
             15.49193835,
             0.0003723,
             51.6312,
@@ -2184,20 +2872,208 @@ mod tests {
             175.9840,
             25544,
             60.0,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        );
+            Some("ISS (ZARYA)"),
+            Some("1998-067A"),
+            Some('U'),
+            Some(0.15237e-3),
+            Some(0.801e-4),
+            Some(0.0),
+            Some(0),
+            Some(999),
+            Some(54085),
+        )
+        .unwrap();
 
-        assert!(propagator.is_err());
-        let err = propagator.unwrap_err();
-        assert!(err.to_string().contains("Invalid epoch format"));
+        assert_eq!(from_builder.current_state(), from_ctor.current_state());
+        assert_eq!(from_builder.norad_id, from_ctor.norad_id);
+        assert_eq!(from_builder.satellite_name, from_ctor.satellite_name);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sgppropagator_builder_step_size_default() {
+        setup_global_test_eop();
+
+        let prop = SGPPropagator::builder(
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+            15.49193835,
+            0.0003723,
+            51.6312,
+            206.3646,
+            184.1118,
+            175.9840,
+            25544,
+        )
+        .build()
+        .unwrap();
+
+        assert_eq!(prop.step_size, 60.0);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sgppropagator_builder_step_size_override() {
+        setup_global_test_eop();
+
+        let prop = SGPPropagator::builder(
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+            15.49193835,
+            0.0003723,
+            51.6312,
+            206.3646,
+            184.1118,
+            175.9840,
+            25544,
+        )
+        .step_size(30.0)
+        .build()
+        .unwrap();
+
+        assert_eq!(prop.step_size, 30.0);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sgppropagator_builder_output_format() {
+        setup_global_test_eop();
+
+        let prop = SGPPropagator::builder(
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+            15.49193835,
+            0.0003723,
+            51.6312,
+            206.3646,
+            184.1118,
+            175.9840,
+            25544,
+        )
+        .output_format(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+        )
+        .build()
+        .unwrap();
+
+        assert_eq!(prop.frame, OrbitFrame::ECI);
+        assert_eq!(prop.representation, OrbitRepresentation::Keplerian);
+        assert_eq!(prop.angle_format, Some(AngleFormat::Degrees));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sgppropagator_builder_output_format_keplerian_missing_angle_format() {
+        setup_global_test_eop();
+
+        let result = SGPPropagator::builder(
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+            15.49193835,
+            0.0003723,
+            51.6312,
+            206.3646,
+            184.1118,
+            175.9840,
+            25544,
+        )
+        .output_format(OrbitFrame::ECI, OrbitRepresentation::Keplerian, None)
+        .build();
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Angle format must be specified for Keplerian elements")
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sgppropagator_builder_output_format_keplerian_non_eci_frame() {
+        setup_global_test_eop();
+
+        let result = SGPPropagator::builder(
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+            15.49193835,
+            0.0003723,
+            51.6312,
+            206.3646,
+            184.1118,
+            175.9840,
+            25544,
+        )
+        .output_format(
+            OrbitFrame::ECEF,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+        )
+        .build();
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Keplerian elements must be in ECI frame")
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sgppropagator_builder_output_format_cartesian_with_angle_format() {
+        setup_global_test_eop();
+
+        let result = SGPPropagator::builder(
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+            15.49193835,
+            0.0003723,
+            51.6312,
+            206.3646,
+            184.1118,
+            175.9840,
+            25544,
+        )
+        .output_format(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            Some(AngleFormat::Degrees),
+        )
+        .build();
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Angle format should be None for Cartesian representation")
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sgppropagator_builder_invalid_classification() {
+        setup_global_test_eop();
+
+        let result = SGPPropagator::builder(
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+            15.49193835,
+            0.0003723,
+            51.6312,
+            206.3646,
+            184.1118,
+            175.9840,
+            25544,
+        )
+        .classification('X')
+        .build();
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Invalid classification character")
+        );
     }
 
     #[test]
@@ -4050,7 +4926,7 @@ mod tests {
     /// that triggers SGP4 eccentricity divergence when propagated ~24 hours.
     fn make_decaying_propagator(step_size: f64) -> SGPPropagator {
         SGPPropagator::from_omm_elements(
-            "2026-04-06T00:15:48.265056",
+            Epoch::from_datetime(2026, 4, 6, 0, 15, 48.265056, 0.0, TimeSystem::UTC),
             16.25673795, // mean_motion (rev/day) - very high, decaying orbit
             0.00191239,  // eccentricity
             42.9658,     // inclination (degrees)

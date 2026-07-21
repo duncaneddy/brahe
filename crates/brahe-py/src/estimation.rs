@@ -2841,6 +2841,248 @@ impl PyExtendedKalmanFilter {
             self.ekf.records().len(),
         )
     }
+
+    /// Create a builder for constructing an ExtendedKalmanFilter.
+    ///
+    /// The builder takes the required inputs directly; optional inputs
+    /// (propagation config, params, additional dynamics, control input,
+    /// measurement models) are set through chained setter calls before
+    /// calling `build()`.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Initial epoch.
+    ///     state (numpy.ndarray): Initial state vector in ECI [x,y,z,vx,vy,vz,...] (meters, m/s).
+    ///     initial_covariance (numpy.ndarray): Initial covariance matrix (n x n).
+    ///     force_config (ForceModelConfig): Force model configuration.
+    ///     config (EKFConfig): EKF configuration.
+    ///
+    /// Returns:
+    ///     ExtendedKalmanFilterBuilder: New builder instance.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     ekf = (
+    ///         bh.ExtendedKalmanFilter.builder(
+    ///             epoch, state, p0, bh.ForceModelConfig.two_body(), bh.EKFConfig.default(),
+    ///         )
+    ///         .measurement_model(bh.InertialPositionMeasurementModel(10.0))
+    ///         .build()
+    ///     )
+    ///     ```
+    #[staticmethod]
+    fn builder(
+        epoch: &PyEpoch,
+        state: PyReadonlyArray1<f64>,
+        initial_covariance: PyReadonlyArray2<f64>,
+        force_config: &PyForceModelConfig,
+        config: &PyEKFConfig,
+    ) -> PyResult<PyExtendedKalmanFilterBuilder> {
+        let state_vec = DVector::from_column_slice(state.as_slice()?);
+        let state_dim = state_vec.len();
+
+        let cov_shape = initial_covariance.shape();
+        if cov_shape[0] != state_dim || cov_shape[1] != state_dim {
+            return Err(exceptions::PyValueError::new_err(format!(
+                "initial_covariance must be {}x{}, got {}x{}",
+                state_dim, state_dim, cov_shape[0], cov_shape[1]
+            )));
+        }
+        let cov_data: Vec<f64> = initial_covariance.as_slice()?.to_vec();
+        let cov_matrix = DMatrix::from_row_slice(state_dim, state_dim, &cov_data);
+
+        Ok(PyExtendedKalmanFilterBuilder {
+            inner: Some(estimation::ExtendedKalmanFilter::builder(
+                epoch.obj,
+                state_vec,
+                cov_matrix,
+                force_config.config.clone(),
+                config.config.clone(),
+            )),
+            err_slot: Arc::new(Mutex::new(None)),
+        })
+    }
+}
+
+// =============================================================================
+// ExtendedKalmanFilterBuilder
+// =============================================================================
+
+/// Builder for [`ExtendedKalmanFilter`].
+///
+/// Created by `ExtendedKalmanFilter.builder()`, which takes the required
+/// inputs (`epoch`, `state`, `initial_covariance`, `force_config`, `config`).
+/// Remaining inputs are provided through chained setters and default to
+/// `None` / empty (`NumericalPropagationConfig.default()` for the propagation
+/// configuration, no measurement models). `build()` delegates to
+/// `ExtendedKalmanFilter`'s flat constructor; the builder is single-use, and
+/// calling `build()` a second time raises `RuntimeError`.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     ekf = (
+///         bh.ExtendedKalmanFilter.builder(
+///             epoch, state, p0, bh.ForceModelConfig.two_body(), bh.EKFConfig.default(),
+///         )
+///         .propagation_config(bh.NumericalPropagationConfig.default())
+///         .measurement_model(bh.InertialPositionMeasurementModel(10.0))
+///         .build()
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "ExtendedKalmanFilterBuilder")]
+pub struct PyExtendedKalmanFilterBuilder {
+    inner: Option<estimation::ExtendedKalmanFilterBuilder>,
+    /// Exception slot shared with the callback trampolines wrapped by the
+    /// setters; transferred to the built filter so it can re-raise.
+    err_slot: PyErrSlot,
+}
+
+#[pymethods]
+impl PyExtendedKalmanFilterBuilder {
+    /// Set the propagation configuration (integrator method, tolerances, and step sizes).
+    ///
+    /// Defaults to `NumericalPropagationConfig.default()` if not called. STM
+    /// propagation is force-enabled regardless, since the EKF requires it for
+    /// covariance propagation.
+    ///
+    /// Args:
+    ///     config (NumericalPropagationConfig): Numerical propagation configuration.
+    ///
+    /// Returns:
+    ///     ExtendedKalmanFilterBuilder: The builder, for method chaining.
+    fn propagation_config<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        config: &PyNumericalPropagationConfig,
+    ) -> PyRefMut<'a, Self> {
+        slf.inner = slf
+            .inner
+            .take()
+            .map(|b| b.propagation_config(config.config.clone()));
+        slf
+    }
+
+    /// Set the parameter vector `[mass, drag_area, Cd, srp_area, Cr, ...]`.
+    ///
+    /// Required when `force_config` references parameter indices for drag or SRP.
+    ///
+    /// Args:
+    ///     params (numpy.ndarray): Parameter vector.
+    ///
+    /// Returns:
+    ///     ExtendedKalmanFilterBuilder: The builder, for method chaining.
+    fn params<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        params: PyReadonlyArray1<f64>,
+    ) -> PyResult<PyRefMut<'a, Self>> {
+        let vec = DVector::from_column_slice(params.as_slice()?);
+        slf.inner = slf.inner.take().map(|b| b.params(vec));
+        Ok(slf)
+    }
+
+    /// Set additional dynamics for extended state dimensions beyond the orbital state.
+    ///
+    /// Args:
+    ///     dynamics (callable): Function computing derivatives for extra state elements.
+    ///         Signature: f(t, state, params) -> derivative.
+    ///
+    /// Returns:
+    ///     ExtendedKalmanFilterBuilder: The builder, for method chaining.
+    fn additional_dynamics<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        py: Python<'_>,
+        dynamics: Py<PyAny>,
+    ) -> PyRefMut<'a, Self> {
+        let f = wrap_state_dynamics(py, dynamics, &slf.err_slot);
+        slf.inner = slf.inner.take().map(|b| b.additional_dynamics(f));
+        slf
+    }
+
+    /// Set a continuous control-input function that adds an acceleration perturbation.
+    ///
+    /// Args:
+    ///     control (callable): Control function returning an acceleration perturbation vector.
+    ///         Signature: f(t, state, params) -> acceleration.
+    ///
+    /// Returns:
+    ///     ExtendedKalmanFilterBuilder: The builder, for method chaining.
+    fn control_input<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        py: Python<'_>,
+        control: Py<PyAny>,
+    ) -> PyRefMut<'a, Self> {
+        let f = wrap_state_dynamics(py, control, &slf.err_slot);
+        slf.inner = slf.inner.take().map(|b| b.control_input(f));
+        slf
+    }
+
+    /// Append a measurement model.
+    ///
+    /// Call multiple times to register multiple measurement types;
+    /// `Observation`'s `model_index` selects among them.
+    ///
+    /// Args:
+    ///     model (MeasurementModel): Measurement model to append (built-in or custom).
+    ///
+    /// Returns:
+    ///     ExtendedKalmanFilterBuilder: The builder, for method chaining.
+    fn measurement_model<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        py: Python<'_>,
+        model: Py<PyAny>,
+    ) -> PyResult<PyRefMut<'a, Self>> {
+        let mut models = process_measurement_models(py, vec![model])?;
+        let model = models.pop().unwrap();
+        slf.inner = slf.inner.take().map(|b| b.measurement_model(model));
+        Ok(slf)
+    }
+
+    /// Replace the full list of measurement models.
+    ///
+    /// Args:
+    ///     models (list): Measurement models, replacing any previously set.
+    ///
+    /// Returns:
+    ///     ExtendedKalmanFilterBuilder: The builder, for method chaining.
+    fn measurement_models<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        py: Python<'_>,
+        models: Vec<Py<PyAny>>,
+    ) -> PyResult<PyRefMut<'a, Self>> {
+        let models = process_measurement_models(py, models)?;
+        slf.inner = slf.inner.take().map(|b| b.measurement_models(models));
+        Ok(slf)
+    }
+
+    /// Construct the filter from the accumulated configuration.
+    ///
+    /// This consumes the builder. The builder is single-use: calling `build()`
+    /// a second time raises `RuntimeError`.
+    ///
+    /// Returns:
+    ///     ExtendedKalmanFilter: Initialized filter ready to process observations.
+    ///
+    /// Raises:
+    ///     RuntimeError: If the builder was already consumed by a prior `build()`
+    ///         call, or if the underlying filter construction fails (no
+    ///         measurement models, mismatched covariance dimensions, or the
+    ///         propagator could not be constructed).
+    fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PyExtendedKalmanFilter> {
+        let builder = slf
+            .inner
+            .take()
+            .ok_or_else(|| exceptions::PyRuntimeError::new_err("builder already consumed"))?;
+        let ekf = builder
+            .build()
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(PyExtendedKalmanFilter {
+            ekf,
+            err_slot: slf.err_slot.clone(),
+        })
+    }
 }
 
 // =============================================================================
@@ -3267,6 +3509,246 @@ impl PyUnscentedKalmanFilter {
             self.ukf.current_state().len(),
             self.ukf.records().len(),
         )
+    }
+
+    /// Create a builder for constructing an UnscentedKalmanFilter.
+    ///
+    /// The builder takes the required inputs directly; optional inputs
+    /// (propagation config, params, additional dynamics, control input,
+    /// measurement models) are set through chained setter calls before
+    /// calling `build()`.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Initial epoch.
+    ///     state (numpy.ndarray): Initial state vector in ECI [x,y,z,vx,vy,vz,...] (meters, m/s).
+    ///     initial_covariance (numpy.ndarray): Initial covariance matrix (n x n).
+    ///     force_config (ForceModelConfig): Force model configuration.
+    ///     config (UKFConfig): UKF configuration.
+    ///
+    /// Returns:
+    ///     UnscentedKalmanFilterBuilder: New builder instance.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     ukf = (
+    ///         bh.UnscentedKalmanFilter.builder(
+    ///             epoch, state, p0, bh.ForceModelConfig.two_body(), bh.UKFConfig.default(),
+    ///         )
+    ///         .measurement_model(bh.InertialPositionMeasurementModel(10.0))
+    ///         .build()
+    ///     )
+    ///     ```
+    #[staticmethod]
+    fn builder(
+        epoch: &PyEpoch,
+        state: PyReadonlyArray1<f64>,
+        initial_covariance: PyReadonlyArray2<f64>,
+        force_config: &PyForceModelConfig,
+        config: &PyUKFConfig,
+    ) -> PyResult<PyUnscentedKalmanFilterBuilder> {
+        let state_vec = nalgebra::DVector::from_column_slice(state.as_slice()?);
+        let state_dim = state_vec.len();
+
+        let cov_shape = initial_covariance.shape();
+        if cov_shape[0] != state_dim || cov_shape[1] != state_dim {
+            return Err(exceptions::PyValueError::new_err(format!(
+                "initial_covariance must be {}x{}, got {}x{}",
+                state_dim, state_dim, cov_shape[0], cov_shape[1]
+            )));
+        }
+        let cov_data: Vec<f64> = initial_covariance.as_slice()?.to_vec();
+        let cov_matrix = nalgebra::DMatrix::from_row_slice(state_dim, state_dim, &cov_data);
+
+        Ok(PyUnscentedKalmanFilterBuilder {
+            inner: Some(estimation::UnscentedKalmanFilter::builder(
+                epoch.obj,
+                state_vec,
+                cov_matrix,
+                force_config.config.clone(),
+                config.config.clone(),
+            )),
+            err_slot: Arc::new(Mutex::new(None)),
+        })
+    }
+}
+
+// =============================================================================
+// UnscentedKalmanFilterBuilder
+// =============================================================================
+
+/// Builder for [`UnscentedKalmanFilter`].
+///
+/// Created by `UnscentedKalmanFilter.builder()`, which takes the required
+/// inputs (`epoch`, `state`, `initial_covariance`, `force_config`, `config`).
+/// Remaining inputs are provided through chained setters and default to
+/// `None` / empty (`NumericalPropagationConfig.default()` for the propagation
+/// configuration, no measurement models). `build()` delegates to
+/// `UnscentedKalmanFilter`'s flat constructor; the builder is single-use, and
+/// calling `build()` a second time raises `RuntimeError`.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     ukf = (
+///         bh.UnscentedKalmanFilter.builder(
+///             epoch, state, p0, bh.ForceModelConfig.two_body(), bh.UKFConfig.default(),
+///         )
+///         .propagation_config(bh.NumericalPropagationConfig.default())
+///         .measurement_model(bh.InertialPositionMeasurementModel(10.0))
+///         .build()
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "UnscentedKalmanFilterBuilder")]
+pub struct PyUnscentedKalmanFilterBuilder {
+    inner: Option<estimation::UnscentedKalmanFilterBuilder>,
+    /// Exception slot shared with the callback trampolines wrapped by the
+    /// setters; transferred to the built filter so it can re-raise.
+    err_slot: PyErrSlot,
+}
+
+#[pymethods]
+impl PyUnscentedKalmanFilterBuilder {
+    /// Set the propagation configuration (integrator method, tolerances, and step sizes).
+    ///
+    /// Defaults to `NumericalPropagationConfig.default()` if not called.
+    ///
+    /// Args:
+    ///     config (NumericalPropagationConfig): Numerical propagation configuration.
+    ///
+    /// Returns:
+    ///     UnscentedKalmanFilterBuilder: The builder, for method chaining.
+    fn propagation_config<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        config: &PyNumericalPropagationConfig,
+    ) -> PyRefMut<'a, Self> {
+        slf.inner = slf
+            .inner
+            .take()
+            .map(|b| b.propagation_config(config.config.clone()));
+        slf
+    }
+
+    /// Set the parameter vector `[mass, drag_area, Cd, srp_area, Cr, ...]`.
+    ///
+    /// Required when `force_config` references parameter indices for drag or SRP.
+    ///
+    /// Args:
+    ///     params (numpy.ndarray): Parameter vector.
+    ///
+    /// Returns:
+    ///     UnscentedKalmanFilterBuilder: The builder, for method chaining.
+    fn params<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        params: PyReadonlyArray1<f64>,
+    ) -> PyResult<PyRefMut<'a, Self>> {
+        let vec = nalgebra::DVector::from_column_slice(params.as_slice()?);
+        slf.inner = slf.inner.take().map(|b| b.params(vec));
+        Ok(slf)
+    }
+
+    /// Set additional dynamics for extended state dimensions beyond the orbital state.
+    ///
+    /// Args:
+    ///     dynamics (callable): Function computing derivatives for extra state elements.
+    ///         Signature: f(t, state, params) -> derivative.
+    ///
+    /// Returns:
+    ///     UnscentedKalmanFilterBuilder: The builder, for method chaining.
+    fn additional_dynamics<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        py: Python<'_>,
+        dynamics: Py<PyAny>,
+    ) -> PyRefMut<'a, Self> {
+        let f = wrap_state_dynamics(py, dynamics, &slf.err_slot);
+        slf.inner = slf.inner.take().map(|b| b.additional_dynamics(f));
+        slf
+    }
+
+    /// Set a continuous control-input function that adds an acceleration perturbation.
+    ///
+    /// Args:
+    ///     control (callable): Control function returning an acceleration perturbation vector.
+    ///         Signature: f(t, state, params) -> acceleration.
+    ///
+    /// Returns:
+    ///     UnscentedKalmanFilterBuilder: The builder, for method chaining.
+    fn control_input<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        py: Python<'_>,
+        control: Py<PyAny>,
+    ) -> PyRefMut<'a, Self> {
+        let f = wrap_state_dynamics(py, control, &slf.err_slot);
+        slf.inner = slf.inner.take().map(|b| b.control_input(f));
+        slf
+    }
+
+    /// Append a measurement model.
+    ///
+    /// Call multiple times to register multiple measurement types;
+    /// `Observation`'s `model_index` selects among them.
+    ///
+    /// Args:
+    ///     model (MeasurementModel): Measurement model to append (built-in or custom).
+    ///
+    /// Returns:
+    ///     UnscentedKalmanFilterBuilder: The builder, for method chaining.
+    fn measurement_model<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        py: Python<'_>,
+        model: Py<PyAny>,
+    ) -> PyResult<PyRefMut<'a, Self>> {
+        let mut models = process_measurement_models(py, vec![model])?;
+        let model = models.pop().unwrap();
+        slf.inner = slf.inner.take().map(|b| b.measurement_model(model));
+        Ok(slf)
+    }
+
+    /// Replace the full list of measurement models.
+    ///
+    /// Args:
+    ///     models (list): Measurement models, replacing any previously set.
+    ///
+    /// Returns:
+    ///     UnscentedKalmanFilterBuilder: The builder, for method chaining.
+    fn measurement_models<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        py: Python<'_>,
+        models: Vec<Py<PyAny>>,
+    ) -> PyResult<PyRefMut<'a, Self>> {
+        let models = process_measurement_models(py, models)?;
+        slf.inner = slf.inner.take().map(|b| b.measurement_models(models));
+        Ok(slf)
+    }
+
+    /// Construct the filter from the accumulated configuration.
+    ///
+    /// This consumes the builder. The builder is single-use: calling `build()`
+    /// a second time raises `RuntimeError`.
+    ///
+    /// Returns:
+    ///     UnscentedKalmanFilter: Initialized filter ready to process observations.
+    ///
+    /// Raises:
+    ///     RuntimeError: If the builder was already consumed by a prior `build()`
+    ///         call, or if the underlying filter construction fails (no
+    ///         measurement models, mismatched covariance dimensions, invalid
+    ///         sigma-point parameters, or the propagator could not be constructed).
+    fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PyUnscentedKalmanFilter> {
+        let builder = slf
+            .inner
+            .take()
+            .ok_or_else(|| exceptions::PyRuntimeError::new_err("builder already consumed"))?;
+        let ukf = builder
+            .build()
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(PyUnscentedKalmanFilter {
+            ukf,
+            err_slot: slf.err_slot.clone(),
+        })
     }
 }
 
@@ -4127,5 +4609,248 @@ impl PyBatchLeastSquares {
             self.bls.converged(),
             self.bls.iterations_completed(),
         )
+    }
+
+    /// Create a builder for constructing a BatchLeastSquares estimator.
+    ///
+    /// The builder takes the required inputs directly; optional inputs
+    /// (propagation config, params, additional dynamics, control input,
+    /// measurement models) are set through chained setter calls before
+    /// calling `build()`.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Initial (reference) epoch.
+    ///     state (numpy.ndarray): Initial state vector in ECI [x,y,z,vx,vy,vz,...] (meters, m/s).
+    ///     apriori_covariance (numpy.ndarray): A priori covariance matrix (n x n).
+    ///     force_config (ForceModelConfig): Force model configuration.
+    ///     config (BLSConfig): BLS configuration.
+    ///
+    /// Returns:
+    ///     BatchLeastSquaresBuilder: New builder instance.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bls = (
+    ///         bh.BatchLeastSquares.builder(
+    ///             epoch, state, p0, bh.ForceModelConfig.two_body(), bh.BLSConfig.default(),
+    ///         )
+    ///         .measurement_model(bh.InertialPositionMeasurementModel(10.0))
+    ///         .build()
+    ///     )
+    ///     ```
+    #[staticmethod]
+    fn builder(
+        epoch: &PyEpoch,
+        state: PyReadonlyArray1<f64>,
+        apriori_covariance: PyReadonlyArray2<f64>,
+        force_config: &PyForceModelConfig,
+        config: &PyBLSConfig,
+    ) -> PyResult<PyBatchLeastSquaresBuilder> {
+        let state_vec = DVector::from_column_slice(state.as_slice()?);
+        let state_dim = state_vec.len();
+
+        let cov_shape = apriori_covariance.shape();
+        if cov_shape[0] != state_dim || cov_shape[1] != state_dim {
+            return Err(exceptions::PyValueError::new_err(format!(
+                "apriori_covariance must be {}x{}, got {}x{}",
+                state_dim, state_dim, cov_shape[0], cov_shape[1]
+            )));
+        }
+        let cov_data: Vec<f64> = apriori_covariance.as_slice()?.to_vec();
+        let cov_matrix = DMatrix::from_row_slice(state_dim, state_dim, &cov_data);
+
+        Ok(PyBatchLeastSquaresBuilder {
+            inner: Some(estimation::BatchLeastSquares::builder(
+                epoch.obj,
+                state_vec,
+                cov_matrix,
+                force_config.config.clone(),
+                config.config.clone(),
+            )),
+            err_slot: Arc::new(Mutex::new(None)),
+        })
+    }
+}
+
+// =============================================================================
+// BatchLeastSquaresBuilder
+// =============================================================================
+
+/// Builder for [`BatchLeastSquares`].
+///
+/// Created by `BatchLeastSquares.builder()`, which takes the required inputs
+/// (`epoch`, `state`, `apriori_covariance`, `force_config`, `config`).
+/// Remaining inputs are provided through chained setters and default to
+/// `None` / empty (`NumericalPropagationConfig.default()` for the propagation
+/// configuration, no measurement models). `build()` delegates to
+/// `BatchLeastSquares`'s flat constructor; the builder is single-use, and
+/// calling `build()` a second time raises `RuntimeError`.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bls = (
+///         bh.BatchLeastSquares.builder(
+///             epoch, state, p0, bh.ForceModelConfig.two_body(), bh.BLSConfig.default(),
+///         )
+///         .propagation_config(bh.NumericalPropagationConfig.default())
+///         .measurement_model(bh.InertialPositionMeasurementModel(10.0))
+///         .build()
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "BatchLeastSquaresBuilder")]
+pub struct PyBatchLeastSquaresBuilder {
+    inner: Option<estimation::BatchLeastSquaresBuilder>,
+    /// Exception slot shared with the callback trampolines wrapped by the
+    /// setters; transferred to the built estimator so it can re-raise.
+    err_slot: PyErrSlot,
+}
+
+#[pymethods]
+impl PyBatchLeastSquaresBuilder {
+    /// Set the propagation configuration (integrator method, tolerances, and step sizes).
+    ///
+    /// Defaults to `NumericalPropagationConfig.default()` if not called. STM
+    /// propagation is force-enabled regardless, since BLS requires it for
+    /// Jacobian mapping.
+    ///
+    /// Args:
+    ///     config (NumericalPropagationConfig): Numerical propagation configuration.
+    ///
+    /// Returns:
+    ///     BatchLeastSquaresBuilder: The builder, for method chaining.
+    fn propagation_config<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        config: &PyNumericalPropagationConfig,
+    ) -> PyRefMut<'a, Self> {
+        slf.inner = slf
+            .inner
+            .take()
+            .map(|b| b.propagation_config(config.config.clone()));
+        slf
+    }
+
+    /// Set the parameter vector `[mass, drag_area, Cd, srp_area, Cr, ...]`.
+    ///
+    /// Required when `force_config` references parameter indices for drag or SRP.
+    ///
+    /// Args:
+    ///     params (numpy.ndarray): Parameter vector.
+    ///
+    /// Returns:
+    ///     BatchLeastSquaresBuilder: The builder, for method chaining.
+    fn params<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        params: PyReadonlyArray1<f64>,
+    ) -> PyResult<PyRefMut<'a, Self>> {
+        let vec = DVector::from_column_slice(params.as_slice()?);
+        slf.inner = slf.inner.take().map(|b| b.params(vec));
+        Ok(slf)
+    }
+
+    /// Set additional dynamics for extended state dimensions beyond the orbital state.
+    ///
+    /// Args:
+    ///     dynamics (callable): Function computing derivatives for extra state elements.
+    ///         Signature: f(t, state, params) -> derivative.
+    ///
+    /// Returns:
+    ///     BatchLeastSquaresBuilder: The builder, for method chaining.
+    fn additional_dynamics<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        py: Python<'_>,
+        dynamics: Py<PyAny>,
+    ) -> PyRefMut<'a, Self> {
+        let f = wrap_state_dynamics(py, dynamics, &slf.err_slot);
+        slf.inner = slf.inner.take().map(|b| b.additional_dynamics(f));
+        slf
+    }
+
+    /// Set a continuous control-input function that adds an acceleration perturbation.
+    ///
+    /// Args:
+    ///     control (callable): Control function returning an acceleration perturbation vector.
+    ///         Signature: f(t, state, params) -> acceleration.
+    ///
+    /// Returns:
+    ///     BatchLeastSquaresBuilder: The builder, for method chaining.
+    fn control_input<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        py: Python<'_>,
+        control: Py<PyAny>,
+    ) -> PyRefMut<'a, Self> {
+        let f = wrap_state_dynamics(py, control, &slf.err_slot);
+        slf.inner = slf.inner.take().map(|b| b.control_input(f));
+        slf
+    }
+
+    /// Append a measurement model.
+    ///
+    /// Call multiple times to register multiple measurement types;
+    /// `Observation`'s `model_index` selects among them.
+    ///
+    /// Args:
+    ///     model (MeasurementModel): Measurement model to append (built-in or custom).
+    ///
+    /// Returns:
+    ///     BatchLeastSquaresBuilder: The builder, for method chaining.
+    fn measurement_model<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        py: Python<'_>,
+        model: Py<PyAny>,
+    ) -> PyResult<PyRefMut<'a, Self>> {
+        let mut models = process_measurement_models(py, vec![model])?;
+        let model = models.pop().unwrap();
+        slf.inner = slf.inner.take().map(|b| b.measurement_model(model));
+        Ok(slf)
+    }
+
+    /// Replace the full list of measurement models.
+    ///
+    /// Args:
+    ///     models (list): Measurement models, replacing any previously set.
+    ///
+    /// Returns:
+    ///     BatchLeastSquaresBuilder: The builder, for method chaining.
+    fn measurement_models<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        py: Python<'_>,
+        models: Vec<Py<PyAny>>,
+    ) -> PyResult<PyRefMut<'a, Self>> {
+        let models = process_measurement_models(py, models)?;
+        slf.inner = slf.inner.take().map(|b| b.measurement_models(models));
+        Ok(slf)
+    }
+
+    /// Construct the estimator from the accumulated configuration.
+    ///
+    /// This consumes the builder. The builder is single-use: calling `build()`
+    /// a second time raises `RuntimeError`.
+    ///
+    /// Returns:
+    ///     BatchLeastSquares: Initialized estimator ready to solve.
+    ///
+    /// Raises:
+    ///     RuntimeError: If the builder was already consumed by a prior `build()`
+    ///         call, or if the underlying estimator construction fails (no
+    ///         measurement models, mismatched covariance dimensions, no
+    ///         convergence threshold configured, or the propagator could not
+    ///         be constructed).
+    fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PyBatchLeastSquares> {
+        let builder = slf
+            .inner
+            .take()
+            .ok_or_else(|| exceptions::PyRuntimeError::new_err("builder already consumed"))?;
+        let bls = builder
+            .build()
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(PyBatchLeastSquares {
+            bls,
+            err_slot: slf.err_slot.clone(),
+        })
     }
 }

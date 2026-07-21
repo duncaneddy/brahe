@@ -32,20 +32,16 @@ print("  abs_tol: 1e-12")
 print("  rel_tol: 1e-10")
 
 # Create two propagators with different configs
-prop_default = bh.NumericalOrbitPropagator(
+prop_default = bh.NumericalOrbitPropagator.builder(
     epoch,
     state,
-    config_default,
     bh.ForceModelConfig.two_body(),  # Two-body for cleaner comparison
-    None,
-)
+).build()
 
-prop_tight = bh.NumericalOrbitPropagator(
-    epoch,
-    state,
-    config_tight,
-    bh.ForceModelConfig.two_body(),
-    None,
+prop_tight = (
+    bh.NumericalOrbitPropagator.builder(epoch, state, bh.ForceModelConfig.two_body())
+    .propagation_config(config_tight)
+    .build()
 )
 
 # Propagate both for 1 orbit

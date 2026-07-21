@@ -8,29 +8,58 @@ state and covariance forward in time (predict step), then incorporates the measu
 
 ## Setting Up
 
-The EKF constructor takes the initial conditions, measurement models, and propagation
-configuration. It internally builds a numerical orbit propagator with STM enabled.
+`ExtendedKalmanFilter.builder()` is the primary way to construct an EKF: it takes the five
+required inputs -- `epoch`, `state`, `initial_covariance`, `force_config`, and `config` --
+directly as arguments, and measurement models and remaining optional inputs are set through
+chained setters. It internally builds a numerical orbit propagator with STM enabled.
 
-```python
-import brahe as bh
-import numpy as np
+=== "Python"
+    ``` python
+    --8<-- "./examples/estimation/ekf_builder_construction.py:12"
+    ```
 
-bh.initialize_eop()
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/estimation/ekf_builder_construction.rs:7"
+    ```
 
-epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
-state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
-p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/estimation/ekf_builder_construction.py.txt"
+        ```
 
-ekf = bh.ExtendedKalmanFilter(
-    epoch, state, p0,
-    measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
-    propagation_config=bh.NumericalPropagationConfig.default(),
-    force_config=bh.ForceModelConfig.two_body(),
-)
-```
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/estimation/ekf_builder_construction.rs.txt"
+        ```
 
-The constructor ensures STM propagation is enabled regardless of the propagation config
-passed in. The initial covariance matrix dimensions must match the state vector length.
+The flat constructor remains available as an alternative, taking every field as a keyword
+argument in Python and positionally in Rust:
+
+=== "Python"
+    ``` python
+    --8<-- "./examples/estimation/ekf_flat_construction.py:10"
+    ```
+
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/estimation/ekf_flat_construction.rs:5"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/estimation/ekf_flat_construction.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/estimation/ekf_flat_construction.rs.txt"
+        ```
+
+Both paths ensure STM propagation is enabled regardless of the propagation config passed
+in. The initial covariance matrix dimensions must match the state vector length.
 
 ## Processing Observations
 

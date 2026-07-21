@@ -43,13 +43,7 @@ state0 = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
 
 # Construct the propagator — this is where the ICGEM model is downloaded
 # (if not cached) and loaded into the force evaluator.
-prop = bh.NumericalOrbitPropagator(
-    epoch,
-    state0,
-    bh.NumericalPropagationConfig.default(),
-    force_cfg,
-    None,
-)
+prop = bh.NumericalOrbitPropagator.builder(epoch, state0, force_cfg).build()
 
 # Step one minute forward
 prop.step_by(60.0)

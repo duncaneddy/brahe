@@ -50,13 +50,13 @@ fn main() {
     let v = (bh::constants::physical::GM_EARTH / r).sqrt();
     let true_state = DVector::from_vec(vec![r, 0.0, 0.0, 0.0, v, 0.0]);
 
-    let mut truth_prop = bh::propagators::DNumericalOrbitPropagator::new(
+    let mut truth_prop = bh::propagators::DNumericalOrbitPropagator::builder(
         epoch,
         true_state.clone(),
-        bh::propagators::NumericalPropagationConfig::default(),
         bh::propagators::force_model_config::ForceModelConfig::two_body_gravity(),
-        None, None, None, None,
-    ).unwrap();
+    )
+    .build()
+    .unwrap();
 
     // Ground station on the equator
     let station = DVector::from_vec(vec![bh::constants::physical::R_EARTH, 0.0, 0.0]);
@@ -76,18 +76,16 @@ fn main() {
         Box::new(range_model),
     ];
 
-    let mut ekf = bh::estimation::ExtendedKalmanFilter::new(
+    let mut ekf = bh::estimation::ExtendedKalmanFilter::builder(
         epoch,
         initial_state,
         p0,
-        bh::propagators::NumericalPropagationConfig::default(),
         bh::propagators::force_model_config::ForceModelConfig::two_body_gravity(),
-        None,
-        None,
-        None,
-        models,
         bh::estimation::EKFConfig::default(),
-    ).unwrap();
+    )
+    .measurement_models(models)
+    .build()
+    .unwrap();
 
     // Alternate between position and range observations
     let dt = 60.0;

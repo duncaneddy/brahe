@@ -48,13 +48,9 @@ def stop_callback(event_epoch, event_state):
 
 
 # Create propagator
-prop = bh.NumericalOrbitPropagator(
-    epoch,
-    state,
-    bh.NumericalPropagationConfig.default(),
-    bh.ForceModelConfig.two_body(),
-    None,
-)
+prop = bh.NumericalOrbitPropagator.builder(
+    epoch, state, bh.ForceModelConfig.two_body()
+).build()
 
 # Create time event with logging callback
 event_log = bh.TimeEvent(epoch + 1000.0, "Log Event").with_callback(logging_callback)
@@ -73,13 +69,9 @@ print(f"\nCallback invoked {callback_count} times")
 
 # Now demonstrate STOP action
 print("\nDemonstrating STOP action:")
-prop2 = bh.NumericalOrbitPropagator(
-    epoch,
-    state,
-    bh.NumericalPropagationConfig.default(),
-    bh.ForceModelConfig.two_body(),
-    None,
-)
+prop2 = bh.NumericalOrbitPropagator.builder(
+    epoch, state, bh.ForceModelConfig.two_body()
+).build()
 
 # Event that stops propagation at t+500s
 stop_event = bh.TimeEvent(epoch + 500.0, "Stop Event").with_callback(stop_callback)

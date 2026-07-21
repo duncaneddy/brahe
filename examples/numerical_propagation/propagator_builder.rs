@@ -3,11 +3,12 @@
 //! brahe = { path = "../../" }
 //! nalgebra = "0.33"
 //! ```
-//! Constructing a NumericalOrbitPropagator using the typestate builder API.
+//! Constructing a NumericalOrbitPropagator using the builder API.
 //!
-//! The builder enforces at compile time that all three required fields — epoch,
-//! state, and force_config — are set before build() is available. Optional
-//! fields such as initial_covariance default to None when omitted.
+//! The builder takes the three required fields — epoch, state, and
+//! force_config — directly as arguments to `builder()`. Optional fields such
+//! as initial_covariance default to None when omitted and are set through
+//! chained setters.
 
 use brahe as bh;
 use bh::traits::DStatePropagator;
@@ -25,12 +26,13 @@ fn main() {
     
 
     // Minimal: only the three required fields
-    let mut prop = bh::DNumericalOrbitPropagator::builder()
-        .epoch(epoch)
-        .state(state.clone())
-        .force_config(bh::ForceModelConfig::earth_gravity())
-        .build()
-        .unwrap();
+    let mut prop = bh::DNumericalOrbitPropagator::builder(
+        epoch,
+        state.clone(),
+        bh::ForceModelConfig::earth_gravity(),
+    )
+    .build()
+    .unwrap();
 
     prop.propagate_to(epoch + 3600.0).unwrap();
     println!("Minimal builder — epoch: {}", prop.current_epoch());
@@ -38,14 +40,15 @@ fn main() {
     // With optional fields: custom propagation config and initial covariance
     let p0 = na::DMatrix::<f64>::identity(6, 6) * 1e6;
 
-    let mut prop_with_cov = bh::DNumericalOrbitPropagator::builder()
-        .epoch(epoch)
-        .state(state)
-        .force_config(bh::ForceModelConfig::earth_gravity())
-        .propagation_config(bh::NumericalPropagationConfig::high_precision())
-        .initial_covariance(p0)
-        .build()
-        .unwrap();
+    let mut prop_with_cov = bh::DNumericalOrbitPropagator::builder(
+        epoch,
+        state,
+        bh::ForceModelConfig::earth_gravity(),
+    )
+    .propagation_config(bh::NumericalPropagationConfig::high_precision())
+    .initial_covariance(p0)
+    .build()
+    .unwrap();
 
     prop_with_cov.propagate_to(epoch + 3600.0).unwrap();
 

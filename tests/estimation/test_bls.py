@@ -311,3 +311,112 @@ def test_bls_singular_measurement_covariance(two_body_leo, position_observations
     )
     with pytest.raises(bh.BraheError, match="singular"):
         bls.solve(position_observations)
+
+
+class TestBatchLeastSquaresBuilder:
+    """Tests for BatchLeastSquaresBuilder."""
+
+    def test_builder_equivalence(self, bls_setup):
+        """Builder-constructed BLS should behave identically to the flat constructor."""
+        _, epoch, true_state, initial_state, observations = bls_setup
+        p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+        via_builder = (
+            bh.BatchLeastSquares.builder(
+                epoch,
+                initial_state,
+                p0,
+                bh.ForceModelConfig.two_body(),
+                bh.BLSConfig.default(),
+            )
+            .propagation_config(bh.NumericalPropagationConfig.default())
+            .measurement_model(bh.InertialPositionMeasurementModel(10.0))
+            .build()
+        )
+
+        via_constructor = bh.BatchLeastSquares(
+            epoch,
+            initial_state,
+            p0,
+            propagation_config=bh.NumericalPropagationConfig.default(),
+            force_config=bh.ForceModelConfig.two_body(),
+            measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+        )
+
+        via_builder.solve(observations)
+        via_constructor.solve(observations)
+
+        assert via_builder.converged() == via_constructor.converged()
+        np.testing.assert_allclose(
+            via_builder.current_state(), via_constructor.current_state()
+        )
+        np.testing.assert_allclose(
+            via_builder.current_covariance(), via_constructor.current_covariance()
+        )
+
+    def test_builder_optionals(self, two_body_leo, position_observations):
+        """Every optional setter: propagation_config, params, additional
+        dynamics, control input, and wholesale measurement_models."""
+        epoch, state = two_body_leo
+        p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+        params = np.array([500.0, 2.0, 2.2, 2.0, 1.3])
+
+        def zero_dynamics(t, state, p):
+            return np.zeros(len(state))
+
+        bls = (
+            bh.BatchLeastSquares.builder(
+                epoch,
+                state,
+                p0,
+                bh.ForceModelConfig.two_body(),
+                bh.BLSConfig.default(),
+            )
+            .propagation_config(bh.NumericalPropagationConfig.default())
+            .params(params)
+            .additional_dynamics(zero_dynamics)
+            .control_input(zero_dynamics)
+            .measurement_models([bh.InertialPositionMeasurementModel(10.0)])
+            .build()
+        )
+
+        bls.solve(position_observations)
+        assert bls.converged()
+
+    def test_builder_unchained_setter(self, two_body_leo):
+        """Calling a setter without reassigning its return value must not
+        orphan the original builder variable -- build() on the original
+        must succeed."""
+        epoch, state = two_body_leo
+        p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+        builder = bh.BatchLeastSquares.builder(
+            epoch,
+            state,
+            p0,
+            bh.ForceModelConfig.two_body(),
+            bh.BLSConfig.default(),
+        ).measurement_model(bh.InertialPositionMeasurementModel(10.0))
+        builder.propagation_config(
+            bh.NumericalPropagationConfig.default()
+        )  # not reassigned
+        bls = builder.build()
+
+        assert len(bls.current_state()) == 6
+
+    def test_builder_double_build_raises(self, two_body_leo):
+        """Calling build() twice on the same builder should raise RuntimeError."""
+        epoch, state = two_body_leo
+        p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+        builder = bh.BatchLeastSquares.builder(
+            epoch,
+            state,
+            p0,
+            bh.ForceModelConfig.two_body(),
+            bh.BLSConfig.default(),
+        ).measurement_model(bh.InertialPositionMeasurementModel(10.0))
+        builder.build()
+
+        with pytest.raises(RuntimeError, match="builder already consumed"):
+            builder.build()

@@ -40,13 +40,9 @@ exit_north = bh.BinaryEvent(
 )
 
 # Create propagator
-prop = bh.NumericalOrbitPropagator(
-    epoch,
-    state,
-    bh.NumericalPropagationConfig.default(),
-    bh.ForceModelConfig.two_body(),
-    None,
-)
+prop = bh.NumericalOrbitPropagator.builder(
+    epoch, state, bh.ForceModelConfig.two_body()
+).build()
 
 prop.add_event_detector(enter_north)
 prop.add_event_detector(exit_north)

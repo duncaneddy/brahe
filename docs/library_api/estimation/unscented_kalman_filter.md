@@ -11,6 +11,13 @@ Sequential state estimator using sigma points to capture nonlinear dynamics with
 
 ---
 
+::: brahe.UnscentedKalmanFilterBuilder
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+
+---
+
 ::: brahe.UKFConfig
     options:
       show_root_heading: true

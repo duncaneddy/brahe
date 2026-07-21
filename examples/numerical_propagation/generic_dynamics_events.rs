@@ -37,16 +37,10 @@ fn main() {
     let params = na::DVector::from_vec(vec![omega * omega]);
 
     // Create propagator
-    let mut prop = bh::DNumericalPropagator::new(
-        epoch,
-        initial_state,
-        dynamics_fn,
-        bh::NumericalPropagationConfig::default(),
-        Some(params),
-        None, // No control input
-        None, // No initial covariance
-    )
-    .unwrap();
+    let mut prop = bh::DNumericalPropagator::builder(epoch, initial_state, dynamics_fn)
+        .params(params)
+        .build()
+        .unwrap();
 
     // Create ValueEvent to detect position zero crossings
     // INCREASING: x goes from negative to positive (moving right through origin)

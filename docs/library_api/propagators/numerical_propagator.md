@@ -12,6 +12,13 @@ Generic numerical propagator for arbitrary dynamical systems. Unlike `NumericalO
 
 ---
 
+::: brahe.NumericalPropagatorBuilder
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+
+---
+
 ## See Also
 
 - [NumericalOrbitPropagator](numerical_orbit_propagator.md) - Orbit propagator with built-in force models

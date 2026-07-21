@@ -52,10 +52,12 @@ jobs:
     if: needs.check-skip.outputs.should_skip == 'false'
     uses: ./.github/workflows/test_examples.yml
 
-  # Validate crates.io package builds correctly and is under size limit
+  # Validate crates.io package builds correctly and is under size limit.
+  # Runs in parallel with test-rust (both gate only on check-skip) so the
+  # package build and the test suite finish concurrently rather than serially.
   validate-rust-package:
     runs-on: ubuntu-latest
-    needs: [check-skip, test-rust]
+    needs: [check-skip]
     if: needs.check-skip.outputs.should_skip == 'false'
     env:
       RUST_TOOLCHAIN: stable
@@ -91,11 +93,14 @@ jobs:
       - name: Build and validate Rust package
         run: just build --lang rust
 
-  # Validate PyPI packages build correctly with proper metadata
+  # Validate PyPI packages build correctly with proper metadata.
+  # Gated on delay-python (not test-python) so it runs in parallel with
+  # test-python while still respecting the runner-claim stagger that keeps
+  # Rust jobs ahead of Python jobs in the runner queue.
   validate-python-package:
     runs-on: ubuntu-latest
-    needs: [check-skip, test-python]
-    if: needs.check-skip.outputs.should_skip == 'false'
+    needs: [delay-python]
+    if: needs.delay-python.result == 'success'
     env:
       RUST_TOOLCHAIN: stable
     steps:
@@ -190,8 +195,13 @@ jobs:
     name: ci-success
     runs-on: ubuntu-latest
     if: always()
+    # Include the gating jobs (check-skip, delay-python) so their failure is
+    # caught directly. Otherwise a failed gate would only cascade into skipped
+    # downstream jobs, which this check tolerates, yielding a false green.
     needs:
+      - check-skip
       - test-rust
+      - delay-python
       - test-python
       - test-examples
       - validate-rust-package

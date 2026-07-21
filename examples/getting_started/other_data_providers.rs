@@ -19,6 +19,9 @@ fn main() {
     let default_file_provider = bh::FileEOPProvider::from_default_standard(true, bh::EOPExtrapolation::Hold).unwrap();
     bh::set_global_eop_provider(default_file_provider);
 
+    // The bundled standard product covers a fixed date range (no network required)
+    println!("Bundled standard EOP data available through: {}", bh::Epoch::from_mjd(bh::get_global_eop_mjd_max(), bh::TimeSystem::UTC));
+
     // There are also functions to explicitly download a specific file and and load it from a file
     // Uncomment these lines to try them out
     // let eop_path = "eop_c04.txt";

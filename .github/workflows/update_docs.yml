@@ -47,6 +47,17 @@ jobs:
           restore-keys: |
             network-example-figures-
 
+      # Captured stdout of the NETWORK-flagged examples, saved by the weekly
+      # --network integration run. Restored BEFORE the doc-outputs artifact
+      # download so the artifact's --ci-only outputs overlay any overlap.
+      - name: Restore network example outputs
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: docs/outputs/
+          key: network-example-outputs-
+          restore-keys: |
+            network-example-outputs-
+
       - name: Download figures artifact
         uses: actions/download-artifact@v8
         with:

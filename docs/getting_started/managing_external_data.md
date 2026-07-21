@@ -35,6 +35,15 @@ The age of the data is only checked when the provider is initialized, so if you 
     --8<-- "./examples/getting_started/load_external_data.rs:1"
     ```
 
+???+ example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/getting_started/load_external_data.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/getting_started/load_external_data.rs.txt"
         ```
 
 ## Other Providers

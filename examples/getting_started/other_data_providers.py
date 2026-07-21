@@ -20,6 +20,12 @@ bh.set_global_eop_provider(static_provider)
 default_file_provider = bh.FileEOPProvider.from_default_standard(True, "Hold")
 bh.set_global_eop_provider(default_file_provider)
 
+# The bundled standard product covers a fixed date range (no network required)
+print(
+    "Bundled standard EOP data available through:",
+    bh.Epoch(bh.get_global_eop_mjd_max()),
+)
+
 # There are also functions to explicitly download a specific file and and load it from a file
 # Uncomment these lines to try them out
 # eop_path = "eop_c04.txt"

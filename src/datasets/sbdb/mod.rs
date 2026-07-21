@@ -6,6 +6,8 @@
  * (`https://ssd-api.jpl.nasa.gov/sbdb.api`).
  */
 
+pub mod client;
 pub mod responses;
 
+pub use client::SBDBClient;
 pub use responses::SBDBObject;

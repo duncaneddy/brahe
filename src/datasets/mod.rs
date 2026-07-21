@@ -29,7 +29,7 @@ pub use ssn_sensors::load_ssn_sensors;
 pub use naif::download_spice_kernel;
 
 // Re-export commonly used types from sbdb
-pub use sbdb::SBDBObject;
+pub use sbdb::{SBDBClient, SBDBObject};
 
 // Re-export commonly used types and functions from gcat
 pub use gcat::{

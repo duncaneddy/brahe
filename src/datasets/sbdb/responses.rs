@@ -28,10 +28,7 @@ pub struct SBDBObject {
     pub radius: Option<f64>,
 }
 
-// The `client` module (Task 3) constructs these via `from_json`; until it
-// lands, nothing outside tests references them.
 #[derive(Deserialize)]
-#[cfg_attr(not(test), allow(dead_code))]
 struct SbdbRawResponse {
     object: Option<SbdbRawObject>,
     #[serde(default)]
@@ -42,7 +39,6 @@ struct SbdbRawResponse {
 }
 
 #[derive(Deserialize)]
-#[cfg_attr(not(test), allow(dead_code))]
 struct SbdbRawObject {
     spkid: String,
     fullname: String,
@@ -54,14 +50,12 @@ struct SbdbRawObject {
 }
 
 #[derive(Deserialize)]
-#[cfg_attr(not(test), allow(dead_code))]
 struct SbdbRawPhysPar {
     name: String,
     value: Option<String>,
 }
 
 #[derive(Deserialize)]
-#[cfg_attr(not(test), allow(dead_code))]
 struct SbdbRawListEntry {
     pdes: Option<String>,
     name: Option<String>,
@@ -77,7 +71,6 @@ impl SBDBObject {
     ///
     /// Returns an error for ambiguous matches (enumerating the candidates),
     /// no-match responses, or malformed JSON.
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn from_json(body: &str) -> Result<SBDBObject, BraheError> {
         let raw: SbdbRawResponse = serde_json::from_str(body)
             .map_err(|e| BraheError::ParseError(format!("Failed to parse SBDB response: {}", e)))?;

@@ -70,7 +70,7 @@ fn backoff_delay(attempt: u32) -> Duration {
 /// exponential backoff and jitter.
 ///
 /// `description` is a short human-readable label for the product being fetched
-/// (e.g. `"SBDB lookup"`) that, together with `url`, is included in any error
+/// (e.g. `"Standard EOP"`) that, together with `url`, is included in any error
 /// message to make failures actionable.
 ///
 /// # Arguments
@@ -83,12 +83,57 @@ fn backoff_delay(attempt: u32) -> Duration {
 /// * `Ok(String)` - The response body.
 /// * `Err(BraheError)` - On a non-retryable status or exhausted retries.
 pub(crate) fn download_string(url: &str, description: &str) -> Result<String, BraheError> {
+    download_string_impl(url, description, true)
+}
+
+/// Fetch the body of `url` as a string without following HTTP redirects,
+/// retrying transient failures with exponential backoff and jitter.
+///
+/// Some APIs (e.g. the JPL SBDB Lookup API) signal a data-bearing condition —
+/// an ambiguous match — with a 3xx status (300) that carries no `Location`
+/// header and a body the caller needs to read. ureq's default redirect
+/// handling treats such a response as a malformed redirect and errors out
+/// before the body can be read, so callers that need to inspect a 3xx body
+/// must disable redirect-following.
+///
+/// `description` is a short human-readable label for the product being fetched
+/// (e.g. `"SBDB lookup"`) that, together with `url`, is included in any error
+/// message to make failures actionable.
+///
+/// # Arguments
+///
+/// * `url` - The URL to fetch.
+/// * `description` - Human-readable product label for error messages.
+///
+/// # Returns
+///
+/// * `Ok(String)` - The response body.
+/// * `Err(BraheError)` - On a non-retryable status or exhausted retries.
+pub(crate) fn download_string_no_redirect(
+    url: &str,
+    description: &str,
+) -> Result<String, BraheError> {
+    download_string_impl(url, description, false)
+}
+
+/// Shared implementation for [`download_string`] and [`download_string_no_redirect`].
+fn download_string_impl(
+    url: &str,
+    description: &str,
+    follow_redirects: bool,
+) -> Result<String, BraheError> {
     let mut attempt: u32 = 0;
 
     loop {
         attempt += 1;
 
-        match ureq::get(url)
+        let request = if follow_redirects {
+            ureq::get(url)
+        } else {
+            ureq::get(url).config().max_redirects(0).build()
+        };
+
+        match request
             .call()
             .and_then(|mut response| response.body_mut().read_to_string())
         {
@@ -120,8 +165,6 @@ pub(crate) fn download_string(url: &str, description: &str) -> Result<String, Br
 /// # Returns
 ///
 /// * `String` - The percent-encoded string.
-// Not yet called from non-test production code; wired up by a later task.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn urlencode(input: &str) -> String {
     let mut out = String::with_capacity(input.len());
     for b in input.bytes() {

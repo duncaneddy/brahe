@@ -3,7 +3,7 @@
 
 use brahe as bh;
 use bh::integrators::traits::DStateDynamics;
-use bh::propagators::{DNumericalOrbitPropagator, ForceModelConfig, NumericalPropagationConfig};
+use bh::propagators::{DNumericalOrbitPropagator, ForceModelConfig};
 use bh::traits::DStatePropagator;
 use nalgebra as na;
 
@@ -63,7 +63,7 @@ fn main() {
 
     // Control input for thrust acceleration
     // Returns full state-sized vector with acceleration in indices 3-5
-    let control_input = Some(Box::new(move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| {
+    let control_input: DStateDynamics = Box::new(move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| {
         let mut dx = na::DVector::zeros(state.len());
         if burn_start <= t && t < burn_end {
             let mass = state[6];
@@ -75,19 +75,17 @@ fn main() {
             dx[5] = acc[2];
         }
         dx
-    }) as Box<dyn Fn(f64, &na::DVector<f64>, Option<&na::DVector<f64>>) -> na::DVector<f64> + Send + Sync>);
+    });
 
     // Create propagator with two-body dynamics (no drag/SRP for clean mass tracking)
-    let mut prop = DNumericalOrbitPropagator::new(
+    let mut prop = DNumericalOrbitPropagator::builder(
         epoch,
         initial_state.clone(),
-        NumericalPropagationConfig::default(),
         ForceModelConfig::earth_gravity(),
-        None, // params
-        Some(additional_dynamics),
-        control_input,
-        None, // initial_covariance
     )
+    .additional_dynamics(additional_dynamics)
+    .control_input(control_input)
+    .build()
     .unwrap();
 
     println!("\nInitial state:");

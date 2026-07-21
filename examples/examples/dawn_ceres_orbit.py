@@ -144,9 +144,7 @@ print(f"Ceres spin pole (ICRF): {np.array2string(ceres_pole, precision=4)}")
 # --8<-- [end:orbit_setup]
 
 # --8<-- [start:propagation]
-prop = bh.NumericalOrbitPropagator(
-    epoch, state0, bh.NumericalPropagationConfig.default(), force_config, None
-)
+prop = bh.NumericalOrbitPropagator.builder(epoch, state0, force_config).build()
 duration = 2 * 86400.0
 print(f"\nPropagating {duration / 86400.0:.0f} days...")
 prop.propagate_to(epoch + duration)

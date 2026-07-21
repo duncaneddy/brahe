@@ -11,3 +11,13 @@ For understanding Walker constellation geometry and usage examples, see [Walker 
 ## Walker Constellation Generator
 
 ::: brahe.orbits.WalkerConstellationGenerator
+
+## Walker Constellation Generator Builder
+
+::: brahe.orbits.WalkerConstellationGeneratorBuilder
+
+---
+
+## See Also
+
+- [Walker Constellations Guide](../../learn/orbits/walker.md) - User guide documentation

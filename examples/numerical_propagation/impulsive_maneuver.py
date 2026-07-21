@@ -74,13 +74,9 @@ def second_burn_callback(event_epoch, event_state):
 
 
 # Create propagator (two-body for clean Hohmann)
-prop = bh.NumericalOrbitPropagator(
-    epoch,
-    state,
-    bh.NumericalPropagationConfig.default(),
-    bh.ForceModelConfig.two_body(),
-    None,
-)
+prop = bh.NumericalOrbitPropagator.builder(
+    epoch, state, bh.ForceModelConfig.two_body()
+).build()
 
 # First burn at t=0 (immediate)
 event1 = bh.TimeEvent(epoch + 1.0, "First Burn").with_callback(first_burn_callback)

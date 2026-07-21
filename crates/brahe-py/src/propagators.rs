@@ -101,7 +101,7 @@ impl PySGPPropagator {
     /// bypassing TLE parsing. It creates synthetic TLE lines for API consistency.
     ///
     /// Args:
-    ///     epoch (str): ISO 8601 datetime string (e.g., "2025-11-29T20:01:44.058144").
+    ///     epoch (Epoch): Element set epoch (UTC).
     ///     mean_motion (float): Mean motion in revolutions per day.
     ///     eccentricity (float): Orbital eccentricity (dimensionless).
     ///     inclination (float): Orbital inclination in degrees.
@@ -128,8 +128,9 @@ impl PySGPPropagator {
     ///     import brahe as bh
     ///
     ///     # ISS OMM data
+    ///     epoch = bh.Epoch.from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, bh.TimeSystem.UTC)
     ///     prop = bh.SGPPropagator.from_omm_elements(
-    ///         epoch="2025-11-29T20:01:44.058144",
+    ///         epoch=epoch,
     ///         mean_motion=15.49193835,
     ///         eccentricity=0.0003723,
     ///         inclination=51.6312,
@@ -170,7 +171,7 @@ impl PySGPPropagator {
     #[allow(clippy::too_many_arguments)]
     pub fn from_omm_elements(
         _cls: &Bound<'_, PyType>,
-        epoch: &str,
+        epoch: &PyEpoch,
         mean_motion: f64,
         eccentricity: f64,
         inclination: f64,
@@ -191,7 +192,7 @@ impl PySGPPropagator {
     ) -> PyResult<Self> {
         let step_size = step_size.unwrap_or(60.0);
         match propagators::SGPPropagator::from_omm_elements(
-            epoch,
+            epoch.obj,
             mean_motion,
             eccentricity,
             inclination,
@@ -212,6 +213,75 @@ impl PySGPPropagator {
         ) {
             Ok(propagator) => Ok(PySGPPropagator { propagator }),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Create a builder for constructing an SGP4 propagator from CCSDS OMM elements.
+    ///
+    /// The builder takes the eight required OMM inputs directly; optional inputs
+    /// are provided through chained setter calls before calling `build()`.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Element set epoch (UTC).
+    ///     mean_motion (float): Mean motion in revolutions per day.
+    ///     eccentricity (float): Orbital eccentricity (dimensionless).
+    ///     inclination (float): Orbital inclination in degrees.
+    ///     raan (float): Right ascension of ascending node in degrees.
+    ///     arg_of_pericenter (float): Argument of pericenter in degrees.
+    ///     mean_anomaly (float): Mean anomaly in degrees.
+    ///     norad_id (int): NORAD catalog ID.
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: New builder instance, with `step_size` defaulted
+    ///     to 60.0 and all other optional fields defaulted to their
+    ///     `from_omm_elements` defaults.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, bh.TimeSystem.UTC)
+    ///     prop = (
+    ///         bh.SGPPropagator.builder(
+    ///             epoch,
+    ///             15.49193835,
+    ///             0.0003723,
+    ///             51.6312,
+    ///             206.3646,
+    ///             184.1118,
+    ///             175.9840,
+    ///             25544,
+    ///         )
+    ///         .object_name("ISS (ZARYA)")
+    ///         .bstar(0.15237e-3)
+    ///         .build()
+    ///     )
+    ///     ```
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    pub fn builder(
+        epoch: &PyEpoch,
+        mean_motion: f64,
+        eccentricity: f64,
+        inclination: f64,
+        raan: f64,
+        arg_of_pericenter: f64,
+        mean_anomaly: f64,
+        norad_id: u64,
+    ) -> PySGPPropagatorBuilder {
+        PySGPPropagatorBuilder {
+            inner: Some(propagators::SGPPropagator::builder(
+                epoch.obj,
+                mean_motion,
+                eccentricity,
+                inclination,
+                raan,
+                arg_of_pericenter,
+                mean_anomaly,
+                norad_id,
+            )),
         }
     }
 
@@ -1870,6 +1940,246 @@ impl PySGPPropagator {
     /// String conversion.
     fn __str__(&self) -> String {
         self.__repr__()
+    }
+}
+
+// =============================================================================
+// SGPPropagatorBuilder
+// =============================================================================
+
+/// Builder for [`SGPPropagator`] from CCSDS OMM (Orbit Mean-elements Message) elements.
+///
+/// Created by `SGPPropagator.builder()`, which takes the eight required OMM
+/// inputs (`epoch`, `mean_motion`, `eccentricity`, `inclination`, `raan`,
+/// `arg_of_pericenter`, `mean_anomaly`, `norad_id`). Optional inputs are
+/// provided through chained setters and default to `None` (matching
+/// `SGPPropagator.from_omm_elements()`'s defaults), except `step_size` which
+/// defaults to 60.0 seconds. `build()` constructs the propagator; the builder
+/// is single-use, and calling `build()` a second time raises `RuntimeError`.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.initialize_eop()
+///
+///     epoch = bh.Epoch.from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, bh.TimeSystem.UTC)
+///     prop = (
+///         bh.SGPPropagator.builder(
+///             epoch,
+///             15.49193835,
+///             0.0003723,
+///             51.6312,
+///             206.3646,
+///             184.1118,
+///             175.9840,
+///             25544,
+///         )
+///         .object_name("ISS (ZARYA)")
+///         .bstar(0.15237e-3)
+///         .build()
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "SGPPropagatorBuilder")]
+pub struct PySGPPropagatorBuilder {
+    inner: Option<propagators::SGPPropagatorBuilder>,
+}
+
+#[pymethods]
+impl PySGPPropagatorBuilder {
+    /// Set the propagation step size.
+    ///
+    /// Defaults to 60.0 seconds if not called.
+    ///
+    /// Args:
+    ///     step_size (float): Default step size in seconds.
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn step_size(mut slf: PyRefMut<'_, Self>, step_size: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.step_size(step_size));
+        slf
+    }
+
+    /// Set the satellite name (OMM `OBJECT_NAME`).
+    ///
+    /// Args:
+    ///     object_name (str): Satellite name.
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn object_name<'a>(mut slf: PyRefMut<'a, Self>, object_name: &str) -> PyRefMut<'a, Self> {
+        slf.inner = slf.inner.take().map(|b| b.object_name(object_name));
+        slf
+    }
+
+    /// Set the international designator (OMM `OBJECT_ID`, e.g. `"1998-067A"`).
+    ///
+    /// Args:
+    ///     object_id (str): International designator.
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn object_id<'a>(mut slf: PyRefMut<'a, Self>, object_id: &str) -> PyRefMut<'a, Self> {
+        slf.inner = slf.inner.take().map(|b| b.object_id(object_id));
+        slf
+    }
+
+    /// Set the classification (OMM `CLASSIFICATION_TYPE`).
+    ///
+    /// Defaults to `'U'` (unclassified) if not called.
+    ///
+    /// Args:
+    ///     classification (str): Classification character (`'U'`, `'C'`, or `'S'`).
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn classification(mut slf: PyRefMut<'_, Self>, classification: char) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.classification(classification));
+        slf
+    }
+
+    /// Set the B* drag term (OMM `BSTAR`).
+    ///
+    /// Defaults to 0.0 if not called.
+    ///
+    /// Args:
+    ///     bstar (float): B* drag term (1/Earth radii).
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn bstar(mut slf: PyRefMut<'_, Self>, bstar: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.bstar(bstar));
+        slf
+    }
+
+    /// Set the first derivative of mean motion divided by 2 (OMM `MEAN_MOTION_DOT`).
+    ///
+    /// Defaults to 0.0 if not called.
+    ///
+    /// Args:
+    ///     mean_motion_dot (float): First derivative of mean motion / 2 (rev/day^2).
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn mean_motion_dot(mut slf: PyRefMut<'_, Self>, mean_motion_dot: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.mean_motion_dot(mean_motion_dot));
+        slf
+    }
+
+    /// Set the second derivative of mean motion divided by 6 (OMM `MEAN_MOTION_DDOT`).
+    ///
+    /// Defaults to 0.0 if not called.
+    ///
+    /// Args:
+    ///     mean_motion_ddot (float): Second derivative of mean motion / 6 (rev/day^3).
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn mean_motion_ddot(mut slf: PyRefMut<'_, Self>, mean_motion_ddot: f64) -> PyRefMut<'_, Self> {
+        slf.inner = slf
+            .inner
+            .take()
+            .map(|b| b.mean_motion_ddot(mean_motion_ddot));
+        slf
+    }
+
+    /// Set the ephemeris type (OMM `EPHEMERIS_TYPE`).
+    ///
+    /// Defaults to 0 if not called.
+    ///
+    /// Args:
+    ///     ephemeris_type (int): Ephemeris type (usually 0).
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn ephemeris_type(mut slf: PyRefMut<'_, Self>, ephemeris_type: u8) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.ephemeris_type(ephemeris_type));
+        slf
+    }
+
+    /// Set the element set number (OMM `ELEMENT_SET_NO`).
+    ///
+    /// Defaults to 999 if not called.
+    ///
+    /// Args:
+    ///     element_set_no (int): Element set number.
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn element_set_no(mut slf: PyRefMut<'_, Self>, element_set_no: u64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.element_set_no(element_set_no));
+        slf
+    }
+
+    /// Set the revolution number at epoch (OMM `REV_AT_EPOCH`).
+    ///
+    /// Defaults to 0 if not called.
+    ///
+    /// Args:
+    ///     rev_at_epoch (int): Revolution number at epoch.
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn rev_at_epoch(mut slf: PyRefMut<'_, Self>, rev_at_epoch: u64) -> PyRefMut<'_, Self> {
+        slf.inner = slf.inner.take().map(|b| b.rev_at_epoch(rev_at_epoch));
+        slf
+    }
+
+    /// Set output format (frame, representation, and angle format) for propagated states.
+    ///
+    /// Applied to the propagator after construction, via
+    /// `SGPPropagator.set_output_format()`; see that method for the
+    /// frame/representation/angle-format combinations it accepts.
+    ///
+    /// Args:
+    ///     frame (OrbitFrame): Output frame (ECI or ECEF).
+    ///     representation (OrbitRepresentation): Output representation (Cartesian or Keplerian).
+    ///     angle_format (AngleFormat or None): Angle format for Keplerian (None for Cartesian).
+    ///
+    /// Returns:
+    ///     SGPPropagatorBuilder: The builder, for method chaining.
+    fn output_format<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        frame: PyRef<PyOrbitFrame>,
+        representation: PyRef<PyOrbitRepresentation>,
+        angle_format: Option<PyRef<PyAngleFormat>>,
+    ) -> PyRefMut<'a, Self> {
+        let angle_fmt = angle_format.map(|af| af.value);
+        slf.inner = slf
+            .inner
+            .take()
+            .map(|b| b.output_format(frame.frame, representation.representation, angle_fmt));
+        slf
+    }
+
+    /// Construct the propagator from the accumulated configuration.
+    ///
+    /// This consumes the builder. The builder is single-use: calling `build()`
+    /// a second time raises `RuntimeError`.
+    ///
+    /// Note:
+    ///     If `output_format()` was called with an invalid frame/representation/
+    ///     angle-format combination, `build()` raises `RuntimeError`. See
+    ///     `SGPPropagator.set_output_format()` for the valid combinations.
+    ///
+    /// Returns:
+    ///     SGPPropagator: Initialized propagator ready for propagation.
+    ///
+    /// Raises:
+    ///     RuntimeError: If the builder was already consumed by a prior `build()`
+    ///         call, if OMM validation fails, or if `output_format()` was called
+    ///         with an invalid frame/representation/angle-format combination.
+    fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PySGPPropagator> {
+        let builder = slf
+            .inner
+            .take()
+            .ok_or_else(|| exceptions::PyRuntimeError::new_err("builder already consumed"))?;
+        let prop = builder
+            .build()
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(PySGPPropagator { propagator: prop })
     }
 }
 
@@ -6263,6 +6573,111 @@ impl PyForceModelConfig {
 // NumericalOrbitPropagator
 // =============================================================================
 
+/// Wrap a Python callable as a `DStateDynamics` closure for extended-state dynamics.
+///
+/// Shared by [`PyNumericalOrbitPropagator::new`] and
+/// [`PyNumericalOrbitPropagatorBuilder::additional_dynamics`].
+fn wrap_additional_dynamics(
+    py: Python<'_>,
+    dyn_py: Py<PyAny>,
+) -> brahe::integrators::traits::DStateDynamics {
+    let dyn_py = dyn_py.clone_ref(py);
+    Box::new(
+        move |t: f64, x: &nalgebra::DVector<f64>, p: Option<&nalgebra::DVector<f64>>| {
+            Python::attach(|py| {
+                let x_np = x.as_slice().to_pyarray(py);
+                let p_np: Option<Bound<'_, PyArray<f64, Ix1>>> =
+                    p.map(|pv| pv.as_slice().to_pyarray(py).to_owned());
+
+                let result = match p_np {
+                    Some(params_arr) => dyn_py.call1(py, (t, x_np, params_arr)),
+                    None => dyn_py.call1(py, (t, x_np, py.None())),
+                };
+
+                match result {
+                    Ok(res) => {
+                        let res_arr: PyReadonlyArray1<f64> = res.extract(py).unwrap();
+                        nalgebra::DVector::from_column_slice(res_arr.as_slice().unwrap())
+                    }
+                    Err(e) => {
+                        panic!("Error calling additional_dynamics: {e}")
+                    }
+                }
+            })
+        },
+    ) as brahe::integrators::traits::DStateDynamics
+}
+
+/// Wrap a Python callable as a `DStateDynamics` closure for generic N-dimensional dynamics.
+///
+/// Shared by [`PyNumericalPropagator::new`] and
+/// [`PyNumericalPropagatorBuilder::builder`][PyNumericalPropagator::builder].
+fn wrap_dynamics(
+    py: Python<'_>,
+    dynamics_py: Py<PyAny>,
+) -> brahe::integrators::traits::DStateDynamics {
+    let dynamics_py = dynamics_py.clone_ref(py);
+    Box::new(
+        move |t: f64, x: &nalgebra::DVector<f64>, p: Option<&nalgebra::DVector<f64>>| {
+            Python::attach(|py| {
+                let x_np = x.as_slice().to_pyarray(py);
+                let p_np: Option<Bound<'_, PyArray<f64, Ix1>>> =
+                    p.map(|pv| pv.as_slice().to_pyarray(py).to_owned());
+
+                let result = match p_np {
+                    Some(params_arr) => dynamics_py.call1(py, (t, x_np, params_arr)),
+                    None => dynamics_py.call1(py, (t, x_np, py.None())),
+                };
+
+                match result {
+                    Ok(res) => {
+                        let res_arr: PyReadonlyArray1<f64> = res.extract(py).unwrap();
+                        nalgebra::DVector::from_column_slice(res_arr.as_slice().unwrap())
+                    }
+                    Err(e) => {
+                        panic!("Error calling dynamics function: {e}")
+                    }
+                }
+            })
+        },
+    ) as brahe::integrators::traits::DStateDynamics
+}
+
+/// Wrap a Python callable as a control-input closure returning an acceleration perturbation.
+///
+/// Shared by [`PyNumericalOrbitPropagator::new`] and
+/// [`PyNumericalOrbitPropagatorBuilder::control_input`].
+fn wrap_control_input(
+    py: Python<'_>,
+    ctrl_py: Py<PyAny>,
+) -> brahe::integrators::traits::DStateDynamics {
+    let ctrl_py = ctrl_py.clone_ref(py);
+    Box::new(
+        move |t: f64, x: &nalgebra::DVector<f64>, p: Option<&nalgebra::DVector<f64>>| {
+            Python::attach(|py| {
+                let x_np = x.as_slice().to_pyarray(py);
+                let p_np: Option<Bound<'_, PyArray<f64, Ix1>>> =
+                    p.map(|pv| pv.as_slice().to_pyarray(py).to_owned());
+
+                let result = match p_np {
+                    Some(params_arr) => ctrl_py.call1(py, (t, x_np, params_arr)),
+                    None => ctrl_py.call1(py, (t, x_np, py.None())),
+                };
+
+                match result {
+                    Ok(res) => {
+                        let res_arr: PyReadonlyArray1<f64> = res.extract(py).unwrap();
+                        nalgebra::DVector::from_column_slice(res_arr.as_slice().unwrap())
+                    }
+                    Err(e) => {
+                        panic!("Error calling control_input: {e}")
+                    }
+                }
+            })
+        },
+    ) as brahe::integrators::traits::DStateDynamics
+}
+
 /// High-fidelity numerical orbit propagator with configurable force models.
 ///
 /// This propagator uses numerical integration with built-in orbital force models:
@@ -6325,7 +6740,8 @@ impl PyNumericalOrbitPropagator {
     ///     force_config (ForceModelConfig): Force model configuration.
     ///     params (numpy.ndarray or None): Parameter vector [mass, drag_area, Cd, srp_area, Cr, ...].
     ///                                    Required if force_config references parameter indices.
-    ///     initial_covariance (numpy.ndarray or None): Optional 6x6 initial covariance matrix (enables STM).
+    ///     initial_covariance (numpy.ndarray or None): Optional initial covariance matrix (enables STM).
+    ///         Must be square with dimension matching the state size.
     ///     additional_dynamics (callable or None): Optional function for extended state dynamics beyond 6D.
     ///                                            Signature: f(t, state, params) -> derivative.
     ///                                            Should return derivatives for extended state elements only.
@@ -6379,95 +6795,30 @@ impl PyNumericalOrbitPropagator {
         let params_vec =
             params.map(|p| nalgebra::DVector::from_column_slice(p.as_slice().unwrap()));
 
+        let state_dim = state_vec.len();
         let cov_matrix = if let Some(cov) = initial_covariance {
             let cov_shape = cov.shape();
-            if cov_shape[0] != 6 || cov_shape[1] != 6 {
-                return Err(exceptions::PyValueError::new_err(
-                    "Initial covariance must be a 6x6 matrix",
-                ));
+            if cov_shape[0] != state_dim || cov_shape[1] != state_dim {
+                return Err(exceptions::PyValueError::new_err(format!(
+                    "Initial covariance must be a {}x{} matrix",
+                    state_dim, state_dim
+                )));
             }
             let cov_data: Vec<f64> = cov.as_slice()?.to_vec();
-            Some(nalgebra::DMatrix::from_row_slice(6, 6, &cov_data))
+            Some(nalgebra::DMatrix::from_row_slice(
+                state_dim, state_dim, &cov_data,
+            ))
         } else {
             None
         };
 
         // Wrap additional_dynamics Python callable if provided
         let additional_dynamics_fn: Option<brahe::integrators::traits::DStateDynamics> =
-            additional_dynamics.map(|dyn_py| {
-                let dyn_py = dyn_py.clone_ref(py);
-                Box::new(
-                    move |t: f64,
-                          x: &nalgebra::DVector<f64>,
-                          p: Option<&nalgebra::DVector<f64>>| {
-                        Python::attach(|py| {
-                            let x_np = x.as_slice().to_pyarray(py);
-                            let p_np: Option<Bound<'_, PyArray<f64, Ix1>>> =
-                                p.map(|pv| pv.as_slice().to_pyarray(py).to_owned());
-
-                            let result = match p_np {
-                                Some(params_arr) => dyn_py.call1(py, (t, x_np, params_arr)),
-                                None => dyn_py.call1(py, (t, x_np, py.None())),
-                            };
-
-                            match result {
-                                Ok(res) => {
-                                    let res_arr: PyReadonlyArray1<f64> = res.extract(py).unwrap();
-                                    nalgebra::DVector::from_column_slice(
-                                        res_arr.as_slice().unwrap(),
-                                    )
-                                }
-                                Err(e) => {
-                                    panic!("Error calling additional_dynamics: {e}")
-                                }
-                            }
-                        })
-                    },
-                ) as brahe::integrators::traits::DStateDynamics
-            });
+            additional_dynamics.map(|dyn_py| wrap_additional_dynamics(py, dyn_py));
 
         // Wrap control_input Python callable if provided
         let control_input_fn: brahe::integrators::traits::DControlInput =
-            control_input.map(|ctrl_py| {
-                let ctrl_py = ctrl_py.clone_ref(py);
-                Box::new(
-                    move |t: f64,
-                          x: &nalgebra::DVector<f64>,
-                          p: Option<&nalgebra::DVector<f64>>| {
-                        Python::attach(|py| {
-                            let x_np = x.as_slice().to_pyarray(py);
-                            let p_np: Option<Bound<'_, PyArray<f64, Ix1>>> =
-                                p.map(|pv| pv.as_slice().to_pyarray(py).to_owned());
-
-                            let result = match p_np {
-                                Some(params_arr) => ctrl_py.call1(py, (t, x_np, params_arr)),
-                                None => ctrl_py.call1(py, (t, x_np, py.None())),
-                            };
-
-                            match result {
-                                Ok(res) => {
-                                    let res_arr: PyReadonlyArray1<f64> = res.extract(py).unwrap();
-                                    nalgebra::DVector::from_column_slice(
-                                        res_arr.as_slice().unwrap(),
-                                    )
-                                }
-                                Err(e) => {
-                                    panic!("Error calling control_input: {e}")
-                                }
-                            }
-                        })
-                    },
-                )
-                    as Box<
-                        dyn Fn(
-                                f64,
-                                &nalgebra::DVector<f64>,
-                                Option<&nalgebra::DVector<f64>>,
-                            ) -> nalgebra::DVector<f64>
-                            + Send
-                            + Sync,
-                    >
-            });
+            control_input.map(|ctrl_py| wrap_control_input(py, ctrl_py));
 
         let prop = propagators::DNumericalOrbitPropagator::new(
             epoch.obj,
@@ -6529,6 +6880,55 @@ impl PyNumericalOrbitPropagator {
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
         Ok(PyNumericalOrbitPropagator { propagator: prop })
+    }
+
+    /// Create a builder for constructing a numerical orbit propagator.
+    ///
+    /// The builder takes the three required inputs directly; optional inputs
+    /// (propagation config, params, additional dynamics, control input, initial
+    /// covariance) are set through chained setter calls before calling `build()`.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Initial epoch.
+    ///     state (numpy.ndarray): Initial state vector in ECI Cartesian [x, y, z, vx, vy, vz]
+    ///         (meters, m/s). Can be 6D or 6+N dimensional for extended state.
+    ///     force_config (ForceModelConfig): Force model configuration.
+    ///
+    /// Returns:
+    ///     NumericalOrbitPropagatorBuilder: New builder instance.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+    ///
+    ///     prop = (
+    ///         bh.NumericalOrbitPropagator.builder(epoch, state, bh.ForceModelConfig())
+    ///         .initial_covariance(np.eye(6))
+    ///         .build()
+    ///     )
+    ///     ```
+    #[staticmethod]
+    pub fn builder(
+        epoch: &PyEpoch,
+        state: PyReadonlyArray1<f64>,
+        force_config: &PyForceModelConfig,
+    ) -> PyResult<PyNumericalOrbitPropagatorBuilder> {
+        let state_vec = nalgebra::DVector::from_column_slice(state.as_slice()?);
+        let state_dim = state_vec.len();
+        Ok(PyNumericalOrbitPropagatorBuilder {
+            inner: Some(propagators::DNumericalOrbitPropagator::builder(
+                epoch.obj,
+                state_vec,
+                force_config.config.clone(),
+            )),
+            state_dim,
+        })
     }
 
     // =========================================================================
@@ -7978,6 +8378,170 @@ impl PyNumericalOrbitPropagator {
 }
 
 // =============================================================================
+// NumericalOrbitPropagatorBuilder
+// =============================================================================
+
+/// Builder for [`NumericalOrbitPropagator`].
+///
+/// Created by `NumericalOrbitPropagator.builder()`, which takes the three
+/// required inputs (`epoch`, `state`, `force_config`). Optional inputs are
+/// provided through chained setters and default to `None`
+/// (`NumericalPropagationConfig.default()` for the propagation configuration).
+/// `build()` validates the configuration and constructs the propagator; the
+/// builder is single-use, and calling `build()` a second time raises `RuntimeError`.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///
+///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+///
+///     prop = (
+///         bh.NumericalOrbitPropagator.builder(epoch, state, bh.ForceModelConfig())
+///         .propagation_config(bh.NumericalPropagationConfig.default())
+///         .initial_covariance(np.eye(6))
+///         .build()
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "NumericalOrbitPropagatorBuilder")]
+pub struct PyNumericalOrbitPropagatorBuilder {
+    inner: Option<propagators::DNumericalOrbitPropagatorBuilder>,
+    state_dim: usize,
+}
+
+#[pymethods]
+impl PyNumericalOrbitPropagatorBuilder {
+    /// Set the propagation configuration (integrator method, tolerances, and step sizes).
+    ///
+    /// Defaults to `NumericalPropagationConfig.default()` if not called.
+    ///
+    /// Args:
+    ///     config (NumericalPropagationConfig): Numerical propagation configuration.
+    ///
+    /// Returns:
+    ///     NumericalOrbitPropagatorBuilder: The builder, for method chaining.
+    fn propagation_config<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        config: &PyNumericalPropagationConfig,
+    ) -> PyRefMut<'a, Self> {
+        slf.inner = slf
+            .inner
+            .take()
+            .map(|b| b.propagation_config(config.config.clone()));
+        slf
+    }
+
+    /// Set the parameter vector `[mass, drag_area, Cd, srp_area, Cr, ...]`.
+    ///
+    /// Required when the force model references parameter indices for drag or SRP.
+    ///
+    /// Args:
+    ///     params (numpy.ndarray): Parameter vector.
+    ///
+    /// Returns:
+    ///     NumericalOrbitPropagatorBuilder: The builder, for method chaining.
+    fn params<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        params: PyReadonlyArray1<f64>,
+    ) -> PyResult<PyRefMut<'a, Self>> {
+        let vec = nalgebra::DVector::from_column_slice(params.as_slice()?);
+        slf.inner = slf.inner.take().map(|b| b.params(vec));
+        Ok(slf)
+    }
+
+    /// Set additional dynamics for extended state dimensions beyond the 6D orbital state.
+    ///
+    /// Args:
+    ///     dynamics (callable): Function computing derivatives for extra state elements.
+    ///         Signature: f(t, state, params) -> derivative. Should return derivatives
+    ///         for extended state elements only.
+    ///
+    /// Returns:
+    ///     NumericalOrbitPropagatorBuilder: The builder, for method chaining.
+    fn additional_dynamics<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        py: Python<'_>,
+        dynamics: Py<PyAny>,
+    ) -> PyRefMut<'a, Self> {
+        let f = wrap_additional_dynamics(py, dynamics);
+        slf.inner = slf.inner.take().map(|b| b.additional_dynamics(f));
+        slf
+    }
+
+    /// Set a continuous control-input function that adds an acceleration perturbation.
+    ///
+    /// Args:
+    ///     control (callable): Control function returning a 3D acceleration perturbation.
+    ///         Signature: f(t, state, params) -> acceleration.
+    ///
+    /// Returns:
+    ///     NumericalOrbitPropagatorBuilder: The builder, for method chaining.
+    fn control_input<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        py: Python<'_>,
+        control: Py<PyAny>,
+    ) -> PyRefMut<'a, Self> {
+        let f = wrap_control_input(py, control);
+        slf.inner = slf.inner.take().map(|b| b.control_input(f));
+        slf
+    }
+
+    /// Set an initial covariance matrix P0, which also enables STM propagation.
+    ///
+    /// Args:
+    ///     covariance (numpy.ndarray): Initial covariance matrix. Must be square with
+    ///         dimension matching the state size.
+    ///
+    /// Returns:
+    ///     NumericalOrbitPropagatorBuilder: The builder, for method chaining.
+    fn initial_covariance<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        covariance: PyReadonlyArray2<f64>,
+    ) -> PyResult<PyRefMut<'a, Self>> {
+        let state_dim = slf.state_dim;
+        let cov_shape = covariance.shape();
+        if cov_shape[0] != state_dim || cov_shape[1] != state_dim {
+            return Err(exceptions::PyValueError::new_err(format!(
+                "Initial covariance must be a {}x{} matrix",
+                state_dim, state_dim
+            )));
+        }
+        let cov_data: Vec<f64> = covariance.as_slice()?.to_vec();
+        let cov_matrix = nalgebra::DMatrix::from_row_slice(state_dim, state_dim, &cov_data);
+        slf.inner = slf.inner.take().map(|b| b.initial_covariance(cov_matrix));
+        Ok(slf)
+    }
+
+    /// Construct the propagator from the accumulated configuration.
+    ///
+    /// This consumes the builder. The builder is single-use: calling `build()`
+    /// a second time raises `RuntimeError`.
+    ///
+    /// Returns:
+    ///     NumericalOrbitPropagator: Initialized propagator ready for propagation.
+    ///
+    /// Raises:
+    ///     RuntimeError: If the builder was already consumed by a prior `build()`
+    ///         call, or if the force model references parameter indices but no
+    ///         parameter vector was provided.
+    fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PyNumericalOrbitPropagator> {
+        let builder = slf
+            .inner
+            .take()
+            .ok_or_else(|| exceptions::PyRuntimeError::new_err("builder already consumed"))?;
+        let prop = builder
+            .build()
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(PyNumericalOrbitPropagator { propagator: prop })
+    }
+}
+
+// =============================================================================
 // TrajectoryMode
 // =============================================================================
 
@@ -8173,79 +8737,11 @@ impl PyNumericalPropagator {
         };
 
         // Create a wrapper that calls the Python dynamics function
-        let dynamics_py = dynamics.clone_ref(py);
-        let dynamics_fn: brahe::integrators::traits::DStateDynamics = Box::new(
-            move |t: f64, x: &nalgebra::DVector<f64>, p: Option<&nalgebra::DVector<f64>>| {
-                Python::attach(|py| {
-                    // Convert state to numpy array
-                    let x_np = x.as_slice().to_pyarray(py);
-
-                    // Convert params to numpy array or None
-                    let p_np: Option<Bound<'_, PyArray<f64, Ix1>>> =
-                        p.map(|pv| pv.as_slice().to_pyarray(py).to_owned());
-
-                    // Call Python function
-                    let result = match p_np {
-                        Some(params_arr) => dynamics_py.call1(py, (t, x_np, params_arr)),
-                        None => dynamics_py.call1(py, (t, x_np, py.None())),
-                    };
-
-                    match result {
-                        Ok(res) => {
-                            // Extract result as numpy array
-                            let res_arr: PyReadonlyArray1<f64> = res.extract(py).unwrap();
-                            nalgebra::DVector::from_column_slice(res_arr.as_slice().unwrap())
-                        }
-                        Err(e) => {
-                            panic!("Error calling dynamics function: {e}")
-                        }
-                    }
-                })
-            },
-        );
+        let dynamics_fn = wrap_dynamics(py, dynamics);
 
         // Wrap control_input Python callable if provided
         let control_input_fn: brahe::integrators::traits::DControlInput =
-            control_input.map(|ctrl_py| {
-                let ctrl_py = ctrl_py.clone_ref(py);
-                Box::new(
-                    move |t: f64,
-                          x: &nalgebra::DVector<f64>,
-                          p: Option<&nalgebra::DVector<f64>>| {
-                        Python::attach(|py| {
-                            let x_np = x.as_slice().to_pyarray(py);
-                            let p_np: Option<Bound<'_, PyArray<f64, Ix1>>> =
-                                p.map(|pv| pv.as_slice().to_pyarray(py).to_owned());
-
-                            let result = match p_np {
-                                Some(params_arr) => ctrl_py.call1(py, (t, x_np, params_arr)),
-                                None => ctrl_py.call1(py, (t, x_np, py.None())),
-                            };
-
-                            match result {
-                                Ok(res) => {
-                                    let res_arr: PyReadonlyArray1<f64> = res.extract(py).unwrap();
-                                    nalgebra::DVector::from_column_slice(
-                                        res_arr.as_slice().unwrap(),
-                                    )
-                                }
-                                Err(e) => {
-                                    panic!("Error calling control_input: {e}")
-                                }
-                            }
-                        })
-                    },
-                )
-                    as Box<
-                        dyn Fn(
-                                f64,
-                                &nalgebra::DVector<f64>,
-                                Option<&nalgebra::DVector<f64>>,
-                            ) -> nalgebra::DVector<f64>
-                            + Send
-                            + Sync,
-                    >
-            });
+            control_input.map(|ctrl_py| wrap_control_input(py, ctrl_py));
 
         let prop = propagators::DNumericalPropagator::new(
             epoch.obj,
@@ -8259,6 +8755,57 @@ impl PyNumericalPropagator {
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
         Ok(PyNumericalPropagator { propagator: prop })
+    }
+
+    /// Create a builder for constructing a generic numerical propagator.
+    ///
+    /// The builder takes the three required inputs directly; optional inputs
+    /// (propagation config, params, control input, initial covariance) are set
+    /// through chained setter calls before calling `build()`.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Initial epoch.
+    ///     state (numpy.ndarray): Initial state vector (N-dimensional).
+    ///     dynamics (callable): Dynamics function: f(t, state, params) -> derivative.
+    ///                         Should accept (float, np.ndarray, Optional[np.ndarray]) and return np.ndarray.
+    ///
+    /// Returns:
+    ///     NumericalPropagatorBuilder: New builder instance.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     omega = 1.0
+    ///     def sho_dynamics(t, state, params):
+    ///         return np.array([state[1], -omega**2 * state[0]])
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     state = np.array([1.0, 0.0])
+    ///
+    ///     prop = (
+    ///         bh.NumericalPropagator.builder(epoch, state, sho_dynamics)
+    ///         .propagation_config(bh.NumericalPropagationConfig.default())
+    ///         .build()
+    ///     )
+    ///     ```
+    #[staticmethod]
+    pub fn builder(
+        py: Python<'_>,
+        epoch: &PyEpoch,
+        state: PyReadonlyArray1<f64>,
+        dynamics: Py<PyAny>,
+    ) -> PyResult<PyNumericalPropagatorBuilder> {
+        let state_vec = nalgebra::DVector::from_column_slice(state.as_slice()?);
+        let state_dim = state_vec.len();
+        let dynamics_fn = wrap_dynamics(py, dynamics);
+        Ok(PyNumericalPropagatorBuilder {
+            inner: Some(propagators::DNumericalPropagator::builder(
+                epoch.obj, state_vec, dynamics_fn,
+            )),
+            state_dim,
+        })
     }
 
     // =========================================================================
@@ -8932,5 +9479,151 @@ impl PyNumericalPropagator {
         PyCovarianceInterpolationMethod {
             method: self.propagator.get_covariance_interpolation_method(),
         }
+    }
+}
+
+// =============================================================================
+// NumericalPropagatorBuilder
+// =============================================================================
+
+/// Builder for [`NumericalPropagator`].
+///
+/// Created by `NumericalPropagator.builder()`, which takes the three required
+/// inputs (`epoch`, `state`, `dynamics`). Optional inputs are provided through
+/// chained setters and default to `None` (`NumericalPropagationConfig.default()`
+/// for the propagation configuration). `build()` validates the configuration
+/// and constructs the propagator; the builder is single-use, and calling
+/// `build()` a second time raises `RuntimeError`.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     omega = 1.0
+///     def sho_dynamics(t, state, params):
+///         return np.array([state[1], -omega**2 * state[0]])
+///
+///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     state = np.array([1.0, 0.0])
+///
+///     prop = (
+///         bh.NumericalPropagator.builder(epoch, state, sho_dynamics)
+///         .propagation_config(bh.NumericalPropagationConfig.default())
+///         .initial_covariance(np.eye(2))
+///         .build()
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "NumericalPropagatorBuilder")]
+pub struct PyNumericalPropagatorBuilder {
+    inner: Option<propagators::DNumericalPropagatorBuilder>,
+    state_dim: usize,
+}
+
+#[pymethods]
+impl PyNumericalPropagatorBuilder {
+    /// Set the propagation configuration (integrator method, tolerances, and step sizes).
+    ///
+    /// Defaults to `NumericalPropagationConfig.default()` if not called.
+    ///
+    /// Args:
+    ///     config (NumericalPropagationConfig): Numerical propagation configuration.
+    ///
+    /// Returns:
+    ///     NumericalPropagatorBuilder: The builder, for method chaining.
+    fn propagation_config<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        config: &PyNumericalPropagationConfig,
+    ) -> PyRefMut<'a, Self> {
+        slf.inner = slf
+            .inner
+            .take()
+            .map(|b| b.propagation_config(config.config.clone()));
+        slf
+    }
+
+    /// Set the parameter vector consumed by the dynamics function, control input,
+    /// and (when enabled) sensitivity propagation.
+    ///
+    /// Args:
+    ///     params (numpy.ndarray): Parameter vector.
+    ///
+    /// Returns:
+    ///     NumericalPropagatorBuilder: The builder, for method chaining.
+    fn params<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        params: PyReadonlyArray1<f64>,
+    ) -> PyResult<PyRefMut<'a, Self>> {
+        let vec = nalgebra::DVector::from_column_slice(params.as_slice()?);
+        slf.inner = slf.inner.take().map(|b| b.params(vec));
+        Ok(slf)
+    }
+
+    /// Set a continuous control-input function that adds a perturbation to the dynamics output.
+    ///
+    /// Args:
+    ///     control (callable): Control function returning a perturbation vector matching the
+    ///         state dimension. Signature: f(t, state, params) -> control_perturbation.
+    ///
+    /// Returns:
+    ///     NumericalPropagatorBuilder: The builder, for method chaining.
+    fn control_input<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        py: Python<'_>,
+        control: Py<PyAny>,
+    ) -> PyRefMut<'a, Self> {
+        let f = wrap_control_input(py, control);
+        slf.inner = slf.inner.take().map(|b| b.control_input(f));
+        slf
+    }
+
+    /// Set an initial covariance matrix P0, which also enables STM propagation.
+    ///
+    /// Args:
+    ///     covariance (numpy.ndarray): Initial covariance matrix. Must be square with
+    ///         dimension matching the state size.
+    ///
+    /// Returns:
+    ///     NumericalPropagatorBuilder: The builder, for method chaining.
+    fn initial_covariance<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        covariance: PyReadonlyArray2<f64>,
+    ) -> PyResult<PyRefMut<'a, Self>> {
+        let state_dim = slf.state_dim;
+        let cov_shape = covariance.shape();
+        if cov_shape[0] != state_dim || cov_shape[1] != state_dim {
+            return Err(exceptions::PyValueError::new_err(format!(
+                "Initial covariance must be a {}x{} matrix",
+                state_dim, state_dim
+            )));
+        }
+        let cov_data: Vec<f64> = covariance.as_slice()?.to_vec();
+        let cov_matrix = nalgebra::DMatrix::from_row_slice(state_dim, state_dim, &cov_data);
+        slf.inner = slf.inner.take().map(|b| b.initial_covariance(cov_matrix));
+        Ok(slf)
+    }
+
+    /// Construct the propagator from the accumulated configuration.
+    ///
+    /// This consumes the builder. The builder is single-use: calling `build()`
+    /// a second time raises `RuntimeError`.
+    ///
+    /// Returns:
+    ///     NumericalPropagator: Initialized propagator ready for propagation.
+    ///
+    /// Raises:
+    ///     RuntimeError: If the builder was already consumed by a prior `build()`
+    ///         call, or if sensitivity propagation is enabled but no parameter
+    ///         vector was provided.
+    fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PyNumericalPropagator> {
+        let builder = slf
+            .inner
+            .take()
+            .ok_or_else(|| exceptions::PyRuntimeError::new_err("builder already consumed"))?;
+        let prop = builder
+            .build()
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(PyNumericalPropagator { propagator: prop })
     }
 }

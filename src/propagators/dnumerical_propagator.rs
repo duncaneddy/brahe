@@ -229,6 +229,235 @@ pub struct DNumericalPropagator {
     pub uuid: Option<uuid::Uuid>,
 }
 
+/// Builder for [`DNumericalPropagator`].
+///
+/// Created by [`DNumericalPropagator::builder`], which takes the three
+/// required inputs (`epoch`, `state`, `dynamics_fn`). Optional inputs are
+/// provided through chained setters and default to `None`
+/// ([`NumericalPropagationConfig::default`] for the propagation configuration).
+/// [`DNumericalPropagatorBuilder::build`] validates the configuration and
+/// constructs the propagator.
+///
+/// # Example
+///
+/// ```rust
+/// use brahe::propagators::DNumericalPropagator;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::DVector;
+///
+/// // Simple harmonic oscillator: dx/dt = v, dv/dt = -ω²x
+/// let omega = 1.0;
+/// let dynamics = Box::new(move |_t: f64, x: &DVector<f64>, _p: Option<&DVector<f64>>| {
+///     DVector::from_vec(vec![x[1], -omega * omega * x[0]])
+/// });
+///
+/// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let state = DVector::from_vec(vec![1.0, 0.0]);
+///
+/// let prop = DNumericalPropagator::builder(epoch, state, dynamics)
+///     .build()
+///     .unwrap();
+/// ```
+pub struct DNumericalPropagatorBuilder {
+    epoch: Epoch,
+    state: DVector<f64>,
+    dynamics_fn: DStateDynamics,
+    propagation_config: super::NumericalPropagationConfig,
+    params: Option<DVector<f64>>,
+    control_input: DControlInput,
+    initial_covariance: Option<DMatrix<f64>>,
+}
+
+impl DNumericalPropagatorBuilder {
+    /// Set the propagation configuration (integrator method, tolerances, and step sizes).
+    ///
+    /// Defaults to [`NumericalPropagationConfig::default`] if not called.
+    ///
+    /// # Arguments
+    /// * `config` - Numerical propagation configuration
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::{DNumericalPropagator, NumericalPropagationConfig};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use nalgebra::DVector;
+    ///
+    /// let omega = 1.0;
+    /// let dynamics = Box::new(move |_t: f64, x: &DVector<f64>, _p: Option<&DVector<f64>>| {
+    ///     DVector::from_vec(vec![x[1], -omega * omega * x[0]])
+    /// });
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![1.0, 0.0]);
+    ///
+    /// let mut config = NumericalPropagationConfig::default();
+    /// config.integrator.max_step = Some(0.5);
+    ///
+    /// let prop = DNumericalPropagator::builder(epoch, state, dynamics)
+    ///     .propagation_config(config)
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    pub fn propagation_config(mut self, config: super::NumericalPropagationConfig) -> Self {
+        self.propagation_config = config;
+        self
+    }
+
+    /// Set the parameter vector consumed by the dynamics function, control input,
+    /// and (when enabled) sensitivity propagation.
+    ///
+    /// # Arguments
+    /// * `params` - Parameter vector
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::DNumericalPropagator;
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use nalgebra::DVector;
+    ///
+    /// // Damped harmonic oscillator with params [omega, zeta]
+    /// let dynamics = Box::new(|_t: f64, x: &DVector<f64>, p: Option<&DVector<f64>>| {
+    ///     let params = p.unwrap();
+    ///     let (omega, zeta) = (params[0], params[1]);
+    ///     DVector::from_vec(vec![x[1], -omega * omega * x[0] - 2.0 * zeta * omega * x[1]])
+    /// });
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![1.0, 0.0]);
+    ///
+    /// let prop = DNumericalPropagator::builder(epoch, state, dynamics)
+    ///     .params(DVector::from_vec(vec![1.0, 0.1]))
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    pub fn params(mut self, params: DVector<f64>) -> Self {
+        self.params = Some(params);
+        self
+    }
+
+    /// Set a continuous control-input function that adds a perturbation to the dynamics output.
+    ///
+    /// # Arguments
+    /// * `control` - Control function returning a perturbation vector
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::DNumericalPropagator;
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use nalgebra::DVector;
+    ///
+    /// let omega = 1.0;
+    /// let dynamics = Box::new(move |_t: f64, x: &DVector<f64>, _p: Option<&DVector<f64>>| {
+    ///     DVector::from_vec(vec![x[1], -omega * omega * x[0]])
+    /// });
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![1.0, 0.0]);
+    ///
+    /// let control = Box::new(|_t: f64, state: &DVector<f64>, _p: Option<&DVector<f64>>| {
+    ///     let mut dx = DVector::zeros(state.len());
+    ///     dx[1] = 0.01; // small perturbing acceleration
+    ///     dx
+    /// });
+    ///
+    /// let prop = DNumericalPropagator::builder(epoch, state, dynamics)
+    ///     .control_input(control)
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    pub fn control_input(mut self, control: DStateDynamics) -> Self {
+        self.control_input = Some(control);
+        self
+    }
+
+    /// Set an initial covariance matrix P₀, which also enables STM propagation.
+    ///
+    /// # Arguments
+    /// * `covariance` - Initial covariance matrix (must be square, dimension = state size)
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::DNumericalPropagator;
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use nalgebra::{DMatrix, DVector};
+    ///
+    /// let omega = 1.0;
+    /// let dynamics = Box::new(move |_t: f64, x: &DVector<f64>, _p: Option<&DVector<f64>>| {
+    ///     DVector::from_vec(vec![x[1], -omega * omega * x[0]])
+    /// });
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![1.0, 0.0]);
+    /// let p0 = DMatrix::<f64>::identity(2, 2);
+    ///
+    /// let prop = DNumericalPropagator::builder(epoch, state, dynamics)
+    ///     .initial_covariance(p0)
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    pub fn initial_covariance(mut self, covariance: DMatrix<f64>) -> Self {
+        self.initial_covariance = Some(covariance);
+        self
+    }
+
+    /// Construct the propagator from the accumulated configuration.
+    ///
+    /// # Returns
+    /// Initialized propagator ready for propagation
+    ///
+    /// # Errors
+    /// Returns `BraheError` if:
+    /// - Sensitivity propagation is enabled but no parameters are provided
+    /// - Hermite interpolation methods are configured for non-6D states
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::DNumericalPropagator;
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use nalgebra::DVector;
+    ///
+    /// let omega = 1.0;
+    /// let dynamics = Box::new(move |_t: f64, x: &DVector<f64>, _p: Option<&DVector<f64>>| {
+    ///     DVector::from_vec(vec![x[1], -omega * omega * x[0]])
+    /// });
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![1.0, 0.0]);
+    ///
+    /// let prop = DNumericalPropagator::builder(epoch, state, dynamics)
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    pub fn build(self) -> Result<DNumericalPropagator, BraheError> {
+        DNumericalPropagator::new(
+            self.epoch,
+            self.state,
+            self.dynamics_fn,
+            self.propagation_config,
+            self.params,
+            self.control_input,
+            self.initial_covariance,
+        )
+    }
+}
+
 impl DNumericalPropagator {
     // =========================================================================
     // Construction
@@ -255,6 +484,8 @@ impl DNumericalPropagator {
     /// Returns `BraheError` if:
     /// - Sensitivity propagation is enabled but no parameters are provided
     /// - Hermite interpolation methods are configured for non-6D states
+    /// - `initial_covariance` is provided and its dimensions do not match the
+    ///   state dimension
     ///
     /// # Example
     ///
@@ -303,6 +534,19 @@ impl DNumericalPropagator {
 
         // Get state dimension
         let state_dim = state_eci.len();
+
+        // Validate: initial covariance must be square with dimension matching the
+        // state, since STM propagation computes Φ·P₀·Φᵀ with Φ sized state_dim × state_dim.
+        if let Some(ref p0) = initial_covariance
+            && (p0.nrows() != state_dim || p0.ncols() != state_dim)
+        {
+            return Err(BraheError::PropagatorError(format!(
+                "initial_covariance must be a {state_dim}x{state_dim} matrix matching the \
+                 state dimension, but got {}x{}",
+                p0.nrows(),
+                p0.ncols()
+            )));
+        }
 
         // Determine what to propagate based on config and provided data
         // STM is auto-enabled if initial_covariance is provided, or can be explicitly enabled
@@ -470,6 +714,56 @@ impl DNumericalPropagator {
         }
 
         result
+    }
+
+    /// Create a [`DNumericalPropagatorBuilder`] seeded with the required inputs.
+    ///
+    /// Optional configuration (propagation config, params, control input,
+    /// initial covariance) is provided via chained setters before calling
+    /// [`DNumericalPropagatorBuilder::build`].
+    ///
+    /// # Arguments
+    /// * `epoch` - Initial epoch
+    /// * `state` - Initial state vector (N-dimensional)
+    /// * `dynamics_fn` - Dynamics function: `f(t, x, params) -> dx/dt`
+    ///
+    /// # Returns
+    /// Builder with the three required fields set and all optional fields defaulted
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use brahe::propagators::{DNumericalPropagator, NumericalPropagationConfig};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use nalgebra::DVector;
+    ///
+    /// let omega = 1.0;
+    /// let dynamics = Box::new(move |_t: f64, x: &DVector<f64>, _p: Option<&DVector<f64>>| {
+    ///     DVector::from_vec(vec![x[1], -omega * omega * x[0]])
+    /// });
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![1.0, 0.0]);
+    ///
+    /// let prop = DNumericalPropagator::builder(epoch, state, dynamics)
+    ///     .propagation_config(NumericalPropagationConfig::default())
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    pub fn builder(
+        epoch: Epoch,
+        state: DVector<f64>,
+        dynamics_fn: DStateDynamics,
+    ) -> DNumericalPropagatorBuilder {
+        DNumericalPropagatorBuilder {
+            epoch,
+            state,
+            dynamics_fn,
+            propagation_config: super::NumericalPropagationConfig::default(),
+            params: None,
+            control_input: None,
+            initial_covariance: None,
+        }
     }
 
     // =========================================================================
@@ -2198,6 +2492,117 @@ mod tests {
                 assert_abs_diff_eq!(sens[(i, j)], 0.0, epsilon = 1e-12);
             }
         }
+    }
+
+    // =============================================================================
+    // Builder Tests
+    // =============================================================================
+
+    #[test]
+    fn test_dnumericalpropagator_builder_equivalence() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0, 0.0]);
+        let omega = 1.0;
+
+        let mut from_builder =
+            DNumericalPropagator::builder(epoch, state.clone(), sho_dynamics(omega))
+                .build()
+                .unwrap();
+        let mut from_new = DNumericalPropagator::new(
+            epoch,
+            state,
+            sho_dynamics(omega),
+            NumericalPropagationConfig::default(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        from_builder.step_by(1.0);
+        from_new.step_by(1.0);
+        assert_eq!(from_builder.current_state(), from_new.current_state());
+    }
+
+    #[test]
+    fn test_dnumericalpropagator_new_rejects_mismatched_covariance_dim() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0, 0.0]); // 2D state
+        let p0 = DMatrix::<f64>::identity(3, 3); // mismatched 3x3 covariance
+
+        let result = DNumericalPropagator::new(
+            epoch,
+            state,
+            sho_dynamics(1.0),
+            NumericalPropagationConfig::default(),
+            None,
+            None,
+            Some(p0),
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_dnumericalpropagator_builder_rejects_mismatched_covariance_dim() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0, 0.0]); // 2D state
+        let p0 = DMatrix::<f64>::identity(3, 3); // mismatched 3x3 covariance
+
+        let result = DNumericalPropagator::builder(epoch, state, sho_dynamics(1.0))
+            .initial_covariance(p0)
+            .build();
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_dnumericalpropagator_builder_optionals() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0, 0.0]);
+        let params = DVector::from_vec(vec![1.0, 0.1]); // [omega, zeta]
+        let p0 = DMatrix::<f64>::identity(2, 2);
+
+        let mut config = NumericalPropagationConfig::default();
+        config.integrator.max_step = Some(0.5);
+
+        let prop = DNumericalPropagator::builder(epoch, state, damped_sho_dynamics())
+            .propagation_config(config)
+            .params(params.clone())
+            .initial_covariance(p0)
+            .build()
+            .unwrap();
+
+        assert_eq!(DStatePropagatorTrait::state_dim(&prop), 2);
+        assert_eq!(prop.params(), Some(&params));
+
+        // initial_covariance auto-enables STM propagation
+        let stm = prop.stm().expect("initial_covariance should enable STM");
+        assert_eq!(stm.nrows(), 2);
+        assert_eq!(stm.ncols(), 2);
+    }
+
+    #[test]
+    fn test_dnumericalpropagator_builder_control_input() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![0.0, 0.0]);
+
+        // Zero dynamics: state stays constant absent a control input.
+        let dynamics: DStateDynamics = Box::new(|_t, x, _p| DVector::zeros(x.len()));
+        // Constant control perturbation: dx/dt = [1.0, 2.0]
+        let control: DStateDynamics = Box::new(|_t, _x, _p| DVector::from_vec(vec![1.0, 2.0]));
+
+        let mut prop = DNumericalPropagator::builder(epoch, state, dynamics)
+            .control_input(control)
+            .build()
+            .unwrap();
+
+        prop.step_by(1.0);
+
+        // With zero dynamics, the constant control perturbation is the entire
+        // derivative, so after 1s the state should equal the perturbation exactly.
+        assert_abs_diff_eq!(prop.current_state()[0], 1.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(prop.current_state()[1], 2.0, epsilon = 1e-9);
     }
 
     // =============================================================================

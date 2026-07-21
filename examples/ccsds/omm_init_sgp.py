@@ -18,14 +18,9 @@ print(f"Object: {omm.object_name} ({omm.object_id})")
 print(f"Theory: {omm.mean_element_theory}")
 print(f"Epoch:  {omm.epoch}")
 
-# Extract mean elements for SGP4
-# The epoch string is needed in ISO format for from_omm_elements
-d = omm.to_dict()
-epoch_str = d["mean_elements"]["epoch"]
-
 # Initialize SGP propagator from OMM elements
 prop = bh.SGPPropagator.from_omm_elements(
-    epoch=epoch_str,
+    epoch=omm.epoch,
     mean_motion=omm.mean_motion,
     eccentricity=omm.eccentricity,
     inclination=omm.inclination,

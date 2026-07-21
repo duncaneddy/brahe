@@ -85,6 +85,7 @@ from brahe._brahe import (
     # Constellation generators
     WalkerPattern,
     WalkerConstellationGenerator,
+    WalkerConstellationGeneratorBuilder,
 )
 
 __all__ = [
@@ -148,4 +149,5 @@ __all__ = [
     # Constellation generators
     "WalkerPattern",
     "WalkerConstellationGenerator",
+    "WalkerConstellationGeneratorBuilder",
 ]

@@ -24,13 +24,7 @@ force_config = bh.ForceModelConfig.two_body()
 print(f"Two-body requires params: {force_config.requires_params()}")
 
 # Create propagator (no params needed)
-prop = bh.NumericalOrbitPropagator(
-    epoch,
-    state,
-    bh.NumericalPropagationConfig.default(),
-    force_config,
-    None,  # No params required
-)
+prop = bh.NumericalOrbitPropagator.builder(epoch, state, force_config).build()
 
 # Compare with Keplerian propagator (use Cartesian state for direct comparison)
 kep_prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)

@@ -116,6 +116,33 @@ The dynamics function defines the system's equations of motion. It receives the 
     );
     ```
 
+### Builder Construction
+
+`NumericalPropagator.builder()` (`DNumericalPropagator::builder()` in Rust) is the primary way to construct a generic propagator. It takes the three required fields -- `epoch`, `state`, and `dynamics_fn` -- directly as arguments, and optional fields (propagation configuration, parameters, control input, initial covariance) are set through chained setters, defaulting when omitted. The flat constructor (`NumericalPropagator(...)` in Python, `DNumericalPropagator::new(...)` in Rust) remains available as an alternative when every field is already at hand.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/numerical_propagation/generic_dynamics_builder.py:12"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/numerical_propagation/generic_dynamics_builder.rs:6"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/generic_dynamics_builder.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/generic_dynamics_builder.rs.txt"
+        ```
+
 ### Mathematical Form
 
 For a general system, the dynamics function computes:
@@ -151,10 +178,10 @@ Parameters allow passing constants to the dynamics function without hardcoding t
         ...
 
     # Create propagator with parameters
-    prop = bh.NumericalPropagator(
-        epoch, initial_state, dynamics,
-        bh.NumericalPropagationConfig.default(),
-        params  # Pass parameters here
+    prop = (
+        bh.NumericalPropagator.builder(epoch, initial_state, dynamics)
+        .params(params)
+        .build()
     )
     ```
 
@@ -177,12 +204,10 @@ Parameters allow passing constants to the dynamics function without hardcoding t
     );
 
     // Create propagator with parameters
-    let prop = bh::DNumericalPropagator::new(
-        epoch, initial_state, dynamics_fn,
-        bh::NumericalPropagationConfig::default(),
-        Some(params),  // Pass parameters here
-        None, None
-    ).unwrap();
+    let prop = bh::DNumericalPropagator::builder(epoch, initial_state, dynamics_fn)
+        .params(params)
+        .build()
+        .unwrap();
     ```
 
 ## Control Inputs

@@ -20,16 +20,13 @@ fn main() {
     let params = na::DVector::from_vec(vec![500.0, 2.0, 2.2, 2.0, 1.3]);
 
     // Create propagator
-    let mut prop = bh::DNumericalOrbitPropagator::new(
+    let mut prop = bh::DNumericalOrbitPropagator::builder(
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
-        bh::NumericalPropagationConfig::default(),
         bh::ForceModelConfig::default(),
-        Some(params),
-        None,
-        None,
-        None,
     )
+    .params(params)
+    .build()
     .unwrap();
 
     // Add eclipse events with different edge types

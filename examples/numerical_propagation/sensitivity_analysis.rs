@@ -25,16 +25,14 @@ fn main() {
     let params = na::DVector::from_vec(vec![500.0, 2.0, 2.2, 2.0, 1.3]);
 
     // Create propagator with full force model (needed for parameter sensitivity)
-    let mut prop = bh::DNumericalOrbitPropagator::new(
+    let mut prop = bh::DNumericalOrbitPropagator::builder(
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
-        prop_config,
         bh::ForceModelConfig::default(),
-        Some(params.clone()),
-        None,
-        None,
-        None,
     )
+    .propagation_config(prop_config)
+    .params(params.clone())
+    .build()
     .unwrap();
 
     println!("Spacecraft Parameters:");

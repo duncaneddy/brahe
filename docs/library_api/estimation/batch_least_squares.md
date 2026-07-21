@@ -9,6 +9,13 @@ Iterative batch least squares estimator for offline orbit determination.
 
 ---
 
+::: brahe.BatchLeastSquaresBuilder
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+
+---
+
 ::: brahe.BLSConfig
     options:
       show_root_heading: true

@@ -137,13 +137,9 @@ def fly(dv, duration, terminal=False):
         x_eci[3:6] += dv * x_eci[3:6] / np.linalg.norm(x_eci[3:6])
         return (bh.state_eci_to_emb(event_epoch, x_eci), bh.EventAction.CONTINUE)
 
-    prop = bh.NumericalOrbitPropagator(
-        start_epoch,
-        state_park,
-        bh.NumericalPropagationConfig.default(),
-        force_config,
-        None,
-    )
+    prop = bh.NumericalOrbitPropagator.builder(
+        start_epoch, state_park, force_config
+    ).build()
     prop.add_event_detector(bh.TimeEvent(epoch, "TLI").with_callback(tli_callback))
     if terminal:
         prop.add_event_detector(

@@ -2423,10 +2423,15 @@ impl PyOrbitalTrajectory {
     fn covariance<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
         let cov_mat = self.trajectory.covariance(epoch.obj)?;
         let cov_ref = &cov_mat;
-        let flat_vec: Vec<f64> = (0..6)
-            .flat_map(|i| (0..6).map(move |j| cov_ref[(i, j)]))
+        let (nrows, ncols) = (cov_mat.nrows(), cov_mat.ncols());
+        let flat_vec: Vec<f64> = (0..nrows)
+            .flat_map(|i| (0..ncols).map(move |j| cov_ref[(i, j)]))
             .collect();
-        Ok(flat_vec.into_pyarray(py).reshape([6, 6]).unwrap().to_owned())
+        Ok(flat_vec
+            .into_pyarray(py)
+            .reshape([nrows, ncols])
+            .unwrap()
+            .to_owned())
     }
 
     /// Get the covariance matrix at a specific epoch in the ECI frame.
@@ -2457,10 +2462,15 @@ impl PyOrbitalTrajectory {
     fn covariance_eci<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
         let cov_mat = DOrbitCovarianceProvider::covariance_eci(&self.trajectory, epoch.obj)?;
         let cov_ref = &cov_mat;
-        let flat_vec: Vec<f64> = (0..6)
-            .flat_map(|i| (0..6).map(move |j| cov_ref[(i, j)]))
+        let (nrows, ncols) = (cov_mat.nrows(), cov_mat.ncols());
+        let flat_vec: Vec<f64> = (0..nrows)
+            .flat_map(|i| (0..ncols).map(move |j| cov_ref[(i, j)]))
             .collect();
-        Ok(flat_vec.into_pyarray(py).reshape([6, 6]).unwrap().to_owned())
+        Ok(flat_vec
+            .into_pyarray(py)
+            .reshape([nrows, ncols])
+            .unwrap()
+            .to_owned())
     }
 
     /// Get the covariance matrix at a specific epoch in the GCRF frame.
@@ -2491,10 +2501,15 @@ impl PyOrbitalTrajectory {
     fn covariance_gcrf<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
         let cov_mat = DOrbitCovarianceProvider::covariance_gcrf(&self.trajectory, epoch.obj)?;
         let cov_ref = &cov_mat;
-        let flat_vec: Vec<f64> = (0..6)
-            .flat_map(|i| (0..6).map(move |j| cov_ref[(i, j)]))
+        let (nrows, ncols) = (cov_mat.nrows(), cov_mat.ncols());
+        let flat_vec: Vec<f64> = (0..nrows)
+            .flat_map(|i| (0..ncols).map(move |j| cov_ref[(i, j)]))
             .collect();
-        Ok(flat_vec.into_pyarray(py).reshape([6, 6]).unwrap().to_owned())
+        Ok(flat_vec
+            .into_pyarray(py)
+            .reshape([nrows, ncols])
+            .unwrap()
+            .to_owned())
     }
 
     /// Get the covariance matrix at a specific epoch in the RTN (Radial, Along-Track, Normal) frame.
@@ -2530,10 +2545,15 @@ impl PyOrbitalTrajectory {
     fn covariance_rtn<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
         let cov_mat = DOrbitCovarianceProvider::covariance_rtn(&self.trajectory, epoch.obj)?;
         let cov_ref = &cov_mat;
-        let flat_vec: Vec<f64> = (0..6)
-            .flat_map(|i| (0..6).map(move |j| cov_ref[(i, j)]))
+        let (nrows, ncols) = (cov_mat.nrows(), cov_mat.ncols());
+        let flat_vec: Vec<f64> = (0..nrows)
+            .flat_map(|i| (0..ncols).map(move |j| cov_ref[(i, j)]))
             .collect();
-        Ok(flat_vec.into_pyarray(py).reshape([6, 6]).unwrap().to_owned())
+        Ok(flat_vec
+            .into_pyarray(py)
+            .reshape([nrows, ncols])
+            .unwrap()
+            .to_owned())
     }
 
     // ========================

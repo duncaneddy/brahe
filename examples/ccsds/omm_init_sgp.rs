@@ -18,15 +18,12 @@ fn main() {
     println!("Theory: {}", omm.metadata.mean_element_theory);
     println!("Epoch:  {}", omm.mean_elements.epoch);
 
-    // Format epoch as ISO string for from_omm_elements
-    let epoch_str = bh::ccsds::common::format_ccsds_datetime(&omm.mean_elements.epoch);
-
     // Extract TLE parameters
     let tle = omm.tle_parameters.as_ref().unwrap();
 
     // Initialize SGP propagator from OMM elements
     let prop = bh::SGPPropagator::from_omm_elements(
-        &epoch_str,
+        omm.mean_elements.epoch,
         omm.mean_elements.mean_motion.unwrap(),
         omm.mean_elements.eccentricity,
         omm.mean_elements.inclination,

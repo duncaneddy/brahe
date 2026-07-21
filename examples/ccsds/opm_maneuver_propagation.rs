@@ -37,16 +37,13 @@ fn main() {
     ]);
 
     // Create propagator
-    let mut prop = bh::DNumericalOrbitPropagator::new(
+    let mut prop = bh::DNumericalOrbitPropagator::builder(
         opm.state_vector.epoch,
         na::DVector::from_column_slice(state_eci.as_slice()),
-        bh::NumericalPropagationConfig::default(),
         bh::ForceModelConfig::default(),
-        Some(params),
-        None,
-        None,
-        None,
     )
+    .params(params)
+    .build()
     .unwrap();
 
     // Add event detectors for inertial-frame maneuvers

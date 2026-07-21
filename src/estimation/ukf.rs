@@ -890,6 +890,406 @@ impl UnscentedKalmanFilter {
     pub fn into_dynamics(self) -> DynamicsSource {
         self.dynamics
     }
+
+    /// Create a builder for [`UnscentedKalmanFilter`].
+    ///
+    /// Takes the required inputs directly; optional inputs are provided
+    /// through chained setters on the returned builder and default to `None`
+    /// / empty ([`NumericalPropagationConfig::default`] for the propagation
+    /// configuration, no measurement models).
+    ///
+    /// # Arguments
+    ///
+    /// * `epoch` - Initial epoch
+    /// * `state` - Initial state vector (meters, m/s)
+    /// * `initial_covariance` - Initial covariance matrix (state_dim x state_dim)
+    /// * `force_config` - Force model configuration
+    /// * `config` - UKF configuration (alpha, beta, kappa)
+    ///
+    /// # Returns
+    ///
+    /// Builder with the required fields set and all optional fields defaulted
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::estimation::*;
+    /// use brahe::propagators::*;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use nalgebra::{DMatrix, DVector};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![6878e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
+    /// let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+    ///
+    /// let ukf = UnscentedKalmanFilter::builder(
+    ///     epoch, state, p0, ForceModelConfig::two_body_gravity(), UKFConfig::default(),
+    /// )
+    /// .measurement_model(Box::new(InertialPositionMeasurementModel::new(10.0)))
+    /// .build()
+    /// .unwrap();
+    /// ```
+    pub fn builder(
+        epoch: Epoch,
+        state: DVector<f64>,
+        initial_covariance: DMatrix<f64>,
+        force_config: ForceModelConfig,
+        config: UKFConfig,
+    ) -> UnscentedKalmanFilterBuilder {
+        UnscentedKalmanFilterBuilder {
+            epoch,
+            state,
+            initial_covariance,
+            force_config,
+            config,
+            propagation_config: NumericalPropagationConfig::default(),
+            params: None,
+            additional_dynamics: None,
+            control_input: None,
+            measurement_models: Vec::new(),
+        }
+    }
+}
+
+/// Builder for [`UnscentedKalmanFilter`].
+///
+/// Created by [`UnscentedKalmanFilter::builder`], which takes the required
+/// inputs (`epoch`, `state`, `initial_covariance`, `force_config`, `config`).
+/// Remaining inputs are provided through chained setters and default to
+/// `None` / empty ([`NumericalPropagationConfig::default`] for the
+/// propagation configuration, no measurement models).
+/// [`UnscentedKalmanFilterBuilder::build`] delegates to [`UnscentedKalmanFilter::new`].
+///
+/// # Example
+///
+/// ```rust
+/// use brahe::estimation::*;
+/// use brahe::propagators::*;
+/// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::{DMatrix, DVector};
+///
+/// let eop = StaticEOPProvider::from_zero();
+/// set_global_eop_provider(eop);
+///
+/// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let state = DVector::from_vec(vec![6878e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
+/// let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+///
+/// let ukf = UnscentedKalmanFilter::builder(
+///     epoch, state, p0, ForceModelConfig::two_body_gravity(), UKFConfig::default(),
+/// )
+/// .measurement_model(Box::new(InertialPositionMeasurementModel::new(10.0)))
+/// .build()
+/// .unwrap();
+/// ```
+pub struct UnscentedKalmanFilterBuilder {
+    epoch: Epoch,
+    state: DVector<f64>,
+    initial_covariance: DMatrix<f64>,
+    force_config: ForceModelConfig,
+    config: UKFConfig,
+    propagation_config: NumericalPropagationConfig,
+    params: Option<DVector<f64>>,
+    additional_dynamics: Option<DStateDynamics>,
+    control_input: DControlInput,
+    measurement_models: Vec<Box<dyn MeasurementModel>>,
+}
+
+impl UnscentedKalmanFilterBuilder {
+    /// Set the propagation configuration (integrator method, tolerances, and step sizes).
+    ///
+    /// Defaults to [`NumericalPropagationConfig::default`] if not called.
+    ///
+    /// # Arguments
+    /// * `config` - Numerical propagation configuration
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::estimation::*;
+    /// use brahe::propagators::*;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use nalgebra::{DMatrix, DVector};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![6878e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
+    /// let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+    ///
+    /// let ukf = UnscentedKalmanFilter::builder(
+    ///     epoch, state, p0, ForceModelConfig::two_body_gravity(), UKFConfig::default(),
+    /// )
+    /// .propagation_config(NumericalPropagationConfig::default())
+    /// .measurement_model(Box::new(InertialPositionMeasurementModel::new(10.0)))
+    /// .build()
+    /// .unwrap();
+    /// ```
+    pub fn propagation_config(mut self, config: NumericalPropagationConfig) -> Self {
+        self.propagation_config = config;
+        self
+    }
+
+    /// Set the parameter vector `[mass, drag_area, Cd, srp_area, Cr, ...]`.
+    ///
+    /// Required when `force_config` references parameter indices for drag or SRP.
+    ///
+    /// # Arguments
+    /// * `params` - Parameter vector
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::estimation::*;
+    /// use brahe::propagators::*;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use nalgebra::{DMatrix, DVector};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![6878e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
+    /// let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+    ///
+    /// let ukf = UnscentedKalmanFilter::builder(
+    ///     epoch, state, p0, ForceModelConfig::two_body_gravity(), UKFConfig::default(),
+    /// )
+    /// .params(DVector::from_vec(vec![10.0, 2.2]))
+    /// .measurement_model(Box::new(InertialPositionMeasurementModel::new(10.0)))
+    /// .build()
+    /// .unwrap();
+    /// ```
+    pub fn params(mut self, params: DVector<f64>) -> Self {
+        self.params = Some(params);
+        self
+    }
+
+    /// Set additional dynamics for extended state dimensions beyond the orbital state.
+    ///
+    /// # Arguments
+    /// * `dynamics` - Function computing derivatives for extra state elements
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::estimation::*;
+    /// use brahe::propagators::*;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use nalgebra::{DMatrix, DVector};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// // 6D orbital state + 1 mass state
+    /// let state = DVector::from_vec(vec![6878e3, 0.0, 0.0, 0.0, 7612.0, 0.0, 1000.0]);
+    /// let p0 = DMatrix::<f64>::identity(7, 7);
+    ///
+    /// let dynamics: brahe::integrators::traits::DStateDynamics = Box::new(|_t, state, _params| {
+    ///     let mut dx = DVector::zeros(state.len());
+    ///     dx[6] = -0.1; // dm/dt = -0.1 kg/s
+    ///     dx
+    /// });
+    ///
+    /// let ukf = UnscentedKalmanFilter::builder(
+    ///     epoch, state, p0, ForceModelConfig::two_body_gravity(), UKFConfig::default(),
+    /// )
+    /// .additional_dynamics(dynamics)
+    /// .measurement_model(Box::new(InertialPositionMeasurementModel::new(10.0)))
+    /// .build()
+    /// .unwrap();
+    /// ```
+    pub fn additional_dynamics(mut self, dynamics: DStateDynamics) -> Self {
+        self.additional_dynamics = Some(dynamics);
+        self
+    }
+
+    /// Set a continuous control-input function that adds an acceleration perturbation.
+    ///
+    /// # Arguments
+    /// * `control` - Control function returning an acceleration perturbation vector
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::estimation::*;
+    /// use brahe::propagators::*;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use nalgebra::{DMatrix, DVector};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![6878e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
+    /// let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+    ///
+    /// let control: brahe::integrators::traits::DStateDynamics = Box::new(|_t, state, _params| {
+    ///     let mut dx = DVector::zeros(state.len());
+    ///     dx[3] = 0.0001; // small perturbing acceleration
+    ///     dx
+    /// });
+    ///
+    /// let ukf = UnscentedKalmanFilter::builder(
+    ///     epoch, state, p0, ForceModelConfig::two_body_gravity(), UKFConfig::default(),
+    /// )
+    /// .control_input(control)
+    /// .measurement_model(Box::new(InertialPositionMeasurementModel::new(10.0)))
+    /// .build()
+    /// .unwrap();
+    /// ```
+    pub fn control_input(mut self, control: DStateDynamics) -> Self {
+        self.control_input = Some(control);
+        self
+    }
+
+    /// Append a measurement model.
+    ///
+    /// Call multiple times to register multiple measurement types;
+    /// [`Observation`](super::types::Observation)'s `model_index` selects among them.
+    ///
+    /// # Arguments
+    /// * `model` - Measurement model to append
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::estimation::*;
+    /// use brahe::propagators::*;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use nalgebra::{DMatrix, DVector};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![6878e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
+    /// let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+    ///
+    /// let ukf = UnscentedKalmanFilter::builder(
+    ///     epoch, state, p0, ForceModelConfig::two_body_gravity(), UKFConfig::default(),
+    /// )
+    /// .measurement_model(Box::new(InertialPositionMeasurementModel::new(10.0)))
+    /// .measurement_model(Box::new(InertialStateMeasurementModel::new(10.0, 0.01)))
+    /// .build()
+    /// .unwrap();
+    /// ```
+    pub fn measurement_model(mut self, model: Box<dyn MeasurementModel>) -> Self {
+        self.measurement_models.push(model);
+        self
+    }
+
+    /// Replace the full list of measurement models.
+    ///
+    /// # Arguments
+    /// * `models` - Measurement models, replacing any previously set
+    ///
+    /// # Returns
+    /// Builder for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::estimation::*;
+    /// use brahe::propagators::*;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use nalgebra::{DMatrix, DVector};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![6878e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
+    /// let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+    ///
+    /// let ukf = UnscentedKalmanFilter::builder(
+    ///     epoch, state, p0, ForceModelConfig::two_body_gravity(), UKFConfig::default(),
+    /// )
+    /// .measurement_models(vec![Box::new(InertialPositionMeasurementModel::new(10.0))])
+    /// .build()
+    /// .unwrap();
+    /// ```
+    pub fn measurement_models(mut self, models: Vec<Box<dyn MeasurementModel>>) -> Self {
+        self.measurement_models = models;
+        self
+    }
+
+    /// Construct the filter from the accumulated configuration.
+    ///
+    /// # Returns
+    /// Initialized filter ready to process observations
+    ///
+    /// # Errors
+    /// Returns `BraheError` if no measurement models were provided, if the
+    /// covariance dimensions do not match the state, if the sigma-point
+    /// parameters are invalid, or if the underlying propagator construction
+    /// fails (see [`UnscentedKalmanFilter::new`]).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::estimation::*;
+    /// use brahe::propagators::*;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use nalgebra::{DMatrix, DVector};
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![6878e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
+    /// let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+    ///
+    /// let ukf = UnscentedKalmanFilter::builder(
+    ///     epoch, state, p0, ForceModelConfig::two_body_gravity(), UKFConfig::default(),
+    /// )
+    /// .measurement_model(Box::new(InertialPositionMeasurementModel::new(10.0)))
+    /// .build()
+    /// .unwrap();
+    /// ```
+    pub fn build(self) -> Result<UnscentedKalmanFilter, BraheError> {
+        UnscentedKalmanFilter::new(
+            self.epoch,
+            self.state,
+            self.initial_covariance,
+            self.propagation_config,
+            self.force_config,
+            self.params,
+            self.additional_dynamics,
+            self.control_input,
+            self.measurement_models,
+            self.config,
+        )
+    }
 }
 
 #[cfg(test)]
@@ -1694,6 +2094,127 @@ mod tests {
         }
 
         assert_eq!(ukf.records().len(), 5);
+    }
+
+    // =========================================================================
+    // Builder tests
+    // =========================================================================
+
+    #[test]
+    #[serial]
+    fn test_ukf_builder_equivalence() {
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+
+        let built = UnscentedKalmanFilter::builder(
+            epoch,
+            state.clone(),
+            p0.clone(),
+            ForceModelConfig::two_body_gravity(),
+            UKFConfig::default(),
+        )
+        .measurement_model(Box::new(InertialPositionMeasurementModel::new(10.0)))
+        .build()
+        .unwrap();
+
+        let flat = UnscentedKalmanFilter::new(
+            epoch,
+            state,
+            p0,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            UKFConfig::default(),
+        )
+        .unwrap();
+
+        assert_eq!(built.current_state(), flat.current_state());
+        assert_eq!(built.current_covariance(), flat.current_covariance());
+    }
+
+    #[test]
+    #[serial]
+    fn test_ukf_builder_optionals() {
+        // Every optional setter: propagation_config, params, additional
+        // dynamics, control input, and wholesale measurement_models.
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let params = DVector::from_vec(vec![500.0, 2.0, 2.2, 2.0, 1.3]);
+
+        let zero_dynamics = || {
+            Box::new(|_t: f64, state: &DVector<f64>, _p: Option<&DVector<f64>>| {
+                DVector::zeros(state.len())
+            })
+        };
+
+        let mut built = UnscentedKalmanFilter::builder(
+            epoch,
+            state.clone(),
+            p0.clone(),
+            ForceModelConfig::two_body_gravity(),
+            UKFConfig::default(),
+        )
+        .propagation_config(NumericalPropagationConfig::default())
+        .params(params.clone())
+        .additional_dynamics(zero_dynamics())
+        .control_input(zero_dynamics())
+        .measurement_models(vec![Box::new(InertialPositionMeasurementModel::new(10.0))])
+        .build()
+        .unwrap();
+
+        let mut flat = UnscentedKalmanFilter::new(
+            epoch,
+            state.clone(),
+            p0,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            Some(params),
+            Some(zero_dynamics()),
+            Some(zero_dynamics()),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            UKFConfig::default(),
+        )
+        .unwrap();
+
+        // Process one observation so the zero additional-dynamics and control
+        // closures are exercised during propagation.
+        let obs = Observation::new(epoch + 60.0, state.rows(0, 3).into_owned(), 0);
+        built.process_observation(&obs).unwrap();
+        flat.process_observation(&obs).unwrap();
+
+        assert_eq!(built.current_state(), flat.current_state());
+        assert_eq!(built.current_covariance(), flat.current_covariance());
+    }
+
+    #[test]
+    #[serial]
+    fn test_ukf_builder_measurement_model_accumulates() {
+        // Calling measurement_model() twice should register two models; an
+        // observation targeting model_index 1 should be accepted rather than
+        // rejected as out-of-bounds.
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+
+        let mut ukf = UnscentedKalmanFilter::builder(
+            epoch,
+            state.clone(),
+            p0,
+            ForceModelConfig::two_body_gravity(),
+            UKFConfig::default(),
+        )
+        .measurement_model(Box::new(InertialPositionMeasurementModel::new(10.0)))
+        .measurement_model(Box::new(InertialPositionMeasurementModel::new(10.0)))
+        .build()
+        .unwrap();
+
+        let obs = Observation::new(epoch + 60.0, state.rows(0, 3).into_owned(), 1);
+        assert!(ukf.process_observation(&obs).is_ok());
     }
 
     #[test]

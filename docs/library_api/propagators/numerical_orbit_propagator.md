@@ -9,6 +9,10 @@ High-fidelity numerical orbit propagator with built-in force models. The `Numeri
 
 ---
 
+::: brahe.NumericalOrbitPropagatorBuilder
+
+---
+
 ## See Also
 
 - [NumericalPropagator](numerical_propagator.md) - Generic numerical propagator for arbitrary dynamics

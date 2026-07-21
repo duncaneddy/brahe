@@ -9,6 +9,13 @@ Sequential state estimator using linearized dynamics and measurement models.
       show_root_heading: true
       show_root_full_path: false
 
+---
+
+::: brahe.ExtendedKalmanFilterBuilder
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+
 ## See Also
 
 - [EKF Guide](../../learn/estimation/extended_kalman_filter.md) - Setup, processing, and diagnostics

@@ -232,6 +232,38 @@ To implement a custom property computer in Rust, create a struct that implements
         --8<-- "./docs/outputs/access/properties/custom_max_speed.rs.txt"
         ```
 
+## Constructing AccessProperties Directly
+
+`AccessProperties` is normally produced by an access search rather than constructed
+directly. For tests or custom pipelines that feed geometry from another source,
+`AccessProperties.builder()` returns a builder with every field unset; each of the 15
+fields is set through a chained named setter, and `build()` raises an error naming any
+field left unset instead of applying a default. The flat constructor takes the same 15
+fields positionally as an alternative, without naming each one:
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/access/properties/constructing_access_properties.py:14"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/access/properties/constructing_access_properties.rs:9"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/properties/constructing_access_properties.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/properties/constructing_access_properties.rs.txt"
+        ```
+
 ---
 
 ## See Also
@@ -240,3 +272,4 @@ To implement a custom property computer in Rust, create a struct that implements
 - [Constraints](constraints.md)
 - [Locations](locations.md)
 - [Computation Configuration](computation.md)
+- [AccessProperties API Reference](../../library_api/access/windows.md)

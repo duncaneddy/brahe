@@ -39,17 +39,10 @@ fn main() {
     let force_config = bh::ForceModelConfig::lunar_default();
     force_config.validate().unwrap();
 
-    let mut prop = bh::DNumericalOrbitPropagator::new(
-        epoch,
-        state,
-        bh::NumericalPropagationConfig::default(),
-        force_config,
-        Some(params),
-        None, // No additional dynamics
-        None, // No control input
-        None, // No initial covariance
-    )
-    .unwrap();
+    let mut prop = bh::DNumericalOrbitPropagator::builder(epoch, state, force_config)
+        .params(params)
+        .build()
+        .unwrap();
 
     // Propagate for 6 hours
     let final_epoch = epoch + 6.0 * 3600.0;

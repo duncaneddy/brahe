@@ -59,7 +59,9 @@ class TestSGPPropagatorMethods:
         """Test SGPPropagator creation from OMM elements."""
         # ISS OMM data from user example
         prop = brahe.SGPPropagator.from_omm_elements(
-            epoch="2025-11-29T20:01:44.058144",
+            epoch=brahe.Epoch.from_datetime(
+                2025, 11, 29, 20, 1, 44.058144, 0.0, brahe.TimeSystem.UTC
+            ),
             mean_motion=15.49193835,
             eccentricity=0.0003723,
             inclination=51.6312,
@@ -78,7 +80,9 @@ class TestSGPPropagatorMethods:
     def test_sgppropagator_from_omm_elements_with_optional_fields(self):
         """Test SGPPropagator creation from OMM elements with all optional fields."""
         prop = brahe.SGPPropagator.from_omm_elements(
-            epoch="2025-11-29T20:01:44.058144",
+            epoch=brahe.Epoch.from_datetime(
+                2025, 11, 29, 20, 1, 44.058144, 0.0, brahe.TimeSystem.UTC
+            ),
             mean_motion=15.49193835,
             eccentricity=0.0003723,
             inclination=51.6312,
@@ -107,7 +111,9 @@ class TestSGPPropagatorMethods:
     def test_sgppropagator_from_omm_elements_propagation(self):
         """Test that SGPPropagator from OMM elements can propagate."""
         prop = brahe.SGPPropagator.from_omm_elements(
-            epoch="2025-11-29T20:01:44.058144",
+            epoch=brahe.Epoch.from_datetime(
+                2025, 11, 29, 20, 1, 44.058144, 0.0, brahe.TimeSystem.UTC
+            ),
             mean_motion=15.49193835,
             eccentricity=0.0003723,
             inclination=51.6312,
@@ -135,7 +141,9 @@ class TestSGPPropagatorMethods:
     def test_sgppropagator_from_omm_elements_tle_generation(self):
         """Test that from_omm_elements generates valid TLE lines."""
         prop = brahe.SGPPropagator.from_omm_elements(
-            epoch="2025-11-29T20:01:44.058144",
+            epoch=brahe.Epoch.from_datetime(
+                2025, 11, 29, 20, 1, 44.058144, 0.0, brahe.TimeSystem.UTC
+            ),
             mean_motion=15.49193835,
             eccentricity=0.0003723,
             inclination=51.6312,
@@ -160,10 +168,10 @@ class TestSGPPropagatorMethods:
         assert all(np.isfinite(state))
 
     def test_sgppropagator_from_omm_elements_invalid_epoch(self):
-        """Test error handling for invalid epoch format."""
-        with pytest.raises(RuntimeError, match="Invalid epoch format"):
+        """Epoch must be an Epoch instance; string epochs are rejected."""
+        with pytest.raises(TypeError):
             brahe.SGPPropagator.from_omm_elements(
-                epoch="not-a-valid-date",
+                epoch="2025-11-29T20:01:44.058144",
                 mean_motion=15.49193835,
                 eccentricity=0.0003723,
                 inclination=51.6312,
@@ -176,7 +184,9 @@ class TestSGPPropagatorMethods:
     def test_sgppropagator_from_omm_elements_orbital_elements(self):
         """Test that orbital elements match input OMM values."""
         prop = brahe.SGPPropagator.from_omm_elements(
-            epoch="2025-11-29T20:01:44.058144",
+            epoch=brahe.Epoch.from_datetime(
+                2025, 11, 29, 20, 1, 44.058144, 0.0, brahe.TimeSystem.UTC
+            ),
             mean_motion=15.49193835,
             eccentricity=0.0003723,
             inclination=51.6312,
@@ -1808,3 +1818,112 @@ def test_sgppropagator_bci_bcbf_in_frame(iss_tle):
         prop.state_itrf(epoch),
         atol=1e-6,
     )
+
+
+class TestSGPPropagatorBuilder:
+    """Test SGPPropagatorBuilder Python bindings."""
+
+    def _omm_args(self):
+        """Positional args for SGPPropagator.builder(), matching the
+        from_omm_elements ISS example used elsewhere in this file."""
+        return (
+            brahe.Epoch.from_datetime(
+                2025, 11, 29, 20, 1, 44.058144, 0.0, brahe.TimeSystem.UTC
+            ),
+            15.49193835,
+            0.0003723,
+            51.6312,
+            206.3646,
+            184.1118,
+            175.9840,
+            25544,
+        )
+
+    def test_sgppropagator_builder_equivalence(self):
+        """Builder with chained setters matches from_omm_elements with the
+        equivalent keyword arguments."""
+        args = self._omm_args()
+
+        built = (
+            brahe.SGPPropagator.builder(*args)
+            .step_size(120.0)
+            .object_name("ISS (ZARYA)")
+            .object_id("1998-067A")
+            .classification("U")
+            .bstar(0.15237e-3)
+            .mean_motion_dot(0.801e-4)
+            .mean_motion_ddot(0.0)
+            .ephemeris_type(0)
+            .element_set_no(999)
+            .rev_at_epoch(54085)
+            .build()
+        )
+
+        flat = brahe.SGPPropagator.from_omm_elements(
+            epoch=args[0],
+            mean_motion=args[1],
+            eccentricity=args[2],
+            inclination=args[3],
+            raan=args[4],
+            arg_of_pericenter=args[5],
+            mean_anomaly=args[6],
+            norad_id=args[7],
+            step_size=120.0,
+            object_name="ISS (ZARYA)",
+            object_id="1998-067A",
+            classification="U",
+            bstar=0.15237e-3,
+            mean_motion_dot=0.801e-4,
+            mean_motion_ddot=0.0,
+            ephemeris_type=0,
+            element_set_no=999,
+            rev_at_epoch=54085,
+        )
+
+        assert built.norad_id == flat.norad_id
+        assert built.step_size == flat.step_size
+        assert built.satellite_name == flat.satellite_name
+        assert built.get_name() == flat.get_name()
+        assert built.get_id() == flat.get_id()
+        assert built.eccentricity == pytest.approx(flat.eccentricity)
+        assert built.inclination == pytest.approx(flat.inclination)
+        assert built.right_ascension == pytest.approx(flat.right_ascension)
+        assert built.arg_perigee == pytest.approx(flat.arg_perigee)
+        assert built.mean_anomaly == pytest.approx(flat.mean_anomaly)
+
+        np.testing.assert_allclose(
+            built.state(built.epoch), flat.state(flat.epoch), rtol=1e-10
+        )
+
+    def test_sgppropagator_builder_unchained_setter(self):
+        """Calling a setter without reassigning its return value must not
+        orphan the original builder variable -- build() on the original
+        must succeed."""
+        builder = brahe.SGPPropagator.builder(*self._omm_args())
+        builder.object_name("ISS (ZARYA)")  # not reassigned
+        prop = builder.build()
+
+        assert prop.satellite_name == "ISS (ZARYA)"
+
+    def test_sgppropagator_builder_consumed(self):
+        """Calling build() twice on the same builder raises RuntimeError."""
+        builder = brahe.SGPPropagator.builder(*self._omm_args())
+        builder.build()
+        with pytest.raises(RuntimeError, match="builder already consumed"):
+            builder.build()
+
+    def test_sgppropagator_builder_build_error(self):
+        """Rust-side build failures (invalid classification) raise RuntimeError."""
+        builder = brahe.SGPPropagator.builder(*self._omm_args()).classification("X")
+        with pytest.raises(RuntimeError):
+            builder.build()
+
+    def test_sgppropagator_builder_invalid_output_format_raises(self):
+        """An invalid output_format combination (Keplerian without an
+        angle_format) must raise RuntimeError from build() rather than
+        crashing the interpreter with an unrecoverable Rust panic."""
+        builder = brahe.SGPPropagator.builder(*self._omm_args()).output_format(
+            brahe.OrbitFrame.ECI, brahe.OrbitRepresentation.KEPLERIAN, None
+        )
+        with pytest.raises(RuntimeError):
+            builder.build()

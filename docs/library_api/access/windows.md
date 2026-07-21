@@ -9,3 +9,13 @@ Access windows represent time periods when satellites can access ground location
 ## AccessProperties
 
 ::: brahe.AccessProperties
+
+## AccessPropertiesBuilder
+
+::: brahe.AccessPropertiesBuilder
+
+---
+
+## See Also
+
+- [Access Properties Guide](../../learn/access_computation/properties.md) - User guide documentation

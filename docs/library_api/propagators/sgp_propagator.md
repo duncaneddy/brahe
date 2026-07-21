@@ -9,6 +9,13 @@ The SGP4/SDP4 propagator for satellite orbit propagation using Two-Line Element 
       show_root_heading: true
       show_root_full_path: false
 
+---
+
+::: brahe.SGPPropagatorBuilder
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+
 ## See Also
 
 - [KeplerianPropagator](keplerian_propagator.md) - Analytical two-body propagator

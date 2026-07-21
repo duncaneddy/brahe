@@ -4872,6 +4872,66 @@ def test_numericalorbitpropagator_construction_with_additional_dynamics():
     assert abs(final_mass - (initial_mass - 1.0)) < 1e-3
 
 
+def test_numericalorbitpropagator_rejects_mismatched_covariance_dim():
+    """A covariance sized for the base 6D state does not match an extended
+    (7D) state, and construction must raise rather than panic later in the
+    STM propagation (Phi @ P0 @ Phi.T)."""
+    epoch = create_test_epoch()
+
+    # 6D orbital state + 1 additional state (e.g., spacecraft mass)
+    extended_state = np.array(
+        [R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0, 1000.0]  # mass [kg]
+    )
+
+    def additional_dyn(epc, state, params):
+        dx = np.zeros(len(state))
+        dx[6] = -0.1  # dm/dt = -0.1 kg/s
+        return dx
+
+    with pytest.raises(ValueError, match="7x7"):
+        NumericalOrbitPropagator(
+            epoch,
+            extended_state,
+            NumericalPropagationConfig.default(),
+            ForceModelConfig.earth_gravity(),
+            None,
+            np.eye(6),  # mismatched: state_dim is 7, not 6
+            additional_dyn,
+        )
+
+
+def test_numericalorbitpropagator_builder_accepts_extended_covariance():
+    """The builder must accept a covariance sized for an extended (7D) state
+    rather than rejecting anything that is not 6x6."""
+    epoch = create_test_epoch()
+
+    extended_state = np.array(
+        [R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0, 1000.0]  # mass [kg]
+    )
+
+    def additional_dyn(epc, state, params):
+        dx = np.zeros(len(state))
+        dx[6] = -0.1  # dm/dt = -0.1 kg/s
+        return dx
+
+    prop = (
+        NumericalOrbitPropagator.builder(
+            epoch, extended_state, ForceModelConfig.earth_gravity()
+        )
+        .additional_dynamics(additional_dyn)
+        .initial_covariance(np.eye(7))
+        .build()
+    )
+
+    assert prop.state_dim == 7
+
+    # Trajectory covariance retrieval must preserve the full 7x7 matrix
+    prop.step_by(10.0)
+    cov = prop.trajectory.covariance(epoch)
+    assert cov.shape == (7, 7)
+    np.testing.assert_allclose(cov, np.eye(7))
+
+
 def test_numericalorbitpropagator_trajectory_stores_additional_states():
     """Test trajectory stores additional states (mirrors Rust test)"""
     epoch = create_test_epoch()
@@ -6173,3 +6233,67 @@ def test_emb_combined_earth_field_and_drag_matches_earth_centered(
 
     assert np.allclose(xf_emb_in_eci[:3], xf_earth[:3], atol=10.0)
     assert np.allclose(xf_emb_in_eci[3:], xf_earth[3:], atol=1e-2)
+
+
+# =============================================================================
+# Builder Tests
+# =============================================================================
+
+
+def test_numericalorbitpropagator_builder():
+    """Test NumericalOrbitPropagator.builder() matches the flat constructor"""
+    epoch = create_test_epoch()
+    state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+
+    prop = (
+        NumericalOrbitPropagator.builder(epoch, state, ForceModelConfig())
+        .propagation_config(NumericalPropagationConfig.default())
+        .initial_covariance(np.eye(6))
+        .build()
+    )
+    flat = NumericalOrbitPropagator(
+        epoch,
+        state,
+        NumericalPropagationConfig.default(),
+        ForceModelConfig(),
+        initial_covariance=np.eye(6),
+    )
+    prop.step_by(60.0)
+    flat.step_by(60.0)
+    np.testing.assert_allclose(prop.current_state(), flat.current_state())
+
+
+def test_numericalorbitpropagator_builder_unchained_setter():
+    """Calling a setter without reassigning its return value must not orphan
+    the original builder variable -- build() on the original must succeed."""
+    epoch = create_test_epoch()
+    state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+
+    builder = NumericalOrbitPropagator.builder(epoch, state, ForceModelConfig())
+    builder.propagation_config(NumericalPropagationConfig.default())  # not reassigned
+    prop = builder.build()
+
+    assert prop.state_dim == 6
+
+
+def test_numericalorbitpropagator_builder_consumed():
+    """Test that calling build() twice on the same builder raises RuntimeError"""
+    epoch = create_test_epoch()
+    state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+
+    builder = NumericalOrbitPropagator.builder(epoch, state, ForceModelConfig())
+    builder.build()
+    with pytest.raises(RuntimeError, match="builder already consumed"):
+        builder.build()
+
+
+def test_numericalorbitpropagator_builder_build_error():
+    """Test that build() surfaces Rust-side validation failures as RuntimeError"""
+    epoch = create_test_epoch()
+    state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+
+    # ForceModelConfig.default() references parameter indices for mass, drag,
+    # and SRP, but no params vector is supplied to the builder.
+    builder = NumericalOrbitPropagator.builder(epoch, state, ForceModelConfig.default())
+    with pytest.raises(RuntimeError):
+        builder.build()

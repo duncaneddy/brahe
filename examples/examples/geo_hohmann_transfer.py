@@ -146,9 +146,13 @@ print(f"  Burn 2 at t = {burn2_time_s / 3600:.2f} hours")
 print(f"  Total simulation: {total_time / 3600:.2f} hours")
 
 # Create the propagator with two-body dynamics
-prop = bh.NumericalOrbitPropagator.builder(
-    epoch, state_initial, bh.ForceModelConfig.two_body()
-).build()
+prop = bh.NumericalOrbitPropagator(
+    epoch,
+    state_initial,
+    bh.NumericalPropagationConfig.default(),
+    bh.ForceModelConfig.two_body(),
+    None,
+)
 
 # Add time-based events for the burns
 event1 = bh.TimeEvent(epoch + burn1_time_s, "First Burn").with_callback(

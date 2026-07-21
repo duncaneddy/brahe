@@ -20,17 +20,17 @@ objects raise an error.
 
 ## Resolving an Object
 
-``` python
-import brahe as bh
+=== "Python"
 
-client = bh.datasets.sbdb.SBDBClient()
-ceres = client.lookup("Ceres")
+    ``` python
+    --8<-- "./examples/datasets/sbdb_lookup.py:13"
+    ```
 
-print(ceres.naif_id())   # 20000001
-print(ceres.full_name)   # "1 Ceres (A801 AA)"
-print(ceres.gm)          # gravitational parameter [m^3/s^2]
-print(ceres.radius)      # mean radius [m]
-```
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/datasets/sbdb_lookup.rs:9"
+    ```
 
 ## SBDBObject Fields
 

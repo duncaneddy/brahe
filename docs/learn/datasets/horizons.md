@@ -14,18 +14,17 @@ body/span is downloaded only once.
 
 ## Requesting and Loading an SPK
 
-``` python
-import brahe as bh
+=== "Python"
 
-t0 = bh.Epoch.from_datetime(2015, 12, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.TDB)
-t1 = bh.Epoch.from_datetime(2016, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.TDB)
+    ``` python
+    --8<-- "./examples/datasets/horizons_spk.py:13"
+    ```
 
-request = bh.datasets.horizons.HorizonsSPKRequest.for_spkid(20000001, t0, t1)
-response = bh.datasets.horizons.HorizonsClient().get_spk(request)
+=== "Rust"
 
-response.load()          # load into the SPICE registry
-print(response.path)     # cached .bsp path
-```
+    ``` rust
+    --8<-- "./examples/datasets/horizons_spk.rs:10"
+    ```
 
 ## Request and Center
 

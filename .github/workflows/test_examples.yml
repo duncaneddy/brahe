@@ -216,6 +216,18 @@ jobs:
           path: docs/figures/
           key: network-example-figures-${{ github.run_id }}
 
+      # Text-output analogue of the figures cache above. NETWORK-flagged
+      # examples (first_script, clients_celestrak, ...) only run here, so this
+      # is the only producer of their captured stdout. Persist docs/outputs so
+      # the docs deploys (update_docs.yml, docs_only.yml), whose own --ci-only
+      # example runs skip these examples, can restore and overlay it.
+      - name: Save network example outputs to cache
+        if: ${{ inputs.use_retry }}
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: docs/outputs/
+          key: network-example-outputs-${{ github.run_id }}
+
       - name: Generate documentation plots
         if: ${{ !inputs.use_retry }}
         run: just make-plots

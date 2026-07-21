@@ -37,4 +37,10 @@ It is the _responsibility of the user_ to ensure that the inputs to Brahe functi
 
 ## Angle Format
 
-For functions that deal with angular quantities for either inputs or outputs, Brahe provides the `AngleFormat` enum to specify the format of the angles. Given the frequency of working with different angle formats this makes it easy to work with different formats without needing to manually convert before or after calling Brahe functions.
+For functions that deal with angular quantities for either inputs or outputs, Brahe provides the [`AngleFormat`](../library_api/coordinates/enums.md) enum to specify the format of the angles. Given the frequency of working with different angle formats this makes it easy to work with different formats without needing to manually convert before or after calling Brahe functions.
+
+## See Also
+
+- [Coordinate Enums API Reference](../library_api/coordinates/enums.md) — including `AngleFormat`
+- [Units and Constants API Reference](../library_api/constants/units.md)
+- [Coordinates User Guide](../learn/coordinates/index.md)

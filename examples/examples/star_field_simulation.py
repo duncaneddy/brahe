@@ -52,6 +52,15 @@ n_frames = positions.shape[0]
 
 # The sensor boresight points along the velocity vector (along-track)
 boresights = velocities / np.linalg.norm(velocities, axis=1, keepdims=True)
+
+# Roll reference for the sensor frame: the orbit normal (r x v). It is
+# perpendicular to the boresight everywhere on the orbit, so using it as the
+# sensor "up" direction gives an (u, v) basis that rotates continuously as the
+# boresight sweeps around the orbit -- with no singularity or sign flip at the
+# plane crossings. This keeps every star moving in one consistent direction in
+# the sensor view over the full orbital period.
+orbit_normals = np.cross(positions, velocities)
+orbit_normals /= np.linalg.norm(orbit_normals, axis=1, keepdims=True)
 # --8<-- [end:scenario]
 
 # --8<-- [start:catalog]
@@ -93,27 +102,30 @@ star_shell_radius_km = STAR_SHELL_RADIUS * 1e-3
 
 
 # --8<-- [start:cone]
-def boresight_basis(boresight):
+def boresight_basis(boresight, up_reference):
     """Build an orthonormal (u, v) basis spanning the plane perpendicular
     to the boresight direction.
+
+    ``v`` is aligned with ``up_reference`` (its component perpendicular to the
+    boresight) and ``u`` completes the right-handed frame. Passing the orbit
+    normal as ``up_reference`` -- which stays perpendicular to a velocity-aligned
+    boresight over the whole orbit -- makes the basis vary continuously as the
+    boresight sweeps around, so the projected star field never flips direction.
     """
-    reference = np.array([0.0, 0.0, 1.0])
-    if abs(np.dot(reference, boresight)) > 0.9:
-        reference = np.array([0.0, 1.0, 0.0])
-    u = np.cross(boresight, reference)
-    u /= np.linalg.norm(u)
-    v = np.cross(boresight, u)
+    v = up_reference - np.dot(up_reference, boresight) * boresight
+    v /= np.linalg.norm(v)
+    u = np.cross(v, boresight)
     return u, v
 
 
-def fov_cone_mesh(apex, boresight, length, half_angle_deg, n_segments):
+def fov_cone_mesh(apex, boresight, up_reference, length, half_angle_deg, n_segments):
     """Build FOV cone mesh vertices and triangle faces for `go.Mesh3d`.
 
     The cone apex sits at the satellite position and its axis is aligned
     with the boresight direction; vertex 0 is the apex and vertices
     1..n_segments form the base circle.
     """
-    u, v = boresight_basis(boresight)
+    u, v = boresight_basis(boresight, up_reference)
 
     radius = length * np.tan(np.radians(half_angle_deg))
     theta = np.linspace(0.0, 2 * np.pi, n_segments, endpoint=False)
@@ -141,19 +153,23 @@ def marker_sizes(vmags):
 
 
 # --8<-- [start:sensor_frame]
-def sensor_frame_angles(star_unit_vectors, boresight):
+def sensor_frame_angles(star_unit_vectors, boresight, up_reference):
     """Project star unit vectors into boresight-relative angular offsets.
 
     Decomposes each star's angular separation from the boresight into a
     cross-boresight (x) and an "elevation-like" (y) component, both in
-    degrees, using the same (u, v) basis as the FOV cone. A constant
-    angular separation from the boresight (the FOV boundary) is therefore
-    an exact circle of that radius in (x, y).
+    degrees, using the same (u, v) basis as the FOV cone. The orbit-normal
+    axis maps to x and the in-orbit-plane axis to y, so the along-track sweep
+    of the boresight scrolls the star field along the elevation axis rather
+    than sideways. A constant angular separation from the boresight (the FOV
+    boundary) is therefore an exact circle of that radius in (x, y).
     """
-    u, v = boresight_basis(boresight)
+    u, v = boresight_basis(boresight, up_reference)
     cos_theta = np.clip(star_unit_vectors @ boresight, -1.0, 1.0)
     theta_deg = np.degrees(np.arccos(cos_theta))
-    phi = np.arctan2(star_unit_vectors @ v, star_unit_vectors @ u)
+    # v is the orbit normal (-> x, cross-boresight); u lies in the orbit plane
+    # (-> y, elevation-like), which is the direction the boresight sweeps.
+    phi = np.arctan2(star_unit_vectors @ u, star_unit_vectors @ v)
     return theta_deg * np.cos(phi), theta_deg * np.sin(phi)
 
 
@@ -277,7 +293,12 @@ def create_figure(theme):
 
     # Trace 3: FOV cone (animated)
     cone_vertices, cone_i, cone_j, cone_k = fov_cone_mesh(
-        positions_km[0], boresights[0], cone_length_km, HALF_ANGLE_DEG, CONE_SEGMENTS
+        positions_km[0],
+        boresights[0],
+        orbit_normals[0],
+        cone_length_km,
+        HALF_ANGLE_DEG,
+        CONE_SEGMENTS,
     )
     fig.add_trace(
         go.Mesh3d(
@@ -321,6 +342,7 @@ def create_figure(theme):
         cone_vertices, cone_i, cone_j, cone_k = fov_cone_mesh(
             positions_km[k],
             boresights[k],
+            orbit_normals[k],
             cone_length_km,
             HALF_ANGLE_DEG,
             CONE_SEGMENTS,
@@ -402,13 +424,24 @@ def create_sensor_view_figure(theme):
         )
     )
 
-    # Trace 1: visible stars (animated)
+    # Trace 1: visible stars (animated). The orbit-normal roll reference in
+    # sensor_frame_angles keeps the (u, v) basis continuous over the orbit, so
+    # each star drifts smoothly and consistently frame-to-frame; stars only
+    # appear/disappear as they cross the field-of-view boundary.
+    # Each star carries a stable catalog-index id. Plotly matches points across
+    # frames by id (object constancy), so a star that stays in view glides to
+    # its new position while stars crossing the field-of-view boundary fade in
+    # and out -- rather than markers being reassigned by list position when the
+    # visible-star count changes, which makes unrelated stars appear to jump.
     frame0_idx = np.nonzero(visible_mask[:, 0])[0]
-    x0, y0 = sensor_frame_angles(star_unit_vectors[frame0_idx], boresights[0])
+    x0, y0 = sensor_frame_angles(
+        star_unit_vectors[frame0_idx], boresights[0], orbit_normals[0]
+    )
     fig.add_trace(
         go.Scatter(
             x=x0,
             y=y0,
+            ids=[str(i) for i in frame0_idx],
             mode="markers",
             marker=dict(
                 size=marker_sizes(star_vmags[frame0_idx]),
@@ -424,7 +457,9 @@ def create_sensor_view_figure(theme):
     frames = []
     for k in range(n_frames):
         idx = np.nonzero(visible_mask[:, k])[0]
-        x_k, y_k = sensor_frame_angles(star_unit_vectors[idx], boresights[k])
+        x_k, y_k = sensor_frame_angles(
+            star_unit_vectors[idx], boresights[k], orbit_normals[k]
+        )
         frames.append(
             go.Frame(
                 name=str(k),
@@ -433,6 +468,7 @@ def create_sensor_view_figure(theme):
                     go.Scatter(
                         x=x_k,
                         y=y_k,
+                        ids=[str(i) for i in idx],
                         marker=dict(size=marker_sizes(star_vmags[idx])),
                         text=[star_names[i] for i in idx],
                     )

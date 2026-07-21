@@ -97,6 +97,18 @@ jobs:
           restore-keys: |
             network-example-figures-
 
+      # Same rationale as the figures restore above, for the captured stdout of
+      # the NETWORK-flagged examples. Restored before the --ci-only run so the
+      # fresher non-network outputs overwrite any overlap (the run writes
+      # per-example files and never wipes docs/outputs).
+      - name: Restore network example outputs
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: docs/outputs/
+          key: network-example-outputs-
+          restore-keys: |
+            network-example-outputs-
+
       - name: Test examples (including CI-ONLY)
         run: just test-examples --ci-only
 

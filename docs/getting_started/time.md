@@ -6,7 +6,7 @@
 
 Since astrodynamics is the study of the motion of objects in space, time is a fundamental quantity to the package. Unfortunately, time can quickly become a complex topic with many different time systems, formats, and conventions.
 
-Brahe attempts to solve this challenge by providing the `Epoch` class to represent a single instant in time. An `Epoch` can be initialized in a variety of ways, it can be manipulated with simple arithmetic operations, and and it can be compared to other `Epoch` instances. Brahe ensures that all of the complexities of time systems, formats, and conventions are handled internally by the `Epoch` class so that users can work with time in a simple and intuitive way.
+Brahe attempts to solve this challenge by providing the [`Epoch`](../library_api/time/epoch.md) class to represent a single instant in time. An `Epoch` can be initialized in a variety of ways, it can be manipulated with simple arithmetic operations, and and it can be compared to other `Epoch` instances. Brahe ensures that all of the complexities of time systems, formats, and conventions are handled internally by the `Epoch` class so that users can work with time in a simple and intuitive way.
 
 There are more ways to work with Epochs and time than are covered here. Checkout the [Time User Guide](../learn/time/index.md) or the [API Reference](../library_api/time/index.md) for more details and examples of working with time in Brahe.
 
@@ -85,7 +85,7 @@ There are also a variety of ways to output `Epoch` instances as other represenst
 
 ## Time Ranges 
 
-Since it's common to work with time ranges, Brahe provides the `TimeRange` iterator to quickly generate a range of epochs with a specified time step. 
+Since it's common to work with time ranges, Brahe provides the [`TimeRange`](../library_api/time/time_range.md) iterator to quickly generate a range of epochs with a specified time step. 
 
 === "Python"
 
@@ -112,7 +112,7 @@ Since it's common to work with time ranges, Brahe provides the `TimeRange` itera
 
 ## Time Systems
 
-In astrodynamics, we often deal with models and measurements in other time systems (e.g. GPS, TAI, TT, etc.). Brahe provides support for working with different time systems through the `TimeSystem` enum. When creating an `Epoch`, you can specify the time system of the input time, and Brahe will handle the conversion to the internal time system (TAI) for you. Similarly when outputting an `Epoch`, you can specify the desired time system for the output, and Brahe will handle the conversion for you. Comparisons between `Epoch` instances are time-system aware, so you can compare `Epoch` instances in different time systems and Brahe will handle the conversion for you.
+In astrodynamics, we often deal with models and measurements in other time systems (e.g. GPS, TAI, TT, etc.). Brahe provides support for working with different time systems through the [`TimeSystem`](../library_api/time/time_system.md) enum. When creating an `Epoch`, you can specify the time system of the input time, and Brahe will handle the conversion to the internal time system (TAI) for you. Similarly when outputting an `Epoch`, you can specify the desired time system for the output, and Brahe will handle the conversion for you. Comparisons between `Epoch` instances are time-system aware, so you can compare `Epoch` instances in different time systems and Brahe will handle the conversion for you.
 
 === "Python"
 
@@ -136,3 +136,12 @@ In astrodynamics, we often deal with models and measurements in other time syste
         ```
         --8<-- "./docs/outputs/getting_started/epoch_time_systems.rs.txt"
         ```
+
+## See Also
+
+- [Epoch API Reference](../library_api/time/epoch.md)
+- [TimeRange API Reference](../library_api/time/time_range.md)
+- [TimeSystem API Reference](../library_api/time/time_system.md)
+- [Epoch (Learn)](../learn/time/epoch.md)
+- [Time Ranges (Learn)](../learn/time/time_range.md)
+- [Time User Guide](../learn/time/index.md)

@@ -4863,6 +4863,32 @@ def test_numericalorbitpropagator_raising_callback_reraised_fresh_each_call():
     assert first.value is not second.value
 
 
+def test_numericalorbitpropagator_construction_raising_callback_reraised():
+    """A callback that raises while construction computes the initial stored
+    acceleration surfaces as the original Python exception, not a wrapped
+    RuntimeError."""
+    epoch = create_test_epoch()
+    extended_state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0, 1000.0])
+
+    class CallbackBoom(Exception):
+        pass
+
+    def raising_dyn(epc, state, params):
+        raise CallbackBoom("callback exploded")
+
+    config = NumericalPropagationConfig.default().with_store_accelerations(True)
+
+    with pytest.raises(CallbackBoom, match="callback exploded"):
+        NumericalOrbitPropagator(
+            epoch,
+            extended_state,
+            config,
+            ForceModelConfig.earth_gravity(),
+            None,
+            additional_dynamics=raising_dyn,
+        )
+
+
 def test_numericalorbitpropagator_construction_with_additional_dynamics():
     """Test construction with additional dynamics (mirrors Rust test)"""
     epoch = create_test_epoch()

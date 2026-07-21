@@ -98,6 +98,20 @@ fn raise_callback_err(slot: &PyErrSlot, err: RustBraheError) -> PyErr {
     }
 }
 
+/// Like [`raise_callback_err`], but for construction paths whose non-callback
+/// failures raise `RuntimeError`: re-raises the original Python exception when
+/// the failure originated in a callback trampoline (construction can drive
+/// callbacks, e.g. computing the initial acceleration under
+/// `store_accelerations`), otherwise converts the core error to
+/// `PyRuntimeError`.
+fn raise_callback_err_or_runtime(slot: &PyErrSlot, err: RustBraheError) -> PyErr {
+    if let Some(py_err) = slot.lock().unwrap().take() {
+        py_err
+    } else {
+        exceptions::PyRuntimeError::new_err(err.to_string())
+    }
+}
+
 macro_rules! numpy_to_vector3 {
     ($arr:expr) => {{
         let vec = $arr.to_vec().map_err(|_| {

@@ -2562,6 +2562,12 @@ impl PyExtendedKalmanFilter {
     ///
     /// Returns:
     ///     ExtendedKalmanFilter: New EKF instance.
+    ///
+    /// Raises:
+    ///     RuntimeError: If the configuration is invalid.
+    ///     Exception: Propagates the original exception raised by a dynamics or
+    ///         control-input callback invoked during construction (e.g. computing the
+    ///         initial acceleration when `store_accelerations` is enabled).
     #[new]
     #[pyo3(signature = (
         epoch, state, initial_covariance,
@@ -2714,7 +2720,7 @@ impl PyExtendedKalmanFilter {
             models,
             ekf_config,
         )
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        .map_err(|e| raise_callback_err_or_runtime(&err_slot, e))?;
 
         Ok(PyExtendedKalmanFilter { ekf, err_slot })
     }
@@ -3072,6 +3078,9 @@ impl PyExtendedKalmanFilterBuilder {
     ///         call, or if the underlying filter construction fails (no
     ///         measurement models, mismatched covariance dimensions, or the
     ///         propagator could not be constructed).
+    ///     Exception: Propagates the original exception raised by a dynamics or
+    ///         control-input callback invoked during construction (e.g. computing the
+    ///         initial acceleration when `store_accelerations` is enabled).
     fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PyExtendedKalmanFilter> {
         let builder = slf
             .inner
@@ -3079,7 +3088,7 @@ impl PyExtendedKalmanFilterBuilder {
             .ok_or_else(|| exceptions::PyRuntimeError::new_err("builder already consumed"))?;
         let ekf = builder
             .build()
-            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+            .map_err(|e| raise_callback_err_or_runtime(&slf.err_slot, e))?;
         Ok(PyExtendedKalmanFilter {
             ekf,
             err_slot: slf.err_slot.clone(),
@@ -3236,6 +3245,12 @@ impl PyUnscentedKalmanFilter {
     ///
     /// Returns:
     ///     UnscentedKalmanFilter: New UKF instance.
+    ///
+    /// Raises:
+    ///     RuntimeError: If the configuration is invalid.
+    ///     Exception: Propagates the original exception raised by a dynamics or
+    ///         control-input callback invoked during construction (e.g. computing the
+    ///         initial acceleration when `store_accelerations` is enabled).
     #[new]
     #[pyo3(signature = (
         epoch, state, initial_covariance,
@@ -3384,7 +3399,7 @@ impl PyUnscentedKalmanFilter {
             models,
             ukf_config,
         )
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        .map_err(|e| raise_callback_err_or_runtime(&err_slot, e))?;
 
         Ok(PyUnscentedKalmanFilter { ukf, err_slot })
     }
@@ -3741,6 +3756,9 @@ impl PyUnscentedKalmanFilterBuilder {
     ///         call, or if the underlying filter construction fails (no
     ///         measurement models, mismatched covariance dimensions, invalid
     ///         sigma-point parameters, or the propagator could not be constructed).
+    ///     Exception: Propagates the original exception raised by a dynamics or
+    ///         control-input callback invoked during construction (e.g. computing the
+    ///         initial acceleration when `store_accelerations` is enabled).
     fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PyUnscentedKalmanFilter> {
         let builder = slf
             .inner
@@ -3748,7 +3766,7 @@ impl PyUnscentedKalmanFilterBuilder {
             .ok_or_else(|| exceptions::PyRuntimeError::new_err("builder already consumed"))?;
         let ukf = builder
             .build()
-            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+            .map_err(|e| raise_callback_err_or_runtime(&slf.err_slot, e))?;
         Ok(PyUnscentedKalmanFilter {
             ukf,
             err_slot: slf.err_slot.clone(),
@@ -4282,6 +4300,12 @@ impl PyBatchLeastSquares {
     ///
     /// Returns:
     ///     BatchLeastSquares: New BLS instance.
+    ///
+    /// Raises:
+    ///     RuntimeError: If the configuration is invalid.
+    ///     Exception: Propagates the original exception raised by a dynamics or
+    ///         control-input callback invoked during construction (e.g. computing the
+    ///         initial acceleration when `store_accelerations` is enabled).
     #[new]
     #[pyo3(signature = (
         epoch, initial_state, initial_covariance,
@@ -4431,7 +4455,7 @@ impl PyBatchLeastSquares {
             models,
             bls_config,
         )
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        .map_err(|e| raise_callback_err_or_runtime(&err_slot, e))?;
 
         Ok(PyBatchLeastSquares { bls, err_slot })
     }
@@ -4844,6 +4868,9 @@ impl PyBatchLeastSquaresBuilder {
     ///         measurement models, mismatched covariance dimensions, no
     ///         convergence threshold configured, or the propagator could not
     ///         be constructed).
+    ///     Exception: Propagates the original exception raised by a dynamics or
+    ///         control-input callback invoked during construction (e.g. computing the
+    ///         initial acceleration when `store_accelerations` is enabled).
     fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PyBatchLeastSquares> {
         let builder = slf
             .inner
@@ -4851,7 +4878,7 @@ impl PyBatchLeastSquaresBuilder {
             .ok_or_else(|| exceptions::PyRuntimeError::new_err("builder already consumed"))?;
         let bls = builder
             .build()
-            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+            .map_err(|e| raise_callback_err_or_runtime(&slf.err_slot, e))?;
         Ok(PyBatchLeastSquares {
             bls,
             err_slot: slf.err_slot.clone(),

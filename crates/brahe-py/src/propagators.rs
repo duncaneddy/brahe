@@ -6793,6 +6793,9 @@ impl PyNumericalOrbitPropagator {
     ///
     /// Raises:
     ///     RuntimeError: If configuration is invalid or params are missing when required.
+    ///     Exception: Propagates the original exception raised by a dynamics or
+    ///         control-input callback invoked during construction (e.g. computing the
+    ///         initial acceleration when `store_accelerations` is enabled).
     ///
     /// Example:
     ///     ```python
@@ -6885,7 +6888,7 @@ impl PyNumericalOrbitPropagator {
             control_input_fn,
             cov_matrix,
         )
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        .map_err(|e| raise_callback_err_or_runtime(&err_slot, e))?;
 
         Ok(PyNumericalOrbitPropagator {
             propagator: prop,
@@ -8645,6 +8648,9 @@ impl PyNumericalOrbitPropagatorBuilder {
     ///     RuntimeError: If the builder was already consumed by a prior `build()`
     ///         call, or if the force model references parameter indices but no
     ///         parameter vector was provided.
+    ///     Exception: Propagates the original exception raised by a dynamics or
+    ///         control-input callback invoked during construction (e.g. computing the
+    ///         initial acceleration when `store_accelerations` is enabled).
     fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PyNumericalOrbitPropagator> {
         let builder = slf
             .inner
@@ -8652,7 +8658,7 @@ impl PyNumericalOrbitPropagatorBuilder {
             .ok_or_else(|| exceptions::PyRuntimeError::new_err("builder already consumed"))?;
         let prop = builder
             .build()
-            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+            .map_err(|e| raise_callback_err_or_runtime(&slf.err_slot, e))?;
         Ok(PyNumericalOrbitPropagator {
             propagator: prop,
             err_slot: slf.err_slot.clone(),

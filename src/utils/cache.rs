@@ -257,6 +257,8 @@ pub fn get_horizons_cache_dir() -> Result<String, BraheError> {
 ///
 /// Used to derive collision-resistant cache filenames from request parameters
 /// (e.g. an SBDB search string, or a Horizons command + time span + center).
+/// Uses the leading 64 bits of the SHA-256 digest, so the value is stable
+/// across platforms and Rust versions (unlike `DefaultHasher`).
 ///
 /// # Arguments
 ///
@@ -266,10 +268,13 @@ pub fn get_horizons_cache_dir() -> Result<String, BraheError> {
 ///
 /// * `String` - A 16-character lowercase hexadecimal digest.
 pub fn short_hash(input: &str) -> String {
-    use std::hash::{Hash, Hasher};
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    input.hash(&mut hasher);
-    format!("{:016x}", hasher.finish())
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(input.as_bytes());
+    let mut out = String::with_capacity(16);
+    for byte in &digest[..8] {
+        out.push_str(&format!("{:02x}", byte));
+    }
+    out
 }
 
 #[cfg(test)]

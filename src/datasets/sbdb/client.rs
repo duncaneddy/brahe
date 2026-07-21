@@ -97,8 +97,11 @@ impl SBDBClient {
     /// * `Ok(SBDBObject)` - The resolved object.
     /// * `Err(BraheError)` - On ambiguous/no match, network, or parse errors.
     pub fn lookup(&self, sstr: &str) -> Result<SBDBObject, BraheError> {
+        // `full-prec=1` returns full-precision physical parameters; without it
+        // SBDB rounds GM/radius for display, which would bake reduced-precision
+        // constants into a propagation when these feed a custom central body.
         let url = format!(
-            "{}/sbdb.api?sstr={}&phys-par=1",
+            "{}/sbdb.api?sstr={}&phys-par=1&full-prec=1",
             self.base_url,
             urlencode(sstr)
         );

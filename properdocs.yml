@@ -295,6 +295,8 @@ nav:
           - GCAT: learn/datasets/gcat.md
           - Star Catalogs: learn/datasets/star_catalogs.md
           - ICGEM (Gravity Models): learn/datasets/icgem.md
+          - SBDB (Small-Body Database): learn/datasets/sbdb.md
+          - Horizons (SPK Generation): learn/datasets/horizons.md
       - CCSDS:
           - learn/ccsds/index.md
           - OEM - Orbit Ephemeris Message: learn/ccsds/oem.md
@@ -488,6 +490,8 @@ nav:
           - GCAT: library_api/datasets/gcat.md
           - Star Catalogs: library_api/datasets/star_catalogs.md
           - ICGEM: library_api/datasets/icgem.md
+          - SBDB: library_api/datasets/sbdb.md
+          - Horizons: library_api/datasets/horizons.md
       - CCSDS:
           - library_api/ccsds/index.md
           - OEM: library_api/ccsds/oem.md

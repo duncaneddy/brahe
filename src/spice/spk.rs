@@ -25,7 +25,7 @@ use nalgebra::{Vector3, Vector6};
 use crate::utils::BraheError;
 
 use super::daf::DAFFile;
-use super::segments::{ChebyshevSegment, coverage_error_multi, is_coverage_error};
+use super::segments::{SpkSegment, coverage_error_multi, is_coverage_error};
 
 /// One link in a resolved target→center chain: the candidate segments for a
 /// single body pair, each paired with its own traversal sign, kept in
@@ -41,7 +41,7 @@ pub(crate) struct ChainLink {
     /// Candidate `(segment, sign)` pairs for this pair, kept in input
     /// order; evaluation checks them last-to-first for ET coverage
     /// (last-listed wins).
-    pub candidates: Vec<(Arc<ChebyshevSegment>, f64)>,
+    pub candidates: Vec<(Arc<SpkSegment>, f64)>,
 }
 
 /// Breadth-first search over the segment connectivity graph, returning the
@@ -59,7 +59,7 @@ pub(crate) struct ChainLink {
 /// - Chain of [`ChainLink`]s from `target` down to `center`, or
 ///   `BraheError` if no path connects them
 pub(crate) fn resolve_chain(
-    segments: &[Arc<ChebyshevSegment>],
+    segments: &[Arc<SpkSegment>],
     target: i32,
     center: i32,
 ) -> Result<Vec<ChainLink>, BraheError> {
@@ -95,7 +95,7 @@ pub(crate) fn resolve_chain(
 ///   `et`-covering segments, or `BraheError` (naming `target`, `center`,
 ///   and `et`) if no such path exists
 pub(crate) fn resolve_chain_for_epoch(
-    segments: &[Arc<ChebyshevSegment>],
+    segments: &[Arc<SpkSegment>],
     target: i32,
     center: i32,
     et: f64,
@@ -119,7 +119,7 @@ pub(crate) fn resolve_chain_for_epoch(
 /// - Chain of [`ChainLink`]s from `target` down to `center`, or
 ///   `BraheError` if no path connects them
 fn resolve_chain_filtered(
-    segments: &[Arc<ChebyshevSegment>],
+    segments: &[Arc<SpkSegment>],
     target: i32,
     center: i32,
     et: Option<f64>,
@@ -138,10 +138,16 @@ fn resolve_chain_filtered(
         if et.is_some_and(|et| !seg.covers(et)) {
             continue;
         }
-        let key = (seg.target, seg.center);
+        let key = (seg.target(), seg.center());
         if seen.insert(key) {
-            adjacency.entry(seg.target).or_default().push(seg.center);
-            adjacency.entry(seg.center).or_default().push(seg.target);
+            adjacency
+                .entry(seg.target())
+                .or_default()
+                .push(seg.center());
+            adjacency
+                .entry(seg.center())
+                .or_default()
+                .push(seg.target());
         }
     }
 
@@ -183,14 +189,14 @@ fn resolve_chain_filtered(
         // order so the registry's last-loaded-wins rule applies across
         // direction: (target=node, center=prev) contributes sign +1,
         // (target=prev, center=node) contributes sign -1.
-        let mut candidates: Vec<(Arc<ChebyshevSegment>, f64)> = Vec::new();
+        let mut candidates: Vec<(Arc<SpkSegment>, f64)> = Vec::new();
         for seg in segments {
             if et.is_some_and(|et| !seg.covers(et)) {
                 continue;
             }
-            if seg.target == node && seg.center == prev {
+            if seg.target() == node && seg.center() == prev {
                 candidates.push((Arc::clone(seg), 1.0));
-            } else if seg.target == prev && seg.center == node {
+            } else if seg.target() == prev && seg.center() == node {
                 candidates.push((Arc::clone(seg), -1.0));
             }
         }
@@ -213,10 +219,7 @@ fn resolve_chain_filtered(
 /// coverage interval (not just the first candidate's, which can be far
 /// narrower than the union when a pair has multiple partial-coverage
 /// segments) and how many candidates were checked.
-fn covering_segment(
-    link: &ChainLink,
-    et: f64,
-) -> Result<(&Arc<ChebyshevSegment>, f64), BraheError> {
+fn covering_segment(link: &ChainLink, et: f64) -> Result<(&Arc<SpkSegment>, f64), BraheError> {
     link.candidates
         .iter()
         .rev()
@@ -226,20 +229,20 @@ fn covering_segment(
             let start_et = link
                 .candidates
                 .iter()
-                .map(|(s, _)| s.start_et)
+                .map(|(s, _)| s.start_et())
                 .fold(f64::INFINITY, f64::min);
             let end_et = link
                 .candidates
                 .iter()
-                .map(|(s, _)| s.end_et)
+                .map(|(s, _)| s.end_et())
                 .fold(f64::NEG_INFINITY, f64::max);
             let (s0, _) = &link.candidates[0];
             coverage_error_multi(
                 et,
                 start_et,
                 end_et,
-                s0.target,
-                s0.center,
+                s0.target(),
+                s0.center(),
                 link.candidates.len(),
             )
         })
@@ -379,7 +382,7 @@ pub(crate) fn evaluate_with_epoch_fallback<T>(
     target: i32,
     center: i32,
     et: f64,
-    segments_for_fallback: impl FnOnce() -> Vec<Arc<ChebyshevSegment>>,
+    segments_for_fallback: impl FnOnce() -> Vec<Arc<SpkSegment>>,
     eval: impl Fn(&[ChainLink], f64) -> Result<T, BraheError>,
 ) -> Result<T, BraheError> {
     match eval(chain, et) {
@@ -400,7 +403,7 @@ type ChainCache = RwLock<HashMap<(i32, i32), Arc<Vec<ChainLink>>>>;
 /// cached per-pair segment chains.
 #[derive(Debug)]
 pub struct SPK {
-    segments: Vec<Arc<ChebyshevSegment>>,
+    segments: Vec<Arc<SpkSegment>>,
     pub(crate) chain_cache: ChainCache,
 }
 
@@ -453,7 +456,7 @@ impl SPK {
         }
         let mut segments = Vec::with_capacity(daf.summaries.len());
         for summary in &daf.summaries {
-            segments.push(Arc::new(ChebyshevSegment::from_spk_summary(&daf, summary)?));
+            segments.push(Arc::new(SpkSegment::from_spk_summary(&daf, summary)?));
         }
         Ok(SPK {
             segments,
@@ -462,7 +465,7 @@ impl SPK {
     }
 
     /// Segments in file order (for the global registry).
-    pub(crate) fn segments(&self) -> &[Arc<ChebyshevSegment>] {
+    pub(crate) fn segments(&self) -> &[Arc<SpkSegment>] {
         &self.segments
     }
 
@@ -647,6 +650,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
 
     use super::*;
+    use crate::spice::segments::ChebyshevSegment;
 
     fn load_de440s() -> Option<SPK> {
         let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -666,13 +670,13 @@ mod tests {
         start_et: f64,
         end_et: f64,
         x: f64,
-    ) -> Arc<ChebyshevSegment> {
+    ) -> Arc<SpkSegment> {
         let degree = 1usize;
         let rsize = 2 + 3 * (degree + 1);
         let mid = (start_et + end_et) / 2.0;
         let radius = (end_et - start_et) / 2.0;
         let coeffs = vec![mid, radius, x, 0.0, 0.0, 0.0, 0.0, 0.0];
-        Arc::new(ChebyshevSegment {
+        Arc::new(SpkSegment::Chebyshev(ChebyshevSegment {
             target,
             center,
             frame: 1,
@@ -686,7 +690,7 @@ mod tests {
             n: 1,
             degree,
             coeffs,
-        })
+        }))
     }
 
     #[test]
@@ -816,11 +820,11 @@ mod tests {
         center: i32,
         start_et: f64,
         end_et: f64,
-    ) -> Arc<ChebyshevSegment> {
+    ) -> Arc<SpkSegment> {
         let degree = 1usize;
         let rsize = 2 + 3 * (degree + 1);
         let mid = (start_et + end_et) / 2.0;
-        Arc::new(ChebyshevSegment {
+        Arc::new(SpkSegment::Chebyshev(ChebyshevSegment {
             target,
             center,
             frame: 1,
@@ -834,7 +838,7 @@ mod tests {
             n: 1,
             degree,
             coeffs: vec![mid, 0.0, 7.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        })
+        }))
     }
 
     #[test]

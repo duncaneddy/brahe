@@ -145,6 +145,19 @@ jobs:
           path: ~/.cache/brahe/icgem
           key: brahe-icgem-v1
 
+      # SBDB lookup + Ceres SPK for the dawn_ceres_orbit example (SBDB + Horizons).
+      # Restore-only; the matching save below runs on main only. Bump the key
+      # when the example's SPK span changes (keep in sync with the horizons:
+      # entry in .github/brahe-data-manifest.txt).
+      - name: Restore SBDB + Horizons cache
+        id: sbdb-horizons-cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: |
+            ~/.cache/brahe/sbdb
+            ~/.cache/brahe/horizons
+          key: brahe-sbdb-horizons-v1
+
       # Serial, retrying download of all plot/example network resources. On a
       # cache hit this is an instant no-op; on a miss it warms the caches once so
       # the parallel pools below never hit the network.
@@ -187,6 +200,15 @@ jobs:
         with:
           path: ~/.cache/brahe/icgem
           key: brahe-icgem-v1
+
+      - name: Save SBDB + Horizons cache (main only)
+        if: ${{ github.ref == 'refs/heads/main' && steps.sbdb-horizons-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: |
+            ~/.cache/brahe/sbdb
+            ~/.cache/brahe/horizons
+          key: brahe-sbdb-horizons-v1
 
       - name: Test examples
         if: ${{ !inputs.use_retry }}

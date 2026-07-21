@@ -29,7 +29,7 @@ use super::daf::DAFFile;
 use super::kernels::{KernelSource, SPICEKernel};
 use super::naif_id::{FrameId, NAIFId};
 use super::pck::BPCK;
-use super::segments::{ChebyshevSegment, is_coverage_error};
+use super::segments::{SpkSegment, is_coverage_error};
 use super::spk::{
     ChainLink, SPK, evaluate_chain_acceleration, evaluate_chain_position, evaluate_chain_state,
     evaluate_chain_velocity, evaluate_with_epoch_fallback, resolve_chain,
@@ -329,7 +329,7 @@ pub fn load_all_spice_kernels() -> Result<(), BraheError> {
 /// order (kernels in load order, each kernel's segments in file order).
 /// Combined with select-last in `covering_segment`, this makes the most
 /// recently loaded covering segment win.
-fn collect_spk_segments(reg: &KernelRegistry) -> Vec<Arc<ChebyshevSegment>> {
+fn collect_spk_segments(reg: &KernelRegistry) -> Vec<Arc<SpkSegment>> {
     let mut segments = Vec::new();
     for name in reg.load_order.iter() {
         if let Some(Kernel::Spk(spk)) = reg.kernels.get(name) {

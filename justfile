@@ -92,6 +92,7 @@ download-resources: _setup
     @{{python}} {{scripts_dir}}/warm_cartopy.py
     @{{python}} -c "import brahe as bh; bh.load_common_spice_kernels()"
     @{{python}} -c "import brahe as bh; bh.load_spice_kernel('mar099s')"
+    @{{python}} -c "import brahe as bh; obj=bh.datasets.sbdb.SBDBClient().lookup('Ceres'); bh.load_spice_kernel('de440s'); t0=bh.Epoch.from_datetime(2015,12,1,0,0,0.0,0.0,bh.TimeSystem.TDB); t1=bh.Epoch.from_datetime(2016,3,1,0,0,0.0,0.0,bh.TimeSystem.TDB); bh.datasets.horizons.HorizonsClient().get_spk(bh.datasets.horizons.HorizonsSPKRequest.for_spkid(obj.naif_id(), t0, t1))"
     @{{python}} -c "import brahe as bh; bh.datasets.star_catalogs.get_fk5(); bh.datasets.star_catalogs.get_hipparcos()"
     @{{python}} -c "import brahe as bh; bh.datasets.icgem.download_model('moon', 'GRGM660PRIM'); bh.datasets.icgem.download_model('mars', 'ggm2bc80')"
 

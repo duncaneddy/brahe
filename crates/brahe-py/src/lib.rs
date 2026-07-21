@@ -580,6 +580,8 @@ include!("datasets.rs");
 include!("py_gcat.rs");
 include!("py_star_catalogs.rs");
 include!("icgem.rs");
+include!("sbdb.rs");
+include!("horizons.rs");
 include!("eop.rs");
 include!("space_weather.rs");
 include!("time.rs");
@@ -1166,6 +1168,15 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_icgem_refresh_index, module)?)?;
     module.add_function(wrap_pyfunction!(py_icgem_refresh_all_indexes, module)?)?;
     module.add_function(wrap_pyfunction!(py_icgem_download_model, module)?)?;
+
+    //* SBDB *//
+    module.add_class::<PySBDBClient>()?;
+    module.add_class::<PySBDBObject>()?;
+
+    //* Horizons *//
+    module.add_class::<PyHorizonsClient>()?;
+    module.add_class::<PyHorizonsSPKRequest>()?;
+    module.add_class::<PyHorizonsSPKResponse>()?;
 
     //* SPICE Kernel Registry *//
     module.add_function(wrap_pyfunction!(py_load_kernel, module)?)?;

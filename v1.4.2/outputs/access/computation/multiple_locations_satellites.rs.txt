@@ -1,5 +1,0 @@
-Total windows: 20
-
-San Francisco: 10 windows
-
-Boston: 10 windows

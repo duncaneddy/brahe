@@ -1,1 +1,0 @@
-Created: OffNadirConstraint(<= 30.0°)

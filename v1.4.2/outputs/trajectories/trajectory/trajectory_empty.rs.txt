@@ -1,3 +1,0 @@
-Dimension: 6
-Dimension: 3
-Dimension: 12

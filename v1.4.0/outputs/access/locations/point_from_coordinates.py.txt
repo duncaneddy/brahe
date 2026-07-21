@@ -1,3 +1,0 @@
-Location: San Francisco
-Longitude: -122.4194 deg
-Latitude: 37.7749 deg

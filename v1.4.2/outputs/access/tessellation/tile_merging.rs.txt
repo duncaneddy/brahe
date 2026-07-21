@@ -1,3 +1,0 @@
-Before merge: 2 tiles
-After merge: 1 tiles
-  spacecraft_ids: ["SC-1","SC-2"]

@@ -1,2 +1,0 @@
-Trajectory length: 3
-Timespan: 120.0 seconds

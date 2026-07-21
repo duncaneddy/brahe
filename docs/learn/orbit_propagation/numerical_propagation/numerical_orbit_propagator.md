@@ -55,30 +55,25 @@ The flat constructor (`NumericalOrbitPropagator(...)` in Python, `DNumericalOrbi
 === "Python"
 
     ``` python
-    prop = bh.NumericalOrbitPropagator(
-        epoch,
-        state,
-        bh.NumericalPropagationConfig.default(),
-        bh.ForceModelConfig.default(),
-        params,
-    )
+    --8<-- "./examples/numerical_propagation/basic_propagation.py:8"
     ```
 
 === "Rust"
 
     ``` rust
-    let mut prop = bh::DNumericalOrbitPropagator::new(
-        epoch,
-        state,
-        bh::NumericalPropagationConfig::default(),
-        bh::ForceModelConfig::default(),
-        Some(params),
-        None,
-        None,
-        None,
-    )
-    .unwrap();
+    --8<-- "./examples/numerical_propagation/basic_propagation.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/basic_propagation.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/basic_propagation.rs.txt"
+        ```
 
 ## Stepping Through Time
 
@@ -200,4 +195,3 @@ For Rust, ensure the dynamics closure captures minimal state and avoids unnecess
 - [Force Models](force_models.md) - Configuring force models
 - [Integrator Configuration](integrator_configuration.md) - Integration method selection
 - [NumericalOrbitPropagator API Reference](../../../library_api/propagators/numerical_orbit_propagator.md)
-- [NumericalOrbitPropagatorBuilder API Reference](../../../library_api/propagators/numerical_orbit_propagator_builder.md)

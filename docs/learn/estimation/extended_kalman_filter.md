@@ -13,36 +13,50 @@ required inputs -- `epoch`, `state`, `initial_covariance`, `force_config`, and `
 directly as arguments, and measurement models and remaining optional inputs are set through
 chained setters. It internally builds a numerical orbit propagator with STM enabled.
 
-```python
-import brahe as bh
-import numpy as np
+=== "Python"
+    ``` python
+    --8<-- "./examples/estimation/ekf_builder_construction.py:12"
+    ```
 
-bh.initialize_eop()
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/estimation/ekf_builder_construction.rs:7"
+    ```
 
-epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
-state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
-p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/estimation/ekf_builder_construction.py.txt"
+        ```
 
-ekf = (
-    bh.ExtendedKalmanFilter.builder(
-        epoch, state, p0, bh.ForceModelConfig.two_body(), bh.EKFConfig()
-    )
-    .measurement_model(bh.InertialPositionMeasurementModel(10.0))
-    .build()
-)
-```
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/estimation/ekf_builder_construction.rs.txt"
+        ```
 
 The flat constructor remains available as an alternative, taking every field as a keyword
-argument:
+argument in Python and positionally in Rust:
 
-```python
-ekf = bh.ExtendedKalmanFilter(
-    epoch, state, p0,
-    measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
-    propagation_config=bh.NumericalPropagationConfig.default(),
-    force_config=bh.ForceModelConfig.two_body(),
-)
-```
+=== "Python"
+    ``` python
+    --8<-- "./examples/estimation/ekf_flat_construction.py:10"
+    ```
+
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/estimation/ekf_flat_construction.rs:5"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/estimation/ekf_flat_construction.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/estimation/ekf_flat_construction.rs.txt"
+        ```
 
 Both paths ensure STM propagation is enabled regardless of the propagation config passed
 in. The initial covariance matrix dimensions must match the state vector length.
@@ -258,5 +272,4 @@ positive semi-definite.
 - [Measurement Models](measurement_models.md) -- Built-in and custom measurement types
 - [Custom Models](custom_models.md) -- Defining measurement models in Python
 - [EKF API Reference](../../library_api/estimation/extended_kalman_filter.md) -- Complete method documentation
-- [ExtendedKalmanFilterBuilder API Reference](../../library_api/estimation/extended_kalman_filter_builder.md)
 - [Covariance and Sensitivity](../orbit_propagation/numerical_propagation/covariance_sensitivity.md) -- STM propagation details

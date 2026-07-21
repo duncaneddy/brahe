@@ -17,15 +17,19 @@
 </span><span id=__span-0-8><a id=__codelineno-0-8 name=__codelineno-0-8></a><span class=c1># Print last date of data</span>
 </span><span id=__span-0-9><a id=__codelineno-0-9 name=__codelineno-0-9></a><span class=nb>print</span><span class=p>(</span><span class=s2>&quot;EOP data available through:&quot;</span><span class=p>,</span> <span class=n>bh</span><span class=o>.</span><span class=n>Epoch</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>get_global_eop_mjd_max</span><span class=p>()))</span>
 </span><span id=__span-0-10><a id=__codelineno-0-10 name=__codelineno-0-10></a><span class=nb>print</span><span class=p>(</span><span class=s2>&quot;SW data available through:&quot;</span><span class=p>,</span> <span class=n>bh</span><span class=o>.</span><span class=n>Epoch</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>get_global_sw_mjd_max</span><span class=p>()))</span>
-</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-1-1>1</a></span>
-<span class=normal><a href=#__codelineno-1-2>2</a></span>
-<span class=normal><a href=#__codelineno-1-3>3</a></span>
-<span class=normal><a href=#__codelineno-1-4>4</a></span>
-<span class=normal><a href=#__codelineno-1-5>5</a></span>
-<span class=normal><a href=#__codelineno-1-6>6</a></span>
-<span class=normal><a href=#__codelineno-1-7>7</a></span>
-<span class=normal><a href=#__codelineno-1-8>8</a></span>
-<span class=normal><a href=#__codelineno-1-9>9</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-1-1><a id=__codelineno-1-1 name=__codelineno-1-1></a><span class=cp>#[allow(unused_imports)]</span>
+</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-1-1> 1</a></span>
+<span class=normal><a href=#__codelineno-1-2> 2</a></span>
+<span class=normal><a href=#__codelineno-1-3> 3</a></span>
+<span class=normal><a href=#__codelineno-1-4> 4</a></span>
+<span class=normal><a href=#__codelineno-1-5> 5</a></span>
+<span class=normal><a href=#__codelineno-1-6> 6</a></span>
+<span class=normal><a href=#__codelineno-1-7> 7</a></span>
+<span class=normal><a href=#__codelineno-1-8> 8</a></span>
+<span class=normal><a href=#__codelineno-1-9> 9</a></span>
+<span class=normal><a href=#__codelineno-1-10>10</a></span>
+<span class=normal><a href=#__codelineno-1-11>11</a></span>
+<span class=normal><a href=#__codelineno-1-12>12</a></span>
+<span class=normal><a href=#__codelineno-1-13>13</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-1-1><a id=__codelineno-1-1 name=__codelineno-1-1></a><span class=cp>#[allow(unused_imports)]</span>
 </span><span id=__span-1-2><a id=__codelineno-1-2 name=__codelineno-1-2></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
 </span><span id=__span-1-3><a id=__codelineno-1-3 name=__codelineno-1-3></a>
 </span><span id=__span-1-4><a id=__codelineno-1-4 name=__codelineno-1-4></a><span class=k>fn</span><span class=w> </span><span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span>
@@ -33,140 +37,167 @@
 </span><span id=__span-1-6><a id=__codelineno-1-6 name=__codelineno-1-6></a><span class=w>    </span><span class=c1>// data if the local data is more than 7 days old. Only updates on initialization.</span>
 </span><span id=__span-1-7><a id=__codelineno-1-7 name=__codelineno-1-7></a><span class=w>    </span><span class=n>bh</span><span class=p>::</span><span class=n>initialize_eop</span><span class=p>().</span><span class=n>unwrap</span><span class=p>();</span>
 </span><span id=__span-1-8><a id=__codelineno-1-8 name=__codelineno-1-8></a><span class=w>    </span><span class=n>bh</span><span class=p>::</span><span class=n>initialize_sw</span><span class=p>().</span><span class=n>unwrap</span><span class=p>();</span>
-</span><span id=__span-1-9><a id=__codelineno-1-9 name=__codelineno-1-9></a><span class=p>}</span>
-</span></code></pre></div></td></tr></table></div> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal>1</span></pre></div></td><td class=code><div><pre><span></span><code>```
-</code></pre></div></td></tr></table></div> </div> </div> </div> <h2 id=other-providers>Other Providers<a class=headerlink href=#other-providers title="Permanent link">&para;</a></h2> <p>If you don't want to use the default providers, such as needing to check for updates regularly (for long-running processes), you want to use a local file to avoid any network calls or guarantee reproducibility, or you want to ignore the data entirely, Brahe provides a wide variety of other providers that you can use. See the <a href=../learn/eop/index.html>EOP Providers</a> and <a href=../learn/space_weather/index.html>Space Weather</a> sections of the user guide for more information.</p> <p>For quick reference the major provides you might want to use are shown below: - <a href=../learn/eop/managing_eop_data.html#staticeopprovider>Static Providers</a>: These providers always return the same value regardless of the date. This is useful for testing, or if you want to ignore the data entirely. - <a href=../learn/eop/managing_eop_data.html#fileeopprovider>Default File Providers</a>: These providers load data from a file. This can either be a local path or one of the data files bundled with the package. - <a href=../learn/eop/managing_eop_data.html#cachingeopprovider>Caching Providers</a>: These are a variant of file providers that automatically check the age of the data and download new versions of the file when needed. This is useful for ensuring the data is always up-to-date without needing to manaually manage it.</p> <div class="tabbed-set tabbed-alternate" data-tabs=2:2><input checked=checked id=__tabbed_2_1 name=__tabbed_2 type=radio><input id=__tabbed_2_2 name=__tabbed_2 type=radio><div class=tabbed-labels><label for=__tabbed_2_1>Python</label><label for=__tabbed_2_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-2-1> 1</a></span>
-<span class=normal><a href=#__codelineno-2-2> 2</a></span>
-<span class=normal><a href=#__codelineno-2-3> 3</a></span>
-<span class=normal><a href=#__codelineno-2-4> 4</a></span>
-<span class=normal><a href=#__codelineno-2-5> 5</a></span>
-<span class=normal><a href=#__codelineno-2-6> 6</a></span>
-<span class=normal><a href=#__codelineno-2-7> 7</a></span>
-<span class=normal><a href=#__codelineno-2-8> 8</a></span>
-<span class=normal><a href=#__codelineno-2-9> 9</a></span>
-<span class=normal><a href=#__codelineno-2-10>10</a></span>
-<span class=normal><a href=#__codelineno-2-11>11</a></span>
-<span class=normal><a href=#__codelineno-2-12>12</a></span>
-<span class=normal><a href=#__codelineno-2-13>13</a></span>
-<span class=normal><a href=#__codelineno-2-14>14</a></span>
-<span class=normal><a href=#__codelineno-2-15>15</a></span>
-<span class=normal><a href=#__codelineno-2-16>16</a></span>
-<span class=normal><a href=#__codelineno-2-17>17</a></span>
-<span class=normal><a href=#__codelineno-2-18>18</a></span>
-<span class=normal><a href=#__codelineno-2-19>19</a></span>
-<span class=normal><a href=#__codelineno-2-20>20</a></span>
-<span class=normal><a href=#__codelineno-2-21>21</a></span>
-<span class=normal><a href=#__codelineno-2-22>22</a></span>
-<span class=normal><a href=#__codelineno-2-23>23</a></span>
-<span class=normal><a href=#__codelineno-2-24>24</a></span>
-<span class=normal><a href=#__codelineno-2-25>25</a></span>
-<span class=normal><a href=#__codelineno-2-26>26</a></span>
-<span class=normal><a href=#__codelineno-2-27>27</a></span>
-<span class=normal><a href=#__codelineno-2-28>28</a></span>
-<span class=normal><a href=#__codelineno-2-29>29</a></span>
-<span class=normal><a href=#__codelineno-2-30>30</a></span>
-<span class=normal><a href=#__codelineno-2-31>31</a></span>
-<span class=normal><a href=#__codelineno-2-32>32</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-2-1><a id=__codelineno-2-1 name=__codelineno-2-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
-</span><span id=__span-2-2><a id=__codelineno-2-2 name=__codelineno-2-2></a>
-</span><span id=__span-2-3><a id=__codelineno-2-3 name=__codelineno-2-3></a><span class=c1>## Static Providers</span>
-</span><span id=__span-2-4><a id=__codelineno-2-4 name=__codelineno-2-4></a>
-</span><span id=__span-2-5><a id=__codelineno-2-5 name=__codelineno-2-5></a><span class=c1># The simplest data providers are static providers. These always return the same value regarless of date.</span>
-</span><span id=__span-2-6><a id=__codelineno-2-6 name=__codelineno-2-6></a><span class=n>static_provider</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>StaticEOPProvider</span><span class=o>.</span><span class=n>from_zero</span><span class=p>()</span>  <span class=c1># All values are zero</span>
-</span><span id=__span-2-7><a id=__codelineno-2-7 name=__codelineno-2-7></a>
-</span><span id=__span-2-8><a id=__codelineno-2-8 name=__codelineno-2-8></a><span class=c1># Now we set the global provider as the static provider, which will be used for all EOP data access across the library.</span>
-</span><span id=__span-2-9><a id=__codelineno-2-9 name=__codelineno-2-9></a><span class=n>bh</span><span class=o>.</span><span class=n>set_global_eop_provider</span><span class=p>(</span><span class=n>static_provider</span><span class=p>)</span>
-</span><span id=__span-2-10><a id=__codelineno-2-10 name=__codelineno-2-10></a>
-</span><span id=__span-2-11><a id=__codelineno-2-11 name=__codelineno-2-11></a><span class=c1>## File Providers</span>
-</span><span id=__span-2-12><a id=__codelineno-2-12 name=__codelineno-2-12></a>
-</span><span id=__span-2-13><a id=__codelineno-2-13 name=__codelineno-2-13></a><span class=c1># Similarly we can use a file provider, which loads data from a local file</span>
-</span><span id=__span-2-14><a id=__codelineno-2-14 name=__codelineno-2-14></a><span class=c1># The from_default_standard loads the IERS Standard EOP product that is bundled with the package</span>
-</span><span id=__span-2-15><a id=__codelineno-2-15 name=__codelineno-2-15></a><span class=c1># The first argument (True) says to inerpolate values for times between data points</span>
-</span><span id=__span-2-16><a id=__codelineno-2-16 name=__codelineno-2-16></a><span class=c1># The second argument (&quot;Hold&quot;) says to hold the last value for times outside the range of the data, instead of throwing an error</span>
-</span><span id=__span-2-17><a id=__codelineno-2-17 name=__codelineno-2-17></a><span class=n>default_file_provider</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>FileEOPProvider</span><span class=o>.</span><span class=n>from_default_standard</span><span class=p>(</span><span class=kc>True</span><span class=p>,</span> <span class=s2>&quot;Hold&quot;</span><span class=p>)</span>
-</span><span id=__span-2-18><a id=__codelineno-2-18 name=__codelineno-2-18></a><span class=n>bh</span><span class=o>.</span><span class=n>set_global_eop_provider</span><span class=p>(</span><span class=n>default_file_provider</span><span class=p>)</span>
-</span><span id=__span-2-19><a id=__codelineno-2-19 name=__codelineno-2-19></a>
-</span><span id=__span-2-20><a id=__codelineno-2-20 name=__codelineno-2-20></a><span class=c1># There are also functions to explicitly download a specific file and and load it from a file</span>
-</span><span id=__span-2-21><a id=__codelineno-2-21 name=__codelineno-2-21></a><span class=c1># Uncomment these lines to try them out</span>
-</span><span id=__span-2-22><a id=__codelineno-2-22 name=__codelineno-2-22></a><span class=c1># eop_path = &quot;eop_c04.txt&quot;</span>
-</span><span id=__span-2-23><a id=__codelineno-2-23 name=__codelineno-2-23></a><span class=c1># bh.download_c04_eop_file(eop_path)</span>
-</span><span id=__span-2-24><a id=__codelineno-2-24 name=__codelineno-2-24></a><span class=c1># c04_file_provider = bh.FileEOPProvider.from_c04_file(eop_path, True, &quot;Hold&quot;)</span>
-</span><span id=__span-2-25><a id=__codelineno-2-25 name=__codelineno-2-25></a><span class=c1># bh.set_global_eop_provider(c04_file_provider)</span>
-</span><span id=__span-2-26><a id=__codelineno-2-26 name=__codelineno-2-26></a><span class=c1># print(&quot;EOP data available through:&quot;, bh.Epoch(bh.get_global_eop_mjd_max()))</span>
-</span><span id=__span-2-27><a id=__codelineno-2-27 name=__codelineno-2-27></a>
-</span><span id=__span-2-28><a id=__codelineno-2-28 name=__codelineno-2-28></a><span class=c1># eop_path = &quot;eop_standard.txt&quot;</span>
-</span><span id=__span-2-29><a id=__codelineno-2-29 name=__codelineno-2-29></a><span class=c1># bh.download_standard_eop_file(eop_path)</span>
-</span><span id=__span-2-30><a id=__codelineno-2-30 name=__codelineno-2-30></a><span class=c1># standard_file_provider = bh.FileEOPProvider.from_standard_file(eop_path, True, &quot;Hold&quot;)</span>
-</span><span id=__span-2-31><a id=__codelineno-2-31 name=__codelineno-2-31></a><span class=c1># bh.set_global_eop_provider(standard_file_provider)</span>
-</span><span id=__span-2-32><a id=__codelineno-2-32 name=__codelineno-2-32></a><span class=c1># print(&quot;EOP data available through:&quot;, bh.Epoch(bh.get_global_eop_mjd_max()))</span>
-</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-3-1> 1</a></span>
-<span class=normal><a href=#__codelineno-3-2> 2</a></span>
-<span class=normal><a href=#__codelineno-3-3> 3</a></span>
-<span class=normal><a href=#__codelineno-3-4> 4</a></span>
-<span class=normal><a href=#__codelineno-3-5> 5</a></span>
-<span class=normal><a href=#__codelineno-3-6> 6</a></span>
-<span class=normal><a href=#__codelineno-3-7> 7</a></span>
-<span class=normal><a href=#__codelineno-3-8> 8</a></span>
-<span class=normal><a href=#__codelineno-3-9> 9</a></span>
-<span class=normal><a href=#__codelineno-3-10>10</a></span>
-<span class=normal><a href=#__codelineno-3-11>11</a></span>
-<span class=normal><a href=#__codelineno-3-12>12</a></span>
-<span class=normal><a href=#__codelineno-3-13>13</a></span>
-<span class=normal><a href=#__codelineno-3-14>14</a></span>
-<span class=normal><a href=#__codelineno-3-15>15</a></span>
-<span class=normal><a href=#__codelineno-3-16>16</a></span>
-<span class=normal><a href=#__codelineno-3-17>17</a></span>
-<span class=normal><a href=#__codelineno-3-18>18</a></span>
-<span class=normal><a href=#__codelineno-3-19>19</a></span>
-<span class=normal><a href=#__codelineno-3-20>20</a></span>
-<span class=normal><a href=#__codelineno-3-21>21</a></span>
-<span class=normal><a href=#__codelineno-3-22>22</a></span>
-<span class=normal><a href=#__codelineno-3-23>23</a></span>
-<span class=normal><a href=#__codelineno-3-24>24</a></span>
-<span class=normal><a href=#__codelineno-3-25>25</a></span>
-<span class=normal><a href=#__codelineno-3-26>26</a></span>
-<span class=normal><a href=#__codelineno-3-27>27</a></span>
-<span class=normal><a href=#__codelineno-3-28>28</a></span>
-<span class=normal><a href=#__codelineno-3-29>29</a></span>
-<span class=normal><a href=#__codelineno-3-30>30</a></span>
-<span class=normal><a href=#__codelineno-3-31>31</a></span>
-<span class=normal><a href=#__codelineno-3-32>32</a></span>
-<span class=normal><a href=#__codelineno-3-33>33</a></span>
-<span class=normal><a href=#__codelineno-3-34>34</a></span>
-<span class=normal><a href=#__codelineno-3-35>35</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-3-1><a id=__codelineno-3-1 name=__codelineno-3-1></a><span class=cp>#[allow(unused_imports)]</span>
-</span><span id=__span-3-2><a id=__codelineno-3-2 name=__codelineno-3-2></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
-</span><span id=__span-3-3><a id=__codelineno-3-3 name=__codelineno-3-3></a>
-</span><span id=__span-3-4><a id=__codelineno-3-4 name=__codelineno-3-4></a><span class=k>fn</span><span class=w> </span><span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span>
-</span><span id=__span-3-5><a id=__codelineno-3-5 name=__codelineno-3-5></a><span class=w>    </span><span class=c1>// Static Providers</span>
-</span><span id=__span-3-6><a id=__codelineno-3-6 name=__codelineno-3-6></a>
-</span><span id=__span-3-7><a id=__codelineno-3-7 name=__codelineno-3-7></a><span class=w>    </span><span class=c1>// The simplest data providers are static providers. These always return the same value regarless of date.</span>
-</span><span id=__span-3-8><a id=__codelineno-3-8 name=__codelineno-3-8></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>static_provider</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>StaticEOPProvider</span><span class=p>::</span><span class=n>from_zero</span><span class=p>();</span><span class=w>  </span><span class=c1>// All values are zero</span>
-</span><span id=__span-3-9><a id=__codelineno-3-9 name=__codelineno-3-9></a>
-</span><span id=__span-3-10><a id=__codelineno-3-10 name=__codelineno-3-10></a><span class=w>    </span><span class=c1>// Now we set the global provider as the static provider, which will be used for all EOP data access across the library.</span>
-</span><span id=__span-3-11><a id=__codelineno-3-11 name=__codelineno-3-11></a><span class=w>    </span><span class=n>bh</span><span class=p>::</span><span class=n>set_global_eop_provider</span><span class=p>(</span><span class=n>static_provider</span><span class=p>);</span>
-</span><span id=__span-3-12><a id=__codelineno-3-12 name=__codelineno-3-12></a>
-</span><span id=__span-3-13><a id=__codelineno-3-13 name=__codelineno-3-13></a><span class=w>    </span><span class=c1>// File Providers</span>
-</span><span id=__span-3-14><a id=__codelineno-3-14 name=__codelineno-3-14></a>
-</span><span id=__span-3-15><a id=__codelineno-3-15 name=__codelineno-3-15></a><span class=w>    </span><span class=c1>// Similarly we can use a file provider, which loads data from a local file</span>
-</span><span id=__span-3-16><a id=__codelineno-3-16 name=__codelineno-3-16></a><span class=w>    </span><span class=c1>// The from_default_standard loads the IERS Standard EOP product that is bundled with the package</span>
-</span><span id=__span-3-17><a id=__codelineno-3-17 name=__codelineno-3-17></a><span class=w>    </span><span class=c1>// The first argument (True) says to inerpolate values for times between data points</span>
-</span><span id=__span-3-18><a id=__codelineno-3-18 name=__codelineno-3-18></a><span class=w>    </span><span class=c1>// The second argument (&quot;Hold&quot;) says to hold the last value for times outside the range of the data, instead of throwing an error</span>
-</span><span id=__span-3-19><a id=__codelineno-3-19 name=__codelineno-3-19></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>default_file_provider</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>FileEOPProvider</span><span class=p>::</span><span class=n>from_default_standard</span><span class=p>(</span><span class=kc>true</span><span class=p>,</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>EOPExtrapolation</span><span class=p>::</span><span class=n>Hold</span><span class=p>).</span><span class=n>unwrap</span><span class=p>();</span>
-</span><span id=__span-3-20><a id=__codelineno-3-20 name=__codelineno-3-20></a><span class=w>    </span><span class=n>bh</span><span class=p>::</span><span class=n>set_global_eop_provider</span><span class=p>(</span><span class=n>default_file_provider</span><span class=p>);</span>
-</span><span id=__span-3-21><a id=__codelineno-3-21 name=__codelineno-3-21></a>
-</span><span id=__span-3-22><a id=__codelineno-3-22 name=__codelineno-3-22></a><span class=w>    </span><span class=c1>// There are also functions to explicitly download a specific file and and load it from a file</span>
-</span><span id=__span-3-23><a id=__codelineno-3-23 name=__codelineno-3-23></a><span class=w>    </span><span class=c1>// Uncomment these lines to try them out</span>
-</span><span id=__span-3-24><a id=__codelineno-3-24 name=__codelineno-3-24></a><span class=w>    </span><span class=c1>// let eop_path = &quot;eop_c04.txt&quot;;</span>
-</span><span id=__span-3-25><a id=__codelineno-3-25 name=__codelineno-3-25></a><span class=w>    </span><span class=c1>// bh::download_c04_eop_file(eop_path).unwrap();</span>
-</span><span id=__span-3-26><a id=__codelineno-3-26 name=__codelineno-3-26></a><span class=w>    </span><span class=c1>// let c04_file_provider = bh::FileEOPProvider::from_c04_file(std::path::Path::new(eop_path), true, bh::EOPExtrapolation::Hold).unwrap();</span>
-</span><span id=__span-3-27><a id=__codelineno-3-27 name=__codelineno-3-27></a><span class=w>    </span><span class=c1>// bh::set_global_eop_provider(c04_file_provider);</span>
-</span><span id=__span-3-28><a id=__codelineno-3-28 name=__codelineno-3-28></a><span class=w>    </span><span class=c1>// println!(&quot;EOP data available through: {}&quot;, bh::Epoch::from_mjd(bh::get_global_eop_mjd_max(), bh::TimeSystem::UTC));</span>
-</span><span id=__span-3-29><a id=__codelineno-3-29 name=__codelineno-3-29></a>
-</span><span id=__span-3-30><a id=__codelineno-3-30 name=__codelineno-3-30></a><span class=w>    </span><span class=c1>// let eop_path = &quot;eop_standard.txt&quot;;</span>
-</span><span id=__span-3-31><a id=__codelineno-3-31 name=__codelineno-3-31></a><span class=w>    </span><span class=c1>// bh::download_standard_eop_file(eop_path).unwrap();</span>
-</span><span id=__span-3-32><a id=__codelineno-3-32 name=__codelineno-3-32></a><span class=w>    </span><span class=c1>// let standard_file_provider = bh::FileEOPProvider::from_standard_file(std::path::Path::new(eop_path), true, bh::EOPExtrapolation::Hold).unwrap();</span>
-</span><span id=__span-3-33><a id=__codelineno-3-33 name=__codelineno-3-33></a><span class=w>    </span><span class=c1>// bh::set_global_eop_provider(standard_file_provider);</span>
-</span><span id=__span-3-34><a id=__codelineno-3-34 name=__codelineno-3-34></a><span class=w>    </span><span class=c1>// println!(&quot;EOP data available through: {}&quot;, bh::Epoch::from_mjd(bh::get_global_eop_mjd_max(), bh::TimeSystem::UTC));</span>
-</span><span id=__span-3-35><a id=__codelineno-3-35 name=__codelineno-3-35></a><span class=p>}</span>
-</span></code></pre></div></td></tr></table></div> </div> </div> </div> <details class=example open=open> <summary>Output</summary> <div class="tabbed-set tabbed-alternate" data-tabs=3:2><input checked=checked id=__tabbed_3_1 name=__tabbed_3 type=radio><input id=__tabbed_3_2 name=__tabbed_3 type=radio><div class=tabbed-labels><label for=__tabbed_3_1>Python</label><label for=__tabbed_3_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-4-1>1</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-4-1><a id=__codelineno-4-1 name=__codelineno-4-1></a>
-</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-5-1>1</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-5-1><a id=__codelineno-5-1 name=__codelineno-5-1></a>
-</span></code></pre></div></td></tr></table></div> </div> </div> </div> </details> <aside class=md-source-file> <span class=md-source-file__fact> <span class=md-icon title="Last update"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="June 10, 2026 06:28:39 UTC">2026-06-10</span> </span> <span class=md-source-file__fact> <span class=md-icon title=Created> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="June 10, 2026 06:28:39 UTC">2026-06-10</span> </span> </aside> </article> </div> <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script> <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script> </div> </main> <footer class=md-footer> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class=md-copyright> Made with <a href=https://squidfunk.github.io/mkdocs-material/ target=_blank rel=noopener> Material for MkDocs </a> </div> </div> </div> </footer> </div> <div class=md-dialog data-md-component=dialog> <div class="md-dialog__inner md-typeset"></div> </div> <script id=__config type=application/json>{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "navigation.tracking", "navigation.top3", "toc.follow", "content.tabs.link", "content.code.copy", "search.highlight", "search.suggest"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script> <script src=../assets/javascripts/bundle.79ae519e.min.js></script> <script src=../javascripts/katex.d81d3f.min.js></script> <script src=https://unpkg.com/katex@0/dist/katex.min.js></script> <script src=https://unpkg.com/katex@0/dist/contrib/auto-render.min.js></script> <script src=https://cdn.plot.ly/plotly-latest.min.js></script> <script src=../javascripts/iframe-autosize.js></script> <script src=https://unpkg.com/tablesort@5.3.0/dist/tablesort.min.js></script> <script src=../javascripts/tablesort.ae6fa2.min.js></script> </body> </html>
+</span><span id=__span-1-9><a id=__codelineno-1-9 name=__codelineno-1-9></a>
+</span><span id=__span-1-10><a id=__codelineno-1-10 name=__codelineno-1-10></a><span class=w>    </span><span class=c1>// Print last date of data</span>
+</span><span id=__span-1-11><a id=__codelineno-1-11 name=__codelineno-1-11></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;EOP data available through: {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>Epoch</span><span class=p>::</span><span class=n>from_mjd</span><span class=p>(</span><span class=n>bh</span><span class=p>::</span><span class=n>get_global_eop_mjd_max</span><span class=p>(),</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>TimeSystem</span><span class=p>::</span><span class=n>UTC</span><span class=p>));</span>
+</span><span id=__span-1-12><a id=__codelineno-1-12 name=__codelineno-1-12></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;SW data available through: {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>Epoch</span><span class=p>::</span><span class=n>from_mjd</span><span class=p>(</span><span class=n>bh</span><span class=p>::</span><span class=n>get_global_sw_mjd_max</span><span class=p>(),</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>TimeSystem</span><span class=p>::</span><span class=n>UTC</span><span class=p>));</span>
+</span><span id=__span-1-13><a id=__codelineno-1-13 name=__codelineno-1-13></a><span class=p>}</span>
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> <details class=example open=open> <summary>Output</summary> <div class="tabbed-set tabbed-alternate" data-tabs=2:2><input checked=checked id=__tabbed_2_1 name=__tabbed_2 type=radio><input id=__tabbed_2_2 name=__tabbed_2 type=radio><div class=tabbed-labels><label for=__tabbed_2_1>Python</label><label for=__tabbed_2_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-2-1>1</a></span>
+<span class=normal><a href=#__codelineno-2-2>2</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-2-1><a id=__codelineno-2-1 name=__codelineno-2-1></a>EOP data available through: 2027-07-17 00:00:00.000 UTC
+</span><span id=__span-2-2><a id=__codelineno-2-2 name=__codelineno-2-2></a>SW data available through: 2041-10-01 00:00:00.000 UTC
+</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-3-1>1</a></span>
+<span class=normal><a href=#__codelineno-3-2>2</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-3-1><a id=__codelineno-3-1 name=__codelineno-3-1></a>EOP data available through: 2027-07-17 00:00:00.000 UTC
+</span><span id=__span-3-2><a id=__codelineno-3-2 name=__codelineno-3-2></a>SW data available through: 2041-10-01 00:00:00.000 UTC
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> </details> <h2 id=other-providers>Other Providers<a class=headerlink href=#other-providers title="Permanent link">&para;</a></h2> <p>If you don't want to use the default providers, such as needing to check for updates regularly (for long-running processes), you want to use a local file to avoid any network calls or guarantee reproducibility, or you want to ignore the data entirely, Brahe provides a wide variety of other providers that you can use. See the <a href=../learn/eop/index.html>EOP Providers</a> and <a href=../learn/space_weather/index.html>Space Weather</a> sections of the user guide for more information.</p> <p>For quick reference the major provides you might want to use are shown below: - <a href=../learn/eop/managing_eop_data.html#staticeopprovider>Static Providers</a>: These providers always return the same value regardless of the date. This is useful for testing, or if you want to ignore the data entirely. - <a href=../learn/eop/managing_eop_data.html#fileeopprovider>Default File Providers</a>: These providers load data from a file. This can either be a local path or one of the data files bundled with the package. - <a href=../learn/eop/managing_eop_data.html#cachingeopprovider>Caching Providers</a>: These are a variant of file providers that automatically check the age of the data and download new versions of the file when needed. This is useful for ensuring the data is always up-to-date without needing to manaually manage it.</p> <div class="tabbed-set tabbed-alternate" data-tabs=3:2><input checked=checked id=__tabbed_3_1 name=__tabbed_3 type=radio><input id=__tabbed_3_2 name=__tabbed_3 type=radio><div class=tabbed-labels><label for=__tabbed_3_1>Python</label><label for=__tabbed_3_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-4-1> 1</a></span>
+<span class=normal><a href=#__codelineno-4-2> 2</a></span>
+<span class=normal><a href=#__codelineno-4-3> 3</a></span>
+<span class=normal><a href=#__codelineno-4-4> 4</a></span>
+<span class=normal><a href=#__codelineno-4-5> 5</a></span>
+<span class=normal><a href=#__codelineno-4-6> 6</a></span>
+<span class=normal><a href=#__codelineno-4-7> 7</a></span>
+<span class=normal><a href=#__codelineno-4-8> 8</a></span>
+<span class=normal><a href=#__codelineno-4-9> 9</a></span>
+<span class=normal><a href=#__codelineno-4-10>10</a></span>
+<span class=normal><a href=#__codelineno-4-11>11</a></span>
+<span class=normal><a href=#__codelineno-4-12>12</a></span>
+<span class=normal><a href=#__codelineno-4-13>13</a></span>
+<span class=normal><a href=#__codelineno-4-14>14</a></span>
+<span class=normal><a href=#__codelineno-4-15>15</a></span>
+<span class=normal><a href=#__codelineno-4-16>16</a></span>
+<span class=normal><a href=#__codelineno-4-17>17</a></span>
+<span class=normal><a href=#__codelineno-4-18>18</a></span>
+<span class=normal><a href=#__codelineno-4-19>19</a></span>
+<span class=normal><a href=#__codelineno-4-20>20</a></span>
+<span class=normal><a href=#__codelineno-4-21>21</a></span>
+<span class=normal><a href=#__codelineno-4-22>22</a></span>
+<span class=normal><a href=#__codelineno-4-23>23</a></span>
+<span class=normal><a href=#__codelineno-4-24>24</a></span>
+<span class=normal><a href=#__codelineno-4-25>25</a></span>
+<span class=normal><a href=#__codelineno-4-26>26</a></span>
+<span class=normal><a href=#__codelineno-4-27>27</a></span>
+<span class=normal><a href=#__codelineno-4-28>28</a></span>
+<span class=normal><a href=#__codelineno-4-29>29</a></span>
+<span class=normal><a href=#__codelineno-4-30>30</a></span>
+<span class=normal><a href=#__codelineno-4-31>31</a></span>
+<span class=normal><a href=#__codelineno-4-32>32</a></span>
+<span class=normal><a href=#__codelineno-4-33>33</a></span>
+<span class=normal><a href=#__codelineno-4-34>34</a></span>
+<span class=normal><a href=#__codelineno-4-35>35</a></span>
+<span class=normal><a href=#__codelineno-4-36>36</a></span>
+<span class=normal><a href=#__codelineno-4-37>37</a></span>
+<span class=normal><a href=#__codelineno-4-38>38</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-4-1><a id=__codelineno-4-1 name=__codelineno-4-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
+</span><span id=__span-4-2><a id=__codelineno-4-2 name=__codelineno-4-2></a>
+</span><span id=__span-4-3><a id=__codelineno-4-3 name=__codelineno-4-3></a><span class=c1>## Static Providers</span>
+</span><span id=__span-4-4><a id=__codelineno-4-4 name=__codelineno-4-4></a>
+</span><span id=__span-4-5><a id=__codelineno-4-5 name=__codelineno-4-5></a><span class=c1># The simplest data providers are static providers. These always return the same value regarless of date.</span>
+</span><span id=__span-4-6><a id=__codelineno-4-6 name=__codelineno-4-6></a><span class=n>static_provider</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>StaticEOPProvider</span><span class=o>.</span><span class=n>from_zero</span><span class=p>()</span>  <span class=c1># All values are zero</span>
+</span><span id=__span-4-7><a id=__codelineno-4-7 name=__codelineno-4-7></a>
+</span><span id=__span-4-8><a id=__codelineno-4-8 name=__codelineno-4-8></a><span class=c1># Now we set the global provider as the static provider, which will be used for all EOP data access across the library.</span>
+</span><span id=__span-4-9><a id=__codelineno-4-9 name=__codelineno-4-9></a><span class=n>bh</span><span class=o>.</span><span class=n>set_global_eop_provider</span><span class=p>(</span><span class=n>static_provider</span><span class=p>)</span>
+</span><span id=__span-4-10><a id=__codelineno-4-10 name=__codelineno-4-10></a>
+</span><span id=__span-4-11><a id=__codelineno-4-11 name=__codelineno-4-11></a><span class=c1>## File Providers</span>
+</span><span id=__span-4-12><a id=__codelineno-4-12 name=__codelineno-4-12></a>
+</span><span id=__span-4-13><a id=__codelineno-4-13 name=__codelineno-4-13></a><span class=c1># Similarly we can use a file provider, which loads data from a local file</span>
+</span><span id=__span-4-14><a id=__codelineno-4-14 name=__codelineno-4-14></a><span class=c1># The from_default_standard loads the IERS Standard EOP product that is bundled with the package</span>
+</span><span id=__span-4-15><a id=__codelineno-4-15 name=__codelineno-4-15></a><span class=c1># The first argument (True) says to inerpolate values for times between data points</span>
+</span><span id=__span-4-16><a id=__codelineno-4-16 name=__codelineno-4-16></a><span class=c1># The second argument (&quot;Hold&quot;) says to hold the last value for times outside the range of the data, instead of throwing an error</span>
+</span><span id=__span-4-17><a id=__codelineno-4-17 name=__codelineno-4-17></a><span class=n>default_file_provider</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>FileEOPProvider</span><span class=o>.</span><span class=n>from_default_standard</span><span class=p>(</span><span class=kc>True</span><span class=p>,</span> <span class=s2>&quot;Hold&quot;</span><span class=p>)</span>
+</span><span id=__span-4-18><a id=__codelineno-4-18 name=__codelineno-4-18></a><span class=n>bh</span><span class=o>.</span><span class=n>set_global_eop_provider</span><span class=p>(</span><span class=n>default_file_provider</span><span class=p>)</span>
+</span><span id=__span-4-19><a id=__codelineno-4-19 name=__codelineno-4-19></a>
+</span><span id=__span-4-20><a id=__codelineno-4-20 name=__codelineno-4-20></a><span class=c1># The bundled standard product covers a fixed date range (no network required)</span>
+</span><span id=__span-4-21><a id=__codelineno-4-21 name=__codelineno-4-21></a><span class=nb>print</span><span class=p>(</span>
+</span><span id=__span-4-22><a id=__codelineno-4-22 name=__codelineno-4-22></a>    <span class=s2>&quot;Bundled standard EOP data available through:&quot;</span><span class=p>,</span>
+</span><span id=__span-4-23><a id=__codelineno-4-23 name=__codelineno-4-23></a>    <span class=n>bh</span><span class=o>.</span><span class=n>Epoch</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>get_global_eop_mjd_max</span><span class=p>()),</span>
+</span><span id=__span-4-24><a id=__codelineno-4-24 name=__codelineno-4-24></a><span class=p>)</span>
+</span><span id=__span-4-25><a id=__codelineno-4-25 name=__codelineno-4-25></a>
+</span><span id=__span-4-26><a id=__codelineno-4-26 name=__codelineno-4-26></a><span class=c1># There are also functions to explicitly download a specific file and and load it from a file</span>
+</span><span id=__span-4-27><a id=__codelineno-4-27 name=__codelineno-4-27></a><span class=c1># Uncomment these lines to try them out</span>
+</span><span id=__span-4-28><a id=__codelineno-4-28 name=__codelineno-4-28></a><span class=c1># eop_path = &quot;eop_c04.txt&quot;</span>
+</span><span id=__span-4-29><a id=__codelineno-4-29 name=__codelineno-4-29></a><span class=c1># bh.download_c04_eop_file(eop_path)</span>
+</span><span id=__span-4-30><a id=__codelineno-4-30 name=__codelineno-4-30></a><span class=c1># c04_file_provider = bh.FileEOPProvider.from_c04_file(eop_path, True, &quot;Hold&quot;)</span>
+</span><span id=__span-4-31><a id=__codelineno-4-31 name=__codelineno-4-31></a><span class=c1># bh.set_global_eop_provider(c04_file_provider)</span>
+</span><span id=__span-4-32><a id=__codelineno-4-32 name=__codelineno-4-32></a><span class=c1># print(&quot;EOP data available through:&quot;, bh.Epoch(bh.get_global_eop_mjd_max()))</span>
+</span><span id=__span-4-33><a id=__codelineno-4-33 name=__codelineno-4-33></a>
+</span><span id=__span-4-34><a id=__codelineno-4-34 name=__codelineno-4-34></a><span class=c1># eop_path = &quot;eop_standard.txt&quot;</span>
+</span><span id=__span-4-35><a id=__codelineno-4-35 name=__codelineno-4-35></a><span class=c1># bh.download_standard_eop_file(eop_path)</span>
+</span><span id=__span-4-36><a id=__codelineno-4-36 name=__codelineno-4-36></a><span class=c1># standard_file_provider = bh.FileEOPProvider.from_standard_file(eop_path, True, &quot;Hold&quot;)</span>
+</span><span id=__span-4-37><a id=__codelineno-4-37 name=__codelineno-4-37></a><span class=c1># bh.set_global_eop_provider(standard_file_provider)</span>
+</span><span id=__span-4-38><a id=__codelineno-4-38 name=__codelineno-4-38></a><span class=c1># print(&quot;EOP data available through:&quot;, bh.Epoch(bh.get_global_eop_mjd_max()))</span>
+</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-5-1> 1</a></span>
+<span class=normal><a href=#__codelineno-5-2> 2</a></span>
+<span class=normal><a href=#__codelineno-5-3> 3</a></span>
+<span class=normal><a href=#__codelineno-5-4> 4</a></span>
+<span class=normal><a href=#__codelineno-5-5> 5</a></span>
+<span class=normal><a href=#__codelineno-5-6> 6</a></span>
+<span class=normal><a href=#__codelineno-5-7> 7</a></span>
+<span class=normal><a href=#__codelineno-5-8> 8</a></span>
+<span class=normal><a href=#__codelineno-5-9> 9</a></span>
+<span class=normal><a href=#__codelineno-5-10>10</a></span>
+<span class=normal><a href=#__codelineno-5-11>11</a></span>
+<span class=normal><a href=#__codelineno-5-12>12</a></span>
+<span class=normal><a href=#__codelineno-5-13>13</a></span>
+<span class=normal><a href=#__codelineno-5-14>14</a></span>
+<span class=normal><a href=#__codelineno-5-15>15</a></span>
+<span class=normal><a href=#__codelineno-5-16>16</a></span>
+<span class=normal><a href=#__codelineno-5-17>17</a></span>
+<span class=normal><a href=#__codelineno-5-18>18</a></span>
+<span class=normal><a href=#__codelineno-5-19>19</a></span>
+<span class=normal><a href=#__codelineno-5-20>20</a></span>
+<span class=normal><a href=#__codelineno-5-21>21</a></span>
+<span class=normal><a href=#__codelineno-5-22>22</a></span>
+<span class=normal><a href=#__codelineno-5-23>23</a></span>
+<span class=normal><a href=#__codelineno-5-24>24</a></span>
+<span class=normal><a href=#__codelineno-5-25>25</a></span>
+<span class=normal><a href=#__codelineno-5-26>26</a></span>
+<span class=normal><a href=#__codelineno-5-27>27</a></span>
+<span class=normal><a href=#__codelineno-5-28>28</a></span>
+<span class=normal><a href=#__codelineno-5-29>29</a></span>
+<span class=normal><a href=#__codelineno-5-30>30</a></span>
+<span class=normal><a href=#__codelineno-5-31>31</a></span>
+<span class=normal><a href=#__codelineno-5-32>32</a></span>
+<span class=normal><a href=#__codelineno-5-33>33</a></span>
+<span class=normal><a href=#__codelineno-5-34>34</a></span>
+<span class=normal><a href=#__codelineno-5-35>35</a></span>
+<span class=normal><a href=#__codelineno-5-36>36</a></span>
+<span class=normal><a href=#__codelineno-5-37>37</a></span>
+<span class=normal><a href=#__codelineno-5-38>38</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-5-1><a id=__codelineno-5-1 name=__codelineno-5-1></a><span class=cp>#[allow(unused_imports)]</span>
+</span><span id=__span-5-2><a id=__codelineno-5-2 name=__codelineno-5-2></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
+</span><span id=__span-5-3><a id=__codelineno-5-3 name=__codelineno-5-3></a>
+</span><span id=__span-5-4><a id=__codelineno-5-4 name=__codelineno-5-4></a><span class=k>fn</span><span class=w> </span><span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span>
+</span><span id=__span-5-5><a id=__codelineno-5-5 name=__codelineno-5-5></a><span class=w>    </span><span class=c1>// Static Providers</span>
+</span><span id=__span-5-6><a id=__codelineno-5-6 name=__codelineno-5-6></a>
+</span><span id=__span-5-7><a id=__codelineno-5-7 name=__codelineno-5-7></a><span class=w>    </span><span class=c1>// The simplest data providers are static providers. These always return the same value regarless of date.</span>
+</span><span id=__span-5-8><a id=__codelineno-5-8 name=__codelineno-5-8></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>static_provider</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>StaticEOPProvider</span><span class=p>::</span><span class=n>from_zero</span><span class=p>();</span><span class=w>  </span><span class=c1>// All values are zero</span>
+</span><span id=__span-5-9><a id=__codelineno-5-9 name=__codelineno-5-9></a>
+</span><span id=__span-5-10><a id=__codelineno-5-10 name=__codelineno-5-10></a><span class=w>    </span><span class=c1>// Now we set the global provider as the static provider, which will be used for all EOP data access across the library.</span>
+</span><span id=__span-5-11><a id=__codelineno-5-11 name=__codelineno-5-11></a><span class=w>    </span><span class=n>bh</span><span class=p>::</span><span class=n>set_global_eop_provider</span><span class=p>(</span><span class=n>static_provider</span><span class=p>);</span>
+</span><span id=__span-5-12><a id=__codelineno-5-12 name=__codelineno-5-12></a>
+</span><span id=__span-5-13><a id=__codelineno-5-13 name=__codelineno-5-13></a><span class=w>    </span><span class=c1>// File Providers</span>
+</span><span id=__span-5-14><a id=__codelineno-5-14 name=__codelineno-5-14></a>
+</span><span id=__span-5-15><a id=__codelineno-5-15 name=__codelineno-5-15></a><span class=w>    </span><span class=c1>// Similarly we can use a file provider, which loads data from a local file</span>
+</span><span id=__span-5-16><a id=__codelineno-5-16 name=__codelineno-5-16></a><span class=w>    </span><span class=c1>// The from_default_standard loads the IERS Standard EOP product that is bundled with the package</span>
+</span><span id=__span-5-17><a id=__codelineno-5-17 name=__codelineno-5-17></a><span class=w>    </span><span class=c1>// The first argument (True) says to inerpolate values for times between data points</span>
+</span><span id=__span-5-18><a id=__codelineno-5-18 name=__codelineno-5-18></a><span class=w>    </span><span class=c1>// The second argument (&quot;Hold&quot;) says to hold the last value for times outside the range of the data, instead of throwing an error</span>
+</span><span id=__span-5-19><a id=__codelineno-5-19 name=__codelineno-5-19></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>default_file_provider</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>FileEOPProvider</span><span class=p>::</span><span class=n>from_default_standard</span><span class=p>(</span><span class=kc>true</span><span class=p>,</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>EOPExtrapolation</span><span class=p>::</span><span class=n>Hold</span><span class=p>).</span><span class=n>unwrap</span><span class=p>();</span>
+</span><span id=__span-5-20><a id=__codelineno-5-20 name=__codelineno-5-20></a><span class=w>    </span><span class=n>bh</span><span class=p>::</span><span class=n>set_global_eop_provider</span><span class=p>(</span><span class=n>default_file_provider</span><span class=p>);</span>
+</span><span id=__span-5-21><a id=__codelineno-5-21 name=__codelineno-5-21></a>
+</span><span id=__span-5-22><a id=__codelineno-5-22 name=__codelineno-5-22></a><span class=w>    </span><span class=c1>// The bundled standard product covers a fixed date range (no network required)</span>
+</span><span id=__span-5-23><a id=__codelineno-5-23 name=__codelineno-5-23></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Bundled standard EOP data available through: {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>Epoch</span><span class=p>::</span><span class=n>from_mjd</span><span class=p>(</span><span class=n>bh</span><span class=p>::</span><span class=n>get_global_eop_mjd_max</span><span class=p>(),</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>TimeSystem</span><span class=p>::</span><span class=n>UTC</span><span class=p>));</span>
+</span><span id=__span-5-24><a id=__codelineno-5-24 name=__codelineno-5-24></a>
+</span><span id=__span-5-25><a id=__codelineno-5-25 name=__codelineno-5-25></a><span class=w>    </span><span class=c1>// There are also functions to explicitly download a specific file and and load it from a file</span>
+</span><span id=__span-5-26><a id=__codelineno-5-26 name=__codelineno-5-26></a><span class=w>    </span><span class=c1>// Uncomment these lines to try them out</span>
+</span><span id=__span-5-27><a id=__codelineno-5-27 name=__codelineno-5-27></a><span class=w>    </span><span class=c1>// let eop_path = &quot;eop_c04.txt&quot;;</span>
+</span><span id=__span-5-28><a id=__codelineno-5-28 name=__codelineno-5-28></a><span class=w>    </span><span class=c1>// bh::download_c04_eop_file(eop_path).unwrap();</span>
+</span><span id=__span-5-29><a id=__codelineno-5-29 name=__codelineno-5-29></a><span class=w>    </span><span class=c1>// let c04_file_provider = bh::FileEOPProvider::from_c04_file(std::path::Path::new(eop_path), true, bh::EOPExtrapolation::Hold).unwrap();</span>
+</span><span id=__span-5-30><a id=__codelineno-5-30 name=__codelineno-5-30></a><span class=w>    </span><span class=c1>// bh::set_global_eop_provider(c04_file_provider);</span>
+</span><span id=__span-5-31><a id=__codelineno-5-31 name=__codelineno-5-31></a><span class=w>    </span><span class=c1>// println!(&quot;EOP data available through: {}&quot;, bh::Epoch::from_mjd(bh::get_global_eop_mjd_max(), bh::TimeSystem::UTC));</span>
+</span><span id=__span-5-32><a id=__codelineno-5-32 name=__codelineno-5-32></a>
+</span><span id=__span-5-33><a id=__codelineno-5-33 name=__codelineno-5-33></a><span class=w>    </span><span class=c1>// let eop_path = &quot;eop_standard.txt&quot;;</span>
+</span><span id=__span-5-34><a id=__codelineno-5-34 name=__codelineno-5-34></a><span class=w>    </span><span class=c1>// bh::download_standard_eop_file(eop_path).unwrap();</span>
+</span><span id=__span-5-35><a id=__codelineno-5-35 name=__codelineno-5-35></a><span class=w>    </span><span class=c1>// let standard_file_provider = bh::FileEOPProvider::from_standard_file(std::path::Path::new(eop_path), true, bh::EOPExtrapolation::Hold).unwrap();</span>
+</span><span id=__span-5-36><a id=__codelineno-5-36 name=__codelineno-5-36></a><span class=w>    </span><span class=c1>// bh::set_global_eop_provider(standard_file_provider);</span>
+</span><span id=__span-5-37><a id=__codelineno-5-37 name=__codelineno-5-37></a><span class=w>    </span><span class=c1>// println!(&quot;EOP data available through: {}&quot;, bh::Epoch::from_mjd(bh::get_global_eop_mjd_max(), bh::TimeSystem::UTC));</span>
+</span><span id=__span-5-38><a id=__codelineno-5-38 name=__codelineno-5-38></a><span class=p>}</span>
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> <details class=example open=open> <summary>Output</summary> <div class="tabbed-set tabbed-alternate" data-tabs=4:2><input checked=checked id=__tabbed_4_1 name=__tabbed_4 type=radio><input id=__tabbed_4_2 name=__tabbed_4 type=radio><div class=tabbed-labels><label for=__tabbed_4_1>Python</label><label for=__tabbed_4_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-6-1>1</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-6-1><a id=__codelineno-6-1 name=__codelineno-6-1></a>Bundled standard EOP data available through: 2027-07-17 00:00:00.000 UTC
+</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-7-1>1</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-7-1><a id=__codelineno-7-1 name=__codelineno-7-1></a>Bundled standard EOP data available through: 2027-07-17 00:00:00.000 UTC
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> </details> <aside class=md-source-file> <span class=md-source-file__fact> <span class=md-icon title="Last update"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="July 21, 2026 20:20:51 UTC">2026-07-21</span> </span> <span class=md-source-file__fact> <span class=md-icon title=Created> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="June 10, 2026 06:28:39 UTC">2026-06-10</span> </span> </aside> </article> </div> <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script> <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script> </div> </main> <footer class=md-footer> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class=md-copyright> Made with <a href=https://squidfunk.github.io/mkdocs-material/ target=_blank rel=noopener> Material for MkDocs </a> </div> </div> </div> </footer> </div> <div class=md-dialog data-md-component=dialog> <div class="md-dialog__inner md-typeset"></div> </div> <script id=__config type=application/json>{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "navigation.tracking", "navigation.top3", "toc.follow", "content.tabs.link", "content.code.copy", "search.highlight", "search.suggest"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script> <script src=../assets/javascripts/bundle.79ae519e.min.js></script> <script src=../javascripts/katex.d81d3f.min.js></script> <script src=https://unpkg.com/katex@0/dist/katex.min.js></script> <script src=https://unpkg.com/katex@0/dist/contrib/auto-render.min.js></script> <script src=https://cdn.plot.ly/plotly-latest.min.js></script> <script src=../javascripts/iframe-autosize.js></script> <script src=https://unpkg.com/tablesort@5.3.0/dist/tablesort.min.js></script> <script src=../javascripts/tablesort.ae6fa2.min.js></script> </body> </html>

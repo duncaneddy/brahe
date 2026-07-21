@@ -511,111 +511,103 @@
 </span><span id=__span-10-67><a id=__codelineno-10-67 name=__codelineno-10-67></a><span class=p>)</span>
 </span><span id=__span-10-68><a id=__codelineno-10-68 name=__codelineno-10-68></a><span class=k>assert</span> <span class=mf>0.0</span> <span class=o>&lt;</span> <span class=n>max_diff_m</span> <span class=o>&lt;</span> <span class=mf>1000.0</span><span class=p>,</span> <span class=sa>f</span><span class=s2>&quot;Unexpected tidal difference: </span><span class=si>{</span><span class=n>max_diff_m</span><span class=si>}</span><span class=s2> m&quot;</span>
 </span><span id=__span-10-69><a id=__codelineno-10-69 name=__codelineno-10-69></a><span class=nb>print</span><span class=p>(</span><span class=s2>&quot;Example validated successfully!&quot;</span><span class=p>)</span>
-</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-11-1>  1</a></span>
-<span class=normal><a href=#__codelineno-11-2>  2</a></span>
-<span class=normal><a href=#__codelineno-11-3>  3</a></span>
-<span class=normal><a href=#__codelineno-11-4>  4</a></span>
-<span class=normal><a href=#__codelineno-11-5>  5</a></span>
-<span class=normal><a href=#__codelineno-11-6>  6</a></span>
-<span class=normal><a href=#__codelineno-11-7>  7</a></span>
-<span class=normal><a href=#__codelineno-11-8>  8</a></span>
-<span class=normal><a href=#__codelineno-11-9>  9</a></span>
-<span class=normal><a href=#__codelineno-11-10> 10</a></span>
-<span class=normal><a href=#__codelineno-11-11> 11</a></span>
-<span class=normal><a href=#__codelineno-11-12> 12</a></span>
-<span class=normal><a href=#__codelineno-11-13> 13</a></span>
-<span class=normal><a href=#__codelineno-11-14> 14</a></span>
-<span class=normal><a href=#__codelineno-11-15> 15</a></span>
-<span class=normal><a href=#__codelineno-11-16> 16</a></span>
-<span class=normal><a href=#__codelineno-11-17> 17</a></span>
-<span class=normal><a href=#__codelineno-11-18> 18</a></span>
-<span class=normal><a href=#__codelineno-11-19> 19</a></span>
-<span class=normal><a href=#__codelineno-11-20> 20</a></span>
-<span class=normal><a href=#__codelineno-11-21> 21</a></span>
-<span class=normal><a href=#__codelineno-11-22> 22</a></span>
-<span class=normal><a href=#__codelineno-11-23> 23</a></span>
-<span class=normal><a href=#__codelineno-11-24> 24</a></span>
-<span class=normal><a href=#__codelineno-11-25> 25</a></span>
-<span class=normal><a href=#__codelineno-11-26> 26</a></span>
-<span class=normal><a href=#__codelineno-11-27> 27</a></span>
-<span class=normal><a href=#__codelineno-11-28> 28</a></span>
-<span class=normal><a href=#__codelineno-11-29> 29</a></span>
-<span class=normal><a href=#__codelineno-11-30> 30</a></span>
-<span class=normal><a href=#__codelineno-11-31> 31</a></span>
-<span class=normal><a href=#__codelineno-11-32> 32</a></span>
-<span class=normal><a href=#__codelineno-11-33> 33</a></span>
-<span class=normal><a href=#__codelineno-11-34> 34</a></span>
-<span class=normal><a href=#__codelineno-11-35> 35</a></span>
-<span class=normal><a href=#__codelineno-11-36> 36</a></span>
-<span class=normal><a href=#__codelineno-11-37> 37</a></span>
-<span class=normal><a href=#__codelineno-11-38> 38</a></span>
-<span class=normal><a href=#__codelineno-11-39> 39</a></span>
-<span class=normal><a href=#__codelineno-11-40> 40</a></span>
-<span class=normal><a href=#__codelineno-11-41> 41</a></span>
-<span class=normal><a href=#__codelineno-11-42> 42</a></span>
-<span class=normal><a href=#__codelineno-11-43> 43</a></span>
-<span class=normal><a href=#__codelineno-11-44> 44</a></span>
-<span class=normal><a href=#__codelineno-11-45> 45</a></span>
-<span class=normal><a href=#__codelineno-11-46> 46</a></span>
-<span class=normal><a href=#__codelineno-11-47> 47</a></span>
-<span class=normal><a href=#__codelineno-11-48> 48</a></span>
-<span class=normal><a href=#__codelineno-11-49> 49</a></span>
-<span class=normal><a href=#__codelineno-11-50> 50</a></span>
-<span class=normal><a href=#__codelineno-11-51> 51</a></span>
-<span class=normal><a href=#__codelineno-11-52> 52</a></span>
-<span class=normal><a href=#__codelineno-11-53> 53</a></span>
-<span class=normal><a href=#__codelineno-11-54> 54</a></span>
-<span class=normal><a href=#__codelineno-11-55> 55</a></span>
-<span class=normal><a href=#__codelineno-11-56> 56</a></span>
-<span class=normal><a href=#__codelineno-11-57> 57</a></span>
-<span class=normal><a href=#__codelineno-11-58> 58</a></span>
-<span class=normal><a href=#__codelineno-11-59> 59</a></span>
-<span class=normal><a href=#__codelineno-11-60> 60</a></span>
-<span class=normal><a href=#__codelineno-11-61> 61</a></span>
-<span class=normal><a href=#__codelineno-11-62> 62</a></span>
-<span class=normal><a href=#__codelineno-11-63> 63</a></span>
-<span class=normal><a href=#__codelineno-11-64> 64</a></span>
-<span class=normal><a href=#__codelineno-11-65> 65</a></span>
-<span class=normal><a href=#__codelineno-11-66> 66</a></span>
-<span class=normal><a href=#__codelineno-11-67> 67</a></span>
-<span class=normal><a href=#__codelineno-11-68> 68</a></span>
-<span class=normal><a href=#__codelineno-11-69> 69</a></span>
-<span class=normal><a href=#__codelineno-11-70> 70</a></span>
-<span class=normal><a href=#__codelineno-11-71> 71</a></span>
-<span class=normal><a href=#__codelineno-11-72> 72</a></span>
-<span class=normal><a href=#__codelineno-11-73> 73</a></span>
-<span class=normal><a href=#__codelineno-11-74> 74</a></span>
-<span class=normal><a href=#__codelineno-11-75> 75</a></span>
-<span class=normal><a href=#__codelineno-11-76> 76</a></span>
-<span class=normal><a href=#__codelineno-11-77> 77</a></span>
-<span class=normal><a href=#__codelineno-11-78> 78</a></span>
-<span class=normal><a href=#__codelineno-11-79> 79</a></span>
-<span class=normal><a href=#__codelineno-11-80> 80</a></span>
-<span class=normal><a href=#__codelineno-11-81> 81</a></span>
-<span class=normal><a href=#__codelineno-11-82> 82</a></span>
-<span class=normal><a href=#__codelineno-11-83> 83</a></span>
-<span class=normal><a href=#__codelineno-11-84> 84</a></span>
-<span class=normal><a href=#__codelineno-11-85> 85</a></span>
-<span class=normal><a href=#__codelineno-11-86> 86</a></span>
-<span class=normal><a href=#__codelineno-11-87> 87</a></span>
-<span class=normal><a href=#__codelineno-11-88> 88</a></span>
-<span class=normal><a href=#__codelineno-11-89> 89</a></span>
-<span class=normal><a href=#__codelineno-11-90> 90</a></span>
-<span class=normal><a href=#__codelineno-11-91> 91</a></span>
-<span class=normal><a href=#__codelineno-11-92> 92</a></span>
-<span class=normal><a href=#__codelineno-11-93> 93</a></span>
-<span class=normal><a href=#__codelineno-11-94> 94</a></span>
-<span class=normal><a href=#__codelineno-11-95> 95</a></span>
-<span class=normal><a href=#__codelineno-11-96> 96</a></span>
-<span class=normal><a href=#__codelineno-11-97> 97</a></span>
-<span class=normal><a href=#__codelineno-11-98> 98</a></span>
-<span class=normal><a href=#__codelineno-11-99> 99</a></span>
-<span class=normal><a href=#__codelineno-11-100>100</a></span>
-<span class=normal><a href=#__codelineno-11-101>101</a></span>
-<span class=normal><a href=#__codelineno-11-102>102</a></span>
-<span class=normal><a href=#__codelineno-11-103>103</a></span>
-<span class=normal><a href=#__codelineno-11-104>104</a></span>
-<span class=normal><a href=#__codelineno-11-105>105</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-11-1><a id=__codelineno-11-1 name=__codelineno-11-1></a><span class=k>use</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>traits</span><span class=p>::</span><span class=n>DStatePropagator</span><span class=p>;</span>
+</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-11-1> 1</a></span>
+<span class=normal><a href=#__codelineno-11-2> 2</a></span>
+<span class=normal><a href=#__codelineno-11-3> 3</a></span>
+<span class=normal><a href=#__codelineno-11-4> 4</a></span>
+<span class=normal><a href=#__codelineno-11-5> 5</a></span>
+<span class=normal><a href=#__codelineno-11-6> 6</a></span>
+<span class=normal><a href=#__codelineno-11-7> 7</a></span>
+<span class=normal><a href=#__codelineno-11-8> 8</a></span>
+<span class=normal><a href=#__codelineno-11-9> 9</a></span>
+<span class=normal><a href=#__codelineno-11-10>10</a></span>
+<span class=normal><a href=#__codelineno-11-11>11</a></span>
+<span class=normal><a href=#__codelineno-11-12>12</a></span>
+<span class=normal><a href=#__codelineno-11-13>13</a></span>
+<span class=normal><a href=#__codelineno-11-14>14</a></span>
+<span class=normal><a href=#__codelineno-11-15>15</a></span>
+<span class=normal><a href=#__codelineno-11-16>16</a></span>
+<span class=normal><a href=#__codelineno-11-17>17</a></span>
+<span class=normal><a href=#__codelineno-11-18>18</a></span>
+<span class=normal><a href=#__codelineno-11-19>19</a></span>
+<span class=normal><a href=#__codelineno-11-20>20</a></span>
+<span class=normal><a href=#__codelineno-11-21>21</a></span>
+<span class=normal><a href=#__codelineno-11-22>22</a></span>
+<span class=normal><a href=#__codelineno-11-23>23</a></span>
+<span class=normal><a href=#__codelineno-11-24>24</a></span>
+<span class=normal><a href=#__codelineno-11-25>25</a></span>
+<span class=normal><a href=#__codelineno-11-26>26</a></span>
+<span class=normal><a href=#__codelineno-11-27>27</a></span>
+<span class=normal><a href=#__codelineno-11-28>28</a></span>
+<span class=normal><a href=#__codelineno-11-29>29</a></span>
+<span class=normal><a href=#__codelineno-11-30>30</a></span>
+<span class=normal><a href=#__codelineno-11-31>31</a></span>
+<span class=normal><a href=#__codelineno-11-32>32</a></span>
+<span class=normal><a href=#__codelineno-11-33>33</a></span>
+<span class=normal><a href=#__codelineno-11-34>34</a></span>
+<span class=normal><a href=#__codelineno-11-35>35</a></span>
+<span class=normal><a href=#__codelineno-11-36>36</a></span>
+<span class=normal><a href=#__codelineno-11-37>37</a></span>
+<span class=normal><a href=#__codelineno-11-38>38</a></span>
+<span class=normal><a href=#__codelineno-11-39>39</a></span>
+<span class=normal><a href=#__codelineno-11-40>40</a></span>
+<span class=normal><a href=#__codelineno-11-41>41</a></span>
+<span class=normal><a href=#__codelineno-11-42>42</a></span>
+<span class=normal><a href=#__codelineno-11-43>43</a></span>
+<span class=normal><a href=#__codelineno-11-44>44</a></span>
+<span class=normal><a href=#__codelineno-11-45>45</a></span>
+<span class=normal><a href=#__codelineno-11-46>46</a></span>
+<span class=normal><a href=#__codelineno-11-47>47</a></span>
+<span class=normal><a href=#__codelineno-11-48>48</a></span>
+<span class=normal><a href=#__codelineno-11-49>49</a></span>
+<span class=normal><a href=#__codelineno-11-50>50</a></span>
+<span class=normal><a href=#__codelineno-11-51>51</a></span>
+<span class=normal><a href=#__codelineno-11-52>52</a></span>
+<span class=normal><a href=#__codelineno-11-53>53</a></span>
+<span class=normal><a href=#__codelineno-11-54>54</a></span>
+<span class=normal><a href=#__codelineno-11-55>55</a></span>
+<span class=normal><a href=#__codelineno-11-56>56</a></span>
+<span class=normal><a href=#__codelineno-11-57>57</a></span>
+<span class=normal><a href=#__codelineno-11-58>58</a></span>
+<span class=normal><a href=#__codelineno-11-59>59</a></span>
+<span class=normal><a href=#__codelineno-11-60>60</a></span>
+<span class=normal><a href=#__codelineno-11-61>61</a></span>
+<span class=normal><a href=#__codelineno-11-62>62</a></span>
+<span class=normal><a href=#__codelineno-11-63>63</a></span>
+<span class=normal><a href=#__codelineno-11-64>64</a></span>
+<span class=normal><a href=#__codelineno-11-65>65</a></span>
+<span class=normal><a href=#__codelineno-11-66>66</a></span>
+<span class=normal><a href=#__codelineno-11-67>67</a></span>
+<span class=normal><a href=#__codelineno-11-68>68</a></span>
+<span class=normal><a href=#__codelineno-11-69>69</a></span>
+<span class=normal><a href=#__codelineno-11-70>70</a></span>
+<span class=normal><a href=#__codelineno-11-71>71</a></span>
+<span class=normal><a href=#__codelineno-11-72>72</a></span>
+<span class=normal><a href=#__codelineno-11-73>73</a></span>
+<span class=normal><a href=#__codelineno-11-74>74</a></span>
+<span class=normal><a href=#__codelineno-11-75>75</a></span>
+<span class=normal><a href=#__codelineno-11-76>76</a></span>
+<span class=normal><a href=#__codelineno-11-77>77</a></span>
+<span class=normal><a href=#__codelineno-11-78>78</a></span>
+<span class=normal><a href=#__codelineno-11-79>79</a></span>
+<span class=normal><a href=#__codelineno-11-80>80</a></span>
+<span class=normal><a href=#__codelineno-11-81>81</a></span>
+<span class=normal><a href=#__codelineno-11-82>82</a></span>
+<span class=normal><a href=#__codelineno-11-83>83</a></span>
+<span class=normal><a href=#__codelineno-11-84>84</a></span>
+<span class=normal><a href=#__codelineno-11-85>85</a></span>
+<span class=normal><a href=#__codelineno-11-86>86</a></span>
+<span class=normal><a href=#__codelineno-11-87>87</a></span>
+<span class=normal><a href=#__codelineno-11-88>88</a></span>
+<span class=normal><a href=#__codelineno-11-89>89</a></span>
+<span class=normal><a href=#__codelineno-11-90>90</a></span>
+<span class=normal><a href=#__codelineno-11-91>91</a></span>
+<span class=normal><a href=#__codelineno-11-92>92</a></span>
+<span class=normal><a href=#__codelineno-11-93>93</a></span>
+<span class=normal><a href=#__codelineno-11-94>94</a></span>
+<span class=normal><a href=#__codelineno-11-95>95</a></span>
+<span class=normal><a href=#__codelineno-11-96>96</a></span>
+<span class=normal><a href=#__codelineno-11-97>97</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-11-1><a id=__codelineno-11-1 name=__codelineno-11-1></a><span class=k>use</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>traits</span><span class=p>::</span><span class=n>DStatePropagator</span><span class=p>;</span>
 </span><span id=__span-11-2><a id=__codelineno-11-2 name=__codelineno-11-2></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
 </span><span id=__span-11-3><a id=__codelineno-11-3 name=__codelineno-11-3></a><span class=k>use</span><span class=w> </span><span class=n>nalgebra</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>na</span><span class=p>;</span>
 </span><span id=__span-11-4><a id=__codelineno-11-4 name=__codelineno-11-4></a><span class=k>use</span><span class=w> </span><span class=n>std</span><span class=p>::</span><span class=kt>f64</span><span class=p>::</span><span class=n>consts</span><span class=p>::</span><span class=n>PI</span><span class=p>;</span>
@@ -632,94 +624,86 @@
 </span><span id=__span-11-15><a id=__codelineno-11-15 name=__codelineno-11-15></a><span class=w>    </span><span class=n>force_config</span><span class=p>.</span><span class=n>third_body</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=nb>Some</span><span class=p>(</span><span class=fm>vec!</span><span class=p>[</span><span class=n>bh</span><span class=p>::</span><span class=n>ThirdBody</span><span class=p>::</span><span class=n>Sun</span><span class=p>.</span><span class=n>into</span><span class=p>(),</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>ThirdBody</span><span class=p>::</span><span class=n>Moon</span><span class=p>.</span><span class=n>into</span><span class=p>()]);</span>
 </span><span id=__span-11-16><a id=__codelineno-11-16 name=__codelineno-11-16></a><span class=w>    </span><span class=n>force_config</span><span class=p>.</span><span class=n>tides</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>tides</span><span class=p>;</span>
 </span><span id=__span-11-17><a id=__codelineno-11-17 name=__codelineno-11-17></a>
-</span><span id=__span-11-18><a id=__codelineno-11-18 name=__codelineno-11-18></a><span class=w>    </span><span class=n>bh</span><span class=p>::</span><span class=n>DNumericalOrbitPropagator</span><span class=p>::</span><span class=n>new</span><span class=p>(</span>
-</span><span id=__span-11-19><a id=__codelineno-11-19 name=__codelineno-11-19></a><span class=w>        </span><span class=n>epoch</span><span class=p>,</span>
-</span><span id=__span-11-20><a id=__codelineno-11-20 name=__codelineno-11-20></a><span class=w>        </span><span class=n>state</span><span class=p>,</span>
-</span><span id=__span-11-21><a id=__codelineno-11-21 name=__codelineno-11-21></a><span class=w>        </span><span class=n>bh</span><span class=p>::</span><span class=n>NumericalPropagationConfig</span><span class=p>::</span><span class=n>default</span><span class=p>(),</span>
-</span><span id=__span-11-22><a id=__codelineno-11-22 name=__codelineno-11-22></a><span class=w>        </span><span class=n>force_config</span><span class=p>,</span>
-</span><span id=__span-11-23><a id=__codelineno-11-23 name=__codelineno-11-23></a><span class=w>        </span><span class=nb>None</span><span class=p>,</span>
-</span><span id=__span-11-24><a id=__codelineno-11-24 name=__codelineno-11-24></a><span class=w>        </span><span class=nb>None</span><span class=p>,</span>
-</span><span id=__span-11-25><a id=__codelineno-11-25 name=__codelineno-11-25></a><span class=w>        </span><span class=nb>None</span><span class=p>,</span>
-</span><span id=__span-11-26><a id=__codelineno-11-26 name=__codelineno-11-26></a><span class=w>        </span><span class=nb>None</span><span class=p>,</span>
-</span><span id=__span-11-27><a id=__codelineno-11-27 name=__codelineno-11-27></a><span class=w>    </span><span class=p>)</span>
-</span><span id=__span-11-28><a id=__codelineno-11-28 name=__codelineno-11-28></a><span class=w>    </span><span class=p>.</span><span class=n>unwrap</span><span class=p>()</span>
-</span><span id=__span-11-29><a id=__codelineno-11-29 name=__codelineno-11-29></a><span class=p>}</span>
-</span><span id=__span-11-30><a id=__codelineno-11-30 name=__codelineno-11-30></a>
-</span><span id=__span-11-31><a id=__codelineno-11-31 name=__codelineno-11-31></a><span class=k>fn</span><span class=w> </span><span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span>
-</span><span id=__span-11-32><a id=__codelineno-11-32 name=__codelineno-11-32></a><span class=w>    </span><span class=c1>// EOP is required for the ITRF frame transformations used inside the tidal model.</span>
-</span><span id=__span-11-33><a id=__codelineno-11-33 name=__codelineno-11-33></a><span class=w>    </span><span class=n>bh</span><span class=p>::</span><span class=n>initialize_eop</span><span class=p>().</span><span class=n>unwrap</span><span class=p>();</span>
-</span><span id=__span-11-34><a id=__codelineno-11-34 name=__codelineno-11-34></a><span class=w>    </span><span class=n>bh</span><span class=p>::</span><span class=n>initialize_sw</span><span class=p>().</span><span class=n>unwrap</span><span class=p>();</span>
-</span><span id=__span-11-35><a id=__codelineno-11-35 name=__codelineno-11-35></a>
-</span><span id=__span-11-36><a id=__codelineno-11-36 name=__codelineno-11-36></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>epoch</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>Epoch</span><span class=p>::</span><span class=n>from_datetime</span><span class=p>(</span><span class=mi>2024</span><span class=p>,</span><span class=w> </span><span class=mi>1</span><span class=p>,</span><span class=w> </span><span class=mi>1</span><span class=p>,</span><span class=w> </span><span class=mi>12</span><span class=p>,</span><span class=w> </span><span class=mi>0</span><span class=p>,</span><span class=w> </span><span class=mf>0.0</span><span class=p>,</span><span class=w> </span><span class=mf>0.0</span><span class=p>,</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>TimeSystem</span><span class=p>::</span><span class=n>UTC</span><span class=p>);</span>
-</span><span id=__span-11-37><a id=__codelineno-11-37 name=__codelineno-11-37></a>
-</span><span id=__span-11-38><a id=__codelineno-11-38 name=__codelineno-11-38></a><span class=w>    </span><span class=c1>// LEO satellite: 500 km altitude, slightly elliptical, sun-synchronous inclination.</span>
-</span><span id=__span-11-39><a id=__codelineno-11-39 name=__codelineno-11-39></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>oe</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>na</span><span class=p>::</span><span class=n>SVector</span><span class=p>::</span><span class=o>&lt;</span><span class=kt>f64</span><span class=p>,</span><span class=w> </span><span class=mi>6</span><span class=o>&gt;</span><span class=p>::</span><span class=n>new</span><span class=p>(</span>
-</span><span id=__span-11-40><a id=__codelineno-11-40 name=__codelineno-11-40></a><span class=w>        </span><span class=n>bh</span><span class=p>::</span><span class=n>R_EARTH</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=mf>500e3</span><span class=p>,</span><span class=w> </span><span class=c1>// semi-major axis (m)</span>
-</span><span id=__span-11-41><a id=__codelineno-11-41 name=__codelineno-11-41></a><span class=w>        </span><span class=mf>0.001</span><span class=p>,</span><span class=w>               </span><span class=c1>// eccentricity</span>
-</span><span id=__span-11-42><a id=__codelineno-11-42 name=__codelineno-11-42></a><span class=w>        </span><span class=mf>97.8</span><span class=p>,</span><span class=w>                </span><span class=c1>// inclination (deg)</span>
-</span><span id=__span-11-43><a id=__codelineno-11-43 name=__codelineno-11-43></a><span class=w>        </span><span class=mf>15.0</span><span class=p>,</span><span class=w>                </span><span class=c1>// RAAN (deg)</span>
-</span><span id=__span-11-44><a id=__codelineno-11-44 name=__codelineno-11-44></a><span class=w>        </span><span class=mf>30.0</span><span class=p>,</span><span class=w>                </span><span class=c1>// argument of perigee (deg)</span>
-</span><span id=__span-11-45><a id=__codelineno-11-45 name=__codelineno-11-45></a><span class=w>        </span><span class=mf>45.0</span><span class=p>,</span><span class=w>                </span><span class=c1>// mean anomaly (deg)</span>
-</span><span id=__span-11-46><a id=__codelineno-11-46 name=__codelineno-11-46></a><span class=w>    </span><span class=p>);</span>
-</span><span id=__span-11-47><a id=__codelineno-11-47 name=__codelineno-11-47></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>state0</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>state_koe_to_eci</span><span class=p>(</span><span class=n>oe</span><span class=p>,</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>AngleFormat</span><span class=p>::</span><span class=n>Degrees</span><span class=p>);</span>
-</span><span id=__span-11-48><a id=__codelineno-11-48 name=__codelineno-11-48></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>state_dv</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>na</span><span class=p>::</span><span class=n>DVector</span><span class=p>::</span><span class=n>from_column_slice</span><span class=p>(</span><span class=n>state0</span><span class=p>.</span><span class=n>as_slice</span><span class=p>());</span>
-</span><span id=__span-11-49><a id=__codelineno-11-49 name=__codelineno-11-49></a>
-</span><span id=__span-11-50><a id=__codelineno-11-50 name=__codelineno-11-50></a><span class=w>    </span><span class=c1>// Propagate one full orbital period with and without solid Earth tides.</span>
-</span><span id=__span-11-51><a id=__codelineno-11-51 name=__codelineno-11-51></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>sma</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>R_EARTH</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=mf>500e3</span><span class=p>;</span>
-</span><span id=__span-11-52><a id=__codelineno-11-52 name=__codelineno-11-52></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>period</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>2.0</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=n>PI</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=p>(</span><span class=n>sma</span><span class=p>.</span><span class=n>powi</span><span class=p>(</span><span class=mi>3</span><span class=p>)</span><span class=w> </span><span class=o>/</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>GM_EARTH</span><span class=p>).</span><span class=n>sqrt</span><span class=p>();</span>
-</span><span id=__span-11-53><a id=__codelineno-11-53 name=__codelineno-11-53></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>n_steps</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mi>90</span><span class=p>;</span><span class=w> </span><span class=c1>// check every ~minute</span>
-</span><span id=__span-11-54><a id=__codelineno-11-54 name=__codelineno-11-54></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>dt</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>period</span><span class=w> </span><span class=o>/</span><span class=w> </span><span class=n>n_steps</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=kt>f64</span><span class=p>;</span>
-</span><span id=__span-11-55><a id=__codelineno-11-55 name=__codelineno-11-55></a>
-</span><span id=__span-11-56><a id=__codelineno-11-56 name=__codelineno-11-56></a><span class=w>    </span><span class=c1>// Tides-ON configuration: IERS Step 1 + Step 2 (frequency-dependent) solid</span>
-</span><span id=__span-11-57><a id=__codelineno-11-57 name=__codelineno-11-57></a><span class=w>    </span><span class=c1>// Earth tides plus the solid Earth pole tide, FES2004 ocean tides (30x30,</span>
-</span><span id=__span-11-58><a id=__codelineno-11-58 name=__codelineno-11-58></a><span class=w>    </span><span class=c1>// admittance-completed) plus the ocean pole tide, and Auto permanent-tide</span>
-</span><span id=__span-11-59><a id=__codelineno-11-59 name=__codelineno-11-59></a><span class=w>    </span><span class=c1>// handling (converts the model&#39;s C̄20 to conventional tide-free).</span>
-</span><span id=__span-11-60><a id=__codelineno-11-60 name=__codelineno-11-60></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>tides_on</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>TidesConfiguration</span><span class=w> </span><span class=p>{</span>
-</span><span id=__span-11-61><a id=__codelineno-11-61 name=__codelineno-11-61></a><span class=w>        </span><span class=n>ephemeris_source</span><span class=p>:</span><span class=w> </span><span class=nc>bh</span><span class=p>::</span><span class=n>EphemerisSource</span><span class=p>::</span><span class=n>LowPrecision</span><span class=p>,</span>
-</span><span id=__span-11-62><a id=__codelineno-11-62 name=__codelineno-11-62></a><span class=w>        </span><span class=n>permanent</span><span class=p>:</span><span class=w> </span><span class=nc>bh</span><span class=p>::</span><span class=n>PermanentTideConfig</span><span class=p>::</span><span class=n>Auto</span><span class=p>,</span>
-</span><span id=__span-11-63><a id=__codelineno-11-63 name=__codelineno-11-63></a><span class=w>        </span><span class=n>solid</span><span class=p>:</span><span class=w> </span><span class=nb>Some</span><span class=p>(</span><span class=n>bh</span><span class=p>::</span><span class=n>SolidTideConfig</span><span class=w> </span><span class=p>{</span>
-</span><span id=__span-11-64><a id=__codelineno-11-64 name=__codelineno-11-64></a><span class=w>            </span><span class=n>frequency_dependent</span><span class=p>:</span><span class=w> </span><span class=nc>true</span><span class=p>,</span>
-</span><span id=__span-11-65><a id=__codelineno-11-65 name=__codelineno-11-65></a><span class=w>            </span><span class=n>pole_tide</span><span class=p>:</span><span class=w> </span><span class=nc>true</span><span class=p>,</span>
-</span><span id=__span-11-66><a id=__codelineno-11-66 name=__codelineno-11-66></a><span class=w>        </span><span class=p>}),</span>
-</span><span id=__span-11-67><a id=__codelineno-11-67 name=__codelineno-11-67></a><span class=w>        </span><span class=n>ocean</span><span class=p>:</span><span class=w> </span><span class=nb>Some</span><span class=p>(</span><span class=n>bh</span><span class=p>::</span><span class=n>OceanTideConfig</span><span class=w> </span><span class=p>{</span>
-</span><span id=__span-11-68><a id=__codelineno-11-68 name=__codelineno-11-68></a><span class=w>            </span><span class=n>degree</span><span class=p>:</span><span class=w> </span><span class=mi>30</span><span class=p>,</span>
-</span><span id=__span-11-69><a id=__codelineno-11-69 name=__codelineno-11-69></a><span class=w>            </span><span class=n>order</span><span class=p>:</span><span class=w> </span><span class=mi>30</span><span class=p>,</span>
-</span><span id=__span-11-70><a id=__codelineno-11-70 name=__codelineno-11-70></a><span class=w>            </span><span class=n>include_admittance</span><span class=p>:</span><span class=w> </span><span class=nc>true</span><span class=p>,</span>
-</span><span id=__span-11-71><a id=__codelineno-11-71 name=__codelineno-11-71></a><span class=w>            </span><span class=n>pole_tide</span><span class=p>:</span><span class=w> </span><span class=nc>true</span><span class=p>,</span>
-</span><span id=__span-11-72><a id=__codelineno-11-72 name=__codelineno-11-72></a><span class=w>        </span><span class=p>}),</span>
-</span><span id=__span-11-73><a id=__codelineno-11-73 name=__codelineno-11-73></a><span class=w>    </span><span class=p>};</span>
-</span><span id=__span-11-74><a id=__codelineno-11-74 name=__codelineno-11-74></a>
-</span><span id=__span-11-75><a id=__codelineno-11-75 name=__codelineno-11-75></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>prop_on</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>make_propagator</span><span class=p>(</span><span class=n>epoch</span><span class=p>,</span><span class=w> </span><span class=n>state_dv</span><span class=p>.</span><span class=n>clone</span><span class=p>(),</span><span class=w> </span><span class=nb>Some</span><span class=p>(</span><span class=n>tides_on</span><span class=p>));</span>
-</span><span id=__span-11-76><a id=__codelineno-11-76 name=__codelineno-11-76></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>prop_off</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>make_propagator</span><span class=p>(</span><span class=n>epoch</span><span class=p>,</span><span class=w> </span><span class=n>state_dv</span><span class=p>.</span><span class=n>clone</span><span class=p>(),</span><span class=w> </span><span class=nb>None</span><span class=p>);</span>
-</span><span id=__span-11-77><a id=__codelineno-11-77 name=__codelineno-11-77></a>
-</span><span id=__span-11-78><a id=__codelineno-11-78 name=__codelineno-11-78></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>max_diff_m</span><span class=p>:</span><span class=w> </span><span class=kt>f64</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>0.0</span><span class=p>;</span>
-</span><span id=__span-11-79><a id=__codelineno-11-79 name=__codelineno-11-79></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>t</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>epoch</span><span class=p>;</span>
-</span><span id=__span-11-80><a id=__codelineno-11-80 name=__codelineno-11-80></a><span class=w>    </span><span class=k>for</span><span class=w> </span><span class=n>_</span><span class=w> </span><span class=k>in</span><span class=w> </span><span class=mi>0</span><span class=o>..</span><span class=n>n_steps</span><span class=w> </span><span class=p>{</span>
-</span><span id=__span-11-81><a id=__codelineno-11-81 name=__codelineno-11-81></a><span class=w>        </span><span class=n>t</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>t</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=n>dt</span><span class=p>;</span>
-</span><span id=__span-11-82><a id=__codelineno-11-82 name=__codelineno-11-82></a><span class=w>        </span><span class=n>prop_on</span><span class=p>.</span><span class=n>propagate_to</span><span class=p>(</span><span class=n>t</span><span class=p>);</span>
-</span><span id=__span-11-83><a id=__codelineno-11-83 name=__codelineno-11-83></a><span class=w>        </span><span class=n>prop_off</span><span class=p>.</span><span class=n>propagate_to</span><span class=p>(</span><span class=n>t</span><span class=p>);</span>
+</span><span id=__span-11-18><a id=__codelineno-11-18 name=__codelineno-11-18></a><span class=w>    </span><span class=n>bh</span><span class=p>::</span><span class=n>DNumericalOrbitPropagator</span><span class=p>::</span><span class=n>builder</span><span class=p>(</span><span class=n>epoch</span><span class=p>,</span><span class=w> </span><span class=n>state</span><span class=p>,</span><span class=w> </span><span class=n>force_config</span><span class=p>)</span>
+</span><span id=__span-11-19><a id=__codelineno-11-19 name=__codelineno-11-19></a><span class=w>        </span><span class=p>.</span><span class=n>build</span><span class=p>()</span>
+</span><span id=__span-11-20><a id=__codelineno-11-20 name=__codelineno-11-20></a><span class=w>        </span><span class=p>.</span><span class=n>unwrap</span><span class=p>()</span>
+</span><span id=__span-11-21><a id=__codelineno-11-21 name=__codelineno-11-21></a><span class=p>}</span>
+</span><span id=__span-11-22><a id=__codelineno-11-22 name=__codelineno-11-22></a>
+</span><span id=__span-11-23><a id=__codelineno-11-23 name=__codelineno-11-23></a><span class=k>fn</span><span class=w> </span><span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span>
+</span><span id=__span-11-24><a id=__codelineno-11-24 name=__codelineno-11-24></a><span class=w>    </span><span class=c1>// EOP is required for the ITRF frame transformations used inside the tidal model.</span>
+</span><span id=__span-11-25><a id=__codelineno-11-25 name=__codelineno-11-25></a><span class=w>    </span><span class=n>bh</span><span class=p>::</span><span class=n>initialize_eop</span><span class=p>().</span><span class=n>unwrap</span><span class=p>();</span>
+</span><span id=__span-11-26><a id=__codelineno-11-26 name=__codelineno-11-26></a><span class=w>    </span><span class=n>bh</span><span class=p>::</span><span class=n>initialize_sw</span><span class=p>().</span><span class=n>unwrap</span><span class=p>();</span>
+</span><span id=__span-11-27><a id=__codelineno-11-27 name=__codelineno-11-27></a>
+</span><span id=__span-11-28><a id=__codelineno-11-28 name=__codelineno-11-28></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>epoch</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>Epoch</span><span class=p>::</span><span class=n>from_datetime</span><span class=p>(</span><span class=mi>2024</span><span class=p>,</span><span class=w> </span><span class=mi>1</span><span class=p>,</span><span class=w> </span><span class=mi>1</span><span class=p>,</span><span class=w> </span><span class=mi>12</span><span class=p>,</span><span class=w> </span><span class=mi>0</span><span class=p>,</span><span class=w> </span><span class=mf>0.0</span><span class=p>,</span><span class=w> </span><span class=mf>0.0</span><span class=p>,</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>TimeSystem</span><span class=p>::</span><span class=n>UTC</span><span class=p>);</span>
+</span><span id=__span-11-29><a id=__codelineno-11-29 name=__codelineno-11-29></a>
+</span><span id=__span-11-30><a id=__codelineno-11-30 name=__codelineno-11-30></a><span class=w>    </span><span class=c1>// LEO satellite: 500 km altitude, slightly elliptical, sun-synchronous inclination.</span>
+</span><span id=__span-11-31><a id=__codelineno-11-31 name=__codelineno-11-31></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>oe</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>na</span><span class=p>::</span><span class=n>SVector</span><span class=p>::</span><span class=o>&lt;</span><span class=kt>f64</span><span class=p>,</span><span class=w> </span><span class=mi>6</span><span class=o>&gt;</span><span class=p>::</span><span class=n>new</span><span class=p>(</span>
+</span><span id=__span-11-32><a id=__codelineno-11-32 name=__codelineno-11-32></a><span class=w>        </span><span class=n>bh</span><span class=p>::</span><span class=n>R_EARTH</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=mf>500e3</span><span class=p>,</span><span class=w> </span><span class=c1>// semi-major axis (m)</span>
+</span><span id=__span-11-33><a id=__codelineno-11-33 name=__codelineno-11-33></a><span class=w>        </span><span class=mf>0.001</span><span class=p>,</span><span class=w>               </span><span class=c1>// eccentricity</span>
+</span><span id=__span-11-34><a id=__codelineno-11-34 name=__codelineno-11-34></a><span class=w>        </span><span class=mf>97.8</span><span class=p>,</span><span class=w>                </span><span class=c1>// inclination (deg)</span>
+</span><span id=__span-11-35><a id=__codelineno-11-35 name=__codelineno-11-35></a><span class=w>        </span><span class=mf>15.0</span><span class=p>,</span><span class=w>                </span><span class=c1>// RAAN (deg)</span>
+</span><span id=__span-11-36><a id=__codelineno-11-36 name=__codelineno-11-36></a><span class=w>        </span><span class=mf>30.0</span><span class=p>,</span><span class=w>                </span><span class=c1>// argument of perigee (deg)</span>
+</span><span id=__span-11-37><a id=__codelineno-11-37 name=__codelineno-11-37></a><span class=w>        </span><span class=mf>45.0</span><span class=p>,</span><span class=w>                </span><span class=c1>// mean anomaly (deg)</span>
+</span><span id=__span-11-38><a id=__codelineno-11-38 name=__codelineno-11-38></a><span class=w>    </span><span class=p>);</span>
+</span><span id=__span-11-39><a id=__codelineno-11-39 name=__codelineno-11-39></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>state0</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>state_koe_to_eci</span><span class=p>(</span><span class=n>oe</span><span class=p>,</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>AngleFormat</span><span class=p>::</span><span class=n>Degrees</span><span class=p>);</span>
+</span><span id=__span-11-40><a id=__codelineno-11-40 name=__codelineno-11-40></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>state_dv</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>na</span><span class=p>::</span><span class=n>DVector</span><span class=p>::</span><span class=n>from_column_slice</span><span class=p>(</span><span class=n>state0</span><span class=p>.</span><span class=n>as_slice</span><span class=p>());</span>
+</span><span id=__span-11-41><a id=__codelineno-11-41 name=__codelineno-11-41></a>
+</span><span id=__span-11-42><a id=__codelineno-11-42 name=__codelineno-11-42></a><span class=w>    </span><span class=c1>// Propagate one full orbital period with and without solid Earth tides.</span>
+</span><span id=__span-11-43><a id=__codelineno-11-43 name=__codelineno-11-43></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>sma</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>R_EARTH</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=mf>500e3</span><span class=p>;</span>
+</span><span id=__span-11-44><a id=__codelineno-11-44 name=__codelineno-11-44></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>period</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>2.0</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=n>PI</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=p>(</span><span class=n>sma</span><span class=p>.</span><span class=n>powi</span><span class=p>(</span><span class=mi>3</span><span class=p>)</span><span class=w> </span><span class=o>/</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>GM_EARTH</span><span class=p>).</span><span class=n>sqrt</span><span class=p>();</span>
+</span><span id=__span-11-45><a id=__codelineno-11-45 name=__codelineno-11-45></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>n_steps</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mi>90</span><span class=p>;</span><span class=w> </span><span class=c1>// check every ~minute</span>
+</span><span id=__span-11-46><a id=__codelineno-11-46 name=__codelineno-11-46></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>dt</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>period</span><span class=w> </span><span class=o>/</span><span class=w> </span><span class=n>n_steps</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=kt>f64</span><span class=p>;</span>
+</span><span id=__span-11-47><a id=__codelineno-11-47 name=__codelineno-11-47></a>
+</span><span id=__span-11-48><a id=__codelineno-11-48 name=__codelineno-11-48></a><span class=w>    </span><span class=c1>// Tides-ON configuration: IERS Step 1 + Step 2 (frequency-dependent) solid</span>
+</span><span id=__span-11-49><a id=__codelineno-11-49 name=__codelineno-11-49></a><span class=w>    </span><span class=c1>// Earth tides plus the solid Earth pole tide, FES2004 ocean tides (30x30,</span>
+</span><span id=__span-11-50><a id=__codelineno-11-50 name=__codelineno-11-50></a><span class=w>    </span><span class=c1>// admittance-completed) plus the ocean pole tide, and Auto permanent-tide</span>
+</span><span id=__span-11-51><a id=__codelineno-11-51 name=__codelineno-11-51></a><span class=w>    </span><span class=c1>// handling (converts the model&#39;s C̄20 to conventional tide-free).</span>
+</span><span id=__span-11-52><a id=__codelineno-11-52 name=__codelineno-11-52></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>tides_on</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>TidesConfiguration</span><span class=w> </span><span class=p>{</span>
+</span><span id=__span-11-53><a id=__codelineno-11-53 name=__codelineno-11-53></a><span class=w>        </span><span class=n>ephemeris_source</span><span class=p>:</span><span class=w> </span><span class=nc>bh</span><span class=p>::</span><span class=n>EphemerisSource</span><span class=p>::</span><span class=n>LowPrecision</span><span class=p>,</span>
+</span><span id=__span-11-54><a id=__codelineno-11-54 name=__codelineno-11-54></a><span class=w>        </span><span class=n>permanent</span><span class=p>:</span><span class=w> </span><span class=nc>bh</span><span class=p>::</span><span class=n>PermanentTideConfig</span><span class=p>::</span><span class=n>Auto</span><span class=p>,</span>
+</span><span id=__span-11-55><a id=__codelineno-11-55 name=__codelineno-11-55></a><span class=w>        </span><span class=n>solid</span><span class=p>:</span><span class=w> </span><span class=nb>Some</span><span class=p>(</span><span class=n>bh</span><span class=p>::</span><span class=n>SolidTideConfig</span><span class=w> </span><span class=p>{</span>
+</span><span id=__span-11-56><a id=__codelineno-11-56 name=__codelineno-11-56></a><span class=w>            </span><span class=n>frequency_dependent</span><span class=p>:</span><span class=w> </span><span class=nc>true</span><span class=p>,</span>
+</span><span id=__span-11-57><a id=__codelineno-11-57 name=__codelineno-11-57></a><span class=w>            </span><span class=n>pole_tide</span><span class=p>:</span><span class=w> </span><span class=nc>true</span><span class=p>,</span>
+</span><span id=__span-11-58><a id=__codelineno-11-58 name=__codelineno-11-58></a><span class=w>        </span><span class=p>}),</span>
+</span><span id=__span-11-59><a id=__codelineno-11-59 name=__codelineno-11-59></a><span class=w>        </span><span class=n>ocean</span><span class=p>:</span><span class=w> </span><span class=nb>Some</span><span class=p>(</span><span class=n>bh</span><span class=p>::</span><span class=n>OceanTideConfig</span><span class=w> </span><span class=p>{</span>
+</span><span id=__span-11-60><a id=__codelineno-11-60 name=__codelineno-11-60></a><span class=w>            </span><span class=n>degree</span><span class=p>:</span><span class=w> </span><span class=mi>30</span><span class=p>,</span>
+</span><span id=__span-11-61><a id=__codelineno-11-61 name=__codelineno-11-61></a><span class=w>            </span><span class=n>order</span><span class=p>:</span><span class=w> </span><span class=mi>30</span><span class=p>,</span>
+</span><span id=__span-11-62><a id=__codelineno-11-62 name=__codelineno-11-62></a><span class=w>            </span><span class=n>include_admittance</span><span class=p>:</span><span class=w> </span><span class=nc>true</span><span class=p>,</span>
+</span><span id=__span-11-63><a id=__codelineno-11-63 name=__codelineno-11-63></a><span class=w>            </span><span class=n>pole_tide</span><span class=p>:</span><span class=w> </span><span class=nc>true</span><span class=p>,</span>
+</span><span id=__span-11-64><a id=__codelineno-11-64 name=__codelineno-11-64></a><span class=w>        </span><span class=p>}),</span>
+</span><span id=__span-11-65><a id=__codelineno-11-65 name=__codelineno-11-65></a><span class=w>    </span><span class=p>};</span>
+</span><span id=__span-11-66><a id=__codelineno-11-66 name=__codelineno-11-66></a>
+</span><span id=__span-11-67><a id=__codelineno-11-67 name=__codelineno-11-67></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>prop_on</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>make_propagator</span><span class=p>(</span><span class=n>epoch</span><span class=p>,</span><span class=w> </span><span class=n>state_dv</span><span class=p>.</span><span class=n>clone</span><span class=p>(),</span><span class=w> </span><span class=nb>Some</span><span class=p>(</span><span class=n>tides_on</span><span class=p>));</span>
+</span><span id=__span-11-68><a id=__codelineno-11-68 name=__codelineno-11-68></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>prop_off</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>make_propagator</span><span class=p>(</span><span class=n>epoch</span><span class=p>,</span><span class=w> </span><span class=n>state_dv</span><span class=p>.</span><span class=n>clone</span><span class=p>(),</span><span class=w> </span><span class=nb>None</span><span class=p>);</span>
+</span><span id=__span-11-69><a id=__codelineno-11-69 name=__codelineno-11-69></a>
+</span><span id=__span-11-70><a id=__codelineno-11-70 name=__codelineno-11-70></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>max_diff_m</span><span class=p>:</span><span class=w> </span><span class=kt>f64</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>0.0</span><span class=p>;</span>
+</span><span id=__span-11-71><a id=__codelineno-11-71 name=__codelineno-11-71></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>t</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>epoch</span><span class=p>;</span>
+</span><span id=__span-11-72><a id=__codelineno-11-72 name=__codelineno-11-72></a><span class=w>    </span><span class=k>for</span><span class=w> </span><span class=n>_</span><span class=w> </span><span class=k>in</span><span class=w> </span><span class=mi>0</span><span class=o>..</span><span class=n>n_steps</span><span class=w> </span><span class=p>{</span>
+</span><span id=__span-11-73><a id=__codelineno-11-73 name=__codelineno-11-73></a><span class=w>        </span><span class=n>t</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>t</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=n>dt</span><span class=p>;</span>
+</span><span id=__span-11-74><a id=__codelineno-11-74 name=__codelineno-11-74></a><span class=w>        </span><span class=n>prop_on</span><span class=p>.</span><span class=n>propagate_to</span><span class=p>(</span><span class=n>t</span><span class=p>);</span>
+</span><span id=__span-11-75><a id=__codelineno-11-75 name=__codelineno-11-75></a><span class=w>        </span><span class=n>prop_off</span><span class=p>.</span><span class=n>propagate_to</span><span class=p>(</span><span class=n>t</span><span class=p>);</span>
+</span><span id=__span-11-76><a id=__codelineno-11-76 name=__codelineno-11-76></a>
+</span><span id=__span-11-77><a id=__codelineno-11-77 name=__codelineno-11-77></a><span class=w>        </span><span class=kd>let</span><span class=w> </span><span class=n>pos_on</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>prop_on</span><span class=p>.</span><span class=n>current_state</span><span class=p>().</span><span class=n>fixed_rows</span><span class=p>::</span><span class=o>&lt;</span><span class=mi>3</span><span class=o>&gt;</span><span class=p>(</span><span class=mi>0</span><span class=p>).</span><span class=n>into_owned</span><span class=p>();</span>
+</span><span id=__span-11-78><a id=__codelineno-11-78 name=__codelineno-11-78></a><span class=w>        </span><span class=kd>let</span><span class=w> </span><span class=n>pos_off</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>prop_off</span><span class=p>.</span><span class=n>current_state</span><span class=p>().</span><span class=n>fixed_rows</span><span class=p>::</span><span class=o>&lt;</span><span class=mi>3</span><span class=o>&gt;</span><span class=p>(</span><span class=mi>0</span><span class=p>).</span><span class=n>into_owned</span><span class=p>();</span>
+</span><span id=__span-11-79><a id=__codelineno-11-79 name=__codelineno-11-79></a><span class=w>        </span><span class=kd>let</span><span class=w> </span><span class=n>diff</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=p>(</span><span class=n>pos_on</span><span class=w> </span><span class=o>-</span><span class=w> </span><span class=n>pos_off</span><span class=p>).</span><span class=n>norm</span><span class=p>();</span>
+</span><span id=__span-11-80><a id=__codelineno-11-80 name=__codelineno-11-80></a><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=n>diff</span><span class=w> </span><span class=o>&gt;</span><span class=w> </span><span class=n>max_diff_m</span><span class=w> </span><span class=p>{</span>
+</span><span id=__span-11-81><a id=__codelineno-11-81 name=__codelineno-11-81></a><span class=w>            </span><span class=n>max_diff_m</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>diff</span><span class=p>;</span>
+</span><span id=__span-11-82><a id=__codelineno-11-82 name=__codelineno-11-82></a><span class=w>        </span><span class=p>}</span>
+</span><span id=__span-11-83><a id=__codelineno-11-83 name=__codelineno-11-83></a><span class=w>    </span><span class=p>}</span>
 </span><span id=__span-11-84><a id=__codelineno-11-84 name=__codelineno-11-84></a>
-</span><span id=__span-11-85><a id=__codelineno-11-85 name=__codelineno-11-85></a><span class=w>        </span><span class=kd>let</span><span class=w> </span><span class=n>pos_on</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>prop_on</span><span class=p>.</span><span class=n>current_state</span><span class=p>().</span><span class=n>fixed_rows</span><span class=p>::</span><span class=o>&lt;</span><span class=mi>3</span><span class=o>&gt;</span><span class=p>(</span><span class=mi>0</span><span class=p>).</span><span class=n>into_owned</span><span class=p>();</span>
-</span><span id=__span-11-86><a id=__codelineno-11-86 name=__codelineno-11-86></a><span class=w>        </span><span class=kd>let</span><span class=w> </span><span class=n>pos_off</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>prop_off</span><span class=p>.</span><span class=n>current_state</span><span class=p>().</span><span class=n>fixed_rows</span><span class=p>::</span><span class=o>&lt;</span><span class=mi>3</span><span class=o>&gt;</span><span class=p>(</span><span class=mi>0</span><span class=p>).</span><span class=n>into_owned</span><span class=p>();</span>
-</span><span id=__span-11-87><a id=__codelineno-11-87 name=__codelineno-11-87></a><span class=w>        </span><span class=kd>let</span><span class=w> </span><span class=n>diff</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=p>(</span><span class=n>pos_on</span><span class=w> </span><span class=o>-</span><span class=w> </span><span class=n>pos_off</span><span class=p>).</span><span class=n>norm</span><span class=p>();</span>
-</span><span id=__span-11-88><a id=__codelineno-11-88 name=__codelineno-11-88></a><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=n>diff</span><span class=w> </span><span class=o>&gt;</span><span class=w> </span><span class=n>max_diff_m</span><span class=w> </span><span class=p>{</span>
-</span><span id=__span-11-89><a id=__codelineno-11-89 name=__codelineno-11-89></a><span class=w>            </span><span class=n>max_diff_m</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>diff</span><span class=p>;</span>
-</span><span id=__span-11-90><a id=__codelineno-11-90 name=__codelineno-11-90></a><span class=w>        </span><span class=p>}</span>
-</span><span id=__span-11-91><a id=__codelineno-11-91 name=__codelineno-11-91></a><span class=w>    </span><span class=p>}</span>
-</span><span id=__span-11-92><a id=__codelineno-11-92 name=__codelineno-11-92></a>
-</span><span id=__span-11-93><a id=__codelineno-11-93 name=__codelineno-11-93></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Tidal corrections example&quot;</span><span class=p>);</span>
-</span><span id=__span-11-94><a id=__codelineno-11-94 name=__codelineno-11-94></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;  Orbital period:               {:.1} min&quot;</span><span class=p>,</span><span class=w> </span><span class=n>period</span><span class=w> </span><span class=o>/</span><span class=w> </span><span class=mf>60.0</span><span class=p>);</span>
-</span><span id=__span-11-95><a id=__codelineno-11-95 name=__codelineno-11-95></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span>
-</span><span id=__span-11-96><a id=__codelineno-11-96 name=__codelineno-11-96></a><span class=w>        </span><span class=s>&quot;  Max tidal position difference: {:.3} m  ({:.3} km)&quot;</span><span class=p>,</span>
-</span><span id=__span-11-97><a id=__codelineno-11-97 name=__codelineno-11-97></a><span class=w>        </span><span class=n>max_diff_m</span><span class=p>,</span>
-</span><span id=__span-11-98><a id=__codelineno-11-98 name=__codelineno-11-98></a><span class=w>        </span><span class=n>max_diff_m</span><span class=w> </span><span class=o>/</span><span class=w> </span><span class=mf>1e3</span>
-</span><span id=__span-11-99><a id=__codelineno-11-99 name=__codelineno-11-99></a><span class=w>    </span><span class=p>);</span>
-</span><span id=__span-11-100><a id=__codelineno-11-100 name=__codelineno-11-100></a><span class=w>    </span><span class=fm>assert!</span><span class=p>(</span>
-</span><span id=__span-11-101><a id=__codelineno-11-101 name=__codelineno-11-101></a><span class=w>        </span><span class=n>max_diff_m</span><span class=w> </span><span class=o>&gt;</span><span class=w> </span><span class=mf>0.0</span><span class=w> </span><span class=o>&amp;&amp;</span><span class=w> </span><span class=n>max_diff_m</span><span class=w> </span><span class=o>&lt;</span><span class=w> </span><span class=mf>1000.0</span><span class=p>,</span>
-</span><span id=__span-11-102><a id=__codelineno-11-102 name=__codelineno-11-102></a><span class=w>        </span><span class=s>&quot;Unexpected tidal difference: {max_diff_m} m&quot;</span>
-</span><span id=__span-11-103><a id=__codelineno-11-103 name=__codelineno-11-103></a><span class=w>    </span><span class=p>);</span>
-</span><span id=__span-11-104><a id=__codelineno-11-104 name=__codelineno-11-104></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Example validated successfully!&quot;</span><span class=p>);</span>
-</span><span id=__span-11-105><a id=__codelineno-11-105 name=__codelineno-11-105></a><span class=p>}</span>
+</span><span id=__span-11-85><a id=__codelineno-11-85 name=__codelineno-11-85></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Tidal corrections example&quot;</span><span class=p>);</span>
+</span><span id=__span-11-86><a id=__codelineno-11-86 name=__codelineno-11-86></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;  Orbital period:               {:.1} min&quot;</span><span class=p>,</span><span class=w> </span><span class=n>period</span><span class=w> </span><span class=o>/</span><span class=w> </span><span class=mf>60.0</span><span class=p>);</span>
+</span><span id=__span-11-87><a id=__codelineno-11-87 name=__codelineno-11-87></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span>
+</span><span id=__span-11-88><a id=__codelineno-11-88 name=__codelineno-11-88></a><span class=w>        </span><span class=s>&quot;  Max tidal position difference: {:.3} m  ({:.3} km)&quot;</span><span class=p>,</span>
+</span><span id=__span-11-89><a id=__codelineno-11-89 name=__codelineno-11-89></a><span class=w>        </span><span class=n>max_diff_m</span><span class=p>,</span>
+</span><span id=__span-11-90><a id=__codelineno-11-90 name=__codelineno-11-90></a><span class=w>        </span><span class=n>max_diff_m</span><span class=w> </span><span class=o>/</span><span class=w> </span><span class=mf>1e3</span>
+</span><span id=__span-11-91><a id=__codelineno-11-91 name=__codelineno-11-91></a><span class=w>    </span><span class=p>);</span>
+</span><span id=__span-11-92><a id=__codelineno-11-92 name=__codelineno-11-92></a><span class=w>    </span><span class=fm>assert!</span><span class=p>(</span>
+</span><span id=__span-11-93><a id=__codelineno-11-93 name=__codelineno-11-93></a><span class=w>        </span><span class=n>max_diff_m</span><span class=w> </span><span class=o>&gt;</span><span class=w> </span><span class=mf>0.0</span><span class=w> </span><span class=o>&amp;&amp;</span><span class=w> </span><span class=n>max_diff_m</span><span class=w> </span><span class=o>&lt;</span><span class=w> </span><span class=mf>1000.0</span><span class=p>,</span>
+</span><span id=__span-11-94><a id=__codelineno-11-94 name=__codelineno-11-94></a><span class=w>        </span><span class=s>&quot;Unexpected tidal difference: {max_diff_m} m&quot;</span>
+</span><span id=__span-11-95><a id=__codelineno-11-95 name=__codelineno-11-95></a><span class=w>    </span><span class=p>);</span>
+</span><span id=__span-11-96><a id=__codelineno-11-96 name=__codelineno-11-96></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Example validated successfully!&quot;</span><span class=p>);</span>
+</span><span id=__span-11-97><a id=__codelineno-11-97 name=__codelineno-11-97></a><span class=p>}</span>
 </span></code></pre></div></td></tr></table></div> </div> </div> </div> <details class=example> <summary>Output</summary> <div class="tabbed-set tabbed-alternate" data-tabs=7:2><input checked=checked id=__tabbed_7_1 name=__tabbed_7 type=radio><input id=__tabbed_7_2 name=__tabbed_7 type=radio><div class=tabbed-labels><label for=__tabbed_7_1>Python</label><label for=__tabbed_7_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-12-1>1</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-12-1><a id=__codelineno-12-1 name=__codelineno-12-1></a>
 </span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-13-1>1</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-13-1><a id=__codelineno-13-1 name=__codelineno-13-1></a>
 </span></code></pre></div></td></tr></table></div> </div> </div> </div> </details> <h2 id=evaluation-cost>Evaluation Cost<a class=headerlink href=#evaluation-cost title="Permanent link">&para;</a></h2> <p>When gravity is configured as spherical harmonics, the propagator folds the static <span class=arithmatex>\(\bar{C}_{nm}/\bar{S}_{nm}\)</span> coefficients together with every enabled tidal correction (solid Step 1/2, both pole tides, and the ocean tide) into a single packed coefficient table, evaluated with one Clenshaw pass per dynamics call. This fold-in is exact by linearity of the spherical-harmonic sum: the marginal cost of enabling tides is only the per-epoch <span class=arithmatex>\(\Delta\bar{C}_{nm}/\Delta\bar{S}_{nm}\)</span> computation, not a second gravity evaluation. Point-mass and zonal gravity configurations still get a delta-only field, since there is no static spherical-harmonic table to fold into.</p> <h2 id=ephemeris-source-notes>Ephemeris Source Notes<a class=headerlink href=#ephemeris-source-notes title="Permanent link">&para;</a></h2> <p>Solid-tide computation requires Sun and Moon positions in the ECEF frame. The propagator computes these internally using its own low-precision analytical ephemeris (<code>sun_position</code> / <code>moon_position</code>) — it does <strong>not</strong> read positions from the <code>third_body</code> force model entries. Enabling or disabling <code>third_body</code> entries has no effect on the tidal correction; you can use solid tides with or without a third-body configuration.</p> <h2 id=see-also>See Also<a class=headerlink href=#see-also title="Permanent link">&para;</a></h2> <ul> <li><a href=gravity.html>Gravity Models</a> — tide systems of packaged models, <code>GravityModelTideSystem</code></li> <li><a href=../orbit_propagation/numerical_propagation/force_models.html>Force Models</a> — wiring the full force model</li> </ul> <h2 id=references>References<a class=headerlink href=#references title="Permanent link">&para;</a></h2> <ul> <li>Petit, G., &amp; Luzum, B. (Eds.) (2010). <em>IERS Conventions (2010)</em>, Technical Note 36, Chapter 6: Geopotential. IERS. <a href=https://iers-conventions.obspm.fr/content/chapter6/icc6.pdf>https://iers-conventions.obspm.fr/content/chapter6/icc6.pdf</a></li> <li>Petit, G., &amp; Luzum, B. (Eds.) (2010). <em>IERS Conventions (2010)</em>, Technical Note 36, Chapter 1: General Definitions and Numerical Standards. IERS. (§1.1 tide-system definitions.) <a href=https://iers-conventions.obspm.fr/content/chapter1/icc1.pdf>https://iers-conventions.obspm.fr/content/chapter1/icc1.pdf</a></li> <li>Petit, G., &amp; Luzum, B. (Eds.) (2010). <em>IERS Conventions (2010)</em>, Technical Note 36, Chapter 7: Displacement of Reference Points (§7.1.4, secular pole; updated for the linear secular-pole model). IERS. <a href=https://iers-conventions.obspm.fr/content/chapter7/icc7.pdf>https://iers-conventions.obspm.fr/content/chapter7/icc7.pdf</a></li> <li>Lemoine, F. G., et al. (1998). <em>The Development of the Joint NASA GSFC and the National Imagery and Mapping Agency (NIMA) Geopotential Model EGM96</em>. NASA/TP-1998-206861. (§11.1: tide-system definitions, direct/indirect terminology, and permanent-tide conversion formulas.) <a href=https://cddis.nasa.gov/926/egm96/doc/S11.HTML>https://cddis.nasa.gov/926/egm96/doc/S11.HTML</a></li> <li>Lyard, F., Lefèvre, F., Letellier, T., &amp; Francis, O. (2006). Modelling the global ocean tides: modern insights from FES2004. <em>Ocean Dynamics</em>, 56, 394–415. (FES2004 ocean tide model.)</li> <li>Desai, S. D. (2002). Observing the pole tide with satellite altimetry. <em>Journal of Geophysical Research</em>, 107(C11), 3186. (Ocean pole tide equilibrium model.)</li> </ul> <aside class=md-source-file> <span class=md-source-file__fact> <span class=md-icon title="Last update"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="July 15, 2026 23:38:12 UTC">2026-07-15</span> </span> <span class=md-source-file__fact> <span class=md-icon title=Created> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="July 9, 2026 21:55:26 UTC">2026-07-09</span> </span> </aside> </article> </div> <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script> <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script> </div> </main> <footer class=md-footer> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class=md-copyright> Made with <a href=https://squidfunk.github.io/mkdocs-material/ target=_blank rel=noopener> Material for MkDocs </a> </div> </div> </div> </footer> </div> <div class=md-dialog data-md-component=dialog> <div class="md-dialog__inner md-typeset"></div> </div> <script id=__config type=application/json>{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "navigation.tracking", "navigation.top3", "toc.follow", "content.tabs.link", "content.code.copy", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script> <script src=../../assets/javascripts/bundle.79ae519e.min.js></script> <script src=../../javascripts/katex.d81d3f.min.js></script> <script src=https://unpkg.com/katex@0/dist/katex.min.js></script> <script src=https://unpkg.com/katex@0/dist/contrib/auto-render.min.js></script> <script src=https://cdn.plot.ly/plotly-latest.min.js></script> <script src=../../javascripts/iframe-autosize.js></script> <script src=https://unpkg.com/tablesort@5.3.0/dist/tablesort.min.js></script> <script src=../../javascripts/tablesort.ae6fa2.min.js></script> </body> </html>

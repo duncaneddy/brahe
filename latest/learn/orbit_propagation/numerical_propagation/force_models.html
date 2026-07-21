@@ -493,13 +493,7 @@
 <span class=normal><a href=#__codelineno-13-38>38</a></span>
 <span class=normal><a href=#__codelineno-13-39>39</a></span>
 <span class=normal><a href=#__codelineno-13-40>40</a></span>
-<span class=normal><a href=#__codelineno-13-41>41</a></span>
-<span class=normal><a href=#__codelineno-13-42>42</a></span>
-<span class=normal><a href=#__codelineno-13-43>43</a></span>
-<span class=normal><a href=#__codelineno-13-44>44</a></span>
-<span class=normal><a href=#__codelineno-13-45>45</a></span>
-<span class=normal><a href=#__codelineno-13-46>46</a></span>
-<span class=normal><a href=#__codelineno-13-47>47</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-13-1><a id=__codelineno-13-1 name=__codelineno-13-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
+<span class=normal><a href=#__codelineno-13-41>41</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-13-1><a id=__codelineno-13-1 name=__codelineno-13-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
 </span><span id=__span-13-2><a id=__codelineno-13-2 name=__codelineno-13-2></a><span class=kn>import</span><span class=w> </span><span class=nn>numpy</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>np</span>
 </span><span id=__span-13-3><a id=__codelineno-13-3 name=__codelineno-13-3></a>
 </span><span id=__span-13-4><a id=__codelineno-13-4 name=__codelineno-13-4></a><span class=c1># Initialize EOP data (required for any numerical propagation)</span>
@@ -532,20 +526,14 @@
 </span><span id=__span-13-31><a id=__codelineno-13-31 name=__codelineno-13-31></a>
 </span><span id=__span-13-32><a id=__codelineno-13-32 name=__codelineno-13-32></a><span class=c1># Construct the propagator — this is where the ICGEM model is downloaded</span>
 </span><span id=__span-13-33><a id=__codelineno-13-33 name=__codelineno-13-33></a><span class=c1># (if not cached) and loaded into the force evaluator.</span>
-</span><span id=__span-13-34><a id=__codelineno-13-34 name=__codelineno-13-34></a><span class=n>prop</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>NumericalOrbitPropagator</span><span class=p>(</span>
-</span><span id=__span-13-35><a id=__codelineno-13-35 name=__codelineno-13-35></a>    <span class=n>epoch</span><span class=p>,</span>
-</span><span id=__span-13-36><a id=__codelineno-13-36 name=__codelineno-13-36></a>    <span class=n>state0</span><span class=p>,</span>
-</span><span id=__span-13-37><a id=__codelineno-13-37 name=__codelineno-13-37></a>    <span class=n>bh</span><span class=o>.</span><span class=n>NumericalPropagationConfig</span><span class=o>.</span><span class=n>default</span><span class=p>(),</span>
-</span><span id=__span-13-38><a id=__codelineno-13-38 name=__codelineno-13-38></a>    <span class=n>force_cfg</span><span class=p>,</span>
-</span><span id=__span-13-39><a id=__codelineno-13-39 name=__codelineno-13-39></a>    <span class=kc>None</span><span class=p>,</span>
-</span><span id=__span-13-40><a id=__codelineno-13-40 name=__codelineno-13-40></a><span class=p>)</span>
-</span><span id=__span-13-41><a id=__codelineno-13-41 name=__codelineno-13-41></a>
-</span><span id=__span-13-42><a id=__codelineno-13-42 name=__codelineno-13-42></a><span class=c1># Step one minute forward</span>
-</span><span id=__span-13-43><a id=__codelineno-13-43 name=__codelineno-13-43></a><span class=n>prop</span><span class=o>.</span><span class=n>step_by</span><span class=p>(</span><span class=mf>60.0</span><span class=p>)</span>
-</span><span id=__span-13-44><a id=__codelineno-13-44 name=__codelineno-13-44></a><span class=n>state1</span> <span class=o>=</span> <span class=n>prop</span><span class=o>.</span><span class=n>current_state</span><span class=p>()</span>
-</span><span id=__span-13-45><a id=__codelineno-13-45 name=__codelineno-13-45></a>
-</span><span id=__span-13-46><a id=__codelineno-13-46 name=__codelineno-13-46></a><span class=n>drift</span> <span class=o>=</span> <span class=nb>float</span><span class=p>(</span><span class=n>np</span><span class=o>.</span><span class=n>linalg</span><span class=o>.</span><span class=n>norm</span><span class=p>(</span><span class=n>np</span><span class=o>.</span><span class=n>asarray</span><span class=p>(</span><span class=n>state1</span><span class=p>[:</span><span class=mi>3</span><span class=p>])</span> <span class=o>-</span> <span class=n>np</span><span class=o>.</span><span class=n>asarray</span><span class=p>(</span><span class=n>state0</span><span class=p>[:</span><span class=mi>3</span><span class=p>])))</span>
-</span><span id=__span-13-47><a id=__codelineno-13-47 name=__codelineno-13-47></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Propagated 60 s with JGM3 (ICGEM source); position drift = </span><span class=si>{</span><span class=n>drift</span><span class=si>:</span><span class=s2>.1f</span><span class=si>}</span><span class=s2> m&quot;</span><span class=p>)</span>
+</span><span id=__span-13-34><a id=__codelineno-13-34 name=__codelineno-13-34></a><span class=n>prop</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>NumericalOrbitPropagator</span><span class=o>.</span><span class=n>builder</span><span class=p>(</span><span class=n>epoch</span><span class=p>,</span> <span class=n>state0</span><span class=p>,</span> <span class=n>force_cfg</span><span class=p>)</span><span class=o>.</span><span class=n>build</span><span class=p>()</span>
+</span><span id=__span-13-35><a id=__codelineno-13-35 name=__codelineno-13-35></a>
+</span><span id=__span-13-36><a id=__codelineno-13-36 name=__codelineno-13-36></a><span class=c1># Step one minute forward</span>
+</span><span id=__span-13-37><a id=__codelineno-13-37 name=__codelineno-13-37></a><span class=n>prop</span><span class=o>.</span><span class=n>step_by</span><span class=p>(</span><span class=mf>60.0</span><span class=p>)</span>
+</span><span id=__span-13-38><a id=__codelineno-13-38 name=__codelineno-13-38></a><span class=n>state1</span> <span class=o>=</span> <span class=n>prop</span><span class=o>.</span><span class=n>current_state</span><span class=p>()</span>
+</span><span id=__span-13-39><a id=__codelineno-13-39 name=__codelineno-13-39></a>
+</span><span id=__span-13-40><a id=__codelineno-13-40 name=__codelineno-13-40></a><span class=n>drift</span> <span class=o>=</span> <span class=nb>float</span><span class=p>(</span><span class=n>np</span><span class=o>.</span><span class=n>linalg</span><span class=o>.</span><span class=n>norm</span><span class=p>(</span><span class=n>np</span><span class=o>.</span><span class=n>asarray</span><span class=p>(</span><span class=n>state1</span><span class=p>[:</span><span class=mi>3</span><span class=p>])</span> <span class=o>-</span> <span class=n>np</span><span class=o>.</span><span class=n>asarray</span><span class=p>(</span><span class=n>state0</span><span class=p>[:</span><span class=mi>3</span><span class=p>])))</span>
+</span><span id=__span-13-41><a id=__codelineno-13-41 name=__codelineno-13-41></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Propagated 60 s with JGM3 (ICGEM source); position drift = </span><span class=si>{</span><span class=n>drift</span><span class=si>:</span><span class=s2>.1f</span><span class=si>}</span><span class=s2> m&quot;</span><span class=p>)</span>
 </span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-14-1> 1</a></span>
 <span class=normal><a href=#__codelineno-14-2> 2</a></span>
 <span class=normal><a href=#__codelineno-14-3> 3</a></span>
@@ -1303,13 +1291,7 @@
 <span class=normal><a href=#__codelineno-37-56>56</a></span>
 <span class=normal><a href=#__codelineno-37-57>57</a></span>
 <span class=normal><a href=#__codelineno-37-58>58</a></span>
-<span class=normal><a href=#__codelineno-37-59>59</a></span>
-<span class=normal><a href=#__codelineno-37-60>60</a></span>
-<span class=normal><a href=#__codelineno-37-61>61</a></span>
-<span class=normal><a href=#__codelineno-37-62>62</a></span>
-<span class=normal><a href=#__codelineno-37-63>63</a></span>
-<span class=normal><a href=#__codelineno-37-64>64</a></span>
-<span class=normal><a href=#__codelineno-37-65>65</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-37-1><a id=__codelineno-37-1 name=__codelineno-37-1></a><span class=n>trajectory</span> <span class=n>passing</span> <span class=n>through</span> <span class=n>LEO</span> <span class=n>altitudes</span> <span class=n>keeps</span> <span class=n>Earth</span><span class=o>-</span><span class=n>fidelity</span> <span class=n>forces</span>
+<span class=normal><a href=#__codelineno-37-59>59</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-37-1><a id=__codelineno-37-1 name=__codelineno-37-1></a><span class=n>trajectory</span> <span class=n>passing</span> <span class=n>through</span> <span class=n>LEO</span> <span class=n>altitudes</span> <span class=n>keeps</span> <span class=n>Earth</span><span class=o>-</span><span class=n>fidelity</span> <span class=n>forces</span>
 </span><span id=__span-37-2><a id=__codelineno-37-2 name=__codelineno-37-2></a><span class=k>while</span> <span class=n>the</span> <span class=n>integration</span> <span class=n>state</span> <span class=n>stays</span> <span class=n>Earth</span><span class=o>-</span><span class=n>Moon</span><span class=o>-</span><span class=n>barycenter</span><span class=o>-</span><span class=n>centered</span><span class=o>.</span>
 </span><span id=__span-37-3><a id=__codelineno-37-3 name=__codelineno-37-3></a><span class=s2>&quot;&quot;&quot;</span>
 </span><span id=__span-37-4><a id=__codelineno-37-4 name=__codelineno-37-4></a>
@@ -1354,26 +1336,20 @@
 </span><span id=__span-37-43><a id=__codelineno-37-43 name=__codelineno-37-43></a><span class=s2>x_earth = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)</span>
 </span><span id=__span-37-44><a id=__codelineno-37-44 name=__codelineno-37-44></a><span class=s2>x_emb = bh.state_eci_to_emb(epoch, x_earth)</span>
 </span><span id=__span-37-45><a id=__codelineno-37-45 name=__codelineno-37-45></a>
-</span><span id=__span-37-46><a id=__codelineno-37-46 name=__codelineno-37-46></a><span class=s2>prop = bh.NumericalOrbitPropagator(</span>
-</span><span id=__span-37-47><a id=__codelineno-37-47 name=__codelineno-37-47></a><span class=s2>    epoch,</span>
-</span><span id=__span-37-48><a id=__codelineno-37-48 name=__codelineno-37-48></a><span class=s2>    x_emb,</span>
-</span><span id=__span-37-49><a id=__codelineno-37-49 name=__codelineno-37-49></a><span class=s2>    bh.NumericalPropagationConfig.default(),</span>
-</span><span id=__span-37-50><a id=__codelineno-37-50 name=__codelineno-37-50></a><span class=s2>    force_config,</span>
-</span><span id=__span-37-51><a id=__codelineno-37-51 name=__codelineno-37-51></a><span class=s2>    None,</span>
-</span><span id=__span-37-52><a id=__codelineno-37-52 name=__codelineno-37-52></a><span class=s2>)</span>
-</span><span id=__span-37-53><a id=__codelineno-37-53 name=__codelineno-37-53></a>
-</span><span id=__span-37-54><a id=__codelineno-37-54 name=__codelineno-37-54></a><span class=s2># Propagate for one day</span>
-</span><span id=__span-37-55><a id=__codelineno-37-55 name=__codelineno-37-55></a><span class=s2>epoch_end = epoch + 86400.0</span>
-</span><span id=__span-37-56><a id=__codelineno-37-56 name=__codelineno-37-56></a><span class=s2>prop.propagate_to(epoch_end)</span>
-</span><span id=__span-37-57><a id=__codelineno-37-57 name=__codelineno-37-57></a>
-</span><span id=__span-37-58><a id=__codelineno-37-58 name=__codelineno-37-58></a><span class=s2>x_final = prop.current_state()</span>
-</span><span id=__span-37-59><a id=__codelineno-37-59 name=__codelineno-37-59></a><span class=s2>print(f&quot;Initial EMB-centered state: </span><span class=si>{x_emb}</span><span class=s2>&quot;)</span>
-</span><span id=__span-37-60><a id=__codelineno-37-60 name=__codelineno-37-60></a><span class=s2>print(f&quot;Final EMB-centered state:   </span><span class=si>{x_final}</span><span class=s2>&quot;)</span>
-</span><span id=__span-37-61><a id=__codelineno-37-61 name=__codelineno-37-61></a>
-</span><span id=__span-37-62><a id=__codelineno-37-62 name=__codelineno-37-62></a><span class=s2># Re-express the final state about Earth for reference</span>
-</span><span id=__span-37-63><a id=__codelineno-37-63 name=__codelineno-37-63></a><span class=s2>x_final_eci = bh.state_emb_to_eci(epoch_end, x_final)</span>
-</span><span id=__span-37-64><a id=__codelineno-37-64 name=__codelineno-37-64></a><span class=s2>altitude = np.linalg.norm(x_final_eci[:3]) - bh.R_EARTH</span>
-</span><span id=__span-37-65><a id=__codelineno-37-65 name=__codelineno-37-65></a><span class=s2>print(f&quot;Final altitude above Earth: {altitude / 1e3:.1f} km&quot;)</span>
+</span><span id=__span-37-46><a id=__codelineno-37-46 name=__codelineno-37-46></a><span class=s2>prop = bh.NumericalOrbitPropagator.builder(epoch, x_emb, force_config).build()</span>
+</span><span id=__span-37-47><a id=__codelineno-37-47 name=__codelineno-37-47></a>
+</span><span id=__span-37-48><a id=__codelineno-37-48 name=__codelineno-37-48></a><span class=s2># Propagate for one day</span>
+</span><span id=__span-37-49><a id=__codelineno-37-49 name=__codelineno-37-49></a><span class=s2>epoch_end = epoch + 86400.0</span>
+</span><span id=__span-37-50><a id=__codelineno-37-50 name=__codelineno-37-50></a><span class=s2>prop.propagate_to(epoch_end)</span>
+</span><span id=__span-37-51><a id=__codelineno-37-51 name=__codelineno-37-51></a>
+</span><span id=__span-37-52><a id=__codelineno-37-52 name=__codelineno-37-52></a><span class=s2>x_final = prop.current_state()</span>
+</span><span id=__span-37-53><a id=__codelineno-37-53 name=__codelineno-37-53></a><span class=s2>print(f&quot;Initial EMB-centered state: </span><span class=si>{x_emb}</span><span class=s2>&quot;)</span>
+</span><span id=__span-37-54><a id=__codelineno-37-54 name=__codelineno-37-54></a><span class=s2>print(f&quot;Final EMB-centered state:   </span><span class=si>{x_final}</span><span class=s2>&quot;)</span>
+</span><span id=__span-37-55><a id=__codelineno-37-55 name=__codelineno-37-55></a>
+</span><span id=__span-37-56><a id=__codelineno-37-56 name=__codelineno-37-56></a><span class=s2># Re-express the final state about Earth for reference</span>
+</span><span id=__span-37-57><a id=__codelineno-37-57 name=__codelineno-37-57></a><span class=s2>x_final_eci = bh.state_emb_to_eci(epoch_end, x_final)</span>
+</span><span id=__span-37-58><a id=__codelineno-37-58 name=__codelineno-37-58></a><span class=s2>altitude = np.linalg.norm(x_final_eci[:3]) - bh.R_EARTH</span>
+</span><span id=__span-37-59><a id=__codelineno-37-59 name=__codelineno-37-59></a><span class=s2>print(f&quot;Final altitude above Earth: {altitude / 1e3:.1f} km&quot;)</span>
 </span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-38-1> 1</a></span>
 <span class=normal><a href=#__codelineno-38-2> 2</a></span>
 <span class=normal><a href=#__codelineno-38-3> 3</a></span>
@@ -1464,11 +1440,7 @@
 <span class=normal><a href=#__codelineno-38-88>88</a></span>
 <span class=normal><a href=#__codelineno-38-89>89</a></span>
 <span class=normal><a href=#__codelineno-38-90>90</a></span>
-<span class=normal><a href=#__codelineno-38-91>91</a></span>
-<span class=normal><a href=#__codelineno-38-92>92</a></span>
-<span class=normal><a href=#__codelineno-38-93>93</a></span>
-<span class=normal><a href=#__codelineno-38-94>94</a></span>
-<span class=normal><a href=#__codelineno-38-95>95</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-38-1><a id=__codelineno-38-1 name=__codelineno-38-1></a><span class=sd>//! nalgebra = &quot;0.33&quot;</span>
+<span class=normal><a href=#__codelineno-38-91>91</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-38-1><a id=__codelineno-38-1 name=__codelineno-38-1></a><span class=sd>//! nalgebra = &quot;0.33&quot;</span>
 </span><span id=__span-38-2><a id=__codelineno-38-2 name=__codelineno-38-2></a><span class=sd>//! ```</span>
 </span><span id=__span-38-3><a id=__codelineno-38-3 name=__codelineno-38-3></a>
 </span><span id=__span-38-4><a id=__codelineno-38-4 name=__codelineno-38-4></a><span class=sd>//! EMB-centered cislunar propagation with Earth-attributed force models.</span>
@@ -1530,39 +1502,35 @@
 </span><span id=__span-38-60><a id=__codelineno-38-60 name=__codelineno-38-60></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>x_earth</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>state_koe_to_eci</span><span class=p>(</span><span class=n>oe</span><span class=p>,</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>AngleFormat</span><span class=p>::</span><span class=n>Degrees</span><span class=p>);</span>
 </span><span id=__span-38-61><a id=__codelineno-38-61 name=__codelineno-38-61></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>x_emb</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>frames</span><span class=p>::</span><span class=n>state_eci_to_emb</span><span class=p>(</span><span class=n>epoch</span><span class=p>,</span><span class=w> </span><span class=n>x_earth</span><span class=p>);</span>
 </span><span id=__span-38-62><a id=__codelineno-38-62 name=__codelineno-38-62></a>
-</span><span id=__span-38-63><a id=__codelineno-38-63 name=__codelineno-38-63></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>prop</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>DNumericalOrbitPropagator</span><span class=p>::</span><span class=n>new</span><span class=p>(</span>
+</span><span id=__span-38-63><a id=__codelineno-38-63 name=__codelineno-38-63></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>prop</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>DNumericalOrbitPropagator</span><span class=p>::</span><span class=n>builder</span><span class=p>(</span>
 </span><span id=__span-38-64><a id=__codelineno-38-64 name=__codelineno-38-64></a><span class=w>        </span><span class=n>epoch</span><span class=p>,</span>
 </span><span id=__span-38-65><a id=__codelineno-38-65 name=__codelineno-38-65></a><span class=w>        </span><span class=n>na</span><span class=p>::</span><span class=n>DVector</span><span class=p>::</span><span class=n>from_column_slice</span><span class=p>(</span><span class=n>x_emb</span><span class=p>.</span><span class=n>as_slice</span><span class=p>()),</span>
-</span><span id=__span-38-66><a id=__codelineno-38-66 name=__codelineno-38-66></a><span class=w>        </span><span class=n>bh</span><span class=p>::</span><span class=n>NumericalPropagationConfig</span><span class=p>::</span><span class=n>default</span><span class=p>(),</span>
-</span><span id=__span-38-67><a id=__codelineno-38-67 name=__codelineno-38-67></a><span class=w>        </span><span class=n>force_config</span><span class=p>,</span>
-</span><span id=__span-38-68><a id=__codelineno-38-68 name=__codelineno-38-68></a><span class=w>        </span><span class=nb>None</span><span class=p>,</span>
-</span><span id=__span-38-69><a id=__codelineno-38-69 name=__codelineno-38-69></a><span class=w>        </span><span class=nb>None</span><span class=p>,</span>
-</span><span id=__span-38-70><a id=__codelineno-38-70 name=__codelineno-38-70></a><span class=w>        </span><span class=nb>None</span><span class=p>,</span>
-</span><span id=__span-38-71><a id=__codelineno-38-71 name=__codelineno-38-71></a><span class=w>        </span><span class=nb>None</span><span class=p>,</span>
-</span><span id=__span-38-72><a id=__codelineno-38-72 name=__codelineno-38-72></a><span class=w>    </span><span class=p>)</span>
-</span><span id=__span-38-73><a id=__codelineno-38-73 name=__codelineno-38-73></a><span class=w>    </span><span class=p>.</span><span class=n>unwrap</span><span class=p>();</span>
+</span><span id=__span-38-66><a id=__codelineno-38-66 name=__codelineno-38-66></a><span class=w>        </span><span class=n>force_config</span><span class=p>,</span>
+</span><span id=__span-38-67><a id=__codelineno-38-67 name=__codelineno-38-67></a><span class=w>    </span><span class=p>)</span>
+</span><span id=__span-38-68><a id=__codelineno-38-68 name=__codelineno-38-68></a><span class=w>    </span><span class=p>.</span><span class=n>build</span><span class=p>()</span>
+</span><span id=__span-38-69><a id=__codelineno-38-69 name=__codelineno-38-69></a><span class=w>    </span><span class=p>.</span><span class=n>unwrap</span><span class=p>();</span>
+</span><span id=__span-38-70><a id=__codelineno-38-70 name=__codelineno-38-70></a>
+</span><span id=__span-38-71><a id=__codelineno-38-71 name=__codelineno-38-71></a><span class=w>    </span><span class=c1>// Propagate for one day</span>
+</span><span id=__span-38-72><a id=__codelineno-38-72 name=__codelineno-38-72></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>epoch_end</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>epoch</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=mf>86400.0</span><span class=p>;</span>
+</span><span id=__span-38-73><a id=__codelineno-38-73 name=__codelineno-38-73></a><span class=w>    </span><span class=n>prop</span><span class=p>.</span><span class=n>propagate_to</span><span class=p>(</span><span class=n>epoch_end</span><span class=p>);</span>
 </span><span id=__span-38-74><a id=__codelineno-38-74 name=__codelineno-38-74></a>
-</span><span id=__span-38-75><a id=__codelineno-38-75 name=__codelineno-38-75></a><span class=w>    </span><span class=c1>// Propagate for one day</span>
-</span><span id=__span-38-76><a id=__codelineno-38-76 name=__codelineno-38-76></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>epoch_end</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>epoch</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=mf>86400.0</span><span class=p>;</span>
-</span><span id=__span-38-77><a id=__codelineno-38-77 name=__codelineno-38-77></a><span class=w>    </span><span class=n>prop</span><span class=p>.</span><span class=n>propagate_to</span><span class=p>(</span><span class=n>epoch_end</span><span class=p>);</span>
-</span><span id=__span-38-78><a id=__codelineno-38-78 name=__codelineno-38-78></a>
-</span><span id=__span-38-79><a id=__codelineno-38-79 name=__codelineno-38-79></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>x_final</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>prop</span><span class=p>.</span><span class=n>current_state</span><span class=p>();</span>
-</span><span id=__span-38-80><a id=__codelineno-38-80 name=__codelineno-38-80></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Initial EMB-centered state: {:?}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>x_emb</span><span class=p>.</span><span class=n>as_slice</span><span class=p>());</span>
-</span><span id=__span-38-81><a id=__codelineno-38-81 name=__codelineno-38-81></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span>
-</span><span id=__span-38-82><a id=__codelineno-38-82 name=__codelineno-38-82></a><span class=w>        </span><span class=s>&quot;Final EMB-centered state:   [{:.3}, {:.3}, {:.3}, {:.6}, {:.6}, {:.6}]&quot;</span><span class=p>,</span>
-</span><span id=__span-38-83><a id=__codelineno-38-83 name=__codelineno-38-83></a><span class=w>        </span><span class=n>x_final</span><span class=p>[</span><span class=mi>0</span><span class=p>],</span><span class=w> </span><span class=n>x_final</span><span class=p>[</span><span class=mi>1</span><span class=p>],</span><span class=w> </span><span class=n>x_final</span><span class=p>[</span><span class=mi>2</span><span class=p>],</span><span class=w> </span><span class=n>x_final</span><span class=p>[</span><span class=mi>3</span><span class=p>],</span><span class=w> </span><span class=n>x_final</span><span class=p>[</span><span class=mi>4</span><span class=p>],</span><span class=w> </span><span class=n>x_final</span><span class=p>[</span><span class=mi>5</span><span class=p>]</span>
-</span><span id=__span-38-84><a id=__codelineno-38-84 name=__codelineno-38-84></a><span class=w>    </span><span class=p>);</span>
-</span><span id=__span-38-85><a id=__codelineno-38-85 name=__codelineno-38-85></a>
-</span><span id=__span-38-86><a id=__codelineno-38-86 name=__codelineno-38-86></a><span class=w>    </span><span class=c1>// Re-express the final state about Earth for reference</span>
-</span><span id=__span-38-87><a id=__codelineno-38-87 name=__codelineno-38-87></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>x_final_eci</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>frames</span><span class=p>::</span><span class=n>state_emb_to_eci</span><span class=p>(</span>
-</span><span id=__span-38-88><a id=__codelineno-38-88 name=__codelineno-38-88></a><span class=w>        </span><span class=n>epoch_end</span><span class=p>,</span>
-</span><span id=__span-38-89><a id=__codelineno-38-89 name=__codelineno-38-89></a><span class=w>        </span><span class=n>na</span><span class=p>::</span><span class=n>SVector</span><span class=p>::</span><span class=o>&lt;</span><span class=kt>f64</span><span class=p>,</span><span class=w> </span><span class=mi>6</span><span class=o>&gt;</span><span class=p>::</span><span class=n>from_iterator</span><span class=p>(</span><span class=n>x_final</span><span class=p>.</span><span class=n>iter</span><span class=p>().</span><span class=n>cloned</span><span class=p>()),</span>
-</span><span id=__span-38-90><a id=__codelineno-38-90 name=__codelineno-38-90></a><span class=w>    </span><span class=p>);</span>
-</span><span id=__span-38-91><a id=__codelineno-38-91 name=__codelineno-38-91></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>altitude</span><span class=w> </span><span class=o>=</span>
-</span><span id=__span-38-92><a id=__codelineno-38-92 name=__codelineno-38-92></a><span class=w>        </span><span class=p>(</span><span class=n>x_final_eci</span><span class=p>[</span><span class=mi>0</span><span class=p>].</span><span class=n>powi</span><span class=p>(</span><span class=mi>2</span><span class=p>)</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=n>x_final_eci</span><span class=p>[</span><span class=mi>1</span><span class=p>].</span><span class=n>powi</span><span class=p>(</span><span class=mi>2</span><span class=p>)</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=n>x_final_eci</span><span class=p>[</span><span class=mi>2</span><span class=p>].</span><span class=n>powi</span><span class=p>(</span><span class=mi>2</span><span class=p>)).</span><span class=n>sqrt</span><span class=p>()</span>
-</span><span id=__span-38-93><a id=__codelineno-38-93 name=__codelineno-38-93></a><span class=w>            </span><span class=o>-</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>R_EARTH</span><span class=p>;</span>
-</span><span id=__span-38-94><a id=__codelineno-38-94 name=__codelineno-38-94></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Final altitude above Earth: {:.1} km&quot;</span><span class=p>,</span><span class=w> </span><span class=n>altitude</span><span class=w> </span><span class=o>/</span><span class=w> </span><span class=mf>1e3</span><span class=p>);</span>
-</span><span id=__span-38-95><a id=__codelineno-38-95 name=__codelineno-38-95></a><span class=p>}</span>
+</span><span id=__span-38-75><a id=__codelineno-38-75 name=__codelineno-38-75></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>x_final</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>prop</span><span class=p>.</span><span class=n>current_state</span><span class=p>();</span>
+</span><span id=__span-38-76><a id=__codelineno-38-76 name=__codelineno-38-76></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Initial EMB-centered state: {:?}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>x_emb</span><span class=p>.</span><span class=n>as_slice</span><span class=p>());</span>
+</span><span id=__span-38-77><a id=__codelineno-38-77 name=__codelineno-38-77></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span>
+</span><span id=__span-38-78><a id=__codelineno-38-78 name=__codelineno-38-78></a><span class=w>        </span><span class=s>&quot;Final EMB-centered state:   [{:.3}, {:.3}, {:.3}, {:.6}, {:.6}, {:.6}]&quot;</span><span class=p>,</span>
+</span><span id=__span-38-79><a id=__codelineno-38-79 name=__codelineno-38-79></a><span class=w>        </span><span class=n>x_final</span><span class=p>[</span><span class=mi>0</span><span class=p>],</span><span class=w> </span><span class=n>x_final</span><span class=p>[</span><span class=mi>1</span><span class=p>],</span><span class=w> </span><span class=n>x_final</span><span class=p>[</span><span class=mi>2</span><span class=p>],</span><span class=w> </span><span class=n>x_final</span><span class=p>[</span><span class=mi>3</span><span class=p>],</span><span class=w> </span><span class=n>x_final</span><span class=p>[</span><span class=mi>4</span><span class=p>],</span><span class=w> </span><span class=n>x_final</span><span class=p>[</span><span class=mi>5</span><span class=p>]</span>
+</span><span id=__span-38-80><a id=__codelineno-38-80 name=__codelineno-38-80></a><span class=w>    </span><span class=p>);</span>
+</span><span id=__span-38-81><a id=__codelineno-38-81 name=__codelineno-38-81></a>
+</span><span id=__span-38-82><a id=__codelineno-38-82 name=__codelineno-38-82></a><span class=w>    </span><span class=c1>// Re-express the final state about Earth for reference</span>
+</span><span id=__span-38-83><a id=__codelineno-38-83 name=__codelineno-38-83></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>x_final_eci</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>frames</span><span class=p>::</span><span class=n>state_emb_to_eci</span><span class=p>(</span>
+</span><span id=__span-38-84><a id=__codelineno-38-84 name=__codelineno-38-84></a><span class=w>        </span><span class=n>epoch_end</span><span class=p>,</span>
+</span><span id=__span-38-85><a id=__codelineno-38-85 name=__codelineno-38-85></a><span class=w>        </span><span class=n>na</span><span class=p>::</span><span class=n>SVector</span><span class=p>::</span><span class=o>&lt;</span><span class=kt>f64</span><span class=p>,</span><span class=w> </span><span class=mi>6</span><span class=o>&gt;</span><span class=p>::</span><span class=n>from_iterator</span><span class=p>(</span><span class=n>x_final</span><span class=p>.</span><span class=n>iter</span><span class=p>().</span><span class=n>cloned</span><span class=p>()),</span>
+</span><span id=__span-38-86><a id=__codelineno-38-86 name=__codelineno-38-86></a><span class=w>    </span><span class=p>);</span>
+</span><span id=__span-38-87><a id=__codelineno-38-87 name=__codelineno-38-87></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>altitude</span><span class=w> </span><span class=o>=</span>
+</span><span id=__span-38-88><a id=__codelineno-38-88 name=__codelineno-38-88></a><span class=w>        </span><span class=p>(</span><span class=n>x_final_eci</span><span class=p>[</span><span class=mi>0</span><span class=p>].</span><span class=n>powi</span><span class=p>(</span><span class=mi>2</span><span class=p>)</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=n>x_final_eci</span><span class=p>[</span><span class=mi>1</span><span class=p>].</span><span class=n>powi</span><span class=p>(</span><span class=mi>2</span><span class=p>)</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=n>x_final_eci</span><span class=p>[</span><span class=mi>2</span><span class=p>].</span><span class=n>powi</span><span class=p>(</span><span class=mi>2</span><span class=p>)).</span><span class=n>sqrt</span><span class=p>()</span>
+</span><span id=__span-38-89><a id=__codelineno-38-89 name=__codelineno-38-89></a><span class=w>            </span><span class=o>-</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>R_EARTH</span><span class=p>;</span>
+</span><span id=__span-38-90><a id=__codelineno-38-90 name=__codelineno-38-90></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Final altitude above Earth: {:.1} km&quot;</span><span class=p>,</span><span class=w> </span><span class=n>altitude</span><span class=w> </span><span class=o>/</span><span class=w> </span><span class=mf>1e3</span><span class=p>);</span>
+</span><span id=__span-38-91><a id=__codelineno-38-91 name=__codelineno-38-91></a><span class=p>}</span>
 </span></code></pre></div></td></tr></table></div> </div> </div> </div> <details class=example> <summary>Output</summary> <div class="tabbed-set tabbed-alternate" data-tabs=20:2><input checked=checked id=__tabbed_20_1 name=__tabbed_20 type=radio><input id=__tabbed_20_2 name=__tabbed_20 type=radio><div class=tabbed-labels><label for=__tabbed_20_1>Python</label><label for=__tabbed_20_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-39-1>1</a></span>
 <span class=normal><a href=#__codelineno-39-2>2</a></span>
 <span class=normal><a href=#__codelineno-39-3>3</a></span>

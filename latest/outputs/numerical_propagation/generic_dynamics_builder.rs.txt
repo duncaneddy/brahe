@@ -1,0 +1,3 @@
+Position after 5 periods: +0.999038 m
+Velocity after 5 periods: -0.029535 m/s
+Example validated successfully!

@@ -1,4 +1,5 @@
 // FLAGS = ["MANUAL"]
+#![allow(unused_imports)]
 use brahe as bh;
 use bh::spacetrack::{RequestClass, SortOrder, SpaceTrackClient, SpaceTrackQuery};
 use brahe::traits::SStatePropagator;

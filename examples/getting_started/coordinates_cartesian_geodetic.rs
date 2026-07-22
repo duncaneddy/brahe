@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 use brahe as bh;
 use nalgebra as na;
 

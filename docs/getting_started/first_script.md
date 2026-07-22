@@ -64,7 +64,7 @@ To do this, add the following code to your script after the preamble:
 === "Rust"
 
     ``` rust
-    --8<-- "./examples/getting_started/first_script.rs:1"
+    --8<-- "./examples/getting_started/first_script.rs:3"
     ```
 
     Save this file as `first_script.rs` and you can run it with:

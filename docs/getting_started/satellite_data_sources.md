@@ -20,7 +20,7 @@ The celestrack client
 === "Rust"
 
     ``` rust
-    --8<-- "./examples/getting_started/clients_celestrak.rs:1"
+    --8<-- "./examples/getting_started/clients_celestrak.rs:3"
     ```
 
 ???+ example "Output"

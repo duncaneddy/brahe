@@ -58,6 +58,31 @@ jobs:
           restore-keys: |
             network-example-outputs-
 
+      # Same-run artifact hand-off from the --network integration-examples job,
+      # which release.yml runs in THIS run. More reliable than the caches above,
+      # whose per-run reservation the release run cannot dependably populate.
+      # Downloaded AFTER the cache restore so the fresher in-run figures win.
+      #
+      # Tolerated ONLY on non-release deploys (version == ''): main-push deploys
+      # from unit_tests.yml have no network producer in-run and must fall back
+      # to the restored caches. On a versioned release the producer job is
+      # guaranteed to have run in this same run, so a missing/failed download is
+      # a real hand-off failure - fail loud rather than silently publishing docs
+      # with the NETWORK examples' figures missing (the original v1.7.0 bug).
+      - name: Download network example figures artifact
+        continue-on-error: ${{ inputs.version == '' }}
+        uses: actions/download-artifact@v8
+        with:
+          name: network-doc-figures
+          path: docs/figures/
+
+      - name: Download network example outputs artifact
+        continue-on-error: ${{ inputs.version == '' }}
+        uses: actions/download-artifact@v8
+        with:
+          name: network-doc-outputs
+          path: docs/outputs/
+
       - name: Download figures artifact
         uses: actions/download-artifact@v8
         with:

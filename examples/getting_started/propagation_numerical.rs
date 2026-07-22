@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 use brahe as bh;
 use bh::traits::DStatePropagator;
 use nalgebra as na;

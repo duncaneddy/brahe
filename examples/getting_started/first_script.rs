@@ -1,6 +1,6 @@
 //! FLAGS = ["NETWORK"]
 
-#[allow(unused_imports)]
+#![allow(unused_imports)]
 use brahe as bh;
 use brahe::utils::Identifiable;
 

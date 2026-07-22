@@ -250,6 +250,32 @@ jobs:
           path: docs/outputs/
           key: network-example-outputs-${{ github.run_id }}
 
+      # Same-run hand-off of the NETWORK-flagged examples' figures/outputs to
+      # the docs deploy. release.yml runs this --network job (via
+      # integration_tests.yml) and update_docs.yml in the SAME run, so
+      # update_docs can download these artifacts directly - more reliable than
+      # the caches above, whose per-run reservation collides when release.yml
+      # invokes test_examples.yml twice concurrently (--ci-only and --network),
+      # leaving the release deploy with no network figures. The caches remain
+      # the cross-run fallback for docs deploys (docs_only.yml, main pushes)
+      # that do not run this job in the same run. Distinct artifact names from
+      # the --ci-only path's doc-figures/doc-outputs so the two never collide.
+      - name: Upload network example figures as artifact
+        if: ${{ inputs.use_retry }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: network-doc-figures
+          path: docs/figures/
+          retention-days: 7
+
+      - name: Upload network example outputs as artifact
+        if: ${{ inputs.use_retry }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: network-doc-outputs
+          path: docs/outputs/
+          retention-days: 7
+
       - name: Generate documentation plots
         if: ${{ !inputs.use_retry }}
         run: just make-plots

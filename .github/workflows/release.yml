@@ -13,7 +13,7 @@ jobs:
       version: ${{ steps.extract.outputs.version }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
 
       - name: Extract version from tag
         id: extract
@@ -80,7 +80,7 @@ jobs:
     needs: [validate-version, test-rust, test-python, test-examples, integration-tests]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
 
       - name: Extract release notes from CHANGELOG
         run: |
@@ -107,7 +107,7 @@ jobs:
       PYTHON_VERSION: 3.12
     steps:
     - name: Checkout code
-      uses: actions/checkout@v7.0.0
+      uses: actions/checkout@v7.0.1
 
     - name: Set up Rust
       uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
@@ -155,7 +155,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v7.0.0
+      uses: actions/checkout@v7.0.1
 
     - name: Download type stubs
       uses: actions/download-artifact@v8
@@ -210,7 +210,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v7.0.0
+      uses: actions/checkout@v7.0.1
 
     - name: Download type stubs
       uses: actions/download-artifact@v8
@@ -279,7 +279,7 @@ jobs:
     env:
       RUST_TOOLCHAIN: stable
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
         with:
@@ -305,7 +305,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
 
       - name: Download all artifacts
         uses: actions/download-artifact@v8
@@ -340,7 +340,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
         with:
           # WORKFLOW_TOKEN has `workflow` scope; required because moving the
           # `latest` tag forward can sweep in commits that modified workflow

@@ -62,7 +62,7 @@ jobs:
     env:
       RUST_TOOLCHAIN: stable
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
 
       # This job only ever runs on PRs, so it never sees a main-branch save.
       # warm_data_cache.yml runs the equivalent build weekly on main under the
@@ -104,7 +104,7 @@ jobs:
     env:
       RUST_TOOLCHAIN: stable
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
 
       # This job only ever runs on PRs, so it never sees a main-branch save.
       # warm_data_cache.yml runs the equivalent build weekly on main under the
@@ -143,7 +143,7 @@ jobs:
     env:
       RUST_TOOLCHAIN: stable
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
 
       # Shared with update_docs.yml/docs_only.yml's doc-build jobs, which both
       # run on pushes to main and so are the ones that actually save this

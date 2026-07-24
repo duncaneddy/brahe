@@ -14,7 +14,7 @@ jobs:
         env:
             CARGO_TERM_COLOR: always
         steps:
-            -   uses: actions/checkout@v7.0.0
+            -   uses: actions/checkout@v7.0.1
             # Cargo cache scheme: this job runs from both pr_tests.yml (PRs) and
             # unit_tests.yml (push to main). Give it a stable shared-key so PRs
             # restore main's cache regardless of matrix/job-name hashing, and
@@ -80,7 +80,7 @@ jobs:
                 os: [ubuntu-latest, macos-latest, windows-latest]
                 rust-toolchain: [stable]
         steps:
-            -   uses: actions/checkout@v7.0.0
+            -   uses: actions/checkout@v7.0.1
             # See "test-rust" job above for the shared-key/save-if cache scheme.
             -   name: Set up Rust toolchain with cache
                 uses: actions-rust-lang/setup-rust-toolchain@v1.17.0

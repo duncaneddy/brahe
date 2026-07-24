@@ -21,7 +21,7 @@ jobs:
     env:
       RUST_TOOLCHAIN: stable
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
 
       # Cargo cache scheme: this job runs from pr_tests.yml (PRs), unit_tests.yml
       # (push to main), and integration_tests.yml (scheduled/dispatch --network

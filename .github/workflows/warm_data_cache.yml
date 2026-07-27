@@ -13,8 +13,8 @@ name: Warm Brahe Data Cache
 # separately (star-catalogs-v1, fixed) since it isn't manifest-driven.
 #
 # Every step is guarded so that a single failure — an unreachable mirror, a
-# flaky cache action — neither skips the remaining warming work nor discards
-# what already succeeded. See the comments on the steps themselves.
+# flaky cache action — does not skip the remaining warming work. See the
+# comments on the steps themselves.
 on:
     schedule:
         - cron: "0 6 * * 1"
@@ -51,11 +51,12 @@ jobs:
                 run: uv python install 3.14
 
             # Split into restore + explicit save (rather than actions/cache)
-            # because actions/cache declares `post-if: success()`: on a job
-            # that ends in failure its save post-step is skipped entirely and
-            # nothing is persisted, discarding every artifact the surviving
-            # steps did warm. The paired save steps at the end of the job are
-            # guarded with `!cancelled()` instead, so a partial warm persists.
+            # because actions/cache declares `post-if: success()`, which ties
+            # both saves to the whole job succeeding: a star catalog that
+            # failed to download would also block the unrelated manifest cache
+            # from being written. The paired save steps at the end of the job
+            # are gated on their own warm step instead, so the two caches
+            # persist independently.
             -   name: Restore brahe data cache (kernels, gravity models)
                 id: brahe-data-cache
                 if: ${{ !cancelled() }}
@@ -88,6 +89,7 @@ jobs:
                 run: uv pip install -e ".[all]"
 
             -   name: Warm data cache (re-download anything evicted)
+                id: warm-data-cache
                 if: ${{ !cancelled() }}
                 run: uv run --frozen python scripts/warm_data_cache.py
 
@@ -129,28 +131,23 @@ jobs:
                         exit 1
                     fi
 
-            # Both saves run only on a key miss, mirroring what actions/cache's
-            # own post-step would do. They differ in how much failure they
-            # tolerate, because their keys behave differently.
-            #
-            # The manifest-hash key rotates whenever the manifest changes, so
-            # saving a partial warm here is worth it: the artifacts that did
-            # download persist, and consumers re-download only the rest. The
-            # partial cache is an exact hit next week (so the gap is not
-            # re-saved) until the next manifest change moves the key.
+            # Both saves run only on a key miss and only after their warm step
+            # succeeded, because a cache entry cannot be rewritten under a key
+            # that already exists. Saving a partial warm would make that key an
+            # exact hit on every later run, skipping this save and stranding
+            # the missing artifact indefinitely - the failure mode already
+            # documented for naif-kernels-v1 in test_examples.yml. Skipping the
+            # save instead leaves a plain miss that the next run retries in
+            # full, and costs consumers nothing meanwhile: every workflow that
+            # reads these caches falls back through `restore-keys:
+            # brahe-data-v1-` to the previous entry.
             -   name: Save brahe data cache
-                if: ${{ !cancelled() && steps.brahe-data-cache.outputs.cache-hit != 'true' }}
+                if: ${{ !cancelled() && steps.brahe-data-cache.outputs.cache-hit != 'true' && steps.warm-data-cache.outcome == 'success' }}
                 uses: actions/cache/save@v6.1.0
                 with:
                     path: ~/.cache/brahe
                     key: brahe-data-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
 
-            # star-catalogs-v1 is a fixed key that never rotates, so a partial
-            # save here would be permanent: the incomplete set would be an
-            # exact hit on every later run, skipping this save forever and
-            # leaving the missing catalog to be re-downloaded by every
-            # consumer. Saving only a complete pair keeps a failed week a
-            # plain miss, which the next run retries in full.
             -   name: Save star catalog downloads
                 if: ${{ !cancelled() && steps.star-catalogs-cache.outputs.cache-hit != 'true' && steps.warm-star-catalogs.outcome == 'success' }}
                 uses: actions/cache/save@v6.1.0

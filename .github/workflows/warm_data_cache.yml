@@ -131,16 +131,19 @@ jobs:
                         exit 1
                     fi
 
-            # Both saves run only on a key miss and only after their warm step
-            # succeeded, because a cache entry cannot be rewritten under a key
-            # that already exists. Saving a partial warm would make that key an
-            # exact hit on every later run, skipping this save and stranding
-            # the missing artifact indefinitely - the failure mode already
-            # documented for naif-kernels-v1 in test_examples.yml. Skipping the
-            # save instead leaves a plain miss that the next run retries in
-            # full, and costs consumers nothing meanwhile: every workflow that
-            # reads these caches falls back through `restore-keys:
-            # brahe-data-v1-` to the previous entry.
+            # Both saves run only on a key miss and only after their own warm
+            # step succeeded, because a cache entry cannot be rewritten under a
+            # key that already exists: saving a partial warm would make that
+            # key an exact hit on every later run, skipping this save and
+            # stranding the missing artifact indefinitely - the failure mode
+            # already documented for naif-kernels-v1 in test_examples.yml.
+            # Skipping the save leaves a plain miss the next run retries in
+            # full. For the manifest cache that costs consumers nothing
+            # meanwhile, since every workflow reading it falls back through
+            # `restore-keys: brahe-data-v1-` to the previous entry; the fixed
+            # star-catalogs-v1 key has no such fallback, so a skipped save
+            # there does mean a week of live downloads - still cheaper than
+            # stranding a catalog on a key that can never be rewritten.
             -   name: Save brahe data cache
                 if: ${{ !cancelled() && steps.brahe-data-cache.outputs.cache-hit != 'true' && steps.warm-data-cache.outcome == 'success' }}
                 uses: actions/cache/save@v6.1.0

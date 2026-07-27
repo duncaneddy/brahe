@@ -10,5 +10,8 @@ mar099s
 # ICGEM gravity models (icgem:<body>:<model name>):
 icgem:moon:GRGM660PRIM
 icgem:mars:ggm2bc80
-# Horizons SPK (Ceres, for the dawn_ceres_orbit example):
-horizons:ceres:2015-12-01:2016-03-01
+# Horizons SPK (Ceres, for the dawn_ceres_orbit example). The body name is the
+# SBDB search string and is hashed verbatim into the SBDB cache key, so it must
+# match the example's lookup exactly ("Ceres", not "ceres") or the example
+# repeats the lookup against a different cache entry:
+horizons:Ceres:2015-12-01:2016-03-01

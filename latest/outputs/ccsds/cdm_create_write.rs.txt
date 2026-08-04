@@ -2,5 +2,5 @@ CDM: SATELLITE A vs DEBRIS FRAGMENT
 Miss distance: 502.3 m
 Collision probability: Some(0.00015)
 
-KVN output (5858 chars)
+KVN output (5857 chars)
 Round-trip: SATELLITE A vs DEBRIS FRAGMENT

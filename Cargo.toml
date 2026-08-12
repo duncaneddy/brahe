@@ -69,7 +69,7 @@ uuid = { version = "1.24.0", features = ["v4", "v7", "serde"] }
 rayon = "1.12"
 num_cpus = "1.17"
 dirs = "6"
-polars = { version = "0.54", default-features = false, features = ["lazy"] }
+polars = { version = "0.55", default-features = false, features = ["lazy"] }
 lru = "0.18.1"
 rand = "0.9"
 # Pinned to the rand-0.9-compatible line. rand_distr 0.6 requires rand 0.10,

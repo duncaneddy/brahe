@@ -10,6 +10,7 @@ pub use identifiable::*;
 pub use state_providers::*;
 pub use threading::*;
 
+pub(crate) mod batch;
 pub mod cache;
 pub mod download;
 pub mod errors;

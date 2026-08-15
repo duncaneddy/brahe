@@ -10,6 +10,8 @@ use crate::constants::MJD_ZERO;
 use crate::eop;
 use crate::math::matrix3_from_array;
 use crate::time::{Epoch, TimeSystem};
+use crate::utils::BraheError;
+use crate::utils::batch::{batch_map, batch_map_epochs};
 
 /// Computes the Bias-Precession-Nutation matrix transforming the GCRS to the
 /// CIRS intermediate reference frame. This transformation corrects for the
@@ -357,6 +359,77 @@ pub fn position_itrf_to_gcrf(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
     rotation_itrf_to_gcrf(epc) * x
 }
 
+/// Bias-precession-nutation, Earth-rotation, and polar-motion matrices for one epoch.
+struct GcrfItrfContext {
+    bpn: SMatrix3,
+    r: SMatrix3,
+    pm: SMatrix3,
+}
+
+/// Compute the sequential GCRF-to-ITRF transformation matrices for `epc`.
+///
+/// # Arguments
+/// - `epc`: Epoch instant for computation of the transformation
+///
+/// # Returns
+/// - Context holding the bias-precession-nutation, Earth-rotation, and
+///   polar-motion matrices
+fn gcrf_itrf_context(epc: Epoch) -> GcrfItrfContext {
+    GcrfItrfContext {
+        bpn: bias_precession_nutation(epc),
+        r: earth_rotation(epc),
+        pm: polar_motion(epc),
+    }
+}
+
+/// Apply a precomputed GCRF-to-ITRF context to one Cartesian GCRF state.
+///
+/// # Arguments
+/// - `c`: Transformation matrices for the epoch
+/// - `x_gcrf`: Cartesian GCRF state (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian ITRF state (position, velocity). Units: (*m*; *m/s*)
+fn apply_state_gcrf_to_itrf(c: &GcrfItrfContext, x_gcrf: &SVector6) -> SVector6 {
+    let (bpn, r, pm) = (c.bpn, c.r, c.pm);
+
+    // Create Earth's Angular Rotation Vector
+    let omega_vec = Vector3::new(0.0, 0.0, constants::OMEGA_EARTH);
+
+    let r_gcrf = x_gcrf.fixed_rows::<3>(0);
+    let v_gcrf = x_gcrf.fixed_rows::<3>(3);
+
+    let p: Vector3<f64> = Vector3::from(pm * r * bpn * r_gcrf);
+    let v: Vector3<f64> = pm * (r * bpn * v_gcrf - omega_vec.cross(&(r * bpn * r_gcrf)));
+
+    SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
+}
+
+/// Apply a precomputed GCRF-to-ITRF context to one Cartesian ITRF state,
+/// producing the GCRF state.
+///
+/// # Arguments
+/// - `c`: Transformation matrices for the epoch
+/// - `x_itrf`: Cartesian ITRF state (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian GCRF state (position, velocity). Units: (*m*; *m/s*)
+fn apply_state_itrf_to_gcrf(c: &GcrfItrfContext, x_itrf: &SVector6) -> SVector6 {
+    let (bpn, r, pm) = (c.bpn, c.r, c.pm);
+
+    // Create Earth's Angular Rotation Vector
+    let omega_vec = Vector3::new(0.0, 0.0, constants::OMEGA_EARTH);
+
+    let r_itrf = x_itrf.fixed_rows::<3>(0);
+    let v_itrf = x_itrf.fixed_rows::<3>(3);
+
+    let p: Vector3<f64> = Vector3::from((pm * r * bpn).transpose() * r_itrf);
+    let v: Vector3<f64> = (r * bpn).transpose()
+        * (pm.transpose() * v_itrf + omega_vec.cross(&(pm.transpose() * r_itrf)));
+
+    SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
+}
+
 /// Transforms a Cartesian state in GCRF (Geocentric Celestial Reference Frame)
 /// to the equivalent state in ITRF (International Terrestrial Reference Frame).
 ///
@@ -393,21 +466,7 @@ pub fn position_itrf_to_gcrf(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
 /// let x_itrf = state_gcrf_to_itrf(epc, x_gcrf);
 /// ```
 pub fn state_gcrf_to_itrf(epc: Epoch, x_gcrf: SVector6) -> SVector6 {
-    // Compute Sequential Transformation Matrices
-    let bpn = bias_precession_nutation(epc);
-    let r = earth_rotation(epc);
-    let pm = polar_motion(epc);
-
-    // Create Earth's Angular Rotation Vector
-    let omega_vec = Vector3::new(0.0, 0.0, constants::OMEGA_EARTH);
-
-    let r_gcrf = x_gcrf.fixed_rows::<3>(0);
-    let v_gcrf = x_gcrf.fixed_rows::<3>(3);
-
-    let p: Vector3<f64> = Vector3::from(pm * r * bpn * r_gcrf);
-    let v: Vector3<f64> = pm * (r * bpn * v_gcrf - omega_vec.cross(&(r * bpn * r_gcrf)));
-
-    SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
+    apply_state_gcrf_to_itrf(&gcrf_itrf_context(epc), &x_gcrf)
 }
 
 /// Transforms a Cartesian state in ITRF (International Terrestrial Reference Frame)
@@ -449,22 +508,254 @@ pub fn state_gcrf_to_itrf(epc: Epoch, x_gcrf: SVector6) -> SVector6 {
 /// let x_gcrf2 = state_itrf_to_gcrf(epc, x_itrf);
 /// ```
 pub fn state_itrf_to_gcrf(epc: Epoch, x_itrf: SVector6) -> SVector6 {
-    // Compute Sequential Transformation Matrices
-    let bpn = bias_precession_nutation(epc);
-    let r = earth_rotation(epc);
-    let pm = polar_motion(epc);
+    apply_state_itrf_to_gcrf(&gcrf_itrf_context(epc), &x_itrf)
+}
 
-    // Create Earth's Angular Rotation Vector
-    let omega_vec = Vector3::new(0.0, 0.0, constants::OMEGA_EARTH);
+/// Computes the GCRF-to-ITRF rotation matrix for each epoch in `epochs`.
+///
+/// Batch form of [`rotation_gcrf_to_itrf`]. Evaluation runs on the global
+/// thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants for computation of the transformation matrices
+///
+/// # Returns
+/// - Rotation matrices transforming GCRF -> ITRF, one per epoch, in input order
+///
+/// # Example
+/// ```
+/// use brahe::eop::*;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::frames::*;
+///
+/// // Quick EOP initialization
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0, epc + 120.0];
+///
+/// let rotations = rotations_gcrf_to_itrf(&epochs);
+/// assert_eq!(rotations.len(), 3);
+/// ```
+pub fn rotations_gcrf_to_itrf(epochs: &[Epoch]) -> Vec<SMatrix3> {
+    batch_map(epochs, |epc| rotation_gcrf_to_itrf(*epc))
+}
 
-    let r_itrf = x_itrf.fixed_rows::<3>(0);
-    let v_itrf = x_itrf.fixed_rows::<3>(3);
+/// Computes the ITRF-to-GCRF rotation matrix for each epoch in `epochs`.
+///
+/// Batch form of [`rotation_itrf_to_gcrf`]. Evaluation runs on the global
+/// thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants for computation of the transformation matrices
+///
+/// # Returns
+/// - Rotation matrices transforming ITRF -> GCRF, one per epoch, in input order
+///
+/// # Example
+/// ```
+/// use brahe::eop::*;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::frames::*;
+///
+/// // Quick EOP initialization
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0, epc + 120.0];
+///
+/// let rotations = rotations_itrf_to_gcrf(&epochs);
+/// assert_eq!(rotations.len(), 3);
+/// ```
+pub fn rotations_itrf_to_gcrf(epochs: &[Epoch]) -> Vec<SMatrix3> {
+    batch_map(epochs, |epc| rotation_itrf_to_gcrf(*epc))
+}
 
-    let p: Vector3<f64> = Vector3::from((pm * r * bpn).transpose() * r_itrf);
-    let v: Vector3<f64> = (r * bpn).transpose()
-        * (pm.transpose() * v_itrf + omega_vec.cross(&(pm.transpose() * r_itrf)));
+/// Transforms a batch of Cartesian positions from GCRF to ITRF.
+///
+/// Batch form of [`position_gcrf_to_itrf`]. `epochs` and `x` follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch computes the rotation matrix once and applies it to every position;
+/// per-element epochs compute it per position. Evaluation runs on the global
+/// thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x`: Cartesian GCRF positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian ITRF positions in input order. Units: (*m*)
+/// - Error if `epochs` and `x` do not satisfy the broadcast rule
+///
+/// # Example
+/// ```
+/// use brahe::eop::*;
+/// use brahe::constants::R_EARTH;
+/// use brahe::vector3_from_array;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::frames::*;
+///
+/// // Quick EOP initialization
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let positions = vec![
+///     vector3_from_array([R_EARTH, 0.0, 0.0]),
+///     vector3_from_array([0.0, R_EARTH, 0.0]),
+/// ];
+///
+/// // One epoch, many positions
+/// let x_itrf = positions_gcrf_to_itrf(&[epc], &positions).unwrap();
+/// assert_eq!(x_itrf.len(), 2);
+/// ```
+pub fn positions_gcrf_to_itrf(
+    epochs: &[Epoch],
+    x: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    batch_map_epochs(epochs, x, rotation_gcrf_to_itrf, |r, x| r * x)
+}
 
-    SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
+/// Transforms a batch of Cartesian positions from ITRF to GCRF.
+///
+/// Batch form of [`position_itrf_to_gcrf`]. `epochs` and `x` follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch computes the rotation matrix once and applies it to every position;
+/// per-element epochs compute it per position. Evaluation runs on the global
+/// thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x`: Cartesian ITRF positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian GCRF positions in input order. Units: (*m*)
+/// - Error if `epochs` and `x` do not satisfy the broadcast rule
+///
+/// # Example
+/// ```
+/// use brahe::eop::*;
+/// use brahe::constants::R_EARTH;
+/// use brahe::vector3_from_array;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::frames::*;
+///
+/// // Quick EOP initialization
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0, epc + 120.0];
+/// let station = vector3_from_array([R_EARTH, 0.0, 0.0]);
+///
+/// // One ground station, many epochs
+/// let x_gcrf = positions_itrf_to_gcrf(&epochs, &[station]).unwrap();
+/// assert_eq!(x_gcrf.len(), 3);
+/// ```
+pub fn positions_itrf_to_gcrf(
+    epochs: &[Epoch],
+    x: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    batch_map_epochs(epochs, x, rotation_itrf_to_gcrf, |r, x| r * x)
+}
+
+/// Transforms a batch of Cartesian states from GCRF to ITRF.
+///
+/// Batch form of [`state_gcrf_to_itrf`]. `epochs` and `x_gcrf` follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch computes the transformation matrices once and applies them to every
+/// state; per-element epochs compute them per state. Evaluation runs on the
+/// global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_gcrf`: Cartesian GCRF states (position, velocity), length 1 or the
+///   batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian ITRF states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if `epochs` and `x_gcrf` do not satisfy the broadcast rule
+///
+/// # Example
+/// ```
+/// use brahe::eop::*;
+/// use brahe::vector6_from_array;
+/// use brahe::constants::R_EARTH;
+/// use brahe::orbits::perigee_velocity;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::frames::*;
+///
+/// // Quick EOP initialization
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let v = perigee_velocity(R_EARTH + 500e3, 0.0);
+/// let states = vec![
+///     vector6_from_array([R_EARTH + 500e3, 0.0, 0.0, 0.0, v, 0.0]),
+///     vector6_from_array([0.0, R_EARTH + 500e3, 0.0, -v, 0.0, 0.0]),
+/// ];
+///
+/// // One epoch, many states
+/// let x_itrf = states_gcrf_to_itrf(&[epc], &states).unwrap();
+/// assert_eq!(x_itrf.len(), 2);
+/// ```
+pub fn states_gcrf_to_itrf(
+    epochs: &[Epoch],
+    x_gcrf: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(epochs, x_gcrf, gcrf_itrf_context, apply_state_gcrf_to_itrf)
+}
+
+/// Transforms a batch of Cartesian states from ITRF to GCRF.
+///
+/// Batch form of [`state_itrf_to_gcrf`]. `epochs` and `x_itrf` follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch computes the transformation matrices once and applies them to every
+/// state; per-element epochs compute them per state. Evaluation runs on the
+/// global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_itrf`: Cartesian ITRF states (position, velocity), length 1 or the
+///   batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian GCRF states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if `epochs` and `x_itrf` do not satisfy the broadcast rule
+///
+/// # Example
+/// ```
+/// use brahe::eop::*;
+/// use brahe::vector6_from_array;
+/// use brahe::constants::R_EARTH;
+/// use brahe::orbits::perigee_velocity;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::frames::*;
+///
+/// // Quick EOP initialization
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0];
+/// let v = perigee_velocity(R_EARTH + 500e3, 0.0);
+/// let states = vec![
+///     vector6_from_array([R_EARTH + 500e3, 0.0, 0.0, 0.0, v, 0.0]),
+///     vector6_from_array([0.0, R_EARTH + 500e3, 0.0, -v, 0.0, 0.0]),
+/// ];
+///
+/// // Paired epochs and states
+/// let x_gcrf = states_itrf_to_gcrf(&epochs, &states).unwrap();
+/// assert_eq!(x_gcrf.len(), 2);
+/// ```
+pub fn states_itrf_to_gcrf(
+    epochs: &[Epoch],
+    x_itrf: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(epochs, x_itrf, gcrf_itrf_context, apply_state_itrf_to_gcrf)
 }
 
 #[cfg(test)]
@@ -478,8 +769,9 @@ mod tests {
     use crate::coordinates::state_koe_to_eci;
     use crate::eop::{StaticEOPProvider, set_global_eop_provider};
     use crate::frames::*;
-    use crate::math::vector6_from_array;
+    use crate::math::{SVector6, vector6_from_array};
     use crate::time::{Epoch, TimeSystem};
+    use crate::utils::batch::PARALLEL_THRESHOLD;
     use crate::utils::testing::setup_global_test_eop;
 
     #[allow(non_snake_case)]
@@ -682,5 +974,144 @@ mod tests {
         assert_abs_diff_eq!(itrf2[3], itrf[3], epsilon = tol);
         assert_abs_diff_eq!(itrf2[4], itrf[4], epsilon = tol);
         assert_abs_diff_eq!(itrf2[5], itrf[5], epsilon = tol);
+    }
+
+    fn sample_states(n: usize) -> Vec<SVector6> {
+        (0..n)
+            .map(|i| {
+                let oe = vector6_from_array([
+                    R_EARTH + 500e3 + 1e3 * i as f64,
+                    0.01,
+                    97.8,
+                    15.0 + i as f64,
+                    30.0,
+                    45.0 + 2.0 * i as f64,
+                ]);
+                state_koe_to_eci(oe, DEGREES)
+            })
+            .collect()
+    }
+
+    fn sample_epochs(n: usize) -> Vec<Epoch> {
+        let epc0 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        (0..n).map(|i| epc0 + 60.0 * i as f64).collect()
+    }
+
+    #[test]
+    #[serial]
+    fn test_states_gcrf_to_itrf_shared_epoch_matches_scalar() {
+        setup_global_test_eop();
+        let epc = sample_epochs(1);
+        let states = sample_states(5);
+        let out = states_gcrf_to_itrf(&epc, &states).unwrap();
+        for (s, o) in states.iter().zip(&out) {
+            assert_eq!(*o, state_gcrf_to_itrf(epc[0], *s));
+        }
+
+        let states = sample_states(PARALLEL_THRESHOLD + 1);
+        let out = states_gcrf_to_itrf(&epc, &states).unwrap();
+        for (s, o) in states.iter().zip(&out) {
+            assert_eq!(*o, state_gcrf_to_itrf(epc[0], *s));
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_states_gcrf_to_itrf_per_epoch_matches_scalar() {
+        setup_global_test_eop();
+        let epochs = sample_epochs(5);
+        let states = sample_states(5);
+        let out = states_gcrf_to_itrf(&epochs, &states).unwrap();
+        for i in 0..5 {
+            assert_eq!(out[i], state_gcrf_to_itrf(epochs[i], states[i]));
+        }
+
+        let out = states_gcrf_to_itrf(&epochs, &states[..1]).unwrap();
+        for i in 0..5 {
+            assert_eq!(out[i], state_gcrf_to_itrf(epochs[i], states[0]));
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_states_itrf_to_gcrf_matches_scalar_and_roundtrip() {
+        setup_global_test_eop();
+        let epochs = sample_epochs(4);
+        let states = sample_states(4);
+        let itrf = states_gcrf_to_itrf(&epochs, &states).unwrap();
+        let back = states_itrf_to_gcrf(&epochs, &itrf).unwrap();
+        for i in 0..4 {
+            assert_eq!(back[i], state_itrf_to_gcrf(epochs[i], itrf[i]));
+            for k in 0..3 {
+                assert_abs_diff_eq!(back[i][k], states[i][k], epsilon = 1e-6);
+            }
+            for k in 3..6 {
+                assert_abs_diff_eq!(back[i][k], states[i][k], epsilon = 1e-9);
+            }
+        }
+
+        let shared = states_itrf_to_gcrf(&epochs[..1], &itrf).unwrap();
+        for i in 0..4 {
+            assert_eq!(shared[i], state_itrf_to_gcrf(epochs[0], itrf[i]));
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_positions_gcrf_itrf_match_scalar() {
+        setup_global_test_eop();
+        let epochs = sample_epochs(3);
+        let pos: Vec<Vector3<f64>> = sample_states(3)
+            .iter()
+            .map(|s| Vector3::new(s[0], s[1], s[2]))
+            .collect();
+
+        let out = positions_gcrf_to_itrf(&epochs, &pos).unwrap();
+        for i in 0..3 {
+            assert_eq!(out[i], position_gcrf_to_itrf(epochs[i], pos[i]));
+        }
+
+        let out_shared = positions_gcrf_to_itrf(&epochs[..1], &pos).unwrap();
+        for i in 0..3 {
+            assert_eq!(out_shared[i], position_gcrf_to_itrf(epochs[0], pos[i]));
+        }
+
+        let back = positions_itrf_to_gcrf(&epochs, &out).unwrap();
+        for i in 0..3 {
+            assert_eq!(back[i], position_itrf_to_gcrf(epochs[i], out[i]));
+        }
+
+        let station = positions_itrf_to_gcrf(&epochs, &pos[..1]).unwrap();
+        for i in 0..3 {
+            assert_eq!(station[i], position_itrf_to_gcrf(epochs[i], pos[0]));
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_rotations_gcrf_itrf_match_scalar() {
+        setup_global_test_eop();
+        let epochs = sample_epochs(3);
+        let r = rotations_gcrf_to_itrf(&epochs);
+        let rt = rotations_itrf_to_gcrf(&epochs);
+        for i in 0..3 {
+            assert_eq!(r[i], rotation_gcrf_to_itrf(epochs[i]));
+            assert_eq!(rt[i], rotation_itrf_to_gcrf(epochs[i]));
+        }
+        assert!(rotations_gcrf_to_itrf(&[]).is_empty());
+    }
+
+    #[test]
+    #[serial]
+    fn test_states_gcrf_to_itrf_length_mismatch_and_empty() {
+        setup_global_test_eop();
+        assert!(states_gcrf_to_itrf(&sample_epochs(2), &sample_states(3)).is_err());
+        assert!(positions_gcrf_to_itrf(&sample_epochs(2), &[Vector3::zeros(); 3]).is_err());
+        assert!(
+            states_gcrf_to_itrf(&sample_epochs(1), &[])
+                .unwrap()
+                .is_empty()
+        );
+        assert!(states_gcrf_to_itrf(&[], &[]).unwrap().is_empty());
     }
 }

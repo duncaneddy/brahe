@@ -18,6 +18,7 @@ use crate::math::{SMatrix3, SVector6};
 use crate::spice::{NAIFId, spk_acceleration, spk_position, spk_state};
 use crate::time::Epoch;
 use crate::utils::BraheError;
+use crate::utils::batch::{try_batch_map, try_batch_map_epochs};
 
 /// Computes the inertial→synodic rotation matrix `R` and its exact time
 /// derivative `Ṙ` from the relative state of the two primaries
@@ -259,6 +260,71 @@ pub(crate) fn emr_axes(epc: Epoch) -> Result<(SMatrix3, SMatrix3), BraheError> {
     generic_synodic_axes(epc, NAIFId::Earth.id(), NAIFId::Moon.id())
 }
 
+/// Synodic rotation matrix and origin offset (ICRF axes, from Earth) for a
+/// position transformation at one epoch.
+struct SynodicPositionContext {
+    r_mat: SMatrix3,
+    offset: Vector3<f64>,
+}
+
+/// Synodic rotation matrix, its time derivative, and origin offset state
+/// (ICRF axes, from Earth) for a state transformation at one epoch.
+struct SynodicStateContext {
+    r_mat: SMatrix3,
+    r_dot_mat: SMatrix3,
+    offset: SVector6,
+}
+
+/// Apply a synodic position context: re-center from Earth to the synodic
+/// origin, then rotate into synodic axes.
+fn apply_position_inertial_to_synodic(
+    c: &SynodicPositionContext,
+    x: &Vector3<f64>,
+) -> Vector3<f64> {
+    c.r_mat * (x - c.offset)
+}
+
+/// Apply a synodic position context in the inverse direction: rotate to ICRF
+/// axes, then re-center from the synodic origin to Earth.
+fn apply_position_synodic_to_inertial(
+    c: &SynodicPositionContext,
+    x: &Vector3<f64>,
+) -> Vector3<f64> {
+    c.r_mat.transpose() * x + c.offset
+}
+
+/// Apply a synodic state context: re-center from Earth to the synodic origin,
+/// then rotate into synodic axes with the transport term.
+fn apply_state_inertial_to_synodic(c: &SynodicStateContext, x: &SVector6) -> SVector6 {
+    state_inertial_to_synodic(&c.r_mat, &c.r_dot_mat, x - c.offset)
+}
+
+/// Apply a synodic state context in the inverse direction.
+fn apply_state_synodic_to_inertial(c: &SynodicStateContext, x: &SVector6) -> SVector6 {
+    state_synodic_to_inertial(&c.r_mat, &c.r_dot_mat, *x) + c.offset
+}
+
+/// EMR position context: rotation from [`emr_axes`] and the Earth -> EMB
+/// offset.
+fn emr_position_context(epc: Epoch) -> Result<SynodicPositionContext, BraheError> {
+    let (r_mat, _) = emr_axes(epc)?;
+    let offset = spk_position(NAIFId::EarthMoonBarycenter, NAIFId::Earth, epc)?;
+    Ok(SynodicPositionContext { r_mat, offset })
+}
+
+/// EMR state context: rotation and rate from [`emr_axes`] and the Earth ->
+/// EMB offset state.
+fn emr_state_context(epc: Epoch) -> Result<SynodicStateContext, BraheError> {
+    let (r_mat, r_dot_mat) = emr_axes(epc)?;
+    // EMB relative to Earth in ICRF axes: re-center Earth → EMB, then rotate.
+    let offset = spk_state(NAIFId::EarthMoonBarycenter, NAIFId::Earth, epc)?;
+    Ok(SynodicStateContext {
+        r_mat,
+        r_dot_mat,
+        offset,
+    })
+}
+
 /// Computes the rotation matrix from Geocentric Celestial Reference Frame
 /// (GCRF) to Earth-Moon Rotating (EMR) axes.
 ///
@@ -343,9 +409,10 @@ pub fn rotation_emr_to_gcrf(epc: Epoch) -> Result<SMatrix3, BraheError> {
 /// let x_emr = position_gcrf_to_emr(epc, x_gcrf).unwrap();
 /// ```
 pub fn position_gcrf_to_emr(epc: Epoch, x_gcrf: Vector3<f64>) -> Result<Vector3<f64>, BraheError> {
-    let (r_mat, _) = emr_axes(epc)?;
-    let offset = spk_position(NAIFId::EarthMoonBarycenter, NAIFId::Earth, epc)?;
-    Ok(r_mat * (x_gcrf - offset))
+    Ok(apply_position_inertial_to_synodic(
+        &emr_position_context(epc)?,
+        &x_gcrf,
+    ))
 }
 
 /// Transforms a Cartesian Earth-Moon Rotating (EMR) position into the
@@ -376,9 +443,10 @@ pub fn position_gcrf_to_emr(epc: Epoch, x_gcrf: Vector3<f64>) -> Result<Vector3<
 /// let x_gcrf2 = position_emr_to_gcrf(epc, x_emr).unwrap();
 /// ```
 pub fn position_emr_to_gcrf(epc: Epoch, x_emr: Vector3<f64>) -> Result<Vector3<f64>, BraheError> {
-    let (r_mat, _) = emr_axes(epc)?;
-    let offset = spk_position(NAIFId::EarthMoonBarycenter, NAIFId::Earth, epc)?;
-    Ok(r_mat.transpose() * x_emr + offset)
+    Ok(apply_position_synodic_to_inertial(
+        &emr_position_context(epc)?,
+        &x_emr,
+    ))
 }
 
 /// Transforms a Cartesian GCRF state (position and velocity) into the
@@ -410,13 +478,9 @@ pub fn position_emr_to_gcrf(epc: Epoch, x_emr: Vector3<f64>) -> Result<Vector3<f
 /// let x_emr = state_gcrf_to_emr(epc, x_gcrf).unwrap();
 /// ```
 pub fn state_gcrf_to_emr(epc: Epoch, x_gcrf: SVector6) -> Result<SVector6, BraheError> {
-    let (r_mat, r_dot_mat) = emr_axes(epc)?;
-    // EMB relative to Earth in ICRF axes: re-center Earth → EMB, then rotate.
-    let offset = spk_state(NAIFId::EarthMoonBarycenter, NAIFId::Earth, epc)?;
-    Ok(state_inertial_to_synodic(
-        &r_mat,
-        &r_dot_mat,
-        x_gcrf - offset,
+    Ok(apply_state_inertial_to_synodic(
+        &emr_state_context(epc)?,
+        &x_gcrf,
     ))
 }
 
@@ -448,9 +512,10 @@ pub fn state_gcrf_to_emr(epc: Epoch, x_gcrf: SVector6) -> Result<SVector6, Brahe
 /// let x_gcrf2 = state_emr_to_gcrf(epc, x_emr).unwrap();
 /// ```
 pub fn state_emr_to_gcrf(epc: Epoch, x_emr: SVector6) -> Result<SVector6, BraheError> {
-    let (r_mat, r_dot_mat) = emr_axes(epc)?;
-    let offset = spk_state(NAIFId::EarthMoonBarycenter, NAIFId::Earth, epc)?;
-    Ok(state_synodic_to_inertial(&r_mat, &r_dot_mat, x_emr) + offset)
+    Ok(apply_state_synodic_to_inertial(
+        &emr_state_context(epc)?,
+        &x_emr,
+    ))
 }
 
 /// State of the Sun-Earth barycenter (SEB) relative to the Solar System
@@ -511,6 +576,27 @@ fn seb_offset_from_earth(epc: Epoch) -> Result<SVector6, BraheError> {
     let seb = sun_earth_barycenter_state(epc)?;
     let earth = spk_state(NAIFId::Earth, NAIFId::SolarSystemBarycenter, epc)?;
     Ok(seb - earth)
+}
+
+/// SER position context: rotation from [`ser_axes`] and the Earth -> SEB
+/// offset.
+fn ser_position_context(epc: Epoch) -> Result<SynodicPositionContext, BraheError> {
+    let (r_mat, _) = ser_axes(epc)?;
+    let offset = seb_offset_from_earth(epc)?.fixed_rows::<3>(0).into_owned();
+    Ok(SynodicPositionContext { r_mat, offset })
+}
+
+/// SER state context: rotation and rate from [`ser_axes`] and the Earth ->
+/// SEB offset state.
+fn ser_state_context(epc: Epoch) -> Result<SynodicStateContext, BraheError> {
+    let (r_mat, r_dot_mat) = ser_axes(epc)?;
+    // SEB relative to Earth in ICRF axes: re-center Earth → SEB, then rotate.
+    let offset = seb_offset_from_earth(epc)?;
+    Ok(SynodicStateContext {
+        r_mat,
+        r_dot_mat,
+        offset,
+    })
 }
 
 /// Computes the rotation matrix from Geocentric Celestial Reference Frame
@@ -597,9 +683,10 @@ pub fn rotation_ser_to_gcrf(epc: Epoch) -> Result<SMatrix3, BraheError> {
 /// let x_ser = position_gcrf_to_ser(epc, x_gcrf).unwrap();
 /// ```
 pub fn position_gcrf_to_ser(epc: Epoch, x_gcrf: Vector3<f64>) -> Result<Vector3<f64>, BraheError> {
-    let (r_mat, _) = ser_axes(epc)?;
-    let offset = seb_offset_from_earth(epc)?.fixed_rows::<3>(0).into_owned();
-    Ok(r_mat * (x_gcrf - offset))
+    Ok(apply_position_inertial_to_synodic(
+        &ser_position_context(epc)?,
+        &x_gcrf,
+    ))
 }
 
 /// Transforms a Cartesian Sun-Earth Rotating (SER) position into the
@@ -630,9 +717,10 @@ pub fn position_gcrf_to_ser(epc: Epoch, x_gcrf: Vector3<f64>) -> Result<Vector3<
 /// let x_gcrf2 = position_ser_to_gcrf(epc, x_ser).unwrap();
 /// ```
 pub fn position_ser_to_gcrf(epc: Epoch, x_ser: Vector3<f64>) -> Result<Vector3<f64>, BraheError> {
-    let (r_mat, _) = ser_axes(epc)?;
-    let offset = seb_offset_from_earth(epc)?.fixed_rows::<3>(0).into_owned();
-    Ok(r_mat.transpose() * x_ser + offset)
+    Ok(apply_position_synodic_to_inertial(
+        &ser_position_context(epc)?,
+        &x_ser,
+    ))
 }
 
 /// Transforms a Cartesian GCRF state (position and velocity) into the
@@ -664,13 +752,9 @@ pub fn position_ser_to_gcrf(epc: Epoch, x_ser: Vector3<f64>) -> Result<Vector3<f
 /// let x_ser = state_gcrf_to_ser(epc, x_gcrf).unwrap();
 /// ```
 pub fn state_gcrf_to_ser(epc: Epoch, x_gcrf: SVector6) -> Result<SVector6, BraheError> {
-    let (r_mat, r_dot_mat) = ser_axes(epc)?;
-    // SEB relative to Earth in ICRF axes: re-center Earth → SEB, then rotate.
-    let offset = seb_offset_from_earth(epc)?;
-    Ok(state_inertial_to_synodic(
-        &r_mat,
-        &r_dot_mat,
-        x_gcrf - offset,
+    Ok(apply_state_inertial_to_synodic(
+        &ser_state_context(epc)?,
+        &x_gcrf,
     ))
 }
 
@@ -702,9 +786,10 @@ pub fn state_gcrf_to_ser(epc: Epoch, x_gcrf: SVector6) -> Result<SVector6, Brahe
 /// let x_gcrf2 = state_ser_to_gcrf(epc, x_ser).unwrap();
 /// ```
 pub fn state_ser_to_gcrf(epc: Epoch, x_ser: SVector6) -> Result<SVector6, BraheError> {
-    let (r_mat, r_dot_mat) = ser_axes(epc)?;
-    let offset = seb_offset_from_earth(epc)?;
-    Ok(state_synodic_to_inertial(&r_mat, &r_dot_mat, x_ser) + offset)
+    Ok(apply_state_synodic_to_inertial(
+        &ser_state_context(epc)?,
+        &x_ser,
+    ))
 }
 
 /// Computes the rotation matrix from Geocentric Celestial Reference Frame
@@ -888,6 +973,598 @@ pub fn state_gcrf_to_gse(epc: Epoch, x_gcrf: SVector6) -> Result<SVector6, Brahe
 pub fn state_gse_to_gcrf(epc: Epoch, x_gse: SVector6) -> Result<SVector6, BraheError> {
     let (r_mat, r_dot_mat) = gse_axes(epc)?;
     Ok(state_synodic_to_inertial(&r_mat, &r_dot_mat, x_gse))
+}
+
+/// Computes the GCRF to Earth-Moon Rotating (EMR) rotation matrix for each epoch in `epochs`.
+///
+/// Batch form of [`rotation_gcrf_to_emr`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants for computation of the transformation matrices
+///
+/// # Returns
+/// - Rotation matrices transforming GCRF -> EMR, one per epoch, in input order
+/// - Error if the ephemeris cannot be evaluated at any epoch
+///
+/// # Examples
+/// ```
+/// use brahe::frames::rotations_gcrf_to_emr;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 3600.0];
+/// let r = rotations_gcrf_to_emr(&epochs).unwrap();
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_gcrf_to_emr(epochs: &[Epoch]) -> Result<Vec<SMatrix3>, BraheError> {
+    try_batch_map(epochs, |epc| rotation_gcrf_to_emr(*epc))
+}
+
+/// Computes the Earth-Moon Rotating (EMR) to GCRF rotation matrix for each epoch in `epochs`.
+///
+/// Batch form of [`rotation_emr_to_gcrf`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants for computation of the transformation matrices
+///
+/// # Returns
+/// - Rotation matrices transforming EMR -> GCRF, one per epoch, in input order
+/// - Error if the ephemeris cannot be evaluated at any epoch
+///
+/// # Examples
+/// ```
+/// use brahe::frames::rotations_emr_to_gcrf;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 3600.0];
+/// let r = rotations_emr_to_gcrf(&epochs).unwrap();
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_emr_to_gcrf(epochs: &[Epoch]) -> Result<Vec<SMatrix3>, BraheError> {
+    try_batch_map(epochs, |epc| rotation_emr_to_gcrf(*epc))
+}
+
+/// Computes the GCRF to Sun-Earth Rotating (SER) rotation matrix for each epoch in `epochs`.
+///
+/// Batch form of [`rotation_gcrf_to_ser`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants for computation of the transformation matrices
+///
+/// # Returns
+/// - Rotation matrices transforming GCRF -> SER, one per epoch, in input order
+/// - Error if the ephemeris cannot be evaluated at any epoch
+///
+/// # Examples
+/// ```
+/// use brahe::frames::rotations_gcrf_to_ser;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 3600.0];
+/// let r = rotations_gcrf_to_ser(&epochs).unwrap();
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_gcrf_to_ser(epochs: &[Epoch]) -> Result<Vec<SMatrix3>, BraheError> {
+    try_batch_map(epochs, |epc| rotation_gcrf_to_ser(*epc))
+}
+
+/// Computes the Sun-Earth Rotating (SER) to GCRF rotation matrix for each epoch in `epochs`.
+///
+/// Batch form of [`rotation_ser_to_gcrf`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants for computation of the transformation matrices
+///
+/// # Returns
+/// - Rotation matrices transforming SER -> GCRF, one per epoch, in input order
+/// - Error if the ephemeris cannot be evaluated at any epoch
+///
+/// # Examples
+/// ```
+/// use brahe::frames::rotations_ser_to_gcrf;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 3600.0];
+/// let r = rotations_ser_to_gcrf(&epochs).unwrap();
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_ser_to_gcrf(epochs: &[Epoch]) -> Result<Vec<SMatrix3>, BraheError> {
+    try_batch_map(epochs, |epc| rotation_ser_to_gcrf(*epc))
+}
+
+/// Computes the GCRF to Geocentric Solar Ecliptic (GSE) rotation matrix for each epoch in `epochs`.
+///
+/// Batch form of [`rotation_gcrf_to_gse`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants for computation of the transformation matrices
+///
+/// # Returns
+/// - Rotation matrices transforming GCRF -> GSE, one per epoch, in input order
+/// - Error if the ephemeris cannot be evaluated at any epoch
+///
+/// # Examples
+/// ```
+/// use brahe::frames::rotations_gcrf_to_gse;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 3600.0];
+/// let r = rotations_gcrf_to_gse(&epochs).unwrap();
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_gcrf_to_gse(epochs: &[Epoch]) -> Result<Vec<SMatrix3>, BraheError> {
+    try_batch_map(epochs, |epc| rotation_gcrf_to_gse(*epc))
+}
+
+/// Computes the Geocentric Solar Ecliptic (GSE) to GCRF rotation matrix for each epoch in `epochs`.
+///
+/// Batch form of [`rotation_gse_to_gcrf`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants for computation of the transformation matrices
+///
+/// # Returns
+/// - Rotation matrices transforming GSE -> GCRF, one per epoch, in input order
+/// - Error if the ephemeris cannot be evaluated at any epoch
+///
+/// # Examples
+/// ```
+/// use brahe::frames::rotations_gse_to_gcrf;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 3600.0];
+/// let r = rotations_gse_to_gcrf(&epochs).unwrap();
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_gse_to_gcrf(epochs: &[Epoch]) -> Result<Vec<SMatrix3>, BraheError> {
+    try_batch_map(epochs, |epc| rotation_gse_to_gcrf(*epc))
+}
+
+/// Transforms a batch of Cartesian positions from GCRF to Earth-Moon Rotating (EMR).
+///
+/// Batch form of [`position_gcrf_to_emr`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the synodic axes and origin offset once and applies them
+/// to every element. Evaluation runs on the global thread pool for large
+/// inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_gcrf`: Cartesian GCRF positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian EMR positions in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule or the ephemeris cannot be evaluated
+///
+/// # Examples
+/// ```
+/// use brahe::frames::positions_gcrf_to_emr;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let positions = vec![Vector3::new(7.0e6, 1.0e6, -2.0e6); 3];
+/// let out = positions_gcrf_to_emr(&[epc], &positions).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn positions_gcrf_to_emr(
+    epochs: &[Epoch],
+    x_gcrf: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    try_batch_map_epochs(epochs, x_gcrf, emr_position_context, |c, x| {
+        Ok(apply_position_inertial_to_synodic(c, x))
+    })
+}
+
+/// Transforms a batch of Cartesian positions from Earth-Moon Rotating (EMR) to GCRF.
+///
+/// Batch form of [`position_emr_to_gcrf`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the synodic axes and origin offset once and applies them
+/// to every element. Evaluation runs on the global thread pool for large
+/// inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_emr`: Cartesian EMR positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian GCRF positions in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule or the ephemeris cannot be evaluated
+///
+/// # Examples
+/// ```
+/// use brahe::frames::positions_emr_to_gcrf;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let positions = vec![Vector3::new(7.0e6, 1.0e6, -2.0e6); 3];
+/// let out = positions_emr_to_gcrf(&[epc], &positions).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn positions_emr_to_gcrf(
+    epochs: &[Epoch],
+    x_emr: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    try_batch_map_epochs(epochs, x_emr, emr_position_context, |c, x| {
+        Ok(apply_position_synodic_to_inertial(c, x))
+    })
+}
+
+/// Transforms a batch of Cartesian positions from GCRF to Sun-Earth Rotating (SER).
+///
+/// Batch form of [`position_gcrf_to_ser`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the synodic axes and origin offset once and applies them
+/// to every element. Evaluation runs on the global thread pool for large
+/// inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_gcrf`: Cartesian GCRF positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian SER positions in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule or the ephemeris cannot be evaluated
+///
+/// # Examples
+/// ```
+/// use brahe::frames::positions_gcrf_to_ser;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let positions = vec![Vector3::new(7.0e6, 1.0e6, -2.0e6); 3];
+/// let out = positions_gcrf_to_ser(&[epc], &positions).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn positions_gcrf_to_ser(
+    epochs: &[Epoch],
+    x_gcrf: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    try_batch_map_epochs(epochs, x_gcrf, ser_position_context, |c, x| {
+        Ok(apply_position_inertial_to_synodic(c, x))
+    })
+}
+
+/// Transforms a batch of Cartesian positions from Sun-Earth Rotating (SER) to GCRF.
+///
+/// Batch form of [`position_ser_to_gcrf`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the synodic axes and origin offset once and applies them
+/// to every element. Evaluation runs on the global thread pool for large
+/// inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_ser`: Cartesian SER positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian GCRF positions in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule or the ephemeris cannot be evaluated
+///
+/// # Examples
+/// ```
+/// use brahe::frames::positions_ser_to_gcrf;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let positions = vec![Vector3::new(7.0e6, 1.0e6, -2.0e6); 3];
+/// let out = positions_ser_to_gcrf(&[epc], &positions).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn positions_ser_to_gcrf(
+    epochs: &[Epoch],
+    x_ser: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    try_batch_map_epochs(epochs, x_ser, ser_position_context, |c, x| {
+        Ok(apply_position_synodic_to_inertial(c, x))
+    })
+}
+
+/// Transforms a batch of Cartesian positions from GCRF to Geocentric Solar Ecliptic (GSE).
+///
+/// Batch form of [`position_gcrf_to_gse`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the synodic axes and origin offset once and applies them
+/// to every element. Evaluation runs on the global thread pool for large
+/// inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_gcrf`: Cartesian GCRF positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian GSE positions in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule or the ephemeris cannot be evaluated
+///
+/// # Examples
+/// ```
+/// use brahe::frames::positions_gcrf_to_gse;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let positions = vec![Vector3::new(7.0e6, 1.0e6, -2.0e6); 3];
+/// let out = positions_gcrf_to_gse(&[epc], &positions).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn positions_gcrf_to_gse(
+    epochs: &[Epoch],
+    x_gcrf: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    try_batch_map_epochs(epochs, x_gcrf, gse_axes, |(r_mat, _), x| Ok(r_mat * x))
+}
+
+/// Transforms a batch of Cartesian positions from Geocentric Solar Ecliptic (GSE) to GCRF.
+///
+/// Batch form of [`position_gse_to_gcrf`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the synodic axes and origin offset once and applies them
+/// to every element. Evaluation runs on the global thread pool for large
+/// inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_gse`: Cartesian GSE positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian GCRF positions in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule or the ephemeris cannot be evaluated
+///
+/// # Examples
+/// ```
+/// use brahe::frames::positions_gse_to_gcrf;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let positions = vec![Vector3::new(7.0e6, 1.0e6, -2.0e6); 3];
+/// let out = positions_gse_to_gcrf(&[epc], &positions).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn positions_gse_to_gcrf(
+    epochs: &[Epoch],
+    x_gse: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    try_batch_map_epochs(epochs, x_gse, gse_axes, |(r_mat, _), x| {
+        Ok(r_mat.transpose() * x)
+    })
+}
+
+/// Transforms a batch of Cartesian states from GCRF to Earth-Moon Rotating (EMR).
+///
+/// Batch form of [`state_gcrf_to_emr`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the synodic axes and origin offset once and applies them
+/// to every element. Evaluation runs on the global thread pool for large
+/// inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_gcrf`: Cartesian GCRF states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian EMR states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule or the ephemeris cannot be evaluated
+///
+/// # Examples
+/// ```
+/// use brahe::frames::states_gcrf_to_emr;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 3600.0, epc + 7200.0];
+/// let states = vec![vector6_from_array([7.0e6, 0.0, 0.0, 0.0, 7.5e3, 0.0]); 3];
+/// let out = states_gcrf_to_emr(&epochs, &states).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn states_gcrf_to_emr(
+    epochs: &[Epoch],
+    x_gcrf: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    try_batch_map_epochs(epochs, x_gcrf, emr_state_context, |c, x| {
+        Ok(apply_state_inertial_to_synodic(c, x))
+    })
+}
+
+/// Transforms a batch of Cartesian states from Earth-Moon Rotating (EMR) to GCRF.
+///
+/// Batch form of [`state_emr_to_gcrf`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the synodic axes and origin offset once and applies them
+/// to every element. Evaluation runs on the global thread pool for large
+/// inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_emr`: Cartesian EMR states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian GCRF states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule or the ephemeris cannot be evaluated
+///
+/// # Examples
+/// ```
+/// use brahe::frames::states_emr_to_gcrf;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 3600.0, epc + 7200.0];
+/// let states = vec![vector6_from_array([7.0e6, 0.0, 0.0, 0.0, 7.5e3, 0.0]); 3];
+/// let out = states_emr_to_gcrf(&epochs, &states).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn states_emr_to_gcrf(
+    epochs: &[Epoch],
+    x_emr: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    try_batch_map_epochs(epochs, x_emr, emr_state_context, |c, x| {
+        Ok(apply_state_synodic_to_inertial(c, x))
+    })
+}
+
+/// Transforms a batch of Cartesian states from GCRF to Sun-Earth Rotating (SER).
+///
+/// Batch form of [`state_gcrf_to_ser`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the synodic axes and origin offset once and applies them
+/// to every element. Evaluation runs on the global thread pool for large
+/// inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_gcrf`: Cartesian GCRF states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian SER states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule or the ephemeris cannot be evaluated
+///
+/// # Examples
+/// ```
+/// use brahe::frames::states_gcrf_to_ser;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 3600.0, epc + 7200.0];
+/// let states = vec![vector6_from_array([7.0e6, 0.0, 0.0, 0.0, 7.5e3, 0.0]); 3];
+/// let out = states_gcrf_to_ser(&epochs, &states).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn states_gcrf_to_ser(
+    epochs: &[Epoch],
+    x_gcrf: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    try_batch_map_epochs(epochs, x_gcrf, ser_state_context, |c, x| {
+        Ok(apply_state_inertial_to_synodic(c, x))
+    })
+}
+
+/// Transforms a batch of Cartesian states from Sun-Earth Rotating (SER) to GCRF.
+///
+/// Batch form of [`state_ser_to_gcrf`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the synodic axes and origin offset once and applies them
+/// to every element. Evaluation runs on the global thread pool for large
+/// inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_ser`: Cartesian SER states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian GCRF states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule or the ephemeris cannot be evaluated
+///
+/// # Examples
+/// ```
+/// use brahe::frames::states_ser_to_gcrf;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 3600.0, epc + 7200.0];
+/// let states = vec![vector6_from_array([7.0e6, 0.0, 0.0, 0.0, 7.5e3, 0.0]); 3];
+/// let out = states_ser_to_gcrf(&epochs, &states).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn states_ser_to_gcrf(
+    epochs: &[Epoch],
+    x_ser: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    try_batch_map_epochs(epochs, x_ser, ser_state_context, |c, x| {
+        Ok(apply_state_synodic_to_inertial(c, x))
+    })
+}
+
+/// Transforms a batch of Cartesian states from GCRF to Geocentric Solar Ecliptic (GSE).
+///
+/// Batch form of [`state_gcrf_to_gse`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the synodic axes and origin offset once and applies them
+/// to every element. Evaluation runs on the global thread pool for large
+/// inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_gcrf`: Cartesian GCRF states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian GSE states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule or the ephemeris cannot be evaluated
+///
+/// # Examples
+/// ```
+/// use brahe::frames::states_gcrf_to_gse;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 3600.0, epc + 7200.0];
+/// let states = vec![vector6_from_array([7.0e6, 0.0, 0.0, 0.0, 7.5e3, 0.0]); 3];
+/// let out = states_gcrf_to_gse(&epochs, &states).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn states_gcrf_to_gse(
+    epochs: &[Epoch],
+    x_gcrf: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    try_batch_map_epochs(epochs, x_gcrf, gse_axes, |(r_mat, r_dot_mat), x| {
+        Ok(state_inertial_to_synodic(r_mat, r_dot_mat, *x))
+    })
+}
+
+/// Transforms a batch of Cartesian states from Geocentric Solar Ecliptic (GSE) to GCRF.
+///
+/// Batch form of [`state_gse_to_gcrf`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the synodic axes and origin offset once and applies them
+/// to every element. Evaluation runs on the global thread pool for large
+/// inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_gse`: Cartesian GSE states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian GCRF states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule or the ephemeris cannot be evaluated
+///
+/// # Examples
+/// ```
+/// use brahe::frames::states_gse_to_gcrf;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 3600.0, epc + 7200.0];
+/// let states = vec![vector6_from_array([7.0e6, 0.0, 0.0, 0.0, 7.5e3, 0.0]); 3];
+/// let out = states_gse_to_gcrf(&epochs, &states).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn states_gse_to_gcrf(
+    epochs: &[Epoch],
+    x_gse: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    try_batch_map_epochs(epochs, x_gse, gse_axes, |(r_mat, r_dot_mat), x| {
+        Ok(state_synodic_to_inertial(r_mat, r_dot_mat, *x))
+    })
 }
 
 #[cfg(test)]
@@ -1273,5 +1950,94 @@ mod tests {
         let x_pair = pair_barycenter_state(epc, 10, 399).unwrap();
         let x_seb = sun_earth_barycenter_state(epc).unwrap();
         assert_abs_diff_eq!(x_pair, x_seb, epsilon = 0.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_batch_synodic_frames_match_scalar() {
+        setup_global_test_spice();
+        let epc0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epochs: Vec<Epoch> = (0..3).map(|i| epc0 + 3600.0 * i as f64).collect();
+        let states: Vec<SVector6> = (0..3)
+            .map(|i| SVector6::new(7.0e6 + 1e3 * i as f64, 1.0e6, -2.0e6, 0.0, 7.5e3, 0.0))
+            .collect();
+        let positions: Vec<Vector3<f64>> = states
+            .iter()
+            .map(|s| Vector3::new(s[0], s[1], s[2]))
+            .collect();
+
+        macro_rules! check_family {
+            ($rot_f:ident, $rot_b:ident, $pos_f:ident, $pos_b:ident, $st_f:ident, $st_b:ident,
+             $rots_f:ident, $rots_b:ident, $poss_f:ident, $poss_b:ident, $sts_f:ident, $sts_b:ident) => {{
+                let rf = $rots_f(&epochs).unwrap();
+                let rb = $rots_b(&epochs).unwrap();
+                let pf = $poss_f(&epochs, &positions).unwrap();
+                let pf1 = $poss_f(&epochs[..1], &positions).unwrap();
+                let pb = $poss_b(&epochs, &pf).unwrap();
+                let sf = $sts_f(&epochs, &states).unwrap();
+                let sf1 = $sts_f(&epochs[..1], &states).unwrap();
+                let sb = $sts_b(&epochs, &sf).unwrap();
+                let one = $sts_b(&epochs, &states[..1]).unwrap();
+                for i in 0..3 {
+                    assert_eq!(rf[i], $rot_f(epochs[i]).unwrap());
+                    assert_eq!(rb[i], $rot_b(epochs[i]).unwrap());
+                    assert_eq!(pf[i], $pos_f(epochs[i], positions[i]).unwrap());
+                    assert_eq!(pf1[i], $pos_f(epochs[0], positions[i]).unwrap());
+                    assert_eq!(pb[i], $pos_b(epochs[i], pf[i]).unwrap());
+                    assert_eq!(sf[i], $st_f(epochs[i], states[i]).unwrap());
+                    assert_eq!(sf1[i], $st_f(epochs[0], states[i]).unwrap());
+                    assert_eq!(sb[i], $st_b(epochs[i], sf[i]).unwrap());
+                    assert_eq!(one[i], $st_b(epochs[i], states[0]).unwrap());
+                    for k in 0..3 {
+                        assert_abs_diff_eq!(sb[i][k], states[i][k], epsilon = 1e-3);
+                    }
+                }
+                assert!($sts_f(&epochs[..2], &states).is_err());
+                assert!($rots_f(&[]).unwrap().is_empty());
+            }};
+        }
+
+        check_family!(
+            rotation_gcrf_to_emr,
+            rotation_emr_to_gcrf,
+            position_gcrf_to_emr,
+            position_emr_to_gcrf,
+            state_gcrf_to_emr,
+            state_emr_to_gcrf,
+            rotations_gcrf_to_emr,
+            rotations_emr_to_gcrf,
+            positions_gcrf_to_emr,
+            positions_emr_to_gcrf,
+            states_gcrf_to_emr,
+            states_emr_to_gcrf
+        );
+        check_family!(
+            rotation_gcrf_to_ser,
+            rotation_ser_to_gcrf,
+            position_gcrf_to_ser,
+            position_ser_to_gcrf,
+            state_gcrf_to_ser,
+            state_ser_to_gcrf,
+            rotations_gcrf_to_ser,
+            rotations_ser_to_gcrf,
+            positions_gcrf_to_ser,
+            positions_ser_to_gcrf,
+            states_gcrf_to_ser,
+            states_ser_to_gcrf
+        );
+        check_family!(
+            rotation_gcrf_to_gse,
+            rotation_gse_to_gcrf,
+            position_gcrf_to_gse,
+            position_gse_to_gcrf,
+            state_gcrf_to_gse,
+            state_gse_to_gcrf,
+            rotations_gcrf_to_gse,
+            rotations_gse_to_gcrf,
+            positions_gcrf_to_gse,
+            positions_gse_to_gcrf,
+            states_gcrf_to_gse,
+            states_gse_to_gcrf
+        );
     }
 }

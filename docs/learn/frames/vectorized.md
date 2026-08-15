@@ -19,6 +19,8 @@ Epoch arguments accept an `Epoch` or any sequence of `Epoch` objects (list, tupl
 
 Rotation-matrix functions such as `rotation_eci_to_ecef` accept a sequence of epochs and return an `(n, 3, 3)` array.
 
+The same rules apply to every frame family: ECI/ECEF and GCRF/ITRF, EME2000, the lunar (LCI, LFPA, LFME), Mars (MCI, MCMF), and Earth-Moon barycenter (EMBI) frames, the EMR/SER/GSE synodic frames, `rotation_icrf_to_body_fixed_iau`, and the generic `rotation_frame_to_frame`, `position_frame_to_frame`, and `state_frame_to_frame` router. Functions that can fail for a single input (synodic and router transforms, IAU rotations) raise the same `RuntimeError` for a batch.
+
 === "Python"
 
     ``` python

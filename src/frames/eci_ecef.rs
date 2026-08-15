@@ -6,10 +6,12 @@ use nalgebra::Vector3;
 
 use crate::math::{SMatrix3, SVector6};
 use crate::time::Epoch;
+use crate::utils::BraheError;
 
 use super::gcrf_itrf::{
-    position_gcrf_to_itrf, position_itrf_to_gcrf, rotation_gcrf_to_itrf, rotation_itrf_to_gcrf,
-    state_gcrf_to_itrf, state_itrf_to_gcrf,
+    position_gcrf_to_itrf, position_itrf_to_gcrf, positions_gcrf_to_itrf, positions_itrf_to_gcrf,
+    rotation_gcrf_to_itrf, rotation_itrf_to_gcrf, rotations_gcrf_to_itrf, rotations_itrf_to_gcrf,
+    state_gcrf_to_itrf, state_itrf_to_gcrf, states_gcrf_to_itrf, states_itrf_to_gcrf,
 };
 
 /// Computes the combined rotation matrix from the inertial to the Earth-fixed
@@ -247,6 +249,245 @@ pub fn state_ecef_to_eci(epc: Epoch, x_ecef: SVector6) -> SVector6 {
     state_itrf_to_gcrf(epc, x_ecef)
 }
 
+/// Computes the ECI-to-ECEF rotation matrix for each epoch in `epochs`.
+///
+/// Batch form of [`rotation_gcrf_to_itrf`]; alias for [`rotations_gcrf_to_itrf`]. `ECI` refers to the
+/// `GCRF` (Geocentric Celestial Reference Frame) implementation, and `ECEF` refers
+/// to the `ITRF` (International Terrestrial Reference Frame) implementation.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants for computation of the transformation matrices
+///
+/// # Returns
+/// - Rotation matrices transforming `ECI` (`GCRF`) -> `ECEF` (`ITRF`), one per epoch, in input order
+///
+/// # Examples:
+/// ```
+/// use brahe::eop::*;
+/// use brahe::constants::R_EARTH;
+/// use brahe::{vector3_from_array, vector6_from_array};
+/// use brahe::orbits::perigee_velocity;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::frames::*;
+///
+/// // Quick EOP initialization
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0, epc + 120.0];
+///
+/// let rotations = rotations_eci_to_ecef(&epochs);
+/// assert_eq!(rotations.len(), 3);
+/// ```
+pub fn rotations_eci_to_ecef(epochs: &[Epoch]) -> Vec<SMatrix3> {
+    rotations_gcrf_to_itrf(epochs)
+}
+
+/// Computes the ECEF-to-ECI rotation matrix for each epoch in `epochs`.
+///
+/// Batch form of [`rotation_itrf_to_gcrf`]; alias for [`rotations_itrf_to_gcrf`]. `ECI` refers to the
+/// `GCRF` (Geocentric Celestial Reference Frame) implementation, and `ECEF` refers
+/// to the `ITRF` (International Terrestrial Reference Frame) implementation.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants for computation of the transformation matrices
+///
+/// # Returns
+/// - Rotation matrices transforming `ECEF` (`ITRF`) -> `ECI` (`GCRF`), one per epoch, in input order
+///
+/// # Examples:
+/// ```
+/// use brahe::eop::*;
+/// use brahe::constants::R_EARTH;
+/// use brahe::{vector3_from_array, vector6_from_array};
+/// use brahe::orbits::perigee_velocity;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::frames::*;
+///
+/// // Quick EOP initialization
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0, epc + 120.0];
+///
+/// let rotations = rotations_ecef_to_eci(&epochs);
+/// assert_eq!(rotations.len(), 3);
+/// ```
+pub fn rotations_ecef_to_eci(epochs: &[Epoch]) -> Vec<SMatrix3> {
+    rotations_itrf_to_gcrf(epochs)
+}
+
+/// Transforms a batch of Cartesian positions from ECI to ECEF. `epochs` and the vector argument follow the broadcast rule: each has length 1 or the common batch length. A single epoch computes the transformation once and applies it to every element.
+///
+/// Batch form of [`position_gcrf_to_itrf`]; alias for [`positions_gcrf_to_itrf`]. `ECI` refers to the
+/// `GCRF` (Geocentric Celestial Reference Frame) implementation, and `ECEF` refers
+/// to the `ITRF` (International Terrestrial Reference Frame) implementation.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x`: Cartesian `ECI` positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian `ECEF` positions in input order. Units: (*m*)
+/// - Error if `epochs` and `x` do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::eop::*;
+/// use brahe::constants::R_EARTH;
+/// use brahe::{vector3_from_array, vector6_from_array};
+/// use brahe::orbits::perigee_velocity;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::frames::*;
+///
+/// // Quick EOP initialization
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0, epc + 120.0];
+///
+/// let positions = vec![vector3_from_array([R_EARTH, 0.0, 0.0]); 3];
+/// let x_ecef = positions_eci_to_ecef(&epochs, &positions).unwrap();
+/// assert_eq!(x_ecef.len(), 3);
+/// ```
+pub fn positions_eci_to_ecef(
+    epochs: &[Epoch],
+    x: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    positions_gcrf_to_itrf(epochs, x)
+}
+
+/// Transforms a batch of Cartesian positions from ECEF to ECI. `epochs` and the vector argument follow the broadcast rule: each has length 1 or the common batch length. A single epoch computes the transformation once and applies it to every element.
+///
+/// Batch form of [`position_itrf_to_gcrf`]; alias for [`positions_itrf_to_gcrf`]. `ECI` refers to the
+/// `GCRF` (Geocentric Celestial Reference Frame) implementation, and `ECEF` refers
+/// to the `ITRF` (International Terrestrial Reference Frame) implementation.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x`: Cartesian `ECEF` positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian `ECI` positions in input order. Units: (*m*)
+/// - Error if `epochs` and `x` do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::eop::*;
+/// use brahe::constants::R_EARTH;
+/// use brahe::{vector3_from_array, vector6_from_array};
+/// use brahe::orbits::perigee_velocity;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::frames::*;
+///
+/// // Quick EOP initialization
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0, epc + 120.0];
+///
+/// // One ground station, many epochs
+/// let station = vector3_from_array([R_EARTH, 0.0, 0.0]);
+/// let x_eci = positions_ecef_to_eci(&epochs, &[station]).unwrap();
+/// assert_eq!(x_eci.len(), 3);
+/// ```
+pub fn positions_ecef_to_eci(
+    epochs: &[Epoch],
+    x: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    positions_itrf_to_gcrf(epochs, x)
+}
+
+/// Transforms a batch of Cartesian states from ECI to ECEF. `epochs` and the vector argument follow the broadcast rule: each has length 1 or the common batch length. A single epoch computes the transformation once and applies it to every element.
+///
+/// Batch form of [`state_gcrf_to_itrf`]; alias for [`states_gcrf_to_itrf`]. `ECI` refers to the
+/// `GCRF` (Geocentric Celestial Reference Frame) implementation, and `ECEF` refers
+/// to the `ITRF` (International Terrestrial Reference Frame) implementation.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_eci`: Cartesian `ECI` states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian `ECEF` states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if `epochs` and `x_eci` do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::eop::*;
+/// use brahe::constants::R_EARTH;
+/// use brahe::{vector3_from_array, vector6_from_array};
+/// use brahe::orbits::perigee_velocity;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::frames::*;
+///
+/// // Quick EOP initialization
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0, epc + 120.0];
+///
+/// let v = perigee_velocity(R_EARTH + 500e3, 0.0);
+/// let states = vec![vector6_from_array([R_EARTH + 500e3, 0.0, 0.0, 0.0, v, 0.0]); 3];
+/// // One epoch, many states
+/// let x_ecef = states_eci_to_ecef(&epochs[..1], &states).unwrap();
+/// assert_eq!(x_ecef.len(), 3);
+/// ```
+pub fn states_eci_to_ecef(
+    epochs: &[Epoch],
+    x_eci: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    states_gcrf_to_itrf(epochs, x_eci)
+}
+
+/// Transforms a batch of Cartesian states from ECEF to ECI. `epochs` and the vector argument follow the broadcast rule: each has length 1 or the common batch length. A single epoch computes the transformation once and applies it to every element.
+///
+/// Batch form of [`state_itrf_to_gcrf`]; alias for [`states_itrf_to_gcrf`]. `ECI` refers to the
+/// `GCRF` (Geocentric Celestial Reference Frame) implementation, and `ECEF` refers
+/// to the `ITRF` (International Terrestrial Reference Frame) implementation.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_ecef`: Cartesian `ECEF` states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian `ECI` states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if `epochs` and `x_ecef` do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::eop::*;
+/// use brahe::constants::R_EARTH;
+/// use brahe::{vector3_from_array, vector6_from_array};
+/// use brahe::orbits::perigee_velocity;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::frames::*;
+///
+/// // Quick EOP initialization
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0, epc + 120.0];
+///
+/// let v = perigee_velocity(R_EARTH + 500e3, 0.0);
+/// let states = vec![vector6_from_array([R_EARTH + 500e3, 0.0, 0.0, 0.0, v, 0.0]); 3];
+/// // Paired epochs and states
+/// let x_eci = states_ecef_to_eci(&epochs, &states).unwrap();
+/// assert_eq!(x_eci.len(), 3);
+/// ```
+pub fn states_ecef_to_eci(
+    epochs: &[Epoch],
+    x_ecef: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    states_itrf_to_gcrf(epochs, x_ecef)
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
@@ -433,5 +674,59 @@ mod tests {
         assert_abs_diff_eq!(gcrf[3], eci2[3], epsilon = tol);
         assert_abs_diff_eq!(gcrf[4], eci2[4], epsilon = tol);
         assert_abs_diff_eq!(gcrf[5], eci2[5], epsilon = tol);
+    }
+
+    #[test]
+    #[serial]
+    fn test_batch_eci_ecef_matches_gcrf_itrf() {
+        setup_global_test_eop();
+        let epc0 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epochs: Vec<Epoch> = (0..3).map(|i| epc0 + 60.0 * i as f64).collect();
+        let states: Vec<_> = (0..3)
+            .map(|i| {
+                let oe =
+                    vector6_from_array([R_EARTH + 500e3, 0.01, 97.8, 15.0 + i as f64, 30.0, 45.0]);
+                state_koe_to_eci(oe, DEGREES)
+            })
+            .collect();
+        let positions: Vec<Vector3<f64>> = states
+            .iter()
+            .map(|s| Vector3::new(s[0], s[1], s[2]))
+            .collect();
+
+        assert_eq!(
+            rotations_eci_to_ecef(&epochs),
+            rotations_gcrf_to_itrf(&epochs)
+        );
+        assert_eq!(
+            rotations_ecef_to_eci(&epochs),
+            rotations_itrf_to_gcrf(&epochs)
+        );
+        assert_eq!(
+            positions_eci_to_ecef(&epochs, &positions).unwrap(),
+            positions_gcrf_to_itrf(&epochs, &positions).unwrap()
+        );
+        assert_eq!(
+            positions_ecef_to_eci(&epochs, &positions).unwrap(),
+            positions_itrf_to_gcrf(&epochs, &positions).unwrap()
+        );
+        assert_eq!(
+            states_eci_to_ecef(&epochs, &states).unwrap(),
+            states_gcrf_to_itrf(&epochs, &states).unwrap()
+        );
+        assert_eq!(
+            states_ecef_to_eci(&epochs, &states).unwrap(),
+            states_itrf_to_gcrf(&epochs, &states).unwrap()
+        );
+        assert_eq!(
+            states_eci_to_ecef(&epochs[..1], &states).unwrap(),
+            states_gcrf_to_itrf(&epochs[..1], &states).unwrap()
+        );
+        for i in 0..3 {
+            assert_eq!(
+                states_eci_to_ecef(&epochs, &states).unwrap()[i],
+                state_eci_to_ecef(epochs[i], states[i])
+            );
+        }
     }
 }

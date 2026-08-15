@@ -6,6 +6,7 @@ use nalgebra::{Vector3, matrix};
 
 use crate::constants::AS2RAD;
 use crate::math::{SMatrix3, SVector6};
+use crate::utils::batch::batch_map;
 
 /// Computes the bias matrix transforming the GCRF to the EME 2000
 /// reference frame.
@@ -233,11 +234,118 @@ pub fn state_eme2000_to_gcrf(x_eme2000: SVector6) -> SVector6 {
     SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
 }
 
+/// Transforms a batch of Cartesian positions from GCRF to EME2000.
+///
+/// Batch form of [`position_gcrf_to_eme2000`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_gcrf`: Cartesian GCRF positions. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian EME2000 positions in input order. Units: (*m*)
+///
+/// # Example
+/// ```
+/// use brahe::constants::R_EARTH;
+/// use brahe::{vector3_from_array, vector6_from_array};
+/// use brahe::orbits::perigee_velocity;
+/// use brahe::frames::*;
+///
+/// let positions = vec![vector3_from_array([R_EARTH, 0.0, 0.0]); 3];
+/// let x_eme2000 = positions_gcrf_to_eme2000(&positions);
+/// assert_eq!(x_eme2000.len(), 3);
+/// ```
+pub fn positions_gcrf_to_eme2000(x_gcrf: &[Vector3<f64>]) -> Vec<Vector3<f64>> {
+    batch_map(x_gcrf, |x| position_gcrf_to_eme2000(*x))
+}
+
+/// Transforms a batch of Cartesian positions from EME2000 to GCRF.
+///
+/// Batch form of [`position_eme2000_to_gcrf`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_eme2000`: Cartesian EME2000 positions. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian GCRF positions in input order. Units: (*m*)
+///
+/// # Example
+/// ```
+/// use brahe::constants::R_EARTH;
+/// use brahe::{vector3_from_array, vector6_from_array};
+/// use brahe::orbits::perigee_velocity;
+/// use brahe::frames::*;
+///
+/// let positions = vec![vector3_from_array([R_EARTH, 0.0, 0.0]); 3];
+/// let x_gcrf = positions_eme2000_to_gcrf(&positions);
+/// assert_eq!(x_gcrf.len(), 3);
+/// ```
+pub fn positions_eme2000_to_gcrf(x_eme2000: &[Vector3<f64>]) -> Vec<Vector3<f64>> {
+    batch_map(x_eme2000, |x| position_eme2000_to_gcrf(*x))
+}
+
+/// Transforms a batch of Cartesian states from GCRF to EME2000.
+///
+/// Batch form of [`state_gcrf_to_eme2000`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_gcrf`: Cartesian GCRF states (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian EME2000 states (position, velocity) in input order. Units: (*m*; *m/s*)
+///
+/// # Example
+/// ```
+/// use brahe::constants::R_EARTH;
+/// use brahe::{vector3_from_array, vector6_from_array};
+/// use brahe::orbits::perigee_velocity;
+/// use brahe::frames::*;
+///
+/// let v = perigee_velocity(R_EARTH + 500e3, 0.0);
+/// let states = vec![vector6_from_array([R_EARTH + 500e3, 0.0, 0.0, 0.0, v, 0.0]); 3];
+/// let x_eme2000 = states_gcrf_to_eme2000(&states);
+/// assert_eq!(x_eme2000.len(), 3);
+/// ```
+pub fn states_gcrf_to_eme2000(x_gcrf: &[SVector6]) -> Vec<SVector6> {
+    batch_map(x_gcrf, |x| state_gcrf_to_eme2000(*x))
+}
+
+/// Transforms a batch of Cartesian states from EME2000 to GCRF.
+///
+/// Batch form of [`state_eme2000_to_gcrf`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_eme2000`: Cartesian EME2000 states (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian GCRF states (position, velocity) in input order. Units: (*m*; *m/s*)
+///
+/// # Example
+/// ```
+/// use brahe::constants::R_EARTH;
+/// use brahe::{vector3_from_array, vector6_from_array};
+/// use brahe::orbits::perigee_velocity;
+/// use brahe::frames::*;
+///
+/// let v = perigee_velocity(R_EARTH + 500e3, 0.0);
+/// let states = vec![vector6_from_array([R_EARTH + 500e3, 0.0, 0.0, 0.0, v, 0.0]); 3];
+/// let x_gcrf = states_eme2000_to_gcrf(&states);
+/// assert_eq!(x_gcrf.len(), 3);
+/// ```
+pub fn states_eme2000_to_gcrf(x_eme2000: &[SVector6]) -> Vec<SVector6> {
+    batch_map(x_eme2000, |x| state_eme2000_to_gcrf(*x))
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
     use nalgebra::Vector3;
+    use serial_test::parallel;
 
     use crate::constants::{AS2RAD, DEGREES, R_EARTH};
     use crate::coordinates::state_koe_to_eci;
@@ -405,5 +513,34 @@ mod tests {
         assert_abs_diff_eq!(gcrf_2[3], gcrf[3], epsilon = tol);
         assert_abs_diff_eq!(gcrf_2[4], gcrf[4], epsilon = tol);
         assert_abs_diff_eq!(gcrf_2[5], gcrf[5], epsilon = tol);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_eme2000_gcrf_match_scalar() {
+        let states: Vec<_> = (0..3)
+            .map(|i| {
+                let oe =
+                    vector6_from_array([R_EARTH + 500e3, 0.01, 97.8, 15.0 + i as f64, 30.0, 45.0]);
+                state_koe_to_eci(oe, DEGREES)
+            })
+            .collect();
+        let positions: Vec<Vector3<f64>> = states
+            .iter()
+            .map(|s| Vector3::new(s[0], s[1], s[2]))
+            .collect();
+
+        let out = states_gcrf_to_eme2000(&states);
+        let back = states_eme2000_to_gcrf(&out);
+        let pos_out = positions_gcrf_to_eme2000(&positions);
+        let pos_back = positions_eme2000_to_gcrf(&pos_out);
+        for i in 0..3 {
+            assert_eq!(out[i], state_gcrf_to_eme2000(states[i]));
+            assert_eq!(back[i], state_eme2000_to_gcrf(out[i]));
+            assert_eq!(pos_out[i], position_gcrf_to_eme2000(positions[i]));
+            assert_eq!(pos_back[i], position_eme2000_to_gcrf(pos_out[i]));
+        }
+        assert!(states_gcrf_to_eme2000(&[]).is_empty());
+        assert!(positions_eme2000_to_gcrf(&[]).is_empty());
     }
 }

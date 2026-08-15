@@ -13,6 +13,8 @@ use crate::constants::AngleFormat;
 use crate::coordinates::coordinate_types::EllipsoidalConversionType;
 use crate::coordinates::geocentric::position_ecef_to_geocentric;
 use crate::coordinates::geodetic::position_ecef_to_geodetic;
+use crate::utils::BraheError;
+use crate::utils::batch::{batch_map, batch_zip};
 
 /// Compute the rotation matrix from body-fixed to East-North-Zenith (ENZ)
 /// Cartesian coordinates for a given set of coordinates on an ellipsoidal body.
@@ -82,6 +84,96 @@ pub fn rotation_enz_to_ellipsoid(x_ellipsoid: Vector3<f64>, angle_format: AngleF
     rotation_ellipsoid_to_enz(x_ellipsoid, angle_format).transpose()
 }
 
+/// Rotation matrix from ECEF axes to the ENZ frame of `location_ecef`.
+fn enz_rotation_at(
+    location_ecef: Vector3<f64>,
+    conversion_type: EllipsoidalConversionType,
+) -> SMatrix3 {
+    match conversion_type {
+        EllipsoidalConversionType::Geocentric => rotation_ellipsoid_to_enz(
+            position_ecef_to_geocentric(location_ecef, AngleFormat::Radians),
+            AngleFormat::Radians,
+        ),
+        EllipsoidalConversionType::Geodetic => rotation_ellipsoid_to_enz(
+            position_ecef_to_geodetic(location_ecef, AngleFormat::Radians),
+            AngleFormat::Radians,
+        ),
+    }
+}
+
+/// Rotation matrix from the ENZ frame of `location_ecef` to ECEF axes.
+fn enz_inverse_rotation_at(
+    location_ecef: Vector3<f64>,
+    conversion_type: EllipsoidalConversionType,
+) -> SMatrix3 {
+    match conversion_type {
+        EllipsoidalConversionType::Geocentric => rotation_enz_to_ellipsoid(
+            position_ecef_to_geocentric(location_ecef, AngleFormat::Radians),
+            AngleFormat::Radians,
+        ),
+        EllipsoidalConversionType::Geodetic => rotation_enz_to_ellipsoid(
+            position_ecef_to_geodetic(location_ecef, AngleFormat::Radians),
+            AngleFormat::Radians,
+        ),
+    }
+}
+
+/// Rotation matrix from ECEF axes to the SEZ frame of `location_ecef`.
+fn sez_rotation_at(
+    location_ecef: Vector3<f64>,
+    conversion_type: EllipsoidalConversionType,
+) -> SMatrix3 {
+    match conversion_type {
+        EllipsoidalConversionType::Geocentric => rotation_ellipsoid_to_sez(
+            position_ecef_to_geocentric(location_ecef, AngleFormat::Radians),
+            AngleFormat::Radians,
+        ),
+        EllipsoidalConversionType::Geodetic => rotation_ellipsoid_to_sez(
+            position_ecef_to_geodetic(location_ecef, AngleFormat::Radians),
+            AngleFormat::Radians,
+        ),
+    }
+}
+
+/// Rotation matrix from the SEZ frame of `location_ecef` to ECEF axes.
+fn sez_inverse_rotation_at(
+    location_ecef: Vector3<f64>,
+    conversion_type: EllipsoidalConversionType,
+) -> SMatrix3 {
+    match conversion_type {
+        EllipsoidalConversionType::Geocentric => rotation_sez_to_ellipsoid(
+            position_ecef_to_geocentric(location_ecef, AngleFormat::Radians),
+            AngleFormat::Radians,
+        ),
+        EllipsoidalConversionType::Geodetic => rotation_sez_to_ellipsoid(
+            position_ecef_to_geodetic(location_ecef, AngleFormat::Radians),
+            AngleFormat::Radians,
+        ),
+    }
+}
+
+/// Express `r_ecef` relative to `location_ecef` in the local frame given by
+/// `rot` (ECEF -> local).
+fn apply_relative_ecef_to_local(
+    rot: &SMatrix3,
+    location_ecef: &Vector3<f64>,
+    r_ecef: &Vector3<f64>,
+) -> Vector3<f64> {
+    let r = r_ecef - location_ecef;
+    rot * r
+}
+
+/// Express a local-frame relative position as an ECEF position, given `rot`
+/// (local -> ECEF).
+fn apply_relative_local_to_ecef(
+    rot: &SMatrix3,
+    location_ecef: &Vector3<f64>,
+    r_local: &Vector3<f64>,
+) -> Vector3<f64> {
+    let r = *r_local;
+    location_ecef + rot * r
+}
+
 /// Computes the relative state in East-North-Zenith (ENZ) coordinates for a target
 /// object in the ECEF frame with respect to a fixed location (station) also in
 /// the ECEF frame.
@@ -107,27 +199,16 @@ pub fn rotation_enz_to_ellipsoid(x_ellipsoid: Vector3<f64>, angle_format: AngleF
 ///     x_station, x_sat, EllipsoidalConversionType::Geocentric
 /// );
 /// ```
-#[allow(non_snake_case)]
 pub fn relative_position_ecef_to_enz(
     location_ecef: Vector3<f64>,
     r_ecef: Vector3<f64>,
     conversion_type: EllipsoidalConversionType,
 ) -> Vector3<f64> {
-    // Create ENZ rotation matrix
-    let E = match conversion_type {
-        EllipsoidalConversionType::Geocentric => rotation_ellipsoid_to_enz(
-            position_ecef_to_geocentric(location_ecef, AngleFormat::Radians),
-            AngleFormat::Radians,
-        ),
-        EllipsoidalConversionType::Geodetic => rotation_ellipsoid_to_enz(
-            position_ecef_to_geodetic(location_ecef, AngleFormat::Radians),
-            AngleFormat::Radians,
-        ),
-    };
-
-    // Compute range transformation
-    let r = r_ecef - location_ecef;
-    E * r
+    apply_relative_ecef_to_local(
+        &enz_rotation_at(location_ecef, conversion_type),
+        &location_ecef,
+        &r_ecef,
+    )
 }
 
 /// Computes the absolute Earth-fixed coordinates for an object given its relative
@@ -155,27 +236,16 @@ pub fn relative_position_ecef_to_enz(
 ///     x_station, r_enz, EllipsoidalConversionType::Geocentric
 /// );
 /// ```
-#[allow(non_snake_case)]
 pub fn relative_position_enz_to_ecef(
     location_ecef: Vector3<f64>,
     r_enz: Vector3<f64>,
     conversion_type: EllipsoidalConversionType,
 ) -> Vector3<f64> {
-    // Create ENZ rotation matrix
-    let Et = match conversion_type {
-        EllipsoidalConversionType::Geocentric => rotation_enz_to_ellipsoid(
-            position_ecef_to_geocentric(location_ecef, AngleFormat::Radians),
-            AngleFormat::Radians,
-        ),
-        EllipsoidalConversionType::Geodetic => rotation_enz_to_ellipsoid(
-            position_ecef_to_geodetic(location_ecef, AngleFormat::Radians),
-            AngleFormat::Radians,
-        ),
-    };
-
-    // Compute range transformation
-    let r = r_enz;
-    location_ecef + Et * r
+    apply_relative_local_to_ecef(
+        &enz_inverse_rotation_at(location_ecef, conversion_type),
+        &location_ecef,
+        &r_enz,
+    )
 }
 
 /// Compute the rotation matrix from body-fixed to South-East-Zenith (SEZ)
@@ -271,27 +341,16 @@ pub fn rotation_sez_to_ellipsoid(x_ellipsoid: Vector3<f64>, angle_format: AngleF
 ///     x_station, x_sat, EllipsoidalConversionType::Geocentric
 /// );
 /// ```
-#[allow(non_snake_case)]
 pub fn relative_position_ecef_to_sez(
     location_ecef: Vector3<f64>,
     r_ecef: Vector3<f64>,
     conversion_type: EllipsoidalConversionType,
 ) -> Vector3<f64> {
-    // Create ENZ rotation matrix
-    let E = match conversion_type {
-        EllipsoidalConversionType::Geocentric => rotation_ellipsoid_to_sez(
-            position_ecef_to_geocentric(location_ecef, AngleFormat::Radians),
-            AngleFormat::Radians,
-        ),
-        EllipsoidalConversionType::Geodetic => rotation_ellipsoid_to_sez(
-            position_ecef_to_geodetic(location_ecef, AngleFormat::Radians),
-            AngleFormat::Radians,
-        ),
-    };
-
-    // Compute range transformation
-    let r = r_ecef - location_ecef;
-    E * r
+    apply_relative_ecef_to_local(
+        &sez_rotation_at(location_ecef, conversion_type),
+        &location_ecef,
+        &r_ecef,
+    )
 }
 
 /// Computes the absolute Earth-fixed coordinates for an object given its relative
@@ -319,27 +378,16 @@ pub fn relative_position_ecef_to_sez(
 ///     x_station, r_sez, EllipsoidalConversionType::Geocentric
 /// );
 /// ```
-#[allow(non_snake_case)]
 pub fn relative_position_sez_to_ecef(
     location_ecef: Vector3<f64>,
     x_sez: Vector3<f64>,
     conversion_type: EllipsoidalConversionType,
 ) -> Vector3<f64> {
-    // Create SEZ rotation matrix
-    let Et = match conversion_type {
-        EllipsoidalConversionType::Geocentric => rotation_sez_to_ellipsoid(
-            position_ecef_to_geocentric(location_ecef, AngleFormat::Radians),
-            AngleFormat::Radians,
-        ),
-        EllipsoidalConversionType::Geodetic => rotation_sez_to_ellipsoid(
-            position_ecef_to_geodetic(location_ecef, AngleFormat::Radians),
-            AngleFormat::Radians,
-        ),
-    };
-
-    // Compute range transformation
-    let r = x_sez;
-    location_ecef + Et * r
+    apply_relative_local_to_ecef(
+        &sez_inverse_rotation_at(location_ecef, conversion_type),
+        &location_ecef,
+        &x_sez,
+    )
 }
 
 /// Converts East-North-Zenith topocentric coordinates of an location
@@ -432,10 +480,365 @@ pub fn position_sez_to_azel(x_sez: Vector3<f64>, angle_format: AngleFormat) -> V
     }
 }
 
+/// Computes the ellipsoidal-to-ENZ rotation matrix for each site in `x_ellipsoid`.
+///
+/// Batch form of [`rotation_ellipsoid_to_enz`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_ellipsoid`: Ellipsoidal (geodetic or geocentric) site positions `[lon, lat, alt]`. Units: (angles per `angle_format`, *m*)
+/// - `angle_format`: Format of the angular coordinates
+///
+/// # Returns
+/// - Rotation matrices transforming ellipsoidal -> ENZ, one per site, in input order
+///
+/// # Examples
+/// ```
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::rotations_ellipsoid_to_enz;
+/// use nalgebra::Vector3;
+///
+/// let sites = vec![Vector3::new(-122.4, 37.8, 0.0), Vector3::new(151.2, -33.9, 0.0)];
+/// let r = rotations_ellipsoid_to_enz(&sites, AngleFormat::Degrees);
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_ellipsoid_to_enz(
+    x_ellipsoid: &[Vector3<f64>],
+    angle_format: AngleFormat,
+) -> Vec<SMatrix3> {
+    batch_map(x_ellipsoid, |x| rotation_ellipsoid_to_enz(*x, angle_format))
+}
+
+/// Computes the ENZ-to-ellipsoidal rotation matrix for each site in `x_ellipsoid`.
+///
+/// Batch form of [`rotation_enz_to_ellipsoid`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_ellipsoid`: Ellipsoidal (geodetic or geocentric) site positions `[lon, lat, alt]`. Units: (angles per `angle_format`, *m*)
+/// - `angle_format`: Format of the angular coordinates
+///
+/// # Returns
+/// - Rotation matrices transforming ENZ -> ellipsoidal, one per site, in input order
+///
+/// # Examples
+/// ```
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::rotations_enz_to_ellipsoid;
+/// use nalgebra::Vector3;
+///
+/// let sites = vec![Vector3::new(-122.4, 37.8, 0.0), Vector3::new(151.2, -33.9, 0.0)];
+/// let r = rotations_enz_to_ellipsoid(&sites, AngleFormat::Degrees);
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_enz_to_ellipsoid(
+    x_ellipsoid: &[Vector3<f64>],
+    angle_format: AngleFormat,
+) -> Vec<SMatrix3> {
+    batch_map(x_ellipsoid, |x| rotation_enz_to_ellipsoid(*x, angle_format))
+}
+
+/// Computes the ellipsoidal-to-SEZ rotation matrix for each site in `x_ellipsoid`.
+///
+/// Batch form of [`rotation_ellipsoid_to_sez`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_ellipsoid`: Ellipsoidal (geodetic or geocentric) site positions `[lon, lat, alt]`. Units: (angles per `angle_format`, *m*)
+/// - `angle_format`: Format of the angular coordinates
+///
+/// # Returns
+/// - Rotation matrices transforming ellipsoidal -> SEZ, one per site, in input order
+///
+/// # Examples
+/// ```
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::rotations_ellipsoid_to_sez;
+/// use nalgebra::Vector3;
+///
+/// let sites = vec![Vector3::new(-122.4, 37.8, 0.0), Vector3::new(151.2, -33.9, 0.0)];
+/// let r = rotations_ellipsoid_to_sez(&sites, AngleFormat::Degrees);
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_ellipsoid_to_sez(
+    x_ellipsoid: &[Vector3<f64>],
+    angle_format: AngleFormat,
+) -> Vec<SMatrix3> {
+    batch_map(x_ellipsoid, |x| rotation_ellipsoid_to_sez(*x, angle_format))
+}
+
+/// Computes the SEZ-to-ellipsoidal rotation matrix for each site in `x_ellipsoid`.
+///
+/// Batch form of [`rotation_sez_to_ellipsoid`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_ellipsoid`: Ellipsoidal (geodetic or geocentric) site positions `[lon, lat, alt]`. Units: (angles per `angle_format`, *m*)
+/// - `angle_format`: Format of the angular coordinates
+///
+/// # Returns
+/// - Rotation matrices transforming SEZ -> ellipsoidal, one per site, in input order
+///
+/// # Examples
+/// ```
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::rotations_sez_to_ellipsoid;
+/// use nalgebra::Vector3;
+///
+/// let sites = vec![Vector3::new(-122.4, 37.8, 0.0), Vector3::new(151.2, -33.9, 0.0)];
+/// let r = rotations_sez_to_ellipsoid(&sites, AngleFormat::Degrees);
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_sez_to_ellipsoid(
+    x_ellipsoid: &[Vector3<f64>],
+    angle_format: AngleFormat,
+) -> Vec<SMatrix3> {
+    batch_map(x_ellipsoid, |x| rotation_sez_to_ellipsoid(*x, angle_format))
+}
+
+/// Transforms a batch of positions between ECEF and the local ENZ frame of one or more sites.
+///
+/// Batch form of [`relative_position_ecef_to_enz`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// `location_ecef` and the relative-position argument follow the broadcast
+/// rule: each has length 1 or the common batch length. A single location
+/// computes its rotation matrix once and applies it to every position.
+///
+/// # Arguments
+/// - `location_ecef`: Cartesian ECEF site positions, length 1 or the batch length. Units: (*m*)
+/// - `r_ecef`: Cartesian ECEF positions, length 1 or the batch length. Units: (*m*)
+/// - `conversion_type`: Ellipsoidal conversion used to orient the local frame
+///
+/// # Returns
+/// - Relative positions in the local ENZ frame in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{AngleFormat, R_EARTH};
+/// use brahe::coordinates::{EllipsoidalConversionType, position_geodetic_to_ecef, relative_positions_ecef_to_enz};
+/// use nalgebra::Vector3;
+///
+/// let station = position_geodetic_to_ecef(Vector3::new(-122.4, 37.8, 0.0), AngleFormat::Degrees).unwrap();
+/// let targets = vec![Vector3::new(R_EARTH + 500e3, 0.0, 0.0), Vector3::new(0.0, R_EARTH + 500e3, 0.0)];
+/// let out = relative_positions_ecef_to_enz(&[station], &targets, EllipsoidalConversionType::Geodetic).unwrap();
+/// assert_eq!(out.len(), 2);
+/// ```
+pub fn relative_positions_ecef_to_enz(
+    location_ecef: &[Vector3<f64>],
+    r_ecef: &[Vector3<f64>],
+    conversion_type: EllipsoidalConversionType,
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    if location_ecef.len() == 1 {
+        let rot = enz_rotation_at(location_ecef[0], conversion_type);
+        return Ok(batch_map(r_ecef, |x| {
+            apply_relative_ecef_to_local(&rot, &location_ecef[0], x)
+        }));
+    }
+    batch_zip(location_ecef, r_ecef, |loc, x| {
+        relative_position_ecef_to_enz(*loc, *x, conversion_type)
+    })
+}
+
+/// Transforms a batch of positions between ECEF and the local ENZ frame of one or more sites.
+///
+/// Batch form of [`relative_position_enz_to_ecef`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// `location_ecef` and the relative-position argument follow the broadcast
+/// rule: each has length 1 or the common batch length. A single location
+/// computes its rotation matrix once and applies it to every position.
+///
+/// # Arguments
+/// - `location_ecef`: Cartesian ECEF site positions, length 1 or the batch length. Units: (*m*)
+/// - `r_enz`: Relative positions in the local ENZ frame, length 1 or the batch length. Units: (*m*)
+/// - `conversion_type`: Ellipsoidal conversion used to orient the local frame
+///
+/// # Returns
+/// - Cartesian ECEF positions in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{AngleFormat, R_EARTH};
+/// use brahe::coordinates::{EllipsoidalConversionType, position_geodetic_to_ecef, relative_positions_enz_to_ecef};
+/// use nalgebra::Vector3;
+///
+/// let station = position_geodetic_to_ecef(Vector3::new(-122.4, 37.8, 0.0), AngleFormat::Degrees).unwrap();
+/// let targets = vec![Vector3::new(R_EARTH + 500e3, 0.0, 0.0), Vector3::new(0.0, R_EARTH + 500e3, 0.0)];
+/// let out = relative_positions_enz_to_ecef(&[station], &targets, EllipsoidalConversionType::Geodetic).unwrap();
+/// assert_eq!(out.len(), 2);
+/// ```
+pub fn relative_positions_enz_to_ecef(
+    location_ecef: &[Vector3<f64>],
+    r_enz: &[Vector3<f64>],
+    conversion_type: EllipsoidalConversionType,
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    if location_ecef.len() == 1 {
+        let rot = enz_inverse_rotation_at(location_ecef[0], conversion_type);
+        return Ok(batch_map(r_enz, |x| {
+            apply_relative_local_to_ecef(&rot, &location_ecef[0], x)
+        }));
+    }
+    batch_zip(location_ecef, r_enz, |loc, x| {
+        relative_position_enz_to_ecef(*loc, *x, conversion_type)
+    })
+}
+
+/// Transforms a batch of positions between ECEF and the local SEZ frame of one or more sites.
+///
+/// Batch form of [`relative_position_ecef_to_sez`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// `location_ecef` and the relative-position argument follow the broadcast
+/// rule: each has length 1 or the common batch length. A single location
+/// computes its rotation matrix once and applies it to every position.
+///
+/// # Arguments
+/// - `location_ecef`: Cartesian ECEF site positions, length 1 or the batch length. Units: (*m*)
+/// - `r_ecef`: Cartesian ECEF positions, length 1 or the batch length. Units: (*m*)
+/// - `conversion_type`: Ellipsoidal conversion used to orient the local frame
+///
+/// # Returns
+/// - Relative positions in the local SEZ frame in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{AngleFormat, R_EARTH};
+/// use brahe::coordinates::{EllipsoidalConversionType, position_geodetic_to_ecef, relative_positions_ecef_to_sez};
+/// use nalgebra::Vector3;
+///
+/// let station = position_geodetic_to_ecef(Vector3::new(-122.4, 37.8, 0.0), AngleFormat::Degrees).unwrap();
+/// let targets = vec![Vector3::new(R_EARTH + 500e3, 0.0, 0.0), Vector3::new(0.0, R_EARTH + 500e3, 0.0)];
+/// let out = relative_positions_ecef_to_sez(&[station], &targets, EllipsoidalConversionType::Geodetic).unwrap();
+/// assert_eq!(out.len(), 2);
+/// ```
+pub fn relative_positions_ecef_to_sez(
+    location_ecef: &[Vector3<f64>],
+    r_ecef: &[Vector3<f64>],
+    conversion_type: EllipsoidalConversionType,
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    if location_ecef.len() == 1 {
+        let rot = sez_rotation_at(location_ecef[0], conversion_type);
+        return Ok(batch_map(r_ecef, |x| {
+            apply_relative_ecef_to_local(&rot, &location_ecef[0], x)
+        }));
+    }
+    batch_zip(location_ecef, r_ecef, |loc, x| {
+        relative_position_ecef_to_sez(*loc, *x, conversion_type)
+    })
+}
+
+/// Transforms a batch of positions between ECEF and the local SEZ frame of one or more sites.
+///
+/// Batch form of [`relative_position_sez_to_ecef`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// `location_ecef` and the relative-position argument follow the broadcast
+/// rule: each has length 1 or the common batch length. A single location
+/// computes its rotation matrix once and applies it to every position.
+///
+/// # Arguments
+/// - `location_ecef`: Cartesian ECEF site positions, length 1 or the batch length. Units: (*m*)
+/// - `x_sez`: Relative positions in the local SEZ frame, length 1 or the batch length. Units: (*m*)
+/// - `conversion_type`: Ellipsoidal conversion used to orient the local frame
+///
+/// # Returns
+/// - Cartesian ECEF positions in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{AngleFormat, R_EARTH};
+/// use brahe::coordinates::{EllipsoidalConversionType, position_geodetic_to_ecef, relative_positions_sez_to_ecef};
+/// use nalgebra::Vector3;
+///
+/// let station = position_geodetic_to_ecef(Vector3::new(-122.4, 37.8, 0.0), AngleFormat::Degrees).unwrap();
+/// let targets = vec![Vector3::new(R_EARTH + 500e3, 0.0, 0.0), Vector3::new(0.0, R_EARTH + 500e3, 0.0)];
+/// let out = relative_positions_sez_to_ecef(&[station], &targets, EllipsoidalConversionType::Geodetic).unwrap();
+/// assert_eq!(out.len(), 2);
+/// ```
+pub fn relative_positions_sez_to_ecef(
+    location_ecef: &[Vector3<f64>],
+    x_sez: &[Vector3<f64>],
+    conversion_type: EllipsoidalConversionType,
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    if location_ecef.len() == 1 {
+        let rot = sez_inverse_rotation_at(location_ecef[0], conversion_type);
+        return Ok(batch_map(x_sez, |x| {
+            apply_relative_local_to_ecef(&rot, &location_ecef[0], x)
+        }));
+    }
+    batch_zip(location_ecef, x_sez, |loc, x| {
+        relative_position_sez_to_ecef(*loc, *x, conversion_type)
+    })
+}
+
+/// Converts a batch of ENZ relative positions to azimuth/elevation/range.
+///
+/// Batch form of [`position_enz_to_azel`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_enz`: Relative positions in the ENZ frame. Units: (*m*)
+/// - `angle_format`: Format of the returned angles
+///
+/// # Returns
+/// - `[az, el, range]` in input order. Units: (angles per `angle_format`, *m*)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::positions_enz_to_azel;
+/// use nalgebra::Vector3;
+///
+/// let rel = vec![Vector3::new(1.0e3, 2.0e3, 3.0e3), Vector3::new(-1.0e3, 0.5e3, 2.0e3)];
+/// let azel = positions_enz_to_azel(&rel, AngleFormat::Degrees);
+/// assert_eq!(azel.len(), 2);
+/// ```
+pub fn positions_enz_to_azel(
+    x_enz: &[Vector3<f64>],
+    angle_format: AngleFormat,
+) -> Vec<Vector3<f64>> {
+    batch_map(x_enz, |x| position_enz_to_azel(*x, angle_format))
+}
+
+/// Converts a batch of SEZ relative positions to azimuth/elevation/range.
+///
+/// Batch form of [`position_sez_to_azel`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_sez`: Relative positions in the SEZ frame. Units: (*m*)
+/// - `angle_format`: Format of the returned angles
+///
+/// # Returns
+/// - `[az, el, range]` in input order. Units: (angles per `angle_format`, *m*)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::positions_sez_to_azel;
+/// use nalgebra::Vector3;
+///
+/// let rel = vec![Vector3::new(1.0e3, 2.0e3, 3.0e3), Vector3::new(-1.0e3, 0.5e3, 2.0e3)];
+/// let azel = positions_sez_to_azel(&rel, AngleFormat::Degrees);
+/// assert_eq!(azel.len(), 2);
+/// ```
+pub fn positions_sez_to_azel(
+    x_sez: &[Vector3<f64>],
+    angle_format: AngleFormat,
+) -> Vec<Vector3<f64>> {
+    batch_map(x_sez, |x| position_sez_to_azel(*x, angle_format))
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
 
     use crate::constants::DEGREES;
     use crate::{R_EARTH, position_geocentric_to_ecef, position_geodetic_to_ecef};
@@ -858,5 +1261,111 @@ mod tests {
         assert_abs_diff_eq!(x_azel[0], 315.0, epsilon = tol);
         assert_abs_diff_eq!(x_azel[1], 0.0, epsilon = tol);
         assert_abs_diff_eq!(x_azel[2], 100.0 * 2.0_f64.sqrt(), epsilon = tol);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_topocentric_match_scalar() {
+        let sites = vec![
+            Vector3::new(-122.4, 37.8, 0.0),
+            Vector3::new(151.2, -33.9, 100.0),
+            Vector3::new(0.0, 0.0, 10.0),
+        ];
+        let stations: Vec<Vector3<f64>> = sites
+            .iter()
+            .map(|s| position_geodetic_to_ecef(*s, DEGREES).unwrap())
+            .collect();
+        let targets: Vec<Vector3<f64>> = (0..3)
+            .map(|i| Vector3::new(R_EARTH + 500e3 + 1e3 * i as f64, 1e5 * i as f64, 2e5))
+            .collect();
+
+        for i in 0..3 {
+            assert_eq!(
+                rotations_ellipsoid_to_enz(&sites, DEGREES)[i],
+                rotation_ellipsoid_to_enz(sites[i], DEGREES)
+            );
+            assert_eq!(
+                rotations_enz_to_ellipsoid(&sites, DEGREES)[i],
+                rotation_enz_to_ellipsoid(sites[i], DEGREES)
+            );
+            assert_eq!(
+                rotations_ellipsoid_to_sez(&sites, DEGREES)[i],
+                rotation_ellipsoid_to_sez(sites[i], DEGREES)
+            );
+            assert_eq!(
+                rotations_sez_to_ellipsoid(&sites, DEGREES)[i],
+                rotation_sez_to_ellipsoid(sites[i], DEGREES)
+            );
+        }
+
+        for ct in [
+            EllipsoidalConversionType::Geodetic,
+            EllipsoidalConversionType::Geocentric,
+        ] {
+            let enz = relative_positions_ecef_to_enz(&stations, &targets, ct).unwrap();
+            let enz1 = relative_positions_ecef_to_enz(&stations[..1], &targets, ct).unwrap();
+            let enz_one_target =
+                relative_positions_ecef_to_enz(&stations, &targets[..1], ct).unwrap();
+            let ecef = relative_positions_enz_to_ecef(&stations, &enz, ct).unwrap();
+            let ecef1 = relative_positions_enz_to_ecef(&stations[..1], &enz1, ct).unwrap();
+            let sez = relative_positions_ecef_to_sez(&stations, &targets, ct).unwrap();
+            let sez1 = relative_positions_ecef_to_sez(&stations[..1], &targets, ct).unwrap();
+            let ecef_s = relative_positions_sez_to_ecef(&stations, &sez, ct).unwrap();
+            let ecef_s1 = relative_positions_sez_to_ecef(&stations[..1], &sez1, ct).unwrap();
+            for i in 0..3 {
+                assert_eq!(
+                    enz[i],
+                    relative_position_ecef_to_enz(stations[i], targets[i], ct)
+                );
+                assert_eq!(
+                    enz1[i],
+                    relative_position_ecef_to_enz(stations[0], targets[i], ct)
+                );
+                assert_eq!(
+                    enz_one_target[i],
+                    relative_position_ecef_to_enz(stations[i], targets[0], ct)
+                );
+                assert_eq!(
+                    ecef[i],
+                    relative_position_enz_to_ecef(stations[i], enz[i], ct)
+                );
+                assert_eq!(
+                    ecef1[i],
+                    relative_position_enz_to_ecef(stations[0], enz1[i], ct)
+                );
+                assert_eq!(
+                    sez[i],
+                    relative_position_ecef_to_sez(stations[i], targets[i], ct)
+                );
+                assert_eq!(
+                    sez1[i],
+                    relative_position_ecef_to_sez(stations[0], targets[i], ct)
+                );
+                assert_eq!(
+                    ecef_s[i],
+                    relative_position_sez_to_ecef(stations[i], sez[i], ct)
+                );
+                assert_eq!(
+                    ecef_s1[i],
+                    relative_position_sez_to_ecef(stations[0], sez1[i], ct)
+                );
+                for k in 0..3 {
+                    assert_abs_diff_eq!(ecef[i][k], targets[i][k], epsilon = 1e-6);
+                    assert_abs_diff_eq!(ecef_s[i][k], targets[i][k], epsilon = 1e-6);
+                }
+            }
+            let azel = positions_enz_to_azel(&enz, DEGREES);
+            let azel_s = positions_sez_to_azel(&sez, DEGREES);
+            for i in 0..3 {
+                assert_eq!(azel[i], position_enz_to_azel(enz[i], DEGREES));
+                assert_eq!(azel_s[i], position_sez_to_azel(sez[i], DEGREES));
+            }
+            assert!(relative_positions_ecef_to_enz(&stations[..2], &targets, ct).is_err());
+            assert!(
+                relative_positions_ecef_to_enz(&stations[..1], &[], ct)
+                    .unwrap()
+                    .is_empty()
+            );
+        }
     }
 }

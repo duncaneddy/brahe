@@ -7,8 +7,10 @@ use crate::coordinates::topocentric::{
     position_enz_to_azel, rotation_ellipsoid_to_enz, rotation_enz_to_ellipsoid,
 };
 use crate::frames::{rotation_ecef_to_eci, rotation_eci_to_ecef};
-use crate::math::{SVector3, SVector6};
+use crate::math::{SMatrix3, SVector3, SVector6};
 use crate::time::{Epoch, TimeSystem};
+use crate::utils::BraheError;
+use crate::utils::batch::{batch_map, batch_map_epochs};
 
 /// Convert a right ascension, declination, and range into the equivalent
 /// Cartesian inertial position.
@@ -421,12 +423,43 @@ pub fn position_radec_to_azel(
     epc: Epoch,
     angle_format: AngleFormat,
 ) -> SVector3 {
+    apply_position_radec_to_azel(
+        &radec_azel_context(epc, site_geodetic, angle_format),
+        &x_radec,
+        angle_format,
+    )
+}
+
+/// ECI-to-ECEF and ECEF-to-ENZ rotation matrices for a site at one epoch.
+struct RadecAzelContext {
+    r_eci_ecef: SMatrix3,
+    r_ecef_enz: SMatrix3,
+}
+
+/// Compute the topocentric context for `site_geodetic` at `epc`.
+fn radec_azel_context(
+    epc: Epoch,
+    site_geodetic: SVector3,
+    angle_format: AngleFormat,
+) -> RadecAzelContext {
+    RadecAzelContext {
+        r_eci_ecef: rotation_eci_to_ecef(epc),
+        r_ecef_enz: rotation_ellipsoid_to_enz(site_geodetic, angle_format),
+    }
+}
+
+/// Apply a topocentric context to one right ascension/declination position.
+fn apply_position_radec_to_azel(
+    c: &RadecAzelContext,
+    x_radec: &SVector3,
+    angle_format: AngleFormat,
+) -> SVector3 {
     let range = x_radec[2];
 
     let d_eci =
         position_radec_to_inertial(SVector3::new(x_radec[0], x_radec[1], 1.0), angle_format);
-    let d_ecef = rotation_eci_to_ecef(epc) * d_eci;
-    let d_enz = rotation_ellipsoid_to_enz(site_geodetic, angle_format) * d_ecef;
+    let d_ecef = c.r_eci_ecef * d_eci;
+    let d_enz = c.r_ecef_enz * d_ecef;
 
     position_enz_to_azel(d_enz * range, angle_format)
 }
@@ -476,6 +509,37 @@ pub fn position_azel_to_radec(
     epc: Epoch,
     angle_format: AngleFormat,
 ) -> SVector3 {
+    apply_position_azel_to_radec(
+        &azel_radec_context(epc, site_geodetic, angle_format),
+        &x_azel,
+        angle_format,
+    )
+}
+
+/// ENZ-to-ECEF and ECEF-to-ECI rotation matrices for a site at one epoch.
+struct AzelRadecContext {
+    r_enz_ecef: SMatrix3,
+    r_ecef_eci: SMatrix3,
+}
+
+/// Compute the inverse topocentric context for `site_geodetic` at `epc`.
+fn azel_radec_context(
+    epc: Epoch,
+    site_geodetic: SVector3,
+    angle_format: AngleFormat,
+) -> AzelRadecContext {
+    AzelRadecContext {
+        r_enz_ecef: rotation_enz_to_ellipsoid(site_geodetic, angle_format),
+        r_ecef_eci: rotation_ecef_to_eci(epc),
+    }
+}
+
+/// Apply an inverse topocentric context to one azimuth/elevation position.
+fn apply_position_azel_to_radec(
+    c: &AzelRadecContext,
+    x_azel: &SVector3,
+    angle_format: AngleFormat,
+) -> SVector3 {
     let (az, el) = match angle_format {
         AngleFormat::Degrees => (x_azel[0] * DEG2RAD, x_azel[1] * DEG2RAD),
         AngleFormat::Radians => (x_azel[0], x_azel[1]),
@@ -483,11 +547,224 @@ pub fn position_azel_to_radec(
     let range = x_azel[2];
 
     let d_enz = SVector3::new(el.cos() * az.sin(), el.cos() * az.cos(), el.sin());
-    let d_ecef = rotation_enz_to_ellipsoid(site_geodetic, angle_format) * d_enz;
-    let d_eci = rotation_ecef_to_eci(epc) * d_ecef;
+    let d_ecef = c.r_enz_ecef * d_enz;
+    let d_eci = c.r_ecef_eci * d_ecef;
 
     let radec_dir = position_inertial_to_radec(d_eci, angle_format);
     SVector3::new(radec_dir[0], radec_dir[1], range)
+}
+
+/// Converts a batch of right ascension/declination positions to inertial Cartesian positions.
+///
+/// Batch form of [`position_radec_to_inertial`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_radec`: `[ra, dec, range]` positions. Units: (angles per `angle_format`, *m*)
+/// - `angle_format`: Format of the angular coordinates
+///
+/// # Returns
+/// - Inertial Cartesian positions in input order. Units: (*m*)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::positions_radec_to_inertial;
+/// use brahe::vector3_from_array;
+///
+/// let radec = vec![vector3_from_array([30.0, 10.0, 1.0e6]); 3];
+/// let out = positions_radec_to_inertial(&radec, AngleFormat::Degrees);
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn positions_radec_to_inertial(
+    x_radec: &[SVector3],
+    angle_format: AngleFormat,
+) -> Vec<SVector3> {
+    batch_map(x_radec, |x| position_radec_to_inertial(*x, angle_format))
+}
+
+/// Converts a batch of inertial Cartesian positions to right ascension/declination positions.
+///
+/// Batch form of [`position_inertial_to_radec`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_inertial`: Inertial Cartesian positions. Units: (*m*)
+/// - `angle_format`: Format of the returned angular coordinates
+///
+/// # Returns
+/// - `[ra, dec, range]` positions in input order. Units: (angles per `angle_format`, *m*)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::positions_inertial_to_radec;
+/// use brahe::vector3_from_array;
+///
+/// let x = vec![vector3_from_array([1.0e6, 2.0e6, 3.0e6]); 3];
+/// let out = positions_inertial_to_radec(&x, AngleFormat::Degrees);
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn positions_inertial_to_radec(
+    x_inertial: &[SVector3],
+    angle_format: AngleFormat,
+) -> Vec<SVector3> {
+    batch_map(x_inertial, |x| position_inertial_to_radec(*x, angle_format))
+}
+
+/// Converts a batch of right ascension/declination states to inertial Cartesian states.
+///
+/// Batch form of [`state_radec_to_inertial`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_radec`: `[ra, dec, range, ra_rate, dec_rate, range_rate]` states. Units: (angles per `angle_format`, *m*, rates per second)
+/// - `angle_format`: Format of the angular coordinates
+///
+/// # Returns
+/// - Inertial Cartesian states (position, velocity) in input order. Units: (*m*; *m/s*)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::states_radec_to_inertial;
+/// use brahe::vector6_from_array;
+///
+/// let radec = vec![vector6_from_array([30.0, 10.0, 1.0e6, 0.01, 0.01, 10.0]); 3];
+/// let out = states_radec_to_inertial(&radec, AngleFormat::Degrees);
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn states_radec_to_inertial(x_radec: &[SVector6], angle_format: AngleFormat) -> Vec<SVector6> {
+    batch_map(x_radec, |x| state_radec_to_inertial(*x, angle_format))
+}
+
+/// Converts a batch of inertial Cartesian states to right ascension/declination states.
+///
+/// Batch form of [`state_inertial_to_radec`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_inertial`: Inertial Cartesian states (position, velocity). Units: (*m*; *m/s*)
+/// - `angle_format`: Format of the returned angular coordinates
+///
+/// # Returns
+/// - `[ra, dec, range, ra_rate, dec_rate, range_rate]` states in input order. Units: (angles per `angle_format`, *m*, rates per second)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::states_inertial_to_radec;
+/// use brahe::vector6_from_array;
+///
+/// let x = vec![vector6_from_array([1.0e6, 2.0e6, 3.0e6, 1.0, 2.0, 3.0]); 3];
+/// let out = states_inertial_to_radec(&x, AngleFormat::Degrees);
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn states_inertial_to_radec(
+    x_inertial: &[SVector6],
+    angle_format: AngleFormat,
+) -> Vec<SVector6> {
+    batch_map(x_inertial, |x| state_inertial_to_radec(*x, angle_format))
+}
+
+/// Converts a batch of right ascension/declination positions to azimuth/elevation as seen from a site.
+///
+/// Batch form of [`position_radec_to_azel`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// `x_radec` and `epochs` follow the broadcast rule: each has length 1 or the
+/// common batch length. A single epoch computes the ECI-to-ECEF and site
+/// rotation matrices once and applies them to every position.
+///
+/// # Arguments
+/// - `x_radec`: `[ra, dec, range]` positions, length 1 or the batch length. Units: (angles per `angle_format`, *m*)
+/// - `site_geodetic`: Site geodetic position `[lon, lat, alt]`. Units: (angles per `angle_format`, *m*)
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `angle_format`: Format of the angular coordinates
+///
+/// # Returns
+/// - `[az, el, range]` positions in input order. Units: (angles per `angle_format`, *m*)
+/// - Error if `x_radec` and `epochs` do not satisfy the broadcast rule
+///
+/// # Examples
+/// ```
+/// use brahe::eop::*;
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::positions_radec_to_azel;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector3_from_array;
+///
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let site = vector3_from_array([-122.4, 37.8, 0.0]);
+/// let radec = vec![vector3_from_array([30.0, 10.0, 1.0e6]); 3];
+/// let azel = positions_radec_to_azel(&radec, site, &[epc], AngleFormat::Degrees).unwrap();
+/// assert_eq!(azel.len(), 3);
+/// ```
+pub fn positions_radec_to_azel(
+    x_radec: &[SVector3],
+    site_geodetic: SVector3,
+    epochs: &[Epoch],
+    angle_format: AngleFormat,
+) -> Result<Vec<SVector3>, BraheError> {
+    batch_map_epochs(
+        epochs,
+        x_radec,
+        |epc| radec_azel_context(epc, site_geodetic, angle_format),
+        |c, x| apply_position_radec_to_azel(c, x, angle_format),
+    )
+}
+
+/// Converts a batch of azimuth/elevation positions seen from a site to right ascension/declination.
+///
+/// Batch form of [`position_azel_to_radec`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// `x_azel` and `epochs` follow the broadcast rule: each has length 1 or the
+/// common batch length. A single epoch computes the site and ECEF-to-ECI
+/// rotation matrices once and applies them to every position.
+///
+/// # Arguments
+/// - `x_azel`: `[az, el, range]` positions, length 1 or the batch length. Units: (angles per `angle_format`, *m*)
+/// - `site_geodetic`: Site geodetic position `[lon, lat, alt]`. Units: (angles per `angle_format`, *m*)
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `angle_format`: Format of the angular coordinates
+///
+/// # Returns
+/// - `[ra, dec, range]` positions in input order. Units: (angles per `angle_format`, *m*)
+/// - Error if `x_azel` and `epochs` do not satisfy the broadcast rule
+///
+/// # Examples
+/// ```
+/// use brahe::eop::*;
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::positions_azel_to_radec;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector3_from_array;
+///
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let site = vector3_from_array([-122.4, 37.8, 0.0]);
+/// let azel = vec![vector3_from_array([120.0, 45.0, 1.0e6]); 3];
+/// let radec = positions_azel_to_radec(&azel, site, &[epc], AngleFormat::Degrees).unwrap();
+/// assert_eq!(radec.len(), 3);
+/// ```
+pub fn positions_azel_to_radec(
+    x_azel: &[SVector3],
+    site_geodetic: SVector3,
+    epochs: &[Epoch],
+    angle_format: AngleFormat,
+) -> Result<Vec<SVector3>, BraheError> {
+    batch_map_epochs(
+        epochs,
+        x_azel,
+        |epc| azel_radec_context(epc, site_geodetic, angle_format),
+        |c, x| apply_position_azel_to_radec(c, x, angle_format),
+    )
 }
 
 #[cfg(test)]
@@ -968,5 +1245,91 @@ mod tests {
         for k in 0..6 {
             assert_abs_diff_eq!(s_deg[k], s_rad[k], epsilon = 1e-12);
         }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_radec_inertial_match_scalar() {
+        let radec3 = vec![
+            SVector3::new(30.0, 10.0, 1.0e6),
+            SVector3::new(200.0, -45.0, 2.0e6),
+            SVector3::new(359.0, 80.0, 3.0e6),
+        ];
+        let out = positions_radec_to_inertial(&radec3, AngleFormat::Degrees);
+        let back = positions_inertial_to_radec(&out, AngleFormat::Degrees);
+        let radec6: Vec<SVector6> = radec3
+            .iter()
+            .map(|r| SVector6::new(r[0], r[1], r[2], 0.01, -0.02, 5.0))
+            .collect();
+        let out6 = states_radec_to_inertial(&radec6, AngleFormat::Degrees);
+        let back6 = states_inertial_to_radec(&out6, AngleFormat::Degrees);
+        for i in 0..3 {
+            assert_eq!(
+                out[i],
+                position_radec_to_inertial(radec3[i], AngleFormat::Degrees)
+            );
+            assert_eq!(
+                back[i],
+                position_inertial_to_radec(out[i], AngleFormat::Degrees)
+            );
+            assert_eq!(
+                out6[i],
+                state_radec_to_inertial(radec6[i], AngleFormat::Degrees)
+            );
+            assert_eq!(
+                back6[i],
+                state_inertial_to_radec(out6[i], AngleFormat::Degrees)
+            );
+            for k in 0..3 {
+                assert_abs_diff_eq!(back[i][k], radec3[i][k], epsilon = 1e-6);
+            }
+        }
+        assert!(positions_radec_to_inertial(&[], AngleFormat::Degrees).is_empty());
+    }
+
+    #[test]
+    #[serial]
+    fn test_batch_radec_azel_match_scalar() {
+        setup_global_test_eop();
+        let epc0 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epochs: Vec<Epoch> = (0..3).map(|i| epc0 + 600.0 * i as f64).collect();
+        let site = SVector3::new(-122.4, 37.8, 0.0);
+        let radec = vec![
+            SVector3::new(30.0, 10.0, 1.0e6),
+            SVector3::new(200.0, -45.0, 2.0e6),
+            SVector3::new(359.0, 80.0, 3.0e6),
+        ];
+        let azel = positions_radec_to_azel(&radec, site, &epochs, AngleFormat::Degrees).unwrap();
+        let azel_shared =
+            positions_radec_to_azel(&radec, site, &epochs[..1], AngleFormat::Degrees).unwrap();
+        let back = positions_azel_to_radec(&azel, site, &epochs, AngleFormat::Degrees).unwrap();
+        let back_shared =
+            positions_azel_to_radec(&azel, site, &epochs[..1], AngleFormat::Degrees).unwrap();
+        let one =
+            positions_radec_to_azel(&radec[..1], site, &epochs, AngleFormat::Degrees).unwrap();
+        for i in 0..3 {
+            assert_eq!(
+                azel[i],
+                position_radec_to_azel(radec[i], site, epochs[i], AngleFormat::Degrees)
+            );
+            assert_eq!(
+                azel_shared[i],
+                position_radec_to_azel(radec[i], site, epochs[0], AngleFormat::Degrees)
+            );
+            assert_eq!(
+                back[i],
+                position_azel_to_radec(azel[i], site, epochs[i], AngleFormat::Degrees)
+            );
+            assert_eq!(
+                back_shared[i],
+                position_azel_to_radec(azel[i], site, epochs[0], AngleFormat::Degrees)
+            );
+            assert_eq!(
+                one[i],
+                position_radec_to_azel(radec[0], site, epochs[i], AngleFormat::Degrees)
+            );
+            assert_abs_diff_eq!(back[i][2], radec[i][2], epsilon = 1e-6);
+        }
+        assert!(positions_radec_to_azel(&radec, site, &epochs[..2], AngleFormat::Degrees).is_err());
     }
 }

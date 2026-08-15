@@ -18,6 +18,7 @@ use crate::orbits;
 use crate::propagators::CentralBody;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
+use crate::utils::batch::{batch_map, try_batch_map};
 
 /// Convert an osculating orbital element state vector into the equivalent
 /// Cartesian (position and velocity) inertial state.
@@ -553,17 +554,141 @@ pub fn state_inertial_to_koe_for_body(
     Ok(state_inertial_to_koe_gm(x_eq, gm, angle_format))
 }
 
+/// Converts a batch of Keplerian orbital elements to Cartesian ECI states.
+///
+/// Batch form of [`state_koe_to_eci`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_oe`: Keplerian element sets `[a, e, i, Ω, ω, M]`. Units: (*m*, dimensionless, angles per `angle_format`)
+/// - `angle_format`: Format of the angular elements
+///
+/// # Returns
+/// - Cartesian ECI states (position, velocity) in input order. Units: (*m*; *m/s*)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::states_koe_to_eci;
+/// use brahe::vector6_from_array;
+///
+/// let elements = vec![vector6_from_array([R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0]); 3];
+/// let states = states_koe_to_eci(&elements, AngleFormat::Degrees);
+/// assert_eq!(states.len(), 3);
+/// ```
+pub fn states_koe_to_eci(x_oe: &[SVector6], angle_format: AngleFormat) -> Vec<SVector6> {
+    batch_map(x_oe, |x| state_koe_to_eci(*x, angle_format))
+}
+
+/// Converts a batch of Cartesian ECI states to Keplerian orbital elements.
+///
+/// Batch form of [`state_eci_to_koe`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_cart`: Cartesian ECI states (position, velocity). Units: (*m*; *m/s*)
+/// - `angle_format`: Format of the returned angular elements
+///
+/// # Returns
+/// - Keplerian element sets `[a, e, i, Ω, ω, M]` in input order. Units: (*m*, dimensionless, angles per `angle_format`)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::{state_koe_to_eci, states_eci_to_koe};
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let elements = states_eci_to_koe(&[x, x], AngleFormat::Degrees);
+/// assert_eq!(elements.len(), 2);
+/// ```
+pub fn states_eci_to_koe(x_cart: &[SVector6], angle_format: AngleFormat) -> Vec<SVector6> {
+    batch_map(x_cart, |x| state_eci_to_koe(*x, angle_format))
+}
+
+/// Converts a batch of Keplerian elements to Cartesian inertial states about `central_body`.
+///
+/// Batch form of [`state_koe_to_inertial_for_body`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_oe`: Keplerian element sets `[a, e, i, Ω, ω, M]`. Units: (*m*, dimensionless, angles per `angle_format`)
+/// - `central_body`: Central body supplying the gravitational parameter and equatorial basis
+/// - `angle_format`: Format of the angular elements
+///
+/// # Returns
+/// - Cartesian inertial states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if the body's equatorial basis cannot be resolved
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_MOON, AngleFormat};
+/// use brahe::coordinates::states_koe_to_inertial_for_body;
+/// use brahe::propagators::CentralBody;
+/// use brahe::vector6_from_array;
+///
+/// let elements = vec![vector6_from_array([R_MOON + 100e3, 0.01, 30.0, 0.0, 0.0, 0.0]); 2];
+/// let states = states_koe_to_inertial_for_body(&elements, &CentralBody::Moon, AngleFormat::Degrees).unwrap();
+/// assert_eq!(states.len(), 2);
+/// ```
+pub fn states_koe_to_inertial_for_body(
+    x_oe: &[SVector6],
+    central_body: &CentralBody,
+    angle_format: AngleFormat,
+) -> Result<Vec<SVector6>, BraheError> {
+    try_batch_map(x_oe, |x| {
+        state_koe_to_inertial_for_body(*x, central_body, angle_format)
+    })
+}
+
+/// Converts a batch of Cartesian inertial states about `central_body` to Keplerian elements.
+///
+/// Batch form of [`state_inertial_to_koe_for_body`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_cart`: Cartesian inertial states (position, velocity). Units: (*m*; *m/s*)
+/// - `central_body`: Central body supplying the gravitational parameter and equatorial basis
+/// - `angle_format`: Format of the returned angular elements
+///
+/// # Returns
+/// - Keplerian element sets `[a, e, i, Ω, ω, M]` in input order. Units: (*m*, dimensionless, angles per `angle_format`)
+/// - Error if the body's equatorial basis cannot be resolved
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_MOON, AngleFormat};
+/// use brahe::coordinates::{state_koe_to_inertial_for_body, states_inertial_to_koe_for_body};
+/// use brahe::propagators::CentralBody;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_inertial_for_body(vector6_from_array([R_MOON + 100e3, 0.01, 30.0, 0.0, 0.0, 0.0]), &CentralBody::Moon, AngleFormat::Degrees).unwrap();
+/// let elements = states_inertial_to_koe_for_body(&[x, x], &CentralBody::Moon, AngleFormat::Degrees).unwrap();
+/// assert_eq!(elements.len(), 2);
+/// ```
+pub fn states_inertial_to_koe_for_body(
+    x_cart: &[SVector6],
+    central_body: &CentralBody,
+    angle_format: AngleFormat,
+) -> Result<Vec<SVector6>, BraheError> {
+    try_batch_map(x_cart, |x| {
+        state_inertial_to_koe_for_body(*x, central_body, angle_format)
+    })
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
     use nalgebra::Vector3;
     use rstest::rstest;
+    use serial_test::parallel;
 
     use crate::constants::{DEG2RAD, DEGREES, R_EARTH, R_MARS, RADIANS};
     use crate::coordinates::*;
     use crate::math::*;
     use crate::orbits::*;
+    use crate::propagators::CentralBody;
     use crate::utils::testing::setup_global_test_eop;
 
     #[test]
@@ -811,5 +936,48 @@ mod tests {
         });
         assert!(state_koe_to_inertial_for_body(osc, &no_frame, DEGREES).is_err());
         assert!(state_inertial_to_koe_for_body(osc, &no_frame, DEGREES).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_koe_eci_match_scalar() {
+        let elements: Vec<SVector6> = (0..3)
+            .map(|i| {
+                vector6_from_array([
+                    R_EARTH + 500e3 + 1e3 * i as f64,
+                    0.01,
+                    97.8,
+                    15.0 + i as f64,
+                    30.0,
+                    45.0,
+                ])
+            })
+            .collect();
+        let states = states_koe_to_eci(&elements, DEGREES);
+        let back = states_eci_to_koe(&states, DEGREES);
+        let moon = states_koe_to_inertial_for_body(&elements, &CentralBody::Moon, DEGREES).unwrap();
+        let moon_back =
+            states_inertial_to_koe_for_body(&moon, &CentralBody::Moon, DEGREES).unwrap();
+        for i in 0..3 {
+            assert_eq!(states[i], state_koe_to_eci(elements[i], DEGREES));
+            assert_eq!(back[i], state_eci_to_koe(states[i], DEGREES));
+            assert_eq!(
+                moon[i],
+                state_koe_to_inertial_for_body(elements[i], &CentralBody::Moon, DEGREES).unwrap()
+            );
+            assert_eq!(
+                moon_back[i],
+                state_inertial_to_koe_for_body(moon[i], &CentralBody::Moon, DEGREES).unwrap()
+            );
+            for k in 0..6 {
+                assert_abs_diff_eq!(back[i][k], elements[i][k], epsilon = 1e-6);
+            }
+        }
+        assert!(states_koe_to_eci(&[], DEGREES).is_empty());
+        assert!(
+            states_koe_to_inertial_for_body(&[], &CentralBody::Earth, DEGREES)
+                .unwrap()
+                .is_empty()
+        );
     }
 }

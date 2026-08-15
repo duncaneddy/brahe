@@ -1369,3 +1369,201 @@ def test_router_errors_on_unsupported_iau_body():
             brahe.ReferenceFrame.BodyFixedIAU(999999),
             epc,
         )
+
+
+# Batch (vectorized) planetary, synodic, and generic router tests
+def _planetary_epochs(n):
+    epc0 = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    return [epc0 + 3600.0 * i for i in range(n)]
+
+
+def _check_batch_family(pos_fns, state_fns, rot_fns, positions, states, epochs):
+    for f in pos_fns:
+        out = f(epochs, positions)
+        assert out.shape == positions.shape
+        out1 = f(epochs[0], positions)
+        for i, e in enumerate(epochs):
+            np.testing.assert_array_equal(out[i], f(e, positions[i]))
+            np.testing.assert_array_equal(out1[i], f(epochs[0], positions[i]))
+        one = f(epochs, positions[0])
+        for i, e in enumerate(epochs):
+            np.testing.assert_array_equal(one[i], f(e, positions[0]))
+    for f in state_fns:
+        out = f(epochs, states)
+        assert out.shape == states.shape
+        out_t = f(epochs, states.T, axis=0)
+        np.testing.assert_array_equal(out_t, out.T)
+        for i, e in enumerate(epochs):
+            np.testing.assert_array_equal(out[i], f(e, states[i]))
+    for f in rot_fns:
+        R = f(epochs)
+        assert R.shape == (len(epochs), 3, 3)
+        for i, e in enumerate(epochs):
+            np.testing.assert_array_equal(R[i], f(e))
+
+
+def test_batch_lunar_frames():
+    epochs = _planetary_epochs(3)
+    states = np.array(
+        [[brahe.R_MOON + 100e3 + 1e3 * i, 1e5, 2e5, 0.0, 1.6e3, 0.0] for i in range(3)]
+    )
+    positions = states[:, :3]
+    _check_batch_family(
+        [
+            brahe.position_lci_to_lfpa,
+            brahe.position_lfpa_to_lci,
+            brahe.position_lci_to_lfme,
+            brahe.position_lfme_to_lci,
+            brahe.position_eci_to_lci,
+            brahe.position_lci_to_eci,
+        ],
+        [
+            brahe.state_lci_to_lfpa,
+            brahe.state_lfpa_to_lci,
+            brahe.state_lci_to_lfme,
+            brahe.state_lfme_to_lci,
+            brahe.state_eci_to_lci,
+            brahe.state_lci_to_eci,
+        ],
+        [
+            brahe.rotation_lci_to_lfpa,
+            brahe.rotation_lfpa_to_lci,
+            brahe.rotation_lci_to_lfme,
+            brahe.rotation_lfme_to_lci,
+        ],
+        positions,
+        states,
+        epochs,
+    )
+    lfpa = brahe.state_lci_to_lfpa(epochs, states)
+    back = brahe.state_lfpa_to_lci(epochs, lfpa)
+    np.testing.assert_allclose(back, states, atol=1e-6)
+
+
+def test_batch_mars_and_emb_frames():
+    epochs = _planetary_epochs(3)
+    states = np.array(
+        [[brahe.R_MARS + 400e3 + 1e3 * i, 0.0, 0.0, 0.0, 3.4e3, 0.0] for i in range(3)]
+    )
+    positions = states[:, :3]
+    _check_batch_family(
+        [
+            brahe.position_mci_to_mcmf,
+            brahe.position_mcmf_to_mci,
+            brahe.position_eci_to_mci,
+            brahe.position_mci_to_eci,
+            brahe.position_eci_to_emb,
+            brahe.position_emb_to_eci,
+        ],
+        [
+            brahe.state_mci_to_mcmf,
+            brahe.state_mcmf_to_mci,
+            brahe.state_eci_to_mci,
+            brahe.state_mci_to_eci,
+            brahe.state_eci_to_emb,
+            brahe.state_emb_to_eci,
+        ],
+        [brahe.rotation_mci_to_mcmf, brahe.rotation_mcmf_to_mci],
+        positions,
+        states,
+        epochs,
+    )
+
+
+def test_batch_synodic_frames():
+    epochs = _planetary_epochs(3)
+    states = np.array(
+        [[1e8 + 1e6 * i, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3] for i in range(3)]
+    )
+    positions = states[:, :3]
+    _check_batch_family(
+        [
+            brahe.position_gcrf_to_emr,
+            brahe.position_emr_to_gcrf,
+            brahe.position_gcrf_to_ser,
+            brahe.position_ser_to_gcrf,
+            brahe.position_gcrf_to_gse,
+            brahe.position_gse_to_gcrf,
+        ],
+        [
+            brahe.state_gcrf_to_emr,
+            brahe.state_emr_to_gcrf,
+            brahe.state_gcrf_to_ser,
+            brahe.state_ser_to_gcrf,
+            brahe.state_gcrf_to_gse,
+            brahe.state_gse_to_gcrf,
+        ],
+        [
+            brahe.rotation_gcrf_to_emr,
+            brahe.rotation_emr_to_gcrf,
+            brahe.rotation_gcrf_to_ser,
+            brahe.rotation_ser_to_gcrf,
+            brahe.rotation_gcrf_to_gse,
+            brahe.rotation_gse_to_gcrf,
+        ],
+        positions,
+        states,
+        epochs,
+    )
+    with pytest.raises(ValueError):
+        brahe.state_gcrf_to_emr(epochs[:2], states)
+
+
+def test_batch_iau_rotation():
+    epochs = _planetary_epochs(3)
+    R = brahe.rotation_icrf_to_body_fixed_iau(499, epochs)
+    assert R.shape == (3, 3, 3)
+    for i, e in enumerate(epochs):
+        np.testing.assert_array_equal(
+            R[i], brahe.rotation_icrf_to_body_fixed_iau(499, e)
+        )
+    with pytest.raises(RuntimeError):
+        brahe.rotation_icrf_to_body_fixed_iau(999999, epochs)
+
+
+def test_batch_frame_router(eop):
+    epochs = _planetary_epochs(3)
+    oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
+    states = np.array(
+        [
+            brahe.state_koe_to_eci(
+                oe + np.array([1e3 * i, 0, 0, 0, 0, 0]), brahe.AngleFormat.DEGREES
+            )
+            for i in range(3)
+        ]
+    )
+    positions = states[:, :3]
+    RF = brahe.ReferenceFrame
+    for src, dst in [
+        (RF.GCRF, RF.ITRF),
+        (RF.GCRF, RF.LFPA),
+        (RF.GCRF, RF.EMR),
+        (RF.ITRF, RF.MCMF),
+    ]:
+        R = brahe.rotation_frame_to_frame(src, dst, epochs)
+        pos = brahe.position_frame_to_frame(src, dst, epochs, positions)
+        pos1 = brahe.position_frame_to_frame(src, dst, epochs[0], positions)
+        st = brahe.state_frame_to_frame(src, dst, epochs, states)
+        st1 = brahe.state_frame_to_frame(src, dst, epochs[0], states)
+        assert R.shape == (3, 3, 3) and pos.shape == (3, 3) and st.shape == (3, 6)
+        for i, e in enumerate(epochs):
+            np.testing.assert_array_equal(
+                R[i], brahe.rotation_frame_to_frame(src, dst, e)
+            )
+            np.testing.assert_array_equal(
+                pos[i], brahe.position_frame_to_frame(src, dst, e, positions[i])
+            )
+            np.testing.assert_array_equal(
+                pos1[i],
+                brahe.position_frame_to_frame(src, dst, epochs[0], positions[i]),
+            )
+            np.testing.assert_array_equal(
+                st[i], brahe.state_frame_to_frame(src, dst, e, states[i])
+            )
+            np.testing.assert_array_equal(
+                st1[i], brahe.state_frame_to_frame(src, dst, epochs[0], states[i])
+            )
+    same = brahe.position_frame_to_frame(RF.GCRF, RF.GCRF, epochs, positions)
+    np.testing.assert_array_equal(same, positions)
+    with pytest.raises(RuntimeError):
+        brahe.state_frame_to_frame(RF.GCRF, RF.BodyFixedIAU(-1234), epochs, states)

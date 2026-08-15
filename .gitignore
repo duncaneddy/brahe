@@ -97,3 +97,4 @@ benchmarks/comparative/implementations/java/build/
 profiles/results/*
 !profiles/results/.gitkeep
 profiles/rust/target/
+pocs/

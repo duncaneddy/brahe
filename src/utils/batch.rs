@@ -216,6 +216,83 @@ pub(crate) fn batch_map_epochs<C: Sync, T: Sync, U: Send>(
     }
 }
 
+/// Evaluate a fallible `f` for every index in `0..n`, preserving order and
+/// stopping at the first error.
+///
+/// Runs on the global rayon thread pool when `n >= PARALLEL_THRESHOLD` and
+/// sequentially otherwise.
+///
+/// # Arguments
+///
+/// * `n` - Number of elements to evaluate
+/// * `f` - Fallible kernel evaluated at each index
+///
+/// # Returns
+///
+/// Vector of `n` results in index order, or the first error encountered.
+pub(crate) fn try_map_indices<U: Send, E: Send>(
+    n: usize,
+    f: impl Fn(usize) -> Result<U, E> + Sync,
+) -> Result<Vec<U>, E> {
+    if n >= PARALLEL_THRESHOLD {
+        get_thread_pool().install(|| (0..n).into_par_iter().map(&f).collect())
+    } else {
+        (0..n).map(&f).collect()
+    }
+}
+
+/// Apply a fallible `f` to every element of `inputs`.
+///
+/// # Arguments
+///
+/// * `inputs` - Elements to transform
+/// * `f` - Fallible element-wise kernel
+///
+/// # Returns
+///
+/// Vector with one output per input, in input order, or the first error.
+pub(crate) fn try_batch_map<T: Sync, U: Send, E: Send>(
+    inputs: &[T],
+    f: impl Fn(&T) -> Result<U, E> + Sync,
+) -> Result<Vec<U>, E> {
+    try_map_indices(inputs.len(), |i| f(&inputs[i]))
+}
+
+/// Apply a fallible epoch-dependent kernel across a batch, hoisting the epoch
+/// context when the batch shares a single epoch.
+///
+/// Fallible form of [`batch_map_epochs`]: both the context constructor and
+/// the kernel may fail, and the first error is returned.
+///
+/// # Arguments
+///
+/// * `epochs` - Epochs, length `1` or `N`
+/// * `inputs` - Elements to transform, length `1` or `N`
+/// * `context` - Builds the per-epoch context
+/// * `apply` - Applies a context to one input
+///
+/// # Returns
+///
+/// Vector of `N` results in index order, or an error if the lengths do not
+/// satisfy the broadcast rule or any evaluation fails.
+pub(crate) fn try_batch_map_epochs<C: Sync, T: Sync, U: Send>(
+    epochs: &[Epoch],
+    inputs: &[T],
+    context: impl Fn(Epoch) -> Result<C, BraheError> + Sync,
+    apply: impl Fn(&C, &T) -> Result<U, BraheError> + Sync,
+) -> Result<Vec<U>, BraheError> {
+    let n = broadcast_len(&[epochs.len(), inputs.len()])?;
+    if n == 0 {
+        return Ok(Vec::new());
+    }
+    if epochs.len() == 1 {
+        let c = context(epochs[0])?;
+        try_map_indices(n, |i| apply(&c, pick(inputs, i)))
+    } else {
+        try_map_indices(n, |i| apply(&context(epochs[i])?, pick(inputs, i)))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -458,5 +535,93 @@ mod tests {
 
         let out = batch_map_epochs(|e| e.gps_seconds(), |c, x| c + x, &epochs(0), &none).unwrap();
         assert!(out.is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_try_batch_map_ok_and_error() {
+        let small = [1.0, 2.0, 3.0];
+        let ok: Result<Vec<f64>, String> = try_batch_map(&small, |x| Ok(x * 2.0));
+        assert_eq!(ok.unwrap(), vec![2.0, 4.0, 6.0]);
+
+        let err: Result<Vec<f64>, String> = try_batch_map(&small, |x| {
+            if *x > 2.0 {
+                Err("too big".to_string())
+            } else {
+                Ok(*x)
+            }
+        });
+        assert_eq!(err.unwrap_err(), "too big");
+
+        let large: Vec<f64> = (0..PARALLEL_THRESHOLD + 2).map(|i| i as f64).collect();
+        let out: Vec<f64> = try_batch_map(&large, |x| Ok::<f64, String>(x + 1.0)).unwrap();
+        let expected: Vec<f64> = large.iter().map(|x| x + 1.0).collect();
+        assert_eq!(out, expected);
+        let err: Result<Vec<f64>, String> = try_batch_map(&large, |x| {
+            if *x == 5.0 {
+                Err("five".to_string())
+            } else {
+                Ok(*x)
+            }
+        });
+        assert_eq!(err.unwrap_err(), "five");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_try_batch_map_epochs_hoists_and_propagates_errors() {
+        let calls = AtomicUsize::new(0);
+        let inputs = [1.0, 2.0, 3.0];
+        let out = try_batch_map_epochs(
+            &epochs(1),
+            &inputs,
+            |e| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                Ok(e.gps_seconds())
+            },
+            |c, x| Ok(c + x),
+        )
+        .unwrap();
+        assert_eq!(out, vec![1.0, 2.0, 3.0]);
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+
+        let out = try_batch_map_epochs(
+            &epochs(3),
+            &inputs,
+            |e| Ok(e.gps_seconds()),
+            |c, x| Ok(c + x),
+        )
+        .unwrap();
+        assert_eq!(out.len(), 3);
+        for (got, want) in out.iter().zip([1.0, 62.0, 123.0]) {
+            assert_abs_diff_eq!(*got, want, epsilon = 1e-9);
+        }
+
+        let err = try_batch_map_epochs(
+            &epochs(1),
+            &inputs,
+            |_| Err::<f64, _>(BraheError::Error("no context".to_string())),
+            |c, x| Ok(c + x),
+        );
+        assert!(err.is_err());
+        let err = try_batch_map_epochs(
+            &epochs(3),
+            &inputs,
+            |e| Ok(e.gps_seconds()),
+            |_, x| {
+                if *x > 2.0 {
+                    Err(BraheError::Error("bad".to_string()))
+                } else {
+                    Ok(*x)
+                }
+            },
+        );
+        assert!(err.is_err());
+        assert!(try_batch_map_epochs(&epochs(2), &inputs, Ok, |_, x| Ok(*x)).is_err());
+        assert!(
+            try_batch_map_epochs(&epochs(1), &[] as &[f64], Ok, |_, x| Ok(*x))
+                .unwrap()
+                .is_empty()
+        );
     }
 }

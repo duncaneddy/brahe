@@ -7,8 +7,6 @@
  * composition of its scalar counterpart with one of these primitives.
  */
 
-#![allow(dead_code)]
-
 use rayon::prelude::*;
 
 use crate::time::Epoch;
@@ -155,6 +153,7 @@ pub(crate) fn batch_map<T: Sync, U: Send>(inputs: &[T], f: impl Fn(&T) -> U + Sy
 /// let sums = batch_zip(&[10.0], &[1.0, 2.0], |a, b| a + b).unwrap();
 /// assert_eq!(sums, vec![11.0, 12.0]);
 /// ```
+#[allow(dead_code)]
 pub(crate) fn batch_zip<A: Sync, B: Sync, U: Send>(
     a: &[A],
     b: &[B],

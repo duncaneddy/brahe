@@ -94,6 +94,27 @@ pub(crate) fn batch_map<T: Sync, U: Send>(inputs: &[T], f: impl Fn(&T) -> U + Sy
     map_indices(inputs.len(), |i| f(&inputs[i]))
 }
 
+/// Apply `f` pairwise across two slice arguments under the broadcast rule.
+///
+/// # Arguments
+///
+/// * `a` - First slice argument, length `1` or `N`
+/// * `b` - Second slice argument, length `1` or `N`
+/// * `f` - Pairwise kernel
+///
+/// # Returns
+///
+/// Vector of `N` results in index order, or an error if the lengths do not
+/// satisfy the broadcast rule.
+pub(crate) fn batch_zip<A: Sync, B: Sync, U: Send>(
+    a: &[A],
+    b: &[B],
+    f: impl Fn(&A, &B) -> U + Sync,
+) -> Result<Vec<U>, BraheError> {
+    let n = broadcast_len(&[a.len(), b.len()])?;
+    Ok(map_indices(n, |i| f(pick(a, i), pick(b, i))))
+}
+
 #[cfg(test)]
 mod tests {
     use serial_test::parallel;
@@ -175,5 +196,55 @@ mod tests {
 
         let empty: Vec<f64> = Vec::new();
         assert!(batch_map(&empty, |x| x * 2.0).is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_zip_paired() {
+        let a = [1.0, 2.0, 3.0];
+        let b = [10.0, 20.0, 30.0];
+        assert_eq!(
+            batch_zip(&a, &b, |x, y| x + y).unwrap(),
+            vec![11.0, 22.0, 33.0]
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_zip_broadcast_either_side() {
+        let one = [100.0];
+        let many = [1.0, 2.0, 3.0];
+        assert_eq!(
+            batch_zip(&one, &many, |x, y| x + y).unwrap(),
+            vec![101.0, 102.0, 103.0]
+        );
+        assert_eq!(
+            batch_zip(&many, &one, |x, y| x - y).unwrap(),
+            vec![-99.0, -98.0, -97.0]
+        );
+        assert_eq!(batch_zip(&one, &one, |x, y| x * y).unwrap(), vec![10000.0]);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_zip_mismatch_and_empty() {
+        let a = [1.0, 2.0];
+        let b = [1.0, 2.0, 3.0];
+        assert!(batch_zip(&a, &b, |x, y| x + y).is_err());
+
+        let empty: [f64; 0] = [];
+        assert!(batch_zip(&empty, &empty, |x, y| x + y).unwrap().is_empty());
+        assert!(batch_zip(&[1.0], &empty, |x, y| x + y).unwrap().is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_zip_parallel_path() {
+        let n = PARALLEL_THRESHOLD + 1;
+        let a: Vec<f64> = (0..n).map(|i| i as f64).collect();
+        let b = [0.5];
+        let out = batch_zip(&a, &b, |x, y| x + y).unwrap();
+        let expected: Vec<f64> = a.iter().map(|x| x + 0.5).collect();
+        assert_eq!(out, expected);
     }
 }

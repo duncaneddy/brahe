@@ -11,6 +11,7 @@
 
 use rayon::prelude::*;
 
+use crate::time::Epoch;
 use crate::utils::errors::BraheError;
 use crate::utils::threading::get_thread_pool;
 
@@ -115,11 +116,55 @@ pub(crate) fn batch_zip<A: Sync, B: Sync, U: Send>(
     Ok(map_indices(n, |i| f(pick(a, i), pick(b, i))))
 }
 
+/// Apply an epoch-dependent kernel across a batch, hoisting the epoch
+/// context when the batch shares a single epoch.
+///
+/// When `epochs.len() == 1` the context is computed once and applied to every
+/// input. Otherwise the context is computed for each element. `epochs` and
+/// `inputs` follow the broadcast rule (each has length `1` or `N`).
+///
+/// # Arguments
+///
+/// * `epochs` - Epochs, length `1` or `N`
+/// * `inputs` - Elements to transform, length `1` or `N`
+/// * `context` - Builds the per-epoch context (rotation matrices, angular
+///   rates, ephemeris lookups) that the scalar transform would otherwise
+///   recompute on every call
+/// * `apply` - Applies a context to one input
+///
+/// # Returns
+///
+/// Vector of `N` results in index order, or an error if the lengths do not
+/// satisfy the broadcast rule.
+pub(crate) fn batch_map_epochs<C: Sync, T: Sync, U: Send>(
+    epochs: &[Epoch],
+    inputs: &[T],
+    context: impl Fn(Epoch) -> C + Sync,
+    apply: impl Fn(&C, &T) -> U + Sync,
+) -> Result<Vec<U>, BraheError> {
+    let n = broadcast_len(&[epochs.len(), inputs.len()])?;
+    if n == 0 {
+        return Ok(Vec::new());
+    }
+    if epochs.len() == 1 {
+        let c = context(epochs[0]);
+        Ok(map_indices(n, |i| apply(&c, pick(inputs, i))))
+    } else {
+        Ok(map_indices(n, |i| {
+            apply(&context(epochs[i]), pick(inputs, i))
+        }))
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use approx::assert_abs_diff_eq;
     use serial_test::parallel;
 
     use super::*;
+    use crate::time::Epoch;
 
     #[test]
     #[parallel]
@@ -246,5 +291,112 @@ mod tests {
         let out = batch_zip(&a, &b, |x, y| x + y).unwrap();
         let expected: Vec<f64> = a.iter().map(|x| x + 0.5).collect();
         assert_eq!(out, expected);
+    }
+
+    fn epochs(n: usize) -> Vec<Epoch> {
+        (0..n)
+            .map(|i| Epoch::from_gps_seconds(60.0 * i as f64))
+            .collect()
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_map_epochs_shared_epoch_hoists_context() {
+        let calls = AtomicUsize::new(0);
+        let epc = epochs(1);
+        let inputs = [1.0, 2.0, 3.0];
+        let out = batch_map_epochs(
+            &epc,
+            &inputs,
+            |e| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                e.gps_seconds()
+            },
+            |c, x| c + x,
+        )
+        .unwrap();
+        assert_eq!(out, vec![1.0, 2.0, 3.0]);
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_map_epochs_shared_epoch_parallel_still_hoists() {
+        let calls = AtomicUsize::new(0);
+        let epc = epochs(1);
+        let inputs: Vec<f64> = (0..PARALLEL_THRESHOLD + 1).map(|i| i as f64).collect();
+        let out = batch_map_epochs(
+            &epc,
+            &inputs,
+            |e| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                e.gps_seconds()
+            },
+            |c, x| c + x,
+        )
+        .unwrap();
+        assert_eq!(out, inputs);
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_map_epochs_per_epoch() {
+        let calls = AtomicUsize::new(0);
+        let epc = epochs(3);
+        let inputs = [1.0, 2.0, 3.0];
+        let out = batch_map_epochs(
+            &epc,
+            &inputs,
+            |e| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                e.gps_seconds()
+            },
+            |c, x| c + x,
+        )
+        .unwrap();
+        assert_eq!(out.len(), 3);
+        for (got, want) in out.iter().zip([1.0, 62.0, 123.0]) {
+            assert_abs_diff_eq!(*got, want, epsilon = 1e-9);
+        }
+        assert_eq!(calls.load(Ordering::SeqCst), 3);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_map_epochs_single_input_many_epochs() {
+        let epc = epochs(4);
+        let inputs = [0.5];
+        let out = batch_map_epochs(&epc, &inputs, |e| e.gps_seconds(), |c, x| c + x).unwrap();
+        assert_eq!(out.len(), 4);
+        for (got, want) in out.iter().zip([0.5, 60.5, 120.5, 180.5]) {
+            assert_abs_diff_eq!(*got, want, epsilon = 1e-9);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_map_epochs_mismatch_and_empty() {
+        let epc = epochs(2);
+        let inputs = [1.0, 2.0, 3.0];
+        assert!(batch_map_epochs(&epc, &inputs, |e| e.gps_seconds(), |c, x| c + x).is_err());
+
+        let calls = AtomicUsize::new(0);
+        let none: [f64; 0] = [];
+        let out = batch_map_epochs(
+            &epochs(1),
+            &none,
+            |e| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                e.gps_seconds()
+            },
+            |c, x| c + x,
+        )
+        .unwrap();
+        assert!(out.is_empty());
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
+
+        let out = batch_map_epochs(&epochs(0), &none, |e| e.gps_seconds(), |c, x| c + x).unwrap();
+        assert!(out.is_empty());
     }
 }

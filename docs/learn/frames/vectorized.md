@@ -19,6 +19,8 @@ Epoch arguments accept an `Epoch` or any sequence of `Epoch` objects (list, tupl
 
 Rotation-matrix functions such as `rotation_eci_to_ecef` accept a sequence of epochs and return an `(n, 3, 3)` array.
 
+The same rules apply to every frame family: ECI/ECEF and GCRF/ITRF, EME2000, the lunar (LCI, LFPA, LFME), Mars (MCI, MCMF), and Earth-Moon barycenter (EMBI) frames, the EMR/SER/GSE synodic frames, `rotation_icrf_to_body_fixed_iau`, and the generic `rotation_frame_to_frame`, `position_frame_to_frame`, and `state_frame_to_frame` router. Functions that can fail for a single input (synodic and router transforms, IAU rotations) raise the same `RuntimeError` for a batch.
+
 === "Python"
 
     ``` python
@@ -52,7 +54,7 @@ Batches evaluate sequentially for small inputs and on the global thread pool for
 
 The batch speed-up comes from two different sources, and which one applies depends on the epochs.
 
-When all vectors share one epoch, the transformation context (for ECI/ECEF, the bias-precession-nutation, Earth-rotation, and polar-motion matrices) is computed once and applied to every vector. The per-vector work is a handful of matrix products, so the cost of the batch is dominated by the single context evaluation.
+When all vectors share one epoch, the transformation context is computed once and applied to every vector: for ECI/ECEF the bias-precession-nutation, Earth-rotation, and polar-motion matrices; for the lunar and Mars body-fixed frames the PCK or IAU orientation and angular velocity; for the translation frames (LCI, MCI, EMBI) the ephemeris offset; for the synodic frames the rotating axes, their rate, and the origin offset; and for `position_frame_to_frame` the source and target rotation matrices and center offset. `state_frame_to_frame` is the exception: it evaluates the scalar transformation for each element, because the velocity transport terms are resolved through each frame's own state routine, so a batch through the state router gains from thread-pool evaluation but not from shared-epoch hoisting. The frame-specific `states_*` functions hoist. The per-vector work is a handful of matrix products, so the cost of the batch is dominated by the single context evaluation.
 
 When each vector has its own epoch, the context must be evaluated per vector and the batch runs those evaluations across the thread pool. The speed-up over a Python loop is then the sum of avoiding per-call overhead and using multiple cores.
 

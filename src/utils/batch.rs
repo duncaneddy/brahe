@@ -9,7 +9,10 @@
 
 #![allow(dead_code)]
 
+use rayon::prelude::*;
+
 use crate::utils::errors::BraheError;
+use crate::utils::threading::get_thread_pool;
 
 /// Minimum batch length at which batch primitives evaluate on the global
 /// rayon thread pool. Below this length evaluation is sequential, since the
@@ -56,6 +59,41 @@ pub(crate) fn pick<T>(slice: &[T], i: usize) -> &T {
     }
 }
 
+/// Evaluate `f` for every index in `0..n`, preserving order.
+///
+/// Runs on the global rayon thread pool when `n >= PARALLEL_THRESHOLD` and
+/// sequentially otherwise.
+///
+/// # Arguments
+///
+/// * `n` - Number of elements to evaluate
+/// * `f` - Kernel evaluated at each index
+///
+/// # Returns
+///
+/// Vector of `n` results in index order.
+pub(crate) fn map_indices<U: Send>(n: usize, f: impl Fn(usize) -> U + Sync) -> Vec<U> {
+    if n >= PARALLEL_THRESHOLD {
+        get_thread_pool().install(|| (0..n).into_par_iter().map(&f).collect())
+    } else {
+        (0..n).map(&f).collect()
+    }
+}
+
+/// Apply `f` to every element of `inputs`.
+///
+/// # Arguments
+///
+/// * `inputs` - Elements to transform
+/// * `f` - Element-wise kernel
+///
+/// # Returns
+///
+/// Vector with one output per input, in input order.
+pub(crate) fn batch_map<T: Sync, U: Send>(inputs: &[T], f: impl Fn(&T) -> U + Sync) -> Vec<U> {
+    map_indices(inputs.len(), |i| f(&inputs[i]))
+}
+
 #[cfg(test)]
 mod tests {
     use serial_test::parallel;
@@ -99,5 +137,43 @@ mod tests {
         assert_eq!(*pick(&one, 2), 10.0);
         assert_eq!(*pick(&many, 0), 1.0);
         assert_eq!(*pick(&many, 2), 3.0);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_map_indices_sequential_preserves_order() {
+        let out = map_indices(5, |i| i * 10);
+        assert_eq!(out, vec![0, 10, 20, 30, 40]);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_map_indices_parallel_preserves_order() {
+        let n = PARALLEL_THRESHOLD + 7;
+        let out = map_indices(n, |i| i * 10);
+        let expected: Vec<usize> = (0..n).map(|i| i * 10).collect();
+        assert_eq!(out, expected);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_map_indices_empty() {
+        let out: Vec<usize> = map_indices(0, |i| i);
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_map_small_and_large() {
+        let small: Vec<f64> = (0..3).map(|i| i as f64).collect();
+        assert_eq!(batch_map(&small, |x| x * 2.0), vec![0.0, 2.0, 4.0]);
+
+        let large: Vec<f64> = (0..PARALLEL_THRESHOLD + 3).map(|i| i as f64).collect();
+        let out = batch_map(&large, |x| x * 2.0);
+        let expected: Vec<f64> = large.iter().map(|x| x * 2.0).collect();
+        assert_eq!(out, expected);
+
+        let empty: Vec<f64> = Vec::new();
+        assert!(batch_map(&empty, |x| x * 2.0).is_empty());
     }
 }

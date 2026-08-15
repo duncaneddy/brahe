@@ -17,6 +17,32 @@ use nalgebra::Vector3;
 use crate::math::linalg::SVector6;
 use crate::spice::{NAIFId, spk_position, spk_state};
 use crate::time::Epoch;
+use crate::utils::BraheError;
+use crate::utils::batch::batch_map_epochs;
+
+/// Earth position relative to the Earth-Moon barycenter in ICRF axes.
+///
+/// # Arguments
+/// - `epc`: Epoch instant
+///
+/// # Returns
+/// - Earth position relative to the EMB. Units: (*m*)
+fn earth_emb_offset_position(epc: Epoch) -> Vector3<f64> {
+    spk_position(NAIFId::Earth, NAIFId::EarthMoonBarycenter, epc)
+        .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)")
+}
+
+/// Earth state relative to the Earth-Moon barycenter in ICRF axes.
+///
+/// # Arguments
+/// - `epc`: Epoch instant
+///
+/// # Returns
+/// - Earth state relative to the EMB (position, velocity). Units: (*m*; *m/s*)
+fn earth_emb_offset_state(epc: Epoch) -> SVector6 {
+    spk_state(NAIFId::Earth, NAIFId::EarthMoonBarycenter, epc)
+        .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)")
+}
 
 /// Transforms a Cartesian Earth-inertial (ECI) position into the equivalent
 /// Cartesian Earth-Moon-barycenter inertial (EMBI) position.
@@ -45,8 +71,7 @@ use crate::time::Epoch;
 /// let x_emb = position_eci_to_emb(epc, x_eci);
 /// ```
 pub fn position_eci_to_emb(epc: Epoch, x_eci: Vector3<f64>) -> Vector3<f64> {
-    let offset = spk_position(NAIFId::Earth, NAIFId::EarthMoonBarycenter, epc)
-        .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
+    let offset = earth_emb_offset_position(epc);
     x_eci + offset
 }
 
@@ -79,8 +104,7 @@ pub fn position_eci_to_emb(epc: Epoch, x_eci: Vector3<f64>) -> Vector3<f64> {
 /// assert!((x_rt - x_eci).norm() < 1e-6);
 /// ```
 pub fn position_emb_to_eci(epc: Epoch, x_emb: Vector3<f64>) -> Vector3<f64> {
-    let offset = spk_position(NAIFId::Earth, NAIFId::EarthMoonBarycenter, epc)
-        .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
+    let offset = earth_emb_offset_position(epc);
     x_emb - offset
 }
 
@@ -114,8 +138,7 @@ pub fn position_emb_to_eci(epc: Epoch, x_emb: Vector3<f64>) -> Vector3<f64> {
 /// let x_emb = state_eci_to_emb(epc, x_eci);
 /// ```
 pub fn state_eci_to_emb(epc: Epoch, x_eci: SVector6) -> SVector6 {
-    let offset = spk_state(NAIFId::Earth, NAIFId::EarthMoonBarycenter, epc)
-        .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
+    let offset = earth_emb_offset_state(epc);
     x_eci + offset
 }
 
@@ -148,9 +171,150 @@ pub fn state_eci_to_emb(epc: Epoch, x_eci: SVector6) -> SVector6 {
 /// assert!((x_rt - x_eci).norm() < 1e-6);
 /// ```
 pub fn state_emb_to_eci(epc: Epoch, x_emb: SVector6) -> SVector6 {
-    let offset = spk_state(NAIFId::Earth, NAIFId::EarthMoonBarycenter, epc)
-        .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
+    let offset = earth_emb_offset_state(epc);
     x_emb - offset
+}
+
+/// Transforms a batch of Cartesian positions from ECI to the Earth-Moon barycentric inertial frame.
+///
+/// Batch form of [`position_eci_to_emb`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_eci`: Cartesian ECI positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian EMBI positions in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::positions_eci_to_emb;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let positions = vec![Vector3::new(7.0e6, 1.0e6, -2.0e6); 3];
+/// let out = positions_eci_to_emb(&[epc], &positions).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn positions_eci_to_emb(
+    epochs: &[Epoch],
+    x_eci: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    batch_map_epochs(epochs, x_eci, earth_emb_offset_position, |offset, x| {
+        x + offset
+    })
+}
+
+/// Transforms a batch of Cartesian positions from the Earth-Moon barycentric inertial frame to ECI.
+///
+/// Batch form of [`position_emb_to_eci`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_emb`: Cartesian EMBI positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian ECI positions in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::positions_emb_to_eci;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let positions = vec![Vector3::new(7.0e6, 1.0e6, -2.0e6); 3];
+/// let out = positions_emb_to_eci(&[epc], &positions).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn positions_emb_to_eci(
+    epochs: &[Epoch],
+    x_emb: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    batch_map_epochs(epochs, x_emb, earth_emb_offset_position, |offset, x| {
+        x - offset
+    })
+}
+
+/// Transforms a batch of Cartesian states from ECI to the Earth-Moon barycentric inertial frame.
+///
+/// Batch form of [`state_eci_to_emb`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_eci`: Cartesian ECI states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian EMBI states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::states_eci_to_emb;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0, epc + 120.0];
+/// let states = vec![vector6_from_array([7.0e6, 0.0, 0.0, 0.0, 7.5e3, 0.0]); 3];
+/// let out = states_eci_to_emb(&epochs, &states).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn states_eci_to_emb(
+    epochs: &[Epoch],
+    x_eci: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(epochs, x_eci, earth_emb_offset_state, |offset, x| {
+        x + offset
+    })
+}
+
+/// Transforms a batch of Cartesian states from the Earth-Moon barycentric inertial frame to ECI.
+///
+/// Batch form of [`state_emb_to_eci`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_emb`: Cartesian EMBI states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian ECI states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::states_emb_to_eci;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0, epc + 120.0];
+/// let states = vec![vector6_from_array([7.0e6, 0.0, 0.0, 0.0, 7.5e3, 0.0]); 3];
+/// let out = states_emb_to_eci(&epochs, &states).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn states_emb_to_eci(
+    epochs: &[Epoch],
+    x_emb: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(epochs, x_emb, earth_emb_offset_state, |offset, x| {
+        x - offset
+    })
 }
 
 #[cfg(test)]
@@ -200,5 +364,41 @@ mod tests {
         for i in 0..6 {
             assert_abs_diff_eq!(x_rt[i], x_eci[i], epsilon = 1e-9);
         }
+    }
+
+    #[test]
+    #[serial]
+    fn test_batch_eci_emb_matches_scalar() {
+        setup_global_test_spice();
+        let epc0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epochs: Vec<Epoch> = (0..3).map(|i| epc0 + 3600.0 * i as f64).collect();
+        let states: Vec<SVector6> = (0..3)
+            .map(|i| vector6_from_array([7.0e6 + 1e3 * i as f64, 1.0e6, -2.0e6, 0.0, 7.5e3, 0.0]))
+            .collect();
+        let positions: Vec<Vector3<f64>> = states
+            .iter()
+            .map(|s| Vector3::new(s[0], s[1], s[2]))
+            .collect();
+
+        let p = positions_eci_to_emb(&epochs, &positions).unwrap();
+        let p_shared = positions_eci_to_emb(&epochs[..1], &positions).unwrap();
+        let p_back = positions_emb_to_eci(&epochs, &p).unwrap();
+        let s = states_eci_to_emb(&epochs, &states).unwrap();
+        let s_shared = states_eci_to_emb(&epochs[..1], &states).unwrap();
+        let s_back = states_emb_to_eci(&epochs, &s).unwrap();
+        for i in 0..3 {
+            assert_eq!(p[i], position_eci_to_emb(epochs[i], positions[i]));
+            assert_eq!(p_shared[i], position_eci_to_emb(epochs[0], positions[i]));
+            assert_eq!(p_back[i], position_emb_to_eci(epochs[i], p[i]));
+            assert_eq!(s[i], state_eci_to_emb(epochs[i], states[i]));
+            assert_eq!(s_shared[i], state_eci_to_emb(epochs[0], states[i]));
+            assert_eq!(s_back[i], state_emb_to_eci(epochs[i], s[i]));
+        }
+        let one = states_emb_to_eci(&epochs, &states[..1]).unwrap();
+        for i in 0..3 {
+            assert_eq!(one[i], state_emb_to_eci(epochs[i], states[0]));
+        }
+        assert!(states_eci_to_emb(&epochs[..2], &states).is_err());
+        assert!(positions_eci_to_emb(&epochs[..1], &[]).unwrap().is_empty());
     }
 }

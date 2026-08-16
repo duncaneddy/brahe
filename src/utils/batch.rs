@@ -153,7 +153,6 @@ pub(crate) fn batch_map<T: Sync, U: Send>(f: impl Fn(&T) -> U + Sync, inputs: &[
 /// let sums = batch_zip(|a, b| a + b, &[10.0], &[1.0, 2.0]).unwrap();
 /// assert_eq!(sums, vec![11.0, 12.0]);
 /// ```
-#[allow(dead_code)]
 pub(crate) fn batch_zip<A: Sync, B: Sync, U: Send>(
     f: impl Fn(&A, &B) -> U + Sync,
     a: &[A],

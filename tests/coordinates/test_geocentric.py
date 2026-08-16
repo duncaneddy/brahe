@@ -84,3 +84,30 @@ def test_geocentric_failure(eop, lat):
         brahe.position_geocentric_to_ecef(
             np.array([0.0, lat, 0.0]), brahe.AngleFormat.DEGREES
         )
+
+
+def test_batch_geocentric_ecef():
+    sites = np.array(
+        [
+            [-122.4, 37.8, brahe.R_EARTH],
+            [151.2, -33.9, brahe.R_EARTH + 100.0],
+            [0.0, 0.0, brahe.R_EARTH + 500e3],
+        ]
+    )
+    ecef = brahe.position_geocentric_to_ecef(sites, brahe.AngleFormat.DEGREES)
+    back = brahe.position_ecef_to_geocentric(ecef, brahe.AngleFormat.DEGREES)
+    assert ecef.shape == (3, 3)
+    for i in range(3):
+        np.testing.assert_array_equal(
+            ecef[i],
+            brahe.position_geocentric_to_ecef(sites[i], brahe.AngleFormat.DEGREES),
+        )
+        np.testing.assert_array_equal(
+            back[i],
+            brahe.position_ecef_to_geocentric(ecef[i], brahe.AngleFormat.DEGREES),
+        )
+    np.testing.assert_allclose(back, sites, atol=1e-6)
+    with pytest.raises(ValueError):
+        brahe.position_geocentric_to_ecef(
+            np.array([[0.0, 95.0, 0.0]]), brahe.AngleFormat.DEGREES
+        )

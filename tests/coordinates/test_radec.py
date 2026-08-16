@@ -350,3 +350,59 @@ def test_position_radec_to_inertial_input_types():
     for x in ([0.0, 0.0, 1.0], (0.0, 0.0, 1.0), np.array([0.0, 0.0, 1.0])):
         r = bh.position_radec_to_inertial(x, AngleFormat.DEGREES)
         assert r == pytest.approx([1.0, 0.0, 0.0], abs=1e-12)
+
+
+def test_batch_radec_inertial():
+    radec = np.array([[30.0, 10.0, 1.0e6], [200.0, -45.0, 2.0e6], [359.0, 80.0, 3.0e6]])
+    out = bh.position_radec_to_inertial(radec, AngleFormat.DEGREES)
+    back = bh.position_inertial_to_radec(out, AngleFormat.DEGREES)
+    radec6 = np.hstack([radec, np.tile([0.01, -0.02, 5.0], (3, 1))])
+    out6 = bh.state_radec_to_inertial(radec6, AngleFormat.DEGREES)
+    back6 = bh.state_inertial_to_radec(out6, AngleFormat.DEGREES)
+    assert out.shape == (3, 3) and out6.shape == (3, 6)
+    for i in range(3):
+        np.testing.assert_array_equal(
+            out[i], bh.position_radec_to_inertial(radec[i], AngleFormat.DEGREES)
+        )
+        np.testing.assert_array_equal(
+            back[i], bh.position_inertial_to_radec(out[i], AngleFormat.DEGREES)
+        )
+        np.testing.assert_array_equal(
+            out6[i], bh.state_radec_to_inertial(radec6[i], AngleFormat.DEGREES)
+        )
+        np.testing.assert_array_equal(
+            back6[i], bh.state_inertial_to_radec(out6[i], AngleFormat.DEGREES)
+        )
+    np.testing.assert_allclose(back, radec, atol=1e-6)
+
+
+def test_batch_radec_azel(eop):
+    epc0 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
+    epochs = [epc0 + 600.0 * i for i in range(3)]
+    site = np.array([-122.4, 37.8, 0.0])
+    radec = np.array([[30.0, 10.0, 1.0e6], [200.0, -45.0, 2.0e6], [359.0, 80.0, 3.0e6]])
+    azel = bh.position_radec_to_azel(radec, site, epochs, AngleFormat.DEGREES)
+    azel_shared = bh.position_radec_to_azel(radec, site, epochs[0], AngleFormat.DEGREES)
+    back = bh.position_azel_to_radec(azel, site, epochs, AngleFormat.DEGREES)
+    one = bh.position_radec_to_azel(radec[0], site, epochs, AngleFormat.DEGREES)
+    assert azel.shape == (3, 3) and one.shape == (3, 3)
+    for i in range(3):
+        np.testing.assert_array_equal(
+            azel[i],
+            bh.position_radec_to_azel(radec[i], site, epochs[i], AngleFormat.DEGREES),
+        )
+        np.testing.assert_array_equal(
+            azel_shared[i],
+            bh.position_radec_to_azel(radec[i], site, epochs[0], AngleFormat.DEGREES),
+        )
+        np.testing.assert_array_equal(
+            back[i],
+            bh.position_azel_to_radec(azel[i], site, epochs[i], AngleFormat.DEGREES),
+        )
+        np.testing.assert_array_equal(
+            one[i],
+            bh.position_radec_to_azel(radec[0], site, epochs[i], AngleFormat.DEGREES),
+        )
+    np.testing.assert_allclose(back[:, 2], radec[:, 2], atol=1e-6)
+    with pytest.raises(ValueError):
+        bh.position_radec_to_azel(radec, site, epochs[:2], AngleFormat.DEGREES)

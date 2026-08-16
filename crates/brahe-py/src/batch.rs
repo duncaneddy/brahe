@@ -448,3 +448,189 @@ fn dispatch_vec_pair<'py, const N: usize>(
     let out = py.detach(|| batch(&a_vecs, &b_vecs))?;
     vecs_to_numpy(py, &layout, axis, out)
 }
+
+/// A numeric argument parsed from Python: a scalar or an array of any shape.
+enum NumArg {
+    Scalar(f64),
+    Array(ndarray::ArrayD<f64>),
+}
+
+/// Parse a Python float/int or array-like into a `NumArg`.
+fn parse_num_arg(obj: &Bound<'_, PyAny>) -> PyResult<NumArg> {
+    if let Ok(v) = obj.extract::<f64>() {
+        return Ok(NumArg::Scalar(v));
+    }
+    let py = obj.py();
+    let np = py
+        .import("numpy")
+        .map_err(|_| exceptions::PyImportError::new_err("Failed to import numpy"))?;
+    let float64 = np.getattr("float64")?;
+    let arr = np
+        .call_method1("asarray", (obj, float64))
+        .map_err(|_| exceptions::PyTypeError::new_err("Expected a number or an array of numbers"))?;
+    let arr = arr
+        .cast::<PyArrayDyn<f64>>()
+        .map_err(|_| exceptions::PyTypeError::new_err("Expected a number or an array of numbers"))?;
+    Ok(NumArg::Array(arr.readonly().as_array().to_owned()))
+}
+
+/// Broadcast numeric arguments against each other with numpy rules and return
+/// the common shape plus each argument flattened to that shape (C order).
+fn broadcast_num_args(py: Python<'_>, args: &[&NumArg]) -> PyResult<(Vec<usize>, Vec<Vec<f64>>)> {
+    let np = py
+        .import("numpy")
+        .map_err(|_| exceptions::PyImportError::new_err("Failed to import numpy"))?;
+    let py_args: Vec<Bound<'_, PyAny>> = args
+        .iter()
+        .map(|a| match a {
+            NumArg::Scalar(v) => np.call_method1("asarray", (*v,)),
+            NumArg::Array(arr) => Ok(arr.to_pyarray(py).into_any()),
+        })
+        .collect::<PyResult<Vec<_>>>()?;
+    let broadcast = np
+        .call_method1("broadcast_arrays", pyo3::types::PyTuple::new(py, &py_args)?)
+        .map_err(|_| {
+            exceptions::PyValueError::new_err("Arguments could not be broadcast to a common shape")
+        })?;
+    let mut shape: Vec<usize> = Vec::new();
+    let mut flats: Vec<Vec<f64>> = Vec::new();
+    for item in broadcast.try_iter()? {
+        let arr = item?.cast_into::<PyArrayDyn<f64>>().map_err(|_| {
+            exceptions::PyTypeError::new_err("Expected a number or an array of numbers")
+        })?;
+        let ro = arr.readonly();
+        let view = ro.as_array();
+        shape = view.shape().to_vec();
+        flats.push(view.iter().copied().collect());
+    }
+    Ok((shape, flats))
+}
+
+/// Evaluate a scalar kernel over numeric arguments with numpy broadcasting.
+/// All-scalar arguments return a Python float; otherwise an array of the
+/// broadcast shape.
+fn ufunc<'py>(
+    py: Python<'py>,
+    args: &[&Bound<'py, PyAny>],
+    f: impl Fn(&[f64]) -> PyResult<f64>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let parsed: Vec<NumArg> = args
+        .iter()
+        .map(|a| parse_num_arg(a))
+        .collect::<PyResult<Vec<_>>>()?;
+    if parsed.iter().all(|a| matches!(a, NumArg::Scalar(_))) {
+        let vals: Vec<f64> = parsed
+            .iter()
+            .map(|a| match a {
+                NumArg::Scalar(v) => *v,
+                NumArg::Array(_) => unreachable!(),
+            })
+            .collect();
+        return Ok(f(&vals)?.into_pyobject(py)?.into_any());
+    }
+    let refs: Vec<&NumArg> = parsed.iter().collect();
+    let (shape, flats) = broadcast_num_args(py, &refs)?;
+    let n = flats.first().map(|v| v.len()).unwrap_or(0);
+    let mut out = Vec::with_capacity(n);
+    let mut vals = vec![0.0; flats.len()];
+    for i in 0..n {
+        for (k, flat) in flats.iter().enumerate() {
+            vals[k] = flat[i];
+        }
+        out.push(f(&vals)?);
+    }
+    let arr = ndarray::ArrayD::from_shape_vec(ndarray::IxDyn(&shape), out)
+        .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+    Ok(arr.into_pyarray(py).into_any())
+}
+
+/// Dispatch a Keplerian scalar function whose first argument is either a
+/// value (with an optional second numeric argument `e`) or an element set.
+///
+/// - scalar first argument with no `e` or a scalar `e`: `elem_fn(x, e)`
+/// - `(6,)` array with no `e`: `oe_fn(elements)`
+/// - `(n, 6)` array with no `e`: `oe_fn` per row, returning `(n,)`
+/// - any other array with no `e`: `ValueError`
+/// - array `e`, or array first argument with `e` given: element-wise
+///   `elem_fn` with numpy broadcasting
+fn dispatch_oe_or_scalar<'py>(
+    py: Python<'py>,
+    x: &Bound<'py, PyAny>,
+    e: Option<&Bound<'py, PyAny>>,
+    oe_fn: impl Fn(&[f64]) -> PyResult<f64>,
+    elem_fn: impl Fn(f64, Option<f64>) -> PyResult<f64>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let x_arg = parse_num_arg(x)?;
+    let e_arg = e.map(parse_num_arg).transpose()?;
+    match (&x_arg, &e_arg) {
+        (NumArg::Scalar(v), None) => Ok(elem_fn(*v, None)?.into_pyobject(py)?.into_any()),
+        (NumArg::Scalar(v), Some(NumArg::Scalar(ecc))) => {
+            Ok(elem_fn(*v, Some(*ecc))?.into_pyobject(py)?.into_any())
+        }
+        (NumArg::Array(arr), None) if arr.ndim() == 1 && arr.len() == 6 => {
+            let oe: Vec<f64> = arr.iter().copied().collect();
+            Ok(oe_fn(&oe)?.into_pyobject(py)?.into_any())
+        }
+        (NumArg::Array(arr), None) if arr.ndim() == 2 && arr.shape()[1] == 6 => {
+            let out: Vec<f64> = arr
+                .rows()
+                .into_iter()
+                .map(|row| {
+                    let oe: Vec<f64> = row.iter().copied().collect();
+                    oe_fn(&oe)
+                })
+                .collect::<PyResult<Vec<_>>>()?;
+            Ok(out.into_pyarray(py).into_any())
+        }
+        (NumArg::Array(arr), None) => {
+            if arr.ndim() == 1 {
+                return Err(exceptions::PyValueError::new_err(format!(
+                    "Expected array or list of length 6, got {}",
+                    arr.len()
+                )));
+            }
+            Err(exceptions::PyValueError::new_err(format!(
+                "Expected an element set of shape (6,) or a batch of shape (n, 6), got shape {:?}",
+                arr.shape()
+            )))
+        }
+        (_, Some(ea)) => {
+            let refs: Vec<&NumArg> = vec![&x_arg, ea];
+            let (shape, flats) = broadcast_num_args(py, &refs)?;
+            let out: Vec<f64> = flats[0]
+                .iter()
+                .zip(flats[1].iter())
+                .map(|(x, ecc)| elem_fn(*x, Some(*ecc)))
+                .collect::<PyResult<Vec<_>>>()?;
+            let arr = ndarray::ArrayD::from_shape_vec(ndarray::IxDyn(&shape), out)
+                .map_err(|err| exceptions::PyValueError::new_err(err.to_string()))?;
+            Ok(arr.into_pyarray(py).into_any())
+        }
+    }
+}
+
+/// Dispatch a vector-to-scalar function on a single vector or a batch. A batch
+/// returns an array of the batch dimensions.
+fn dispatch_vec_to_scalar<'py, const N: usize>(
+    py: Python<'py>,
+    x: &Bound<'py, PyAny>,
+    axis: isize,
+    f: impl Fn(SVector<f64, N>) -> f64,
+) -> PyResult<Bound<'py, PyAny>> {
+    match parse_vec_arg::<N>(x, axis)? {
+        VecArg::Single(v) => Ok(f(v).into_pyobject(py)?.into_any()),
+        VecArg::Batch { vecs, layout } => {
+            let shape: Vec<usize> = layout
+                .shape
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| *i != layout.axis)
+                .map(|(_, d)| *d)
+                .collect();
+            let out: Vec<f64> = vecs.iter().map(|v| f(*v)).collect();
+            let arr = ndarray::ArrayD::from_shape_vec(ndarray::IxDyn(&shape), out)
+                .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+            Ok(arr.into_pyarray(py).into_any())
+        }
+    }
+}

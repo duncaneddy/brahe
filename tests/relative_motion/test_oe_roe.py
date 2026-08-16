@@ -135,3 +135,40 @@ def test_state_roe_to_oe_radians(eop):
     assert oe_deputy[3] == approx(15.05 * brahe.DEG2RAD, abs=1e-6)
     assert oe_deputy[4] == approx(30.05 * brahe.DEG2RAD, abs=1e-6)
     assert oe_deputy[5] == approx(45.05 * brahe.DEG2RAD, abs=1e-6)
+
+
+def test_batch_oe_roe():
+    chiefs = np.array(
+        [
+            [brahe.R_EARTH + 700e3 + 1e3 * i, 0.001, 97.8, 15.0, 30.0, 45.0 + i]
+            for i in range(3)
+        ]
+    )
+    deputies = np.array(
+        [
+            [brahe.R_EARTH + 701e3 + 1e3 * i, 0.0015, 97.85, 15.05, 30.05, 45.05 + i]
+            for i in range(3)
+        ]
+    )
+    roe = brahe.state_oe_to_roe(chiefs, deputies, brahe.AngleFormat.DEGREES)
+    roe_one = brahe.state_oe_to_roe(chiefs[0], deputies, brahe.AngleFormat.DEGREES)
+    back = brahe.state_roe_to_oe(chiefs, roe, brahe.AngleFormat.DEGREES)
+    back_one = brahe.state_roe_to_oe(chiefs[0], roe_one, brahe.AngleFormat.DEGREES)
+    assert roe.shape == (3, 6)
+    for i in range(3):
+        np.testing.assert_array_equal(
+            roe[i],
+            brahe.state_oe_to_roe(chiefs[i], deputies[i], brahe.AngleFormat.DEGREES),
+        )
+        np.testing.assert_array_equal(
+            roe_one[i],
+            brahe.state_oe_to_roe(chiefs[0], deputies[i], brahe.AngleFormat.DEGREES),
+        )
+        np.testing.assert_array_equal(
+            back[i], brahe.state_roe_to_oe(chiefs[i], roe[i], brahe.AngleFormat.DEGREES)
+        )
+        np.testing.assert_array_equal(
+            back_one[i],
+            brahe.state_roe_to_oe(chiefs[0], roe_one[i], brahe.AngleFormat.DEGREES),
+        )
+    np.testing.assert_allclose(back, deputies, atol=1e-6)

@@ -183,3 +183,58 @@ def test_state_eci_roe_roundtrip_radians(eop):
     assert x_deputy_recovered[3] == approx(x_deputy_orig[3], abs=1e-6)
     assert x_deputy_recovered[4] == approx(x_deputy_orig[4], abs=1e-6)
     assert x_deputy_recovered[5] == approx(x_deputy_orig[5], abs=1e-6)
+
+
+def test_batch_eci_roe():
+    chiefs = np.array(
+        [
+            brahe.state_koe_to_eci(
+                np.array(
+                    [brahe.R_EARTH + 700e3 + 1e3 * i, 0.001, 97.8, 15.0, 30.0, 45.0 + i]
+                ),
+                brahe.AngleFormat.DEGREES,
+            )
+            for i in range(3)
+        ]
+    )
+    deputies = np.array(
+        [
+            brahe.state_koe_to_eci(
+                np.array(
+                    [
+                        brahe.R_EARTH + 701e3 + 1e3 * i,
+                        0.0015,
+                        97.85,
+                        15.05,
+                        30.05,
+                        45.05 + i,
+                    ]
+                ),
+                brahe.AngleFormat.DEGREES,
+            )
+            for i in range(3)
+        ]
+    )
+    roe = brahe.state_eci_to_roe(chiefs, deputies, brahe.AngleFormat.DEGREES)
+    roe_one = brahe.state_eci_to_roe(chiefs[0], deputies, brahe.AngleFormat.DEGREES)
+    back = brahe.state_roe_to_eci(chiefs, roe, brahe.AngleFormat.DEGREES)
+    back_one = brahe.state_roe_to_eci(chiefs[0], roe_one, brahe.AngleFormat.DEGREES)
+    assert roe.shape == (3, 6)
+    for i in range(3):
+        np.testing.assert_array_equal(
+            roe[i],
+            brahe.state_eci_to_roe(chiefs[i], deputies[i], brahe.AngleFormat.DEGREES),
+        )
+        np.testing.assert_array_equal(
+            roe_one[i],
+            brahe.state_eci_to_roe(chiefs[0], deputies[i], brahe.AngleFormat.DEGREES),
+        )
+        np.testing.assert_array_equal(
+            back[i],
+            brahe.state_roe_to_eci(chiefs[i], roe[i], brahe.AngleFormat.DEGREES),
+        )
+        np.testing.assert_array_equal(
+            back_one[i],
+            brahe.state_roe_to_eci(chiefs[0], roe_one[i], brahe.AngleFormat.DEGREES),
+        )
+    np.testing.assert_allclose(back[:, :3], deputies[:, :3], atol=1e-3)

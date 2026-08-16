@@ -42,7 +42,7 @@ These functions are found in the [coordinates module](../coordinates/cartesian_t
 
 ## Batch Input
 
-The orbital-property and anomaly functions accept arrays as well as scalars. A `(n, 6)` array of Keplerian element sets evaluates one result per row, and when the eccentricity is passed explicitly, the first argument and `e` may be arrays of any shape and are broadcast against each other with numpy rules; the pure numeric functions such as `semimajor_axis` evaluate arrays element-wise. `state_koe_to_equinoctial`, `state_equinoctial_to_koe`, and `orbital_period_from_state` accept batches of element sets or states with the `axis` keyword, following the rules in [Vectorized Transformations](../frames/vectorized.md).
+The orbital-property and anomaly functions accept arrays as well as scalars, following one rule: a 2-D array of shape `(n, 6)` passed without an explicit eccentricity is a batch of Keplerian element sets and evaluates one result per row (`orbital_period(oes)`, `anomaly_mean_to_true(oes, angle_format=...)`); every other array, including a 1-D array of any length, is a set of values evaluated element-wise, and the first argument and `e` are broadcast against each other with numpy rules (`perigee_velocity(oes[:, 0], oes[:, 1])`). The pure numeric functions such as `semimajor_axis` evaluate arrays element-wise. `state_koe_to_equinoctial`, `state_equinoctial_to_koe`, and `orbital_period_from_state` accept batches of element sets or states with the `axis` keyword, following the rules in [Vectorized Transformations](../frames/vectorized.md).
 
 ## Topics in This Section
 

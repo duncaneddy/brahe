@@ -40,6 +40,10 @@ Brahe provides functions to convert between Keplerian elements and Cartesian sta
 
 These functions are found in the [coordinates module](../coordinates/cartesian_transformations.md) but are essential for working with orbits.
 
+## Batch Input
+
+The orbital-property and anomaly functions accept arrays as well as scalars. A `(n, 6)` array of Keplerian element sets evaluates one result per row, and when the eccentricity is passed explicitly, the first argument and `e` may be arrays of any shape and are broadcast against each other with numpy rules; the pure numeric functions such as `semimajor_axis` evaluate arrays element-wise. `state_koe_to_equinoctial`, `state_equinoctial_to_koe`, and `orbital_period_from_state` accept batches of element sets or states with the `axis` keyword, following the rules in [Vectorized Transformations](../frames/vectorized.md).
+
 ## Topics in This Section
 
 ### [Orbital Properties](properties.md)

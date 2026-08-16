@@ -246,3 +246,32 @@ def test_batch_rtn(eop):
     )
     with pytest.raises(ValueError):
         brahe.state_eci_to_rtn(chiefs[:2], deputies)
+
+
+def test_batch_rtn_length_one_broadcast(eop):
+    chiefs = np.array(
+        [
+            brahe.state_koe_to_eci(
+                np.array(
+                    [brahe.R_EARTH + 700e3 + 1e3 * i, 0.001, 97.8, 15.0, 30.0, 45.0 + i]
+                ),
+                brahe.AngleFormat.DEGREES,
+            )
+            for i in range(3)
+        ]
+    )
+    deputies = chiefs + np.array([1000.0, 500.0, -300.0, 0.0, 0.0, 0.0])
+    rel = brahe.state_eci_to_rtn(chiefs[:1], deputies)
+    assert rel.shape == (3, 6)
+    for i in range(3):
+        np.testing.assert_array_equal(
+            rel[i], brahe.state_eci_to_rtn(chiefs[0], deputies[i])
+        )
+    rel_b = brahe.state_eci_to_rtn(chiefs, deputies[:1])
+    for i in range(3):
+        np.testing.assert_array_equal(
+            rel_b[i], brahe.state_eci_to_rtn(chiefs[i], deputies[0])
+        )
+    np.testing.assert_array_equal(
+        brahe.state_eci_to_rtn(chiefs[:1].T, deputies.T, axis=0), rel.T
+    )

@@ -24,8 +24,8 @@
 ///
 ///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [bh.R_EARTH + 400e3, 0.001, np.radians(51.6), 0, 0, 0]
-///     period = bh.orbital_period(np.array([oe, oe]))
-///     print(f"Orbital period: {period/60:.2f} minutes")
+///     period_rows = bh.orbital_period(np.array([oe, oe]))
+///     print(f"Orbital period: (first row) {period_rows[0]/60:.2f} minutes")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe), text_signature = "(a_or_oe)")]
@@ -68,8 +68,8 @@ fn py_orbital_period<'py>(
 ///
 ///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [1900000.0, 0.01, np.radians(45), 0, 0, 0]
-///     period = bh.orbital_period_general(np.array([oe, oe]), bh.GM_MOON)
-///     print(f"Lunar orbital period: {period/3600:.2f} hours")
+///     period_rows = bh.orbital_period_general(np.array([oe, oe]), bh.GM_MOON)
+///     print(f"Lunar orbital period: (first row) {period_rows[0]/3600:.2f} hours")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, gm), text_signature = "(a_or_oe, gm)")]
@@ -165,8 +165,8 @@ fn py_orbital_period_from_state<'py>(
 ///
 ///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [bh.R_EARTH + 35786e3, 0.001, np.radians(0), 0, 0, 0]
-///     n = bh.mean_motion(np.array([oe, oe]), bh.AngleFormat.DEGREES)
-///     print(f"Mean motion: {n:.6f} deg/s")
+///     n_rows = bh.mean_motion(np.array([oe, oe]), bh.AngleFormat.DEGREES)
+///     print(f"Mean motion: (first row) {n_rows[0]:.6f} deg/s")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, angle_format), text_signature = "(a_or_oe, angle_format)")]
@@ -213,8 +213,8 @@ fn py_mean_motion<'py>(
 ///
 ///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [4000000.0, 0.01, np.radians(30), 0, 0, 0]
-///     n = bh.mean_motion_general(np.array([oe, oe]), bh.GM_MARS, bh.AngleFormat.RADIANS)
-///     print(f"Mean motion: {n:.6f} rad/s")
+///     n_rows = bh.mean_motion_general(np.array([oe, oe]), bh.GM_MARS, bh.AngleFormat.RADIANS)
+///     print(f"Mean motion: (first row) {n_rows[0]:.6f} rad/s")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, gm, angle_format), text_signature = "(a_or_oe, gm, angle_format)")]
@@ -391,8 +391,8 @@ fn py_semimajor_axis_from_orbital_period<'py>(
 ///
 ///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [26554000.0, 0.72, np.radians(63.4), 0, 0, 0]
-///     v_peri = bh.perigee_velocity(np.array([oe, oe]))
-///     print(f"Perigee velocity: {v_peri:.2f} m/s")
+///     v_peri_rows = bh.perigee_velocity(np.array([oe, oe]))
+///     print(f"Perigee velocity: (first row) {v_peri_rows[0]:.2f} m/s")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None), text_signature = "(a_or_oe, e=None)")]
@@ -442,13 +442,13 @@ fn py_perigee_velocity<'py>(
 ///     # Using scalar parameters
 ///     a = 5e11  # 5 AU semi-major axis (meters)
 ///     e = 0.95  # highly elliptical
-///     v_peri = bh.periapsis_velocity(a, e, bh.GM_SUN)
+///     v_peri = bh.periapsis_velocity(a, e, gm=bh.GM_SUN)
 ///     print(f"Periapsis velocity: {v_peri/1000:.2f} km/s")
 ///
 ///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [5e11, 0.95, np.radians(10), 0, 0, 0]
-///     v_peri = bh.periapsis_velocity(np.array([oe, oe]), gm=bh.GM_SUN)
-///     print(f"Periapsis velocity: {v_peri/1000:.2f} km/s")
+///     v_peri_rows = bh.periapsis_velocity(np.array([oe, oe]), gm=bh.GM_SUN)
+///     print(f"Periapsis velocity: (first row) {v_peri_rows[0]/1000:.2f} km/s")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None, *, gm), text_signature = "(a_or_oe, e=None, *, gm)")]
@@ -503,8 +503,8 @@ fn py_periapsis_velocity<'py>(
 ///
 ///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [8000000.0, 0.2, np.radians(45), 0, 0, 0]
-///     r_peri = bh.periapsis_distance(np.array([oe, oe]))
-///     print(f"Periapsis distance: {r_peri/1000:.2f} km")
+///     r_peri_rows = bh.periapsis_distance(np.array([oe, oe]))
+///     print(f"Periapsis distance: (first row) {r_peri_rows[0]/1000:.2f} km")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None), text_signature = "(a_or_oe, e=None)")]
@@ -558,8 +558,8 @@ fn py_periapsis_distance<'py>(
 ///
 ///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [24400000.0, 0.73, np.radians(7), 0, 0, 0]
-///     v_apo = bh.apogee_velocity(np.array([oe, oe]))
-///     print(f"Apogee velocity: {v_apo:.2f} m/s")
+///     v_apo_rows = bh.apogee_velocity(np.array([oe, oe]))
+///     print(f"Apogee velocity: (first row) {v_apo_rows[0]:.2f} m/s")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None), text_signature = "(a_or_oe, e=None)")]
@@ -609,13 +609,13 @@ fn py_apogee_velocity<'py>(
 ///     # Using scalar parameters
 ///     a = 10000000.0  # 10000 km semi-major axis
 ///     e = 0.3
-///     v_apo = bh.apoapsis_velocity(a, e, bh.GM_MARS)
+///     v_apo = bh.apoapsis_velocity(a, e, gm=bh.GM_MARS)
 ///     print(f"Apoapsis velocity: {v_apo/1000:.2f} km/s")
 ///
 ///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [10000000.0, 0.3, np.radians(30), 0, 0, 0]
-///     v_apo = bh.apoapsis_velocity(np.array([oe, oe]), gm=bh.GM_MARS)
-///     print(f"Apoapsis velocity: {v_apo/1000:.2f} km/s")
+///     v_apo_rows = bh.apoapsis_velocity(np.array([oe, oe]), gm=bh.GM_MARS)
+///     print(f"Apoapsis velocity: (first row) {v_apo_rows[0]/1000:.2f} km/s")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None, *, gm), text_signature = "(a_or_oe, e=None, *, gm)")]
@@ -670,8 +670,8 @@ fn py_apoapsis_velocity<'py>(
 ///
 ///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [8000000.0, 0.2, np.radians(45), 0, 0, 0]
-///     r_apo = bh.apoapsis_distance(np.array([oe, oe]))
-///     print(f"Apoapsis distance: {r_apo/1000:.2f} km")
+///     r_apo_rows = bh.apoapsis_distance(np.array([oe, oe]))
+///     print(f"Apoapsis distance: (first row) {r_apo_rows[0]/1000:.2f} km")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None), text_signature = "(a_or_oe, e=None)")]
@@ -721,13 +721,13 @@ fn py_apoapsis_distance<'py>(
 ///     # Using scalar parameters
 ///     a = bh.R_EARTH + 500e3  # 500 km mean altitude
 ///     e = 0.01  # slight eccentricity
-///     alt_peri = bh.periapsis_altitude(a, e, bh.R_EARTH)
+///     alt_peri = bh.periapsis_altitude(a, e, r_body=bh.R_EARTH)
 ///     print(f"Periapsis altitude: {alt_peri/1000:.2f} km")
 ///
 ///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [bh.R_EARTH + 500e3, 0.01, np.radians(45), 0, 0, 0]
-///     alt_peri = bh.periapsis_altitude(np.array([oe, oe]), r_body=bh.R_EARTH)
-///     print(f"Periapsis altitude: {alt_peri/1000:.2f} km")
+///     alt_peri_rows = bh.periapsis_altitude(np.array([oe, oe]), r_body=bh.R_EARTH)
+///     print(f"Periapsis altitude: (first row) {alt_peri_rows[0]/1000:.2f} km")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None, *, r_body), text_signature = "(a_or_oe, e=None, *, r_body)")]
@@ -782,8 +782,8 @@ fn py_periapsis_altitude<'py>(
 ///
 ///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [bh.R_EARTH + 420e3, 0.0005, np.radians(51.6), 0, 0, 0]
-///     alt = bh.perigee_altitude(np.array([oe, oe]))
-///     print(f"Perigee altitude: {alt/1000:.2f} km")
+///     alt_rows = bh.perigee_altitude(np.array([oe, oe]))
+///     print(f"Perigee altitude: (first row) {alt_rows[0]/1000:.2f} km")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None), text_signature = "(a_or_oe, e=None)")]
@@ -833,13 +833,13 @@ fn py_perigee_altitude<'py>(
 ///     # Using scalar parameters
 ///     a = bh.R_MOON + 100e3  # 100 km mean altitude
 ///     e = 0.05  # moderate eccentricity
-///     alt_apo = bh.apoapsis_altitude(a, e, bh.R_MOON)
+///     alt_apo = bh.apoapsis_altitude(a, e, r_body=bh.R_MOON)
 ///     print(f"Apoapsis altitude: {alt_apo/1000:.2f} km")
 ///
 ///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [bh.R_MOON + 100e3, 0.05, np.radians(30), 0, 0, 0]
-///     alt_apo = bh.apoapsis_altitude(np.array([oe, oe]), r_body=bh.R_MOON)
-///     print(f"Apoapsis altitude: {alt_apo/1000:.2f} km")
+///     alt_apo_rows = bh.apoapsis_altitude(np.array([oe, oe]), r_body=bh.R_MOON)
+///     print(f"Apoapsis altitude: (first row) {alt_apo_rows[0]/1000:.2f} km")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None, *, r_body), text_signature = "(a_or_oe, e=None, *, r_body)")]
@@ -894,8 +894,8 @@ fn py_apoapsis_altitude<'py>(
 ///
 ///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [26554000.0, 0.7, np.radians(63.4), 0, 0, 0]
-///     alt = bh.apogee_altitude(np.array([oe, oe]))
-///     print(f"Apogee altitude: {alt/1000:.2f} km")
+///     alt_rows = bh.apogee_altitude(np.array([oe, oe]))
+///     print(f"Apogee altitude: (first row) {alt_rows[0]/1000:.2f} km")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None), text_signature = "(a_or_oe, e=None)")]
@@ -946,13 +946,13 @@ fn py_apogee_altitude<'py>(
 ///     # Using scalar parameters
 ///     a = bh.R_EARTH + 600e3
 ///     e = 0.001  # nearly circular
-///     inc = bh.sun_synchronous_inclination(a, e, bh.AngleFormat.DEGREES)
+///     inc = bh.sun_synchronous_inclination(a, e, angle_format=bh.AngleFormat.DEGREES)
 ///     print(f"Sun-synchronous inclination: {inc:.2f} degrees")
 ///
 ///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [bh.R_EARTH + 600e3, 0.001, np.radians(97.8), 0, 0, 0]
-///     inc = bh.sun_synchronous_inclination(np.array([oe, oe]), angle_format=bh.AngleFormat.DEGREES)
-///     print(f"Sun-synchronous inclination: {inc:.2f} degrees")
+///     inc_rows = bh.sun_synchronous_inclination(np.array([oe, oe]), angle_format=bh.AngleFormat.DEGREES)
+///     print(f"Sun-synchronous inclination: (first row) {inc_rows[0]:.2f} degrees")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None, *, angle_format), text_signature = "(a_or_oe, e=None, *, angle_format)")]
@@ -1022,13 +1022,13 @@ fn py_geo_sma() -> PyResult<f64> {
 ///     # Using scalar parameters
 ///     E = np.pi / 4  # 45 degrees eccentric anomaly
 ///     e = 0.1  # eccentricity
-///     M = bh.anomaly_eccentric_to_mean(E, e, bh.AngleFormat.RADIANS)
+///     M = bh.anomaly_eccentric_to_mean(E, e, angle_format=bh.AngleFormat.RADIANS)
 ///     print(f"Mean anomaly: {M:.4f} radians")
 ///
 ///     # Using a batch of Keplerian element sets (eccentric anomaly at index 5), one result per row
 ///     oe = [bh.R_EARTH + 500e3, 0.1, np.radians(45), 0, 0, np.pi/4]
-///     M = bh.anomaly_eccentric_to_mean(np.array([oe, oe]), angle_format=bh.AngleFormat.RADIANS)
-///     print(f"Mean anomaly: {M:.4f} radians")
+///     M_rows = bh.anomaly_eccentric_to_mean(np.array([oe, oe]), angle_format=bh.AngleFormat.RADIANS)
+///     print(f"Mean anomaly: (first row) {M_rows[0]:.4f} radians")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (anm_ecc_or_oe, e=None, *, angle_format), text_signature = "(anm_ecc_or_oe, e=None, *, angle_format)")]
@@ -1080,13 +1080,13 @@ fn py_anomaly_eccentric_to_mean<'py>(
 ///     # Using scalar parameters
 ///     M = 1.5  # mean anomaly in radians
 ///     e = 0.3  # eccentricity
-///     E = bh.anomaly_mean_to_eccentric(M, e, bh.AngleFormat.RADIANS)
+///     E = bh.anomaly_mean_to_eccentric(M, e, angle_format=bh.AngleFormat.RADIANS)
 ///     print(f"Eccentric anomaly: {E:.4f} radians")
 ///
 ///     # Using a batch of Keplerian element sets (mean anomaly at index 5), one result per row
 ///     oe = [bh.R_EARTH + 500e3, 0.3, np.radians(45), 0, 0, 1.5]
-///     E = bh.anomaly_mean_to_eccentric(np.array([oe, oe]), angle_format=bh.AngleFormat.RADIANS)
-///     print(f"Eccentric anomaly: {E:.4f} radians")
+///     E_rows = bh.anomaly_mean_to_eccentric(np.array([oe, oe]), angle_format=bh.AngleFormat.RADIANS)
+///     print(f"Eccentric anomaly: (first row) {E_rows[0]:.4f} radians")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (anm_mean_or_oe, e=None, *, angle_format), text_signature = "(anm_mean_or_oe, e=None, *, angle_format)")]
@@ -1138,13 +1138,13 @@ fn py_anomaly_mean_to_eccentric<'py>(
 ///     # Using scalar parameters
 ///     nu = np.pi / 3  # 60 degrees true anomaly
 ///     e = 0.2  # eccentricity
-///     E = bh.anomaly_true_to_eccentric(nu, e, bh.AngleFormat.RADIANS)
+///     E = bh.anomaly_true_to_eccentric(nu, e, angle_format=bh.AngleFormat.RADIANS)
 ///     print(f"Eccentric anomaly: {E:.4f} radians")
 ///
 ///     # Using a batch of Keplerian element sets (true anomaly at index 5), one result per row
 ///     oe = [bh.R_EARTH + 500e3, 0.2, np.radians(45), 0, 0, np.pi/3]
-///     E = bh.anomaly_true_to_eccentric(np.array([oe, oe]), angle_format=bh.AngleFormat.RADIANS)
-///     print(f"Eccentric anomaly: {E:.4f} radians")
+///     E_rows = bh.anomaly_true_to_eccentric(np.array([oe, oe]), angle_format=bh.AngleFormat.RADIANS)
+///     print(f"Eccentric anomaly: (first row) {E_rows[0]:.4f} radians")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (anm_true_or_oe, e=None, *, angle_format), text_signature = "(anm_true_or_oe, e=None, *, angle_format)")]
@@ -1196,13 +1196,13 @@ fn py_anomaly_true_to_eccentric<'py>(
 ///     # Using scalar parameters
 ///     E = np.pi / 4  # 45 degrees eccentric anomaly
 ///     e = 0.4  # eccentricity
-///     nu = bh.anomaly_eccentric_to_true(E, e, bh.AngleFormat.RADIANS)
+///     nu = bh.anomaly_eccentric_to_true(E, e, angle_format=bh.AngleFormat.RADIANS)
 ///     print(f"True anomaly: {nu:.4f} radians")
 ///
 ///     # Using a batch of Keplerian element sets (eccentric anomaly at index 5), one result per row
 ///     oe = [bh.R_EARTH + 500e3, 0.4, np.radians(45), 0, 0, np.pi/4]
-///     nu = bh.anomaly_eccentric_to_true(np.array([oe, oe]), angle_format=bh.AngleFormat.RADIANS)
-///     print(f"True anomaly: {nu:.4f} radians")
+///     nu_rows = bh.anomaly_eccentric_to_true(np.array([oe, oe]), angle_format=bh.AngleFormat.RADIANS)
+///     print(f"True anomaly: (first row) {nu_rows[0]:.4f} radians")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (anm_ecc_or_oe, e=None, *, angle_format), text_signature = "(anm_ecc_or_oe, e=None, *, angle_format)")]
@@ -1254,13 +1254,13 @@ fn py_anomaly_eccentric_to_true<'py>(
 ///     # Using scalar parameters
 ///     nu = np.pi / 2  # 90 degrees true anomaly
 ///     e = 0.15  # eccentricity
-///     M = bh.anomaly_true_to_mean(nu, e, bh.AngleFormat.RADIANS)
+///     M = bh.anomaly_true_to_mean(nu, e, angle_format=bh.AngleFormat.RADIANS)
 ///     print(f"Mean anomaly: {M:.4f} radians")
 ///
 ///     # Using a batch of Keplerian element sets (true anomaly at index 5), one result per row
 ///     oe = [bh.R_EARTH + 500e3, 0.15, np.radians(45), 0, 0, np.pi/2]
-///     M = bh.anomaly_true_to_mean(np.array([oe, oe]), angle_format=bh.AngleFormat.RADIANS)
-///     print(f"Mean anomaly: {M:.4f} radians")
+///     M_rows = bh.anomaly_true_to_mean(np.array([oe, oe]), angle_format=bh.AngleFormat.RADIANS)
+///     print(f"Mean anomaly: (first row) {M_rows[0]:.4f} radians")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (anm_true_or_oe, e=None, *, angle_format), text_signature = "(anm_true_or_oe, e=None, *, angle_format)")]
@@ -1312,13 +1312,13 @@ fn py_anomaly_true_to_mean<'py>(
 ///     # Using scalar parameters
 ///     M = 2.0  # mean anomaly in radians
 ///     e = 0.25  # eccentricity
-///     nu = bh.anomaly_mean_to_true(M, e, bh.AngleFormat.RADIANS)
+///     nu = bh.anomaly_mean_to_true(M, e, angle_format=bh.AngleFormat.RADIANS)
 ///     print(f"True anomaly: {nu:.4f} radians")
 ///
 ///     # Using a batch of Keplerian element sets (mean anomaly at index 5), one result per row
 ///     oe = [bh.R_EARTH + 500e3, 0.25, np.radians(45), 0, 0, 2.0]
-///     nu = bh.anomaly_mean_to_true(np.array([oe, oe]), angle_format=bh.AngleFormat.RADIANS)
-///     print(f"True anomaly: {nu:.4f} radians")
+///     nu_rows = bh.anomaly_mean_to_true(np.array([oe, oe]), angle_format=bh.AngleFormat.RADIANS)
+///     print(f"True anomaly: (first row) {nu_rows[0]:.4f} radians")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (anm_mean_or_oe, e=None, *, angle_format), text_signature = "(anm_mean_or_oe, e=None, *, angle_format)")]
@@ -1596,8 +1596,10 @@ fn py_norad_id_alpha5_to_numeric(alpha5_id: String) -> PyResult<u32> {
 ///
 /// Examples:
 ///     ```python
+///     import brahe as bh
+///
 ///     line1 = "1 25544U 98067A   21001.50000000  .00001764  00000-0  40967-4 0  9997"
-///     epoch = epoch_from_tle(line1)
+///     epoch = bh.epoch_from_tle(line1)
 ///     epoch.year()
 ///     ```
 #[pyfunction]

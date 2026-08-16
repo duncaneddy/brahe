@@ -91,6 +91,8 @@ unsafe fn py_polar_motion<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyA
 ///     import brahe as bh
 ///     import numpy as np
 ///
+///     bh.initialize_eop()
+///
 ///     # Create epoch
 ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 ///
@@ -126,6 +128,8 @@ fn py_rotation_gcrf_to_itrf<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> Py
 ///     ```python
 ///     import brahe as bh
 ///     import numpy as np
+///
+///     bh.initialize_eop()
 ///
 ///     # Create epoch
 ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
@@ -166,6 +170,8 @@ fn py_rotation_eci_to_ecef<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyR
 ///     ```python
 ///     import brahe as bh
 ///
+///     bh.initialize_eop()
+///
 ///     # Create epoch
 ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 ///
@@ -199,6 +205,8 @@ fn py_rotation_itrf_to_gcrf<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> Py
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///
+///     bh.initialize_eop()
 ///
 ///     # Create epoch
 ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
@@ -238,6 +246,8 @@ fn py_rotation_ecef_to_eci<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyR
 ///     ```python
 ///     import brahe as bh
 ///     import numpy as np
+///
+///     bh.initialize_eop()
 ///
 ///     # Create epoch
 ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
@@ -287,6 +297,8 @@ fn py_position_gcrf_to_itrf<'py>(
 ///     import brahe as bh
 ///     import numpy as np
 ///
+///     bh.initialize_eop()
+///
 ///     # Create epoch
 ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 ///
@@ -335,6 +347,8 @@ fn py_position_eci_to_ecef<'py>(
 ///     import brahe as bh
 ///     import numpy as np
 ///
+///     bh.initialize_eop()
+///
 ///     # Create epoch
 ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 ///
@@ -382,6 +396,8 @@ fn py_position_itrf_to_gcrf<'py>(
 ///     ```python
 ///     import brahe as bh
 ///     import numpy as np
+///
+///     bh.initialize_eop()
 ///
 ///     # Create epoch
 ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
@@ -432,6 +448,8 @@ fn py_position_ecef_to_eci<'py>(
 ///     import brahe as bh
 ///     import numpy as np
 ///
+///     bh.initialize_eop()
+///
 ///     # Create epoch
 ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 ///
@@ -480,6 +498,8 @@ fn py_state_gcrf_to_itrf<'py>(
 ///     ```python
 ///     import brahe as bh
 ///     import numpy as np
+///
+///     bh.initialize_eop()
 ///
 ///     # Create epoch
 ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
@@ -530,6 +550,8 @@ fn py_state_eci_to_ecef<'py>(
 ///     import brahe as bh
 ///     import numpy as np
 ///
+///     bh.initialize_eop()
+///
 ///     # Create epoch
 ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 ///
@@ -578,6 +600,8 @@ fn py_state_itrf_to_gcrf<'py>(
 ///     ```python
 ///     import brahe as bh
 ///     import numpy as np
+///
+///     bh.initialize_eop()
 ///
 ///     # Create epoch
 ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
@@ -3303,6 +3327,8 @@ fn py_unregister_custom_frame(key: u32) -> bool {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///
+///     bh.initialize_eop()
 ///
 ///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
 ///     x_gcrf = [bh.R_EARTH + 500e3, 0.0, 0.0]

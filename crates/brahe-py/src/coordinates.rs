@@ -1235,6 +1235,8 @@ fn py_state_inertial_to_radec<'py>(
 ///     import brahe as bh
 ///     import numpy as np
 ///
+///     bh.initialize_eop()
+///
 ///     epc = bh.Epoch.from_datetime(2024, 3, 20, 12, 0, 0.0, 0.0, bh.UTC)
 ///     site = np.array([-122.17, 37.43, 100.0])  # Stanford, deg/deg/m
 ///     x_radec = np.array([101.28, -16.72, 1.0])
@@ -1307,6 +1309,8 @@ fn py_position_radec_to_azel<'py>(
 ///     ```python
 ///     import brahe as bh
 ///     import numpy as np
+///
+///     bh.initialize_eop()
 ///
 ///     epc = bh.Epoch.from_datetime(2024, 3, 20, 12, 0, 0.0, 0.0, bh.UTC)
 ///     site = np.array([-122.17, 37.43, 100.0])  # Stanford, deg/deg/m

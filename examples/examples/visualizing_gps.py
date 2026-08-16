@@ -20,6 +20,7 @@ The example shows the complete workflow from data download to visualization.
 # --8<-- [start:all]
 # --8<-- [start:preamble]
 import time
+
 import brahe as bh
 
 bh.initialize_eop()
@@ -83,7 +84,6 @@ print(f"Created base 3D plot in {te:.2f} seconds.")
 # Plot Output Section (for documentation generation)
 # ============================================================================
 
-# ruff: noqa: E402
 import os
 import pathlib
 import sys

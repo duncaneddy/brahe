@@ -7,7 +7,7 @@ each re-implement it. Drop-in replacement for the deprecated
 
 from __future__ import annotations
 
-from typing import Sequence
+from collections.abc import Sequence
 
 
 def shard_across_devices(array, devices: Sequence):

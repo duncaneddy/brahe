@@ -4,10 +4,10 @@ Tests for SGP4 propagator functionality in brahe.
 These tests mirror the Rust test suite structure to ensure Python bindings work correctly.
 """
 
-import pytest
 import numpy as np
-import brahe
+import pytest
 
+import brahe
 
 # Test TLE data constants
 ISS_LINE1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
@@ -728,7 +728,7 @@ class TestOldBraheTLEFunctions:
 
     def test_keplerian_elements_from_tle(self, eop_original_brahe):
         """Test extracting Keplerian elements from TLE."""
-        epoch, elements = brahe.keplerian_elements_from_tle(ISS_LINE1, ISS_LINE2)
+        _epoch, elements = brahe.keplerian_elements_from_tle(ISS_LINE1, ISS_LINE2)
 
         assert len(elements) == 6
         # Elements are [a, e, i, raan, argp, M]
@@ -1321,7 +1321,7 @@ class TestSGPPropagatorEventDetection:
         # Callback should have been invoked at least once
         assert len(callback_invocations) >= 1
         # Each invocation should have epoch and 6D state
-        cb_epoch, cb_state = callback_invocations[0]
+        _cb_epoch, cb_state = callback_invocations[0]
         assert cb_state.shape == (6,)
 
     def test_sgppropagator_custom_binary_event(self, iss_tle):
@@ -1378,7 +1378,7 @@ class TestSGPPropagatorEventDetection:
         # Callback should have been invoked
         assert len(callback_invocations) >= 1
         # Each invocation should have epoch and 6D state
-        cb_epoch, cb_state = callback_invocations[0]
+        _cb_epoch, cb_state = callback_invocations[0]
         assert cb_state.shape == (6,)
 
     def test_sgppropagator_time_event_with_callback(self, iss_tle):
@@ -1404,7 +1404,7 @@ class TestSGPPropagatorEventDetection:
         # Callback should have been invoked once
         assert len(callback_invocations) == 1
         # Each invocation should have an epoch and 6D state
-        cb_epoch, cb_state = callback_invocations[0]
+        _cb_epoch, cb_state = callback_invocations[0]
         assert cb_state.shape == (6,)
 
     def test_sgppropagator_altitude_event_with_callback(self, iss_tle):
@@ -1438,7 +1438,7 @@ class TestSGPPropagatorEventDetection:
             assert len(callback_invocations) == len(events)
             # Each invocation should have epoch and 6D state
             if len(callback_invocations) > 0:
-                cb_epoch, cb_state = callback_invocations[0]
+                _cb_epoch, cb_state = callback_invocations[0]
                 assert cb_state.shape == (6,)
 
     def test_sgppropagator_callback_stop_action(self, iss_tle):

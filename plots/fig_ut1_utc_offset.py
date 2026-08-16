@@ -8,9 +8,11 @@ Plot that computes the UT1-UTC offset over time using Brahe's EOP data and visua
 import os
 import pathlib
 import sys
-import plotly.graph_objects as go
-import brahe as bh
+
 import numpy as np
+import plotly.graph_objects as go
+
+import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
@@ -72,7 +74,7 @@ def create_figure(theme):
             x=days_past,
             y=ut1_utc_past,
             mode="lines",
-            line=dict(color=colors["primary"], width=2),
+            line={"color": colors["primary"], "width": 2},
             name="Past (Measured)",
             showlegend=True,
         )
@@ -84,7 +86,7 @@ def create_figure(theme):
             x=days_predicted,
             y=ut1_utc_predicted,
             mode="lines",
-            line=dict(color=colors["error"], width=2, dash="dash"),
+            line={"color": colors["error"], "width": 2, "dash": "dash"},
             name="Future (Predicted)",
             showlegend=True,
         )

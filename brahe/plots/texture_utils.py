@@ -6,13 +6,11 @@ Handles loading packaged textures and downloading/caching external texture data.
 
 from importlib.resources import files
 from pathlib import Path
-from typing import Optional
+
 from PIL import Image
 
 import brahe as bh
-
 from brahe.plots._download import download_and_extract_zip, download_file
-
 
 # Natural Earth texture URLs
 NATURAL_EARTH_50M_URL = "https://naciscdn.org/naturalearth/50m/raster/NE1_50M_SR_W.zip"
@@ -158,7 +156,7 @@ def _is_valid_jpeg(path: Path) -> bool:
         with Image.open(path) as img:
             img.verify()
         return True
-    except Exception:
+    except (OSError, SyntaxError, ValueError):
         return False
 
 
@@ -199,7 +197,7 @@ def download_planet_texture(body: str) -> Path:
     )
 
 
-def load_body_texture(texture) -> Optional[Image.Image]:
+def load_body_texture(texture) -> Image.Image | None:
     """Load a body texture image for 3D sphere rendering.
 
     Args:
@@ -223,7 +221,7 @@ def load_body_texture(texture) -> Optional[Image.Image]:
         try:
             return Image.open(texture_path)
         except Exception as e:
-            raise RuntimeError(f"Failed to load Blue Marble texture: {e}")
+            raise RuntimeError(f"Failed to load Blue Marble texture: {e}") from e
 
     elif texture == "natural_earth_50m":
         texture_path = download_natural_earth_texture("50m")
@@ -234,7 +232,7 @@ def load_body_texture(texture) -> Optional[Image.Image]:
                 img = img.convert("RGB")
             return img
         except Exception as e:
-            raise RuntimeError(f"Failed to load Natural Earth 50m texture: {e}")
+            raise RuntimeError(f"Failed to load Natural Earth 50m texture: {e}") from e
 
     elif texture == "natural_earth_10m":
         texture_path = download_natural_earth_texture("10m")
@@ -252,13 +250,13 @@ def load_body_texture(texture) -> Optional[Image.Image]:
             finally:
                 Image.MAX_IMAGE_PIXELS = old_max
         except Exception as e:
-            raise RuntimeError(f"Failed to load Natural Earth 10m texture: {e}")
+            raise RuntimeError(f"Failed to load Natural Earth 10m texture: {e}") from e
 
     elif isinstance(texture, str) and texture in PLANET_TEXTURES:
         texture_path = download_planet_texture(texture)
         try:
             return _load_rgb_image(texture_path)
-        except Exception:
+        except (OSError, SyntaxError, ValueError):
             # Cached file is corrupt (e.g. a partial download cached before
             # download_planet_texture validated content) -- delete and
             # re-download once before giving up.
@@ -267,7 +265,7 @@ def load_body_texture(texture) -> Optional[Image.Image]:
             try:
                 return _load_rgb_image(texture_path)
             except Exception as e:
-                raise RuntimeError(f"Failed to load '{texture}' texture: {e}")
+                raise RuntimeError(f"Failed to load '{texture}' texture: {e}") from e
 
     elif isinstance(texture, (str, Path)) and Path(texture).is_file():
         try:
@@ -276,7 +274,7 @@ def load_body_texture(texture) -> Optional[Image.Image]:
                 img = img.convert("RGB")
             return img
         except Exception as e:
-            raise RuntimeError(f"Failed to load texture from '{texture}': {e}")
+            raise RuntimeError(f"Failed to load texture from '{texture}': {e}") from e
 
     else:
         raise ValueError(

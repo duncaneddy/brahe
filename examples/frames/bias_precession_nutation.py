@@ -5,8 +5,9 @@
 Get the Bias-Precession-Nutation (BPN) rotation matrix
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

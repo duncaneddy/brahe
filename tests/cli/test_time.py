@@ -1,6 +1,7 @@
 """Tests for brahe CLI time commands."""
 
 from typer.testing import CliRunner
+
 from brahe.cli.__main__ import app
 
 app.rich_markup_mode = None

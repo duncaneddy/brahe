@@ -6,8 +6,9 @@ Load a PolygonLocation from a GeoJSON string.
 Demonstrates GeoJSON Polygon format with nested coordinate arrays.
 """
 
-import brahe as bh
 import json
+
+import brahe as bh
 
 bh.initialize_eop()
 

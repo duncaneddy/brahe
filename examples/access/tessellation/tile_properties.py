@@ -6,6 +6,7 @@ Access tile metadata properties after tessellation.
 """
 
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()

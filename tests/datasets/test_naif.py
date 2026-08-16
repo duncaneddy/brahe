@@ -1,8 +1,10 @@
 """Tests for NAIF Python bindings."""
 
-import pytest
-import tempfile
 import os
+import tempfile
+
+import pytest
+
 import brahe as bh
 
 

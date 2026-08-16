@@ -6,8 +6,9 @@
 Demonstrates common quaternion operations.
 """
 
-import brahe as bh
 import math
+
+import brahe as bh
 
 # Create a quaternion from rotation matrix (90° about X, then 45° about Z)
 q = bh.Quaternion.from_rotation_matrix(

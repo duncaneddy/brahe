@@ -7,6 +7,7 @@ Appropriate for low Earth orbit satellites where drag is significant.
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP and space weather data (required for NRLMSISE-00 drag model)

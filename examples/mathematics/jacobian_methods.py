@@ -8,8 +8,9 @@ This example demonstrates the accuracy trade-offs between forward, central,
 and backward difference methods using two-body gravity dynamics.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 # Define two-body gravity dynamics: state = [x, y, z, vx, vy, vz]

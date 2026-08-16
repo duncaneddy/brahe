@@ -8,8 +8,8 @@ a complete .pyi stub file for IDE support and documentation with proper type ann
 
 import ast
 import inspect
-import sys
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -459,7 +459,7 @@ def generate_class_stub(name: str, cls: type) -> str:
             lines.append("        ...")
             lines.append("")
             added_members.add("__init__")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
             print(f"Warning: Could not process {name}.__init__: {e}", file=sys.stderr)
 
     # Get all members and sort them
@@ -491,7 +491,7 @@ def generate_class_stub(name: str, cls: type) -> str:
                 if member_doc and "Create and return a new object" in member_doc:
                     continue
             all_members.append((member_name, member))
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
             print(f"Warning: Could not get {name}.{member_name}: {e}", file=sys.stderr)
             continue
 
@@ -537,11 +537,14 @@ def generate_class_stub(name: str, cls: type) -> str:
                 # Special handling for dunder methods with known signatures
                 if member_name == "__setitem__" and params_str == "self":
                     params_str = "self, key: str, value: Any"
-                elif member_name == "__getitem__" and params_str == "self":
-                    params_str = "self, key: str"
-                elif member_name == "__delitem__" and params_str == "self":
-                    params_str = "self, key: str"
-                elif member_name == "__contains__" and params_str == "self":
+                elif (
+                    member_name == "__getitem__"
+                    and params_str == "self"
+                    or member_name == "__delitem__"
+                    and params_str == "self"
+                    or member_name == "__contains__"
+                    and params_str == "self"
+                ):
                     params_str = "self, key: str"
 
                 lines.append(f"    def {member_name}({params_str}) -> {return_type}:")
@@ -564,7 +567,7 @@ def generate_class_stub(name: str, cls: type) -> str:
                 lines.append("        ...")
                 lines.append("")
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
             print(
                 f"Warning: Could not process {name}.{member_name}: {e}", file=sys.stderr
             )
@@ -621,7 +624,7 @@ def main():
     # Import the module
     sys.path.insert(0, str(repo_root))
     try:
-        import brahe._brahe as _brahe
+        from brahe import _brahe
     except ImportError as e:
         print(f"Error: Could not import brahe._brahe: {e}")
         print("Make sure the package is installed: uv pip install -e .")
@@ -646,7 +649,7 @@ def main():
         try:
             member = getattr(_brahe, name)
             module_members[name] = member
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
             print(f"Warning: Could not get {name}: {e}", file=sys.stderr)
 
     # Separate into classes, functions, and constants
@@ -670,7 +673,7 @@ def main():
         try:
             stub = generate_class_stub(name, cls)
             output_lines.append(stub)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
             print(f"Error processing class {name}: {e}", file=sys.stderr)
             import traceback
 
@@ -688,7 +691,7 @@ def main():
                 stub = generate_function_stub(name, func)
                 output_lines.append(stub)
                 output_lines.append("")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
                 print(f"Error processing function {name}: {e}", file=sys.stderr)
                 output_lines.append(
                     f"def {name}(*args: Any, **kwargs: Any) -> Any: ..."

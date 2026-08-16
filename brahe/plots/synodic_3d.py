@@ -1,12 +1,13 @@
 """3D trajectory visualization in synodic (two-body rotating) frames."""
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import plotly.graph_objects as go
 from loguru import logger
 
 import brahe as bh
-from brahe.plots.backend import validate_backend, apply_scienceplots_style
+from brahe._brahe import OrbitTrajectory
+from brahe.plots.backend import apply_scienceplots_style, validate_backend
 from brahe.plots.bodies import BODY_VISUALS_BY_NAIF_ID, resolve_body
 from brahe.plots.trajectory_3d import (
     _normalize_trajectory_groups,
@@ -14,7 +15,6 @@ from brahe.plots.trajectory_3d import (
     _plot_body_sphere_plotly,
     _set_axes_equal,
 )
-from brahe._brahe import OrbitTrajectory
 
 
 def plot_synodic_3d(
@@ -289,7 +289,10 @@ def _synodic_3d_plotly(
                 y=positions[:, 1],
                 z=positions[:, 2],
                 mode="lines",
-                line=dict(color=group.get("color"), width=group.get("line_width", 2.0)),
+                line={
+                    "color": group.get("color"),
+                    "width": group.get("line_width", 2.0),
+                },
                 name=group.get("label"),
             )
         )
@@ -299,26 +302,26 @@ def _synodic_3d_plotly(
 
     layout_config = {
         "title": f"3D Trajectory ({frame} Frame, epoch {reference_epoch})",
-        "scene": dict(
-            xaxis_title=f"X ({unit_label})",
-            yaxis_title=f"Y ({unit_label})",
-            zaxis_title=f"Z ({unit_label})",
-            aspectmode="data",
-            xaxis=dict(showgrid=True, showbackground=False),
-            yaxis=dict(showgrid=True, showbackground=False),
-            zaxis=dict(showgrid=True, showbackground=False),
-            camera=dict(
-                eye=dict(
-                    x=view_distance
+        "scene": {
+            "xaxis_title": f"X ({unit_label})",
+            "yaxis_title": f"Y ({unit_label})",
+            "zaxis_title": f"Z ({unit_label})",
+            "aspectmode": "data",
+            "xaxis": {"showgrid": True, "showbackground": False},
+            "yaxis": {"showgrid": True, "showbackground": False},
+            "zaxis": {"showgrid": True, "showbackground": False},
+            "camera": {
+                "eye": {
+                    "x": view_distance
                     * np.cos(np.radians(view_azimuth))
                     * np.cos(np.radians(view_elevation)),
-                    y=view_distance
+                    "y": view_distance
                     * np.sin(np.radians(view_azimuth))
                     * np.cos(np.radians(view_elevation)),
-                    z=view_distance * np.sin(np.radians(view_elevation)),
-                )
-            ),
-        ),
+                    "z": view_distance * np.sin(np.radians(view_elevation)),
+                }
+            },
+        },
     }
 
     if width is not None:

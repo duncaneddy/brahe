@@ -11,9 +11,10 @@ using the matplotlib backend. Shows the ISS orbit around Earth with different
 texture options for Earth visualization.
 """
 
-import numpy as np
-import brahe as bh
 import matplotlib.pyplot as plt
+import numpy as np
+
+import brahe as bh
 
 # Initialize EOP data
 bh.initialize_eop()

@@ -8,13 +8,15 @@ during orbital propagation.
 import os
 import pathlib
 import sys
-import brahe as bh
+
 import numpy as np
 import plotly.graph_objects as go
 
+import brahe as bh
+
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
-from brahe_theme import save_themed_html, get_theme_colors
+from brahe_theme import get_theme_colors, save_themed_html
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -99,7 +101,7 @@ def create_figure(theme):
                     y=sens_mag[name],
                     mode="lines",
                     name=name,
-                    line=dict(color=color_map[name], width=2),
+                    line={"color": color_map[name], "width": 2},
                 )
             )
 
@@ -109,9 +111,15 @@ def create_figure(theme):
         yaxis_title="Position Sensitivity (m per unit param)",
         yaxis_type="log",
         showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        legend={
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "right",
+            "x": 1,
+        },
         height=500,
-        margin=dict(l=60, r=40, t=80, b=60),
+        margin={"l": 60, "r": 40, "t": 80, "b": 60},
     )
 
     return fig

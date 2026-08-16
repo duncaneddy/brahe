@@ -1,11 +1,12 @@
 """Tests for CelesTrak CLI commands (top-level brahe celestrak)"""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-import brahe as bh
 from typer.testing import CliRunner
-from brahe.cli.celestrak import app, _format_to_celestrak
+
+import brahe as bh
+from brahe.cli.celestrak import _format_to_celestrak, app
 
 runner = CliRunner()
 

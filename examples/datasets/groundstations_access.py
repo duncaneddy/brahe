@@ -8,8 +8,9 @@ This example demonstrates using groundstation data with brahe's
 access computation to find contact opportunities.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Initialize EOP data
 bh.initialize_eop()

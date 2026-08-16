@@ -1,6 +1,8 @@
-import pytest
 import math
+
 import numpy as np
+import pytest
+
 import brahe
 from brahe import AngleFormat
 

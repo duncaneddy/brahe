@@ -7,6 +7,7 @@ Appropriate for geostationary orbit where SRP is dominant perturbation.
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data

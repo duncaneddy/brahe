@@ -8,8 +8,9 @@ This example shows how to propagate variational equations using a numerical
 Jacobian for orbit determination applications.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Initialize EOP
 bh.initialize_eop()

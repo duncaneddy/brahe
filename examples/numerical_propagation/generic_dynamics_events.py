@@ -7,6 +7,7 @@ Demonstrates detecting zero crossings in a simple harmonic oscillator.
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data (needed for epoch operations)

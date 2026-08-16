@@ -9,24 +9,21 @@ Requires SPACETRACK_USER and SPACETRACK_PASS environment variables.
 
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import Annotated
 
 import typer
-from typing_extensions import Annotated
 from loguru import logger
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 import brahe as bh
-from brahe.spacetrack import operators as op
-
 from brahe.cli._output import (
     CLIOutputFormat,
     format_gp_records,
     format_satcat_records,
     parse_filters,
 )
-
+from brahe.spacetrack import operators as op
 
 app = typer.Typer(help="Query satellite data from Space-Track.org.")
 
@@ -59,31 +56,31 @@ def _apply_common_options(query, filters, order_by, descending, limit):
 @app.command()
 def gp(
     catnr: Annotated[
-        Optional[int],
+        int | None,
         typer.Option("--catnr", "-c", help="NORAD catalog number"),
     ] = None,
     name: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--name", "-n", help="Satellite name search pattern"),
     ] = None,
     epoch_range: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--epoch-range", help="Epoch range filter 'START--END' (ISO-8601)"
         ),
     ] = None,
     filter: Annotated[
-        Optional[List[str]],
+        list[str] | None,
         typer.Option(
             "--filter", "-f", help='Filter: "FIELD VALUE" (e.g., "INCLINATION >50")'
         ),
     ] = None,
     limit: Annotated[
-        Optional[int],
+        int | None,
         typer.Option("--limit", "-l", help="Maximum number of records"),
     ] = None,
     order_by: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--order-by", help="Field name to sort by (e.g., EPOCH, INCLINATION)"
         ),
@@ -93,7 +90,7 @@ def gp(
         typer.Option("--descending", "--desc", help="Sort in descending order"),
     ] = False,
     columns: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--columns", help="Column preset or comma-separated list"),
     ] = None,
     output_format: Annotated[
@@ -101,7 +98,7 @@ def gp(
         typer.Option("--output-format", "-o", help="Output format"),
     ] = CLIOutputFormat.rich,
     output_file: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--output-file", help="Write output to file"),
     ] = None,
 ):
@@ -154,7 +151,7 @@ def gp(
             records = client.query_gp(query)
         except Exception as e:
             console.print(f"[red]ERROR: {e}[/red]")
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from e
 
     format_gp_records(records, output_format, columns, output_file, console)
 
@@ -166,21 +163,21 @@ def gp_history(
         typer.Argument(help="NORAD catalog number"),
     ],
     epoch_range: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--epoch-range", help="Epoch range filter 'START--END' (ISO-8601)"
         ),
     ] = None,
     filter: Annotated[
-        Optional[List[str]],
+        list[str] | None,
         typer.Option("--filter", "-f", help='Filter: "FIELD VALUE"'),
     ] = None,
     limit: Annotated[
-        Optional[int],
+        int | None,
         typer.Option("--limit", "-l", help="Maximum number of records"),
     ] = None,
     order_by: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--order-by", help="Field name to sort by"),
     ] = None,
     descending: Annotated[
@@ -188,7 +185,7 @@ def gp_history(
         typer.Option("--descending", "--desc", help="Sort in descending order"),
     ] = False,
     columns: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--columns", help="Column preset or comma-separated list"),
     ] = None,
     output_format: Annotated[
@@ -196,7 +193,7 @@ def gp_history(
         typer.Option("--output-format", "-o", help="Output format"),
     ] = CLIOutputFormat.rich,
     output_file: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--output-file", help="Write output to file"),
     ] = None,
 ):
@@ -236,7 +233,7 @@ def gp_history(
             records = client.query_gp(query)
         except Exception as e:
             console.print(f"[red]ERROR: {e}[/red]")
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from e
 
     format_gp_records(records, output_format, columns, output_file, console)
 
@@ -244,33 +241,33 @@ def gp_history(
 @app.command()
 def satcat(
     catnr: Annotated[
-        Optional[int],
+        int | None,
         typer.Option("--catnr", "-c", help="NORAD catalog number"),
     ] = None,
     name: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--name", "-n", help="Satellite name search pattern"),
     ] = None,
     country: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--country", help="Country code filter (e.g., US, CIS, CN)"),
     ] = None,
     object_type: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--object-type", help="Object type filter (PAYLOAD, ROCKET BODY, DEBRIS)"
         ),
     ] = None,
     filter: Annotated[
-        Optional[List[str]],
+        list[str] | None,
         typer.Option("--filter", "-f", help='Filter: "FIELD VALUE"'),
     ] = None,
     limit: Annotated[
-        Optional[int],
+        int | None,
         typer.Option("--limit", "-l", help="Maximum number of records"),
     ] = None,
     columns: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--columns", help="Column preset or comma-separated list"),
     ] = None,
     output_format: Annotated[
@@ -278,7 +275,7 @@ def satcat(
         typer.Option("--output-format", "-o", help="Output format"),
     ] = CLIOutputFormat.rich,
     output_file: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--output-file", help="Write output to file"),
     ] = None,
 ):
@@ -333,6 +330,6 @@ def satcat(
             records = client.query_satcat(query)
         except Exception as e:
             console.print(f"[red]ERROR: {e}[/red]")
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from e
 
     format_satcat_records(records, output_format, columns, output_file, console)

@@ -22,7 +22,6 @@ import os
 from pathlib import Path
 
 import numpy as np
-
 from Basilisk.topLevelModules import pyswice
 from Basilisk.utilities.supportDataTools.dataFetcher import DataFile, get_path
 

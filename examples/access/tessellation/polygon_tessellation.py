@@ -6,6 +6,7 @@ Tessellate a polygon location into rectangular tiles aligned with satellite grou
 """
 
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()

@@ -5,8 +5,9 @@
 Compute WMMHR-2025 magnetic field and compare full vs truncated resolution
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 epc = bh.Epoch(2025, 1, 1, 0, 0, 0.0, time_system=bh.UTC)
 x_geod = np.array([120.0, 0.0, 0.0])  # lon=120 deg, lat=0, alt=0 m (equator)

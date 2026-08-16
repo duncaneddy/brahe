@@ -6,6 +6,7 @@ This example demonstrates how to propagate a Keplerian orbit using the Brahe lib
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Define the initial Keplerian elements

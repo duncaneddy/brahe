@@ -25,25 +25,25 @@ This module provides containers for storing and interpolating spacecraft traject
 """
 
 from brahe._brahe import (
-    # Trajectory classes
-    Trajectory,
-    OrbitTrajectory,
+    AngleFormat,
+    CovarianceInterpolationMethod,
+    InterpolationMethod,
     # Configuration enums
     OrbitFrame,
     OrbitRepresentation,
-    AngleFormat,
-    InterpolationMethod,
-    CovarianceInterpolationMethod,
+    OrbitTrajectory,
+    # Trajectory classes
+    Trajectory,
 )
 
 __all__ = [
-    # Trajectory classes
-    "Trajectory",
-    "OrbitTrajectory",
+    "AngleFormat",
+    "CovarianceInterpolationMethod",
+    "InterpolationMethod",
     # Configuration enums
     "OrbitFrame",
     "OrbitRepresentation",
-    "AngleFormat",
-    "InterpolationMethod",
-    "CovarianceInterpolationMethod",
+    "OrbitTrajectory",
+    # Trajectory classes
+    "Trajectory",
 ]

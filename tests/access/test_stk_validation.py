@@ -6,6 +6,7 @@ access windows against ground truth data from STK (Systems Tool Kit).
 """
 
 import pytest
+
 import brahe as bh
 
 # STK Ground Truth Data

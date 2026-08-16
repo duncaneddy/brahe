@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
 
 import numpy as np
 
 from benchmarks.gpu_comparison.implementations import astrojax_kernels
 from benchmarks.gpu_comparison.implementations.jax_utils import shard_across_devices
 from benchmarks.gpu_comparison.tasks.base import BatchConfig, BatchTask
-
 
 _ALL_CONFIGS = [
     BatchConfig(name="brahe-rust-rayon", dtype="f64", backend="rust"),
@@ -58,7 +58,7 @@ class NumericalTwobodyJ2Task(BatchTask):
     )
     # astrojax integrators+orbit_dynamics path is heavier — restrict to brahe + astrojax-gpu
     # to keep iteration count manageable on CPU.
-    configs = [
+    configs: ClassVar[list[BatchConfig]] = [
         BatchConfig(name="brahe-rust-rayon", dtype="f64", backend="rust"),
         BatchConfig(name="astrojax-cpu", dtype="f64", backend="astrojax-cpu"),
         BatchConfig(name="astrojax-gpu", dtype="f32", backend="astrojax-gpu"),

@@ -246,9 +246,7 @@ if windows:
     print(f"\n{'Start':<28} {'End':<28} {'Duration (s)':>12}")
     print("-" * 70)
     for w in windows[:5]:
-        print(
-            f"  {str(w.window_open):<28} {str(w.window_close):<28} {w.duration:>10.1f}"
-        )
+        print(f"  {w.window_open!s:<28} {w.window_close!s:<28} {w.duration:>10.1f}")
 else:
     print("No collection windows found.")
 # --8<-- [end:results]

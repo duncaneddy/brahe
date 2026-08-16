@@ -6,9 +6,11 @@
 Demonstrates different ways to initialize Euler axis (axis-angle) representations.
 """
 
-import brahe as bh
-import numpy as np
 import math
+
+import numpy as np
+
+import brahe as bh
 
 # Initialize from axis vector and angle
 # 45° rotation about Z-axis

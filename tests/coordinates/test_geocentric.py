@@ -1,7 +1,8 @@
-import pytest
-import brahe
 import numpy as np
+import pytest
 from pytest import approx
+
+import brahe
 
 
 def test_position_geocentric(eop):

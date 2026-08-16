@@ -2,8 +2,8 @@
 # dependencies = ["brahe", "plotly", "kaleido"]
 # ///
 from pathlib import Path
-import brahe as bh
 
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -39,17 +39,23 @@ fig = bh.plot_trajectory_3d(
 
 # Enable grid and axis lines for better visualization
 fig.update_layout(
-    scene=dict(
-        xaxis=dict(
-            showbackground=False, gridcolor="lightgray", zerolinecolor="lightgray"
-        ),
-        yaxis=dict(
-            showbackground=False, gridcolor="lightgray", zerolinecolor="lightgray"
-        ),
-        zaxis=dict(
-            showbackground=False, gridcolor="lightgray", zerolinecolor="lightgray"
-        ),
-    )
+    scene={
+        "xaxis": {
+            "showbackground": False,
+            "gridcolor": "lightgray",
+            "zerolinecolor": "lightgray",
+        },
+        "yaxis": {
+            "showbackground": False,
+            "gridcolor": "lightgray",
+            "zerolinecolor": "lightgray",
+        },
+        "zaxis": {
+            "showbackground": False,
+            "gridcolor": "lightgray",
+            "zerolinecolor": "lightgray",
+        },
+    }
 )
 
 # Disable the legend for clarity

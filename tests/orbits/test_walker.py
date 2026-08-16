@@ -1,6 +1,7 @@
 """Tests for WalkerConstellationGenerator."""
 
 import math
+
 import pytest
 
 import brahe as bh

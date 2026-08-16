@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
-import brahe
 from pytest import approx
+
+import brahe
 
 
 @pytest.fixture()

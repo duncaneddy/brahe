@@ -10,6 +10,7 @@ convergence of the state estimate.
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data for frame transformations

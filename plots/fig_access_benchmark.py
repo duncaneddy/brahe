@@ -125,7 +125,7 @@ def compute_skyfield_accesses(
         target.latitude, target.longitude, target.altitude
     )
     satellite = EarthSatellite(DEFAULT_TLE_LINE1, DEFAULT_TLE_LINE2, "ISS", time_scale)
-    times, events = satellite.find_events(
+    _times, events = satellite.find_events(
         topo, t0, t1, altitude_degrees=MIN_ELEVATION_DEG
     )
 
@@ -242,6 +242,7 @@ def compute_brahe_rust_accesses(
         text=True,
         cwd=RUST_SCRIPT_PATH.parent,
         timeout=600,
+        check=False,
     )
 
     if result.returncode != 0:
@@ -308,7 +309,7 @@ def run_benchmarks():
 
     # Run Rust benchmarks (parallel)
     print("  Running Brahe-Rust (parallel)...")
-    rust_parallel_results, rust_parallel_timing = compute_brahe_rust_accesses(
+    _rust_parallel_results, rust_parallel_timing = compute_brahe_rust_accesses(
         locations, window_open, window_close, parallel=True
     )
     brahe_rust_parallel = ParallelBenchmarkResult(
@@ -413,14 +414,14 @@ def create_figure(theme: str, benchmark_data: dict) -> go.Figure:
             x=location_names,
             y=[r.mean_time * 1000 for r in skyfield_results],
             mode="markers",
-            marker=dict(color=impl_colors["skyfield"], size=6, opacity=0.7),
-            error_y=dict(
-                type="data",
-                array=[r.std_time * 1000 for r in skyfield_results],
-                visible=True,
-                color=impl_colors["skyfield"],
-                thickness=1,
-            ),
+            marker={"color": impl_colors["skyfield"], "size": 6, "opacity": 0.7},
+            error_y={
+                "type": "data",
+                "array": [r.std_time * 1000 for r in skyfield_results],
+                "visible": True,
+                "color": impl_colors["skyfield"],
+                "thickness": 1,
+            },
             hovertemplate="Skyfield<br>%{x}<br>%{y:.2f}ms<extra></extra>",
         )
     )
@@ -431,14 +432,14 @@ def create_figure(theme: str, benchmark_data: dict) -> go.Figure:
             x=location_names,
             y=[r.mean_time * 1000 for r in brahe_py_results],
             mode="markers",
-            marker=dict(color=impl_colors["brahe_py"], size=6, opacity=0.7),
-            error_y=dict(
-                type="data",
-                array=[r.std_time * 1000 for r in brahe_py_results],
-                visible=True,
-                color=impl_colors["brahe_py"],
-                thickness=1,
-            ),
+            marker={"color": impl_colors["brahe_py"], "size": 6, "opacity": 0.7},
+            error_y={
+                "type": "data",
+                "array": [r.std_time * 1000 for r in brahe_py_results],
+                "visible": True,
+                "color": impl_colors["brahe_py"],
+                "thickness": 1,
+            },
             hovertemplate="Brahe-Python (serial)<br>%{x}<br>%{y:.2f}ms<extra></extra>",
         )
     )
@@ -449,14 +450,14 @@ def create_figure(theme: str, benchmark_data: dict) -> go.Figure:
             x=location_names,
             y=[r.mean_time * 1000 for r in brahe_rust_results],
             mode="markers",
-            marker=dict(color=impl_colors["brahe_rust"], size=6, opacity=0.7),
-            error_y=dict(
-                type="data",
-                array=[r.std_time * 1000 for r in brahe_rust_results],
-                visible=True,
-                color=impl_colors["brahe_rust"],
-                thickness=1,
-            ),
+            marker={"color": impl_colors["brahe_rust"], "size": 6, "opacity": 0.7},
+            error_y={
+                "type": "data",
+                "array": [r.std_time * 1000 for r in brahe_rust_results],
+                "visible": True,
+                "color": impl_colors["brahe_rust"],
+                "thickness": 1,
+            },
             hovertemplate="Brahe-Rust (serial)<br>%{x}<br>%{y:.2f}ms<extra></extra>",
         )
     )
@@ -468,7 +469,11 @@ def create_figure(theme: str, benchmark_data: dict) -> go.Figure:
             x=location_names,
             y=[brahe_py_parallel.per_location_mean_time * 1000] * len(locations),
             mode="lines",
-            line=dict(color=impl_colors["brahe_py_parallel"], width=2, dash="dash"),
+            line={
+                "color": impl_colors["brahe_py_parallel"],
+                "width": 2,
+                "dash": "dash",
+            },
             hovertemplate=f"Brahe-Python (parallel)<br>{brahe_py_parallel.per_location_mean_time * 1000:.2f}ms per location<extra></extra>",
         )
     )
@@ -479,7 +484,11 @@ def create_figure(theme: str, benchmark_data: dict) -> go.Figure:
             x=location_names,
             y=[brahe_rust_parallel.per_location_mean_time * 1000] * len(locations),
             mode="lines",
-            line=dict(color=impl_colors["brahe_rust_parallel"], width=2, dash="dash"),
+            line={
+                "color": impl_colors["brahe_rust_parallel"],
+                "width": 2,
+                "dash": "dash",
+            },
             hovertemplate=f"Brahe-Rust (parallel)<br>{brahe_rust_parallel.per_location_mean_time * 1000:.2f}ms per location<extra></extra>",
         )
     )
@@ -487,14 +496,14 @@ def create_figure(theme: str, benchmark_data: dict) -> go.Figure:
     # Configure layout
     fig.update_layout(
         title="Access Computation Performance: Brahe vs Skyfield",
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="center",
-            x=0.5,
-        ),
-        margin=dict(t=100),
+        legend={
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "center",
+            "x": 0.5,
+        },
+        margin={"t": 100},
     )
 
     fig.update_xaxes(

@@ -3,6 +3,7 @@ Tests for relativistic acceleration.
 """
 
 import numpy as np
+
 import brahe as bh
 
 

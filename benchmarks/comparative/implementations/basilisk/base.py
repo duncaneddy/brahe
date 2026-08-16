@@ -20,7 +20,6 @@ from pathlib import Path
 import numpy as np
 
 import brahe
-
 from benchmarks.comparative.results import TaskResult
 
 

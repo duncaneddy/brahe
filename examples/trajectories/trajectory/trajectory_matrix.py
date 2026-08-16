@@ -5,8 +5,9 @@
 Convert trajectory data to matrix format for analysis
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

@@ -1,5 +1,7 @@
 """Tests for the native SPICE kernel registry and generic SPK/PCK queries."""
 
+import contextlib
+
 import numpy as np
 import pytest
 
@@ -11,7 +13,7 @@ def ensure_kernel():
     """Load the default kernel once per test module (cached on disk)."""
     try:
         bh.load_spice_kernel("de440s")
-    except Exception as e:
+    except (bh.BraheError, OSError, RuntimeError) as e:
         pytest.skip(f"Could not initialize ephemeris: {e}")
 
 
@@ -26,11 +28,9 @@ def restore_baseline_kernels():
     bh.clear_spice_kernels()
     bh.load_spice_kernel("de440s")
     for kernel in ("moon_pa_de440", "mar099s"):
-        try:
+        # Not cached and offline: nothing later can query it either.
+        with contextlib.suppress(Exception):
             bh.load_spice_kernel(kernel)
-        except Exception:
-            # Not cached and offline: nothing later can query it either.
-            pass
 
 
 def test_loaded_kernels():

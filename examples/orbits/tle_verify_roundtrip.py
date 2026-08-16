@@ -4,8 +4,9 @@
 
 """Verify a generated TLE by parsing it back."""
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Define orbital epoch
 epoch = bh.Epoch.from_datetime(2025, 10, 29, 11, 44, 55.766182, 0, bh.TimeSystem.UTC)

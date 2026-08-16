@@ -9,7 +9,7 @@ The first call fetches the listing from ICGEM and caches it under
 $BRAHE_CACHE/icgem/. Subsequent calls within the 30-day TTL read from disk.
 """
 
-import brahe.datasets as datasets
+from brahe import datasets
 
 # List all Earth gravity models in the catalog
 earth_models = datasets.icgem.list_models("earth")

@@ -8,14 +8,16 @@ with mass tracking using NumericalOrbitPropagator.
 import os
 import pathlib
 import sys
-import brahe as bh
+
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+import brahe as bh
+
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
-from brahe_theme import save_themed_html, get_theme_colors
+from brahe_theme import get_theme_colors, save_themed_html
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -144,7 +146,10 @@ def create_figure(theme):
     # Semi-major axis (altitude)
     fig.add_trace(
         go.Scatter(
-            x=times, y=a_vals, mode="lines", line=dict(color=colors["primary"], width=2)
+            x=times,
+            y=a_vals,
+            mode="lines",
+            line={"color": colors["primary"], "width": 2},
         ),
         row=1,
         col=1,
@@ -157,7 +162,7 @@ def create_figure(theme):
             x=times,
             y=e_vals,
             mode="lines",
-            line=dict(color=colors["secondary"], width=2),
+            line={"color": colors["secondary"], "width": 2},
         ),
         row=1,
         col=2,
@@ -167,7 +172,10 @@ def create_figure(theme):
     # Inclination
     fig.add_trace(
         go.Scatter(
-            x=times, y=i_vals, mode="lines", line=dict(color=colors["accent"], width=2)
+            x=times,
+            y=i_vals,
+            mode="lines",
+            line={"color": colors["accent"], "width": 2},
         ),
         row=1,
         col=3,
@@ -180,7 +188,7 @@ def create_figure(theme):
             x=times,
             y=raan_vals,
             mode="lines",
-            line=dict(color=colors["primary"], width=2),
+            line={"color": colors["primary"], "width": 2},
         ),
         row=2,
         col=1,
@@ -193,7 +201,7 @@ def create_figure(theme):
             x=times,
             y=argp_vals,
             mode="lines",
-            line=dict(color=colors["secondary"], width=2),
+            line={"color": colors["secondary"], "width": 2},
         ),
         row=2,
         col=2,
@@ -206,7 +214,7 @@ def create_figure(theme):
             x=times,
             y=ma_vals,
             mode="lines",
-            line=dict(color=colors["accent"], width=2),
+            line={"color": colors["accent"], "width": 2},
         ),
         row=2,
         col=3,
@@ -245,7 +253,7 @@ def create_figure(theme):
         title="Orbital Elements During Prograde Thrust (10 N, 10 min burn)",
         showlegend=False,
         height=500,
-        margin=dict(l=60, r=40, t=80, b=60),
+        margin={"l": 60, "r": 40, "t": 80, "b": 60},
     )
 
     return fig

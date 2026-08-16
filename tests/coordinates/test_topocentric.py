@@ -1,7 +1,9 @@
 import math
-import brahe
+
 import numpy as np
 from pytest import approx
+
+import brahe
 from brahe import AngleFormat, EllipsoidalConversionType
 
 
@@ -159,7 +161,7 @@ def test_relative_position_ecef_to_enz():
     assert r_enz_geod[1] > 0.0
     assert r_enz_geod[2] < 0.0
 
-    for i in range(0, 3):
+    for i in range(3):
         assert r_enz_geoc[i] != r_enz_geod[i]
 
 
@@ -332,7 +334,7 @@ def test_relative_position_ecef_to_sez():
     assert r_sez_geod[1] > 0.0
     assert r_sez_geod[2] < 0.0
 
-    for i in range(0, 3):
+    for i in range(3):
         assert r_sez_geoc[i] != r_sez_geod[i]
 
 

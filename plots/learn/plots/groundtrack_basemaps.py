@@ -9,10 +9,12 @@ This script demonstrates different basemap styles available for ground track plo
 
 import os
 import pathlib
-import brahe as bh
+
 import matplotlib.pyplot as plt
-from brahe.plots.texture_utils import get_blue_marble_texture_path
 from PIL import Image
+
+import brahe as bh
+from brahe.plots.texture_utils import get_blue_marble_texture_path
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem

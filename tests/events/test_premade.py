@@ -1,8 +1,8 @@
 """Tests for premade event detectors."""
 
-import brahe as bh
 import numpy as np
 
+import brahe as bh
 
 # =============================================================================
 # Helper functions
@@ -1118,7 +1118,7 @@ def test_event_with_tolerances_integration():
 
 def test_query_events_empty():
     """Test EventQuery with no events detected."""
-    prop, epoch, period = _create_numerical_propagator_leo()
+    prop, epoch, _period = _create_numerical_propagator_leo()
 
     # No events added, propagate
     prop.propagate_to(epoch + 100.0)

@@ -7,6 +7,7 @@ Demonstrates frame-specific covariance retrieval and physical interpretation.
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data

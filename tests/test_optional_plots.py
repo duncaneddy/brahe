@@ -33,14 +33,14 @@ def test_top_level_plot_function_forwards_to_plots():
 
 def test_unknown_top_level_attribute_raises_attributeerror():
     with pytest.raises(AttributeError):
-        brahe.this_attribute_does_not_exist
+        _ = brahe.this_attribute_does_not_exist
 
 
 def test_unknown_plots_attribute_raises_attributeerror():
-    import brahe.plots as plots
+    from brahe import plots
 
     with pytest.raises(AttributeError):
-        plots.this_attribute_does_not_exist
+        _ = plots.this_attribute_does_not_exist
 
 
 def test_all_policy_keeps_core_starimport_plot_free():
@@ -53,7 +53,7 @@ def test_all_policy_keeps_core_starimport_plot_free():
 def test_friendly_error_when_submodule_unimportable():
     # The helper reframes any ImportError raised while loading a plot submodule
     # into an actionable install hint, preserving the original via __cause__.
-    import brahe.plots as plots
+    from brahe import plots
 
     with pytest.raises(ImportError) as excinfo:
         plots._import_plot_submodule("a_submodule_that_does_not_exist")
@@ -68,7 +68,7 @@ def test_friendly_error_propagates_through_top_level_access(monkeypatch):
     # Simulate a missing optional plotting dependency at submodule import time and
     # verify the friendly hint reaches the user through the real top-level access
     # path `brahe.plot_groundtrack` -> brahe.plots.__getattr__ -> _import_plot_submodule.
-    import brahe.plots as plots
+    from brahe import plots
 
     real_import_module = plots.importlib.import_module
 
@@ -80,7 +80,7 @@ def test_friendly_error_propagates_through_top_level_access(monkeypatch):
     monkeypatch.setattr(plots.importlib, "import_module", fake_import_module)
 
     with pytest.raises(ImportError) as excinfo:
-        brahe.plot_groundtrack
+        _ = brahe.plot_groundtrack
 
     message = str(excinfo.value)
     assert "brahe[plots]" in message

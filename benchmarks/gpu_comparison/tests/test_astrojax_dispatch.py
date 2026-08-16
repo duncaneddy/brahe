@@ -4,14 +4,16 @@ Uses a ping kernel (no actual astrojax import) so the test runs without
 JAX. Real astrojax-backed tests live in the per-task test files.
 """
 
+from typing import ClassVar
+
 import pytest
 
 from benchmarks.gpu_comparison.implementations import astrojax_kernels
-from benchmarks.gpu_comparison.implementations.astrojax_gpu import (
-    run_astrojax_cell_in_process,
-)
 from benchmarks.gpu_comparison.implementations.astrojax_cpu import (
     run_astrojax_cell_in_child,
+)
+from benchmarks.gpu_comparison.implementations.astrojax_gpu import (
+    run_astrojax_cell_in_process,
 )
 from benchmarks.gpu_comparison.tasks.base import BatchConfig, BatchTask
 
@@ -20,7 +22,7 @@ class _PingTask(BatchTask):
     name = "ping.identity"
     module = "ping"
     description = "echo task"
-    configs = [
+    configs: ClassVar[list[BatchConfig]] = [
         BatchConfig(name="astrojax-cpu", dtype="f64", backend="astrojax-cpu"),
         BatchConfig(name="astrojax-gpu", dtype="f32", backend="astrojax-gpu"),
     ]

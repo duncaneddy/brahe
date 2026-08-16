@@ -8,8 +8,9 @@ This example shows how to automatically compute Jacobians without deriving
 analytical expressions.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 # Define dynamics: Simple harmonic oscillator

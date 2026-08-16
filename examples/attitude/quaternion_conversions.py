@@ -6,8 +6,9 @@
 Demonstrates converting quaternions to other attitude representations.
 """
 
-import brahe as bh
 import math
+
+import brahe as bh
 
 # Create a quaternion (45° rotation about Z-axis)
 q = bh.Quaternion.from_rotation_matrix(bh.RotationMatrix.Rz(45, bh.AngleFormat.DEGREES))

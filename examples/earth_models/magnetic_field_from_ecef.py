@@ -5,8 +5,9 @@
 Compute magnetic field along a satellite orbit starting from orbital elements
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

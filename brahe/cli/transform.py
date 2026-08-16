@@ -1,11 +1,12 @@
 from enum import Enum
-import typer
-from typing_extensions import Annotated, Tuple
-from loguru import logger
+from typing import Annotated
+
 import numpy as np
+import typer
+from loguru import logger
 
 import brahe
-from brahe.cli.utils import set_cli_eop, parse_numeric_expression
+from brahe.cli.utils import parse_numeric_expression, set_cli_eop
 
 app = typer.Typer()
 
@@ -83,7 +84,7 @@ def frame(
     ],
     epoch: Annotated[str, typer.Argument(help="Epoch to perform the conversion at")],
     state: Annotated[
-        Tuple[float, float, float, float, float, float],
+        tuple[float, float, float, float, float, float],
         typer.Argument(..., help="The state to convert [x, y, z, vx, vy, vz]"),
     ],
     format_string: Annotated[
@@ -123,7 +124,7 @@ def position(
     ],
     epoch: Annotated[str, typer.Argument(help="Epoch to perform the conversion at")],
     pos: Annotated[
-        Tuple[float, float, float],
+        tuple[float, float, float],
         typer.Argument(..., help="The position to convert [x, y, z]"),
     ],
     format_string: Annotated[
@@ -202,7 +203,7 @@ def coordinates(
         ),
     ],
     state: Annotated[
-        Tuple[float, float, float, float, float, float],
+        tuple[float, float, float, float, float, float],
         typer.Argument(..., help="The state to convert"),
     ],
     from_frame: Annotated[

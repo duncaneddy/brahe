@@ -7,21 +7,21 @@ backends.
 """
 
 import time as _time
-import numpy as np
-import matplotlib.pyplot as plt
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-from loguru import logger
 
-from brahe.plots.backend import validate_backend, apply_scienceplots_style
+import matplotlib.pyplot as plt
+import numpy as np
+import plotly.graph_objects as go
+from loguru import logger
+from plotly.subplots import make_subplots
+
+from brahe.plots.backend import apply_scienceplots_style, validate_backend
 from brahe.plots.estimation_common import (
+    compute_grid_layout,
     compute_time_axis,
     extract_residuals,
     resolve_colors,
     resolve_labels,
-    compute_grid_layout,
 )
-
 
 # =============================================================================
 # Public API — array API: single-panel residual scatter

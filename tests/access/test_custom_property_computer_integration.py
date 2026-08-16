@@ -6,9 +6,10 @@ the location access computation pipeline and that computed properties are
 correctly attached to access windows.
 """
 
-import pytest
-import brahe as bh
 import numpy as np
+import pytest
+
+import brahe as bh
 
 
 class NorthernHemispherePropertyComputer(bh.AccessPropertyComputer):

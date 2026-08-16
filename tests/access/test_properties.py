@@ -9,8 +9,8 @@ The additional properties dict automatically converts Python types.
 """
 
 import pytest
-import brahe as bh
 
+import brahe as bh
 
 # ================================
 # AccessWindow Tests

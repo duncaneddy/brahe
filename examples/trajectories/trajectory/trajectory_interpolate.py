@@ -5,8 +5,9 @@
 Linear interpolation to estimate states at arbitrary epochs
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

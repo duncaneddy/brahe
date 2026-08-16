@@ -5,19 +5,19 @@ Provides polar plots (azimuth/elevation) and elevation profile plots for access 
 """
 
 import time
-from typing import Union
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 import plotly.graph_objects as go
 from loguru import logger
 
-from brahe.plots.backend import validate_backend, apply_scienceplots_style
 from brahe._brahe import KeplerianPropagator, SGPPropagator
+from brahe.plots.backend import apply_scienceplots_style, validate_backend
 
 
 def plot_access_polar(
     access_windows,
-    propagator: Union[KeplerianPropagator, SGPPropagator],
+    propagator: KeplerianPropagator | SGPPropagator,
     min_elevation=0.0,
     num_samples=None,
     time_step=5.0,
@@ -141,7 +141,7 @@ def plot_access_polar(
 
 def plot_access_elevation(
     access_windows,
-    propagator: Union[KeplerianPropagator, SGPPropagator],
+    propagator: KeplerianPropagator | SGPPropagator,
     num_samples=None,
     time_step=5.0,
     backend="matplotlib",
@@ -221,7 +221,7 @@ def plot_access_elevation(
 
 def plot_access_elevation_azimuth(
     access_windows,
-    propagator: Union[KeplerianPropagator, SGPPropagator],
+    propagator: KeplerianPropagator | SGPPropagator,
     num_samples=None,
     time_step=5.0,
     elevation_mask=None,
@@ -345,7 +345,7 @@ def _normalize_access_window_groups(access_windows):
 
 def _access_polar_matplotlib(
     window_groups,
-    propagator: Union[KeplerianPropagator, SGPPropagator],
+    propagator: KeplerianPropagator | SGPPropagator,
     min_elevation,
     num_samples,
     time_step,
@@ -449,7 +449,7 @@ def _access_polar_matplotlib(
 
 def _access_polar_plotly(
     window_groups,
-    propagator: Union[KeplerianPropagator, SGPPropagator],
+    propagator: KeplerianPropagator | SGPPropagator,
     min_elevation,
     num_samples,
     time_step,
@@ -488,7 +488,7 @@ def _access_polar_plotly(
                 theta=fill_theta,
                 fill="toself",
                 fillcolor="rgba(128, 128, 128, 0.2)",
-                line=dict(width=0),
+                line={"width": 0},
                 name="Elevation Mask",
                 showlegend=True,
             )
@@ -534,7 +534,7 @@ def _access_polar_plotly(
                     theta=az_seg,
                     mode="lines",
                     name=seg_label,
-                    line=dict(color=color, width=line_width),
+                    line={"color": color, "width": line_width},
                     showlegend=seg_showlegend,
                 )
             )
@@ -548,7 +548,7 @@ def _access_polar_plotly(
                 theta=[azimuths[0]],
                 mode="markers",
                 name=f"{label} (start)" if label else None,
-                marker=dict(color=color, size=8, symbol="circle"),
+                marker={"color": color, "size": 8, "symbol": "circle"},
                 showlegend=False,
             )
         )
@@ -558,7 +558,7 @@ def _access_polar_plotly(
                 theta=[azimuths[-1]],
                 mode="markers",
                 name=f"{label} (end)" if label else None,
-                marker=dict(color=color, size=8, symbol="square"),
+                marker={"color": color, "size": 8, "symbol": "square"},
                 showlegend=False,
             )
         )
@@ -587,23 +587,23 @@ def _access_polar_plotly(
 
     layout_config = {
         "title": "Access Window Geometry",
-        "polar": dict(
-            bgcolor="rgba(0,0,0,0)",
-            radialaxis=dict(
-                range=radial_range,
-                angle=67.5,  # Position radial tick labels at 67.5 degrees (ENE direction)
-                tickangle=90,
-                tickmode="array",
-                tickvals=tick_positions.tolist(),  # Use offset positions
-                ticktext=tick_labels,  # But show the actual elevation values
-                showline=False,  # Don't draw the radial line
-                showticklabels=True,
-            ),
-            angularaxis=dict(
-                direction="clockwise",
-                rotation=90,
-            ),
-        ),
+        "polar": {
+            "bgcolor": "rgba(0,0,0,0)",
+            "radialaxis": {
+                "range": radial_range,
+                "angle": 67.5,  # Position radial tick labels at 67.5 degrees (ENE direction)
+                "tickangle": 90,
+                "tickmode": "array",
+                "tickvals": tick_positions.tolist(),  # Use offset positions
+                "ticktext": tick_labels,  # But show the actual elevation values
+                "showline": False,  # Don't draw the radial line
+                "showticklabels": True,
+            },
+            "angularaxis": {
+                "direction": "clockwise",
+                "rotation": 90,
+            },
+        },
         "paper_bgcolor": "rgba(0,0,0,0)",
         "plot_bgcolor": "rgba(0,0,0,0)",
     }
@@ -621,7 +621,7 @@ def _access_polar_plotly(
 
 def _access_elevation_matplotlib(
     window_groups,
-    propagator: Union[KeplerianPropagator, SGPPropagator],
+    propagator: KeplerianPropagator | SGPPropagator,
     num_samples,
     time_step,
 ):
@@ -669,7 +669,7 @@ def _access_elevation_matplotlib(
 
 def _access_elevation_plotly(
     window_groups,
-    propagator: Union[KeplerianPropagator, SGPPropagator],
+    propagator: KeplerianPropagator | SGPPropagator,
     num_samples,
     time_step,
     width,
@@ -707,7 +707,7 @@ def _access_elevation_plotly(
                 y=elevations,
                 mode="lines",
                 name=label,
-                line=dict(color=color, width=line_width),
+                line={"color": color, "width": line_width},
             )
         )
 
@@ -718,7 +718,7 @@ def _access_elevation_plotly(
                 y=[elevations[0]],
                 mode="markers",
                 name=f"{label} (start)" if label else None,
-                marker=dict(color=color, size=8, symbol="circle"),
+                marker={"color": color, "size": 8, "symbol": "circle"},
                 showlegend=False,
             )
         )
@@ -728,7 +728,7 @@ def _access_elevation_plotly(
                 y=[elevations[-1]],
                 mode="markers",
                 name=f"{label} (end)" if label else None,
-                marker=dict(color=color, size=8, symbol="square"),
+                marker={"color": color, "size": 8, "symbol": "square"},
                 showlegend=False,
             )
         )
@@ -737,7 +737,7 @@ def _access_elevation_plotly(
         "title": "Elevation Profile",
         "xaxis_title": "Time",
         "yaxis_title": "Elevation (degrees)",
-        "yaxis": dict(range=[0, 90], tickmode="linear", tick0=0, dtick=15),
+        "yaxis": {"range": [0, 90], "tickmode": "linear", "tick0": 0, "dtick": 15},
     }
 
     # Only set width/height if explicitly provided
@@ -753,7 +753,7 @@ def _access_elevation_plotly(
 
 def _access_elevation_azimuth_matplotlib(
     window_groups,
-    propagator: Union[KeplerianPropagator, SGPPropagator],
+    propagator: KeplerianPropagator | SGPPropagator,
     num_samples,
     time_step,
     elevation_mask,
@@ -825,7 +825,7 @@ def _access_elevation_azimuth_matplotlib(
 
 def _access_elevation_azimuth_plotly(
     window_groups,
-    propagator: Union[KeplerianPropagator, SGPPropagator],
+    propagator: KeplerianPropagator | SGPPropagator,
     num_samples,
     time_step,
     elevation_mask,
@@ -848,7 +848,7 @@ def _access_elevation_azimuth_plotly(
                 y=mask_elevations,
                 fill="tozeroy",
                 fillcolor="rgba(128, 128, 128, 0.2)",
-                line=dict(width=0),
+                line={"width": 0},
                 name="Elevation Mask",
                 showlegend=True,
             )
@@ -891,7 +891,7 @@ def _access_elevation_azimuth_plotly(
                     y=el_seg,
                     mode="lines",
                     name=seg_label,
-                    line=dict(color=color, width=line_width),
+                    line={"color": color, "width": line_width},
                     showlegend=seg_showlegend,
                 )
             )
@@ -903,7 +903,7 @@ def _access_elevation_azimuth_plotly(
                 y=[elevations[0]],
                 mode="markers",
                 name=f"{label} (start)" if label else None,
-                marker=dict(color=color, size=8, symbol="circle"),
+                marker={"color": color, "size": 8, "symbol": "circle"},
                 showlegend=False,
             )
         )
@@ -913,7 +913,7 @@ def _access_elevation_azimuth_plotly(
                 y=[elevations[-1]],
                 mode="markers",
                 name=f"{label} (end)" if label else None,
-                marker=dict(color=color, size=8, symbol="square"),
+                marker={"color": color, "size": 8, "symbol": "square"},
                 showlegend=False,
             )
         )
@@ -922,8 +922,8 @@ def _access_elevation_azimuth_plotly(
         "title": "Elevation vs Azimuth",
         "xaxis_title": "Azimuth (degrees)",
         "yaxis_title": "Elevation (degrees)",
-        "xaxis": dict(range=[0, 360]),
-        "yaxis": dict(range=[0, 90], tickmode="linear", tick0=0, dtick=15),
+        "xaxis": {"range": [0, 360]},
+        "yaxis": {"range": [0, 90], "tickmode": "linear", "tick0": 0, "dtick": 15},
     }
 
     # Only set width/height if explicitly provided

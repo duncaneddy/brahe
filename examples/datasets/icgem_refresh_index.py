@@ -10,7 +10,7 @@ published a new model and you don't want to wait for the next normal cache
 miss to pick it up.
 """
 
-import brahe.datasets as datasets
+from brahe import datasets
 
 # Refresh a single body's listing. The Earth listing comes from ICGEM's
 # `tom_longtime` page; all non-Earth bodies share the `tom_celestial` index.

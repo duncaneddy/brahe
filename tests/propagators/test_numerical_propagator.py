@@ -6,13 +6,14 @@ These tests mirror the Rust tests from src/propagators/dnumerical_propagator.rs
 
 import numpy as np
 import pytest
+
 from brahe import (
     Epoch,
-    TimeSystem,
-    NumericalPropagator,
-    NumericalPropagationConfig,
     IntegrationMethod,
     InterpolationMethod,
+    NumericalPropagationConfig,
+    NumericalPropagator,
+    TimeSystem,
 )
 
 
@@ -771,7 +772,7 @@ def test_numericalpropagator_event_time_event():
 
 def test_numericalpropagator_event_value_event():
     """Test value event detection (mirrors Rust test_event_value_event)"""
-    from brahe import ValueEvent, EventDirection
+    from brahe import EventDirection, ValueEvent
 
     epoch = create_test_epoch()
     state = np.array([1.0, 0.0])
@@ -800,7 +801,7 @@ def test_numericalpropagator_event_value_event():
 
 def test_numericalpropagator_event_callback_state_modification():
     """Test event callback that modifies state (mirrors Rust test)"""
-    from brahe import ValueEvent, EventDirection, EventAction
+    from brahe import EventAction, EventDirection, ValueEvent
 
     epoch = create_test_epoch()
     state = np.array([1.0, 0.0])
@@ -836,7 +837,7 @@ def test_numericalpropagator_event_callback_state_modification():
 
 def test_numericalpropagator_event_terminal():
     """Test terminal event stops propagation (mirrors Rust test)"""
-    from brahe import TimeEvent, EventAction
+    from brahe import EventAction, TimeEvent
 
     epoch = create_test_epoch()
     state = np.array([1.0, 0.0])
@@ -920,7 +921,7 @@ def test_numericalpropagator_event_query_in_range():
 
 def test_numericalpropagator_event_clear_and_reset_termination():
     """Test clear_events and reset_termination (mirrors Rust test)"""
-    from brahe import TimeEvent, EventAction
+    from brahe import EventAction, TimeEvent
 
     epoch = create_test_epoch()
     state = np.array([1.0, 0.0])

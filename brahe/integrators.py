@@ -8,21 +8,21 @@ where x is the state vector and f is the dynamics function.
 """
 
 from brahe._brahe import (
-    IntegratorConfig,
     AdaptiveStepResult,
+    DP54Integrator,
+    IntegratorConfig,
     RK4Integrator,
     RKF45Integrator,
     RKF78Integrator,
-    DP54Integrator,
     RKN1210Integrator,
 )
 
 __all__ = [
-    "IntegratorConfig",
     "AdaptiveStepResult",
+    "DP54Integrator",
+    "IntegratorConfig",
     "RK4Integrator",
     "RKF45Integrator",
     "RKF78Integrator",
-    "DP54Integrator",
     "RKN1210Integrator",
 ]

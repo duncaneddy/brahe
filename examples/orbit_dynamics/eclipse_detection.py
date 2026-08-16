@@ -5,8 +5,9 @@
 Determine if a satellite is in Earth's shadow using eclipse models
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Initialize EOP data
 bh.initialize_eop()

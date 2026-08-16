@@ -7,21 +7,22 @@ will be layered on top of these array-API functions.
 """
 
 import time as _time
-import numpy as np
-import matplotlib.pyplot as plt
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-from loguru import logger
 
-from brahe.plots.backend import validate_backend, apply_scienceplots_style
+import matplotlib.pyplot as plt
+import numpy as np
+import plotly.graph_objects as go
+from loguru import logger
+from plotly.subplots import make_subplots
+
+from brahe.plots.backend import apply_scienceplots_style, validate_backend
 from brahe.plots.estimation_common import (
-    resolve_colors,
-    resolve_labels,
     compute_grid_layout,
     compute_time_axis,
+    extract_covariance_sigmas,
     extract_state_errors,
     extract_state_history,
-    extract_covariance_sigmas,
+    resolve_colors,
+    resolve_labels,
 )
 
 

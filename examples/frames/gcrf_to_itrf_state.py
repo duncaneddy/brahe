@@ -5,8 +5,9 @@
 Transform state vector (position and velocity) from GCRF to ITRF
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

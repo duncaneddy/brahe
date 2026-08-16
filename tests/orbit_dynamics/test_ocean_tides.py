@@ -13,8 +13,8 @@ therefore not mirrored here — only the public `OceanTideConfig` /
 """
 
 import numpy as np
-import brahe as bh
 
+import brahe as bh
 
 # ===========================================================================
 # Helpers

@@ -9,7 +9,6 @@ only the native orbitalMotion.elem2rv / rv2elem operation.
 import math
 
 import numpy as np
-
 from Basilisk.utilities import orbitalMotion
 
 from benchmarks.comparative.implementations.basilisk.base import (

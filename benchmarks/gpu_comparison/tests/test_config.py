@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 
-
 from benchmarks.gpu_comparison.config import (
     BRAHE_EOP_FILE,
     BRAHE_GRAVITY_FILE,

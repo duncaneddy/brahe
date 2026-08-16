@@ -7,6 +7,7 @@ Demonstrates different integrators and tolerance settings.
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data

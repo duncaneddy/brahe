@@ -11,12 +11,12 @@ from benchmarks.gpu_comparison.tasks.coordinates_tasks import (
     GeodeticToEcefTask,
     KeplerianToCartesianTask,
 )
+from benchmarks.gpu_comparison.tasks.force_model_tasks import ForceModelGrav5x5Task
+from benchmarks.gpu_comparison.tasks.frames_tasks import GcrfToItrfStateTask
 from benchmarks.gpu_comparison.tasks.propagation_tasks import (
     NumericalTwobodyJ2Task,
     Sgp4IssSweepTask,
 )
-from benchmarks.gpu_comparison.tasks.force_model_tasks import ForceModelGrav5x5Task
-from benchmarks.gpu_comparison.tasks.frames_tasks import GcrfToItrfStateTask
 from benchmarks.gpu_comparison.tasks.time_tasks import UtcMjdToTtMjdTask
 
 register(GeodeticToEcefTask)

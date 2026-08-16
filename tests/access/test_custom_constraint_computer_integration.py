@@ -5,9 +5,10 @@ This test demonstrates that Python-defined constraint computers can be passed to
 the location access computation pipeline and correctly filter access windows.
 """
 
-import brahe as bh
 import numpy as np
 import pytest
+
+import brahe as bh
 
 
 class NorthernHemisphereConstraint(bh.AccessConstraintComputer):

@@ -3,7 +3,6 @@ Python (Brahe) access computation benchmarks.
 """
 
 import brahe
-
 from benchmarks.comparative.implementations.python.base import (
     ensure_eop,
     time_iterations,

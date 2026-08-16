@@ -1,13 +1,15 @@
 from math import sqrt
+
 import numpy as np
 from pytest import approx
+
 from brahe import (
-    Quaternion,
+    AngleFormat,
     EulerAngle,
     EulerAngleOrder,
     EulerAxis,
+    Quaternion,
     RotationMatrix,
-    AngleFormat,
 )
 
 

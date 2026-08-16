@@ -62,6 +62,7 @@ def _detect_cpu_model() -> str:
                 capture_output=True,
                 text=True,
                 timeout=5,
+                check=False,
             )
             if r.returncode == 0:
                 return r.stdout.strip()
@@ -108,6 +109,7 @@ def _detect_cuda_version_from_smi() -> str:
             capture_output=True,
             text=True,
             timeout=10,
+            check=False,
         )
         if r.returncode != 0:
             return "unknown"
@@ -131,6 +133,7 @@ def _detect_gpus() -> list[GPUInfo]:
             capture_output=True,
             text=True,
             timeout=10,
+            check=False,
         )
         if r.returncode != 0:
             return []
@@ -160,7 +163,11 @@ def _detect_gpus() -> list[GPUInfo]:
 def _detect_rust_version() -> str:
     try:
         r = subprocess.run(
-            ["rustc", "--version"], capture_output=True, text=True, timeout=5
+            ["rustc", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
         )
         return r.stdout.strip() if r.returncode == 0 else "unknown"
     except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -178,19 +185,19 @@ def _detect_jax_version() -> str:
 
 def _detect_brahe_version() -> str:
     try:
-        from importlib.metadata import version
+        from importlib.metadata import PackageNotFoundError, version
 
         return version("brahe")
-    except Exception:
+    except PackageNotFoundError:
         return "unknown"
 
 
 def _detect_astrojax_version() -> str:
     try:
-        from importlib.metadata import version
+        from importlib.metadata import PackageNotFoundError, version
 
         return version("astrojax")
-    except Exception:
+    except PackageNotFoundError:
         return "unknown"
 
 
@@ -201,6 +208,7 @@ def _git_sha(repo_path: Path) -> str | None:
             capture_output=True,
             text=True,
             timeout=5,
+            check=False,
         )
         if r.returncode != 0:
             return None

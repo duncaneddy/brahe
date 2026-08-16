@@ -7,8 +7,9 @@ Read an OPM with maneuvers, initialize a propagator, and apply each maneuver
 as an impulsive delta-V at the specified ignition epoch using TimeEvent callbacks.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 from brahe.ccsds import OPM
 
 bh.initialize_eop()

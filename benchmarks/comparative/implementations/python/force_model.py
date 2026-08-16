@@ -13,12 +13,11 @@ Each task either:
 This isolates the force-model code from the propagator/integrator.
 """
 
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
 
 import brahe
-
 from benchmarks.comparative.implementations.python.base import (
     ensure_eop,
     time_iterations,

@@ -7,6 +7,7 @@ Demonstrates defining and attaching callbacks to event detectors.
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data

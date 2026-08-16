@@ -7,6 +7,7 @@ and estimation_marginal plot modules.
 """
 
 import math
+
 import numpy as np
 
 DEFAULT_COLORS = [
@@ -69,13 +70,15 @@ def compute_time_axis(epochs, time_units="seconds", orbital_period=None):
     if time_units == "epoch":
         return epochs, "Epoch"
 
-    if isinstance(time_units, str):
-        raise ValueError(
-            f"Unknown time_units '{time_units}'. "
-            f"Valid options are: {_VALID_TIME_UNITS} or a callable."
+    if not isinstance(time_units, str):
+        raise TypeError(
+            f"time_units must be a string or callable, got {type(time_units)}"
         )
 
-    raise ValueError(f"time_units must be a string or callable, got {type(time_units)}")
+    raise ValueError(
+        f"Unknown time_units '{time_units}'. "
+        f"Valid options are: {_VALID_TIME_UNITS} or a callable."
+    )
 
 
 def extract_state_history(solver):

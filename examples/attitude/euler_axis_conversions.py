@@ -6,9 +6,11 @@
 Demonstrates converting Euler axis to other attitude representations.
 """
 
-import brahe as bh
-import numpy as np
 import math
+
+import numpy as np
+
+import brahe as bh
 
 # Create an Euler axis (45° rotation about Z-axis)
 ea = bh.EulerAxis(np.array([0.0, 0.0, 1.0]), math.radians(45.0), bh.AngleFormat.RADIANS)

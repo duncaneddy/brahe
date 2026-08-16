@@ -1,10 +1,9 @@
 """Tests for GCAT Python bindings."""
 
-import pytest
 import polars as pl
+import pytest
 
-import brahe.datasets as datasets
-
+from brahe import datasets
 
 # ─── CI tests (live downloads) ──────────────────────────────────────
 

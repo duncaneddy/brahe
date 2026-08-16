@@ -2,8 +2,9 @@
 Tests for RKN1210 (Runge-Kutta-Nyström 12(10)) integrator - mirrors Rust tests.
 """
 
-import pytest
 import numpy as np
+import pytest
+
 import brahe as bh
 
 
@@ -29,7 +30,7 @@ class TestRKN1210Integrator:
 
         def dynamics(t, state):
             """State: [x, v], dynamics: [v, a] where a = 2.0"""
-            x, v = state
+            _x, v = state
             return np.array([v, 2.0])
 
         config = bh.IntegratorConfig.adaptive(1e-10, 1e-8)
@@ -84,7 +85,7 @@ class TestRKN1210Integrator:
 
         def dynamics(t, state):
             """[x, v] -> [v, a] where a = 2.0 (constant acceleration)"""
-            x, v = state
+            _x, v = state
             return np.array([v, 2.0])
 
         config = bh.IntegratorConfig.adaptive(1e-10, 1e-8)
@@ -173,7 +174,7 @@ class TestRKN1210Integrator:
 
         def analytical_sensitivity(t, state, params):
             """Sensitivity: d/dk(-k*x) = -x for the acceleration component"""
-            x, v = state
+            x, _v = state
             return np.array([[0.0], [-x]])
 
         jacobian = bh.NumericalJacobian(
@@ -211,7 +212,7 @@ class TestRKN1210Integrator:
             return np.array([v, -k * x])
 
         def analytical_sensitivity(t, state, params):
-            x, v = state
+            x, _v = state
             return np.array([[0.0], [-x]])
 
         jacobian = bh.NumericalJacobian(

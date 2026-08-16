@@ -7,6 +7,7 @@ Demonstrates the highest-accuracy integrator for precision requirements.
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data

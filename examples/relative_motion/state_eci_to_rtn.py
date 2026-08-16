@@ -5,8 +5,9 @@
 Transform chief and deputy satellite states from ECI to relative RTN coordinates
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

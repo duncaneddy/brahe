@@ -8,8 +8,9 @@ This example shows how DP54 automatically adjusts step size to maintain
 specified error tolerances.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Define dynamics: Van der Pol oscillator (stiff for large mu)
 mu = 1.0

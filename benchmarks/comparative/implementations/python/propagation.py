@@ -5,7 +5,6 @@ Python (Brahe) propagation benchmarks.
 import numpy as np
 
 import brahe
-
 from benchmarks.comparative.implementations.python.base import (
     ensure_eop,
     ensure_sw,

@@ -5,7 +5,6 @@ Python (Brahe) frame transformation benchmarks.
 import numpy as np
 
 import brahe
-
 from benchmarks.comparative.implementations.python.base import (
     ensure_eop,
     time_iterations,

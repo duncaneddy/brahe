@@ -5,8 +5,9 @@
 Query the temporal extent of a trajectory
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

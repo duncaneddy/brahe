@@ -14,9 +14,7 @@ from pathlib import Path
 import numpy as np
 
 import brahe
-
 from benchmarks.comparative.results import TaskResult
-
 
 _GMAT_INITIALIZED = False
 
@@ -59,7 +57,7 @@ def _ensure_gmat() -> None:
     if bin_dir not in sys.path:
         sys.path.insert(1, bin_dir)
 
-    import gmatpy as gmat  # noqa: F401  (side-effect: triggers FileManager init)
+    import gmatpy as gmat
 
     gmat.Setup(str(startup))
     _GMAT_INITIALIZED = True

@@ -6,8 +6,9 @@ Demonstrates the basic pattern for using a fixed-step integrator
 with exponential decay dynamics.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 def dynamics(t, state):

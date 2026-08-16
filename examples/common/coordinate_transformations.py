@@ -7,8 +7,9 @@ using the Brahe library. It shows how you can convert between Keplerian elements
 the Earth-Centered Earth-Fixed (ECEF) coordinate system and vice versa.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Initialize Earth Orientation Parameter data
 bh.initialize_eop()

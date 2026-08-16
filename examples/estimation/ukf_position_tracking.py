@@ -9,6 +9,7 @@ points through the nonlinear dynamics instead of linearizing with STM.
 """
 
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()

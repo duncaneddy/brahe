@@ -28,91 +28,90 @@ All functionality is re-exported at the top level for convenience, so you can us
 from typing import TYPE_CHECKING
 
 # Import core native module
-from brahe import _brahe
+# Import and create submodules
+from brahe import (
+    _brahe,
+    access,
+    attitude,
+    celestrak,
+    constants,
+    coordinates,
+    datasets,
+    eop,
+    estimation,
+    events,
+    frames,
+    integrators,
+    logging,
+    math,
+    orbit_dynamics,
+    orbits,
+    propagators,
+    relative_motion,
+    space_weather,
+    spacetrack,
+    spice,
+    time,
+    trajectories,
+    utils,
+)
 
 # Re-export PanicException for testing and BraheError for error handling
 from brahe._brahe import BraheError, PanicException
-
-# Import and create submodules
-from brahe import (
-    time,
-    orbits,
-    propagators,
-    coordinates,
-    frames,
-    eop,
-    space_weather,
-    attitude,
-    trajectories,
-    constants,
-    datasets,
-    access,
-    relative_motion,
-    math,
-    integrators,
-    utils,
-    logging,
-    orbit_dynamics,
-    events,
-    spacetrack,
-    celestrak,
-    estimation,
-    spice,
-)
+from brahe.access import *
+from brahe.attitude import *
+from brahe.constants import *
+from brahe.coordinates import *
+from brahe.datasets import *
+from brahe.eop import *
+from brahe.estimation import *
+from brahe.events import *
+from brahe.frames import *
+from brahe.integrators import *
+from brahe.math import *
+from brahe.orbit_dynamics import *
+from brahe.orbits import *
+from brahe.propagators import *
+from brahe.relative_motion import *
+from brahe.space_weather import *
+from brahe.spacetrack import *
+from brahe.spice import *
 
 # Re-export everything from submodules
 from brahe.time import *
-from brahe.orbits import *
-from brahe.propagators import *
-from brahe.coordinates import *
-from brahe.frames import *
-from brahe.eop import *
-from brahe.space_weather import *
-from brahe.attitude import *
 from brahe.trajectories import *
-from brahe.constants import *
-from brahe.access import *
-from brahe.relative_motion import *
-from brahe.math import *
-from brahe.integrators import *
 from brahe.utils import *
-from brahe.datasets import *
-from brahe.orbit_dynamics import *
-from brahe.events import *
-from brahe.spacetrack import *
-from brahe.estimation import *
-from brahe.spice import *
 
 # Define what's available when doing 'from brahe import *'
 __all__ = [
-    # Submodules
-    "time",
-    "orbits",
-    "propagators",
-    "coordinates",
-    "frames",
-    "eop",
-    "space_weather",
-    "attitude",
-    "trajectories",
-    "constants",
-    "datasets",
-    "access",
-    "relative_motion",
-    "math",
-    "integrators",
-    "utils",
-    "plots",  # noqa: F405
-    "logging",
-    "orbit_dynamics",
-    "events",
-    "spacetrack",
-    "celestrak",
-    "estimation",
-    "spice",
     # Exceptions
     "BraheError",
     "PanicException",
+    "access",
+    "attitude",
+    "celestrak",
+    "constants",
+    "coordinates",
+    "datasets",
+    "eop",
+    "estimation",
+    "events",
+    "frames",
+    "integrators",
+    "logging",
+    "math",
+    "orbit_dynamics",
+    "orbits",
+    "plots",
+    "propagators",
+    "relative_motion",
+    "space_weather",
+    "spacetrack",
+    "spice",
+    # Submodules
+    "time",
+    "trajectories",
+    "utils",
 ]
 
 # Extend __all__ with exports from submodules
@@ -150,31 +149,83 @@ __version__ = _brahe.__version__
 if TYPE_CHECKING:
     from brahe.plots import (
         plot_access_elevation as plot_access_elevation,
+    )
+    from brahe.plots import (
         plot_access_elevation_azimuth as plot_access_elevation_azimuth,
+    )
+    from brahe.plots import (
         plot_access_polar as plot_access_polar,
+    )
+    from brahe.plots import (
         plot_cartesian_trajectory as plot_cartesian_trajectory,
+    )
+    from brahe.plots import (
         plot_earth_moon_rotating_3d as plot_earth_moon_rotating_3d,
+    )
+    from brahe.plots import (
         plot_estimator_marginal as plot_estimator_marginal,
+    )
+    from brahe.plots import (
         plot_estimator_marginal_from_arrays as plot_estimator_marginal_from_arrays,
+    )
+    from brahe.plots import (
         plot_estimator_state_error as plot_estimator_state_error,
+    )
+    from brahe.plots import (
         plot_estimator_state_error_from_arrays as plot_estimator_state_error_from_arrays,
+    )
+    from brahe.plots import (
         plot_estimator_state_error_grid as plot_estimator_state_error_grid,
+    )
+    from brahe.plots import (
         plot_estimator_state_error_grid_from_arrays as plot_estimator_state_error_grid_from_arrays,
+    )
+    from brahe.plots import (
         plot_estimator_state_value as plot_estimator_state_value,
+    )
+    from brahe.plots import (
         plot_estimator_state_value_from_arrays as plot_estimator_state_value_from_arrays,
+    )
+    from brahe.plots import (
         plot_estimator_state_value_grid as plot_estimator_state_value_grid,
+    )
+    from brahe.plots import (
         plot_estimator_state_value_grid_from_arrays as plot_estimator_state_value_grid_from_arrays,
+    )
+    from brahe.plots import (
         plot_gabbard_diagram as plot_gabbard_diagram,
+    )
+    from brahe.plots import (
         plot_groundtrack as plot_groundtrack,
+    )
+    from brahe.plots import (
         plot_keplerian_trajectory as plot_keplerian_trajectory,
+    )
+    from brahe.plots import (
         plot_measurement_residual as plot_measurement_residual,
+    )
+    from brahe.plots import (
         plot_measurement_residual_from_arrays as plot_measurement_residual_from_arrays,
+    )
+    from brahe.plots import (
         plot_measurement_residual_grid as plot_measurement_residual_grid,
+    )
+    from brahe.plots import (
         plot_measurement_residual_grid_from_arrays as plot_measurement_residual_grid_from_arrays,
+    )
+    from brahe.plots import (
         plot_measurement_residual_rms as plot_measurement_residual_rms,
+    )
+    from brahe.plots import (
         plot_measurement_residual_rms_from_arrays as plot_measurement_residual_rms_from_arrays,
+    )
+    from brahe.plots import (
         plot_synodic_3d as plot_synodic_3d,
+    )
+    from brahe.plots import (
         plot_trajectory_3d as plot_trajectory_3d,
+    )
+    from brahe.plots import (
         split_ground_track_at_antimeridian as split_ground_track_at_antimeridian,
     )
 

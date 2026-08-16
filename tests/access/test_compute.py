@@ -7,6 +7,7 @@ items and lists for locations and propagators.
 
 import numpy as np
 import pytest
+
 import brahe as bh
 
 
@@ -789,14 +790,14 @@ def test_subdivision_config_validation():
         bh.SubdivisionConfig(count=4, duration=30.0)
 
     # Invalid duration
-    with pytest.raises(Exception):
+    with pytest.raises(bh.BraheError):
         bh.SubdivisionConfig(duration=-1.0)
 
-    with pytest.raises(Exception):
+    with pytest.raises(bh.BraheError):
         bh.SubdivisionConfig(duration=0.0)
 
     # Invalid offset
-    with pytest.raises(Exception):
+    with pytest.raises(bh.BraheError):
         bh.SubdivisionConfig(duration=30.0, offset=-1.0)
 
     # Negative gap is allowed (overlapping), but must be > -duration
@@ -804,10 +805,10 @@ def test_subdivision_config_validation():
     assert config.gap == pytest.approx(-5.0)
 
     # gap <= -duration would cause infinite loop
-    with pytest.raises(Exception):
+    with pytest.raises(bh.BraheError):
         bh.SubdivisionConfig(duration=30.0, gap=-30.0)
 
-    with pytest.raises(Exception):
+    with pytest.raises(bh.BraheError):
         bh.SubdivisionConfig(duration=30.0, gap=-31.0)
 
 

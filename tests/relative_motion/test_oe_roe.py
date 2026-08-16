@@ -4,9 +4,10 @@ Tests for Relative Orbital Elements (ROE) transformations.
 These tests mirror the Rust tests in src/relative_motion/oe_roe.rs
 """
 
-import brahe
 import numpy as np
 from pytest import approx
+
+import brahe
 
 
 def test_state_oe_to_roe_degrees(eop):

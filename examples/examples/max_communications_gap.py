@@ -22,16 +22,18 @@ uplink) and latency (time from collection to delivery) for satellite imaging con
 
 # --8<-- [start:all]
 # --8<-- [start:preamble]
-import time
 import csv
 import os
 import pathlib
 import sys
-import brahe as bh
+import time
+
+import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
 import numpy as np
 import plotly.graph_objects as go
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
+
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -139,8 +141,8 @@ for window in windows:
     spacecraft_windows[sat_name].append(window)
 
 # Sort each spacecraft's windows by start time
-for sat_name in spacecraft_windows:
-    spacecraft_windows[sat_name].sort(key=lambda w: w.start.jd())
+for windows in spacecraft_windows.values():
+    windows.sort(key=lambda w: w.start.jd())
 
 # Compute gaps between consecutive contacts
 gaps = []
@@ -252,23 +254,23 @@ fig_histogram.update_layout(
     xaxis_title="Gap Duration (hours)",
     yaxis_title="Frequency",
     height=700,
-    margin=dict(l=60, r=40, t=80, b=60),
+    margin={"l": 60, "r": 40, "t": 80, "b": 60},
     annotations=[
-        dict(
-            text=f"Mean: {bh.format_time_string(mean_gap)}<br>"
+        {
+            "text": f"Mean: {bh.format_time_string(mean_gap)}<br>"
             f"Median: {bh.format_time_string(median_gap)}<br>"
             f"Max: {bh.format_time_string(max_gap)}",
-            xref="paper",
-            yref="paper",
-            x=0.95,
-            y=0.97,
-            xanchor="right",
-            yanchor="top",
-            showarrow=False,
-            bordercolor="grey",
-            borderwidth=1,
-            borderpad=8,
-        )
+            "xref": "paper",
+            "yref": "paper",
+            "x": 0.95,
+            "y": 0.97,
+            "xanchor": "right",
+            "yanchor": "top",
+            "showarrow": False,
+            "bordercolor": "grey",
+            "borderwidth": 1,
+            "borderpad": 8,
+        }
     ],
 )
 # --8<-- [end:gap_statistics]
@@ -291,7 +293,7 @@ fig_cumulative = go.Figure(
             x=sorted_gap_durations_hours,
             y=cumulative_percentages,
             mode="lines",
-            line=dict(color="steelblue", width=2.5),
+            line={"color": "steelblue", "width": 2.5},
             hovertemplate="Gap Duration: %{x:.2f} hours<br>Cumulative: %{y:.1f}%<extra></extra>",
         )
     ]
@@ -310,39 +312,39 @@ annotations = []
 for percentile, value in percentile_values.items():
     # Add horizontal line
     shapes.append(
-        dict(
-            type="line",
-            x0=0,
-            x1=value,
-            y0=percentile,
-            y1=percentile,
-            line=dict(color="rgba(128, 128, 128, 0.3)", width=1, dash="dash"),
-        )
+        {
+            "type": "line",
+            "x0": 0,
+            "x1": value,
+            "y0": percentile,
+            "y1": percentile,
+            "line": {"color": "rgba(128, 128, 128, 0.3)", "width": 1, "dash": "dash"},
+        }
     )
     # Add vertical line
     shapes.append(
-        dict(
-            type="line",
-            x0=value,
-            x1=value,
-            y0=0,
-            y1=percentile,
-            line=dict(color="rgba(128, 128, 128, 0.3)", width=1, dash="dash"),
-        )
+        {
+            "type": "line",
+            "x0": value,
+            "x1": value,
+            "y0": 0,
+            "y1": percentile,
+            "line": {"color": "rgba(128, 128, 128, 0.3)", "width": 1, "dash": "dash"},
+        }
     )
     # Add annotation
     annotations.append(
-        dict(
-            x=value,
-            y=percentile,
-            text=f"P{percentile}: {value:.2f}h",
-            showarrow=False,
-            xanchor="left",
-            yanchor="bottom",
-            xshift=5,
-            yshift=5,
-            font=dict(size=9, color="gray"),
-        )
+        {
+            "x": value,
+            "y": percentile,
+            "text": f"P{percentile}: {value:.2f}h",
+            "showarrow": False,
+            "xanchor": "left",
+            "yanchor": "bottom",
+            "xshift": 5,
+            "yshift": 5,
+            "font": {"size": 9, "color": "gray"},
+        }
     )
 
 fig_cumulative.update_layout(
@@ -350,10 +352,10 @@ fig_cumulative.update_layout(
     xaxis_title="Gap Duration (hours)",
     yaxis_title="Cumulative Percentage (%)",
     height=700,
-    margin=dict(l=60, r=40, t=80, b=60),
+    margin={"l": 60, "r": 40, "t": 80, "b": 60},
     shapes=shapes,
     annotations=annotations,
-    yaxis=dict(range=[0, 105]),
+    yaxis={"range": [0, 105]},
 )
 # --8<-- [end:cumulative_distribution]
 
@@ -536,7 +538,7 @@ print(f"Created ground track visualization in {elapsed:.2f} seconds.")
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save the 3D constellation figure
 light_path, dark_path = save_themed_html(

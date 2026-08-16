@@ -4,8 +4,9 @@ Tests for Harris-Priester atmospheric density model.
 Tests mirror the Rust implementation in src/earth_models/harris_priester.rs
 """
 
-import pytest
 import numpy as np
+import pytest
+
 import brahe as bh
 
 

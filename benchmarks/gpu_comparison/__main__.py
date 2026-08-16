@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -21,14 +20,13 @@ from benchmarks.gpu_comparison.config import RESULTS_DIR
 from benchmarks.gpu_comparison.registry import filter_tasks
 from benchmarks.gpu_comparison.runner import run_one_cell, run_suite
 
-
 app = typer.Typer(add_completion=False, help="brahe vs astrojax GPU benchmark suite")
 console = Console()
 
 
 @app.command("list")
 def cmd_list(
-    module: Optional[str] = typer.Option(None, help="Filter by module"),
+    module: str | None = typer.Option(None, help="Filter by module"),
 ):
     import benchmarks.gpu_comparison.tasks.register_all  # noqa: F401 — populates registry
 
@@ -49,9 +47,9 @@ def cmd_list(
 
 @app.command()
 def run(
-    module: Optional[str] = typer.Option(None),
-    task: Optional[str] = typer.Option(None, help="Run a single task by name"),
-    config: Optional[list[str]] = typer.Option(
+    module: str | None = typer.Option(None),
+    task: str | None = typer.Option(None, help="Run a single task by name"),
+    config: list[str] | None = typer.Option(
         None,
         help="Restrict to these configs (repeatable)",
     ),

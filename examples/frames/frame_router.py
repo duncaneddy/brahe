@@ -5,8 +5,9 @@
 Route an orbital state between frames with different centers via the frame router.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Initialize EOP and the DE440s ephemeris used to re-center GCRF (Earth) to
 # LCI (Moon) inside the router.

@@ -11,8 +11,9 @@ Replace this with actual visualization.
 import os
 import pathlib
 import sys
-import plotly.graph_objects as go
+
 import numpy as np
+import plotly.graph_objects as go
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
@@ -44,7 +45,7 @@ def create_figure(theme):
             y=y,
             name="Data",
             mode="lines",
-            line=dict(color=colors["primary"], width=2),
+            line={"color": colors["primary"], "width": 2},
         )
     )
 

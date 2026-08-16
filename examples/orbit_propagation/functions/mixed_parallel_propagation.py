@@ -10,8 +10,9 @@ propagated in parallel, which is useful for constellation analysis and Monte
 Carlo simulations that combine analytic and SGP4 orbit models.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

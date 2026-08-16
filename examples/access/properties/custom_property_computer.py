@@ -5,8 +5,9 @@
 Compute custom properties during access searches using property computers
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

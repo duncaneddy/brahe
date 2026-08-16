@@ -9,9 +9,11 @@ Demonstrates how velocity decreases and period increases with altitude.
 import os
 import pathlib
 import sys
+
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
@@ -52,7 +54,7 @@ def create_figure(theme):
             x=alt / 1e6,
             y=vp,
             mode="lines",
-            line=dict(color=colors["primary"], width=2),
+            line={"color": colors["primary"], "width": 2},
             name="Velocity",
             showlegend=True,
         ),
@@ -65,7 +67,7 @@ def create_figure(theme):
             x=alt / 1e6,
             y=period,
             mode="lines",
-            line=dict(color=colors["secondary"], width=2),
+            line={"color": colors["secondary"], "width": 2},
             name="Orbital Period",
             showlegend=True,
         ),

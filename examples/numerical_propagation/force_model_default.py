@@ -7,6 +7,7 @@ Includes 20x20 gravity, Harris-Priester drag, SRP, and Sun/Moon third-body.
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP and space weather data (required for NRLMSISE-00 drag model)

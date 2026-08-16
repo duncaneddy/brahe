@@ -5,14 +5,15 @@ Provides 2D plots of Keplerian and Cartesian orbital elements over time.
 """
 
 import time
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 from loguru import logger
+from plotly.subplots import make_subplots
 
 import brahe as bh
-from brahe.plots.backend import validate_backend, apply_scienceplots_style
+from brahe.plots.backend import apply_scienceplots_style, validate_backend
 
 
 def plot_cartesian_trajectory(
@@ -629,7 +630,7 @@ def _cartesian_elements_plotly(
                 y=pos_x,
                 mode="lines",
                 name=label,
-                line=dict(color=color),
+                line={"color": color},
                 showlegend=True,
             ),
             row=1,
@@ -641,7 +642,7 @@ def _cartesian_elements_plotly(
                 y=pos_y,
                 mode="lines",
                 name=label,
-                line=dict(color=color),
+                line={"color": color},
                 showlegend=False,
             ),
             row=1,
@@ -653,7 +654,7 @@ def _cartesian_elements_plotly(
                 y=pos_z,
                 mode="lines",
                 name=label,
-                line=dict(color=color),
+                line={"color": color},
                 showlegend=False,
             ),
             row=1,
@@ -667,7 +668,7 @@ def _cartesian_elements_plotly(
                 y=vel_x,
                 mode="lines",
                 name=label,
-                line=dict(color=color),
+                line={"color": color},
                 showlegend=False,
             ),
             row=2,
@@ -679,7 +680,7 @@ def _cartesian_elements_plotly(
                 y=vel_y,
                 mode="lines",
                 name=label,
-                line=dict(color=color),
+                line={"color": color},
                 showlegend=False,
             ),
             row=2,
@@ -691,7 +692,7 @@ def _cartesian_elements_plotly(
                 y=vel_z,
                 mode="lines",
                 name=label,
-                line=dict(color=color),
+                line={"color": color},
                 showlegend=False,
             ),
             row=2,
@@ -1149,7 +1150,7 @@ def _keplerian_elements_plotly(
                 y=a_arr,
                 mode="lines",
                 name=label,
-                line=dict(color=color),
+                line={"color": color},
                 showlegend=True,
             ),
             row=1,
@@ -1161,7 +1162,7 @@ def _keplerian_elements_plotly(
                 y=e_arr,
                 mode="lines",
                 name=label,
-                line=dict(color=color),
+                line={"color": color},
                 showlegend=False,
             ),
             row=1,
@@ -1173,7 +1174,7 @@ def _keplerian_elements_plotly(
                 y=i_arr,
                 mode="lines",
                 name=label,
-                line=dict(color=color),
+                line={"color": color},
                 showlegend=False,
             ),
             row=1,
@@ -1185,7 +1186,7 @@ def _keplerian_elements_plotly(
                 y=raan_arr,
                 mode="lines",
                 name=label,
-                line=dict(color=color),
+                line={"color": color},
                 showlegend=False,
             ),
             row=2,
@@ -1197,7 +1198,7 @@ def _keplerian_elements_plotly(
                 y=argp_arr,
                 mode="lines",
                 name=label,
-                line=dict(color=color),
+                line={"color": color},
                 showlegend=False,
             ),
             row=2,
@@ -1209,7 +1210,7 @@ def _keplerian_elements_plotly(
                 y=anom_arr,
                 mode="lines",
                 name=label,
-                line=dict(color=color),
+                line={"color": color},
                 showlegend=False,
             ),
             row=2,

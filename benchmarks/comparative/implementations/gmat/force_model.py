@@ -33,7 +33,7 @@ Note: fm.SetSpacecraft() does NOT exist in gmatpy R2026a; the spacecraft is
 passed directly to GetDerivativesForSpacecraft().
 """
 
-from typing import Callable
+from collections.abc import Callable
 
 from benchmarks.comparative.implementations.gmat.base import (
     build_task_result,

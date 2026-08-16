@@ -5,8 +5,9 @@
 Convert chief satellite orbital elements and ROE to deputy satellite orbital elements
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

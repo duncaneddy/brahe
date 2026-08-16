@@ -1,14 +1,16 @@
 from math import sqrt
+
 import numpy as np
 import pytest
+
 from brahe import (
+    AngleFormat,
     BraheError,
-    Quaternion,
     EulerAngle,
     EulerAngleOrder,
     EulerAxis,
+    Quaternion,
     RotationMatrix,
-    AngleFormat,
     Rx,
     Ry,
     Rz,

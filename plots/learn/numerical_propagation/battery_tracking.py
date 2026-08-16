@@ -8,14 +8,16 @@ fraction during LEO orbit, demonstrating eclipse/sunlit cycles.
 import os
 import pathlib
 import sys
-import brahe as bh
+
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+import brahe as bh
+
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
-from brahe_theme import save_themed_html, get_theme_colors
+from brahe_theme import get_theme_colors, save_themed_html
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -62,9 +64,12 @@ def additional_dynamics(t, state, params):
 
     # Apply battery limits
     charge = state[6]
-    if charge >= battery_capacity and charge_rate > 0:
-        charge_rate = 0.0
-    elif charge <= 0 and charge_rate < 0:
+    if (
+        charge >= battery_capacity
+        and charge_rate > 0
+        or charge <= 0
+        and charge_rate < 0
+    ):
         charge_rate = 0.0
 
     dx[6] = charge_rate
@@ -153,7 +158,7 @@ def create_figure(theme):
             y=charge_vals,
             mode="lines",
             name="Battery Charge",
-            line=dict(color=colors["primary"], width=3),
+            line={"color": colors["primary"], "width": 3},
         ),
         secondary_y=False,
     )
@@ -165,7 +170,7 @@ def create_figure(theme):
             y=illumination_vals,
             mode="lines",
             name="Illumination",
-            line=dict(color=colors["secondary"], width=1),
+            line={"color": colors["secondary"], "width": 1},
             fill="tozeroy",
             fillcolor="rgba(255, 165, 0, 0.15)"
             if theme == "light"
@@ -210,16 +215,16 @@ def create_figure(theme):
         title=f"Battery Charge with Eclipse Cycles (LEO, {num_orbits} orbits)",
         xaxis_title="Time (min)",
         height=500,
-        margin=dict(l=60, r=80, t=80, b=60),
-        legend=dict(
-            yanchor="top",
-            y=0.99,
-            xanchor="left",
-            x=0.01,
-            bgcolor="rgba(255,255,255,0.8)"
+        margin={"l": 60, "r": 80, "t": 80, "b": 60},
+        legend={
+            "yanchor": "top",
+            "y": 0.99,
+            "xanchor": "left",
+            "x": 0.01,
+            "bgcolor": "rgba(255,255,255,0.8)"
             if theme == "light"
             else "rgba(30,30,30,0.8)",
-        ),
+        },
     )
 
     # Update y-axes
@@ -247,7 +252,7 @@ def create_figure(theme):
         yref="paper",
         text=summary_text,
         showarrow=False,
-        font=dict(size=11),
+        font={"size": 11},
         align="right",
         bordercolor="gray",
         borderwidth=1,
@@ -266,7 +271,7 @@ def create_figure(theme):
             yref="paper",
             text="Eclipse",
             showarrow=False,
-            font=dict(size=10, color=colors["font_color"]),
+            font={"size": 10, "color": colors["font_color"]},
         )
 
     return fig

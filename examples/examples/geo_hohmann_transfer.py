@@ -237,7 +237,7 @@ fig_geometry.add_trace(
         y=earth_y.tolist(),
         fill="toself",
         fillcolor="lightblue",
-        line=dict(color="steelblue", width=1),
+        line={"color": "steelblue", "width": 1},
         name="Earth",
         hoverinfo="name",
     )
@@ -249,7 +249,7 @@ fig_geometry.add_trace(
         x=leo_x.tolist(),
         y=leo_y.tolist(),
         mode="lines",
-        line=dict(color="blue", width=2, dash="dash"),
+        line={"color": "blue", "width": 2, "dash": "dash"},
         name=f"LEO ({(r_leo - bh.R_EARTH) / 1e3:.0f} km)",
     )
 )
@@ -260,7 +260,7 @@ fig_geometry.add_trace(
         x=geo_x.tolist(),
         y=geo_y.tolist(),
         mode="lines",
-        line=dict(color="green", width=2, dash="dash"),
+        line={"color": "green", "width": 2, "dash": "dash"},
         name=f"GEO ({(r_geo - bh.R_EARTH) / 1e3:.0f} km)",
     )
 )
@@ -271,7 +271,7 @@ fig_geometry.add_trace(
         x=transfer_x.tolist(),
         y=transfer_y.tolist(),
         mode="lines",
-        line=dict(color="red", width=3),
+        line={"color": "red", "width": 3},
         name="Transfer Orbit",
     )
 )
@@ -282,10 +282,10 @@ fig_geometry.add_trace(
         x=[r_leo / 1e3],
         y=[0],
         mode="markers+text",
-        marker=dict(size=15, color="red", symbol="star"),
+        marker={"size": 15, "color": "red", "symbol": "star"},
         text=[f"Burn 1<br>{dv1 / 1e3:.2f} km/s"],
         textposition="bottom right",
-        textfont=dict(size=10),
+        textfont={"size": 10},
         name="Burn 1",
         showlegend=False,
     )
@@ -297,10 +297,10 @@ fig_geometry.add_trace(
         x=[-r_geo / 1e3],
         y=[0],
         mode="markers+text",
-        marker=dict(size=15, color="red", symbol="star"),
+        marker={"size": 15, "color": "red", "symbol": "star"},
         text=[f"Burn 2<br>{dv2 / 1e3:.2f} km/s"],
         textposition="top left",
-        textfont=dict(size=10),
+        textfont={"size": 10},
         name="Burn 2",
         showlegend=False,
     )
@@ -312,9 +312,9 @@ fig_geometry.update_layout(
     yaxis_title="Y (km)",
     yaxis_scaleanchor="x",
     showlegend=True,
-    legend=dict(x=0.02, y=0.98),
+    legend={"x": 0.02, "y": 0.98},
     height=600,
-    margin=dict(l=60, r=40, t=60, b=60),
+    margin={"l": 60, "r": 40, "t": 60, "b": 60},
 )
 # --8<-- [end:orbit_geometry_plot]
 
@@ -327,7 +327,7 @@ fig_altitude.add_trace(
         x=times_hours,
         y=altitudes_km,
         mode="lines",
-        line=dict(color="blue", width=2),
+        line={"color": "blue", "width": 2},
         name="Altitude",
     )
 )
@@ -375,7 +375,7 @@ fig_altitude.update_layout(
     yaxis_title="Altitude (km)",
     showlegend=False,
     height=500,
-    margin=dict(l=60, r=40, t=60, b=60),
+    margin={"l": 60, "r": 40, "t": 60, "b": 60},
 )
 # --8<-- [end:altitude_profile_plot]
 
@@ -388,7 +388,7 @@ fig_velocity.add_trace(
         x=times_hours,
         y=velocities_km_s,
         mode="lines",
-        line=dict(color="blue", width=2),
+        line={"color": "blue", "width": 2},
         name="Velocity",
     )
 )
@@ -433,7 +433,7 @@ fig_velocity.update_layout(
     yaxis_title="Velocity (km/s)",
     showlegend=False,
     height=500,
-    margin=dict(l=60, r=40, t=60, b=60),
+    margin={"l": 60, "r": 40, "t": 60, "b": 60},
 )
 # --8<-- [end:velocity_profile_plot]
 
@@ -453,7 +453,7 @@ print(f"  Final eccentricity: {final_koe[1]:.6f}")
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save themed figures
 light_path, dark_path = save_themed_html(

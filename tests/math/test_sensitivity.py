@@ -5,6 +5,7 @@ Tests numerical and analytical sensitivity providers (∂f/∂p).
 """
 
 import numpy as np
+
 import brahe as bh
 
 

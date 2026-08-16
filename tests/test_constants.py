@@ -1,7 +1,8 @@
-import brahe
 import math
 
 import pytest
+
+import brahe
 
 
 def test_deg2rad():

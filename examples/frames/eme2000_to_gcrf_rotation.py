@@ -5,8 +5,9 @@
 Get EME2000 to GCRF rotation matrix and use it to transform position vectors
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Get constant rotation matrix from EME2000 to GCRF
 R_eme2000_to_gcrf = bh.rotation_eme2000_to_gcrf()

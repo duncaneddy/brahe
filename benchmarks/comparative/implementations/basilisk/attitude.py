@@ -16,7 +16,6 @@ Conventions:
 """
 
 import numpy as np
-
 from Basilisk.utilities import RigidBodyKinematics as rbk
 
 from benchmarks.comparative.implementations.basilisk.base import (

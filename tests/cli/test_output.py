@@ -1,27 +1,26 @@
 """Tests for the shared CLI output module."""
 
 import json
-
-import pytest
-from typer import Exit
 from io import StringIO
 from unittest.mock import MagicMock, patch
 
+import pytest
 from rich.console import Console
+from typer import Exit
 
 from brahe.cli._output import (
-    CLIOutputFormat,
-    GP_COLUMNS,
     GP_COLUMN_PRESETS,
-    SATCAT_COLUMNS,
+    GP_COLUMNS,
     SATCAT_COLUMN_PRESETS,
+    SATCAT_COLUMNS,
+    CLIOutputFormat,
     _build_markdown_table,
     _build_rich_table,
+    compute_gp_row,
     format_gp_records,
     format_satcat_records,
     parse_columns,
     parse_filters,
-    compute_gp_row,
 )
 
 
@@ -281,7 +280,7 @@ class TestFormatGpRecords:
 
     def test_json_stdout(self, capsys):
         rec = _make_gp_record()
-        console, buf = self._capture_console()
+        console, _buf = self._capture_console()
         format_gp_records([rec], CLIOutputFormat.json, None, None, console)
         rec.to_dict.assert_called_once()
         # typer.echo writes to real stdout
@@ -309,7 +308,7 @@ class TestFormatGpRecords:
         omm_mock.to_json_string.return_value = '{"OBJECT_NAME": "ISS"}'
         rec.to_omm.return_value = omm_mock
 
-        console, buf = self._capture_console()
+        console, _buf = self._capture_console()
         format_gp_records([rec], CLIOutputFormat.omm, None, None, console)
 
         rec.to_omm.assert_called_once()
@@ -452,7 +451,7 @@ class TestFormatSatcatRecords:
 
     def test_json_stdout(self, capsys):
         rec = _make_satcat_record()
-        console, buf = self._capture_console()
+        console, _buf = self._capture_console()
         format_satcat_records([rec], CLIOutputFormat.json, None, None, console)
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -474,7 +473,7 @@ class TestFormatSatcatRecords:
 
     def test_omm_treated_as_json(self, capsys):
         rec = _make_satcat_record()
-        console, buf = self._capture_console()
+        console, _buf = self._capture_console()
         format_satcat_records([rec], CLIOutputFormat.omm, None, None, console)
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -546,7 +545,7 @@ class TestFormatSatcatRecords:
             "all": ["satname", "norad_cat_id"],
         }
         rec = _make_satcat_record()
-        console, buf = self._capture_console()
+        console, _buf = self._capture_console()
         format_satcat_records(
             [rec],
             CLIOutputFormat.markdown,

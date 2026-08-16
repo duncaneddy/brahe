@@ -1,14 +1,11 @@
+from typing import Annotated
+
 import typer
-from typing_extensions import Annotated
-import brahe.cli.eop as eop
-import brahe.cli.time as time
-import brahe.cli.orbits as orbits
-import brahe.cli.transform as transform
-import brahe.cli.access as access
-import brahe.cli.datasets as datasets
+
 import brahe.cli.celestrak as celestrak_cli
 import brahe.cli.spacetrack as spacetrack_cli
 import brahe.logging
+from brahe.cli import access, datasets, eop, orbits, time, transform
 
 app = typer.Typer(name="brahe")
 app.add_typer(eop.app, name="eop")

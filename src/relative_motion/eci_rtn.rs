@@ -5,6 +5,9 @@
 use crate::math::{SMatrix3, SVector6};
 use nalgebra::Vector3;
 
+use crate::utils::BraheError;
+use crate::utils::batch::{batch_map, batch_zip};
+
 /// Computes the rotation matrix transforming a vector in the radial, along-track, cross-track (RTN)
 /// frame to the Earth-Centered Inertial (ECI) frame at a given epoch.
 ///
@@ -202,6 +205,133 @@ pub fn state_rtn_to_eci(x_chief: SVector6, x_rel_rtn: SVector6) -> SVector6 {
     )
 }
 
+/// Computes the RTN-to-ECI rotation matrix for each state in `x_eci`.
+///
+/// Batch form of [`rotation_rtn_to_eci`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Rotation matrices transforming RTN -> ECI, one per state, in input order
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::rotations_rtn_to_eci;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let r = rotations_rtn_to_eci(&[x, x]);
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_rtn_to_eci(x_eci: &[SVector6]) -> Vec<SMatrix3> {
+    batch_map(x_eci, |x| rotation_rtn_to_eci(*x))
+}
+
+/// Computes the ECI-to-RTN rotation matrix for each state in `x_eci`.
+///
+/// Batch form of [`rotation_eci_to_rtn`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Rotation matrices transforming ECI -> RTN, one per state, in input order
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::rotations_eci_to_rtn;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let r = rotations_eci_to_rtn(&[x, x]);
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_eci_to_rtn(x_eci: &[SVector6]) -> Vec<SMatrix3> {
+    batch_map(x_eci, |x| rotation_eci_to_rtn(*x))
+}
+
+/// Computes the RTN relative state of each deputy with respect to its chief.
+///
+/// Batch form of [`state_eci_to_rtn`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The chief and deputy arguments follow the broadcast rule: each has length 1
+/// or the common batch length, so one chief may be paired with many deputies
+/// and vice versa.
+///
+/// # Arguments
+/// - `x_chief`: Chief Cartesian ECI states, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `x_deputy`: Deputy Cartesian ECI states, length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Deputy relative states in the chief RTN frame, in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::states_eci_to_rtn;
+/// use brahe::vector6_from_array;
+///
+/// let chief = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let deputies = vec![
+///     state_koe_to_eci(vector6_from_array([R_EARTH + 701e3, 0.0015, 97.85, 15.05, 30.05, 45.05]), AngleFormat::Degrees),
+///     state_koe_to_eci(vector6_from_array([R_EARTH + 702e3, 0.0012, 97.82, 15.02, 30.02, 45.02]), AngleFormat::Degrees),
+/// ];
+/// let rel = states_eci_to_rtn(&[chief], &deputies).unwrap();
+/// assert_eq!(rel.len(), 2);
+/// ```
+pub fn states_eci_to_rtn(
+    x_chief: &[SVector6],
+    x_deputy: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_zip(x_chief, x_deputy, |c, d| state_eci_to_rtn(*c, *d))
+}
+
+/// Computes the ECI state of each deputy from its RTN relative state and chief.
+///
+/// Batch form of [`state_rtn_to_eci`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The chief and deputy arguments follow the broadcast rule: each has length 1
+/// or the common batch length, so one chief may be paired with many deputies
+/// and vice versa.
+///
+/// # Arguments
+/// - `x_chief`: Chief Cartesian ECI states, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `x_rel_rtn`: Deputy relative states in the chief RTN frame, length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Deputy Cartesian ECI states, in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::states_rtn_to_eci;
+/// use brahe::vector6_from_array;
+///
+/// let chief = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let rel = vec![vector6_from_array([1000.0, 500.0, -300.0, 0.0, 0.0, 0.0]); 2];
+/// let deputies = states_rtn_to_eci(&[chief], &rel).unwrap();
+/// assert_eq!(deputies.len(), 2);
+/// ```
+pub fn states_rtn_to_eci(
+    x_chief: &[SVector6],
+    x_rel_rtn: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_zip(x_chief, x_rel_rtn, |c, r| state_rtn_to_eci(*c, *r))
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
@@ -209,8 +339,10 @@ mod tests {
     use crate::AngleFormat;
     use crate::R_EARTH;
     use crate::coordinates::state_koe_to_eci;
+    use crate::math::vector6_from_array;
     use crate::orbits::perigee_velocity;
     use crate::utils::testing::setup_global_test_eop;
+    use serial_test::parallel;
 
     fn get_test_state() -> SVector6 {
         let sma = R_EARTH + 700e3; // Semi-major axis in meters
@@ -299,5 +431,62 @@ mod tests {
 
         assert!(pos_err < 1e-8, "Position round-trip error: {pos_err} m");
         assert!(vel_err < 1e-8, "Velocity round-trip error: {vel_err} m/s");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_rtn_match_scalar() {
+        let chiefs: Vec<SVector6> = (0..3)
+            .map(|i| {
+                state_koe_to_eci(
+                    vector6_from_array([
+                        R_EARTH + 700e3 + 1e3 * i as f64,
+                        0.001,
+                        97.8,
+                        15.0,
+                        30.0,
+                        45.0 + i as f64,
+                    ]),
+                    AngleFormat::Degrees,
+                )
+            })
+            .collect();
+        let deputies: Vec<SVector6> = (0..3)
+            .map(|i| {
+                state_koe_to_eci(
+                    vector6_from_array([
+                        R_EARTH + 701e3 + 1e3 * i as f64,
+                        0.0015,
+                        97.85,
+                        15.05,
+                        30.05,
+                        45.05 + i as f64,
+                    ]),
+                    AngleFormat::Degrees,
+                )
+            })
+            .collect();
+
+        let rot = rotations_rtn_to_eci(&chiefs);
+        let rot_inv = rotations_eci_to_rtn(&chiefs);
+        let rel = states_eci_to_rtn(&chiefs, &deputies).unwrap();
+        let rel_one_chief = states_eci_to_rtn(&chiefs[..1], &deputies).unwrap();
+        let rel_one_deputy = states_eci_to_rtn(&chiefs, &deputies[..1]).unwrap();
+        let back = states_rtn_to_eci(&chiefs, &rel).unwrap();
+        let back_one = states_rtn_to_eci(&chiefs[..1], &rel_one_chief).unwrap();
+        for i in 0..3 {
+            assert_eq!(rot[i], rotation_rtn_to_eci(chiefs[i]));
+            assert_eq!(rot_inv[i], rotation_eci_to_rtn(chiefs[i]));
+            assert_eq!(rel[i], state_eci_to_rtn(chiefs[i], deputies[i]));
+            assert_eq!(rel_one_chief[i], state_eci_to_rtn(chiefs[0], deputies[i]));
+            assert_eq!(rel_one_deputy[i], state_eci_to_rtn(chiefs[i], deputies[0]));
+            assert_eq!(back[i], state_rtn_to_eci(chiefs[i], rel[i]));
+            assert_eq!(back_one[i], state_rtn_to_eci(chiefs[0], rel_one_chief[i]));
+            for k in 0..3 {
+                assert!((back[i][k] - deputies[i][k]).abs() < 1e-6);
+            }
+        }
+        assert!(states_eci_to_rtn(&chiefs[..2], &deputies).is_err());
+        assert!(rotations_rtn_to_eci(&[]).is_empty());
     }
 }

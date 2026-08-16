@@ -46,8 +46,6 @@ from brahe._brahe import (
     apoapsis_velocity,
     apogee_altitude,
     apogee_velocity,
-    batch_state_koe_mean_to_osc,
-    batch_state_koe_osc_to_mean,
     calculate_tle_line_checksum,
     create_tle_lines,
     epoch_from_tle,
@@ -81,6 +79,8 @@ from brahe._brahe import (
     state_koe_osc_to_mean,
     # Equinoctial element conversions
     state_koe_to_equinoctial,
+    states_koe_mean_to_osc,
+    states_koe_osc_to_mean,
     # Special orbits
     sun_synchronous_inclination,
     validate_tle_line,
@@ -110,8 +110,6 @@ __all__ = [
     "apoapsis_velocity",
     "apogee_altitude",
     "apogee_velocity",
-    "batch_state_koe_mean_to_osc",
-    "batch_state_koe_osc_to_mean",
     "calculate_tle_line_checksum",
     "create_tle_lines",
     "epoch_from_tle",
@@ -145,6 +143,8 @@ __all__ = [
     "state_koe_osc_to_mean",
     # Equinoctial element conversions
     "state_koe_to_equinoctial",
+    "states_koe_mean_to_osc",
+    "states_koe_osc_to_mean",
     # Special orbits
     "sun_synchronous_inclination",
     "validate_tle_line",

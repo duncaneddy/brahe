@@ -47,7 +47,7 @@ config = bh.MeanElementNumericalMethodConfig(
 )
 method_numerical = bh.MeanElementMethod.numerical(config)
 
-out_epochs, out_states = bh.batch_state_koe_osc_to_mean(
+out_epochs, out_states = bh.states_koe_osc_to_mean(
     epochs, osc_states, method_numerical, bh.AngleFormat.DEGREES
 )
 

@@ -36,7 +36,7 @@ config = bh.MeanElementNumericalMethodConfig(
 method = bh.MeanElementMethod.numerical(config)
 
 epoch = bh.Epoch.from_gps_seconds(0.0)
-out_epochs, out_states = bh.batch_state_koe_mean_to_osc(
+out_epochs, out_states = bh.states_koe_mean_to_osc(
     [epoch], mean.reshape(1, 6), method, bh.AngleFormat.DEGREES
 )
 osc = out_states[0]

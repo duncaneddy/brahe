@@ -1953,14 +1953,14 @@ fn pairs_to_py<'py>(py: Python<'py>, pairs: Vec<(time::Epoch, SVector<f64, 6>)>)
 ///     s = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
 ///     states = np.vstack([s, s, s])
 ///
-///     out_epochs, out_states = bh.batch_state_koe_osc_to_mean(
+///     out_epochs, out_states = bh.states_koe_osc_to_mean(
 ///         epochs, states, bh.MeanElementMethod.BROUWER_LYDDANE, bh.AngleFormat.DEGREES
 ///     )
 ///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(epochs, states, method, angle_format)")]
-#[pyo3(name = "batch_state_koe_osc_to_mean")]
-fn py_batch_state_koe_osc_to_mean<'py>(
+#[pyo3(name = "states_koe_osc_to_mean")]
+fn py_states_koe_osc_to_mean<'py>(
     py: Python<'py>,
     epochs: Vec<PyRef<'_, PyEpoch>>,
     states: PyReadonlyArray2<f64>,
@@ -1969,7 +1969,7 @@ fn py_batch_state_koe_osc_to_mean<'py>(
 ) -> PyResult<BatchKoeResult<'py>> {
     let epochs_vec: Vec<time::Epoch> = epochs.iter().map(|e| e.obj).collect();
     let states_vec = states_array2_to_svec6(&states)?;
-    let pairs = orbits::batch_state_koe_osc_to_mean(
+    let pairs = orbits::states_koe_osc_to_mean(
         &epochs_vec,
         &states_vec,
         method.method.clone(),
@@ -2020,14 +2020,14 @@ fn py_batch_state_koe_osc_to_mean<'py>(
 ///     s = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
 ///     states = np.vstack([s, s, s])
 ///
-///     out_epochs, out_states = bh.batch_state_koe_mean_to_osc(
+///     out_epochs, out_states = bh.states_koe_mean_to_osc(
 ///         epochs, states, bh.MeanElementMethod.BROUWER_LYDDANE, bh.AngleFormat.DEGREES
 ///     )
 ///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(epochs, states, method, angle_format)")]
-#[pyo3(name = "batch_state_koe_mean_to_osc")]
-fn py_batch_state_koe_mean_to_osc<'py>(
+#[pyo3(name = "states_koe_mean_to_osc")]
+fn py_states_koe_mean_to_osc<'py>(
     py: Python<'py>,
     epochs: Vec<PyRef<'_, PyEpoch>>,
     states: PyReadonlyArray2<f64>,
@@ -2036,7 +2036,7 @@ fn py_batch_state_koe_mean_to_osc<'py>(
 ) -> PyResult<BatchKoeResult<'py>> {
     let epochs_vec: Vec<time::Epoch> = epochs.iter().map(|e| e.obj).collect();
     let states_vec = states_array2_to_svec6(&states)?;
-    let pairs = orbits::batch_state_koe_mean_to_osc(
+    let pairs = orbits::states_koe_mean_to_osc(
         &epochs_vec,
         &states_vec,
         method.method.clone(),

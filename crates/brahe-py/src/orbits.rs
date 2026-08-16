@@ -9,8 +9,7 @@
 ///
 /// Returns:
 ///     float or numpy.ndarray: The orbital period of the astronomical object in seconds.
-///         An array is returned for array input, with shape `(n,)` for `n` element
-///         sets or the broadcast shape for element-wise input.
+///         An array of shape `(n,)` is returned for a batch of `n` element sets.
 ///
 /// Example:
 ///     ```python
@@ -53,8 +52,7 @@ fn py_orbital_period<'py>(
 ///
 /// Returns:
 ///     float or numpy.ndarray: The orbital period of the astronomical object in seconds.
-///         An array is returned for array input, with shape `(n,)` for `n` element
-///         sets or the broadcast shape for element-wise input.
+///         An array of shape `(n,)` is returned for a batch of `n` element sets.
 ///
 /// Example:
 ///     ```python
@@ -150,8 +148,7 @@ fn py_orbital_period_from_state<'py>(
 ///
 /// Returns:
 ///     float or numpy.ndarray: The mean motion of the astronomical object in radians or degrees.
-///         An array is returned for array input, with shape `(n,)` for `n` element
-///         sets or the broadcast shape for element-wise input.
+///         An array of shape `(n,)` is returned for a batch of `n` element sets.
 ///
 /// Example:
 ///     ```python
@@ -198,8 +195,7 @@ fn py_mean_motion<'py>(
 ///
 /// Returns:
 ///     float or numpy.ndarray: The mean motion of the astronomical object in radians or degrees.
-///         An array is returned for array input, with shape `(n,)` for `n` element
-///         sets or the broadcast shape for element-wise input.
+///         An array of shape `(n,)` is returned for a batch of `n` element sets.
 ///
 /// Example:
 ///     ```python
@@ -371,7 +367,8 @@ fn py_semimajor_axis_from_orbital_period<'py>(
 ///         A 2-D array of shape `(n, 6)` is treated as `n` element sets. When `e` is given,
 ///         arrays of any shape are evaluated element-wise (broadcast against `e`).
 ///     e (float or array, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
-///         Broadcast against `a_or_oe` when either is an array.
+///         Ignored when `a_or_oe` is an element set; otherwise broadcast against `a_or_oe` when
+///         either is an array.
 ///
 /// Returns:
 ///     float or numpy.ndarray: The magnitude of velocity of the object at perigee in m/s.
@@ -426,7 +423,8 @@ fn py_perigee_velocity<'py>(
 ///         A 2-D array of shape `(n, 6)` is treated as `n` element sets. When `e` is given,
 ///         arrays of any shape are evaluated element-wise (broadcast against `e`).
 ///     e (float or array, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
-///         Broadcast against `a_or_oe` when either is an array.
+///         Ignored when `a_or_oe` is an element set; otherwise broadcast against `a_or_oe` when
+///         either is an array.
 ///     gm (float): (keyword-only) The standard gravitational parameter of primary body in m³/s².
 ///
 /// Returns:
@@ -483,7 +481,8 @@ fn py_periapsis_velocity<'py>(
 ///         A 2-D array of shape `(n, 6)` is treated as `n` element sets. When `e` is given,
 ///         arrays of any shape are evaluated element-wise (broadcast against `e`).
 ///     e (float or array, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
-///         Broadcast against `a_or_oe` when either is an array.
+///         Ignored when `a_or_oe` is an element set; otherwise broadcast against `a_or_oe` when
+///         either is an array.
 ///
 /// Returns:
 ///     float or numpy.ndarray: The distance of the object at periapsis in meters.
@@ -538,7 +537,8 @@ fn py_periapsis_distance<'py>(
 ///         A 2-D array of shape `(n, 6)` is treated as `n` element sets. When `e` is given,
 ///         arrays of any shape are evaluated element-wise (broadcast against `e`).
 ///     e (float or array, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
-///         Broadcast against `a_or_oe` when either is an array.
+///         Ignored when `a_or_oe` is an element set; otherwise broadcast against `a_or_oe` when
+///         either is an array.
 ///
 /// Returns:
 ///     float or numpy.ndarray: The magnitude of velocity of the object at apogee in m/s.
@@ -593,7 +593,8 @@ fn py_apogee_velocity<'py>(
 ///         A 2-D array of shape `(n, 6)` is treated as `n` element sets. When `e` is given,
 ///         arrays of any shape are evaluated element-wise (broadcast against `e`).
 ///     e (float or array, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
-///         Broadcast against `a_or_oe` when either is an array.
+///         Ignored when `a_or_oe` is an element set; otherwise broadcast against `a_or_oe` when
+///         either is an array.
 ///     gm (float): (keyword-only) The standard gravitational parameter of primary body in m³/s².
 ///
 /// Returns:
@@ -650,7 +651,8 @@ fn py_apoapsis_velocity<'py>(
 ///         A 2-D array of shape `(n, 6)` is treated as `n` element sets. When `e` is given,
 ///         arrays of any shape are evaluated element-wise (broadcast against `e`).
 ///     e (float or array, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
-///         Broadcast against `a_or_oe` when either is an array.
+///         Ignored when `a_or_oe` is an element set; otherwise broadcast against `a_or_oe` when
+///         either is an array.
 ///
 /// Returns:
 ///     float or numpy.ndarray: The distance of the object at apoapsis in meters.
@@ -705,7 +707,8 @@ fn py_apoapsis_distance<'py>(
 ///         A 2-D array of shape `(n, 6)` is treated as `n` element sets. When `e` is given,
 ///         arrays of any shape are evaluated element-wise (broadcast against `e`).
 ///     e (float or array, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
-///         Broadcast against `a_or_oe` when either is an array.
+///         Ignored when `a_or_oe` is an element set; otherwise broadcast against `a_or_oe` when
+///         either is an array.
 ///     r_body (float): (keyword-only) The radius of the central body in meters.
 ///
 /// Returns:
@@ -762,7 +765,8 @@ fn py_periapsis_altitude<'py>(
 ///         A 2-D array of shape `(n, 6)` is treated as `n` element sets. When `e` is given,
 ///         arrays of any shape are evaluated element-wise (broadcast against `e`).
 ///     e (float or array, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
-///         Broadcast against `a_or_oe` when either is an array.
+///         Ignored when `a_or_oe` is an element set; otherwise broadcast against `a_or_oe` when
+///         either is an array.
 ///
 /// Returns:
 ///     float or numpy.ndarray: The altitude above Earth's surface at perigee in meters.
@@ -817,7 +821,8 @@ fn py_perigee_altitude<'py>(
 ///         A 2-D array of shape `(n, 6)` is treated as `n` element sets. When `e` is given,
 ///         arrays of any shape are evaluated element-wise (broadcast against `e`).
 ///     e (float or array, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
-///         Broadcast against `a_or_oe` when either is an array.
+///         Ignored when `a_or_oe` is an element set; otherwise broadcast against `a_or_oe` when
+///         either is an array.
 ///     r_body (float): (keyword-only) The radius of the central body in meters.
 ///
 /// Returns:
@@ -874,7 +879,8 @@ fn py_apoapsis_altitude<'py>(
 ///         A 2-D array of shape `(n, 6)` is treated as `n` element sets. When `e` is given,
 ///         arrays of any shape are evaluated element-wise (broadcast against `e`).
 ///     e (float or array, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
-///         Broadcast against `a_or_oe` when either is an array.
+///         Ignored when `a_or_oe` is an element set; otherwise broadcast against `a_or_oe` when
+///         either is an array.
 ///
 /// Returns:
 ///     float or numpy.ndarray: The altitude above Earth's surface at apogee in meters.
@@ -930,7 +936,8 @@ fn py_apogee_altitude<'py>(
 ///         A 2-D array of shape `(n, 6)` is treated as `n` element sets. When `e` is given,
 ///         arrays of any shape are evaluated element-wise (broadcast against `e`).
 ///     e (float or array, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
-///         Broadcast against `a_or_oe` when either is an array.
+///         Ignored when `a_or_oe` is an element set; otherwise broadcast against `a_or_oe` when
+///         either is an array.
 ///     angle_format (AngleFormat): (keyword-only) Return output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
@@ -1007,7 +1014,8 @@ fn py_geo_sma() -> PyResult<f64> {
 ///         A 2-D array of shape `(n, 6)` is treated as `n` element sets. When `e` is given,
 ///         arrays of any shape are evaluated element-wise (broadcast against `e`).
 ///     e (float or array, optional): The eccentricity. Required if `anm_ecc_or_oe` is a scalar, ignored if vector.
-///         Broadcast against `anm_ecc_or_oe` when either is an array.
+///         Ignored when `anm_ecc_or_oe` is an element set; otherwise broadcast against `anm_ecc_or_oe` when
+///         either is an array.
 ///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
@@ -1066,7 +1074,8 @@ fn py_anomaly_eccentric_to_mean<'py>(
 ///         A 2-D array of shape `(n, 6)` is treated as `n` element sets. When `e` is given,
 ///         arrays of any shape are evaluated element-wise (broadcast against `e`).
 ///     e (float or array, optional): The eccentricity. Required if `anm_mean_or_oe` is a scalar, ignored if vector.
-///         Broadcast against `anm_mean_or_oe` when either is an array.
+///         Ignored when `anm_mean_or_oe` is an element set; otherwise broadcast against `anm_mean_or_oe` when
+///         either is an array.
 ///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
@@ -1125,7 +1134,8 @@ fn py_anomaly_mean_to_eccentric<'py>(
 ///         A 2-D array of shape `(n, 6)` is treated as `n` element sets. When `e` is given,
 ///         arrays of any shape are evaluated element-wise (broadcast against `e`).
 ///     e (float or array, optional): The eccentricity. Required if `anm_true_or_oe` is a scalar, ignored if vector.
-///         Broadcast against `anm_true_or_oe` when either is an array.
+///         Ignored when `anm_true_or_oe` is an element set; otherwise broadcast against `anm_true_or_oe` when
+///         either is an array.
 ///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
@@ -1184,7 +1194,8 @@ fn py_anomaly_true_to_eccentric<'py>(
 ///         A 2-D array of shape `(n, 6)` is treated as `n` element sets. When `e` is given,
 ///         arrays of any shape are evaluated element-wise (broadcast against `e`).
 ///     e (float or array, optional): The eccentricity. Required if `anm_ecc_or_oe` is a scalar, ignored if vector.
-///         Broadcast against `anm_ecc_or_oe` when either is an array.
+///         Ignored when `anm_ecc_or_oe` is an element set; otherwise broadcast against `anm_ecc_or_oe` when
+///         either is an array.
 ///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
@@ -1243,7 +1254,8 @@ fn py_anomaly_eccentric_to_true<'py>(
 ///         A 2-D array of shape `(n, 6)` is treated as `n` element sets. When `e` is given,
 ///         arrays of any shape are evaluated element-wise (broadcast against `e`).
 ///     e (float or array, optional): The eccentricity. Required if `anm_true_or_oe` is a scalar, ignored if vector.
-///         Broadcast against `anm_true_or_oe` when either is an array.
+///         Ignored when `anm_true_or_oe` is an element set; otherwise broadcast against `anm_true_or_oe` when
+///         either is an array.
 ///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
@@ -1302,7 +1314,8 @@ fn py_anomaly_true_to_mean<'py>(
 ///         A 2-D array of shape `(n, 6)` is treated as `n` element sets. When `e` is given,
 ///         arrays of any shape are evaluated element-wise (broadcast against `e`).
 ///     e (float or array, optional): The eccentricity. Required if `anm_mean_or_oe` is a scalar, ignored if vector.
-///         Broadcast against `anm_mean_or_oe` when either is an array.
+///         Ignored when `anm_mean_or_oe` is an element set; otherwise broadcast against `anm_mean_or_oe` when
+///         either is an array.
 ///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:

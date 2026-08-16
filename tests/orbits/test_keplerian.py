@@ -859,3 +859,18 @@ def test_orbital_period_from_state_batch():
         brahe.orbital_period_from_state(states.T, brahe.GM_EARTH, axis=0), out
     )
     assert isinstance(brahe.orbital_period_from_state(states[0], brahe.GM_EARTH), float)
+
+
+def test_element_set_ignores_e_argument():
+    """A (6,) or (n, 6) element set keeps ignoring an explicit e"""
+    oe = np.array([brahe.R_EARTH + 500e3, 0.1, 30.0, 0.0, 0.0, 0.0])
+    assert brahe.perigee_velocity(oe, 0.2) == brahe.perigee_velocity(oe)
+    assert brahe.perigee_velocity(oe, 0.2) == brahe.perigee_velocity(oe[0], oe[1])
+    oes = np.vstack([oe, oe])
+    np.testing.assert_array_equal(
+        brahe.apogee_altitude(oes, 0.5), brahe.apogee_altitude(oes)
+    )
+    # A (6, 1) column is not an element set and evaluates element-wise against e
+    col = brahe.periapsis_distance(oe[:, None] * 0 + oe[0], 0.2)
+    assert col.shape == (6, 1)
+    assert col[0, 0] == brahe.periapsis_distance(oe[0], 0.2)

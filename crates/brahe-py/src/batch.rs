@@ -548,11 +548,11 @@ fn ufunc<'py>(
 /// value (with an optional second numeric argument `e`) or an element set.
 ///
 /// - scalar first argument with no `e` or a scalar `e`: `elem_fn(x, e)`
-/// - `(6,)` array with no `e`: `oe_fn(elements)`
-/// - `(n, 6)` array with no `e`: `oe_fn` per row, returning `(n,)`
+/// - `(6,)` array: `oe_fn(elements)`; `e` is ignored
+/// - `(n, 6)` array: `oe_fn` per row, returning `(n,)`; `e` is ignored
 /// - any other array with no `e`: `ValueError`
-/// - array `e`, or array first argument with `e` given: element-wise
-///   `elem_fn` with numpy broadcasting
+/// - array `e` with a scalar first argument, or any other array first
+///   argument with `e` given: element-wise `elem_fn` with numpy broadcasting
 fn dispatch_oe_or_scalar<'py>(
     py: Python<'py>,
     x: &Bound<'py, PyAny>,
@@ -567,11 +567,11 @@ fn dispatch_oe_or_scalar<'py>(
         (NumArg::Scalar(v), Some(NumArg::Scalar(ecc))) => {
             Ok(elem_fn(*v, Some(*ecc))?.into_pyobject(py)?.into_any())
         }
-        (NumArg::Array(arr), None) if arr.ndim() == 1 && arr.len() == 6 => {
+        (NumArg::Array(arr), _) if arr.ndim() == 1 && arr.len() == 6 => {
             let oe: Vec<f64> = arr.iter().copied().collect();
             Ok(oe_fn(&oe)?.into_pyobject(py)?.into_any())
         }
-        (NumArg::Array(arr), None) if arr.ndim() == 2 && arr.shape()[1] == 6 => {
+        (NumArg::Array(arr), _) if arr.ndim() == 2 && arr.shape()[1] == 6 => {
             let out: Vec<f64> = arr
                 .rows()
                 .into_iter()

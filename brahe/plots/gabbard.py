@@ -239,7 +239,15 @@ def _gabbard_matplotlib(object_groups, epoch, altitude_units, period_units):
                 periods.append(period)  # Same period for both points
                 apogees.append(apogee_alt)
                 perigees.append(perigee_alt)
-            except (ValueError, TypeError, IndexError, AttributeError, KeyError) as e:
+            except (
+                bh.BraheError,
+                RuntimeError,
+                ValueError,
+                TypeError,
+                IndexError,
+                AttributeError,
+                KeyError,
+            ) as e:
                 logger.warning(f"Failed to extract elements from object: {e}")
                 continue
 
@@ -349,7 +357,15 @@ def _gabbard_plotly(object_groups, epoch, altitude_units, period_units, width, h
                 altitudes_apogee.append(apogee_alt)
                 periods_perigee.append(period)
                 altitudes_perigee.append(perigee_alt)
-            except (ValueError, TypeError, IndexError, AttributeError, KeyError) as e:
+            except (
+                bh.BraheError,
+                RuntimeError,
+                ValueError,
+                TypeError,
+                IndexError,
+                AttributeError,
+                KeyError,
+            ) as e:
                 logger.warning(f"Failed to extract elements from object: {e}")
                 continue
 

@@ -55,7 +55,7 @@ fn main() {
     };
     let method_numerical = bh::orbits::MeanElementMethod::Numerical(config);
 
-    let out = bh::orbits::batch_state_koe_osc_to_mean(
+    let out = bh::orbits::states_koe_osc_to_mean(
         &epochs,
         &osc_states,
         method_numerical,

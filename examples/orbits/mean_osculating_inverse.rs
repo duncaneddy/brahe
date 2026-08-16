@@ -35,7 +35,7 @@ fn main() {
     let method = bh::orbits::MeanElementMethod::Numerical(config);
 
     let epoch = bh::time::Epoch::from_gps_seconds(0.0);
-    let out = bh::orbits::batch_state_koe_mean_to_osc(
+    let out = bh::orbits::states_koe_mean_to_osc(
         &[epoch],
         &[mean],
         method,

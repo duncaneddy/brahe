@@ -409,7 +409,7 @@ class TestBatchMeanOsculatingConversions:
         s = np.array([brahe.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
         states = np.vstack([s, s, s])
 
-        out_epochs, out_states = brahe.batch_state_koe_osc_to_mean(
+        out_epochs, out_states = brahe.states_koe_osc_to_mean(
             epochs, states, BROUWER_LYDDANE, brahe.AngleFormat.DEGREES
         )
 
@@ -428,7 +428,7 @@ class TestBatchMeanOsculatingConversions:
         s = np.array([brahe.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
         states = np.vstack([s, s, s])
 
-        out_epochs, out_states = brahe.batch_state_koe_mean_to_osc(
+        out_epochs, out_states = brahe.states_koe_mean_to_osc(
             epochs, states, BROUWER_LYDDANE, brahe.AngleFormat.DEGREES
         )
 
@@ -480,7 +480,7 @@ class TestBatchMeanOsculatingConversions:
         )
         method = brahe.MeanElementMethod.numerical(cfg)
 
-        out_epochs, out_states = brahe.batch_state_koe_osc_to_mean(
+        out_epochs, out_states = brahe.states_koe_osc_to_mean(
             epochs, states, method, brahe.AngleFormat.DEGREES
         )
 
@@ -503,7 +503,7 @@ class TestBatchMeanOsculatingConversions:
         method = brahe.MeanElementMethod.numerical(cfg)
 
         with pytest.raises(brahe.BraheError):
-            brahe.batch_state_koe_mean_to_osc(
+            brahe.states_koe_mean_to_osc(
                 epochs, states, method, brahe.AngleFormat.DEGREES
             )
 
@@ -515,7 +515,7 @@ class TestBatchMeanOsculatingConversions:
         states = np.vstack([s, s])  # only 2 rows for 3 epochs
 
         with pytest.raises(brahe.BraheError):
-            brahe.batch_state_koe_osc_to_mean(
+            brahe.states_koe_osc_to_mean(
                 epochs, states, BROUWER_LYDDANE, brahe.AngleFormat.DEGREES
             )
 

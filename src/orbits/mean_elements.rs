@@ -118,7 +118,7 @@ enum TransformDirection {
 ///   - `osc[4]`: Argument of perigee `ω` (radians or degrees, per `angle_format`)
 ///   - `osc[5]`: Mean anomaly `M` (radians or degrees, per `angle_format`)
 /// * `method` - Algorithm used to compute mean elements. `MeanElementMethod::Numerical`
-///   is batch-only and always returns `Err` here; use `batch_state_koe_osc_to_mean`.
+///   is batch-only and always returns `Err` here; use `states_koe_osc_to_mean`.
 /// * `angle_format` - Format of angular elements in input and output
 ///
 /// # Returns
@@ -178,7 +178,7 @@ pub fn state_koe_osc_to_mean(
         }
         MeanElementMethod::Numerical(_) => Err(BraheError::Error(
             "Numerical mean-element method requires a batch of states; \
-             use batch_state_koe_osc_to_mean"
+             use states_koe_osc_to_mean"
                 .to_string(),
         )),
     }
@@ -200,7 +200,7 @@ pub fn state_koe_osc_to_mean(
 ///   - `mean[4]`: Argument of perigee `ω` (radians or degrees, per `angle_format`)
 ///   - `mean[5]`: Mean anomaly `M` (radians or degrees, per `angle_format`)
 /// * `method` - Algorithm used to compute osculating elements. `MeanElementMethod::Numerical`
-///   is batch-only and always returns `Err` here; use `batch_state_koe_mean_to_osc`.
+///   is batch-only and always returns `Err` here; use `states_koe_mean_to_osc`.
 /// * `angle_format` - Format of angular elements in input and output
 ///
 /// # Returns
@@ -260,7 +260,7 @@ pub fn state_koe_mean_to_osc(
         }
         MeanElementMethod::Numerical(_) => Err(BraheError::Error(
             "Numerical mean-element method requires a batch of states; \
-             use batch_state_koe_mean_to_osc"
+             use states_koe_mean_to_osc"
                 .to_string(),
         )),
     }
@@ -292,18 +292,18 @@ pub fn state_koe_mean_to_osc(
 /// ```
 /// use nalgebra::SVector;
 /// use brahe::time::Epoch;
-/// use brahe::orbits::{batch_state_koe_osc_to_mean, MeanElementMethod};
+/// use brahe::orbits::{states_koe_osc_to_mean, MeanElementMethod};
 /// use brahe::constants::{R_EARTH, AngleFormat};
 ///
 /// let epochs = vec![Epoch::from_gps_seconds(0.0), Epoch::from_gps_seconds(60.0)];
 /// let osc = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.001, 45.0, 0.0, 0.0, 0.0);
 /// let states = vec![osc, osc];
 ///
-/// let mean = batch_state_koe_osc_to_mean(
+/// let mean = states_koe_osc_to_mean(
 ///     &epochs, &states, MeanElementMethod::BrouwerLyddane, AngleFormat::Degrees,
 /// ).unwrap();
 /// ```
-pub fn batch_state_koe_osc_to_mean(
+pub fn states_koe_osc_to_mean(
     epochs: &[Epoch],
     states: &[SVector<f64, 6>],
     method: MeanElementMethod,
@@ -360,18 +360,18 @@ pub fn batch_state_koe_osc_to_mean(
 /// ```
 /// use nalgebra::SVector;
 /// use brahe::time::Epoch;
-/// use brahe::orbits::{batch_state_koe_mean_to_osc, MeanElementMethod};
+/// use brahe::orbits::{states_koe_mean_to_osc, MeanElementMethod};
 /// use brahe::constants::{R_EARTH, AngleFormat};
 ///
 /// let epochs = vec![Epoch::from_gps_seconds(0.0), Epoch::from_gps_seconds(60.0)];
 /// let mean = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.001, 45.0, 0.0, 0.0, 0.0);
 /// let states = vec![mean, mean];
 ///
-/// let osc = batch_state_koe_mean_to_osc(
+/// let osc = states_koe_mean_to_osc(
 ///     &epochs, &states, MeanElementMethod::BrouwerLyddane, AngleFormat::Degrees,
 /// ).unwrap();
 /// ```
-pub fn batch_state_koe_mean_to_osc(
+pub fn states_koe_mean_to_osc(
     epochs: &[Epoch],
     states: &[SVector<f64, 6>],
     method: MeanElementMethod,
@@ -1088,7 +1088,7 @@ mod tests {
         ];
         let s = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0);
         let states = vec![s, s, s];
-        let out = batch_state_koe_osc_to_mean(
+        let out = states_koe_osc_to_mean(
             &epochs,
             &states,
             MeanElementMethod::BrouwerLyddane,
@@ -1117,7 +1117,7 @@ mod tests {
         ];
         let s = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0);
         let states = vec![s, s];
-        let out = batch_state_koe_osc_to_mean(
+        let out = states_koe_osc_to_mean(
             &epochs,
             &states,
             MeanElementMethod::BrouwerLyddane,
@@ -1149,7 +1149,7 @@ mod tests {
             inverse: Some(inverse),
         };
         let epochs = vec![Epoch::from_gps_seconds(0.0)];
-        let osc = batch_state_koe_mean_to_osc(
+        let osc = states_koe_mean_to_osc(
             &epochs,
             &[mean],
             MeanElementMethod::Numerical(cfg),
@@ -1188,7 +1188,7 @@ mod tests {
             inverse: Some(inverse),
         };
         let epochs = vec![Epoch::from_gps_seconds(0.0)];
-        let osc = batch_state_koe_mean_to_osc(
+        let osc = states_koe_mean_to_osc(
             &epochs,
             &[mean],
             MeanElementMethod::Numerical(cfg),
@@ -1220,7 +1220,7 @@ mod tests {
         assert!(out.is_err());
     }
 
-    /// `batch_state_koe_osc_to_mean` dispatches `MeanElementMethod::Numerical` to
+    /// `states_koe_osc_to_mean` dispatches `MeanElementMethod::Numerical` to
     /// `numerical_osc_to_mean` + `convert_pairs_out`; this path was previously untested
     /// via the public batch API (only the mean->osc Numerical dispatch was covered).
     /// Build a synthesized osculating trajectory analytically (sweeping mean anomaly
@@ -1252,7 +1252,7 @@ mod tests {
             edge: WindowEdgeHandling::Truncate,
             inverse: None,
         };
-        let out = batch_state_koe_osc_to_mean(
+        let out = states_koe_osc_to_mean(
             &epochs,
             &states,
             MeanElementMethod::Numerical(cfg),
@@ -1293,7 +1293,7 @@ mod tests {
             edge: WindowEdgeHandling::Truncate,
             inverse: None,
         };
-        let out = batch_state_koe_osc_to_mean(
+        let out = states_koe_osc_to_mean(
             &epochs,
             &states,
             MeanElementMethod::Numerical(cfg),
@@ -1306,7 +1306,7 @@ mod tests {
         assert_abs_diff_eq!(mid[2], 45.0_f64.to_radians(), epsilon = 2e-3);
     }
 
-    /// `batch_state_koe_mean_to_osc` must reject mismatched `epochs`/`states` lengths
+    /// `states_koe_mean_to_osc` must reject mismatched `epochs`/`states` lengths
     /// (mirrors `test_batch_mismatched_lengths_is_error`, which only covers the
     /// osc->mean direction).
     #[test]
@@ -1319,7 +1319,7 @@ mod tests {
         ];
         let s = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0);
         let states = vec![s, s];
-        let out = batch_state_koe_mean_to_osc(
+        let out = states_koe_mean_to_osc(
             &epochs,
             &states,
             MeanElementMethod::BrouwerLyddane,
@@ -1342,7 +1342,7 @@ mod tests {
         ];
         let s = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0);
         let states = vec![s, s, s];
-        let out = batch_state_koe_mean_to_osc(
+        let out = states_koe_mean_to_osc(
             &epochs,
             &states,
             MeanElementMethod::BrouwerLyddane,

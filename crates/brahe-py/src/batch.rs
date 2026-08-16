@@ -545,14 +545,14 @@ fn ufunc<'py>(
 }
 
 /// Dispatch a Keplerian scalar function whose first argument is either a
-/// value (with an optional second numeric argument `e`) or an element set.
+/// value (with an optional second numeric argument `e`) or a batch of
+/// element sets.
 ///
-/// - scalar first argument with no `e` or a scalar `e`: `elem_fn(x, e)`
-/// - `(6,)` array: `oe_fn(elements)`; `e` is ignored
-/// - `(n, 6)` array: `oe_fn` per row, returning `(n,)`; `e` is ignored
-/// - any other array with no `e`: `ValueError`
-/// - array `e` with a scalar first argument, or any other array first
-///   argument with `e` given: element-wise `elem_fn` with numpy broadcasting
+/// - scalar first argument: `elem_fn(x, e)` (`e` scalar, or broadcast if an
+///   array)
+/// - `(n, 6)` array with no `e`: `oe_fn` per row, returning `(n,)`
+/// - any other array (any shape, including 1-D of length 6): element-wise
+///   `elem_fn` with numpy broadcasting against `e`
 fn dispatch_oe_or_scalar<'py>(
     py: Python<'py>,
     x: &Bound<'py, PyAny>,
@@ -567,11 +567,7 @@ fn dispatch_oe_or_scalar<'py>(
         (NumArg::Scalar(v), Some(NumArg::Scalar(ecc))) => {
             Ok(elem_fn(*v, Some(*ecc))?.into_pyobject(py)?.into_any())
         }
-        (NumArg::Array(arr), _) if arr.ndim() == 1 && arr.len() == 6 => {
-            let oe: Vec<f64> = arr.iter().copied().collect();
-            Ok(oe_fn(&oe)?.into_pyobject(py)?.into_any())
-        }
-        (NumArg::Array(arr), _) if arr.ndim() == 2 && arr.shape()[1] == 6 => {
+        (NumArg::Array(arr), None) if arr.ndim() == 2 && arr.shape()[1] == 6 => {
             let out: Vec<f64> = arr
                 .rows()
                 .into_iter()
@@ -582,17 +578,15 @@ fn dispatch_oe_or_scalar<'py>(
                 .collect::<PyResult<Vec<_>>>()?;
             Ok(out.into_pyarray(py).into_any())
         }
-        (NumArg::Array(arr), None) => {
-            if arr.ndim() == 1 {
-                return Err(exceptions::PyValueError::new_err(format!(
-                    "Expected array or list of length 6, got {}",
-                    arr.len()
-                )));
-            }
-            Err(exceptions::PyValueError::new_err(format!(
-                "Expected an element set of shape (6,) or a batch of shape (n, 6), got shape {:?}",
-                arr.shape()
-            )))
+        (_, None) => {
+            let (shape, flats) = broadcast_num_args(py, &[&x_arg])?;
+            let out: Vec<f64> = flats[0]
+                .iter()
+                .map(|x| elem_fn(*x, None))
+                .collect::<PyResult<Vec<_>>>()?;
+            let arr = ndarray::ArrayD::from_shape_vec(ndarray::IxDyn(&shape), out)
+                .map_err(|err| exceptions::PyValueError::new_err(err.to_string()))?;
+            Ok(arr.into_pyarray(py).into_any())
         }
         (_, Some(ea)) => {
             let refs: Vec<&NumArg> = vec![&x_arg, ea];

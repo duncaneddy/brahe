@@ -758,3 +758,106 @@ def test_vector_missing_e_parameter():
 
     with pytest.raises(ValueError, match="Parameter 'e' is required"):
         brahe.perigee_velocity(a)  # Missing required 'e' parameter
+
+
+def test_keplerian_element_set_batches():
+    """(n, 6) arrays evaluate one result per element-set row"""
+    oes = np.array(
+        [
+            [
+                brahe.R_EARTH + 500e3 + 1e3 * i,
+                0.01 + 0.001 * i,
+                97.8,
+                15.0,
+                30.0,
+                45.0 + i,
+            ]
+            for i in range(3)
+        ]
+    )
+    for f, kwargs in (
+        (brahe.orbital_period, {}),
+        (brahe.mean_motion, {"angle_format": AngleFormat.DEGREES}),
+        (brahe.perigee_velocity, {}),
+        (brahe.apogee_altitude, {}),
+        (brahe.sun_synchronous_inclination, {"angle_format": AngleFormat.DEGREES}),
+        (brahe.anomaly_mean_to_eccentric, {"angle_format": AngleFormat.DEGREES}),
+        (brahe.anomaly_mean_to_true, {"angle_format": AngleFormat.DEGREES}),
+    ):
+        out = f(oes, **kwargs)
+        assert out.shape == (3,)
+        for i in range(3):
+            assert out[i] == f(oes[i], **kwargs)
+    out = brahe.orbital_period_general(oes, brahe.GM_EARTH)
+    for i in range(3):
+        assert out[i] == brahe.orbital_period_general(oes[i], brahe.GM_EARTH)
+    out = brahe.periapsis_altitude(oes, r_body=brahe.R_EARTH)
+    for i in range(3):
+        assert out[i] == brahe.periapsis_altitude(oes[i], r_body=brahe.R_EARTH)
+
+
+def test_keplerian_elementwise_arrays():
+    """Arrays with an explicit e evaluate element-wise with broadcasting"""
+    a = np.array([brahe.R_EARTH + 500e3, brahe.R_EARTH + 700e3, brahe.R_EARTH + 900e3])
+    e = np.array([0.001, 0.01, 0.1])
+    out = brahe.perigee_velocity(a, e)
+    assert out.shape == (3,)
+    for i in range(3):
+        assert out[i] == brahe.perigee_velocity(a[i], e[i])
+    out_b = brahe.perigee_velocity(a, 0.01)
+    for i in range(3):
+        assert out_b[i] == brahe.perigee_velocity(a[i], 0.01)
+    out_c = brahe.apoapsis_distance(a[0], e)
+    for i in range(3):
+        assert out_c[i] == brahe.apoapsis_distance(a[0], e[i])
+    grid = brahe.periapsis_distance(a[:, None], e[None, :])
+    assert grid.shape == (3, 3)
+    assert grid[1, 2] == brahe.periapsis_distance(a[1], e[2])
+    M = np.linspace(0.0, 350.0, 5)
+    E = brahe.anomaly_mean_to_eccentric(M, 0.3, angle_format=AngleFormat.DEGREES)
+    assert E.shape == (5,)
+    for i in range(5):
+        assert E[i] == brahe.anomaly_mean_to_eccentric(
+            M[i], 0.3, angle_format=AngleFormat.DEGREES
+        )
+    with pytest.raises(ValueError):
+        brahe.perigee_velocity(a[:2], e)
+    with pytest.raises(ValueError):
+        brahe.perigee_velocity(np.ones((3, 5)))
+
+
+def test_keplerian_pure_numeric_arrays():
+    n = np.array([0.001, 0.0011, 0.0012])
+    out = brahe.semimajor_axis(n, AngleFormat.RADIANS)
+    assert out.shape == (3,)
+    for i in range(3):
+        assert out[i] == brahe.semimajor_axis(n[i], AngleFormat.RADIANS)
+    periods = np.array([5400.0, 6000.0, 86164.0])
+    out = brahe.semimajor_axis_from_orbital_period(periods)
+    for i in range(3):
+        assert out[i] == brahe.semimajor_axis_from_orbital_period(periods[i])
+    out = brahe.semimajor_axis_from_orbital_period_general(
+        periods.reshape(3, 1), brahe.GM_EARTH
+    )
+    assert out.shape == (3, 1)
+    assert isinstance(brahe.semimajor_axis(0.001, AngleFormat.RADIANS), float)
+
+
+def test_orbital_period_from_state_batch():
+    oe = np.array([brahe.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+    states = np.array(
+        [
+            brahe.state_koe_to_eci(
+                oe + np.array([1e3 * i, 0, 0, 0, 0, 0]), AngleFormat.DEGREES
+            )
+            for i in range(3)
+        ]
+    )
+    out = brahe.orbital_period_from_state(states, brahe.GM_EARTH)
+    assert out.shape == (3,)
+    for i in range(3):
+        assert out[i] == brahe.orbital_period_from_state(states[i], brahe.GM_EARTH)
+    np.testing.assert_array_equal(
+        brahe.orbital_period_from_state(states.T, brahe.GM_EARTH, axis=0), out
+    )
+    assert isinstance(brahe.orbital_period_from_state(states[0], brahe.GM_EARTH), float)

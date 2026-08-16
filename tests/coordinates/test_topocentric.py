@@ -491,3 +491,25 @@ def test_batch_topocentric():
             )
             with pytest.raises(ValueError):
                 fwd(stations[:2], targets, ct)
+
+
+def test_batch_topocentric_length_one_broadcast():
+    stations = brahe.position_geodetic_to_ecef(
+        np.array([[-122.4, 37.8, 0.0], [151.2, -33.9, 100.0], [0.0, 0.0, 10.0]]),
+        AngleFormat.DEGREES,
+    )
+    targets = np.array(
+        [[brahe.R_EARTH + 500e3 + 1e3 * i, 1e5 * i, 2e5] for i in range(3)]
+    )
+    ct = EllipsoidalConversionType.GEODETIC
+    local = brahe.relative_position_ecef_to_enz(stations[:1], targets, ct)
+    assert local.shape == (3, 3)
+    for i in range(3):
+        np.testing.assert_array_equal(
+            local[i], brahe.relative_position_ecef_to_enz(stations[0], targets[i], ct)
+        )
+    local_b = brahe.relative_position_ecef_to_enz(stations, targets[:1], ct)
+    for i in range(3):
+        np.testing.assert_array_equal(
+            local_b[i], brahe.relative_position_ecef_to_enz(stations[i], targets[0], ct)
+        )

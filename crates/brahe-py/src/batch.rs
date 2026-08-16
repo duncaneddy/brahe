@@ -404,9 +404,10 @@ fn dispatch_vec_rotation<'py, const N: usize>(
 }
 
 /// Dispatch a two-vector transform (for example site and target) on scalar
-/// or batched arguments. Either argument may be a batch; both batched
-/// arguments must have equal batch lengths. The output takes the layout of
-/// the batched argument (the first when both are batched).
+/// or batched arguments. Either argument may be a batch; when both are
+/// batched their lengths must be equal or one of them must be 1. The output
+/// takes the layout of the batched argument with the common length (the first
+/// when both have it).
 fn dispatch_vec_pair<'py, const N: usize>(
     py: Python<'py>,
     a: &Bound<'py, PyAny>,
@@ -429,15 +430,17 @@ fn dispatch_vec_pair<'py, const N: usize>(
             return Ok(vector_to_numpy!(py, scalar(a_vecs[0], b_vecs[0]), N, f64).into_any());
         }
         (Some(la), Some(lb)) => {
-            if a_vecs.len() != b_vecs.len() {
+            if a_vecs.len() == b_vecs.len() || b_vecs.len() == 1 {
+                la
+            } else if a_vecs.len() == 1 {
+                lb
+            } else {
                 return Err(exceptions::PyValueError::new_err(format!(
                     "Batch lengths {} and {} do not match; expected equal lengths or a single vector",
                     a_vecs.len(),
                     b_vecs.len()
                 )));
             }
-            let _ = lb;
-            la
         }
         (Some(la), None) => la,
         (None, Some(lb)) => lb,

@@ -180,3 +180,57 @@ def test_state_koe_to_inertial_for_body_errors(eop):
     no_frame = brahe.CentralBody.Custom("Rogue", -99, 1.0e10, radius=1.0e5)
     with pytest.raises(RuntimeError):
         brahe.state_koe_to_inertial_for_body(osc, no_frame, AngleFormat.DEGREES)
+
+
+def test_batch_koe_eci():
+    elements = np.array(
+        [
+            [brahe.R_EARTH + 500e3 + 1e3 * i, 0.01, 97.8, 15.0 + i, 30.0, 45.0]
+            for i in range(3)
+        ]
+    )
+    states = brahe.state_koe_to_eci(elements, AngleFormat.DEGREES)
+    assert states.shape == (3, 6)
+    back = brahe.state_eci_to_koe(states, AngleFormat.DEGREES)
+    for i in range(3):
+        np.testing.assert_array_equal(
+            states[i], brahe.state_koe_to_eci(elements[i], AngleFormat.DEGREES)
+        )
+        np.testing.assert_array_equal(
+            back[i], brahe.state_eci_to_koe(states[i], AngleFormat.DEGREES)
+        )
+    np.testing.assert_array_equal(
+        brahe.state_koe_to_eci(elements.T, AngleFormat.DEGREES, axis=0), states.T
+    )
+    np.testing.assert_array_equal(
+        brahe.state_koe_to_eci(elements.tolist(), AngleFormat.DEGREES), states
+    )
+    np.testing.assert_allclose(back, elements, atol=1e-6)
+
+
+def test_batch_koe_inertial_for_body():
+    elements = np.array(
+        [
+            [brahe.R_MOON + 100e3 + 1e3 * i, 0.01, 30.0, 0.0, 0.0, 10.0 * i]
+            for i in range(3)
+        ]
+    )
+    body = brahe.CentralBody.Moon
+    states = brahe.state_koe_to_inertial_for_body(elements, body, AngleFormat.DEGREES)
+    back = brahe.state_inertial_to_koe_for_body(states, body, AngleFormat.DEGREES)
+    assert states.shape == (3, 6)
+    for i in range(3):
+        np.testing.assert_array_equal(
+            states[i],
+            brahe.state_koe_to_inertial_for_body(
+                elements[i], body, AngleFormat.DEGREES
+            ),
+        )
+        np.testing.assert_array_equal(
+            back[i],
+            brahe.state_inertial_to_koe_for_body(states[i], body, AngleFormat.DEGREES),
+        )
+    with pytest.raises(ValueError):
+        brahe.state_koe_to_inertial_for_body(
+            np.zeros((3, 5)), body, AngleFormat.DEGREES
+        )

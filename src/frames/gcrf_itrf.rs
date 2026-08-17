@@ -374,6 +374,16 @@ struct GcrfItrfContext {
 /// # Returns
 /// - Context holding the bias-precession-nutation, Earth-rotation, and
 ///   polar-motion matrices
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = gcrf_itrf_context(epc);
+/// let r_gcrf_to_itrf = c.pm * c.r * c.bpn;
+/// ```
 fn gcrf_itrf_context(epc: Epoch) -> GcrfItrfContext {
     GcrfItrfContext {
         bpn: bias_precession_nutation(epc),
@@ -390,6 +400,19 @@ fn gcrf_itrf_context(epc: Epoch) -> GcrfItrfContext {
 ///
 /// # Returns
 /// - Cartesian ITRF state (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = gcrf_itrf_context(epc);
+/// let x_gcrf = vector6_from_array([7.0e6, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+/// // The same context serves every state of a batch that shares the epoch
+/// let x_itrf = apply_state_gcrf_to_itrf(&c, &x_gcrf);
+/// ```
 fn apply_state_gcrf_to_itrf(c: &GcrfItrfContext, x_gcrf: &SVector6) -> SVector6 {
     let (bpn, r, pm) = (c.bpn, c.r, c.pm);
 
@@ -414,6 +437,18 @@ fn apply_state_gcrf_to_itrf(c: &GcrfItrfContext, x_gcrf: &SVector6) -> SVector6 
 ///
 /// # Returns
 /// - Cartesian GCRF state (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = gcrf_itrf_context(epc);
+/// let x_itrf = vector6_from_array([7.0e6, 0.0, 0.0, 0.0, 7.0e3, 0.0]);
+/// let x_gcrf = apply_state_itrf_to_gcrf(&c, &x_itrf);
+/// ```
 fn apply_state_itrf_to_gcrf(c: &GcrfItrfContext, x_itrf: &SVector6) -> SVector6 {
     let (bpn, r, pm) = (c.bpn, c.r, c.pm);
 

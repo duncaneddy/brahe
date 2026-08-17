@@ -31,6 +31,15 @@ pub(crate) const PARALLEL_THRESHOLD: usize = 1024;
 ///
 /// The common length `N` (`1` if every length is `1`, `0` if any length is `0`
 /// and the rest are `1`), or an error naming the offending lengths.
+///
+/// # Examples
+///
+/// ```ignore
+/// use crate::utils::batch::broadcast_len;
+///
+/// assert_eq!(broadcast_len(&[1, 4]).unwrap(), 4);
+/// assert!(broadcast_len(&[2, 4]).is_err());
+/// ```
 pub(crate) fn broadcast_len(lens: &[usize]) -> Result<usize, BraheError> {
     let n = lens.iter().copied().find(|&l| l != 1).unwrap_or(1);
     if lens.iter().any(|&l| l != 1 && l != n) {
@@ -52,6 +61,17 @@ pub(crate) fn broadcast_len(lens: &[usize]) -> Result<usize, BraheError> {
 /// # Returns
 ///
 /// `&slice[0]` when the slice has length `1`, otherwise `&slice[i]`.
+///
+/// # Examples
+///
+/// ```ignore
+/// use crate::utils::batch::pick;
+///
+/// let one = [1.0];
+/// let many = [1.0, 2.0, 3.0];
+/// assert_eq!(*pick(&one, 2), 1.0);
+/// assert_eq!(*pick(&many, 2), 3.0);
+/// ```
 pub(crate) fn pick<T>(slice: &[T], i: usize) -> &T {
     if slice.len() == 1 {
         &slice[0]
@@ -73,6 +93,15 @@ pub(crate) fn pick<T>(slice: &[T], i: usize) -> &T {
 /// # Returns
 ///
 /// Vector of `n` results in index order.
+///
+/// # Examples
+///
+/// ```ignore
+/// use crate::utils::batch::map_indices;
+///
+/// let squares = map_indices(4, |i| i * i);
+/// assert_eq!(squares, vec![0, 1, 4, 9]);
+/// ```
 pub(crate) fn map_indices<U: Send>(n: usize, f: impl Fn(usize) -> U + Sync) -> Vec<U> {
     if n >= PARALLEL_THRESHOLD {
         get_thread_pool().install(|| (0..n).into_par_iter().map(&f).collect())
@@ -91,6 +120,15 @@ pub(crate) fn map_indices<U: Send>(n: usize, f: impl Fn(usize) -> U + Sync) -> V
 /// # Returns
 ///
 /// Vector with one output per input, in input order.
+///
+/// # Examples
+///
+/// ```ignore
+/// use crate::utils::batch::batch_map;
+///
+/// let doubled = batch_map(&[1.0, 2.0, 3.0], |x| 2.0 * x);
+/// assert_eq!(doubled, vec![2.0, 4.0, 6.0]);
+/// ```
 pub(crate) fn batch_map<T: Sync, U: Send>(inputs: &[T], f: impl Fn(&T) -> U + Sync) -> Vec<U> {
     map_indices(inputs.len(), |i| f(&inputs[i]))
 }
@@ -107,6 +145,16 @@ pub(crate) fn batch_map<T: Sync, U: Send>(inputs: &[T], f: impl Fn(&T) -> U + Sy
 ///
 /// Vector of `N` results in index order, or an error if the lengths do not
 /// satisfy the broadcast rule.
+///
+/// # Examples
+///
+/// ```ignore
+/// use crate::utils::batch::batch_zip;
+///
+/// // A single left operand broadcasts across the right batch
+/// let sums = batch_zip(&[10.0], &[1.0, 2.0], |a, b| a + b).unwrap();
+/// assert_eq!(sums, vec![11.0, 12.0]);
+/// ```
 pub(crate) fn batch_zip<A: Sync, B: Sync, U: Send>(
     a: &[A],
     b: &[B],
@@ -136,6 +184,18 @@ pub(crate) fn batch_zip<A: Sync, B: Sync, U: Send>(
 ///
 /// Vector of `N` results in index order, or an error if the lengths do not
 /// satisfy the broadcast rule.
+///
+/// # Examples
+///
+/// ```ignore
+/// use crate::time::Epoch;
+/// use crate::utils::batch::batch_map_epochs;
+///
+/// let epc = Epoch::from_gps_seconds(0.0);
+/// // One epoch: the context closure runs once for the whole batch
+/// let out = batch_map_epochs(&[epc], &[1.0, 2.0], |e| e.gps_seconds(), |t, x| t + x).unwrap();
+/// assert_eq!(out, vec![1.0, 2.0]);
+/// ```
 pub(crate) fn batch_map_epochs<C: Sync, T: Sync, U: Send>(
     epochs: &[Epoch],
     inputs: &[T],

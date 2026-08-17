@@ -196,6 +196,16 @@ pub fn position_mcmf_to_mci(epc: Epoch, x_mcmf: Vector3<f64>) -> Vector3<f64> {
 ///
 /// # Returns
 /// - MCI -> MCMF rotation matrix and MCMF angular velocity (rad/s)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = mcmf_context(epc);
+/// // c.r_mat rotates MCI -> MCMF; c.omega_b is the MCMF angular velocity
+/// ```
 fn mcmf_context(epc: Epoch) -> RotatingFrameContext {
     let (angles, rates) = body_fixed_iau_angles_and_rates(NAIFId::Mars.id(), epc)
         .expect("IAU Mars rotation model missing from embedded WGCCRE table — this is a bug");
@@ -211,6 +221,16 @@ fn mcmf_context(epc: Epoch) -> RotatingFrameContext {
 ///
 /// # Returns
 /// - Mars position relative to the Earth. Units: (*m*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let offset = mars_earth_offset_position(epc);
+/// // x_mci = x_eci - offset
+/// ```
 fn mars_earth_offset_position(epc: Epoch) -> Vector3<f64> {
     ensure_mars_spk_loaded();
     spk_position(NAIFId::Mars, NAIFId::Earth, epc)
@@ -224,6 +244,16 @@ fn mars_earth_offset_position(epc: Epoch) -> Vector3<f64> {
 ///
 /// # Returns
 /// - Mars state relative to the Earth (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let offset = mars_earth_offset_state(epc);
+/// // x_mci = x_eci - offset
+/// ```
 fn mars_earth_offset_state(epc: Epoch) -> SVector6 {
     ensure_mars_spk_loaded();
     spk_state(NAIFId::Mars, NAIFId::Earth, epc)

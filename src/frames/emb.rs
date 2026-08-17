@@ -27,6 +27,16 @@ use crate::utils::batch::batch_map_epochs;
 ///
 /// # Returns
 /// - Earth position relative to the EMB. Units: (*m*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let offset = earth_emb_offset_position(epc);
+/// // x_emb = x_eci + offset
+/// ```
 fn earth_emb_offset_position(epc: Epoch) -> Vector3<f64> {
     spk_position(NAIFId::Earth, NAIFId::EarthMoonBarycenter, epc)
         .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)")
@@ -39,6 +49,16 @@ fn earth_emb_offset_position(epc: Epoch) -> Vector3<f64> {
 ///
 /// # Returns
 /// - Earth state relative to the EMB (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let offset = earth_emb_offset_state(epc);
+/// // x_emb = x_eci + offset
+/// ```
 fn earth_emb_offset_state(epc: Epoch) -> SVector6 {
     spk_state(NAIFId::Earth, NAIFId::EarthMoonBarycenter, epc)
         .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)")

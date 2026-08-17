@@ -359,6 +359,16 @@ pub fn position_lfme_to_lci(epc: Epoch, x_lfme: Vector3<f64>) -> Vector3<f64> {
 ///
 /// # Returns
 /// - LCI -> LFPA rotation matrix and LFPA angular velocity (rad/s)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = lfpa_context(epc);
+/// // c.r_mat rotates LCI -> LFPA; c.omega_b is the LFPA angular velocity
+/// ```
 fn lfpa_context(epc: Epoch) -> RotatingFrameContext {
     ensure_lunar_pck_loaded();
     let (angles, rates) = crate::spice::pck_euler_angles(MOON_PA_FRAME_ID, epc)
@@ -378,6 +388,16 @@ fn lfpa_context(epc: Epoch) -> RotatingFrameContext {
 ///
 /// # Returns
 /// - LCI -> LFME rotation matrix and LFME angular velocity (rad/s)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = lfme_context(epc);
+/// // c.r_mat rotates LCI -> LFME; c.omega_b is the LFME angular velocity
+/// ```
 fn lfme_context(epc: Epoch) -> RotatingFrameContext {
     ensure_lunar_pck_loaded();
     let (angles, rates) = crate::spice::pck_euler_angles(MOON_PA_FRAME_ID, epc)
@@ -395,6 +415,16 @@ fn lfme_context(epc: Epoch) -> RotatingFrameContext {
 ///
 /// # Returns
 /// - Moon position relative to the Earth. Units: (*m*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let offset = moon_earth_offset_position(epc);
+/// // x_lci = x_eci - offset
+/// ```
 fn moon_earth_offset_position(epc: Epoch) -> Vector3<f64> {
     spk_position(NAIFId::Moon, NAIFId::Earth, epc)
         .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)")
@@ -407,6 +437,16 @@ fn moon_earth_offset_position(epc: Epoch) -> Vector3<f64> {
 ///
 /// # Returns
 /// - Moon state relative to the Earth (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let offset = moon_earth_offset_state(epc);
+/// // x_lci = x_eci - offset
+/// ```
 fn moon_earth_offset_state(epc: Epoch) -> SVector6 {
     spk_state(NAIFId::Moon, NAIFId::Earth, epc)
         .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)")

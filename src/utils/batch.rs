@@ -229,6 +229,17 @@ pub(crate) fn batch_map_epochs<C: Sync, T: Sync, U: Send>(
 /// # Returns
 ///
 /// Vector of `n` results in index order, or the first error encountered.
+///
+/// # Examples
+///
+/// ```ignore
+/// use crate::utils::batch::try_map_indices;
+///
+/// let ok: Result<Vec<usize>, String> = try_map_indices(3, |i| Ok(i + 1));
+/// assert_eq!(ok.unwrap(), vec![1, 2, 3]);
+/// let err: Result<Vec<usize>, String> = try_map_indices(3, |i| if i == 1 { Err("one".into()) } else { Ok(i) });
+/// assert!(err.is_err());
+/// ```
 pub(crate) fn try_map_indices<U: Send, E: Send>(
     n: usize,
     f: impl Fn(usize) -> Result<U, E> + Sync,
@@ -250,6 +261,15 @@ pub(crate) fn try_map_indices<U: Send, E: Send>(
 /// # Returns
 ///
 /// Vector with one output per input, in input order, or the first error.
+///
+/// # Examples
+///
+/// ```ignore
+/// use crate::utils::batch::try_batch_map;
+///
+/// let halves: Result<Vec<f64>, String> = try_batch_map(&[2.0, 4.0], |x| Ok(x / 2.0));
+/// assert_eq!(halves.unwrap(), vec![1.0, 2.0]);
+/// ```
 pub(crate) fn try_batch_map<T: Sync, U: Send, E: Send>(
     inputs: &[T],
     f: impl Fn(&T) -> Result<U, E> + Sync,
@@ -274,6 +294,18 @@ pub(crate) fn try_batch_map<T: Sync, U: Send, E: Send>(
 ///
 /// Vector of `N` results in index order, or an error if the lengths do not
 /// satisfy the broadcast rule or any evaluation fails.
+///
+/// # Examples
+///
+/// ```ignore
+/// use crate::time::Epoch;
+/// use crate::utils::BraheError;
+/// use crate::utils::batch::try_batch_map_epochs;
+///
+/// let epochs = [Epoch::from_gps_seconds(0.0), Epoch::from_gps_seconds(60.0)];
+/// let out = try_batch_map_epochs(&epochs, &[1.0, 2.0], |e| Ok::<f64, BraheError>(e.gps_seconds()), |t, x| Ok(t + x)).unwrap();
+/// assert_eq!(out.len(), 2);
+/// ```
 pub(crate) fn try_batch_map_epochs<C: Sync, T: Sync, U: Send>(
     epochs: &[Epoch],
     inputs: &[T],

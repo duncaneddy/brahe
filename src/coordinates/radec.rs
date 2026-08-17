@@ -437,6 +437,25 @@ struct RadecAzelContext {
 }
 
 /// Compute the topocentric context for `site_geodetic` at `epc`.
+///
+/// # Arguments
+/// - `epc`: Epoch instant
+/// - `site_geodetic`: Site geodetic position `[lon, lat, alt]`. Units: (angles per `angle_format`, *m*)
+/// - `angle_format`: Format of the angular site coordinates
+///
+/// # Returns
+/// - ECI-to-ECEF and ECEF-to-ENZ rotation matrices for the site at `epc`
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::constants::AngleFormat;
+/// use brahe::math::SVector3;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = radec_azel_context(epc, SVector3::new(-122.4, 37.8, 0.0), AngleFormat::Degrees);
+/// ```
 fn radec_azel_context(
     epc: Epoch,
     site_geodetic: SVector3,
@@ -449,6 +468,26 @@ fn radec_azel_context(
 }
 
 /// Apply a topocentric context to one right ascension/declination position.
+///
+/// # Arguments
+/// - `c`: Topocentric context for the site and epoch
+/// - `x_radec`: `[ra, dec, range]`. Units: (angles per `angle_format`, *m*)
+/// - `angle_format`: Format of the angular coordinates
+///
+/// # Returns
+/// - `[az, el, range]`. Units: (angles per `angle_format`, *m*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::constants::AngleFormat;
+/// use brahe::math::SVector3;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = radec_azel_context(epc, SVector3::new(-122.4, 37.8, 0.0), AngleFormat::Degrees);
+/// let azel = apply_position_radec_to_azel(&c, &SVector3::new(30.0, 10.0, 1.0e6), AngleFormat::Degrees);
+/// ```
 fn apply_position_radec_to_azel(
     c: &RadecAzelContext,
     x_radec: &SVector3,
@@ -523,6 +562,25 @@ struct AzelRadecContext {
 }
 
 /// Compute the inverse topocentric context for `site_geodetic` at `epc`.
+///
+/// # Arguments
+/// - `epc`: Epoch instant
+/// - `site_geodetic`: Site geodetic position `[lon, lat, alt]`. Units: (angles per `angle_format`, *m*)
+/// - `angle_format`: Format of the angular site coordinates
+///
+/// # Returns
+/// - ENZ-to-ECEF and ECEF-to-ECI rotation matrices for the site at `epc`
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::constants::AngleFormat;
+/// use brahe::math::SVector3;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = azel_radec_context(epc, SVector3::new(-122.4, 37.8, 0.0), AngleFormat::Degrees);
+/// ```
 fn azel_radec_context(
     epc: Epoch,
     site_geodetic: SVector3,
@@ -535,6 +593,26 @@ fn azel_radec_context(
 }
 
 /// Apply an inverse topocentric context to one azimuth/elevation position.
+///
+/// # Arguments
+/// - `c`: Inverse topocentric context for the site and epoch
+/// - `x_azel`: `[az, el, range]`. Units: (angles per `angle_format`, *m*)
+/// - `angle_format`: Format of the angular coordinates
+///
+/// # Returns
+/// - `[ra, dec, range]`. Units: (angles per `angle_format`, *m*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::constants::AngleFormat;
+/// use brahe::math::SVector3;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = azel_radec_context(epc, SVector3::new(-122.4, 37.8, 0.0), AngleFormat::Degrees);
+/// let radec = apply_position_azel_to_radec(&c, &SVector3::new(120.0, 45.0, 1.0e6), AngleFormat::Degrees);
+/// ```
 fn apply_position_azel_to_radec(
     c: &AzelRadecContext,
     x_azel: &SVector3,

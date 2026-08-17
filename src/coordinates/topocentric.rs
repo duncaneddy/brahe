@@ -85,6 +85,23 @@ pub fn rotation_enz_to_ellipsoid(x_ellipsoid: Vector3<f64>, angle_format: AngleF
 }
 
 /// Rotation matrix from ECEF axes to the ENZ frame of `location_ecef`.
+///
+/// # Arguments
+/// - `location_ecef`: Cartesian ECEF site position. Units: (*m*)
+/// - `conversion_type`: Ellipsoidal conversion used to orient the local frame
+///
+/// # Returns
+/// - Rotation matrix transforming ECEF -> ENZ at the site
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::constants::R_EARTH;
+/// use brahe::coordinates::EllipsoidalConversionType;
+/// use nalgebra::Vector3;
+///
+/// let e = enz_rotation_at(Vector3::new(R_EARTH, 0.0, 0.0), EllipsoidalConversionType::Geodetic);
+/// ```
 fn enz_rotation_at(
     location_ecef: Vector3<f64>,
     conversion_type: EllipsoidalConversionType,
@@ -102,6 +119,23 @@ fn enz_rotation_at(
 }
 
 /// Rotation matrix from the ENZ frame of `location_ecef` to ECEF axes.
+///
+/// # Arguments
+/// - `location_ecef`: Cartesian ECEF site position. Units: (*m*)
+/// - `conversion_type`: Ellipsoidal conversion used to orient the local frame
+///
+/// # Returns
+/// - Rotation matrix transforming ENZ -> ECEF at the site
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::constants::R_EARTH;
+/// use brahe::coordinates::EllipsoidalConversionType;
+/// use nalgebra::Vector3;
+///
+/// let et = enz_inverse_rotation_at(Vector3::new(R_EARTH, 0.0, 0.0), EllipsoidalConversionType::Geodetic);
+/// ```
 fn enz_inverse_rotation_at(
     location_ecef: Vector3<f64>,
     conversion_type: EllipsoidalConversionType,
@@ -119,6 +153,23 @@ fn enz_inverse_rotation_at(
 }
 
 /// Rotation matrix from ECEF axes to the SEZ frame of `location_ecef`.
+///
+/// # Arguments
+/// - `location_ecef`: Cartesian ECEF site position. Units: (*m*)
+/// - `conversion_type`: Ellipsoidal conversion used to orient the local frame
+///
+/// # Returns
+/// - Rotation matrix transforming ECEF -> SEZ at the site
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::constants::R_EARTH;
+/// use brahe::coordinates::EllipsoidalConversionType;
+/// use nalgebra::Vector3;
+///
+/// let e = sez_rotation_at(Vector3::new(R_EARTH, 0.0, 0.0), EllipsoidalConversionType::Geodetic);
+/// ```
 fn sez_rotation_at(
     location_ecef: Vector3<f64>,
     conversion_type: EllipsoidalConversionType,
@@ -136,6 +187,23 @@ fn sez_rotation_at(
 }
 
 /// Rotation matrix from the SEZ frame of `location_ecef` to ECEF axes.
+///
+/// # Arguments
+/// - `location_ecef`: Cartesian ECEF site position. Units: (*m*)
+/// - `conversion_type`: Ellipsoidal conversion used to orient the local frame
+///
+/// # Returns
+/// - Rotation matrix transforming SEZ -> ECEF at the site
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::constants::R_EARTH;
+/// use brahe::coordinates::EllipsoidalConversionType;
+/// use nalgebra::Vector3;
+///
+/// let et = sez_inverse_rotation_at(Vector3::new(R_EARTH, 0.0, 0.0), EllipsoidalConversionType::Geodetic);
+/// ```
 fn sez_inverse_rotation_at(
     location_ecef: Vector3<f64>,
     conversion_type: EllipsoidalConversionType,
@@ -154,6 +222,26 @@ fn sez_inverse_rotation_at(
 
 /// Express `r_ecef` relative to `location_ecef` in the local frame given by
 /// `rot` (ECEF -> local).
+///
+/// # Arguments
+/// - `rot`: Rotation matrix transforming ECEF -> local (ENZ or SEZ)
+/// - `location_ecef`: Cartesian ECEF site position. Units: (*m*)
+/// - `r_ecef`: Cartesian ECEF position to express relative to the site. Units: (*m*)
+///
+/// # Returns
+/// - Relative position in the local frame. Units: (*m*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::constants::R_EARTH;
+/// use brahe::coordinates::EllipsoidalConversionType;
+/// use nalgebra::Vector3;
+///
+/// let site = Vector3::new(R_EARTH, 0.0, 0.0);
+/// let rot = enz_rotation_at(site, EllipsoidalConversionType::Geodetic);
+/// let enz = apply_relative_ecef_to_local(&rot, &site, &Vector3::new(R_EARTH + 500e3, 0.0, 0.0));
+/// ```
 fn apply_relative_ecef_to_local(
     rot: &SMatrix3,
     location_ecef: &Vector3<f64>,
@@ -165,6 +253,26 @@ fn apply_relative_ecef_to_local(
 
 /// Express a local-frame relative position as an ECEF position, given `rot`
 /// (local -> ECEF).
+///
+/// # Arguments
+/// - `rot`: Rotation matrix transforming local (ENZ or SEZ) -> ECEF
+/// - `location_ecef`: Cartesian ECEF site position. Units: (*m*)
+/// - `r_local`: Relative position in the local frame. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian ECEF position. Units: (*m*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::constants::R_EARTH;
+/// use brahe::coordinates::EllipsoidalConversionType;
+/// use nalgebra::Vector3;
+///
+/// let site = Vector3::new(R_EARTH, 0.0, 0.0);
+/// let rot = enz_inverse_rotation_at(site, EllipsoidalConversionType::Geodetic);
+/// let ecef = apply_relative_local_to_ecef(&rot, &site, &Vector3::new(0.0, 0.0, 500e3));
+/// ```
 fn apply_relative_local_to_ecef(
     rot: &SMatrix3,
     location_ecef: &Vector3<f64>,

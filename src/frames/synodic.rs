@@ -277,6 +277,24 @@ struct SynodicStateContext {
 
 /// Apply a synodic position context: re-center from Earth to the synodic
 /// origin, then rotate into synodic axes.
+///
+/// # Arguments
+/// - `c`: Synodic axes and origin offset for the epoch
+/// - `x`: Cartesian position in Earth-centered inertial axes. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian position in the synodic frame. Units: (*m*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = emr_position_context(epc).unwrap();
+/// let x_emr = apply_position_inertial_to_synodic(&c, &Vector3::new(1.0e8, -2.0e8, 5.0e7));
+/// ```
 fn apply_position_inertial_to_synodic(
     c: &SynodicPositionContext,
     x: &Vector3<f64>,
@@ -286,6 +304,24 @@ fn apply_position_inertial_to_synodic(
 
 /// Apply a synodic position context in the inverse direction: rotate to ICRF
 /// axes, then re-center from the synodic origin to Earth.
+///
+/// # Arguments
+/// - `c`: Synodic axes and origin offset for the epoch
+/// - `x`: Cartesian position in the synodic frame. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian position in Earth-centered inertial axes. Units: (*m*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = emr_position_context(epc).unwrap();
+/// let x_gcrf = apply_position_synodic_to_inertial(&c, &Vector3::new(3.8e8, 0.0, 0.0));
+/// ```
 fn apply_position_synodic_to_inertial(
     c: &SynodicPositionContext,
     x: &Vector3<f64>,
@@ -295,17 +331,69 @@ fn apply_position_synodic_to_inertial(
 
 /// Apply a synodic state context: re-center from Earth to the synodic origin,
 /// then rotate into synodic axes with the transport term.
+///
+/// # Arguments
+/// - `c`: Synodic axes, their rate, and origin offset state for the epoch
+/// - `x`: Cartesian state in Earth-centered inertial axes (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian state in the synodic frame (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = emr_state_context(epc).unwrap();
+/// let x_emr = apply_state_inertial_to_synodic(&c, &vector6_from_array([1.0e8, -2.0e8, 5.0e7, 1.0e3, -2.0e3, 0.5e3]));
+/// ```
 fn apply_state_inertial_to_synodic(c: &SynodicStateContext, x: &SVector6) -> SVector6 {
     state_inertial_to_synodic(&c.r_mat, &c.r_dot_mat, x - c.offset)
 }
 
 /// Apply a synodic state context in the inverse direction.
+///
+/// # Arguments
+/// - `c`: Synodic axes, their rate, and origin offset state for the epoch
+/// - `x`: Cartesian state in the synodic frame (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian state in Earth-centered inertial axes (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = emr_state_context(epc).unwrap();
+/// let x_gcrf = apply_state_synodic_to_inertial(&c, &vector6_from_array([3.8e8, 0.0, 0.0, 0.0, 0.0, 0.0]));
+/// ```
 fn apply_state_synodic_to_inertial(c: &SynodicStateContext, x: &SVector6) -> SVector6 {
     state_synodic_to_inertial(&c.r_mat, &c.r_dot_mat, *x) + c.offset
 }
 
 /// EMR position context: rotation from [`emr_axes`] and the Earth -> EMB
 /// offset.
+///
+/// # Arguments
+/// - `epc`: Epoch instant
+///
+/// # Returns
+/// - EMR rotation matrix and Earth -> EMB offset. Units: (*m*)
+/// - Error if the ephemeris cannot be evaluated
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = emr_position_context(epc).unwrap();
+/// ```
 fn emr_position_context(epc: Epoch) -> Result<SynodicPositionContext, BraheError> {
     let (r_mat, _) = emr_axes(epc)?;
     let offset = spk_position(NAIFId::EarthMoonBarycenter, NAIFId::Earth, epc)?;
@@ -314,6 +402,22 @@ fn emr_position_context(epc: Epoch) -> Result<SynodicPositionContext, BraheError
 
 /// EMR state context: rotation and rate from [`emr_axes`] and the Earth ->
 /// EMB offset state.
+///
+/// # Arguments
+/// - `epc`: Epoch instant
+///
+/// # Returns
+/// - EMR rotation matrix, its time derivative, and Earth -> EMB offset state. Units: (*m*; *m/s*)
+/// - Error if the ephemeris cannot be evaluated
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = emr_state_context(epc).unwrap();
+/// ```
 fn emr_state_context(epc: Epoch) -> Result<SynodicStateContext, BraheError> {
     let (r_mat, r_dot_mat) = emr_axes(epc)?;
     // EMB relative to Earth in ICRF axes: re-center Earth → EMB, then rotate.
@@ -580,6 +684,22 @@ fn seb_offset_from_earth(epc: Epoch) -> Result<SVector6, BraheError> {
 
 /// SER position context: rotation from [`ser_axes`] and the Earth -> SEB
 /// offset.
+///
+/// # Arguments
+/// - `epc`: Epoch instant
+///
+/// # Returns
+/// - SER rotation matrix and Earth -> SEB offset. Units: (*m*)
+/// - Error if the ephemeris cannot be evaluated
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = ser_position_context(epc).unwrap();
+/// ```
 fn ser_position_context(epc: Epoch) -> Result<SynodicPositionContext, BraheError> {
     let (r_mat, _) = ser_axes(epc)?;
     let offset = seb_offset_from_earth(epc)?.fixed_rows::<3>(0).into_owned();
@@ -588,6 +708,22 @@ fn ser_position_context(epc: Epoch) -> Result<SynodicPositionContext, BraheError
 
 /// SER state context: rotation and rate from [`ser_axes`] and the Earth ->
 /// SEB offset state.
+///
+/// # Arguments
+/// - `epc`: Epoch instant
+///
+/// # Returns
+/// - SER rotation matrix, its time derivative, and Earth -> SEB offset state. Units: (*m*; *m/s*)
+/// - Error if the ephemeris cannot be evaluated
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = ser_state_context(epc).unwrap();
+/// ```
 fn ser_state_context(epc: Epoch) -> Result<SynodicStateContext, BraheError> {
     let (r_mat, r_dot_mat) = ser_axes(epc)?;
     // SEB relative to Earth in ICRF axes: re-center Earth → SEB, then rotate.

@@ -543,6 +543,17 @@ pub(crate) struct RotatingFrameContext {
 ///
 /// # Returns
 /// - Cartesian state in the body-fixed frame. Units: (*m*; *m/s*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::vector6_from_array;
+/// use nalgebra::Vector3;
+/// use brahe::math::SMatrix3;
+///
+/// let c = RotatingFrameContext { r_mat: SMatrix3::identity(), omega_b: Vector3::new(0.0, 0.0, 7.29e-5) };
+/// let x_body = apply_state_icrf_to_rotating(&c, &vector6_from_array([7.0e6, 0.0, 0.0, 0.0, 7.5e3, 0.0]));
+/// ```
 pub(crate) fn apply_state_icrf_to_rotating(
     c: &RotatingFrameContext,
     x_icrf: &SVector6,
@@ -559,6 +570,17 @@ pub(crate) fn apply_state_icrf_to_rotating(
 ///
 /// # Returns
 /// - Cartesian state in ICRF axes. Units: (*m*; *m/s*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::vector6_from_array;
+/// use nalgebra::Vector3;
+/// use brahe::math::SMatrix3;
+///
+/// let c = RotatingFrameContext { r_mat: SMatrix3::identity(), omega_b: Vector3::new(0.0, 0.0, 7.29e-5) };
+/// let x_icrf = apply_state_rotating_to_icrf(&c, &vector6_from_array([7.0e6, 0.0, 0.0, 0.0, 7.0e3, 0.0]));
+/// ```
 pub(crate) fn apply_state_rotating_to_icrf(
     c: &RotatingFrameContext,
     x_body: &SVector6,
@@ -771,6 +793,17 @@ struct FramePairContext {
 /// # Returns
 /// - Context holding the ICRF -> `from` matrix, the `from` -> `to` center
 ///   offset (absent when the centers coincide), and the ICRF -> `to` matrix
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::frames::ReferenceFrame;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = frame_pair_context(ReferenceFrame::GCRF, ReferenceFrame::ITRF, epc).unwrap();
+/// // c.offset is None because both frames share the Earth center
+/// ```
 fn frame_pair_context(
     from: ReferenceFrame,
     to: ReferenceFrame,
@@ -799,6 +832,18 @@ fn frame_pair_context(
 ///
 /// # Returns
 /// - Cartesian position in the target frame. Units: (*m*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::frames::ReferenceFrame;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = frame_pair_context(ReferenceFrame::GCRF, ReferenceFrame::ITRF, epc).unwrap();
+/// let x_itrf = apply_position_frame_pair(&c, &Vector3::new(7.0e6, 0.0, 0.0));
+/// ```
 fn apply_position_frame_pair(c: &FramePairContext, x: &Vector3<f64>) -> Vector3<f64> {
     let x_icrf = c.r_from.transpose() * x;
     let x_translated = match c.offset {

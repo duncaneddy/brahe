@@ -10,7 +10,7 @@ STM at t=T/2:
   Determinant: 0.999999
 
 STM * STM^-1 (should be identity):
-  Max deviation from I: 5.45e-12
+  Max deviation from I: 2.00e-11
 
 === STM Structure ===
 Upper-left 3x3: Position sensitivity to initial position

@@ -80,7 +80,7 @@ jobs:
           rustup default ${{ env.RUST_TOOLCHAIN }}
 
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@v9.0.0
+        uses: astral-sh/setup-uv@v10.0.0
         with:
           enable-cache: true
 
@@ -122,7 +122,7 @@ jobs:
           rustup default ${{ env.RUST_TOOLCHAIN }}
 
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@v9.0.0
+        uses: astral-sh/setup-uv@v10.0.0
         with:
           enable-cache: true
 
@@ -161,7 +161,7 @@ jobs:
           rustup default ${{ env.RUST_TOOLCHAIN }}
 
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@v9.0.0
+        uses: astral-sh/setup-uv@v10.0.0
         with:
           enable-cache: true
 

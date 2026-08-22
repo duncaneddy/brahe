@@ -83,3 +83,27 @@ def test_geodetic_failure(eop, lat):
         brahe.position_geodetic_to_ecef(
             np.array([0.0, lat, 0.0]), brahe.AngleFormat.DEGREES
         )
+
+
+def test_batch_geodetic_ecef():
+    sites = np.array([[-122.4, 37.8, 0.0], [151.2, -33.9, 100.0], [0.0, 0.0, 500e3]])
+    ecef = brahe.position_geodetic_to_ecef(sites, brahe.AngleFormat.DEGREES)
+    back = brahe.position_ecef_to_geodetic(ecef, brahe.AngleFormat.DEGREES)
+    assert ecef.shape == (3, 3)
+    for i in range(3):
+        np.testing.assert_array_equal(
+            ecef[i],
+            brahe.position_geodetic_to_ecef(sites[i], brahe.AngleFormat.DEGREES),
+        )
+        np.testing.assert_array_equal(
+            back[i], brahe.position_ecef_to_geodetic(ecef[i], brahe.AngleFormat.DEGREES)
+        )
+    np.testing.assert_allclose(back, sites, atol=1e-6)
+    np.testing.assert_array_equal(
+        brahe.position_ecef_to_geodetic(ecef.T, brahe.AngleFormat.DEGREES, axis=0),
+        back.T,
+    )
+    with pytest.raises(ValueError):
+        brahe.position_geodetic_to_ecef(
+            np.array([[0.0, 95.0, 0.0]]), brahe.AngleFormat.DEGREES
+        )

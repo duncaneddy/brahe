@@ -8,6 +8,7 @@ use nalgebra::Vector3;
 
 use crate::constants;
 use crate::constants::AngleFormat;
+use crate::utils::batch::{batch_map, try_batch_map};
 
 /// Convert geocentric position to equivalent Earth-fixed position.
 ///
@@ -105,10 +106,70 @@ pub fn position_ecef_to_geocentric(
     }
 }
 
+/// Converts a batch of geocentric positions to ECEF Cartesian positions.
+///
+/// Batch form of [`position_geocentric_to_ecef`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_geoc`: Geocentric positions `[lon, lat, radius]`. Units: (angles per `angle_format`, *m*)
+/// - `angle_format`: Format of the angular coordinates
+///
+/// # Returns
+/// - Cartesian ECEF positions in input order. Units: (*m*)
+/// - Error if any latitude lies outside ±90°
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::positions_geocentric_to_ecef;
+/// use nalgebra::Vector3;
+///
+/// let sites = vec![Vector3::new(-122.4, 37.8, R_EARTH), Vector3::new(151.2, -33.9, R_EARTH)];
+/// let ecef = positions_geocentric_to_ecef(&sites, AngleFormat::Degrees).unwrap();
+/// assert_eq!(ecef.len(), 2);
+/// ```
+pub fn positions_geocentric_to_ecef(
+    x_geoc: &[Vector3<f64>],
+    angle_format: AngleFormat,
+) -> Result<Vec<Vector3<f64>>, String> {
+    try_batch_map(x_geoc, |x| position_geocentric_to_ecef(*x, angle_format))
+}
+
+/// Converts a batch of ECEF Cartesian positions to geocentric positions.
+///
+/// Batch form of [`position_ecef_to_geocentric`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_ecef`: Cartesian ECEF positions. Units: (*m*)
+/// - `angle_format`: Format of the returned angular coordinates
+///
+/// # Returns
+/// - Geocentric positions `[lon, lat, radius]` in input order. Units: (angles per `angle_format`, *m*)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::positions_ecef_to_geocentric;
+/// use nalgebra::Vector3;
+///
+/// let ecef = vec![Vector3::new(R_EARTH, 0.0, 0.0), Vector3::new(0.0, R_EARTH, 0.0)];
+/// let geoc = positions_ecef_to_geocentric(&ecef, AngleFormat::Degrees);
+/// assert_eq!(geoc.len(), 2);
+/// ```
+pub fn positions_ecef_to_geocentric(
+    x_ecef: &[Vector3<f64>],
+    angle_format: AngleFormat,
+) -> Vec<Vector3<f64>> {
+    batch_map(x_ecef, |x| position_ecef_to_geocentric(*x, angle_format))
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
 
     use crate::constants::{DEGREES, RADIANS, WGS84_A};
 
@@ -190,5 +251,35 @@ mod tests {
         assert!(position_geocentric_to_ecef(Vector3::new(0.0, 90.1, 0.0), DEGREES).is_err());
 
         assert!(position_geocentric_to_ecef(Vector3::new(0.0, -90.1, 0.0), DEGREES).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_geocentric_ecef_match_scalar() {
+        let sites = vec![
+            Vector3::new(-122.4, 37.8, constants::R_EARTH),
+            Vector3::new(151.2, -33.9, constants::R_EARTH + 100.0),
+            Vector3::new(0.0, 0.0, constants::R_EARTH + 500e3),
+        ];
+        let ecef = positions_geocentric_to_ecef(&sites, AngleFormat::Degrees).unwrap();
+        let back = positions_ecef_to_geocentric(&ecef, AngleFormat::Degrees);
+        for i in 0..3 {
+            assert_eq!(
+                ecef[i],
+                position_geocentric_to_ecef(sites[i], AngleFormat::Degrees).unwrap()
+            );
+            assert_eq!(
+                back[i],
+                position_ecef_to_geocentric(ecef[i], AngleFormat::Degrees)
+            );
+            for k in 0..3 {
+                assert_abs_diff_eq!(back[i][k], sites[i][k], epsilon = 1e-6);
+            }
+        }
+        assert!(
+            positions_geocentric_to_ecef(&[Vector3::new(0.0, 95.0, 0.0)], AngleFormat::Degrees)
+                .is_err()
+        );
+        assert!(positions_ecef_to_geocentric(&[], AngleFormat::Degrees).is_empty());
     }
 }

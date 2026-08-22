@@ -4,6 +4,10 @@ Coordinate systems and transformations are fundamental to astrodynamics. Differe
 
 Brahe provides coordinate transformation functions for converting between different coordinate representations and reference frames.
 
+## Batch Input
+
+Every coordinate transformation function accepts a batch of vectors in a single call. Passing an `(n, 6)` array to `state_koe_to_eci` or an `(n, 3)` array to `position_ecef_to_geodetic` transforms every row and returns an array of the same shape; the `axis` keyword (default `-1`) names the dimension holding the vector components. The topocentric relative-position functions broadcast a single site across a batch of positions, and `position_radec_to_azel` accepts a sequence of epochs. The rules are the same as for the frame transformations; see [Vectorized Transformations](../frames/vectorized.md).
+
 ## Coordinate Systems in Brahe
 
 ### Cartesian State Vectors

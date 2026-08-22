@@ -5,6 +5,7 @@ These tests mirror the Rust tests in src/relative_motion/eci_rtn.rs
 """
 
 import brahe
+import pytest
 import numpy as np
 from pytest import approx
 
@@ -178,3 +179,99 @@ def test_state_rtn_to_eci_and_back_non_aligned_orbit(eop):
 
     assert pos_err == approx(0.0, abs=1e-8)
     assert vel_err == approx(0.0, abs=1e-8)
+
+
+def test_batch_rtn(eop):
+    chiefs = np.array(
+        [
+            brahe.state_koe_to_eci(
+                np.array(
+                    [brahe.R_EARTH + 700e3 + 1e3 * i, 0.001, 97.8, 15.0, 30.0, 45.0 + i]
+                ),
+                brahe.AngleFormat.DEGREES,
+            )
+            for i in range(3)
+        ]
+    )
+    deputies = np.array(
+        [
+            brahe.state_koe_to_eci(
+                np.array(
+                    [
+                        brahe.R_EARTH + 701e3 + 1e3 * i,
+                        0.0015,
+                        97.85,
+                        15.05,
+                        30.05,
+                        45.05 + i,
+                    ]
+                ),
+                brahe.AngleFormat.DEGREES,
+            )
+            for i in range(3)
+        ]
+    )
+    R = brahe.rotation_rtn_to_eci(chiefs)
+    Rt = brahe.rotation_eci_to_rtn(chiefs)
+    assert R.shape == (3, 3, 3)
+    rel = brahe.state_eci_to_rtn(chiefs, deputies)
+    rel_one = brahe.state_eci_to_rtn(chiefs[0], deputies)
+    rel_one_dep = brahe.state_eci_to_rtn(chiefs, deputies[0])
+    back = brahe.state_rtn_to_eci(chiefs, rel)
+    back_one = brahe.state_rtn_to_eci(chiefs[0], rel_one)
+    assert (
+        rel.shape == (3, 6) and rel_one.shape == (3, 6) and rel_one_dep.shape == (3, 6)
+    )
+    for i in range(3):
+        np.testing.assert_array_equal(R[i], brahe.rotation_rtn_to_eci(chiefs[i]))
+        np.testing.assert_array_equal(Rt[i], brahe.rotation_eci_to_rtn(chiefs[i]))
+        np.testing.assert_array_equal(
+            rel[i], brahe.state_eci_to_rtn(chiefs[i], deputies[i])
+        )
+        np.testing.assert_array_equal(
+            rel_one[i], brahe.state_eci_to_rtn(chiefs[0], deputies[i])
+        )
+        np.testing.assert_array_equal(
+            rel_one_dep[i], brahe.state_eci_to_rtn(chiefs[i], deputies[0])
+        )
+        np.testing.assert_array_equal(
+            back[i], brahe.state_rtn_to_eci(chiefs[i], rel[i])
+        )
+        np.testing.assert_array_equal(
+            back_one[i], brahe.state_rtn_to_eci(chiefs[0], rel_one[i])
+        )
+    np.testing.assert_allclose(back, deputies, atol=1e-6)
+    np.testing.assert_array_equal(
+        brahe.state_eci_to_rtn(chiefs.T, deputies.T, axis=0), rel.T
+    )
+    with pytest.raises(ValueError):
+        brahe.state_eci_to_rtn(chiefs[:2], deputies)
+
+
+def test_batch_rtn_length_one_broadcast(eop):
+    chiefs = np.array(
+        [
+            brahe.state_koe_to_eci(
+                np.array(
+                    [brahe.R_EARTH + 700e3 + 1e3 * i, 0.001, 97.8, 15.0, 30.0, 45.0 + i]
+                ),
+                brahe.AngleFormat.DEGREES,
+            )
+            for i in range(3)
+        ]
+    )
+    deputies = chiefs + np.array([1000.0, 500.0, -300.0, 0.0, 0.0, 0.0])
+    rel = brahe.state_eci_to_rtn(chiefs[:1], deputies)
+    assert rel.shape == (3, 6)
+    for i in range(3):
+        np.testing.assert_array_equal(
+            rel[i], brahe.state_eci_to_rtn(chiefs[0], deputies[i])
+        )
+    rel_b = brahe.state_eci_to_rtn(chiefs, deputies[:1])
+    for i in range(3):
+        np.testing.assert_array_equal(
+            rel_b[i], brahe.state_eci_to_rtn(chiefs[i], deputies[0])
+        )
+    np.testing.assert_array_equal(
+        brahe.state_eci_to_rtn(chiefs[:1].T, deputies.T, axis=0), rel.T
+    )

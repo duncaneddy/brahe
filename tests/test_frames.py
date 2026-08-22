@@ -291,6 +291,194 @@ def test_gcrf_itrf_eci_ecef_equivalence(eop):
     assert np.allclose(state_gcrf_itrf, state_eci_ecef)
 
 
+# Batch (vectorized) transformation tests
+def _sample_states(n):
+    return np.array(
+        [
+            brahe.state_koe_to_eci(
+                np.array(
+                    [
+                        brahe.R_EARTH + 500e3 + 1e3 * i,
+                        0.01,
+                        97.8,
+                        15.0 + i,
+                        30.0,
+                        45.0 + 2 * i,
+                    ]
+                ),
+                brahe.AngleFormat.DEGREES,
+            )
+            for i in range(n)
+        ]
+    )
+
+
+def _sample_epochs(n):
+    epc0 = brahe.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    return [epc0 + 60.0 * i for i in range(n)]
+
+
+def test_state_eci_to_ecef_batch_shared_epoch(eop):
+    epc = _sample_epochs(1)[0]
+    states = _sample_states(5)
+    out = brahe.state_eci_to_ecef(epc, states)
+    assert out.shape == (5, 6)
+    for i in range(5):
+        np.testing.assert_array_equal(out[i], brahe.state_eci_to_ecef(epc, states[i]))
+    out_t = brahe.state_eci_to_ecef(epc, states.T, axis=0)
+    assert out_t.shape == (6, 5)
+    np.testing.assert_array_equal(out_t, out.T)
+
+
+def test_state_eci_to_ecef_batch_epoch_sequence(eop):
+    epochs = _sample_epochs(5)
+    states = _sample_states(5)
+    out = brahe.state_eci_to_ecef(epochs, states)
+    assert out.shape == (5, 6)
+    for i in range(5):
+        np.testing.assert_array_equal(
+            out[i], brahe.state_eci_to_ecef(epochs[i], states[i])
+        )
+    np.testing.assert_array_equal(brahe.state_eci_to_ecef(tuple(epochs), states), out)
+    np.testing.assert_array_equal(
+        brahe.state_eci_to_ecef(np.array(epochs, dtype=object), states), out
+    )
+
+
+def test_position_ecef_to_eci_single_position_many_epochs(eop):
+    epochs = _sample_epochs(4)
+    station = np.array([brahe.R_EARTH, 0.0, 0.0])
+    out = brahe.position_ecef_to_eci(epochs, station)
+    assert out.shape == (4, 3)
+    for i in range(4):
+        np.testing.assert_array_equal(
+            out[i], brahe.position_ecef_to_eci(epochs[i], station)
+        )
+    out0 = brahe.position_ecef_to_eci(epochs, station, axis=0)
+    assert out0.shape == (3, 4)
+    np.testing.assert_array_equal(out0, out.T)
+
+
+def test_state_gcrf_to_itrf_batch_nd_and_list_input(eop):
+    epc = _sample_epochs(1)[0]
+    states = _sample_states(6).reshape(2, 3, 6)
+    out = brahe.state_gcrf_to_itrf(epc, states)
+    assert out.shape == (2, 3, 6)
+    for i in range(2):
+        for j in range(3):
+            np.testing.assert_array_equal(
+                out[i, j], brahe.state_gcrf_to_itrf(epc, states[i, j])
+            )
+    states_mid = np.moveaxis(states, 2, 1)
+    out_mid = brahe.state_gcrf_to_itrf(epc, states_mid, axis=1)
+    assert out_mid.shape == (2, 6, 3)
+    np.testing.assert_array_equal(np.moveaxis(out_mid, 1, 2), out)
+    small = _sample_states(3)
+    np.testing.assert_array_equal(
+        brahe.state_gcrf_to_itrf(epc, small.tolist()),
+        brahe.state_gcrf_to_itrf(epc, small),
+    )
+
+
+def test_state_itrf_to_gcrf_batch_roundtrip(eop):
+    epochs = _sample_epochs(4)
+    states = _sample_states(4)
+    itrf = brahe.state_gcrf_to_itrf(epochs, states)
+    for i in range(4):
+        np.testing.assert_array_equal(
+            itrf[i], brahe.state_gcrf_to_itrf(epochs[i], states[i])
+        )
+    back = brahe.state_itrf_to_gcrf(epochs, itrf)
+    for i in range(4):
+        np.testing.assert_array_equal(
+            back[i], brahe.state_itrf_to_gcrf(epochs[i], itrf[i])
+        )
+    np.testing.assert_allclose(back[:, :3], states[:, :3], atol=1e-6)
+    np.testing.assert_allclose(back[:, 3:], states[:, 3:], atol=1e-9)
+
+
+def test_rotation_eci_to_ecef_batch(eop):
+    epochs = _sample_epochs(3)
+    R = brahe.rotation_eci_to_ecef(epochs)
+    assert R.shape == (3, 3, 3)
+    for i in range(3):
+        np.testing.assert_array_equal(R[i], brahe.rotation_eci_to_ecef(epochs[i]))
+    Rt = brahe.rotation_ecef_to_eci(epochs)
+    for i in range(3):
+        np.testing.assert_array_equal(Rt[i], brahe.rotation_ecef_to_eci(epochs[i]))
+    np.testing.assert_array_equal(brahe.rotation_gcrf_to_itrf(epochs), R)
+    np.testing.assert_array_equal(brahe.rotation_itrf_to_gcrf(epochs), Rt)
+    assert brahe.rotation_eci_to_ecef(epochs[0]).shape == (3, 3)
+
+
+def test_batch_positions_eci_ecef_gcrf_itrf(eop):
+    epochs = _sample_epochs(3)
+    pos = _sample_states(3)[:, :3]
+    for f in (
+        brahe.position_eci_to_ecef,
+        brahe.position_ecef_to_eci,
+        brahe.position_gcrf_to_itrf,
+        brahe.position_itrf_to_gcrf,
+    ):
+        out = f(epochs, pos)
+        assert out.shape == (3, 3)
+        for i in range(3):
+            np.testing.assert_array_equal(out[i], f(epochs[i], pos[i]))
+        out1 = f(epochs[0], pos)
+        for i in range(3):
+            np.testing.assert_array_equal(out1[i], f(epochs[0], pos[i]))
+
+
+def test_batch_states_eci_ecef_alias(eop):
+    epochs = _sample_epochs(3)
+    states = _sample_states(3)
+    np.testing.assert_array_equal(
+        brahe.state_eci_to_ecef(epochs, states),
+        brahe.state_gcrf_to_itrf(epochs, states),
+    )
+    np.testing.assert_array_equal(
+        brahe.state_ecef_to_eci(epochs, states),
+        brahe.state_itrf_to_gcrf(epochs, states),
+    )
+
+
+def test_batch_eme2000_gcrf():
+    states = _sample_states(3)
+    for f in (brahe.state_gcrf_to_eme2000, brahe.state_eme2000_to_gcrf):
+        out = f(states)
+        assert out.shape == (3, 6)
+        for i in range(3):
+            np.testing.assert_array_equal(out[i], f(states[i]))
+        out0 = f(states.T, axis=0)
+        np.testing.assert_array_equal(out0, out.T)
+    pos = states[:, :3]
+    for f in (brahe.position_gcrf_to_eme2000, brahe.position_eme2000_to_gcrf):
+        out = f(pos)
+        assert out.shape == (3, 3)
+        for i in range(3):
+            np.testing.assert_array_equal(out[i], f(pos[i]))
+
+
+def test_batch_input_errors(eop):
+    epochs = _sample_epochs(3)
+    states = _sample_states(3)
+    with pytest.raises(ValueError):
+        brahe.state_eci_to_ecef(epochs[0], states, axis=0)
+    with pytest.raises(ValueError):
+        brahe.state_eci_to_ecef(epochs[0], states, axis=2)
+    with pytest.raises(ValueError):
+        brahe.state_eci_to_ecef(epochs[:2], states)
+    with pytest.raises(ValueError):
+        brahe.state_eci_to_ecef(epochs[0], np.zeros((3, 5)))
+    with pytest.raises(TypeError):
+        brahe.state_eci_to_ecef([1.0, 2.0], states)
+    with pytest.raises(ValueError):
+        brahe.state_eci_to_ecef(epochs[0], 5.0)
+    assert brahe.state_eci_to_ecef(epochs[0], np.zeros((0, 6))).shape == (0, 6)
+    with pytest.raises(TypeError):
+        brahe.rotation_eci_to_ecef([1.0, 2.0])
+
+
 # EME2000 <> GCRF transformation tests
 def test_bias_eme2000():
     """Test the bias matrix computation for GCRF to EME2000"""

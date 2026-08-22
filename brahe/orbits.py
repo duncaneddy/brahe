@@ -72,8 +72,8 @@ from brahe._brahe import (
     # Mean-osculating Keplerian element conversions
     state_koe_osc_to_mean,
     state_koe_mean_to_osc,
-    batch_state_koe_osc_to_mean,
-    batch_state_koe_mean_to_osc,
+    states_koe_osc_to_mean,
+    states_koe_mean_to_osc,
     MeanElementMethod,
     WindowAlignment,
     WindowEdgeHandling,
@@ -136,8 +136,8 @@ __all__ = [
     # Mean-osculating Keplerian element conversions
     "state_koe_osc_to_mean",
     "state_koe_mean_to_osc",
-    "batch_state_koe_osc_to_mean",
-    "batch_state_koe_mean_to_osc",
+    "states_koe_osc_to_mean",
+    "states_koe_mean_to_osc",
     "MeanElementMethod",
     "WindowAlignment",
     "WindowEdgeHandling",

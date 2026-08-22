@@ -466,7 +466,7 @@ def test_orbital_period_vector():
     oe = [a, 0.01, math.radians(45), 0, 0, 0]
 
     # Test with vector
-    T_vec = brahe.orbital_period(oe)
+    T_vec = brahe.orbital_period(np.array([oe]))[0]
     # Test with scalar (for comparison)
     T_scalar = brahe.orbital_period(a)
 
@@ -479,7 +479,7 @@ def test_orbital_period_general_vector():
     a = brahe.R_EARTH + 500e3
     oe = [a, 0.01, math.radians(45), 0, 0, 0]
 
-    T_vec = brahe.orbital_period_general(oe, brahe.GM_EARTH)
+    T_vec = brahe.orbital_period_general(np.array([oe]), brahe.GM_EARTH)[0]
     T_scalar = brahe.orbital_period_general(a, brahe.GM_EARTH)
 
     assert T_vec == pytest.approx(T_scalar, abs=1e-12)
@@ -490,7 +490,7 @@ def test_mean_motion_vector():
     a = brahe.R_EARTH + 500e3
     oe = [a, 0.01, math.radians(45), 0, 0, 0]
 
-    n_vec = brahe.mean_motion(oe, angle_format=AngleFormat.RADIANS)
+    n_vec = brahe.mean_motion(np.array([oe]), angle_format=AngleFormat.RADIANS)[0]
     n_scalar = brahe.mean_motion(a, angle_format=AngleFormat.RADIANS)
 
     assert n_vec == pytest.approx(n_scalar, abs=1e-12)
@@ -503,8 +503,8 @@ def test_mean_motion_general_vector():
     oe = [a, 0.01, 45, 0, 0, 0]
 
     n_vec = brahe.mean_motion_general(
-        oe, brahe.GM_EARTH, angle_format=AngleFormat.DEGREES
-    )
+        np.array([oe]), brahe.GM_EARTH, angle_format=AngleFormat.DEGREES
+    )[0]
     n_scalar = brahe.mean_motion_general(
         a, brahe.GM_EARTH, angle_format=AngleFormat.DEGREES
     )
@@ -518,7 +518,7 @@ def test_perigee_velocity_vector():
     e = 0.72
     oe = [a, e, math.radians(63.4), 0, 0, 0]
 
-    v_vec = brahe.perigee_velocity(oe)
+    v_vec = brahe.perigee_velocity(np.array([oe]))[0]
     v_scalar = brahe.perigee_velocity(a, e)
 
     assert v_vec == pytest.approx(v_scalar, abs=1e-6)
@@ -530,7 +530,7 @@ def test_periapsis_velocity_vector():
     e = 0.95
     oe = [a, e, math.radians(10), 0, 0, 0]
 
-    v_vec = brahe.periapsis_velocity(oe, gm=brahe.GM_SUN)
+    v_vec = brahe.periapsis_velocity(np.array([oe]), gm=brahe.GM_SUN)[0]
     v_scalar = brahe.periapsis_velocity(a, e, gm=brahe.GM_SUN)
 
     assert v_vec == pytest.approx(v_scalar, abs=1e-6)
@@ -542,7 +542,7 @@ def test_apogee_velocity_vector():
     e = 0.73
     oe = [a, e, math.radians(7), 0, 0, 0]
 
-    v_vec = brahe.apogee_velocity(oe)
+    v_vec = brahe.apogee_velocity(np.array([oe]))[0]
     v_scalar = brahe.apogee_velocity(a, e)
 
     assert v_vec == pytest.approx(v_scalar, abs=1e-6)
@@ -554,7 +554,7 @@ def test_apoapsis_velocity_vector():
     e = 0.3
     oe = [a, e, math.radians(30), 0, 0, 0]
 
-    v_vec = brahe.apoapsis_velocity(oe, gm=brahe.GM_MARS)
+    v_vec = brahe.apoapsis_velocity(np.array([oe]), gm=brahe.GM_MARS)[0]
     v_scalar = brahe.apoapsis_velocity(a, e, gm=brahe.GM_MARS)
 
     assert v_vec == pytest.approx(v_scalar, abs=1e-6)
@@ -566,7 +566,7 @@ def test_periapsis_distance_vector():
     e = 0.2
     oe = [a, e, math.radians(45), 0, 0, 0]
 
-    r_vec = brahe.periapsis_distance(oe)
+    r_vec = brahe.periapsis_distance(np.array([oe]))[0]
     r_scalar = brahe.periapsis_distance(a, e)
 
     assert r_vec == pytest.approx(r_scalar, abs=1e-6)
@@ -578,7 +578,7 @@ def test_apoapsis_distance_vector():
     e = 0.2
     oe = [a, e, math.radians(45), 0, 0, 0]
 
-    r_vec = brahe.apoapsis_distance(oe)
+    r_vec = brahe.apoapsis_distance(np.array([oe]))[0]
     r_scalar = brahe.apoapsis_distance(a, e)
 
     assert r_vec == pytest.approx(r_scalar, abs=1e-6)
@@ -590,7 +590,7 @@ def test_periapsis_altitude_vector():
     e = 0.01
     oe = [a, e, math.radians(45), 0, 0, 0]
 
-    alt_vec = brahe.periapsis_altitude(oe, r_body=brahe.R_EARTH)
+    alt_vec = brahe.periapsis_altitude(np.array([oe]), r_body=brahe.R_EARTH)[0]
     alt_scalar = brahe.periapsis_altitude(a, e, r_body=brahe.R_EARTH)
 
     assert alt_vec == pytest.approx(alt_scalar, abs=1e-6)
@@ -602,7 +602,7 @@ def test_perigee_altitude_vector():
     e = 0.0005
     oe = [a, e, math.radians(51.6), 0, 0, 0]
 
-    alt_vec = brahe.perigee_altitude(oe)
+    alt_vec = brahe.perigee_altitude(np.array([oe]))[0]
     alt_scalar = brahe.perigee_altitude(a, e)
 
     assert alt_vec == pytest.approx(alt_scalar, abs=1e-6)
@@ -614,7 +614,7 @@ def test_apoapsis_altitude_vector():
     e = 0.05
     oe = [a, e, math.radians(30), 0, 0, 0]
 
-    alt_vec = brahe.apoapsis_altitude(oe, r_body=brahe.R_MOON)
+    alt_vec = brahe.apoapsis_altitude(np.array([oe]), r_body=brahe.R_MOON)[0]
     alt_scalar = brahe.apoapsis_altitude(a, e, r_body=brahe.R_MOON)
 
     assert alt_vec == pytest.approx(alt_scalar, abs=1e-6)
@@ -626,7 +626,7 @@ def test_apogee_altitude_vector():
     e = 0.7
     oe = [a, e, math.radians(63.4), 0, 0, 0]
 
-    alt_vec = brahe.apogee_altitude(oe)
+    alt_vec = brahe.apogee_altitude(np.array([oe]))[0]
     alt_scalar = brahe.apogee_altitude(a, e)
 
     assert alt_vec == pytest.approx(alt_scalar, abs=1e-6)
@@ -638,7 +638,9 @@ def test_sun_synchronous_inclination_vector():
     e = 0.001
     oe = [a, e, 97.8, 0, 0, 0]
 
-    inc_vec = brahe.sun_synchronous_inclination(oe, angle_format=AngleFormat.DEGREES)
+    inc_vec = brahe.sun_synchronous_inclination(
+        np.array([oe]), angle_format=AngleFormat.DEGREES
+    )[0]
     inc_scalar = brahe.sun_synchronous_inclination(
         a, e, angle_format=AngleFormat.DEGREES
     )
@@ -652,7 +654,9 @@ def test_anomaly_eccentric_to_mean_vector():
     e = 0.1
     oe = [brahe.R_EARTH + 500e3, e, math.radians(45), 0, 0, E]
 
-    M_vec = brahe.anomaly_eccentric_to_mean(oe, angle_format=AngleFormat.RADIANS)
+    M_vec = brahe.anomaly_eccentric_to_mean(
+        np.array([oe]), angle_format=AngleFormat.RADIANS
+    )[0]
     M_scalar = brahe.anomaly_eccentric_to_mean(E, e, angle_format=AngleFormat.RADIANS)
 
     assert M_vec == pytest.approx(M_scalar, abs=1e-12)
@@ -664,7 +668,9 @@ def test_anomaly_mean_to_eccentric_vector():
     e = 0.3
     oe = [brahe.R_EARTH + 500e3, e, math.radians(45), 0, 0, M]
 
-    E_vec = brahe.anomaly_mean_to_eccentric(oe, angle_format=AngleFormat.RADIANS)
+    E_vec = brahe.anomaly_mean_to_eccentric(
+        np.array([oe]), angle_format=AngleFormat.RADIANS
+    )[0]
     E_scalar = brahe.anomaly_mean_to_eccentric(M, e, angle_format=AngleFormat.RADIANS)
 
     assert E_vec == pytest.approx(E_scalar, abs=1e-12)
@@ -676,7 +682,9 @@ def test_anomaly_true_to_eccentric_vector():
     e = 0.2
     oe = [brahe.R_EARTH + 500e3, e, math.radians(45), 0, 0, nu]
 
-    E_vec = brahe.anomaly_true_to_eccentric(oe, angle_format=AngleFormat.RADIANS)
+    E_vec = brahe.anomaly_true_to_eccentric(
+        np.array([oe]), angle_format=AngleFormat.RADIANS
+    )[0]
     E_scalar = brahe.anomaly_true_to_eccentric(nu, e, angle_format=AngleFormat.RADIANS)
 
     assert E_vec == pytest.approx(E_scalar, abs=1e-12)
@@ -688,7 +696,9 @@ def test_anomaly_eccentric_to_true_vector():
     e = 0.4
     oe = [brahe.R_EARTH + 500e3, e, math.radians(45), 0, 0, E]
 
-    nu_vec = brahe.anomaly_eccentric_to_true(oe, angle_format=AngleFormat.RADIANS)
+    nu_vec = brahe.anomaly_eccentric_to_true(
+        np.array([oe]), angle_format=AngleFormat.RADIANS
+    )[0]
     nu_scalar = brahe.anomaly_eccentric_to_true(E, e, angle_format=AngleFormat.RADIANS)
 
     assert nu_vec == pytest.approx(nu_scalar, abs=1e-12)
@@ -700,7 +710,9 @@ def test_anomaly_true_to_mean_vector():
     e = 0.15
     oe = [brahe.R_EARTH + 500e3, e, math.radians(45), 0, 0, nu]
 
-    M_vec = brahe.anomaly_true_to_mean(oe, angle_format=AngleFormat.RADIANS)
+    M_vec = brahe.anomaly_true_to_mean(
+        np.array([oe]), angle_format=AngleFormat.RADIANS
+    )[0]
     M_scalar = brahe.anomaly_true_to_mean(nu, e, angle_format=AngleFormat.RADIANS)
 
     assert M_vec == pytest.approx(M_scalar, abs=1e-12)
@@ -712,42 +724,55 @@ def test_anomaly_mean_to_true_vector():
     e = 0.25
     oe = [brahe.R_EARTH + 500e3, e, math.radians(45), 0, 0, M]
 
-    nu_vec = brahe.anomaly_mean_to_true(oe, angle_format=AngleFormat.RADIANS)
+    nu_vec = brahe.anomaly_mean_to_true(
+        np.array([oe]), angle_format=AngleFormat.RADIANS
+    )[0]
     nu_scalar = brahe.anomaly_mean_to_true(M, e, angle_format=AngleFormat.RADIANS)
 
     assert nu_vec == pytest.approx(nu_scalar, abs=1e-12)
 
 
 def test_vector_with_numpy_array():
-    """Test that numpy arrays work as Keplerian element vectors"""
+    """Test that a (1, 6) numpy array works as a batch of one Keplerian element set"""
     a = brahe.R_EARTH + 500e3
     e = 0.01
     oe_np = np.array([a, e, math.radians(45), 0, 0, 0])
 
-    T_np = brahe.orbital_period(oe_np)
+    T_np = brahe.orbital_period(np.array([oe_np]))[0]
     T_scalar = brahe.orbital_period(a)
 
     assert T_np == pytest.approx(T_scalar, abs=1e-12)
 
 
 def test_vector_with_list():
-    """Test that Python lists work as Keplerian element vectors"""
+    """Test that a nested list works as a batch of one Keplerian element set"""
     a = brahe.R_EARTH + 500e3
     e = 0.01
     oe_list = [a, e, math.radians(45), 0, 0, 0]
 
-    T_list = brahe.orbital_period(oe_list)
+    T_list = brahe.orbital_period([oe_list])[0]
     T_scalar = brahe.orbital_period(a)
 
     assert T_list == pytest.approx(T_scalar, abs=1e-12)
 
 
-def test_vector_wrong_length():
-    """Test that wrong-length vectors raise appropriate errors"""
-    oe_short = [brahe.R_EARTH + 500e3, 0.01]
+def test_one_dimensional_arrays_are_element_wise():
+    """A 1-D array of any length (including 6) is a set of values, never an element set"""
+    a_values = [brahe.R_EARTH + 500e3, brahe.R_EARTH + 600e3]
+    periods = brahe.orbital_period(a_values)
+    assert periods.shape == (2,)
+    for i, a in enumerate(a_values):
+        assert periods[i] == brahe.orbital_period(a)
 
-    with pytest.raises(ValueError, match="Expected array or list of length 6"):
-        brahe.orbital_period(oe_short)
+    six = np.array([brahe.R_EARTH + 500e3, 0.01, math.radians(45), 0, 0, 0])
+    six_periods = brahe.orbital_period(six)
+    assert six_periods.shape == (6,)
+    assert six_periods[0] == brahe.orbital_period(six[0])
+
+    with pytest.raises(ValueError, match="Parameter 'e' is required"):
+        brahe.perigee_velocity(np.array(a_values))
+    with pytest.raises(ValueError):
+        brahe.perigee_velocity(np.array(a_values), np.array([0.1, 0.2, 0.3]))
 
 
 def test_vector_missing_e_parameter():
@@ -756,3 +781,135 @@ def test_vector_missing_e_parameter():
 
     with pytest.raises(ValueError, match="Parameter 'e' is required"):
         brahe.perigee_velocity(a)  # Missing required 'e' parameter
+
+
+def test_keplerian_element_set_batches():
+    """(n, 6) arrays evaluate one result per element-set row"""
+    oes = np.array(
+        [
+            [
+                brahe.R_EARTH + 500e3 + 1e3 * i,
+                0.01 + 0.001 * i,
+                97.8,
+                15.0,
+                30.0,
+                45.0 + i,
+            ]
+            for i in range(3)
+        ]
+    )
+    for f, kwargs in (
+        (brahe.orbital_period, {}),
+        (brahe.mean_motion, {"angle_format": AngleFormat.DEGREES}),
+        (brahe.perigee_velocity, {}),
+        (brahe.apogee_altitude, {}),
+        (brahe.sun_synchronous_inclination, {"angle_format": AngleFormat.DEGREES}),
+        (brahe.anomaly_mean_to_eccentric, {"angle_format": AngleFormat.DEGREES}),
+        (brahe.anomaly_mean_to_true, {"angle_format": AngleFormat.DEGREES}),
+    ):
+        out = f(oes, **kwargs)
+        assert out.shape == (3,)
+        for i in range(3):
+            assert out[i] == f(oes[i : i + 1], **kwargs)[0]
+    out = brahe.orbital_period_general(oes, brahe.GM_EARTH)
+    for i in range(3):
+        assert out[i] == brahe.orbital_period_general(oes[i, 0], brahe.GM_EARTH)
+    out = brahe.periapsis_altitude(oes, r_body=brahe.R_EARTH)
+    for i in range(3):
+        assert out[i] == brahe.periapsis_altitude(
+            oes[i, 0], oes[i, 1], r_body=brahe.R_EARTH
+        )
+    np.testing.assert_array_equal(
+        brahe.anomaly_mean_to_true(oes, angle_format=AngleFormat.DEGREES),
+        brahe.anomaly_mean_to_true(
+            oes[:, 5], oes[:, 1], angle_format=AngleFormat.DEGREES
+        ),
+    )
+
+
+def test_keplerian_elementwise_arrays():
+    """Arrays with an explicit e evaluate element-wise with broadcasting"""
+    a = np.array([brahe.R_EARTH + 500e3, brahe.R_EARTH + 700e3, brahe.R_EARTH + 900e3])
+    e = np.array([0.001, 0.01, 0.1])
+    out = brahe.perigee_velocity(a, e)
+    assert out.shape == (3,)
+    for i in range(3):
+        assert out[i] == brahe.perigee_velocity(a[i], e[i])
+    out_b = brahe.perigee_velocity(a, 0.01)
+    for i in range(3):
+        assert out_b[i] == brahe.perigee_velocity(a[i], 0.01)
+    out_c = brahe.apoapsis_distance(a[0], e)
+    for i in range(3):
+        assert out_c[i] == brahe.apoapsis_distance(a[0], e[i])
+    grid = brahe.periapsis_distance(a[:, None], e[None, :])
+    assert grid.shape == (3, 3)
+    assert grid[1, 2] == brahe.periapsis_distance(a[1], e[2])
+    M = np.linspace(0.0, 350.0, 5)
+    E = brahe.anomaly_mean_to_eccentric(M, 0.3, angle_format=AngleFormat.DEGREES)
+    assert E.shape == (5,)
+    for i in range(5):
+        assert E[i] == brahe.anomaly_mean_to_eccentric(
+            M[i], 0.3, angle_format=AngleFormat.DEGREES
+        )
+    with pytest.raises(ValueError):
+        brahe.perigee_velocity(a[:2], e)
+    with pytest.raises(ValueError):
+        brahe.perigee_velocity(np.ones((3, 5)))
+
+
+def test_keplerian_pure_numeric_arrays():
+    n = np.array([0.001, 0.0011, 0.0012])
+    out = brahe.semimajor_axis(n, AngleFormat.RADIANS)
+    assert out.shape == (3,)
+    for i in range(3):
+        assert out[i] == brahe.semimajor_axis(n[i], AngleFormat.RADIANS)
+    periods = np.array([5400.0, 6000.0, 86164.0])
+    out = brahe.semimajor_axis_from_orbital_period(periods)
+    for i in range(3):
+        assert out[i] == brahe.semimajor_axis_from_orbital_period(periods[i])
+    out = brahe.semimajor_axis_from_orbital_period_general(
+        periods.reshape(3, 1), brahe.GM_EARTH
+    )
+    assert out.shape == (3, 1)
+    assert isinstance(brahe.semimajor_axis(0.001, AngleFormat.RADIANS), float)
+
+
+def test_orbital_period_from_state_batch():
+    oe = np.array([brahe.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+    states = np.array(
+        [
+            brahe.state_koe_to_eci(
+                oe + np.array([1e3 * i, 0, 0, 0, 0, 0]), AngleFormat.DEGREES
+            )
+            for i in range(3)
+        ]
+    )
+    out = brahe.orbital_period_from_state(states, brahe.GM_EARTH)
+    assert out.shape == (3,)
+    for i in range(3):
+        assert out[i] == brahe.orbital_period_from_state(states[i], brahe.GM_EARTH)
+    np.testing.assert_array_equal(
+        brahe.orbital_period_from_state(states.T, brahe.GM_EARTH, axis=0), out
+    )
+    assert isinstance(brahe.orbital_period_from_state(states[0], brahe.GM_EARTH), float)
+
+
+def test_element_set_batch_and_explicit_e():
+    """(n, 6) rows are element sets without e; with e every array is element-wise"""
+    oe = np.array([brahe.R_EARTH + 500e3, 0.1, 30.0, 0.0, 0.0, 0.0])
+    oes = np.vstack([oe, oe])
+    np.testing.assert_array_equal(
+        brahe.perigee_velocity(oes), [brahe.perigee_velocity(oe[0], oe[1])] * 2
+    )
+    # With an explicit e the (2, 6) array is a grid of semi-major axes
+    grid = brahe.perigee_velocity(oes, 0.2)
+    assert grid.shape == (2, 6)
+    assert grid[0, 0] == brahe.perigee_velocity(oe[0], 0.2)
+    # A (6, 1) column is element-wise as well
+    col = brahe.periapsis_distance(oe[:, None] * 0 + oe[0], 0.2)
+    assert col.shape == (6, 1)
+    assert col[0, 0] == brahe.periapsis_distance(oe[0], 0.2)
+    # Columns of an element-state array feed the functions directly
+    np.testing.assert_array_equal(
+        brahe.perigee_velocity(oes[:, 0], oes[:, 1]), brahe.perigee_velocity(oes)
+    )

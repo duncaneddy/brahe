@@ -21,7 +21,9 @@ def parse_return_type_from_docstring(doc: str) -> str:
 
     # Look for Returns: section - match type including dots for numpy.ndarray, etc.
     returns_match = re.search(
-        r"Returns:\s*\n\s*([\w.]+(?:\[[\w\[\], ]+\])?)", doc, re.MULTILINE
+        r"Returns:\s*\n\s*([\w.]+(?:\[[\w\[\], ]+\])?(?: or [\w.]+)*)(?=:)",
+        doc,
+        re.MULTILINE,
     )
     if returns_match:
         type_str = returns_match.group(1).strip()

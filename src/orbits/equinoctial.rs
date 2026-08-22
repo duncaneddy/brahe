@@ -8,6 +8,7 @@
 
 use crate::constants::AngleFormat;
 use crate::math::angles::{oe_to_degrees, oe_to_radians, wrap_to_2pi};
+use crate::utils::batch::batch_map;
 use nalgebra::SVector;
 
 /// Convert Keplerian elements to equinoctial elements.
@@ -109,6 +110,68 @@ pub fn state_equinoctial_to_koe(
     }
 }
 
+/// Converts a batch of Keplerian element sets to equinoctial elements.
+///
+/// Batch form of [`state_koe_to_equinoctial`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `koe`: Keplerian element sets `[a, e, i, Ω, ω, M]`. Units: (*m*, dimensionless, angles per `angle_format`)
+/// - `angle_format`: Format of the angular elements
+/// - `fr`: Retrograde factor, `+1` for prograde or `-1` for retrograde
+///
+/// # Returns
+/// - Equinoctial element sets `[a, h, k, p, q, l]` in input order
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::orbits::states_koe_to_equinoctial;
+/// use nalgebra::SVector;
+///
+/// let koe = vec![SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0); 3];
+/// let eqn = states_koe_to_equinoctial(&koe, AngleFormat::Degrees, 1);
+/// assert_eq!(eqn.len(), 3);
+/// ```
+pub fn states_koe_to_equinoctial(
+    koe: &[SVector<f64, 6>],
+    angle_format: AngleFormat,
+    fr: i8,
+) -> Vec<SVector<f64, 6>> {
+    batch_map(koe, |x| state_koe_to_equinoctial(x, angle_format, fr))
+}
+
+/// Converts a batch of equinoctial element sets to Keplerian elements.
+///
+/// Batch form of [`state_equinoctial_to_koe`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `eqn`: Equinoctial element sets `[a, h, k, p, q, l]`
+/// - `angle_format`: Format of the returned angular elements
+/// - `fr`: Retrograde factor, `+1` for prograde or `-1` for retrograde
+///
+/// # Returns
+/// - Keplerian element sets `[a, e, i, Ω, ω, M]` in input order. Units: (*m*, dimensionless, angles per `angle_format`)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::orbits::{state_koe_to_equinoctial, states_equinoctial_to_koe};
+/// use nalgebra::SVector;
+///
+/// let eqn = state_koe_to_equinoctial(&SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0), AngleFormat::Degrees, 1);
+/// let koe = states_equinoctial_to_koe(&[eqn, eqn], AngleFormat::Degrees, 1);
+/// assert_eq!(koe.len(), 2);
+/// ```
+pub fn states_equinoctial_to_koe(
+    eqn: &[SVector<f64, 6>],
+    angle_format: AngleFormat,
+    fr: i8,
+) -> Vec<SVector<f64, 6>> {
+    batch_map(eqn, |x| state_equinoctial_to_koe(x, angle_format, fr))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -154,5 +217,38 @@ mod tests {
         let eqn = state_koe_to_equinoctial(&koe, AngleFormat::Degrees, -1);
         let back = state_equinoctial_to_koe(&eqn, AngleFormat::Degrees, -1);
         assert_koe_close(&koe, &back);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_equinoctial_match_scalar() {
+        let koe: Vec<SVector<f64, 6>> = (0..3)
+            .map(|i| {
+                SVector::<f64, 6>::new(
+                    R_EARTH + 500e3 + 1e3 * i as f64,
+                    0.01,
+                    45.0,
+                    30.0 + i as f64,
+                    60.0,
+                    90.0,
+                )
+            })
+            .collect();
+        for fr in [1i8, -1i8] {
+            let eqn = states_koe_to_equinoctial(&koe, AngleFormat::Degrees, fr);
+            let back = states_equinoctial_to_koe(&eqn, AngleFormat::Degrees, fr);
+            for i in 0..3 {
+                assert_eq!(
+                    eqn[i],
+                    state_koe_to_equinoctial(&koe[i], AngleFormat::Degrees, fr)
+                );
+                assert_eq!(
+                    back[i],
+                    state_equinoctial_to_koe(&eqn[i], AngleFormat::Degrees, fr)
+                );
+                assert_koe_close(&back[i], &koe[i]);
+            }
+        }
+        assert!(states_koe_to_equinoctial(&[], AngleFormat::Degrees, 1).is_empty());
     }
 }

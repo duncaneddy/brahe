@@ -3,11 +3,14 @@
 /// Uses rastro.constants.GM_EARTH as the standard gravitational parameter for the calculation.
 ///
 /// Args:
-///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
-///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` will be extracted.
+///     a_or_oe (float or array): The semi-major axis in meters, as a scalar or an array
+///         evaluated element-wise; or a 2-D array of shape `(n, 6)` of Keplerian element
+///         sets [a, e, i, Ω, ω, ν] from which `a` is taken row by row.
 ///
 /// Returns:
-///     float: The orbital period of the astronomical object in seconds.
+///     float or numpy.ndarray: The orbital period of the astronomical object in seconds.
+///         An array is returned for array input: shape `(n,)` for `n` element sets, or the
+///         input shape for element-wise input.
 ///
 /// Example:
 ///     ```python
@@ -19,34 +22,39 @@
 ///     period = bh.orbital_period(a)
 ///     print(f"Orbital period: {period/60:.2f} minutes")
 ///
-///     # Using Keplerian elements vector
+///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [bh.R_EARTH + 400e3, 0.001, np.radians(51.6), 0, 0, 0]
-///     period = bh.orbital_period(oe)
-///     print(f"Orbital period: {period/60:.2f} minutes")
+///     period_rows = bh.orbital_period(np.array([oe, oe]))
+///     print(f"Orbital period: (first row) {period_rows[0]/60:.2f} minutes")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(a_or_oe)")]
+#[pyo3(signature = (a_or_oe), text_signature = "(a_or_oe)")]
 #[pyo3(name = "orbital_period")]
-fn py_orbital_period(a_or_oe: &Bound<'_, PyAny>) -> PyResult<f64> {
-    // Try to extract as scalar first
-    if let Ok(a) = a_or_oe.extract::<f64>() {
-        return Ok(orbits::orbital_period(a));
-    }
-
-    // Try to extract as vector (Keplerian elements)
-    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
-    Ok(orbits::orbital_period(oe[0]))
+fn py_orbital_period<'py>(
+    py: Python<'py>,
+    a_or_oe: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_oe_or_scalar(
+        py,
+        a_or_oe,
+        None,
+        |oe| Ok(orbits::orbital_period(oe[0])),
+        |v, _| Ok(orbits::orbital_period(v)),
+    )
 }
 
 /// Computes the orbital period of an astronomical object around a general body.
 ///
 /// Args:
-///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
-///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` will be extracted.
+///     a_or_oe (float or array): The semi-major axis in meters, as a scalar or an array
+///         evaluated element-wise; or a 2-D array of shape `(n, 6)` of Keplerian element
+///         sets [a, e, i, Ω, ω, ν] from which `a` is taken row by row.
 ///     gm (float): (keyword-only) The standard gravitational parameter of primary body in m³/s².
 ///
 /// Returns:
-///     float: The orbital period of the astronomical object in seconds.
+///     float or numpy.ndarray: The orbital period of the astronomical object in seconds.
+///         An array is returned for array input: shape `(n,)` for `n` element sets, or the
+///         input shape for element-wise input.
 ///
 /// Example:
 ///     ```python
@@ -58,23 +66,26 @@ fn py_orbital_period(a_or_oe: &Bound<'_, PyAny>) -> PyResult<f64> {
 ///     period = bh.orbital_period_general(a, bh.GM_MOON)
 ///     print(f"Lunar orbital period: {period/3600:.2f} hours")
 ///
-///     # Using Keplerian elements vector
+///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [1900000.0, 0.01, np.radians(45), 0, 0, 0]
-///     period = bh.orbital_period_general(oe, bh.GM_MOON)
-///     print(f"Lunar orbital period: {period/3600:.2f} hours")
+///     period_rows = bh.orbital_period_general(np.array([oe, oe]), bh.GM_MOON)
+///     print(f"Lunar orbital period: (first row) {period_rows[0]/3600:.2f} hours")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(a_or_oe, gm)")]
+#[pyo3(signature = (a_or_oe, gm), text_signature = "(a_or_oe, gm)")]
 #[pyo3(name = "orbital_period_general")]
-fn py_orbital_period_general(a_or_oe: &Bound<'_, PyAny>, gm: f64) -> PyResult<f64> {
-    // Try to extract as scalar first
-    if let Ok(a) = a_or_oe.extract::<f64>() {
-        return Ok(orbits::orbital_period_general(a, gm));
-    }
-
-    // Try to extract as vector (Keplerian elements)
-    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
-    Ok(orbits::orbital_period_general(oe[0], gm))
+fn py_orbital_period_general<'py>(
+    py: Python<'py>,
+    a_or_oe: &Bound<'py, PyAny>,
+    gm: f64,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_oe_or_scalar(
+        py,
+        a_or_oe,
+        None,
+        |oe| Ok(orbits::orbital_period_general(oe[0], gm)),
+        |v, _| Ok(orbits::orbital_period_general(v, gm)),
+    )
 }
 
 /// Computes orbital period from an ECI state vector using the vis-viva equation.
@@ -83,11 +94,16 @@ fn py_orbital_period_general(a_or_oe: &Bound<'_, PyAny>, gm: f64) -> PyResult<f6
 /// position and velocity, then calculates the orbital period.
 ///
 /// Args:
-///     state_eci (np.ndarray): ECI state vector [x, y, z, vx, vy, vz] in meters and meters/second.
+///     state_eci (numpy.ndarray or list): ECI state vector [x, y, z, vx, vy, vz] in meters and meters/second.
+///         Also accepts a batch of states with the 6 components along `axis`
+///         (for example shape `(n, 6)`).
 ///     gm (float): Gravitational parameter in m³/s². Use GM_EARTH for Earth orbits.
+///     axis (int, optional): Axis of `state_eci` holding the state components for batched
+///         input. Defaults to `-1` (the last axis).
 ///
 /// Returns:
-///     float: Orbital period in seconds.
+///     float or numpy.ndarray: Orbital period in seconds.
+///         An array of the batch dimensions is returned for batched input.
 ///
 /// Example:
 ///     ```python
@@ -104,33 +120,38 @@ fn py_orbital_period_general(a_or_oe: &Bound<'_, PyAny>, gm: f64) -> PyResult<f6
 ///     print(f"Period: {period/60:.2f} minutes")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(state_eci, gm)")]
+#[pyo3(signature = (state_eci, gm, axis=-1), text_signature = "(state_eci, gm, axis=-1)")]
 #[pyo3(name = "orbital_period_from_state")]
-fn py_orbital_period_from_state(
-    _py: Python,
-    state_eci: PyReadonlyArray1<f64>,
+fn py_orbital_period_from_state<'py>(
+    py: Python<'py>,
+    state_eci: &Bound<'py, PyAny>,
     gm: f64,
-) -> PyResult<f64> {
-    let state = state_eci.as_array();
-    if state.len() != 6 {
-        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    if let Ok(v) = state_eci.extract::<Vec<f64>>()
+        && v.len() != 6
+    {
+        return Err(exceptions::PyValueError::new_err(
             "state_eci must be a 6-element array [x, y, z, vx, vy, vz]",
         ));
     }
-
-    let state_vec = nalgebra::Vector6::from_iterator(state.iter().copied());
-    Ok(orbits::orbital_period_from_state(&state_vec, gm))
+    dispatch_vec_to_scalar::<6>(py, state_eci, axis, |s| {
+        orbits::orbital_period_from_state(&s, gm)
+    })
 }
 
 /// Computes the mean motion of an astronomical object around Earth.
 ///
 /// Args:
-///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
-///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` will be extracted.
+///     a_or_oe (float or array): The semi-major axis in meters, as a scalar or an array
+///         evaluated element-wise; or a 2-D array of shape `(n, 6)` of Keplerian element
+///         sets [a, e, i, Ω, ω, ν] from which `a` is taken row by row.
 ///     angle_format (AngleFormat): (keyword-only) Return output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
-///     float: The mean motion of the astronomical object in radians or degrees.
+///     float or numpy.ndarray: The mean motion of the astronomical object in radians or degrees.
+///         An array is returned for array input: shape `(n,)` for `n` element sets, or the
+///         input shape for element-wise input.
 ///
 /// Example:
 ///     ```python
@@ -142,36 +163,43 @@ fn py_orbital_period_from_state(
 ///     n = bh.mean_motion(a, bh.AngleFormat.DEGREES)
 ///     print(f"Mean motion: {n:.6f} deg/s")
 ///
-///     # Using Keplerian elements vector
+///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [bh.R_EARTH + 35786e3, 0.001, np.radians(0), 0, 0, 0]
-///     n = bh.mean_motion(oe, bh.AngleFormat.DEGREES)
-///     print(f"Mean motion: {n:.6f} deg/s")
+///     n_rows = bh.mean_motion(np.array([oe, oe]), bh.AngleFormat.DEGREES)
+///     print(f"Mean motion: (first row) {n_rows[0]:.6f} deg/s")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(a_or_oe, angle_format)")]
+#[pyo3(signature = (a_or_oe, angle_format), text_signature = "(a_or_oe, angle_format)")]
 #[pyo3(name = "mean_motion")]
-fn py_mean_motion(a_or_oe: &Bound<'_, PyAny>, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    // Try to extract as scalar first
-    if let Ok(a) = a_or_oe.extract::<f64>() {
-        return Ok(orbits::mean_motion(a, angle_format.value));
-    }
-
-    // Try to extract as vector (Keplerian elements)
-    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
-    Ok(orbits::mean_motion(oe[0], angle_format.value))
+fn py_mean_motion<'py>(
+    py: Python<'py>,
+    a_or_oe: &Bound<'py, PyAny>,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyAny>> {
+    let af = angle_format.value;
+    dispatch_oe_or_scalar(
+        py,
+        a_or_oe,
+        None,
+        |oe| Ok(orbits::mean_motion(oe[0], af)),
+        |v, _| Ok(orbits::mean_motion(v, af)),
+    )
 }
 
 /// Computes the mean motion of an astronomical object around a general body
 /// given a semi-major axis.
 ///
 /// Args:
-///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
-///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` will be extracted.
+///     a_or_oe (float or array): The semi-major axis in meters, as a scalar or an array
+///         evaluated element-wise; or a 2-D array of shape `(n, 6)` of Keplerian element
+///         sets [a, e, i, Ω, ω, ν] from which `a` is taken row by row.
 ///     gm (float): (keyword-only) The standard gravitational parameter of primary body in m³/s².
 ///     angle_format (AngleFormat): (keyword-only) Return output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
-///     float: The mean motion of the astronomical object in radians or degrees.
+///     float or numpy.ndarray: The mean motion of the astronomical object in radians or degrees.
+///         An array is returned for array input: shape `(n,)` for `n` element sets, or the
+///         input shape for element-wise input.
 ///
 /// Example:
 ///     ```python
@@ -183,34 +211,41 @@ fn py_mean_motion(a_or_oe: &Bound<'_, PyAny>, angle_format: &PyAngleFormat) -> P
 ///     n = bh.mean_motion_general(a, bh.GM_MARS, bh.AngleFormat.RADIANS)
 ///     print(f"Mean motion: {n:.6f} rad/s")
 ///
-///     # Using Keplerian elements vector
+///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [4000000.0, 0.01, np.radians(30), 0, 0, 0]
-///     n = bh.mean_motion_general(oe, bh.GM_MARS, bh.AngleFormat.RADIANS)
-///     print(f"Mean motion: {n:.6f} rad/s")
+///     n_rows = bh.mean_motion_general(np.array([oe, oe]), bh.GM_MARS, bh.AngleFormat.RADIANS)
+///     print(f"Mean motion: (first row) {n_rows[0]:.6f} rad/s")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(a_or_oe, gm, angle_format)")]
+#[pyo3(signature = (a_or_oe, gm, angle_format), text_signature = "(a_or_oe, gm, angle_format)")]
 #[pyo3(name = "mean_motion_general")]
-fn py_mean_motion_general(a_or_oe: &Bound<'_, PyAny>, gm: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    // Try to extract as scalar first
-    if let Ok(a) = a_or_oe.extract::<f64>() {
-        return Ok(orbits::mean_motion_general(a, gm, angle_format.value));
-    }
-
-    // Try to extract as vector (Keplerian elements)
-    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
-    Ok(orbits::mean_motion_general(oe[0], gm, angle_format.value))
+fn py_mean_motion_general<'py>(
+    py: Python<'py>,
+    a_or_oe: &Bound<'py, PyAny>,
+    gm: f64,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyAny>> {
+    let af = angle_format.value;
+    dispatch_oe_or_scalar(
+        py,
+        a_or_oe,
+        None,
+        |oe| Ok(orbits::mean_motion_general(oe[0], gm, af)),
+        |v, _| Ok(orbits::mean_motion_general(v, gm, af)),
+    )
 }
 
 /// Computes the semi-major axis of an astronomical object from Earth
 /// given the object's mean motion.
 ///
 /// Args:
-///     n (float): The mean motion of the astronomical object in radians or degrees.
+///     n (float or array): The mean motion of the astronomical object in radians or degrees.
+///         An array is evaluated element-wise.
 ///     angle_format (AngleFormat): Interpret mean motion as AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
-///     float: The semi-major axis of the astronomical object in meters.
+///     float or numpy.ndarray: The semi-major axis of the astronomical object in meters.
+///         An array of the input shape is returned for array input.
 ///
 /// Example:
 ///     ```python
@@ -224,20 +259,27 @@ fn py_mean_motion_general(a_or_oe: &Bound<'_, PyAny>, gm: f64, angle_format: &Py
 #[pyfunction]
 #[pyo3(text_signature = "(n, angle_format)")]
 #[pyo3(name = "semimajor_axis")]
-fn py_semimajor_axis(n: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    Ok(orbits::semimajor_axis(n, angle_format.value))
+fn py_semimajor_axis<'py>(
+    py: Python<'py>,
+    n: &Bound<'py, PyAny>,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyAny>> {
+    let af = angle_format.value;
+    ufunc(py, &[n], |v| Ok(orbits::semimajor_axis(v[0], af)))
 }
 
 /// Computes the semi-major axis of an astronomical object from a general body
 /// given the object's mean motion.
 ///
 /// Args:
-///     n (float): The mean motion of the astronomical object in radians or degrees.
+///     n (float or array): The mean motion of the astronomical object in radians or degrees.
+///         An array is evaluated element-wise.
 ///     gm (float): (keyword-only) The standard gravitational parameter of primary body in m³/s².
 ///     angle_format (AngleFormat): Interpret mean motion as AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
-///     float: The semi-major axis of the astronomical object in meters.
+///     float or numpy.ndarray: The semi-major axis of the astronomical object in meters.
+///         An array of the input shape is returned for array input.
 ///
 /// Example:
 ///     ```python
@@ -251,18 +293,26 @@ fn py_semimajor_axis(n: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
 #[pyfunction]
 #[pyo3(text_signature = "(n, gm, angle_format)")]
 #[pyo3(name = "semimajor_axis_general")]
-fn py_semimajor_axis_general(n: f64, gm: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    Ok(orbits::semimajor_axis_general(n, gm, angle_format.value))
+fn py_semimajor_axis_general<'py>(
+    py: Python<'py>,
+    n: &Bound<'py, PyAny>,
+    gm: f64,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyAny>> {
+    let af = angle_format.value;
+    ufunc(py, &[n], |v| Ok(orbits::semimajor_axis_general(v[0], gm, af)))
 }
 
 /// Computes the semi-major axis from orbital period for a general body.
 ///
 /// Args:
-///     period (float): The orbital period in seconds.
+///     period (float or array): The orbital period in seconds.
+///         An array is evaluated element-wise.
 ///     gm (float): (keyword-only) The standard gravitational parameter of primary body in m³/s².
 ///
 /// Returns:
-///     float: The semi-major axis in meters.
+///     float or numpy.ndarray: The semi-major axis in meters.
+///         An array of the input shape is returned for array input.
 ///
 /// Example:
 ///     ```python
@@ -276,17 +326,23 @@ fn py_semimajor_axis_general(n: f64, gm: f64, angle_format: &PyAngleFormat) -> P
 #[pyfunction]
 #[pyo3(text_signature = "(period, gm)")]
 #[pyo3(name = "semimajor_axis_from_orbital_period_general")]
-fn py_semimajor_axis_from_orbital_period_general(period: f64, gm: f64) -> PyResult<f64> {
-    Ok(orbits::semimajor_axis_from_orbital_period_general(period, gm))
+fn py_semimajor_axis_from_orbital_period_general<'py>(
+    py: Python<'py>,
+    period: &Bound<'py, PyAny>,
+    gm: f64,
+) -> PyResult<Bound<'py, PyAny>> {
+    ufunc(py, &[period], |v| Ok(orbits::semimajor_axis_from_orbital_period_general(v[0], gm)))
 }
 
 /// Computes the semi-major axis from orbital period around Earth.
 ///
 /// Args:
-///     period (float): The orbital period in seconds.
+///     period (float or array): The orbital period in seconds.
+///         An array is evaluated element-wise.
 ///
 /// Returns:
-///     float: The semi-major axis in meters.
+///     float or numpy.ndarray: The semi-major axis in meters.
+///         An array of the input shape is returned for array input.
 ///
 /// Example:
 ///     ```python
@@ -300,19 +356,27 @@ fn py_semimajor_axis_from_orbital_period_general(period: f64, gm: f64) -> PyResu
 #[pyfunction]
 #[pyo3(text_signature = "(period)")]
 #[pyo3(name = "semimajor_axis_from_orbital_period")]
-fn py_semimajor_axis_from_orbital_period(period: f64) -> PyResult<f64> {
-    Ok(orbits::semimajor_axis_from_orbital_period(period))
+fn py_semimajor_axis_from_orbital_period<'py>(
+    py: Python<'py>,
+    period: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
+    ufunc(py, &[period], |v| Ok(orbits::semimajor_axis_from_orbital_period(v[0])))
 }
 
 /// Computes the perigee velocity of an astronomical object around Earth.
 ///
 /// Args:
-///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
-///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
-///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
+///     a_or_oe (float or array): The semi-major axis in meters, as a scalar or an array
+///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
+///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
+///         `a` and `e` are taken row by row.
+///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///
 /// Returns:
-///     float: The magnitude of velocity of the object at perigee in m/s.
+///     float or numpy.ndarray: The magnitude of velocity of the object at perigee in m/s.
+///         An array is returned for array input: shape `(n,)` for `n` element sets, or the
+///         broadcast shape for element-wise input.
 ///
 /// Example:
 ///     ```python
@@ -325,38 +389,50 @@ fn py_semimajor_axis_from_orbital_period(period: f64) -> PyResult<f64> {
 ///     v_peri = bh.perigee_velocity(a, e)
 ///     print(f"Perigee velocity: {v_peri:.2f} m/s")
 ///
-///     # Using Keplerian elements vector
+///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [26554000.0, 0.72, np.radians(63.4), 0, 0, 0]
-///     v_peri = bh.perigee_velocity(oe)
-///     print(f"Perigee velocity: {v_peri:.2f} m/s")
+///     v_peri_rows = bh.perigee_velocity(np.array([oe, oe]))
+///     print(f"Perigee velocity: (first row) {v_peri_rows[0]:.2f} m/s")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None), text_signature = "(a_or_oe, e=None)")]
 #[pyo3(name = "perigee_velocity")]
-fn py_perigee_velocity(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>) -> PyResult<f64> {
-    // Try to extract as scalar first
-    if let Ok(a) = a_or_oe.extract::<f64>() {
-        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
-            "Parameter 'e' is required when 'a_or_oe' is a scalar"
-        ))?;
-        return Ok(orbits::perigee_velocity(a, ecc));
-    }
-
-    // Try to extract as vector (Keplerian elements)
-    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
-    Ok(orbits::perigee_velocity(oe[0], oe[1]))
+fn py_perigee_velocity<'py>(
+    py: Python<'py>,
+    a_or_oe: &Bound<'py, PyAny>,
+    e: Option<&Bound<'py, PyAny>>,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_oe_or_scalar(
+        py,
+        a_or_oe,
+        e,
+        |oe| Ok(orbits::perigee_velocity(oe[0], oe[1])),
+        |v, e| {
+            let ecc = e.ok_or_else(|| {
+                exceptions::PyValueError::new_err(
+                    "Parameter 'e' is required when 'a_or_oe' is a scalar or an array of values",
+                )
+            })?;
+            Ok(orbits::perigee_velocity(v, ecc))
+        },
+    )
 }
 
 /// Computes the periapsis velocity of an astronomical object around a general body.
 ///
 /// Args:
-///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
-///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
-///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
+///     a_or_oe (float or array): The semi-major axis in meters, as a scalar or an array
+///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
+///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
+///         `a` and `e` are taken row by row.
+///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     gm (float): (keyword-only) The standard gravitational parameter of primary body in m³/s².
 ///
 /// Returns:
-///     float: The magnitude of velocity of the object at periapsis in m/s.
+///     float or numpy.ndarray: The magnitude of velocity of the object at periapsis in m/s.
+///         An array is returned for array input: shape `(n,)` for `n` element sets, or the
+///         broadcast shape for element-wise input.
 ///
 /// Example:
 ///     ```python
@@ -366,40 +442,53 @@ fn py_perigee_velocity(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>) -> PyResult<f
 ///     # Using scalar parameters
 ///     a = 5e11  # 5 AU semi-major axis (meters)
 ///     e = 0.95  # highly elliptical
-///     v_peri = bh.periapsis_velocity(a, e, bh.GM_SUN)
+///     v_peri = bh.periapsis_velocity(a, e, gm=bh.GM_SUN)
 ///     print(f"Periapsis velocity: {v_peri/1000:.2f} km/s")
 ///
-///     # Using Keplerian elements vector
+///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [5e11, 0.95, np.radians(10), 0, 0, 0]
-///     v_peri = bh.periapsis_velocity(oe, gm=bh.GM_SUN)
-///     print(f"Periapsis velocity: {v_peri/1000:.2f} km/s")
+///     v_peri_rows = bh.periapsis_velocity(np.array([oe, oe]), gm=bh.GM_SUN)
+///     print(f"Periapsis velocity: (first row) {v_peri_rows[0]/1000:.2f} km/s")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None, *, gm), text_signature = "(a_or_oe, e=None, *, gm)")]
 #[pyo3(name = "periapsis_velocity")]
-fn py_periapsis_velocity(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>, gm: f64) -> PyResult<f64> {
-    // Try to extract as scalar first
-    if let Ok(a) = a_or_oe.extract::<f64>() {
-        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
-            "Parameter 'e' is required when 'a_or_oe' is a scalar"
-        ))?;
-        return Ok(orbits::periapsis_velocity(a, ecc, gm));
-    }
-
-    // Try to extract as vector (Keplerian elements)
-    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
-    Ok(orbits::periapsis_velocity(oe[0], oe[1], gm))
+fn py_periapsis_velocity<'py>(
+    py: Python<'py>,
+    a_or_oe: &Bound<'py, PyAny>,
+    e: Option<&Bound<'py, PyAny>>,
+    gm: f64,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_oe_or_scalar(
+        py,
+        a_or_oe,
+        e,
+        |oe| Ok(orbits::periapsis_velocity(oe[0], oe[1], gm)),
+        |v, e| {
+            let ecc = e.ok_or_else(|| {
+                exceptions::PyValueError::new_err(
+                    "Parameter 'e' is required when 'a_or_oe' is a scalar or an array of values",
+                )
+            })?;
+            Ok(orbits::periapsis_velocity(v, ecc, gm))
+        },
+    )
 }
 
 /// Calculate the distance of an object at its periapsis.
 ///
 /// Args:
-///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
-///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
-///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
+///     a_or_oe (float or array): The semi-major axis in meters, as a scalar or an array
+///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
+///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
+///         `a` and `e` are taken row by row.
+///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///
 /// Returns:
-///     float: The distance of the object at periapsis in meters.
+///     float or numpy.ndarray: The distance of the object at periapsis in meters.
+///         An array is returned for array input: shape `(n,)` for `n` element sets, or the
+///         broadcast shape for element-wise input.
 ///
 /// Example:
 ///     ```python
@@ -412,37 +501,49 @@ fn py_periapsis_velocity(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>, gm: f64) ->
 ///     r_peri = bh.periapsis_distance(a, e)
 ///     print(f"Periapsis distance: {r_peri/1000:.2f} km")
 ///
-///     # Using Keplerian elements vector
+///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [8000000.0, 0.2, np.radians(45), 0, 0, 0]
-///     r_peri = bh.periapsis_distance(oe)
-///     print(f"Periapsis distance: {r_peri/1000:.2f} km")
+///     r_peri_rows = bh.periapsis_distance(np.array([oe, oe]))
+///     print(f"Periapsis distance: (first row) {r_peri_rows[0]/1000:.2f} km")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None), text_signature = "(a_or_oe, e=None)")]
 #[pyo3(name = "periapsis_distance")]
-fn py_periapsis_distance(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>) -> PyResult<f64> {
-    // Try to extract as scalar first
-    if let Ok(a) = a_or_oe.extract::<f64>() {
-        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
-            "Parameter 'e' is required when 'a_or_oe' is a scalar"
-        ))?;
-        return Ok(orbits::periapsis_distance(a, ecc));
-    }
-
-    // Try to extract as vector (Keplerian elements)
-    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
-    Ok(orbits::periapsis_distance(oe[0], oe[1]))
+fn py_periapsis_distance<'py>(
+    py: Python<'py>,
+    a_or_oe: &Bound<'py, PyAny>,
+    e: Option<&Bound<'py, PyAny>>,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_oe_or_scalar(
+        py,
+        a_or_oe,
+        e,
+        |oe| Ok(orbits::periapsis_distance(oe[0], oe[1])),
+        |v, e| {
+            let ecc = e.ok_or_else(|| {
+                exceptions::PyValueError::new_err(
+                    "Parameter 'e' is required when 'a_or_oe' is a scalar or an array of values",
+                )
+            })?;
+            Ok(orbits::periapsis_distance(v, ecc))
+        },
+    )
 }
 
 /// Computes the apogee velocity of an astronomical object around Earth.
 ///
 /// Args:
-///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
-///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
-///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
+///     a_or_oe (float or array): The semi-major axis in meters, as a scalar or an array
+///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
+///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
+///         `a` and `e` are taken row by row.
+///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///
 /// Returns:
-///     float: The magnitude of velocity of the object at apogee in m/s.
+///     float or numpy.ndarray: The magnitude of velocity of the object at apogee in m/s.
+///         An array is returned for array input: shape `(n,)` for `n` element sets, or the
+///         broadcast shape for element-wise input.
 ///
 /// Example:
 ///     ```python
@@ -455,38 +556,50 @@ fn py_periapsis_distance(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>) -> PyResult
 ///     v_apo = bh.apogee_velocity(a, e)
 ///     print(f"Apogee velocity: {v_apo:.2f} m/s")
 ///
-///     # Using Keplerian elements vector
+///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [24400000.0, 0.73, np.radians(7), 0, 0, 0]
-///     v_apo = bh.apogee_velocity(oe)
-///     print(f"Apogee velocity: {v_apo:.2f} m/s")
+///     v_apo_rows = bh.apogee_velocity(np.array([oe, oe]))
+///     print(f"Apogee velocity: (first row) {v_apo_rows[0]:.2f} m/s")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None), text_signature = "(a_or_oe, e=None)")]
 #[pyo3(name = "apogee_velocity")]
-fn py_apogee_velocity(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>) -> PyResult<f64> {
-    // Try to extract as scalar first
-    if let Ok(a) = a_or_oe.extract::<f64>() {
-        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
-            "Parameter 'e' is required when 'a_or_oe' is a scalar"
-        ))?;
-        return Ok(orbits::apogee_velocity(a, ecc));
-    }
-
-    // Try to extract as vector (Keplerian elements)
-    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
-    Ok(orbits::apogee_velocity(oe[0], oe[1]))
+fn py_apogee_velocity<'py>(
+    py: Python<'py>,
+    a_or_oe: &Bound<'py, PyAny>,
+    e: Option<&Bound<'py, PyAny>>,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_oe_or_scalar(
+        py,
+        a_or_oe,
+        e,
+        |oe| Ok(orbits::apogee_velocity(oe[0], oe[1])),
+        |v, e| {
+            let ecc = e.ok_or_else(|| {
+                exceptions::PyValueError::new_err(
+                    "Parameter 'e' is required when 'a_or_oe' is a scalar or an array of values",
+                )
+            })?;
+            Ok(orbits::apogee_velocity(v, ecc))
+        },
+    )
 }
 
 /// Computes the apoapsis velocity of an astronomical object around a general body.
 ///
 /// Args:
-///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
-///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
-///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
+///     a_or_oe (float or array): The semi-major axis in meters, as a scalar or an array
+///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
+///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
+///         `a` and `e` are taken row by row.
+///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     gm (float): (keyword-only) The standard gravitational parameter of primary body in m³/s².
 ///
 /// Returns:
-///     float: The magnitude of velocity of the object at apoapsis in m/s.
+///     float or numpy.ndarray: The magnitude of velocity of the object at apoapsis in m/s.
+///         An array is returned for array input: shape `(n,)` for `n` element sets, or the
+///         broadcast shape for element-wise input.
 ///
 /// Example:
 ///     ```python
@@ -496,40 +609,53 @@ fn py_apogee_velocity(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>) -> PyResult<f6
 ///     # Using scalar parameters
 ///     a = 10000000.0  # 10000 km semi-major axis
 ///     e = 0.3
-///     v_apo = bh.apoapsis_velocity(a, e, bh.GM_MARS)
+///     v_apo = bh.apoapsis_velocity(a, e, gm=bh.GM_MARS)
 ///     print(f"Apoapsis velocity: {v_apo/1000:.2f} km/s")
 ///
-///     # Using Keplerian elements vector
+///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [10000000.0, 0.3, np.radians(30), 0, 0, 0]
-///     v_apo = bh.apoapsis_velocity(oe, gm=bh.GM_MARS)
-///     print(f"Apoapsis velocity: {v_apo/1000:.2f} km/s")
+///     v_apo_rows = bh.apoapsis_velocity(np.array([oe, oe]), gm=bh.GM_MARS)
+///     print(f"Apoapsis velocity: (first row) {v_apo_rows[0]/1000:.2f} km/s")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None, *, gm), text_signature = "(a_or_oe, e=None, *, gm)")]
 #[pyo3(name = "apoapsis_velocity")]
-fn py_apoapsis_velocity(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>, gm: f64) -> PyResult<f64> {
-    // Try to extract as scalar first
-    if let Ok(a) = a_or_oe.extract::<f64>() {
-        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
-            "Parameter 'e' is required when 'a_or_oe' is a scalar"
-        ))?;
-        return Ok(orbits::apoapsis_velocity(a, ecc, gm));
-    }
-
-    // Try to extract as vector (Keplerian elements)
-    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
-    Ok(orbits::apoapsis_velocity(oe[0], oe[1], gm))
+fn py_apoapsis_velocity<'py>(
+    py: Python<'py>,
+    a_or_oe: &Bound<'py, PyAny>,
+    e: Option<&Bound<'py, PyAny>>,
+    gm: f64,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_oe_or_scalar(
+        py,
+        a_or_oe,
+        e,
+        |oe| Ok(orbits::apoapsis_velocity(oe[0], oe[1], gm)),
+        |v, e| {
+            let ecc = e.ok_or_else(|| {
+                exceptions::PyValueError::new_err(
+                    "Parameter 'e' is required when 'a_or_oe' is a scalar or an array of values",
+                )
+            })?;
+            Ok(orbits::apoapsis_velocity(v, ecc, gm))
+        },
+    )
 }
 
 /// Calculate the distance of an object at its apoapsis.
 ///
 /// Args:
-///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
-///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
-///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
+///     a_or_oe (float or array): The semi-major axis in meters, as a scalar or an array
+///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
+///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
+///         `a` and `e` are taken row by row.
+///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///
 /// Returns:
-///     float: The distance of the object at apoapsis in meters.
+///     float or numpy.ndarray: The distance of the object at apoapsis in meters.
+///         An array is returned for array input: shape `(n,)` for `n` element sets, or the
+///         broadcast shape for element-wise input.
 ///
 /// Example:
 ///     ```python
@@ -542,38 +668,50 @@ fn py_apoapsis_velocity(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>, gm: f64) -> 
 ///     r_apo = bh.apoapsis_distance(a, e)
 ///     print(f"Apoapsis distance: {r_apo/1000:.2f} km")
 ///
-///     # Using Keplerian elements vector
+///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [8000000.0, 0.2, np.radians(45), 0, 0, 0]
-///     r_apo = bh.apoapsis_distance(oe)
-///     print(f"Apoapsis distance: {r_apo/1000:.2f} km")
+///     r_apo_rows = bh.apoapsis_distance(np.array([oe, oe]))
+///     print(f"Apoapsis distance: (first row) {r_apo_rows[0]/1000:.2f} km")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None), text_signature = "(a_or_oe, e=None)")]
 #[pyo3(name = "apoapsis_distance")]
-fn py_apoapsis_distance(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>) -> PyResult<f64> {
-    // Try to extract as scalar first
-    if let Ok(a) = a_or_oe.extract::<f64>() {
-        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
-            "Parameter 'e' is required when 'a_or_oe' is a scalar"
-        ))?;
-        return Ok(orbits::apoapsis_distance(a, ecc));
-    }
-
-    // Try to extract as vector (Keplerian elements)
-    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
-    Ok(orbits::apoapsis_distance(oe[0], oe[1]))
+fn py_apoapsis_distance<'py>(
+    py: Python<'py>,
+    a_or_oe: &Bound<'py, PyAny>,
+    e: Option<&Bound<'py, PyAny>>,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_oe_or_scalar(
+        py,
+        a_or_oe,
+        e,
+        |oe| Ok(orbits::apoapsis_distance(oe[0], oe[1])),
+        |v, e| {
+            let ecc = e.ok_or_else(|| {
+                exceptions::PyValueError::new_err(
+                    "Parameter 'e' is required when 'a_or_oe' is a scalar or an array of values",
+                )
+            })?;
+            Ok(orbits::apoapsis_distance(v, ecc))
+        },
+    )
 }
 
 /// Calculate the altitude above a body's surface at periapsis.
 ///
 /// Args:
-///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
-///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
-///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
+///     a_or_oe (float or array): The semi-major axis in meters, as a scalar or an array
+///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
+///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
+///         `a` and `e` are taken row by row.
+///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     r_body (float): (keyword-only) The radius of the central body in meters.
 ///
 /// Returns:
-///     float: The altitude above the body's surface at periapsis in meters.
+///     float or numpy.ndarray: The altitude above the body's surface at periapsis in meters.
+///         An array is returned for array input: shape `(n,)` for `n` element sets, or the
+///         broadcast shape for element-wise input.
 ///
 /// Example:
 ///     ```python
@@ -583,40 +721,53 @@ fn py_apoapsis_distance(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>) -> PyResult<
 ///     # Using scalar parameters
 ///     a = bh.R_EARTH + 500e3  # 500 km mean altitude
 ///     e = 0.01  # slight eccentricity
-///     alt_peri = bh.periapsis_altitude(a, e, bh.R_EARTH)
+///     alt_peri = bh.periapsis_altitude(a, e, r_body=bh.R_EARTH)
 ///     print(f"Periapsis altitude: {alt_peri/1000:.2f} km")
 ///
-///     # Using Keplerian elements vector
+///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [bh.R_EARTH + 500e3, 0.01, np.radians(45), 0, 0, 0]
-///     alt_peri = bh.periapsis_altitude(oe, r_body=bh.R_EARTH)
-///     print(f"Periapsis altitude: {alt_peri/1000:.2f} km")
+///     alt_peri_rows = bh.periapsis_altitude(np.array([oe, oe]), r_body=bh.R_EARTH)
+///     print(f"Periapsis altitude: (first row) {alt_peri_rows[0]/1000:.2f} km")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None, *, r_body), text_signature = "(a_or_oe, e=None, *, r_body)")]
 #[pyo3(name = "periapsis_altitude")]
-fn py_periapsis_altitude(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>, r_body: f64) -> PyResult<f64> {
-    // Try to extract as scalar first
-    if let Ok(a) = a_or_oe.extract::<f64>() {
-        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
-            "Parameter 'e' is required when 'a_or_oe' is a scalar"
-        ))?;
-        return Ok(orbits::periapsis_altitude(a, ecc, r_body));
-    }
-
-    // Try to extract as vector (Keplerian elements)
-    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
-    Ok(orbits::periapsis_altitude(oe[0], oe[1], r_body))
+fn py_periapsis_altitude<'py>(
+    py: Python<'py>,
+    a_or_oe: &Bound<'py, PyAny>,
+    e: Option<&Bound<'py, PyAny>>,
+    r_body: f64,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_oe_or_scalar(
+        py,
+        a_or_oe,
+        e,
+        |oe| Ok(orbits::periapsis_altitude(oe[0], oe[1], r_body)),
+        |v, e| {
+            let ecc = e.ok_or_else(|| {
+                exceptions::PyValueError::new_err(
+                    "Parameter 'e' is required when 'a_or_oe' is a scalar or an array of values",
+                )
+            })?;
+            Ok(orbits::periapsis_altitude(v, ecc, r_body))
+        },
+    )
 }
 
 /// Calculate the altitude above Earth's surface at perigee.
 ///
 /// Args:
-///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
-///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
-///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
+///     a_or_oe (float or array): The semi-major axis in meters, as a scalar or an array
+///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
+///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
+///         `a` and `e` are taken row by row.
+///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///
 /// Returns:
-///     float: The altitude above Earth's surface at perigee in meters.
+///     float or numpy.ndarray: The altitude above Earth's surface at perigee in meters.
+///         An array is returned for array input: shape `(n,)` for `n` element sets, or the
+///         broadcast shape for element-wise input.
 ///
 /// Example:
 ///     ```python
@@ -629,38 +780,50 @@ fn py_periapsis_altitude(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>, r_body: f64
 ///     alt = bh.perigee_altitude(a, e)
 ///     print(f"Perigee altitude: {alt/1000:.2f} km")
 ///
-///     # Using Keplerian elements vector
+///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [bh.R_EARTH + 420e3, 0.0005, np.radians(51.6), 0, 0, 0]
-///     alt = bh.perigee_altitude(oe)
-///     print(f"Perigee altitude: {alt/1000:.2f} km")
+///     alt_rows = bh.perigee_altitude(np.array([oe, oe]))
+///     print(f"Perigee altitude: (first row) {alt_rows[0]/1000:.2f} km")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None), text_signature = "(a_or_oe, e=None)")]
 #[pyo3(name = "perigee_altitude")]
-fn py_perigee_altitude(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>) -> PyResult<f64> {
-    // Try to extract as scalar first
-    if let Ok(a) = a_or_oe.extract::<f64>() {
-        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
-            "Parameter 'e' is required when 'a_or_oe' is a scalar"
-        ))?;
-        return Ok(orbits::perigee_altitude(a, ecc));
-    }
-
-    // Try to extract as vector (Keplerian elements)
-    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
-    Ok(orbits::perigee_altitude(oe[0], oe[1]))
+fn py_perigee_altitude<'py>(
+    py: Python<'py>,
+    a_or_oe: &Bound<'py, PyAny>,
+    e: Option<&Bound<'py, PyAny>>,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_oe_or_scalar(
+        py,
+        a_or_oe,
+        e,
+        |oe| Ok(orbits::perigee_altitude(oe[0], oe[1])),
+        |v, e| {
+            let ecc = e.ok_or_else(|| {
+                exceptions::PyValueError::new_err(
+                    "Parameter 'e' is required when 'a_or_oe' is a scalar or an array of values",
+                )
+            })?;
+            Ok(orbits::perigee_altitude(v, ecc))
+        },
+    )
 }
 
 /// Calculate the altitude above a body's surface at apoapsis.
 ///
 /// Args:
-///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
-///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
-///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
+///     a_or_oe (float or array): The semi-major axis in meters, as a scalar or an array
+///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
+///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
+///         `a` and `e` are taken row by row.
+///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     r_body (float): (keyword-only) The radius of the central body in meters.
 ///
 /// Returns:
-///     float: The altitude above the body's surface at apoapsis in meters.
+///     float or numpy.ndarray: The altitude above the body's surface at apoapsis in meters.
+///         An array is returned for array input: shape `(n,)` for `n` element sets, or the
+///         broadcast shape for element-wise input.
 ///
 /// Example:
 ///     ```python
@@ -670,40 +833,53 @@ fn py_perigee_altitude(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>) -> PyResult<f
 ///     # Using scalar parameters
 ///     a = bh.R_MOON + 100e3  # 100 km mean altitude
 ///     e = 0.05  # moderate eccentricity
-///     alt_apo = bh.apoapsis_altitude(a, e, bh.R_MOON)
+///     alt_apo = bh.apoapsis_altitude(a, e, r_body=bh.R_MOON)
 ///     print(f"Apoapsis altitude: {alt_apo/1000:.2f} km")
 ///
-///     # Using Keplerian elements vector
+///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [bh.R_MOON + 100e3, 0.05, np.radians(30), 0, 0, 0]
-///     alt_apo = bh.apoapsis_altitude(oe, r_body=bh.R_MOON)
-///     print(f"Apoapsis altitude: {alt_apo/1000:.2f} km")
+///     alt_apo_rows = bh.apoapsis_altitude(np.array([oe, oe]), r_body=bh.R_MOON)
+///     print(f"Apoapsis altitude: (first row) {alt_apo_rows[0]/1000:.2f} km")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None, *, r_body), text_signature = "(a_or_oe, e=None, *, r_body)")]
 #[pyo3(name = "apoapsis_altitude")]
-fn py_apoapsis_altitude(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>, r_body: f64) -> PyResult<f64> {
-    // Try to extract as scalar first
-    if let Ok(a) = a_or_oe.extract::<f64>() {
-        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
-            "Parameter 'e' is required when 'a_or_oe' is a scalar"
-        ))?;
-        return Ok(orbits::apoapsis_altitude(a, ecc, r_body));
-    }
-
-    // Try to extract as vector (Keplerian elements)
-    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
-    Ok(orbits::apoapsis_altitude(oe[0], oe[1], r_body))
+fn py_apoapsis_altitude<'py>(
+    py: Python<'py>,
+    a_or_oe: &Bound<'py, PyAny>,
+    e: Option<&Bound<'py, PyAny>>,
+    r_body: f64,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_oe_or_scalar(
+        py,
+        a_or_oe,
+        e,
+        |oe| Ok(orbits::apoapsis_altitude(oe[0], oe[1], r_body)),
+        |v, e| {
+            let ecc = e.ok_or_else(|| {
+                exceptions::PyValueError::new_err(
+                    "Parameter 'e' is required when 'a_or_oe' is a scalar or an array of values",
+                )
+            })?;
+            Ok(orbits::apoapsis_altitude(v, ecc, r_body))
+        },
+    )
 }
 
 /// Calculate the altitude above Earth's surface at apogee.
 ///
 /// Args:
-///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
-///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
-///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
+///     a_or_oe (float or array): The semi-major axis in meters, as a scalar or an array
+///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
+///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
+///         `a` and `e` are taken row by row.
+///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///
 /// Returns:
-///     float: The altitude above Earth's surface at apogee in meters.
+///     float or numpy.ndarray: The altitude above Earth's surface at apogee in meters.
+///         An array is returned for array input: shape `(n,)` for `n` element sets, or the
+///         broadcast shape for element-wise input.
 ///
 /// Example:
 ///     ```python
@@ -716,39 +892,51 @@ fn py_apoapsis_altitude(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>, r_body: f64)
 ///     alt = bh.apogee_altitude(a, e)
 ///     print(f"Apogee altitude: {alt/1000:.2f} km")
 ///
-///     # Using Keplerian elements vector
+///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [26554000.0, 0.7, np.radians(63.4), 0, 0, 0]
-///     alt = bh.apogee_altitude(oe)
-///     print(f"Apogee altitude: {alt/1000:.2f} km")
+///     alt_rows = bh.apogee_altitude(np.array([oe, oe]))
+///     print(f"Apogee altitude: (first row) {alt_rows[0]/1000:.2f} km")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None), text_signature = "(a_or_oe, e=None)")]
 #[pyo3(name = "apogee_altitude")]
-fn py_apogee_altitude(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>) -> PyResult<f64> {
-    // Try to extract as scalar first
-    if let Ok(a) = a_or_oe.extract::<f64>() {
-        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
-            "Parameter 'e' is required when 'a_or_oe' is a scalar"
-        ))?;
-        return Ok(orbits::apogee_altitude(a, ecc));
-    }
-
-    // Try to extract as vector (Keplerian elements)
-    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
-    Ok(orbits::apogee_altitude(oe[0], oe[1]))
+fn py_apogee_altitude<'py>(
+    py: Python<'py>,
+    a_or_oe: &Bound<'py, PyAny>,
+    e: Option<&Bound<'py, PyAny>>,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_oe_or_scalar(
+        py,
+        a_or_oe,
+        e,
+        |oe| Ok(orbits::apogee_altitude(oe[0], oe[1])),
+        |v, e| {
+            let ecc = e.ok_or_else(|| {
+                exceptions::PyValueError::new_err(
+                    "Parameter 'e' is required when 'a_or_oe' is a scalar or an array of values",
+                )
+            })?;
+            Ok(orbits::apogee_altitude(v, ecc))
+        },
+    )
 }
 
 /// Computes the inclination for a Sun-synchronous orbit around Earth based on
 /// the J2 gravitational perturbation.
 ///
 /// Args:
-///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
-///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
-///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
+///     a_or_oe (float or array): The semi-major axis in meters, as a scalar or an array
+///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
+///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
+///         `a` and `e` are taken row by row.
+///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     angle_format (AngleFormat): (keyword-only) Return output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
-///     float: Inclination for a Sun synchronous orbit in degrees or radians.
+///     float or numpy.ndarray: Inclination for a Sun synchronous orbit in degrees or radians.
+///         An array is returned for array input: shape `(n,)` for `n` element sets, or the
+///         broadcast shape for element-wise input.
 ///
 /// Example:
 ///     ```python
@@ -758,29 +946,38 @@ fn py_apogee_altitude(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>) -> PyResult<f6
 ///     # Using scalar parameters
 ///     a = bh.R_EARTH + 600e3
 ///     e = 0.001  # nearly circular
-///     inc = bh.sun_synchronous_inclination(a, e, bh.AngleFormat.DEGREES)
+///     inc = bh.sun_synchronous_inclination(a, e, angle_format=bh.AngleFormat.DEGREES)
 ///     print(f"Sun-synchronous inclination: {inc:.2f} degrees")
 ///
-///     # Using Keplerian elements vector
+///     # Using a batch of Keplerian element sets, one result per row
 ///     oe = [bh.R_EARTH + 600e3, 0.001, np.radians(97.8), 0, 0, 0]
-///     inc = bh.sun_synchronous_inclination(oe, angle_format=bh.AngleFormat.DEGREES)
-///     print(f"Sun-synchronous inclination: {inc:.2f} degrees")
+///     inc_rows = bh.sun_synchronous_inclination(np.array([oe, oe]), angle_format=bh.AngleFormat.DEGREES)
+///     print(f"Sun-synchronous inclination: (first row) {inc_rows[0]:.2f} degrees")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (a_or_oe, e=None, *, angle_format), text_signature = "(a_or_oe, e=None, *, angle_format)")]
 #[pyo3(name = "sun_synchronous_inclination")]
-fn py_sun_synchronous_inclination(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    // Try to extract as scalar first
-    if let Ok(a) = a_or_oe.extract::<f64>() {
-        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
-            "Parameter 'e' is required when 'a_or_oe' is a scalar"
-        ))?;
-        return Ok(orbits::sun_synchronous_inclination(a, ecc, angle_format.value));
-    }
-
-    // Try to extract as vector (Keplerian elements)
-    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
-    Ok(orbits::sun_synchronous_inclination(oe[0], oe[1], angle_format.value))
+fn py_sun_synchronous_inclination<'py>(
+    py: Python<'py>,
+    a_or_oe: &Bound<'py, PyAny>,
+    e: Option<&Bound<'py, PyAny>>,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyAny>> {
+    let af = angle_format.value;
+    dispatch_oe_or_scalar(
+        py,
+        a_or_oe,
+        e,
+        |oe| Ok(orbits::sun_synchronous_inclination(oe[0], oe[1], af)),
+        |v, e| {
+            let ecc = e.ok_or_else(|| {
+                exceptions::PyValueError::new_err(
+                    "Parameter 'e' is required when 'a_or_oe' is a scalar or an array of values",
+                )
+            })?;
+            Ok(orbits::sun_synchronous_inclination(v, ecc, af))
+        },
+    )
 }
 
 /// Returns the geostationary orbit semi-major axis around Earth.
@@ -804,14 +1001,18 @@ fn py_geo_sma() -> PyResult<f64> {
 /// Converts eccentric anomaly into mean anomaly.
 ///
 /// Args:
-///     anm_ecc_or_oe (float or array): Either the eccentric anomaly, or a 6-element
-///         Keplerian elements array [a, e, i, Ω, ω, E] from which `e` and `E` will be extracted.
-///         The anomaly in the vector should match the `angle_format`.
-///     e (float, optional): The eccentricity. Required if `anm_ecc_or_oe` is a scalar, ignored if vector.
+///     anm_ecc_or_oe (float or array): The eccentric anomaly, as a scalar or an array evaluated
+///         element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D array of
+///         shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, M] from which `e` and the
+///         anomaly (index 5) are taken row by row. The anomaly must match the `angle_format`.
+///     e (float or array, optional): The eccentricity, broadcast against `anm_ecc_or_oe` when either is
+///         an array. Required unless `anm_ecc_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
-///     float: Mean anomaly in radians or degrees.
+///     float or numpy.ndarray: Mean anomaly in radians or degrees.
+///         An array is returned for array input: shape `(n,)` for `n` element sets, or the
+///         broadcast shape for element-wise input.
 ///
 /// Example:
 ///     ```python
@@ -821,42 +1022,55 @@ fn py_geo_sma() -> PyResult<f64> {
 ///     # Using scalar parameters
 ///     E = np.pi / 4  # 45 degrees eccentric anomaly
 ///     e = 0.1  # eccentricity
-///     M = bh.anomaly_eccentric_to_mean(E, e, bh.AngleFormat.RADIANS)
+///     M = bh.anomaly_eccentric_to_mean(E, e, angle_format=bh.AngleFormat.RADIANS)
 ///     print(f"Mean anomaly: {M:.4f} radians")
 ///
-///     # Using Keplerian elements vector (with eccentric anomaly at index 5)
+///     # Using a batch of Keplerian element sets (eccentric anomaly at index 5), one result per row
 ///     oe = [bh.R_EARTH + 500e3, 0.1, np.radians(45), 0, 0, np.pi/4]
-///     M = bh.anomaly_eccentric_to_mean(oe, angle_format=bh.AngleFormat.RADIANS)
-///     print(f"Mean anomaly: {M:.4f} radians")
+///     M_rows = bh.anomaly_eccentric_to_mean(np.array([oe, oe]), angle_format=bh.AngleFormat.RADIANS)
+///     print(f"Mean anomaly: (first row) {M_rows[0]:.4f} radians")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (anm_ecc_or_oe, e=None, *, angle_format), text_signature = "(anm_ecc_or_oe, e=None, *, angle_format)")]
 #[pyo3(name = "anomaly_eccentric_to_mean")]
-fn py_anomaly_eccentric_to_mean(anm_ecc_or_oe: &Bound<'_, PyAny>, e: Option<f64>, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    // Try to extract as scalar first
-    if let Ok(anm_ecc) = anm_ecc_or_oe.extract::<f64>() {
-        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
-            "Parameter 'e' is required when 'anm_ecc_or_oe' is a scalar"
-        ))?;
-        return Ok(orbits::anomaly_eccentric_to_mean(anm_ecc, ecc, angle_format.value));
-    }
-
-    // Try to extract as vector (Keplerian elements)
-    let oe = pyany_to_f64_array1(anm_ecc_or_oe, Some(6))?;
-    Ok(orbits::anomaly_eccentric_to_mean(oe[5], oe[1], angle_format.value))
+fn py_anomaly_eccentric_to_mean<'py>(
+    py: Python<'py>,
+    anm_ecc_or_oe: &Bound<'py, PyAny>,
+    e: Option<&Bound<'py, PyAny>>,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyAny>> {
+    let af = angle_format.value;
+    dispatch_oe_or_scalar(
+        py,
+        anm_ecc_or_oe,
+        e,
+        |oe| Ok(orbits::anomaly_eccentric_to_mean(oe[5], oe[1], af)),
+        |v, e| {
+            let ecc = e.ok_or_else(|| {
+                exceptions::PyValueError::new_err(
+                    "Parameter 'e' is required when 'anm_ecc_or_oe' is a scalar or an array of values",
+                )
+            })?;
+            Ok(orbits::anomaly_eccentric_to_mean(v, ecc, af))
+        },
+    )
 }
 
 /// Converts mean anomaly into eccentric anomaly.
 ///
 /// Args:
-///     anm_mean_or_oe (float or array): Either the mean anomaly, or a 6-element
-///         Keplerian elements array [a, e, i, Ω, ω, M] from which `e` and `M` will be extracted.
-///         The anomaly in the vector should match the `angle_format`.
-///     e (float, optional): The eccentricity. Required if `anm_mean_or_oe` is a scalar, ignored if vector.
+///     anm_mean_or_oe (float or array): The mean anomaly, as a scalar or an array evaluated
+///         element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D array of
+///         shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, M] from which `e` and the
+///         anomaly (index 5) are taken row by row. The anomaly must match the `angle_format`.
+///     e (float or array, optional): The eccentricity, broadcast against `anm_mean_or_oe` when either is
+///         an array. Required unless `anm_mean_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
-///     float: Eccentric anomaly in radians or degrees.
+///     float or numpy.ndarray: Eccentric anomaly in radians or degrees.
+///         An array is returned for array input: shape `(n,)` for `n` element sets, or the
+///         broadcast shape for element-wise input.
 ///
 /// Example:
 ///     ```python
@@ -866,48 +1080,55 @@ fn py_anomaly_eccentric_to_mean(anm_ecc_or_oe: &Bound<'_, PyAny>, e: Option<f64>
 ///     # Using scalar parameters
 ///     M = 1.5  # mean anomaly in radians
 ///     e = 0.3  # eccentricity
-///     E = bh.anomaly_mean_to_eccentric(M, e, bh.AngleFormat.RADIANS)
+///     E = bh.anomaly_mean_to_eccentric(M, e, angle_format=bh.AngleFormat.RADIANS)
 ///     print(f"Eccentric anomaly: {E:.4f} radians")
 ///
-///     # Using Keplerian elements vector (with mean anomaly at index 5)
+///     # Using a batch of Keplerian element sets (mean anomaly at index 5), one result per row
 ///     oe = [bh.R_EARTH + 500e3, 0.3, np.radians(45), 0, 0, 1.5]
-///     E = bh.anomaly_mean_to_eccentric(oe, angle_format=bh.AngleFormat.RADIANS)
-///     print(f"Eccentric anomaly: {E:.4f} radians")
+///     E_rows = bh.anomaly_mean_to_eccentric(np.array([oe, oe]), angle_format=bh.AngleFormat.RADIANS)
+///     print(f"Eccentric anomaly: (first row) {E_rows[0]:.4f} radians")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (anm_mean_or_oe, e=None, *, angle_format), text_signature = "(anm_mean_or_oe, e=None, *, angle_format)")]
 #[pyo3(name = "anomaly_mean_to_eccentric")]
-fn py_anomaly_mean_to_eccentric(anm_mean_or_oe: &Bound<'_, PyAny>, e: Option<f64>, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    // Try to extract as scalar first
-    if let Ok(anm_mean) = anm_mean_or_oe.extract::<f64>() {
-        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
-            "Parameter 'e' is required when 'anm_mean_or_oe' is a scalar"
-        ))?;
-        return match orbits::anomaly_mean_to_eccentric(anm_mean, ecc, angle_format.value) {
-            Ok(value) => Ok(value),
-            Err(err) => Err(exceptions::PyRuntimeError::new_err(err)),
-        };
-    }
-
-    // Try to extract as vector (Keplerian elements)
-    let oe = pyany_to_f64_array1(anm_mean_or_oe, Some(6))?;
-    match orbits::anomaly_mean_to_eccentric(oe[5], oe[1], angle_format.value) {
-        Ok(value) => Ok(value),
-        Err(err) => Err(exceptions::PyRuntimeError::new_err(err)),
-    }
+fn py_anomaly_mean_to_eccentric<'py>(
+    py: Python<'py>,
+    anm_mean_or_oe: &Bound<'py, PyAny>,
+    e: Option<&Bound<'py, PyAny>>,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyAny>> {
+    let af = angle_format.value;
+    dispatch_oe_or_scalar(
+        py,
+        anm_mean_or_oe,
+        e,
+        |oe| orbits::anomaly_mean_to_eccentric(oe[5], oe[1], af).map_err(exceptions::PyRuntimeError::new_err),
+        |v, e| {
+            let ecc = e.ok_or_else(|| {
+                exceptions::PyValueError::new_err(
+                    "Parameter 'e' is required when 'anm_mean_or_oe' is a scalar or an array of values",
+                )
+            })?;
+            orbits::anomaly_mean_to_eccentric(v, ecc, af).map_err(exceptions::PyRuntimeError::new_err)
+        },
+    )
 }
 
 /// Converts true anomaly into eccentric anomaly.
 ///
 /// Args:
-///     anm_true_or_oe (float or array): Either the true anomaly, or a 6-element
-///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `e` and `ν` will be extracted.
-///         The anomaly in the vector should match the `angle_format`.
-///     e (float, optional): The eccentricity. Required if `anm_true_or_oe` is a scalar, ignored if vector.
+///     anm_true_or_oe (float or array): The true anomaly, as a scalar or an array evaluated
+///         element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D array of
+///         shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, M] from which `e` and the
+///         anomaly (index 5) are taken row by row. The anomaly must match the `angle_format`.
+///     e (float or array, optional): The eccentricity, broadcast against `anm_true_or_oe` when either is
+///         an array. Required unless `anm_true_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
-///     float: Eccentric anomaly in radians or degrees.
+///     float or numpy.ndarray: Eccentric anomaly in radians or degrees.
+///         An array is returned for array input: shape `(n,)` for `n` element sets, or the
+///         broadcast shape for element-wise input.
 ///
 /// Example:
 ///     ```python
@@ -917,42 +1138,55 @@ fn py_anomaly_mean_to_eccentric(anm_mean_or_oe: &Bound<'_, PyAny>, e: Option<f64
 ///     # Using scalar parameters
 ///     nu = np.pi / 3  # 60 degrees true anomaly
 ///     e = 0.2  # eccentricity
-///     E = bh.anomaly_true_to_eccentric(nu, e, bh.AngleFormat.RADIANS)
+///     E = bh.anomaly_true_to_eccentric(nu, e, angle_format=bh.AngleFormat.RADIANS)
 ///     print(f"Eccentric anomaly: {E:.4f} radians")
 ///
-///     # Using Keplerian elements vector (with true anomaly at index 5)
+///     # Using a batch of Keplerian element sets (true anomaly at index 5), one result per row
 ///     oe = [bh.R_EARTH + 500e3, 0.2, np.radians(45), 0, 0, np.pi/3]
-///     E = bh.anomaly_true_to_eccentric(oe, angle_format=bh.AngleFormat.RADIANS)
-///     print(f"Eccentric anomaly: {E:.4f} radians")
+///     E_rows = bh.anomaly_true_to_eccentric(np.array([oe, oe]), angle_format=bh.AngleFormat.RADIANS)
+///     print(f"Eccentric anomaly: (first row) {E_rows[0]:.4f} radians")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (anm_true_or_oe, e=None, *, angle_format), text_signature = "(anm_true_or_oe, e=None, *, angle_format)")]
 #[pyo3(name = "anomaly_true_to_eccentric")]
-fn py_anomaly_true_to_eccentric(anm_true_or_oe: &Bound<'_, PyAny>, e: Option<f64>, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    // Try to extract as scalar first
-    if let Ok(anm_true) = anm_true_or_oe.extract::<f64>() {
-        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
-            "Parameter 'e' is required when 'anm_true_or_oe' is a scalar"
-        ))?;
-        return Ok(orbits::anomaly_true_to_eccentric(anm_true, ecc, angle_format.value));
-    }
-
-    // Try to extract as vector (Keplerian elements)
-    let oe = pyany_to_f64_array1(anm_true_or_oe, Some(6))?;
-    Ok(orbits::anomaly_true_to_eccentric(oe[5], oe[1], angle_format.value))
+fn py_anomaly_true_to_eccentric<'py>(
+    py: Python<'py>,
+    anm_true_or_oe: &Bound<'py, PyAny>,
+    e: Option<&Bound<'py, PyAny>>,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyAny>> {
+    let af = angle_format.value;
+    dispatch_oe_or_scalar(
+        py,
+        anm_true_or_oe,
+        e,
+        |oe| Ok(orbits::anomaly_true_to_eccentric(oe[5], oe[1], af)),
+        |v, e| {
+            let ecc = e.ok_or_else(|| {
+                exceptions::PyValueError::new_err(
+                    "Parameter 'e' is required when 'anm_true_or_oe' is a scalar or an array of values",
+                )
+            })?;
+            Ok(orbits::anomaly_true_to_eccentric(v, ecc, af))
+        },
+    )
 }
 
 /// Converts eccentric anomaly into true anomaly.
 ///
 /// Args:
-///     anm_ecc_or_oe (float or array): Either the eccentric anomaly, or a 6-element
-///         Keplerian elements array [a, e, i, Ω, ω, E] from which `e` and `E` will be extracted.
-///         The anomaly in the vector should match the `angle_format`.
-///     e (float, optional): The eccentricity. Required if `anm_ecc_or_oe` is a scalar, ignored if vector.
+///     anm_ecc_or_oe (float or array): The eccentric anomaly, as a scalar or an array evaluated
+///         element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D array of
+///         shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, M] from which `e` and the
+///         anomaly (index 5) are taken row by row. The anomaly must match the `angle_format`.
+///     e (float or array, optional): The eccentricity, broadcast against `anm_ecc_or_oe` when either is
+///         an array. Required unless `anm_ecc_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
-///     float: True anomaly in radians or degrees.
+///     float or numpy.ndarray: True anomaly in radians or degrees.
+///         An array is returned for array input: shape `(n,)` for `n` element sets, or the
+///         broadcast shape for element-wise input.
 ///
 /// Example:
 ///     ```python
@@ -962,42 +1196,55 @@ fn py_anomaly_true_to_eccentric(anm_true_or_oe: &Bound<'_, PyAny>, e: Option<f64
 ///     # Using scalar parameters
 ///     E = np.pi / 4  # 45 degrees eccentric anomaly
 ///     e = 0.4  # eccentricity
-///     nu = bh.anomaly_eccentric_to_true(E, e, bh.AngleFormat.RADIANS)
+///     nu = bh.anomaly_eccentric_to_true(E, e, angle_format=bh.AngleFormat.RADIANS)
 ///     print(f"True anomaly: {nu:.4f} radians")
 ///
-///     # Using Keplerian elements vector (with eccentric anomaly at index 5)
+///     # Using a batch of Keplerian element sets (eccentric anomaly at index 5), one result per row
 ///     oe = [bh.R_EARTH + 500e3, 0.4, np.radians(45), 0, 0, np.pi/4]
-///     nu = bh.anomaly_eccentric_to_true(oe, angle_format=bh.AngleFormat.RADIANS)
-///     print(f"True anomaly: {nu:.4f} radians")
+///     nu_rows = bh.anomaly_eccentric_to_true(np.array([oe, oe]), angle_format=bh.AngleFormat.RADIANS)
+///     print(f"True anomaly: (first row) {nu_rows[0]:.4f} radians")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (anm_ecc_or_oe, e=None, *, angle_format), text_signature = "(anm_ecc_or_oe, e=None, *, angle_format)")]
 #[pyo3(name = "anomaly_eccentric_to_true")]
-fn py_anomaly_eccentric_to_true(anm_ecc_or_oe: &Bound<'_, PyAny>, e: Option<f64>, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    // Try to extract as scalar first
-    if let Ok(anm_ecc) = anm_ecc_or_oe.extract::<f64>() {
-        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
-            "Parameter 'e' is required when 'anm_ecc_or_oe' is a scalar"
-        ))?;
-        return Ok(orbits::anomaly_eccentric_to_true(anm_ecc, ecc, angle_format.value));
-    }
-
-    // Try to extract as vector (Keplerian elements)
-    let oe = pyany_to_f64_array1(anm_ecc_or_oe, Some(6))?;
-    Ok(orbits::anomaly_eccentric_to_true(oe[5], oe[1], angle_format.value))
+fn py_anomaly_eccentric_to_true<'py>(
+    py: Python<'py>,
+    anm_ecc_or_oe: &Bound<'py, PyAny>,
+    e: Option<&Bound<'py, PyAny>>,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyAny>> {
+    let af = angle_format.value;
+    dispatch_oe_or_scalar(
+        py,
+        anm_ecc_or_oe,
+        e,
+        |oe| Ok(orbits::anomaly_eccentric_to_true(oe[5], oe[1], af)),
+        |v, e| {
+            let ecc = e.ok_or_else(|| {
+                exceptions::PyValueError::new_err(
+                    "Parameter 'e' is required when 'anm_ecc_or_oe' is a scalar or an array of values",
+                )
+            })?;
+            Ok(orbits::anomaly_eccentric_to_true(v, ecc, af))
+        },
+    )
 }
 
 /// Converts true anomaly into mean anomaly.
 ///
 /// Args:
-///     anm_true_or_oe (float or array): Either the true anomaly, or a 6-element
-///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `e` and `ν` will be extracted.
-///         The anomaly in the vector should match the `angle_format`.
-///     e (float, optional): The eccentricity. Required if `anm_true_or_oe` is a scalar, ignored if vector.
+///     anm_true_or_oe (float or array): The true anomaly, as a scalar or an array evaluated
+///         element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D array of
+///         shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, M] from which `e` and the
+///         anomaly (index 5) are taken row by row. The anomaly must match the `angle_format`.
+///     e (float or array, optional): The eccentricity, broadcast against `anm_true_or_oe` when either is
+///         an array. Required unless `anm_true_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
-///     float: Mean anomaly in radians or degrees.
+///     float or numpy.ndarray: Mean anomaly in radians or degrees.
+///         An array is returned for array input: shape `(n,)` for `n` element sets, or the
+///         broadcast shape for element-wise input.
 ///
 /// Example:
 ///     ```python
@@ -1007,42 +1254,55 @@ fn py_anomaly_eccentric_to_true(anm_ecc_or_oe: &Bound<'_, PyAny>, e: Option<f64>
 ///     # Using scalar parameters
 ///     nu = np.pi / 2  # 90 degrees true anomaly
 ///     e = 0.15  # eccentricity
-///     M = bh.anomaly_true_to_mean(nu, e, bh.AngleFormat.RADIANS)
+///     M = bh.anomaly_true_to_mean(nu, e, angle_format=bh.AngleFormat.RADIANS)
 ///     print(f"Mean anomaly: {M:.4f} radians")
 ///
-///     # Using Keplerian elements vector (with true anomaly at index 5)
+///     # Using a batch of Keplerian element sets (true anomaly at index 5), one result per row
 ///     oe = [bh.R_EARTH + 500e3, 0.15, np.radians(45), 0, 0, np.pi/2]
-///     M = bh.anomaly_true_to_mean(oe, angle_format=bh.AngleFormat.RADIANS)
-///     print(f"Mean anomaly: {M:.4f} radians")
+///     M_rows = bh.anomaly_true_to_mean(np.array([oe, oe]), angle_format=bh.AngleFormat.RADIANS)
+///     print(f"Mean anomaly: (first row) {M_rows[0]:.4f} radians")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (anm_true_or_oe, e=None, *, angle_format), text_signature = "(anm_true_or_oe, e=None, *, angle_format)")]
 #[pyo3(name = "anomaly_true_to_mean")]
-fn py_anomaly_true_to_mean(anm_true_or_oe: &Bound<'_, PyAny>, e: Option<f64>, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    // Try to extract as scalar first
-    if let Ok(anm_true) = anm_true_or_oe.extract::<f64>() {
-        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
-            "Parameter 'e' is required when 'anm_true_or_oe' is a scalar"
-        ))?;
-        return Ok(orbits::anomaly_true_to_mean(anm_true, ecc, angle_format.value));
-    }
-
-    // Try to extract as vector (Keplerian elements)
-    let oe = pyany_to_f64_array1(anm_true_or_oe, Some(6))?;
-    Ok(orbits::anomaly_true_to_mean(oe[5], oe[1], angle_format.value))
+fn py_anomaly_true_to_mean<'py>(
+    py: Python<'py>,
+    anm_true_or_oe: &Bound<'py, PyAny>,
+    e: Option<&Bound<'py, PyAny>>,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyAny>> {
+    let af = angle_format.value;
+    dispatch_oe_or_scalar(
+        py,
+        anm_true_or_oe,
+        e,
+        |oe| Ok(orbits::anomaly_true_to_mean(oe[5], oe[1], af)),
+        |v, e| {
+            let ecc = e.ok_or_else(|| {
+                exceptions::PyValueError::new_err(
+                    "Parameter 'e' is required when 'anm_true_or_oe' is a scalar or an array of values",
+                )
+            })?;
+            Ok(orbits::anomaly_true_to_mean(v, ecc, af))
+        },
+    )
 }
 
 /// Converts mean anomaly into true anomaly.
 ///
 /// Args:
-///     anm_mean_or_oe (float or array): Either the mean anomaly, or a 6-element
-///         Keplerian elements array [a, e, i, Ω, ω, M] from which `e` and `M` will be extracted.
-///         The anomaly in the vector should match the `angle_format`.
-///     e (float, optional): The eccentricity. Required if `anm_mean_or_oe` is a scalar, ignored if vector.
+///     anm_mean_or_oe (float or array): The mean anomaly, as a scalar or an array evaluated
+///         element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D array of
+///         shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, M] from which `e` and the
+///         anomaly (index 5) are taken row by row. The anomaly must match the `angle_format`.
+///     e (float or array, optional): The eccentricity, broadcast against `anm_mean_or_oe` when either is
+///         an array. Required unless `anm_mean_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
-///     float: True anomaly in radians or degrees.
+///     float or numpy.ndarray: True anomaly in radians or degrees.
+///         An array is returned for array input: shape `(n,)` for `n` element sets, or the
+///         broadcast shape for element-wise input.
 ///
 /// Example:
 ///     ```python
@@ -1052,35 +1312,38 @@ fn py_anomaly_true_to_mean(anm_true_or_oe: &Bound<'_, PyAny>, e: Option<f64>, an
 ///     # Using scalar parameters
 ///     M = 2.0  # mean anomaly in radians
 ///     e = 0.25  # eccentricity
-///     nu = bh.anomaly_mean_to_true(M, e, bh.AngleFormat.RADIANS)
+///     nu = bh.anomaly_mean_to_true(M, e, angle_format=bh.AngleFormat.RADIANS)
 ///     print(f"True anomaly: {nu:.4f} radians")
 ///
-///     # Using Keplerian elements vector (with mean anomaly at index 5)
+///     # Using a batch of Keplerian element sets (mean anomaly at index 5), one result per row
 ///     oe = [bh.R_EARTH + 500e3, 0.25, np.radians(45), 0, 0, 2.0]
-///     nu = bh.anomaly_mean_to_true(oe, angle_format=bh.AngleFormat.RADIANS)
-///     print(f"True anomaly: {nu:.4f} radians")
+///     nu_rows = bh.anomaly_mean_to_true(np.array([oe, oe]), angle_format=bh.AngleFormat.RADIANS)
+///     print(f"True anomaly: (first row) {nu_rows[0]:.4f} radians")
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (anm_mean_or_oe, e=None, *, angle_format), text_signature = "(anm_mean_or_oe, e=None, *, angle_format)")]
 #[pyo3(name = "anomaly_mean_to_true")]
-fn py_anomaly_mean_to_true(anm_mean_or_oe: &Bound<'_, PyAny>, e: Option<f64>, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    // Try to extract as scalar first
-    if let Ok(anm_mean) = anm_mean_or_oe.extract::<f64>() {
-        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
-            "Parameter 'e' is required when 'anm_mean_or_oe' is a scalar"
-        ))?;
-        return match orbits::anomaly_mean_to_true(anm_mean, ecc, angle_format.value) {
-            Ok(value) => Ok(value),
-            Err(err) => Err(exceptions::PyRuntimeError::new_err(err)),
-        };
-    }
-
-    // Try to extract as vector (Keplerian elements)
-    let oe = pyany_to_f64_array1(anm_mean_or_oe, Some(6))?;
-    match orbits::anomaly_mean_to_true(oe[5], oe[1], angle_format.value) {
-        Ok(value) => Ok(value),
-        Err(err) => Err(exceptions::PyRuntimeError::new_err(err)),
-    }
+fn py_anomaly_mean_to_true<'py>(
+    py: Python<'py>,
+    anm_mean_or_oe: &Bound<'py, PyAny>,
+    e: Option<&Bound<'py, PyAny>>,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyAny>> {
+    let af = angle_format.value;
+    dispatch_oe_or_scalar(
+        py,
+        anm_mean_or_oe,
+        e,
+        |oe| orbits::anomaly_mean_to_true(oe[5], oe[1], af).map_err(exceptions::PyRuntimeError::new_err),
+        |v, e| {
+            let ecc = e.ok_or_else(|| {
+                exceptions::PyValueError::new_err(
+                    "Parameter 'e' is required when 'anm_mean_or_oe' is a scalar or an array of values",
+                )
+            })?;
+            orbits::anomaly_mean_to_true(v, ecc, af).map_err(exceptions::PyRuntimeError::new_err)
+        },
+    )
 }
 
 // New propagator implementations
@@ -1333,8 +1596,10 @@ fn py_norad_id_alpha5_to_numeric(alpha5_id: String) -> PyResult<u32> {
 ///
 /// Examples:
 ///     ```python
+///     import brahe as bh
+///
 ///     line1 = "1 25544U 98067A   21001.50000000  .00001764  00000-0  40967-4 0  9997"
-///     epoch = epoch_from_tle(line1)
+///     epoch = bh.epoch_from_tle(line1)
 ///     epoch.year()
 ///     ```
 #[pyfunction]
@@ -1953,14 +2218,14 @@ fn pairs_to_py<'py>(py: Python<'py>, pairs: Vec<(time::Epoch, SVector<f64, 6>)>)
 ///     s = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
 ///     states = np.vstack([s, s, s])
 ///
-///     out_epochs, out_states = bh.batch_state_koe_osc_to_mean(
+///     out_epochs, out_states = bh.states_koe_osc_to_mean(
 ///         epochs, states, bh.MeanElementMethod.BROUWER_LYDDANE, bh.AngleFormat.DEGREES
 ///     )
 ///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(epochs, states, method, angle_format)")]
-#[pyo3(name = "batch_state_koe_osc_to_mean")]
-fn py_batch_state_koe_osc_to_mean<'py>(
+#[pyo3(name = "states_koe_osc_to_mean")]
+fn py_states_koe_osc_to_mean<'py>(
     py: Python<'py>,
     epochs: Vec<PyRef<'_, PyEpoch>>,
     states: PyReadonlyArray2<f64>,
@@ -1969,7 +2234,7 @@ fn py_batch_state_koe_osc_to_mean<'py>(
 ) -> PyResult<BatchKoeResult<'py>> {
     let epochs_vec: Vec<time::Epoch> = epochs.iter().map(|e| e.obj).collect();
     let states_vec = states_array2_to_svec6(&states)?;
-    let pairs = orbits::batch_state_koe_osc_to_mean(
+    let pairs = orbits::states_koe_osc_to_mean(
         &epochs_vec,
         &states_vec,
         method.method.clone(),
@@ -2020,14 +2285,14 @@ fn py_batch_state_koe_osc_to_mean<'py>(
 ///     s = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
 ///     states = np.vstack([s, s, s])
 ///
-///     out_epochs, out_states = bh.batch_state_koe_mean_to_osc(
+///     out_epochs, out_states = bh.states_koe_mean_to_osc(
 ///         epochs, states, bh.MeanElementMethod.BROUWER_LYDDANE, bh.AngleFormat.DEGREES
 ///     )
 ///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(epochs, states, method, angle_format)")]
-#[pyo3(name = "batch_state_koe_mean_to_osc")]
-fn py_batch_state_koe_mean_to_osc<'py>(
+#[pyo3(name = "states_koe_mean_to_osc")]
+fn py_states_koe_mean_to_osc<'py>(
     py: Python<'py>,
     epochs: Vec<PyRef<'_, PyEpoch>>,
     states: PyReadonlyArray2<f64>,
@@ -2036,7 +2301,7 @@ fn py_batch_state_koe_mean_to_osc<'py>(
 ) -> PyResult<BatchKoeResult<'py>> {
     let epochs_vec: Vec<time::Epoch> = epochs.iter().map(|e| e.obj).collect();
     let states_vec = states_array2_to_svec6(&states)?;
-    let pairs = orbits::batch_state_koe_mean_to_osc(
+    let pairs = orbits::states_koe_mean_to_osc(
         &epochs_vec,
         &states_vec,
         method.method.clone(),
@@ -2048,12 +2313,17 @@ fn py_batch_state_koe_mean_to_osc<'py>(
 /// Convert Keplerian elements to equinoctial elements (Vallado 2-99).
 ///
 /// Args:
-///     koe (numpy.ndarray): Keplerian `[a, e, i, Ω, ω, M]` (a in meters; angles per angle_format).
+///     koe (numpy.ndarray or list): Keplerian `[a, e, i, Ω, ω, M]` (a in meters; angles per angle_format).
+///         Also accepts a batch of element sets with the 6 components along `axis`
+///         (for example shape `(n, 6)`).
 ///     angle_format (AngleFormat): Format of angular inputs/outputs.
 ///     fr (int): Retrograde factor, +1 for direct orbits, -1 for near-retrograde. Defaults to 1.
+///     axis (int, optional): Axis of `koe` holding the element components for batched
+///         input. Defaults to `-1` (the last axis).
 ///
 /// Returns:
 ///     numpy.ndarray: Equinoctial `[a, h, k, p, q, l]` (a in meters; l per angle_format).
+///         For batched input the output takes the batch layout of `koe`.
 ///
 /// Example:
 ///     ```python
@@ -2062,29 +2332,39 @@ fn py_batch_state_koe_mean_to_osc<'py>(
 ///     eqn = bh.state_koe_to_equinoctial(koe, bh.AngleFormat.DEGREES)
 ///     ```
 #[pyfunction]
-#[pyo3(signature = (koe, angle_format, fr=1), text_signature = "(koe, angle_format, fr=1)")]
+#[pyo3(signature = (koe, angle_format, fr=1, axis=-1), text_signature = "(koe, angle_format, fr=1, axis=-1)")]
 #[pyo3(name = "state_koe_to_equinoctial")]
 fn py_state_koe_to_equinoctial<'py>(
     py: Python<'py>,
-    koe: &Bound<'_, PyAny>,
+    koe: &Bound<'py, PyAny>,
     angle_format: &PyAngleFormat,
     fr: i8,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let koe_vec = pyany_to_f64_array1(koe, Some(6))?;
-    let koe_svec = SVector::<f64, 6>::from_row_slice(&koe_vec);
-    let eqn = orbits::state_koe_to_equinoctial(&koe_svec, angle_format.value, fr);
-    Ok(eqn.as_slice().to_pyarray(py))
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    let af = angle_format.value;
+    dispatch_vec::<6>(
+        py,
+        koe,
+        axis,
+        |v| orbits::state_koe_to_equinoctial(&v, af, fr),
+        |vs| orbits::states_koe_to_equinoctial(vs, af, fr),
+    )
 }
 
 /// Convert equinoctial elements to Keplerian elements (Vallado 2-99).
 ///
 /// Args:
-///     eqn (numpy.ndarray): Equinoctial `[a, h, k, p, q, l]` (a in meters; l per angle_format).
+///     eqn (numpy.ndarray or list): Equinoctial `[a, h, k, p, q, l]` (a in meters; l per angle_format).
+///         Also accepts a batch of element sets with the 6 components along `axis`
+///         (for example shape `(n, 6)`).
 ///     angle_format (AngleFormat): Format of angular input/outputs.
 ///     fr (int): Retrograde factor matching the forward conversion. Defaults to 1.
+///     axis (int, optional): Axis of `eqn` holding the element components for batched
+///         input. Defaults to `-1` (the last axis).
 ///
 /// Returns:
 ///     numpy.ndarray: Keplerian `[a, e, i, Ω, ω, M]` (a in meters; angles per angle_format).
+///         For batched input the output takes the batch layout of `eqn`.
 ///
 /// Example:
 ///     ```python
@@ -2094,18 +2374,23 @@ fn py_state_koe_to_equinoctial<'py>(
 ///     back = bh.state_equinoctial_to_koe(eqn, bh.AngleFormat.DEGREES)
 ///     ```
 #[pyfunction]
-#[pyo3(signature = (eqn, angle_format, fr=1), text_signature = "(eqn, angle_format, fr=1)")]
+#[pyo3(signature = (eqn, angle_format, fr=1, axis=-1), text_signature = "(eqn, angle_format, fr=1, axis=-1)")]
 #[pyo3(name = "state_equinoctial_to_koe")]
 fn py_state_equinoctial_to_koe<'py>(
     py: Python<'py>,
-    eqn: &Bound<'_, PyAny>,
+    eqn: &Bound<'py, PyAny>,
     angle_format: &PyAngleFormat,
     fr: i8,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let eqn_vec = pyany_to_f64_array1(eqn, Some(6))?;
-    let eqn_svec = SVector::<f64, 6>::from_row_slice(&eqn_vec);
-    let koe = orbits::state_equinoctial_to_koe(&eqn_svec, angle_format.value, fr);
-    Ok(koe.as_slice().to_pyarray(py))
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    let af = angle_format.value;
+    dispatch_vec::<6>(
+        py,
+        eqn,
+        axis,
+        |v| orbits::state_equinoctial_to_koe(&v, af, fr),
+        |vs| orbits::states_equinoctial_to_koe(vs, af, fr),
+    )
 }
 
 // ============================================================================

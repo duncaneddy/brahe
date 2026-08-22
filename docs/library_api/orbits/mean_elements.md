@@ -14,9 +14,9 @@ first-order Brouwer-Lyddane theory or numerical windowed averaging.
 
 ## Batch Conversions
 
-::: brahe.orbits.batch_state_koe_osc_to_mean
+::: brahe.orbits.states_koe_osc_to_mean
 
-::: brahe.orbits.batch_state_koe_mean_to_osc
+::: brahe.orbits.states_koe_mean_to_osc
 
 ## Methods and Configuration
 

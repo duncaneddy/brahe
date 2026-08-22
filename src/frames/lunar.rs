@@ -65,8 +65,13 @@ use crate::constants::AS2RAD;
 use crate::math::{SMatrix3, SVector6};
 use crate::spice::{NAIFId, spk_position, spk_state};
 use crate::time::Epoch;
+use crate::utils::BraheError;
+use crate::utils::batch::{batch_map, batch_map_epochs};
 
 use super::iau_rotation::{euler313_omega_body, rx, ry, rz};
+use super::transform::{
+    RotatingFrameContext, apply_state_icrf_to_rotating, apply_state_rotating_to_icrf,
+};
 
 /// NAIF frame class ID of the DE440 lunar principal-axis frame
 /// (`MOON_PA_DE440`), as defined in NAIF's lunar frames kernel.
@@ -346,6 +351,107 @@ pub fn position_lfme_to_lci(epc: Epoch, x_lfme: Vector3<f64>) -> Vector3<f64> {
     rotation_lfme_to_lci(epc) * x_lfme
 }
 
+/// Rotation matrix and body-frame angular velocity of the lunar
+/// principal-axis frame (LFPA) at `epc`.
+///
+/// # Arguments
+/// - `epc`: Epoch instant
+///
+/// # Returns
+/// - LCI -> LFPA rotation matrix and LFPA angular velocity (rad/s)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = lfpa_context(epc);
+/// // c.r_mat rotates LCI -> LFPA; c.omega_b is the LFPA angular velocity
+/// ```
+fn lfpa_context(epc: Epoch) -> RotatingFrameContext {
+    ensure_lunar_pck_loaded();
+    let (angles, rates) = crate::spice::pck_euler_angles(MOON_PA_FRAME_ID, epc)
+        .unwrap_or_else(|e| panic!("Lunar PCK orientation query failed: {}", e));
+    let r_mat = crate::spice::pck_rotation_matrix(MOON_PA_FRAME_ID, epc)
+        .unwrap_or_else(|e| panic!("Lunar PCK orientation query failed: {}", e))
+        .to_matrix();
+    let omega_b = euler313_omega_body(angles, rates);
+    RotatingFrameContext { r_mat, omega_b }
+}
+
+/// Rotation matrix and body-frame angular velocity of the lunar mean
+/// Earth/polar-axis frame (LFME) at `epc`.
+///
+/// # Arguments
+/// - `epc`: Epoch instant
+///
+/// # Returns
+/// - LCI -> LFME rotation matrix and LFME angular velocity (rad/s)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = lfme_context(epc);
+/// // c.r_mat rotates LCI -> LFME; c.omega_b is the LFME angular velocity
+/// ```
+fn lfme_context(epc: Epoch) -> RotatingFrameContext {
+    ensure_lunar_pck_loaded();
+    let (angles, rates) = crate::spice::pck_euler_angles(MOON_PA_FRAME_ID, epc)
+        .unwrap_or_else(|e| panic!("Lunar PCK orientation query failed: {}", e));
+    let r_pa_to_me = rotation_lfpa_to_lfme();
+    let r_mat = r_pa_to_me * rotation_lci_to_lfpa(epc);
+    let omega_b = r_pa_to_me * euler313_omega_body(angles, rates);
+    RotatingFrameContext { r_mat, omega_b }
+}
+
+/// Moon position relative to the Earth in ICRF axes.
+///
+/// # Arguments
+/// - `epc`: Epoch instant
+///
+/// # Returns
+/// - Moon position relative to the Earth. Units: (*m*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let offset = moon_earth_offset_position(epc);
+/// // x_lci = x_eci - offset
+/// ```
+fn moon_earth_offset_position(epc: Epoch) -> Vector3<f64> {
+    spk_position(NAIFId::Moon, NAIFId::Earth, epc)
+        .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)")
+}
+
+/// Moon state relative to the Earth in ICRF axes.
+///
+/// # Arguments
+/// - `epc`: Epoch instant
+///
+/// # Returns
+/// - Moon state relative to the Earth (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let offset = moon_earth_offset_state(epc);
+/// // x_lci = x_eci - offset
+/// ```
+fn moon_earth_offset_state(epc: Epoch) -> SVector6 {
+    spk_state(NAIFId::Moon, NAIFId::Earth, epc)
+        .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)")
+}
+
 /// Transforms a Cartesian Lunar-inertial (LCI) state (position and
 /// velocity) into the equivalent Cartesian Lunar-Fixed Principal Axis
 /// (LFPA) state.
@@ -375,21 +481,7 @@ pub fn position_lfme_to_lci(epc: Epoch, x_lfme: Vector3<f64>) -> Vector3<f64> {
 /// let x_lfpa = state_lci_to_lfpa(epc, x_lci);
 /// ```
 pub fn state_lci_to_lfpa(epc: Epoch, x_lci: SVector6) -> SVector6 {
-    ensure_lunar_pck_loaded();
-    let (angles, rates) = crate::spice::pck_euler_angles(MOON_PA_FRAME_ID, epc)
-        .unwrap_or_else(|e| panic!("Lunar PCK orientation query failed: {}", e));
-    let r_mat = crate::spice::pck_rotation_matrix(MOON_PA_FRAME_ID, epc)
-        .unwrap_or_else(|e| panic!("Lunar PCK orientation query failed: {}", e))
-        .to_matrix();
-    let omega_b = euler313_omega_body(angles, rates);
-
-    let r = x_lci.fixed_rows::<3>(0);
-    let v = x_lci.fixed_rows::<3>(3);
-
-    let r_b: Vector3<f64> = r_mat * r;
-    let v_b: Vector3<f64> = r_mat * v - omega_b.cross(&r_b);
-
-    SVector6::new(r_b[0], r_b[1], r_b[2], v_b[0], v_b[1], v_b[2])
+    apply_state_icrf_to_rotating(&lfpa_context(epc), &x_lci)
 }
 
 /// Transforms a Cartesian Lunar-Fixed Principal Axis (LFPA) state
@@ -422,21 +514,7 @@ pub fn state_lci_to_lfpa(epc: Epoch, x_lci: SVector6) -> SVector6 {
 /// let x_lci2 = state_lfpa_to_lci(epc, x_lfpa);
 /// ```
 pub fn state_lfpa_to_lci(epc: Epoch, x_lfpa: SVector6) -> SVector6 {
-    ensure_lunar_pck_loaded();
-    let (angles, rates) = crate::spice::pck_euler_angles(MOON_PA_FRAME_ID, epc)
-        .unwrap_or_else(|e| panic!("Lunar PCK orientation query failed: {}", e));
-    let r_mat = crate::spice::pck_rotation_matrix(MOON_PA_FRAME_ID, epc)
-        .unwrap_or_else(|e| panic!("Lunar PCK orientation query failed: {}", e))
-        .to_matrix();
-    let omega_b = euler313_omega_body(angles, rates);
-
-    let r_b: Vector3<f64> = x_lfpa.fixed_rows::<3>(0).into_owned();
-    let v_b: Vector3<f64> = x_lfpa.fixed_rows::<3>(3).into_owned();
-
-    let r: Vector3<f64> = r_mat.transpose() * r_b;
-    let v: Vector3<f64> = r_mat.transpose() * (v_b + omega_b.cross(&r_b));
-
-    SVector6::new(r[0], r[1], r[2], v[0], v[1], v[2])
+    apply_state_rotating_to_icrf(&lfpa_context(epc), &x_lfpa)
 }
 
 /// Transforms a Cartesian Lunar-inertial (LCI) state (position and
@@ -468,20 +546,7 @@ pub fn state_lfpa_to_lci(epc: Epoch, x_lfpa: SVector6) -> SVector6 {
 /// let x_lfme = state_lci_to_lfme(epc, x_lci);
 /// ```
 pub fn state_lci_to_lfme(epc: Epoch, x_lci: SVector6) -> SVector6 {
-    ensure_lunar_pck_loaded();
-    let (angles, rates) = crate::spice::pck_euler_angles(MOON_PA_FRAME_ID, epc)
-        .unwrap_or_else(|e| panic!("Lunar PCK orientation query failed: {}", e));
-    let r_pa_to_me = rotation_lfpa_to_lfme();
-    let r_mat = r_pa_to_me * rotation_lci_to_lfpa(epc);
-    let omega_b = r_pa_to_me * euler313_omega_body(angles, rates);
-
-    let r = x_lci.fixed_rows::<3>(0);
-    let v = x_lci.fixed_rows::<3>(3);
-
-    let r_b: Vector3<f64> = r_mat * r;
-    let v_b: Vector3<f64> = r_mat * v - omega_b.cross(&r_b);
-
-    SVector6::new(r_b[0], r_b[1], r_b[2], v_b[0], v_b[1], v_b[2])
+    apply_state_icrf_to_rotating(&lfme_context(epc), &x_lci)
 }
 
 /// Transforms a Cartesian Lunar-Fixed Mean Earth/polar-axis (LFME) state
@@ -510,20 +575,7 @@ pub fn state_lci_to_lfme(epc: Epoch, x_lci: SVector6) -> SVector6 {
 /// let x_lci2 = state_lfme_to_lci(epc, x_lfme);
 /// ```
 pub fn state_lfme_to_lci(epc: Epoch, x_lfme: SVector6) -> SVector6 {
-    ensure_lunar_pck_loaded();
-    let (angles, rates) = crate::spice::pck_euler_angles(MOON_PA_FRAME_ID, epc)
-        .unwrap_or_else(|e| panic!("Lunar PCK orientation query failed: {}", e));
-    let r_pa_to_me = rotation_lfpa_to_lfme();
-    let r_mat = r_pa_to_me * rotation_lci_to_lfpa(epc);
-    let omega_b = r_pa_to_me * euler313_omega_body(angles, rates);
-
-    let r_b: Vector3<f64> = x_lfme.fixed_rows::<3>(0).into_owned();
-    let v_b: Vector3<f64> = x_lfme.fixed_rows::<3>(3).into_owned();
-
-    let r: Vector3<f64> = r_mat.transpose() * r_b;
-    let v: Vector3<f64> = r_mat.transpose() * (v_b + omega_b.cross(&r_b));
-
-    SVector6::new(r[0], r[1], r[2], v[0], v[1], v[2])
+    apply_state_rotating_to_icrf(&lfme_context(epc), &x_lfme)
 }
 
 /// Transforms a Cartesian Earth-inertial (ECI) position into the
@@ -554,9 +606,7 @@ pub fn state_lfme_to_lci(epc: Epoch, x_lfme: SVector6) -> SVector6 {
 /// let x_lci = position_eci_to_lci(epc, x_eci);
 /// ```
 pub fn position_eci_to_lci(epc: Epoch, x_eci: Vector3<f64>) -> Vector3<f64> {
-    let offset = spk_position(NAIFId::Moon, NAIFId::Earth, epc)
-        .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
-    x_eci - offset
+    x_eci - moon_earth_offset_position(epc)
 }
 
 /// Transforms a Cartesian Lunar-inertial (LCI) position into the
@@ -583,9 +633,7 @@ pub fn position_eci_to_lci(epc: Epoch, x_eci: Vector3<f64>) -> Vector3<f64> {
 /// let x_eci = position_lci_to_eci(epc, x_lci);
 /// ```
 pub fn position_lci_to_eci(epc: Epoch, x_lci: Vector3<f64>) -> Vector3<f64> {
-    let offset = spk_position(NAIFId::Moon, NAIFId::Earth, epc)
-        .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
-    x_lci + offset
+    x_lci + moon_earth_offset_position(epc)
 }
 
 /// Transforms a Cartesian Earth-inertial (ECI) state (position and
@@ -615,9 +663,7 @@ pub fn position_lci_to_eci(epc: Epoch, x_lci: Vector3<f64>) -> Vector3<f64> {
 /// let x_lci = state_eci_to_lci(epc, x_eci);
 /// ```
 pub fn state_eci_to_lci(epc: Epoch, x_eci: SVector6) -> SVector6 {
-    let offset = spk_state(NAIFId::Moon, NAIFId::Earth, epc)
-        .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
-    x_eci - offset
+    x_eci - moon_earth_offset_state(epc)
 }
 
 /// Transforms a Cartesian Lunar-inertial (LCI) state (position and
@@ -644,9 +690,517 @@ pub fn state_eci_to_lci(epc: Epoch, x_eci: SVector6) -> SVector6 {
 /// let x_eci = state_lci_to_eci(epc, x_lci);
 /// ```
 pub fn state_lci_to_eci(epc: Epoch, x_lci: SVector6) -> SVector6 {
-    let offset = spk_state(NAIFId::Moon, NAIFId::Earth, epc)
-        .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
-    x_lci + offset
+    x_lci + moon_earth_offset_state(epc)
+}
+
+/// Computes the LCI-to-LFPA rotation matrix for each epoch in `epochs`.
+///
+/// Batch form of [`rotation_lci_to_lfpa`]. Evaluation runs on the global thread pool
+/// for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants for computation of the transformation matrices
+///
+/// # Returns
+/// - Rotation matrices transforming LCI -> LFPA, one per epoch, in input order
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::rotations_lci_to_lfpa;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0];
+/// let r = rotations_lci_to_lfpa(&epochs);
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_lci_to_lfpa(epochs: &[Epoch]) -> Vec<SMatrix3> {
+    batch_map(epochs, |epc| rotation_lci_to_lfpa(*epc))
+}
+
+/// Computes the LFPA-to-LCI rotation matrix for each epoch in `epochs`.
+///
+/// Batch form of [`rotation_lfpa_to_lci`]. Evaluation runs on the global thread pool
+/// for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants for computation of the transformation matrices
+///
+/// # Returns
+/// - Rotation matrices transforming LFPA -> LCI, one per epoch, in input order
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::rotations_lfpa_to_lci;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0];
+/// let r = rotations_lfpa_to_lci(&epochs);
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_lfpa_to_lci(epochs: &[Epoch]) -> Vec<SMatrix3> {
+    batch_map(epochs, |epc| rotation_lfpa_to_lci(*epc))
+}
+
+/// Computes the LCI-to-LFME rotation matrix for each epoch in `epochs`.
+///
+/// Batch form of [`rotation_lci_to_lfme`]. Evaluation runs on the global thread pool
+/// for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants for computation of the transformation matrices
+///
+/// # Returns
+/// - Rotation matrices transforming LCI -> LFME, one per epoch, in input order
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::rotations_lci_to_lfme;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0];
+/// let r = rotations_lci_to_lfme(&epochs);
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_lci_to_lfme(epochs: &[Epoch]) -> Vec<SMatrix3> {
+    batch_map(epochs, |epc| rotation_lci_to_lfme(*epc))
+}
+
+/// Computes the LFME-to-LCI rotation matrix for each epoch in `epochs`.
+///
+/// Batch form of [`rotation_lfme_to_lci`]. Evaluation runs on the global thread pool
+/// for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants for computation of the transformation matrices
+///
+/// # Returns
+/// - Rotation matrices transforming LFME -> LCI, one per epoch, in input order
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::rotations_lfme_to_lci;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0];
+/// let r = rotations_lfme_to_lci(&epochs);
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_lfme_to_lci(epochs: &[Epoch]) -> Vec<SMatrix3> {
+    batch_map(epochs, |epc| rotation_lfme_to_lci(*epc))
+}
+
+/// Transforms a batch of Cartesian positions from LCI to LFPA.
+///
+/// Batch form of [`position_lci_to_lfpa`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_lci`: Cartesian LCI positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian LFPA positions in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::positions_lci_to_lfpa;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let positions = vec![Vector3::new(1.9e6, 0.0, 0.0); 3];
+/// let out = positions_lci_to_lfpa(&[epc], &positions).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn positions_lci_to_lfpa(
+    epochs: &[Epoch],
+    x_lci: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    batch_map_epochs(epochs, x_lci, rotation_lci_to_lfpa, |r, x| r * x)
+}
+
+/// Transforms a batch of Cartesian positions from LFPA to LCI.
+///
+/// Batch form of [`position_lfpa_to_lci`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_lfpa`: Cartesian LFPA positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian LCI positions in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::positions_lfpa_to_lci;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let positions = vec![Vector3::new(1.9e6, 0.0, 0.0); 3];
+/// let out = positions_lfpa_to_lci(&[epc], &positions).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn positions_lfpa_to_lci(
+    epochs: &[Epoch],
+    x_lfpa: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    batch_map_epochs(epochs, x_lfpa, rotation_lfpa_to_lci, |r, x| r * x)
+}
+
+/// Transforms a batch of Cartesian positions from LCI to LFME.
+///
+/// Batch form of [`position_lci_to_lfme`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_lci`: Cartesian LCI positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian LFME positions in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::positions_lci_to_lfme;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let positions = vec![Vector3::new(1.9e6, 0.0, 0.0); 3];
+/// let out = positions_lci_to_lfme(&[epc], &positions).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn positions_lci_to_lfme(
+    epochs: &[Epoch],
+    x_lci: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    batch_map_epochs(epochs, x_lci, rotation_lci_to_lfme, |r, x| r * x)
+}
+
+/// Transforms a batch of Cartesian positions from LFME to LCI.
+///
+/// Batch form of [`position_lfme_to_lci`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_lfme`: Cartesian LFME positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian LCI positions in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::positions_lfme_to_lci;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let positions = vec![Vector3::new(1.9e6, 0.0, 0.0); 3];
+/// let out = positions_lfme_to_lci(&[epc], &positions).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn positions_lfme_to_lci(
+    epochs: &[Epoch],
+    x_lfme: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    batch_map_epochs(epochs, x_lfme, rotation_lfme_to_lci, |r, x| r * x)
+}
+
+/// Transforms a batch of Cartesian states from LCI to LFPA.
+///
+/// Batch form of [`state_lci_to_lfpa`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_lci`: Cartesian LCI states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian LFPA states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::states_lci_to_lfpa;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0, epc + 120.0];
+/// let states = vec![vector6_from_array([1.9e6, 0.0, 0.0, 0.0, 1.6e3, 0.0]); 3];
+/// let out = states_lci_to_lfpa(&epochs, &states).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn states_lci_to_lfpa(
+    epochs: &[Epoch],
+    x_lci: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(epochs, x_lci, lfpa_context, apply_state_icrf_to_rotating)
+}
+
+/// Transforms a batch of Cartesian states from LFPA to LCI.
+///
+/// Batch form of [`state_lfpa_to_lci`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_lfpa`: Cartesian LFPA states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian LCI states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::states_lfpa_to_lci;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0, epc + 120.0];
+/// let states = vec![vector6_from_array([1.9e6, 0.0, 0.0, 0.0, 1.6e3, 0.0]); 3];
+/// let out = states_lfpa_to_lci(&epochs, &states).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn states_lfpa_to_lci(
+    epochs: &[Epoch],
+    x_lfpa: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(epochs, x_lfpa, lfpa_context, apply_state_rotating_to_icrf)
+}
+
+/// Transforms a batch of Cartesian states from LCI to LFME.
+///
+/// Batch form of [`state_lci_to_lfme`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_lci`: Cartesian LCI states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian LFME states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::states_lci_to_lfme;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0, epc + 120.0];
+/// let states = vec![vector6_from_array([1.9e6, 0.0, 0.0, 0.0, 1.6e3, 0.0]); 3];
+/// let out = states_lci_to_lfme(&epochs, &states).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn states_lci_to_lfme(
+    epochs: &[Epoch],
+    x_lci: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(epochs, x_lci, lfme_context, apply_state_icrf_to_rotating)
+}
+
+/// Transforms a batch of Cartesian states from LFME to LCI.
+///
+/// Batch form of [`state_lfme_to_lci`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_lfme`: Cartesian LFME states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian LCI states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::states_lfme_to_lci;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0, epc + 120.0];
+/// let states = vec![vector6_from_array([1.9e6, 0.0, 0.0, 0.0, 1.6e3, 0.0]); 3];
+/// let out = states_lfme_to_lci(&epochs, &states).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn states_lfme_to_lci(
+    epochs: &[Epoch],
+    x_lfme: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(epochs, x_lfme, lfme_context, apply_state_rotating_to_icrf)
+}
+
+/// Transforms a batch of Cartesian positions from ECI to LCI.
+///
+/// Batch form of [`position_eci_to_lci`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_eci`: Cartesian ECI positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian LCI positions in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::positions_eci_to_lci;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let positions = vec![Vector3::new(7.0e6, 1.0e6, -2.0e6); 3];
+/// let out = positions_eci_to_lci(&[epc], &positions).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn positions_eci_to_lci(
+    epochs: &[Epoch],
+    x_eci: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    batch_map_epochs(epochs, x_eci, moon_earth_offset_position, |offset, x| {
+        x - offset
+    })
+}
+
+/// Transforms a batch of Cartesian positions from LCI to ECI.
+///
+/// Batch form of [`position_lci_to_eci`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_lci`: Cartesian LCI positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian ECI positions in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::positions_lci_to_eci;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let positions = vec![Vector3::new(7.0e6, 1.0e6, -2.0e6); 3];
+/// let out = positions_lci_to_eci(&[epc], &positions).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn positions_lci_to_eci(
+    epochs: &[Epoch],
+    x_lci: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    batch_map_epochs(epochs, x_lci, moon_earth_offset_position, |offset, x| {
+        x + offset
+    })
+}
+
+/// Transforms a batch of Cartesian states from ECI to LCI.
+///
+/// Batch form of [`state_eci_to_lci`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_eci`: Cartesian ECI states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian LCI states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::states_eci_to_lci;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0, epc + 120.0];
+/// let states = vec![vector6_from_array([7.0e6, 0.0, 0.0, 0.0, 7.5e3, 0.0]); 3];
+/// let out = states_eci_to_lci(&epochs, &states).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn states_eci_to_lci(
+    epochs: &[Epoch],
+    x_eci: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(epochs, x_eci, moon_earth_offset_state, |offset, x| {
+        x - offset
+    })
+}
+
+/// Transforms a batch of Cartesian states from LCI to ECI.
+///
+/// Batch form of [`state_lci_to_eci`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_lci`: Cartesian LCI states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian ECI states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::states_lci_to_eci;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0, epc + 120.0];
+/// let states = vec![vector6_from_array([7.0e6, 0.0, 0.0, 0.0, 7.5e3, 0.0]); 3];
+/// let out = states_lci_to_eci(&epochs, &states).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn states_lci_to_eci(
+    epochs: &[Epoch],
+    x_lci: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(epochs, x_lci, moon_earth_offset_state, |offset, x| {
+        x + offset
+    })
 }
 
 #[cfg(test)]
@@ -988,5 +1542,103 @@ mod tests {
         // the real PCK (real cache; tolerated failure keeps this test
         // offline-safe when nothing later needs the kernel).
         let _ = load_spice_kernel("moon_pa_de440");
+    }
+
+    #[test]
+    #[serial]
+    fn test_batch_lunar_frames_match_scalar() {
+        setup_global_test_spice();
+        let epc0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epochs: Vec<Epoch> = (0..3).map(|i| epc0 + 3600.0 * i as f64).collect();
+        let states: Vec<SVector6> = (0..3)
+            .map(|i| {
+                vector6_from_array([R_MOON + 100e3 + 1e3 * i as f64, 0.0, 0.0, 0.0, 1.6e3, 0.0])
+            })
+            .collect();
+        let positions: Vec<Vector3<f64>> = states
+            .iter()
+            .map(|s| Vector3::new(s[0], s[1], s[2]))
+            .collect();
+
+        for i in 0..3 {
+            let e = epochs[i];
+            assert_eq!(rotations_lci_to_lfpa(&epochs)[i], rotation_lci_to_lfpa(e));
+            assert_eq!(rotations_lfpa_to_lci(&epochs)[i], rotation_lfpa_to_lci(e));
+            assert_eq!(rotations_lci_to_lfme(&epochs)[i], rotation_lci_to_lfme(e));
+            assert_eq!(rotations_lfme_to_lci(&epochs)[i], rotation_lfme_to_lci(e));
+
+            assert_eq!(
+                positions_lci_to_lfpa(&epochs, &positions).unwrap()[i],
+                position_lci_to_lfpa(e, positions[i])
+            );
+            assert_eq!(
+                positions_lfpa_to_lci(&epochs, &positions).unwrap()[i],
+                position_lfpa_to_lci(e, positions[i])
+            );
+            assert_eq!(
+                positions_lci_to_lfme(&epochs, &positions).unwrap()[i],
+                position_lci_to_lfme(e, positions[i])
+            );
+            assert_eq!(
+                positions_lfme_to_lci(&epochs, &positions).unwrap()[i],
+                position_lfme_to_lci(e, positions[i])
+            );
+            assert_eq!(
+                positions_lci_to_lfpa(&epochs[..1], &positions).unwrap()[i],
+                position_lci_to_lfpa(epochs[0], positions[i])
+            );
+
+            assert_eq!(
+                states_lci_to_lfpa(&epochs, &states).unwrap()[i],
+                state_lci_to_lfpa(e, states[i])
+            );
+            assert_eq!(
+                states_lfpa_to_lci(&epochs, &states).unwrap()[i],
+                state_lfpa_to_lci(e, states[i])
+            );
+            assert_eq!(
+                states_lci_to_lfme(&epochs, &states).unwrap()[i],
+                state_lci_to_lfme(e, states[i])
+            );
+            assert_eq!(
+                states_lfme_to_lci(&epochs, &states).unwrap()[i],
+                state_lfme_to_lci(e, states[i])
+            );
+            assert_eq!(
+                states_lci_to_lfme(&epochs[..1], &states).unwrap()[i],
+                state_lci_to_lfme(epochs[0], states[i])
+            );
+
+            assert_eq!(
+                positions_eci_to_lci(&epochs, &positions).unwrap()[i],
+                position_eci_to_lci(e, positions[i])
+            );
+            assert_eq!(
+                positions_lci_to_eci(&epochs, &positions).unwrap()[i],
+                position_lci_to_eci(e, positions[i])
+            );
+            assert_eq!(
+                states_eci_to_lci(&epochs, &states).unwrap()[i],
+                state_eci_to_lci(e, states[i])
+            );
+            assert_eq!(
+                states_lci_to_eci(&epochs, &states).unwrap()[i],
+                state_lci_to_eci(e, states[i])
+            );
+            assert_eq!(
+                states_eci_to_lci(&epochs, &states[..1]).unwrap()[i],
+                state_eci_to_lci(e, states[0])
+            );
+        }
+
+        let lfpa = states_lci_to_lfpa(&epochs, &states).unwrap();
+        let back = states_lfpa_to_lci(&epochs, &lfpa).unwrap();
+        for i in 0..3 {
+            for k in 0..3 {
+                assert_abs_diff_eq!(back[i][k], states[i][k], epsilon = 1e-6);
+            }
+        }
+        assert!(states_lci_to_lfpa(&epochs[..2], &states).is_err());
+        assert!(rotations_lci_to_lfpa(&[]).is_empty());
     }
 }

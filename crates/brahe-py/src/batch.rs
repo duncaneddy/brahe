@@ -203,6 +203,45 @@ fn matrices_to_numpy<'py>(py: Python<'py>, mats: Vec<SMatrix3>) -> Bound<'py, Py
     flat.into_pyarray(py).reshape([n, 3, 3]).unwrap().into_any()
 }
 
+/// Inputs of a batched epoch-dependent transform: epochs, vectors, and the
+/// output layout.
+struct EpochVecBatch<const N: usize> {
+    epochs: Vec<time::Epoch>,
+    vecs: Vec<SVector<f64, N>>,
+    layout: BatchLayout,
+}
+
+/// Parsed epoch/vector arguments: either the scalar pair or a batch.
+enum EpochVecArgs<const N: usize> {
+    Single(time::Epoch, SVector<f64, N>),
+    Batch(EpochVecBatch<N>),
+}
+
+/// Parse and validate the epoch and vector arguments of a transform.
+fn parse_epoch_vec_args<const N: usize>(
+    epc: &Bound<'_, PyAny>,
+    x: &Bound<'_, PyAny>,
+    axis: isize,
+) -> PyResult<EpochVecArgs<N>> {
+    let epochs = parse_epoch_arg(epc)?;
+    let vecs = parse_vec_arg::<N>(x, axis)?;
+    let (epochs, vecs, layout) = match (epochs, vecs) {
+        (EpochArg::Single(e), VecArg::Single(v)) => return Ok(EpochVecArgs::Single(e, v)),
+        (EpochArg::Single(e), VecArg::Batch { vecs, layout }) => (vec![e], vecs, layout),
+        (EpochArg::Many(epochs), VecArg::Single(v)) => {
+            let layout = BatchLayout::for_broadcast::<N>(1, axis)?;
+            (epochs, vec![v], layout)
+        }
+        (EpochArg::Many(epochs), VecArg::Batch { vecs, layout }) => (epochs, vecs, layout),
+    };
+    check_batch_lengths(epochs.len(), vecs.len())?;
+    Ok(EpochVecArgs::Batch(EpochVecBatch {
+        epochs,
+        vecs,
+        layout,
+    }))
+}
+
 /// Dispatch an epoch-dependent vector transform on a single vector or a batch.
 fn dispatch_epoch_vec<'py, const N: usize>(
     py: Python<'py>,
@@ -213,22 +252,38 @@ fn dispatch_epoch_vec<'py, const N: usize>(
     batch: impl Fn(&[time::Epoch], &[SVector<f64, N>]) -> Result<Vec<SVector<f64, N>>, RustBraheError>
     + Sync,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let epochs = parse_epoch_arg(epc)?;
-    let vecs = parse_vec_arg::<N>(x, axis)?;
-    let (epochs, vecs, layout) = match (epochs, vecs) {
-        (EpochArg::Single(e), VecArg::Single(v)) => {
-            return Ok(vector_to_numpy!(py, scalar(e, v), N, f64).into_any());
+    match parse_epoch_vec_args::<N>(epc, x, axis)? {
+        EpochVecArgs::Single(e, v) => Ok(vector_to_numpy!(py, scalar(e, v), N, f64).into_any()),
+        EpochVecArgs::Batch(b) => {
+            let out = py.detach(|| batch(&b.epochs, &b.vecs))?;
+            vecs_to_numpy(py, &b.layout, axis, out)
         }
-        (EpochArg::Single(e), VecArg::Batch { vecs, layout }) => (vec![e], vecs, layout),
-        (EpochArg::Many(epochs), VecArg::Single(v)) => {
-            let layout = BatchLayout::for_broadcast::<N>(1, axis)?;
-            (epochs, vec![v], layout)
+    }
+}
+
+/// Dispatch a fallible epoch-dependent vector transform on a single vector or
+/// a batch. Errors from the core are raised as `RuntimeError`.
+fn try_dispatch_epoch_vec<'py, const N: usize>(
+    py: Python<'py>,
+    epc: &Bound<'py, PyAny>,
+    x: &Bound<'py, PyAny>,
+    axis: isize,
+    scalar: impl Fn(time::Epoch, SVector<f64, N>) -> Result<SVector<f64, N>, RustBraheError>,
+    batch: impl Fn(&[time::Epoch], &[SVector<f64, N>]) -> Result<Vec<SVector<f64, N>>, RustBraheError>
+    + Sync,
+) -> PyResult<Bound<'py, PyAny>> {
+    match parse_epoch_vec_args::<N>(epc, x, axis)? {
+        EpochVecArgs::Single(e, v) => {
+            let out = scalar(e, v).map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+            Ok(vector_to_numpy!(py, out, N, f64).into_any())
         }
-        (EpochArg::Many(epochs), VecArg::Batch { vecs, layout }) => (epochs, vecs, layout),
-    };
-    check_batch_lengths(epochs.len(), vecs.len())?;
-    let out = py.detach(|| batch(&epochs, &vecs))?;
-    vecs_to_numpy(py, &layout, axis, out)
+        EpochVecArgs::Batch(b) => {
+            let out = py
+                .detach(|| batch(&b.epochs, &b.vecs))
+                .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+            vecs_to_numpy(py, &b.layout, axis, out)
+        }
+    }
 }
 
 /// Dispatch an epoch-free vector transform on a single vector or a batch.
@@ -262,6 +317,28 @@ fn dispatch_epoch_rotation<'py>(
         }
         EpochArg::Many(epochs) => {
             let out = py.detach(|| batch(&epochs));
+            Ok(matrices_to_numpy(py, out))
+        }
+    }
+}
+
+/// Dispatch a fallible epoch-dependent rotation on a single epoch or a
+/// sequence. Errors from the core are raised as `RuntimeError`.
+fn try_dispatch_epoch_rotation<'py>(
+    py: Python<'py>,
+    epc: &Bound<'py, PyAny>,
+    scalar: impl Fn(time::Epoch) -> Result<SMatrix3, RustBraheError>,
+    batch: impl Fn(&[time::Epoch]) -> Result<Vec<SMatrix3>, RustBraheError> + Sync,
+) -> PyResult<Bound<'py, PyAny>> {
+    match parse_epoch_arg(epc)? {
+        EpochArg::Single(e) => {
+            let mat = scalar(e).map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+            Ok(matrix_to_numpy!(py, mat, 3, 3, f64).into_any())
+        }
+        EpochArg::Many(epochs) => {
+            let out = py
+                .detach(|| batch(&epochs))
+                .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
             Ok(matrices_to_numpy(py, out))
         }
     }

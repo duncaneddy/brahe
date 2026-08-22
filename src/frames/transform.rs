@@ -69,6 +69,7 @@ use crate::math::{SMatrix3, SVector6};
 use crate::spice::NAIFId;
 use crate::time::Epoch;
 use crate::utils::BraheError;
+use crate::utils::batch::{try_batch_map, try_batch_map_epochs};
 
 use super::eme_2000::rotation_gcrf_to_eme2000;
 use super::gcrf_itrf::rotation_gcrf_to_itrf;
@@ -526,6 +527,67 @@ fn state_rotating_to_icrf(r_mat: SMatrix3, omega_b: Vector3<f64>, x_body: SVecto
     SVector6::new(r[0], r[1], r[2], v[0], v[1], v[2])
 }
 
+/// ICRF-to-body-fixed rotation matrix and body-frame angular velocity of a
+/// rotating frame at one epoch, shared by the lunar and Mars body-fixed
+/// transformations and their batch forms.
+pub(crate) struct RotatingFrameContext {
+    pub(crate) r_mat: SMatrix3,
+    pub(crate) omega_b: Vector3<f64>,
+}
+
+/// Apply a precomputed rotating-frame context to one ICRF-axes state.
+///
+/// # Arguments
+/// - `c`: Rotation matrix and angular velocity for the epoch
+/// - `x_icrf`: Cartesian state in ICRF axes (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian state in the body-fixed frame. Units: (*m*; *m/s*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::vector6_from_array;
+/// use nalgebra::Vector3;
+/// use brahe::math::SMatrix3;
+///
+/// let c = RotatingFrameContext { r_mat: SMatrix3::identity(), omega_b: Vector3::new(0.0, 0.0, 7.29e-5) };
+/// let x_body = apply_state_icrf_to_rotating(&c, &vector6_from_array([7.0e6, 0.0, 0.0, 0.0, 7.5e3, 0.0]));
+/// ```
+pub(crate) fn apply_state_icrf_to_rotating(
+    c: &RotatingFrameContext,
+    x_icrf: &SVector6,
+) -> SVector6 {
+    state_icrf_to_rotating(c.r_mat, c.omega_b, *x_icrf)
+}
+
+/// Apply a precomputed rotating-frame context to one body-fixed state,
+/// producing the ICRF-axes state.
+///
+/// # Arguments
+/// - `c`: Rotation matrix and angular velocity for the epoch
+/// - `x_body`: Cartesian state in the body-fixed frame (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian state in ICRF axes. Units: (*m*; *m/s*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::vector6_from_array;
+/// use nalgebra::Vector3;
+/// use brahe::math::SMatrix3;
+///
+/// let c = RotatingFrameContext { r_mat: SMatrix3::identity(), omega_b: Vector3::new(0.0, 0.0, 7.29e-5) };
+/// let x_icrf = apply_state_rotating_to_icrf(&c, &vector6_from_array([7.0e6, 0.0, 0.0, 0.0, 7.0e3, 0.0]));
+/// ```
+pub(crate) fn apply_state_rotating_to_icrf(
+    c: &RotatingFrameContext,
+    x_body: &SVector6,
+) -> SVector6 {
+    state_rotating_to_icrf(c.r_mat, c.omega_b, *x_body)
+}
+
 /// Rotates an ICRF-axis state into the IAU/WGCCRE body-fixed frame of
 /// `naif_id`, including the velocity transport term induced by the
 /// body's rotation. Generic form of [`super::mars::state_mci_to_mcmf`],
@@ -707,16 +769,88 @@ pub fn position_frame_to_frame(
     if from == to {
         return Ok(x);
     }
+    Ok(apply_position_frame_pair(
+        &frame_pair_context(from, to, epc)?,
+        &x,
+    ))
+}
+
+/// Source and target ICRF rotation matrices and the center offset (ICRF
+/// axes) between two frames at one epoch.
+struct FramePairContext {
+    r_from: SMatrix3,
+    offset: Option<Vector3<f64>>,
+    r_to: SMatrix3,
+}
+
+/// Compute the position-transform context for a pair of frames at `epc`.
+///
+/// # Arguments
+/// - `from`: Source reference frame
+/// - `to`: Target reference frame
+/// - `epc`: Epoch instant for computation of the transformation
+///
+/// # Returns
+/// - Context holding the ICRF -> `from` matrix, the `from` -> `to` center
+///   offset (absent when the centers coincide), and the ICRF -> `to` matrix
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::frames::ReferenceFrame;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = frame_pair_context(ReferenceFrame::GCRF, ReferenceFrame::ITRF, epc).unwrap();
+/// // c.offset is None because both frames share the Earth center
+/// ```
+fn frame_pair_context(
+    from: ReferenceFrame,
+    to: ReferenceFrame,
+    epc: Epoch,
+) -> Result<FramePairContext, BraheError> {
     let r_from = icrf_to_frame_dcm(from, epc)?;
-    let x_icrf = r_from.transpose() * x;
-    let x_translated = if from.center_naif_id() == to.center_naif_id() {
-        x_icrf
+    let offset = if from.center_naif_id() == to.center_naif_id() {
+        None
     } else {
         let offset = center_offset_state(from.center_naif_id(), to.center_naif_id(), epc)?;
-        x_icrf - offset.fixed_rows::<3>(0).into_owned()
+        Some(offset.fixed_rows::<3>(0).into_owned())
     };
     let r_to = icrf_to_frame_dcm(to, epc)?;
-    Ok(r_to * x_translated)
+    Ok(FramePairContext {
+        r_from,
+        offset,
+        r_to,
+    })
+}
+
+/// Apply a precomputed frame-pair context to one position.
+///
+/// # Arguments
+/// - `c`: Frame-pair context for the epoch
+/// - `x`: Cartesian position in the source frame. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian position in the target frame. Units: (*m*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::frames::ReferenceFrame;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = frame_pair_context(ReferenceFrame::GCRF, ReferenceFrame::ITRF, epc).unwrap();
+/// let x_itrf = apply_position_frame_pair(&c, &Vector3::new(7.0e6, 0.0, 0.0));
+/// ```
+fn apply_position_frame_pair(c: &FramePairContext, x: &Vector3<f64>) -> Vector3<f64> {
+    let x_icrf = c.r_from.transpose() * x;
+    let x_translated = match c.offset {
+        None => x_icrf,
+        Some(offset) => x_icrf - offset,
+    };
+    c.r_to * x_translated
 }
 
 /// Transforms a Cartesian state (position and velocity) from `from` to
@@ -770,6 +904,141 @@ pub fn state_frame_to_frame(
         x_icrf - center_offset_state(from.center_naif_id(), to.center_naif_id(), epc)?
     };
     to.state_from_icrf_axes(epc, x_translated)
+}
+
+/// Computes the rotation matrix from `from` to `to` for each epoch in `epochs`.
+///
+/// Batch form of [`rotation_frame_to_frame`]. Evaluation runs on the global
+/// thread pool for large inputs.
+///
+/// # Arguments
+/// - `from`: Source reference frame
+/// - `to`: Target reference frame
+/// - `epochs`: Epoch instants for computation of the transformation matrices
+///
+/// # Returns
+/// - Rotation matrices transforming `from` -> `to`, one per epoch, in input order
+/// - Error if any epoch's transformation cannot be evaluated
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::{ReferenceFrame, rotations_frame_to_frame};
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0];
+/// let r = rotations_frame_to_frame(ReferenceFrame::MCI, ReferenceFrame::MCMF, &epochs).unwrap();
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_frame_to_frame(
+    from: ReferenceFrame,
+    to: ReferenceFrame,
+    epochs: &[Epoch],
+) -> Result<Vec<SMatrix3>, BraheError> {
+    try_batch_map(epochs, |epc| rotation_frame_to_frame(from, to, *epc))
+}
+
+/// Transforms a batch of Cartesian positions from `from` to `to`.
+///
+/// Batch form of [`position_frame_to_frame`]. `epochs` and `x` follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch computes the frame-pair rotation matrices and center offset once and
+/// applies them to every position; per-element epochs compute them per
+/// position. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `from`: Source reference frame
+/// - `to`: Target reference frame
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x`: Cartesian positions in `from`, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian positions in `to`, in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule or a
+///   transformation cannot be evaluated
+///
+/// # Examples:
+/// ```
+/// use brahe::eop::*;
+/// use brahe::constants::R_EARTH;
+/// use brahe::vector3_from_array;
+/// use brahe::frames::{ReferenceFrame, positions_frame_to_frame};
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let positions = vec![vector3_from_array([R_EARTH + 500e3, 0.0, 0.0]); 3];
+/// let x_itrf = positions_frame_to_frame(ReferenceFrame::GCRF, ReferenceFrame::ITRF, &[epc], &positions).unwrap();
+/// assert_eq!(x_itrf.len(), 3);
+/// ```
+pub fn positions_frame_to_frame(
+    from: ReferenceFrame,
+    to: ReferenceFrame,
+    epochs: &[Epoch],
+    x: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    if from == to {
+        return try_batch_map_epochs(epochs, x, |_| Ok(()), |_, x| Ok(*x));
+    }
+    try_batch_map_epochs(
+        epochs,
+        x,
+        |epc| frame_pair_context(from, to, epc),
+        |c, x| Ok(apply_position_frame_pair(c, x)),
+    )
+}
+
+/// Transforms a batch of Cartesian states from `from` to `to`.
+///
+/// Batch form of [`state_frame_to_frame`]. `epochs` and `x` follow the
+/// broadcast rule: each has length 1 or the common batch length. The state
+/// router evaluates the scalar transformation for each element (the
+/// per-frame velocity transport terms are resolved through the frame's own
+/// state routines rather than a shared context), so the batch benefits from
+/// thread-pool evaluation for large inputs but not from shared-epoch
+/// hoisting; use the frame-specific `states_*` functions for that.
+///
+/// # Arguments
+/// - `from`: Source reference frame
+/// - `to`: Target reference frame
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x`: Cartesian states in `from` (position, velocity), length 1 or the
+///   batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian states in `to`, in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule or a
+///   transformation cannot be evaluated
+///
+/// # Examples:
+/// ```
+/// use brahe::eop::*;
+/// use brahe::constants::R_EARTH;
+/// use brahe::vector6_from_array;
+/// use brahe::orbits::perigee_velocity;
+/// use brahe::frames::{ReferenceFrame, states_frame_to_frame};
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let v = perigee_velocity(R_EARTH + 500e3, 0.0);
+/// let states = vec![vector6_from_array([R_EARTH + 500e3, 0.0, 0.0, 0.0, v, 0.0]); 3];
+/// let x_itrf = states_frame_to_frame(ReferenceFrame::GCRF, ReferenceFrame::ITRF, &[epc], &states).unwrap();
+/// assert_eq!(x_itrf.len(), 3);
+/// ```
+pub fn states_frame_to_frame(
+    from: ReferenceFrame,
+    to: ReferenceFrame,
+    epochs: &[Epoch],
+    x: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    try_batch_map_epochs(epochs, x, Ok, |epc, x| {
+        state_frame_to_frame(from, to, *epc, *x)
+    })
 }
 
 /// State of `to_center` relative to `from_center` at `epc`, in ICRF axes.
@@ -1629,6 +1898,130 @@ mod tests {
         assert_eq!(
             f.to_string(),
             "Synodic(origin=Barycenter, primary=399, secondary=301)"
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_batch_frame_to_frame_matches_scalar() {
+        setup_global_test_eop();
+        setup_global_test_spice();
+        let epc0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epochs: Vec<Epoch> = (0..3).map(|i| epc0 + 600.0 * i as f64).collect();
+        let states: Vec<SVector6> = (0..3)
+            .map(|i| {
+                let oe =
+                    vector6_from_array([R_EARTH + 500e3, 0.01, 97.8, 15.0 + i as f64, 30.0, 45.0]);
+                state_koe_to_eci(oe, DEGREES)
+            })
+            .collect();
+        let positions: Vec<Vector3<f64>> = states
+            .iter()
+            .map(|s| Vector3::new(s[0], s[1], s[2]))
+            .collect();
+
+        let pairs = [
+            (ReferenceFrame::GCRF, ReferenceFrame::ITRF),
+            (ReferenceFrame::GCRF, ReferenceFrame::LFPA),
+            (ReferenceFrame::GCRF, ReferenceFrame::EMR),
+            (ReferenceFrame::ITRF, ReferenceFrame::MCMF),
+        ];
+        for (from, to) in pairs {
+            let rot = rotations_frame_to_frame(from, to, &epochs).unwrap();
+            let pos = positions_frame_to_frame(from, to, &epochs, &positions).unwrap();
+            let pos_shared = positions_frame_to_frame(from, to, &epochs[..1], &positions).unwrap();
+            let st = states_frame_to_frame(from, to, &epochs, &states).unwrap();
+            let st_shared = states_frame_to_frame(from, to, &epochs[..1], &states).unwrap();
+            for i in 0..3 {
+                assert_eq!(
+                    rot[i],
+                    rotation_frame_to_frame(from, to, epochs[i]).unwrap()
+                );
+                assert_eq!(
+                    pos[i],
+                    position_frame_to_frame(from, to, epochs[i], positions[i]).unwrap()
+                );
+                assert_eq!(
+                    pos_shared[i],
+                    position_frame_to_frame(from, to, epochs[0], positions[i]).unwrap()
+                );
+                assert_eq!(
+                    st[i],
+                    state_frame_to_frame(from, to, epochs[i], states[i]).unwrap()
+                );
+                assert_eq!(
+                    st_shared[i],
+                    state_frame_to_frame(from, to, epochs[0], states[i]).unwrap()
+                );
+            }
+        }
+
+        // Identity pair broadcasts without evaluation
+        let same = positions_frame_to_frame(
+            ReferenceFrame::GCRF,
+            ReferenceFrame::GCRF,
+            &epochs,
+            &positions,
+        )
+        .unwrap();
+        assert_eq!(same, positions);
+        let same = states_frame_to_frame(
+            ReferenceFrame::LCI,
+            ReferenceFrame::LCI,
+            &epochs[..1],
+            &states,
+        )
+        .unwrap();
+        assert_eq!(same, states);
+
+        // One position, many epochs
+        let one = positions_frame_to_frame(
+            ReferenceFrame::ITRF,
+            ReferenceFrame::GCRF,
+            &epochs,
+            &positions[..1],
+        )
+        .unwrap();
+        for i in 0..3 {
+            assert_eq!(
+                one[i],
+                position_frame_to_frame(
+                    ReferenceFrame::ITRF,
+                    ReferenceFrame::GCRF,
+                    epochs[i],
+                    positions[0]
+                )
+                .unwrap()
+            );
+        }
+
+        // Errors: broadcast mismatch and unsupported body
+        assert!(
+            states_frame_to_frame(
+                ReferenceFrame::GCRF,
+                ReferenceFrame::ITRF,
+                &epochs[..2],
+                &states
+            )
+            .is_err()
+        );
+        assert!(
+            rotations_frame_to_frame(
+                ReferenceFrame::GCRF,
+                ReferenceFrame::BodyFixedIAU(-1234),
+                &epochs
+            )
+            .is_err()
+        );
+        assert!(
+            positions_frame_to_frame(
+                ReferenceFrame::GCRF,
+                ReferenceFrame::ITRF,
+                &epochs[..1],
+                &[]
+            )
+            .unwrap()
+            .is_empty()
         );
     }
 }

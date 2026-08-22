@@ -11,13 +11,15 @@ drag, solar radiation pressure, and relativistic corrections) vary with altitude
 import os
 import pathlib
 import sys
-import plotly.graph_objects as go
+
 import numpy as np
+import plotly.graph_objects as go
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
-from brahe_theme import save_themed_html, get_theme_colors
+from brahe_theme import get_theme_colors, save_themed_html
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -192,7 +194,7 @@ def create_figure(theme):
         yref="paper",
         text="MEO",
         showarrow=False,
-        font=dict(size=11, color=theme_colors["font_color"]),
+        font={"size": 11, "color": theme_colors["font_color"]},
         yanchor="top",
         yshift=-10,
     )
@@ -222,7 +224,7 @@ def create_figure(theme):
             y=accel_point_mass,
             name="Point Mass Gravity",
             mode="lines",
-            line=dict(color=color_gravity, width=2.5),
+            line={"color": color_gravity, "width": 2.5},
             hovertemplate="<b>Point Mass</b><br>Altitude: %{x:.0f} km<br>Accel: %{y:.2e} m/s²<extra></extra>",
         )
     )
@@ -234,7 +236,7 @@ def create_figure(theme):
             y=accel_j2,
             name="J₂ (Oblateness)",
             mode="lines",
-            line=dict(color=color_gravity, width=2, dash="dash"),
+            line={"color": color_gravity, "width": 2, "dash": "dash"},
             hovertemplate="<b>J₂</b><br>Altitude: %{x:.0f} km<br>Accel: %{y:.2e} m/s²<extra></extra>",
         )
     )
@@ -246,7 +248,7 @@ def create_figure(theme):
             y=accel_j22,
             name="J₂₂",
             mode="lines",
-            line=dict(color=color_gravity, width=1.5, dash="dot"),
+            line={"color": color_gravity, "width": 1.5, "dash": "dot"},
             hovertemplate="<b>J₂₂</b><br>Altitude: %{x:.0f} km<br>Accel: %{y:.2e} m/s²<extra></extra>",
         )
     )
@@ -262,7 +264,7 @@ def create_figure(theme):
             y=accel_sun,
             name="Third-Body (Sun)",
             mode="lines",
-            line=dict(color=color_third_body, width=2.5),
+            line={"color": color_third_body, "width": 2.5},
             hovertemplate="<b>Sun</b><br>Altitude: %{x:.0f} km<br>Accel: %{y:.2e} m/s²<extra></extra>",
         )
     )
@@ -274,7 +276,7 @@ def create_figure(theme):
             y=accel_moon,
             name="Third-Body (Moon)",
             mode="lines",
-            line=dict(color=color_third_body, width=2.5, dash="dash"),
+            line={"color": color_third_body, "width": 2.5, "dash": "dash"},
             hovertemplate="<b>Moon</b><br>Altitude: %{x:.0f} km<br>Accel: %{y:.2e} m/s²<extra></extra>",
         )
     )
@@ -286,7 +288,7 @@ def create_figure(theme):
             y=accel_venus,
             name="Third-Body (Venus)",
             mode="lines",
-            line=dict(color=color_third_body, width=1.5, dash="dash"),
+            line={"color": color_third_body, "width": 1.5, "dash": "dash"},
             hovertemplate="<b>Venus</b><br>Altitude: %{x:.0f} km<br>Accel: %{y:.2e} m/s²<extra></extra>",
         )
     )
@@ -298,7 +300,7 @@ def create_figure(theme):
             y=accel_jupiter,
             name="Third-Body (Jupiter)",
             mode="lines",
-            line=dict(color=color_third_body, width=1.5, dash="dot"),
+            line={"color": color_third_body, "width": 1.5, "dash": "dot"},
             hovertemplate="<b>Jupiter</b><br>Altitude: %{x:.0f} km<br>Accel: %{y:.2e} m/s²<extra></extra>",
         )
     )
@@ -310,7 +312,7 @@ def create_figure(theme):
             y=accel_saturn,
             name="Third-Body (Saturn)",
             mode="lines",
-            line=dict(color=color_third_body, width=1.5, dash="dashdot"),
+            line={"color": color_third_body, "width": 1.5, "dash": "dashdot"},
             hovertemplate="<b>Saturn</b><br>Altitude: %{x:.0f} km<br>Accel: %{y:.2e} m/s²<extra></extra>",
         )
     )
@@ -326,7 +328,7 @@ def create_figure(theme):
             y=accel_drag_mag,
             name="Atmospheric Drag",
             mode="lines",
-            line=dict(color=color_drag, width=2.5),
+            line={"color": color_drag, "width": 2.5},
             connectgaps=False,
             hovertemplate="<b>Drag</b><br>Altitude: %{x:.0f} km<br>Accel: %{y:.2e} m/s²<extra></extra>",
         )
@@ -343,7 +345,7 @@ def create_figure(theme):
             y=accel_srp_mag,
             name="Solar Radiation Pressure",
             mode="lines",
-            line=dict(color=color_srp, width=2),
+            line={"color": color_srp, "width": 2},
             hovertemplate="<b>SRP</b><br>Altitude: %{x:.0f} km<br>Accel: %{y:.2e} m/s²<extra></extra>",
         )
     )
@@ -359,7 +361,7 @@ def create_figure(theme):
             y=accel_relativity_mag,
             name="Relativistic Effects",
             mode="lines",
-            line=dict(color=color_relativity, width=1.5),
+            line={"color": color_relativity, "width": 1.5},
             hovertemplate="<b>Relativity</b><br>Altitude: %{x:.0f} km<br>Accel: %{y:.2e} m/s²<extra></extra>",
         )
     )
@@ -371,7 +373,7 @@ def create_figure(theme):
         yaxis_title="Acceleration Magnitude (m/s²)",
         yaxis_type="log",
         hovermode="closest",
-        legend=dict(yanchor="top", y=0.99, xanchor="right", x=0.99),
+        legend={"yanchor": "top", "y": 0.99, "xanchor": "right", "x": 0.99},
     )
 
     fig.update_xaxes(title_text="Altitude (km)")

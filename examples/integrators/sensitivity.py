@@ -8,8 +8,9 @@ Demonstrates using NumericalSensitivity and AnalyticSensitivity providers
 to compute ∂f/∂p (sensitivity of dynamics with respect to consider parameters).
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 def dynamics_with_params(t, state, params):

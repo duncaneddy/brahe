@@ -135,7 +135,7 @@ def main() -> None:
     # Fetch Space-Track data
     try:
         client = bh.SpaceTrackClient(user, password)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
         print(f"Error: Failed to create Space-Track client: {e}", file=sys.stderr)
         errors.append("SpaceTrack client creation")
         client = None
@@ -143,20 +143,20 @@ def main() -> None:
     if client is not None:
         try:
             fetch_spacetrack_gp(client, timestamp)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
             print(f"Error: Space-Track GP fetch failed: {e}", file=sys.stderr)
             errors.append("SpaceTrack GP")
 
         try:
             fetch_spacetrack_cdm(client, timestamp)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
             print(f"Error: Space-Track CDM fetch failed: {e}", file=sys.stderr)
             errors.append("SpaceTrack CDM")
 
     # Fetch Celestrak data
     try:
         fetch_celestrak_gp_active(timestamp)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
         print(f"Error: Celestrak GP Active fetch failed: {e}", file=sys.stderr)
         errors.append("Celestrak GP Active")
 

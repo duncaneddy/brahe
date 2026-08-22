@@ -14,8 +14,8 @@ import shutil
 import tempfile
 import time
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional
 
 import httpx
 
@@ -49,7 +49,7 @@ def download_file(
     timeout: int = 60,
     max_retries: int = 3,
     retry_delay: int = 5,
-    validate: Optional[Callable[[Path], bool]] = None,
+    validate: Callable[[Path], bool] | None = None,
 ) -> Path:
     """Download a single file to ``dest``, atomically, with caching.
 
@@ -77,7 +77,7 @@ def download_file(
     if dest.exists():
         return dest
     dest.parent.mkdir(parents=True, exist_ok=True)
-    last_error: Optional[Exception] = None
+    last_error: Exception | None = None
     for attempt in range(1, max_retries + 1):
         tmp_path = None
         try:
@@ -119,7 +119,7 @@ def download_and_extract_zip(
     timeout: int = 60,
     max_retries: int = 3,
     retry_delay: int = 5,
-    relocate: Optional[Callable[[Path], None]] = None,
+    relocate: Callable[[Path], None] | None = None,
 ) -> Path:
     """Download a zip and extract it into ``extract_dir``, atomically.
 
@@ -148,15 +148,15 @@ def download_and_extract_zip(
     parent = extract_dir.parent
     parent.mkdir(parents=True, exist_ok=True)
 
-    last_error: Optional[Exception] = None
+    last_error: Exception | None = None
     for attempt in range(1, max_retries + 1):
         # Another worker may have finished while we were retrying.
         if sentinel.exists():
             return sentinel
 
         print(f"Downloading {description} (attempt {attempt}/{max_retries})...")
-        tmp_zip: Optional[Path] = None
-        tmp_extract: Optional[Path] = None
+        tmp_zip: Path | None = None
+        tmp_extract: Path | None = None
         try:
             response = httpx.get(
                 url, timeout=timeout, follow_redirects=True, headers=_HEADERS

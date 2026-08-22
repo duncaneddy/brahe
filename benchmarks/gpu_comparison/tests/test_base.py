@@ -1,4 +1,5 @@
 from dataclasses import FrozenInstanceError
+from typing import ClassVar
 
 import pytest
 
@@ -22,7 +23,9 @@ class _StubTask(BatchTask):
     name = "stub.task"
     module = "stub"
     description = "stub"
-    configs = [BatchConfig(name="brahe-rust-rayon", dtype="f64", backend="rust")]
+    configs: ClassVar[list[BatchConfig]] = [
+        BatchConfig(name="brahe-rust-rayon", dtype="f64", backend="rust")
+    ]
 
     def batch_sizes(self) -> list[int]:
         return [1, 10, 100]

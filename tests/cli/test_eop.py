@@ -1,10 +1,12 @@
+import os
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
+
 from typer.testing import CliRunner
 
-from brahe.cli.__main__ import app
 import brahe
+from brahe.cli.__main__ import app
 
 # Monkey patch the app to disable rich colors for testing
 app.rich_markup_mode = None
@@ -14,7 +16,7 @@ runner = CliRunner()
 
 
 def test_cli_eop_download_standard():
-    tmpfile = tempfile.NamedTemporaryFile().name
+    tmpfile = os.path.join(tempfile.mkdtemp(), "eop.txt")
     with patch("brahe.download_standard_eop_file") as mock:
         result = runner.invoke(
             app, ["eop", "download", tmpfile, "--product", "standard"]
@@ -26,7 +28,7 @@ def test_cli_eop_download_standard():
 
 
 def test_cli_eop_download_c04():
-    tmpfile = tempfile.NamedTemporaryFile().name
+    tmpfile = os.path.join(tempfile.mkdtemp(), "eop.txt")
     with patch("brahe.download_c04_eop_file") as mock:
         result = runner.invoke(app, ["eop", "download", tmpfile, "--product", "c04"])
         assert result.exit_code == 0

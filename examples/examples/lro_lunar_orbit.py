@@ -140,7 +140,7 @@ fig_altitude.add_trace(
         x=times_days.tolist(),
         y=diff_km.tolist(),
         mode="lines",
-        line=dict(color="red", width=2),
+        line={"color": "red", "width": 2},
         name="Full − point mass",
     )
 )
@@ -150,7 +150,7 @@ fig_altitude.update_layout(
     xaxis_title="Time (days)",
     yaxis_title="Altitude difference (km)",
     height=500,
-    margin=dict(l=60, r=40, t=60, b=60),
+    margin={"l": 60, "r": 40, "t": 60, "b": 60},
 )
 # --8<-- [end:altitude_plot]
 
@@ -192,7 +192,7 @@ print("\nExample validated successfully!")
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save themed figures
 light_path, dark_path = save_themed_html(

@@ -6,8 +6,9 @@ Register a user-defined body-fixed frame from a rotation callback and use it
 with the frame router.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # An uncatalogued body (e.g. a newly observed asteroid): self-assign a unique
 # negative NAIF ID for its center, mirroring NAIF's convention.

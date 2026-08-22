@@ -8,10 +8,7 @@ Each task module (``time_tasks.py``, ``coordinates_tasks.py``, ...) imports
 
 from __future__ import annotations
 
-from typing import Optional
-
 from benchmarks.gpu_comparison.tasks.base import BatchTask
-
 
 _REGISTRY: dict[str, BatchTask] = {}
 
@@ -31,9 +28,9 @@ def list_tasks() -> list[BatchTask]:
 
 def filter_tasks(
     *,
-    module: Optional[str] = None,
-    task_name: Optional[str] = None,
-    backend: Optional[str] = None,
+    module: str | None = None,
+    task_name: str | None = None,
+    backend: str | None = None,
 ) -> list[BatchTask]:
     tasks = list_tasks()
     if module is not None:

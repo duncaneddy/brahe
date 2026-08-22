@@ -1,15 +1,17 @@
-from math import sqrt, pi
+from math import pi, sqrt
+
 import numpy as np
 from pytest import approx
+
 from brahe import (
-    Quaternion,
+    DEG2RAD,
+    AngleFormat,
     EulerAngle,
     EulerAngleOrder,
     EulerAxis,
+    Quaternion,
     RotationMatrix,
-    AngleFormat,
 )
-from brahe import DEG2RAD
 
 
 def test_euler_angle_new():

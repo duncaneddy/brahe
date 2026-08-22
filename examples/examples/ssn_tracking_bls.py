@@ -24,8 +24,9 @@ keeps the results available in the documentation without requiring a run.
 # --8<-- [start:all]
 import time
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

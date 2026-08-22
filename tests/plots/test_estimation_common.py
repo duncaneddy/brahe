@@ -17,7 +17,6 @@ from brahe.plots.estimation_common import (
     resolve_labels,
 )
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -175,7 +174,7 @@ class TestComputeTimeAxis:
 
     def test_single_epoch(self):
         epochs = self._make_epochs(1)
-        times, label = compute_time_axis(epochs, time_units="seconds")
+        times, _label = compute_time_axis(epochs, time_units="seconds")
         assert len(times) == 1
         assert times[0] == pytest.approx(0.0)
 
@@ -303,7 +302,7 @@ class TestExtractStateHistoryBLS:
 
     def test_state_dim_is_six(self, solved_bls):
         bls, _, _ = solved_bls
-        epochs, states = extract_state_history(bls)
+        _epochs, states = extract_state_history(bls)
         assert states.shape[1] == 6
 
     def test_epochs_count_matches_state_rows(self, solved_bls):
@@ -326,7 +325,7 @@ class TestExtractStateHistoryEKF:
 
     def test_epochs_match_observation_count(self, solved_ekf):
         ekf, _, _ = solved_ekf
-        epochs, states = extract_state_history(ekf)
+        epochs, _states = extract_state_history(ekf)
         assert len(epochs) == len(ekf.records())
 
 
@@ -360,7 +359,7 @@ class TestExtractStateErrors:
         """Error norm should generally decrease as filter converges."""
         ekf, epoch, true_state = solved_ekf
         true_traj = self._make_trajectory(epoch, true_state)
-        epochs, errors = extract_state_errors(ekf, true_traj)
+        _epochs, errors = extract_state_errors(ekf, true_traj)
         pos_errors = np.linalg.norm(errors[:, :3], axis=1)
         # Final errors should be less than initial (filter converges)
         assert pos_errors[-1] < pos_errors[0]
@@ -430,17 +429,19 @@ class TestExtractResiduals:
 
     def test_ekf_prefit_residuals(self, solved_ekf):
         ekf, _, _ = solved_ekf
-        epochs, residuals, n_components = extract_residuals(ekf, residual_type="prefit")
+        _epochs, residuals, _n_components = extract_residuals(
+            ekf, residual_type="prefit"
+        )
         assert residuals.shape[0] == 20
 
     def test_bls_model_name_filter(self, solved_bls):
         bls, _, _ = solved_bls
-        epochs, residuals, n = extract_residuals(bls, model_name="InertialPosition")
+        epochs, _residuals, _n = extract_residuals(bls, model_name="InertialPosition")
         assert len(epochs) > 0
 
     def test_bls_unknown_model_name_returns_empty(self, solved_bls):
         bls, _, _ = solved_bls
-        epochs, residuals, n = extract_residuals(bls, model_name="NonExistentModel")
+        epochs, _residuals, _n = extract_residuals(bls, model_name="NonExistentModel")
         assert len(epochs) == 0
 
     def test_invalid_residual_type_raises(self, solved_ekf):

@@ -1,8 +1,9 @@
 # /// script
 # dependencies = ["brahe"]
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Brahe inputs can be python lists
 list_input = [-122.41, 37.77, 16.0]

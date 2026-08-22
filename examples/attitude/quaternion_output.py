@@ -37,5 +37,5 @@ print(f"  {vec_np_last}: {type(vec_np_last)}")
 print("\nString representation:")
 print(f"  {q}")
 
-print("\Repr representation:")
-print(f"  {repr(q)}")
+print(r"\Repr representation:")
+print(f"  {q!r}")

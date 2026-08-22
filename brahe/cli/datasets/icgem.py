@@ -1,15 +1,13 @@
 """CLI commands for ICGEM gravity model datasets."""
 
-from typing import Optional
+from typing import Annotated
 
 import typer
 from loguru import logger
 from rich.console import Console
 from rich.table import Table
-from typing_extensions import Annotated
 
-import brahe.datasets as datasets
-
+from brahe import datasets
 
 app = typer.Typer()
 
@@ -69,7 +67,7 @@ def download(
     name: Annotated[str, typer.Argument(help="Model name (optionally NAME-DEGREE).")],
     body: Annotated[str, typer.Option("--body", "-b", help="Body name.")] = "earth",
     output: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--output", "-o", help="Copy the file to this path."),
     ] = None,
 ):
@@ -80,14 +78,14 @@ def download(
         path = datasets.icgem.download_model(body, name, output)
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
     typer.echo(path)
 
 
 @app.command("refresh")
 def refresh(
     body: Annotated[
-        Optional[str], typer.Option("--body", "-b", help="Body to refresh.")
+        str | None, typer.Option("--body", "-b", help="Body to refresh.")
     ] = None,
     all_bodies: Annotated[
         bool, typer.Option("--all", help="Refresh both Earth and celestial indexes.")

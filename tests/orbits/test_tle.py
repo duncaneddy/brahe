@@ -1,7 +1,8 @@
 """Tests for TLE (Two-Line Element) functionality."""
 
-import pytest
 import numpy as np
+import pytest
+
 import brahe
 
 

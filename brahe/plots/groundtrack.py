@@ -5,25 +5,25 @@ Provides ground track visualization with per-group configuration for trajectorie
 ground stations, and polygon zones.
 """
 
+import contextlib
 import math
 import time
-from typing import List, Tuple
 
-import numpy as np
-import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
-import shapely.geometry
+import matplotlib.pyplot as plt
+import numpy as np
 import plotly.graph_objects as go
 import shapefile as shp
+import shapely.geometry
 from loguru import logger
-
-import brahe as bh
-from brahe.plots.backend import validate_backend, is_scienceplots_available
 from shapely.geometry import shape
 
+import brahe as bh
+from brahe.plots.backend import is_scienceplots_available, validate_backend
 
-def split_ground_track_at_antimeridian(lons, lats, value: float = 180.0) -> List[Tuple]:
+
+def split_ground_track_at_antimeridian(lons, lats, value: float = 180.0) -> list[tuple]:
     """Split a ground track into segments at antimeridian crossings.
 
     When a satellite ground track crosses the antimeridian (±180° longitude), plotting
@@ -392,10 +392,8 @@ def _groundtrack_matplotlib(
     """Matplotlib implementation of ground track plot."""
     # Apply scienceplots if available
     if is_scienceplots_available():
-        try:
+        with contextlib.suppress(Exception):
             plt.style.use(["science", "no-latex"])
-        except Exception:
-            pass
 
     # Create figure
     fig = plt.figure(figsize=(12, 6))
@@ -567,8 +565,8 @@ def _color_to_rgba(color, alpha):
 def _plot_station_group_matplotlib(ax, group, gs_cone_altitude, gs_min_elevation):
     """Plot a group of ground stations with communication cones (matplotlib)."""
     import cartopy.crs as ccrs
-    from cartopy.geodesic import Geodesic
     import shapely.geometry
+    from cartopy.geodesic import Geodesic
 
     stations = group.get("stations", [])
     color = group.get("color")
@@ -798,7 +796,7 @@ def _plot_trajectory_group_matplotlib(ax, group):
             # Convert ECI to ECEF
             ecef_state = bh.state_eci_to_ecef(epoch, state)
             # Convert ECEF to geodetic (returns [lon, lat, alt])
-            lon, lat, alt = bh.position_ecef_to_geodetic(
+            lon, lat, _alt = bh.position_ecef_to_geodetic(
                 ecef_state[:3], bh.AngleFormat.RADIANS
             )
             lats.append(math.degrees(lat))
@@ -907,7 +905,7 @@ def _plot_station_group_plotly(
                 lat=cone_lats_clipped,
                 lon=cone_lons_closed,
                 mode="lines",
-                line=dict(width=0),
+                line={"width": 0},
                 fill="toself",
                 fillcolor=rgba_color,
                 showlegend=False,
@@ -922,7 +920,7 @@ def _plot_station_group_plotly(
                 lat=station_lats,
                 lon=station_lons,
                 mode="markers",
-                marker=dict(size=point_size, color=color),
+                marker={"size": point_size, "color": color},
                 name="Ground Stations",
                 showlegend=show_legend,
                 text=station_names,
@@ -985,9 +983,10 @@ def _plot_zone_group_plotly(fig, group, show_legend):
                 lat=seg_lats_closed,
                 lon=seg_lons_closed,
                 mode="lines",
-                line=dict(
-                    color=edge_color if edge else rgba_fill, width=2 if edge else 0
-                ),
+                line={
+                    "color": edge_color if edge else rgba_fill,
+                    "width": 2 if edge else 0,
+                },
                 fill="toself",
                 fillcolor=rgba_fill,
                 name="Zone" if seg_idx == 0 else None,  # Only show in legend once
@@ -1046,7 +1045,7 @@ def _plot_trajectory_group_plotly(fig, group, show_legend, track_idx=1):
             epoch = epochs[i]
             ecef_state = bh.state_eci_to_ecef(epoch, state)
             # Convert ECEF to geodetic (returns [lon, lat, alt])
-            lon, lat, alt = bh.position_ecef_to_geodetic(
+            lon, lat, _alt = bh.position_ecef_to_geodetic(
                 ecef_state[:3], bh.AngleFormat.RADIANS
             )
             lats.append(math.degrees(lat))
@@ -1071,8 +1070,8 @@ def _plot_trajectory_group_plotly(fig, group, show_legend, track_idx=1):
             lat=lats,
             lon=lons,
             mode="lines+markers",
-            line=dict(color=color, width=line_width),
-            marker=dict(size=0.1, color=color),  # Nearly invisible markers for hover
+            line={"color": color, "width": line_width},
+            marker={"size": 0.1, "color": color},  # Nearly invisible markers for hover
             name=sat_name,
             showlegend=show_legend,
             customdata=timestamps if timestamps else None,

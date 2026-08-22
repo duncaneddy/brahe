@@ -2,9 +2,8 @@
 """Show statistics about examples and plots."""
 
 import typer
-from rich.table import Table
-
 from _build_utils import EXAMPLES_DIR, PLOTS_DIR, check_flags, console
+from rich.table import Table
 
 
 def main():

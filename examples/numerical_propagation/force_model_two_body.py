@@ -7,6 +7,7 @@ No perturbations - equivalent to Keplerian propagation.
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data

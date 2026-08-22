@@ -1,5 +1,7 @@
 """Runner smoke test using only the ping backends — no JAX, no Rust binary required."""
 
+from typing import ClassVar
+
 import pytest
 
 from benchmarks.gpu_comparison.implementations import astrojax_kernels
@@ -11,7 +13,9 @@ class _PingTask(BatchTask):
     name = "ping.identity"
     module = "ping"
     description = ""
-    configs = [BatchConfig(name="astrojax-gpu", dtype="f32", backend="astrojax-gpu")]
+    configs: ClassVar[list[BatchConfig]] = [
+        BatchConfig(name="astrojax-gpu", dtype="f32", backend="astrojax-gpu")
+    ]
 
     def batch_sizes(self):
         return [1, 10]

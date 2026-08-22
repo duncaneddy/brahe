@@ -5,8 +5,9 @@
 Convert between Keplerian orbital elements and Cartesian state vectors
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

@@ -6,8 +6,9 @@ Demonstrates the basic pattern for propagating a state transition matrix
 alongside the state using variational equations.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 def dynamics(t, state):

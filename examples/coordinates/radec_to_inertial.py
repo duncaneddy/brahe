@@ -6,9 +6,10 @@ Convert a star's right ascension/declination to an inertial unit vector and
 back, and propagate its position forward in time using proper motion.
 """
 
-import brahe as bh
 import numpy as np
 import pytest
+
+import brahe as bh
 
 # Barnard's Star (HIP 87937), J1991.25 Hipparcos catalog values.
 ra = 269.45402305  # deg

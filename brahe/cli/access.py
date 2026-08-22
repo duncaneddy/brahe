@@ -4,9 +4,9 @@ import time
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Annotated
+
 import typer
-from typing_extensions import Annotated
 from loguru import logger
 from rich.console import Console
 from rich.table import Table
@@ -48,43 +48,43 @@ class SortOrder(str, Enum):
 def compute(
     norad_id: Annotated[int, typer.Argument(help="NORAD catalog ID of the satellite")],
     lat: Annotated[
-        Optional[float],
+        float | None,
         typer.Option(help="Latitude in degrees (-90 to 90). Use with --lon."),
     ] = None,
     lon: Annotated[
-        Optional[float],
+        float | None,
         typer.Option(help="Longitude in degrees (-180 to 180). Use with --lat."),
     ] = None,
     alt: Annotated[
         float, typer.Option(help="Altitude above WGS84 ellipsoid in meters")
     ] = 0.0,
     gs_provider: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="Groundstation provider (e.g., 'ksat', 'atlas', 'aws'). Use with --gs-name."
         ),
     ] = None,
     gs_name: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="Groundstation name to lookup. Use with --gs-provider."),
     ] = None,
     start_time: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="Start time (ISO-8601 or epoch string). Default: now if end_time not given"
         ),
     ] = None,
     end_time: Annotated[
-        Optional[str], typer.Option(help="End time (ISO-8601 or epoch string)")
+        str | None, typer.Option(help="End time (ISO-8601 or epoch string)")
     ] = None,
     duration: Annotated[
-        Optional[float], typer.Option(help="Duration in days (default: 7)")
+        float | None, typer.Option(help="Duration in days (default: 7)")
     ] = None,
     min_elevation: Annotated[
         float, typer.Option(help="Minimum elevation angle in degrees")
     ] = 10.0,
     max_results: Annotated[
-        Optional[int], typer.Option(help="Maximum number of access windows to display")
+        int | None, typer.Option(help="Maximum number of access windows to display")
     ] = None,
     output_format: Annotated[
         OutputFormat, typer.Option(help="Output format: 'table', 'rich', or 'simple'")
@@ -96,7 +96,7 @@ def compute(
         SortOrder, typer.Option(help="Sort order: 'ascending' or 'descending'")
     ] = SortOrder.ascending,
     output_file: Annotated[
-        Optional[Path], typer.Option(help="Path to export results as JSON")
+        Path | None, typer.Option(help="Path to export results as JSON")
     ] = None,
 ):
     """
@@ -155,7 +155,7 @@ def compute(
             typer.echo(
                 f"Error loading groundstations from provider '{gs_provider}': {e}"
             )
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from e
 
         # Find station by name (case-insensitive)
         gs_name_upper = gs_name.upper()
@@ -230,7 +230,7 @@ def compute(
 
     except Exception as e:
         typer.echo(f"Error parsing time: {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
     # Fetch TLE from CelesTrak (request 3LE format to get name + TLE lines)
     logger.debug(f"Fetching TLE for NORAD ID {norad_id} from CelesTrak")
@@ -249,14 +249,14 @@ def compute(
         logger.info(f"Retrieved TLE for {sat_name}")
     except Exception as e:
         typer.echo(f"Error fetching TLE for NORAD ID {norad_id}: {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
     # Create propagator from TLE
     try:
         propagator = brahe.SGPPropagator.from_3le(sat_name, line1, line2, 60.0)
     except Exception as e:
         typer.echo(f"Error creating propagator: {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
     # Create location (convert degrees to radians)
     if location_name:
@@ -285,7 +285,7 @@ def compute(
         logger.info(f"Found {len(windows)} access windows in {elapsed:.2f}s")
     except Exception as e:
         typer.echo(f"Error computing access windows: {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
     # Sort windows based on user preference
     reverse = sort_order == SortOrder.descending
@@ -333,7 +333,7 @@ def compute(
             typer.echo(f"\n✓ Exported {len(windows)} access windows to {output_file}")
         except Exception as e:
             typer.echo(f"\nError exporting to JSON: {e}", err=True)
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from e
 
 
 def _display_table(

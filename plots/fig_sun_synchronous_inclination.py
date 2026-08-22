@@ -9,8 +9,10 @@ Demonstrates the required inclination to maintain sun-synchronous orbit at diffe
 import os
 import pathlib
 import sys
+
 import numpy as np
 import plotly.graph_objects as go
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
@@ -64,7 +66,7 @@ def create_figure(theme):
                 x=alt / 1e3,
                 y=ssi_data[e],
                 mode="lines",
-                line=dict(color=color_palette[i % len(color_palette)], width=2),
+                line={"color": color_palette[i % len(color_palette)], "width": 2},
                 name=f"e = {e:.1f}",
                 showlegend=True,
             )

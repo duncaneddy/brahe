@@ -10,6 +10,7 @@ single measurement of a target inside the sensor's field of view.
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data

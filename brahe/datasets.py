@@ -39,45 +39,45 @@ Example:
 """
 
 from brahe._brahe import (
-    # Groundstation functions
-    groundstations_load,
-    groundstations_load_from_file,
-    groundstations_load_all,
-    groundstations_list_providers,
-    # SSN sensor functions
-    ssn_sensors_load,
-    # NAIF functions
-    download_spice_kernel,
-    # GCAT functions and types
-    gcat_get_satcat,
-    gcat_get_psatcat,
-    GCATSatcatRecord,
+    FK5Catalog,
+    FK5Record,
+    GCATPsatcat,
     GCATPsatcatRecord,
     GCATSatcat,
-    GCATPsatcat,
-    # Star catalogs functions and types
-    star_catalogs_get_fk5,
-    star_catalogs_get_hipparcos,
-    star_catalogs_get_tycho2,
-    FK5Record,
-    FK5Catalog,
-    HipparcosRecord,
+    GCATSatcatRecord,
     HipparcosCatalog,
-    Tycho2Record,
-    Tycho2Catalog,
-    # ICGEM functions and types
-    icgem_list_models,
-    icgem_refresh_index,
-    icgem_refresh_all_indexes,
-    icgem_download_model,
-    ICGEMIndexEntry,
-    # SBDB client and types
-    SBDBClient,
-    SBDBObject,
+    HipparcosRecord,
     # Horizons client and types
     HorizonsClient,
     HorizonsSPKRequest,
     HorizonsSPKResponse,
+    ICGEMIndexEntry,
+    # SBDB client and types
+    SBDBClient,
+    SBDBObject,
+    Tycho2Catalog,
+    Tycho2Record,
+    # NAIF functions
+    download_spice_kernel,
+    gcat_get_psatcat,
+    # GCAT functions and types
+    gcat_get_satcat,
+    groundstations_list_providers,
+    # Groundstation functions
+    groundstations_load,
+    groundstations_load_all,
+    groundstations_load_from_file,
+    icgem_download_model,
+    # ICGEM functions and types
+    icgem_list_models,
+    icgem_refresh_all_indexes,
+    icgem_refresh_index,
+    # SSN sensor functions
+    ssn_sensors_load,
+    # Star catalogs functions and types
+    star_catalogs_get_fk5,
+    star_catalogs_get_hipparcos,
+    star_catalogs_get_tycho2,
 )
 
 
@@ -189,12 +189,12 @@ class _HorizonsNamespace:
 horizons = _HorizonsNamespace()
 
 __all__ = [
-    "groundstations",
-    "naif",
     "gcat",
-    "star_catalogs",
-    "icgem",
-    "ssn_sensors",
-    "sbdb",
+    "groundstations",
     "horizons",
+    "icgem",
+    "naif",
+    "sbdb",
+    "ssn_sensors",
+    "star_catalogs",
 ]

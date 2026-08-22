@@ -5,8 +5,9 @@ Tests low-precision analytical and high-precision DE ephemeris functions
 for sun and moon positions.
 """
 
-import pytest
 import numpy as np
+import pytest
+
 import brahe as bh
 
 
@@ -102,7 +103,7 @@ class TestDEEphemerides:
 
             # Initialize ephemeris
             bh.load_spice_kernel("de440s")
-        except Exception as e:
+        except (bh.BraheError, OSError, RuntimeError) as e:
             pytest.skip(f"Could not initialize ephemeris: {e}")
 
     def test_sun_position_spice_returns_vector(self):

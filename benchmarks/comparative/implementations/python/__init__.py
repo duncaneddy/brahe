@@ -4,6 +4,9 @@ Python (Brahe) benchmark implementations.
 Dispatches benchmark tasks to the appropriate implementation function.
 """
 
+from benchmarks.comparative.implementations.python.access import (
+    sgp4_access,
+)
 from benchmarks.comparative.implementations.python.attitude import (
     euler_angle_to_quaternion,
     quaternion_to_euler_angle,
@@ -17,9 +20,20 @@ from benchmarks.comparative.implementations.python.coordinates import (
     geocentric_to_ecef,
     geodetic_to_ecef,
 )
+from benchmarks.comparative.implementations.python.force_model import (
+    accel_point_mass_gravity,
+    accel_spherical_harmonics_20,
+    accel_spherical_harmonics_80,
+    accel_third_body_moon,
+    accel_third_body_sun,
+)
 from benchmarks.comparative.implementations.python.frames import (
     state_ecef_to_eci,
     state_eci_to_ecef,
+)
+from benchmarks.comparative.implementations.python.orbits import (
+    cartesian_to_keplerian,
+    keplerian_to_cartesian,
 )
 from benchmarks.comparative.implementations.python.propagation import (
     keplerian_single,
@@ -30,20 +44,6 @@ from benchmarks.comparative.implementations.python.propagation import (
     numerical_twobody,
     sgp4_single,
     sgp4_trajectory,
-)
-from benchmarks.comparative.implementations.python.force_model import (
-    accel_point_mass_gravity,
-    accel_spherical_harmonics_20,
-    accel_spherical_harmonics_80,
-    accel_third_body_moon,
-    accel_third_body_sun,
-)
-from benchmarks.comparative.implementations.python.orbits import (
-    cartesian_to_keplerian,
-    keplerian_to_cartesian,
-)
-from benchmarks.comparative.implementations.python.access import (
-    sgp4_access,
 )
 from benchmarks.comparative.implementations.python.time_bench import (
     epoch_creation,

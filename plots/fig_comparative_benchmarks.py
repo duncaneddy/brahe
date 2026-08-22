@@ -2,7 +2,6 @@
 # dependencies = ["brahe", "plotly"]
 # FLAGS = ["MANUAL"]
 # ///
-# ruff: noqa: E501
 """
 Generate comparative benchmark charts for Brahe documentation.
 
@@ -344,10 +343,14 @@ def _speedup_figure(
             xaxis_type="log",
             barmode="group",
             height=figure_height,
-            margin=dict(l=200, b=60),
-            legend=dict(
-                orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5
-            ),
+            margin={"l": 200, "b": 60},
+            legend={
+                "orientation": "h",
+                "yanchor": "bottom",
+                "y": 1.02,
+                "xanchor": "center",
+                "x": 0.5,
+            },
         )
         return fig
 
@@ -436,12 +439,12 @@ def make_module_figure(run: BenchmarkRun, module: str):
                     name=LANGUAGE_LABELS[lang],
                     x=labels,
                     y=scaled,
-                    error_y=dict(
-                        type="data",
-                        array=error_upper,
-                        arrayminus=error_lower,
-                        visible=True,
-                    ),
+                    error_y={
+                        "type": "data",
+                        "array": error_upper,
+                        "arrayminus": error_lower,
+                        "visible": True,
+                    },
                     marker_color=lang_colors[lang],
                     hovertemplate="%{x}<br>%{customdata}<extra>"
                     + LANGUAGE_LABELS[lang]
@@ -456,9 +459,13 @@ def make_module_figure(run: BenchmarkRun, module: str):
             yaxis_title=f"Time ({unit})<br><sub>(lower is better)</sub>",
             yaxis_type="log",
             barmode="group",
-            legend=dict(
-                orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5
-            ),
+            legend={
+                "orientation": "h",
+                "yanchor": "bottom",
+                "y": 1.02,
+                "xanchor": "center",
+                "x": 0.5,
+            },
             height=500,
         )
         return fig
@@ -581,7 +588,7 @@ def make_accuracy_cdf_figure(module: str, samples: list[dict]) -> None:
                         name=LANGUAGE_LABELS.get(lang, lang),
                         legendgroup=lang,
                         showlegend=show_in_legend,
-                        line=dict(color=lang_colors.get(lang, "#888"), width=2),
+                        line={"color": lang_colors.get(lang, "#888"), "width": 2},
                         hovertemplate=(
                             f"{_task_label(task_name)}<br>"
                             f"{LANGUAGE_LABELS.get(lang, lang)}<br>"
@@ -627,23 +634,23 @@ def make_accuracy_cdf_figure(module: str, samples: list[dict]) -> None:
         # ``y=-0.02`` layout sandwiched the legend between them).
         # Top placement is also the convention for grids of subplots.
         fig.update_layout(
-            title=dict(
-                text=f"{MODULE_LABELS[module]} Accuracy: Error CDF vs Orekit",
-                x=0.5,
-                xanchor="center",
-                y=0.985,
-                yanchor="top",
-                yref="container",
-            ),
+            title={
+                "text": f"{MODULE_LABELS[module]} Accuracy: Error CDF vs Orekit",
+                "x": 0.5,
+                "xanchor": "center",
+                "y": 0.985,
+                "yanchor": "top",
+                "yref": "container",
+            },
             height=figure_height,
-            margin=dict(t=110, b=70, l=70, r=30),
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.03,
-                xanchor="center",
-                x=0.5,
-            ),
+            margin={"t": 110, "b": 70, "l": 70, "r": 30},
+            legend={
+                "orientation": "h",
+                "yanchor": "bottom",
+                "y": 1.03,
+                "xanchor": "center",
+                "x": 0.5,
+            },
         )
         return fig
 
@@ -705,7 +712,7 @@ def make_accuracy_scatter_figure(task_name: str, samples: list[dict]) -> None:
                     y=ys,
                     mode="markers",
                     name=LANGUAGE_LABELS.get(lang, lang),
-                    marker=dict(color=lang_colors.get(lang, "#888"), size=6),
+                    marker={"color": lang_colors.get(lang, "#888"), "size": 6},
                     hovertemplate=(
                         f"{x_field}: %{{x}}<br>error: %{{y}}<extra>"
                         + LANGUAGE_LABELS.get(lang, lang)
@@ -719,9 +726,13 @@ def make_accuracy_scatter_figure(task_name: str, samples: list[dict]) -> None:
             yaxis_title=f"Max abs error ({unit_label})",
             yaxis_type="log",
             height=420,
-            legend=dict(
-                orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5
-            ),
+            legend={
+                "orientation": "h",
+                "yanchor": "bottom",
+                "y": 1.02,
+                "xanchor": "center",
+                "x": 0.5,
+            },
         )
         return fig
 
@@ -1144,8 +1155,8 @@ def _percentile(values: list[float], pct: float) -> float:
     pos = (pct / 100.0) * (len(sorted_vals) - 1)
     import math as _math
 
-    lower = int(_math.floor(pos))
-    upper = int(_math.ceil(pos))
+    lower = _math.floor(pos)
+    upper = _math.ceil(pos)
     if lower == upper:
         return sorted_vals[lower]
     fraction = pos - lower

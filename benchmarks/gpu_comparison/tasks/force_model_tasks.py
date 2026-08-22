@@ -9,6 +9,7 @@ brahe-bundled file.
 
 from __future__ import annotations
 
+from typing import ClassVar
 
 import numpy as np
 
@@ -27,7 +28,7 @@ class ForceModelGrav5x5Task(BatchTask):
         "RK4-propagate N LEO orbits over ~1 orbital period (30s step) with "
         "5x5 spherical-harmonic gravity (EGM2008)."
     )
-    configs = [
+    configs: ClassVar[list[BatchConfig]] = [
         BatchConfig(name="brahe-rust-rayon", dtype="f64", backend="rust"),
         BatchConfig(name="astrojax-cpu", dtype="f64", backend="astrojax-cpu"),
         BatchConfig(name="astrojax-gpu", dtype="f32", backend="astrojax-gpu"),

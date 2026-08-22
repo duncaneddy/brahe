@@ -12,10 +12,9 @@ and timing logic.
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from benchmarks.gpu_comparison.tasks.base import BatchTask
-
 
 # (task, batch_size, dtype, seed, devices) -> (kernel_fn, kernel_args)
 Builder = Callable[[BatchTask, int, str, int, list], tuple[Callable, dict]]

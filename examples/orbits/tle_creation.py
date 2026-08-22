@@ -10,8 +10,9 @@ orbital elements. This is useful for sharing orbital data or using with
 SGP4 propagators.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Define orbital epoch
 epoch = bh.Epoch.from_datetime(2025, 10, 29, 11, 44, 55.766182, 0, bh.TimeSystem.UTC)

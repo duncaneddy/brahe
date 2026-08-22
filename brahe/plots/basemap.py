@@ -7,7 +7,6 @@ Handles downloading and caching of Natural Earth basemap data.
 from pathlib import Path
 
 import brahe as bh
-
 from brahe.plots._download import download_and_extract_zip
 
 # Natural Earth URLs

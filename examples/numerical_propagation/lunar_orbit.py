@@ -17,6 +17,7 @@ binary PCK, caching them under $BRAHE_CACHE (~/.cache/brahe by default).
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data and the DE440s planetary ephemeris used for third-body

@@ -5,8 +5,9 @@ This script demonstrates how to create a ground track plot using the matplotlib 
 It shows the ISS ground track with a ground station communication cone.
 """
 
-import brahe as bh
 import matplotlib.pyplot as plt
+
+import brahe as bh
 
 # Initialize EOP data
 bh.initialize_eop()

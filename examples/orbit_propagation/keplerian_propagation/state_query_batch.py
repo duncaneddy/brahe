@@ -5,8 +5,9 @@
 Query KeplerianPropagator states at multiple epochs in batch
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

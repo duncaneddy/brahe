@@ -50,7 +50,7 @@ def run_astrojax_cell_in_process(
 
     try:
         kernel, kernel_args = builder(task, batch_size, config.dtype, seed, devices)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
         return CellResult.skipped(
             task=task.name,
             config=config.name,
@@ -65,7 +65,7 @@ def run_astrojax_cell_in_process(
         for _ in range(warmups):
             result = kernel(kernel_args)
             _block(result)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
         return CellResult.skipped(
             task=task.name,
             config=config.name,
@@ -82,7 +82,7 @@ def run_astrojax_cell_in_process(
             result = kernel(kernel_args)
             _block(result)
             times.append((time.perf_counter_ns() - t0) / 1e9)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
         return CellResult.skipped(
             task=task.name,
             config=config.name,

@@ -6,9 +6,11 @@
 Demonstrates different ways to initialize rotation matrices.
 """
 
-import brahe as bh
-import numpy as np
 import math
+
+import numpy as np
+
+import brahe as bh
 
 # Initialize from 9 individual elements (row-major order)
 # Identity rotation

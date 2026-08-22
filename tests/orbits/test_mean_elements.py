@@ -5,8 +5,9 @@ Tests the Brouwer-Lyddane first-order J2 perturbation mapping between
 mean and osculating orbital elements.
 """
 
-import pytest
 import numpy as np
+import pytest
+
 import brahe
 
 BROUWER_LYDDANE = brahe.MeanElementMethod.BROUWER_LYDDANE
@@ -380,7 +381,7 @@ class TestMeanOsculatingConversions:
         cfg = brahe.MeanElementNumericalMethodConfig(
             5400.0, brahe.WindowAlignment.CENTERED, brahe.WindowEdgeHandling.TRUNCATE
         )
-        with pytest.raises(Exception):
+        with pytest.raises(brahe.BraheError):
             brahe.state_koe_mean_to_osc(
                 mean, brahe.MeanElementMethod.numerical(cfg), brahe.AngleFormat.DEGREES
             )

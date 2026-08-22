@@ -4,29 +4,30 @@ Tests for OrbitTrajectory class in brahe.
 These tests provide 1:1 parity with the Rust test suite in src/trajectories/orbit_trajectory.rs
 """
 
-import pytest
 import numpy as np
+import pytest
+
 import brahe
 from brahe import (
+    DEG2RAD,
+    R_EARTH,
+    AngleFormat,
+    BraheError,
     Epoch,
-    TimeSystem,
-    OrbitTrajectory,
+    InterpolationMethod,
     OrbitFrame,
     OrbitRepresentation,
-    AngleFormat,
-    InterpolationMethod,
-    R_EARTH,
-    DEG2RAD,
-    state_koe_to_eci,
-    state_eci_to_koe,
-    state_eci_to_ecef,
+    OrbitTrajectory,
+    TimeSystem,
     state_ecef_to_eci,
+    state_eci_to_ecef,
+    state_eci_to_koe,
+    state_eme2000_to_gcrf,
+    state_gcrf_to_eme2000,
     state_gcrf_to_itrf,
     state_itrf_to_gcrf,
-    state_gcrf_to_eme2000,
-    state_eme2000_to_gcrf,
+    state_koe_to_eci,
 )
-from brahe import BraheError
 
 
 def create_test_trajectory():
@@ -263,7 +264,7 @@ def test_orbittrajectory_trajectory_state():
     assert state2[0] == 7200e3
 
     # Test invalid index
-    with pytest.raises(Exception):
+    with pytest.raises(IndexError):
         traj.state_at_idx(10)
 
 
@@ -300,7 +301,7 @@ def test_orbittrajectory_trajectory_epoch():
     assert epoch2.jd() == 2451545.2
 
     # Test invalid index
-    with pytest.raises(Exception):
+    with pytest.raises(IndexError):
         traj.epoch_at_idx(10)
 
 
@@ -628,7 +629,7 @@ def test_orbittrajectory_trajectory_index_before_epoch():
 
     # Test finding index before t0 (should error - before all states)
     before_t0 = t0 + (-10.0)
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.index_before_epoch(before_t0)
 
     # Test finding index before t0+30s (should return index 0)
@@ -696,7 +697,7 @@ def test_orbittrajectory_trajectory_index_after_epoch():
 
     # Test finding index after t0+150s (should error - after all states)
     t0_plus_150 = t0 + 150.0
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.index_after_epoch(t0_plus_150)
 
 
@@ -736,7 +737,7 @@ def test_orbittrajectory_trajectory_state_before_epoch():
 
     # Test error case for epoch before all states
     before_t0 = t0 + (-10.0)
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.state_before_epoch(before_t0)
 
     # Verify it uses the default trait implementation correctly
@@ -781,7 +782,7 @@ def test_orbittrajectory_trajectory_state_after_epoch():
 
     # Test error case for epoch after all states
     after_t2 = t2 + 10.0
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.state_after_epoch(after_t2)
 
     # Verify it uses the default trait implementation correctly
@@ -826,7 +827,7 @@ def test_orbittrajectory_trajectory_set_eviction_policy_max_size():
     assert len(traj) == 3
 
     # Test error case
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.set_eviction_policy_max_size(0)
 
 
@@ -863,9 +864,9 @@ def test_orbittrajectory_trajectory_set_eviction_policy_max_age():
     assert first_state[0] == pytest.approx(7000e3 + 2000.0, abs=1.0)
 
     # Test error case
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.set_eviction_policy_max_age(0.0)
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.set_eviction_policy_max_age(-10.0)
 
 
@@ -924,7 +925,7 @@ def test_orbittrajectory_index_index_out_of_bounds():
         None,
     )
 
-    with pytest.raises(Exception):
+    with pytest.raises(IndexError):
         _ = traj[10]
 
 
@@ -1169,11 +1170,11 @@ def test_orbittrajectory_interpolate_before_start():
 
     # Test interpolation before trajectory start
     before_start = t0 - 10.0
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.interpolate_linear(before_start)
 
     # Also test with interpolate() method
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.interpolate(before_start)
 
 
@@ -1202,11 +1203,11 @@ def test_orbittrajectory_interpolate_after_end():
 
     # Test interpolation after trajectory end
     after_end = t0 + 130.0
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.interpolate_linear(after_end)
 
     # Also test with interpolate() method
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.interpolate(after_end)
 
 

@@ -4,24 +4,22 @@ import matplotlib
 
 matplotlib.use("Agg")
 
-import numpy as np
-import pytest
 import matplotlib.pyplot as plt
+import numpy as np
 import plotly.graph_objects as go
+import pytest
 
 import brahe as bh
-
 from brahe.plots.estimation_state import (
-    plot_estimator_state_error_from_arrays,
-    plot_estimator_state_value_from_arrays,
-    plot_estimator_state_error_grid_from_arrays,
-    plot_estimator_state_value_grid_from_arrays,
     plot_estimator_state_error,
-    plot_estimator_state_value,
+    plot_estimator_state_error_from_arrays,
     plot_estimator_state_error_grid,
+    plot_estimator_state_error_grid_from_arrays,
+    plot_estimator_state_value,
+    plot_estimator_state_value_from_arrays,
     plot_estimator_state_value_grid,
+    plot_estimator_state_value_grid_from_arrays,
 )
-
 
 # =============================================================================
 # Fixtures
@@ -100,7 +98,7 @@ def grid_6state_data():
 
 class TestStateErrorMatplotlib:
     def test_single_series_returns_figure(self, single_series_error):
-        times, errors, sigmas = single_series_error
+        times, errors, _sigmas = single_series_error
         fig = plot_estimator_state_error_from_arrays(
             [times], [errors], backend="matplotlib"
         )
@@ -186,7 +184,7 @@ class TestStateErrorMatplotlib:
 
 class TestStateErrorPlotly:
     def test_single_series_returns_figure(self, single_series_error):
-        times, errors, sigmas = single_series_error
+        times, errors, _sigmas = single_series_error
         fig = plot_estimator_state_error_from_arrays(
             [times], [errors], backend="plotly"
         )
@@ -243,7 +241,7 @@ class TestStateErrorPlotly:
 
 class TestStateValueMatplotlib:
     def test_single_series_returns_figure(self, single_series_value):
-        times, values, true_values, sigmas = single_series_value
+        times, values, _true_values, _sigmas = single_series_value
         fig = plot_estimator_state_value_from_arrays(
             [times], [values], backend="matplotlib"
         )
@@ -251,7 +249,7 @@ class TestStateValueMatplotlib:
         plt.close(fig)
 
     def test_with_true_values(self, single_series_value):
-        times, values, true_values, sigmas = single_series_value
+        times, values, true_values, _sigmas = single_series_value
         fig = plot_estimator_state_value_from_arrays(
             [times], [values], true_values=true_values, backend="matplotlib"
         )
@@ -259,7 +257,7 @@ class TestStateValueMatplotlib:
         plt.close(fig)
 
     def test_with_sigmas(self, single_series_value):
-        times, values, true_values, sigmas = single_series_value
+        times, values, _true_values, sigmas = single_series_value
         fig = plot_estimator_state_value_from_arrays(
             [times], [values], sigmas=[sigmas], backend="matplotlib"
         )
@@ -297,7 +295,7 @@ class TestStateValueMatplotlib:
         plt.close(fig)
 
     def test_multi_series(self, single_series_value):
-        times, values, true_values, sigmas = single_series_value
+        times, values, _true_values, _sigmas = single_series_value
         fig = plot_estimator_state_value_from_arrays(
             [times, times],
             [values, values * 1.01],
@@ -315,21 +313,21 @@ class TestStateValueMatplotlib:
 
 class TestStateValuePlotly:
     def test_single_series_returns_figure(self, single_series_value):
-        times, values, true_values, sigmas = single_series_value
+        times, values, _true_values, _sigmas = single_series_value
         fig = plot_estimator_state_value_from_arrays(
             [times], [values], backend="plotly"
         )
         assert isinstance(fig, go.Figure)
 
     def test_with_true_values(self, single_series_value):
-        times, values, true_values, sigmas = single_series_value
+        times, values, true_values, _sigmas = single_series_value
         fig = plot_estimator_state_value_from_arrays(
             [times], [values], true_values=true_values, backend="plotly"
         )
         assert isinstance(fig, go.Figure)
 
     def test_with_sigmas(self, single_series_value):
-        times, values, true_values, sigmas = single_series_value
+        times, values, _true_values, sigmas = single_series_value
         fig = plot_estimator_state_value_from_arrays(
             [times], [values], sigmas=[sigmas], backend="plotly"
         )
@@ -357,7 +355,7 @@ class TestStateValuePlotly:
 
 class TestStateErrorGridMatplotlib:
     def test_single_series_3_states(self, grid_3state_data):
-        times, errors, sigmas = grid_3state_data
+        times, errors, _sigmas = grid_3state_data
         fig = plot_estimator_state_error_grid_from_arrays(
             [times], [errors], backend="matplotlib"
         )
@@ -373,7 +371,7 @@ class TestStateErrorGridMatplotlib:
         plt.close(fig)
 
     def test_6_states_default_ncols(self, grid_6state_data):
-        times, errors, sigmas, _ = grid_6state_data
+        times, errors, _sigmas, _ = grid_6state_data
         fig = plot_estimator_state_error_grid_from_arrays(
             [times], [errors], backend="matplotlib"
         )
@@ -382,7 +380,7 @@ class TestStateErrorGridMatplotlib:
         plt.close(fig)
 
     def test_custom_ncols(self, grid_6state_data):
-        times, errors, sigmas, _ = grid_6state_data
+        times, errors, _sigmas, _ = grid_6state_data
         fig = plot_estimator_state_error_grid_from_arrays(
             [times], [errors], ncols=2, backend="matplotlib"
         )
@@ -414,7 +412,7 @@ class TestStateErrorGridMatplotlib:
         plt.close(fig)
 
     def test_multi_series(self, grid_3state_data):
-        times, errors, sigmas = grid_3state_data
+        times, errors, _sigmas = grid_3state_data
         fig = plot_estimator_state_error_grid_from_arrays(
             [times, times],
             [errors, errors * 0.9],
@@ -440,7 +438,7 @@ class TestStateErrorGridMatplotlib:
 
 class TestStateErrorGridPlotly:
     def test_single_series_3_states(self, grid_3state_data):
-        times, errors, sigmas = grid_3state_data
+        times, errors, _sigmas = grid_3state_data
         fig = plot_estimator_state_error_grid_from_arrays(
             [times], [errors], backend="plotly"
         )
@@ -454,14 +452,14 @@ class TestStateErrorGridPlotly:
         assert isinstance(fig, go.Figure)
 
     def test_6_states_default_ncols(self, grid_6state_data):
-        times, errors, sigmas, _ = grid_6state_data
+        times, errors, _sigmas, _ = grid_6state_data
         fig = plot_estimator_state_error_grid_from_arrays(
             [times], [errors], backend="plotly"
         )
         assert isinstance(fig, go.Figure)
 
     def test_custom_ncols(self, grid_6state_data):
-        times, errors, sigmas, _ = grid_6state_data
+        times, errors, _sigmas, _ = grid_6state_data
         fig = plot_estimator_state_error_grid_from_arrays(
             [times], [errors], ncols=2, backend="plotly"
         )
@@ -476,7 +474,7 @@ class TestStateErrorGridPlotly:
         assert isinstance(fig, go.Figure)
 
     def test_multi_series(self, grid_3state_data):
-        times, errors, sigmas = grid_3state_data
+        times, errors, _sigmas = grid_3state_data
         fig = plot_estimator_state_error_grid_from_arrays(
             [times, times],
             [errors, errors * 0.95],
@@ -503,7 +501,7 @@ class TestStateErrorGridPlotly:
 
 class TestStateValueGridMatplotlib:
     def test_single_series_3_states(self, grid_3state_data):
-        times, errors, sigmas = grid_3state_data
+        times, errors, _sigmas = grid_3state_data
         fig = plot_estimator_state_value_grid_from_arrays(
             [times], [errors], backend="matplotlib"
         )
@@ -511,7 +509,7 @@ class TestStateValueGridMatplotlib:
         plt.close(fig)
 
     def test_with_true_values(self, grid_6state_data):
-        times, errors, sigmas, true_values = grid_6state_data
+        times, errors, _sigmas, true_values = grid_6state_data
         fig = plot_estimator_state_value_grid_from_arrays(
             [times], [errors], true_values=true_values, backend="matplotlib"
         )

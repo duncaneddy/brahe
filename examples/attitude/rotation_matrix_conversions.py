@@ -6,8 +6,9 @@
 Demonstrates converting rotation matrices to other attitude representations.
 """
 
-import brahe as bh
 import math
+
+import brahe as bh
 
 # Create a rotation matrix (45° about Z-axis)
 rm = bh.RotationMatrix.Rz(45, bh.AngleFormat.DEGREES)

@@ -7,8 +7,9 @@ using an adaptive integrator, using the recommended step size from
 each step for the next step.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 def dynamics(t, state):

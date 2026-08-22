@@ -7,19 +7,19 @@ both matplotlib and plotly backends.
 """
 
 import time as _time
-import numpy as np
-import matplotlib.pyplot as plt
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-from loguru import logger
 
-from brahe.plots.backend import validate_backend, apply_scienceplots_style
+import matplotlib.pyplot as plt
+import numpy as np
+import plotly.graph_objects as go
+from loguru import logger
+from plotly.subplots import make_subplots
+
+from brahe.plots.backend import apply_scienceplots_style, validate_backend
 from brahe.plots.estimation_common import (
     extract_sub_covariance,
     resolve_colors,
     resolve_labels,
 )
-
 
 # =============================================================================
 # Private helpers
@@ -228,7 +228,7 @@ def _marginal_plotly(
             x=scatter_points[:, 0],
             y=scatter_points[:, 1],
             mode="markers",
-            marker=dict(color="gray", size=4, opacity=0.3),
+            marker={"color": "gray", "size": 4, "opacity": 0.3},
             showlegend=False,
             text=[f"Obs {i}" for i in range(len(scatter_points))],
             hovertemplate="%{text}<br>x: %{x:.4g}<br>y: %{y:.4g}<extra></extra>",
@@ -247,7 +247,7 @@ def _marginal_plotly(
             x=[mean[0]],
             y=[mean[1]],
             mode="markers",
-            marker=dict(color=color, size=8),
+            marker={"color": color, "size": 8},
             showlegend=sigma is None,
             name=label,
             legendgroup=label,
@@ -264,7 +264,7 @@ def _marginal_plotly(
                 x=ex,
                 y=ey,
                 mode="lines",
-                line=dict(color=color, width=1.5),
+                line={"color": color, "width": 1.5},
                 showlegend=True,
                 name=label,
                 legendgroup=label,
@@ -282,7 +282,7 @@ def _marginal_plotly(
                         x=xv,
                         y=xd,
                         mode="lines",
-                        line=dict(color=color, width=1.5),
+                        line={"color": color, "width": 1.5},
                         showlegend=False,
                         name=f"{label} X marginal",
                         legendgroup=label,
@@ -298,7 +298,7 @@ def _marginal_plotly(
                         x=yd,
                         y=yv,
                         mode="lines",
-                        line=dict(color=color, width=1.5),
+                        line={"color": color, "width": 1.5},
                         showlegend=False,
                         name=f"{label} Y marginal",
                         legendgroup=label,
@@ -325,7 +325,7 @@ def _marginal_plotly(
     fig.update_layout(
         width=width,
         height=height,
-        margin=dict(l=60, r=20, t=20, b=60),
+        margin={"l": 60, "r": 20, "t": 20, "b": 60},
     )
     return fig
 

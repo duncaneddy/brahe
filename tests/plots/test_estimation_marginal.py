@@ -4,18 +4,16 @@ import matplotlib
 
 matplotlib.use("Agg")
 
-import numpy as np
-import pytest
 import matplotlib.pyplot as plt
+import numpy as np
 import plotly.graph_objects as go
+import pytest
 
 import brahe as bh
-
 from brahe.plots.estimation_marginal import (
-    plot_estimator_marginal_from_arrays,
     plot_estimator_marginal,
+    plot_estimator_marginal_from_arrays,
 )
-
 
 # =============================================================================
 # Fixtures

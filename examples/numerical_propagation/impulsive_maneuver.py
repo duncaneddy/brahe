@@ -7,6 +7,7 @@ Demonstrates a two-burn orbit transfer from LEO to higher orbit.
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data

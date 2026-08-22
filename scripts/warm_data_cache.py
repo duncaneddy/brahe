@@ -40,7 +40,7 @@ import time
 from pathlib import Path
 
 import brahe as bh
-import brahe.datasets as datasets
+from brahe import datasets
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MANIFEST_PATH = REPO_ROOT / ".github" / "brahe-data-manifest.txt"

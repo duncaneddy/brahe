@@ -1,13 +1,13 @@
 """Tests for SpaceTrack CLI commands (top-level brahe spacetrack)"""
 
 import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-from typer.testing import CliRunner
 from rich.console import Console
+from typer.testing import CliRunner
 
-from brahe.cli.spacetrack import app, _get_client, _apply_common_options
+from brahe.cli.spacetrack import _apply_common_options, _get_client, app
 
 runner = CliRunner()
 
@@ -81,20 +81,22 @@ def test_get_client_missing_env():
     """_get_client with no env vars raises Exit and mentions SPACETRACK_USER."""
     from typer import Exit as ClickExit
 
-    console = Console(file=open(os.devnull, "w"))
-    with patch.dict(os.environ, {}, clear=True):
-        with pytest.raises(ClickExit):
+    with open(os.devnull, "w") as devnull:
+        console = Console(file=devnull)
+        with patch.dict(os.environ, {}, clear=True), pytest.raises(ClickExit):
             _get_client(console)
 
 
 @patch("brahe.cli.spacetrack.bh.SpaceTrackClient")
 def test_get_client_success(mock_client_cls):
     """_get_client with env vars set creates client with correct credentials."""
-    console = Console(file=open(os.devnull, "w"))
-    with patch.dict(
-        os.environ, {"SPACETRACK_USER": "user@test.com", "SPACETRACK_PASS": "s3cret"}
-    ):
-        client = _get_client(console)
+    with open(os.devnull, "w") as devnull:
+        console = Console(file=devnull)
+        with patch.dict(
+            os.environ,
+            {"SPACETRACK_USER": "user@test.com", "SPACETRACK_PASS": "s3cret"},
+        ):
+            client = _get_client(console)
     mock_client_cls.assert_called_once_with("user@test.com", "s3cret")
     assert client is mock_client_cls.return_value
 

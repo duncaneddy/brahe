@@ -10,9 +10,11 @@ Shows historical observed values and future predicted values from the CSSI space
 import os
 import pathlib
 import sys
-import plotly.graph_objects as go
-import brahe as bh
+
 import numpy as np
+import plotly.graph_objects as go
+
+import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
@@ -95,7 +97,7 @@ def create_figure(theme):
             x=days_observed,
             y=f107_observed,
             mode="lines",
-            line=dict(color=colors["primary"], width=1),
+            line={"color": colors["primary"], "width": 1},
             name="Observed",
             showlegend=True,
             text=hover_observed,
@@ -109,7 +111,7 @@ def create_figure(theme):
             x=days_daily_predicted,
             y=f107_daily_predicted,
             mode="lines",
-            line=dict(color=colors["error"], width=1, dash="dash"),
+            line={"color": colors["error"], "width": 1, "dash": "dash"},
             name="Daily Predicted",
             showlegend=True,
             text=hover_daily_predicted,
@@ -123,7 +125,7 @@ def create_figure(theme):
             x=days_monthly_predicted,
             y=f107_monthly_predicted,
             mode="lines",
-            line=dict(color=colors["secondary"], width=1, dash="dot"),
+            line={"color": colors["secondary"], "width": 1, "dash": "dot"},
             name="Monthly Predicted",
             showlegend=True,
             text=hover_monthly_predicted,

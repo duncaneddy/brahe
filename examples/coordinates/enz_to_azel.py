@@ -5,8 +5,9 @@
 Convert ENZ (East-North-Zenith) position to azimuth-elevation-range coordinates
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

@@ -5,8 +5,9 @@
 Memory management with maximum size eviction policy
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

@@ -5,8 +5,9 @@
 Build an OEM message from scratch and write it to KVN format.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 from brahe.ccsds import OEM
 
 bh.initialize_eop()

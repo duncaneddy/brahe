@@ -8,7 +8,9 @@ uncertainty patches, showing EKF convergence from a perturbed initial state.
 import os
 import pathlib
 import sys
+
 import numpy as np
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme

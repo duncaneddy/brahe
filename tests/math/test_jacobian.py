@@ -5,6 +5,7 @@ Tests numerical and analytical Jacobian providers for dynamic-sized systems.
 """
 
 import numpy as np
+
 import brahe as bh
 
 

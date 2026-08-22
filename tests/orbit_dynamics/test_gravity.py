@@ -2,8 +2,9 @@
 Tests for gravity acceleration functions.
 """
 
-import pytest
 import numpy as np
+import pytest
+
 import brahe as bh
 
 
@@ -301,7 +302,7 @@ class TestSphericalHarmonicGravity:
         model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
 
         # Request degree beyond model limits
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             model.get(100, 0)
 
     def test_gravity_model_compute_spherical_harmonics(self):
@@ -342,7 +343,7 @@ class TestSphericalHarmonicGravity:
         r_body = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
 
         # Request degree beyond model limits
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             model.compute_spherical_harmonics(r_body, 100, 50)
 
     def test_gravity_model_compute_invalid_m_max(self):
@@ -352,7 +353,7 @@ class TestSphericalHarmonicGravity:
         r_body = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
 
         # Request m_max > n_max (invalid)
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             model.compute_spherical_harmonics(r_body, 10, 20)
 
     def test_accel_gravity_spherical_harmonics(self):
@@ -660,7 +661,7 @@ class TestSphericalHarmonicGravity:
         # JGM3 loads with an Unknown tide system.
         jgm = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
         assert jgm.tide_system == bh.GravityModelTideSystem.Unknown
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             bh.set_global_gravity_model_to_tide_system(
                 jgm, bh.GravityModelTideSystem.TideFree
             )
@@ -695,9 +696,7 @@ class TestSphericalHarmonicGravity:
         assert (
             bh.GravityModelCoefficients.Clenshaw == bh.GravityModelCoefficients.Clenshaw
         )
-        assert not (
-            bh.GravityModelCoefficients.Clenshaw == bh.GravityModelCoefficients.Both
-        )
+        assert bh.GravityModelCoefficients.Clenshaw != bh.GravityModelCoefficients.Both
         assert "Clenshaw" in repr(bh.GravityModelCoefficients.Clenshaw)
 
 

@@ -23,6 +23,7 @@ Example:
 """
 
 import sys
+
 from loguru import logger
 
 # Remove default handler to prevent duplicate logs
@@ -103,4 +104,4 @@ def setup_cli_logging(verbose: bool = False, debug: bool = False) -> None:
     configure(level=level)
 
 
-__all__ = ["configure", "setup_cli_logging", "logger"]
+__all__ = ["configure", "logger", "setup_cli_logging"]

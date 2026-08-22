@@ -11,10 +11,12 @@ This advanced example demonstrates how to:
 import os
 import pathlib
 import sys
-import brahe as bh
-import numpy as np
-import matplotlib.pyplot as plt
+
 import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
+import numpy as np
+
+import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))

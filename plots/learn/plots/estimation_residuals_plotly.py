@@ -10,7 +10,9 @@ gravity, creating dynamics model mismatch that separates the two.
 import os
 import pathlib
 import sys
+
 import numpy as np
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme

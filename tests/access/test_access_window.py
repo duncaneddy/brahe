@@ -9,6 +9,7 @@ Tests for the AccessWindow class to verify:
 """
 
 import numpy as np
+
 import brahe as bh
 
 

@@ -24,7 +24,6 @@ import json
 import subprocess
 from itertools import combinations
 from pathlib import Path
-from typing import Optional
 
 import typer
 
@@ -58,8 +57,8 @@ BASELINE_LANGUAGE = "java"
 
 @app.command("list")
 def list_tasks(
-    module: Optional[str] = typer.Option(None, help="Filter by module"),
-    language: Optional[str] = typer.Option(None, help="Filter by language support"),
+    module: str | None = typer.Option(None, help="Filter by module"),
+    language: str | None = typer.Option(None, help="Filter by language support"),
 ):
     """List available benchmark tasks."""
     tasks = filter_tasks(module=module, language=language)
@@ -68,12 +67,12 @@ def list_tasks(
 
 @app.command()
 def run(
-    module: Optional[str] = typer.Option(None, help="Filter by module"),
-    task: Optional[str] = typer.Option(None, help="Run specific task by name"),
-    language: Optional[str] = typer.Option(None, help="Run only this language"),
+    module: str | None = typer.Option(None, help="Filter by module"),
+    task: str | None = typer.Option(None, help="Run specific task by name"),
+    language: str | None = typer.Option(None, help="Run only this language"),
     iterations: int = typer.Option(DEFAULT_ITERATIONS, help="Number of iterations"),
     seed: int = typer.Option(DEFAULT_SEED, help="Random seed for parameter generation"),
-    output: Optional[Path] = typer.Option(None, help="Output directory for results"),
+    output: Path | None = typer.Option(None, help="Output directory for results"),
 ):
     """Run comparative performance benchmarks (timing only).
 
@@ -128,11 +127,11 @@ def run(
 
         # Compute accuracy comparisons with java as reference when available
         if BASELINE_LANGUAGE in task_results:
-            for lang in task_results:
+            for lang, lang_result in task_results.items():
                 if lang != BASELINE_LANGUAGE:
                     comparison = t.compare_results(
                         task_results[BASELINE_LANGUAGE].results,
-                        task_results[lang].results,
+                        lang_result.results,
                         BASELINE_LANGUAGE,
                         lang,
                     )
@@ -163,7 +162,7 @@ def run(
 
 @app.command()
 def plot(
-    results_file: Optional[Path] = typer.Option(
+    results_file: Path | None = typer.Option(
         None, help="Specific results file to plot"
     ),
 ):
@@ -186,12 +185,12 @@ def plot(
 
 @app.command("perf")
 def perf(
-    module: Optional[str] = typer.Option(None, help="Filter by module"),
-    task: Optional[str] = typer.Option(None, help="Run specific task by name"),
-    language: Optional[str] = typer.Option(None, help="Run only this language"),
+    module: str | None = typer.Option(None, help="Filter by module"),
+    task: str | None = typer.Option(None, help="Run specific task by name"),
+    language: str | None = typer.Option(None, help="Run only this language"),
     iterations: int = typer.Option(DEFAULT_ITERATIONS, help="Number of iterations"),
     seed: int = typer.Option(DEFAULT_SEED, help="Random seed for parameter generation"),
-    output: Optional[Path] = typer.Option(None, help="Output directory for results"),
+    output: Path | None = typer.Option(None, help="Output directory for results"),
 ):
     """Alias for ``run``. Times each task across N iterations of one input."""
     run(
@@ -206,13 +205,13 @@ def perf(
 
 @app.command("accuracy")
 def accuracy_cmd(
-    module: Optional[str] = typer.Option(None, help="Filter by module"),
-    task: Optional[str] = typer.Option(None, help="Run specific task by name"),
+    module: str | None = typer.Option(None, help="Filter by module"),
+    task: str | None = typer.Option(None, help="Run specific task by name"),
     samples: int = typer.Option(
         100, help="Initial-condition samples per task (default 100)"
     ),
     seed: int = typer.Option(DEFAULT_SEED, help="Random seed for sample generation"),
-    output: Optional[Path] = typer.Option(None, help="Output directory for results"),
+    output: Path | None = typer.Option(None, help="Output directory for results"),
     quick: bool = typer.Option(
         False, help="Smoke mode: 5 samples per task regardless of --samples"
     ),
@@ -276,7 +275,7 @@ def _run_python(
     try:
         input_data = task.to_input_json(iterations, seed)
         return dispatch(input_data)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
         console.print(f"    [red]Error: {e}[/red]")
         return None
 
@@ -298,7 +297,7 @@ def _run_basilisk(
     try:
         input_data = task.to_input_json(iterations, seed)
         return dispatch(input_data)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
         console.print(f"    [red]Error: {e}[/red]")
         return None
 
@@ -388,7 +387,9 @@ def _ensure_java_home() -> None:
 
     # Quick check: does the current java resolve correctly?
     try:
-        r = subprocess.run(["java", "-version"], capture_output=True, timeout=5)
+        r = subprocess.run(
+            ["java", "-version"], capture_output=True, timeout=5, check=False
+        )
         if r.returncode == 0:
             return
     except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -432,6 +433,7 @@ def _run_subprocess(
             capture_output=True,
             text=True,
             timeout=task_timeout,
+            check=False,
         )
 
         if result.returncode == 2 and language == "gmat":

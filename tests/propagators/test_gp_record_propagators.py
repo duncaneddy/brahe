@@ -12,7 +12,6 @@ import pytest
 
 import brahe
 
-
 # ISS-like GP record in SpaceTrack format (all strings)
 ISS_GP_JSON_SPACETRACK = json.dumps(
     {

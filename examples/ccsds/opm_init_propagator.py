@@ -6,8 +6,9 @@ Initialize a NumericalOrbitPropagator from an OPM state vector — extract
 position, velocity, and epoch to create initial conditions for propagation.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 from brahe.ccsds import OPM
 
 bh.initialize_eop()

@@ -13,8 +13,9 @@ The sensitivity matrix Φ = ∂x/∂p evolves according to:
 This augmented state approach propagates [state, vec(Φ)] together.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 def dynamics_with_params(t, state, params):

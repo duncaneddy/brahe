@@ -10,8 +10,9 @@ integrating the perturbed trajectory. This is fundamental for orbit determinatio
 and covariance propagation.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Initialize EOP
 bh.initialize_eop()

@@ -203,7 +203,7 @@ print("\nExample validated successfully!")
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save themed figures
 light_path, dark_path = save_themed_html(

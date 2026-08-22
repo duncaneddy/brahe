@@ -6,6 +6,7 @@ This example demonstrates ways to initialize EOP from files using Brahe.
 """
 
 from pathlib import Path
+
 import brahe as bh
 
 # Method 1: Initialize from Caching EOP Provider -> Internally caches data to ~/.cache/brahe/eop

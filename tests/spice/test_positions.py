@@ -11,7 +11,7 @@ import brahe as bh
 def ensure_kernel():
     try:
         bh.load_spice_kernel("de440s")
-    except Exception as e:
+    except (bh.BraheError, OSError, RuntimeError) as e:
         pytest.skip(f"Could not initialize ephemeris: {e}")
 
 

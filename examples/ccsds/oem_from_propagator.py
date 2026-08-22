@@ -6,8 +6,9 @@ Generate an OEM from NumericalOrbitPropagator output — propagate a LEO orbit,
 extract the trajectory, and build an OEM message.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 from brahe.ccsds import OEM
 
 bh.initialize_eop()

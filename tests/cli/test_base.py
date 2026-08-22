@@ -1,4 +1,5 @@
 from typer.testing import CliRunner
+
 from brahe.cli.__main__ import app
 
 # Monkey patch the app to disable rich colors for testing

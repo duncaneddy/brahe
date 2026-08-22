@@ -7,24 +7,22 @@ supplemental GP data, SATCAT records, and listing satellite groups.
 
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional
+from typing import Annotated
 
 import typer
-from typing_extensions import Annotated
 from loguru import logger
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 import brahe as bh
-
 from brahe.cli._output import (
+    CELESTRAK_SATCAT_COLUMNS,
+    SATCAT_COLUMN_PRESETS,
     CLIOutputFormat,
     format_gp_records,
     format_satcat_records,
     parse_filters,
-    CELESTRAK_SATCAT_COLUMNS,
-    SATCAT_COLUMN_PRESETS,
 )
 
 
@@ -80,7 +78,7 @@ def _format_to_celestrak(content_format: str) -> "bh.celestrak.CelestrakOutputFo
 @app.command()
 def gp(
     group: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--group",
             "-g",
@@ -88,29 +86,29 @@ def gp(
         ),
     ] = None,
     name: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--name", "-n", help="Satellite name search pattern"),
     ] = None,
     catnr: Annotated[
-        Optional[int],
+        int | None,
         typer.Option("--catnr", "-c", help="NORAD catalog number"),
     ] = None,
     intdes: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--intdes", help="International designator (e.g., '1998-067A')"),
     ] = None,
     filter: Annotated[
-        Optional[List[str]],
+        list[str] | None,
         typer.Option(
             "--filter", "-f", help='Filter: "FIELD VALUE" (e.g., "INCLINATION >50")'
         ),
     ] = None,
     limit: Annotated[
-        Optional[int],
+        int | None,
         typer.Option("--limit", "-l", help="Maximum number of records to return"),
     ] = None,
     order_by: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--order-by",
             help="Field name to sort results by (e.g., INCLINATION, EPOCH)",
@@ -121,7 +119,7 @@ def gp(
         typer.Option("--descending", "--desc", help="Sort in descending order"),
     ] = False,
     columns: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--columns",
             help="Column preset or comma-separated list (minimal, default, all)",
@@ -132,7 +130,7 @@ def gp(
         typer.Option("--output-format", "-o", help="Output format"),
     ] = CLIOutputFormat.rich,
     output_file: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--output-file", help="Write output to file instead of stdout"),
     ] = None,
 ):
@@ -196,7 +194,7 @@ def gp(
             records = client.query(query)
         except Exception as e:
             console.print(f"[red]ERROR: {e}[/red]")
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from e
 
     format_gp_records(records, output_format, columns, output_file, console)
 
@@ -210,15 +208,15 @@ def sup_gp(
         ),
     ],
     filter: Annotated[
-        Optional[List[str]],
+        list[str] | None,
         typer.Option("--filter", "-f", help='Filter: "FIELD VALUE"'),
     ] = None,
     limit: Annotated[
-        Optional[int],
+        int | None,
         typer.Option("--limit", "-l", help="Maximum number of records"),
     ] = None,
     order_by: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--order-by", help="Field name to sort results by"),
     ] = None,
     descending: Annotated[
@@ -226,7 +224,7 @@ def sup_gp(
         typer.Option("--descending", "--desc", help="Sort in descending order"),
     ] = False,
     columns: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--columns", help="Column preset or comma-separated list"),
     ] = None,
     output_format: Annotated[
@@ -234,7 +232,7 @@ def sup_gp(
         typer.Option("--output-format", "-o", help="Output format"),
     ] = CLIOutputFormat.rich,
     output_file: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--output-file", help="Write output to file"),
     ] = None,
 ):
@@ -289,7 +287,7 @@ def sup_gp(
             records = client.query(query)
         except Exception as e:
             console.print(f"[red]ERROR: {e}[/red]")
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from e
 
     format_gp_records(records, output_format, columns, output_file, console)
 
@@ -297,23 +295,23 @@ def sup_gp(
 @app.command()
 def satcat(
     catnr: Annotated[
-        Optional[int],
+        int | None,
         typer.Option("--catnr", "-c", help="NORAD catalog number"),
     ] = None,
     active: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option("--active", help="Filter to active objects only"),
     ] = None,
     payloads: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option("--payloads", help="Filter to payloads only"),
     ] = None,
     on_orbit: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option("--on-orbit", help="Filter to on-orbit objects only"),
     ] = None,
     columns: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--columns", help="Column preset or comma-separated list"),
     ] = None,
     output_format: Annotated[
@@ -321,7 +319,7 @@ def satcat(
         typer.Option("--output-format", "-o", help="Output format"),
     ] = CLIOutputFormat.rich,
     output_file: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--output-file", help="Write output to file"),
     ] = None,
 ):
@@ -373,7 +371,7 @@ def satcat(
             records = client.query_satcat(query)
         except Exception as e:
             console.print(f"[red]ERROR: {e}[/red]")
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from e
 
     format_satcat_records(
         records,
@@ -494,6 +492,6 @@ def download(
             client.download(query, str(filepath.absolute()))
         except Exception as e:
             typer.echo(f"Error: {e}", err=True)
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from e
 
     typer.echo(f"Downloaded {group} satellites to {filepath}")

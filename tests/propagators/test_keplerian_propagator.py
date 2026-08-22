@@ -6,22 +6,23 @@ These tests mirror the Rust tests from src/orbits/keplerian_propagator.rs
 
 import numpy as np
 import pytest
+
 from brahe import (
+    AngleFormat,
+    BraheError,
     Epoch,
-    TimeSystem,
     KeplerianPropagator,
     OrbitFrame,
     OrbitRepresentation,
-    AngleFormat,
-    orbital_period,
+    TimeSystem,
     mean_motion,
-    state_koe_to_eci,
-    state_eci_to_koe,
-    state_eci_to_ecef,
+    orbital_period,
     state_ecef_to_eci,
-    state_itrf_to_gcrf,
+    state_eci_to_ecef,
+    state_eci_to_koe,
     state_eme2000_to_gcrf,
-    BraheError,
+    state_itrf_to_gcrf,
+    state_koe_to_eci,
 )
 
 # Test data constants
@@ -659,6 +660,7 @@ def test_keplerianpropagator_bci_bcbf_in_frame():
     state_itrf, state_in_frame converts from GCRF.
     Mirrors test_keplerian_propagator_bci_bcbf_in_frame."""
     import numpy as np
+
     from brahe import ReferenceFrame
 
     epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)

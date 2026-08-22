@@ -2,8 +2,9 @@
 Tests for solar radiation pressure acceleration.
 """
 
-import pytest
 import numpy as np
+import pytest
+
 import brahe as bh
 
 

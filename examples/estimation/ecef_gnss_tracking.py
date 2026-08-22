@@ -9,6 +9,7 @@ frame rotation internally, so GNSS receiver outputs can be used directly.
 """
 
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()

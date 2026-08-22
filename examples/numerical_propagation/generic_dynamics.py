@@ -7,6 +7,7 @@ Demonstrates propagating non-orbital systems (simple harmonic oscillator).
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data (needed for epoch operations)

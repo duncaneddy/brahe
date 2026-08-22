@@ -9,7 +9,6 @@ from benchmarks.gpu_comparison.config import REPO_ROOT, set_data_alignment_env
 from benchmarks.gpu_comparison.results import CellResult, SkipReason
 from benchmarks.gpu_comparison.tasks.base import BatchConfig, BatchTask
 
-
 RUST_MANIFEST = (
     REPO_ROOT
     / "benchmarks"
@@ -58,6 +57,7 @@ def run_rust_cell(
             capture_output=True,
             text=True,
             timeout=per_cell_budget_s + 30.0,
+            check=False,
         )
     except subprocess.TimeoutExpired:
         return CellResult.skipped(

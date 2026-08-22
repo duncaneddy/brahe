@@ -6,9 +6,11 @@
 Demonstrates different ways to initialize Euler angles.
 """
 
-import brahe as bh
-import numpy as np
 import math
+
+import numpy as np
+
+import brahe as bh
 
 # Initialize from individual angles with ZYX sequence (yaw-pitch-roll)
 # 45° yaw, 30° pitch, 15° roll

@@ -1,6 +1,7 @@
 from enum import Enum
+from typing import Annotated
+
 import typer
-from typing_extensions import Annotated
 from loguru import logger
 
 import brahe
@@ -32,7 +33,7 @@ def orbital_period(
         ),
     ],
     gm: Annotated[
-        str, typer.Option(help="The gravitational parameter of the central body")
+        str | None, typer.Option(help="The gravitational parameter of the central body")
     ] = None,
     units: Annotated[
         TimeUnit, typer.Option(help="The time units of the output")
@@ -79,7 +80,7 @@ def sma_from_period(
         TimeUnit, typer.Option(help="The time units of the input")
     ] = TimeUnit.seconds,
     gm: Annotated[
-        str, typer.Option(help="The gravitational parameter of the central body")
+        str | None, typer.Option(help="The gravitational parameter of the central body")
     ] = None,
     format_string: Annotated[
         str, typer.Option("--format", help="The format of the output")
@@ -122,7 +123,7 @@ def mean_motion(
         typer.Argument(help="The semi-major axis of the orbit (supports constants)"),
     ],
     gm: Annotated[
-        str, typer.Option(help="The gravitational parameter of the central body")
+        str | None, typer.Option(help="The gravitational parameter of the central body")
     ] = None,
     format_string: Annotated[
         str, typer.Option("--format", help="The format of the output")

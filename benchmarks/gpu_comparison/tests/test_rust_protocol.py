@@ -2,6 +2,8 @@
 
 Skipped if the `bench_gpu_rust` binary hasn't been built."""
 
+from typing import ClassVar
+
 import pytest
 
 from benchmarks.gpu_comparison.implementations.rust_backend import (
@@ -15,7 +17,9 @@ class _PingTask(BatchTask):
     name = "ping.identity"
     module = "ping"
     description = "echo task for protocol validation"
-    configs = [BatchConfig(name="brahe-rust-rayon", dtype="f64", backend="rust")]
+    configs: ClassVar[list[BatchConfig]] = [
+        BatchConfig(name="brahe-rust-rayon", dtype="f64", backend="rust")
+    ]
 
     def batch_sizes(self):
         return [1]
@@ -47,7 +51,9 @@ def test_unknown_task_returns_backend_error():
         name = "ping.unknown"
         module = "ping"
         description = ""
-        configs = [BatchConfig(name="brahe-rust-rayon", dtype="f64", backend="rust")]
+        configs: ClassVar[list[BatchConfig]] = [
+            BatchConfig(name="brahe-rust-rayon", dtype="f64", backend="rust")
+        ]
 
         def batch_sizes(self):
             return [1]

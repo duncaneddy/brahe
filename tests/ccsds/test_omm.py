@@ -1,6 +1,7 @@
 """Tests for CCSDS OMM parsing and mutation — parity with Rust tests."""
 
 import pytest
+
 import brahe as bh
 from brahe.ccsds import OMM
 

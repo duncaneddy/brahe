@@ -4,8 +4,9 @@ Tests for NRLMSISE-00 atmospheric density model.
 Tests mirror the Rust implementation in src/earth_models/nrlmsise00.rs
 """
 
-import pytest
 import numpy as np
+import pytest
+
 import brahe as bh
 
 

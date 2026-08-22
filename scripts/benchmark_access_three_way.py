@@ -397,6 +397,7 @@ def compute_brahe_rust_accesses(
             text=True,
             cwd=RUST_SCRIPT_PATH.parent,
             timeout=300,
+            check=False,
         )
     except subprocess.TimeoutExpired:
         print("ERROR: Rust script timed out")
@@ -575,14 +576,14 @@ def create_comparison_chart(
                 x=location_names,
                 y=[r.mean_time * 1000 for r in skyfield_results],
                 mode="markers",
-                marker=dict(color=colors["skyfield"], size=8),
-                error_y=dict(
-                    type="data",
-                    array=[r.std_time * 1000 for r in skyfield_results],
-                    visible=True,
-                    color=colors["skyfield"],
-                    thickness=1.5,
-                ),
+                marker={"color": colors["skyfield"], "size": 8},
+                error_y={
+                    "type": "data",
+                    "array": [r.std_time * 1000 for r in skyfield_results],
+                    "visible": True,
+                    "color": colors["skyfield"],
+                    "thickness": 1.5,
+                },
             )
         )
 
@@ -592,14 +593,14 @@ def create_comparison_chart(
                 x=location_names,
                 y=[r.mean_time * 1000 for r in brahe_py_results],
                 mode="markers",
-                marker=dict(color=colors["brahe_py"], size=8),
-                error_y=dict(
-                    type="data",
-                    array=[r.std_time * 1000 for r in brahe_py_results],
-                    visible=True,
-                    color=colors["brahe_py"],
-                    thickness=1.5,
-                ),
+                marker={"color": colors["brahe_py"], "size": 8},
+                error_y={
+                    "type": "data",
+                    "array": [r.std_time * 1000 for r in brahe_py_results],
+                    "visible": True,
+                    "color": colors["brahe_py"],
+                    "thickness": 1.5,
+                },
             )
         )
 
@@ -609,14 +610,14 @@ def create_comparison_chart(
                 x=location_names,
                 y=[r.mean_time * 1000 for r in brahe_rust_results],
                 mode="markers",
-                marker=dict(color=colors["brahe_rust"], size=8),
-                error_y=dict(
-                    type="data",
-                    array=[r.std_time * 1000 for r in brahe_rust_results],
-                    visible=True,
-                    color=colors["brahe_rust"],
-                    thickness=1.5,
-                ),
+                marker={"color": colors["brahe_rust"], "size": 8},
+                error_y={
+                    "type": "data",
+                    "array": [r.std_time * 1000 for r in brahe_rust_results],
+                    "visible": True,
+                    "color": colors["brahe_rust"],
+                    "thickness": 1.5,
+                },
             )
         )
 
@@ -629,7 +630,11 @@ def create_comparison_chart(
                     y=[brahe_py_parallel.per_location_mean_time * 1000]
                     * len(locations),
                     mode="lines",
-                    line=dict(color=colors["brahe_py_parallel"], width=2, dash="dash"),
+                    line={
+                        "color": colors["brahe_py_parallel"],
+                        "width": 2,
+                        "dash": "dash",
+                    },
                 )
             )
 
@@ -641,9 +646,11 @@ def create_comparison_chart(
                     y=[brahe_rust_parallel.per_location_mean_time * 1000]
                     * len(locations),
                     mode="lines",
-                    line=dict(
-                        color=colors["brahe_rust_parallel"], width=2, dash="dash"
-                    ),
+                    line={
+                        "color": colors["brahe_rust_parallel"],
+                        "width": 2,
+                        "dash": "dash",
+                    },
                 )
             )
     else:
@@ -653,11 +660,11 @@ def create_comparison_chart(
                 name="Skyfield",
                 x=location_names,
                 y=[r.mean_time * 1000 for r in skyfield_results],
-                error_y=dict(
-                    type="data",
-                    array=[r.std_time * 1000 for r in skyfield_results],
-                    visible=True,
-                ),
+                error_y={
+                    "type": "data",
+                    "array": [r.std_time * 1000 for r in skyfield_results],
+                    "visible": True,
+                },
                 marker_color=colors["skyfield"],
             )
         )
@@ -667,11 +674,11 @@ def create_comparison_chart(
                 name="Brahe-Python (serial)",
                 x=location_names,
                 y=[r.mean_time * 1000 for r in brahe_py_results],
-                error_y=dict(
-                    type="data",
-                    array=[r.std_time * 1000 for r in brahe_py_results],
-                    visible=True,
-                ),
+                error_y={
+                    "type": "data",
+                    "array": [r.std_time * 1000 for r in brahe_py_results],
+                    "visible": True,
+                },
                 marker_color=colors["brahe_py"],
             )
         )
@@ -681,11 +688,11 @@ def create_comparison_chart(
                 name="Brahe-Rust (serial)",
                 x=location_names,
                 y=[r.mean_time * 1000 for r in brahe_rust_results],
-                error_y=dict(
-                    type="data",
-                    array=[r.std_time * 1000 for r in brahe_rust_results],
-                    visible=True,
-                ),
+                error_y={
+                    "type": "data",
+                    "array": [r.std_time * 1000 for r in brahe_rust_results],
+                    "visible": True,
+                },
                 marker_color=colors["brahe_rust"],
             )
         )
@@ -697,11 +704,11 @@ def create_comparison_chart(
                     name="Brahe-Python (parallel)",
                     x=["Parallel (per-loc avg)"],
                     y=[brahe_py_parallel.per_location_mean_time * 1000],
-                    error_y=dict(
-                        type="data",
-                        array=[brahe_py_parallel.per_location_std_time * 1000],
-                        visible=True,
-                    ),
+                    error_y={
+                        "type": "data",
+                        "array": [brahe_py_parallel.per_location_std_time * 1000],
+                        "visible": True,
+                    },
                     marker_color=colors["brahe_py_parallel"],
                 )
             )
@@ -712,11 +719,11 @@ def create_comparison_chart(
                     name="Brahe-Rust (parallel)",
                     x=["Parallel (per-loc avg)"],
                     y=[brahe_rust_parallel.per_location_mean_time * 1000],
-                    error_y=dict(
-                        type="data",
-                        array=[brahe_rust_parallel.per_location_std_time * 1000],
-                        visible=True,
-                    ),
+                    error_y={
+                        "type": "data",
+                        "array": [brahe_rust_parallel.per_location_std_time * 1000],
+                        "visible": True,
+                    },
                     marker_color=colors["brahe_rust_parallel"],
                 )
             )
@@ -731,7 +738,7 @@ def create_comparison_chart(
         title=title,
         xaxis_title="Location",
         yaxis_title="Execution Time (ms)",
-        legend=dict(x=0.01, y=0.99, bgcolor="rgba(255, 255, 255, 0.8)"),
+        legend={"x": 0.01, "y": 0.99, "bgcolor": "rgba(255, 255, 255, 0.8)"},
         template="plotly_white",
     )
 

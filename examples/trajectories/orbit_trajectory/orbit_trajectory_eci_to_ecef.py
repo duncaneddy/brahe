@@ -5,8 +5,9 @@
 Convert trajectory from ECI to ECEF frame
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

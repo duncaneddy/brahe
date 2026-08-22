@@ -3,6 +3,7 @@ Tests comparing behavior of different adaptive integrators on same problems.
 """
 
 import numpy as np
+
 import brahe as bh
 
 

@@ -10,7 +10,6 @@ from typer.testing import CliRunner
 
 from brahe.cli.datasets import app
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -81,7 +80,7 @@ def test_cli_list_single_body_failure_exits_nonzero(tmp_path, monkeypatch):
     # neither a cache file to fall back to nor a network to fetch from.
     monkeypatch.setenv("BRAHE_CACHE", str(tmp_path))
     # Force the in-process icgem module to fail by monkeypatching the lookup.
-    import brahe.datasets as datasets
+    from brahe import datasets
 
     def boom(_body):
         raise RuntimeError("simulated ICGEM lookup failure")
@@ -104,7 +103,7 @@ def test_cli_refresh_body_all_dispatches_to_all_indexes(tmp_path, monkeypatch):
     they expected both indexes refreshed.
     """
     monkeypatch.setenv("BRAHE_CACHE", str(tmp_path))
-    import brahe.datasets as datasets
+    from brahe import datasets
 
     calls: dict[str, list] = {"refresh_index": [], "refresh_all_indexes": []}
 
@@ -135,7 +134,7 @@ def test_cli_list_body_all_tolerates_per_body_failure(tmp_path, monkeypatch):
     not raised — the multi-body listing still succeeds for the bodies that work.
     """
     monkeypatch.setenv("BRAHE_CACHE", str(tmp_path))
-    import brahe.datasets as datasets
+    from brahe import datasets
 
     real_list = datasets.icgem.list_models
 

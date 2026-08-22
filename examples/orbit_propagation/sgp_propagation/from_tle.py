@@ -5,8 +5,9 @@
 Initialize SGPPropagator from 2-line TLE data
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()  # Required for accurate frame transformations
 

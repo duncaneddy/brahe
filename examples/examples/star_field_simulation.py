@@ -176,56 +176,59 @@ def sensor_frame_angles(star_unit_vectors, boresight, up_reference):
 def animation_controls(n_frames):
     """Shared Play/Pause buttons + scrub slider for the animated figures."""
     updatemenus = [
-        dict(
-            type="buttons",
-            showactive=False,
-            x=0.05,
-            y=0.02,
-            xanchor="left",
-            yanchor="bottom",
-            buttons=[
-                dict(
-                    label="Play",
-                    method="animate",
-                    args=[
+        {
+            "type": "buttons",
+            "showactive": False,
+            "x": 0.05,
+            "y": 0.02,
+            "xanchor": "left",
+            "yanchor": "bottom",
+            "buttons": [
+                {
+                    "label": "Play",
+                    "method": "animate",
+                    "args": [
                         None,
-                        dict(
-                            frame=dict(duration=40, redraw=True),
-                            fromcurrent=True,
-                            transition=dict(duration=0),
-                        ),
+                        {
+                            "frame": {"duration": 40, "redraw": True},
+                            "fromcurrent": True,
+                            "transition": {"duration": 0},
+                        },
                     ],
-                ),
-                dict(
-                    label="Pause",
-                    method="animate",
-                    args=[
+                },
+                {
+                    "label": "Pause",
+                    "method": "animate",
+                    "args": [
                         [None],
-                        dict(frame=dict(duration=0, redraw=False), mode="immediate"),
+                        {
+                            "frame": {"duration": 0, "redraw": False},
+                            "mode": "immediate",
+                        },
                     ],
-                ),
+                },
             ],
-        )
+        }
     ]
     sliders = [
-        dict(
-            active=0,
-            x=0.15,
-            len=0.85,
-            currentvalue=dict(visible=False),
-            ticklen=0,
-            steps=[
-                dict(
-                    label="",
-                    method="animate",
-                    args=[
+        {
+            "active": 0,
+            "x": 0.15,
+            "len": 0.85,
+            "currentvalue": {"visible": False},
+            "ticklen": 0,
+            "steps": [
+                {
+                    "label": "",
+                    "method": "animate",
+                    "args": [
                         [str(k)],
-                        dict(frame=dict(duration=0, redraw=True), mode="immediate"),
+                        {"frame": {"duration": 0, "redraw": True}, "mode": "immediate"},
                     ],
-                )
+                }
                 for k in range(n_frames)
             ],
-        )
+        }
     ]
     return updatemenus, sliders
 
@@ -272,7 +275,7 @@ def create_figure(theme):
             y=positions_km[:, 1],
             z=positions_km[:, 2],
             mode="lines",
-            line=dict(color=colors["primary"], width=3),
+            line={"color": colors["primary"], "width": 3},
             name="Orbit",
             hoverinfo="skip",
         )
@@ -285,7 +288,7 @@ def create_figure(theme):
             y=[positions_km[0, 1]],
             z=[positions_km[0, 2]],
             mode="markers",
-            marker=dict(size=5, color=colors["secondary"]),
+            marker={"size": 5, "color": colors["secondary"]},
             name="Satellite",
             hoverinfo="skip",
         )
@@ -325,10 +328,10 @@ def create_figure(theme):
             y=star_positions_km[frame0_idx, 1],
             z=star_positions_km[frame0_idx, 2],
             mode="markers",
-            marker=dict(
-                size=marker_sizes(star_vmags[frame0_idx]),
-                color=star_color,
-            ),
+            marker={
+                "size": marker_sizes(star_vmags[frame0_idx]),
+                "color": star_color,
+            },
             text=[star_names[i] for i in frame0_idx],
             hovertemplate="%{text}<extra></extra>",
             name="Visible Stars",
@@ -369,7 +372,7 @@ def create_figure(theme):
                         x=star_positions_km[idx, 0],
                         y=star_positions_km[idx, 1],
                         z=star_positions_km[idx, 2],
-                        marker=dict(size=marker_sizes(star_vmags[idx])),
+                        marker={"size": marker_sizes(star_vmags[idx])},
                         text=[star_names[i] for i in idx],
                     ),
                 ],
@@ -381,15 +384,15 @@ def create_figure(theme):
     axis_range = [-1.05 * star_shell_radius_km, 1.05 * star_shell_radius_km]
     fig.update_layout(
         title="Star-Field Sensor Simulation (SSO, One Orbital Period)",
-        scene=dict(
+        scene={
             # Hide the axes, ticks, labels, and grid panes so the stars sit on
             # a clean solid background rather than the default light-grey cube
-            xaxis=dict(visible=False, range=axis_range),
-            yaxis=dict(visible=False, range=axis_range),
-            zaxis=dict(visible=False, range=axis_range),
-            aspectmode="cube",
-            camera=dict(eye=dict(x=1.4, y=1.4, z=0.9)),
-        ),
+            "xaxis": {"visible": False, "range": axis_range},
+            "yaxis": {"visible": False, "range": axis_range},
+            "zaxis": {"visible": False, "range": axis_range},
+            "aspectmode": "cube",
+            "camera": {"eye": {"x": 1.4, "y": 1.4, "z": 0.9}},
+        },
         updatemenus=updatemenus,
         sliders=sliders,
     )
@@ -418,7 +421,7 @@ def create_sensor_view_figure(theme):
             x=HALF_ANGLE_DEG * np.cos(boundary_theta),
             y=HALF_ANGLE_DEG * np.sin(boundary_theta),
             mode="lines",
-            line=dict(color=colors["accent"], width=2, dash="dot"),
+            line={"color": colors["accent"], "width": 2, "dash": "dot"},
             name=f"Field of View ({HALF_ANGLE_DEG:.0f}°)",
             hoverinfo="skip",
         )
@@ -443,10 +446,10 @@ def create_sensor_view_figure(theme):
             y=y0,
             ids=[str(i) for i in frame0_idx],
             mode="markers",
-            marker=dict(
-                size=marker_sizes(star_vmags[frame0_idx]),
-                color=star_color,
-            ),
+            marker={
+                "size": marker_sizes(star_vmags[frame0_idx]),
+                "color": star_color,
+            },
             text=[star_names[i] for i in frame0_idx],
             hovertemplate="%{text}<extra></extra>",
             name="Visible Stars",
@@ -469,7 +472,7 @@ def create_sensor_view_figure(theme):
                         x=x_k,
                         y=y_k,
                         ids=[str(i) for i in idx],
-                        marker=dict(size=marker_sizes(star_vmags[idx])),
+                        marker={"size": marker_sizes(star_vmags[idx])},
                         text=[star_names[i] for i in idx],
                     )
                 ],
@@ -481,16 +484,18 @@ def create_sensor_view_figure(theme):
     axis_range = [-1.05 * HALF_ANGLE_DEG, 1.05 * HALF_ANGLE_DEG]
     fig.update_layout(
         title="Star-Field Sensor View (SSO, One Orbital Period)",
-        xaxis=dict(
-            title="Cross-Boresight Offset (deg)", range=axis_range, zeroline=False
-        ),
-        yaxis=dict(
-            title="Elevation-Like Offset (deg)",
-            range=axis_range,
-            zeroline=False,
-            scaleanchor="x",
-            scaleratio=1,
-        ),
+        xaxis={
+            "title": "Cross-Boresight Offset (deg)",
+            "range": axis_range,
+            "zeroline": False,
+        },
+        yaxis={
+            "title": "Elevation-Like Offset (deg)",
+            "range": axis_range,
+            "zeroline": False,
+            "scaleanchor": "x",
+            "scaleratio": 1,
+        },
         updatemenus=updatemenus,
         sliders=sliders,
     )
@@ -503,7 +508,7 @@ def create_sensor_view_figure(theme):
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import get_theme_colors, save_themed_html  # noqa: E402
+from brahe_theme import get_theme_colors, save_themed_html
 
 light_path, dark_path = save_themed_html(
     create_figure, OUTDIR / SCRIPT_NAME, auto_play=True

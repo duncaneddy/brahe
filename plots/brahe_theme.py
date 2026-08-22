@@ -7,7 +7,6 @@ Provides consistent light and dark theme styling that matches the Material for M
 import plotly.graph_objects as go
 import plotly.io as pio
 
-
 # Theme color definitions
 LIGHT_THEME = {
     "primary": "#003e7e",  # CNES blue — Orekit
@@ -70,14 +69,14 @@ def apply_brahe_theme(fig, theme="light", show_grid=True):
     fig.update_layout(
         paper_bgcolor=colors["bg_color"],
         plot_bgcolor=colors["bg_color"],
-        font=dict(color=colors["font_color"]),
-        legend=dict(font=dict(color=colors["font_color"]), bgcolor="rgba(0,0,0,0)"),
+        font={"color": colors["font_color"]},
+        legend={"font": {"color": colors["font_color"]}, "bgcolor": "rgba(0,0,0,0)"},
     )
 
     # Update x-axis styling
     fig.update_xaxes(
-        title_font=dict(color=colors["font_color"]),
-        tickfont=dict(color=colors["font_color"]),
+        title_font={"color": colors["font_color"]},
+        tickfont={"color": colors["font_color"]},
         showgrid=show_grid,
         gridwidth=1,
         gridcolor=colors["grid_color"],
@@ -89,8 +88,8 @@ def apply_brahe_theme(fig, theme="light", show_grid=True):
 
     # Update y-axis styling
     fig.update_yaxes(
-        title_font=dict(color=colors["font_color"]),
-        tickfont=dict(color=colors["font_color"]),
+        title_font={"color": colors["font_color"]},
+        tickfont={"color": colors["font_color"]},
         showgrid=show_grid,
         gridwidth=1,
         gridcolor=colors["grid_color"],

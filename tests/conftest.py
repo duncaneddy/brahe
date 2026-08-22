@@ -1,12 +1,13 @@
 import os
 import pathlib
 import shutil
-import pytest
-import numpy as np
-import brahe
 
 # Configure matplotlib to use non-GUI backend for testing
 import matplotlib
+import numpy as np
+import pytest
+
+import brahe
 
 matplotlib.use("Agg")
 
@@ -55,8 +56,8 @@ def naif_cache_setup(de440s_kernel_filepath):
     This avoids hitting NAIF servers during tests by pre-populating the cache
     with the test asset.
     """
-    import shutil
     import os
+    import shutil
 
     # Construct NAIF cache directory path
     # (mirrors brahe::utils::cache::get_naif_cache_dir())

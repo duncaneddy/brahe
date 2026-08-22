@@ -1,9 +1,11 @@
 """Tests for CachingEOPProvider Python bindings."""
 
-import pytest
-import tempfile
 import os
+import tempfile
 import time
+
+import pytest
+
 import brahe
 
 
@@ -226,7 +228,9 @@ def test_caching_provider_eop_data_retrieval(iau2000_standard_filepath):
 
         # Test get_eop
         # NOTE: Actual order is (pm_x, pm_y, ut1_utc, dx, dy, lod) despite docstring
-        pm_x_eop, pm_y_eop, ut1_utc_eop, dx_eop, dy_eop, lod_eop = provider.get_eop(mjd)
+        pm_x_eop, pm_y_eop, ut1_utc_eop, _dx_eop, _dy_eop, _lod_eop = provider.get_eop(
+            mjd
+        )
         assert ut1_utc_eop == -0.1079939
         assert pm_x_eop > 0.0
         assert pm_y_eop > 0.0
@@ -304,7 +308,7 @@ def test_caching_provider_unknown_type_error():
     with tempfile.TemporaryDirectory() as tmpdir:
         dest_path = os.path.join(tmpdir, "test_eop_unknown.txt")
 
-        with pytest.raises(Exception):
+        with pytest.raises(brahe.BraheError):
             brahe.CachingEOPProvider(
                 eop_type="Unknown",
                 max_age_seconds=100 * 365 * 86400,

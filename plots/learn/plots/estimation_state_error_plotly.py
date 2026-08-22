@@ -8,7 +8,9 @@ Plots the estimation error (estimated minus truth) for each state component with
 import os
 import pathlib
 import sys
+
 import numpy as np
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme

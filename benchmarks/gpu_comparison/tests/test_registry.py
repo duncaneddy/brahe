@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import pytest
 
 from benchmarks.gpu_comparison.registry import filter_tasks, list_tasks, register
@@ -8,7 +10,9 @@ class _CoordTask(BatchTask):
     name = "coordinates.foo"
     module = "coordinates"
     description = "stub"
-    configs = [BatchConfig(name="brahe-rust-rayon", dtype="f64", backend="rust")]
+    configs: ClassVar[list[BatchConfig]] = [
+        BatchConfig(name="brahe-rust-rayon", dtype="f64", backend="rust")
+    ]
 
     def batch_sizes(self):
         return [1]
@@ -21,7 +25,9 @@ class _TimeTask(BatchTask):
     name = "time.bar"
     module = "time"
     description = "stub"
-    configs = [BatchConfig(name="brahe-rust-rayon", dtype="f64", backend="rust")]
+    configs: ClassVar[list[BatchConfig]] = [
+        BatchConfig(name="brahe-rust-rayon", dtype="f64", backend="rust")
+    ]
 
     def batch_sizes(self):
         return [1]
@@ -64,7 +70,7 @@ def test_filter_by_backend():
         name = "x.y"
         module = "x"
         description = "stub"
-        configs = [
+        configs: ClassVar[list[BatchConfig]] = [
             BatchConfig(name="astrojax-gpu", dtype="f32", backend="astrojax-gpu")
         ]
 

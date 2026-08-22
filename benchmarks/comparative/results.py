@@ -15,10 +15,10 @@ Two output families:
 import json
 import statistics
 import uuid
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
 
 
 @dataclass
@@ -243,4 +243,4 @@ class BenchmarkRun:
         ]
         if not candidates:
             return None
-        return cls.load(sorted(candidates, reverse=True)[0])
+        return cls.load(max(candidates))

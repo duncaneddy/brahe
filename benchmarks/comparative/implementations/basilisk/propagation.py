@@ -16,7 +16,6 @@ brahe/Orekit trajectories which record post-step states for k=1..n_steps.
 import math
 
 import numpy as np
-
 from Basilisk.simulation import spacecraft
 from Basilisk.utilities import (
     SimulationBaseClass,

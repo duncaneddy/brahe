@@ -3,6 +3,7 @@ Tests for threading utilities.
 """
 
 import pytest
+
 import brahe as bh
 
 

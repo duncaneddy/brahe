@@ -8,8 +8,9 @@ This example demonstrates RKN1210's capability for very tight tolerances
 on a highly elliptical orbit.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Initialize EOP data
 bh.initialize_eop()

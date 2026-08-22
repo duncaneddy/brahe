@@ -16,10 +16,10 @@ epc = bh.Epoch(2024, 6, 15, 14, 30, 45.123456789, 0.0)
 print(f"Default: {epc}")
 
 # Explicit string conversion
-print(f"String: {str(epc)}")
+print(f"String: {epc!s}")
 
 # Debug representation
-print(f"Debug: {repr(epc)}")
+print(f"Debug: {epc!r}")
 
 # Get string in a different time system
 print(f"TT: {epc.to_string_as_time_system(bh.TimeSystem.TT)}")

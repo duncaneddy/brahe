@@ -24,7 +24,7 @@ values should always reproduce bit-for-bit at f64 precision).
 
 from pathlib import Path
 
-from mpmath import mp, mpf, sqrt, cos, sin, atan2
+from mpmath import atan2, cos, mp, mpf, sin, sqrt
 
 mp.dps = 40
 
@@ -121,7 +121,7 @@ def acceleration(pos, n_max, m_max, gm, radius, cnm, snm):
     qn = [q**n for n in range(n_max + 1)]
 
     pbar_sectoral = mpf(1)
-    for m in range(0, min(m_max, n_max) + 1):
+    for m in range(min(m_max, n_max) + 1):
         col, pbar_sectoral = legendre_column(m, n_max, t, u, pbar_sectoral)
         cml, sml = cos(m * lam), sin(m * lam)
         for n in range(m, n_max + 1):

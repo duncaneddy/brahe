@@ -8,6 +8,7 @@ using the plotly backend for interactive visualization.
 import os
 import pathlib
 import sys
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme

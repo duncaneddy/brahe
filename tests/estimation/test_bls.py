@@ -82,7 +82,7 @@ class TestBatchLeastSquares:
         assert "BatchLeastSquares" in r
 
     def test_convergence_normal_equations(self, bls_setup):
-        bls, epoch, true_state, initial_state, observations = bls_setup
+        bls, _epoch, true_state, initial_state, observations = bls_setup
         bls.solve(observations)
 
         assert bls.converged()
@@ -318,7 +318,7 @@ class TestBatchLeastSquaresBuilder:
 
     def test_builder_equivalence(self, bls_setup):
         """Builder-constructed BLS should behave identically to the flat constructor."""
-        _, epoch, true_state, initial_state, observations = bls_setup
+        _, epoch, _true_state, initial_state, observations = bls_setup
         p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
 
         via_builder = (

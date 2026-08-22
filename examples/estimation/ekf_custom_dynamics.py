@@ -9,6 +9,7 @@ to the EKF constructor, replacing the standard force model.
 """
 
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()

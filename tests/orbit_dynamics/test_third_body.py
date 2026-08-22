@@ -4,8 +4,9 @@ Tests for orbit dynamics third-body acceleration functions.
 This module tests both analytical and DE-based third-body acceleration calculations.
 """
 
-import pytest
 import numpy as np
+import pytest
+
 import brahe as bh
 
 

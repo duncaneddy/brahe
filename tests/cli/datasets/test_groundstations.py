@@ -1,6 +1,7 @@
 """Tests for groundstation CLI commands"""
 
 from typer.testing import CliRunner
+
 from brahe.cli.datasets.groundstations import app
 
 runner = CliRunner()

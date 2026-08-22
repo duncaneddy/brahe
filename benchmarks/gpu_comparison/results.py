@@ -10,10 +10,9 @@ from __future__ import annotations
 import enum
 import json
 import statistics
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Optional
-
+from typing import Any
 
 SCHEMA_VERSION = "1"
 
@@ -46,9 +45,9 @@ class SystemInfo:
     python_version: str
     rust_version: str
     brahe_version: str
-    brahe_git_sha: Optional[str]
+    brahe_git_sha: str | None
     astrojax_version: str
-    astrojax_git_sha: Optional[str]
+    astrojax_git_sha: str | None
     jax_version: str
     gpus: list[GPUInfo]
     rayon_threads: int
@@ -72,19 +71,19 @@ class CellResult:
     status: str  # "ok" | "skipped"
 
     # ok-only fields
-    iterations: Optional[int] = None
-    times_seconds: Optional[list[float]] = None
-    mean_time_s: Optional[float] = None
-    p50_time_s: Optional[float] = None
-    p99_time_s: Optional[float] = None
-    throughput_ops_per_sec: Optional[float] = None
-    speedup_vs_baseline: Optional[float] = None
+    iterations: int | None = None
+    times_seconds: list[float] | None = None
+    mean_time_s: float | None = None
+    p50_time_s: float | None = None
+    p99_time_s: float | None = None
+    throughput_ops_per_sec: float | None = None
+    speedup_vs_baseline: float | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     # skipped-only fields
-    skip_reason: Optional[str] = None
-    projected_time_s: Optional[float] = None
-    error_message: Optional[str] = None
+    skip_reason: str | None = None
+    projected_time_s: float | None = None
+    error_message: str | None = None
 
     @classmethod
     def ok_cell(
@@ -96,7 +95,7 @@ class CellResult:
         batch_size: int,
         times: list[float],
         metadata: dict[str, Any],
-    ) -> "CellResult":
+    ) -> CellResult:
         mean = statistics.fmean(times)
         sorted_times = sorted(times)
         return cls(
@@ -126,9 +125,9 @@ class CellResult:
         dtype: str,
         batch_size: int,
         reason: SkipReason,
-        projected_time_s: Optional[float] = None,
-        error_message: Optional[str] = None,
-    ) -> "CellResult":
+        projected_time_s: float | None = None,
+        error_message: str | None = None,
+    ) -> CellResult:
         return cls(
             task=task,
             config=config,

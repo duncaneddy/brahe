@@ -237,8 +237,7 @@ impl DAFFile {
 
         // Convert the whole file to native-endian f64 words once.
         let mut words = Vec::with_capacity(bytes.len() / 8);
-        for chunk in bytes.chunks_exact(8) {
-            let b: [u8; 8] = chunk.try_into().unwrap();
+        for &b in bytes.as_chunks::<8>().0 {
             words.push(if is_big_endian {
                 f64::from_be_bytes(b)
             } else {

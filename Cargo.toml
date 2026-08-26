@@ -1,15 +1,18 @@
 [workspace]
 members = ["crates/brahe-py"]
 
-# Single source of truth for the release version. Workspace members inherit via
-# `version.workspace = true` so `brahe-py` (the Python extension) stays in sync
-# with the root `brahe` crate.
+# Single source of truth for the release version and minimum supported Rust
+# version. Workspace members inherit via `version.workspace = true` and
+# `rust-version.workspace = true` so `brahe-py` (the Python extension) stays in
+# sync with the root `brahe` crate.
 [workspace.package]
 version = "1.7.0"
+rust-version = "1.95"
 
 [package]
 name = "brahe"
 version.workspace = true
+rust-version.workspace = true
 authors = ["Duncan Eddy <duncan.eddy@gmail.com>"]
 edition = "2024"
 description = "Brahe is a modern satellite dynamics library for research and engineering applications designed to be easy-to-learn, high-performance, and quick-to-deploy. The north-star of the development is enabling users to solve meaningful problems and answer questions quickly, easily, and correctly."
@@ -59,12 +62,12 @@ base64 = "0.23"
 sha2 = "0.11"
 quick-xml = { version = "0.41", features = ["serialize"] }
 sgp4 = "2.4"
-uuid = { version = "1.24.0", features = ["v4", "v7", "serde"] }
+uuid = { version = "1.25.0", features = ["v4", "v7", "serde"] }
 rayon = "1.12"
 num_cpus = "1.17"
 dirs = "6"
 polars = { version = "0.55", default-features = false, features = ["lazy"] }
-lru = "0.18.1"
+lru = "0.18.2"
 rand = "0.9"
 # Pinned to the rand-0.9-compatible line. rand_distr 0.6 requires rand 0.10,
 # but polars and rv (transitive) hold the tree on rand 0.9 / rand_distr 0.5, so

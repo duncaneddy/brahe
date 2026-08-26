@@ -5,9 +5,10 @@ This script demonstrates how to create an elevation vs time plot using the matpl
 Shows satellite elevation angle during a ground station pass.
 """
 
-import brahe as bh
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
+import brahe as bh
 
 # Initialize EOP data
 bh.initialize_eop()

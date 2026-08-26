@@ -7,6 +7,7 @@ Demonstrates using additional_dynamics for mass state and control_input for thru
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data

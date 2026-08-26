@@ -9,7 +9,6 @@ import pytest
 
 import brahe as bh
 
-
 # ISS TLE from sgp_propagator tests
 ISS_LINE1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
 ISS_LINE2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
@@ -199,7 +198,7 @@ class TestPolygonTessellation:
 
         if len(tiles) > 1:
             # All tiles from the same direction should share a group_id
-            group_ids = set(t.properties["tile_group_id"] for t in tiles)
+            group_ids = {t.properties["tile_group_id"] for t in tiles}
             # With ascending only, should be 1 group
             assert len(group_ids) >= 1
 

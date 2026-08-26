@@ -330,7 +330,7 @@ fig.add_trace(
         x=times_hours,
         y=alt_100w,
         mode="lines",
-        line=dict(color=color_100w, width=2),
+        line={"color": color_100w, "width": 2},
         name="100W (5.7 mN)",
     ),
     row=1,
@@ -341,7 +341,7 @@ fig.add_trace(
         x=times_hours,
         y=alt_300w,
         mode="lines",
-        line=dict(color=color_300w, width=2),
+        line={"color": color_300w, "width": 2},
         name="300W (19 mN)",
     ),
     row=1,
@@ -357,7 +357,7 @@ fig.add_trace(
         x=times_hours,
         y=fuel_100w,
         mode="lines",
-        line=dict(color=color_100w, width=2),
+        line={"color": color_100w, "width": 2},
         name="100W",
         showlegend=False,
     ),
@@ -369,7 +369,7 @@ fig.add_trace(
         x=times_hours,
         y=fuel_300w,
         mode="lines",
-        line=dict(color=color_300w, width=2),
+        line={"color": color_300w, "width": 2},
         name="300W",
         showlegend=False,
     ),
@@ -383,7 +383,7 @@ fig.add_trace(
         x=times_hours,
         y=dv_100w,
         mode="lines",
-        line=dict(color=color_100w, width=2),
+        line={"color": color_100w, "width": 2},
         name="100W",
         showlegend=False,
     ),
@@ -395,7 +395,7 @@ fig.add_trace(
         x=times_hours,
         y=dv_300w,
         mode="lines",
-        line=dict(color=color_300w, width=2),
+        line={"color": color_300w, "width": 2},
         name="300W",
         showlegend=False,
     ),
@@ -412,7 +412,7 @@ fig.add_trace(
         x=[p * 1e3 for p in prop_used_100w],  # Convert to grams
         y=alt_100w,
         mode="lines",
-        line=dict(color=color_100w, width=2),
+        line={"color": color_100w, "width": 2},
         name="100W",
         showlegend=False,
     ),
@@ -424,7 +424,7 @@ fig.add_trace(
         x=[p * 1e3 for p in prop_used_300w],  # Convert to grams
         y=alt_300w,
         mode="lines",
-        line=dict(color=color_300w, width=2),
+        line={"color": color_300w, "width": 2},
         name="300W",
         showlegend=False,
     ),
@@ -448,9 +448,9 @@ fig.update_yaxes(title_text="Altitude (km)", row=2, col=2)
 fig.update_layout(
     title="Orbion Aurora Performance Comparison: 100W vs 300W",
     showlegend=True,
-    legend=dict(x=0.02, y=0.98),
+    legend={"x": 0.02, "y": 0.98},
     height=800,
-    margin=dict(l=60, r=40, t=80, b=100),
+    margin={"l": 60, "r": 40, "t": 80, "b": 100},
 )
 # --8<-- [end:visualization_comparison]
 
@@ -468,7 +468,7 @@ print("\nExample validated successfully!")
 # ============================================================================
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 light_path, dark_path = save_themed_html(fig, OUTDIR / f"{SCRIPT_NAME}_comparison")
 print(f"\n✓ Generated {light_path}")

@@ -6,8 +6,9 @@
 Demonstrates converting Euler angles to other attitude representations.
 """
 
-import brahe as bh
 import math
+
+import brahe as bh
 
 # Create Euler angles (ZYX: 45° yaw, 30° pitch, 15° roll)
 ea = bh.EulerAngle(

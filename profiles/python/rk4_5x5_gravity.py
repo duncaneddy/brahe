@@ -7,14 +7,14 @@ isolating the cost of low-degree spherical harmonic evaluation.
 
 from __future__ import annotations
 
-import brahe as bh
-
 from _common import (
     default_leo_state,
     duration_from_env,
     run_until_elapsed,
     setup_providers,
 )
+
+import brahe as bh
 
 
 def main() -> None:

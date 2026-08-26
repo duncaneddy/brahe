@@ -7,9 +7,10 @@ rates and back, then apply the same site-relative subtract-then-convert
 pattern to a topocentric line-of-sight state.
 """
 
-import brahe as bh
 import numpy as np
 import pytest
+
+import brahe as bh
 
 # --8<-- [start:state_transforms]
 # RA/Dec/range and their rates: [ra, dec, range, ra_dot, dec_dot, range_dot]

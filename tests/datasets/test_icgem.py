@@ -8,8 +8,7 @@ from pathlib import Path
 import pytest
 
 import brahe
-import brahe.datasets as datasets
-
+from brahe import datasets
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -76,15 +75,15 @@ def test_gravity_model_type_icgem_equality_distinguishes_body_and_name():
 
     # Same body + same name → equal.
     assert a == b
-    assert not (a != b)
+    assert a == b
 
     # Same body, different names → not equal.
     assert a != c
-    assert not (a == c)
+    assert a != c
 
     # Different body, different name → not equal.
     assert a != d
-    assert not (a == d)
+    assert a != d
 
     # ICGEMModel must not collapse to equality with non-ICGEM variants either.
     assert a != brahe.GravityModelType.JGM3

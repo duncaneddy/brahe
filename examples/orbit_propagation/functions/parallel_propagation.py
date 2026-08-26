@@ -9,9 +9,11 @@ multiple satellites to a target epoch in parallel, useful for constellation
 analysis and Monte Carlo simulations.
 """
 
-import brahe as bh
-import numpy as np
 import time
+
+import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

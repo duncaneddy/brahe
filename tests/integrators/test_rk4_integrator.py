@@ -3,6 +3,7 @@ Tests for RK4 (4th order Runge-Kutta) integrator Python bindings.
 """
 
 import numpy as np
+
 import brahe as bh
 
 
@@ -442,7 +443,7 @@ class TestRK4Integrator:
         assert new_state[0] > 0.0
 
         # Test zero step returns identity STM
-        new_state2, new_phi2, new_sens2 = integrator.step_with_varmat_sensmat(
+        _new_state2, new_phi2, _new_sens2 = integrator.step_with_varmat_sensmat(
             0.0, state, np.eye(1), np.zeros((1, 1)), params, 0.0
         )
         np.testing.assert_allclose(new_phi2, np.eye(1), atol=1e-12)

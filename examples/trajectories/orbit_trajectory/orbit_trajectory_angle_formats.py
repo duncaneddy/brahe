@@ -5,8 +5,9 @@
 Convert to Keplerian with different angle formats (radians vs degrees)
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

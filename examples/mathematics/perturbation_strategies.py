@@ -8,8 +8,9 @@ This example demonstrates how to choose appropriate step sizes for states
 with different magnitudes.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 # Define dynamics with mixed-scale state

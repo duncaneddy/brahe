@@ -5,6 +5,7 @@ Handles detection of available backends (matplotlib, plotly) and optional stylin
 """
 
 import importlib.util
+
 from loguru import logger
 
 
@@ -86,7 +87,7 @@ def apply_scienceplots_style(dark_mode=False):
             if not is_latex_available():
                 styles.append("no-latex")
             styles.append("ieee")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - optional scienceplots may fail to import in any way
             logger.debug(f"Failed to load scienceplots: {e}")
 
     if dark_mode:

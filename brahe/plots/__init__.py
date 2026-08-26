@@ -65,46 +65,82 @@ __all__ = list(_PLOT_EXPORTS.keys())
 if TYPE_CHECKING:
     from brahe.plots.access_geometry import (
         plot_access_elevation as plot_access_elevation,
+    )
+    from brahe.plots.access_geometry import (
         plot_access_elevation_azimuth as plot_access_elevation_azimuth,
+    )
+    from brahe.plots.access_geometry import (
         plot_access_polar as plot_access_polar,
     )
     from brahe.plots.estimation_marginal import (
         plot_estimator_marginal as plot_estimator_marginal,
+    )
+    from brahe.plots.estimation_marginal import (
         plot_estimator_marginal_from_arrays as plot_estimator_marginal_from_arrays,
     )
     from brahe.plots.estimation_residuals import (
         plot_measurement_residual as plot_measurement_residual,
+    )
+    from brahe.plots.estimation_residuals import (
         plot_measurement_residual_from_arrays as plot_measurement_residual_from_arrays,
+    )
+    from brahe.plots.estimation_residuals import (
         plot_measurement_residual_grid as plot_measurement_residual_grid,
+    )
+    from brahe.plots.estimation_residuals import (
         plot_measurement_residual_grid_from_arrays as plot_measurement_residual_grid_from_arrays,
+    )
+    from brahe.plots.estimation_residuals import (
         plot_measurement_residual_rms as plot_measurement_residual_rms,
+    )
+    from brahe.plots.estimation_residuals import (
         plot_measurement_residual_rms_from_arrays as plot_measurement_residual_rms_from_arrays,
     )
     from brahe.plots.estimation_state import (
         plot_estimator_state_error as plot_estimator_state_error,
+    )
+    from brahe.plots.estimation_state import (
         plot_estimator_state_error_from_arrays as plot_estimator_state_error_from_arrays,
+    )
+    from brahe.plots.estimation_state import (
         plot_estimator_state_error_grid as plot_estimator_state_error_grid,
+    )
+    from brahe.plots.estimation_state import (
         plot_estimator_state_error_grid_from_arrays as plot_estimator_state_error_grid_from_arrays,
+    )
+    from brahe.plots.estimation_state import (
         plot_estimator_state_value as plot_estimator_state_value,
+    )
+    from brahe.plots.estimation_state import (
         plot_estimator_state_value_from_arrays as plot_estimator_state_value_from_arrays,
+    )
+    from brahe.plots.estimation_state import (
         plot_estimator_state_value_grid as plot_estimator_state_value_grid,
+    )
+    from brahe.plots.estimation_state import (
         plot_estimator_state_value_grid_from_arrays as plot_estimator_state_value_grid_from_arrays,
     )
     from brahe.plots.gabbard import plot_gabbard_diagram as plot_gabbard_diagram
     from brahe.plots.groundtrack import (
         plot_groundtrack as plot_groundtrack,
+    )
+    from brahe.plots.groundtrack import (
         split_ground_track_at_antimeridian as split_ground_track_at_antimeridian,
+    )
+    from brahe.plots.synodic_3d import (
+        plot_earth_moon_rotating_3d as plot_earth_moon_rotating_3d,
+    )
+    from brahe.plots.synodic_3d import (
+        plot_synodic_3d as plot_synodic_3d,
     )
     from brahe.plots.trajectories import (
         plot_cartesian_trajectory as plot_cartesian_trajectory,
+    )
+    from brahe.plots.trajectories import (
         plot_keplerian_trajectory as plot_keplerian_trajectory,
     )
     from brahe.plots.trajectory_3d import (
         plot_trajectory_3d as plot_trajectory_3d,
-    )
-    from brahe.plots.synodic_3d import (
-        plot_earth_moon_rotating_3d as plot_earth_moon_rotating_3d,
-        plot_synodic_3d as plot_synodic_3d,
     )
 
 _INSTALL_HINT = (

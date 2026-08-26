@@ -4,9 +4,10 @@ Tests for ECI to Relative Orbital Elements (ROE) transformations.
 These tests mirror the Rust tests in src/relative_motion/eci_roe.rs
 """
 
-import brahe
 import numpy as np
 from pytest import approx
+
+import brahe
 
 
 def test_state_eci_to_roe_degrees(eop):

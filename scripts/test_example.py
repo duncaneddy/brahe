@@ -2,10 +2,8 @@
 """Test a specific example."""
 
 from pathlib import Path
-from typing import Optional
 
 import typer
-
 from _build_utils import (
     EXAMPLES_DIR,
     REPO_ROOT,
@@ -23,11 +21,11 @@ def main(
         ...,
         help="Example name (e.g., 'orbital_period', 'access/basic_workflow', 'orbital_period.py', or 'orbital_period.rs')",
     ),
-    lang: Optional[str] = typer.Option(
+    lang: str | None = typer.Option(
         None, "--lang", "-l", help="Language: rust, python, or both (default)"
     ),
     verbose: bool = typer.Option(True, "--verbose/--quiet", "-v/-q"),
-    timeout: Optional[int] = typer.Option(
+    timeout: int | None = typer.Option(
         None,
         "--timeout",
         "-t",

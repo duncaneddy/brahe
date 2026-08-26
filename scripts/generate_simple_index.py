@@ -14,8 +14,8 @@ import json
 import os
 import sys
 from pathlib import Path
-from urllib.request import Request, urlopen
 from urllib.error import HTTPError
+from urllib.request import Request, urlopen
 
 
 def fetch_release_assets(repo: str, tag: str = "latest") -> list[dict]:

@@ -200,7 +200,7 @@ def test_file_eop_provider_data_retrieval(iau2000_standard_filepath):
     # Test get_eop
     result = eop.get_eop(mjd)
     assert len(result) == 6
-    pm_x_eop, pm_y_eop, ut1_utc_eop, dx_eop, dy_eop, lod_eop = result
+    _pm_x_eop, _pm_y_eop, ut1_utc_eop, _dx_eop, _dy_eop, _lod_eop = result
     assert ut1_utc_eop == -0.1079939
 
 
@@ -214,21 +214,21 @@ def test_extrapolate_before_min_error(iau2000_standard_filepath):
     mjd_before_min = 40000.0  # Before mjd_min = 41684.0
 
     # Test get_ut1_utc raises error
-    with pytest.raises(Exception):
+    with pytest.raises(brahe.BraheError):
         eop.get_ut1_utc(mjd_before_min)
 
     # Test get_pm raises error
-    with pytest.raises(Exception):
+    with pytest.raises(brahe.BraheError):
         eop.get_pm(mjd_before_min)
 
     # Test get_dxdy raises error
-    with pytest.raises(Exception):
+    with pytest.raises(brahe.BraheError):
         eop.get_dxdy(mjd_before_min)
 
     # Test get_lod raises error
-    with pytest.raises(Exception):
+    with pytest.raises(brahe.BraheError):
         eop.get_lod(mjd_before_min)
 
     # Test get_eop raises error
-    with pytest.raises(Exception):
+    with pytest.raises(brahe.BraheError):
         eop.get_eop(mjd_before_min)

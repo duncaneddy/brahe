@@ -6,8 +6,6 @@ Python mirror of profiles/rust/src/bin/sgp4_trajectory.rs. Run via:
 
 from __future__ import annotations
 
-import brahe as bh
-
 from _common import (
     DEFAULT_ISS_TLE_LINE1,
     DEFAULT_ISS_TLE_LINE2,
@@ -15,6 +13,8 @@ from _common import (
     run_until_elapsed,
     setup_providers,
 )
+
+import brahe as bh
 
 
 def main() -> None:

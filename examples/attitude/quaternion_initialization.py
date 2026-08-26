@@ -7,9 +7,10 @@ Demonstrates different ways to initialize quaternions.
 """
 
 import math
-import brahe as bh
+
 import numpy as np
 
+import brahe as bh
 
 # Initialize from individual components (w, x, y, z)
 # Always scalar-first in constructor

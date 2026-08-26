@@ -5,8 +5,9 @@
 Convert satellite position from ECEF to SEZ (South-East-Zenith) coordinates relative to a ground station
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

@@ -7,6 +7,7 @@ Demonstrates detecting when a condition transitions between true and false.
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data

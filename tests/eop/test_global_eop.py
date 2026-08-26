@@ -1,6 +1,8 @@
-import pytest
-import sys
 import os
+import sys
+
+import pytest
+
 import brahe
 
 
@@ -183,8 +185,8 @@ def test_get_lod(iau2000_standard_filepath):
 
 def test_set_global_eop_from_caching_provider_with_file(iau2000_standard_filepath):
     """Test setting global EOP provider with CachingEOPProvider using explicit filepath."""
-    import tempfile
     import shutil
+    import tempfile
 
     with tempfile.TemporaryDirectory() as tmpdir:
         dest_path = os.path.join(tmpdir, "test_eop.txt")
@@ -216,8 +218,8 @@ def test_set_global_eop_from_caching_provider_with_set_global_eop_provider(
     iau2000_standard_filepath,
 ):
     """Test setting global EOP provider with CachingEOPProvider using generic set_global_eop_provider."""
-    import tempfile
     import shutil
+    import tempfile
 
     with tempfile.TemporaryDirectory() as tmpdir:
         dest_path = os.path.join(tmpdir, "test_eop.txt")

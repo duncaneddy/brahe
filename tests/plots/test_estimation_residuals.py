@@ -4,22 +4,20 @@ import matplotlib
 
 matplotlib.use("Agg")
 
-import numpy as np
-import pytest
 import matplotlib.pyplot as plt
+import numpy as np
 import plotly.graph_objects as go
+import pytest
 
 import brahe as bh
-
 from brahe.plots.estimation_residuals import (
-    plot_measurement_residual_from_arrays,
-    plot_measurement_residual_grid_from_arrays,
-    plot_measurement_residual_rms_from_arrays,
     plot_measurement_residual,
+    plot_measurement_residual_from_arrays,
     plot_measurement_residual_grid,
+    plot_measurement_residual_grid_from_arrays,
     plot_measurement_residual_rms,
+    plot_measurement_residual_rms_from_arrays,
 )
-
 
 # =============================================================================
 # Fixtures — array API

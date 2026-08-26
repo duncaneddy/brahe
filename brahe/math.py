@@ -19,25 +19,25 @@ Jacobian computation is essential for:
 """
 
 from brahe._brahe import (
+    AnalyticJacobian,
+    AnalyticSensitivity,
     # Jacobian enums
     DifferenceMethod,
-    PerturbationStrategy,
     # Jacobian providers
     NumericalJacobian,
-    AnalyticJacobian,
     # Sensitivity providers
     NumericalSensitivity,
-    AnalyticSensitivity,
+    PerturbationStrategy,
 )
 
 __all__ = [
+    "AnalyticJacobian",
+    "AnalyticSensitivity",
     # Jacobian enums
     "DifferenceMethod",
-    "PerturbationStrategy",
     # Jacobian providers
     "NumericalJacobian",
-    "AnalyticJacobian",
     # Sensitivity providers
     "NumericalSensitivity",
-    "AnalyticSensitivity",
+    "PerturbationStrategy",
 ]

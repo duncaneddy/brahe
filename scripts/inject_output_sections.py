@@ -13,7 +13,6 @@ parts of a larger file whose output belongs at a different location.
 
 import re
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -41,7 +40,7 @@ def example_path_to_output_path(example_rel: str) -> str:
     return f"./docs/outputs/{stripped}.txt"
 
 
-def is_line_number_offset(offset: Optional[str]) -> bool:
+def is_line_number_offset(offset: str | None) -> bool:
     """Check if an offset is a line number (digits) vs a named segment."""
     if offset is None:
         return True  # No offset means include whole file
@@ -243,7 +242,7 @@ def main(
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Show all files processed"
     ),
-    file: Optional[str] = typer.Option(
+    file: str | None = typer.Option(
         None, "--file", "-f", help="Process a single file (relative to docs/)"
     ),
 ):

@@ -29,12 +29,12 @@ import os
 import pathlib
 import time
 
-import brahe as bh
+import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 from shapely.geometry import Point, Polygon
 
-import cartopy.crs as ccrs
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -201,8 +201,8 @@ for window in windows:
     satellite_contacts[sat_name].append(window)
 
 # Sort each satellite's contacts by start time
-for sat_name in satellite_contacts:
-    satellite_contacts[sat_name].sort(key=lambda w: w.start.jd())
+for contacts in satellite_contacts.values():
+    contacts.sort(key=lambda w: w.start.jd())
 
 # Calculate latency for each AOI exit
 latencies = []

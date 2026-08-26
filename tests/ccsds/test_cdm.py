@@ -167,7 +167,7 @@ class TestCDMErrorCases:
 
     def test_missing_obj2_state(self):
         """CDM-missing-object2-state-vector.txt should fail."""
-        with pytest.raises(Exception):
+        with pytest.raises(bh.BraheError):
             CDM.from_file("test_assets/ccsds/cdm/CDM-missing-object2-state-vector.txt")
 
 

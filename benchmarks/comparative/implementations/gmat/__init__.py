@@ -9,17 +9,8 @@ the "GMAT not ready" skip message.
 See `docs/superpowers/specs/2026-05-19-gmat-benchmark-baseline-design.md`.
 """
 
-from benchmarks.comparative.results import TaskResult
-from benchmarks.comparative.implementations.gmat.time import (
-    epoch_creation,
-    utc_to_gps,
-    utc_to_tai,
-    utc_to_tt,
-    utc_to_ut1,
-)
-from benchmarks.comparative.implementations.gmat.orbits import (
-    cartesian_to_keplerian,
-    keplerian_to_cartesian,
+from benchmarks.comparative.implementations.gmat.access import (
+    sgp4_access,
 )
 from benchmarks.comparative.implementations.gmat.attitude import (
     euler_angle_to_quaternion,
@@ -27,36 +18,45 @@ from benchmarks.comparative.implementations.gmat.attitude import (
     quaternion_to_rotation_matrix,
     rotation_matrix_to_quaternion,
 )
-from benchmarks.comparative.implementations.gmat.frames import (
-    state_eci_to_ecef,
-    state_ecef_to_eci,
-)
 from benchmarks.comparative.implementations.gmat.coordinates import (
-    geodetic_to_ecef,
+    ecef_to_geocentric,
     ecef_to_geodetic,
     geocentric_to_ecef,
-    ecef_to_geocentric,
+    geodetic_to_ecef,
 )
 from benchmarks.comparative.implementations.gmat.force_model import (
     accel_point_mass_gravity,
     accel_spherical_harmonics_20,
     accel_spherical_harmonics_80,
-    accel_third_body_sun,
     accel_third_body_moon,
+    accel_third_body_sun,
+)
+from benchmarks.comparative.implementations.gmat.frames import (
+    state_ecef_to_eci,
+    state_eci_to_ecef,
+)
+from benchmarks.comparative.implementations.gmat.orbits import (
+    cartesian_to_keplerian,
+    keplerian_to_cartesian,
 )
 from benchmarks.comparative.implementations.gmat.propagation import (
     keplerian_single,
     keplerian_trajectory,
-    numerical_twobody,
     numerical_rk4_grav5x5,
     numerical_rk4_grav20x20_sun_moon,
     numerical_rk4_grav80x80_full,
+    numerical_twobody,
     sgp4_single,
     sgp4_trajectory,
 )
-from benchmarks.comparative.implementations.gmat.access import (
-    sgp4_access,
+from benchmarks.comparative.implementations.gmat.time import (
+    epoch_creation,
+    utc_to_gps,
+    utc_to_tai,
+    utc_to_tt,
+    utc_to_ut1,
 )
+from benchmarks.comparative.results import TaskResult
 
 _DISPATCH_TABLE: dict = {
     "time.epoch_creation": epoch_creation,

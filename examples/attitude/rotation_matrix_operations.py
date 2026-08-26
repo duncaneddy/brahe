@@ -6,8 +6,9 @@ Demonstrates rotation matrix operations including matrix multiplication
 and vector transformations.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Create two rotation matrices
 # 90° rotation about X-axis

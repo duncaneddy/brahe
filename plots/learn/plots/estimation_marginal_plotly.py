@@ -8,7 +8,9 @@ scatter overlay, showing the marginal distribution from a Batch Least Squares so
 import os
 import pathlib
 import sys
+
 import numpy as np
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme

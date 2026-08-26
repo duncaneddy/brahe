@@ -2,14 +2,15 @@
 CLI commands for groundstation datasets
 """
 
-from typing import Optional
+from typing import Annotated
+
 import typer
-from typing_extensions import Annotated
 from loguru import logger
 from rich.console import Console
 from rich.table import Table
-import brahe.datasets as datasets
 
+import brahe as bh
+from brahe import datasets
 
 app = typer.Typer()
 
@@ -55,7 +56,7 @@ def list_providers(
 
             bands_str = ", ".join(sorted(bands)) if bands else "N/A"
             provider_data.append((provider, station_count, bands_str))
-        except Exception:
+        except (bh.BraheError, OSError, ValueError, RuntimeError):
             # If provider fails to load, show with N/A
             provider_data.append((provider, "Error", "N/A"))
 
@@ -76,7 +77,7 @@ def list_providers(
 @app.command("list-stations")
 def list_stations(
     provider: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="Filter by provider (e.g., 'ksat', 'atlas', 'aws')"),
     ] = None,
     table: Annotated[
@@ -100,7 +101,7 @@ def list_stations(
             stations = datasets.groundstations.load_all()
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
     if not stations:
         typer.echo("No groundstations found.")

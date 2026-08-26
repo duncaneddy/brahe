@@ -5,9 +5,10 @@ Tests custom property computer implementations to ensure the Python protocol
 works correctly.
 """
 
-import pytest
-import brahe as bh
 import numpy as np
+import pytest
+
+import brahe as bh
 
 
 class DopplerComputer(bh.AccessPropertyComputer):

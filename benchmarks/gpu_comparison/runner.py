@@ -9,7 +9,6 @@ from __future__ import annotations
 import datetime as dt
 import time
 from pathlib import Path
-from typing import Optional
 
 from benchmarks.gpu_comparison.config import (
     RESULTS_DIR,
@@ -34,7 +33,6 @@ from benchmarks.gpu_comparison.results import (
 )
 from benchmarks.gpu_comparison.scheduler import schedule_ladder
 from benchmarks.gpu_comparison.tasks.base import BatchConfig, BatchTask
-
 
 BASELINE_CONFIG = "brahe-rust-rayon"
 
@@ -82,7 +80,7 @@ def run_one_task(
     iterations: int,
     seed: int,
     per_cell_budget_s: float,
-    configs_filter: Optional[list[str]],
+    configs_filter: list[str] | None,
     progress: bool = True,
 ) -> list[CellResult]:
     """Sweep every (config, batch_size) for one task."""
@@ -137,9 +135,9 @@ def run_one_task(
 
 def run_suite(
     *,
-    module: Optional[str] = None,
-    task_name: Optional[str] = None,
-    configs_filter: Optional[list[str]] = None,
+    module: str | None = None,
+    task_name: str | None = None,
+    configs_filter: list[str] | None = None,
     iterations: int = 10,
     seed: int = 42,
     per_cell_budget_s: float = 120.0,

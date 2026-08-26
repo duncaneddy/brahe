@@ -406,11 +406,11 @@ def create_comparison_chart(
             name="Brahe",
             x=location_names,
             y=[r.mean_time * 1000 for r in brahe_results],  # Convert to ms
-            error_y=dict(
-                type="data",
-                array=[r.std_time * 1000 for r in brahe_results],
-                visible=True,
-            ),
+            error_y={
+                "type": "data",
+                "array": [r.std_time * 1000 for r in brahe_results],
+                "visible": True,
+            },
             marker_color="rgb(55, 83, 109)",
         )
     )
@@ -421,11 +421,11 @@ def create_comparison_chart(
             name="Skyfield",
             x=location_names,
             y=[r.mean_time * 1000 for r in skyfield_results],  # Convert to ms
-            error_y=dict(
-                type="data",
-                array=[r.std_time * 1000 for r in skyfield_results],
-                visible=True,
-            ),
+            error_y={
+                "type": "data",
+                "array": [r.std_time * 1000 for r in skyfield_results],
+                "visible": True,
+            },
             marker_color="rgb(26, 118, 255)",
         )
     )
@@ -435,7 +435,7 @@ def create_comparison_chart(
         xaxis_title="Location",
         yaxis_title="Execution Time (ms)",
         barmode="group",
-        legend=dict(x=0.01, y=0.99, bgcolor="rgba(255, 255, 255, 0.8)"),
+        legend={"x": 0.01, "y": 0.99, "bgcolor": "rgba(255, 255, 255, 0.8)"},
         template="plotly_white",
     )
 

@@ -15,7 +15,6 @@ from benchmarks.gpu_comparison.implementations import astrojax_kernels
 from benchmarks.gpu_comparison.implementations.jax_utils import shard_across_devices
 from benchmarks.gpu_comparison.tasks.base import BatchConfig, BatchTask
 
-
 _ALL_CONFIGS = [
     BatchConfig(name="brahe-rust-rayon", dtype="f64", backend="rust"),
     BatchConfig(name="astrojax-cpu", dtype="f64", backend="astrojax-cpu"),

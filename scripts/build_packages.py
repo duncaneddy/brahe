@@ -6,7 +6,6 @@ import tempfile
 from pathlib import Path
 
 import typer
-
 from _build_utils import REPO_ROOT, console
 
 
@@ -39,6 +38,7 @@ def main(
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
+            check=False,
         )
 
         if result.returncode != 0:
@@ -86,7 +86,11 @@ def main(
                 build_args.append("--release")
 
             result = subprocess.run(
-                build_args, cwd=extracted_dirs[0], capture_output=True, text=True
+                build_args,
+                cwd=extracted_dirs[0],
+                capture_output=True,
+                text=True,
+                check=False,
             )
 
             if result.returncode != 0:
@@ -106,6 +110,7 @@ def main(
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
+            check=False,
         )
 
         if result.returncode != 0:
@@ -121,7 +126,11 @@ def main(
             wheel_args.append("--release")
 
         result = subprocess.run(
-            wheel_args, cwd=REPO_ROOT, capture_output=True, text=True
+            wheel_args,
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
         )
 
         if result.returncode != 0:
@@ -172,12 +181,13 @@ def main(
                     (i for i, line in enumerate(lines) if line.startswith("Summary:")),
                     None,
                 )
-                if summary_idx is not None and summary_idx + 1 < len(lines):
-                    if lines[summary_idx + 1].strip() == "":
-                        console.print(
-                            "[red]✗ Summary field appears to be multi-line[/red]"
-                        )
-                        raise typer.Exit(1)
+                if (
+                    summary_idx is not None
+                    and summary_idx + 1 < len(lines)
+                    and lines[summary_idx + 1].strip() == ""
+                ):
+                    console.print("[red]✗ Summary field appears to be multi-line[/red]")
+                    raise typer.Exit(1)
 
                 console.print("[green]✓ Summary field is properly formatted[/green]")
 
@@ -196,6 +206,7 @@ def main(
                 cwd=REPO_ROOT,
                 capture_output=True,
                 text=True,
+                check=False,
             )
 
             if result.returncode != 0:

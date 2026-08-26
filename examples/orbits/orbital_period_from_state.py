@@ -9,8 +9,9 @@ Cartesian state vector in ECI coordinates, which is useful when you have
 satellite state data but don't know the orbital elements.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

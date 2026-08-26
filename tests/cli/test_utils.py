@@ -3,6 +3,7 @@ Tests for brahe CLI utility functions and brahe.format_time_string.
 """
 
 import pytest
+
 import brahe as bh
 from brahe.cli.utils import parse_numeric_expression, set_cli_eop
 

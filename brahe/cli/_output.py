@@ -5,12 +5,12 @@ Provides column definitions, derived value computation, and multi-format renderi
 (Rich table, markdown table, JSON, OMM) used by both celestrak and spacetrack CLI modules.
 """
 
+import contextlib
 import json
 import math
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional
 
 import typer
 from rich.console import Console
@@ -128,10 +128,10 @@ CELESTRAK_SATCAT_COLUMNS = {
 
 
 def parse_columns(
-    columns: Optional[str],
+    columns: str | None,
     available: dict,
     presets: dict,
-) -> List[str]:
+) -> list[str]:
     """Parse column specification into a validated list of column keys.
 
     Args:
@@ -164,7 +164,7 @@ def parse_columns(
 
 def _current_epoch():
     """Get current time as a brahe Epoch."""
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     return bh.Epoch.from_datetime(
         now.year,
         now.month,
@@ -210,11 +210,9 @@ def compute_gp_row(record, current_epoch) -> dict:
     epoch_str = record.epoch or ""
     age_seconds = 0.0
     if epoch_str:
-        try:
+        with contextlib.suppress(Exception):
             ep = bh.Epoch.from_string(epoch_str)
             age_seconds = current_epoch - ep
-        except Exception:
-            pass
 
     return {
         "name": name,
@@ -237,7 +235,7 @@ def compute_gp_row(record, current_epoch) -> dict:
 
 
 def _build_rich_table(
-    rows: List[dict], column_list: List[str], columns_def: dict
+    rows: list[dict], column_list: list[str], columns_def: dict
 ) -> Table:
     """Build a Rich Table from row dicts and column definitions."""
     table = Table(show_header=True, header_style="bold magenta")
@@ -256,7 +254,7 @@ def _build_rich_table(
 
 
 def _build_markdown_table(
-    rows: List[dict], column_list: List[str], columns_def: dict
+    rows: list[dict], column_list: list[str], columns_def: dict
 ) -> str:
     """Build a markdown table string from row dicts and column definitions."""
     headers = [columns_def[col][0] for col in column_list]
@@ -281,8 +279,8 @@ def _build_markdown_table(
 def format_gp_records(
     records: list,
     output_format: CLIOutputFormat,
-    columns: Optional[str],
-    output_file: Optional[Path],
+    columns: str | None,
+    output_file: Path | None,
     console: Console,
 ):
     """Format and display/save GP records in the specified format.
@@ -315,7 +313,7 @@ def format_gp_records(
                 omm = record.to_omm()
                 omm_json = omm.to_json_string(bh.CCSDSJsonKeyCase.Lower)
                 omm_list.append(json.loads(omm_json))
-            except Exception as e:
+            except (bh.BraheError, ValueError, RuntimeError) as e:
                 console.print(
                     f"[yellow]Warning: Could not convert record to OMM: {e}[/yellow]"
                 )
@@ -362,11 +360,11 @@ def format_gp_records(
 def format_satcat_records(
     records: list,
     output_format: CLIOutputFormat,
-    columns: Optional[str],
-    output_file: Optional[Path],
+    columns: str | None,
+    output_file: Path | None,
     console: Console,
-    columns_def: dict = None,
-    presets: dict = None,
+    columns_def: dict | None = None,
+    presets: dict | None = None,
 ):
     """Format and display/save SATCAT records in the specified format.
 
@@ -438,7 +436,7 @@ def format_satcat_records(
     console.print(f"\n[dim]{len(records)} record(s)[/dim]")
 
 
-def parse_filters(filter_args: Optional[List[str]]) -> List[tuple]:
+def parse_filters(filter_args: list[str] | None) -> list[tuple]:
     """Parse --filter arguments into (field, value) tuples.
 
     Each filter string should be "FIELD VALUE", split on first whitespace.

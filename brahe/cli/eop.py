@@ -1,9 +1,11 @@
 from enum import Enum
 from pathlib import Path
+from typing import Annotated
+
 import typer
-from typing_extensions import Annotated
 from loguru import logger
 from rich.progress import Progress, SpinnerColumn, TextColumn
+
 import brahe
 
 
@@ -71,7 +73,8 @@ def get_utc_ut1(
         ProductSource, typer.Option(help="Source of EOP data")
     ] = ProductSource.default,
     filepath: Annotated[
-        Path, typer.Option(help="Filepath to EOP data. Only used if source is file")
+        Path | None,
+        typer.Option(help="Filepath to EOP data. Only used if source is file"),
     ] = None,
 ):
     # Set EOP Data
@@ -96,7 +99,8 @@ def get_polar_motion(
         ProductSource, typer.Option(help="Source of EOP data")
     ] = ProductSource.default,
     filepath: Annotated[
-        Path, typer.Option(help="Filepath to EOP data. Only used if source is file")
+        Path | None,
+        typer.Option(help="Filepath to EOP data. Only used if source is file"),
     ] = None,
 ):
     # Set EOP Data
@@ -122,7 +126,8 @@ def get_cip_offset(
         ProductSource, typer.Option(help="Source of EOP data")
     ] = ProductSource.default,
     filepath: Annotated[
-        Path, typer.Option(help="Filepath to EOP data. Only used if source is file")
+        Path | None,
+        typer.Option(help="Filepath to EOP data. Only used if source is file"),
     ] = None,
 ):
     # Set EOP Data
@@ -148,7 +153,8 @@ def get_lod(
         ProductSource, typer.Option(help="Source of EOP data")
     ] = ProductSource.default,
     filepath: Annotated[
-        Path, typer.Option(help="Filepath to EOP data. Only used if source is file")
+        Path | None,
+        typer.Option(help="Filepath to EOP data. Only used if source is file"),
     ] = None,
 ):
     # Set EOP Data

@@ -5,8 +5,9 @@
 Query KeplerianPropagator state at arbitrary epochs without building trajectory
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()  # Required for frame transformations
 

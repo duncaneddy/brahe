@@ -974,7 +974,7 @@ def sgp4_single(params: dict, iterations: int):
         prev = t
 
     propagate_lines = "\n".join(
-        "Propagate TLEProp(Sat) {Sat.ElapsedSecs = %.10f}" % dt for dt in deltas
+        f"Propagate TLEProp(Sat) {{Sat.ElapsedSecs = {dt:.10f}}}" for dt in deltas
     )
     n_states = len(offsets)
 
@@ -1036,7 +1036,9 @@ def sgp4_trajectory(params: dict, iterations: int):
     n_steps = int(params["n_steps"])
 
     elapsed_days = n_steps * step_size / 86400.0
-    propagate_lines = "Propagate TLEProp(Sat) {Sat.ElapsedDays = %.15f}" % elapsed_days
+    propagate_lines = (
+        f"Propagate TLEProp(Sat) {{Sat.ElapsedDays = {elapsed_days:.15f}}}"
+    )
 
     tmpdir = os.environ.get("TMPDIR", tempfile.gettempdir())
     tle_file = os.path.join(tmpdir, "gmat_sgp4_trajectory.tle")

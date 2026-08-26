@@ -10,6 +10,7 @@ Extended Kalman Filter, propagating through gaps between passes.
 """
 
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()

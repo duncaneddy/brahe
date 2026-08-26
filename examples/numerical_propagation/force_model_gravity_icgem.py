@@ -10,8 +10,9 @@ the packaged JGM3/GGM05S/EGM2008_120 constants. The .gfc file is downloaded
 into $BRAHE_CACHE/icgem/ on first use of the resulting GravityModel.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Initialize EOP data (required for any numerical propagation)
 bh.initialize_eop()

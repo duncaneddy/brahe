@@ -7,6 +7,7 @@ Demonstrates detecting when a spacecraft enters or exits Earth's shadow.
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP and space weather data (required for NRLMSISE-00 drag model)

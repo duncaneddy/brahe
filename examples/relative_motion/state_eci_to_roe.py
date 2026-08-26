@@ -5,8 +5,9 @@
 Convert chief and deputy satellite ECI states to Relative Orbital Elements (ROE)
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

@@ -10,8 +10,9 @@ NAIF frame class ID 31008 (MOON_PA_DE440). Downloads the PCK kernel on first
 run.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

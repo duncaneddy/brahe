@@ -5,8 +5,9 @@
 Convert chief satellite ECI state and ROE to deputy satellite ECI state
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

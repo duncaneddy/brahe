@@ -185,17 +185,17 @@ def _throughput_fig(task_name: str, cells: list[dict]):
                     y=ys,
                     mode="lines+markers",
                     name=cfg,
-                    line=dict(color=_config_color(cfg, colors), width=2),
-                    marker=dict(size=7),
+                    line={"color": _config_color(cfg, colors), "width": 2},
+                    marker={"size": 7},
                     hovertemplate="batch=%{x}<br>throughput=%{y:.3e} ops/s<extra></extra>",
                 )
             )
         fig.update_layout(
-            title=dict(text=task_name, x=0.5, xanchor="center"),
-            xaxis=dict(title="batch size", type="log"),
-            yaxis=dict(title="throughput (ops / s)", type="log"),
-            legend=dict(orientation="h", yanchor="bottom", y=-0.18),
-            margin=dict(l=70, r=30, t=50, b=80),
+            title={"text": task_name, "x": 0.5, "xanchor": "center"},
+            xaxis={"title": "batch size", "type": "log"},
+            yaxis={"title": "throughput (ops / s)", "type": "log"},
+            legend={"orientation": "h", "yanchor": "bottom", "y": -0.18},
+            margin={"l": 70, "r": 30, "t": 50, "b": 80},
             # Matches the docs CSS .plotly-embed iframe height (500px)
             height=500,
         )
@@ -228,24 +228,26 @@ def _peak_speedup_fig(by_task: dict[str, list[dict]]):
                     x=tasks,
                     y=peak[cfg],
                     name=cfg,
-                    marker=dict(color=_config_color(cfg, colors)),
+                    marker={"color": _config_color(cfg, colors)},
                     hovertemplate="%{x}<br>peak speedup=%{y:.2f}x<extra></extra>",
                 )
             )
         fig.update_layout(
-            title=dict(
-                text="Peak speedup vs brahe-rust-rayon", x=0.5, xanchor="center"
-            ),
+            title={
+                "text": "Peak speedup vs brahe-rust-rayon",
+                "x": 0.5,
+                "xanchor": "center",
+            },
             barmode="group",
-            xaxis=dict(title="task", tickangle=-25),
-            yaxis=dict(title="peak speedup (×)", type="log"),
-            legend=dict(orientation="h", yanchor="bottom", y=-0.30),
-            margin=dict(l=70, r=30, t=50, b=160),
+            xaxis={"title": "task", "tickangle": -25},
+            yaxis={"title": "peak speedup (×)", "type": "log"},
+            legend={"orientation": "h", "yanchor": "bottom", "y": -0.30},
+            margin={"l": 70, "r": 30, "t": 50, "b": 160},
             # Matches the docs CSS .plotly-embed.medium iframe height (600px)
             height=600,
         )
         # Parity reference line
-        fig.add_hline(y=1.0, line=dict(color=colors["line_color"], dash="dash"))
+        fig.add_hline(y=1.0, line={"color": colors["line_color"], "dash": "dash"})
         return fig
 
     return _make
@@ -269,7 +271,7 @@ def main() -> None:
         csv = _write_task_csv(task_name, cells)
         print(f"  wrote {csv}")
         safe = task_name.replace(".", "_")
-        light, dark = save_themed_html(
+        light, _dark = save_themed_html(
             _throughput_fig(task_name, cells),
             OUTDIR / f"fig_gpu_{safe}",
         )
@@ -277,7 +279,7 @@ def main() -> None:
 
     speedup_csv = _write_speedup_csv(by_task)
     print(f"  wrote {speedup_csv}")
-    light, dark = save_themed_html(
+    light, _dark = save_themed_html(
         _peak_speedup_fig(by_task),
         OUTDIR / "fig_gpu_peak_speedup",
     )

@@ -5,8 +5,9 @@
 Compute IGRF-14 magnetic field at a geodetic location
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Compute the IGRF magnetic field at 60 degrees latitude, 400 km altitude
 epc = bh.Epoch(2025, 1, 1, 0, 0, 0.0, time_system=bh.UTC)

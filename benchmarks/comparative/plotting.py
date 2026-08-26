@@ -89,7 +89,7 @@ def generate_performance_bar_chart(
         )
         return fig
 
-    light_path, dark_path = save_themed_html(make_fig, output_base)
+    light_path, _dark_path = save_themed_html(make_fig, output_base)
     return light_path
 
 
@@ -129,7 +129,7 @@ def generate_timing_box_plot(
         )
         return fig
 
-    light_path, dark_path = save_themed_html(make_fig, output_base)
+    light_path, _dark_path = save_themed_html(make_fig, output_base)
     return light_path
 
 

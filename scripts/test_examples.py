@@ -2,11 +2,8 @@
 """Test all documentation examples."""
 
 import os
-from typing import Optional
 
 import typer
-from rich.table import Table
-
 from _build_utils import (
     EXAMPLES_DIR,
     REPO_ROOT,
@@ -19,6 +16,7 @@ from _build_utils import (
     test_python_example,
     test_rust_example,
 )
+from rich.table import Table
 
 
 def main(
@@ -27,16 +25,16 @@ def main(
     slow: bool = typer.Option(False, "--slow", help="Include SLOW examples"),
     network: bool = typer.Option(False, "--network", help="Include NETWORK examples"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed output"),
-    lang: Optional[str] = typer.Option(
+    lang: str | None = typer.Option(
         None, "--lang", help="Filter by language: python/py or rust/rs"
     ),
-    timeout: Optional[int] = typer.Option(
+    timeout: int | None = typer.Option(
         None,
         "--timeout",
         "-t",
         help="Override timeout in seconds (default: Python=180s, Rust=300s)",
     ),
-    workers: Optional[int] = typer.Option(
+    workers: int | None = typer.Option(
         None,
         "--workers",
         "-w",

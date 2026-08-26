@@ -10,9 +10,12 @@ Tests the parallel access computation implementation by comparing:
 This script creates a realistic scenario with multiple satellites and locations.
 """
 
-import brahe as bh
-import numpy as np
+import sys
 import time
+
+import numpy as np
+
+import brahe as bh
 
 
 def create_test_scenario():
@@ -289,4 +292,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

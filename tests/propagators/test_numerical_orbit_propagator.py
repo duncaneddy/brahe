@@ -4,28 +4,29 @@ Tests for NumericalOrbitPropagator Python bindings
 These tests mirror the Rust tests from src/propagators/dnumerical_orbit_propagator.rs
 """
 
-import pytest
 import numpy as np
+import pytest
+
 from brahe import (
-    Epoch,
-    TimeSystem,
-    NumericalOrbitPropagator,
-    NumericalPropagationConfig,
-    ForceModelConfig,
-    IntegrationMethod,
-    AngleFormat,
-    state_koe_to_eci,
-    state_eci_to_koe,
+    GM_MOON,
     R_EARTH,
     R_MOON,
-    GM_MOON,
-    orbital_period,
-    GravityConfiguration,
+    AngleFormat,
     CentralBody,
+    Epoch,
+    ForceModelConfig,
+    GravityConfiguration,
+    IntegrationMethod,
+    NumericalOrbitPropagator,
+    NumericalPropagationConfig,
     OrbitFrame,
     ReferenceFrame,
+    TimeSystem,
+    orbital_period,
     periapsis_velocity,
     spk_state,
+    state_eci_to_koe,
+    state_koe_to_eci,
 )
 
 
@@ -854,7 +855,7 @@ def test_numericalorbitpropagator_event_detection_no_altitude_events():
 
 def test_numericalorbitpropagator_event_detection_callback_state_mutation():
     """Test event callback that modifies state (mirrors Rust test)"""
-    from brahe import TimeEvent, EventAction
+    from brahe import EventAction, TimeEvent
 
     epoch = create_test_epoch()
     state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
@@ -1020,7 +1021,7 @@ def test_numericalorbitpropagator_events_in_range():
 
 def test_numericalorbitpropagator_event_detection_clear_and_reset():
     """Test clear_events and reset_termination (mirrors Rust test)"""
-    from brahe import TimeEvent, EventAction
+    from brahe import EventAction, TimeEvent
 
     epoch = create_test_epoch()
     state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
@@ -1085,7 +1086,7 @@ def test_numericalorbitpropagator_events_by_name():
 
 def test_numericalorbitpropagator_value_event():
     """Test ValueEvent with custom function"""
-    from brahe import ValueEvent, EventDirection
+    from brahe import EventDirection, ValueEvent
 
     epoch = create_test_epoch()
     state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
@@ -1610,7 +1611,7 @@ def test_numericalorbitpropagator_event_backward_propagation():
 
 def test_numericalorbitpropagator_event_log_persistence():
     """Test event log persists across reset_termination (mirrors Rust test)"""
-    from brahe import TimeEvent, EventAction
+    from brahe import EventAction, TimeEvent
 
     epoch = create_test_epoch()
     state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
@@ -2919,7 +2920,7 @@ def test_numericalorbitpropagator_event_simultaneous_events():
 
 def test_numericalorbitpropagator_event_multiple_callbacks_same_step():
     """Test multiple callbacks in same step (mirrors Rust test)"""
-    from brahe import AltitudeEvent, EventDirection, EventAction, orbital_period
+    from brahe import AltitudeEvent, EventAction, EventDirection, orbital_period
 
     epoch = create_test_epoch()
 
@@ -3207,7 +3208,7 @@ def test_numericalorbitpropagator_eviction_policy_none():
 
 def test_numericalorbitpropagator_value_event_altitude():
     """Test ValueEvent for altitude value (mirrors Rust test)"""
-    from brahe import ValueEvent, EventDirection
+    from brahe import EventDirection, ValueEvent
 
     epoch = create_test_epoch()
     # Elliptical orbit that crosses target altitude
@@ -3241,7 +3242,7 @@ def test_numericalorbitpropagator_value_event_altitude():
 
 def test_numericalorbitpropagator_value_event_velocity():
     """Test ValueEvent for velocity value (mirrors Rust test)"""
-    from brahe import ValueEvent, EventDirection
+    from brahe import EventDirection, ValueEvent
 
     epoch = create_test_epoch()
     # Elliptical orbit
@@ -3469,7 +3470,7 @@ def test_numericalorbitpropagator_propagate_one_day():
 
 def test_numericalorbitpropagator_callback_state_modification():
     """Test callback can modify state (mirrors Rust test)"""
-    from brahe import TimeEvent, EventAction
+    from brahe import EventAction, TimeEvent
 
     epoch = create_test_epoch()
     state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
@@ -3500,7 +3501,7 @@ def test_numericalorbitpropagator_callback_state_modification():
 
 def test_numericalorbitpropagator_callback_stop_propagation():
     """Test callback can stop propagation (mirrors Rust test)"""
-    from brahe import TimeEvent, EventAction
+    from brahe import EventAction, TimeEvent
 
     epoch = create_test_epoch()
     state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
@@ -4239,7 +4240,7 @@ def test_numericalorbitpropagator_covariance_stored_in_trajectory():
 
 def test_numericalorbitpropagator_value_event_matches_altitude_event():
     """Test ValueEvent can replicate AltitudeEvent behavior (mirrors Rust test)"""
-    from brahe import ValueEvent, AltitudeEvent, EventDirection
+    from brahe import AltitudeEvent, EventDirection, ValueEvent
 
     epoch = create_test_epoch()
     # Use elliptical orbit that crosses target altitude
@@ -5375,7 +5376,7 @@ def test_numericalorbitpropagator_query_after_before():
 
 def test_numericalorbitpropagator_query_by_event_type():
     """Test EventQuery by_event_type() filter."""
-    from brahe import TimeEvent, EventType
+    from brahe import EventType, TimeEvent
 
     epoch = create_test_epoch()
     state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
@@ -5552,7 +5553,7 @@ def test_numericalorbitpropagator_event_callback_accuracy_at_different_times():
     time via the 'new propagator' method. This isolates numerical error from the
     physical effect of applying the burn at different times.
     """
-    from brahe import TimeEvent, EventAction
+    from brahe import EventAction, TimeEvent
 
     epoch = create_test_epoch()
 
@@ -5625,7 +5626,7 @@ def test_numericalorbitpropagator_event_callback_accuracy_at_different_times():
 
 def test_numericalorbitpropagator_event_callback_multi_impulse_accuracy():
     """Test that multiple TimeEvent impulses match chaining new propagators."""
-    from brahe import TimeEvent, EventAction
+    from brahe import EventAction, TimeEvent
 
     epoch = create_test_epoch()
 

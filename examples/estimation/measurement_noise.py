@@ -9,6 +9,7 @@ for measurement models.
 """
 
 import numpy as np
+
 import brahe as bh
 
 # --- Scalar sigma: same noise on all axes ---

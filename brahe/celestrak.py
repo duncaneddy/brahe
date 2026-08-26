@@ -39,27 +39,27 @@ Example:
 """
 
 from brahe._brahe import (
-    # Enums
-    CelestrakQueryType,
-    CelestrakOutputFormat,
-    SupGPSource,
-    # Query builder
-    CelestrakQuery,
     # Client
     CelestrakClient,
+    CelestrakOutputFormat,
+    # Query builder
+    CelestrakQuery,
+    # Enums
+    CelestrakQueryType,
     # Response types
     CelestrakSATCATRecord,
+    SupGPSource,
 )
 
 __all__ = [
-    # Enums
-    "CelestrakQueryType",
-    "CelestrakOutputFormat",
-    "SupGPSource",
-    # Query builder
-    "CelestrakQuery",
     # Client
     "CelestrakClient",
+    "CelestrakOutputFormat",
+    # Query builder
+    "CelestrakQuery",
+    # Enums
+    "CelestrakQueryType",
     # Response types
     "CelestrakSATCATRecord",
+    "SupGPSource",
 ]

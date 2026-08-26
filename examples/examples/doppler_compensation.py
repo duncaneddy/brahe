@@ -21,15 +21,17 @@ compensation required for maintaining stable communication links.
 
 # --8<-- [start:all]
 # --8<-- [start:preamble]
-import time
 import csv
 import os
 import pathlib
 import sys
-import brahe as bh
+import time
+
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -345,7 +347,7 @@ fig_doppler.add_trace(
         y=v_los_km_s,
         mode="lines",
         name="v_los",
-        line=dict(color="green", width=2),
+        line={"color": "green", "width": 2},
         hovertemplate="Time: %{x:.2f} min<br>v_los: %{y:.2f} km/s<extra></extra>",
     ),
     row=1,
@@ -359,7 +361,7 @@ fig_doppler.add_trace(
         y=doppler_s_band_khz,
         mode="lines",
         name="S-band (2.2 GHz)",
-        line=dict(color="steelblue", width=2),
+        line={"color": "steelblue", "width": 2},
         hovertemplate="Time: %{x:.2f} min<br>Doppler: %{y:.2f} kHz<extra></extra>",
     ),
     row=2,
@@ -373,7 +375,7 @@ fig_doppler.add_trace(
         y=doppler_x_band_khz,
         mode="lines",
         name="X-band (8.4 GHz)",
-        line=dict(color="coral", width=2),
+        line={"color": "coral", "width": 2},
         hovertemplate="Time: %{x:.2f} min<br>Doppler: %{y:.2f} kHz<extra></extra>",
     ),
     row=3,
@@ -423,7 +425,7 @@ print(f"Created Doppler visualization in {elapsed:.2f} seconds.")
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save the ground track figure as themed HTML
 light_path, dark_path = save_themed_html(

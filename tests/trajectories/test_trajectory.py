@@ -1,9 +1,10 @@
 """Tests for Trajectory in brahe - 1:1 parity with Rust tests"""
 
-import pytest
 import numpy as np
+import pytest
+
 import brahe
-from brahe import Epoch, Trajectory, InterpolationMethod
+from brahe import Epoch, InterpolationMethod, Trajectory
 
 
 def create_test_trajectory():
@@ -343,12 +344,12 @@ def test_trajectory_from_data_errors():
         ]
     )
 
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         Trajectory.from_data(epochs, states)
 
     empty_epochs = []
     empty_states = np.array([]).reshape(0, 3)  # Empty 2D array
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         Trajectory.from_data(empty_epochs, empty_states)
 
 
@@ -399,7 +400,7 @@ def test_trajectory_trajectory_add_dimension_mismatch():
     epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     state = np.array([7000e3, 0.0, 0.0])  # Dimension 3 instead of 6
 
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         trajectory.add(epoch, state)
 
 
@@ -576,7 +577,7 @@ def test_trajectory_trajectory_remove_out_of_bounds():
     """Rust: test_trajectory_trajectory_remove_out_of_bounds"""
     traj = create_test_trajectory()
 
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.remove(10)
 
 
@@ -609,7 +610,7 @@ def test_trajectory_trajectory_index_before_epoch():
 
     # Test finding index before t0 (should error - before all states)
     before_t0 = t0 + (-10.0)
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.index_before_epoch(before_t0)
 
     # Test finding index before t0+30s (should return index 0)
@@ -672,7 +673,7 @@ def test_trajectory_trajectory_index_after_epoch():
 
     # Test finding index after t0+150s (should error - after all states)
     t0_plus_150 = t0 + 150.0
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.index_after_epoch(t0_plus_150)
 
 
@@ -707,7 +708,7 @@ def test_trajectory_trajectory_state_before_epoch():
 
     # Test error case for epoch before all states
     before_t0 = t0 + (-10.0)
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.state_before_epoch(before_t0)
 
     # Test that exact matches return the correct state
@@ -747,7 +748,7 @@ def test_trajectory_trajectory_state_after_epoch():
 
     # Test error case for epoch after all states
     after_t2 = t2 + 10.0
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.state_after_epoch(after_t2)
 
     # Verify that exact matches return the correct state
@@ -845,10 +846,10 @@ def test_trajectory_interpolatable_interpolate_linear():
 
     # Test error case: interpolation outside bounds
     before_t0 = t0 + (-10.0)
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.interpolate_linear(before_t0)
     after_t2 = t2 + 10.0
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.interpolate_linear(after_t2)
 
     # Test edge case: single state trajectory
@@ -866,12 +867,12 @@ def test_trajectory_interpolatable_interpolate_linear():
 
     # Test error case: interpolation on single state trajectory at different epoch
     different_epoch = t0 + 10.0
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         single_traj.interpolate_linear(different_epoch)
 
     # Test error case: interpolation on empty trajectory
     empty_traj = Trajectory(6)
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         empty_traj.interpolate_linear(t0)
 
 
@@ -924,11 +925,11 @@ def test_trajectory_interpolate_before_start():
 
     # Test interpolation before trajectory start
     before_start = t0 - 10.0
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.interpolate_linear(before_start)
 
     # Also test with interpolate() method
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.interpolate(before_start)
 
 
@@ -952,11 +953,11 @@ def test_trajectory_interpolate_after_end():
 
     # Test interpolation after trajectory end
     after_end = t0 + 130.0
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.interpolate_linear(after_end)
 
     # Also test with interpolate() method
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         traj.interpolate(after_end)
 
 
@@ -1250,7 +1251,7 @@ def test_interpolation_method_lagrange():
 
 def test_interpolation_method_lagrange_invalid_degree():
     """Test that Lagrange requires degree >= 1"""
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         InterpolationMethod.lagrange(0)
 
 

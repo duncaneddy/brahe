@@ -8,8 +8,9 @@ This example shows the characteristics of fixed-step integration including
 predictable computational cost and the importance of choosing the right step size.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Define simple harmonic oscillator
 omega = 1.0

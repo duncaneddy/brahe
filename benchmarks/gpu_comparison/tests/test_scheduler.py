@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import pytest
 
 from benchmarks.gpu_comparison.results import (
@@ -6,8 +8,8 @@ from benchmarks.gpu_comparison.results import (
 )
 from benchmarks.gpu_comparison.scheduler import (
     project_next_cell_time,
-    should_run_multigpu,
     schedule_ladder,
+    should_run_multigpu,
 )
 from benchmarks.gpu_comparison.tasks.base import BatchConfig, BatchTask
 
@@ -16,7 +18,7 @@ class _StubTask(BatchTask):
     name = "stub.task"
     module = "stub"
     description = "stub"
-    configs = [
+    configs: ClassVar[list[BatchConfig]] = [
         BatchConfig(name="brahe-rust-rayon", dtype="f64", backend="rust"),
         BatchConfig(name="astrojax-multigpu", dtype="f32", backend="astrojax-multigpu"),
     ]

@@ -11,8 +11,9 @@ The control input is passed as a separate parameter to the integrator,
 keeping the core dynamics function clean and reusable.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 def dynamics(t, state):

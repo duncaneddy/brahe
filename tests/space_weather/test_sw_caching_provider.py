@@ -1,5 +1,6 @@
-import brahe
 import pytest
+
+import brahe
 
 
 @pytest.mark.integration

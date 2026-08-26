@@ -7,7 +7,6 @@ import pytest
 import brahe as bh
 from brahe.spacetrack import operators as op
 
-
 # ========================================
 # Operator Tests
 # ========================================
@@ -582,5 +581,5 @@ def test_integration_auth_failure():
         "TEST_SPACETRACK_BASE_URL", "https://for-testing-only.space-track.org"
     )
     client = bh.SpaceTrackClient("bad@example.com", "wrong", base_url)
-    with pytest.raises(Exception):
+    with pytest.raises(bh.BraheError):
         client.authenticate()

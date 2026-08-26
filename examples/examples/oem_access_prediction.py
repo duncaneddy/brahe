@@ -14,8 +14,9 @@ This example demonstrates how to:
 
 # --8<-- [start:all]
 # --8<-- [start:preamble]
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 from brahe.ccsds import OEM
 
 bh.initialize_eop()
@@ -129,8 +130,8 @@ print(
 print("-" * 62)
 
 for oem_w, direct_w in zip(oem_sorted, direct_sorted):
-    start_diff = abs((oem_w.start - direct_w.start))
-    end_diff = abs((oem_w.end - direct_w.end))
+    start_diff = abs(oem_w.start - direct_w.start)
+    end_diff = abs(oem_w.end - direct_w.end)
     elev_diff = abs(oem_w.properties.elevation_max - direct_w.properties.elevation_max)
 
     max_start_diff = max(max_start_diff, start_diff)

@@ -7,6 +7,7 @@ Demonstrates triggering events at specific times during propagation.
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP and space weather data (required for NRLMSISE-00 drag model)

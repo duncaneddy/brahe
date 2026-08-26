@@ -10,6 +10,7 @@ while the integration state stays Earth-Moon-barycenter-centered.
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP and space weather data (required for NRLMSISE-00)

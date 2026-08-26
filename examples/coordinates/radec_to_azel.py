@@ -6,8 +6,9 @@ Compute a star's azimuth/elevation as seen from a ground site at a given
 epoch, and convert back from azimuth/elevation to right ascension/declination.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

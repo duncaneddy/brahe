@@ -6,16 +6,15 @@ used for visualizing satellite populations and debris clouds from breakup events
 """
 
 import time
-from typing import Union
 
 import matplotlib.figure
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import plotly.graph_objects as go
 from loguru import logger
 
 import brahe as bh
-from brahe.plots.backend import validate_backend, apply_scienceplots_style
+from brahe.plots.backend import apply_scienceplots_style, validate_backend
 
 
 def plot_gabbard_diagram(
@@ -26,7 +25,7 @@ def plot_gabbard_diagram(
     backend: str = "matplotlib",
     width=None,
     height=None,
-) -> Union[matplotlib.figure.Figure, go.Figure]:
+) -> matplotlib.figure.Figure | go.Figure:
     """Plot Gabbard diagram showing orbital period vs apogee/perigee altitude.
 
     A Gabbard diagram is a scatter plot used to visualize satellite populations
@@ -240,7 +239,15 @@ def _gabbard_matplotlib(object_groups, epoch, altitude_units, period_units):
                 periods.append(period)  # Same period for both points
                 apogees.append(apogee_alt)
                 perigees.append(perigee_alt)
-            except Exception as e:
+            except (
+                bh.BraheError,
+                RuntimeError,
+                ValueError,
+                TypeError,
+                IndexError,
+                AttributeError,
+                KeyError,
+            ) as e:
                 logger.warning(f"Failed to extract elements from object: {e}")
                 continue
 
@@ -350,7 +357,15 @@ def _gabbard_plotly(object_groups, epoch, altitude_units, period_units, width, h
                 altitudes_apogee.append(apogee_alt)
                 periods_perigee.append(period)
                 altitudes_perigee.append(perigee_alt)
-            except Exception as e:
+            except (
+                bh.BraheError,
+                RuntimeError,
+                ValueError,
+                TypeError,
+                IndexError,
+                AttributeError,
+                KeyError,
+            ) as e:
                 logger.warning(f"Failed to extract elements from object: {e}")
                 continue
 
@@ -365,12 +380,12 @@ def _gabbard_plotly(object_groups, epoch, altitude_units, period_units, width, h
                 y=altitudes_apogee,
                 mode="markers",
                 name=apogee_label,
-                marker=dict(
-                    color=color if color else "red",
-                    size=8,
-                    symbol="circle",
-                    opacity=0.6,
-                ),
+                marker={
+                    "color": color if color else "red",
+                    "size": 8,
+                    "symbol": "circle",
+                    "opacity": 0.6,
+                },
                 customdata=hover_text_apogee,
                 hovertemplate=(
                     "<b>%{customdata}</b><br>"
@@ -390,12 +405,12 @@ def _gabbard_plotly(object_groups, epoch, altitude_units, period_units, width, h
                 y=altitudes_perigee,
                 mode="markers",
                 name=perigee_label,
-                marker=dict(
-                    color=color if color else "blue",
-                    size=8,
-                    symbol="diamond",
-                    opacity=0.6,
-                ),
+                marker={
+                    "color": color if color else "blue",
+                    "size": 8,
+                    "symbol": "diamond",
+                    "opacity": 0.6,
+                },
                 customdata=hover_text_perigee,
                 hovertemplate=(
                     "<b>%{customdata}</b><br>"

@@ -3,10 +3,8 @@
 
 import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from typing import Optional
 
 import typer
-
 from _build_utils import (
     FIGURE_OUTPUT_DIR,
     PLOTS_DIR,
@@ -20,10 +18,10 @@ from _build_utils import (
 
 def main(
     verbose: bool = typer.Option(False, "--verbose", "-v"),
-    timeout: Optional[int] = typer.Option(
+    timeout: int | None = typer.Option(
         None, "--timeout", "-t", help="Override timeout in seconds (default: 180s)"
     ),
-    workers: Optional[int] = typer.Option(
+    workers: int | None = typer.Option(
         None,
         "--workers",
         "-w",
@@ -110,9 +108,9 @@ def main(
 
                         if returncode != 0:
                             failed_plots.append((plot_name, stdout, stderr))
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
                         plot_file, _ = future_to_plot[future]
-                        error_msg = f"Worker exception: {str(e)}"
+                        error_msg = f"Worker exception: {e!s}"
                         all_outputs.append((plot_file.name, "", error_msg, 1))
                         failed_plots.append((plot_file.name, "", error_msg))
 

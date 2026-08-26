@@ -12,7 +12,6 @@ input array new_doubleArray(N) / doubleArray_setitem.
 
 import math
 
-
 from Basilisk.topLevelModules import pyswice
 
 from benchmarks.comparative.implementations.basilisk.base import (

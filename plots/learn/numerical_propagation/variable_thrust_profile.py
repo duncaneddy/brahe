@@ -9,12 +9,13 @@ phases.
 import os
 import pathlib
 import sys
+
 import numpy as np
 import plotly.graph_objects as go
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
-from brahe_theme import save_themed_html, get_theme_colors
+from brahe_theme import get_theme_colors, save_themed_html
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -76,9 +77,9 @@ def create_figure(theme):
             y=thrust_values * 1000,  # Convert to mN
             mode="lines",
             name="Thrust",
-            line=dict(color=colors["primary"], width=2.5),
+            line={"color": colors["primary"], "width": 2.5},
             fill="tozeroy",
-            fillcolor=f"rgba{tuple(list(int(colors['primary'].lstrip('#')[i : i + 2], 16) for i in (0, 2, 4)) + [0.2])}",
+            fillcolor=f"rgba{tuple([int(colors['primary'].lstrip('#')[i : i + 2], 16) for i in (0, 2, 4)] + [0.2])}",
         )
     )
 
@@ -88,7 +89,7 @@ def create_figure(theme):
         y=max_thrust * 1000 * 0.5,
         text="Ramp Up",
         showarrow=False,
-        font=dict(size=11, color=colors["font_color"]),
+        font={"size": 11, "color": colors["font_color"]},
     )
 
     fig.add_annotation(
@@ -96,7 +97,7 @@ def create_figure(theme):
         y=max_thrust * 1000 * 1.1,
         text="Constant Thrust",
         showarrow=False,
-        font=dict(size=11, color=colors["font_color"]),
+        font={"size": 11, "color": colors["font_color"]},
     )
 
     fig.add_annotation(
@@ -104,7 +105,7 @@ def create_figure(theme):
         y=max_thrust * 1000 * 0.5,
         text="Ramp Down",
         showarrow=False,
-        font=dict(size=11, color=colors["font_color"]),
+        font={"size": 11, "color": colors["font_color"]},
     )
 
     # Vertical lines marking phase boundaries
@@ -135,8 +136,8 @@ def create_figure(theme):
         yaxis_title="Thrust (mN)",
         showlegend=False,
         height=500,
-        margin=dict(l=60, r=80, t=60, b=60),
-        yaxis=dict(range=[-20, max_thrust * 1000 * 1.3]),
+        margin={"l": 60, "r": 80, "t": 60, "b": 60},
+        yaxis={"range": [-20, max_thrust * 1000 * 1.3]},
     )
 
     return fig

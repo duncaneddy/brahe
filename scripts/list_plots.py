@@ -2,9 +2,8 @@
 """List all available plot scripts."""
 
 import typer
-from rich.table import Table
-
 from _build_utils import PLOTS_DIR, check_flags, console
+from rich.table import Table
 
 
 def main(

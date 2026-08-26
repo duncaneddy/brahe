@@ -2,12 +2,11 @@
 
 import inspect
 
-import pytest
 import polars as pl
+import pytest
 
 import brahe as bh
-import brahe.datasets as datasets
-
+from brahe import datasets
 
 # ─── Offline tests (surface checks only) ────────────────────────────
 #
@@ -140,7 +139,7 @@ def test_hipparcos_catalog_load():
 
     assert sirius.id() == "HIP 32349"
 
-    ra, dec = sirius.radec_at_epoch(
+    ra, _dec = sirius.radec_at_epoch(
         bh.Epoch.from_datetime(2026, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC),
         bh.AngleFormat.DEGREES,
     )

@@ -4,9 +4,9 @@ import os
 import re
 import subprocess
 import tempfile
+from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
-from typing import Callable, List, Optional, Tuple
 
 from rich.console import Console
 from rich.progress import (
@@ -62,13 +62,11 @@ class TestResults:
         self.passed = 0
         self.failed = 0
         self.skipped = 0
-        self.failures: List[str] = []
-        self.error_details: List[tuple[str, str, str]] = []  # (file, stdout, stderr)
+        self.failures: list[str] = []
+        self.error_details: list[tuple[str, str, str]] = []  # (file, stdout, stderr)
 
 
-def run_command(
-    cmd: List[str], cwd: Optional[Path] = None, verbose: bool = False
-) -> bool:
+def run_command(cmd: list[str], cwd: Path | None = None, verbose: bool = False) -> bool:
     """Run a shell command and return success status."""
     try:
         result = subprocess.run(
@@ -76,15 +74,16 @@ def run_command(
             cwd=cwd or REPO_ROOT,
             capture_output=not verbose,
             text=True,
+            check=False,
         )
         return result.returncode == 0
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
         if verbose:
             console.print(f"[red]Error: {e}[/red]")
         return False
 
 
-def find_file_by_name(directory: Path, filename: str, extension: str) -> Optional[Path]:
+def find_file_by_name(directory: Path, filename: str, extension: str) -> Path | None:
     """
     Find a file by name in directory (including subdirectories).
 
@@ -103,8 +102,7 @@ def find_file_by_name(directory: Path, filename: str, extension: str) -> Optiona
         Path to the file if found, None otherwise
     """
     # Strip "examples/" prefix if user provided it
-    if filename.startswith("examples/"):
-        filename = filename[len("examples/") :]
+    filename = filename.removeprefix("examples/")
 
     # Normalize extension handling
     if filename.endswith(extension):
@@ -197,7 +195,7 @@ def check_flags(
                     return True, "ci-only", timeout_seconds
                 if "SLOW" in flags and not enable_slow:
                     return True, "slow", timeout_seconds
-    except Exception:
+    except (OSError, UnicodeDecodeError):
         pass
 
     return False, "", timeout_seconds
@@ -224,6 +222,7 @@ def test_rust_example(
             text=True,
             timeout=timeout,
             env=env,
+            check=False,
         )
 
         if result.returncode == 0:
@@ -242,7 +241,7 @@ def test_rust_example(
         if verbose:
             console.print(f"[red]{error_msg}[/red]")
         return False, "", error_msg
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
         error_msg = str(e)
         if verbose:
             console.print(f"[red]Error: {error_msg}[/red]")
@@ -266,6 +265,7 @@ def test_python_example(
             text=True,
             timeout=timeout,
             cwd=REPO_ROOT,
+            check=False,
         )
 
         if result.returncode == 0:
@@ -284,7 +284,7 @@ def test_python_example(
         if verbose:
             console.print(f"[red]{error_msg}[/red]")
         return False, "", error_msg
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
         error_msg = str(e)
         if verbose:
             console.print(f"[red]Error: {error_msg}[/red]")
@@ -292,12 +292,12 @@ def test_python_example(
 
 
 def run_files_parallel(
-    files: List[Path],
-    test_fn: Callable[[Path, bool, int], Tuple[bool, str, str]],
-    check_flags_fn: Callable[[Path, bool, bool, bool], Tuple[bool, str, Optional[int]]],
+    files: list[Path],
+    test_fn: Callable[[Path, bool, int], tuple[bool, str, str]],
+    check_flags_fn: Callable[[Path, bool, bool, bool], tuple[bool, str, int | None]],
     verbose: bool,
     default_timeout: int,
-    cli_timeout: Optional[int],
+    cli_timeout: int | None,
     ci_only: bool,
     slow: bool,
     network: bool,
@@ -305,7 +305,7 @@ def run_files_parallel(
     progress: Progress,
     task_id,
     results: TestResults,
-    on_pass: Optional[Callable[[Path, str], None]] = None,
+    on_pass: Callable[[Path, str], None] | None = None,
 ) -> None:
     """Run test files in parallel using ProcessPoolExecutor."""
     # Filter files and prepare tasks
@@ -338,7 +338,7 @@ def run_files_parallel(
         }
 
         for future in as_completed(future_to_file):
-            file_path, timeout = future_to_file[future]
+            file_path, _timeout = future_to_file[future]
             rel_path = file_path.relative_to(REPO_ROOT)
 
             try:
@@ -364,10 +364,10 @@ def run_files_parallel(
                         if stderr:
                             console.print("[red]STDERR:[/red]")
                             console.print(stderr)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
                 results.failed += 1
                 results.failures.append(str(rel_path))
-                error_msg = f"Worker exception: {str(e)}"
+                error_msg = f"Worker exception: {e!s}"
                 results.error_details.append((str(rel_path), "", error_msg))
                 console.print(f"  {rel_path}...[red]FAIL[/red]")
                 if verbose:
@@ -376,7 +376,7 @@ def run_files_parallel(
             progress.update(task_id, advance=1)
 
 
-def run_plot_file(plot_file: Path, timeout: int) -> Tuple[str, str, str, int]:
+def run_plot_file(plot_file: Path, timeout: int) -> tuple[str, str, str, int]:
     """Run a single plot file and return results."""
     python_exe = REPO_ROOT / ".venv" / "bin" / "python"
 
@@ -384,21 +384,21 @@ def run_plot_file(plot_file: Path, timeout: int) -> Tuple[str, str, str, int]:
         result = subprocess.run(
             [str(python_exe), str(plot_file)],
             cwd=REPO_ROOT,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True,
             timeout=timeout,
             env={
                 **subprocess.os.environ,
                 "BRAHE_FIGURE_OUTPUT_DIR": str(FIGURE_OUTPUT_DIR),
             },
+            check=False,
         )
         return (plot_file.name, result.stdout, result.stderr, result.returncode)
     except subprocess.TimeoutExpired:
         error_msg = f"Timed out after {timeout} seconds"
         return (plot_file.name, "", error_msg, 1)
-    except Exception as e:
-        error_msg = f"Exception: {str(e)}"
+    except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
+        error_msg = f"Exception: {e!s}"
         return (plot_file.name, "", error_msg, 1)
 
 

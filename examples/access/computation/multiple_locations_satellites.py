@@ -5,8 +5,9 @@
 Compute access windows for multiple ground locations and multiple satellites
 """
 
-import brahe as bh
 from collections import defaultdict
+
+import brahe as bh
 
 bh.initialize_eop()
 

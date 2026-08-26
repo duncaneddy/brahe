@@ -9,15 +9,14 @@ benchmarks/propagator_benchmarks.rs but adds drag and SRP for full fidelity.
 from __future__ import annotations
 
 import numpy as np
-
-import brahe as bh
-
 from _common import (
     default_leo_state,
     duration_from_env,
     run_until_elapsed,
     setup_providers,
 )
+
+import brahe as bh
 
 
 def main() -> None:

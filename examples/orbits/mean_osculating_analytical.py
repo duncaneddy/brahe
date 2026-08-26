@@ -12,6 +12,7 @@ underlying series).
 """
 
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()

@@ -2,8 +2,9 @@
 # dependencies = ["brahe"]
 # FLAGS = ["MANUAL"]
 
-import brahe as bh
 import os
+
+import brahe as bh
 
 # Initialize EOP
 bh.initialize_eop()

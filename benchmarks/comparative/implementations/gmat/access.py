@@ -33,7 +33,7 @@ import calendar
 import os
 import re
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 
 from benchmarks.comparative.implementations.gmat.base import (
     build_task_result,
@@ -85,7 +85,7 @@ def _gmat_utcgreg_to_jd(s: str) -> float:
         s_whole = s[:dot_pos]
     else:
         s_whole = s
-    dt = datetime.strptime(s_whole, "%d %b %Y %H:%M:%S")
+    dt = datetime.strptime(s_whole, "%d %b %Y %H:%M:%S").replace(tzinfo=timezone.utc)
     ts = calendar.timegm(dt.timetuple())
     # Unix epoch (1970-01-01 00:00:00 UTC) = JD 2440587.5
     return ts / 86400.0 + 2440587.5 + frac / 86400.0

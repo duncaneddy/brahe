@@ -5,8 +5,9 @@
 Initialize KeplerianPropagator from ECI Cartesian state vector
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

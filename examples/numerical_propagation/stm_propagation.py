@@ -7,6 +7,7 @@ Demonstrates enabling STM computation and accessing results.
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data

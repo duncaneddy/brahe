@@ -5,10 +5,10 @@ Tests all constraint types and their composition to ensure Python bindings
 match the Rust implementation.
 """
 
-import pytest
-import brahe as bh
 import numpy as np
+import pytest
 
+import brahe as bh
 
 # ================================
 # Helper Functions for Evaluation Tests
@@ -393,7 +393,7 @@ class TestConstraintComposition:
         """Test that empty constraint list raises error"""
         # Note: This might not raise an error in the current implementation
         # But it's good to document the expected behavior
-        pass  # TODO: Check if empty list should be allowed
+        # TODO: Check if empty list should be allowed
 
     def test_string_representation(self):
         """Test string representations of composite constraints"""

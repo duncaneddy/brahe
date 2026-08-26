@@ -4,9 +4,10 @@ Tests for RTN (Radial-Tangential-Normal) frame transformations.
 These tests mirror the Rust tests in src/relative_motion/eci_rtn.rs
 """
 
-import brahe
 import numpy as np
 from pytest import approx
+
+import brahe
 
 
 def get_test_state():

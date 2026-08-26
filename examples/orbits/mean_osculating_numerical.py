@@ -13,6 +13,7 @@ a centered window spanning the full period.
 """
 
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()

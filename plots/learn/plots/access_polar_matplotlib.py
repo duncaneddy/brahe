@@ -5,9 +5,10 @@ This script demonstrates how to create a polar access plot using the matplotlib 
 Shows satellite azimuth and elevation during ground station passes.
 """
 
-import brahe as bh
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
+import brahe as bh
 
 # Initialize EOP data
 bh.initialize_eop()

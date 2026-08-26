@@ -5,10 +5,10 @@ These tests mirror the Rust implementation tests to ensure Python bindings
 work correctly and maintain parity with the Rust implementation.
 """
 
-import pytest
 import numpy as np
-import brahe as bh
+import pytest
 
+import brahe as bh
 
 # ========================================================================
 # PointLocation Tests

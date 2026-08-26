@@ -7,8 +7,9 @@ Demonstrates using analytical Jacobian computation for a simple harmonic oscilla
 This example shows how to provide closed-form derivatives when they're known.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 # Define dynamics: Simple harmonic oscillator

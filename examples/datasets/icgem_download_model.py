@@ -14,7 +14,7 @@ truncation of the same model — append "-<DEGREE>" to the name argument,
 e.g. download_model("earth", "XGM2019e_2159-760").
 """
 
-import brahe.datasets as datasets
+from brahe import datasets
 
 # JGM3 is small (~70x70) and stable — a good demonstration target.
 # Passing just the name selects the largest published degree variant.

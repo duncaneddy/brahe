@@ -1,7 +1,8 @@
 import pathlib
-import pytest
-import brahe
 
+import pytest
+
+import brahe
 
 PACKAGE_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 TEST_ASSETS = PACKAGE_ROOT / "test_assets"

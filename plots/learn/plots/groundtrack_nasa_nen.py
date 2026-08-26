@@ -9,8 +9,10 @@ The coverage cones are displayed as geodetic polygons showing actual ground foot
 import os
 import pathlib
 import sys
-import brahe as bh
+
 import numpy as np
+
+import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))

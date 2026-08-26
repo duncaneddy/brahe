@@ -6,22 +6,23 @@ These tests mirror the Rust tests from src/propagators/functions.rs
 
 import numpy as np
 import pytest
+
 from brahe import (
-    Epoch,
-    TimeSystem,
-    KeplerianPropagator,
-    SGPPropagator,
+    R_EARTH,
     AngleFormat,
-    state_koe_to_eci,
-    par_propagate_to,
+    Epoch,
+    EventDirection,
+    ForceModelConfig,
+    KeplerianPropagator,
+    NumericalOrbitPropagator,
     NumericalPropagationConfig,
     NumericalPropagator,
-    NumericalOrbitPropagator,
-    ForceModelConfig,
+    SGPPropagator,
     TimeEvent,
+    TimeSystem,
     ValueEvent,
-    EventDirection,
-    R_EARTH,
+    par_propagate_to,
+    state_koe_to_eci,
 )
 
 

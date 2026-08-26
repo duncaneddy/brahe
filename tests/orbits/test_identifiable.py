@@ -1,8 +1,8 @@
 """Tests for Identifiable trait implementation on propagators."""
 
-import brahe as bh
 import uuid
 
+import brahe as bh
 
 # Test data
 ISS_LINE1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"

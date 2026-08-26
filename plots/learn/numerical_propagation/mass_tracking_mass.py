@@ -8,13 +8,15 @@ using NumericalOrbitPropagator with additional_dynamics.
 import os
 import pathlib
 import sys
-import brahe as bh
+
 import numpy as np
 import plotly.graph_objects as go
 
+import brahe as bh
+
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
-from brahe_theme import save_themed_html, get_theme_colors
+from brahe_theme import get_theme_colors, save_themed_html
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -126,7 +128,7 @@ def create_figure(theme):
             y=mass_vals,
             mode="lines",
             name="Spacecraft Mass",
-            line=dict(color=colors["primary"], width=3),
+            line={"color": colors["primary"], "width": 3},
         )
     )
 
@@ -188,7 +190,7 @@ def create_figure(theme):
         yaxis_title="Mass (kg)",
         showlegend=False,
         height=500,
-        margin=dict(l=60, r=40, t=80, b=60),
+        margin={"l": 60, "r": 40, "t": 80, "b": 60},
     )
 
     # Add annotation with summary
@@ -204,7 +206,7 @@ def create_figure(theme):
         yref="paper",
         text=summary_text,
         showarrow=False,
-        font=dict(size=11),
+        font={"size": 11},
         align="right",
         bordercolor="gray",
         borderwidth=1,

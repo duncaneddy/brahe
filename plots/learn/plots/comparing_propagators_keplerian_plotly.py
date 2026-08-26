@@ -8,6 +8,7 @@ by plotting their Keplerian element trajectories side-by-side using the plotly b
 import os
 import pathlib
 import sys
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme

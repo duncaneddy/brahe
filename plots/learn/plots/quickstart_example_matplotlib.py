@@ -5,9 +5,10 @@ This example demonstrates the basics of brahe plotting by creating a simple LEO 
 and visualizing it in 3D with a static matplotlib plot.
 """
 
-import brahe as bh
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
+import brahe as bh
 
 # Initialize EOP data
 bh.initialize_eop()

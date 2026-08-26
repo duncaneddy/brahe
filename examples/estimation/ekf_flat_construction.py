@@ -9,6 +9,7 @@ alternative to the builder when all inputs are already at hand.
 """
 
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()

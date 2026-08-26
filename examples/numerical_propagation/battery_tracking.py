@@ -7,6 +7,7 @@ Demonstrates using additional_dynamics for battery charge with solar illuminatio
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data

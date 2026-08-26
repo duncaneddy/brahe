@@ -91,7 +91,11 @@ def collect_system_info() -> dict:
     if shutil.which("rustc"):
         try:
             result = subprocess.run(
-                ["rustc", "--version"], capture_output=True, text=True, timeout=5
+                ["rustc", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
             )
             info["rust_version"] = result.stdout.strip()
         except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -101,7 +105,11 @@ def collect_system_info() -> dict:
     if shutil.which("java"):
         try:
             result = subprocess.run(
-                ["java", "--version"], capture_output=True, text=True, timeout=5
+                ["java", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
             )
             info["java_version"] = result.stdout.strip().split("\n")[0]
         except (subprocess.TimeoutExpired, FileNotFoundError):

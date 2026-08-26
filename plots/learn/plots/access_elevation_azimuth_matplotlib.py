@@ -5,9 +5,10 @@ This script demonstrates how to create an elevation vs azimuth plot using the ma
 Shows the satellite's trajectory across the observed horizon with a sinusoidal elevation mask.
 """
 
-import brahe as bh
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
+import brahe as bh
 
 # Initialize EOP data
 bh.initialize_eop()

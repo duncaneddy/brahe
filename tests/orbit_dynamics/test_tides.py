@@ -7,8 +7,8 @@ Covers:
 """
 
 import numpy as np
-import brahe as bh
 
+import brahe as bh
 
 # ===========================================================================
 # Helpers

@@ -72,7 +72,7 @@ def _child_entry(q, task, config, batch_size, iterations, seed) -> None:
             force_cpu=True,
         )
         q.put(("cell_dict", _cell_to_dict(cell)))
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
         q.put(("error", f"{type(e).__name__}: {e}"))
 
 

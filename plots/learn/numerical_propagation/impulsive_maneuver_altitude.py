@@ -8,13 +8,15 @@ demonstrating the altitude change from the two impulsive burns.
 import os
 import pathlib
 import sys
-import brahe as bh
+
 import numpy as np
 import plotly.graph_objects as go
 
+import brahe as bh
+
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
-from brahe_theme import save_themed_html, get_theme_colors
+from brahe_theme import get_theme_colors, save_themed_html
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -141,7 +143,7 @@ def create_figure(theme):
             y=altitudes,
             mode="lines",
             name="Altitude",
-            line=dict(color=colors["primary"], width=2),
+            line={"color": colors["primary"], "width": 2},
         )
     )
 
@@ -187,7 +189,7 @@ def create_figure(theme):
         yaxis_title="Altitude (km)",
         showlegend=False,
         height=500,
-        margin=dict(l=60, r=40, t=60, b=60),
+        margin={"l": 60, "r": 40, "t": 60, "b": 60},
     )
 
     return fig

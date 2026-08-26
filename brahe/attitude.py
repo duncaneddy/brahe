@@ -28,11 +28,11 @@ flexibility in how orientation is specified and computed.
 """
 
 from brahe._brahe import (
-    # Attitude representation classes
-    Quaternion,
-    EulerAxis,
     EulerAngle,
     EulerAngleOrder,
+    EulerAxis,
+    # Attitude representation classes
+    Quaternion,
     RotationMatrix,
     # Standalone elementary rotation matrices
     Rx,
@@ -41,11 +41,11 @@ from brahe._brahe import (
 )
 
 __all__ = [
-    # Attitude representations
-    "Quaternion",
-    "EulerAxis",
     "EulerAngle",
     "EulerAngleOrder",
+    "EulerAxis",
+    # Attitude representations
+    "Quaternion",
     "RotationMatrix",
     # Standalone elementary rotation matrices
     "Rx",

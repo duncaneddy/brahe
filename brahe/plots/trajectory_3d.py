@@ -6,15 +6,16 @@ for the central body and any number of additional labeled bodies.
 """
 
 import time
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 import plotly.graph_objects as go
 from loguru import logger
 
-from brahe.plots.backend import validate_backend, apply_scienceplots_style
-from brahe.plots.texture_utils import load_body_texture
+from brahe._brahe import OrbitFrame, OrbitRepresentation, OrbitTrajectory
+from brahe.plots.backend import apply_scienceplots_style, validate_backend
 from brahe.plots.bodies import resolve_body
-from brahe._brahe import OrbitTrajectory, OrbitFrame, OrbitRepresentation
+from brahe.plots.texture_utils import load_body_texture
 
 
 def plot_trajectory_3d(
@@ -452,7 +453,7 @@ def _trajectory_3d_plotly(
                 y=pos_y,
                 z=pos_z,
                 mode="lines",
-                line=dict(color=color, width=line_width_group),
+                line={"color": color, "width": line_width_group},
                 name=label,
             )
         )
@@ -464,26 +465,26 @@ def _trajectory_3d_plotly(
     # Configure layout
     layout_config = {
         "title": f"3D Trajectory ({body['name']}-Centered Inertial)",
-        "scene": dict(
-            xaxis_title=f"X ({unit_label})",
-            yaxis_title=f"Y ({unit_label})",
-            zaxis_title=f"Z ({unit_label})",
-            aspectmode="data",
-            xaxis=dict(showgrid=True, showbackground=False),
-            yaxis=dict(showgrid=True, showbackground=False),
-            zaxis=dict(showgrid=True, showbackground=False),
-            camera=dict(
-                eye=dict(
-                    x=view_distance
+        "scene": {
+            "xaxis_title": f"X ({unit_label})",
+            "yaxis_title": f"Y ({unit_label})",
+            "zaxis_title": f"Z ({unit_label})",
+            "aspectmode": "data",
+            "xaxis": {"showgrid": True, "showbackground": False},
+            "yaxis": {"showgrid": True, "showbackground": False},
+            "zaxis": {"showgrid": True, "showbackground": False},
+            "camera": {
+                "eye": {
+                    "x": view_distance
                     * np.cos(np.radians(view_azimuth))
                     * np.cos(np.radians(view_elevation)),
-                    y=view_distance
+                    "y": view_distance
                     * np.sin(np.radians(view_azimuth))
                     * np.cos(np.radians(view_elevation)),
-                    z=view_distance * np.sin(np.radians(view_elevation)),
-                )
-            ),
-        ),
+                    "z": view_distance * np.sin(np.radians(view_elevation)),
+                }
+            },
+        },
     }
 
     # Only set width/height if explicitly provided
@@ -627,13 +628,13 @@ def _plot_body_sphere_plotly(
                 facecolor=face_colors,
                 showscale=False,
                 name=name,
-                lighting=dict(
-                    ambient=0.6,
-                    diffuse=0.8,
-                    specular=0.2,
-                    roughness=0.8,
-                ),
-                lightposition=dict(x=10000, y=10000, z=10000),
+                lighting={
+                    "ambient": 0.6,
+                    "diffuse": 0.8,
+                    "specular": 0.2,
+                    "roughness": 0.8,
+                },
+                lightposition={"x": 10000, "y": 10000, "z": 10000},
             )
         )
 

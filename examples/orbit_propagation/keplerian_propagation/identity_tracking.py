@@ -5,8 +5,9 @@
 Track KeplerianPropagator with names and IDs for multi-satellite scenarios
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

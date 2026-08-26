@@ -5,8 +5,9 @@ Tests mirror the Rust implementation in src/earth_models/magnetic_field/.
 Validation against official test data from ppigrf and WMMHR reference implementations.
 """
 
-import pytest
 import numpy as np
+import pytest
+
 import brahe as bh
 
 

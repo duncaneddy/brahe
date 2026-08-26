@@ -8,8 +8,9 @@ Demonstrates using the control input parameter to add external forcing
 to dynamics, such as thrust maneuvers.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 def dynamics(t, state):

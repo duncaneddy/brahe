@@ -27,7 +27,7 @@ print("\nNumeric to Alpha-5:")
 try:
     alpha5_low = bh.norad_id_numeric_to_alpha5(25544)
     print(f"  25544 -> {alpha5_low}")
-except Exception as e:
+except (bh.BraheError, ValueError) as e:
     print(f"  25544 -> Error: {e}")
 
 alpha5_high = bh.norad_id_numeric_to_alpha5(100000)

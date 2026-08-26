@@ -9,8 +9,9 @@ the kernel-scoped variants, and the per-body *_spice convenience functions. Down
 the de440s (~33 MB) and mar099s (~68 MB) kernels on first run.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

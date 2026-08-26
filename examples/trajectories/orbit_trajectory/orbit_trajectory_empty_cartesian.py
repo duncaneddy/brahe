@@ -18,11 +18,11 @@ traj_eci = bh.OrbitTrajectory(
 )
 print(f"Frame (str): {traj_eci.frame}")  # Output: ECI
 print(
-    f"Frame (repr): {repr(traj_eci.frame)}"
+    f"Frame (repr): {traj_eci.frame!r}"
 )  # Output: OrbitFrame(Earth-Centered Inertial)
 print(f"Representation (str): {traj_eci.representation}")  # Output: Cartesian
 print(
-    f"Representation (repr): {repr(traj_eci.representation)}"
+    f"Representation (repr): {traj_eci.representation!r}"
 )  # Output: OrbitRepresentation(Cartesian)
 
 # Create trajectory in ECEF frame, Cartesian representation
@@ -31,5 +31,5 @@ traj_ecef = bh.OrbitTrajectory(
 )
 print(f"Frame (str): {traj_ecef.frame}")  # Output: ECEF
 print(
-    f"Frame (repr): {repr(traj_ecef.frame)}"
+    f"Frame (repr): {traj_ecef.frame!r}"
 )  # Output: OrbitFrame(Earth-Centered Earth-Fixed)

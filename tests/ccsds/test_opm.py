@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+
 import brahe
 from brahe import Epoch
 from brahe.ccsds import OPM, OPMManeuver

@@ -7,10 +7,12 @@ Example plot showing time system offsets.
 
 import os
 import pathlib
+
+import numpy as np
 import plotly.graph_objects as go
 import plotly.io as pio
+
 import brahe as bh
-import numpy as np
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem

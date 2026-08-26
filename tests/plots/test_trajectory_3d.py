@@ -1,9 +1,9 @@
 """Tests for 3D trajectory plotting with texture support."""
 
-import pytest
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import plotly.graph_objects as go
+import pytest
 
 import brahe as bh
 

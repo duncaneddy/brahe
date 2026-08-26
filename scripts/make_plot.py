@@ -3,10 +3,8 @@
 
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 import typer
-
 from _build_utils import (
     FIGURE_OUTPUT_DIR,
     PLOTS_DIR,
@@ -23,16 +21,14 @@ def main(
         help="Plot name (e.g., 'attitude_representations', 'subdir/plot_name', or 'attitude_representations.py')",
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
-    timeout: Optional[int] = typer.Option(
+    timeout: int | None = typer.Option(
         None, "--timeout", "-t", help="Override timeout in seconds (default: 180s)"
     ),
 ):
     """Generate a specific plot."""
     # Handle different input formats
-    if plot_name.startswith("plots/"):
-        plot_name = plot_name[6:]
-    if plot_name.endswith(".py"):
-        plot_name = plot_name[:-3]
+    plot_name = plot_name.removeprefix("plots/")
+    plot_name = plot_name.removesuffix(".py")
 
     plot_file = find_file_by_name(PLOTS_DIR, plot_name, ".py")
 
@@ -73,6 +69,7 @@ def main(
                 **subprocess.os.environ,
                 "BRAHE_FIGURE_OUTPUT_DIR": str(FIGURE_OUTPUT_DIR),
             },
+            check=False,
         )
     except subprocess.TimeoutExpired:
         console.print(

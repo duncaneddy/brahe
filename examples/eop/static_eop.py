@@ -7,7 +7,6 @@ Initialize Static EOP Providers
 
 import brahe as bh
 
-
 # Method 1: Static EOP Provider - All Zeros
 eop_static_zeros = bh.StaticEOPProvider.from_zero()
 bh.set_global_eop_provider(eop_static_zeros)

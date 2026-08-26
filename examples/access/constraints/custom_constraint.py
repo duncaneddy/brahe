@@ -5,8 +5,9 @@
 Create a custom constraint by implementing the AccessConstraintComputer interface.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 class MaxRangeConstraint(bh.AccessConstraintComputer):

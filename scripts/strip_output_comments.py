@@ -11,7 +11,6 @@ are left untouched.
 
 import re
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -133,7 +132,7 @@ def main(
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Show unchanged files too"
     ),
-    example: Optional[str] = typer.Option(
+    example: str | None = typer.Option(
         None, "--example", "-e", help="Process a single example by name"
     ),
 ):

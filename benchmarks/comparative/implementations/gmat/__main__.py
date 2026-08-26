@@ -47,7 +47,7 @@ def main() -> int:
         # disambiguate "not configured" from "ran but failed".
         print(f"GMAT not ready: {exc}", file=sys.stderr)
         return 2
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
         print(f"GMAT subprocess error: {exc}", file=sys.stderr)
         return 1
 

@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
 """List all available examples."""
 
-from typing import Optional
-
 import typer
-from rich.table import Table
-
 from _build_utils import EXAMPLES_DIR, check_flags, console
+from rich.table import Table
 
 
 def main(
-    filter_str: Optional[str] = typer.Option(
+    filter_str: str | None = typer.Option(
         None, "--filter", "-f", help="Filter by path"
     ),
     show_flags: bool = typer.Option(False, "--flags", help="Show FLAGS"),

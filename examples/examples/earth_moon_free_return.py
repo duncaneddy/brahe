@@ -244,7 +244,7 @@ fig_distance.add_trace(
         x=times_days.tolist(),
         y=(earth_dists / 1e3).tolist(),
         mode="lines",
-        line=dict(color="steelblue", width=2),
+        line={"color": "steelblue", "width": 2},
         name="Distance from Earth",
     )
 )
@@ -253,7 +253,7 @@ fig_distance.add_trace(
         x=times_days.tolist(),
         y=(moon_dists / 1e3).tolist(),
         mode="lines",
-        line=dict(color="gray", width=2, dash="dash"),
+        line={"color": "gray", "width": 2, "dash": "dash"},
         name="Distance from Moon",
     )
 )
@@ -263,7 +263,7 @@ fig_distance.update_layout(
     xaxis_title="Time (days)",
     yaxis_title="Distance (km)",
     height=500,
-    margin=dict(l=60, r=40, t=60, b=60),
+    margin={"l": 60, "r": 40, "t": 60, "b": 60},
 )
 # --8<-- [end:distance_plot]
 
@@ -325,7 +325,7 @@ fig_emr_2d.add_trace(
         x=emr_xyz_km[:, 0].tolist(),
         y=emr_xyz_km[:, 1].tolist(),
         mode="lines",
-        line=dict(color="#fc3d21", width=2),
+        line={"color": "#fc3d21", "width": 2},
         name="Free return",
     )
 )
@@ -334,9 +334,12 @@ fig_emr_2d.add_trace(
         x=emr_xyz_km[arrow_idx, 0].tolist(),
         y=emr_xyz_km[arrow_idx, 1].tolist(),
         mode="markers",
-        marker=dict(
-            symbol="arrow", size=13, angle=heading_deg.tolist(), color="#fc3d21"
-        ),
+        marker={
+            "symbol": "arrow",
+            "size": 13,
+            "angle": heading_deg.tolist(),
+            "color": "#fc3d21",
+        },
         showlegend=False,
     )
 )
@@ -352,7 +355,7 @@ for center, radius, color, name in [
             mode="lines",
             fill="toself",
             fillcolor=color,
-            line=dict(color=color, width=1),
+            line={"color": color, "width": 1},
             name=name,
         )
     )
@@ -360,10 +363,10 @@ fig_emr_2d.update_layout(
     title="Free Return in the Earth-Moon Rotating Frame (top-down)",
     xaxis_title="X (km)",
     yaxis_title="Y (km)",
-    yaxis=dict(scaleanchor="x", scaleratio=1),
+    yaxis={"scaleanchor": "x", "scaleratio": 1},
     height=600,
-    margin=dict(l=60, r=40, t=60, b=60),
-    legend=dict(x=0.99, y=0.99, xanchor="right", yanchor="top"),
+    margin={"l": 60, "r": 40, "t": 60, "b": 60},
+    legend={"x": 0.99, "y": 0.99, "xanchor": "right", "yanchor": "top"},
 )
 # --8<-- [end:plot_emr]
 # --8<-- [end:all]
@@ -374,7 +377,7 @@ fig_emr_2d.update_layout(
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save themed figures
 light_path, dark_path = save_themed_html(

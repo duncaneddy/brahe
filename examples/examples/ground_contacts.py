@@ -19,14 +19,16 @@ The example shows the complete workflow from data download to statistical analys
 
 # --8<-- [start:all]
 # --8<-- [start:preamble]
-import time
 import csv
 import os
 import pathlib
 import sys
-import brahe as bh
+import time
+
 import numpy as np
 import plotly.graph_objects as go
+
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -224,7 +226,7 @@ fig_daily.update_layout(
     yaxis_title="Average Daily Contacts",
     xaxis_tickangle=-45,
     height=700,
-    margin=dict(l=60, r=40, t=80, b=120),
+    margin={"l": 60, "r": 40, "t": 80, "b": 120},
 )
 
 # Figure 2: Contact duration distribution (histogram)
@@ -251,21 +253,21 @@ fig_duration.update_layout(
     xaxis_title="Contact Duration (minutes)",
     yaxis_title="Frequency",
     height=700,
-    margin=dict(l=60, r=40, t=80, b=60),
+    margin={"l": 60, "r": 40, "t": 80, "b": 60},
     annotations=[
-        dict(
-            text=f"Mean: {mean_duration:.1f} min<br>Median: {median_duration:.1f} min<br>Max: {max_duration:.1f} min",
-            xref="paper",
-            yref="paper",
-            x=0.05,
-            y=0.97,
-            xanchor="left",
-            yanchor="top",
-            showarrow=False,
-            bordercolor="grey",
-            borderwidth=1,
-            borderpad=8,
-        )
+        {
+            "text": f"Mean: {mean_duration:.1f} min<br>Median: {median_duration:.1f} min<br>Max: {max_duration:.1f} min",
+            "xref": "paper",
+            "yref": "paper",
+            "x": 0.05,
+            "y": 0.97,
+            "xanchor": "left",
+            "yanchor": "top",
+            "showarrow": False,
+            "bordercolor": "grey",
+            "borderwidth": 1,
+            "borderpad": 8,
+        }
     ],
 )
 # --8<-- [end:visualize_contacts]
@@ -283,7 +285,7 @@ print(f"  Max: {max_duration:.1f} minutes")
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save the ground track figure as themed HTML
 light_path, dark_path = save_themed_html(

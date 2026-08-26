@@ -1,5 +1,5 @@
 import math
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -550,8 +550,8 @@ def test_isostring_with_decimals(eop):
 def test_to_string_as_time_system(eop):
     # Confirm Before the leap second
     epc = bh.Epoch.from_datetime(2020, 1, 1, 0, 0, 0.0, 0.0, bh.UTC)
-    epc.to_string_as_time_system(bh.UTC) == "2020-01-01 00:00:00.000 UTC"
-    epc.to_string_as_time_system(bh.GPS) == "2020-01-01 00:00:18.000 GPS"
+    assert epc.to_string_as_time_system(bh.UTC) == "2020-01-01 00:00:00.000 UTC"
+    assert epc.to_string_as_time_system(bh.GPS) == "2020-01-01 00:00:18.000 GPS"
 
 
 def test_epoch_to_time_system(eop):
@@ -941,7 +941,7 @@ def test_addition_stability():
     epc = bh.Epoch.from_datetime(2022, 1, 1, 0, 0, 0.0, 0.0, bh.TAI)
 
     # Advance a year 1 second at a time
-    for _ in range(0, 86400 * 365):
+    for _ in range(86400 * 365):
         epc += 1.0
 
     (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime()
@@ -1160,7 +1160,7 @@ def test_epoch_new_with_time_system(eop):
     epc = bh.Epoch(2024, 1, 1, 12, 0, 0.0, 0.0, time_system=bh.GPS)
 
     assert epc.time_system == bh.GPS
-    year, month, day, hour, minute, second, nanosecond = epc.to_datetime()
+    year, month, day, hour, _minute, _second, _nanosecond = epc.to_datetime()
     assert year == 2024
     assert month == 1
     assert day == 1
@@ -1171,7 +1171,7 @@ def test_epoch_new_from_string(eop):
     """Test Epoch() constructor from string."""
     epc = bh.Epoch("2024-01-01 12:00:00.000 UTC")
 
-    year, month, day, hour, minute, second, nanosecond = epc.to_datetime()
+    year, month, day, hour, minute, second, _nanosecond = epc.to_datetime()
     assert year == 2024
     assert month == 1
     assert day == 1
@@ -1185,7 +1185,7 @@ def test_epoch_new_from_string_iso_z(eop):
     """Test Epoch() constructor from ISO 8601 Z format."""
     epc = bh.Epoch("2024-01-01T12:00:00Z")
 
-    year, month, day, hour, minute, second, nanosecond = epc.to_datetime()
+    year, month, day, hour, minute, second, _nanosecond = epc.to_datetime()
     assert year == 2024
     assert month == 1
     assert day == 1
@@ -1196,10 +1196,10 @@ def test_epoch_new_from_string_iso_z(eop):
 
 def test_epoch_new_from_datetime(eop):
     """Test Epoch() constructor from Python datetime."""
-    dt = datetime(2024, 1, 1, 12, 0, 0)
+    dt = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
     epc = bh.Epoch(dt)
 
-    year, month, day, hour, minute, second, nanosecond = epc.to_datetime()
+    year, month, day, hour, minute, second, _nanosecond = epc.to_datetime()
     assert year == 2024
     assert month == 1
     assert day == 1
@@ -1211,11 +1211,11 @@ def test_epoch_new_from_datetime(eop):
 
 def test_epoch_new_from_datetime_with_time_system(eop):
     """Test Epoch() constructor from Python datetime with custom time system."""
-    dt = datetime(2024, 6, 15, 14, 30, 45)
+    dt = datetime(2024, 6, 15, 14, 30, 45, tzinfo=timezone.utc)
     epc = bh.Epoch(dt, time_system=bh.TAI)
 
     assert epc.time_system == bh.TAI
-    year, month, day, hour, minute, second, nanosecond = epc.to_datetime()
+    year, month, day, _hour, _minute, _second, _nanosecond = epc.to_datetime()
     assert year == 2024
     assert month == 6
     assert day == 15
@@ -1234,7 +1234,7 @@ def test_epoch_new_partial_datetime_4_args(eop):
     """Test Epoch() with year, month, day, hour."""
     epc = bh.Epoch(2024, 1, 1, 12)
 
-    year, month, day, hour, minute, second, nanosecond = epc.to_datetime()
+    year, month, day, hour, minute, second, _nanosecond = epc.to_datetime()
     assert year == 2024
     assert month == 1
     assert day == 1
@@ -1247,7 +1247,7 @@ def test_epoch_new_partial_datetime_5_args(eop):
     """Test Epoch() with year, month, day, hour, minute."""
     epc = bh.Epoch(2024, 1, 1, 12, 30)
 
-    year, month, day, hour, minute, second, nanosecond = epc.to_datetime()
+    year, month, day, hour, minute, second, _nanosecond = epc.to_datetime()
     assert year == 2024
     assert month == 1
     assert day == 1
@@ -1546,7 +1546,7 @@ def test_epoch_to_pydatetime_converts_to_utc(eop):
     assert dt.tzinfo == timezone.utc
 
     # Get UTC datetime components to verify conversion
-    year, month, day, hour, minute, second, nanosecond = (
+    year, month, day, hour, minute, second, _nanosecond = (
         epc_gps.to_datetime_as_time_system(bh.UTC)
     )
 

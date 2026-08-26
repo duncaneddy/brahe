@@ -6,8 +6,9 @@ Tests all conversion paths for coordinates and frame conversions.
 
 import pytest
 import typer
-import brahe
 from typer.testing import CliRunner
+
+import brahe
 from brahe.cli.__main__ import app
 from brahe.cli.transform import _parse_vector
 

@@ -10,8 +10,9 @@ Shows how to use different Earth textures: simple, blue_marble,
 natural_earth_50m, and natural_earth_10m.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Initialize EOP data
 bh.initialize_eop()

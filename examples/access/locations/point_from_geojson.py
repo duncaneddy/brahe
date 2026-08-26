@@ -6,8 +6,9 @@ Load a PointLocation from a GeoJSON string.
 Demonstrates GeoJSON Feature format with properties.
 """
 
-import brahe as bh
 import json
+
+import brahe as bh
 
 bh.initialize_eop()
 

@@ -7,6 +7,7 @@ Demonstrates adding damping control to a simple harmonic oscillator via control_
 """
 
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data (needed for epoch operations)

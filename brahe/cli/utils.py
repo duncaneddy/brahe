@@ -1,6 +1,6 @@
-import re
 import math
-from typing import Union
+import re
+
 import brahe
 
 
@@ -9,7 +9,7 @@ def set_cli_eop():
     brahe.initialize_eop()
 
 
-def parse_numeric_expression(expr: Union[str, float]) -> float:
+def parse_numeric_expression(expr: str | float) -> float:
     """
     Parse a numeric expression that may contain brahe constants.
 
@@ -125,9 +125,7 @@ def parse_numeric_expression(expr: Union[str, float]) -> float:
 
         # Validate result is a number
         if not isinstance(result, (int, float)):
-            raise ValueError(
-                f"Expression must evaluate to a number, got {type(result)}"
-            )
+            raise TypeError(f"Expression must evaluate to a number, got {type(result)}")
 
         # Check for NaN or infinity
         if not math.isfinite(result):
@@ -136,4 +134,4 @@ def parse_numeric_expression(expr: Union[str, float]) -> float:
         return float(result)
 
     except Exception as e:
-        raise ValueError(f"Failed to evaluate expression '{expr_str}': {e}")
+        raise ValueError(f"Failed to evaluate expression '{expr_str}': {e}") from e

@@ -5,8 +5,9 @@
 Transform position vector from GCRF to EME2000
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Define orbital elements in degrees
 # LEO satellite: 500 km altitude, sun-synchronous orbit

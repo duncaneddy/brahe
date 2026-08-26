@@ -5,8 +5,9 @@
 Add states to a Trajectory one at a time
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

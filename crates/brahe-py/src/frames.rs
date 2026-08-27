@@ -1015,8 +1015,10 @@ fn py_rotation_mcmf_to_mci<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyR
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_mci (numpy.ndarray or list): Cartesian MCI position (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x_mci` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_mci` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian MCMF position (m), shape `(3,)` for a single
@@ -1051,8 +1053,10 @@ fn py_position_mci_to_mcmf<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_mcmf (numpy.ndarray or list): Cartesian MCMF position (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x_mcmf` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_mcmf` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian MCI position (m), shape `(3,)` for a single
@@ -1090,8 +1094,10 @@ fn py_position_mcmf_to_mci<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_mci (numpy.ndarray or list): Cartesian MCI state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_mci` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_mci` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian MCMF state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
@@ -1128,8 +1134,10 @@ fn py_state_mci_to_mcmf<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_mcmf (numpy.ndarray or list): Cartesian MCMF state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_mcmf` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_mcmf` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian MCI state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
@@ -1171,8 +1179,10 @@ fn py_state_mcmf_to_mci<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_eci (numpy.ndarray or list): Cartesian ECI position (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x_eci` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_eci` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian EMBI position (m), shape `(3,)` for a single
@@ -1212,8 +1222,10 @@ fn py_position_eci_to_emb<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_emb (numpy.ndarray or list): Cartesian EMBI position (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x_emb` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_emb` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian ECI position (m), shape `(3,)` for a single
@@ -1254,8 +1266,10 @@ fn py_position_emb_to_eci<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_eci (numpy.ndarray or list): Cartesian ECI state (m; m/s), shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_eci` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_eci` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian EMBI state (m; m/s), shape `(6,)` for a single
@@ -1296,8 +1310,10 @@ fn py_state_eci_to_emb<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_emb (numpy.ndarray or list): Cartesian EMBI state (m; m/s), shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_emb` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_emb` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian ECI state (m; m/s), shape `(6,)` for a single
@@ -1337,8 +1353,10 @@ fn py_state_emb_to_eci<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_eci (numpy.ndarray or list): Cartesian ECI position (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x_eci` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_eci` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian MCI position (m), shape `(3,)` for a single
@@ -1377,8 +1395,10 @@ fn py_position_eci_to_mci<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_mci (numpy.ndarray or list): Cartesian MCI position (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x_mci` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_mci` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian ECI position (m), shape `(3,)` for a single
@@ -1417,8 +1437,10 @@ fn py_position_mci_to_eci<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_eci (numpy.ndarray or list): Cartesian ECI state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_eci` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_eci` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian MCI state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
@@ -1457,8 +1479,10 @@ fn py_state_eci_to_mci<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_mci (numpy.ndarray or list): Cartesian MCI state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_mci` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_mci` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian ECI state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
@@ -1645,8 +1669,10 @@ fn py_rotation_lfme_to_lci<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyR
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_lci (numpy.ndarray or list): Cartesian LCI position (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x_lci` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_lci` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian LFPA position (m), shape `(3,)` for a single
@@ -1681,8 +1707,10 @@ fn py_position_lci_to_lfpa<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_lfpa (numpy.ndarray or list): Cartesian LFPA position (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x_lfpa` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_lfpa` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian LCI position (m), shape `(3,)` for a single
@@ -1717,8 +1745,10 @@ fn py_position_lfpa_to_lci<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_lci (numpy.ndarray or list): Cartesian LCI position (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x_lci` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_lci` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian LFME position (m), shape `(3,)` for a single
@@ -1753,8 +1783,10 @@ fn py_position_lci_to_lfme<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_lfme (numpy.ndarray or list): Cartesian LFME position (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x_lfme` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_lfme` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian LCI position (m), shape `(3,)` for a single
@@ -1792,8 +1824,10 @@ fn py_position_lfme_to_lci<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_lci (numpy.ndarray or list): Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_lci` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_lci` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian LFPA state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
@@ -1830,8 +1864,10 @@ fn py_state_lci_to_lfpa<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_lfpa (numpy.ndarray or list): Cartesian LFPA state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_lfpa` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_lfpa` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
@@ -1869,8 +1905,10 @@ fn py_state_lfpa_to_lci<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_lci (numpy.ndarray or list): Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_lci` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_lci` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian LFME state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
@@ -1907,8 +1945,10 @@ fn py_state_lci_to_lfme<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_lfme (numpy.ndarray or list): Cartesian LFME state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_lfme` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_lfme` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
@@ -1948,8 +1988,10 @@ fn py_state_lfme_to_lci<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_eci (numpy.ndarray or list): Cartesian ECI position (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x_eci` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_eci` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian LCI position (m), shape `(3,)` for a single
@@ -1986,8 +2028,10 @@ fn py_position_eci_to_lci<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_lci (numpy.ndarray or list): Cartesian LCI position (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x_lci` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_lci` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian ECI position (m), shape `(3,)` for a single
@@ -2025,8 +2069,10 @@ fn py_position_lci_to_eci<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_eci (numpy.ndarray or list): Cartesian ECI state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_eci` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_eci` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
@@ -2063,8 +2109,10 @@ fn py_state_eci_to_lci<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_lci (numpy.ndarray or list): Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_lci` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_lci` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian ECI state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
@@ -2170,8 +2218,10 @@ fn py_rotation_emr_to_gcrf<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyR
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_gcrf (numpy.ndarray or list): Cartesian GCRF position (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x_gcrf` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_gcrf` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian EMR position (m), shape `(3,)` for a single
@@ -2212,8 +2262,10 @@ fn py_position_gcrf_to_emr<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_emr (numpy.ndarray or list): Cartesian EMR position (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x_emr` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_emr` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian GCRF position (m), shape `(3,)` for a single
@@ -2257,8 +2309,10 @@ fn py_position_emr_to_gcrf<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_gcrf (numpy.ndarray or list): Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_gcrf` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_gcrf` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian EMR state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
@@ -2300,8 +2354,10 @@ fn py_state_gcrf_to_emr<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_emr (numpy.ndarray or list): Cartesian EMR state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_emr` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_emr` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
@@ -2407,8 +2463,10 @@ fn py_rotation_ser_to_gcrf<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyR
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_gcrf (numpy.ndarray or list): Cartesian GCRF position (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x_gcrf` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_gcrf` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian SER position (m), shape `(3,)` for a single
@@ -2449,8 +2507,10 @@ fn py_position_gcrf_to_ser<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_ser (numpy.ndarray or list): Cartesian SER position (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x_ser` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_ser` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian GCRF position (m), shape `(3,)` for a single
@@ -2494,8 +2554,10 @@ fn py_position_ser_to_gcrf<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_gcrf (numpy.ndarray or list): Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_gcrf` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_gcrf` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian SER state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
@@ -2537,8 +2599,10 @@ fn py_state_gcrf_to_ser<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_ser (numpy.ndarray or list): Cartesian SER state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_ser` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_ser` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
@@ -2643,8 +2707,10 @@ fn py_rotation_gse_to_gcrf<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyR
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_gcrf (numpy.ndarray or list): Cartesian GCRF position (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x_gcrf` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_gcrf` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian GSE position (m), shape `(3,)` for a single
@@ -2686,8 +2752,10 @@ fn py_position_gcrf_to_gse<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_gse (numpy.ndarray or list): Cartesian GSE position (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x_gse` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_gse` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian GCRF position (m), shape `(3,)` for a single
@@ -2730,8 +2798,10 @@ fn py_position_gse_to_gcrf<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_gcrf (numpy.ndarray or list): Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_gcrf` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_gcrf` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian GSE state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
@@ -2773,8 +2843,10 @@ fn py_state_gcrf_to_gse<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_gse (numpy.ndarray or list): Cartesian GSE state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_gse` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_gse` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
@@ -3326,8 +3398,10 @@ fn py_unregister_custom_frame(key: u32) -> bool {
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x (numpy.ndarray or list): Cartesian position in `from_frame` axes/center (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian position in `to_frame` axes/center (m), shape `(3,)` for a single
@@ -3390,8 +3464,10 @@ fn py_position_frame_to_frame<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x (numpy.ndarray or list): Cartesian state in `from_frame` axes/center `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian state in `to_frame` axes/center `[position (m), velocity (m/s)]`, shape `(6,)` for a single

@@ -225,9 +225,12 @@ pub fn positions_eci_to_emb(
     epochs: &[Epoch],
     x_eci: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
-    batch_map_epochs(epochs, x_eci, earth_emb_offset_position, |offset, x| {
-        x + offset
-    })
+    batch_map_epochs(
+        earth_emb_offset_position,
+        |offset, x| x + offset,
+        epochs,
+        x_eci,
+    )
 }
 
 /// Transforms a batch of Cartesian positions from the Earth-Moon barycentric inertial frame to ECI.
@@ -260,9 +263,12 @@ pub fn positions_emb_to_eci(
     epochs: &[Epoch],
     x_emb: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
-    batch_map_epochs(epochs, x_emb, earth_emb_offset_position, |offset, x| {
-        x - offset
-    })
+    batch_map_epochs(
+        earth_emb_offset_position,
+        |offset, x| x - offset,
+        epochs,
+        x_emb,
+    )
 }
 
 /// Transforms a batch of Cartesian states from ECI to the Earth-Moon barycentric inertial frame.
@@ -296,9 +302,12 @@ pub fn states_eci_to_emb(
     epochs: &[Epoch],
     x_eci: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(epochs, x_eci, earth_emb_offset_state, |offset, x| {
-        x + offset
-    })
+    batch_map_epochs(
+        earth_emb_offset_state,
+        |offset, x| x + offset,
+        epochs,
+        x_eci,
+    )
 }
 
 /// Transforms a batch of Cartesian states from the Earth-Moon barycentric inertial frame to ECI.
@@ -332,9 +341,12 @@ pub fn states_emb_to_eci(
     epochs: &[Epoch],
     x_emb: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(epochs, x_emb, earth_emb_offset_state, |offset, x| {
-        x - offset
-    })
+    batch_map_epochs(
+        earth_emb_offset_state,
+        |offset, x| x - offset,
+        epochs,
+        x_emb,
+    )
 }
 
 #[cfg(test)]

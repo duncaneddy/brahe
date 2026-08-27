@@ -1134,7 +1134,7 @@ pub fn state_gse_to_gcrf(epc: Epoch, x_gse: SVector6) -> Result<SVector6, BraheE
 /// assert_eq!(r.len(), 2);
 /// ```
 pub fn rotations_gcrf_to_emr(epochs: &[Epoch]) -> Result<Vec<SMatrix3>, BraheError> {
-    try_batch_map(epochs, |epc| rotation_gcrf_to_emr(*epc))
+    try_batch_map(|epc| rotation_gcrf_to_emr(*epc), epochs)
 }
 
 /// Computes the Earth-Moon Rotating (EMR) to GCRF rotation matrix for each epoch in `epochs`.
@@ -1160,7 +1160,7 @@ pub fn rotations_gcrf_to_emr(epochs: &[Epoch]) -> Result<Vec<SMatrix3>, BraheErr
 /// assert_eq!(r.len(), 2);
 /// ```
 pub fn rotations_emr_to_gcrf(epochs: &[Epoch]) -> Result<Vec<SMatrix3>, BraheError> {
-    try_batch_map(epochs, |epc| rotation_emr_to_gcrf(*epc))
+    try_batch_map(|epc| rotation_emr_to_gcrf(*epc), epochs)
 }
 
 /// Computes the GCRF to Sun-Earth Rotating (SER) rotation matrix for each epoch in `epochs`.
@@ -1186,7 +1186,7 @@ pub fn rotations_emr_to_gcrf(epochs: &[Epoch]) -> Result<Vec<SMatrix3>, BraheErr
 /// assert_eq!(r.len(), 2);
 /// ```
 pub fn rotations_gcrf_to_ser(epochs: &[Epoch]) -> Result<Vec<SMatrix3>, BraheError> {
-    try_batch_map(epochs, |epc| rotation_gcrf_to_ser(*epc))
+    try_batch_map(|epc| rotation_gcrf_to_ser(*epc), epochs)
 }
 
 /// Computes the Sun-Earth Rotating (SER) to GCRF rotation matrix for each epoch in `epochs`.
@@ -1212,7 +1212,7 @@ pub fn rotations_gcrf_to_ser(epochs: &[Epoch]) -> Result<Vec<SMatrix3>, BraheErr
 /// assert_eq!(r.len(), 2);
 /// ```
 pub fn rotations_ser_to_gcrf(epochs: &[Epoch]) -> Result<Vec<SMatrix3>, BraheError> {
-    try_batch_map(epochs, |epc| rotation_ser_to_gcrf(*epc))
+    try_batch_map(|epc| rotation_ser_to_gcrf(*epc), epochs)
 }
 
 /// Computes the GCRF to Geocentric Solar Ecliptic (GSE) rotation matrix for each epoch in `epochs`.
@@ -1238,7 +1238,7 @@ pub fn rotations_ser_to_gcrf(epochs: &[Epoch]) -> Result<Vec<SMatrix3>, BraheErr
 /// assert_eq!(r.len(), 2);
 /// ```
 pub fn rotations_gcrf_to_gse(epochs: &[Epoch]) -> Result<Vec<SMatrix3>, BraheError> {
-    try_batch_map(epochs, |epc| rotation_gcrf_to_gse(*epc))
+    try_batch_map(|epc| rotation_gcrf_to_gse(*epc), epochs)
 }
 
 /// Computes the Geocentric Solar Ecliptic (GSE) to GCRF rotation matrix for each epoch in `epochs`.
@@ -1264,7 +1264,7 @@ pub fn rotations_gcrf_to_gse(epochs: &[Epoch]) -> Result<Vec<SMatrix3>, BraheErr
 /// assert_eq!(r.len(), 2);
 /// ```
 pub fn rotations_gse_to_gcrf(epochs: &[Epoch]) -> Result<Vec<SMatrix3>, BraheError> {
-    try_batch_map(epochs, |epc| rotation_gse_to_gcrf(*epc))
+    try_batch_map(|epc| rotation_gse_to_gcrf(*epc), epochs)
 }
 
 /// Transforms a batch of Cartesian positions from GCRF to Earth-Moon Rotating (EMR).
@@ -1298,9 +1298,12 @@ pub fn positions_gcrf_to_emr(
     epochs: &[Epoch],
     x_gcrf: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
-    try_batch_map_epochs(epochs, x_gcrf, emr_position_context, |c, x| {
-        Ok(apply_position_inertial_to_synodic(c, x))
-    })
+    try_batch_map_epochs(
+        emr_position_context,
+        |c, x| Ok(apply_position_inertial_to_synodic(c, x)),
+        epochs,
+        x_gcrf,
+    )
 }
 
 /// Transforms a batch of Cartesian positions from Earth-Moon Rotating (EMR) to GCRF.
@@ -1334,9 +1337,12 @@ pub fn positions_emr_to_gcrf(
     epochs: &[Epoch],
     x_emr: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
-    try_batch_map_epochs(epochs, x_emr, emr_position_context, |c, x| {
-        Ok(apply_position_synodic_to_inertial(c, x))
-    })
+    try_batch_map_epochs(
+        emr_position_context,
+        |c, x| Ok(apply_position_synodic_to_inertial(c, x)),
+        epochs,
+        x_emr,
+    )
 }
 
 /// Transforms a batch of Cartesian positions from GCRF to Sun-Earth Rotating (SER).
@@ -1370,9 +1376,12 @@ pub fn positions_gcrf_to_ser(
     epochs: &[Epoch],
     x_gcrf: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
-    try_batch_map_epochs(epochs, x_gcrf, ser_position_context, |c, x| {
-        Ok(apply_position_inertial_to_synodic(c, x))
-    })
+    try_batch_map_epochs(
+        ser_position_context,
+        |c, x| Ok(apply_position_inertial_to_synodic(c, x)),
+        epochs,
+        x_gcrf,
+    )
 }
 
 /// Transforms a batch of Cartesian positions from Sun-Earth Rotating (SER) to GCRF.
@@ -1406,9 +1415,12 @@ pub fn positions_ser_to_gcrf(
     epochs: &[Epoch],
     x_ser: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
-    try_batch_map_epochs(epochs, x_ser, ser_position_context, |c, x| {
-        Ok(apply_position_synodic_to_inertial(c, x))
-    })
+    try_batch_map_epochs(
+        ser_position_context,
+        |c, x| Ok(apply_position_synodic_to_inertial(c, x)),
+        epochs,
+        x_ser,
+    )
 }
 
 /// Transforms a batch of Cartesian positions from GCRF to Geocentric Solar Ecliptic (GSE).
@@ -1442,7 +1454,7 @@ pub fn positions_gcrf_to_gse(
     epochs: &[Epoch],
     x_gcrf: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
-    try_batch_map_epochs(epochs, x_gcrf, gse_axes, |(r_mat, _), x| Ok(r_mat * x))
+    try_batch_map_epochs(gse_axes, |(r_mat, _), x| Ok(r_mat * x), epochs, x_gcrf)
 }
 
 /// Transforms a batch of Cartesian positions from Geocentric Solar Ecliptic (GSE) to GCRF.
@@ -1476,9 +1488,12 @@ pub fn positions_gse_to_gcrf(
     epochs: &[Epoch],
     x_gse: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
-    try_batch_map_epochs(epochs, x_gse, gse_axes, |(r_mat, _), x| {
-        Ok(r_mat.transpose() * x)
-    })
+    try_batch_map_epochs(
+        gse_axes,
+        |(r_mat, _), x| Ok(r_mat.transpose() * x),
+        epochs,
+        x_gse,
+    )
 }
 
 /// Transforms a batch of Cartesian states from GCRF to Earth-Moon Rotating (EMR).
@@ -1513,9 +1528,12 @@ pub fn states_gcrf_to_emr(
     epochs: &[Epoch],
     x_gcrf: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    try_batch_map_epochs(epochs, x_gcrf, emr_state_context, |c, x| {
-        Ok(apply_state_inertial_to_synodic(c, x))
-    })
+    try_batch_map_epochs(
+        emr_state_context,
+        |c, x| Ok(apply_state_inertial_to_synodic(c, x)),
+        epochs,
+        x_gcrf,
+    )
 }
 
 /// Transforms a batch of Cartesian states from Earth-Moon Rotating (EMR) to GCRF.
@@ -1550,9 +1568,12 @@ pub fn states_emr_to_gcrf(
     epochs: &[Epoch],
     x_emr: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    try_batch_map_epochs(epochs, x_emr, emr_state_context, |c, x| {
-        Ok(apply_state_synodic_to_inertial(c, x))
-    })
+    try_batch_map_epochs(
+        emr_state_context,
+        |c, x| Ok(apply_state_synodic_to_inertial(c, x)),
+        epochs,
+        x_emr,
+    )
 }
 
 /// Transforms a batch of Cartesian states from GCRF to Sun-Earth Rotating (SER).
@@ -1587,9 +1608,12 @@ pub fn states_gcrf_to_ser(
     epochs: &[Epoch],
     x_gcrf: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    try_batch_map_epochs(epochs, x_gcrf, ser_state_context, |c, x| {
-        Ok(apply_state_inertial_to_synodic(c, x))
-    })
+    try_batch_map_epochs(
+        ser_state_context,
+        |c, x| Ok(apply_state_inertial_to_synodic(c, x)),
+        epochs,
+        x_gcrf,
+    )
 }
 
 /// Transforms a batch of Cartesian states from Sun-Earth Rotating (SER) to GCRF.
@@ -1624,9 +1648,12 @@ pub fn states_ser_to_gcrf(
     epochs: &[Epoch],
     x_ser: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    try_batch_map_epochs(epochs, x_ser, ser_state_context, |c, x| {
-        Ok(apply_state_synodic_to_inertial(c, x))
-    })
+    try_batch_map_epochs(
+        ser_state_context,
+        |c, x| Ok(apply_state_synodic_to_inertial(c, x)),
+        epochs,
+        x_ser,
+    )
 }
 
 /// Transforms a batch of Cartesian states from GCRF to Geocentric Solar Ecliptic (GSE).
@@ -1661,9 +1688,12 @@ pub fn states_gcrf_to_gse(
     epochs: &[Epoch],
     x_gcrf: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    try_batch_map_epochs(epochs, x_gcrf, gse_axes, |(r_mat, r_dot_mat), x| {
-        Ok(state_inertial_to_synodic(r_mat, r_dot_mat, *x))
-    })
+    try_batch_map_epochs(
+        gse_axes,
+        |(r_mat, r_dot_mat), x| Ok(state_inertial_to_synodic(r_mat, r_dot_mat, *x)),
+        epochs,
+        x_gcrf,
+    )
 }
 
 /// Transforms a batch of Cartesian states from Geocentric Solar Ecliptic (GSE) to GCRF.
@@ -1698,9 +1728,12 @@ pub fn states_gse_to_gcrf(
     epochs: &[Epoch],
     x_gse: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    try_batch_map_epochs(epochs, x_gse, gse_axes, |(r_mat, r_dot_mat), x| {
-        Ok(state_synodic_to_inertial(r_mat, r_dot_mat, *x))
-    })
+    try_batch_map_epochs(
+        gse_axes,
+        |(r_mat, r_dot_mat), x| Ok(state_synodic_to_inertial(r_mat, r_dot_mat, *x)),
+        epochs,
+        x_gse,
+    )
 }
 
 #[cfg(test)]

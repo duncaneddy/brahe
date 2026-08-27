@@ -715,7 +715,7 @@ pub fn state_lci_to_eci(epc: Epoch, x_lci: SVector6) -> SVector6 {
 /// assert_eq!(r.len(), 2);
 /// ```
 pub fn rotations_lci_to_lfpa(epochs: &[Epoch]) -> Vec<SMatrix3> {
-    batch_map(epochs, |epc| rotation_lci_to_lfpa(*epc))
+    batch_map(|epc| rotation_lci_to_lfpa(*epc), epochs)
 }
 
 /// Computes the LFPA-to-LCI rotation matrix for each epoch in `epochs`.
@@ -740,7 +740,7 @@ pub fn rotations_lci_to_lfpa(epochs: &[Epoch]) -> Vec<SMatrix3> {
 /// assert_eq!(r.len(), 2);
 /// ```
 pub fn rotations_lfpa_to_lci(epochs: &[Epoch]) -> Vec<SMatrix3> {
-    batch_map(epochs, |epc| rotation_lfpa_to_lci(*epc))
+    batch_map(|epc| rotation_lfpa_to_lci(*epc), epochs)
 }
 
 /// Computes the LCI-to-LFME rotation matrix for each epoch in `epochs`.
@@ -765,7 +765,7 @@ pub fn rotations_lfpa_to_lci(epochs: &[Epoch]) -> Vec<SMatrix3> {
 /// assert_eq!(r.len(), 2);
 /// ```
 pub fn rotations_lci_to_lfme(epochs: &[Epoch]) -> Vec<SMatrix3> {
-    batch_map(epochs, |epc| rotation_lci_to_lfme(*epc))
+    batch_map(|epc| rotation_lci_to_lfme(*epc), epochs)
 }
 
 /// Computes the LFME-to-LCI rotation matrix for each epoch in `epochs`.
@@ -790,7 +790,7 @@ pub fn rotations_lci_to_lfme(epochs: &[Epoch]) -> Vec<SMatrix3> {
 /// assert_eq!(r.len(), 2);
 /// ```
 pub fn rotations_lfme_to_lci(epochs: &[Epoch]) -> Vec<SMatrix3> {
-    batch_map(epochs, |epc| rotation_lfme_to_lci(*epc))
+    batch_map(|epc| rotation_lfme_to_lci(*epc), epochs)
 }
 
 /// Transforms a batch of Cartesian positions from LCI to LFPA.
@@ -823,7 +823,7 @@ pub fn positions_lci_to_lfpa(
     epochs: &[Epoch],
     x_lci: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
-    batch_map_epochs(epochs, x_lci, rotation_lci_to_lfpa, |r, x| r * x)
+    batch_map_epochs(rotation_lci_to_lfpa, |r, x| r * x, epochs, x_lci)
 }
 
 /// Transforms a batch of Cartesian positions from LFPA to LCI.
@@ -856,7 +856,7 @@ pub fn positions_lfpa_to_lci(
     epochs: &[Epoch],
     x_lfpa: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
-    batch_map_epochs(epochs, x_lfpa, rotation_lfpa_to_lci, |r, x| r * x)
+    batch_map_epochs(rotation_lfpa_to_lci, |r, x| r * x, epochs, x_lfpa)
 }
 
 /// Transforms a batch of Cartesian positions from LCI to LFME.
@@ -889,7 +889,7 @@ pub fn positions_lci_to_lfme(
     epochs: &[Epoch],
     x_lci: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
-    batch_map_epochs(epochs, x_lci, rotation_lci_to_lfme, |r, x| r * x)
+    batch_map_epochs(rotation_lci_to_lfme, |r, x| r * x, epochs, x_lci)
 }
 
 /// Transforms a batch of Cartesian positions from LFME to LCI.
@@ -922,7 +922,7 @@ pub fn positions_lfme_to_lci(
     epochs: &[Epoch],
     x_lfme: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
-    batch_map_epochs(epochs, x_lfme, rotation_lfme_to_lci, |r, x| r * x)
+    batch_map_epochs(rotation_lfme_to_lci, |r, x| r * x, epochs, x_lfme)
 }
 
 /// Transforms a batch of Cartesian states from LCI to LFPA.
@@ -956,7 +956,7 @@ pub fn states_lci_to_lfpa(
     epochs: &[Epoch],
     x_lci: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(epochs, x_lci, lfpa_context, apply_state_icrf_to_rotating)
+    batch_map_epochs(lfpa_context, apply_state_icrf_to_rotating, epochs, x_lci)
 }
 
 /// Transforms a batch of Cartesian states from LFPA to LCI.
@@ -990,7 +990,7 @@ pub fn states_lfpa_to_lci(
     epochs: &[Epoch],
     x_lfpa: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(epochs, x_lfpa, lfpa_context, apply_state_rotating_to_icrf)
+    batch_map_epochs(lfpa_context, apply_state_rotating_to_icrf, epochs, x_lfpa)
 }
 
 /// Transforms a batch of Cartesian states from LCI to LFME.
@@ -1024,7 +1024,7 @@ pub fn states_lci_to_lfme(
     epochs: &[Epoch],
     x_lci: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(epochs, x_lci, lfme_context, apply_state_icrf_to_rotating)
+    batch_map_epochs(lfme_context, apply_state_icrf_to_rotating, epochs, x_lci)
 }
 
 /// Transforms a batch of Cartesian states from LFME to LCI.
@@ -1058,7 +1058,7 @@ pub fn states_lfme_to_lci(
     epochs: &[Epoch],
     x_lfme: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(epochs, x_lfme, lfme_context, apply_state_rotating_to_icrf)
+    batch_map_epochs(lfme_context, apply_state_rotating_to_icrf, epochs, x_lfme)
 }
 
 /// Transforms a batch of Cartesian positions from ECI to LCI.
@@ -1091,9 +1091,12 @@ pub fn positions_eci_to_lci(
     epochs: &[Epoch],
     x_eci: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
-    batch_map_epochs(epochs, x_eci, moon_earth_offset_position, |offset, x| {
-        x - offset
-    })
+    batch_map_epochs(
+        moon_earth_offset_position,
+        |offset, x| x - offset,
+        epochs,
+        x_eci,
+    )
 }
 
 /// Transforms a batch of Cartesian positions from LCI to ECI.
@@ -1126,9 +1129,12 @@ pub fn positions_lci_to_eci(
     epochs: &[Epoch],
     x_lci: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
-    batch_map_epochs(epochs, x_lci, moon_earth_offset_position, |offset, x| {
-        x + offset
-    })
+    batch_map_epochs(
+        moon_earth_offset_position,
+        |offset, x| x + offset,
+        epochs,
+        x_lci,
+    )
 }
 
 /// Transforms a batch of Cartesian states from ECI to LCI.
@@ -1162,9 +1168,12 @@ pub fn states_eci_to_lci(
     epochs: &[Epoch],
     x_eci: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(epochs, x_eci, moon_earth_offset_state, |offset, x| {
-        x - offset
-    })
+    batch_map_epochs(
+        moon_earth_offset_state,
+        |offset, x| x - offset,
+        epochs,
+        x_eci,
+    )
 }
 
 /// Transforms a batch of Cartesian states from LCI to ECI.
@@ -1198,9 +1207,12 @@ pub fn states_lci_to_eci(
     epochs: &[Epoch],
     x_lci: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(epochs, x_lci, moon_earth_offset_state, |offset, x| {
-        x + offset
-    })
+    batch_map_epochs(
+        moon_earth_offset_state,
+        |offset, x| x + offset,
+        epochs,
+        x_lci,
+    )
 }
 
 #[cfg(test)]

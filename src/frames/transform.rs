@@ -935,7 +935,7 @@ pub fn rotations_frame_to_frame(
     to: ReferenceFrame,
     epochs: &[Epoch],
 ) -> Result<Vec<SMatrix3>, BraheError> {
-    try_batch_map(epochs, |epc| rotation_frame_to_frame(from, to, *epc))
+    try_batch_map(|epc| rotation_frame_to_frame(from, to, *epc), epochs)
 }
 
 /// Transforms a batch of Cartesian positions from `from` to `to`.
@@ -980,13 +980,13 @@ pub fn positions_frame_to_frame(
     x: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
     if from == to {
-        return try_batch_map_epochs(epochs, x, |_| Ok(()), |_, x| Ok(*x));
+        return try_batch_map_epochs(|_| Ok(()), |_, x| Ok(*x), epochs, x);
     }
     try_batch_map_epochs(
-        epochs,
-        x,
         |epc| frame_pair_context(from, to, epc),
         |c, x| Ok(apply_position_frame_pair(c, x)),
+        epochs,
+        x,
     )
 }
 
@@ -1036,9 +1036,12 @@ pub fn states_frame_to_frame(
     epochs: &[Epoch],
     x: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    try_batch_map_epochs(epochs, x, Ok, |epc, x| {
-        state_frame_to_frame(from, to, *epc, *x)
-    })
+    try_batch_map_epochs(
+        Ok,
+        |epc, x| state_frame_to_frame(from, to, *epc, *x),
+        epochs,
+        x,
+    )
 }
 
 /// State of `to_center` relative to `from_center` at `epc`, in ICRF axes.

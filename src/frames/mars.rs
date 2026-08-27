@@ -468,7 +468,7 @@ pub fn state_mci_to_eci(epc: Epoch, x_mci: SVector6) -> SVector6 {
 /// assert_eq!(r.len(), 2);
 /// ```
 pub fn rotations_mci_to_mcmf(epochs: &[Epoch]) -> Vec<SMatrix3> {
-    batch_map(epochs, |epc| rotation_mci_to_mcmf(*epc))
+    batch_map(|epc| rotation_mci_to_mcmf(*epc), epochs)
 }
 
 /// Computes the MCMF-to-MCI rotation matrix for each epoch in `epochs`.
@@ -493,7 +493,7 @@ pub fn rotations_mci_to_mcmf(epochs: &[Epoch]) -> Vec<SMatrix3> {
 /// assert_eq!(r.len(), 2);
 /// ```
 pub fn rotations_mcmf_to_mci(epochs: &[Epoch]) -> Vec<SMatrix3> {
-    batch_map(epochs, |epc| rotation_mcmf_to_mci(*epc))
+    batch_map(|epc| rotation_mcmf_to_mci(*epc), epochs)
 }
 
 /// Transforms a batch of Cartesian positions from MCI to MCMF.
@@ -526,7 +526,7 @@ pub fn positions_mci_to_mcmf(
     epochs: &[Epoch],
     x_mci: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
-    batch_map_epochs(epochs, x_mci, rotation_mci_to_mcmf, |r, x| r * x)
+    batch_map_epochs(rotation_mci_to_mcmf, |r, x| r * x, epochs, x_mci)
 }
 
 /// Transforms a batch of Cartesian positions from MCMF to MCI.
@@ -559,7 +559,7 @@ pub fn positions_mcmf_to_mci(
     epochs: &[Epoch],
     x_mcmf: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
-    batch_map_epochs(epochs, x_mcmf, rotation_mcmf_to_mci, |r, x| r * x)
+    batch_map_epochs(rotation_mcmf_to_mci, |r, x| r * x, epochs, x_mcmf)
 }
 
 /// Transforms a batch of Cartesian states from MCI to MCMF.
@@ -593,7 +593,7 @@ pub fn states_mci_to_mcmf(
     epochs: &[Epoch],
     x_mci: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(epochs, x_mci, mcmf_context, apply_state_icrf_to_rotating)
+    batch_map_epochs(mcmf_context, apply_state_icrf_to_rotating, epochs, x_mci)
 }
 
 /// Transforms a batch of Cartesian states from MCMF to MCI.
@@ -627,7 +627,7 @@ pub fn states_mcmf_to_mci(
     epochs: &[Epoch],
     x_mcmf: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(epochs, x_mcmf, mcmf_context, apply_state_rotating_to_icrf)
+    batch_map_epochs(mcmf_context, apply_state_rotating_to_icrf, epochs, x_mcmf)
 }
 
 /// Transforms a batch of Cartesian positions from ECI to MCI.
@@ -660,9 +660,12 @@ pub fn positions_eci_to_mci(
     epochs: &[Epoch],
     x_eci: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
-    batch_map_epochs(epochs, x_eci, mars_earth_offset_position, |offset, x| {
-        x - offset
-    })
+    batch_map_epochs(
+        mars_earth_offset_position,
+        |offset, x| x - offset,
+        epochs,
+        x_eci,
+    )
 }
 
 /// Transforms a batch of Cartesian positions from MCI to ECI.
@@ -695,9 +698,12 @@ pub fn positions_mci_to_eci(
     epochs: &[Epoch],
     x_mci: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
-    batch_map_epochs(epochs, x_mci, mars_earth_offset_position, |offset, x| {
-        x + offset
-    })
+    batch_map_epochs(
+        mars_earth_offset_position,
+        |offset, x| x + offset,
+        epochs,
+        x_mci,
+    )
 }
 
 /// Transforms a batch of Cartesian states from ECI to MCI.
@@ -731,9 +737,12 @@ pub fn states_eci_to_mci(
     epochs: &[Epoch],
     x_eci: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(epochs, x_eci, mars_earth_offset_state, |offset, x| {
-        x - offset
-    })
+    batch_map_epochs(
+        mars_earth_offset_state,
+        |offset, x| x - offset,
+        epochs,
+        x_eci,
+    )
 }
 
 /// Transforms a batch of Cartesian states from MCI to ECI.
@@ -767,9 +776,12 @@ pub fn states_mci_to_eci(
     epochs: &[Epoch],
     x_mci: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(epochs, x_mci, mars_earth_offset_state, |offset, x| {
-        x + offset
-    })
+    batch_map_epochs(
+        mars_earth_offset_state,
+        |offset, x| x + offset,
+        epochs,
+        x_mci,
+    )
 }
 
 #[cfg(test)]

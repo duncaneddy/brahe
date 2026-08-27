@@ -677,7 +677,7 @@ pub fn rotations_icrf_to_body_fixed_iau(
     naif_id: i32,
     epochs: &[Epoch],
 ) -> Result<Vec<SMatrix3>, BraheError> {
-    try_batch_map(epochs, |epc| rotation_icrf_to_body_fixed_iau(naif_id, *epc))
+    try_batch_map(|epc| rotation_icrf_to_body_fixed_iau(naif_id, *epc), epochs)
 }
 
 /// Computes the angular velocity [rad/s] of a body-fixed frame with

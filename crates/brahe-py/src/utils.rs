@@ -340,3 +340,50 @@ pub fn py_get_max_threads() -> PyResult<usize> {
 pub fn py_format_time_string(seconds: f64, short: bool) -> PyResult<String> {
     Ok(format_time_string(seconds, short))
 }
+
+/// Sets the minimum batch length at which vectorized (batch) transformation
+/// functions evaluate on the global thread pool.
+///
+/// Batches shorter than the threshold evaluate sequentially, since thread
+/// hand-off overhead would dominate the sub-microsecond per-element kernels.
+/// The default is 1024. A threshold of `0` parallelizes every batch; a very
+/// large threshold disables parallel batch evaluation entirely. The thread
+/// pool itself is configured with `set_num_threads`.
+///
+/// Args:
+///     n (int): Minimum batch length for thread-pool evaluation.
+///
+/// Returns:
+///     None: The threshold is applied globally.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.set_vectorization_length_threshold(4096)
+///     print(bh.get_vectorization_length_threshold())  # Output: 4096
+///     bh.set_vectorization_length_threshold(1024)
+///     ```
+#[pyfunction]
+#[pyo3(name = "set_vectorization_length_threshold")]
+pub fn py_set_vectorization_length_threshold(n: usize) {
+    set_vectorization_length_threshold(n);
+}
+
+/// Returns the minimum batch length at which vectorized (batch)
+/// transformation functions evaluate on the global thread pool.
+///
+/// Returns:
+///     int: The current threshold. Defaults to 1024.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     print(bh.get_vectorization_length_threshold())  # Output: 1024
+///     ```
+#[pyfunction]
+#[pyo3(name = "get_vectorization_length_threshold")]
+pub fn py_get_vectorization_length_threshold() -> usize {
+    get_vectorization_length_threshold()
+}

@@ -13,10 +13,12 @@ from brahe._brahe import (
     get_celestrak_cache_dir,
     get_eop_cache_dir,
     get_max_threads,
+    # Threading
+    get_vectorization_length_threshold,
     set_ludicrous_speed,
     set_max_threads,
-    # Threading
     set_num_threads,
+    set_vectorization_length_threshold,
 )
 
 __all__ = [
@@ -28,8 +30,10 @@ __all__ = [
     "get_celestrak_cache_dir",
     "get_eop_cache_dir",
     "get_max_threads",
+    # Threading
+    "get_vectorization_length_threshold",
     "set_ludicrous_speed",
     "set_max_threads",
-    # Threading
     "set_num_threads",
+    "set_vectorization_length_threshold",
 ]

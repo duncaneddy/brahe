@@ -2,6 +2,7 @@
 Tests for threading utilities.
 """
 
+import numpy as np
 import pytest
 
 import brahe as bh
@@ -115,3 +116,24 @@ def test_get_max_threads_after_set():
         assert bh.get_max_threads() == n, (
             f"Expected {n} threads, got {bh.get_max_threads()}"
         )
+
+
+def test_vectorization_length_threshold_set_get():
+    default = bh.get_vectorization_length_threshold()
+    assert default == 1024
+
+    bh.set_vectorization_length_threshold(2)
+    assert bh.get_vectorization_length_threshold() == 2
+
+    # A small batch still evaluates correctly on the thread-pool path
+    states = np.array(
+        [[bh.R_EARTH + 500e3 + 1e3 * i, 0.01, 97.8, 15.0, 30.0, 45.0] for i in range(3)]
+    )
+    out = bh.state_koe_to_eci(states, bh.AngleFormat.DEGREES)
+    for i in range(3):
+        np.testing.assert_array_equal(
+            out[i], bh.state_koe_to_eci(states[i], bh.AngleFormat.DEGREES)
+        )
+
+    bh.set_vectorization_length_threshold(default)
+    assert bh.get_vectorization_length_threshold() == default

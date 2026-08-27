@@ -11,6 +11,7 @@ pub use state_providers::*;
 pub use threading::*;
 
 pub(crate) mod batch;
+pub use batch::{get_vectorization_length_threshold, set_vectorization_length_threshold};
 pub mod cache;
 pub mod download;
 pub mod errors;

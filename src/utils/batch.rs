@@ -8,15 +8,64 @@
  */
 
 use rayon::prelude::*;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
 use crate::utils::threading::get_thread_pool;
 
+/// Default value of the vectorization length threshold.
+pub(crate) const DEFAULT_VECTORIZATION_LENGTH_THRESHOLD: usize = 1024;
+
 /// Minimum batch length at which batch primitives evaluate on the global
 /// rayon thread pool. Below this length evaluation is sequential, since the
 /// per-element kernels are sub-microsecond and thread hand-off would dominate.
-pub(crate) const PARALLEL_THRESHOLD: usize = 1024;
+static VECTORIZATION_LENGTH_THRESHOLD: AtomicUsize =
+    AtomicUsize::new(DEFAULT_VECTORIZATION_LENGTH_THRESHOLD);
+
+/// Sets the minimum batch length at which vectorized (batch) functions
+/// evaluate on the global thread pool. Batches shorter than the threshold
+/// evaluate sequentially.
+///
+/// The default is 1024, chosen so that thread hand-off overhead does not
+/// dominate the sub-microsecond per-element transformation kernels. A
+/// threshold of `0` parallelizes every batch; `usize::MAX` disables
+/// parallel evaluation entirely.
+///
+/// # Arguments
+///
+/// * `n` - Minimum batch length for thread-pool evaluation
+///
+/// # Examples
+///
+/// ```
+/// use brahe::utils::{get_vectorization_length_threshold, set_vectorization_length_threshold};
+///
+/// set_vectorization_length_threshold(4096);
+/// assert_eq!(get_vectorization_length_threshold(), 4096);
+/// set_vectorization_length_threshold(1024);
+/// ```
+pub fn set_vectorization_length_threshold(n: usize) {
+    VECTORIZATION_LENGTH_THRESHOLD.store(n, Ordering::Relaxed);
+}
+
+/// Returns the minimum batch length at which vectorized (batch) functions
+/// evaluate on the global thread pool.
+///
+/// # Returns
+///
+/// The current threshold. Defaults to 1024.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::utils::get_vectorization_length_threshold;
+///
+/// assert!(get_vectorization_length_threshold() >= 1);
+/// ```
+pub fn get_vectorization_length_threshold() -> usize {
+    VECTORIZATION_LENGTH_THRESHOLD.load(Ordering::Relaxed)
+}
 
 /// Resolve the common batch length of a set of slice lengths under the
 /// broadcast rule: every length must be `1` or the common length `N`.
@@ -80,8 +129,9 @@ pub(crate) fn pick<T>(slice: &[T], i: usize) -> &T {
 
 /// Evaluate `f` for every index in `0..n`, preserving order.
 ///
-/// Runs on the global rayon thread pool when `n >= PARALLEL_THRESHOLD` and
-/// sequentially otherwise.
+/// Runs on the global rayon thread pool when `n` is at least the
+/// vectorization length threshold ([`get_vectorization_length_threshold`])
+/// and sequentially otherwise.
 ///
 /// # Arguments
 ///
@@ -101,7 +151,7 @@ pub(crate) fn pick<T>(slice: &[T], i: usize) -> &T {
 /// assert_eq!(squares, vec![0, 1, 4, 9]);
 /// ```
 pub(crate) fn map_indices<U: Send>(f: impl Fn(usize) -> U + Sync, n: usize) -> Vec<U> {
-    if n >= PARALLEL_THRESHOLD {
+    if n >= get_vectorization_length_threshold() {
         get_thread_pool().install(|| (0..n).into_par_iter().map(&f).collect())
     } else {
         (0..n).map(&f).collect()
@@ -218,8 +268,9 @@ pub(crate) fn batch_map_epochs<C: Sync, T: Sync, U: Send>(
 /// Evaluate a fallible `f` for every index in `0..n`, preserving order and
 /// stopping at the first error.
 ///
-/// Runs on the global rayon thread pool when `n >= PARALLEL_THRESHOLD` and
-/// sequentially otherwise.
+/// Runs on the global rayon thread pool when `n` is at least the
+/// vectorization length threshold ([`get_vectorization_length_threshold`])
+/// and sequentially otherwise.
 ///
 /// # Arguments
 ///
@@ -244,7 +295,7 @@ pub(crate) fn try_map_indices<U: Send, E: Send>(
     f: impl Fn(usize) -> Result<U, E> + Sync,
     n: usize,
 ) -> Result<Vec<U>, E> {
-    if n >= PARALLEL_THRESHOLD {
+    if n >= get_vectorization_length_threshold() {
         get_thread_pool().install(|| (0..n).into_par_iter().map(&f).collect())
     } else {
         (0..n).map(&f).collect()
@@ -329,7 +380,7 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use approx::assert_abs_diff_eq;
-    use serial_test::parallel;
+    use serial_test::{parallel, serial};
 
     use super::*;
     use crate::time::Epoch;
@@ -383,7 +434,7 @@ mod tests {
     #[test]
     #[parallel]
     fn test_map_indices_parallel_preserves_order() {
-        let n = PARALLEL_THRESHOLD + 7;
+        let n = get_vectorization_length_threshold() + 7;
         let out = map_indices(|i| i * 10, n);
         let expected: Vec<usize> = (0..n).map(|i| i * 10).collect();
         assert_eq!(out, expected);
@@ -402,7 +453,9 @@ mod tests {
         let small: Vec<f64> = (0..3).map(|i| i as f64).collect();
         assert_eq!(batch_map(|x| x * 2.0, &small), vec![0.0, 2.0, 4.0]);
 
-        let large: Vec<f64> = (0..PARALLEL_THRESHOLD + 3).map(|i| i as f64).collect();
+        let large: Vec<f64> = (0..get_vectorization_length_threshold() + 3)
+            .map(|i| i as f64)
+            .collect();
         let out = batch_map(|x| x * 2.0, &large);
         let expected: Vec<f64> = large.iter().map(|x| x * 2.0).collect();
         assert_eq!(out, expected);
@@ -453,7 +506,7 @@ mod tests {
     #[test]
     #[parallel]
     fn test_batch_zip_parallel_path() {
-        let n = PARALLEL_THRESHOLD + 1;
+        let n = get_vectorization_length_threshold() + 1;
         let a: Vec<f64> = (0..n).map(|i| i as f64).collect();
         let b = [0.5];
         let out = batch_zip(|x, y| x + y, &a, &b).unwrap();
@@ -492,7 +545,9 @@ mod tests {
     fn test_batch_map_epochs_shared_epoch_parallel_still_hoists() {
         let calls = AtomicUsize::new(0);
         let epc = epochs(1);
-        let inputs: Vec<f64> = (0..PARALLEL_THRESHOLD + 1).map(|i| i as f64).collect();
+        let inputs: Vec<f64> = (0..get_vectorization_length_threshold() + 1)
+            .map(|i| i as f64)
+            .collect();
         let out = batch_map_epochs(
             |e| {
                 calls.fetch_add(1, Ordering::SeqCst);
@@ -587,7 +642,9 @@ mod tests {
         );
         assert_eq!(err.unwrap_err(), "too big");
 
-        let large: Vec<f64> = (0..PARALLEL_THRESHOLD + 2).map(|i| i as f64).collect();
+        let large: Vec<f64> = (0..get_vectorization_length_threshold() + 2)
+            .map(|i| i as f64)
+            .collect();
         let out: Vec<f64> = try_batch_map(|x| Ok::<f64, String>(x + 1.0), &large).unwrap();
         let expected: Vec<f64> = large.iter().map(|x| x + 1.0).collect();
         assert_eq!(out, expected);
@@ -660,5 +717,25 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
+    }
+
+    #[test]
+    #[serial]
+    fn test_vectorization_length_threshold_set_get() {
+        let default = get_vectorization_length_threshold();
+        assert_eq!(default, DEFAULT_VECTORIZATION_LENGTH_THRESHOLD);
+
+        set_vectorization_length_threshold(2);
+        assert_eq!(get_vectorization_length_threshold(), 2);
+        // A three-element batch now takes the thread-pool path
+        let out = batch_map(|x| x * 2.0, &[1.0, 2.0, 3.0]);
+        assert_eq!(out, vec![2.0, 4.0, 6.0]);
+
+        set_vectorization_length_threshold(usize::MAX);
+        let out = batch_map(|x| x + 1.0, &[1.0, 2.0, 3.0]);
+        assert_eq!(out, vec![2.0, 3.0, 4.0]);
+
+        set_vectorization_length_threshold(default);
+        assert_eq!(get_vectorization_length_threshold(), default);
     }
 }

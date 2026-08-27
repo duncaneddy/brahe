@@ -806,7 +806,7 @@ mod tests {
     use crate::frames::*;
     use crate::math::{SVector6, vector6_from_array};
     use crate::time::{Epoch, TimeSystem};
-    use crate::utils::batch::PARALLEL_THRESHOLD;
+    use crate::utils::batch::get_vectorization_length_threshold;
     use crate::utils::testing::setup_global_test_eop;
 
     #[allow(non_snake_case)]
@@ -1043,7 +1043,7 @@ mod tests {
             assert_eq!(*o, state_gcrf_to_itrf(epc[0], *s));
         }
 
-        let states = sample_states(PARALLEL_THRESHOLD + 1);
+        let states = sample_states(get_vectorization_length_threshold() + 1);
         let out = states_gcrf_to_itrf(&epc, &states).unwrap();
         for (s, o) in states.iter().zip(&out) {
             assert_eq!(*o, state_gcrf_to_itrf(epc[0], *s));

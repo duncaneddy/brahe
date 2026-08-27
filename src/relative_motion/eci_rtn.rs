@@ -228,7 +228,7 @@ pub fn state_rtn_to_eci(x_chief: SVector6, x_rel_rtn: SVector6) -> SVector6 {
 /// assert_eq!(r.len(), 2);
 /// ```
 pub fn rotations_rtn_to_eci(x_eci: &[SVector6]) -> Vec<SMatrix3> {
-    batch_map(x_eci, |x| rotation_rtn_to_eci(*x))
+    batch_map(|x| rotation_rtn_to_eci(*x), x_eci)
 }
 
 /// Computes the ECI-to-RTN rotation matrix for each state in `x_eci`.
@@ -254,7 +254,7 @@ pub fn rotations_rtn_to_eci(x_eci: &[SVector6]) -> Vec<SMatrix3> {
 /// assert_eq!(r.len(), 2);
 /// ```
 pub fn rotations_eci_to_rtn(x_eci: &[SVector6]) -> Vec<SMatrix3> {
-    batch_map(x_eci, |x| rotation_eci_to_rtn(*x))
+    batch_map(|x| rotation_eci_to_rtn(*x), x_eci)
 }
 
 /// Computes the RTN relative state of each deputy with respect to its chief.
@@ -293,7 +293,7 @@ pub fn states_eci_to_rtn(
     x_chief: &[SVector6],
     x_deputy: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_zip(x_chief, x_deputy, |c, d| state_eci_to_rtn(*c, *d))
+    batch_zip(|c, d| state_eci_to_rtn(*c, *d), x_chief, x_deputy)
 }
 
 /// Computes the ECI state of each deputy from its RTN relative state and chief.
@@ -329,7 +329,7 @@ pub fn states_rtn_to_eci(
     x_chief: &[SVector6],
     x_rel_rtn: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_zip(x_chief, x_rel_rtn, |c, r| state_rtn_to_eci(*c, *r))
+    batch_zip(|c, r| state_rtn_to_eci(*c, *r), x_chief, x_rel_rtn)
 }
 
 #[cfg(test)]

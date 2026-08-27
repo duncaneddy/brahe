@@ -147,9 +147,11 @@ pub fn states_eci_to_roe(
     x_deputy: &[SVector6],
     angle_format: AngleFormat,
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_zip(x_chief, x_deputy, |c, d| {
-        state_eci_to_roe(*c, *d, angle_format)
-    })
+    batch_zip(
+        |c, d| state_eci_to_roe(*c, *d, angle_format),
+        x_chief,
+        x_deputy,
+    )
 }
 
 /// Computes deputy ECI states from each chief/relative-orbital-element pair.
@@ -187,7 +189,7 @@ pub fn states_roe_to_eci(
     roe: &[SVector6],
     angle_format: AngleFormat,
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_zip(x_chief, roe, |c, r| state_roe_to_eci(*c, *r, angle_format))
+    batch_zip(|c, r| state_roe_to_eci(*c, *r, angle_format), x_chief, roe)
 }
 
 #[cfg(test)]

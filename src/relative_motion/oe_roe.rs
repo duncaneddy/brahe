@@ -197,9 +197,11 @@ pub fn states_oe_to_roe(
     oe_deputy: &[SVector6],
     angle_format: AngleFormat,
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_zip(oe_chief, oe_deputy, |c, d| {
-        state_oe_to_roe(*c, *d, angle_format)
-    })
+    batch_zip(
+        |c, d| state_oe_to_roe(*c, *d, angle_format),
+        oe_chief,
+        oe_deputy,
+    )
 }
 
 /// Computes deputy Keplerian elements from each chief/relative-orbital-element pair.
@@ -236,7 +238,7 @@ pub fn states_roe_to_oe(
     roe: &[SVector6],
     angle_format: AngleFormat,
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_zip(oe_chief, roe, |c, r| state_roe_to_oe(*c, *r, angle_format))
+    batch_zip(|c, r| state_roe_to_oe(*c, *r, angle_format), oe_chief, roe)
 }
 
 #[cfg(test)]

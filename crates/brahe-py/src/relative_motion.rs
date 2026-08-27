@@ -11,8 +11,10 @@
 /// Args:
 ///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
 ///         vectors with the 6 components along `axis` (for example shape (n, 6)).
-///     axis (int, optional): Axis holding the vector components for batched input.
-///         Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: 3x3 rotation matrix transforming from RTN to ECI frame, shape (3, 3), or the batch dimensions
@@ -57,8 +59,10 @@ fn py_rotation_rtn_to_eci<'py>(
 /// Args:
 ///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
 ///         vectors with the 6 components along `axis` (for example shape (n, 6)).
-///     axis (int, optional): Axis holding the vector components for batched input.
-///         Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: 3x3 rotation matrix transforming from ECI to RTN frame, shape (3, 3), or the batch dimensions
@@ -104,8 +108,10 @@ fn py_rotation_eci_to_rtn<'py>(
 ///         vectors with the 6 components along `axis` (for example shape (n, 6)).
 ///     x_deputy (numpy.ndarray or list): 6D state vector of the deputy satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
 ///         vectors with the 6 components along `axis` (for example shape (n, 6)).
-///     axis (int, optional): Axis holding the vector components for batched input.
-///         Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
 ///         A single vector in one argument is broadcast across a batch in the other.
 ///
 /// Returns:
@@ -160,8 +166,10 @@ fn py_state_eci_to_rtn<'py>(
 ///         vectors with the 6 components along `axis` (for example shape (n, 6)).
 ///     x_rel_rtn (numpy.ndarray or list): 6D relative state vector of the deputy with respect to the chief in the RTN frame [ρ_R, ρ_T, ρ_N, ρ̇_R, ρ̇_T, ρ̇_N] (m, m/s), shape (6,), or a batch of
 ///         vectors with the 6 components along `axis` (for example shape (n, 6)).
-///     axis (int, optional): Axis holding the vector components for batched input.
-///         Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
 ///         A single vector in one argument is broadcast across a batch in the other.
 ///
 /// Returns:
@@ -223,8 +231,10 @@ fn py_state_rtn_to_eci<'py>(
 ///     oe_deputy (numpy.ndarray or list): Deputy satellite orbital elements [a, e, i, Ω, ω, M] shape (6,), or a batch of
 ///         vectors with the 6 components along `axis` (for example shape (n, 6)).
 ///     angle_format (AngleFormat): Format of angular elements (DEGREES or RADIANS)
-///     axis (int, optional): Axis holding the vector components for batched input.
-///         Defaults to `-1` (the last axis). A single vector in one argument is
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`. A single vector in one argument is
 ///         broadcast across a batch in the other.
 ///
 /// Returns:
@@ -279,8 +289,10 @@ fn py_state_oe_to_roe<'py>(
 ///     roe (numpy.ndarray or list): Relative orbital elements [da, dλ, dex, dey, dix, diy] shape (6,), or a batch of
 ///         vectors with the 6 components along `axis` (for example shape (n, 6)).
 ///     angle_format (AngleFormat): Format of angular elements (DEGREES or RADIANS)
-///     axis (int, optional): Axis holding the vector components for batched input.
-///         Defaults to `-1` (the last axis). A single vector in one argument is
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`. A single vector in one argument is
 ///         broadcast across a batch in the other.
 ///
 /// Returns:
@@ -343,8 +355,10 @@ fn py_state_roe_to_oe<'py>(
 ///     x_deputy (numpy.ndarray or list): 6D ECI state vector of the deputy satellite [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
 ///         vectors with the 6 components along `axis` (for example shape (n, 6)).
 ///     angle_format (AngleFormat): Format of angular elements in output (DEGREES or RADIANS)
-///     axis (int, optional): Axis holding the vector components for batched input.
-///         Defaults to `-1` (the last axis). A single vector in one argument is
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`. A single vector in one argument is
 ///         broadcast across a batch in the other.
 ///
 /// Returns:
@@ -405,8 +419,10 @@ fn py_state_eci_to_roe<'py>(
 ///     roe (numpy.ndarray or list): Relative orbital elements [da, dλ, dex, dey, dix, diy] shape (6,), or a batch of
 ///         vectors with the 6 components along `axis` (for example shape (n, 6)).
 ///     angle_format (AngleFormat): Format of angular elements in input ROE (DEGREES or RADIANS)
-///     axis (int, optional): Axis holding the vector components for batched input.
-///         Defaults to `-1` (the last axis). A single vector in one argument is
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`. A single vector in one argument is
 ///         broadcast across a batch in the other.
 ///
 /// Returns:

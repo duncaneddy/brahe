@@ -159,7 +159,7 @@ pub fn positions_geodetic_to_ecef(
     x_geod: &[Vector3<f64>],
     angle_format: AngleFormat,
 ) -> Result<Vec<Vector3<f64>>, String> {
-    try_batch_map(x_geod, |x| position_geodetic_to_ecef(*x, angle_format))
+    try_batch_map(|x| position_geodetic_to_ecef(*x, angle_format), x_geod)
 }
 
 /// Converts a batch of ECEF Cartesian positions to geodetic positions.
@@ -188,7 +188,7 @@ pub fn positions_ecef_to_geodetic(
     x_ecef: &[Vector3<f64>],
     angle_format: AngleFormat,
 ) -> Vec<Vector3<f64>> {
-    batch_map(x_ecef, |x| position_ecef_to_geodetic(*x, angle_format))
+    batch_map(|x| position_ecef_to_geodetic(*x, angle_format), x_ecef)
 }
 
 #[cfg(test)]

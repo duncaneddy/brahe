@@ -69,8 +69,10 @@ impl PyEllipsoidalConversionType {
 ///         Also accepts a batch of vectors with the 6 components along `axis`
 ///         (for example shape `(n, 6)`).
 ///     angle_format (AngleFormat): Angle format for angular elements (`RADIANS` or `DEGREES`).
-///     axis (int, optional): Axis of `x_oe` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_oe` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian state `[x, y, z, vx, vy, vz]` where position is in meters
@@ -118,8 +120,10 @@ fn py_state_koe_to_eci<'py>(
 ///         Also accepts a batch of vectors with the 6 components along `axis`
 ///         (for example shape `(n, 6)`).
 ///     angle_format (AngleFormat): Angle format for output angular elements (`RADIANS` or `DEGREES`).
-///     axis (int, optional): Axis of `x_cart` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_cart` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Osculating orbital elements `[a, e, i, RAAN, omega, M]` where `a` is
@@ -186,8 +190,10 @@ fn py_state_eci_to_koe<'py>(
 ///     central_body (CentralBody): Central body (supplies the GM and the IAU pole /
 ///         body-fixed frame).
 ///     angle_format (AngleFormat): Angle format for output angular elements (`RADIANS` or `DEGREES`).
-///     axis (int, optional): Axis of `x_cart` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_cart` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Osculating orbital elements `[a, e, i, RAAN, omega, M]` referenced
@@ -263,8 +269,10 @@ fn py_state_inertial_to_koe_for_body<'py>(
 ///     central_body (CentralBody): Central body (supplies the GM and the IAU pole /
 ///         body-fixed frame).
 ///     angle_format (AngleFormat): Angle format for input angular elements (`RADIANS` or `DEGREES`).
-///     axis (int, optional): Axis of `x_oe` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_oe` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian state `[x, y, z, vx, vy, vz]` in the body-centered
@@ -324,8 +332,10 @@ fn py_state_koe_to_inertial_for_body<'py>(
 ///         Also accepts a batch of vectors with the 3 components along `axis`
 ///         (for example shape `(n, 3)`).
 ///     angle_format (AngleFormat): Angle format for input angular coordinates (`RADIANS` or `DEGREES`).
-///     axis (int, optional): Axis of `x_geoc` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_geoc` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: `ECEF` Cartesian position `[x, y, z]` in meters.
@@ -372,8 +382,10 @@ fn py_position_geocentric_to_ecef<'py>(
 ///         Also accepts a batch of vectors with the 3 components along `axis`
 ///         (for example shape `(n, 3)`).
 ///     angle_format (AngleFormat): Angle format for output angular coordinates (`RADIANS` or `DEGREES`).
-///     axis (int, optional): Axis of `x_ecef` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_ecef` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Geocentric position `[longitude, latitude, radius]` where longitude
@@ -422,8 +434,10 @@ fn py_position_ecef_to_geocentric<'py>(
 ///         Also accepts a batch of vectors with the 3 components along `axis`
 ///         (for example shape `(n, 3)`).
 ///     angle_format (AngleFormat): Angle format for input angular coordinates (`RADIANS` or `DEGREES`).
-///     axis (int, optional): Axis of `x_geod` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_geod` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: `ECEF` Cartesian position `[x, y, z]` in meters.
@@ -470,8 +484,10 @@ fn py_position_geodetic_to_ecef<'py>(
 ///         Also accepts a batch of vectors with the 3 components along `axis`
 ///         (for example shape `(n, 3)`).
 ///     angle_format (AngleFormat): Angle format for output angular coordinates (`RADIANS` or `DEGREES`).
-///     axis (int, optional): Axis of `x_ecef` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_ecef` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Geodetic position `[longitude, latitude, altitude]` where longitude
@@ -522,8 +538,10 @@ fn py_position_ecef_to_geodetic<'py>(
 ///         Also accepts a batch of vectors with the 3 components along `axis`
 ///         (for example shape `(n, 3)`).
 ///     angle_format (AngleFormat): Angle format for input angular coordinates (`RADIANS` or `DEGREES`).
-///     axis (int, optional): Axis of `x_ellipsoid` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_ellipsoid` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: 3x3 rotation matrix from ellipsoidal frame to `ENZ` frame.
@@ -560,8 +578,10 @@ fn py_rotation_ellipsoid_to_enz<'py>(
 ///         Also accepts a batch of vectors with the 3 components along `axis`
 ///         (for example shape `(n, 3)`).
 ///     angle_format (AngleFormat): Angle format for input angular coordinates (`RADIANS` or `DEGREES`).
-///     axis (int, optional): Axis of `x_ellipsoid` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_ellipsoid` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: 3x3 rotation matrix from `ENZ` frame to ellipsoidal frame.
@@ -599,8 +619,10 @@ fn py_rotation_enz_to_ellipsoid<'py>(
 ///         Also accepts a batch of vectors with the 3 components along `axis`
 ///         (for example shape `(n, 3)`).
 ///     conversion_type (EllipsoidalConversionType): Type of ellipsoidal conversion (`GEOCENTRIC` or `GEODETIC`).
-///     axis (int, optional): Axis of `location_ecef` and the position argument holding
-///         the vector components for batched input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `location_ecef` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Relative position in `ENZ` frame `[east, north, up]` in meters.
@@ -652,8 +674,10 @@ fn py_relative_position_ecef_to_enz<'py>(
 ///         Also accepts a batch of vectors with the 3 components along `axis`
 ///         (for example shape `(n, 3)`).
 ///     conversion_type (EllipsoidalConversionType): Type of ellipsoidal conversion (`GEOCENTRIC` or `GEODETIC`).
-///     axis (int, optional): Axis of `location_ecef` and the position argument holding
-///         the vector components for batched input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `location_ecef` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Position vector in `ECEF` coordinates `[x, y, z]` in meters.
@@ -704,8 +728,10 @@ fn py_relative_position_enz_to_ecef<'py>(
 ///         Also accepts a batch of vectors with the 3 components along `axis`
 ///         (for example shape `(n, 3)`).
 ///     angle_format (AngleFormat): Angle format for input angular coordinates (`RADIANS` or `DEGREES`).
-///     axis (int, optional): Axis of `x_ellipsoid` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_ellipsoid` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: 3x3 rotation matrix from ellipsoidal frame to `SEZ` frame.
@@ -754,8 +780,10 @@ fn py_rotation_ellipsoid_to_sez<'py>(
 ///         Also accepts a batch of vectors with the 3 components along `axis`
 ///         (for example shape `(n, 3)`).
 ///     angle_format (AngleFormat): Angle format for input angular coordinates (`RADIANS` or `DEGREES`).
-///     axis (int, optional): Axis of `x_ellipsoid` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_ellipsoid` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: 3x3 rotation matrix from `SEZ` frame to ellipsoidal frame.
@@ -805,8 +833,10 @@ fn py_rotation_sez_to_ellipsoid<'py>(
 ///         Also accepts a batch of vectors with the 3 components along `axis`
 ///         (for example shape `(n, 3)`).
 ///     conversion_type (EllipsoidalConversionType): Type of ellipsoidal conversion (`GEOCENTRIC` or `GEODETIC`).
-///     axis (int, optional): Axis of `location_ecef` and the position argument holding
-///         the vector components for batched input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `location_ecef` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Relative position in `SEZ` frame `[south, east, zenith]` in meters.
@@ -858,8 +888,10 @@ fn py_relative_position_ecef_to_sez<'py>(
 ///         Also accepts a batch of vectors with the 3 components along `axis`
 ///         (for example shape `(n, 3)`).
 ///     conversion_type (EllipsoidalConversionType): Type of ellipsoidal conversion (`GEOCENTRIC` or `GEODETIC`).
-///     axis (int, optional): Axis of `location_ecef` and the position argument holding
-///         the vector components for batched input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `location_ecef` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Position vector in `ECEF` coordinates `[x, y, z]` in meters.
@@ -908,8 +940,10 @@ fn py_relative_position_sez_to_ecef<'py>(
 ///         Also accepts a batch of vectors with the 3 components along `axis`
 ///         (for example shape `(n, 3)`).
 ///     angle_format (AngleFormat): Angle format for output angular coordinates (`RADIANS` or `DEGREES`).
-///     axis (int, optional): Axis of `x_enz` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_enz` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Azimuth-elevation-range `[azimuth, elevation, range]` where azimuth
@@ -956,8 +990,10 @@ fn py_position_enz_to_azel<'py>(
 ///         Also accepts a batch of vectors with the 3 components along `axis`
 ///         (for example shape `(n, 3)`).
 ///     angle_format (AngleFormat): Angle format for output angular coordinates (`RADIANS` or `DEGREES`).
-///     axis (int, optional): Axis of `x_sez` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_sez` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Azimuth-elevation-range `[azimuth, elevation, range]` where azimuth
@@ -1004,8 +1040,10 @@ fn py_position_sez_to_azel<'py>(
 ///         Also accepts a batch of vectors with the 3 components along `axis`
 ///         (for example shape `(n, 3)`).
 ///     angle_format (AngleFormat): Angle format for angular elements (`RADIANS` or `DEGREES`).
-///     axis (int, optional): Axis of `x_radec` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_radec` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian inertial position `[x, y, z]` in meters.
@@ -1053,8 +1091,10 @@ fn py_position_radec_to_inertial<'py>(
 ///         Also accepts a batch of vectors with the 3 components along `axis`
 ///         (for example shape `(n, 3)`).
 ///     angle_format (AngleFormat): Angle format for angular output (`RADIANS` or `DEGREES`).
-///     axis (int, optional): Axis of `x_inertial` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_inertial` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Right ascension, declination, and range `[ra, dec, range]` where
@@ -1101,8 +1141,10 @@ fn py_position_inertial_to_radec<'py>(
 ///         Also accepts a batch of vectors with the 6 components along `axis`
 ///         (for example shape `(n, 6)`).
 ///     angle_format (AngleFormat): Angle format for angular elements and rates (`RADIANS` or `DEGREES`).
-///     axis (int, optional): Axis of `x_radec` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_radec` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Cartesian inertial position and velocity `[x, y, z, vx, vy, vz]`
@@ -1152,8 +1194,10 @@ fn py_state_radec_to_inertial<'py>(
 ///         Also accepts a batch of vectors with the 6 components along `axis`
 ///         (for example shape `(n, 6)`).
 ///     angle_format (AngleFormat): Angle format for angular output and rates (`RADIANS` or `DEGREES`).
-///     axis (int, optional): Axis of `x_inertial` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_inertial` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Right ascension, declination, range, and rates
@@ -1220,8 +1264,10 @@ fn py_state_inertial_to_radec<'py>(
 ///         A sequence evaluates one epoch per vector (or broadcasts a single
 ///         vector across all epochs).
 ///     angle_format (AngleFormat): Angle format for angular elements (`RADIANS` or `DEGREES`).
-///     axis (int, optional): Axis of `x_radec` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_radec` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Azimuth (clockwise from North), elevation, and range
@@ -1293,8 +1339,10 @@ fn py_position_radec_to_azel<'py>(
 ///         A sequence evaluates one epoch per vector (or broadcasts a single
 ///         vector across all epochs).
 ///     angle_format (AngleFormat): Angle format for angular elements (`RADIANS` or `DEGREES`).
-///     axis (int, optional): Axis of `x_azel` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_azel` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Topocentric right ascension, declination, and range

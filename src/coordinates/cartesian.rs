@@ -577,7 +577,7 @@ pub fn state_inertial_to_koe_for_body(
 /// assert_eq!(states.len(), 3);
 /// ```
 pub fn states_koe_to_eci(x_oe: &[SVector6], angle_format: AngleFormat) -> Vec<SVector6> {
-    batch_map(x_oe, |x| state_koe_to_eci(*x, angle_format))
+    batch_map(|x| state_koe_to_eci(*x, angle_format), x_oe)
 }
 
 /// Converts a batch of Cartesian ECI states to Keplerian orbital elements.
@@ -603,7 +603,7 @@ pub fn states_koe_to_eci(x_oe: &[SVector6], angle_format: AngleFormat) -> Vec<SV
 /// assert_eq!(elements.len(), 2);
 /// ```
 pub fn states_eci_to_koe(x_cart: &[SVector6], angle_format: AngleFormat) -> Vec<SVector6> {
-    batch_map(x_cart, |x| state_eci_to_koe(*x, angle_format))
+    batch_map(|x| state_eci_to_koe(*x, angle_format), x_cart)
 }
 
 /// Converts a batch of Keplerian elements to Cartesian inertial states about `central_body`.
@@ -636,9 +636,10 @@ pub fn states_koe_to_inertial_for_body(
     central_body: &CentralBody,
     angle_format: AngleFormat,
 ) -> Result<Vec<SVector6>, BraheError> {
-    try_batch_map(x_oe, |x| {
-        state_koe_to_inertial_for_body(*x, central_body, angle_format)
-    })
+    try_batch_map(
+        |x| state_koe_to_inertial_for_body(*x, central_body, angle_format),
+        x_oe,
+    )
 }
 
 /// Converts a batch of Cartesian inertial states about `central_body` to Keplerian elements.
@@ -671,9 +672,10 @@ pub fn states_inertial_to_koe_for_body(
     central_body: &CentralBody,
     angle_format: AngleFormat,
 ) -> Result<Vec<SVector6>, BraheError> {
-    try_batch_map(x_cart, |x| {
-        state_inertial_to_koe_for_body(*x, central_body, angle_format)
-    })
+    try_batch_map(
+        |x| state_inertial_to_koe_for_body(*x, central_body, angle_format),
+        x_cart,
+    )
 }
 
 #[cfg(test)]

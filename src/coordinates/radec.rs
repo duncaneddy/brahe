@@ -658,7 +658,7 @@ pub fn positions_radec_to_inertial(
     x_radec: &[SVector3],
     angle_format: AngleFormat,
 ) -> Vec<SVector3> {
-    batch_map(x_radec, |x| position_radec_to_inertial(*x, angle_format))
+    batch_map(|x| position_radec_to_inertial(*x, angle_format), x_radec)
 }
 
 /// Converts a batch of inertial Cartesian positions to right ascension/declination positions.
@@ -687,7 +687,7 @@ pub fn positions_inertial_to_radec(
     x_inertial: &[SVector3],
     angle_format: AngleFormat,
 ) -> Vec<SVector3> {
-    batch_map(x_inertial, |x| position_inertial_to_radec(*x, angle_format))
+    batch_map(|x| position_inertial_to_radec(*x, angle_format), x_inertial)
 }
 
 /// Converts a batch of right ascension/declination states to inertial Cartesian states.
@@ -713,7 +713,7 @@ pub fn positions_inertial_to_radec(
 /// assert_eq!(out.len(), 3);
 /// ```
 pub fn states_radec_to_inertial(x_radec: &[SVector6], angle_format: AngleFormat) -> Vec<SVector6> {
-    batch_map(x_radec, |x| state_radec_to_inertial(*x, angle_format))
+    batch_map(|x| state_radec_to_inertial(*x, angle_format), x_radec)
 }
 
 /// Converts a batch of inertial Cartesian states to right ascension/declination states.
@@ -742,7 +742,7 @@ pub fn states_inertial_to_radec(
     x_inertial: &[SVector6],
     angle_format: AngleFormat,
 ) -> Vec<SVector6> {
-    batch_map(x_inertial, |x| state_inertial_to_radec(*x, angle_format))
+    batch_map(|x| state_inertial_to_radec(*x, angle_format), x_inertial)
 }
 
 /// Converts a batch of right ascension/declination positions to azimuth/elevation as seen from a site.
@@ -788,10 +788,10 @@ pub fn positions_radec_to_azel(
     angle_format: AngleFormat,
 ) -> Result<Vec<SVector3>, BraheError> {
     batch_map_epochs(
-        epochs,
-        x_radec,
         |epc| radec_azel_context(epc, site_geodetic, angle_format),
         |c, x| apply_position_radec_to_azel(c, x, angle_format),
+        epochs,
+        x_radec,
     )
 }
 
@@ -838,10 +838,10 @@ pub fn positions_azel_to_radec(
     angle_format: AngleFormat,
 ) -> Result<Vec<SVector3>, BraheError> {
     batch_map_epochs(
-        epochs,
-        x_azel,
         |epc| azel_radec_context(epc, site_geodetic, angle_format),
         |c, x| apply_position_azel_to_radec(c, x, angle_format),
+        epochs,
+        x_azel,
     )
 }
 

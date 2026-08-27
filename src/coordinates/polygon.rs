@@ -212,7 +212,7 @@ fn point_in_polygon_internal(lon: f64, lat: f64, vertices: &[(f64, f64)]) -> boo
 /// assert_eq!(inside, vec![true, false]);
 /// ```
 pub fn points_in_polygon(points: &[(f64, f64)], vertices: &[(f64, f64)]) -> Vec<bool> {
-    batch_map(points, |(lon, lat)| point_in_polygon(*lon, *lat, vertices))
+    batch_map(|(lon, lat)| point_in_polygon(*lon, *lat, vertices), points)
 }
 
 #[cfg(test)]

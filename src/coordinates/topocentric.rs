@@ -614,7 +614,7 @@ pub fn rotations_ellipsoid_to_enz(
     x_ellipsoid: &[Vector3<f64>],
     angle_format: AngleFormat,
 ) -> Vec<SMatrix3> {
-    batch_map(x_ellipsoid, |x| rotation_ellipsoid_to_enz(*x, angle_format))
+    batch_map(|x| rotation_ellipsoid_to_enz(*x, angle_format), x_ellipsoid)
 }
 
 /// Computes the ENZ-to-ellipsoidal rotation matrix for each site in `x_ellipsoid`.
@@ -643,7 +643,7 @@ pub fn rotations_enz_to_ellipsoid(
     x_ellipsoid: &[Vector3<f64>],
     angle_format: AngleFormat,
 ) -> Vec<SMatrix3> {
-    batch_map(x_ellipsoid, |x| rotation_enz_to_ellipsoid(*x, angle_format))
+    batch_map(|x| rotation_enz_to_ellipsoid(*x, angle_format), x_ellipsoid)
 }
 
 /// Computes the ellipsoidal-to-SEZ rotation matrix for each site in `x_ellipsoid`.
@@ -672,7 +672,7 @@ pub fn rotations_ellipsoid_to_sez(
     x_ellipsoid: &[Vector3<f64>],
     angle_format: AngleFormat,
 ) -> Vec<SMatrix3> {
-    batch_map(x_ellipsoid, |x| rotation_ellipsoid_to_sez(*x, angle_format))
+    batch_map(|x| rotation_ellipsoid_to_sez(*x, angle_format), x_ellipsoid)
 }
 
 /// Computes the SEZ-to-ellipsoidal rotation matrix for each site in `x_ellipsoid`.
@@ -701,7 +701,7 @@ pub fn rotations_sez_to_ellipsoid(
     x_ellipsoid: &[Vector3<f64>],
     angle_format: AngleFormat,
 ) -> Vec<SMatrix3> {
-    batch_map(x_ellipsoid, |x| rotation_sez_to_ellipsoid(*x, angle_format))
+    batch_map(|x| rotation_sez_to_ellipsoid(*x, angle_format), x_ellipsoid)
 }
 
 /// Transforms a batch of positions between ECEF and the local ENZ frame of one or more sites.
@@ -740,13 +740,16 @@ pub fn relative_positions_ecef_to_enz(
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
     if location_ecef.len() == 1 {
         let rot = enz_rotation_at(location_ecef[0], conversion_type);
-        return Ok(batch_map(r_ecef, |x| {
-            apply_relative_ecef_to_local(&rot, &location_ecef[0], x)
-        }));
+        return Ok(batch_map(
+            |x| apply_relative_ecef_to_local(&rot, &location_ecef[0], x),
+            r_ecef,
+        ));
     }
-    batch_zip(location_ecef, r_ecef, |loc, x| {
-        relative_position_ecef_to_enz(*loc, *x, conversion_type)
-    })
+    batch_zip(
+        |loc, x| relative_position_ecef_to_enz(*loc, *x, conversion_type),
+        location_ecef,
+        r_ecef,
+    )
 }
 
 /// Transforms a batch of positions between ECEF and the local ENZ frame of one or more sites.
@@ -785,13 +788,16 @@ pub fn relative_positions_enz_to_ecef(
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
     if location_ecef.len() == 1 {
         let rot = enz_inverse_rotation_at(location_ecef[0], conversion_type);
-        return Ok(batch_map(r_enz, |x| {
-            apply_relative_local_to_ecef(&rot, &location_ecef[0], x)
-        }));
+        return Ok(batch_map(
+            |x| apply_relative_local_to_ecef(&rot, &location_ecef[0], x),
+            r_enz,
+        ));
     }
-    batch_zip(location_ecef, r_enz, |loc, x| {
-        relative_position_enz_to_ecef(*loc, *x, conversion_type)
-    })
+    batch_zip(
+        |loc, x| relative_position_enz_to_ecef(*loc, *x, conversion_type),
+        location_ecef,
+        r_enz,
+    )
 }
 
 /// Transforms a batch of positions between ECEF and the local SEZ frame of one or more sites.
@@ -830,13 +836,16 @@ pub fn relative_positions_ecef_to_sez(
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
     if location_ecef.len() == 1 {
         let rot = sez_rotation_at(location_ecef[0], conversion_type);
-        return Ok(batch_map(r_ecef, |x| {
-            apply_relative_ecef_to_local(&rot, &location_ecef[0], x)
-        }));
+        return Ok(batch_map(
+            |x| apply_relative_ecef_to_local(&rot, &location_ecef[0], x),
+            r_ecef,
+        ));
     }
-    batch_zip(location_ecef, r_ecef, |loc, x| {
-        relative_position_ecef_to_sez(*loc, *x, conversion_type)
-    })
+    batch_zip(
+        |loc, x| relative_position_ecef_to_sez(*loc, *x, conversion_type),
+        location_ecef,
+        r_ecef,
+    )
 }
 
 /// Transforms a batch of positions between ECEF and the local SEZ frame of one or more sites.
@@ -875,13 +884,16 @@ pub fn relative_positions_sez_to_ecef(
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
     if location_ecef.len() == 1 {
         let rot = sez_inverse_rotation_at(location_ecef[0], conversion_type);
-        return Ok(batch_map(x_sez, |x| {
-            apply_relative_local_to_ecef(&rot, &location_ecef[0], x)
-        }));
+        return Ok(batch_map(
+            |x| apply_relative_local_to_ecef(&rot, &location_ecef[0], x),
+            x_sez,
+        ));
     }
-    batch_zip(location_ecef, x_sez, |loc, x| {
-        relative_position_sez_to_ecef(*loc, *x, conversion_type)
-    })
+    batch_zip(
+        |loc, x| relative_position_sez_to_ecef(*loc, *x, conversion_type),
+        location_ecef,
+        x_sez,
+    )
 }
 
 /// Converts a batch of ENZ relative positions to azimuth/elevation/range.
@@ -910,7 +922,7 @@ pub fn positions_enz_to_azel(
     x_enz: &[Vector3<f64>],
     angle_format: AngleFormat,
 ) -> Vec<Vector3<f64>> {
-    batch_map(x_enz, |x| position_enz_to_azel(*x, angle_format))
+    batch_map(|x| position_enz_to_azel(*x, angle_format), x_enz)
 }
 
 /// Converts a batch of SEZ relative positions to azimuth/elevation/range.
@@ -939,7 +951,7 @@ pub fn positions_sez_to_azel(
     x_sez: &[Vector3<f64>],
     angle_format: AngleFormat,
 ) -> Vec<Vector3<f64>> {
-    batch_map(x_sez, |x| position_sez_to_azel(*x, angle_format))
+    batch_map(|x| position_sez_to_azel(*x, angle_format), x_sez)
 }
 
 #[cfg(test)]

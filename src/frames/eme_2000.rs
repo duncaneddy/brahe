@@ -257,7 +257,7 @@ pub fn state_eme2000_to_gcrf(x_eme2000: SVector6) -> SVector6 {
 /// assert_eq!(x_eme2000.len(), 3);
 /// ```
 pub fn positions_gcrf_to_eme2000(x_gcrf: &[Vector3<f64>]) -> Vec<Vector3<f64>> {
-    batch_map(x_gcrf, |x| position_gcrf_to_eme2000(*x))
+    batch_map(|x| position_gcrf_to_eme2000(*x), x_gcrf)
 }
 
 /// Transforms a batch of Cartesian positions from EME2000 to GCRF.
@@ -283,7 +283,7 @@ pub fn positions_gcrf_to_eme2000(x_gcrf: &[Vector3<f64>]) -> Vec<Vector3<f64>> {
 /// assert_eq!(x_gcrf.len(), 3);
 /// ```
 pub fn positions_eme2000_to_gcrf(x_eme2000: &[Vector3<f64>]) -> Vec<Vector3<f64>> {
-    batch_map(x_eme2000, |x| position_eme2000_to_gcrf(*x))
+    batch_map(|x| position_eme2000_to_gcrf(*x), x_eme2000)
 }
 
 /// Transforms a batch of Cartesian states from GCRF to EME2000.
@@ -310,7 +310,7 @@ pub fn positions_eme2000_to_gcrf(x_eme2000: &[Vector3<f64>]) -> Vec<Vector3<f64>
 /// assert_eq!(x_eme2000.len(), 3);
 /// ```
 pub fn states_gcrf_to_eme2000(x_gcrf: &[SVector6]) -> Vec<SVector6> {
-    batch_map(x_gcrf, |x| state_gcrf_to_eme2000(*x))
+    batch_map(|x| state_gcrf_to_eme2000(*x), x_gcrf)
 }
 
 /// Transforms a batch of Cartesian states from EME2000 to GCRF.
@@ -337,7 +337,7 @@ pub fn states_gcrf_to_eme2000(x_gcrf: &[SVector6]) -> Vec<SVector6> {
 /// assert_eq!(x_gcrf.len(), 3);
 /// ```
 pub fn states_eme2000_to_gcrf(x_eme2000: &[SVector6]) -> Vec<SVector6> {
-    batch_map(x_eme2000, |x| state_eme2000_to_gcrf(*x))
+    batch_map(|x| state_eme2000_to_gcrf(*x), x_eme2000)
 }
 
 #[cfg(test)]

@@ -14,7 +14,7 @@ bh.initialize_eop()
 epc = bh.Epoch(2024, 1, 1, 12, 0, 0.0, time_system=bh.UTC)
 
 # Build a batch of ECI states: one row per satellite, columns [x, y, z, vx, vy, vz]
-raan = np.linspace(0.0, 360.0, 8, endpoint=False)
+raan = np.linspace(0.0, 360.0, 6, endpoint=False)
 states_eci = np.array(
     [
         bh.state_koe_to_eci(
@@ -48,7 +48,7 @@ for e, r in zip(epochs, station_eci):
     print(f"  {e}: [{r[0]:.1f}, {r[1]:.1f}, {r[2]:.1f}] m")
 
 # Many epochs, many states: one epoch per row
-states_ecef_series = bh.state_eci_to_ecef(epochs, states_eci[:6])
+states_ecef_series = bh.state_eci_to_ecef(epochs, states_eci)
 print(f"Per-epoch ECEF states shape: {states_ecef_series.shape}")
 
 # A sequence of epochs also vectorizes the rotation matrices

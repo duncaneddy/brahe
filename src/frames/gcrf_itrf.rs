@@ -574,7 +574,7 @@ pub fn state_itrf_to_gcrf(epc: Epoch, x_itrf: SVector6) -> SVector6 {
 /// assert_eq!(rotations.len(), 3);
 /// ```
 pub fn rotations_gcrf_to_itrf(epochs: &[Epoch]) -> Vec<SMatrix3> {
-    batch_map(epochs, |epc| rotation_gcrf_to_itrf(*epc))
+    batch_map(|epc| rotation_gcrf_to_itrf(*epc), epochs)
 }
 
 /// Computes the ITRF-to-GCRF rotation matrix for each epoch in `epochs`.
@@ -605,7 +605,7 @@ pub fn rotations_gcrf_to_itrf(epochs: &[Epoch]) -> Vec<SMatrix3> {
 /// assert_eq!(rotations.len(), 3);
 /// ```
 pub fn rotations_itrf_to_gcrf(epochs: &[Epoch]) -> Vec<SMatrix3> {
-    batch_map(epochs, |epc| rotation_itrf_to_gcrf(*epc))
+    batch_map(|epc| rotation_itrf_to_gcrf(*epc), epochs)
 }
 
 /// Transforms a batch of Cartesian positions from GCRF to ITRF.
@@ -650,7 +650,7 @@ pub fn positions_gcrf_to_itrf(
     epochs: &[Epoch],
     x: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
-    batch_map_epochs(epochs, x, rotation_gcrf_to_itrf, |r, x| r * x)
+    batch_map_epochs(rotation_gcrf_to_itrf, |r, x| r * x, epochs, x)
 }
 
 /// Transforms a batch of Cartesian positions from ITRF to GCRF.
@@ -693,7 +693,7 @@ pub fn positions_itrf_to_gcrf(
     epochs: &[Epoch],
     x: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
-    batch_map_epochs(epochs, x, rotation_itrf_to_gcrf, |r, x| r * x)
+    batch_map_epochs(rotation_itrf_to_gcrf, |r, x| r * x, epochs, x)
 }
 
 /// Transforms a batch of Cartesian states from GCRF to ITRF.
@@ -741,7 +741,7 @@ pub fn states_gcrf_to_itrf(
     epochs: &[Epoch],
     x_gcrf: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(epochs, x_gcrf, gcrf_itrf_context, apply_state_gcrf_to_itrf)
+    batch_map_epochs(gcrf_itrf_context, apply_state_gcrf_to_itrf, epochs, x_gcrf)
 }
 
 /// Transforms a batch of Cartesian states from ITRF to GCRF.
@@ -790,7 +790,7 @@ pub fn states_itrf_to_gcrf(
     epochs: &[Epoch],
     x_itrf: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(epochs, x_itrf, gcrf_itrf_context, apply_state_itrf_to_gcrf)
+    batch_map_epochs(gcrf_itrf_context, apply_state_itrf_to_gcrf, epochs, x_itrf)
 }
 
 #[cfg(test)]

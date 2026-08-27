@@ -226,8 +226,10 @@ fn py_rotation_ecef_to_eci<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyR
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x (numpy.ndarray or list): Position vector in `GCRF` frame (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Position vector in `ITRF` frame (m), shape `(3,)` for a single
@@ -248,6 +250,14 @@ fn py_rotation_ecef_to_eci<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyR
 ///     # Transform to ITRF
 ///     r_itrf = bh.position_gcrf_to_itrf(epc, r_gcrf)
 ///     print(f"ITRF position: {r_itrf}")
+///
+///     # Batch: one row per position, one shared epoch
+///     positions = np.tile(r_gcrf, (10, 1))                     # shape (10, 3)
+///     positions_itrf = bh.position_gcrf_to_itrf(epc, positions)  # shape (10, 3)
+///
+///     # One position at a sequence of epochs
+///     epochs = [epc + 60.0 * i for i in range(5)]
+///     track = bh.position_gcrf_to_itrf(epochs, r_gcrf)         # shape (5, 3)
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (epc, x, axis=-1))]
@@ -274,8 +284,10 @@ fn py_position_gcrf_to_itrf<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x (numpy.ndarray or list): Position vector in `ECI` frame (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Position vector in `ECEF` frame (m), shape `(3,)` for a single
@@ -322,8 +334,10 @@ fn py_position_eci_to_ecef<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x (numpy.ndarray or list): Position vector in `ITRF` frame (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Position vector in `GCRF` frame (m), shape `(3,)` for a single
@@ -370,8 +384,10 @@ fn py_position_itrf_to_gcrf<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x (numpy.ndarray or list): Position vector in `ECEF` frame (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Position vector in `ECI` frame (m), shape `(3,)` for a single
@@ -419,8 +435,10 @@ fn py_position_ecef_to_eci<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_gcrf (numpy.ndarray or list): State vector in `GCRF` frame `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_gcrf` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_gcrf` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: State vector in `ITRF` frame `[position (m), velocity (m/s)]`, shape `(6,)` for a single
@@ -468,8 +486,10 @@ fn py_state_gcrf_to_itrf<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_eci (numpy.ndarray or list): State vector in `ECI` frame `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_eci` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_eci` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: State vector in `ECEF` frame `[position (m), velocity (m/s)]`, shape `(6,)` for a single
@@ -490,6 +510,13 @@ fn py_state_gcrf_to_itrf<'py>(
 ///     # Transform to ECEF
 ///     state_ecef = bh.state_eci_to_ecef(epc, state_eci)
 ///     print(f"ECEF state: {state_ecef}")
+///
+///     # Batch: one row per state, one shared epoch
+///     states_eci = np.tile(state_eci, (10, 1))              # shape (10, 6)
+///     states_ecef = bh.state_eci_to_ecef(epc, states_eci)   # shape (10, 6)
+///
+///     # Column layout: components along axis 0
+///     cols_ecef = bh.state_eci_to_ecef(epc, states_eci.T, axis=0)  # shape (6, 10)
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (epc, x_eci, axis=-1))]
@@ -517,8 +544,10 @@ fn py_state_eci_to_ecef<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_itrf (numpy.ndarray or list): State vector in `ITRF` frame `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_itrf` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_itrf` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: State vector in `GCRF` frame `[position (m), velocity (m/s)]`, shape `(6,)` for a single
@@ -566,8 +595,10 @@ fn py_state_itrf_to_gcrf<'py>(
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x_ecef (numpy.ndarray or list): State vector in `ECEF` frame `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_ecef` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_ecef` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: State vector in `ECI` frame `[position (m), velocity (m/s)]`, shape `(6,)` for a single
@@ -694,8 +725,10 @@ unsafe fn py_rotation_eme2000_to_gcrf<'py>(py: Python<'py>) -> Bound<'py, PyArra
 /// Args:
 ///     x (numpy.ndarray or list): Position vector in `GCRF` frame (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Position vector in `EME2000` frame (m), shape `(3,)` for a single
@@ -736,8 +769,10 @@ fn py_position_gcrf_to_eme2000<'py>(
 /// Args:
 ///     x (numpy.ndarray or list): Position vector in `EME2000` frame (m), shape `(3,)`, or a batch
 ///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
-///     axis (int, optional): Axis of `x` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Position vector in `GCRF` frame (m), shape `(3,)` for a single
@@ -778,8 +813,10 @@ fn py_position_eme2000_to_gcrf<'py>(
 /// Args:
 ///     x_gcrf (numpy.ndarray or list): State vector in `GCRF` frame `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_gcrf` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_gcrf` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: State vector in `EME2000` frame `[position (m), velocity (m/s)]`, shape `(6,)` for a single
@@ -820,8 +857,10 @@ fn py_state_gcrf_to_eme2000<'py>(
 /// Args:
 ///     x_eme2000 (numpy.ndarray or list): State vector in `EME2000` frame `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
 ///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
-///     axis (int, optional): Axis of `x_eme2000` holding the vector components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `x_eme2000` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: State vector in `GCRF` frame `[position (m), velocity (m/s)]`, shape `(6,)` for a single

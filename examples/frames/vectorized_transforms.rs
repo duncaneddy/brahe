@@ -10,9 +10,9 @@ fn main() {
     let epc = bh::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh::TimeSystem::UTC);
 
     // Build a batch of ECI states, one per satellite
-    let states_eci: Vec<na::SVector<f64, 6>> = (0..8)
+    let states_eci: Vec<na::SVector<f64, 6>> = (0..6)
         .map(|i| {
-            let raan = 45.0 * i as f64;
+            let raan = 60.0 * i as f64;
             let oe = na::SVector::<f64, 6>::new(bh::R_EARTH + 500e3, 0.001, 97.8, raan, 0.0, 0.0);
             bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees)
         })
@@ -42,7 +42,7 @@ fn main() {
     }
 
     // Many epochs, many states: one epoch per state
-    let states_ecef_series = bh::states_eci_to_ecef(&epochs, &states_eci[..6]).unwrap();
+    let states_ecef_series = bh::states_eci_to_ecef(&epochs, &states_eci).unwrap();
     println!("Per-epoch ECEF states: {}", states_ecef_series.len());
 
     // A sequence of epochs also vectorizes the rotation matrices

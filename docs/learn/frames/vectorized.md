@@ -41,19 +41,3 @@ Rotation-matrix functions such as `rotation_eci_to_ecef` accept a sequence of ep
         ```
         --8<-- "./docs/outputs/frames/vectorized_transforms.rs.txt"
         ```
-
-## Rust API
-
-The Rust core exposes each batch operation as a plural function alongside its scalar counterpart: `rotation_eci_to_ecef` and `rotations_eci_to_ecef`, `position_eci_to_ecef` and `positions_eci_to_ecef`, `state_eci_to_ecef` and `states_eci_to_ecef`. Plural functions take slices and return a `Vec`. Epoch-dependent functions take `&[Epoch]` as their first argument and follow one broadcast rule: every slice argument has length `1` or the common batch length, and the output has the common length. A length mismatch returns `Err(BraheError::Error)`.
-
-Batches evaluate sequentially for small inputs and on the global thread pool for large ones. The pool size is controlled with `set_num_threads`; see [Threading](../utilities/threading.md).
-
-## Two Regimes
-
-The batch speed-up comes from two different sources, and which one applies depends on the epochs.
-
-When all vectors share one epoch, the transformation context (for ECI/ECEF, the bias-precession-nutation, Earth-rotation, and polar-motion matrices) is computed once and applied to every vector. The per-vector work is a handful of matrix products, so the cost of the batch is dominated by the single context evaluation.
-
-When each vector has its own epoch, the context must be evaluated per vector and the batch runs those evaluations across the thread pool. The speed-up over a Python loop is then the sum of avoiding per-call overhead and using multiple cores.
-
-Results are identical to calling the scalar function in a loop in both regimes; the plural functions apply the same expressions in the same order.

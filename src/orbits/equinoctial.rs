@@ -138,7 +138,7 @@ pub fn states_koe_to_equinoctial(
     angle_format: AngleFormat,
     fr: i8,
 ) -> Vec<SVector<f64, 6>> {
-    batch_map(koe, |x| state_koe_to_equinoctial(x, angle_format, fr))
+    batch_map(|x| state_koe_to_equinoctial(x, angle_format, fr), koe)
 }
 
 /// Converts a batch of equinoctial element sets to Keplerian elements.
@@ -169,7 +169,7 @@ pub fn states_equinoctial_to_koe(
     angle_format: AngleFormat,
     fr: i8,
 ) -> Vec<SVector<f64, 6>> {
-    batch_map(eqn, |x| state_equinoctial_to_koe(x, angle_format, fr))
+    batch_map(|x| state_equinoctial_to_koe(x, angle_format, fr), eqn)
 }
 
 #[cfg(test)]

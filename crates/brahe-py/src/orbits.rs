@@ -98,8 +98,10 @@ fn py_orbital_period_general<'py>(
 ///         Also accepts a batch of states with the 6 components along `axis`
 ///         (for example shape `(n, 6)`).
 ///     gm (float): Gravitational parameter in m³/s². Use GM_EARTH for Earth orbits.
-///     axis (int, optional): Axis of `state_eci` holding the state components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `state_eci` along which the 6 state components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     float or numpy.ndarray: Orbital period in seconds.
@@ -2318,8 +2320,10 @@ fn py_states_koe_mean_to_osc<'py>(
 ///         (for example shape `(n, 6)`).
 ///     angle_format (AngleFormat): Format of angular inputs/outputs.
 ///     fr (int): Retrograde factor, +1 for direct orbits, -1 for near-retrograde. Defaults to 1.
-///     axis (int, optional): Axis of `koe` holding the element components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `koe` along which the 6 element components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Equinoctial `[a, h, k, p, q, l]` (a in meters; l per angle_format).
@@ -2359,8 +2363,10 @@ fn py_state_koe_to_equinoctial<'py>(
 ///         (for example shape `(n, 6)`).
 ///     angle_format (AngleFormat): Format of angular input/outputs.
 ///     fr (int): Retrograde factor matching the forward conversion. Defaults to 1.
-///     axis (int, optional): Axis of `eqn` holding the element components for batched
-///         input. Defaults to `-1` (the last axis).
+///     axis (int, optional): The axis of `eqn` along which the 6 element components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
 ///     numpy.ndarray: Keplerian `[a, e, i, Ω, ω, M]` (a in meters; angles per angle_format).

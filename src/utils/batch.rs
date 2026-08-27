@@ -87,8 +87,8 @@ pub(crate) fn pick<T>(slice: &[T], i: usize) -> &T {
 ///
 /// # Arguments
 ///
-/// * `n` - Number of elements to evaluate
 /// * `f` - Kernel evaluated at each index
+/// * `n` - Number of elements to evaluate
 ///
 /// # Returns
 ///
@@ -99,10 +99,10 @@ pub(crate) fn pick<T>(slice: &[T], i: usize) -> &T {
 /// ```ignore
 /// use crate::utils::batch::map_indices;
 ///
-/// let squares = map_indices(4, |i| i * i);
+/// let squares = map_indices(|i| i * i, 4);
 /// assert_eq!(squares, vec![0, 1, 4, 9]);
 /// ```
-pub(crate) fn map_indices<U: Send>(n: usize, f: impl Fn(usize) -> U + Sync) -> Vec<U> {
+pub(crate) fn map_indices<U: Send>(f: impl Fn(usize) -> U + Sync, n: usize) -> Vec<U> {
     if n >= PARALLEL_THRESHOLD {
         get_thread_pool().install(|| (0..n).into_par_iter().map(&f).collect())
     } else {
@@ -114,8 +114,8 @@ pub(crate) fn map_indices<U: Send>(n: usize, f: impl Fn(usize) -> U + Sync) -> V
 ///
 /// # Arguments
 ///
-/// * `inputs` - Elements to transform
 /// * `f` - Element-wise kernel
+/// * `inputs` - Elements to transform
 ///
 /// # Returns
 ///
@@ -126,20 +126,20 @@ pub(crate) fn map_indices<U: Send>(n: usize, f: impl Fn(usize) -> U + Sync) -> V
 /// ```ignore
 /// use crate::utils::batch::batch_map;
 ///
-/// let doubled = batch_map(&[1.0, 2.0, 3.0], |x| 2.0 * x);
+/// let doubled = batch_map(|x| 2.0 * x, &[1.0, 2.0, 3.0]);
 /// assert_eq!(doubled, vec![2.0, 4.0, 6.0]);
 /// ```
-pub(crate) fn batch_map<T: Sync, U: Send>(inputs: &[T], f: impl Fn(&T) -> U + Sync) -> Vec<U> {
-    map_indices(inputs.len(), |i| f(&inputs[i]))
+pub(crate) fn batch_map<T: Sync, U: Send>(f: impl Fn(&T) -> U + Sync, inputs: &[T]) -> Vec<U> {
+    map_indices(|i| f(&inputs[i]), inputs.len())
 }
 
 /// Apply `f` pairwise across two slice arguments under the broadcast rule.
 ///
 /// # Arguments
 ///
+/// * `f` - Pairwise kernel
 /// * `a` - First slice argument, length `1` or `N`
 /// * `b` - Second slice argument, length `1` or `N`
-/// * `f` - Pairwise kernel
 ///
 /// # Returns
 ///
@@ -152,16 +152,16 @@ pub(crate) fn batch_map<T: Sync, U: Send>(inputs: &[T], f: impl Fn(&T) -> U + Sy
 /// use crate::utils::batch::batch_zip;
 ///
 /// // A single left operand broadcasts across the right batch
-/// let sums = batch_zip(&[10.0], &[1.0, 2.0], |a, b| a + b).unwrap();
+/// let sums = batch_zip(|a, b| a + b, &[10.0], &[1.0, 2.0]).unwrap();
 /// assert_eq!(sums, vec![11.0, 12.0]);
 /// ```
 pub(crate) fn batch_zip<A: Sync, B: Sync, U: Send>(
+    f: impl Fn(&A, &B) -> U + Sync,
     a: &[A],
     b: &[B],
-    f: impl Fn(&A, &B) -> U + Sync,
 ) -> Result<Vec<U>, BraheError> {
     let n = broadcast_len(&[a.len(), b.len()])?;
-    Ok(map_indices(n, |i| f(pick(a, i), pick(b, i))))
+    Ok(map_indices(|i| f(pick(a, i), pick(b, i)), n))
 }
 
 /// Apply an epoch-dependent kernel across a batch, hoisting the epoch
@@ -173,12 +173,12 @@ pub(crate) fn batch_zip<A: Sync, B: Sync, U: Send>(
 ///
 /// # Arguments
 ///
-/// * `epochs` - Epochs, length `1` or `N`
-/// * `inputs` - Elements to transform, length `1` or `N`
 /// * `context` - Builds the per-epoch context (rotation matrices, angular
 ///   rates, ephemeris lookups) that the scalar transform would otherwise
 ///   recompute on every call
 /// * `apply` - Applies a context to one input
+/// * `epochs` - Epochs, length `1` or `N`
+/// * `inputs` - Elements to transform, length `1` or `N`
 ///
 /// # Returns
 ///
@@ -193,14 +193,14 @@ pub(crate) fn batch_zip<A: Sync, B: Sync, U: Send>(
 ///
 /// let epc = Epoch::from_gps_seconds(0.0);
 /// // One epoch: the context closure runs once for the whole batch
-/// let out = batch_map_epochs(&[epc], &[1.0, 2.0], |e| e.gps_seconds(), |t, x| t + x).unwrap();
+/// let out = batch_map_epochs(|e| e.gps_seconds(), |t, x| t + x, &[epc], &[1.0, 2.0]).unwrap();
 /// assert_eq!(out, vec![1.0, 2.0]);
 /// ```
 pub(crate) fn batch_map_epochs<C: Sync, T: Sync, U: Send>(
-    epochs: &[Epoch],
-    inputs: &[T],
     context: impl Fn(Epoch) -> C + Sync,
     apply: impl Fn(&C, &T) -> U + Sync,
+    epochs: &[Epoch],
+    inputs: &[T],
 ) -> Result<Vec<U>, BraheError> {
     let n = broadcast_len(&[epochs.len(), inputs.len()])?;
     if n == 0 {
@@ -208,11 +208,12 @@ pub(crate) fn batch_map_epochs<C: Sync, T: Sync, U: Send>(
     }
     if epochs.len() == 1 {
         let c = context(epochs[0]);
-        Ok(map_indices(n, |i| apply(&c, pick(inputs, i))))
+        Ok(map_indices(|i| apply(&c, pick(inputs, i)), n))
     } else {
-        Ok(map_indices(n, |i| {
-            apply(&context(epochs[i]), pick(inputs, i))
-        }))
+        Ok(map_indices(
+            |i| apply(&context(epochs[i]), pick(inputs, i)),
+            n,
+        ))
     }
 }
 
@@ -268,7 +269,7 @@ mod tests {
     #[test]
     #[parallel]
     fn test_map_indices_sequential_preserves_order() {
-        let out = map_indices(5, |i| i * 10);
+        let out = map_indices(|i| i * 10, 5);
         assert_eq!(out, vec![0, 10, 20, 30, 40]);
     }
 
@@ -276,7 +277,7 @@ mod tests {
     #[parallel]
     fn test_map_indices_parallel_preserves_order() {
         let n = PARALLEL_THRESHOLD + 7;
-        let out = map_indices(n, |i| i * 10);
+        let out = map_indices(|i| i * 10, n);
         let expected: Vec<usize> = (0..n).map(|i| i * 10).collect();
         assert_eq!(out, expected);
     }
@@ -284,7 +285,7 @@ mod tests {
     #[test]
     #[parallel]
     fn test_map_indices_empty() {
-        let out: Vec<usize> = map_indices(0, |i| i);
+        let out: Vec<usize> = map_indices(|i| i, 0);
         assert!(out.is_empty());
     }
 
@@ -292,15 +293,15 @@ mod tests {
     #[parallel]
     fn test_batch_map_small_and_large() {
         let small: Vec<f64> = (0..3).map(|i| i as f64).collect();
-        assert_eq!(batch_map(&small, |x| x * 2.0), vec![0.0, 2.0, 4.0]);
+        assert_eq!(batch_map(|x| x * 2.0, &small), vec![0.0, 2.0, 4.0]);
 
         let large: Vec<f64> = (0..PARALLEL_THRESHOLD + 3).map(|i| i as f64).collect();
-        let out = batch_map(&large, |x| x * 2.0);
+        let out = batch_map(|x| x * 2.0, &large);
         let expected: Vec<f64> = large.iter().map(|x| x * 2.0).collect();
         assert_eq!(out, expected);
 
         let empty: Vec<f64> = Vec::new();
-        assert!(batch_map(&empty, |x| x * 2.0).is_empty());
+        assert!(batch_map(|x| x * 2.0, &empty).is_empty());
     }
 
     #[test]
@@ -309,7 +310,7 @@ mod tests {
         let a = [1.0, 2.0, 3.0];
         let b = [10.0, 20.0, 30.0];
         assert_eq!(
-            batch_zip(&a, &b, |x, y| x + y).unwrap(),
+            batch_zip(|x, y| x + y, &a, &b).unwrap(),
             vec![11.0, 22.0, 33.0]
         );
     }
@@ -320,14 +321,14 @@ mod tests {
         let one = [100.0];
         let many = [1.0, 2.0, 3.0];
         assert_eq!(
-            batch_zip(&one, &many, |x, y| x + y).unwrap(),
+            batch_zip(|x, y| x + y, &one, &many).unwrap(),
             vec![101.0, 102.0, 103.0]
         );
         assert_eq!(
-            batch_zip(&many, &one, |x, y| x - y).unwrap(),
+            batch_zip(|x, y| x - y, &many, &one).unwrap(),
             vec![-99.0, -98.0, -97.0]
         );
-        assert_eq!(batch_zip(&one, &one, |x, y| x * y).unwrap(), vec![10000.0]);
+        assert_eq!(batch_zip(|x, y| x * y, &one, &one).unwrap(), vec![10000.0]);
     }
 
     #[test]
@@ -335,11 +336,11 @@ mod tests {
     fn test_batch_zip_mismatch_and_empty() {
         let a = [1.0, 2.0];
         let b = [1.0, 2.0, 3.0];
-        assert!(batch_zip(&a, &b, |x, y| x + y).is_err());
+        assert!(batch_zip(|x, y| x + y, &a, &b).is_err());
 
         let empty: [f64; 0] = [];
-        assert!(batch_zip(&empty, &empty, |x, y| x + y).unwrap().is_empty());
-        assert!(batch_zip(&[1.0], &empty, |x, y| x + y).unwrap().is_empty());
+        assert!(batch_zip(|x, y| x + y, &empty, &empty).unwrap().is_empty());
+        assert!(batch_zip(|x, y| x + y, &[1.0], &empty).unwrap().is_empty());
     }
 
     #[test]
@@ -348,7 +349,7 @@ mod tests {
         let n = PARALLEL_THRESHOLD + 1;
         let a: Vec<f64> = (0..n).map(|i| i as f64).collect();
         let b = [0.5];
-        let out = batch_zip(&a, &b, |x, y| x + y).unwrap();
+        let out = batch_zip(|x, y| x + y, &a, &b).unwrap();
         let expected: Vec<f64> = a.iter().map(|x| x + 0.5).collect();
         assert_eq!(out, expected);
     }
@@ -366,13 +367,13 @@ mod tests {
         let epc = epochs(1);
         let inputs = [1.0, 2.0, 3.0];
         let out = batch_map_epochs(
-            &epc,
-            &inputs,
             |e| {
                 calls.fetch_add(1, Ordering::SeqCst);
                 e.gps_seconds()
             },
             |c, x| c + x,
+            &epc,
+            &inputs,
         )
         .unwrap();
         assert_eq!(out, vec![1.0, 2.0, 3.0]);
@@ -386,13 +387,13 @@ mod tests {
         let epc = epochs(1);
         let inputs: Vec<f64> = (0..PARALLEL_THRESHOLD + 1).map(|i| i as f64).collect();
         let out = batch_map_epochs(
-            &epc,
-            &inputs,
             |e| {
                 calls.fetch_add(1, Ordering::SeqCst);
                 e.gps_seconds()
             },
             |c, x| c + x,
+            &epc,
+            &inputs,
         )
         .unwrap();
         assert_eq!(out, inputs);
@@ -406,13 +407,13 @@ mod tests {
         let epc = epochs(3);
         let inputs = [1.0, 2.0, 3.0];
         let out = batch_map_epochs(
-            &epc,
-            &inputs,
             |e| {
                 calls.fetch_add(1, Ordering::SeqCst);
                 e.gps_seconds()
             },
             |c, x| c + x,
+            &epc,
+            &inputs,
         )
         .unwrap();
         assert_eq!(out.len(), 3);
@@ -427,7 +428,7 @@ mod tests {
     fn test_batch_map_epochs_single_input_many_epochs() {
         let epc = epochs(4);
         let inputs = [0.5];
-        let out = batch_map_epochs(&epc, &inputs, |e| e.gps_seconds(), |c, x| c + x).unwrap();
+        let out = batch_map_epochs(|e| e.gps_seconds(), |c, x| c + x, &epc, &inputs).unwrap();
         assert_eq!(out.len(), 4);
         for (got, want) in out.iter().zip([0.5, 60.5, 120.5, 180.5]) {
             assert_abs_diff_eq!(*got, want, epsilon = 1e-9);
@@ -439,24 +440,24 @@ mod tests {
     fn test_batch_map_epochs_mismatch_and_empty() {
         let epc = epochs(2);
         let inputs = [1.0, 2.0, 3.0];
-        assert!(batch_map_epochs(&epc, &inputs, |e| e.gps_seconds(), |c, x| c + x).is_err());
+        assert!(batch_map_epochs(|e| e.gps_seconds(), |c, x| c + x, &epc, &inputs).is_err());
 
         let calls = AtomicUsize::new(0);
         let none: [f64; 0] = [];
         let out = batch_map_epochs(
-            &epochs(1),
-            &none,
             |e| {
                 calls.fetch_add(1, Ordering::SeqCst);
                 e.gps_seconds()
             },
             |c, x| c + x,
+            &epochs(1),
+            &none,
         )
         .unwrap();
         assert!(out.is_empty());
         assert_eq!(calls.load(Ordering::SeqCst), 0);
 
-        let out = batch_map_epochs(&epochs(0), &none, |e| e.gps_seconds(), |c, x| c + x).unwrap();
+        let out = batch_map_epochs(|e| e.gps_seconds(), |c, x| c + x, &epochs(0), &none).unwrap();
         assert!(out.is_empty());
     }
 }

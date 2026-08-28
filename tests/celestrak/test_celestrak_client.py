@@ -285,6 +285,7 @@ def celestrak_server(tmp_path, monkeypatch):
         yield f"http://{host}:{port}", requests
     finally:
         server.shutdown()
+        server.server_close()
 
 
 class TestCelestrakClientActiveResolution:
@@ -322,5 +323,5 @@ class TestCelestrakClientActiveResolution:
         base_url, requests = celestrak_server
         client = bh.celestrak.CelestrakClient(base_url=base_url)
         propagator = client.get_sgp_propagator(catnr=25544, step_size=60.0)
-        assert propagator is not None
+        assert isinstance(propagator, bh.SGPPropagator)
         assert [r.get("GROUP") for r in requests] == ["active"]

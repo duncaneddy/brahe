@@ -821,6 +821,14 @@ impl PyCelestrakSATCATRecord {
 /// data from CelestrakClient. No authentication is required. Responses
 /// are cached locally to reduce server load.
 ///
+/// Single-object lookups (``catnr``, ``intdes``, or ``name`` passed to
+/// ``get_gp()``, or a query with exactly one of those selectors) resolve
+/// from a cached copy of the ``active`` group when the object is in it,
+/// so a series of lookups costs one request. A ``name`` search that
+/// matches in ``active`` returns only active objects. A client with a
+/// zero cache age sends every query directly, since the ``active`` group
+/// copy could not be reused.
+///
 /// Two tiers of API are available:
 ///
 /// **Tier 1 — Compact convenience methods** (most common operations):
@@ -893,13 +901,14 @@ impl PyCelestrakClient {
     ///
     /// Provide exactly one of ``catnr``, ``group``, ``name``, or ``intdes``.
     ///
-    /// Lookups by ``catnr``, ``name``, or ``intdes`` are answered from a
-    /// cached copy of the ``active`` group when the object is in it, so
-    /// repeated lookups cost a single request. Objects not in ``active``
-    /// are requested individually. A ``name`` search that matches in
-    /// ``active`` returns only active objects; ``group`` queries are sent
-    /// to the server exactly as written, though still served from the URL
-    /// cache when a fresh copy exists.
+    /// Lookups by ``catnr``, ``name``, or ``intdes`` first check the exact
+    /// per-object cache file, then a cached copy of the ``active`` group
+    /// when the object is in it, so repeated lookups cost a single
+    /// request. Objects not in ``active`` are requested individually. A
+    /// ``name`` search that matches in ``active`` returns only active
+    /// objects; ``group`` queries are sent to the server exactly as
+    /// written, though still served from the URL cache when a fresh copy
+    /// exists.
     ///
     /// Args:
     ///     catnr (int, optional): NORAD catalog number (e.g., 25544 for ISS).
@@ -1106,7 +1115,9 @@ impl PyCelestrakClient {
     ///
     /// Dispatches to the appropriate handler based on query type:
     /// GP and SupGP queries return ``list[GPRecord]``, SATCAT queries
-    /// return ``list[CelestrakSATCATRecord]``.
+    /// return ``list[CelestrakSATCATRecord]``. A GP query with exactly one
+    /// of ``catnr``, ``intdes``, or ``name`` set follows the same cached
+    /// ``active`` group resolution as ``get_gp()``.
     ///
     /// Args:
     ///     query (CelestrakQuery): The query to execute.

@@ -105,6 +105,13 @@ pub fn network_mode() -> Result<NetworkMode, BraheError> {
 /// * `Ok(())` - Requests are allowed
 /// * `Err(BraheError)` - The mode is `offline` or `offline-strict`, or the
 ///   variable holds an unrecognized value
+///
+/// # Examples
+///
+/// ```ignore
+/// ensure_online("Celestrak request")?;
+/// // proceed to make the HTTP request
+/// ```
 pub(crate) fn ensure_online(resource: &str) -> Result<(), BraheError> {
     match network_mode()? {
         NetworkMode::Online => Ok(()),
@@ -139,6 +146,14 @@ pub(crate) enum CacheDecision {
 /// * `Ok(CacheDecision::Refresh)` - The file is stale and the mode is `online`
 /// * `Err(BraheError)` - The file is stale and the mode is `offline-strict`, or
 ///   the variable holds an unrecognized value
+///
+/// # Examples
+///
+/// ```ignore
+/// if cache_policy("EOP file finals.all", stale)? == CacheDecision::Refresh {
+///     // download a fresh copy
+/// }
+/// ```
 pub(crate) fn cache_policy(resource: &str, stale: bool) -> Result<CacheDecision, BraheError> {
     let mode = network_mode()?;
     if !stale {

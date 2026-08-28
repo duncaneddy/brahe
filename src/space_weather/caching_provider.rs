@@ -301,6 +301,14 @@ impl CachingSpaceWeatherProvider {
     /// * `Ok(true)` - The file must be downloaded
     /// * `Ok(false)` - The existing cached file may be served as-is
     /// * `Err(BraheError)` - `BRAHE_NETWORK_MODE` is `offline-strict` and the file is stale
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// if Self::needs_download(&cache_path, max_age)? {
+    ///     download_space_weather(&cache_path)?;
+    /// }
+    /// ```
     fn needs_download(filepath: &Path, max_age_seconds: u64) -> Result<bool, BraheError> {
         if !filepath.exists() {
             return Ok(true);

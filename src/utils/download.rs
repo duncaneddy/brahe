@@ -130,6 +130,12 @@ pub(crate) fn download_string_no_redirect(
 /// * `Ok(String)` - The response body.
 /// * `Err(BraheError)` - On a non-retryable status or exhausted retries. Returned
 ///   without making a request if `BRAHE_NETWORK_MODE` is not `online`.
+///
+/// # Examples
+///
+/// ```ignore
+/// let body = download_string_impl(url, "Standard EOP", true)?;
+/// ```
 fn download_string_impl(
     url: &str,
     description: &str,
@@ -246,6 +252,12 @@ pub(crate) fn download_bytes_with_user_agent(
 /// * `Ok(Vec<u8>)` - The response body.
 /// * `Err(BraheError)` - On a non-retryable status or exhausted retries. Returned
 ///   without making a request if `BRAHE_NETWORK_MODE` is not `online`.
+///
+/// # Examples
+///
+/// ```ignore
+/// let bytes = download_bytes_impl(url, Some("Mozilla/5.0 (compatible; brahe)"))?;
+/// ```
 fn download_bytes_impl(url: &str, user_agent: Option<&str>) -> Result<Vec<u8>, BraheError> {
     ensure_online(url)?;
 

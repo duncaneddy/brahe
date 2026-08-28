@@ -3,7 +3,7 @@
 use crate::datasets::icgem::body::ICGEMBody;
 use crate::datasets::icgem::index::{IndexEntry, index_path_for, read_index_file};
 use crate::utils::BraheError;
-use crate::utils::network::ensure_online;
+use crate::utils::network::{NetworkMode, ensure_online, network_mode};
 
 /// Resolve `name` (optionally with `-<degree>` suffix) against `entries` for
 /// `body`. Returns the matched `IndexEntry`, or an error with a helpful hint.
@@ -168,9 +168,11 @@ fn model_cache_path(body: &ICGEMBody, entry: &IndexEntry, cache_root: &Path) -> 
 /// Look up an already-downloaded model by resolving `name` against the cached
 /// index file directly, ignoring the index's time-to-live.
 ///
-/// This lets a model that has already been downloaded be served under
-/// `offline-strict` even when the cached index itself is stale, since the
-/// model file has no time-to-live of its own once present.
+/// Callers should only use this in `offline` or `offline-strict` mode: it
+/// lets a model that has already been downloaded be served even when the
+/// cached index itself is stale, since the model file has no time-to-live
+/// of its own once present. In `online` mode a stale index should always be
+/// refreshed instead, so a model republished under a new hash is re-fetched.
 ///
 /// # Arguments
 ///
@@ -237,10 +239,13 @@ fn finalize_model_path(
 /// that path. Otherwise returns the cache path.
 ///
 /// Requests are refused when `BRAHE_NETWORK_MODE` is `offline` or
-/// `offline-strict`; see [`crate::utils::network`]. An already-downloaded
-/// model is served even when the cached index is past its time-to-live under
-/// `offline-strict`; resolving a model name that has not yet been downloaded
-/// still requires the index, so it is subject to the index's time-to-live.
+/// `offline-strict`; see [`crate::utils::network`]. In `offline` and
+/// `offline-strict` mode, an already-downloaded model is served even when
+/// the cached index is past its time-to-live; resolving a model name that
+/// has not yet been downloaded still requires the index, so it is subject to
+/// the index's time-to-live. In `online` mode a stale index is always
+/// refreshed first, so a model republished under a new hash is still
+/// re-fetched.
 ///
 /// # Arguments
 ///
@@ -293,7 +298,9 @@ pub(crate) fn download_icgem_model_with_url(
 ) -> Result<PathBuf, BraheError> {
     let cache_root = PathBuf::from(get_icgem_cache_dir()?);
 
-    if let Some(cache_file) = cached_model_path(body, name, &cache_root) {
+    if network_mode()? != NetworkMode::Online
+        && let Some(cache_file) = cached_model_path(body, name, &cache_root)
+    {
         return finalize_model_path(&cache_file, output_path);
     }
 
@@ -628,6 +635,60 @@ mod tests {
                 .to_string();
         assert!(err.contains("is older than its cache limit"), "{err}");
         list_mock.assert_calls(0);
+        download_mock.assert_calls(0);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_download_online_refreshes_stale_index_even_with_cached_model() {
+        use httpmock::prelude::*;
+
+        let _cache = CacheRedirect::new();
+
+        let html = std::fs::read_to_string("test_assets/icgem/tom_longtime_sample.html").unwrap();
+        let gfc = std::fs::read_to_string("data/gravity_models/JGM3.gfc").unwrap();
+        let parsed_entries = crate::datasets::icgem::parser::parse_earth_catalog(&html).unwrap();
+        let target_entry = resolve_icgem_model(&ICGEMBody::Earth, "JGM3", &parsed_entries)
+            .expect("fixture has a JGM3 entry")
+            .clone();
+
+        let cache_root = PathBuf::from(get_icgem_cache_dir().unwrap());
+        let cache_dir = cache_root.join("models").join("earth");
+        std::fs::create_dir_all(&cache_dir).unwrap();
+        let cache_file = cache_dir.join(cache_filename_for_entry(&target_entry));
+        std::fs::write(&cache_file, &gfc).unwrap();
+
+        let stale_seconds = 40 * 24 * 60 * 60;
+        let index_path = index_path_for(&ICGEMBody::Earth).unwrap();
+        write_index_file(
+            &index_path,
+            &IndexFile {
+                fetched_at: now_unix_seconds().saturating_sub(stale_seconds),
+                entries: vec![target_entry.clone()],
+            },
+        )
+        .unwrap();
+
+        let server = MockServer::start();
+        let list_mock = server.mock(|when, then| {
+            when.method(GET).path_includes("/tom_longtime");
+            then.status(200).body(&html);
+        });
+        let download_mock = server.mock(|when, then| {
+            when.method(GET).path_includes("/getmodel/gfc/");
+            then.status(200).body(&gfc);
+        });
+
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let path = download_icgem_model_with_url(
+            &ICGEMBody::Earth,
+            &target_entry.name,
+            None,
+            &server.base_url(),
+        )
+        .unwrap();
+        assert_eq!(path, cache_file);
+        list_mock.assert_calls(1);
         download_mock.assert_calls(0);
     }
 

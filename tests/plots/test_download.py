@@ -226,3 +226,42 @@ def test_download_file_validation_rejects_bad_content(zip_server, tmp_path):
         )
 
     assert not dest.exists()
+
+
+def test_download_file_offline_raises_without_request(monkeypatch, tmp_path):
+    monkeypatch.setenv("BRAHE_NETWORK_MODE", "offline")
+    dest = tmp_path / "resource.bin"
+    with pytest.raises(
+        RuntimeError, match="BRAHE_NETWORK_MODE is offline; test resource"
+    ):
+        download_file(
+            "http://127.0.0.1:9/resource.bin", dest, description="test resource"
+        )
+    assert not dest.exists()
+
+
+def test_download_file_offline_returns_existing_file(monkeypatch, tmp_path):
+    monkeypatch.setenv("BRAHE_NETWORK_MODE", "offline")
+    dest = tmp_path / "resource.bin"
+    dest.write_bytes(b"cached")
+    assert (
+        download_file(
+            "http://127.0.0.1:9/resource.bin", dest, description="test resource"
+        )
+        == dest
+    )
+
+
+def test_download_and_extract_zip_offline_raises_without_request(monkeypatch, tmp_path):
+    monkeypatch.setenv("BRAHE_NETWORK_MODE", "offline-strict")
+    extract_dir = tmp_path / "extracted"
+    sentinel = extract_dir / "file.txt"
+    with pytest.raises(
+        RuntimeError, match="BRAHE_NETWORK_MODE is offline-strict; test zip"
+    ):
+        download_and_extract_zip(
+            "http://127.0.0.1:9/resource.zip",
+            extract_dir,
+            sentinel,
+            description="test zip",
+        )

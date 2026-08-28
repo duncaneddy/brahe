@@ -10,6 +10,7 @@ to truncated upstream responses:
   rename into place so parallel workers never observe a partial result.
 """
 
+import os
 import shutil
 import tempfile
 import time
@@ -30,6 +31,26 @@ _HEADERS = {
     ),
     "Accept": "*/*",
 }
+
+NETWORK_MODE_ENV = "BRAHE_NETWORK_MODE"
+
+
+def _ensure_online(description: str) -> None:
+    """Raise unless ``BRAHE_NETWORK_MODE`` permits a network request.
+
+    Mirrors the Rust library's check so plot resources obey the same switch.
+    """
+    mode = os.environ.get(NETWORK_MODE_ENV, "").strip().lower() or "online"
+    if mode == "online":
+        return
+    if mode not in ("offline", "offline-strict"):
+        raise RuntimeError(
+            f"{NETWORK_MODE_ENV} has unrecognized value {mode!r}; "
+            "expected one of online, offline, offline-strict"
+        )
+    raise RuntimeError(
+        f"{NETWORK_MODE_ENV} is {mode}; {description} is not cached and cannot be downloaded"
+    )
 
 
 def _is_zip(path: Path) -> bool:
@@ -76,6 +97,7 @@ def download_file(
     """
     if dest.exists():
         return dest
+    _ensure_online(description)
     dest.parent.mkdir(parents=True, exist_ok=True)
     last_error: Exception | None = None
     for attempt in range(1, max_retries + 1):
@@ -144,6 +166,7 @@ def download_and_extract_zip(
     # Fast path: already cached.
     if sentinel.exists():
         return sentinel
+    _ensure_online(description)
 
     parent = extract_dir.parent
     parent.mkdir(parents=True, exist_ok=True)

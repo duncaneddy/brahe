@@ -46,6 +46,11 @@ static LAST_REQUEST_TIME: LazyLock<Mutex<Option<Instant>>> = LazyLock::new(|| Mu
 static ACTIVE_UNAVAILABLE_SINCE: LazyLock<Mutex<HashMap<String, Instant>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
+/// Process-global lock serializing population of the cached `active` group,
+/// so concurrent single-object lookups against a cold cache issue one
+/// request instead of one per caller.
+static ACTIVE_FETCH_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+
 /// CelestrakClient API client with caching.
 ///
 /// Provides typed query execution for GP, supplemental GP, and SATCAT
@@ -627,17 +632,32 @@ impl CelestrakClient {
 
     /// Load the `active` group through the ordinary cached fetch path.
     ///
+    /// Holds [`ACTIVE_FETCH_LOCK`] for the duration of the fetch, so
+    /// concurrent callers racing a cold cache serialize on the first
+    /// caller's request; every later caller finds the file it wrote and
+    /// reads the cache instead of requesting the group again.
+    ///
     /// # Returns
     ///
     /// * `Ok(Vec<GPRecord>)` - Every record in the `active` group
     /// * `Err(BraheError)` - If the group is neither servable from cache nor
     ///   fetchable under the current `BRAHE_NETWORK_MODE`
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let records = client.active_catalog()?;
+    /// ```
     fn active_catalog(&self) -> Result<Vec<GPRecord>, BraheError> {
         let query = CelestrakQuery::gp()
             .group(LOCAL_CATALOG_GROUP)
             .format(CelestrakOutputFormat::Json);
         let url = self.build_full_url(&query);
-        Self::parse_gp_records(&self.fetch_with_cache(&url)?)
+        let body = {
+            let _guard = ACTIVE_FETCH_LOCK.lock().unwrap();
+            self.fetch_with_cache(&url)?
+        };
+        Self::parse_gp_records(&body)
     }
 
     /// Match a selector against the `active` group.
@@ -2066,6 +2086,40 @@ mod tests {
         std::thread::sleep(Duration::from_millis(600));
         client.get_gp_by_catnr(34427).unwrap();
         active.assert_calls(2);
+    }
+
+    #[test]
+    #[serial]
+    fn test_concurrent_cold_active_fetch_is_single_flight() {
+        clear_active_unavailable_latch();
+        let _cache = CacheRedirect::new();
+        let server = MockServer::start();
+        let active = server.mock(|when, then| {
+            when.method(GET)
+                .path("/NORAD/elements/gp.php")
+                .query_param("GROUP", "active")
+                .query_param("FORMAT", "JSON");
+            then.status(200)
+                .delay(Duration::from_millis(300))
+                .body(ACTIVE_JSON);
+        });
+        let base_url = server.base_url();
+
+        let handles: Vec<_> = (0..4)
+            .map(|_| {
+                let base_url = base_url.clone();
+                std::thread::spawn(move || {
+                    let client = CelestrakClient::with_base_url(&base_url);
+                    client.get_gp_by_catnr(25544).unwrap()
+                })
+            })
+            .collect();
+
+        for handle in handles {
+            let records = handle.join().unwrap();
+            assert_eq!(records[0].norad_cat_id, Some(25544));
+        }
+        active.assert_calls(1);
     }
 
     #[test]

@@ -12,6 +12,7 @@ use crate::eop::eop_provider::EarthOrientationProvider;
 use crate::eop::eop_types::{EOPExtrapolation, EOPType};
 use crate::eop::file_provider::{FileEOPProvider, PACKAGED_C04_FILE, PACKAGED_STANDARD2000_FILE};
 use crate::time::{Epoch, TimeSystem};
+use crate::utils::network::{CacheDecision, cache_policy};
 use crate::utils::{BraheError, atomic_write};
 
 /// Provides Earth Orientation Parameter (EOP) data with automatic cache refresh.
@@ -23,6 +24,10 @@ use crate::utils::{BraheError, atomic_write};
 /// This is useful for applications that need to maintain current EOP data without manual
 /// intervention, such as long-running services or applications that need accurate
 /// reference frame transformations.
+///
+/// When `BRAHE_NETWORK_MODE` is `offline`, a cached file is used regardless of age and
+/// no download is attempted; `offline-strict` treats a file older than the maximum age
+/// as an error. See [`crate::utils::network`].
 ///
 /// # Fields
 ///
@@ -163,7 +168,7 @@ impl CachingEOPProvider {
         }
 
         // Check if file needs to be downloaded
-        let needs_download = Self::check_file_age(&filepath, max_age_seconds)?;
+        let needs_download = Self::needs_download(&filepath, max_age_seconds)?;
 
         if needs_download {
             Self::download_file(&filepath, eop_type)?;
@@ -245,6 +250,31 @@ impl CachingEOPProvider {
 
         // Return true if file is older than max age
         Ok(age > max_age_seconds)
+    }
+
+    /// Decide whether the cache file must be downloaded under the network mode.
+    ///
+    /// A missing file always needs a download. An existing file is stale when
+    /// older than `max_age_seconds`; whether a stale file is refreshed or served
+    /// depends on `BRAHE_NETWORK_MODE`.
+    ///
+    /// # Arguments
+    ///
+    /// * `filepath` - Path to check
+    /// * `max_age_seconds` - Maximum acceptable age in seconds
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(true)` - The file must be downloaded
+    /// * `Ok(false)` - The cached file (or a to-be-seeded missing file) may be served as-is
+    /// * `Err(BraheError)` - `BRAHE_NETWORK_MODE` is `offline-strict` and the file is stale
+    fn needs_download(filepath: &Path, max_age_seconds: u64) -> Result<bool, BraheError> {
+        if !filepath.exists() {
+            return Ok(true);
+        }
+        let stale = Self::check_file_age(filepath, max_age_seconds)?;
+        let resource = format!("EOP file {}", filepath.display());
+        Ok(cache_policy(&resource, stale)? == CacheDecision::Refresh)
     }
 
     /// Downloads an EOP file to the specified path.
@@ -331,7 +361,7 @@ impl CachingEOPProvider {
     /// provider.refresh().unwrap();
     /// ```
     pub fn refresh(&self) -> Result<(), BraheError> {
-        let needs_download = Self::check_file_age(&self.filepath, self.max_age_seconds)?;
+        let needs_download = Self::needs_download(&self.filepath, self.max_age_seconds)?;
 
         if needs_download {
             Self::download_file(&self.filepath, self.eop_type)?;
@@ -508,6 +538,7 @@ impl EarthOrientationProvider for CachingEOPProvider {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::utils::testing::NetworkModeGuard;
     use std::env;
     use std::fs::File;
     use std::thread;
@@ -550,6 +581,67 @@ mod tests {
 
         // Check with a very small max age (file should be stale)
         assert!(CachingEOPProvider::check_file_age(&filepath, 1).unwrap());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_new_offline_serves_stale_file_without_download() {
+        let _mode = NetworkModeGuard::set(Some("offline"));
+        let dir = tempdir().unwrap();
+        let filepath = dir.path().join("finals.all.iau2000.txt");
+        fs::write(&filepath, PACKAGED_STANDARD2000_FILE).unwrap();
+        let file = File::options().write(true).open(&filepath).unwrap();
+        file.set_modified(SystemTime::now() - Duration::from_secs(30 * 86400))
+            .unwrap();
+
+        let provider = CachingEOPProvider::new(
+            Some(&filepath),
+            EOPType::StandardBulletinA,
+            7 * 86400,
+            true,
+            true,
+            EOPExtrapolation::Hold,
+        )
+        .unwrap();
+        assert!(provider.is_initialized());
+
+        // No download happened: the file on disk still carries the back-dated mtime.
+        let age_after_new = SystemTime::now()
+            .duration_since(fs::metadata(&filepath).unwrap().modified().unwrap())
+            .unwrap();
+        assert!(age_after_new > Duration::from_secs(29 * 86400));
+
+        provider.refresh().unwrap();
+        let age_after_refresh = SystemTime::now()
+            .duration_since(fs::metadata(&filepath).unwrap().modified().unwrap())
+            .unwrap();
+        assert!(age_after_refresh > Duration::from_secs(29 * 86400));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_new_offline_strict_stale_file_errors() {
+        let _mode = NetworkModeGuard::set(Some("offline-strict"));
+        let dir = tempdir().unwrap();
+        let filepath = dir.path().join("finals.all.iau2000.txt");
+        fs::write(&filepath, PACKAGED_STANDARD2000_FILE).unwrap();
+        let file = File::options().write(true).open(&filepath).unwrap();
+        file.set_modified(SystemTime::now() - Duration::from_secs(30 * 86400))
+            .unwrap();
+
+        let err = CachingEOPProvider::new(
+            Some(&filepath),
+            EOPType::StandardBulletinA,
+            7 * 86400,
+            false,
+            true,
+            EOPExtrapolation::Hold,
+        )
+        .err()
+        .unwrap()
+        .to_string();
+        assert!(err.contains("EOP file"), "{err}");
+        assert!(err.contains("is older than its cache limit"), "{err}");
     }
 
     #[test]

@@ -15,6 +15,7 @@ use crate::utils::BraheError;
 use crate::utils::atomic_write;
 use crate::utils::cache::get_space_weather_cache_dir;
 use crate::utils::download::download_to_file;
+use crate::utils::network::{CacheDecision, cache_policy};
 
 /// Default URL for downloading space weather data from CelesTrak
 const DEFAULT_SW_URL: &str = "https://celestrak.org/SpaceData/sw19571001.txt";
@@ -27,6 +28,10 @@ const DEFAULT_SW_FILENAME: &str = "sw19571001.txt";
 /// This provider wraps a `FileSpaceWeatherProvider` and handles automatic downloading
 /// and caching of space weather data from CelesTrak. It checks the age of the cached
 /// file and re-downloads if it's older than the specified maximum age.
+///
+/// When `BRAHE_NETWORK_MODE` is `offline`, a cached file is used regardless of age and
+/// no download is attempted; `offline-strict` treats a file older than the maximum age
+/// as an error. See [`crate::utils::network`].
 ///
 /// # Fields
 ///
@@ -132,7 +137,7 @@ impl CachingSpaceWeatherProvider {
         }
 
         // Check if we need to download or update the file
-        let needs_download = Self::check_file_age(&cache_path, max_age)?;
+        let needs_download = Self::needs_download(&cache_path, max_age)?;
 
         if needs_download {
             download_space_weather(&cache_path)?;
@@ -261,6 +266,31 @@ impl CachingSpaceWeatherProvider {
         Ok(age > max_age)
     }
 
+    /// Decide whether the cache file must be downloaded under the network mode.
+    ///
+    /// A missing file always needs a download. An existing file is stale when
+    /// older than `max_age_seconds`; whether a stale file is refreshed or served
+    /// depends on `BRAHE_NETWORK_MODE`.
+    ///
+    /// # Arguments
+    ///
+    /// * `filepath` - Path to check
+    /// * `max_age_seconds` - Maximum acceptable age in seconds
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(true)` - The file must be downloaded
+    /// * `Ok(false)` - The cached file (or a to-be-seeded missing file) may be served as-is
+    /// * `Err(BraheError)` - `BRAHE_NETWORK_MODE` is `offline-strict` and the file is stale
+    fn needs_download(filepath: &Path, max_age_seconds: u64) -> Result<bool, BraheError> {
+        if !filepath.exists() {
+            return Ok(true);
+        }
+        let stale = Self::check_file_age(filepath, max_age_seconds)?;
+        let resource = format!("space weather file {}", filepath.display());
+        Ok(cache_policy(&resource, stale)? == CacheDecision::Refresh)
+    }
+
     /// Seeds a missing cache file from the compiled-in bundled space weather data.
     ///
     /// This allows `CachingSpaceWeatherProvider` to initialize offline on a fresh
@@ -306,7 +336,7 @@ impl CachingSpaceWeatherProvider {
     /// provider.refresh().unwrap();
     /// ```
     pub fn refresh(&self) -> Result<(), BraheError> {
-        let needs_download = Self::check_file_age(&self.cache_path, self.max_age)?;
+        let needs_download = Self::needs_download(&self.cache_path, self.max_age)?;
 
         if needs_download {
             download_space_weather(&self.cache_path)?;
@@ -554,7 +584,7 @@ fn download_from_url(url: &str, output_path: &Path) -> Result<(), BraheError> {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
-    use crate::utils::testing::get_test_space_weather_filepath;
+    use crate::utils::testing::{NetworkModeGuard, get_test_space_weather_filepath};
     use std::fs::File;
     use std::path::PathBuf;
     use std::thread;
@@ -604,6 +634,63 @@ mod tests {
 
         // Check with a very small max age (file should be stale)
         assert!(CachingSpaceWeatherProvider::check_file_age(&filepath, 1).unwrap());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_new_offline_serves_stale_file_without_download() {
+        let _mode = NetworkModeGuard::set(Some("offline"));
+        let dir = TempDir::new().unwrap();
+        let filepath = dir.path().join(DEFAULT_SW_FILENAME);
+        fs::write(&filepath, PACKAGED_SW_FILE).unwrap();
+        let file = File::options().write(true).open(&filepath).unwrap();
+        file.set_modified(SystemTime::now() - Duration::from_secs(30 * 86400))
+            .unwrap();
+
+        let provider = CachingSpaceWeatherProvider::new(
+            Some(dir.path().to_path_buf()),
+            7 * 86400,
+            true,
+            SpaceWeatherExtrapolation::Hold,
+        )
+        .unwrap();
+        assert!(provider.len() > 0);
+
+        // No download happened: the file on disk still carries the back-dated mtime.
+        let age_after_new = SystemTime::now()
+            .duration_since(fs::metadata(&filepath).unwrap().modified().unwrap())
+            .unwrap();
+        assert!(age_after_new > Duration::from_secs(29 * 86400));
+
+        provider.refresh().unwrap();
+        let age_after_refresh = SystemTime::now()
+            .duration_since(fs::metadata(&filepath).unwrap().modified().unwrap())
+            .unwrap();
+        assert!(age_after_refresh > Duration::from_secs(29 * 86400));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_new_offline_strict_stale_file_errors() {
+        let _mode = NetworkModeGuard::set(Some("offline-strict"));
+        let dir = TempDir::new().unwrap();
+        let filepath = dir.path().join(DEFAULT_SW_FILENAME);
+        fs::write(&filepath, PACKAGED_SW_FILE).unwrap();
+        let file = File::options().write(true).open(&filepath).unwrap();
+        file.set_modified(SystemTime::now() - Duration::from_secs(30 * 86400))
+            .unwrap();
+
+        let err = CachingSpaceWeatherProvider::new(
+            Some(dir.path().to_path_buf()),
+            7 * 86400,
+            false,
+            SpaceWeatherExtrapolation::Hold,
+        )
+        .err()
+        .unwrap()
+        .to_string();
+        assert!(err.contains("space weather file"), "{err}");
+        assert!(err.contains("is older than its cache limit"), "{err}");
     }
 
     #[test]

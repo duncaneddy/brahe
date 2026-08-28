@@ -319,6 +319,10 @@ mod tests {
         use std::ffi::OsStr;
         use std::os::unix::ffi::OsStrExt;
 
+        // Set a known prior value so the restore below exercises the
+        // `Some(p)` branch deterministically, regardless of the ambient
+        // environment.
+        let _outer = NetworkModeGuard::set(Some("online"));
         let prev = env::var(NETWORK_MODE_ENV).ok();
         // SAFETY: single-threaded within a #[serial] test; no other thread
         // reads the environment concurrently.

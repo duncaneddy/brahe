@@ -638,6 +638,15 @@ mod tests {
 
     #[test]
     #[serial_test::parallel]
+    fn test_needs_download_nonexistent_file() {
+        let dir = TempDir::new().unwrap();
+        let filepath = dir.path().join("nonexistent.txt");
+
+        assert!(CachingSpaceWeatherProvider::needs_download(&filepath, 86400).unwrap());
+    }
+
+    #[test]
+    #[serial_test::parallel]
     fn test_check_file_age_current() {
         let dir = TempDir::new().unwrap();
         let filepath = dir.path().join("current.txt");

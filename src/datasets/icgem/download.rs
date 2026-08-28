@@ -709,4 +709,54 @@ mod tests {
         };
         assert_eq!(cache_filename_for_entry(&entry), "X-70-nohash.gfc");
     }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_model_cache_path_dispatches_by_body() {
+        let cache_root = PathBuf::from("/cache");
+        for (body, subdir) in [
+            (ICGEMBody::Earth, "earth"),
+            (ICGEMBody::Moon, "moon"),
+            (ICGEMBody::Mars, "mars"),
+            (ICGEMBody::Venus, "venus"),
+            (ICGEMBody::Ceres, "ceres"),
+        ] {
+            let e = entry(body.clone(), "MODEL", 10);
+            let path = model_cache_path(&body, &e, &cache_root);
+            assert!(
+                path.starts_with(cache_root.join("models").join(subdir)),
+                "body {body:?} -> {path:?}"
+            );
+        }
+
+        let other = ICGEMBody::Other("pluto".into());
+        let e = entry(other.clone(), "MODEL", 10);
+        let path = model_cache_path(&other, &e, &cache_root);
+        assert!(path.starts_with(cache_root.join("models").join("other/pluto")));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_finalize_model_path_copies_to_output_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_file = dir.path().join("cached.gfc");
+        std::fs::write(&cache_file, b"gfc bytes").unwrap();
+
+        let output_path = dir.path().join("nested").join("out.gfc");
+        let result = finalize_model_path(&cache_file, Some(output_path.clone())).unwrap();
+
+        assert_eq!(result, output_path);
+        assert_eq!(std::fs::read(&output_path).unwrap(), b"gfc bytes");
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_finalize_model_path_returns_cache_file_without_output_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_file = dir.path().join("cached.gfc");
+        std::fs::write(&cache_file, b"gfc bytes").unwrap();
+
+        let result = finalize_model_path(&cache_file, None).unwrap();
+        assert_eq!(result, cache_file);
+    }
 }

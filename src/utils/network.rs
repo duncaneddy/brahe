@@ -69,7 +69,7 @@ impl fmt::Display for NetworkMode {
 ///
 /// * `Ok(NetworkMode)` - The active mode
 /// * `Err(BraheError)` - If the variable holds a value other than `online`,
-///   `offline`, or `offline-strict`
+///   `offline`, or `offline-strict`, including a value that is not valid UTF-8
 ///
 /// # Examples
 ///
@@ -85,7 +85,10 @@ pub fn network_mode() -> Result<NetworkMode, BraheError> {
     match env::var(NETWORK_MODE_ENV) {
         Ok(value) if value.trim().is_empty() => Ok(NetworkMode::Online),
         Ok(value) => value.parse(),
-        Err(_) => Ok(NetworkMode::Online),
+        Err(env::VarError::NotPresent) => Ok(NetworkMode::Online),
+        Err(env::VarError::NotUnicode(raw)) => Err(BraheError::Error(format!(
+            "{NETWORK_MODE_ENV} has unrecognized value {raw:?}; expected one of online, offline, offline-strict"
+        ))),
     }
 }
 
@@ -292,5 +295,29 @@ mod tests {
             assert_eq!(network_mode().unwrap(), NetworkMode::Online);
         }
         assert_eq!(network_mode().unwrap(), NetworkMode::Offline);
+    }
+
+    #[test]
+    #[serial]
+    #[cfg(unix)]
+    fn test_network_mode_rejects_non_utf8_value() {
+        use std::ffi::OsStr;
+        use std::os::unix::ffi::OsStrExt;
+
+        let prev = env::var(NETWORK_MODE_ENV).ok();
+        // SAFETY: single-threaded within a #[serial] test; no other thread
+        // reads the environment concurrently.
+        unsafe {
+            env::set_var(NETWORK_MODE_ENV, OsStr::from_bytes(b"off\xffline"));
+        }
+        let err = network_mode().unwrap_err().to_string();
+        assert!(err.contains("unrecognized value"), "{err}");
+        // SAFETY: see above.
+        unsafe {
+            match &prev {
+                Some(p) => env::set_var(NETWORK_MODE_ENV, p),
+                None => env::remove_var(NETWORK_MODE_ENV),
+            }
+        }
     }
 }

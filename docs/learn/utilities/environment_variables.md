@@ -29,9 +29,13 @@ Selects one of three policies. Matching is case-insensitive; an unrecognized val
 | `offline` | never | served | served | error |
 | `offline-strict` | never | served | error | error |
 
-"Cached file" means any artifact stored under `BRAHE_CACHE`. Artifacts with no time-to-live (SPICE kernels, ICGEM models, Horizons SPKs, plot textures) never count as past TTL, so they are served in every mode once present. Artifacts with a time-to-live are Celestrak responses (2 hours by default), GCAT tables, SBDB lookups, and the EOP and space weather files managed by the caching providers. The EOP and space weather caching providers seed a missing file from data bundled with the library before applying this policy, so for those two the "no cached file" column never applies; only the time-to-live columns govern their behavior.
+"Cached file" means any artifact stored under `BRAHE_CACHE`. Artifacts with no time-to-live (SPICE kernels, ICGEM models, Horizons SPKs, plot textures) never count as past TTL, so they are served in every mode once present. Artifacts with a time-to-live are Celestrak responses (2 hours by default), GCAT tables, SBDB lookups, the ICGEM model index (30 days), and the EOP and space weather files managed by the caching providers. The EOP and space weather caching providers seed a missing file from data bundled with the library before applying this policy, so for those two the "no cached file" column never applies; only the time-to-live columns govern their behavior.
 
 `offline` is the mode for machines without network access or for reproducible runs that must not depend on remote services: whatever is on disk is used, and anything missing is reported as an error naming the resource. `offline-strict` adds the requirement that cached data be within its time-to-live, which is appropriate when stale orbital or Earth orientation data would silently degrade a result.
+
+A `cache_max_age` of zero has different effects in the two offline modes: under `offline` every cached file is stale but still served, so calling a force-refresh with a zero TTL is a no-op; under `offline-strict` every call becomes an error, since every cached file is immediately past its limit.
+
+`offline-strict` judges the EOP and space weather files by the age of the file on disk, not the epoch of the data it contains. A file seeded from the data bundled with the library carries the time it was seeded, not the bundled data's own epoch. With `auto_refresh` enabled, the caching providers apply this policy on every accessor call rather than only at construction, so a file that goes stale between calls makes every subsequent query error under `offline-strict`, not just the call that created the provider.
 
 ```bash
 export BRAHE_NETWORK_MODE=offline
@@ -55,9 +59,11 @@ The active mode can be read back from code:
     println!("{}", network_mode().unwrap());
     ```
 
-Errors raised under an offline mode have the form `BRAHE_NETWORK_MODE is offline; <resource> is not cached and cannot be downloaded`, where `<resource>` names the request or file, so the missing artifact can be fetched on a connected machine and copied into `BRAHE_CACHE`.
+A blocked request raises an error of the form `BRAHE_NETWORK_MODE is offline; <resource> is not cached and cannot be downloaded`, where `<resource>` names the request or file, so the missing artifact can be fetched on a connected machine and copied into `BRAHE_CACHE`. A stale cache rejected under `offline-strict` raises `BRAHE_NETWORK_MODE is offline-strict; <resource> is older than its cache limit and cannot be refreshed`.
 
 The `refresh()` methods of `CachingEOPProvider` and `CachingSpaceWeatherProvider` follow the same table: under `offline` a stale file is kept and `refresh()` returns without downloading; under `offline-strict` a stale file makes `refresh()` return an error instead.
+
+`brahe.network_mode()` raises `RuntimeError` when `BRAHE_NETWORK_MODE` holds an unrecognized value. Library operations blocked or rejected by the mode raise `brahe.BraheError`. Downloads performed by `brahe.plots` (basemap and texture fetches) raise `RuntimeError` instead, since that code runs in Python rather than the Rust core.
 
 ## `SPACETRACK_USER` and `SPACETRACK_PASS`
 

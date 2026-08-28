@@ -27,6 +27,7 @@
 pub mod cdm;
 pub mod common;
 pub mod error;
+pub mod frames;
 pub mod interop;
 pub mod json;
 pub mod kvn;
@@ -38,6 +39,9 @@ pub mod xml;
 // Re-export commonly used types at the ccsds module level
 pub use cdm::{CDM, CDMObject, CDMObjectMetadata, CDMRTNCovariance, CDMStateVector};
 pub use common::{CCSDSFormat, CCSDSJsonKeyCase, CCSDSRefFrame, CCSDSTimeSystem};
+pub use frames::{
+    ADMReferenceFrame, CCSDSCelestialBodyFrame, CCSDSOrbitRelativeFrame, CCSDSSpacecraftBodyFrame,
+};
 pub use oem::{OEM, OEMMetadata, OEMSegment, OEMStateVector};
 pub use omm::OMM;
 pub use opm::OPM;

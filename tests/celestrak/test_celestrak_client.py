@@ -1,5 +1,10 @@
 """Tests for CelestrakClient Python bindings."""
 
+import json
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import parse_qs, urlparse
+
 import pytest
 
 import brahe as bh
@@ -184,3 +189,138 @@ class TestCelestrakClientIntegration:
         propagator = client.get_sgp_propagator(catnr=25544, step_size=60.0)
         assert propagator is not None
         assert isinstance(propagator, bh.SGPPropagator)
+
+
+ACTIVE_RECORDS = [
+    {
+        "OBJECT_NAME": "ISS (ZARYA)",
+        "OBJECT_ID": "1998-067A",
+        "EPOCH": "2026-08-27T12:00:00.000000",
+        "MEAN_MOTION": 15.49,
+        "ECCENTRICITY": 0.0006,
+        "INCLINATION": 51.64,
+        "RA_OF_ASC_NODE": 120.5,
+        "ARG_OF_PERICENTER": 30.2,
+        "MEAN_ANOMALY": 329.9,
+        "EPHEMERIS_TYPE": 0,
+        "CLASSIFICATION_TYPE": "U",
+        "NORAD_CAT_ID": 25544,
+        "ELEMENT_SET_NO": 999,
+        "REV_AT_EPOCH": 54000,
+        "BSTAR": 0.0001,
+        "MEAN_MOTION_DOT": 0.0001,
+        "MEAN_MOTION_DDOT": 0,
+    },
+    {
+        "OBJECT_NAME": "ISS (NAUKA)",
+        "OBJECT_ID": "2021-066A",
+        "EPOCH": "2026-08-27T12:00:00.000000",
+        "MEAN_MOTION": 15.49,
+        "ECCENTRICITY": 0.0006,
+        "INCLINATION": 51.64,
+        "RA_OF_ASC_NODE": 120.5,
+        "ARG_OF_PERICENTER": 30.2,
+        "MEAN_ANOMALY": 329.9,
+        "EPHEMERIS_TYPE": 0,
+        "CLASSIFICATION_TYPE": "U",
+        "NORAD_CAT_ID": 49044,
+        "ELEMENT_SET_NO": 999,
+        "REV_AT_EPOCH": 28000,
+        "BSTAR": 0.0001,
+        "MEAN_MOTION_DOT": 0.0001,
+        "MEAN_MOTION_DDOT": 0,
+    },
+]
+SINGLE_RECORD = [
+    {
+        "OBJECT_NAME": "COSMOS 2251 DEB",
+        "OBJECT_ID": "1993-036AAB",
+        "EPOCH": "2026-08-27T12:00:00.000000",
+        "MEAN_MOTION": 14.1,
+        "ECCENTRICITY": 0.01,
+        "INCLINATION": 74.0,
+        "RA_OF_ASC_NODE": 10.0,
+        "ARG_OF_PERICENTER": 20.0,
+        "MEAN_ANOMALY": 30.0,
+        "EPHEMERIS_TYPE": 0,
+        "CLASSIFICATION_TYPE": "U",
+        "NORAD_CAT_ID": 34427,
+        "ELEMENT_SET_NO": 999,
+        "REV_AT_EPOCH": 1,
+        "BSTAR": 0.0001,
+        "MEAN_MOTION_DOT": 0.0001,
+        "MEAN_MOTION_DDOT": 0,
+    },
+]
+
+
+@pytest.fixture
+def celestrak_server(tmp_path, monkeypatch):
+    """Serve a fake gp.php; yields (base_url, request_log) and isolates BRAHE_CACHE."""
+    monkeypatch.setenv("BRAHE_CACHE", str(tmp_path))
+    monkeypatch.delenv("BRAHE_NETWORK_MODE", raising=False)
+    requests = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            parsed = urlparse(self.path)
+            params = {k: v[0] for k, v in parse_qs(parsed.query).items()}
+            requests.append(params)
+            body = ACTIVE_RECORDS if params.get("GROUP") == "active" else SINGLE_RECORD
+            payload = json.dumps(body).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, *args):
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    host, port = server.server_address
+    try:
+        yield f"http://{host}:{port}", requests
+    finally:
+        server.shutdown()
+
+
+class TestCelestrakClientActiveResolution:
+    def test_catnr_resolves_from_active(self, celestrak_server):
+        base_url, requests = celestrak_server
+        client = bh.celestrak.CelestrakClient(base_url=base_url)
+        records = client.get_gp(catnr=25544)
+        assert [r.norad_cat_id for r in records] == [25544]
+        assert [r.get("GROUP") for r in requests] == ["active"]
+
+    def test_name_matches_substring_case_insensitive(self, celestrak_server):
+        base_url, requests = celestrak_server
+        client = bh.celestrak.CelestrakClient(base_url=base_url)
+        records = client.get_gp(name="iss")
+        assert sorted(r.object_name for r in records) == ["ISS (NAUKA)", "ISS (ZARYA)"]
+        assert len(requests) == 1
+
+    def test_object_absent_from_active_is_requested_directly(self, celestrak_server):
+        base_url, requests = celestrak_server
+        client = bh.celestrak.CelestrakClient(base_url=base_url)
+        records = client.get_gp(catnr=34427)
+        assert records[0].object_name == "COSMOS 2251 DEB"
+        assert [r.get("GROUP") or r.get("CATNR") for r in requests] == [
+            "active",
+            "34427",
+        ]
+
+    def test_group_query_does_not_fetch_active(self, celestrak_server):
+        base_url, requests = celestrak_server
+        client = bh.celestrak.CelestrakClient(base_url=base_url)
+        client.get_gp(group="stations")
+        assert [r.get("GROUP") for r in requests] == ["stations"]
+
+    def test_sgp_propagator_from_active(self, celestrak_server):
+        base_url, requests = celestrak_server
+        client = bh.celestrak.CelestrakClient(base_url=base_url)
+        propagator = client.get_sgp_propagator(catnr=25544, step_size=60.0)
+        assert propagator is not None
+        assert [r.get("GROUP") for r in requests] == ["active"]

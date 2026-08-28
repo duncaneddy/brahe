@@ -893,6 +893,13 @@ impl PyCelestrakClient {
     ///
     /// Provide exactly one of ``catnr``, ``group``, ``name``, or ``intdes``.
     ///
+    /// Lookups by ``catnr``, ``name``, or ``intdes`` are answered from a
+    /// cached copy of the ``active`` group when the object is in it, so
+    /// repeated lookups cost a single request. Objects not in ``active``
+    /// are requested individually. A ``name`` search that matches in
+    /// ``active`` returns only active objects; ``group`` queries are
+    /// always sent to the server.
+    ///
     /// Args:
     ///     catnr (int, optional): NORAD catalog number (e.g., 25544 for ISS).
     ///     group (str, optional): Satellite group name (e.g., "stations", "active").
@@ -1056,7 +1063,8 @@ impl PyCelestrakClient {
     /// Look up a satellite and return an SGP4 propagator.
     ///
     /// Queries GP data for the given catalog number and creates an
-    /// SGPPropagator from the first result.
+    /// SGPPropagator from the first result. The underlying lookup resolves
+    /// from the cached ``active`` group when possible.
     ///
     /// Args:
     ///     catnr (int): NORAD catalog number.

@@ -3,6 +3,8 @@
  */
 
 use crate::math::{SVector6, oe_to_radians, wrap_to_2pi};
+use crate::utils::BraheError;
+use crate::utils::batch::batch_zip;
 use crate::{AngleFormat, DEG2RAD, RAD2DEG};
 
 /// Compute the Relative Orbital Elements (ROE) from the Chief and Deputy Orbital Elements (OE).
@@ -161,12 +163,91 @@ pub fn state_roe_to_oe(oe_chief: SVector6, roe: SVector6, angle_format: AngleFor
     }
 }
 
+/// Computes relative orbital elements for each chief/deputy pair of Keplerian elements.
+///
+/// Batch form of [`state_oe_to_roe`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The chief and deputy arguments follow the broadcast rule: each has length 1
+/// or the common batch length, so one chief may be paired with many deputies
+/// and vice versa.
+///
+/// # Arguments
+/// - `oe_chief`: Chief Keplerian elements `[a, e, i, Ω, ω, M]`, length 1 or the batch length
+/// - `oe_deputy`: Deputy Keplerian elements, length 1 or the batch length
+/// - `angle_format`: Format of the angular elements
+///
+/// # Returns
+/// - Relative orbital elements `[da, dλ, dex, dey, dix, diy]` in input order
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::relative_motion::states_oe_to_roe;
+/// use brahe::vector6_from_array;
+///
+/// let chief = vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]);
+/// let deputies = vec![vector6_from_array([R_EARTH + 701e3, 0.0015, 97.85, 15.05, 30.05, 45.05]); 2];
+/// let roe = states_oe_to_roe(&[chief], &deputies, AngleFormat::Degrees).unwrap();
+/// assert_eq!(roe.len(), 2);
+/// ```
+pub fn states_oe_to_roe(
+    oe_chief: &[SVector6],
+    oe_deputy: &[SVector6],
+    angle_format: AngleFormat,
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_zip(
+        |c, d| state_oe_to_roe(*c, *d, angle_format),
+        oe_chief,
+        oe_deputy,
+    )
+}
+
+/// Computes deputy Keplerian elements from each chief/relative-orbital-element pair.
+///
+/// Batch form of [`state_roe_to_oe`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The chief and deputy arguments follow the broadcast rule: each has length 1
+/// or the common batch length, so one chief may be paired with many deputies
+/// and vice versa.
+///
+/// # Arguments
+/// - `oe_chief`: Chief Keplerian elements `[a, e, i, Ω, ω, M]`, length 1 or the batch length
+/// - `roe`: Relative orbital elements `[da, dλ, dex, dey, dix, diy]`, length 1 or the batch length
+/// - `angle_format`: Format of the angular elements
+///
+/// # Returns
+/// - Deputy Keplerian elements in input order
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::relative_motion::states_roe_to_oe;
+/// use brahe::vector6_from_array;
+///
+/// let chief = vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]);
+/// let roe = vec![vector6_from_array([1.413e-4, 9.321e-2, 4.324e-4, 2.511e-4, 5.0e-2, 4.954e-2]); 2];
+/// let deputies = states_roe_to_oe(&[chief], &roe, AngleFormat::Degrees).unwrap();
+/// assert_eq!(deputies.len(), 2);
+/// ```
+pub fn states_roe_to_oe(
+    oe_chief: &[SVector6],
+    roe: &[SVector6],
+    angle_format: AngleFormat,
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_zip(|c, r| state_roe_to_oe(*c, *r, angle_format), oe_chief, roe)
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::constants::R_EARTH;
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
 
     #[test]
     fn test_state_oe_to_roe() {
@@ -271,5 +352,65 @@ mod tests {
         assert_abs_diff_eq!(oe_deputy[3], 15.05 * DEG2RAD, epsilon = 1e-6);
         assert_abs_diff_eq!(oe_deputy[4], 30.05 * DEG2RAD, epsilon = 1e-6);
         assert_abs_diff_eq!(oe_deputy[5], 45.05 * DEG2RAD, epsilon = 1e-6);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_oe_roe_match_scalar() {
+        let chiefs: Vec<SVector6> = (0..3)
+            .map(|i| {
+                SVector6::new(
+                    R_EARTH + 700e3 + 1e3 * i as f64,
+                    0.001,
+                    97.8,
+                    15.0,
+                    30.0,
+                    45.0 + i as f64,
+                )
+            })
+            .collect();
+        let deputies: Vec<SVector6> = (0..3)
+            .map(|i| {
+                SVector6::new(
+                    R_EARTH + 701e3 + 1e3 * i as f64,
+                    0.0015,
+                    97.85,
+                    15.05,
+                    30.05,
+                    45.05 + i as f64,
+                )
+            })
+            .collect();
+        let roe = states_oe_to_roe(&chiefs, &deputies, AngleFormat::Degrees).unwrap();
+        let roe_one = states_oe_to_roe(&chiefs[..1], &deputies, AngleFormat::Degrees).unwrap();
+        let back = states_roe_to_oe(&chiefs, &roe, AngleFormat::Degrees).unwrap();
+        let back_one = states_roe_to_oe(&chiefs[..1], &roe_one, AngleFormat::Degrees).unwrap();
+        for i in 0..3 {
+            assert_eq!(
+                roe[i],
+                state_oe_to_roe(chiefs[i], deputies[i], AngleFormat::Degrees)
+            );
+            assert_eq!(
+                roe_one[i],
+                state_oe_to_roe(chiefs[0], deputies[i], AngleFormat::Degrees)
+            );
+            assert_eq!(
+                back[i],
+                state_roe_to_oe(chiefs[i], roe[i], AngleFormat::Degrees)
+            );
+            assert_eq!(
+                back_one[i],
+                state_roe_to_oe(chiefs[0], roe_one[i], AngleFormat::Degrees)
+            );
+            for k in 0..6 {
+                assert_abs_diff_eq!(back[i][k], deputies[i][k], epsilon = 1e-6);
+            }
+        }
+        assert!(states_oe_to_roe(&chiefs[..2], &deputies, AngleFormat::Degrees).is_err());
+        assert!(
+            states_roe_to_oe(&chiefs[..1], &[], AngleFormat::Degrees)
+                .unwrap()
+                .is_empty()
+        );
     }
 }

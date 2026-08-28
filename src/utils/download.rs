@@ -118,6 +118,18 @@ pub(crate) fn download_string_no_redirect(
 }
 
 /// Shared implementation for [`download_string`] and [`download_string_no_redirect`].
+///
+/// # Arguments
+///
+/// * `url` - The URL to fetch.
+/// * `description` - Human-readable product label for error messages.
+/// * `follow_redirects` - Whether to follow HTTP redirects.
+///
+/// # Returns
+///
+/// * `Ok(String)` - The response body.
+/// * `Err(BraheError)` - On a non-retryable status or exhausted retries. Returned
+///   without making a request if `BRAHE_NETWORK_MODE` is not `online`.
 fn download_string_impl(
     url: &str,
     description: &str,
@@ -223,6 +235,17 @@ pub(crate) fn download_bytes_with_user_agent(
 /// Shared retry/backoff core for [`download_bytes`] and
 /// [`download_bytes_with_user_agent`]. `user_agent`, if provided, is sent as
 /// the request's `User-Agent` header; `None` leaves ureq's default.
+///
+/// # Arguments
+///
+/// * `url` - The URL to fetch.
+/// * `user_agent` - Optional `User-Agent` header value.
+///
+/// # Returns
+///
+/// * `Ok(Vec<u8>)` - The response body.
+/// * `Err(BraheError)` - On a non-retryable status or exhausted retries. Returned
+///   without making a request if `BRAHE_NETWORK_MODE` is not `online`.
 fn download_bytes_impl(url: &str, user_agent: Option<&str>) -> Result<Vec<u8>, BraheError> {
     ensure_online(url)?;
 

@@ -1552,6 +1552,107 @@ mod tests {
         assert_apm_fields_match(&apm1, &apm_upper);
     }
 
+    /// Builds an APM containing one of every logical block type, with the
+    /// optional sub-fields of each block populated (quaternion derivative,
+    /// Euler rates, both spin nutation variants, maneuver delta mass).
+    fn apm_all_blocks() -> APM {
+        let metadata =
+            APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC).with_center_name("EARTH");
+        let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+
+        apm.push_quaternion_state(
+            APMQuaternionState::new(icrf(), sc_body_1(), Quaternion::new(0.5, 0.5, 0.5, 0.5))
+                .with_derivative(Vector4::new(0.01, 0.02, 0.03, 0.04)),
+        );
+
+        let angles = EulerAngle::new(EulerAngleOrder::ZXZ, 10.0, 20.0, 30.0, AngleFormat::Degrees);
+        apm.push_euler_state(
+            APMEulerState::new(icrf(), sc_body_1(), angles)
+                .with_rates(Vector3::new(0.01, 0.02, 0.03)),
+        );
+
+        apm.push_spin(
+            APMSpin::new(
+                icrf(),
+                sc_body_1(),
+                10.0,
+                20.0,
+                30.0,
+                1.0,
+                AngleFormat::Degrees,
+            )
+            .with_nutation_angle(5.0, 100.0, 15.0, AngleFormat::Degrees),
+        );
+        apm.push_spin(
+            APMSpin::new(
+                icrf(),
+                sc_body_1(),
+                40.0,
+                50.0,
+                60.0,
+                2.0,
+                AngleFormat::Degrees,
+            )
+            .with_nutation_momentum(7.0, 8.0, 0.5, AngleFormat::Degrees),
+        );
+
+        apm.push_angular_velocity(APMAngularVelocity::new(
+            icrf(),
+            sc_body_1(),
+            sc_body_1(),
+            Vector3::new(0.001, 0.002, 0.003),
+        ));
+
+        apm.push_inertia(APMInertia::new(
+            sc_body_1(),
+            6080.0,
+            5245.5,
+            8067.3,
+            -135.9,
+            89.3,
+            -90.7,
+        ));
+
+        apm.push_maneuver(
+            APMManeuver::new(Epoch::now(), 3.0, icrf(), Vector3::new(-1.25, -0.5, 0.5))
+                .with_delta_mass(-0.25),
+        );
+
+        apm
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_all_blocks_kvn_round_trip() {
+        let apm1 = apm_all_blocks();
+        let kvn = apm1.to_string(CCSDSFormat::KVN).unwrap();
+        let apm2 = APM::from_str(&kvn).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_all_blocks_xml_round_trip() {
+        let apm1 = apm_all_blocks();
+        let xml = apm1.to_string(CCSDSFormat::XML).unwrap();
+        let apm2 = APM::from_str(&xml).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_all_blocks_json_round_trip_key_cases() {
+        let apm1 = apm_all_blocks();
+
+        let json_lower = apm1.to_json_string(CCSDSJsonKeyCase::Lower).unwrap();
+        let apm_lower = APM::from_str(&json_lower).unwrap();
+        assert_apm_fields_match(&apm1, &apm_lower);
+
+        let json_upper = apm1.to_json_string(CCSDSJsonKeyCase::Upper).unwrap();
+        let apm_upper = APM::from_str(&json_upper).unwrap();
+        assert_apm_fields_match(&apm1, &apm_upper);
+    }
+
     #[test]
     #[parallel]
     fn test_apm_json_round_trip_preserves_data_comments() {

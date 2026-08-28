@@ -835,3 +835,106 @@ def test_apm_parse_xml_v1_version_rejected(eop):
         content = f.read().replace('version="2.0"', 'version="1.0"')
     with pytest.raises(Exception, match="version 1.0"):
         APM.from_str(content)
+
+
+def _build_apm_all_blocks():
+    """Mirror of apm_all_blocks() in src/ccsds/apm.rs: one of every logical
+    block type, with the optional sub-fields of each block populated."""
+    epoch = Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    apm = APM("BRAHE", "SAT1", "2024-001A", "UTC", epoch, center_name="EARTH")
+
+    apm.add_quaternion_state(
+        APMQuaternionState(
+            "ICRF",
+            "SC_BODY_1",
+            Quaternion(0.5, 0.5, 0.5, 0.5),
+            quaternion_derivative=np.array([0.01, 0.02, 0.03, 0.04]),
+        )
+    )
+
+    angles = EulerAngle(EulerAngleOrder.ZXZ, 10.0, 20.0, 30.0, AngleFormat.DEGREES)
+    apm.add_euler_state(
+        APMEulerState("ICRF", "SC_BODY_1", angles, rates=np.array([0.01, 0.02, 0.03]))
+    )
+
+    spin_angle = APMSpin(
+        "ICRF", "SC_BODY_1", 10.0, 20.0, 30.0, 1.0, AngleFormat.DEGREES
+    )
+    spin_angle.set_nutation_angle(5.0, 100.0, 15.0, AngleFormat.DEGREES)
+    apm.add_spin(spin_angle)
+
+    spin_momentum = APMSpin(
+        "ICRF", "SC_BODY_1", 40.0, 50.0, 60.0, 2.0, AngleFormat.DEGREES
+    )
+    spin_momentum.set_nutation_momentum(7.0, 8.0, 0.5, AngleFormat.DEGREES)
+    apm.add_spin(spin_momentum)
+
+    apm.add_angular_velocity(
+        APMAngularVelocity(
+            "ICRF", "SC_BODY_1", "SC_BODY_1", np.array([0.001, 0.002, 0.003])
+        )
+    )
+
+    apm.add_inertia(
+        APMInertia("SC_BODY_1", 6080.0, 5245.5, 8067.3, -135.9, 89.3, -90.7)
+    )
+
+    apm.add_maneuver(
+        APMManeuver(epoch, 3.0, "ICRF", np.array([-1.25, -0.5, 0.5]), delta_mass=-0.25)
+    )
+
+    return apm
+
+
+def _assert_apm_all_blocks_subset(apm):
+    """Checks the representative subset of fields called out in the task:
+    the quaternion derivative array, both spin nutation variants, and
+    maneuver delta_mass."""
+    assert len(apm.quaternion_states) == 1
+    assert apm.quaternion_states[0].quaternion_derivative == pytest.approx(
+        [0.01, 0.02, 0.03, 0.04], abs=1e-9
+    )
+
+    assert len(apm.euler_states) == 1
+    assert apm.euler_states[0].rates == pytest.approx([0.01, 0.02, 0.03], abs=1e-9)
+
+    assert len(apm.spins) == 2
+    s0, s1 = apm.spins
+    assert s0.nutation_type == "ANGLE"
+    assert s0.nutation == pytest.approx(math.radians(5.0), abs=1e-9)
+    assert s0.nutation_period == pytest.approx(100.0, abs=1e-9)
+    assert s0.nutation_phase == pytest.approx(math.radians(15.0), abs=1e-9)
+    assert s1.nutation_type == "MOMENTUM"
+    assert s1.momentum_alpha == pytest.approx(math.radians(7.0), abs=1e-9)
+    assert s1.momentum_delta == pytest.approx(math.radians(8.0), abs=1e-9)
+    assert s1.nutation_vel == pytest.approx(math.radians(0.5), abs=1e-9)
+
+    assert len(apm.angular_velocities) == 1
+    assert len(apm.inertias) == 1
+    assert len(apm.maneuvers) == 1
+    assert apm.maneuvers[0].delta_mass == pytest.approx(-0.25, abs=1e-9)
+
+
+@pytest.mark.parametrize("fmt", ["KVN", "XML", "JSON"])
+def test_apm_all_blocks_round_trip(eop, fmt):
+    """Mirror of the Rust test_apm_all_blocks_{kvn,xml}_round_trip and
+    test_apm_all_blocks_json_round_trip_key_cases tests: round-trips an APM
+    containing every logical block type, with all optional sub-fields set,
+    through each wire format."""
+    apm1 = _build_apm_all_blocks()
+    content = apm1.to_string(fmt)
+    apm2 = APM.from_str(content)
+    _assert_apm_all_blocks_subset(apm2)
+
+
+def test_apm_all_blocks_json_round_trip_key_cases(eop):
+    """Mirror of test_apm_all_blocks_json_round_trip_key_cases in Rust."""
+    apm1 = _build_apm_all_blocks()
+
+    json_lower = apm1.to_json_string(uppercase_keys=False)
+    apm_lower = APM.from_str(json_lower)
+    _assert_apm_all_blocks_subset(apm_lower)
+
+    json_upper = apm1.to_json_string(uppercase_keys=True)
+    apm_upper = APM.from_str(json_upper)
+    _assert_apm_all_blocks_subset(apm_upper)

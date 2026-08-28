@@ -73,7 +73,8 @@ A name search follows the same order, so a search that matches in `active` retur
 objects; the server's own name search would also return inactive objects with the same substring. A
 name with no match in `active` is sent to the server. Group, special, and file queries, supplemental
 GP, and SATCAT are always sent to the server exactly as written, and `query_raw` never consults
-`active`.
+`active`. A client with a zero cache age sends every query directly, since the `active` group copy
+could not be reused.
 
 === "Python"
 

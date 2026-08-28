@@ -54,6 +54,10 @@ static LAST_REQUEST_TIME: LazyLock<Mutex<Option<Instant>>> = LazyLock::new(|| Mu
 /// is in it, so a series of lookups costs one request; objects not in
 /// `active` (debris, inactive objects) are requested individually. A
 /// `name` search that matches in `active` returns only active objects.
+/// Every other query is sent to the server exactly as written, though
+/// still served from the URL cache when a fresh copy exists. A client
+/// with a zero cache age sends every query directly, since the `active`
+/// group copy could not be reused.
 ///
 /// # Examples
 ///
@@ -217,7 +221,13 @@ impl CelestrakClient {
     /// active objects; a search with no match in `active` still goes to
     /// the server. `catnr` and `intdes` results are unaffected. Any other
     /// query (a group, `special`, `source`, combined selectors, and so
-    /// on) is always sent to the server.
+    /// on) is always sent to the server exactly as written, though it is
+    /// still served from the URL cache when a fresh copy exists. A client
+    /// with a zero cache age sends every query directly, since the `active`
+    /// group copy could not be reused. Under `offline-strict`, step 1 (the
+    /// exact per-object cache file) is checked first, so a per-object cache
+    /// file older than the cache age is an error even when a fresh `active`
+    /// copy exists.
     ///
     /// # Arguments
     ///
@@ -251,8 +261,10 @@ impl CelestrakClient {
         };
 
         let mut records = match query.local_selector() {
-            Some(selector) => self.resolve_single_object(&json_query, &selector)?,
-            None => Self::parse_gp_records(&self.query_raw(&json_query)?)?,
+            Some(selector) if self.cache_max_age > 0.0 => {
+                self.resolve_single_object(&json_query, &selector)?
+            }
+            _ => Self::parse_gp_records(&self.query_raw(&json_query)?)?,
         };
 
         // Apply client-side processing
@@ -1903,5 +1915,19 @@ mod tests {
         assert_eq!(propagator.norad_id, 25544);
         active.assert_calls(1);
         single.assert_calls(0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_zero_cache_age_skips_active_resolution() {
+        let _cache = CacheRedirect::new();
+        let server = MockServer::start();
+        let (active, single) = mock_active_and_single(&server, "CATNR", "25544");
+        let client = CelestrakClient::with_base_url_and_cache_age(&server.base_url(), 0.0);
+
+        let records = client.get_gp_by_catnr(25544).unwrap();
+        assert_eq!(records[0].norad_cat_id, Some(34427));
+        active.assert_calls(0);
+        single.assert_calls(1);
     }
 }

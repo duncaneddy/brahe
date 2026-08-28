@@ -16,8 +16,9 @@ icgem:mars:ggm2bc80
 # repeats the lookup against a different cache entry:
 horizons:Ceres:2015-12-01:2016-03-01
 # Celestrak GP groups (celestrak:group:<name>). The examples' single-object
-# lookups resolve from the cached `active` group, so these two entries cover
+# lookups resolve from the cached `active` group, so these entries cover
 # every Celestrak query the examples make. Saved under a run-id key by
 # warm_data_cache.yml so each weekly run refreshes them:
 celestrak:group:active
 celestrak:group:starlink
+celestrak:group:gps-ops

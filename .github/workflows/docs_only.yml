@@ -28,6 +28,7 @@ jobs:
       contents: write
     env:
       RUST_TOOLCHAIN: stable
+      BRAHE_NETWORK_MODE: offline
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -77,13 +78,59 @@ jobs:
       - name: Install just
         uses: extractions/setup-just@v4
 
-      - name: Cache brahe data (kernels, gravity models)
+      - name: Restore NAIF kernels cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: ~/.cache/brahe/naif
+          key: naif-kernels-v1
+
+      - name: Restore ICGEM cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: ~/.cache/brahe/icgem
+          key: brahe-icgem-v1
+
+      - name: Restore SBDB + Horizons cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: |
+            ~/.cache/brahe/sbdb
+            ~/.cache/brahe/horizons
+          key: brahe-sbdb-horizons-v1
+
+      - name: Restore star catalog downloads
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: |
+            ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
+            ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
+          key: star-catalogs-v1
+
+      - name: Restore Celestrak cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: ~/.cache/brahe/celestrak
+          key: brahe-celestrak-${{ github.run_id }}
+          restore-keys: |
+            brahe-celestrak-
+
+      - name: Cache Natural Earth data
         uses: actions/cache@v6.1.0
         with:
-          path: ~/.cache/brahe
-          key: brahe-data-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
-          restore-keys: |
-            brahe-data-v1-
+          path: ~/.cache/brahe/natural_earth
+          key: natural-earth-50m-land-v1
+
+      - name: Restore 3D body textures cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: ~/.cache/brahe/textures
+          key: brahe-3d-textures-v2
+
+      - name: Restore cartopy Natural Earth data
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: ~/.local/share/cartopy
+          key: cartopy-natural-earth-v1
 
       # NETWORK-flagged examples are skipped by the --ci-only run below, so
       # their figures only exist in the cache saved by the weekly --network
@@ -109,14 +156,13 @@ jobs:
           restore-keys: |
             network-example-outputs-
 
+      - name: Pre-download plot/example resources
+        env:
+          BRAHE_NETWORK_MODE: online
+        run: just download-resources
+
       - name: Test examples (including CI-ONLY)
         run: just test-examples --ci-only
-
-      - name: Cache Natural Earth data
-        uses: actions/cache@v6.1.0
-        with:
-          path: ~/.cache/brahe/natural_earth
-          key: natural-earth-50m-land-v1
 
       - name: Generate documentation plots
         run: just make-plots

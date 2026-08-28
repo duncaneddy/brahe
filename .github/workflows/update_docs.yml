@@ -24,6 +24,7 @@ jobs:
       contents: write
     env:
       RUST_TOOLCHAIN: stable
+      BRAHE_NETWORK_MODE: offline
     steps:
       - uses: actions/checkout@v7.0.1
         with:

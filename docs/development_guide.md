@@ -276,6 +276,10 @@ single example can be run the same way with
 failure - e.g. a third-party API outage - does not block the other examples'
 figures from being generated.
 
+### CI data caches and network mode
+
+CI runs every test, example, plot, and docs step with `BRAHE_NETWORK_MODE=offline`, reading from caches restored per data family (`naif-kernels-v1`, `brahe-icgem-v1`, `brahe-sbdb-horizons-v1`, `star-catalogs-v1`, `brahe-celestrak-<run id>`, plus the plot textures and basemaps). The weekly `warm_data_cache.yml` workflow is the only producer: it restores, warms, and saves each family independently from `.github/brahe-data-manifest.txt` via `scripts/warm_data_cache.py --only <family>`, refreshing the Celestrak family on every run. A pull request that adds a manifest entry downloads it live in its own run (the warm step is online) but cannot save; dispatch `warm_data_cache.yml` manually after merging so later runs find it. The weekly integration workflow passes `network_mode: online` to the example workflow so the `NETWORK`-flagged examples still run live there.
+
 ### Including Examples in Documentation
 
 Use the `pymdownx.snippets` directive to include examples in markdown files. See the [snippets plugin documentation](https://facelessuser.github.io/pymdown-extensions/extensions/snippets/) for additional details on usage.

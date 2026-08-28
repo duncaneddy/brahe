@@ -50,6 +50,7 @@ use crate::constants::{AngleFormat, SECONDS_PER_JULIAN_CENTURY};
 use crate::math::SMatrix3;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
+use crate::utils::batch::try_batch_map;
 
 /// IAU/WGCCRE rotation model for a single body: polynomial pole
 /// right-ascension, pole declination, and prime-meridian coefficients,
@@ -649,6 +650,36 @@ pub fn rotation_icrf_to_body_fixed_iau(naif_id: i32, epc: Epoch) -> Result<SMatr
     Ok(rz(angles[2]) * rx(angles[1]) * rz(angles[0]))
 }
 
+/// Computes the ICRF-to-body-fixed IAU rotation matrix for `naif_id` at each epoch in `epochs`.
+///
+/// Batch form of [`rotation_icrf_to_body_fixed_iau`]. Evaluation runs on the global thread pool
+/// for large inputs.
+///
+/// # Arguments
+/// - `naif_id`: NAIF ID of the body
+/// - `epochs`: Epoch instants for computation of the transformation matrices
+///
+/// # Returns
+/// - Rotation matrices transforming ICRF -> body-fixed, one per epoch, in input order
+/// - Error if no IAU rotation model exists for `naif_id`
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::rotations_icrf_to_body_fixed_iau;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0];
+/// let r = rotations_icrf_to_body_fixed_iau(499, &epochs).unwrap();
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_icrf_to_body_fixed_iau(
+    naif_id: i32,
+    epochs: &[Epoch],
+) -> Result<Vec<SMatrix3>, BraheError> {
+    try_batch_map(|epc| rotation_icrf_to_body_fixed_iau(naif_id, *epc), epochs)
+}
+
 /// Computes the angular velocity [rad/s] of a body-fixed frame with
 /// respect to the inertial frame, expressed in the body-fixed frame,
 /// given 3-1-3 Euler angles and their rates.
@@ -678,6 +709,7 @@ pub(crate) fn euler313_omega_body(angles: Vector3<f64>, rates: Vector3<f64>) -> 
 mod tests {
     use approx::assert_abs_diff_eq;
     use nalgebra::Vector3;
+    use serial_test::parallel;
 
     use super::*;
     use crate::time::{Epoch, TimeSystem};
@@ -986,6 +1018,26 @@ mod tests {
         println!(
             "IAU rotation vs ANISE (pck11.pca), 25 epochs 2000-2050, bodies {:?}: max |ΔR| = {:.3e}",
             bodies, max_dev
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_rotations_icrf_to_body_fixed_iau_match_scalar() {
+        let epc0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epochs: Vec<Epoch> = (0..3).map(|i| epc0 + 3600.0 * i as f64).collect();
+        let r = rotations_icrf_to_body_fixed_iau(499, &epochs).unwrap();
+        for i in 0..3 {
+            assert_eq!(
+                r[i],
+                rotation_icrf_to_body_fixed_iau(499, epochs[i]).unwrap()
+            );
+        }
+        assert!(rotations_icrf_to_body_fixed_iau(999999, &epochs).is_err());
+        assert!(
+            rotations_icrf_to_body_fixed_iau(499, &[])
+                .unwrap()
+                .is_empty()
         );
     }
 }

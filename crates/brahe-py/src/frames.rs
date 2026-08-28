@@ -900,10 +900,12 @@ fn py_state_eme2000_to_gcrf<'py>(
 ///
 /// Args:
 ///     naif_id (int): NAIF ID of the body (see `iau_rotation_model_ids` for the supported set)
-///     epc (Epoch): Epoch instant for computation of the transformation matrix
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation matrix. A sequence evaluates
+///         one matrix per epoch.
 ///
 /// Returns:
-///     numpy.ndarray: 3x3 rotation matrix transforming ICRF -> body-fixed
+///     numpy.ndarray: 3x3 rotation matrix transforming ICRF -> body-fixed, shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
 ///
 /// Raises:
 ///     RuntimeError: If no IAU/WGCCRE rotation model is embedded for `naif_id`
@@ -918,14 +920,17 @@ fn py_state_eme2000_to_gcrf<'py>(
 #[pyfunction]
 #[pyo3(text_signature = "(naif_id, epc)")]
 #[pyo3(name = "rotation_icrf_to_body_fixed_iau")]
-unsafe fn py_rotation_icrf_to_body_fixed_iau<'py>(
+fn py_rotation_icrf_to_body_fixed_iau<'py>(
     py: Python<'py>,
     naif_id: i32,
-    epc: &PyEpoch,
-) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
-    let mat = frames::rotation_icrf_to_body_fixed_iau(naif_id, epc.obj)
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok(matrix_to_numpy!(py, mat, 3, 3, f64))
+    epc: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
+    try_dispatch_epoch_rotation(
+        py,
+        epc,
+        |e| frames::rotation_icrf_to_body_fixed_iau(naif_id, e),
+        |es| frames::rotations_icrf_to_body_fixed_iau(naif_id, es),
+    )
 }
 
 /// Sorted list of NAIF IDs with an embedded IAU/WGCCRE rotation model.
@@ -956,10 +961,12 @@ fn py_iau_rotation_model_ids() -> Vec<i32> {
 /// prime-meridian model for Mars.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation matrix
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation matrix. A sequence evaluates
+///         one matrix per epoch.
 ///
 /// Returns:
-///     numpy.ndarray: 3x3 rotation matrix transforming MCI -> MCMF
+///     numpy.ndarray: 3x3 rotation matrix transforming MCI -> MCMF, shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
 ///
 /// Example:
 ///     ```python
@@ -971,22 +978,20 @@ fn py_iau_rotation_model_ids() -> Vec<i32> {
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "rotation_mci_to_mcmf")]
-unsafe fn py_rotation_mci_to_mcmf<'py>(
-    py: Python<'py>,
-    epc: &PyEpoch,
-) -> Bound<'py, PyArray<f64, Ix2>> {
-    let mat = frames::rotation_mci_to_mcmf(epc.obj);
-    matrix_to_numpy!(py, mat, 3, 3, f64)
+fn py_rotation_mci_to_mcmf<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_rotation(py, epc, frames::rotation_mci_to_mcmf, frames::rotations_mci_to_mcmf)
 }
 
 /// Computes the rotation matrix from Mars-Centered Mars-Fixed (MCMF) to
 /// Mars-Centered Inertial (MCI). Inverse of `rotation_mci_to_mcmf`.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation matrix
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation matrix. A sequence evaluates
+///         one matrix per epoch.
 ///
 /// Returns:
-///     numpy.ndarray: 3x3 rotation matrix transforming MCMF -> MCI
+///     numpy.ndarray: 3x3 rotation matrix transforming MCMF -> MCI, shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
 ///
 /// Example:
 ///     ```python
@@ -998,23 +1003,27 @@ unsafe fn py_rotation_mci_to_mcmf<'py>(
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "rotation_mcmf_to_mci")]
-unsafe fn py_rotation_mcmf_to_mci<'py>(
-    py: Python<'py>,
-    epc: &PyEpoch,
-) -> Bound<'py, PyArray<f64, Ix2>> {
-    let mat = frames::rotation_mcmf_to_mci(epc.obj);
-    matrix_to_numpy!(py, mat, 3, 3, f64)
+fn py_rotation_mcmf_to_mci<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_rotation(py, epc, frames::rotation_mcmf_to_mci, frames::rotations_mcmf_to_mci)
 }
 
 /// Transforms a Cartesian Mars-inertial (MCI) position into the equivalent
 /// Cartesian Mars-fixed (MCMF) position.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_mci (numpy.ndarray or list): Cartesian MCI position (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_mci (numpy.ndarray or list): Cartesian MCI position (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x_mci` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian MCMF position (m), shape `(3,)`
+///     numpy.ndarray: Cartesian MCMF position (m), shape `(3,)` for a single
+///         input, or the batch layout of `x_mci` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1024,27 +1033,35 @@ unsafe fn py_rotation_mcmf_to_mci<'py>(
 ///     x_mcmf = bh.position_mci_to_mcmf(epc, [bh.R_MARS + 400e3, 0.0, 0.0])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_mci)")]
+#[pyo3(signature = (epc, x_mci, axis=-1))]
+#[pyo3(text_signature = "(epc, x_mci, axis=-1)")]
 #[pyo3(name = "position_mci_to_mcmf")]
 fn py_position_mci_to_mcmf<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_mci: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_mci_to_mcmf(epc.obj, pyany_to_svector::<3>(&x_mci)?);
-
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x_mci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<3>(py, epc, x_mci, axis, frames::position_mci_to_mcmf, frames::positions_mci_to_mcmf)
 }
 
 /// Transforms a Cartesian Mars-fixed (MCMF) position into the equivalent
 /// Cartesian Mars-inertial (MCI) position.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_mcmf (numpy.ndarray or list): Cartesian MCMF position (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_mcmf (numpy.ndarray or list): Cartesian MCMF position (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x_mcmf` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian MCI position (m), shape `(3,)`
+///     numpy.ndarray: Cartesian MCI position (m), shape `(3,)` for a single
+///         input, or the batch layout of `x_mcmf` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1054,16 +1071,16 @@ fn py_position_mci_to_mcmf<'py>(
 ///     x_mci = bh.position_mcmf_to_mci(epc, [bh.R_MARS, 0.0, 0.0])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_mcmf)")]
+#[pyo3(signature = (epc, x_mcmf, axis=-1))]
+#[pyo3(text_signature = "(epc, x_mcmf, axis=-1)")]
 #[pyo3(name = "position_mcmf_to_mci")]
 fn py_position_mcmf_to_mci<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_mcmf: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_mcmf_to_mci(epc.obj, pyany_to_svector::<3>(&x_mcmf)?);
-
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x_mcmf: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<3>(py, epc, x_mcmf, axis, frames::position_mcmf_to_mci, frames::positions_mcmf_to_mci)
 }
 
 /// Transforms a Cartesian Mars-inertial (MCI) state (position and velocity)
@@ -1073,11 +1090,19 @@ fn py_position_mcmf_to_mci<'py>(
 /// Mars' rotation.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_mci (numpy.ndarray or list): Cartesian MCI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_mci (numpy.ndarray or list): Cartesian MCI state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_mci` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian MCMF state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: Cartesian MCMF state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_mci` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1088,16 +1113,16 @@ fn py_position_mcmf_to_mci<'py>(
 ///     x_mcmf = bh.state_mci_to_mcmf(epc, x_mci)
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_mci)")]
+#[pyo3(signature = (epc, x_mci, axis=-1))]
+#[pyo3(text_signature = "(epc, x_mci, axis=-1)")]
 #[pyo3(name = "state_mci_to_mcmf")]
 fn py_state_mci_to_mcmf<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_mci: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_mci_to_mcmf(epc.obj, pyany_to_svector::<6>(&x_mci)?);
-
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_mci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<6>(py, epc, x_mci, axis, frames::state_mci_to_mcmf, frames::states_mci_to_mcmf)
 }
 
 /// Transforms a Cartesian Mars-fixed (MCMF) state (position and velocity)
@@ -1105,11 +1130,19 @@ fn py_state_mci_to_mcmf<'py>(
 /// `state_mci_to_mcmf`.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_mcmf (numpy.ndarray or list): Cartesian MCMF state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_mcmf (numpy.ndarray or list): Cartesian MCMF state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_mcmf` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian MCI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: Cartesian MCI state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_mcmf` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1121,16 +1154,16 @@ fn py_state_mci_to_mcmf<'py>(
 ///     x_mci2 = bh.state_mcmf_to_mci(epc, x_mcmf)
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_mcmf)")]
+#[pyo3(signature = (epc, x_mcmf, axis=-1))]
+#[pyo3(text_signature = "(epc, x_mcmf, axis=-1)")]
 #[pyo3(name = "state_mcmf_to_mci")]
 fn py_state_mcmf_to_mci<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_mcmf: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_mcmf_to_mci(epc.obj, pyany_to_svector::<6>(&x_mcmf)?);
-
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_mcmf: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<6>(py, epc, x_mcmf, axis, frames::state_mcmf_to_mci, frames::states_mcmf_to_mci)
 }
 
 /// Transforms a Cartesian Earth-inertial (ECI) position into the equivalent
@@ -1142,11 +1175,19 @@ fn py_state_mcmf_to_mci<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_eci (numpy.ndarray or list): Cartesian ECI position (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_eci (numpy.ndarray or list): Cartesian ECI position (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x_eci` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian EMBI position (m), shape `(3,)`
+///     numpy.ndarray: Cartesian EMBI position (m), shape `(3,)` for a single
+///         input, or the batch layout of `x_eci` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1156,16 +1197,16 @@ fn py_state_mcmf_to_mci<'py>(
 ///     x_emb = bh.position_eci_to_emb(epc, [7e6, 0.0, 0.0])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_eci)")]
+#[pyo3(signature = (epc, x_eci, axis=-1))]
+#[pyo3(text_signature = "(epc, x_eci, axis=-1)")]
 #[pyo3(name = "position_eci_to_emb")]
 fn py_position_eci_to_emb<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_eci: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_eci_to_emb(epc.obj, pyany_to_svector::<3>(&x_eci)?);
-
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x_eci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<3>(py, epc, x_eci, axis, frames::position_eci_to_emb, frames::positions_eci_to_emb)
 }
 
 /// Transforms a Cartesian Earth-Moon-barycenter inertial (EMBI) position
@@ -1177,11 +1218,19 @@ fn py_position_eci_to_emb<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_emb (numpy.ndarray or list): Cartesian EMBI position (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_emb (numpy.ndarray or list): Cartesian EMBI position (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x_emb` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian ECI position (m), shape `(3,)`
+///     numpy.ndarray: Cartesian ECI position (m), shape `(3,)` for a single
+///         input, or the batch layout of `x_emb` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1191,16 +1240,16 @@ fn py_position_eci_to_emb<'py>(
 ///     x_eci = bh.position_emb_to_eci(epc, [7e6, 0.0, 0.0])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_emb)")]
+#[pyo3(signature = (epc, x_emb, axis=-1))]
+#[pyo3(text_signature = "(epc, x_emb, axis=-1)")]
 #[pyo3(name = "position_emb_to_eci")]
 fn py_position_emb_to_eci<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_emb: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_emb_to_eci(epc.obj, pyany_to_svector::<3>(&x_emb)?);
-
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x_emb: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<3>(py, epc, x_emb, axis, frames::position_emb_to_eci, frames::positions_emb_to_eci)
 }
 
 /// Transforms a Cartesian Earth-inertial (ECI) state (position and velocity)
@@ -1213,11 +1262,19 @@ fn py_position_emb_to_eci<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_eci (numpy.ndarray or list): Cartesian ECI state (m; m/s), shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_eci (numpy.ndarray or list): Cartesian ECI state (m; m/s), shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_eci` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian EMBI state (m; m/s), shape `(6,)`
+///     numpy.ndarray: Cartesian EMBI state (m; m/s), shape `(6,)` for a single
+///         input, or the batch layout of `x_eci` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1227,16 +1284,16 @@ fn py_position_emb_to_eci<'py>(
 ///     x_emb = bh.state_eci_to_emb(epc, [7e6, 0.0, 0.0, 0.0, 7.5e3, 0.0])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_eci)")]
+#[pyo3(signature = (epc, x_eci, axis=-1))]
+#[pyo3(text_signature = "(epc, x_eci, axis=-1)")]
 #[pyo3(name = "state_eci_to_emb")]
 fn py_state_eci_to_emb<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_eci: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_eci_to_emb(epc.obj, pyany_to_svector::<6>(&x_eci)?);
-
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_eci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<6>(py, epc, x_eci, axis, frames::state_eci_to_emb, frames::states_eci_to_emb)
 }
 
 /// Transforms a Cartesian Earth-Moon-barycenter inertial (EMBI) state
@@ -1249,11 +1306,19 @@ fn py_state_eci_to_emb<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_emb (numpy.ndarray or list): Cartesian EMBI state (m; m/s), shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_emb (numpy.ndarray or list): Cartesian EMBI state (m; m/s), shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_emb` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian ECI state (m; m/s), shape `(6,)`
+///     numpy.ndarray: Cartesian ECI state (m; m/s), shape `(6,)` for a single
+///         input, or the batch layout of `x_emb` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1263,16 +1328,16 @@ fn py_state_eci_to_emb<'py>(
 ///     x_eci = bh.state_emb_to_eci(epc, [7e6, 0.0, 0.0, 0.0, 7.5e3, 0.0])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_emb)")]
+#[pyo3(signature = (epc, x_emb, axis=-1))]
+#[pyo3(text_signature = "(epc, x_emb, axis=-1)")]
 #[pyo3(name = "state_emb_to_eci")]
 fn py_state_emb_to_eci<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_emb: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_emb_to_eci(epc.obj, pyany_to_svector::<6>(&x_emb)?);
-
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_emb: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<6>(py, epc, x_emb, axis, frames::state_emb_to_eci, frames::states_emb_to_eci)
 }
 
 
@@ -1284,11 +1349,19 @@ fn py_state_emb_to_eci<'py>(
 /// the default `de440s` ephemeris if no SPK kernel is loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_eci (numpy.ndarray or list): Cartesian ECI position (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_eci (numpy.ndarray or list): Cartesian ECI position (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x_eci` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian MCI position (m), shape `(3,)`
+///     numpy.ndarray: Cartesian MCI position (m), shape `(3,)` for a single
+///         input, or the batch layout of `x_eci` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1298,16 +1371,16 @@ fn py_state_emb_to_eci<'py>(
 ///     x_mci = bh.position_eci_to_mci(epc, [1e7, 2e7, 3e7])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_eci)")]
+#[pyo3(signature = (epc, x_eci, axis=-1))]
+#[pyo3(text_signature = "(epc, x_eci, axis=-1)")]
 #[pyo3(name = "position_eci_to_mci")]
 fn py_position_eci_to_mci<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_eci: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_eci_to_mci(epc.obj, pyany_to_svector::<3>(&x_eci)?);
-
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x_eci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<3>(py, epc, x_eci, axis, frames::position_eci_to_mci, frames::positions_eci_to_mci)
 }
 
 /// Transforms a Cartesian Mars-inertial (MCI) position into the equivalent
@@ -1318,11 +1391,19 @@ fn py_position_eci_to_mci<'py>(
 /// the default `de440s` ephemeris if no SPK kernel is loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_mci (numpy.ndarray or list): Cartesian MCI position (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_mci (numpy.ndarray or list): Cartesian MCI position (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x_mci` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian ECI position (m), shape `(3,)`
+///     numpy.ndarray: Cartesian ECI position (m), shape `(3,)` for a single
+///         input, or the batch layout of `x_mci` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1332,16 +1413,16 @@ fn py_position_eci_to_mci<'py>(
 ///     x_eci = bh.position_mci_to_eci(epc, [1e7, 2e7, 3e7])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_mci)")]
+#[pyo3(signature = (epc, x_mci, axis=-1))]
+#[pyo3(text_signature = "(epc, x_mci, axis=-1)")]
 #[pyo3(name = "position_mci_to_eci")]
 fn py_position_mci_to_eci<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_mci: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_mci_to_eci(epc.obj, pyany_to_svector::<3>(&x_mci)?);
-
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x_mci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<3>(py, epc, x_mci, axis, frames::position_mci_to_eci, frames::positions_mci_to_eci)
 }
 
 /// Transforms a Cartesian Earth-inertial (ECI) state (position and velocity)
@@ -1352,11 +1433,19 @@ fn py_position_mci_to_eci<'py>(
 /// the default `de440s` ephemeris if no SPK kernel is loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_eci (numpy.ndarray or list): Cartesian ECI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_eci (numpy.ndarray or list): Cartesian ECI state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_eci` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian MCI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: Cartesian MCI state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_eci` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1366,16 +1455,16 @@ fn py_position_mci_to_eci<'py>(
 ///     x_mci = bh.state_eci_to_mci(epc, [1e7, 2e7, 3e7, 1.0, 2.0, 3.0])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_eci)")]
+#[pyo3(signature = (epc, x_eci, axis=-1))]
+#[pyo3(text_signature = "(epc, x_eci, axis=-1)")]
 #[pyo3(name = "state_eci_to_mci")]
 fn py_state_eci_to_mci<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_eci: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_eci_to_mci(epc.obj, pyany_to_svector::<6>(&x_eci)?);
-
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_eci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<6>(py, epc, x_eci, axis, frames::state_eci_to_mci, frames::states_eci_to_mci)
 }
 
 /// Transforms a Cartesian Mars-inertial (MCI) state (position and velocity)
@@ -1386,11 +1475,19 @@ fn py_state_eci_to_mci<'py>(
 /// the default `de440s` ephemeris if no SPK kernel is loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_mci (numpy.ndarray or list): Cartesian MCI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_mci (numpy.ndarray or list): Cartesian MCI state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_mci` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian ECI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: Cartesian ECI state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_mci` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1400,16 +1497,16 @@ fn py_state_eci_to_mci<'py>(
 ///     x_eci = bh.state_mci_to_eci(epc, [1e7, 2e7, 3e7, 1.0, 2.0, 3.0])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_mci)")]
+#[pyo3(signature = (epc, x_mci, axis=-1))]
+#[pyo3(text_signature = "(epc, x_mci, axis=-1)")]
 #[pyo3(name = "state_mci_to_eci")]
 fn py_state_mci_to_eci<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_mci: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_mci_to_eci(epc.obj, pyany_to_svector::<6>(&x_mci)?);
-
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_mci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<6>(py, epc, x_mci, axis, frames::state_mci_to_eci, frames::states_mci_to_eci)
 }
 
 // ============================================================================
@@ -1424,10 +1521,12 @@ fn py_state_mci_to_eci<'py>(
 /// if needed).
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation matrix
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation matrix. A sequence evaluates
+///         one matrix per epoch.
 ///
 /// Returns:
-///     numpy.ndarray: 3x3 rotation matrix transforming LCI -> LFPA
+///     numpy.ndarray: 3x3 rotation matrix transforming LCI -> LFPA, shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
 ///
 /// Example:
 ///     ```python
@@ -1439,22 +1538,20 @@ fn py_state_mci_to_eci<'py>(
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "rotation_lci_to_lfpa")]
-unsafe fn py_rotation_lci_to_lfpa<'py>(
-    py: Python<'py>,
-    epc: &PyEpoch,
-) -> Bound<'py, PyArray<f64, Ix2>> {
-    let mat = frames::rotation_lci_to_lfpa(epc.obj);
-    matrix_to_numpy!(py, mat, 3, 3, f64)
+fn py_rotation_lci_to_lfpa<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_rotation(py, epc, frames::rotation_lci_to_lfpa, frames::rotations_lci_to_lfpa)
 }
 
 /// Computes the rotation matrix from Lunar-Fixed Principal Axis (LFPA) to
 /// Lunar-Centered Inertial (LCI). Inverse of `rotation_lci_to_lfpa`.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation matrix
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation matrix. A sequence evaluates
+///         one matrix per epoch.
 ///
 /// Returns:
-///     numpy.ndarray: 3x3 rotation matrix transforming LFPA -> LCI
+///     numpy.ndarray: 3x3 rotation matrix transforming LFPA -> LCI, shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
 ///
 /// Example:
 ///     ```python
@@ -1466,12 +1563,8 @@ unsafe fn py_rotation_lci_to_lfpa<'py>(
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "rotation_lfpa_to_lci")]
-unsafe fn py_rotation_lfpa_to_lci<'py>(
-    py: Python<'py>,
-    epc: &PyEpoch,
-) -> Bound<'py, PyArray<f64, Ix2>> {
-    let mat = frames::rotation_lfpa_to_lci(epc.obj);
-    matrix_to_numpy!(py, mat, 3, 3, f64)
+fn py_rotation_lfpa_to_lci<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_rotation(py, epc, frames::rotation_lfpa_to_lci, frames::rotations_lfpa_to_lci)
 }
 
 /// Computes the constant rotation matrix from Lunar-Fixed Mean Earth/polar-axis
@@ -1522,10 +1615,12 @@ unsafe fn py_rotation_lfpa_to_lfme<'py>(py: Python<'py>) -> Bound<'py, PyArray<f
 /// if needed).
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation matrix
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation matrix. A sequence evaluates
+///         one matrix per epoch.
 ///
 /// Returns:
-///     numpy.ndarray: 3x3 rotation matrix transforming LCI -> LFME
+///     numpy.ndarray: 3x3 rotation matrix transforming LCI -> LFME, shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
 ///
 /// Example:
 ///     ```python
@@ -1537,22 +1632,20 @@ unsafe fn py_rotation_lfpa_to_lfme<'py>(py: Python<'py>) -> Bound<'py, PyArray<f
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "rotation_lci_to_lfme")]
-unsafe fn py_rotation_lci_to_lfme<'py>(
-    py: Python<'py>,
-    epc: &PyEpoch,
-) -> Bound<'py, PyArray<f64, Ix2>> {
-    let mat = frames::rotation_lci_to_lfme(epc.obj);
-    matrix_to_numpy!(py, mat, 3, 3, f64)
+fn py_rotation_lci_to_lfme<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_rotation(py, epc, frames::rotation_lci_to_lfme, frames::rotations_lci_to_lfme)
 }
 
 /// Computes the rotation matrix from Lunar-Fixed Mean Earth/polar-axis (LFME)
 /// to Lunar-Centered Inertial (LCI). Inverse of `rotation_lci_to_lfme`.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation matrix
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation matrix. A sequence evaluates
+///         one matrix per epoch.
 ///
 /// Returns:
-///     numpy.ndarray: 3x3 rotation matrix transforming LFME -> LCI
+///     numpy.ndarray: 3x3 rotation matrix transforming LFME -> LCI, shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
 ///
 /// Example:
 ///     ```python
@@ -1564,23 +1657,27 @@ unsafe fn py_rotation_lci_to_lfme<'py>(
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "rotation_lfme_to_lci")]
-unsafe fn py_rotation_lfme_to_lci<'py>(
-    py: Python<'py>,
-    epc: &PyEpoch,
-) -> Bound<'py, PyArray<f64, Ix2>> {
-    let mat = frames::rotation_lfme_to_lci(epc.obj);
-    matrix_to_numpy!(py, mat, 3, 3, f64)
+fn py_rotation_lfme_to_lci<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_rotation(py, epc, frames::rotation_lfme_to_lci, frames::rotations_lfme_to_lci)
 }
 
 /// Transforms a Cartesian Lunar-inertial (LCI) position into the equivalent
 /// Cartesian Lunar-Fixed Principal Axis (LFPA) position.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_lci (numpy.ndarray or list): Cartesian LCI position (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_lci (numpy.ndarray or list): Cartesian LCI position (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x_lci` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian LFPA position (m), shape `(3,)`
+///     numpy.ndarray: Cartesian LFPA position (m), shape `(3,)` for a single
+///         input, or the batch layout of `x_lci` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1590,27 +1687,35 @@ unsafe fn py_rotation_lfme_to_lci<'py>(
 ///     x_lfpa = bh.position_lci_to_lfpa(epc, [bh.R_MOON + 100e3, 0.0, 0.0])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_lci)")]
+#[pyo3(signature = (epc, x_lci, axis=-1))]
+#[pyo3(text_signature = "(epc, x_lci, axis=-1)")]
 #[pyo3(name = "position_lci_to_lfpa")]
 fn py_position_lci_to_lfpa<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_lci: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_lci_to_lfpa(epc.obj, pyany_to_svector::<3>(&x_lci)?);
-
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x_lci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<3>(py, epc, x_lci, axis, frames::position_lci_to_lfpa, frames::positions_lci_to_lfpa)
 }
 
 /// Transforms a Cartesian Lunar-Fixed Principal Axis (LFPA) position into the
 /// equivalent Cartesian Lunar-inertial (LCI) position.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_lfpa (numpy.ndarray or list): Cartesian LFPA position (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_lfpa (numpy.ndarray or list): Cartesian LFPA position (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x_lfpa` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian LCI position (m), shape `(3,)`
+///     numpy.ndarray: Cartesian LCI position (m), shape `(3,)` for a single
+///         input, or the batch layout of `x_lfpa` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1620,27 +1725,35 @@ fn py_position_lci_to_lfpa<'py>(
 ///     x_lci = bh.position_lfpa_to_lci(epc, [bh.R_MOON, 0.0, 0.0])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_lfpa)")]
+#[pyo3(signature = (epc, x_lfpa, axis=-1))]
+#[pyo3(text_signature = "(epc, x_lfpa, axis=-1)")]
 #[pyo3(name = "position_lfpa_to_lci")]
 fn py_position_lfpa_to_lci<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_lfpa: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_lfpa_to_lci(epc.obj, pyany_to_svector::<3>(&x_lfpa)?);
-
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x_lfpa: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<3>(py, epc, x_lfpa, axis, frames::position_lfpa_to_lci, frames::positions_lfpa_to_lci)
 }
 
 /// Transforms a Cartesian Lunar-inertial (LCI) position into the equivalent
 /// Cartesian Lunar-Fixed Mean Earth/polar-axis (LFME) position.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_lci (numpy.ndarray or list): Cartesian LCI position (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_lci (numpy.ndarray or list): Cartesian LCI position (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x_lci` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian LFME position (m), shape `(3,)`
+///     numpy.ndarray: Cartesian LFME position (m), shape `(3,)` for a single
+///         input, or the batch layout of `x_lci` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1650,27 +1763,35 @@ fn py_position_lfpa_to_lci<'py>(
 ///     x_lfme = bh.position_lci_to_lfme(epc, [bh.R_MOON + 100e3, 0.0, 0.0])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_lci)")]
+#[pyo3(signature = (epc, x_lci, axis=-1))]
+#[pyo3(text_signature = "(epc, x_lci, axis=-1)")]
 #[pyo3(name = "position_lci_to_lfme")]
 fn py_position_lci_to_lfme<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_lci: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_lci_to_lfme(epc.obj, pyany_to_svector::<3>(&x_lci)?);
-
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x_lci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<3>(py, epc, x_lci, axis, frames::position_lci_to_lfme, frames::positions_lci_to_lfme)
 }
 
 /// Transforms a Cartesian Lunar-Fixed Mean Earth/polar-axis (LFME) position
 /// into the equivalent Cartesian Lunar-inertial (LCI) position.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_lfme (numpy.ndarray or list): Cartesian LFME position (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_lfme (numpy.ndarray or list): Cartesian LFME position (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x_lfme` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian LCI position (m), shape `(3,)`
+///     numpy.ndarray: Cartesian LCI position (m), shape `(3,)` for a single
+///         input, or the batch layout of `x_lfme` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1680,16 +1801,16 @@ fn py_position_lci_to_lfme<'py>(
 ///     x_lci = bh.position_lfme_to_lci(epc, [bh.R_MOON, 0.0, 0.0])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_lfme)")]
+#[pyo3(signature = (epc, x_lfme, axis=-1))]
+#[pyo3(text_signature = "(epc, x_lfme, axis=-1)")]
 #[pyo3(name = "position_lfme_to_lci")]
 fn py_position_lfme_to_lci<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_lfme: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_lfme_to_lci(epc.obj, pyany_to_svector::<3>(&x_lfme)?);
-
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x_lfme: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<3>(py, epc, x_lfme, axis, frames::position_lfme_to_lci, frames::positions_lfme_to_lci)
 }
 
 /// Transforms a Cartesian Lunar-inertial (LCI) state (position and velocity)
@@ -1699,11 +1820,19 @@ fn py_position_lfme_to_lci<'py>(
 /// the Moon's rotation.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_lci (numpy.ndarray or list): Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_lci (numpy.ndarray or list): Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_lci` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian LFPA state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: Cartesian LFPA state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_lci` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1714,16 +1843,16 @@ fn py_position_lfme_to_lci<'py>(
 ///     x_lfpa = bh.state_lci_to_lfpa(epc, x_lci)
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_lci)")]
+#[pyo3(signature = (epc, x_lci, axis=-1))]
+#[pyo3(text_signature = "(epc, x_lci, axis=-1)")]
 #[pyo3(name = "state_lci_to_lfpa")]
 fn py_state_lci_to_lfpa<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_lci: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_lci_to_lfpa(epc.obj, pyany_to_svector::<6>(&x_lci)?);
-
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_lci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<6>(py, epc, x_lci, axis, frames::state_lci_to_lfpa, frames::states_lci_to_lfpa)
 }
 
 /// Transforms a Cartesian Lunar-Fixed Principal Axis (LFPA) state (position
@@ -1731,11 +1860,19 @@ fn py_state_lci_to_lfpa<'py>(
 /// Inverse of `state_lci_to_lfpa`.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_lfpa (numpy.ndarray or list): Cartesian LFPA state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_lfpa (numpy.ndarray or list): Cartesian LFPA state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_lfpa` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_lfpa` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1747,16 +1884,16 @@ fn py_state_lci_to_lfpa<'py>(
 ///     x_lci2 = bh.state_lfpa_to_lci(epc, x_lfpa)
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_lfpa)")]
+#[pyo3(signature = (epc, x_lfpa, axis=-1))]
+#[pyo3(text_signature = "(epc, x_lfpa, axis=-1)")]
 #[pyo3(name = "state_lfpa_to_lci")]
 fn py_state_lfpa_to_lci<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_lfpa: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_lfpa_to_lci(epc.obj, pyany_to_svector::<6>(&x_lfpa)?);
-
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_lfpa: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<6>(py, epc, x_lfpa, axis, frames::state_lfpa_to_lci, frames::states_lfpa_to_lci)
 }
 
 /// Transforms a Cartesian Lunar-inertial (LCI) state (position and velocity)
@@ -1764,11 +1901,19 @@ fn py_state_lfpa_to_lci<'py>(
 /// state.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_lci (numpy.ndarray or list): Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_lci (numpy.ndarray or list): Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_lci` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian LFME state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: Cartesian LFME state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_lci` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1779,16 +1924,16 @@ fn py_state_lfpa_to_lci<'py>(
 ///     x_lfme = bh.state_lci_to_lfme(epc, x_lci)
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_lci)")]
+#[pyo3(signature = (epc, x_lci, axis=-1))]
+#[pyo3(text_signature = "(epc, x_lci, axis=-1)")]
 #[pyo3(name = "state_lci_to_lfme")]
 fn py_state_lci_to_lfme<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_lci: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_lci_to_lfme(epc.obj, pyany_to_svector::<6>(&x_lci)?);
-
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_lci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<6>(py, epc, x_lci, axis, frames::state_lci_to_lfme, frames::states_lci_to_lfme)
 }
 
 /// Transforms a Cartesian Lunar-Fixed Mean Earth/polar-axis (LFME) state
@@ -1796,11 +1941,19 @@ fn py_state_lci_to_lfme<'py>(
 /// state. Inverse of `state_lci_to_lfme`.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_lfme (numpy.ndarray or list): Cartesian LFME state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_lfme (numpy.ndarray or list): Cartesian LFME state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_lfme` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_lfme` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1812,16 +1965,16 @@ fn py_state_lci_to_lfme<'py>(
 ///     x_lci2 = bh.state_lfme_to_lci(epc, x_lfme)
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_lfme)")]
+#[pyo3(signature = (epc, x_lfme, axis=-1))]
+#[pyo3(text_signature = "(epc, x_lfme, axis=-1)")]
 #[pyo3(name = "state_lfme_to_lci")]
 fn py_state_lfme_to_lci<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_lfme: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_lfme_to_lci(epc.obj, pyany_to_svector::<6>(&x_lfme)?);
-
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_lfme: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<6>(py, epc, x_lfme, axis, frames::state_lfme_to_lci, frames::states_lfme_to_lci)
 }
 
 /// Transforms a Cartesian Earth-inertial (ECI) position into the equivalent
@@ -1831,11 +1984,19 @@ fn py_state_lfme_to_lci<'py>(
 /// the default `de440s` ephemeris if no SPK kernel is loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_eci (numpy.ndarray or list): Cartesian ECI position (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_eci (numpy.ndarray or list): Cartesian ECI position (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x_eci` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian LCI position (m), shape `(3,)`
+///     numpy.ndarray: Cartesian LCI position (m), shape `(3,)` for a single
+///         input, or the batch layout of `x_eci` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1845,16 +2006,16 @@ fn py_state_lfme_to_lci<'py>(
 ///     x_lci = bh.position_eci_to_lci(epc, [1e7, 2e7, 3e7])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_eci)")]
+#[pyo3(signature = (epc, x_eci, axis=-1))]
+#[pyo3(text_signature = "(epc, x_eci, axis=-1)")]
 #[pyo3(name = "position_eci_to_lci")]
 fn py_position_eci_to_lci<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_eci: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_eci_to_lci(epc.obj, pyany_to_svector::<3>(&x_eci)?);
-
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x_eci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<3>(py, epc, x_eci, axis, frames::position_eci_to_lci, frames::positions_eci_to_lci)
 }
 
 /// Transforms a Cartesian Lunar-inertial (LCI) position into the equivalent
@@ -1863,11 +2024,19 @@ fn py_position_eci_to_lci<'py>(
 /// Auto-initializes the default `de440s` ephemeris if no SPK kernel is loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_lci (numpy.ndarray or list): Cartesian LCI position (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_lci (numpy.ndarray or list): Cartesian LCI position (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x_lci` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian ECI position (m), shape `(3,)`
+///     numpy.ndarray: Cartesian ECI position (m), shape `(3,)` for a single
+///         input, or the batch layout of `x_lci` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1877,16 +2046,16 @@ fn py_position_eci_to_lci<'py>(
 ///     x_eci = bh.position_lci_to_eci(epc, [1e7, 2e7, 3e7])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_lci)")]
+#[pyo3(signature = (epc, x_lci, axis=-1))]
+#[pyo3(text_signature = "(epc, x_lci, axis=-1)")]
 #[pyo3(name = "position_lci_to_eci")]
 fn py_position_lci_to_eci<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_lci: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_lci_to_eci(epc.obj, pyany_to_svector::<3>(&x_lci)?);
-
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x_lci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<3>(py, epc, x_lci, axis, frames::position_lci_to_eci, frames::positions_lci_to_eci)
 }
 
 /// Transforms a Cartesian Earth-inertial (ECI) state (position and velocity)
@@ -1896,11 +2065,19 @@ fn py_position_lci_to_eci<'py>(
 /// the default `de440s` ephemeris if no SPK kernel is loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_eci (numpy.ndarray or list): Cartesian ECI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_eci (numpy.ndarray or list): Cartesian ECI state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_eci` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_eci` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1910,16 +2087,16 @@ fn py_position_lci_to_eci<'py>(
 ///     x_lci = bh.state_eci_to_lci(epc, [1e7, 2e7, 3e7, 1.0, 2.0, 3.0])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_eci)")]
+#[pyo3(signature = (epc, x_eci, axis=-1))]
+#[pyo3(text_signature = "(epc, x_eci, axis=-1)")]
 #[pyo3(name = "state_eci_to_lci")]
 fn py_state_eci_to_lci<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_eci: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_eci_to_lci(epc.obj, pyany_to_svector::<6>(&x_eci)?);
-
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_eci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<6>(py, epc, x_eci, axis, frames::state_eci_to_lci, frames::states_eci_to_lci)
 }
 
 /// Transforms a Cartesian Lunar-inertial (LCI) state (position and velocity)
@@ -1928,11 +2105,19 @@ fn py_state_eci_to_lci<'py>(
 /// Auto-initializes the default `de440s` ephemeris if no SPK kernel is loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_lci (numpy.ndarray or list): Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_lci (numpy.ndarray or list): Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_lci` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian ECI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: Cartesian ECI state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_lci` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -1942,16 +2127,16 @@ fn py_state_eci_to_lci<'py>(
 ///     x_eci = bh.state_lci_to_eci(epc, [1e7, 2e7, 3e7, 1.0, 2.0, 3.0])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_lci)")]
+#[pyo3(signature = (epc, x_lci, axis=-1))]
+#[pyo3(text_signature = "(epc, x_lci, axis=-1)")]
 #[pyo3(name = "state_lci_to_eci")]
 fn py_state_lci_to_eci<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_lci: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_lci_to_eci(epc.obj, pyany_to_svector::<6>(&x_lci)?);
-
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_lci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<6>(py, epc, x_lci, axis, frames::state_lci_to_eci, frames::states_lci_to_eci)
 }
 
 // ============================================================================
@@ -1966,10 +2151,12 @@ fn py_state_lci_to_eci<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one matrix per epoch.
 ///
 /// Returns:
-///     numpy.ndarray: 3x3 rotation matrix transforming GCRF -> EMR axes
+///     numpy.ndarray: 3x3 rotation matrix transforming GCRF -> EMR axes, shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
 ///
 /// Raises:
 ///     RuntimeError: If the SPK lookup fails at `epc`
@@ -1984,13 +2171,8 @@ fn py_state_lci_to_eci<'py>(
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "rotation_gcrf_to_emr")]
-unsafe fn py_rotation_gcrf_to_emr<'py>(
-    py: Python<'py>,
-    epc: &PyEpoch,
-) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
-    let mat = frames::rotation_gcrf_to_emr(epc.obj)
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok(matrix_to_numpy!(py, mat, 3, 3, f64))
+fn py_rotation_gcrf_to_emr<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    try_dispatch_epoch_rotation(py, epc, frames::rotation_gcrf_to_emr, frames::rotations_gcrf_to_emr)
 }
 
 /// Computes the rotation matrix from Earth-Moon Rotating (EMR) frame axes to
@@ -2000,10 +2182,12 @@ unsafe fn py_rotation_gcrf_to_emr<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one matrix per epoch.
 ///
 /// Returns:
-///     numpy.ndarray: 3x3 rotation matrix transforming EMR -> GCRF axes
+///     numpy.ndarray: 3x3 rotation matrix transforming EMR -> GCRF axes, shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
 ///
 /// Raises:
 ///     RuntimeError: If the SPK lookup fails at `epc`
@@ -2018,13 +2202,8 @@ unsafe fn py_rotation_gcrf_to_emr<'py>(
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "rotation_emr_to_gcrf")]
-unsafe fn py_rotation_emr_to_gcrf<'py>(
-    py: Python<'py>,
-    epc: &PyEpoch,
-) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
-    let mat = frames::rotation_emr_to_gcrf(epc.obj)
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok(matrix_to_numpy!(py, mat, 3, 3, f64))
+fn py_rotation_emr_to_gcrf<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    try_dispatch_epoch_rotation(py, epc, frames::rotation_emr_to_gcrf, frames::rotations_emr_to_gcrf)
 }
 
 /// Transforms a Cartesian GCRF position into the equivalent Earth-Moon
@@ -2035,11 +2214,19 @@ unsafe fn py_rotation_emr_to_gcrf<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_gcrf (numpy.ndarray or list): Cartesian GCRF position (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_gcrf (numpy.ndarray or list): Cartesian GCRF position (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x_gcrf` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian EMR position (m), shape `(3,)`
+///     numpy.ndarray: Cartesian EMR position (m), shape `(3,)` for a single
+///         input, or the batch layout of `x_gcrf` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Raises:
 ///     RuntimeError: If the SPK lookup fails at `epc`
@@ -2052,16 +2239,16 @@ unsafe fn py_rotation_emr_to_gcrf<'py>(
 ///     x_emr = bh.position_gcrf_to_emr(epc, [1e8, -2e8, 5e7])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_gcrf)")]
+#[pyo3(signature = (epc, x_gcrf, axis=-1))]
+#[pyo3(text_signature = "(epc, x_gcrf, axis=-1)")]
 #[pyo3(name = "position_gcrf_to_emr")]
 fn py_position_gcrf_to_emr<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_gcrf: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_gcrf_to_emr(epc.obj, pyany_to_svector::<3>(&x_gcrf)?)
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x_gcrf: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    try_dispatch_epoch_vec::<3>(py, epc, x_gcrf, axis, frames::position_gcrf_to_emr, frames::positions_gcrf_to_emr)
 }
 
 /// Transforms a Cartesian Earth-Moon Rotating (EMR) frame position into the
@@ -2071,11 +2258,19 @@ fn py_position_gcrf_to_emr<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_emr (numpy.ndarray or list): Cartesian EMR position (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_emr (numpy.ndarray or list): Cartesian EMR position (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x_emr` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian GCRF position (m), shape `(3,)`
+///     numpy.ndarray: Cartesian GCRF position (m), shape `(3,)` for a single
+///         input, or the batch layout of `x_emr` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Raises:
 ///     RuntimeError: If the SPK lookup fails at `epc`
@@ -2088,16 +2283,16 @@ fn py_position_gcrf_to_emr<'py>(
 ///     x_gcrf = bh.position_emr_to_gcrf(epc, [3.8e8, 0.0, 0.0])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_emr)")]
+#[pyo3(signature = (epc, x_emr, axis=-1))]
+#[pyo3(text_signature = "(epc, x_emr, axis=-1)")]
 #[pyo3(name = "position_emr_to_gcrf")]
 fn py_position_emr_to_gcrf<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_emr: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_emr_to_gcrf(epc.obj, pyany_to_svector::<3>(&x_emr)?)
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x_emr: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    try_dispatch_epoch_vec::<3>(py, epc, x_emr, axis, frames::position_emr_to_gcrf, frames::positions_emr_to_gcrf)
 }
 
 /// Transforms a Cartesian GCRF state (position and velocity) into the
@@ -2110,11 +2305,19 @@ fn py_position_emr_to_gcrf<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_gcrf (numpy.ndarray or list): Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_gcrf (numpy.ndarray or list): Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_gcrf` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian EMR state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: Cartesian EMR state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_gcrf` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Raises:
 ///     RuntimeError: If the SPK lookup fails at `epc`
@@ -2127,16 +2330,16 @@ fn py_position_emr_to_gcrf<'py>(
 ///     x_emr = bh.state_gcrf_to_emr(epc, [1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_gcrf)")]
+#[pyo3(signature = (epc, x_gcrf, axis=-1))]
+#[pyo3(text_signature = "(epc, x_gcrf, axis=-1)")]
 #[pyo3(name = "state_gcrf_to_emr")]
 fn py_state_gcrf_to_emr<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_gcrf: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_gcrf_to_emr(epc.obj, pyany_to_svector::<6>(&x_gcrf)?)
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_gcrf: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    try_dispatch_epoch_vec::<6>(py, epc, x_gcrf, axis, frames::state_gcrf_to_emr, frames::states_gcrf_to_emr)
 }
 
 /// Transforms a Cartesian Earth-Moon Rotating (EMR) frame state (position
@@ -2147,11 +2350,19 @@ fn py_state_gcrf_to_emr<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_emr (numpy.ndarray or list): Cartesian EMR state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_emr (numpy.ndarray or list): Cartesian EMR state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_emr` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_emr` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Raises:
 ///     RuntimeError: If the SPK lookup fails at `epc`
@@ -2165,16 +2376,16 @@ fn py_state_gcrf_to_emr<'py>(
 ///     x_gcrf = bh.state_emr_to_gcrf(epc, x_emr)
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_emr)")]
+#[pyo3(signature = (epc, x_emr, axis=-1))]
+#[pyo3(text_signature = "(epc, x_emr, axis=-1)")]
 #[pyo3(name = "state_emr_to_gcrf")]
 fn py_state_emr_to_gcrf<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_emr: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_emr_to_gcrf(epc.obj, pyany_to_svector::<6>(&x_emr)?)
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_emr: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    try_dispatch_epoch_vec::<6>(py, epc, x_emr, axis, frames::state_emr_to_gcrf, frames::states_emr_to_gcrf)
 }
 
 /// Computes the rotation matrix from GCRF axes to Sun-Earth Rotating (SER)
@@ -2185,10 +2396,12 @@ fn py_state_emr_to_gcrf<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one matrix per epoch.
 ///
 /// Returns:
-///     numpy.ndarray: 3x3 rotation matrix transforming GCRF -> SER axes
+///     numpy.ndarray: 3x3 rotation matrix transforming GCRF -> SER axes, shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
 ///
 /// Raises:
 ///     RuntimeError: If the SPK lookup fails at `epc`
@@ -2203,13 +2416,8 @@ fn py_state_emr_to_gcrf<'py>(
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "rotation_gcrf_to_ser")]
-unsafe fn py_rotation_gcrf_to_ser<'py>(
-    py: Python<'py>,
-    epc: &PyEpoch,
-) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
-    let mat = frames::rotation_gcrf_to_ser(epc.obj)
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok(matrix_to_numpy!(py, mat, 3, 3, f64))
+fn py_rotation_gcrf_to_ser<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    try_dispatch_epoch_rotation(py, epc, frames::rotation_gcrf_to_ser, frames::rotations_gcrf_to_ser)
 }
 
 /// Computes the rotation matrix from Sun-Earth Rotating (SER) frame axes to
@@ -2219,10 +2427,12 @@ unsafe fn py_rotation_gcrf_to_ser<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one matrix per epoch.
 ///
 /// Returns:
-///     numpy.ndarray: 3x3 rotation matrix transforming SER -> GCRF axes
+///     numpy.ndarray: 3x3 rotation matrix transforming SER -> GCRF axes, shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
 ///
 /// Raises:
 ///     RuntimeError: If the SPK lookup fails at `epc`
@@ -2237,13 +2447,8 @@ unsafe fn py_rotation_gcrf_to_ser<'py>(
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "rotation_ser_to_gcrf")]
-unsafe fn py_rotation_ser_to_gcrf<'py>(
-    py: Python<'py>,
-    epc: &PyEpoch,
-) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
-    let mat = frames::rotation_ser_to_gcrf(epc.obj)
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok(matrix_to_numpy!(py, mat, 3, 3, f64))
+fn py_rotation_ser_to_gcrf<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    try_dispatch_epoch_rotation(py, epc, frames::rotation_ser_to_gcrf, frames::rotations_ser_to_gcrf)
 }
 
 /// Transforms a Cartesian GCRF position into the equivalent Sun-Earth
@@ -2254,11 +2459,19 @@ unsafe fn py_rotation_ser_to_gcrf<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_gcrf (numpy.ndarray or list): Cartesian GCRF position (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_gcrf (numpy.ndarray or list): Cartesian GCRF position (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x_gcrf` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian SER position (m), shape `(3,)`
+///     numpy.ndarray: Cartesian SER position (m), shape `(3,)` for a single
+///         input, or the batch layout of `x_gcrf` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Raises:
 ///     RuntimeError: If the SPK lookup fails at `epc`
@@ -2271,16 +2484,16 @@ unsafe fn py_rotation_ser_to_gcrf<'py>(
 ///     x_ser = bh.position_gcrf_to_ser(epc, [1e8, -2e8, 5e7])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_gcrf)")]
+#[pyo3(signature = (epc, x_gcrf, axis=-1))]
+#[pyo3(text_signature = "(epc, x_gcrf, axis=-1)")]
 #[pyo3(name = "position_gcrf_to_ser")]
 fn py_position_gcrf_to_ser<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_gcrf: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_gcrf_to_ser(epc.obj, pyany_to_svector::<3>(&x_gcrf)?)
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x_gcrf: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    try_dispatch_epoch_vec::<3>(py, epc, x_gcrf, axis, frames::position_gcrf_to_ser, frames::positions_gcrf_to_ser)
 }
 
 /// Transforms a Cartesian Sun-Earth Rotating (SER) frame position into the
@@ -2290,11 +2503,19 @@ fn py_position_gcrf_to_ser<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_ser (numpy.ndarray or list): Cartesian SER position (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_ser (numpy.ndarray or list): Cartesian SER position (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x_ser` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian GCRF position (m), shape `(3,)`
+///     numpy.ndarray: Cartesian GCRF position (m), shape `(3,)` for a single
+///         input, or the batch layout of `x_ser` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Raises:
 ///     RuntimeError: If the SPK lookup fails at `epc`
@@ -2307,16 +2528,16 @@ fn py_position_gcrf_to_ser<'py>(
 ///     x_gcrf = bh.position_ser_to_gcrf(epc, [1.5e11, 0.0, 0.0])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_ser)")]
+#[pyo3(signature = (epc, x_ser, axis=-1))]
+#[pyo3(text_signature = "(epc, x_ser, axis=-1)")]
 #[pyo3(name = "position_ser_to_gcrf")]
 fn py_position_ser_to_gcrf<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_ser: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_ser_to_gcrf(epc.obj, pyany_to_svector::<3>(&x_ser)?)
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x_ser: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    try_dispatch_epoch_vec::<3>(py, epc, x_ser, axis, frames::position_ser_to_gcrf, frames::positions_ser_to_gcrf)
 }
 
 /// Transforms a Cartesian GCRF state (position and velocity) into the
@@ -2329,11 +2550,19 @@ fn py_position_ser_to_gcrf<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_gcrf (numpy.ndarray or list): Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_gcrf (numpy.ndarray or list): Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_gcrf` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian SER state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: Cartesian SER state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_gcrf` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Raises:
 ///     RuntimeError: If the SPK lookup fails at `epc`
@@ -2346,16 +2575,16 @@ fn py_position_ser_to_gcrf<'py>(
 ///     x_ser = bh.state_gcrf_to_ser(epc, [1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_gcrf)")]
+#[pyo3(signature = (epc, x_gcrf, axis=-1))]
+#[pyo3(text_signature = "(epc, x_gcrf, axis=-1)")]
 #[pyo3(name = "state_gcrf_to_ser")]
 fn py_state_gcrf_to_ser<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_gcrf: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_gcrf_to_ser(epc.obj, pyany_to_svector::<6>(&x_gcrf)?)
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_gcrf: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    try_dispatch_epoch_vec::<6>(py, epc, x_gcrf, axis, frames::state_gcrf_to_ser, frames::states_gcrf_to_ser)
 }
 
 /// Transforms a Cartesian Sun-Earth Rotating (SER) frame state (position
@@ -2366,11 +2595,19 @@ fn py_state_gcrf_to_ser<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_ser (numpy.ndarray or list): Cartesian SER state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_ser (numpy.ndarray or list): Cartesian SER state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_ser` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_ser` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Raises:
 ///     RuntimeError: If the SPK lookup fails at `epc`
@@ -2384,16 +2621,16 @@ fn py_state_gcrf_to_ser<'py>(
 ///     x_gcrf = bh.state_ser_to_gcrf(epc, x_ser)
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_ser)")]
+#[pyo3(signature = (epc, x_ser, axis=-1))]
+#[pyo3(text_signature = "(epc, x_ser, axis=-1)")]
 #[pyo3(name = "state_ser_to_gcrf")]
 fn py_state_ser_to_gcrf<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_ser: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_ser_to_gcrf(epc.obj, pyany_to_svector::<6>(&x_ser)?)
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_ser: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    try_dispatch_epoch_vec::<6>(py, epc, x_ser, axis, frames::state_ser_to_gcrf, frames::states_ser_to_gcrf)
 }
 
 /// Computes the rotation matrix from GCRF axes to Geocentric Solar Ecliptic
@@ -2404,10 +2641,12 @@ fn py_state_ser_to_gcrf<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one matrix per epoch.
 ///
 /// Returns:
-///     numpy.ndarray: 3x3 rotation matrix transforming GCRF -> GSE axes
+///     numpy.ndarray: 3x3 rotation matrix transforming GCRF -> GSE axes, shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
 ///
 /// Raises:
 ///     RuntimeError: If the SPK lookup fails at `epc`
@@ -2422,13 +2661,8 @@ fn py_state_ser_to_gcrf<'py>(
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "rotation_gcrf_to_gse")]
-unsafe fn py_rotation_gcrf_to_gse<'py>(
-    py: Python<'py>,
-    epc: &PyEpoch,
-) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
-    let mat = frames::rotation_gcrf_to_gse(epc.obj)
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok(matrix_to_numpy!(py, mat, 3, 3, f64))
+fn py_rotation_gcrf_to_gse<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    try_dispatch_epoch_rotation(py, epc, frames::rotation_gcrf_to_gse, frames::rotations_gcrf_to_gse)
 }
 
 /// Computes the rotation matrix from Geocentric Solar Ecliptic (GSE) frame
@@ -2438,10 +2672,12 @@ unsafe fn py_rotation_gcrf_to_gse<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one matrix per epoch.
 ///
 /// Returns:
-///     numpy.ndarray: 3x3 rotation matrix transforming GSE -> GCRF axes
+///     numpy.ndarray: 3x3 rotation matrix transforming GSE -> GCRF axes, shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
 ///
 /// Raises:
 ///     RuntimeError: If the SPK lookup fails at `epc`
@@ -2456,13 +2692,8 @@ unsafe fn py_rotation_gcrf_to_gse<'py>(
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "rotation_gse_to_gcrf")]
-unsafe fn py_rotation_gse_to_gcrf<'py>(
-    py: Python<'py>,
-    epc: &PyEpoch,
-) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
-    let mat = frames::rotation_gse_to_gcrf(epc.obj)
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok(matrix_to_numpy!(py, mat, 3, 3, f64))
+fn py_rotation_gse_to_gcrf<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    try_dispatch_epoch_rotation(py, epc, frames::rotation_gse_to_gcrf, frames::rotations_gse_to_gcrf)
 }
 
 /// Transforms a Cartesian GCRF position into the equivalent Geocentric
@@ -2472,11 +2703,19 @@ unsafe fn py_rotation_gse_to_gcrf<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_gcrf (numpy.ndarray or list): Cartesian GCRF position (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_gcrf (numpy.ndarray or list): Cartesian GCRF position (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x_gcrf` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian GSE position (m), shape `(3,)`
+///     numpy.ndarray: Cartesian GSE position (m), shape `(3,)` for a single
+///         input, or the batch layout of `x_gcrf` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Raises:
 ///     RuntimeError: If the SPK lookup fails at `epc`
@@ -2489,16 +2728,16 @@ unsafe fn py_rotation_gse_to_gcrf<'py>(
 ///     x_gse = bh.position_gcrf_to_gse(epc, [1e8, -2e8, 5e7])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_gcrf)")]
+#[pyo3(signature = (epc, x_gcrf, axis=-1))]
+#[pyo3(text_signature = "(epc, x_gcrf, axis=-1)")]
 #[pyo3(name = "position_gcrf_to_gse")]
 fn py_position_gcrf_to_gse<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_gcrf: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_gcrf_to_gse(epc.obj, pyany_to_svector::<3>(&x_gcrf)?)
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x_gcrf: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    try_dispatch_epoch_vec::<3>(py, epc, x_gcrf, axis, frames::position_gcrf_to_gse, frames::positions_gcrf_to_gse)
 }
 
 /// Transforms a Cartesian Geocentric Solar Ecliptic (GSE) frame position
@@ -2509,11 +2748,19 @@ fn py_position_gcrf_to_gse<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_gse (numpy.ndarray or list): Cartesian GSE position (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_gse (numpy.ndarray or list): Cartesian GSE position (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x_gse` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian GCRF position (m), shape `(3,)`
+///     numpy.ndarray: Cartesian GCRF position (m), shape `(3,)` for a single
+///         input, or the batch layout of `x_gse` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Raises:
 ///     RuntimeError: If the SPK lookup fails at `epc`
@@ -2526,16 +2773,16 @@ fn py_position_gcrf_to_gse<'py>(
 ///     x_gcrf = bh.position_gse_to_gcrf(epc, [1.5e11, 0.0, 0.0])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_gse)")]
+#[pyo3(signature = (epc, x_gse, axis=-1))]
+#[pyo3(text_signature = "(epc, x_gse, axis=-1)")]
 #[pyo3(name = "position_gse_to_gcrf")]
 fn py_position_gse_to_gcrf<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_gse: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_gse_to_gcrf(epc.obj, pyany_to_svector::<3>(&x_gse)?)
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x_gse: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    try_dispatch_epoch_vec::<3>(py, epc, x_gse, axis, frames::position_gse_to_gcrf, frames::positions_gse_to_gcrf)
 }
 
 /// Transforms a Cartesian GCRF state (position and velocity) into the
@@ -2547,11 +2794,19 @@ fn py_position_gse_to_gcrf<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_gcrf (numpy.ndarray or list): Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_gcrf (numpy.ndarray or list): Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_gcrf` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian GSE state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: Cartesian GSE state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_gcrf` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Raises:
 ///     RuntimeError: If the SPK lookup fails at `epc`
@@ -2564,16 +2819,16 @@ fn py_position_gse_to_gcrf<'py>(
 ///     x_gse = bh.state_gcrf_to_gse(epc, [1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_gcrf)")]
+#[pyo3(signature = (epc, x_gcrf, axis=-1))]
+#[pyo3(text_signature = "(epc, x_gcrf, axis=-1)")]
 #[pyo3(name = "state_gcrf_to_gse")]
 fn py_state_gcrf_to_gse<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_gcrf: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_gcrf_to_gse(epc.obj, pyany_to_svector::<6>(&x_gcrf)?)
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_gcrf: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    try_dispatch_epoch_vec::<6>(py, epc, x_gcrf, axis, frames::state_gcrf_to_gse, frames::states_gcrf_to_gse)
 }
 
 /// Transforms a Cartesian Geocentric Solar Ecliptic (GSE) frame state
@@ -2584,11 +2839,19 @@ fn py_state_gcrf_to_gse<'py>(
 /// loaded.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x_gse (numpy.ndarray or list): Cartesian GSE state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_gse (numpy.ndarray or list): Cartesian GSE state `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_gse` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_gse` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Raises:
 ///     RuntimeError: If the SPK lookup fails at `epc`
@@ -2602,16 +2865,16 @@ fn py_state_gcrf_to_gse<'py>(
 ///     x_gcrf = bh.state_gse_to_gcrf(epc, x_gse)
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_gse)")]
+#[pyo3(signature = (epc, x_gse, axis=-1))]
+#[pyo3(text_signature = "(epc, x_gse, axis=-1)")]
 #[pyo3(name = "state_gse_to_gcrf")]
 fn py_state_gse_to_gcrf<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_gse: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_gse_to_gcrf(epc.obj, pyany_to_svector::<6>(&x_gse)?)
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_gse: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    try_dispatch_epoch_vec::<6>(py, epc, x_gse, axis, frames::state_gse_to_gcrf, frames::states_gse_to_gcrf)
 }
 
 // ============================================================================
@@ -2994,10 +3257,12 @@ impl PyReferenceFrame {
 /// Args:
 ///     from_frame (ReferenceFrame): Source reference frame
 ///     to_frame (ReferenceFrame): Target reference frame
-///     epc (Epoch): Epoch instant for computation of the transformation
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one matrix per epoch.
 ///
 /// Returns:
-///     numpy.ndarray: 3x3 rotation matrix transforming `from_frame` -> `to_frame`
+///     numpy.ndarray: 3x3 rotation matrix transforming `from_frame` -> `to_frame`, shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
 ///
 /// Raises:
 ///     RuntimeError: If either frame's orientation cannot be evaluated at `epc`
@@ -3012,15 +3277,19 @@ impl PyReferenceFrame {
 #[pyfunction]
 #[pyo3(text_signature = "(from_frame, to_frame, epc)")]
 #[pyo3(name = "rotation_frame_to_frame")]
-unsafe fn py_rotation_frame_to_frame<'py>(
+fn py_rotation_frame_to_frame<'py>(
     py: Python<'py>,
     from_frame: PyReferenceFrame,
     to_frame: PyReferenceFrame,
-    epc: &PyEpoch,
-) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
-    let mat = frames::rotation_frame_to_frame(from_frame.frame, to_frame.frame, epc.obj)
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok(matrix_to_numpy!(py, mat, 3, 3, f64))
+    epc: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let (from, to) = (from_frame.frame, to_frame.frame);
+    try_dispatch_epoch_rotation(
+        py,
+        epc,
+        |e| frames::rotation_frame_to_frame(from, to, e),
+        |es| frames::rotations_frame_to_frame(from, to, es),
+    )
 }
 
 /// Registers (or replaces) a user-defined body-fixed frame under `key`.
@@ -3125,11 +3394,19 @@ fn py_unregister_custom_frame(key: u32) -> bool {
 /// Args:
 ///     from_frame (ReferenceFrame): Source reference frame
 ///     to_frame (ReferenceFrame): Target reference frame
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x (numpy.ndarray or list): Cartesian position in `from_frame` axes/center (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x (numpy.ndarray or list): Cartesian position in `from_frame` axes/center (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian position in `to_frame` axes/center (m), shape `(3,)`
+///     numpy.ndarray: Cartesian position in `to_frame` axes/center (m), shape `(3,)` for a single
+///         input, or the batch layout of `x` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Raises:
 ///     RuntimeError: If either frame's orientation cannot be evaluated at
@@ -3145,24 +3422,26 @@ fn py_unregister_custom_frame(key: u32) -> bool {
 ///     x_itrf = bh.position_frame_to_frame(bh.ReferenceFrame.GCRF, bh.ReferenceFrame.ITRF, epc, x_gcrf)
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(from_frame, to_frame, epc, x)")]
+#[pyo3(signature = (from_frame, to_frame, epc, x, axis=-1))]
+#[pyo3(text_signature = "(from_frame, to_frame, epc, x, axis=-1)")]
 #[pyo3(name = "position_frame_to_frame")]
 fn py_position_frame_to_frame<'py>(
     py: Python<'py>,
     from_frame: PyReferenceFrame,
     to_frame: PyReferenceFrame,
-    epc: &PyEpoch,
-    x: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_frame_to_frame(
-        from_frame.frame,
-        to_frame.frame,
-        epc.obj,
-        pyany_to_svector::<3>(&x)?,
+    epc: &Bound<'py, PyAny>,
+    x: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    let (from, to) = (from_frame.frame, to_frame.frame);
+    try_dispatch_epoch_vec::<3>(
+        py,
+        epc,
+        x,
+        axis,
+        |e, v| frames::position_frame_to_frame(from, to, e, v),
+        |es, vs| frames::positions_frame_to_frame(from, to, es, vs),
     )
-    .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-
-    Ok(vector_to_numpy!(py, vec, 3, f64))
 }
 
 /// Transforms a Cartesian state (position and velocity) from `from_frame` to
@@ -3181,11 +3460,19 @@ fn py_position_frame_to_frame<'py>(
 /// Args:
 ///     from_frame (ReferenceFrame): Source reference frame
 ///     to_frame (ReferenceFrame): Target reference frame
-///     epc (Epoch): Epoch instant for computation of the transformation
-///     x (numpy.ndarray or list): Cartesian state in `from_frame` axes/center `[position (m), velocity (m/s)]`, shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x (numpy.ndarray or list): Cartesian state in `from_frame` axes/center `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Cartesian state in `to_frame` axes/center `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: Cartesian state in `to_frame` axes/center `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Raises:
 ///     RuntimeError: If either frame's orientation cannot be evaluated at
@@ -3201,22 +3488,24 @@ fn py_position_frame_to_frame<'py>(
 ///     x_lfpa = bh.state_frame_to_frame(bh.ReferenceFrame.GCRF, bh.ReferenceFrame.LFPA, epc, x_gcrf)
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(from_frame, to_frame, epc, x)")]
+#[pyo3(signature = (from_frame, to_frame, epc, x, axis=-1))]
+#[pyo3(text_signature = "(from_frame, to_frame, epc, x, axis=-1)")]
 #[pyo3(name = "state_frame_to_frame")]
 fn py_state_frame_to_frame<'py>(
     py: Python<'py>,
     from_frame: PyReferenceFrame,
     to_frame: PyReferenceFrame,
-    epc: &PyEpoch,
-    x: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_frame_to_frame(
-        from_frame.frame,
-        to_frame.frame,
-        epc.obj,
-        pyany_to_svector::<6>(&x)?,
+    epc: &Bound<'py, PyAny>,
+    x: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    let (from, to) = (from_frame.frame, to_frame.frame);
+    try_dispatch_epoch_vec::<6>(
+        py,
+        epc,
+        x,
+        axis,
+        |e, v| frames::state_frame_to_frame(from, to, e, v),
+        |es, vs| frames::states_frame_to_frame(from, to, es, vs),
     )
-    .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-
-    Ok(vector_to_numpy!(py, vec, 6, f64))
 }

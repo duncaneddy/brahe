@@ -23,9 +23,14 @@ use nalgebra::Vector3;
 use crate::math::{SMatrix3, SVector6};
 use crate::spice::{NAIFId, spk_position, spk_state};
 use crate::time::Epoch;
+use crate::utils::BraheError;
+use crate::utils::batch::{batch_map, batch_map_epochs};
 
 use super::iau_rotation::{
     body_fixed_iau_angles_and_rates, euler313_omega_body, rotation_icrf_to_body_fixed_iau,
+};
+use super::transform::{
+    RotatingFrameContext, apply_state_icrf_to_rotating, apply_state_rotating_to_icrf,
 };
 
 /// Idempotently loads the `mar099s` Mars satellite ephemeris kernel
@@ -183,6 +188,78 @@ pub fn position_mcmf_to_mci(epc: Epoch, x_mcmf: Vector3<f64>) -> Vector3<f64> {
     rotation_mcmf_to_mci(epc) * x_mcmf
 }
 
+/// Rotation matrix and body-frame angular velocity of the Mars-fixed frame
+/// (MCMF) at `epc`.
+///
+/// # Arguments
+/// - `epc`: Epoch instant
+///
+/// # Returns
+/// - MCI -> MCMF rotation matrix and MCMF angular velocity (rad/s)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let c = mcmf_context(epc);
+/// // c.r_mat rotates MCI -> MCMF; c.omega_b is the MCMF angular velocity
+/// ```
+fn mcmf_context(epc: Epoch) -> RotatingFrameContext {
+    let (angles, rates) = body_fixed_iau_angles_and_rates(NAIFId::Mars.id(), epc)
+        .expect("IAU Mars rotation model missing from embedded WGCCRE table — this is a bug");
+    let r_mat = rotation_mci_to_mcmf(epc);
+    let omega_b = euler313_omega_body(angles, rates);
+    RotatingFrameContext { r_mat, omega_b }
+}
+
+/// Mars position relative to the Earth in ICRF axes.
+///
+/// # Arguments
+/// - `epc`: Epoch instant
+///
+/// # Returns
+/// - Mars position relative to the Earth. Units: (*m*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let offset = mars_earth_offset_position(epc);
+/// // x_mci = x_eci - offset
+/// ```
+fn mars_earth_offset_position(epc: Epoch) -> Vector3<f64> {
+    ensure_mars_spk_loaded();
+    spk_position(NAIFId::Mars, NAIFId::Earth, epc)
+        .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)")
+}
+
+/// Mars state relative to the Earth in ICRF axes.
+///
+/// # Arguments
+/// - `epc`: Epoch instant
+///
+/// # Returns
+/// - Mars state relative to the Earth (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let offset = mars_earth_offset_state(epc);
+/// // x_mci = x_eci - offset
+/// ```
+fn mars_earth_offset_state(epc: Epoch) -> SVector6 {
+    ensure_mars_spk_loaded();
+    spk_state(NAIFId::Mars, NAIFId::Earth, epc)
+        .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)")
+}
+
 /// Transforms a Cartesian Mars-inertial state (position and velocity) into
 /// the equivalent Cartesian Mars-fixed state.
 ///
@@ -210,18 +287,7 @@ pub fn position_mcmf_to_mci(epc: Epoch, x_mcmf: Vector3<f64>) -> Vector3<f64> {
 /// let x_mcmf = state_mci_to_mcmf(epc, x_mci);
 /// ```
 pub fn state_mci_to_mcmf(epc: Epoch, x_mci: SVector6) -> SVector6 {
-    let (angles, rates) = body_fixed_iau_angles_and_rates(NAIFId::Mars.id(), epc)
-        .expect("IAU Mars rotation model missing from embedded WGCCRE table — this is a bug");
-    let r_mat = rotation_mci_to_mcmf(epc);
-    let omega_b = euler313_omega_body(angles, rates);
-
-    let r = x_mci.fixed_rows::<3>(0);
-    let v = x_mci.fixed_rows::<3>(3);
-
-    let r_b: Vector3<f64> = r_mat * r;
-    let v_b: Vector3<f64> = r_mat * v - omega_b.cross(&r_b);
-
-    SVector6::new(r_b[0], r_b[1], r_b[2], v_b[0], v_b[1], v_b[2])
+    apply_state_icrf_to_rotating(&mcmf_context(epc), &x_mci)
 }
 
 /// Transforms a Cartesian Mars-fixed state (position and velocity) into
@@ -253,18 +319,7 @@ pub fn state_mci_to_mcmf(epc: Epoch, x_mci: SVector6) -> SVector6 {
 /// let x_mci2 = state_mcmf_to_mci(epc, x_mcmf);
 /// ```
 pub fn state_mcmf_to_mci(epc: Epoch, x_mcmf: SVector6) -> SVector6 {
-    let (angles, rates) = body_fixed_iau_angles_and_rates(NAIFId::Mars.id(), epc)
-        .expect("IAU Mars rotation model missing from embedded WGCCRE table — this is a bug");
-    let r_mat = rotation_mci_to_mcmf(epc);
-    let omega_b = euler313_omega_body(angles, rates);
-
-    let r_b: Vector3<f64> = x_mcmf.fixed_rows::<3>(0).into_owned();
-    let v_b: Vector3<f64> = x_mcmf.fixed_rows::<3>(3).into_owned();
-
-    let r: Vector3<f64> = r_mat.transpose() * r_b;
-    let v: Vector3<f64> = r_mat.transpose() * (v_b + omega_b.cross(&r_b));
-
-    SVector6::new(r[0], r[1], r[2], v[0], v[1], v[2])
+    apply_state_rotating_to_icrf(&mcmf_context(epc), &x_mcmf)
 }
 
 /// Transforms a Cartesian Earth-inertial (ECI) position into the
@@ -295,10 +350,7 @@ pub fn state_mcmf_to_mci(epc: Epoch, x_mcmf: SVector6) -> SVector6 {
 /// let x_mci = position_eci_to_mci(epc, x_eci);
 /// ```
 pub fn position_eci_to_mci(epc: Epoch, x_eci: Vector3<f64>) -> Vector3<f64> {
-    ensure_mars_spk_loaded();
-    let offset = spk_position(NAIFId::Mars, NAIFId::Earth, epc)
-        .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
-    x_eci - offset
+    x_eci - mars_earth_offset_position(epc)
 }
 
 /// Transforms a Cartesian Mars-inertial (MCI) position into the
@@ -329,10 +381,7 @@ pub fn position_eci_to_mci(epc: Epoch, x_eci: Vector3<f64>) -> Vector3<f64> {
 /// let x_eci = position_mci_to_eci(epc, x_mci);
 /// ```
 pub fn position_mci_to_eci(epc: Epoch, x_mci: Vector3<f64>) -> Vector3<f64> {
-    ensure_mars_spk_loaded();
-    let offset = spk_position(NAIFId::Mars, NAIFId::Earth, epc)
-        .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
-    x_mci + offset
+    x_mci + mars_earth_offset_position(epc)
 }
 
 /// Transforms a Cartesian Earth-inertial (ECI) state (position and
@@ -363,10 +412,7 @@ pub fn position_mci_to_eci(epc: Epoch, x_mci: Vector3<f64>) -> Vector3<f64> {
 /// let x_mci = state_eci_to_mci(epc, x_eci);
 /// ```
 pub fn state_eci_to_mci(epc: Epoch, x_eci: SVector6) -> SVector6 {
-    ensure_mars_spk_loaded();
-    let offset = spk_state(NAIFId::Mars, NAIFId::Earth, epc)
-        .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
-    x_eci - offset
+    x_eci - mars_earth_offset_state(epc)
 }
 
 /// Transforms a Cartesian Mars-inertial (MCI) state (position and
@@ -397,10 +443,345 @@ pub fn state_eci_to_mci(epc: Epoch, x_eci: SVector6) -> SVector6 {
 /// let x_eci = state_mci_to_eci(epc, x_mci);
 /// ```
 pub fn state_mci_to_eci(epc: Epoch, x_mci: SVector6) -> SVector6 {
-    ensure_mars_spk_loaded();
-    let offset = spk_state(NAIFId::Mars, NAIFId::Earth, epc)
-        .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
-    x_mci + offset
+    x_mci + mars_earth_offset_state(epc)
+}
+
+/// Computes the MCI-to-MCMF rotation matrix for each epoch in `epochs`.
+///
+/// Batch form of [`rotation_mci_to_mcmf`]. Evaluation runs on the global thread pool
+/// for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants for computation of the transformation matrices
+///
+/// # Returns
+/// - Rotation matrices transforming MCI -> MCMF, one per epoch, in input order
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::rotations_mci_to_mcmf;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0];
+/// let r = rotations_mci_to_mcmf(&epochs);
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_mci_to_mcmf(epochs: &[Epoch]) -> Vec<SMatrix3> {
+    batch_map(|epc| rotation_mci_to_mcmf(*epc), epochs)
+}
+
+/// Computes the MCMF-to-MCI rotation matrix for each epoch in `epochs`.
+///
+/// Batch form of [`rotation_mcmf_to_mci`]. Evaluation runs on the global thread pool
+/// for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants for computation of the transformation matrices
+///
+/// # Returns
+/// - Rotation matrices transforming MCMF -> MCI, one per epoch, in input order
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::rotations_mcmf_to_mci;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0];
+/// let r = rotations_mcmf_to_mci(&epochs);
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_mcmf_to_mci(epochs: &[Epoch]) -> Vec<SMatrix3> {
+    batch_map(|epc| rotation_mcmf_to_mci(*epc), epochs)
+}
+
+/// Transforms a batch of Cartesian positions from MCI to MCMF.
+///
+/// Batch form of [`position_mci_to_mcmf`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_mci`: Cartesian MCI positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian MCMF positions in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::positions_mci_to_mcmf;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let positions = vec![Vector3::new(3.6e6, 0.0, 0.0); 3];
+/// let out = positions_mci_to_mcmf(&[epc], &positions).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn positions_mci_to_mcmf(
+    epochs: &[Epoch],
+    x_mci: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    batch_map_epochs(rotation_mci_to_mcmf, |r, x| r * x, epochs, x_mci)
+}
+
+/// Transforms a batch of Cartesian positions from MCMF to MCI.
+///
+/// Batch form of [`position_mcmf_to_mci`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_mcmf`: Cartesian MCMF positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian MCI positions in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::positions_mcmf_to_mci;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let positions = vec![Vector3::new(3.6e6, 0.0, 0.0); 3];
+/// let out = positions_mcmf_to_mci(&[epc], &positions).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn positions_mcmf_to_mci(
+    epochs: &[Epoch],
+    x_mcmf: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    batch_map_epochs(rotation_mcmf_to_mci, |r, x| r * x, epochs, x_mcmf)
+}
+
+/// Transforms a batch of Cartesian states from MCI to MCMF.
+///
+/// Batch form of [`state_mci_to_mcmf`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_mci`: Cartesian MCI states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian MCMF states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::states_mci_to_mcmf;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0, epc + 120.0];
+/// let states = vec![vector6_from_array([3.6e6, 0.0, 0.0, 0.0, 3.4e3, 0.0]); 3];
+/// let out = states_mci_to_mcmf(&epochs, &states).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn states_mci_to_mcmf(
+    epochs: &[Epoch],
+    x_mci: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(mcmf_context, apply_state_icrf_to_rotating, epochs, x_mci)
+}
+
+/// Transforms a batch of Cartesian states from MCMF to MCI.
+///
+/// Batch form of [`state_mcmf_to_mci`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_mcmf`: Cartesian MCMF states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian MCI states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::states_mcmf_to_mci;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0, epc + 120.0];
+/// let states = vec![vector6_from_array([3.6e6, 0.0, 0.0, 0.0, 3.4e3, 0.0]); 3];
+/// let out = states_mcmf_to_mci(&epochs, &states).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn states_mcmf_to_mci(
+    epochs: &[Epoch],
+    x_mcmf: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(mcmf_context, apply_state_rotating_to_icrf, epochs, x_mcmf)
+}
+
+/// Transforms a batch of Cartesian positions from ECI to MCI.
+///
+/// Batch form of [`position_eci_to_mci`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_eci`: Cartesian ECI positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian MCI positions in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::positions_eci_to_mci;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let positions = vec![Vector3::new(7.0e6, 1.0e6, -2.0e6); 3];
+/// let out = positions_eci_to_mci(&[epc], &positions).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn positions_eci_to_mci(
+    epochs: &[Epoch],
+    x_eci: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    batch_map_epochs(
+        mars_earth_offset_position,
+        |offset, x| x - offset,
+        epochs,
+        x_eci,
+    )
+}
+
+/// Transforms a batch of Cartesian positions from MCI to ECI.
+///
+/// Batch form of [`position_mci_to_eci`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_mci`: Cartesian MCI positions, length 1 or the batch length. Units: (*m*)
+///
+/// # Returns
+/// - Cartesian ECI positions in input order. Units: (*m*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::positions_mci_to_eci;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector3;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let positions = vec![Vector3::new(7.0e6, 1.0e6, -2.0e6); 3];
+/// let out = positions_mci_to_eci(&[epc], &positions).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn positions_mci_to_eci(
+    epochs: &[Epoch],
+    x_mci: &[Vector3<f64>],
+) -> Result<Vec<Vector3<f64>>, BraheError> {
+    batch_map_epochs(
+        mars_earth_offset_position,
+        |offset, x| x + offset,
+        epochs,
+        x_mci,
+    )
+}
+
+/// Transforms a batch of Cartesian states from ECI to MCI.
+///
+/// Batch form of [`state_eci_to_mci`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_eci`: Cartesian ECI states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian MCI states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::states_eci_to_mci;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0, epc + 120.0];
+/// let states = vec![vector6_from_array([7.0e6, 0.0, 0.0, 0.0, 7.5e3, 0.0]); 3];
+/// let out = states_eci_to_mci(&epochs, &states).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn states_eci_to_mci(
+    epochs: &[Epoch],
+    x_eci: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(
+        mars_earth_offset_state,
+        |offset, x| x - offset,
+        epochs,
+        x_eci,
+    )
+}
+
+/// Transforms a batch of Cartesian states from MCI to ECI.
+///
+/// Batch form of [`state_mci_to_eci`]. `epochs` and the vector argument follow the
+/// broadcast rule: each has length 1 or the common batch length. A single
+/// epoch evaluates the transformation context once and applies it to every
+/// element. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `epochs`: Epoch instants, length 1 or the batch length
+/// - `x_mci`: Cartesian MCI states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Cartesian ECI states (position, velocity) in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples:
+/// ```
+/// use brahe::frames::states_mci_to_eci;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::vector6_from_array;
+///
+/// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let epochs = vec![epc, epc + 60.0, epc + 120.0];
+/// let states = vec![vector6_from_array([7.0e6, 0.0, 0.0, 0.0, 7.5e3, 0.0]); 3];
+/// let out = states_mci_to_eci(&epochs, &states).unwrap();
+/// assert_eq!(out.len(), 3);
+/// ```
+pub fn states_mci_to_eci(
+    epochs: &[Epoch],
+    x_mci: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(
+        mars_earth_offset_state,
+        |offset, x| x + offset,
+        epochs,
+        x_mci,
+    )
 }
 
 #[cfg(test)]
@@ -580,5 +961,82 @@ mod tests {
         // the real mar099s (real cache; tolerated failure keeps this test
         // offline-safe when nothing later needs the kernel).
         let _ = load_spice_kernel("mar099s");
+    }
+
+    #[test]
+    #[serial]
+    fn test_batch_mars_frames_match_scalar() {
+        setup_global_test_spice();
+        let epc0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epochs: Vec<Epoch> = (0..3).map(|i| epc0 + 3600.0 * i as f64).collect();
+        let states: Vec<SVector6> = (0..3)
+            .map(|i| {
+                vector6_from_array([R_MARS + 300e3 + 1e3 * i as f64, 0.0, 0.0, 0.0, 3.4e3, 0.0])
+            })
+            .collect();
+        let positions: Vec<Vector3<f64>> = states
+            .iter()
+            .map(|s| Vector3::new(s[0], s[1], s[2]))
+            .collect();
+
+        for i in 0..3 {
+            let e = epochs[i];
+            assert_eq!(rotations_mci_to_mcmf(&epochs)[i], rotation_mci_to_mcmf(e));
+            assert_eq!(rotations_mcmf_to_mci(&epochs)[i], rotation_mcmf_to_mci(e));
+            assert_eq!(
+                positions_mci_to_mcmf(&epochs, &positions).unwrap()[i],
+                position_mci_to_mcmf(e, positions[i])
+            );
+            assert_eq!(
+                positions_mcmf_to_mci(&epochs, &positions).unwrap()[i],
+                position_mcmf_to_mci(e, positions[i])
+            );
+            assert_eq!(
+                positions_mci_to_mcmf(&epochs[..1], &positions).unwrap()[i],
+                position_mci_to_mcmf(epochs[0], positions[i])
+            );
+            assert_eq!(
+                states_mci_to_mcmf(&epochs, &states).unwrap()[i],
+                state_mci_to_mcmf(e, states[i])
+            );
+            assert_eq!(
+                states_mcmf_to_mci(&epochs, &states).unwrap()[i],
+                state_mcmf_to_mci(e, states[i])
+            );
+            assert_eq!(
+                states_mci_to_mcmf(&epochs[..1], &states).unwrap()[i],
+                state_mci_to_mcmf(epochs[0], states[i])
+            );
+            assert_eq!(
+                positions_eci_to_mci(&epochs, &positions).unwrap()[i],
+                position_eci_to_mci(e, positions[i])
+            );
+            assert_eq!(
+                positions_mci_to_eci(&epochs, &positions).unwrap()[i],
+                position_mci_to_eci(e, positions[i])
+            );
+            assert_eq!(
+                states_eci_to_mci(&epochs, &states).unwrap()[i],
+                state_eci_to_mci(e, states[i])
+            );
+            assert_eq!(
+                states_mci_to_eci(&epochs, &states).unwrap()[i],
+                state_mci_to_eci(e, states[i])
+            );
+            assert_eq!(
+                states_eci_to_mci(&epochs, &states[..1]).unwrap()[i],
+                state_eci_to_mci(e, states[0])
+            );
+        }
+
+        let mcmf = states_mci_to_mcmf(&epochs, &states).unwrap();
+        let back = states_mcmf_to_mci(&epochs, &mcmf).unwrap();
+        for i in 0..3 {
+            for k in 0..3 {
+                assert_abs_diff_eq!(back[i][k], states[i][k], epsilon = 1e-6);
+            }
+        }
+        assert!(states_mci_to_mcmf(&epochs[..2], &states).is_err());
+        assert!(rotations_mci_to_mcmf(&[]).is_empty());
     }
 }

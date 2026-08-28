@@ -1036,4 +1036,21 @@ mod tests {
             ADMReferenceFrame::Spacecraft(CCSDSSpacecraftBodyFrame::SCBody(None))
         );
     }
+
+    #[test]
+    #[parallel]
+    fn test_celestial_body_frame_numeric_suffix_overflow() {
+        assert_eq!(
+            CCSDSCelestialBodyFrame::parse("GCRF999"),
+            CCSDSCelestialBodyFrame::Other("GCRF999".to_string())
+        );
+        assert_eq!(
+            CCSDSCelestialBodyFrame::parse("ICRF300"),
+            CCSDSCelestialBodyFrame::Other("ICRF300".to_string())
+        );
+        assert_eq!(
+            CCSDSCelestialBodyFrame::parse("GCRF999").to_string(),
+            "GCRF999"
+        );
+    }
 }

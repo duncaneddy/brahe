@@ -41,3 +41,28 @@ def test_equinoctial_fr_defaults_to_one():
     eqn_default = bh.state_koe_to_equinoctial(koe, bh.AngleFormat.DEGREES)
     eqn_explicit = bh.state_koe_to_equinoctial(koe, bh.AngleFormat.DEGREES, 1)
     np.testing.assert_allclose(eqn_default, eqn_explicit)
+
+
+def test_batch_equinoctial():
+    koe = np.array(
+        [
+            [bh.R_EARTH + 500e3 + 1e3 * i, 0.01, 45.0, 30.0 + i, 60.0, 90.0]
+            for i in range(3)
+        ]
+    )
+    for fr in (1, -1):
+        eqn = bh.state_koe_to_equinoctial(koe, bh.AngleFormat.DEGREES, fr)
+        back = bh.state_equinoctial_to_koe(eqn, bh.AngleFormat.DEGREES, fr)
+        assert eqn.shape == (3, 6)
+        for i in range(3):
+            np.testing.assert_array_equal(
+                eqn[i], bh.state_koe_to_equinoctial(koe[i], bh.AngleFormat.DEGREES, fr)
+            )
+            np.testing.assert_array_equal(
+                back[i], bh.state_equinoctial_to_koe(eqn[i], bh.AngleFormat.DEGREES, fr)
+            )
+        np.testing.assert_allclose(back, koe, atol=1e-6)
+        np.testing.assert_array_equal(
+            bh.state_koe_to_equinoctial(koe.T, bh.AngleFormat.DEGREES, fr, axis=0),
+            eqn.T,
+        )

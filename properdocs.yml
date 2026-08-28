@@ -204,6 +204,7 @@ nav:
           - learn/frames/eci_ecef.md
           - learn/frames/gcrf_itrf.md
           - learn/frames/eme2000_gcrf.md
+          - Vectorized Transformations: learn/frames/vectorized.md
           - Lunar Frames: learn/frames/lunar_frames.md
           - Mars Frames: learn/frames/mars_frames.md
           - Synodic Frames: learn/frames/synodic_frames.md

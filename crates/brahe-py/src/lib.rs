@@ -19,7 +19,7 @@ use std::sync::{Arc, Mutex};
 use nalgebra as na;
 use nalgebra::{DMatrix, DVector, SVector, Vector3, Vector6};
 use numpy::{
-    IntoPyArray, Ix1, Ix2, PyArray, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2,
+    IntoPyArray, Ix1, Ix2, PyArray, PyArrayDyn, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2,
     PyReadonlyArray3, PyUntypedArrayMethods, ToPyArray, ndarray,
 };
 
@@ -585,6 +585,7 @@ include!("horizons.rs");
 include!("eop.rs");
 include!("space_weather.rs");
 include!("time.rs");
+include!("batch.rs");
 include!("frames.rs");
 include!("coordinates.rs");
 include!("orbits.rs");

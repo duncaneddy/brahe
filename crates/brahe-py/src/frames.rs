@@ -79,10 +79,12 @@ unsafe fn py_polar_motion<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyA
 /// derived from empirical observations.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of transformation matrix
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of transformation matrix. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///
 /// Returns:
-///     numpy.ndarray: 3x3 rotation matrix transforming `GCRF` -> `ITRF`
+///     numpy.ndarray: 3x3 rotation matrix transforming `GCRF` -> `ITRF`, shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
 ///
 /// Example:
 ///     ```python
@@ -100,9 +102,8 @@ unsafe fn py_polar_motion<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyA
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "rotation_gcrf_to_itrf")]
-unsafe fn py_rotation_gcrf_to_itrf<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyArray<f64, Ix2>> {
-    let mat = frames::rotation_gcrf_to_itrf(epc.obj);
-    matrix_to_numpy!(py, mat, 3, 3, f64)
+fn py_rotation_gcrf_to_itrf<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_rotation(py, epc, frames::rotation_gcrf_to_itrf, frames::rotations_gcrf_to_itrf)
 }
 
 /// Computes the combined rotation matrix from the inertial to the Earth-fixed
@@ -114,10 +115,12 @@ unsafe fn py_rotation_gcrf_to_itrf<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound
 /// to the `ITRF` (International Terrestrial Reference Frame) implementation.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of transformation matrix
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of transformation matrix. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///
 /// Returns:
-///     numpy.ndarray: 3x3 rotation matrix transforming `ECI` (`GCRF`) -> `ECEF` (`ITRF`)
+///     numpy.ndarray: 3x3 rotation matrix transforming `ECI` (`GCRF`) -> `ECEF` (`ITRF`), shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
 ///
 /// Example:
 ///     ```python
@@ -135,9 +138,8 @@ unsafe fn py_rotation_gcrf_to_itrf<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "rotation_eci_to_ecef")]
-unsafe fn py_rotation_eci_to_ecef<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyArray<f64, Ix2>> {
-    let mat = frames::rotation_eci_to_ecef(epc.obj);
-    matrix_to_numpy!(py, mat, 3, 3, f64)
+fn py_rotation_eci_to_ecef<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_rotation(py, epc, frames::rotation_eci_to_ecef, frames::rotations_eci_to_ecef)
 }
 
 /// Computes the combined rotation matrix from ITRF (International Terrestrial Reference Frame)
@@ -153,10 +155,12 @@ unsafe fn py_rotation_eci_to_ecef<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<
 /// derived from empirical observations.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of transformation matrix
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of transformation matrix. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///
 /// Returns:
-///     numpy.ndarray: 3x3 rotation matrix transforming `ITRF` -> `GCRF`
+///     numpy.ndarray: 3x3 rotation matrix transforming `ITRF` -> `GCRF`, shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
 ///
 /// Example:
 ///     ```python
@@ -172,9 +176,8 @@ unsafe fn py_rotation_eci_to_ecef<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "rotation_itrf_to_gcrf")]
-unsafe fn py_rotation_itrf_to_gcrf<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyArray<f64, Ix2>> {
-    let mat = frames::rotation_itrf_to_gcrf(epc.obj);
-    matrix_to_numpy!(py, mat, 3, 3, f64)
+fn py_rotation_itrf_to_gcrf<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_rotation(py, epc, frames::rotation_itrf_to_gcrf, frames::rotations_itrf_to_gcrf)
 }
 
 /// Computes the combined rotation matrix from the Earth-fixed to the inertial
@@ -186,10 +189,12 @@ unsafe fn py_rotation_itrf_to_gcrf<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound
 /// to the `GCRF` (Geocentric Celestial Reference Frame) implementation.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for computation of transformation matrix
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of transformation matrix. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///
 /// Returns:
-///     numpy.ndarray: 3x3 rotation matrix transforming `ECEF` (`ITRF`) -> `ECI` (`GCRF`)
+///     numpy.ndarray: 3x3 rotation matrix transforming `ECEF` (`ITRF`) -> `ECI` (`GCRF`), shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
 ///
 /// Example:
 ///     ```python
@@ -205,9 +210,8 @@ unsafe fn py_rotation_itrf_to_gcrf<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "rotation_ecef_to_eci")]
-unsafe fn py_rotation_ecef_to_eci<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyArray<f64, Ix2>> {
-    let mat = frames::rotation_ecef_to_eci(epc.obj);
-    matrix_to_numpy!(py, mat, 3, 3, f64)
+fn py_rotation_ecef_to_eci<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_rotation(py, epc, frames::rotation_ecef_to_eci, frames::rotations_ecef_to_eci)
 }
 
 /// Transforms a position vector from GCRF (Geocentric Celestial Reference Frame)
@@ -218,11 +222,19 @@ unsafe fn py_rotation_ecef_to_eci<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<
 /// orientation parameters.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for the transformation
-///     x (numpy.ndarray or list): Position vector in `GCRF` frame (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x (numpy.ndarray or list): Position vector in `GCRF` frame (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Position vector in `ITRF` frame (m), shape `(3,)`
+///     numpy.ndarray: Position vector in `ITRF` frame (m), shape `(3,)` for a single
+///         input, or the batch layout of `x` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -238,18 +250,26 @@ unsafe fn py_rotation_ecef_to_eci<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<
 ///     # Transform to ITRF
 ///     r_itrf = bh.position_gcrf_to_itrf(epc, r_gcrf)
 ///     print(f"ITRF position: {r_itrf}")
+///
+///     # Batch: one row per position, one shared epoch
+///     positions = np.tile(r_gcrf, (10, 1))                     # shape (10, 3)
+///     positions_itrf = bh.position_gcrf_to_itrf(epc, positions)  # shape (10, 3)
+///
+///     # One position at a sequence of epochs
+///     epochs = [epc + 60.0 * i for i in range(5)]
+///     track = bh.position_gcrf_to_itrf(epochs, r_gcrf)         # shape (5, 3)
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x)")]
+#[pyo3(signature = (epc, x, axis=-1))]
+#[pyo3(text_signature = "(epc, x, axis=-1)")]
 #[pyo3(name = "position_gcrf_to_itrf")]
 fn py_position_gcrf_to_itrf<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_gcrf_to_itrf(epc.obj, pyany_to_svector::<3>(&x)?);
-
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<3>(py, epc, x, axis, frames::position_gcrf_to_itrf, frames::positions_gcrf_to_itrf)
 }
 
 /// Transforms a position vector from the Earth Centered Inertial (`ECI`/`GCRF`) frame
@@ -260,11 +280,19 @@ fn py_position_gcrf_to_itrf<'py>(
 /// rotation, and polar motion corrections using global Earth orientation parameters.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for the transformation
-///     x (numpy.ndarray or list): Position vector in `ECI` frame (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x (numpy.ndarray or list): Position vector in `ECI` frame (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Position vector in `ECEF` frame (m), shape `(3,)`
+///     numpy.ndarray: Position vector in `ECEF` frame (m), shape `(3,)` for a single
+///         input, or the batch layout of `x` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -282,16 +310,16 @@ fn py_position_gcrf_to_itrf<'py>(
 ///     print(f"ECEF position: {r_ecef}")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x)")]
+#[pyo3(signature = (epc, x, axis=-1))]
+#[pyo3(text_signature = "(epc, x, axis=-1)")]
 #[pyo3(name = "position_eci_to_ecef")]
 fn py_position_eci_to_ecef<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_eci_to_ecef(epc.obj, pyany_to_svector::<3>(&x)?);
-
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<3>(py, epc, x, axis, frames::position_eci_to_ecef, frames::positions_eci_to_ecef)
 }
 
 /// Transforms a position vector from ITRF (International Terrestrial Reference Frame)
@@ -302,11 +330,19 @@ fn py_position_eci_to_ecef<'py>(
 /// orientation parameters.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for the transformation
-///     x (numpy.ndarray or list): Position vector in `ITRF` frame (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x (numpy.ndarray or list): Position vector in `ITRF` frame (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Position vector in `GCRF` frame (m), shape `(3,)`
+///     numpy.ndarray: Position vector in `GCRF` frame (m), shape `(3,)` for a single
+///         input, or the batch layout of `x` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -324,16 +360,16 @@ fn py_position_eci_to_ecef<'py>(
 ///     print(f"GCRF position: {r_gcrf}")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x)")]
+#[pyo3(signature = (epc, x, axis=-1))]
+#[pyo3(text_signature = "(epc, x, axis=-1)")]
 #[pyo3(name = "position_itrf_to_gcrf")]
 fn py_position_itrf_to_gcrf<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_itrf_to_gcrf(epc.obj, pyany_to_svector::<3>(&x)?);
-
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<3>(py, epc, x, axis, frames::position_itrf_to_gcrf, frames::positions_itrf_to_gcrf)
 }
 
 /// Transforms a position vector from the Earth Centered Earth Fixed (`ECEF`/`ITRF`)
@@ -344,11 +380,19 @@ fn py_position_itrf_to_gcrf<'py>(
 /// rotation, and polar motion corrections using global Earth orientation parameters.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for the transformation
-///     x (numpy.ndarray or list): Position vector in `ECEF` frame (m), shape `(3,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x (numpy.ndarray or list): Position vector in `ECEF` frame (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Position vector in `ECI` frame (m), shape `(3,)`
+///     numpy.ndarray: Position vector in `ECI` frame (m), shape `(3,)` for a single
+///         input, or the batch layout of `x` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -366,16 +410,16 @@ fn py_position_itrf_to_gcrf<'py>(
 ///     print(f"ECI position: {r_eci}")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x)")]
+#[pyo3(signature = (epc, x, axis=-1))]
+#[pyo3(text_signature = "(epc, x, axis=-1)")]
 #[pyo3(name = "position_ecef_to_eci")]
 fn py_position_ecef_to_eci<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_ecef_to_eci(epc.obj, pyany_to_svector::<3>(&x)?);
-
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    epc: &Bound<'py, PyAny>,
+    x: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<3>(py, epc, x, axis, frames::position_ecef_to_eci, frames::positions_ecef_to_eci)
 }
 
 /// Transforms a state vector (position and velocity) from GCRF (Geocentric Celestial
@@ -387,11 +431,19 @@ fn py_position_ecef_to_eci<'py>(
 /// rotation rate.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for the transformation
-///     x_gcrf (numpy.ndarray or list): State vector in `GCRF` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_gcrf (numpy.ndarray or list): State vector in `GCRF` frame `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_gcrf` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: State vector in `ITRF` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: State vector in `ITRF` frame `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_gcrf` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -409,16 +461,16 @@ fn py_position_ecef_to_eci<'py>(
 ///     print(f"ITRF state: {state_itrf}")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_gcrf)")]
+#[pyo3(signature = (epc, x_gcrf, axis=-1))]
+#[pyo3(text_signature = "(epc, x_gcrf, axis=-1)")]
 #[pyo3(name = "state_gcrf_to_itrf")]
 fn py_state_gcrf_to_itrf<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_gcrf: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_gcrf_to_itrf(epc.obj, pyany_to_svector::<6>(&x_gcrf)?);
-
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_gcrf: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<6>(py, epc, x_gcrf, axis, frames::state_gcrf_to_itrf, frames::states_gcrf_to_itrf)
 }
 
 /// Transforms a state vector (position and velocity) from the Earth Centered
@@ -430,11 +482,19 @@ fn py_state_gcrf_to_itrf<'py>(
 /// The velocity transformation accounts for the Earth's rotation rate.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for the transformation
-///     x_eci (numpy.ndarray or list): State vector in `ECI` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_eci (numpy.ndarray or list): State vector in `ECI` frame `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_eci` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: State vector in `ECEF` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: State vector in `ECEF` frame `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_eci` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -450,18 +510,25 @@ fn py_state_gcrf_to_itrf<'py>(
 ///     # Transform to ECEF
 ///     state_ecef = bh.state_eci_to_ecef(epc, state_eci)
 ///     print(f"ECEF state: {state_ecef}")
+///
+///     # Batch: one row per state, one shared epoch
+///     states_eci = np.tile(state_eci, (10, 1))              # shape (10, 6)
+///     states_ecef = bh.state_eci_to_ecef(epc, states_eci)   # shape (10, 6)
+///
+///     # Column layout: components along axis 0
+///     cols_ecef = bh.state_eci_to_ecef(epc, states_eci.T, axis=0)  # shape (6, 10)
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_eci)")]
+#[pyo3(signature = (epc, x_eci, axis=-1))]
+#[pyo3(text_signature = "(epc, x_eci, axis=-1)")]
 #[pyo3(name = "state_eci_to_ecef")]
 fn py_state_eci_to_ecef<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_eci: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_eci_to_ecef(epc.obj, pyany_to_svector::<6>(&x_eci)?);
-
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_eci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<6>(py, epc, x_eci, axis, frames::state_eci_to_ecef, frames::states_eci_to_ecef)
 }
 
 /// Transforms a state vector (position and velocity) from ITRF (International Terrestrial
@@ -473,11 +540,19 @@ fn py_state_eci_to_ecef<'py>(
 /// rotation rate.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for the transformation
-///     x_itrf (numpy.ndarray or list): State vector in `ITRF` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_itrf (numpy.ndarray or list): State vector in `ITRF` frame `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_itrf` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: State vector in `GCRF` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: State vector in `GCRF` frame `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_itrf` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -495,16 +570,16 @@ fn py_state_eci_to_ecef<'py>(
 ///     print(f"GCRF state: {state_gcrf}")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_itrf)")]
+#[pyo3(signature = (epc, x_itrf, axis=-1))]
+#[pyo3(text_signature = "(epc, x_itrf, axis=-1)")]
 #[pyo3(name = "state_itrf_to_gcrf")]
 fn py_state_itrf_to_gcrf<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_itrf: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_itrf_to_gcrf(epc.obj, pyany_to_svector::<6>(&x_itrf)?);
-
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_itrf: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<6>(py, epc, x_itrf, axis, frames::state_itrf_to_gcrf, frames::states_itrf_to_gcrf)
 }
 
 /// Transforms a state vector (position and velocity) from the Earth Centered
@@ -516,11 +591,19 @@ fn py_state_itrf_to_gcrf<'py>(
 /// The velocity transformation accounts for the Earth's rotation rate.
 ///
 /// Args:
-///     epc (Epoch): Epoch instant for the transformation
-///     x_ecef (numpy.ndarray or list): State vector in `ECEF` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_ecef (numpy.ndarray or list): State vector in `ECEF` frame `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_ecef` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: State vector in `ECI` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: State vector in `ECI` frame `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_ecef` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
 ///
 /// Example:
 ///     ```python
@@ -538,16 +621,16 @@ fn py_state_itrf_to_gcrf<'py>(
 ///     print(f"ECI state: {state_eci}")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc, x_ecef)")]
+#[pyo3(signature = (epc, x_ecef, axis=-1))]
+#[pyo3(text_signature = "(epc, x_ecef, axis=-1)")]
 #[pyo3(name = "state_ecef_to_eci")]
 fn py_state_ecef_to_eci<'py>(
     py: Python<'py>,
-    epc: &PyEpoch,
-    x_ecef: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_ecef_to_eci(epc.obj, pyany_to_svector::<6>(&x_ecef)?);
-
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    epc: &Bound<'py, PyAny>,
+    x_ecef: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<6>(py, epc, x_ecef, axis, frames::state_ecef_to_eci, frames::states_ecef_to_eci)
 }
 
 /// Computes the frame bias matrix transforming GCRF (Geocentric Celestial Reference Frame)
@@ -640,10 +723,17 @@ unsafe fn py_rotation_eme2000_to_gcrf<'py>(py: Python<'py>) -> Bound<'py, PyArra
 /// that does not vary with time.
 ///
 /// Args:
-///     x (numpy.ndarray or list): Position vector in `GCRF` frame (m), shape `(3,)`
+///     x (numpy.ndarray or list): Position vector in `GCRF` frame (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Position vector in `EME2000` frame (m), shape `(3,)`
+///     numpy.ndarray: Position vector in `EME2000` frame (m), shape `(3,)` for a single
+///         input, or the batch layout of `x` (shape `(n, 3)` for a single vector
+///         for batched input.
 ///
 /// Example:
 ///     ```python
@@ -658,15 +748,15 @@ unsafe fn py_rotation_eme2000_to_gcrf<'py>(py: Python<'py>) -> Bound<'py, PyArra
 ///     print(f"EME2000 position: {r_eme2000}")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(x)")]
+#[pyo3(signature = (x, axis=-1))]
+#[pyo3(text_signature = "(x, axis=-1)")]
 #[pyo3(name = "position_gcrf_to_eme2000")]
 fn py_position_gcrf_to_eme2000<'py>(
     py: Python<'py>,
-    x: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_gcrf_to_eme2000(pyany_to_svector::<3>(&x)?);
-
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    x: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec::<3>(py, x, axis, frames::position_gcrf_to_eme2000, frames::positions_gcrf_to_eme2000)
 }
 
 /// Transforms a position vector from EME2000 (Earth Mean Equator and Equinox of J2000.0)
@@ -677,10 +767,17 @@ fn py_position_gcrf_to_eme2000<'py>(
 /// that does not vary with time.
 ///
 /// Args:
-///     x (numpy.ndarray or list): Position vector in `EME2000` frame (m), shape `(3,)`
+///     x (numpy.ndarray or list): Position vector in `EME2000` frame (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Position vector in `GCRF` frame (m), shape `(3,)`
+///     numpy.ndarray: Position vector in `GCRF` frame (m), shape `(3,)` for a single
+///         input, or the batch layout of `x` (shape `(n, 3)` for a single vector
+///         for batched input.
 ///
 /// Example:
 ///     ```python
@@ -695,15 +792,15 @@ fn py_position_gcrf_to_eme2000<'py>(
 ///     print(f"GCRF position: {r_gcrf}")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(x)")]
+#[pyo3(signature = (x, axis=-1))]
+#[pyo3(text_signature = "(x, axis=-1)")]
 #[pyo3(name = "position_eme2000_to_gcrf")]
 fn py_position_eme2000_to_gcrf<'py>(
     py: Python<'py>,
-    x: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::position_eme2000_to_gcrf(pyany_to_svector::<3>(&x)?);
-
-    Ok(vector_to_numpy!(py, vec, 3, f64))
+    x: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec::<3>(py, x, axis, frames::position_eme2000_to_gcrf, frames::positions_eme2000_to_gcrf)
 }
 
 /// Transforms a state vector (position and velocity) from GCRF (Geocentric Celestial
@@ -714,10 +811,17 @@ fn py_position_eme2000_to_gcrf<'py>(
 /// additional correction terms.
 ///
 /// Args:
-///     x_gcrf (numpy.ndarray or list): State vector in `GCRF` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///     x_gcrf (numpy.ndarray or list): State vector in `GCRF` frame `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_gcrf` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: State vector in `EME2000` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: State vector in `EME2000` frame `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_gcrf` (shape `(n, 6)` for a single vector
+///         for batched input.
 ///
 /// Example:
 ///     ```python
@@ -732,15 +836,15 @@ fn py_position_eme2000_to_gcrf<'py>(
 ///     print(f"EME2000 state: {state_eme2000}")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(x_gcrf)")]
+#[pyo3(signature = (x_gcrf, axis=-1))]
+#[pyo3(text_signature = "(x_gcrf, axis=-1)")]
 #[pyo3(name = "state_gcrf_to_eme2000")]
 fn py_state_gcrf_to_eme2000<'py>(
     py: Python<'py>,
-    x_gcrf: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_gcrf_to_eme2000(pyany_to_svector::<6>(&x_gcrf)?);
-
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    x_gcrf: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec::<6>(py, x_gcrf, axis, frames::state_gcrf_to_eme2000, frames::states_gcrf_to_eme2000)
 }
 
 /// Transforms a state vector (position and velocity) from EME2000 (Earth Mean Equator
@@ -751,10 +855,17 @@ fn py_state_gcrf_to_eme2000<'py>(
 /// additional correction terms.
 ///
 /// Args:
-///     x_eme2000 (numpy.ndarray or list): State vector in `EME2000` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///     x_eme2000 (numpy.ndarray or list): State vector in `EME2000` frame `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_eme2000` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: State vector in `GCRF` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: State vector in `GCRF` frame `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_eme2000` (shape `(n, 6)` for a single vector
+///         for batched input.
 ///
 /// Example:
 ///     ```python
@@ -769,15 +880,15 @@ fn py_state_gcrf_to_eme2000<'py>(
 ///     print(f"GCRF state: {state_gcrf}")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(x_eme2000)")]
+#[pyo3(signature = (x_eme2000, axis=-1))]
+#[pyo3(text_signature = "(x_eme2000, axis=-1)")]
 #[pyo3(name = "state_eme2000_to_gcrf")]
 fn py_state_eme2000_to_gcrf<'py>(
     py: Python<'py>,
-    x_eme2000: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let vec = frames::state_eme2000_to_gcrf(pyany_to_svector::<6>(&x_eme2000)?);
-
-    Ok(vector_to_numpy!(py, vec, 6, f64))
+    x_eme2000: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec::<6>(py, x_eme2000, axis, frames::state_eme2000_to_gcrf, frames::states_eme2000_to_gcrf)
 }
 
 // ============================================================================

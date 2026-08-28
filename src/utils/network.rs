@@ -102,7 +102,6 @@ pub fn network_mode() -> Result<NetworkMode, BraheError> {
 /// * `Ok(())` - Requests are allowed
 /// * `Err(BraheError)` - The mode is `offline` or `offline-strict`, or the
 ///   variable holds an unrecognized value
-#[allow(dead_code)]
 pub(crate) fn ensure_online(resource: &str) -> Result<(), BraheError> {
     match network_mode()? {
         NetworkMode::Online => Ok(()),

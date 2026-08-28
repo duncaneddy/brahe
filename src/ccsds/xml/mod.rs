@@ -7,10 +7,12 @@
 mod parser;
 mod writer;
 
+pub use parser::parse_apm_xml;
 pub use parser::parse_cdm_xml;
 pub use parser::parse_oem_xml;
 pub use parser::parse_omm_xml;
 pub use parser::parse_opm_xml;
+pub use writer::write_apm_xml;
 pub use writer::write_cdm_xml;
 pub use writer::write_oem_xml;
 pub use writer::write_omm_xml;

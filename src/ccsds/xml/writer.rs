@@ -2,10 +2,14 @@
  * XML writer for CCSDS OEM, OMM, OPM, and CDM messages.
  */
 
+use crate::ccsds::apm::{APM, APMNutation};
 use crate::ccsds::common::{
     CCSDSCovariance, CCSDSSpacecraftParameters, CCSDSTimeSystem, CCSDSUserDefined, ODMHeader,
-    covariance_to_lower_triangular, format_ccsds_datetime_in, round_ccsds_value,
+    covariance_to_lower_triangular, format_ccsds_datetime, format_ccsds_datetime_in,
+    format_euler_rot_seq, round_ccsds_value,
 };
+use crate::ccsds::error::ccsds_missing_field;
+use crate::constants::RAD2DEG;
 use crate::utils::errors::BraheError;
 
 // ============================================================================
@@ -899,6 +903,353 @@ pub fn write_opm_xml(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError>
     out.push_str("</opm>\n");
 
     validate_xml_characters("OPM", &out)?;
+
+    Ok(out)
+}
+
+// ============================================================================
+// APM XML Writer
+// ============================================================================
+
+/// Write an APM message to XML format.
+pub fn write_apm_xml(apm: &APM) -> Result<String, BraheError> {
+    if !apm.has_blocks() {
+        return Err(ccsds_missing_field("APM", "at least one logical block"));
+    }
+
+    let mut out = String::new();
+    let i1 = "  ";
+    let i2 = "    ";
+    let i3 = "      ";
+    let i4 = "        ";
+    let i5 = "          ";
+    let i6 = "            ";
+
+    out.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+    out.push_str(&format!(
+        "<apm id=\"CCSDS_APM_VERS\" version=\"{:.1}\">\n",
+        apm.header.format_version
+    ));
+
+    // Header
+    out.push_str(&format!("{}<header>\n", i1));
+    for c in &apm.header.comments {
+        out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i2, c));
+    }
+    if let Some(ref cl) = apm.header.classification {
+        out.push_str(&format!("{}<CLASSIFICATION>{}</CLASSIFICATION>\n", i2, cl));
+    }
+    out.push_str(&format!(
+        "{}<CREATION_DATE>{}</CREATION_DATE>\n",
+        i2,
+        format_ccsds_datetime(&apm.header.creation_date)
+    ));
+    out.push_str(&format!(
+        "{}<ORIGINATOR>{}</ORIGINATOR>\n",
+        i2, apm.header.originator
+    ));
+    if let Some(ref mid) = apm.header.message_id {
+        out.push_str(&format!("{}<MESSAGE_ID>{}</MESSAGE_ID>\n", i2, mid));
+    }
+    out.push_str(&format!("{}</header>\n", i1));
+
+    out.push_str(&format!("{}<body>\n", i1));
+    out.push_str(&format!("{}<segment>\n", i2));
+
+    // Metadata
+    out.push_str(&format!("{}<metadata>\n", i3));
+    for c in &apm.metadata.comments {
+        out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i4, c));
+    }
+    out.push_str(&format!(
+        "{}<OBJECT_NAME>{}</OBJECT_NAME>\n",
+        i4, apm.metadata.object_name
+    ));
+    out.push_str(&format!(
+        "{}<OBJECT_ID>{}</OBJECT_ID>\n",
+        i4, apm.metadata.object_id
+    ));
+    if let Some(ref center) = apm.metadata.center_name {
+        out.push_str(&format!("{}<CENTER_NAME>{}</CENTER_NAME>\n", i4, center));
+    }
+    out.push_str(&format!(
+        "{}<TIME_SYSTEM>{}</TIME_SYSTEM>\n",
+        i4, apm.metadata.time_system
+    ));
+    out.push_str(&format!("{}</metadata>\n", i3));
+
+    // Data
+    out.push_str(&format!("{}<data>\n", i3));
+    for c in &apm.comments {
+        out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i4, c));
+    }
+    out.push_str(&format!(
+        "{}<EPOCH>{}</EPOCH>\n",
+        i4,
+        format_ccsds_datetime(&apm.epoch)
+    ));
+
+    // Quaternion blocks
+    for q in &apm.quaternion_states {
+        out.push_str(&format!("{}<quaternionState>\n", i4));
+        for c in &q.comments {
+            out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i5, c));
+        }
+        out.push_str(&format!(
+            "{}<REF_FRAME_A>{}</REF_FRAME_A>\n",
+            i5, q.ref_frame_a
+        ));
+        out.push_str(&format!(
+            "{}<REF_FRAME_B>{}</REF_FRAME_B>\n",
+            i5, q.ref_frame_b
+        ));
+        let v = q.quaternion.to_vector(false);
+        out.push_str(&format!("{}<quaternion>\n", i5));
+        out.push_str(&format!("{}<Q1>{}</Q1>\n", i6, v[0]));
+        out.push_str(&format!("{}<Q2>{}</Q2>\n", i6, v[1]));
+        out.push_str(&format!("{}<Q3>{}</Q3>\n", i6, v[2]));
+        out.push_str(&format!("{}<QC>{}</QC>\n", i6, v[3]));
+        out.push_str(&format!("{}</quaternion>\n", i5));
+        if let Some(d) = q.quaternion_derivative {
+            // d is stored scalar-first; wire order is scalar-last.
+            out.push_str(&format!("{}<quaternionDot>\n", i5));
+            out.push_str(&format!("{}<Q1_DOT>{}</Q1_DOT>\n", i6, d[1]));
+            out.push_str(&format!("{}<Q2_DOT>{}</Q2_DOT>\n", i6, d[2]));
+            out.push_str(&format!("{}<Q3_DOT>{}</Q3_DOT>\n", i6, d[3]));
+            out.push_str(&format!("{}<QC_DOT>{}</QC_DOT>\n", i6, d[0]));
+            out.push_str(&format!("{}</quaternionDot>\n", i5));
+        }
+        out.push_str(&format!("{}</quaternionState>\n", i4));
+    }
+
+    // Euler angle blocks
+    for e in &apm.euler_states {
+        out.push_str(&format!("{}<eulerAngleState>\n", i4));
+        for c in &e.comments {
+            out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i5, c));
+        }
+        out.push_str(&format!(
+            "{}<REF_FRAME_A>{}</REF_FRAME_A>\n",
+            i5, e.ref_frame_a
+        ));
+        out.push_str(&format!(
+            "{}<REF_FRAME_B>{}</REF_FRAME_B>\n",
+            i5, e.ref_frame_b
+        ));
+        out.push_str(&format!(
+            "{}<EULER_ROT_SEQ>{}</EULER_ROT_SEQ>\n",
+            i5,
+            format_euler_rot_seq(e.angles.order)
+        ));
+        out.push_str(&format!(
+            "{}<ANGLE_1>{}</ANGLE_1>\n",
+            i5,
+            e.angles.phi * RAD2DEG
+        ));
+        out.push_str(&format!(
+            "{}<ANGLE_2>{}</ANGLE_2>\n",
+            i5,
+            e.angles.theta * RAD2DEG
+        ));
+        out.push_str(&format!(
+            "{}<ANGLE_3>{}</ANGLE_3>\n",
+            i5,
+            e.angles.psi * RAD2DEG
+        ));
+        if let Some(r) = e.rates {
+            out.push_str(&format!(
+                "{}<ANGLE_1_DOT>{}</ANGLE_1_DOT>\n",
+                i5,
+                r[0] * RAD2DEG
+            ));
+            out.push_str(&format!(
+                "{}<ANGLE_2_DOT>{}</ANGLE_2_DOT>\n",
+                i5,
+                r[1] * RAD2DEG
+            ));
+            out.push_str(&format!(
+                "{}<ANGLE_3_DOT>{}</ANGLE_3_DOT>\n",
+                i5,
+                r[2] * RAD2DEG
+            ));
+        }
+        out.push_str(&format!("{}</eulerAngleState>\n", i4));
+    }
+
+    // Angular velocity blocks
+    for av in &apm.angular_velocities {
+        out.push_str(&format!("{}<angularVelocity>\n", i4));
+        for c in &av.comments {
+            out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i5, c));
+        }
+        out.push_str(&format!(
+            "{}<REF_FRAME_A>{}</REF_FRAME_A>\n",
+            i5, av.ref_frame_a
+        ));
+        out.push_str(&format!(
+            "{}<REF_FRAME_B>{}</REF_FRAME_B>\n",
+            i5, av.ref_frame_b
+        ));
+        out.push_str(&format!(
+            "{}<ANGVEL_FRAME>{}</ANGVEL_FRAME>\n",
+            i5, av.angvel_frame
+        ));
+        out.push_str(&format!(
+            "{}<ANGVEL_X>{}</ANGVEL_X>\n",
+            i5,
+            av.angular_velocity[0] * RAD2DEG
+        ));
+        out.push_str(&format!(
+            "{}<ANGVEL_Y>{}</ANGVEL_Y>\n",
+            i5,
+            av.angular_velocity[1] * RAD2DEG
+        ));
+        out.push_str(&format!(
+            "{}<ANGVEL_Z>{}</ANGVEL_Z>\n",
+            i5,
+            av.angular_velocity[2] * RAD2DEG
+        ));
+        out.push_str(&format!("{}</angularVelocity>\n", i4));
+    }
+
+    // Spin blocks
+    for s in &apm.spins {
+        out.push_str(&format!("{}<spin>\n", i4));
+        for c in &s.comments {
+            out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i5, c));
+        }
+        out.push_str(&format!(
+            "{}<REF_FRAME_A>{}</REF_FRAME_A>\n",
+            i5, s.ref_frame_a
+        ));
+        out.push_str(&format!(
+            "{}<REF_FRAME_B>{}</REF_FRAME_B>\n",
+            i5, s.ref_frame_b
+        ));
+        out.push_str(&format!(
+            "{}<SPIN_ALPHA>{}</SPIN_ALPHA>\n",
+            i5,
+            s.spin_alpha * RAD2DEG
+        ));
+        out.push_str(&format!(
+            "{}<SPIN_DELTA>{}</SPIN_DELTA>\n",
+            i5,
+            s.spin_delta * RAD2DEG
+        ));
+        out.push_str(&format!(
+            "{}<SPIN_ANGLE>{}</SPIN_ANGLE>\n",
+            i5,
+            s.spin_angle * RAD2DEG
+        ));
+        out.push_str(&format!(
+            "{}<SPIN_ANGLE_VEL>{}</SPIN_ANGLE_VEL>\n",
+            i5,
+            s.spin_angle_vel * RAD2DEG
+        ));
+        match &s.nutation {
+            APMNutation::None => {}
+            APMNutation::Angle {
+                nutation,
+                nutation_period,
+                nutation_phase,
+            } => {
+                out.push_str(&format!(
+                    "{}<NUTATION>{}</NUTATION>\n",
+                    i5,
+                    nutation * RAD2DEG
+                ));
+                out.push_str(&format!(
+                    "{}<NUTATION_PER>{}</NUTATION_PER>\n",
+                    i5, nutation_period
+                ));
+                out.push_str(&format!(
+                    "{}<NUTATION_PHASE>{}</NUTATION_PHASE>\n",
+                    i5,
+                    nutation_phase * RAD2DEG
+                ));
+            }
+            APMNutation::Momentum {
+                momentum_alpha,
+                momentum_delta,
+                nutation_vel,
+            } => {
+                out.push_str(&format!(
+                    "{}<MOMENTUM_ALPHA>{}</MOMENTUM_ALPHA>\n",
+                    i5,
+                    momentum_alpha * RAD2DEG
+                ));
+                out.push_str(&format!(
+                    "{}<MOMENTUM_DELTA>{}</MOMENTUM_DELTA>\n",
+                    i5,
+                    momentum_delta * RAD2DEG
+                ));
+                out.push_str(&format!(
+                    "{}<NUTATION_VEL>{}</NUTATION_VEL>\n",
+                    i5,
+                    nutation_vel * RAD2DEG
+                ));
+            }
+        }
+        out.push_str(&format!("{}</spin>\n", i4));
+    }
+
+    // Inertia blocks
+    for i_blk in &apm.inertias {
+        out.push_str(&format!("{}<inertia>\n", i4));
+        for c in &i_blk.comments {
+            out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i5, c));
+        }
+        out.push_str(&format!(
+            "{}<INERTIA_REF_FRAME>{}</INERTIA_REF_FRAME>\n",
+            i5, i_blk.inertia_ref_frame
+        ));
+        out.push_str(&format!("{}<IXX>{}</IXX>\n", i5, i_blk.ixx));
+        out.push_str(&format!("{}<IYY>{}</IYY>\n", i5, i_blk.iyy));
+        out.push_str(&format!("{}<IZZ>{}</IZZ>\n", i5, i_blk.izz));
+        out.push_str(&format!("{}<IXY>{}</IXY>\n", i5, i_blk.ixy));
+        out.push_str(&format!("{}<IXZ>{}</IXZ>\n", i5, i_blk.ixz));
+        out.push_str(&format!("{}<IYZ>{}</IYZ>\n", i5, i_blk.iyz));
+        out.push_str(&format!("{}</inertia>\n", i4));
+    }
+
+    // Maneuver blocks
+    for m in &apm.maneuvers {
+        out.push_str(&format!("{}<maneuverParameters>\n", i4));
+        for c in &m.comments {
+            out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i5, c));
+        }
+        out.push_str(&format!(
+            "{}<MAN_EPOCH_START>{}</MAN_EPOCH_START>\n",
+            i5,
+            format_ccsds_datetime(&m.epoch_start)
+        ));
+        out.push_str(&format!(
+            "{}<MAN_DURATION>{}</MAN_DURATION>\n",
+            i5, m.duration
+        ));
+        out.push_str(&format!(
+            "{}<MAN_REF_FRAME>{}</MAN_REF_FRAME>\n",
+            i5, m.ref_frame
+        ));
+        out.push_str(&format!("{}<MAN_TOR_X>{}</MAN_TOR_X>\n", i5, m.torque[0]));
+        out.push_str(&format!("{}<MAN_TOR_Y>{}</MAN_TOR_Y>\n", i5, m.torque[1]));
+        out.push_str(&format!("{}<MAN_TOR_Z>{}</MAN_TOR_Z>\n", i5, m.torque[2]));
+        if let Some(dm) = m.delta_mass {
+            out.push_str(&format!("{}<MAN_DELTA_MASS>{}</MAN_DELTA_MASS>\n", i5, dm));
+        }
+        out.push_str(&format!("{}</maneuverParameters>\n", i4));
+    }
+
+    out.push_str(&format!("{}</data>\n", i3));
+    out.push_str(&format!("{}</segment>\n", i2));
+
+    // User-defined parameters
+    if let Some(ref ud) = apm.user_defined {
+        write_xml_user_defined(&mut out, ud, i2, i3);
+    }
+
+    out.push_str(&format!("{}</body>\n", i1));
+    out.push_str("</apm>\n");
 
     Ok(out)
 }

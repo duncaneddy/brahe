@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<apm xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="https://sanaregistry.org/r/ndmxml_unqualified/ndmxml-3.0.0-master-3.0.xsd"
+     xmlns:ndm="urn:ccsds:schema:ndmxml"
+     id="CCSDS_APM_VERS" version="2.0">
+
+   <header>
+      <CREATION_DATE>2003-09-30T19:23:57</CREATION_DATE>
+      <ORIGINATOR>GSFC</ORIGINATOR>
+      <MESSAGE_ID>A7015Z1</MESSAGE_ID>
+   </header>
+
+   <body>
+      <segment>
+         <metadata>
+            <COMMENT>GEOCENTRIC, CARTESIAN, EARTH FIXED</COMMENT>
+            <COMMENT>OBJECT_ID: 1997-074A</COMMENT>
+            <COMMENT>$ITIM = 1997 NOV 21 22:26:18.40000000, $ original launch time</COMMENT>
+            <OBJECT_NAME>TRMM</OBJECT_NAME>
+            <OBJECT_ID>1997-074A</OBJECT_ID>
+            <CENTER_NAME>EARTH</CENTER_NAME>
+            <TIME_SYSTEM>UTC</TIME_SYSTEM>
+         </metadata>
+         <data>
+            <COMMENT>Current attitude for orbit 335</COMMENT>
+            <COMMENT>Attitude state quaternion</COMMENT>
+            <COMMENT>Accuracy of this attitude is 0.02 deg RSS.</COMMENT>
+            <EPOCH>2003-09-30T14:28:15.1172</EPOCH>
+            <quaternionState>
+               <COMMENT>Attitude state vector quaternion</COMMENT>
+               <REF_FRAME_A>SC_BODY_1</REF_FRAME_A>
+               <REF_FRAME_B>ITRF1997</REF_FRAME_B>
+               <quaternion>
+                  <Q1>0.00005</Q1>
+                  <Q2>0.87543</Q2>
+                  <Q3>0.40949</Q3>
+                  <QC>0.25678</QC>
+               </quaternion>
+            </quaternionState>
+         </data>
+      </segment>
+   </body>
+</apm>

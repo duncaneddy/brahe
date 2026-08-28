@@ -1,9 +1,7 @@
-//!
 //! Parallel propagation of the Starlink constellation.
 //!
 //! This example demonstrates fetching all Starlink satellite TLEs from CelesTrak
 //! and propagating them in parallel using Rayon with 100% of available CPU cores.
-//!
 //!
 
 #[allow(unused_imports)]

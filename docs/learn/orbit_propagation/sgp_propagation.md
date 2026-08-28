@@ -19,12 +19,12 @@ Rather than hard-coding TLE strings, you can query live satellite data from Cele
 
 === "Python"
     ``` python
-    --8<-- "./examples/datasets/celestrak_as_propagator.py:8"
+    --8<-- "./examples/datasets/celestrak_as_propagator.py:11"
     ```
 
 === "Rust"
     ``` rust
-    --8<-- "./examples/datasets/celestrak_as_propagator.rs:4"
+    --8<-- "./examples/datasets/celestrak_as_propagator.rs:7"
     ```
 
 ??? example "Output"

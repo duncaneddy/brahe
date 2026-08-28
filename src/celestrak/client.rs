@@ -506,6 +506,17 @@ impl CelestrakClient {
     ///
     /// The `BRAHE_NETWORK_MODE` environment variable controls whether a stale
     /// cached response is refreshed or served; see [`crate::utils::network`].
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - Full URL to fetch, used both as the cache key source and as
+    ///   the request target if the cache is missing or refreshed
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(String)` - Response body, from cache or freshly downloaded
+    /// * `Err(BraheError)` - On cache I/O errors, or if `BRAHE_NETWORK_MODE`
+    ///   forbids the request needed to fill or refresh the cache
     fn fetch_with_cache(&self, url: &str) -> Result<String, BraheError> {
         let cache_key = self.cache_key_for_url(url);
 
@@ -537,7 +548,20 @@ impl CelestrakClient {
             .collect()
     }
 
-    /// Read cached data if it exists and is fresh.
+    /// Read cached data, applying the `BRAHE_NETWORK_MODE` cache policy.
+    ///
+    /// # Arguments
+    ///
+    /// * `cache_key` - Cache file name, as produced by [`Self::cache_key_for_url`]
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(String))` - Cached body, either fresh or served stale under
+    ///   `offline`
+    /// * `Ok(None)` - No cache file exists, or it is stale and `online` mode
+    ///   allows a refresh
+    /// * `Err(BraheError)` - On cache I/O errors, or if the cache file is
+    ///   stale and `offline-strict` forbids serving it
     fn read_cache(&self, cache_key: &str) -> Result<Option<String>, BraheError> {
         let cache_dir = get_celestrak_cache_dir()?;
         let cache_path = Path::new(&cache_dir).join(cache_key);
@@ -588,6 +612,17 @@ impl CelestrakClient {
     /// Retries on transient errors (server errors, connection resets, timeouts)
     /// with exponential backoff and jitter. Enforces a minimum interval between
     /// requests via a process-global rate limiter.
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - Full URL to request
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(String)` - Response body
+    /// * `Err(BraheError)` - If `BRAHE_NETWORK_MODE` is `offline` or
+    ///   `offline-strict`, so no request is attempted, or if the request
+    ///   fails after exhausting retries
     fn execute_get(&self, url: &str) -> Result<String, BraheError> {
         ensure_online(&format!("Celestrak request {url}"))?;
 

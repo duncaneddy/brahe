@@ -1151,6 +1151,19 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_rx, module)?)?;
     module.add_function(wrap_pyfunction!(py_ry, module)?)?;
     module.add_function(wrap_pyfunction!(py_rz, module)?)?;
+    module.add_function(wrap_pyfunction!(py_quaternion_derivative, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_angular_velocity_from_quaternion_derivative,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_euler_rates_to_angular_velocity,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_angular_velocity_to_euler_rates,
+        module
+    )?)?;
 
     //* Datasets *//
     module.add_function(wrap_pyfunction!(py_groundstations_load, module)?)?;

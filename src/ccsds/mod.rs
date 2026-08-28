@@ -24,6 +24,8 @@
  * ```
  */
 
+pub mod aem;
+pub mod apm;
 pub mod cdm;
 pub mod common;
 pub mod error;
@@ -34,9 +36,12 @@ pub mod kvn;
 pub mod oem;
 pub mod omm;
 pub mod opm;
+pub mod tdm;
 pub mod xml;
 
 // Re-export commonly used types at the ccsds module level
+pub use aem::AEMHeader;
+pub use apm::APMHeader;
 pub use cdm::{CDM, CDMObject, CDMObjectMetadata, CDMRTNCovariance, CDMStateVector};
 pub use common::{CCSDSFormat, CCSDSJsonKeyCase, CCSDSRefFrame, CCSDSTimeSystem};
 pub use frames::{
@@ -45,3 +50,4 @@ pub use frames::{
 pub use oem::{OEM, OEMMetadata, OEMSegment, OEMStateVector};
 pub use omm::OMM;
 pub use opm::OPM;
+pub use tdm::TDMHeader;

@@ -13,7 +13,7 @@ Each release groups entries under the Keep a Changelog section headings in the o
 
 ### Added
 
-- Typed CCSDS ADM reference-frame vocabularies mirroring the SANA registries (`CCSDSCelestialBodyFrame`, `CCSDSOrbitRelativeFrame`, `CCSDSSpacecraftBodyFrame`, `ADMReferenceFrame`) and a native `AttitudeFrame` family with a CCSDS↔native conversion bridge, plus `APMHeader`/`AEMHeader`/`TDMHeader` message headers, as the foundations for CCSDS APM/AEM/TDM support. [@duncaneddy](https://github.com/duncaneddy) ([#450](https://github.com/duncaneddy/brahe/issues/450))
+- Typed CCSDS ADM reference-frame vocabularies mirroring the SANA registries (`CCSDSCelestialBodyFrame`, `CCSDSOrbitRelativeFrame`, `CCSDSSpacecraftBodyFrame`, `ADMReferenceFrame`) and a native `AttitudeFrame` family with a CCSDS↔native conversion bridge, plus `APMHeader`/`AEMHeader`/`TDMHeader` message headers, as the foundations for CCSDS APM/AEM/TDM support. [@duncaneddy](https://github.com/duncaneddy) ([#453](https://github.com/duncaneddy/brahe/pull/453))
 
 ## [1.7.0] - 2026-07-21
 

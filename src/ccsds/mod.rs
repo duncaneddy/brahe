@@ -41,7 +41,10 @@ pub mod xml;
 
 // Re-export commonly used types at the ccsds module level
 pub use aem::AEMHeader;
-pub use apm::APMHeader;
+pub use apm::{
+    APM, APMAngularVelocity, APMEulerState, APMHeader, APMInertia, APMManeuver, APMMetadata,
+    APMNutation, APMQuaternionState, APMSpin,
+};
 pub use cdm::{CDM, CDMObject, CDMObjectMetadata, CDMRTNCovariance, CDMStateVector};
 pub use common::{CCSDSFormat, CCSDSJsonKeyCase, CCSDSRefFrame, CCSDSTimeSystem};
 pub use frames::{

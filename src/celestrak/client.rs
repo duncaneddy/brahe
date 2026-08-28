@@ -5,6 +5,7 @@
  * and typed query execution. No authentication is required.
  */
 
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::sync::{LazyLock, Mutex};
@@ -39,6 +40,11 @@ const LOCAL_CATALOG_GROUP: &str = "active";
 /// Process-global tracker for the last HTTP request time, shared across all
 /// `CelestrakClient` instances to enforce rate limiting.
 static LAST_REQUEST_TIME: LazyLock<Mutex<Option<Instant>>> = LazyLock::new(|| Mutex::new(None));
+
+/// Base URLs whose `active` group fetch failed, with the failure time; single-object
+/// lookups skip the group for `cache_max_age` seconds after a failure.
+static ACTIVE_UNAVAILABLE_SINCE: LazyLock<Mutex<HashMap<String, Instant>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// CelestrakClient API client with caching.
 ///
@@ -645,15 +651,32 @@ impl CelestrakClient {
     /// * `Ok(Some(Vec<GPRecord>))` - One or more active records matched
     /// * `Ok(None)` - No active record matched, or the group could not be
     ///   obtained (a warning is printed in `online` mode); the caller falls
-    ///   back to a per-object request
+    ///   back to a per-object request. A failed fetch latches this client's
+    ///   base URL for `cache_max_age` seconds, during which later calls
+    ///   return `Ok(None)` without attempting the group again
     /// * `Err(BraheError)` - If the network mode cannot be read
     fn resolve_from_active(
         &self,
         selector: &LocalSelector,
     ) -> Result<Option<Vec<GPRecord>>, BraheError> {
+        if let Some(since) = ACTIVE_UNAVAILABLE_SINCE.lock().unwrap().get(&self.base_url)
+            && since.elapsed() < Duration::from_secs_f64(self.cache_max_age)
+        {
+            return Ok(None);
+        }
         let catalog = match self.active_catalog() {
-            Ok(catalog) => catalog,
+            Ok(catalog) => {
+                ACTIVE_UNAVAILABLE_SINCE
+                    .lock()
+                    .unwrap()
+                    .remove(&self.base_url);
+                catalog
+            }
             Err(e) => {
+                ACTIVE_UNAVAILABLE_SINCE
+                    .lock()
+                    .unwrap()
+                    .insert(self.base_url.clone(), Instant::now());
                 if network_mode()? == NetworkMode::Online {
                     eprintln!(
                         "Warning: Celestrak active catalog unavailable ({}); requesting the object directly",
@@ -834,6 +857,16 @@ impl Default for CelestrakClient {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Clear the process-global latch of `active` fetch failures.
+///
+/// Tests that exercise single-object resolution call this first so a
+/// latched failure from an earlier test cannot suppress an `active` fetch
+/// it expects to happen.
+#[cfg(test)]
+pub(crate) fn clear_active_unavailable_latch() {
+    ACTIVE_UNAVAILABLE_SINCE.lock().unwrap().clear();
 }
 
 #[cfg(test)]
@@ -1661,6 +1694,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_catnr_resolves_from_active_without_per_object_request() {
+        clear_active_unavailable_latch();
         let _cache = CacheRedirect::new();
         let server = MockServer::start();
         let (active, single) = mock_active_and_single(&server, "CATNR", "25544");
@@ -1683,6 +1717,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_name_resolves_case_insensitive_substring_from_active() {
+        clear_active_unavailable_latch();
         let _cache = CacheRedirect::new();
         let server = MockServer::start();
         let (active, single) = mock_active_and_single(&server, "NAME", "iss");
@@ -1701,6 +1736,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_intdes_resolves_from_active() {
+        clear_active_unavailable_latch();
         let _cache = CacheRedirect::new();
         let server = MockServer::start();
         let (active, single) = mock_active_and_single(&server, "INTDES", "2025-158a");
@@ -1715,6 +1751,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_catnr_absent_from_active_falls_through_to_per_object_request() {
+        clear_active_unavailable_latch();
         let _cache = CacheRedirect::new();
         let server = MockServer::start();
         let (active, single) = mock_active_and_single(&server, "CATNR", "34427");
@@ -1729,6 +1766,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_name_without_active_match_goes_to_server() {
+        clear_active_unavailable_latch();
         let _cache = CacheRedirect::new();
         let server = MockServer::start();
         let (active, single) = mock_active_and_single(&server, "NAME", "COSMOS");
@@ -1743,6 +1781,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_exact_per_object_cache_takes_precedence_over_active() {
+        clear_active_unavailable_latch();
         let _cache = CacheRedirect::new();
         let server = MockServer::start();
         let (active, single) = mock_active_and_single(&server, "CATNR", "25544");
@@ -1762,6 +1801,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_active_unavailable_online_falls_back_to_per_object_request() {
+        clear_active_unavailable_latch();
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
@@ -1788,6 +1828,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_active_resolution_does_not_write_per_object_cache() {
+        clear_active_unavailable_latch();
         let _cache = CacheRedirect::new();
         let server = MockServer::start();
         let (_active, _single) = mock_active_and_single(&server, "CATNR", "25544");
@@ -1812,6 +1853,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_group_query_never_touches_active() {
+        clear_active_unavailable_latch();
         let _cache = CacheRedirect::new();
         let server = MockServer::start();
         let active = server.mock(|when, then| {
@@ -1836,6 +1878,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_query_raw_with_catnr_never_touches_active() {
+        clear_active_unavailable_latch();
         let _cache = CacheRedirect::new();
         let server = MockServer::start();
         let (active, single) = mock_active_and_single(&server, "CATNR", "34427");
@@ -1856,6 +1899,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_client_side_filters_apply_after_active_resolution() {
+        clear_active_unavailable_latch();
         let _cache = CacheRedirect::new();
         let server = MockServer::start();
         let (active, single) = mock_active_and_single(&server, "NAME", "ISS");
@@ -1872,6 +1916,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_offline_serves_stale_active_and_errors_on_full_miss() {
+        clear_active_unavailable_latch();
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("offline"));
         let server = MockServer::start();
@@ -1905,6 +1950,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_sgp_propagator_by_catnr_resolves_from_active() {
+        clear_active_unavailable_latch();
         setup_global_test_eop();
         let _cache = CacheRedirect::new();
         let server = MockServer::start();
@@ -1920,6 +1966,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_zero_cache_age_skips_active_resolution() {
+        clear_active_unavailable_latch();
         let _cache = CacheRedirect::new();
         let server = MockServer::start();
         let (active, single) = mock_active_and_single(&server, "CATNR", "25544");
@@ -1929,5 +1976,65 @@ mod tests {
         assert_eq!(records[0].norad_cat_id, Some(34427));
         active.assert_calls(0);
         single.assert_calls(1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_active_failure_is_latched_for_cache_age() {
+        clear_active_unavailable_latch();
+        let server = MockServer::start();
+        let active = server.mock(|when, then| {
+            when.method(GET)
+                .path("/NORAD/elements/gp.php")
+                .query_param("GROUP", "active");
+            then.status(404);
+        });
+        let single = server.mock(|when, then| {
+            when.method(GET)
+                .path("/NORAD/elements/gp.php")
+                .query_param("CATNR", "34427");
+            then.status(200).body(SINGLE_JSON);
+        });
+        let client = CelestrakClient::with_base_url(&server.base_url());
+
+        // Fresh per-object cache for each call isolates the latch (a
+        // process-global static independent of BRAHE_CACHE) as the only
+        // thing suppressing the second `active` request.
+        {
+            let _cache = CacheRedirect::new();
+            client.get_gp_by_catnr(34427).unwrap();
+        }
+        {
+            let _cache = CacheRedirect::new();
+            client.get_gp_by_catnr(34427).unwrap();
+        }
+        active.assert_calls(1);
+        single.assert_calls(2);
+    }
+
+    #[test]
+    #[serial]
+    fn test_active_latch_expires() {
+        clear_active_unavailable_latch();
+        let _cache = CacheRedirect::new();
+        let server = MockServer::start();
+        let active = server.mock(|when, then| {
+            when.method(GET)
+                .path("/NORAD/elements/gp.php")
+                .query_param("GROUP", "active");
+            then.status(404);
+        });
+        let _single = server.mock(|when, then| {
+            when.method(GET)
+                .path("/NORAD/elements/gp.php")
+                .query_param("CATNR", "34427");
+            then.status(200).body(SINGLE_JSON);
+        });
+        let client = CelestrakClient::with_base_url_and_cache_age(&server.base_url(), 0.5);
+
+        client.get_gp_by_catnr(34427).unwrap();
+        std::thread::sleep(Duration::from_millis(600));
+        client.get_gp_by_catnr(34427).unwrap();
+        active.assert_calls(2);
     }
 }

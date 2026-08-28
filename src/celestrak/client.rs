@@ -604,7 +604,7 @@ impl CelestrakClient {
         if let Some(records) = self.resolve_from_active(selector)? {
             return Ok(records);
         }
-        Self::parse_gp_records(&self.fetch_with_cache(&url)?)
+        Self::parse_gp_records(&self.query_raw(json_query)?)
     }
 
     /// Load the `active` group through the ordinary cached fetch path.
@@ -1846,12 +1846,15 @@ mod tests {
     fn test_client_side_filters_apply_after_active_resolution() {
         let _cache = CacheRedirect::new();
         let server = MockServer::start();
-        let (_active, _single) = mock_active_and_single(&server, "NAME", "ISS");
+        let (active, single) = mock_active_and_single(&server, "NAME", "ISS");
         let client = CelestrakClient::with_base_url(&server.base_url());
 
         let query = CelestrakQuery::gp().name_search("ISS").limit(1);
         let records = client.query_gp(&query).unwrap();
         assert_eq!(records.len(), 1);
+        assert_eq!(records[0].object_name.as_deref(), Some("ISS (ZARYA)"));
+        active.assert_calls(1);
+        single.assert_calls(0);
     }
 
     #[test]

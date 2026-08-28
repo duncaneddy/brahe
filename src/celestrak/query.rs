@@ -85,7 +85,6 @@ pub struct CelestrakQuery {
 /// A GP query that names exactly one object and can be answered from the
 /// cached `active` group instead of a per-object request.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[allow(dead_code)]
 pub(crate) enum LocalSelector {
     /// NORAD catalog number.
     Catnr(u32),
@@ -107,7 +106,6 @@ impl LocalSelector {
     /// * `bool` - `true` if the record is the object (or, for `Name`, one of
     ///   the objects) the selector names; a record missing the relevant field
     ///   never matches
-    #[allow(dead_code)]
     pub(crate) fn matches(&self, record: &GPRecord) -> bool {
         match self {
             LocalSelector::Catnr(catnr) => record.norad_cat_id == Some(*catnr),
@@ -448,7 +446,6 @@ impl CelestrakQuery {
     ///
     /// * `Some(LocalSelector)` - The selector to match against `active`
     /// * `None` - Any other query, which must be sent to the server as is
-    #[allow(dead_code)]
     pub(crate) fn local_selector(&self) -> Option<LocalSelector> {
         if self.query_type != CelestrakQueryType::GP
             || self.group.is_some()

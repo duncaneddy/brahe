@@ -11,12 +11,14 @@ use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 
 use crate::celestrak::filter::{apply_filters, apply_limit, apply_order_by};
-use crate::celestrak::query::CelestrakQuery;
+use crate::celestrak::query::{CelestrakQuery, LocalSelector};
 use crate::celestrak::responses::CelestrakSATCATRecord;
 use crate::celestrak::types::{CelestrakOutputFormat, SupGPSource};
 use crate::propagators::SGPPropagator;
 use crate::types::GPRecord;
-use crate::utils::network::{CacheDecision, cache_policy, ensure_online};
+use crate::utils::network::{
+    CacheDecision, NetworkMode, cache_policy, ensure_online, network_mode,
+};
 use crate::utils::{BraheError, atomic_write, get_celestrak_cache_dir};
 
 /// Default base URL for the CelestrakClient API.
@@ -31,6 +33,9 @@ const DEFAULT_MAX_RETRIES: u32 = 3;
 /// Minimum interval between HTTP requests to avoid overwhelming the server.
 const MIN_REQUEST_INTERVAL: Duration = Duration::from_millis(500);
 
+/// Celestrak group whose cached response answers single-object lookups locally.
+const LOCAL_CATALOG_GROUP: &str = "active";
+
 /// Process-global tracker for the last HTTP request time, shared across all
 /// `CelestrakClient` instances to enforce rate limiting.
 static LAST_REQUEST_TIME: LazyLock<Mutex<Option<Instant>>> = LazyLock::new(|| Mutex::new(None));
@@ -42,6 +47,13 @@ static LAST_REQUEST_TIME: LazyLock<Mutex<Option<Instant>>> = LazyLock::new(|| Mu
 /// server load and improve performance. The `BRAHE_NETWORK_MODE`
 /// environment variable controls whether a stale cached response is
 /// refreshed or served; see [`crate::utils::network`].
+///
+/// Single-object lookups (`get_gp_by_catnr`, `get_gp_by_intdes`,
+/// `get_gp_by_name`, and `query_gp` with exactly one of those selectors)
+/// are answered from a cached copy of the `active` group when the object
+/// is in it, so a series of lookups costs one request; objects not in
+/// `active` (debris, inactive objects) are requested individually. A
+/// `name` search that matches in `active` returns only active objects.
 ///
 /// # Examples
 ///
@@ -196,7 +208,16 @@ impl CelestrakClient {
     /// Forces JSON format internally for deserialization. Applies any
     /// client-side filters, ordering, and limit specified in the query.
     ///
-    /// Works for both GP and SupGP query types.
+    /// Works for both GP and SupGP query types. A GP query whose
+    /// server-side parameters are exactly one of `CATNR`, `INTDES`, or
+    /// `NAME` is resolved in three steps: the exact per-object cache file,
+    /// then the cached `active` group (a match returns immediately and is
+    /// not written to the per-object cache key), then a per-object
+    /// request. A `name` search that matches in `active` returns only
+    /// active objects; a search with no match in `active` still goes to
+    /// the server. `catnr` and `intdes` results are unaffected. Any other
+    /// query (a group, `special`, `source`, combined selectors, and so
+    /// on) is always sent to the server.
     ///
     /// # Arguments
     ///
@@ -229,13 +250,10 @@ impl CelestrakClient {
             query.clone().format(CelestrakOutputFormat::Json)
         };
 
-        let body = self.query_raw(&json_query)?;
-        let mut records: Vec<GPRecord> = serde_json::from_str(&body).map_err(|e| {
-            BraheError::ParseError(format!(
-                "Failed to parse CelestrakClient GP response: {}",
-                e
-            ))
-        })?;
+        let mut records = match query.local_selector() {
+            Some(selector) => self.resolve_single_object(&json_query, &selector)?,
+            None => Self::parse_gp_records(&self.query_raw(&json_query)?)?,
+        };
 
         // Apply client-side processing
         records = apply_filters(records, query.client_side_filters());
@@ -309,7 +327,9 @@ impl CelestrakClient {
     ///
     /// # Returns
     ///
-    /// * `Ok(Vec<GPRecord>)` - Matching GP records
+    /// * `Ok(Vec<GPRecord>)` - Matching GP records, resolved from the cached
+    ///   `active` group when the object is in it, otherwise requested
+    ///   individually
     /// * `Err(BraheError)` - On network, cache, or parse errors
     ///
     /// # Examples
@@ -359,7 +379,10 @@ impl CelestrakClient {
     ///
     /// # Returns
     ///
-    /// * `Ok(Vec<GPRecord>)` - Matching GP records
+    /// * `Ok(Vec<GPRecord>)` - Matching GP records. When the cached `active`
+    ///   group contains a match, only active objects are returned; a search
+    ///   with no match in `active` is sent to the server, which may include
+    ///   inactive objects
     /// * `Err(BraheError)` - On network, cache, or parse errors
     ///
     /// # Examples
@@ -383,7 +406,9 @@ impl CelestrakClient {
     ///
     /// # Returns
     ///
-    /// * `Ok(Vec<GPRecord>)` - Matching GP records
+    /// * `Ok(Vec<GPRecord>)` - Matching GP records, resolved from the cached
+    ///   `active` group when the object is in it, otherwise requested
+    ///   individually
     /// * `Err(BraheError)` - On network, cache, or parse errors
     ///
     /// # Examples
@@ -532,6 +557,105 @@ impl CelestrakClient {
         self.write_cache(&cache_key, &body)?;
 
         Ok(body)
+    }
+
+    /// Parse a JSON GP response body into records.
+    ///
+    /// # Arguments
+    ///
+    /// * `body` - JSON array of GP records as returned by Celestrak
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<GPRecord>)` - Parsed records
+    /// * `Err(BraheError)` - If the body is not a JSON array of GP records
+    fn parse_gp_records(body: &str) -> Result<Vec<GPRecord>, BraheError> {
+        serde_json::from_str(body).map_err(|e| {
+            BraheError::ParseError(format!(
+                "Failed to parse CelestrakClient GP response: {}",
+                e
+            ))
+        })
+    }
+
+    /// Resolve a single-object GP query: exact per-object cache, then the
+    /// cached `active` group, then a per-object request.
+    ///
+    /// # Arguments
+    ///
+    /// * `json_query` - The query with JSON output format applied
+    /// * `selector` - The object the query names
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<GPRecord>)` - Matching records from whichever step answered
+    /// * `Err(BraheError)` - On cache I/O or parse errors, or when the
+    ///   per-object request is needed and `BRAHE_NETWORK_MODE` forbids it
+    fn resolve_single_object(
+        &self,
+        json_query: &CelestrakQuery,
+        selector: &LocalSelector,
+    ) -> Result<Vec<GPRecord>, BraheError> {
+        let url = self.build_full_url(json_query);
+        let cache_key = self.cache_key_for_url(&url);
+        if let Some(body) = self.read_cache(&cache_key)? {
+            return Self::parse_gp_records(&body);
+        }
+        if let Some(records) = self.resolve_from_active(selector)? {
+            return Ok(records);
+        }
+        Self::parse_gp_records(&self.fetch_with_cache(&url)?)
+    }
+
+    /// Load the `active` group through the ordinary cached fetch path.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<GPRecord>)` - Every record in the `active` group
+    /// * `Err(BraheError)` - If the group is neither servable from cache nor
+    ///   fetchable under the current `BRAHE_NETWORK_MODE`
+    fn active_catalog(&self) -> Result<Vec<GPRecord>, BraheError> {
+        let query = CelestrakQuery::gp()
+            .group(LOCAL_CATALOG_GROUP)
+            .format(CelestrakOutputFormat::Json);
+        let url = self.build_full_url(&query);
+        Self::parse_gp_records(&self.fetch_with_cache(&url)?)
+    }
+
+    /// Match a selector against the `active` group.
+    ///
+    /// # Arguments
+    ///
+    /// * `selector` - The object to look for
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(Vec<GPRecord>))` - One or more active records matched
+    /// * `Ok(None)` - No active record matched, or the group could not be
+    ///   obtained (a warning is printed in `online` mode); the caller falls
+    ///   back to a per-object request
+    /// * `Err(BraheError)` - If the network mode cannot be read
+    fn resolve_from_active(
+        &self,
+        selector: &LocalSelector,
+    ) -> Result<Option<Vec<GPRecord>>, BraheError> {
+        let catalog = match self.active_catalog() {
+            Ok(catalog) => catalog,
+            Err(e) => {
+                if network_mode()? == NetworkMode::Online {
+                    eprintln!(
+                        "Warning: Celestrak active catalog unavailable ({}); requesting the object directly",
+                        e
+                    );
+                }
+                return Ok(None);
+            }
+        };
+        let matches: Vec<GPRecord> = catalog
+            .into_iter()
+            .filter(|record| selector.matches(record))
+            .collect();
+        Ok((!matches.is_empty()).then_some(matches))
     }
 
     /// Generate a cache key from a URL.
@@ -704,7 +828,7 @@ impl Default for CelestrakClient {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
-    use crate::utils::testing::{CacheRedirect, NetworkModeGuard};
+    use crate::utils::testing::{CacheRedirect, NetworkModeGuard, setup_global_test_eop};
     use httpmock::prelude::*;
     use serial_test::serial;
     use std::fs;
@@ -1487,5 +1611,294 @@ mod tests {
             .get_sgp_propagator_by_catnr(25544, 60.0)
             .expect("SGP propagator creation failed");
         assert_eq!(propagator.norad_id, 25544);
+    }
+
+    // -- Active-group resolution tests --
+
+    const ACTIVE_JSON: &str = r#"[
+ {"OBJECT_NAME":"ISS (ZARYA)","OBJECT_ID":"1998-067A","EPOCH":"2026-08-27T12:00:00.000000","MEAN_MOTION":15.49,"ECCENTRICITY":0.0006,"INCLINATION":51.64,"RA_OF_ASC_NODE":120.5,"ARG_OF_PERICENTER":30.2,"MEAN_ANOMALY":329.9,"EPHEMERIS_TYPE":0,"CLASSIFICATION_TYPE":"U","NORAD_CAT_ID":25544,"ELEMENT_SET_NO":999,"REV_AT_EPOCH":54000,"BSTAR":0.0001,"MEAN_MOTION_DOT":0.0001,"MEAN_MOTION_DDOT":0},
+ {"OBJECT_NAME":"ISS (NAUKA)","OBJECT_ID":"2021-066A","EPOCH":"2026-08-27T12:00:00.000000","MEAN_MOTION":15.49,"ECCENTRICITY":0.0006,"INCLINATION":51.64,"RA_OF_ASC_NODE":120.5,"ARG_OF_PERICENTER":30.2,"MEAN_ANOMALY":329.9,"EPHEMERIS_TYPE":0,"CLASSIFICATION_TYPE":"U","NORAD_CAT_ID":49044,"ELEMENT_SET_NO":999,"REV_AT_EPOCH":28000,"BSTAR":0.0001,"MEAN_MOTION_DOT":0.0001,"MEAN_MOTION_DDOT":0},
+ {"OBJECT_NAME":"NISAR","OBJECT_ID":"2025-158A","EPOCH":"2026-08-27T12:00:00.000000","MEAN_MOTION":14.3,"ECCENTRICITY":0.0002,"INCLINATION":98.4,"RA_OF_ASC_NODE":200.0,"ARG_OF_PERICENTER":90.0,"MEAN_ANOMALY":270.0,"EPHEMERIS_TYPE":0,"CLASSIFICATION_TYPE":"U","NORAD_CAT_ID":65053,"ELEMENT_SET_NO":999,"REV_AT_EPOCH":5000,"BSTAR":0.00005,"MEAN_MOTION_DOT":0.00001,"MEAN_MOTION_DDOT":0}
+]"#;
+
+    const SINGLE_JSON: &str = r#"[{"OBJECT_NAME":"COSMOS 2251 DEB","OBJECT_ID":"1993-036AAB","EPOCH":"2026-08-27T12:00:00.000000","MEAN_MOTION":14.1,"ECCENTRICITY":0.01,"INCLINATION":74.0,"RA_OF_ASC_NODE":10.0,"ARG_OF_PERICENTER":20.0,"MEAN_ANOMALY":30.0,"EPHEMERIS_TYPE":0,"CLASSIFICATION_TYPE":"U","NORAD_CAT_ID":34427,"ELEMENT_SET_NO":999,"REV_AT_EPOCH":1,"BSTAR":0.0001,"MEAN_MOTION_DOT":0.0001,"MEAN_MOTION_DDOT":0}]"#;
+
+    /// Mock the `active` group and a per-object endpoint; returns (active, single).
+    fn mock_active_and_single<'a>(
+        server: &'a MockServer,
+        param: &str,
+        value: &str,
+    ) -> (httpmock::Mock<'a>, httpmock::Mock<'a>) {
+        let active = server.mock(|when, then| {
+            when.method(GET)
+                .path("/NORAD/elements/gp.php")
+                .query_param("GROUP", "active")
+                .query_param("FORMAT", "JSON");
+            then.status(200).body(ACTIVE_JSON);
+        });
+        let single = server.mock(|when, then| {
+            when.method(GET)
+                .path("/NORAD/elements/gp.php")
+                .query_param(param, value)
+                .query_param("FORMAT", "JSON");
+            then.status(200).body(SINGLE_JSON);
+        });
+        (active, single)
+    }
+
+    #[test]
+    #[serial]
+    fn test_catnr_resolves_from_active_without_per_object_request() {
+        let _cache = CacheRedirect::new();
+        let server = MockServer::start();
+        let (active, single) = mock_active_and_single(&server, "CATNR", "25544");
+        let client = CelestrakClient::with_base_url(&server.base_url());
+
+        let records = client.get_gp_by_catnr(25544).unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].norad_cat_id, Some(25544));
+        active.assert_calls(1);
+        single.assert_calls(0);
+
+        // A second client shares the on-disk active cache: no request at all.
+        let other = CelestrakClient::with_base_url(&server.base_url());
+        let records = other.get_gp_by_catnr(65053).unwrap();
+        assert_eq!(records[0].object_name.as_deref(), Some("NISAR"));
+        active.assert_calls(1);
+        single.assert_calls(0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_name_resolves_case_insensitive_substring_from_active() {
+        let _cache = CacheRedirect::new();
+        let server = MockServer::start();
+        let (active, single) = mock_active_and_single(&server, "NAME", "iss");
+        let client = CelestrakClient::with_base_url(&server.base_url());
+
+        let records = client.get_gp_by_name("iss").unwrap();
+        let names: Vec<_> = records
+            .iter()
+            .filter_map(|r| r.object_name.as_deref())
+            .collect();
+        assert_eq!(names, vec!["ISS (ZARYA)", "ISS (NAUKA)"]);
+        active.assert_calls(1);
+        single.assert_calls(0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_intdes_resolves_from_active() {
+        let _cache = CacheRedirect::new();
+        let server = MockServer::start();
+        let (active, single) = mock_active_and_single(&server, "INTDES", "2025-158a");
+        let client = CelestrakClient::with_base_url(&server.base_url());
+
+        let records = client.get_gp_by_intdes("2025-158a").unwrap();
+        assert_eq!(records[0].norad_cat_id, Some(65053));
+        active.assert_calls(1);
+        single.assert_calls(0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_catnr_absent_from_active_falls_through_to_per_object_request() {
+        let _cache = CacheRedirect::new();
+        let server = MockServer::start();
+        let (active, single) = mock_active_and_single(&server, "CATNR", "34427");
+        let client = CelestrakClient::with_base_url(&server.base_url());
+
+        let records = client.get_gp_by_catnr(34427).unwrap();
+        assert_eq!(records[0].object_name.as_deref(), Some("COSMOS 2251 DEB"));
+        active.assert_calls(1);
+        single.assert_calls(1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_name_without_active_match_goes_to_server() {
+        let _cache = CacheRedirect::new();
+        let server = MockServer::start();
+        let (active, single) = mock_active_and_single(&server, "NAME", "COSMOS");
+        let client = CelestrakClient::with_base_url(&server.base_url());
+
+        let records = client.get_gp_by_name("COSMOS").unwrap();
+        assert_eq!(records.len(), 1);
+        active.assert_calls(1);
+        single.assert_calls(1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_exact_per_object_cache_takes_precedence_over_active() {
+        let _cache = CacheRedirect::new();
+        let server = MockServer::start();
+        let (active, single) = mock_active_and_single(&server, "CATNR", "25544");
+        let client = CelestrakClient::with_base_url(&server.base_url());
+        let url = format!(
+            "{}/NORAD/elements/gp.php?CATNR=25544&FORMAT=JSON",
+            server.base_url()
+        );
+        seed_celestrak_cache(&client, &url, SINGLE_JSON, Duration::from_secs(60));
+
+        let records = client.get_gp_by_catnr(25544).unwrap();
+        assert_eq!(records[0].object_name.as_deref(), Some("COSMOS 2251 DEB"));
+        active.assert_calls(0);
+        single.assert_calls(0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_active_unavailable_online_falls_back_to_per_object_request() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let active = server.mock(|when, then| {
+            when.method(GET)
+                .path("/NORAD/elements/gp.php")
+                .query_param("GROUP", "active");
+            then.status(404);
+        });
+        let single = server.mock(|when, then| {
+            when.method(GET)
+                .path("/NORAD/elements/gp.php")
+                .query_param("CATNR", "34427");
+            then.status(200).body(SINGLE_JSON);
+        });
+        let client = CelestrakClient::with_base_url(&server.base_url());
+
+        let records = client.get_gp_by_catnr(34427).unwrap();
+        assert_eq!(records[0].norad_cat_id, Some(34427));
+        active.assert_calls(1);
+        single.assert_calls(1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_active_resolution_does_not_write_per_object_cache() {
+        let _cache = CacheRedirect::new();
+        let server = MockServer::start();
+        let (_active, _single) = mock_active_and_single(&server, "CATNR", "25544");
+        let client = CelestrakClient::with_base_url(&server.base_url());
+        client.get_gp_by_catnr(25544).unwrap();
+
+        let url = format!(
+            "{}/NORAD/elements/gp.php?CATNR=25544&FORMAT=JSON",
+            server.base_url()
+        );
+        let dir = crate::utils::get_celestrak_cache_dir().unwrap();
+        let per_object = std::path::Path::new(&dir).join(client.cache_key_for_url(&url));
+        assert!(!per_object.exists());
+        let active_url = format!(
+            "{}/NORAD/elements/gp.php?GROUP=active&FORMAT=JSON",
+            server.base_url()
+        );
+        let active_file = std::path::Path::new(&dir).join(client.cache_key_for_url(&active_url));
+        assert!(active_file.exists());
+    }
+
+    #[test]
+    #[serial]
+    fn test_group_query_never_touches_active() {
+        let _cache = CacheRedirect::new();
+        let server = MockServer::start();
+        let active = server.mock(|when, then| {
+            when.method(GET)
+                .path("/NORAD/elements/gp.php")
+                .query_param("GROUP", "active");
+            then.status(200).body(ACTIVE_JSON);
+        });
+        let stations = server.mock(|when, then| {
+            when.method(GET)
+                .path("/NORAD/elements/gp.php")
+                .query_param("GROUP", "stations");
+            then.status(200).body(SINGLE_JSON);
+        });
+        let client = CelestrakClient::with_base_url(&server.base_url());
+
+        client.get_gp_by_group("stations").unwrap();
+        active.assert_calls(0);
+        stations.assert_calls(1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_query_raw_with_catnr_never_touches_active() {
+        let _cache = CacheRedirect::new();
+        let server = MockServer::start();
+        let (active, single) = mock_active_and_single(&server, "CATNR", "34427");
+        let client = CelestrakClient::with_base_url(&server.base_url());
+
+        let body = client
+            .query_raw(
+                &CelestrakQuery::gp()
+                    .catnr(34427)
+                    .format(CelestrakOutputFormat::Json),
+            )
+            .unwrap();
+        assert_eq!(body, SINGLE_JSON);
+        active.assert_calls(0);
+        single.assert_calls(1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_client_side_filters_apply_after_active_resolution() {
+        let _cache = CacheRedirect::new();
+        let server = MockServer::start();
+        let (_active, _single) = mock_active_and_single(&server, "NAME", "ISS");
+        let client = CelestrakClient::with_base_url(&server.base_url());
+
+        let query = CelestrakQuery::gp().name_search("ISS").limit(1);
+        let records = client.query_gp(&query).unwrap();
+        assert_eq!(records.len(), 1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_offline_serves_stale_active_and_errors_on_full_miss() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("offline"));
+        let server = MockServer::start();
+        let (active, single) = mock_active_and_single(&server, "CATNR", "25544");
+        let client = CelestrakClient::with_base_url(&server.base_url());
+        let active_url = format!(
+            "{}/NORAD/elements/gp.php?GROUP=active&FORMAT=JSON",
+            server.base_url()
+        );
+        seed_celestrak_cache(
+            &client,
+            &active_url,
+            ACTIVE_JSON,
+            Duration::from_secs(30 * 86400),
+        );
+
+        let records = client.get_gp_by_catnr(25544).unwrap();
+        assert_eq!(records[0].norad_cat_id, Some(25544));
+        active.assert_calls(0);
+        single.assert_calls(0);
+
+        let err = client.get_gp_by_catnr(34427).unwrap_err().to_string();
+        assert!(
+            err.starts_with("BRAHE_NETWORK_MODE is offline; Celestrak request "),
+            "{err}"
+        );
+        active.assert_calls(0);
+        single.assert_calls(0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_sgp_propagator_by_catnr_resolves_from_active() {
+        setup_global_test_eop();
+        let _cache = CacheRedirect::new();
+        let server = MockServer::start();
+        let (active, single) = mock_active_and_single(&server, "CATNR", "25544");
+        let client = CelestrakClient::with_base_url(&server.base_url());
+
+        let propagator = client.get_sgp_propagator_by_catnr(25544, 60.0).unwrap();
+        assert_eq!(propagator.norad_id, 25544);
+        active.assert_calls(1);
+        single.assert_calls(0);
     }
 }

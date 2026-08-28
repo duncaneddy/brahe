@@ -1,6 +1,5 @@
 # /// script
 # dependencies = ["brahe", "plotly"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 

@@ -1,6 +1,5 @@
 # /// script
 # dependencies = ["brahe"]
-# FLAGS = ["NETWORK"]
 # ///
 """
 Get a single satellite GP record by NORAD ID from CelesTrak.

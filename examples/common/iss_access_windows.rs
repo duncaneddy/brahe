@@ -1,7 +1,6 @@
 //! This example shows how to find passes of the ISS over San Francisco, CA
 //! using an elevation constraint.
 //!
-//! FLAGS = ["NETWORK"]
 
 #[allow(unused_imports)]
 use brahe as bh;

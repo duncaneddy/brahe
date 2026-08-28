@@ -5,7 +5,6 @@
 //! and propagating them in parallel using Rayon with 100% of available CPU cores.
 //!
 //!
-// FLAGS = ["NETWORK"]
 
 #[allow(unused_imports)]
 use brahe as bh;

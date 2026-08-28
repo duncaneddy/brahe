@@ -5565,6 +5565,7 @@ impl PyAPM {
             "time_system",
             format!("{}", self.inner.metadata.time_system),
         )?;
+        meta.set_item("comments", &self.inner.metadata.comments)?;
         dict.set_item("metadata", meta)?;
 
         // Data section
@@ -5836,6 +5837,21 @@ impl PyAPM {
             pyo3::exceptions::PyValueError::new_err(format!("Invalid time_system: {}", e))
         })?;
         Ok(())
+    }
+
+    /// list[str]: Metadata section comments
+    #[getter]
+    fn metadata_comments(&self) -> Vec<String> {
+        self.inner.metadata.comments.clone()
+    }
+
+    /// Set metadata section comments.
+    ///
+    /// Args:
+    ///     val (list[str]): Metadata section comments
+    #[setter]
+    fn set_metadata_comments(&mut self, val: Vec<String>) {
+        self.inner.metadata.comments = val;
     }
 
     // --- data section properties ---

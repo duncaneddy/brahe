@@ -334,6 +334,26 @@ def test_apm_to_dict(eop):
     assert d["quaternion_states"][0]["ref_frame_a"] == "SC_BODY_1"
 
 
+def test_apm_metadata_comments(eop):
+    """G-1's METADATA-section comments are reachable via the
+    metadata_comments property and to_dict(), mirroring the field
+    asserted directly on apm.metadata.comments in the Rust
+    test_parse_apm_example_g1_quaternion test."""
+    apm = APM.from_file("test_assets/ccsds/apm/APMExampleG1.txt")
+
+    expected = [
+        "GEOCENTRIC, CARTESIAN, EARTH FIXED",
+        "OBJECT_ID: 1997-074A",
+        "$ITIM = 1997 NOV 21 22:26:18.40000000, $ original launch time",
+    ]
+    assert apm.metadata_comments == expected
+    assert apm.to_dict()["metadata"]["comments"] == expected
+
+    apm.metadata_comments = ["NEW COMMENT"]
+    assert apm.metadata_comments == ["NEW COMMENT"]
+    assert apm.to_dict()["metadata"]["comments"] == ["NEW COMMENT"]
+
+
 # ------------------------------------------------------------------
 # Builder construction (programmatic APM assembly)
 # ------------------------------------------------------------------

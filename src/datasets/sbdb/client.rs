@@ -2,12 +2,13 @@
  * SBDB Lookup HTTP client with on-disk caching.
  */
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 use crate::datasets::sbdb::responses::SBDBObject;
 use crate::utils::cache::{get_sbdb_cache_dir, short_hash};
 use crate::utils::download::{download_string_no_redirect, urlencode};
+use crate::utils::network::{CacheDecision, cache_policy};
 use crate::utils::{BraheError, atomic_write};
 
 /// Default base URL for the JPL SSD/SBDB API.
@@ -19,6 +20,8 @@ const DEFAULT_CACHE_MAX_AGE: u64 = 30 * 24 * 60 * 60;
 ///
 /// Resolves a search string to an [`SBDBObject`]. Responses are cached on disk
 /// under the SBDB cache directory and reused until `cache_max_age` elapses.
+/// The `BRAHE_NETWORK_MODE` environment variable controls whether a stale
+/// cached response is refreshed or served; see [`crate::utils::network`].
 ///
 /// # Examples
 ///
@@ -95,7 +98,9 @@ impl SBDBClient {
     /// # Returns
     ///
     /// * `Ok(SBDBObject)` - The resolved object.
-    /// * `Err(BraheError)` - On ambiguous/no match, network, or parse errors.
+    /// * `Err(BraheError)` - On ambiguous/no match, network, or parse errors,
+    ///   or if `BRAHE_NETWORK_MODE` forbids the request needed to fill or
+    ///   refresh the cache; see [`crate::utils::network`].
     pub fn lookup(&self, sstr: &str) -> Result<SBDBObject, BraheError> {
         // `full-prec=1` returns full-precision physical parameters; without it
         // SBDB rounds GM/radius for display, which would bake reduced-precision
@@ -110,7 +115,7 @@ impl SBDBClient {
             PathBuf::from(get_sbdb_cache_dir()?).join(format!("{}.json", short_hash(sstr)));
 
         // Fall through to refetch on a stale/corrupt cache parse failure.
-        if let Some(body) = self.read_fresh_cache(&cache_path)
+        if let Some(body) = self.read_fresh_cache(&cache_path)?
             && let Ok(obj) = SBDBObject::from_json(&body)
         {
             return Ok(obj);
@@ -129,17 +134,43 @@ impl SBDBClient {
         Ok(obj)
     }
 
-    /// Return the cached body if present and younger than `cache_max_age`.
-    fn read_fresh_cache(&self, path: &std::path::Path) -> Option<String> {
-        let metadata = std::fs::metadata(path).ok()?;
-        let modified = metadata.modified().ok()?;
+    /// Return the cached body if present and servable under the network mode.
+    ///
+    /// A file younger than `cache_max_age` is always served. An older file is
+    /// served in `offline` mode, ignored in `online` mode, and an error in
+    /// `offline-strict` mode.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path to the cached response file
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(String))` - Cached body, either fresh or served stale under
+    ///   `offline`
+    /// * `Ok(None)` - No cache file exists, or it is stale and `online` mode
+    ///   allows a refresh
+    /// * `Err(BraheError)` - The cache file is stale and `offline-strict`
+    ///   forbids serving it, or its modification time cannot be read
+    fn read_fresh_cache(&self, path: &Path) -> Result<Option<String>, BraheError> {
+        let Ok(metadata) = std::fs::metadata(path) else {
+            return Ok(None);
+        };
+        let modified = metadata.modified().map_err(|e| {
+            BraheError::IoError(format!(
+                "Failed to read modification time of {}: {}",
+                path.display(),
+                e
+            ))
+        })?;
         let age = SystemTime::now()
             .duration_since(modified)
             .unwrap_or(Duration::ZERO);
-        if age <= Duration::from_secs(self.cache_max_age) {
-            std::fs::read_to_string(path).ok()
-        } else {
-            None
+        let stale = age > Duration::from_secs(self.cache_max_age);
+        let resource = format!("SBDB lookup cache {}", path.display());
+        match cache_policy(&resource, stale)? {
+            CacheDecision::Serve => Ok(std::fs::read_to_string(path).ok()),
+            CacheDecision::Refresh => Ok(None),
         }
     }
 }
@@ -148,9 +179,11 @@ impl SBDBClient {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
-    use crate::utils::testing::CacheRedirect;
+    use crate::utils::testing::{CacheRedirect, NetworkModeGuard};
     use httpmock::prelude::*;
     use serial_test::serial;
+    use std::fs;
+    use std::time::{Duration, SystemTime};
 
     const CERES_BODY: &str = r#"{"object":{"spkid":"2000001","fullname":"1 Ceres",
         "des":"1","shortname":"Ceres","neo":false,"kind":"an"},
@@ -217,6 +250,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_new_and_default_ctors() {
         let c = SBDBClient::new();
         assert_eq!(c.base_url, DEFAULT_BASE_URL);
@@ -228,6 +262,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_with_cache_age_ctor() {
         let c = SBDBClient::with_cache_age(3600);
         assert_eq!(c.base_url, DEFAULT_BASE_URL);
@@ -274,5 +309,46 @@ mod tests {
         let _ = client.lookup("Ceres").unwrap();
         let _ = client.lookup("Ceres").unwrap();
         mock.assert_calls(2);
+    }
+
+    #[test]
+    #[serial]
+    fn test_lookup_offline_serves_stale_cache() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("offline"));
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/sbdb.api");
+            then.status(200).body(CERES_BODY);
+        });
+        let client = SBDBClient::with_base_url_and_cache_age(&server.base_url(), 60);
+        let cache_path = PathBuf::from(get_sbdb_cache_dir().unwrap())
+            .join(format!("{}.json", short_hash("Ceres")));
+        fs::write(&cache_path, CERES_BODY).unwrap();
+        let file = fs::File::options().write(true).open(&cache_path).unwrap();
+        file.set_modified(SystemTime::now() - Duration::from_secs(86400))
+            .unwrap();
+
+        let obj = client.lookup("Ceres").unwrap();
+        assert_eq!(obj.naif_id(), 2000001);
+        assert_eq!(mock.calls(), 0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_lookup_offline_strict_stale_cache_errors() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("offline-strict"));
+        let client = SBDBClient::with_base_url_and_cache_age("http://127.0.0.1:9", 60);
+        let cache_path = PathBuf::from(get_sbdb_cache_dir().unwrap())
+            .join(format!("{}.json", short_hash("Ceres")));
+        fs::write(&cache_path, CERES_BODY).unwrap();
+        let file = fs::File::options().write(true).open(&cache_path).unwrap();
+        file.set_modified(SystemTime::now() - Duration::from_secs(86400))
+            .unwrap();
+
+        let err = client.lookup("Ceres").unwrap_err().to_string();
+        assert!(err.contains("SBDB lookup cache"), "{err}");
+        assert!(err.contains("is older than its cache limit"), "{err}");
     }
 }

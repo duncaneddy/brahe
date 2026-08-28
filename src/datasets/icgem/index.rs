@@ -175,6 +175,15 @@ pub(crate) fn fetch_index_with_url(
 ///
 /// * `Ok(Vec<IndexEntry>)` - Models for `body`, from cache or freshly fetched
 /// * `Err(BraheError)` - On fetch, parse, I/O, or network-mode errors
+///
+/// # Examples
+///
+/// ```no_run
+/// use brahe::datasets::icgem::{ICGEMBody, list_icgem_models};
+///
+/// let entries = list_icgem_models(ICGEMBody::Earth).unwrap();
+/// println!("{} models available for Earth", entries.len());
+/// ```
 pub fn list_icgem_models(body: ICGEMBody) -> Result<Vec<IndexEntry>, BraheError> {
     list_icgem_models_with_url(&body, ICGEM_BASE_URL)
 }
@@ -190,6 +199,16 @@ pub fn list_icgem_models(body: ICGEMBody) -> Result<Vec<IndexEntry>, BraheError>
 ///
 /// * `Ok(Vec<IndexEntry>)` - Models for `body`, from cache or freshly fetched
 /// * `Err(BraheError)` - On fetch, parse, I/O, or network-mode errors
+///
+/// # Examples
+///
+/// ```no_run
+/// use brahe::datasets::icgem::ICGEMBody;
+/// use brahe::datasets::icgem::index::list_icgem_models_with_url;
+///
+/// let entries = list_icgem_models_with_url(&ICGEMBody::Earth, "https://icgem.gfz.de").unwrap();
+/// println!("{} models available for Earth", entries.len());
+/// ```
 pub fn list_icgem_models_with_url(
     body: &ICGEMBody,
     base_url: &str,

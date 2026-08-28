@@ -8,14 +8,17 @@
  * Reference: CCSDS 504.0-B-2 (Attitude Data Messages), table 3-1
  */
 
+use std::path::Path;
+
 use nalgebra::{Vector3, Vector4};
 
 use crate::attitude::attitude_types::{EulerAngle, Quaternion};
-use crate::ccsds::common::{CCSDSTimeSystem, CCSDSUserDefined};
+use crate::ccsds::common::{CCSDSFormat, CCSDSJsonKeyCase, CCSDSTimeSystem, CCSDSUserDefined};
 use crate::ccsds::frames::ADMReferenceFrame;
 use crate::constants::{AngleFormat, DEG2RAD};
 use crate::math::SMatrix3;
 use crate::time::Epoch;
+use crate::utils::errors::BraheError;
 
 /// CCSDS APM message header (504.0-B-2 table 3-1).
 #[derive(Debug, Clone)]
@@ -824,6 +827,82 @@ impl APM {
             || !self.inertias.is_empty()
             || !self.maneuvers.is_empty()
     }
+
+    /// Parses an APM message from a string, auto-detecting the format.
+    ///
+    /// # Arguments
+    /// - `content`: string content of the APM message (KVN, XML, or JSON).
+    ///
+    /// # Returns
+    /// Result<APM, BraheError>: The parsed message, or an error if the
+    /// content is malformed or does not contain at least one logical block.
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_str(content: &str) -> Result<Self, BraheError> {
+        let format = crate::ccsds::common::detect_format(content);
+        match format {
+            CCSDSFormat::KVN => crate::ccsds::kvn::parse_apm(content),
+            CCSDSFormat::XML => crate::ccsds::xml::parse_apm_xml(content),
+            CCSDSFormat::JSON => crate::ccsds::json::parse_apm_json(content),
+        }
+    }
+
+    /// Parses an APM message from a file, auto-detecting the format.
+    ///
+    /// # Arguments
+    /// - `path`: path to the APM file.
+    ///
+    /// # Returns
+    /// Result<APM, BraheError>: The parsed message, or an error if the file
+    /// cannot be read or its content is malformed.
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, BraheError> {
+        let content = std::fs::read_to_string(path.as_ref())
+            .map_err(|e| BraheError::IoError(format!("Failed to read APM file: {}", e)))?;
+        Self::from_str(&content)
+    }
+
+    /// Writes the APM message to a string in the specified format.
+    ///
+    /// # Arguments
+    /// - `format`: output encoding format (KVN, XML, or JSON).
+    ///
+    /// # Returns
+    /// Result<String, BraheError>: The serialized message, or an error if
+    /// the message does not contain at least one logical block.
+    pub fn to_string(&self, format: CCSDSFormat) -> Result<String, BraheError> {
+        match format {
+            CCSDSFormat::KVN => crate::ccsds::kvn::write_apm(self),
+            CCSDSFormat::XML => crate::ccsds::xml::write_apm_xml(self),
+            CCSDSFormat::JSON => crate::ccsds::json::write_apm_json(self, CCSDSJsonKeyCase::Lower),
+        }
+    }
+
+    /// Writes the APM message to JSON with explicit key case control.
+    ///
+    /// # Arguments
+    /// - `key_case`: whether CCSDS keywords should be lowercase or
+    ///   uppercase.
+    ///
+    /// # Returns
+    /// Result<String, BraheError>: The serialized JSON string, or an error
+    /// if the message does not contain at least one logical block.
+    pub fn to_json_string(&self, key_case: CCSDSJsonKeyCase) -> Result<String, BraheError> {
+        crate::ccsds::json::write_apm_json(self, key_case)
+    }
+
+    /// Writes the APM message to a file in the specified format.
+    ///
+    /// # Arguments
+    /// - `path`: output file path.
+    /// - `format`: output encoding format (KVN, XML, or JSON).
+    ///
+    /// # Returns
+    /// Result<(), BraheError>: Success, or an error if serialization or the
+    /// file write fails.
+    pub fn to_file<P: AsRef<Path>>(&self, path: P, format: CCSDSFormat) -> Result<(), BraheError> {
+        let content = self.to_string(format)?;
+        std::fs::write(path.as_ref(), content)
+            .map_err(|e| BraheError::IoError(format!("Failed to write APM file: {}", e)))
+    }
 }
 
 #[cfg(test)]
@@ -1155,5 +1234,332 @@ mod tests {
             apm.user_defined.unwrap().parameters.get("BATTERY_STATE"),
             Some(&"NOMINAL".to_string())
         );
+    }
+
+    // ------------------------------------------------------------------
+    // Format dispatch (from_str/from_file/to_string/to_json_string/to_file)
+    // ------------------------------------------------------------------
+
+    /// Compares every value field of two APM messages, including all
+    /// logical blocks, with approximate comparison for floats. Comment
+    /// fields are intentionally excluded: JSON does not round-trip header,
+    /// metadata, or block comments (mirroring the OEM/OPM JSON codecs), so
+    /// comparing them would make the three-way (KVN/XML/JSON) round-trip
+    /// tests format-dependent.
+    fn assert_apm_fields_match(a: &APM, b: &APM) {
+        // Header
+        assert!((a.header.format_version - b.header.format_version).abs() < 1e-9);
+        assert_eq!(a.header.classification, b.header.classification);
+        assert_eq!(a.header.originator, b.header.originator);
+        assert_eq!(a.header.message_id, b.header.message_id);
+
+        // Metadata
+        assert_eq!(a.metadata.object_name, b.metadata.object_name);
+        assert_eq!(a.metadata.object_id, b.metadata.object_id);
+        assert_eq!(a.metadata.center_name, b.metadata.center_name);
+        assert_eq!(a.metadata.time_system, b.metadata.time_system);
+
+        // Epoch
+        assert!((a.epoch - b.epoch).abs() < 1e-6);
+
+        // Quaternion states
+        assert_eq!(a.quaternion_states.len(), b.quaternion_states.len());
+        for (qa, qb) in a.quaternion_states.iter().zip(b.quaternion_states.iter()) {
+            assert_eq!(qa.ref_frame_a, qb.ref_frame_a);
+            assert_eq!(qa.ref_frame_b, qb.ref_frame_b);
+            let va = qa.quaternion.to_vector(false);
+            let vb = qb.quaternion.to_vector(false);
+            for i in 0..4 {
+                assert!((va[i] - vb[i]).abs() < 1e-9);
+            }
+            assert_eq!(
+                qa.quaternion_derivative.is_some(),
+                qb.quaternion_derivative.is_some()
+            );
+            if let (Some(da), Some(db)) = (qa.quaternion_derivative, qb.quaternion_derivative) {
+                for i in 0..4 {
+                    assert!((da[i] - db[i]).abs() < 1e-9);
+                }
+            }
+        }
+
+        // Euler angle states
+        assert_eq!(a.euler_states.len(), b.euler_states.len());
+        for (ea, eb) in a.euler_states.iter().zip(b.euler_states.iter()) {
+            assert_eq!(ea.ref_frame_a, eb.ref_frame_a);
+            assert_eq!(ea.ref_frame_b, eb.ref_frame_b);
+            assert_eq!(ea.angles.order, eb.angles.order);
+            assert!((ea.angles.phi - eb.angles.phi).abs() < 1e-9);
+            assert!((ea.angles.theta - eb.angles.theta).abs() < 1e-9);
+            assert!((ea.angles.psi - eb.angles.psi).abs() < 1e-9);
+            assert_eq!(ea.rates.is_some(), eb.rates.is_some());
+            if let (Some(ra), Some(rb)) = (ea.rates, eb.rates) {
+                for i in 0..3 {
+                    assert!((ra[i] - rb[i]).abs() < 1e-9);
+                }
+            }
+        }
+
+        // Angular velocities
+        assert_eq!(a.angular_velocities.len(), b.angular_velocities.len());
+        for (va, vb) in a.angular_velocities.iter().zip(b.angular_velocities.iter()) {
+            assert_eq!(va.ref_frame_a, vb.ref_frame_a);
+            assert_eq!(va.ref_frame_b, vb.ref_frame_b);
+            assert_eq!(va.angvel_frame, vb.angvel_frame);
+            for i in 0..3 {
+                assert!((va.angular_velocity[i] - vb.angular_velocity[i]).abs() < 1e-9);
+            }
+        }
+
+        // Spins
+        assert_eq!(a.spins.len(), b.spins.len());
+        for (sa, sb) in a.spins.iter().zip(b.spins.iter()) {
+            assert_eq!(sa.ref_frame_a, sb.ref_frame_a);
+            assert_eq!(sa.ref_frame_b, sb.ref_frame_b);
+            assert!((sa.spin_alpha - sb.spin_alpha).abs() < 1e-9);
+            assert!((sa.spin_delta - sb.spin_delta).abs() < 1e-9);
+            assert!((sa.spin_angle - sb.spin_angle).abs() < 1e-9);
+            assert!((sa.spin_angle_vel - sb.spin_angle_vel).abs() < 1e-9);
+            match (&sa.nutation, &sb.nutation) {
+                (APMNutation::None, APMNutation::None) => {}
+                (
+                    APMNutation::Angle {
+                        nutation: na,
+                        nutation_period: pa,
+                        nutation_phase: ha,
+                    },
+                    APMNutation::Angle {
+                        nutation: nb,
+                        nutation_period: pb,
+                        nutation_phase: hb,
+                    },
+                ) => {
+                    assert!((na - nb).abs() < 1e-9);
+                    assert!((pa - pb).abs() < 1e-9);
+                    assert!((ha - hb).abs() < 1e-9);
+                }
+                (
+                    APMNutation::Momentum {
+                        momentum_alpha: aa,
+                        momentum_delta: da,
+                        nutation_vel: va,
+                    },
+                    APMNutation::Momentum {
+                        momentum_alpha: ab,
+                        momentum_delta: db,
+                        nutation_vel: vb,
+                    },
+                ) => {
+                    assert!((aa - ab).abs() < 1e-9);
+                    assert!((da - db).abs() < 1e-9);
+                    assert!((va - vb).abs() < 1e-9);
+                }
+                (na, nb) => panic!("nutation variant mismatch: {:?} vs {:?}", na, nb),
+            }
+        }
+
+        // Inertias
+        assert_eq!(a.inertias.len(), b.inertias.len());
+        for (ia, ib) in a.inertias.iter().zip(b.inertias.iter()) {
+            assert_eq!(ia.inertia_ref_frame, ib.inertia_ref_frame);
+            assert!((ia.ixx - ib.ixx).abs() < 1e-6);
+            assert!((ia.iyy - ib.iyy).abs() < 1e-6);
+            assert!((ia.izz - ib.izz).abs() < 1e-6);
+            assert!((ia.ixy - ib.ixy).abs() < 1e-6);
+            assert!((ia.ixz - ib.ixz).abs() < 1e-6);
+            assert!((ia.iyz - ib.iyz).abs() < 1e-6);
+        }
+
+        // Maneuvers
+        assert_eq!(a.maneuvers.len(), b.maneuvers.len());
+        for (ma, mb) in a.maneuvers.iter().zip(b.maneuvers.iter()) {
+            assert!((ma.epoch_start - mb.epoch_start).abs() < 1e-6);
+            assert!((ma.duration - mb.duration).abs() < 1e-9);
+            assert_eq!(ma.ref_frame, mb.ref_frame);
+            for i in 0..3 {
+                assert!((ma.torque[i] - mb.torque[i]).abs() < 1e-9);
+            }
+            assert_eq!(ma.delta_mass, mb.delta_mass);
+        }
+
+        // User-defined
+        assert_eq!(
+            a.user_defined.as_ref().map(|ud| &ud.parameters),
+            b.user_defined.as_ref().map(|ud| &ud.parameters)
+        );
+    }
+
+    fn apm_g1() -> APM {
+        let content = std::fs::read_to_string("test_assets/ccsds/apm/APMExampleG1.txt").unwrap();
+        APM::from_str(&content).unwrap()
+    }
+
+    fn apm_g2() -> APM {
+        let content = std::fs::read_to_string("test_assets/ccsds/apm/APMExampleG2.txt").unwrap();
+        APM::from_str(&content).unwrap()
+    }
+
+    fn apm_g3() -> APM {
+        let content = std::fs::read_to_string("test_assets/ccsds/apm/APMExampleG3.txt").unwrap();
+        APM::from_str(&content).unwrap()
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_g1_kvn_round_trip() {
+        let apm1 = apm_g1();
+        let kvn = apm1.to_string(CCSDSFormat::KVN).unwrap();
+        let apm2 = APM::from_str(&kvn).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_g1_xml_round_trip() {
+        let apm1 = apm_g1();
+        let xml = apm1.to_string(CCSDSFormat::XML).unwrap();
+        let apm2 = APM::from_str(&xml).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_g1_json_round_trip() {
+        let apm1 = apm_g1();
+        let json = apm1.to_string(CCSDSFormat::JSON).unwrap();
+        let apm2 = APM::from_str(&json).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_g2_kvn_round_trip() {
+        let apm1 = apm_g2();
+        let kvn = apm1.to_string(CCSDSFormat::KVN).unwrap();
+        let apm2 = APM::from_str(&kvn).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_g2_xml_round_trip() {
+        let apm1 = apm_g2();
+        let xml = apm1.to_string(CCSDSFormat::XML).unwrap();
+        let apm2 = APM::from_str(&xml).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_g2_json_round_trip() {
+        let apm1 = apm_g2();
+        let json = apm1.to_string(CCSDSFormat::JSON).unwrap();
+        let apm2 = APM::from_str(&json).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_g3_kvn_round_trip() {
+        let apm1 = apm_g3();
+        let kvn = apm1.to_string(CCSDSFormat::KVN).unwrap();
+        let apm2 = APM::from_str(&kvn).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_g3_xml_round_trip() {
+        let apm1 = apm_g3();
+        let xml = apm1.to_string(CCSDSFormat::XML).unwrap();
+        let apm2 = APM::from_str(&xml).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_g3_json_round_trip() {
+        let apm1 = apm_g3();
+        let json = apm1.to_string(CCSDSFormat::JSON).unwrap();
+        let apm2 = APM::from_str(&json).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_from_str_detects_format() {
+        let apm1 = apm_g1();
+
+        let kvn = apm1.to_string(CCSDSFormat::KVN).unwrap();
+        let xml = apm1.to_string(CCSDSFormat::XML).unwrap();
+        let json = apm1.to_string(CCSDSFormat::JSON).unwrap();
+
+        assert_eq!(
+            APM::from_str(&kvn).unwrap().metadata.object_name,
+            apm1.metadata.object_name
+        );
+        assert_eq!(
+            APM::from_str(&xml).unwrap().metadata.object_name,
+            apm1.metadata.object_name
+        );
+        assert_eq!(
+            APM::from_str(&json).unwrap().metadata.object_name,
+            apm1.metadata.object_name
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_from_file_g1() {
+        let apm = APM::from_file("test_assets/ccsds/apm/APMExampleG1.txt").unwrap();
+        assert_eq!(apm.metadata.object_name, "TRMM");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_from_file_nonexistent() {
+        let result = APM::from_file("nonexistent_file.txt");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_to_string_no_blocks_rejected_all_formats() {
+        let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+        let apm = APM::new("BRAHE", metadata, Epoch::now());
+
+        assert!(apm.to_string(CCSDSFormat::KVN).is_err());
+        assert!(apm.to_string(CCSDSFormat::XML).is_err());
+        assert!(apm.to_string(CCSDSFormat::JSON).is_err());
+        assert!(apm.to_json_string(CCSDSJsonKeyCase::Upper).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_json_round_trip_key_cases() {
+        let apm1 = apm_g3();
+
+        let json_lower = apm1.to_json_string(CCSDSJsonKeyCase::Lower).unwrap();
+        assert!(json_lower.contains("\"object_name\""));
+        assert!(!json_lower.contains("\"OBJECT_NAME\""));
+        let apm_lower = APM::from_str(&json_lower).unwrap();
+        assert_apm_fields_match(&apm1, &apm_lower);
+
+        let json_upper = apm1.to_json_string(CCSDSJsonKeyCase::Upper).unwrap();
+        assert!(json_upper.contains("\"OBJECT_NAME\""));
+        assert!(!json_upper.contains("\"object_name\""));
+        let apm_upper = APM::from_str(&json_upper).unwrap();
+        assert_apm_fields_match(&apm1, &apm_upper);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_json_round_trip_preserves_data_comments() {
+        let apm1 = apm_g3();
+        assert!(!apm1.comments.is_empty());
+
+        let json = apm1.to_json_string(CCSDSJsonKeyCase::Lower).unwrap();
+        let apm2 = APM::from_str(&json).unwrap();
+        assert_eq!(apm1.comments, apm2.comments);
     }
 }

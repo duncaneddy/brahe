@@ -520,16 +520,20 @@ pub fn write_apm(apm: &APM) -> Result<String, BraheError> {
 
     let mut out = String::new();
 
-    // Header
+    // Header. Table 3-1 fixes the field order as VERS, COMMENT,
+    // CLASSIFICATION, CREATION_DATE, ORIGINATOR, MESSAGE_ID; comments must
+    // precede CLASSIFICATION so the parser (which routes any comment seen
+    // after the first non-VERS header keyword to the metadata section)
+    // attributes them back to the header on read.
     out.push_str(&format!(
         "CCSDS_APM_VERS = {:.1}\n",
         apm.header.format_version
     ));
-    if let Some(ref class) = apm.header.classification {
-        out.push_str(&format!("CLASSIFICATION = {}\n", class));
-    }
     for comment in &apm.header.comments {
         out.push_str(&format!("COMMENT {}\n", comment));
+    }
+    if let Some(ref class) = apm.header.classification {
+        out.push_str(&format!("CLASSIFICATION = {}\n", class));
     }
     out.push_str(&format!(
         "CREATION_DATE = {}\n",
@@ -2666,6 +2670,55 @@ mod tests {
         let written = write_apm(&apm1).unwrap();
         let apm2 = parse_apm(&written).unwrap();
         assert_apm_matches(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_header_comments_and_classification_round_trip() {
+        use crate::attitude::attitude_types::Quaternion;
+        use crate::ccsds::apm::APMMetadata;
+        use crate::ccsds::common::CCSDSTimeSystem;
+        use crate::ccsds::frames::ADMReferenceFrame;
+        use crate::time::Epoch;
+
+        let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+        let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+        apm.header = apm
+            .header
+            .with_classification("UNCLASSIFIED")
+            .with_comments(vec![
+                "first header comment".to_string(),
+                "second header comment".to_string(),
+            ]);
+        apm.push_quaternion_state(crate::ccsds::apm::APMQuaternionState::new(
+            ADMReferenceFrame::parse("ICRF"),
+            ADMReferenceFrame::parse("SC_BODY_1"),
+            Quaternion::new(1.0, 0.0, 0.0, 0.0),
+        ));
+
+        let written = write_apm(&apm).unwrap();
+        let vers_pos = written.find("CCSDS_APM_VERS").unwrap();
+        let comment_pos = written.find("COMMENT first header comment").unwrap();
+        let classification_pos = written.find("CLASSIFICATION").unwrap();
+        assert!(vers_pos < comment_pos, "VERS must precede COMMENT");
+        assert!(
+            comment_pos < classification_pos,
+            "COMMENT must precede CLASSIFICATION per table 3-1"
+        );
+
+        let parsed = parse_apm(&written).unwrap();
+        assert_eq!(
+            parsed.header.classification.as_deref(),
+            Some("UNCLASSIFIED")
+        );
+        assert_eq!(
+            parsed.header.comments,
+            vec![
+                "first header comment".to_string(),
+                "second header comment".to_string(),
+            ]
+        );
+        assert!(parsed.metadata.comments.is_empty());
     }
 
     #[test]

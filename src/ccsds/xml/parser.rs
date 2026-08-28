@@ -1560,7 +1560,7 @@ struct XMLAPMQuaternionDot {
 
 #[derive(Debug, Deserialize)]
 struct XMLAPMQuaternionState {
-    #[serde(rename = "COMMENT", default, deserialize_with = "deserialize_comments")]
+    #[serde(rename = "COMMENT", default)]
     comments: Vec<String>,
     #[serde(rename = "REF_FRAME_A")]
     ref_frame_a: String,
@@ -1573,7 +1573,7 @@ struct XMLAPMQuaternionState {
 
 #[derive(Debug, Deserialize)]
 struct XMLAPMEulerState {
-    #[serde(rename = "COMMENT", default, deserialize_with = "deserialize_comments")]
+    #[serde(rename = "COMMENT", default)]
     comments: Vec<String>,
     #[serde(rename = "REF_FRAME_A")]
     ref_frame_a: String,
@@ -1597,7 +1597,7 @@ struct XMLAPMEulerState {
 
 #[derive(Debug, Deserialize)]
 struct XMLAPMAngularVelocity {
-    #[serde(rename = "COMMENT", default, deserialize_with = "deserialize_comments")]
+    #[serde(rename = "COMMENT", default)]
     comments: Vec<String>,
     #[serde(rename = "REF_FRAME_A")]
     ref_frame_a: String,
@@ -1615,7 +1615,7 @@ struct XMLAPMAngularVelocity {
 
 #[derive(Debug, Deserialize)]
 struct XMLAPMSpin {
-    #[serde(rename = "COMMENT", default, deserialize_with = "deserialize_comments")]
+    #[serde(rename = "COMMENT", default)]
     comments: Vec<String>,
     #[serde(rename = "REF_FRAME_A")]
     ref_frame_a: String,
@@ -1645,7 +1645,7 @@ struct XMLAPMSpin {
 
 #[derive(Debug, Deserialize)]
 struct XMLAPMInertia {
-    #[serde(rename = "COMMENT", default, deserialize_with = "deserialize_comments")]
+    #[serde(rename = "COMMENT", default)]
     comments: Vec<String>,
     #[serde(rename = "INERTIA_REF_FRAME")]
     inertia_ref_frame: String,
@@ -1665,7 +1665,7 @@ struct XMLAPMInertia {
 
 #[derive(Debug, Deserialize)]
 struct XMLAPMManeuver {
-    #[serde(rename = "COMMENT", default, deserialize_with = "deserialize_comments")]
+    #[serde(rename = "COMMENT", default)]
     comments: Vec<String>,
     #[serde(rename = "MAN_EPOCH_START")]
     epoch_start: String,

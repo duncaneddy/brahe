@@ -151,6 +151,8 @@ jobs:
             -   name: Warm star catalog cache (re-download anything evicted)
                 id: warm-star-catalogs
                 continue-on-error: true
+                env:
+                    BRAHE_NETWORK_MODE: online
                 run: |
                     dir=~/.cache/brahe/star_catalogs
                     mkdir -p "$dir"
@@ -203,6 +205,11 @@ jobs:
                 with:
                     path: ~/.local/share/cartopy
                     key: cartopy-natural-earth-v1
+            # This step runs after the family save steps above, so
+            # `just download-resources` must fetch only artifacts that are
+            # either in the manifest (already saved by those steps) or
+            # covered by the three plot-resource cache steps directly above:
+            # anything else it downloads here is never persisted.
             -   name: Warm plot resources
                 id: warm-plots
                 continue-on-error: true

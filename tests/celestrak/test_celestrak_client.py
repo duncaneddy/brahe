@@ -325,3 +325,10 @@ class TestCelestrakClientActiveResolution:
         propagator = client.get_sgp_propagator(catnr=25544, step_size=60.0)
         assert isinstance(propagator, bh.SGPPropagator)
         assert [r.get("GROUP") for r in requests] == ["active"]
+
+    def test_zero_cache_age_sends_query_directly(self, celestrak_server):
+        base_url, requests = celestrak_server
+        client = bh.celestrak.CelestrakClient(base_url=base_url, cache_max_age=0.0)
+        client.get_gp(catnr=25544)
+        assert [r.get("GROUP") for r in requests] == [None]
+        assert requests[0].get("CATNR") == "25544"

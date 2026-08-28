@@ -660,7 +660,8 @@ impl CelestrakClient {
         selector: &LocalSelector,
     ) -> Result<Option<Vec<GPRecord>>, BraheError> {
         if let Some(since) = ACTIVE_UNAVAILABLE_SINCE.lock().unwrap().get(&self.base_url)
-            && since.elapsed() < Duration::from_secs_f64(self.cache_max_age)
+            && since.elapsed()
+                < Duration::try_from_secs_f64(self.cache_max_age).unwrap_or(Duration::MAX)
         {
             return Ok(None);
         }
@@ -2065,5 +2066,39 @@ mod tests {
         std::thread::sleep(Duration::from_millis(600));
         client.get_gp_by_catnr(34427).unwrap();
         active.assert_calls(2);
+    }
+
+    #[test]
+    #[serial]
+    fn test_active_latch_with_infinite_cache_age_does_not_panic() {
+        clear_active_unavailable_latch();
+        let server = MockServer::start();
+        let active = server.mock(|when, then| {
+            when.method(GET)
+                .path("/NORAD/elements/gp.php")
+                .query_param("GROUP", "active");
+            then.status(404);
+        });
+        let single = server.mock(|when, then| {
+            when.method(GET)
+                .path("/NORAD/elements/gp.php")
+                .query_param("CATNR", "34427");
+            then.status(200).body(SINGLE_JSON);
+        });
+        let client =
+            CelestrakClient::with_base_url_and_cache_age(&server.base_url(), f64::INFINITY);
+
+        // Fresh per-object cache for each call isolates the latch, as in
+        // test_active_failure_is_latched_for_cache_age.
+        {
+            let _cache = CacheRedirect::new();
+            client.get_gp_by_catnr(34427).unwrap();
+        }
+        {
+            let _cache = CacheRedirect::new();
+            client.get_gp_by_catnr(34427).unwrap();
+        }
+        active.assert_calls(1);
+        single.assert_calls(2);
     }
 }

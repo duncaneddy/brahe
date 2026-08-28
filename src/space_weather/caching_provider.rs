@@ -167,6 +167,25 @@ impl CachingSpaceWeatherProvider {
     /// * `max_age` - Maximum age of cached file in seconds
     /// * `auto_refresh` - If true, automatically check file age on each access
     /// * `extrapolate` - Extrapolation behavior
+    ///
+    /// # Returns
+    ///
+    /// * `Result<CachingSpaceWeatherProvider, BraheError>` - CachingSpaceWeatherProvider with
+    ///   loaded data, or an error
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use brahe::space_weather::{CachingSpaceWeatherProvider, SpaceWeatherExtrapolation};
+    ///
+    /// let provider = CachingSpaceWeatherProvider::with_url(
+    ///     "https://celestrak.org/SpaceData/sw19571001.txt",
+    ///     None,
+    ///     7 * 86400,
+    ///     false,
+    ///     SpaceWeatherExtrapolation::Hold,
+    /// ).unwrap();
+    /// ```
     pub fn with_url(
         url: &str,
         cache_dir: Option<PathBuf>,
@@ -188,7 +207,7 @@ impl CachingSpaceWeatherProvider {
         }
 
         // Check if we need to download
-        let needs_download = Self::check_file_age(&cache_path, max_age)?;
+        let needs_download = Self::needs_download(&cache_path, max_age)?;
 
         if needs_download {
             download_from_url(url, &cache_path)?;
@@ -280,7 +299,7 @@ impl CachingSpaceWeatherProvider {
     /// # Returns
     ///
     /// * `Ok(true)` - The file must be downloaded
-    /// * `Ok(false)` - The cached file (or a to-be-seeded missing file) may be served as-is
+    /// * `Ok(false)` - The existing cached file may be served as-is
     /// * `Err(BraheError)` - `BRAHE_NETWORK_MODE` is `offline-strict` and the file is stale
     fn needs_download(filepath: &Path, max_age_seconds: u64) -> Result<bool, BraheError> {
         if !filepath.exists() {
@@ -691,6 +710,34 @@ mod tests {
         .to_string();
         assert!(err.contains("space weather file"), "{err}");
         assert!(err.contains("is older than its cache limit"), "{err}");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_with_url_offline_serves_stale_file_without_download() {
+        let _mode = NetworkModeGuard::set(Some("offline"));
+        let dir = TempDir::new().unwrap();
+        let filepath = dir.path().join(DEFAULT_SW_FILENAME);
+        fs::write(&filepath, PACKAGED_SW_FILE).unwrap();
+        let file = File::options().write(true).open(&filepath).unwrap();
+        file.set_modified(SystemTime::now() - Duration::from_secs(30 * 86400))
+            .unwrap();
+
+        let provider = CachingSpaceWeatherProvider::with_url(
+            "http://127.0.0.1:9/unused",
+            Some(dir.path().to_path_buf()),
+            7 * 86400,
+            true,
+            SpaceWeatherExtrapolation::Hold,
+        )
+        .unwrap();
+        assert!(provider.len() > 0);
+
+        // No download happened: the file on disk still carries the back-dated mtime.
+        let age_after_new = SystemTime::now()
+            .duration_since(fs::metadata(&filepath).unwrap().modified().unwrap())
+            .unwrap();
+        assert!(age_after_new > Duration::from_secs(29 * 86400));
     }
 
     #[test]

@@ -984,4 +984,56 @@ mod tests {
             assert_eq!(ADMReferenceFrame::parse(token).to_string(), token);
         }
     }
+
+    #[test]
+    #[parallel]
+    fn test_celestial_body_frame_dtrf_bare() {
+        assert_eq!(
+            CCSDSCelestialBodyFrame::parse("DTRF"),
+            CCSDSCelestialBodyFrame::DTRF(None)
+        );
+        assert_eq!(CCSDSCelestialBodyFrame::parse("DTRF").to_string(), "DTRF");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_spacecraft_body_frame_parse_non_underscore_suffix() {
+        // "AST12" matches the "AST" family prefix but the remainder is not
+        // underscore-delimited, so it does not form a valid instance
+        // designator and the token falls through to `Other`.
+        assert_eq!(
+            CCSDSSpacecraftBodyFrame::parse("AST12"),
+            CCSDSSpacecraftBodyFrame::Other("AST12".to_string())
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_celestial_body_frame_from_impl() {
+        let frame: ADMReferenceFrame = CCSDSCelestialBodyFrame::EME2000.into();
+        assert_eq!(
+            frame,
+            ADMReferenceFrame::Celestial(CCSDSCelestialBodyFrame::EME2000)
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_orbit_relative_frame_from_impl() {
+        let frame: ADMReferenceFrame = CCSDSOrbitRelativeFrame::RSWRotating.into();
+        assert_eq!(
+            frame,
+            ADMReferenceFrame::OrbitRelative(CCSDSOrbitRelativeFrame::RSWRotating)
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_spacecraft_body_frame_from_impl() {
+        let frame: ADMReferenceFrame = CCSDSSpacecraftBodyFrame::SCBody(None).into();
+        assert_eq!(
+            frame,
+            ADMReferenceFrame::Spacecraft(CCSDSSpacecraftBodyFrame::SCBody(None))
+        );
+    }
 }

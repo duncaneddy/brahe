@@ -256,4 +256,68 @@ mod tests {
         assert_eq!(a, b);
         assert_ne!(a, AttitudeFrame::Reference(ReferenceFrame::GCRF));
     }
+
+    #[test]
+    #[parallel]
+    fn test_orbit_relative_kind_display_all_variants() {
+        let cases = [
+            (OrbitRelativeKind::LVLH, "LVLH"),
+            (OrbitRelativeKind::RTN, "RTN"),
+            (OrbitRelativeKind::NTW, "NTW"),
+            (OrbitRelativeKind::TNW, "TNW"),
+            (OrbitRelativeKind::PQW, "PQW"),
+            (OrbitRelativeKind::EQW, "EQW"),
+            (OrbitRelativeKind::SEZ, "SEZ"),
+            (OrbitRelativeKind::VNC, "VNC"),
+            (OrbitRelativeKind::NSW, "NSW"),
+        ];
+        for (kind, expected) in cases {
+            assert_eq!(kind.to_string(), expected);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_orbit_relative_variant_display() {
+        assert_eq!(OrbitRelativeVariant::Rotating.to_string(), "rotating");
+        assert_eq!(OrbitRelativeVariant::Inertial.to_string(), "inertial");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_spacecraft_frame_display_all_variants() {
+        let cases = [
+            (SpacecraftFrame::ACC(Some("1".to_string())), "ACC_1"),
+            (SpacecraftFrame::Actuator(None), "ACTUATOR"),
+            (SpacecraftFrame::AST(Some("1".to_string())), "AST_1"),
+            (SpacecraftFrame::CSS(Some("2".to_string())), "CSS_2"),
+            (SpacecraftFrame::DSS(Some("1".to_string())), "DSS_1"),
+            (SpacecraftFrame::ESA(Some("1".to_string())), "ESA_1"),
+            (
+                SpacecraftFrame::GyroFrame(Some("1".to_string())),
+                "GYRO_FRAME_1",
+            ),
+            (
+                SpacecraftFrame::IMUFrame(Some("2".to_string())),
+                "IMU_FRAME_2",
+            ),
+            (
+                SpacecraftFrame::Instrument(Some("A".to_string())),
+                "INSTRUMENT_A",
+            ),
+            (SpacecraftFrame::MTA(Some("1".to_string())), "MTA_1"),
+            (SpacecraftFrame::RW(Some("4".to_string())), "RW_4"),
+            (SpacecraftFrame::SA(Some("1".to_string())), "SA_1"),
+            (SpacecraftFrame::SCBody(None), "SC_BODY"),
+            (SpacecraftFrame::Sensor(Some("10".to_string())), "SENSOR_10"),
+            (
+                SpacecraftFrame::StarTracker(Some("2".to_string())),
+                "STARTRACKER_2",
+            ),
+            (SpacecraftFrame::TAM(Some("1".to_string())), "TAM_1"),
+        ];
+        for (frame, expected) in cases {
+            assert_eq!(frame.to_string(), expected);
+        }
+    }
 }

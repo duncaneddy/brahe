@@ -629,7 +629,6 @@ pub fn strip_units(value: &str) -> &str {
 ///
 /// * `Result<EulerAngleOrder, BraheError>` - The parsed rotation order, or a
 ///   `ParseError` naming the offending value.
-#[allow(dead_code)] // consumed by the APM/AEM KVN, XML, and JSON codecs
 pub(crate) fn parse_euler_rot_seq(
     s: &str,
 ) -> Result<EulerAngleOrder, crate::utils::errors::BraheError> {
@@ -665,7 +664,6 @@ pub(crate) fn parse_euler_rot_seq(
 /// # Returns
 ///
 /// * `String` - The three-letter sequence (e.g. `"ZXZ"`).
-#[allow(dead_code)] // consumed by the APM/AEM KVN, XML, and JSON codecs
 pub(crate) fn format_euler_rot_seq(order: EulerAngleOrder) -> String {
     match order {
         EulerAngleOrder::XYX => "XYX",

@@ -2,10 +2,14 @@
  * KVN writer for CCSDS OEM, OMM, and OPM messages.
  */
 
+use crate::ccsds::apm::{APM, APMNutation};
 use crate::ccsds::common::{
-    CCSDSTimeSystem, covariance_to_lower_triangular, format_ccsds_datetime_in, round_ccsds_value,
+    CCSDSTimeSystem, covariance_to_lower_triangular, format_ccsds_datetime,
+    format_ccsds_datetime_in, format_euler_rot_seq, round_ccsds_value,
 };
+use crate::ccsds::error::ccsds_missing_field;
 use crate::ccsds::oem::OEM;
+use crate::constants::RAD2DEG;
 use crate::utils::errors::BraheError;
 
 /// Write an OEM message to KVN format.
@@ -503,6 +507,207 @@ fn write_kvn_user_defined(out: &mut String, ud: &Option<crate::ccsds::common::CC
             out.push_str(&format!("USER_DEFINED_{} = {}\n", k, v));
         }
     }
+}
+
+/// Write an APM message to KVN format.
+///
+/// Requires at least one logical block to be present (504.0-B-2 §3.2.4.3);
+/// use [`crate::ccsds::apm::APM::has_blocks`] to check before writing.
+pub fn write_apm(apm: &APM) -> Result<String, BraheError> {
+    if !apm.has_blocks() {
+        return Err(ccsds_missing_field("APM", "at least one logical block"));
+    }
+
+    let mut out = String::new();
+
+    // Header
+    out.push_str(&format!(
+        "CCSDS_APM_VERS = {:.1}\n",
+        apm.header.format_version
+    ));
+    if let Some(ref class) = apm.header.classification {
+        out.push_str(&format!("CLASSIFICATION = {}\n", class));
+    }
+    for comment in &apm.header.comments {
+        out.push_str(&format!("COMMENT {}\n", comment));
+    }
+    out.push_str(&format!(
+        "CREATION_DATE = {}\n",
+        format_ccsds_datetime(&apm.header.creation_date)
+    ));
+    out.push_str(&format!("ORIGINATOR = {}\n", apm.header.originator));
+    if let Some(ref msg_id) = apm.header.message_id {
+        out.push_str(&format!("MESSAGE_ID = {}\n", msg_id));
+    }
+    out.push('\n');
+
+    // Metadata
+    for comment in &apm.metadata.comments {
+        out.push_str(&format!("COMMENT {}\n", comment));
+    }
+    out.push_str(&format!("OBJECT_NAME = {}\n", apm.metadata.object_name));
+    out.push_str(&format!("OBJECT_ID = {}\n", apm.metadata.object_id));
+    if let Some(ref center) = apm.metadata.center_name {
+        out.push_str(&format!("CENTER_NAME = {}\n", center));
+    }
+    out.push_str(&format!("TIME_SYSTEM = {}\n", apm.metadata.time_system));
+
+    // Data top-level comments and epoch
+    for comment in &apm.comments {
+        out.push_str(&format!("COMMENT {}\n", comment));
+    }
+    out.push_str(&format!("EPOCH = {}\n", format_ccsds_datetime(&apm.epoch)));
+
+    // Quaternion blocks
+    for q in &apm.quaternion_states {
+        out.push_str("\nQUAT_START\n");
+        for comment in &q.comments {
+            out.push_str(&format!("COMMENT {}\n", comment));
+        }
+        out.push_str(&format!("REF_FRAME_A = {}\n", q.ref_frame_a));
+        out.push_str(&format!("REF_FRAME_B = {}\n", q.ref_frame_b));
+        let v = q.quaternion.to_vector(false);
+        out.push_str(&format!("Q1 = {}\n", v[0]));
+        out.push_str(&format!("Q2 = {}\n", v[1]));
+        out.push_str(&format!("Q3 = {}\n", v[2]));
+        out.push_str(&format!("QC = {}\n", v[3]));
+        if let Some(d) = q.quaternion_derivative {
+            // d is stored scalar-first; wire order is scalar-last.
+            out.push_str(&format!("Q1_DOT = {}\n", d[1]));
+            out.push_str(&format!("Q2_DOT = {}\n", d[2]));
+            out.push_str(&format!("Q3_DOT = {}\n", d[3]));
+            out.push_str(&format!("QC_DOT = {}\n", d[0]));
+        }
+        out.push_str("QUAT_STOP\n");
+    }
+
+    // Euler angle blocks
+    for e in &apm.euler_states {
+        out.push_str("\nEULER_START\n");
+        for comment in &e.comments {
+            out.push_str(&format!("COMMENT {}\n", comment));
+        }
+        out.push_str(&format!("REF_FRAME_A = {}\n", e.ref_frame_a));
+        out.push_str(&format!("REF_FRAME_B = {}\n", e.ref_frame_b));
+        out.push_str(&format!(
+            "EULER_ROT_SEQ = {}\n",
+            format_euler_rot_seq(e.angles.order)
+        ));
+        out.push_str(&format!("ANGLE_1 = {}\n", e.angles.phi * RAD2DEG));
+        out.push_str(&format!("ANGLE_2 = {}\n", e.angles.theta * RAD2DEG));
+        out.push_str(&format!("ANGLE_3 = {}\n", e.angles.psi * RAD2DEG));
+        if let Some(r) = e.rates {
+            out.push_str(&format!("ANGLE_1_DOT = {}\n", r[0] * RAD2DEG));
+            out.push_str(&format!("ANGLE_2_DOT = {}\n", r[1] * RAD2DEG));
+            out.push_str(&format!("ANGLE_3_DOT = {}\n", r[2] * RAD2DEG));
+        }
+        out.push_str("EULER_STOP\n");
+    }
+
+    // Angular velocity blocks
+    for av in &apm.angular_velocities {
+        out.push_str("\nANGVEL_START\n");
+        for comment in &av.comments {
+            out.push_str(&format!("COMMENT {}\n", comment));
+        }
+        out.push_str(&format!("REF_FRAME_A = {}\n", av.ref_frame_a));
+        out.push_str(&format!("REF_FRAME_B = {}\n", av.ref_frame_b));
+        out.push_str(&format!("ANGVEL_FRAME = {}\n", av.angvel_frame));
+        out.push_str(&format!(
+            "ANGVEL_X = {}\n",
+            av.angular_velocity[0] * RAD2DEG
+        ));
+        out.push_str(&format!(
+            "ANGVEL_Y = {}\n",
+            av.angular_velocity[1] * RAD2DEG
+        ));
+        out.push_str(&format!(
+            "ANGVEL_Z = {}\n",
+            av.angular_velocity[2] * RAD2DEG
+        ));
+        out.push_str("ANGVEL_STOP\n");
+    }
+
+    // Spin blocks
+    for s in &apm.spins {
+        out.push_str("\nSPIN_START\n");
+        for comment in &s.comments {
+            out.push_str(&format!("COMMENT {}\n", comment));
+        }
+        out.push_str(&format!("REF_FRAME_A = {}\n", s.ref_frame_a));
+        out.push_str(&format!("REF_FRAME_B = {}\n", s.ref_frame_b));
+        out.push_str(&format!("SPIN_ALPHA = {}\n", s.spin_alpha * RAD2DEG));
+        out.push_str(&format!("SPIN_DELTA = {}\n", s.spin_delta * RAD2DEG));
+        out.push_str(&format!("SPIN_ANGLE = {}\n", s.spin_angle * RAD2DEG));
+        out.push_str(&format!(
+            "SPIN_ANGLE_VEL = {}\n",
+            s.spin_angle_vel * RAD2DEG
+        ));
+        match &s.nutation {
+            APMNutation::None => {}
+            APMNutation::Angle {
+                nutation,
+                nutation_period,
+                nutation_phase,
+            } => {
+                out.push_str(&format!("NUTATION = {}\n", nutation * RAD2DEG));
+                out.push_str(&format!("NUTATION_PER = {}\n", nutation_period));
+                out.push_str(&format!("NUTATION_PHASE = {}\n", nutation_phase * RAD2DEG));
+            }
+            APMNutation::Momentum {
+                momentum_alpha,
+                momentum_delta,
+                nutation_vel,
+            } => {
+                out.push_str(&format!("MOMENTUM_ALPHA = {}\n", momentum_alpha * RAD2DEG));
+                out.push_str(&format!("MOMENTUM_DELTA = {}\n", momentum_delta * RAD2DEG));
+                out.push_str(&format!("NUTATION_VEL = {}\n", nutation_vel * RAD2DEG));
+            }
+        }
+        out.push_str("SPIN_STOP\n");
+    }
+
+    // Inertia blocks
+    for i in &apm.inertias {
+        out.push_str("\nINERTIA_START\n");
+        for comment in &i.comments {
+            out.push_str(&format!("COMMENT {}\n", comment));
+        }
+        out.push_str(&format!("INERTIA_REF_FRAME = {}\n", i.inertia_ref_frame));
+        out.push_str(&format!("IXX = {}\n", i.ixx));
+        out.push_str(&format!("IYY = {}\n", i.iyy));
+        out.push_str(&format!("IZZ = {}\n", i.izz));
+        out.push_str(&format!("IXY = {}\n", i.ixy));
+        out.push_str(&format!("IXZ = {}\n", i.ixz));
+        out.push_str(&format!("IYZ = {}\n", i.iyz));
+        out.push_str("INERTIA_STOP\n");
+    }
+
+    // Maneuver blocks
+    for m in &apm.maneuvers {
+        out.push_str("\nMAN_START\n");
+        for comment in &m.comments {
+            out.push_str(&format!("COMMENT {}\n", comment));
+        }
+        out.push_str(&format!(
+            "MAN_EPOCH_START = {}\n",
+            format_ccsds_datetime(&m.epoch_start)
+        ));
+        out.push_str(&format!("MAN_DURATION = {}\n", m.duration));
+        out.push_str(&format!("MAN_REF_FRAME = {}\n", m.ref_frame));
+        out.push_str(&format!("MAN_TOR_X = {}\n", m.torque[0]));
+        out.push_str(&format!("MAN_TOR_Y = {}\n", m.torque[1]));
+        out.push_str(&format!("MAN_TOR_Z = {}\n", m.torque[2]));
+        if let Some(dm) = m.delta_mass {
+            out.push_str(&format!("MAN_DELTA_MASS = {}\n", dm));
+        }
+        out.push_str("MAN_STOP\n");
+    }
+
+    // User-defined parameters
+    write_kvn_user_defined(&mut out, &apm.user_defined);
+
+    Ok(out)
 }
 
 /// Write a CDM message to KVN format.
@@ -2368,5 +2573,116 @@ mod tests {
                 format
             );
         }
+    }
+
+    // ------------------------------------------------------------------
+    // APM
+    // ------------------------------------------------------------------
+
+    use crate::ccsds::kvn::parse_apm;
+    use serial_test::parallel;
+
+    /// Compares the fields the APM KVN codec round-trips exactly (header,
+    /// metadata, epoch, and per-block counts/values), field by field.
+    fn assert_apm_matches(a: &APM, b: &APM) {
+        assert!((a.header.format_version - b.header.format_version).abs() < 1e-9);
+        assert_eq!(a.header.originator, b.header.originator);
+        assert_eq!(a.header.message_id, b.header.message_id);
+        assert_eq!(a.metadata.object_name, b.metadata.object_name);
+        assert_eq!(a.metadata.object_id, b.metadata.object_id);
+        assert_eq!(a.metadata.center_name, b.metadata.center_name);
+        assert_eq!(a.metadata.time_system, b.metadata.time_system);
+        assert!((a.epoch - b.epoch).abs() < 1e-6);
+
+        assert_eq!(a.quaternion_states.len(), b.quaternion_states.len());
+        for (qa, qb) in a.quaternion_states.iter().zip(b.quaternion_states.iter()) {
+            assert_eq!(qa.ref_frame_a, qb.ref_frame_a);
+            assert_eq!(qa.ref_frame_b, qb.ref_frame_b);
+            let va = qa.quaternion.to_vector(false);
+            let vb = qb.quaternion.to_vector(false);
+            for i in 0..4 {
+                assert!((va[i] - vb[i]).abs() < 1e-6);
+            }
+        }
+
+        assert_eq!(a.euler_states.len(), b.euler_states.len());
+        for (ea, eb) in a.euler_states.iter().zip(b.euler_states.iter()) {
+            assert_eq!(ea.ref_frame_a, eb.ref_frame_a);
+            assert_eq!(ea.ref_frame_b, eb.ref_frame_b);
+            assert!(ea.angles.order == eb.angles.order);
+            assert!((ea.angles.phi - eb.angles.phi).abs() < 1e-9);
+            assert!((ea.angles.theta - eb.angles.theta).abs() < 1e-9);
+            assert!((ea.angles.psi - eb.angles.psi).abs() < 1e-9);
+        }
+
+        assert_eq!(a.inertias.len(), b.inertias.len());
+        for (ia, ib) in a.inertias.iter().zip(b.inertias.iter()) {
+            assert_eq!(ia.inertia_ref_frame, ib.inertia_ref_frame);
+            assert!((ia.ixx - ib.ixx).abs() < 1e-6);
+            assert!((ia.iyy - ib.iyy).abs() < 1e-6);
+            assert!((ia.izz - ib.izz).abs() < 1e-6);
+            assert!((ia.ixy - ib.ixy).abs() < 1e-6);
+            assert!((ia.ixz - ib.ixz).abs() < 1e-6);
+            assert!((ia.iyz - ib.iyz).abs() < 1e-6);
+        }
+
+        assert_eq!(a.maneuvers.len(), b.maneuvers.len());
+        for (ma, mb) in a.maneuvers.iter().zip(b.maneuvers.iter()) {
+            assert!((ma.epoch_start - mb.epoch_start).abs() < 1e-6);
+            assert!((ma.duration - mb.duration).abs() < 1e-9);
+            assert_eq!(ma.ref_frame, mb.ref_frame);
+            for i in 0..3 {
+                assert!((ma.torque[i] - mb.torque[i]).abs() < 1e-9);
+            }
+            assert_eq!(ma.delta_mass, mb.delta_mass);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_kvn_round_trip_g1() {
+        let content = std::fs::read_to_string("test_assets/ccsds/apm/APMExampleG1.txt").unwrap();
+        let apm1 = parse_apm(&content).unwrap();
+        let written = write_apm(&apm1).unwrap();
+        let apm2 = parse_apm(&written).unwrap();
+        assert_apm_matches(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_kvn_round_trip_g2() {
+        let content = std::fs::read_to_string("test_assets/ccsds/apm/APMExampleG2.txt").unwrap();
+        let apm1 = parse_apm(&content).unwrap();
+        let written = write_apm(&apm1).unwrap();
+        let apm2 = parse_apm(&written).unwrap();
+        assert_apm_matches(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_kvn_round_trip_g3() {
+        let content = std::fs::read_to_string("test_assets/ccsds/apm/APMExampleG3.txt").unwrap();
+        let apm1 = parse_apm(&content).unwrap();
+        let written = write_apm(&apm1).unwrap();
+        let apm2 = parse_apm(&written).unwrap();
+        assert_apm_matches(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_write_no_blocks_rejected() {
+        use crate::ccsds::apm::APMMetadata;
+        use crate::ccsds::common::CCSDSTimeSystem;
+        use crate::time::Epoch;
+
+        let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+        let apm = APM::new("BRAHE", metadata, Epoch::now());
+        let err = write_apm(&apm).unwrap_err();
+        let msg = format!("{}", err);
+        assert!(
+            msg.contains("at least one logical block"),
+            "unexpected message: {}",
+            msg
+        );
     }
 }

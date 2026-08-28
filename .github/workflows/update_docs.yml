@@ -35,10 +35,9 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email github-actions[bot]@users.noreply.github.com
 
-      # NETWORK-flagged examples (the GCAT, ICGEM, NAIF, star-catalog,
-      # Horizons, and SBDB dataset examples) are skipped by the --ci-only run
-      # that builds the doc-figures artifact, so their figures only exist in
-      # the cache saved by the weekly --network integration run
+      # The NETWORK-flagged examples are skipped by the --ci-only run that
+      # builds the doc-figures artifact, so their figures only exist in the
+      # cache saved by the weekly --network integration run
       # (test_examples.yml with use_retry). Restore it BEFORE the artifact
       # download so the fresher --ci-only figures overwrite any overlapping
       # files.

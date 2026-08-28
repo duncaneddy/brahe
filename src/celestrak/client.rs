@@ -592,6 +592,12 @@ impl CelestrakClient {
     ///
     /// * `Ok(Vec<GPRecord>)` - Parsed records
     /// * `Err(BraheError)` - If the body is not a JSON array of GP records
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let records = CelestrakClient::parse_gp_records(&body)?;
+    /// ```
     fn parse_gp_records(body: &str) -> Result<Vec<GPRecord>, BraheError> {
         serde_json::from_str(body).map_err(|e| {
             BraheError::ParseError(format!(
@@ -614,6 +620,12 @@ impl CelestrakClient {
     /// * `Ok(Vec<GPRecord>)` - Matching records from whichever step answered
     /// * `Err(BraheError)` - On cache I/O or parse errors, or when the
     ///   per-object request is needed and `BRAHE_NETWORK_MODE` forbids it
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let records = client.resolve_single_object(&json_query, &selector)?;
+    /// ```
     fn resolve_single_object(
         &self,
         json_query: &CelestrakQuery,
@@ -675,6 +687,14 @@ impl CelestrakClient {
     ///   base URL for `cache_max_age` seconds, during which later calls
     ///   return `Ok(None)` without attempting the group again
     /// * `Err(BraheError)` - If the network mode cannot be read
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// if let Some(records) = client.resolve_from_active(&selector)? {
+    ///     return Ok(records);
+    /// }
+    /// ```
     fn resolve_from_active(
         &self,
         selector: &LocalSelector,
@@ -885,6 +905,12 @@ impl Default for CelestrakClient {
 /// Tests that exercise single-object resolution call this first so a
 /// latched failure from an earlier test cannot suppress an `active` fetch
 /// it expects to happen.
+///
+/// # Examples
+///
+/// ```ignore
+/// clear_active_unavailable_latch();
+/// ```
 #[cfg(test)]
 pub(crate) fn clear_active_unavailable_latch() {
     ACTIVE_UNAVAILABLE_SINCE.lock().unwrap().clear();

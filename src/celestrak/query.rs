@@ -106,6 +106,12 @@ impl LocalSelector {
     /// * `bool` - `true` if the record is the object (or, for `Name`, one of
     ///   the objects) the selector names; a record missing the relevant field
     ///   never matches
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// assert!(LocalSelector::Catnr(25544).matches(&record));
+    /// ```
     pub(crate) fn matches(&self, record: &GPRecord) -> bool {
         match self {
             LocalSelector::Catnr(catnr) => record.norad_cat_id == Some(*catnr),
@@ -446,6 +452,15 @@ impl CelestrakQuery {
     ///
     /// * `Some(LocalSelector)` - The selector to match against `active`
     /// * `None` - Any other query, which must be sent to the server as is
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// assert_eq!(
+    ///     CelestrakQuery::gp().catnr(25544).local_selector(),
+    ///     Some(LocalSelector::Catnr(25544))
+    /// );
+    /// ```
     pub(crate) fn local_selector(&self) -> Option<LocalSelector> {
         if self.query_type != CelestrakQueryType::GP
             || self.group.is_some()

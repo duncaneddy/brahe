@@ -73,7 +73,7 @@ jobs:
             # This job has no Python environment to run the warm script, so it
             # is offline only when every restored cache family (NAIF, ICGEM,
             # SBDB + Horizons, star catalogs) was an exact hit; otherwise it
-            # downloads the kernels once.
+            # downloads the missing data once.
             -   name: Run Rust tests with coverage
                 # Limit rust-unit coverage to the core `brahe` crate. The `brahe-py`
                 # workspace member has no Rust unit tests (it's exercised by pytest),
@@ -165,7 +165,7 @@ jobs:
             # This job has no Python environment to run the warm script, so it
             # is offline only when every restored cache family (NAIF, ICGEM,
             # SBDB + Horizons, star catalogs) was an exact hit; otherwise it
-            # downloads the kernels once.
+            # downloads the missing data once.
             -   name: Run Rust doc tests
                 env:
                     BRAHE_NETWORK_MODE: ${{ steps.naif-cache.outputs.cache-hit == 'true' && steps.icgem-cache.outputs.cache-hit == 'true' && steps.sbdb-horizons-cache.outputs.cache-hit == 'true' && steps.star-catalogs-cache.outputs.cache-hit == 'true' && inputs.network_mode || 'online' }}

@@ -101,3 +101,110 @@ def test_angular_velocity_to_euler_rates_singularities():
     sym = EulerAngle(EulerAngleOrder.ZXZ, 0.4, 0.0, 0.1, AngleFormat.RADIANS)
     with pytest.raises(BraheError):
         angular_velocity_to_euler_rates(sym, np.array([0.1, 0.0, 0.0]))
+
+
+def test_quaternion_derivative_matches_rotation_matrix_derivative():
+    q0 = Quaternion.from_euler_angle(
+        EulerAngle(EulerAngleOrder.XYZ, 0.2, 0.5, -0.3, AngleFormat.RADIANS)
+    )
+    w = 0.9
+    omega = np.array([0.0, 0.0, w])
+    t = 0.8
+    dt = 1e-6
+
+    def q_at(tau):
+        half = 0.5 * w * tau
+        spin = Quaternion(cos(half), 0.0, 0.0, sin(half))
+        return q0 * spin
+
+    # Central difference on raw components with hemisphere continuity enforced
+    qc = np.array(q_at(t).to_vector(True))
+    qp = np.array(q_at(t + dt).to_vector(True))
+    qm = np.array(q_at(t - dt).to_vector(True))
+    if np.dot(qp, qc) < 0.0:
+        qp = -qp
+    if np.dot(qm, qc) < 0.0:
+        qm = -qm
+    q_dot_numeric = (qp - qm) / (2.0 * dt)
+
+    q_dot = quaternion_derivative(q_at(t), omega)
+    for i in range(4):
+        assert q_dot[i] == pytest.approx(q_dot_numeric[i], abs=1e-8)
+
+    # Cross-check omega against the matrix route used in src/frames/custom.rs
+    def r(tau):
+        return np.array(q_at(tau).to_rotation_matrix().to_matrix())
+
+    r_dot = (r(t + dt) - r(t - dt)) / (2.0 * dt)
+    s = -r_dot @ r(t).T
+    omega_matrix = np.array(
+        [
+            (s[2, 1] - s[1, 2]) / 2.0,
+            (s[0, 2] - s[2, 0]) / 2.0,
+            (s[1, 0] - s[0, 1]) / 2.0,
+        ]
+    )
+    omega_recovered = angular_velocity_from_quaternion_derivative(q_at(t), q_dot)
+    for i in range(3):
+        assert omega_matrix[i] == pytest.approx(omega[i], abs=1e-6)
+        assert omega_recovered[i] == pytest.approx(omega[i], abs=1e-10)
+
+
+@pytest.mark.parametrize(
+    "order",
+    [
+        EulerAngleOrder.XYZ,
+        EulerAngleOrder.XZY,
+        EulerAngleOrder.YXZ,
+        EulerAngleOrder.YZX,
+        EulerAngleOrder.ZXY,
+        EulerAngleOrder.ZYX,
+        EulerAngleOrder.XYX,
+        EulerAngleOrder.XZX,
+        EulerAngleOrder.YXY,
+        EulerAngleOrder.YZY,
+        EulerAngleOrder.ZXZ,
+        EulerAngleOrder.ZYZ,
+    ],
+)
+def test_euler_rates_consistent_with_quaternion_kinematics(order):
+    # Smooth angle trajectories, away from singularities for every family
+    def ang(t):
+        return (
+            0.4 + 0.3 * sin(0.7 * t),
+            0.9 + 0.2 * cos(0.5 * t),
+            -0.2 + 0.25 * sin(0.9 * t),
+        )
+
+    def rate(t):
+        return (
+            0.3 * 0.7 * cos(0.7 * t),
+            -0.2 * 0.5 * sin(0.5 * t),
+            0.25 * 0.9 * cos(0.9 * t),
+        )
+
+    t = 1.3
+    dt = 1e-6
+    p, h, s = ang(t)
+    pd, hd, sd = rate(t)
+    angles = EulerAngle(order, p, h, s, AngleFormat.RADIANS)
+    omega = euler_rates_to_angular_velocity(angles, np.array([pd, hd, sd]))
+
+    def q_of(tau):
+        a, b, c = ang(tau)
+        return Quaternion.from_euler_angle(
+            EulerAngle(order, a, b, c, AngleFormat.RADIANS)
+        )
+
+    qc = np.array(q_of(t).to_vector(True))
+    qp = np.array(q_of(t + dt).to_vector(True))
+    qm = np.array(q_of(t - dt).to_vector(True))
+    if np.dot(qp, qc) < 0.0:
+        qp = -qp
+    if np.dot(qm, qc) < 0.0:
+        qm = -qm
+    q_dot = (qp - qm) / (2.0 * dt)
+    omega_ref = angular_velocity_from_quaternion_derivative(q_of(t), q_dot)
+
+    for i in range(3):
+        assert omega[i] == pytest.approx(omega_ref[i], abs=1e-6)

@@ -151,7 +151,8 @@ impl SBDBClient {
     /// * `Ok(None)` - No cache file exists, or it is stale and `online` mode
     ///   allows a refresh
     /// * `Err(BraheError)` - The cache file is stale and `offline-strict`
-    ///   forbids serving it, or its modification time cannot be read
+    ///   forbids serving it, its modification time cannot be read, or a
+    ///   servable file cannot be read
     fn read_fresh_cache(&self, path: &Path) -> Result<Option<String>, BraheError> {
         let Ok(metadata) = std::fs::metadata(path) else {
             return Ok(None);
@@ -169,7 +170,13 @@ impl SBDBClient {
         let stale = age > Duration::from_secs(self.cache_max_age);
         let resource = format!("SBDB lookup cache {}", path.display());
         match cache_policy(&resource, stale)? {
-            CacheDecision::Serve => Ok(std::fs::read_to_string(path).ok()),
+            CacheDecision::Serve => Ok(Some(std::fs::read_to_string(path).map_err(|e| {
+                BraheError::IoError(format!(
+                    "Failed to read SBDB cache {}: {}",
+                    path.display(),
+                    e
+                ))
+            })?)),
             CacheDecision::Refresh => Ok(None),
         }
     }

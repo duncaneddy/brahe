@@ -3,6 +3,7 @@
 use crate::datasets::icgem::body::ICGEMBody;
 use crate::datasets::icgem::index::IndexEntry;
 use crate::utils::BraheError;
+use crate::utils::network::ensure_online;
 
 /// Resolve `name` (optionally with `-<degree>` suffix) against `entries` for
 /// `body`. Returns the matched `IndexEntry`, or an error with a helpful hint.
@@ -142,6 +143,30 @@ fn cache_filename_for_entry(entry: &IndexEntry) -> String {
 ///
 /// If `output_path` is `Some`, also copies the cached file there and returns
 /// that path. Otherwise returns the cache path.
+///
+/// Requests are refused when `BRAHE_NETWORK_MODE` is `offline` or
+/// `offline-strict`; see [`crate::utils::network`].
+///
+/// # Arguments
+///
+/// * `body` - Celestial body the model is for
+/// * `name` - ICGEM model name, optionally with a `-<degree>` suffix
+/// * `output_path` - If `Some`, also copy the model file to this path
+///
+/// # Returns
+///
+/// * `Ok(PathBuf)` - Path to the model file: `output_path` if given, otherwise
+///   the cache path
+/// * `Err(BraheError)` - On index/model resolution, I/O, or network errors
+///
+/// # Examples
+///
+/// ```no_run
+/// use brahe::datasets::icgem::{ICGEMBody, download_icgem_model};
+///
+/// let path = download_icgem_model(ICGEMBody::Earth, "JGM3", None).unwrap();
+/// assert!(path.exists());
+/// ```
 pub fn download_icgem_model(
     body: ICGEMBody,
     name: &str,
@@ -150,6 +175,21 @@ pub fn download_icgem_model(
     download_icgem_model_with_url(&body, name, output_path, ICGEM_BASE_URL)
 }
 
+/// Variant of [`download_icgem_model`] that targets a configurable base URL
+/// (for tests).
+///
+/// # Arguments
+///
+/// * `body` - Celestial body the model is for
+/// * `name` - ICGEM model name, optionally with a `-<degree>` suffix
+/// * `output_path` - If `Some`, also copy the model file to this path
+/// * `base_url` - Base URL to fetch from (production or a test mock)
+///
+/// # Returns
+///
+/// * `Ok(PathBuf)` - Path to the model file: `output_path` if given, otherwise
+///   the cache path
+/// * `Err(BraheError)` - On index/model resolution, I/O, or network errors
 pub(crate) fn download_icgem_model_with_url(
     body: &ICGEMBody,
     name: &str,
@@ -172,6 +212,7 @@ pub(crate) fn download_icgem_model_with_url(
     let cache_file = cache_dir.join(cache_filename_for_entry(&entry));
 
     if !cache_file.exists() {
+        ensure_online(&format!("ICGEM model {}", entry.name))?;
         let url = format!("{}{}", base_url, entry.download_path);
         let response = ureq::get(&url).call().map_err(|e| {
             BraheError::Error(format!(
@@ -235,6 +276,7 @@ pub(crate) fn download_icgem_model_with_url(
 mod tests {
     use super::*;
     use crate::utils::testing::CacheRedirect;
+    use crate::utils::testing::NetworkModeGuard;
 
     fn entry(body: ICGEMBody, name: &str, degree: u32) -> IndexEntry {
         IndexEntry {
@@ -349,6 +391,44 @@ mod tests {
         assert!(path.exists());
         assert!(path.to_string_lossy().contains("models"));
         assert!(path.to_string_lossy().contains("earth"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_download_offline_errors_without_request() {
+        use httpmock::prelude::*;
+
+        let _cache = CacheRedirect::new();
+
+        let html = std::fs::read_to_string("test_assets/icgem/tom_longtime_sample.html").unwrap();
+        let gfc = std::fs::read_to_string("data/gravity_models/JGM3.gfc").unwrap();
+
+        let server = MockServer::start();
+        let _list = server.mock(|when, then| {
+            when.method(GET).path_includes("/tom_longtime");
+            then.status(200).body(&html);
+        });
+        let download_mock = server.mock(|when, then| {
+            when.method(GET).path_includes("/getmodel/gfc/");
+            then.status(200).body(&gfc);
+        });
+
+        let entries = crate::datasets::icgem::parser::parse_earth_catalog(&html).unwrap();
+        let target = entries.first().unwrap().name.clone();
+
+        // Warm the index online so the offline failure is the model download itself.
+        list_icgem_models_with_url(&ICGEMBody::Earth, &server.base_url()).unwrap();
+
+        let _mode = NetworkModeGuard::set(Some("offline"));
+        let err =
+            download_icgem_model_with_url(&ICGEMBody::Earth, &target, None, &server.base_url())
+                .unwrap_err()
+                .to_string();
+        assert!(
+            err.starts_with("BRAHE_NETWORK_MODE is offline; ICGEM model "),
+            "{err}"
+        );
+        download_mock.assert_calls(0);
     }
 
     #[test]

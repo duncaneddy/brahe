@@ -4,6 +4,7 @@ use crate::datasets::icgem::body::ICGEMBody;
 use crate::utils::BraheError;
 use crate::utils::cache::get_icgem_cache_dir;
 use crate::utils::fs::atomic_write;
+use crate::utils::network::ensure_online;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -108,6 +109,16 @@ pub(crate) const EARTH_PATH: &str = "/tom_longtime";
 pub(crate) const CELESTIAL_PATH: &str = "/tom_celestial";
 
 /// Fetch and parse a listing page from a given base URL.
+///
+/// # Arguments
+///
+/// * `body` - Celestial body whose listing page should be fetched
+/// * `base_url` - Base URL to fetch from (production or a test mock)
+///
+/// # Returns
+///
+/// * `Ok(IndexFile)` - Freshly fetched and parsed index entries
+/// * `Err(BraheError)` - On HTTP, parse, or network errors
 pub(crate) fn fetch_index_with_url(
     body: &ICGEMBody,
     base_url: &str,
@@ -119,6 +130,8 @@ pub(crate) fn fetch_index_with_url(
         CELESTIAL_PATH
     };
     let url = format!("{}{}", base_url, path);
+
+    ensure_online(&format!("ICGEM index {url}"))?;
 
     let response = ureq::get(&url).call().map_err(|e| {
         BraheError::Error(format!("Failed to fetch ICGEM index from {}: {}", url, e))
@@ -198,6 +211,26 @@ pub fn list_icgem_models_with_url(
 }
 
 /// Force-refresh the index for a single body, regardless of TTL.
+///
+/// Requests are refused when `BRAHE_NETWORK_MODE` is `offline` or
+/// `offline-strict`; see [`crate::utils::network`].
+///
+/// # Arguments
+///
+/// * `body` - Celestial body whose index file should be refreshed
+///
+/// # Returns
+///
+/// * `Ok(())` - The index file was fetched and written to the cache
+/// * `Err(BraheError)` - On fetch, parse, I/O, or network errors
+///
+/// # Examples
+///
+/// ```no_run
+/// use brahe::datasets::icgem::{ICGEMBody, refresh_icgem_index};
+///
+/// refresh_icgem_index(ICGEMBody::Earth).unwrap();
+/// ```
 pub fn refresh_icgem_index(body: ICGEMBody) -> Result<(), BraheError> {
     refresh_icgem_index_with_url(&body, ICGEM_BASE_URL)
 }
@@ -223,6 +256,7 @@ pub fn refresh_all_icgem_indexes() -> Result<(), BraheError> {
 mod tests {
     use super::*;
     use crate::utils::testing::CacheRedirect;
+    use crate::utils::testing::NetworkModeGuard;
 
     #[test]
     fn test_index_entry_round_trip_json() {
@@ -284,6 +318,27 @@ mod tests {
         write_index_file(&path, &file).unwrap();
         let back = read_index_file(&path).unwrap().unwrap();
         assert_eq!(back.fetched_at, 42);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_fetch_index_offline_errors_without_request() {
+        use httpmock::prelude::*;
+        let _mode = NetworkModeGuard::set(Some("offline"));
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path_includes("/tom_longtime");
+            then.status(200).body("");
+        });
+
+        let err = fetch_index_with_url(&ICGEMBody::Earth, &server.base_url())
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.starts_with("BRAHE_NETWORK_MODE is offline; ICGEM index "),
+            "{err}"
+        );
+        mock.assert_calls(0);
     }
 
     #[test]

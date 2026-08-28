@@ -17,6 +17,7 @@ use crate::spacetrack::responses::{
 };
 use crate::types::GPRecord;
 use crate::utils::BraheError;
+use crate::utils::network::ensure_online;
 
 /// Default base URL for the Space-Track.org API.
 const DEFAULT_BASE_URL: &str = "https://www.space-track.org";
@@ -25,6 +26,9 @@ const DEFAULT_BASE_URL: &str = "https://www.space-track.org";
 ///
 /// The client lazily authenticates on the first query and re-authenticates
 /// automatically if the session expires (HTTP 401 response).
+///
+/// Requests are refused when `BRAHE_NETWORK_MODE` is `offline` or
+/// `offline-strict`; see [`crate::utils::network`].
 ///
 /// # Examples
 ///
@@ -153,7 +157,15 @@ impl SpaceTrackClient {
     ///
     /// Acquires the rate limiter lock, computes the required wait duration,
     /// releases the lock, then sleeps for the computed duration.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - Clearance obtained; the caller may proceed with its request
+    /// * `Err(BraheError)` - The lock is poisoned, or `BRAHE_NETWORK_MODE`
+    ///   forbids the request
     fn wait_for_rate_limit(&self) -> Result<(), BraheError> {
+        ensure_online("Space-Track request")?;
+
         let wait = {
             let mut limiter = self.rate_limiter.lock().map_err(|e| {
                 BraheError::Error(format!("Failed to acquire lock on rate limiter: {}", e))
@@ -746,6 +758,7 @@ fn urlencoded(input: &str) -> String {
 mod tests {
     use super::*;
     use crate::spacetrack::{OutputFormat, RequestClass, SortOrder};
+    use crate::utils::testing::NetworkModeGuard;
     use httpmock::prelude::*;
 
     #[test]
@@ -783,6 +796,25 @@ mod tests {
         assert_eq!(urlencoded("user@example.com"), "user%40example.com");
         assert_eq!(urlencoded("pass&word"), "pass%26word");
         assert_eq!(urlencoded("a=b"), "a%3Db");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_authenticate_offline_errors_without_request() {
+        let _mode = NetworkModeGuard::set(Some("offline"));
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("{}");
+        });
+        let client = SpaceTrackClient::with_base_url("user", "pass", &server.base_url());
+
+        let err = client.authenticate().unwrap_err().to_string();
+        assert_eq!(
+            err,
+            "BRAHE_NETWORK_MODE is offline; Space-Track request is not cached and cannot be downloaded"
+        );
+        mock.assert_calls(0);
     }
 
     #[test]

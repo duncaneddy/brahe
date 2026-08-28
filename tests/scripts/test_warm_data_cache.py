@@ -93,3 +93,41 @@ def test_main_reports_failures_and_exits_nonzero(monkeypatch, tmp_path, capsys):
         warm.main([])
     assert exc.value.code == 1
     assert "1 failed" in capsys.readouterr().err
+
+
+def test_main_only_reports_unknown_prefix_as_failure(monkeypatch, tmp_path, capsys):
+    manifest = tmp_path / "manifest.txt"
+    manifest.write_text("de440s\nspacetrack:gp\n")
+    monkeypatch.setattr(warm, "MANIFEST_PATH", manifest)
+    warmed = []
+    monkeypatch.setattr(
+        warm, "_warm_with_retries", lambda entry: warmed.append(entry) or "ok"
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        warm.main(["--only", "kernel"])
+
+    assert exc.value.code == 1
+    err = capsys.readouterr().err
+    assert "spacetrack:gp" in err
+    assert "unknown prefix" in err
+    assert warmed == ["de440s"]
+
+
+def test_main_no_only_reports_unknown_prefix_as_failure(monkeypatch, tmp_path, capsys):
+    manifest = tmp_path / "manifest.txt"
+    manifest.write_text("de440s\nspacetrack:gp\n")
+    monkeypatch.setattr(warm, "MANIFEST_PATH", manifest)
+    warmed = []
+    monkeypatch.setattr(
+        warm, "_warm_with_retries", lambda entry: warmed.append(entry) or "ok"
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        warm.main([])
+
+    assert exc.value.code == 1
+    err = capsys.readouterr().err
+    assert "spacetrack:gp" in err
+    assert "unknown prefix" in err
+    assert warmed == ["de440s"]

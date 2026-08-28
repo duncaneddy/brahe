@@ -211,9 +211,6 @@ def _warm_with_retries(entry: str) -> str:
 
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
-    entries = [
-        e for e in _read_manifest() if not args.only or entry_family(e) in args.only
-    ]
     if args.refresh and (not args.only or "celestrak" in args.only):
         shutil.rmtree(bh.get_celestrak_cache_dir(), ignore_errors=True)
     try:
@@ -222,8 +219,23 @@ def main(argv: list[str] | None = None) -> None:
         manifest_display = MANIFEST_PATH
     print(f"Warming brahe data cache from {manifest_display}...")
 
+    entries: list[str] = []
+    to_warm: list[str] = []
     failures: list[tuple[str, Exception]] = []
-    for entry in entries:
+    for entry in _read_manifest():
+        try:
+            family = entry_family(entry)
+        except ValueError as exc:
+            entries.append(entry)
+            failures.append((entry, exc))
+            print(f"  {entry:<28} -> FAILED: {exc}", flush=True)
+            continue
+        if args.only and family not in args.only:
+            continue
+        entries.append(entry)
+        to_warm.append(entry)
+
+    for entry in to_warm:
         try:
             result = _warm_with_retries(entry)
         except Exception as exc:  # noqa: BLE001 - one bad artifact must not stop the rest

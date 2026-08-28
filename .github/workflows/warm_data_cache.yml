@@ -48,18 +48,20 @@ jobs:
             # ── NAIF kernels ──────────────────────────────────────────────
             -   name: Restore NAIF kernels cache
                 id: naif-cache
+                if: ${{ !cancelled() }}
                 uses: actions/cache/restore@v6.1.0
                 with:
                     path: ~/.cache/brahe/naif
                     key: naif-kernels-v1
             -   name: Warm NAIF kernels
                 id: warm-naif
+                if: ${{ !cancelled() }}
                 continue-on-error: true
                 env:
                     BRAHE_NETWORK_MODE: online
                 run: uv run --frozen python scripts/warm_data_cache.py --only kernel
             -   name: Save NAIF kernels cache
-                if: steps.warm-naif.outcome == 'success' && steps.naif-cache.outputs.cache-hit != 'true'
+                if: ${{ !cancelled() && steps.warm-naif.outcome == 'success' && steps.naif-cache.outputs.cache-hit != 'true' }}
                 uses: actions/cache/save@v6.1.0
                 with:
                     path: ~/.cache/brahe/naif
@@ -68,18 +70,20 @@ jobs:
             # ── ICGEM gravity models ──────────────────────────────────────
             -   name: Restore ICGEM cache
                 id: icgem-cache
+                if: ${{ !cancelled() }}
                 uses: actions/cache/restore@v6.1.0
                 with:
                     path: ~/.cache/brahe/icgem
                     key: brahe-icgem-v1
             -   name: Warm ICGEM models
                 id: warm-icgem
+                if: ${{ !cancelled() }}
                 continue-on-error: true
                 env:
                     BRAHE_NETWORK_MODE: online
                 run: uv run --frozen python scripts/warm_data_cache.py --only icgem
             -   name: Save ICGEM cache
-                if: steps.warm-icgem.outcome == 'success' && steps.icgem-cache.outputs.cache-hit != 'true'
+                if: ${{ !cancelled() && steps.warm-icgem.outcome == 'success' && steps.icgem-cache.outputs.cache-hit != 'true' }}
                 uses: actions/cache/save@v6.1.0
                 with:
                     path: ~/.cache/brahe/icgem
@@ -88,6 +92,7 @@ jobs:
             # ── SBDB + Horizons ───────────────────────────────────────────
             -   name: Restore SBDB + Horizons cache
                 id: sbdb-horizons-cache
+                if: ${{ !cancelled() }}
                 uses: actions/cache/restore@v6.1.0
                 with:
                     path: |
@@ -96,12 +101,13 @@ jobs:
                     key: brahe-sbdb-horizons-v1
             -   name: Warm SBDB + Horizons
                 id: warm-horizons
+                if: ${{ !cancelled() }}
                 continue-on-error: true
                 env:
                     BRAHE_NETWORK_MODE: online
                 run: uv run --frozen python scripts/warm_data_cache.py --only horizons
             -   name: Save SBDB + Horizons cache
-                if: steps.warm-horizons.outcome == 'success' && steps.sbdb-horizons-cache.outputs.cache-hit != 'true'
+                if: ${{ !cancelled() && steps.warm-horizons.outcome == 'success' && steps.sbdb-horizons-cache.outputs.cache-hit != 'true' }}
                 uses: actions/cache/save@v6.1.0
                 with:
                     path: |
@@ -111,6 +117,7 @@ jobs:
 
             # ── Celestrak (mutable: refreshed and saved on every run) ─────
             -   name: Restore Celestrak cache
+                if: ${{ !cancelled() }}
                 uses: actions/cache/restore@v6.1.0
                 with:
                     path: ~/.cache/brahe/celestrak
@@ -119,12 +126,13 @@ jobs:
                         brahe-celestrak-
             -   name: Warm Celestrak groups
                 id: warm-celestrak
+                if: ${{ !cancelled() }}
                 continue-on-error: true
                 env:
                     BRAHE_NETWORK_MODE: online
                 run: uv run --frozen python scripts/warm_data_cache.py --only celestrak --refresh
             -   name: Save Celestrak cache
-                if: steps.warm-celestrak.outcome == 'success'
+                if: ${{ !cancelled() && steps.warm-celestrak.outcome == 'success' }}
                 uses: actions/cache/save@v6.1.0
                 with:
                     path: ~/.cache/brahe/celestrak
@@ -136,6 +144,7 @@ jobs:
             # warmed or cached here.
             -   name: Restore star catalog downloads
                 id: star-catalogs-cache
+                if: ${{ !cancelled() }}
                 uses: actions/cache/restore@v6.1.0
                 with:
                     path: |
@@ -150,6 +159,7 @@ jobs:
             # skip the other.
             -   name: Warm star catalog cache (re-download anything evicted)
                 id: warm-star-catalogs
+                if: ${{ !cancelled() }}
                 continue-on-error: true
                 env:
                     BRAHE_NETWORK_MODE: online
@@ -181,7 +191,7 @@ jobs:
                         exit 1
                     fi
             -   name: Save star catalog downloads
-                if: steps.warm-star-catalogs.outcome == 'success' && steps.star-catalogs-cache.outputs.cache-hit != 'true'
+                if: ${{ !cancelled() && steps.warm-star-catalogs.outcome == 'success' && steps.star-catalogs-cache.outputs.cache-hit != 'true' }}
                 uses: actions/cache/save@v6.1.0
                 with:
                     path: |
@@ -191,16 +201,19 @@ jobs:
 
             # ── Plot resources (textures, basemap, cartopy) ───────────────
             -   name: Cache 3D body textures
+                if: ${{ !cancelled() }}
                 uses: actions/cache@v6.1.0
                 with:
                     path: ~/.cache/brahe/textures
                     key: brahe-3d-textures-v2
             -   name: Cache Natural Earth land basemap
+                if: ${{ !cancelled() }}
                 uses: actions/cache@v6.1.0
                 with:
                     path: ~/.cache/brahe/natural_earth
                     key: natural-earth-50m-land-v1
             -   name: Cache cartopy Natural Earth data
+                if: ${{ !cancelled() }}
                 uses: actions/cache@v6.1.0
                 with:
                     path: ~/.local/share/cartopy
@@ -212,6 +225,7 @@ jobs:
             # anything else it downloads here is never persisted.
             -   name: Warm plot resources
                 id: warm-plots
+                if: ${{ !cancelled() }}
                 continue-on-error: true
                 env:
                     BRAHE_NETWORK_MODE: online
@@ -219,12 +233,13 @@ jobs:
 
             -   name: Fail if any family failed to warm
                 if: >-
+                    ${{ !cancelled() && (
                     steps.warm-naif.outcome == 'failure' ||
                     steps.warm-icgem.outcome == 'failure' ||
                     steps.warm-horizons.outcome == 'failure' ||
                     steps.warm-celestrak.outcome == 'failure' ||
                     steps.warm-star-catalogs.outcome == 'failure' ||
-                    steps.warm-plots.outcome == 'failure'
+                    steps.warm-plots.outcome == 'failure') }}
                 run: |
                     echo "::error::One or more cache families failed to warm (see step outcomes above)"
                     exit 1

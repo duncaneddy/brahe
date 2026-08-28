@@ -82,13 +82,17 @@ jobs:
         uses: actions/cache/restore@v6.1.0
         with:
           path: ~/.cache/brahe/naif
-          key: naif-kernels-v1
+          key: naif-kernels-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+          restore-keys: |
+            naif-kernels-v1-
 
       - name: Restore ICGEM cache
         uses: actions/cache/restore@v6.1.0
         with:
           path: ~/.cache/brahe/icgem
-          key: brahe-icgem-v1
+          key: brahe-icgem-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+          restore-keys: |
+            brahe-icgem-v1-
 
       - name: Restore SBDB + Horizons cache
         uses: actions/cache/restore@v6.1.0
@@ -96,7 +100,9 @@ jobs:
           path: |
             ~/.cache/brahe/sbdb
             ~/.cache/brahe/horizons
-          key: brahe-sbdb-horizons-v1
+          key: brahe-sbdb-horizons-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+          restore-keys: |
+            brahe-sbdb-horizons-v1-
 
       - name: Restore star catalog downloads
         uses: actions/cache/restore@v6.1.0

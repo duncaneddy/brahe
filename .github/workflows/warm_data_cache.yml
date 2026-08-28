@@ -52,7 +52,9 @@ jobs:
                 uses: actions/cache/restore@v6.1.0
                 with:
                     path: ~/.cache/brahe/naif
-                    key: naif-kernels-v1
+                    key: naif-kernels-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+                    restore-keys: |
+                        naif-kernels-v1-
             -   name: Warm NAIF kernels
                 id: warm-naif
                 if: ${{ !cancelled() }}
@@ -65,7 +67,7 @@ jobs:
                 uses: actions/cache/save@v6.1.0
                 with:
                     path: ~/.cache/brahe/naif
-                    key: naif-kernels-v1
+                    key: naif-kernels-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
 
             # ── ICGEM gravity models ──────────────────────────────────────
             -   name: Restore ICGEM cache
@@ -74,7 +76,9 @@ jobs:
                 uses: actions/cache/restore@v6.1.0
                 with:
                     path: ~/.cache/brahe/icgem
-                    key: brahe-icgem-v1
+                    key: brahe-icgem-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+                    restore-keys: |
+                        brahe-icgem-v1-
             -   name: Warm ICGEM models
                 id: warm-icgem
                 if: ${{ !cancelled() }}
@@ -87,7 +91,7 @@ jobs:
                 uses: actions/cache/save@v6.1.0
                 with:
                     path: ~/.cache/brahe/icgem
-                    key: brahe-icgem-v1
+                    key: brahe-icgem-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
 
             # ── SBDB + Horizons ───────────────────────────────────────────
             -   name: Restore SBDB + Horizons cache
@@ -98,7 +102,9 @@ jobs:
                     path: |
                         ~/.cache/brahe/sbdb
                         ~/.cache/brahe/horizons
-                    key: brahe-sbdb-horizons-v1
+                    key: brahe-sbdb-horizons-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+                    restore-keys: |
+                        brahe-sbdb-horizons-v1-
             -   name: Warm SBDB + Horizons
                 id: warm-horizons
                 if: ${{ !cancelled() }}
@@ -113,7 +119,7 @@ jobs:
                     path: |
                         ~/.cache/brahe/sbdb
                         ~/.cache/brahe/horizons
-                    key: brahe-sbdb-horizons-v1
+                    key: brahe-sbdb-horizons-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
 
             # ── Celestrak (mutable: refreshed and saved on every run) ─────
             -   name: Restore Celestrak cache

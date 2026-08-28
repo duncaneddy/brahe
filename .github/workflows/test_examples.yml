@@ -62,14 +62,17 @@ jobs:
       # test_assets/de440s.bsp always wins over a stale cached copy; only
       # moon_pa_de440/mar099s (not provided as test assets) are served from
       # this cache, which is why it can't sit with the other cache steps.
-      # Restore-only: the matching save below runs on main only. Bump to
-      # naif-kernels-v2 when the examples' kernel set changes.
+      # Restore-only: the matching save below runs on main only. The key
+      # rolls with the manifest hash, so a manifest change is picked up
+      # automatically.
       - name: Restore NAIF kernels cache
         id: naif-cache
         uses: actions/cache/restore@v6.1.0
         with:
           path: ~/.cache/brahe/naif
-          key: naif-kernels-v1
+          key: naif-kernels-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+          restore-keys: |
+            naif-kernels-v1-
 
       # Copy test assets to cache for examples that might use them
       - name: Setup test assets in cache
@@ -131,20 +134,22 @@ jobs:
       # ICGEM gravity models for the lro (GRGM660PRIM) and mro (ggm2bc80)
       # examples' default lunar/mars force models. Without this the examples
       # download from icgem.gfz.de live on every run. Restore-only; the
-      # matching save below runs on main only. Bump to brahe-icgem-v2 when the
-      # examples' ICGEM model set changes (keep in sync with the icgem: entries
-      # in .github/brahe-data-manifest.txt).
+      # matching save below runs on main only. The key rolls with the
+      # manifest hash, so a change to the icgem: entries in
+      # .github/brahe-data-manifest.txt is picked up automatically.
       - name: Restore ICGEM gravity models cache
         id: icgem-cache
         uses: actions/cache/restore@v6.1.0
         with:
           path: ~/.cache/brahe/icgem
-          key: brahe-icgem-v1
+          key: brahe-icgem-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+          restore-keys: |
+            brahe-icgem-v1-
 
       # SBDB lookup + Ceres SPK for the dawn_ceres_orbit example (SBDB + Horizons).
-      # Restore-only; the matching save below runs on main only. Bump the key
-      # when the example's SPK span changes (keep in sync with the horizons:
-      # entry in .github/brahe-data-manifest.txt).
+      # Restore-only; the matching save below runs on main only. The key
+      # rolls with the manifest hash, so a change to the horizons: entry in
+      # .github/brahe-data-manifest.txt is picked up automatically.
       - name: Restore SBDB + Horizons cache
         id: sbdb-horizons-cache
         uses: actions/cache/restore@v6.1.0
@@ -152,7 +157,9 @@ jobs:
           path: |
             ~/.cache/brahe/sbdb
             ~/.cache/brahe/horizons
-          key: brahe-sbdb-horizons-v1
+          key: brahe-sbdb-horizons-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+          restore-keys: |
+            brahe-sbdb-horizons-v1-
 
       # Restore-only: the weekly warm_data_cache.yml producer owns the save,
       # refreshing this family on every one of its runs.
@@ -184,7 +191,7 @@ jobs:
         uses: actions/cache/save@v6.1.0
         with:
           path: ~/.cache/brahe/naif
-          key: naif-kernels-v1
+          key: naif-kernels-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
 
       - name: Save 3D body textures cache (main only)
         if: ${{ github.ref == 'refs/heads/main' && steps.textures-cache.outputs.cache-hit != 'true' }}
@@ -207,7 +214,7 @@ jobs:
         uses: actions/cache/save@v6.1.0
         with:
           path: ~/.cache/brahe/icgem
-          key: brahe-icgem-v1
+          key: brahe-icgem-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
 
       - name: Save SBDB + Horizons cache (main only)
         if: ${{ github.ref == 'refs/heads/main' && steps.sbdb-horizons-cache.outputs.cache-hit != 'true' }}
@@ -216,7 +223,7 @@ jobs:
           path: |
             ~/.cache/brahe/sbdb
             ~/.cache/brahe/horizons
-          key: brahe-sbdb-horizons-v1
+          key: brahe-sbdb-horizons-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
 
       - name: Test examples
         if: ${{ !inputs.use_retry }}

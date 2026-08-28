@@ -125,6 +125,12 @@ jobs:
                 if: matrix.os != 'ubuntu-latest' || matrix.python-version != inputs.coverage-python-version
                 run: uv pip install -e .
 
+            -   name: Warm data cache
+                if: matrix.os != 'ubuntu-latest' || matrix.python-version != inputs.coverage-python-version
+                env:
+                    BRAHE_NETWORK_MODE: online
+                run: uv run --frozen python scripts/warm_data_cache.py
+
             -   name: Test with python ${{ matrix.python-version }}
                 if: matrix.os != 'ubuntu-latest' || matrix.python-version != inputs.coverage-python-version
                 run: uv run --frozen pytest tests/ -v

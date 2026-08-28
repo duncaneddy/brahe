@@ -10,7 +10,6 @@ to truncated upstream responses:
   rename into place so parallel workers never observe a partial result.
 """
 
-import os
 import shutil
 import tempfile
 import time
@@ -19,6 +18,8 @@ from collections.abc import Callable
 from pathlib import Path
 
 import httpx
+
+from brahe._brahe import network_mode
 
 # Zip magic bytes (PK\x03\x04)
 _ZIP_MAGIC = b"PK\x03\x04"
@@ -38,19 +39,14 @@ NETWORK_MODE_ENV = "BRAHE_NETWORK_MODE"
 def _ensure_online(description: str) -> None:
     """Raise unless ``BRAHE_NETWORK_MODE`` permits a network request.
 
-    Mirrors the Rust library's check so plot resources obey the same switch.
+    Delegates to the Rust library's ``network_mode`` binding, which raises
+    ``RuntimeError`` for an unrecognized value.
     """
-    mode = os.environ.get(NETWORK_MODE_ENV, "").strip().lower() or "online"
-    if mode == "online":
-        return
-    if mode not in ("offline", "offline-strict"):
+    mode = network_mode()
+    if mode != "online":
         raise RuntimeError(
-            f"{NETWORK_MODE_ENV} has unrecognized value {mode!r}; "
-            "expected one of online, offline, offline-strict"
+            f"{NETWORK_MODE_ENV} is {mode}; {description} is not cached and cannot be downloaded"
         )
-    raise RuntimeError(
-        f"{NETWORK_MODE_ENV} is {mode}; {description} is not cached and cannot be downloaded"
-    )
 
 
 def _is_zip(path: Path) -> bool:
@@ -93,7 +89,8 @@ def download_file(
 
     Raises:
         RuntimeError: If the download fails, or fails validation, after
-            ``max_retries`` attempts.
+            ``max_retries`` attempts; or if ``BRAHE_NETWORK_MODE`` is
+            ``offline`` or ``offline-strict`` and the resource is not cached.
     """
     if dest.exists():
         return dest
@@ -161,7 +158,9 @@ def download_and_extract_zip(
         Path: ``sentinel`` once the resource is cached.
 
     Raises:
-        RuntimeError: If the download or extraction fails after all retries.
+        RuntimeError: If the download or extraction fails after all retries;
+            or if ``BRAHE_NETWORK_MODE`` is ``offline`` or ``offline-strict``
+            and the resource is not cached.
     """
     # Fast path: already cached.
     if sentinel.exists():

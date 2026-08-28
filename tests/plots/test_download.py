@@ -240,6 +240,16 @@ def test_download_file_offline_raises_without_request(monkeypatch, tmp_path):
     assert not dest.exists()
 
 
+def test_download_file_bad_network_mode_raises_without_request(monkeypatch, tmp_path):
+    monkeypatch.setenv("BRAHE_NETWORK_MODE", " Maybe ")
+    dest = tmp_path / "resource.bin"
+    with pytest.raises(RuntimeError, match='has unrecognized value " Maybe "'):
+        download_file(
+            "http://127.0.0.1:9/resource.bin", dest, description="test resource"
+        )
+    assert not dest.exists()
+
+
 def test_download_file_offline_returns_existing_file(monkeypatch, tmp_path):
     monkeypatch.setenv("BRAHE_NETWORK_MODE", "offline")
     dest = tmp_path / "resource.bin"

@@ -1,3 +1,3 @@
 Name: Some("Satellite-A")
 ID: Some(12345)
-UUID: Some(01a045ec-0d0f-7a73-b167-28a1aca34e9c)
+UUID: Some(01a048a3-aa09-7931-9078-3fe8c6a52232)

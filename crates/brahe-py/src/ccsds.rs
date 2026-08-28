@@ -1,18 +1,28 @@
-// CCSDS Python bindings for OEM, OMM, and OPM message types.
+// CCSDS Python bindings for OEM, OMM, OPM, CDM, and APM message types.
 //
-// Design: Sub-objects (segments, states, maneuvers) use a dual-mode enum.
-// In Proxy mode they hold a Py<PyAny> reference to the parent and an index,
-// delegating all get/set operations through internal methods on the parent.
-// In Owned mode they hold a standalone copy of the Rust data.
-// This ensures mutations on proxy sub-objects reflect back to the owning message,
+// Design: OEM/OPM sub-objects (segments, states, maneuvers) use a dual-mode
+// enum. In Proxy mode they hold a Py<PyAny> reference to the parent and an
+// index, delegating all get/set operations through internal methods on the
+// parent. In Owned mode they hold a standalone copy of the Rust data. This
+// ensures mutations on proxy sub-objects reflect back to the owning message,
 // while standalone objects can be constructed independently and appended.
+//
+// CDM and APM sub-objects use owned copies only (no proxy mode): they are
+// constructed standalone and attached to the parent with `add_*`/constructor
+// calls, and list getters return owned clones. Mutating a returned element
+// does not write back into the parent message; see the APM section below.
 
+use brahe::ccsds::apm::{
+    APM as RustAPM, APMAngularVelocity, APMEulerState, APMInertia, APMManeuver as RustAPMManeuver,
+    APMMetadata as RustAPMMetadata, APMNutation, APMQuaternionState, APMSpin,
+};
 use brahe::ccsds::cdm::{
     CDM as RustCDM, CDMObject, CDMObjectMetadata, CDMRTNCovariance, CDMStateVector,
 };
 use brahe::ccsds::common::{
     CCSDSFormat, CCSDSRefFrame, CCSDSTimeSystem, ODMHeader,
 };
+use brahe::ccsds::frames::ADMReferenceFrame;
 use brahe::ccsds::interop::ccsds_ref_frame_to_orbit_frame;
 use brahe::ccsds::oem::{OEM as RustOEM, OEMMetadata, OEMSegment, OEMStateVector};
 use brahe::ccsds::omm::OMM as RustOMM;
@@ -4704,6 +4714,1304 @@ impl PyCDM {
             self.inner.miss_distance(),
             self.inner.object1.metadata.object_name,
             self.inner.object2.metadata.object_name,
+        )
+    }
+}
+
+// ─────────────────────────────────────────────
+// PyAPM — Attitude Parameter Message and logical blocks
+//
+// Blocks use owned-copy element classes (constructed standalone, then
+// attached with `add_*`) rather than the OEM/OPM proxy-collection pattern:
+// APM has six distinct block types, several with optional variants (the
+// spin block's nutation description), so a dual-mode proxy per block would
+// multiply the OPM maneuver proxy's boilerplate six-fold for little benefit.
+// List getters return owned clones of the underlying Rust blocks; mutating
+// a returned element does not write back into the parent APM.
+// ─────────────────────────────────────────────
+
+/// Attitude quaternion logical block of an APM.
+///
+/// Args:
+///     ref_frame_a (str): Frame defining the transformation start point
+///     ref_frame_b (str): Frame defining the transformation end point
+///     quaternion (Quaternion): Attitude quaternion from ref_frame_a to ref_frame_b
+///     quaternion_derivative (numpy.ndarray | None): Quaternion time derivative
+///         [q0_dot, q1_dot, q2_dot, q3_dot] (scalar-first), in 1/s
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     from brahe.ccsds import APMQuaternionState
+///     state = APMQuaternionState("ICRF", "SC_BODY_1", bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "APMQuaternionState")]
+pub struct PyAPMQuaternionState {
+    inner: APMQuaternionState,
+}
+
+#[pymethods]
+impl PyAPMQuaternionState {
+    #[new]
+    #[pyo3(signature = (ref_frame_a, ref_frame_b, quaternion, quaternion_derivative=None))]
+    fn new(
+        ref_frame_a: &str,
+        ref_frame_b: &str,
+        quaternion: &PyQuaternion,
+        quaternion_derivative: Option<&pyo3::Bound<'_, pyo3::types::PyAny>>,
+    ) -> PyResult<Self> {
+        let mut inner = APMQuaternionState::new(
+            ADMReferenceFrame::parse(ref_frame_a),
+            ADMReferenceFrame::parse(ref_frame_b),
+            quaternion.obj,
+        );
+        if let Some(v) = quaternion_derivative
+            && !v.is_none()
+        {
+            inner.quaternion_derivative = Some(pyany_to_svector::<4>(v)?);
+        }
+        Ok(Self { inner })
+    }
+
+    /// str: Frame defining the transformation start point
+    #[getter]
+    fn ref_frame_a(&self) -> String {
+        format!("{}", self.inner.ref_frame_a)
+    }
+
+    /// str: Frame defining the transformation end point
+    #[getter]
+    fn ref_frame_b(&self) -> String {
+        format!("{}", self.inner.ref_frame_b)
+    }
+
+    /// Quaternion: Attitude quaternion from ref_frame_a to ref_frame_b
+    #[getter]
+    fn quaternion(&self) -> PyQuaternion {
+        PyQuaternion { obj: self.inner.quaternion }
+    }
+
+    /// numpy.ndarray | None: Quaternion time derivative [q0_dot, q1_dot, q2_dot, q3_dot]
+    /// (scalar-first), in 1/s, or None
+    #[getter]
+    fn quaternion_derivative<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyArray<f64, Ix1>>> {
+        self.inner
+            .quaternion_derivative
+            .map(|d| vector_to_numpy!(py, d, 4, f64))
+    }
+
+    /// list[str]: Comments
+    #[getter]
+    fn comments(&self) -> Vec<String> {
+        self.inner.comments.clone()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "APMQuaternionState(ref_frame_a='{}', ref_frame_b='{}')",
+            self.inner.ref_frame_a, self.inner.ref_frame_b
+        )
+    }
+}
+
+/// Euler angle logical block of an APM. The rotation sequence is carried by
+/// `angles.order`.
+///
+/// Args:
+///     ref_frame_a (str): Frame defining the transformation start point
+///     ref_frame_b (str): Frame defining the transformation end point
+///     angles (EulerAngle): Euler angles (with rotation sequence) from ref_frame_a to ref_frame_b
+///     rates (numpy.ndarray | None): Angle rates [angle_1_dot, angle_2_dot, angle_3_dot], in the
+///         same sequence order as `angles.order`. Units: rad/s
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     from brahe.ccsds import APMEulerState
+///     angles = bh.EulerAngle(bh.EulerAngleOrder.ZXZ, 10.0, 20.0, 30.0, bh.AngleFormat.DEGREES)
+///     state = APMEulerState("ICRF", "SC_BODY_1", angles)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "APMEulerState")]
+pub struct PyAPMEulerState {
+    inner: APMEulerState,
+}
+
+#[pymethods]
+impl PyAPMEulerState {
+    #[new]
+    #[pyo3(signature = (ref_frame_a, ref_frame_b, angles, rates=None))]
+    fn new(
+        ref_frame_a: &str,
+        ref_frame_b: &str,
+        angles: &PyEulerAngle,
+        rates: Option<&pyo3::Bound<'_, pyo3::types::PyAny>>,
+    ) -> PyResult<Self> {
+        let mut inner = APMEulerState::new(
+            ADMReferenceFrame::parse(ref_frame_a),
+            ADMReferenceFrame::parse(ref_frame_b),
+            angles.obj,
+        );
+        if let Some(v) = rates
+            && !v.is_none()
+        {
+            inner.rates = Some(pyany_to_svector::<3>(v)?);
+        }
+        Ok(Self { inner })
+    }
+
+    /// str: Frame defining the transformation start point
+    #[getter]
+    fn ref_frame_a(&self) -> String {
+        format!("{}", self.inner.ref_frame_a)
+    }
+
+    /// str: Frame defining the transformation end point
+    #[getter]
+    fn ref_frame_b(&self) -> String {
+        format!("{}", self.inner.ref_frame_b)
+    }
+
+    /// EulerAngle: Euler angles (with rotation sequence) from ref_frame_a to ref_frame_b
+    #[getter]
+    fn angles(&self) -> PyEulerAngle {
+        PyEulerAngle { obj: self.inner.angles }
+    }
+
+    /// numpy.ndarray | None: Angle rates [angle_1_dot, angle_2_dot, angle_3_dot] in rad/s,
+    /// in the same sequence order as `angles.order`, or None
+    #[getter]
+    fn rates<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyArray<f64, Ix1>>> {
+        self.inner.rates.map(|r| vector_to_numpy!(py, r, 3, f64))
+    }
+
+    /// list[str]: Comments
+    #[getter]
+    fn comments(&self) -> Vec<String> {
+        self.inner.comments.clone()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "APMEulerState(ref_frame_a='{}', ref_frame_b='{}')",
+            self.inner.ref_frame_a, self.inner.ref_frame_b
+        )
+    }
+}
+
+/// Angular velocity logical block of an APM.
+///
+/// Args:
+///     ref_frame_a (str): Frame defining the transformation start point
+///     ref_frame_b (str): Frame defining the transformation end point
+///     angvel_frame (str): Frame in which angular_velocity components are expressed
+///     angular_velocity (numpy.ndarray): Angular velocity vector [x, y, z] in rad/s
+///
+/// Example:
+///     ```python
+///     import numpy as np
+///     from brahe.ccsds import APMAngularVelocity
+///     block = APMAngularVelocity("ICRF", "SC_BODY_1", "SC_BODY_1", np.array([0.001, 0.0, 0.0]))
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "APMAngularVelocity")]
+pub struct PyAPMAngularVelocity {
+    inner: APMAngularVelocity,
+}
+
+#[pymethods]
+impl PyAPMAngularVelocity {
+    #[new]
+    #[pyo3(signature = (ref_frame_a, ref_frame_b, angvel_frame, angular_velocity))]
+    fn new(
+        ref_frame_a: &str,
+        ref_frame_b: &str,
+        angvel_frame: &str,
+        angular_velocity: &pyo3::Bound<'_, pyo3::types::PyAny>,
+    ) -> PyResult<Self> {
+        let angvel = pyany_to_svector::<3>(angular_velocity)?;
+        Ok(Self {
+            inner: APMAngularVelocity::new(
+                ADMReferenceFrame::parse(ref_frame_a),
+                ADMReferenceFrame::parse(ref_frame_b),
+                ADMReferenceFrame::parse(angvel_frame),
+                angvel,
+            ),
+        })
+    }
+
+    /// str: Frame defining the transformation start point
+    #[getter]
+    fn ref_frame_a(&self) -> String {
+        format!("{}", self.inner.ref_frame_a)
+    }
+
+    /// str: Frame defining the transformation end point
+    #[getter]
+    fn ref_frame_b(&self) -> String {
+        format!("{}", self.inner.ref_frame_b)
+    }
+
+    /// str: Frame in which angular_velocity components are expressed
+    #[getter]
+    fn angvel_frame(&self) -> String {
+        format!("{}", self.inner.angvel_frame)
+    }
+
+    /// numpy.ndarray: Angular velocity vector [x, y, z] in rad/s
+    #[getter]
+    fn angular_velocity<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
+        vector_to_numpy!(py, self.inner.angular_velocity, 3, f64)
+    }
+
+    /// list[str]: Comments
+    #[getter]
+    fn comments(&self) -> Vec<String> {
+        self.inner.comments.clone()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "APMAngularVelocity(ref_frame_a='{}', ref_frame_b='{}')",
+            self.inner.ref_frame_a, self.inner.ref_frame_b
+        )
+    }
+}
+
+/// Spin logical block of an APM. A spin block carries either the nutation
+/// angle triple, the nutation momentum triple, or neither (a simple,
+/// non-nutating spin) — see `nutation_type`.
+///
+/// Args:
+///     ref_frame_a (str): Frame defining the transformation start point
+///     ref_frame_b (str): Frame defining the transformation end point
+///     spin_alpha (float): Right ascension of the spin axis in ref_frame_a
+///     spin_delta (float): Declination of the spin axis in ref_frame_a
+///     spin_angle (float): Phase angle about the spin axis
+///     spin_angle_vel (float): Angular velocity about the spin axis
+///     angle_format (AngleFormat): Units of spin_alpha, spin_delta, spin_angle, spin_angle_vel
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     from brahe.ccsds import APMSpin
+///     spin = APMSpin("ICRF", "SC_BODY_1", 10.0, 20.0, 30.0, 1.0, bh.AngleFormat.DEGREES)
+///     spin.set_nutation_angle(5.0, 100.0, 15.0, bh.AngleFormat.DEGREES)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "APMSpin")]
+pub struct PyAPMSpin {
+    inner: APMSpin,
+}
+
+#[pymethods]
+impl PyAPMSpin {
+    #[new]
+    #[pyo3(signature = (ref_frame_a, ref_frame_b, spin_alpha, spin_delta, spin_angle, spin_angle_vel, angle_format))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        ref_frame_a: &str,
+        ref_frame_b: &str,
+        spin_alpha: f64,
+        spin_delta: f64,
+        spin_angle: f64,
+        spin_angle_vel: f64,
+        angle_format: &PyAngleFormat,
+    ) -> Self {
+        Self {
+            inner: APMSpin::new(
+                ADMReferenceFrame::parse(ref_frame_a),
+                ADMReferenceFrame::parse(ref_frame_b),
+                spin_alpha,
+                spin_delta,
+                spin_angle,
+                spin_angle_vel,
+                angle_format.value,
+            ),
+        }
+    }
+
+    /// str: Frame defining the transformation start point
+    #[getter]
+    fn ref_frame_a(&self) -> String {
+        format!("{}", self.inner.ref_frame_a)
+    }
+
+    /// str: Frame defining the transformation end point
+    #[getter]
+    fn ref_frame_b(&self) -> String {
+        format!("{}", self.inner.ref_frame_b)
+    }
+
+    /// float: Right ascension of the spin axis in ref_frame_a, in radians
+    #[getter]
+    fn spin_alpha(&self) -> f64 {
+        self.inner.spin_alpha
+    }
+
+    /// float: Declination of the spin axis in ref_frame_a, in radians
+    #[getter]
+    fn spin_delta(&self) -> f64 {
+        self.inner.spin_delta
+    }
+
+    /// float: Phase angle about the spin axis, in radians
+    #[getter]
+    fn spin_angle(&self) -> f64 {
+        self.inner.spin_angle
+    }
+
+    /// float: Angular velocity about the spin axis, in rad/s
+    #[getter]
+    fn spin_angle_vel(&self) -> f64 {
+        self.inner.spin_angle_vel
+    }
+
+    /// str: Nutation description variant - "NONE", "ANGLE", or "MOMENTUM"
+    #[getter]
+    fn nutation_type(&self) -> &'static str {
+        match self.inner.nutation {
+            APMNutation::None => "NONE",
+            APMNutation::Angle { .. } => "ANGLE",
+            APMNutation::Momentum { .. } => "MOMENTUM",
+        }
+    }
+
+    /// float | None: Nutation angle in radians, or None unless nutation_type is "ANGLE"
+    #[getter]
+    fn nutation(&self) -> Option<f64> {
+        match &self.inner.nutation {
+            APMNutation::Angle { nutation, .. } => Some(*nutation),
+            _ => None,
+        }
+    }
+
+    /// float | None: Nutation period in seconds, or None unless nutation_type is "ANGLE"
+    #[getter]
+    fn nutation_period(&self) -> Option<f64> {
+        match &self.inner.nutation {
+            APMNutation::Angle { nutation_period, .. } => Some(*nutation_period),
+            _ => None,
+        }
+    }
+
+    /// float | None: Inertial nutation phase in radians, or None unless nutation_type is "ANGLE"
+    #[getter]
+    fn nutation_phase(&self) -> Option<f64> {
+        match &self.inner.nutation {
+            APMNutation::Angle { nutation_phase, .. } => Some(*nutation_phase),
+            _ => None,
+        }
+    }
+
+    /// float | None: Right ascension of the angular momentum vector in radians, or None
+    /// unless nutation_type is "MOMENTUM"
+    #[getter]
+    fn momentum_alpha(&self) -> Option<f64> {
+        match &self.inner.nutation {
+            APMNutation::Momentum { momentum_alpha, .. } => Some(*momentum_alpha),
+            _ => None,
+        }
+    }
+
+    /// float | None: Declination of the angular momentum vector in radians, or None
+    /// unless nutation_type is "MOMENTUM"
+    #[getter]
+    fn momentum_delta(&self) -> Option<f64> {
+        match &self.inner.nutation {
+            APMNutation::Momentum { momentum_delta, .. } => Some(*momentum_delta),
+            _ => None,
+        }
+    }
+
+    /// float | None: Angular velocity of the spin axis around the momentum vector, in
+    /// rad/s, or None unless nutation_type is "MOMENTUM"
+    #[getter]
+    fn nutation_vel(&self) -> Option<f64> {
+        match &self.inner.nutation {
+            APMNutation::Momentum { nutation_vel, .. } => Some(*nutation_vel),
+            _ => None,
+        }
+    }
+
+    /// Set the nutation description to the NUTATION / NUTATION_PER / NUTATION_PHASE triple.
+    ///
+    /// Args:
+    ///     nutation (float): Nutation angle
+    ///     nutation_period (float): Nutation period, in seconds (unaffected by angle_format)
+    ///     nutation_phase (float): Inertial nutation phase
+    ///     angle_format (AngleFormat): Units of nutation and nutation_phase
+    fn set_nutation_angle(
+        &mut self,
+        nutation: f64,
+        nutation_period: f64,
+        nutation_phase: f64,
+        angle_format: &PyAngleFormat,
+    ) {
+        self.inner = self.inner.clone().with_nutation_angle(
+            nutation,
+            nutation_period,
+            nutation_phase,
+            angle_format.value,
+        );
+    }
+
+    /// Set the nutation description to the MOMENTUM_ALPHA / MOMENTUM_DELTA / NUTATION_VEL triple.
+    ///
+    /// Args:
+    ///     momentum_alpha (float): Right ascension of the angular momentum vector
+    ///     momentum_delta (float): Declination of the angular momentum vector
+    ///     nutation_vel (float): Angular velocity of the spin axis around the momentum vector
+    ///     angle_format (AngleFormat): Units of momentum_alpha, momentum_delta, and nutation_vel
+    fn set_nutation_momentum(
+        &mut self,
+        momentum_alpha: f64,
+        momentum_delta: f64,
+        nutation_vel: f64,
+        angle_format: &PyAngleFormat,
+    ) {
+        self.inner = self.inner.clone().with_nutation_momentum(
+            momentum_alpha,
+            momentum_delta,
+            nutation_vel,
+            angle_format.value,
+        );
+    }
+
+    /// list[str]: Comments
+    #[getter]
+    fn comments(&self) -> Vec<String> {
+        self.inner.comments.clone()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "APMSpin(ref_frame_a='{}', ref_frame_b='{}', nutation_type='{}')",
+            self.inner.ref_frame_a,
+            self.inner.ref_frame_b,
+            self.nutation_type()
+        )
+    }
+}
+
+/// Inertia logical block of an APM.
+///
+/// Args:
+///     inertia_ref_frame (str): Reference frame the inertia tensor is expressed in
+///     ixx (float): Moment of inertia about X, in kg*m^2
+///     iyy (float): Moment of inertia about Y, in kg*m^2
+///     izz (float): Moment of inertia about Z, in kg*m^2
+///     ixy (float): Product of inertia XY, in kg*m^2
+///     ixz (float): Product of inertia XZ, in kg*m^2
+///     iyz (float): Product of inertia YZ, in kg*m^2
+///
+/// Example:
+///     ```python
+///     from brahe.ccsds import APMInertia
+///     inertia = APMInertia("SC_BODY_1", 6080.0, 5245.5, 8067.3, -135.9, 89.3, -90.7)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "APMInertia")]
+pub struct PyAPMInertia {
+    inner: APMInertia,
+}
+
+#[pymethods]
+impl PyAPMInertia {
+    #[new]
+    #[pyo3(signature = (inertia_ref_frame, ixx, iyy, izz, ixy, ixz, iyz))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        inertia_ref_frame: &str,
+        ixx: f64,
+        iyy: f64,
+        izz: f64,
+        ixy: f64,
+        ixz: f64,
+        iyz: f64,
+    ) -> Self {
+        Self {
+            inner: APMInertia::new(
+                ADMReferenceFrame::parse(inertia_ref_frame),
+                ixx, iyy, izz, ixy, ixz, iyz,
+            ),
+        }
+    }
+
+    /// str: Reference frame the inertia tensor is expressed in
+    #[getter]
+    fn inertia_ref_frame(&self) -> String {
+        format!("{}", self.inner.inertia_ref_frame)
+    }
+
+    /// float: Moment of inertia about X, in kg*m^2
+    #[getter]
+    fn ixx(&self) -> f64 {
+        self.inner.ixx
+    }
+
+    /// float: Moment of inertia about Y, in kg*m^2
+    #[getter]
+    fn iyy(&self) -> f64 {
+        self.inner.iyy
+    }
+
+    /// float: Moment of inertia about Z, in kg*m^2
+    #[getter]
+    fn izz(&self) -> f64 {
+        self.inner.izz
+    }
+
+    /// float: Product of inertia XY, in kg*m^2
+    #[getter]
+    fn ixy(&self) -> f64 {
+        self.inner.ixy
+    }
+
+    /// float: Product of inertia XZ, in kg*m^2
+    #[getter]
+    fn ixz(&self) -> f64 {
+        self.inner.ixz
+    }
+
+    /// float: Product of inertia YZ, in kg*m^2
+    #[getter]
+    fn iyz(&self) -> f64 {
+        self.inner.iyz
+    }
+
+    /// numpy.ndarray: 3x3 symmetric inertia tensor, in kg*m^2. Per CCSDS 504.0-B-2
+    /// Annex F6, the cross-product (off-diagonal) terms are negated relative to the
+    /// stored ixy/ixz/iyz fields.
+    #[getter]
+    fn inertia_matrix<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix2>> {
+        let m = self.inner.inertia_matrix();
+        matrix_to_numpy!(py, m, 3, 3, f64)
+    }
+
+    /// list[str]: Comments
+    #[getter]
+    fn comments(&self) -> Vec<String> {
+        self.inner.comments.clone()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("APMInertia(inertia_ref_frame='{}')", self.inner.inertia_ref_frame)
+    }
+}
+
+/// Maneuver logical block of an APM. Unlike the other blocks, maneuvers are
+/// not relative to the message epoch.
+///
+/// Args:
+///     epoch_start (Epoch): Epoch of maneuver start
+///     duration (float): Maneuver duration, in seconds
+///     ref_frame (str): Reference frame for the torque vector
+///     torque (numpy.ndarray): Torque vector [x, y, z], in N*m
+///     delta_mass (float | None): Mass change (should be <= 0), in kg
+///
+/// Example:
+///     ```python
+///     import numpy as np
+///     import brahe as bh
+///     from brahe.ccsds import APMManeuver
+///     epoch = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     man = APMManeuver(epoch, 3.0, "ICRF", np.array([-1.25, -0.5, 0.5]))
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "APMManeuver")]
+pub struct PyAPMManeuver {
+    inner: RustAPMManeuver,
+}
+
+#[pymethods]
+impl PyAPMManeuver {
+    #[new]
+    #[pyo3(signature = (epoch_start, duration, ref_frame, torque, delta_mass=None))]
+    fn new(
+        epoch_start: PyEpoch,
+        duration: f64,
+        ref_frame: &str,
+        torque: &pyo3::Bound<'_, pyo3::types::PyAny>,
+        delta_mass: Option<f64>,
+    ) -> PyResult<Self> {
+        let torque_vec = pyany_to_svector::<3>(torque)?;
+        let mut inner = RustAPMManeuver::new(
+            epoch_start.obj,
+            duration,
+            ADMReferenceFrame::parse(ref_frame),
+            torque_vec,
+        );
+        inner.delta_mass = delta_mass;
+        Ok(Self { inner })
+    }
+
+    /// Epoch: Epoch of maneuver start
+    #[getter]
+    fn epoch_start(&self) -> PyEpoch {
+        PyEpoch { obj: self.inner.epoch_start }
+    }
+
+    /// float: Maneuver duration, in seconds
+    #[getter]
+    fn duration(&self) -> f64 {
+        self.inner.duration
+    }
+
+    /// str: Reference frame for the torque vector
+    #[getter]
+    fn ref_frame(&self) -> String {
+        format!("{}", self.inner.ref_frame)
+    }
+
+    /// numpy.ndarray: Torque vector [x, y, z], in N*m
+    #[getter]
+    fn torque<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
+        vector_to_numpy!(py, self.inner.torque, 3, f64)
+    }
+
+    /// float | None: Mass change (should be <= 0), in kg
+    #[getter]
+    fn delta_mass(&self) -> Option<f64> {
+        self.inner.delta_mass
+    }
+
+    /// list[str]: Comments
+    #[getter]
+    fn comments(&self) -> Vec<String> {
+        self.inner.comments.clone()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "APMManeuver(ref_frame='{}', duration={:.3}s)",
+            self.inner.ref_frame, self.inner.duration
+        )
+    }
+}
+
+/// A CCSDS Attitude Parameter Message (APM).
+///
+/// APM messages describe a spacecraft's attitude at a single epoch through
+/// one or more logical blocks (quaternion, Euler angle, angular velocity,
+/// spin, inertia, maneuver). At least one logical block must be present for
+/// the message to be valid to write.
+///
+/// Can be created programmatically or parsed from KVN/XML/JSON.
+///
+/// Logical blocks are copied by value: `apm.quaternion_states`,
+/// `apm.spins`, etc. return independent copies of the underlying blocks, and
+/// `add_quaternion_state`/`add_spin`/etc. append a copy of the element
+/// passed in. Mutating a block returned from a list getter, or an element
+/// after it has been added, does not affect the parent APM.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     from brahe.ccsds import APM, APMQuaternionState
+///
+///     epoch = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     apm = APM("BRAHE", "SAT1", "2024-001A", "UTC", epoch, center_name="EARTH")
+///     apm.add_quaternion_state(
+///         APMQuaternionState("ICRF", "SC_BODY_1", bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+///     )
+///     print(apm.to_string("KVN"))
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "APM")]
+pub struct PyAPM {
+    inner: RustAPM,
+}
+
+#[pymethods]
+impl PyAPM {
+    // --- constructors ---
+
+    /// Create a new APM message programmatically with no logical blocks. Per
+    /// CCSDS 504.0-B-2, at least one logical block must be added before the
+    /// message can be written.
+    ///
+    /// Args:
+    ///     originator (str): Creating agency or operator identifier
+    ///     object_name (str): Spacecraft name
+    ///     object_id (str): International designator
+    ///     time_system (str): Time system for the epoch (e.g., "UTC")
+    ///     epoch (Epoch): Epoch of the attitude elements and all blocks except maneuvers
+    ///     center_name (str | None): Celestial body the object is centered on (e.g., "EARTH")
+    ///
+    /// Returns:
+    ///     APM: New APM message with no logical blocks
+    #[new]
+    #[pyo3(signature = (originator, object_name, object_id, time_system, epoch, center_name=None))]
+    fn new(
+        originator: String,
+        object_name: String,
+        object_id: String,
+        time_system: String,
+        epoch: PyEpoch,
+        center_name: Option<String>,
+    ) -> PyResult<Self> {
+        let ts = CCSDSTimeSystem::parse(&time_system).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("Invalid time_system: {}", e))
+        })?;
+        let mut metadata = RustAPMMetadata::new(&object_name, &object_id, ts);
+        if let Some(cn) = center_name {
+            metadata = metadata.with_center_name(&cn);
+        }
+        let inner = RustAPM::new(&originator, metadata, epoch.obj);
+        Ok(PyAPM { inner })
+    }
+
+    /// Parse an APM from a string, auto-detecting the format.
+    ///
+    /// Args:
+    ///     content (str): String content of the APM message
+    ///
+    /// Returns:
+    ///     APM: Parsed APM message
+    #[staticmethod]
+    #[allow(clippy::should_implement_trait)]
+    fn from_str(content: &str) -> PyResult<Self> {
+        let inner = RustAPM::from_str(content)?;
+        Ok(PyAPM { inner })
+    }
+
+    /// Parse an APM from a file, auto-detecting the format.
+    ///
+    /// Args:
+    ///     path (str): Path to the APM file
+    ///
+    /// Returns:
+    ///     APM: Parsed APM message
+    #[staticmethod]
+    fn from_file(path: &str) -> PyResult<Self> {
+        let inner = RustAPM::from_file(path)?;
+        Ok(PyAPM { inner })
+    }
+
+    // --- serialization ---
+
+    /// Write the APM to a string in the specified format.
+    ///
+    /// Args:
+    ///     format (str): Output format - "KVN", "XML", or "JSON"
+    ///
+    /// Returns:
+    ///     str: Serialized APM string
+    fn to_string(&self, format: &str) -> PyResult<String> {
+        let fmt = parse_format(format)?;
+        let result = self.inner.to_string(fmt)?;
+        Ok(result)
+    }
+
+    /// Write the APM to JSON with explicit key case control.
+    ///
+    /// Args:
+    ///     uppercase_keys (bool): If True, use uppercase CCSDS keywords. Default: False.
+    ///
+    /// Returns:
+    ///     str: Serialized JSON string
+    #[pyo3(signature = (uppercase_keys=false))]
+    fn to_json_string(&self, uppercase_keys: bool) -> PyResult<String> {
+        let key_case = if uppercase_keys {
+            brahe::ccsds::common::CCSDSJsonKeyCase::Upper
+        } else {
+            brahe::ccsds::common::CCSDSJsonKeyCase::Lower
+        };
+        let result = self.inner.to_json_string(key_case)?;
+        Ok(result)
+    }
+
+    /// Write the APM to a file in the specified format.
+    ///
+    /// Args:
+    ///     path (str): Output file path
+    ///     format (str): Output format - "KVN", "XML", or "JSON"
+    fn to_file(&self, path: &str, format: &str) -> PyResult<()> {
+        let fmt = parse_format(format)?;
+        self.inner.to_file(path, fmt)?;
+        Ok(())
+    }
+
+    /// Convert the APM to a Python dictionary.
+    ///
+    /// Epochs are serialized as CCSDS datetime strings for JSON/dict compatibility.
+    ///
+    /// Returns:
+    ///     dict: Dictionary representation of the APM
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, pyo3::types::PyDict>> {
+        let dict = pyo3::types::PyDict::new(py);
+
+        // Header
+        let header = pyo3::types::PyDict::new(py);
+        header.set_item("format_version", self.inner.header.format_version)?;
+        header.set_item("classification", &self.inner.header.classification)?;
+        header.set_item(
+            "creation_date",
+            brahe::ccsds::common::format_ccsds_datetime(&self.inner.header.creation_date),
+        )?;
+        header.set_item("originator", &self.inner.header.originator)?;
+        header.set_item("message_id", &self.inner.header.message_id)?;
+        header.set_item("comments", &self.inner.header.comments)?;
+        dict.set_item("header", header)?;
+
+        // Metadata
+        let meta = pyo3::types::PyDict::new(py);
+        meta.set_item("object_name", &self.inner.metadata.object_name)?;
+        meta.set_item("object_id", &self.inner.metadata.object_id)?;
+        meta.set_item("center_name", &self.inner.metadata.center_name)?;
+        meta.set_item(
+            "time_system",
+            format!("{}", self.inner.metadata.time_system),
+        )?;
+        dict.set_item("metadata", meta)?;
+
+        // Data section
+        dict.set_item(
+            "epoch",
+            brahe::ccsds::common::format_ccsds_datetime(&self.inner.epoch),
+        )?;
+        dict.set_item("comments", &self.inner.comments)?;
+
+        // Quaternion states
+        let quats = pyo3::types::PyList::empty(py);
+        for q in &self.inner.quaternion_states {
+            let q_dict = pyo3::types::PyDict::new(py);
+            q_dict.set_item("ref_frame_a", format!("{}", q.ref_frame_a))?;
+            q_dict.set_item("ref_frame_b", format!("{}", q.ref_frame_b))?;
+            q_dict.set_item("quaternion", q.quaternion.to_vector(false).as_slice().to_vec())?;
+            q_dict.set_item(
+                "quaternion_derivative",
+                q.quaternion_derivative.map(|d| d.as_slice().to_vec()),
+            )?;
+            q_dict.set_item("comments", &q.comments)?;
+            quats.append(q_dict)?;
+        }
+        dict.set_item("quaternion_states", quats)?;
+
+        // Euler angle states
+        let eulers = pyo3::types::PyList::empty(py);
+        for e in &self.inner.euler_states {
+            let e_dict = pyo3::types::PyDict::new(py);
+            e_dict.set_item("ref_frame_a", format!("{}", e.ref_frame_a))?;
+            e_dict.set_item("ref_frame_b", format!("{}", e.ref_frame_b))?;
+            e_dict.set_item("order", format!("{:?}", e.angles.order))?;
+            e_dict.set_item("phi", e.angles.phi)?;
+            e_dict.set_item("theta", e.angles.theta)?;
+            e_dict.set_item("psi", e.angles.psi)?;
+            e_dict.set_item("rates", e.rates.map(|r| r.as_slice().to_vec()))?;
+            e_dict.set_item("comments", &e.comments)?;
+            eulers.append(e_dict)?;
+        }
+        dict.set_item("euler_states", eulers)?;
+
+        // Angular velocities
+        let angvels = pyo3::types::PyList::empty(py);
+        for a in &self.inner.angular_velocities {
+            let a_dict = pyo3::types::PyDict::new(py);
+            a_dict.set_item("ref_frame_a", format!("{}", a.ref_frame_a))?;
+            a_dict.set_item("ref_frame_b", format!("{}", a.ref_frame_b))?;
+            a_dict.set_item("angvel_frame", format!("{}", a.angvel_frame))?;
+            a_dict.set_item("angular_velocity", a.angular_velocity.as_slice().to_vec())?;
+            a_dict.set_item("comments", &a.comments)?;
+            angvels.append(a_dict)?;
+        }
+        dict.set_item("angular_velocities", angvels)?;
+
+        // Spins
+        let spins = pyo3::types::PyList::empty(py);
+        for s in &self.inner.spins {
+            let s_dict = pyo3::types::PyDict::new(py);
+            s_dict.set_item("ref_frame_a", format!("{}", s.ref_frame_a))?;
+            s_dict.set_item("ref_frame_b", format!("{}", s.ref_frame_b))?;
+            s_dict.set_item("spin_alpha", s.spin_alpha)?;
+            s_dict.set_item("spin_delta", s.spin_delta)?;
+            s_dict.set_item("spin_angle", s.spin_angle)?;
+            s_dict.set_item("spin_angle_vel", s.spin_angle_vel)?;
+            match &s.nutation {
+                APMNutation::None => {
+                    s_dict.set_item("nutation_type", "NONE")?;
+                }
+                APMNutation::Angle { nutation, nutation_period, nutation_phase } => {
+                    s_dict.set_item("nutation_type", "ANGLE")?;
+                    s_dict.set_item("nutation", *nutation)?;
+                    s_dict.set_item("nutation_period", *nutation_period)?;
+                    s_dict.set_item("nutation_phase", *nutation_phase)?;
+                }
+                APMNutation::Momentum { momentum_alpha, momentum_delta, nutation_vel } => {
+                    s_dict.set_item("nutation_type", "MOMENTUM")?;
+                    s_dict.set_item("momentum_alpha", *momentum_alpha)?;
+                    s_dict.set_item("momentum_delta", *momentum_delta)?;
+                    s_dict.set_item("nutation_vel", *nutation_vel)?;
+                }
+            }
+            s_dict.set_item("comments", &s.comments)?;
+            spins.append(s_dict)?;
+        }
+        dict.set_item("spins", spins)?;
+
+        // Inertias
+        let inertias = pyo3::types::PyList::empty(py);
+        for i in &self.inner.inertias {
+            let i_dict = pyo3::types::PyDict::new(py);
+            i_dict.set_item("inertia_ref_frame", format!("{}", i.inertia_ref_frame))?;
+            i_dict.set_item("ixx", i.ixx)?;
+            i_dict.set_item("iyy", i.iyy)?;
+            i_dict.set_item("izz", i.izz)?;
+            i_dict.set_item("ixy", i.ixy)?;
+            i_dict.set_item("ixz", i.ixz)?;
+            i_dict.set_item("iyz", i.iyz)?;
+            i_dict.set_item("comments", &i.comments)?;
+            inertias.append(i_dict)?;
+        }
+        dict.set_item("inertias", inertias)?;
+
+        // Maneuvers
+        let maneuvers = pyo3::types::PyList::empty(py);
+        for m in &self.inner.maneuvers {
+            let m_dict = pyo3::types::PyDict::new(py);
+            m_dict.set_item(
+                "epoch_start",
+                brahe::ccsds::common::format_ccsds_datetime(&m.epoch_start),
+            )?;
+            m_dict.set_item("duration", m.duration)?;
+            m_dict.set_item("ref_frame", format!("{}", m.ref_frame))?;
+            m_dict.set_item("torque", m.torque.as_slice().to_vec())?;
+            m_dict.set_item("delta_mass", m.delta_mass)?;
+            m_dict.set_item("comments", &m.comments)?;
+            maneuvers.append(m_dict)?;
+        }
+        dict.set_item("maneuvers", maneuvers)?;
+
+        // User-defined
+        if let Some(ref ud) = self.inner.user_defined {
+            let ud_dict = pyo3::types::PyDict::new(py);
+            for (k, v) in &ud.parameters {
+                ud_dict.set_item(k, v)?;
+            }
+            dict.set_item("user_defined", ud_dict)?;
+        }
+
+        Ok(dict)
+    }
+
+    // --- header properties ---
+
+    /// float: CCSDS format version
+    #[getter]
+    fn format_version(&self) -> f64 {
+        self.inner.header.format_version
+    }
+
+    /// Set CCSDS format version.
+    ///
+    /// Args:
+    ///     val (float): Format version
+    #[setter]
+    fn set_format_version(&mut self, val: f64) {
+        self.inner.header.format_version = val;
+    }
+
+    /// str: Originator of the message
+    #[getter]
+    fn originator(&self) -> String {
+        self.inner.header.originator.clone()
+    }
+
+    /// Set originator.
+    ///
+    /// Args:
+    ///     val (str): Originator string
+    #[setter]
+    fn set_originator(&mut self, val: String) {
+        self.inner.header.originator = val;
+    }
+
+    /// str | None: Classification marking
+    #[getter]
+    fn classification(&self) -> Option<String> {
+        self.inner.header.classification.clone()
+    }
+
+    /// Set classification marking.
+    ///
+    /// Args:
+    ///     val (str | None): Classification marking
+    #[setter]
+    fn set_classification(&mut self, val: Option<String>) {
+        self.inner.header.classification = val;
+    }
+
+    /// Epoch: Creation date of the message
+    #[getter]
+    fn creation_date(&self) -> PyEpoch {
+        PyEpoch { obj: self.inner.header.creation_date }
+    }
+
+    /// Set creation date.
+    ///
+    /// Args:
+    ///     val (Epoch): Creation date
+    #[setter]
+    fn set_creation_date(&mut self, val: PyEpoch) {
+        self.inner.header.creation_date = val.obj;
+    }
+
+    /// str | None: Message identifier, unique within the originator's context
+    #[getter]
+    fn message_id(&self) -> Option<String> {
+        self.inner.header.message_id.clone()
+    }
+
+    /// Set message identifier.
+    ///
+    /// Args:
+    ///     val (str | None): Message identifier
+    #[setter]
+    fn set_message_id(&mut self, val: Option<String>) {
+        self.inner.header.message_id = val;
+    }
+
+    // --- metadata properties ---
+
+    /// str: Spacecraft name
+    #[getter]
+    fn object_name(&self) -> String {
+        self.inner.metadata.object_name.clone()
+    }
+
+    /// Set spacecraft name.
+    ///
+    /// Args:
+    ///     val (str): Spacecraft name
+    #[setter]
+    fn set_object_name(&mut self, val: String) {
+        self.inner.metadata.object_name = val;
+    }
+
+    /// str: International designator
+    #[getter]
+    fn object_id(&self) -> String {
+        self.inner.metadata.object_id.clone()
+    }
+
+    /// Set international designator.
+    ///
+    /// Args:
+    ///     val (str): International designator
+    #[setter]
+    fn set_object_id(&mut self, val: String) {
+        self.inner.metadata.object_id = val;
+    }
+
+    /// str | None: Celestial body the object is centered on (e.g. "EARTH")
+    #[getter]
+    fn center_name(&self) -> Option<String> {
+        self.inner.metadata.center_name.clone()
+    }
+
+    /// Set center body name.
+    ///
+    /// Args:
+    ///     val (str | None): Center body name
+    #[setter]
+    fn set_center_name(&mut self, val: Option<String>) {
+        self.inner.metadata.center_name = val;
+    }
+
+    /// str: Time system used for the epoch and all epoch-valued keywords
+    #[getter]
+    fn time_system(&self) -> String {
+        format!("{}", self.inner.metadata.time_system)
+    }
+
+    /// Set time system.
+    ///
+    /// Args:
+    ///     val (str): Time system name
+    #[setter]
+    fn set_time_system(&mut self, val: String) -> PyResult<()> {
+        self.inner.metadata.time_system = CCSDSTimeSystem::parse(&val).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("Invalid time_system: {}", e))
+        })?;
+        Ok(())
+    }
+
+    // --- data section properties ---
+
+    /// Epoch: Epoch of the attitude elements and all blocks except maneuvers
+    #[getter]
+    fn epoch(&self) -> PyEpoch {
+        PyEpoch { obj: self.inner.epoch }
+    }
+
+    /// Set the epoch.
+    ///
+    /// Args:
+    ///     val (Epoch): Epoch of the attitude elements and all blocks except maneuvers
+    #[setter]
+    fn set_epoch(&mut self, val: PyEpoch) {
+        self.inner.epoch = val.obj;
+    }
+
+    // --- block access ---
+
+    /// list[APMQuaternionState]: Attitude quaternion blocks
+    #[getter]
+    fn quaternion_states(&self) -> Vec<PyAPMQuaternionState> {
+        self.inner
+            .quaternion_states
+            .iter()
+            .cloned()
+            .map(|inner| PyAPMQuaternionState { inner })
+            .collect()
+    }
+
+    /// list[APMEulerState]: Euler angle blocks
+    #[getter]
+    fn euler_states(&self) -> Vec<PyAPMEulerState> {
+        self.inner
+            .euler_states
+            .iter()
+            .cloned()
+            .map(|inner| PyAPMEulerState { inner })
+            .collect()
+    }
+
+    /// list[APMAngularVelocity]: Angular velocity blocks
+    #[getter]
+    fn angular_velocities(&self) -> Vec<PyAPMAngularVelocity> {
+        self.inner
+            .angular_velocities
+            .iter()
+            .cloned()
+            .map(|inner| PyAPMAngularVelocity { inner })
+            .collect()
+    }
+
+    /// list[APMSpin]: Spin blocks
+    #[getter]
+    fn spins(&self) -> Vec<PyAPMSpin> {
+        self.inner
+            .spins
+            .iter()
+            .cloned()
+            .map(|inner| PyAPMSpin { inner })
+            .collect()
+    }
+
+    /// list[APMInertia]: Inertia blocks
+    #[getter]
+    fn inertias(&self) -> Vec<PyAPMInertia> {
+        self.inner
+            .inertias
+            .iter()
+            .cloned()
+            .map(|inner| PyAPMInertia { inner })
+            .collect()
+    }
+
+    /// list[APMManeuver]: Maneuver blocks
+    #[getter]
+    fn maneuvers(&self) -> Vec<PyAPMManeuver> {
+        self.inner
+            .maneuvers
+            .iter()
+            .cloned()
+            .map(|inner| PyAPMManeuver { inner })
+            .collect()
+    }
+
+    /// Whether at least one logical block is present.
+    ///
+    /// Per CCSDS 504.0-B-2, a valid APM must contain at least one logical block.
+    ///
+    /// Returns:
+    ///     bool: True if any logical block is present
+    #[getter]
+    fn has_blocks(&self) -> bool {
+        self.inner.has_blocks()
+    }
+
+    // --- builder methods ---
+
+    /// Add an attitude quaternion block.
+    ///
+    /// Args:
+    ///     state (APMQuaternionState): Quaternion block to append
+    ///
+    /// Returns:
+    ///     int: Index of the new block
+    fn add_quaternion_state(&mut self, state: &PyAPMQuaternionState) -> usize {
+        self.inner.push_quaternion_state(state.inner.clone());
+        self.inner.quaternion_states.len() - 1
+    }
+
+    /// Add a Euler angle block.
+    ///
+    /// Args:
+    ///     state (APMEulerState): Euler angle block to append
+    ///
+    /// Returns:
+    ///     int: Index of the new block
+    fn add_euler_state(&mut self, state: &PyAPMEulerState) -> usize {
+        self.inner.push_euler_state(state.inner.clone());
+        self.inner.euler_states.len() - 1
+    }
+
+    /// Add an angular velocity block.
+    ///
+    /// Args:
+    ///     block (APMAngularVelocity): Angular velocity block to append
+    ///
+    /// Returns:
+    ///     int: Index of the new block
+    fn add_angular_velocity(&mut self, block: &PyAPMAngularVelocity) -> usize {
+        self.inner.push_angular_velocity(block.inner.clone());
+        self.inner.angular_velocities.len() - 1
+    }
+
+    /// Add a spin block.
+    ///
+    /// Args:
+    ///     spin (APMSpin): Spin block to append
+    ///
+    /// Returns:
+    ///     int: Index of the new block
+    fn add_spin(&mut self, spin: &PyAPMSpin) -> usize {
+        self.inner.push_spin(spin.inner.clone());
+        self.inner.spins.len() - 1
+    }
+
+    /// Add an inertia block.
+    ///
+    /// Args:
+    ///     inertia (APMInertia): Inertia block to append
+    ///
+    /// Returns:
+    ///     int: Index of the new block
+    fn add_inertia(&mut self, inertia: &PyAPMInertia) -> usize {
+        self.inner.push_inertia(inertia.inner.clone());
+        self.inner.inertias.len() - 1
+    }
+
+    /// Add a maneuver block.
+    ///
+    /// Args:
+    ///     man (APMManeuver): Maneuver block to append
+    ///
+    /// Returns:
+    ///     int: Index of the new block
+    fn add_maneuver(&mut self, man: &PyAPMManeuver) -> usize {
+        self.inner.push_maneuver(man.inner.clone());
+        self.inner.maneuvers.len() - 1
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "APM(object_name='{}', object_id='{}')",
+            self.inner.metadata.object_name, self.inner.metadata.object_id
         )
     }
 }

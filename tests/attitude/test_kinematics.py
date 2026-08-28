@@ -82,8 +82,25 @@ def test_euler_rates_to_angular_velocity_zyx_classic():
         assert omega[i] == pytest.approx(expected[i], abs=1e-12)
 
 
-def test_angular_velocity_to_euler_rates_roundtrip():
-    angles = EulerAngle(EulerAngleOrder.ZXZ, 0.5, 0.8, -1.2, AngleFormat.RADIANS)
+@pytest.mark.parametrize(
+    "order",
+    [
+        EulerAngleOrder.XYZ,
+        EulerAngleOrder.XZY,
+        EulerAngleOrder.YXZ,
+        EulerAngleOrder.YZX,
+        EulerAngleOrder.ZXY,
+        EulerAngleOrder.ZYX,
+        EulerAngleOrder.XYX,
+        EulerAngleOrder.XZX,
+        EulerAngleOrder.YXY,
+        EulerAngleOrder.YZY,
+        EulerAngleOrder.ZXZ,
+        EulerAngleOrder.ZYZ,
+    ],
+)
+def test_angular_velocity_to_euler_rates_roundtrip(order):
+    angles = EulerAngle(order, 0.5, 0.8, -1.2, AngleFormat.RADIANS)
     rates = np.array([0.02, 0.13, -0.07])
     omega = euler_rates_to_angular_velocity(angles, rates)
     recovered = angular_velocity_to_euler_rates(angles, omega)
@@ -93,14 +110,60 @@ def test_angular_velocity_to_euler_rates_roundtrip():
 
 def test_angular_velocity_to_euler_rates_singularities():
     # Distinct-axis family: singular at theta = +/- 90 deg
-    tait = EulerAngle(EulerAngleOrder.ZYX, 0.4, np.pi / 2, 0.1, AngleFormat.RADIANS)
+    tait_pos = EulerAngle(EulerAngleOrder.ZYX, 0.4, np.pi / 2, 0.1, AngleFormat.RADIANS)
     with pytest.raises(BraheError):
-        angular_velocity_to_euler_rates(tait, np.array([0.1, 0.0, 0.0]))
+        angular_velocity_to_euler_rates(tait_pos, np.array([0.1, 0.0, 0.0]))
 
-    # Repeated-axis family: singular at theta = 0
-    sym = EulerAngle(EulerAngleOrder.ZXZ, 0.4, 0.0, 0.1, AngleFormat.RADIANS)
+    tait_neg = EulerAngle(
+        EulerAngleOrder.ZYX, 0.4, -np.pi / 2, 0.1, AngleFormat.RADIANS
+    )
     with pytest.raises(BraheError):
-        angular_velocity_to_euler_rates(sym, np.array([0.1, 0.0, 0.0]))
+        angular_velocity_to_euler_rates(tait_neg, np.array([0.1, 0.0, 0.0]))
+
+    # Repeated-axis family: singular at theta = 0 and theta = pi
+    sym_zero = EulerAngle(EulerAngleOrder.ZXZ, 0.4, 0.0, 0.1, AngleFormat.RADIANS)
+    with pytest.raises(BraheError):
+        angular_velocity_to_euler_rates(sym_zero, np.array([0.1, 0.0, 0.0]))
+
+    sym_pi = EulerAngle(EulerAngleOrder.ZXZ, 0.4, np.pi, 0.1, AngleFormat.RADIANS)
+    with pytest.raises(BraheError):
+        angular_velocity_to_euler_rates(sym_pi, np.array([0.1, 0.0, 0.0]))
+
+
+def test_angular_velocity_to_euler_rates_threshold_boundary():
+    # ZYX: det E' = cos(theta). Choose theta so |cos theta| sits just below
+    # and just above the 1e-6 singularity threshold.
+    just_below_threshold = EulerAngle(
+        EulerAngleOrder.ZYX, 0.4, np.pi / 2 - 0.9e-6, 0.1, AngleFormat.RADIANS
+    )
+    with pytest.raises(BraheError):
+        angular_velocity_to_euler_rates(just_below_threshold, np.array([0.1, 0.0, 0.0]))
+
+    just_above_threshold = EulerAngle(
+        EulerAngleOrder.ZYX, 0.4, np.pi / 2 - 1.1e-6, 0.1, AngleFormat.RADIANS
+    )
+    angular_velocity_to_euler_rates(just_above_threshold, np.array([0.1, 0.0, 0.0]))
+
+
+def test_quaternion_derivative_sign_covariance():
+    q = Quaternion.from_euler_angle(
+        EulerAngle(EulerAngleOrder.ZYX, 0.3, -0.7, 1.1, AngleFormat.RADIANS)
+    )
+    q_vec = np.array(q.to_vector(True))
+    q_neg = Quaternion(-q_vec[0], -q_vec[1], -q_vec[2], -q_vec[3])
+    omega = np.array([0.05, -0.02, 0.4])
+
+    q_dot = quaternion_derivative(q, omega)
+    q_dot_neg = quaternion_derivative(q_neg, omega)
+    for i in range(4):
+        assert q_dot_neg[i] == pytest.approx(-q_dot[i], abs=1e-12)
+
+    omega_from_pos = angular_velocity_from_quaternion_derivative(q, q_dot)
+    omega_from_neg = angular_velocity_from_quaternion_derivative(
+        q_neg, -np.array(q_dot)
+    )
+    for i in range(3):
+        assert omega_from_neg[i] == pytest.approx(omega_from_pos[i], abs=1e-12)
 
 
 def test_quaternion_derivative_matches_rotation_matrix_derivative():
@@ -146,7 +209,7 @@ def test_quaternion_derivative_matches_rotation_matrix_derivative():
     )
     omega_recovered = angular_velocity_from_quaternion_derivative(q_at(t), q_dot)
     for i in range(3):
-        assert omega_matrix[i] == pytest.approx(omega[i], abs=1e-6)
+        assert omega_matrix[i] == pytest.approx(omega[i], abs=1e-8)
         assert omega_recovered[i] == pytest.approx(omega[i], abs=1e-10)
 
 
@@ -207,4 +270,38 @@ def test_euler_rates_consistent_with_quaternion_kinematics(order):
     omega_ref = angular_velocity_from_quaternion_derivative(q_of(t), q_dot)
 
     for i in range(3):
-        assert omega[i] == pytest.approx(omega_ref[i], abs=1e-6)
+        assert omega[i] == pytest.approx(omega_ref[i], abs=1e-8)
+
+
+@pytest.mark.parametrize(
+    "func, args",
+    [
+        (
+            quaternion_derivative,
+            lambda: (Quaternion(1.0, 0.0, 0.0, 0.0), np.array([0.0, 0.0])),
+        ),
+        (
+            angular_velocity_from_quaternion_derivative,
+            lambda: (Quaternion(1.0, 0.0, 0.0, 0.0), np.array([0.0, 0.0])),
+        ),
+        (
+            euler_rates_to_angular_velocity,
+            lambda: (
+                EulerAngle(EulerAngleOrder.ZYX, 0.0, 0.0, 0.0, AngleFormat.RADIANS),
+                np.array([0.0, 0.0]),
+            ),
+        ),
+        (
+            angular_velocity_to_euler_rates,
+            lambda: (
+                EulerAngle(EulerAngleOrder.ZYX, 0.0, 0.0, 0.0, AngleFormat.RADIANS),
+                np.array([0.0, 0.0]),
+            ),
+        ),
+    ],
+)
+def test_kinematics_shape_error_consistency(func, args):
+    # All four kinematics functions must reject a malformed (length-2)
+    # vector argument with the same exception type.
+    with pytest.raises(ValueError):
+        func(*args())

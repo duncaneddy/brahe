@@ -122,8 +122,13 @@ pub fn quaternion_derivative(q: &Quaternion, angular_velocity: Vector3<f64>) -> 
 ///
 /// # Relation to existing representations
 ///
-/// Exact inverse of [`quaternion_derivative`]; equivalent to extracting ω
-/// from `[ω]× = −Ṙ Rᵀ` (`src/frames/custom.rs`) with `R = R(q)` per
+/// Exact inverse of [`quaternion_derivative`] for unit `q` with `q̇` tangent
+/// to the unit-quaternion manifold (`q · q̇ = 0`). A radial (norm-drift)
+/// component in `q̇` is deliberately projected out by the discarded scalar
+/// term above; this is the desired behavior when `q̇` comes from numerically
+/// differentiating or integrating a quaternion history, where norm drift is
+/// expected. Otherwise equivalent to extracting ω from `[ω]× = −Ṙ Rᵀ`
+/// (`src/frames/custom.rs`) with `R = R(q)` per
 /// [`Quaternion::to_rotation_matrix`].
 ///
 /// # Arguments
@@ -280,13 +285,20 @@ pub fn euler_rates_to_angular_velocity(angles: &EulerAngle, rates: Vector3<f64>)
 /// `±sin θ` for repeated-axis sequences (singular at θ = 0 or 180°),
 /// matching Diebel §5's singularity statements.
 ///
+/// # Singularity policy
+///
+/// This function returns an error when `|det E′| < 1e-6`. The inverse's
+/// conditioning degrades as roughly `2 / |det E′|` near the singularity, so
+/// this threshold bounds the error amplification at roughly `2e6` and
+/// rejects only inputs within roughly `1e-6` rad of the exact singularity.
+///
 /// # Arguments
 /// - `angles`: Euler angles (radians) in brahe application order.
 /// - `angular_velocity`: Body-frame angular velocity (rad/s).
 ///
 /// # Returns
 /// Result<Vector3<f64>, BraheError>: Angle rates `(φ̇, θ̇, ψ̇)` (rad/s), or
-/// an error near the sequence's singularity.
+/// `Err(BraheError::NumericalError)` when `|det E′| < 1e-6` (gimbal lock).
 ///
 /// # Examples
 /// ```
@@ -307,15 +319,15 @@ pub fn angular_velocity_to_euler_rates(
 ) -> Result<Vector3<f64>, BraheError> {
     let e_prime = conjugate_rates_matrix(angles);
     let det = e_prime.determinant();
-    if det.abs() < 1e-9 {
-        return Err(BraheError::Error(format!(
+    if det.abs() < 1e-6 {
+        return Err(BraheError::NumericalError(format!(
             "Euler-angle rates are singular for sequence {:?} at theta = {} rad (gimbal lock); \
              det(E') = {:.3e}",
             angles.order, angles.theta, det
         )));
     }
     let inverse = e_prime.try_inverse().ok_or_else(|| {
-        BraheError::Error("Euler-angle rates matrix is not invertible".to_string())
+        BraheError::NumericalError("Euler-angle rates matrix is not invertible".to_string())
     })?;
     let u_dot = inverse * angular_velocity;
     Ok(Vector3::new(u_dot[2], u_dot[1], u_dot[0]))
@@ -442,8 +454,36 @@ mod tests {
         );
         let omega_recovered = angular_velocity_from_quaternion_derivative(&q_at(t), q_dot);
         for i in 0..3 {
-            assert_abs_diff_eq!(omega_matrix[i], omega[i], epsilon = 1e-6);
+            assert_abs_diff_eq!(omega_matrix[i], omega[i], epsilon = 1e-8);
             assert_abs_diff_eq!(omega_recovered[i], omega[i], epsilon = 1e-10);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_quaternion_derivative_sign_covariance() {
+        let q = Quaternion::from_euler_angle(EulerAngle::new(
+            EulerAngleOrder::ZYX,
+            0.3,
+            -0.7,
+            1.1,
+            AngleFormat::Radians,
+        ));
+        let q_vec = q.to_vector(true);
+        let q_neg = Quaternion::new(-q_vec[0], -q_vec[1], -q_vec[2], -q_vec[3]);
+        let omega = Vector3::new(0.05, -0.02, 0.4);
+
+        let q_dot = quaternion_derivative(&q, omega);
+        let q_dot_neg = quaternion_derivative(&q_neg, omega);
+        for i in 0..4 {
+            assert_abs_diff_eq!(q_dot_neg[i], -q_dot[i], epsilon = 1e-12);
+        }
+
+        let q_dot_vec = quaternion_derivative(&q, omega);
+        let omega_from_pos = angular_velocity_from_quaternion_derivative(&q, q_dot_vec);
+        let omega_from_neg = angular_velocity_from_quaternion_derivative(&q_neg, -q_dot_vec);
+        for i in 0..3 {
+            assert_abs_diff_eq!(omega_from_neg[i], omega_from_pos[i], epsilon = 1e-12);
         }
     }
 
@@ -529,14 +569,28 @@ mod tests {
         let omega_ref = angular_velocity_from_quaternion_derivative(&q_of(t), q_dot);
 
         for i in 0..3 {
-            assert_abs_diff_eq!(omega[i], omega_ref[i], epsilon = 1e-6);
+            assert_abs_diff_eq!(omega[i], omega_ref[i], epsilon = 1e-8);
         }
     }
 
-    #[test]
+    // Roundtrip rates -> angular velocity -> rates for all 12 Euler-angle
+    // sequences, at a fixed nonsingular angle set.
+    #[rstest]
+    #[case(EulerAngleOrder::XYZ)]
+    #[case(EulerAngleOrder::XZY)]
+    #[case(EulerAngleOrder::YXZ)]
+    #[case(EulerAngleOrder::YZX)]
+    #[case(EulerAngleOrder::ZXY)]
+    #[case(EulerAngleOrder::ZYX)]
+    #[case(EulerAngleOrder::XYX)]
+    #[case(EulerAngleOrder::XZX)]
+    #[case(EulerAngleOrder::YXY)]
+    #[case(EulerAngleOrder::YZY)]
+    #[case(EulerAngleOrder::ZXZ)]
+    #[case(EulerAngleOrder::ZYZ)]
     #[parallel]
-    fn test_angular_velocity_to_euler_rates_roundtrip() {
-        let angles = EulerAngle::new(EulerAngleOrder::ZXZ, 0.5, 0.8, -1.2, AngleFormat::Radians);
+    fn test_angular_velocity_to_euler_rates_roundtrip(#[case] order: EulerAngleOrder) {
+        let angles = EulerAngle::new(order, 0.5, 0.8, -1.2, AngleFormat::Radians);
         let rates = Vector3::new(0.02, 0.13, -0.07);
         let omega = euler_rates_to_angular_velocity(&angles, rates);
         let recovered = angular_velocity_to_euler_rates(&angles, omega).unwrap();
@@ -549,16 +603,63 @@ mod tests {
     #[parallel]
     fn test_angular_velocity_to_euler_rates_singularities() {
         // Distinct-axis family: singular at theta = ±90 deg
-        let tait = EulerAngle::new(
+        let tait_pos = EulerAngle::new(
             EulerAngleOrder::ZYX,
             0.4,
             std::f64::consts::FRAC_PI_2,
             0.1,
             AngleFormat::Radians,
         );
-        assert!(angular_velocity_to_euler_rates(&tait, Vector3::new(0.1, 0.0, 0.0)).is_err());
-        // Repeated-axis family: singular at theta = 0
-        let sym = EulerAngle::new(EulerAngleOrder::ZXZ, 0.4, 0.0, 0.1, AngleFormat::Radians);
-        assert!(angular_velocity_to_euler_rates(&sym, Vector3::new(0.1, 0.0, 0.0)).is_err());
+        assert!(angular_velocity_to_euler_rates(&tait_pos, Vector3::new(0.1, 0.0, 0.0)).is_err());
+        let tait_neg = EulerAngle::new(
+            EulerAngleOrder::ZYX,
+            0.4,
+            -std::f64::consts::FRAC_PI_2,
+            0.1,
+            AngleFormat::Radians,
+        );
+        assert!(angular_velocity_to_euler_rates(&tait_neg, Vector3::new(0.1, 0.0, 0.0)).is_err());
+
+        // Repeated-axis family: singular at theta = 0 and theta = pi
+        let sym_zero = EulerAngle::new(EulerAngleOrder::ZXZ, 0.4, 0.0, 0.1, AngleFormat::Radians);
+        assert!(angular_velocity_to_euler_rates(&sym_zero, Vector3::new(0.1, 0.0, 0.0)).is_err());
+        let sym_pi = EulerAngle::new(
+            EulerAngleOrder::ZXZ,
+            0.4,
+            std::f64::consts::PI,
+            0.1,
+            AngleFormat::Radians,
+        );
+        assert!(angular_velocity_to_euler_rates(&sym_pi, Vector3::new(0.1, 0.0, 0.0)).is_err());
+    }
+
+    // Boundary check on the |det E'| < 1e-6 singularity threshold, using the
+    // ZYX Tait-Bryan family where det E' = ±cos(theta).
+    #[test]
+    #[parallel]
+    fn test_angular_velocity_to_euler_rates_threshold_boundary() {
+        let just_below_threshold = EulerAngle::new(
+            EulerAngleOrder::ZYX,
+            0.4,
+            std::f64::consts::FRAC_PI_2 - 0.9e-6,
+            0.1,
+            AngleFormat::Radians,
+        );
+        assert!(
+            angular_velocity_to_euler_rates(&just_below_threshold, Vector3::new(0.1, 0.0, 0.0))
+                .is_err()
+        );
+
+        let just_above_threshold = EulerAngle::new(
+            EulerAngleOrder::ZYX,
+            0.4,
+            std::f64::consts::FRAC_PI_2 - 1.1e-6,
+            0.1,
+            AngleFormat::Radians,
+        );
+        assert!(
+            angular_velocity_to_euler_rates(&just_above_threshold, Vector3::new(0.1, 0.0, 0.0))
+                .is_ok()
+        );
     }
 }

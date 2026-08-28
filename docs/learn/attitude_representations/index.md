@@ -104,7 +104,9 @@ from Diebel's eqs. 38 and 40, $\omega' = E'_{ijk}(u)\,\dot u$ with $E'_{ijk}(u) 
 
 ### Gimbal lock
 
-`angular_velocity_to_euler_rates` inverts $E'$, which is singular at the sequence's gimbal-lock condition. The singularity location depends on the sequence family: Tait-Bryan sequences (three distinct axes, e.g. `XYZ`, `ZYX`) have $\det E' = \pm\cos\theta$ and are singular at $\theta = \pm 90°$; symmetric sequences (repeated first and third axis, e.g. `ZXZ`, `XYX`) have $\det E' = \pm\sin\theta$ and are singular at $\theta = 0°$ or $180°$. Both cases match Diebel §5's per-sequence singularity statements. Near a singularity, `angular_velocity_to_euler_rates` returns an error rather than an ill-conditioned result.
+`angular_velocity_to_euler_rates` inverts $E'$, which is singular at the sequence's gimbal-lock condition. The singularity location depends on the sequence family: Tait-Bryan sequences (three distinct axes, e.g. `XYZ`, `ZYX`) have $\det E' = \pm\cos\theta$ and are singular at $\theta = \pm 90°$; symmetric sequences (repeated first and third axis, e.g. `ZXZ`, `XYX`) have $\det E' = \pm\sin\theta$ and are singular at $\theta = 0°$ or $180°$. Both cases match Diebel §5's per-sequence singularity statements.
+
+`angular_velocity_to_euler_rates` returns an error when $|\det E'| < 10^{-6}$. The inverse's conditioning degrades as roughly $2 / |\det E'|$ approaching the singularity, so this threshold bounds the amplification of input error at roughly $2 \times 10^6$ and rejects only inputs within roughly $10^{-6}$ rad of the exact singularity.
 
 ---
 

@@ -112,7 +112,6 @@ pub(crate) fn ensure_online(resource: &str) -> Result<(), BraheError> {
 }
 
 /// Outcome of [`cache_policy`] for a cached file.
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CacheDecision {
     /// Use the cached file.
@@ -137,7 +136,6 @@ pub(crate) enum CacheDecision {
 /// * `Ok(CacheDecision::Refresh)` - The file is stale and the mode is `online`
 /// * `Err(BraheError)` - The file is stale and the mode is `offline-strict`, or
 ///   the variable holds an unrecognized value
-#[allow(dead_code)]
 pub(crate) fn cache_policy(resource: &str, stale: bool) -> Result<CacheDecision, BraheError> {
     let mode = network_mode()?;
     if !stale {

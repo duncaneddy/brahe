@@ -16,6 +16,7 @@ use crate::celestrak::responses::CelestrakSATCATRecord;
 use crate::celestrak::types::{CelestrakOutputFormat, SupGPSource};
 use crate::propagators::SGPPropagator;
 use crate::types::GPRecord;
+use crate::utils::network::{CacheDecision, cache_policy, ensure_online};
 use crate::utils::{BraheError, atomic_write, get_celestrak_cache_dir};
 
 /// Default base URL for the CelestrakClient API.
@@ -38,7 +39,9 @@ static LAST_REQUEST_TIME: LazyLock<Mutex<Option<Instant>>> = LazyLock::new(|| Mu
 ///
 /// Provides typed query execution for GP, supplemental GP, and SATCAT
 /// data from CelestrakClient. Responses are cached locally to reduce
-/// server load and improve performance.
+/// server load and improve performance. The `BRAHE_NETWORK_MODE`
+/// environment variable controls whether a stale cached response is
+/// refreshed or served; see [`crate::utils::network`].
 ///
 /// # Examples
 ///
@@ -500,6 +503,9 @@ impl CelestrakClient {
     }
 
     /// Fetch a URL with file-based caching.
+    ///
+    /// The `BRAHE_NETWORK_MODE` environment variable controls whether a stale
+    /// cached response is refreshed or served; see [`crate::utils::network`].
     fn fetch_with_cache(&self, url: &str) -> Result<String, BraheError> {
         let cache_key = self.cache_key_for_url(url);
 
@@ -540,7 +546,9 @@ impl CelestrakClient {
             return Ok(None);
         }
 
-        if self.is_cache_stale(&cache_path)? {
+        let stale = self.is_cache_stale(&cache_path)?;
+        let resource = format!("Celestrak cached response {cache_key}");
+        if cache_policy(&resource, stale)? == CacheDecision::Refresh {
             return Ok(None);
         }
 
@@ -581,6 +589,8 @@ impl CelestrakClient {
     /// with exponential backoff and jitter. Enforces a minimum interval between
     /// requests via a process-global rate limiter.
     fn execute_get(&self, url: &str) -> Result<String, BraheError> {
+        ensure_online(&format!("Celestrak request {url}"))?;
+
         let mut last_error = None;
 
         for attempt in 0..=self.max_retries {
@@ -659,7 +669,11 @@ impl Default for CelestrakClient {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::utils::testing::{CacheRedirect, NetworkModeGuard};
     use httpmock::prelude::*;
+    use serial_test::serial;
+    use std::fs;
+    use std::time::{Duration, SystemTime};
 
     #[test]
     #[serial_test::parallel]
@@ -1011,6 +1025,106 @@ mod tests {
         assert!(key.contains("GROUP"));
         assert!(!key.contains("?"));
         assert!(!key.contains("/"));
+    }
+
+    const ISS_GP_JSON: &str = r#"[{"OBJECT_NAME":"ISS (ZARYA)","NORAD_CAT_ID":"25544"}]"#;
+
+    /// Write `body` into the redirected Celestrak cache under the key the client
+    /// would compute for `url`, and back-date its mtime by `age`.
+    fn seed_celestrak_cache(client: &CelestrakClient, url: &str, body: &str, age: Duration) {
+        let dir = crate::utils::get_celestrak_cache_dir().unwrap();
+        let path = std::path::Path::new(&dir).join(client.cache_key_for_url(url));
+        fs::write(&path, body).unwrap();
+        let mtime = SystemTime::now() - age;
+        let file = fs::File::options().write(true).open(&path).unwrap();
+        file.set_modified(mtime).unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_offline_serves_stale_cache_without_request() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("offline"));
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/NORAD/elements/gp.php");
+            then.status(200).body(ISS_GP_JSON);
+        });
+        let client = CelestrakClient::with_base_url(&server.base_url());
+        let url = format!(
+            "{}/NORAD/elements/gp.php?CATNR=25544&FORMAT=JSON",
+            server.base_url()
+        );
+        seed_celestrak_cache(&client, &url, ISS_GP_JSON, Duration::from_secs(30 * 86400));
+
+        let records = client.get_gp_by_catnr(25544).unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].norad_cat_id, Some(25544));
+        assert_eq!(mock.calls(), 0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_offline_miss_errors_without_request() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("offline"));
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/NORAD/elements/gp.php");
+            then.status(200).body(ISS_GP_JSON);
+        });
+        let client = CelestrakClient::with_base_url(&server.base_url());
+
+        let err = client.get_gp_by_catnr(25544).unwrap_err().to_string();
+        assert!(
+            err.starts_with("BRAHE_NETWORK_MODE is offline; Celestrak request "),
+            "{err}"
+        );
+        assert_eq!(mock.calls(), 0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_offline_strict_stale_cache_errors() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("offline-strict"));
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/NORAD/elements/gp.php");
+            then.status(200).body(ISS_GP_JSON);
+        });
+        let client = CelestrakClient::with_base_url(&server.base_url());
+        let url = format!(
+            "{}/NORAD/elements/gp.php?CATNR=25544&FORMAT=JSON",
+            server.base_url()
+        );
+        seed_celestrak_cache(&client, &url, ISS_GP_JSON, Duration::from_secs(30 * 86400));
+
+        let err = client.get_gp_by_catnr(25544).unwrap_err().to_string();
+        assert!(err.contains("is older than its cache limit"), "{err}");
+        assert_eq!(mock.calls(), 0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_offline_strict_fresh_cache_is_served() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("offline-strict"));
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/NORAD/elements/gp.php");
+            then.status(200).body(ISS_GP_JSON);
+        });
+        let client = CelestrakClient::with_base_url(&server.base_url());
+        let url = format!(
+            "{}/NORAD/elements/gp.php?CATNR=25544&FORMAT=JSON",
+            server.base_url()
+        );
+        seed_celestrak_cache(&client, &url, ISS_GP_JSON, Duration::from_secs(60));
+
+        let records = client.get_gp_by_catnr(25544).unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(mock.calls(), 0);
     }
 
     // -- Convenience method tests --

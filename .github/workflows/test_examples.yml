@@ -192,8 +192,9 @@ jobs:
         if: ${{ !inputs.use_retry }}
         run: just test-examples ${{ inputs.example_args }}
 
-      # Live-network runs (e.g. --network, which exercises the ICGEM/Celestrak/
-      # GCAT/NAIF dataset examples) retry to absorb transient remote throttling.
+      # Live-network runs (e.g. --network, which exercises the GCAT/ICGEM/NAIF/
+      # star-catalog/Horizons/SBDB dataset examples) retry to absorb transient
+      # remote throttling.
       - name: Test examples (with retries)
         if: ${{ inputs.use_retry }}
         uses: nick-fields/retry@v4
@@ -203,13 +204,14 @@ jobs:
           retry_wait_seconds: 60
           command: just test-examples ${{ inputs.example_args }}
 
-      # NETWORK-flagged examples execute only in this --network run of
-      # test-examples, so it is the only producer of their doc figures.
-      # Persist docs/figures to the actions cache so the docs deploys
-      # (update_docs.yml, docs_only.yml), whose own --ci-only example runs
-      # skip these examples, can restore and overlay them. The per-run key is
-      # unique; consumers use restore-keys prefix matching, which returns the
-      # most recent entry.
+      # NETWORK-flagged examples (the GCAT, ICGEM, NAIF, star-catalog,
+      # Horizons, and SBDB dataset examples) execute only in this --network
+      # run of test-examples, so it is the only producer of their doc
+      # figures. Persist docs/figures to the actions cache so the docs
+      # deploys (update_docs.yml, docs_only.yml), whose own --ci-only example
+      # runs skip these examples, can restore and overlay them. The per-run
+      # key is unique; consumers use restore-keys prefix matching, which
+      # returns the most recent entry.
       - name: Save network example figures to cache
         if: ${{ inputs.use_retry }}
         uses: actions/cache/save@v6.1.0
@@ -218,10 +220,9 @@ jobs:
           key: network-example-figures-${{ github.run_id }}
 
       # Text-output analogue of the figures cache above. NETWORK-flagged
-      # examples (first_script, clients_celestrak, ...) execute only in this
-      # --network run of test-examples, so it is the only producer of their
-      # captured stdout; the weekly warm_data_cache.yml producer keeps the
-      # Celestrak data cache warm separately, without running these examples.
+      # examples (the GCAT, ICGEM, NAIF, star-catalog, Horizons, and SBDB
+      # dataset examples) execute only in this --network run of
+      # test-examples, so it is the only producer of their captured stdout.
       # Persist docs/outputs so the docs deploys (update_docs.yml,
       # docs_only.yml), whose own --ci-only example runs skip these examples,
       # can restore and overlay it.

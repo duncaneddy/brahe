@@ -1653,6 +1653,65 @@ mod tests {
         assert_apm_fields_match(&apm1, &apm_upper);
     }
 
+    /// Builds an APM with a simple (non-nutating) spin block and
+    /// user-defined parameters — neither of which is exercised by
+    /// `apm_all_blocks()` or the G1/G2/G3 fixtures, leaving the
+    /// `APMNutation::None` writer arm and the APM-specific `user_defined`
+    /// XML/JSON write+parse paths uncovered.
+    fn apm_simple_spin_and_user_defined() -> APM {
+        let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+        let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+
+        apm.push_quaternion_state(APMQuaternionState::new(
+            icrf(),
+            sc_body_1(),
+            Quaternion::new(1.0, 0.0, 0.0, 0.0),
+        ));
+        apm.push_spin(APMSpin::new(
+            icrf(),
+            sc_body_1(),
+            10.0,
+            20.0,
+            30.0,
+            1.0,
+            AngleFormat::Degrees,
+        ));
+
+        let mut params = std::collections::HashMap::new();
+        params.insert("BATTERY_STATE".to_string(), "NOMINAL".to_string());
+        apm.with_user_defined(CCSDSUserDefined { parameters: params })
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_simple_spin_and_user_defined_kvn_round_trip() {
+        let apm1 = apm_simple_spin_and_user_defined();
+        let kvn = apm1.to_string(CCSDSFormat::KVN).unwrap();
+        let apm2 = APM::from_str(&kvn).unwrap();
+        assert!(matches!(apm2.spins[0].nutation, APMNutation::None));
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_simple_spin_and_user_defined_xml_round_trip() {
+        let apm1 = apm_simple_spin_and_user_defined();
+        let xml = apm1.to_string(CCSDSFormat::XML).unwrap();
+        let apm2 = APM::from_str(&xml).unwrap();
+        assert!(matches!(apm2.spins[0].nutation, APMNutation::None));
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_simple_spin_and_user_defined_json_round_trip() {
+        let apm1 = apm_simple_spin_and_user_defined();
+        let json = apm1.to_string(CCSDSFormat::JSON).unwrap();
+        let apm2 = APM::from_str(&json).unwrap();
+        assert!(matches!(apm2.spins[0].nutation, APMNutation::None));
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
     #[test]
     #[parallel]
     fn test_apm_json_round_trip_preserves_data_comments() {

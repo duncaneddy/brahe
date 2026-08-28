@@ -938,3 +938,45 @@ def test_apm_all_blocks_json_round_trip_key_cases(eop):
     json_upper = apm1.to_json_string(uppercase_keys=True)
     apm_upper = APM.from_str(json_upper)
     _assert_apm_all_blocks_subset(apm_upper)
+
+
+@pytest.mark.parametrize("fmt", ["KVN", "XML", "JSON"])
+def test_apm_simple_spin_round_trip(eop, fmt):
+    """A spin block with no nutation (APMSpin's default) is never written
+    and round-tripped elsewhere in this file — every other spin test sets
+    nutation_type to ANGLE or MOMENTUM before serializing."""
+    epoch = Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    apm = APM("BRAHE", "SAT1", "2024-001A", "UTC", epoch)
+    apm.add_quaternion_state(
+        APMQuaternionState("ICRF", "SC_BODY_1", Quaternion(1.0, 0.0, 0.0, 0.0))
+    )
+    apm.add_spin(
+        APMSpin("ICRF", "SC_BODY_1", 10.0, 20.0, 30.0, 1.0, AngleFormat.DEGREES)
+    )
+
+    content = apm.to_string(fmt)
+    apm2 = APM.from_str(content)
+    assert apm2.spins[0].nutation_type == "NONE"
+
+
+@pytest.mark.parametrize("fmt", ["XML", "JSON"])
+def test_apm_user_defined_round_trip(eop, fmt):
+    """APM's user_defined parameters are only ever parsed from KVN
+    (test_apm_parse_user_defined) and never round-tripped through XML or
+    JSON write+parse."""
+    content = _APM_PREFIX + (
+        "QUAT_START\n"
+        "REF_FRAME_A = ICRF\n"
+        "REF_FRAME_B = SC_BODY_1\n"
+        "Q1 = 0.0\n"
+        "Q2 = 0.0\n"
+        "Q3 = 0.0\n"
+        "QC = 1.0\n"
+        "QUAT_STOP\n"
+        "USER_DEFINED_BATTERY_STATE = NOMINAL\n"
+    )
+    apm1 = APM.from_str(content)
+
+    written = apm1.to_string(fmt)
+    apm2 = APM.from_str(written)
+    assert apm2.to_dict()["user_defined"] == {"BATTERY_STATE": "NOMINAL"}

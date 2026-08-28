@@ -24,7 +24,10 @@ than through [`Quaternion`]'s operators, which normalize their results.
 
 use nalgebra::{Vector3, Vector4};
 
-use crate::attitude::Quaternion;
+use crate::attitude::{EulerAngle, Quaternion, RotationMatrix};
+use crate::constants::AngleFormat;
+use crate::math::SMatrix3;
+use crate::utils::BraheError;
 
 /// Hamilton product on raw scalar-first component vectors.
 ///
@@ -151,10 +154,178 @@ pub fn angular_velocity_from_quaternion_derivative(
     2.0 * Vector3::new(product[1], product[2], product[3])
 }
 
+/// Basis vector and elementary passive rotation for one axis letter.
+fn axis_unit(axis: u8) -> Vector3<f64> {
+    match axis {
+        1 => Vector3::new(1.0, 0.0, 0.0),
+        2 => Vector3::new(0.0, 1.0, 0.0),
+        _ => Vector3::new(0.0, 0.0, 1.0),
+    }
+}
+
+fn axis_rotation(axis: u8, angle: f64) -> SMatrix3 {
+    match axis {
+        1 => RotationMatrix::Rx(angle, AngleFormat::Radians).to_matrix(),
+        2 => RotationMatrix::Ry(angle, AngleFormat::Radians).to_matrix(),
+        _ => RotationMatrix::Rz(angle, AngleFormat::Radians).to_matrix(),
+    }
+}
+
+/// Splits a brahe `EulerAngleOrder` into its per-rotation (axis, angle)
+/// triple in APPLICATION order, and returns the Diebel matrix-order digits
+/// `(i, j, k)` with the Diebel-order angles `(φ_D, θ_D, ψ_D)`.
+///
+/// Brahe labels sequences by application order (first letter applied
+/// first); Diebel (2006) eq. 34 labels by left-to-right matrix order, which
+/// is the reverse. The relabeling is `(i, j, k) = (C, B, A)` and
+/// `(φ_D, θ_D, ψ_D) = (ψ, θ, φ)` for brahe order `ABC` with angles
+/// `(φ, θ, ψ)` — the same exchange `EulerAngleOrder::reversed()` applies in
+/// the existing statics (quaternion.rs, rotation_matrix.rs).
+fn diebel_sequence(angles: &EulerAngle) -> ([u8; 3], [f64; 3]) {
+    let digits = angles.order as u16; // e.g. ZYX = 321
+    let a = (digits / 100) as u8; // first applied (brahe A)
+    let b = ((digits / 10) % 10) as u8; // second (brahe B)
+    let c = (digits % 10) as u8; // third (brahe C)
+    // Diebel (i, j, k) = (C, B, A); (φ_D, θ_D, ψ_D) = (ψ, θ, φ)
+    ([c, b, a], [angles.psi, angles.theta, angles.phi])
+}
+
+/// Builds Diebel's conjugate Euler-angle rates matrix E′ (Diebel (2006)
+/// eq. 38) for the given attitude, in Diebel ordering.
+fn conjugate_rates_matrix(angles: &EulerAngle) -> SMatrix3 {
+    let ([i, j, k], [phi_d, theta_d, _psi_d]) = diebel_sequence(angles);
+    let ri = axis_rotation(i, phi_d);
+    let rj = axis_rotation(j, theta_d);
+    let col1 = axis_unit(i);
+    let col2 = ri * axis_unit(j);
+    let col3 = ri * rj * axis_unit(k);
+    SMatrix3::from_columns(&[col1, col2, col3])
+}
+
+/// Converts Euler-angle rates to the body-frame angular velocity.
+///
+/// # Source
+///
+/// Diebel (2006), eqs. 38 and 40: `ω' = E′_ijk(u) u̇` with
+/// `E′_ijk(u) = [ê_i, R_i(φ_D)ê_j, R_i(φ_D)R_j(θ_D)ê_k]`, where `(i, j, k)`
+/// are the sequence axes in Diebel's matrix order and `u = (φ_D, θ_D, ψ_D)`
+/// the angles in that order.
+///
+/// # Derivation to brahe convention
+///
+/// Brahe labels sequences by application order; Diebel by matrix order (the
+/// reverse). For brahe order `ABC` with angles `(φ, θ, ψ)` and rates
+/// `(φ̇, θ̇, ψ̇)`, the Diebel sequence is `(i, j, k) = (C, B, A)` with
+/// `u = (ψ, θ, φ)` and `u̇ = (ψ̇, θ̇, φ̇)` — the same relabeling
+/// `EulerAngleOrder::reversed()` applies in the existing statics. The
+/// elementary rotations `R_i` are brahe's `Rx/Ry/Rz`, whose layouts match
+/// Diebel's eqs. 14-16 exactly, so no sign adjustments arise.
+///
+/// # Relation to existing representations
+///
+/// This is the derivative-level counterpart of
+/// `EulerAngle::to_rotation_matrix`: differentiating the same composition
+/// `R = R_A(φ) applied first, then R_B(θ), then R_C(ψ)` that the statics
+/// implement yields exactly `ω' = E′ u̇`. Consistency with
+/// [`quaternion_derivative`] is enforced by test for all 12 sequences.
+///
+/// # Arguments
+/// - `angles`: Euler angles (radians) in brahe application order.
+/// - `rates`: Angle rates `(φ̇, θ̇, ψ̇)` in the same order (rad/s).
+///
+/// # Returns
+/// Vector3<f64>: Angular velocity of frame B relative to frame A, expressed
+/// in B (rad/s).
+///
+/// # Examples
+/// ```
+/// use brahe::attitude::{EulerAngle, EulerAngleOrder, euler_rates_to_angular_velocity};
+/// use brahe::AngleFormat;
+/// use nalgebra::Vector3;
+///
+/// // Identity attitude: ZYX's Diebel matrix order is (X, Y, Z), so E' is the
+/// // identity and the body-frame angular velocity is just the rates
+/// // reordered from brahe's (phi_dot, theta_dot, psi_dot) into Diebel's
+/// // (psi_dot, theta_dot, phi_dot).
+/// let angles = EulerAngle::new(EulerAngleOrder::ZYX, 0.0, 0.0, 0.0, AngleFormat::Radians);
+/// let rates = Vector3::new(0.1, -0.2, 0.3); // (phi_dot, theta_dot, psi_dot)
+/// let omega = euler_rates_to_angular_velocity(&angles, rates);
+/// assert!((omega - Vector3::new(rates[2], rates[1], rates[0])).norm() < 1e-12);
+/// ```
+pub fn euler_rates_to_angular_velocity(angles: &EulerAngle, rates: Vector3<f64>) -> Vector3<f64> {
+    let e_prime = conjugate_rates_matrix(angles);
+    // u̇ in Diebel order = (ψ̇, θ̇, φ̇)
+    let u_dot = Vector3::new(rates[2], rates[1], rates[0]);
+    e_prime * u_dot
+}
+
+/// Converts body-frame angular velocity to Euler-angle rates.
+///
+/// # Source
+///
+/// Inverse of Diebel (2006) eq. 40: `u̇ = E′_ijk(u)⁻¹ ω'`. Diebel gives the
+/// per-sequence closed-form inverses (his §5 per-sequence listings); this
+/// implementation inverts the eq. 38 matrix directly, which is equivalent.
+///
+/// # Derivation to brahe convention
+///
+/// Same relabeling as [`euler_rates_to_angular_velocity`]; the result is
+/// reordered from Diebel `(ψ̇, θ̇, φ̇)` back to brahe `(φ̇, θ̇, ψ̇)`.
+///
+/// # Relation to existing representations
+///
+/// Exact inverse of [`euler_rates_to_angular_velocity`] away from the
+/// sequence's gimbal-lock singularity: `det E′ = ±cos θ` for
+/// distinct-axis (Tait-Bryan) sequences (singular at θ = ±90°) and
+/// `±sin θ` for repeated-axis sequences (singular at θ = 0 or 180°),
+/// matching Diebel §5's singularity statements.
+///
+/// # Arguments
+/// - `angles`: Euler angles (radians) in brahe application order.
+/// - `angular_velocity`: Body-frame angular velocity (rad/s).
+///
+/// # Returns
+/// Result<Vector3<f64>, BraheError>: Angle rates `(φ̇, θ̇, ψ̇)` (rad/s), or
+/// an error near the sequence's singularity.
+///
+/// # Examples
+/// ```
+/// use brahe::attitude::{EulerAngle, EulerAngleOrder, euler_rates_to_angular_velocity, angular_velocity_to_euler_rates};
+/// use brahe::AngleFormat;
+/// use nalgebra::Vector3;
+///
+/// // Roundtrip: rates -> angular velocity -> rates recovers the input.
+/// let angles = EulerAngle::new(EulerAngleOrder::ZXZ, 0.5, 0.8, -1.2, AngleFormat::Radians);
+/// let rates = Vector3::new(0.02, 0.13, -0.07);
+/// let omega = euler_rates_to_angular_velocity(&angles, rates);
+/// let recovered = angular_velocity_to_euler_rates(&angles, omega).unwrap();
+/// assert!((recovered - rates).norm() < 1e-10);
+/// ```
+pub fn angular_velocity_to_euler_rates(
+    angles: &EulerAngle,
+    angular_velocity: Vector3<f64>,
+) -> Result<Vector3<f64>, BraheError> {
+    let e_prime = conjugate_rates_matrix(angles);
+    let det = e_prime.determinant();
+    if det.abs() < 1e-9 {
+        return Err(BraheError::Error(format!(
+            "Euler-angle rates are singular for sequence {:?} at theta = {} rad (gimbal lock); \
+             det(E') = {:.3e}",
+            angles.order, angles.theta, det
+        )));
+    }
+    let inverse = e_prime.try_inverse().ok_or_else(|| {
+        BraheError::Error("Euler-angle rates matrix is not invertible".to_string())
+    })?;
+    let u_dot = inverse * angular_velocity;
+    Ok(Vector3::new(u_dot[2], u_dot[1], u_dot[0]))
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
+    use rstest::rstest;
     use serial_test::parallel;
 
     use super::*;
@@ -274,5 +445,120 @@ mod tests {
             assert_abs_diff_eq!(omega_matrix[i], omega[i], epsilon = 1e-6);
             assert_abs_diff_eq!(omega_recovered[i], omega[i], epsilon = 1e-10);
         }
+    }
+
+    // Classic aerospace 3-2-1 body-rate map (brahe order ZYX: yaw ψ_z first? No —
+    // brahe ZYX applies Z first: phi about Z (yaw), theta about Y (pitch), psi about
+    // X (roll)). Expected from the standard roll-pitch-yaw result with
+    // p,q,r = body rates and brahe's (phi,theta,psi) = (yaw, pitch, roll):
+    //   p = psi_dot - phi_dot*sin(theta)
+    //   q = theta_dot*cos(psi) + phi_dot*cos(theta)*sin(psi)
+    //   r = -theta_dot*sin(psi) + phi_dot*cos(theta)*cos(psi)
+    #[test]
+    #[parallel]
+    fn test_euler_rates_to_angular_velocity_zyx_classic() {
+        let (phi, theta, psi) = (0.3, -0.4, 0.7);
+        let angles = EulerAngle::new(EulerAngleOrder::ZYX, phi, theta, psi, AngleFormat::Radians);
+        let rates = Vector3::new(0.11, -0.23, 0.05); // (phi_dot, theta_dot, psi_dot)
+        let omega = euler_rates_to_angular_velocity(&angles, rates);
+        let expected = Vector3::new(
+            rates[2] - rates[0] * theta.sin(),
+            rates[1] * psi.cos() + rates[0] * theta.cos() * psi.sin(),
+            -rates[1] * psi.sin() + rates[0] * theta.cos() * psi.cos(),
+        );
+        for i in 0..3 {
+            assert_abs_diff_eq!(omega[i], expected[i], epsilon = 1e-12);
+        }
+    }
+
+    // All 12 sequences: the map must agree with quaternion kinematics on a smooth
+    // trajectory: omega from euler rates == omega recovered from the
+    // finite-differenced quaternion of the same trajectory.
+    #[rstest]
+    #[case(EulerAngleOrder::XYZ)]
+    #[case(EulerAngleOrder::XZY)]
+    #[case(EulerAngleOrder::YXZ)]
+    #[case(EulerAngleOrder::YZX)]
+    #[case(EulerAngleOrder::ZXY)]
+    #[case(EulerAngleOrder::ZYX)]
+    #[case(EulerAngleOrder::XYX)]
+    #[case(EulerAngleOrder::XZX)]
+    #[case(EulerAngleOrder::YXY)]
+    #[case(EulerAngleOrder::YZY)]
+    #[case(EulerAngleOrder::ZXZ)]
+    #[case(EulerAngleOrder::ZYZ)]
+    #[parallel]
+    fn test_euler_rates_consistent_with_quaternion_kinematics(#[case] order: EulerAngleOrder) {
+        // Smooth angle trajectories, away from singularities for every family
+        let ang = |t: f64| {
+            (
+                0.4 + 0.3 * (0.7 * t).sin(),
+                0.9 + 0.2 * (0.5 * t).cos(),
+                -0.2 + 0.25 * (0.9 * t).sin(),
+            )
+        };
+        let rate = |t: f64| {
+            (
+                0.3 * 0.7 * (0.7 * t).cos(),
+                -0.2 * 0.5 * (0.5 * t).sin(),
+                0.25 * 0.9 * (0.9 * t).cos(),
+            )
+        };
+
+        let t = 1.3;
+        let dt = 1e-6;
+        let (p, h, s) = ang(t);
+        let (pd, hd, sd) = rate(t);
+        let angles = EulerAngle::new(order, p, h, s, AngleFormat::Radians);
+        let omega = euler_rates_to_angular_velocity(&angles, Vector3::new(pd, hd, sd));
+
+        let q_of = |tau: f64| {
+            let (a, b, c) = ang(tau);
+            Quaternion::from_euler_angle(EulerAngle::new(order, a, b, c, AngleFormat::Radians))
+        };
+        let qc = q_of(t).to_vector(true);
+        let mut qp = q_of(t + dt).to_vector(true);
+        let mut qm = q_of(t - dt).to_vector(true);
+        if qp.dot(&qc) < 0.0 {
+            qp = -qp;
+        }
+        if qm.dot(&qc) < 0.0 {
+            qm = -qm;
+        }
+        let q_dot = (qp - qm) / (2.0 * dt);
+        let omega_ref = angular_velocity_from_quaternion_derivative(&q_of(t), q_dot);
+
+        for i in 0..3 {
+            assert_abs_diff_eq!(omega[i], omega_ref[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_angular_velocity_to_euler_rates_roundtrip() {
+        let angles = EulerAngle::new(EulerAngleOrder::ZXZ, 0.5, 0.8, -1.2, AngleFormat::Radians);
+        let rates = Vector3::new(0.02, 0.13, -0.07);
+        let omega = euler_rates_to_angular_velocity(&angles, rates);
+        let recovered = angular_velocity_to_euler_rates(&angles, omega).unwrap();
+        for i in 0..3 {
+            assert_abs_diff_eq!(recovered[i], rates[i], epsilon = 1e-10);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_angular_velocity_to_euler_rates_singularities() {
+        // Distinct-axis family: singular at theta = ±90 deg
+        let tait = EulerAngle::new(
+            EulerAngleOrder::ZYX,
+            0.4,
+            std::f64::consts::FRAC_PI_2,
+            0.1,
+            AngleFormat::Radians,
+        );
+        assert!(angular_velocity_to_euler_rates(&tait, Vector3::new(0.1, 0.0, 0.0)).is_err());
+        // Repeated-axis family: singular at theta = 0
+        let sym = EulerAngle::new(EulerAngleOrder::ZXZ, 0.4, 0.0, 0.1, AngleFormat::Radians);
+        assert!(angular_velocity_to_euler_rates(&sym, Vector3::new(0.1, 0.0, 0.0)).is_err());
     }
 }

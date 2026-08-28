@@ -343,3 +343,108 @@ fn try_dispatch_epoch_rotation<'py>(
         }
     }
 }
+
+/// Dispatch a fallible epoch-free vector transform on a single vector or a
+/// batch. The closures return `PyResult` so each binding keeps its own error
+/// mapping.
+fn try_dispatch_vec<'py, const N: usize>(
+    py: Python<'py>,
+    x: &Bound<'py, PyAny>,
+    axis: isize,
+    scalar: impl Fn(SVector<f64, N>) -> PyResult<SVector<f64, N>>,
+    batch: impl Fn(&[SVector<f64, N>]) -> PyResult<Vec<SVector<f64, N>>> + Sync,
+) -> PyResult<Bound<'py, PyAny>> {
+    match parse_vec_arg::<N>(x, axis)? {
+        VecArg::Single(v) => {
+            let out = scalar(v)?;
+            Ok(vector_to_numpy!(py, out, N, f64).into_any())
+        }
+        VecArg::Batch { vecs, layout } => {
+            let out = py.detach(|| batch(&vecs))?;
+            vecs_to_numpy(py, &layout, axis, out)
+        }
+    }
+}
+
+/// Dispatch a vector-to-rotation-matrix function on a single vector or a
+/// batch. A batch returns the batch dimensions followed by `(3, 3)`.
+fn dispatch_vec_rotation<'py, const N: usize>(
+    py: Python<'py>,
+    x: &Bound<'py, PyAny>,
+    axis: isize,
+    scalar: impl Fn(SVector<f64, N>) -> SMatrix3,
+    batch: impl Fn(&[SVector<f64, N>]) -> Vec<SMatrix3> + Sync,
+) -> PyResult<Bound<'py, PyAny>> {
+    match parse_vec_arg::<N>(x, axis)? {
+        VecArg::Single(v) => {
+            let mat = scalar(v);
+            Ok(matrix_to_numpy!(py, mat, 3, 3, f64).into_any())
+        }
+        VecArg::Batch { vecs, layout } => {
+            let out = py.detach(|| batch(&vecs));
+            let mut shape: Vec<usize> = layout
+                .shape
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| *i != layout.axis)
+                .map(|(_, d)| *d)
+                .collect();
+            shape.extend([3, 3]);
+            let flat: Vec<f64> = out
+                .iter()
+                .flat_map(|m| (0..3).flat_map(move |i| (0..3).map(move |j| m[(i, j)])))
+                .collect();
+            Ok(flat
+                .into_pyarray(py)
+                .reshape(shape)
+                .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?
+                .into_any())
+        }
+    }
+}
+
+/// Dispatch a two-vector transform (for example site and target) on scalar
+/// or batched arguments. Either argument may be a batch; when both are
+/// batched their lengths must be equal or one of them must be 1. The output
+/// takes the layout of the batched argument with the common length (the first
+/// when both have it).
+fn dispatch_vec_pair<'py, const N: usize>(
+    py: Python<'py>,
+    a: &Bound<'py, PyAny>,
+    b: &Bound<'py, PyAny>,
+    axis: isize,
+    scalar: impl Fn(SVector<f64, N>, SVector<f64, N>) -> SVector<f64, N>,
+    batch: impl Fn(&[SVector<f64, N>], &[SVector<f64, N>]) -> Result<Vec<SVector<f64, N>>, RustBraheError>
+    + Sync,
+) -> PyResult<Bound<'py, PyAny>> {
+    let (a_vecs, a_layout) = match parse_vec_arg::<N>(a, axis)? {
+        VecArg::Single(v) => (vec![v], None),
+        VecArg::Batch { vecs, layout } => (vecs, Some(layout)),
+    };
+    let (b_vecs, b_layout) = match parse_vec_arg::<N>(b, axis)? {
+        VecArg::Single(v) => (vec![v], None),
+        VecArg::Batch { vecs, layout } => (vecs, Some(layout)),
+    };
+    let layout = match (a_layout, b_layout) {
+        (None, None) => {
+            return Ok(vector_to_numpy!(py, scalar(a_vecs[0], b_vecs[0]), N, f64).into_any());
+        }
+        (Some(la), Some(lb)) => {
+            if a_vecs.len() == b_vecs.len() || b_vecs.len() == 1 {
+                la
+            } else if a_vecs.len() == 1 {
+                lb
+            } else {
+                return Err(exceptions::PyValueError::new_err(format!(
+                    "Batch lengths {} and {} do not match; expected equal lengths or a single vector",
+                    a_vecs.len(),
+                    b_vecs.len()
+                )));
+            }
+        }
+        (Some(la), None) => la,
+        (None, Some(lb)) => lb,
+    };
+    let out = py.detach(|| batch(&a_vecs, &b_vecs))?;
+    vecs_to_numpy(py, &layout, axis, out)
+}

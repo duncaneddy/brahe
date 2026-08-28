@@ -7,6 +7,8 @@
 
 use std::f64::consts::PI;
 
+use crate::utils::batch::batch_map;
+
 /// Check if a polygon crosses the anti-meridian (±180° longitude boundary).
 ///
 /// A polygon crosses the anti-meridian if any two consecutive vertices have
@@ -189,12 +191,37 @@ fn point_in_polygon_internal(lon: f64, lat: f64, vertices: &[(f64, f64)]) -> boo
     inside
 }
 
+/// Tests a batch of points for containment in a spherical polygon.
+///
+/// Batch form of [`point_in_polygon`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `points`: `(lon, lat)` pairs to test. Units: (*rad*)
+/// - `vertices`: Closed polygon vertices `(lon, lat)`. Units: (*rad*)
+///
+/// # Returns
+/// - Containment flag for each point, in input order
+///
+/// # Examples
+/// ```
+/// use brahe::coordinates::points_in_polygon;
+///
+/// let square = [(0.0, 0.0), (0.1, 0.0), (0.1, 0.1), (0.0, 0.1), (0.0, 0.0)];
+/// let inside = points_in_polygon(&[(0.05, 0.05), (0.5, 0.5)], &square);
+/// assert_eq!(inside, vec![true, false]);
+/// ```
+pub fn points_in_polygon(points: &[(f64, f64)], vertices: &[(f64, f64)]) -> Vec<bool> {
+    batch_map(|(lon, lat)| point_in_polygon(*lon, *lat, vertices), points)
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
 
     // Helper to convert degrees to radians for cleaner test code
     fn deg_to_rad(deg: f64) -> f64 {
@@ -647,5 +674,27 @@ mod tests {
             deg_to_rad(75.0),
             &vertices
         ));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_points_in_polygon_matches_scalar() {
+        let square = [(0.0, 0.0), (0.1, 0.0), (0.1, 0.1), (0.0, 0.1), (0.0, 0.0)];
+        let points = [(0.05, 0.05), (0.5, 0.5), (0.0, 0.05), (-0.01, 0.05)];
+        let flags = points_in_polygon(&points, &square);
+        assert_eq!(flags.len(), points.len());
+        for (i, (lon, lat)) in points.iter().enumerate() {
+            assert_eq!(flags[i], point_in_polygon(*lon, *lat, &square));
+        }
+        assert!(flags[0]);
+        assert!(!flags[1]);
+
+        let strip = [(3.0, 0.0), (-3.0, 0.0), (-3.0, 0.1), (3.0, 0.1), (3.0, 0.0)];
+        let pts = [(3.1, 0.05), (-3.1, 0.05), (0.0, 0.05)];
+        let flags = points_in_polygon(&pts, &strip);
+        for (i, (lon, lat)) in pts.iter().enumerate() {
+            assert_eq!(flags[i], point_in_polygon(*lon, *lat, &strip));
+        }
+        assert!(points_in_polygon(&[], &square).is_empty());
     }
 }

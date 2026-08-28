@@ -1,6 +1,7 @@
 import math
 
 import numpy as np
+import pytest
 from pytest import approx
 
 import brahe
@@ -423,3 +424,94 @@ def test_position_sez_to_azel():
     assert x_azel[0] == approx(315.0, abs=tol)
     assert x_azel[1] == approx(0.0, abs=tol)
     assert x_azel[2] == approx(100.0 * math.sqrt(2.0), abs=tol)
+
+
+def test_batch_topocentric():
+    sites = np.array([[-122.4, 37.8, 0.0], [151.2, -33.9, 100.0], [0.0, 0.0, 10.0]])
+    stations = brahe.position_geodetic_to_ecef(sites, AngleFormat.DEGREES)
+    targets = np.array(
+        [[brahe.R_EARTH + 500e3 + 1e3 * i, 1e5 * i, 2e5] for i in range(3)]
+    )
+
+    for f in (
+        brahe.rotation_ellipsoid_to_enz,
+        brahe.rotation_enz_to_ellipsoid,
+        brahe.rotation_ellipsoid_to_sez,
+        brahe.rotation_sez_to_ellipsoid,
+    ):
+        R = f(sites, AngleFormat.DEGREES)
+        assert R.shape == (3, 3, 3)
+        for i in range(3):
+            np.testing.assert_array_equal(R[i], f(sites[i], AngleFormat.DEGREES))
+        assert f(sites[0], AngleFormat.DEGREES).shape == (3, 3)
+
+    for ct in (
+        EllipsoidalConversionType.GEODETIC,
+        EllipsoidalConversionType.GEOCENTRIC,
+    ):
+        for fwd, inv, to_azel in (
+            (
+                brahe.relative_position_ecef_to_enz,
+                brahe.relative_position_enz_to_ecef,
+                brahe.position_enz_to_azel,
+            ),
+            (
+                brahe.relative_position_ecef_to_sez,
+                brahe.relative_position_sez_to_ecef,
+                brahe.position_sez_to_azel,
+            ),
+        ):
+            local = fwd(stations, targets, ct)
+            local1 = fwd(stations[0], targets, ct)
+            one_target = fwd(stations, targets[0], ct)
+            back = inv(stations, local, ct)
+            back1 = inv(stations[0], local1, ct)
+            azel = to_azel(local, AngleFormat.DEGREES)
+            assert (
+                local.shape == (3, 3)
+                and local1.shape == (3, 3)
+                and one_target.shape == (3, 3)
+            )
+            for i in range(3):
+                np.testing.assert_array_equal(
+                    local[i], fwd(stations[i], targets[i], ct)
+                )
+                np.testing.assert_array_equal(
+                    local1[i], fwd(stations[0], targets[i], ct)
+                )
+                np.testing.assert_array_equal(
+                    one_target[i], fwd(stations[i], targets[0], ct)
+                )
+                np.testing.assert_array_equal(back[i], inv(stations[i], local[i], ct))
+                np.testing.assert_array_equal(back1[i], inv(stations[0], local1[i], ct))
+                np.testing.assert_array_equal(
+                    azel[i], to_azel(local[i], AngleFormat.DEGREES)
+                )
+            np.testing.assert_allclose(back, targets, atol=1e-6)
+            np.testing.assert_array_equal(
+                fwd(stations[0], targets.T, ct, axis=0), local1.T
+            )
+            with pytest.raises(ValueError):
+                fwd(stations[:2], targets, ct)
+
+
+def test_batch_topocentric_length_one_broadcast():
+    stations = brahe.position_geodetic_to_ecef(
+        np.array([[-122.4, 37.8, 0.0], [151.2, -33.9, 100.0], [0.0, 0.0, 10.0]]),
+        AngleFormat.DEGREES,
+    )
+    targets = np.array(
+        [[brahe.R_EARTH + 500e3 + 1e3 * i, 1e5 * i, 2e5] for i in range(3)]
+    )
+    ct = EllipsoidalConversionType.GEODETIC
+    local = brahe.relative_position_ecef_to_enz(stations[:1], targets, ct)
+    assert local.shape == (3, 3)
+    for i in range(3):
+        np.testing.assert_array_equal(
+            local[i], brahe.relative_position_ecef_to_enz(stations[0], targets[i], ct)
+        )
+    local_b = brahe.relative_position_ecef_to_enz(stations, targets[:1], ct)
+    for i in range(3):
+        np.testing.assert_array_equal(
+            local_b[i], brahe.relative_position_ecef_to_enz(stations[i], targets[0], ct)
+        )

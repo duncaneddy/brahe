@@ -8,6 +8,7 @@ use nalgebra::Vector3;
 
 use crate::constants;
 use crate::constants::AngleFormat;
+use crate::utils::batch::{batch_map, try_batch_map};
 
 const ECC2: f64 = constants::WGS84_F * (2.0 - constants::WGS84_F);
 
@@ -131,10 +132,70 @@ pub fn position_ecef_to_geodetic(x_ecef: Vector3<f64>, angle_format: AngleFormat
     }
 }
 
+/// Converts a batch of geodetic positions to ECEF Cartesian positions.
+///
+/// Batch form of [`position_geodetic_to_ecef`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_geod`: Geodetic positions `[lon, lat, alt]`. Units: (angles per `angle_format`, *m*)
+/// - `angle_format`: Format of the angular coordinates
+///
+/// # Returns
+/// - Cartesian ECEF positions in input order. Units: (*m*)
+/// - Error if any latitude lies outside ±90°
+///
+/// # Examples
+/// ```
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::positions_geodetic_to_ecef;
+/// use nalgebra::Vector3;
+///
+/// let sites = vec![Vector3::new(-122.4, 37.8, 0.0), Vector3::new(151.2, -33.9, 100.0)];
+/// let ecef = positions_geodetic_to_ecef(&sites, AngleFormat::Degrees).unwrap();
+/// assert_eq!(ecef.len(), 2);
+/// ```
+pub fn positions_geodetic_to_ecef(
+    x_geod: &[Vector3<f64>],
+    angle_format: AngleFormat,
+) -> Result<Vec<Vector3<f64>>, String> {
+    try_batch_map(|x| position_geodetic_to_ecef(*x, angle_format), x_geod)
+}
+
+/// Converts a batch of ECEF Cartesian positions to geodetic positions.
+///
+/// Batch form of [`position_ecef_to_geodetic`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_ecef`: Cartesian ECEF positions. Units: (*m*)
+/// - `angle_format`: Format of the returned angular coordinates
+///
+/// # Returns
+/// - Geodetic positions `[lon, lat, alt]` in input order. Units: (angles per `angle_format`, *m*)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::positions_ecef_to_geodetic;
+/// use nalgebra::Vector3;
+///
+/// let ecef = vec![Vector3::new(R_EARTH, 0.0, 0.0), Vector3::new(0.0, R_EARTH, 0.0)];
+/// let geod = positions_ecef_to_geodetic(&ecef, AngleFormat::Degrees);
+/// assert_eq!(geod.len(), 2);
+/// ```
+pub fn positions_ecef_to_geodetic(
+    x_ecef: &[Vector3<f64>],
+    angle_format: AngleFormat,
+) -> Vec<Vector3<f64>> {
+    batch_map(|x| position_ecef_to_geodetic(*x, angle_format), x_ecef)
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
 
     use crate::constants::{DEGREES, RADIANS, WGS84_A, WGS84_F};
 
@@ -216,5 +277,29 @@ mod tests {
         assert!(position_geodetic_to_ecef(Vector3::new(0.0, 90.1, 0.0), DEGREES).is_err());
 
         assert!(position_geodetic_to_ecef(Vector3::new(0.0, -90.1, 0.0), DEGREES).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_geodetic_ecef_match_scalar() {
+        let sites = vec![
+            Vector3::new(-122.4, 37.8, 0.0),
+            Vector3::new(151.2, -33.9, 100.0),
+            Vector3::new(0.0, 0.0, 500e3),
+        ];
+        let ecef = positions_geodetic_to_ecef(&sites, DEGREES).unwrap();
+        let back = positions_ecef_to_geodetic(&ecef, DEGREES);
+        for i in 0..3 {
+            assert_eq!(
+                ecef[i],
+                position_geodetic_to_ecef(sites[i], DEGREES).unwrap()
+            );
+            assert_eq!(back[i], position_ecef_to_geodetic(ecef[i], DEGREES));
+            for k in 0..3 {
+                assert_abs_diff_eq!(back[i][k], sites[i][k], epsilon = 1e-6);
+            }
+        }
+        assert!(positions_geodetic_to_ecef(&[Vector3::new(0.0, 95.0, 0.0)], DEGREES).is_err());
+        assert!(positions_ecef_to_geodetic(&[], DEGREES).is_empty());
     }
 }

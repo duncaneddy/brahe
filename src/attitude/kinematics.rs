@@ -171,9 +171,9 @@ fn axis_rotation(axis: u8, angle: f64) -> SMatrix3 {
     }
 }
 
-/// Splits a brahe `EulerAngleOrder` into its per-rotation (axis, angle)
-/// triple in APPLICATION order, and returns the Diebel matrix-order digits
-/// `(i, j, k)` with the Diebel-order angles `(φ_D, θ_D, ψ_D)`.
+/// Splits a brahe `EulerAngleOrder` into the Diebel matrix-order axis
+/// digits `(i, j, k)` and the corresponding Diebel-order angles
+/// `(φ_D, θ_D, ψ_D)`.
 ///
 /// Brahe labels sequences by application order (first letter applied
 /// first); Diebel (2006) eq. 34 labels by left-to-right matrix order, which

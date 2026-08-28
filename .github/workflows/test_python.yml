@@ -12,11 +12,17 @@ on:
                 required: false
                 type: string
                 default: '3.13'
+            network_mode:
+                description: "BRAHE_NETWORK_MODE for the test steps (the warm step stays online)."
+                type: string
+                default: "offline"
 jobs:
     test-python:
         runs-on: ${{ matrix.os }}
         permissions:
             id-token: write
+        env:
+            BRAHE_NETWORK_MODE: ${{ inputs.network_mode }}
         strategy:
             matrix:
                 os: [ubuntu-latest, macos-latest, windows-latest]
@@ -46,13 +52,41 @@ jobs:
             -   name: Install Python ${{ matrix.python-version }}
                 run: uv python install ${{ matrix.python-version }}
 
-            -   name: Cache brahe data (kernels, gravity models)
-                uses: actions/cache@v6.1.0
+            -   name: Restore NAIF kernels cache
+                uses: actions/cache/restore@v6.1.0
                 with:
-                    path: ~/.cache/brahe
-                    key: brahe-data-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+                    path: ~/.cache/brahe/naif
+                    key: naif-kernels-v1
+
+            -   name: Restore ICGEM cache
+                uses: actions/cache/restore@v6.1.0
+                with:
+                    path: ~/.cache/brahe/icgem
+                    key: brahe-icgem-v1
+
+            -   name: Restore SBDB + Horizons cache
+                uses: actions/cache/restore@v6.1.0
+                with:
+                    path: |
+                        ~/.cache/brahe/sbdb
+                        ~/.cache/brahe/horizons
+                    key: brahe-sbdb-horizons-v1
+
+            -   name: Restore star catalog downloads
+                uses: actions/cache/restore@v6.1.0
+                with:
+                    path: |
+                        ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
+                        ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
+                    key: star-catalogs-v1
+
+            -   name: Restore Celestrak cache
+                uses: actions/cache/restore@v6.1.0
+                with:
+                    path: ~/.cache/brahe/celestrak
+                    key: brahe-celestrak-${{ github.run_id }}
                     restore-keys: |
-                        brahe-data-v1-
+                        brahe-celestrak-
 
             -   name: Install dependencies
                 run: uv sync --group test --all-extras --frozen --python ${{ matrix.python-version }}
@@ -63,13 +97,24 @@ jobs:
                 if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
                 uses: taiki-e/install-action@cargo-llvm-cov
 
-            -   name: Build, test, and generate coverage
+            -   name: Build extension (coverage)
                 if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
                 run: |
                     cargo llvm-cov clean --workspace
                     eval "$(cargo llvm-cov show-env --export-prefix)"
                     uv pip install maturin --quiet
                     uv run maturin develop --uv --features pyo3/extension-module
+
+            -   name: Warm data cache
+                if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
+                env:
+                    BRAHE_NETWORK_MODE: online
+                run: uv run --frozen python scripts/warm_data_cache.py
+
+            -   name: Test with coverage
+                if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
+                run: |
+                    eval "$(cargo llvm-cov show-env --export-prefix)"
                     uv run --frozen pytest tests/ \
                         --cov=brahe \
                         --cov-report=xml:python-coverage.xml \

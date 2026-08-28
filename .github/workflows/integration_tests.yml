@@ -40,13 +40,25 @@ jobs:
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
 
-            -   name: Cache brahe data (kernels, gravity models)
-                uses: actions/cache@v6.1.0
+            -   name: Restore NAIF kernels cache
+                uses: actions/cache/restore@v6.1.0
                 with:
-                    path: ~/.cache/brahe
-                    key: brahe-data-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
-                    restore-keys: |
-                        brahe-data-v1-
+                    path: ~/.cache/brahe/naif
+                    key: naif-kernels-v1
+
+            -   name: Restore ICGEM cache
+                uses: actions/cache/restore@v6.1.0
+                with:
+                    path: ~/.cache/brahe/icgem
+                    key: brahe-icgem-v1
+
+            -   name: Restore SBDB + Horizons cache
+                uses: actions/cache/restore@v6.1.0
+                with:
+                    path: |
+                        ~/.cache/brahe/sbdb
+                        ~/.cache/brahe/horizons
+                    key: brahe-sbdb-horizons-v1
 
             # FK5 + Hipparcos only. Explicit file paths (not the whole
             # star_catalogs/ dir) so the 526 MB Tycho-2 catalog downloaded by
@@ -123,13 +135,25 @@ jobs:
             -   name: Install Python ${{ matrix.python-version }}
                 run: uv python install ${{ matrix.python-version }}
 
-            -   name: Cache brahe data (kernels, gravity models)
-                uses: actions/cache@v6.1.0
+            -   name: Restore NAIF kernels cache
+                uses: actions/cache/restore@v6.1.0
                 with:
-                    path: ~/.cache/brahe
-                    key: brahe-data-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
-                    restore-keys: |
-                        brahe-data-v1-
+                    path: ~/.cache/brahe/naif
+                    key: naif-kernels-v1
+
+            -   name: Restore ICGEM cache
+                uses: actions/cache/restore@v6.1.0
+                with:
+                    path: ~/.cache/brahe/icgem
+                    key: brahe-icgem-v1
+
+            -   name: Restore SBDB + Horizons cache
+                uses: actions/cache/restore@v6.1.0
+                with:
+                    path: |
+                        ~/.cache/brahe/sbdb
+                        ~/.cache/brahe/horizons
+                    key: brahe-sbdb-horizons-v1
 
             # FK5 + Hipparcos only, matching the Rust job above.
             -   name: Cache star catalog downloads
@@ -215,3 +239,4 @@ jobs:
         with:
             example_args: "--network"
             use_retry: true
+            network_mode: online

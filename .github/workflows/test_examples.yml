@@ -14,12 +14,17 @@ on:
           Also skips doc-plot generation, which is only needed on the PR path.
         type: boolean
         default: false
+      network_mode:
+        description: "BRAHE_NETWORK_MODE for the test/example/plot steps (warm steps stay online)."
+        type: string
+        default: "offline"
 
 jobs:
   test-examples:
     runs-on: ubuntu-latest
     env:
       RUST_TOOLCHAIN: stable
+      BRAHE_NETWORK_MODE: ${{ inputs.network_mode }}
     steps:
       - uses: actions/checkout@v7.0.1
 
@@ -52,15 +57,6 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --all-extras --frozen
-
-      # Try to download Brahe cache to avoid external API calls
-      - name: Download Brahe cache directory
-        id: download-cache
-        continue-on-error: true
-        uses: actions/download-artifact@v8
-        with:
-          name: brahe-cache
-          path: ~/.cache/brahe/
 
       # Restored before "Setup test assets in cache" below so the repo's
       # test_assets/de440s.bsp always wins over a stale cached copy; only
@@ -158,10 +154,22 @@ jobs:
             ~/.cache/brahe/horizons
           key: brahe-sbdb-horizons-v1
 
+      # Restore-only: the weekly warm_data_cache.yml producer owns the save,
+      # refreshing this family on every one of its runs.
+      - name: Restore Celestrak cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: ~/.cache/brahe/celestrak
+          key: brahe-celestrak-${{ github.run_id }}
+          restore-keys: |
+            brahe-celestrak-
+
       # Serial, retrying download of all plot/example network resources. On a
       # cache hit this is an instant no-op; on a miss it warms the caches once so
       # the parallel pools below never hit the network.
       - name: Pre-download plot/example resources
+        env:
+          BRAHE_NETWORK_MODE: online
         run: just download-resources
 
       # Save from main only, immediately after the warm-up populates the
@@ -225,12 +233,13 @@ jobs:
           retry_wait_seconds: 60
           command: just test-examples ${{ inputs.example_args }}
 
-      # The --network run is the only place NETWORK-flagged examples execute,
-      # so it is the only producer of their doc figures. Persist docs/figures
-      # to the actions cache so the docs deploys (update_docs.yml,
-      # docs_only.yml), whose own --ci-only example runs skip these examples,
-      # can restore and overlay them. The per-run key is unique; consumers use
-      # restore-keys prefix matching, which returns the most recent entry.
+      # NETWORK-flagged examples execute only in this --network run of
+      # test-examples, so it is the only producer of their doc figures.
+      # Persist docs/figures to the actions cache so the docs deploys
+      # (update_docs.yml, docs_only.yml), whose own --ci-only example runs
+      # skip these examples, can restore and overlay them. The per-run key is
+      # unique; consumers use restore-keys prefix matching, which returns the
+      # most recent entry.
       - name: Save network example figures to cache
         if: ${{ inputs.use_retry }}
         uses: actions/cache/save@v6.1.0
@@ -239,10 +248,13 @@ jobs:
           key: network-example-figures-${{ github.run_id }}
 
       # Text-output analogue of the figures cache above. NETWORK-flagged
-      # examples (first_script, clients_celestrak, ...) only run here, so this
-      # is the only producer of their captured stdout. Persist docs/outputs so
-      # the docs deploys (update_docs.yml, docs_only.yml), whose own --ci-only
-      # example runs skip these examples, can restore and overlay it.
+      # examples (first_script, clients_celestrak, ...) execute only in this
+      # --network run of test-examples, so it is the only producer of their
+      # captured stdout; the weekly warm_data_cache.yml producer keeps the
+      # Celestrak data cache warm separately, without running these examples.
+      # Persist docs/outputs so the docs deploys (update_docs.yml,
+      # docs_only.yml), whose own --ci-only example runs skip these examples,
+      # can restore and overlay it.
       - name: Save network example outputs to cache
         if: ${{ inputs.use_retry }}
         uses: actions/cache/save@v6.1.0

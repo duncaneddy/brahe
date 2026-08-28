@@ -63,18 +63,19 @@ keyword arguments to `get_gp` or as builder methods on `CelestrakQuery.gp`.
 
 A lookup by catalog number, international designator, or name is answered from a cached copy of the
 `active` group whenever the object is in it. The first such lookup downloads `active` once (about
-11,000 records); every later lookup by any client in the same cache reads that file until it passes
-the cache TTL. The order is: the exact per-object cache file if it is present and servable, then the
-cached `active` group, then a request for the object itself. Objects that are not in `active` --
-debris, inactive payloads -- are requested individually, so `get_gp(catnr=...)` works for any catalog
-number.
+11,000 records, several megabytes); every later lookup by any client in the same cache reads that
+file until it passes the cache TTL. The order is: the exact per-object cache file if it is present and
+servable, then the cached `active` group, then a request for the object itself. Objects that are not
+in `active` -- debris, inactive payloads -- are requested individually, so `get_gp(catnr=...)` works
+for any catalog number. `catnr` and `intdes` results are unaffected by which step answers them --
+resolution only changes where the record comes from, not its content.
 
 A name search follows the same order, so a search that matches in `active` returns only active
 objects; the server's own name search would also return inactive objects with the same substring. A
 name with no match in `active` is sent to the server. Group, special, and file queries, supplemental
-GP, and SATCAT are always sent to the server exactly as written, and `query_raw` never consults
-`active`. A client with a zero cache age sends every query directly, since the `active` group copy
-could not be reused.
+GP, and SATCAT are sent to the server exactly as written, though still served from the URL cache when
+a fresh copy exists; `query_raw` never consults `active`. A client with a zero cache age sends every
+query directly, since the `active` group copy could not be reused.
 
 === "Python"
 

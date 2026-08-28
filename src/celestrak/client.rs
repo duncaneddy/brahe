@@ -227,8 +227,8 @@ impl CelestrakClient {
     /// active objects; a search with no match in `active` still goes to
     /// the server. `catnr` and `intdes` results are unaffected. Any other
     /// query (a group, `special`, `source`, combined selectors, and so
-    /// on) is always sent to the server exactly as written, though it is
-    /// still served from the URL cache when a fresh copy exists. A client
+    /// on) is sent to the server exactly as written, though it is still
+    /// served from the URL cache when a fresh copy exists. A client
     /// with a zero cache age sends every query directly, since the `active`
     /// group copy could not be reused. Under `offline-strict`, step 1 (the
     /// exact per-object cache file) is checked first, so a per-object cache
@@ -2010,6 +2010,35 @@ mod tests {
         }
         active.assert_calls(1);
         single.assert_calls(2);
+    }
+
+    #[test]
+    #[serial]
+    fn test_offline_strict_stale_active_falls_through_without_warning() {
+        clear_active_unavailable_latch();
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("offline-strict"));
+        let server = MockServer::start();
+        let (active, single) = mock_active_and_single(&server, "CATNR", "25544");
+        let client = CelestrakClient::with_base_url(&server.base_url());
+        let active_url = format!(
+            "{}/NORAD/elements/gp.php?GROUP=active&FORMAT=JSON",
+            server.base_url()
+        );
+        seed_celestrak_cache(
+            &client,
+            &active_url,
+            ACTIVE_JSON,
+            Duration::from_secs(30 * 86400),
+        );
+
+        let err = client.get_gp_by_catnr(25544).unwrap_err().to_string();
+        assert!(
+            err.starts_with("BRAHE_NETWORK_MODE is offline-strict; Celestrak request "),
+            "{err}"
+        );
+        active.assert_calls(0);
+        single.assert_calls(0);
     }
 
     #[test]

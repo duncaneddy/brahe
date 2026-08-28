@@ -897,8 +897,9 @@ impl PyCelestrakClient {
     /// cached copy of the ``active`` group when the object is in it, so
     /// repeated lookups cost a single request. Objects not in ``active``
     /// are requested individually. A ``name`` search that matches in
-    /// ``active`` returns only active objects; ``group`` queries are
-    /// always sent to the server.
+    /// ``active`` returns only active objects; ``group`` queries are sent
+    /// to the server exactly as written, though still served from the URL
+    /// cache when a fresh copy exists.
     ///
     /// Args:
     ///     catnr (int, optional): NORAD catalog number (e.g., 25544 for ISS).

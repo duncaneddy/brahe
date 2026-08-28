@@ -239,13 +239,14 @@ jobs:
                     verbose: true
                     use_oidc: true
 
-    # Run the live-network documentation examples (ICGEM / Celestrak / GCAT /
-    # NAIF). These are flagged NETWORK so they never run on the per-PR
-    # `test_examples` workflow — keeping PRs off the flaky third-party services
-    # and avoiding hammering them on every push. Here, on the weekly schedule
-    # (and at release time via workflow_call), they are exercised end-to-end
-    # against the real services, with the retry wrapper absorbing transient
-    # throttling/blips.
+    # Run the example workflow with --network and network_mode: online. The
+    # NETWORK-flagged examples (ICGEM / GCAT / NAIF / star-catalog / Horizons
+    # / SBDB) never run on the per-PR `test_examples` workflow, so this job —
+    # on the weekly schedule and at release time via workflow_call — is where
+    # they are exercised live against the real services. The unflagged
+    # Celestrak GP examples run on every PR from the warmed cache; here they
+    # additionally refresh their cached groups live. The retry wrapper
+    # absorbs transient throttling/blips from either.
     integration-examples:
         uses: ./.github/workflows/test_examples.yml
         with:

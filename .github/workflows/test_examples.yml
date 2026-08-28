@@ -193,10 +193,9 @@ jobs:
         run: just test-examples ${{ inputs.example_args }}
 
       # Live-network runs (e.g. --network) retry to absorb transient remote
-      # throttling: the GCAT/ICGEM/NAIF/star-catalog/Horizons/SBDB dataset
-      # examples run only here, and the unflagged Celestrak GP examples run
-      # here too, refreshing `active` (and the other warmed groups) live
-      # instead of from cache.
+      # throttling: the NETWORK-flagged examples run only here, and the
+      # unflagged Celestrak GP examples run here too, refreshing `active`
+      # (and the other warmed groups) live instead of from cache.
       - name: Test examples (with retries)
         if: ${{ inputs.use_retry }}
         uses: nick-fields/retry@v4

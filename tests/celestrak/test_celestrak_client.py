@@ -332,3 +332,18 @@ class TestCelestrakClientActiveResolution:
         client.get_gp(catnr=25544)
         assert [r.get("GROUP") for r in requests] == [None]
         assert requests[0].get("CATNR") == "25544"
+
+    def test_intdes_resolves_from_active(self, celestrak_server):
+        base_url, requests = celestrak_server
+        client = bh.celestrak.CelestrakClient(base_url=base_url)
+        records = client.get_gp(intdes="2021-066a")
+        assert [r.norad_cat_id for r in records] == [49044]
+        assert [r.get("GROUP") for r in requests] == ["active"]
+
+    def test_second_client_makes_no_request(self, celestrak_server):
+        base_url, requests = celestrak_server
+        client = bh.celestrak.CelestrakClient(base_url=base_url)
+        client.get_gp(catnr=25544)
+        other = bh.celestrak.CelestrakClient(base_url=base_url)
+        other.get_gp(catnr=49044)
+        assert [r.get("GROUP") for r in requests] == ["active"]

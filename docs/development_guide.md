@@ -59,6 +59,15 @@ just test-examples
 just test-example <example_name> # Can just be the file name without extension, e.g. impulsive_maneuver or impulsive_maneuver.py
 ```
 
+### Developer Environment Variables
+
+| Variable | Used by | Purpose |
+|---|---|---|
+| `TEST_SPACETRACK_USER` / `TEST_SPACETRACK_PASS` | `just test-integration` | Credentials for the Space-Track integration tests. |
+| `TEST_SPACETRACK_BASE_URL` | `just test-integration-rust` | Space-Track endpoint for integration tests; defaults to `https://for-testing-only.space-track.org`. |
+| `BRAHE_FIGURE_OUTPUT_DIR` | `just make-plots`, `scripts/make_plot.py` | Directory that plot scripts write figures into; defaults to `./docs/figures/`. |
+
+Variables that affect the library itself (`BRAHE_CACHE`, `BRAHE_NETWORK_MODE`, `SPACETRACK_USER`, `SPACETRACK_PASS`) are documented for users in [Environment Variables](learn/utilities/environment_variables.md).
 
 ### Development Workflow: Implementing a New Feature
 

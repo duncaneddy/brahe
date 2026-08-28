@@ -43,7 +43,7 @@ The PSATCAT catalog contains payload-specific metadata for missions, extending t
 
 GCAT data is updated regularly as new objects are cataloged. Brahe implements time-based file caching:
 
-- **Cache location**: `~/.cache/brahe/gcat/` (or `$BRAHE_CACHE/gcat/` if set)
+- **Cache location**: `~/.cache/brahe/gcat/` (or `$BRAHE_CACHE/gcat/` if set). Setting `BRAHE_NETWORK_MODE=offline` serves cached data without any request; see [Environment Variables](../utilities/environment_variables.md).
 - **Default TTL**: 24 hours (86400 seconds)
 - **Force refresh**: Pass `cache_max_age=0` to bypass the cache and download fresh data
 

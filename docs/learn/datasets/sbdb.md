@@ -9,8 +9,10 @@ Its primary use is obtaining the NAIF ID needed to request a targeted SPK from
 `SBDBClient.lookup(sstr)` returns an `SBDBObject`. Responses are cached under
 `$BRAHE_CACHE/sbdb` (default `~/.cache/brahe/sbdb`) and reused until the cache
 age exceeds the client's `cache_max_age` (default 30 days); pass
-`cache_max_age=0` to always refetch. Ambiguous search strings and unknown
-objects raise an error.
+`cache_max_age=0` to always refetch. Setting `BRAHE_NETWORK_MODE=offline`
+serves cached data without any request; see [Environment
+Variables](../utilities/environment_variables.md). Ambiguous search strings
+and unknown objects raise an error.
 
 !!! tip "Ephemerides for bodies outside the DE distributions"
     Pair SBDB with the [Horizons](horizons.md) client to obtain SPK files for

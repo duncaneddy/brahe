@@ -10,7 +10,9 @@ loaded separately.
 `HorizonsClient.get_spk(request)` returns a `HorizonsSPKResponse`. The `.bsp`
 is cached under `$BRAHE_CACHE/horizons` (default `~/.cache/brahe/horizons`) and
 reused whenever a kernel for the same request already exists, so a given
-body/span is downloaded only once.
+body/span is downloaded only once. Setting `BRAHE_NETWORK_MODE=offline` serves
+cached data without any request; see [Environment
+Variables](../utilities/environment_variables.md).
 
 ## Requesting and Loading an SPK
 

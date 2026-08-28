@@ -16,8 +16,9 @@ supports Supplemental GP data from constellation operators (`CelestrakQuery.sup_
 catalog metadata (`CelestrakQuery.satcat`).
 
 To minimize load on CelesTrak's servers and improve performance, the client caches downloaded data for
-6 hours. Cache files are stored in the system cache directory (`~/.cache/brahe/celestrak/`) and are
-keyed by query URL.
+2 hours. Cache files are stored in the system cache directory (`~/.cache/brahe/celestrak/`) and are
+keyed by query URL. Setting `BRAHE_NETWORK_MODE=offline` serves cached data without any request; see
+[Environment Variables](../utilities/environment_variables.md).
 
 !!! tip "Customizing Cache"
     Pass `cache_max_age=0.0` to disable caching, or a custom value in seconds to change the TTL.

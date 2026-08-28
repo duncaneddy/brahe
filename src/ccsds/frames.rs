@@ -1039,6 +1039,23 @@ mod tests {
 
     #[test]
     #[parallel]
+    fn test_frame_parse_normalization() {
+        assert_eq!(
+            CCSDSCelestialBodyFrame::parse("itrf-2014").to_string(),
+            "ITRF2014"
+        );
+        assert_eq!(
+            CCSDSCelestialBodyFrame::parse("eme2000").to_string(),
+            "EME2000"
+        );
+        assert_eq!(
+            CCSDSSpacecraftBodyFrame::parse("sc_body_1").to_string(),
+            "SC_BODY_1"
+        );
+    }
+
+    #[test]
+    #[parallel]
     fn test_celestial_body_frame_numeric_suffix_overflow() {
         assert_eq!(
             CCSDSCelestialBodyFrame::parse("GCRF999"),

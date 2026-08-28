@@ -488,10 +488,13 @@ impl TryFrom<&ADMReferenceFrame> for AttitudeFrame {
     ///
     /// Celestial frames map onto [`ReferenceFrame`] where brahe implements
     /// the frame (ICRF/GCRF → GCRF, EME2000/J2000 → EME2000, ITRF
-    /// realizations → ITRF, MOON_PA → LFPA, MOON_ME → LFME). Orbit-relative
-    /// and spacecraft frames map structurally. All other frames return an
-    /// error; the containing message still loads and writes — only conversion
-    /// to native types is unsupported.
+    /// realizations → ITRF, MOON_ME → LFME). Only the bare `MOON_PA` token and
+    /// its explicit DE440 realization (`MOON_PA440`) map to `LFPA`, since
+    /// brahe's LFPA is the DE440 lunar principal-axes frame and other DE
+    /// realizations (e.g. `MOON_PA421`) differ materially. Orbit-relative and
+    /// spacecraft frames map structurally. All other frames return an error;
+    /// the containing message still loads and writes — only conversion to
+    /// native types is unsupported.
     fn try_from(frame: &ADMReferenceFrame) -> Result<Self, Self::Error> {
         match frame {
             ADMReferenceFrame::Celestial(celestial) => {
@@ -503,7 +506,8 @@ impl TryFrom<&ADMReferenceFrame> for AttitudeFrame {
                         ReferenceFrame::EME2000
                     }
                     CCSDSCelestialBodyFrame::ITRF(_) => ReferenceFrame::ITRF,
-                    CCSDSCelestialBodyFrame::MoonPA(_) => ReferenceFrame::LFPA,
+                    CCSDSCelestialBodyFrame::MoonPA(None)
+                    | CCSDSCelestialBodyFrame::MoonPA(Some(440)) => ReferenceFrame::LFPA,
                     CCSDSCelestialBodyFrame::MoonME => ReferenceFrame::LFME,
                     other => {
                         return Err(BraheError::Error(format!(
@@ -666,13 +670,12 @@ impl TryFrom<&AttitudeFrame> for ADMReferenceFrame {
                     (K::TNW, V::Rotating) => CCSDSOrbitRelativeFrame::TNWRotating,
                     (K::VNC, V::Inertial) => CCSDSOrbitRelativeFrame::VNCInertial,
                     (K::VNC, V::Rotating) => CCSDSOrbitRelativeFrame::VNCRotating,
-                    (kind, V::Rotating) if matches!(kind, K::EQW | K::PQW) => {
+                    (K::EQW, V::Rotating) | (K::PQW, V::Rotating) => {
                         return Err(BraheError::Error(format!(
                             "orbit-relative frame {:?} exists only as an inertial SANA frame",
-                            kind
+                            orbit_relative.kind
                         )));
                     }
-                    _ => unreachable!(),
                 };
                 Ok(ADMReferenceFrame::OrbitRelative(ccsds))
             }
@@ -1463,5 +1466,22 @@ mod tests {
         ));
         let err = AttitudeFrame::try_from(&adm).unwrap_err();
         assert!(err.to_string().contains("CUSTOM_SC_FRAME"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_adm_celestial_other_to_attitude_frame_errors() {
+        let adm =
+            ADMReferenceFrame::Celestial(CCSDSCelestialBodyFrame::Other("CUSTOM".to_string()));
+        let err = AttitudeFrame::try_from(&adm).unwrap_err();
+        assert!(err.to_string().contains("CUSTOM"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_adm_moon_pa_non_de440_realization_errors() {
+        let adm = ADMReferenceFrame::parse("MOON_PA421");
+        let err = AttitudeFrame::try_from(&adm).unwrap_err();
+        assert!(err.to_string().contains("MOON_PA421"));
     }
 }

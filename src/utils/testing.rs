@@ -22,6 +22,7 @@ use crate::space_weather::{
     FileSpaceWeatherProvider, SpaceWeatherExtrapolation, set_global_space_weather_provider,
 };
 use crate::utils::get_naif_cache_dir;
+use crate::utils::network::NETWORK_MODE_ENV;
 
 // =============================================================================
 // Test Orbit Fixtures - Keplerian Elements
@@ -553,6 +554,40 @@ impl Drop for CacheRedirect {
             match &self.prev {
                 Some(v) => env::set_var("BRAHE_CACHE", v),
                 None => env::remove_var("BRAHE_CACHE"),
+            }
+        }
+    }
+}
+
+/// Sets `BRAHE_NETWORK_MODE` for the lifetime of the guard and restores the
+/// previous value (or unsets it) on drop. Callers must be `#[serial]`.
+pub(crate) struct NetworkModeGuard {
+    prev: Option<String>,
+}
+
+impl NetworkModeGuard {
+    /// Set the variable to `value`, or remove it for `None`.
+    pub(crate) fn set(value: Option<&str>) -> Self {
+        let prev = env::var(NETWORK_MODE_ENV).ok();
+        // SAFETY: single-threaded within a #[serial] test; no other thread
+        // reads the environment concurrently.
+        unsafe {
+            match value {
+                Some(v) => env::set_var(NETWORK_MODE_ENV, v),
+                None => env::remove_var(NETWORK_MODE_ENV),
+            }
+        }
+        NetworkModeGuard { prev }
+    }
+}
+
+impl Drop for NetworkModeGuard {
+    fn drop(&mut self) {
+        // SAFETY: see `set`.
+        unsafe {
+            match &self.prev {
+                Some(p) => env::set_var(NETWORK_MODE_ENV, p),
+                None => env::remove_var(NETWORK_MODE_ENV),
             }
         }
     }

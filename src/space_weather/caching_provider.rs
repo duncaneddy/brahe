@@ -619,6 +619,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_check_file_age_nonexistent() {
         let dir = TempDir::new().unwrap();
         let filepath = dir.path().join("nonexistent.txt");
@@ -628,6 +629,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_check_file_age_current() {
         let dir = TempDir::new().unwrap();
         let filepath = dir.path().join("current.txt");
@@ -641,6 +643,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::parallel]
     fn test_check_file_age_stale() {
         let dir = TempDir::new().unwrap();
         let filepath = dir.path().join("stale.txt");
@@ -741,6 +744,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_new_seeds_from_bundled_when_missing() {
         // A missing cache file should be seeded from the compiled-in bundled data,
         // allowing initialization to succeed offline (no network required).
@@ -765,6 +769,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_caching_provider_from_packaged() {
         // Test that we can create a provider even without network access
         // by using the packaged default file
@@ -787,6 +792,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_file_age_and_epoch() {
         // Create a provider from packaged data
         let temp_dir = TempDir::new().unwrap();
@@ -824,6 +830,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_refresh() {
         // Create a provider from packaged data
         let temp_dir = TempDir::new().unwrap();
@@ -850,6 +857,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_provider_delegation() {
         // Test that SpaceWeatherProvider methods are properly delegated
         let temp_dir = TempDir::new().unwrap();
@@ -889,6 +897,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_mjd_boundaries() {
         let temp_dir = TempDir::new().unwrap();
         let cache_dir = temp_dir.path().to_path_buf();
@@ -923,6 +932,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_f107_adj_avg81() {
         let temp_dir = TempDir::new().unwrap();
         let cache_dir = temp_dir.path().to_path_buf();
@@ -945,6 +955,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_last_methods() {
         let temp_dir = TempDir::new().unwrap();
         let cache_dir = temp_dir.path().to_path_buf();
@@ -1013,6 +1024,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_with_url_from_cached_file() {
         // Test with_url when file already exists in cache (no network call needed)
         let temp_dir = TempDir::new().unwrap();
@@ -1050,6 +1062,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_kp_all() {
         let temp_dir = TempDir::new().unwrap();
         let cache_dir = temp_dir.path().to_path_buf();
@@ -1074,6 +1087,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_kp_daily() {
         let temp_dir = TempDir::new().unwrap();
         let cache_dir = temp_dir.path().to_path_buf();
@@ -1095,6 +1109,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_ap() {
         let temp_dir = TempDir::new().unwrap();
         let cache_dir = temp_dir.path().to_path_buf();
@@ -1116,6 +1131,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_ap_all() {
         let temp_dir = TempDir::new().unwrap();
         let cache_dir = temp_dir.path().to_path_buf();
@@ -1140,6 +1156,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_f107_adjusted() {
         let temp_dir = TempDir::new().unwrap();
         let cache_dir = temp_dir.path().to_path_buf();
@@ -1161,6 +1178,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_f107_obs_avg81() {
         let temp_dir = TempDir::new().unwrap();
         let cache_dir = temp_dir.path().to_path_buf();

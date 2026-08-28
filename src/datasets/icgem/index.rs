@@ -259,6 +259,7 @@ mod tests {
     use crate::utils::testing::NetworkModeGuard;
 
     #[test]
+    #[serial_test::parallel]
     fn test_index_entry_round_trip_json() {
         let entry = IndexEntry {
             body: ICGEMBody::Earth,
@@ -273,6 +274,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_index_file_round_trip_json() {
         let file = IndexFile {
             fetched_at: 1_700_000_000,
@@ -291,6 +293,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_index_path_dispatches_by_body() {
         let earth = index_path_for(&ICGEMBody::Earth).unwrap();
         assert!(earth.to_string_lossy().ends_with("index_earth.json"));
@@ -301,6 +304,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_read_index_file_missing_returns_none() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("nope.json");
@@ -308,6 +312,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_write_then_read_index_file() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("x.json");
@@ -342,6 +347,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_fetch_index_http_404() {
         use httpmock::prelude::*;
         let server = MockServer::start();
@@ -354,6 +360,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_fetch_index_success_serves_fixture() {
         use httpmock::prelude::*;
         let fixture =

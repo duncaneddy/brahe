@@ -1092,6 +1092,50 @@ mod tests {
 
     #[test]
     #[serial_test::parallel]
+    fn test_attitude_trajectory_from_data_rate_mixing_error_reverse_direction() {
+        let (a, b) = body_frames();
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let epochs = vec![t0, t0 + 60.0];
+        let states = vec![
+            AttitudeState::new(z_axis_quaternion(0.0))
+                .with_angular_velocity(Vector3::new(0.0, 0.0, 0.01)),
+            AttitudeState::new(z_axis_quaternion(0.1)),
+        ];
+
+        let result = AttitudeTrajectory::from_data(epochs, states, a, b);
+        assert!(result.is_err());
+        let message = format!("{}", result.unwrap_err());
+        assert!(message.contains("not carry it"));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_from_data_length_mismatch_errors() {
+        let (a, b) = body_frames();
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let epochs = vec![t0, t0 + 60.0];
+        let states = vec![AttitudeState::new(z_axis_quaternion(0.0))];
+
+        let result = AttitudeTrajectory::from_data(epochs, states, a, b);
+        assert!(result.is_err());
+        let message = format!("{}", result.unwrap_err());
+        assert!(message.contains("same length"));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_from_data_empty_errors() {
+        let (a, b) = body_frames();
+        let result = AttitudeTrajectory::from_data(Vec::new(), Vec::new(), a, b);
+        assert!(result.is_err());
+        let message = format!("{}", result.unwrap_err());
+        assert!(message.contains("empty"));
+    }
+
+    #[test]
+    #[serial_test::parallel]
     fn test_attitude_trajectory_has_rates() {
         let (a, b) = body_frames();
         let mut traj = AttitudeTrajectory::new(a, b);
@@ -1424,5 +1468,310 @@ mod tests {
         assert_eq!(traj.len(), 3);
         assert_eq!(traj.epoch_at_idx(0).unwrap(), t0 + 2.0);
         assert_eq!(traj.epoch_at_idx(2).unwrap(), t0 + 4.0);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_eviction_max_age() {
+        let (a, b) = body_frames();
+        let mut traj = AttitudeTrajectory::new(a, b);
+        traj.set_eviction_policy_max_age(2.5).unwrap();
+        assert_eq!(
+            traj.get_eviction_policy(),
+            TrajectoryEvictionPolicy::KeepWithinDuration
+        );
+
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        for i in 0..5 {
+            traj.add(
+                t0 + i as f64,
+                AttitudeState::new(z_axis_quaternion(0.01 * i as f64)),
+            )
+            .unwrap();
+        }
+
+        // Last epoch is t0 + 4.0; only states within 2.5s of it survive.
+        assert_eq!(traj.len(), 3);
+        assert_eq!(traj.epoch_at_idx(0).unwrap(), t0 + 2.0);
+        assert_eq!(traj.epoch_at_idx(2).unwrap(), t0 + 4.0);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_eviction_policy_setter_errors() {
+        let (a, b) = body_frames();
+        let mut traj = AttitudeTrajectory::new(a, b);
+        assert!(traj.set_eviction_policy_max_size(0).is_err());
+        assert!(traj.set_eviction_policy_max_age(0.0).is_err());
+        assert!(traj.set_eviction_policy_max_age(-1.0).is_err());
+        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::None);
+    }
+
+    // =========================================================================
+    // add: rate-mixing error, opposite direction
+    // =========================================================================
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_add_rate_mixing_error_reverse_direction() {
+        let (a, b) = body_frames();
+        let mut traj = AttitudeTrajectory::new(a, b);
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        traj.add(
+            t0,
+            AttitudeState::new(z_axis_quaternion(0.0))
+                .with_angular_velocity(Vector3::new(0.0, 0.0, 0.01)),
+        )
+        .unwrap();
+
+        let result = traj.add(t0 + 60.0, AttitudeState::new(z_axis_quaternion(0.1)));
+        assert!(result.is_err());
+        let message = format!("{}", result.unwrap_err());
+        assert!(message.contains("carry"));
+        assert!(message.contains("does not carry angular velocity"));
+    }
+
+    // =========================================================================
+    // Trajectory trait: index/state accessors and bounds errors
+    // =========================================================================
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_epoch_state_at_idx_out_of_bounds_errors() {
+        let (a, b) = body_frames();
+        let mut traj = AttitudeTrajectory::new(a, b);
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        traj.add(t0, AttitudeState::new(z_axis_quaternion(0.0)))
+            .unwrap();
+
+        assert!(traj.epoch_at_idx(1).is_err());
+        assert!(traj.state_at_idx(1).is_err());
+        assert!(traj.get(1).is_err());
+        assert!(traj.remove(1).is_err());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_nearest_state() {
+        let (a, b) = body_frames();
+        let mut traj = AttitudeTrajectory::new(a, b);
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        traj.add(t0, AttitudeState::new(z_axis_quaternion(0.0)))
+            .unwrap();
+        traj.add(t0 + 10.0, AttitudeState::new(z_axis_quaternion(0.1)))
+            .unwrap();
+        traj.add(t0 + 20.0, AttitudeState::new(z_axis_quaternion(0.2)))
+            .unwrap();
+
+        let (epoch, state) = traj.nearest_state(&(t0 + 3.0)).unwrap();
+        assert_eq!(epoch, t0);
+        assert_eq!(state.quaternion, z_axis_quaternion(0.0));
+
+        let (epoch, _) = traj.nearest_state(&(t0 + 17.0)).unwrap();
+        assert_eq!(epoch, t0 + 20.0);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_nearest_state_empty_errors() {
+        let (a, b) = body_frames();
+        let traj = AttitudeTrajectory::new(a, b);
+        assert!(traj.nearest_state(&Epoch::now()).is_err());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_index_before_after_epoch_errors_on_empty() {
+        let (a, b) = body_frames();
+        let traj = AttitudeTrajectory::new(a, b);
+        assert!(traj.index_before_epoch(&Epoch::now()).is_err());
+        assert!(traj.index_after_epoch(&Epoch::now()).is_err());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_index_before_after_epoch_errors_outside_range() {
+        let (a, b) = body_frames();
+        let mut traj = AttitudeTrajectory::new(a, b);
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        traj.add(t0, AttitudeState::new(z_axis_quaternion(0.0)))
+            .unwrap();
+        traj.add(t0 + 10.0, AttitudeState::new(z_axis_quaternion(0.1)))
+            .unwrap();
+
+        assert!(traj.index_before_epoch(&(t0 - 1.0)).is_err());
+        assert!(traj.index_after_epoch(&(t0 + 11.0)).is_err());
+        assert_eq!(traj.index_before_epoch(&t0).unwrap(), 0);
+        assert_eq!(traj.index_after_epoch(&(t0 + 10.0)).unwrap(), 1);
+    }
+
+    // =========================================================================
+    // Trajectory trait: timespan / first / last / clear / remove(_epoch)
+    // =========================================================================
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_timespan_first_last_empty() {
+        let (a, b) = body_frames();
+        let traj = AttitudeTrajectory::new(a, b);
+        assert!(traj.timespan().is_none());
+        assert!(traj.first().is_none());
+        assert!(traj.last().is_none());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_timespan_first_last_populated() {
+        let (a, b) = body_frames();
+        let mut traj = AttitudeTrajectory::new(a, b);
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        traj.add(t0, AttitudeState::new(z_axis_quaternion(0.0)))
+            .unwrap();
+        // A single-state trajectory has no timespan.
+        assert!(traj.timespan().is_none());
+
+        traj.add(t0 + 30.0, AttitudeState::new(z_axis_quaternion(0.1)))
+            .unwrap();
+
+        assert_eq!(traj.timespan(), Some(30.0));
+        assert_eq!(traj.first().unwrap().0, t0);
+        assert_eq!(traj.last().unwrap().0, t0 + 30.0);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_clear() {
+        let (a, b) = body_frames();
+        let mut traj = AttitudeTrajectory::new(a, b);
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        traj.add(t0, AttitudeState::new(z_axis_quaternion(0.0)))
+            .unwrap();
+        assert!(!traj.is_empty());
+
+        traj.clear();
+        assert!(traj.is_empty());
+        assert_eq!(traj.len(), 0);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_remove_epoch() {
+        let (a, b) = body_frames();
+        let mut traj = AttitudeTrajectory::new(a, b);
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        traj.add(t0, AttitudeState::new(z_axis_quaternion(0.0)))
+            .unwrap();
+        traj.add(t0 + 10.0, AttitudeState::new(z_axis_quaternion(0.1)))
+            .unwrap();
+
+        let removed = traj.remove_epoch(&t0).unwrap();
+        assert_eq!(removed.quaternion, z_axis_quaternion(0.0));
+        assert_eq!(traj.len(), 1);
+
+        assert!(traj.remove_epoch(&t0).is_err());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_remove_by_index() {
+        let (a, b) = body_frames();
+        let mut traj = AttitudeTrajectory::new(a, b);
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        traj.add(t0, AttitudeState::new(z_axis_quaternion(0.0)))
+            .unwrap();
+        traj.add(t0 + 10.0, AttitudeState::new(z_axis_quaternion(0.1)))
+            .unwrap();
+
+        let (epoch, state) = traj.remove(0).unwrap();
+        assert_eq!(epoch, t0);
+        assert_eq!(state.quaternion, z_axis_quaternion(0.0));
+        assert_eq!(traj.len(), 1);
+        assert_eq!(traj.epoch_at_idx(0).unwrap(), t0 + 10.0);
+    }
+
+    // =========================================================================
+    // compute_interpolation_window (private helper)
+    // =========================================================================
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_compute_interpolation_window_too_few_points_errors() {
+        let result = compute_interpolation_window(2, 0, 1, 4);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_compute_interpolation_window_clamps_at_start_and_end() {
+        // Window centered near the start would begin before index 0: clamp
+        // to [0, n_points - 1].
+        let (start, end) = compute_interpolation_window(10, 0, 1, 4).unwrap();
+        assert_eq!((start, end), (0, 3));
+
+        // Window centered near the end would run past the last index:
+        // clamp to [len - n_points, len - 1].
+        let (start, end) = compute_interpolation_window(6, 4, 5, 5).unwrap();
+        assert_eq!((start, end), (1, 5));
+    }
+
+    // =========================================================================
+    // interpolate: Lagrange with angular velocity / in-window hemisphere flip
+    // =========================================================================
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_interpolate_lagrange_with_angular_velocity() {
+        let (a, b) = body_frames();
+        let mut traj = AttitudeTrajectory::new(a, b)
+            .with_interpolation_method(AttitudeInterpolationMethod::Lagrange { degree: 3 });
+
+        let omega = Vector3::new(0.0, 0.0, 0.02);
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        for i in 0..4 {
+            let t = i as f64;
+            traj.add(
+                t0 + t,
+                AttitudeState::new(z_axis_quaternion(omega[2] * t)).with_angular_velocity(omega),
+            )
+            .unwrap();
+        }
+
+        let state = traj.interpolate(&(t0 + 1.5)).unwrap();
+        let interpolated_omega = state.angular_velocity.unwrap();
+        assert_abs_diff_eq!(interpolated_omega[2], omega[2], epsilon = 1e-12);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_interpolate_lagrange_in_window_hemisphere_flip() {
+        // Regression test for the per-step hemisphere alignment inside the
+        // Lagrange window itself: with omega = 4 rad/s at 1s spacing, the
+        // rotation between *every* adjacent sample pair exceeds pi radians
+        // in the quaternion double cover (half-angle > pi/2, so
+        // dot(q_i, q_{i+1}) < 0), forcing the in-window sign flip on every
+        // step rather than only when comparing the window's first and last
+        // samples. A window this coarse relative to the rotation rate is
+        // aliased (more than one full double-cover cycle spans the window),
+        // so this only checks that the per-step alignment branch runs to
+        // completion and still produces a unit quaternion, not that the
+        // fit is numerically close to the continuous analytic attitude.
+        let (a, b) = body_frames();
+        let mut traj = AttitudeTrajectory::new(a, b)
+            .with_interpolation_method(AttitudeInterpolationMethod::Lagrange { degree: 3 });
+
+        let omega = 4.0; // rad/s
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        for i in 0..4 {
+            let t = i as f64;
+            traj.add(t0 + t, AttitudeState::new(z_axis_quaternion(omega * t)))
+                .unwrap();
+        }
+
+        let state = traj.interpolate(&(t0 + 1.5)).unwrap();
+        let norm = state.quaternion.to_vector(true).norm();
+        assert_abs_diff_eq!(norm, 1.0, epsilon = 1e-9);
     }
 }

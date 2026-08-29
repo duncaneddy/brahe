@@ -2247,4 +2247,337 @@ mod tests {
         );
         assert!(result.is_err());
     }
+
+    #[test]
+    #[parallel]
+    fn test_aem_segment_to_attitude_trajectory_out_of_range_index_errors() {
+        let content = std::fs::read_to_string("test_assets/ccsds/aem/AEMExampleG4.txt").unwrap();
+        let aem = AEM::from_str(&content).unwrap();
+
+        let result = aem.segment_to_attitude_trajectory(aem.segments.len());
+        assert!(result.is_err());
+        let message = format!("{}", result.unwrap_err());
+        assert!(message.contains("out of range"));
+    }
+
+    fn euler_angvel_metadata(
+        ref_frame_a: ADMReferenceFrame,
+        ref_frame_b: ADMReferenceFrame,
+        t0: Epoch,
+        t1: Epoch,
+        attitude_type: AEMAttitudeType,
+    ) -> AEMMetadata {
+        let mut metadata = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a.clone(),
+            ref_frame_b.clone(),
+            CCSDSTimeSystem::UTC,
+            t0,
+            t1,
+            attitude_type,
+        )
+        .with_euler_rot_seq(EulerAngleOrder::ZYX);
+        if attitude_type == AEMAttitudeType::EulerAngleAngVel {
+            metadata = metadata.with_angvel_frame(ref_frame_b);
+        }
+        metadata
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_quaternion_derivative_conversion() {
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let metadata = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a,
+            ref_frame_b,
+            CCSDSTimeSystem::UTC,
+            t0,
+            t1,
+            AEMAttitudeType::QuaternionDerivative,
+        );
+
+        let quaternion = Quaternion::new(1.0, 0.0, 0.0, 0.0);
+        let omega = Vector3::new(0.02, -0.01, 0.3);
+        let derivative = crate::attitude::quaternion_derivative(&quaternion, omega);
+
+        let mut segment = AEMSegment::new(metadata);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::QuaternionDerivative {
+                    quaternion,
+                    derivative,
+                },
+            })
+            .unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let traj = aem.segment_to_attitude_trajectory(0).unwrap();
+        let recovered_omega = traj.state_at_idx(0).unwrap().angular_velocity.unwrap();
+        assert_abs_diff_eq!(recovered_omega[0], omega[0], epsilon = 1e-9);
+        assert_abs_diff_eq!(recovered_omega[1], omega[1], epsilon = 1e-9);
+        assert_abs_diff_eq!(recovered_omega[2], omega[2], epsilon = 1e-9);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_euler_angle_conversion() {
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+        let metadata = euler_angvel_metadata(
+            ref_frame_a,
+            ref_frame_b,
+            t0,
+            t1,
+            AEMAttitudeType::EulerAngle,
+        );
+
+        let angles = EulerAngle::new(EulerAngleOrder::ZYX, 0.3, -0.2, 0.1, AngleFormat::Radians);
+        let mut segment = AEMSegment::new(metadata);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::EulerAngle { angles },
+            })
+            .unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let traj = aem.segment_to_attitude_trajectory(0).unwrap();
+        assert!(!traj.has_rates());
+        let expected = Quaternion::from_euler_angle(angles);
+        assert_eq!(traj.state_at_idx(0).unwrap().quaternion, expected);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_euler_angle_derivative_conversion() {
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+        let metadata = euler_angvel_metadata(
+            ref_frame_a,
+            ref_frame_b,
+            t0,
+            t1,
+            AEMAttitudeType::EulerAngleDerivative,
+        );
+
+        let angles = EulerAngle::new(EulerAngleOrder::ZYX, 0.3, -0.2, 0.1, AngleFormat::Radians);
+        let rates = Vector3::new(0.01, 0.02, -0.03);
+        let mut segment = AEMSegment::new(metadata);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::EulerAngleDerivative { angles, rates },
+            })
+            .unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let traj = aem.segment_to_attitude_trajectory(0).unwrap();
+        let expected_omega = euler_rates_to_angular_velocity(&angles, rates);
+        let recovered_omega = traj.state_at_idx(0).unwrap().angular_velocity.unwrap();
+        assert_abs_diff_eq!(recovered_omega[0], expected_omega[0], epsilon = 1e-12);
+        assert_abs_diff_eq!(recovered_omega[1], expected_omega[1], epsilon = 1e-12);
+        assert_abs_diff_eq!(recovered_omega[2], expected_omega[2], epsilon = 1e-12);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_euler_angle_angvel_conversion() {
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+        let metadata = euler_angvel_metadata(
+            ref_frame_a,
+            ref_frame_b,
+            t0,
+            t1,
+            AEMAttitudeType::EulerAngleAngVel,
+        );
+
+        let angles = EulerAngle::new(EulerAngleOrder::ZYX, 0.3, -0.2, 0.1, AngleFormat::Radians);
+        let angular_velocity = Vector3::new(0.001, 0.002, 0.003);
+        let mut segment = AEMSegment::new(metadata);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::EulerAngleAngVel {
+                    angles,
+                    angular_velocity,
+                },
+            })
+            .unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let traj = aem.segment_to_attitude_trajectory(0).unwrap();
+        // ANGVEL_FRAME is REF_FRAME_B, so no re-expression: the stored rate
+        // must equal the raw AEM value.
+        let recovered_omega = traj.state_at_idx(0).unwrap().angular_velocity.unwrap();
+        assert_eq!(recovered_omega, angular_velocity);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_spin_nutation_variants_conversion_errors() {
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let mut metadata_nutation = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a.clone(),
+            ref_frame_b.clone(),
+            CCSDSTimeSystem::UTC,
+            t0,
+            t1,
+            AEMAttitudeType::SpinNutation,
+        );
+        metadata_nutation = metadata_nutation.with_center_name("EARTH");
+        let mut segment = AEMSegment::new(metadata_nutation);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::SpinNutation {
+                    spin_alpha: 0.1,
+                    spin_delta: 0.2,
+                    spin_angle: 0.3,
+                    spin_angle_vel: 0.4,
+                    nutation: 0.05,
+                    nutation_period: 120.0,
+                    nutation_phase: 0.06,
+                },
+            })
+            .unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+        let message = format!("{}", aem.segment_to_attitude_trajectory(0).unwrap_err());
+        assert!(message.contains("SPIN/NUTATION"));
+
+        let metadata_mom = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a,
+            ref_frame_b,
+            CCSDSTimeSystem::UTC,
+            t0,
+            t1,
+            AEMAttitudeType::SpinNutationMom,
+        );
+        let mut segment = AEMSegment::new(metadata_mom);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::SpinNutationMom {
+                    spin_alpha: 0.1,
+                    spin_delta: 0.2,
+                    spin_angle: 0.3,
+                    spin_angle_vel: 0.4,
+                    momentum_alpha: 0.07,
+                    momentum_delta: 0.08,
+                    nutation_vel: 0.09,
+                },
+            })
+            .unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+        let message = format!("{}", aem.segment_to_attitude_trajectory(0).unwrap_err());
+        assert!(message.contains("SPIN/NUTATION_MOM"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_lagrange_interpolation_method_maps_with_degree() {
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let metadata = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a,
+            ref_frame_b,
+            CCSDSTimeSystem::UTC,
+            t0,
+            t1,
+            AEMAttitudeType::Quaternion,
+        )
+        .with_interpolation(AEMInterpolationMethod::Lagrange, Some(3));
+
+        let mut segment = AEMSegment::new(metadata);
+        for i in 0..4 {
+            segment
+                .push_state(AEMAttitudeState {
+                    epoch: t0 + (i as f64) * 15.0,
+                    data: AEMAttitudeData::Quaternion {
+                        quaternion: Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                    },
+                })
+                .unwrap();
+        }
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let traj = aem.segment_to_attitude_trajectory(0).unwrap();
+        assert_eq!(
+            traj.interpolation_method,
+            AttitudeInterpolationMethod::Lagrange { degree: 3 }
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_linear_interpolation_method_maps() {
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let metadata = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a,
+            ref_frame_b,
+            CCSDSTimeSystem::UTC,
+            t0,
+            t1,
+            AEMAttitudeType::Quaternion,
+        )
+        .with_interpolation(AEMInterpolationMethod::Linear, Some(1));
+
+        let mut segment = AEMSegment::new(metadata);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::Quaternion {
+                    quaternion: Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                },
+            })
+            .unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let traj = aem.segment_to_attitude_trajectory(0).unwrap();
+        assert_eq!(
+            traj.interpolation_method,
+            AttitudeInterpolationMethod::Linear
+        );
+    }
 }

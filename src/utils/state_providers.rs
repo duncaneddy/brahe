@@ -1564,4 +1564,25 @@ mod tests {
         let message = format!("{}", result.unwrap_err());
         assert!(message.contains("Spacecraft"));
     }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_quaternion_from_frame_errors_for_orbit_relative_frame_a() {
+        use crate::attitude::{OrbitRelativeFrame, OrbitRelativeKind, OrbitRelativeVariant};
+
+        let a = AttitudeFrame::OrbitRelative(OrbitRelativeFrame {
+            kind: OrbitRelativeKind::RTN,
+            variant: OrbitRelativeVariant::Rotating,
+        });
+        let (_, b) = spacecraft_frames();
+        let mut traj = AttitudeTrajectory::new(a, b);
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        traj.add(t0, AttitudeState::new(z_axis_quaternion(0.0)))
+            .unwrap();
+
+        let result = traj.quaternion_from_frame(t0, ReferenceFrame::EME2000);
+        assert!(result.is_err());
+        let message = format!("{}", result.unwrap_err());
+        assert!(message.contains("OrbitRelative"));
+    }
 }

@@ -1116,3 +1116,24 @@ pub fn write_aem_xml(aem: &AEM) -> Result<String, BraheError> {
     Ok(out)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serial_test::parallel;
+
+    #[test]
+    #[parallel]
+    fn test_parse_aem_xml_v1_version_rejected() {
+        let content = std::fs::read_to_string("test_assets/ccsds/aem/AEMExampleG11.xml")
+            .unwrap()
+            .replace(
+                "id=\"CCSDS_AEM_VERS\" version=\"2.0\"",
+                "id=\"CCSDS_AEM_VERS\" version=\"1.0\"",
+            );
+        let result = parse_aem_xml(&content);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("version 1.0"));
+        assert!(err.contains("504.0-B-1"));
+    }
+}

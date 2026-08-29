@@ -1505,6 +1505,38 @@ mod tests {
         assert_eq!(aem.segments[0].states.len(), 1);
     }
 
+    #[test]
+    #[parallel]
+    fn test_aem_to_file_from_file_round_trip() {
+        use crate::ccsds::common::CCSDSFormat;
+
+        let mut aem = AEM::new("BRAHE");
+        let mut segment = AEMSegment::new(base_metadata(AEMAttitudeType::Quaternion));
+        segment.push_state(quaternion_state(t0())).unwrap();
+        segment.push_state(quaternion_state(t1())).unwrap();
+        aem.push_segment(segment);
+
+        let dir = std::env::temp_dir();
+        let path = dir.join("brahe_test_aem_round_trip.txt");
+        aem.to_file(&path, CCSDSFormat::KVN).unwrap();
+        let aem2 = AEM::from_file(&path).unwrap();
+        std::fs::remove_file(&path).ok();
+
+        assert_eq!(aem2.segments.len(), 1);
+        assert_eq!(aem2.segments[0].states.len(), 2);
+        assert_eq!(
+            aem2.segments[0].metadata.object_name,
+            aem.segments[0].metadata.object_name
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_from_file_nonexistent() {
+        let result = AEM::from_file("nonexistent_aem_file.txt");
+        assert!(result.is_err());
+    }
+
     // ------------------------------------------------------------------
     // XML + JSON + 5-method wiring (Task 3)
     // ------------------------------------------------------------------
@@ -1847,6 +1879,35 @@ mod tests {
         let json = aem1.to_json_string(CCSDSJsonKeyCase::Upper).unwrap();
         let aem2 = AEM::from_str(&json).unwrap();
         assert_aem_fields_match(&aem1, &aem2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_header_comments_and_classification_xml_json_round_trip() {
+        let mut segment = AEMSegment::new(base_metadata(AEMAttitudeType::Quaternion));
+        segment.push_state(quaternion_state(t0())).unwrap();
+
+        let mut aem1 = AEM::new("BRAHE");
+        aem1.header = aem1
+            .header
+            .with_classification("UNCLASSIFIED")
+            .with_comments(vec![
+                "first header comment".to_string(),
+                "second header comment".to_string(),
+            ]);
+        aem1.push_segment(segment);
+
+        let xml = aem1.to_string(CCSDSFormat::XML).unwrap();
+        assert!(xml.contains("<CLASSIFICATION>UNCLASSIFIED</CLASSIFICATION>"));
+        assert!(xml.contains("<COMMENT>first header comment</COMMENT>"));
+        let aem_xml = AEM::from_str(&xml).unwrap();
+        assert_aem_fields_match(&aem1, &aem_xml);
+
+        let json = aem1.to_string(CCSDSFormat::JSON).unwrap();
+        assert!(json.contains("UNCLASSIFIED"));
+        assert!(json.contains("first header comment"));
+        let aem_json = AEM::from_str(&json).unwrap();
+        assert_aem_fields_match(&aem1, &aem_json);
     }
 
     #[test]

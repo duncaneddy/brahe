@@ -459,8 +459,8 @@ pub struct AEMMetadata {
     pub angvel_frame: Option<ADMReferenceFrame>,
     /// Recommended interpolation method for this data block.
     pub interpolation_method: Option<AEMInterpolationMethod>,
-    /// Interpolation polynomial degree; required iff `interpolation_method`
-    /// is present.
+    /// Interpolation polynomial degree; required when `interpolation_method`
+    /// is present (a degree given without a method is permitted).
     pub interpolation_degree: Option<u32>,
     /// Metadata comment lines.
     pub comments: Vec<String>,
@@ -588,8 +588,8 @@ impl AEMMetadata {
     /// - `ANGVEL_FRAME` is present iff `attitude_type` is one of the
     ///   `/ANGVEL` types (`QuaternionAngVel`, `EulerAngleAngVel`), and when
     ///   present must equal `ref_frame_a` or `ref_frame_b`.
-    /// - `interpolation_degree` is present iff `interpolation_method` is
-    ///   present.
+    /// - `interpolation_degree` is present whenever `interpolation_method`
+    ///   is present (a degree given without a method is permitted).
     /// - `useable_start_time` and `useable_stop_time`, when present, fall
     ///   within `[start_time, stop_time]`, and `useable_start_time` does not
     ///   fall after `useable_stop_time`.
@@ -683,10 +683,10 @@ impl AEMMetadata {
             (false, None) => {}
         }
 
-        if self.interpolation_method.is_some() != self.interpolation_degree.is_some() {
+        if self.interpolation_method.is_some() && self.interpolation_degree.is_none() {
             return Err(ccsds_parse_error(
                 "AEM",
-                "INTERPOLATION_DEGREE is required if and only if INTERPOLATION_METHOD is present",
+                "INTERPOLATION_DEGREE is required when INTERPOLATION_METHOD is present",
             ));
         }
 
@@ -1247,11 +1247,10 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_aem_metadata_validate_interpolation_degree_without_method_errors() {
+    fn test_aem_metadata_validate_interpolation_degree_without_method_ok() {
         let mut metadata = base_metadata(AEMAttitudeType::Quaternion);
         metadata.interpolation_degree = Some(3);
-        let err = metadata.validate().unwrap_err();
-        assert!(err.to_string().contains("INTERPOLATION_DEGREE"));
+        assert!(metadata.validate().is_ok());
     }
 
     #[test]

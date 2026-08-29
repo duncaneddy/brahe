@@ -40,6 +40,8 @@ const SECTION_MARKERS: &[&str] = &[
     "INERTIA_STOP",
     "MAN_START",
     "MAN_STOP",
+    "DATA_START",
+    "DATA_STOP",
 ];
 
 /// Tokenize a single KVN line.

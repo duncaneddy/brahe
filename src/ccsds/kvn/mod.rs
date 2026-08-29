@@ -11,6 +11,7 @@
  * and the block writers they share live in `common`.
  */
 
+mod aem;
 mod apm;
 mod cdm;
 mod common;
@@ -18,6 +19,7 @@ mod oem;
 mod omm;
 mod opm;
 
+pub use aem::{parse_aem, write_aem};
 pub use apm::{parse_apm, write_apm};
 pub use cdm::{parse_cdm, write_cdm};
 pub use oem::{parse_oem, write_oem};

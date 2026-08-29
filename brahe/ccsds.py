@@ -9,16 +9,20 @@ Provides parsing and writing of CCSDS standard messages:
 - OPM: Orbit Parameter Message (single state vector)
 - CDM: Conjunction Data Message (conjunction assessment)
 - APM: Attitude Parameter Message (single-epoch attitude state)
+- AEM: Attitude Ephemeris Message (time-series attitude data)
 
 Supported formats: KVN (text), XML, JSON.
 """
 
 from brahe._brahe import (
+    AEM,
     APM,
     CDM,
     OEM,
     OMM,
     OPM,
+    AEMAttitudeState,
+    AEMSegment,
     APMAngularVelocity,
     APMEulerState,
     APMInertia,
@@ -37,11 +41,14 @@ from brahe._brahe import (
 )
 
 __all__ = [
+    "AEM",
     "APM",
     "CDM",
     "OEM",
     "OMM",
     "OPM",
+    "AEMAttitudeState",
+    "AEMSegment",
     "APMAngularVelocity",
     "APMEulerState",
     "APMInertia",

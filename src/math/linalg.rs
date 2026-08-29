@@ -206,6 +206,69 @@ where
     Ok(result)
 }
 
+/// Compute the matrix square root of a symmetric positive semi-definite matrix.
+///
+/// Uses a symmetric eigendecomposition, which stays accurate on the
+/// ill-conditioned matrices that arise from propagated covariances. The
+/// Denman-Beavers iteration used by [`sqrtm_dmatrix`] for general matrices
+/// breaks down well before this does.
+///
+/// The input is symmetrized before decomposition, and eigenvalues that are
+/// negative only to within round-off are clamped to zero rather than rejected,
+/// since a propagated covariance routinely carries such values.
+///
+/// # Arguments
+///
+/// * `matrix` - A symmetric positive semi-definite matrix
+///
+/// # Returns
+///
+/// * `Result<DMatrix<f64>, String>` - The matrix square root, or an error if the
+///   matrix is not square or has a negative eigenvalue too large to be round-off
+///
+/// # Examples
+///
+/// ```
+/// use nalgebra::DMatrix;
+/// use brahe::math::linalg::spd_sqrtm_dmatrix;
+///
+/// let diag = DMatrix::from_row_slice(2, 2, &[4.0, 0.0, 0.0, 9.0]);
+/// let root = spd_sqrtm_dmatrix(&diag).unwrap();
+/// let expected = DMatrix::from_row_slice(2, 2, &[2.0, 0.0, 0.0, 3.0]);
+/// assert!((root - expected).norm() < 1e-10);
+/// ```
+pub fn spd_sqrtm_dmatrix(matrix: &na::DMatrix<f64>) -> Result<na::DMatrix<f64>, String> {
+    if matrix.nrows() != matrix.ncols() {
+        return Err(format!(
+            "Matrix must be square, got {}x{}",
+            matrix.nrows(),
+            matrix.ncols()
+        ));
+    }
+
+    // Symmetrize first: a covariance assembled numerically carries asymmetry at
+    // round-off level, and the decomposition assumes exact symmetry.
+    let symmetric = (matrix + matrix.transpose()) * 0.5;
+    let eigen = SymmetricEigen::new(symmetric);
+
+    let max_eigenvalue = eigen.eigenvalues.amax();
+    let tolerance = 1e-12 * max_eigenvalue.max(1.0);
+
+    let mut roots = eigen.eigenvalues.clone();
+    for value in roots.iter_mut() {
+        if *value < -tolerance {
+            return Err(format!(
+                "Matrix is not positive semi-definite: found negative eigenvalue {}",
+                value
+            ));
+        }
+        *value = value.max(0.0).sqrt();
+    }
+
+    let v = &eigen.eigenvectors;
+    Ok(v * na::DMatrix::from_diagonal(&roots) * v.transpose())
+}
+
 /// Compute the matrix square root of a general square matrix.
 ///
 /// This function computes the square root of a general (possibly non-symmetric) square matrix

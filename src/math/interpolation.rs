@@ -7,7 +7,7 @@
  * - Standalone interpolation functions for vectors and covariance matrices
  */
 
-use crate::math::linalg::{sqrtm, sqrtm_dmatrix};
+use crate::math::linalg::{spd_sqrtm_dmatrix, sqrtm, sqrtm_dmatrix};
 use crate::utils::errors::BraheError;
 use nalgebra::{DMatrix, DVector, SMatrix, SVector};
 use serde::{Deserialize, Serialize};
@@ -341,10 +341,51 @@ where
         ));
     }
 
-    let sqrt_12 = sqrtm(cov1 * cov2).map_err(BraheError::NumericalError)?;
-    let sqrt_21 = sqrtm(cov2 * cov1).map_err(BraheError::NumericalError)?;
+    let cross = wasserstein_cross_term(
+        &DMatrix::from_iterator(N, N, cov1.iter().cloned()),
+        &DMatrix::from_iterator(N, N, cov2.iter().cloned()),
+    )?;
+    let cross = SMatrix::<f64, N, N>::from_iterator(cross.iter().cloned());
 
-    Ok((1.0 - t).powi(2) * cov1 + t.powi(2) * cov2 + t * (1.0 - t) * (sqrt_12 + sqrt_21))
+    Ok((1.0 - t).powi(2) * cov1 + t.powi(2) * cov2 + t * (1.0 - t) * cross)
+}
+
+/// Compute `(C1 C2)^{1/2} + (C2 C1)^{1/2}`, the cross term of the 2-Wasserstein
+/// covariance interpolant.
+///
+/// Formed as `L (L C2 L)^{1/2} L^{-1}` with `L = C1^{1/2}`, which is equal to
+/// `(C1 C2)^{1/2}` but keeps every square root on a symmetric positive
+/// semi-definite matrix. Taking a general square root of the product directly
+/// is far less stable: `C1 C2` is not symmetric and its condition number is the
+/// product of the two, which the Denman-Beavers iteration cannot resolve for
+/// realistic propagated covariances.
+///
+/// Since `C1` and `C2` are symmetric, `(C2 C1)^{1/2}` is the transpose of
+/// `(C1 C2)^{1/2}`, so the sum is symmetric by construction.
+///
+/// # Arguments
+/// * `cov1` - The first covariance matrix.
+/// * `cov2` - The second covariance matrix.
+///
+/// # Returns
+/// The cross term, or an error if either matrix is not positive semi-definite
+/// or `cov1` is singular.
+fn wasserstein_cross_term(
+    cov1: &DMatrix<f64>,
+    cov2: &DMatrix<f64>,
+) -> Result<DMatrix<f64>, BraheError> {
+    let l = spd_sqrtm_dmatrix(cov1).map_err(BraheError::NumericalError)?;
+    let l_inv = l.clone().try_inverse().ok_or_else(|| {
+        BraheError::NumericalError(
+            "Covariance interpolation requires an invertible first covariance".to_string(),
+        )
+    })?;
+
+    let inner = &l * cov2 * &l;
+    let root = spd_sqrtm_dmatrix(&inner).map_err(BraheError::NumericalError)?;
+
+    let sqrt_12 = &l * &root * &l_inv;
+    Ok(&sqrt_12 + sqrt_12.transpose())
 }
 
 /// Interpolates between two dynamic-sized covariance matrices using square root interpolation.
@@ -455,13 +496,9 @@ pub fn interpolate_covariance_two_wasserstein_dmatrix(
         )));
     }
 
-    let prod12 = cov1 * cov2;
-    let prod21 = cov2 * cov1;
+    let cross = wasserstein_cross_term(cov1, cov2)?;
 
-    let sqrt_12 = sqrtm_dmatrix(&prod12).map_err(BraheError::NumericalError)?;
-    let sqrt_21 = sqrtm_dmatrix(&prod21).map_err(BraheError::NumericalError)?;
-
-    Ok((1.0 - t).powi(2) * cov1 + t.powi(2) * cov2 + t * (1.0 - t) * (sqrt_12 + sqrt_21))
+    Ok((1.0 - t).powi(2) * cov1 + t.powi(2) * cov2 + t * (1.0 - t) * cross)
 }
 
 // ============================================================================
@@ -997,6 +1034,58 @@ mod tests {
         let cov2 = DMatrix::<f64>::identity(4, 4);
         let result = interpolate_covariance_sqrt_dmatrix(&cov1, &cov2, 0.5);
         assert!(matches!(result, Err(BraheError::OutOfBoundsError(_))));
+    }
+
+    /// Covariance of a state propagated over `dt`, whose position block grows
+    /// as dt^2 while the velocity block does not. The spread between the two
+    /// blocks is what makes the product of two such matrices ill-conditioned.
+    fn propagated_covariance(dt: f64) -> DMatrix<f64> {
+        let mut p0 = DMatrix::zeros(6, 6);
+        for i in 0..3 {
+            p0[(i, i)] = 100.0;
+        }
+        for i in 3..6 {
+            p0[(i, i)] = 1.0;
+        }
+        let mut phi = DMatrix::identity(6, 6);
+        for i in 0..3 {
+            phi[(i, i + 3)] = dt;
+        }
+        &phi * &p0 * phi.transpose()
+    }
+
+    #[test]
+    fn test_interpolate_covariance_two_wasserstein_dmatrix_ill_conditioned() {
+        // Over a long arc the product of the two covariances is too badly
+        // conditioned for a general matrix square root to resolve. Routing the
+        // roots through symmetric positive semi-definite matrices keeps this
+        // tractable.
+        let cov1 = propagated_covariance(8000.0);
+        let cov2 = propagated_covariance(8240.0);
+
+        let result = interpolate_covariance_two_wasserstein_dmatrix(&cov1, &cov2, 0.5)
+            .expect("ill-conditioned covariances must still interpolate");
+
+        assert!(result.iter().all(|v| v.is_finite()));
+        // The interpolant sits between the two inputs in magnitude.
+        assert!(result.norm() > cov1.norm().min(cov2.norm()) * 0.5);
+        assert!(result.norm() < cov2.norm().max(cov1.norm()) * 2.0);
+    }
+
+    #[test]
+    fn test_interpolate_covariance_two_wasserstein_dmatrix_is_symmetric() {
+        // The cross term is a matrix plus its own transpose, so the result is
+        // symmetric by construction rather than to within round-off.
+        let cov1 = propagated_covariance(872.0);
+        let cov2 = propagated_covariance(901.0);
+
+        let result = interpolate_covariance_two_wasserstein_dmatrix(&cov1, &cov2, 0.5).unwrap();
+
+        assert_eq!(
+            (&result - result.transpose()).norm(),
+            0.0,
+            "interpolated covariance must be exactly symmetric"
+        );
     }
 
     #[test]

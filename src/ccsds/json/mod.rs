@@ -5,6 +5,7 @@
  * KVN flattening helpers they share live in `common`.
  */
 
+mod aem;
 mod apm;
 mod cdm;
 mod common;
@@ -12,6 +13,7 @@ mod oem;
 mod omm;
 mod opm;
 
+pub use aem::{parse_aem_json, write_aem_json};
 pub use apm::{parse_apm_json, write_apm_json};
 pub use cdm::{parse_cdm_json, write_cdm_json};
 pub use oem::{parse_oem_json, write_oem_json};

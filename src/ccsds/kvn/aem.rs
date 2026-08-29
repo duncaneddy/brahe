@@ -24,7 +24,7 @@ use crate::utils::errors::BraheError;
 
 /// Parser state for AEM KVN parsing.
 #[derive(Debug, PartialEq)]
-enum AemState {
+enum AEMState {
     Header,
     Metadata,
     /// After META_STOP, before DATA_START.
@@ -174,7 +174,7 @@ fn parse_aem_data_line(
 
 /// Parse an AEM message from KVN format.
 pub fn parse_aem(content: &str) -> Result<AEM, BraheError> {
-    let mut state = AemState::Header;
+    let mut state = AEMState::Header;
 
     // Header fields
     let mut format_version: Option<f64> = None;
@@ -214,7 +214,7 @@ pub fn parse_aem(content: &str) -> Result<AEM, BraheError> {
 
         match (&state, token) {
             // === HEADER STATE ===
-            (AemState::Header, KVNToken::KeyValue { key, value }) => match key.as_str() {
+            (AEMState::Header, KVNToken::KeyValue { key, value }) => match key.as_str() {
                 "CCSDS_AEM_VERS" => {
                     let v: f64 = value.parse().map_err(|_| {
                         ccsds_parse_error("AEM", &format!("invalid version '{}'", value))
@@ -234,7 +234,7 @@ pub fn parse_aem(content: &str) -> Result<AEM, BraheError> {
                 "ORIGINATOR" => originator = Some(value),
                 "MESSAGE_ID" => message_id = Some(value),
                 "META_START" => {
-                    state = AemState::Metadata;
+                    state = AEMState::Metadata;
                 }
                 _ => {
                     return Err(ccsds_parse_error(
@@ -243,11 +243,11 @@ pub fn parse_aem(content: &str) -> Result<AEM, BraheError> {
                     ));
                 }
             },
-            (AemState::Header, KVNToken::Comment(text)) => header_comments.push(text),
-            (AemState::Header, KVNToken::Empty) => {}
+            (AEMState::Header, KVNToken::Comment(text)) => header_comments.push(text),
+            (AEMState::Header, KVNToken::Empty) => {}
 
             // === METADATA STATE ===
-            (AemState::Metadata, KVNToken::KeyValue { key, value }) => match key.as_str() {
+            (AEMState::Metadata, KVNToken::KeyValue { key, value }) => match key.as_str() {
                 "META_START" => {
                     // Already in metadata (re-entry handled by state machine)
                 }
@@ -333,7 +333,7 @@ pub fn parse_aem(content: &str) -> Result<AEM, BraheError> {
                     metadata.validate()?;
 
                     current_segment = Some(AEMSegment::new(metadata));
-                    state = AemState::AwaitingDataStart;
+                    state = AEMState::AwaitingDataStart;
                 }
                 _ => {
                     return Err(ccsds_parse_error(
@@ -342,13 +342,13 @@ pub fn parse_aem(content: &str) -> Result<AEM, BraheError> {
                     ));
                 }
             },
-            (AemState::Metadata, KVNToken::Comment(text)) => metadata_comments.push(text),
-            (AemState::Metadata, KVNToken::Empty) => {}
+            (AEMState::Metadata, KVNToken::Comment(text)) => metadata_comments.push(text),
+            (AEMState::Metadata, KVNToken::Empty) => {}
 
             // === AWAITING DATA_START ===
-            (AemState::AwaitingDataStart, KVNToken::KeyValue { key, value: _ }) => {
+            (AEMState::AwaitingDataStart, KVNToken::KeyValue { key, value: _ }) => {
                 match key.as_str() {
-                    "DATA_START" => state = AemState::DataBlock,
+                    "DATA_START" => state = AEMState::DataBlock,
                     _ => {
                         return Err(ccsds_parse_error(
                             "AEM",
@@ -357,13 +357,13 @@ pub fn parse_aem(content: &str) -> Result<AEM, BraheError> {
                     }
                 }
             }
-            (AemState::AwaitingDataStart, KVNToken::Comment(text)) => {
+            (AEMState::AwaitingDataStart, KVNToken::Comment(text)) => {
                 current_segment.as_mut().unwrap().comments.push(text);
             }
-            (AemState::AwaitingDataStart, KVNToken::Empty) => {}
+            (AEMState::AwaitingDataStart, KVNToken::Empty) => {}
 
             // === DATA BLOCK ===
-            (AemState::DataBlock, KVNToken::DataLine(parts)) => {
+            (AEMState::DataBlock, KVNToken::DataLine(parts)) => {
                 let segment = current_segment.as_mut().unwrap();
                 let attitude_type = segment.metadata.attitude_type;
                 let euler_seq = segment.metadata.euler_rot_seq;
@@ -371,8 +371,8 @@ pub fn parse_aem(content: &str) -> Result<AEM, BraheError> {
                     parse_aem_data_line(&parts, attitude_type, euler_seq, &active_time_system)?;
                 segment.push_state(attitude_state)?;
             }
-            (AemState::DataBlock, KVNToken::KeyValue { key, value: _ }) => match key.as_str() {
-                "DATA_STOP" => state = AemState::AfterDataStop,
+            (AEMState::DataBlock, KVNToken::KeyValue { key, value: _ }) => match key.as_str() {
+                "DATA_STOP" => state = AEMState::AfterDataStop,
                 _ => {
                     return Err(ccsds_parse_error(
                         "AEM",
@@ -380,18 +380,18 @@ pub fn parse_aem(content: &str) -> Result<AEM, BraheError> {
                     ));
                 }
             },
-            (AemState::DataBlock, KVNToken::Comment(text)) => {
+            (AEMState::DataBlock, KVNToken::Comment(text)) => {
                 current_segment.as_mut().unwrap().comments.push(text);
             }
-            (AemState::DataBlock, KVNToken::Empty) => {}
+            (AEMState::DataBlock, KVNToken::Empty) => {}
 
             // === AFTER DATA_STOP ===
-            (AemState::AfterDataStop, KVNToken::KeyValue { key, value: _ }) => match key.as_str() {
+            (AEMState::AfterDataStop, KVNToken::KeyValue { key, value: _ }) => match key.as_str() {
                 "META_START" => {
                     if let Some(seg) = current_segment.take() {
                         segments.push(seg);
                     }
-                    state = AemState::Metadata;
+                    state = AEMState::Metadata;
                 }
                 _ => {
                     return Err(ccsds_parse_error(
@@ -400,10 +400,10 @@ pub fn parse_aem(content: &str) -> Result<AEM, BraheError> {
                     ));
                 }
             },
-            (AemState::AfterDataStop, KVNToken::Comment(text)) => {
+            (AEMState::AfterDataStop, KVNToken::Comment(text)) => {
                 current_segment.as_mut().unwrap().comments.push(text);
             }
-            (AemState::AfterDataStop, KVNToken::Empty) => {}
+            (AEMState::AfterDataStop, KVNToken::Empty) => {}
 
             // Catch unexpected tokens
             (st, token) => {
@@ -419,10 +419,10 @@ pub fn parse_aem(content: &str) -> Result<AEM, BraheError> {
     // still open, or its data block never started or never closed) is
     // malformed per 504.0-B-2 §4.2.3.2 / §4.2.4.1.
     let unterminated = match state {
-        AemState::Metadata => Some("META block: missing META_STOP"),
-        AemState::AwaitingDataStart => Some("DATA block: missing DATA_START"),
-        AemState::DataBlock => Some("DATA block: missing DATA_STOP"),
-        AemState::Header | AemState::AfterDataStop => None,
+        AEMState::Metadata => Some("META block: missing META_STOP"),
+        AEMState::AwaitingDataStart => Some("DATA block: missing DATA_START"),
+        AEMState::DataBlock => Some("DATA block: missing DATA_STOP"),
+        AEMState::Header | AEMState::AfterDataStop => None,
     };
     if let Some(detail) = unterminated {
         return Err(ccsds_parse_error(

@@ -14,11 +14,12 @@
  */
 
 use std::fmt;
+use std::path::Path;
 
 use nalgebra::{Vector3, Vector4};
 
 use crate::attitude::attitude_types::{EulerAngle, EulerAngleOrder, Quaternion};
-use crate::ccsds::common::CCSDSTimeSystem;
+use crate::ccsds::common::{CCSDSFormat, CCSDSJsonKeyCase, CCSDSTimeSystem};
 use crate::ccsds::error::ccsds_parse_error;
 use crate::ccsds::frames::ADMReferenceFrame;
 use crate::time::Epoch;
@@ -860,6 +861,82 @@ impl AEM {
     pub fn push_segment(&mut self, segment: AEMSegment) {
         self.segments.push(segment);
     }
+
+    /// Parses an AEM message from a string, auto-detecting the format.
+    ///
+    /// # Arguments
+    /// - `content`: string content of the AEM message (KVN, XML, or JSON).
+    ///
+    /// # Returns
+    /// Result<AEM, BraheError>: The parsed message, or an error if the
+    /// content is malformed.
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_str(content: &str) -> Result<Self, BraheError> {
+        let format = crate::ccsds::common::detect_format(content);
+        match format {
+            CCSDSFormat::KVN => crate::ccsds::kvn::parse_aem(content),
+            CCSDSFormat::XML => crate::ccsds::xml::parse_aem_xml(content),
+            CCSDSFormat::JSON => crate::ccsds::json::parse_aem_json(content),
+        }
+    }
+
+    /// Parses an AEM message from a file, auto-detecting the format.
+    ///
+    /// # Arguments
+    /// - `path`: path to the AEM file.
+    ///
+    /// # Returns
+    /// Result<AEM, BraheError>: The parsed message, or an error if the file
+    /// cannot be read or its content is malformed.
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, BraheError> {
+        let content = std::fs::read_to_string(path.as_ref())
+            .map_err(|e| BraheError::IoError(format!("Failed to read AEM file: {}", e)))?;
+        Self::from_str(&content)
+    }
+
+    /// Writes the AEM message to a string in the specified format.
+    ///
+    /// # Arguments
+    /// - `format`: output encoding format (KVN, XML, or JSON).
+    ///
+    /// # Returns
+    /// Result<String, BraheError>: The serialized message, or an error if
+    /// serialization fails.
+    pub fn to_string(&self, format: CCSDSFormat) -> Result<String, BraheError> {
+        match format {
+            CCSDSFormat::KVN => crate::ccsds::kvn::write_aem(self),
+            CCSDSFormat::XML => crate::ccsds::xml::write_aem_xml(self),
+            CCSDSFormat::JSON => crate::ccsds::json::write_aem_json(self, CCSDSJsonKeyCase::Lower),
+        }
+    }
+
+    /// Writes the AEM message to JSON with explicit key case control.
+    ///
+    /// # Arguments
+    /// - `key_case`: whether CCSDS keywords should be lowercase or
+    ///   uppercase.
+    ///
+    /// # Returns
+    /// Result<String, BraheError>: The serialized JSON string, or an error if
+    /// serialization fails.
+    pub fn to_json_string(&self, key_case: CCSDSJsonKeyCase) -> Result<String, BraheError> {
+        crate::ccsds::json::write_aem_json(self, key_case)
+    }
+
+    /// Writes the AEM message to a file in the specified format.
+    ///
+    /// # Arguments
+    /// - `path`: output file path.
+    /// - `format`: output encoding format (KVN, XML, or JSON).
+    ///
+    /// # Returns
+    /// Result<(), BraheError>: Success, or an error if serialization or the
+    /// file write fails.
+    pub fn to_file<P: AsRef<Path>>(&self, path: P, format: CCSDSFormat) -> Result<(), BraheError> {
+        let content = self.to_string(format)?;
+        std::fs::write(path.as_ref(), content)
+            .map_err(|e| BraheError::IoError(format!("Failed to write AEM file: {}", e)))
+    }
 }
 
 #[cfg(test)]
@@ -1386,5 +1463,600 @@ mod tests {
         aem.push_segment(segment);
         assert_eq!(aem.segments.len(), 1);
         assert_eq!(aem.segments[0].states.len(), 1);
+    }
+
+    // ------------------------------------------------------------------
+    // XML + JSON + 5-method wiring (Task 3)
+    // ------------------------------------------------------------------
+
+    use crate::ccsds::common::CCSDSFormat;
+
+    fn assert_quaternion_close(a: &Quaternion, b: &Quaternion) {
+        let va = a.to_vector(false);
+        let vb = b.to_vector(false);
+        for i in 0..4 {
+            assert!(
+                (va[i] - vb[i]).abs() < 1e-9,
+                "quaternion component {} mismatch: {} vs {}",
+                i,
+                va[i],
+                vb[i]
+            );
+        }
+    }
+
+    fn assert_euler_angle_close(a: &EulerAngle, b: &EulerAngle) {
+        assert_eq!(a.order, b.order);
+        assert!((a.phi - b.phi).abs() < 1e-9);
+        assert!((a.theta - b.theta).abs() < 1e-9);
+        assert!((a.psi - b.psi).abs() < 1e-9);
+    }
+
+    /// Compares every field of two [`AEMAttitudeData`] values, including all
+    /// nine variants (the complete comparator; the Task 2 KVN round-trip
+    /// helper only covered Quaternion/Spin).
+    fn assert_aem_attitude_data_match(a: &AEMAttitudeData, b: &AEMAttitudeData) {
+        match (a, b) {
+            (
+                AEMAttitudeData::Quaternion { quaternion: qa },
+                AEMAttitudeData::Quaternion { quaternion: qb },
+            ) => {
+                assert_quaternion_close(qa, qb);
+            }
+            (
+                AEMAttitudeData::QuaternionDerivative {
+                    quaternion: qa,
+                    derivative: da,
+                },
+                AEMAttitudeData::QuaternionDerivative {
+                    quaternion: qb,
+                    derivative: db,
+                },
+            ) => {
+                assert_quaternion_close(qa, qb);
+                for i in 0..4 {
+                    assert!((da[i] - db[i]).abs() < 1e-9);
+                }
+            }
+            (
+                AEMAttitudeData::QuaternionAngVel {
+                    quaternion: qa,
+                    angular_velocity: wa,
+                },
+                AEMAttitudeData::QuaternionAngVel {
+                    quaternion: qb,
+                    angular_velocity: wb,
+                },
+            ) => {
+                assert_quaternion_close(qa, qb);
+                for i in 0..3 {
+                    assert!((wa[i] - wb[i]).abs() < 1e-9);
+                }
+            }
+            (
+                AEMAttitudeData::EulerAngle { angles: ea },
+                AEMAttitudeData::EulerAngle { angles: eb },
+            ) => {
+                assert_euler_angle_close(ea, eb);
+            }
+            (
+                AEMAttitudeData::EulerAngleDerivative {
+                    angles: ea,
+                    rates: ra,
+                },
+                AEMAttitudeData::EulerAngleDerivative {
+                    angles: eb,
+                    rates: rb,
+                },
+            ) => {
+                assert_euler_angle_close(ea, eb);
+                for i in 0..3 {
+                    assert!((ra[i] - rb[i]).abs() < 1e-9);
+                }
+            }
+            (
+                AEMAttitudeData::EulerAngleAngVel {
+                    angles: ea,
+                    angular_velocity: wa,
+                },
+                AEMAttitudeData::EulerAngleAngVel {
+                    angles: eb,
+                    angular_velocity: wb,
+                },
+            ) => {
+                assert_euler_angle_close(ea, eb);
+                for i in 0..3 {
+                    assert!((wa[i] - wb[i]).abs() < 1e-9);
+                }
+            }
+            (
+                AEMAttitudeData::Spin {
+                    spin_alpha: aa,
+                    spin_delta: da,
+                    spin_angle: ga,
+                    spin_angle_vel: va,
+                },
+                AEMAttitudeData::Spin {
+                    spin_alpha: ab,
+                    spin_delta: db,
+                    spin_angle: gb,
+                    spin_angle_vel: vb,
+                },
+            ) => {
+                assert!((aa - ab).abs() < 1e-9);
+                assert!((da - db).abs() < 1e-9);
+                assert!((ga - gb).abs() < 1e-9);
+                assert!((va - vb).abs() < 1e-9);
+            }
+            (
+                AEMAttitudeData::SpinNutation {
+                    spin_alpha: aa,
+                    spin_delta: da,
+                    spin_angle: ga,
+                    spin_angle_vel: va,
+                    nutation: na,
+                    nutation_period: pa,
+                    nutation_phase: ha,
+                },
+                AEMAttitudeData::SpinNutation {
+                    spin_alpha: ab,
+                    spin_delta: db,
+                    spin_angle: gb,
+                    spin_angle_vel: vb,
+                    nutation: nb,
+                    nutation_period: pb,
+                    nutation_phase: hb,
+                },
+            ) => {
+                assert!((aa - ab).abs() < 1e-9);
+                assert!((da - db).abs() < 1e-9);
+                assert!((ga - gb).abs() < 1e-9);
+                assert!((va - vb).abs() < 1e-9);
+                assert!((na - nb).abs() < 1e-9);
+                assert!((pa - pb).abs() < 1e-6);
+                assert!((ha - hb).abs() < 1e-9);
+            }
+            (
+                AEMAttitudeData::SpinNutationMom {
+                    spin_alpha: aa,
+                    spin_delta: da,
+                    spin_angle: ga,
+                    spin_angle_vel: va,
+                    momentum_alpha: ma,
+                    momentum_delta: mda,
+                    nutation_vel: nva,
+                },
+                AEMAttitudeData::SpinNutationMom {
+                    spin_alpha: ab,
+                    spin_delta: db,
+                    spin_angle: gb,
+                    spin_angle_vel: vb,
+                    momentum_alpha: mb,
+                    momentum_delta: mdb,
+                    nutation_vel: nvb,
+                },
+            ) => {
+                assert!((aa - ab).abs() < 1e-9);
+                assert!((da - db).abs() < 1e-9);
+                assert!((ga - gb).abs() < 1e-9);
+                assert!((va - vb).abs() < 1e-9);
+                assert!((ma - mb).abs() < 1e-9);
+                assert!((mda - mdb).abs() < 1e-9);
+                assert!((nva - nvb).abs() < 1e-9);
+            }
+            (a, b) => panic!("attitude data variant mismatch: {:?} vs {:?}", a, b),
+        }
+    }
+
+    /// Compares every field of two [`AEM`] messages, including all header,
+    /// metadata, and per-segment/per-state comment vectors.
+    fn assert_aem_fields_match(a: &AEM, b: &AEM) {
+        // Header
+        assert!((a.header.format_version - b.header.format_version).abs() < 1e-9);
+        assert_eq!(a.header.classification, b.header.classification);
+        assert_eq!(a.header.originator, b.header.originator);
+        assert_eq!(a.header.message_id, b.header.message_id);
+        assert_eq!(a.header.comments, b.header.comments);
+
+        assert_eq!(a.segments.len(), b.segments.len());
+        for (sa, sb) in a.segments.iter().zip(b.segments.iter()) {
+            assert_eq!(sa.metadata.object_name, sb.metadata.object_name);
+            assert_eq!(sa.metadata.object_id, sb.metadata.object_id);
+            assert_eq!(sa.metadata.center_name, sb.metadata.center_name);
+            assert_eq!(sa.metadata.ref_frame_a, sb.metadata.ref_frame_a);
+            assert_eq!(sa.metadata.ref_frame_b, sb.metadata.ref_frame_b);
+            assert_eq!(sa.metadata.time_system, sb.metadata.time_system);
+            assert!((sa.metadata.start_time - sb.metadata.start_time).abs() < 1e-6);
+            assert!((sa.metadata.stop_time - sb.metadata.stop_time).abs() < 1e-6);
+            assert_eq!(
+                sa.metadata.useable_start_time.is_some(),
+                sb.metadata.useable_start_time.is_some()
+            );
+            if let (Some(ta), Some(tb)) = (
+                sa.metadata.useable_start_time,
+                sb.metadata.useable_start_time,
+            ) {
+                assert!((ta - tb).abs() < 1e-6);
+            }
+            assert_eq!(
+                sa.metadata.useable_stop_time.is_some(),
+                sb.metadata.useable_stop_time.is_some()
+            );
+            if let (Some(ta), Some(tb)) =
+                (sa.metadata.useable_stop_time, sb.metadata.useable_stop_time)
+            {
+                assert!((ta - tb).abs() < 1e-6);
+            }
+            assert_eq!(sa.metadata.attitude_type, sb.metadata.attitude_type);
+            assert_eq!(sa.metadata.euler_rot_seq, sb.metadata.euler_rot_seq);
+            assert_eq!(sa.metadata.angvel_frame, sb.metadata.angvel_frame);
+            assert_eq!(
+                sa.metadata.interpolation_method,
+                sb.metadata.interpolation_method
+            );
+            assert_eq!(
+                sa.metadata.interpolation_degree,
+                sb.metadata.interpolation_degree
+            );
+            assert_eq!(sa.metadata.comments, sb.metadata.comments);
+
+            assert_eq!(sa.comments, sb.comments);
+
+            assert_eq!(sa.states.len(), sb.states.len());
+            for (state_a, state_b) in sa.states.iter().zip(sb.states.iter()) {
+                assert!((state_a.epoch - state_b.epoch).abs() < 1e-6);
+                assert_aem_attitude_data_match(&state_a.data, &state_b.data);
+            }
+        }
+    }
+
+    fn aem_g4() -> AEM {
+        let content = std::fs::read_to_string("test_assets/ccsds/aem/AEMExampleG4.txt").unwrap();
+        AEM::from_str(&content).unwrap()
+    }
+
+    fn aem_g5() -> AEM {
+        let content = std::fs::read_to_string("test_assets/ccsds/aem/AEMExampleG5.txt").unwrap();
+        AEM::from_str(&content).unwrap()
+    }
+
+    fn aem_g11() -> AEM {
+        let content = std::fs::read_to_string("test_assets/ccsds/aem/AEMExampleG11.xml").unwrap();
+        AEM::from_str(&content).unwrap()
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_g11_xml_parse_fields() {
+        let aem = aem_g11();
+
+        assert!((aem.header.format_version - 2.0).abs() < 1e-9);
+        assert_eq!(aem.header.originator, "GSFC/FDF");
+        assert_eq!(aem.header.message_id.as_deref(), Some("7077456"));
+
+        assert_eq!(aem.segments.len(), 1);
+        let seg = &aem.segments[0];
+        assert_eq!(seg.metadata.object_name, "ST5-224");
+        assert_eq!(seg.metadata.object_id, "2006-224A");
+        assert_eq!(seg.metadata.center_name.as_deref(), Some("EARTH"));
+        assert_eq!(seg.metadata.ref_frame_a, ADMReferenceFrame::parse("J2000"));
+        assert_eq!(
+            seg.metadata.ref_frame_b,
+            ADMReferenceFrame::parse("SC_BODY_1")
+        );
+        assert_eq!(seg.metadata.attitude_type, AEMAttitudeType::Spin);
+        assert_eq!(seg.comments, vec!["Spin KF ground solution, SPINKF rates"]);
+
+        assert_eq!(seg.states.len(), 8);
+
+        let first = &seg.states[0].data;
+        match first {
+            AEMAttitudeData::Spin {
+                spin_alpha,
+                spin_delta,
+                spin_angle,
+                spin_angle_vel,
+            } => {
+                assert!((spin_alpha - 2.6862511e2_f64.to_radians()).abs() < 1e-6);
+                assert!((spin_delta - 6.8448486e1_f64.to_radians()).abs() < 1e-6);
+                assert!((spin_angle - 1.5969509e2_f64.to_radians()).abs() < 1e-6);
+                assert!((spin_angle_vel - (-1.0996528e2_f64).to_radians()).abs() < 1e-6);
+            }
+            other => panic!("expected Spin, got {:?}", other),
+        }
+
+        let last = &seg.states[7].data;
+        match last {
+            AEMAttitudeData::Spin {
+                spin_alpha,
+                spin_delta,
+                spin_angle,
+                spin_angle_vel,
+            } => {
+                assert!((spin_alpha - 2.6843571e2_f64.to_radians()).abs() < 1e-6);
+                assert!((spin_delta - 6.8332398e1_f64.to_radians()).abs() < 1e-6);
+                assert!((spin_angle - 6.3662262e1_f64.to_radians()).abs() < 1e-6);
+                assert!((spin_angle_vel - (-1.0996304e2_f64).to_radians()).abs() < 1e-6);
+            }
+            other => panic!("expected Spin, got {:?}", other),
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_g11_xml_round_trip() {
+        let aem1 = aem_g11();
+        let xml = aem1.to_string(CCSDSFormat::XML).unwrap();
+        let aem2 = AEM::from_str(&xml).unwrap();
+        assert_aem_fields_match(&aem1, &aem2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_g11_json_round_trip_lower() {
+        let aem1 = aem_g11();
+        let json = aem1.to_string(CCSDSFormat::JSON).unwrap();
+        let aem2 = AEM::from_str(&json).unwrap();
+        assert_aem_fields_match(&aem1, &aem2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_g11_json_round_trip_upper() {
+        let aem1 = aem_g11();
+        let json = aem1.to_json_string(CCSDSJsonKeyCase::Upper).unwrap();
+        let aem2 = AEM::from_str(&json).unwrap();
+        assert_aem_fields_match(&aem1, &aem2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_g4_three_way_round_trip() {
+        let aem1 = aem_g4();
+
+        let kvn = aem1.to_string(CCSDSFormat::KVN).unwrap();
+        let aem_kvn = AEM::from_str(&kvn).unwrap();
+        assert_aem_fields_match(&aem1, &aem_kvn);
+
+        let xml = aem1.to_string(CCSDSFormat::XML).unwrap();
+        let aem_xml = AEM::from_str(&xml).unwrap();
+        assert_aem_fields_match(&aem1, &aem_xml);
+
+        let json = aem1.to_string(CCSDSFormat::JSON).unwrap();
+        let aem_json = AEM::from_str(&json).unwrap();
+        assert_aem_fields_match(&aem1, &aem_json);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_g5_three_way_round_trip() {
+        let aem1 = aem_g5();
+
+        let kvn = aem1.to_string(CCSDSFormat::KVN).unwrap();
+        let aem_kvn = AEM::from_str(&kvn).unwrap();
+        assert_aem_fields_match(&aem1, &aem_kvn);
+
+        let xml = aem1.to_string(CCSDSFormat::XML).unwrap();
+        let aem_xml = AEM::from_str(&xml).unwrap();
+        assert_aem_fields_match(&aem1, &aem_xml);
+
+        let json = aem1.to_string(CCSDSFormat::JSON).unwrap();
+        let aem_json = AEM::from_str(&json).unwrap();
+        assert_aem_fields_match(&aem1, &aem_json);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_format_detection_round_trip_all_formats() {
+        let aem1 = aem_g4();
+
+        let kvn = aem1.to_string(CCSDSFormat::KVN).unwrap();
+        let xml = aem1.to_string(CCSDSFormat::XML).unwrap();
+        let json = aem1.to_string(CCSDSFormat::JSON).unwrap();
+
+        assert_eq!(crate::ccsds::common::detect_format(&kvn), CCSDSFormat::KVN);
+        assert_eq!(crate::ccsds::common::detect_format(&xml), CCSDSFormat::XML);
+        assert_eq!(
+            crate::ccsds::common::detect_format(&json),
+            CCSDSFormat::JSON
+        );
+
+        assert_aem_fields_match(&aem1, &AEM::from_str(&kvn).unwrap());
+        assert_aem_fields_match(&aem1, &AEM::from_str(&xml).unwrap());
+        assert_aem_fields_match(&aem1, &AEM::from_str(&json).unwrap());
+    }
+
+    /// Builds an AEM with a single EULER_ANGLE segment whose metadata is
+    /// missing `EULER_ROT_SEQ` (a conditional-validation violation per
+    /// 504.0-B-2 table 4-3). `push_state` only checks the attitude-type
+    /// match, not `validate()`, so this builds successfully; the writers
+    /// don't call `validate()` either, so all three formats can be written
+    /// and should fail identically on read.
+    fn build_missing_euler_rot_seq_aem() -> AEM {
+        let metadata = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            icrf(),
+            sc_body_1(),
+            CCSDSTimeSystem::UTC,
+            t0(),
+            t1(),
+            AEMAttitudeType::EulerAngle,
+        );
+        let mut segment = AEMSegment::new(metadata);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0(),
+                data: AEMAttitudeData::EulerAngle {
+                    angles: zero_euler_angle(),
+                },
+            })
+            .unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+        aem
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_conditional_validation_error_consistent_across_formats() {
+        let aem = build_missing_euler_rot_seq_aem();
+
+        let kvn = aem.to_string(CCSDSFormat::KVN).unwrap();
+        let xml = aem.to_string(CCSDSFormat::XML).unwrap();
+        let json = aem.to_string(CCSDSFormat::JSON).unwrap();
+
+        let kvn_err = AEM::from_str(&kvn).unwrap_err().to_string();
+        let xml_err = AEM::from_str(&xml).unwrap_err().to_string();
+        let json_err = AEM::from_str(&json).unwrap_err().to_string();
+
+        assert!(kvn_err.contains("EULER_ROT_SEQ"), "{}", kvn_err);
+        assert!(xml_err.contains("EULER_ROT_SEQ"), "{}", xml_err);
+        assert!(json_err.contains("EULER_ROT_SEQ"), "{}", json_err);
+    }
+
+    /// Builds a synthetic AEM with nine single-state segments, one per
+    /// [`AEMAttitudeType`] variant, closing the variant-coverage gap left by
+    /// the G-4 (QUATERNION only) and G-5 (SPIN only) fixtures.
+    fn build_all_types_aem() -> AEM {
+        let quaternion = Quaternion::new(0.5, 0.5, 0.5, 0.5);
+        let euler_angles = EulerAngle::new(
+            EulerAngleOrder::ZXZ,
+            30.0_f64.to_radians(),
+            45.0_f64.to_radians(),
+            60.0_f64.to_radians(),
+            crate::constants::AngleFormat::Radians,
+        );
+
+        let mut aem = AEM::new("BRAHE");
+
+        let mut push = |attitude_type: AEMAttitudeType, data: AEMAttitudeData| {
+            let mut metadata = AEMMetadata::new(
+                &format!("SAT-{:?}", attitude_type),
+                "2024-001A",
+                icrf(),
+                sc_body_1(),
+                CCSDSTimeSystem::UTC,
+                t0(),
+                t1(),
+                attitude_type,
+            )
+            .with_center_name("EARTH");
+            if matches!(
+                attitude_type,
+                AEMAttitudeType::EulerAngle
+                    | AEMAttitudeType::EulerAngleDerivative
+                    | AEMAttitudeType::EulerAngleAngVel
+            ) {
+                metadata = metadata.with_euler_rot_seq(EulerAngleOrder::ZXZ);
+            }
+            if matches!(
+                attitude_type,
+                AEMAttitudeType::QuaternionAngVel | AEMAttitudeType::EulerAngleAngVel
+            ) {
+                metadata = metadata.with_angvel_frame(sc_body_1());
+            }
+            metadata.validate().unwrap();
+
+            let mut segment = AEMSegment::new(metadata);
+            segment.comments = vec![format!("{:?} segment data comment", attitude_type)];
+            segment
+                .push_state(AEMAttitudeState { epoch: t0(), data })
+                .unwrap();
+            aem.push_segment(segment);
+        };
+
+        push(
+            AEMAttitudeType::Quaternion,
+            AEMAttitudeData::Quaternion { quaternion },
+        );
+        push(
+            AEMAttitudeType::QuaternionDerivative,
+            AEMAttitudeData::QuaternionDerivative {
+                quaternion,
+                derivative: Vector4::new(0.01, 0.02, 0.03, 0.04),
+            },
+        );
+        push(
+            AEMAttitudeType::QuaternionAngVel,
+            AEMAttitudeData::QuaternionAngVel {
+                quaternion,
+                angular_velocity: Vector3::new(0.001, 0.002, 0.003),
+            },
+        );
+        push(
+            AEMAttitudeType::EulerAngle,
+            AEMAttitudeData::EulerAngle {
+                angles: euler_angles,
+            },
+        );
+        push(
+            AEMAttitudeType::EulerAngleDerivative,
+            AEMAttitudeData::EulerAngleDerivative {
+                angles: euler_angles,
+                rates: Vector3::new(0.001, 0.002, 0.003),
+            },
+        );
+        push(
+            AEMAttitudeType::EulerAngleAngVel,
+            AEMAttitudeData::EulerAngleAngVel {
+                angles: euler_angles,
+                angular_velocity: Vector3::new(0.001, 0.002, 0.003),
+            },
+        );
+        push(
+            AEMAttitudeType::Spin,
+            AEMAttitudeData::Spin {
+                spin_alpha: 0.1,
+                spin_delta: 0.2,
+                spin_angle: 0.3,
+                spin_angle_vel: 0.4,
+            },
+        );
+        push(
+            AEMAttitudeType::SpinNutation,
+            AEMAttitudeData::SpinNutation {
+                spin_alpha: 0.1,
+                spin_delta: 0.2,
+                spin_angle: 0.3,
+                spin_angle_vel: 0.4,
+                nutation: 0.05,
+                nutation_period: 120.0,
+                nutation_phase: 0.06,
+            },
+        );
+        push(
+            AEMAttitudeType::SpinNutationMom,
+            AEMAttitudeData::SpinNutationMom {
+                spin_alpha: 0.1,
+                spin_delta: 0.2,
+                spin_angle: 0.3,
+                spin_angle_vel: 0.4,
+                momentum_alpha: 0.07,
+                momentum_delta: 0.08,
+                nutation_vel: 0.09,
+            },
+        );
+
+        aem
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_all_types_synthetic_three_way_round_trip() {
+        let aem1 = build_all_types_aem();
+        assert_eq!(aem1.segments.len(), 9);
+
+        let kvn = aem1.to_string(CCSDSFormat::KVN).unwrap();
+        let aem_kvn = AEM::from_str(&kvn).unwrap();
+        assert_aem_fields_match(&aem1, &aem_kvn);
+
+        let xml = aem1.to_string(CCSDSFormat::XML).unwrap();
+        let aem_xml = AEM::from_str(&xml).unwrap();
+        assert_aem_fields_match(&aem1, &aem_xml);
+
+        let json = aem1.to_string(CCSDSFormat::JSON).unwrap();
+        let aem_json = AEM::from_str(&json).unwrap();
+        assert_aem_fields_match(&aem1, &aem_json);
     }
 }

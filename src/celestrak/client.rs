@@ -647,7 +647,10 @@ impl CelestrakClient {
     /// Holds [`ACTIVE_FETCH_LOCK`] for the duration of the fetch, so
     /// concurrent callers racing a cold cache serialize on the first
     /// caller's request; every later caller finds the file it wrote and
-    /// reads the cache instead of requesting the group again.
+    /// reads the cache instead of requesting the group again. The lock
+    /// guards no data (only ordering), so a panic while it is held poisons
+    /// it without leaving anything inconsistent behind; later callers
+    /// recover the lock rather than panicking themselves.
     ///
     /// # Returns
     ///
@@ -666,7 +669,7 @@ impl CelestrakClient {
             .format(CelestrakOutputFormat::Json);
         let url = self.build_full_url(&query);
         let body = {
-            let _guard = ACTIVE_FETCH_LOCK.lock().unwrap();
+            let _guard = ACTIVE_FETCH_LOCK.lock().unwrap_or_else(|e| e.into_inner());
             self.fetch_with_cache(&url)?
         };
         Self::parse_gp_records(&body)
@@ -2146,6 +2149,27 @@ mod tests {
             assert_eq!(records[0].norad_cat_id, Some(25544));
         }
         active.assert_calls(1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_active_fetch_lock_recovers_from_poison() {
+        clear_active_unavailable_latch();
+        let _cache = CacheRedirect::new();
+        let _ = std::thread::spawn(|| {
+            let _guard = ACTIVE_FETCH_LOCK.lock().unwrap();
+            panic!("poison ACTIVE_FETCH_LOCK for test_active_fetch_lock_recovers_from_poison");
+        })
+        .join();
+
+        let server = MockServer::start();
+        let (active, single) = mock_active_and_single(&server, "CATNR", "25544");
+        let client = CelestrakClient::with_base_url(&server.base_url());
+
+        let records = client.get_gp_by_catnr(25544).unwrap();
+        assert_eq!(records[0].norad_cat_id, Some(25544));
+        active.assert_calls(1);
+        single.assert_calls(0);
     }
 
     #[test]

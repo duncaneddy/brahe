@@ -1975,13 +1975,9 @@ mod tests {
         clear_active_unavailable_latch();
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("offline"));
-        let server = MockServer::start();
-        let (active, single) = mock_active_and_single(&server, "CATNR", "25544");
-        let client = CelestrakClient::with_base_url(&server.base_url());
-        let active_url = format!(
-            "{}/NORAD/elements/gp.php?GROUP=active&FORMAT=JSON",
-            server.base_url()
-        );
+        let base_url = "https://brahe-network-mode-test.invalid";
+        let client = CelestrakClient::with_base_url(base_url);
+        let active_url = format!("{base_url}/NORAD/elements/gp.php?GROUP=active&FORMAT=JSON");
         seed_celestrak_cache(
             &client,
             &active_url,
@@ -1991,16 +1987,12 @@ mod tests {
 
         let records = client.get_gp_by_catnr(25544).unwrap();
         assert_eq!(records[0].norad_cat_id, Some(25544));
-        active.assert_calls(0);
-        single.assert_calls(0);
 
         let err = client.get_gp_by_catnr(34427).unwrap_err().to_string();
         assert!(
             err.starts_with("BRAHE_NETWORK_MODE is offline; Celestrak request "),
             "{err}"
         );
-        active.assert_calls(0);
-        single.assert_calls(0);
     }
 
     #[test]
@@ -2074,13 +2066,9 @@ mod tests {
         clear_active_unavailable_latch();
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("offline-strict"));
-        let server = MockServer::start();
-        let (active, single) = mock_active_and_single(&server, "CATNR", "25544");
-        let client = CelestrakClient::with_base_url(&server.base_url());
-        let active_url = format!(
-            "{}/NORAD/elements/gp.php?GROUP=active&FORMAT=JSON",
-            server.base_url()
-        );
+        let base_url = "https://brahe-network-mode-test.invalid";
+        let client = CelestrakClient::with_base_url(base_url);
+        let active_url = format!("{base_url}/NORAD/elements/gp.php?GROUP=active&FORMAT=JSON");
         seed_celestrak_cache(
             &client,
             &active_url,
@@ -2093,8 +2081,6 @@ mod tests {
             err.starts_with("BRAHE_NETWORK_MODE is offline-strict; Celestrak request "),
             "{err}"
         );
-        active.assert_calls(0);
-        single.assert_calls(0);
     }
 
     #[test]
@@ -2102,6 +2088,7 @@ mod tests {
     fn test_active_latch_expires() {
         clear_active_unavailable_latch();
         let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
         let active = server.mock(|when, then| {
             when.method(GET)

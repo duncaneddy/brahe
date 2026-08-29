@@ -1850,6 +1850,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_accel_third_body_field_for_body_with_model_moon_harmonics_under_earth_central() {
         use crate::datasets::icgem::ICGEMBody;
@@ -1874,6 +1875,66 @@ mod tests {
             body: ICGEMBody::Moon,
             name: "GRGM660PRIM".to_string(),
         };
+        let model = GravityModel::from_model_type(&model_type).unwrap();
+
+        let a_sh = accel_third_body_field_for_body_with_model(
+            &CentralBody::Earth,
+            &ThirdBody::Moon,
+            &GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::ModelType(model_type),
+                degree: 4,
+                order: 4,
+                parallel: crate::orbit_dynamics::ParallelMode::Never,
+            },
+            Some(&model),
+            r_i2b,
+            EphemerisSource::DE440s,
+            epc,
+            r_object,
+        )
+        .unwrap();
+
+        let a_pm = accel_third_body_for_body(
+            &CentralBody::Earth,
+            &ThirdBody::Moon,
+            EphemerisSource::DE440s,
+            epc,
+            r_object,
+        )
+        .unwrap();
+
+        // The lunar field at Earth distance is a small but nonzero correction
+        // to the point-mass term.
+        let rel = (a_sh - a_pm).norm() / a_pm.norm();
+        assert!(rel > 0.0, "harmonic field must differ from point mass");
+        assert!(
+            rel < 1e-3,
+            "Moon degree-4 field at Earth distance must be a small correction, got {rel}"
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_accel_third_body_field_for_body_with_file_model_moon_harmonics_under_earth_central() {
+        use crate::orbit_dynamics::gravity::{GravityModel, GravityModelType};
+        use crate::propagators::force_model_config::{GravityConfiguration, GravityModelSource};
+        use crate::utils::testing::setup_global_test_eop;
+
+        setup_global_test_eop();
+        setup_global_test_spice();
+
+        let epc = Epoch::from_datetime(2024, 2, 25, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+
+        let r_i2b = crate::frames::rotation_frame_to_frame(
+            crate::frames::ReferenceFrame::GCRF,
+            crate::frames::ReferenceFrame::LFPA,
+            epc,
+        )
+        .unwrap();
+
+        let model_type =
+            GravityModelType::FromFile("test_assets/grgm660prim_degree4_sample.gfc".to_string());
         let model = GravityModel::from_model_type(&model_type).unwrap();
 
         let a_sh = accel_third_body_field_for_body_with_model(

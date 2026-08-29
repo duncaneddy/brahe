@@ -1,0 +1,61 @@
+*** model converted into ICGEM-format by ICGEM, GFZ Potsdam, F.Barthelmes
+*** August, 2013
+
+**** begin original comment ****
+PRODUCT_RELEASE_DATE         = 2013-03-10
+DESCRIPTION                  = "
+ This file contains coefficients and related data for the GSFC Lunar gravity
+ field GRGM660PRIM, a degree and order 660 spherical harmonic model. It is
+ a preliminary GSFC gravity field that includes the entire nominal mission of
+ GRAIL tracking data (March 1, 16:30 to May 29, 16:36, 2012).
+
+ Some details describing this model are:
+   The spherical harmonic coefficients are fully normalized.
+   The reference radius = 1738.0 km
+   The planetary ephemeris is de421 and defines the lunar body-fixed
+       coordinate system.
+   A Kaula type power law constraint is applied to the spherical harmonics
+       coefficients for degrees >330 (2.5e-4/n^2).
+   The weighting of the data is 0.05 microns/sec for the 5-s KBRR data and
+       0.12mm/s for the 10-s 2-way S-band DSN tracking data.
+
+ The estimated tidal Love numbers are:
+     k20 = 0.024165+/-0.00228
+     k21 = 0.023915+/-0.00033
+     k22 = 0.024852+/-0.00042
+   for an aggregate k2 = 0.02427+/-0.00026
+**** end original comment ****
+
+
+
+
+begin_of_head ===================================
+product_type                  gravity_field
+body                          moon
+modelname                     GRGM660PRIM
+gravity_constant              0.4902799806931690D+13
+radius                        0.1738000D+07
+tide_system                   tide_free
+max_degree                    4
+errors                        formal
+norm                          fully_normalized
+
+
+
+key    L    M           C                       S                    sigma C                sigma S
+end_of_head =================================================================================================
+gfc    0     0  1.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00
+gfc    1     0  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00             
+gfc    1     1  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00             
+gfc    2     0 -9.0882923650771000E-05  0.0000000000000000E+00  1.5300000000000000E-10  0.0000000000000000E+00             
+gfc    2     1  8.4954064857652000E-11  9.7726994478963000E-10  6.1700000000000000E-12  7.1800000000000000E-12             
+gfc    2     2  3.4670944268756000E-05 -2.4064244523445000E-10  4.8700000000000000E-11  9.2700000000000000E-12             
+gfc    3     0 -3.1974039070981000E-06  0.0000000000000000E+00  2.3600000000000000E-12  0.0000000000000000E+00             
+gfc    3     1  2.6367948585301000E-05  5.4545621847344000E-06  2.6600000000000000E-12  2.6700000000000000E-12             
+gfc    3     2  1.4171538267300000E-05  4.8779443647939000E-06  4.0800000000000000E-12  4.1500000000000000E-12             
+gfc    3     3  1.2275202024553000E-05 -1.7743747889595000E-06  8.6600000000000000E-12  8.3800000000000000E-12             
+gfc    4     0  3.2347924522417000E-06  0.0000000000000000E+00  6.6700000000000000E-13  0.0000000000000000E+00             
+gfc    4     1 -6.0134612265187000E-06  1.6643327702085000E-06  7.7200000000000000E-13  7.1900000000000000E-13             
+gfc    4     2 -7.1161737190123000E-06 -6.7770230383514000E-06  1.0500000000000000E-12  1.0200000000000000E-12             
+gfc    4     3 -1.3499173662211000E-06 -1.3444991147298000E-05  1.9500000000000000E-12  1.8800000000000000E-12             
+gfc    4     4 -6.0069115393815000E-06  3.9266111458205000E-06  4.9900000000000000E-12  4.7600000000000000E-12             

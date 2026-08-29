@@ -702,7 +702,10 @@ impl CelestrakClient {
         &self,
         selector: &LocalSelector,
     ) -> Result<Option<Vec<GPRecord>>, BraheError> {
-        if let Some(since) = ACTIVE_UNAVAILABLE_SINCE.lock().unwrap().get(&self.base_url)
+        if let Some(since) = ACTIVE_UNAVAILABLE_SINCE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&self.base_url)
             && since.elapsed()
                 < Duration::try_from_secs_f64(self.cache_max_age).unwrap_or(Duration::MAX)
         {
@@ -712,14 +715,14 @@ impl CelestrakClient {
             Ok(catalog) => {
                 ACTIVE_UNAVAILABLE_SINCE
                     .lock()
-                    .unwrap()
+                    .unwrap_or_else(|e| e.into_inner())
                     .remove(&self.base_url);
                 catalog
             }
             Err(e) => {
                 ACTIVE_UNAVAILABLE_SINCE
                     .lock()
-                    .unwrap()
+                    .unwrap_or_else(|e| e.into_inner())
                     .insert(self.base_url.clone(), Instant::now());
                 if network_mode()? == NetworkMode::Online {
                     eprintln!(
@@ -916,7 +919,10 @@ impl Default for CelestrakClient {
 /// ```
 #[cfg(test)]
 pub(crate) fn clear_active_unavailable_latch() {
-    ACTIVE_UNAVAILABLE_SINCE.lock().unwrap().clear();
+    ACTIVE_UNAVAILABLE_SINCE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clear();
 }
 
 #[cfg(test)]

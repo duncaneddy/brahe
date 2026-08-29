@@ -19,7 +19,7 @@ use std::collections::HashMap;
 use nalgebra::{Vector3, Vector4};
 use serde_json::Value;
 
-use crate::attitude::{AttitudeFrame, Quaternion, SpacecraftFrame};
+use crate::attitude::{AttitudeFrame, Quaternion};
 use crate::math::interpolate_lagrange_svector;
 use crate::time::Epoch;
 use crate::utils::BraheError;
@@ -104,8 +104,9 @@ pub enum AttitudeInterpolationMethod {
     Linear,
     /// Lagrange polynomial interpolation of degree `degree` over a window
     /// of `degree + 1` samples centered on the query epoch, hemisphere-aligned
-    /// against the window's first sample and renormalized afterward. Angular
-    /// velocity, if present, uses the same polynomial degree.
+    /// sequentially (each sample against the previously aligned one) and
+    /// renormalized afterward. Angular velocity, if present, uses the same
+    /// polynomial degree.
     Lagrange {
         /// Polynomial degree for Lagrange interpolation.
         degree: usize,
@@ -545,17 +546,27 @@ impl AttitudeTrajectory {
                     .map(|i| self.epochs[i] - ref_epoch)
                     .collect();
 
-                // Hemisphere-align every sample in the window against the
-                // window's first sample so the polynomial fit sees a
-                // continuous quaternion curve rather than a double-cover
-                // sign flip.
-                let v0 = self.states[start_idx].quaternion.to_vector(true);
-                let quaternion_values: Vec<Vector4<f64>> = (start_idx..=end_idx)
-                    .map(|i| {
-                        let v = self.states[i].quaternion.to_vector(true);
-                        if v.dot(&v0) < 0.0 { -v } else { v }
-                    })
-                    .collect();
+                // Hemisphere-align each sample against the *previously
+                // aligned* sample rather than a single fixed reference: over
+                // a wide window the total rotation can exceed pi, so a
+                // sample far from the window's first element may have a
+                // negative dot product with it even though it is on the
+                // same side as its immediate neighbor. Sequential alignment
+                // only relies on adjacent samples staying within 90 degrees
+                // of each other in 4-space, which holds for any window fine
+                // enough to interpolate meaningfully.
+                let mut quaternion_values: Vec<Vector4<f64>> =
+                    Vec::with_capacity(end_idx - start_idx + 1);
+                let mut previous = self.states[start_idx].quaternion.to_vector(true);
+                quaternion_values.push(previous);
+                for i in (start_idx + 1)..=end_idx {
+                    let mut v = self.states[i].quaternion.to_vector(true);
+                    if v.dot(&previous) < 0.0 {
+                        v = -v;
+                    }
+                    quaternion_values.push(v);
+                    previous = v;
+                }
 
                 let t = *epoch - ref_epoch;
                 let q_vec = interpolate_lagrange_svector(&times, &quaternion_values, t);
@@ -647,20 +658,22 @@ fn compute_interpolation_window(
 impl Trajectory for AttitudeTrajectory {
     type StateVector = AttitudeState;
 
-    /// Create a trajectory from vectors of epochs and states.
-    ///
-    /// The `Trajectory` trait signature carries no frame information, so
-    /// both frame endpoints default to an unspecified spacecraft body frame
-    /// (`AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None))`). Use
-    /// [`AttitudeTrajectory::from_data`] directly whenever the frames are
-    /// known.
-    fn from_data(epochs: Vec<Epoch>, states: Vec<Self::StateVector>) -> Result<Self, BraheError> {
-        Self::from_data(
-            epochs,
-            states,
-            AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None)),
-            AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None)),
-        )
+    /// Always returns an error: the `Trajectory` trait signature carries
+    /// no frame information, and `AttitudeTrajectory` has no meaningful
+    /// default for `frame_a`/`frame_b` (unlike, e.g., `SOrbitTrajectory`'s
+    /// ECI default, there is no frame convention CCSDS or brahe assumes for
+    /// an attitude). Fabricating a placeholder frame here would silently
+    /// produce trajectories with wrong frame identity (e.g. writing out as
+    /// `REF_FRAME_A/B = SC_BODY`). Use
+    /// [`AttitudeTrajectory::from_data`] directly, which takes the frame
+    /// endpoints explicitly.
+    fn from_data(_epochs: Vec<Epoch>, _states: Vec<Self::StateVector>) -> Result<Self, BraheError> {
+        Err(BraheError::Error(
+            "AttitudeTrajectory cannot be constructed via Trajectory::from_data because it \
+             carries no frame information; use \
+             AttitudeTrajectory::from_data(epochs, states, frame_a, frame_b) instead"
+                .to_string(),
+        ))
     }
 
     fn add(&mut self, epoch: Epoch, state: Self::StateVector) -> Result<(), BraheError> {
@@ -916,6 +929,7 @@ impl Trajectory for AttitudeTrajectory {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::attitude::SpacecraftFrame;
     use crate::time::TimeSystem;
     use approx::assert_abs_diff_eq;
 
@@ -1097,7 +1111,7 @@ mod tests {
 
     #[test]
     #[serial_test::parallel]
-    fn test_attitude_trajectory_trajectory_from_data_defaults_spacecraft_frames() {
+    fn test_attitude_trajectory_trajectory_from_data_errors_without_frames() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let epochs = vec![t0, t0 + 60.0];
         let states = vec![
@@ -1105,15 +1119,10 @@ mod tests {
             AttitudeState::new(z_axis_quaternion(0.1)),
         ];
 
-        let traj = <AttitudeTrajectory as Trajectory>::from_data(epochs, states).unwrap();
-        assert_eq!(
-            traj.frame_a,
-            AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None))
-        );
-        assert_eq!(
-            traj.frame_b,
-            AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None))
-        );
+        let result = <AttitudeTrajectory as Trajectory>::from_data(epochs, states);
+        assert!(result.is_err());
+        let message = format!("{}", result.unwrap_err());
+        assert!(message.contains("AttitudeTrajectory::from_data"));
     }
 
     // =========================================================================
@@ -1310,6 +1319,86 @@ mod tests {
         let angular_error = 2.0 * dot.clamp(-1.0, 1.0).acos();
 
         assert!(angular_error < 5e-3, "angular_error = {}", angular_error);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_interpolate_lagrange_centered_window_tight_tolerance() {
+        let (a, b) = body_frames();
+        let mut traj = AttitudeTrajectory::new(a, b)
+            .with_interpolation_method(AttitudeInterpolationMethod::Lagrange { degree: 3 });
+
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Same smooth, non-constant-rate rotation profile as the edge-window
+        // case above, but sampled ten times finer (0.1s spacing instead of
+        // 1s). Degree-3 Lagrange interpolation error at a symmetric window
+        // center scales roughly with the fourth power of the sample
+        // spacing, so shrinking the spacing by 10x should shrink the error
+        // by roughly 10^4x relative to the coarser edge-window case.
+        let theta = |t: f64| 0.3 * t + 0.05 * t.sin();
+
+        for i in 0..6 {
+            let t = 0.1 * i as f64;
+            traj.add(t0 + t, AttitudeState::new(z_axis_quaternion(theta(t))))
+                .unwrap();
+        }
+
+        // At query_t = 0.15, compute_interpolation_window selects the window
+        // [0, 1, 2, 3] (t = 0.0..0.3), which is exactly centered on the
+        // query -- unlike the t = 2.5 case above, whose selected window is
+        // not centered on the query and only meets a looser tolerance.
+        let query_t = 0.15;
+        let state = traj.interpolate(&(t0 + query_t)).unwrap();
+        let analytic = z_axis_quaternion(theta(query_t));
+
+        let dot = state
+            .quaternion
+            .to_vector(true)
+            .dot(&analytic.to_vector(true));
+        let angular_error = 2.0 * dot.clamp(-1.0, 1.0).acos();
+
+        assert!(angular_error < 1e-6, "angular_error = {}", angular_error);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_interpolate_lagrange_wide_span_sequential_alignment() {
+        // Regression test: a window whose first and last samples are more
+        // than pi apart (z-rotations of 0, 1.5, 3.0, 4.5 rad at 1s spacing,
+        // i.e. a constant z-tumble at 1.5 rad/s) must not be hemisphere
+        // flipped when aligned against a single fixed reference, since
+        // dot(q(0), q(4.5 rad)) = cos((4.5 - 0) / 2) < 0 even though every
+        // adjacent pair in the window is well within 90 degrees of each
+        // other in 4-space. Sequential alignment (each sample against the
+        // previously aligned one) must keep the fit continuous.
+        let (a, b) = body_frames();
+        let mut traj = AttitudeTrajectory::new(a, b)
+            .with_interpolation_method(AttitudeInterpolationMethod::Lagrange { degree: 3 });
+
+        let omega = 1.5; // rad/s
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        for i in 0..4 {
+            let t = i as f64;
+            traj.add(t0 + t, AttitudeState::new(z_axis_quaternion(omega * t)))
+                .unwrap();
+        }
+
+        // Query at the midpoint of the (only, entire-trajectory) window.
+        let query_t = 1.5;
+        let state = traj.interpolate(&(t0 + query_t)).unwrap();
+        let analytic = z_axis_quaternion(omega * query_t);
+
+        let dot = state
+            .quaternion
+            .to_vector(true)
+            .dot(&analytic.to_vector(true));
+
+        // A corrupted fit (fixed-reference alignment flipping only the
+        // out-of-hemisphere sample) would land far from the analytic
+        // attitude; sequential alignment should keep it close.
+        assert!(dot > 0.99, "dot = {}", dot);
     }
 
     // =========================================================================

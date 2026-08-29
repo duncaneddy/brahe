@@ -150,8 +150,8 @@ fn reraise_callback_error(slot: &PyErrSlot, err: brahe::utils::BraheError) -> Py
 /// Controls error tolerances, step size limits, and other integration parameters.
 ///
 /// Args:
-///     abs_tol (float, optional): Absolute error tolerance. Defaults to 1e-6.
-///     rel_tol (float, optional): Relative error tolerance. Defaults to 1e-3.
+///     abs_tol (float, optional): Absolute error tolerance. Defaults to 1e-8.
+///     rel_tol (float, optional): Relative error tolerance. Defaults to 1e-10.
 ///     initial_step (float, optional): Initial step size. Defaults to None (auto).
 ///     min_step (float, optional): Minimum step size. Defaults to 1e-12.
 ///     max_step (float, optional): Maximum step size. Defaults to 900.0.
@@ -194,8 +194,8 @@ impl PyIntegratorConfig {
     /// Create a new integrator configuration with custom parameters.
     #[new]
     #[pyo3(signature = (
-        abs_tol=1e-6,
-        rel_tol=1e-3,
+        abs_tol=1e-8,
+        rel_tol=1e-10,
         initial_step=None,
         min_step=Some(1e-12),
         max_step=Some(900.0),

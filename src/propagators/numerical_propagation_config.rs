@@ -441,7 +441,7 @@ impl NumericalPropagationConfig {
     pub fn high_precision() -> Self {
         Self {
             method: IntegratorMethod::RKN1210,
-            integrator: IntegratorConfig::adaptive(1e-10, 1e-8),
+            integrator: IntegratorConfig::adaptive(1e-12, 1e-12),
             variational: VariationalConfig::default(),
             store_accelerations: true,
             interpolation_method: None,

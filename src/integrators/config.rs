@@ -57,8 +57,8 @@ pub struct IntegratorConfig {
 impl Default for IntegratorConfig {
     /// Default configuration matching typical defaults
     ///
-    /// - abs_tol: 1e-6
-    /// - rel_tol: 1e-3
+    /// - abs_tol: 1e-8
+    /// - rel_tol: 1e-10
     /// - initial_step: None (auto-determined)
     /// - min_step: Some(1e-12)
     /// - max_step: Some(900.0) (15 minutes)
@@ -69,8 +69,8 @@ impl Default for IntegratorConfig {
     /// - fixed_step_size: None
     fn default() -> Self {
         Self {
-            abs_tol: 1e-6,
-            rel_tol: 1e-3,
+            abs_tol: 1e-8,
+            rel_tol: 1e-10,
             initial_step: None,
             min_step: Some(1e-12),
             max_step: Some(900.0),
@@ -146,8 +146,8 @@ mod tests {
     #[test]
     fn test_default_config() {
         let config = IntegratorConfig::default();
-        assert_eq!(config.abs_tol, 1e-6);
-        assert_eq!(config.rel_tol, 1e-3);
+        assert_eq!(config.abs_tol, 1e-8);
+        assert_eq!(config.rel_tol, 1e-10);
         assert_eq!(config.initial_step, None);
         assert_eq!(config.min_step, Some(1e-12));
         assert_eq!(config.max_step, Some(900.0));
@@ -162,8 +162,8 @@ mod tests {
     fn test_fixed_step_config() {
         let config = IntegratorConfig::fixed_step(0.1);
         assert_eq!(config.fixed_step_size, Some(0.1));
-        assert_eq!(config.abs_tol, 1e-6);
-        assert_eq!(config.rel_tol, 1e-3);
+        assert_eq!(config.abs_tol, 1e-8);
+        assert_eq!(config.rel_tol, 1e-10);
     }
 
     #[test]

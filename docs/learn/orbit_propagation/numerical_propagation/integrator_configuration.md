@@ -189,8 +189,8 @@ $$
 \text{error} < \text{abs\_tol} + \text{rel\_tol} \times |\text{state}|
 $$
 
-- **`abs_tol`**: Bounds error when state components are small (default: 1e-6)
-- **`rel_tol`**: Bounds error proportional to state magnitude (default: 1e-3)
+- **`abs_tol`**: Bounds error when state components are small (default: 1e-8)
+- **`rel_tol`**: Bounds error proportional to state magnitude (default: 1e-10)
 
 === "Python"
 

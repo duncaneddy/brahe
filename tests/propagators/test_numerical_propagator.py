@@ -10,16 +10,32 @@ import pytest
 from brahe import (
     Epoch,
     IntegrationMethod,
+    IntegratorConfig,
     InterpolationMethod,
     NumericalPropagationConfig,
     NumericalPropagator,
     TimeSystem,
+    VariationalConfig,
 )
 
 
 def create_test_epoch():
     """Create a standard test epoch"""
     return Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+
+
+def create_seeded_step_config(step):
+    """Config whose adaptive controller accepts a step of exactly `step` seconds
+
+    Capping max_step at the seed and loosening the tolerances keeps the
+    controller from growing or shrinking the step, so a step count maps to a
+    known duration.
+    """
+    return NumericalPropagationConfig(
+        IntegrationMethod.DP54,
+        IntegratorConfig(abs_tol=1e-2, rel_tol=1e-4, initial_step=step, max_step=step),
+        VariationalConfig(),
+    )
 
 
 def sho_dynamics(t, state, params):
@@ -219,7 +235,7 @@ def test_dstatepropagator_propagate_steps():
     state = np.array([1.0, 0.0])
 
     prop = NumericalPropagator(
-        epoch, state, sho_dynamics, NumericalPropagationConfig.default()
+        epoch, state, sho_dynamics, create_seeded_step_config(0.1)
     )
 
     prop.step_size = 0.1
@@ -394,7 +410,7 @@ def test_numericalpropagator_eviction_policy_max_age():
     state = np.array([1.0, 0.0])
 
     prop = NumericalPropagator(
-        epoch, state, sho_dynamics, NumericalPropagationConfig.default()
+        epoch, state, sho_dynamics, create_seeded_step_config(0.1)
     )
 
     prop.set_eviction_policy_max_age(0.5)

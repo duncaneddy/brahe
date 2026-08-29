@@ -22,7 +22,7 @@ state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 config_hp = bh.NumericalPropagationConfig.high_precision()
 print("High-precision config:")
 print("  Method: RKN1210 (Runge-Kutta-Nystrom 12(10))")
-print("  Tolerances: Very tight (1e-14 rel, 1e-16 abs)")
+print("  Tolerances: Very tight (1e-12 abs, 1e-12 rel)")
 
 # Standard precision for comparison
 config_std = bh.NumericalPropagationConfig.default()

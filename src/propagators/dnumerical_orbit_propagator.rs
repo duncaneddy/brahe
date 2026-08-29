@@ -3176,15 +3176,22 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
             };
 
             // Temporarily set the suggested next step to not overshoot
+            let truncated = dt_max.abs() < self.dt_next.abs();
             let saved_dt_next = self.dt_next;
             self.dt_next = dt_max;
 
             // Take one adaptive step (includes event detection)
             self.step_once()?;
 
-            // Restore suggested dt_next for subsequent steps
-            // (unless step_once updated it to something smaller)
-            if self.dt_next.abs() > saved_dt_next.abs() {
+            // A step truncated to land exactly on the target is artificially
+            // short, so what it implies about larger steps is extrapolation.
+            // Keep its suggestion only when that suggestion falls below the
+            // step just taken, which means the error bound was reached even at
+            // the reduced size and the reduction is genuine error control.
+            // Otherwise restore the pre-truncation suggestion; carrying the
+            // truncated step's estimate forward would let a run of truncated
+            // steps ratchet the step size down with no way to recover.
+            if truncated && self.dt.abs() >= dt_max.abs() && self.dt_next.abs() >= self.dt.abs() {
                 self.dt_next = saved_dt_next;
             }
         }
@@ -3228,14 +3235,22 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
                 -remaining.abs().min(self.dt_next.abs())
             };
 
+            let truncated = dt_max.abs() < self.dt_next.abs();
             let saved_dt_next = self.dt_next;
             self.dt_next = dt_max;
 
             // Take one adaptive step (includes event detection)
             self.step_once()?;
 
-            // Restore suggested dt_next for subsequent steps
-            if self.dt_next.abs() >= saved_dt_next.abs() {
+            // A step truncated to land exactly on the target is artificially
+            // short, so what it implies about larger steps is extrapolation.
+            // Keep its suggestion only when that suggestion falls below the
+            // step just taken, which means the error bound was reached even at
+            // the reduced size and the reduction is genuine error control.
+            // Otherwise restore the pre-truncation suggestion; carrying the
+            // truncated step's estimate forward would let a run of truncated
+            // steps ratchet the step size down with no way to recover.
+            if truncated && self.dt.abs() >= dt_max.abs() && self.dt_next.abs() >= self.dt.abs() {
                 self.dt_next = saved_dt_next;
             }
         }
@@ -4458,10 +4473,23 @@ mod tests {
             0.0, // velocity
         ]);
 
+        // Seed a 60 s step with tolerances loose enough for the adaptive
+        // controller to accept it, so the step count maps to a known duration.
+        let step_size = 60.0;
+        let config = NumericalPropagationConfig {
+            integrator: IntegratorConfig {
+                abs_tol: 1e-2,
+                rel_tol: 1e-4,
+                initial_step: Some(step_size),
+                ..IntegratorConfig::default()
+            },
+            ..NumericalPropagationConfig::default()
+        };
+
         let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state.clone(),
-            NumericalPropagationConfig::default(),
+            config,
             ForceModelConfig::earth_gravity(),
             None,
             None,
@@ -4470,7 +4498,6 @@ mod tests {
         )
         .unwrap();
 
-        let step_size = 60.0;
         let num_steps = 10;
 
         // Propagate N steps
@@ -5311,11 +5338,15 @@ mod tests {
         assert!(has_difference, "RTN covariance should differ from ECI");
 
         // Verify RTN covariance is still symmetric (within numerical precision)
+        // Covariance interpolation leaves asymmetry proportional to the
+        // magnitude of the whole matrix, which the frame rotation mixes across
+        // blocks, so bound the asymmetry by the matrix norm.
+        let cov_scale = cov_rtn.norm();
         for i in 0..6 {
             for j in 0..6 {
                 let diff = (cov_rtn[(i, j)] - cov_rtn[(j, i)]).abs();
                 assert!(
-                    diff < 1e-6,
+                    diff < 1e-9 * cov_scale,
                     "RTN covariance should be symmetric at ({},{}): diff = {}",
                     i,
                     j,
@@ -7658,6 +7689,161 @@ mod tests {
         assert!(
             difference > 0.0 && difference < 1.0,
             "Tolerance should affect accuracy, diff = {:.6} m",
+            difference
+        );
+    }
+
+    /// Largest step taken over a propagation, from the stored trajectory.
+    fn max_trajectory_step(prop: &DNumericalOrbitPropagator) -> f64 {
+        let traj = prop.trajectory();
+        (0..traj.len().saturating_sub(1))
+            .map(|i| traj.epoch_at_idx(i + 1).unwrap() - traj.epoch_at_idx(i).unwrap())
+            .fold(0.0, f64::max)
+    }
+
+    fn adaptive_prop(
+        integrator: IntegratorConfig,
+        state: DVector<f64>,
+        force: ForceModelConfig,
+    ) -> DNumericalOrbitPropagator {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let config = NumericalPropagationConfig {
+            integrator,
+            ..NumericalPropagationConfig::default()
+        };
+        DNumericalOrbitPropagator::new(epoch, state, config, force, None, None, None, None).unwrap()
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_dnumericalorbitpropagator_adaptive_step_size_grows() {
+        setup_global_test_eop();
+
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 1108.9350, 7537.7178]);
+        let mut prop = adaptive_prop(
+            IntegratorConfig {
+                abs_tol: 1e-2,
+                rel_tol: 1e-4,
+                ..IntegratorConfig::default()
+            },
+            state,
+            ForceModelConfig::earth_gravity(),
+        );
+        let epoch = prop.initial_epoch();
+        prop.propagate_to(epoch + 3600.0).unwrap();
+
+        // The propagator seeds the first step from `initial_step`, defaulting to
+        // 60 s. An adaptive controller must be able to grow beyond that seed when
+        // the local error allows it.
+        let max_step = max_trajectory_step(&prop);
+        assert!(
+            max_step > 60.0,
+            "Adaptive step size must grow beyond the 60 s seed, got {:.3} s",
+            max_step
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_dnumericalorbitpropagator_max_step_bounds_growth() {
+        setup_global_test_eop();
+
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 1108.9350, 7537.7178]);
+        let loose = IntegratorConfig {
+            abs_tol: 1e-2,
+            rel_tol: 1e-4,
+            ..IntegratorConfig::default()
+        };
+
+        let mut capped = adaptive_prop(
+            IntegratorConfig {
+                max_step: Some(120.0),
+                ..loose.clone()
+            },
+            state.clone(),
+            ForceModelConfig::earth_gravity(),
+        );
+        let mut uncapped = adaptive_prop(
+            IntegratorConfig {
+                max_step: Some(900.0),
+                ..loose
+            },
+            state,
+            ForceModelConfig::earth_gravity(),
+        );
+
+        let epoch = capped.initial_epoch();
+        capped.propagate_to(epoch + 3600.0).unwrap();
+        uncapped.propagate_to(epoch + 3600.0).unwrap();
+
+        let max_capped = max_trajectory_step(&capped);
+        let max_uncapped = max_trajectory_step(&uncapped);
+
+        assert!(
+            max_capped <= 120.0 + 1e-9,
+            "max_step must bound the step size, got {:.6} s",
+            max_capped
+        );
+        assert!(
+            max_uncapped > 120.0,
+            "A larger max_step must permit larger steps, got {:.6} s",
+            max_uncapped
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_dnumericalorbitpropagator_tolerances_affect_slow_orbit() {
+        setup_global_test_eop();
+
+        // Highly eccentric orbit near apoapsis. The local error over the 60 s
+        // seed step falls under both tolerances, so error control can only be
+        // observed through step-size growth.
+        let state = DVector::from_vec(vec![
+            -130142373.6645361,
+            120626187.8655891,
+            126520497.1633258,
+            -308.744045658656,
+            -1402.99418814228,
+            -61.624_504_490_557_44,
+        ]);
+
+        let mut loose = adaptive_prop(
+            IntegratorConfig {
+                abs_tol: 1e-2,
+                rel_tol: 1e-4,
+                max_step: Some(86400.0),
+                ..IntegratorConfig::default()
+            },
+            state.clone(),
+            ForceModelConfig::two_body_gravity(),
+        );
+        let mut tight = adaptive_prop(
+            IntegratorConfig {
+                abs_tol: 1e-12,
+                rel_tol: 1e-14,
+                max_step: Some(600.0),
+                ..IntegratorConfig::default()
+            },
+            state,
+            ForceModelConfig::two_body_gravity(),
+        );
+
+        let epoch = loose.initial_epoch();
+        loose.propagate_to(epoch + 86400.0).unwrap();
+        tight.propagate_to(epoch + 86400.0).unwrap();
+
+        assert!(
+            max_trajectory_step(&loose) > max_trajectory_step(&tight),
+            "Looser tolerances must permit larger steps"
+        );
+
+        let difference = (loose.current_state().fixed_rows::<3>(0)
+            - tight.current_state().fixed_rows::<3>(0))
+        .norm();
+        assert!(
+            difference > 0.0,
+            "Tolerances must affect the propagated state, diff = {:.6e} m",
             difference
         );
     }
@@ -11245,11 +11431,16 @@ mod tests {
         // Verify composition: Φ(t₂,t₀) = Φ(t₂,t₁)·Φ(t₁,t₀)
         let phi_composed = phi_t2_t1 * phi_t1_t0;
 
+        // The two propagations select independent step sequences, so the
+        // composition holds to integration accuracy rather than exactly. The
+        // error in any entry scales with the magnitude of the whole matrix, not
+        // with that entry, so bound it by the matrix norm.
+        let phi_scale = phi_t2_t0.norm();
         for i in 0..6 {
             for j in 0..6 {
                 let diff = (phi_t2_t0[(i, j)] - phi_composed[(i, j)]).abs();
                 assert!(
-                    diff < 1e-6,
+                    diff < 1e-8 * phi_scale,
                     "STM composition failed at [{},{}]: direct={}, composed={}, diff={}",
                     i,
                     j,
@@ -13431,10 +13622,23 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
+        // Pin the integrator so this guard tracks the Earth force-model path
+        // alone. Tolerances loose enough for a single 60 s step keep the
+        // reference state independent of the default tolerances.
+        let config = NumericalPropagationConfig {
+            integrator: IntegratorConfig {
+                abs_tol: 1e-2,
+                rel_tol: 1e-4,
+                initial_step: Some(60.0),
+                ..IntegratorConfig::default()
+            },
+            ..NumericalPropagationConfig::default()
+        };
+
         let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
-            NumericalPropagationConfig::default(),
+            config,
             ForceModelConfig::default(),
             Some(default_test_params()),
             None,

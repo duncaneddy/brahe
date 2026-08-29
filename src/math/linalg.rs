@@ -605,6 +605,32 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_sqrtm_error_negative_eigenvalue_masked_by_scale() {
+        // No real square root, but the negative eigenvalue is small next to the
+        // matrix norm. A residual bound scaled by the whole matrix would accept
+        // this; the per-column bound rejects it.
+        let mat = na::SMatrix::<f64, 2, 2>::new(1e12, 0.0, 0.0, -100.0);
+
+        let err = sqrtm(mat).unwrap_err();
+        assert!(
+            err.contains("column"),
+            "expected a per-column accuracy failure, got: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_sqrtm_large_magnitude_accepted() {
+        // The Wiki case scaled up. The residual is large in absolute terms but
+        // negligible against the entries, so it must still be accepted.
+        let mat = na::SMatrix::<f64, 2, 2>::new(33.0e10, 24.0e10, 48.0e10, 57.0e10);
+
+        let root = sqrtm(mat).unwrap();
+        let expected = na::SMatrix::<f64, 2, 2>::new(5.0e5, 2.0e5, 4.0e5, 7.0e5);
+        assert!((root - expected).norm() / expected.norm() < 1e-10);
+    }
+
     // =========================================================================
     // sqrtm_dmatrix Tests
     // =========================================================================
@@ -640,6 +666,29 @@ mod tests {
         let sqrt_diag = sqrtm_dmatrix(&diag).unwrap();
         let expected = na::DMatrix::from_row_slice(2, 2, &[2.0, 0.0, 0.0, 3.0]);
         assert!((&sqrt_diag - &expected).norm() < 1e-10);
+    }
+
+    #[test]
+    fn test_sqrtm_dmatrix_error_negative_eigenvalue_masked_by_scale() {
+        // Dynamic mirror of test_sqrtm_error_negative_eigenvalue_masked_by_scale.
+        let mat = na::DMatrix::from_row_slice(2, 2, &[1e12, 0.0, 0.0, -100.0]);
+
+        let err = sqrtm_dmatrix(&mat).unwrap_err();
+        assert!(
+            err.contains("column"),
+            "expected a per-column accuracy failure, got: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_sqrtm_dmatrix_large_magnitude_accepted() {
+        // Dynamic mirror of test_sqrtm_large_magnitude_accepted.
+        let mat = na::DMatrix::from_row_slice(2, 2, &[33.0e10, 24.0e10, 48.0e10, 57.0e10]);
+
+        let root = sqrtm_dmatrix(&mat).unwrap();
+        let expected = na::DMatrix::from_row_slice(2, 2, &[5.0e5, 2.0e5, 4.0e5, 7.0e5]);
+        assert!((root - &expected).norm() / expected.norm() < 1e-10);
     }
 
     #[test]

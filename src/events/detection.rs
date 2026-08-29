@@ -649,6 +649,41 @@ mod tests {
         assert_eq!(event.detector_index, 0);
     }
 
+    #[test]
+    fn test_scan_for_event_backward() {
+        // Backward propagation hands the scan prev_time later than
+        // current_time, so the bracket bounds arrive reversed in time.
+        let start_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let target_epoch = start_epoch + 50.0;
+
+        let detector = SimpleTimeEvent {
+            target_time: target_epoch,
+            name: "Backward Scan".to_string(),
+        };
+
+        let state_fn = |_t: Epoch| Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+
+        let prev_time = start_epoch + 100.0;
+        let current_time = start_epoch;
+        let prev_state = state_fn(prev_time);
+        let current_state = state_fn(current_time);
+
+        let result = sscan_for_event(
+            &detector,
+            0,
+            &state_fn,
+            prev_time,
+            current_time,
+            &prev_state,
+            &current_state,
+            None,
+        );
+
+        let event = result.expect("event inside the backward interval must be found");
+        assert!((event.window_open - target_epoch).abs() < detector.time_tolerance());
+        assert_eq!(event.name, "Backward Scan");
+    }
+
     /// Configurable time event with custom step reduction factor
     struct ConfigurableTimeEvent {
         target_time: Epoch,

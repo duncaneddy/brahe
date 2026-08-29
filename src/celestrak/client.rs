@@ -801,6 +801,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_query_raw_gp() {
+        let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
@@ -827,6 +828,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_query_gp_typed() {
+        let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
@@ -858,6 +860,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_query_gp_with_client_side_filter() {
+        let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
@@ -889,6 +892,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_query_gp_with_order_and_limit() {
+        let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
@@ -921,6 +925,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_query_satcat_typed() {
+        let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
@@ -951,6 +956,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_query_raw_tle_format() {
+        let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
@@ -977,6 +983,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_http_error_404() {
+        let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
@@ -995,6 +1002,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_invalid_json_response() {
+        let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
@@ -1014,6 +1022,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_empty_json_response() {
+        let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
@@ -1033,6 +1042,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_download_to_file() {
+        let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
@@ -1113,13 +1123,19 @@ mod tests {
     fn test_offline_miss_errors_without_request() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("offline"));
-        let client = CelestrakClient::with_base_url("https://celestrak.org");
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/NORAD/elements/gp.php");
+            then.status(200).body(ISS_GP_JSON);
+        });
+        let client = CelestrakClient::with_base_url("https://brahe-network-mode-test.invalid");
 
         let err = client.get_gp_by_catnr(25544).unwrap_err().to_string();
         assert!(
             err.starts_with("BRAHE_NETWORK_MODE is offline; Celestrak request "),
             "{err}"
         );
+        assert_eq!(mock.calls(), 0);
     }
 
     #[test]
@@ -1171,6 +1187,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_get_gp_by_catnr() {
+        let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
@@ -1196,6 +1213,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_get_gp_by_group() {
+        let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
@@ -1219,6 +1237,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_get_gp_by_name() {
+        let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
@@ -1243,6 +1262,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_get_gp_by_intdes() {
+        let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
@@ -1266,6 +1286,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_get_sup_gp() {
+        let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
@@ -1289,6 +1310,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_get_satcat_by_catnr() {
+        let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
@@ -1314,6 +1336,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_get_sgp_propagator_by_catnr_empty_results() {
+        let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
@@ -1340,6 +1363,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_retry_on_503() {
+        let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
@@ -1360,6 +1384,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_no_retry_on_404() {
+        let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
@@ -1380,6 +1405,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_max_retries_zero_no_retry() {
+        let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 

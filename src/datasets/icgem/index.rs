@@ -374,7 +374,13 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_fetch_index_offline_errors_without_request() {
+        use httpmock::prelude::*;
         let _mode = NetworkModeGuard::set(Some("offline"));
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path_includes("/tom_longtime");
+            then.status(200).body("");
+        });
 
         let err = fetch_index_with_url(&ICGEMBody::Earth, "https://icgem.invalid")
             .unwrap_err()
@@ -383,6 +389,7 @@ mod tests {
             err.starts_with("BRAHE_NETWORK_MODE is offline; ICGEM index "),
             "{err}"
         );
+        assert_eq!(mock.calls(), 0);
     }
 
     #[test]

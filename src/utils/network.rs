@@ -100,8 +100,15 @@ pub fn network_mode() -> Result<NetworkMode, BraheError> {
 /// Extract the host from a URL's authority, dropping scheme, user-info, and port.
 ///
 /// Strips a leading `scheme://`, takes the authority up to the first `/`, `?`,
-/// or `#`, drops any `user-info@` prefix, then returns the bracketed IPv6
-/// literal (without brackets) or the text before the last `:` (the port).
+/// `#`, or `\` (a backslash is treated as an authority terminator too, since
+/// WHATWG URL parsing does the same for special schemes — otherwise a host
+/// like `evil.com\@127.0.0.1` would be misread as user-info on `127.0.0.1`
+/// instead of as the host `evil.com`), drops any `user-info@` prefix, then
+/// returns the bracketed IPv6 literal (without brackets), the unbracketed
+/// literal unchanged if it has more than one `:` (an unbracketed IPv6
+/// address with a port is ambiguous, so the whole thing is kept as the host
+/// rather than guessing where a port would start), or otherwise the text
+/// before a single `:` (the port).
 ///
 /// # Arguments
 ///
@@ -113,13 +120,14 @@ pub fn network_mode() -> Result<NetworkMode, BraheError> {
 fn url_host(url: &str) -> String {
     let after_scheme = url.split("://").nth(1).unwrap_or(url);
     let authority_end = after_scheme
-        .find(['/', '?', '#'])
+        .find(['/', '?', '#', '\\'])
         .unwrap_or(after_scheme.len());
     let authority = &after_scheme[..authority_end];
     let host_port = authority.rsplit('@').next().unwrap_or(authority);
 
     let host = match host_port.strip_prefix('[') {
         Some(rest) => rest.split(']').next().unwrap_or(rest),
+        None if host_port.matches(':').count() > 1 => host_port,
         None => host_port
             .rsplit_once(':')
             .map(|(host, _port)| host)
@@ -131,8 +139,12 @@ fn url_host(url: &str) -> String {
 
 /// Check whether a URL's host is a loopback address.
 ///
-/// A loopback host is `localhost` (any case), any `127.x.y.z` address, or
-/// `::1` (bracketed or bare). `0.0.0.0` is not a loopback address.
+/// A loopback host is `localhost` (any case) or a host that parses as an IP
+/// address in the loopback range (`127.0.0.0/8`, or `::1` bracketed or bare).
+/// A host merely prefixed or suffixed with a loopback-looking label (e.g.
+/// `127.0.0.1.evil.com`, `127.evil.com`, `localhost.evil.com`) is not
+/// loopback, since it does not parse as an IP address at all. `0.0.0.0` is
+/// not a loopback address.
 ///
 /// # Arguments
 ///
@@ -140,10 +152,13 @@ fn url_host(url: &str) -> String {
 ///
 /// # Returns
 ///
-/// * `bool` - `true` if the URL's host is a loopback address
+/// * `bool` - `true` if the URL's host is `localhost` or a loopback IP address
 pub(crate) fn is_loopback_url(url: &str) -> bool {
     let host = url_host(url);
-    host == "localhost" || host == "::1" || host.starts_with("127.")
+    host.eq_ignore_ascii_case("localhost")
+        || host
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback())
 }
 
 /// Fail unless the network mode permits a request.
@@ -327,6 +342,7 @@ mod tests {
             "http://[::1]:1234/a",
             "http://user@localhost/",
             "LOCALHOST",
+            "::1",
         ] {
             assert!(is_loopback_url(url), "{url}");
         }
@@ -334,6 +350,10 @@ mod tests {
         for url in [
             "https://celestrak.org/NORAD/elements/gp.php",
             "http://0.0.0.0/",
+            "http://127.0.0.1.evil.com/",
+            "http://127.evil.com/",
+            "http://localhost.evil.com/",
+            "evil.com\\@127.0.0.1",
         ] {
             assert!(!is_loopback_url(url), "{url}");
         }

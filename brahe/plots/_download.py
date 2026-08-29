@@ -10,6 +10,7 @@ to truncated upstream responses:
   rename into place so parallel workers never observe a partial result.
 """
 
+import ipaddress
 import shutil
 import tempfile
 import time
@@ -40,13 +41,21 @@ NETWORK_MODE_ENV = "BRAHE_NETWORK_MODE"
 def _is_loopback_url(url: str) -> bool:
     """Check whether a URL's host is a loopback address.
 
-    A loopback host is ``localhost`` (any case), any ``127.x.y.z`` address, or
-    ``::1`` (bracketed or bare). ``0.0.0.0`` is not a loopback address.
+    A loopback host is ``localhost`` (any case) or a host that parses as an
+    IP address in the loopback range (``127.0.0.0/8``, or ``::1``). A host
+    merely prefixed or suffixed with a loopback-looking label (e.g.
+    ``127.0.0.1.evil.com``, ``127.evil.com``) is not loopback, since it does
+    not parse as an IP address at all. ``0.0.0.0`` is not a loopback address.
     """
     hostname = urllib.parse.urlsplit(url).hostname
     if hostname is None:
         return False
-    return hostname == "localhost" or hostname == "::1" or hostname.startswith("127.")
+    if hostname == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(hostname).is_loopback
+    except ValueError:
+        return False
 
 
 def _ensure_online(url: str, description: str) -> None:

@@ -479,28 +479,43 @@ mod tests {
     #[serial_test::serial]
     fn test_download_string_offline_makes_no_request() {
         let _guard = NetworkModeGuard::set(Some("offline"));
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/data.json");
+            then.status(200).body("body");
+        });
 
-        let err = download_string("https://celestrak.org/data.json", "test data")
-            .unwrap_err()
-            .to_string();
+        let err = download_string(
+            "https://brahe-network-mode-test.invalid/data.json",
+            "test data",
+        )
+        .unwrap_err()
+        .to_string();
         assert!(
             err.starts_with("BRAHE_NETWORK_MODE is offline; test data ("),
             "{err}"
         );
+        assert_eq!(mock.calls(), 0);
     }
 
     #[test]
     #[serial_test::serial]
     fn test_download_bytes_offline_strict_makes_no_request() {
         let _guard = NetworkModeGuard::set(Some("offline-strict"));
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/kernel.bsp");
+            then.status(200).body("kernel-bytes");
+        });
 
-        let err = download_bytes("https://celestrak.org/kernel.bsp")
+        let err = download_bytes("https://brahe-network-mode-test.invalid/kernel.bsp")
             .unwrap_err()
             .to_string();
         assert!(
             err.starts_with("BRAHE_NETWORK_MODE is offline-strict; "),
             "{err}"
         );
+        assert_eq!(mock.calls(), 0);
     }
 
     #[test]

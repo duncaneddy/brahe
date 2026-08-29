@@ -186,6 +186,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_read_cache_force_refresh_reports_stale_as_miss() {
+        let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let cache_dir = get_star_catalogs_cache_dir().unwrap();
         let test_filename = "test_force_refresh.dat";
@@ -199,9 +200,6 @@ mod tests {
         let result = read_cache(test_filename, Some(0.0));
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), None);
-
-        // Cleanup
-        let _ = fs::remove_file(&cache_path);
     }
 
     #[test]

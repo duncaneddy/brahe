@@ -34,7 +34,9 @@ def test_network_mode_rejects_unknown(monkeypatch):
 def test_celestrak_offline_miss_raises_without_request(monkeypatch, tmp_path):
     monkeypatch.setenv("BRAHE_CACHE", str(tmp_path))
     monkeypatch.setenv("BRAHE_NETWORK_MODE", "offline")
-    client = bh.celestrak.CelestrakClient(base_url="https://celestrak.org")
+    client = bh.celestrak.CelestrakClient(
+        base_url="https://brahe-network-mode-test.invalid"
+    )
     with pytest.raises(
         bh.BraheError, match="BRAHE_NETWORK_MODE is offline; Celestrak request"
     ):

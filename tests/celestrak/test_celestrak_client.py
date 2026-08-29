@@ -98,7 +98,9 @@ class TestCelestrakClientNetworkMode:
     def test_offline_strict_miss_raises(self, monkeypatch, tmp_path):
         monkeypatch.setenv("BRAHE_CACHE", str(tmp_path))
         monkeypatch.setenv("BRAHE_NETWORK_MODE", "offline-strict")
-        client = bh.celestrak.CelestrakClient(base_url="https://celestrak.org")
+        client = bh.celestrak.CelestrakClient(
+            base_url="https://brahe-network-mode-test.invalid"
+        )
         with pytest.raises(bh.BraheError, match="offline-strict"):
             client.get_gp(name="ISS")
 

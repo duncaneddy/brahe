@@ -254,9 +254,14 @@ mod tests {
     fn test_fetch_with_cache_offline_miss_errors() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("offline"));
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/missing.tsv");
+            then.status(200).body("fresh");
+        });
 
         let err = fetch_with_cache(
-            "https://planet4589.org/space/gcat/tsv/cat/missing.tsv",
+            "https://brahe-network-mode-test.invalid/missing.tsv",
             "missing.tsv",
             3600.0,
         )
@@ -266,6 +271,7 @@ mod tests {
             err.starts_with("BRAHE_NETWORK_MODE is offline; GCAT request "),
             "{err}"
         );
+        assert_eq!(mock.calls(), 0);
     }
 
     #[test]

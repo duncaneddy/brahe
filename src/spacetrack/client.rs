@@ -806,13 +806,23 @@ mod tests {
     #[serial_test::serial]
     fn test_authenticate_offline_errors_without_request() {
         let _mode = NetworkModeGuard::set(Some("offline"));
-        let client = SpaceTrackClient::with_base_url("user", "pass", "https://www.space-track.org");
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("{}");
+        });
+        let client = SpaceTrackClient::with_base_url(
+            "user",
+            "pass",
+            "https://brahe-network-mode-test.invalid",
+        );
 
         let err = client.authenticate().unwrap_err().to_string();
         assert_eq!(
             err,
             "BRAHE_NETWORK_MODE is offline; Space-Track request is not cached and cannot be downloaded"
         );
+        mock.assert_calls(0);
     }
 
     #[test]

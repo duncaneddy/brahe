@@ -15,7 +15,11 @@ from pathlib import Path
 
 import pytest
 
-from brahe.plots._download import download_and_extract_zip, download_file
+from brahe.plots._download import (
+    _is_loopback_url,
+    download_and_extract_zip,
+    download_file,
+)
 
 
 def _make_zip(path: Path, members: dict[str, bytes]) -> None:
@@ -277,6 +281,47 @@ def test_download_and_extract_zip_offline_raises_without_request(monkeypatch, tm
             sentinel,
             description="test zip",
         )
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://localhost:8080/x",
+        "http://127.0.0.1:9",
+        "http://127.5.6.7/",
+        "http://[::1]:1234/a",
+        "http://[::1]/",
+        "http://user@localhost/",
+        "http://LOCALHOST/",
+    ],
+)
+def test_is_loopback_url_true(url):
+    assert _is_loopback_url(url)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://celestrak.org/NORAD/elements/gp.php",
+        "http://0.0.0.0/",
+        "http://127.0.0.1.evil.com/",
+        "http://127.evil.com/",
+        "http://localhost.evil.com/",
+    ],
+)
+def test_is_loopback_url_false(url):
+    assert not _is_loopback_url(url)
+
+
+def test_is_loopback_url_confusable_authority_matches_httpx():
+    # Unlike Rust's `url` crate (WHATWG: a backslash ends the authority for
+    # special schemes, so this host is "evil.com"), httpx and urllib.parse
+    # follow RFC 3986, where a backslash has no special meaning: both parse
+    # this URL's host as "127.0.0.1" (httpx.URL(url).host confirms this), so
+    # the request this library actually makes does go to loopback and
+    # `_is_loopback_url` reporting True here matches, rather than bypasses,
+    # the real request target.
+    assert _is_loopback_url("http://evil.com\\@127.0.0.1/")
 
 
 def test_download_file_offline_allows_loopback(monkeypatch, zip_server, tmp_path):

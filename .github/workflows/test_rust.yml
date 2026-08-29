@@ -1,6 +1,11 @@
 name: Test Rust
 on:
     workflow_call:
+        inputs:
+            network_mode:
+                description: "BRAHE_NETWORK_MODE for the test steps once every cache family is warm."
+                type: string
+                default: "offline"
 jobs:
     test-rust:
         runs-on: ${{ matrix.os }}
@@ -13,6 +18,7 @@ jobs:
             id-token: write
         env:
             CARGO_TERM_COLOR: always
+            BRAHE_NETWORK_MODE: ${{ inputs.network_mode }}
         steps:
             -   uses: actions/checkout@v7.0.1
             # Cargo cache scheme: this job runs from both pr_tests.yml (PRs) and
@@ -40,11 +46,24 @@ jobs:
                     key: naif-kernels-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
                     restore-keys: |
                         naif-kernels-v1-
-            -   name: Seed DE440s test asset into the NAIF cache
+            # Unit tests auto-load these kernels; warm them so the offline test
+            # step never has to download. Filenames and URLs follow
+            # src/spice/kernels.rs (SPICEKernel::filename / ::url).
+            -   name: Warm NAIF kernels used by the unit tests
                 shell: bash
+                env:
+                    BRAHE_NETWORK_MODE: online
                 run: |
-                    mkdir -p ~/.cache/brahe/naif
-                    cp test_assets/de440s.bsp ~/.cache/brahe/naif/
+                    dir=~/.cache/brahe/naif
+                    mkdir -p "$dir"
+                    cp test_assets/de440s.bsp "$dir/"
+                    warm() {
+                        name=$1; url=$2
+                        if [ -s "$dir/$name" ]; then echo "  $name -> cached"; return; fi
+                        curl -fsSL --retry 3 --retry-delay 5 -o "$dir/$name.tmp" "$url" && mv "$dir/$name.tmp" "$dir/$name" && echo "  $name -> downloaded"
+                    }
+                    warm moon_pa_de440_200625.bpc https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/moon_pa_de440_200625.bpc
+                    warm mar099s.bsp https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/mar099s.bsp
             -   name: Restore ICGEM cache
                 id: icgem-cache
                 uses: actions/cache/restore@v6.1.0
@@ -111,6 +130,8 @@ jobs:
                 # os: [ubuntu-latest]
                 os: [ubuntu-latest, macos-latest, windows-latest]
                 rust-toolchain: [stable]
+        env:
+            BRAHE_NETWORK_MODE: ${{ inputs.network_mode }}
         steps:
             -   uses: actions/checkout@v7.0.1
             # See "test-rust" job above for the shared-key/save-if cache scheme.
@@ -132,11 +153,24 @@ jobs:
                     key: naif-kernels-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
                     restore-keys: |
                         naif-kernels-v1-
-            -   name: Seed DE440s test asset into the NAIF cache
+            # Unit tests auto-load these kernels; warm them so the offline test
+            # step never has to download. Filenames and URLs follow
+            # src/spice/kernels.rs (SPICEKernel::filename / ::url).
+            -   name: Warm NAIF kernels used by the unit tests
                 shell: bash
+                env:
+                    BRAHE_NETWORK_MODE: online
                 run: |
-                    mkdir -p ~/.cache/brahe/naif
-                    cp test_assets/de440s.bsp ~/.cache/brahe/naif/
+                    dir=~/.cache/brahe/naif
+                    mkdir -p "$dir"
+                    cp test_assets/de440s.bsp "$dir/"
+                    warm() {
+                        name=$1; url=$2
+                        if [ -s "$dir/$name" ]; then echo "  $name -> cached"; return; fi
+                        curl -fsSL --retry 3 --retry-delay 5 -o "$dir/$name.tmp" "$url" && mv "$dir/$name.tmp" "$dir/$name" && echo "  $name -> downloaded"
+                    }
+                    warm moon_pa_de440_200625.bpc https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/moon_pa_de440_200625.bpc
+                    warm mar099s.bsp https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/mar099s.bsp
             -   name: Restore ICGEM cache
                 id: icgem-cache
                 uses: actions/cache/restore@v6.1.0

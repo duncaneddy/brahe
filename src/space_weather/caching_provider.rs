@@ -130,8 +130,9 @@ impl CachingSpaceWeatherProvider {
 
         // If the cache file is missing, seed it from the compiled-in bundled data so
         // that fresh environments (CI runners, containers, new installs) can initialize
-        // offline without requiring an immediate network download. The subsequent age
-        // check still triggers a refresh download if the seeded data is stale.
+        // offline without requiring an immediate network download. The seeded file is
+        // written with the current modification time, so the age check below treats it
+        // as fresh until max_age elapses.
         if !cache_path.exists() {
             Self::seed_from_bundled(&cache_path)?;
         }
@@ -201,7 +202,8 @@ impl CachingSpaceWeatherProvider {
         let cache_path = cache_dir.join(DEFAULT_SW_FILENAME);
 
         // Seed a missing cache file from bundled data so initialization can succeed
-        // offline (see `new` for details).
+        // offline; the seeded file's fresh modification time keeps it out of the
+        // age check below until max_age elapses (see `new` for details).
         if !cache_path.exists() {
             Self::seed_from_bundled(&cache_path)?;
         }

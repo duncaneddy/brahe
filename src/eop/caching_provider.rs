@@ -161,8 +161,9 @@ impl CachingEOPProvider {
 
         // If the cache file is missing, seed it from the compiled-in bundled data so
         // that fresh environments (CI runners, containers, new installs) can initialize
-        // EOP offline without requiring an immediate network download. The subsequent
-        // age check still triggers a refresh download if the seeded data is stale.
+        // EOP offline without requiring an immediate network download. The seeded file
+        // is written with the current modification time, so the age check below treats
+        // it as fresh until max_age_seconds elapses.
         if !filepath.exists() {
             Self::seed_from_bundled(&filepath, eop_type)?;
         }

@@ -117,6 +117,14 @@ pub fn network_mode() -> Result<NetworkMode, BraheError> {
 /// # Returns
 ///
 /// * `String` - The lowercased host
+///
+/// # Examples
+///
+/// ```ignore
+/// assert_eq!(url_host("http://user@Localhost:8080/x"), "localhost");
+/// assert_eq!(url_host("http://[::1]:1234/a"), "::1");
+/// assert_eq!(url_host("evil.com\\@127.0.0.1"), "evil.com");
+/// ```
 fn url_host(url: &str) -> String {
     let after_scheme = url.split("://").nth(1).unwrap_or(url);
     let authority_end = after_scheme
@@ -140,7 +148,8 @@ fn url_host(url: &str) -> String {
 /// Check whether a URL's host is a loopback address.
 ///
 /// A loopback host is `localhost` (any case) or a host that parses as an IP
-/// address in the loopback range (`127.0.0.0/8`, or `::1` bracketed or bare).
+/// address in the loopback range (`127.0.0.0/8`, `::1` bracketed or bare, or
+/// the IPv4-mapped form `::ffff:127.0.0.0/8`).
 /// A host merely prefixed or suffixed with a loopback-looking label (e.g.
 /// `127.0.0.1.evil.com`, `127.evil.com`, `localhost.evil.com`) is not
 /// loopback, since it does not parse as an IP address at all. `0.0.0.0` is
@@ -156,9 +165,12 @@ fn url_host(url: &str) -> String {
 pub(crate) fn is_loopback_url(url: &str) -> bool {
     let host = url_host(url);
     host.eq_ignore_ascii_case("localhost")
-        || host
-            .parse::<std::net::IpAddr>()
-            .is_ok_and(|ip| ip.is_loopback())
+        || host.parse::<std::net::IpAddr>().is_ok_and(|ip| match ip {
+            std::net::IpAddr::V4(v4) => v4.is_loopback(),
+            std::net::IpAddr::V6(v6) => {
+                v6.is_loopback() || v6.to_ipv4_mapped().is_some_and(|v4| v4.is_loopback())
+            }
+        })
 }
 
 /// Fail unless the network mode permits a request.
@@ -343,6 +355,7 @@ mod tests {
             "http://user@localhost/",
             "LOCALHOST",
             "::1",
+            "http://[::ffff:127.0.0.1]/",
         ] {
             assert!(is_loopback_url(url), "{url}");
         }

@@ -293,6 +293,7 @@ def test_download_and_extract_zip_offline_raises_without_request(monkeypatch, tm
         "http://[::1]/",
         "http://user@localhost/",
         "http://LOCALHOST/",
+        "http://[::ffff:127.0.0.1]/",
     ],
 )
 def test_is_loopback_url_true(url):

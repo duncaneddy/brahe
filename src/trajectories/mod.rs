@@ -38,6 +38,7 @@
  * ```
  */
 
+pub mod attitude_trajectory;
 pub mod dorbit_trajectory;
 pub mod dtrajectory;
 pub mod sorbit_trajectory;
@@ -58,3 +59,6 @@ pub use sorbit_trajectory::*;
 
 // Re-export everything from dorbit_trajectory
 pub use dorbit_trajectory::*;
+
+// Re-export everything from attitude_trajectory
+pub use attitude_trajectory::*;

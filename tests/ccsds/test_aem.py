@@ -452,6 +452,149 @@ def test_aem_from_attitude_trajectory_empty_errors():
         AEM.from_attitude_trajectory(traj, "SAT1", "2024-001A", "BRAHE", "UTC")
 
 
+def _assert_aem_state_match(a, b):
+    """Compares every field an AEMAttitudeState variant carries, mirroring the Rust
+    assert_aem_attitude_data_match helper used by test_aem_all_types_synthetic_three_way_round_trip."""
+    assert a.attitude_type == b.attitude_type
+    t = a.attitude_type
+
+    if t in ("QUATERNION", "QUATERNION/DERIVATIVE", "QUATERNION/ANGVEL"):
+        np.testing.assert_allclose(
+            a.quaternion.to_vector(scalar_first=True),
+            b.quaternion.to_vector(scalar_first=True),
+            atol=1e-9,
+        )
+    if t == "QUATERNION/DERIVATIVE":
+        np.testing.assert_allclose(a.derivative, b.derivative, atol=1e-9)
+    if t in ("QUATERNION/ANGVEL", "EULER_ANGLE/ANGVEL"):
+        np.testing.assert_allclose(a.angular_velocity, b.angular_velocity, atol=1e-9)
+    if t in ("EULER_ANGLE", "EULER_ANGLE/DERIVATIVE", "EULER_ANGLE/ANGVEL"):
+        assert a.euler_angles.order == b.euler_angles.order
+        assert a.euler_angles.phi == pytest.approx(b.euler_angles.phi, abs=1e-9)
+        assert a.euler_angles.theta == pytest.approx(b.euler_angles.theta, abs=1e-9)
+        assert a.euler_angles.psi == pytest.approx(b.euler_angles.psi, abs=1e-9)
+    if t == "EULER_ANGLE/DERIVATIVE":
+        np.testing.assert_allclose(a.rates, b.rates, atol=1e-9)
+    if t in ("SPIN", "SPIN/NUTATION", "SPIN/NUTATION_MOM"):
+        assert a.spin_alpha == pytest.approx(b.spin_alpha, abs=1e-9)
+        assert a.spin_delta == pytest.approx(b.spin_delta, abs=1e-9)
+        assert a.spin_angle == pytest.approx(b.spin_angle, abs=1e-9)
+        assert a.spin_angle_vel == pytest.approx(b.spin_angle_vel, abs=1e-9)
+    if t == "SPIN/NUTATION":
+        assert a.nutation == pytest.approx(b.nutation, abs=1e-9)
+        assert a.nutation_period == pytest.approx(b.nutation_period, abs=1e-6)
+        assert a.nutation_phase == pytest.approx(b.nutation_phase, abs=1e-9)
+    if t == "SPIN/NUTATION_MOM":
+        assert a.momentum_alpha == pytest.approx(b.momentum_alpha, abs=1e-9)
+        assert a.momentum_delta == pytest.approx(b.momentum_delta, abs=1e-9)
+        assert a.nutation_vel == pytest.approx(b.nutation_vel, abs=1e-9)
+
+
+def _build_all_types_aem():
+    """Builds a synthetic AEM with nine single-state segments, one per AEMAttitudeType
+    variant. Mirror of build_all_types_aem in Rust (src/ccsds/aem.rs)."""
+    t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    t1 = t0 + 60.0
+    order = bh.EulerAngleOrder.ZXZ
+    quaternion = bh.Quaternion(0.5, 0.5, 0.5, 0.5)
+    euler_angles = bh.EulerAngle(
+        order,
+        math.radians(30.0),
+        math.radians(45.0),
+        math.radians(60.0),
+        bh.AngleFormat.RADIANS,
+    )
+
+    variants = [
+        ("QUATERNION", {}, AEMAttitudeState.from_quaternion(t0, quaternion)),
+        (
+            "QUATERNION/DERIVATIVE",
+            {},
+            AEMAttitudeState.from_quaternion_derivative(
+                t0, quaternion, np.array([0.01, 0.02, 0.03, 0.04])
+            ),
+        ),
+        (
+            "QUATERNION/ANGVEL",
+            {"angvel_frame": "SC_BODY_1"},
+            AEMAttitudeState.from_quaternion_angvel(
+                t0, quaternion, np.array([0.001, 0.002, 0.003])
+            ),
+        ),
+        (
+            "EULER_ANGLE",
+            {"euler_rot_seq": order},
+            AEMAttitudeState.from_euler_angle(t0, euler_angles),
+        ),
+        (
+            "EULER_ANGLE/DERIVATIVE",
+            {"euler_rot_seq": order},
+            AEMAttitudeState.from_euler_angle_derivative(
+                t0, euler_angles, np.array([0.001, 0.002, 0.003])
+            ),
+        ),
+        (
+            "EULER_ANGLE/ANGVEL",
+            {"euler_rot_seq": order, "angvel_frame": "SC_BODY_1"},
+            AEMAttitudeState.from_euler_angle_angvel(
+                t0, euler_angles, np.array([0.001, 0.002, 0.003])
+            ),
+        ),
+        ("SPIN", {}, AEMAttitudeState.from_spin(t0, 0.1, 0.2, 0.3, 0.4)),
+        (
+            "SPIN/NUTATION",
+            {},
+            AEMAttitudeState.from_spin_nutation(
+                t0, 0.1, 0.2, 0.3, 0.4, 0.05, 120.0, 0.06
+            ),
+        ),
+        (
+            "SPIN/NUTATION_MOM",
+            {},
+            AEMAttitudeState.from_spin_nutation_mom(
+                t0, 0.1, 0.2, 0.3, 0.4, 0.07, 0.08, 0.09
+            ),
+        ),
+    ]
+
+    aem = AEM("BRAHE")
+    for attitude_type, kwargs, state in variants:
+        seg = AEMSegment(
+            f"SAT-{attitude_type}",
+            "2024-001A",
+            "EME2000",
+            "SC_BODY_1",
+            "UTC",
+            t0,
+            t1,
+            attitude_type,
+            center_name="EARTH",
+            **kwargs,
+        )
+        seg.add_state(state)
+        aem.add_segment(seg)
+    return aem
+
+
+@pytest.mark.parametrize("fmt", ["KVN", "XML", "JSON"])
+def test_aem_all_types_three_way_round_trip(fmt):
+    """Nine-variant round trip through KVN/XML/JSON. Python mirror of the Rust
+    test_aem_all_types_synthetic_three_way_round_trip (build_all_types_aem)."""
+    aem1 = _build_all_types_aem()
+    assert len(aem1.segments) == 9
+
+    content = aem1.to_string(fmt)
+    aem2 = AEM.from_str(content)
+    assert len(aem2.segments) == 9
+
+    for seg1, seg2 in zip(aem1.segments, aem2.segments):
+        assert seg2.object_name == seg1.object_name
+        assert seg2.object_id == seg1.object_id
+        assert seg2.attitude_type == seg1.attitude_type
+        assert len(seg2.states) == len(seg1.states) == 1
+        _assert_aem_state_match(seg1.states[0], seg2.states[0])
+
+
 def test_aem_try_from_single_segment_helper_three_way():
     """AEM -> AttitudeTrajectory -> AEM three-way round trip through the interop helpers."""
     frame_a = bh.AttitudeFrame.reference(bh.ReferenceFrame.EME2000)

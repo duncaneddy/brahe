@@ -10,7 +10,7 @@ use serde::Deserialize;
 use crate::attitude::attitude_types::{EulerAngle, EulerAngleOrder, Quaternion};
 use crate::ccsds::aem::{
     AEM, AEMAttitudeData, AEMAttitudeState, AEMAttitudeType, AEMHeader, AEMInterpolationMethod,
-    AEMMetadata, AEMSegment,
+    AEMMetadata, AEMSegment, resolve_angvel_frame_token,
 };
 use crate::ccsds::common::{
     CCSDSTimeSystem, format_ccsds_datetime, format_ccsds_datetime_in, format_euler_rot_seq,
@@ -563,7 +563,20 @@ pub fn parse_aem_xml(content: &str) -> Result<AEM, BraheError> {
             .find_str("EULER_ROT_SEQ")
             .map(parse_euler_rot_seq)
             .transpose()?;
-        let angvel_frame = meta.find_str("ANGVEL_FRAME").map(ADMReferenceFrame::parse);
+        let ref_frame_a = ADMReferenceFrame::parse(
+            meta.find_str("REF_FRAME_A")
+                .ok_or_else(|| ccsds_parse_error("AEM", "missing REF_FRAME_A"))?,
+        );
+        let ref_frame_b = ADMReferenceFrame::parse(
+            meta.find_str("REF_FRAME_B")
+                .ok_or_else(|| ccsds_parse_error("AEM", "missing REF_FRAME_B"))?,
+        );
+        // CCSDS 504.0-B-2 Annex G-13 uses the literal tokens REF_FRAME_A/
+        // REF_FRAME_B to mean "same as REF_FRAME_A/B"; resolve those
+        // aliases against the frames just parsed.
+        let angvel_frame = meta
+            .find_str("ANGVEL_FRAME")
+            .map(|raw| resolve_angvel_frame_token(raw, &ref_frame_a, &ref_frame_b));
         let interpolation_method = meta
             .find_str("INTERPOLATION_METHOD")
             .map(AEMInterpolationMethod::parse)
@@ -580,14 +593,8 @@ pub fn parse_aem_xml(content: &str) -> Result<AEM, BraheError> {
                 .ok_or_else(|| ccsds_parse_error("AEM", "missing OBJECT_ID"))?
                 .to_string(),
             center_name: meta.find_str("CENTER_NAME").map(|s| s.to_string()),
-            ref_frame_a: ADMReferenceFrame::parse(
-                meta.find_str("REF_FRAME_A")
-                    .ok_or_else(|| ccsds_parse_error("AEM", "missing REF_FRAME_A"))?,
-            ),
-            ref_frame_b: ADMReferenceFrame::parse(
-                meta.find_str("REF_FRAME_B")
-                    .ok_or_else(|| ccsds_parse_error("AEM", "missing REF_FRAME_B"))?,
-            ),
+            ref_frame_a,
+            ref_frame_b,
             time_system: time_system.clone(),
             start_time: parse_ccsds_datetime(
                 meta.find_str("START_TIME")
@@ -1135,5 +1142,59 @@ mod tests {
         let err = result.unwrap_err().to_string();
         assert!(err.contains("version 1.0"));
         assert!(err.contains("504.0-B-1"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_parse_aem_xml_angvel_frame_literal_ref_frame_a_resolves() {
+        // CCSDS 504.0-B-2 Annex G-13 uses the literal token REF_FRAME_A to
+        // mean "same as REF_FRAME_A", not a SANA registry token spelled
+        // "REF_FRAME_A".
+        use crate::time::{Epoch, TimeSystem};
+
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let metadata = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a.clone(),
+            ref_frame_b.clone(),
+            CCSDSTimeSystem::UTC,
+            t0,
+            t1,
+            AEMAttitudeType::QuaternionAngVel,
+        )
+        .with_angvel_frame(ref_frame_a.clone());
+
+        let mut segment = AEMSegment::new(metadata);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::QuaternionAngVel {
+                    quaternion: Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                    angular_velocity: Vector3::new(0.001, 0.002, 0.003),
+                },
+            })
+            .unwrap();
+
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let xml = super::super::writer::write_aem_xml(&aem).unwrap();
+        assert!(xml.contains("<ANGVEL_FRAME>EME2000</ANGVEL_FRAME>"));
+        let xml_literal = xml.replace(
+            "<ANGVEL_FRAME>EME2000</ANGVEL_FRAME>",
+            "<ANGVEL_FRAME>REF_FRAME_A</ANGVEL_FRAME>",
+        );
+
+        let parsed = parse_aem_xml(&xml_literal).unwrap();
+        let parsed_metadata = &parsed.segments[0].metadata;
+        assert_eq!(
+            parsed_metadata.angvel_frame,
+            Some(parsed_metadata.ref_frame_a.clone())
+        );
     }
 }

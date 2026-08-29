@@ -9,7 +9,7 @@ use nalgebra::{Vector3, Vector4};
 use crate::attitude::attitude_types::{EulerAngle, EulerAngleOrder, Quaternion};
 use crate::ccsds::aem::{
     AEM, AEMAttitudeData, AEMAttitudeState, AEMAttitudeType, AEMHeader, AEMInterpolationMethod,
-    AEMMetadata, AEMSegment,
+    AEMMetadata, AEMSegment, resolve_angvel_frame_token,
 };
 use crate::ccsds::common::{
     CCSDSTimeSystem, format_ccsds_datetime, format_ccsds_datetime_in, format_euler_rot_seq,
@@ -197,7 +197,7 @@ pub fn parse_aem(content: &str) -> Result<AEM, BraheError> {
     let mut meta_stop_time: Option<Epoch> = None;
     let mut meta_attitude_type: Option<AEMAttitudeType> = None;
     let mut meta_euler_rot_seq: Option<EulerAngleOrder> = None;
-    let mut meta_angvel_frame: Option<ADMReferenceFrame> = None;
+    let mut meta_angvel_frame_raw: Option<String> = None;
     let mut meta_interpolation_method: Option<AEMInterpolationMethod> = None;
     let mut meta_interpolation_degree: Option<u32> = None;
     let mut metadata_comments: Vec<String> = Vec::new();
@@ -283,7 +283,7 @@ pub fn parse_aem(content: &str) -> Result<AEM, BraheError> {
                 "EULER_ROT_SEQ" => {
                     meta_euler_rot_seq = Some(parse_euler_rot_seq(&value)?);
                 }
-                "ANGVEL_FRAME" => meta_angvel_frame = Some(ADMReferenceFrame::parse(&value)),
+                "ANGVEL_FRAME" => meta_angvel_frame_raw = Some(value),
                 "INTERPOLATION_METHOD" => {
                     meta_interpolation_method = Some(AEMInterpolationMethod::parse(&value)?);
                 }
@@ -296,6 +296,19 @@ pub fn parse_aem(content: &str) -> Result<AEM, BraheError> {
                     })?);
                 }
                 "META_STOP" => {
+                    let ref_frame_a = meta_ref_frame_a
+                        .take()
+                        .ok_or_else(|| ccsds_missing_field("AEM", "REF_FRAME_A"))?;
+                    let ref_frame_b = meta_ref_frame_b
+                        .take()
+                        .ok_or_else(|| ccsds_missing_field("AEM", "REF_FRAME_B"))?;
+                    // CCSDS 504.0-B-2 Annex G-13 uses the literal tokens
+                    // REF_FRAME_A/REF_FRAME_B to mean "same as REF_FRAME_A/B";
+                    // resolve those aliases against the frames just parsed.
+                    let angvel_frame = meta_angvel_frame_raw
+                        .take()
+                        .map(|raw| resolve_angvel_frame_token(&raw, &ref_frame_a, &ref_frame_b));
+
                     let metadata = AEMMetadata {
                         object_name: meta_object_name
                             .take()
@@ -304,12 +317,8 @@ pub fn parse_aem(content: &str) -> Result<AEM, BraheError> {
                             .take()
                             .ok_or_else(|| ccsds_missing_field("AEM", "OBJECT_ID"))?,
                         center_name: meta_center_name.take(),
-                        ref_frame_a: meta_ref_frame_a
-                            .take()
-                            .ok_or_else(|| ccsds_missing_field("AEM", "REF_FRAME_A"))?,
-                        ref_frame_b: meta_ref_frame_b
-                            .take()
-                            .ok_or_else(|| ccsds_missing_field("AEM", "REF_FRAME_B"))?,
+                        ref_frame_a,
+                        ref_frame_b,
                         time_system: meta_time_system
                             .take()
                             .ok_or_else(|| ccsds_missing_field("AEM", "TIME_SYSTEM"))?,
@@ -325,7 +334,7 @@ pub fn parse_aem(content: &str) -> Result<AEM, BraheError> {
                             .take()
                             .ok_or_else(|| ccsds_missing_field("AEM", "ATTITUDE_TYPE"))?,
                         euler_rot_seq: meta_euler_rot_seq.take(),
-                        angvel_frame: meta_angvel_frame.take(),
+                        angvel_frame,
                         interpolation_method: meta_interpolation_method.take(),
                         interpolation_degree: meta_interpolation_degree.take(),
                         comments: std::mem::take(&mut metadata_comments),
@@ -1294,5 +1303,64 @@ META_STOP\n";
             ]
         );
         assert!(parsed.segments[0].metadata.comments.is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_parse_aem_angvel_frame_literal_ref_frame_b_resolves() {
+        // CCSDS 504.0-B-2 Annex G-13 uses the literal token REF_FRAME_B to
+        // mean "same as REF_FRAME_B", not a SANA registry token spelled
+        // "REF_FRAME_B".
+        let content = "CCSDS_AEM_VERS = 2.0\n\
+CREATION_DATE = 2002-11-04T17:22:31\n\
+ORIGINATOR = BRAHE\n\
+\n\
+META_START\n\
+OBJECT_NAME = TESTSAT\n\
+OBJECT_ID = 2024-001A\n\
+CENTER_NAME = EARTH\n\
+REF_FRAME_A = EME2000\n\
+REF_FRAME_B = SC_BODY_1\n\
+TIME_SYSTEM = UTC\n\
+START_TIME = 1996-11-28T21:29:07.2555\n\
+STOP_TIME = 1996-11-30T01:28:02.5555\n\
+ATTITUDE_TYPE = QUATERNION/ANGVEL\n\
+ANGVEL_FRAME = REF_FRAME_B\n\
+META_STOP\n\
+\n\
+DATA_START\n\
+1996-11-28T21:29:07.2555 0.56748 0.03146 0.45689 0.68427 0.01 0.02 0.03\n\
+DATA_STOP\n";
+        let aem = parse_aem(content).unwrap();
+        let metadata = &aem.segments[0].metadata;
+        assert_eq!(metadata.angvel_frame, Some(metadata.ref_frame_b.clone()));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_parse_aem_angvel_frame_literal_ref_frame_a_resolves() {
+        let content = "CCSDS_AEM_VERS = 2.0\n\
+CREATION_DATE = 2002-11-04T17:22:31\n\
+ORIGINATOR = BRAHE\n\
+\n\
+META_START\n\
+OBJECT_NAME = TESTSAT\n\
+OBJECT_ID = 2024-001A\n\
+CENTER_NAME = EARTH\n\
+REF_FRAME_A = EME2000\n\
+REF_FRAME_B = SC_BODY_1\n\
+TIME_SYSTEM = UTC\n\
+START_TIME = 1996-11-28T21:29:07.2555\n\
+STOP_TIME = 1996-11-30T01:28:02.5555\n\
+ATTITUDE_TYPE = QUATERNION/ANGVEL\n\
+ANGVEL_FRAME = ref_frame_a\n\
+META_STOP\n\
+\n\
+DATA_START\n\
+1996-11-28T21:29:07.2555 0.56748 0.03146 0.45689 0.68427 0.01 0.02 0.03\n\
+DATA_STOP\n";
+        let aem = parse_aem(content).unwrap();
+        let metadata = &aem.segments[0].metadata;
+        assert_eq!(metadata.angvel_frame, Some(metadata.ref_frame_a.clone()));
     }
 }

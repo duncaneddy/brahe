@@ -25,6 +25,38 @@ use crate::ccsds::frames::ADMReferenceFrame;
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
 
+/// Resolves a raw `ANGVEL_FRAME` token against a segment's `REF_FRAME_A` and
+/// `REF_FRAME_B`.
+///
+/// CCSDS 504.0-B-2 Annex G-13 uses the literal tokens `REF_FRAME_A` and
+/// `REF_FRAME_B` as `ANGVEL_FRAME` values meaning "same as `REF_FRAME_A`" and
+/// "same as `REF_FRAME_B`" respectively, rather than the corresponding SANA
+/// registry token. Matching is case-insensitive. Any other token is parsed
+/// normally via [`ADMReferenceFrame::parse`], so a message that legitimately
+/// names a frame that happens to be spelled `REF_FRAME_A`/`REF_FRAME_B` in a
+/// non-Annex-G-13 sense is not expressible; the annex does not provide for
+/// that case.
+///
+/// # Arguments
+/// - `raw`: the raw `ANGVEL_FRAME` token as it appeared on the wire.
+/// - `ref_frame_a`: the segment's `REF_FRAME_A`.
+/// - `ref_frame_b`: the segment's `REF_FRAME_B`.
+///
+/// # Returns
+/// ADMReferenceFrame: `ref_frame_a` or `ref_frame_b` when `raw` is the
+/// corresponding literal alias, otherwise the ordinary parse of `raw`.
+pub(crate) fn resolve_angvel_frame_token(
+    raw: &str,
+    ref_frame_a: &ADMReferenceFrame,
+    ref_frame_b: &ADMReferenceFrame,
+) -> ADMReferenceFrame {
+    match raw.trim().to_uppercase().as_str() {
+        "REF_FRAME_A" => ref_frame_a.clone(),
+        "REF_FRAME_B" => ref_frame_b.clone(),
+        _ => ADMReferenceFrame::parse(raw),
+    }
+}
+
 /// CCSDS AEM message header (504.0-B-2 table 4-2).
 #[derive(Debug, Clone)]
 pub struct AEMHeader {
@@ -582,6 +614,7 @@ impl AEMMetadata {
     /// 4-3.
     ///
     /// Checks:
+    /// - `start_time` does not fall after `stop_time`.
     /// - `EULER_ROT_SEQ` is present iff `attitude_type` is one of the Euler
     ///   angle types (`EulerAngle`, `EulerAngleDerivative`,
     ///   `EulerAngleAngVel`); it is an error both for it to be missing on a
@@ -617,6 +650,16 @@ impl AEMMetadata {
     /// assert!(metadata.validate().is_ok());
     /// ```
     pub fn validate(&self) -> Result<(), BraheError> {
+        if self.start_time > self.stop_time {
+            return Err(ccsds_parse_error(
+                "AEM",
+                &format!(
+                    "START_TIME {} must not fall after STOP_TIME {}",
+                    self.start_time, self.stop_time
+                ),
+            ));
+        }
+
         let is_euler_type = matches!(
             self.attitude_type,
             AEMAttitudeType::EulerAngle
@@ -766,8 +809,11 @@ impl AEMSegment {
     /// # Returns
     /// Result<(), BraheError>: `Ok(())` on success, or a `ParseError` if
     /// `state.data`'s attitude type does not match `metadata.attitude_type`,
-    /// or if `state.epoch` is not strictly after the last state's epoch
-    /// (504.0-B-2 §4.2.4.8.1: increasing time, no repeated time tags).
+    /// if `state.data` is one of the Euler angle variants whose
+    /// `angles.order` does not match `metadata.euler_rot_seq` (when the
+    /// latter is set), or if `state.epoch` is not strictly after the last
+    /// state's epoch (504.0-B-2 §4.2.4.8.1: increasing time, no repeated
+    /// time tags).
     ///
     /// # Examples
     /// ```
@@ -804,6 +850,23 @@ impl AEMSegment {
                 &format!(
                     "attitude state type '{}' does not match segment ATTITUDE_TYPE '{}'",
                     state_type, self.metadata.attitude_type
+                ),
+            ));
+        }
+        if let Some(angles) = match &state.data {
+            AEMAttitudeData::EulerAngle { angles }
+            | AEMAttitudeData::EulerAngleDerivative { angles, .. }
+            | AEMAttitudeData::EulerAngleAngVel { angles, .. } => Some(angles),
+            _ => None,
+        } && let Some(expected_order) = self.metadata.euler_rot_seq
+            && angles.order != expected_order
+        {
+            return Err(ccsds_parse_error(
+                "AEM",
+                &format!(
+                    "attitude state Euler angle order '{:?}' does not match segment \
+                     EULER_ROT_SEQ '{:?}'",
+                    angles.order, expected_order
                 ),
             ));
         }
@@ -871,6 +934,20 @@ impl AEM {
     /// - at least one segment is present
     /// - every segment has at least one attitude state
     /// - every segment's metadata passes [`AEMMetadata::validate`]
+    /// - every segment's `TIME_SYSTEM` can represent epochs (its
+    ///   [`CCSDSTimeSystem::to_time_system`] is not `None`); `SCLK`, `MET`,
+    ///   `MRT`, `GMST`, and `TDR` have no fixed relationship to a physical
+    ///   time system brahe can convert epochs into or out of, so a message
+    ///   using one of them could not be read back by brahe's own parsers
+    /// - every state in every segment matches the segment's
+    ///   `metadata.attitude_type` and carries a strictly increasing epoch
+    ///   (the same invariants [`AEMSegment::push_state`] enforces, checked
+    ///   again here because `states` is a public field and can be mutated
+    ///   directly, bypassing `push_state`)
+    /// - for adjacent segments that both carry useable times, the later
+    ///   segment's `USEABLE_START_TIME` is not before the earlier segment's
+    ///   `USEABLE_STOP_TIME` (504.0-B-2 table 4-3); segments where either
+    ///   side omits useable times are not compared
     ///
     /// # Returns
     /// Result<(), BraheError>: Ok if the message is well-formed for
@@ -887,7 +964,7 @@ impl AEM {
         if self.segments.is_empty() {
             return Err(ccsds_missing_field("AEM", "at least one segment"));
         }
-        for segment in &self.segments {
+        for (idx, segment) in self.segments.iter().enumerate() {
             if segment.states.is_empty() {
                 return Err(ccsds_missing_field(
                     "AEM",
@@ -898,6 +975,67 @@ impl AEM {
                 ));
             }
             segment.metadata.validate()?;
+
+            if segment.metadata.time_system.to_time_system().is_none() {
+                return Err(ccsds_parse_error(
+                    "AEM",
+                    &format!(
+                        "TIME_SYSTEM '{}' cannot be written: brahe has no native \
+                         representation for its epochs (SCLK, MET, MRT, GMST, and TDR are \
+                         spacecraft- or mission-specific clocks with no fixed relationship to \
+                         brahe's physical time systems), so a message using it could not be \
+                         read back by brahe's own parsers",
+                        segment.metadata.time_system
+                    ),
+                ));
+            }
+
+            let mut previous_epoch: Option<Epoch> = None;
+            for state in &segment.states {
+                let state_type = state.data.attitude_type();
+                if state_type != segment.metadata.attitude_type {
+                    return Err(ccsds_parse_error(
+                        "AEM",
+                        &format!(
+                            "attitude state type '{}' does not match segment ATTITUDE_TYPE '{}'",
+                            state_type, segment.metadata.attitude_type
+                        ),
+                    ));
+                }
+                if let Some(previous) = previous_epoch
+                    && state.epoch <= previous
+                {
+                    return Err(ccsds_parse_error(
+                        "AEM",
+                        &format!(
+                            "epoch {} is not strictly increasing after previous epoch {}",
+                            state.epoch, previous
+                        ),
+                    ));
+                }
+                previous_epoch = Some(state.epoch);
+            }
+
+            if idx > 0 {
+                let previous_segment = &self.segments[idx - 1];
+                if let (Some(previous_useable_stop), Some(current_useable_start)) = (
+                    previous_segment.metadata.useable_stop_time,
+                    segment.metadata.useable_start_time,
+                ) && current_useable_start < previous_useable_stop
+                {
+                    return Err(ccsds_parse_error(
+                        "AEM",
+                        &format!(
+                            "segment {} USEABLE_START_TIME {} must not fall before segment {} \
+                             USEABLE_STOP_TIME {}",
+                            idx,
+                            current_useable_start,
+                            idx - 1,
+                            previous_useable_stop
+                        ),
+                    ));
+                }
+            }
         }
         Ok(())
     }
@@ -1411,6 +1549,16 @@ mod tests {
         assert!(metadata.validate().is_ok());
     }
 
+    #[test]
+    #[parallel]
+    fn test_aem_metadata_validate_start_after_stop_errors() {
+        let mut metadata = base_metadata(AEMAttitudeType::Quaternion);
+        metadata.start_time = t1();
+        metadata.stop_time = t0();
+        let err = metadata.validate().unwrap_err();
+        assert!(err.to_string().contains("START_TIME"));
+    }
+
     // ------------------------------------------------------------------
     // AEMSegment
     // ------------------------------------------------------------------
@@ -1480,6 +1628,46 @@ mod tests {
         let err = segment.push_state(quaternion_state(t0())).unwrap_err();
         assert!(err.to_string().contains("not strictly increasing"));
         assert_eq!(segment.states.len(), 1);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_segment_push_state_euler_order_mismatch_errors_naming_both_orders() {
+        let metadata =
+            base_metadata(AEMAttitudeType::EulerAngle).with_euler_rot_seq(EulerAngleOrder::ZXZ);
+        let mut segment = AEMSegment::new(metadata);
+        let state = AEMAttitudeState {
+            epoch: t0(),
+            data: AEMAttitudeData::EulerAngle {
+                angles: EulerAngle::new(
+                    EulerAngleOrder::XYZ,
+                    0.0,
+                    0.0,
+                    0.0,
+                    crate::constants::AngleFormat::Radians,
+                ),
+            },
+        };
+        let err = segment.push_state(state).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("XYZ"));
+        assert!(msg.contains("ZXZ"));
+        assert!(segment.states.is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_segment_push_state_euler_order_match_ok() {
+        let metadata =
+            base_metadata(AEMAttitudeType::EulerAngle).with_euler_rot_seq(EulerAngleOrder::ZXZ);
+        let mut segment = AEMSegment::new(metadata);
+        let state = AEMAttitudeState {
+            epoch: t0(),
+            data: AEMAttitudeData::EulerAngle {
+                angles: zero_euler_angle(),
+            },
+        };
+        assert!(segment.push_state(state).is_ok());
     }
 
     // ------------------------------------------------------------------
@@ -2040,6 +2228,124 @@ mod tests {
         segment.push_state(quaternion_state(t0())).unwrap();
         let mut aem = AEM::new("BRAHE");
         aem.push_segment(segment);
+
+        assert!(aem.validate_for_write().is_ok());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_validate_for_write_rejects_state_type_mismatch_via_direct_mutation() {
+        // `states` is a public field, so a caller can bypass `push_state`'s
+        // type check by mutating it directly; `validate_for_write` must
+        // catch this before any writer serializes it.
+        let mut segment = AEMSegment::new(base_metadata(AEMAttitudeType::Quaternion));
+        segment.push_state(quaternion_state(t0())).unwrap();
+        segment.states.push(AEMAttitudeState {
+            epoch: t1(),
+            data: AEMAttitudeData::Spin {
+                spin_alpha: 0.0,
+                spin_delta: 0.0,
+                spin_angle: 0.0,
+                spin_angle_vel: 0.0,
+            },
+        });
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let err = aem.validate_for_write().unwrap_err().to_string();
+        assert!(err.contains("SPIN"), "{}", err);
+        assert!(err.contains("QUATERNION"), "{}", err);
+
+        let kvn_err = aem.to_string(CCSDSFormat::KVN).unwrap_err().to_string();
+        let xml_err = aem.to_string(CCSDSFormat::XML).unwrap_err().to_string();
+        let json_err = aem.to_string(CCSDSFormat::JSON).unwrap_err().to_string();
+        assert!(kvn_err.contains("SPIN"), "{}", kvn_err);
+        assert!(xml_err.contains("SPIN"), "{}", xml_err);
+        assert!(json_err.contains("SPIN"), "{}", json_err);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_validate_for_write_rejects_decreasing_epoch_via_direct_mutation() {
+        let mut segment = AEMSegment::new(base_metadata(AEMAttitudeType::Quaternion));
+        segment.push_state(quaternion_state(t1())).unwrap();
+        segment.states.push(quaternion_state(t0()));
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let err = aem.validate_for_write().unwrap_err().to_string();
+        assert!(err.contains("not strictly increasing"), "{}", err);
+
+        let kvn_err = aem.to_string(CCSDSFormat::KVN).unwrap_err().to_string();
+        let xml_err = aem.to_string(CCSDSFormat::XML).unwrap_err().to_string();
+        let json_err = aem.to_string(CCSDSFormat::JSON).unwrap_err().to_string();
+        assert!(kvn_err.contains("not strictly increasing"), "{}", kvn_err);
+        assert!(xml_err.contains("not strictly increasing"), "{}", xml_err);
+        assert!(json_err.contains("not strictly increasing"), "{}", json_err);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_validate_for_write_rejects_unmappable_time_system() {
+        let mut metadata = base_metadata(AEMAttitudeType::Quaternion);
+        metadata.time_system = CCSDSTimeSystem::MET;
+        let mut segment = AEMSegment::new(metadata);
+        segment.push_state(quaternion_state(t0())).unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let err = aem.validate_for_write().unwrap_err().to_string();
+        assert!(err.contains("TIME_SYSTEM"), "{}", err);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_validate_for_write_rejects_out_of_order_useable_times_between_segments() {
+        let mut segment0 = AEMSegment::new(
+            base_metadata(AEMAttitudeType::Quaternion).with_useable_times(t0(), t1()),
+        );
+        segment0.push_state(quaternion_state(t0())).unwrap();
+
+        let mut segment1 = AEMSegment::new(
+            base_metadata(AEMAttitudeType::Quaternion).with_useable_times(t0(), t0()),
+        );
+        segment1.push_state(quaternion_state(t0())).unwrap();
+
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment0);
+        aem.push_segment(segment1);
+
+        let err = aem.validate_for_write().unwrap_err().to_string();
+        assert!(err.contains("USEABLE_START_TIME"), "{}", err);
+        assert!(err.contains("USEABLE_STOP_TIME"), "{}", err);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_validate_for_write_ok_for_in_order_useable_times_between_segments() {
+        let mut segment0 = AEMSegment::new(
+            base_metadata(AEMAttitudeType::Quaternion).with_useable_times(t0(), t1()),
+        );
+        segment0.push_state(quaternion_state(t0())).unwrap();
+
+        let t2 = t1() + 60.0;
+        let metadata1 = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            icrf(),
+            sc_body_1(),
+            CCSDSTimeSystem::UTC,
+            t1(),
+            t2,
+            AEMAttitudeType::Quaternion,
+        )
+        .with_useable_times(t1(), t2);
+        let mut segment1 = AEMSegment::new(metadata1);
+        segment1.push_state(quaternion_state(t1())).unwrap();
+
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment0);
+        aem.push_segment(segment1);
 
         assert!(aem.validate_for_write().is_ok());
     }

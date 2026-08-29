@@ -282,8 +282,9 @@ fn aem_angvel_to_canonical(
 }
 
 /// Builds the "message can still be read and written, but not converted"
-/// error for the SPIN* AEM attitude types (CCSDS 504.0-B-2 spec decision
-/// D14: spin representations have no native `AttitudeTrajectory` mapping).
+/// error for the SPIN* AEM attitude types: spin-parameterized attitude
+/// types have no native `AttitudeTrajectory` mapping, though the message
+/// can still be read and written.
 fn aem_spin_conversion_error(attitude_type: AEMAttitudeType) -> BraheError {
     BraheError::Error(format!(
         "AEM attitude type '{}' has no AttitudeTrajectory representation; the message can still \
@@ -351,10 +352,10 @@ impl AEM {
     /// attitude kinematics (`euler_rates_to_angular_velocity`,
     /// `angular_velocity_from_quaternion_derivative`); `*AngVel` variants
     /// re-express into frame B when `ANGVEL_FRAME` names frame A (see
-    /// [`aem_angvel_to_canonical`]). The SPIN* types have no
-    /// `AttitudeTrajectory` representation and return a descriptive error
-    /// (CCSDS 504.0-B-2 spec decision D14) without affecting the message's
-    /// ability to be read or written.
+    /// [`aem_angvel_to_canonical`]). The SPIN* types are spin-parameterized
+    /// attitude types with no `AttitudeTrajectory` representation and return
+    /// a descriptive error without affecting the message's ability to be
+    /// read or written.
     ///
     /// The segment's `INTERPOLATION_METHOD` maps onto
     /// [`AttitudeInterpolationMethod`]: unset defaults to `Slerp`, `LINEAR`
@@ -408,6 +409,14 @@ impl AEM {
                             .to_string(),
                     )
                 })?;
+                if degree == 0 {
+                    return Err(BraheError::Error(
+                        "AEM metadata INTERPOLATION_METHOD is LAGRANGE but \
+                         INTERPOLATION_DEGREE is 0; Lagrange interpolation requires a degree \
+                         >= 1"
+                            .to_string(),
+                    ));
+                }
                 AttitudeInterpolationMethod::Lagrange {
                     degree: degree as usize,
                 }
@@ -489,8 +498,9 @@ impl AEM {
     /// # Returns
     ///
     /// * `Result<AEM, BraheError>` - Single-segment AEM, or an error if the
-    ///   trajectory is empty or its frames have no CCSDS ADM token
-    ///   equivalent
+    ///   trajectory is empty, its frames have no CCSDS ADM token equivalent,
+    ///   or `time_system` has no native brahe representation (`SCLK`, `MET`,
+    ///   `MRT`, `GMST`, `TDR`)
     pub fn from_attitude_trajectory(
         traj: &AttitudeTrajectory,
         object_name: &str,
@@ -502,6 +512,16 @@ impl AEM {
             return Err(BraheError::Error(
                 "Cannot build an AEM from an empty AttitudeTrajectory".to_string(),
             ));
+        }
+
+        if time_system.to_time_system().is_none() {
+            return Err(BraheError::Error(format!(
+                "TIME_SYSTEM '{}' cannot be used to build an AEM: brahe has no native \
+                 representation for its epochs (SCLK, MET, MRT, GMST, and TDR are spacecraft- \
+                 or mission-specific clocks with no fixed relationship to brahe's physical time \
+                 systems), so a message using it could not be read back by brahe's own parsers",
+                time_system
+            )));
         }
 
         let ref_frame_a = ADMReferenceFrame::try_from(&traj.frame_a)?;
@@ -2233,6 +2253,31 @@ mod tests {
 
     #[test]
     #[parallel]
+    fn test_aem_from_attitude_trajectory_unmappable_time_system_errors() {
+        let frame_a = AttitudeFrame::Reference(ReferenceFrame::EME2000);
+        let frame_b = AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None));
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let epochs = vec![t0, t0 + 60.0];
+        let states = vec![
+            AttitudeState::new(Quaternion::new(1.0, 0.0, 0.0, 0.0)),
+            AttitudeState::new(Quaternion::new(0.9998, 0.0, 0.0, 0.0196)),
+        ];
+        let traj = AttitudeTrajectory::from_data(epochs, states, frame_a, frame_b).unwrap();
+
+        let err = AEM::from_attitude_trajectory(
+            &traj,
+            "SAT1",
+            "2024-001A",
+            "BRAHE",
+            CCSDSTimeSystem::MET,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("TIME_SYSTEM"));
+    }
+
+    #[test]
+    #[parallel]
     fn test_aem_from_attitude_trajectory_empty_errors() {
         let frame_a = AttitudeFrame::Reference(ReferenceFrame::EME2000);
         let frame_b = AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None));
@@ -2540,6 +2585,42 @@ mod tests {
             traj.interpolation_method,
             AttitudeInterpolationMethod::Lagrange { degree: 3 }
         );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_lagrange_interpolation_degree_zero_errors() {
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let metadata = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a,
+            ref_frame_b,
+            CCSDSTimeSystem::UTC,
+            t0,
+            t1,
+            AEMAttitudeType::Quaternion,
+        )
+        .with_interpolation(AEMInterpolationMethod::Lagrange, Some(0));
+
+        let mut segment = AEMSegment::new(metadata);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::Quaternion {
+                    quaternion: Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                },
+            })
+            .unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let err = aem.segment_to_attitude_trajectory(0).unwrap_err();
+        assert!(err.to_string().contains("degree"));
     }
 
     #[test]

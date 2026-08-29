@@ -433,7 +433,9 @@ impl AttitudeTrajectory {
     ///
     /// # Returns
     /// * `Ok(state)` - Interpolated attitude state
-    /// * `Err(BraheError)` - If the epoch is out of range or the trajectory has too few points for the configured method
+    /// * `Err(BraheError)` - If the epoch is out of range, the trajectory has too few points for
+    ///   the configured method, or the configured method is `Lagrange { degree: 0 }` (Lagrange
+    ///   interpolation requires a degree of at least 1)
     ///
     /// # Examples
     /// ```rust
@@ -480,8 +482,16 @@ impl AttitudeTrajectory {
             return self.state_at_idx(idx1);
         }
 
-        // Validate minimum point count for the interpolation method
         let method = self.interpolation_method;
+        if let AttitudeInterpolationMethod::Lagrange { degree } = method
+            && degree == 0
+        {
+            return Err(BraheError::Error(
+                "Lagrange interpolation requires a degree >= 1, got 0".to_string(),
+            ));
+        }
+
+        // Validate minimum point count for the interpolation method
         let required = method.min_points_required();
         if self.len() < required {
             return Err(BraheError::Error(format!(
@@ -676,6 +686,16 @@ impl Trajectory for AttitudeTrajectory {
         ))
     }
 
+    /// Inserts `state` at `epoch` in chronological order.
+    ///
+    /// Rejects an `epoch` already present in the trajectory (naming the
+    /// epoch in the error) rather than inserting a second state there. This
+    /// intentionally differs from `STrajectory::add`, which permits repeated
+    /// time tags to represent impulsive maneuvers (distinct pre- and
+    /// post-maneuver states at the same epoch): `AttitudeTrajectory`'s
+    /// quaternion interpolation has no equivalent instantaneous-jump
+    /// concept, and a duplicate epoch would instead make the epoch's local
+    /// interpolation interval degenerate (zero-length), producing NaN.
     fn add(&mut self, epoch: Epoch, state: Self::StateVector) -> Result<(), BraheError> {
         if let Some(existing) = self.states.first() {
             let existing_has_rate = existing.angular_velocity.is_some();
@@ -699,8 +719,14 @@ impl Trajectory for AttitudeTrajectory {
             }
         }
 
-        // Find the correct position to insert based on epoch. Insert after
-        // any existing states at the same epoch, mirroring STrajectory.
+        if self.epochs.contains(&epoch) {
+            return Err(BraheError::Error(format!(
+                "Cannot add state at epoch {}: an attitude state at this epoch already exists",
+                epoch
+            )));
+        }
+
+        // Find the correct position to insert based on epoch.
         let mut insert_idx = self.epochs.len();
         for (i, existing_epoch) in self.epochs.iter().enumerate() {
             if epoch < *existing_epoch {
@@ -1029,26 +1055,22 @@ mod tests {
 
     #[test]
     #[serial_test::parallel]
-    fn test_attitude_trajectory_add_duplicate_epoch_inserts_after() {
+    fn test_attitude_trajectory_add_duplicate_epoch_errors() {
         let (a, b) = body_frames();
         let mut traj = AttitudeTrajectory::new(a, b);
 
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         traj.add(t0, AttitudeState::new(z_axis_quaternion(0.0)))
             .unwrap();
-        traj.add(t0, AttitudeState::new(z_axis_quaternion(0.1)))
-            .unwrap();
+        let err = traj
+            .add(t0, AttitudeState::new(z_axis_quaternion(0.1)))
+            .unwrap_err();
 
-        assert_eq!(traj.len(), 2);
-        assert_eq!(traj.epoch_at_idx(0).unwrap(), t0);
-        assert_eq!(traj.epoch_at_idx(1).unwrap(), t0);
+        assert!(err.to_string().contains(&t0.to_string()));
+        assert_eq!(traj.len(), 1);
         assert_eq!(
             traj.state_at_idx(0).unwrap().quaternion,
             z_axis_quaternion(0.0)
-        );
-        assert_eq!(
-            traj.state_at_idx(1).unwrap().quaternion,
-            z_axis_quaternion(0.1)
         );
     }
 
@@ -1227,6 +1249,22 @@ mod tests {
         // Only 2 points but degree 3 requires 4
         let result = traj.interpolate(&(t0 + 30.0));
         assert!(result.is_err());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_interpolate_lagrange_degree_zero_errors() {
+        let (a, b) = body_frames();
+        let mut traj = AttitudeTrajectory::new(a, b)
+            .with_interpolation_method(AttitudeInterpolationMethod::Lagrange { degree: 0 });
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        traj.add(t0, AttitudeState::new(z_axis_quaternion(0.0)))
+            .unwrap();
+        traj.add(t0 + 60.0, AttitudeState::new(z_axis_quaternion(0.2)))
+            .unwrap();
+
+        let err = traj.interpolate(&(t0 + 30.0)).unwrap_err();
+        assert!(err.to_string().contains("degree"));
     }
 
     // =========================================================================

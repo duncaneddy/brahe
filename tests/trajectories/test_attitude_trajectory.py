@@ -49,6 +49,19 @@ def test_attitude_trajectory_add_and_len():
     assert traj.end_epoch == t0 + 60.0
 
 
+def test_attitude_trajectory_add_rejects_duplicate_epoch():
+    """Mirror of test_attitude_trajectory_add_duplicate_epoch_errors in Rust."""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+
+    with pytest.raises(Exception) as excinfo:
+        traj.add(t0, z_axis_quaternion(0.1))
+    assert str(t0) in str(excinfo.value)
+    assert len(traj) == 1
+
+
 def test_attitude_trajectory_add_rejects_mixed_rate_presence():
     frame_a, frame_b = body_frames()
     traj = AttitudeTrajectory(frame_a, frame_b)
@@ -152,6 +165,20 @@ def test_attitude_trajectory_set_interpolation_method_unknown_errors():
     traj = AttitudeTrajectory(frame_a, frame_b)
     with pytest.raises(ValueError, match="Unknown interpolation method"):
         traj.set_interpolation_method("CUBIC_SPLINE")
+
+
+def test_attitude_trajectory_interpolate_lagrange_degree_zero_errors():
+    """Mirror of test_attitude_trajectory_interpolate_lagrange_degree_zero_errors in Rust."""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    traj.set_interpolation_method("LAGRANGE", degree=0)
+
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj.add(t0, z_axis_quaternion(0.0))
+    traj.add(t0 + 60.0, z_axis_quaternion(0.2))
+
+    with pytest.raises(Exception, match="degree"):
+        traj.quaternion(t0 + 30.0)
 
 
 def test_attitude_provider_angular_velocity_error_without_rates():

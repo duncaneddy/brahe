@@ -59,12 +59,13 @@ fn fetch_kernel_from_url(url: &str, label: &str) -> Result<Vec<u8>, BraheError> 
     // Retries transient network/server failures with exponential backoff so a
     // single dropped connection to NAIF (e.g. "Connection refused") doesn't fail
     // an otherwise-recoverable download.
-    let buffer = crate::utils::download::download_bytes(url).map_err(|e| {
-        BraheError::Error(format!(
-            "Failed to download kernel {} from NAIF: {}",
-            label, e
-        ))
-    })?;
+    let buffer = crate::utils::download::download_bytes(url, &format!("NAIF kernel {label}"))
+        .map_err(|e| {
+            BraheError::Error(format!(
+                "Failed to download kernel {} from NAIF: {}",
+                label, e
+            ))
+        })?;
 
     if buffer.is_empty() {
         return Err(BraheError::Error(format!(

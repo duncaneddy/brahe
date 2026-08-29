@@ -92,7 +92,7 @@ pub(crate) fn read_cache(
 ///
 /// * `Result<String, BraheError>` - File contents as a string
 pub(crate) fn download(url: &str) -> Result<String, BraheError> {
-    let bytes = download_bytes_with_user_agent(url, USER_AGENT)
+    let bytes = download_bytes_with_user_agent(url, "star catalog", USER_AGENT)
         .map_err(|e| BraheError::IoError(format!("Star catalog request failed: {}", e)))?;
 
     String::from_utf8(bytes).map_err(|e| {

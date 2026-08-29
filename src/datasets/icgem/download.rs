@@ -309,8 +309,8 @@ pub(crate) fn download_icgem_model_with_url(
     let cache_file = model_cache_path(body, &entry, &cache_root);
 
     if !cache_file.exists() {
-        ensure_online(&format!("ICGEM model {}", entry.name))?;
         let url = format!("{}{}", base_url, entry.download_path);
+        ensure_online(&url, &format!("ICGEM model {}", entry.name))?;
         let response = ureq::get(&url).call().map_err(|e| {
             BraheError::Error(format!(
                 "Failed to download ICGEM model '{}': {}",
@@ -506,10 +506,14 @@ mod tests {
         list_icgem_models_with_url(&ICGEMBody::Earth, &server.base_url()).unwrap();
 
         let _mode = NetworkModeGuard::set(Some("offline"));
-        let err =
-            download_icgem_model_with_url(&ICGEMBody::Earth, &target, None, &server.base_url())
-                .unwrap_err()
-                .to_string();
+        let err = download_icgem_model_with_url(
+            &ICGEMBody::Earth,
+            &target,
+            None,
+            "https://icgem.invalid",
+        )
+        .unwrap_err()
+        .to_string();
         assert!(
             err.starts_with("BRAHE_NETWORK_MODE is offline; ICGEM model "),
             "{err}"

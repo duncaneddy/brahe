@@ -4,7 +4,9 @@
  * Every function in brahe that opens a network connection calls [`ensure_online`]
  * first, and every cache with a time-to-live consults [`cache_policy`] before
  * deciding whether a cached file is served or refreshed. The variable therefore
- * gives a single switch for running brahe without network access.
+ * gives a single switch for running brahe without network access. A request to a
+ * loopback address is never treated as network access, so local mock servers used
+ * by the test suites keep working under every mode.
  */
 
 use std::env;
@@ -23,6 +25,9 @@ pub const NETWORK_MODE_ENV: &str = "BRAHE_NETWORK_MODE";
 /// | `Online` | allowed | served | refreshed | downloaded |
 /// | `Offline` | never | served | served | error |
 /// | `OfflineStrict` | never | served | error | error |
+///
+/// A request to a loopback address is exempt from the `requests` column in every
+/// mode; see [`ensure_online`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NetworkMode {
     /// Requests are allowed and stale caches are refreshed.
@@ -92,29 +97,81 @@ pub fn network_mode() -> Result<NetworkMode, BraheError> {
     }
 }
 
+/// Extract the host from a URL's authority, dropping scheme, user-info, and port.
+///
+/// Strips a leading `scheme://`, takes the authority up to the first `/`, `?`,
+/// or `#`, drops any `user-info@` prefix, then returns the bracketed IPv6
+/// literal (without brackets) or the text before the last `:` (the port).
+///
+/// # Arguments
+///
+/// * `url` - The URL (or bare host) to extract the host from
+///
+/// # Returns
+///
+/// * `String` - The lowercased host
+fn url_host(url: &str) -> String {
+    let after_scheme = url.split("://").nth(1).unwrap_or(url);
+    let authority_end = after_scheme
+        .find(['/', '?', '#'])
+        .unwrap_or(after_scheme.len());
+    let authority = &after_scheme[..authority_end];
+    let host_port = authority.rsplit('@').next().unwrap_or(authority);
+
+    let host = match host_port.strip_prefix('[') {
+        Some(rest) => rest.split(']').next().unwrap_or(rest),
+        None => host_port
+            .rsplit_once(':')
+            .map(|(host, _port)| host)
+            .unwrap_or(host_port),
+    };
+
+    host.to_ascii_lowercase()
+}
+
+/// Check whether a URL's host is a loopback address.
+///
+/// A loopback host is `localhost` (any case), any `127.x.y.z` address, or
+/// `::1` (bracketed or bare). `0.0.0.0` is not a loopback address.
+///
+/// # Arguments
+///
+/// * `url` - The URL to check
+///
+/// # Returns
+///
+/// * `bool` - `true` if the URL's host is a loopback address
+pub(crate) fn is_loopback_url(url: &str) -> bool {
+    let host = url_host(url);
+    host == "localhost" || host == "::1" || host.starts_with("127.")
+}
+
 /// Fail unless the network mode permits a request.
 ///
 /// Called immediately before every HTTP request the library makes.
 ///
 /// # Arguments
 ///
+/// * `url` - The URL the request would target
 /// * `resource` - Short description of what would be downloaded, used in the error
 ///
 /// # Returns
 ///
-/// * `Ok(())` - Requests are allowed
-/// * `Err(BraheError)` - The mode is `offline` or `offline-strict`, or the
-///   variable holds an unrecognized value
+/// * `Ok(())` - Requests are allowed, or `url`'s host is a loopback address (a
+///   local mock server is never treated as network access)
+/// * `Err(BraheError)` - The mode is `offline` or `offline-strict` and `url` is
+///   not a loopback address, or the variable holds an unrecognized value
 ///
 /// # Examples
 ///
 /// ```ignore
-/// ensure_online("Celestrak request")?;
+/// ensure_online(url, "Celestrak request")?;
 /// // proceed to make the HTTP request
 /// ```
-pub(crate) fn ensure_online(resource: &str) -> Result<(), BraheError> {
+pub(crate) fn ensure_online(url: &str, resource: &str) -> Result<(), BraheError> {
     match network_mode()? {
         NetworkMode::Online => Ok(()),
+        _ if is_loopback_url(url) => Ok(()),
         mode => Err(BraheError::Error(format!(
             "{NETWORK_MODE_ENV} is {mode}; {resource} is not cached and cannot be downloaded"
         ))),
@@ -231,7 +288,7 @@ mod tests {
     #[serial]
     fn test_ensure_online_allows_online() {
         let _guard = NetworkModeGuard::set(Some("online"));
-        assert!(ensure_online("test resource").is_ok());
+        assert!(ensure_online("https://celestrak.org/x", "test resource").is_ok());
     }
 
     #[test]
@@ -239,13 +296,46 @@ mod tests {
     fn test_ensure_online_blocks_offline_modes() {
         for mode in ["offline", "offline-strict"] {
             let _guard = NetworkModeGuard::set(Some(mode));
-            let err = ensure_online("Celestrak request").unwrap_err().to_string();
+            let err = ensure_online("https://celestrak.org/x", "Celestrak request")
+                .unwrap_err()
+                .to_string();
             assert_eq!(
                 err,
                 format!(
                     "BRAHE_NETWORK_MODE is {mode}; Celestrak request is not cached and cannot be downloaded"
                 )
             );
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_ensure_online_allows_loopback_in_offline_modes() {
+        for mode in ["offline", "offline-strict"] {
+            let _guard = NetworkModeGuard::set(Some(mode));
+            assert!(ensure_online("http://127.0.0.1:9/x", "mock resource").is_ok());
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_is_loopback_url() {
+        for url in [
+            "http://localhost:8080/x",
+            "http://127.0.0.1:9",
+            "http://127.5.6.7/",
+            "http://[::1]:1234/a",
+            "http://user@localhost/",
+            "LOCALHOST",
+        ] {
+            assert!(is_loopback_url(url), "{url}");
+        }
+
+        for url in [
+            "https://celestrak.org/NORAD/elements/gp.php",
+            "http://0.0.0.0/",
+        ] {
+            assert!(!is_loopback_url(url), "{url}");
         }
     }
 

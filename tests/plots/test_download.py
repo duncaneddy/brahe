@@ -235,7 +235,9 @@ def test_download_file_offline_raises_without_request(monkeypatch, tmp_path):
         RuntimeError, match="BRAHE_NETWORK_MODE is offline; test resource"
     ):
         download_file(
-            "http://127.0.0.1:9/resource.bin", dest, description="test resource"
+            "https://brahe-network-mode-test.invalid/resource.bin",
+            dest,
+            description="test resource",
         )
     assert not dest.exists()
 
@@ -270,8 +272,22 @@ def test_download_and_extract_zip_offline_raises_without_request(monkeypatch, tm
         RuntimeError, match="BRAHE_NETWORK_MODE is offline-strict; test zip"
     ):
         download_and_extract_zip(
-            "http://127.0.0.1:9/resource.zip",
+            "https://brahe-network-mode-test.invalid/resource.zip",
             extract_dir,
             sentinel,
             description="test zip",
         )
+
+
+def test_download_file_offline_allows_loopback(monkeypatch, zip_server, tmp_path):
+    monkeypatch.setenv("BRAHE_NETWORK_MODE", "offline")
+    base_url, served_dir = zip_server
+    (served_dir / "resource.bin").write_bytes(b"payload")
+
+    dest = tmp_path / "resource.bin"
+    result = download_file(
+        f"{base_url}/resource.bin", dest, description="test resource"
+    )
+
+    assert result == dest
+    assert dest.read_bytes() == b"payload"

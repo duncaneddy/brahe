@@ -35,6 +35,8 @@ Selects one of three policies. Matching is case-insensitive; an unrecognized val
 
 A `cache_max_age` of zero has different effects in the two offline modes: under `offline` every cached file is stale but still served, so calling a force-refresh with a zero TTL is a no-op; under `offline-strict` every call becomes an error, since every cached file is immediately past its limit.
 
+Requests to loopback addresses (`localhost`, `127.0.0.0/8`, `::1`) are never treated as network access and succeed in every mode, so local mock servers keep working offline.
+
 `offline-strict` judges the EOP and space weather files by the age of the file on disk, not the epoch of the data it contains. A file seeded from the data bundled with the library carries the time it was seeded, not the bundled data's own epoch. With `auto_refresh` enabled, the caching providers apply this policy on every accessor call rather than only at construction, so a file that goes stale between calls makes every subsequent query error under `offline-strict`, not just the call that created the provider.
 
 ```bash

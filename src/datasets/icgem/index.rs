@@ -131,7 +131,7 @@ pub(crate) fn fetch_index_with_url(
     };
     let url = format!("{}{}", base_url, path);
 
-    ensure_online(&format!("ICGEM index {url}"))?;
+    ensure_online(&url, &format!("ICGEM index {url}"))?;
 
     let response = ureq::get(&url).call().map_err(|e| {
         BraheError::Error(format!("Failed to fetch ICGEM index from {}: {}", url, e))
@@ -374,22 +374,15 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_fetch_index_offline_errors_without_request() {
-        use httpmock::prelude::*;
         let _mode = NetworkModeGuard::set(Some("offline"));
-        let server = MockServer::start();
-        let mock = server.mock(|when, then| {
-            when.method(GET).path_includes("/tom_longtime");
-            then.status(200).body("");
-        });
 
-        let err = fetch_index_with_url(&ICGEMBody::Earth, &server.base_url())
+        let err = fetch_index_with_url(&ICGEMBody::Earth, "https://icgem.invalid")
             .unwrap_err()
             .to_string();
         assert!(
             err.starts_with("BRAHE_NETWORK_MODE is offline; ICGEM index "),
             "{err}"
         );
-        mock.assert_calls(0);
     }
 
     #[test]
@@ -450,6 +443,7 @@ mod tests {
     #[serial_test::serial]
     fn test_list_models_refreshes_stale_cache() {
         use httpmock::prelude::*;
+        let _mode = NetworkModeGuard::set(Some("online"));
         let _cache = CacheRedirect::new();
 
         let path = index_path_for(&ICGEMBody::Earth).unwrap();
@@ -621,7 +615,7 @@ mod tests {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("offline"));
 
-        let err = list_icgem_models_with_url(&ICGEMBody::Earth, "http://127.0.0.1:1")
+        let err = list_icgem_models_with_url(&ICGEMBody::Earth, "https://icgem.invalid")
             .unwrap_err()
             .to_string();
         assert!(

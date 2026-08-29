@@ -107,9 +107,10 @@ fn is_cache_stale(path: &Path, cache_max_age: f64) -> Result<bool, BraheError> {
 ///
 /// * `Ok(String)` - Response body
 /// * `Err(BraheError)` - If `BRAHE_NETWORK_MODE` is `offline` or
-///   `offline-strict`, so no request is attempted, or if the request fails
+///   `offline-strict` and `url` is not a loopback address, so no request is
+///   attempted, or if the request fails
 fn execute_get(url: &str) -> Result<String, BraheError> {
-    ensure_online(&format!("GCAT request {url}"))?;
+    ensure_online(url, &format!("GCAT request {url}"))?;
 
     let agent = ureq::Agent::new_with_defaults();
     let response = agent
@@ -253,20 +254,18 @@ mod tests {
     fn test_fetch_with_cache_offline_miss_errors() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("offline"));
-        let server = MockServer::start();
-        let mock = server.mock(|when, then| {
-            when.method(GET).path("/satcat.tsv");
-            then.status(200).body("fresh");
-        });
 
-        let err = fetch_with_cache(&server.url("/satcat.tsv"), "missing.tsv", 3600.0)
-            .unwrap_err()
-            .to_string();
+        let err = fetch_with_cache(
+            "https://planet4589.org/space/gcat/tsv/cat/missing.tsv",
+            "missing.tsv",
+            3600.0,
+        )
+        .unwrap_err()
+        .to_string();
         assert!(
             err.starts_with("BRAHE_NETWORK_MODE is offline; GCAT request "),
             "{err}"
         );
-        assert_eq!(mock.calls(), 0);
     }
 
     #[test]

@@ -13,6 +13,7 @@ to truncated upstream responses:
 import shutil
 import tempfile
 import time
+import urllib.parse
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
@@ -36,14 +37,28 @@ _HEADERS = {
 NETWORK_MODE_ENV = "BRAHE_NETWORK_MODE"
 
 
-def _ensure_online(description: str) -> None:
+def _is_loopback_url(url: str) -> bool:
+    """Check whether a URL's host is a loopback address.
+
+    A loopback host is ``localhost`` (any case), any ``127.x.y.z`` address, or
+    ``::1`` (bracketed or bare). ``0.0.0.0`` is not a loopback address.
+    """
+    hostname = urllib.parse.urlsplit(url).hostname
+    if hostname is None:
+        return False
+    return hostname == "localhost" or hostname == "::1" or hostname.startswith("127.")
+
+
+def _ensure_online(url: str, description: str) -> None:
     """Raise unless ``BRAHE_NETWORK_MODE`` permits a network request.
 
     Delegates to the Rust library's ``network_mode`` binding, which raises
-    ``RuntimeError`` for an unrecognized value.
+    ``RuntimeError`` for an unrecognized value. A request to a loopback
+    address is never treated as network access, so local mock servers used
+    by the test suite keep working under every mode.
     """
     mode = network_mode()
-    if mode != "online":
+    if mode != "online" and not _is_loopback_url(url):
         raise RuntimeError(
             f"{NETWORK_MODE_ENV} is {mode}; {description} is not cached and cannot be downloaded"
         )
@@ -94,7 +109,7 @@ def download_file(
     """
     if dest.exists():
         return dest
-    _ensure_online(description)
+    _ensure_online(url, description)
     dest.parent.mkdir(parents=True, exist_ok=True)
     last_error: Exception | None = None
     for attempt in range(1, max_retries + 1):
@@ -165,7 +180,7 @@ def download_and_extract_zip(
     # Fast path: already cached.
     if sentinel.exists():
         return sentinel
-    _ensure_online(description)
+    _ensure_online(url, description)
 
     parent = extract_dir.parent
     parent.mkdir(parents=True, exist_ok=True)

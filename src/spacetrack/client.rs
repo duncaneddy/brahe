@@ -164,7 +164,7 @@ impl SpaceTrackClient {
     /// * `Err(BraheError)` - The lock is poisoned, or `BRAHE_NETWORK_MODE`
     ///   forbids the request
     fn wait_for_rate_limit(&self) -> Result<(), BraheError> {
-        ensure_online("Space-Track request")?;
+        ensure_online(&self.base_url, "Space-Track request")?;
 
         let wait = {
             let mut limiter = self.rate_limiter.lock().map_err(|e| {
@@ -806,19 +806,13 @@ mod tests {
     #[serial_test::serial]
     fn test_authenticate_offline_errors_without_request() {
         let _mode = NetworkModeGuard::set(Some("offline"));
-        let server = MockServer::start();
-        let mock = server.mock(|when, then| {
-            when.method(POST).path("/ajaxauth/login");
-            then.status(200).body("{}");
-        });
-        let client = SpaceTrackClient::with_base_url("user", "pass", &server.base_url());
+        let client = SpaceTrackClient::with_base_url("user", "pass", "https://www.space-track.org");
 
         let err = client.authenticate().unwrap_err().to_string();
         assert_eq!(
             err,
             "BRAHE_NETWORK_MODE is offline; Space-Track request is not cached and cannot be downloaded"
         );
-        mock.assert_calls(0);
     }
 
     #[test]

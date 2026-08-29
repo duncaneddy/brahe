@@ -621,10 +621,10 @@ impl CelestrakClient {
     ///
     /// * `Ok(String)` - Response body
     /// * `Err(BraheError)` - If `BRAHE_NETWORK_MODE` is `offline` or
-    ///   `offline-strict`, so no request is attempted, or if the request
-    ///   fails after exhausting retries
+    ///   `offline-strict` and `url` is not a loopback address, so no request
+    ///   is attempted, or if the request fails after exhausting retries
     fn execute_get(&self, url: &str) -> Result<String, BraheError> {
-        ensure_online(&format!("Celestrak request {url}"))?;
+        ensure_online(url, &format!("Celestrak request {url}"))?;
 
         let mut last_error = None;
 
@@ -1103,19 +1103,13 @@ mod tests {
     fn test_offline_miss_errors_without_request() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("offline"));
-        let server = MockServer::start();
-        let mock = server.mock(|when, then| {
-            when.method(GET).path("/NORAD/elements/gp.php");
-            then.status(200).body(ISS_GP_JSON);
-        });
-        let client = CelestrakClient::with_base_url(&server.base_url());
+        let client = CelestrakClient::with_base_url("https://celestrak.org");
 
         let err = client.get_gp_by_catnr(25544).unwrap_err().to_string();
         assert!(
             err.starts_with("BRAHE_NETWORK_MODE is offline; Celestrak request "),
             "{err}"
         );
-        assert_eq!(mock.calls(), 0);
     }
 
     #[test]

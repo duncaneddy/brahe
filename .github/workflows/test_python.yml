@@ -115,7 +115,7 @@ jobs:
                 if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
                 env:
                     BRAHE_NETWORK_MODE: online
-                run: uv run --frozen python scripts/warm_data_cache.py
+                run: uv run --frozen python scripts/warm_data_cache.py --only kernel
 
             -   name: Test with coverage
                 if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
@@ -135,7 +135,7 @@ jobs:
                 if: matrix.os != 'ubuntu-latest' || matrix.python-version != inputs.coverage-python-version
                 env:
                     BRAHE_NETWORK_MODE: online
-                run: uv run --frozen python scripts/warm_data_cache.py
+                run: uv run --frozen python scripts/warm_data_cache.py --only kernel
 
             -   name: Test with python ${{ matrix.python-version }}
                 if: matrix.os != 'ubuntu-latest' || matrix.python-version != inputs.coverage-python-version

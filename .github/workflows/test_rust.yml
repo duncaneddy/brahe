@@ -3,7 +3,7 @@ on:
     workflow_call:
         inputs:
             network_mode:
-                description: "BRAHE_NETWORK_MODE for the test steps once every cache family is warm."
+                description: "BRAHE_NETWORK_MODE for the test steps (the warm step stays online)."
                 type: string
                 default: "offline"
 jobs:
@@ -39,7 +39,6 @@ jobs:
             -   name: Install cargo-llvm-cov
                 uses: taiki-e/install-action@cargo-llvm-cov
             -   name: Restore NAIF kernels cache
-                id: naif-cache
                 uses: actions/cache/restore@v6.1.0
                 with:
                     path: ~/.cache/brahe/naif
@@ -65,7 +64,6 @@ jobs:
                     warm moon_pa_de440_200625.bpc https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/moon_pa_de440_200625.bpc
                     warm mar099s.bsp https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/mar099s.bsp
             -   name: Restore ICGEM cache
-                id: icgem-cache
                 uses: actions/cache/restore@v6.1.0
                 with:
                     path: ~/.cache/brahe/icgem
@@ -73,7 +71,6 @@ jobs:
                     restore-keys: |
                         brahe-icgem-v1-
             -   name: Restore SBDB + Horizons cache
-                id: sbdb-horizons-cache
                 uses: actions/cache/restore@v6.1.0
                 with:
                     path: |
@@ -83,7 +80,6 @@ jobs:
                     restore-keys: |
                         brahe-sbdb-horizons-v1-
             -   name: Restore star catalog downloads
-                id: star-catalogs-cache
                 uses: actions/cache/restore@v6.1.0
                 with:
                     path: |
@@ -146,7 +142,6 @@ jobs:
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
             -   name: Restore NAIF kernels cache
-                id: naif-cache
                 uses: actions/cache/restore@v6.1.0
                 with:
                     path: ~/.cache/brahe/naif
@@ -172,7 +167,6 @@ jobs:
                     warm moon_pa_de440_200625.bpc https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/moon_pa_de440_200625.bpc
                     warm mar099s.bsp https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/mar099s.bsp
             -   name: Restore ICGEM cache
-                id: icgem-cache
                 uses: actions/cache/restore@v6.1.0
                 with:
                     path: ~/.cache/brahe/icgem
@@ -180,7 +174,6 @@ jobs:
                     restore-keys: |
                         brahe-icgem-v1-
             -   name: Restore SBDB + Horizons cache
-                id: sbdb-horizons-cache
                 uses: actions/cache/restore@v6.1.0
                 with:
                     path: |
@@ -190,7 +183,6 @@ jobs:
                     restore-keys: |
                         brahe-sbdb-horizons-v1-
             -   name: Restore star catalog downloads
-                id: star-catalogs-cache
                 uses: actions/cache/restore@v6.1.0
                 with:
                     path: |

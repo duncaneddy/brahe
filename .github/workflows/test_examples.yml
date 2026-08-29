@@ -105,14 +105,16 @@ jobs:
           path: ~/.cache/brahe/textures
           key: brahe-3d-textures-v2
 
-      - name: Cache Natural Earth land basemap
-        uses: actions/cache@v6.1.0
+      - name: Restore Natural Earth land basemap cache
+        id: natural-earth-cache
+        uses: actions/cache/restore@v6.1.0
         with:
           path: ~/.cache/brahe/natural_earth
           key: natural-earth-50m-land-v1
 
-      - name: Cache cartopy Natural Earth data
-        uses: actions/cache@v6.1.0
+      - name: Restore cartopy Natural Earth data cache
+        id: cartopy-cache
+        uses: actions/cache/restore@v6.1.0
         with:
           path: ~/.local/share/cartopy
           key: cartopy-natural-earth-v1
@@ -199,6 +201,20 @@ jobs:
         with:
           path: ~/.cache/brahe/textures
           key: brahe-3d-textures-v2
+
+      - name: Save Natural Earth land basemap cache (main only)
+        if: ${{ github.ref == 'refs/heads/main' && steps.natural-earth-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: ~/.cache/brahe/natural_earth
+          key: natural-earth-50m-land-v1
+
+      - name: Save cartopy Natural Earth data cache (main only)
+        if: ${{ github.ref == 'refs/heads/main' && steps.cartopy-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: ~/.local/share/cartopy
+          key: cartopy-natural-earth-v1
 
       - name: Save star catalog downloads (main only)
         if: ${{ github.ref == 'refs/heads/main' && steps.star-catalogs-cache.outputs.cache-hit != 'true' }}

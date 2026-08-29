@@ -120,8 +120,9 @@ jobs:
           restore-keys: |
             brahe-celestrak-
 
-      - name: Cache Natural Earth data
-        uses: actions/cache@v6.1.0
+      - name: Restore Natural Earth land basemap cache
+        id: natural-earth-cache
+        uses: actions/cache/restore@v6.1.0
         with:
           path: ~/.cache/brahe/natural_earth
           key: natural-earth-50m-land-v1
@@ -132,7 +133,8 @@ jobs:
           path: ~/.cache/brahe/textures
           key: brahe-3d-textures-v2
 
-      - name: Restore cartopy Natural Earth data
+      - name: Restore cartopy Natural Earth data cache
+        id: cartopy-cache
         uses: actions/cache/restore@v6.1.0
         with:
           path: ~/.local/share/cartopy

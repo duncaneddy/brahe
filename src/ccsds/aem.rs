@@ -20,7 +20,7 @@ use nalgebra::{Vector3, Vector4};
 
 use crate::attitude::attitude_types::{EulerAngle, EulerAngleOrder, Quaternion};
 use crate::ccsds::common::{CCSDSFormat, CCSDSJsonKeyCase, CCSDSTimeSystem};
-use crate::ccsds::error::ccsds_parse_error;
+use crate::ccsds::error::{ccsds_missing_field, ccsds_parse_error};
 use crate::ccsds::frames::ADMReferenceFrame;
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
@@ -860,6 +860,46 @@ impl AEM {
     /// - `segment`: segment to append.
     pub fn push_segment(&mut self, segment: AEMSegment) {
         self.segments.push(segment);
+    }
+
+    /// Validates the message for writing (504.0-B-2 §4.2).
+    ///
+    /// Every writer ([`crate::ccsds::kvn::write_aem`],
+    /// [`crate::ccsds::xml::write_aem_xml`],
+    /// [`crate::ccsds::json::write_aem_json`]) calls this before
+    /// serializing. Checks:
+    /// - at least one segment is present
+    /// - every segment has at least one attitude state
+    /// - every segment's metadata passes [`AEMMetadata::validate`]
+    ///
+    /// # Returns
+    /// Result<(), BraheError>: Ok if the message is well-formed for
+    /// writing, or an error describing the first violation found.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::aem::AEM;
+    ///
+    /// let aem = AEM::new("BRAHE");
+    /// assert!(aem.validate_for_write().is_err());
+    /// ```
+    pub fn validate_for_write(&self) -> Result<(), BraheError> {
+        if self.segments.is_empty() {
+            return Err(ccsds_missing_field("AEM", "at least one segment"));
+        }
+        for segment in &self.segments {
+            if segment.states.is_empty() {
+                return Err(ccsds_missing_field(
+                    "AEM",
+                    &format!(
+                        "at least one attitude state in segment '{}'",
+                        segment.metadata.object_name
+                    ),
+                ));
+            }
+            segment.metadata.validate()?;
+        }
+        Ok(())
     }
 
     /// Parses an AEM message from a string, auto-detecting the format.
@@ -1869,9 +1909,10 @@ mod tests {
     /// Builds an AEM with a single EULER_ANGLE segment whose metadata is
     /// missing `EULER_ROT_SEQ` (a conditional-validation violation per
     /// 504.0-B-2 table 4-3). `push_state` only checks the attitude-type
-    /// match, not `validate()`, so this builds successfully; the writers
-    /// don't call `validate()` either, so all three formats can be written
-    /// and should fail identically on read.
+    /// match, not `validate()`, so this builds successfully; every writer
+    /// calls `AEM::validate_for_write` (which calls `AEMMetadata::validate`
+    /// on each segment) before serializing, so all three formats should
+    /// fail identically on write, before ever reaching a parser.
     fn build_missing_euler_rot_seq_aem() -> AEM {
         let metadata = AEMMetadata::new(
             "SAT1",
@@ -1902,17 +1943,75 @@ mod tests {
     fn test_aem_conditional_validation_error_consistent_across_formats() {
         let aem = build_missing_euler_rot_seq_aem();
 
-        let kvn = aem.to_string(CCSDSFormat::KVN).unwrap();
-        let xml = aem.to_string(CCSDSFormat::XML).unwrap();
-        let json = aem.to_string(CCSDSFormat::JSON).unwrap();
-
-        let kvn_err = AEM::from_str(&kvn).unwrap_err().to_string();
-        let xml_err = AEM::from_str(&xml).unwrap_err().to_string();
-        let json_err = AEM::from_str(&json).unwrap_err().to_string();
+        let kvn_err = aem.to_string(CCSDSFormat::KVN).unwrap_err().to_string();
+        let xml_err = aem.to_string(CCSDSFormat::XML).unwrap_err().to_string();
+        let json_err = aem.to_string(CCSDSFormat::JSON).unwrap_err().to_string();
 
         assert!(kvn_err.contains("EULER_ROT_SEQ"), "{}", kvn_err);
         assert!(xml_err.contains("EULER_ROT_SEQ"), "{}", xml_err);
         assert!(json_err.contains("EULER_ROT_SEQ"), "{}", json_err);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_validate_for_write_empty_segments_errors() {
+        let aem = AEM::new("BRAHE");
+        let err = aem.validate_for_write().unwrap_err().to_string();
+        assert!(err.contains("segment"), "{}", err);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_validate_for_write_empty_states_errors() {
+        let metadata = base_metadata(AEMAttitudeType::Quaternion);
+        let segment = AEMSegment::new(metadata);
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let err = aem.validate_for_write().unwrap_err().to_string();
+        assert!(err.contains("attitude state"), "{}", err);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_validate_for_write_ok_for_valid_message() {
+        let mut segment = AEMSegment::new(base_metadata(AEMAttitudeType::Quaternion));
+        segment.push_state(quaternion_state(t0())).unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        assert!(aem.validate_for_write().is_ok());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_write_all_formats_reject_empty_segments() {
+        let aem = AEM::new("BRAHE");
+
+        let kvn_err = aem.to_string(CCSDSFormat::KVN).unwrap_err().to_string();
+        let xml_err = aem.to_string(CCSDSFormat::XML).unwrap_err().to_string();
+        let json_err = aem.to_string(CCSDSFormat::JSON).unwrap_err().to_string();
+
+        assert!(kvn_err.contains("segment"), "{}", kvn_err);
+        assert!(xml_err.contains("segment"), "{}", xml_err);
+        assert!(json_err.contains("segment"), "{}", json_err);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_write_all_formats_reject_empty_states() {
+        let metadata = base_metadata(AEMAttitudeType::Quaternion);
+        let segment = AEMSegment::new(metadata);
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let kvn_err = aem.to_string(CCSDSFormat::KVN).unwrap_err().to_string();
+        let xml_err = aem.to_string(CCSDSFormat::XML).unwrap_err().to_string();
+        let json_err = aem.to_string(CCSDSFormat::JSON).unwrap_err().to_string();
+
+        assert!(kvn_err.contains("attitude state"), "{}", kvn_err);
+        assert!(xml_err.contains("attitude state"), "{}", xml_err);
+        assert!(json_err.contains("attitude state"), "{}", json_err);
     }
 
     /// Builds a synthetic AEM with nine single-state segments, one per

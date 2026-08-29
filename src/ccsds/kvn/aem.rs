@@ -450,7 +450,13 @@ pub fn parse_aem(content: &str) -> Result<AEM, BraheError> {
 
 
 /// Write an AEM message to KVN format.
+///
+/// Requires at least one segment, each with at least one attitude state,
+/// and metadata that passes [`crate::ccsds::aem::AEMMetadata::validate`];
+/// see [`crate::ccsds::aem::AEM::validate_for_write`].
 pub fn write_aem(aem: &AEM) -> Result<String, BraheError> {
+    aem.validate_for_write()?;
+
     let mut out = String::new();
 
     // Header. Table 4-2 fixes the field order as VERS, COMMENT,

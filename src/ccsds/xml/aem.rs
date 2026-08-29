@@ -647,7 +647,13 @@ fn write_xml_quaternion(out: &mut String, q: &Quaternion, i_block: &str, i_elem:
 }
 
 /// Write an AEM message to XML format.
+///
+/// Requires at least one segment, each with at least one attitude state,
+/// and metadata that passes [`crate::ccsds::aem::AEMMetadata::validate`];
+/// see [`crate::ccsds::aem::AEM::validate_for_write`].
 pub fn write_aem_xml(aem: &AEM) -> Result<String, BraheError> {
+    aem.validate_for_write()?;
+
     let mut out = String::new();
     let i1 = "  ";
     let i2 = "    ";

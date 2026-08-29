@@ -189,10 +189,15 @@ pub fn parse_aem_json(content: &str) -> Result<AEM, BraheError> {
 /// quaternion component keys `Q1..QC`/`Q1_DOT..QC_DOT`), matching the KVN
 /// representation so that [`parse_aem_json`]'s flatten-to-KVN-lines path
 /// reproduces them unchanged.
+///
+/// Requires at least one segment, each with at least one attitude state,
+/// and metadata that passes [`crate::ccsds::aem::AEMMetadata::validate`];
+/// see [`crate::ccsds::aem::AEM::validate_for_write`].
 pub fn write_aem_json(
     aem: &AEM,
     key_case: CCSDSJsonKeyCase,
 ) -> Result<String, BraheError> {
+    aem.validate_for_write()?;
 
     let mut root = Map::new();
 

@@ -5338,15 +5338,11 @@ mod tests {
         assert!(has_difference, "RTN covariance should differ from ECI");
 
         // Verify RTN covariance is still symmetric (within numerical precision)
-        // Covariance interpolation leaves asymmetry proportional to the
-        // magnitude of the whole matrix, which the frame rotation mixes across
-        // blocks, so bound the asymmetry by the matrix norm.
-        let cov_scale = cov_rtn.norm();
         for i in 0..6 {
             for j in 0..6 {
                 let diff = (cov_rtn[(i, j)] - cov_rtn[(j, i)]).abs();
                 assert!(
-                    diff < 1e-9 * cov_scale,
+                    diff < 1e-6,
                     "RTN covariance should be symmetric at ({},{}): diff = {}",
                     i,
                     j,

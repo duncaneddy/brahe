@@ -286,7 +286,8 @@ fn aem_angvel_to_canonical(
 /// D14: spin representations have no native `AttitudeTrajectory` mapping).
 fn aem_spin_conversion_error(attitude_type: AEMAttitudeType) -> BraheError {
     BraheError::Error(format!(
-        "AEM attitude type '{}' has no AttitudeTrajectory representation; the message can still          be read and written, but not converted to a native trajectory",
+        "AEM attitude type '{}' has no AttitudeTrajectory representation; the message can still \
+         be read and written, but not converted to a native trajectory",
         attitude_type
     ))
 }
@@ -362,6 +363,11 @@ impl AEM {
     /// no `AttitudeTrajectory` equivalent and errors, directing the caller to
     /// pick an explicit interpolation method instead.
     ///
+    /// `metadata.validate()` runs first, so every conversion path (in
+    /// particular the ANGVEL_FRAME re-expression) can assume the conditional
+    /// metadata rules hold even for a segment built directly in code rather
+    /// than parsed from the wire.
+    ///
     /// # Arguments
     ///
     /// * `segment_idx` - Index of the segment to convert (0-based)
@@ -382,6 +388,12 @@ impl AEM {
         })?;
 
         let metadata = &segment.metadata;
+        // Gates every downstream conversion path (in particular
+        // `aem_angvel_to_canonical`'s ANGVEL_FRAME == REF_FRAME_A check) on
+        // the ANGVEL_FRAME in {REF_FRAME_A, REF_FRAME_B} invariant; a
+        // segment built in code rather than parsed from the wire is not
+        // otherwise guaranteed to satisfy it.
+        metadata.validate()?;
         let frame_a = AttitudeFrame::try_from(&metadata.ref_frame_a)?;
         let frame_b = AttitudeFrame::try_from(&metadata.ref_frame_b)?;
 
@@ -391,7 +403,8 @@ impl AEM {
             Some(AEMInterpolationMethod::Lagrange) => {
                 let degree = metadata.interpolation_degree.ok_or_else(|| {
                     BraheError::Error(
-                        "AEM metadata INTERPOLATION_METHOD is LAGRANGE but                          INTERPOLATION_DEGREE is missing"
+                        "AEM metadata INTERPOLATION_METHOD is LAGRANGE but \
+                         INTERPOLATION_DEGREE is missing"
                             .to_string(),
                     )
                 })?;
@@ -401,7 +414,10 @@ impl AEM {
             }
             Some(AEMInterpolationMethod::Hermite) => {
                 return Err(BraheError::Error(
-                    "AEM segment INTERPOLATION_METHOD is HERMITE, which AttitudeTrajectory does                      not support; construct the trajectory and call                      set_interpolation_method with an explicit choice instead of converting                      the AEM interpolation metadata"
+                    "AEM segment INTERPOLATION_METHOD is HERMITE, which AttitudeTrajectory does \
+                     not support; construct the trajectory and call \
+                     set_interpolation_method with an explicit choice instead of converting \
+                     the AEM interpolation metadata"
                         .to_string(),
                 ));
             }
@@ -2080,6 +2096,53 @@ mod tests {
         // Sanity check: the re-expressed rate must differ from the raw
         // frame-A value (otherwise the re-expression path silently no-ops).
         assert!((stored_omega - omega_a).norm() > 1e-6);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_angvel_frame_neither_a_nor_b_errors_via_validate() {
+        // A segment built directly in code (not via the KVN/XML/JSON
+        // parsers, which call metadata.validate() themselves) can carry an
+        // ANGVEL_FRAME that names neither REF_FRAME_A nor REF_FRAME_B.
+        // segment_to_attitude_trajectory must reject this rather than
+        // silently treating the "not frame A" branch as frame B.
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let other_frame = ADMReferenceFrame::parse("ITRF2014");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let metadata = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a,
+            ref_frame_b,
+            CCSDSTimeSystem::UTC,
+            t0,
+            t1,
+            AEMAttitudeType::QuaternionAngVel,
+        )
+        .with_angvel_frame(other_frame);
+
+        let mut segment = AEMSegment::new(metadata);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::QuaternionAngVel {
+                    quaternion: Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                    angular_velocity: Vector3::new(0.01, -0.02, 0.03),
+                },
+            })
+            .unwrap();
+
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let result = aem.segment_to_attitude_trajectory(0);
+        assert!(result.is_err());
+        let message = format!("{}", result.unwrap_err());
+        assert!(message.contains("ANGVEL_FRAME"));
+        assert!(message.contains("must equal"));
     }
 
     #[test]

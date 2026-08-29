@@ -1052,13 +1052,15 @@ impl AttitudeProvider for AttitudeTrajectory {
     fn angular_velocity(&self, epoch: Epoch) -> Result<Vector3<f64>, BraheError> {
         if !self.has_rates() {
             return Err(BraheError::Error(format!(
-                "Cannot provide angular_velocity at epoch {}: this AttitudeTrajectory's states                  do not carry angular velocity data",
+                "Cannot provide angular_velocity at epoch {}: this AttitudeTrajectory's states \
+                 do not carry angular velocity data",
                 epoch
             )));
         }
         self.interpolate(&epoch)?.angular_velocity.ok_or_else(|| {
             BraheError::Error(
-                "AttitudeTrajectory::has_rates() reported true but the interpolated state has                  no angular_velocity; this indicates a rate-uniformity invariant violation"
+                "AttitudeTrajectory::has_rates() reported true but the interpolated state has \
+                 no angular_velocity; this indicates a rate-uniformity invariant violation"
                     .to_string(),
             )
         })
@@ -1120,13 +1122,15 @@ impl AttitudeTrajectory {
             AttitudeFrame::Reference(reference) => *reference,
             AttitudeFrame::OrbitRelative(_) => {
                 return Err(BraheError::Error(
-                    "quaternion_from_frame requires frame_a to be AttitudeFrame::Reference, but                      this trajectory's frame_a is AttitudeFrame::OrbitRelative"
+                    "quaternion_from_frame requires frame_a to be AttitudeFrame::Reference, but \
+                     this trajectory's frame_a is AttitudeFrame::OrbitRelative"
                         .to_string(),
                 ));
             }
             AttitudeFrame::Spacecraft(_) => {
                 return Err(BraheError::Error(
-                    "quaternion_from_frame requires frame_a to be AttitudeFrame::Reference, but                      this trajectory's frame_a is AttitudeFrame::Spacecraft"
+                    "quaternion_from_frame requires frame_a to be AttitudeFrame::Reference, but \
+                     this trajectory's frame_a is AttitudeFrame::Spacecraft"
                         .to_string(),
                 ));
             }

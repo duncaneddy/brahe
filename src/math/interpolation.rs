@@ -1089,6 +1089,45 @@ mod tests {
     }
 
     #[test]
+    fn test_interpolate_covariance_two_wasserstein_dmatrix_singular_error() {
+        // The cross term needs C1^{1/2} to be invertible.
+        let cov1 = DMatrix::zeros(3, 3);
+        let cov2 = DMatrix::identity(3, 3);
+
+        let result = interpolate_covariance_two_wasserstein_dmatrix(&cov1, &cov2, 0.5);
+        assert!(matches!(result, Err(BraheError::NumericalError(_))));
+    }
+
+    #[test]
+    fn test_interpolate_covariance_two_wasserstein_smatrix_singular_error() {
+        let cov1 = SMatrix::<f64, 3, 3>::zeros();
+        let cov2 = SMatrix::<f64, 3, 3>::identity();
+
+        let result = interpolate_covariance_two_wasserstein_smatrix(cov1, cov2, 0.5);
+        assert!(matches!(result, Err(BraheError::NumericalError(_))));
+    }
+
+    #[test]
+    fn test_interpolate_covariance_two_wasserstein_dmatrix_first_not_psd_error() {
+        // C1 itself has no real square root.
+        let cov1 = DMatrix::from_row_slice(2, 2, &[1.0, 0.0, 0.0, -4.0]);
+        let cov2 = DMatrix::identity(2, 2);
+
+        let result = interpolate_covariance_two_wasserstein_dmatrix(&cov1, &cov2, 0.5);
+        assert!(matches!(result, Err(BraheError::NumericalError(_))));
+    }
+
+    #[test]
+    fn test_interpolate_covariance_two_wasserstein_dmatrix_second_not_psd_error() {
+        // C1 is fine, but C1^{1/2} C2 C1^{1/2} inherits C2's negative direction.
+        let cov1 = DMatrix::identity(2, 2);
+        let cov2 = DMatrix::from_row_slice(2, 2, &[1.0, 0.0, 0.0, -4.0]);
+
+        let result = interpolate_covariance_two_wasserstein_dmatrix(&cov1, &cov2, 0.5);
+        assert!(matches!(result, Err(BraheError::NumericalError(_))));
+    }
+
+    #[test]
     fn test_interpolate_covariance_two_wasserstein_dmatrix_dimension_mismatch() {
         let cov1 = DMatrix::<f64>::identity(3, 3);
         let cov2 = DMatrix::<f64>::identity(4, 4);

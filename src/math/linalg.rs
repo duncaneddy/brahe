@@ -738,6 +738,32 @@ mod tests {
     }
 
     #[test]
+    fn test_spd_sqrtm_dmatrix_non_square_error() {
+        let mat = na::DMatrix::from_row_slice(2, 3, &[1.0, 0.0, 0.0, 0.0, 1.0, 0.0]);
+        let err = spd_sqrtm_dmatrix(&mat).unwrap_err();
+        assert!(err.contains("square"), "got: {}", err);
+    }
+
+    #[test]
+    fn test_spd_sqrtm_dmatrix_negative_eigenvalue_error() {
+        // Negative well beyond what round-off could explain.
+        let mat = na::DMatrix::from_row_slice(2, 2, &[4.0, 0.0, 0.0, -9.0]);
+        let err = spd_sqrtm_dmatrix(&mat).unwrap_err();
+        assert!(err.contains("positive semi-definite"), "got: {}", err);
+    }
+
+    #[test]
+    fn test_spd_sqrtm_dmatrix_clamps_roundoff_negative_eigenvalue() {
+        // A negative eigenvalue at round-off level relative to the largest is
+        // treated as zero rather than rejected, which a propagated covariance
+        // routinely produces.
+        let mat = na::DMatrix::from_row_slice(2, 2, &[1e6, 0.0, 0.0, -1e-9]);
+        let root = spd_sqrtm_dmatrix(&mat).expect("round-off negative must be clamped");
+        assert!((root[(0, 0)] - 1e3).abs() < 1e-6);
+        assert!(root[(1, 1)].abs() < 1e-6);
+    }
+
+    #[test]
     fn test_sqrtm_dmatrix_error_negative_eigenvalue_masked_by_scale() {
         // Dynamic mirror of test_sqrtm_error_negative_eigenvalue_masked_by_scale.
         let mat = na::DMatrix::from_row_slice(2, 2, &[1e12, 0.0, 0.0, -100.0]);

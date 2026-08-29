@@ -256,6 +256,12 @@ pub fn spd_sqrtm_dmatrix(matrix: &na::DMatrix<f64>) -> Result<na::DMatrix<f64>, 
 
     let mut roots = eigen.eigenvalues.clone();
     for value in roots.iter_mut() {
+        if !value.is_finite() {
+            return Err(format!(
+                "Symmetric eigendecomposition did not converge: eigenvalue {}",
+                value
+            ));
+        }
         if *value < -tolerance {
             return Err(format!(
                 "Matrix is not positive semi-definite: found negative eigenvalue {}",

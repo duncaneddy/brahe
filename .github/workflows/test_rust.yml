@@ -1,11 +1,6 @@
 name: Test Rust
 on:
     workflow_call:
-        inputs:
-            network_mode:
-                description: "BRAHE_NETWORK_MODE for the test steps once every cache family is warm."
-                type: string
-                default: "offline"
 jobs:
     test-rust:
         runs-on: ${{ matrix.os }}
@@ -76,19 +71,10 @@ jobs:
                         ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
                         ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
                     key: star-catalogs-v1
-            # This job has no Python environment to run the warm script, so it
-            # is offline only when every restored cache family (NAIF, ICGEM,
-            # SBDB + Horizons, star catalogs) was an exact hit; otherwise it
-            # downloads the missing data once. A manifest change rolls each
-            # family's key, so every job on that PR runs online (a cache
-            # miss) until the weekly producer or a main push saves the new
-            # key — this is intended, not a bug.
             -   name: Run Rust tests with coverage
                 # Limit rust-unit coverage to the core `brahe` crate. The `brahe-py`
                 # workspace member has no Rust unit tests (it's exercised by pytest),
                 # so its coverage is measured in the python-rust combined flag below.
-                env:
-                    BRAHE_NETWORK_MODE: ${{ steps.naif-cache.outputs.cache-hit == 'true' && steps.icgem-cache.outputs.cache-hit == 'true' && steps.sbdb-horizons-cache.outputs.cache-hit == 'true' && steps.star-catalogs-cache.outputs.cache-hit == 'true' && inputs.network_mode || 'online' }}
                 run: cargo llvm-cov -p brahe --lcov --output-path lcov.info
             -   name: Upload coverage to Codecov
                 if: matrix.os == 'ubuntu-latest'
@@ -177,15 +163,6 @@ jobs:
                         ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
                         ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
                     key: star-catalogs-v1
-            # This job has no Python environment to run the warm script, so it
-            # is offline only when every restored cache family (NAIF, ICGEM,
-            # SBDB + Horizons, star catalogs) was an exact hit; otherwise it
-            # downloads the missing data once. A manifest change rolls each
-            # family's key, so every job on that PR runs online (a cache
-            # miss) until the weekly producer or a main push saves the new
-            # key — this is intended, not a bug.
             -   name: Run Rust doc tests
-                env:
-                    BRAHE_NETWORK_MODE: ${{ steps.naif-cache.outputs.cache-hit == 'true' && steps.icgem-cache.outputs.cache-hit == 'true' && steps.sbdb-horizons-cache.outputs.cache-hit == 'true' && steps.star-catalogs-cache.outputs.cache-hit == 'true' && inputs.network_mode || 'online' }}
                 run: cargo test --doc -- --test-threads=1
     

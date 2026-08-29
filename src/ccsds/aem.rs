@@ -57,6 +57,82 @@ pub(crate) fn resolve_angvel_frame_token(
     }
 }
 
+/// Checks that `data`, if one of the three Euler angle variants, carries
+/// `euler_rot_seq` as its rotation order (when `euler_rot_seq` is set).
+///
+/// Shared by [`AEMSegment::push_state`] and [`AEM::validate_for_write`] so
+/// that a state added through `push_state` and one added by mutating
+/// `AEMSegment::states` directly (a public field) are checked identically.
+///
+/// # Returns
+/// Result<(), BraheError>: `Ok(())` if `data` is not an Euler angle variant,
+/// `euler_rot_seq` is `None`, or the orders match; otherwise a `ParseError`
+/// naming both orders.
+fn check_euler_rot_seq_match(
+    data: &AEMAttitudeData,
+    euler_rot_seq: Option<EulerAngleOrder>,
+) -> Result<(), BraheError> {
+    if let Some(angles) = match data {
+        AEMAttitudeData::EulerAngle { angles }
+        | AEMAttitudeData::EulerAngleDerivative { angles, .. }
+        | AEMAttitudeData::EulerAngleAngVel { angles, .. } => Some(angles),
+        _ => None,
+    } && let Some(expected_order) = euler_rot_seq
+        && angles.order != expected_order
+    {
+        return Err(ccsds_parse_error(
+            "AEM",
+            &format!(
+                "attitude state Euler angle order '{:?}' does not match segment EULER_ROT_SEQ \
+                 '{:?}'",
+                angles.order, expected_order
+            ),
+        ));
+    }
+    Ok(())
+}
+
+/// Checks CCSDS 504.0-B-2 table 4-3's inter-segment ordering: for adjacent
+/// segments that both carry useable times, the later segment's
+/// `USEABLE_START_TIME` must not fall before the earlier segment's
+/// `USEABLE_STOP_TIME`. Segments where either side omits useable times are
+/// not compared.
+///
+/// This is a structural property of the whole message rather than a single
+/// segment's, so it is checked separately from [`AEMMetadata::validate`].
+/// Shared by [`AEM::validate_for_write`] (checked before writing) and the
+/// KVN/XML parsers (checked at parse time, since JSON parsing delegates to
+/// the KVN parser).
+///
+/// # Returns
+/// Result<(), BraheError>: `Ok(())` if every adjacent pair satisfies the
+/// ordering, otherwise a `ParseError` naming the offending segments and
+/// times.
+pub(crate) fn validate_useable_time_ordering(segments: &[AEMSegment]) -> Result<(), BraheError> {
+    for idx in 1..segments.len() {
+        let previous_segment = &segments[idx - 1];
+        let segment = &segments[idx];
+        if let (Some(previous_useable_stop), Some(current_useable_start)) = (
+            previous_segment.metadata.useable_stop_time,
+            segment.metadata.useable_start_time,
+        ) && current_useable_start < previous_useable_stop
+        {
+            return Err(ccsds_parse_error(
+                "AEM",
+                &format!(
+                    "segment {} USEABLE_START_TIME {} must not fall before segment {} \
+                     USEABLE_STOP_TIME {}",
+                    idx,
+                    current_useable_start,
+                    idx - 1,
+                    previous_useable_stop
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// CCSDS AEM message header (504.0-B-2 table 4-2).
 #[derive(Debug, Clone)]
 pub struct AEMHeader {
@@ -853,23 +929,7 @@ impl AEMSegment {
                 ),
             ));
         }
-        if let Some(angles) = match &state.data {
-            AEMAttitudeData::EulerAngle { angles }
-            | AEMAttitudeData::EulerAngleDerivative { angles, .. }
-            | AEMAttitudeData::EulerAngleAngVel { angles, .. } => Some(angles),
-            _ => None,
-        } && let Some(expected_order) = self.metadata.euler_rot_seq
-            && angles.order != expected_order
-        {
-            return Err(ccsds_parse_error(
-                "AEM",
-                &format!(
-                    "attitude state Euler angle order '{:?}' does not match segment \
-                     EULER_ROT_SEQ '{:?}'",
-                    angles.order, expected_order
-                ),
-            ));
-        }
+        check_euler_rot_seq_match(&state.data, self.metadata.euler_rot_seq)?;
         if let Some(last_state) = self.states.last()
             && state.epoch <= last_state.epoch
         {
@@ -940,10 +1000,12 @@ impl AEM {
     ///   time system brahe can convert epochs into or out of, so a message
     ///   using one of them could not be read back by brahe's own parsers
     /// - every state in every segment matches the segment's
-    ///   `metadata.attitude_type` and carries a strictly increasing epoch
-    ///   (the same invariants [`AEMSegment::push_state`] enforces, checked
-    ///   again here because `states` is a public field and can be mutated
-    ///   directly, bypassing `push_state`)
+    ///   `metadata.attitude_type`, carries a strictly increasing epoch, and
+    ///   (for the three Euler angle variants) an `angles.order` matching
+    ///   `metadata.euler_rot_seq` (the same invariants
+    ///   [`AEMSegment::push_state`] enforces, checked again here because
+    ///   `states` is a public field and can be mutated directly, bypassing
+    ///   `push_state`)
     /// - for adjacent segments that both carry useable times, the later
     ///   segment's `USEABLE_START_TIME` is not before the earlier segment's
     ///   `USEABLE_STOP_TIME` (504.0-B-2 table 4-3); segments where either
@@ -964,7 +1026,7 @@ impl AEM {
         if self.segments.is_empty() {
             return Err(ccsds_missing_field("AEM", "at least one segment"));
         }
-        for (idx, segment) in self.segments.iter().enumerate() {
+        for segment in &self.segments {
             if segment.states.is_empty() {
                 return Err(ccsds_missing_field(
                     "AEM",
@@ -1002,6 +1064,7 @@ impl AEM {
                         ),
                     ));
                 }
+                check_euler_rot_seq_match(&state.data, segment.metadata.euler_rot_seq)?;
                 if let Some(previous) = previous_epoch
                     && state.epoch <= previous
                 {
@@ -1015,28 +1078,10 @@ impl AEM {
                 }
                 previous_epoch = Some(state.epoch);
             }
-
-            if idx > 0 {
-                let previous_segment = &self.segments[idx - 1];
-                if let (Some(previous_useable_stop), Some(current_useable_start)) = (
-                    previous_segment.metadata.useable_stop_time,
-                    segment.metadata.useable_start_time,
-                ) && current_useable_start < previous_useable_stop
-                {
-                    return Err(ccsds_parse_error(
-                        "AEM",
-                        &format!(
-                            "segment {} USEABLE_START_TIME {} must not fall before segment {} \
-                             USEABLE_STOP_TIME {}",
-                            idx,
-                            current_useable_start,
-                            idx - 1,
-                            previous_useable_stop
-                        ),
-                    ));
-                }
-            }
         }
+
+        validate_useable_time_ordering(&self.segments)?;
+
         Ok(())
     }
 
@@ -1670,6 +1715,59 @@ mod tests {
         assert!(segment.push_state(state).is_ok());
     }
 
+    #[test]
+    #[parallel]
+    fn test_aem_segment_push_state_euler_derivative_order_mismatch_errors_naming_both_orders() {
+        let metadata = base_metadata(AEMAttitudeType::EulerAngleDerivative)
+            .with_euler_rot_seq(EulerAngleOrder::ZXZ);
+        let mut segment = AEMSegment::new(metadata);
+        let state = AEMAttitudeState {
+            epoch: t0(),
+            data: AEMAttitudeData::EulerAngleDerivative {
+                angles: EulerAngle::new(
+                    EulerAngleOrder::XYZ,
+                    0.0,
+                    0.0,
+                    0.0,
+                    crate::constants::AngleFormat::Radians,
+                ),
+                rates: Vector3::new(0.0, 0.0, 0.0),
+            },
+        };
+        let err = segment.push_state(state).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("XYZ"));
+        assert!(msg.contains("ZXZ"));
+        assert!(segment.states.is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_segment_push_state_euler_angvel_order_mismatch_errors_naming_both_orders() {
+        let metadata = base_metadata(AEMAttitudeType::EulerAngleAngVel)
+            .with_euler_rot_seq(EulerAngleOrder::ZXZ)
+            .with_angvel_frame(sc_body_1());
+        let mut segment = AEMSegment::new(metadata);
+        let state = AEMAttitudeState {
+            epoch: t0(),
+            data: AEMAttitudeData::EulerAngleAngVel {
+                angles: EulerAngle::new(
+                    EulerAngleOrder::XYZ,
+                    0.0,
+                    0.0,
+                    0.0,
+                    crate::constants::AngleFormat::Radians,
+                ),
+                angular_velocity: Vector3::new(0.0, 0.0, 0.0),
+            },
+        };
+        let err = segment.push_state(state).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("XYZ"));
+        assert!(msg.contains("ZXZ"));
+        assert!(segment.states.is_empty());
+    }
+
     // ------------------------------------------------------------------
     // AEM
     // ------------------------------------------------------------------
@@ -2282,6 +2380,48 @@ mod tests {
         assert!(kvn_err.contains("not strictly increasing"), "{}", kvn_err);
         assert!(xml_err.contains("not strictly increasing"), "{}", xml_err);
         assert!(json_err.contains("not strictly increasing"), "{}", json_err);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_validate_for_write_rejects_euler_order_mismatch_via_direct_mutation() {
+        let metadata =
+            base_metadata(AEMAttitudeType::EulerAngle).with_euler_rot_seq(EulerAngleOrder::ZXZ);
+        let mut segment = AEMSegment::new(metadata);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0(),
+                data: AEMAttitudeData::EulerAngle {
+                    angles: zero_euler_angle(),
+                },
+            })
+            .unwrap();
+        // Bypass push_state's order check by mutating `states` directly.
+        segment.states.push(AEMAttitudeState {
+            epoch: t1(),
+            data: AEMAttitudeData::EulerAngle {
+                angles: EulerAngle::new(
+                    EulerAngleOrder::XYZ,
+                    0.0,
+                    0.0,
+                    0.0,
+                    crate::constants::AngleFormat::Radians,
+                ),
+            },
+        });
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let err = aem.validate_for_write().unwrap_err().to_string();
+        assert!(err.contains("XYZ"), "{}", err);
+        assert!(err.contains("ZXZ"), "{}", err);
+
+        let kvn_err = aem.to_string(CCSDSFormat::KVN).unwrap_err().to_string();
+        let xml_err = aem.to_string(CCSDSFormat::XML).unwrap_err().to_string();
+        let json_err = aem.to_string(CCSDSFormat::JSON).unwrap_err().to_string();
+        assert!(kvn_err.contains("XYZ"), "{}", kvn_err);
+        assert!(xml_err.contains("XYZ"), "{}", xml_err);
+        assert!(json_err.contains("XYZ"), "{}", json_err);
     }
 
     #[test]

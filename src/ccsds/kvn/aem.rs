@@ -9,7 +9,7 @@ use nalgebra::{Vector3, Vector4};
 use crate::attitude::attitude_types::{EulerAngle, EulerAngleOrder, Quaternion};
 use crate::ccsds::aem::{
     AEM, AEMAttitudeData, AEMAttitudeState, AEMAttitudeType, AEMHeader, AEMInterpolationMethod,
-    AEMMetadata, AEMSegment, resolve_angvel_frame_token,
+    AEMMetadata, AEMSegment, resolve_angvel_frame_token, validate_useable_time_ordering,
 };
 use crate::ccsds::common::{
     CCSDSTimeSystem, format_ccsds_datetime, format_ccsds_datetime_in, format_euler_rot_seq,
@@ -443,6 +443,12 @@ pub fn parse_aem(content: &str) -> Result<AEM, BraheError> {
     if let Some(seg) = current_segment.take() {
         segments.push(seg);
     }
+
+    // Table 4-3's inter-segment USEABLE_START_TIME/USEABLE_STOP_TIME
+    // ordering is a structural property of the whole message, not a
+    // per-segment one, so it is checked here (in addition to
+    // AEM::validate_for_write) rather than at each segment's META_STOP.
+    validate_useable_time_ordering(&segments)?;
 
     let header = AEMHeader {
         format_version: format_version
@@ -1362,5 +1368,57 @@ DATA_STOP\n";
         let aem = parse_aem(content).unwrap();
         let metadata = &aem.segments[0].metadata;
         assert_eq!(metadata.angvel_frame, Some(metadata.ref_frame_a.clone()));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_parse_aem_rejects_out_of_order_useable_times_between_segments() {
+        // Table 4-3: a later segment's USEABLE_START_TIME must not fall
+        // before an earlier segment's USEABLE_STOP_TIME. Segment 1's
+        // USEABLE_START_TIME here (1996-11-28T21:29:07.2555) falls before
+        // segment 0's USEABLE_STOP_TIME (1996-11-30T01:28:02.5555).
+        let content = "CCSDS_AEM_VERS = 2.0\n\
+CREATION_DATE = 2002-11-04T17:22:31\n\
+ORIGINATOR = BRAHE\n\
+\n\
+META_START\n\
+OBJECT_NAME = TESTSAT\n\
+OBJECT_ID = 2024-001A\n\
+CENTER_NAME = EARTH\n\
+REF_FRAME_A = EME2000\n\
+REF_FRAME_B = SC_BODY_1\n\
+TIME_SYSTEM = UTC\n\
+START_TIME = 1996-11-28T21:29:07.2555\n\
+STOP_TIME = 1996-11-30T01:28:02.5555\n\
+USEABLE_START_TIME = 1996-11-28T21:29:07.2555\n\
+USEABLE_STOP_TIME = 1996-11-30T01:28:02.5555\n\
+ATTITUDE_TYPE = QUATERNION\n\
+META_STOP\n\
+\n\
+DATA_START\n\
+1996-11-28T21:29:07.2555 0.56748 0.03146 0.45689 0.68427\n\
+DATA_STOP\n\
+\n\
+META_START\n\
+OBJECT_NAME = TESTSAT\n\
+OBJECT_ID = 2024-001A\n\
+CENTER_NAME = EARTH\n\
+REF_FRAME_A = EME2000\n\
+REF_FRAME_B = SC_BODY_1\n\
+TIME_SYSTEM = UTC\n\
+START_TIME = 1996-11-28T21:29:07.2555\n\
+STOP_TIME = 1996-11-30T01:28:02.5555\n\
+USEABLE_START_TIME = 1996-11-28T21:29:07.2555\n\
+USEABLE_STOP_TIME = 1996-11-30T01:28:02.5555\n\
+ATTITUDE_TYPE = QUATERNION\n\
+META_STOP\n\
+\n\
+DATA_START\n\
+1996-11-28T21:29:07.2555 0.56748 0.03146 0.45689 0.68427\n\
+DATA_STOP\n";
+        let err = parse_aem(content).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("USEABLE_START_TIME"), "{}", msg);
+        assert!(msg.contains("USEABLE_STOP_TIME"), "{}", msg);
     }
 }

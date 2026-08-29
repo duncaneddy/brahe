@@ -241,6 +241,29 @@ def test_aem_segment_add_state_non_increasing_epoch_errors():
         )
 
 
+def test_aem_segment_add_state_euler_order_mismatch_errors():
+    """Mirror of test_aem_segment_push_state_euler_order_mismatch_errors_naming_both_orders
+    in Rust."""
+    t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    t1 = t0 + 60.0
+    seg = AEMSegment(
+        "SAT1",
+        "2024-001A",
+        "EME2000",
+        "SC_BODY_1",
+        "UTC",
+        t0,
+        t1,
+        "EULER_ANGLE",
+        euler_rot_seq=bh.EulerAngleOrder.ZXZ,
+    )
+    mismatched_angles = bh.EulerAngle(
+        bh.EulerAngleOrder.XYZ, 10.0, 20.0, 30.0, bh.AngleFormat.DEGREES
+    )
+    with pytest.raises(Exception, match="XYZ"):
+        seg.add_state(AEMAttitudeState.from_euler_angle(t0, mismatched_angles))
+
+
 def test_aem_euler_angle_state_round_trip():
     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     t1 = t0 + 60.0
@@ -318,6 +341,33 @@ def test_aem_g4_hermite_interpolation_method_errors(eop):
     """Mirror of test_aem_g4_hermite_interpolation_method_errors in Rust."""
     aem = AEM.from_file("test_assets/ccsds/aem/AEMExampleG4.txt")
     with pytest.raises(Exception, match="HERMITE"):
+        aem.segment_to_attitude_trajectory(0)
+
+
+def test_aem_lagrange_interpolation_degree_zero_errors():
+    """Mirror of test_aem_lagrange_interpolation_degree_zero_errors in Rust
+    (src/ccsds/interop.rs)."""
+    t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    t1 = t0 + 60.0
+    seg = AEMSegment(
+        "SAT1",
+        "2024-001A",
+        "EME2000",
+        "SC_BODY_1",
+        "UTC",
+        t0,
+        t1,
+        "QUATERNION",
+        interpolation_method="LAGRANGE",
+        interpolation_degree=0,
+    )
+    seg.add_state(
+        AEMAttitudeState.from_quaternion(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    )
+    aem = AEM("BRAHE")
+    aem.add_segment(seg)
+
+    with pytest.raises(Exception, match="degree"):
         aem.segment_to_attitude_trajectory(0)
 
 

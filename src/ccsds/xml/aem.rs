@@ -10,7 +10,7 @@ use serde::Deserialize;
 use crate::attitude::attitude_types::{EulerAngle, EulerAngleOrder, Quaternion};
 use crate::ccsds::aem::{
     AEM, AEMAttitudeData, AEMAttitudeState, AEMAttitudeType, AEMHeader, AEMInterpolationMethod,
-    AEMMetadata, AEMSegment, resolve_angvel_frame_token,
+    AEMMetadata, AEMSegment, resolve_angvel_frame_token, validate_useable_time_ordering,
 };
 use crate::ccsds::common::{
     CCSDSTimeSystem, format_ccsds_datetime, format_ccsds_datetime_in, format_euler_rot_seq,
@@ -634,6 +634,12 @@ pub fn parse_aem_xml(content: &str) -> Result<AEM, BraheError> {
         segments.push(segment);
     }
 
+    // Table 4-3's inter-segment USEABLE_START_TIME/USEABLE_STOP_TIME
+    // ordering is a structural property of the whole message, not a
+    // per-segment one, so it is checked here (in addition to
+    // AEM::validate_for_write) rather than at each segment's conversion.
+    validate_useable_time_ordering(&segments)?;
+
     Ok(AEM { header, segments })
 }
 
@@ -1196,5 +1202,147 @@ mod tests {
             parsed_metadata.angvel_frame,
             Some(parsed_metadata.ref_frame_a.clone())
         );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_parse_aem_xml_angvel_frame_literal_ref_frame_b_resolves() {
+        // CCSDS 504.0-B-2 Annex G-13 uses the literal token REF_FRAME_B to
+        // mean "same as REF_FRAME_B", not a SANA registry token spelled
+        // "REF_FRAME_B".
+        use crate::time::{Epoch, TimeSystem};
+
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let metadata = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a.clone(),
+            ref_frame_b.clone(),
+            CCSDSTimeSystem::UTC,
+            t0,
+            t1,
+            AEMAttitudeType::QuaternionAngVel,
+        )
+        .with_angvel_frame(ref_frame_b.clone());
+
+        let mut segment = AEMSegment::new(metadata);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::QuaternionAngVel {
+                    quaternion: Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                    angular_velocity: Vector3::new(0.001, 0.002, 0.003),
+                },
+            })
+            .unwrap();
+
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let xml = write_aem_xml(&aem).unwrap();
+        assert!(xml.contains("<ANGVEL_FRAME>SC_BODY_1</ANGVEL_FRAME>"));
+        let xml_literal = xml.replace(
+            "<ANGVEL_FRAME>SC_BODY_1</ANGVEL_FRAME>",
+            "<ANGVEL_FRAME>REF_FRAME_B</ANGVEL_FRAME>",
+        );
+
+        let parsed = parse_aem_xml(&xml_literal).unwrap();
+        let parsed_metadata = &parsed.segments[0].metadata;
+        assert_eq!(
+            parsed_metadata.angvel_frame,
+            Some(parsed_metadata.ref_frame_b.clone())
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_parse_aem_xml_rejects_out_of_order_useable_times_between_segments() {
+        use crate::ccsds::common::format_ccsds_datetime;
+        use crate::time::{Epoch, TimeSystem};
+
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+        let t2 = t0 + 120.0;
+        let t3 = t0 + 180.0;
+        // Falls within segment 1's own [start_time, stop_time] = [t0, t3]
+        // (so AEMMetadata::validate's per-segment bounds check still
+        // passes), but before segment 0's USEABLE_STOP_TIME (t1).
+        let corrupted_useable_start = t0 + 30.0;
+
+        let metadata0 = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a.clone(),
+            ref_frame_b.clone(),
+            CCSDSTimeSystem::UTC,
+            t0,
+            t1,
+            AEMAttitudeType::Quaternion,
+        )
+        .with_useable_times(t0, t1);
+        let mut segment0 = AEMSegment::new(metadata0);
+        segment0
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::Quaternion {
+                    quaternion: Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                },
+            })
+            .unwrap();
+
+        let metadata1 = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a,
+            ref_frame_b,
+            CCSDSTimeSystem::UTC,
+            t0,
+            t3,
+            AEMAttitudeType::Quaternion,
+        )
+        .with_useable_times(t2, t3);
+        let mut segment1 = AEMSegment::new(metadata1);
+        segment1
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::Quaternion {
+                    quaternion: Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                },
+            })
+            .unwrap();
+
+        // Valid (in-order useable times) two-segment AEM, written to XML.
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment0);
+        aem.push_segment(segment1);
+        let xml = write_aem_xml(&aem).unwrap();
+
+        // Corrupt segment 1's USEABLE_START_TIME so it falls before segment
+        // 0's USEABLE_STOP_TIME (while staying within segment 1's own
+        // [START_TIME, STOP_TIME]), then confirm parse_aem_xml rejects it
+        // with the same check the writer applies (rather than silently
+        // accepting a message that could never have passed
+        // validate_for_write).
+        let seg1_useable_start_tag = format!(
+            "<USEABLE_START_TIME>{}</USEABLE_START_TIME>",
+            format_ccsds_datetime(&t2)
+        );
+        assert_eq!(xml.matches(&seg1_useable_start_tag).count(), 1);
+        let corrupted_tag = format!(
+            "<USEABLE_START_TIME>{}</USEABLE_START_TIME>",
+            format_ccsds_datetime(&corrupted_useable_start)
+        );
+        let xml_bad = xml.replacen(&seg1_useable_start_tag, &corrupted_tag, 1);
+
+        let err = parse_aem_xml(&xml_bad).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("USEABLE_START_TIME"), "{}", msg);
+        assert!(msg.contains("USEABLE_STOP_TIME"), "{}", msg);
     }
 }

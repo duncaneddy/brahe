@@ -978,9 +978,17 @@ impl DNumericalPropagator {
             return Ok(EventProcessingResult::NoEvents);
         }
 
-        // 1. Sort events chronologically by window_open time
+        // 1. Sort events in the order the propagation encounters them. Going
+        // backward that is descending in time, so the first callback picked
+        // below is the one actually reached first.
         let mut sorted_events = detected_events;
-        sorted_events.sort_by(|(_, a), (_, b)| a.window_open.partial_cmp(&b.window_open).unwrap());
+        if self.dt >= 0.0 {
+            sorted_events
+                .sort_by(|(_, a), (_, b)| a.window_open.partial_cmp(&b.window_open).unwrap());
+        } else {
+            sorted_events
+                .sort_by(|(_, a), (_, b)| b.window_open.partial_cmp(&a.window_open).unwrap());
+        }
 
         // 2. Find first event with callback
         let first_callback_idx = sorted_events

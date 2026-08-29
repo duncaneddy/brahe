@@ -53,18 +53,25 @@ pub(crate) fn bisection_search<const S: usize, const P: usize, F>(
     params: Option<&SVector<f64, P>>,
     bracket_low: Epoch,
     bracket_high: Epoch,
+    depth: usize,
 ) -> Option<(Epoch, SVector<f64, S>)>
 where
     F: Fn(Epoch) -> SVector<f64, S>,
 {
     let time_tol = detector.time_tolerance();
     let value_tol = detector.value_tolerance();
-    let step_factor = detector.step_reduction_factor();
+    // Worst-case contraction per level is max(factor, 1 - factor): a factor at
+    // either extreme leaves the bracket barely narrower each level and would
+    // exhaust the depth budget before reaching the time tolerance. Clamping
+    // keeps contraction at 0.9 or better, well inside MAX_BISECTION_DEPTH.
+    let step_factor = detector.step_reduction_factor().clamp(0.1, 0.5);
     let target_value = detector.target_value();
 
-    // TERMINATION: Bracket is tight enough
+    // TERMINATION: Bracket is tight enough, or the refinement budget is spent.
+    // Each level should shrink the bracket; the depth bound keeps a bracket that
+    // fails to narrow from recursing without end.
     let bracket_width = (bracket_high - bracket_low).abs();
-    if bracket_width <= time_tol {
+    if bracket_width <= time_tol || depth >= MAX_BISECTION_DEPTH {
         // Return the midpoint of the bracket
         let mid_time = bracket_low + bracket_width / 2.0;
         let mid_state = state_fn(mid_time);
@@ -176,6 +183,7 @@ where
                 params,
                 new_low,
                 new_high,
+                depth + 1,
             );
         }
 
@@ -200,18 +208,25 @@ pub(crate) fn bisection_search_d<F>(
     params: Option<&DVector<f64>>,
     bracket_low: Epoch,
     bracket_high: Epoch,
+    depth: usize,
 ) -> Option<(Epoch, DVector<f64>)>
 where
     F: Fn(Epoch) -> DVector<f64>,
 {
     let time_tol = detector.time_tolerance();
     let value_tol = detector.value_tolerance();
-    let step_factor = detector.step_reduction_factor();
+    // Worst-case contraction per level is max(factor, 1 - factor): a factor at
+    // either extreme leaves the bracket barely narrower each level and would
+    // exhaust the depth budget before reaching the time tolerance. Clamping
+    // keeps contraction at 0.9 or better, well inside MAX_BISECTION_DEPTH.
+    let step_factor = detector.step_reduction_factor().clamp(0.1, 0.5);
     let target_value = detector.target_value();
 
-    // TERMINATION: Bracket is tight enough
+    // TERMINATION: Bracket is tight enough, or the refinement budget is spent.
+    // Each level should shrink the bracket; the depth bound keeps a bracket that
+    // fails to narrow from recursing without end.
     let bracket_width = (bracket_high - bracket_low).abs();
-    if bracket_width <= time_tol {
+    if bracket_width <= time_tol || depth >= MAX_BISECTION_DEPTH {
         // Return the midpoint of the bracket
         let mid_time = bracket_low + bracket_width / 2.0;
         let mid_state = state_fn(mid_time);
@@ -323,6 +338,7 @@ where
                 params,
                 new_low,
                 new_high,
+                depth + 1,
             );
         }
 
@@ -331,6 +347,12 @@ where
         current_crossing = next_crossing;
     }
 }
+
+/// Maximum bisection refinement levels before returning the best estimate.
+///
+/// Each level narrows the bracket by the detector's step reduction factor, so
+/// this bound is far above what any convergent search needs.
+const MAX_BISECTION_DEPTH: usize = 200;
 
 /// Scan for events in a time interval (static-sized)
 ///
@@ -390,16 +412,32 @@ where
     let dt = (current_time - prev_time).abs();
     let initial_step = dt / 4.0; // Start with quarter of interval
 
+    // Backward propagation hands us prev_time later than current_time. The
+    // bracket bounds are ordered by time, and the search walks from prev_time
+    // toward current_time, so the step direction follows that ordering.
+    let forward = current_time >= prev_time;
+    let (bracket_low, bracket_high) = if forward {
+        (prev_time, current_time)
+    } else {
+        (current_time, prev_time)
+    };
+    let step_direction = if forward {
+        StepDirection::Forward
+    } else {
+        StepDirection::Backward
+    };
+
     let result = bisection_search(
         detector,
         state_fn,
         prev_time,
-        StepDirection::Forward,
+        step_direction,
         initial_step,
         prev_crossing,
         params,
-        prev_time,
-        current_time,
+        bracket_low,
+        bracket_high,
+        0,
     );
 
     result.map(|(event_time, event_state)| {
@@ -460,16 +498,32 @@ where
     let dt = (current_time - prev_time).abs();
     let initial_step = dt / 4.0;
 
+    // Backward propagation hands us prev_time later than current_time. The
+    // bracket bounds are ordered by time, and the search walks from prev_time
+    // toward current_time, so the step direction follows that ordering.
+    let forward = current_time >= prev_time;
+    let (bracket_low, bracket_high) = if forward {
+        (prev_time, current_time)
+    } else {
+        (current_time, prev_time)
+    };
+    let step_direction = if forward {
+        StepDirection::Forward
+    } else {
+        StepDirection::Backward
+    };
+
     let result = bisection_search_d(
         detector,
         state_fn,
         prev_time,
-        StepDirection::Forward,
+        step_direction,
         initial_step,
         prev_crossing,
         params,
-        prev_time,
-        current_time,
+        bracket_low,
+        bracket_high,
+        0,
     );
 
     result.map(|(event_time, event_state)| {
@@ -547,6 +601,7 @@ mod tests {
             None,
             start_epoch,
             start_epoch + 200.0,
+            0,
         );
 
         assert!(result.is_some());
@@ -658,6 +713,7 @@ mod tests {
             None,
             start_epoch,
             start_epoch + 200.0,
+            0,
         );
 
         assert!(result.is_some());
@@ -694,6 +750,7 @@ mod tests {
             None,
             start_epoch,
             start_epoch + 100.0,
+            0,
         );
 
         assert!(result.is_some());
@@ -730,6 +787,7 @@ mod tests {
             None,
             start_epoch,
             start_epoch + 100.0,
+            0,
         );
 
         assert!(result.is_some());

@@ -257,7 +257,12 @@ where
     let mut z = na::DMatrix::<f64>::identity(N, N);
 
     const MAX_ITERATIONS: usize = 50;
-    const TOLERANCE: f64 = 1e-10;
+    const TOLERANCE: f64 = 1e-12;
+
+    // Tolerances scale with the magnitude of the input. Covariance products
+    // reach norms of 1e12 or more, where a fixed absolute threshold cannot be
+    // met even by a fully converged iteration.
+    let scale = a.norm().max(1.0);
 
     for _ in 0..MAX_ITERATIONS {
         // Compute inverses
@@ -275,7 +280,7 @@ where
 
         // Check convergence: ||Y_{k+1} - Y_k|| < tolerance
         let diff = (&y_new - &y).norm();
-        if diff < TOLERANCE {
+        if diff < TOLERANCE * scale {
             y = y_new;
             break;
         }
@@ -284,14 +289,21 @@ where
         z = z_new;
     }
 
-    // Verify the result: Y * Y should equal A
+    // Verify the result: Y * Y should equal A. Compare column by column so a
+    // poorly resolved direction cannot be hidden by a larger one dominating the
+    // norm; a single global bound would accept a negative eigenvalue whose
+    // magnitude is small next to the rest of the matrix.
     let check = &y * &y;
-    let error = (&check - &a).norm();
-    if error > 1e-8 {
-        return Err(format!(
-            "Matrix square root did not converge to sufficient accuracy (error: {})",
-            error
-        ));
+    let residual = &check - &a;
+    for j in 0..N {
+        let col_error = residual.column(j).norm();
+        let col_scale = a.column(j).norm().max(1.0);
+        if col_error > 1e-8 * col_scale {
+            return Err(format!(
+                "Matrix square root did not converge to sufficient accuracy (column {} error: {})",
+                j, col_error
+            ));
+        }
     }
 
     // Convert back to SMatrix
@@ -360,7 +372,12 @@ pub fn sqrtm_dmatrix(matrix: &na::DMatrix<f64>) -> Result<na::DMatrix<f64>, Stri
     let mut z = na::DMatrix::<f64>::identity(n, n);
 
     const MAX_ITERATIONS: usize = 50;
-    const TOLERANCE: f64 = 1e-10;
+    const TOLERANCE: f64 = 1e-12;
+
+    // Tolerances scale with the magnitude of the input. Covariance products
+    // reach norms of 1e12 or more, where a fixed absolute threshold cannot be
+    // met even by a fully converged iteration.
+    let scale = matrix.norm().max(1.0);
 
     for _ in 0..MAX_ITERATIONS {
         // Compute inverses
@@ -378,7 +395,7 @@ pub fn sqrtm_dmatrix(matrix: &na::DMatrix<f64>) -> Result<na::DMatrix<f64>, Stri
 
         // Check convergence: ||Y_{k+1} - Y_k|| < tolerance
         let diff = (&y_new - &y).norm();
-        if diff < TOLERANCE {
+        if diff < TOLERANCE * scale {
             y = y_new;
             break;
         }
@@ -387,14 +404,21 @@ pub fn sqrtm_dmatrix(matrix: &na::DMatrix<f64>) -> Result<na::DMatrix<f64>, Stri
         z = z_new;
     }
 
-    // Verify the result: Y * Y should equal A
+    // Verify the result: Y * Y should equal A. Compare column by column so a
+    // poorly resolved direction cannot be hidden by a larger one dominating the
+    // norm; a single global bound would accept a negative eigenvalue whose
+    // magnitude is small next to the rest of the matrix.
     let check = &y * &y;
-    let error = (&check - matrix).norm();
-    if error > 1e-8 {
-        return Err(format!(
-            "Matrix square root did not converge to sufficient accuracy (error: {})",
-            error
-        ));
+    let residual = &check - matrix;
+    for j in 0..n {
+        let col_error = residual.column(j).norm();
+        let col_scale = matrix.column(j).norm().max(1.0);
+        if col_error > 1e-8 * col_scale {
+            return Err(format!(
+                "Matrix square root did not converge to sufficient accuracy (column {} error: {})",
+                j, col_error
+            ));
+        }
     }
 
     Ok(y)

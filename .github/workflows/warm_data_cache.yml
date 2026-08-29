@@ -206,29 +206,32 @@ jobs:
                     key: star-catalogs-v1
 
             # ── Plot resources (textures, basemap, cartopy) ───────────────
-            -   name: Cache 3D body textures
+            -   name: Restore 3D body textures cache
+                id: textures-cache
                 if: ${{ !cancelled() }}
-                uses: actions/cache@v6.1.0
+                uses: actions/cache/restore@v6.1.0
                 with:
                     path: ~/.cache/brahe/textures
                     key: brahe-3d-textures-v2
-            -   name: Cache Natural Earth land basemap
+            -   name: Restore Natural Earth land basemap cache
+                id: natural-earth-cache
                 if: ${{ !cancelled() }}
-                uses: actions/cache@v6.1.0
+                uses: actions/cache/restore@v6.1.0
                 with:
                     path: ~/.cache/brahe/natural_earth
                     key: natural-earth-50m-land-v1
-            -   name: Cache cartopy Natural Earth data
+            -   name: Restore cartopy Natural Earth data cache
+                id: cartopy-cache
                 if: ${{ !cancelled() }}
-                uses: actions/cache@v6.1.0
+                uses: actions/cache/restore@v6.1.0
                 with:
                     path: ~/.local/share/cartopy
                     key: cartopy-natural-earth-v1
-            # This step runs after the family save steps above, so
             # `just download-resources` must fetch only artifacts that are
-            # either in the manifest (already saved by those steps) or
-            # covered by the three plot-resource cache steps directly above:
-            # anything else it downloads here is never persisted.
+            # either in the manifest (already saved by the family save steps
+            # above) or covered by the three plot-resource caches restored
+            # directly above: anything else it downloads here is never
+            # persisted.
             -   name: Warm plot resources
                 id: warm-plots
                 if: ${{ !cancelled() }}
@@ -236,6 +239,24 @@ jobs:
                 env:
                     BRAHE_NETWORK_MODE: online
                 run: just download-resources
+            -   name: Save 3D body textures cache
+                if: ${{ !cancelled() && steps.warm-plots.outcome == 'success' && steps.textures-cache.outputs.cache-hit != 'true' }}
+                uses: actions/cache/save@v6.1.0
+                with:
+                    path: ~/.cache/brahe/textures
+                    key: brahe-3d-textures-v2
+            -   name: Save Natural Earth land basemap cache
+                if: ${{ !cancelled() && steps.warm-plots.outcome == 'success' && steps.natural-earth-cache.outputs.cache-hit != 'true' }}
+                uses: actions/cache/save@v6.1.0
+                with:
+                    path: ~/.cache/brahe/natural_earth
+                    key: natural-earth-50m-land-v1
+            -   name: Save cartopy Natural Earth data cache
+                if: ${{ !cancelled() && steps.warm-plots.outcome == 'success' && steps.cartopy-cache.outputs.cache-hit != 'true' }}
+                uses: actions/cache/save@v6.1.0
+                with:
+                    path: ~/.local/share/cartopy
+                    key: cartopy-natural-earth-v1
 
             -   name: Fail if any family failed to warm
                 if: >-

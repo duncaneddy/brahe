@@ -82,8 +82,9 @@ test-integration-python *flags: _setup
     uv pip install -e ".[all]" --quiet
     {{python}} -m pytest tests/ -v -m integration {{flags}}
 
-# Run serially before the parallel example/plot pools so they never download (or
-# race) live. Idempotent: each downloader fast-paths if its resource is cached.
+# Serial warm that test-examples, test-example, make-plots, and make-plot depend
+# on so their parallel pools never download (or race) live. Idempotent: each
+# downloader fast-paths if its resource is cached.
 # Pre-download network resources (Natural Earth texture, land basemap, cartopy)
 download-resources: _setup
     @{{python}} -c "from brahe.plots.texture_utils import download_natural_earth_texture; download_natural_earth_texture('50m')"
@@ -98,11 +99,11 @@ download-resources: _setup
     @{{python}} -c "import brahe as bh; c = bh.celestrak.CelestrakClient(cache_max_age=60*86400); c.get_gp(group='active'); c.get_gp(group='starlink'); c.get_gp(group='gps-ops'); c.get_gp(group='cosmos-1408-debris'); c.get_gp(group='fengyun-1c-debris'); c.get_gp(group='iridium-33-debris'); c.get_gp(group='cosmos-2251-debris')"
 
 # Test all documentation examples (delegates to scripts/test_examples.py)
-test-examples *args: _setup
+test-examples *args: _setup download-resources
     @PYTHONPATH={{scripts_dir}} {{python}} {{scripts_dir}}/test_examples.py {{args}}
 
 # Test a specific example (delegates to scripts/test_example.py)
-test-example *args: _setup
+test-example *args: _setup download-resources
     @PYTHONPATH={{scripts_dir}} {{python}} {{scripts_dir}}/test_example.py {{args}}
 
 # ───── Coverage ─────
@@ -567,11 +568,11 @@ docs-serve: _setup
 # ───── Plots & Figures ─────
 
 # Generate all documentation plots (delegates to scripts/make_plots.py)
-make-plots *args: _setup
+make-plots *args: _setup download-resources
     @PYTHONPATH={{scripts_dir}} {{python}} {{scripts_dir}}/make_plots.py {{args}}
 
 # Generate a specific plot (delegates to scripts/make_plot.py)
-make-plot *args: _setup
+make-plot *args: _setup download-resources
     @PYTHONPATH={{scripts_dir}} {{python}} {{scripts_dir}}/make_plot.py {{args}}
 
 # ───── Build & Package ─────

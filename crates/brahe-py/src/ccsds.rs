@@ -5685,15 +5685,6 @@ impl PyAPM {
         }
         dict.set_item("maneuvers", maneuvers)?;
 
-        // User-defined
-        if let Some(ref ud) = self.inner.user_defined {
-            let ud_dict = pyo3::types::PyDict::new(py);
-            for (k, v) in &ud.parameters {
-                ud_dict.set_item(k, v)?;
-            }
-            dict.set_item("user_defined", ud_dict)?;
-        }
-
         Ok(dict)
     }
 

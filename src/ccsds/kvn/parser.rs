@@ -1696,9 +1696,6 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
     let mut inertias: Vec<APMInertia> = Vec::new();
     let mut maneuvers: Vec<APMManeuver> = Vec::new();
 
-    // User-defined
-    let mut user_defined: HashMap<String, String> = HashMap::new();
-
     let active_ts = |ts: &Option<CCSDSTimeSystem>| ts.clone().unwrap_or(CCSDSTimeSystem::UTC);
 
     for line in content.lines() {
@@ -1786,7 +1783,7 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
             (ApmState::Metadata, KVNToken::Empty) => {}
 
             // ===== DATA (top level, between/before blocks) =====
-            (ApmState::Data, KVNToken::KeyValue { key, value }) => match key.as_str() {
+            (ApmState::Data, KVNToken::KeyValue { key, value: _ }) => match key.as_str() {
                 "QUAT_START" => {
                     blk_ref_frame_a = None;
                     blk_ref_frame_b = None;
@@ -1863,8 +1860,13 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                     state = ApmState::Man;
                 }
                 k if k.starts_with("USER_DEFINED_") => {
-                    let param_name = k.strip_prefix("USER_DEFINED_").unwrap_or(k);
-                    user_defined.insert(param_name.to_string(), strip_units(&value).to_string());
+                    return Err(ccsds_parse_error(
+                        "APM",
+                        &format!(
+                            "unexpected keyword '{}' in data section: USER_DEFINED_* is not part of APM per 504.0-B-2 §3.2.4.2",
+                            k
+                        ),
+                    ));
                 }
                 _ => {
                     return Err(ccsds_parse_error(
@@ -2294,6 +2296,25 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
         }
     }
 
+    // A file that ends while the state machine is still inside a logical
+    // block (a `*_START` without a matching `*_STOP`) is malformed per
+    // 504.0-B-2 §3.2.4.3.
+    let unterminated_block = match state {
+        ApmState::Quat => Some("QUAT"),
+        ApmState::Euler => Some("EULER"),
+        ApmState::AngVel => Some("ANGVEL"),
+        ApmState::Spin => Some("SPIN"),
+        ApmState::Inertia => Some("INERTIA"),
+        ApmState::Man => Some("MAN"),
+        ApmState::Header | ApmState::Metadata | ApmState::Data => None,
+    };
+    if let Some(block) = unterminated_block {
+        return Err(ccsds_parse_error(
+            "APM",
+            &format!("unterminated {} block: missing {}_STOP", block, block),
+        ));
+    }
+
     let header = APMHeader {
         format_version: format_version
             .ok_or_else(|| ccsds_missing_field("APM", "CCSDS_APM_VERS"))?,
@@ -2312,14 +2333,6 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
         comments: metadata_comments,
     };
 
-    let user_def = if user_defined.is_empty() {
-        None
-    } else {
-        Some(CCSDSUserDefined {
-            parameters: user_defined,
-        })
-    };
-
     let apm = APM {
         header,
         metadata,
@@ -2331,7 +2344,6 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
         spins,
         inertias,
         maneuvers,
-        user_defined: user_def,
     };
 
     if !apm.has_blocks() {
@@ -4615,6 +4627,29 @@ mod tests {
 
     #[test]
     #[parallel]
+    fn test_parse_apm_unterminated_block_rejected() {
+        // G-1's QUAT_START block truncated right after the `Q3 =` line: no
+        // QC, no QUAT_STOP, so the parser reaches EOF still inside the
+        // quaternion block.
+        let content = std::fs::read_to_string("test_assets/ccsds/apm/APMExampleG1.txt").unwrap();
+        let cutoff = content.find("Q3").expect("fixture must contain Q3");
+        let line_end = content[cutoff..]
+            .find('\n')
+            .map(|i| cutoff + i)
+            .expect("Q3 line must be followed by a newline");
+        let truncated = &content[..line_end];
+
+        let err = parse_apm(truncated).unwrap_err();
+        let msg = format!("{}", err);
+        assert!(
+            msg.contains("unterminated") && msg.contains("QUAT"),
+            "unexpected message: {}",
+            msg
+        );
+    }
+
+    #[test]
+    #[parallel]
     fn test_parse_apm_bad_euler_seq_rejected() {
         let content =
             std::fs::read_to_string("test_assets/ccsds/apm/APM-bad-euler-seq.txt").unwrap();
@@ -4836,7 +4871,11 @@ QUAT_STOP\n";
 
     #[test]
     #[parallel]
-    fn test_parse_apm_user_defined() {
+    fn test_parse_apm_user_defined_rejected() {
+        // USER_DEFINED_* is not part of APM (504.0-B-2 restricts APM's data
+        // section to the six logical blocks in table 3-1; USER_DEFINED_* is
+        // ODM/ACM-only per §3.2.4.2), so it must be rejected like any other
+        // unrecognized keyword.
         let content = apm_prefix()
             + "QUAT_START\n\
 REF_FRAME_A = ICRF\n\
@@ -4847,11 +4886,12 @@ Q3 = 0.0\n\
 QC = 1.0\n\
 QUAT_STOP\n\
 USER_DEFINED_BATTERY_STATE = NOMINAL\n";
-        let apm = parse_apm(&content).unwrap();
-        let ud = apm.user_defined.unwrap();
-        assert_eq!(
-            ud.parameters.get("BATTERY_STATE"),
-            Some(&"NOMINAL".to_string())
+        let err = parse_apm(&content).unwrap_err();
+        let msg = format!("{}", err);
+        assert!(
+            msg.contains("USER_DEFINED_BATTERY_STATE") && msg.contains("not part of APM"),
+            "unexpected message: {}",
+            msg
         );
     }
 

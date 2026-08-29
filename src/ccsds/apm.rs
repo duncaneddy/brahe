@@ -1,9 +1,13 @@
 /*!
- * CCSDS Attitude Parameter Message (APM) header.
+ * CCSDS Attitude Parameter Message (APM).
  *
- * APM messages contain attitude-related parameters for spacecraft and can include
- * attitude sensor data, maneuvers, and covariance information. This module
- * provides the message header; the full message structure is added incrementally.
+ * An APM describes a spacecraft's attitude state at a single epoch, per
+ * CCSDS 504.0-B-2 §3. The message data section is composed of up to six
+ * repeatable logical blocks: attitude quaternion, Euler angle, angular
+ * velocity, spin, inertia, and maneuver. This module provides the message
+ * types, KVN/XML/JSON read and write support, and uses brahe-native
+ * (radian, SI) internal units, converting to/from the wire units defined by
+ * the standard.
  *
  * Reference: CCSDS 504.0-B-2 (Attitude Data Messages), table 3-1
  */
@@ -13,7 +17,7 @@ use std::path::Path;
 use nalgebra::{Vector3, Vector4};
 
 use crate::attitude::attitude_types::{EulerAngle, Quaternion};
-use crate::ccsds::common::{CCSDSFormat, CCSDSJsonKeyCase, CCSDSTimeSystem, CCSDSUserDefined};
+use crate::ccsds::common::{CCSDSFormat, CCSDSJsonKeyCase, CCSDSTimeSystem};
 use crate::ccsds::frames::ADMReferenceFrame;
 use crate::constants::{AngleFormat, DEG2RAD};
 use crate::math::SMatrix3;
@@ -716,8 +720,6 @@ pub struct APM {
     pub inertias: Vec<APMInertia>,
     /// Maneuver blocks.
     pub maneuvers: Vec<APMManeuver>,
-    /// Optional user-defined parameters.
-    pub user_defined: Option<CCSDSUserDefined>,
 }
 
 impl APM {
@@ -755,7 +757,6 @@ impl APM {
             spins: Vec::new(),
             inertias: Vec::new(),
             maneuvers: Vec::new(),
-            user_defined: None,
         }
     }
 
@@ -787,12 +788,6 @@ impl APM {
     /// Appends a maneuver block.
     pub fn push_maneuver(&mut self, maneuver: APMManeuver) {
         self.maneuvers.push(maneuver);
-    }
-
-    /// Sets the user-defined parameters.
-    pub fn with_user_defined(mut self, user_defined: CCSDSUserDefined) -> Self {
-        self.user_defined = Some(user_defined);
-        self
     }
 
     /// Returns `true` if at least one logical block is present.
@@ -1152,7 +1147,6 @@ mod tests {
         assert!(apm.spins.is_empty());
         assert!(apm.inertias.is_empty());
         assert!(apm.maneuvers.is_empty());
-        assert!(apm.user_defined.is_none());
         assert!(!apm.has_blocks());
     }
 
@@ -1221,52 +1215,40 @@ mod tests {
         assert!(!apm.has_blocks());
     }
 
-    #[test]
-    #[parallel]
-    fn test_apm_with_user_defined() {
-        let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
-        let mut params = std::collections::HashMap::new();
-        params.insert("BATTERY_STATE".to_string(), "NOMINAL".to_string());
-        let apm = APM::new("BRAHE", metadata, Epoch::now())
-            .with_user_defined(CCSDSUserDefined { parameters: params });
-        assert!(apm.user_defined.is_some());
-        assert_eq!(
-            apm.user_defined.unwrap().parameters.get("BATTERY_STATE"),
-            Some(&"NOMINAL".to_string())
-        );
-    }
-
     // ------------------------------------------------------------------
     // Format dispatch (from_str/from_file/to_string/to_json_string/to_file)
     // ------------------------------------------------------------------
 
     /// Compares every value field of two APM messages, including all
-    /// logical blocks, with approximate comparison for floats. Comment
-    /// fields are intentionally excluded: JSON does not round-trip header,
-    /// metadata, or block comments (mirroring the OEM/OPM JSON codecs), so
-    /// comparing them would make the three-way (KVN/XML/JSON) round-trip
-    /// tests format-dependent.
+    /// logical blocks and comment vectors (header, metadata, data, and
+    /// per-block), with approximate comparison for floats.
     fn assert_apm_fields_match(a: &APM, b: &APM) {
         // Header
         assert!((a.header.format_version - b.header.format_version).abs() < 1e-9);
         assert_eq!(a.header.classification, b.header.classification);
         assert_eq!(a.header.originator, b.header.originator);
         assert_eq!(a.header.message_id, b.header.message_id);
+        assert_eq!(a.header.comments, b.header.comments);
 
         // Metadata
         assert_eq!(a.metadata.object_name, b.metadata.object_name);
         assert_eq!(a.metadata.object_id, b.metadata.object_id);
         assert_eq!(a.metadata.center_name, b.metadata.center_name);
         assert_eq!(a.metadata.time_system, b.metadata.time_system);
+        assert_eq!(a.metadata.comments, b.metadata.comments);
 
         // Epoch
         assert!((a.epoch - b.epoch).abs() < 1e-6);
+
+        // Data-section comments
+        assert_eq!(a.comments, b.comments);
 
         // Quaternion states
         assert_eq!(a.quaternion_states.len(), b.quaternion_states.len());
         for (qa, qb) in a.quaternion_states.iter().zip(b.quaternion_states.iter()) {
             assert_eq!(qa.ref_frame_a, qb.ref_frame_a);
             assert_eq!(qa.ref_frame_b, qb.ref_frame_b);
+            assert_eq!(qa.comments, qb.comments);
             let va = qa.quaternion.to_vector(false);
             let vb = qb.quaternion.to_vector(false);
             for i in 0..4 {
@@ -1288,6 +1270,7 @@ mod tests {
         for (ea, eb) in a.euler_states.iter().zip(b.euler_states.iter()) {
             assert_eq!(ea.ref_frame_a, eb.ref_frame_a);
             assert_eq!(ea.ref_frame_b, eb.ref_frame_b);
+            assert_eq!(ea.comments, eb.comments);
             assert_eq!(ea.angles.order, eb.angles.order);
             assert!((ea.angles.phi - eb.angles.phi).abs() < 1e-9);
             assert!((ea.angles.theta - eb.angles.theta).abs() < 1e-9);
@@ -1306,6 +1289,7 @@ mod tests {
             assert_eq!(va.ref_frame_a, vb.ref_frame_a);
             assert_eq!(va.ref_frame_b, vb.ref_frame_b);
             assert_eq!(va.angvel_frame, vb.angvel_frame);
+            assert_eq!(va.comments, vb.comments);
             for i in 0..3 {
                 assert!((va.angular_velocity[i] - vb.angular_velocity[i]).abs() < 1e-9);
             }
@@ -1316,6 +1300,7 @@ mod tests {
         for (sa, sb) in a.spins.iter().zip(b.spins.iter()) {
             assert_eq!(sa.ref_frame_a, sb.ref_frame_a);
             assert_eq!(sa.ref_frame_b, sb.ref_frame_b);
+            assert_eq!(sa.comments, sb.comments);
             assert!((sa.spin_alpha - sb.spin_alpha).abs() < 1e-9);
             assert!((sa.spin_delta - sb.spin_delta).abs() < 1e-9);
             assert!((sa.spin_angle - sb.spin_angle).abs() < 1e-9);
@@ -1362,6 +1347,7 @@ mod tests {
         assert_eq!(a.inertias.len(), b.inertias.len());
         for (ia, ib) in a.inertias.iter().zip(b.inertias.iter()) {
             assert_eq!(ia.inertia_ref_frame, ib.inertia_ref_frame);
+            assert_eq!(ia.comments, ib.comments);
             assert!((ia.ixx - ib.ixx).abs() < 1e-6);
             assert!((ia.iyy - ib.iyy).abs() < 1e-6);
             assert!((ia.izz - ib.izz).abs() < 1e-6);
@@ -1380,13 +1366,8 @@ mod tests {
                 assert!((ma.torque[i] - mb.torque[i]).abs() < 1e-9);
             }
             assert_eq!(ma.delta_mass, mb.delta_mass);
+            assert_eq!(ma.comments, mb.comments);
         }
-
-        // User-defined
-        assert_eq!(
-            a.user_defined.as_ref().map(|ud| &ud.parameters),
-            b.user_defined.as_ref().map(|ud| &ud.parameters)
-        );
     }
 
     fn apm_g1() -> APM {
@@ -1559,6 +1540,9 @@ mod tests {
         let metadata =
             APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC).with_center_name("EARTH");
         let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+        apm.header = apm
+            .header
+            .with_comments(vec!["synthetic header comment".to_string()]);
 
         apm.push_quaternion_state(
             APMQuaternionState::new(icrf(), sc_body_1(), Quaternion::new(0.5, 0.5, 0.5, 0.5))
@@ -1653,12 +1637,10 @@ mod tests {
         assert_apm_fields_match(&apm1, &apm_upper);
     }
 
-    /// Builds an APM with a simple (non-nutating) spin block and
-    /// user-defined parameters — neither of which is exercised by
-    /// `apm_all_blocks()` or the G1/G2/G3 fixtures, leaving the
-    /// `APMNutation::None` writer arm and the APM-specific `user_defined`
-    /// XML/JSON write+parse paths uncovered.
-    fn apm_simple_spin_and_user_defined() -> APM {
+    /// Builds an APM with a simple (non-nutating) spin block, which is not
+    /// exercised by `apm_all_blocks()` or the G1/G2/G3 fixtures, leaving the
+    /// `APMNutation::None` writer arm uncovered.
+    fn apm_simple_spin() -> APM {
         let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
         let mut apm = APM::new("BRAHE", metadata, Epoch::now());
 
@@ -1677,15 +1659,13 @@ mod tests {
             AngleFormat::Degrees,
         ));
 
-        let mut params = std::collections::HashMap::new();
-        params.insert("BATTERY_STATE".to_string(), "NOMINAL".to_string());
-        apm.with_user_defined(CCSDSUserDefined { parameters: params })
+        apm
     }
 
     #[test]
     #[parallel]
-    fn test_apm_simple_spin_and_user_defined_kvn_round_trip() {
-        let apm1 = apm_simple_spin_and_user_defined();
+    fn test_apm_simple_spin_kvn_round_trip() {
+        let apm1 = apm_simple_spin();
         let kvn = apm1.to_string(CCSDSFormat::KVN).unwrap();
         let apm2 = APM::from_str(&kvn).unwrap();
         assert!(matches!(apm2.spins[0].nutation, APMNutation::None));
@@ -1694,8 +1674,8 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_apm_simple_spin_and_user_defined_xml_round_trip() {
-        let apm1 = apm_simple_spin_and_user_defined();
+    fn test_apm_simple_spin_xml_round_trip() {
+        let apm1 = apm_simple_spin();
         let xml = apm1.to_string(CCSDSFormat::XML).unwrap();
         let apm2 = APM::from_str(&xml).unwrap();
         assert!(matches!(apm2.spins[0].nutation, APMNutation::None));
@@ -1704,8 +1684,8 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_apm_simple_spin_and_user_defined_json_round_trip() {
-        let apm1 = apm_simple_spin_and_user_defined();
+    fn test_apm_simple_spin_json_round_trip() {
+        let apm1 = apm_simple_spin();
         let json = apm1.to_string(CCSDSFormat::JSON).unwrap();
         let apm2 = APM::from_str(&json).unwrap();
         assert!(matches!(apm2.spins[0].nutation, APMNutation::None));
@@ -1721,5 +1701,47 @@ mod tests {
         let json = apm1.to_json_string(CCSDSJsonKeyCase::Lower).unwrap();
         let apm2 = APM::from_str(&json).unwrap();
         assert_eq!(apm1.comments, apm2.comments);
+    }
+
+    /// EPOCH (and MAN_EPOCH_START) must be written in the metadata
+    /// TIME_SYSTEM, not the `Epoch`'s own internal time system.
+    #[test]
+    #[parallel]
+    fn test_apm_epoch_written_in_metadata_time_system() {
+        use crate::time::TimeSystem;
+
+        let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::TAI);
+        let epoch_utc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let mut apm = APM::new("BRAHE", metadata, epoch_utc);
+        apm.push_quaternion_state(APMQuaternionState::new(
+            icrf(),
+            sc_body_1(),
+            Quaternion::new(1.0, 0.0, 0.0, 0.0),
+        ));
+
+        let kvn = apm.to_string(CCSDSFormat::KVN).unwrap();
+
+        // The emitted EPOCH string must equal the TAI representation of the
+        // (UTC-constructed) epoch, not its UTC representation.
+        let epoch_tai = epoch_utc.to_time_system(TimeSystem::TAI);
+        let expected = crate::ccsds::common::format_ccsds_datetime(&epoch_tai);
+        let unexpected = crate::ccsds::common::format_ccsds_datetime(&epoch_utc);
+        assert_ne!(expected, unexpected);
+        assert!(
+            kvn.contains(&format!("EPOCH = {}\n", expected)),
+            "expected EPOCH line for '{}' in:\n{}",
+            expected,
+            kvn
+        );
+
+        // Reparsing must yield the same instant, compared in a
+        // time-system-independent way.
+        let apm2 = APM::from_str(&kvn).unwrap();
+        assert!(
+            (apm2.epoch.mjd_as_time_system(TimeSystem::TAI)
+                - epoch_utc.mjd_as_time_system(TimeSystem::TAI))
+            .abs()
+                < 1e-9
+        );
     }
 }

@@ -317,6 +317,14 @@ fn write_xml_user_defined(out: &mut String, ud: &CCSDSUserDefined, i_block: &str
     out.push_str(&format!("{}</userDefinedParameters>\n", i_block));
 }
 
+/// Escapes `&`, `<`, and `>` in free-text XML element content. Attribute
+/// quoting is not needed since this is only used for element text.
+fn escape_xml_text(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
 // ============================================================================
 // OEM XML Writer
 // ============================================================================
@@ -927,17 +935,40 @@ pub fn write_apm_xml(apm: &APM) -> Result<String, BraheError> {
 
     out.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
     out.push_str(&format!(
-        "<apm id=\"CCSDS_APM_VERS\" version=\"{:.1}\">\n",
+        "<apm xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" id=\"CCSDS_APM_VERS\" version=\"{:.1}\">\n",
         apm.header.format_version
     ));
+
+    // EPOCH and MAN_EPOCH_START must be written in the metadata TIME_SYSTEM
+    // (504.0-B-2 §3.2.4.4), not the `Epoch`'s own internal time system. A
+    // handful of CCSDS time systems (SCLK, MET, MRT, GMST, TDR) have no
+    // corresponding `crate::time::TimeSystem` — they are spacecraft- or
+    // mission-specific clocks with no fixed relationship to the physical
+    // time systems `Epoch` represents — so for those the epoch is written
+    // as stored, unconverted.
+    let write_ts = apm.metadata.time_system.to_time_system();
+    let epoch_for_write = |e: &crate::time::Epoch| -> crate::time::Epoch {
+        match write_ts {
+            Some(ts) => e.to_time_system(ts),
+            None => *e,
+        }
+    };
 
     // Header
     out.push_str(&format!("{}<header>\n", i1));
     for c in &apm.header.comments {
-        out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i2, c));
+        out.push_str(&format!(
+            "{}<COMMENT>{}</COMMENT>\n",
+            i2,
+            escape_xml_text(c)
+        ));
     }
     if let Some(ref cl) = apm.header.classification {
-        out.push_str(&format!("{}<CLASSIFICATION>{}</CLASSIFICATION>\n", i2, cl));
+        out.push_str(&format!(
+            "{}<CLASSIFICATION>{}</CLASSIFICATION>\n",
+            i2,
+            escape_xml_text(cl)
+        ));
     }
     out.push_str(&format!(
         "{}<CREATION_DATE>{}</CREATION_DATE>\n",
@@ -946,10 +977,15 @@ pub fn write_apm_xml(apm: &APM) -> Result<String, BraheError> {
     ));
     out.push_str(&format!(
         "{}<ORIGINATOR>{}</ORIGINATOR>\n",
-        i2, apm.header.originator
+        i2,
+        escape_xml_text(&apm.header.originator)
     ));
     if let Some(ref mid) = apm.header.message_id {
-        out.push_str(&format!("{}<MESSAGE_ID>{}</MESSAGE_ID>\n", i2, mid));
+        out.push_str(&format!(
+            "{}<MESSAGE_ID>{}</MESSAGE_ID>\n",
+            i2,
+            escape_xml_text(mid)
+        ));
     }
     out.push_str(&format!("{}</header>\n", i1));
 
@@ -959,18 +995,28 @@ pub fn write_apm_xml(apm: &APM) -> Result<String, BraheError> {
     // Metadata
     out.push_str(&format!("{}<metadata>\n", i3));
     for c in &apm.metadata.comments {
-        out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i4, c));
+        out.push_str(&format!(
+            "{}<COMMENT>{}</COMMENT>\n",
+            i4,
+            escape_xml_text(c)
+        ));
     }
     out.push_str(&format!(
         "{}<OBJECT_NAME>{}</OBJECT_NAME>\n",
-        i4, apm.metadata.object_name
+        i4,
+        escape_xml_text(&apm.metadata.object_name)
     ));
     out.push_str(&format!(
         "{}<OBJECT_ID>{}</OBJECT_ID>\n",
-        i4, apm.metadata.object_id
+        i4,
+        escape_xml_text(&apm.metadata.object_id)
     ));
     if let Some(ref center) = apm.metadata.center_name {
-        out.push_str(&format!("{}<CENTER_NAME>{}</CENTER_NAME>\n", i4, center));
+        out.push_str(&format!(
+            "{}<CENTER_NAME>{}</CENTER_NAME>\n",
+            i4,
+            escape_xml_text(center)
+        ));
     }
     out.push_str(&format!(
         "{}<TIME_SYSTEM>{}</TIME_SYSTEM>\n",
@@ -981,27 +1027,37 @@ pub fn write_apm_xml(apm: &APM) -> Result<String, BraheError> {
     // Data
     out.push_str(&format!("{}<data>\n", i3));
     for c in &apm.comments {
-        out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i4, c));
+        out.push_str(&format!(
+            "{}<COMMENT>{}</COMMENT>\n",
+            i4,
+            escape_xml_text(c)
+        ));
     }
     out.push_str(&format!(
         "{}<EPOCH>{}</EPOCH>\n",
         i4,
-        format_ccsds_datetime(&apm.epoch)
+        format_ccsds_datetime(&epoch_for_write(&apm.epoch))
     ));
 
     // Quaternion blocks
     for q in &apm.quaternion_states {
         out.push_str(&format!("{}<quaternionState>\n", i4));
         for c in &q.comments {
-            out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i5, c));
+            out.push_str(&format!(
+                "{}<COMMENT>{}</COMMENT>\n",
+                i5,
+                escape_xml_text(c)
+            ));
         }
         out.push_str(&format!(
             "{}<REF_FRAME_A>{}</REF_FRAME_A>\n",
-            i5, q.ref_frame_a
+            i5,
+            escape_xml_text(&format!("{}", q.ref_frame_a))
         ));
         out.push_str(&format!(
             "{}<REF_FRAME_B>{}</REF_FRAME_B>\n",
-            i5, q.ref_frame_b
+            i5,
+            escape_xml_text(&format!("{}", q.ref_frame_b))
         ));
         let v = q.quaternion.to_vector(false);
         out.push_str(&format!("{}<quaternion>\n", i5));
@@ -1026,15 +1082,21 @@ pub fn write_apm_xml(apm: &APM) -> Result<String, BraheError> {
     for e in &apm.euler_states {
         out.push_str(&format!("{}<eulerAngleState>\n", i4));
         for c in &e.comments {
-            out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i5, c));
+            out.push_str(&format!(
+                "{}<COMMENT>{}</COMMENT>\n",
+                i5,
+                escape_xml_text(c)
+            ));
         }
         out.push_str(&format!(
             "{}<REF_FRAME_A>{}</REF_FRAME_A>\n",
-            i5, e.ref_frame_a
+            i5,
+            escape_xml_text(&format!("{}", e.ref_frame_a))
         ));
         out.push_str(&format!(
             "{}<REF_FRAME_B>{}</REF_FRAME_B>\n",
-            i5, e.ref_frame_b
+            i5,
+            escape_xml_text(&format!("{}", e.ref_frame_b))
         ));
         out.push_str(&format!(
             "{}<EULER_ROT_SEQ>{}</EULER_ROT_SEQ>\n",
@@ -1080,19 +1142,26 @@ pub fn write_apm_xml(apm: &APM) -> Result<String, BraheError> {
     for av in &apm.angular_velocities {
         out.push_str(&format!("{}<angularVelocity>\n", i4));
         for c in &av.comments {
-            out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i5, c));
+            out.push_str(&format!(
+                "{}<COMMENT>{}</COMMENT>\n",
+                i5,
+                escape_xml_text(c)
+            ));
         }
         out.push_str(&format!(
             "{}<REF_FRAME_A>{}</REF_FRAME_A>\n",
-            i5, av.ref_frame_a
+            i5,
+            escape_xml_text(&format!("{}", av.ref_frame_a))
         ));
         out.push_str(&format!(
             "{}<REF_FRAME_B>{}</REF_FRAME_B>\n",
-            i5, av.ref_frame_b
+            i5,
+            escape_xml_text(&format!("{}", av.ref_frame_b))
         ));
         out.push_str(&format!(
             "{}<ANGVEL_FRAME>{}</ANGVEL_FRAME>\n",
-            i5, av.angvel_frame
+            i5,
+            escape_xml_text(&format!("{}", av.angvel_frame))
         ));
         out.push_str(&format!(
             "{}<ANGVEL_X>{}</ANGVEL_X>\n",
@@ -1116,15 +1185,21 @@ pub fn write_apm_xml(apm: &APM) -> Result<String, BraheError> {
     for s in &apm.spins {
         out.push_str(&format!("{}<spin>\n", i4));
         for c in &s.comments {
-            out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i5, c));
+            out.push_str(&format!(
+                "{}<COMMENT>{}</COMMENT>\n",
+                i5,
+                escape_xml_text(c)
+            ));
         }
         out.push_str(&format!(
             "{}<REF_FRAME_A>{}</REF_FRAME_A>\n",
-            i5, s.ref_frame_a
+            i5,
+            escape_xml_text(&format!("{}", s.ref_frame_a))
         ));
         out.push_str(&format!(
             "{}<REF_FRAME_B>{}</REF_FRAME_B>\n",
-            i5, s.ref_frame_b
+            i5,
+            escape_xml_text(&format!("{}", s.ref_frame_b))
         ));
         out.push_str(&format!(
             "{}<SPIN_ALPHA>{}</SPIN_ALPHA>\n",
@@ -1197,11 +1272,16 @@ pub fn write_apm_xml(apm: &APM) -> Result<String, BraheError> {
     for i_blk in &apm.inertias {
         out.push_str(&format!("{}<inertia>\n", i4));
         for c in &i_blk.comments {
-            out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i5, c));
+            out.push_str(&format!(
+                "{}<COMMENT>{}</COMMENT>\n",
+                i5,
+                escape_xml_text(c)
+            ));
         }
         out.push_str(&format!(
             "{}<INERTIA_REF_FRAME>{}</INERTIA_REF_FRAME>\n",
-            i5, i_blk.inertia_ref_frame
+            i5,
+            escape_xml_text(&format!("{}", i_blk.inertia_ref_frame))
         ));
         out.push_str(&format!("{}<IXX>{}</IXX>\n", i5, i_blk.ixx));
         out.push_str(&format!("{}<IYY>{}</IYY>\n", i5, i_blk.iyy));
@@ -1216,12 +1296,16 @@ pub fn write_apm_xml(apm: &APM) -> Result<String, BraheError> {
     for m in &apm.maneuvers {
         out.push_str(&format!("{}<maneuverParameters>\n", i4));
         for c in &m.comments {
-            out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i5, c));
+            out.push_str(&format!(
+                "{}<COMMENT>{}</COMMENT>\n",
+                i5,
+                escape_xml_text(c)
+            ));
         }
         out.push_str(&format!(
             "{}<MAN_EPOCH_START>{}</MAN_EPOCH_START>\n",
             i5,
-            format_ccsds_datetime(&m.epoch_start)
+            format_ccsds_datetime(&epoch_for_write(&m.epoch_start))
         ));
         out.push_str(&format!(
             "{}<MAN_DURATION>{}</MAN_DURATION>\n",
@@ -1229,7 +1313,8 @@ pub fn write_apm_xml(apm: &APM) -> Result<String, BraheError> {
         ));
         out.push_str(&format!(
             "{}<MAN_REF_FRAME>{}</MAN_REF_FRAME>\n",
-            i5, m.ref_frame
+            i5,
+            escape_xml_text(&format!("{}", m.ref_frame))
         ));
         out.push_str(&format!("{}<MAN_TOR_X>{}</MAN_TOR_X>\n", i5, m.torque[0]));
         out.push_str(&format!("{}<MAN_TOR_Y>{}</MAN_TOR_Y>\n", i5, m.torque[1]));
@@ -1242,11 +1327,6 @@ pub fn write_apm_xml(apm: &APM) -> Result<String, BraheError> {
 
     out.push_str(&format!("{}</data>\n", i3));
     out.push_str(&format!("{}</segment>\n", i2));
-
-    // User-defined parameters
-    if let Some(ref ud) = apm.user_defined {
-        write_xml_user_defined(&mut out, ud, i2, i3);
-    }
 
     out.push_str(&format!("{}</body>\n", i1));
     out.push_str("</apm>\n");

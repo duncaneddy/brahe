@@ -520,6 +520,21 @@ pub fn write_apm(apm: &APM) -> Result<String, BraheError> {
 
     let mut out = String::new();
 
+    // EPOCH and MAN_EPOCH_START must be written in the metadata TIME_SYSTEM
+    // (504.0-B-2 §3.2.4.4), not the `Epoch`'s own internal time system. A
+    // handful of CCSDS time systems (SCLK, MET, MRT, GMST, TDR) have no
+    // corresponding `crate::time::TimeSystem` — they are spacecraft- or
+    // mission-specific clocks with no fixed relationship to the physical
+    // time systems `Epoch` represents — so for those the epoch is written
+    // as stored, unconverted.
+    let write_ts = apm.metadata.time_system.to_time_system();
+    let epoch_for_write = |e: &crate::time::Epoch| -> crate::time::Epoch {
+        match write_ts {
+            Some(ts) => e.to_time_system(ts),
+            None => *e,
+        }
+    };
+
     // Header. Table 3-1 fixes the field order as VERS, COMMENT,
     // CLASSIFICATION, CREATION_DATE, ORIGINATOR, MESSAGE_ID; comments must
     // precede CLASSIFICATION so the parser (which routes any comment seen
@@ -560,7 +575,10 @@ pub fn write_apm(apm: &APM) -> Result<String, BraheError> {
     for comment in &apm.comments {
         out.push_str(&format!("COMMENT {}\n", comment));
     }
-    out.push_str(&format!("EPOCH = {}\n", format_ccsds_datetime(&apm.epoch)));
+    out.push_str(&format!(
+        "EPOCH = {}\n",
+        format_ccsds_datetime(&epoch_for_write(&apm.epoch))
+    ));
 
     // Quaternion blocks
     for q in &apm.quaternion_states {
@@ -695,7 +713,7 @@ pub fn write_apm(apm: &APM) -> Result<String, BraheError> {
         }
         out.push_str(&format!(
             "MAN_EPOCH_START = {}\n",
-            format_ccsds_datetime(&m.epoch_start)
+            format_ccsds_datetime(&epoch_for_write(&m.epoch_start))
         ));
         out.push_str(&format!("MAN_DURATION = {}\n", m.duration));
         out.push_str(&format!("MAN_REF_FRAME = {}\n", m.ref_frame));
@@ -707,9 +725,6 @@ pub fn write_apm(apm: &APM) -> Result<String, BraheError> {
         }
         out.push_str("MAN_STOP\n");
     }
-
-    // User-defined parameters
-    write_kvn_user_defined(&mut out, &apm.user_defined);
 
     Ok(out)
 }

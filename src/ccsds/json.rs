@@ -937,15 +937,36 @@ pub fn parse_apm_json(content: &str) -> Result<crate::ccsds::apm::APM, BraheErro
 
     let mut kvn_lines: Vec<String> = Vec::new();
 
+    // Header comments are only attributed to the header by the KVN parser
+    // while it has not yet seen CLASSIFICATION/CREATION_DATE/ORIGINATOR/
+    // MESSAGE_ID, so they must be emitted ahead of those keywords (their
+    // position relative to CCSDS_APM_VERS itself does not matter).
     if let Some(obj) = v.get("header").or_else(|| v.get("HEADER")) {
-        flatten_object(&mut kvn_lines, obj);
+        emit_json_comments(&mut kvn_lines, obj);
+        flatten_object_skip(&mut kvn_lines, obj, &["COMMENTS"]);
     }
 
     // serde_json's Map sorts keys alphabetically, which would place
     // CENTER_NAME ahead of OBJECT_NAME; the KVN parser requires OBJECT_NAME
-    // first to transition out of the header state.
+    // first to transition out of the header state. Metadata comments must be
+    // emitted before OBJECT_NAME too: once the parser has transitioned into
+    // the metadata state, a comment is instead attributed to the data
+    // section (matching `parse_apm`'s handling of a KVN file where the
+    // metadata's COMMENT lines always precede OBJECT_NAME).
     if let Some(obj) = v.get("metadata").or_else(|| v.get("METADATA")) {
-        flatten_object_ordered(&mut kvn_lines, obj, &["OBJECT_NAME"]);
+        emit_json_comments(&mut kvn_lines, obj);
+        if let Value::Object(map) = obj {
+            if let Some(val) = map.get("OBJECT_NAME").or_else(|| map.get("object_name")) {
+                emit_kvn(&mut kvn_lines, "OBJECT_NAME", val);
+            }
+            for (k, val) in map {
+                let ukey = k.to_uppercase();
+                if ukey == "OBJECT_NAME" || ukey == "COMMENTS" {
+                    continue;
+                }
+                emit_kvn(&mut kvn_lines, &ukey, val);
+            }
+        }
     }
 
     // Top-level data-section comments (before the first logical block) must
@@ -971,7 +992,8 @@ pub fn parse_apm_json(content: &str) -> Result<crate::ccsds::apm::APM, BraheErro
     // Logical blocks: each array item becomes an X_START/.../X_STOP group.
     // Field order within a block does not matter to the KVN parser (each
     // key independently sets local state; only the STOP keyword triggers
-    // assembly), so a plain flatten is sufficient.
+    // assembly), so comments can be emitted right after the START keyword
+    // and the remaining fields flattened in any order.
     let block_sections: [(&str, &str, &str); 6] = [
         ("quaternion_states", "QUAT_START", "QUAT_STOP"),
         ("euler_states", "EULER_START", "EULER_STOP"),
@@ -987,14 +1009,11 @@ pub fn parse_apm_json(content: &str) -> Result<crate::ccsds::apm::APM, BraheErro
         {
             for item in items {
                 kvn_lines.push(start.to_string());
-                flatten_object(&mut kvn_lines, item);
+                emit_json_comments(&mut kvn_lines, item);
+                flatten_object_skip(&mut kvn_lines, item, &["COMMENTS"]);
                 kvn_lines.push(stop.to_string());
             }
         }
-    }
-
-    if let Some(ud) = v.get("user_defined").or_else(|| v.get("USER_DEFINED")) {
-        flatten_object(&mut kvn_lines, ud);
     }
 
     let kvn_content = kvn_lines.join("\n");
@@ -1019,6 +1038,21 @@ pub fn write_apm_json(
         return Err(ccsds_missing_field("APM", "at least one logical block"));
     }
 
+    // EPOCH and MAN_EPOCH_START must be written in the metadata TIME_SYSTEM
+    // (504.0-B-2 §3.2.4.4), not the `Epoch`'s own internal time system. A
+    // handful of CCSDS time systems (SCLK, MET, MRT, GMST, TDR) have no
+    // corresponding `crate::time::TimeSystem` — they are spacecraft- or
+    // mission-specific clocks with no fixed relationship to the physical
+    // time systems `Epoch` represents — so for those the epoch is written
+    // as stored, unconverted.
+    let write_ts = apm.metadata.time_system.to_time_system();
+    let epoch_for_write = |e: &crate::time::Epoch| -> crate::time::Epoch {
+        match write_ts {
+            Some(ts) => e.to_time_system(ts),
+            None => *e,
+        }
+    };
+
     let mut root = Map::new();
 
     // Header
@@ -1038,6 +1072,9 @@ pub fn write_apm_json(
     if let Some(ref msg_id) = apm.header.message_id {
         header.insert(key("MESSAGE_ID", key_case), json!(msg_id));
     }
+    if !apm.header.comments.is_empty() {
+        header.insert("comments".into(), json!(apm.header.comments));
+    }
     root.insert("header".into(), Value::Object(header));
 
     // Metadata
@@ -1054,9 +1091,15 @@ pub fn write_apm_json(
         key("TIME_SYSTEM", key_case),
         json!(format!("{}", apm.metadata.time_system)),
     );
+    if !apm.metadata.comments.is_empty() {
+        meta.insert("comments".into(), json!(apm.metadata.comments));
+    }
     root.insert("metadata".into(), Value::Object(meta));
 
-    root.insert("epoch".into(), json!(format_ccsds_datetime(&apm.epoch)));
+    root.insert(
+        "epoch".into(),
+        json!(format_ccsds_datetime(&epoch_for_write(&apm.epoch))),
+    );
 
     if !apm.comments.is_empty() {
         root.insert("comments".into(), json!(apm.comments));
@@ -1087,6 +1130,9 @@ pub fn write_apm_json(
                 obj.insert(key("Q3_DOT", key_case), json!(d[3]));
                 obj.insert(key("QC_DOT", key_case), json!(d[0]));
             }
+            if !q.comments.is_empty() {
+                obj.insert("comments".into(), json!(q.comments));
+            }
             arr.push(Value::Object(obj));
         }
         root.insert("quaternion_states".into(), Value::Array(arr));
@@ -1116,6 +1162,9 @@ pub fn write_apm_json(
                 obj.insert(key("ANGLE_1_DOT", key_case), json!(r[0] * RAD2DEG));
                 obj.insert(key("ANGLE_2_DOT", key_case), json!(r[1] * RAD2DEG));
                 obj.insert(key("ANGLE_3_DOT", key_case), json!(r[2] * RAD2DEG));
+            }
+            if !e.comments.is_empty() {
+                obj.insert("comments".into(), json!(e.comments));
             }
             arr.push(Value::Object(obj));
         }
@@ -1151,6 +1200,9 @@ pub fn write_apm_json(
                 key("ANGVEL_Z", key_case),
                 json!(av.angular_velocity[2] * RAD2DEG),
             );
+            if !av.comments.is_empty() {
+                obj.insert("comments".into(), json!(av.comments));
+            }
             arr.push(Value::Object(obj));
         }
         root.insert("angular_velocities".into(), Value::Array(arr));
@@ -1206,6 +1258,9 @@ pub fn write_apm_json(
                     obj.insert(key("NUTATION_VEL", key_case), json!(nutation_vel * RAD2DEG));
                 }
             }
+            if !s.comments.is_empty() {
+                obj.insert("comments".into(), json!(s.comments));
+            }
             arr.push(Value::Object(obj));
         }
         root.insert("spins".into(), Value::Array(arr));
@@ -1226,6 +1281,9 @@ pub fn write_apm_json(
             obj.insert(key("IXY", key_case), json!(i.ixy));
             obj.insert(key("IXZ", key_case), json!(i.ixz));
             obj.insert(key("IYZ", key_case), json!(i.iyz));
+            if !i.comments.is_empty() {
+                obj.insert("comments".into(), json!(i.comments));
+            }
             arr.push(Value::Object(obj));
         }
         root.insert("inertias".into(), Value::Array(arr));
@@ -1238,7 +1296,7 @@ pub fn write_apm_json(
             let mut obj = Map::new();
             obj.insert(
                 key("MAN_EPOCH_START", key_case),
-                json!(format_ccsds_datetime(&m.epoch_start)),
+                json!(format_ccsds_datetime(&epoch_for_write(&m.epoch_start))),
             );
             obj.insert(key("MAN_DURATION", key_case), json!(m.duration));
             obj.insert(
@@ -1251,18 +1309,12 @@ pub fn write_apm_json(
             if let Some(dm) = m.delta_mass {
                 obj.insert(key("MAN_DELTA_MASS", key_case), json!(dm));
             }
+            if !m.comments.is_empty() {
+                obj.insert("comments".into(), json!(m.comments));
+            }
             arr.push(Value::Object(obj));
         }
         root.insert("maneuvers".into(), Value::Array(arr));
-    }
-
-    // User-defined
-    if let Some(ref ud) = apm.user_defined {
-        let mut ud_obj = Map::new();
-        for (k, v) in &ud.parameters {
-            ud_obj.insert(format!("USER_DEFINED_{}", k), json!(v));
-        }
-        root.insert("user_defined".into(), Value::Object(ud_obj));
     }
 
     serde_json::to_string_pretty(&Value::Object(root))
@@ -1955,6 +2007,20 @@ fn flatten_object(lines: &mut Vec<String>, obj: &Value) {
         for (key, val) in map {
             let ukey = key.to_uppercase();
             if ukey == COMMENTS_KEY {
+                continue;
+            }
+            emit_kvn(lines, &ukey, val);
+        }
+    }
+}
+
+/// Flatten a JSON object into KVN-style key=value lines, skipping the given
+/// (already-uppercased) keys.
+fn flatten_object_skip(lines: &mut Vec<String>, obj: &Value, skip: &[&str]) {
+    if let Value::Object(map) = obj {
+        for (key, val) in map {
+            let ukey = key.to_uppercase();
+            if skip.contains(&ukey.as_str()) {
                 continue;
             }
             emit_kvn(lines, &ukey, val);

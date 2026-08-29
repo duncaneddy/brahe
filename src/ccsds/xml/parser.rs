@@ -1926,7 +1926,6 @@ pub fn parse_apm_xml(content: &str) -> Result<APM, BraheError> {
         spins,
         inertias,
         maneuvers,
-        user_defined: extract_xml_user_defined(content),
     };
 
     if !apm.has_blocks() {
@@ -2352,7 +2351,6 @@ mod tests {
         assert!(apm.spins.is_empty());
         assert!(apm.inertias.is_empty());
         assert!(apm.maneuvers.is_empty());
-        assert!(apm.user_defined.is_none());
     }
 
     #[test]
@@ -2502,5 +2500,55 @@ mod tests {
         let err = result.unwrap_err().to_string();
         assert!(err.contains("version 1.0"));
         assert!(err.contains("504.0-B-1"));
+    }
+
+    fn apm_for_xml_test() -> APM {
+        let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+        let epoch = crate::time::Epoch::from_datetime(
+            2024,
+            3,
+            1,
+            0,
+            0,
+            0.0,
+            0.0,
+            crate::time::TimeSystem::UTC,
+        );
+        let mut apm = APM::new("BRAHE", metadata, epoch);
+        apm.push_quaternion_state(APMQuaternionState::new(
+            ADMReferenceFrame::parse("ICRF"),
+            ADMReferenceFrame::parse("SC_BODY_1"),
+            Quaternion::new(1.0, 0.0, 0.0, 0.0),
+        ));
+        apm
+    }
+
+    #[test]
+    #[parallel]
+    fn test_write_apm_xml_root_has_xmlns_xsi() {
+        let apm = apm_for_xml_test();
+        let xml = write_apm_xml(&apm).unwrap();
+        assert!(
+            xml.contains("<apm xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" id=\"CCSDS_APM_VERS\" version=\"2.0\">"),
+            "unexpected root element: {}",
+            xml.lines().nth(1).unwrap_or("")
+        );
+
+        let reparsed = parse_apm_xml(&xml).unwrap();
+        assert_eq!(reparsed.metadata.object_name, "SAT1");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_write_apm_xml_escapes_free_text() {
+        let mut apm = apm_for_xml_test();
+        apm.header.originator = "A & B <test>".to_string();
+
+        let xml = write_apm_xml(&apm).unwrap();
+        assert!(xml.contains("<ORIGINATOR>A &amp; B &lt;test&gt;</ORIGINATOR>"));
+        assert!(!xml.contains("<ORIGINATOR>A & B <test></ORIGINATOR>"));
+
+        let reparsed = parse_apm_xml(&xml).unwrap();
+        assert_eq!(reparsed.header.originator, "A & B <test>");
     }
 }

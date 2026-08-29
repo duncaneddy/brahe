@@ -165,10 +165,9 @@ def test_apm_missing_ref_frame_rejected(eop):
 
 
 def _assert_apm_fields_match(a: APM, b: APM):
-    """Compares every value field of two APM messages, mirroring
-    assert_apm_fields_match in Rust. Comments are excluded from JSON
-    comparisons at the call site since JSON does not round-trip header,
-    metadata, or block comments.
+    """Compares every value field of two APM messages, including all
+    comment vectors (header, metadata, data, and per-block), mirroring
+    assert_apm_fields_match in Rust.
     """
     assert a.format_version == pytest.approx(b.format_version, abs=1e-9)
     assert a.originator == b.originator
@@ -179,15 +178,24 @@ def _assert_apm_fields_match(a: APM, b: APM):
     assert a.object_id == b.object_id
     assert a.center_name == b.center_name
     assert a.time_system == b.time_system
+    assert a.metadata_comments == b.metadata_comments
 
     assert abs(a.epoch - b.epoch) < 1e-6
 
-    assert a.to_dict().get("user_defined") == b.to_dict().get("user_defined")
+    da, db = a.to_dict(), b.to_dict()
+    assert da["header"]["comments"] == db["header"]["comments"]
+    assert da["comments"] == db["comments"]
 
     assert len(a.quaternion_states) == len(b.quaternion_states)
-    for qa, qb in zip(a.quaternion_states, b.quaternion_states):
+    for qa, qb, dqa, dqb in zip(
+        a.quaternion_states,
+        b.quaternion_states,
+        da["quaternion_states"],
+        db["quaternion_states"],
+    ):
         assert qa.ref_frame_a == qb.ref_frame_a
         assert qa.ref_frame_b == qb.ref_frame_b
+        assert dqa["comments"] == dqb["comments"]
         va = qa.quaternion.to_vector(scalar_first=False)
         vb = qb.quaternion.to_vector(scalar_first=False)
         assert va == pytest.approx(vb, abs=1e-9)
@@ -198,9 +206,12 @@ def _assert_apm_fields_match(a: APM, b: APM):
             )
 
     assert len(a.euler_states) == len(b.euler_states)
-    for ea, eb in zip(a.euler_states, b.euler_states):
+    for ea, eb, dea, deb in zip(
+        a.euler_states, b.euler_states, da["euler_states"], db["euler_states"]
+    ):
         assert ea.ref_frame_a == eb.ref_frame_a
         assert ea.ref_frame_b == eb.ref_frame_b
+        assert dea["comments"] == deb["comments"]
         assert ea.angles.order == eb.angles.order
         assert ea.angles.phi == pytest.approx(eb.angles.phi, abs=1e-9)
         assert ea.angles.theta == pytest.approx(eb.angles.theta, abs=1e-9)
@@ -210,16 +221,23 @@ def _assert_apm_fields_match(a: APM, b: APM):
             assert ea.rates == pytest.approx(eb.rates, abs=1e-9)
 
     assert len(a.angular_velocities) == len(b.angular_velocities)
-    for va, vb in zip(a.angular_velocities, b.angular_velocities):
+    for va, vb, dva, dvb in zip(
+        a.angular_velocities,
+        b.angular_velocities,
+        da["angular_velocities"],
+        db["angular_velocities"],
+    ):
         assert va.ref_frame_a == vb.ref_frame_a
         assert va.ref_frame_b == vb.ref_frame_b
         assert va.angvel_frame == vb.angvel_frame
+        assert dva["comments"] == dvb["comments"]
         assert va.angular_velocity == pytest.approx(vb.angular_velocity, abs=1e-9)
 
     assert len(a.spins) == len(b.spins)
-    for sa, sb in zip(a.spins, b.spins):
+    for sa, sb, dsa, dsb in zip(a.spins, b.spins, da["spins"], db["spins"]):
         assert sa.ref_frame_a == sb.ref_frame_a
         assert sa.ref_frame_b == sb.ref_frame_b
+        assert dsa["comments"] == dsb["comments"]
         assert sa.spin_alpha == pytest.approx(sb.spin_alpha, abs=1e-9)
         assert sa.spin_delta == pytest.approx(sb.spin_delta, abs=1e-9)
         assert sa.spin_angle == pytest.approx(sb.spin_angle, abs=1e-9)
@@ -235,8 +253,9 @@ def _assert_apm_fields_match(a: APM, b: APM):
             assert sa.nutation_vel == pytest.approx(sb.nutation_vel, abs=1e-9)
 
     assert len(a.inertias) == len(b.inertias)
-    for ia, ib in zip(a.inertias, b.inertias):
+    for ia, ib, dia, dib in zip(a.inertias, b.inertias, da["inertias"], db["inertias"]):
         assert ia.inertia_ref_frame == ib.inertia_ref_frame
+        assert dia["comments"] == dib["comments"]
         assert ia.ixx == pytest.approx(ib.ixx, abs=1e-6)
         assert ia.iyy == pytest.approx(ib.iyy, abs=1e-6)
         assert ia.izz == pytest.approx(ib.izz, abs=1e-6)
@@ -245,12 +264,15 @@ def _assert_apm_fields_match(a: APM, b: APM):
         assert ia.iyz == pytest.approx(ib.iyz, abs=1e-6)
 
     assert len(a.maneuvers) == len(b.maneuvers)
-    for ma, mb in zip(a.maneuvers, b.maneuvers):
+    for ma, mb, dma, dmb in zip(
+        a.maneuvers, b.maneuvers, da["maneuvers"], db["maneuvers"]
+    ):
         assert abs(ma.epoch_start - mb.epoch_start) < 1e-6
         assert ma.duration == pytest.approx(mb.duration, abs=1e-9)
         assert ma.ref_frame == mb.ref_frame
         assert ma.torque == pytest.approx(mb.torque, abs=1e-9)
         assert ma.delta_mass == mb.delta_mass
+        assert dma["comments"] == dmb["comments"]
 
 
 @pytest.mark.parametrize(
@@ -543,6 +565,29 @@ def test_apm_header_metadata_setters(eop):
     assert abs(apm.creation_date - new_creation_date) < 1e-9
 
 
+def test_apm_epoch_written_in_metadata_time_system(eop):
+    """Mirror of test_apm_epoch_written_in_metadata_time_system in Rust:
+    EPOCH must be written in the metadata TIME_SYSTEM, not the Epoch's own
+    internal time system."""
+    epoch_utc = Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    apm = APM("BRAHE", "SAT1", "2024-001A", "TAI", epoch_utc)
+    apm.add_quaternion_state(
+        APMQuaternionState("ICRF", "SC_BODY_1", Quaternion(1.0, 0.0, 0.0, 0.0))
+    )
+
+    kvn = apm.to_string("KVN")
+
+    epoch_tai = epoch_utc.to_time_system(bh.TimeSystem.TAI)
+    tai_clock = str(epoch_tai).split(" ")[1]
+    utc_clock = str(epoch_utc).split(" ")[1]
+    assert tai_clock != utc_clock
+    assert tai_clock in kvn
+    assert f"EPOCH = 2024-03-01T{tai_clock}" in kvn
+
+    apm2 = APM.from_str(kvn)
+    assert abs(apm2.epoch - epoch_utc) < 1e-9
+
+
 # ------------------------------------------------------------------
 # Additional KVN block parsing (mirrors synthetic-content Rust tests in
 # src/ccsds/kvn/parser.rs)
@@ -707,8 +752,14 @@ def test_apm_parse_quaternion_partial_derivative_rejected(eop):
         APM.from_str(content)
 
 
-def test_apm_parse_user_defined(eop):
-    """Mirror of test_parse_apm_user_defined in Rust."""
+def test_apm_parse_user_defined_rejected(eop):
+    """Mirror of test_parse_apm_user_defined_rejected in Rust.
+
+    USER_DEFINED_* is not part of APM (504.0-B-2 restricts APM's data
+    section to the six logical blocks in table 3-1; USER_DEFINED_* is
+    ODM/ACM-only per section 3.2.4.2), so it must be rejected like any
+    other unrecognized keyword.
+    """
     content = _APM_PREFIX + (
         "QUAT_START\n"
         "REF_FRAME_A = ICRF\n"
@@ -720,9 +771,8 @@ def test_apm_parse_user_defined(eop):
         "QUAT_STOP\n"
         "USER_DEFINED_BATTERY_STATE = NOMINAL\n"
     )
-    apm = APM.from_str(content)
-    ud = apm.to_dict()["user_defined"]
-    assert ud["BATTERY_STATE"] == "NOMINAL"
+    with pytest.raises(Exception, match="not part of APM"):
+        APM.from_str(content)
 
 
 def test_apm_parse_unknown_block_keyword_rejected(eop):
@@ -740,6 +790,46 @@ def test_apm_parse_unknown_block_keyword_rejected(eop):
     )
     with pytest.raises(Exception, match="unexpected keyword 'BOGUS_KEY'"):
         APM.from_str(content)
+
+
+def test_apm_parse_unterminated_block_rejected(eop):
+    """Mirror of test_parse_apm_unterminated_block_rejected in Rust: a
+    QUAT_START block with no QUAT_STOP must error at EOF, naming the
+    unterminated block."""
+    content = _APM_PREFIX + (
+        "QUAT_START\n"
+        "REF_FRAME_A = ICRF\n"
+        "REF_FRAME_B = SC_BODY_1\n"
+        "Q1 = 0.0\n"
+        "Q2 = 0.0\n"
+        "Q3 = 0.0\n"
+    )
+    with pytest.raises(Exception, match="unterminated"):
+        APM.from_str(content)
+
+
+def test_apm_parse_epoch_trailing_z(eop):
+    """Mirror of test_parse_ccsds_datetime_trailing_z in Rust, exercised via
+    APM.from_str since parse_ccsds_datetime is not directly exposed to
+    Python."""
+    content_no_z = _APM_PREFIX + (
+        "QUAT_START\n"
+        "REF_FRAME_A = ICRF\n"
+        "REF_FRAME_B = SC_BODY_1\n"
+        "Q1 = 0.0\n"
+        "Q2 = 0.0\n"
+        "Q3 = 0.0\n"
+        "QC = 1.0\n"
+        "QUAT_STOP\n"
+    )
+    content_z = content_no_z.replace(
+        "EPOCH = 2003-09-30T14:28:15.1172\n", "EPOCH = 2003-09-30T14:28:15.1172Z\n"
+    )
+    assert content_z != content_no_z
+
+    apm_no_z = APM.from_str(content_no_z)
+    apm_z = APM.from_str(content_z)
+    assert abs(apm_no_z.epoch - apm_z.epoch) < 1e-9
 
 
 # ------------------------------------------------------------------
@@ -835,6 +925,41 @@ def test_apm_parse_xml_v1_version_rejected(eop):
         content = f.read().replace('version="2.0"', 'version="1.0"')
     with pytest.raises(Exception, match="version 1.0"):
         APM.from_str(content)
+
+
+def _apm_for_xml_test():
+    epoch = Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    apm = APM("BRAHE", "SAT1", "2024-001A", "UTC", epoch)
+    apm.add_quaternion_state(
+        APMQuaternionState("ICRF", "SC_BODY_1", Quaternion(1.0, 0.0, 0.0, 0.0))
+    )
+    return apm
+
+
+def test_apm_write_xml_root_has_xmlns_xsi(eop):
+    """Mirror of test_write_apm_xml_root_has_xmlns_xsi in Rust."""
+    apm = _apm_for_xml_test()
+    xml = apm.to_string("XML")
+    assert (
+        '<apm xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+        'id="CCSDS_APM_VERS" version="2.0">' in xml
+    )
+
+    reparsed = APM.from_str(xml)
+    assert reparsed.object_name == "SAT1"
+
+
+def test_apm_write_xml_escapes_free_text(eop):
+    """Mirror of test_write_apm_xml_escapes_free_text in Rust."""
+    apm = _apm_for_xml_test()
+    apm.originator = "A & B <test>"
+
+    xml = apm.to_string("XML")
+    assert "<ORIGINATOR>A &amp; B &lt;test&gt;</ORIGINATOR>" in xml
+    assert "<ORIGINATOR>A & B <test></ORIGINATOR>" not in xml
+
+    reparsed = APM.from_str(xml)
+    assert reparsed.originator == "A & B <test>"
 
 
 def _build_apm_all_blocks():
@@ -957,26 +1082,3 @@ def test_apm_simple_spin_round_trip(eop, fmt):
     content = apm.to_string(fmt)
     apm2 = APM.from_str(content)
     assert apm2.spins[0].nutation_type == "NONE"
-
-
-@pytest.mark.parametrize("fmt", ["XML", "JSON"])
-def test_apm_user_defined_round_trip(eop, fmt):
-    """APM's user_defined parameters are only ever parsed from KVN
-    (test_apm_parse_user_defined) and never round-tripped through XML or
-    JSON write+parse."""
-    content = _APM_PREFIX + (
-        "QUAT_START\n"
-        "REF_FRAME_A = ICRF\n"
-        "REF_FRAME_B = SC_BODY_1\n"
-        "Q1 = 0.0\n"
-        "Q2 = 0.0\n"
-        "Q3 = 0.0\n"
-        "QC = 1.0\n"
-        "QUAT_STOP\n"
-        "USER_DEFINED_BATTERY_STATE = NOMINAL\n"
-    )
-    apm1 = APM.from_str(content)
-
-    written = apm1.to_string(fmt)
-    apm2 = APM.from_str(written)
-    assert apm2.to_dict()["user_defined"] == {"BATTERY_STATE": "NOMINAL"}

@@ -345,6 +345,7 @@ pub fn parse_ccsds_datetime(
     time_system: &CCSDSTimeSystem,
 ) -> Result<Epoch, crate::utils::errors::BraheError> {
     let s = s.trim();
+    let s = s.strip_suffix('Z').unwrap_or(s);
     let ts = time_system.to_time_system().ok_or_else(|| {
         crate::ccsds::error::ccsds_parse_error(
             "common",
@@ -1322,6 +1323,24 @@ mod tests {
         assert_eq!(day, 1);
         assert_eq!(hour, 6);
         assert_eq!(minute, 30);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_parse_ccsds_datetime_trailing_z() {
+        let ts = CCSDSTimeSystem::UTC;
+        let with_z = parse_ccsds_datetime("2003-09-30T19:23:57Z", &ts).unwrap();
+        let without_z = parse_ccsds_datetime("2003-09-30T19:23:57", &ts).unwrap();
+        assert_eq!(with_z, without_z);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_parse_ccsds_datetime_trailing_z_fractional_seconds() {
+        let ts = CCSDSTimeSystem::UTC;
+        let with_z = parse_ccsds_datetime("2003-09-30T19:23:57.1234Z", &ts).unwrap();
+        let without_z = parse_ccsds_datetime("2003-09-30T19:23:57.1234", &ts).unwrap();
+        assert_eq!(with_z, without_z);
     }
 
     #[test]

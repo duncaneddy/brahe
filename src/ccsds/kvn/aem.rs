@@ -453,20 +453,20 @@ pub fn parse_aem(content: &str) -> Result<AEM, BraheError> {
 pub fn write_aem(aem: &AEM) -> Result<String, BraheError> {
     let mut out = String::new();
 
-    // Header. Table 4-2 fixes the field order as VERS, CLASSIFICATION,
-    // COMMENT, CREATION_DATE, ORIGINATOR, MESSAGE_ID (mirroring OEM's
-    // header, which — unlike APM's — places comments after CLASSIFICATION
-    // since AEM's explicit META_START marker means the parser never needs
-    // to infer where a leading comment belongs).
+    // Header. Table 4-2 fixes the field order as VERS, COMMENT,
+    // CLASSIFICATION, CREATION_DATE, ORIGINATOR, MESSAGE_ID; comments must
+    // precede CLASSIFICATION so the parser (which routes any comment seen
+    // after the first non-VERS header keyword to the metadata section)
+    // attributes them back to the header on read.
     out.push_str(&format!(
         "CCSDS_AEM_VERS = {:.1}\n",
         aem.header.format_version
     ));
-    if let Some(ref class) = aem.header.classification {
-        out.push_str(&format!("CLASSIFICATION = {}\n", class));
-    }
     for comment in &aem.header.comments {
         out.push_str(&format!("COMMENT {}\n", comment));
+    }
+    if let Some(ref class) = aem.header.classification {
+        out.push_str(&format!("CLASSIFICATION = {}\n", class));
     }
     out.push_str(&format!(
         "CREATION_DATE = {}\n",
@@ -1225,5 +1225,68 @@ META_STOP\n";
         assert_eq!(cols.len(), 5);
         let qc: f64 = cols[4].parse().unwrap();
         assert!((qc - 0.68427).abs() < 1e-4);
+    }
+    #[test]
+    #[parallel]
+    fn test_aem_header_comments_and_classification_round_trip() {
+        use crate::attitude::attitude_types::Quaternion;
+        use crate::ccsds::aem::{AEMAttitudeState, AEMAttitudeType, AEMMetadata, AEMSegment};
+        use crate::ccsds::common::CCSDSTimeSystem;
+        use crate::ccsds::frames::ADMReferenceFrame;
+        use crate::time::{Epoch, TimeSystem};
+
+        let metadata = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ADMReferenceFrame::parse("ICRF"),
+            ADMReferenceFrame::parse("SC_BODY_1"),
+            CCSDSTimeSystem::UTC,
+            Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC),
+            Epoch::from_datetime(2024, 1, 1, 1, 0, 0.0, 0.0, TimeSystem::UTC),
+            AEMAttitudeType::Quaternion,
+        );
+        let mut segment = AEMSegment::new(metadata);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC),
+                data: AEMAttitudeData::Quaternion {
+                    quaternion: Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                },
+            })
+            .unwrap();
+
+        let mut aem = AEM::new("BRAHE");
+        aem.header = aem
+            .header
+            .with_classification("UNCLASSIFIED")
+            .with_comments(vec![
+                "first header comment".to_string(),
+                "second header comment".to_string(),
+            ]);
+        aem.push_segment(segment);
+
+        let written = write_aem(&aem).unwrap();
+        let vers_pos = written.find("CCSDS_AEM_VERS").unwrap();
+        let comment_pos = written.find("COMMENT first header comment").unwrap();
+        let classification_pos = written.find("CLASSIFICATION").unwrap();
+        assert!(vers_pos < comment_pos, "VERS must precede COMMENT");
+        assert!(
+            comment_pos < classification_pos,
+            "COMMENT must precede CLASSIFICATION per table 4-2"
+        );
+
+        let parsed = parse_aem(&written).unwrap();
+        assert_eq!(
+            parsed.header.classification.as_deref(),
+            Some("UNCLASSIFIED")
+        );
+        assert_eq!(
+            parsed.header.comments,
+            vec![
+                "first header comment".to_string(),
+                "second header comment".to_string(),
+            ]
+        );
+        assert!(parsed.segments[0].metadata.comments.is_empty());
     }
 }

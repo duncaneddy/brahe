@@ -41,6 +41,8 @@ This three-step pattern — parse, convert, interpolate — applies across the l
 
 **APM** (Attitude Parameter Message) carries a spacecraft's attitude state at a single epoch through quaternion, Euler angle, angular velocity, spin, inertia, and maneuver blocks. It comes from the [CCSDS 504.0-B-2 standard](https://ccsds.org/Pubs/504x0b2.pdf) rather than the ODM standard the orbit messages share. Use it when handing off attitude state for propagation or documenting an attitude maneuver plan. See the [APM detail page](apm.md).
 
+**AEM** (Attitude Ephemeris Message) carries a spacecraft's time-ordered attitude history as one or more segments of attitude data, mirroring OEM for attitude. Use it when you have or want to produce a full attitude trajectory — attitude ephemeris exchange or converting to an `AttitudeTrajectory` for interpolation. See the [AEM detail page](aem.md).
+
 !!! info "OCM Not Yet Supported"
     The Orbit Comprehensive Message (OCM) is not yet implemented. OCM combines features of OEM, OMM, and OPM into a single flexible format and will be added in a future release.
 
@@ -74,4 +76,5 @@ CCSDS files use **km** and **km/s** for position and velocity. Brahe automatical
 - [OPM — Orbit Parameter Message](opm.md)
 - [CDM — Conjunction Data Message](cdm.md)
 - [APM — Attitude Parameter Message](apm.md)
+- [AEM — Attitude Ephemeris Message](aem.md)
 - [API Reference](../../library_api/ccsds/index.md) — Python API documentation

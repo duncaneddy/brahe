@@ -228,6 +228,7 @@ nav:
           - learn/trajectories/index.md
           - learn/trajectories/trajectory.md
           - learn/trajectories/orbit_trajectory.md
+          - learn/trajectories/attitude_trajectory.md
       - Orbital Dynamics:
           - learn/orbital_dynamics/index.md
           - Gravity Models: learn/orbital_dynamics/gravity.md
@@ -306,6 +307,7 @@ nav:
           - OMM - Orbit Mean-elements Message: learn/ccsds/omm.md
           - OPM - Orbit Parameter Message: learn/ccsds/opm.md
           - APM - Attitude Parameter Message: learn/ccsds/apm.md
+          - AEM - Attitude Ephemeris Message: learn/ccsds/aem.md
           - CDM - Conjunction Data Message: learn/ccsds/cdm.md
       - Plots:
           - learn/plots/index.md
@@ -418,6 +420,7 @@ nav:
           - library_api/trajectories/index.md
           - Trajectory: library_api/trajectories/trajectory.md
           - OrbitTrajectory: library_api/trajectories/orbit_trajectory.md
+          - AttitudeTrajectory: library_api/trajectories/attitude_trajectory.md
       - Orbital Dynamics:
           - library_api/orbit_dynamics/index.md
           - Gravity Models: library_api/orbit_dynamics/gravity.md
@@ -505,6 +508,7 @@ nav:
           - OMM: library_api/ccsds/omm.md
           - OPM: library_api/ccsds/opm.md
           - APM: library_api/ccsds/apm.md
+          - AEM: library_api/ccsds/aem.md
           - CDM: library_api/ccsds/cdm.md
       - Plots:
           - library_api/plots/index.md

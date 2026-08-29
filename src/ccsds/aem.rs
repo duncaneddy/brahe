@@ -1,14 +1,28 @@
 /*!
- * CCSDS Attitude Ephemeris Message (AEM) header.
+ * CCSDS Attitude Ephemeris Message (AEM) data structures.
  *
- * AEM messages contain time-series of attitude data (quaternions or Euler angles)
- * and can include attitude rate data and covariance information. This module
- * provides the message header; the full message structure is added incrementally.
+ * AEM messages contain time-series of attitude data (quaternions, Euler
+ * angles, or spin parameters), optionally with derivatives or angular
+ * velocity. A message has a header and one or more segments; each segment
+ * carries its own metadata (object, frames, time span, attitude
+ * representation) and a time-ordered sequence of attitude states. This
+ * module provides the message types using brahe-native (radian, SI)
+ * internal units; conversion to/from the wire units defined by the standard
+ * happens in the KVN/XML/JSON read and write support.
  *
- * Reference: CCSDS 504.0-B-2 (Attitude Data Messages), table 4-2
+ * Reference: CCSDS 504.0-B-2 (Attitude Data Messages), §4
  */
 
+use std::fmt;
+
+use nalgebra::{Vector3, Vector4};
+
+use crate::attitude::attitude_types::{EulerAngle, EulerAngleOrder, Quaternion};
+use crate::ccsds::common::CCSDSTimeSystem;
+use crate::ccsds::error::ccsds_parse_error;
+use crate::ccsds::frames::ADMReferenceFrame;
 use crate::time::Epoch;
+use crate::utils::errors::BraheError;
 
 /// CCSDS AEM message header (504.0-B-2 table 4-2).
 #[derive(Debug, Clone)]
@@ -112,10 +126,747 @@ impl AEMHeader {
     }
 }
 
+/// AEM `ATTITUDE_TYPE` value (504.0-B-2 table 4-3), identifying both the
+/// attitude representation and which derivative/rate quantities accompany it
+/// in the data section (table 4-4).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AEMAttitudeType {
+    /// Attitude quaternion only.
+    Quaternion,
+    /// Attitude quaternion plus its time derivative.
+    QuaternionDerivative,
+    /// Attitude quaternion plus angular velocity.
+    QuaternionAngVel,
+    /// Euler angles only.
+    EulerAngle,
+    /// Euler angles plus their time derivatives.
+    EulerAngleDerivative,
+    /// Euler angles plus angular velocity.
+    EulerAngleAngVel,
+    /// Spin axis and phase angle.
+    Spin,
+    /// Spin parameters plus nutation angle triple.
+    SpinNutation,
+    /// Spin parameters plus angular momentum vector triple.
+    SpinNutationMom,
+}
+
+impl fmt::Display for AEMAttitudeType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Quaternion => write!(f, "QUATERNION"),
+            Self::QuaternionDerivative => write!(f, "QUATERNION/DERIVATIVE"),
+            Self::QuaternionAngVel => write!(f, "QUATERNION/ANGVEL"),
+            Self::EulerAngle => write!(f, "EULER_ANGLE"),
+            Self::EulerAngleDerivative => write!(f, "EULER_ANGLE/DERIVATIVE"),
+            Self::EulerAngleAngVel => write!(f, "EULER_ANGLE/ANGVEL"),
+            Self::Spin => write!(f, "SPIN"),
+            Self::SpinNutation => write!(f, "SPIN/NUTATION"),
+            Self::SpinNutationMom => write!(f, "SPIN/NUTATION_MOM"),
+        }
+    }
+}
+
+impl AEMAttitudeType {
+    /// Parses an AEM `ATTITUDE_TYPE` token.
+    ///
+    /// The nine 504.0-B-2 (v2) tokens are matched exactly. The 504.0-B-1
+    /// (v1) tokens `QUATERNION/RATE` and `EULER_ANGLE/RATE` are recognized
+    /// specifically to produce an error naming them as v1 forms replaced by
+    /// `QUATERNION/ANGVEL` and `EULER_ANGLE/ANGVEL` respectively; any other
+    /// unrecognized token produces an error naming the offending value.
+    ///
+    /// # Arguments
+    /// - `s`: the `ATTITUDE_TYPE` token to parse.
+    ///
+    /// # Returns
+    /// Result<AEMAttitudeType, BraheError>: The parsed attitude type, or a
+    /// `ParseError` naming the offending token.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::aem::AEMAttitudeType;
+    /// assert_eq!(
+    ///     AEMAttitudeType::parse("QUATERNION/ANGVEL").unwrap(),
+    ///     AEMAttitudeType::QuaternionAngVel
+    /// );
+    /// assert!(AEMAttitudeType::parse("QUATERNION/RATE").is_err());
+    /// ```
+    pub fn parse(s: &str) -> Result<Self, BraheError> {
+        match s.trim() {
+            "QUATERNION" => Ok(Self::Quaternion),
+            "QUATERNION/DERIVATIVE" => Ok(Self::QuaternionDerivative),
+            "QUATERNION/ANGVEL" => Ok(Self::QuaternionAngVel),
+            "EULER_ANGLE" => Ok(Self::EulerAngle),
+            "EULER_ANGLE/DERIVATIVE" => Ok(Self::EulerAngleDerivative),
+            "EULER_ANGLE/ANGVEL" => Ok(Self::EulerAngleAngVel),
+            "SPIN" => Ok(Self::Spin),
+            "SPIN/NUTATION" => Ok(Self::SpinNutation),
+            "SPIN/NUTATION_MOM" => Ok(Self::SpinNutationMom),
+            "QUATERNION/RATE" => Err(ccsds_parse_error(
+                "AEM",
+                "invalid ATTITUDE_TYPE value 'QUATERNION/RATE'; this is a 504.0-B-1 (v1) form, \
+                 replaced by 'QUATERNION/ANGVEL' in 504.0-B-2",
+            )),
+            "EULER_ANGLE/RATE" => Err(ccsds_parse_error(
+                "AEM",
+                "invalid ATTITUDE_TYPE value 'EULER_ANGLE/RATE'; this is a 504.0-B-1 (v1) form, \
+                 replaced by 'EULER_ANGLE/ANGVEL' in 504.0-B-2",
+            )),
+            other => Err(ccsds_parse_error(
+                "AEM",
+                &format!(
+                    "invalid ATTITUDE_TYPE value '{}'; expected one of QUATERNION, \
+                     QUATERNION/DERIVATIVE, QUATERNION/ANGVEL, EULER_ANGLE, \
+                     EULER_ANGLE/DERIVATIVE, EULER_ANGLE/ANGVEL, SPIN, SPIN/NUTATION, \
+                     SPIN/NUTATION_MOM",
+                    other
+                ),
+            )),
+        }
+    }
+}
+
+/// AEM `INTERPOLATION_METHOD` value (504.0-B-2 table 4-3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AEMInterpolationMethod {
+    /// Linear interpolation.
+    Linear,
+    /// Hermite interpolation.
+    Hermite,
+    /// Lagrange interpolation.
+    Lagrange,
+}
+
+impl fmt::Display for AEMInterpolationMethod {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Linear => write!(f, "LINEAR"),
+            Self::Hermite => write!(f, "HERMITE"),
+            Self::Lagrange => write!(f, "LAGRANGE"),
+        }
+    }
+}
+
+impl AEMInterpolationMethod {
+    /// Parses an AEM `INTERPOLATION_METHOD` token. Matching is
+    /// case-insensitive per 504.0-B-2 §6.8.6 (all-upper or all-lower on the
+    /// wire); [`fmt::Display`] always writes the all-upper form.
+    ///
+    /// # Arguments
+    /// - `s`: the `INTERPOLATION_METHOD` token to parse.
+    ///
+    /// # Returns
+    /// Result<AEMInterpolationMethod, BraheError>: The parsed method, or a
+    /// `ParseError` naming the offending token.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::aem::AEMInterpolationMethod;
+    /// assert_eq!(
+    ///     AEMInterpolationMethod::parse("linear").unwrap(),
+    ///     AEMInterpolationMethod::Linear
+    /// );
+    /// ```
+    pub fn parse(s: &str) -> Result<Self, BraheError> {
+        match s.trim().to_uppercase().as_str() {
+            "LINEAR" => Ok(Self::Linear),
+            "HERMITE" => Ok(Self::Hermite),
+            "LAGRANGE" => Ok(Self::Lagrange),
+            other => Err(ccsds_parse_error(
+                "AEM",
+                &format!(
+                    "invalid INTERPOLATION_METHOD value '{}'; expected one of LINEAR, HERMITE, \
+                     LAGRANGE (case-insensitive)",
+                    other
+                ),
+            )),
+        }
+    }
+}
+
+/// Attitude data carried by a single AEM ephemeris line (504.0-B-2 table
+/// 4-4). The variant determines the corresponding [`AEMAttitudeType`]; see
+/// [`AEMAttitudeData::attitude_type`].
+///
+/// Unlike [`crate::ccsds::apm::APMSpin`], the spin variants here take no
+/// `AngleFormat` conversion: construct them directly with radian values.
+#[derive(Debug, Clone)]
+pub enum AEMAttitudeData {
+    /// Attitude quaternion from `REF_FRAME_A` to `REF_FRAME_B`.
+    Quaternion {
+        /// Attitude quaternion.
+        quaternion: Quaternion,
+    },
+    /// Attitude quaternion plus its time derivative.
+    QuaternionDerivative {
+        /// Attitude quaternion.
+        quaternion: Quaternion,
+        /// Quaternion time derivative, scalar-first. Units: 1/s.
+        derivative: Vector4<f64>,
+    },
+    /// Attitude quaternion plus angular velocity.
+    QuaternionAngVel {
+        /// Attitude quaternion.
+        quaternion: Quaternion,
+        /// Angular velocity vector, expressed in the segment's
+        /// `ANGVEL_FRAME`. Units: rad/s.
+        angular_velocity: Vector3<f64>,
+    },
+    /// Euler angles from `REF_FRAME_A` to `REF_FRAME_B`; the rotation
+    /// sequence is carried by `angles.order` and must match the segment's
+    /// `EULER_ROT_SEQ`.
+    EulerAngle {
+        /// Euler angles. Units: radians.
+        angles: EulerAngle,
+    },
+    /// Euler angles plus their time derivatives.
+    EulerAngleDerivative {
+        /// Euler angles. Units: radians.
+        angles: EulerAngle,
+        /// Angle rates, in the same sequence order as `angles.order`.
+        /// Units: rad/s.
+        rates: Vector3<f64>,
+    },
+    /// Euler angles plus angular velocity.
+    EulerAngleAngVel {
+        /// Euler angles. Units: radians.
+        angles: EulerAngle,
+        /// Angular velocity vector, expressed in the segment's
+        /// `ANGVEL_FRAME`. Units: rad/s.
+        angular_velocity: Vector3<f64>,
+    },
+    /// Simple (non-nutating) spin.
+    Spin {
+        /// Right ascension of the spin axis in `REF_FRAME_A`. Units: radians.
+        spin_alpha: f64,
+        /// Declination of the spin axis in `REF_FRAME_A`. Units: radians.
+        spin_delta: f64,
+        /// Phase angle about the spin axis. Units: radians.
+        spin_angle: f64,
+        /// Angular velocity about the spin axis. Units: rad/s.
+        spin_angle_vel: f64,
+    },
+    /// Spin with the `NUTATION` / `NUTATION_PER` / `NUTATION_PHASE` triple.
+    SpinNutation {
+        /// Right ascension of the spin axis in `REF_FRAME_A`. Units: radians.
+        spin_alpha: f64,
+        /// Declination of the spin axis in `REF_FRAME_A`. Units: radians.
+        spin_delta: f64,
+        /// Phase angle about the spin axis. Units: radians.
+        spin_angle: f64,
+        /// Angular velocity about the spin axis. Units: rad/s.
+        spin_angle_vel: f64,
+        /// Nutation angle. Units: radians.
+        nutation: f64,
+        /// Nutation period. Units: seconds.
+        nutation_period: f64,
+        /// Inertial nutation phase. Units: radians.
+        nutation_phase: f64,
+    },
+    /// Spin with the `MOMENTUM_ALPHA` / `MOMENTUM_DELTA` / `NUTATION_VEL`
+    /// triple.
+    SpinNutationMom {
+        /// Right ascension of the spin axis in `REF_FRAME_A`. Units: radians.
+        spin_alpha: f64,
+        /// Declination of the spin axis in `REF_FRAME_A`. Units: radians.
+        spin_delta: f64,
+        /// Phase angle about the spin axis. Units: radians.
+        spin_angle: f64,
+        /// Angular velocity about the spin axis. Units: rad/s.
+        spin_angle_vel: f64,
+        /// Right ascension of the angular momentum vector. Units: radians.
+        momentum_alpha: f64,
+        /// Declination of the angular momentum vector. Units: radians.
+        momentum_delta: f64,
+        /// Angular velocity of the spin axis around the momentum vector.
+        /// Units: rad/s.
+        nutation_vel: f64,
+    },
+}
+
+impl AEMAttitudeData {
+    /// Returns the [`AEMAttitudeType`] corresponding to this variant.
+    ///
+    /// # Returns
+    /// AEMAttitudeType: The attitude type matching this data's shape.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::aem::{AEMAttitudeData, AEMAttitudeType};
+    /// use brahe::attitude::Quaternion;
+    /// let data = AEMAttitudeData::Quaternion {
+    ///     quaternion: Quaternion::new(1.0, 0.0, 0.0, 0.0),
+    /// };
+    /// assert_eq!(data.attitude_type(), AEMAttitudeType::Quaternion);
+    /// ```
+    pub fn attitude_type(&self) -> AEMAttitudeType {
+        match self {
+            Self::Quaternion { .. } => AEMAttitudeType::Quaternion,
+            Self::QuaternionDerivative { .. } => AEMAttitudeType::QuaternionDerivative,
+            Self::QuaternionAngVel { .. } => AEMAttitudeType::QuaternionAngVel,
+            Self::EulerAngle { .. } => AEMAttitudeType::EulerAngle,
+            Self::EulerAngleDerivative { .. } => AEMAttitudeType::EulerAngleDerivative,
+            Self::EulerAngleAngVel { .. } => AEMAttitudeType::EulerAngleAngVel,
+            Self::Spin { .. } => AEMAttitudeType::Spin,
+            Self::SpinNutation { .. } => AEMAttitudeType::SpinNutation,
+            Self::SpinNutationMom { .. } => AEMAttitudeType::SpinNutationMom,
+        }
+    }
+}
+
+/// A single AEM ephemeris line: a time tag plus the attitude data at that
+/// epoch (504.0-B-2 §4.2.4.2).
+#[derive(Debug, Clone)]
+pub struct AEMAttitudeState {
+    /// Epoch of this attitude state.
+    pub epoch: Epoch,
+    /// Attitude data at `epoch`.
+    pub data: AEMAttitudeData,
+}
+
+/// AEM segment metadata (504.0-B-2 table 4-3).
+#[derive(Debug, Clone)]
+pub struct AEMMetadata {
+    /// Spacecraft name.
+    pub object_name: String,
+    /// International designator, recommended form `YYYY-NNNP{PP}`.
+    pub object_id: String,
+    /// Optional celestial body the object is centered on (e.g. `EARTH`).
+    pub center_name: Option<String>,
+    /// Frame defining the transformation start point.
+    pub ref_frame_a: ADMReferenceFrame,
+    /// Frame defining the transformation end point.
+    pub ref_frame_b: ADMReferenceFrame,
+    /// Time system for all epochs in this segment.
+    pub time_system: CCSDSTimeSystem,
+    /// Start of the total time span covered by the data block.
+    pub start_time: Epoch,
+    /// End of the total time span covered by the data block.
+    pub stop_time: Epoch,
+    /// Optional start of the useable (interpolation-safe) span.
+    pub useable_start_time: Option<Epoch>,
+    /// Optional end of the useable (interpolation-safe) span.
+    pub useable_stop_time: Option<Epoch>,
+    /// Attitude representation and accompanying derivative/rate data.
+    pub attitude_type: AEMAttitudeType,
+    /// Euler rotation sequence; required when `attitude_type` is one of the
+    /// Euler angle types, and not applicable otherwise.
+    pub euler_rot_seq: Option<EulerAngleOrder>,
+    /// Frame in which angular velocity components are expressed; required
+    /// when `attitude_type` is one of the `/ANGVEL` types (and must equal
+    /// `ref_frame_a` or `ref_frame_b`), and not applicable otherwise.
+    pub angvel_frame: Option<ADMReferenceFrame>,
+    /// Recommended interpolation method for this data block.
+    pub interpolation_method: Option<AEMInterpolationMethod>,
+    /// Interpolation polynomial degree; required iff `interpolation_method`
+    /// is present.
+    pub interpolation_degree: Option<u32>,
+    /// Metadata comment lines.
+    pub comments: Vec<String>,
+}
+
+impl AEMMetadata {
+    /// Creates metadata with the mandatory fields; all optional fields
+    /// default to unset.
+    ///
+    /// # Arguments
+    /// - `object_name`: spacecraft name.
+    /// - `object_id`: international designator.
+    /// - `ref_frame_a`: frame defining the transformation start point.
+    /// - `ref_frame_b`: frame defining the transformation end point.
+    /// - `time_system`: time system for the segment's epochs.
+    /// - `start_time`: start of the total time span.
+    /// - `stop_time`: end of the total time span.
+    /// - `attitude_type`: attitude representation for this segment's data.
+    ///
+    /// # Returns
+    /// AEMMetadata: Metadata with defaulted optional fields.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::aem::{AEMAttitudeType, AEMMetadata};
+    /// use brahe::ccsds::{ADMReferenceFrame, CCSDSTimeSystem};
+    /// use brahe::time::Epoch;
+    /// let metadata = AEMMetadata::new(
+    ///     "SAT1", "2024-001A",
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     CCSDSTimeSystem::UTC,
+    ///     Epoch::now(),
+    ///     Epoch::now(),
+    ///     AEMAttitudeType::Quaternion,
+    /// );
+    /// assert!(metadata.euler_rot_seq.is_none());
+    /// ```
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        object_name: &str,
+        object_id: &str,
+        ref_frame_a: ADMReferenceFrame,
+        ref_frame_b: ADMReferenceFrame,
+        time_system: CCSDSTimeSystem,
+        start_time: Epoch,
+        stop_time: Epoch,
+        attitude_type: AEMAttitudeType,
+    ) -> Self {
+        Self {
+            object_name: object_name.to_string(),
+            object_id: object_id.to_string(),
+            center_name: None,
+            ref_frame_a,
+            ref_frame_b,
+            time_system,
+            start_time,
+            stop_time,
+            useable_start_time: None,
+            useable_stop_time: None,
+            attitude_type,
+            euler_rot_seq: None,
+            angvel_frame: None,
+            interpolation_method: None,
+            interpolation_degree: None,
+            comments: Vec::new(),
+        }
+    }
+
+    /// Sets the center name.
+    pub fn with_center_name(mut self, center_name: &str) -> Self {
+        self.center_name = Some(center_name.to_string());
+        self
+    }
+
+    /// Sets the useable (interpolation-safe) time span.
+    pub fn with_useable_times(
+        mut self,
+        useable_start_time: Epoch,
+        useable_stop_time: Epoch,
+    ) -> Self {
+        self.useable_start_time = Some(useable_start_time);
+        self.useable_stop_time = Some(useable_stop_time);
+        self
+    }
+
+    /// Sets the Euler rotation sequence (only applicable to Euler angle
+    /// attitude types; see [`AEMMetadata::validate`]).
+    pub fn with_euler_rot_seq(mut self, euler_rot_seq: EulerAngleOrder) -> Self {
+        self.euler_rot_seq = Some(euler_rot_seq);
+        self
+    }
+
+    /// Sets the angular velocity frame (only applicable to `/ANGVEL`
+    /// attitude types; see [`AEMMetadata::validate`]).
+    pub fn with_angvel_frame(mut self, angvel_frame: ADMReferenceFrame) -> Self {
+        self.angvel_frame = Some(angvel_frame);
+        self
+    }
+
+    /// Sets the interpolation method and degree.
+    ///
+    /// # Arguments
+    /// - `method`: recommended interpolation method.
+    /// - `degree`: interpolation polynomial degree; required by
+    ///   [`AEMMetadata::validate`] whenever `method` is set.
+    pub fn with_interpolation(
+        mut self,
+        method: AEMInterpolationMethod,
+        degree: Option<u32>,
+    ) -> Self {
+        self.interpolation_method = Some(method);
+        self.interpolation_degree = degree;
+        self
+    }
+
+    /// Validates the conditional metadata rules of CCSDS 504.0-B-2 table
+    /// 4-3.
+    ///
+    /// Checks:
+    /// - `EULER_ROT_SEQ` is present iff `attitude_type` is one of the Euler
+    ///   angle types (`EulerAngle`, `EulerAngleDerivative`,
+    ///   `EulerAngleAngVel`); it is an error both for it to be missing on a
+    ///   Euler type and for it to be present on a non-Euler type.
+    /// - `ANGVEL_FRAME` is present iff `attitude_type` is one of the
+    ///   `/ANGVEL` types (`QuaternionAngVel`, `EulerAngleAngVel`), and when
+    ///   present must equal `ref_frame_a` or `ref_frame_b`.
+    /// - `interpolation_degree` is present iff `interpolation_method` is
+    ///   present.
+    /// - `useable_start_time` and `useable_stop_time`, when present, fall
+    ///   within `[start_time, stop_time]`, and `useable_start_time` does not
+    ///   fall after `useable_stop_time`.
+    ///
+    /// # Returns
+    /// Result<(), BraheError>: `Ok(())` if all conditional rules are
+    /// satisfied, otherwise a `ParseError` describing the first violation
+    /// found.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::aem::{AEMAttitudeType, AEMMetadata};
+    /// use brahe::ccsds::{ADMReferenceFrame, CCSDSTimeSystem};
+    /// use brahe::time::Epoch;
+    /// let metadata = AEMMetadata::new(
+    ///     "SAT1", "2024-001A",
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     CCSDSTimeSystem::UTC,
+    ///     Epoch::now(),
+    ///     Epoch::now(),
+    ///     AEMAttitudeType::Quaternion,
+    /// );
+    /// assert!(metadata.validate().is_ok());
+    /// ```
+    pub fn validate(&self) -> Result<(), BraheError> {
+        let is_euler_type = matches!(
+            self.attitude_type,
+            AEMAttitudeType::EulerAngle
+                | AEMAttitudeType::EulerAngleDerivative
+                | AEMAttitudeType::EulerAngleAngVel
+        );
+        match (is_euler_type, self.euler_rot_seq.is_some()) {
+            (true, false) => {
+                return Err(ccsds_parse_error(
+                    "AEM",
+                    &format!(
+                        "EULER_ROT_SEQ is required when ATTITUDE_TYPE is '{}'",
+                        self.attitude_type
+                    ),
+                ));
+            }
+            (false, true) => {
+                return Err(ccsds_parse_error(
+                    "AEM",
+                    &format!(
+                        "EULER_ROT_SEQ is only applicable to Euler angle ATTITUDE_TYPE values, \
+                         not '{}'",
+                        self.attitude_type
+                    ),
+                ));
+            }
+            _ => {}
+        }
+
+        let is_angvel_type = matches!(
+            self.attitude_type,
+            AEMAttitudeType::QuaternionAngVel | AEMAttitudeType::EulerAngleAngVel
+        );
+        match (is_angvel_type, &self.angvel_frame) {
+            (true, None) => {
+                return Err(ccsds_parse_error(
+                    "AEM",
+                    &format!(
+                        "ANGVEL_FRAME is required when ATTITUDE_TYPE is '{}'",
+                        self.attitude_type
+                    ),
+                ));
+            }
+            (false, Some(_)) => {
+                return Err(ccsds_parse_error(
+                    "AEM",
+                    &format!(
+                        "ANGVEL_FRAME is only applicable to '/ANGVEL' ATTITUDE_TYPE values, not \
+                         '{}'",
+                        self.attitude_type
+                    ),
+                ));
+            }
+            (true, Some(angvel_frame)) => {
+                if angvel_frame != &self.ref_frame_a && angvel_frame != &self.ref_frame_b {
+                    return Err(ccsds_parse_error(
+                        "AEM",
+                        &format!(
+                            "ANGVEL_FRAME '{}' must equal REF_FRAME_A '{}' or REF_FRAME_B '{}'",
+                            angvel_frame, self.ref_frame_a, self.ref_frame_b
+                        ),
+                    ));
+                }
+            }
+            (false, None) => {}
+        }
+
+        if self.interpolation_method.is_some() != self.interpolation_degree.is_some() {
+            return Err(ccsds_parse_error(
+                "AEM",
+                "INTERPOLATION_DEGREE is required if and only if INTERPOLATION_METHOD is present",
+            ));
+        }
+
+        if let Some(useable_start_time) = self.useable_start_time
+            && (useable_start_time < self.start_time || useable_start_time > self.stop_time)
+        {
+            return Err(ccsds_parse_error(
+                "AEM",
+                &format!(
+                    "USEABLE_START_TIME {} must fall within [START_TIME {}, STOP_TIME {}]",
+                    useable_start_time, self.start_time, self.stop_time
+                ),
+            ));
+        }
+        if let Some(useable_stop_time) = self.useable_stop_time
+            && (useable_stop_time < self.start_time || useable_stop_time > self.stop_time)
+        {
+            return Err(ccsds_parse_error(
+                "AEM",
+                &format!(
+                    "USEABLE_STOP_TIME {} must fall within [START_TIME {}, STOP_TIME {}]",
+                    useable_stop_time, self.start_time, self.stop_time
+                ),
+            ));
+        }
+        if let (Some(useable_start_time), Some(useable_stop_time)) =
+            (self.useable_start_time, self.useable_stop_time)
+            && useable_start_time > useable_stop_time
+        {
+            return Err(ccsds_parse_error(
+                "AEM",
+                &format!(
+                    "USEABLE_START_TIME {} must not fall after USEABLE_STOP_TIME {}",
+                    useable_start_time, useable_stop_time
+                ),
+            ));
+        }
+
+        Ok(())
+    }
+}
+
+/// A single segment within an AEM message: metadata plus a time-ordered
+/// sequence of attitude states (504.0-B-2 §4.2.1).
+#[derive(Debug, Clone)]
+pub struct AEMSegment {
+    /// Segment metadata.
+    pub metadata: AEMMetadata,
+    /// Comments associated with the data block (before the first state).
+    pub comments: Vec<String>,
+    /// Time-ordered attitude states.
+    pub states: Vec<AEMAttitudeState>,
+}
+
+impl AEMSegment {
+    /// Creates a new empty segment with the given metadata.
+    ///
+    /// # Arguments
+    /// - `metadata`: segment metadata.
+    ///
+    /// # Returns
+    /// AEMSegment: A segment with no attitude states.
+    pub fn new(metadata: AEMMetadata) -> Self {
+        Self {
+            metadata,
+            comments: Vec::new(),
+            states: Vec::new(),
+        }
+    }
+
+    /// Appends an attitude state to this segment.
+    ///
+    /// # Arguments
+    /// - `state`: attitude state to append.
+    ///
+    /// # Returns
+    /// Result<(), BraheError>: `Ok(())` on success, or a `ParseError` if
+    /// `state.data`'s attitude type does not match `metadata.attitude_type`,
+    /// or if `state.epoch` is not strictly after the last state's epoch
+    /// (504.0-B-2 §4.2.4.8.1: increasing time, no repeated time tags).
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::aem::{
+    ///     AEMAttitudeData, AEMAttitudeState, AEMAttitudeType, AEMMetadata, AEMSegment,
+    /// };
+    /// use brahe::ccsds::{ADMReferenceFrame, CCSDSTimeSystem};
+    /// use brahe::attitude::Quaternion;
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// let metadata = AEMMetadata::new(
+    ///     "SAT1", "2024-001A",
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     CCSDSTimeSystem::UTC,
+    ///     Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC),
+    ///     Epoch::from_datetime(2024, 1, 1, 1, 0, 0.0, 0.0, TimeSystem::UTC),
+    ///     AEMAttitudeType::Quaternion,
+    /// );
+    /// let mut segment = AEMSegment::new(metadata);
+    /// let state = AEMAttitudeState {
+    ///     epoch: Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC),
+    ///     data: AEMAttitudeData::Quaternion {
+    ///         quaternion: Quaternion::new(1.0, 0.0, 0.0, 0.0),
+    ///     },
+    /// };
+    /// assert!(segment.push_state(state).is_ok());
+    /// assert_eq!(segment.states.len(), 1);
+    /// ```
+    pub fn push_state(&mut self, state: AEMAttitudeState) -> Result<(), BraheError> {
+        let state_type = state.data.attitude_type();
+        if state_type != self.metadata.attitude_type {
+            return Err(ccsds_parse_error(
+                "AEM",
+                &format!(
+                    "attitude state type '{}' does not match segment ATTITUDE_TYPE '{}'",
+                    state_type, self.metadata.attitude_type
+                ),
+            ));
+        }
+        if let Some(last_state) = self.states.last()
+            && state.epoch <= last_state.epoch
+        {
+            return Err(ccsds_parse_error(
+                "AEM",
+                &format!(
+                    "epoch {} is not strictly increasing after previous epoch {}",
+                    state.epoch, last_state.epoch
+                ),
+            ));
+        }
+        self.states.push(state);
+        Ok(())
+    }
+}
+
+/// A complete CCSDS Attitude Ephemeris Message.
+#[derive(Debug, Clone)]
+pub struct AEM {
+    /// Message header.
+    pub header: AEMHeader,
+    /// One or more attitude ephemeris segments.
+    pub segments: Vec<AEMSegment>,
+}
+
+impl AEM {
+    /// Creates a new AEM message with no segments.
+    ///
+    /// # Arguments
+    /// - `originator`: creating agency or operator identifier.
+    ///
+    /// # Returns
+    /// AEM: A message with an empty segment list.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::aem::AEM;
+    /// let aem = AEM::new("BRAHE");
+    /// assert!(aem.segments.is_empty());
+    /// ```
+    pub fn new(originator: &str) -> Self {
+        Self {
+            header: AEMHeader::new(originator),
+            segments: Vec::new(),
+        }
+    }
+
+    /// Appends a segment to the AEM.
+    ///
+    /// # Arguments
+    /// - `segment`: segment to append.
+    pub fn push_segment(&mut self, segment: AEMSegment) {
+        self.segments.push(segment);
+    }
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::time::TimeSystem;
     use serial_test::parallel;
 
     #[test]
@@ -139,5 +890,502 @@ mod tests {
         assert_eq!(header.classification.as_deref(), Some("UNCLASSIFIED"));
         assert_eq!(header.message_id.as_deref(), Some("MSG-001"));
         assert_eq!(header.comments.len(), 1);
+    }
+
+    // ------------------------------------------------------------------
+    // AEMAttitudeType
+    // ------------------------------------------------------------------
+
+    #[test]
+    #[parallel]
+    fn test_aem_attitude_type_display_and_parse_round_trip() {
+        let cases = [
+            (AEMAttitudeType::Quaternion, "QUATERNION"),
+            (
+                AEMAttitudeType::QuaternionDerivative,
+                "QUATERNION/DERIVATIVE",
+            ),
+            (AEMAttitudeType::QuaternionAngVel, "QUATERNION/ANGVEL"),
+            (AEMAttitudeType::EulerAngle, "EULER_ANGLE"),
+            (
+                AEMAttitudeType::EulerAngleDerivative,
+                "EULER_ANGLE/DERIVATIVE",
+            ),
+            (AEMAttitudeType::EulerAngleAngVel, "EULER_ANGLE/ANGVEL"),
+            (AEMAttitudeType::Spin, "SPIN"),
+            (AEMAttitudeType::SpinNutation, "SPIN/NUTATION"),
+            (AEMAttitudeType::SpinNutationMom, "SPIN/NUTATION_MOM"),
+        ];
+        for (variant, token) in cases {
+            assert_eq!(variant.to_string(), token);
+            assert_eq!(AEMAttitudeType::parse(token).unwrap(), variant);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_attitude_type_parse_v1_quaternion_rate_error_names_v1() {
+        let err = AEMAttitudeType::parse("QUATERNION/RATE").unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("QUATERNION/RATE"));
+        assert!(msg.contains("504.0-B-1"));
+        assert!(msg.contains("QUATERNION/ANGVEL"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_attitude_type_parse_v1_euler_angle_rate_error_names_v1() {
+        let err = AEMAttitudeType::parse("EULER_ANGLE/RATE").unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("EULER_ANGLE/RATE"));
+        assert!(msg.contains("504.0-B-1"));
+        assert!(msg.contains("EULER_ANGLE/ANGVEL"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_attitude_type_parse_unknown_token_names_token() {
+        let err = AEMAttitudeType::parse("BOGUS_TYPE").unwrap_err();
+        assert!(err.to_string().contains("BOGUS_TYPE"));
+    }
+
+    // ------------------------------------------------------------------
+    // AEMInterpolationMethod
+    // ------------------------------------------------------------------
+
+    #[test]
+    #[parallel]
+    fn test_aem_interpolation_method_display_upper() {
+        assert_eq!(AEMInterpolationMethod::Linear.to_string(), "LINEAR");
+        assert_eq!(AEMInterpolationMethod::Hermite.to_string(), "HERMITE");
+        assert_eq!(AEMInterpolationMethod::Lagrange.to_string(), "LAGRANGE");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_interpolation_method_parse_case_insensitive() {
+        assert_eq!(
+            AEMInterpolationMethod::parse("linear").unwrap(),
+            AEMInterpolationMethod::Linear
+        );
+        assert_eq!(
+            AEMInterpolationMethod::parse("Hermite").unwrap(),
+            AEMInterpolationMethod::Hermite
+        );
+        assert_eq!(
+            AEMInterpolationMethod::parse("LAGRANGE").unwrap(),
+            AEMInterpolationMethod::Lagrange
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_interpolation_method_parse_invalid_names_token() {
+        let err = AEMInterpolationMethod::parse("CUBIC_SPLINE").unwrap_err();
+        assert!(err.to_string().contains("CUBIC_SPLINE"));
+    }
+
+    // ------------------------------------------------------------------
+    // AEMAttitudeData
+    // ------------------------------------------------------------------
+
+    fn unit_quaternion() -> Quaternion {
+        Quaternion::new(1.0, 0.0, 0.0, 0.0)
+    }
+
+    fn zero_euler_angle() -> EulerAngle {
+        EulerAngle::new(
+            EulerAngleOrder::ZXZ,
+            0.0,
+            0.0,
+            0.0,
+            crate::constants::AngleFormat::Radians,
+        )
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_attitude_data_attitude_type_all_variants() {
+        assert_eq!(
+            AEMAttitudeData::Quaternion {
+                quaternion: unit_quaternion()
+            }
+            .attitude_type(),
+            AEMAttitudeType::Quaternion
+        );
+        assert_eq!(
+            AEMAttitudeData::QuaternionDerivative {
+                quaternion: unit_quaternion(),
+                derivative: Vector4::new(0.0, 0.0, 0.0, 0.0),
+            }
+            .attitude_type(),
+            AEMAttitudeType::QuaternionDerivative
+        );
+        assert_eq!(
+            AEMAttitudeData::QuaternionAngVel {
+                quaternion: unit_quaternion(),
+                angular_velocity: Vector3::new(0.0, 0.0, 0.0),
+            }
+            .attitude_type(),
+            AEMAttitudeType::QuaternionAngVel
+        );
+        assert_eq!(
+            AEMAttitudeData::EulerAngle {
+                angles: zero_euler_angle()
+            }
+            .attitude_type(),
+            AEMAttitudeType::EulerAngle
+        );
+        assert_eq!(
+            AEMAttitudeData::EulerAngleDerivative {
+                angles: zero_euler_angle(),
+                rates: Vector3::new(0.0, 0.0, 0.0),
+            }
+            .attitude_type(),
+            AEMAttitudeType::EulerAngleDerivative
+        );
+        assert_eq!(
+            AEMAttitudeData::EulerAngleAngVel {
+                angles: zero_euler_angle(),
+                angular_velocity: Vector3::new(0.0, 0.0, 0.0),
+            }
+            .attitude_type(),
+            AEMAttitudeType::EulerAngleAngVel
+        );
+        assert_eq!(
+            AEMAttitudeData::Spin {
+                spin_alpha: 0.0,
+                spin_delta: 0.0,
+                spin_angle: 0.0,
+                spin_angle_vel: 0.0,
+            }
+            .attitude_type(),
+            AEMAttitudeType::Spin
+        );
+        assert_eq!(
+            AEMAttitudeData::SpinNutation {
+                spin_alpha: 0.0,
+                spin_delta: 0.0,
+                spin_angle: 0.0,
+                spin_angle_vel: 0.0,
+                nutation: 0.0,
+                nutation_period: 0.0,
+                nutation_phase: 0.0,
+            }
+            .attitude_type(),
+            AEMAttitudeType::SpinNutation
+        );
+        assert_eq!(
+            AEMAttitudeData::SpinNutationMom {
+                spin_alpha: 0.0,
+                spin_delta: 0.0,
+                spin_angle: 0.0,
+                spin_angle_vel: 0.0,
+                momentum_alpha: 0.0,
+                momentum_delta: 0.0,
+                nutation_vel: 0.0,
+            }
+            .attitude_type(),
+            AEMAttitudeType::SpinNutationMom
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // AEMMetadata
+    // ------------------------------------------------------------------
+
+    fn icrf() -> ADMReferenceFrame {
+        ADMReferenceFrame::parse("ICRF")
+    }
+
+    fn sc_body_1() -> ADMReferenceFrame {
+        ADMReferenceFrame::parse("SC_BODY_1")
+    }
+
+    fn t0() -> Epoch {
+        Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC)
+    }
+
+    fn t1() -> Epoch {
+        Epoch::from_datetime(2024, 1, 1, 1, 0, 0.0, 0.0, TimeSystem::UTC)
+    }
+
+    fn base_metadata(attitude_type: AEMAttitudeType) -> AEMMetadata {
+        AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            icrf(),
+            sc_body_1(),
+            CCSDSTimeSystem::UTC,
+            t0(),
+            t1(),
+            attitude_type,
+        )
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_metadata_new_defaults() {
+        let metadata = base_metadata(AEMAttitudeType::Quaternion);
+        assert_eq!(metadata.object_name, "SAT1");
+        assert_eq!(metadata.object_id, "2024-001A");
+        assert!(metadata.center_name.is_none());
+        assert_eq!(metadata.ref_frame_a, icrf());
+        assert_eq!(metadata.ref_frame_b, sc_body_1());
+        assert_eq!(metadata.time_system, CCSDSTimeSystem::UTC);
+        assert!(metadata.useable_start_time.is_none());
+        assert!(metadata.useable_stop_time.is_none());
+        assert_eq!(metadata.attitude_type, AEMAttitudeType::Quaternion);
+        assert!(metadata.euler_rot_seq.is_none());
+        assert!(metadata.angvel_frame.is_none());
+        assert!(metadata.interpolation_method.is_none());
+        assert!(metadata.interpolation_degree.is_none());
+        assert!(metadata.comments.is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_metadata_builders() {
+        let metadata = base_metadata(AEMAttitudeType::EulerAngleAngVel)
+            .with_center_name("EARTH")
+            .with_useable_times(t0(), t1())
+            .with_euler_rot_seq(EulerAngleOrder::ZXZ)
+            .with_angvel_frame(sc_body_1())
+            .with_interpolation(AEMInterpolationMethod::Hermite, Some(5));
+        assert_eq!(metadata.center_name.as_deref(), Some("EARTH"));
+        assert_eq!(metadata.useable_start_time, Some(t0()));
+        assert_eq!(metadata.useable_stop_time, Some(t1()));
+        assert_eq!(metadata.euler_rot_seq, Some(EulerAngleOrder::ZXZ));
+        assert_eq!(metadata.angvel_frame, Some(sc_body_1()));
+        assert_eq!(
+            metadata.interpolation_method,
+            Some(AEMInterpolationMethod::Hermite)
+        );
+        assert_eq!(metadata.interpolation_degree, Some(5));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_metadata_validate_quaternion_ok() {
+        let metadata = base_metadata(AEMAttitudeType::Quaternion);
+        assert!(metadata.validate().is_ok());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_metadata_validate_euler_missing_rot_seq_errors() {
+        let metadata = base_metadata(AEMAttitudeType::EulerAngle);
+        let err = metadata.validate().unwrap_err();
+        assert!(err.to_string().contains("EULER_ROT_SEQ"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_metadata_validate_euler_with_rot_seq_ok() {
+        let metadata =
+            base_metadata(AEMAttitudeType::EulerAngle).with_euler_rot_seq(EulerAngleOrder::ZXZ);
+        assert!(metadata.validate().is_ok());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_metadata_validate_non_euler_with_rot_seq_errors() {
+        let metadata =
+            base_metadata(AEMAttitudeType::Quaternion).with_euler_rot_seq(EulerAngleOrder::ZXZ);
+        let err = metadata.validate().unwrap_err();
+        assert!(err.to_string().contains("EULER_ROT_SEQ"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_metadata_validate_angvel_missing_frame_errors() {
+        let metadata = base_metadata(AEMAttitudeType::QuaternionAngVel);
+        let err = metadata.validate().unwrap_err();
+        assert!(err.to_string().contains("ANGVEL_FRAME"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_metadata_validate_angvel_frame_matches_ref_frame_a_ok() {
+        let metadata = base_metadata(AEMAttitudeType::QuaternionAngVel).with_angvel_frame(icrf());
+        assert!(metadata.validate().is_ok());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_metadata_validate_angvel_frame_matches_ref_frame_b_ok() {
+        let metadata =
+            base_metadata(AEMAttitudeType::QuaternionAngVel).with_angvel_frame(sc_body_1());
+        assert!(metadata.validate().is_ok());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_metadata_validate_angvel_frame_mismatch_errors() {
+        let metadata = base_metadata(AEMAttitudeType::QuaternionAngVel)
+            .with_angvel_frame(ADMReferenceFrame::parse("INSTRUMENT_A"));
+        let err = metadata.validate().unwrap_err();
+        assert!(err.to_string().contains("must equal REF_FRAME_A"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_metadata_validate_non_angvel_with_frame_errors() {
+        let metadata = base_metadata(AEMAttitudeType::Quaternion).with_angvel_frame(icrf());
+        let err = metadata.validate().unwrap_err();
+        assert!(err.to_string().contains("ANGVEL_FRAME"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_metadata_validate_interpolation_method_without_degree_errors() {
+        let mut metadata = base_metadata(AEMAttitudeType::Quaternion);
+        metadata.interpolation_method = Some(AEMInterpolationMethod::Linear);
+        let err = metadata.validate().unwrap_err();
+        assert!(err.to_string().contains("INTERPOLATION_DEGREE"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_metadata_validate_interpolation_degree_without_method_errors() {
+        let mut metadata = base_metadata(AEMAttitudeType::Quaternion);
+        metadata.interpolation_degree = Some(3);
+        let err = metadata.validate().unwrap_err();
+        assert!(err.to_string().contains("INTERPOLATION_DEGREE"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_metadata_validate_interpolation_both_set_ok() {
+        let metadata = base_metadata(AEMAttitudeType::Quaternion)
+            .with_interpolation(AEMInterpolationMethod::Linear, Some(1));
+        assert!(metadata.validate().is_ok());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_metadata_validate_useable_start_before_start_time_errors() {
+        let mut metadata = base_metadata(AEMAttitudeType::Quaternion);
+        metadata.useable_start_time = Some(t0() - 10.0);
+        let err = metadata.validate().unwrap_err();
+        assert!(err.to_string().contains("USEABLE_START_TIME"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_metadata_validate_useable_stop_after_stop_time_errors() {
+        let mut metadata = base_metadata(AEMAttitudeType::Quaternion);
+        metadata.useable_stop_time = Some(t1() + 10.0);
+        let err = metadata.validate().unwrap_err();
+        assert!(err.to_string().contains("USEABLE_STOP_TIME"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_metadata_validate_useable_start_after_useable_stop_errors() {
+        let metadata = base_metadata(AEMAttitudeType::Quaternion).with_useable_times(t1(), t0());
+        let err = metadata.validate().unwrap_err();
+        assert!(err.to_string().contains("must not fall after"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_metadata_validate_useable_times_within_bounds_ok() {
+        let metadata = base_metadata(AEMAttitudeType::Quaternion).with_useable_times(t0(), t1());
+        assert!(metadata.validate().is_ok());
+    }
+
+    // ------------------------------------------------------------------
+    // AEMSegment
+    // ------------------------------------------------------------------
+
+    fn quaternion_state(epoch: Epoch) -> AEMAttitudeState {
+        AEMAttitudeState {
+            epoch,
+            data: AEMAttitudeData::Quaternion {
+                quaternion: unit_quaternion(),
+            },
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_segment_new_defaults() {
+        let segment = AEMSegment::new(base_metadata(AEMAttitudeType::Quaternion));
+        assert!(segment.comments.is_empty());
+        assert!(segment.states.is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_segment_push_state_increasing_epochs_ok() {
+        let mut segment = AEMSegment::new(base_metadata(AEMAttitudeType::Quaternion));
+        assert!(segment.push_state(quaternion_state(t0())).is_ok());
+        assert!(segment.push_state(quaternion_state(t1())).is_ok());
+        assert_eq!(segment.states.len(), 2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_segment_push_state_wrong_type_errors_naming_both_types() {
+        let mut segment = AEMSegment::new(base_metadata(AEMAttitudeType::Quaternion));
+        let state = AEMAttitudeState {
+            epoch: t0(),
+            data: AEMAttitudeData::Spin {
+                spin_alpha: 0.0,
+                spin_delta: 0.0,
+                spin_angle: 0.0,
+                spin_angle_vel: 0.0,
+            },
+        };
+        let err = segment.push_state(state).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("SPIN"));
+        assert!(msg.contains("QUATERNION"));
+        assert!(segment.states.is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_segment_push_state_equal_epoch_errors_naming_both_epochs() {
+        let mut segment = AEMSegment::new(base_metadata(AEMAttitudeType::Quaternion));
+        segment.push_state(quaternion_state(t0())).unwrap();
+        let err = segment.push_state(quaternion_state(t0())).unwrap_err();
+        let msg = err.to_string();
+        assert_eq!(msg.matches(&t0().to_string()).count(), 2);
+        assert_eq!(segment.states.len(), 1);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_segment_push_state_decreasing_epoch_errors() {
+        let mut segment = AEMSegment::new(base_metadata(AEMAttitudeType::Quaternion));
+        segment.push_state(quaternion_state(t1())).unwrap();
+        let err = segment.push_state(quaternion_state(t0())).unwrap_err();
+        assert!(err.to_string().contains("not strictly increasing"));
+        assert_eq!(segment.states.len(), 1);
+    }
+
+    // ------------------------------------------------------------------
+    // AEM
+    // ------------------------------------------------------------------
+
+    #[test]
+    #[parallel]
+    fn test_aem_new_defaults() {
+        let aem = AEM::new("BRAHE");
+        assert_eq!(aem.header.originator, "BRAHE");
+        assert!(aem.segments.is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_push_segment() {
+        let mut aem = AEM::new("BRAHE");
+        let mut segment = AEMSegment::new(base_metadata(AEMAttitudeType::Quaternion));
+        segment.push_state(quaternion_state(t0())).unwrap();
+        aem.push_segment(segment);
+        assert_eq!(aem.segments.len(), 1);
+        assert_eq!(aem.segments[0].states.len(), 1);
     }
 }

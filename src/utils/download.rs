@@ -401,6 +401,48 @@ mod tests {
 
     #[test]
     #[serial_test::parallel]
+    fn test_download_bytes_retries_truncated_body() {
+        // A body that ends before its declared length fails in the read phase.
+        // That is a transport error, so the whole request is retried up to the
+        // attempt cap and the final error names the description. A raw socket
+        // stands in for the server because HTTP mock servers refuse to send a
+        // body shorter than the Content-Length they declare.
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let connections = Arc::new(AtomicUsize::new(0));
+        let counter = Arc::clone(&connections);
+        std::thread::spawn(move || {
+            for stream in listener.incoming().flatten() {
+                let mut stream = stream;
+                let mut request = [0u8; 1024];
+                let _ = stream.read(&mut request);
+                let _ = stream.write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 1000\r\nConnection: close\r\n\r\nshort",
+                );
+                counter.fetch_add(1, Ordering::SeqCst);
+            }
+        });
+
+        let err = download_bytes(
+            &format!("http://127.0.0.1:{port}/kernel.bsp"),
+            "test kernel",
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("reading test kernel response body"), "{err}");
+        assert_eq!(
+            connections.load(Ordering::SeqCst),
+            MAX_DOWNLOAD_ATTEMPTS as usize
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
     fn test_download_bytes_does_not_retry_client_error() {
         // A 404 is not transient: download_bytes must fail after a single request.
         let server = MockServer::start();

@@ -801,6 +801,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_query_raw_gp() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -826,6 +827,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_query_gp_typed() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -856,6 +858,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_query_gp_with_client_side_filter() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -886,6 +889,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_query_gp_with_order_and_limit() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -917,6 +921,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_query_satcat_typed() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -946,6 +951,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_query_raw_tle_format() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         let tle_data = "ISS (ZARYA)\n1 25544U 98067A   24015.50000000\n2 25544  51.6400";
@@ -971,6 +977,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_http_error_404() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -988,6 +995,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_invalid_json_response() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -1006,6 +1014,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_empty_json_response() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -1024,6 +1033,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_download_to_file() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -1161,6 +1171,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_get_gp_by_catnr() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -1185,6 +1196,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_get_gp_by_group() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -1207,6 +1219,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_get_gp_by_name() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -1230,6 +1243,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_get_gp_by_intdes() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -1252,6 +1266,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_get_sup_gp() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -1274,6 +1289,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_get_satcat_by_catnr() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -1298,6 +1314,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_get_sgp_propagator_by_catnr_empty_results() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -1323,6 +1340,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_retry_on_503() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         let mock = server.mock(|when, then| {
@@ -1342,6 +1360,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_no_retry_on_404() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         let mock = server.mock(|when, then| {
@@ -1361,6 +1380,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_max_retries_zero_no_retry() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         let mock = server.mock(|when, then| {

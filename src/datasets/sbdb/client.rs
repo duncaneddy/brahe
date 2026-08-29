@@ -300,6 +300,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_lookup_zero_cache_age_refetches() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let _redirect = CacheRedirect::new();
         let server = MockServer::start();
         let mock = server.mock(|when, then| {

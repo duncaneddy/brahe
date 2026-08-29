@@ -186,6 +186,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_read_cache_force_refresh_reports_stale_as_miss() {
+        let _mode = NetworkModeGuard::set(Some("online"));
         let cache_dir = get_star_catalogs_cache_dir().unwrap();
         let test_filename = "test_force_refresh.dat";
         let cache_path = Path::new(&cache_dir).join(test_filename);

@@ -158,7 +158,7 @@ fn reraise_callback_error(slot: &PyErrSlot, err: brahe::utils::BraheError) -> Py
 ///     step_safety_factor (float, optional): Safety factor for step control. Defaults to 0.9.
 ///     min_step_scale_factor (float, optional): Minimum step scaling. Defaults to 0.2.
 ///     max_step_scale_factor (float, optional): Maximum step scaling. Defaults to 10.0.
-///     max_step_attempts (int, optional): Maximum step attempts. Defaults to 10.
+///     max_step_attempts (int, optional): Maximum step attempts. Defaults to 25.
 ///     fixed_step_size (float, optional): Fixed step size for fixed-step integrators. Defaults to None.
 ///
 /// Example:
@@ -202,7 +202,7 @@ impl PyIntegratorConfig {
         step_safety_factor=Some(0.9),
         min_step_scale_factor=Some(0.2),
         max_step_scale_factor=Some(10.0),
-        max_step_attempts=10,
+        max_step_attempts=25,
         fixed_step_size=None
     ))]
     #[allow(clippy::too_many_arguments)]

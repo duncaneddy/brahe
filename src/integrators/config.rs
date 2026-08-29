@@ -47,6 +47,11 @@ pub struct IntegratorConfig {
     pub max_step_scale_factor: Option<f64>,
 
     /// Maximum attempts to find acceptable step size
+    ///
+    /// Each rejection shrinks the step by at most `min_step_scale_factor`, so
+    /// the budget bounds how far a single call can reduce. Resolving a pass
+    /// through the lower thermosphere at the default tolerances takes most of
+    /// the default budget.
     pub max_step_attempts: usize,
 
     /// Fixed step size for fixed-step integrators
@@ -65,7 +70,7 @@ impl Default for IntegratorConfig {
     /// - step_safety_factor: Some(0.9)
     /// - min_step_scale_factor: Some(0.2)
     /// - max_step_scale_factor: Some(10.0)
-    /// - max_step_attempts: 10
+    /// - max_step_attempts: 25
     /// - fixed_step_size: None
     fn default() -> Self {
         Self {
@@ -77,7 +82,7 @@ impl Default for IntegratorConfig {
             step_safety_factor: Some(0.9),
             min_step_scale_factor: Some(0.2),
             max_step_scale_factor: Some(10.0),
-            max_step_attempts: 10,
+            max_step_attempts: 25,
             fixed_step_size: None,
         }
     }
@@ -154,7 +159,7 @@ mod tests {
         assert_eq!(config.step_safety_factor, Some(0.9));
         assert_eq!(config.min_step_scale_factor, Some(0.2));
         assert_eq!(config.max_step_scale_factor, Some(10.0));
-        assert_eq!(config.max_step_attempts, 10);
+        assert_eq!(config.max_step_attempts, 25);
         assert_eq!(config.fixed_step_size, None);
     }
 

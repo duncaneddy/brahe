@@ -54,11 +54,21 @@ jobs:
                             ;;
                     esac
             -   name: Save data caches
+                # Best effort: speeds up later runs but is not what the matrix
+                # legs depend on. Fork pull requests cannot write the cache.
                 if: steps.cache.outputs.missed != ''
+                continue-on-error: true
                 uses: ./.github/actions/data-cache
                 with:
                     mode: save
                     families: ${{ steps.cache.outputs.missed }}
+            -   name: Hand the data to the matrix legs
+                uses: actions/upload-artifact@v7
+                with:
+                    name: brahe-data-rust
+                    path: ~/.cache/brahe/naif
+                    retention-days: 1
+                    if-no-files-found: error
     test-rust:
         runs-on: ${{ matrix.os }}
         needs: data-cache
@@ -91,10 +101,11 @@ jobs:
                     rustup default ${{ matrix.rust-toolchain }}
             -   name: Install cargo-llvm-cov
                 uses: taiki-e/install-action@cargo-llvm-cov
-            -   name: Restore data caches
-                uses: ./.github/actions/data-cache
+            -   name: Fetch the data from the data-cache job
+                uses: actions/download-artifact@v8
                 with:
-                    families: naif
+                    name: brahe-data-rust
+                    path: ~/.cache/brahe/naif
             # de440s.bsp is a committed test asset; the other kernels the unit
             # tests auto-load come from the restored NAIF cache and a miss fails
             # the test that needs them.
@@ -159,10 +170,11 @@ jobs:
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
-            -   name: Restore data caches
-                uses: ./.github/actions/data-cache
+            -   name: Fetch the data from the data-cache job
+                uses: actions/download-artifact@v8
                 with:
-                    families: naif
+                    name: brahe-data-rust
+                    path: ~/.cache/brahe/naif
             # de440s.bsp is a committed test asset; the other kernels the unit
             # tests auto-load come from the restored NAIF cache and a miss fails
             # the test that needs them.

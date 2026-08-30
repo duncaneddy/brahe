@@ -39,6 +39,10 @@ pub enum StepDirection {
 /// * `params` - Optional parameter vector
 /// * `bracket_low` - Lower bound of search bracket (earlier time)
 /// * `bracket_high` - Upper bound of search bracket (later time)
+/// * `depth` - Recursion depth of this call, counted from zero at the entry
+///   point (unitless). Each level narrows the bracket; the search returns its
+///   best estimate once `MAX_BISECTION_DEPTH` is reached, so a bracket that
+///   fails to contract cannot recurse without end.
 ///
 /// # Returns
 /// Event time and state, or None if no event found within search window
@@ -196,7 +200,8 @@ where
 /// Find event time using bisection search (dynamic-sized)
 ///
 /// Uses bracketing bisection to refine the event time to within the specified
-/// tolerance. See `bisection_search` for algorithm details.
+/// tolerance. See `bisection_search` for algorithm details and for the argument
+/// list, including the `depth` recursion counter and its bound.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn bisection_search_d<F>(
     detector: &dyn DEventDetector,
@@ -650,6 +655,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_scan_for_event_backward() {
         // Backward propagation hands the scan prev_time later than
         // current_time, so the bracket bounds arrive reversed in time.

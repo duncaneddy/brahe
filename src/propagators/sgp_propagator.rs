@@ -1936,8 +1936,14 @@ impl SGPPropagator {
             }
         }
 
-        // Sort events chronologically
-        events.sort_by(|a, b| a.window_open.partial_cmp(&b.window_open).unwrap());
+        // Sort events in the order the propagation encounters them. Going
+        // backward that is descending in time, so the caller processes the one
+        // actually reached first and stops there if it is terminal.
+        if epoch_curr >= epoch_prev {
+            events.sort_by(|a, b| a.window_open.partial_cmp(&b.window_open).unwrap());
+        } else {
+            events.sort_by(|a, b| b.window_open.partial_cmp(&a.window_open).unwrap());
+        }
 
         events
     }
@@ -4262,6 +4268,44 @@ mod tests {
 
         // Event time should be very close to target
         assert_abs_diff_eq!(events[0].window_open.jd(), target_time.jd(), epsilon = 1e-8);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sgppropagator_backward_event_order() {
+        use crate::events::EventAction;
+        use std::sync::{Arc, Mutex};
+
+        setup_global_test_eop();
+        // A step wide enough to contain both events, so the order the scan
+        // returns them is what decides which callback runs first.
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 600.0).unwrap();
+        let epoch = prop.initial_epoch();
+
+        prop.propagate_to(epoch + 600.0).unwrap();
+        prop.clear_events();
+
+        let order = Arc::new(Mutex::new(Vec::<&'static str>::new()));
+        for (offset, tag) in [(480.0, "late"), (120.0, "early")] {
+            let order = Arc::clone(&order);
+            prop.add_event_detector(Box::new(
+                DTimeEvent::new(epoch + offset, tag).with_callback(Box::new(
+                    move |_t, state, _params| {
+                        order.lock().unwrap().push(tag);
+                        (Some(state.clone()), None, EventAction::Continue)
+                    },
+                )),
+            ));
+        }
+
+        prop.step_by(-600.0).unwrap();
+
+        let fired = order.lock().unwrap().clone();
+        assert_eq!(
+            fired,
+            vec!["late", "early"],
+            "Backward propagation must reach the later event first"
+        );
     }
 
     #[test]

@@ -27,6 +27,7 @@
  * ```
  */
 
+use crate::trajectories::traits::compute_lagrange_window;
 use nalgebra::{SMatrix, SVector};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -409,7 +410,17 @@ impl<const R: usize> STrajectory<R> {
         }
 
         // Handle exact match
-        if let Some((idx, _)) = self.epochs.iter().enumerate().find(|(_, e)| **e == epoch) {
+        // The last record at a repeated epoch, matching what `interpolate`
+        // returns there: an impulsive maneuver stores its pre- and post-burn
+        // records at the same instant, and pairing the post-burn state with
+        // pre-burn auxiliary data would misreport the maneuver.
+        if let Some((idx, _)) = self
+            .epochs
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, e)| **e == epoch)
+        {
             return Ok(Some(covs[idx]));
         }
 
@@ -899,8 +910,18 @@ impl<const R: usize> InterpolatableTrajectory for STrajectory<R> {
         let idx2 = self.index_after_epoch(epoch)?;
 
         // If indices are the same, we have an exact match
-        if idx1 == idx2 {
-            return self.state_at_idx(idx1);
+        // An exact hit, or a bracket of zero duration because the epoch is
+        // stored more than once. Repeated epochs are allowed so that an
+        // impulsive maneuver can hold both its pre- and post-burn states;
+        // interpolating across one would divide by a zero-length interval and
+        // yield NaN, so the stored state is returned instead. `add` inserts a
+        // state after any it already holds at that epoch, and for a repeated
+        // epoch `index_before_epoch` lands on the last of the run while
+        // `index_after_epoch` lands on the first, so the higher index is the
+        // most recently added state. Returning it makes a query at a
+        // discontinuity right-continuous with the states that follow.
+        if idx1 == idx2 || self.epoch_at_idx(idx1)? == self.epoch_at_idx(idx2)? {
+            return self.state_at_idx(idx1.max(idx2));
         }
 
         // Validate minimum point count
@@ -925,7 +946,7 @@ impl<const R: usize> InterpolatableTrajectory for STrajectory<R> {
                 // Collect degree+1 points centered around query epoch
                 let n_points = degree + 1;
                 let (start_idx, end_idx) =
-                    compute_interpolation_window(self.len(), idx1, idx2, n_points)?;
+                    compute_lagrange_window(&self.epochs, idx1, idx2, n_points)?;
 
                 // Build time and value arrays
                 let times: Vec<f64> = (start_idx..=end_idx)
@@ -949,33 +970,6 @@ impl<const R: usize> InterpolatableTrajectory for STrajectory<R> {
             }
         }
     }
-}
-
-/// Helper function to compute the window of indices for Lagrange interpolation.
-fn compute_interpolation_window(
-    len: usize,
-    idx1: usize,
-    idx2: usize,
-    n_points: usize,
-) -> Result<(usize, usize), BraheError> {
-    if len < n_points {
-        return Err(BraheError::Error(format!(
-            "Need {} points for interpolation, trajectory has {}",
-            n_points, len
-        )));
-    }
-
-    let center = (idx1 + idx2) / 2;
-    let half_window = n_points / 2;
-    let mut start_idx = center.saturating_sub(half_window);
-    let mut end_idx = start_idx + n_points - 1;
-
-    if end_idx >= len {
-        end_idx = len - 1;
-        start_idx = end_idx.saturating_sub(n_points - 1);
-    }
-
-    Ok((start_idx, end_idx))
 }
 
 // Iterator implementation will be added later once trait bounds are resolved
@@ -2258,5 +2252,233 @@ mod tests {
         // indices exist for interpolation.
         let epoch = Epoch::from_jd(2451544.0, TimeSystem::UTC);
         assert!(traj.covariance_at(epoch).unwrap().is_none());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_compute_lagrange_window_is_balanced() {
+        setup_global_test_eop();
+
+        // Twenty samples one minute apart, no repeats.
+        let start = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epochs: Vec<Epoch> = (0..20).map(|i| start + 60.0 * i as f64).collect();
+        let (idx1, idx2) = (5, 6);
+
+        // Two points: exactly the bracketing pair. The previous split put the
+        // window at 4..=5, which extrapolated instead of interpolating.
+        assert_eq!(
+            compute_lagrange_window(&epochs, idx1, idx2, 2).unwrap(),
+            (5, 6)
+        );
+        // Four points: one sample either side of the bracket.
+        assert_eq!(
+            compute_lagrange_window(&epochs, idx1, idx2, 4).unwrap(),
+            (4, 7)
+        );
+        // Six points: two samples either side.
+        assert_eq!(
+            compute_lagrange_window(&epochs, idx1, idx2, 6).unwrap(),
+            (3, 8)
+        );
+        // Odd counts cannot straddle evenly and keep their existing split.
+        assert_eq!(
+            compute_lagrange_window(&epochs, idx1, idx2, 3).unwrap(),
+            (4, 6)
+        );
+        assert_eq!(
+            compute_lagrange_window(&epochs, idx1, idx2, 5).unwrap(),
+            (3, 7)
+        );
+
+        // Windows still clamp to the end of the trajectory.
+        assert_eq!(
+            compute_lagrange_window(&epochs, 18, 19, 4).unwrap(),
+            (16, 19)
+        );
+        // A window wider than the trajectory shrinks to what is available.
+        let short: Vec<Epoch> = epochs[..3].to_vec();
+        assert_eq!(compute_lagrange_window(&short, 0, 1, 4).unwrap(), (0, 2));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_compute_lagrange_window_stops_at_a_repeated_epoch() {
+        setup_global_test_eop();
+
+        // A repeated epoch at index 2/3 marks a discontinuity; a polynomial
+        // fitted across it would see two identical abscissae.
+        let start = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epochs = vec![
+            start,
+            start + 60.0,
+            start + 120.0,
+            start + 120.0,
+            start + 180.0,
+            start + 240.0,
+        ];
+
+        // Query bracketed by 1 and 2, ahead of the discontinuity: the window
+        // may not reach index 3.
+        let (s0, e0) = compute_lagrange_window(&epochs, 1, 2, 4).unwrap();
+        assert!(e0 <= 2, "window {:?} crossed the repeated epoch", (s0, e0));
+        assert_eq!((s0, e0), (0, 2));
+
+        // Query bracketed by 3 and 4, after the discontinuity: the window may
+        // not reach index 2.
+        let (s1, e1) = compute_lagrange_window(&epochs, 3, 4, 4).unwrap();
+        assert!(s1 >= 3, "window {:?} crossed the repeated epoch", (s1, e1));
+        assert_eq!((s1, e1), (3, 5));
+
+        // Every window it returns has strictly increasing epochs.
+        for n_points in 2..=6 {
+            for (a, b) in [(0, 1), (1, 2), (3, 4), (4, 5)] {
+                let (ws, we) = compute_lagrange_window(&epochs, a, b, n_points).unwrap();
+                for i in ws..we {
+                    assert!(
+                        epochs[i] < epochs[i + 1],
+                        "window {:?} for {} points repeats an epoch",
+                        (ws, we),
+                        n_points
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_even_degree_lagrange_beats_the_earlier_window() {
+        setup_global_test_eop();
+
+        // A smooth, non-polynomial signal so the window choice shows up as
+        // interpolation error rather than being fitted exactly.
+        let start = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let signal = |x: f64| (x / 3.0).cos() * (1.0 + 0.3 * x).ln();
+
+        let mut traj = STrajectory6::new();
+        for i in 0..12 {
+            let value = signal(i as f64);
+            traj.add(
+                start + 60.0 * i as f64,
+                Vector6::new(value, 0.0, 0.0, 0.0, 0.0, 0.0),
+            )
+            .unwrap();
+        }
+        traj.set_interpolation_method(InterpolationMethod::Lagrange { degree: 3 });
+
+        // Interior queries, away from the ends where the window clamps.
+        let mut worst = 0.0f64;
+        for k in 4..7 {
+            let x = k as f64 + 0.5;
+            let interpolated = traj.interpolate(&(start + 60.0 * x)).unwrap()[0];
+            worst = worst.max((interpolated - signal(x)).abs());
+        }
+
+        // The balanced window holds this under 4e-4; the window one sample
+        // early reaches 7.4e-4 on the same data.
+        assert!(worst < 4e-4, "worst interior error was {:e}", worst);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_repeated_epoch_pairs_state_and_covariance_from_the_same_record() {
+        setup_global_test_eop();
+
+        // A query at a maneuver epoch must not pair the post-burn state with
+        // the pre-burn covariance.
+        let start = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let mut traj = STrajectory6::new();
+        traj.add_with_covariance(
+            start,
+            Vector6::new(1.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+            SMatrix::<f64, 6, 6>::identity(),
+        );
+        traj.add_with_covariance(
+            start + 60.0,
+            Vector6::new(2.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+            SMatrix::<f64, 6, 6>::identity() * 2.0,
+        );
+        traj.add_with_covariance(
+            start + 60.0,
+            Vector6::new(9.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+            SMatrix::<f64, 6, 6>::identity() * 9.0,
+        );
+
+        let state = traj.interpolate(&(start + 60.0)).unwrap();
+        let covariance = traj.covariance_at(start + 60.0).unwrap().unwrap();
+        assert_abs_diff_eq!(state[0], 9.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(covariance[(0, 0)], 9.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_lagrange_interpolation_does_not_span_a_repeated_epoch() {
+        setup_global_test_eop();
+
+        // Four samples with the middle epoch repeated, as an impulsive
+        // maneuver stores it. A four-point Lagrange stencil covering the whole
+        // trajectory would contain both copies of that epoch and divide by a
+        // zero-length abscissa difference.
+        let start = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let mut traj = STrajectory6::new();
+        traj.add(start, Vector6::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+            .unwrap();
+        traj.add(start + 60.0, Vector6::new(1.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+            .unwrap();
+        traj.add(start + 60.0, Vector6::new(10.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+            .unwrap();
+        traj.add(start + 120.0, Vector6::new(11.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+            .unwrap();
+        traj.set_interpolation_method(InterpolationMethod::Lagrange { degree: 3 });
+
+        // Ahead of the discontinuity, the fit uses only the pre-burn branch.
+        let before = traj.interpolate(&(start + 30.0)).unwrap();
+        assert!(
+            before.iter().all(|v| v.is_finite()),
+            "interpolation before the repeated epoch returned {:?}",
+            before
+        );
+        assert_abs_diff_eq!(before[0], 0.5, epsilon = 1e-12);
+
+        // After it, only the post-burn branch.
+        let after = traj.interpolate(&(start + 90.0)).unwrap();
+        assert!(
+            after.iter().all(|v| v.is_finite()),
+            "interpolation after the repeated epoch returned {:?}",
+            after
+        );
+        assert_abs_diff_eq!(after[0], 10.5, epsilon = 1e-12);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_interpolate_at_duplicate_epoch_returns_the_stored_state() {
+        setup_global_test_eop();
+
+        // An impulsive maneuver stores a pre- and a post-burn state at the
+        // same epoch. Interpolating there used to divide by a zero-length
+        // interval and return NaN.
+        let start = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let mut traj = STrajectory6::new();
+        traj.add(start, Vector6::new(1.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+            .unwrap();
+        traj.add(start + 60.0, Vector6::new(2.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+            .unwrap();
+        traj.add(start + 60.0, Vector6::new(9.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+            .unwrap();
+        traj.add(start + 120.0, Vector6::new(3.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+            .unwrap();
+
+        let at_duplicate = traj.interpolate(&(start + 60.0)).unwrap();
+        assert!(at_duplicate.iter().all(|v| v.is_finite()));
+        // The most recently added state at that epoch, so the result is
+        // continuous with the states that follow the discontinuity.
+        assert_abs_diff_eq!(at_duplicate[0], 9.0, epsilon = 1e-12);
+
+        // Interpolation either side of the repeated epoch is unaffected.
+        let before = traj.interpolate(&(start + 30.0)).unwrap();
+        assert_abs_diff_eq!(before[0], 1.5, epsilon = 1e-12);
+        let after = traj.interpolate(&(start + 90.0)).unwrap();
+        assert_abs_diff_eq!(after[0], 6.0, epsilon = 1e-12);
     }
 }

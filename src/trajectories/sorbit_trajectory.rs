@@ -37,6 +37,7 @@
  * ```
  */
 
+use crate::trajectories::traits::compute_lagrange_window;
 use nalgebra::{DMatrix, SMatrix, SVector, Vector6};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -578,7 +579,17 @@ impl SOrbitTrajectory {
         }
 
         // Handle exact match
-        if let Some((idx, _)) = self.epochs.iter().enumerate().find(|(_, e)| **e == epoch) {
+        // The last record at a repeated epoch, matching what `interpolate`
+        // returns there: an impulsive maneuver stores its pre- and post-burn
+        // records at the same instant, and pairing the post-burn state with
+        // pre-burn auxiliary data would misreport the maneuver.
+        if let Some((idx, _)) = self
+            .epochs
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, e)| **e == epoch)
+        {
             return Some(stms[idx]);
         }
 
@@ -621,7 +632,17 @@ impl SOrbitTrajectory {
         }
 
         // Handle exact match
-        if let Some((idx, _)) = self.epochs.iter().enumerate().find(|(_, e)| **e == epoch) {
+        // The last record at a repeated epoch, matching what `interpolate`
+        // returns there: an impulsive maneuver stores its pre- and post-burn
+        // records at the same instant, and pairing the post-burn state with
+        // pre-burn auxiliary data would misreport the maneuver.
+        if let Some((idx, _)) = self
+            .epochs
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, e)| **e == epoch)
+        {
             return Some(sens[idx].clone());
         }
 
@@ -1465,8 +1486,18 @@ impl InterpolatableTrajectory for SOrbitTrajectory {
         let idx2 = self.index_after_epoch(epoch)?;
 
         // If indices are the same, we have an exact match
-        if idx1 == idx2 {
-            return self.state_at_idx(idx1);
+        // An exact hit, or a bracket of zero duration because the epoch is
+        // stored more than once. Repeated epochs are allowed so that an
+        // impulsive maneuver can hold both its pre- and post-burn states;
+        // interpolating across one would divide by a zero-length interval and
+        // yield NaN, so the stored state is returned instead. `add` inserts a
+        // state after any it already holds at that epoch, and for a repeated
+        // epoch `index_before_epoch` lands on the last of the run while
+        // `index_after_epoch` lands on the first, so the higher index is the
+        // most recently added state. Returning it makes a query at a
+        // discontinuity right-continuous with the states that follow.
+        if idx1 == idx2 || self.epoch_at_idx(idx1)? == self.epoch_at_idx(idx2)? {
+            return self.state_at_idx(idx1.max(idx2));
         }
 
         // Validate minimum point count
@@ -1491,7 +1522,7 @@ impl InterpolatableTrajectory for SOrbitTrajectory {
                 // Collect degree+1 points centered around query epoch
                 let n_points = degree + 1;
                 let (start_idx, end_idx) =
-                    self.compute_interpolation_window(idx1, idx2, n_points)?;
+                    compute_lagrange_window(&self.epochs, idx1, idx2, n_points)?;
 
                 // Build time and value arrays
                 let times: Vec<f64> = (start_idx..=end_idx)
@@ -1550,42 +1581,7 @@ impl InterpolatableTrajectory for SOrbitTrajectory {
     }
 }
 
-impl SOrbitTrajectory {
-    /// Compute the window of indices to use for Lagrange interpolation.
-    ///
-    /// Tries to center the window around the query point, but shifts it
-    /// if near trajectory boundaries.
-    fn compute_interpolation_window(
-        &self,
-        idx1: usize,
-        idx2: usize,
-        n_points: usize,
-    ) -> Result<(usize, usize), BraheError> {
-        if self.len() < n_points {
-            return Err(BraheError::Error(format!(
-                "Need {} points for interpolation, trajectory has {}",
-                n_points,
-                self.len()
-            )));
-        }
-
-        // Center point is between idx1 and idx2
-        let center = (idx1 + idx2) / 2;
-
-        // Calculate ideal start and end indices (centered around the query)
-        let half_window = n_points / 2;
-        let mut start_idx = center.saturating_sub(half_window);
-        let mut end_idx = start_idx + n_points - 1;
-
-        // Shift window if it extends beyond trajectory bounds
-        if end_idx >= self.len() {
-            end_idx = self.len() - 1;
-            start_idx = end_idx.saturating_sub(n_points - 1);
-        }
-
-        Ok((start_idx, end_idx))
-    }
-}
+impl SOrbitTrajectory {}
 
 // Implementation of CovarianceInterpolationConfig trait
 impl CovarianceInterpolationConfig for SOrbitTrajectory {

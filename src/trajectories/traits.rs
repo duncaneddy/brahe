@@ -350,6 +350,72 @@ pub trait Trajectory {
     fn get_eviction_policy(&self) -> TrajectoryEvictionPolicy;
 }
 
+/// Choose the sample window for Lagrange interpolation.
+///
+/// The window is balanced around the bracketing pair and confined to the run
+/// of strictly increasing epochs containing it. A repeated epoch marks a
+/// discontinuity — an impulsive maneuver stores its pre- and post-burn states
+/// at the same instant — and a polynomial fitted across one would divide by a
+/// zero-length abscissa difference and return NaN. When the run holds fewer
+/// samples than the requested point count the window shrinks to the run,
+/// lowering the effective degree rather than fitting across the
+/// discontinuity, which no polynomial can represent in any case.
+///
+/// # Arguments
+///
+/// * `epochs` - The trajectory's epochs, in non-decreasing order.
+/// * `idx1` - Index of a sample bracketing the query.
+/// * `idx2` - Index of the other bracketing sample.
+/// * `n_points` - Samples the configured degree asks for.
+///
+/// # Returns
+///
+/// * `Ok((start, end))` - Inclusive index bounds of the window to fit.
+/// * `Err(BraheError)` - If the trajectory holds fewer than two samples.
+pub(crate) fn compute_lagrange_window(
+    epochs: &[Epoch],
+    idx1: usize,
+    idx2: usize,
+    n_points: usize,
+) -> Result<(usize, usize), BraheError> {
+    if epochs.len() < 2 {
+        return Err(BraheError::Error(format!(
+            "Need at least 2 points for interpolation, trajectory has {}",
+            epochs.len()
+        )));
+    }
+
+    let lo = idx1.min(idx2);
+    let hi = idx1.max(idx2);
+
+    // Widen from the bracket until a repeated epoch or an end is reached.
+    let mut run_start = lo;
+    while run_start > 0 && epochs[run_start - 1] != epochs[run_start] {
+        run_start -= 1;
+    }
+    let mut run_end = hi;
+    while run_end + 1 < epochs.len() && epochs[run_end + 1] != epochs[run_end] {
+        run_end += 1;
+    }
+
+    let run_len = run_end - run_start + 1;
+    let n_points = n_points.min(run_len);
+
+    // An even window has no sample at its centre, so the balanced split puts
+    // (n_points - 1) / 2 samples ahead of the bracket rather than
+    // n_points / 2, which would shift the whole window one sample early.
+    let half_window = (n_points - 1) / 2;
+    let mut start_idx = lo.saturating_sub(half_window).max(run_start);
+    let mut end_idx = start_idx + n_points - 1;
+
+    if end_idx > run_end {
+        end_idx = run_end;
+        start_idx = end_idx + 1 - n_points;
+    }
+
+    Ok((start_idx, end_idx))
+}
+
 /// Trait for trajectory interpolation functionality.
 ///
 /// This trait combines `Trajectory` (for data storage) with `InterpolationConfig`
@@ -445,8 +511,18 @@ pub trait InterpolatableTrajectory: Trajectory + InterpolationConfig {
         let idx2 = self.index_after_epoch(epoch)?;
 
         // If indices are the same, we have an exact match
-        if idx1 == idx2 {
-            return self.state_at_idx(idx1);
+        // An exact hit, or a bracket of zero duration because the epoch is
+        // stored more than once. Repeated epochs are allowed so that an
+        // impulsive maneuver can hold both its pre- and post-burn states;
+        // interpolating across one would divide by a zero-length interval and
+        // yield NaN, so the stored state is returned instead. `add` inserts a
+        // state after any it already holds at that epoch, and for a repeated
+        // epoch `index_before_epoch` lands on the last of the run while
+        // `index_after_epoch` lands on the first, so the higher index is the
+        // most recently added state. Returning it makes a query at a
+        // discontinuity right-continuous with the states that follow.
+        if idx1 == idx2 || self.epoch_at_idx(idx1)? == self.epoch_at_idx(idx2)? {
+            return self.state_at_idx(idx1.max(idx2));
         }
 
         // Get the bracketing epochs and states
@@ -503,8 +579,18 @@ pub trait InterpolatableTrajectory: Trajectory + InterpolationConfig {
 
         // If indices are the same, we have an exact match - return directly
         // without needing the minimum points for interpolation
-        if idx1 == idx2 {
-            return self.state_at_idx(idx1);
+        // An exact hit, or a bracket of zero duration because the epoch is
+        // stored more than once. Repeated epochs are allowed so that an
+        // impulsive maneuver can hold both its pre- and post-burn states;
+        // interpolating across one would divide by a zero-length interval and
+        // yield NaN, so the stored state is returned instead. `add` inserts a
+        // state after any it already holds at that epoch, and for a repeated
+        // epoch `index_before_epoch` lands on the last of the run while
+        // `index_after_epoch` lands on the first, so the higher index is the
+        // most recently added state. Returning it makes a query at a
+        // discontinuity right-continuous with the states that follow.
+        if idx1 == idx2 || self.epoch_at_idx(idx1)? == self.epoch_at_idx(idx2)? {
+            return self.state_at_idx(idx1.max(idx2));
         }
 
         // Validate minimum point count for the interpolation method

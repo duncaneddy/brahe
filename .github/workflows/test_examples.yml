@@ -69,10 +69,7 @@ jobs:
         with:
           families: naif icgem sbdb-horizons star-catalogs
 
-      # Copy test assets to cache for examples that might use them. The
-      # Celestrak groups are committed rather than downloaded so the example
-      # runs never depend on Celestrak being reachable; `BRAHE_NETWORK_MODE:
-      # offline` serves them regardless of their age.
+      # Copy test assets to cache for examples that might use them.
       - name: Setup test assets in cache
         run: |
           mkdir -p ~/.cache/brahe/naif/
@@ -80,6 +77,16 @@ jobs:
             cp test_assets/de440s.bsp ~/.cache/brahe/naif/
             echo "Copied de440s.bsp test asset to cache"
           fi
+
+      # The committed Celestrak groups keep the offline example runs
+      # independent of Celestrak being reachable. They are deliberately NOT
+      # seeded for the live-network run: copying them gives every file a current
+      # modification time, and CelestrakClient serves anything inside its TTL
+      # without a request, which would silently turn the live integration run
+      # into another offline one.
+      - name: Seed Celestrak groups from test assets
+        if: inputs.network_mode != 'online'
+        run: |
           mkdir -p ~/.cache/brahe/celestrak/
           cp test_assets/celestrak/* ~/.cache/brahe/celestrak/
           echo "Seeded $(ls test_assets/celestrak | wc -l) Celestrak groups from test assets"

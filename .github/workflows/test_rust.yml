@@ -7,8 +7,61 @@ on:
                 type: string
                 default: "offline"
 jobs:
+    data-cache:
+        # Restores the data families the unit suites read. When a family is
+        # missing, or its cache predates the manifest, this job downloads the
+        # entries once and saves them so the matrix legs below only restore.
+        runs-on: ubuntu-latest
+        steps:
+            -   uses: actions/checkout@v7.0.1
+            -   name: Restore data caches
+                id: cache
+                uses: ./.github/actions/data-cache
+                with:
+                    families: naif
+            -   name: Set up Rust toolchain
+                if: steps.cache.outputs.missed != ''
+                uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
+                with:
+                    cache-shared-key: test-python
+                    cache-save-if: false
+            -   name: Install uv
+                if: steps.cache.outputs.missed != ''
+                uses: astral-sh/setup-uv@v10.0.1
+                with:
+                    enable-cache: true
+            -   name: Build brahe
+                if: steps.cache.outputs.missed != ''
+                run: |
+                    uv python install 3.12
+                    uv sync --group test --all-extras --frozen --python 3.12
+                    uv pip install maturin --quiet
+                    uv run maturin develop --uv --features pyo3/extension-module
+            -   name: Warm missed families
+                if: steps.cache.outputs.missed != ''
+                env:
+                    BRAHE_NETWORK_MODE: online
+                    WARM_ARGS: ${{ steps.cache.outputs.warm-args }}
+                    MISSED: ${{ steps.cache.outputs.missed }}
+                run: |
+                    if [ -n "$WARM_ARGS" ]; then
+                        # shellcheck disable=SC2086
+                        uv run --frozen python scripts/warm_data_cache.py $WARM_ARGS
+                    fi
+                    case " $MISSED " in
+                        *" star-catalogs "*)
+                            uv run --frozen python -c "import brahe as bh; bh.datasets.star_catalogs.get_fk5(); bh.datasets.star_catalogs.get_hipparcos()"
+                            ;;
+                    esac
+            -   name: Save data caches
+                if: steps.cache.outputs.missed != ''
+                uses: ./.github/actions/data-cache
+                with:
+                    mode: save
+                    families: ${{ steps.cache.outputs.missed }}
     test-rust:
         runs-on: ${{ matrix.os }}
+        needs: data-cache
         strategy:
             matrix:
                 # os: [ubuntu-latest]
@@ -38,13 +91,10 @@ jobs:
                     rustup default ${{ matrix.rust-toolchain }}
             -   name: Install cargo-llvm-cov
                 uses: taiki-e/install-action@cargo-llvm-cov
-            -   name: Restore NAIF kernels cache
-                uses: actions/cache/restore@v6.1.0
+            -   name: Restore data caches
+                uses: ./.github/actions/data-cache
                 with:
-                    path: ~/.cache/brahe/naif
-                    key: naif-kernels-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
-                    restore-keys: |
-                        naif-kernels-v1-
+                    families: naif
             # de440s.bsp is a committed test asset; the other kernels the unit
             # tests auto-load come from the restored NAIF cache and a miss fails
             # the test that needs them.
@@ -53,29 +103,6 @@ jobs:
                 run: |
                     mkdir -p ~/.cache/brahe/naif
                     cp test_assets/de440s.bsp ~/.cache/brahe/naif/
-            -   name: Restore ICGEM cache
-                uses: actions/cache/restore@v6.1.0
-                with:
-                    path: ~/.cache/brahe/icgem
-                    key: brahe-icgem-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
-                    restore-keys: |
-                        brahe-icgem-v1-
-            -   name: Restore SBDB + Horizons cache
-                uses: actions/cache/restore@v6.1.0
-                with:
-                    path: |
-                        ~/.cache/brahe/sbdb
-                        ~/.cache/brahe/horizons
-                    key: brahe-sbdb-horizons-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
-                    restore-keys: |
-                        brahe-sbdb-horizons-v1-
-            -   name: Restore star catalog downloads
-                uses: actions/cache/restore@v6.1.0
-                with:
-                    path: |
-                        ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
-                        ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
-                    key: star-catalogs-v1
             -   name: Run Rust tests with coverage
                 # Limit rust-unit coverage to the core `brahe` crate. The `brahe-py`
                 # workspace member has no Rust unit tests (it's exercised by pytest),
@@ -111,6 +138,7 @@ jobs:
                     if-no-files-found: ignore
     test-rust-docs:
         runs-on: ${{ matrix.os }}
+        needs: data-cache
         strategy:
             matrix:
                 # os: [ubuntu-latest]
@@ -131,13 +159,10 @@ jobs:
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
-            -   name: Restore NAIF kernels cache
-                uses: actions/cache/restore@v6.1.0
+            -   name: Restore data caches
+                uses: ./.github/actions/data-cache
                 with:
-                    path: ~/.cache/brahe/naif
-                    key: naif-kernels-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
-                    restore-keys: |
-                        naif-kernels-v1-
+                    families: naif
             # de440s.bsp is a committed test asset; the other kernels the unit
             # tests auto-load come from the restored NAIF cache and a miss fails
             # the test that needs them.
@@ -146,29 +171,6 @@ jobs:
                 run: |
                     mkdir -p ~/.cache/brahe/naif
                     cp test_assets/de440s.bsp ~/.cache/brahe/naif/
-            -   name: Restore ICGEM cache
-                uses: actions/cache/restore@v6.1.0
-                with:
-                    path: ~/.cache/brahe/icgem
-                    key: brahe-icgem-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
-                    restore-keys: |
-                        brahe-icgem-v1-
-            -   name: Restore SBDB + Horizons cache
-                uses: actions/cache/restore@v6.1.0
-                with:
-                    path: |
-                        ~/.cache/brahe/sbdb
-                        ~/.cache/brahe/horizons
-                    key: brahe-sbdb-horizons-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
-                    restore-keys: |
-                        brahe-sbdb-horizons-v1-
-            -   name: Restore star catalog downloads
-                uses: actions/cache/restore@v6.1.0
-                with:
-                    path: |
-                        ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
-                        ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
-                    key: star-catalogs-v1
             -   name: Run Rust doc tests
                 run: cargo test --doc -- --test-threads=1
     

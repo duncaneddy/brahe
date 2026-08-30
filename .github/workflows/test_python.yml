@@ -46,6 +46,18 @@ jobs:
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
             -   uses: actions/checkout@v7.0.1
+            # Every SPICE kernel the unit suites auto-load is a committed test
+            # asset, so the suites run offline straight from a clone with no
+            # download step and no cache to warm. tests/test_frames.py loads
+            # mar099s directly, and BRAHE_NETWORK_MODE is offline, so a missing
+            # kernel is a test failure rather than a slow path.
+            -   name: Seed the SPICE test kernels
+                shell: bash
+                run: |
+                    mkdir -p ~/.cache/brahe/naif
+                    cp test_assets/de440s.bsp ~/.cache/brahe/naif/
+                    cp test_assets/mar099s.bsp ~/.cache/brahe/naif/
+                    cp test_assets/moon_pa_de440_200625.bpc ~/.cache/brahe/naif/
             -   name: Install the latest version of uv
                 uses: astral-sh/setup-uv@v10.0.1
                 with:

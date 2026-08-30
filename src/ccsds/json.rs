@@ -9,10 +9,19 @@
 use serde_json::{Map, Value, json};
 
 use crate::ccsds::common::{
-    CCSDSJsonKeyCase, covariance_to_lower_triangular, format_ccsds_datetime,
+    CCSDSJsonKeyCase, CCSDSTimeSystem, covariance_to_lower_triangular, format_ccsds_datetime_in,
 };
 use crate::ccsds::error::ccsds_parse_error;
 use crate::utils::errors::BraheError;
+
+/// Metadata keys that must be flattened before any other.
+///
+/// CCSDS 502.0-B-3 subsection 7.5.11 reads every epoch in the message's
+/// `TIME_SYSTEM`, and the KVN parsers these readers delegate to apply the
+/// scale declared so far, so the declaration has to precede the epochs it
+/// governs. JSON object keys arrive in an order that would otherwise put
+/// `START_TIME` and `REF_FRAME_EPOCH` ahead of it.
+const TIME_SYSTEM_FIRST: [&str; 1] = ["TIME_SYSTEM"];
 
 /// Convert a CCSDS keyword to the appropriate case for JSON output.
 ///
@@ -50,7 +59,7 @@ pub fn parse_oem_json(content: &str) -> Result<crate::ccsds::oem::OEM, BraheErro
             // Metadata block
             kvn_lines.push("META_START".to_string());
             if let Some(meta) = seg.get("metadata") {
-                flatten_object(&mut kvn_lines, meta);
+                flatten_object_ordered(&mut kvn_lines, meta, &TIME_SYSTEM_FIRST);
             }
             kvn_lines.push("META_STOP".to_string());
 
@@ -163,7 +172,10 @@ pub fn write_oem_json(
     }
     header.insert(
         key("CREATION_DATE", key_case),
-        json!(format_ccsds_datetime(&oem.header.creation_date)),
+        json!(format_ccsds_datetime_in(
+            &oem.header.creation_date,
+            &CCSDSTimeSystem::UTC
+        )),
     );
     header.insert(key("ORIGINATOR", key_case), json!(&oem.header.originator));
     if let Some(ref msg_id) = oem.header.message_id {
@@ -194,7 +206,7 @@ pub fn write_oem_json(
         if let Some(ref epoch) = seg.metadata.ref_frame_epoch {
             meta.insert(
                 key("REF_FRAME_EPOCH", key_case),
-                json!(format_ccsds_datetime(epoch)),
+                json!(format_ccsds_datetime_in(epoch, &seg.metadata.time_system)),
             );
         }
         meta.insert(
@@ -203,23 +215,29 @@ pub fn write_oem_json(
         );
         meta.insert(
             key("START_TIME", key_case),
-            json!(format_ccsds_datetime(&seg.metadata.start_time)),
+            json!(format_ccsds_datetime_in(
+                &seg.metadata.start_time,
+                &seg.metadata.time_system
+            )),
         );
         if let Some(ref t) = seg.metadata.useable_start_time {
             meta.insert(
                 key("USEABLE_START_TIME", key_case),
-                json!(format_ccsds_datetime(t)),
+                json!(format_ccsds_datetime_in(t, &seg.metadata.time_system)),
             );
         }
         if let Some(ref t) = seg.metadata.useable_stop_time {
             meta.insert(
                 key("USEABLE_STOP_TIME", key_case),
-                json!(format_ccsds_datetime(t)),
+                json!(format_ccsds_datetime_in(t, &seg.metadata.time_system)),
             );
         }
         meta.insert(
             key("STOP_TIME", key_case),
-            json!(format_ccsds_datetime(&seg.metadata.stop_time)),
+            json!(format_ccsds_datetime_in(
+                &seg.metadata.stop_time,
+                &seg.metadata.time_system
+            )),
         );
         if let Some(ref interp) = seg.metadata.interpolation {
             meta.insert(key("INTERPOLATION", key_case), json!(interp));
@@ -235,7 +253,10 @@ pub fn write_oem_json(
             let mut state_obj = Map::new();
             state_obj.insert(
                 key("EPOCH", key_case),
-                json!(format_ccsds_datetime(&sv.epoch)),
+                json!(format_ccsds_datetime_in(
+                    &sv.epoch,
+                    &seg.metadata.time_system
+                )),
             );
             state_obj.insert(key("X", key_case), json!(sv.position[0] / 1000.0));
             state_obj.insert(key("Y", key_case), json!(sv.position[1] / 1000.0));
@@ -258,7 +279,10 @@ pub fn write_oem_json(
             for cov in &seg.covariances {
                 let mut cov_obj = Map::new();
                 if let Some(ref epoch) = cov.epoch {
-                    cov_obj.insert(key("EPOCH", key_case), json!(format_ccsds_datetime(epoch)));
+                    cov_obj.insert(
+                        key("EPOCH", key_case),
+                        json!(format_ccsds_datetime_in(epoch, &seg.metadata.time_system)),
+                    );
                 }
                 if let Some(ref frame) = cov.cov_ref_frame {
                     cov_obj.insert(key("COV_REF_FRAME", key_case), json!(format!("{}", frame)));
@@ -345,7 +369,9 @@ pub fn parse_omm_json(content: &str) -> Result<crate::ccsds::omm::OMM, BraheErro
 
     for section in &ordered_sections {
         if let Some(obj) = v.get(*section).or_else(|| v.get(section.to_uppercase())) {
-            if *section == "covariance" {
+            if *section == "metadata" {
+                flatten_object_ordered(&mut kvn_lines, obj, &TIME_SYSTEM_FIRST);
+            } else if *section == "covariance" {
                 flatten_object_ordered(&mut kvn_lines, obj, &cov_key_order);
             } else {
                 flatten_object(&mut kvn_lines, obj);
@@ -375,7 +401,10 @@ pub fn write_omm_json(
     }
     header.insert(
         key("CREATION_DATE", key_case),
-        json!(format_ccsds_datetime(&omm.header.creation_date)),
+        json!(format_ccsds_datetime_in(
+            &omm.header.creation_date,
+            &CCSDSTimeSystem::UTC
+        )),
     );
     header.insert(key("ORIGINATOR", key_case), json!(&omm.header.originator));
     if let Some(ref msg_id) = omm.header.message_id {
@@ -401,7 +430,7 @@ pub fn write_omm_json(
     if let Some(ref epoch) = omm.metadata.ref_frame_epoch {
         meta.insert(
             key("REF_FRAME_EPOCH", key_case),
-            json!(format_ccsds_datetime(epoch)),
+            json!(format_ccsds_datetime_in(epoch, &omm.metadata.time_system)),
         );
     }
     meta.insert(
@@ -418,7 +447,10 @@ pub fn write_omm_json(
     let mut me = Map::new();
     me.insert(
         key("EPOCH", key_case),
-        json!(format_ccsds_datetime(&omm.mean_elements.epoch)),
+        json!(format_ccsds_datetime_in(
+            &omm.mean_elements.epoch,
+            &omm.metadata.time_system
+        )),
     );
     if let Some(v) = omm.mean_elements.mean_motion {
         me.insert(key("MEAN_MOTION", key_case), json!(v));
@@ -599,7 +631,9 @@ pub fn parse_opm_json(content: &str) -> Result<crate::ccsds::opm::OPM, BraheErro
 
     for section in &ordered_sections {
         if let Some(obj) = v.get(*section).or_else(|| v.get(section.to_uppercase())) {
-            if *section == "keplerian_elements" {
+            if *section == "metadata" {
+                flatten_object_ordered(&mut kvn_lines, obj, &TIME_SYSTEM_FIRST);
+            } else if *section == "keplerian_elements" {
                 flatten_object_ordered(&mut kvn_lines, obj, &kep_key_order);
             } else if *section == "covariance" {
                 flatten_object_ordered(&mut kvn_lines, obj, &cov_key_order);
@@ -649,7 +683,10 @@ pub fn write_opm_json(
     }
     header.insert(
         key("CREATION_DATE", key_case),
-        json!(format_ccsds_datetime(&opm.header.creation_date)),
+        json!(format_ccsds_datetime_in(
+            &opm.header.creation_date,
+            &CCSDSTimeSystem::UTC
+        )),
     );
     header.insert(key("ORIGINATOR", key_case), json!(&opm.header.originator));
     if let Some(ref msg_id) = opm.header.message_id {
@@ -675,7 +712,7 @@ pub fn write_opm_json(
     if let Some(ref epoch) = opm.metadata.ref_frame_epoch {
         meta.insert(
             key("REF_FRAME_EPOCH", key_case),
-            json!(format_ccsds_datetime(epoch)),
+            json!(format_ccsds_datetime_in(epoch, &opm.metadata.time_system)),
         );
     }
     meta.insert(
@@ -688,7 +725,10 @@ pub fn write_opm_json(
     let mut sv = Map::new();
     sv.insert(
         key("EPOCH", key_case),
-        json!(format_ccsds_datetime(&opm.state_vector.epoch)),
+        json!(format_ccsds_datetime_in(
+            &opm.state_vector.epoch,
+            &opm.metadata.time_system
+        )),
     );
     sv.insert(
         key("X", key_case),
@@ -780,7 +820,10 @@ pub fn write_opm_json(
             let mut m = Map::new();
             m.insert(
                 key("MAN_EPOCH_IGNITION", key_case),
-                json!(format_ccsds_datetime(&man.epoch_ignition)),
+                json!(format_ccsds_datetime_in(
+                    &man.epoch_ignition,
+                    &opm.metadata.time_system
+                )),
             );
             m.insert(key("MAN_DURATION", key_case), json!(man.duration));
             if let Some(dm) = man.delta_mass {
@@ -985,7 +1028,10 @@ pub fn write_cdm_json(
     }
     header.insert(
         key("CREATION_DATE", key_case),
-        json!(format_ccsds_datetime(&cdm.header.creation_date)),
+        json!(format_ccsds_datetime_in(
+            &cdm.header.creation_date,
+            &CCSDSTimeSystem::UTC
+        )),
     );
     header.insert(key("ORIGINATOR", key_case), json!(&cdm.header.originator));
     if let Some(ref mf) = cdm.header.message_for {
@@ -1000,7 +1046,10 @@ pub fn write_cdm_json(
     if let Some(ref v) = rm.conjunction_id {
         rel.insert(key("CONJUNCTION_ID", key_case), json!(v));
     }
-    rel.insert(key("TCA", key_case), json!(format_ccsds_datetime(&rm.tca)));
+    rel.insert(
+        key("TCA", key_case),
+        json!(format_ccsds_datetime_in(&rm.tca, &CCSDSTimeSystem::UTC)),
+    );
     rel.insert(key("MISS_DISTANCE", key_case), json!(rm.miss_distance));
     if let Some(v) = rm.mahalanobis_distance {
         rel.insert(key("MAHALANOBIS_DISTANCE", key_case), json!(v));
@@ -1056,25 +1105,25 @@ pub fn write_cdm_json(
     if let Some(ref v) = rm.start_screen_period {
         rel.insert(
             key("START_SCREEN_PERIOD", key_case),
-            json!(format_ccsds_datetime(v)),
+            json!(format_ccsds_datetime_in(v, &CCSDSTimeSystem::UTC)),
         );
     }
     if let Some(ref v) = rm.stop_screen_period {
         rel.insert(
             key("STOP_SCREEN_PERIOD", key_case),
-            json!(format_ccsds_datetime(v)),
+            json!(format_ccsds_datetime_in(v, &CCSDSTimeSystem::UTC)),
         );
     }
     if let Some(ref v) = rm.screen_entry_time {
         rel.insert(
             key("SCREEN_ENTRY_TIME", key_case),
-            json!(format_ccsds_datetime(v)),
+            json!(format_ccsds_datetime_in(v, &CCSDSTimeSystem::UTC)),
         );
     }
     if let Some(ref v) = rm.screen_exit_time {
         rel.insert(
             key("SCREEN_EXIT_TIME", key_case),
-            json!(format_ccsds_datetime(v)),
+            json!(format_ccsds_datetime_in(v, &CCSDSTimeSystem::UTC)),
         );
     }
     if let Some(v) = rm.screen_pc_threshold {
@@ -1114,13 +1163,13 @@ pub fn write_cdm_json(
     if let Some(ref v) = rm.previous_message_epoch {
         rel.insert(
             key("PREVIOUS_MESSAGE_EPOCH", key_case),
-            json!(format_ccsds_datetime(v)),
+            json!(format_ccsds_datetime_in(v, &CCSDSTimeSystem::UTC)),
         );
     }
     if let Some(ref v) = rm.next_message_epoch {
         rel.insert(
             key("NEXT_MESSAGE_EPOCH", key_case),
-            json!(format_ccsds_datetime(v)),
+            json!(format_ccsds_datetime_in(v, &CCSDSTimeSystem::UTC)),
         );
     }
     root.insert("relative_metadata".into(), Value::Object(rel));

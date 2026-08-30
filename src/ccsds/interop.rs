@@ -8,7 +8,7 @@
 use nalgebra::{DVector, SVector};
 
 use crate::ccsds::common::{
-    CCSDSRefFrame, CCSDSTimeSystem, ODMHeader, format_ccsds_datetime, parse_ccsds_datetime,
+    CCSDSRefFrame, CCSDSTimeSystem, ODMHeader, format_ccsds_datetime_in, parse_ccsds_datetime,
 };
 use crate::ccsds::oem::OEM;
 use crate::ccsds::omm::{OMM, OMMMetadata, OMMTleParameters, OMMeanElements};
@@ -343,12 +343,16 @@ impl OMM {
     ///
     /// * `GPRecord` - GP record with fields populated from the OMM
     pub fn to_gp_record(&self) -> GPRecord {
-        let epoch_str = format_ccsds_datetime(&self.mean_elements.epoch);
+        let epoch_str =
+            format_ccsds_datetime_in(&self.mean_elements.epoch, &self.metadata.time_system);
 
         GPRecord {
             ccsds_omm_vers: Some(format!("{:.1}", self.header.format_version)),
             comment: None,
-            creation_date: Some(format_ccsds_datetime(&self.header.creation_date)),
+            creation_date: Some(format_ccsds_datetime_in(
+                &self.header.creation_date,
+                &CCSDSTimeSystem::UTC,
+            )),
             originator: Some(self.header.originator.clone()),
             object_name: Some(self.metadata.object_name.clone()),
             object_id: Some(self.metadata.object_id.clone()),

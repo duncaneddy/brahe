@@ -2,7 +2,9 @@
  * KVN writer for CCSDS OEM, OMM, and OPM messages.
  */
 
-use crate::ccsds::common::{covariance_to_lower_triangular, format_ccsds_datetime};
+use crate::ccsds::common::{
+    CCSDSTimeSystem, covariance_to_lower_triangular, format_ccsds_datetime_in,
+};
 use crate::ccsds::oem::OEM;
 use crate::utils::errors::BraheError;
 
@@ -23,7 +25,7 @@ pub fn write_oem(oem: &OEM) -> Result<String, BraheError> {
     }
     out.push_str(&format!(
         "CREATION_DATE = {}\n",
-        format_ccsds_datetime(&oem.header.creation_date)
+        format_ccsds_datetime_in(&oem.header.creation_date, &CCSDSTimeSystem::UTC)
     ));
     out.push_str(&format!("ORIGINATOR = {}\n", oem.header.originator));
     if let Some(ref msg_id) = oem.header.message_id {
@@ -46,29 +48,29 @@ pub fn write_oem(oem: &OEM) -> Result<String, BraheError> {
         if let Some(ref epoch) = segment.metadata.ref_frame_epoch {
             out.push_str(&format!(
                 "REF_FRAME_EPOCH = {}\n",
-                format_ccsds_datetime(epoch)
+                format_ccsds_datetime_in(epoch, &segment.metadata.time_system)
             ));
         }
         out.push_str(&format!("TIME_SYSTEM = {}\n", segment.metadata.time_system));
         out.push_str(&format!(
             "START_TIME = {}\n",
-            format_ccsds_datetime(&segment.metadata.start_time)
+            format_ccsds_datetime_in(&segment.metadata.start_time, &segment.metadata.time_system)
         ));
         if let Some(ref t) = segment.metadata.useable_start_time {
             out.push_str(&format!(
                 "USEABLE_START_TIME = {}\n",
-                format_ccsds_datetime(t)
+                format_ccsds_datetime_in(t, &segment.metadata.time_system)
             ));
         }
         if let Some(ref t) = segment.metadata.useable_stop_time {
             out.push_str(&format!(
                 "USEABLE_STOP_TIME = {}\n",
-                format_ccsds_datetime(t)
+                format_ccsds_datetime_in(t, &segment.metadata.time_system)
             ));
         }
         out.push_str(&format!(
             "STOP_TIME = {}\n",
-            format_ccsds_datetime(&segment.metadata.stop_time)
+            format_ccsds_datetime_in(&segment.metadata.stop_time, &segment.metadata.time_system)
         ));
         if let Some(ref interp) = segment.metadata.interpolation {
             out.push_str(&format!("INTERPOLATION = {}\n", interp));
@@ -85,7 +87,7 @@ pub fn write_oem(oem: &OEM) -> Result<String, BraheError> {
 
         // Ephemeris data lines
         for sv in &segment.states {
-            let epoch_str = format_ccsds_datetime(&sv.epoch);
+            let epoch_str = format_ccsds_datetime_in(&sv.epoch, &segment.metadata.time_system);
             // Convert m → km, m/s → km/s
             let x = sv.position[0] / 1000.0;
             let y = sv.position[1] / 1000.0;
@@ -115,7 +117,10 @@ pub fn write_oem(oem: &OEM) -> Result<String, BraheError> {
             out.push_str("\nCOVARIANCE_START\n");
             for cov in &segment.covariances {
                 if let Some(ref epoch) = cov.epoch {
-                    out.push_str(&format!("EPOCH = {}\n", format_ccsds_datetime(epoch)));
+                    out.push_str(&format!(
+                        "EPOCH = {}\n",
+                        format_ccsds_datetime_in(epoch, &segment.metadata.time_system)
+                    ));
                 }
                 if let Some(ref frame) = cov.cov_ref_frame {
                     out.push_str(&format!("COV_REF_FRAME = {}\n", frame));
@@ -163,7 +168,7 @@ pub fn write_omm(omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError> {
     }
     out.push_str(&format!(
         "CREATION_DATE = {}\n",
-        format_ccsds_datetime(&omm.header.creation_date)
+        format_ccsds_datetime_in(&omm.header.creation_date, &CCSDSTimeSystem::UTC)
     ));
     out.push_str(&format!("ORIGINATOR = {}\n", omm.header.originator));
     if let Some(ref msg_id) = omm.header.message_id {
@@ -182,7 +187,7 @@ pub fn write_omm(omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError> {
     if let Some(ref epoch) = omm.metadata.ref_frame_epoch {
         out.push_str(&format!(
             "REF_FRAME_EPOCH = {}\n",
-            format_ccsds_datetime(epoch)
+            format_ccsds_datetime_in(epoch, &omm.metadata.time_system)
         ));
     }
     out.push_str(&format!("TIME_SYSTEM = {}\n", omm.metadata.time_system));
@@ -198,7 +203,7 @@ pub fn write_omm(omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError> {
     }
     out.push_str(&format!(
         "EPOCH = {}\n",
-        format_ccsds_datetime(&omm.mean_elements.epoch)
+        format_ccsds_datetime_in(&omm.mean_elements.epoch, &omm.metadata.time_system)
     ));
     if let Some(mm) = omm.mean_elements.mean_motion {
         out.push_str(&format!("MEAN_MOTION = {}\n", mm));
@@ -279,7 +284,10 @@ pub fn write_omm(omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError> {
             out.push_str(&format!("COMMENT {}\n", comment));
         }
         if let Some(ref epoch) = cov.epoch {
-            out.push_str(&format!("EPOCH = {}\n", format_ccsds_datetime(epoch)));
+            out.push_str(&format!(
+                "EPOCH = {}\n",
+                format_ccsds_datetime_in(epoch, &omm.metadata.time_system)
+            ));
         }
         if let Some(ref frame) = cov.cov_ref_frame {
             out.push_str(&format!("COV_REF_FRAME = {}\n", frame));
@@ -315,7 +323,7 @@ pub fn write_opm(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError> {
     }
     out.push_str(&format!(
         "CREATION_DATE = {}\n",
-        format_ccsds_datetime(&opm.header.creation_date)
+        format_ccsds_datetime_in(&opm.header.creation_date, &CCSDSTimeSystem::UTC)
     ));
     out.push_str(&format!("ORIGINATOR = {}\n", opm.header.originator));
     if let Some(ref msg_id) = opm.header.message_id {
@@ -334,7 +342,7 @@ pub fn write_opm(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError> {
     if let Some(ref epoch) = opm.metadata.ref_frame_epoch {
         out.push_str(&format!(
             "REF_FRAME_EPOCH = {}\n",
-            format_ccsds_datetime(epoch)
+            format_ccsds_datetime_in(epoch, &opm.metadata.time_system)
         ));
     }
     out.push_str(&format!("TIME_SYSTEM = {}\n", opm.metadata.time_system));
@@ -345,7 +353,7 @@ pub fn write_opm(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError> {
     }
     out.push_str(&format!(
         "EPOCH = {}\n",
-        format_ccsds_datetime(&opm.state_vector.epoch)
+        format_ccsds_datetime_in(&opm.state_vector.epoch, &opm.metadata.time_system)
     ));
     // Position: m → km
     out.push_str(&format!("X = {:.6}\n", opm.state_vector.position[0] / 1e3));
@@ -401,7 +409,10 @@ pub fn write_opm(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError> {
             out.push_str(&format!("COMMENT {}\n", comment));
         }
         if let Some(ref epoch) = cov.epoch {
-            out.push_str(&format!("EPOCH = {}\n", format_ccsds_datetime(epoch)));
+            out.push_str(&format!(
+                "EPOCH = {}\n",
+                format_ccsds_datetime_in(epoch, &opm.metadata.time_system)
+            ));
         }
         if let Some(ref frame) = cov.cov_ref_frame {
             out.push_str(&format!("COV_REF_FRAME = {}\n", frame));
@@ -417,7 +428,7 @@ pub fn write_opm(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError> {
         }
         out.push_str(&format!(
             "MAN_EPOCH_IGNITION = {}\n",
-            format_ccsds_datetime(&man.epoch_ignition)
+            format_ccsds_datetime_in(&man.epoch_ignition, &opm.metadata.time_system)
         ));
         out.push_str(&format!("MAN_DURATION = {:.2}\n", man.duration));
         if let Some(dm) = man.delta_mass {
@@ -522,6 +533,8 @@ pub fn write_cdm(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError> {
     let kw_units = |out: &mut String, key: &str, val: &str, units: &str| {
         out.push_str(&format!("{:<34}= {:<40} [{}]\n", key, val, units));
     };
+    // CCSDS 508.0-B-1 subsection 6.2.3.4: all CDM time tags are UTC.
+    let utc = |e: &crate::time::Epoch| format_ccsds_datetime_in(e, &CCSDSTimeSystem::UTC);
 
     // Header
     kw(
@@ -535,11 +548,7 @@ pub fn write_cdm(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError> {
     if let Some(ref class) = cdm.header.classification {
         kw(&mut out, "CLASSIFICATION", class);
     }
-    kw(
-        &mut out,
-        "CREATION_DATE",
-        &format_ccsds_datetime(&cdm.header.creation_date),
-    );
+    kw(&mut out, "CREATION_DATE", &utc(&cdm.header.creation_date));
     kw(&mut out, "ORIGINATOR", &cdm.header.originator);
     if let Some(ref mf) = cdm.header.message_for {
         kw(&mut out, "MESSAGE_FOR", mf);
@@ -554,7 +563,7 @@ pub fn write_cdm(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError> {
     if let Some(ref cid) = rm.conjunction_id {
         kw(&mut out, "CONJUNCTION_ID", cid);
     }
-    kw(&mut out, "TCA", &format_ccsds_datetime(&rm.tca));
+    kw(&mut out, "TCA", &utc(&rm.tca));
     kw_units(
         &mut out,
         "MISS_DISTANCE",
@@ -589,10 +598,10 @@ pub fn write_cdm(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError> {
         kw_units(&mut out, "APPROACH_ANGLE", &format!("{}", v), "deg");
     }
     if let Some(ref e) = rm.start_screen_period {
-        kw(&mut out, "START_SCREEN_PERIOD", &format_ccsds_datetime(e));
+        kw(&mut out, "START_SCREEN_PERIOD", &utc(e));
     }
     if let Some(ref e) = rm.stop_screen_period {
-        kw(&mut out, "STOP_SCREEN_PERIOD", &format_ccsds_datetime(e));
+        kw(&mut out, "STOP_SCREEN_PERIOD", &utc(e));
     }
     if let Some(ref s) = rm.screen_type {
         kw(&mut out, "SCREEN_TYPE", s);
@@ -616,10 +625,10 @@ pub fn write_cdm(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError> {
         kw_units(&mut out, "SCREEN_VOLUME_Z", &format!("{}", v), "m");
     }
     if let Some(ref e) = rm.screen_entry_time {
-        kw(&mut out, "SCREEN_ENTRY_TIME", &format_ccsds_datetime(e));
+        kw(&mut out, "SCREEN_ENTRY_TIME", &utc(e));
     }
     if let Some(ref e) = rm.screen_exit_time {
-        kw(&mut out, "SCREEN_EXIT_TIME", &format_ccsds_datetime(e));
+        kw(&mut out, "SCREEN_EXIT_TIME", &utc(e));
     }
     if let Some(v) = rm.screen_pc_threshold {
         kw(&mut out, "SCREEN_PC_THRESHOLD", &format!("{:E}", v));
@@ -653,14 +662,10 @@ pub fn write_cdm(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError> {
         kw(&mut out, "PREVIOUS_MESSAGE_ID", s);
     }
     if let Some(ref e) = rm.previous_message_epoch {
-        kw(
-            &mut out,
-            "PREVIOUS_MESSAGE_EPOCH",
-            &format_ccsds_datetime(e),
-        );
+        kw(&mut out, "PREVIOUS_MESSAGE_EPOCH", &utc(e));
     }
     if let Some(ref e) = rm.next_message_epoch {
-        kw(&mut out, "NEXT_MESSAGE_EPOCH", &format_ccsds_datetime(e));
+        kw(&mut out, "NEXT_MESSAGE_EPOCH", &utc(e));
     }
 
     // Write object sections
@@ -745,10 +750,10 @@ pub fn write_cdm(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError> {
                 out.push_str(&format!("COMMENT {}\n", comment));
             }
             if let Some(ref e) = od.time_lastob_start {
-                kw(out, "TIME_LASTOB_START", &format_ccsds_datetime(e));
+                kw(out, "TIME_LASTOB_START", &utc(e));
             }
             if let Some(ref e) = od.time_lastob_end {
-                kw(out, "TIME_LASTOB_END", &format_ccsds_datetime(e));
+                kw(out, "TIME_LASTOB_END", &utc(e));
             }
             if let Some(v) = od.recommended_od_span {
                 kw_units(out, "RECOMMENDED_OD_SPAN", &format!("{:.2}", v), "d");
@@ -775,7 +780,7 @@ pub fn write_cdm(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError> {
                 kw(out, "WEIGHTED_RMS", &format!("{}", v));
             }
             if let Some(ref e) = od.od_epoch {
-                kw(out, "OD_EPOCH", &format_ccsds_datetime(e));
+                kw(out, "OD_EPOCH", &utc(e));
             }
         }
 
@@ -803,7 +808,7 @@ pub fn write_cdm(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError> {
                 kw(out, "OEB_PARENT_FRAME", v);
             }
             if let Some(ref e) = ap.oeb_parent_frame_epoch {
-                kw(out, "OEB_PARENT_FRAME_EPOCH", &format_ccsds_datetime(e));
+                kw(out, "OEB_PARENT_FRAME_EPOCH", &utc(e));
             }
             if let Some(v) = ap.oeb_q1 {
                 kw(out, "OEB_Q1", &format!("{}", v));

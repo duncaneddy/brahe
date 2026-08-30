@@ -269,7 +269,7 @@ jobs:
                 with:
                     toolchain: stable
                     cache-shared-key: validate-rust-package
-                    cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+                    cache-save-if: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') }}
 
             -   name: Install the latest version of uv
                 uses: astral-sh/setup-uv@v10.0.1
@@ -296,7 +296,7 @@ jobs:
                 with:
                     toolchain: stable
                     cache-shared-key: validate-python-package
-                    cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+                    cache-save-if: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') }}
 
             -   name: Install the latest version of uv
                 uses: astral-sh/setup-uv@v10.0.1

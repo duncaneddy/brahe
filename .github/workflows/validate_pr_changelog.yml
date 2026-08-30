@@ -10,8 +10,11 @@ permissions:
 
 jobs:
   validate:
+    # A dev-to-main promotion aggregates the changelog entries of the pull
+    # requests it carries rather than adding its own, so it is exempt.
     if: |
       !contains(github.event.pull_request.labels.*.name, 'dependencies') &&
+      !contains(github.event.pull_request.labels.*.name, 'release') &&
       github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 60

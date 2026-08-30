@@ -12,20 +12,48 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Resolves how wide this run should be. The lean default keeps a pull
+  # request inside the account's 20-job concurrency cap, which queue-starves
+  # otherwise; the `full-ci` label opts a single pull request into the whole
+  # integration matrix without editing anything.
   check-skip:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
+      full_ci: ${{ steps.scope.outputs.full_ci }}
+      rust_os: ${{ steps.scope.outputs.rust_os }}
+      doc_os: ${{ steps.scope.outputs.doc_os }}
+      python_scope: ${{ steps.scope.outputs.python_scope }}
     steps:
       - id: skip_check
         run: |
           echo "should_skip=false" >> $GITHUB_OUTPUT
+      - id: scope
+        env:
+          FULL: ${{ contains(github.event.pull_request.labels.*.name, 'full-ci') }}
+        run: |
+          if [ "$FULL" = "true" ]; then
+            echo "full_ci=true" >> $GITHUB_OUTPUT
+            echo 'rust_os=["ubuntu-latest", "macos-latest", "windows-latest"]' >> $GITHUB_OUTPUT
+            echo 'doc_os=["ubuntu-latest", "macos-latest", "windows-latest"]' >> $GITHUB_OUTPUT
+            echo "python_scope=full" >> $GITHUB_OUTPUT
+          else
+            echo "full_ci=false" >> $GITHUB_OUTPUT
+            echo 'rust_os=["ubuntu-latest", "macos-latest", "windows-latest"]' >> $GITHUB_OUTPUT
+            # Doc tests take 51 minutes on Windows against 12 on ubuntu, so the
+            # lean gate leaves them to the integration branch.
+            echo 'doc_os=["ubuntu-latest", "macos-latest"]' >> $GITHUB_OUTPUT
+            echo "python_scope=smoke" >> $GITHUB_OUTPUT
+          fi
 
   test-rust:
     needs: [check-skip]
     if: needs.check-skip.outputs.should_skip == 'false'
     uses: ./.github/workflows/test_rust.yml
+    with:
+      os-matrix: ${{ needs.check-skip.outputs.rust_os }}
+      doc-os-matrix: ${{ needs.check-skip.outputs.doc_os }}
     secrets: inherit
 
   delay-python:
@@ -37,16 +65,31 @@ jobs:
       - name: Wait for Rust tests to claim runners
         run: sleep 15
 
+  # Pull requests test the oldest supported Python (the declared floor in
+  # pyproject.toml); the full version matrix runs on the integration branch.
   test-python:
-    needs: [delay-python]
+    needs: [check-skip, delay-python]
     if: needs.delay-python.result == 'success'
     uses: ./.github/workflows/test_python.yml
     with:
-      # PR runs test only the oldest supported Python (the declared floor in pyproject.toml)
-      # across all 3 OSes to catch breakage of the minimum-supported version.
-      # The full matrix runs on push to main.
       python-versions: '["3.10"]'
       coverage-python-version: '3.10'
+      os-matrix: '["ubuntu-latest", "macos-latest"]'
+      python-test-scope: full
+    secrets: inherit
+
+  # Windows runs the smoke subset rather than the full suite: it is 1.8x slower
+  # than ubuntu and the full run would become the critical path, while the
+  # subset covers every area with a recorded history of Windows-only failures.
+  test-python-windows:
+    needs: [check-skip, delay-python]
+    if: needs.delay-python.result == 'success'
+    uses: ./.github/workflows/test_python.yml
+    with:
+      python-versions: '["3.10"]'
+      coverage-python-version: 'none'
+      os-matrix: '["windows-latest"]'
+      python-test-scope: ${{ needs.check-skip.outputs.python_scope }}
     secrets: inherit
 
   test-examples:
@@ -75,7 +118,7 @@ jobs:
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           cache-shared-key: validate-rust-package
-          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-save-if: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') }}
 
       - name: Set default Rust toolchain
         run: |
@@ -118,7 +161,7 @@ jobs:
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           cache-shared-key: validate-python-package
-          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-save-if: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') }}
 
       - name: Set default Rust toolchain
         run: |
@@ -158,7 +201,7 @@ jobs:
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           cache-shared-key: docs-build
-          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-save-if: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') }}
 
       - name: Set default Rust toolchain
         run: |
@@ -209,6 +252,7 @@ jobs:
       - test-rust
       - delay-python
       - test-python
+      - test-python-windows
       - test-examples
       - validate-rust-package
       - validate-python-package

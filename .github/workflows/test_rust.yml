@@ -6,14 +6,24 @@ on:
                 description: "BRAHE_NETWORK_MODE for the test steps."
                 type: string
                 default: "offline"
+            os-matrix:
+                description: "JSON array of runners for the unit-test matrix."
+                type: string
+                default: '["ubuntu-latest", "macos-latest", "windows-latest"]'
+            doc-os-matrix:
+                description: >-
+                    JSON array of runners for the doc-test matrix. Doc tests are
+                    the longest job on Windows, so the lean pull-request gate
+                    narrows this while the integration branch runs all three.
+                type: string
+                default: '["ubuntu-latest", "macos-latest", "windows-latest"]' 
 jobs:
     test-rust:
         runs-on: ${{ matrix.os }}
         timeout-minutes: 60
         strategy:
             matrix:
-                # os: [ubuntu-latest]
-                os: [ubuntu-latest, macos-latest, windows-latest]
+                os: ${{ fromJSON(inputs.os-matrix) }}
                 rust-toolchain: [stable]
         permissions:
             id-token: write
@@ -32,7 +42,7 @@ jobs:
                 with:
                     toolchain: ${{ matrix.rust-toolchain }}
                     cache-shared-key: test-rust
-                    cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+                    cache-save-if: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') }}
             -   name: Set default Rust toolchain
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}
@@ -94,8 +104,7 @@ jobs:
         timeout-minutes: 60
         strategy:
             matrix:
-                # os: [ubuntu-latest]
-                os: [ubuntu-latest, macos-latest, windows-latest]
+                os: ${{ fromJSON(inputs.doc-os-matrix) }}
                 rust-toolchain: [stable]
         env:
             BRAHE_NETWORK_MODE: ${{ inputs.network_mode }}
@@ -107,7 +116,7 @@ jobs:
                 with:
                     toolchain: ${{ matrix.rust-toolchain }}
                     cache-shared-key: test-rust-docs
-                    cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+                    cache-save-if: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') }}
             -   name: Set default Rust toolchain
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}

@@ -680,6 +680,37 @@ generate-changelog version="" prev_tag="":
         --changelog CHANGELOG.md
     echo "✓ CHANGELOG.md updated for v$VERSION. Review the diff, then commit and tag."
 
+# Open the dev-to-main promotion pull request for a release, with the
+# changelog aggregated across everything merged since the previous tag.
+#
+# The promotion MUST be merged with a merge commit or fast-forward, never a
+# squash: scripts/generate_release_notes.py reads PR numbers from squash-merge
+# subjects in `git log <tag>..HEAD --no-merges`, and squashing the promotion
+# would collapse every one of them into a single subject, silently producing an
+# empty changelog for the next release.
+release-promote version="" prev_tag="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    VERSION="{{version}}"
+    PREV_TAG="{{prev_tag}}"
+    if [ -z "$VERSION" ]; then
+        VERSION=$(grep -E '^version = ' Cargo.toml | head -1 | sed -E 's/version = "(.*)"/\1/')
+    fi
+    if [ -z "$PREV_TAG" ]; then
+        PREV_TAG=$(git describe --tags --abbrev=0)
+    fi
+    command -v gh > /dev/null 2>&1 || { echo "error: gh CLI is required" >&2; exit 1; }
+    echo "Promoting dev -> main for v$VERSION (since $PREV_TAG)"
+    python3 scripts/generate_release_notes.py \
+        --version "$VERSION" \
+        --prev-tag "$PREV_TAG" \
+        --changelog CHANGELOG.md \
+        --release-notes /tmp/brahe-release-notes-$VERSION.md
+    echo "✓ CHANGELOG.md updated. Commit it on dev, then this opens the promotion PR."
+    gh pr create --base main --head dev --label release \
+        --title "Release v$VERSION" \
+        --body-file /tmp/brahe-release-notes-$VERSION.md
+
 # ───── GPU-comparison benchmarks (brahe vs astrojax) ─────
 
 # Install everything the GPU-comparison suite needs: brahe (with the

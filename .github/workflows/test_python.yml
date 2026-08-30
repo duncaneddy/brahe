@@ -16,6 +16,19 @@ on:
                 description: "BRAHE_NETWORK_MODE for the test steps."
                 type: string
                 default: "offline"
+            os-matrix:
+                description: "JSON array of runners for the test matrix."
+                type: string
+                default: '["ubuntu-latest", "macos-latest", "windows-latest"]'
+            python-test-scope:
+                description: >-
+                    `full` runs the whole suite. `smoke` runs only the
+                    path- and IO-sensitive directories, which is every area with
+                    a recorded history of Windows-only Python failures. Switching
+                    scope is this one input; the directory list lives in
+                    SMOKE_PATHS below so it is defined in a single place.
+                type: string
+                default: "full"
 jobs:
     test-python:
         runs-on: ${{ matrix.os }}
@@ -24,9 +37,17 @@ jobs:
             id-token: write
         env:
             BRAHE_NETWORK_MODE: ${{ inputs.network_mode }}
+            # The smoke subset: CLI, cache/IO, and dataset handling. Commit
+            # 16755ce2 fixed Windows-only failures under tests/cli and commit
+            # e486a937 fixed cache-path handling, so this covers every area with
+            # a recorded history of platform-specific Python failures. The rest
+            # of the suite is platform-independent computation already exercised
+            # by the Rust matrix. Defined once here so changing the subset is a
+            # single edit.
+            SMOKE_PATHS: tests/cli tests/utils tests/eop tests/space_weather tests/datasets
         strategy:
             matrix:
-                os: [ubuntu-latest, macos-latest, windows-latest]
+                os: ${{ fromJSON(inputs.os-matrix) }}
                 python-version: ${{ fromJSON(inputs.python-versions) }}
                 rust-toolchain: [stable]
         steps:
@@ -40,7 +61,7 @@ jobs:
                 with:
                     toolchain: ${{ matrix.rust-toolchain }}
                     cache-shared-key: test-python
-                    cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+                    cache-save-if: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') }}
             -   name: Set default Rust toolchain
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}
@@ -100,7 +121,14 @@ jobs:
 
             -   name: Test with python ${{ matrix.python-version }}
                 if: matrix.os != 'ubuntu-latest' || matrix.python-version != inputs.coverage-python-version
-                run: uv run --frozen pytest tests/ -v
+                shell: bash
+                run: |
+                    if [ "${{ inputs.python-test-scope }}" = "smoke" ]; then
+                        # shellcheck disable=SC2086
+                        uv run --frozen pytest $SMOKE_PATHS -v
+                    else
+                        uv run --frozen pytest tests/ -v
+                    fi
 
             -   name: Upload Python coverage to Codecov
                 if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version

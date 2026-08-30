@@ -106,7 +106,7 @@ jobs:
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           cache-shared-key: docs-build
-          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-save-if: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') }}
 
       - name: Set default Rust toolchain
         run: |

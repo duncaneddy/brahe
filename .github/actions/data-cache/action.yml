@@ -32,7 +32,7 @@ runs:
             env:
                 MANIFEST_HASH: ${{ hashFiles('.github/brahe-data-manifest.txt') }}
             run: |
-                if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+                if [ "$GITHUB_REF" = "refs/heads/main" ] || [ "$GITHUB_REF" = "refs/heads/dev" ]; then
                     SUFFIX=""
                 else
                     SUFFIX="-run-$GITHUB_RUN_ID"

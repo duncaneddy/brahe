@@ -45,7 +45,7 @@ jobs:
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           cache-shared-key: test-examples
-          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-save-if: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') }}
 
       - name: Set default Rust toolchain
         run: |
@@ -204,21 +204,21 @@ jobs:
       # blocks every later same-key save repo-wide ("Unable to reserve cache
       # ...").
       - name: Save 3D body textures cache (main only)
-        if: ${{ github.ref == 'refs/heads/main' && steps.textures-cache.outputs.cache-hit != 'true' }}
+        if: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && steps.textures-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6.1.0
         with:
           path: ~/.cache/brahe/textures
           key: brahe-3d-textures-v2
 
       - name: Save Natural Earth land basemap cache (main only)
-        if: ${{ github.ref == 'refs/heads/main' && steps.natural-earth-cache.outputs.cache-hit != 'true' }}
+        if: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && steps.natural-earth-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6.1.0
         with:
           path: ~/.cache/brahe/natural_earth
           key: natural-earth-50m-land-v1
 
       - name: Save cartopy Natural Earth data cache (main only)
-        if: ${{ github.ref == 'refs/heads/main' && steps.cartopy-cache.outputs.cache-hit != 'true' }}
+        if: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && steps.cartopy-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6.1.0
         with:
           path: ~/.local/share/cartopy
@@ -299,7 +299,7 @@ jobs:
       # repository's budget. The shared dependency build is what is worth
       # carrying between runs.
       - name: Prune per-example binaries from the rust-script cache
-        if: github.ref == 'refs/heads/main'
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
         run: |
           release=~/.cache/rust-script/binaries/release
           [ -d "$release" ] || exit 0
@@ -309,7 +309,7 @@ jobs:
           rm -rf ~/.cache/rust-script/projects
 
       - name: Save rust-script build cache (main only)
-        if: github.ref == 'refs/heads/main'
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
         continue-on-error: true
         uses: actions/cache/save@v6.1.0
         with:

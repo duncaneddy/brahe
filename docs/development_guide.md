@@ -283,6 +283,43 @@ other examples' figures from being generated. Celestrak GP examples are not
 flagged `NETWORK`; they run from the Celestrak groups committed under
 `test_assets/celestrak`, so a Celestrak outage cannot affect them.
 
+### Branch topology
+
+Feature branches open pull requests against `dev`, the integration branch.
+`dev` is promoted to `main` for a release, so `main` always holds a released or
+release-candidate state.
+
+Each stage runs a different amount of CI:
+
+| Stage | What runs |
+|---|---|
+| Pull request into `dev` | Rust unit tests on all three platforms; doc tests on ubuntu and macOS; Python 3.10 fully on ubuntu and macOS and as a smoke subset on Windows; examples, packaging, and a documentation build |
+| Push to `dev` | The full matrix: doc tests on all three platforms, and every supported Python version on ubuntu and Windows with the floor and ceiling on macOS |
+| Push to `main` | The same full matrix, plus documentation deployment and the release workflows |
+
+The pull-request gate is narrower because the account allows 20 concurrent jobs
+with a sub-limit of 5 on macOS. Runs that exceed those limits queue rather than
+fail, which is why a job that takes four minutes has been observed waiting
+nearly an hour to start. Applying the `full-ci` label to a pull request runs the
+complete matrix for that pull request without changing anything.
+
+Windows runs a Python smoke subset rather than the whole suite: it is roughly
+1.8 times slower than ubuntu, so the full run would set the critical path. The
+subset is `tests/cli`, `tests/utils`, `tests/eop`, `tests/space_weather`, and
+`tests/datasets`, defined as `SMOKE_PATHS` in `test_python.yml` and selected by
+the `python-test-scope` input. It covers the areas with a recorded history of
+Windows-specific Python failures; the remainder is platform-independent
+computation already exercised by the Rust matrix on all three platforms.
+
+Releases run `just release-promote`, which aggregates the changelog across
+everything merged since the previous tag and opens the `dev`-to-`main` pull
+request labelled `release`, which exempts it from the per-pull-request changelog
+check. **Merge that pull request with a merge commit or fast-forward, never a
+squash.** `scripts/generate_release_notes.py` reads pull request numbers from
+squash-merge subjects in `git log <tag>..HEAD --no-merges`; squashing the
+promotion collapses every one of them into a single subject and silently
+produces an empty changelog for the following release.
+
 ### CI data caches and network mode
 
 Every CI test, example, plot, and docs step — including the Rust and Python unit-test jobs (`test_rust.yml`, `test_python.yml`), and excepting the live integration jobs in `integration_tests.yml` — runs with `BRAHE_NETWORK_MODE=offline`. The unit-test workflows front their matrix with a single `data-cache` job built on the `.github/actions/data-cache` composite action: it restores the families the unit suites read (only `naif`), and when a family is missing or its cache predates the manifest it builds the extension once, downloads the missing entries with `scripts/warm_data_cache.py --only <family>`, saves them for later runs (best effort; fork pull requests cannot write the cache), and hands the files to the matrix legs as a run artifact, so the legs never touch the cache or the network themselves. A test whose data is still missing therefore fails with the `BRAHE_NETWORK_MODE` error naming the resource, which points at a gap in `.github/brahe-data-manifest.txt`. `test_examples.yml` uses the same composite for all four families in its single job — restore, warm only the misses online, save — plus the plot-resource caches, before running the examples offline; the docs and integration workflows still carry inline restore blocks. Off `main`, saves use a run-suffixed key that later runs of the same ref find by prefix, so a pull request heals its own cold cache without ever writing `main`'s keys. Loopback URLs (`localhost`, `127.0.0.1`, `::1`) are exempt from `BRAHE_NETWORK_MODE`, which is why the unit-test jobs' local mock servers — `tests/plots/test_download.py`'s `http.server` fixture and Rust's httpmock-based tests — keep working offline. The unit suites auto-load `moon_pa_de440_200625.bpc` and `mar099s.bsp`, which the manifest lists so the NAIF cache carries them. Each family is read from its own cache (`naif-kernels-v1-<manifest hash>`, `brahe-icgem-v1-<manifest hash>`, `brahe-sbdb-horizons-v1-<manifest hash>`, `star-catalogs-v1`, plus the plot textures and basemaps); the manifest-driven families roll their key on a manifest change and fall back to the newest previous entry by prefix on a miss. The weekly `warm_data_cache.yml` workflow restores, warms, and saves each family independently from `.github/brahe-data-manifest.txt` via `scripts/warm_data_cache.py --only <family>`, while `test_examples.yml` also saves them from main whenever their restore misses. The Celestrak GP groups the examples and doc plots read are not a cache family at all: they are committed under `test_assets/celestrak` and copied into `~/.cache/brahe/celestrak`, so those runs never contact Celestrak. Refresh them with `just refresh-celestrak-snapshots`; live client behavior is covered by the integration suites, which deliberately query Celestrak directly. A pull request that adds a manifest entry downloads it live in its own run (the warm step is online) but cannot save; the key change is picked up automatically by the next main push (`test_examples.yml`) or the weekly `warm_data_cache.yml` run, whichever saves the new entry first — dispatch `warm_data_cache.yml` manually only to do so sooner. The weekly integration workflow passes `network_mode: online` to the example workflow so the `NETWORK`-flagged examples still run live there.

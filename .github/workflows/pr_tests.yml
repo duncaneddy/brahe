@@ -2,7 +2,10 @@ name: PR Tests
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    # `labeled`/`unlabeled` are required for the `full-ci` label to take effect
+    # on an already-open pull request; without them the scope is only
+    # re-evaluated on the next push.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
     paths-ignore:
       - 'CHANGELOG.md'
       - 'profiles/**'
@@ -25,6 +28,7 @@ jobs:
       rust_os: ${{ steps.scope.outputs.rust_os }}
       doc_os: ${{ steps.scope.outputs.doc_os }}
       python_scope: ${{ steps.scope.outputs.python_scope }}
+      python_versions: ${{ steps.scope.outputs.python_versions }}
     steps:
       - id: skip_check
         run: |
@@ -38,6 +42,7 @@ jobs:
             echo 'rust_os=["ubuntu-latest", "macos-latest", "windows-latest"]' >> $GITHUB_OUTPUT
             echo 'doc_os=["ubuntu-latest", "macos-latest", "windows-latest"]' >> $GITHUB_OUTPUT
             echo "python_scope=full" >> $GITHUB_OUTPUT
+            echo 'python_versions=["3.10", "3.11", "3.12", "3.13", "3.14"]' >> $GITHUB_OUTPUT
           else
             echo "full_ci=false" >> $GITHUB_OUTPUT
             echo 'rust_os=["ubuntu-latest", "macos-latest", "windows-latest"]' >> $GITHUB_OUTPUT
@@ -45,6 +50,9 @@ jobs:
             # lean gate leaves them to the integration branch.
             echo 'doc_os=["ubuntu-latest", "macos-latest"]' >> $GITHUB_OUTPUT
             echo "python_scope=smoke" >> $GITHUB_OUTPUT
+            # The floor declared in pyproject.toml: the version most likely to
+            # break, and the one a lean gate is worth spending on.
+            echo 'python_versions=["3.10"]' >> $GITHUB_OUTPUT
           fi
 
   test-rust:
@@ -72,7 +80,7 @@ jobs:
     if: needs.delay-python.result == 'success'
     uses: ./.github/workflows/test_python.yml
     with:
-      python-versions: '["3.10"]'
+      python-versions: ${{ needs.check-skip.outputs.python_versions }}
       coverage-python-version: '3.10'
       os-matrix: '["ubuntu-latest", "macos-latest"]'
       python-test-scope: full
@@ -86,7 +94,7 @@ jobs:
     if: needs.delay-python.result == 'success'
     uses: ./.github/workflows/test_python.yml
     with:
-      python-versions: '["3.10"]'
+      python-versions: ${{ needs.check-skip.outputs.python_versions }}
       coverage-python-version: 'none'
       os-matrix: '["windows-latest"]'
       python-test-scope: ${{ needs.check-skip.outputs.python_scope }}

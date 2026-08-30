@@ -301,7 +301,9 @@ The pull-request gate is narrower because the account allows 20 concurrent jobs
 with a sub-limit of 5 on macOS. Runs that exceed those limits queue rather than
 fail, which is why a job that takes four minutes has been observed waiting
 nearly an hour to start. Applying the `full-ci` label to a pull request runs the
-complete matrix for that pull request without changing anything.
+complete matrix for that pull request — every supported Python version and doc
+tests on all three platforms — without changing anything. The label takes effect
+immediately, because the workflow also triggers on label changes.
 
 Windows runs a Python smoke subset rather than the whole suite: it is roughly
 1.8 times slower than ubuntu, so the full run would set the critical path. The

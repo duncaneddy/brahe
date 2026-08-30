@@ -691,6 +691,16 @@ generate-changelog version="" prev_tag="":
 release-promote version="" prev_tag="":
     #!/usr/bin/env bash
     set -euo pipefail
+    BRANCH=$(git rev-parse --abbrev-ref HEAD)
+    if [ "$BRANCH" != "dev" ]; then
+        echo "error: run from dev; currently on $BRANCH" >&2
+        exit 1
+    fi
+    if [ -n "$(git status --porcelain)" ]; then
+        echo "error: working tree is dirty; commit or stash before promoting" >&2
+        exit 1
+    fi
+    command -v gh > /dev/null 2>&1 || { echo "error: gh CLI is required" >&2; exit 1; }
     VERSION="{{version}}"
     PREV_TAG="{{prev_tag}}"
     if [ -z "$VERSION" ]; then
@@ -699,17 +709,26 @@ release-promote version="" prev_tag="":
     if [ -z "$PREV_TAG" ]; then
         PREV_TAG=$(git describe --tags --abbrev=0)
     fi
-    command -v gh > /dev/null 2>&1 || { echo "error: gh CLI is required" >&2; exit 1; }
+    NOTES=$(mktemp)
     echo "Promoting dev -> main for v$VERSION (since $PREV_TAG)"
     python3 scripts/generate_release_notes.py \
         --version "$VERSION" \
         --prev-tag "$PREV_TAG" \
         --changelog CHANGELOG.md \
-        --release-notes /tmp/brahe-release-notes-$VERSION.md
-    echo "✓ CHANGELOG.md updated. Commit it on dev, then this opens the promotion PR."
+        --release-notes "$NOTES"
+    # The pull request is opened against the pushed dev head, so the changelog
+    # has to land there first or the promotion would not contain it.
+    if [ -n "$(git status --porcelain CHANGELOG.md)" ]; then
+        git add CHANGELOG.md
+        git commit -m "Update CHANGELOG for v$VERSION"
+        git push origin dev
+        echo "✓ CHANGELOG.md committed and pushed to dev"
+    else
+        echo "✓ CHANGELOG.md already up to date for v$VERSION"
+    fi
     gh pr create --base main --head dev --label release \
         --title "Release v$VERSION" \
-        --body-file /tmp/brahe-release-notes-$VERSION.md
+        --body-file "$NOTES"
 
 # ───── GPU-comparison benchmarks (brahe vs astrojax) ─────
 

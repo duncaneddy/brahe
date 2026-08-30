@@ -1,9 +1,77 @@
 name: Test Rust
 on:
     workflow_call:
+        inputs:
+            network_mode:
+                description: "BRAHE_NETWORK_MODE for the test steps."
+                type: string
+                default: "offline"
 jobs:
+    data-cache:
+        # Restores the data families the unit suites read. When a family is
+        # missing, or its cache predates the manifest, this job downloads the
+        # entries once and saves them so the matrix legs below only restore.
+        runs-on: ubuntu-latest
+        steps:
+            -   uses: actions/checkout@v7.0.1
+            -   name: Restore data caches
+                id: cache
+                uses: ./.github/actions/data-cache
+                with:
+                    families: naif
+            -   name: Set up Rust toolchain
+                if: steps.cache.outputs.missed != ''
+                uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
+                with:
+                    cache-shared-key: test-python
+                    cache-save-if: false
+            -   name: Install uv
+                if: steps.cache.outputs.missed != ''
+                uses: astral-sh/setup-uv@v10.0.1
+                with:
+                    enable-cache: true
+            -   name: Build brahe
+                if: steps.cache.outputs.missed != ''
+                run: |
+                    uv python install 3.12
+                    uv sync --group test --all-extras --frozen --python 3.12
+                    uv pip install maturin --quiet
+                    uv run maturin develop --uv --features pyo3/extension-module
+            -   name: Warm missed families
+                if: steps.cache.outputs.missed != ''
+                env:
+                    BRAHE_NETWORK_MODE: online
+                    WARM_ARGS: ${{ steps.cache.outputs.warm-args }}
+                    MISSED: ${{ steps.cache.outputs.missed }}
+                run: |
+                    if [ -n "$WARM_ARGS" ]; then
+                        # shellcheck disable=SC2086
+                        uv run --frozen python scripts/warm_data_cache.py $WARM_ARGS
+                    fi
+                    case " $MISSED " in
+                        *" star-catalogs "*)
+                            uv run --frozen python -c "import brahe as bh; bh.datasets.star_catalogs.get_fk5(); bh.datasets.star_catalogs.get_hipparcos()"
+                            ;;
+                    esac
+            -   name: Save data caches
+                # Best effort: speeds up later runs but is not what the matrix
+                # legs depend on. Fork pull requests cannot write the cache.
+                if: steps.cache.outputs.missed != ''
+                continue-on-error: true
+                uses: ./.github/actions/data-cache
+                with:
+                    mode: save
+                    families: ${{ steps.cache.outputs.missed }}
+            -   name: Hand the data to the matrix legs
+                uses: actions/upload-artifact@v7
+                with:
+                    name: brahe-data-rust
+                    path: ~/.cache/brahe/naif
+                    retention-days: 1
+                    if-no-files-found: error
     test-rust:
         runs-on: ${{ matrix.os }}
+        needs: data-cache
         strategy:
             matrix:
                 # os: [ubuntu-latest]
@@ -13,6 +81,7 @@ jobs:
             id-token: write
         env:
             CARGO_TERM_COLOR: always
+            BRAHE_NETWORK_MODE: ${{ inputs.network_mode }}
         steps:
             -   uses: actions/checkout@v7.0.1
             # Cargo cache scheme: this job runs from both pr_tests.yml (PRs) and
@@ -32,13 +101,19 @@ jobs:
                     rustup default ${{ matrix.rust-toolchain }}
             -   name: Install cargo-llvm-cov
                 uses: taiki-e/install-action@cargo-llvm-cov
-            -   name: Cache brahe data (kernels, gravity models)
-                uses: actions/cache@v6.1.0
+            -   name: Fetch the data from the data-cache job
+                uses: actions/download-artifact@v8
                 with:
-                    path: ~/.cache/brahe
-                    key: brahe-data-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
-                    restore-keys: |
-                        brahe-data-v1-
+                    name: brahe-data-rust
+                    path: ~/.cache/brahe/naif
+            # de440s.bsp is a committed test asset; the other kernels the unit
+            # tests auto-load come from the restored NAIF cache and a miss fails
+            # the test that needs them.
+            -   name: Seed the DE440s test asset
+                shell: bash
+                run: |
+                    mkdir -p ~/.cache/brahe/naif
+                    cp test_assets/de440s.bsp ~/.cache/brahe/naif/
             -   name: Run Rust tests with coverage
                 # Limit rust-unit coverage to the core `brahe` crate. The `brahe-py`
                 # workspace member has no Rust unit tests (it's exercised by pytest),
@@ -74,11 +149,14 @@ jobs:
                     if-no-files-found: ignore
     test-rust-docs:
         runs-on: ${{ matrix.os }}
+        needs: data-cache
         strategy:
             matrix:
                 # os: [ubuntu-latest]
                 os: [ubuntu-latest, macos-latest, windows-latest]
                 rust-toolchain: [stable]
+        env:
+            BRAHE_NETWORK_MODE: ${{ inputs.network_mode }}
         steps:
             -   uses: actions/checkout@v7.0.1
             # See "test-rust" job above for the shared-key/save-if cache scheme.
@@ -92,13 +170,19 @@ jobs:
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
-            -   name: Cache brahe data (kernels, gravity models)
-                uses: actions/cache@v6.1.0
+            -   name: Fetch the data from the data-cache job
+                uses: actions/download-artifact@v8
                 with:
-                    path: ~/.cache/brahe
-                    key: brahe-data-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
-                    restore-keys: |
-                        brahe-data-v1-
+                    name: brahe-data-rust
+                    path: ~/.cache/brahe/naif
+            # de440s.bsp is a committed test asset; the other kernels the unit
+            # tests auto-load come from the restored NAIF cache and a miss fails
+            # the test that needs them.
+            -   name: Seed the DE440s test asset
+                shell: bash
+                run: |
+                    mkdir -p ~/.cache/brahe/naif
+                    cp test_assets/de440s.bsp ~/.cache/brahe/naif/
             -   name: Run Rust doc tests
                 run: cargo test --doc -- --test-threads=1
     

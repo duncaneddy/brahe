@@ -28,6 +28,7 @@ jobs:
       contents: write
     env:
       RUST_TOOLCHAIN: stable
+      BRAHE_NETWORK_MODE: offline
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -77,13 +78,72 @@ jobs:
       - name: Install just
         uses: extractions/setup-just@v4
 
-      - name: Cache brahe data (kernels, gravity models)
-        uses: actions/cache@v6.1.0
+      - name: Restore NAIF kernels cache
+        id: naif-cache
+        uses: actions/cache/restore@v6.1.0
         with:
-          path: ~/.cache/brahe
-          key: brahe-data-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+          path: ~/.cache/brahe/naif
+          key: naif-kernels-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
           restore-keys: |
-            brahe-data-v1-
+            naif-kernels-v1-
+
+      - name: Restore ICGEM cache
+        id: icgem-cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: ~/.cache/brahe/icgem
+          key: brahe-icgem-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+          restore-keys: |
+            brahe-icgem-v1-
+
+      - name: Restore SBDB + Horizons cache
+        id: sbdb-horizons-cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: |
+            ~/.cache/brahe/sbdb
+            ~/.cache/brahe/horizons
+          key: brahe-sbdb-horizons-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+          restore-keys: |
+            brahe-sbdb-horizons-v1-
+
+      - name: Restore star catalog downloads
+        id: star-catalogs-cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: |
+            ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
+            ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
+          key: star-catalogs-v1
+
+      - name: Restore Celestrak cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: ~/.cache/brahe/celestrak
+          key: brahe-celestrak-${{ github.run_id }}
+          restore-keys: |
+            brahe-celestrak-
+
+      - name: Restore Natural Earth land basemap cache
+        id: natural-earth-cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: ~/.cache/brahe/natural_earth
+          key: natural-earth-50m-land-v1
+
+      - name: Restore 3D body textures cache
+        id: textures-cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: ~/.cache/brahe/textures
+          key: brahe-3d-textures-v2
+
+      - name: Restore cartopy Natural Earth data cache
+        id: cartopy-cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: ~/.local/share/cartopy
+          key: cartopy-natural-earth-v1
 
       # NETWORK-flagged examples are skipped by the --ci-only run below, so
       # their figures only exist in the cache saved by the weekly --network
@@ -109,14 +169,66 @@ jobs:
           restore-keys: |
             network-example-outputs-
 
-      - name: Test examples (including CI-ONLY)
-        run: just test-examples --ci-only
+      - name: Pre-download plot/example resources
+        env:
+          BRAHE_NETWORK_MODE: online
+        run: just download-resources
 
-      - name: Cache Natural Earth data
-        uses: actions/cache@v6.1.0
+      - name: Save NAIF kernels cache (main only)
+        if: ${{ github.ref == 'refs/heads/main' && steps.naif-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: ~/.cache/brahe/naif
+          key: naif-kernels-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+
+      - name: Save ICGEM cache (main only)
+        if: ${{ github.ref == 'refs/heads/main' && steps.icgem-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: ~/.cache/brahe/icgem
+          key: brahe-icgem-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+
+      - name: Save SBDB + Horizons cache (main only)
+        if: ${{ github.ref == 'refs/heads/main' && steps.sbdb-horizons-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: |
+            ~/.cache/brahe/sbdb
+            ~/.cache/brahe/horizons
+          key: brahe-sbdb-horizons-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+
+      - name: Save star catalog downloads (main only)
+        if: ${{ github.ref == 'refs/heads/main' && steps.star-catalogs-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: |
+            ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
+            ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
+          key: star-catalogs-v1
+
+      - name: Save 3D body textures cache (main only)
+        if: ${{ github.ref == 'refs/heads/main' && steps.textures-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: ~/.cache/brahe/textures
+          key: brahe-3d-textures-v2
+
+      - name: Save Natural Earth land basemap cache (main only)
+        if: ${{ github.ref == 'refs/heads/main' && steps.natural-earth-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6.1.0
         with:
           path: ~/.cache/brahe/natural_earth
           key: natural-earth-50m-land-v1
+
+      - name: Save cartopy Natural Earth data cache (main only)
+        if: ${{ github.ref == 'refs/heads/main' && steps.cartopy-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: ~/.local/share/cartopy
+          key: cartopy-natural-earth-v1
+
+      - name: Test examples (including CI-ONLY)
+        run: just test-examples --ci-only
 
       - name: Generate documentation plots
         run: just make-plots

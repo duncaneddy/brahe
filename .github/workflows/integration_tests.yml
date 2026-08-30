@@ -40,19 +40,37 @@ jobs:
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
 
-            -   name: Cache brahe data (kernels, gravity models)
-                uses: actions/cache@v6.1.0
+            -   name: Restore NAIF kernels cache
+                uses: actions/cache/restore@v6.1.0
                 with:
-                    path: ~/.cache/brahe
-                    key: brahe-data-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+                    path: ~/.cache/brahe/naif
+                    key: naif-kernels-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
                     restore-keys: |
-                        brahe-data-v1-
+                        naif-kernels-v1-
+
+            -   name: Restore ICGEM cache
+                uses: actions/cache/restore@v6.1.0
+                with:
+                    path: ~/.cache/brahe/icgem
+                    key: brahe-icgem-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+                    restore-keys: |
+                        brahe-icgem-v1-
+
+            -   name: Restore SBDB + Horizons cache
+                uses: actions/cache/restore@v6.1.0
+                with:
+                    path: |
+                        ~/.cache/brahe/sbdb
+                        ~/.cache/brahe/horizons
+                    key: brahe-sbdb-horizons-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+                    restore-keys: |
+                        brahe-sbdb-horizons-v1-
 
             # FK5 + Hipparcos only. Explicit file paths (not the whole
             # star_catalogs/ dir) so the 526 MB Tycho-2 catalog downloaded by
             # the integration test below is never persisted to this cache.
-            -   name: Cache star catalog downloads
-                uses: actions/cache@v6.1.0
+            -   name: Restore star catalog downloads
+                uses: actions/cache/restore@v6.1.0
                 with:
                     path: |
                         ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
@@ -123,17 +141,35 @@ jobs:
             -   name: Install Python ${{ matrix.python-version }}
                 run: uv python install ${{ matrix.python-version }}
 
-            -   name: Cache brahe data (kernels, gravity models)
-                uses: actions/cache@v6.1.0
+            -   name: Restore NAIF kernels cache
+                uses: actions/cache/restore@v6.1.0
                 with:
-                    path: ~/.cache/brahe
-                    key: brahe-data-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+                    path: ~/.cache/brahe/naif
+                    key: naif-kernels-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
                     restore-keys: |
-                        brahe-data-v1-
+                        naif-kernels-v1-
+
+            -   name: Restore ICGEM cache
+                uses: actions/cache/restore@v6.1.0
+                with:
+                    path: ~/.cache/brahe/icgem
+                    key: brahe-icgem-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+                    restore-keys: |
+                        brahe-icgem-v1-
+
+            -   name: Restore SBDB + Horizons cache
+                uses: actions/cache/restore@v6.1.0
+                with:
+                    path: |
+                        ~/.cache/brahe/sbdb
+                        ~/.cache/brahe/horizons
+                    key: brahe-sbdb-horizons-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+                    restore-keys: |
+                        brahe-sbdb-horizons-v1-
 
             # FK5 + Hipparcos only, matching the Rust job above.
-            -   name: Cache star catalog downloads
-                uses: actions/cache@v6.1.0
+            -   name: Restore star catalog downloads
+                uses: actions/cache/restore@v6.1.0
                 with:
                     path: |
                         ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
@@ -215,61 +251,4 @@ jobs:
         with:
             example_args: "--network"
             use_retry: true
-
-    # Weekly keep-warm for the plot/example network caches. Running on the
-    # schedule (on main) restores each cache — which resets GitHub's 7-day
-    # eviction timer — and re-downloads + saves any that have been evicted, so
-    # test_examples.yml on PRs keeps finding the shared main-branch caches well
-    # beyond the 7-day window.
-    cache-warm:
-        # Only on the weekly schedule (or manual dispatch). This workflow is also
-        # reached via workflow_call from release.yml, where a full extension build
-        # just to refresh caches would be wasted work.
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        runs-on: ubuntu-latest
-        steps:
-            -   uses: actions/checkout@v7.0.1
-            -   name: Set up Rust toolchain
-                uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
-                with:
-                    toolchain: stable
-            -   name: Install the latest version of uv
-                uses: astral-sh/setup-uv@v10.0.1
-                with:
-                    enable-cache: true
-            -   name: Install Python 3.14
-                run: uv python install 3.14
-            -   name: Install dependencies
-                run: uv sync --all-extras --frozen
-            -   name: Build Python extension
-                run: uv pip install -e ".[all]"
-            -   name: Install just
-                uses: extractions/setup-just@v4
-            -   name: Refresh 3D body textures cache (Natural Earth + Solar System Scope planets)
-                uses: actions/cache@v6.1.0
-                with:
-                    path: ~/.cache/brahe/textures
-                    key: brahe-3d-textures-v2
-            -   name: Refresh Natural Earth land basemap cache
-                uses: actions/cache@v6.1.0
-                with:
-                    path: ~/.cache/brahe/natural_earth
-                    key: natural-earth-50m-land-v1
-            -   name: Refresh cartopy Natural Earth cache
-                uses: actions/cache@v6.1.0
-                with:
-                    path: ~/.local/share/cartopy
-                    key: cartopy-natural-earth-v1
-            # Without this step the NAIF kernels downloaded by
-            # download-resources below are discarded, so no main-scoped
-            # naif-kernels cache exists and every PR/main test_examples run
-            # falls back to a live NAIF download (a hard failure whenever
-            # naif.jpl.nasa.gov blips). Keep the key in sync with the
-            # "Cache NAIF kernels" step in test_examples.yml.
-            -   name: Refresh NAIF kernels cache
-                uses: actions/cache@v6.1.0
-                with:
-                    path: ~/.cache/brahe/naif
-                    key: naif-kernels-v1
-            -   name: Warm resources (re-download any evicted)
-                run: just download-resources
+            network_mode: online

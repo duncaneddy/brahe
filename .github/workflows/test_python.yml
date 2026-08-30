@@ -12,11 +12,80 @@ on:
                 required: false
                 type: string
                 default: '3.13'
+            network_mode:
+                description: "BRAHE_NETWORK_MODE for the test steps."
+                type: string
+                default: "offline"
 jobs:
+    data-cache:
+        # Restores the data families the unit suites read. When a family is
+        # missing, or its cache predates the manifest, this job downloads the
+        # entries once and saves them so the matrix legs below only restore.
+        runs-on: ubuntu-latest
+        steps:
+            -   uses: actions/checkout@v7.0.1
+            -   name: Restore data caches
+                id: cache
+                uses: ./.github/actions/data-cache
+                with:
+                    families: naif
+            -   name: Set up Rust toolchain
+                if: steps.cache.outputs.missed != ''
+                uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
+                with:
+                    cache-shared-key: test-python
+                    cache-save-if: false
+            -   name: Install uv
+                if: steps.cache.outputs.missed != ''
+                uses: astral-sh/setup-uv@v10.0.1
+                with:
+                    enable-cache: true
+            -   name: Build brahe
+                if: steps.cache.outputs.missed != ''
+                run: |
+                    uv python install 3.12
+                    uv sync --group test --all-extras --frozen --python 3.12
+                    uv pip install maturin --quiet
+                    uv run maturin develop --uv --features pyo3/extension-module
+            -   name: Warm missed families
+                if: steps.cache.outputs.missed != ''
+                env:
+                    BRAHE_NETWORK_MODE: online
+                    WARM_ARGS: ${{ steps.cache.outputs.warm-args }}
+                    MISSED: ${{ steps.cache.outputs.missed }}
+                run: |
+                    if [ -n "$WARM_ARGS" ]; then
+                        # shellcheck disable=SC2086
+                        uv run --frozen python scripts/warm_data_cache.py $WARM_ARGS
+                    fi
+                    case " $MISSED " in
+                        *" star-catalogs "*)
+                            uv run --frozen python -c "import brahe as bh; bh.datasets.star_catalogs.get_fk5(); bh.datasets.star_catalogs.get_hipparcos()"
+                            ;;
+                    esac
+            -   name: Save data caches
+                # Best effort: speeds up later runs but is not what the matrix
+                # legs depend on. Fork pull requests cannot write the cache.
+                if: steps.cache.outputs.missed != ''
+                continue-on-error: true
+                uses: ./.github/actions/data-cache
+                with:
+                    mode: save
+                    families: ${{ steps.cache.outputs.missed }}
+            -   name: Hand the data to the matrix legs
+                uses: actions/upload-artifact@v7
+                with:
+                    name: brahe-data-python
+                    path: ~/.cache/brahe/naif
+                    retention-days: 1
+                    if-no-files-found: error
     test-python:
         runs-on: ${{ matrix.os }}
+        needs: data-cache
         permissions:
             id-token: write
+        env:
+            BRAHE_NETWORK_MODE: ${{ inputs.network_mode }}
         strategy:
             matrix:
                 os: [ubuntu-latest, macos-latest, windows-latest]
@@ -46,14 +115,11 @@ jobs:
             -   name: Install Python ${{ matrix.python-version }}
                 run: uv python install ${{ matrix.python-version }}
 
-            -   name: Cache brahe data (kernels, gravity models)
-                uses: actions/cache@v6.1.0
+            -   name: Fetch the data from the data-cache job
+                uses: actions/download-artifact@v8
                 with:
-                    path: ~/.cache/brahe
-                    key: brahe-data-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
-                    restore-keys: |
-                        brahe-data-v1-
-
+                    name: brahe-data-python
+                    path: ~/.cache/brahe/naif
             -   name: Install dependencies
                 run: uv sync --group test --all-extras --frozen --python ${{ matrix.python-version }}
 
@@ -63,13 +129,19 @@ jobs:
                 if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
                 uses: taiki-e/install-action@cargo-llvm-cov
 
-            -   name: Build, test, and generate coverage
+            -   name: Build extension (coverage)
                 if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
                 run: |
                     cargo llvm-cov clean --workspace
                     eval "$(cargo llvm-cov show-env --export-prefix)"
                     uv pip install maturin --quiet
                     uv run maturin develop --uv --features pyo3/extension-module
+
+
+            -   name: Test with coverage
+                if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
+                run: |
+                    eval "$(cargo llvm-cov show-env --export-prefix)"
                     uv run --frozen pytest tests/ \
                         --cov=brahe \
                         --cov-report=xml:python-coverage.xml \
@@ -79,6 +151,7 @@ jobs:
             -   name: Build extension (standard)
                 if: matrix.os != 'ubuntu-latest' || matrix.python-version != inputs.coverage-python-version
                 run: uv pip install -e .
+
 
             -   name: Test with python ${{ matrix.python-version }}
                 if: matrix.os != 'ubuntu-latest' || matrix.python-version != inputs.coverage-python-version

@@ -14,12 +14,17 @@ on:
           Also skips doc-plot generation, which is only needed on the PR path.
         type: boolean
         default: false
+      network_mode:
+        description: "BRAHE_NETWORK_MODE for the test/example/plot steps (warm steps stay online)."
+        type: string
+        default: "offline"
 
 jobs:
   test-examples:
     runs-on: ubuntu-latest
     env:
       RUST_TOOLCHAIN: stable
+      BRAHE_NETWORK_MODE: ${{ inputs.network_mode }}
     steps:
       - uses: actions/checkout@v7.0.1
 
@@ -53,27 +58,16 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --frozen
 
-      # Try to download Brahe cache to avoid external API calls
-      - name: Download Brahe cache directory
-        id: download-cache
-        continue-on-error: true
-        uses: actions/download-artifact@v8
-        with:
-          name: brahe-cache
-          path: ~/.cache/brahe/
-
       # Restored before "Setup test assets in cache" below so the repo's
-      # test_assets/de440s.bsp always wins over a stale cached copy; only
-      # moon_pa_de440/mar099s (not provided as test assets) are served from
-      # this cache, which is why it can't sit with the other cache steps.
-      # Restore-only: the matching save below runs on main only. Bump to
-      # naif-kernels-v2 when the examples' kernel set changes.
-      - name: Restore NAIF kernels cache
-        id: naif-cache
-        uses: actions/cache/restore@v6.1.0
+      # test_assets/de440s.bsp always wins over a stale cached copy. One step
+      # restores every manifest-keyed family; whatever is missing (or predates
+      # the manifest) is warmed once below and saved, so the parallel pools
+      # never download live.
+      - name: Restore data caches
+        id: cache
+        uses: ./.github/actions/data-cache
         with:
-          path: ~/.cache/brahe/naif
-          key: naif-kernels-v1
+          families: naif icgem sbdb-horizons star-catalogs celestrak
 
       # Copy test assets to cache for examples that might use them
       - name: Setup test assets in cache
@@ -106,78 +100,73 @@ jobs:
           path: ~/.cache/brahe/textures
           key: brahe-3d-textures-v2
 
-      - name: Cache Natural Earth land basemap
-        uses: actions/cache@v6.1.0
+      - name: Restore Natural Earth land basemap cache
+        id: natural-earth-cache
+        uses: actions/cache/restore@v6.1.0
         with:
           path: ~/.cache/brahe/natural_earth
           key: natural-earth-50m-land-v1
 
-      - name: Cache cartopy Natural Earth data
-        uses: actions/cache@v6.1.0
+      - name: Restore cartopy Natural Earth data cache
+        id: cartopy-cache
+        uses: actions/cache/restore@v6.1.0
         with:
           path: ~/.local/share/cartopy
           key: cartopy-natural-earth-v1
 
-      # FK5 + Hipparcos only (the catalogs the star_field_simulation example
-      # reads). Explicit file paths — never the whole star_catalogs/ dir — so
-      # the 526 MB Tycho-2 catalog is never persisted here. Restore-only; the
-      # matching save below runs on main only. Key kept in sync with the
-      # "Cache star catalog downloads" step in integration_tests.yml.
-      - name: Restore star catalog downloads
-        id: star-catalogs-cache
-        uses: actions/cache/restore@v6.1.0
+      # Warm only what the restores above did not provide, serially, before the
+      # parallel pools run offline.
+      - name: Warm missing data families
+        if: steps.cache.outputs.missed != ''
+        env:
+          BRAHE_NETWORK_MODE: online
+          WARM_ARGS: ${{ steps.cache.outputs.warm-args }}
+          MISSED: ${{ steps.cache.outputs.missed }}
+        run: |
+          if [ -n "$WARM_ARGS" ]; then
+            # shellcheck disable=SC2086
+            uv run --frozen python scripts/warm_data_cache.py $WARM_ARGS
+          fi
+          case " $MISSED " in
+            *" star-catalogs "*)
+              uv run --frozen python -c "import brahe as bh; bh.datasets.star_catalogs.get_fk5(); bh.datasets.star_catalogs.get_hipparcos()"
+              ;;
+          esac
+
+      - name: Warm missing plot resources
+        if: steps.textures-cache.outputs.cache-hit != 'true' || steps.natural-earth-cache.outputs.cache-hit != 'true' || steps.cartopy-cache.outputs.cache-hit != 'true'
+        env:
+          BRAHE_NETWORK_MODE: online
+          TEXTURES_HIT: ${{ steps.textures-cache.outputs.cache-hit }}
+          NATURAL_EARTH_HIT: ${{ steps.natural-earth-cache.outputs.cache-hit }}
+          CARTOPY_HIT: ${{ steps.cartopy-cache.outputs.cache-hit }}
+        run: |
+          if [ "$TEXTURES_HIT" != "true" ]; then
+            uv run --frozen python -c "from brahe.plots.texture_utils import download_natural_earth_texture; download_natural_earth_texture('50m')"
+            uv run --frozen python -c "from brahe.plots.texture_utils import download_planet_texture; [download_planet_texture(b) for b in ('moon', 'mars', 'ceres')]"
+          fi
+          if [ "$NATURAL_EARTH_HIT" != "true" ]; then
+            uv run --frozen python -c "from brahe.plots.basemap import get_natural_earth_land_shapefile; get_natural_earth_land_shapefile()"
+          fi
+          if [ "$CARTOPY_HIT" != "true" ]; then
+            uv run --frozen python scripts/warm_cartopy.py
+          fi
+
+      # Save the families that were warmed. Runs on main save under the family
+      # key; other refs save under a run-suffixed key that later runs of the
+      # same ref find by prefix and that never blocks main's key.
+      - name: Save data caches
+        if: steps.cache.outputs.missed != ''
+        continue-on-error: true
+        uses: ./.github/actions/data-cache
         with:
-          path: |
-            ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
-            ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
-          key: star-catalogs-v1
+          mode: save
+          families: ${{ steps.cache.outputs.missed }}
 
-      # ICGEM gravity models for the lro (GRGM660PRIM) and mro (ggm2bc80)
-      # examples' default lunar/mars force models. Without this the examples
-      # download from icgem.gfz.de live on every run. Restore-only; the
-      # matching save below runs on main only. Bump to brahe-icgem-v2 when the
-      # examples' ICGEM model set changes (keep in sync with the icgem: entries
-      # in .github/brahe-data-manifest.txt).
-      - name: Restore ICGEM gravity models cache
-        id: icgem-cache
-        uses: actions/cache/restore@v6.1.0
-        with:
-          path: ~/.cache/brahe/icgem
-          key: brahe-icgem-v1
-
-      # SBDB lookup + Ceres SPK for the dawn_ceres_orbit example (SBDB + Horizons).
-      # Restore-only; the matching save below runs on main only. Bump the key
-      # when the example's SPK span changes (keep in sync with the horizons:
-      # entry in .github/brahe-data-manifest.txt).
-      - name: Restore SBDB + Horizons cache
-        id: sbdb-horizons-cache
-        uses: actions/cache/restore@v6.1.0
-        with:
-          path: |
-            ~/.cache/brahe/sbdb
-            ~/.cache/brahe/horizons
-          key: brahe-sbdb-horizons-v1
-
-      # Serial, retrying download of all plot/example network resources. On a
-      # cache hit this is an instant no-op; on a miss it warms the caches once so
-      # the parallel pools below never hit the network.
-      - name: Pre-download plot/example resources
-        run: just download-resources
-
-      # Save from main only, immediately after the warm-up populates the
-      # directories. A PR-scoped save of these fixed keys is worse than
-      # useless: it is unreadable from main and from other PRs, yet it blocks
-      # every later same-key save repo-wide ("Unable to reserve cache ...").
-      # That is exactly how naif-kernels-v1 ended up stranded on a merged
-      # PR's ref while every other run silently fell back to live NAIF
-      # downloads - a hard failure whenever naif.jpl.nasa.gov blips.
-      - name: Save NAIF kernels cache (main only)
-        if: ${{ github.ref == 'refs/heads/main' && steps.naif-cache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v6.1.0
-        with:
-          path: ~/.cache/brahe/naif
-          key: naif-kernels-v1
-
+      # Plot resources use fixed keys and save from main only: a PR-scoped save
+      # of a fixed key is unreadable from main and from other PRs, yet it
+      # blocks every later same-key save repo-wide ("Unable to reserve cache
+      # ...").
       - name: Save 3D body textures cache (main only)
         if: ${{ github.ref == 'refs/heads/main' && steps.textures-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6.1.0
@@ -185,30 +174,19 @@ jobs:
           path: ~/.cache/brahe/textures
           key: brahe-3d-textures-v2
 
-      - name: Save star catalog downloads (main only)
-        if: ${{ github.ref == 'refs/heads/main' && steps.star-catalogs-cache.outputs.cache-hit != 'true' }}
+      - name: Save Natural Earth land basemap cache (main only)
+        if: ${{ github.ref == 'refs/heads/main' && steps.natural-earth-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6.1.0
         with:
-          path: |
-            ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
-            ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
-          key: star-catalogs-v1
+          path: ~/.cache/brahe/natural_earth
+          key: natural-earth-50m-land-v1
 
-      - name: Save ICGEM gravity models cache (main only)
-        if: ${{ github.ref == 'refs/heads/main' && steps.icgem-cache.outputs.cache-hit != 'true' }}
+      - name: Save cartopy Natural Earth data cache (main only)
+        if: ${{ github.ref == 'refs/heads/main' && steps.cartopy-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6.1.0
         with:
-          path: ~/.cache/brahe/icgem
-          key: brahe-icgem-v1
-
-      - name: Save SBDB + Horizons cache (main only)
-        if: ${{ github.ref == 'refs/heads/main' && steps.sbdb-horizons-cache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v6.1.0
-        with:
-          path: |
-            ~/.cache/brahe/sbdb
-            ~/.cache/brahe/horizons
-          key: brahe-sbdb-horizons-v1
+          path: ~/.local/share/cartopy
+          key: cartopy-natural-earth-v1
 
       - name: Test examples
         if: ${{ !inputs.use_retry }}
@@ -225,12 +203,13 @@ jobs:
           retry_wait_seconds: 60
           command: just test-examples ${{ inputs.example_args }}
 
-      # The --network run is the only place NETWORK-flagged examples execute,
-      # so it is the only producer of their doc figures. Persist docs/figures
-      # to the actions cache so the docs deploys (update_docs.yml,
-      # docs_only.yml), whose own --ci-only example runs skip these examples,
-      # can restore and overlay them. The per-run key is unique; consumers use
-      # restore-keys prefix matching, which returns the most recent entry.
+      # NETWORK-flagged examples execute only in this --network run of
+      # test-examples, so it is the only producer of their doc figures.
+      # Persist docs/figures to the actions cache so the docs deploys
+      # (update_docs.yml, docs_only.yml), whose own --ci-only example runs
+      # skip these examples, can restore and overlay them. The per-run key is
+      # unique; consumers use restore-keys prefix matching, which returns the
+      # most recent entry.
       - name: Save network example figures to cache
         if: ${{ inputs.use_retry }}
         uses: actions/cache/save@v6.1.0
@@ -239,10 +218,13 @@ jobs:
           key: network-example-figures-${{ github.run_id }}
 
       # Text-output analogue of the figures cache above. NETWORK-flagged
-      # examples (first_script, clients_celestrak, ...) only run here, so this
-      # is the only producer of their captured stdout. Persist docs/outputs so
-      # the docs deploys (update_docs.yml, docs_only.yml), whose own --ci-only
-      # example runs skip these examples, can restore and overlay it.
+      # examples (first_script, clients_celestrak, ...) execute only in this
+      # --network run of test-examples, so it is the only producer of their
+      # captured stdout; the weekly warm_data_cache.yml producer keeps the
+      # Celestrak data cache warm separately, without running these examples.
+      # Persist docs/outputs so the docs deploys (update_docs.yml,
+      # docs_only.yml), whose own --ci-only example runs skip these examples,
+      # can restore and overlay it.
       - name: Save network example outputs to cache
         if: ${{ inputs.use_retry }}
         uses: actions/cache/save@v6.1.0

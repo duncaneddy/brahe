@@ -18,11 +18,18 @@ on:
         description: "BRAHE_NETWORK_MODE for the test/example/plot steps (warm steps stay online)."
         type: string
         default: "offline"
+      job-timeout-minutes:
+        description: >-
+          Job cap. The default suits the offline run. A caller setting
+          `use_retry` must raise this above that retry budget (3 attempts of 60
+          minutes plus waits) or the retries are truncated before they finish.
+        type: number
+        default: 90
 
 jobs:
   test-examples:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: ${{ inputs.job-timeout-minutes }}
     env:
       RUST_TOOLCHAIN: stable
       BRAHE_NETWORK_MODE: ${{ inputs.network_mode }}

@@ -16,7 +16,11 @@ concurrency:
 jobs:
     integration-rust:
         runs-on: ${{ matrix.os }}
-        timeout-minutes: 60
+        # Must exceed the retry budget below: 3 attempts x 30 minutes plus two
+        # 60-second waits, plus toolchain setup and compilation. A cap under
+        # that silently truncates the retries that protect release gating from
+        # a transient remote.
+        timeout-minutes: 120
         strategy:
             max-parallel: 1
             matrix:
@@ -114,7 +118,9 @@ jobs:
 
     integration-python:
         runs-on: ubuntu-latest
-        timeout-minutes: 60
+        # As integration-rust: 3 attempts x 30 minutes plus waits, plus the
+        # extension build each attempt performs.
+        timeout-minutes: 120
         strategy:
             max-parallel: 1
             matrix:
@@ -254,3 +260,5 @@ jobs:
             example_args: "--network"
             use_retry: true
             network_mode: online
+            # 3 attempts x 60 minutes plus two 60-second waits, plus setup.
+            job-timeout-minutes: 200

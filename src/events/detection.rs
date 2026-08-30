@@ -39,6 +39,10 @@ pub enum StepDirection {
 /// * `params` - Optional parameter vector
 /// * `bracket_low` - Lower bound of search bracket (earlier time)
 /// * `bracket_high` - Upper bound of search bracket (later time)
+/// * `depth` - Recursion depth of this call, counted from zero at the entry
+///   point (unitless). Each level narrows the bracket; the search returns its
+///   best estimate once `MAX_BISECTION_DEPTH` is reached, so a bracket that
+///   fails to contract cannot recurse without end.
 ///
 /// # Returns
 /// Event time and state, or None if no event found within search window
@@ -53,18 +57,25 @@ pub(crate) fn bisection_search<const S: usize, const P: usize, F>(
     params: Option<&SVector<f64, P>>,
     bracket_low: Epoch,
     bracket_high: Epoch,
+    depth: usize,
 ) -> Option<(Epoch, SVector<f64, S>)>
 where
     F: Fn(Epoch) -> SVector<f64, S>,
 {
     let time_tol = detector.time_tolerance();
     let value_tol = detector.value_tolerance();
-    let step_factor = detector.step_reduction_factor();
+    // Worst-case contraction per level is max(factor, 1 - factor): a factor at
+    // either extreme leaves the bracket barely narrower each level and would
+    // exhaust the depth budget before reaching the time tolerance. Clamping
+    // keeps contraction at 0.9 or better, well inside MAX_BISECTION_DEPTH.
+    let step_factor = detector.step_reduction_factor().clamp(0.1, 0.5);
     let target_value = detector.target_value();
 
-    // TERMINATION: Bracket is tight enough
+    // TERMINATION: Bracket is tight enough, or the refinement budget is spent.
+    // Each level should shrink the bracket; the depth bound keeps a bracket that
+    // fails to narrow from recursing without end.
     let bracket_width = (bracket_high - bracket_low).abs();
-    if bracket_width <= time_tol {
+    if bracket_width <= time_tol || depth >= MAX_BISECTION_DEPTH {
         // Return the midpoint of the bracket
         let mid_time = bracket_low + bracket_width / 2.0;
         let mid_state = state_fn(mid_time);
@@ -176,6 +187,7 @@ where
                 params,
                 new_low,
                 new_high,
+                depth + 1,
             );
         }
 
@@ -188,7 +200,8 @@ where
 /// Find event time using bisection search (dynamic-sized)
 ///
 /// Uses bracketing bisection to refine the event time to within the specified
-/// tolerance. See `bisection_search` for algorithm details.
+/// tolerance. See `bisection_search` for algorithm details and for the argument
+/// list, including the `depth` recursion counter and its bound.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn bisection_search_d<F>(
     detector: &dyn DEventDetector,
@@ -200,18 +213,25 @@ pub(crate) fn bisection_search_d<F>(
     params: Option<&DVector<f64>>,
     bracket_low: Epoch,
     bracket_high: Epoch,
+    depth: usize,
 ) -> Option<(Epoch, DVector<f64>)>
 where
     F: Fn(Epoch) -> DVector<f64>,
 {
     let time_tol = detector.time_tolerance();
     let value_tol = detector.value_tolerance();
-    let step_factor = detector.step_reduction_factor();
+    // Worst-case contraction per level is max(factor, 1 - factor): a factor at
+    // either extreme leaves the bracket barely narrower each level and would
+    // exhaust the depth budget before reaching the time tolerance. Clamping
+    // keeps contraction at 0.9 or better, well inside MAX_BISECTION_DEPTH.
+    let step_factor = detector.step_reduction_factor().clamp(0.1, 0.5);
     let target_value = detector.target_value();
 
-    // TERMINATION: Bracket is tight enough
+    // TERMINATION: Bracket is tight enough, or the refinement budget is spent.
+    // Each level should shrink the bracket; the depth bound keeps a bracket that
+    // fails to narrow from recursing without end.
     let bracket_width = (bracket_high - bracket_low).abs();
-    if bracket_width <= time_tol {
+    if bracket_width <= time_tol || depth >= MAX_BISECTION_DEPTH {
         // Return the midpoint of the bracket
         let mid_time = bracket_low + bracket_width / 2.0;
         let mid_state = state_fn(mid_time);
@@ -323,6 +343,7 @@ where
                 params,
                 new_low,
                 new_high,
+                depth + 1,
             );
         }
 
@@ -331,6 +352,12 @@ where
         current_crossing = next_crossing;
     }
 }
+
+/// Maximum bisection refinement levels before returning the best estimate.
+///
+/// Each level narrows the bracket by the detector's step reduction factor, so
+/// this bound is far above what any convergent search needs.
+const MAX_BISECTION_DEPTH: usize = 200;
 
 /// Scan for events in a time interval (static-sized)
 ///
@@ -390,16 +417,32 @@ where
     let dt = (current_time - prev_time).abs();
     let initial_step = dt / 4.0; // Start with quarter of interval
 
+    // Backward propagation hands us prev_time later than current_time. The
+    // bracket bounds are ordered by time, and the search walks from prev_time
+    // toward current_time, so the step direction follows that ordering.
+    let forward = current_time >= prev_time;
+    let (bracket_low, bracket_high) = if forward {
+        (prev_time, current_time)
+    } else {
+        (current_time, prev_time)
+    };
+    let step_direction = if forward {
+        StepDirection::Forward
+    } else {
+        StepDirection::Backward
+    };
+
     let result = bisection_search(
         detector,
         state_fn,
         prev_time,
-        StepDirection::Forward,
+        step_direction,
         initial_step,
         prev_crossing,
         params,
-        prev_time,
-        current_time,
+        bracket_low,
+        bracket_high,
+        0,
     );
 
     result.map(|(event_time, event_state)| {
@@ -460,16 +503,32 @@ where
     let dt = (current_time - prev_time).abs();
     let initial_step = dt / 4.0;
 
+    // Backward propagation hands us prev_time later than current_time. The
+    // bracket bounds are ordered by time, and the search walks from prev_time
+    // toward current_time, so the step direction follows that ordering.
+    let forward = current_time >= prev_time;
+    let (bracket_low, bracket_high) = if forward {
+        (prev_time, current_time)
+    } else {
+        (current_time, prev_time)
+    };
+    let step_direction = if forward {
+        StepDirection::Forward
+    } else {
+        StepDirection::Backward
+    };
+
     let result = bisection_search_d(
         detector,
         state_fn,
         prev_time,
-        StepDirection::Forward,
+        step_direction,
         initial_step,
         prev_crossing,
         params,
-        prev_time,
-        current_time,
+        bracket_low,
+        bracket_high,
+        0,
     );
 
     result.map(|(event_time, event_state)| {
@@ -547,6 +606,7 @@ mod tests {
             None,
             start_epoch,
             start_epoch + 200.0,
+            0,
         );
 
         assert!(result.is_some());
@@ -592,6 +652,42 @@ mod tests {
         assert!(time_error < detector.time_tolerance());
         assert_eq!(event.name, "Scan Test");
         assert_eq!(event.detector_index, 0);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_scan_for_event_backward() {
+        // Backward propagation hands the scan prev_time later than
+        // current_time, so the bracket bounds arrive reversed in time.
+        let start_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let target_epoch = start_epoch + 50.0;
+
+        let detector = SimpleTimeEvent {
+            target_time: target_epoch,
+            name: "Backward Scan".to_string(),
+        };
+
+        let state_fn = |_t: Epoch| Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+
+        let prev_time = start_epoch + 100.0;
+        let current_time = start_epoch;
+        let prev_state = state_fn(prev_time);
+        let current_state = state_fn(current_time);
+
+        let result = sscan_for_event(
+            &detector,
+            0,
+            &state_fn,
+            prev_time,
+            current_time,
+            &prev_state,
+            &current_state,
+            None,
+        );
+
+        let event = result.expect("event inside the backward interval must be found");
+        assert!((event.window_open - target_epoch).abs() < detector.time_tolerance());
+        assert_eq!(event.name, "Backward Scan");
     }
 
     /// Configurable time event with custom step reduction factor
@@ -658,6 +754,7 @@ mod tests {
             None,
             start_epoch,
             start_epoch + 200.0,
+            0,
         );
 
         assert!(result.is_some());
@@ -694,6 +791,7 @@ mod tests {
             None,
             start_epoch,
             start_epoch + 100.0,
+            0,
         );
 
         assert!(result.is_some());
@@ -730,6 +828,7 @@ mod tests {
             None,
             start_epoch,
             start_epoch + 100.0,
+            0,
         );
 
         assert!(result.is_some());

@@ -1556,9 +1556,17 @@ impl DNumericalOrbitPropagator {
             return Ok(EventProcessingResult::NoEvents);
         }
 
-        // 1. Sort events chronologically by window_open time
+        // 1. Sort events in the order the propagation encounters them. Going
+        // backward that is descending in time, so the first callback picked
+        // below is the one actually reached first.
         let mut sorted_events = detected_events;
-        sorted_events.sort_by(|(_, a), (_, b)| a.window_open.partial_cmp(&b.window_open).unwrap());
+        if self.dt >= 0.0 {
+            sorted_events
+                .sort_by(|(_, a), (_, b)| a.window_open.partial_cmp(&b.window_open).unwrap());
+        } else {
+            sorted_events
+                .sort_by(|(_, a), (_, b)| b.window_open.partial_cmp(&a.window_open).unwrap());
+        }
 
         // 2. Find first event with callback
         let first_callback_idx = sorted_events
@@ -3828,6 +3836,7 @@ mod tests {
     use crate::eop::{EOPExtrapolation, FileEOPProvider, set_global_eop_provider};
     use crate::events::{DAltitudeEvent, DTimeEvent, EventDirection};
     use crate::frames::position_eci_to_ecef;
+    use crate::integrators::IntegratorConfig;
     use crate::orbit_dynamics::gravity::{
         GravityModelType, set_global_gravity_model, set_global_gravity_model_to_tide_system,
     };
@@ -6694,6 +6703,125 @@ mod tests {
 
     #[test]
     #[serial_test::parallel]
+    fn test_dnumericalorbitpropagator_event_backward_bracket_ordering() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        // Wide steps so the backward refinement runs on a bracket broad enough
+        // to expose the ordering of its bounds.
+        let config = NumericalPropagationConfig {
+            integrator: IntegratorConfig {
+                abs_tol: 1e-1,
+                rel_tol: 1e-2,
+                initial_step: Some(900.0),
+                max_step: Some(900.0),
+                ..IntegratorConfig::default()
+            },
+            ..NumericalPropagationConfig::default()
+        };
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            config,
+            ForceModelConfig::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        prop.propagate_to(epoch + 3600.0).unwrap();
+
+        // Target an event strictly inside the backward interval so the
+        // refinement runs on a bracket whose bounds arrive reversed in time.
+        let event_epoch = epoch + 1800.0;
+        prop.clear_events();
+        prop.add_event_detector(Box::new(DTimeEvent::new(event_epoch, "Backward Event")));
+
+        prop.propagate_to(epoch + 1200.0).unwrap();
+
+        assert_eq!(prop.current_epoch(), epoch + 1200.0);
+
+        let detected = prop
+            .event_log()
+            .iter()
+            .find(|e| e.name == "Backward Event")
+            .expect("Event inside the backward interval should be detected");
+        assert!(
+            (detected.window_open - event_epoch).abs() < 1e-3,
+            "Event should be located at its target epoch, off by {} s",
+            detected.window_open - event_epoch
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_dnumericalorbitpropagator_backward_callback_order() {
+        use std::sync::{Arc, Mutex};
+
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        // A single 1000 s step so both events fall inside one step and the
+        // ordering within process_events_smart is what decides which fires.
+        let config = NumericalPropagationConfig {
+            integrator: IntegratorConfig {
+                abs_tol: 1e-1,
+                rel_tol: 1e-2,
+                initial_step: Some(1000.0),
+                max_step: Some(1000.0),
+                ..IntegratorConfig::default()
+            },
+            ..NumericalPropagationConfig::default()
+        };
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            config,
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        prop.propagate_to(epoch + 1000.0).unwrap();
+
+        // Two callbacks inside the single backward step. Travelling backward
+        // the later one is reached first, so it must fire first.
+        let order = Arc::new(Mutex::new(Vec::<&'static str>::new()));
+        for (offset, tag) in [(800.0, "late"), (200.0, "early")] {
+            let order = Arc::clone(&order);
+            prop.add_event_detector(Box::new(
+                DTimeEvent::new(epoch + offset, tag).with_callback(Box::new(
+                    move |_t, state, _params| {
+                        order.lock().unwrap().push(tag);
+                        (Some(state.clone()), None, EventAction::Continue)
+                    },
+                )),
+            ));
+        }
+
+        prop.propagate_to(epoch).unwrap();
+
+        let fired = order.lock().unwrap().clone();
+        assert_eq!(
+            fired,
+            vec!["late", "early"],
+            "Backward propagation must reach the later event first"
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_log_persistence_across_reset_termination() {
         setup_global_test_eop();
 
@@ -6840,7 +6968,6 @@ mod tests {
         );
 
         // Use fixed-step RK4 with 900-second steps to ensure both events occur in same step
-        use crate::integrators::IntegratorConfig;
         use crate::propagators::IntegratorMethod;
         let prop_config = NumericalPropagationConfig {
             method: IntegratorMethod::RK4,

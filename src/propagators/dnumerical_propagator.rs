@@ -978,9 +978,17 @@ impl DNumericalPropagator {
             return Ok(EventProcessingResult::NoEvents);
         }
 
-        // 1. Sort events chronologically by window_open time
+        // 1. Sort events in the order the propagation encounters them. Going
+        // backward that is descending in time, so the first callback picked
+        // below is the one actually reached first.
         let mut sorted_events = detected_events;
-        sorted_events.sort_by(|(_, a), (_, b)| a.window_open.partial_cmp(&b.window_open).unwrap());
+        if self.dt >= 0.0 {
+            sorted_events
+                .sort_by(|(_, a), (_, b)| a.window_open.partial_cmp(&b.window_open).unwrap());
+        } else {
+            sorted_events
+                .sort_by(|(_, a), (_, b)| b.window_open.partial_cmp(&a.window_open).unwrap());
+        }
 
         // 2. Find first event with callback
         let first_callback_idx = sorted_events
@@ -2319,6 +2327,7 @@ impl Identifiable for DNumericalPropagator {
 mod tests {
     use super::*;
     use crate::events::{DEventCallback, DTimeEvent, DValueEvent, EventDirection};
+    use crate::integrators::IntegratorConfig;
     use crate::propagators::NumericalPropagationConfig;
     use crate::propagators::traits::DStatePropagator as DStatePropagatorTrait;
     use crate::time::TimeSystem;
@@ -3819,6 +3828,100 @@ mod tests {
         assert!(prop.terminated());
         let time_diff: f64 = prop.current_epoch() - (initial_epoch + 5.0);
         assert!(time_diff.abs() < 1.0);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_dnumericalpropagator_backward_callback_order() {
+        use crate::events::EventAction;
+        use std::sync::{Arc, Mutex};
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0, 0.0]);
+        // A slow oscillator so a single 10 s step is accepted and spans both
+        // events; the ordering inside process_events_smart then decides which
+        // callback fires. At the default omega the step would be rejected and
+        // the events would land in separate steps, hiding the ordering.
+        let config = NumericalPropagationConfig {
+            integrator: IntegratorConfig {
+                abs_tol: 1e-1,
+                rel_tol: 1e-1,
+                initial_step: Some(10.0),
+                max_step: Some(10.0),
+                ..IntegratorConfig::default()
+            },
+            ..NumericalPropagationConfig::default()
+        };
+        let mut prop =
+            DNumericalPropagator::new(epoch, state, sho_dynamics(0.01), config, None, None, None)
+                .unwrap();
+
+        prop.propagate_to(epoch + 10.0).unwrap();
+
+        let order = Arc::new(Mutex::new(Vec::<&'static str>::new()));
+        for (offset, tag) in [(8.0, "late"), (2.0, "early")] {
+            let order = Arc::clone(&order);
+            let callback: DEventCallback = Box::new(move |_epoch, state, _params| {
+                order.lock().unwrap().push(tag);
+                (Some(state.clone()), None, EventAction::Continue)
+            });
+            prop.add_event_detector(Box::new(
+                DTimeEvent::new(epoch + offset, tag.to_string()).with_callback(callback),
+            ));
+        }
+
+        prop.propagate_to(epoch).unwrap();
+
+        let fired = order.lock().unwrap().clone();
+        assert_eq!(
+            fired,
+            vec!["late", "early"],
+            "Backward propagation must reach the later event first"
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_dnumericalpropagator_forward_callback_order() {
+        use crate::events::EventAction;
+        use std::sync::{Arc, Mutex};
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0, 0.0]);
+        let config = NumericalPropagationConfig {
+            integrator: IntegratorConfig {
+                abs_tol: 1e-1,
+                rel_tol: 1e-1,
+                initial_step: Some(10.0),
+                max_step: Some(10.0),
+                ..IntegratorConfig::default()
+            },
+            ..NumericalPropagationConfig::default()
+        };
+        let mut prop =
+            DNumericalPropagator::new(epoch, state, sho_dynamics(0.01), config, None, None, None)
+                .unwrap();
+
+        let order = Arc::new(Mutex::new(Vec::<&'static str>::new()));
+        for (offset, tag) in [(8.0, "late"), (2.0, "early")] {
+            let order = Arc::clone(&order);
+            let callback: DEventCallback = Box::new(move |_epoch, state, _params| {
+                order.lock().unwrap().push(tag);
+                (Some(state.clone()), None, EventAction::Continue)
+            });
+            prop.add_event_detector(Box::new(
+                DTimeEvent::new(epoch + offset, tag.to_string()).with_callback(callback),
+            ));
+        }
+
+        prop.propagate_to(epoch + 10.0).unwrap();
+
+        let fired = order.lock().unwrap().clone();
+        assert_eq!(
+            fired,
+            vec!["early", "late"],
+            "Forward propagation must reach the earlier event first"
+        );
     }
 
     #[test]

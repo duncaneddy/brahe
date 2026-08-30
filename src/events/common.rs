@@ -95,7 +95,8 @@ impl<const S: usize, const P: usize> STimeEvent<S, P> {
     /// Set custom step reduction factor for bisection search
     ///
     /// When a zero-crossing is detected, the new step size is set to this
-    /// factor times the bracket width. Default: 0.2
+    /// factor times the bracket width. Default: 0.2. The search clamps the
+    /// value to `[0.1, 0.5]` so the bracket is guaranteed to contract.
     pub fn with_step_reduction_factor(mut self, factor: f64) -> Self {
         self.step_reduction_factor = factor;
         self
@@ -225,7 +226,8 @@ impl DTimeEvent {
     /// Set custom step reduction factor for bisection search
     ///
     /// When a zero-crossing is detected, the new step size is set to this
-    /// factor times the bracket width. Default: 0.2
+    /// factor times the bracket width. Default: 0.2. The search clamps the
+    /// value to `[0.1, 0.5]` so the bracket is guaranteed to contract.
     pub fn with_step_reduction_factor(mut self, factor: f64) -> Self {
         self.step_reduction_factor = factor;
         self
@@ -365,7 +367,8 @@ impl<const S: usize, const P: usize> SValueEvent<S, P> {
     /// Set custom step reduction factor for bisection search
     ///
     /// When a zero-crossing is detected, the new step size is set to this
-    /// factor times the bracket width. Default: 0.2
+    /// factor times the bracket width. Default: 0.2. The search clamps the
+    /// value to `[0.1, 0.5]` so the bracket is guaranteed to contract.
     pub fn with_step_reduction_factor(mut self, factor: f64) -> Self {
         self.step_reduction_factor = factor;
         self
@@ -483,7 +486,8 @@ impl DValueEvent {
     /// Set custom step reduction factor for bisection search
     ///
     /// When a zero-crossing is detected, the new step size is set to this
-    /// factor times the bracket width. Default: 0.2
+    /// factor times the bracket width. Default: 0.2. The search clamps the
+    /// value to `[0.1, 0.5]` so the bracket is guaranteed to contract.
     pub fn with_step_reduction_factor(mut self, factor: f64) -> Self {
         self.step_reduction_factor = factor;
         self
@@ -618,7 +622,8 @@ impl<const S: usize, const P: usize> SBinaryEvent<S, P> {
     /// Set custom step reduction factor for bisection search
     ///
     /// When a zero-crossing is detected, the new step size is set to this
-    /// factor times the bracket width. Default: 0.2
+    /// factor times the bracket width. Default: 0.2. The search clamps the
+    /// value to `[0.1, 0.5]` so the bracket is guaranteed to contract.
     pub fn with_step_reduction_factor(mut self, factor: f64) -> Self {
         self.step_reduction_factor = factor;
         self
@@ -738,7 +743,8 @@ impl DBinaryEvent {
     /// Set custom step reduction factor for bisection search
     ///
     /// When a zero-crossing is detected, the new step size is set to this
-    /// factor times the bracket width. Default: 0.2
+    /// factor times the bracket width. Default: 0.2. The search clamps the
+    /// value to `[0.1, 0.5]` so the bracket is guaranteed to contract.
     pub fn with_step_reduction_factor(mut self, factor: f64) -> Self {
         self.step_reduction_factor = factor;
         self

@@ -17,11 +17,13 @@ from brahe import (
     ForceModelConfig,
     GravityConfiguration,
     IntegrationMethod,
+    IntegratorConfig,
     NumericalOrbitPropagator,
     NumericalPropagationConfig,
     OrbitFrame,
     ReferenceFrame,
     TimeSystem,
+    VariationalConfig,
     orbital_period,
     periapsis_velocity,
     spk_state,
@@ -1607,6 +1609,91 @@ def test_numericalorbitpropagator_event_backward_propagation():
     # Events during backward propagation may or may not be detected
     # This test verifies the propagation completes without error
     assert True
+
+
+def test_numericalorbitpropagator_backward_event_bracket_ordering():
+    """Event inside a backward interval is found and located (mirrors Rust test)
+
+    Backward propagation hands the refinement its bracket bounds reversed in
+    time; an unordered bracket used to lose the event entirely.
+    """
+    from brahe import TimeEvent
+
+    epoch = create_test_epoch()
+    state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
+
+    prop = NumericalOrbitPropagator(
+        epoch,
+        state,
+        NumericalPropagationConfig(
+            IntegrationMethod.DP54,
+            IntegratorConfig(
+                abs_tol=1e-1, rel_tol=1e-2, initial_step=900.0, max_step=900.0
+            ),
+            VariationalConfig(),
+        ),
+        ForceModelConfig.earth_gravity(),
+        None,
+    )
+    prop.propagate_to(epoch + 3600.0)
+
+    event_epoch = epoch + 1800.0
+    prop.clear_events()
+    prop.add_event_detector(TimeEvent(event_epoch, "Backward Event"))
+
+    prop.propagate_to(epoch + 1200.0)
+
+    matches = [e for e in prop.event_log() if e.name == "Backward Event"]
+    assert len(matches) == 1, "event inside the backward interval must be detected"
+    assert abs(matches[0].window_open - event_epoch) < 1e-3
+
+
+def test_numericalorbitpropagator_backward_callback_order():
+    """Backward propagation reaches the later event first (mirrors Rust test)"""
+    from brahe import EventAction, TimeEvent
+
+    epoch = create_test_epoch()
+    state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
+
+    # One step spanning both events, so the ordering inside event processing is
+    # what decides which callback fires.
+    prop = NumericalOrbitPropagator(
+        epoch,
+        state,
+        NumericalPropagationConfig(
+            IntegrationMethod.DP54,
+            IntegratorConfig(
+                abs_tol=1e-1, rel_tol=1e-2, initial_step=1000.0, max_step=1000.0
+            ),
+            VariationalConfig(),
+        ),
+        ForceModelConfig.two_body(),
+        None,
+    )
+    prop.propagate_to(epoch + 1000.0)
+
+    fired = []
+
+    def make_callback(tag):
+        def callback(_epoch, state):
+            fired.append(tag)
+            return (state.copy(), EventAction.CONTINUE)
+
+        return callback
+
+    for offset, tag in ((800.0, "late"), (200.0, "early")):
+        prop.add_event_detector(
+            TimeEvent(epoch + offset, tag).with_callback(make_callback(tag))
+        )
+
+    # Force a single backward step spanning both events, so the ordering inside
+    # event processing is what decides which callback fires.
+    prop.step_size = 1000.0
+    prop.propagate_to(epoch)
+
+    assert fired == ["late", "early"], (
+        f"backward propagation must reach the later event first, got {fired}"
+    )
 
 
 def test_numericalorbitpropagator_event_log_persistence():

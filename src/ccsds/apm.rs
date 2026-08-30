@@ -171,7 +171,22 @@ impl APMMetadata {
         }
     }
 
-    /// Sets the center name.
+    /// Sets the celestial body the object is centered on.
+    ///
+    /// # Arguments
+    /// - `center_name`: celestial body name (e.g. `"EARTH"`).
+    ///
+    /// # Returns
+    /// APMMetadata: The metadata with the center name set.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::APMMetadata;
+    /// use brahe::ccsds::CCSDSTimeSystem;
+    /// let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC)
+    ///     .with_center_name("EARTH");
+    /// assert_eq!(metadata.center_name.as_deref(), Some("EARTH"));
+    /// ```
     pub fn with_center_name(mut self, center_name: &str) -> Self {
         self.center_name = Some(center_name.to_string());
         self
@@ -232,7 +247,27 @@ impl APMQuaternionState {
         }
     }
 
-    /// Sets the quaternion time derivative (scalar-first, 1/s).
+    /// Sets the quaternion time derivative.
+    ///
+    /// # Arguments
+    /// - `derivative`: quaternion time derivative, scalar-first. Units: 1/s.
+    ///
+    /// # Returns
+    /// APMQuaternionState: The quaternion block with the derivative set.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::APMQuaternionState;
+    /// use brahe::ccsds::ADMReferenceFrame;
+    /// use brahe::attitude::Quaternion;
+    /// use nalgebra::Vector4;
+    /// let state = APMQuaternionState::new(
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     Quaternion::new(1.0, 0.0, 0.0, 0.0),
+    /// ).with_derivative(Vector4::new(0.0, 0.0, 0.0, 0.001));
+    /// assert!(state.quaternion_derivative.is_some());
+    /// ```
     pub fn with_derivative(mut self, derivative: Vector4<f64>) -> Self {
         self.quaternion_derivative = Some(derivative);
         self
@@ -298,7 +333,30 @@ impl APMEulerState {
         }
     }
 
-    /// Sets the angle rates. Units: rad/s.
+    /// Sets the Euler angle rates.
+    ///
+    /// # Arguments
+    /// - `rates`: angle rates `[ANGLE_1_DOT, ANGLE_2_DOT, ANGLE_3_DOT]`, in
+    ///   the same sequence order as `angles.order`. Units: rad/s.
+    ///
+    /// # Returns
+    /// APMEulerState: The Euler angle block with the rates set.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::APMEulerState;
+    /// use brahe::ccsds::ADMReferenceFrame;
+    /// use brahe::attitude::{EulerAngle, EulerAngleOrder};
+    /// use brahe::AngleFormat;
+    /// use nalgebra::Vector3;
+    /// let angles = EulerAngle::new(EulerAngleOrder::ZXZ, 10.0, 20.0, 30.0, AngleFormat::Degrees);
+    /// let state = APMEulerState::new(
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     angles,
+    /// ).with_rates(Vector3::new(0.001, 0.0, 0.0));
+    /// assert!(state.rates.is_some());
+    /// ```
     pub fn with_rates(mut self, rates: Vector3<f64>) -> Self {
         self.rates = Some(rates);
         self
@@ -483,6 +541,23 @@ impl APMSpin {
     ///   `angle_format`).
     /// - `nutation_phase`: inertial nutation phase.
     /// - `angle_format`: format of `nutation` and `nutation_phase`.
+    ///
+    /// # Returns
+    /// APMSpin: The spin block with the angle-triple nutation description set.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::{APMSpin, APMNutation};
+    /// use brahe::ccsds::ADMReferenceFrame;
+    /// use brahe::AngleFormat;
+    /// let spin = APMSpin::new(
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     10.0, 20.0, 30.0, 1.0,
+    ///     AngleFormat::Degrees,
+    /// ).with_nutation_angle(1.0, 100.0, 5.0, AngleFormat::Degrees);
+    /// assert!(matches!(spin.nutation, APMNutation::Angle { .. }));
+    /// ```
     pub fn with_nutation_angle(
         mut self,
         nutation: f64,
@@ -512,6 +587,24 @@ impl APMSpin {
     ///   momentum vector.
     /// - `angle_format`: format of `momentum_alpha`, `momentum_delta`, and
     ///   `nutation_vel`.
+    ///
+    /// # Returns
+    /// APMSpin: The spin block with the momentum-triple nutation description
+    /// set.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::{APMSpin, APMNutation};
+    /// use brahe::ccsds::ADMReferenceFrame;
+    /// use brahe::AngleFormat;
+    /// let spin = APMSpin::new(
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     10.0, 20.0, 30.0, 1.0,
+    ///     AngleFormat::Degrees,
+    /// ).with_nutation_momentum(15.0, 25.0, 0.5, AngleFormat::Degrees);
+    /// assert!(matches!(spin.nutation, APMNutation::Momentum { .. }));
+    /// ```
     pub fn with_nutation_momentum(
         mut self,
         momentum_alpha: f64,
@@ -690,7 +783,28 @@ impl APMManeuver {
         }
     }
 
-    /// Sets the mass change (should be ≤ 0). Units: kg.
+    /// Sets the mass change due to the maneuver.
+    ///
+    /// # Arguments
+    /// - `delta_mass`: mass change (should be ≤ 0). Units: kg.
+    ///
+    /// # Returns
+    /// APMManeuver: The maneuver with the mass change set.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::APMManeuver;
+    /// use brahe::ccsds::ADMReferenceFrame;
+    /// use brahe::time::Epoch;
+    /// use nalgebra::Vector3;
+    /// let man = APMManeuver::new(
+    ///     Epoch::now(),
+    ///     3.0,
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     Vector3::new(-1.25, -0.5, 0.5),
+    /// ).with_delta_mass(-0.05);
+    /// assert_eq!(man.delta_mass, Some(-0.05));
+    /// ```
     pub fn with_delta_mass(mut self, delta_mass: f64) -> Self {
         self.delta_mass = Some(delta_mass);
         self
@@ -761,31 +875,148 @@ impl APM {
     }
 
     /// Appends an attitude quaternion block.
+    ///
+    /// # Arguments
+    /// - `state`: attitude quaternion block to append.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::{APM, APMMetadata, APMQuaternionState};
+    /// use brahe::ccsds::{ADMReferenceFrame, CCSDSTimeSystem};
+    /// use brahe::attitude::Quaternion;
+    /// use brahe::time::Epoch;
+    /// let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+    /// let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+    /// apm.push_quaternion_state(APMQuaternionState::new(
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     Quaternion::new(1.0, 0.0, 0.0, 0.0),
+    /// ));
+    /// assert_eq!(apm.quaternion_states.len(), 1);
+    /// ```
     pub fn push_quaternion_state(&mut self, state: APMQuaternionState) {
         self.quaternion_states.push(state);
     }
 
     /// Appends a Euler angle block.
+    ///
+    /// # Arguments
+    /// - `state`: Euler angle block to append.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::{APM, APMMetadata, APMEulerState};
+    /// use brahe::ccsds::{ADMReferenceFrame, CCSDSTimeSystem};
+    /// use brahe::attitude::{EulerAngle, EulerAngleOrder};
+    /// use brahe::time::Epoch;
+    /// use brahe::AngleFormat;
+    /// let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+    /// let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+    /// let angles = EulerAngle::new(EulerAngleOrder::ZXZ, 10.0, 20.0, 30.0, AngleFormat::Degrees);
+    /// apm.push_euler_state(APMEulerState::new(
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     angles,
+    /// ));
+    /// assert_eq!(apm.euler_states.len(), 1);
+    /// ```
     pub fn push_euler_state(&mut self, state: APMEulerState) {
         self.euler_states.push(state);
     }
 
     /// Appends an angular velocity block.
+    ///
+    /// # Arguments
+    /// - `angular_velocity`: angular velocity block to append.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::{APM, APMMetadata, APMAngularVelocity};
+    /// use brahe::ccsds::{ADMReferenceFrame, CCSDSTimeSystem};
+    /// use brahe::time::Epoch;
+    /// use nalgebra::Vector3;
+    /// let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+    /// let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+    /// apm.push_angular_velocity(APMAngularVelocity::new(
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     Vector3::new(0.001, 0.0, 0.0),
+    /// ));
+    /// assert_eq!(apm.angular_velocities.len(), 1);
+    /// ```
     pub fn push_angular_velocity(&mut self, angular_velocity: APMAngularVelocity) {
         self.angular_velocities.push(angular_velocity);
     }
 
     /// Appends a spin block.
+    ///
+    /// # Arguments
+    /// - `spin`: spin block to append.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::{APM, APMMetadata, APMSpin};
+    /// use brahe::ccsds::{ADMReferenceFrame, CCSDSTimeSystem};
+    /// use brahe::time::Epoch;
+    /// use brahe::AngleFormat;
+    /// let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+    /// let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+    /// apm.push_spin(APMSpin::new(
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     10.0, 20.0, 30.0, 1.0,
+    ///     AngleFormat::Degrees,
+    /// ));
+    /// assert_eq!(apm.spins.len(), 1);
+    /// ```
     pub fn push_spin(&mut self, spin: APMSpin) {
         self.spins.push(spin);
     }
 
     /// Appends an inertia block.
+    ///
+    /// # Arguments
+    /// - `inertia`: inertia block to append.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::{APM, APMMetadata, APMInertia};
+    /// use brahe::ccsds::{ADMReferenceFrame, CCSDSTimeSystem};
+    /// use brahe::time::Epoch;
+    /// let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+    /// let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+    /// apm.push_inertia(APMInertia::new(
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     6080.0, 5245.5, 8067.3, -135.9, 89.3, -90.7,
+    /// ));
+    /// assert_eq!(apm.inertias.len(), 1);
+    /// ```
     pub fn push_inertia(&mut self, inertia: APMInertia) {
         self.inertias.push(inertia);
     }
 
     /// Appends a maneuver block.
+    ///
+    /// # Arguments
+    /// - `maneuver`: maneuver block to append.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::{APM, APMMetadata, APMManeuver};
+    /// use brahe::ccsds::{ADMReferenceFrame, CCSDSTimeSystem};
+    /// use brahe::time::Epoch;
+    /// use nalgebra::Vector3;
+    /// let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+    /// let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+    /// apm.push_maneuver(APMManeuver::new(
+    ///     Epoch::now(),
+    ///     3.0,
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     Vector3::new(-1.25, -0.5, 0.5),
+    /// ));
+    /// assert_eq!(apm.maneuvers.len(), 1);
+    /// ```
     pub fn push_maneuver(&mut self, maneuver: APMManeuver) {
         self.maneuvers.push(maneuver);
     }

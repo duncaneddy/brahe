@@ -588,6 +588,22 @@ def test_apm_epoch_written_in_metadata_time_system(eop):
     assert abs(apm2.epoch - epoch_utc) < 1e-9
 
 
+def test_apm_to_dict_epoch_written_in_metadata_time_system(eop):
+    """to_dict()["epoch"] must match the metadata TIME_SYSTEM, the same as
+    the KVN writer, not the Epoch's own internal time system."""
+    epoch_utc = Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    apm = APM("BRAHE", "SAT1", "2024-001A", "TAI", epoch_utc)
+    apm.add_quaternion_state(
+        APMQuaternionState("ICRF", "SC_BODY_1", Quaternion(1.0, 0.0, 0.0, 0.0))
+    )
+
+    kvn = apm.to_string("KVN")
+    epoch_line = next(line for line in kvn.splitlines() if line.startswith("EPOCH"))
+    kvn_epoch_str = epoch_line.split(" = ", 1)[1]
+
+    assert apm.to_dict()["epoch"] == kvn_epoch_str
+
+
 # ------------------------------------------------------------------
 # Additional KVN block parsing (mirrors synthetic-content Rust tests in
 # src/ccsds/kvn/parser.rs)

@@ -22,6 +22,7 @@ on:
 jobs:
   test-examples:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     env:
       RUST_TOOLCHAIN: stable
       BRAHE_NETWORK_MODE: ${{ inputs.network_mode }}
@@ -45,6 +46,7 @@ jobs:
           rustup default ${{ env.RUST_TOOLCHAIN }}
 
       - name: Install rust-script for Rust examples
+        timeout-minutes: 15
         run: cargo install rust-script
 
       - name: Install the latest version of uv
@@ -64,6 +66,7 @@ jobs:
       # the manifest) is warmed once below and saved, so the parallel pools
       # never download live.
       - name: Restore data caches
+        timeout-minutes: 15
         id: cache
         uses: ./.github/actions/data-cache
         with:
@@ -127,6 +130,7 @@ jobs:
       # Warm only what the restores above did not provide, serially, before the
       # parallel pools run offline.
       - name: Warm missing data families
+        timeout-minutes: 15
         if: steps.cache.outputs.missed != ''
         env:
           BRAHE_NETWORK_MODE: online
@@ -144,6 +148,7 @@ jobs:
           esac
 
       - name: Warm missing plot resources
+        timeout-minutes: 15
         if: steps.textures-cache.outputs.cache-hit != 'true' || steps.natural-earth-cache.outputs.cache-hit != 'true' || steps.cartopy-cache.outputs.cache-hit != 'true'
         env:
           BRAHE_NETWORK_MODE: online

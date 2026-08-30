@@ -16,6 +16,7 @@ concurrency:
 jobs:
     integration-rust:
         runs-on: ${{ matrix.os }}
+        timeout-minutes: 60
         strategy:
             max-parallel: 1
             matrix:
@@ -113,6 +114,7 @@ jobs:
 
     integration-python:
         runs-on: ubuntu-latest
+        timeout-minutes: 60
         strategy:
             max-parallel: 1
             matrix:

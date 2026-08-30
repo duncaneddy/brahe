@@ -15,6 +15,7 @@ jobs:
   # Only run if the Unit Tests workflow succeeded
   check-success:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Check workflow success
@@ -23,6 +24,7 @@ jobs:
   build-wheels:
     needs: check-success
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     strategy:
       matrix:
         os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
@@ -68,6 +70,7 @@ jobs:
   build-sdist:
     needs: check-success
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     env:
       RUST_TOOLCHAIN: stable
 
@@ -115,6 +118,7 @@ jobs:
   create-or-update-release:
     needs: [build-wheels, build-sdist]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: write
 
@@ -152,6 +156,7 @@ jobs:
   upload-assets:
     needs: create-or-update-release
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: write
 
@@ -210,6 +215,7 @@ jobs:
   update-simple-index:
     needs: upload-assets
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: write
 

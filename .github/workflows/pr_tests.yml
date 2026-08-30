@@ -14,6 +14,7 @@ concurrency:
 jobs:
   check-skip:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
     steps:
@@ -31,6 +32,7 @@ jobs:
     needs: [check-skip]
     if: needs.check-skip.outputs.should_skip == 'false'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: Wait for Rust tests to claim runners
         run: sleep 15
@@ -57,6 +59,7 @@ jobs:
   # package build and the test suite finish concurrently rather than serially.
   validate-rust-package:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     needs: [check-skip]
     if: needs.check-skip.outputs.should_skip == 'false'
     env:
@@ -99,6 +102,7 @@ jobs:
   # Rust jobs ahead of Python jobs in the runner queue.
   validate-python-package:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     needs: [delay-python]
     if: needs.delay-python.result == 'success'
     env:
@@ -138,6 +142,7 @@ jobs:
   # Build docs to verify no breakage, but don't deploy
   build-docs:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     needs: [check-skip, test-rust, test-python, test-examples]
     if: needs.check-skip.outputs.should_skip == 'false'
     env:
@@ -194,6 +199,7 @@ jobs:
   ci-success:
     name: ci-success
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     if: always()
     # Include the gating jobs (check-skip, delay-python) so their failure is
     # caught directly. Otherwise a failed gate would only cascade into skipped

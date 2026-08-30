@@ -10,7 +10,7 @@ inputs:
     families:
         description: >-
             Space-separated families to act on: naif, icgem, sbdb-horizons,
-            star-catalogs, celestrak.
+            star-catalogs.
         required: true
     mode:
         description: "`restore` (default) or `save`."
@@ -42,7 +42,6 @@ runs:
                     echo "icgem=brahe-icgem-v1-$MANIFEST_HASH"
                     echo "sbdb_horizons=brahe-sbdb-horizons-v1-$MANIFEST_HASH"
                     echo "star_catalogs=star-catalogs-v1"
-                    echo "celestrak=brahe-celestrak-${{ github.run_id }}"
                     echo "suffix=$SUFFIX"
                 } >> "$GITHUB_OUTPUT"
         -   name: Restore NAIF kernels
@@ -85,15 +84,6 @@ runs:
                 key: ${{ steps.keys.outputs.star_catalogs }}
                 restore-keys: |
                     star-catalogs-v1
-        -   name: Restore Celestrak groups
-            id: celestrak
-            if: inputs.mode == 'restore' && contains(inputs.families, 'celestrak')
-            uses: actions/cache/restore@v6.1.0
-            with:
-                path: ~/.cache/brahe/celestrak
-                key: ${{ steps.keys.outputs.celestrak }}
-                restore-keys: |
-                    brahe-celestrak-
         -   name: Record missed families
             id: missed
             if: inputs.mode == 'restore'
@@ -108,7 +98,6 @@ runs:
                 SBDB_HORIZONS_MATCHED: ${{ steps.sbdb-horizons.outputs.cache-matched-key }}
                 STAR_CATALOGS_KEY: ${{ steps.keys.outputs.star_catalogs }}
                 STAR_CATALOGS_MATCHED: ${{ steps.star-catalogs.outputs.cache-matched-key }}
-                CELESTRAK_MATCHED: ${{ steps.celestrak.outputs.cache-matched-key }}
             run: |
                 has() { case " $FAMILIES " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
                 # A match is usable when its key is the family key itself or that
@@ -120,7 +109,6 @@ runs:
                 if has icgem && ! usable "$ICGEM_KEY" "$ICGEM_MATCHED"; then missed="$missed icgem"; args="$args --only icgem"; fi
                 if has sbdb-horizons && ! usable "$SBDB_HORIZONS_KEY" "$SBDB_HORIZONS_MATCHED"; then missed="$missed sbdb-horizons"; args="$args --only horizons"; fi
                 if has star-catalogs && ! usable "$STAR_CATALOGS_KEY" "$STAR_CATALOGS_MATCHED"; then missed="$missed star-catalogs"; fi
-                if has celestrak && [ -z "$CELESTRAK_MATCHED" ]; then missed="$missed celestrak"; args="$args --only celestrak"; fi
                 missed="${missed# }"
                 args="${args# }"
                 echo "families=$missed" >> "$GITHUB_OUTPUT"
@@ -155,9 +143,3 @@ runs:
                     ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
                     ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
                 key: ${{ steps.keys.outputs.star_catalogs }}${{ steps.keys.outputs.suffix }}
-        -   name: Save Celestrak groups
-            if: inputs.mode == 'save' && contains(inputs.families, 'celestrak')
-            uses: actions/cache/save@v6.1.0
-            with:
-                path: ~/.cache/brahe/celestrak
-                key: ${{ steps.keys.outputs.celestrak }}

@@ -116,13 +116,12 @@ jobs:
             ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
           key: star-catalogs-v1
 
-      - name: Restore Celestrak cache
-        uses: actions/cache/restore@v6.1.0
-        with:
-          path: ~/.cache/brahe/celestrak
-          key: brahe-celestrak-${{ github.run_id }}
-          restore-keys: |
-            brahe-celestrak-
+      # Celestrak groups are committed test assets, not a cached download, so
+      # the doc plots never depend on Celestrak being reachable.
+      - name: Seed Celestrak groups from test assets
+        run: |
+          mkdir -p ~/.cache/brahe/celestrak/
+          cp test_assets/celestrak/* ~/.cache/brahe/celestrak/
 
       - name: Restore Natural Earth land basemap cache
         id: natural-earth-cache

@@ -15,11 +15,14 @@ icgem:mars:ggm2bc80
 # match the example's lookup exactly ("Ceres", not "ceres") or the example
 # repeats the lookup against a different cache entry:
 horizons:Ceres:2015-12-01:2016-03-01
-# Celestrak GP groups (celestrak:group:<name>). The examples' single-object
-# lookups resolve from the cached `active` group, and the debris groups cover
-# the gabbard doc plots' group queries, so these entries cover every Celestrak
-# query the examples and doc plots make. Saved under a run-id key by
-# warm_data_cache.yml so each weekly run refreshes them:
+# Celestrak GP groups (celestrak:group:<name>). These are NOT warmed into the
+# actions cache: they are committed under test_assets/celestrak and seeded into
+# ~/.cache/brahe/celestrak, so examples and doc plots never contact Celestrak.
+# The list stays here as the single source of truth for which groups
+# scripts/refresh_celestrak_snapshots.py fetches. The examples' single-object
+# lookups resolve from the `active` group, and the debris groups back the
+# gabbard doc plots' group queries. Refresh with:
+#     just refresh-celestrak-snapshots
 celestrak:group:active
 celestrak:group:starlink
 celestrak:group:gps-ops

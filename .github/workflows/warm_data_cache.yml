@@ -122,27 +122,6 @@ jobs:
                     key: brahe-sbdb-horizons-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
 
             # ── Celestrak (mutable: refreshed and saved on every run) ─────
-            -   name: Restore Celestrak cache
-                if: ${{ !cancelled() }}
-                uses: actions/cache/restore@v6.1.0
-                with:
-                    path: ~/.cache/brahe/celestrak
-                    key: brahe-celestrak-${{ github.run_id }}
-                    restore-keys: |
-                        brahe-celestrak-
-            -   name: Warm Celestrak groups
-                id: warm-celestrak
-                if: ${{ !cancelled() }}
-                continue-on-error: true
-                env:
-                    BRAHE_NETWORK_MODE: online
-                run: uv run --frozen python scripts/warm_data_cache.py --only celestrak --refresh
-            -   name: Save Celestrak cache
-                if: ${{ !cancelled() && steps.warm-celestrak.outcome == 'success' }}
-                uses: actions/cache/save@v6.1.0
-                with:
-                    path: ~/.cache/brahe/celestrak
-                    key: brahe-celestrak-${{ github.run_id }}
 
             # ── Star catalogs (curl; not manifest-driven) ─────────────────
             # FK5 + Hipparcos only. Explicit file paths (not the whole
@@ -264,7 +243,6 @@ jobs:
                     steps.warm-naif.outcome == 'failure' ||
                     steps.warm-icgem.outcome == 'failure' ||
                     steps.warm-horizons.outcome == 'failure' ||
-                    steps.warm-celestrak.outcome == 'failure' ||
                     steps.warm-star-catalogs.outcome == 'failure' ||
                     steps.warm-plots.outcome == 'failure') }}
                 run: |

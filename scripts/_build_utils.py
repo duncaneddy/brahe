@@ -1,5 +1,6 @@
 """Shared utilities for Brahe build scripts."""
 
+import hashlib
 import os
 import re
 import subprocess
@@ -214,7 +215,13 @@ def rust_script_scratch_path(file_path: Path) -> Path:
         relative = file_path.resolve().relative_to(REPO_ROOT)
     except ValueError:
         relative = Path(file_path.name)
-    scratch = Path(tempfile.gettempdir()) / "brahe-rust-examples"
+    # Namespace by checkout. Two checkouts owned by the same user - a clone and
+    # a worktree, say - map identical example paths to the same scratch file,
+    # and each would overwrite the other's injected repository path and source
+    # before rust-script read it. The digest is stable per checkout, so the
+    # cache stays reusable across runs while staying distinct across checkouts.
+    checkout = hashlib.sha256(str(REPO_ROOT).encode()).hexdigest()[:12]
+    scratch = Path(tempfile.gettempdir()) / f"brahe-rust-examples-{checkout}"
     scratch.mkdir(parents=True, exist_ok=True)
     return scratch / f"{str(relative).replace(os.sep, '__')}"
 

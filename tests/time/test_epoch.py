@@ -290,9 +290,9 @@ def test_epoch_from_jd(eop):
     assert hour == 12
     assert minute == 0
     assert second == 19.0
-    assert (
-        nanosecond == 17643.974853515625
-    )  # Rounding error from floating point conversion
+    # Quantization of the Julian date: a float resolves about 47 us at this
+    # magnitude, so the epoch lands ~17.6 us past the whole second.
+    assert nanosecond == 17642.974853515625
     assert epc.time_system == bh.GPS
 
 
@@ -318,9 +318,9 @@ def test_epoch_from_mjd(eop):
     assert hour == 12
     assert minute == 0
     assert second == 19.0
-    assert (
-        nanosecond == 17643.974853515625
-    )  # Rounding error from floating point conversion
+    # Quantization of the Julian date: a float resolves about 47 us at this
+    # magnitude, so the epoch lands ~17.6 us past the whole second.
+    assert nanosecond == 17642.974853515625
     assert epc.time_system == bh.GPS
 
 
@@ -712,7 +712,7 @@ def test_ops_sub_assign():
     assert hour == 23
     assert minute == 59
     assert second == 59.0
-    assert nanosecond == 999_999_999.7654321
+    assert nanosecond == 999_999_998.7654321
     assert epc.time_system == bh.TAI
 
     # Test subtractions of different size
@@ -1658,3 +1658,48 @@ def test_epoch_to_pydatetime_edge_cases(eop):
     assert dt.second == 59
     assert dt.microsecond == 999999
     assert dt.tzinfo == timezone.utc
+
+
+def test_to_datetime_reports_the_nanoseconds_the_epoch_holds(eop):
+    """Mirror of test_to_datetime_reports_the_nanoseconds_the_epoch_holds in Rust."""
+    midnight = bh.Epoch.from_date(2022, 1, 31, bh.TAI)
+    epc = midnight - 1.23456789e-9
+
+    (_, _, day, hour, minute, second, nanosecond) = epc.to_datetime()
+    assert day == 30
+    assert hour == 23
+    assert minute == 59
+    assert second == 59.0
+    assert nanosecond == 1.0e9 - 1.23456789
+
+    # The stored instant was always right; only the reported field was not.
+    assert midnight - epc == pytest.approx(1.23456789e-9, abs=1e-15)
+
+
+def test_to_datetime_reports_no_nanoseconds_on_a_whole_second(eop):
+    """Mirror of test_to_datetime_reports_no_nanoseconds_on_a_whole_second in Rust."""
+    for args, ts in [
+        ((1996, 11, 4, 17, 22, 31.0), bh.UTC),
+        ((1996, 11, 4, 17, 22, 31.0), bh.TAI),
+        ((2024, 3, 1, 12, 0, 0.0), bh.UTC),
+        ((2018, 6, 30, 23, 59, 59.0), bh.TAI),
+    ]:
+        epc = bh.Epoch.from_datetime(*args, 0.0, ts)
+        (_, _, _, _, _, second, nanosecond) = epc.to_datetime()
+        assert second == args[5]
+        assert nanosecond == 0.0, (
+            f"{args} {ts} reported {nanosecond} ns that are not there"
+        )
+
+
+def test_to_datetime_is_stable_across_repeated_round_trips(eop):
+    """Mirror of test_to_datetime_is_stable_across_repeated_round_trips in Rust."""
+    # UT1 and TDB are excluded: their offset from TAI is recovered iteratively
+    # and does not round-trip exactly, which is a separate defect.
+    for ts in [bh.UTC, bh.TAI, bh.GPS, bh.TT]:
+        epc = bh.Epoch.from_datetime(1996, 11, 4, 17, 22, 31.0, 0.0, ts)
+        first = epc.to_datetime()
+        for _ in range(5):
+            fields = epc.to_datetime()
+            assert fields == first, f"{ts} drifted"
+            epc = bh.Epoch.from_datetime(*fields, ts)

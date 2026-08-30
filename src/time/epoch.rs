@@ -797,6 +797,19 @@ impl Epoch {
     /// specified by the inputs
     ///
     fn get_jdfd(&self, time_system: TimeSystem) -> (f64, f64) {
+        let (jd, fd, _) = self.get_jdfd_offset(time_system);
+        (jd, fd)
+    }
+
+    /// As [`Epoch::get_jdfd`], additionally returning the offset in seconds
+    /// applied to reach `time_system` from the internal TAI storage.
+    ///
+    /// Callers that need the sub-second part of the epoch in `time_system`
+    /// need this offset: the internal nanosecond counter is expressed in TAI,
+    /// and for UT1, TDB, TCB, and TCG the offset is not a whole number of
+    /// seconds, so the counter is not the target system's nanoseconds into
+    /// the second.
+    fn get_jdfd_offset(&self, time_system: TimeSystem) -> (f64, f64, f64) {
         // Get JD / FD from Epoch
         let jd = self.days as f64;
         let fd = ((self.nanoseconds) / NANOSECONDS_PER_SECOND_FLOAT + self.seconds as f64)
@@ -805,7 +818,7 @@ impl Epoch {
         let offset = time_system_offset(jd, fd, TimeSystem::TAI, time_system);
         let fd = fd + offset / SECONDS_PER_DAY;
 
-        (jd, fd)
+        (jd, fd, offset)
     }
 
     /// Convert an `Epoch` into Gregorian calendar date representation of the same
@@ -847,7 +860,7 @@ impl Epoch {
         time_system: TimeSystem,
     ) -> (u32, u8, u8, u8, u8, f64, f64) {
         // Get JD / FD from Epoch
-        let (jd, fd) = self.get_jdfd(time_system);
+        let (jd, fd, offset) = self.get_jdfd_offset(time_system);
 
         let mut iy: i32 = 0;
         let mut im: i32 = 0;
@@ -867,9 +880,31 @@ impl Epoch {
             );
         }
 
-        // Since ihmsf[3] returns an integer it does not represent time at a resolution finer than
-        // nanoseconds. Therefore, we directly add the fractional part of the nanoseconds fields
-        let ns = ihmsf[3] as f64 + f64::fract(self.nanoseconds + self.nanoseconds_kc);
+        // `iauD2dtf` was asked for nine decimal places, so `ihmsf[3]` is whole
+        // nanoseconds, already rounded. The internal counter holds the same
+        // quantity at full precision, so it is the better source — but it is
+        // expressed in the internal TAI storage, and for UT1, TDB, TCB, and TCG
+        // the offset to `time_system` is not a whole number of seconds. Only
+        // the sub-second part of the offset moves the nanosecond field; the
+        // whole seconds are already in the calendar fields `iauD2dtf` returned.
+        let offset_subsecond_ns = (offset - offset.trunc()) * NANOSECONDS_PER_SECOND_FLOAT;
+        let mut ns = (self.nanoseconds + self.nanoseconds_kc + offset_subsecond_ns)
+            .rem_euclid(NANOSECONDS_PER_SECOND_FLOAT);
+
+        // Nanoseconds-into-day arithmetic quantizes the counter to roughly
+        // 0.01 ns, so an epoch built on a whole second can be stored just below
+        // the boundary (999999999.985). `iauD2dtf` rounds that up and carries
+        // into the next second, which is the second it reported, so the counter
+        // has to be re-expressed against it. Previously the two were combined by
+        // adding the counter's fractional part to `ihmsf[3]`, which
+        // double-counted the rounding and reported a nanosecond that is not
+        // there; a date read and rewritten accumulated one per cycle.
+        let whole = ihmsf[3] as f64;
+        if ns - whole > NANOSECONDS_PER_SECOND_FLOAT / 2.0 {
+            ns = (ns - NANOSECONDS_PER_SECOND_FLOAT).max(0.0);
+        } else if whole - ns > NANOSECONDS_PER_SECOND_FLOAT / 2.0 {
+            ns += NANOSECONDS_PER_SECOND_FLOAT;
+        }
         (
             iy as u32,
             im as u8,
@@ -2443,7 +2478,9 @@ mod tests {
         assert_eq!(hour, 12);
         assert_eq!(minute, 0);
         assert_eq!(second, 19.0);
-        assert_eq!(nanoseconds, 17643.974853515625); // Rounding error from floating point conversion
+        // Quantization of the Julian date: an f64 resolves about 47 us at
+        // this magnitude, so the epoch lands ~17.6 us past the whole second.
+        assert_eq!(nanoseconds, 17642.974853515625);
         assert_eq!(epc.time_system, TimeSystem::GPS);
     }
 
@@ -2472,7 +2509,9 @@ mod tests {
         assert_eq!(hour, 12);
         assert_eq!(minute, 0);
         assert_eq!(second, 19.0);
-        assert_eq!(nanoseconds, 17643.974853515625); // Rounding error from floating point conversion
+        // Quantization of the Julian date: an f64 resolves about 47 us at
+        // this magnitude, so the epoch lands ~17.6 us past the whole second.
+        assert_eq!(nanoseconds, 17642.974853515625);
         assert_eq!(epc.time_system, TimeSystem::GPS);
     }
 
@@ -3005,7 +3044,9 @@ mod tests {
         assert_eq!(hour, 23);
         assert_eq!(minute, 59);
         assert_eq!(second, 59.0);
-        assert_eq!(nanosecond, 999_999_999.7654321);
+        // 1e9 - 1.23456789 = 999999998.7654321, which is what the epoch
+        // stores; the field previously reported one nanosecond more.
+        assert_eq!(nanosecond, 999_999_998.7654321);
         assert_eq!(epc.time_system, TimeSystem::TAI);
 
         // Test subtractions of different size
@@ -4460,5 +4501,104 @@ mod tests {
 
         // Should have different internal values
         assert_ne!(debug1, debug2);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_to_datetime_reports_the_nanoseconds_the_epoch_holds() {
+        setup_global_test_eop();
+
+        // One nanosecond before midnight: the previous second holds
+        // 1e9 - 1.23456789 nanoseconds. `iauD2dtf` rounds that up and carries,
+        // and the fractional part used to be added on top of the carried value.
+        let midnight = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        let mut epc = midnight;
+        epc -= 1.23456789e-9;
+
+        let (_, _, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 1.0e9 - 1.23456789);
+
+        // The stored instant was always right; only the reported field was not.
+        // The subtraction itself resolves to about 1e-16 s at this magnitude.
+        assert_abs_diff_eq!(midnight - epc, 1.23456789e-9, epsilon = 1e-15);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_to_datetime_reports_no_nanoseconds_on_a_whole_second() {
+        setup_global_test_eop();
+
+        // Nanoseconds-into-day arithmetic can store an epoch built on a whole
+        // second just below the boundary, which `iauD2dtf` carries. The
+        // fractional part belongs to the second before the one it reported.
+        for (year, month, day, hour, minute, second, ts) in [
+            (1996u32, 11u8, 4u8, 17u8, 22u8, 31.0f64, TimeSystem::UTC),
+            (1996, 11, 4, 17, 22, 31.0, TimeSystem::TAI),
+            (2024, 3, 1, 12, 0, 0.0, TimeSystem::UTC),
+            (2018, 6, 30, 23, 59, 59.0, TimeSystem::TAI),
+        ] {
+            let epc = Epoch::from_datetime(year, month, day, hour, minute, second, 0.0, ts);
+            let (_, _, _, _, _, got_second, got_ns) = epc.to_datetime();
+            assert_eq!(
+                got_second, second,
+                "{:?} {}-{}-{} {}:{}:{} second",
+                ts, year, month, day, hour, minute, second
+            );
+            assert_eq!(
+                got_ns, 0.0,
+                "{:?} {}-{}-{} {}:{}:{} reported {} ns that are not there",
+                ts, year, month, day, hour, minute, second, got_ns
+            );
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_to_datetime_is_stable_across_repeated_round_trips() {
+        setup_global_test_eop();
+
+        // Reading a date and rebuilding it used to add a nanosecond per cycle,
+        // without bound.
+        // UT1, TDB, TCB, and TCG are excluded: their offset from TAI is
+        // recovered iteratively and lands on a slightly different value each
+        // time the epoch is rebuilt, so those systems do not round-trip
+        // exactly either before or after this change. That is a separate
+        // defect in the offset inversion, not in the nanosecond field.
+        for ts in [
+            TimeSystem::UTC,
+            TimeSystem::TAI,
+            TimeSystem::GPS,
+            TimeSystem::TT,
+        ] {
+            let mut epc = Epoch::from_datetime(1996, 11, 4, 17, 22, 31.0, 0.0, ts);
+            let first = epc.to_datetime();
+            for generation in 0..5 {
+                let (y, mo, d, h, mi, s, ns) = epc.to_datetime();
+                assert_eq!(
+                    (y, mo, d, h, mi, s, ns),
+                    first,
+                    "{:?} drifted by generation {}",
+                    ts,
+                    generation
+                );
+                epc = Epoch::from_datetime(y, mo, d, h, mi, s, ns, ts);
+            }
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_to_datetime_keeps_subnanosecond_input() {
+        setup_global_test_eop();
+
+        // Sub-nanosecond precision is a documented capability and must survive.
+        let epc = Epoch::from_datetime(2020, 1, 1, 0, 0, 0.5, 1.2345, TimeSystem::TAI);
+        let (_, _, _, _, _, second, nanosecond) = epc.to_datetime();
+        assert_eq!(second, 0.0);
+        assert_eq!(nanosecond, 0.5 * 1.0e9 + 1.2345);
     }
 }

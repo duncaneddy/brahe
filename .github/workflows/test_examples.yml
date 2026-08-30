@@ -59,20 +59,15 @@ jobs:
         run: uv sync --all-extras --frozen
 
       # Restored before "Setup test assets in cache" below so the repo's
-      # test_assets/de440s.bsp always wins over a stale cached copy; only
-      # moon_pa_de440/mar099s (not provided as test assets) are served from
-      # this cache, which is why it can't sit with the other cache steps.
-      # Restore-only: the matching save below runs on main only. The key
-      # rolls with the manifest hash, so a manifest change is picked up
-      # automatically.
-      - name: Restore NAIF kernels cache
-        id: naif-cache
-        uses: actions/cache/restore@v6.1.0
+      # test_assets/de440s.bsp always wins over a stale cached copy. One step
+      # restores every manifest-keyed family; whatever is missing (or predates
+      # the manifest) is warmed once below and saved, so the parallel pools
+      # never download live.
+      - name: Restore data caches
+        id: cache
+        uses: ./.github/actions/data-cache
         with:
-          path: ~/.cache/brahe/naif
-          key: naif-kernels-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
-          restore-keys: |
-            naif-kernels-v1-
+          families: naif icgem sbdb-horizons star-catalogs celestrak
 
       # Copy test assets to cache for examples that might use them
       - name: Setup test assets in cache
@@ -119,82 +114,59 @@ jobs:
           path: ~/.local/share/cartopy
           key: cartopy-natural-earth-v1
 
-      # FK5 + Hipparcos only (the catalogs the star_field_simulation example
-      # reads). Explicit file paths — never the whole star_catalogs/ dir — so
-      # the 526 MB Tycho-2 catalog is never persisted here. Restore-only; the
-      # matching save below runs on main only. Key kept in sync with the
-      # "Cache star catalog downloads" step in integration_tests.yml.
-      - name: Restore star catalog downloads
-        id: star-catalogs-cache
-        uses: actions/cache/restore@v6.1.0
-        with:
-          path: |
-            ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
-            ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
-          key: star-catalogs-v1
-
-      # ICGEM gravity models for the lro (GRGM660PRIM) and mro (ggm2bc80)
-      # examples' default lunar/mars force models. Without this the examples
-      # download from icgem.gfz.de live on every run. Restore-only; the
-      # matching save below runs on main only. The key rolls with the
-      # manifest hash, so a change to the icgem: entries in
-      # .github/brahe-data-manifest.txt is picked up automatically.
-      - name: Restore ICGEM gravity models cache
-        id: icgem-cache
-        uses: actions/cache/restore@v6.1.0
-        with:
-          path: ~/.cache/brahe/icgem
-          key: brahe-icgem-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
-          restore-keys: |
-            brahe-icgem-v1-
-
-      # SBDB lookup + Ceres SPK for the dawn_ceres_orbit example (SBDB + Horizons).
-      # Restore-only; the matching save below runs on main only. The key
-      # rolls with the manifest hash, so a change to the horizons: entry in
-      # .github/brahe-data-manifest.txt is picked up automatically.
-      - name: Restore SBDB + Horizons cache
-        id: sbdb-horizons-cache
-        uses: actions/cache/restore@v6.1.0
-        with:
-          path: |
-            ~/.cache/brahe/sbdb
-            ~/.cache/brahe/horizons
-          key: brahe-sbdb-horizons-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
-          restore-keys: |
-            brahe-sbdb-horizons-v1-
-
-      # Restore-only: the weekly warm_data_cache.yml producer owns the save,
-      # refreshing this family on every one of its runs.
-      - name: Restore Celestrak cache
-        uses: actions/cache/restore@v6.1.0
-        with:
-          path: ~/.cache/brahe/celestrak
-          key: brahe-celestrak-${{ github.run_id }}
-          restore-keys: |
-            brahe-celestrak-
-
-      # Serial, retrying download of all plot/example network resources. On a
-      # cache hit this is an instant no-op; on a miss it warms the caches once so
-      # the parallel pools below never hit the network.
-      - name: Pre-download plot/example resources
+      # Warm only what the restores above did not provide, serially, before the
+      # parallel pools run offline.
+      - name: Warm missing data families
+        if: steps.cache.outputs.missed != ''
         env:
           BRAHE_NETWORK_MODE: online
-        run: just download-resources
+          WARM_ARGS: ${{ steps.cache.outputs.warm-args }}
+          MISSED: ${{ steps.cache.outputs.missed }}
+        run: |
+          if [ -n "$WARM_ARGS" ]; then
+            # shellcheck disable=SC2086
+            uv run --frozen python scripts/warm_data_cache.py $WARM_ARGS
+          fi
+          case " $MISSED " in
+            *" star-catalogs "*)
+              uv run --frozen python -c "import brahe as bh; bh.datasets.star_catalogs.get_fk5(); bh.datasets.star_catalogs.get_hipparcos()"
+              ;;
+          esac
 
-      # Save from main only, immediately after the warm-up populates the
-      # directories. A PR-scoped save of these fixed keys is worse than
-      # useless: it is unreadable from main and from other PRs, yet it blocks
-      # every later same-key save repo-wide ("Unable to reserve cache ...").
-      # That is exactly how naif-kernels-v1 ended up stranded on a merged
-      # PR's ref while every other run silently fell back to live NAIF
-      # downloads - a hard failure whenever naif.jpl.nasa.gov blips.
-      - name: Save NAIF kernels cache (main only)
-        if: ${{ github.ref == 'refs/heads/main' && steps.naif-cache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v6.1.0
+      - name: Warm missing plot resources
+        if: steps.textures-cache.outputs.cache-hit != 'true' || steps.natural-earth-cache.outputs.cache-hit != 'true' || steps.cartopy-cache.outputs.cache-hit != 'true'
+        env:
+          BRAHE_NETWORK_MODE: online
+          TEXTURES_HIT: ${{ steps.textures-cache.outputs.cache-hit }}
+          NATURAL_EARTH_HIT: ${{ steps.natural-earth-cache.outputs.cache-hit }}
+          CARTOPY_HIT: ${{ steps.cartopy-cache.outputs.cache-hit }}
+        run: |
+          if [ "$TEXTURES_HIT" != "true" ]; then
+            uv run --frozen python -c "from brahe.plots.texture_utils import download_natural_earth_texture; download_natural_earth_texture('50m')"
+            uv run --frozen python -c "from brahe.plots.texture_utils import download_planet_texture; [download_planet_texture(b) for b in ('moon', 'mars', 'ceres')]"
+          fi
+          if [ "$NATURAL_EARTH_HIT" != "true" ]; then
+            uv run --frozen python -c "from brahe.plots.basemap import get_natural_earth_land_shapefile; get_natural_earth_land_shapefile()"
+          fi
+          if [ "$CARTOPY_HIT" != "true" ]; then
+            uv run --frozen python scripts/warm_cartopy.py
+          fi
+
+      # Save the families that were warmed. Runs on main save under the family
+      # key; other refs save under a run-suffixed key that later runs of the
+      # same ref find by prefix and that never blocks main's key.
+      - name: Save data caches
+        if: steps.cache.outputs.missed != ''
+        continue-on-error: true
+        uses: ./.github/actions/data-cache
         with:
-          path: ~/.cache/brahe/naif
-          key: naif-kernels-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+          mode: save
+          families: ${{ steps.cache.outputs.missed }}
 
+      # Plot resources use fixed keys and save from main only: a PR-scoped save
+      # of a fixed key is unreadable from main and from other PRs, yet it
+      # blocks every later same-key save repo-wide ("Unable to reserve cache
+      # ...").
       - name: Save 3D body textures cache (main only)
         if: ${{ github.ref == 'refs/heads/main' && steps.textures-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6.1.0
@@ -215,31 +187,6 @@ jobs:
         with:
           path: ~/.local/share/cartopy
           key: cartopy-natural-earth-v1
-
-      - name: Save star catalog downloads (main only)
-        if: ${{ github.ref == 'refs/heads/main' && steps.star-catalogs-cache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v6.1.0
-        with:
-          path: |
-            ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
-            ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
-          key: star-catalogs-v1
-
-      - name: Save ICGEM gravity models cache (main only)
-        if: ${{ github.ref == 'refs/heads/main' && steps.icgem-cache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v6.1.0
-        with:
-          path: ~/.cache/brahe/icgem
-          key: brahe-icgem-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
-
-      - name: Save SBDB + Horizons cache (main only)
-        if: ${{ github.ref == 'refs/heads/main' && steps.sbdb-horizons-cache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v6.1.0
-        with:
-          path: |
-            ~/.cache/brahe/sbdb
-            ~/.cache/brahe/horizons
-          key: brahe-sbdb-horizons-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
 
       - name: Test examples
         if: ${{ !inputs.use_retry }}

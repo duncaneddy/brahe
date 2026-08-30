@@ -1,9 +1,11 @@
 name: Brahe data cache
 description: >-
     Restore or save the per-family brahe data caches. Families are keyed from
-    .github/brahe-data-manifest.txt so a manifest edit rolls every key, and a
+    .github/brahe-data-manifest.txt so a manifest edit rolls every key. A
     restore that only matched an older key counts as a miss so the caller warms
-    the new entries and saves under the current key.
+    the new entries and saves them. Runs on main save under the family key;
+    runs on any other ref save under a run-suffixed key, which later runs of
+    the same ref find by prefix and which never blocks main's key.
 inputs:
     families:
         description: >-
@@ -24,13 +26,28 @@ outputs:
 runs:
     using: composite
     steps:
+        -   name: Derive cache keys
+            id: keys
+            shell: bash
+            env:
+                MANIFEST_HASH: ${{ hashFiles('.github/brahe-data-manifest.txt') }}
+                SUFFIX: ${{ github.ref == 'refs/heads/main' && '' || format('-run-{0}', github.run_id) }}
+            run: |
+                {
+                    echo "naif=naif-kernels-v1-$MANIFEST_HASH"
+                    echo "icgem=brahe-icgem-v1-$MANIFEST_HASH"
+                    echo "sbdb_horizons=brahe-sbdb-horizons-v1-$MANIFEST_HASH"
+                    echo "star_catalogs=star-catalogs-v1"
+                    echo "celestrak=brahe-celestrak-${{ github.run_id }}"
+                    echo "suffix=$SUFFIX"
+                } >> "$GITHUB_OUTPUT"
         -   name: Restore NAIF kernels
             id: naif
             if: inputs.mode == 'restore' && contains(inputs.families, 'naif')
             uses: actions/cache/restore@v6.1.0
             with:
                 path: ~/.cache/brahe/naif
-                key: naif-kernels-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+                key: ${{ steps.keys.outputs.naif }}
                 restore-keys: |
                     naif-kernels-v1-
         -   name: Restore ICGEM models
@@ -39,7 +56,7 @@ runs:
             uses: actions/cache/restore@v6.1.0
             with:
                 path: ~/.cache/brahe/icgem
-                key: brahe-icgem-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+                key: ${{ steps.keys.outputs.icgem }}
                 restore-keys: |
                     brahe-icgem-v1-
         -   name: Restore SBDB + Horizons
@@ -50,7 +67,7 @@ runs:
                 path: |
                     ~/.cache/brahe/sbdb
                     ~/.cache/brahe/horizons
-                key: brahe-sbdb-horizons-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+                key: ${{ steps.keys.outputs.sbdb_horizons }}
                 restore-keys: |
                     brahe-sbdb-horizons-v1-
         -   name: Restore star catalogs
@@ -61,14 +78,16 @@ runs:
                 path: |
                     ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
                     ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
-                key: star-catalogs-v1
+                key: ${{ steps.keys.outputs.star_catalogs }}
+                restore-keys: |
+                    star-catalogs-v1
         -   name: Restore Celestrak groups
             id: celestrak
             if: inputs.mode == 'restore' && contains(inputs.families, 'celestrak')
             uses: actions/cache/restore@v6.1.0
             with:
                 path: ~/.cache/brahe/celestrak
-                key: brahe-celestrak-${{ github.run_id }}
+                key: ${{ steps.keys.outputs.celestrak }}
                 restore-keys: |
                     brahe-celestrak-
         -   name: Record missed families
@@ -77,19 +96,26 @@ runs:
             shell: bash
             env:
                 FAMILIES: ${{ inputs.families }}
-                NAIF_HIT: ${{ steps.naif.outputs.cache-hit }}
-                ICGEM_HIT: ${{ steps.icgem.outputs.cache-hit }}
-                SBDB_HORIZONS_HIT: ${{ steps.sbdb-horizons.outputs.cache-hit }}
-                STAR_CATALOGS_HIT: ${{ steps.star-catalogs.outputs.cache-hit }}
+                NAIF_KEY: ${{ steps.keys.outputs.naif }}
+                NAIF_MATCHED: ${{ steps.naif.outputs.cache-matched-key }}
+                ICGEM_KEY: ${{ steps.keys.outputs.icgem }}
+                ICGEM_MATCHED: ${{ steps.icgem.outputs.cache-matched-key }}
+                SBDB_HORIZONS_KEY: ${{ steps.keys.outputs.sbdb_horizons }}
+                SBDB_HORIZONS_MATCHED: ${{ steps.sbdb-horizons.outputs.cache-matched-key }}
+                STAR_CATALOGS_KEY: ${{ steps.keys.outputs.star_catalogs }}
+                STAR_CATALOGS_MATCHED: ${{ steps.star-catalogs.outputs.cache-matched-key }}
                 CELESTRAK_MATCHED: ${{ steps.celestrak.outputs.cache-matched-key }}
             run: |
                 has() { case " $FAMILIES " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
+                # A match is usable when its key is the family key itself or that
+                # key plus a run suffix; an older manifest's key is a miss.
+                usable() { case "$2" in "$1"|"$1"-run-*) return 0 ;; *) return 1 ;; esac; }
                 missed=""
                 args=""
-                if has naif && [ "$NAIF_HIT" != "true" ]; then missed="$missed naif"; args="$args --only kernel"; fi
-                if has icgem && [ "$ICGEM_HIT" != "true" ]; then missed="$missed icgem"; args="$args --only icgem"; fi
-                if has sbdb-horizons && [ "$SBDB_HORIZONS_HIT" != "true" ]; then missed="$missed sbdb-horizons"; args="$args --only horizons"; fi
-                if has star-catalogs && [ "$STAR_CATALOGS_HIT" != "true" ]; then missed="$missed star-catalogs"; fi
+                if has naif && ! usable "$NAIF_KEY" "$NAIF_MATCHED"; then missed="$missed naif"; args="$args --only kernel"; fi
+                if has icgem && ! usable "$ICGEM_KEY" "$ICGEM_MATCHED"; then missed="$missed icgem"; args="$args --only icgem"; fi
+                if has sbdb-horizons && ! usable "$SBDB_HORIZONS_KEY" "$SBDB_HORIZONS_MATCHED"; then missed="$missed sbdb-horizons"; args="$args --only horizons"; fi
+                if has star-catalogs && ! usable "$STAR_CATALOGS_KEY" "$STAR_CATALOGS_MATCHED"; then missed="$missed star-catalogs"; fi
                 if has celestrak && [ -z "$CELESTRAK_MATCHED" ]; then missed="$missed celestrak"; args="$args --only celestrak"; fi
                 missed="${missed# }"
                 args="${args# }"
@@ -102,13 +128,13 @@ runs:
             uses: actions/cache/save@v6.1.0
             with:
                 path: ~/.cache/brahe/naif
-                key: naif-kernels-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+                key: ${{ steps.keys.outputs.naif }}${{ steps.keys.outputs.suffix }}
         -   name: Save ICGEM models
             if: inputs.mode == 'save' && contains(inputs.families, 'icgem')
             uses: actions/cache/save@v6.1.0
             with:
                 path: ~/.cache/brahe/icgem
-                key: brahe-icgem-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+                key: ${{ steps.keys.outputs.icgem }}${{ steps.keys.outputs.suffix }}
         -   name: Save SBDB + Horizons
             if: inputs.mode == 'save' && contains(inputs.families, 'sbdb-horizons')
             uses: actions/cache/save@v6.1.0
@@ -116,7 +142,7 @@ runs:
                 path: |
                     ~/.cache/brahe/sbdb
                     ~/.cache/brahe/horizons
-                key: brahe-sbdb-horizons-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+                key: ${{ steps.keys.outputs.sbdb_horizons }}${{ steps.keys.outputs.suffix }}
         -   name: Save star catalogs
             if: inputs.mode == 'save' && contains(inputs.families, 'star-catalogs')
             uses: actions/cache/save@v6.1.0
@@ -124,10 +150,10 @@ runs:
                 path: |
                     ~/.cache/brahe/star_catalogs/FK5_Catalog.txt
                     ~/.cache/brahe/star_catalogs/Hipparcos_Catalog.txt
-                key: star-catalogs-v1
+                key: ${{ steps.keys.outputs.star_catalogs }}${{ steps.keys.outputs.suffix }}
         -   name: Save Celestrak groups
             if: inputs.mode == 'save' && contains(inputs.families, 'celestrak')
             uses: actions/cache/save@v6.1.0
             with:
                 path: ~/.cache/brahe/celestrak
-                key: brahe-celestrak-${{ github.run_id }}
+                key: ${{ steps.keys.outputs.celestrak }}

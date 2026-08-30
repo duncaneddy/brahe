@@ -36,6 +36,13 @@ use crate::utils::BraheError;
 /// without the unit-norm normalization that [`Quaternion`]'s operator
 /// applies. Required for kinematics, where quaternion derivatives are not
 /// unit quaternions.
+///
+/// # Arguments
+/// - `a`: Left operand, scalar-first `[w, x, y, z]`.
+/// - `b`: Right operand, scalar-first `[w, x, y, z]`.
+///
+/// # Returns
+/// Vector4<f64>: The raw (unnormalized) product `a * b`, scalar-first.
 pub(crate) fn raw_quaternion_product(a: Vector4<f64>, b: Vector4<f64>) -> Vector4<f64> {
     Vector4::new(
         a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
@@ -159,7 +166,13 @@ pub fn angular_velocity_from_quaternion_derivative(
     2.0 * Vector3::new(product[1], product[2], product[3])
 }
 
-/// Basis vector and elementary passive rotation for one axis letter.
+/// Basis vector for one axis letter.
+///
+/// # Arguments
+/// - `axis`: Axis digit, `1` for x, `2` for y, and any other value for z.
+///
+/// # Returns
+/// Vector3<f64>: The unit basis vector for the given axis.
 fn axis_unit(axis: u8) -> Vector3<f64> {
     match axis {
         1 => Vector3::new(1.0, 0.0, 0.0),
@@ -168,6 +181,15 @@ fn axis_unit(axis: u8) -> Vector3<f64> {
     }
 }
 
+/// Elementary passive rotation matrix about one axis letter.
+///
+/// # Arguments
+/// - `axis`: Axis digit, `1` for x, `2` for y, and any other value for z.
+/// - `angle`: Rotation angle, radians.
+///
+/// # Returns
+/// SMatrix3: The elementary rotation matrix `Rx`, `Ry`, or `Rz` about the
+/// given axis, evaluated at `angle`.
 fn axis_rotation(axis: u8, angle: f64) -> SMatrix3 {
     match axis {
         1 => RotationMatrix::Rx(angle, AngleFormat::Radians).to_matrix(),
@@ -186,6 +208,13 @@ fn axis_rotation(axis: u8, angle: f64) -> SMatrix3 {
 /// `(φ_D, θ_D, ψ_D) = (ψ, θ, φ)` for brahe order `ABC` with angles
 /// `(φ, θ, ψ)` — the same exchange `EulerAngleOrder::reversed()` applies in
 /// the existing statics (quaternion.rs, rotation_matrix.rs).
+///
+/// # Arguments
+/// - `angles`: Euler angles in brahe application order.
+///
+/// # Returns
+/// ([u8; 3], [f64; 3]): The Diebel matrix-order axis digits `(i, j, k)` and
+/// the corresponding Diebel-order angles `(φ_D, θ_D, ψ_D)`.
 fn diebel_sequence(angles: &EulerAngle) -> ([u8; 3], [f64; 3]) {
     let digits = angles.order as u16; // e.g. ZYX = 321
     let a = (digits / 100) as u8; // first applied (brahe A)
@@ -197,6 +226,13 @@ fn diebel_sequence(angles: &EulerAngle) -> ([u8; 3], [f64; 3]) {
 
 /// Builds Diebel's conjugate Euler-angle rates matrix E′ (Diebel (2006)
 /// eq. 38) for the given attitude, in Diebel ordering.
+///
+/// # Arguments
+/// - `angles`: Euler angles in brahe application order.
+///
+/// # Returns
+/// SMatrix3: The conjugate Euler-angle rates matrix `E′`, in Diebel
+/// ordering.
 fn conjugate_rates_matrix(angles: &EulerAngle) -> SMatrix3 {
     let ([i, j, k], [phi_d, theta_d, _psi_d]) = diebel_sequence(angles);
     let ri = axis_rotation(i, phi_d);

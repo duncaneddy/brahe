@@ -26,7 +26,7 @@ fn main() {
     let config_hp = bh::NumericalPropagationConfig::high_precision();
     println!("High-precision config:");
     println!("  Method: RKN1210 (Runge-Kutta-Nystrom 12(10))");
-    println!("  Tolerances: Very tight (1e-10 rel, 1e-8 abs)");
+    println!("  Tolerances: Very tight (1e-12 abs, 1e-12 rel)");
 
     // Standard precision for comparison
     let config_std = bh::NumericalPropagationConfig::default();

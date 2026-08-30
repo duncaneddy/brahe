@@ -124,6 +124,29 @@ class TestDP54Integrator:
         assert result.dt_next > dt_initial
         assert result.error_estimate < 0.1
 
+    def test_step_returns_dt_below_requested_when_rejected(self):
+        """Verify a rejected step reports the reduced size it actually took.
+
+        The propagation loops decide whether a step the target truncated is
+        also one the integrator reduced by comparing dt_used against the
+        requested step, so the strict reduction has to hold.
+        """
+
+        def dynamics(t, state):
+            return -50.0 * state
+
+        config = bh.IntegratorConfig.adaptive(1e-10, 1e-12)
+        integrator = bh.DP54Integrator(dimension=1, dynamics_fn=dynamics, config=config)
+
+        requested = 2.0
+        result = integrator.step(0.0, np.array([1.0]), requested)
+
+        assert result.dt_used < requested, (
+            f"a rejected step must report the reduced size, "
+            f"got {result.dt_used} for a requested {requested}"
+        )
+        assert result.dt_next < requested
+
     def test_with_varmat(self):
         """Test variational matrix propagation."""
 

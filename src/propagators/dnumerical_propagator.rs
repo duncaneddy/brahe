@@ -1978,15 +1978,22 @@ impl super::traits::DStatePropagator for DNumericalPropagator {
             };
 
             // Temporarily set the suggested next step to not overshoot
+            let truncated = dt_max.abs() < self.dt_next.abs();
             let saved_dt_next = self.dt_next;
             self.dt_next = dt_max;
 
             // Take one adaptive step (includes event detection)
             self.step_once()?;
 
-            // Restore suggested dt_next for subsequent steps
-            // (unless step_once updated it to something smaller)
-            if self.dt_next.abs() > saved_dt_next.abs() {
+            // A step truncated to land exactly on the target is artificially
+            // short, so what it implies about larger steps is extrapolation.
+            // Keep its suggestion only when that suggestion falls below the
+            // step just taken, which means the error bound was reached even at
+            // the reduced size and the reduction is genuine error control.
+            // Otherwise restore the pre-truncation suggestion; carrying the
+            // truncated step's estimate forward would let a run of truncated
+            // steps ratchet the step size down with no way to recover.
+            if truncated && self.dt.abs() >= dt_max.abs() && self.dt_next.abs() >= self.dt.abs() {
                 self.dt_next = saved_dt_next;
             }
         }
@@ -2030,14 +2037,22 @@ impl super::traits::DStatePropagator for DNumericalPropagator {
                 -remaining.abs().min(self.dt_next.abs())
             };
 
+            let truncated = dt_max.abs() < self.dt_next.abs();
             let saved_dt_next = self.dt_next;
             self.dt_next = dt_max;
 
             // Take one adaptive step (includes event detection)
             self.step_once()?;
 
-            // Restore suggested dt_next for subsequent steps
-            if self.dt_next.abs() > saved_dt_next.abs() {
+            // A step truncated to land exactly on the target is artificially
+            // short, so what it implies about larger steps is extrapolation.
+            // Keep its suggestion only when that suggestion falls below the
+            // step just taken, which means the error bound was reached even at
+            // the reduced size and the reduction is genuine error control.
+            // Otherwise restore the pre-truncation suggestion; carrying the
+            // truncated step's estimate forward would let a run of truncated
+            // steps ratchet the step size down with no way to recover.
+            if truncated && self.dt.abs() >= dt_max.abs() && self.dt_next.abs() >= self.dt.abs() {
                 self.dt_next = saved_dt_next;
             }
         }
@@ -2435,6 +2450,70 @@ mod tests {
         config.variational.store_stm_history = true;
 
         DNumericalPropagator::new(epoch, state, dynamics, config, None, None, None).unwrap()
+    }
+
+    /// Largest step taken over a propagation, from the stored trajectory.
+    fn max_trajectory_step(prop: &DNumericalPropagator) -> f64 {
+        let traj = prop.trajectory();
+        (0..traj.len().saturating_sub(1))
+            .map(|i| traj.epoch_at_idx(i + 1).unwrap() - traj.epoch_at_idx(i).unwrap())
+            .fold(0.0, f64::max)
+    }
+
+    /// SHO propagator seeded with a small initial step so that step growth is
+    /// observable against the seed.
+    fn create_growth_test_propagator(max_step: f64) -> DNumericalPropagator {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0, 0.0]);
+        let config = NumericalPropagationConfig {
+            integrator: IntegratorConfig {
+                abs_tol: 1e-6,
+                rel_tol: 1e-6,
+                initial_step: Some(0.001),
+                max_step: Some(max_step),
+                ..IntegratorConfig::default()
+            },
+            ..NumericalPropagationConfig::default()
+        };
+        DNumericalPropagator::new(epoch, state, sho_dynamics(1.0), config, None, None, None)
+            .unwrap()
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_dnumericalpropagator_adaptive_step_size_grows() {
+        let mut prop = create_growth_test_propagator(0.5);
+        prop.step_by(5.0).unwrap();
+
+        let max_step = max_trajectory_step(&prop);
+        assert!(
+            max_step > 0.001,
+            "Adaptive step size must grow beyond the seed step, got {:.6} s",
+            max_step
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_dnumericalpropagator_max_step_bounds_growth() {
+        let mut capped = create_growth_test_propagator(0.05);
+        let mut uncapped = create_growth_test_propagator(0.5);
+        capped.step_by(5.0).unwrap();
+        uncapped.step_by(5.0).unwrap();
+
+        let max_capped = max_trajectory_step(&capped);
+        let max_uncapped = max_trajectory_step(&uncapped);
+
+        assert!(
+            max_capped <= 0.05 + 1e-12,
+            "max_step must bound the step size, got {:.9} s",
+            max_capped
+        );
+        assert!(
+            max_uncapped > 0.05,
+            "A larger max_step must permit larger steps, got {:.9} s",
+            max_uncapped
+        );
     }
 
     // =============================================================================

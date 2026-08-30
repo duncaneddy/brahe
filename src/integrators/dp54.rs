@@ -903,6 +903,45 @@ mod tests {
     }
 
     #[test]
+    fn test_dp54_step_returns_dt_below_requested_when_rejected() {
+        // The propagation loops decide whether a step the target truncated is
+        // also one the integrator reduced, by comparing dt_used against the
+        // requested step. That comparison only carries information because a
+        // rejected step reports the size it actually took, strictly below what
+        // was asked for.
+        let k = 50.0;
+        let f = move |_t: f64,
+                      x: &SVector<f64, 1>,
+                      _params: Option<&SVector<f64, 0>>|
+              -> Result<SVector<f64, 1>, BraheError> { Ok(-k * x) };
+
+        let dp54: DormandPrince54SIntegrator<1, 0> = DormandPrince54SIntegrator::with_config(
+            Box::new(f),
+            None,
+            None,
+            None,
+            IntegratorConfig::adaptive(1e-10, 1e-12),
+        );
+
+        let requested = 2.0;
+        let result = dp54
+            .step(0.0, SVector::<f64, 1>::new(1.0), None, Some(requested))
+            .unwrap();
+
+        assert!(
+            result.dt_used < requested,
+            "a rejected step must report the reduced size, got {} for a requested {}",
+            result.dt_used,
+            requested
+        );
+        assert!(
+            result.dt_next < requested,
+            "the suggestion after a rejection must stay below the requested step, got {}",
+            result.dt_next
+        );
+    }
+
+    #[test]
     fn test_dp54_config_parameters() {
         // Verify that config parameters are actually used
         let f = |t: f64,
@@ -2403,8 +2442,16 @@ mod tests {
             Ok(SVector::<f64, 1>::new(-k * x[0]))
         };
 
-        let dp54: DormandPrince54SIntegrator<1, 1> =
-            DormandPrince54SIntegrator::new(Box::new(f), None, None, None);
+        // Tolerances loose enough that the requested dt is accepted for both
+        // decay rates. The result of this linear ODE depends only on k * dt, so
+        // a rejected-and-reduced step can make the two cases coincide.
+        let dp54: DormandPrince54SIntegrator<1, 1> = DormandPrince54SIntegrator::with_config(
+            Box::new(f),
+            None,
+            None,
+            None,
+            IntegratorConfig::adaptive(1e-3, 1e-3),
+        );
 
         let x0 = SVector::<f64, 1>::new(1.0);
         let dt = 0.1;
@@ -2449,7 +2496,17 @@ mod tests {
             Ok(DVector::from_element(1, -k * x[0]))
         };
 
-        let dp54 = DormandPrince54DIntegrator::new(1, Box::new(f), None, None, None);
+        // Tolerances loose enough that the requested dt is accepted for both
+        // decay rates. The result of this linear ODE depends only on k * dt, so
+        // a rejected-and-reduced step can make the two cases coincide.
+        let dp54 = DormandPrince54DIntegrator::with_config(
+            1,
+            Box::new(f),
+            None,
+            None,
+            None,
+            IntegratorConfig::adaptive(1e-3, 1e-3),
+        );
 
         let x0 = DVector::from_element(1, 1.0);
         let dt = 0.1;
@@ -2578,11 +2635,15 @@ mod tests {
             Ok(SVector::<f64, 1>::new(-k * x[0]))
         };
 
-        let dp54: DormandPrince54SIntegrator<1, 1> = DormandPrince54SIntegrator::new(
+        // Tolerances loose enough that the requested dt is accepted for both
+        // decay rates. The result of this linear ODE depends only on k * dt, so
+        // a rejected-and-reduced step can make the two cases coincide.
+        let dp54: DormandPrince54SIntegrator<1, 1> = DormandPrince54SIntegrator::with_config(
             Box::new(f),
             Some(Box::new(ParamDependentJacobian)),
             None,
             None,
+            IntegratorConfig::adaptive(1e-3, 1e-3),
         );
 
         let x0 = SVector::<f64, 1>::new(1.0);
@@ -2646,12 +2707,16 @@ mod tests {
             Ok(DVector::from_element(1, -k * x[0]))
         };
 
-        let dp54 = DormandPrince54DIntegrator::new(
+        // Tolerances loose enough that the requested dt is accepted for both
+        // decay rates. The result of this linear ODE depends only on k * dt, so
+        // a rejected-and-reduced step can make the two cases coincide.
+        let dp54 = DormandPrince54DIntegrator::with_config(
             1,
             Box::new(f),
             Some(Box::new(ParamDependentJacobian)),
             None,
             None,
+            IntegratorConfig::adaptive(1e-3, 1e-3),
         );
 
         let x0 = DVector::from_element(1, 1.0);

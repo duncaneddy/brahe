@@ -150,15 +150,15 @@ fn reraise_callback_error(slot: &PyErrSlot, err: brahe::utils::BraheError) -> Py
 /// Controls error tolerances, step size limits, and other integration parameters.
 ///
 /// Args:
-///     abs_tol (float, optional): Absolute error tolerance. Defaults to 1e-6.
-///     rel_tol (float, optional): Relative error tolerance. Defaults to 1e-3.
+///     abs_tol (float, optional): Absolute error tolerance. Defaults to 1e-8.
+///     rel_tol (float, optional): Relative error tolerance. Defaults to 1e-10.
 ///     initial_step (float, optional): Initial step size. Defaults to None (auto).
 ///     min_step (float, optional): Minimum step size. Defaults to 1e-12.
 ///     max_step (float, optional): Maximum step size. Defaults to 900.0.
 ///     step_safety_factor (float, optional): Safety factor for step control. Defaults to 0.9.
 ///     min_step_scale_factor (float, optional): Minimum step scaling. Defaults to 0.2.
 ///     max_step_scale_factor (float, optional): Maximum step scaling. Defaults to 10.0.
-///     max_step_attempts (int, optional): Maximum step attempts. Defaults to 10.
+///     max_step_attempts (int, optional): Maximum step attempts. Defaults to 25.
 ///     fixed_step_size (float, optional): Fixed step size for fixed-step integrators. Defaults to None.
 ///
 /// Example:
@@ -194,15 +194,15 @@ impl PyIntegratorConfig {
     /// Create a new integrator configuration with custom parameters.
     #[new]
     #[pyo3(signature = (
-        abs_tol=1e-6,
-        rel_tol=1e-3,
+        abs_tol=1e-8,
+        rel_tol=1e-10,
         initial_step=None,
         min_step=Some(1e-12),
         max_step=Some(900.0),
         step_safety_factor=Some(0.9),
         min_step_scale_factor=Some(0.2),
         max_step_scale_factor=Some(10.0),
-        max_step_attempts=10,
+        max_step_attempts=25,
         fixed_step_size=None
     ))]
     #[allow(clippy::too_many_arguments)]

@@ -4,6 +4,8 @@ Tests for NumericalOrbitPropagator Python bindings
 These tests mirror the Rust tests from src/propagators/dnumerical_orbit_propagator.rs
 """
 
+import itertools
+
 import numpy as np
 import pytest
 
@@ -35,6 +37,20 @@ from brahe import (
 def create_test_epoch():
     """Create a standard test epoch"""
     return Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+
+
+def create_seeded_step_config(step):
+    """Config whose adaptive controller accepts a step of exactly `step` seconds
+
+    Capping max_step at the seed and loosening the tolerances keeps the
+    controller from growing or shrinking the step, so a step count maps to a
+    known duration.
+    """
+    return NumericalPropagationConfig(
+        IntegrationMethod.DP54,
+        IntegratorConfig(abs_tol=1e-2, rel_tol=1e-4, initial_step=step, max_step=step),
+        VariationalConfig(),
+    )
 
 
 def create_leo_state():
@@ -227,7 +243,7 @@ def test_numericalorbitpropagator_dstatepropagator_propagate_steps():
     prop = NumericalOrbitPropagator(
         epoch,
         state,
-        NumericalPropagationConfig.default(),
+        create_seeded_step_config(60.0),
         ForceModelConfig.two_body(),
         None,
     )
@@ -491,7 +507,7 @@ def test_numericalorbitpropagator_eviction_policy_max_age():
     prop = NumericalOrbitPropagator(
         epoch,
         state,
-        NumericalPropagationConfig.default(),
+        create_seeded_step_config(60.0),
         ForceModelConfig.two_body(),
         None,
     )
@@ -1405,7 +1421,7 @@ def test_numericalorbitpropagator_dorbitstateprovider_interpolation_accuracy():
     prop = NumericalOrbitPropagator(
         epoch,
         state,
-        NumericalPropagationConfig.default(),
+        create_seeded_step_config(120.0),
         ForceModelConfig.earth_gravity(),
         None,
     )
@@ -3179,7 +3195,7 @@ def test_numericalorbitpropagator_construction_custom_step_size():
     epoch = create_test_epoch()
     state = create_leo_state()
 
-    config = NumericalPropagationConfig.default()
+    config = create_seeded_step_config(30.0)
     prop = NumericalOrbitPropagator(
         epoch, state, config, ForceModelConfig.two_body(), None
     )
@@ -3219,7 +3235,7 @@ def test_numericalorbitpropagator_trajectory_interpolation():
     prop = NumericalOrbitPropagator(
         epoch,
         state,
-        NumericalPropagationConfig.default(),
+        create_seeded_step_config(60.0),
         ForceModelConfig.two_body(),
         None,
     )
@@ -3750,7 +3766,9 @@ def test_numericalorbitpropagator_stm_composition_property():
     epoch = create_test_epoch()
     state = create_leo_state()
 
-    config = NumericalPropagationConfig.default().with_stm()
+    # Pin the step so both propagations share a grid, keeping the composition
+    # exact to integration round-off rather than to step-sequence differences.
+    config = create_seeded_step_config(60.0).with_stm()
 
     # Create first propagator and propagate to t1
     prop1 = NumericalOrbitPropagator(
@@ -6475,3 +6493,112 @@ def test_numericalorbitpropagator_builder_build_error():
     builder = NumericalOrbitPropagator.builder(epoch, state, ForceModelConfig.default())
     with pytest.raises(RuntimeError):
         builder.build()
+
+
+def _max_trajectory_step(prop):
+    """Largest step taken over a propagation, from the stored trajectory"""
+    traj = prop.trajectory
+    epochs = [traj.epoch_at_idx(i) for i in range(len(traj))]
+    return max((b - a for a, b in itertools.pairwise(epochs)), default=0.0)
+
+
+def _adaptive_prop(integrator, state, force):
+    """Build an orbit propagator with the given integrator configuration"""
+    config = NumericalPropagationConfig(
+        IntegrationMethod.DP54, integrator, VariationalConfig()
+    )
+    return NumericalOrbitPropagator(create_test_epoch(), state, config, force, None)
+
+
+def test_numericalorbitpropagator_adaptive_step_size_grows():
+    """Test that adaptive step size grows beyond the seed step (mirrors Rust test)"""
+    epoch = create_test_epoch()
+    state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 1108.9350, 7537.7178])
+
+    prop = _adaptive_prop(
+        IntegratorConfig(abs_tol=1e-2, rel_tol=1e-4),
+        state,
+        ForceModelConfig.earth_gravity(),
+    )
+    prop.propagate_to(epoch + 3600.0)
+
+    # The propagator seeds the first step from initial_step, defaulting to 60 s.
+    max_step = _max_trajectory_step(prop)
+    assert max_step > 60.0, (
+        f"Adaptive step size must grow beyond the 60 s seed, got {max_step:.3f} s"
+    )
+
+
+def test_numericalorbitpropagator_max_step_bounds_growth():
+    """Test that max_step bounds adaptive step growth (mirrors Rust test)"""
+    epoch = create_test_epoch()
+    state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 1108.9350, 7537.7178])
+
+    capped = _adaptive_prop(
+        IntegratorConfig(abs_tol=1e-2, rel_tol=1e-4, max_step=120.0),
+        state,
+        ForceModelConfig.earth_gravity(),
+    )
+    uncapped = _adaptive_prop(
+        IntegratorConfig(abs_tol=1e-2, rel_tol=1e-4, max_step=900.0),
+        state,
+        ForceModelConfig.earth_gravity(),
+    )
+
+    capped.propagate_to(epoch + 3600.0)
+    uncapped.propagate_to(epoch + 3600.0)
+
+    max_capped = _max_trajectory_step(capped)
+    max_uncapped = _max_trajectory_step(uncapped)
+
+    assert max_capped <= 120.0 + 1e-9, (
+        f"max_step must bound the step size, got {max_capped:.6f} s"
+    )
+    assert max_uncapped > 120.0, (
+        f"A larger max_step must permit larger steps, got {max_uncapped:.6f} s"
+    )
+
+
+def test_numericalorbitpropagator_tolerances_affect_slow_orbit():
+    """Test that tolerances affect a slow orbit where no step is rejected
+
+    Regression test for https://github.com/duncaneddy/brahe/issues/461.
+    Mirrors the Rust test.
+    """
+    epoch = create_test_epoch()
+    # Highly eccentric orbit near apoapsis. The local error over the 60 s seed
+    # step falls under both tolerances, so error control can only be observed
+    # through step-size growth.
+    state = np.array(
+        [
+            -130142373.6645361,
+            120626187.8655891,
+            126520497.1633258,
+            -308.744045658656,
+            -1402.99418814228,
+            -61.6245044905574416,
+        ]
+    )
+
+    loose = _adaptive_prop(
+        IntegratorConfig(abs_tol=1e-2, rel_tol=1e-4, max_step=86400.0),
+        state,
+        ForceModelConfig.two_body(),
+    )
+    tight = _adaptive_prop(
+        IntegratorConfig(abs_tol=1e-12, rel_tol=1e-14, max_step=600.0),
+        state,
+        ForceModelConfig.two_body(),
+    )
+
+    loose.propagate_to(epoch + 86400.0)
+    tight.propagate_to(epoch + 86400.0)
+
+    assert _max_trajectory_step(loose) > _max_trajectory_step(tight), (
+        "Looser tolerances must permit larger steps"
+    )
+
+    difference = np.linalg.norm(loose.current_state()[:3] - tight.current_state()[:3])
+    assert difference > 0.0, (
+        f"Tolerances must affect the propagated state, diff = {difference:.6e} m"
+    )

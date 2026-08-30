@@ -2350,7 +2350,16 @@ mod tests {
             Ok(SVector::<f64, 1>::new(-k * x[0]))
         };
 
-        let rkf45: RKF45SIntegrator<1, 1> = RKF45SIntegrator::new(Box::new(f), None, None, None);
+        // Tolerances loose enough that the requested dt is accepted for both
+        // decay rates. The result of this linear ODE depends only on k * dt, so
+        // a rejected-and-reduced step can make the two cases coincide.
+        let rkf45: RKF45SIntegrator<1, 1> = RKF45SIntegrator::with_config(
+            Box::new(f),
+            None,
+            None,
+            None,
+            IntegratorConfig::adaptive(1e-3, 1e-3),
+        );
 
         let x0 = SVector::<f64, 1>::new(1.0);
         let dt = 0.1;
@@ -2395,7 +2404,17 @@ mod tests {
             Ok(DVector::from_element(1, -k * x[0]))
         };
 
-        let rkf45 = RKF45DIntegrator::new(1, Box::new(f), None, None, None);
+        // Tolerances loose enough that the requested dt is accepted for both
+        // decay rates. The result of this linear ODE depends only on k * dt, so
+        // a rejected-and-reduced step can make the two cases coincide.
+        let rkf45 = RKF45DIntegrator::with_config(
+            1,
+            Box::new(f),
+            None,
+            None,
+            None,
+            IntegratorConfig::adaptive(1e-3, 1e-3),
+        );
 
         let x0 = DVector::from_element(1, 1.0);
         let dt = 0.1;
@@ -2521,11 +2540,15 @@ mod tests {
             Ok(SVector::<f64, 1>::new(-k * x[0]))
         };
 
-        let rkf45: RKF45SIntegrator<1, 1> = RKF45SIntegrator::new(
+        // Tolerances loose enough that the requested dt is accepted for both
+        // decay rates. The result of this linear ODE depends only on k * dt, so
+        // a rejected-and-reduced step can make the two cases coincide.
+        let rkf45: RKF45SIntegrator<1, 1> = RKF45SIntegrator::with_config(
             Box::new(f),
             Some(Box::new(ParamDependentJacobian)),
             None,
             None,
+            IntegratorConfig::adaptive(1e-3, 1e-3),
         );
 
         let x0 = SVector::<f64, 1>::new(1.0);
@@ -2589,12 +2612,16 @@ mod tests {
             Ok(DVector::from_element(1, -k * x[0]))
         };
 
-        let rkf45 = RKF45DIntegrator::new(
+        // Tolerances loose enough that the requested dt is accepted for both
+        // decay rates. The result of this linear ODE depends only on k * dt, so
+        // a rejected-and-reduced step can make the two cases coincide.
+        let rkf45 = RKF45DIntegrator::with_config(
             1,
             Box::new(f),
             Some(Box::new(ParamDependentJacobian)),
             None,
             None,
+            IntegratorConfig::adaptive(1e-3, 1e-3),
         );
 
         let x0 = DVector::from_element(1, 1.0);

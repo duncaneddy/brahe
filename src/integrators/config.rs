@@ -47,6 +47,11 @@ pub struct IntegratorConfig {
     pub max_step_scale_factor: Option<f64>,
 
     /// Maximum attempts to find acceptable step size
+    ///
+    /// Each rejection shrinks the step by at most `min_step_scale_factor`, so
+    /// the budget bounds how far a single call can reduce. Resolving a pass
+    /// through the lower thermosphere at the default tolerances takes most of
+    /// the default budget.
     pub max_step_attempts: usize,
 
     /// Fixed step size for fixed-step integrators
@@ -57,27 +62,27 @@ pub struct IntegratorConfig {
 impl Default for IntegratorConfig {
     /// Default configuration matching typical defaults
     ///
-    /// - abs_tol: 1e-6
-    /// - rel_tol: 1e-3
+    /// - abs_tol: 1e-8
+    /// - rel_tol: 1e-10
     /// - initial_step: None (auto-determined)
     /// - min_step: Some(1e-12)
     /// - max_step: Some(900.0) (15 minutes)
     /// - step_safety_factor: Some(0.9)
     /// - min_step_scale_factor: Some(0.2)
     /// - max_step_scale_factor: Some(10.0)
-    /// - max_step_attempts: 10
+    /// - max_step_attempts: 25
     /// - fixed_step_size: None
     fn default() -> Self {
         Self {
-            abs_tol: 1e-6,
-            rel_tol: 1e-3,
+            abs_tol: 1e-8,
+            rel_tol: 1e-10,
             initial_step: None,
             min_step: Some(1e-12),
             max_step: Some(900.0),
             step_safety_factor: Some(0.9),
             min_step_scale_factor: Some(0.2),
             max_step_scale_factor: Some(10.0),
-            max_step_attempts: 10,
+            max_step_attempts: 25,
             fixed_step_size: None,
         }
     }
@@ -146,15 +151,15 @@ mod tests {
     #[test]
     fn test_default_config() {
         let config = IntegratorConfig::default();
-        assert_eq!(config.abs_tol, 1e-6);
-        assert_eq!(config.rel_tol, 1e-3);
+        assert_eq!(config.abs_tol, 1e-8);
+        assert_eq!(config.rel_tol, 1e-10);
         assert_eq!(config.initial_step, None);
         assert_eq!(config.min_step, Some(1e-12));
         assert_eq!(config.max_step, Some(900.0));
         assert_eq!(config.step_safety_factor, Some(0.9));
         assert_eq!(config.min_step_scale_factor, Some(0.2));
         assert_eq!(config.max_step_scale_factor, Some(10.0));
-        assert_eq!(config.max_step_attempts, 10);
+        assert_eq!(config.max_step_attempts, 25);
         assert_eq!(config.fixed_step_size, None);
     }
 
@@ -162,8 +167,8 @@ mod tests {
     fn test_fixed_step_config() {
         let config = IntegratorConfig::fixed_step(0.1);
         assert_eq!(config.fixed_step_size, Some(0.1));
-        assert_eq!(config.abs_tol, 1e-6);
-        assert_eq!(config.rel_tol, 1e-3);
+        assert_eq!(config.abs_tol, 1e-8);
+        assert_eq!(config.rel_tol, 1e-10);
     }
 
     #[test]

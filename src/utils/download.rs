@@ -235,6 +235,15 @@ pub(crate) fn download_to_file(
 ///
 /// * `Ok(Vec<u8>)` - The response body.
 /// * `Err(BraheError)` - On a non-retryable status or exhausted retries.
+///
+/// # Examples
+///
+/// ```ignore
+/// let kernel = download_bytes(
+///     "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de440s.bsp",
+///     "NAIF kernel de440s",
+/// )?;
+/// ```
 pub(crate) fn download_bytes(url: &str, description: &str) -> Result<Vec<u8>, BraheError> {
     download_bytes_impl(url, description, None)
 }
@@ -254,6 +263,16 @@ pub(crate) fn download_bytes(url: &str, description: &str) -> Result<Vec<u8>, Br
 ///
 /// * `Ok(Vec<u8>)` - The response body.
 /// * `Err(BraheError)` - On a non-retryable status or exhausted retries.
+///
+/// # Examples
+///
+/// ```ignore
+/// let catalog = download_bytes_with_user_agent(
+///     "https://cdsarc.cds.unistra.fr/ftp/I/239/hip_main.dat",
+///     "star catalog",
+///     "Mozilla/5.0 (compatible; brahe)",
+/// )?;
+/// ```
 pub(crate) fn download_bytes_with_user_agent(
     url: &str,
     description: &str,

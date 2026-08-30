@@ -206,6 +206,75 @@ where
     Ok(result)
 }
 
+/// Compute the matrix square root of a symmetric positive semi-definite matrix.
+///
+/// Uses a symmetric eigendecomposition, which stays accurate on the
+/// ill-conditioned matrices that arise from propagated covariances. The
+/// Denman-Beavers iteration used by [`sqrtm_dmatrix`] for general matrices
+/// breaks down well before this does.
+///
+/// The input is symmetrized before decomposition, and eigenvalues that are
+/// negative only to within round-off are clamped to zero rather than rejected,
+/// since a propagated covariance routinely carries such values.
+///
+/// # Arguments
+///
+/// * `matrix` - A symmetric positive semi-definite matrix
+///
+/// # Returns
+///
+/// * `Result<DMatrix<f64>, String>` - The matrix square root, or an error if the
+///   matrix is not square or has a negative eigenvalue too large to be round-off
+///
+/// # Examples
+///
+/// ```ignore
+/// use nalgebra::DMatrix;
+/// use crate::math::linalg::spd_sqrtm_dmatrix;
+///
+/// let diag = DMatrix::from_row_slice(2, 2, &[4.0, 0.0, 0.0, 9.0]);
+/// let root = spd_sqrtm_dmatrix(&diag).unwrap();
+/// let expected = DMatrix::from_row_slice(2, 2, &[2.0, 0.0, 0.0, 3.0]);
+/// assert!((root - expected).norm() < 1e-10);
+/// ```
+pub(crate) fn spd_sqrtm_dmatrix(matrix: &na::DMatrix<f64>) -> Result<na::DMatrix<f64>, String> {
+    if matrix.nrows() != matrix.ncols() {
+        return Err(format!(
+            "Matrix must be square, got {}x{}",
+            matrix.nrows(),
+            matrix.ncols()
+        ));
+    }
+
+    // Symmetrize first: a covariance assembled numerically carries asymmetry at
+    // round-off level, and the decomposition assumes exact symmetry.
+    let symmetric = (matrix + matrix.transpose()) * 0.5;
+    let eigen = SymmetricEigen::new(symmetric);
+
+    let max_eigenvalue = eigen.eigenvalues.amax();
+    let tolerance = 1e-12 * max_eigenvalue.max(1.0);
+
+    let mut roots = eigen.eigenvalues.clone();
+    for value in roots.iter_mut() {
+        if !value.is_finite() {
+            return Err(format!(
+                "Symmetric eigendecomposition did not converge: eigenvalue {}",
+                value
+            ));
+        }
+        if *value < -tolerance {
+            return Err(format!(
+                "Matrix is not positive semi-definite: found negative eigenvalue {}",
+                value
+            ));
+        }
+        *value = value.max(0.0).sqrt();
+    }
+
+    let v = &eigen.eigenvectors;
+    Ok(v * na::DMatrix::from_diagonal(&roots) * v.transpose())
+}
+
 /// Compute the matrix square root of a general square matrix.
 ///
 /// This function computes the square root of a general (possibly non-symmetric) square matrix
@@ -257,7 +326,16 @@ where
     let mut z = na::DMatrix::<f64>::identity(N, N);
 
     const MAX_ITERATIONS: usize = 50;
-    const TOLERANCE: f64 = 1e-10;
+    const TOLERANCE: f64 = 1e-12;
+
+    // Tolerances scale with the magnitude of the input. Covariance products
+    // reach norms of 1e12 or more, where a fixed absolute threshold cannot be
+    // met even by a fully converged iteration. The iterate tracks the square
+    // root, so its convergence is measured against the root's magnitude, not
+    // the matrix's; the residual below is a difference of matrices and keeps
+    // the matrix scale.
+    let scale = a.norm().max(1.0);
+    let root_scale = scale.sqrt();
 
     for _ in 0..MAX_ITERATIONS {
         // Compute inverses
@@ -275,7 +353,7 @@ where
 
         // Check convergence: ||Y_{k+1} - Y_k|| < tolerance
         let diff = (&y_new - &y).norm();
-        if diff < TOLERANCE {
+        if diff < TOLERANCE * root_scale {
             y = y_new;
             break;
         }
@@ -284,14 +362,21 @@ where
         z = z_new;
     }
 
-    // Verify the result: Y * Y should equal A
+    // Verify the result: Y * Y should equal A. Compare column by column so a
+    // poorly resolved direction cannot be hidden by a larger one dominating the
+    // norm; a single global bound would accept a negative eigenvalue whose
+    // magnitude is small next to the rest of the matrix.
     let check = &y * &y;
-    let error = (&check - &a).norm();
-    if error > 1e-8 {
-        return Err(format!(
-            "Matrix square root did not converge to sufficient accuracy (error: {})",
-            error
-        ));
+    let residual = &check - &a;
+    for j in 0..N {
+        let col_error = residual.column(j).norm();
+        let col_scale = a.column(j).norm().max(1.0);
+        if col_error > 1e-8 * col_scale {
+            return Err(format!(
+                "Matrix square root did not converge to sufficient accuracy (column {} error: {})",
+                j, col_error
+            ));
+        }
     }
 
     // Convert back to SMatrix
@@ -360,7 +445,16 @@ pub fn sqrtm_dmatrix(matrix: &na::DMatrix<f64>) -> Result<na::DMatrix<f64>, Stri
     let mut z = na::DMatrix::<f64>::identity(n, n);
 
     const MAX_ITERATIONS: usize = 50;
-    const TOLERANCE: f64 = 1e-10;
+    const TOLERANCE: f64 = 1e-12;
+
+    // Tolerances scale with the magnitude of the input. Covariance products
+    // reach norms of 1e12 or more, where a fixed absolute threshold cannot be
+    // met even by a fully converged iteration. The iterate tracks the square
+    // root, so its convergence is measured against the root's magnitude, not
+    // the matrix's; the residual below is a difference of matrices and keeps
+    // the matrix scale.
+    let scale = matrix.norm().max(1.0);
+    let root_scale = scale.sqrt();
 
     for _ in 0..MAX_ITERATIONS {
         // Compute inverses
@@ -378,7 +472,7 @@ pub fn sqrtm_dmatrix(matrix: &na::DMatrix<f64>) -> Result<na::DMatrix<f64>, Stri
 
         // Check convergence: ||Y_{k+1} - Y_k|| < tolerance
         let diff = (&y_new - &y).norm();
-        if diff < TOLERANCE {
+        if diff < TOLERANCE * root_scale {
             y = y_new;
             break;
         }
@@ -387,14 +481,21 @@ pub fn sqrtm_dmatrix(matrix: &na::DMatrix<f64>) -> Result<na::DMatrix<f64>, Stri
         z = z_new;
     }
 
-    // Verify the result: Y * Y should equal A
+    // Verify the result: Y * Y should equal A. Compare column by column so a
+    // poorly resolved direction cannot be hidden by a larger one dominating the
+    // norm; a single global bound would accept a negative eigenvalue whose
+    // magnitude is small next to the rest of the matrix.
     let check = &y * &y;
-    let error = (&check - matrix).norm();
-    if error > 1e-8 {
-        return Err(format!(
-            "Matrix square root did not converge to sufficient accuracy (error: {})",
-            error
-        ));
+    let residual = &check - matrix;
+    for j in 0..n {
+        let col_error = residual.column(j).norm();
+        let col_scale = matrix.column(j).norm().max(1.0);
+        if col_error > 1e-8 * col_scale {
+            return Err(format!(
+                "Matrix square root did not converge to sufficient accuracy (column {} error: {})",
+                j, col_error
+            ));
+        }
     }
 
     Ok(y)
@@ -581,6 +682,71 @@ mod tests {
         );
     }
 
+    #[test]
+    #[serial_test::parallel]
+    fn test_sqrtm_converges_at_large_magnitude() {
+        // The iterate tracks the square root, so a stopping test scaled by the
+        // matrix norm stops short by roughly the square root of that norm.
+        for magnitude in [1e4_f64, 1e12, 1e20, 1e24] {
+            let mat = na::SMatrix::<f64, 1, 1>::new(magnitude);
+            let root = sqrtm(mat).unwrap_or_else(|e| panic!("magnitude {magnitude:e}: {e}"));
+            let expected = magnitude.sqrt();
+            let relative = (root[(0, 0)] - expected).abs() / expected;
+            assert!(
+                relative < 1e-12,
+                "magnitude {:e}: relative root error {:e}",
+                magnitude,
+                relative
+            );
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sqrtm_dmatrix_converges_at_large_magnitude() {
+        for magnitude in [1e4_f64, 1e12, 1e20, 1e24] {
+            let mat = na::DMatrix::from_row_slice(1, 1, &[magnitude]);
+            let root =
+                sqrtm_dmatrix(&mat).unwrap_or_else(|e| panic!("magnitude {magnitude:e}: {e}"));
+            let expected = magnitude.sqrt();
+            let relative = (root[(0, 0)] - expected).abs() / expected;
+            assert!(
+                relative < 1e-12,
+                "magnitude {:e}: relative root error {:e}",
+                magnitude,
+                relative
+            );
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sqrtm_error_negative_eigenvalue_masked_by_scale() {
+        // No real square root, but the negative eigenvalue is small next to the
+        // matrix norm. A residual bound scaled by the whole matrix would accept
+        // this; the per-column bound rejects it.
+        let mat = na::SMatrix::<f64, 2, 2>::new(1e12, 0.0, 0.0, -100.0);
+
+        let err = sqrtm(mat).unwrap_err();
+        assert!(
+            err.contains("column"),
+            "expected a per-column accuracy failure, got: {}",
+            err
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sqrtm_large_magnitude_accepted() {
+        // The Wiki case scaled up. The residual is large in absolute terms but
+        // negligible against the entries, so it must still be accepted.
+        let mat = na::SMatrix::<f64, 2, 2>::new(33.0e10, 24.0e10, 48.0e10, 57.0e10);
+
+        let root = sqrtm(mat).unwrap();
+        let expected = na::SMatrix::<f64, 2, 2>::new(5.0e5, 2.0e5, 4.0e5, 7.0e5);
+        assert!((root - expected).norm() / expected.norm() < 1e-10);
+    }
+
     // =========================================================================
     // sqrtm_dmatrix Tests
     // =========================================================================
@@ -616,6 +782,60 @@ mod tests {
         let sqrt_diag = sqrtm_dmatrix(&diag).unwrap();
         let expected = na::DMatrix::from_row_slice(2, 2, &[2.0, 0.0, 0.0, 3.0]);
         assert!((&sqrt_diag - &expected).norm() < 1e-10);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_spd_sqrtm_dmatrix_non_square_error() {
+        let mat = na::DMatrix::from_row_slice(2, 3, &[1.0, 0.0, 0.0, 0.0, 1.0, 0.0]);
+        let err = spd_sqrtm_dmatrix(&mat).unwrap_err();
+        assert!(err.contains("square"), "got: {}", err);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_spd_sqrtm_dmatrix_negative_eigenvalue_error() {
+        // Negative well beyond what round-off could explain.
+        let mat = na::DMatrix::from_row_slice(2, 2, &[4.0, 0.0, 0.0, -9.0]);
+        let err = spd_sqrtm_dmatrix(&mat).unwrap_err();
+        assert!(err.contains("positive semi-definite"), "got: {}", err);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_spd_sqrtm_dmatrix_clamps_roundoff_negative_eigenvalue() {
+        // A negative eigenvalue at round-off level relative to the largest is
+        // treated as zero rather than rejected, which a propagated covariance
+        // routinely produces.
+        let mat = na::DMatrix::from_row_slice(2, 2, &[1e6, 0.0, 0.0, -1e-9]);
+        let root = spd_sqrtm_dmatrix(&mat).expect("round-off negative must be clamped");
+        assert!((root[(0, 0)] - 1e3).abs() < 1e-6);
+        assert!(root[(1, 1)].abs() < 1e-6);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sqrtm_dmatrix_error_negative_eigenvalue_masked_by_scale() {
+        // Dynamic mirror of test_sqrtm_error_negative_eigenvalue_masked_by_scale.
+        let mat = na::DMatrix::from_row_slice(2, 2, &[1e12, 0.0, 0.0, -100.0]);
+
+        let err = sqrtm_dmatrix(&mat).unwrap_err();
+        assert!(
+            err.contains("column"),
+            "expected a per-column accuracy failure, got: {}",
+            err
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sqrtm_dmatrix_large_magnitude_accepted() {
+        // Dynamic mirror of test_sqrtm_large_magnitude_accepted.
+        let mat = na::DMatrix::from_row_slice(2, 2, &[33.0e10, 24.0e10, 48.0e10, 57.0e10]);
+
+        let root = sqrtm_dmatrix(&mat).unwrap();
+        let expected = na::DMatrix::from_row_slice(2, 2, &[5.0e5, 2.0e5, 4.0e5, 7.0e5]);
+        assert!((root - &expected).norm() / expected.norm() < 1e-10);
     }
 
     #[test]

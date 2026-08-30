@@ -31,8 +31,12 @@ runs:
             shell: bash
             env:
                 MANIFEST_HASH: ${{ hashFiles('.github/brahe-data-manifest.txt') }}
-                SUFFIX: ${{ github.ref == 'refs/heads/main' && '' || format('-run-{0}', github.run_id) }}
             run: |
+                if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+                    SUFFIX=""
+                else
+                    SUFFIX="-run-$GITHUB_RUN_ID"
+                fi
                 {
                     echo "naif=naif-kernels-v1-$MANIFEST_HASH"
                     echo "icgem=brahe-icgem-v1-$MANIFEST_HASH"

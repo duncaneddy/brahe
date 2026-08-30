@@ -1381,8 +1381,8 @@ impl PySpaceTrackClient {
     ///
     /// Raises:
     ///     BraheError: If authentication fails.
-    fn authenticate(&self) -> PyResult<()> {
-        self.inner.authenticate().map_err(|e| BraheError::new_err(e.to_string()))
+    fn authenticate(&self, py: Python<'_>) -> PyResult<()> {
+        py.detach(|| self.inner.authenticate()).map_err(|e| BraheError::new_err(e.to_string()))
     }
 
     /// Execute a query and return the raw response body as a string.
@@ -1395,9 +1395,8 @@ impl PySpaceTrackClient {
     ///
     /// Raises:
     ///     BraheError: On network, auth, or HTTP errors.
-    fn query_raw(&self, query: &PySpaceTrackQuery) -> PyResult<String> {
-        self.inner
-            .query_raw(&query.inner)
+    fn query_raw(&self, py: Python<'_>, query: &PySpaceTrackQuery) -> PyResult<String> {
+        py.detach(|| self.inner.query_raw(&query.inner))
             .map_err(|e| BraheError::new_err(e.to_string()))
     }
 
@@ -1422,9 +1421,8 @@ impl PySpaceTrackClient {
     ///     print(data[0]["OBJECT_NAME"])
     ///     ```
     fn query_json(&self, py: Python<'_>, query: &PySpaceTrackQuery) -> PyResult<Py<PyAny>> {
-        let values = self
-            .inner
-            .query_json(&query.inner)
+        let values = py
+            .detach(|| self.inner.query_json(&query.inner))
             .map_err(|e| BraheError::new_err(e.to_string()))?;
 
         // Convert serde_json::Value to Python objects
@@ -1457,10 +1455,9 @@ impl PySpaceTrackClient {
     ///     records = client.query_gp(query)
     ///     print(records[0].object_name)
     ///     ```
-    fn query_gp(&self, query: &PySpaceTrackQuery) -> PyResult<Vec<PyGPRecord>> {
-        let records = self
-            .inner
-            .query_gp(&query.inner)
+    fn query_gp(&self, py: Python<'_>, query: &PySpaceTrackQuery) -> PyResult<Vec<PyGPRecord>> {
+        let records = py
+            .detach(|| self.inner.query_gp(&query.inner))
             .map_err(|e| BraheError::new_err(e.to_string()))?;
 
         Ok(records.into_iter().map(|r| PyGPRecord { inner: r }).collect())
@@ -1486,10 +1483,9 @@ impl PySpaceTrackClient {
     ///     records = client.query_satcat(query)
     ///     print(records[0].satname)
     ///     ```
-    fn query_satcat(&self, query: &PySpaceTrackQuery) -> PyResult<Vec<PySATCATRecord>> {
-        let records = self
-            .inner
-            .query_satcat(&query.inner)
+    fn query_satcat(&self, py: Python<'_>, query: &PySpaceTrackQuery) -> PyResult<Vec<PySATCATRecord>> {
+        let records = py
+            .detach(|| self.inner.query_satcat(&query.inner))
             .map_err(|e| BraheError::new_err(e.to_string()))?;
 
         Ok(records
@@ -1524,12 +1520,12 @@ impl PySpaceTrackClient {
     ///     ```
     fn fileshare_upload(
         &self,
+        py: Python<'_>,
         folder_id: &str,
         file_name: &str,
         file_data: &[u8],
     ) -> PyResult<String> {
-        self.inner
-            .fileshare_upload(folder_id, file_name, file_data)
+        py.detach(|| self.inner.fileshare_upload(folder_id, file_name, file_data))
             .map_err(|e| BraheError::new_err(e.to_string()))
     }
 
@@ -1556,9 +1552,8 @@ impl PySpaceTrackClient {
         py: Python<'py>,
         file_id: &str,
     ) -> PyResult<Bound<'py, pyo3::types::PyBytes>> {
-        let data = self
-            .inner
-            .fileshare_download(file_id)
+        let data = py
+            .detach(|| self.inner.fileshare_download(file_id))
             .map_err(|e| BraheError::new_err(e.to_string()))?;
         Ok(pyo3::types::PyBytes::new(py, &data))
     }
@@ -1578,9 +1573,8 @@ impl PySpaceTrackClient {
         py: Python<'py>,
         folder_id: &str,
     ) -> PyResult<Bound<'py, pyo3::types::PyBytes>> {
-        let data = self
-            .inner
-            .fileshare_download_folder(folder_id)
+        let data = py
+            .detach(|| self.inner.fileshare_download_folder(folder_id))
             .map_err(|e| BraheError::new_err(e.to_string()))?;
         Ok(pyo3::types::PyBytes::new(py, &data))
     }
@@ -1602,10 +1596,9 @@ impl PySpaceTrackClient {
     ///     for f in files:
     ///         print(f.file_name, f.file_size)
     ///     ```
-    fn fileshare_list_files(&self) -> PyResult<Vec<PyFileShareFileRecord>> {
-        let records = self
-            .inner
-            .fileshare_list_files()
+    fn fileshare_list_files(&self, py: Python<'_>) -> PyResult<Vec<PyFileShareFileRecord>> {
+        let records = py
+            .detach(|| self.inner.fileshare_list_files())
             .map_err(|e| BraheError::new_err(e.to_string()))?;
         Ok(records
             .into_iter()
@@ -1620,10 +1613,9 @@ impl PySpaceTrackClient {
     ///
     /// Raises:
     ///     BraheError: On network, auth, or parse errors.
-    fn fileshare_list_folders(&self) -> PyResult<Vec<PyFolderRecord>> {
-        let records = self
-            .inner
-            .fileshare_list_folders()
+    fn fileshare_list_folders(&self, py: Python<'_>) -> PyResult<Vec<PyFolderRecord>> {
+        let records = py
+            .detach(|| self.inner.fileshare_list_folders())
             .map_err(|e| BraheError::new_err(e.to_string()))?;
         Ok(records
             .into_iter()
@@ -1641,9 +1633,8 @@ impl PySpaceTrackClient {
     ///
     /// Raises:
     ///     BraheError: On network, auth, or deletion errors.
-    fn fileshare_delete(&self, file_id: &str) -> PyResult<String> {
-        self.inner
-            .fileshare_delete(file_id)
+    fn fileshare_delete(&self, py: Python<'_>, file_id: &str) -> PyResult<String> {
+        py.detach(|| self.inner.fileshare_delete(file_id))
             .map_err(|e| BraheError::new_err(e.to_string()))
     }
 
@@ -1674,9 +1665,8 @@ impl PySpaceTrackClient {
         py: Python<'py>,
         file_id: &str,
     ) -> PyResult<Bound<'py, pyo3::types::PyBytes>> {
-        let data = self
-            .inner
-            .spephemeris_download(file_id)
+        let data = py
+            .detach(|| self.inner.spephemeris_download(file_id))
             .map_err(|e| BraheError::new_err(e.to_string()))?;
         Ok(pyo3::types::PyBytes::new(py, &data))
     }
@@ -1698,10 +1688,9 @@ impl PySpaceTrackClient {
     ///     for f in files:
     ///         print(f.file_name, f.norad_cat_id)
     ///     ```
-    fn spephemeris_list_files(&self) -> PyResult<Vec<PySPEphemerisFileRecord>> {
-        let records = self
-            .inner
-            .spephemeris_list_files()
+    fn spephemeris_list_files(&self, py: Python<'_>) -> PyResult<Vec<PySPEphemerisFileRecord>> {
+        let records = py
+            .detach(|| self.inner.spephemeris_list_files())
             .map_err(|e| BraheError::new_err(e.to_string()))?;
         Ok(records
             .into_iter()
@@ -1717,9 +1706,8 @@ impl PySpaceTrackClient {
     /// Raises:
     ///     BraheError: On network, auth, or parse errors.
     fn spephemeris_file_history(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let values = self
-            .inner
-            .spephemeris_file_history()
+        let values = py
+            .detach(|| self.inner.spephemeris_file_history())
             .map_err(|e| BraheError::new_err(e.to_string()))?;
 
         let json_str = serde_json::to_string(&values)
@@ -1758,9 +1746,8 @@ impl PySpaceTrackClient {
         py: Python<'py>,
         file_name: &str,
     ) -> PyResult<Bound<'py, pyo3::types::PyBytes>> {
-        let data = self
-            .inner
-            .publicfiles_download(file_name)
+        let data = py
+            .detach(|| self.inner.publicfiles_download(file_name))
             .map_err(|e| BraheError::new_err(e.to_string()))?;
         Ok(pyo3::types::PyBytes::new(py, &data))
     }
@@ -1773,9 +1760,8 @@ impl PySpaceTrackClient {
     /// Raises:
     ///     BraheError: On network or parse errors.
     fn publicfiles_list_dirs(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let values = self
-            .inner
-            .publicfiles_list_dirs()
+        let values = py
+            .detach(|| self.inner.publicfiles_list_dirs())
             .map_err(|e| BraheError::new_err(e.to_string()))?;
 
         let json_str = serde_json::to_string(&values)

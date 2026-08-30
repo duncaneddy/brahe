@@ -1,6 +1,11 @@
 """Tests for SpaceTrack Python bindings."""
 
+import multiprocessing
 import os
+import socket
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
@@ -465,6 +470,81 @@ class TestSpaceTrackClientMethods:
         assert bh.RequestController.SP_EPHEMERIS is not None
         assert str(bh.RequestController.SP_EPHEMERIS) == "SPEphemeris"
         assert "RequestController" in repr(bh.RequestController.SP_EPHEMERIS)
+
+
+def _serve_slowly(port, delay):
+    """Answer every request with an empty JSON list after `delay` seconds."""
+
+    class Handler(BaseHTTPRequestHandler):
+        def _reply(self):
+            time.sleep(delay)
+            payload = b"[]"
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        do_GET = _reply
+        do_POST = _reply
+
+        def log_message(self, *args):
+            pass
+
+    HTTPServer(("127.0.0.1", port), Handler).serve_forever()
+
+
+@pytest.fixture
+def slow_spacetrack_server():
+    """Loopback server in a separate process that delays every response by one second."""
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    process = multiprocessing.get_context("spawn").Process(
+        target=_serve_slowly, args=(port, 1.0), daemon=True
+    )
+    process.start()
+    deadline = time.monotonic() + 10.0
+    while True:
+        try:
+            socket.create_connection(("127.0.0.1", port), timeout=0.2).close()
+            break
+        except OSError:
+            if time.monotonic() > deadline:
+                process.terminate()
+                pytest.fail("slow server did not start")
+            time.sleep(0.05)
+    try:
+        yield f"http://127.0.0.1:{port}"
+    finally:
+        process.terminate()
+        process.join()
+
+
+class TestSpaceTrackClientGil:
+    def test_query_releases_gil(self, slow_spacetrack_server):
+        client = bh.SpaceTrackClient(
+            "user@example.com", "password", base_url=slow_spacetrack_server
+        )
+        query = bh.SpaceTrackQuery(bh.RequestClass.GP).limit(1)
+        done = threading.Event()
+        errors = []
+
+        def worker():
+            try:
+                client.query_raw(query)
+            except bh.BraheError as e:
+                errors.append(e)
+            finally:
+                done.set()
+
+        threading.Thread(target=worker).start()
+        ticks = 0
+        while not done.wait(0.01):
+            ticks += 1
+
+        assert errors == []
+        assert ticks >= 10
 
 
 # ========================================

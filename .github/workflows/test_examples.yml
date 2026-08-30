@@ -192,8 +192,10 @@ jobs:
         if: ${{ !inputs.use_retry }}
         run: just test-examples ${{ inputs.example_args }}
 
-      # Live-network runs (e.g. --network, which exercises the ICGEM/Celestrak/
-      # GCAT/NAIF dataset examples) retry to absorb transient remote throttling.
+      # Live-network runs (e.g. --network) retry to absorb transient remote
+      # throttling: the NETWORK-flagged examples run only here, and the
+      # unflagged Celestrak GP examples run here too, refreshing `active`
+      # (and the other warmed groups) live instead of from cache.
       - name: Test examples (with retries)
         if: ${{ inputs.use_retry }}
         uses: nick-fields/retry@v4
@@ -203,7 +205,7 @@ jobs:
           retry_wait_seconds: 60
           command: just test-examples ${{ inputs.example_args }}
 
-      # NETWORK-flagged examples execute only in this --network run of
+      # The NETWORK-flagged examples execute only in this --network run of
       # test-examples, so it is the only producer of their doc figures.
       # Persist docs/figures to the actions cache so the docs deploys
       # (update_docs.yml, docs_only.yml), whose own --ci-only example runs
@@ -217,14 +219,12 @@ jobs:
           path: docs/figures/
           key: network-example-figures-${{ github.run_id }}
 
-      # Text-output analogue of the figures cache above. NETWORK-flagged
-      # examples (first_script, clients_celestrak, ...) execute only in this
-      # --network run of test-examples, so it is the only producer of their
-      # captured stdout; the weekly warm_data_cache.yml producer keeps the
-      # Celestrak data cache warm separately, without running these examples.
-      # Persist docs/outputs so the docs deploys (update_docs.yml,
-      # docs_only.yml), whose own --ci-only example runs skip these examples,
-      # can restore and overlay it.
+      # Text-output analogue of the figures cache above. The NETWORK-flagged
+      # examples execute only in this --network run of test-examples, so it
+      # is the only producer of their captured stdout. Persist docs/outputs
+      # so the docs deploys (update_docs.yml, docs_only.yml), whose own
+      # --ci-only example runs skip these examples, can restore and overlay
+      # it.
       - name: Save network example outputs to cache
         if: ${{ inputs.use_retry }}
         uses: actions/cache/save@v6.1.0

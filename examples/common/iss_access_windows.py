@@ -1,6 +1,5 @@
 # /// script
 # dependencies = ["brahe", "pytest"]
-# FLAGS = ["NETWORK"]
 # ///
 """
 This example shows how to find passes of the ISS over San Francisco, CA

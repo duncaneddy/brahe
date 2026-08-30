@@ -82,8 +82,12 @@ test-integration-python *flags: _setup
     uv pip install -e ".[all]" --quiet
     {{python}} -m pytest tests/ -v -m integration {{flags}}
 
-# Run serially before the parallel example/plot pools so they never download (or
-# race) live. Idempotent: each downloader fast-paths if its resource is cached.
+# Warm every network resource the examples and plots read, once, serially.
+# `setup` runs it for a fresh checkout and the CI example, plot, and docs jobs
+# run it before their offline steps; run it again after editing
+# .github/brahe-data-manifest.txt. Idempotent: each downloader fast-paths if
+# its resource is cached, so the parallel example/plot pools never race a
+# cold download.
 # Pre-download network resources (Natural Earth texture, land basemap, cartopy)
 download-resources: _setup
     @{{python}} -c "from brahe.plots.texture_utils import download_natural_earth_texture; download_natural_earth_texture('50m')"
@@ -384,9 +388,8 @@ setup:
     uv sync --group dev
     uv pip install -e . --quiet
     .venv/bin/pre-commit install
-    @{{python}} -c "import brahe as bh; bh.load_common_spice_kernels()"
-    @{{python}} -c "import brahe as bh; bh.load_spice_kernel('mar099s')"
-    @echo "✓ Setup complete (.venv ready, pre-commit hooks installed, kernels cached)"
+    @just download-resources
+    @echo "✓ Setup complete (.venv ready, pre-commit hooks installed, data cached)"
 
 # Set up the full dev environment (Python dev deps + Rust dev tools).
 # Idempotent: only installs samply if not already on PATH.

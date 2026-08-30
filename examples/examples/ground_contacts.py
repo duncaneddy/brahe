@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "matplotlib", "numpy"]
-# FLAGS = ["NETWORK"]
 # ///
 
 """

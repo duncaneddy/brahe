@@ -36,12 +36,12 @@ The following example retrieves GP data for a single satellite by NORAD catalog 
 
 === "Python"
     ``` python
-    --8<-- "./examples/datasets/celestrak_get_by_id.py:12"
+    --8<-- "./examples/datasets/celestrak_get_by_id.py:11"
     ```
 
 === "Rust"
     ``` rust
-    --8<-- "./examples/datasets/celestrak_get_by_id.rs:4"
+    --8<-- "./examples/datasets/celestrak_get_by_id.rs:7"
     ```
 
 ??? example "Output"

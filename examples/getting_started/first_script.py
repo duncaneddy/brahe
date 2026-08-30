@@ -1,6 +1,5 @@
 # /// script
 # dependencies = ["brahe"]
-# FLAGS = ["NETWORK"]
 
 import brahe as bh
 

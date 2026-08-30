@@ -3,7 +3,6 @@
 //! This example demonstrates querying CelesTrak for a satellite's general
 //! perturbations (GP) data using its NORAD catalog number.
 //!
-//! FLAGS = ["NETWORK"]
 
 #[allow(unused_imports)]
 use brahe as bh;

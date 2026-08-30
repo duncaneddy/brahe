@@ -1,6 +1,5 @@
 # /// script
 # dependencies = ["brahe"]
-# FLAGS = ["NETWORK"]
 # ///
 """
 Convert CelesTrak GP data directly to SGP propagator.

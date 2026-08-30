@@ -19,7 +19,7 @@ provides a convenience method that collapses these steps into a single call:
 
 === "Rust"
     ``` rust
-    --8<-- "./examples/datasets/celestrak_as_propagator.rs:9"
+    --8<-- "./examples/datasets/celestrak_as_propagator.rs:7"
     ```
 
 ??? example "Output"

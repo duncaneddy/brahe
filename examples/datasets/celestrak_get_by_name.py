@@ -1,6 +1,5 @@
 # /// script
 # dependencies = ["brahe"]
-# FLAGS = ["NETWORK"]
 # ///
 """
 Get satellite GP data by name from CelesTrak.

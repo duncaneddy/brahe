@@ -82,9 +82,12 @@ test-integration-python *flags: _setup
     uv pip install -e ".[all]" --quiet
     {{python}} -m pytest tests/ -v -m integration {{flags}}
 
-# Serial warm that test-examples, test-example, make-plots, and make-plot depend
-# on so their parallel pools never download (or race) live. Idempotent: each
-# downloader fast-paths if its resource is cached.
+# Warm every network resource the examples and plots read, once, serially.
+# `setup` runs it for a fresh checkout and the CI example, plot, and docs jobs
+# run it before their offline steps; run it again after editing
+# .github/brahe-data-manifest.txt. Idempotent: each downloader fast-paths if
+# its resource is cached, so the parallel example/plot pools never race a
+# cold download.
 # Pre-download network resources (Natural Earth texture, land basemap, cartopy)
 download-resources: _setup
     @{{python}} -c "from brahe.plots.texture_utils import download_natural_earth_texture; download_natural_earth_texture('50m')"
@@ -99,11 +102,11 @@ download-resources: _setup
     @{{python}} -c "import brahe as bh; c = bh.celestrak.CelestrakClient(cache_max_age=60*86400); c.get_gp(group='active'); c.get_gp(group='starlink'); c.get_gp(group='gps-ops'); c.get_gp(group='cosmos-1408-debris'); c.get_gp(group='fengyun-1c-debris'); c.get_gp(group='iridium-33-debris'); c.get_gp(group='cosmos-2251-debris')"
 
 # Test all documentation examples (delegates to scripts/test_examples.py)
-test-examples *args: _setup download-resources
+test-examples *args: _setup
     @PYTHONPATH={{scripts_dir}} {{python}} {{scripts_dir}}/test_examples.py {{args}}
 
 # Test a specific example (delegates to scripts/test_example.py)
-test-example *args: _setup download-resources
+test-example *args: _setup
     @PYTHONPATH={{scripts_dir}} {{python}} {{scripts_dir}}/test_example.py {{args}}
 
 # ───── Coverage ─────
@@ -385,9 +388,8 @@ setup:
     uv sync --group dev
     uv pip install -e . --quiet
     .venv/bin/pre-commit install
-    @{{python}} -c "import brahe as bh; bh.load_common_spice_kernels()"
-    @{{python}} -c "import brahe as bh; bh.load_spice_kernel('mar099s')"
-    @echo "✓ Setup complete (.venv ready, pre-commit hooks installed, kernels cached)"
+    @just download-resources
+    @echo "✓ Setup complete (.venv ready, pre-commit hooks installed, data cached)"
 
 # Set up the full dev environment (Python dev deps + Rust dev tools).
 # Idempotent: only installs samply if not already on PATH.
@@ -568,11 +570,11 @@ docs-serve: _setup
 # ───── Plots & Figures ─────
 
 # Generate all documentation plots (delegates to scripts/make_plots.py)
-make-plots *args: _setup download-resources
+make-plots *args: _setup
     @PYTHONPATH={{scripts_dir}} {{python}} {{scripts_dir}}/make_plots.py {{args}}
 
 # Generate a specific plot (delegates to scripts/make_plot.py)
-make-plot *args: _setup download-resources
+make-plot *args: _setup
     @PYTHONPATH={{scripts_dir}} {{python}} {{scripts_dir}}/make_plot.py {{args}}
 
 # ───── Build & Package ─────

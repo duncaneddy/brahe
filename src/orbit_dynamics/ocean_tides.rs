@@ -66,7 +66,7 @@ pub fn fes2004_coefficients_path() -> Result<PathBuf, BraheError> {
         return Ok(path);
     }
 
-    fetch_and_cache_fes2004(&path, || download_bytes(FES2004_URL))?;
+    fetch_and_cache_fes2004(&path, || download_bytes(FES2004_URL, "FES2004 tide model"))?;
     Ok(path)
 }
 

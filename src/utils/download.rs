@@ -222,21 +222,63 @@ pub(crate) fn download_to_file(
 /// Unlike [`download_to_file`], the response body is read through a streaming
 /// reader rather than ureq's convenience string method, so large binary payloads
 /// (e.g. multi-MB SPICE kernels) are not subject to ureq's default in-memory
-/// response size limit. The returned error carries the URL and attempt count;
-/// callers are expected to wrap it with product-specific context.
-pub(crate) fn download_bytes(url: &str) -> Result<Vec<u8>, BraheError> {
-    download_bytes_impl(url, None)
+/// response size limit. Errors name `description`, the URL, and the attempt
+/// count; when `BRAHE_NETWORK_MODE` forbids the request, the error names
+/// `description` as the resource that cannot be downloaded.
+///
+/// # Arguments
+///
+/// * `url` - The URL to fetch.
+/// * `description` - Human-readable product label for error messages.
+///
+/// # Returns
+///
+/// * `Ok(Vec<u8>)` - The response body.
+/// * `Err(BraheError)` - On a non-retryable status or exhausted retries.
+///
+/// # Examples
+///
+/// ```ignore
+/// let kernel = download_bytes(
+///     "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de440s.bsp",
+///     "NAIF kernel de440s",
+/// )?;
+/// ```
+pub(crate) fn download_bytes(url: &str, description: &str) -> Result<Vec<u8>, BraheError> {
+    download_bytes_impl(url, description, None)
 }
 
 /// As [`download_bytes`], but sending a caller-specified `User-Agent` header.
 ///
 /// Some mirrors (e.g. the star catalog data source) return `403 Forbidden` to
 /// default HTTP client user agents and require a browser-like one instead.
+///
+/// # Arguments
+///
+/// * `url` - The URL to fetch.
+/// * `description` - Human-readable product label for error messages.
+/// * `user_agent` - Value sent as the request's `User-Agent` header.
+///
+/// # Returns
+///
+/// * `Ok(Vec<u8>)` - The response body.
+/// * `Err(BraheError)` - On a non-retryable status or exhausted retries.
+///
+/// # Examples
+///
+/// ```ignore
+/// let catalog = download_bytes_with_user_agent(
+///     "https://cdsarc.cds.unistra.fr/ftp/I/239/hip_main.dat",
+///     "star catalog",
+///     "Mozilla/5.0 (compatible; brahe)",
+/// )?;
+/// ```
 pub(crate) fn download_bytes_with_user_agent(
     url: &str,
+    description: &str,
     user_agent: &str,
 ) -> Result<Vec<u8>, BraheError> {
-    download_bytes_impl(url, Some(user_agent))
+    download_bytes_impl(url, description, Some(user_agent))
 }
 
 /// Shared retry/backoff core for [`download_bytes`] and
@@ -246,6 +288,7 @@ pub(crate) fn download_bytes_with_user_agent(
 /// # Arguments
 ///
 /// * `url` - The URL to fetch.
+/// * `description` - Human-readable product label for error messages.
 /// * `user_agent` - Optional `User-Agent` header value.
 ///
 /// # Returns
@@ -258,10 +301,14 @@ pub(crate) fn download_bytes_with_user_agent(
 /// # Examples
 ///
 /// ```ignore
-/// let bytes = download_bytes_impl(url, Some("Mozilla/5.0 (compatible; brahe)"))?;
+/// let bytes = download_bytes_impl(url, "star catalog", Some("Mozilla/5.0 (compatible; brahe)"))?;
 /// ```
-fn download_bytes_impl(url: &str, user_agent: Option<&str>) -> Result<Vec<u8>, BraheError> {
-    ensure_online(url, url)?;
+fn download_bytes_impl(
+    url: &str,
+    description: &str,
+    user_agent: Option<&str>,
+) -> Result<Vec<u8>, BraheError> {
+    ensure_online(url, &format!("{description} ({url})"))?;
 
     let mut attempt: u32 = 0;
 
@@ -282,8 +329,8 @@ fn download_bytes_impl(url: &str, user_agent: Option<&str>) -> Result<Vec<u8>, B
                     continue;
                 }
                 return Err(BraheError::Error(format!(
-                    "request to {} failed after {} attempt(s): {}",
-                    url, attempt, e
+                    "{} request to {} failed after {} attempt(s): {}",
+                    description, url, attempt, e
                 )));
             }
         };
@@ -301,8 +348,8 @@ fn download_bytes_impl(url: &str, user_agent: Option<&str>) -> Result<Vec<u8>, B
                     continue;
                 }
                 return Err(BraheError::Error(format!(
-                    "reading response body from {} failed after {} attempt(s): {}",
-                    url, attempt, e
+                    "reading {} response body from {} failed after {} attempt(s): {}",
+                    description, url, attempt, e
                 )));
             }
         }
@@ -326,7 +373,7 @@ mod tests {
             then.status(200).body("kernel-bytes");
         });
 
-        let bytes = download_bytes(&server.url("/kernel.bsp")).unwrap();
+        let bytes = download_bytes(&server.url("/kernel.bsp"), "test kernel").unwrap();
         assert_eq!(bytes, b"kernel-bytes");
     }
 
@@ -346,6 +393,7 @@ mod tests {
 
         let bytes = download_bytes_with_user_agent(
             &server.url("/catalog.txt"),
+            "test catalog",
             "Mozilla/5.0 (compatible; brahe)",
         )
         .unwrap();
@@ -365,9 +413,51 @@ mod tests {
             then.status(503);
         });
 
-        let result = download_bytes(&server.url("/kernel.bsp"));
+        let result = download_bytes(&server.url("/kernel.bsp"), "test kernel");
         assert!(result.is_err());
         assert_eq!(mock.calls(), MAX_DOWNLOAD_ATTEMPTS as usize);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_download_bytes_retries_truncated_body() {
+        // A body that ends before its declared length fails in the read phase.
+        // That is a transport error, so the whole request is retried up to the
+        // attempt cap and the final error names the description. A raw socket
+        // stands in for the server because HTTP mock servers refuse to send a
+        // body shorter than the Content-Length they declare.
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let connections = Arc::new(AtomicUsize::new(0));
+        let counter = Arc::clone(&connections);
+        std::thread::spawn(move || {
+            for stream in listener.incoming().flatten() {
+                let mut stream = stream;
+                let mut request = [0u8; 1024];
+                let _ = stream.read(&mut request);
+                let _ = stream.write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 1000\r\nConnection: close\r\n\r\nshort",
+                );
+                counter.fetch_add(1, Ordering::SeqCst);
+            }
+        });
+
+        let err = download_bytes(
+            &format!("http://127.0.0.1:{port}/kernel.bsp"),
+            "test kernel",
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("reading test kernel response body"), "{err}");
+        assert_eq!(
+            connections.load(Ordering::SeqCst),
+            MAX_DOWNLOAD_ATTEMPTS as usize
+        );
     }
 
     #[test]
@@ -380,7 +470,7 @@ mod tests {
             then.status(404);
         });
 
-        let result = download_bytes(&server.url("/kernel.bsp"));
+        let result = download_bytes(&server.url("/kernel.bsp"), "test kernel");
         assert!(result.is_err());
         assert_eq!(mock.calls(), 1);
     }
@@ -508,9 +598,12 @@ mod tests {
             then.status(200).body("kernel-bytes");
         });
 
-        let err = download_bytes("https://brahe-network-mode-test.invalid/kernel.bsp")
-            .unwrap_err()
-            .to_string();
+        let err = download_bytes(
+            "https://brahe-network-mode-test.invalid/kernel.bsp",
+            "test kernel",
+        )
+        .unwrap_err()
+        .to_string();
         assert!(
             err.starts_with("BRAHE_NETWORK_MODE is offline-strict; "),
             "{err}"

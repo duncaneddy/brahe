@@ -1,8 +1,8 @@
 /*!
  * Network access policy controlled by the `BRAHE_NETWORK_MODE` environment variable.
  *
- * Every function in brahe that opens a network connection calls [`ensure_online`]
- * first, and every cache with a time-to-live consults [`cache_policy`] before
+ * Every function in brahe that opens a network connection calls `ensure_online`
+ * first, and every cache with a time-to-live consults `cache_policy` before
  * deciding whether a cached file is served or refreshed. The variable therefore
  * gives a single switch for running brahe without network access. A request to a
  * loopback address is never treated as network access, so local mock servers used
@@ -27,7 +27,7 @@ pub const NETWORK_MODE_ENV: &str = "BRAHE_NETWORK_MODE";
 /// | `OfflineStrict` | never | served | error | error |
 ///
 /// A request to a loopback address is exempt from the `requests` column in every
-/// mode; see [`ensure_online`].
+/// mode; see `ensure_online`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NetworkMode {
     /// Requests are allowed and stale caches are refreshed.
@@ -99,7 +99,8 @@ pub fn network_mode() -> Result<NetworkMode, BraheError> {
 
 /// Extract the host from a URL's authority, dropping scheme, user-info, and port.
 ///
-/// Strips a leading `scheme://`, takes the authority up to the first `/`, `?`,
+/// Strips a leading `scheme://` (or the `//` of a scheme-relative URL), takes
+/// the authority up to the first `/`, `?`,
 /// `#`, or `\` (a backslash is treated as an authority terminator too, since
 /// WHATWG URL parsing does the same for special schemes — otherwise a host
 /// like `evil.com\@127.0.0.1` would be misread as user-info on `127.0.0.1`
@@ -124,9 +125,13 @@ pub fn network_mode() -> Result<NetworkMode, BraheError> {
 /// assert_eq!(url_host("http://user@Localhost:8080/x"), "localhost");
 /// assert_eq!(url_host("http://[::1]:1234/a"), "::1");
 /// assert_eq!(url_host("evil.com\\@127.0.0.1"), "evil.com");
+/// assert_eq!(url_host("//example.org/path"), "example.org");
 /// ```
 fn url_host(url: &str) -> String {
-    let after_scheme = url.split("://").nth(1).unwrap_or(url);
+    let after_scheme = match url.split_once("://") {
+        Some((_, rest)) => rest,
+        None => url.strip_prefix("//").unwrap_or(url),
+    };
     let authority_end = after_scheme
         .find(['/', '?', '#', '\\'])
         .unwrap_or(after_scheme.len());
@@ -346,9 +351,29 @@ mod tests {
 
     #[test]
     #[serial_test::parallel]
+    fn test_url_host() {
+        for (url, host) in [
+            ("http://user@Localhost:8080/x", "localhost"),
+            (
+                "https://celestrak.org/NORAD/elements/gp.php?GROUP=active",
+                "celestrak.org",
+            ),
+            ("http://[::1]:1234/a", "::1"),
+            ("evil.com\\@127.0.0.1", "evil.com"),
+            ("//example.org/path", "example.org"),
+            ("//127.0.0.1:9/x", "127.0.0.1"),
+            ("example.org:443", "example.org"),
+        ] {
+            assert_eq!(url_host(url), host, "{url}");
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
     fn test_is_loopback_url() {
         for url in [
             "http://localhost:8080/x",
+            "//127.0.0.1/x",
             "http://127.0.0.1:9",
             "http://127.5.6.7/",
             "http://[::1]:1234/a",

@@ -883,6 +883,7 @@ impl CelestrakClient {
             ureq::Error::StatusCode(429 | 500 | 502 | 503 | 504)
                 | ureq::Error::Io(_)
                 | ureq::Error::Timeout(_)
+                | ureq::Error::HostNotFound
                 | ureq::Error::ConnectionFailed
         )
     }
@@ -1604,6 +1605,21 @@ mod tests {
         let result = client.query_raw(&query);
         assert!(result.is_err());
         mock.assert_calls(2); // 1 initial + 1 retry
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_is_retryable_error_transport_failures() {
+        for e in [
+            ureq::Error::HostNotFound,
+            ureq::Error::ConnectionFailed,
+            ureq::Error::StatusCode(503),
+        ] {
+            assert!(CelestrakClient::is_retryable_error(&e), "{e}");
+        }
+        assert!(!CelestrakClient::is_retryable_error(
+            &ureq::Error::StatusCode(404)
+        ));
     }
 
     #[test]

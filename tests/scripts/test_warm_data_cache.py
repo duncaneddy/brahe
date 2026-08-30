@@ -2,7 +2,6 @@
 
 import importlib.util
 from pathlib import Path
-from unittest import mock
 
 import pytest
 
@@ -16,7 +15,11 @@ def test_entry_family_classifies_manifest_forms():
     assert warm.entry_family("de440s") == "kernel"
     assert warm.entry_family("icgem:moon:GRGM660PRIM") == "icgem"
     assert warm.entry_family("horizons:Ceres:2015-12-01:2016-03-01") == "horizons"
-    assert warm.entry_family("celestrak:group:active") == "celestrak"
+
+
+def test_entry_family_skips_snapshot_backed_prefixes():
+    """Celestrak groups are committed fixtures, so they are skipped, not warmed."""
+    assert warm.entry_family("celestrak:group:active") is None
 
 
 def test_entry_family_unknown_prefix_raises():
@@ -24,11 +27,16 @@ def test_entry_family_unknown_prefix_raises():
         warm.entry_family("spacetrack:gp")
 
 
-def test_parse_args_only_and_refresh():
-    args = warm.parse_args(["--only", "celestrak", "--only", "kernel", "--refresh"])
-    assert args.only == ["celestrak", "kernel"]
-    assert args.refresh is True
+def test_parse_args_only():
+    args = warm.parse_args(["--only", "icgem", "--only", "kernel"])
+    assert args.only == ["icgem", "kernel"]
     assert warm.parse_args([]).only == []
+
+
+def test_parse_args_rejects_snapshot_backed_family():
+    """`celestrak` is no longer a warmable family."""
+    with pytest.raises(SystemExit):
+        warm.parse_args(["--only", "celestrak"])
 
 
 def test_parse_args_rejects_unknown_family():
@@ -36,24 +44,20 @@ def test_parse_args_rejects_unknown_family():
         warm.parse_args(["--only", "textures"])
 
 
-def test_warm_celestrak_uses_long_ttl_client_and_group_query():
-    fake_client = mock.MagicMock()
-    fake_client.get_gp.return_value = [object(), object()]
-    with mock.patch.object(
-        warm.bh.celestrak, "CelestrakClient", return_value=fake_client
-    ) as ctor:
-        result = warm._warm_celestrak("group:active")
-    ctor.assert_called_once_with(cache_max_age=60 * 86400)
-    fake_client.get_gp.assert_called_once_with(group="active")
-    assert result == "2 records"
-
-
-def test_warm_celestrak_rejects_non_group_spec():
-    with pytest.raises(ValueError, match="celestrak:group:<name>"):
-        warm._warm_celestrak("catnr:25544")
-
-
 def test_main_only_filters_entries(monkeypatch, tmp_path):
+    manifest = tmp_path / "manifest.txt"
+    manifest.write_text("de440s\nicgem:moon:GRGM660PRIM\n")
+    monkeypatch.setattr(warm, "MANIFEST_PATH", manifest)
+    warmed = []
+    monkeypatch.setattr(
+        warm, "_warm_with_retries", lambda entry: warmed.append(entry) or "ok"
+    )
+    warm.main(["--only", "icgem"])
+    assert warmed == ["icgem:moon:GRGM660PRIM"]
+
+
+def test_main_skips_celestrak_entries_without_failing(monkeypatch, tmp_path):
+    """Snapshot-backed entries are neither warmed nor treated as unknown prefixes."""
     manifest = tmp_path / "manifest.txt"
     manifest.write_text("de440s\ncelestrak:group:active\n")
     monkeypatch.setattr(warm, "MANIFEST_PATH", manifest)
@@ -61,21 +65,8 @@ def test_main_only_filters_entries(monkeypatch, tmp_path):
     monkeypatch.setattr(
         warm, "_warm_with_retries", lambda entry: warmed.append(entry) or "ok"
     )
-    warm.main(["--only", "celestrak"])
-    assert warmed == ["celestrak:group:active"]
-
-
-def test_main_refresh_deletes_celestrak_cache(monkeypatch, tmp_path):
-    manifest = tmp_path / "manifest.txt"
-    manifest.write_text("celestrak:group:active\n")
-    monkeypatch.setattr(warm, "MANIFEST_PATH", manifest)
-    cache = tmp_path / "celestrak"
-    cache.mkdir()
-    (cache / "stale").write_text("x")
-    monkeypatch.setattr(warm.bh, "get_celestrak_cache_dir", lambda: str(cache))
-    monkeypatch.setattr(warm, "_warm_with_retries", lambda entry: "ok")
-    warm.main(["--only", "celestrak", "--refresh"])
-    assert not (cache / "stale").exists()
+    warm.main([])
+    assert warmed == ["de440s"]
 
 
 def test_main_reports_failures_and_exits_nonzero(monkeypatch, tmp_path, capsys):

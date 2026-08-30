@@ -1,17 +1,16 @@
 name: Warm Brahe Data Cache
 
 # Keeps ~/.cache/brahe (NAIF kernels, ICGEM gravity models, SBDB + Horizons,
-# FK5/Hipparcos star catalogs, Celestrak GP data) from being evicted by
-# GitHub's 7-day "not accessed" cache eviction policy. Each family restores,
-# warms, and saves independently, so one unreachable mirror never blocks the
-# others: every warm step runs with `continue-on-error: true` and the save
-# steps are gated on their own family's outcome. Most weeks every family
-# restores an exact cache-key hit and the warm steps are no-ops, but a
-# restore still counts as an access and resets the 7-day idle-eviction clock,
-# which is sufficient to keep the caches alive for the reusable test
-# workflows and integration_tests.yml. Celestrak is the only mutable family:
-# it is refreshed and saved under the run id on every run, and consumers
-# restore the newest entry by prefix.
+# FK5/Hipparcos star catalogs) from being evicted by GitHub's 7-day "not
+# accessed" cache eviction policy. Each family restores, warms, and saves
+# independently, so one unreachable mirror never blocks the others: every warm
+# step runs with `continue-on-error: true` and the save steps are gated on
+# their own family's outcome. Most weeks every family restores an exact
+# cache-key hit and the warm steps are no-ops, but a restore still counts as an
+# access and resets the 7-day idle-eviction clock, which is sufficient to keep
+# the caches alive for the reusable test workflows and integration_tests.yml.
+# Celestrak GP groups are not warmed here: they are committed under
+# test_assets/celestrak and seeded directly into the cache.
 on:
     schedule:
         - cron: "0 6 * * 1"
@@ -120,8 +119,6 @@ jobs:
                         ~/.cache/brahe/sbdb
                         ~/.cache/brahe/horizons
                     key: brahe-sbdb-horizons-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
-
-            # ── Celestrak (mutable: refreshed and saved on every run) ─────
 
             # ── Star catalogs (curl; not manifest-driven) ─────────────────
             # FK5 + Hipparcos only. Explicit file paths (not the whole

@@ -95,11 +95,27 @@ def main() -> int:
             )
             return 1
 
+        # Install each fetched snapshot over its own destination only. A
+        # partial refresh (`--group`) must not disturb the snapshots it did not
+        # fetch, and every replacement goes through `os.replace` so a failure
+        # mid-run leaves each destination either wholly old or wholly new.
         SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
-        for stale in SNAPSHOT_DIR.glob("*"):
-            stale.unlink()
         for src in fetched:
-            shutil.copy2(src, SNAPSHOT_DIR / src.name)
+            staged = SNAPSHOT_DIR / f".{src.name}.incoming"
+            shutil.copy2(src, staged)
+            os.replace(staged, SNAPSHOT_DIR / src.name)
+
+        # A full refresh also drops snapshots whose group has left the
+        # manifest. A partial refresh has no view of the full set, so it never
+        # removes anything.
+        if not args.group:
+            keep = {src.name for src in fetched}
+            for stale in SNAPSHOT_DIR.glob("*"):
+                if stale.name not in keep:
+                    print(
+                        f"  removing snapshot no longer in the manifest: {stale.name}"
+                    )
+                    stale.unlink()
 
     total = sum(p.stat().st_size for p in SNAPSHOT_DIR.glob("*"))
     print(

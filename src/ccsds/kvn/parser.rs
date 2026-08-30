@@ -455,6 +455,84 @@ pub fn parse_oem(content: &str) -> Result<OEM, BraheError> {
     Ok(OEM { header, segments })
 }
 
+/// The OMM section a keyword belongs to.
+#[derive(Clone, Copy, PartialEq)]
+enum OMMSection {
+    Header,
+    Metadata,
+    MeanElements,
+    TleParameters,
+    SpacecraftParameters,
+    Covariance,
+}
+
+/// The OMM section a keyword introduces, or `None` when the keyword is not one
+/// this parser recognizes.
+///
+/// Keywords are grouped as CCSDS 502.0-B-3 tables 4-1 (header), 4-2 (metadata),
+/// and 4-3 (data) list them.
+///
+/// # Arguments
+///
+/// * `key` - The KVN keyword, without surrounding whitespace.
+///
+/// # Returns
+///
+/// * `Option<OMMSection>` - The owning section, or `None` if unrecognized.
+///
+/// # Examples
+///
+/// ```ignore
+/// assert_eq!(omm_section("ORIGINATOR"), Some(OMMSection::Header));
+/// assert_eq!(omm_section("MEAN_MOTION"), Some(OMMSection::MeanElements));
+/// assert_eq!(omm_section("BSTAR"), Some(OMMSection::TleParameters));
+/// // EPOCH appears in more than one block, so it names none on its own.
+/// assert_eq!(omm_section("EPOCH"), None);
+/// ```
+fn omm_section(key: &str) -> Option<OMMSection> {
+    Some(match key {
+        "CCSDS_OMM_VERS" | "CLASSIFICATION" | "CREATION_DATE" | "ORIGINATOR" | "MESSAGE_ID" => {
+            OMMSection::Header
+        }
+
+        "OBJECT_NAME"
+        | "OBJECT_ID"
+        | "CENTER_NAME"
+        | "REF_FRAME"
+        | "REF_FRAME_EPOCH"
+        | "TIME_SYSTEM"
+        | "MEAN_ELEMENT_THEORY" => OMMSection::Metadata,
+
+        // As for the OPM, EPOCH alone does not name a block.
+        "EPOCH" => return None,
+
+        "SEMI_MAJOR_AXIS" | "MEAN_MOTION" | "ECCENTRICITY" | "INCLINATION" | "RA_OF_ASC_NODE"
+        | "ARG_OF_PERICENTER" | "MEAN_ANOMALY" | "GM" => OMMSection::MeanElements,
+
+        "EPHEMERIS_TYPE"
+        | "CLASSIFICATION_TYPE"
+        | "NORAD_CAT_ID"
+        | "ELEMENT_SET_NO"
+        | "REV_AT_EPOCH"
+        | "BSTAR"
+        | "BTERM"
+        | "MEAN_MOTION_DOT"
+        | "MEAN_MOTION_DDOT"
+        | "AGOM" => OMMSection::TleParameters,
+
+        "MASS" | "SOLAR_RAD_AREA" | "SOLAR_RAD_COEFF" | "DRAG_AREA" | "DRAG_COEFF" => {
+            OMMSection::SpacecraftParameters
+        }
+
+        "COV_REF_FRAME" => OMMSection::Covariance,
+        k if k.starts_with("CX_") || k.starts_with("CY_") || k.starts_with("CZ_") => {
+            OMMSection::Covariance
+        }
+
+        _ => return None,
+    })
+}
+
 /// Parse an OMM message from KVN format.
 ///
 /// OMM KVN is flat — no META_START/META_STOP blocks. All key-value pairs
@@ -522,20 +600,40 @@ pub fn parse_omm(content: &str) -> Result<OMM, BraheError> {
     // User-defined
     let mut user_defined: HashMap<String, String> = HashMap::new();
 
-    // Track which section we're in for comments
-    let mut in_header = true;
-    let mut in_metadata = false;
-    let mut in_mean_elements = false;
-    let mut in_tle = false;
-    let mut in_spacecraft = false;
+    // Comments accumulate until a keyword names the section they introduce.
+    // CCSDS 502.0-B-3 tables 4-1 through 4-3 open every OMM section with a
+    // COMMENT row and subsection 7.4.8 fixes the keyword order to match, so a
+    // comment belongs to the section that follows it, not the one before it.
+    let mut pending_comments: Vec<String> = Vec::new();
+    let mut last_section = OMMSection::Header;
 
     let active_ts = |ts: &Option<CCSDSTimeSystem>| ts.clone().unwrap_or(CCSDSTimeSystem::UTC);
+
+    macro_rules! file_comments {
+        ($section:expr) => {{
+            if !pending_comments.is_empty() {
+                let sink = match $section {
+                    OMMSection::Header => &mut header_comments,
+                    OMMSection::Metadata => &mut metadata_comments,
+                    OMMSection::MeanElements => &mut mean_element_comments,
+                    OMMSection::TleParameters => &mut tle_comments,
+                    OMMSection::SpacecraftParameters => &mut spacecraft_comments,
+                    OMMSection::Covariance => &mut cov_comments,
+                };
+                sink.append(&mut pending_comments);
+            }
+        }};
+    }
 
     for line in content.lines() {
         let token = tokenize_line(line);
         match token {
             KVNToken::KeyValue { key, value } => {
                 let val = strip_units(&value);
+                if let Some(section) = omm_section(&key) {
+                    last_section = section;
+                    file_comments!(section);
+                }
                 match key.as_str() {
                     // Header
                     "CCSDS_OMM_VERS" => {
@@ -549,7 +647,6 @@ pub fn parse_omm(content: &str) -> Result<OMM, BraheError> {
                     }
                     "CREATION_DATE" => {
                         creation_date = Some(parse_ccsds_datetime(val, &CCSDSTimeSystem::UTC)?);
-                        in_header = false;
                     }
                     "ORIGINATOR" => {
                         originator = Some(val.to_string());
@@ -561,7 +658,6 @@ pub fn parse_omm(content: &str) -> Result<OMM, BraheError> {
                     // Metadata
                     "OBJECT_NAME" => {
                         object_name = Some(val.to_string());
-                        in_metadata = true;
                     }
                     "OBJECT_ID" => {
                         object_id = Some(val.to_string());
@@ -578,13 +674,11 @@ pub fn parse_omm(content: &str) -> Result<OMM, BraheError> {
                     }
                     "MEAN_ELEMENT_THEORY" => {
                         mean_element_theory = Some(val.to_string());
-                        in_metadata = false;
                     }
 
                     // Mean elements
                     "EPOCH" => {
                         epoch = Some(parse_ccsds_datetime(val, &active_ts(&time_system))?);
-                        in_mean_elements = true;
                     }
                     "MEAN_MOTION" => {
                         mean_motion = Some(
@@ -627,7 +721,6 @@ pub fn parse_omm(content: &str) -> Result<OMM, BraheError> {
                             val.parse()
                                 .map_err(|_| ccsds_parse_error("OMM", "invalid MEAN_ANOMALY"))?,
                         );
-                        in_mean_elements = false;
                     }
                     "GM" => {
                         let gm_val: f64 = val
@@ -642,7 +735,6 @@ pub fn parse_omm(content: &str) -> Result<OMM, BraheError> {
                             val.parse()
                                 .map_err(|_| ccsds_parse_error("OMM", "invalid EPHEMERIS_TYPE"))?,
                         );
-                        in_tle = true;
                     }
                     "CLASSIFICATION_TYPE" => {
                         classification_type = val.chars().next();
@@ -676,7 +768,6 @@ pub fn parse_omm(content: &str) -> Result<OMM, BraheError> {
                     }
                     "MEAN_MOTION_DOT" => {
                         mean_motion_dot = Some(parse_scientific_notation(val)?);
-                        in_tle = false;
                     }
                     "MEAN_MOTION_DDOT" => {
                         mean_motion_ddot = Some(parse_scientific_notation(val)?);
@@ -694,7 +785,6 @@ pub fn parse_omm(content: &str) -> Result<OMM, BraheError> {
                             val.parse()
                                 .map_err(|_| ccsds_parse_error("OMM", "invalid MASS"))?,
                         );
-                        in_spacecraft = true;
                     }
                     "SOLAR_RAD_AREA" => {
                         solar_rad_area = Some(
@@ -719,7 +809,6 @@ pub fn parse_omm(content: &str) -> Result<OMM, BraheError> {
                             val.parse()
                                 .map_err(|_| ccsds_parse_error("OMM", "invalid DRAG_COEFF"))?,
                         );
-                        in_spacecraft = false;
                     }
 
                     // Covariance
@@ -744,27 +833,14 @@ pub fn parse_omm(content: &str) -> Result<OMM, BraheError> {
                     }
                 }
             }
-            KVNToken::Comment(text) => {
-                if in_header {
-                    header_comments.push(text);
-                } else if in_metadata {
-                    metadata_comments.push(text);
-                } else if in_mean_elements {
-                    mean_element_comments.push(text);
-                } else if in_tle {
-                    tle_comments.push(text);
-                } else if in_spacecraft {
-                    spacecraft_comments.push(text);
-                } else if !cov_values.is_empty() {
-                    cov_comments.push(text);
-                } else {
-                    metadata_comments.push(text);
-                }
-            }
+            KVNToken::Comment(text) => pending_comments.push(text),
             KVNToken::Empty => {}
             KVNToken::DataLine(_) => {}
         }
     }
+
+    // Comments trailing the final keyword introduce no further section.
+    file_comments!(last_section);
 
     let header = ODMHeader {
         format_version: format_version
@@ -883,13 +959,87 @@ fn parse_scientific_notation(s: &str) -> Result<f64, BraheError> {
         .map_err(|_| ccsds_parse_error("OMM", &format!("invalid numeric value '{}'", s)))
 }
 
+/// The OPM section a keyword belongs to.
+#[derive(Clone, Copy, PartialEq)]
+enum OPMSection {
+    Header,
+    Metadata,
+    StateVector,
+    KeplerianElements,
+    SpacecraftParameters,
+    Covariance,
+    Maneuver,
+}
+
+/// The OPM section a keyword introduces, or `None` when the keyword is not one
+/// this parser recognizes.
+///
+/// Keywords are grouped as CCSDS 502.0-B-3 tables 3-1 (header), 3-2 (metadata),
+/// and 3-3 (data) list them.
+///
+/// # Arguments
+///
+/// * `key` - The KVN keyword, without surrounding whitespace.
+///
+/// # Returns
+///
+/// * `Option<OPMSection>` - The owning section, or `None` if unrecognized.
+///
+/// # Examples
+///
+/// ```ignore
+/// assert_eq!(opm_section("ORIGINATOR"), Some(OPMSection::Header));
+/// assert_eq!(opm_section("X_DOT"), Some(OPMSection::StateVector));
+/// assert_eq!(opm_section("COV_REF_FRAME"), Some(OPMSection::Covariance));
+/// // EPOCH appears in more than one block, so it names none on its own.
+/// assert_eq!(opm_section("EPOCH"), None);
+/// ```
+fn opm_section(key: &str) -> Option<OPMSection> {
+    Some(match key {
+        "CCSDS_OPM_VERS" | "CLASSIFICATION" | "CREATION_DATE" | "ORIGINATOR" | "MESSAGE_ID" => {
+            OPMSection::Header
+        }
+
+        "OBJECT_NAME" | "OBJECT_ID" | "CENTER_NAME" | "REF_FRAME" | "REF_FRAME_EPOCH"
+        | "TIME_SYSTEM" => OPMSection::Metadata,
+
+        // EPOCH names the state vector in a conforming OPM, but a message may
+        // also carry one inside a covariance block, so it cannot pick a section
+        // on its own. Leaving it unclassified holds any pending comments until
+        // a keyword that names exactly one block arrives.
+        "EPOCH" => return None,
+
+        "X" | "Y" | "Z" | "X_DOT" | "Y_DOT" | "Z_DOT" => OPMSection::StateVector,
+
+        "SEMI_MAJOR_AXIS" | "ECCENTRICITY" | "INCLINATION" | "RA_OF_ASC_NODE"
+        | "ARG_OF_PERICENTER" | "TRUE_ANOMALY" | "MEAN_ANOMALY" | "GM" => {
+            OPMSection::KeplerianElements
+        }
+
+        "MASS" | "SOLAR_RAD_AREA" | "SOLAR_RAD_COEFF" | "DRAG_AREA" | "DRAG_COEFF" => {
+            OPMSection::SpacecraftParameters
+        }
+
+        "COV_REF_FRAME" => OPMSection::Covariance,
+        k if k.starts_with("CX_") || k.starts_with("CY_") || k.starts_with("CZ_") => {
+            OPMSection::Covariance
+        }
+
+        "MAN_EPOCH_IGNITION" | "MAN_DURATION" | "MAN_DELTA_MASS" | "MAN_REF_FRAME" | "MAN_DV_1"
+        | "MAN_DV_2" | "MAN_DV_3" => OPMSection::Maneuver,
+
+        _ => return None,
+    })
+}
+
 /// Parse an OPM message from KVN format.
 pub fn parse_opm(content: &str) -> Result<OPM, BraheError> {
     let mut header_comments: Vec<String> = Vec::new();
     let mut metadata_comments: Vec<String> = Vec::new();
     let mut state_comments: Vec<String> = Vec::new();
     let mut kep_comments: Vec<String> = Vec::new();
-    let spacecraft_comments: Vec<String> = Vec::new();
+    let mut spacecraft_comments: Vec<String> = Vec::new();
+    let mut cov_comments: Vec<String> = Vec::new();
     let mut maneuver_comments: Vec<String> = Vec::new();
 
     // Header
@@ -950,7 +1100,12 @@ pub fn parse_opm(content: &str) -> Result<OPM, BraheError> {
     // User-defined
     let mut user_defined: HashMap<String, String> = HashMap::new();
 
-    let mut in_header = true;
+    // Comments accumulate until a keyword names the section they introduce.
+    // CCSDS 502.0-B-3 tables 3-1 through 3-3 open every OPM section with a
+    // COMMENT row and subsection 7.4.8 fixes the keyword order to match, so a
+    // comment belongs to the section that follows it, not the one before it.
+    let mut pending_comments: Vec<String> = Vec::new();
+    let mut last_section = OPMSection::Header;
 
     let active_ts = |ts: &Option<CCSDSTimeSystem>| ts.clone().unwrap_or(CCSDSTimeSystem::UTC);
 
@@ -982,11 +1137,38 @@ pub fn parse_opm(content: &str) -> Result<OPM, BraheError> {
         }
     };
 
+    macro_rules! file_comments {
+        ($section:expr) => {{
+            if !pending_comments.is_empty() {
+                let sink = match $section {
+                    OPMSection::Header => &mut header_comments,
+                    OPMSection::Metadata => &mut metadata_comments,
+                    OPMSection::StateVector => &mut state_comments,
+                    OPMSection::KeplerianElements => &mut kep_comments,
+                    OPMSection::SpacecraftParameters => &mut spacecraft_comments,
+                    OPMSection::Covariance => &mut cov_comments,
+                    OPMSection::Maneuver => &mut maneuver_comments,
+                };
+                sink.append(&mut pending_comments);
+            }
+        }};
+    }
+
     for line in content.lines() {
         let token = tokenize_line(line);
         match token {
             KVNToken::KeyValue { key, value } => {
                 let val = strip_units(&value);
+                // MAN_EPOCH_IGNITION closes the preceding maneuver and drains
+                // its comments, so the comments introducing the new one are
+                // filed after that keyword has been dispatched, not before.
+                let section = opm_section(&key);
+                if let Some(section) = section
+                    && key != "MAN_EPOCH_IGNITION"
+                {
+                    last_section = section;
+                    file_comments!(section);
+                }
                 match key.as_str() {
                     "CCSDS_OPM_VERS" => {
                         format_version = Some(
@@ -996,7 +1178,6 @@ pub fn parse_opm(content: &str) -> Result<OPM, BraheError> {
                     }
                     "CREATION_DATE" => {
                         creation_date = Some(parse_ccsds_datetime(val, &CCSDSTimeSystem::UTC)?);
-                        in_header = false;
                     }
                     "ORIGINATOR" => {
                         originator = Some(val.to_string());
@@ -1219,23 +1400,20 @@ pub fn parse_opm(content: &str) -> Result<OPM, BraheError> {
 
                     _ => {}
                 }
-            }
-            KVNToken::Comment(text) => {
-                if in_header {
-                    header_comments.push(text);
-                } else if man_epoch.is_some() {
-                    maneuver_comments.push(text);
-                } else if kep_sma.is_some() {
-                    kep_comments.push(text);
-                } else if sv_epoch.is_some() && sv_vz.is_none() {
-                    state_comments.push(text);
-                } else {
-                    metadata_comments.push(text);
+                if let Some(section) = section
+                    && key == "MAN_EPOCH_IGNITION"
+                {
+                    last_section = section;
+                    file_comments!(section);
                 }
             }
+            KVNToken::Comment(text) => pending_comments.push(text),
             KVNToken::Empty | KVNToken::DataLine(_) => {}
         }
     }
+
+    // Comments trailing the final keyword introduce no further section.
+    file_comments!(last_section);
 
     // Flush last maneuver
     flush_maneuver(
@@ -1313,7 +1491,7 @@ pub fn parse_opm(content: &str) -> Result<OPM, BraheError> {
             epoch: None,
             cov_ref_frame,
             matrix,
-            comments: Vec::new(),
+            comments: cov_comments,
         })
     } else {
         None
@@ -1349,6 +1527,28 @@ pub fn parse_opm(content: &str) -> Result<OPM, BraheError> {
     })
 }
 
+/// The logical block a CDM keyword belongs to, per the CCSDS 508.0-B-1 tables.
+/// Table 3-4 gives the object Data section a COMMENT row of its own and then a
+/// further COMMENT row for each of its sub-blocks.
+#[derive(Clone, Copy, PartialEq)]
+enum CDMBlock {
+    Metadata,
+    ODParameters,
+    AdditionalParameters,
+    StateVector,
+    RTNCovariance,
+    XYZCovariance,
+    AdditionalCovarianceMetadata,
+}
+
+/// The comment bucket a CDM keyword's section owns.
+#[derive(Clone, Copy, PartialEq)]
+enum CommentTarget {
+    Header,
+    RelativeMetadata,
+    Object(CDMBlock),
+}
+
 /// Parse a CDM message from KVN format.
 ///
 /// Uses a flat key-match approach with object context tracking. The `OBJECT`
@@ -1359,13 +1559,21 @@ pub fn parse_cdm(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError> {
     use crate::ccsds::common::covariance9x9_from_lower_triangular;
 
     // Track which object we're currently parsing
-    #[derive(PartialEq)]
+    #[derive(Clone, Copy, PartialEq)]
     enum CurrentObject {
         None,
         Object1,
         Object2,
     }
     let mut current_object = CurrentObject::None;
+
+    // Comments accumulate until a keyword identifies the section they
+    // introduce. CCSDS 508.0-B-1 subsection 6.3.1.9 fixes the keyword order to
+    // that of tables 3-1 through 3-4, each of which opens its section with a
+    // COMMENT row, so a comment belongs to the section of the keyword that
+    // follows it rather than the one that precedes it.
+    let mut pending_comments: Vec<String> = Vec::new();
+    let mut last_target = CommentTarget::Header;
 
     // Header fields
     let mut format_version: Option<f64> = None;
@@ -1778,6 +1986,199 @@ pub fn parse_cdm(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError> {
         }
     }
 
+    // The section a CDM keyword introduces, or `None` when the keyword is not
+    // one this parser recognizes. The shared covariance keywords (`CDRG_DRG`,
+    // `CSRP_SRP`, `CTHR_THR` and their neighbours) name an element of whichever
+    // covariance block is open, so they take the same `in_xyz_cov` context the
+    // value dispatch uses.
+    let comment_target = |key: &str, in_xyz_cov: bool| -> Option<CommentTarget> {
+        Some(match key {
+            // Table 3-1: header
+            "CCSDS_CDM_VERS" | "CLASSIFICATION" | "CREATION_DATE" | "ORIGINATOR"
+            | "MESSAGE_FOR" | "MESSAGE_ID" => CommentTarget::Header,
+
+            // Table 3-2: relative metadata/data
+            "CONJUNCTION_ID"
+            | "TCA"
+            | "MISS_DISTANCE"
+            | "MAHALANOBIS_DISTANCE"
+            | "RELATIVE_SPEED"
+            | "RELATIVE_POSITION_R"
+            | "RELATIVE_POSITION_T"
+            | "RELATIVE_POSITION_N"
+            | "RELATIVE_VELOCITY_R"
+            | "RELATIVE_VELOCITY_T"
+            | "RELATIVE_VELOCITY_N"
+            | "APPROACH_ANGLE"
+            | "START_SCREEN_PERIOD"
+            | "STOP_SCREEN_PERIOD"
+            | "SCREEN_TYPE"
+            | "SCREEN_VOLUME_FRAME"
+            | "SCREEN_VOLUME_SHAPE"
+            | "SCREEN_VOLUME_RADIUS"
+            | "SCREEN_VOLUME_X"
+            | "SCREEN_VOLUME_Y"
+            | "SCREEN_VOLUME_Z"
+            | "SCREEN_ENTRY_TIME"
+            | "SCREEN_EXIT_TIME"
+            | "SCREEN_PC_THRESHOLD"
+            | "COLLISION_PERCENTILE"
+            | "COLLISION_PROBABILITY"
+            | "COLLISION_PROBABILITY_METHOD"
+            | "COLLISION_MAX_PROBABILITY"
+            | "COLLISION_MAX_PC_METHOD"
+            | "SEFI_COLLISION_PROBABILITY"
+            | "SEFI_COLLISION_PROBABILITY_METHOD"
+            | "SEFI_FRAGMENTATION_MODEL"
+            | "PREVIOUS_MESSAGE_ID"
+            | "PREVIOUS_MESSAGE_EPOCH"
+            | "NEXT_MESSAGE_EPOCH" => CommentTarget::RelativeMetadata,
+
+            // Table 3-3: object metadata
+            "OBJECT"
+            | "OBJECT_DESIGNATOR"
+            | "CATALOG_NAME"
+            | "OBJECT_NAME"
+            | "INTERNATIONAL_DESIGNATOR"
+            | "OBJECT_TYPE"
+            | "OPS_STATUS"
+            | "OPERATOR_CONTACT_POSITION"
+            | "OPERATOR_ORGANIZATION"
+            | "OPERATOR_PHONE"
+            | "OPERATOR_EMAIL"
+            | "EPHEMERIS_NAME"
+            | "ODM_MSG_LINK"
+            | "ADM_MSG_LINK"
+            | "OBS_BEFORE_NEXT_MESSAGE"
+            | "COVARIANCE_METHOD"
+            | "COVARIANCE_SOURCE"
+            | "MANEUVERABLE"
+            | "ORBIT_CENTER"
+            | "REF_FRAME"
+            | "ALT_COV_TYPE"
+            | "ALT_COV_REF_FRAME"
+            | "GRAVITY_MODEL"
+            | "ATMOSPHERIC_MODEL"
+            | "N_BODY_PERTURBATIONS"
+            | "SOLAR_RAD_PRESSURE"
+            | "EARTH_TIDES"
+            | "INTRACK_THRUST" => CommentTarget::Object(CDMBlock::Metadata),
+
+            // Table 3-4: OD parameters
+            "TIME_LASTOB_START"
+            | "TIME_LASTOB_END"
+            | "RECOMMENDED_OD_SPAN"
+            | "ACTUAL_OD_SPAN"
+            | "OBS_AVAILABLE"
+            | "OBS_USED"
+            | "TRACKS_AVAILABLE"
+            | "TRACKS_USED"
+            | "RESIDUALS_ACCEPTED"
+            | "WEIGHTED_RMS"
+            | "OD_EPOCH" => CommentTarget::Object(CDMBlock::ODParameters),
+
+            // Table 3-4: additional parameters
+            "AREA_PC"
+            | "AREA_PC_MIN"
+            | "AREA_PC_MAX"
+            | "AREA_DRG"
+            | "AREA_SRP"
+            | "OEB_PARENT_FRAME"
+            | "OEB_PARENT_FRAME_EPOCH"
+            | "OEB_Q1"
+            | "OEB_Q2"
+            | "OEB_Q3"
+            | "OEB_QC"
+            | "OEB_MAX"
+            | "OEB_INT"
+            | "OEB_MIN"
+            | "AREA_ALONG_OEB_MAX"
+            | "AREA_ALONG_OEB_INT"
+            | "AREA_ALONG_OEB_MIN"
+            | "RCS"
+            | "RCS_MIN"
+            | "RCS_MAX"
+            | "VM_ABSOLUTE"
+            | "VM_APPARENT_MIN"
+            | "VM_APPARENT"
+            | "VM_APPARENT_MAX"
+            | "REFLECTANCE"
+            | "MASS"
+            | "HBR"
+            | "CD_AREA_OVER_MASS"
+            | "CR_AREA_OVER_MASS"
+            | "THRUST_ACCELERATION"
+            | "SEDR"
+            | "MIN_DV"
+            | "MAX_DV"
+            | "LEAD_TIME_REQD_BEFORE_TCA"
+            | "APOAPSIS_ALTITUDE"
+            | "PERIAPSIS_ALTITUDE"
+            | "INCLINATION"
+            | "COV_CONFIDENCE"
+            | "COV_CONFIDENCE_METHOD" => CommentTarget::Object(CDMBlock::AdditionalParameters),
+
+            // Table 3-4: state vector
+            "X" | "Y" | "Z" | "X_DOT" | "Y_DOT" | "Z_DOT" => {
+                CommentTarget::Object(CDMBlock::StateVector)
+            }
+
+            // Table 3-4: additional covariance metadata
+            "DENSITY_FORECAST_UNCERTAINTY"
+            | "CSCALE_FACTOR_MIN"
+            | "CSCALE_FACTOR"
+            | "CSCALE_FACTOR_MAX"
+            | "SCREENING_DATA_SOURCE"
+            | "DCP_SENSITIVITY_VECTOR_POSITION"
+            | "DCP_SENSITIVITY_VECTOR_VELOCITY"
+            | "CSIG3EIGVEC3" => CommentTarget::Object(CDMBlock::AdditionalCovarianceMetadata),
+
+            // Table 3-4: covariance matrices
+            "CR_R" => CommentTarget::Object(CDMBlock::RTNCovariance),
+            k if xyz_cov_index(k).is_some() => CommentTarget::Object(CDMBlock::XYZCovariance),
+            k if rtn_cov_index(k).is_some() => CommentTarget::Object(if in_xyz_cov {
+                CDMBlock::XYZCovariance
+            } else {
+                CDMBlock::RTNCovariance
+            }),
+
+            _ => return None,
+        })
+    };
+
+    // Move the buffered comments into the bucket their section owns. An
+    // `Object` target before either object has been opened cannot be filed
+    // yet, so those comments stay buffered for the keyword after it.
+    macro_rules! flush_comments {
+        ($target:expr, $object:expr) => {{
+            if !pending_comments.is_empty() {
+                let sink: Option<&mut Vec<String>> = match ($target, $object) {
+                    (CommentTarget::Header, _) => Some(&mut header_comments),
+                    (CommentTarget::RelativeMetadata, _) => Some(&mut rel_comments),
+                    (CommentTarget::Object(_), CurrentObject::None) => None,
+                    (CommentTarget::Object(block), which) => {
+                        let target_obj = match which {
+                            CurrentObject::Object2 => &mut obj2,
+                            _ => &mut obj1,
+                        };
+                        Some(match block {
+                            CDMBlock::Metadata => &mut target_obj.metadata_comments,
+                            CDMBlock::ODParameters => &mut target_obj.od_comments,
+                            CDMBlock::AdditionalParameters => &mut target_obj.add_comments,
+                            CDMBlock::StateVector => &mut target_obj.sv_comments,
+                            CDMBlock::RTNCovariance => &mut target_obj.rtn_cov_comments,
+                            CDMBlock::XYZCovariance => &mut target_obj.xyz_cov_comments,
+                            CDMBlock::AdditionalCovarianceMetadata => &mut target_obj.acm_comments,
+                        })
+                    }
+                };
+                if let Some(sink) = sink {
+                    sink.append(&mut pending_comments);
+                }
+            }
+        }};
+    }
+
     // Parse line-by-line
     for line in content.lines() {
         let line = line.trim();
@@ -1787,18 +2188,7 @@ pub fn parse_cdm(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError> {
 
         // Parse COMMENT lines
         if let Some(comment_text) = line.strip_prefix("COMMENT") {
-            let comment = comment_text.trim().to_string();
-            match current_object {
-                CurrentObject::None => {
-                    if tca.is_some() {
-                        rel_comments.push(comment);
-                    } else {
-                        header_comments.push(comment);
-                    }
-                }
-                CurrentObject::Object1 => obj1.data_comments.push(comment),
-                CurrentObject::Object2 => obj2.data_comments.push(comment),
-            }
+            pending_comments.push(comment_text.trim().to_string());
             continue;
         }
 
@@ -1810,6 +2200,24 @@ pub fn parse_cdm(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError> {
         let key = line[..eq_pos].trim();
         let raw_val = line[eq_pos + 1..].trim();
         let val = strip_units(raw_val);
+
+        // File the buffered comments under the section this keyword opens. The
+        // OBJECT keyword switches objects, so the comments introducing it
+        // belong to the object it names rather than the one before it.
+        let switching = match (key, val) {
+            ("OBJECT", "OBJECT1") => Some(CurrentObject::Object1),
+            ("OBJECT", "OBJECT2") => Some(CurrentObject::Object2),
+            _ => None,
+        };
+        let comment_object = switching.unwrap_or(current_object);
+        let in_xyz_cov = match comment_object {
+            CurrentObject::Object2 => obj2.in_xyz_cov,
+            _ => obj1.in_xyz_cov,
+        };
+        if let Some(target) = comment_target(key, in_xyz_cov) {
+            last_target = target;
+            flush_comments!(target, comment_object);
+        }
 
         // Get mutable reference to current object builder
         let obj = match current_object {
@@ -2387,6 +2795,10 @@ pub fn parse_cdm(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError> {
             }
         }
     }
+
+    // Comments trailing the final keyword introduce no further section, so
+    // they stay with the last one seen.
+    flush_comments!(last_target, current_object);
 
     // Build the CDM struct from collected fields
     let build_object = |obj: ObjectBuilder, label: &str| -> Result<CDMObject, BraheError> {
@@ -3045,5 +3457,122 @@ mod tests {
         assert_eq!(opm.metadata.ref_frame, CCSDSRefFrame::GCRF);
         assert_eq!(opm.metadata.time_system, CCSDSTimeSystem::GPS);
         assert_eq!(opm.maneuvers.len(), 3);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_parse_opm_attributes_comments_to_the_block_they_introduce() {
+        let opm = parse_opm(
+            &std::fs::read_to_string("test_assets/ccsds/opm/OPM-section-comments.txt").unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(opm.header.comments, vec!["header comment"]);
+        assert_eq!(opm.metadata.comments, vec!["metadata comment"]);
+        assert_eq!(opm.state_vector.comments, vec!["state vector comment"]);
+        assert_eq!(
+            opm.keplerian_elements.as_ref().unwrap().comments,
+            vec!["keplerian comment"]
+        );
+        assert_eq!(
+            opm.spacecraft_parameters.as_ref().unwrap().comments,
+            vec!["spacecraft comment"]
+        );
+        assert_eq!(opm.maneuvers.len(), 2);
+        assert_eq!(opm.maneuvers[0].comments, vec!["first maneuver comment"]);
+        assert_eq!(opm.maneuvers[1].comments, vec!["second maneuver comment"]);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_parse_omm_attributes_comments_to_the_block_they_introduce() {
+        let omm = parse_omm(
+            &std::fs::read_to_string("test_assets/ccsds/omm/OMM-section-comments.txt").unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(omm.header.comments, vec!["header comment"]);
+        assert_eq!(omm.metadata.comments, vec!["metadata comment"]);
+        assert_eq!(omm.mean_elements.comments, vec!["mean element comment"]);
+        assert_eq!(
+            omm.tle_parameters.as_ref().unwrap().comments,
+            vec!["tle comment"]
+        );
+        assert_eq!(
+            omm.spacecraft_parameters.as_ref().unwrap().comments,
+            vec!["spacecraft comment"]
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_parse_cdm_attributes_comments_to_the_block_they_introduce() {
+        let content = std::fs::read_to_string("test_assets/ccsds/cdm/CDMExample2.txt").unwrap();
+        let cdm = parse_cdm(&content).unwrap();
+
+        // The section-introducing comments of the CCSDS example land in the
+        // section each one names, not in the one that precedes it.
+        assert!(cdm.header.comments.is_empty());
+        assert_eq!(
+            cdm.relative_metadata.comments,
+            vec!["Relative Metadata/Data"]
+        );
+        assert_eq!(cdm.object1.metadata.comments, vec!["Object1 Metadata"]);
+        assert_eq!(cdm.object2.metadata.comments, vec!["Object2 Metadata"]);
+        assert_eq!(
+            cdm.object1.data.state_vector.comments,
+            vec!["Object1 State Vector"]
+        );
+        assert_eq!(
+            cdm.object1.data.rtn_covariance.comments,
+            vec!["Object1 Covariance in the RTN Coordinate Frame"]
+        );
+        assert_eq!(
+            cdm.object1
+                .data
+                .additional_parameters
+                .as_ref()
+                .unwrap()
+                .comments,
+            vec![
+                "Object1 Additional Parameters",
+                "Apogee Altitude=779 km",
+                "Perigee Altitude=765 km",
+                "Inclination=86.4 deg",
+            ]
+        );
+        // KVN puts nothing between the Data comment and the OD Parameters
+        // comment, so the run resolves to the innermost block the next keyword
+        // opens.
+        assert_eq!(
+            cdm.object1.data.od_parameters.as_ref().unwrap().comments,
+            vec!["Object1 Data", "Object1 OD Parameters"]
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_cdm_comment_buckets_survive_a_kvn_round_trip() {
+        use crate::ccsds::common::CCSDSFormat;
+
+        for name in [
+            "CDMExample1.txt",
+            "CDMExample2.txt",
+            "CDMExample3.txt",
+            "CDMExample4.txt",
+            "CDMExample_issue_940.txt",
+        ] {
+            let content =
+                std::fs::read_to_string(format!("test_assets/ccsds/cdm/{}", name)).unwrap();
+            let written = parse_cdm(&content)
+                .unwrap()
+                .to_string(CCSDSFormat::KVN)
+                .unwrap();
+            let rewritten = parse_cdm(&written)
+                .unwrap()
+                .to_string(CCSDSFormat::KVN)
+                .unwrap();
+            assert_eq!(rewritten, written, "{} does not round-trip", name);
+        }
     }
 }

@@ -345,7 +345,7 @@ impl Default for NumericalPropagationConfig {
     ///
     /// Uses:
     /// - Dormand-Prince 5(4) integrator
-    /// - Default tolerances (abs=1e-6, rel=1e-3)
+    /// - Default tolerances (abs=1e-8, rel=1e-10)
     /// - No variational matrix propagation (central differences when enabled)
     /// - Acceleration storage disabled
     /// - Propagator-chosen interpolation (`None`)
@@ -426,7 +426,7 @@ impl NumericalPropagationConfig {
     ///
     /// Uses:
     /// - RKN1210 integrator
-    /// - Tight tolerances (abs=1e-10, rel=1e-8)
+    /// - Tight tolerances (abs=1e-12, rel=1e-12)
     /// - No variational matrix propagation (central differences when enabled)
     /// - Acceleration storage enabled
     /// - Propagator-chosen interpolation (`None`)

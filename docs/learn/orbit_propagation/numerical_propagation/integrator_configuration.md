@@ -255,9 +255,9 @@ Brahe provides preset configurations for common use cases:
 <div class="center-table" markdown="1">
 | Preset | Method | abs_tol | rel_tol | Description |
 |------|------|-------|-------|-----------|
-| `default()` | DP54 | 1e-6 | 1e-3 | General purpose |
-| `high_precision()` | RKN1210 | 1e-10 | 1e-8 | Maximum accuracy |
-| `with_method(M)` | M | 1e-6 | 1e-3 | Custom method with defaults |
+| `default()` | DP54 | 1e-8 | 1e-10 | General purpose |
+| `high_precision()` | RKN1210 | 1e-12 | 1e-12 | Maximum accuracy |
+| `with_method(M)` | M | 1e-8 | 1e-10 | Custom method with defaults |
 </div>
 
 === "Python"

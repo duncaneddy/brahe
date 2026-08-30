@@ -270,6 +270,7 @@ mod tests {
     // ========== HTTP Error Tests ==========
 
     #[test]
+    #[serial_test::parallel]
     fn test_fetch_kernel_http_404() {
         // Setup mock server that returns 404 Not Found
         let server = MockServer::start();
@@ -294,6 +295,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_fetch_kernel_http_500() {
         // Setup mock server that returns 500 Server Error
         let server = MockServer::start();
@@ -318,6 +320,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_fetch_kernel_empty_response() {
         // Setup mock server that returns 200 OK with empty body
         let server = MockServer::start();
@@ -342,6 +345,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_fetch_kernel_with_url_uses_filename_override() {
         // The Ura184 kernel's file name differs from its short name; the
         // with-URL seam must append the *filename*, not the name.
@@ -359,6 +363,7 @@ mod tests {
     // ========== File I/O Error Tests ==========
 
     #[test]
+    #[serial]
     fn test_download_output_is_directory() {
         // Create a temporary directory
         let temp_dir = tempdir().unwrap();
@@ -384,6 +389,7 @@ mod tests {
 
     #[test]
     #[cfg(unix)]
+    #[serial]
     fn test_download_invalid_cache_permissions() {
         use std::os::unix::fs::PermissionsExt;
 
@@ -421,6 +427,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_download_output_copy_failure() {
         // Create a temporary file, then try to create a directory with the same name
         let temp_dir = tempdir().unwrap();

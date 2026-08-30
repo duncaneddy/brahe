@@ -821,6 +821,14 @@ impl PyCelestrakSATCATRecord {
 /// data from CelestrakClient. No authentication is required. Responses
 /// are cached locally to reduce server load.
 ///
+/// Single-object lookups (``catnr``, ``intdes``, or ``name`` passed to
+/// ``get_gp()``, or a query with exactly one of those selectors) resolve
+/// from a cached copy of the ``active`` group when the object is in it,
+/// so a series of lookups costs one request. A ``name`` search that
+/// matches in ``active`` returns only active objects. A client with a
+/// zero cache age sends every query directly, since the ``active`` group
+/// copy could not be reused.
+///
 /// Two tiers of API are available:
 ///
 /// **Tier 1 — Compact convenience methods** (most common operations):
@@ -893,6 +901,15 @@ impl PyCelestrakClient {
     ///
     /// Provide exactly one of ``catnr``, ``group``, ``name``, or ``intdes``.
     ///
+    /// Lookups by ``catnr``, ``name``, or ``intdes`` first check the exact
+    /// per-object cache file, then a cached copy of the ``active`` group
+    /// when the object is in it, so repeated lookups cost a single
+    /// request. Objects not in ``active`` are requested individually. A
+    /// ``name`` search that matches in ``active`` returns only active
+    /// objects; ``group`` queries are sent to the server exactly as
+    /// written, though still served from the URL cache when a fresh copy
+    /// exists.
+    ///
     /// Args:
     ///     catnr (int, optional): NORAD catalog number (e.g., 25544 for ISS).
     ///     group (str, optional): Satellite group name (e.g., "stations", "active").
@@ -919,6 +936,7 @@ impl PyCelestrakClient {
     #[pyo3(signature = (*, catnr=None, group=None, name=None, intdes=None))]
     fn get_gp(
         &self,
+        py: Python<'_>,
         catnr: Option<u32>,
         group: Option<&str>,
         name: Option<&str>,
@@ -934,16 +952,23 @@ impl PyCelestrakClient {
             ));
         }
 
-        let records = if let Some(id) = catnr {
-            self.inner.get_gp_by_catnr(id)
-        } else if let Some(g) = group {
-            self.inner.get_gp_by_group(g)
-        } else if let Some(n) = name {
-            self.inner.get_gp_by_name(n)
-        } else {
-            self.inner.get_gp_by_intdes(intdes.unwrap())
-        }
-        .map_err(|e| BraheError::new_err(e.to_string()))?;
+        let group = group.map(str::to_owned);
+        let name = name.map(str::to_owned);
+        let intdes = intdes.map(str::to_owned);
+
+        let records = py
+            .detach(|| {
+                if let Some(id) = catnr {
+                    self.inner.get_gp_by_catnr(id)
+                } else if let Some(g) = &group {
+                    self.inner.get_gp_by_group(g)
+                } else if let Some(n) = &name {
+                    self.inner.get_gp_by_name(n)
+                } else {
+                    self.inner.get_gp_by_intdes(intdes.as_deref().unwrap())
+                }
+            })
+            .map_err(|e| BraheError::new_err(e.to_string()))?;
 
         Ok(records
             .into_iter()
@@ -969,10 +994,10 @@ impl PyCelestrakClient {
     ///     client = bh.celestrak.CelestrakClient()
     ///     records = client.get_sup_gp(bh.celestrak.SupGPSource.STARLINK)
     ///     ```
-    fn get_sup_gp(&self, source: &PySupGPSource) -> PyResult<Vec<PyGPRecord>> {
-        let records = self
-            .inner
-            .get_sup_gp(source.value)
+    fn get_sup_gp(&self, py: Python<'_>, source: &PySupGPSource) -> PyResult<Vec<PyGPRecord>> {
+        let source = source.value;
+        let records = py
+            .detach(|| self.inner.get_sup_gp(source))
             .map_err(|e| BraheError::new_err(e.to_string()))?;
 
         Ok(records
@@ -1009,6 +1034,7 @@ impl PyCelestrakClient {
     #[pyo3(signature = (*, catnr=None, active=None, payloads=None, on_orbit=None))]
     fn get_satcat(
         &self,
+        py: Python<'_>,
         catnr: Option<u32>,
         active: Option<bool>,
         payloads: Option<bool>,
@@ -1034,9 +1060,8 @@ impl PyCelestrakClient {
             query = query.on_orbit(o);
         }
 
-        let records = self
-            .inner
-            .query_satcat(&query)
+        let records = py
+            .detach(|| self.inner.query_satcat(&query))
             .map_err(|e| BraheError::new_err(e.to_string()))?;
 
         Ok(records
@@ -1048,7 +1073,8 @@ impl PyCelestrakClient {
     /// Look up a satellite and return an SGP4 propagator.
     ///
     /// Queries GP data for the given catalog number and creates an
-    /// SGPPropagator from the first result.
+    /// SGPPropagator from the first result. The underlying lookup resolves
+    /// from the cached ``active`` group when possible.
     ///
     /// Args:
     ///     catnr (int): NORAD catalog number.
@@ -1068,10 +1094,14 @@ impl PyCelestrakClient {
     ///     propagator = client.get_sgp_propagator(catnr=25544, step_size=60.0)
     ///     ```
     #[pyo3(signature = (*, catnr, step_size=60.0))]
-    fn get_sgp_propagator(&self, catnr: u32, step_size: f64) -> PyResult<PySGPPropagator> {
-        let propagator = self
-            .inner
-            .get_sgp_propagator_by_catnr(catnr, step_size)
+    fn get_sgp_propagator(
+        &self,
+        py: Python<'_>,
+        catnr: u32,
+        step_size: f64,
+    ) -> PyResult<PySGPPropagator> {
+        let propagator = py
+            .detach(|| self.inner.get_sgp_propagator_by_catnr(catnr, step_size))
             .map_err(|e| BraheError::new_err(e.to_string()))?;
         Ok(PySGPPropagator {
             propagator,
@@ -1085,7 +1115,9 @@ impl PyCelestrakClient {
     ///
     /// Dispatches to the appropriate handler based on query type:
     /// GP and SupGP queries return ``list[GPRecord]``, SATCAT queries
-    /// return ``list[CelestrakSATCATRecord]``.
+    /// return ``list[CelestrakSATCATRecord]``. A GP query with exactly one
+    /// of ``catnr``, ``intdes``, or ``name`` set follows the same cached
+    /// ``active`` group resolution as ``get_gp()``.
     ///
     /// Args:
     ///     query (CelestrakQuery): The query to execute.
@@ -1120,11 +1152,12 @@ impl PyCelestrakClient {
         py: Python<'py>,
         query: &PyCelestrakQuery,
     ) -> PyResult<Py<PyAny>> {
-        match query.inner.query_type() {
+        let query_type = query.inner.query_type();
+        let query = query.inner.clone();
+        match query_type {
             celestrak::CelestrakQueryType::GP | celestrak::CelestrakQueryType::SupGP => {
-                let records = self
-                    .inner
-                    .query_gp(&query.inner)
+                let records = py
+                    .detach(|| self.inner.query_gp(&query))
                     .map_err(|e| BraheError::new_err(e.to_string()))?;
 
                 let py_records: Vec<PyGPRecord> = records
@@ -1135,9 +1168,8 @@ impl PyCelestrakClient {
                 py_records.into_py_any(py)
             }
             celestrak::CelestrakQueryType::SATCAT => {
-                let records = self
-                    .inner
-                    .query_satcat(&query.inner)
+                let records = py
+                    .detach(|| self.inner.query_satcat(&query))
                     .map_err(|e| BraheError::new_err(e.to_string()))?;
 
                 let py_records: Vec<PyCelestrakSATCATRecord> = records
@@ -1175,9 +1207,9 @@ impl PyCelestrakClient {
     ///     )
     ///     tle_data = client.query_raw(query)
     ///     ```
-    fn query_raw(&self, query: &PyCelestrakQuery) -> PyResult<String> {
-        self.inner
-            .query_raw(&query.inner)
+    fn query_raw(&self, py: Python<'_>, query: &PyCelestrakQuery) -> PyResult<String> {
+        let query = query.inner.clone();
+        py.detach(|| self.inner.query_raw(&query))
             .map_err(|e| BraheError::new_err(e.to_string()))
     }
 
@@ -1202,9 +1234,10 @@ impl PyCelestrakClient {
     ///     )
     ///     client.download(query, "stations.3le")
     ///     ```
-    fn download(&self, query: &PyCelestrakQuery, filepath: &str) -> PyResult<()> {
-        self.inner
-            .download(&query.inner, Path::new(filepath))
+    fn download(&self, py: Python<'_>, query: &PyCelestrakQuery, filepath: &str) -> PyResult<()> {
+        let query = query.inner.clone();
+        let filepath = filepath.to_owned();
+        py.detach(|| self.inner.download(&query, Path::new(&filepath)))
             .map_err(|e| BraheError::new_err(e.to_string()))
     }
 }

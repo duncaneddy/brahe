@@ -18,7 +18,9 @@ catalog metadata (`CelestrakQuery.satcat`).
 To minimize load on CelesTrak's servers and improve performance, the client caches downloaded data for
 2 hours. Cache files are stored in the system cache directory (`~/.cache/brahe/celestrak/`) and are
 keyed by query URL. Setting `BRAHE_NETWORK_MODE=offline` serves cached data without any request; see
-[Environment Variables](../utilities/environment_variables.md).
+[Environment Variables](../utilities/environment_variables.md). Lookups by catalog number, name, or
+international designator follow a different order, described in
+[Single-Object Lookups and the Active Catalog](#single-object-lookups-and-the-active-catalog) below.
 
 !!! tip "Customizing Cache"
     Pass `cache_max_age=0.0` to disable caching, or a custom value in seconds to change the TTL.
@@ -56,6 +58,50 @@ The following example retrieves GP data for a single satellite by NORAD catalog 
 Other common lookup patterns include querying by group name (`group="stations"`), object name
 (`name="ISS"`), or international designator (`intdes="1998-067A"`). All of these are available as
 keyword arguments to `get_gp` or as builder methods on `CelestrakQuery.gp`.
+
+## Single-Object Lookups and the Active Catalog
+
+A lookup by catalog number, international designator, or name is answered from a cached copy of the
+`active` group whenever the object is in it. The first such lookup downloads `active` once (about
+11,000 records, several megabytes); every later lookup by any client in the same cache reads that
+file until it passes the cache TTL. The order is: the exact per-object cache file if it is present and
+servable, then the cached `active` group, then a request for the object itself. Objects that are not
+in `active` -- debris, inactive payloads -- are requested individually, so `get_gp(catnr=...)` works
+for any catalog number. `catnr` and `intdes` results are unaffected by which step answers them --
+resolution only changes where the record comes from, not its content.
+
+A name search follows the same order, so a search that matches in `active` returns only active
+objects; the server's own name search would also return inactive objects with the same substring. A
+name with no match in `active` is sent to the server. Group, special, and file queries, supplemental
+GP, and SATCAT are sent to the server exactly as written, though still served from the URL cache when
+a fresh copy exists; `query_raw` never consults `active`. A client with a zero cache age sends every
+query directly, since the `active` group copy could not be reused.
+
+=== "Python"
+
+    ```python
+    import brahe as bh
+
+    client = bh.celestrak.CelestrakClient()
+    iss = client.get_gp(catnr=25544)          # downloads active once
+    nisar = client.get_gp(name="NISAR")       # served from the cached active group
+    debris = client.get_gp(catnr=34427)       # not in active: requested directly
+    ```
+
+=== "Rust"
+
+    ```rust
+    use brahe::celestrak::CelestrakClient;
+
+    let client = CelestrakClient::new();
+    let iss = client.get_gp_by_catnr(25544).unwrap();
+    let nisar = client.get_gp_by_name("NISAR").unwrap();
+    let debris = client.get_gp_by_catnr(34427).unwrap();
+    ```
+
+With `BRAHE_NETWORK_MODE=offline`, a cached `active` group of any age answers these lookups; an object
+that is neither in the cached group nor in a per-object cache file is an error. See
+[Environment Variables](../utilities/environment_variables.md).
 
 ## Client-Side Filtering
 

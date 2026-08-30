@@ -12,6 +12,56 @@ use crate::utils::errors::BraheError;
 // Shared XML writing helpers
 // ============================================================================
 
+/// Escape the XML markup delimiters in element text content.
+///
+/// CCSDS 502.0-B-3 subsection 8.2 fixes the XML version declaration at 1.0 and
+/// subsection 8.13.5 defines every text value as the XML Schema `string` type,
+/// so free-text fields must be well-formed XML 1.0 character data. Only `&` and
+/// `<` are forbidden outright in content; `>` is escaped as well because it is
+/// forbidden in the `]]>` sequence and escaping it unconditionally is what the
+/// XML specification recommends.
+///
+/// # Arguments
+///
+/// * `s` - The text to place between an element's tags.
+///
+/// # Returns
+///
+/// * `String` - The text with `&`, `<`, and `>` replaced by entity references.
+///
+/// # Examples
+///
+/// ```ignore
+/// assert_eq!(escape_xml_text("R&D <ops>"), "R&amp;D &lt;ops&gt;");
+/// ```
+fn escape_xml_text(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
+/// Escape the XML markup delimiters in a double-quoted attribute value.
+///
+/// Attribute values additionally forbid the quote character that delimits them.
+///
+/// # Arguments
+///
+/// * `s` - The text to place inside a double-quoted attribute value.
+///
+/// # Returns
+///
+/// * `String` - The text with `&`, `<`, `>`, and `"` replaced by entity
+///   references.
+///
+/// # Examples
+///
+/// ```ignore
+/// assert_eq!(escape_xml_attribute("a \"b\""), "a &quot;b&quot;");
+/// ```
+fn escape_xml_attribute(s: &str) -> String {
+    escape_xml_text(s).replace('"', "&quot;")
+}
+
 /// XML covariance element names (6x6 lower-triangular, 21 elements).
 const COV_NAMES: [&str; 21] = [
     "CX_X",
@@ -41,10 +91,18 @@ const COV_NAMES: [&str; 21] = [
 fn write_xml_header(out: &mut String, header: &ODMHeader, i1: &str, i2: &str) {
     out.push_str(&format!("{}<header>\n", i1));
     for c in &header.comments {
-        out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i2, c));
+        out.push_str(&format!(
+            "{}<COMMENT>{}</COMMENT>\n",
+            i2,
+            escape_xml_text(c)
+        ));
     }
     if let Some(ref cl) = header.classification {
-        out.push_str(&format!("{}<CLASSIFICATION>{}</CLASSIFICATION>\n", i2, cl));
+        out.push_str(&format!(
+            "{}<CLASSIFICATION>{}</CLASSIFICATION>\n",
+            i2,
+            escape_xml_text(cl)
+        ));
     }
     out.push_str(&format!(
         "{}<CREATION_DATE>{}</CREATION_DATE>\n",
@@ -53,10 +111,15 @@ fn write_xml_header(out: &mut String, header: &ODMHeader, i1: &str, i2: &str) {
     ));
     out.push_str(&format!(
         "{}<ORIGINATOR>{}</ORIGINATOR>\n",
-        i2, header.originator
+        i2,
+        escape_xml_text(&header.originator)
     ));
     if let Some(ref mid) = header.message_id {
-        out.push_str(&format!("{}<MESSAGE_ID>{}</MESSAGE_ID>\n", i2, mid));
+        out.push_str(&format!(
+            "{}<MESSAGE_ID>{}</MESSAGE_ID>\n",
+            i2,
+            escape_xml_text(mid)
+        ));
     }
     out.push_str(&format!("{}</header>\n", i1));
 }
@@ -78,7 +141,11 @@ fn write_xml_covariance(out: &mut String, cov: &CCSDSCovariance, i_block: &str, 
         ));
     }
     for c in &cov.comments {
-        out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i_elem, c));
+        out.push_str(&format!(
+            "{}<COMMENT>{}</COMMENT>\n",
+            i_elem,
+            escape_xml_text(c)
+        ));
     }
     // Convert m² → km²
     let values = covariance_to_lower_triangular(&cov.matrix, 1e-6);
@@ -100,7 +167,11 @@ fn write_xml_spacecraft_params(
 ) {
     out.push_str(&format!("{}<spacecraftParameters>\n", i_block));
     for c in &sp.comments {
-        out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i_elem, c));
+        out.push_str(&format!(
+            "{}<COMMENT>{}</COMMENT>\n",
+            i_elem,
+            escape_xml_text(c)
+        ));
     }
     if let Some(v) = sp.mass {
         out.push_str(&format!("{}<MASS>{:.6}</MASS>\n", i_elem, v));
@@ -132,7 +203,9 @@ fn write_xml_user_defined(out: &mut String, ud: &CCSDSUserDefined, i_block: &str
     for (k, v) in &ud.parameters {
         out.push_str(&format!(
             "{}<USER_DEFINED_{} value=\"{}\"/>\n",
-            i_elem, k, v
+            i_elem,
+            k,
+            escape_xml_attribute(v)
         ));
     }
     out.push_str(&format!("{}</userDefinedParameters>\n", i_block));
@@ -166,19 +239,26 @@ pub fn write_oem_xml(oem: &crate::ccsds::oem::OEM) -> Result<String, BraheError>
         // Metadata
         out.push_str(&format!("{}<metadata>\n", i3));
         for c in &segment.metadata.comments {
-            out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i4, c));
+            out.push_str(&format!(
+                "{}<COMMENT>{}</COMMENT>\n",
+                i4,
+                escape_xml_text(c)
+            ));
         }
         out.push_str(&format!(
             "{}<OBJECT_NAME>{}</OBJECT_NAME>\n",
-            i4, segment.metadata.object_name
+            i4,
+            escape_xml_text(&segment.metadata.object_name)
         ));
         out.push_str(&format!(
             "{}<OBJECT_ID>{}</OBJECT_ID>\n",
-            i4, segment.metadata.object_id
+            i4,
+            escape_xml_text(&segment.metadata.object_id)
         ));
         out.push_str(&format!(
             "{}<CENTER_NAME>{}</CENTER_NAME>\n",
-            i4, segment.metadata.center_name
+            i4,
+            escape_xml_text(&segment.metadata.center_name)
         ));
         out.push_str(&format!(
             "{}<REF_FRAME>{}</REF_FRAME>\n",
@@ -222,7 +302,8 @@ pub fn write_oem_xml(oem: &crate::ccsds::oem::OEM) -> Result<String, BraheError>
         if let Some(ref interp) = segment.metadata.interpolation {
             out.push_str(&format!(
                 "{}<INTERPOLATION>{}</INTERPOLATION>\n",
-                i4, interp
+                i4,
+                escape_xml_text(interp)
             ));
         }
         if let Some(deg) = segment.metadata.interpolation_degree {
@@ -236,7 +317,11 @@ pub fn write_oem_xml(oem: &crate::ccsds::oem::OEM) -> Result<String, BraheError>
         // Data
         out.push_str(&format!("{}<data>\n", i3));
         for c in &segment.comments {
-            out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i4, c));
+            out.push_str(&format!(
+                "{}<COMMENT>{}</COMMENT>\n",
+                i4,
+                escape_xml_text(c)
+            ));
         }
 
         // State vectors
@@ -313,19 +398,26 @@ pub fn write_omm_xml(omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError>
     // Metadata
     out.push_str(&format!("{}<metadata>\n", i3));
     for c in &omm.metadata.comments {
-        out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i4, c));
+        out.push_str(&format!(
+            "{}<COMMENT>{}</COMMENT>\n",
+            i4,
+            escape_xml_text(c)
+        ));
     }
     out.push_str(&format!(
         "{}<OBJECT_NAME>{}</OBJECT_NAME>\n",
-        i4, omm.metadata.object_name
+        i4,
+        escape_xml_text(&omm.metadata.object_name)
     ));
     out.push_str(&format!(
         "{}<OBJECT_ID>{}</OBJECT_ID>\n",
-        i4, omm.metadata.object_id
+        i4,
+        escape_xml_text(&omm.metadata.object_id)
     ));
     out.push_str(&format!(
         "{}<CENTER_NAME>{}</CENTER_NAME>\n",
-        i4, omm.metadata.center_name
+        i4,
+        escape_xml_text(&omm.metadata.center_name)
     ));
     out.push_str(&format!(
         "{}<REF_FRAME>{}</REF_FRAME>\n",
@@ -344,7 +436,8 @@ pub fn write_omm_xml(omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError>
     ));
     out.push_str(&format!(
         "{}<MEAN_ELEMENT_THEORY>{}</MEAN_ELEMENT_THEORY>\n",
-        i4, omm.metadata.mean_element_theory
+        i4,
+        escape_xml_text(&omm.metadata.mean_element_theory)
     ));
     out.push_str(&format!("{}</metadata>\n", i3));
 
@@ -354,7 +447,7 @@ pub fn write_omm_xml(omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError>
     // Mean elements
     out.push_str(&format!("{}<meanElements>\n", i4));
     for c in &omm.mean_elements.comments {
-        out.push_str(&format!("        <COMMENT>{}</COMMENT>\n", c));
+        out.push_str(&format!(" <COMMENT>{}</COMMENT>\n", escape_xml_text(c)));
     }
     out.push_str(&format!(
         "        <EPOCH>{}</EPOCH>\n",
@@ -399,7 +492,7 @@ pub fn write_omm_xml(omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError>
     if let Some(ref tle) = omm.tle_parameters {
         out.push_str(&format!("{}<tleParameters>\n", i4));
         for c in &tle.comments {
-            out.push_str(&format!("        <COMMENT>{}</COMMENT>\n", c));
+            out.push_str(&format!(" <COMMENT>{}</COMMENT>\n", escape_xml_text(c)));
         }
         if let Some(et) = tle.ephemeris_type {
             out.push_str(&format!(
@@ -499,19 +592,26 @@ pub fn write_opm_xml(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError>
     // Metadata
     out.push_str(&format!("{}<metadata>\n", i3));
     for c in &opm.metadata.comments {
-        out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i4, c));
+        out.push_str(&format!(
+            "{}<COMMENT>{}</COMMENT>\n",
+            i4,
+            escape_xml_text(c)
+        ));
     }
     out.push_str(&format!(
         "{}<OBJECT_NAME>{}</OBJECT_NAME>\n",
-        i4, opm.metadata.object_name
+        i4,
+        escape_xml_text(&opm.metadata.object_name)
     ));
     out.push_str(&format!(
         "{}<OBJECT_ID>{}</OBJECT_ID>\n",
-        i4, opm.metadata.object_id
+        i4,
+        escape_xml_text(&opm.metadata.object_id)
     ));
     out.push_str(&format!(
         "{}<CENTER_NAME>{}</CENTER_NAME>\n",
-        i4, opm.metadata.center_name
+        i4,
+        escape_xml_text(&opm.metadata.center_name)
     ));
     out.push_str(&format!(
         "{}<REF_FRAME>{}</REF_FRAME>\n",
@@ -536,7 +636,7 @@ pub fn write_opm_xml(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError>
     // State vector
     out.push_str(&format!("{}<stateVector>\n", i4));
     for c in &opm.state_vector.comments {
-        out.push_str(&format!("        <COMMENT>{}</COMMENT>\n", c));
+        out.push_str(&format!(" <COMMENT>{}</COMMENT>\n", escape_xml_text(c)));
     }
     out.push_str(&format!(
         "        <EPOCH>{}</EPOCH>\n",
@@ -574,7 +674,7 @@ pub fn write_opm_xml(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError>
     if let Some(ref ke) = opm.keplerian_elements {
         out.push_str(&format!("{}<keplerianElements>\n", i4));
         for c in &ke.comments {
-            out.push_str(&format!("        <COMMENT>{}</COMMENT>\n", c));
+            out.push_str(&format!(" <COMMENT>{}</COMMENT>\n", escape_xml_text(c)));
         }
         // Semi-major axis: m → km
         out.push_str(&format!(
@@ -624,7 +724,7 @@ pub fn write_opm_xml(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError>
     for man in &opm.maneuvers {
         out.push_str(&format!("{}<maneuverParameters>\n", i4));
         for c in &man.comments {
-            out.push_str(&format!("        <COMMENT>{}</COMMENT>\n", c));
+            out.push_str(&format!(" <COMMENT>{}</COMMENT>\n", escape_xml_text(c)));
         }
         out.push_str(&format!(
             "        <MAN_EPOCH_IGNITION>{}</MAN_EPOCH_IGNITION>\n",
@@ -694,10 +794,18 @@ pub fn write_cdm_xml(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError>
     // Header
     out.push_str(&format!("{}<header>\n", i1));
     for c in &cdm.header.comments {
-        out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i2, c));
+        out.push_str(&format!(
+            "{}<COMMENT>{}</COMMENT>\n",
+            i2,
+            escape_xml_text(c)
+        ));
     }
     if let Some(ref cl) = cdm.header.classification {
-        out.push_str(&format!("{}<CLASSIFICATION>{}</CLASSIFICATION>\n", i2, cl));
+        out.push_str(&format!(
+            "{}<CLASSIFICATION>{}</CLASSIFICATION>\n",
+            i2,
+            escape_xml_text(cl)
+        ));
     }
     out.push_str(&format!(
         "{}<CREATION_DATE>{}</CREATION_DATE>\n",
@@ -706,14 +814,20 @@ pub fn write_cdm_xml(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError>
     ));
     out.push_str(&format!(
         "{}<ORIGINATOR>{}</ORIGINATOR>\n",
-        i2, cdm.header.originator
+        i2,
+        escape_xml_text(&cdm.header.originator)
     ));
     if let Some(ref mf) = cdm.header.message_for {
-        out.push_str(&format!("{}<MESSAGE_FOR>{}</MESSAGE_FOR>\n", i2, mf));
+        out.push_str(&format!(
+            "{}<MESSAGE_FOR>{}</MESSAGE_FOR>\n",
+            i2,
+            escape_xml_text(mf)
+        ));
     }
     out.push_str(&format!(
         "{}<MESSAGE_ID>{}</MESSAGE_ID>\n",
-        i2, cdm.header.message_id
+        i2,
+        escape_xml_text(&cdm.header.message_id)
     ));
     out.push_str(&format!("{}</header>\n", i1));
 
@@ -724,10 +838,18 @@ pub fn write_cdm_xml(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError>
     out.push_str(&format!("{}<relativeMetadataData>\n", i2));
     let rm = &cdm.relative_metadata;
     for c in &rm.comments {
-        out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i3, c));
+        out.push_str(&format!(
+            "{}<COMMENT>{}</COMMENT>\n",
+            i3,
+            escape_xml_text(c)
+        ));
     }
     if let Some(ref cid) = rm.conjunction_id {
-        out.push_str(&format!("{}<CONJUNCTION_ID>{}</CONJUNCTION_ID>\n", i3, cid));
+        out.push_str(&format!(
+            "{}<CONJUNCTION_ID>{}</CONJUNCTION_ID>\n",
+            i3,
+            escape_xml_text(cid)
+        ));
     }
     out.push_str(&format!(
         "{}<TCA>{}</TCA>\n",
@@ -816,7 +938,11 @@ pub fn write_cdm_xml(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError>
         ));
     }
     if let Some(ref s) = rm.screen_type {
-        out.push_str(&format!("{}<SCREEN_TYPE>{}</SCREEN_TYPE>\n", i3, s));
+        out.push_str(&format!(
+            "{}<SCREEN_TYPE>{}</SCREEN_TYPE>\n",
+            i3,
+            escape_xml_text(s)
+        ));
     }
     if let Some(ref s) = rm.screen_volume_frame {
         out.push_str(&format!(
@@ -827,7 +953,8 @@ pub fn write_cdm_xml(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError>
     if let Some(ref s) = rm.screen_volume_shape {
         out.push_str(&format!(
             "{}<SCREEN_VOLUME_SHAPE>{}</SCREEN_VOLUME_SHAPE>\n",
-            i3, s
+            i3,
+            escape_xml_text(s)
         ));
     }
     if let Some(v) = rm.screen_volume_radius {
@@ -891,7 +1018,8 @@ pub fn write_cdm_xml(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError>
     if let Some(ref s) = rm.collision_probability_method {
         out.push_str(&format!(
             "{}<COLLISION_PROBABILITY_METHOD>{}</COLLISION_PROBABILITY_METHOD>\n",
-            i3, s
+            i3,
+            escape_xml_text(s)
         ));
     }
     if let Some(v) = rm.collision_max_probability {
@@ -903,7 +1031,8 @@ pub fn write_cdm_xml(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError>
     if let Some(ref s) = rm.collision_max_pc_method {
         out.push_str(&format!(
             "{}<COLLISION_MAX_PC_METHOD>{}</COLLISION_MAX_PC_METHOD>\n",
-            i3, s
+            i3,
+            escape_xml_text(s)
         ));
     }
     if let Some(v) = rm.sefi_collision_probability {
@@ -915,19 +1044,22 @@ pub fn write_cdm_xml(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError>
     if let Some(ref s) = rm.sefi_collision_probability_method {
         out.push_str(&format!(
             "{}<SEFI_COLLISION_PROBABILITY_METHOD>{}</SEFI_COLLISION_PROBABILITY_METHOD>\n",
-            i3, s
+            i3,
+            escape_xml_text(s)
         ));
     }
     if let Some(ref s) = rm.sefi_fragmentation_model {
         out.push_str(&format!(
             "{}<SEFI_FRAGMENTATION_MODEL>{}</SEFI_FRAGMENTATION_MODEL>\n",
-            i3, s
+            i3,
+            escape_xml_text(s)
         ));
     }
     if let Some(ref s) = rm.previous_message_id {
         out.push_str(&format!(
             "{}<PREVIOUS_MESSAGE_ID>{}</PREVIOUS_MESSAGE_ID>\n",
-            i3, s
+            i3,
+            escape_xml_text(s)
         ));
     }
     if let Some(ref e) = rm.previous_message_epoch {
@@ -957,85 +1089,136 @@ pub fn write_cdm_xml(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError>
         // Metadata
         out.push_str(&format!("{}<metadata>\n", i3));
         for c in &m.comments {
-            out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i4, c));
+            out.push_str(&format!(
+                "{}<COMMENT>{}</COMMENT>\n",
+                i4,
+                escape_xml_text(c)
+            ));
         }
-        out.push_str(&format!("{}<OBJECT>{}</OBJECT>\n", i4, m.object));
+        out.push_str(&format!(
+            "{}<OBJECT>{}</OBJECT>\n",
+            i4,
+            escape_xml_text(&m.object)
+        ));
         out.push_str(&format!(
             "{}<OBJECT_DESIGNATOR>{}</OBJECT_DESIGNATOR>\n",
-            i4, m.object_designator
+            i4,
+            escape_xml_text(&m.object_designator)
         ));
         out.push_str(&format!(
             "{}<CATALOG_NAME>{}</CATALOG_NAME>\n",
-            i4, m.catalog_name
+            i4,
+            escape_xml_text(&m.catalog_name)
         ));
         out.push_str(&format!(
             "{}<OBJECT_NAME>{}</OBJECT_NAME>\n",
-            i4, m.object_name
+            i4,
+            escape_xml_text(&m.object_name)
         ));
         out.push_str(&format!(
             "{}<INTERNATIONAL_DESIGNATOR>{}</INTERNATIONAL_DESIGNATOR>\n",
-            i4, m.international_designator
+            i4,
+            escape_xml_text(&m.international_designator)
         ));
         if let Some(ref v) = m.object_type {
-            out.push_str(&format!("{}<OBJECT_TYPE>{}</OBJECT_TYPE>\n", i4, v));
+            out.push_str(&format!(
+                "{}<OBJECT_TYPE>{}</OBJECT_TYPE>\n",
+                i4,
+                escape_xml_text(v)
+            ));
         }
         if let Some(ref v) = m.ops_status {
-            out.push_str(&format!("{}<OPS_STATUS>{}</OPS_STATUS>\n", i4, v));
+            out.push_str(&format!(
+                "{}<OPS_STATUS>{}</OPS_STATUS>\n",
+                i4,
+                escape_xml_text(v)
+            ));
         }
         if let Some(ref v) = m.operator_contact_position {
             out.push_str(&format!(
                 "{}<OPERATOR_CONTACT_POSITION>{}</OPERATOR_CONTACT_POSITION>\n",
-                i4, v
+                i4,
+                escape_xml_text(v)
             ));
         }
         if let Some(ref v) = m.operator_organization {
             out.push_str(&format!(
                 "{}<OPERATOR_ORGANIZATION>{}</OPERATOR_ORGANIZATION>\n",
-                i4, v
+                i4,
+                escape_xml_text(v)
             ));
         }
         if let Some(ref v) = m.operator_phone {
-            out.push_str(&format!("{}<OPERATOR_PHONE>{}</OPERATOR_PHONE>\n", i4, v));
+            out.push_str(&format!(
+                "{}<OPERATOR_PHONE>{}</OPERATOR_PHONE>\n",
+                i4,
+                escape_xml_text(v)
+            ));
         }
         if let Some(ref v) = m.operator_email {
-            out.push_str(&format!("{}<OPERATOR_EMAIL>{}</OPERATOR_EMAIL>\n", i4, v));
+            out.push_str(&format!(
+                "{}<OPERATOR_EMAIL>{}</OPERATOR_EMAIL>\n",
+                i4,
+                escape_xml_text(v)
+            ));
         }
         out.push_str(&format!(
             "{}<EPHEMERIS_NAME>{}</EPHEMERIS_NAME>\n",
-            i4, m.ephemeris_name
+            i4,
+            escape_xml_text(&m.ephemeris_name)
         ));
         if let Some(ref v) = m.odm_msg_link {
-            out.push_str(&format!("{}<ODM_MSG_LINK>{}</ODM_MSG_LINK>\n", i4, v));
+            out.push_str(&format!(
+                "{}<ODM_MSG_LINK>{}</ODM_MSG_LINK>\n",
+                i4,
+                escape_xml_text(v)
+            ));
         }
         if let Some(ref v) = m.adm_msg_link {
-            out.push_str(&format!("{}<ADM_MSG_LINK>{}</ADM_MSG_LINK>\n", i4, v));
+            out.push_str(&format!(
+                "{}<ADM_MSG_LINK>{}</ADM_MSG_LINK>\n",
+                i4,
+                escape_xml_text(v)
+            ));
         }
         if let Some(ref v) = m.obs_before_next_message {
             out.push_str(&format!(
                 "{}<OBS_BEFORE_NEXT_MESSAGE>{}</OBS_BEFORE_NEXT_MESSAGE>\n",
-                i4, v
+                i4,
+                escape_xml_text(v)
             ));
         }
         out.push_str(&format!(
             "{}<COVARIANCE_METHOD>{}</COVARIANCE_METHOD>\n",
-            i4, m.covariance_method
+            i4,
+            escape_xml_text(&m.covariance_method)
         ));
         if let Some(ref v) = m.covariance_source {
             out.push_str(&format!(
                 "{}<COVARIANCE_SOURCE>{}</COVARIANCE_SOURCE>\n",
-                i4, v
+                i4,
+                escape_xml_text(v)
             ));
         }
         out.push_str(&format!(
             "{}<MANEUVERABLE>{}</MANEUVERABLE>\n",
-            i4, m.maneuverable
+            i4,
+            escape_xml_text(&m.maneuverable)
         ));
         if let Some(ref v) = m.orbit_center {
-            out.push_str(&format!("{}<ORBIT_CENTER>{}</ORBIT_CENTER>\n", i4, v));
+            out.push_str(&format!(
+                "{}<ORBIT_CENTER>{}</ORBIT_CENTER>\n",
+                i4,
+                escape_xml_text(v)
+            ));
         }
         out.push_str(&format!("{}<REF_FRAME>{}</REF_FRAME>\n", i4, m.ref_frame));
         if let Some(ref v) = m.alt_cov_type {
-            out.push_str(&format!("{}<ALT_COV_TYPE>{}</ALT_COV_TYPE>\n", i4, v));
+            out.push_str(&format!(
+                "{}<ALT_COV_TYPE>{}</ALT_COV_TYPE>\n",
+                i4,
+                escape_xml_text(v)
+            ));
         }
         if let Some(ref v) = m.alt_cov_ref_frame {
             out.push_str(&format!(
@@ -1044,44 +1227,63 @@ pub fn write_cdm_xml(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError>
             ));
         }
         if let Some(ref v) = m.gravity_model {
-            out.push_str(&format!("{}<GRAVITY_MODEL>{}</GRAVITY_MODEL>\n", i4, v));
+            out.push_str(&format!(
+                "{}<GRAVITY_MODEL>{}</GRAVITY_MODEL>\n",
+                i4,
+                escape_xml_text(v)
+            ));
         }
         if let Some(ref v) = m.atmospheric_model {
             out.push_str(&format!(
                 "{}<ATMOSPHERIC_MODEL>{}</ATMOSPHERIC_MODEL>\n",
-                i4, v
+                i4,
+                escape_xml_text(v)
             ));
         }
         if let Some(ref v) = m.n_body_perturbations {
             out.push_str(&format!(
                 "{}<N_BODY_PERTURBATIONS>{}</N_BODY_PERTURBATIONS>\n",
-                i4, v
+                i4,
+                escape_xml_text(v)
             ));
         }
         if let Some(ref v) = m.solar_rad_pressure {
             out.push_str(&format!(
                 "{}<SOLAR_RAD_PRESSURE>{}</SOLAR_RAD_PRESSURE>\n",
-                i4, v
+                i4,
+                escape_xml_text(v)
             ));
         }
         if let Some(ref v) = m.earth_tides {
-            out.push_str(&format!("{}<EARTH_TIDES>{}</EARTH_TIDES>\n", i4, v));
+            out.push_str(&format!(
+                "{}<EARTH_TIDES>{}</EARTH_TIDES>\n",
+                i4,
+                escape_xml_text(v)
+            ));
         }
         if let Some(ref v) = m.intrack_thrust {
-            out.push_str(&format!("{}<INTRACK_THRUST>{}</INTRACK_THRUST>\n", i4, v));
+            out.push_str(&format!(
+                "{}<INTRACK_THRUST>{}</INTRACK_THRUST>\n",
+                i4,
+                escape_xml_text(v)
+            ));
         }
         out.push_str(&format!("{}</metadata>\n", i3));
 
         // Data
         out.push_str(&format!("{}<data>\n", i3));
         for c in &d.comments {
-            out.push_str(&format!("{}<COMMENT>{}</COMMENT>\n", i4, c));
+            out.push_str(&format!(
+                "{}<COMMENT>{}</COMMENT>\n",
+                i4,
+                escape_xml_text(c)
+            ));
         }
 
         // State vector (m → km)
         out.push_str(&format!("{}<stateVector>\n", i4));
         for c in &d.state_vector.comments {
-            out.push_str(&format!("        <COMMENT>{}</COMMENT>\n", c));
+            out.push_str(&format!(" <COMMENT>{}</COMMENT>\n", escape_xml_text(c)));
         }
         out.push_str(&format!(
             "        <X units=\"km\">{:.6}</X>\n",
@@ -1160,6 +1362,11 @@ pub fn write_cdm_xml(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError>
         let rtn_vals =
             covariance9x9_to_lower_triangular(&d.rtn_covariance.matrix, d.rtn_covariance.dimension);
         out.push_str(&format!("{}<covarianceMatrix>\n", i4));
+        // CCSDS 508.0-B-1 table 3-4 gives the covariance block a COMMENT row
+        // like every other; the KVN writer emits it and this one did not.
+        for c in &d.rtn_covariance.comments {
+            out.push_str(&format!(" <COMMENT>{}</COMMENT>\n", escape_xml_text(c)));
+        }
         for (i, v) in rtn_vals.iter().enumerate() {
             out.push_str(&format!(
                 "        <{}>{:E}</{}>\n",
@@ -1172,7 +1379,7 @@ pub fn write_cdm_xml(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError>
         if let Some(ref od) = d.od_parameters {
             out.push_str(&format!("{}<odParameters>\n", i4));
             for c in &od.comments {
-                out.push_str(&format!("        <COMMENT>{}</COMMENT>\n", c));
+                out.push_str(&format!(" <COMMENT>{}</COMMENT>\n", escape_xml_text(c)));
             }
             if let Some(ref e) = od.time_lastob_start {
                 out.push_str(&format!(
@@ -1235,7 +1442,7 @@ pub fn write_cdm_xml(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError>
         if let Some(ref ap) = d.additional_parameters {
             out.push_str(&format!("{}<additionalParameters>\n", i4));
             for c in &ap.comments {
-                out.push_str(&format!("        <COMMENT>{}</COMMENT>\n", c));
+                out.push_str(&format!(" <COMMENT>{}</COMMENT>\n", escape_xml_text(c)));
             }
             if let Some(v) = ap.area_pc {
                 out.push_str(&format!(
@@ -1269,8 +1476,8 @@ pub fn write_cdm_xml(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError>
             }
             if let Some(ref v) = ap.oeb_parent_frame {
                 out.push_str(&format!(
-                    "        <OEB_PARENT_FRAME>{}</OEB_PARENT_FRAME>\n",
-                    v
+                    " <OEB_PARENT_FRAME>{}</OEB_PARENT_FRAME>\n",
+                    escape_xml_text(v)
                 ));
             }
             if let Some(ref e) = ap.oeb_parent_frame_epoch {
@@ -1407,8 +1614,8 @@ pub fn write_cdm_xml(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError>
             }
             if let Some(ref v) = ap.cov_confidence_method {
                 out.push_str(&format!(
-                    "        <COV_CONFIDENCE_METHOD>{}</COV_CONFIDENCE_METHOD>\n",
-                    v
+                    " <COV_CONFIDENCE_METHOD>{}</COV_CONFIDENCE_METHOD>\n",
+                    escape_xml_text(v)
                 ));
             }
             out.push_str(&format!("{}</additionalParameters>\n", i4));
@@ -1483,7 +1690,7 @@ pub fn write_cdm_xml(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError>
         if let Some(ref acm) = d.additional_covariance_metadata {
             out.push_str(&format!("{}<additionalCovarianceMetadata>\n", i4));
             for c in &acm.comments {
-                out.push_str(&format!("        <COMMENT>{}</COMMENT>\n", c));
+                out.push_str(&format!(" <COMMENT>{}</COMMENT>\n", escape_xml_text(c)));
             }
             if let Some(v) = acm.density_forecast_uncertainty {
                 out.push_str(&format!(
@@ -1508,8 +1715,8 @@ pub fn write_cdm_xml(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError>
             }
             if let Some(ref s) = acm.screening_data_source {
                 out.push_str(&format!(
-                    "        <SCREENING_DATA_SOURCE>{}</SCREENING_DATA_SOURCE>\n",
-                    s
+                    " <SCREENING_DATA_SOURCE>{}</SCREENING_DATA_SOURCE>\n",
+                    escape_xml_text(s)
                 ));
             }
             if let Some(ref v) = acm.dcp_sensitivity_vector_position {
@@ -1532,7 +1739,12 @@ pub fn write_cdm_xml(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError>
     if let Some(ref ud) = cdm.user_defined {
         out.push_str(&format!("{}<userDefinedParameters>\n", i2));
         for (k, v) in &ud.parameters {
-            out.push_str(&format!("{}<USER_DEFINED_{} value=\"{}\"/>\n", i3, k, v));
+            out.push_str(&format!(
+                "{}<USER_DEFINED_{} value=\"{}\"/>\n",
+                i3,
+                k,
+                escape_xml_attribute(v)
+            ));
         }
         out.push_str(&format!("{}</userDefinedParameters>\n", i2));
     }
@@ -1541,4 +1753,238 @@ pub fn write_cdm_xml(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError>
     out.push_str("</cdm>\n");
 
     Ok(out)
+}
+
+#[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
+mod tests {
+    use super::*;
+    use crate::ccsds::cdm::CDM;
+    use crate::ccsds::common::CCSDSFormat;
+    use crate::ccsds::oem::OEM;
+    use crate::ccsds::omm::OMM;
+    use crate::ccsds::opm::OPM;
+
+    /// Free text exercising every character that terminates XML markup.
+    const MARKUP: &str = "R&D <ops> \"quoted\"";
+
+    /// The same text once escaped for element content.
+    const MARKUP_ESCAPED: &str = "R&amp;D &lt;ops&gt; \"quoted\"";
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_escape_xml_text_and_attribute() {
+        assert_eq!(escape_xml_text(MARKUP), MARKUP_ESCAPED);
+        assert_eq!(
+            escape_xml_attribute(MARKUP),
+            "R&amp;D &lt;ops&gt; &quot;quoted&quot;"
+        );
+        assert_eq!(escape_xml_text("plain text"), "plain text");
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_write_oem_xml_escapes_free_text() {
+        let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+        let mut oem = OEM::from_str(&content).unwrap();
+        oem.header.originator = MARKUP.to_string();
+        oem.header.comments = vec![MARKUP.to_string()];
+        oem.segments[0].metadata.object_name = MARKUP.to_string();
+
+        let xml = oem.to_string(CCSDSFormat::XML).unwrap();
+        assert!(xml.contains(&format!("<ORIGINATOR>{}</ORIGINATOR>", MARKUP_ESCAPED)));
+        assert!(xml.contains(&format!("<COMMENT>{}</COMMENT>", MARKUP_ESCAPED)));
+        assert!(xml.contains(&format!("<OBJECT_NAME>{}</OBJECT_NAME>", MARKUP_ESCAPED)));
+
+        let reparsed = OEM::from_str(&xml).unwrap();
+        assert_eq!(reparsed.header.originator, MARKUP);
+        assert_eq!(reparsed.header.comments, vec![MARKUP.to_string()]);
+        assert_eq!(reparsed.segments[0].metadata.object_name, MARKUP);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_write_omm_xml_escapes_free_text_and_user_defined() {
+        let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
+        let mut omm = OMM::from_str(&content).unwrap();
+        omm.header.originator = MARKUP.to_string();
+        omm.metadata.object_name = MARKUP.to_string();
+        omm.user_defined = Some(crate::ccsds::common::CCSDSUserDefined {
+            parameters: std::collections::HashMap::from([(
+                "EARTH_MODEL".to_string(),
+                MARKUP.to_string(),
+            )]),
+        });
+
+        let xml = omm.to_string(CCSDSFormat::XML).unwrap();
+        assert!(xml.contains(&format!("<ORIGINATOR>{}</ORIGINATOR>", MARKUP_ESCAPED)));
+        assert!(xml.contains(&format!("<OBJECT_NAME>{}</OBJECT_NAME>", MARKUP_ESCAPED)));
+        assert!(xml.contains(r#"value="R&amp;D &lt;ops&gt; &quot;quoted&quot;""#));
+
+        let reparsed = OMM::from_str(&xml).unwrap();
+        assert_eq!(reparsed.header.originator, MARKUP);
+        assert_eq!(reparsed.metadata.object_name, MARKUP);
+        assert_eq!(
+            reparsed.user_defined.unwrap().parameters["EARTH_MODEL"],
+            MARKUP
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_write_opm_xml_escapes_free_text() {
+        let content = std::fs::read_to_string("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+        let mut opm = OPM::from_str(&content).unwrap();
+        opm.header.originator = MARKUP.to_string();
+        opm.metadata.object_name = MARKUP.to_string();
+        opm.metadata.comments = vec![MARKUP.to_string()];
+
+        let xml = opm.to_string(CCSDSFormat::XML).unwrap();
+        assert!(xml.contains(&format!("<ORIGINATOR>{}</ORIGINATOR>", MARKUP_ESCAPED)));
+        assert!(xml.contains(&format!("<OBJECT_NAME>{}</OBJECT_NAME>", MARKUP_ESCAPED)));
+
+        let reparsed = OPM::from_str(&xml).unwrap();
+        assert_eq!(reparsed.header.originator, MARKUP);
+        assert_eq!(reparsed.metadata.object_name, MARKUP);
+        assert_eq!(reparsed.metadata.comments, vec![MARKUP.to_string()]);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_write_cdm_xml_escapes_free_text() {
+        let content = std::fs::read_to_string("test_assets/ccsds/cdm/CDMExample1.txt").unwrap();
+        let mut cdm = CDM::from_str(&content).unwrap();
+        cdm.header.originator = MARKUP.to_string();
+        cdm.object1.metadata.object_name = MARKUP.to_string();
+        cdm.object1.metadata.gravity_model = Some(MARKUP.to_string());
+
+        let xml = cdm.to_string(CCSDSFormat::XML).unwrap();
+        assert!(xml.contains(&format!("<ORIGINATOR>{}</ORIGINATOR>", MARKUP_ESCAPED)));
+        assert!(xml.contains(&format!("<OBJECT_NAME>{}</OBJECT_NAME>", MARKUP_ESCAPED)));
+        assert!(xml.contains(&format!(
+            "<GRAVITY_MODEL>{}</GRAVITY_MODEL>",
+            MARKUP_ESCAPED
+        )));
+
+        let reparsed = CDM::from_str(&xml).unwrap();
+        assert_eq!(reparsed.header.originator, MARKUP);
+        assert_eq!(reparsed.object1.metadata.object_name, MARKUP);
+        assert_eq!(
+            reparsed.object1.metadata.gravity_model.as_deref(),
+            Some(MARKUP)
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_xml_escapes_comments_in_every_block() {
+        // Every block that can carry a COMMENT gets one containing markup, so
+        // the escaping is exercised on each emission site rather than only the
+        // few a stock fixture populates.
+        let tagged = |name: &str| format!("{} {}", name, MARKUP);
+        let escaped = |name: &str| format!("<COMMENT>{} {}</COMMENT>", name, MARKUP_ESCAPED);
+
+        // OEM: header, metadata, data, and covariance.
+        let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+        let mut oem = OEM::from_str(&content).unwrap();
+        oem.header.comments = vec![tagged("oem header")];
+        for segment in &mut oem.segments {
+            segment.metadata.comments = vec![tagged("oem metadata")];
+            segment.comments = vec![tagged("oem data")];
+            for covariance in &mut segment.covariances {
+                covariance.comments = vec![tagged("oem covariance")];
+            }
+        }
+        let xml = oem.to_string(CCSDSFormat::XML).unwrap();
+        for block in ["oem header", "oem metadata", "oem data", "oem covariance"] {
+            assert!(xml.contains(&escaped(block)), "OEM missing {}", block);
+        }
+
+        // OMM: header, metadata, mean elements, TLE, and spacecraft parameters.
+        let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
+        let mut omm = OMM::from_str(&content).unwrap();
+        omm.header.comments = vec![tagged("omm header")];
+        omm.metadata.comments = vec![tagged("omm metadata")];
+        omm.mean_elements.comments = vec![tagged("omm mean elements")];
+        if let Some(ref mut tle) = omm.tle_parameters {
+            tle.comments = vec![tagged("omm tle")];
+        }
+        omm.spacecraft_parameters = Some(crate::ccsds::common::CCSDSSpacecraftParameters {
+            mass: Some(300.0),
+            solar_rad_area: None,
+            solar_rad_coeff: None,
+            drag_area: None,
+            drag_coeff: None,
+            comments: vec![tagged("omm spacecraft")],
+        });
+        let xml = omm.to_string(CCSDSFormat::XML).unwrap();
+        for block in [
+            "omm header",
+            "omm metadata",
+            "omm mean elements",
+            "omm tle",
+            "omm spacecraft",
+        ] {
+            assert!(xml.contains(&escaped(block)), "OMM missing {}", block);
+        }
+
+        // OPM: state vector and Keplerian elements.
+        let content = std::fs::read_to_string("test_assets/ccsds/opm/OPMExample2.txt").unwrap();
+        let mut opm = OPM::from_str(&content).unwrap();
+        opm.state_vector.comments = vec![tagged("opm state vector")];
+        opm.keplerian_elements
+            .as_mut()
+            .expect("fixture has Keplerian elements")
+            .comments = vec![tagged("opm keplerian")];
+        let xml = opm.to_string(CCSDSFormat::XML).unwrap();
+        for block in ["opm state vector", "opm keplerian"] {
+            assert!(xml.contains(&escaped(block)), "OPM missing {}", block);
+        }
+
+        // CDM: object metadata and each data sub-block, plus the two optional
+        // metadata fields whose escaping no fixture reaches.
+        let content = std::fs::read_to_string("test_assets/ccsds/cdm/CDMExample2.txt").unwrap();
+        let mut cdm = CDM::from_str(&content).unwrap();
+        let object = &mut cdm.object1;
+        object.metadata.comments = vec![tagged("cdm metadata")];
+        object.metadata.ops_status = Some(MARKUP.to_string());
+        object.metadata.orbit_center = Some(MARKUP.to_string());
+        object.data.comments = vec![tagged("cdm data")];
+        object.data.state_vector.comments = vec![tagged("cdm state vector")];
+        object.data.rtn_covariance.comments = vec![tagged("cdm rtn covariance")];
+        if let Some(ref mut od) = object.data.od_parameters {
+            od.comments = vec![tagged("cdm od")];
+        }
+        if let Some(ref mut ap) = object.data.additional_parameters {
+            ap.comments = vec![tagged("cdm additional")];
+        }
+        object.data.additional_covariance_metadata =
+            Some(crate::ccsds::cdm::CDMAdditionalCovarianceMetadata {
+                density_forecast_uncertainty: None,
+                cscale_factor_min: None,
+                cscale_factor: None,
+                cscale_factor_max: None,
+                screening_data_source: None,
+                dcp_sensitivity_vector_position: None,
+                dcp_sensitivity_vector_velocity: None,
+                comments: vec![tagged("cdm covariance metadata")],
+            });
+        let xml = cdm.to_string(CCSDSFormat::XML).unwrap();
+        for block in [
+            "cdm metadata",
+            "cdm data",
+            "cdm state vector",
+            "cdm rtn covariance",
+            "cdm od",
+            "cdm additional",
+            "cdm covariance metadata",
+        ] {
+            assert!(xml.contains(&escaped(block)), "CDM missing {}", block);
+        }
+        assert!(xml.contains(&format!("<OPS_STATUS>{}</OPS_STATUS>", MARKUP_ESCAPED)));
+        assert!(xml.contains(&format!("<ORBIT_CENTER>{}</ORBIT_CENTER>", MARKUP_ESCAPED)));
+
+        // Nothing raw leaked into any of them.
+        assert!(!xml.contains("R&D <ops>"));
+    }
 }

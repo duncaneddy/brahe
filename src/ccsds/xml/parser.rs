@@ -1240,9 +1240,11 @@ fn extract_xml_user_defined(content: &str) -> Option<CCSDSUserDefined> {
                 } else if in_user_defined && let Some(key) = name.strip_prefix("USER_DEFINED_") {
                     for attr in e.attributes().flatten() {
                         let attr_name = String::from_utf8_lossy(attr.key.as_ref()).to_string();
-                        if attr_name == "value" {
-                            let val = String::from_utf8_lossy(&attr.value).to_string();
-                            params.insert(key.to_string(), val);
+                        if attr_name == "value"
+                            && let Ok(val) =
+                                attr.normalized_value(quick_xml::XmlVersion::Explicit1_0)
+                        {
+                            params.insert(key.to_string(), val.to_string());
                         }
                     }
                 }
@@ -1266,6 +1268,61 @@ fn extract_xml_user_defined(content: &str) -> Option<CCSDSUserDefined> {
     }
 }
 
+/// Emit the KVN line for a CDM XML element that has just closed.
+///
+/// Structural container elements carry no value of their own, and the text
+/// accumulated inside them is only inter-element whitespace, so they are
+/// skipped along with any element whose text is empty.
+///
+/// # Arguments
+///
+/// * `lines` - The KVN line buffer being built.
+/// * `tag` - The name of the element that just closed.
+/// * `text` - The character data accumulated inside it.
+///
+/// # Returns
+///
+/// Nothing; `lines` is extended in place when the element carries a value.
+///
+/// # Examples
+///
+/// ```ignore
+/// let mut lines = Vec::new();
+/// push_cdm_kvn_line(&mut lines, "ORIGINATOR", " JSPOC ");
+/// push_cdm_kvn_line(&mut lines, "COMMENT", "a note");
+/// push_cdm_kvn_line(&mut lines, "segment", "\n  ");
+/// assert_eq!(lines, ["ORIGINATOR = JSPOC", "COMMENT a note"]);
+/// ```
+fn push_cdm_kvn_line(lines: &mut Vec<String>, tag: &str, text: &str) {
+    let text = text.trim();
+    if text.is_empty() {
+        return;
+    }
+
+    match tag {
+        "header"
+        | "body"
+        | "relativeMetadataData"
+        | "segment"
+        | "metadata"
+        | "data"
+        | "odParameters"
+        | "additionalParameters"
+        | "stateVector"
+        | "covarianceMatrix"
+        | "relativeStateVector"
+        | "additionalCovarianceMetadata"
+        | "userDefinedParameters"
+        | "cdm" => {}
+        "COMMENT" => lines.push(format!("COMMENT {}", text)),
+        tag if tag.starts_with("USER_DEFINED_") || tag.starts_with(|c: char| c.is_uppercase()) => {
+            lines.push(format!("{} = {}", tag, text))
+        }
+        // camelCase tags for sub-blocks carry no value.
+        _ => {}
+    }
+}
+
 /// Parse a CDM message from XML format.
 ///
 /// Converts XML to KVN-like key=value representation, then delegates to the
@@ -1279,6 +1336,10 @@ pub fn parse_cdm_xml(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError
     let mut kvn_lines: Vec<String> = Vec::new();
     let mut tag_stack: Vec<String> = Vec::new();
     let mut current_tag = String::new();
+    // quick-xml reports an entity reference as its own event, splitting the
+    // character data of an element into several `Text` events. Element text is
+    // therefore accumulated here and consumed when the element closes.
+    let mut text_buf = String::new();
 
     loop {
         match reader.read_event() {
@@ -1286,6 +1347,7 @@ pub fn parse_cdm_xml(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError
                 let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
                 tag_stack.push(name.clone());
                 current_tag = name.clone();
+                text_buf.clear();
 
                 // Handle cdm root element version attribute
                 if name == "cdm" {
@@ -1299,6 +1361,8 @@ pub fn parse_cdm_xml(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError
                 }
             }
             Ok(Event::End(_e)) => {
+                push_cdm_kvn_line(&mut kvn_lines, &current_tag, &text_buf);
+                text_buf.clear();
                 tag_stack.pop();
                 current_tag = tag_stack.last().cloned().unwrap_or_default();
             }
@@ -1323,7 +1387,15 @@ pub fn parse_cdm_xml(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError
                         for attr in e.attributes().flatten() {
                             let attr_name = String::from_utf8_lossy(attr.key.as_ref()).to_string();
                             if attr_name == "value" {
-                                val = String::from_utf8_lossy(&attr.value).to_string();
+                                val = attr
+                                    .normalized_value(quick_xml::XmlVersion::Explicit1_0)
+                                    .map_err(|err| {
+                                        ccsds_parse_error(
+                                            "CDM",
+                                            &format!("XML attribute decode error: {}", err),
+                                        )
+                                    })?
+                                    .to_string();
                             }
                         }
                         kvn_lines.push(format!("{} = {}", name, val));
@@ -1337,51 +1409,17 @@ pub fn parse_cdm_xml(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError
                 let decoded = e.decode().map_err(|err| {
                     ccsds_parse_error("CDM", &format!("XML text decode error: {}", err))
                 })?;
-                let text = quick_xml::escape::unescape(&decoded)
-                    .map_err(|err| {
-                        ccsds_parse_error("CDM", &format!("XML entity decode error: {}", err))
-                    })?
-                    .trim()
-                    .to_string();
-                if text.is_empty() {
-                    continue;
-                }
-
-                // Map XML tag names to KVN keywords
-                let keyword = match current_tag.as_str() {
-                    // Skip structural tags that don't map to KVN keywords
-                    "header"
-                    | "body"
-                    | "relativeMetadataData"
-                    | "segment"
-                    | "metadata"
-                    | "data"
-                    | "odParameters"
-                    | "additionalParameters"
-                    | "stateVector"
-                    | "covarianceMatrix"
-                    | "relativeStateVector"
-                    | "additionalCovarianceMetadata"
-                    | "userDefinedParameters"
-                    | "cdm" => continue,
-
-                    // COMMENT is handled specially
-                    "COMMENT" => {
-                        kvn_lines.push(format!("COMMENT {}", text));
-                        continue;
-                    }
-
-                    // USER_DEFINED elements
-                    tag if tag.starts_with("USER_DEFINED_") => tag,
-
-                    // All CCSDS keyword tags map directly (uppercase tags)
-                    tag if tag.starts_with(|c: char| c.is_uppercase()) => tag,
-
-                    // camelCase tags for sub-blocks - skip
-                    _ => continue,
-                };
-
-                kvn_lines.push(format!("{} = {}", keyword, text));
+                text_buf.push_str(&decoded);
+            }
+            Ok(Event::GeneralRef(e)) => {
+                let name = e.decode().map_err(|err| {
+                    ccsds_parse_error("CDM", &format!("XML text decode error: {}", err))
+                })?;
+                let reference = format!("&{};", name);
+                let resolved = quick_xml::escape::unescape(&reference).map_err(|err| {
+                    ccsds_parse_error("CDM", &format!("XML entity decode error: {}", err))
+                })?;
+                text_buf.push_str(&resolved);
             }
             Ok(Event::Eof) => break,
             Err(e) => {
@@ -1564,5 +1602,45 @@ mod tests {
         assert!((opm.maneuvers[0].duration - 300.0).abs() < 1e-10);
         assert!((opm.maneuvers[1].duration - 150.0).abs() < 1e-10);
         assert!((opm.maneuvers[1].dv[1] - 2.0).abs() < 1e-10);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_parse_cdm_xml_resolves_entity_references() {
+        // quick-xml reports each entity reference as its own event, so element
+        // text that contains one arrives in several pieces. A conforming CDM
+        // must escape `&` and `<` in free text, so this is the ordinary shape
+        // of a third-party file, not an edge case.
+        let content = std::fs::read_to_string("test_assets/ccsds/cdm/CDMExample1.xml").unwrap();
+        let content = content.replace(
+            "<ORIGINATOR>JSPOC</ORIGINATOR>",
+            "<ORIGINATOR>R&amp;D &lt;ops&gt;</ORIGINATOR>",
+        );
+        let content = content.replace(
+            "<COMMENT>Sample CDM - XML version</COMMENT>",
+            "<COMMENT>Sample CDM &amp; more</COMMENT>",
+        );
+
+        let cdm = parse_cdm_xml(&content).unwrap();
+        assert_eq!(cdm.header.originator, "R&D <ops>");
+        assert_eq!(cdm.header.comments[0], "Sample CDM & more");
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_parse_cdm_xml_unescapes_user_defined_attribute() {
+        let content = std::fs::read_to_string("test_assets/ccsds/cdm/CDMExample1.xml").unwrap();
+        let content = content.replace(
+            "</body>",
+            "<userDefinedParameters>\
+             <USER_DEFINED_EARTH_MODEL value=\"R&amp;D &quot;x&quot;\"/>\
+             </userDefinedParameters></body>",
+        );
+
+        let cdm = parse_cdm_xml(&content).unwrap();
+        assert_eq!(
+            cdm.user_defined.unwrap().parameters["EARTH_MODEL"],
+            "R&D \"x\""
+        );
     }
 }

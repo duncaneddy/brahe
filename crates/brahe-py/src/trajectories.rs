@@ -4278,6 +4278,33 @@ impl PyAttitudeTrajectory {
         PyAttitudeFrame { frame: self.trajectory.frame_b.clone() }
     }
 
+    /// str | None: Trajectory name
+    #[getter]
+    fn name(&self) -> Option<String> {
+        self.trajectory.name.clone()
+    }
+
+    /// Set the trajectory name.
+    ///
+    /// Args:
+    ///     val (str | None): Trajectory name, or None to clear
+    #[setter]
+    fn set_name(&mut self, val: Option<String>) {
+        self.trajectory.name = val;
+    }
+
+    /// dict: Trajectory metadata key-value pairs
+    #[getter]
+    fn metadata(&self, py: Python) -> PyResult<Py<PyAny>> {
+        let json_str = serde_json::to_string(&self.trajectory.metadata).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("JSON error: {}", e))
+        })?;
+        let json_module = py.import("json")?;
+        let loads = json_module.getattr("loads")?;
+        let result = loads.call1((json_str,))?;
+        Ok(result.into())
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "AttitudeTrajectory(frame_a={}, frame_b={}, len={})",

@@ -92,6 +92,12 @@ def infer_return_type_from_name(name: str, doc: str) -> str:
     if name == "trajectory":
         return "SOrbitTrajectory"
 
+    # Special case: metadata property returns a dict; without this, the
+    # generic "data" substring heuristic below (meant for methods like
+    # "state_data") would misclassify it as np.ndarray.
+    if name == "metadata":
+        return "dict"
+
     # Conversion methods
     if name.startswith("to_"):
         if "datetime" in name:

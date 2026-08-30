@@ -249,7 +249,7 @@ impl AttitudeTrajectory {
     ///
     /// # Returns
     /// * `Ok(Self)` - Trajectory successfully created with sorted data
-    /// * `Err(BraheError)` - If validation fails (length mismatch, empty vectors, or mixed angular velocity presence)
+    /// * `Err(BraheError)` - If validation fails (length mismatch, empty vectors, mixed angular velocity presence, or duplicate epochs)
     ///
     /// # Examples
     /// ```rust
@@ -300,6 +300,15 @@ impl AttitudeTrajectory {
         let sorted_epochs: Vec<Epoch> = indices.iter().map(|&i| epochs[i]).collect();
         let sorted_states: Vec<AttitudeState> =
             indices.iter().map(|&i| states[i].clone()).collect();
+
+        for window in sorted_epochs.windows(2) {
+            if window[0] == window[1] {
+                return Err(BraheError::Error(format!(
+                    "Cannot create trajectory: duplicate epoch {} in input data",
+                    window[0]
+                )));
+            }
+        }
 
         Ok(Self {
             epochs: sorted_epochs,
@@ -1154,6 +1163,27 @@ mod tests {
         assert!(result.is_err());
         let message = format!("{}", result.unwrap_err());
         assert!(message.contains("empty"));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_from_data_duplicate_epoch_errors() {
+        let (a, b) = body_frames();
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Duplicate epoch present even though the input is not pre-sorted.
+        let epochs = vec![t0 + 60.0, t0, t0];
+        let states = vec![
+            AttitudeState::new(z_axis_quaternion(0.1)),
+            AttitudeState::new(z_axis_quaternion(0.0)),
+            AttitudeState::new(z_axis_quaternion(0.2)),
+        ];
+
+        let result = AttitudeTrajectory::from_data(epochs, states, a, b);
+        assert!(result.is_err());
+        let message = format!("{}", result.unwrap_err());
+        assert!(message.contains("duplicate epoch"));
+        assert!(message.contains(&t0.to_string()));
     }
 
     #[test]

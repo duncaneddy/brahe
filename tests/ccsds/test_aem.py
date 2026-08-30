@@ -173,6 +173,40 @@ def test_aem_to_dict():
     assert len(d["segments"]) == 1
     assert d["segments"][0]["object_name"] == "SAT1"
     assert len(d["segments"][0]["states"]) == 1
+    state = d["segments"][0]["states"][0]
+    assert state["attitude_type"] == "QUATERNION"
+    np.testing.assert_allclose(state["quaternion"], [0.0, 0.0, 0.0, 1.0])
+
+
+def test_aem_to_dict_epoch_written_in_segment_time_system():
+    """to_dict() epochs (START_TIME, STOP_TIME, and each state's EPOCH) must
+    match the segment TIME_SYSTEM, the same as the KVN writer, not the
+    Epoch's own internal time system."""
+    t0_utc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    t1_utc = t0_utc + 60.0
+    seg = AEMSegment(
+        "SAT1", "2024-001A", "EME2000", "SC_BODY_1", "TAI", t0_utc, t1_utc, "QUATERNION"
+    )
+    seg.add_state(
+        AEMAttitudeState.from_quaternion(t0_utc, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    )
+    aem = AEM("BRAHE")
+    aem.add_segment(seg)
+
+    kvn = aem.to_string("KVN")
+    start_line = next(
+        line for line in kvn.splitlines() if line.startswith("START_TIME")
+    )
+    kvn_start_str = start_line.split(" = ", 1)[1]
+    # AEM ephemeris data lines are space-separated ("EPOCH Q1 Q2 Q3 QC" for
+    # QUATERNION states), not KEYWORD = value pairs.
+    data_start = kvn.index("DATA_START") + len("DATA_START")
+    data_stop = kvn.index("DATA_STOP")
+    kvn_epoch_str = kvn[data_start:data_stop].strip().split()[0]
+
+    d = aem.to_dict()
+    assert d["segments"][0]["start_time"] == kvn_start_str
+    assert d["segments"][0]["states"][0]["epoch"] == kvn_epoch_str
 
 
 def test_aem_segment_builder_quaternion_angvel_round_trip():
@@ -314,6 +348,8 @@ def test_aem_g4_segment_to_attitude_trajectory(eop):
     assert traj.frame_b == bh.AttitudeFrame.spacecraft("SC_BODY", "1")
     assert traj.interpolation_method == "SLERP"
     assert not traj.has_rates
+    assert traj.name == "mars global surveyor"
+    assert traj.metadata["object_id"] == "1996-062A"
 
     segment = aem.segments[1]
     q_first = segment.states[0].quaternion

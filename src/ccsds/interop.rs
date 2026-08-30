@@ -485,7 +485,13 @@ impl AEM {
     /// endpoints convert via `ADMReferenceFrame::try_from(&AttitudeFrame)`
     /// (the reverse PR-1 frame bridge). `START_TIME`/`STOP_TIME` are the
     /// trajectory's first and last epochs, and the header is built from
-    /// `originator` via `AEMHeader::new`.
+    /// `originator` via `AEMHeader::new`. The trajectory's interpolation
+    /// method maps into `INTERPOLATION_METHOD`/`INTERPOLATION_DEGREE`:
+    /// `Linear` maps to `LINEAR` with degree 1 (`AttitudeInterpolationMethod`
+    /// has no degree concept for linear interpolation, and
+    /// [`AEMMetadata::validate`] requires a degree whenever a method is
+    /// set), `Lagrange { degree }` maps to `LAGRANGE` with that degree, and
+    /// `Slerp` has no CCSDS equivalent and leaves both fields unset.
     ///
     /// # Arguments
     ///
@@ -549,6 +555,23 @@ impl AEM {
         if traj.has_rates() {
             metadata = metadata.with_angvel_frame(ref_frame_b);
         }
+
+        // Map the trajectory's interpolation method into segment metadata.
+        // `AEMMetadata::validate` requires `interpolation_degree` whenever
+        // `interpolation_method` is set, so `Linear` (which has no degree
+        // concept in `AttitudeInterpolationMethod`) is recorded with degree
+        // 1, the minimal degree consistent with linear interpolation.
+        // `Slerp` has no CCSDS interpolation-method equivalent and is left
+        // unset.
+        metadata = match traj.interpolation_method {
+            AttitudeInterpolationMethod::Linear => {
+                metadata.with_interpolation(AEMInterpolationMethod::Linear, Some(1))
+            }
+            AttitudeInterpolationMethod::Lagrange { degree } => {
+                metadata.with_interpolation(AEMInterpolationMethod::Lagrange, Some(degree as u32))
+            }
+            AttitudeInterpolationMethod::Slerp => metadata,
+        };
 
         let mut segment = AEMSegment::new(metadata);
         for i in 0..traj.len() {
@@ -2220,6 +2243,81 @@ mod tests {
             assert_eq!(recovered.quaternion, original.quaternion);
             assert_eq!(recovered.angular_velocity, original.angular_velocity);
         }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_trajectory_round_trip_interpolation_method_lagrange() {
+        let frame_a = AttitudeFrame::Reference(ReferenceFrame::EME2000);
+        let frame_b = AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None));
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let epochs = vec![t0, t0 + 60.0, t0 + 120.0];
+        let states = vec![
+            AttitudeState::new(Quaternion::new(1.0, 0.0, 0.0, 0.0)),
+            AttitudeState::new(Quaternion::new(0.9998, 0.0, 0.0, 0.0196)),
+            AttitudeState::new(Quaternion::new(0.9992, 0.0, 0.0, 0.0392)),
+        ];
+        let mut traj = AttitudeTrajectory::from_data(epochs, states, frame_a, frame_b).unwrap();
+        traj.set_interpolation_method(AttitudeInterpolationMethod::Lagrange { degree: 5 });
+
+        let aem = AEM::from_attitude_trajectory(
+            &traj,
+            "SAT1",
+            "2024-001A",
+            "BRAHE",
+            CCSDSTimeSystem::UTC,
+        )
+        .unwrap();
+        assert_eq!(
+            aem.segments[0].metadata.interpolation_method,
+            Some(AEMInterpolationMethod::Lagrange)
+        );
+        assert_eq!(aem.segments[0].metadata.interpolation_degree, Some(5));
+        aem.segments[0].metadata.validate().unwrap();
+
+        let round_tripped = AttitudeTrajectory::try_from(&aem).unwrap();
+        assert_eq!(
+            round_tripped.interpolation_method,
+            AttitudeInterpolationMethod::Lagrange { degree: 5 }
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_trajectory_round_trip_interpolation_method_linear() {
+        let frame_a = AttitudeFrame::Reference(ReferenceFrame::EME2000);
+        let frame_b = AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None));
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let epochs = vec![t0, t0 + 60.0];
+        let states = vec![
+            AttitudeState::new(Quaternion::new(1.0, 0.0, 0.0, 0.0)),
+            AttitudeState::new(Quaternion::new(0.9998, 0.0, 0.0, 0.0196)),
+        ];
+        let mut traj = AttitudeTrajectory::from_data(epochs, states, frame_a, frame_b).unwrap();
+        traj.set_interpolation_method(AttitudeInterpolationMethod::Linear);
+
+        let aem = AEM::from_attitude_trajectory(
+            &traj,
+            "SAT1",
+            "2024-001A",
+            "BRAHE",
+            CCSDSTimeSystem::UTC,
+        )
+        .unwrap();
+        assert_eq!(
+            aem.segments[0].metadata.interpolation_method,
+            Some(AEMInterpolationMethod::Linear)
+        );
+        assert_eq!(aem.segments[0].metadata.interpolation_degree, Some(1));
+        aem.segments[0].metadata.validate().unwrap();
+
+        let round_tripped = AttitudeTrajectory::try_from(&aem).unwrap();
+        assert_eq!(
+            round_tripped.interpolation_method,
+            AttitudeInterpolationMethod::Linear
+        );
     }
 
     #[test]

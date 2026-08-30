@@ -6940,6 +6940,21 @@ impl PyAEM {
         for segment in &self.inner.segments {
             let s_dict = pyo3::types::PyDict::new(py);
             let metadata = &segment.metadata;
+
+            // START_TIME, STOP_TIME, and each state's EPOCH are written in
+            // the segment's TIME_SYSTEM (504.0-B-2 §4.2.4.4), not the
+            // `Epoch`'s own internal time system, mirroring the KVN/XML/JSON
+            // writers. A handful of CCSDS time systems (SCLK, MET, MRT,
+            // GMST, TDR) have no corresponding `brahe::time::TimeSystem` and
+            // are left unconverted.
+            let write_ts = metadata.time_system.to_time_system();
+            let epoch_for_write = |e: &brahe::time::Epoch| -> brahe::time::Epoch {
+                match write_ts {
+                    Some(ts) => e.to_time_system(ts),
+                    None => *e,
+                }
+            };
+
             s_dict.set_item("object_name", &metadata.object_name)?;
             s_dict.set_item("object_id", &metadata.object_id)?;
             s_dict.set_item("center_name", &metadata.center_name)?;
@@ -6948,11 +6963,11 @@ impl PyAEM {
             s_dict.set_item("time_system", format!("{}", metadata.time_system))?;
             s_dict.set_item(
                 "start_time",
-                brahe::ccsds::common::format_ccsds_datetime(&metadata.start_time),
+                brahe::ccsds::common::format_ccsds_datetime(&epoch_for_write(&metadata.start_time)),
             )?;
             s_dict.set_item(
                 "stop_time",
-                brahe::ccsds::common::format_ccsds_datetime(&metadata.stop_time),
+                brahe::ccsds::common::format_ccsds_datetime(&epoch_for_write(&metadata.stop_time)),
             )?;
             s_dict.set_item("attitude_type", format!("{}", metadata.attitude_type))?;
             s_dict.set_item(
@@ -6968,9 +6983,84 @@ impl PyAEM {
                 let st_dict = pyo3::types::PyDict::new(py);
                 st_dict.set_item(
                     "epoch",
-                    brahe::ccsds::common::format_ccsds_datetime(&state.epoch),
+                    brahe::ccsds::common::format_ccsds_datetime(&epoch_for_write(&state.epoch)),
                 )?;
                 st_dict.set_item("attitude_type", format!("{}", state.data.attitude_type()))?;
+
+                match &state.data {
+                    AEMAttitudeData::Quaternion { quaternion } => {
+                        st_dict.set_item("quaternion", quaternion.to_vector(false).as_slice().to_vec())?;
+                    }
+                    AEMAttitudeData::QuaternionDerivative { quaternion, derivative } => {
+                        st_dict.set_item("quaternion", quaternion.to_vector(false).as_slice().to_vec())?;
+                        st_dict.set_item("derivative", derivative.as_slice().to_vec())?;
+                    }
+                    AEMAttitudeData::QuaternionAngVel { quaternion, angular_velocity } => {
+                        st_dict.set_item("quaternion", quaternion.to_vector(false).as_slice().to_vec())?;
+                        st_dict.set_item("angular_velocity", angular_velocity.as_slice().to_vec())?;
+                    }
+                    AEMAttitudeData::EulerAngle { angles } => {
+                        st_dict.set_item("order", format!("{:?}", angles.order))?;
+                        st_dict.set_item("phi", angles.phi)?;
+                        st_dict.set_item("theta", angles.theta)?;
+                        st_dict.set_item("psi", angles.psi)?;
+                    }
+                    AEMAttitudeData::EulerAngleDerivative { angles, rates } => {
+                        st_dict.set_item("order", format!("{:?}", angles.order))?;
+                        st_dict.set_item("phi", angles.phi)?;
+                        st_dict.set_item("theta", angles.theta)?;
+                        st_dict.set_item("psi", angles.psi)?;
+                        st_dict.set_item("rates", rates.as_slice().to_vec())?;
+                    }
+                    AEMAttitudeData::EulerAngleAngVel { angles, angular_velocity } => {
+                        st_dict.set_item("order", format!("{:?}", angles.order))?;
+                        st_dict.set_item("phi", angles.phi)?;
+                        st_dict.set_item("theta", angles.theta)?;
+                        st_dict.set_item("psi", angles.psi)?;
+                        st_dict.set_item("angular_velocity", angular_velocity.as_slice().to_vec())?;
+                    }
+                    AEMAttitudeData::Spin { spin_alpha, spin_delta, spin_angle, spin_angle_vel } => {
+                        st_dict.set_item("spin_alpha", *spin_alpha)?;
+                        st_dict.set_item("spin_delta", *spin_delta)?;
+                        st_dict.set_item("spin_angle", *spin_angle)?;
+                        st_dict.set_item("spin_angle_vel", *spin_angle_vel)?;
+                    }
+                    AEMAttitudeData::SpinNutation {
+                        spin_alpha,
+                        spin_delta,
+                        spin_angle,
+                        spin_angle_vel,
+                        nutation,
+                        nutation_period,
+                        nutation_phase,
+                    } => {
+                        st_dict.set_item("spin_alpha", *spin_alpha)?;
+                        st_dict.set_item("spin_delta", *spin_delta)?;
+                        st_dict.set_item("spin_angle", *spin_angle)?;
+                        st_dict.set_item("spin_angle_vel", *spin_angle_vel)?;
+                        st_dict.set_item("nutation", *nutation)?;
+                        st_dict.set_item("nutation_period", *nutation_period)?;
+                        st_dict.set_item("nutation_phase", *nutation_phase)?;
+                    }
+                    AEMAttitudeData::SpinNutationMom {
+                        spin_alpha,
+                        spin_delta,
+                        spin_angle,
+                        spin_angle_vel,
+                        momentum_alpha,
+                        momentum_delta,
+                        nutation_vel,
+                    } => {
+                        st_dict.set_item("spin_alpha", *spin_alpha)?;
+                        st_dict.set_item("spin_delta", *spin_delta)?;
+                        st_dict.set_item("spin_angle", *spin_angle)?;
+                        st_dict.set_item("spin_angle_vel", *spin_angle_vel)?;
+                        st_dict.set_item("momentum_alpha", *momentum_alpha)?;
+                        st_dict.set_item("momentum_delta", *momentum_delta)?;
+                        st_dict.set_item("nutation_vel", *nutation_vel)?;
+                    }
+                }
+
                 states.append(st_dict)?;
             }
             s_dict.set_item("states", states)?;

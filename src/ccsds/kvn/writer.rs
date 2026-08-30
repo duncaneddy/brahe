@@ -1268,6 +1268,20 @@ mod tests {
     // ------------------------------------------------------------------
 
     /// Index of the first line whose trimmed form starts with `keyword`.
+    ///
+    /// # Arguments
+    ///
+    /// - `written`: Serialized KVN message to search
+    /// - `keyword`: KVN keyword to locate, matched against the start of each
+    ///   line after leading whitespace is trimmed
+    ///
+    /// # Returns
+    ///
+    /// - `usize`: Zero-based index of the first matching line
+    ///
+    /// # Panics
+    ///
+    /// Panics if no line starts with `keyword`.
     fn line_index_of(written: &str, keyword: &str) -> usize {
         written
             .lines()
@@ -1276,6 +1290,17 @@ mod tests {
     }
 
     /// Assert the version line comes first, then COMMENT, then CLASSIFICATION.
+    ///
+    /// # Arguments
+    ///
+    /// - `written`: Serialized KVN message whose header order is checked
+    /// - `vers_keyword`: Message-specific version keyword, such as
+    ///   `CCSDS_OEM_VERS`
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the three keywords is absent, or if they do not appear
+    /// in the order fixed by the header tables.
     fn assert_header_order(written: &str, vers_keyword: &str) {
         let vers = line_index_of(written, vers_keyword);
         let comment = line_index_of(written, "COMMENT");

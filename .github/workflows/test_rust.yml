@@ -3,7 +3,7 @@ on:
     workflow_call:
         inputs:
             network_mode:
-                description: "BRAHE_NETWORK_MODE for the test steps (the warm step stays online)."
+                description: "BRAHE_NETWORK_MODE for the test steps."
                 type: string
                 default: "offline"
 jobs:
@@ -45,24 +45,14 @@ jobs:
                     key: naif-kernels-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
                     restore-keys: |
                         naif-kernels-v1-
-            # Unit tests auto-load these kernels; warm them so the offline test
-            # step never has to download. Filenames and URLs follow
-            # src/spice/kernels.rs (SPICEKernel::filename / ::url).
-            -   name: Warm NAIF kernels used by the unit tests
+            # de440s.bsp is a committed test asset; the other kernels the unit
+            # tests auto-load come from the restored NAIF cache and a miss fails
+            # the test that needs them.
+            -   name: Seed the DE440s test asset
                 shell: bash
-                env:
-                    BRAHE_NETWORK_MODE: online
                 run: |
-                    dir=~/.cache/brahe/naif
-                    mkdir -p "$dir"
-                    cp test_assets/de440s.bsp "$dir/"
-                    warm() {
-                        name=$1; url=$2
-                        if [ -s "$dir/$name" ]; then echo "  $name -> cached"; return; fi
-                        curl -fsSL --retry 3 --retry-delay 5 -o "$dir/$name.tmp" "$url" && mv "$dir/$name.tmp" "$dir/$name" && echo "  $name -> downloaded"
-                    }
-                    warm moon_pa_de440_200625.bpc https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/moon_pa_de440_200625.bpc
-                    warm mar099s.bsp https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/mar099s.bsp
+                    mkdir -p ~/.cache/brahe/naif
+                    cp test_assets/de440s.bsp ~/.cache/brahe/naif/
             -   name: Restore ICGEM cache
                 uses: actions/cache/restore@v6.1.0
                 with:
@@ -148,24 +138,14 @@ jobs:
                     key: naif-kernels-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
                     restore-keys: |
                         naif-kernels-v1-
-            # Unit tests auto-load these kernels; warm them so the offline test
-            # step never has to download. Filenames and URLs follow
-            # src/spice/kernels.rs (SPICEKernel::filename / ::url).
-            -   name: Warm NAIF kernels used by the unit tests
+            # de440s.bsp is a committed test asset; the other kernels the unit
+            # tests auto-load come from the restored NAIF cache and a miss fails
+            # the test that needs them.
+            -   name: Seed the DE440s test asset
                 shell: bash
-                env:
-                    BRAHE_NETWORK_MODE: online
                 run: |
-                    dir=~/.cache/brahe/naif
-                    mkdir -p "$dir"
-                    cp test_assets/de440s.bsp "$dir/"
-                    warm() {
-                        name=$1; url=$2
-                        if [ -s "$dir/$name" ]; then echo "  $name -> cached"; return; fi
-                        curl -fsSL --retry 3 --retry-delay 5 -o "$dir/$name.tmp" "$url" && mv "$dir/$name.tmp" "$dir/$name" && echo "  $name -> downloaded"
-                    }
-                    warm moon_pa_de440_200625.bpc https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/moon_pa_de440_200625.bpc
-                    warm mar099s.bsp https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/mar099s.bsp
+                    mkdir -p ~/.cache/brahe/naif
+                    cp test_assets/de440s.bsp ~/.cache/brahe/naif/
             -   name: Restore ICGEM cache
                 uses: actions/cache/restore@v6.1.0
                 with:

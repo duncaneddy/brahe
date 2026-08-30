@@ -13,7 +13,7 @@ on:
                 type: string
                 default: '3.13'
             network_mode:
-                description: "BRAHE_NETWORK_MODE for the test steps (the warm step stays online)."
+                description: "BRAHE_NETWORK_MODE for the test steps."
                 type: string
                 default: "offline"
 jobs:
@@ -111,11 +111,6 @@ jobs:
                     uv pip install maturin --quiet
                     uv run maturin develop --uv --features pyo3/extension-module
 
-            -   name: Warm data cache
-                if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
-                env:
-                    BRAHE_NETWORK_MODE: online
-                run: uv run --frozen python scripts/warm_data_cache.py --only kernel
 
             -   name: Test with coverage
                 if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
@@ -131,11 +126,6 @@ jobs:
                 if: matrix.os != 'ubuntu-latest' || matrix.python-version != inputs.coverage-python-version
                 run: uv pip install -e .
 
-            -   name: Warm data cache
-                if: matrix.os != 'ubuntu-latest' || matrix.python-version != inputs.coverage-python-version
-                env:
-                    BRAHE_NETWORK_MODE: online
-                run: uv run --frozen python scripts/warm_data_cache.py --only kernel
 
             -   name: Test with python ${{ matrix.python-version }}
                 if: matrix.os != 'ubuntu-latest' || matrix.python-version != inputs.coverage-python-version

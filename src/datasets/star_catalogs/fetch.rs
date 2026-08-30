@@ -14,6 +14,7 @@ use crate::utils::BraheError;
 use crate::utils::atomic_write;
 use crate::utils::cache::get_star_catalogs_cache_dir;
 use crate::utils::download::download_bytes_with_user_agent;
+use crate::utils::network::{CacheDecision, cache_policy};
 
 /// `User-Agent` header sent with star catalog downloads.
 ///
@@ -22,7 +23,7 @@ use crate::utils::download::download_bytes_with_user_agent;
 /// User-Agent is required.
 const USER_AGENT: &str = "Mozilla/5.0 (compatible; brahe)";
 
-/// Read a cached copy of a star catalog file, if present and not stale.
+/// Read a cached copy of a star catalog file, if present and servable.
 ///
 /// Does not touch the network. Callers are expected to parse the returned
 /// content and, if parsing fails, fall back to [`download`] followed by
@@ -30,7 +31,9 @@ const USER_AGENT: &str = "Mozilla/5.0 (compatible; brahe)";
 /// parsing successfully. This "parse-before-cache" ordering keeps a bad
 /// download (or a bad cache write from a previous run) from poisoning the
 /// cache forever, since a corrupt cached file always triggers exactly one
-/// forced re-download.
+/// forced re-download. The `BRAHE_NETWORK_MODE` environment variable controls
+/// whether a stale cached file is refreshed or served; see
+/// [`crate::utils::network`].
 ///
 /// # Arguments
 ///
@@ -42,8 +45,12 @@ const USER_AGENT: &str = "Mozilla/5.0 (compatible; brahe)";
 ///
 /// # Returns
 ///
-/// * `Result<Option<String>, BraheError>` - `Some(contents)` on a cache hit,
-///   `None` on a cache miss or stale cache
+/// * `Ok(Some(String))` - Cached body, either fresh or served stale under
+///   `offline`
+/// * `Ok(None)` - No cache file exists, or it is stale and `online` mode
+///   allows a refresh
+/// * `Err(BraheError)` - On cache I/O errors, or if the cache file is stale
+///   and `offline-strict` forbids serving it
 pub(crate) fn read_cache(
     filename: &str,
     cache_max_age: Option<f64>,
@@ -59,7 +66,8 @@ pub(crate) fn read_cache(
         Some(max_age) => is_cache_stale(&cache_path, max_age)?,
         None => false, // fixed catalogs: cached copy never expires
     };
-    if stale {
+    let resource = format!("star catalog {filename}");
+    if cache_policy(&resource, stale)? == CacheDecision::Refresh {
         return Ok(None);
     }
 
@@ -134,7 +142,9 @@ fn is_cache_stale(path: &Path, cache_max_age: f64) -> Result<bool, BraheError> {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
-    use serial_test::parallel;
+    use crate::utils::testing::{CacheRedirect, NetworkModeGuard};
+    use serial_test::{parallel, serial};
+    use std::time::{Duration, SystemTime};
 
     #[test]
     #[parallel]
@@ -174,8 +184,10 @@ mod tests {
     }
 
     #[test]
-    #[parallel]
+    #[serial]
     fn test_read_cache_force_refresh_reports_stale_as_miss() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let cache_dir = get_star_catalogs_cache_dir().unwrap();
         let test_filename = "test_force_refresh.dat";
         let cache_path = Path::new(&cache_dir).join(test_filename);
@@ -188,13 +200,10 @@ mod tests {
         let result = read_cache(test_filename, Some(0.0));
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), None);
-
-        // Cleanup
-        let _ = fs::remove_file(&cache_path);
     }
 
     #[test]
-    #[parallel]
+    #[serial]
     fn test_download_and_commit_cache() {
         let server = httpmock::MockServer::start();
 
@@ -229,7 +238,7 @@ mod tests {
     }
 
     #[test]
-    #[parallel]
+    #[serial]
     fn test_download_errors_on_invalid_utf8_body() {
         let server = httpmock::MockServer::start();
         let mock = server.mock(|when, then| {
@@ -277,5 +286,40 @@ mod tests {
         assert!(result.is_err());
 
         let _ = fs::remove_file(&blocker_path);
+    }
+
+    #[test]
+    #[serial]
+    fn test_read_cache_offline_serves_stale_file() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("offline"));
+        commit_cache("stale_catalog.txt", "stale contents").unwrap();
+        let path = Path::new(&get_star_catalogs_cache_dir().unwrap()).join("stale_catalog.txt");
+        let file = fs::File::options().write(true).open(&path).unwrap();
+        file.set_modified(SystemTime::now() - Duration::from_secs(86400))
+            .unwrap();
+
+        let cached = read_cache("stale_catalog.txt", Some(60.0)).unwrap();
+        assert_eq!(cached.as_deref(), Some("stale contents"));
+    }
+
+    #[test]
+    #[serial]
+    fn test_read_cache_offline_strict_stale_file_errors() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("offline-strict"));
+        commit_cache("strict_catalog.txt", "stale contents").unwrap();
+        let path = Path::new(&get_star_catalogs_cache_dir().unwrap()).join("strict_catalog.txt");
+        let file = fs::File::options().write(true).open(&path).unwrap();
+        file.set_modified(SystemTime::now() - Duration::from_secs(86400))
+            .unwrap();
+
+        let err = read_cache("strict_catalog.txt", Some(60.0))
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("star catalog strict_catalog.txt is older than its cache limit"),
+            "{err}"
+        );
     }
 }

@@ -48,7 +48,7 @@ function both accept any of these — by name (`str`) in Python, by
 
 DE kernels are large files that do not change over time. Brahe implements permanent caching:
 
-- **Cache location**: `~/.cache/brahe/naif/` (or `$BRAHE_CACHE/naif/` if set)
+- **Cache location**: `~/.cache/brahe/naif/` (or `$BRAHE_CACHE/naif/` if set). Setting `BRAHE_NETWORK_MODE=offline` serves cached data without any request; see [Environment Variables](../utilities/environment_variables.md).
 - **Cache duration**: Permanent (kernels are stable long-term products)
 - **Cache check**: Simple file existence check - no age validation
 

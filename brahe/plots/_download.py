@@ -10,14 +10,18 @@ to truncated upstream responses:
   rename into place so parallel workers never observe a partial result.
 """
 
+import ipaddress
 import shutil
 import tempfile
 import time
+import urllib.parse
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
 
 import httpx
+
+from brahe._brahe import network_mode
 
 # Zip magic bytes (PK\x03\x04)
 _ZIP_MAGIC = b"PK\x03\x04"
@@ -30,6 +34,43 @@ _HEADERS = {
     ),
     "Accept": "*/*",
 }
+
+NETWORK_MODE_ENV = "BRAHE_NETWORK_MODE"
+
+
+def _is_loopback_url(url: str) -> bool:
+    """Check whether a URL's host is a loopback address.
+
+    A loopback host is ``localhost`` (any case) or a host that parses as an
+    IP address in the loopback range (``127.0.0.0/8``, or ``::1``). A host
+    merely prefixed or suffixed with a loopback-looking label (e.g.
+    ``127.0.0.1.evil.com``, ``127.evil.com``) is not loopback, since it does
+    not parse as an IP address at all. ``0.0.0.0`` is not a loopback address.
+    """
+    hostname = urllib.parse.urlsplit(url).hostname
+    if hostname is None:
+        return False
+    if hostname == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(hostname).is_loopback
+    except ValueError:
+        return False
+
+
+def _ensure_online(url: str, description: str) -> None:
+    """Raise unless ``BRAHE_NETWORK_MODE`` permits a network request.
+
+    Delegates to the Rust library's ``network_mode`` binding, which raises
+    ``RuntimeError`` for an unrecognized value. A request to a loopback
+    address is never treated as network access, so local mock servers used
+    by the test suite keep working under every mode.
+    """
+    mode = network_mode()
+    if mode != "online" and not _is_loopback_url(url):
+        raise RuntimeError(
+            f"{NETWORK_MODE_ENV} is {mode}; {description} is not cached and cannot be downloaded"
+        )
 
 
 def _is_zip(path: Path) -> bool:
@@ -72,10 +113,12 @@ def download_file(
 
     Raises:
         RuntimeError: If the download fails, or fails validation, after
-            ``max_retries`` attempts.
+            ``max_retries`` attempts; or if ``BRAHE_NETWORK_MODE`` is
+            ``offline`` or ``offline-strict`` and the resource is not cached.
     """
     if dest.exists():
         return dest
+    _ensure_online(url, description)
     dest.parent.mkdir(parents=True, exist_ok=True)
     last_error: Exception | None = None
     for attempt in range(1, max_retries + 1):
@@ -139,11 +182,14 @@ def download_and_extract_zip(
         Path: ``sentinel`` once the resource is cached.
 
     Raises:
-        RuntimeError: If the download or extraction fails after all retries.
+        RuntimeError: If the download or extraction fails after all retries;
+            or if ``BRAHE_NETWORK_MODE`` is ``offline`` or ``offline-strict``
+            and the resource is not cached.
     """
     # Fast path: already cached.
     if sentinel.exists():
         return sentinel
+    _ensure_online(url, description)
 
     parent = extract_dir.parent
     parent.mkdir(parents=True, exist_ok=True)

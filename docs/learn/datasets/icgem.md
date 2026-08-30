@@ -146,7 +146,7 @@ The dataset interface is designed to remain useful with no network:
 3. **Populated cache, no network, past TTL**: refresh fails, the existing (stale) entries are returned, and a warning is logged. This is the key offline-friendly path — once a deployment has populated the cache, it keeps working.
 4. **`download_model` for a previously downloaded model**: served from disk; no network call.
 
-Setting the `BRAHE_CACHE` environment variable to a checked-in or shipped cache directory is a clean way to make the ICGEM interface fully offline-capable from the first call.
+Setting the `BRAHE_CACHE` environment variable to a checked-in or shipped cache directory is a clean way to make the ICGEM interface fully offline-capable from the first call. Setting `BRAHE_NETWORK_MODE=offline` serves cached data without any request; see [Environment Variables](../utilities/environment_variables.md).
 
 ## Using a Downloaded Model in a Propagator
 

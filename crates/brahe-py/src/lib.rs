@@ -39,7 +39,7 @@ use brahe::utils::python_interop::BraheError;
 use brahe::utils::{
     BraheError as RustBraheError, format_time_string, get_brahe_cache_dir,
     get_brahe_cache_dir_with_subdir, get_celestrak_cache_dir, get_eop_cache_dir, get_max_threads,
-    get_vectorization_length_threshold, set_max_threads, set_num_threads,
+    get_vectorization_length_threshold, network_mode, set_max_threads, set_num_threads,
     set_vectorization_length_threshold,
 };
 use brahe::*;
@@ -1463,6 +1463,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_set_max_threads, module)?)?;
     module.add_function(wrap_pyfunction!(py_set_ludicrous_speed, module)?)?;
     module.add_function(wrap_pyfunction!(py_get_max_threads, module)?)?;
+    module.add_function(wrap_pyfunction!(py_network_mode, module)?)?;
     module.add_function(wrap_pyfunction!(
         py_set_vectorization_length_threshold,
         module

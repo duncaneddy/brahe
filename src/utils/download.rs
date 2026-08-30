@@ -10,6 +10,7 @@ use std::path::Path;
 use std::thread::sleep;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use crate::utils::network::ensure_online;
 use crate::utils::{BraheError, atomic_write};
 
 /// Maximum number of download attempts (including the first) before giving up.
@@ -117,11 +118,32 @@ pub(crate) fn download_string_no_redirect(
 }
 
 /// Shared implementation for [`download_string`] and [`download_string_no_redirect`].
+///
+/// # Arguments
+///
+/// * `url` - The URL to fetch.
+/// * `description` - Human-readable product label for error messages.
+/// * `follow_redirects` - Whether to follow HTTP redirects.
+///
+/// # Returns
+///
+/// * `Ok(String)` - The response body.
+/// * `Err(BraheError)` - On a non-retryable status or exhausted retries. Returned
+///   without making a request if `BRAHE_NETWORK_MODE` is not `online` and `url` is
+///   not a loopback address.
+///
+/// # Examples
+///
+/// ```ignore
+/// let body = download_string_impl(url, "Standard EOP", true)?;
+/// ```
 fn download_string_impl(
     url: &str,
     description: &str,
     follow_redirects: bool,
 ) -> Result<String, BraheError> {
+    ensure_online(url, &format!("{description} ({url})"))?;
+
     let mut attempt: u32 = 0;
 
     loop {
@@ -220,7 +242,27 @@ pub(crate) fn download_bytes_with_user_agent(
 /// Shared retry/backoff core for [`download_bytes`] and
 /// [`download_bytes_with_user_agent`]. `user_agent`, if provided, is sent as
 /// the request's `User-Agent` header; `None` leaves ureq's default.
+///
+/// # Arguments
+///
+/// * `url` - The URL to fetch.
+/// * `user_agent` - Optional `User-Agent` header value.
+///
+/// # Returns
+///
+/// * `Ok(Vec<u8>)` - The response body.
+/// * `Err(BraheError)` - On a non-retryable status or exhausted retries. Returned
+///   without making a request if `BRAHE_NETWORK_MODE` is not `online` and `url` is
+///   not a loopback address.
+///
+/// # Examples
+///
+/// ```ignore
+/// let bytes = download_bytes_impl(url, Some("Mozilla/5.0 (compatible; brahe)"))?;
+/// ```
 fn download_bytes_impl(url: &str, user_agent: Option<&str>) -> Result<Vec<u8>, BraheError> {
+    ensure_online(url, url)?;
+
     let mut attempt: u32 = 0;
 
     loop {
@@ -273,8 +315,10 @@ mod tests {
     use httpmock::prelude::*;
 
     use super::*;
+    use crate::utils::testing::NetworkModeGuard;
 
     #[test]
+    #[serial_test::parallel]
     fn test_download_bytes_returns_body_on_success() {
         let server = MockServer::start();
         let _mock = server.mock(|when, then| {
@@ -287,6 +331,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_download_bytes_with_user_agent_sends_header() {
         // Mirrors are known to 403 default HTTP client user agents (e.g. the
         // star catalog data source); download_bytes_with_user_agent must send
@@ -309,6 +354,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_download_bytes_retries_transient_failure() {
         // A persistently transient (503) endpoint is retried up to the attempt
         // cap before failing, so the mock records exactly MAX_DOWNLOAD_ATTEMPTS
@@ -325,6 +371,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_download_bytes_does_not_retry_client_error() {
         // A 404 is not transient: download_bytes must fail after a single request.
         let server = MockServer::start();
@@ -339,6 +386,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_is_retryable_error() {
         use std::io;
 
@@ -358,6 +406,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_backoff_delay_bounds() {
         // Delay for a given attempt must never exceed the exponential window,
         // and the window is capped at BACKOFF_MAX_DELAY.
@@ -375,6 +424,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_download_string_returns_body() {
         let server = MockServer::start();
         let _mock = server.mock(|when, then| {
@@ -387,6 +437,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_download_string_retries_transient_then_errors() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -400,6 +451,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_download_to_file_writes_body_to_disk() {
         let server = MockServer::start();
         let _mock = server.mock(|when, then| {
@@ -414,11 +466,70 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_urlencode_reserved_chars() {
         assert_eq!(urlencode("Ceres"), "Ceres");
         assert_eq!(urlencode("DES=2000001;"), "DES%3D2000001%3B");
         assert_eq!(urlencode("500@0"), "500%400");
         assert_eq!(urlencode("2015-12-01"), "2015-12-01");
         assert_eq!(urlencode("a b"), "a%20b");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_download_string_offline_makes_no_request() {
+        let _guard = NetworkModeGuard::set(Some("offline"));
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/data.json");
+            then.status(200).body("body");
+        });
+
+        let err = download_string(
+            "https://brahe-network-mode-test.invalid/data.json",
+            "test data",
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(
+            err.starts_with("BRAHE_NETWORK_MODE is offline; test data ("),
+            "{err}"
+        );
+        assert_eq!(mock.calls(), 0);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_download_bytes_offline_strict_makes_no_request() {
+        let _guard = NetworkModeGuard::set(Some("offline-strict"));
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/kernel.bsp");
+            then.status(200).body("kernel-bytes");
+        });
+
+        let err = download_bytes("https://brahe-network-mode-test.invalid/kernel.bsp")
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.starts_with("BRAHE_NETWORK_MODE is offline-strict; "),
+            "{err}"
+        );
+        assert_eq!(mock.calls(), 0);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_download_string_offline_allows_loopback() {
+        let _guard = NetworkModeGuard::set(Some("offline"));
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/data.json");
+            then.status(200).body("body");
+        });
+
+        let body = download_string(&server.url("/data.json"), "test data").unwrap();
+        assert_eq!(body, "body");
+        assert_eq!(mock.calls(), 1);
     }
 }

@@ -16,12 +16,13 @@ use crate::celestrak::responses::CelestrakSATCATRecord;
 use crate::celestrak::types::{CelestrakOutputFormat, SupGPSource};
 use crate::propagators::SGPPropagator;
 use crate::types::GPRecord;
+use crate::utils::network::{CacheDecision, cache_policy, ensure_online};
 use crate::utils::{BraheError, atomic_write, get_celestrak_cache_dir};
 
 /// Default base URL for the CelestrakClient API.
 const DEFAULT_BASE_URL: &str = "https://celestrak.org";
 
-/// Default maximum cache age in seconds (a hours).
+/// Default maximum cache age in seconds (7200.0, 2 hours).
 const DEFAULT_MAX_CACHE_AGE: f64 = 7200.0;
 
 /// Default maximum number of retries for transient HTTP errors.
@@ -38,7 +39,9 @@ static LAST_REQUEST_TIME: LazyLock<Mutex<Option<Instant>>> = LazyLock::new(|| Mu
 ///
 /// Provides typed query execution for GP, supplemental GP, and SATCAT
 /// data from CelestrakClient. Responses are cached locally to reduce
-/// server load and improve performance.
+/// server load and improve performance. The `BRAHE_NETWORK_MODE`
+/// environment variable controls whether a stale cached response is
+/// refreshed or served; see [`crate::utils::network`].
 ///
 /// # Examples
 ///
@@ -65,7 +68,7 @@ impl CelestrakClient {
     /// Create a new CelestrakClient client with default settings.
     ///
     /// Uses the default base URL (`https://celestrak.org`) and
-    /// a 6-hour cache TTL.
+    /// a 2-hour cache TTL.
     ///
     /// # Examples
     ///
@@ -500,6 +503,20 @@ impl CelestrakClient {
     }
 
     /// Fetch a URL with file-based caching.
+    ///
+    /// The `BRAHE_NETWORK_MODE` environment variable controls whether a stale
+    /// cached response is refreshed or served; see [`crate::utils::network`].
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - Full URL to fetch, used both as the cache key source and as
+    ///   the request target if the cache is missing or refreshed
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(String)` - Response body, from cache or freshly downloaded
+    /// * `Err(BraheError)` - On cache I/O errors, or if `BRAHE_NETWORK_MODE`
+    ///   forbids the request needed to fill or refresh the cache
     fn fetch_with_cache(&self, url: &str) -> Result<String, BraheError> {
         let cache_key = self.cache_key_for_url(url);
 
@@ -531,7 +548,20 @@ impl CelestrakClient {
             .collect()
     }
 
-    /// Read cached data if it exists and is fresh.
+    /// Read cached data, applying the `BRAHE_NETWORK_MODE` cache policy.
+    ///
+    /// # Arguments
+    ///
+    /// * `cache_key` - Cache file name, as produced by [`Self::cache_key_for_url`]
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(String))` - Cached body, either fresh or served stale under
+    ///   `offline`
+    /// * `Ok(None)` - No cache file exists, or it is stale and `online` mode
+    ///   allows a refresh
+    /// * `Err(BraheError)` - On cache I/O errors, or if the cache file is
+    ///   stale and `offline-strict` forbids serving it
     fn read_cache(&self, cache_key: &str) -> Result<Option<String>, BraheError> {
         let cache_dir = get_celestrak_cache_dir()?;
         let cache_path = Path::new(&cache_dir).join(cache_key);
@@ -540,7 +570,9 @@ impl CelestrakClient {
             return Ok(None);
         }
 
-        if self.is_cache_stale(&cache_path)? {
+        let stale = self.is_cache_stale(&cache_path)?;
+        let resource = format!("Celestrak cached response {cache_key}");
+        if cache_policy(&resource, stale)? == CacheDecision::Refresh {
             return Ok(None);
         }
 
@@ -580,7 +612,20 @@ impl CelestrakClient {
     /// Retries on transient errors (server errors, connection resets, timeouts)
     /// with exponential backoff and jitter. Enforces a minimum interval between
     /// requests via a process-global rate limiter.
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - Full URL to request
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(String)` - Response body
+    /// * `Err(BraheError)` - If `BRAHE_NETWORK_MODE` is `offline` or
+    ///   `offline-strict` and `url` is not a loopback address, so no request
+    ///   is attempted, or if the request fails after exhausting retries
     fn execute_get(&self, url: &str) -> Result<String, BraheError> {
+        ensure_online(url, &format!("Celestrak request {url}"))?;
+
         let mut last_error = None;
 
         for attempt in 0..=self.max_retries {
@@ -659,7 +704,11 @@ impl Default for CelestrakClient {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::utils::testing::{CacheRedirect, NetworkModeGuard};
     use httpmock::prelude::*;
+    use serial_test::serial;
+    use std::fs;
+    use std::time::{Duration, SystemTime};
 
     #[test]
     #[serial_test::parallel]
@@ -752,6 +801,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_query_raw_gp() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -777,6 +828,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_query_gp_typed() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -807,6 +860,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_query_gp_with_client_side_filter() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -837,6 +892,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_query_gp_with_order_and_limit() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -868,6 +925,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_query_satcat_typed() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -897,6 +956,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_query_raw_tle_format() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         let tle_data = "ISS (ZARYA)\n1 25544U 98067A   24015.50000000\n2 25544  51.6400";
@@ -922,6 +983,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_http_error_404() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -939,6 +1002,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_invalid_json_response() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -957,6 +1022,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_empty_json_response() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -975,6 +1042,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_download_to_file() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -1013,11 +1082,113 @@ mod tests {
         assert!(!key.contains("/"));
     }
 
+    const ISS_GP_JSON: &str = r#"[{"OBJECT_NAME":"ISS (ZARYA)","NORAD_CAT_ID":"25544"}]"#;
+
+    /// Write `body` into the redirected Celestrak cache under the key the client
+    /// would compute for `url`, and back-date its mtime by `age`.
+    fn seed_celestrak_cache(client: &CelestrakClient, url: &str, body: &str, age: Duration) {
+        let dir = crate::utils::get_celestrak_cache_dir().unwrap();
+        let path = std::path::Path::new(&dir).join(client.cache_key_for_url(url));
+        fs::write(&path, body).unwrap();
+        let mtime = SystemTime::now() - age;
+        let file = fs::File::options().write(true).open(&path).unwrap();
+        file.set_modified(mtime).unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_offline_serves_stale_cache_without_request() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("offline"));
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/NORAD/elements/gp.php");
+            then.status(200).body(ISS_GP_JSON);
+        });
+        let client = CelestrakClient::with_base_url(&server.base_url());
+        let url = format!(
+            "{}/NORAD/elements/gp.php?CATNR=25544&FORMAT=JSON",
+            server.base_url()
+        );
+        seed_celestrak_cache(&client, &url, ISS_GP_JSON, Duration::from_secs(30 * 86400));
+
+        let records = client.get_gp_by_catnr(25544).unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].norad_cat_id, Some(25544));
+        assert_eq!(mock.calls(), 0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_offline_miss_errors_without_request() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("offline"));
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/NORAD/elements/gp.php");
+            then.status(200).body(ISS_GP_JSON);
+        });
+        let client = CelestrakClient::with_base_url("https://brahe-network-mode-test.invalid");
+
+        let err = client.get_gp_by_catnr(25544).unwrap_err().to_string();
+        assert!(
+            err.starts_with("BRAHE_NETWORK_MODE is offline; Celestrak request "),
+            "{err}"
+        );
+        assert_eq!(mock.calls(), 0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_offline_strict_stale_cache_errors() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("offline-strict"));
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/NORAD/elements/gp.php");
+            then.status(200).body(ISS_GP_JSON);
+        });
+        let client = CelestrakClient::with_base_url(&server.base_url());
+        let url = format!(
+            "{}/NORAD/elements/gp.php?CATNR=25544&FORMAT=JSON",
+            server.base_url()
+        );
+        seed_celestrak_cache(&client, &url, ISS_GP_JSON, Duration::from_secs(30 * 86400));
+
+        let err = client.get_gp_by_catnr(25544).unwrap_err().to_string();
+        assert!(err.contains("is older than its cache limit"), "{err}");
+        assert_eq!(mock.calls(), 0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_offline_strict_fresh_cache_is_served() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("offline-strict"));
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/NORAD/elements/gp.php");
+            then.status(200).body(ISS_GP_JSON);
+        });
+        let client = CelestrakClient::with_base_url(&server.base_url());
+        let url = format!(
+            "{}/NORAD/elements/gp.php?CATNR=25544&FORMAT=JSON",
+            server.base_url()
+        );
+        seed_celestrak_cache(&client, &url, ISS_GP_JSON, Duration::from_secs(60));
+
+        let records = client.get_gp_by_catnr(25544).unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(mock.calls(), 0);
+    }
+
     // -- Convenience method tests --
 
     #[test]
     #[serial_test::serial]
     fn test_get_gp_by_catnr() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -1042,6 +1213,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_get_gp_by_group() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -1064,6 +1237,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_get_gp_by_name() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -1087,6 +1262,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_get_gp_by_intdes() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -1109,6 +1286,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_get_sup_gp() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -1131,6 +1310,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_get_satcat_by_catnr() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -1155,6 +1336,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_get_sgp_propagator_by_catnr_empty_results() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         server.mock(|when, then| {
@@ -1180,6 +1363,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_retry_on_503() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         let mock = server.mock(|when, then| {
@@ -1199,6 +1384,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_no_retry_on_404() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         let mock = server.mock(|when, then| {
@@ -1218,6 +1405,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_max_retries_zero_no_retry() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
 
         let mock = server.mock(|when, then| {

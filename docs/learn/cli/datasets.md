@@ -343,7 +343,7 @@ Output:
 
 ## ICGEM Commands
 
-Browse, download, and refresh spherical harmonic gravity models from the [ICGEM catalog](https://icgem.gfz.de). Downloads are cached under `$BRAHE_CACHE/icgem/` and reused on subsequent invocations.
+Browse, download, and refresh spherical harmonic gravity models from the [ICGEM catalog](https://icgem.gfz.de). Downloads are cached under `$BRAHE_CACHE/icgem/` and reused on subsequent invocations. Setting `BRAHE_NETWORK_MODE=offline` serves cached data without any request; see [Environment Variables](../utilities/environment_variables.md).
 
 ### `icgem list`
 

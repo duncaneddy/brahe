@@ -13,3 +13,7 @@ Functions for managing cache directories where Brahe stores downloaded data.
 ::: brahe.get_eop_cache_dir
 
 ::: brahe.get_celestrak_cache_dir
+
+## Network Mode
+
+::: brahe.network_mode

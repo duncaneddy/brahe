@@ -27,7 +27,7 @@ A small fraction of Tycho-2 entries (`pflag == "X"`) have no mean astrometric so
 
 Star catalog data is downloaded from `https://www.simplespacedata.org/star_catalog/cds` with file-based caching:
 
-- **Cache location**: `~/.cache/brahe/star_catalogs/` (or `$BRAHE_CACHE/star_catalogs/` if set)
+- **Cache location**: `~/.cache/brahe/star_catalogs/` (or `$BRAHE_CACHE/star_catalogs/` if set). Setting `BRAHE_NETWORK_MODE=offline` serves cached data without any request; see [Environment Variables](../utilities/environment_variables.md).
 - **Default TTL**: none - the cached copy **never goes stale**, since published star catalogs are not expected to change
 - **Force refresh**: Pass `cache_max_age=0` (Python) / `Some(0.0)` (Rust) to bypass the cache and download fresh data
 

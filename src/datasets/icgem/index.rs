@@ -4,6 +4,7 @@ use crate::datasets::icgem::body::ICGEMBody;
 use crate::utils::BraheError;
 use crate::utils::cache::get_icgem_cache_dir;
 use crate::utils::fs::atomic_write;
+use crate::utils::network::{CacheDecision, cache_policy, ensure_online};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -108,6 +109,16 @@ pub(crate) const EARTH_PATH: &str = "/tom_longtime";
 pub(crate) const CELESTIAL_PATH: &str = "/tom_celestial";
 
 /// Fetch and parse a listing page from a given base URL.
+///
+/// # Arguments
+///
+/// * `body` - Celestial body whose listing page should be fetched
+/// * `base_url` - Base URL to fetch from (production or a test mock)
+///
+/// # Returns
+///
+/// * `Ok(IndexFile)` - Freshly fetched and parsed index entries
+/// * `Err(BraheError)` - On HTTP, parse, or network errors
 pub(crate) fn fetch_index_with_url(
     body: &ICGEMBody,
     base_url: &str,
@@ -119,6 +130,8 @@ pub(crate) fn fetch_index_with_url(
         CELESTIAL_PATH
     };
     let url = format!("{}{}", base_url, path);
+
+    ensure_online(&url, &format!("ICGEM index {url}"))?;
 
     let response = ureq::get(&url).call().map_err(|e| {
         BraheError::Error(format!("Failed to fetch ICGEM index from {}: {}", url, e))
@@ -145,13 +158,57 @@ pub(crate) fn fetch_index_with_url(
 }
 
 /// List models for a body, refreshing the index transparently if stale or
-/// missing. On a TTL miss with no network, falls back to the stale cache and
-/// logs a warning.
+/// missing.
+///
+/// `BRAHE_NETWORK_MODE` governs a stale cached index the same way it governs
+/// any other cache: `online` refreshes it, `offline` serves it as-is, and
+/// `offline-strict` errors instead of serving it. A missing index is always
+/// fetched, subject to the same mode's request policy; see
+/// [`crate::utils::network`]. On a network failure while `online`, the stale
+/// cache is served with a warning.
+///
+/// # Arguments
+///
+/// * `body` - Celestial body to list models for
+///
+/// # Returns
+///
+/// * `Ok(Vec<IndexEntry>)` - Models for `body`, from cache or freshly fetched
+/// * `Err(BraheError)` - On fetch, parse, I/O, or network-mode errors
+///
+/// # Examples
+///
+/// ```no_run
+/// use brahe::datasets::icgem::{ICGEMBody, list_icgem_models};
+///
+/// let entries = list_icgem_models(ICGEMBody::Earth).unwrap();
+/// println!("{} models available for Earth", entries.len());
+/// ```
 pub fn list_icgem_models(body: ICGEMBody) -> Result<Vec<IndexEntry>, BraheError> {
     list_icgem_models_with_url(&body, ICGEM_BASE_URL)
 }
 
 /// Variant of `list_icgem_models` that targets a configurable base URL (for tests).
+///
+/// # Arguments
+///
+/// * `body` - Celestial body to list models for
+/// * `base_url` - Base URL to fetch from (production or a test mock)
+///
+/// # Returns
+///
+/// * `Ok(Vec<IndexEntry>)` - Models for `body`, from cache or freshly fetched
+/// * `Err(BraheError)` - On fetch, parse, I/O, or network-mode errors
+///
+/// # Examples
+///
+/// ```no_run
+/// use brahe::datasets::icgem::ICGEMBody;
+/// use brahe::datasets::icgem::index::list_icgem_models_with_url;
+///
+/// let entries = list_icgem_models_with_url(&ICGEMBody::Earth, "https://icgem.gfz.de").unwrap();
+/// println!("{} models available for Earth", entries.len());
+/// ```
 pub fn list_icgem_models_with_url(
     body: &ICGEMBody,
     base_url: &str,
@@ -159,11 +216,6 @@ pub fn list_icgem_models_with_url(
     let path = index_path_for(body)?;
     let existing = read_index_file(&path)?;
     let now = now_unix_seconds();
-
-    let needs_refresh = match &existing {
-        None => true,
-        Some(f) => now.saturating_sub(f.fetched_at) > DEFAULT_INDEX_TTL_SECONDS,
-    };
 
     // The celestial cache file (`index_celestial.json`) holds entries for ALL
     // non-Earth bodies. Always filter on read so a caller asking for Mars
@@ -173,8 +225,15 @@ pub fn list_icgem_models_with_url(
         all.into_iter().filter(|e| &e.body == body).collect()
     };
 
-    if !needs_refresh {
-        return Ok(filter_for_body(existing.unwrap().entries));
+    let stale = existing
+        .as_ref()
+        .map(|f| now.saturating_sub(f.fetched_at) > DEFAULT_INDEX_TTL_SECONDS);
+
+    if let Some(stale) = stale {
+        let resource = format!("ICGEM index for {}", body.as_name());
+        if cache_policy(&resource, stale)? == CacheDecision::Serve {
+            return Ok(filter_for_body(existing.unwrap().entries));
+        }
     }
 
     match fetch_index_with_url(body, base_url) {
@@ -198,6 +257,26 @@ pub fn list_icgem_models_with_url(
 }
 
 /// Force-refresh the index for a single body, regardless of TTL.
+///
+/// Requests are refused when `BRAHE_NETWORK_MODE` is `offline` or
+/// `offline-strict`; see [`crate::utils::network`].
+///
+/// # Arguments
+///
+/// * `body` - Celestial body whose index file should be refreshed
+///
+/// # Returns
+///
+/// * `Ok(())` - The index file was fetched and written to the cache
+/// * `Err(BraheError)` - On fetch, parse, I/O, or network errors
+///
+/// # Examples
+///
+/// ```no_run
+/// use brahe::datasets::icgem::{ICGEMBody, refresh_icgem_index};
+///
+/// refresh_icgem_index(ICGEMBody::Earth).unwrap();
+/// ```
 pub fn refresh_icgem_index(body: ICGEMBody) -> Result<(), BraheError> {
     refresh_icgem_index_with_url(&body, ICGEM_BASE_URL)
 }
@@ -223,8 +302,10 @@ pub fn refresh_all_icgem_indexes() -> Result<(), BraheError> {
 mod tests {
     use super::*;
     use crate::utils::testing::CacheRedirect;
+    use crate::utils::testing::NetworkModeGuard;
 
     #[test]
+    #[serial_test::parallel]
     fn test_index_entry_round_trip_json() {
         let entry = IndexEntry {
             body: ICGEMBody::Earth,
@@ -239,6 +320,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_index_file_round_trip_json() {
         let file = IndexFile {
             fetched_at: 1_700_000_000,
@@ -257,6 +339,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_index_path_dispatches_by_body() {
         let earth = index_path_for(&ICGEMBody::Earth).unwrap();
         assert!(earth.to_string_lossy().ends_with("index_earth.json"));
@@ -267,6 +350,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_read_index_file_missing_returns_none() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("nope.json");
@@ -274,6 +358,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_write_then_read_index_file() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("x.json");
@@ -287,6 +372,28 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
+    fn test_fetch_index_offline_errors_without_request() {
+        use httpmock::prelude::*;
+        let _mode = NetworkModeGuard::set(Some("offline"));
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path_includes("/tom_longtime");
+            then.status(200).body("");
+        });
+
+        let err = fetch_index_with_url(&ICGEMBody::Earth, "https://icgem.invalid")
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.starts_with("BRAHE_NETWORK_MODE is offline; ICGEM index "),
+            "{err}"
+        );
+        assert_eq!(mock.calls(), 0);
+    }
+
+    #[test]
+    #[serial_test::parallel]
     fn test_fetch_index_http_404() {
         use httpmock::prelude::*;
         let server = MockServer::start();
@@ -299,6 +406,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_fetch_index_success_serves_fixture() {
         use httpmock::prelude::*;
         let fixture =
@@ -342,6 +450,7 @@ mod tests {
     #[serial_test::serial]
     fn test_list_models_refreshes_stale_cache() {
         use httpmock::prelude::*;
+        let _mode = NetworkModeGuard::set(Some("online"));
         let _cache = CacheRedirect::new();
 
         let path = index_path_for(&ICGEMBody::Earth).unwrap();
@@ -445,5 +554,80 @@ mod tests {
         let ceres_entries =
             list_icgem_models_with_url(&ICGEMBody::Ceres, "http://127.0.0.1:1").unwrap();
         assert!(ceres_entries.is_empty());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_list_models_offline_serves_stale_index_without_request() {
+        use httpmock::prelude::*;
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("offline"));
+
+        let path = index_path_for(&ICGEMBody::Earth).unwrap();
+        let stale = IndexFile {
+            fetched_at: 0,
+            entries: vec![IndexEntry {
+                body: ICGEMBody::Earth,
+                name: "STALE".into(),
+                year: None,
+                degree: 10,
+                download_path: "/getmodel/gfc/x/STALE.gfc".into(),
+            }],
+        };
+        write_index_file(&path, &stale).unwrap();
+
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path_includes("/tom_longtime");
+            then.status(200).body("");
+        });
+
+        let entries = list_icgem_models_with_url(&ICGEMBody::Earth, &server.base_url()).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].name, "STALE");
+        mock.assert_calls(0);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_list_models_offline_strict_stale_index_errors() {
+        use httpmock::prelude::*;
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("offline-strict"));
+
+        let path = index_path_for(&ICGEMBody::Earth).unwrap();
+        let stale = IndexFile {
+            fetched_at: 0,
+            entries: vec![],
+        };
+        write_index_file(&path, &stale).unwrap();
+
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path_includes("/tom_longtime");
+            then.status(200).body("");
+        });
+
+        let err = list_icgem_models_with_url(&ICGEMBody::Earth, &server.base_url())
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("ICGEM index for"), "{err}");
+        assert!(err.contains("is older than its cache limit"), "{err}");
+        mock.assert_calls(0);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_list_models_offline_missing_index_errors() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("offline"));
+
+        let err = list_icgem_models_with_url(&ICGEMBody::Earth, "https://icgem.invalid")
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.starts_with("BRAHE_NETWORK_MODE is offline; ICGEM index "),
+            "{err}"
+        );
     }
 }

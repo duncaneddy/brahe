@@ -387,3 +387,32 @@ pub fn py_set_vectorization_length_threshold(n: usize) {
 pub fn py_get_vectorization_length_threshold() -> usize {
     get_vectorization_length_threshold()
 }
+
+/// Return the active network mode read from the ``BRAHE_NETWORK_MODE`` environment variable.
+///
+/// The variable is read on every call. ``"online"`` (the default when unset)
+/// allows requests and refreshes stale caches; ``"offline"`` makes no requests
+/// and serves cached files regardless of age; ``"offline-strict"`` makes no
+/// requests and raises for cached files older than their limit.
+///
+/// Returns:
+///     str: One of ``"online"``, ``"offline"``, or ``"offline-strict"``.
+///
+/// Raises:
+///     RuntimeError: If the variable holds an unrecognized value.
+///
+/// Example:
+///     ```python
+///     import os
+///     import brahe as bh
+///
+///     os.environ["BRAHE_NETWORK_MODE"] = "offline"
+///     assert bh.network_mode() == "offline"
+///     ```
+#[pyfunction]
+#[pyo3(name = "network_mode")]
+pub fn py_network_mode() -> PyResult<String> {
+    network_mode()
+        .map(|mode| mode.to_string())
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
+}

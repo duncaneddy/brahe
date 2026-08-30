@@ -15,6 +15,8 @@ from brahe._brahe import (
     get_max_threads,
     # Threading
     get_vectorization_length_threshold,
+    # Network
+    network_mode,
     set_ludicrous_speed,
     set_max_threads,
     set_num_threads,
@@ -32,6 +34,8 @@ __all__ = [
     "get_max_threads",
     # Threading
     "get_vectorization_length_threshold",
+    # Network
+    "network_mode",
     "set_ludicrous_speed",
     "set_max_threads",
     "set_num_threads",

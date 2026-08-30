@@ -10,6 +10,12 @@ By default, cache data is stored in `~/.cache/brahe` on Unix systems or the equi
 
 See [Caching](caching.md) for complete details.
 
+## Environment Variables
+
+Brahe reads `BRAHE_CACHE` for the cache location, `BRAHE_NETWORK_MODE` to control whether it may use the network and how stale cached data is treated, and `SPACETRACK_USER` / `SPACETRACK_PASS` for Space-Track credentials.
+
+See [Environment Variables](environment_variables.md) for the full reference.
+
 ## Threading
 
 Brahe uses a global thread pool to parallelize computationally intensive operations, such as computing access windows between satellites and ground locations. The threading utilities allow you to configure the number of threads used by the thread pool.
@@ -31,6 +37,7 @@ See [String Formatting](string_formatting.md) for complete details.
 ## See Also
 
 - [Caching](caching.md) - Cache directory management
+- [Environment Variables](environment_variables.md) - Cache location, network policy, credentials
 - [Multithreading](threading.md) - Thread pool configuration
 - [String Formatting](string_formatting.md) - Human-readable output formatting
 - [Utilities API Reference](../../library_api/utils/index.md) - Complete utilities function documentation

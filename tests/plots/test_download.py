@@ -15,7 +15,11 @@ from pathlib import Path
 
 import pytest
 
-from brahe.plots._download import download_and_extract_zip, download_file
+from brahe.plots._download import (
+    _is_loopback_url,
+    download_and_extract_zip,
+    download_file,
+)
 
 
 def _make_zip(path: Path, members: dict[str, bytes]) -> None:
@@ -226,3 +230,110 @@ def test_download_file_validation_rejects_bad_content(zip_server, tmp_path):
         )
 
     assert not dest.exists()
+
+
+def test_download_file_offline_raises_without_request(monkeypatch, tmp_path):
+    monkeypatch.setenv("BRAHE_NETWORK_MODE", "offline")
+    dest = tmp_path / "resource.bin"
+    with pytest.raises(
+        RuntimeError, match="BRAHE_NETWORK_MODE is offline; test resource"
+    ):
+        download_file(
+            "https://brahe-network-mode-test.invalid/resource.bin",
+            dest,
+            description="test resource",
+        )
+    assert not dest.exists()
+
+
+def test_download_file_bad_network_mode_raises_without_request(monkeypatch, tmp_path):
+    monkeypatch.setenv("BRAHE_NETWORK_MODE", " Maybe ")
+    dest = tmp_path / "resource.bin"
+    with pytest.raises(RuntimeError, match='has unrecognized value " Maybe "'):
+        download_file(
+            "http://127.0.0.1:9/resource.bin", dest, description="test resource"
+        )
+    assert not dest.exists()
+
+
+def test_download_file_offline_returns_existing_file(monkeypatch, tmp_path):
+    monkeypatch.setenv("BRAHE_NETWORK_MODE", "offline")
+    dest = tmp_path / "resource.bin"
+    dest.write_bytes(b"cached")
+    assert (
+        download_file(
+            "http://127.0.0.1:9/resource.bin", dest, description="test resource"
+        )
+        == dest
+    )
+
+
+def test_download_and_extract_zip_offline_raises_without_request(monkeypatch, tmp_path):
+    monkeypatch.setenv("BRAHE_NETWORK_MODE", "offline-strict")
+    extract_dir = tmp_path / "extracted"
+    sentinel = extract_dir / "file.txt"
+    with pytest.raises(
+        RuntimeError, match="BRAHE_NETWORK_MODE is offline-strict; test zip"
+    ):
+        download_and_extract_zip(
+            "https://brahe-network-mode-test.invalid/resource.zip",
+            extract_dir,
+            sentinel,
+            description="test zip",
+        )
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://localhost:8080/x",
+        "http://127.0.0.1:9",
+        "http://127.5.6.7/",
+        "http://[::1]:1234/a",
+        "http://[::1]/",
+        "http://user@localhost/",
+        "http://LOCALHOST/",
+        "http://[::ffff:127.0.0.1]/",
+    ],
+)
+def test_is_loopback_url_true(url):
+    assert _is_loopback_url(url)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://celestrak.org/NORAD/elements/gp.php",
+        "http://0.0.0.0/",
+        "http://127.0.0.1.evil.com/",
+        "http://127.evil.com/",
+        "http://localhost.evil.com/",
+    ],
+)
+def test_is_loopback_url_false(url):
+    assert not _is_loopback_url(url)
+
+
+def test_is_loopback_url_confusable_authority_matches_httpx():
+    # Unlike Rust's `url` crate (WHATWG: a backslash ends the authority for
+    # special schemes, so this host is "evil.com"), httpx and urllib.parse
+    # follow RFC 3986, where a backslash has no special meaning: both parse
+    # this URL's host as "127.0.0.1" (httpx.URL(url).host confirms this), so
+    # the request this library actually makes does go to loopback and
+    # `_is_loopback_url` reporting True here matches, rather than bypasses,
+    # the real request target.
+    assert _is_loopback_url("http://evil.com\\@127.0.0.1/")
+
+
+def test_download_file_offline_allows_loopback(monkeypatch, zip_server, tmp_path):
+    monkeypatch.setenv("BRAHE_NETWORK_MODE", "offline")
+    base_url, served_dir = zip_server
+    (served_dir / "resource.bin").write_bytes(b"payload")
+
+    dest = tmp_path / "resource.bin"
+    result = download_file(
+        f"{base_url}/resource.bin", dest, description="test resource"
+    )
+
+    assert result == dest
+    assert dest.read_bytes() == b"payload"

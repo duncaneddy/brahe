@@ -1,8 +1,9 @@
 //! ICGEM model name → entry resolution and download.
 
 use crate::datasets::icgem::body::ICGEMBody;
-use crate::datasets::icgem::index::IndexEntry;
+use crate::datasets::icgem::index::{IndexEntry, index_path_for, read_index_file};
 use crate::utils::BraheError;
+use crate::utils::network::{NetworkMode, ensure_online, network_mode};
 
 /// Resolve `name` (optionally with `-<degree>` suffix) against `entries` for
 /// `body`. Returns the matched `IndexEntry`, or an error with a helpful hint.
@@ -107,7 +108,7 @@ fn levenshtein(a: &str, b: &str) -> usize {
 use crate::datasets::icgem::index::{ICGEM_BASE_URL, list_icgem_models_with_url};
 use crate::utils::cache::get_icgem_cache_dir;
 use crate::utils::fs::atomic_write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Number of leading hex characters of the ICGEM download hash to embed in
 /// the cache filename. Twelve characters gives 48 bits of entropy — collisions
@@ -138,28 +139,18 @@ fn cache_filename_for_entry(entry: &IndexEntry) -> String {
     format!("{}-{}-{}.gfc", entry.name, entry.degree, short)
 }
 
-/// Download (or load from cache) a `.gfc` file for the named ICGEM model.
+/// Compute the local cache file path for a resolved ICGEM index entry.
 ///
-/// If `output_path` is `Some`, also copies the cached file there and returns
-/// that path. Otherwise returns the cache path.
-pub fn download_icgem_model(
-    body: ICGEMBody,
-    name: &str,
-    output_path: Option<PathBuf>,
-) -> Result<PathBuf, BraheError> {
-    download_icgem_model_with_url(&body, name, output_path, ICGEM_BASE_URL)
-}
-
-pub(crate) fn download_icgem_model_with_url(
-    body: &ICGEMBody,
-    name: &str,
-    output_path: Option<PathBuf>,
-    base_url: &str,
-) -> Result<PathBuf, BraheError> {
-    let entries = list_icgem_models_with_url(body, base_url)?;
-    let entry = resolve_icgem_model(body, name, &entries)?.clone();
-
-    let cache_root = PathBuf::from(get_icgem_cache_dir()?);
+/// # Arguments
+///
+/// * `body` - Celestial body the model is for
+/// * `entry` - Resolved index entry for the model
+/// * `cache_root` - Root of the ICGEM cache directory
+///
+/// # Returns
+///
+/// * `PathBuf` - Path the model's `.gfc` file is (or would be) cached at
+fn model_cache_path(body: &ICGEMBody, entry: &IndexEntry, cache_root: &Path) -> PathBuf {
     let body_subdir = match body {
         ICGEMBody::Earth => "earth".to_string(),
         ICGEMBody::Moon => "moon".to_string(),
@@ -168,11 +159,158 @@ pub(crate) fn download_icgem_model_with_url(
         ICGEMBody::Ceres => "ceres".to_string(),
         ICGEMBody::Other(n) => format!("other/{}", n),
     };
-    let cache_dir = cache_root.join("models").join(&body_subdir);
-    let cache_file = cache_dir.join(cache_filename_for_entry(&entry));
+    cache_root
+        .join("models")
+        .join(&body_subdir)
+        .join(cache_filename_for_entry(entry))
+}
+
+/// Look up an already-downloaded model by resolving `name` against the cached
+/// index file directly, ignoring the index's time-to-live.
+///
+/// Callers should only use this in `offline` or `offline-strict` mode: it
+/// lets a model that has already been downloaded be served even when the
+/// cached index itself is stale, since the model file has no time-to-live
+/// of its own once present. In `online` mode a stale index should always be
+/// refreshed instead, so a model republished under a new hash is re-fetched.
+///
+/// # Arguments
+///
+/// * `body` - Celestial body the model is for
+/// * `name` - ICGEM model name, optionally with a `-<degree>` suffix
+/// * `cache_root` - Root of the ICGEM cache directory
+///
+/// # Returns
+///
+/// * `Some(PathBuf)` - Path to the already-downloaded model file
+/// * `None` - No cached index, `name` does not resolve against it, or the
+///   resolved model's file is not on disk
+fn cached_model_path(body: &ICGEMBody, name: &str, cache_root: &Path) -> Option<PathBuf> {
+    let index_path = index_path_for(body).ok()?;
+    let index = read_index_file(&index_path).ok().flatten()?;
+    let entry = resolve_icgem_model(body, name, &index.entries).ok()?;
+    let cache_file = model_cache_path(body, entry, cache_root);
+    cache_file.exists().then_some(cache_file)
+}
+
+/// Copy `cache_file` to `output_path` if given, otherwise return it as-is.
+///
+/// # Arguments
+///
+/// * `cache_file` - Path to the cached model file
+/// * `output_path` - If `Some`, also copy the model file to this path
+///
+/// # Returns
+///
+/// * `Ok(PathBuf)` - `output_path` if given, otherwise `cache_file`
+/// * `Err(BraheError)` - On failure to create the output directory or copy the file
+fn finalize_model_path(
+    cache_file: &Path,
+    output_path: Option<PathBuf>,
+) -> Result<PathBuf, BraheError> {
+    match output_path {
+        Some(out) => {
+            if let Some(parent) = out.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    BraheError::Error(format!(
+                        "Failed to create output directory {}: {}",
+                        parent.display(),
+                        e
+                    ))
+                })?;
+            }
+            std::fs::copy(cache_file, &out).map_err(|e| {
+                BraheError::Error(format!(
+                    "Failed to copy ICGEM model from {} to {}: {}",
+                    cache_file.display(),
+                    out.display(),
+                    e
+                ))
+            })?;
+            Ok(out)
+        }
+        None => Ok(cache_file.to_path_buf()),
+    }
+}
+
+/// Download (or load from cache) a `.gfc` file for the named ICGEM model.
+///
+/// If `output_path` is `Some`, also copies the cached file there and returns
+/// that path. Otherwise returns the cache path.
+///
+/// Requests are refused when `BRAHE_NETWORK_MODE` is `offline` or
+/// `offline-strict`; see [`crate::utils::network`]. In `offline` and
+/// `offline-strict` mode, an already-downloaded model is served even when
+/// the cached index is past its time-to-live; resolving a model name that
+/// has not yet been downloaded still requires the index, so it is subject to
+/// the index's time-to-live. In `online` mode a stale index is always
+/// refreshed first, so a model republished under a new hash is still
+/// re-fetched.
+///
+/// # Arguments
+///
+/// * `body` - Celestial body the model is for
+/// * `name` - ICGEM model name, optionally with a `-<degree>` suffix
+/// * `output_path` - If `Some`, also copy the model file to this path
+///
+/// # Returns
+///
+/// * `Ok(PathBuf)` - Path to the model file: `output_path` if given, otherwise
+///   the cache path
+/// * `Err(BraheError)` - On index/model resolution, I/O, or network errors
+///
+/// # Examples
+///
+/// ```no_run
+/// use brahe::datasets::icgem::{ICGEMBody, download_icgem_model};
+///
+/// let path = download_icgem_model(ICGEMBody::Earth, "JGM3", None).unwrap();
+/// assert!(path.exists());
+/// ```
+pub fn download_icgem_model(
+    body: ICGEMBody,
+    name: &str,
+    output_path: Option<PathBuf>,
+) -> Result<PathBuf, BraheError> {
+    download_icgem_model_with_url(&body, name, output_path, ICGEM_BASE_URL)
+}
+
+/// Variant of [`download_icgem_model`] that targets a configurable base URL
+/// (for tests).
+///
+/// # Arguments
+///
+/// * `body` - Celestial body the model is for
+/// * `name` - ICGEM model name, optionally with a `-<degree>` suffix
+/// * `output_path` - If `Some`, also copy the model file to this path
+/// * `base_url` - Base URL to fetch from (production or a test mock)
+///
+/// # Returns
+///
+/// * `Ok(PathBuf)` - Path to the model file: `output_path` if given, otherwise
+///   the cache path
+/// * `Err(BraheError)` - On index/model resolution, I/O, or network errors
+pub(crate) fn download_icgem_model_with_url(
+    body: &ICGEMBody,
+    name: &str,
+    output_path: Option<PathBuf>,
+    base_url: &str,
+) -> Result<PathBuf, BraheError> {
+    let cache_root = PathBuf::from(get_icgem_cache_dir()?);
+
+    if network_mode()? != NetworkMode::Online
+        && let Some(cache_file) = cached_model_path(body, name, &cache_root)
+    {
+        return finalize_model_path(&cache_file, output_path);
+    }
+
+    let entries = list_icgem_models_with_url(body, base_url)?;
+    let entry = resolve_icgem_model(body, name, &entries)?.clone();
+    let cache_file = model_cache_path(body, &entry, &cache_root);
 
     if !cache_file.exists() {
         let url = format!("{}{}", base_url, entry.download_path);
+        ensure_online(&url, &format!("ICGEM model {}", entry.name))?;
         let response = ureq::get(&url).call().map_err(|e| {
             BraheError::Error(format!(
                 "Failed to download ICGEM model '{}': {}",
@@ -206,35 +344,18 @@ pub(crate) fn download_icgem_model_with_url(
         })?;
     }
 
-    if let Some(out) = output_path {
-        if let Some(parent) = out.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| {
-                BraheError::Error(format!(
-                    "Failed to create output directory {}: {}",
-                    parent.display(),
-                    e
-                ))
-            })?;
-        }
-        std::fs::copy(&cache_file, &out).map_err(|e| {
-            BraheError::Error(format!(
-                "Failed to copy ICGEM model from {} to {}: {}",
-                cache_file.display(),
-                out.display(),
-                e
-            ))
-        })?;
-        Ok(out)
-    } else {
-        Ok(cache_file)
-    }
+    finalize_model_path(&cache_file, output_path)
 }
 
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::datasets::icgem::index::{
+        IndexFile, index_path_for, now_unix_seconds, write_index_file,
+    };
     use crate::utils::testing::CacheRedirect;
+    use crate::utils::testing::NetworkModeGuard;
 
     fn entry(body: ICGEMBody, name: &str, degree: u32) -> IndexEntry {
         IndexEntry {
@@ -258,6 +379,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_resolve_exact_single_variant() {
         let entries = earth_fixture();
         let got = resolve_icgem_model(&ICGEMBody::Earth, "JGM3", &entries).unwrap();
@@ -266,6 +388,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_resolve_largest_degree_when_ambiguous() {
         let entries = earth_fixture();
         let got =
@@ -274,6 +397,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_resolve_with_explicit_degree_suffix() {
         let entries = earth_fixture();
         let got =
@@ -282,6 +406,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_resolve_missing_degree_errors_with_available_list() {
         let entries = earth_fixture();
         let err = resolve_icgem_model(&ICGEMBody::Earth, "WHU-CASM-UGM2025_2159-99", &entries)
@@ -292,6 +417,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_resolve_typo_returns_nearest_names() {
         let entries = earth_fixture();
         let err = resolve_icgem_model(&ICGEMBody::Earth, "EGM200", &entries).unwrap_err();
@@ -300,6 +426,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_resolve_other_body_does_not_leak_earth_results() {
         let entries = earth_fixture();
         let err = resolve_icgem_model(&ICGEMBody::Mars, "EGM2008", &entries).unwrap_err();
@@ -307,6 +434,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_resolve_exact_match_takes_precedence_over_suffix_split() {
         let mut entries = earth_fixture();
         entries.push(entry(ICGEMBody::Earth, "MODEL-X-2020", 200));
@@ -353,6 +481,48 @@ mod tests {
 
     #[test]
     #[serial_test::serial]
+    fn test_download_offline_errors_without_request() {
+        use httpmock::prelude::*;
+
+        let _cache = CacheRedirect::new();
+
+        let html = std::fs::read_to_string("test_assets/icgem/tom_longtime_sample.html").unwrap();
+        let gfc = std::fs::read_to_string("data/gravity_models/JGM3.gfc").unwrap();
+
+        let server = MockServer::start();
+        let _list = server.mock(|when, then| {
+            when.method(GET).path_includes("/tom_longtime");
+            then.status(200).body(&html);
+        });
+        let download_mock = server.mock(|when, then| {
+            when.method(GET).path_includes("/getmodel/gfc/");
+            then.status(200).body(&gfc);
+        });
+
+        let entries = crate::datasets::icgem::parser::parse_earth_catalog(&html).unwrap();
+        let target = entries.first().unwrap().name.clone();
+
+        // Warm the index online so the offline failure is the model download itself.
+        list_icgem_models_with_url(&ICGEMBody::Earth, &server.base_url()).unwrap();
+
+        let _mode = NetworkModeGuard::set(Some("offline"));
+        let err = download_icgem_model_with_url(
+            &ICGEMBody::Earth,
+            &target,
+            None,
+            "https://icgem.invalid",
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(
+            err.starts_with("BRAHE_NETWORK_MODE is offline; ICGEM model "),
+            "{err}"
+        );
+        download_mock.assert_calls(0);
+    }
+
+    #[test]
+    #[serial_test::serial]
     fn test_download_uses_cache_on_second_call() {
         use httpmock::prelude::*;
 
@@ -387,6 +557,145 @@ mod tests {
         list_mock.assert_calls(1);
     }
 
+    #[test]
+    #[serial_test::serial]
+    fn test_download_offline_strict_serves_cached_model_with_stale_index() {
+        use httpmock::prelude::*;
+
+        let _cache = CacheRedirect::new();
+
+        let gfc = std::fs::read_to_string("data/gravity_models/JGM3.gfc").unwrap();
+        let target_entry = entry(ICGEMBody::Earth, "JGM3", 70);
+
+        let cache_root = PathBuf::from(get_icgem_cache_dir().unwrap());
+        let cache_dir = cache_root.join("models").join("earth");
+        std::fs::create_dir_all(&cache_dir).unwrap();
+        let cache_file = cache_dir.join(cache_filename_for_entry(&target_entry));
+        std::fs::write(&cache_file, &gfc).unwrap();
+
+        let stale_seconds = 40 * 24 * 60 * 60;
+        let index_path = index_path_for(&ICGEMBody::Earth).unwrap();
+        write_index_file(
+            &index_path,
+            &IndexFile {
+                fetched_at: now_unix_seconds().saturating_sub(stale_seconds),
+                entries: vec![target_entry],
+            },
+        )
+        .unwrap();
+
+        let server = MockServer::start();
+        let list_mock = server.mock(|when, then| {
+            when.method(GET).path_includes("/tom_longtime");
+            then.status(200).body("");
+        });
+        let download_mock = server.mock(|when, then| {
+            when.method(GET).path_includes("/getmodel/gfc/");
+            then.status(200).body("");
+        });
+
+        let _mode = NetworkModeGuard::set(Some("offline-strict"));
+        let path =
+            download_icgem_model_with_url(&ICGEMBody::Earth, "JGM3", None, &server.base_url())
+                .unwrap();
+        assert_eq!(path, cache_file);
+        list_mock.assert_calls(0);
+        download_mock.assert_calls(0);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_download_offline_strict_stale_index_missing_model_errors() {
+        use httpmock::prelude::*;
+
+        let _cache = CacheRedirect::new();
+
+        let target_entry = entry(ICGEMBody::Earth, "JGM3", 70);
+        let stale_seconds = 40 * 24 * 60 * 60;
+        let index_path = index_path_for(&ICGEMBody::Earth).unwrap();
+        write_index_file(
+            &index_path,
+            &IndexFile {
+                fetched_at: now_unix_seconds().saturating_sub(stale_seconds),
+                entries: vec![target_entry],
+            },
+        )
+        .unwrap();
+
+        let server = MockServer::start();
+        let list_mock = server.mock(|when, then| {
+            when.method(GET).path_includes("/tom_longtime");
+            then.status(200).body("");
+        });
+        let download_mock = server.mock(|when, then| {
+            when.method(GET).path_includes("/getmodel/gfc/");
+            then.status(200).body("");
+        });
+
+        let _mode = NetworkModeGuard::set(Some("offline-strict"));
+        let err =
+            download_icgem_model_with_url(&ICGEMBody::Earth, "JGM3", None, &server.base_url())
+                .unwrap_err()
+                .to_string();
+        assert!(err.contains("is older than its cache limit"), "{err}");
+        list_mock.assert_calls(0);
+        download_mock.assert_calls(0);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_download_online_refreshes_stale_index_even_with_cached_model() {
+        use httpmock::prelude::*;
+
+        let _cache = CacheRedirect::new();
+
+        let html = std::fs::read_to_string("test_assets/icgem/tom_longtime_sample.html").unwrap();
+        let gfc = std::fs::read_to_string("data/gravity_models/JGM3.gfc").unwrap();
+        let parsed_entries = crate::datasets::icgem::parser::parse_earth_catalog(&html).unwrap();
+        let target_entry = resolve_icgem_model(&ICGEMBody::Earth, "JGM3", &parsed_entries)
+            .expect("fixture has a JGM3 entry")
+            .clone();
+
+        let cache_root = PathBuf::from(get_icgem_cache_dir().unwrap());
+        let cache_dir = cache_root.join("models").join("earth");
+        std::fs::create_dir_all(&cache_dir).unwrap();
+        let cache_file = cache_dir.join(cache_filename_for_entry(&target_entry));
+        std::fs::write(&cache_file, &gfc).unwrap();
+
+        let stale_seconds = 40 * 24 * 60 * 60;
+        let index_path = index_path_for(&ICGEMBody::Earth).unwrap();
+        write_index_file(
+            &index_path,
+            &IndexFile {
+                fetched_at: now_unix_seconds().saturating_sub(stale_seconds),
+                entries: vec![target_entry.clone()],
+            },
+        )
+        .unwrap();
+
+        let server = MockServer::start();
+        let list_mock = server.mock(|when, then| {
+            when.method(GET).path_includes("/tom_longtime");
+            then.status(200).body(&html);
+        });
+        let download_mock = server.mock(|when, then| {
+            when.method(GET).path_includes("/getmodel/gfc/");
+            then.status(200).body(&gfc);
+        });
+
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let path = download_icgem_model_with_url(
+            &ICGEMBody::Earth,
+            &target_entry.name,
+            None,
+            &server.base_url(),
+        )
+        .unwrap();
+        assert_eq!(path, cache_file);
+        list_mock.assert_calls(1);
+        download_mock.assert_calls(0);
+    }
+
     // TODO: This test is super flakey because it depends on the live ICGEM service
     // #[test]
     // #[cfg_attr(not(feature = "integration"), ignore)]
@@ -404,12 +713,14 @@ mod tests {
     // }
 
     #[test]
+    #[serial_test::parallel]
     fn test_extract_icgem_hash_well_formed() {
         let h = extract_icgem_hash("/getmodel/gfc/abc123def456/EGM2008.gfc");
         assert_eq!(h, Some("abc123def456"));
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_extract_icgem_hash_malformed_returns_none() {
         assert_eq!(extract_icgem_hash(""), None);
         assert_eq!(extract_icgem_hash("/wrong/prefix/abc/x.gfc"), None);
@@ -417,6 +728,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_cache_filename_includes_hash_so_republished_models_get_new_path() {
         // Two index entries for the same body/name/degree but with different
         // ICGEM download hashes (e.g. the model was republished) must produce
@@ -448,6 +760,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_cache_filename_falls_back_when_hash_missing() {
         // Defensive: if download_path doesn't match the /getmodel/gfc/<hash>/...
         // pattern (shouldn't happen in practice), we still produce a stable
@@ -460,5 +773,55 @@ mod tests {
             download_path: "unexpected".into(),
         };
         assert_eq!(cache_filename_for_entry(&entry), "X-70-nohash.gfc");
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_model_cache_path_dispatches_by_body() {
+        let cache_root = PathBuf::from("/cache");
+        for (body, subdir) in [
+            (ICGEMBody::Earth, "earth"),
+            (ICGEMBody::Moon, "moon"),
+            (ICGEMBody::Mars, "mars"),
+            (ICGEMBody::Venus, "venus"),
+            (ICGEMBody::Ceres, "ceres"),
+        ] {
+            let e = entry(body.clone(), "MODEL", 10);
+            let path = model_cache_path(&body, &e, &cache_root);
+            assert!(
+                path.starts_with(cache_root.join("models").join(subdir)),
+                "body {body:?} -> {path:?}"
+            );
+        }
+
+        let other = ICGEMBody::Other("pluto".into());
+        let e = entry(other.clone(), "MODEL", 10);
+        let path = model_cache_path(&other, &e, &cache_root);
+        assert!(path.starts_with(cache_root.join("models").join("other/pluto")));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_finalize_model_path_copies_to_output_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_file = dir.path().join("cached.gfc");
+        std::fs::write(&cache_file, b"gfc bytes").unwrap();
+
+        let output_path = dir.path().join("nested").join("out.gfc");
+        let result = finalize_model_path(&cache_file, Some(output_path.clone())).unwrap();
+
+        assert_eq!(result, output_path);
+        assert_eq!(std::fs::read(&output_path).unwrap(), b"gfc bytes");
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_finalize_model_path_returns_cache_file_without_output_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_file = dir.path().join("cached.gfc");
+        std::fs::write(&cache_file, b"gfc bytes").unwrap();
+
+        let result = finalize_model_path(&cache_file, None).unwrap();
+        assert_eq!(result, cache_file);
     }
 }

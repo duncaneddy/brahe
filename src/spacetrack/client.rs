@@ -17,6 +17,7 @@ use crate::spacetrack::responses::{
 };
 use crate::types::GPRecord;
 use crate::utils::BraheError;
+use crate::utils::network::ensure_online;
 
 /// Default base URL for the Space-Track.org API.
 const DEFAULT_BASE_URL: &str = "https://www.space-track.org";
@@ -25,6 +26,9 @@ const DEFAULT_BASE_URL: &str = "https://www.space-track.org";
 ///
 /// The client lazily authenticates on the first query and re-authenticates
 /// automatically if the session expires (HTTP 401 response).
+///
+/// Requests are refused when `BRAHE_NETWORK_MODE` is `offline` or
+/// `offline-strict`; see [`crate::utils::network`].
 ///
 /// # Examples
 ///
@@ -153,7 +157,15 @@ impl SpaceTrackClient {
     ///
     /// Acquires the rate limiter lock, computes the required wait duration,
     /// releases the lock, then sleeps for the computed duration.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - Clearance obtained; the caller may proceed with its request
+    /// * `Err(BraheError)` - The lock is poisoned, or `BRAHE_NETWORK_MODE`
+    ///   forbids the request
     fn wait_for_rate_limit(&self) -> Result<(), BraheError> {
+        ensure_online(&self.base_url, "Space-Track request")?;
+
         let wait = {
             let mut limiter = self.rate_limiter.lock().map_err(|e| {
                 BraheError::Error(format!("Failed to acquire lock on rate limiter: {}", e))
@@ -746,9 +758,11 @@ fn urlencoded(input: &str) -> String {
 mod tests {
     use super::*;
     use crate::spacetrack::{OutputFormat, RequestClass, SortOrder};
+    use crate::utils::testing::NetworkModeGuard;
     use httpmock::prelude::*;
 
     #[test]
+    #[serial_test::parallel]
     fn test_client_creation() {
         let client = SpaceTrackClient::new("user@example.com", "password123");
         assert_eq!(client.identity, "user@example.com");
@@ -757,6 +771,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_client_with_base_url() {
         let client = SpaceTrackClient::with_base_url(
             "user@example.com",
@@ -767,6 +782,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_client_with_base_url_no_trailing_slash() {
         let client = SpaceTrackClient::with_base_url(
             "user@example.com",
@@ -777,6 +793,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_urlencoded() {
         assert_eq!(urlencoded("hello"), "hello");
         assert_eq!(urlencoded("hello world"), "hello%20world");
@@ -786,6 +803,30 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
+    fn test_authenticate_offline_errors_without_request() {
+        let _mode = NetworkModeGuard::set(Some("offline"));
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("{}");
+        });
+        let client = SpaceTrackClient::with_base_url(
+            "user",
+            "pass",
+            "https://brahe-network-mode-test.invalid",
+        );
+
+        let err = client.authenticate().unwrap_err().to_string();
+        assert_eq!(
+            err,
+            "BRAHE_NETWORK_MODE is offline; Space-Track request is not cached and cannot be downloaded"
+        );
+        mock.assert_calls(0);
+    }
+
+    #[test]
+    #[serial_test::parallel]
     fn test_successful_authentication() {
         let server = MockServer::start();
 
@@ -804,6 +845,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_failed_authentication() {
         let server = MockServer::start();
 
@@ -828,6 +870,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_auto_auth_on_first_query() {
         let server = MockServer::start();
 
@@ -858,6 +901,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_reauth_on_401() {
         let server = MockServer::start();
 
@@ -890,6 +934,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_query_raw() {
         let server = MockServer::start();
 
@@ -918,6 +963,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_query_json() {
         let server = MockServer::start();
 
@@ -948,6 +994,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_query_json_rejects_non_json_format() {
         let client = SpaceTrackClient::new("user@example.com", "password");
 
@@ -966,6 +1013,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_query_gp() {
         let server = MockServer::start();
 
@@ -1005,6 +1053,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_query_gp_rejects_non_json_format() {
         let client = SpaceTrackClient::new("user@example.com", "password");
 
@@ -1015,6 +1064,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_query_satcat() {
         let server = MockServer::start();
 
@@ -1051,6 +1101,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_query_satcat_rejects_non_json_format() {
         let client = SpaceTrackClient::new("user@example.com", "password");
 
@@ -1061,6 +1112,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_http_error_500() {
         let server = MockServer::start();
 
@@ -1087,6 +1139,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_invalid_json_response() {
         let server = MockServer::start();
 
@@ -1112,6 +1165,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_query_json_rejects_all_non_json_formats() {
         let client = SpaceTrackClient::new("user@example.com", "password");
         let non_json_formats = vec![
@@ -1135,6 +1189,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_query_gp_rejects_all_non_json_formats() {
         let client = SpaceTrackClient::new("user@example.com", "password");
         let non_json_formats = vec![
@@ -1158,6 +1213,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_query_satcat_rejects_all_non_json_formats() {
         let client = SpaceTrackClient::new("user@example.com", "password");
         let non_json_formats = vec![
@@ -1183,6 +1239,7 @@ mod tests {
     // Integration tests against the real SpaceTrack test server
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::parallel]
     fn test_integration_auth() {
         let user = std::env::var("TEST_SPACETRACK_USER")
             .expect("TEST_SPACETRACK_USER env var must be set");
@@ -1198,6 +1255,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::parallel]
     fn test_integration_gp_query() {
         let user = std::env::var("TEST_SPACETRACK_USER")
             .expect("TEST_SPACETRACK_USER env var must be set");
@@ -1220,6 +1278,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::parallel]
     fn test_integration_satcat_query() {
         let user = std::env::var("TEST_SPACETRACK_USER")
             .expect("TEST_SPACETRACK_USER env var must be set");
@@ -1241,6 +1300,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::parallel]
     fn test_integration_tle_format() {
         let user = std::env::var("TEST_SPACETRACK_USER")
             .expect("TEST_SPACETRACK_USER env var must be set");
@@ -1263,6 +1323,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::parallel]
     fn test_integration_query_with_operators() {
         use crate::spacetrack::operators;
 
@@ -1294,6 +1355,7 @@ mod tests {
     // -- FileShare tests --
 
     #[test]
+    #[serial_test::parallel]
     fn test_fileshare_upload() {
         let server = MockServer::start();
 
@@ -1318,6 +1380,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_fileshare_download() {
         let server = MockServer::start();
 
@@ -1341,6 +1404,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_fileshare_download_folder() {
         let server = MockServer::start();
 
@@ -1364,6 +1428,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_fileshare_list_files() {
         let server = MockServer::start();
 
@@ -1390,6 +1455,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_fileshare_list_folders() {
         let server = MockServer::start();
 
@@ -1416,6 +1482,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_fileshare_delete() {
         let server = MockServer::start();
 
@@ -1441,6 +1508,7 @@ mod tests {
     // -- SP Ephemeris tests --
 
     #[test]
+    #[serial_test::parallel]
     fn test_spephemeris_download() {
         let server = MockServer::start();
 
@@ -1464,6 +1532,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_spephemeris_list_files() {
         let server = MockServer::start();
 
@@ -1490,6 +1559,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_spephemeris_file_history() {
         let server = MockServer::start();
 
@@ -1518,6 +1588,7 @@ mod tests {
     // -- Public Files tests --
 
     #[test]
+    #[serial_test::parallel]
     fn test_publicfiles_download() {
         let server = MockServer::start();
 
@@ -1539,6 +1610,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_publicfiles_list_dirs() {
         let server = MockServer::start();
 
@@ -1560,6 +1632,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_publicfiles_download_url_encoding() {
         let server = MockServer::start();
 
@@ -1581,6 +1654,7 @@ mod tests {
     // -- Binary GET infrastructure tests --
 
     #[test]
+    #[serial_test::parallel]
     fn test_execute_get_binary() {
         let server = MockServer::start();
 
@@ -1605,6 +1679,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_authenticated_get_binary_reauth_on_401() {
         let server = MockServer::start();
 
@@ -1632,6 +1707,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::parallel]
     fn test_integration_invalid_credentials() {
         let client = SpaceTrackClient::new("invalid@example.com", "wrongpassword");
         let result = client.authenticate();
@@ -1641,6 +1717,7 @@ mod tests {
     // -- Order-by URL encoding tests --
 
     #[test]
+    #[serial_test::parallel]
     fn test_query_with_order_by_produces_valid_url() {
         let server = MockServer::start();
 
@@ -1675,6 +1752,7 @@ mod tests {
     // -- Rate limiting tests --
 
     #[test]
+    #[serial_test::parallel]
     fn test_client_with_rate_limit() {
         let config = crate::spacetrack::RateLimitConfig {
             max_per_minute: 10,
@@ -1687,6 +1765,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_client_with_base_url_and_rate_limit() {
         let config = crate::spacetrack::RateLimitConfig::disabled();
         let client = SpaceTrackClient::with_base_url_and_rate_limit(
@@ -1699,6 +1778,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_client_default_rate_limit_does_not_delay() {
         // With default 25/min limit, a single query should not be delayed
         let server = MockServer::start();
@@ -1732,6 +1812,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_client_disabled_rate_limit() {
         let config = crate::spacetrack::RateLimitConfig::disabled();
         let server = MockServer::start();

@@ -834,7 +834,7 @@ impl PyCelestrakSATCATRecord {
 ///
 /// Args:
 ///     base_url (str, optional): Custom base URL for testing.
-///     cache_max_age (float, optional): Cache TTL in seconds. Default: 21600.0 (6 hours).
+///     cache_max_age (float, optional): Cache TTL in seconds. Default: 7200.0 (2 hours).
 ///     max_retries (int, optional): Maximum retries for transient HTTP errors. Default: 3.
 ///
 /// Example:

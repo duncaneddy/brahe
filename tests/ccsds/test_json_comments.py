@@ -61,3 +61,22 @@ def test_oem_json_keeps_each_covariance_comment_with_its_own_block(eop):
     kvn = OEM.from_str(oem.to_string("json")).to_string("kvn")
 
     assert kvn == oem.to_string("kvn")
+
+
+def test_cdm_json_round_trip_preserves_data_section_comments(eop):
+    """Mirror of test_cdm_json_round_trip_preserves_data_section_comments in Rust."""
+    # KVN cannot separate the Data comment from the first sub-block comment,
+    # but JSON keeps them apart, so this level survives a JSON round trip.
+    cdm = CDM.from_file("test_assets/ccsds/cdm/CDMExample2.txt")
+    written = cdm.to_string("json")
+    assert '"comments"' in written
+
+    # Every comment the KVN form carries is still present after the JSON trip.
+    kvn = CDM.from_str(written).to_string("kvn")
+    for comment in [
+        "COMMENT Relative Metadata/Data",
+        "COMMENT Object1 Metadata",
+        "COMMENT Object1 State Vector",
+        "COMMENT Object2 Metadata",
+    ]:
+        assert comment in kvn, f"JSON round trip dropped {comment!r}"

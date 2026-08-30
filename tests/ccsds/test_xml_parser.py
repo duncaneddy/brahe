@@ -68,3 +68,18 @@ def test_parse_opm_xml_multiple_maneuvers(eop):
     assert opm.maneuvers[0].duration == pytest.approx(300.0)
     assert opm.maneuvers[1].duration == pytest.approx(150.0)
     assert opm.maneuvers[1].dv[1] == pytest.approx(2.0)
+
+
+def test_parse_cdm_xml_reads_cdata_sections(eop):
+    """Mirror of test_parse_cdm_xml_reads_cdata_sections in Rust."""
+    from brahe.ccsds import CDM
+
+    # A CDATA section is character data carrying markup characters unescaped.
+    with open("test_assets/ccsds/cdm/CDMExample1.xml") as f:
+        content = f.read()
+    content = content.replace(
+        "<ORIGINATOR>JSPOC</ORIGINATOR>",
+        "<ORIGINATOR><![CDATA[R&D <ops>]]></ORIGINATOR>",
+    )
+
+    assert CDM.from_str(content).originator == "R&D <ops>"

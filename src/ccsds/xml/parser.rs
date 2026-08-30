@@ -1411,6 +1411,14 @@ pub fn parse_cdm_xml(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError
                 })?;
                 text_buf.push_str(&decoded);
             }
+            Ok(Event::CData(e)) => {
+                // A CDATA section is character data too, and carries markup
+                // characters without escaping them.
+                let decoded = e.decode().map_err(|err| {
+                    ccsds_parse_error("CDM", &format!("XML text decode error: {}", err))
+                })?;
+                text_buf.push_str(&decoded);
+            }
             Ok(Event::GeneralRef(e)) => {
                 let name = e.decode().map_err(|err| {
                     ccsds_parse_error("CDM", &format!("XML text decode error: {}", err))
@@ -1624,6 +1632,21 @@ mod tests {
         let cdm = parse_cdm_xml(&content).unwrap();
         assert_eq!(cdm.header.originator, "R&D <ops>");
         assert_eq!(cdm.header.comments[0], "Sample CDM & more");
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_parse_cdm_xml_reads_cdata_sections() {
+        // A CDATA section is character data that carries markup characters
+        // unescaped; quick-xml reports it as its own event.
+        let content = std::fs::read_to_string("test_assets/ccsds/cdm/CDMExample1.xml").unwrap();
+        let content = content.replace(
+            "<ORIGINATOR>JSPOC</ORIGINATOR>",
+            "<ORIGINATOR><![CDATA[R&D <ops>]]></ORIGINATOR>",
+        );
+
+        let cdm = parse_cdm_xml(&content).unwrap();
+        assert_eq!(cdm.header.originator, "R&D <ops>");
     }
 
     #[test]

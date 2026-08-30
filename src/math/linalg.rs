@@ -228,16 +228,16 @@ where
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use nalgebra::DMatrix;
-/// use brahe::math::linalg::spd_sqrtm_dmatrix;
+/// use crate::math::linalg::spd_sqrtm_dmatrix;
 ///
 /// let diag = DMatrix::from_row_slice(2, 2, &[4.0, 0.0, 0.0, 9.0]);
 /// let root = spd_sqrtm_dmatrix(&diag).unwrap();
 /// let expected = DMatrix::from_row_slice(2, 2, &[2.0, 0.0, 0.0, 3.0]);
 /// assert!((root - expected).norm() < 1e-10);
 /// ```
-pub fn spd_sqrtm_dmatrix(matrix: &na::DMatrix<f64>) -> Result<na::DMatrix<f64>, String> {
+pub(crate) fn spd_sqrtm_dmatrix(matrix: &na::DMatrix<f64>) -> Result<na::DMatrix<f64>, String> {
     if matrix.nrows() != matrix.ncols() {
         return Err(format!(
             "Matrix must be square, got {}x{}",
@@ -330,8 +330,12 @@ where
 
     // Tolerances scale with the magnitude of the input. Covariance products
     // reach norms of 1e12 or more, where a fixed absolute threshold cannot be
-    // met even by a fully converged iteration.
+    // met even by a fully converged iteration. The iterate tracks the square
+    // root, so its convergence is measured against the root's magnitude, not
+    // the matrix's; the residual below is a difference of matrices and keeps
+    // the matrix scale.
     let scale = a.norm().max(1.0);
+    let root_scale = scale.sqrt();
 
     for _ in 0..MAX_ITERATIONS {
         // Compute inverses
@@ -349,7 +353,7 @@ where
 
         // Check convergence: ||Y_{k+1} - Y_k|| < tolerance
         let diff = (&y_new - &y).norm();
-        if diff < TOLERANCE * scale {
+        if diff < TOLERANCE * root_scale {
             y = y_new;
             break;
         }
@@ -445,8 +449,12 @@ pub fn sqrtm_dmatrix(matrix: &na::DMatrix<f64>) -> Result<na::DMatrix<f64>, Stri
 
     // Tolerances scale with the magnitude of the input. Covariance products
     // reach norms of 1e12 or more, where a fixed absolute threshold cannot be
-    // met even by a fully converged iteration.
+    // met even by a fully converged iteration. The iterate tracks the square
+    // root, so its convergence is measured against the root's magnitude, not
+    // the matrix's; the residual below is a difference of matrices and keeps
+    // the matrix scale.
     let scale = matrix.norm().max(1.0);
+    let root_scale = scale.sqrt();
 
     for _ in 0..MAX_ITERATIONS {
         // Compute inverses
@@ -464,7 +472,7 @@ pub fn sqrtm_dmatrix(matrix: &na::DMatrix<f64>) -> Result<na::DMatrix<f64>, Stri
 
         // Check convergence: ||Y_{k+1} - Y_k|| < tolerance
         let diff = (&y_new - &y).norm();
-        if diff < TOLERANCE * scale {
+        if diff < TOLERANCE * root_scale {
             y = y_new;
             break;
         }
@@ -675,6 +683,44 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
+    fn test_sqrtm_converges_at_large_magnitude() {
+        // The iterate tracks the square root, so a stopping test scaled by the
+        // matrix norm stops short by roughly the square root of that norm.
+        for magnitude in [1e4_f64, 1e12, 1e20, 1e24] {
+            let mat = na::SMatrix::<f64, 1, 1>::new(magnitude);
+            let root = sqrtm(mat).unwrap_or_else(|e| panic!("magnitude {magnitude:e}: {e}"));
+            let expected = magnitude.sqrt();
+            let relative = (root[(0, 0)] - expected).abs() / expected;
+            assert!(
+                relative < 1e-12,
+                "magnitude {:e}: relative root error {:e}",
+                magnitude,
+                relative
+            );
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_sqrtm_dmatrix_converges_at_large_magnitude() {
+        for magnitude in [1e4_f64, 1e12, 1e20, 1e24] {
+            let mat = na::DMatrix::from_row_slice(1, 1, &[magnitude]);
+            let root =
+                sqrtm_dmatrix(&mat).unwrap_or_else(|e| panic!("magnitude {magnitude:e}: {e}"));
+            let expected = magnitude.sqrt();
+            let relative = (root[(0, 0)] - expected).abs() / expected;
+            assert!(
+                relative < 1e-12,
+                "magnitude {:e}: relative root error {:e}",
+                magnitude,
+                relative
+            );
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
     fn test_sqrtm_error_negative_eigenvalue_masked_by_scale() {
         // No real square root, but the negative eigenvalue is small next to the
         // matrix norm. A residual bound scaled by the whole matrix would accept
@@ -690,6 +736,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sqrtm_large_magnitude_accepted() {
         // The Wiki case scaled up. The residual is large in absolute terms but
         // negligible against the entries, so it must still be accepted.
@@ -738,6 +785,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_spd_sqrtm_dmatrix_non_square_error() {
         let mat = na::DMatrix::from_row_slice(2, 3, &[1.0, 0.0, 0.0, 0.0, 1.0, 0.0]);
         let err = spd_sqrtm_dmatrix(&mat).unwrap_err();
@@ -745,6 +793,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_spd_sqrtm_dmatrix_negative_eigenvalue_error() {
         // Negative well beyond what round-off could explain.
         let mat = na::DMatrix::from_row_slice(2, 2, &[4.0, 0.0, 0.0, -9.0]);
@@ -753,6 +802,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_spd_sqrtm_dmatrix_clamps_roundoff_negative_eigenvalue() {
         // A negative eigenvalue at round-off level relative to the largest is
         // treated as zero rather than rejected, which a propagated covariance
@@ -764,6 +814,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sqrtm_dmatrix_error_negative_eigenvalue_masked_by_scale() {
         // Dynamic mirror of test_sqrtm_error_negative_eigenvalue_masked_by_scale.
         let mat = na::DMatrix::from_row_slice(2, 2, &[1e12, 0.0, 0.0, -100.0]);
@@ -777,6 +828,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sqrtm_dmatrix_large_magnitude_accepted() {
         // Dynamic mirror of test_sqrtm_large_magnitude_accepted.
         let mat = na::DMatrix::from_row_slice(2, 2, &[33.0e10, 24.0e10, 48.0e10, 57.0e10]);

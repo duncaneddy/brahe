@@ -3279,6 +3279,40 @@ def test_numericalorbitpropagator_value_event_velocity():
 # =============================================================================
 
 
+def test_numericalorbitpropagator_covariance_interpolation_long_arc():
+    """Covariance interpolation over a long arc (mirrors Rust interpolation tests)
+
+    Over a long arc the two bracketing covariances form a product too badly
+    conditioned for a general matrix square root, which used to fail outright.
+    Queried between stored nodes, the result must exist and be symmetric.
+    """
+    epoch = create_test_epoch()
+    state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
+
+    initial_covariance = np.diag([100.0, 100.0, 100.0, 1.0, 1.0, 1.0])
+
+    prop = NumericalOrbitPropagator(
+        epoch,
+        state,
+        NumericalPropagationConfig.default(),
+        ForceModelConfig.two_body(),
+        None,
+        initial_covariance,
+    )
+
+    prop.propagate_to(epoch + 160000.0)
+
+    # Deliberately between stored nodes so interpolation actually runs.
+    cov = prop.covariance_gcrf(epoch + 144030.0)
+
+    assert cov is not None
+    assert cov.shape == (6, 6)
+    assert np.all(np.isfinite(cov))
+    assert np.allclose(cov, cov.T, rtol=0.0, atol=1e-9 * np.linalg.norm(cov))
+    # Uncertainty grows away from the initial epoch.
+    assert cov[0, 0] > initial_covariance[0, 0]
+
+
 def test_numericalorbitpropagator_covariance_eci():
     """Test covariance_eci method if available (mirrors Rust test)"""
     epoch = create_test_epoch()

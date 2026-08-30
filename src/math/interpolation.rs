@@ -370,6 +370,20 @@ where
 /// # Returns
 /// The cross term, or an error if either matrix is not positive semi-definite
 /// or `cov1` is singular.
+///
+/// # Examples
+///
+/// ```ignore
+/// use nalgebra::DMatrix;
+///
+/// let cov1 = DMatrix::identity(2, 2);
+/// let cov2 = DMatrix::from_row_slice(2, 2, &[4.0, 0.0, 0.0, 9.0]);
+///
+/// // For commuting inputs the cross term is 2 (C1 C2)^{1/2}.
+/// let cross = wasserstein_cross_term(&cov1, &cov2).unwrap();
+/// let expected = DMatrix::from_row_slice(2, 2, &[4.0, 0.0, 0.0, 6.0]);
+/// assert!((cross - expected).norm() < 1e-10);
+/// ```
 fn wasserstein_cross_term(
     cov1: &DMatrix<f64>,
     cov2: &DMatrix<f64>,
@@ -1055,6 +1069,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolate_covariance_two_wasserstein_dmatrix_ill_conditioned() {
         // Over a long arc the product of the two covariances is too badly
         // conditioned for a general matrix square root to resolve. Routing the
@@ -1073,6 +1088,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolate_covariance_two_wasserstein_dmatrix_is_symmetric() {
         // The cross term is a matrix plus its own transpose, so the result is
         // symmetric by construction rather than to within round-off.
@@ -1089,6 +1105,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolate_covariance_two_wasserstein_dmatrix_singular_error() {
         // The cross term needs C1^{1/2} to be invertible.
         let cov1 = DMatrix::zeros(3, 3);
@@ -1099,6 +1116,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolate_covariance_two_wasserstein_smatrix_singular_error() {
         let cov1 = SMatrix::<f64, 3, 3>::zeros();
         let cov2 = SMatrix::<f64, 3, 3>::identity();
@@ -1108,6 +1126,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolate_covariance_two_wasserstein_dmatrix_first_not_psd_error() {
         // C1 itself has no real square root.
         let cov1 = DMatrix::from_row_slice(2, 2, &[1.0, 0.0, 0.0, -4.0]);
@@ -1118,6 +1137,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolate_covariance_two_wasserstein_dmatrix_second_not_psd_error() {
         // C1 is fine, but C1^{1/2} C2 C1^{1/2} inherits C2's negative direction.
         let cov1 = DMatrix::identity(2, 2);

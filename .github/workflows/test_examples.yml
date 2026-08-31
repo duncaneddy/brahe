@@ -33,6 +33,10 @@ jobs:
     env:
       RUST_TOOLCHAIN: stable
       BRAHE_NETWORK_MODE: ${{ inputs.network_mode }}
+      # The project is installed by the explicit build step below, not by
+      # `uv sync`. Without this, `uv run` would notice it missing and rebuild
+      # it, relocating the cost rather than removing it.
+      UV_NO_SYNC: "1"
     steps:
       - uses: actions/checkout@v7.0.1
 
@@ -78,8 +82,12 @@ jobs:
       - name: Install Python 3.14
         run: uv python install 3.14
 
+      # Dependencies only: uv builds the project under PEP 517 isolation, in a
+      # temporary target directory it cannot share with the restored cargo
+      # cache, so letting it do so costs a full cold compile that the build
+      # step below then discards and redoes warm.
       - name: Install dependencies
-        run: uv sync --all-extras --frozen
+        run: uv sync --all-extras --frozen --no-install-project
 
       # Restored before "Setup test assets in cache" below so the repo's
       # test_assets/de440s.bsp always wins over a stale cached copy. One step

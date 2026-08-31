@@ -132,6 +132,10 @@ jobs:
         env:
             TEST_SPACETRACK_USER: ${{ secrets.TEST_SPACETRACK_USER }}
             TEST_SPACETRACK_PASS: ${{ secrets.TEST_SPACETRACK_PASS }}
+            # The project is installed by the explicit build step below, not by
+            # `uv sync`. Without this, `uv run` would notice it missing and
+            # rebuild it, relocating the cost rather than removing it.
+            UV_NO_SYNC: "1"
         steps:
             -   name: Set up Rust toolchain
                 uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
@@ -185,7 +189,11 @@ jobs:
                     key: star-catalogs-v1
 
             -   name: Install dependencies
-                run: uv sync --group test --all-extras --frozen --python ${{ matrix.python-version }}
+                # Dependencies only: uv builds the project under PEP 517
+                # isolation, in a temporary target directory it cannot share
+                # with the restored cargo cache, so letting it do so costs a
+                # full cold compile that the build step below then discards.
+                run: uv sync --group test --all-extras --frozen --no-install-project --python ${{ matrix.python-version }}
 
             -   name: Install cargo-llvm-cov
                 if: matrix.python-version == '3.10'

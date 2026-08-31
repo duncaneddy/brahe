@@ -1,7 +1,7 @@
 ISS GP Data:
   Name: ISS (ZARYA)
   NORAD ID: 25544
-  Epoch: 2026-08-30T15:03:37.194048
+  Epoch: 2026-08-30T04:13:16.870080
   Inclination: 51.63°
-  RAAN: 291.65°
+  RAAN: 293.89°
   Eccentricity: 0.000504

@@ -1,6 +1,6 @@
 Downloading NISAR TLE from CelesTrak...
 Downloaded NISAR TLE in 0.03 seconds.
-Epoch: 2026-08-30 19:13:11.289 UTC
+Epoch: 2026-08-30 05:54:06.769 UTC
 Semi-major axis: 7128.4 km
 
 Loading NASA Near Earth Network ground stations...
@@ -11,26 +11,26 @@ Orbital period: 99.8 minutes
 Propagated NISAR for 3 orbits in 0.01 seconds.
 
 Creating ground track visualization with communication cones...
-Created ground track visualization in 0.60 seconds.
+Created ground track visualization in 0.48 seconds.
 
 Computing 7-day ground contacts...
-Computed 905 contact windows in 0.57 seconds.
+Computed 908 contact windows in 0.43 seconds.
 
 ================================================================================
 Sample Contact Windows (first 10)
 ================================================================================
 Station              Start Time                End Time                    Duration   Max Elev
 --------------------------------------------------------------------------------
-Svalbard             2026-08-30 19:34:31       2026-08-30 19:46:42           12.2 m     83.5°
-Kiruna               2026-08-30 19:36:38       2026-08-30 19:47:58           11.3 m     36.0°
-Troll                2026-08-30 20:20:27       2026-08-30 20:27:10            6.7 m      9.3°
-McMurdo              2026-08-30 20:25:01       2026-08-30 20:37:18           12.3 m     61.9°
-Awarua               2026-08-30 20:33:31       2026-08-30 20:43:45           10.2 m     22.0°
-Svalbard             2026-08-30 21:13:20       2026-08-30 21:25:25           12.1 m     69.1°
-Kiruna               2026-08-30 21:15:01       2026-08-30 21:24:59           10.0 m     20.9°
-Santiago             2026-08-30 21:46:51       2026-08-30 21:58:32           11.7 m     43.8°
-McMurdo              2026-08-30 22:03:59       2026-08-30 22:16:19           12.3 m     82.3°
-Dongara              2026-08-30 22:18:54       2026-08-30 22:30:59           12.1 m     65.0°
+Kiruna               2026-08-30 06:08:56       2026-08-30 06:17:14            8.3 m     12.7°
+Svalbard             2026-08-30 06:10:37       2026-08-30 06:21:04           10.4 m     22.1°
+Gilmore Creek        2026-08-30 06:18:43       2026-08-30 06:30:08           11.4 m     37.7°
+Alaska Satellite Facility 2026-08-30 06:18:46       2026-08-30 06:30:11           11.4 m     37.9°
+North Pole           2026-08-30 06:18:46       2026-08-30 06:30:10           11.4 m     37.4°
+Awarua               2026-08-30 06:50:52       2026-08-30 07:02:29           11.6 m     36.9°
+McMurdo              2026-08-30 06:59:46       2026-08-30 07:11:18           11.5 m     32.5°
+Troll                2026-08-30 07:07:30       2026-08-30 07:19:50           12.3 m     74.0°
+Svalbard             2026-08-30 07:52:13       2026-08-30 08:00:39            8.4 m     13.1°
+Gilmore Creek        2026-08-30 07:57:22       2026-08-30 08:06:47            9.4 m     17.9°
 ================================================================================
 ✓ Exported first 20 contact windows to docs/figures/ground_contacts_windows.csv
 
@@ -46,16 +46,16 @@ Gilmore Creek       :  10.3 contacts/day (72 total)
 Alaska Satellite Facility:  10.3 contacts/day (72 total)
 North Pole          :  10.3 contacts/day (72 total)
 Awarua              :   5.6 contacts/day (39 total)
-Santiago            :   4.6 contacts/day (32 total)
 Wallops             :   4.6 contacts/day (32 total)
+Santiago            :   4.6 contacts/day (32 total)
 Matjiesfontein      :   4.6 contacts/day (32 total)
 White Sands         :   4.4 contacts/day (31 total)
+Merrit Island       :   4.3 contacts/day (30 total)
+Ponce de Leon       :   4.3 contacts/day (30 total)
 Dongara             :   4.1 contacts/day (29 total)
-Ponce de Leon       :   4.1 contacts/day (29 total)
-Merrit Island       :   4.1 contacts/day (29 total)
 Hartebeesthoek      :   4.0 contacts/day (28 total)
+South Point         :   3.9 contacts/day (27 total)
 Singapore           :   3.7 contacts/day (26 total)
-South Point         :   3.7 contacts/day (26 total)
 
 Contact Duration Statistics:
   Mean: 9.9 minutes

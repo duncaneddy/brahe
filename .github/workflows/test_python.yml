@@ -22,9 +22,11 @@ jobs:
         # missing, or its cache predates the manifest, this job downloads the
         # entries once and saves them so the matrix legs below only restore.
         runs-on: ubuntu-latest
+        timeout-minutes: 60
         steps:
             -   uses: actions/checkout@v7.0.1
             -   name: Restore data caches
+                timeout-minutes: 15
                 id: cache
                 uses: ./.github/actions/data-cache
                 with:
@@ -48,6 +50,7 @@ jobs:
                     uv pip install maturin --quiet
                     uv run maturin develop --uv --features pyo3/extension-module
             -   name: Warm missed families
+                timeout-minutes: 15
                 if: steps.cache.outputs.missed != ''
                 env:
                     BRAHE_NETWORK_MODE: online
@@ -81,6 +84,7 @@ jobs:
                     if-no-files-found: error
     test-python:
         runs-on: ${{ matrix.os }}
+        timeout-minutes: 60
         needs: data-cache
         permissions:
             id-token: write

@@ -35,6 +35,7 @@ jobs:
         secrets: inherit
     delay-python:
         runs-on: ubuntu-latest
+        timeout-minutes: 60
         steps:
             - name: Wait for Rust tests to claim runners
               run: sleep 15

@@ -24,6 +24,7 @@ concurrency:
 jobs:
   build-and-deploy-docs:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: write
     env:
@@ -55,6 +56,7 @@ jobs:
           rustup default ${{ env.RUST_TOOLCHAIN }}
 
       - name: Install rust-script for Rust examples
+        timeout-minutes: 15
         run: cargo install rust-script
 
       - name: Install the latest version of uv

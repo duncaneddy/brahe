@@ -200,7 +200,15 @@ jobs:
     name: ci-success
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    if: always()
+    # `always()` would run this job even when the whole workflow is cancelled,
+    # which is what happens whenever a push supersedes an in-flight run. It
+    # would then read `cancelled` from every upstream job and report failure,
+    # leaving a red aggregate check behind for a run that was abandoned rather
+    # than broken. `!cancelled()` still runs the job when an upstream job fails,
+    # which is the case it exists to catch, and still fails when an individual
+    # job is cancelled on its own — a job hitting its timeout, for instance —
+    # because that cancels the job without cancelling the workflow.
+    if: ${{ !cancelled() }}
     # Include the gating jobs (check-skip, delay-python) so their failure is
     # caught directly. Otherwise a failed gate would only cascade into skipped
     # downstream jobs, which this check tolerates, yielding a false green.

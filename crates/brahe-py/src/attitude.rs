@@ -1821,17 +1821,17 @@ impl PyRotationMatrix {
 /// endpoints are one of three kinds: a reference frame the brahe frames
 /// router can transform, a local orbital frame defined given an orbit state
 /// ("orbit-relative"), or an object-local frame that the attitude data
-/// itself defines ("spacecraft").
+/// itself defines ("spacecraft body").
 ///
 /// `AttitudeFrame` instances are constructed with the static methods
-/// `AttitudeFrame.reference`, `AttitudeFrame.orbit_relative`, and
-/// `AttitudeFrame.spacecraft` rather than a direct constructor.
+/// `AttitudeFrame.reference_frame`, `AttitudeFrame.orbit_relative_frame`, and
+/// `AttitudeFrame.spacecraft_body_frame` rather than a direct constructor.
 ///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
-///     frame = bh.AttitudeFrame.reference(bh.ReferenceFrame.GCRF)
+///     frame = bh.AttitudeFrame.reference_frame(bh.ReferenceFrame.GCRF)
 ///     print(f"Frame: {frame}")
 ///     ```
 #[pyclass(module = "brahe._brahe", eq, from_py_object)]
@@ -1857,10 +1857,10 @@ impl PyAttitudeFrame {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     frame = bh.AttitudeFrame.reference(bh.ReferenceFrame.GCRF)
+    ///     frame = bh.AttitudeFrame.reference_frame(bh.ReferenceFrame.GCRF)
     ///     ```
-    fn reference(frame: PyReferenceFrame) -> Self {
-        PyAttitudeFrame { frame: attitude::AttitudeFrame::Reference(frame.frame) }
+    fn reference_frame(frame: PyReferenceFrame) -> Self {
+        PyAttitudeFrame { frame: attitude::AttitudeFrame::ReferenceFrame(frame.frame) }
     }
 
     #[staticmethod]
@@ -1879,15 +1879,17 @@ impl PyAttitudeFrame {
     ///     AttitudeFrame: New attitude frame wrapping the orbit-relative frame.
     ///
     /// Raises:
-    ///     ValueError: If `kind` or `variant` is not a recognized token.
+    ///     ValueError: If `kind` or `variant` is not a recognized token, or if
+    ///         `kind` is `"PQW"` or `"EQW"` and `variant` is `"ROTATING"` (both
+    ///         are SANA-registered only as inertial-snapshot frames).
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     frame = bh.AttitudeFrame.orbit_relative("RTN", "ROTATING")
+    ///     frame = bh.AttitudeFrame.orbit_relative_frame("RTN", "ROTATING")
     ///     ```
-    fn orbit_relative(kind: &str, variant: &str) -> PyResult<Self> {
+    fn orbit_relative_frame(kind: &str, variant: &str) -> PyResult<Self> {
         let kind = match kind.to_uppercase().as_str() {
             "LVLH" => attitude::OrbitRelativeKind::LVLH,
             "RTN" | "RSW" => attitude::OrbitRelativeKind::RTN,
@@ -1915,18 +1917,20 @@ impl PyAttitudeFrame {
                 )));
             }
         };
+        let frame = attitude::OrbitRelativeFrame::new(kind, variant)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
         Ok(PyAttitudeFrame {
-            frame: attitude::AttitudeFrame::OrbitRelative(attitude::OrbitRelativeFrame { kind, variant }),
+            frame: attitude::AttitudeFrame::OrbitRelative(frame),
         })
     }
 
     #[staticmethod]
     #[pyo3(signature = (family, instance=None))]
     #[pyo3(text_signature = "(family, instance=None)")]
-    /// Create a spacecraft (object-local) attitude frame endpoint.
+    /// Create a spacecraft body (object-local) attitude frame endpoint.
     ///
     /// Args:
-    ///     family (str): Spacecraft frame family. One of `"ACC"`, `"ACTUATOR"`,
+    ///     family (str): Spacecraft body frame family. One of `"ACC"`, `"ACTUATOR"`,
     ///         `"AST"`, `"CSS"`, `"DSS"`, `"ESA"`, `"GYRO_FRAME"`, `"IMU_FRAME"`,
     ///         `"INSTRUMENT"`, `"MTA"`, `"RW"`, `"SA"`, `"SC_BODY"`, `"SENSOR"`,
     ///         `"STARTRACKER"`, `"TAM"` (case-insensitive).
@@ -1934,7 +1938,7 @@ impl PyAttitudeFrame {
     ///         frame name (e.g., `"1"` for `SC_BODY_1`). Defaults to `None`.
     ///
     /// Returns:
-    ///     AttitudeFrame: New attitude frame wrapping the spacecraft frame.
+    ///     AttitudeFrame: New attitude frame wrapping the spacecraft body frame.
     ///
     /// Raises:
     ///     ValueError: If `family` is not a recognized token.
@@ -1943,61 +1947,61 @@ impl PyAttitudeFrame {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     frame = bh.AttitudeFrame.spacecraft("SC_BODY", "1")
+    ///     frame = bh.AttitudeFrame.spacecraft_body_frame("SC_BODY", "1")
     ///     ```
-    fn spacecraft(family: &str, instance: Option<String>) -> PyResult<Self> {
+    fn spacecraft_body_frame(family: &str, instance: Option<String>) -> PyResult<Self> {
         let frame = match family.to_uppercase().as_str() {
-            "ACC" => attitude::SpacecraftFrame::ACC(instance),
-            "ACTUATOR" => attitude::SpacecraftFrame::Actuator(instance),
-            "AST" => attitude::SpacecraftFrame::AST(instance),
-            "CSS" => attitude::SpacecraftFrame::CSS(instance),
-            "DSS" => attitude::SpacecraftFrame::DSS(instance),
-            "ESA" => attitude::SpacecraftFrame::ESA(instance),
-            "GYRO_FRAME" => attitude::SpacecraftFrame::GyroFrame(instance),
-            "IMU_FRAME" => attitude::SpacecraftFrame::IMUFrame(instance),
-            "INSTRUMENT" => attitude::SpacecraftFrame::Instrument(instance),
-            "MTA" => attitude::SpacecraftFrame::MTA(instance),
-            "RW" => attitude::SpacecraftFrame::RW(instance),
-            "SA" => attitude::SpacecraftFrame::SA(instance),
-            "SC_BODY" => attitude::SpacecraftFrame::SCBody(instance),
-            "SENSOR" => attitude::SpacecraftFrame::Sensor(instance),
-            "STARTRACKER" => attitude::SpacecraftFrame::StarTracker(instance),
-            "TAM" => attitude::SpacecraftFrame::TAM(instance),
+            "ACC" => attitude::SpacecraftBodyFrame::ACC(instance),
+            "ACTUATOR" => attitude::SpacecraftBodyFrame::Actuator(instance),
+            "AST" => attitude::SpacecraftBodyFrame::AST(instance),
+            "CSS" => attitude::SpacecraftBodyFrame::CSS(instance),
+            "DSS" => attitude::SpacecraftBodyFrame::DSS(instance),
+            "ESA" => attitude::SpacecraftBodyFrame::ESA(instance),
+            "GYRO_FRAME" => attitude::SpacecraftBodyFrame::GyroFrame(instance),
+            "IMU_FRAME" => attitude::SpacecraftBodyFrame::IMUFrame(instance),
+            "INSTRUMENT" => attitude::SpacecraftBodyFrame::Instrument(instance),
+            "MTA" => attitude::SpacecraftBodyFrame::MTA(instance),
+            "RW" => attitude::SpacecraftBodyFrame::RW(instance),
+            "SA" => attitude::SpacecraftBodyFrame::SA(instance),
+            "SC_BODY" => attitude::SpacecraftBodyFrame::SCBody(instance),
+            "SENSOR" => attitude::SpacecraftBodyFrame::Sensor(instance),
+            "STARTRACKER" => attitude::SpacecraftBodyFrame::StarTracker(instance),
+            "TAM" => attitude::SpacecraftBodyFrame::TAM(instance),
             other => {
                 return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                    "unknown spacecraft frame family '{}'",
+                    "unknown spacecraft body frame family '{}'",
                     other
                 )));
             }
         };
-        Ok(PyAttitudeFrame { frame: attitude::AttitudeFrame::Spacecraft(frame) })
+        Ok(PyAttitudeFrame { frame: attitude::AttitudeFrame::SpacecraftBody(frame) })
     }
 
     #[getter]
     /// Whether this frame endpoint is a reference frame.
     ///
     /// Returns:
-    ///     bool: True if constructed via `AttitudeFrame.reference`.
-    fn is_reference(&self) -> bool {
-        matches!(self.frame, attitude::AttitudeFrame::Reference(_))
+    ///     bool: True if constructed via `AttitudeFrame.reference_frame`.
+    fn is_reference_frame(&self) -> bool {
+        matches!(self.frame, attitude::AttitudeFrame::ReferenceFrame(_))
     }
 
     #[getter]
     /// Whether this frame endpoint is an orbit-relative frame.
     ///
     /// Returns:
-    ///     bool: True if constructed via `AttitudeFrame.orbit_relative`.
-    fn is_orbit_relative(&self) -> bool {
+    ///     bool: True if constructed via `AttitudeFrame.orbit_relative_frame`.
+    fn is_orbit_relative_frame(&self) -> bool {
         matches!(self.frame, attitude::AttitudeFrame::OrbitRelative(_))
     }
 
     #[getter]
-    /// Whether this frame endpoint is a spacecraft (object-local) frame.
+    /// Whether this frame endpoint is a spacecraft body (object-local) frame.
     ///
     /// Returns:
-    ///     bool: True if constructed via `AttitudeFrame.spacecraft`.
-    fn is_spacecraft(&self) -> bool {
-        matches!(self.frame, attitude::AttitudeFrame::Spacecraft(_))
+    ///     bool: True if constructed via `AttitudeFrame.spacecraft_body_frame`.
+    fn is_spacecraft_body_frame(&self) -> bool {
+        matches!(self.frame, attitude::AttitudeFrame::SpacecraftBody(_))
     }
 
     #[getter]
@@ -2005,10 +2009,10 @@ impl PyAttitudeFrame {
     ///
     /// Returns:
     ///     ReferenceFrame | None: The reference frame, or `None` if this
-    ///     endpoint is orbit-relative or spacecraft.
-    fn reference_frame(&self) -> Option<PyReferenceFrame> {
+    ///     endpoint is orbit-relative or spacecraft body.
+    fn as_reference_frame(&self) -> Option<PyReferenceFrame> {
         match &self.frame {
-            attitude::AttitudeFrame::Reference(reference) => {
+            attitude::AttitudeFrame::ReferenceFrame(reference) => {
                 Some(PyReferenceFrame { frame: *reference })
             }
             _ => None,

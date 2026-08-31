@@ -8,7 +8,7 @@
 use nalgebra::{DVector, SVector};
 
 use crate::attitude::frames::{
-    AttitudeFrame, OrbitRelativeFrame, OrbitRelativeKind, OrbitRelativeVariant, SpacecraftFrame,
+    AttitudeFrame, OrbitRelativeFrame, OrbitRelativeKind, OrbitRelativeVariant, SpacecraftBodyFrame,
 };
 use crate::ccsds::common::{
     CCSDSRefFrame, CCSDSTimeSystem, ODMHeader, format_ccsds_datetime_in, parse_ccsds_datetime,
@@ -518,7 +518,7 @@ impl TryFrom<&ADMReferenceFrame> for AttitudeFrame {
                         )));
                     }
                 };
-                Ok(AttitudeFrame::Reference(reference))
+                Ok(AttitudeFrame::ReferenceFrame(reference))
             }
             ADMReferenceFrame::OrbitRelative(orbit_relative) => {
                 let (kind, variant) = match orbit_relative {
@@ -578,33 +578,42 @@ impl TryFrom<&ADMReferenceFrame> for AttitudeFrame {
                         )));
                     }
                 };
-                Ok(AttitudeFrame::OrbitRelative(OrbitRelativeFrame {
-                    kind,
-                    variant,
-                }))
+                // All 16 CCSDS orbit-relative frames map to a valid native
+                // combination (EQW/PQW only ever produce `Inertial` above).
+                Ok(AttitudeFrame::OrbitRelative(
+                    OrbitRelativeFrame::new(kind, variant).expect(
+                        "CCSDS orbit-relative frame registry never pairs EQW/PQW with Rotating",
+                    ),
+                ))
             }
             ADMReferenceFrame::Spacecraft(spacecraft) => {
                 let native = match spacecraft {
-                    CCSDSSpacecraftBodyFrame::ACC(i) => SpacecraftFrame::ACC(i.clone()),
-                    CCSDSSpacecraftBodyFrame::Actuator(i) => SpacecraftFrame::Actuator(i.clone()),
-                    CCSDSSpacecraftBodyFrame::AST(i) => SpacecraftFrame::AST(i.clone()),
-                    CCSDSSpacecraftBodyFrame::CSS(i) => SpacecraftFrame::CSS(i.clone()),
-                    CCSDSSpacecraftBodyFrame::DSS(i) => SpacecraftFrame::DSS(i.clone()),
-                    CCSDSSpacecraftBodyFrame::ESA(i) => SpacecraftFrame::ESA(i.clone()),
-                    CCSDSSpacecraftBodyFrame::GyroFrame(i) => SpacecraftFrame::GyroFrame(i.clone()),
-                    CCSDSSpacecraftBodyFrame::IMUFrame(i) => SpacecraftFrame::IMUFrame(i.clone()),
+                    CCSDSSpacecraftBodyFrame::ACC(i) => SpacecraftBodyFrame::ACC(i.clone()),
+                    CCSDSSpacecraftBodyFrame::Actuator(i) => {
+                        SpacecraftBodyFrame::Actuator(i.clone())
+                    }
+                    CCSDSSpacecraftBodyFrame::AST(i) => SpacecraftBodyFrame::AST(i.clone()),
+                    CCSDSSpacecraftBodyFrame::CSS(i) => SpacecraftBodyFrame::CSS(i.clone()),
+                    CCSDSSpacecraftBodyFrame::DSS(i) => SpacecraftBodyFrame::DSS(i.clone()),
+                    CCSDSSpacecraftBodyFrame::ESA(i) => SpacecraftBodyFrame::ESA(i.clone()),
+                    CCSDSSpacecraftBodyFrame::GyroFrame(i) => {
+                        SpacecraftBodyFrame::GyroFrame(i.clone())
+                    }
+                    CCSDSSpacecraftBodyFrame::IMUFrame(i) => {
+                        SpacecraftBodyFrame::IMUFrame(i.clone())
+                    }
                     CCSDSSpacecraftBodyFrame::Instrument(i) => {
-                        SpacecraftFrame::Instrument(i.clone())
+                        SpacecraftBodyFrame::Instrument(i.clone())
                     }
-                    CCSDSSpacecraftBodyFrame::MTA(i) => SpacecraftFrame::MTA(i.clone()),
-                    CCSDSSpacecraftBodyFrame::RW(i) => SpacecraftFrame::RW(i.clone()),
-                    CCSDSSpacecraftBodyFrame::SA(i) => SpacecraftFrame::SA(i.clone()),
-                    CCSDSSpacecraftBodyFrame::SCBody(i) => SpacecraftFrame::SCBody(i.clone()),
-                    CCSDSSpacecraftBodyFrame::Sensor(i) => SpacecraftFrame::Sensor(i.clone()),
+                    CCSDSSpacecraftBodyFrame::MTA(i) => SpacecraftBodyFrame::MTA(i.clone()),
+                    CCSDSSpacecraftBodyFrame::RW(i) => SpacecraftBodyFrame::RW(i.clone()),
+                    CCSDSSpacecraftBodyFrame::SA(i) => SpacecraftBodyFrame::SA(i.clone()),
+                    CCSDSSpacecraftBodyFrame::SCBody(i) => SpacecraftBodyFrame::SCBody(i.clone()),
+                    CCSDSSpacecraftBodyFrame::Sensor(i) => SpacecraftBodyFrame::Sensor(i.clone()),
                     CCSDSSpacecraftBodyFrame::StarTracker(i) => {
-                        SpacecraftFrame::StarTracker(i.clone())
+                        SpacecraftBodyFrame::StarTracker(i.clone())
                     }
-                    CCSDSSpacecraftBodyFrame::TAM(i) => SpacecraftFrame::TAM(i.clone()),
+                    CCSDSSpacecraftBodyFrame::TAM(i) => SpacecraftBodyFrame::TAM(i.clone()),
                     CCSDSSpacecraftBodyFrame::Other(token) => {
                         return Err(BraheError::Error(format!(
                             "CCSDS spacecraft frame '{}' is not a SANA registry frame and \
@@ -613,7 +622,7 @@ impl TryFrom<&ADMReferenceFrame> for AttitudeFrame {
                         )));
                     }
                 };
-                Ok(AttitudeFrame::Spacecraft(native))
+                Ok(AttitudeFrame::SpacecraftBody(native))
             }
             ADMReferenceFrame::Other(token) => Err(BraheError::Error(format!(
                 "CCSDS frame '{}' is in none of the SANA ADM frame registries and cannot be \
@@ -633,7 +642,7 @@ impl TryFrom<&AttitudeFrame> for ADMReferenceFrame {
     /// return an error.
     fn try_from(frame: &AttitudeFrame) -> Result<Self, Self::Error> {
         match frame {
-            AttitudeFrame::Reference(reference) => {
+            AttitudeFrame::ReferenceFrame(reference) => {
                 let celestial = match reference {
                     ReferenceFrame::GCRF => CCSDSCelestialBodyFrame::GCRF(None),
                     ReferenceFrame::EME2000 => CCSDSCelestialBodyFrame::EME2000,
@@ -653,7 +662,7 @@ impl TryFrom<&AttitudeFrame> for ADMReferenceFrame {
             AttitudeFrame::OrbitRelative(orbit_relative) => {
                 use OrbitRelativeKind as K;
                 use OrbitRelativeVariant as V;
-                let ccsds = match (orbit_relative.kind, orbit_relative.variant) {
+                let ccsds = match (orbit_relative.kind(), orbit_relative.variant()) {
                     (K::EQW, V::Inertial) => CCSDSOrbitRelativeFrame::EQWInertial,
                     (K::LVLH, V::Inertial) => CCSDSOrbitRelativeFrame::LVLHInertial,
                     (K::LVLH, V::Rotating) => CCSDSOrbitRelativeFrame::LVLHRotating,
@@ -671,36 +680,45 @@ impl TryFrom<&AttitudeFrame> for ADMReferenceFrame {
                     (K::VNC, V::Inertial) => CCSDSOrbitRelativeFrame::VNCInertial,
                     (K::VNC, V::Rotating) => CCSDSOrbitRelativeFrame::VNCRotating,
                     (K::EQW, V::Rotating) | (K::PQW, V::Rotating) => {
+                        // Unreachable: `OrbitRelativeFrame::new` rejects this
+                        // combination at construction time. Kept as a defensive
+                        // fallback rather than `unreachable!()`.
                         return Err(BraheError::Error(format!(
                             "orbit-relative frame {:?} exists only as an inertial SANA frame",
-                            orbit_relative.kind
+                            orbit_relative.kind()
                         )));
                     }
                 };
                 Ok(ADMReferenceFrame::OrbitRelative(ccsds))
             }
-            AttitudeFrame::Spacecraft(spacecraft) => {
+            AttitudeFrame::SpacecraftBody(spacecraft) => {
                 let ccsds = match spacecraft {
-                    SpacecraftFrame::ACC(i) => CCSDSSpacecraftBodyFrame::ACC(i.clone()),
-                    SpacecraftFrame::Actuator(i) => CCSDSSpacecraftBodyFrame::Actuator(i.clone()),
-                    SpacecraftFrame::AST(i) => CCSDSSpacecraftBodyFrame::AST(i.clone()),
-                    SpacecraftFrame::CSS(i) => CCSDSSpacecraftBodyFrame::CSS(i.clone()),
-                    SpacecraftFrame::DSS(i) => CCSDSSpacecraftBodyFrame::DSS(i.clone()),
-                    SpacecraftFrame::ESA(i) => CCSDSSpacecraftBodyFrame::ESA(i.clone()),
-                    SpacecraftFrame::GyroFrame(i) => CCSDSSpacecraftBodyFrame::GyroFrame(i.clone()),
-                    SpacecraftFrame::IMUFrame(i) => CCSDSSpacecraftBodyFrame::IMUFrame(i.clone()),
-                    SpacecraftFrame::Instrument(i) => {
+                    SpacecraftBodyFrame::ACC(i) => CCSDSSpacecraftBodyFrame::ACC(i.clone()),
+                    SpacecraftBodyFrame::Actuator(i) => {
+                        CCSDSSpacecraftBodyFrame::Actuator(i.clone())
+                    }
+                    SpacecraftBodyFrame::AST(i) => CCSDSSpacecraftBodyFrame::AST(i.clone()),
+                    SpacecraftBodyFrame::CSS(i) => CCSDSSpacecraftBodyFrame::CSS(i.clone()),
+                    SpacecraftBodyFrame::DSS(i) => CCSDSSpacecraftBodyFrame::DSS(i.clone()),
+                    SpacecraftBodyFrame::ESA(i) => CCSDSSpacecraftBodyFrame::ESA(i.clone()),
+                    SpacecraftBodyFrame::GyroFrame(i) => {
+                        CCSDSSpacecraftBodyFrame::GyroFrame(i.clone())
+                    }
+                    SpacecraftBodyFrame::IMUFrame(i) => {
+                        CCSDSSpacecraftBodyFrame::IMUFrame(i.clone())
+                    }
+                    SpacecraftBodyFrame::Instrument(i) => {
                         CCSDSSpacecraftBodyFrame::Instrument(i.clone())
                     }
-                    SpacecraftFrame::MTA(i) => CCSDSSpacecraftBodyFrame::MTA(i.clone()),
-                    SpacecraftFrame::RW(i) => CCSDSSpacecraftBodyFrame::RW(i.clone()),
-                    SpacecraftFrame::SA(i) => CCSDSSpacecraftBodyFrame::SA(i.clone()),
-                    SpacecraftFrame::SCBody(i) => CCSDSSpacecraftBodyFrame::SCBody(i.clone()),
-                    SpacecraftFrame::Sensor(i) => CCSDSSpacecraftBodyFrame::Sensor(i.clone()),
-                    SpacecraftFrame::StarTracker(i) => {
+                    SpacecraftBodyFrame::MTA(i) => CCSDSSpacecraftBodyFrame::MTA(i.clone()),
+                    SpacecraftBodyFrame::RW(i) => CCSDSSpacecraftBodyFrame::RW(i.clone()),
+                    SpacecraftBodyFrame::SA(i) => CCSDSSpacecraftBodyFrame::SA(i.clone()),
+                    SpacecraftBodyFrame::SCBody(i) => CCSDSSpacecraftBodyFrame::SCBody(i.clone()),
+                    SpacecraftBodyFrame::Sensor(i) => CCSDSSpacecraftBodyFrame::Sensor(i.clone()),
+                    SpacecraftBodyFrame::StarTracker(i) => {
                         CCSDSSpacecraftBodyFrame::StarTracker(i.clone())
                     }
-                    SpacecraftFrame::TAM(i) => CCSDSSpacecraftBodyFrame::TAM(i.clone()),
+                    SpacecraftBodyFrame::TAM(i) => CCSDSSpacecraftBodyFrame::TAM(i.clone()),
                 };
                 Ok(ADMReferenceFrame::Spacecraft(ccsds))
             }
@@ -1023,7 +1041,12 @@ mod tests {
         for (token, expected) in cases {
             let adm = ADMReferenceFrame::parse(token);
             let att = AttitudeFrame::try_from(&adm).unwrap();
-            assert_eq!(att, AttitudeFrame::Reference(expected), "token {}", token);
+            assert_eq!(
+                att,
+                AttitudeFrame::ReferenceFrame(expected),
+                "token {}",
+                token
+            );
         }
     }
 
@@ -1047,15 +1070,15 @@ mod tests {
         let adm = ADMReferenceFrame::parse("RSW_ROTATING");
         assert_eq!(
             AttitudeFrame::try_from(&adm).unwrap(),
-            AttitudeFrame::OrbitRelative(OrbitRelativeFrame {
-                kind: OrbitRelativeKind::RTN,
-                variant: OrbitRelativeVariant::Rotating,
-            })
+            AttitudeFrame::OrbitRelative(
+                OrbitRelativeFrame::new(OrbitRelativeKind::RTN, OrbitRelativeVariant::Rotating)
+                    .unwrap()
+            )
         );
         let adm = ADMReferenceFrame::parse("INSTRUMENT_A");
         assert_eq!(
             AttitudeFrame::try_from(&adm).unwrap(),
-            AttitudeFrame::Spacecraft(SpacecraftFrame::Instrument(Some("A".to_string())))
+            AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::Instrument(Some("A".to_string())))
         );
     }
 
@@ -1064,16 +1087,16 @@ mod tests {
     fn test_attitude_frame_to_adm_frame_roundtrip() {
         // Every mappable native frame must round-trip through ADM tokens
         let frames = [
-            AttitudeFrame::Reference(ReferenceFrame::GCRF),
-            AttitudeFrame::Reference(ReferenceFrame::EME2000),
-            AttitudeFrame::Reference(ReferenceFrame::ITRF),
-            AttitudeFrame::Reference(ReferenceFrame::LFPA),
-            AttitudeFrame::Reference(ReferenceFrame::LFME),
-            AttitudeFrame::OrbitRelative(OrbitRelativeFrame {
-                kind: OrbitRelativeKind::LVLH,
-                variant: OrbitRelativeVariant::Rotating,
-            }),
-            AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(Some("1".to_string()))),
+            AttitudeFrame::ReferenceFrame(ReferenceFrame::GCRF),
+            AttitudeFrame::ReferenceFrame(ReferenceFrame::EME2000),
+            AttitudeFrame::ReferenceFrame(ReferenceFrame::ITRF),
+            AttitudeFrame::ReferenceFrame(ReferenceFrame::LFPA),
+            AttitudeFrame::ReferenceFrame(ReferenceFrame::LFME),
+            AttitudeFrame::OrbitRelative(
+                OrbitRelativeFrame::new(OrbitRelativeKind::LVLH, OrbitRelativeVariant::Rotating)
+                    .unwrap(),
+            ),
+            AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(Some("1".to_string()))),
         ];
         for frame in frames {
             let adm = ADMReferenceFrame::try_from(&frame).unwrap();
@@ -1085,7 +1108,7 @@ mod tests {
     #[test]
     #[parallel]
     fn test_attitude_frame_to_adm_frame_unsupported() {
-        let frame = AttitudeFrame::Reference(ReferenceFrame::EMR);
+        let frame = AttitudeFrame::ReferenceFrame(ReferenceFrame::EMR);
         assert!(ADMReferenceFrame::try_from(&frame).is_err());
     }
 
@@ -1179,7 +1202,7 @@ mod tests {
             let att = AttitudeFrame::try_from(&adm).unwrap();
             assert_eq!(
                 att,
-                AttitudeFrame::OrbitRelative(OrbitRelativeFrame { kind, variant }),
+                AttitudeFrame::OrbitRelative(OrbitRelativeFrame::new(kind, variant).unwrap()),
                 "ccsds frame {:?}",
                 ccsds
             );
@@ -1272,7 +1295,8 @@ mod tests {
             ),
         ];
         for (kind, variant, expected) in cases {
-            let frame = AttitudeFrame::OrbitRelative(OrbitRelativeFrame { kind, variant });
+            let frame =
+                AttitudeFrame::OrbitRelative(OrbitRelativeFrame::new(kind, variant).unwrap());
             let adm = ADMReferenceFrame::try_from(&frame).unwrap();
             assert_eq!(adm, ADMReferenceFrame::OrbitRelative(expected));
         }
@@ -1280,14 +1304,12 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_attitude_orbit_relative_frame_to_adm_frame_inertial_only_errors() {
-        // EQW and PQW exist only as inertial SANA frames.
+    fn test_orbit_relative_frame_inertial_only_kinds_rejected() {
+        // EQW and PQW exist only as inertial SANA frames; construction itself
+        // rejects the rotating variant rather than erroring later at the ADM
+        // bridge.
         for kind in [OrbitRelativeKind::EQW, OrbitRelativeKind::PQW] {
-            let frame = AttitudeFrame::OrbitRelative(OrbitRelativeFrame {
-                kind,
-                variant: OrbitRelativeVariant::Rotating,
-            });
-            assert!(ADMReferenceFrame::try_from(&frame).is_err());
+            assert!(OrbitRelativeFrame::new(kind, OrbitRelativeVariant::Rotating).is_err());
         }
     }
 
@@ -1297,67 +1319,67 @@ mod tests {
         let cases = [
             (
                 CCSDSSpacecraftBodyFrame::ACC(Some("1".to_string())),
-                SpacecraftFrame::ACC(Some("1".to_string())),
+                SpacecraftBodyFrame::ACC(Some("1".to_string())),
             ),
             (
                 CCSDSSpacecraftBodyFrame::Actuator(None),
-                SpacecraftFrame::Actuator(None),
+                SpacecraftBodyFrame::Actuator(None),
             ),
             (
                 CCSDSSpacecraftBodyFrame::AST(Some("1".to_string())),
-                SpacecraftFrame::AST(Some("1".to_string())),
+                SpacecraftBodyFrame::AST(Some("1".to_string())),
             ),
             (
                 CCSDSSpacecraftBodyFrame::CSS(Some("2".to_string())),
-                SpacecraftFrame::CSS(Some("2".to_string())),
+                SpacecraftBodyFrame::CSS(Some("2".to_string())),
             ),
             (
                 CCSDSSpacecraftBodyFrame::DSS(Some("1".to_string())),
-                SpacecraftFrame::DSS(Some("1".to_string())),
+                SpacecraftBodyFrame::DSS(Some("1".to_string())),
             ),
             (
                 CCSDSSpacecraftBodyFrame::ESA(Some("1".to_string())),
-                SpacecraftFrame::ESA(Some("1".to_string())),
+                SpacecraftBodyFrame::ESA(Some("1".to_string())),
             ),
             (
                 CCSDSSpacecraftBodyFrame::GyroFrame(Some("1".to_string())),
-                SpacecraftFrame::GyroFrame(Some("1".to_string())),
+                SpacecraftBodyFrame::GyroFrame(Some("1".to_string())),
             ),
             (
                 CCSDSSpacecraftBodyFrame::IMUFrame(Some("2".to_string())),
-                SpacecraftFrame::IMUFrame(Some("2".to_string())),
+                SpacecraftBodyFrame::IMUFrame(Some("2".to_string())),
             ),
             (
                 CCSDSSpacecraftBodyFrame::Instrument(Some("A".to_string())),
-                SpacecraftFrame::Instrument(Some("A".to_string())),
+                SpacecraftBodyFrame::Instrument(Some("A".to_string())),
             ),
             (
                 CCSDSSpacecraftBodyFrame::MTA(Some("1".to_string())),
-                SpacecraftFrame::MTA(Some("1".to_string())),
+                SpacecraftBodyFrame::MTA(Some("1".to_string())),
             ),
             (
                 CCSDSSpacecraftBodyFrame::RW(Some("4".to_string())),
-                SpacecraftFrame::RW(Some("4".to_string())),
+                SpacecraftBodyFrame::RW(Some("4".to_string())),
             ),
             (
                 CCSDSSpacecraftBodyFrame::SA(Some("1".to_string())),
-                SpacecraftFrame::SA(Some("1".to_string())),
+                SpacecraftBodyFrame::SA(Some("1".to_string())),
             ),
             (
                 CCSDSSpacecraftBodyFrame::SCBody(None),
-                SpacecraftFrame::SCBody(None),
+                SpacecraftBodyFrame::SCBody(None),
             ),
             (
                 CCSDSSpacecraftBodyFrame::Sensor(Some("10".to_string())),
-                SpacecraftFrame::Sensor(Some("10".to_string())),
+                SpacecraftBodyFrame::Sensor(Some("10".to_string())),
             ),
             (
                 CCSDSSpacecraftBodyFrame::StarTracker(Some("2".to_string())),
-                SpacecraftFrame::StarTracker(Some("2".to_string())),
+                SpacecraftBodyFrame::StarTracker(Some("2".to_string())),
             ),
             (
                 CCSDSSpacecraftBodyFrame::TAM(Some("1".to_string())),
-                SpacecraftFrame::TAM(Some("1".to_string())),
+                SpacecraftBodyFrame::TAM(Some("1".to_string())),
             ),
         ];
         for (ccsds, expected) in cases {
@@ -1365,7 +1387,7 @@ mod tests {
             let att = AttitudeFrame::try_from(&adm).unwrap();
             assert_eq!(
                 att,
-                AttitudeFrame::Spacecraft(expected),
+                AttitudeFrame::SpacecraftBody(expected),
                 "ccsds frame {:?}",
                 ccsds
             );
@@ -1377,72 +1399,72 @@ mod tests {
     fn test_attitude_spacecraft_frame_to_adm_frame_all_families() {
         let cases = [
             (
-                SpacecraftFrame::ACC(Some("1".to_string())),
+                SpacecraftBodyFrame::ACC(Some("1".to_string())),
                 CCSDSSpacecraftBodyFrame::ACC(Some("1".to_string())),
             ),
             (
-                SpacecraftFrame::Actuator(None),
+                SpacecraftBodyFrame::Actuator(None),
                 CCSDSSpacecraftBodyFrame::Actuator(None),
             ),
             (
-                SpacecraftFrame::AST(Some("1".to_string())),
+                SpacecraftBodyFrame::AST(Some("1".to_string())),
                 CCSDSSpacecraftBodyFrame::AST(Some("1".to_string())),
             ),
             (
-                SpacecraftFrame::CSS(Some("2".to_string())),
+                SpacecraftBodyFrame::CSS(Some("2".to_string())),
                 CCSDSSpacecraftBodyFrame::CSS(Some("2".to_string())),
             ),
             (
-                SpacecraftFrame::DSS(Some("1".to_string())),
+                SpacecraftBodyFrame::DSS(Some("1".to_string())),
                 CCSDSSpacecraftBodyFrame::DSS(Some("1".to_string())),
             ),
             (
-                SpacecraftFrame::ESA(Some("1".to_string())),
+                SpacecraftBodyFrame::ESA(Some("1".to_string())),
                 CCSDSSpacecraftBodyFrame::ESA(Some("1".to_string())),
             ),
             (
-                SpacecraftFrame::GyroFrame(Some("1".to_string())),
+                SpacecraftBodyFrame::GyroFrame(Some("1".to_string())),
                 CCSDSSpacecraftBodyFrame::GyroFrame(Some("1".to_string())),
             ),
             (
-                SpacecraftFrame::IMUFrame(Some("2".to_string())),
+                SpacecraftBodyFrame::IMUFrame(Some("2".to_string())),
                 CCSDSSpacecraftBodyFrame::IMUFrame(Some("2".to_string())),
             ),
             (
-                SpacecraftFrame::Instrument(Some("A".to_string())),
+                SpacecraftBodyFrame::Instrument(Some("A".to_string())),
                 CCSDSSpacecraftBodyFrame::Instrument(Some("A".to_string())),
             ),
             (
-                SpacecraftFrame::MTA(Some("1".to_string())),
+                SpacecraftBodyFrame::MTA(Some("1".to_string())),
                 CCSDSSpacecraftBodyFrame::MTA(Some("1".to_string())),
             ),
             (
-                SpacecraftFrame::RW(Some("4".to_string())),
+                SpacecraftBodyFrame::RW(Some("4".to_string())),
                 CCSDSSpacecraftBodyFrame::RW(Some("4".to_string())),
             ),
             (
-                SpacecraftFrame::SA(Some("1".to_string())),
+                SpacecraftBodyFrame::SA(Some("1".to_string())),
                 CCSDSSpacecraftBodyFrame::SA(Some("1".to_string())),
             ),
             (
-                SpacecraftFrame::SCBody(None),
+                SpacecraftBodyFrame::SCBody(None),
                 CCSDSSpacecraftBodyFrame::SCBody(None),
             ),
             (
-                SpacecraftFrame::Sensor(Some("10".to_string())),
+                SpacecraftBodyFrame::Sensor(Some("10".to_string())),
                 CCSDSSpacecraftBodyFrame::Sensor(Some("10".to_string())),
             ),
             (
-                SpacecraftFrame::StarTracker(Some("2".to_string())),
+                SpacecraftBodyFrame::StarTracker(Some("2".to_string())),
                 CCSDSSpacecraftBodyFrame::StarTracker(Some("2".to_string())),
             ),
             (
-                SpacecraftFrame::TAM(Some("1".to_string())),
+                SpacecraftBodyFrame::TAM(Some("1".to_string())),
                 CCSDSSpacecraftBodyFrame::TAM(Some("1".to_string())),
             ),
         ];
         for (native, expected) in cases {
-            let frame = AttitudeFrame::Spacecraft(native);
+            let frame = AttitudeFrame::SpacecraftBody(native);
             let adm = ADMReferenceFrame::try_from(&frame).unwrap();
             assert_eq!(adm, ADMReferenceFrame::Spacecraft(expected));
         }

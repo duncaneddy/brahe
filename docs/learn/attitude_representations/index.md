@@ -44,19 +44,19 @@ Brahe provides functions to convert between all attitude representations. You ca
 An attitude relates two frames: it is the passive rotation taking vector
 components in a source frame A to components in a target frame B. Brahe
 models each endpoint with the `AttitudeFrame` type, which distinguishes three
-kinds of frame. A `Reference` endpoint is any frame the frame transformation
-system supports (GCRF, ITRF, EME2000, and the other members of
+kinds of frame. A `ReferenceFrame` endpoint is any frame the frame
+transformation system supports (GCRF, ITRF, EME2000, and the other members of
 `ReferenceFrame`) and composes directly with `rotation_frame_to_frame`. An
 `OrbitRelative` endpoint is a local orbital frame such as RTN or LVLH, which
-is only defined given an orbit state. A `Spacecraft` endpoint is an
+is only defined for a given orbit state. A `SpacecraftBodyFrame` is an
 object-local frame — a spacecraft body, sensor, or actuator frame — that has
 no global definition; it is the frame that attitude data itself defines.
 
 The distinction matters when converting attitude data between
-representations: transformations into or out of a `Reference` endpoint can be
-computed by the frames module, while `Spacecraft` endpoints are carried as
-labels. CCSDS attitude messages (APM, AEM) declare their frame pair with
-these semantics, and brahe's CCSDS module converts between the CCSDS frame
+representations: transformations into or out of a `ReferenceFrame` endpoint
+can be computed by the frames module, while `SpacecraftBody` endpoints are
+carried as labels. CCSDS attitude messages (APM, AEM) declare their frame pair
+with these semantics, and brahe's CCSDS module converts between the CCSDS frame
 vocabulary and `AttitudeFrame` where a native equivalent exists.
 
 ---

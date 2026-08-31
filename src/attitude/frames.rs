@@ -4,18 +4,18 @@ Attitude frame definitions for CCSDS ADM/APM/TDM support.
 An attitude (quaternion, rotation matrix, ...) relates two frames. This module
 defines the three frame endpoint types:
 
-1. **Reference frames** ([`AttitudeFrame::Reference`]) — frames that the brahe
-   frames router knows about. Compose directly with `rotation_frame_to_frame`.
+1. **Reference frames** ([`AttitudeFrame::ReferenceFrame`]) — frames that the
+   brahe frames router knows about. Compose directly with `rotation_frame_to_frame`.
 2. **Orbit-relative frames** ([`AttitudeFrame::OrbitRelative`]) — local frames
    defined given an orbit state. Support rotating (true local orbital frame) or
    inertial-snapshot variants.
-3. **Spacecraft frames** ([`AttitudeFrame::Spacecraft`]) — object-local frames
-   (spacecraft body, sensor, actuator, ...) that the attitude data itself
-   defines; they have no global transformation and are not composable.
+3. **Spacecraft body frames** ([`AttitudeFrame::SpacecraftBody`]) — object-local
+   frames (spacecraft body, sensor, actuator, ...) that the attitude data
+   itself defines; they have no global transformation and are not composable.
 
 The `OrbitRelativeFrame` composition story (rotations beyond RTN tracking the
-current orbit state) is deferred to issue #452. Spacecraft frames are defined
-purely by the attitude data and object-local convention.
+current orbit state) is deferred to issue #452. Spacecraft body frames are
+defined purely by the attitude data and object-local convention.
 */
 
 use std::fmt;
@@ -23,15 +23,16 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::frames::ReferenceFrame;
+use crate::utils::errors::BraheError;
 
 /// One endpoint of an attitude transformation.
 ///
 /// An attitude (quaternion, rotation matrix, ...) relates two frames. Frame
 /// endpoints are one of three kinds: a frame the brahe frames router can
-/// transform ([`AttitudeFrame::Reference`]), a local orbital frame defined
-/// given an orbit state ([`AttitudeFrame::OrbitRelative`]), or an
+/// transform ([`AttitudeFrame::ReferenceFrame`]), a local orbital frame
+/// defined given an orbit state ([`AttitudeFrame::OrbitRelative`]), or an
 /// object-local frame that the attitude data itself defines
-/// ([`AttitudeFrame::Spacecraft`]).
+/// ([`AttitudeFrame::SpacecraftBody`]).
 ///
 /// # Examples
 ///
@@ -40,23 +41,23 @@ use crate::frames::ReferenceFrame;
 /// use brahe::frames::ReferenceFrame;
 ///
 /// // Reference frame endpoint
-/// let frame = AttitudeFrame::Reference(ReferenceFrame::GCRF);
+/// let frame = AttitudeFrame::ReferenceFrame(ReferenceFrame::GCRF);
 /// assert_eq!(frame.to_string(), "GCRF");
 ///
 /// // Display shows the frame name or designation
-/// let ref_frame = AttitudeFrame::Reference(ReferenceFrame::EME2000);
+/// let ref_frame = AttitudeFrame::ReferenceFrame(ReferenceFrame::EME2000);
 /// println!("Frame: {}", ref_frame);
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum AttitudeFrame {
     /// A frame known to the brahe frames router; composes directly with
     /// `rotation_frame_to_frame`.
-    Reference(ReferenceFrame),
+    ReferenceFrame(ReferenceFrame),
     /// A local orbital frame, defined given an orbit state.
     OrbitRelative(OrbitRelativeFrame),
     /// An object-local frame (spacecraft body, sensor, actuator, ...); has no
     /// global transformation — it is the frame attitude data defines.
-    Spacecraft(SpacecraftFrame),
+    SpacecraftBody(SpacecraftBodyFrame),
 }
 
 /// A local orbital frame: a kind plus rotating/inertial-snapshot variant.
@@ -64,12 +65,69 @@ pub enum AttitudeFrame {
 /// Represents a frame that rotates with or tracks the orbit, composed of:
 /// - A frame construction type (e.g., RTN, LVLH) defining the axes
 /// - A variant indicating whether the frame rotates with the orbit or is frozen
+///
+/// Fields are private: per the SANA registry, `EQW` and `PQW` exist only as
+/// inertial-snapshot frames, so construction goes through [`OrbitRelativeFrame::new`]
+/// to reject that combination rather than allowing it and erroring later.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OrbitRelativeFrame {
-    /// The frame construction (axes definition).
-    pub kind: OrbitRelativeKind,
-    /// Rotating (true local orbital frame) or inertial snapshot.
-    pub variant: OrbitRelativeVariant,
+    kind: OrbitRelativeKind,
+    variant: OrbitRelativeVariant,
+}
+
+impl OrbitRelativeFrame {
+    /// Constructs an orbit-relative frame, validating the kind/variant combination.
+    ///
+    /// Per the SANA orbit-relative frame registry, `EQW` and `PQW` are defined
+    /// only as inertial-snapshot frames; they have no rotating variant.
+    ///
+    /// # Arguments
+    /// * `kind` - The frame construction (axes definition)
+    /// * `variant` - Rotating (true local orbital frame) or inertial snapshot
+    ///
+    /// # Returns
+    /// * `Ok(OrbitRelativeFrame)` - If the combination is valid
+    /// * `Err(BraheError)` - If `kind` is `EQW` or `PQW` and `variant` is `Rotating`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::attitude::{OrbitRelativeFrame, OrbitRelativeKind, OrbitRelativeVariant};
+    ///
+    /// let rtn = OrbitRelativeFrame::new(OrbitRelativeKind::RTN, OrbitRelativeVariant::Rotating);
+    /// assert!(rtn.is_ok());
+    ///
+    /// let eqw_rotating = OrbitRelativeFrame::new(OrbitRelativeKind::EQW, OrbitRelativeVariant::Rotating);
+    /// assert!(eqw_rotating.is_err());
+    /// ```
+    pub fn new(kind: OrbitRelativeKind, variant: OrbitRelativeVariant) -> Result<Self, BraheError> {
+        if matches!(kind, OrbitRelativeKind::EQW | OrbitRelativeKind::PQW)
+            && variant == OrbitRelativeVariant::Rotating
+        {
+            return Err(BraheError::Error(format!(
+                "orbit-relative frame {} exists only as an inertial SANA frame and cannot be \
+                 constructed with the rotating variant",
+                kind
+            )));
+        }
+        Ok(Self { kind, variant })
+    }
+
+    /// Returns the frame construction (axes definition).
+    ///
+    /// # Returns
+    /// `OrbitRelativeKind` - The frame construction
+    pub fn kind(&self) -> OrbitRelativeKind {
+        self.kind
+    }
+
+    /// Returns the rotating/inertial-snapshot variant.
+    ///
+    /// # Returns
+    /// `OrbitRelativeVariant` - Rotating or inertial
+    pub fn variant(&self) -> OrbitRelativeVariant {
+        self.variant
+    }
 }
 
 /// Local orbital frame axes definitions.
@@ -86,9 +144,9 @@ pub enum OrbitRelativeKind {
     NTW,
     /// Tangential / normal / cross-track.
     TNW,
-    /// Perifocal.
+    /// Perifocal. SANA-registered only as an inertial-snapshot frame.
     PQW,
-    /// Equinoctial.
+    /// Equinoctial. SANA-registered only as an inertial-snapshot frame.
     EQW,
     /// Topocentric south / east / zenith.
     SEZ,
@@ -110,13 +168,13 @@ pub enum OrbitRelativeVariant {
     Inertial,
 }
 
-/// An object-local spacecraft frame with an optional instance designator.
+/// An object-local spacecraft body frame with an optional instance designator.
 ///
 /// Variants represent different spacecraft subsystems and sensors. The
 /// optional `String` designator (e.g., `SCBody(Some("1"))`) is appended
 /// to the frame name in Display output (e.g., `SC_BODY_1`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum SpacecraftFrame {
+pub enum SpacecraftBodyFrame {
     /// Accelerometer frame.
     ACC(Option<String>),
     /// Actuator frame.
@@ -154,9 +212,9 @@ pub enum SpacecraftFrame {
 impl fmt::Display for AttitudeFrame {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Reference(frame) => write!(f, "{}", frame),
+            Self::ReferenceFrame(frame) => write!(f, "{}", frame),
             Self::OrbitRelative(frame) => write!(f, "{}", frame),
-            Self::Spacecraft(frame) => write!(f, "{}", frame),
+            Self::SpacecraftBody(frame) => write!(f, "{}", frame),
         }
     }
 }
@@ -193,7 +251,7 @@ impl fmt::Display for OrbitRelativeVariant {
     }
 }
 
-impl fmt::Display for SpacecraftFrame {
+impl fmt::Display for SpacecraftBodyFrame {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (family, suffix) = match self {
             Self::ACC(s) => ("ACC", s),
@@ -231,19 +289,20 @@ mod tests {
     #[parallel]
     fn test_attitude_frame_display() {
         assert_eq!(
-            AttitudeFrame::Reference(ReferenceFrame::GCRF).to_string(),
+            AttitudeFrame::ReferenceFrame(ReferenceFrame::GCRF).to_string(),
             "GCRF"
         );
         assert_eq!(
-            AttitudeFrame::OrbitRelative(OrbitRelativeFrame {
-                kind: OrbitRelativeKind::RTN,
-                variant: OrbitRelativeVariant::Rotating,
-            })
+            AttitudeFrame::OrbitRelative(
+                OrbitRelativeFrame::new(OrbitRelativeKind::RTN, OrbitRelativeVariant::Rotating)
+                    .unwrap()
+            )
             .to_string(),
             "RTN (rotating)"
         );
         assert_eq!(
-            AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(Some("1".to_string()))).to_string(),
+            AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(Some("1".to_string())))
+                .to_string(),
             "SC_BODY_1"
         );
     }
@@ -251,10 +310,10 @@ mod tests {
     #[test]
     #[parallel]
     fn test_attitude_frame_equality() {
-        let a = AttitudeFrame::Reference(ReferenceFrame::EME2000);
-        let b = AttitudeFrame::Reference(ReferenceFrame::EME2000);
+        let a = AttitudeFrame::ReferenceFrame(ReferenceFrame::EME2000);
+        let b = AttitudeFrame::ReferenceFrame(ReferenceFrame::EME2000);
         assert_eq!(a, b);
-        assert_ne!(a, AttitudeFrame::Reference(ReferenceFrame::GCRF));
+        assert_ne!(a, AttitudeFrame::ReferenceFrame(ReferenceFrame::GCRF));
     }
 
     #[test]
@@ -285,39 +344,87 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_spacecraft_frame_display_all_variants() {
+    fn test_spacecraft_body_frame_display_all_variants() {
         let cases = [
-            (SpacecraftFrame::ACC(Some("1".to_string())), "ACC_1"),
-            (SpacecraftFrame::Actuator(None), "ACTUATOR"),
-            (SpacecraftFrame::AST(Some("1".to_string())), "AST_1"),
-            (SpacecraftFrame::CSS(Some("2".to_string())), "CSS_2"),
-            (SpacecraftFrame::DSS(Some("1".to_string())), "DSS_1"),
-            (SpacecraftFrame::ESA(Some("1".to_string())), "ESA_1"),
+            (SpacecraftBodyFrame::ACC(Some("1".to_string())), "ACC_1"),
+            (SpacecraftBodyFrame::Actuator(None), "ACTUATOR"),
+            (SpacecraftBodyFrame::AST(Some("1".to_string())), "AST_1"),
+            (SpacecraftBodyFrame::CSS(Some("2".to_string())), "CSS_2"),
+            (SpacecraftBodyFrame::DSS(Some("1".to_string())), "DSS_1"),
+            (SpacecraftBodyFrame::ESA(Some("1".to_string())), "ESA_1"),
             (
-                SpacecraftFrame::GyroFrame(Some("1".to_string())),
+                SpacecraftBodyFrame::GyroFrame(Some("1".to_string())),
                 "GYRO_FRAME_1",
             ),
             (
-                SpacecraftFrame::IMUFrame(Some("2".to_string())),
+                SpacecraftBodyFrame::IMUFrame(Some("2".to_string())),
                 "IMU_FRAME_2",
             ),
             (
-                SpacecraftFrame::Instrument(Some("A".to_string())),
+                SpacecraftBodyFrame::Instrument(Some("A".to_string())),
                 "INSTRUMENT_A",
             ),
-            (SpacecraftFrame::MTA(Some("1".to_string())), "MTA_1"),
-            (SpacecraftFrame::RW(Some("4".to_string())), "RW_4"),
-            (SpacecraftFrame::SA(Some("1".to_string())), "SA_1"),
-            (SpacecraftFrame::SCBody(None), "SC_BODY"),
-            (SpacecraftFrame::Sensor(Some("10".to_string())), "SENSOR_10"),
+            (SpacecraftBodyFrame::MTA(Some("1".to_string())), "MTA_1"),
+            (SpacecraftBodyFrame::RW(Some("4".to_string())), "RW_4"),
+            (SpacecraftBodyFrame::SA(Some("1".to_string())), "SA_1"),
+            (SpacecraftBodyFrame::SCBody(None), "SC_BODY"),
             (
-                SpacecraftFrame::StarTracker(Some("2".to_string())),
+                SpacecraftBodyFrame::Sensor(Some("10".to_string())),
+                "SENSOR_10",
+            ),
+            (
+                SpacecraftBodyFrame::StarTracker(Some("2".to_string())),
                 "STARTRACKER_2",
             ),
-            (SpacecraftFrame::TAM(Some("1".to_string())), "TAM_1"),
+            (SpacecraftBodyFrame::TAM(Some("1".to_string())), "TAM_1"),
         ];
         for (frame, expected) in cases {
             assert_eq!(frame.to_string(), expected);
         }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_orbit_relative_frame_new_rejects_eqw_pqw_rotating() {
+        assert!(
+            OrbitRelativeFrame::new(OrbitRelativeKind::EQW, OrbitRelativeVariant::Rotating)
+                .is_err()
+        );
+        assert!(
+            OrbitRelativeFrame::new(OrbitRelativeKind::PQW, OrbitRelativeVariant::Rotating)
+                .is_err()
+        );
+        assert!(
+            OrbitRelativeFrame::new(OrbitRelativeKind::EQW, OrbitRelativeVariant::Inertial).is_ok()
+        );
+        assert!(
+            OrbitRelativeFrame::new(OrbitRelativeKind::PQW, OrbitRelativeVariant::Inertial).is_ok()
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_orbit_relative_frame_new_accepts_valid_combos() {
+        for kind in [
+            OrbitRelativeKind::LVLH,
+            OrbitRelativeKind::RTN,
+            OrbitRelativeKind::NTW,
+            OrbitRelativeKind::TNW,
+            OrbitRelativeKind::SEZ,
+            OrbitRelativeKind::VNC,
+            OrbitRelativeKind::NSW,
+        ] {
+            assert!(OrbitRelativeFrame::new(kind, OrbitRelativeVariant::Rotating).is_ok());
+            assert!(OrbitRelativeFrame::new(kind, OrbitRelativeVariant::Inertial).is_ok());
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_orbit_relative_frame_kind_variant_accessors() {
+        let frame = OrbitRelativeFrame::new(OrbitRelativeKind::RTN, OrbitRelativeVariant::Rotating)
+            .unwrap();
+        assert_eq!(frame.kind(), OrbitRelativeKind::RTN);
+        assert_eq!(frame.variant(), OrbitRelativeVariant::Rotating);
     }
 }

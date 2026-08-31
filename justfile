@@ -99,7 +99,13 @@ download-resources: _setup
     @{{python}} -c "import brahe as bh; obj=bh.datasets.sbdb.SBDBClient().lookup('Ceres'); bh.load_spice_kernel('de440s'); t0=bh.Epoch.from_datetime(2015,12,1,0,0,0.0,0.0,bh.TimeSystem.TDB); t1=bh.Epoch.from_datetime(2016,3,1,0,0,0.0,0.0,bh.TimeSystem.TDB); bh.datasets.horizons.HorizonsClient().get_spk(bh.datasets.horizons.HorizonsSPKRequest.for_spkid(obj.naif_id(), t0, t1))"
     @{{python}} -c "import brahe as bh; bh.datasets.star_catalogs.get_fk5(); bh.datasets.star_catalogs.get_hipparcos()"
     @{{python}} -c "import brahe as bh; bh.datasets.icgem.download_model('moon', 'GRGM660PRIM'); bh.datasets.icgem.download_model('mars', 'ggm2bc80')"
-    @{{python}} -c "import brahe as bh; c = bh.celestrak.CelestrakClient(cache_max_age=60*86400); c.get_gp(group='active'); c.get_gp(group='starlink'); c.get_gp(group='gps-ops'); c.get_gp(group='cosmos-1408-debris'); c.get_gp(group='fengyun-1c-debris'); c.get_gp(group='iridium-33-debris'); c.get_gp(group='cosmos-2251-debris')"
+    @PYTHONPATH={{scripts_dir}} {{python}} {{scripts_dir}}/seed_celestrak_cache.py
+
+# Refresh the committed Celestrak GP snapshots in test_assets/celestrak from
+# the live API. Run when the snapshots should track current orbital data; the
+# groups fetched come from .github/brahe-data-manifest.txt.
+refresh-celestrak-snapshots *args: _setup
+    @{{python}} {{scripts_dir}}/refresh_celestrak_snapshots.py {{args}}
 
 # Test all documentation examples (delegates to scripts/test_examples.py)
 test-examples *args: _setup

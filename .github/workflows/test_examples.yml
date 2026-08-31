@@ -67,9 +67,9 @@ jobs:
         id: cache
         uses: ./.github/actions/data-cache
         with:
-          families: naif icgem sbdb-horizons star-catalogs celestrak
+          families: naif icgem sbdb-horizons star-catalogs
 
-      # Copy test assets to cache for examples that might use them
+      # Copy test assets to cache for examples that might use them.
       - name: Setup test assets in cache
         run: |
           mkdir -p ~/.cache/brahe/naif/
@@ -77,6 +77,16 @@ jobs:
             cp test_assets/de440s.bsp ~/.cache/brahe/naif/
             echo "Copied de440s.bsp test asset to cache"
           fi
+
+      # The committed Celestrak groups keep the offline example runs
+      # independent of Celestrak being reachable. They are deliberately NOT
+      # seeded for the live-network run: copying them gives every file a current
+      # modification time, and CelestrakClient serves anything inside its TTL
+      # without a request, which would silently turn the live integration run
+      # into another offline one.
+      - name: Seed Celestrak groups from test assets
+        if: inputs.network_mode != 'online'
+        run: PYTHONPATH=scripts uv run --frozen python scripts/seed_celestrak_cache.py
 
       - name: Build Rust package
         run: cargo build

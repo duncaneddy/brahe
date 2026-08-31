@@ -1,0 +1,5 @@
+# Celestrak GP snapshots are stored exactly as the API served them, including
+# CRLF line endings, so the committed fixtures stay byte-identical to a live
+# response. Normalizing them would make the seeded cache differ from what the
+# client would have written itself.
+test_assets/celestrak/*.json -text

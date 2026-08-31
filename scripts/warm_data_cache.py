@@ -16,14 +16,13 @@ Four manifest line forms are supported:
                                    then brahe.datasets.horizons generates and caches
                                    an SPK spanning the two `YYYY-MM-DD` TDB dates.
                                    Warms both the SBDB and Horizons caches.
-    celestrak:group:<name>    -> brahe.celestrak.CelestrakClient(cache_max_age=60 * 86400)
-                                   .get_gp(group=name), with a 60-day cache age
-                                   so a restored copy is never re-fetched.
+`celestrak:group:<name>` entries are not warmed here: those groups are
+committed under `test_assets/celestrak` and seeded directly into the cache, so
+nothing in CI contacts Celestrak. They remain in the manifest as the source of
+truth for `scripts/refresh_celestrak_snapshots.py`.
 
-`--only FAMILY` (repeatable; `kernel`, `icgem`, `horizons`, `celestrak`) warms
-only entries of the given families. `--refresh` deletes the Celestrak cache
-directory before warming so its entries are re-downloaded even within the
-60-day cache age.
+`--only FAMILY` (repeatable; `kernel`, `icgem`, `horizons`) warms only entries
+of the given families.
 
 An entry carrying a prefix this script does not recognize is a hard error
 rather than being passed to `load_spice_kernel` as a kernel name, so a new
@@ -44,7 +43,6 @@ cache (regular test/integration runs).
 """
 
 import argparse
-import shutil
 import sys
 import time
 from pathlib import Path
@@ -111,39 +109,30 @@ def _warm_horizons(spec: str) -> str:
     return datasets.horizons.HorizonsClient().get_spk(request).path
 
 
-def _warm_celestrak(spec: str) -> str:
-    """Warm one Celestrak group query from a `group:<name>` spec.
-
-    The client is given a 60-day cache age so a copy restored from the
-    workflow cache is served without a request; a missing or evicted copy is
-    downloaded once. The examples resolve single-object lookups from the
-    cached `active` group, so warming `active` covers every per-object query
-    they make.
-    """
-    kind, separator, name = spec.partition(":")
-    if kind != "group" or not separator or not name:
-        raise ValueError(
-            f"Celestrak manifest entry {spec!r} must have the form celestrak:group:<name>"
-        )
-    client = bh.celestrak.CelestrakClient(cache_max_age=60 * 86400)
-    records = client.get_gp(group=name)
-    return f"{len(records)} records"
-
-
 _PREFIX_HANDLERS = {
     "icgem": _warm_icgem,
     "horizons": _warm_horizons,
-    "celestrak": _warm_celestrak,
 }
 
-FAMILIES = ("kernel", "icgem", "horizons", "celestrak")
+# `celestrak:` entries are committed snapshots under test_assets/celestrak, not
+# downloads. They stay in the manifest as the source of truth for
+# scripts/refresh_celestrak_snapshots.py, and are skipped here rather than
+# treated as an unknown prefix.
+SKIPPED_PREFIXES = ("celestrak",)
+
+FAMILIES = ("kernel", "icgem", "horizons")
 
 
-def entry_family(entry: str) -> str:
-    """Return the family (`kernel`, `icgem`, `horizons`, `celestrak`) of a manifest entry."""
+def entry_family(entry: str) -> str | None:
+    """Return the family (`kernel`, `icgem`, `horizons`) of a manifest entry.
+
+    Returns `None` for entries this script deliberately does not warm.
+    """
     prefix, separator, _ = entry.partition(":")
     if not separator:
         return "kernel"
+    if prefix in SKIPPED_PREFIXES:
+        return None
     if prefix not in _PREFIX_HANDLERS:
         raise ValueError(
             f"Manifest entry {entry!r} uses unknown prefix {prefix + ':'!r}; "
@@ -153,7 +142,7 @@ def entry_family(entry: str) -> str:
 
 
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
-    """Parse `--only FAMILY` (repeatable) and `--refresh`."""
+    """Parse `--only FAMILY` (repeatable)."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "--only",
@@ -161,11 +150,6 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         choices=FAMILIES,
         default=[],
         help="Warm only this family (repeatable). Default: every manifest entry.",
-    )
-    parser.add_argument(
-        "--refresh",
-        action="store_true",
-        help="Delete the Celestrak cache before warming so its entries are re-downloaded.",
     )
     return parser.parse_args(argv)
 
@@ -211,8 +195,6 @@ def _warm_with_retries(entry: str) -> str:
 
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
-    if args.refresh and (not args.only or "celestrak" in args.only):
-        shutil.rmtree(bh.get_celestrak_cache_dir(), ignore_errors=True)
     try:
         manifest_display = MANIFEST_PATH.relative_to(REPO_ROOT)
     except ValueError:
@@ -229,6 +211,8 @@ def main(argv: list[str] | None = None) -> None:
             entries.append(entry)
             failures.append((entry, exc))
             print(f"  {entry:<28} -> FAILED: {exc}", flush=True)
+            continue
+        if family is None:
             continue
         if args.only and family not in args.only:
             continue

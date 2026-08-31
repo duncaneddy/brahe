@@ -48,7 +48,7 @@ test-python *flags: _setup
     eval "$(cargo llvm-cov show-env --export-prefix)"
     uv pip install maturin --quiet
     uv run maturin develop --uv --features pyo3/extension-module
-    {{python}} -m pytest tests/ \
+    {{python}} -m pytest tests/ -n auto --dist loadscope \
         --cov=brahe \
         --cov-report=html \
         --cov-report=xml:python-coverage.xml \
@@ -65,7 +65,7 @@ test-python *flags: _setup
 # Run Python tests without coverage — fast iteration
 test-python-fast *flags: _setup
     uv pip install -e . --quiet
-    {{python}} -m pytest tests/ -v {{flags}}
+    {{python}} -m pytest tests/ -n auto --dist loadscope {{flags}}
 
 # Run integration (network) tests — Rust + Python (needs TEST_SPACETRACK_USER/PASS)
 test-integration: test-integration-rust test-integration-python

@@ -87,7 +87,7 @@ jobs:
                 if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
                 run: |
                     eval "$(cargo llvm-cov show-env --export-prefix)"
-                    uv run --frozen pytest tests/ \
+                    uv run --frozen pytest tests/ -n auto --dist loadscope \
                         --cov=brahe \
                         --cov-report=xml:python-coverage.xml \
                         --cov-report=term
@@ -100,7 +100,7 @@ jobs:
 
             -   name: Test with python ${{ matrix.python-version }}
                 if: matrix.os != 'ubuntu-latest' || matrix.python-version != inputs.coverage-python-version
-                run: uv run --frozen pytest tests/ -v
+                run: uv run --frozen pytest tests/ -n auto --dist loadscope
 
             -   name: Upload Python coverage to Codecov
                 if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version

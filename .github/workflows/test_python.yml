@@ -17,75 +17,9 @@ on:
                 type: string
                 default: "offline"
 jobs:
-    data-cache:
-        # Restores the data families the unit suites read. When a family is
-        # missing, or its cache predates the manifest, this job downloads the
-        # entries once and saves them so the matrix legs below only restore.
-        runs-on: ubuntu-latest
-        timeout-minutes: 60
-        steps:
-            -   uses: actions/checkout@v7.0.1
-            -   name: Restore data caches
-                timeout-minutes: 15
-                id: cache
-                uses: ./.github/actions/data-cache
-                with:
-                    families: naif
-            -   name: Set up Rust toolchain
-                if: steps.cache.outputs.missed != ''
-                uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
-                with:
-                    cache-shared-key: test-python
-                    cache-save-if: false
-            -   name: Install uv
-                if: steps.cache.outputs.missed != ''
-                uses: astral-sh/setup-uv@v10.0.1
-                with:
-                    enable-cache: true
-            -   name: Build brahe
-                if: steps.cache.outputs.missed != ''
-                run: |
-                    uv python install 3.12
-                    uv sync --group test --all-extras --frozen --python 3.12
-                    uv pip install maturin --quiet
-                    uv run maturin develop --uv --features pyo3/extension-module
-            -   name: Warm missed families
-                timeout-minutes: 15
-                if: steps.cache.outputs.missed != ''
-                env:
-                    BRAHE_NETWORK_MODE: online
-                    WARM_ARGS: ${{ steps.cache.outputs.warm-args }}
-                    MISSED: ${{ steps.cache.outputs.missed }}
-                run: |
-                    if [ -n "$WARM_ARGS" ]; then
-                        # shellcheck disable=SC2086
-                        uv run --frozen python scripts/warm_data_cache.py $WARM_ARGS
-                    fi
-                    case " $MISSED " in
-                        *" star-catalogs "*)
-                            uv run --frozen python -c "import brahe as bh; bh.datasets.star_catalogs.get_fk5(); bh.datasets.star_catalogs.get_hipparcos()"
-                            ;;
-                    esac
-            -   name: Save data caches
-                # Best effort: speeds up later runs but is not what the matrix
-                # legs depend on. Fork pull requests cannot write the cache.
-                if: steps.cache.outputs.missed != ''
-                continue-on-error: true
-                uses: ./.github/actions/data-cache
-                with:
-                    mode: save
-                    families: ${{ steps.cache.outputs.missed }}
-            -   name: Hand the data to the matrix legs
-                uses: actions/upload-artifact@v7
-                with:
-                    name: brahe-data-python
-                    path: ~/.cache/brahe/naif
-                    retention-days: 1
-                    if-no-files-found: error
     test-python:
         runs-on: ${{ matrix.os }}
         timeout-minutes: 60
-        needs: data-cache
         permissions:
             id-token: write
         env:
@@ -112,6 +46,18 @@ jobs:
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
             -   uses: actions/checkout@v7.0.1
+            # Every SPICE kernel the unit suites auto-load is a committed test
+            # asset, so the suites run offline straight from a clone with no
+            # download step and no cache to warm. tests/test_frames.py loads
+            # mar099s directly, and BRAHE_NETWORK_MODE is offline, so a missing
+            # kernel is a test failure rather than a slow path.
+            -   name: Seed the SPICE test kernels
+                shell: bash
+                run: |
+                    mkdir -p ~/.cache/brahe/naif
+                    cp test_assets/de440s.bsp ~/.cache/brahe/naif/
+                    cp test_assets/mar099s.bsp ~/.cache/brahe/naif/
+                    cp test_assets/moon_pa_de440_200625.bpc ~/.cache/brahe/naif/
             -   name: Install the latest version of uv
                 uses: astral-sh/setup-uv@v10.0.1
                 with:
@@ -119,11 +65,6 @@ jobs:
             -   name: Install Python ${{ matrix.python-version }}
                 run: uv python install ${{ matrix.python-version }}
 
-            -   name: Fetch the data from the data-cache job
-                uses: actions/download-artifact@v8
-                with:
-                    name: brahe-data-python
-                    path: ~/.cache/brahe/naif
             -   name: Install dependencies
                 run: uv sync --group test --all-extras --frozen --python ${{ matrix.python-version }}
 

@@ -103,7 +103,10 @@ jobs:
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
+            # Coverage is only uploaded from ubuntu, so only ubuntu pays for the
+            # instrumented build and its slower binaries.
             -   name: Install cargo-llvm-cov
+                if: matrix.os == 'ubuntu-latest'
                 uses: taiki-e/install-action@cargo-llvm-cov
             -   name: Fetch the data from the data-cache job
                 uses: actions/download-artifact@v8
@@ -122,7 +125,11 @@ jobs:
                 # Limit rust-unit coverage to the core `brahe` crate. The `brahe-py`
                 # workspace member has no Rust unit tests (it's exercised by pytest),
                 # so its coverage is measured in the python-rust combined flag below.
+                if: matrix.os == 'ubuntu-latest'
                 run: cargo llvm-cov -p brahe --lcov --output-path lcov.info
+            -   name: Run Rust tests
+                if: matrix.os != 'ubuntu-latest'
+                run: cargo test -p brahe
             -   name: Upload coverage to Codecov
                 if: matrix.os == 'ubuntu-latest'
                 uses: codecov/codecov-action@v7.0.0

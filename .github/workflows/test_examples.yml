@@ -56,6 +56,20 @@ jobs:
         timeout-minutes: 15
         run: cargo install rust-script
 
+      # rust-script builds each example as its own crate against a shared
+      # dependency build. That shared build is the expensive part: an example
+      # compiles in about 80 seconds without it and relinks in about one second
+      # with it. Restore-only on pull requests, matching the cargo caches; main
+      # produces the copy every branch reads.
+      - name: Restore rust-script build cache
+        id: rust-script-cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: ~/.cache/rust-script
+          key: rust-script-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'scripts/_build_utils.py') }}
+          restore-keys: |
+            rust-script-${{ runner.os }}-
+
       - name: Install the latest version of uv
         uses: astral-sh/setup-uv@v10.0.1
         with:
@@ -279,6 +293,28 @@ jobs:
           name: network-doc-outputs
           path: docs/outputs/
           retention-days: 7
+
+      # Drop the per-example binaries before saving: they relink in about a
+      # second each, and keeping 376 of them would grow the cache past the
+      # repository's budget. The shared dependency build is what is worth
+      # carrying between runs.
+      - name: Prune per-example binaries from the rust-script cache
+        if: github.ref == 'refs/heads/main'
+        run: |
+          release=~/.cache/rust-script/binaries/release
+          [ -d "$release" ] || exit 0
+          find "$release" -maxdepth 1 -type f -delete
+          find "$release/.fingerprint" -maxdepth 1 -type d -name 'examples__*' \
+            -exec rm -rf {} + 2>/dev/null || true
+          rm -rf ~/.cache/rust-script/projects
+
+      - name: Save rust-script build cache (main only)
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: ~/.cache/rust-script
+          key: rust-script-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'scripts/_build_utils.py') }}
 
       - name: Generate documentation plots
         if: ${{ !inputs.use_retry }}

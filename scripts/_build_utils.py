@@ -1,5 +1,6 @@
 """Shared utilities for Brahe build scripts."""
 
+import hashlib
 import os
 import re
 import subprocess
@@ -201,16 +202,38 @@ def check_flags(
     return False, "", timeout_seconds
 
 
+def rust_script_scratch_path(file_path: Path) -> Path:
+    """Return the stable scratch path used to run one Rust example.
+
+    rust-script keys its build cache on the script's path as well as its
+    contents, so a randomly named temporary file compiles from scratch every
+    time even when nothing has changed. Deriving the name from the example's
+    location instead keeps each example addressable in that cache across runs
+    while staying unique, so an unchanged example links once and is reused.
+    """
+    try:
+        relative = file_path.resolve().relative_to(REPO_ROOT)
+    except ValueError:
+        relative = Path(file_path.name)
+    # Namespace by checkout. Two checkouts owned by the same user - a clone and
+    # a worktree, say - map identical example paths to the same scratch file,
+    # and each would overwrite the other's injected repository path and source
+    # before rust-script read it. The digest is stable per checkout, so the
+    # cache stays reusable across runs while staying distinct across checkouts.
+    checkout = hashlib.sha256(str(REPO_ROOT).encode()).hexdigest()[:12]
+    scratch = Path(tempfile.gettempdir()) / f"brahe-rust-examples-{checkout}"
+    scratch.mkdir(parents=True, exist_ok=True)
+    return scratch / f"{str(relative).replace(os.sep, '__')}"
+
+
 def test_rust_example(
     file_path: Path, verbose: bool = False, timeout: int = 300
 ) -> tuple[bool, str, str]:
     """Test a single Rust example. Returns (success, stdout, stderr)."""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".rs", delete=False) as tmp:
-        deps = RUST_DEPS.replace("%REPO_ROOT%", str(REPO_ROOT))
-        tmp.write(deps)
-        tmp.write("\n")
-        tmp.write(file_path.read_text())
-        tmp_path = tmp.name
+    scratch = rust_script_scratch_path(file_path)
+    deps = RUST_DEPS.replace("%REPO_ROOT%", str(REPO_ROOT))
+    scratch.write_text(f"{deps}\n{file_path.read_text()}")
+    tmp_path = str(scratch)
 
     try:
         env = os.environ.copy()
@@ -246,8 +269,6 @@ def test_rust_example(
         if verbose:
             console.print(f"[red]Error: {error_msg}[/red]")
         return False, "", error_msg
-    finally:
-        Path(tmp_path).unlink(missing_ok=True)
 
 
 def test_python_example(

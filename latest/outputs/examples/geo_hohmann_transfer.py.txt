@@ -28,13 +28,13 @@ Second burn applied: dv = 1.456 km/s (prograde)
 Final GEO Orbit:
   Semi-major axis: 42174.2 km
   Altitude:        35796.1 km (target: 35786 km)
-  Eccentricity:    0.000648
+  Eccentricity:    0.000647
 
 Sampled 1754 trajectory points
 
 Example validated successfully!
   Altitude gain: 35396 km
-  Final eccentricity: 0.000648
+  Final eccentricity: 0.000647
 
 ✓ Generated docs/figures/geo_hohmann_transfer_geometry_light.html
 ✓ Generated docs/figures/geo_hohmann_transfer_geometry_dark.html

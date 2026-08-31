@@ -7,10 +7,10 @@ STM at t=0 (should be identity):
   Max off-diagonal: 0.00e0
 
 STM at t=T/2:
-  Determinant: 0.999999
+  Determinant: 1.000000
 
 STM * STM^-1 (should be identity):
-  Max deviation from I: 2.38e-12
+  Max deviation from I: 9.38e-13
 
 === STM Structure ===
 Upper-left 3x3: Position sensitivity to initial position
@@ -20,7 +20,7 @@ Lower-right 3x3: Velocity sensitivity to initial velocity
 
 Block Frobenius norms after one orbit:
   dr/dr0: 19.50
-  dr/dv0: 17375.04
+  dr/dv0: 17374.98
   dv/dr0: 0.021718
   dv/dv0: 19.50
 

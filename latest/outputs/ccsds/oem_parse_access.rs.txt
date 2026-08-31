@@ -28,4 +28,4 @@ All states in segment 0:
   [2] 1996-12-18 12:02:00.331 UTC  pos=(2776.033, -336.859, -2008.682) km
   [3] 1996-12-28 21:28:00.331 UTC  pos=(-3881.024, 563.959, -682.773) km
 
-KVN output length: 4372 characters
+KVN output length: 4312 characters

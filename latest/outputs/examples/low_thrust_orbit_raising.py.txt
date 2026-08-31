@@ -43,8 +43,8 @@ Results Summary (24 hours continuous thrust)
 Parameter                              100W         300W
 ------------------------------------------------------------
 Initial altitude (km)                 400.0        400.0
-Final altitude (km)                   422.0        457.7
-Altitude gain (km)                     22.0         57.7
+Final altitude (km)                   420.7        453.5
+Altitude gain (km)                     20.7         53.5
 Propellant used (g)                    45.8        112.3
 Final mass (kg)                       62.25        62.19
 Delta-v applied (m/s)                   7.9         26.4

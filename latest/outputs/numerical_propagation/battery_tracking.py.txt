@@ -10,8 +10,8 @@ Orbital period: 5677.0 s (94.6 min)
 Propagating for 3 orbits (283.8 min)
 
 Final battery state:
-  Final charge: 86.82 Wh (86.8% SOC)
-  Charge change: +6.82 Wh
+  Final charge: 86.79 Wh (86.8% SOC)
+  Charge change: +6.79 Wh
 
 Eclipse statistics:
   Sunlit time: 179.0 min (63.0%)

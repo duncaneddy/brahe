@@ -6,8 +6,8 @@ Variable Thrust Orbit Raising:
 
 After 1 hour propagation:
   Reference altitude: 400.000 km
-  With thrust altitude: 402.895 km
-  Altitude gain: 2.895 km
+  With thrust altitude: 402.653 km
+  Altitude gain: 2.653 km
   Approx delta-v applied: 1.500 m/s
 
 Example validated successfully!

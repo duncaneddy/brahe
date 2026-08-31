@@ -4,8 +4,8 @@ Hemisphere crossings over 2 orbits:
 
 Event timeline:
   t+    0.0s: Enter Northern   (z = +0.0 km)
-  t+ 2838.5s: Exit Northern    (z = -0.0 km)
+  t+ 2838.5s: Exit Northern    (z = +0.0 km)
   t+ 5677.0s: Enter Northern   (z = -0.0 km)
-  t+ 8515.5s: Exit Northern    (z = +0.0 km)
+  t+ 8515.5s: Exit Northern    (z = -0.0 km)
 
 Example validated successfully!

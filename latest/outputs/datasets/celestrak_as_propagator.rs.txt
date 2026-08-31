@@ -1,0 +1,6 @@
+Created propagator: ISS (ZARYA)
+Epoch: 2026-08-30 15:03:37.194 UTC
+
+State after 1 orbit:
+  Position: [2451852.6, -6341171.2, 15973.6] m
+  Velocity: [4437.7, 1742.2, 5995.8] m/s

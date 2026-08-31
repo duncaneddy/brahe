@@ -10,10 +10,10 @@ Sensitivity Matrix shape: (6, 5)
 
 Position sensitivity magnitude to each parameter:
   mass      : 1.255e-1 m per unit param
-  drag_area : 3.134e1 m per unit param
-  Cd        : 2.849e1 m per unit param
-  srp_area  : 6.161e-2 m per unit param
-  Cr        : 9.478e-2 m per unit param
+  drag_area : 3.135e1 m per unit param
+  Cd        : 2.850e1 m per unit param
+  srp_area  : 6.202e-2 m per unit param
+  Cr        : 9.542e-2 m per unit param
 
 Position error from 1% parameter uncertainty:
   mass      : 0.6 m

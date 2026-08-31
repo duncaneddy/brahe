@@ -23,8 +23,8 @@ Position sensitivity to 1% parameter uncertainty:
   mass      : 0.06 m
   drag_area : 0.06 m
   Cd        : 0.06 m
-  srp_area  : 0.00 m
-  Cr        : 0.00 m
+  srp_area  : 0.01 m
+  Cr        : 0.01 m
 
 --- Summary ---
 Total position uncertainty: 17.3 m -> 259.4 m

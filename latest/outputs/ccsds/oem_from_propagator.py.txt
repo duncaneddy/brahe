@@ -2,5 +2,5 @@ Propagated from 2024-06-15 00:00:00.000 UTC to 2024-06-15 01:30:00.000 UTC
 Trajectory: 221 states, span=5400s
 
 OEM: 1 segment, 221 states
-KVN output: 28368 characters
+KVN output: 28366 characters
 Round-trip: 221 states

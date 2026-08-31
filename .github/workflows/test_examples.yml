@@ -86,10 +86,7 @@ jobs:
       # into another offline one.
       - name: Seed Celestrak groups from test assets
         if: inputs.network_mode != 'online'
-        run: |
-          mkdir -p ~/.cache/brahe/celestrak/
-          cp test_assets/celestrak/* ~/.cache/brahe/celestrak/
-          echo "Seeded $(ls test_assets/celestrak | wc -l) Celestrak groups from test assets"
+        run: PYTHONPATH=scripts uv run --frozen python scripts/seed_celestrak_cache.py
 
       - name: Build Rust package
         run: cargo build

@@ -25,24 +25,17 @@ import sys
 import tempfile
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-MANIFEST_PATH = REPO_ROOT / ".github" / "brahe-data-manifest.txt"
-SNAPSHOT_DIR = REPO_ROOT / "test_assets" / "celestrak"
+from celestrak_snapshots import (
+    SNAPSHOT_DIR,
+    cache_name,
+    manifest_groups,
+    snapshot_path,
+)
 
 # Minimum plausible size for a GP group response. Celestrak answers a throttled
 # or errored request with a short HTML body, which is a valid file but not
 # usable data; committing one would fail later as a confusing parse error.
 MIN_BYTES = 500
-
-
-def manifest_groups() -> list[str]:
-    """Return the `celestrak:group:<name>` entries from the data manifest."""
-    groups = []
-    for line in MANIFEST_PATH.read_text().splitlines():
-        line = line.strip()
-        if line.startswith("celestrak:group:"):
-            groups.append(line.split(":", 2)[2])
-    return groups
 
 
 def main() -> int:
@@ -86,7 +79,17 @@ def main() -> int:
             )
             return 1
 
+        # The client writes each response under its cache-key name; map those
+        # back to the readable committed name so the repository stays legible.
+        by_cache_name = {cache_name(g): g for g in groups}
         fetched = sorted(Path(scratch, "celestrak").glob("*"))
+        unexpected = [p.name for p in fetched if p.name not in by_cache_name]
+        if unexpected:
+            print(
+                f"\nerror: unexpected cache entries: {', '.join(unexpected)}",
+                file=sys.stderr,
+            )
+            return 1
         undersized = [p.name for p in fetched if p.stat().st_size < MIN_BYTES]
         if undersized:
             print(
@@ -101,15 +104,16 @@ def main() -> int:
         # mid-run leaves each destination either wholly old or wholly new.
         SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
         for src in fetched:
-            staged = SNAPSHOT_DIR / f".{src.name}.incoming"
+            dest = snapshot_path(by_cache_name[src.name])
+            staged = dest.with_name(f".{dest.name}.incoming")
             shutil.copy2(src, staged)
-            os.replace(staged, SNAPSHOT_DIR / src.name)
+            os.replace(staged, dest)
 
         # A full refresh also drops snapshots whose group has left the
         # manifest. A partial refresh has no view of the full set, so it never
         # removes anything.
         if not args.group:
-            keep = {src.name for src in fetched}
+            keep = {snapshot_path(by_cache_name[src.name]).name for src in fetched}
             for stale in SNAPSHOT_DIR.glob("*"):
                 if stale.name not in keep:
                     print(

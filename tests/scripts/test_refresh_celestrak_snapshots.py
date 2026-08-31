@@ -8,13 +8,17 @@ failure mode a maintenance command must not have.
 import importlib.util
 import os
 import shutil
+import sys
 from pathlib import Path
 
 import pytest
 
-_SCRIPT = (
-    Path(__file__).resolve().parents[2] / "scripts" / "refresh_celestrak_snapshots.py"
-)
+_SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
+# The refresh script imports its sibling naming module the same way the
+# workflows invoke it, via PYTHONPATH.
+sys.path.insert(0, str(_SCRIPTS))
+
+_SCRIPT = _SCRIPTS / "refresh_celestrak_snapshots.py"
 _spec = importlib.util.spec_from_file_location("refresh_celestrak_snapshots", _SCRIPT)
 refresh = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(refresh)
@@ -42,12 +46,6 @@ def snapshots(tmp_path):
     for name in ["active", "starlink", "gps_ops", "c1408", "f1c", "i33", "c2251"]:
         (d / f"snap_{name}").write_text("ORIGINAL")
     return d
-
-
-def test_manifest_groups_reads_celestrak_entries():
-    groups = refresh.manifest_groups()
-    assert "active" in groups
-    assert all(":" not in g for g in groups)
 
 
 def test_partial_refresh_leaves_other_snapshots_untouched(snapshots, tmp_path):

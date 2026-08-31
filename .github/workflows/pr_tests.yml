@@ -37,16 +37,33 @@ jobs:
       - name: Wait for Rust tests to claim runners
         run: sleep 15
 
+  # Pull requests test the oldest supported Python (the declared floor in
+  # pyproject.toml) to catch breakage of the minimum-supported version. The full
+  # version matrix runs on push to main.
   test-python:
     needs: [delay-python]
     if: needs.delay-python.result == 'success'
     uses: ./.github/workflows/test_python.yml
     with:
-      # PR runs test only the oldest supported Python (the declared floor in pyproject.toml)
-      # across all 3 OSes to catch breakage of the minimum-supported version.
-      # The full matrix runs on push to main.
       python-versions: '["3.10"]'
       coverage-python-version: '3.10'
+      os-matrix: '["ubuntu-latest", "macos-latest"]'
+      python-test-scope: full
+    secrets: inherit
+
+  # Windows runs the smoke subset rather than the whole suite. It is roughly
+  # 1.8x slower than ubuntu, so the full run would set the critical path, while
+  # the subset covers every area with a recorded history of Windows-only Python
+  # failures. The full Windows suite still runs on push to main.
+  test-python-windows:
+    needs: [delay-python]
+    if: needs.delay-python.result == 'success'
+    uses: ./.github/workflows/test_python.yml
+    with:
+      python-versions: '["3.10"]'
+      coverage-python-version: 'none'
+      os-matrix: '["windows-latest"]'
+      python-test-scope: smoke
     secrets: inherit
 
   test-examples:
@@ -217,6 +234,7 @@ jobs:
       - test-rust
       - delay-python
       - test-python
+      - test-python-windows
       - test-examples
       - validate-rust-package
       - validate-python-package

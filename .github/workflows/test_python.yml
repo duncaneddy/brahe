@@ -16,6 +16,19 @@ on:
                 description: "BRAHE_NETWORK_MODE for the test steps."
                 type: string
                 default: "offline"
+            os-matrix:
+                description: "JSON array of runners for the test matrix."
+                type: string
+                default: '["ubuntu-latest", "macos-latest", "windows-latest"]'
+            python-test-scope:
+                description: >-
+                    `full` runs the whole suite. `smoke` runs only the path- and
+                    IO-sensitive directories listed in SMOKE_PATHS below.
+                    Switching scope is this one input, and the directory list is
+                    defined in a single place, so widening it is a one-line
+                    change.
+                type: string
+                default: "full"
 jobs:
     test-python:
         runs-on: ${{ matrix.os }}
@@ -24,9 +37,16 @@ jobs:
             id-token: write
         env:
             BRAHE_NETWORK_MODE: ${{ inputs.network_mode }}
+            # The smoke subset: CLI, cache/IO, and dataset handling. Commit
+            # 16755ce2 fixed Windows-only failures under tests/cli and commit
+            # e486a937 fixed cache-path handling, so this covers the areas with
+            # a recorded history of platform-specific Python failures. The rest
+            # of the suite is platform-independent computation already run on
+            # all three platforms by the Rust matrix.
+            SMOKE_PATHS: tests/cli tests/utils tests/eop tests/space_weather tests/datasets
         strategy:
             matrix:
-                os: [ubuntu-latest, macos-latest, windows-latest]
+                os: ${{ fromJSON(inputs.os-matrix) }}
                 python-version: ${{ fromJSON(inputs.python-versions) }}
                 rust-toolchain: [stable]
         steps:
@@ -100,7 +120,14 @@ jobs:
 
             -   name: Test with python ${{ matrix.python-version }}
                 if: matrix.os != 'ubuntu-latest' || matrix.python-version != inputs.coverage-python-version
-                run: uv run --frozen pytest tests/ -n auto --dist loadscope
+                shell: bash
+                run: |
+                    if [ "${{ inputs.python-test-scope }}" = "smoke" ]; then
+                        # shellcheck disable=SC2086
+                        uv run --frozen pytest $SMOKE_PATHS -n auto --dist loadscope
+                    else
+                        uv run --frozen pytest tests/ -n auto --dist loadscope
+                    fi
 
             -   name: Upload Python coverage to Codecov
                 if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version

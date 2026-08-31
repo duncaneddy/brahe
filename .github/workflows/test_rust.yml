@@ -189,5 +189,5 @@ jobs:
                     mkdir -p ~/.cache/brahe/naif
                     cp test_assets/de440s.bsp ~/.cache/brahe/naif/
             -   name: Run Rust doc tests
-                run: cargo test --doc -- --test-threads=1
+                run: cargo test --doc
     

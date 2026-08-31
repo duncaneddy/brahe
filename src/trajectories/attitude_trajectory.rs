@@ -138,14 +138,14 @@ impl AttitudeInterpolationMethod {
 ///
 /// # Examples
 /// ```rust
-/// use brahe::attitude::{AttitudeFrame, Quaternion, SpacecraftFrame};
+/// use brahe::attitude::{AttitudeFrame, Quaternion, SpacecraftBodyFrame};
 /// use brahe::time::{Epoch, TimeSystem};
 /// use brahe::traits::Trajectory;
 /// use brahe::trajectories::{AttitudeState, AttitudeTrajectory};
 ///
 /// let mut traj = AttitudeTrajectory::new(
-///     AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None)),
-///     AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None)),
+///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
+///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
 /// );
 ///
 /// let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -207,13 +207,13 @@ impl AttitudeTrajectory {
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::attitude::{AttitudeFrame, SpacecraftFrame};
+    /// use brahe::attitude::{AttitudeFrame, SpacecraftBodyFrame};
     /// use brahe::traits::Trajectory;
     /// use brahe::trajectories::AttitudeTrajectory;
     ///
     /// let traj = AttitudeTrajectory::new(
-    ///     AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None)),
-    ///     AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None)),
+    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
+    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
     /// );
     /// assert_eq!(traj.len(), 0);
     /// ```
@@ -253,7 +253,7 @@ impl AttitudeTrajectory {
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::attitude::{AttitudeFrame, Quaternion, SpacecraftFrame};
+    /// use brahe::attitude::{AttitudeFrame, Quaternion, SpacecraftBodyFrame};
     /// use brahe::time::{Epoch, TimeSystem};
     /// use brahe::trajectories::{AttitudeState, AttitudeTrajectory};
     ///
@@ -269,8 +269,8 @@ impl AttitudeTrajectory {
     /// let traj = AttitudeTrajectory::from_data(
     ///     epochs,
     ///     states,
-    ///     AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None)),
-    ///     AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None)),
+    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
+    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
     /// ).unwrap();
     /// ```
     pub fn from_data(
@@ -336,12 +336,12 @@ impl AttitudeTrajectory {
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::attitude::{AttitudeFrame, SpacecraftFrame};
+    /// use brahe::attitude::{AttitudeFrame, SpacecraftBodyFrame};
     /// use brahe::trajectories::{AttitudeInterpolationMethod, AttitudeTrajectory};
     ///
     /// let traj = AttitudeTrajectory::new(
-    ///     AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None)),
-    ///     AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None)),
+    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
+    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
     /// )
     /// .with_interpolation_method(AttitudeInterpolationMethod::Linear);
     /// ```
@@ -368,14 +368,14 @@ impl AttitudeTrajectory {
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::attitude::{AttitudeFrame, Quaternion, SpacecraftFrame};
+    /// use brahe::attitude::{AttitudeFrame, Quaternion, SpacecraftBodyFrame};
     /// use brahe::time::{Epoch, TimeSystem};
     /// use brahe::traits::Trajectory;
     /// use brahe::trajectories::{AttitudeState, AttitudeTrajectory};
     ///
     /// let mut traj = AttitudeTrajectory::new(
-    ///     AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None)),
-    ///     AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None)),
+    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
+    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
     /// );
     /// assert!(!traj.has_rates());
     ///
@@ -448,14 +448,14 @@ impl AttitudeTrajectory {
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::attitude::{AttitudeFrame, Quaternion, SpacecraftFrame};
+    /// use brahe::attitude::{AttitudeFrame, Quaternion, SpacecraftBodyFrame};
     /// use brahe::time::{Epoch, TimeSystem};
     /// use brahe::traits::Trajectory;
     /// use brahe::trajectories::{AttitudeState, AttitudeTrajectory};
     ///
     /// let mut traj = AttitudeTrajectory::new(
-    ///     AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None)),
-    ///     AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None)),
+    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
+    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
     /// );
     /// let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
     /// traj.add(t0, AttitudeState::new(Quaternion::new(1.0, 0.0, 0.0, 0.0))).unwrap();
@@ -964,14 +964,14 @@ impl Trajectory for AttitudeTrajectory {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
-    use crate::attitude::SpacecraftFrame;
+    use crate::attitude::SpacecraftBodyFrame;
     use crate::time::TimeSystem;
     use approx::assert_abs_diff_eq;
 
     fn body_frames() -> (AttitudeFrame, AttitudeFrame) {
         (
-            AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None)),
-            AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None)),
+            AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
+            AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
         )
     }
 

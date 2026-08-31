@@ -17,8 +17,8 @@ def z_axis_quaternion(theta):
 
 def body_frames():
     return (
-        bh.AttitudeFrame.spacecraft("SC_BODY"),
-        bh.AttitudeFrame.spacecraft("SC_BODY"),
+        bh.AttitudeFrame.spacecraft_body_frame("SC_BODY"),
+        bh.AttitudeFrame.spacecraft_body_frame("SC_BODY"),
     )
 
 
@@ -72,8 +72,8 @@ def test_attitude_trajectory_add_rejects_mixed_rate_presence():
 
 
 def test_attitude_trajectory_frame_a_frame_b():
-    frame_a = bh.AttitudeFrame.reference(bh.ReferenceFrame.GCRF)
-    frame_b = bh.AttitudeFrame.spacecraft("SC_BODY", "1")
+    frame_a = bh.AttitudeFrame.reference_frame(bh.ReferenceFrame.GCRF)
+    frame_b = bh.AttitudeFrame.spacecraft_body_frame("SC_BODY", "1")
     traj = AttitudeTrajectory(frame_a, frame_b)
     assert traj.frame_a == frame_a
     assert traj.frame_b == frame_b
@@ -215,8 +215,8 @@ def test_attitude_provider_euler_angle_euler_axis_rotation_matrix():
 def test_attitude_trajectory_quaternion_from_frame_matches_manual_composition(eop):
     """Mirror of test_quaternion_from_frame_matches_manual_composition in Rust."""
     traj = AttitudeTrajectory(
-        bh.AttitudeFrame.reference(bh.ReferenceFrame.GCRF),
-        bh.AttitudeFrame.spacecraft("SC_BODY"),
+        bh.AttitudeFrame.reference_frame(bh.ReferenceFrame.GCRF),
+        bh.AttitudeFrame.spacecraft_body_frame("SC_BODY"),
     )
     t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     traj.add(t0, z_axis_quaternion(0.3))

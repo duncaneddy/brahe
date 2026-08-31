@@ -1070,11 +1070,11 @@ impl AttitudeProvider for AttitudeTrajectory {
 impl AttitudeTrajectory {
     /// Re-expresses this trajectory's attitude relative to an arbitrary
     /// reference frame `from`, given that `frame_a` is itself a
-    /// [`AttitudeFrame::Reference`] frame.
+    /// [`AttitudeFrame::ReferenceFrame`] frame.
     ///
     /// # Derivation
     ///
-    /// This method requires `frame_a` to be `AttitudeFrame::Reference(a)`.
+    /// This method requires `frame_a` to be `AttitudeFrame::ReferenceFrame(a)`.
     /// The stored quaternion `self.quaternion(epoch)` then represents the
     /// rotation `q_a_to_b` from `a` to `frame_b`. Given a brahe frame-router
     /// rotation from `from` to `a`, converted to a quaternion `q_from_to_a`,
@@ -1091,13 +1091,13 @@ impl AttitudeTrajectory {
     ///
     /// # Returns
     /// * `Ok(Quaternion)` - Attitude quaternion from `from` to `frame_b` at `epoch`
-    /// * `Err(BraheError)` - If `frame_a` is not `AttitudeFrame::Reference`, the frame
+    /// * `Err(BraheError)` - If `frame_a` is not `AttitudeFrame::ReferenceFrame`, the frame
     ///   transformation from `from` to `frame_a`'s reference frame fails, or the
     ///   attitude at `epoch` cannot be computed
     ///
     /// # Examples
     /// ```
-    /// use brahe::attitude::{AttitudeFrame, Quaternion, SpacecraftFrame};
+    /// use brahe::attitude::{AttitudeFrame, Quaternion, SpacecraftBodyFrame};
     /// use brahe::frames::ReferenceFrame;
     /// use brahe::time::{Epoch, TimeSystem};
     /// use brahe::traits::Trajectory;
@@ -1105,8 +1105,8 @@ impl AttitudeTrajectory {
     ///
     /// // GCRF <-> EME2000 is a fixed frame-bias rotation and needs no EOP data.
     /// let mut traj = AttitudeTrajectory::new(
-    ///     AttitudeFrame::Reference(ReferenceFrame::GCRF),
-    ///     AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None)),
+    ///     AttitudeFrame::ReferenceFrame(ReferenceFrame::GCRF),
+    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
     /// );
     /// let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
     /// traj.add(epoch, AttitudeState::new(Quaternion::new(1.0, 0.0, 0.0, 0.0))).unwrap();
@@ -1119,18 +1119,18 @@ impl AttitudeTrajectory {
         from: ReferenceFrame,
     ) -> Result<Quaternion, BraheError> {
         let a = match &self.frame_a {
-            AttitudeFrame::Reference(reference) => *reference,
+            AttitudeFrame::ReferenceFrame(reference) => *reference,
             AttitudeFrame::OrbitRelative(_) => {
                 return Err(BraheError::Error(
-                    "quaternion_from_frame requires frame_a to be AttitudeFrame::Reference, but \
+                    "quaternion_from_frame requires frame_a to be AttitudeFrame::ReferenceFrame, but \
                      this trajectory's frame_a is AttitudeFrame::OrbitRelative"
                         .to_string(),
                 ));
             }
-            AttitudeFrame::Spacecraft(_) => {
+            AttitudeFrame::SpacecraftBody(_) => {
                 return Err(BraheError::Error(
-                    "quaternion_from_frame requires frame_a to be AttitudeFrame::Reference, but \
-                     this trajectory's frame_a is AttitudeFrame::Spacecraft"
+                    "quaternion_from_frame requires frame_a to be AttitudeFrame::ReferenceFrame, but \
+                     this trajectory's frame_a is AttitudeFrame::SpacecraftBody"
                         .to_string(),
                 ));
             }
@@ -1396,14 +1396,14 @@ mod tests {
     // AttitudeProvider tests
     // =========================================================================
 
-    use crate::attitude::{Quaternion, SpacecraftFrame};
+    use crate::attitude::{Quaternion, SpacecraftBodyFrame};
     use crate::traits::Trajectory;
     use crate::trajectories::AttitudeState;
 
     fn spacecraft_frames() -> (AttitudeFrame, AttitudeFrame) {
         (
-            AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None)),
-            AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None)),
+            AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
+            AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
         )
     }
 
@@ -1525,8 +1525,8 @@ mod tests {
         setup_global_test_eop();
 
         let mut traj = AttitudeTrajectory::new(
-            AttitudeFrame::Reference(ReferenceFrame::GCRF),
-            AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None)),
+            AttitudeFrame::ReferenceFrame(ReferenceFrame::GCRF),
+            AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
         );
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         traj.add(t0, AttitudeState::new(z_axis_quaternion(0.3)))
@@ -1570,10 +1570,10 @@ mod tests {
     fn test_quaternion_from_frame_errors_for_orbit_relative_frame_a() {
         use crate::attitude::{OrbitRelativeFrame, OrbitRelativeKind, OrbitRelativeVariant};
 
-        let a = AttitudeFrame::OrbitRelative(OrbitRelativeFrame {
-            kind: OrbitRelativeKind::RTN,
-            variant: OrbitRelativeVariant::Rotating,
-        });
+        let a = AttitudeFrame::OrbitRelative(
+            OrbitRelativeFrame::new(OrbitRelativeKind::RTN, OrbitRelativeVariant::Rotating)
+                .unwrap(),
+        );
         let (_, b) = spacecraft_frames();
         let mut traj = AttitudeTrajectory::new(a, b);
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);

@@ -1939,11 +1939,11 @@ mod tests {
         assert_eq!(traj.len(), 4);
         assert_eq!(
             traj.frame_a,
-            AttitudeFrame::Reference(ReferenceFrame::EME2000)
+            AttitudeFrame::ReferenceFrame(ReferenceFrame::EME2000)
         );
         assert_eq!(
             traj.frame_b,
-            AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(Some("1".to_string())))
+            AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(Some("1".to_string())))
         );
         assert_eq!(
             traj.interpolation_method,
@@ -2191,8 +2191,8 @@ mod tests {
     #[test]
     #[parallel]
     fn test_aem_trajectory_round_trip_with_rates() {
-        let frame_a = AttitudeFrame::Reference(ReferenceFrame::EME2000);
-        let frame_b = AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None));
+        let frame_a = AttitudeFrame::ReferenceFrame(ReferenceFrame::EME2000);
+        let frame_b = AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None));
         let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let omega = Vector3::new(0.001, 0.002, -0.003);
 
@@ -2248,8 +2248,8 @@ mod tests {
     #[test]
     #[parallel]
     fn test_aem_trajectory_round_trip_interpolation_method_lagrange() {
-        let frame_a = AttitudeFrame::Reference(ReferenceFrame::EME2000);
-        let frame_b = AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None));
+        let frame_a = AttitudeFrame::ReferenceFrame(ReferenceFrame::EME2000);
+        let frame_b = AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None));
         let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
         let epochs = vec![t0, t0 + 60.0, t0 + 120.0];
@@ -2286,8 +2286,8 @@ mod tests {
     #[test]
     #[parallel]
     fn test_aem_trajectory_round_trip_interpolation_method_linear() {
-        let frame_a = AttitudeFrame::Reference(ReferenceFrame::EME2000);
-        let frame_b = AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None));
+        let frame_a = AttitudeFrame::ReferenceFrame(ReferenceFrame::EME2000);
+        let frame_b = AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None));
         let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
         let epochs = vec![t0, t0 + 60.0];
@@ -2323,8 +2323,8 @@ mod tests {
     #[test]
     #[parallel]
     fn test_aem_from_attitude_trajectory_without_rates() {
-        let frame_a = AttitudeFrame::Reference(ReferenceFrame::EME2000);
-        let frame_b = AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None));
+        let frame_a = AttitudeFrame::ReferenceFrame(ReferenceFrame::EME2000);
+        let frame_b = AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None));
         let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
         let epochs = vec![t0, t0 + 60.0];
@@ -2352,8 +2352,8 @@ mod tests {
     #[test]
     #[parallel]
     fn test_aem_from_attitude_trajectory_unmappable_time_system_errors() {
-        let frame_a = AttitudeFrame::Reference(ReferenceFrame::EME2000);
-        let frame_b = AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None));
+        let frame_a = AttitudeFrame::ReferenceFrame(ReferenceFrame::EME2000);
+        let frame_b = AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None));
         let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
         let epochs = vec![t0, t0 + 60.0];
@@ -2377,8 +2377,8 @@ mod tests {
     #[test]
     #[parallel]
     fn test_aem_from_attitude_trajectory_empty_errors() {
-        let frame_a = AttitudeFrame::Reference(ReferenceFrame::EME2000);
-        let frame_b = AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(None));
+        let frame_a = AttitudeFrame::ReferenceFrame(ReferenceFrame::EME2000);
+        let frame_b = AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None));
         let traj = AttitudeTrajectory::new(frame_a, frame_b);
 
         let result = AEM::from_attitude_trajectory(

@@ -4066,8 +4066,8 @@ fn parse_attitude_interpolation_method(
 ///     from brahe.trajectories import AttitudeTrajectory
 ///
 ///     traj = bh.AttitudeTrajectory(
-///         bh.AttitudeFrame.reference(bh.ReferenceFrame.GCRF),
-///         bh.AttitudeFrame.spacecraft("SC_BODY", "1"),
+///         bh.AttitudeFrame.reference_frame(bh.ReferenceFrame.GCRF),
+///         bh.AttitudeFrame.spacecraft_body_frame("SC_BODY", "1"),
 ///     )
 ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 ///     traj.add(epoch, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
@@ -4228,7 +4228,7 @@ impl PyAttitudeTrajectory {
     /// Re-express this trajectory's attitude relative to an arbitrary reference frame.
     ///
     /// Requires `frame_a` to be a reference-frame `AttitudeFrame` (constructed via
-    /// `AttitudeFrame.reference`).
+    /// `AttitudeFrame.reference_frame`).
     ///
     /// Args:
     ///     epoch (Epoch): Target epoch

@@ -15,8 +15,8 @@ A trajectory's states must uniformly carry angular velocity or uniformly omit it
     import brahe as bh
 
     traj = bh.AttitudeTrajectory(
-        bh.AttitudeFrame.reference(bh.ReferenceFrame.GCRF),
-        bh.AttitudeFrame.spacecraft("SC_BODY", "1"),
+        bh.AttitudeFrame.reference_frame(bh.ReferenceFrame.GCRF),
+        bh.AttitudeFrame.spacecraft_body_frame("SC_BODY", "1"),
     )
     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     traj.add(epoch, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
@@ -25,15 +25,15 @@ A trajectory's states must uniformly carry angular velocity or uniformly omit it
 
 === "Rust"
     ``` rust
-    use brahe::attitude::{AttitudeFrame, Quaternion, SpacecraftFrame};
+    use brahe::attitude::{AttitudeFrame, Quaternion, SpacecraftBodyFrame};
     use brahe::frames::ReferenceFrame;
     use brahe::time::{Epoch, TimeSystem};
     use brahe::traits::Trajectory;
     use brahe::trajectories::{AttitudeState, AttitudeTrajectory};
 
     let mut traj = AttitudeTrajectory::new(
-        AttitudeFrame::Reference(ReferenceFrame::GCRF),
-        AttitudeFrame::Spacecraft(SpacecraftFrame::SCBody(Some("1".to_string()))),
+        AttitudeFrame::ReferenceFrame(ReferenceFrame::GCRF),
+        AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(Some("1".to_string()))),
     );
     let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
     traj.add(epoch, AttitudeState::new(Quaternion::new(1.0, 0.0, 0.0, 0.0))).unwrap();
@@ -108,7 +108,7 @@ Continuing from the `traj` built in the example above:
 
 ### Composing with a Different Reference Frame
 
-`quaternion_from_frame(epoch, from)` re-expresses the trajectory's attitude relative to an arbitrary reference frame, when `frame_a` is itself a reference frame (constructed via `AttitudeFrame.reference`/`AttitudeFrame::Reference`). Internally, this composes the frame-router rotation from `from` to `frame_a`'s reference frame with the trajectory's own stored rotation from `frame_a` to `frame_b`. `frame_a` must be a reference frame for this to succeed, so the call below assumes a trajectory built as in the [rate uniformity example](#canonical-state-and-rate-uniformity) above, where `frame_a` is `GCRF`:
+`quaternion_from_frame(epoch, from)` re-expresses the trajectory's attitude relative to an arbitrary reference frame, when `frame_a` is itself a reference frame (constructed via `AttitudeFrame.reference_frame`/`AttitudeFrame::ReferenceFrame`). Internally, this composes the frame-router rotation from `from` to `frame_a`'s reference frame with the trajectory's own stored rotation from `frame_a` to `frame_b`. `frame_a` must be a reference frame for this to succeed, so the call below assumes a trajectory built as in the [rate uniformity example](#canonical-state-and-rate-uniformity) above, where `frame_a` is `GCRF`:
 
 === "Python"
     ``` python

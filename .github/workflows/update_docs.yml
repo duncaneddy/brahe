@@ -26,6 +26,10 @@ jobs:
     env:
       RUST_TOOLCHAIN: stable
       BRAHE_NETWORK_MODE: offline
+      # The project is installed by the explicit build step below, not by
+      # `uv sync`. Without this, `uv run` would notice it missing and rebuild
+      # it, relocating the cost rather than removing it.
+      UV_NO_SYNC: "1"
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -122,7 +126,7 @@ jobs:
         run: uv python install 3.14
 
       - name: Install dependencies
-        run: uv sync --group docs --all-extras --frozen
+        run: uv sync --group docs --all-extras --frozen --no-install-project
 
       - name: Build Python extension
         run: uv pip install -e .

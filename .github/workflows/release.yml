@@ -135,7 +135,11 @@ jobs:
 
     - name: Install package and dependencies
       run: |
-        uv sync --group dev
+        # Dependencies only; the line below installs the project. Letting uv
+        # sync build it costs a full cold compile under PEP 517 isolation that
+        # this then discards. `generate_stubs.sh` calls `.venv/bin/...`
+        # directly rather than through `uv run`, so no sync setting is needed.
+        uv sync --group dev --no-install-project
         uv pip install -e .
 
     - name: Generate stubs

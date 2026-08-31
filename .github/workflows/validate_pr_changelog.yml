@@ -2,7 +2,7 @@ name: Validate PR Changelog
 
 on:
   pull_request_target:
-    types: [opened, synchronize, edited, reopened]
+    types: [opened, synchronize, edited, reopened, ready_for_review]
 
 permissions:
   pull-requests: write
@@ -10,7 +10,13 @@ permissions:
 
 jobs:
   validate:
+    # Drafts are exempt, and `ready_for_review` is a trigger, so the check runs
+    # against the description a reviewer will actually see. Tools that open a
+    # pull request and then fill in its body — the GitHub CLI and stacked-PR
+    # helpers both do — otherwise fail this check on the placeholder body and
+    # only pass on the follow-up edit, leaving a spurious failed run behind.
     if: |
+      !github.event.pull_request.draft &&
       !contains(github.event.pull_request.labels.*.name, 'dependencies') &&
       github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest

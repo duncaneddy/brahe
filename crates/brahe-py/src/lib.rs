@@ -960,7 +960,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Reference frame router
     module.add_class::<PySynodicOrigin>()?;
-    module.add_class::<PyReferenceFrame>()?;
+    module.add_class::<PyCelestialFrame>()?;
     module.add_function(wrap_pyfunction!(py_rotation_frame_to_frame, module)?)?;
     module.add_function(wrap_pyfunction!(py_register_custom_frame, module)?)?;
     module.add_function(wrap_pyfunction!(py_unregister_custom_frame, module)?)?;

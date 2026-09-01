@@ -41,7 +41,7 @@ use crate::constants::{
     GM_SATURN, GM_SUN, GM_URANUS, GM_VENUS, OMEGA_EARTH, OMEGA_MARS, OMEGA_MOON, R_EARTH, R_MARS,
     R_MOON, R_SUN,
 };
-use crate::frames::{ReferenceFrame, iau_rotation_model_ids};
+use crate::frames::{CelestialFrame, iau_rotation_model_ids};
 use crate::utils::BraheError;
 
 /// A user-defined central body, for propagation about a body without a
@@ -65,7 +65,7 @@ pub struct CustomBody {
     /// will surface an SPK lookup error unless a kernel covering that ID
     /// is loaded, and a body-fixed frame can be supplied without any
     /// ephemeris via [`crate::frames::register_custom_frame`] and
-    /// [`crate::frames::ReferenceFrame::BodyFixedCustom`].
+    /// [`crate::frames::CelestialFrame::BodyFixedCustom`].
     pub naif_id: i32,
     /// Gravitational parameter. Units: (m^3/s^2)
     pub gm: f64,
@@ -80,7 +80,7 @@ pub struct CustomBody {
     /// Body-fixed reference frame, required for spherical-harmonic
     /// gravity and body-fixed rotations. `None` if no rotation model is
     /// available.
-    pub fixed_frame: Option<ReferenceFrame>,
+    pub fixed_frame: Option<CelestialFrame>,
 }
 
 /// The central body an orbit is propagated relative to.
@@ -225,18 +225,18 @@ impl CentralBody {
     /// # Examples
     /// ```
     /// use brahe::propagators::CentralBody;
-    /// use brahe::frames::ReferenceFrame;
+    /// use brahe::frames::CelestialFrame;
     ///
-    /// assert_eq!(CentralBody::Moon.inertial_frame(), ReferenceFrame::LCI);
+    /// assert_eq!(CentralBody::Moon.inertial_frame(), CelestialFrame::LCI);
     /// ```
-    pub fn inertial_frame(&self) -> ReferenceFrame {
+    pub fn inertial_frame(&self) -> CelestialFrame {
         match self {
-            CentralBody::Earth => ReferenceFrame::GCRF,
-            CentralBody::Moon => ReferenceFrame::LCI,
-            CentralBody::Mars => ReferenceFrame::MCI,
-            CentralBody::EMB => ReferenceFrame::EMBI,
-            CentralBody::SSB => ReferenceFrame::SSBI,
-            CentralBody::Custom(c) => ReferenceFrame::BodyCenteredICRF(c.naif_id),
+            CentralBody::Earth => CelestialFrame::GCRF,
+            CentralBody::Moon => CelestialFrame::LCI,
+            CentralBody::Mars => CelestialFrame::MCI,
+            CentralBody::EMB => CelestialFrame::EMBI,
+            CentralBody::SSB => CelestialFrame::SSBI,
+            CentralBody::Custom(c) => CelestialFrame::BodyCenteredICRF(c.naif_id),
         }
     }
 
@@ -250,16 +250,16 @@ impl CentralBody {
     /// # Examples
     /// ```
     /// use brahe::propagators::CentralBody;
-    /// use brahe::frames::ReferenceFrame;
+    /// use brahe::frames::CelestialFrame;
     ///
-    /// assert_eq!(CentralBody::Moon.fixed_frame(), Some(ReferenceFrame::LFPA));
+    /// assert_eq!(CentralBody::Moon.fixed_frame(), Some(CelestialFrame::LFPA));
     /// assert_eq!(CentralBody::EMB.fixed_frame(), None);
     /// ```
-    pub fn fixed_frame(&self) -> Option<ReferenceFrame> {
+    pub fn fixed_frame(&self) -> Option<CelestialFrame> {
         match self {
-            CentralBody::Earth => Some(ReferenceFrame::ITRF),
-            CentralBody::Moon => Some(ReferenceFrame::LFPA),
-            CentralBody::Mars => Some(ReferenceFrame::MCMF),
+            CentralBody::Earth => Some(CelestialFrame::ITRF),
+            CentralBody::Moon => Some(CelestialFrame::LFPA),
+            CentralBody::Mars => Some(CelestialFrame::MCMF),
             CentralBody::EMB => None,
             CentralBody::SSB => None,
             CentralBody::Custom(c) => c.fixed_frame,
@@ -326,7 +326,7 @@ impl CentralBody {
     /// | 606     | Titan     | 8.978137095521046e12 (`BODY606_GM`)   | (2575.15, 2574.78, 2574.47), mean       | 2,574,800.0 |
     ///
     /// Every `Custom` entry's `fixed_frame` is
-    /// `Some(ReferenceFrame::BodyFixedIAU(naif_id))` when `naif_id` is
+    /// `Some(CelestialFrame::BodyFixedIAU(naif_id))` when `naif_id` is
     /// in [`iau_rotation_model_ids`] (true for every body in the table
     /// above), and `None` otherwise. `omega` is always `None` — set it
     /// directly on the returned `CustomBody` if a force model needs it.
@@ -349,7 +349,7 @@ impl CentralBody {
     pub fn from_naif_id(naif_id: i32) -> Result<CentralBody, BraheError> {
         let custom = |name: &str, naif_id: i32, gm: f64, radius: f64| -> CentralBody {
             let fixed_frame = if iau_rotation_model_ids().contains(&naif_id) {
-                Some(ReferenceFrame::BodyFixedIAU(naif_id))
+                Some(CelestialFrame::BodyFixedIAU(naif_id))
             } else {
                 None
             };
@@ -428,9 +428,9 @@ mod tests {
         assert_eq!(CentralBody::Mars.naif_id(), 499);
         assert_eq!(CentralBody::EMB.gm(), 0.0);
         assert!(CentralBody::SSB.is_barycenter());
-        assert_eq!(CentralBody::Moon.fixed_frame(), Some(ReferenceFrame::LFPA));
+        assert_eq!(CentralBody::Moon.fixed_frame(), Some(CelestialFrame::LFPA));
         assert_eq!(CentralBody::EMB.fixed_frame(), None);
-        assert_eq!(CentralBody::Moon.inertial_frame(), ReferenceFrame::LCI);
+        assert_eq!(CentralBody::Moon.inertial_frame(), CelestialFrame::LCI);
     }
 
     #[test]
@@ -441,7 +441,7 @@ mod tests {
             CentralBody::Custom(c) => {
                 assert_eq!(c.naif_id, 602);
                 assert!(c.gm > 7.0e9 && c.gm < 7.4e9);
-                assert_eq!(c.fixed_frame, Some(ReferenceFrame::BodyFixedIAU(602)));
+                assert_eq!(c.fixed_frame, Some(CelestialFrame::BodyFixedIAU(602)));
             }
             _ => panic!("expected Custom"),
         }
@@ -474,13 +474,13 @@ mod tests {
             CentralBody::Earth.omega_vector(),
             Some(Vector3::new(0.0, 0.0, OMEGA_EARTH))
         );
-        assert_eq!(CentralBody::Mars.fixed_frame(), Some(ReferenceFrame::MCMF));
-        assert_eq!(CentralBody::Mars.inertial_frame(), ReferenceFrame::MCI);
+        assert_eq!(CentralBody::Mars.fixed_frame(), Some(CelestialFrame::MCMF));
+        assert_eq!(CentralBody::Mars.inertial_frame(), CelestialFrame::MCI);
         assert_eq!(CentralBody::Earth.radius(), Some(R_EARTH));
         assert_eq!(CentralBody::SSB.radius(), None);
         assert_eq!(CentralBody::SSB.omega_vector(), None);
-        assert_eq!(CentralBody::EMB.inertial_frame(), ReferenceFrame::EMBI);
-        assert_eq!(CentralBody::SSB.inertial_frame(), ReferenceFrame::SSBI);
+        assert_eq!(CentralBody::EMB.inertial_frame(), CelestialFrame::EMBI);
+        assert_eq!(CentralBody::SSB.inertial_frame(), CelestialFrame::SSBI);
     }
 
     #[test]
@@ -526,15 +526,15 @@ mod tests {
         assert_eq!(CentralBody::EMB.omega_vector(), None);
         assert_eq!(CentralBody::SSB.omega_vector(), None);
         // inertial_frame
-        assert_eq!(CentralBody::Earth.inertial_frame(), ReferenceFrame::GCRF);
-        assert_eq!(CentralBody::Moon.inertial_frame(), ReferenceFrame::LCI);
-        assert_eq!(CentralBody::Mars.inertial_frame(), ReferenceFrame::MCI);
-        assert_eq!(CentralBody::EMB.inertial_frame(), ReferenceFrame::EMBI);
-        assert_eq!(CentralBody::SSB.inertial_frame(), ReferenceFrame::SSBI);
+        assert_eq!(CentralBody::Earth.inertial_frame(), CelestialFrame::GCRF);
+        assert_eq!(CentralBody::Moon.inertial_frame(), CelestialFrame::LCI);
+        assert_eq!(CentralBody::Mars.inertial_frame(), CelestialFrame::MCI);
+        assert_eq!(CentralBody::EMB.inertial_frame(), CelestialFrame::EMBI);
+        assert_eq!(CentralBody::SSB.inertial_frame(), CelestialFrame::SSBI);
         // fixed_frame
-        assert_eq!(CentralBody::Earth.fixed_frame(), Some(ReferenceFrame::ITRF));
-        assert_eq!(CentralBody::Moon.fixed_frame(), Some(ReferenceFrame::LFPA));
-        assert_eq!(CentralBody::Mars.fixed_frame(), Some(ReferenceFrame::MCMF));
+        assert_eq!(CentralBody::Earth.fixed_frame(), Some(CelestialFrame::ITRF));
+        assert_eq!(CentralBody::Moon.fixed_frame(), Some(CelestialFrame::LFPA));
+        assert_eq!(CentralBody::Mars.fixed_frame(), Some(CelestialFrame::MCMF));
         assert_eq!(CentralBody::EMB.fixed_frame(), None);
         assert_eq!(CentralBody::SSB.fixed_frame(), None);
         // is_barycenter
@@ -568,14 +568,14 @@ mod tests {
             gm: 1.0,
             radius: Some(2.0),
             omega: Some(Vector3::new(0.0, 0.0, 3.0)),
-            fixed_frame: Some(ReferenceFrame::BodyFixedIAU(-42)),
+            fixed_frame: Some(CelestialFrame::BodyFixedIAU(-42)),
         });
         assert_eq!(body.gm(), 1.0);
         assert_eq!(body.radius(), Some(2.0));
         assert_eq!(body.naif_id(), -42);
         assert_eq!(body.omega_vector(), Some(Vector3::new(0.0, 0.0, 3.0)));
-        assert_eq!(body.inertial_frame(), ReferenceFrame::BodyCenteredICRF(-42));
-        assert_eq!(body.fixed_frame(), Some(ReferenceFrame::BodyFixedIAU(-42)));
+        assert_eq!(body.inertial_frame(), CelestialFrame::BodyCenteredICRF(-42));
+        assert_eq!(body.fixed_frame(), Some(CelestialFrame::BodyFixedIAU(-42)));
         assert!(!body.is_barycenter());
     }
 
@@ -586,7 +586,7 @@ mod tests {
             assert_eq!(body.naif_id(), id);
             assert_eq!(
                 body.fixed_frame(),
-                Some(ReferenceFrame::BodyFixedIAU(id)),
+                Some(CelestialFrame::BodyFixedIAU(id)),
                 "naif_id {id} should have a BodyFixedIAU frame"
             );
             assert!(body.gm() > 0.0);

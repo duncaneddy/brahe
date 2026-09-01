@@ -895,7 +895,7 @@ mod tests {
         // a fixed_frame resolves its pole through that frame (rule 3). Using
         // BodyFixedIAU(499) as the fixed frame reuses Mars's pole, so a round
         // trip must recover the elements.
-        use crate::frames::ReferenceFrame;
+        use crate::frames::CelestialFrame;
         use crate::propagators::{CentralBody, CustomBody};
 
         let body = CentralBody::Custom(CustomBody {
@@ -904,7 +904,7 @@ mod tests {
             gm: crate::constants::GM_MARS,
             radius: Some(R_MARS),
             omega: None,
-            fixed_frame: Some(ReferenceFrame::BodyFixedIAU(499)),
+            fixed_frame: Some(CelestialFrame::BodyFixedIAU(499)),
         });
 
         let osc = vector6_from_array([R_MARS + 300e3, 0.01, 80.0, 30.0, 45.0, 10.0]);

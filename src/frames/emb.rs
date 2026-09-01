@@ -6,7 +6,7 @@ Both frames share the ICRF orientation, so the transformation is a pure
 translation by the Earth's barycentric state from the loaded DE ephemeris:
 positions differ by the Earth→EMB offset and velocities by its time
 derivative. The EMBI origin is the Earth-Moon barycenter (NAIF ID 3); see
-[`crate::frames::ReferenceFrame::EMBI`].
+[`crate::frames::CelestialFrame::EMBI`].
 
 These helpers express states for and from EMB-centered propagation (e.g.
 [`crate::propagators::ForceModelConfig::cislunar_default`]).

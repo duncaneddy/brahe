@@ -2021,7 +2021,7 @@ impl PyOrbitalTrajectory {
     /// frame, converting from the source's native central-body frame.
     ///
     /// Args:
-    ///     frame (ReferenceFrame): Reference frame to express the state in.
+    ///     frame (CelestialFrame): Reference frame to express the state in.
     ///     epoch (Epoch): Target epoch for state computation.
     ///
     /// Returns:
@@ -2030,7 +2030,7 @@ impl PyOrbitalTrajectory {
     pub fn state_in_frame<'a>(
         &self,
         py: Python<'a>,
-        frame: &PyReferenceFrame,
+        frame: &PyCelestialFrame,
         epoch: &PyEpoch,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
         let state = DOrbitStateProvider::state_in_frame(&self.trajectory, frame.frame, epoch.obj)?;

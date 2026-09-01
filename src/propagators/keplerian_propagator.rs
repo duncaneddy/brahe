@@ -679,12 +679,12 @@ impl DOrbitStateProvider for KeplerianPropagator {
     /// body's inertial frame) into `frame` via the reference frame router.
     fn state_in_frame(
         &self,
-        frame: crate::frames::ReferenceFrame,
+        frame: crate::frames::CelestialFrame,
         epoch: Epoch,
     ) -> Result<Vector6<f64>, BraheError> {
         let x_gcrf = self.state_gcrf(epoch)?;
         crate::frames::state_frame_to_frame(
-            crate::frames::ReferenceFrame::GCRF,
+            crate::frames::CelestialFrame::GCRF,
             frame,
             epoch,
             x_gcrf,
@@ -757,7 +757,7 @@ mod tests {
     use super::*;
     use crate::DEGREES;
     use crate::coordinates::state_eci_to_koe;
-    use crate::frames::ReferenceFrame;
+    use crate::frames::CelestialFrame;
     use crate::orbits::keplerian::orbital_period;
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
@@ -1630,12 +1630,12 @@ mod tests {
 
         let epochs = vec![epoch, epoch + 60.0, epoch + 120.0];
         let states = propagator
-            .states_in_frame(ReferenceFrame::GCRF, &epochs)
+            .states_in_frame(CelestialFrame::GCRF, &epochs)
             .unwrap();
         assert_eq!(states.len(), 3);
         for (i, epc) in epochs.iter().enumerate() {
             let single = propagator
-                .state_in_frame(ReferenceFrame::GCRF, *epc)
+                .state_in_frame(CelestialFrame::GCRF, *epc)
                 .unwrap();
             for j in 0..6 {
                 assert_eq!(states[i][j], single[j]);

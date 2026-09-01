@@ -426,4 +426,92 @@ mod tests {
         let r = p.rotation_matrix(epc).unwrap().to_matrix();
         assert!((w - r.transpose() * w).norm() > 1e-4);
     }
+
+    #[test]
+    #[parallel]
+    fn test_callback_orientation_quaternion_matches_rotation_matrix() {
+        let t0 = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
+        let rate = 0.001;
+        let p = CallbackOrientation::new(
+            move |epc: Epoch| {
+                let theta = rate * (epc - t0);
+                let (s, c) = theta.sin_cos();
+                Ok(SMatrix3::new(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0))
+            },
+            None,
+        );
+        let epc = t0 + 3600.0;
+        let q = p.quaternion(epc).unwrap();
+        let r_from_q = q.to_rotation_matrix().to_matrix();
+        let r_direct = p.rotation_matrix(epc).unwrap().to_matrix();
+        assert_abs_diff_eq!(r_from_q, r_direct, epsilon = 1e-12);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_numerical_rates_quaternion_delegates_to_inner() {
+        let t0 = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
+        let p = CallbackOrientation::new(
+            move |epc: Epoch| {
+                let theta = 0.001 * (epc - t0);
+                let (s, c) = theta.sin_cos();
+                Ok(SMatrix3::new(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0))
+            },
+            None,
+        )
+        .with_numerical_rates(1.0);
+
+        let epc = t0 + 1800.0;
+        assert_eq!(
+            p.quaternion(epc).unwrap(),
+            p.rotation_matrix(epc).unwrap().to_quaternion()
+        );
+    }
+
+    /// Rotation-only provider with a fixed, non-`None` coverage bound, used
+    /// to exercise `NumericalRates::coverage`'s half-step contraction.
+    struct BoundedProvider {
+        start: Epoch,
+        end: Epoch,
+    }
+
+    impl OrientationProvider for BoundedProvider {
+        fn quaternion(&self, _epoch: Epoch) -> Result<Quaternion, BraheError> {
+            Ok(Quaternion::new(1.0, 0.0, 0.0, 0.0))
+        }
+
+        fn angular_velocity(&self, _epoch: Epoch) -> Result<Option<Vector3<f64>>, BraheError> {
+            Ok(None)
+        }
+
+        fn coverage(&self) -> Option<(Epoch, Epoch)> {
+            Some((self.start, self.end))
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_numerical_rates_coverage_contracts_by_half_step() {
+        let start = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
+        let end = start + 86400.0;
+        let p = BoundedProvider { start, end }.with_numerical_rates(2.0);
+        let (c_start, c_end) = p.coverage().unwrap();
+        assert_abs_diff_eq!(c_start - start, 1.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(c_end - end, -1.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_numerical_rates_passes_through_inner_angular_velocity() {
+        // When the inner provider already carries rate data, NumericalRates
+        // returns it unchanged instead of deriving it numerically.
+        let rate = Vector3::new(0.0, 0.0, 5.0e-4);
+        let p = CallbackOrientation::new(
+            |_epc: Epoch| Ok(SMatrix3::identity()),
+            Some(Box::new(move |_epc: Epoch| Ok(rate))),
+        )
+        .with_numerical_rates(1.0);
+        let epc = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
+        assert_eq!(p.angular_velocity(epc).unwrap(), Some(rate));
+    }
 }

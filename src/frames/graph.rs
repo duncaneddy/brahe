@@ -607,6 +607,49 @@ mod tests {
     use crate::utils::testing::{setup_global_test_eop, setup_global_test_spice};
 
     #[test]
+    #[parallel]
+    fn test_icrf_aligned_inertial_maps_every_center() {
+        // Earth-centered rotating frame.
+        assert_eq!(
+            icrf_aligned_inertial(CelestialFrame::ITRF),
+            CelestialFrame::GCRF
+        );
+        // Already-aligned frames pass through unchanged.
+        assert_eq!(
+            icrf_aligned_inertial(CelestialFrame::GCRF),
+            CelestialFrame::GCRF
+        );
+        // Moon-centered rotating frame.
+        assert_eq!(
+            icrf_aligned_inertial(CelestialFrame::LFPA),
+            CelestialFrame::LCI
+        );
+        // Mars-centered rotating frame.
+        assert_eq!(
+            icrf_aligned_inertial(CelestialFrame::MCMF),
+            CelestialFrame::MCI
+        );
+        // Earth-Moon-barycenter-centered rotating frame.
+        assert_eq!(
+            icrf_aligned_inertial(CelestialFrame::EMR),
+            CelestialFrame::EMBI
+        );
+        // Solar-system-barycenter-centered non-aligned frame.
+        assert_eq!(
+            icrf_aligned_inertial(CelestialFrame::BodyFixedIAU(
+                NAIFId::SolarSystemBarycenter.id()
+            )),
+            CelestialFrame::SSBI
+        );
+        // Any other center falls back to a generic ICRF-aligned frame at
+        // that center.
+        assert_eq!(
+            icrf_aligned_inertial(CelestialFrame::BodyFixedIAU(-20001)),
+            CelestialFrame::BodyCenteredICRF(-20001)
+        );
+    }
+
+    #[test]
     #[serial]
     fn test_rotation_celestial_bit_identity() {
         setup_global_test_eop();

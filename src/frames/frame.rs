@@ -1295,4 +1295,80 @@ mod tests {
         assert_eq!(frame.kind(), OrbitRelativeKind::RTN);
         assert_eq!(frame.variant(), OrbitRelativeVariant::Rotating);
     }
+
+    #[test]
+    #[parallel]
+    fn test_orbit_relative_frame_display() {
+        let frame = OrbitRelativeFrame::new(OrbitRelativeKind::VNC, OrbitRelativeVariant::Rotating)
+            .unwrap();
+        assert_eq!(frame.to_string(), "VNC (rotating)");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_object_id_from_string() {
+        let id = ObjectId::from(String::from("ISS"));
+        assert_eq!(id.to_string(), "ISS");
+        assert_eq!(id, ObjectId::from("ISS"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_object_id_deserialize_rejects_non_string() {
+        let err = serde_json::from_str::<ObjectId>("123").unwrap_err();
+        assert!(err.to_string().contains("a string object identifier"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_frame_object_accessor_all_kinds() {
+        let cel: Frame = CelestialFrame::GCRF.into();
+        assert!(cel.object().is_none());
+        assert_eq!(Frame::RTN("SC").object().unwrap().to_string(), "SC");
+        assert_eq!(Frame::SC_BODY("SC").object().unwrap().to_string(), "SC");
+        let unbound: Frame = BodyFrame::SCBody(None).into();
+        assert!(unbound.object().is_none());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_frame_orbit_relative_convenience_constructors() {
+        let cases = [
+            (Frame::NTW("SC"), "NTW (rotating)@SC"),
+            (Frame::TNW("SC"), "TNW (rotating)@SC"),
+            (Frame::SEZ("SC"), "SEZ (rotating)@SC"),
+            (Frame::VNC("SC"), "VNC (rotating)@SC"),
+            (Frame::NSW("SC"), "NSW (rotating)@SC"),
+            (Frame::EQW("SC"), "EQW (inertial)@SC"),
+        ];
+        for (frame, expected) in cases {
+            assert_eq!(frame.to_string(), expected);
+            assert!(frame.is_bound());
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_frame_body_family_convenience_constructors() {
+        let cases = [
+            (Frame::ACC("SC", "1"), "ACC_1@SC"),
+            (Frame::AST("SC", "1"), "AST_1@SC"),
+            (Frame::DSS("SC", "1"), "DSS_1@SC"),
+            (Frame::ESA("SC", "1"), "ESA_1@SC"),
+            (Frame::GYRO_FRAME("SC", "1"), "GYRO_FRAME_1@SC"),
+            (Frame::IMU_FRAME("SC", "2"), "IMU_FRAME_2@SC"),
+            (Frame::INSTRUMENT("SC", "A"), "INSTRUMENT_A@SC"),
+            (Frame::MTA("SC", "1"), "MTA_1@SC"),
+            (Frame::RW("SC", "4"), "RW_4@SC"),
+            (Frame::SA("SC", "1"), "SA_1@SC"),
+            (Frame::SENSOR("SC", "10"), "SENSOR_10@SC"),
+            (Frame::STARTRACKER("SC", "2"), "STARTRACKER_2@SC"),
+            (Frame::TAM("SC", "1"), "TAM_1@SC"),
+            (Frame::ACTUATOR("SC", "1"), "ACTUATOR_1@SC"),
+        ];
+        for (frame, expected) in cases {
+            assert_eq!(frame.to_string(), expected);
+            assert!(frame.is_bound());
+        }
+    }
 }

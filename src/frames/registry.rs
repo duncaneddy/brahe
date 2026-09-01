@@ -261,6 +261,11 @@ mod tests {
         assert!(register_frame(Frame::SC_BODY("SC"), Frame::CSS("SC", "1"), q).is_err());
         assert!(unregister_frame(&Frame::CSS("SC", "1")));
         assert!(!unregister_frame(&Frame::CSS("SC", "1")));
+        // A frame with no registry key (celestial, or unbound body) is
+        // never registered, so unregistering one is always a no-op.
+        assert!(!unregister_frame(&CelestialFrame::GCRF.into()));
+        let unbound: Frame = BodyFrame::SCBody(None).into();
+        assert!(!unregister_frame(&unbound));
         clear_frame_registry();
     }
 

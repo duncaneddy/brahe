@@ -1558,6 +1558,40 @@ mod tests {
     }
 
     #[test]
+    #[serial]
+    fn test_rotation_frame_to_frame_dispatches_every_body_fixed_kind() {
+        // Exercises the icrf_to_frame_dcm dispatch arms not reached by the
+        // state-only round-trip test above: LFME, SER, GSE, and a
+        // BodyFixedCustom frame.
+        setup_global_test_eop();
+        setup_global_test_spice();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let r_lfme =
+            rotation_frame_to_frame(CelestialFrame::LCI, CelestialFrame::LFME, epc).unwrap();
+        assert_eq!(r_lfme, crate::frames::lunar::rotation_lci_to_lfme(epc));
+
+        let r_ser =
+            rotation_frame_to_frame(CelestialFrame::SSBI, CelestialFrame::SER, epc).unwrap();
+        assert_eq!(r_ser, crate::frames::synodic::ser_axes(epc).unwrap().0);
+
+        let r_gse =
+            rotation_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::GSE, epc).unwrap();
+        assert_eq!(r_gse, crate::frames::synodic::gse_axes(epc).unwrap().0);
+
+        use crate::frames::custom::{register_custom_frame, unregister_custom_frame};
+        register_custom_frame(901, |_epc: Epoch| Ok(SMatrix3::identity()), None);
+        let fixed = CelestialFrame::BodyFixedCustom {
+            center: -20002,
+            key: 901,
+        };
+        let r_custom =
+            rotation_frame_to_frame(CelestialFrame::BodyCenteredICRF(-20002), fixed, epc).unwrap();
+        assert_eq!(r_custom, SMatrix3::identity());
+        assert!(unregister_custom_frame(901));
+    }
+
+    #[test]
     fn test_celestial_frame_display() {
         assert_eq!(CelestialFrame::GCRF.to_string(), "GCRF");
         assert_eq!(CelestialFrame::LFPA.to_string(), "LFPA");
@@ -2236,6 +2270,32 @@ mod tests {
             assert_eq!(
                 batch[i],
                 rotation_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("A"), *epc).unwrap()
+            );
+        }
+
+        // Non-celestial Frame args take the per-epoch fallback path (rather
+        // than the shared-context celestial-pair path) in the position and
+        // state batch routers too.
+        let positions: Vec<Vector3<f64>> = epochs
+            .iter()
+            .map(|_| Vector3::new(x_a[0], x_a[1], x_a[2]))
+            .collect();
+        let states: Vec<SVector6> = epochs.iter().map(|_| x_a).collect();
+        let pos_batch =
+            positions_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("A"), &epochs, &positions)
+                .unwrap();
+        let st_batch =
+            states_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("A"), &epochs, &states).unwrap();
+        for (i, epc) in epochs.iter().enumerate() {
+            assert_eq!(
+                pos_batch[i],
+                position_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("A"), *epc, positions[i])
+                    .unwrap()
+            );
+            assert_eq!(
+                st_batch[i],
+                state_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("A"), *epc, states[i])
+                    .unwrap()
             );
         }
         clear_object_registry();

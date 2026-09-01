@@ -223,4 +223,37 @@ mod tests {
         assert!(format!("{}", err).contains("No custom frame registered"));
         assert!(!unregister_custom_frame(4_000_000_000));
     }
+
+    #[test]
+    #[serial]
+    fn test_custom_frame_rotation_and_omega_errors_without_rate_data() {
+        // register_custom_frame always wraps a rate-less callback with
+        // with_numerical_rates, so angular_velocity never actually returns
+        // None through the public API. Insert a raw CallbackOrientation
+        // (no rates, no numerical fallback) directly to exercise that
+        // defensive error path in custom_frame_rotation_and_omega.
+        use crate::frames::orientation::CallbackOrientation;
+
+        let key = 9003;
+        let provider: Arc<dyn OrientationProvider> = Arc::new(CallbackOrientation::new(
+            |_epc: Epoch| Ok(SMatrix3::identity()),
+            None,
+        ));
+        FRAME_REGISTRY.write().unwrap().insert(
+            FrameKey::Custom(key),
+            FrameEntry {
+                parent: None,
+                provider,
+            },
+        );
+
+        let epc = Epoch::from_date(2024, 1, 1, TimeSystem::TDB);
+        let err = custom_frame_rotation_and_omega(key, epc).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("no angular velocity data available")
+        );
+
+        assert!(unregister_custom_frame(key));
+    }
 }

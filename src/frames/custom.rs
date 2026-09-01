@@ -2,7 +2,7 @@
  * User-defined body-fixed frame registry.
  *
  * Lets applications plug an arbitrary orientation model into the frame
- * router as [`ReferenceFrame::BodyFixedCustom`](super::ReferenceFrame):
+ * router as [`CelestialFrame::BodyFixedCustom`](super::CelestialFrame):
  * a rotation callback mapping an [`Epoch`] to the ICRF→body-fixed DCM,
  * optionally paired with an angular-velocity callback for the velocity
  * transport term. This supports orientation models the crate does not
@@ -16,7 +16,7 @@
  *
  * Frames are registered process-wide under a caller-chosen `u32` key,
  * following the crate's global-provider pattern (EOP, gravity, SPICE
- * registries), which keeps [`ReferenceFrame`](super::ReferenceFrame)
+ * registries), which keeps [`CelestialFrame`](super::CelestialFrame)
  * `Copy`/serializable — the enum stores only the key.
  */
 
@@ -54,7 +54,7 @@ const OMEGA_DIFF_STEP: f64 = 1.0;
 /// Registers (or replaces) a user-defined body-fixed frame under `key`.
 ///
 /// The frame becomes usable as
-/// [`ReferenceFrame::BodyFixedCustom`](super::ReferenceFrame) in every
+/// [`CelestialFrame::BodyFixedCustom`](super::CelestialFrame) in every
 /// router function. `rotation` must return the DCM rotating ICRF-axis
 /// vectors into the body-fixed frame (`v_body = R * v_icrf`). If `omega`
 /// is `None`, the angular velocity used for the velocity transport term
@@ -62,14 +62,14 @@ const OMEGA_DIFF_STEP: f64 = 1.0;
 ///
 /// # Arguments
 /// - `key`: Caller-chosen identifier the frame is registered under; the
-///   same value used in `ReferenceFrame::BodyFixedCustom { key, .. }`
+///   same value used in `CelestialFrame::BodyFixedCustom { key, .. }`
 /// - `rotation`: Callback returning the ICRF→body-fixed DCM at an epoch
 /// - `omega`: Optional callback returning the frame's angular velocity in
 ///   the body-fixed frame. Units: (rad/s)
 ///
 /// # Examples
 /// ```
-/// use brahe::frames::{register_custom_frame, ReferenceFrame, rotation_frame_to_frame};
+/// use brahe::frames::{register_custom_frame, CelestialFrame, rotation_frame_to_frame};
 /// use brahe::math::SMatrix3;
 /// use brahe::time::{Epoch, TimeSystem};
 ///
@@ -85,8 +85,8 @@ const OMEGA_DIFF_STEP: f64 = 1.0;
 ///     None,
 /// );
 ///
-/// let frame = ReferenceFrame::BodyFixedCustom { center: -20001, key: 42 };
-/// let r = rotation_frame_to_frame(ReferenceFrame::GCRF, frame, t0 + 100.0).unwrap();
+/// let frame = CelestialFrame::BodyFixedCustom { center: -20001, key: 42 };
+/// let r = rotation_frame_to_frame(CelestialFrame::GCRF, frame, t0 + 100.0).unwrap();
 /// ```
 pub fn register_custom_frame<R>(key: u32, rotation: R, omega: Option<Box<CustomFrameOmega>>)
 where

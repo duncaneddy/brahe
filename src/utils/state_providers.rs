@@ -24,7 +24,7 @@
 use nalgebra::{DMatrix, DVector, SMatrix, Vector6};
 
 use crate::constants::AngleFormat;
-use crate::frames::ReferenceFrame;
+use crate::frames::CelestialFrame;
 use crate::orbits::{MeanElementMethod, state_koe_osc_to_mean};
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
@@ -275,7 +275,7 @@ pub trait SOrbitStateProvider: SStateProvider {
     /// * `Err(BraheError)` - If the state cannot be computed or the frame conversion fails
     fn state_in_frame(
         &self,
-        frame: ReferenceFrame,
+        frame: CelestialFrame,
         epoch: Epoch,
     ) -> Result<Vector6<f64>, BraheError>;
 
@@ -426,7 +426,7 @@ pub trait SOrbitStateProvider: SStateProvider {
     /// * `Err(BraheError)` - If any state cannot be computed
     fn states_in_frame(
         &self,
-        frame: ReferenceFrame,
+        frame: CelestialFrame,
         epochs: &[Epoch],
     ) -> Result<Vec<Vector6<f64>>, BraheError> {
         epochs
@@ -588,7 +588,7 @@ pub trait DOrbitStateProvider: DStateProvider {
     /// * `Err(BraheError)` - If the state cannot be computed or the frame conversion fails
     fn state_in_frame(
         &self,
-        frame: ReferenceFrame,
+        frame: CelestialFrame,
         epoch: Epoch,
     ) -> Result<Vector6<f64>, BraheError>;
 
@@ -739,7 +739,7 @@ pub trait DOrbitStateProvider: DStateProvider {
     /// * `Err(BraheError)` - If any state cannot be computed
     fn states_in_frame(
         &self,
-        frame: ReferenceFrame,
+        frame: CelestialFrame,
         epochs: &[Epoch],
     ) -> Result<Vec<Vector6<f64>>, BraheError> {
         epochs
@@ -1136,7 +1136,7 @@ mod tests {
         // KeplerianPropagator is Earth-centered: state_bci is its GCRF
         // state, state_bcbf its ITRF state, and state_in_frame converts
         // from GCRF via the reference frame router.
-        use crate::frames::ReferenceFrame;
+        use crate::frames::CelestialFrame;
         use crate::utils::testing::setup_global_test_eop;
         use approx::assert_abs_diff_eq;
         setup_global_test_eop();
@@ -1156,7 +1156,7 @@ mod tests {
             assert_abs_diff_eq!(bcbf[i], itrf[i], epsilon = 0.0);
         }
 
-        let in_itrf = prop.state_in_frame(ReferenceFrame::ITRF, epoch).unwrap();
+        let in_itrf = prop.state_in_frame(CelestialFrame::ITRF, epoch).unwrap();
         for i in 0..6 {
             assert_abs_diff_eq!(in_itrf[i], itrf[i], epsilon = 1e-6);
         }

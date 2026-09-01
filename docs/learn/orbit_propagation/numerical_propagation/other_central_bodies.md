@@ -63,7 +63,7 @@ A custom body that has no SPICE orientation kernel and no compiled-in IAU model 
 - `omega` is an optional second callback function: it receives an `Epoch` and returns the frame's angular velocity vector (rad/s), used for the exact velocity transport term. When omitted, the angular velocity is derived numerically by central differencing of `rotation`.
 - `key` is an arbitrary integer handle that names the registered callback. It does **not** need to match (and is unrelated to) the central body's NAIF ID; the body's NAIF ID appears separately as the `center` of the frame variant.
 
-Reference the registered frame as `ReferenceFrame.BodyFixedCustom(center, key)`, using the same `key`, and set it as the custom body's `fixed_frame`. This enables support for user-defined orientation models, enabling the framework to extend to additional bodies without needing hard-coded support for them in the library. See [Generic NAIF-ID Variants](../../frames/frame_transformations.md#generic-naif-id-variants) for the frame-router side.
+Reference the registered frame as `CelestialFrame.BodyFixedCustom(center, key)`, using the same `key`, and set it as the custom body's `fixed_frame`. This enables support for user-defined orientation models, enabling the framework to extend to additional bodies without needing hard-coded support for them in the library. See [Generic NAIF-ID Variants](../../frames/frame_transformations.md#generic-naif-id-variants) for the frame-router side.
 
 ### Example: Registering a Custom Body-Fixed Frame
 
@@ -96,6 +96,6 @@ The example below registers a uniform spin state for an uncatalogued body (self-
 
 - [Cislunar and Lunar Propagation](cislunar_lunar_propagation.md) - `Moon`/`EMB` central bodies and barycenter third-body physics
 - [Mars Reference Frames](../../frames/mars_frames.md) - MCI/MCMF frame definitions
-- [Reference Frame Router](../../frames/frame_transformations.md) - `ReferenceFrame`, `BodyFixedCustom`, and `register_custom_frame`
+- [Reference Frame Router](../../frames/frame_transformations.md) - `CelestialFrame`, `BodyFixedCustom`, and `register_custom_frame`
 - [Force Models](force_models.md) - Building a `ForceModelConfig` from individual force terms
 - [Force Model Configuration API Reference](../../../library_api/propagators/force_model_config.md)

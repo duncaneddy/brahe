@@ -277,7 +277,7 @@ i_perilune = int(np.argmin(moon_dists))
 reference_epoch = sample_epochs[i_perilune]
 
 emr_states = np.array(
-    [prop.state_in_frame(bh.ReferenceFrame.EMR, e) for e in sample_epochs]
+    [prop.state_in_frame(bh.CelestialFrame.EMR, e) for e in sample_epochs]
 )
 emr_xyz_km = emr_states[:, :3] / 1e3
 emr_vel = emr_states[:, 3:6]
@@ -291,8 +291,8 @@ def _emr_body_xy_km(naif_id):
     """Body position in the EMR frame at the perilune epoch [km]."""
     return (
         bh.position_frame_to_frame(
-            bh.ReferenceFrame.BodyCenteredICRF(naif_id),
-            bh.ReferenceFrame.EMR,
+            bh.CelestialFrame.BodyCenteredICRF(naif_id),
+            bh.CelestialFrame.EMR,
             reference_epoch,
             np.zeros(3),
         )

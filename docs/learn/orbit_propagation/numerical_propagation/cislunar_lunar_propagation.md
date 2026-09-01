@@ -7,7 +7,7 @@
 | `Moon` | 301 | `LCI` | `LFPA` |
 | `EMB` | 3 | `EMBI` | none |
 
-The propagator integrates in the central body's inertial frame (`LCI` for `Moon`, `EMBI` for `EMB`). `state_in_frame(frame, epoch)` converts the integrated state into any [`ReferenceFrame`](../../frames/frame_transformations.md), routing directly from the integration frame: for a Moon-centered propagator, `state_in_frame(ReferenceFrame.LCI, epoch)` is the identity (no SPK round trip), and `state_in_frame(ReferenceFrame.LFPA, epoch)` gives the Moon-fixed state without first converting to Earth-centered `GCRF`. `state_bci(epoch)` returns the raw body-centered inertial state without conversion, and `state_bcbf(epoch)` returns the body-centered body-fixed state (`LFPA` for `Moon`; `EMB` has no body-fixed frame and returns an error).
+The propagator integrates in the central body's inertial frame (`LCI` for `Moon`, `EMBI` for `EMB`). `state_in_frame(frame, epoch)` converts the integrated state into any [`CelestialFrame`](../../frames/frame_transformations.md), routing directly from the integration frame: for a Moon-centered propagator, `state_in_frame(CelestialFrame.LCI, epoch)` is the identity (no SPK round trip), and `state_in_frame(CelestialFrame.LFPA, epoch)` gives the Moon-fixed state without first converting to Earth-centered `GCRF`. `state_bci(epoch)` returns the raw body-centered inertial state without conversion, and `state_bcbf(epoch)` returns the body-centered body-fixed state (`LFPA` for `Moon`; `EMB` has no body-fixed frame and returns an error).
 
 ## Force-Model Defaults
 

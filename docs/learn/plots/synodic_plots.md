@@ -1,6 +1,6 @@
 # Synodic Frame Trajectory Plots
 
-`plot_synodic_3d` renders 3D trajectories in a synodic (two-body rotating) frame: EMR (Earth-Moon Rotating), SER (Sun-Earth Rotating), GSE (Geocentric Solar Ecliptic), or a generic `ReferenceFrame.Synodic(origin, primary, secondary)`. Each input trajectory is converted to ECI and then transformed per-epoch into the requested frame via `state_frame_to_frame`. The frame's primary and secondary bodies are drawn as textured spheres at a single reference epoch, since a synodic frame keeps both bodies on the x-axis at all times.
+`plot_synodic_3d` renders 3D trajectories in a synodic (two-body rotating) frame: EMR (Earth-Moon Rotating), SER (Sun-Earth Rotating), GSE (Geocentric Solar Ecliptic), or a generic `CelestialFrame.Synodic(origin, primary, secondary)`. Each input trajectory is converted to ECI and then transformed per-epoch into the requested frame via `state_frame_to_frame`. The frame's primary and secondary bodies are drawn as textured spheres at a single reference epoch, since a synodic frame keeps both bodies on the x-axis at all times.
 
 `plot_earth_moon_rotating_3d` is an alias for `plot_synodic_3d(trajectories, frame="EMR", ...)`; it accepts the same keyword arguments.
 
@@ -13,8 +13,8 @@
 The `frame` parameter accepts:
 
 - A frame alias string: `'EMR'`, `'SER'`, or `'GSE'`
-- Any other `ReferenceFrame` name string accepted by `ReferenceFrame.from_string`
-- A `ReferenceFrame.Synodic(origin, primary, secondary)` instance for a custom two-body pair
+- Any other `CelestialFrame` name string accepted by `CelestialFrame.from_string`
+- A `CelestialFrame.Synodic(origin, primary, secondary)` instance for a custom two-body pair
 
 See [Synodic Reference Frames](../frames/synodic_frames.md) for the axis construction and physical definition of each frame. Passing a non-synodic frame raises `ValueError`.
 

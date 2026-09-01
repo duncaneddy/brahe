@@ -1,7 +1,7 @@
 /*!
  * Centralized reference frame router.
  *
- * This module defines [`ReferenceFrame`], an enum spanning every reference
+ * This module defines [`CelestialFrame`], an enum spanning every reference
  * frame implemented elsewhere in [`crate::frames`], and a small set of
  * router functions (`rotation_frame_to_frame`, `position_frame_to_frame`,
  * `state_frame_to_frame`) that convert between *any* two frames in the
@@ -16,9 +16,9 @@
  * 1. **Orientation**: the state is rotated from the source frame's axes
  *    into ICRF axes (still centered on the source frame's origin), using
  *    the exact pairwise rotation/transport-velocity transform for that
- *    frame. [`ReferenceFrame::GCRF`], [`ReferenceFrame::LCI`],
- *    [`ReferenceFrame::MCI`], [`ReferenceFrame::EMBI`],
- *    [`ReferenceFrame::SSBI`], and [`ReferenceFrame::BodyCenteredICRF`] are
+ *    frame. [`CelestialFrame::GCRF`], [`CelestialFrame::LCI`],
+ *    [`CelestialFrame::MCI`], [`CelestialFrame::EMBI`],
+ *    [`CelestialFrame::SSBI`], and [`CelestialFrame::BodyCenteredICRF`] are
  *    already ICRF-aligned (this crate treats GCRF, LCI, MCI, and the ICRF
  *    as equivalent axes, consistent with [`crate::frames::lunar`] and
  *    [`crate::frames::mars`]), so this step is the identity for them.
@@ -80,7 +80,7 @@ use super::lunar::{rotation_lci_to_lfme, rotation_lci_to_lfpa};
 use super::mars::rotation_mci_to_mcmf;
 
 /// Brahe-internal synthetic center ID for the Sun-Earth barycenter, the
-/// origin of [`ReferenceFrame::SER`]. The SEB has no catalogued NAIF ID
+/// origin of [`CelestialFrame::SER`]. The SEB has no catalogued NAIF ID
 /// or SPK segment; the ID is negative following NAIF's convention for
 /// non-catalogued objects (magnitude mnemonic: Sun 10, Earth 399). It is
 /// never passed to SPK — `center_offset_state` computes the barycenter
@@ -89,11 +89,11 @@ use super::mars::rotation_mci_to_mcmf;
 ///
 /// All center IDs at or below -1_000_000_000 are reserved for synthetic
 /// synodic barycenters encoded by [`synodic_barycenter_id`] (of which this
-/// constant is one instance); see [`ReferenceFrame::BodyFixedCustom`] for
+/// constant is one instance); see [`CelestialFrame::BodyFixedCustom`] for
 /// why a self-assigned center in that range is not rejected.
 pub const SUN_EARTH_BARYCENTER_ID: i32 = -1_000_010_399;
 
-/// Origin choice for a generic [`ReferenceFrame::Synodic`] frame.
+/// Origin choice for a generic [`CelestialFrame::Synodic`] frame.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum SynodicOrigin {
     /// Centered on the primary body.
@@ -112,7 +112,7 @@ pub enum SynodicOrigin {
 /// [`SUN_EARTH_BARYCENTER_ID`] is this encoding evaluated at `(10, 399)`.
 ///
 /// The full range at or below -1_000_000_000 is reserved for these synthetic
-/// barycenters; see [`ReferenceFrame::BodyFixedCustom`] for why a
+/// barycenters; see [`CelestialFrame::BodyFixedCustom`] for why a
 /// user-registered custom frame is nonetheless allowed to self-assign a
 /// center in that range.
 ///
@@ -176,12 +176,12 @@ fn synthetic_barycenter_pair(center: i32) -> Option<(i32, i32)> {
 /// - `Synodic { origin, primary, secondary }`: a generic two-body synodic
 ///   (rotating) frame for an arbitrary primary/secondary pair, of which
 ///   `EMR`/`SER`/`GSE` are specific configurations (see
-///   [`ReferenceFrame::Synodic`]).
+///   [`CelestialFrame::Synodic`]).
 ///
 /// See the module-level documentation for the full center table and the
 /// hub-and-spoke conversion design.
 #[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum ReferenceFrame {
+pub enum CelestialFrame {
     /// Geocentric Celestial Reference Frame (ICRF-aligned, Earth-centered).
     GCRF,
     /// International Terrestrial Reference Frame (Earth-fixed).
@@ -273,14 +273,14 @@ pub enum ReferenceFrame {
     },
 }
 
-impl ReferenceFrame {
-    /// Alias for [`ReferenceFrame::GCRF`]: the crate's Earth-Centered
+impl CelestialFrame {
+    /// Alias for [`CelestialFrame::GCRF`]: the crate's Earth-Centered
     /// Inertial (ECI) frame is realized as GCRF.
-    pub const ECI: ReferenceFrame = ReferenceFrame::GCRF;
+    pub const ECI: CelestialFrame = CelestialFrame::GCRF;
 
-    /// Alias for [`ReferenceFrame::ITRF`]: the crate's Earth-Centered
+    /// Alias for [`CelestialFrame::ITRF`]: the crate's Earth-Centered
     /// Earth-Fixed (ECEF) frame is realized as ITRF.
-    pub const ECEF: ReferenceFrame = ReferenceFrame::ITRF;
+    pub const ECEF: CelestialFrame = CelestialFrame::ITRF;
 
     /// NAIF ID of this frame's origin.
     ///
@@ -292,28 +292,28 @@ impl ReferenceFrame {
     ///
     /// # Examples:
     /// ```
-    /// use brahe::frames::ReferenceFrame;
+    /// use brahe::frames::CelestialFrame;
     ///
-    /// assert_eq!(ReferenceFrame::GCRF.center_naif_id(), 399);
-    /// assert_eq!(ReferenceFrame::LCI.center_naif_id(), 301);
+    /// assert_eq!(CelestialFrame::GCRF.center_naif_id(), 399);
+    /// assert_eq!(CelestialFrame::LCI.center_naif_id(), 301);
     /// ```
     pub fn center_naif_id(&self) -> i32 {
         match self {
-            ReferenceFrame::GCRF | ReferenceFrame::ITRF | ReferenceFrame::EME2000 => {
+            CelestialFrame::GCRF | CelestialFrame::ITRF | CelestialFrame::EME2000 => {
                 NAIFId::Earth.id()
             }
-            ReferenceFrame::LCI | ReferenceFrame::LFPA | ReferenceFrame::LFME => NAIFId::Moon.id(),
-            ReferenceFrame::MCI | ReferenceFrame::MCMF => NAIFId::Mars.id(),
-            ReferenceFrame::EMBI => NAIFId::EarthMoonBarycenter.id(),
-            ReferenceFrame::SSBI => NAIFId::SolarSystemBarycenter.id(),
-            ReferenceFrame::EMR => NAIFId::EarthMoonBarycenter.id(),
-            ReferenceFrame::SER => SUN_EARTH_BARYCENTER_ID,
-            ReferenceFrame::GSE => NAIFId::Earth.id(),
-            ReferenceFrame::BodyCenteredICRF(id) => *id,
-            ReferenceFrame::BodyFixedIAU(id) => *id,
-            ReferenceFrame::BodyFixedPCK { center, .. } => *center,
-            ReferenceFrame::BodyFixedCustom { center, .. } => *center,
-            ReferenceFrame::Synodic {
+            CelestialFrame::LCI | CelestialFrame::LFPA | CelestialFrame::LFME => NAIFId::Moon.id(),
+            CelestialFrame::MCI | CelestialFrame::MCMF => NAIFId::Mars.id(),
+            CelestialFrame::EMBI => NAIFId::EarthMoonBarycenter.id(),
+            CelestialFrame::SSBI => NAIFId::SolarSystemBarycenter.id(),
+            CelestialFrame::EMR => NAIFId::EarthMoonBarycenter.id(),
+            CelestialFrame::SER => SUN_EARTH_BARYCENTER_ID,
+            CelestialFrame::GSE => NAIFId::Earth.id(),
+            CelestialFrame::BodyCenteredICRF(id) => *id,
+            CelestialFrame::BodyFixedIAU(id) => *id,
+            CelestialFrame::BodyFixedPCK { center, .. } => *center,
+            CelestialFrame::BodyFixedCustom { center, .. } => *center,
+            CelestialFrame::Synodic {
                 origin,
                 primary,
                 secondary,
@@ -331,38 +331,38 @@ impl ReferenceFrame {
     /// otherwise.
     fn state_to_icrf_axes(&self, epc: Epoch, x: SVector6) -> Result<SVector6, BraheError> {
         match self {
-            ReferenceFrame::GCRF
-            | ReferenceFrame::LCI
-            | ReferenceFrame::MCI
-            | ReferenceFrame::EMBI
-            | ReferenceFrame::SSBI
-            | ReferenceFrame::BodyCenteredICRF(_) => Ok(x),
-            ReferenceFrame::ITRF => Ok(super::gcrf_itrf::state_itrf_to_gcrf(epc, x)),
-            ReferenceFrame::EME2000 => Ok(super::eme_2000::state_eme2000_to_gcrf(x)),
-            ReferenceFrame::LFPA => Ok(super::lunar::state_lfpa_to_lci(epc, x)),
-            ReferenceFrame::LFME => Ok(super::lunar::state_lfme_to_lci(epc, x)),
-            ReferenceFrame::MCMF => Ok(super::mars::state_mcmf_to_mci(epc, x)),
-            ReferenceFrame::EMR => {
+            CelestialFrame::GCRF
+            | CelestialFrame::LCI
+            | CelestialFrame::MCI
+            | CelestialFrame::EMBI
+            | CelestialFrame::SSBI
+            | CelestialFrame::BodyCenteredICRF(_) => Ok(x),
+            CelestialFrame::ITRF => Ok(super::gcrf_itrf::state_itrf_to_gcrf(epc, x)),
+            CelestialFrame::EME2000 => Ok(super::eme_2000::state_eme2000_to_gcrf(x)),
+            CelestialFrame::LFPA => Ok(super::lunar::state_lfpa_to_lci(epc, x)),
+            CelestialFrame::LFME => Ok(super::lunar::state_lfme_to_lci(epc, x)),
+            CelestialFrame::MCMF => Ok(super::mars::state_mcmf_to_mci(epc, x)),
+            CelestialFrame::EMR => {
                 let (s, s_dot) = super::synodic::emr_axes(epc)?;
                 Ok(super::synodic::state_synodic_to_inertial(&s, &s_dot, x))
             }
-            ReferenceFrame::SER => {
+            CelestialFrame::SER => {
                 let (s, s_dot) = super::synodic::ser_axes(epc)?;
                 Ok(super::synodic::state_synodic_to_inertial(&s, &s_dot, x))
             }
-            ReferenceFrame::GSE => {
+            CelestialFrame::GSE => {
                 let (s, s_dot) = super::synodic::gse_axes(epc)?;
                 Ok(super::synodic::state_synodic_to_inertial(&s, &s_dot, x))
             }
-            ReferenceFrame::BodyFixedIAU(id) => state_iau_body_to_icrf(*id, epc, x),
-            ReferenceFrame::BodyFixedPCK { frame_id, .. } => {
+            CelestialFrame::BodyFixedIAU(id) => state_iau_body_to_icrf(*id, epc, x),
+            CelestialFrame::BodyFixedPCK { frame_id, .. } => {
                 state_pck_body_to_icrf(*frame_id, epc, x)
             }
-            ReferenceFrame::BodyFixedCustom { key, .. } => {
+            CelestialFrame::BodyFixedCustom { key, .. } => {
                 let (r_mat, omega) = super::custom::custom_frame_rotation_and_omega(*key, epc)?;
                 Ok(state_rotating_to_icrf(r_mat, omega, x))
             }
-            ReferenceFrame::Synodic {
+            CelestialFrame::Synodic {
                 primary, secondary, ..
             } => {
                 let (s, s_dot) = super::synodic::generic_synodic_axes(epc, *primary, *secondary)?;
@@ -373,47 +373,47 @@ impl ReferenceFrame {
 
     /// Rotates an ICRF-axis state (already translated to this frame's
     /// origin) into this frame's own axes. Inverse of
-    /// [`ReferenceFrame::state_to_icrf_axes`].
+    /// [`CelestialFrame::state_to_icrf_axes`].
     fn state_from_icrf_axes(&self, epc: Epoch, x_icrf: SVector6) -> Result<SVector6, BraheError> {
         match self {
-            ReferenceFrame::GCRF
-            | ReferenceFrame::LCI
-            | ReferenceFrame::MCI
-            | ReferenceFrame::EMBI
-            | ReferenceFrame::SSBI
-            | ReferenceFrame::BodyCenteredICRF(_) => Ok(x_icrf),
-            ReferenceFrame::ITRF => Ok(super::gcrf_itrf::state_gcrf_to_itrf(epc, x_icrf)),
-            ReferenceFrame::EME2000 => Ok(super::eme_2000::state_gcrf_to_eme2000(x_icrf)),
-            ReferenceFrame::LFPA => Ok(super::lunar::state_lci_to_lfpa(epc, x_icrf)),
-            ReferenceFrame::LFME => Ok(super::lunar::state_lci_to_lfme(epc, x_icrf)),
-            ReferenceFrame::MCMF => Ok(super::mars::state_mci_to_mcmf(epc, x_icrf)),
-            ReferenceFrame::EMR => {
+            CelestialFrame::GCRF
+            | CelestialFrame::LCI
+            | CelestialFrame::MCI
+            | CelestialFrame::EMBI
+            | CelestialFrame::SSBI
+            | CelestialFrame::BodyCenteredICRF(_) => Ok(x_icrf),
+            CelestialFrame::ITRF => Ok(super::gcrf_itrf::state_gcrf_to_itrf(epc, x_icrf)),
+            CelestialFrame::EME2000 => Ok(super::eme_2000::state_gcrf_to_eme2000(x_icrf)),
+            CelestialFrame::LFPA => Ok(super::lunar::state_lci_to_lfpa(epc, x_icrf)),
+            CelestialFrame::LFME => Ok(super::lunar::state_lci_to_lfme(epc, x_icrf)),
+            CelestialFrame::MCMF => Ok(super::mars::state_mci_to_mcmf(epc, x_icrf)),
+            CelestialFrame::EMR => {
                 let (s, s_dot) = super::synodic::emr_axes(epc)?;
                 Ok(super::synodic::state_inertial_to_synodic(
                     &s, &s_dot, x_icrf,
                 ))
             }
-            ReferenceFrame::SER => {
+            CelestialFrame::SER => {
                 let (s, s_dot) = super::synodic::ser_axes(epc)?;
                 Ok(super::synodic::state_inertial_to_synodic(
                     &s, &s_dot, x_icrf,
                 ))
             }
-            ReferenceFrame::GSE => {
+            CelestialFrame::GSE => {
                 let (s, s_dot) = super::synodic::gse_axes(epc)?;
                 Ok(super::synodic::state_inertial_to_synodic(
                     &s, &s_dot, x_icrf,
                 ))
             }
-            ReferenceFrame::BodyFixedIAU(id) => state_icrf_to_iau_body(*id, epc, x_icrf),
-            ReferenceFrame::BodyFixedPCK { frame_id, .. } => {
+            CelestialFrame::BodyFixedIAU(id) => state_icrf_to_iau_body(*id, epc, x_icrf),
+            CelestialFrame::BodyFixedPCK { frame_id, .. } => {
                 state_icrf_to_pck_body(*frame_id, epc, x_icrf)
             }
-            ReferenceFrame::BodyFixedCustom { key, .. } => {
+            CelestialFrame::BodyFixedCustom { key, .. } => {
                 let (r_mat, omega) = super::custom::custom_frame_rotation_and_omega(*key, epc)?;
                 Ok(state_icrf_to_rotating(r_mat, omega, x_icrf))
             }
-            ReferenceFrame::Synodic {
+            CelestialFrame::Synodic {
                 primary, secondary, ..
             } => {
                 let (s, s_dot) = super::synodic::generic_synodic_axes(epc, *primary, *secondary)?;
@@ -425,31 +425,31 @@ impl ReferenceFrame {
     }
 }
 
-impl fmt::Display for ReferenceFrame {
+impl fmt::Display for CelestialFrame {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ReferenceFrame::GCRF => write!(f, "GCRF"),
-            ReferenceFrame::ITRF => write!(f, "ITRF"),
-            ReferenceFrame::EME2000 => write!(f, "EME2000"),
-            ReferenceFrame::LCI => write!(f, "LCI"),
-            ReferenceFrame::LFPA => write!(f, "LFPA"),
-            ReferenceFrame::LFME => write!(f, "LFME"),
-            ReferenceFrame::MCI => write!(f, "MCI"),
-            ReferenceFrame::MCMF => write!(f, "MCMF"),
-            ReferenceFrame::EMBI => write!(f, "EMBI"),
-            ReferenceFrame::SSBI => write!(f, "SSBI"),
-            ReferenceFrame::EMR => write!(f, "EMR"),
-            ReferenceFrame::SER => write!(f, "SER"),
-            ReferenceFrame::GSE => write!(f, "GSE"),
-            ReferenceFrame::BodyCenteredICRF(id) => write!(f, "BodyCenteredICRF({})", id),
-            ReferenceFrame::BodyFixedIAU(id) => write!(f, "BodyFixedIAU({})", id),
-            ReferenceFrame::BodyFixedPCK { center, frame_id } => {
+            CelestialFrame::GCRF => write!(f, "GCRF"),
+            CelestialFrame::ITRF => write!(f, "ITRF"),
+            CelestialFrame::EME2000 => write!(f, "EME2000"),
+            CelestialFrame::LCI => write!(f, "LCI"),
+            CelestialFrame::LFPA => write!(f, "LFPA"),
+            CelestialFrame::LFME => write!(f, "LFME"),
+            CelestialFrame::MCI => write!(f, "MCI"),
+            CelestialFrame::MCMF => write!(f, "MCMF"),
+            CelestialFrame::EMBI => write!(f, "EMBI"),
+            CelestialFrame::SSBI => write!(f, "SSBI"),
+            CelestialFrame::EMR => write!(f, "EMR"),
+            CelestialFrame::SER => write!(f, "SER"),
+            CelestialFrame::GSE => write!(f, "GSE"),
+            CelestialFrame::BodyCenteredICRF(id) => write!(f, "BodyCenteredICRF({})", id),
+            CelestialFrame::BodyFixedIAU(id) => write!(f, "BodyFixedIAU({})", id),
+            CelestialFrame::BodyFixedPCK { center, frame_id } => {
                 write!(f, "BodyFixedPCK(center={}, frame_id={})", center, frame_id)
             }
-            ReferenceFrame::BodyFixedCustom { center, key } => {
+            CelestialFrame::BodyFixedCustom { center, key } => {
                 write!(f, "BodyFixedCustom(center={}, key={})", center, key)
             }
-            ReferenceFrame::Synodic {
+            CelestialFrame::Synodic {
                 origin,
                 primary,
                 secondary,
@@ -462,34 +462,34 @@ impl fmt::Display for ReferenceFrame {
     }
 }
 
-impl FromStr for ReferenceFrame {
+impl FromStr for CelestialFrame {
     type Err = BraheError;
 
-    /// Parses a [`ReferenceFrame`] from its [`Display`](fmt::Display)
+    /// Parses a [`CelestialFrame`] from its [`Display`](fmt::Display)
     /// representation (named variants only, case-insensitive), plus the
-    /// common aliases `"ECI"` (-> [`ReferenceFrame::GCRF`]) and `"ECEF"`
-    /// (-> [`ReferenceFrame::ITRF`]).
+    /// common aliases `"ECI"` (-> [`CelestialFrame::GCRF`]) and `"ECEF"`
+    /// (-> [`CelestialFrame::ITRF`]).
     ///
     /// The generic variants (`BodyCenteredICRF`, `BodyFixedIAU`,
     /// `BodyFixedPCK`, `BodyFixedCustom`, `Synodic`) are not parseable from
     /// a string; construct them directly.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_uppercase().as_str() {
-            "ECI" => Ok(ReferenceFrame::GCRF),
-            "ECEF" => Ok(ReferenceFrame::ITRF),
-            "GCRF" => Ok(ReferenceFrame::GCRF),
-            "ITRF" => Ok(ReferenceFrame::ITRF),
-            "EME2000" => Ok(ReferenceFrame::EME2000),
-            "LCI" => Ok(ReferenceFrame::LCI),
-            "LFPA" => Ok(ReferenceFrame::LFPA),
-            "LFME" => Ok(ReferenceFrame::LFME),
-            "MCI" => Ok(ReferenceFrame::MCI),
-            "MCMF" => Ok(ReferenceFrame::MCMF),
-            "EMBI" => Ok(ReferenceFrame::EMBI),
-            "SSBI" => Ok(ReferenceFrame::SSBI),
-            "EMR" => Ok(ReferenceFrame::EMR),
-            "SER" => Ok(ReferenceFrame::SER),
-            "GSE" => Ok(ReferenceFrame::GSE),
+            "ECI" => Ok(CelestialFrame::GCRF),
+            "ECEF" => Ok(CelestialFrame::ITRF),
+            "GCRF" => Ok(CelestialFrame::GCRF),
+            "ITRF" => Ok(CelestialFrame::ITRF),
+            "EME2000" => Ok(CelestialFrame::EME2000),
+            "LCI" => Ok(CelestialFrame::LCI),
+            "LFPA" => Ok(CelestialFrame::LFPA),
+            "LFME" => Ok(CelestialFrame::LFME),
+            "MCI" => Ok(CelestialFrame::MCI),
+            "MCMF" => Ok(CelestialFrame::MCMF),
+            "EMBI" => Ok(CelestialFrame::EMBI),
+            "SSBI" => Ok(CelestialFrame::SSBI),
+            "EMR" => Ok(CelestialFrame::EMR),
+            "SER" => Ok(CelestialFrame::SER),
+            "GSE" => Ok(CelestialFrame::GSE),
             _ => Err(BraheError::ParseError(format!(
                 "Unknown reference frame '{}'. Supported: GCRF (alias ECI), ITRF (alias ECEF), \
                  EME2000, LCI, LFPA, LFME, MCI, MCMF, EMBI, SSBI, EMR, SER, GSE",
@@ -591,7 +591,7 @@ pub(crate) fn apply_state_rotating_to_icrf(
 /// Rotates an ICRF-axis state into the IAU/WGCCRE body-fixed frame of
 /// `naif_id`, including the velocity transport term induced by the
 /// body's rotation. Generic form of [`super::mars::state_mci_to_mcmf`],
-/// parameterized over `naif_id` for use by [`ReferenceFrame::BodyFixedIAU`].
+/// parameterized over `naif_id` for use by [`CelestialFrame::BodyFixedIAU`].
 fn state_icrf_to_iau_body(
     naif_id: i32,
     epc: Epoch,
@@ -626,7 +626,7 @@ fn state_iau_body_to_icrf(
 /// PCK `frame_id`, including the velocity transport term induced by the
 /// frame's rotation. This is a general SPICE-PCK-backed transformation,
 /// parameterized over `frame_id` for use by
-/// [`ReferenceFrame::BodyFixedPCK`]. Unlike the lunar-specific helpers
+/// [`CelestialFrame::BodyFixedPCK`]. Unlike the lunar-specific helpers
 /// (e.g. [`super::lunar::state_lci_to_lfpa`]), this does not auto-load any
 /// PCK — the caller's kernel must already be loaded (see
 /// [`crate::spice::pck_rotation_matrix`]).
@@ -662,30 +662,30 @@ fn state_pck_body_to_icrf(
 
 /// Rotation matrix from ICRF axes to `frame`'s own axes at `epc`. Identity
 /// for ICRF-aligned frames.
-fn icrf_to_frame_dcm(frame: ReferenceFrame, epc: Epoch) -> Result<SMatrix3, BraheError> {
+fn icrf_to_frame_dcm(frame: CelestialFrame, epc: Epoch) -> Result<SMatrix3, BraheError> {
     match frame {
-        ReferenceFrame::GCRF
-        | ReferenceFrame::LCI
-        | ReferenceFrame::MCI
-        | ReferenceFrame::EMBI
-        | ReferenceFrame::SSBI
-        | ReferenceFrame::BodyCenteredICRF(_) => Ok(SMatrix3::identity()),
-        ReferenceFrame::ITRF => Ok(rotation_gcrf_to_itrf(epc)),
-        ReferenceFrame::EME2000 => Ok(rotation_gcrf_to_eme2000()),
-        ReferenceFrame::LFPA => Ok(rotation_lci_to_lfpa(epc)),
-        ReferenceFrame::LFME => Ok(rotation_lci_to_lfme(epc)),
-        ReferenceFrame::MCMF => Ok(rotation_mci_to_mcmf(epc)),
-        ReferenceFrame::EMR => Ok(super::synodic::emr_axes(epc)?.0),
-        ReferenceFrame::SER => Ok(super::synodic::ser_axes(epc)?.0),
-        ReferenceFrame::GSE => Ok(super::synodic::gse_axes(epc)?.0),
-        ReferenceFrame::BodyFixedIAU(id) => rotation_icrf_to_body_fixed_iau(id, epc),
-        ReferenceFrame::BodyFixedPCK { frame_id, .. } => {
+        CelestialFrame::GCRF
+        | CelestialFrame::LCI
+        | CelestialFrame::MCI
+        | CelestialFrame::EMBI
+        | CelestialFrame::SSBI
+        | CelestialFrame::BodyCenteredICRF(_) => Ok(SMatrix3::identity()),
+        CelestialFrame::ITRF => Ok(rotation_gcrf_to_itrf(epc)),
+        CelestialFrame::EME2000 => Ok(rotation_gcrf_to_eme2000()),
+        CelestialFrame::LFPA => Ok(rotation_lci_to_lfpa(epc)),
+        CelestialFrame::LFME => Ok(rotation_lci_to_lfme(epc)),
+        CelestialFrame::MCMF => Ok(rotation_mci_to_mcmf(epc)),
+        CelestialFrame::EMR => Ok(super::synodic::emr_axes(epc)?.0),
+        CelestialFrame::SER => Ok(super::synodic::ser_axes(epc)?.0),
+        CelestialFrame::GSE => Ok(super::synodic::gse_axes(epc)?.0),
+        CelestialFrame::BodyFixedIAU(id) => rotation_icrf_to_body_fixed_iau(id, epc),
+        CelestialFrame::BodyFixedPCK { frame_id, .. } => {
             crate::spice::pck_rotation_matrix(frame_id, epc).map(|r| r.to_matrix())
         }
-        ReferenceFrame::BodyFixedCustom { key, .. } => {
+        CelestialFrame::BodyFixedCustom { key, .. } => {
             super::custom::custom_frame_rotation(key, epc)
         }
-        ReferenceFrame::Synodic {
+        CelestialFrame::Synodic {
             primary, secondary, ..
         } => Ok(super::synodic::generic_synodic_axes(epc, primary, secondary)?.0),
     }
@@ -712,15 +712,15 @@ fn icrf_to_frame_dcm(frame: ReferenceFrame, epc: Epoch) -> Result<SMatrix3, Brah
 ///
 /// # Examples:
 /// ```
-/// use brahe::frames::{ReferenceFrame, rotation_frame_to_frame};
+/// use brahe::frames::{CelestialFrame, rotation_frame_to_frame};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-/// let r = rotation_frame_to_frame(ReferenceFrame::MCI, ReferenceFrame::MCMF, epc).unwrap();
+/// let r = rotation_frame_to_frame(CelestialFrame::MCI, CelestialFrame::MCMF, epc).unwrap();
 /// ```
 pub fn rotation_frame_to_frame(
-    from: ReferenceFrame,
-    to: ReferenceFrame,
+    from: CelestialFrame,
+    to: CelestialFrame,
     epc: Epoch,
 ) -> Result<SMatrix3, BraheError> {
     if from == to {
@@ -751,18 +751,18 @@ pub fn rotation_frame_to_frame(
 /// # Examples:
 /// ```no_run
 /// use brahe::constants::R_EARTH;
-/// use brahe::frames::{ReferenceFrame, position_frame_to_frame};
+/// use brahe::frames::{CelestialFrame, position_frame_to_frame};
 /// use brahe::time::{Epoch, TimeSystem};
 /// use nalgebra::Vector3;
 ///
 /// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 /// let x_gcrf = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 /// let x_itrf =
-///     position_frame_to_frame(ReferenceFrame::GCRF, ReferenceFrame::ITRF, epc, x_gcrf).unwrap();
+///     position_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::ITRF, epc, x_gcrf).unwrap();
 /// ```
 pub fn position_frame_to_frame(
-    from: ReferenceFrame,
-    to: ReferenceFrame,
+    from: CelestialFrame,
+    to: CelestialFrame,
     epc: Epoch,
     x: Vector3<f64>,
 ) -> Result<Vector3<f64>, BraheError> {
@@ -797,16 +797,16 @@ struct FramePairContext {
 /// # Examples
 ///
 /// ```ignore
-/// use brahe::frames::ReferenceFrame;
+/// use brahe::frames::CelestialFrame;
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-/// let c = frame_pair_context(ReferenceFrame::GCRF, ReferenceFrame::ITRF, epc).unwrap();
+/// let c = frame_pair_context(CelestialFrame::GCRF, CelestialFrame::ITRF, epc).unwrap();
 /// // c.offset is None because both frames share the Earth center
 /// ```
 fn frame_pair_context(
-    from: ReferenceFrame,
-    to: ReferenceFrame,
+    from: CelestialFrame,
+    to: CelestialFrame,
     epc: Epoch,
 ) -> Result<FramePairContext, BraheError> {
     let r_from = icrf_to_frame_dcm(from, epc)?;
@@ -836,12 +836,12 @@ fn frame_pair_context(
 /// # Examples
 ///
 /// ```ignore
-/// use brahe::frames::ReferenceFrame;
+/// use brahe::frames::CelestialFrame;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use nalgebra::Vector3;
 ///
 /// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-/// let c = frame_pair_context(ReferenceFrame::GCRF, ReferenceFrame::ITRF, epc).unwrap();
+/// let c = frame_pair_context(CelestialFrame::GCRF, CelestialFrame::ITRF, epc).unwrap();
 /// let x_itrf = apply_position_frame_pair(&c, &Vector3::new(7.0e6, 0.0, 0.0));
 /// ```
 fn apply_position_frame_pair(c: &FramePairContext, x: &Vector3<f64>) -> Vector3<f64> {
@@ -879,18 +879,18 @@ fn apply_position_frame_pair(c: &FramePairContext, x: &Vector3<f64>) -> Vector3<
 /// # Examples:
 /// ```no_run
 /// use brahe::constants::R_MOON;
-/// use brahe::frames::{ReferenceFrame, state_frame_to_frame};
+/// use brahe::frames::{CelestialFrame, state_frame_to_frame};
 /// use brahe::math::vector6_from_array;
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 /// let x_gcrf = vector6_from_array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3]);
 /// let x_lfpa =
-///     state_frame_to_frame(ReferenceFrame::GCRF, ReferenceFrame::LFPA, epc, x_gcrf).unwrap();
+///     state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::LFPA, epc, x_gcrf).unwrap();
 /// ```
 pub fn state_frame_to_frame(
-    from: ReferenceFrame,
-    to: ReferenceFrame,
+    from: CelestialFrame,
+    to: CelestialFrame,
     epc: Epoch,
     x: SVector6,
 ) -> Result<SVector6, BraheError> {
@@ -922,17 +922,17 @@ pub fn state_frame_to_frame(
 ///
 /// # Examples:
 /// ```
-/// use brahe::frames::{ReferenceFrame, rotations_frame_to_frame};
+/// use brahe::frames::{CelestialFrame, rotations_frame_to_frame};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 /// let epochs = vec![epc, epc + 60.0];
-/// let r = rotations_frame_to_frame(ReferenceFrame::MCI, ReferenceFrame::MCMF, &epochs).unwrap();
+/// let r = rotations_frame_to_frame(CelestialFrame::MCI, CelestialFrame::MCMF, &epochs).unwrap();
 /// assert_eq!(r.len(), 2);
 /// ```
 pub fn rotations_frame_to_frame(
-    from: ReferenceFrame,
-    to: ReferenceFrame,
+    from: CelestialFrame,
+    to: CelestialFrame,
     epochs: &[Epoch],
 ) -> Result<Vec<SMatrix3>, BraheError> {
     try_batch_map(|epc| rotation_frame_to_frame(from, to, *epc), epochs)
@@ -962,7 +962,7 @@ pub fn rotations_frame_to_frame(
 /// use brahe::eop::*;
 /// use brahe::constants::R_EARTH;
 /// use brahe::vector3_from_array;
-/// use brahe::frames::{ReferenceFrame, positions_frame_to_frame};
+/// use brahe::frames::{CelestialFrame, positions_frame_to_frame};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
@@ -970,12 +970,12 @@ pub fn rotations_frame_to_frame(
 ///
 /// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 /// let positions = vec![vector3_from_array([R_EARTH + 500e3, 0.0, 0.0]); 3];
-/// let x_itrf = positions_frame_to_frame(ReferenceFrame::GCRF, ReferenceFrame::ITRF, &[epc], &positions).unwrap();
+/// let x_itrf = positions_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::ITRF, &[epc], &positions).unwrap();
 /// assert_eq!(x_itrf.len(), 3);
 /// ```
 pub fn positions_frame_to_frame(
-    from: ReferenceFrame,
-    to: ReferenceFrame,
+    from: CelestialFrame,
+    to: CelestialFrame,
     epochs: &[Epoch],
     x: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
@@ -1018,7 +1018,7 @@ pub fn positions_frame_to_frame(
 /// use brahe::constants::R_EARTH;
 /// use brahe::vector6_from_array;
 /// use brahe::orbits::perigee_velocity;
-/// use brahe::frames::{ReferenceFrame, states_frame_to_frame};
+/// use brahe::frames::{CelestialFrame, states_frame_to_frame};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
@@ -1027,12 +1027,12 @@ pub fn positions_frame_to_frame(
 /// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 /// let v = perigee_velocity(R_EARTH + 500e3, 0.0);
 /// let states = vec![vector6_from_array([R_EARTH + 500e3, 0.0, 0.0, 0.0, v, 0.0]); 3];
-/// let x_itrf = states_frame_to_frame(ReferenceFrame::GCRF, ReferenceFrame::ITRF, &[epc], &states).unwrap();
+/// let x_itrf = states_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::ITRF, &[epc], &states).unwrap();
 /// assert_eq!(x_itrf.len(), 3);
 /// ```
 pub fn states_frame_to_frame(
-    from: ReferenceFrame,
-    to: ReferenceFrame,
+    from: CelestialFrame,
+    to: CelestialFrame,
     epochs: &[Epoch],
     x: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
@@ -1127,7 +1127,7 @@ mod tests {
             DEGREES,
         );
         let via_router =
-            state_frame_to_frame(ReferenceFrame::GCRF, ReferenceFrame::ITRF, epc, x).unwrap();
+            state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::ITRF, epc, x).unwrap();
         let pairwise = crate::frames::state_gcrf_to_itrf(epc, x);
         for i in 0..6 {
             // bit-identical: same-center path must not touch SPK
@@ -1143,7 +1143,7 @@ mod tests {
         let x = vector6_from_array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3]);
 
         let via_router =
-            state_frame_to_frame(ReferenceFrame::GCRF, ReferenceFrame::LCI, epc, x).unwrap();
+            state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::LCI, epc, x).unwrap();
         let pairwise = crate::frames::state_eci_to_lci(epc, x);
         for i in 0..6 {
             assert_abs_diff_eq!(via_router[i], pairwise[i], epsilon = 1e-9);
@@ -1151,14 +1151,14 @@ mod tests {
 
         let x_lci = via_router;
         let via_router_lfpa =
-            state_frame_to_frame(ReferenceFrame::LCI, ReferenceFrame::LFPA, epc, x_lci).unwrap();
+            state_frame_to_frame(CelestialFrame::LCI, CelestialFrame::LFPA, epc, x_lci).unwrap();
         let pairwise_lfpa = crate::frames::state_lci_to_lfpa(epc, x_lci);
         for i in 0..6 {
             assert_eq!(via_router_lfpa[i], pairwise_lfpa[i]); // same-center, bit-identical
         }
 
         let via_router_composed =
-            state_frame_to_frame(ReferenceFrame::GCRF, ReferenceFrame::LFPA, epc, x).unwrap();
+            state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::LFPA, epc, x).unwrap();
         let composed =
             crate::frames::state_lci_to_lfpa(epc, crate::frames::state_eci_to_lci(epc, x));
         for i in 0..6 {
@@ -1175,19 +1175,19 @@ mod tests {
 
         for (frame, pairwise) in [
             (
-                ReferenceFrame::EMR,
+                CelestialFrame::EMR,
                 crate::frames::state_gcrf_to_emr(epc, x).unwrap(),
             ),
             (
-                ReferenceFrame::SER,
+                CelestialFrame::SER,
                 crate::frames::state_gcrf_to_ser(epc, x).unwrap(),
             ),
             (
-                ReferenceFrame::GSE,
+                CelestialFrame::GSE,
                 crate::frames::state_gcrf_to_gse(epc, x).unwrap(),
             ),
         ] {
-            let via_router = state_frame_to_frame(ReferenceFrame::GCRF, frame, epc, x).unwrap();
+            let via_router = state_frame_to_frame(CelestialFrame::GCRF, frame, epc, x).unwrap();
             for i in 0..6 {
                 assert_abs_diff_eq!(via_router[i], pairwise[i], epsilon = 1e-9);
             }
@@ -1202,8 +1202,8 @@ mod tests {
         setup_global_test_spice();
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let x_moon_emr = state_frame_to_frame(
-            ReferenceFrame::LCI,
-            ReferenceFrame::EMR,
+            CelestialFrame::LCI,
+            CelestialFrame::EMR,
             epc,
             SVector6::zeros(),
         )
@@ -1218,20 +1218,20 @@ mod tests {
     #[test]
     fn test_synodic_frame_parse_and_display() {
         for (s, f) in [
-            ("EMR", ReferenceFrame::EMR),
-            ("SER", ReferenceFrame::SER),
-            ("GSE", ReferenceFrame::GSE),
-            ("emr", ReferenceFrame::EMR),
+            ("EMR", CelestialFrame::EMR),
+            ("SER", CelestialFrame::SER),
+            ("GSE", CelestialFrame::GSE),
+            ("emr", CelestialFrame::EMR),
         ] {
-            assert_eq!(s.parse::<ReferenceFrame>().unwrap(), f);
+            assert_eq!(s.parse::<CelestialFrame>().unwrap(), f);
         }
-        assert_eq!(ReferenceFrame::EMR.to_string(), "EMR");
-        assert_eq!(ReferenceFrame::SER.to_string(), "SER");
-        assert_eq!(ReferenceFrame::GSE.to_string(), "GSE");
-        assert_eq!(ReferenceFrame::EMR.center_naif_id(), 3);
-        assert_eq!(ReferenceFrame::GSE.center_naif_id(), 399);
+        assert_eq!(CelestialFrame::EMR.to_string(), "EMR");
+        assert_eq!(CelestialFrame::SER.to_string(), "SER");
+        assert_eq!(CelestialFrame::GSE.to_string(), "GSE");
+        assert_eq!(CelestialFrame::EMR.center_naif_id(), 3);
+        assert_eq!(CelestialFrame::GSE.center_naif_id(), 399);
         assert_eq!(
-            ReferenceFrame::SER.center_naif_id(),
+            CelestialFrame::SER.center_naif_id(),
             SUN_EARTH_BARYCENTER_ID
         );
     }
@@ -1242,19 +1242,19 @@ mod tests {
         setup_global_test_eop();
         setup_global_test_spice();
         let frames = [
-            ReferenceFrame::GCRF,
-            ReferenceFrame::ITRF,
-            ReferenceFrame::EME2000,
-            ReferenceFrame::LCI,
-            ReferenceFrame::LFPA,
-            ReferenceFrame::LFME,
-            ReferenceFrame::MCI,
-            ReferenceFrame::MCMF,
-            ReferenceFrame::EMBI,
-            ReferenceFrame::SSBI,
-            ReferenceFrame::EMR,
-            ReferenceFrame::SER,
-            ReferenceFrame::GSE,
+            CelestialFrame::GCRF,
+            CelestialFrame::ITRF,
+            CelestialFrame::EME2000,
+            CelestialFrame::LCI,
+            CelestialFrame::LFPA,
+            CelestialFrame::LFME,
+            CelestialFrame::MCI,
+            CelestialFrame::MCMF,
+            CelestialFrame::EMBI,
+            CelestialFrame::SSBI,
+            CelestialFrame::EMR,
+            CelestialFrame::SER,
+            CelestialFrame::GSE,
         ];
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let x = vector6_from_array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3]);
@@ -1281,55 +1281,55 @@ mod tests {
     }
 
     #[test]
-    fn test_reference_frame_from_str_aliases() {
+    fn test_celestial_frame_from_str_aliases() {
         assert_eq!(
-            "ECI".parse::<ReferenceFrame>().unwrap(),
-            ReferenceFrame::GCRF
+            "ECI".parse::<CelestialFrame>().unwrap(),
+            CelestialFrame::GCRF
         );
         assert_eq!(
-            "ECEF".parse::<ReferenceFrame>().unwrap(),
-            ReferenceFrame::ITRF
+            "ECEF".parse::<CelestialFrame>().unwrap(),
+            CelestialFrame::ITRF
         );
         // Associated-constant aliases mirror the string aliases.
-        assert_eq!(ReferenceFrame::ECI, ReferenceFrame::GCRF);
-        assert_eq!(ReferenceFrame::ECEF, ReferenceFrame::ITRF);
+        assert_eq!(CelestialFrame::ECI, CelestialFrame::GCRF);
+        assert_eq!(CelestialFrame::ECEF, CelestialFrame::ITRF);
         assert_eq!(
-            "LFPA".parse::<ReferenceFrame>().unwrap(),
-            ReferenceFrame::LFPA
+            "LFPA".parse::<CelestialFrame>().unwrap(),
+            CelestialFrame::LFPA
         );
         assert_eq!(
-            "eci".parse::<ReferenceFrame>().unwrap(),
-            ReferenceFrame::GCRF
+            "eci".parse::<CelestialFrame>().unwrap(),
+            CelestialFrame::GCRF
         );
-        assert!("bogus".parse::<ReferenceFrame>().is_err());
+        assert!("bogus".parse::<CelestialFrame>().is_err());
     }
 
     #[test]
-    fn test_reference_frame_from_str_rejects_parameterized_variants() {
+    fn test_celestial_frame_from_str_rejects_parameterized_variants() {
         // The generic variants' own Display output is not a valid FromStr
         // input -- they must be constructed directly, per the FromStr
         // doc comment.
         for s in [
-            ReferenceFrame::BodyCenteredICRF(4).to_string(),
-            ReferenceFrame::BodyFixedIAU(499).to_string(),
-            ReferenceFrame::BodyFixedPCK {
+            CelestialFrame::BodyCenteredICRF(4).to_string(),
+            CelestialFrame::BodyFixedIAU(499).to_string(),
+            CelestialFrame::BodyFixedPCK {
                 center: 301,
                 frame_id: 31008,
             }
             .to_string(),
-            ReferenceFrame::BodyFixedCustom {
+            CelestialFrame::BodyFixedCustom {
                 center: -20001,
                 key: 7,
             }
             .to_string(),
-            ReferenceFrame::Synodic {
+            CelestialFrame::Synodic {
                 origin: SynodicOrigin::Barycenter,
                 primary: 399,
                 secondary: 301,
             }
             .to_string(),
         ] {
-            let err = s.parse::<ReferenceFrame>().unwrap_err().to_string();
+            let err = s.parse::<CelestialFrame>().unwrap_err().to_string();
             assert!(err.contains(&s), "error should name the input '{s}': {err}");
         }
     }
@@ -1337,10 +1337,10 @@ mod tests {
     #[test]
     fn test_generic_variants_equal_named() {
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let a = rotation_frame_to_frame(ReferenceFrame::MCI, ReferenceFrame::MCMF, epc).unwrap();
+        let a = rotation_frame_to_frame(CelestialFrame::MCI, CelestialFrame::MCMF, epc).unwrap();
         let b = rotation_frame_to_frame(
-            ReferenceFrame::BodyCenteredICRF(4),
-            ReferenceFrame::BodyFixedIAU(499),
+            CelestialFrame::BodyCenteredICRF(4),
+            CelestialFrame::BodyFixedIAU(499),
             epc,
         )
         .unwrap();
@@ -1359,8 +1359,8 @@ mod tests {
         // the embedded IAU/WGCCRE table.
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let r = rotation_frame_to_frame(
-            ReferenceFrame::BodyFixedIAU(999999),
-            ReferenceFrame::BodyFixedIAU(999999),
+            CelestialFrame::BodyFixedIAU(999999),
+            CelestialFrame::BodyFixedIAU(999999),
             epc,
         )
         .unwrap();
@@ -1368,19 +1368,19 @@ mod tests {
     }
 
     #[test]
-    fn test_reference_frame_display() {
-        assert_eq!(ReferenceFrame::GCRF.to_string(), "GCRF");
-        assert_eq!(ReferenceFrame::LFPA.to_string(), "LFPA");
+    fn test_celestial_frame_display() {
+        assert_eq!(CelestialFrame::GCRF.to_string(), "GCRF");
+        assert_eq!(CelestialFrame::LFPA.to_string(), "LFPA");
         assert_eq!(
-            ReferenceFrame::BodyCenteredICRF(4).to_string(),
+            CelestialFrame::BodyCenteredICRF(4).to_string(),
             "BodyCenteredICRF(4)"
         );
         assert_eq!(
-            ReferenceFrame::BodyFixedIAU(599).to_string(),
+            CelestialFrame::BodyFixedIAU(599).to_string(),
             "BodyFixedIAU(599)"
         );
         assert_eq!(
-            ReferenceFrame::BodyFixedPCK {
+            CelestialFrame::BodyFixedPCK {
                 center: 301,
                 frame_id: 31008
             }
@@ -1390,40 +1390,40 @@ mod tests {
     }
 
     #[test]
-    fn test_reference_frame_display_from_str_roundtrip() {
+    fn test_celestial_frame_display_from_str_roundtrip() {
         let frames = [
-            ReferenceFrame::GCRF,
-            ReferenceFrame::ITRF,
-            ReferenceFrame::EME2000,
-            ReferenceFrame::LCI,
-            ReferenceFrame::LFPA,
-            ReferenceFrame::LFME,
-            ReferenceFrame::MCI,
-            ReferenceFrame::MCMF,
-            ReferenceFrame::EMBI,
-            ReferenceFrame::SSBI,
+            CelestialFrame::GCRF,
+            CelestialFrame::ITRF,
+            CelestialFrame::EME2000,
+            CelestialFrame::LCI,
+            CelestialFrame::LFPA,
+            CelestialFrame::LFME,
+            CelestialFrame::MCI,
+            CelestialFrame::MCMF,
+            CelestialFrame::EMBI,
+            CelestialFrame::SSBI,
         ];
         for f in frames {
-            assert_eq!(f.to_string().parse::<ReferenceFrame>().unwrap(), f);
+            assert_eq!(f.to_string().parse::<CelestialFrame>().unwrap(), f);
         }
     }
 
     #[test]
-    fn test_reference_frame_center_naif_id() {
-        assert_eq!(ReferenceFrame::GCRF.center_naif_id(), 399);
-        assert_eq!(ReferenceFrame::ITRF.center_naif_id(), 399);
-        assert_eq!(ReferenceFrame::EME2000.center_naif_id(), 399);
-        assert_eq!(ReferenceFrame::LCI.center_naif_id(), 301);
-        assert_eq!(ReferenceFrame::LFPA.center_naif_id(), 301);
-        assert_eq!(ReferenceFrame::LFME.center_naif_id(), 301);
-        assert_eq!(ReferenceFrame::MCI.center_naif_id(), 499);
-        assert_eq!(ReferenceFrame::MCMF.center_naif_id(), 499);
-        assert_eq!(ReferenceFrame::EMBI.center_naif_id(), 3);
-        assert_eq!(ReferenceFrame::SSBI.center_naif_id(), 0);
-        assert_eq!(ReferenceFrame::BodyCenteredICRF(599).center_naif_id(), 599);
-        assert_eq!(ReferenceFrame::BodyFixedIAU(499).center_naif_id(), 499);
+    fn test_celestial_frame_center_naif_id() {
+        assert_eq!(CelestialFrame::GCRF.center_naif_id(), 399);
+        assert_eq!(CelestialFrame::ITRF.center_naif_id(), 399);
+        assert_eq!(CelestialFrame::EME2000.center_naif_id(), 399);
+        assert_eq!(CelestialFrame::LCI.center_naif_id(), 301);
+        assert_eq!(CelestialFrame::LFPA.center_naif_id(), 301);
+        assert_eq!(CelestialFrame::LFME.center_naif_id(), 301);
+        assert_eq!(CelestialFrame::MCI.center_naif_id(), 499);
+        assert_eq!(CelestialFrame::MCMF.center_naif_id(), 499);
+        assert_eq!(CelestialFrame::EMBI.center_naif_id(), 3);
+        assert_eq!(CelestialFrame::SSBI.center_naif_id(), 0);
+        assert_eq!(CelestialFrame::BodyCenteredICRF(599).center_naif_id(), 599);
+        assert_eq!(CelestialFrame::BodyFixedIAU(499).center_naif_id(), 499);
         assert_eq!(
-            ReferenceFrame::BodyFixedPCK {
+            CelestialFrame::BodyFixedPCK {
                 center: 301,
                 frame_id: 31008
             }
@@ -1433,20 +1433,20 @@ mod tests {
     }
 
     #[test]
-    fn test_reference_frame_serde_roundtrip() {
+    fn test_celestial_frame_serde_roundtrip() {
         let frames = [
-            ReferenceFrame::GCRF,
-            ReferenceFrame::LFPA,
-            ReferenceFrame::BodyCenteredICRF(4),
-            ReferenceFrame::BodyFixedIAU(499),
-            ReferenceFrame::BodyFixedPCK {
+            CelestialFrame::GCRF,
+            CelestialFrame::LFPA,
+            CelestialFrame::BodyCenteredICRF(4),
+            CelestialFrame::BodyFixedIAU(499),
+            CelestialFrame::BodyFixedPCK {
                 center: 301,
                 frame_id: 31008,
             },
         ];
         for f in frames {
             let json = serde_json::to_string(&f).unwrap();
-            let back: ReferenceFrame = serde_json::from_str(&json).unwrap();
+            let back: CelestialFrame = serde_json::from_str(&json).unwrap();
             assert_eq!(back, f);
         }
     }
@@ -1456,7 +1456,7 @@ mod tests {
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let x = Vector3::new(1.0, 2.0, 3.0);
         let out =
-            position_frame_to_frame(ReferenceFrame::GCRF, ReferenceFrame::GCRF, epc, x).unwrap();
+            position_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::GCRF, epc, x).unwrap();
         assert_eq!(out, x);
     }
 
@@ -1467,7 +1467,7 @@ mod tests {
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let x = Vector3::new(R_EARTH + 500e3, 1e5, 2e5);
         let via_router =
-            position_frame_to_frame(ReferenceFrame::GCRF, ReferenceFrame::ITRF, epc, x).unwrap();
+            position_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::ITRF, epc, x).unwrap();
         let pairwise = crate::frames::position_gcrf_to_itrf(epc, x);
         for i in 0..3 {
             assert_eq!(via_router[i], pairwise[i]);
@@ -1494,8 +1494,8 @@ mod tests {
             None,
         );
         // Same (self-assigned) center as the source frame: rotation-only.
-        let inertial = ReferenceFrame::BodyCenteredICRF(-20001);
-        let fixed = ReferenceFrame::BodyFixedCustom {
+        let inertial = CelestialFrame::BodyCenteredICRF(-20001);
+        let fixed = CelestialFrame::BodyFixedCustom {
             center: -20001,
             key: 777,
         };
@@ -1528,7 +1528,7 @@ mod tests {
         }
 
         // Unregistered key surfaces an actionable error through the router.
-        let missing = ReferenceFrame::BodyFixedCustom {
+        let missing = CelestialFrame::BodyFixedCustom {
             center: -20001,
             key: 778,
         };
@@ -1543,7 +1543,7 @@ mod tests {
         // rotation: rotation_frame_to_frame never touches SPK or EOP here.
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let r =
-            rotation_frame_to_frame(ReferenceFrame::GCRF, ReferenceFrame::EME2000, epc).unwrap();
+            rotation_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::EME2000, epc).unwrap();
         let pairwise = crate::frames::rotation_gcrf_to_eme2000();
         for i in 0..3 {
             for j in 0..3 {
@@ -1552,7 +1552,7 @@ mod tests {
         }
         // Inverse composes back to the identity.
         let r_inv =
-            rotation_frame_to_frame(ReferenceFrame::EME2000, ReferenceFrame::GCRF, epc).unwrap();
+            rotation_frame_to_frame(CelestialFrame::EME2000, CelestialFrame::GCRF, epc).unwrap();
         let should_be_identity = r_inv * r;
         for i in 0..3 {
             for j in 0..3 {
@@ -1572,7 +1572,7 @@ mod tests {
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let x = vector6_from_array([R_EARTH + 500e3, 1e5, 2e5, 1.0, 7.5e3, 0.5e3]);
         let via_router =
-            state_frame_to_frame(ReferenceFrame::GCRF, ReferenceFrame::EME2000, epc, x).unwrap();
+            state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::EME2000, epc, x).unwrap();
         let pairwise = crate::frames::state_gcrf_to_eme2000(x);
         for i in 0..6 {
             assert_eq!(via_router[i], pairwise[i]);
@@ -1581,8 +1581,8 @@ mod tests {
         // orthogonality residual of the constant `bias_eme2000` rotation
         // (B^T*B - I ~ 4e-15) amplified by the ~6.9e6 m position magnitude.
         let back = state_frame_to_frame(
-            ReferenceFrame::EME2000,
-            ReferenceFrame::GCRF,
+            CelestialFrame::EME2000,
+            CelestialFrame::GCRF,
             epc,
             via_router,
         )
@@ -1598,8 +1598,8 @@ mod tests {
         // rotation-only + transport-velocity path (IAU analytic model). Exercises
         // state_icrf_to_iau_body / state_iau_body_to_icrf and the position path.
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let icrf = ReferenceFrame::BodyCenteredICRF(599);
-        let fixed = ReferenceFrame::BodyFixedIAU(599);
+        let icrf = CelestialFrame::BodyCenteredICRF(599);
+        let fixed = CelestialFrame::BodyFixedIAU(599);
         let x = vector6_from_array([7.0e7, -2.0e7, 3.0e7, 10.0, 25.0, -5.0]);
 
         let x_fixed = state_frame_to_frame(icrf, fixed, epc, x).unwrap();
@@ -1624,8 +1624,8 @@ mod tests {
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         assert!(
             rotation_frame_to_frame(
-                ReferenceFrame::BodyCenteredICRF(999999),
-                ReferenceFrame::BodyFixedIAU(999999),
+                CelestialFrame::BodyCenteredICRF(999999),
+                CelestialFrame::BodyFixedIAU(999999),
                 epc
             )
             .is_err()
@@ -1633,8 +1633,8 @@ mod tests {
         let x = vector6_from_array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
         assert!(
             state_frame_to_frame(
-                ReferenceFrame::BodyCenteredICRF(999999),
-                ReferenceFrame::BodyFixedIAU(999999),
+                CelestialFrame::BodyCenteredICRF(999999),
+                CelestialFrame::BodyFixedIAU(999999),
                 epc,
                 x
             )
@@ -1643,10 +1643,10 @@ mod tests {
     }
 
     #[test]
-    fn test_reference_frame_display_and_center_body_fixed_custom() {
+    fn test_celestial_frame_display_and_center_body_fixed_custom() {
         // The BodyFixedCustom Display and center_naif_id arms are not covered by
         // the other Display/center tests.
-        let f = ReferenceFrame::BodyFixedCustom {
+        let f = CelestialFrame::BodyFixedCustom {
             center: -20001,
             key: 7,
         };
@@ -1675,8 +1675,8 @@ mod tests {
             crate::constants::JD_J2000 + 500.0 / crate::constants::SECONDS_PER_DAY,
             TimeSystem::TDB,
         );
-        let center = ReferenceFrame::BodyCenteredICRF(-30001);
-        let fixed = ReferenceFrame::BodyFixedPCK {
+        let center = CelestialFrame::BodyCenteredICRF(-30001);
+        let fixed = CelestialFrame::BodyFixedPCK {
             center: -30001,
             frame_id,
         };
@@ -1711,14 +1711,14 @@ mod tests {
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let x = vector6_from_array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3]);
         let via_iau = state_frame_to_frame(
-            ReferenceFrame::GCRF,
-            ReferenceFrame::BodyFixedIAU(499),
+            CelestialFrame::GCRF,
+            CelestialFrame::BodyFixedIAU(499),
             epc,
             x,
         )
         .unwrap();
         let via_mcmf =
-            state_frame_to_frame(ReferenceFrame::GCRF, ReferenceFrame::MCMF, epc, x).unwrap();
+            state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::MCMF, epc, x).unwrap();
         for i in 0..6 {
             assert_abs_diff_eq!(via_iau[i], via_mcmf[i], epsilon = 1e-9);
         }
@@ -1751,7 +1751,7 @@ mod tests {
         // round trip for a Moon-centered (399, 301) pair.
         setup_global_test_spice();
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let frame = ReferenceFrame::Synodic {
+        let frame = CelestialFrame::Synodic {
             origin: SynodicOrigin::Secondary,
             primary: 399,
             secondary: 301,
@@ -1763,15 +1763,15 @@ mod tests {
         // secondary body defines the frame's center.
         let x_moon_gcrf = spk_state(NAIFId::Moon, NAIFId::Earth, epc).unwrap();
         let x_moon_syn =
-            state_frame_to_frame(ReferenceFrame::GCRF, frame, epc, x_moon_gcrf).unwrap();
+            state_frame_to_frame(CelestialFrame::GCRF, frame, epc, x_moon_gcrf).unwrap();
         for i in 0..3 {
             assert_abs_diff_eq!(x_moon_syn[i], 0.0, epsilon = 1e-3);
         }
 
         // Round trip through GCRF recovers an arbitrary input state.
         let x = vector6_from_array([1.0e8, -2.0e8, 5.0e7, 1.0e3, -2.0e3, 0.5e3]);
-        let x_syn = state_frame_to_frame(ReferenceFrame::GCRF, frame, epc, x).unwrap();
-        let x_back = state_frame_to_frame(frame, ReferenceFrame::GCRF, epc, x_syn).unwrap();
+        let x_syn = state_frame_to_frame(CelestialFrame::GCRF, frame, epc, x).unwrap();
+        let x_back = state_frame_to_frame(frame, CelestialFrame::GCRF, epc, x_syn).unwrap();
         for i in 0..3 {
             assert_abs_diff_eq!(x_back[i], x[i], epsilon = 1e-3);
         }
@@ -1791,8 +1791,8 @@ mod tests {
         );
         let cases = [
             (
-                ReferenceFrame::EMR,
-                ReferenceFrame::Synodic {
+                CelestialFrame::EMR,
+                CelestialFrame::Synodic {
                     origin: SynodicOrigin::Barycenter,
                     primary: 399,
                     secondary: 301,
@@ -1810,8 +1810,8 @@ mod tests {
                 1.0,
             ),
             (
-                ReferenceFrame::SER,
-                ReferenceFrame::Synodic {
+                CelestialFrame::SER,
+                CelestialFrame::Synodic {
                     origin: SynodicOrigin::Barycenter,
                     primary: 10,
                     secondary: 399,
@@ -1823,8 +1823,8 @@ mod tests {
                 1e-6,
             ),
             (
-                ReferenceFrame::GSE,
-                ReferenceFrame::Synodic {
+                CelestialFrame::GSE,
+                CelestialFrame::Synodic {
                     origin: SynodicOrigin::Primary,
                     primary: 399,
                     secondary: 10,
@@ -1835,10 +1835,10 @@ mod tests {
             ),
         ];
         for (named, generic, eps) in cases {
-            let x_named = state_frame_to_frame(ReferenceFrame::GCRF, named, epc, x).unwrap();
-            let x_generic = state_frame_to_frame(ReferenceFrame::GCRF, generic, epc, x).unwrap();
+            let x_named = state_frame_to_frame(CelestialFrame::GCRF, named, epc, x).unwrap();
+            let x_generic = state_frame_to_frame(CelestialFrame::GCRF, generic, epc, x).unwrap();
             assert_abs_diff_eq!(x_named, x_generic, epsilon = eps);
-            let x_rt = state_frame_to_frame(generic, ReferenceFrame::GCRF, epc, x_generic).unwrap();
+            let x_rt = state_frame_to_frame(generic, CelestialFrame::GCRF, epc, x_generic).unwrap();
             // Looser than the cross-comparison above: this is a pure
             // floating-point roundoff check on the generic frame's own
             // round trip (two SPK state queries plus the barycenter
@@ -1853,14 +1853,14 @@ mod tests {
     fn test_synodic_novel_pair_sun_mars() {
         setup_global_test_eop();
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let frame = ReferenceFrame::Synodic {
+        let frame = CelestialFrame::Synodic {
             origin: SynodicOrigin::Barycenter,
             primary: 10,
             secondary: 4,
         };
         // Mars (barycenter 4) sits on the +x axis of the Sun-Mars synodic frame.
         let x_mars_icrf = center_offset_state(frame.center_naif_id(), 4, epc).unwrap();
-        let r = rotation_frame_to_frame(ReferenceFrame::SSBI, frame, epc).unwrap();
+        let r = rotation_frame_to_frame(CelestialFrame::SSBI, frame, epc).unwrap();
         let p = r * x_mars_icrf.fixed_rows::<3>(0).into_owned();
         assert!(p[0] > 0.0);
         assert_abs_diff_eq!(p[1], 0.0, epsilon = 1e-3);
@@ -1870,8 +1870,8 @@ mod tests {
             vector6_from_array([R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]),
             DEGREES,
         );
-        let x_syn = state_frame_to_frame(ReferenceFrame::GCRF, frame, epc, x).unwrap();
-        let x_back = state_frame_to_frame(frame, ReferenceFrame::GCRF, epc, x_syn).unwrap();
+        let x_syn = state_frame_to_frame(CelestialFrame::GCRF, frame, epc, x).unwrap();
+        let x_back = state_frame_to_frame(frame, CelestialFrame::GCRF, epc, x_syn).unwrap();
         assert_abs_diff_eq!(x_back, x, epsilon = 1e-4);
     }
 
@@ -1881,19 +1881,19 @@ mod tests {
         setup_global_test_eop();
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         // Jupiter-Europa barycenter: Europa (502) has no packaged GM.
-        let frame = ReferenceFrame::Synodic {
+        let frame = CelestialFrame::Synodic {
             origin: SynodicOrigin::Barycenter,
             primary: 599,
             secondary: 502,
         };
         let x = SVector6::new(1e7, 0.0, 0.0, 0.0, 1e3, 0.0);
-        assert!(state_frame_to_frame(ReferenceFrame::GCRF, frame, epc, x).is_err());
+        assert!(state_frame_to_frame(CelestialFrame::GCRF, frame, epc, x).is_err());
     }
 
     #[test]
     #[parallel]
     fn test_synodic_display() {
-        let f = ReferenceFrame::Synodic {
+        let f = CelestialFrame::Synodic {
             origin: SynodicOrigin::Barycenter,
             primary: 399,
             secondary: 301,
@@ -1924,10 +1924,10 @@ mod tests {
             .collect();
 
         let pairs = [
-            (ReferenceFrame::GCRF, ReferenceFrame::ITRF),
-            (ReferenceFrame::GCRF, ReferenceFrame::LFPA),
-            (ReferenceFrame::GCRF, ReferenceFrame::EMR),
-            (ReferenceFrame::ITRF, ReferenceFrame::MCMF),
+            (CelestialFrame::GCRF, CelestialFrame::ITRF),
+            (CelestialFrame::GCRF, CelestialFrame::LFPA),
+            (CelestialFrame::GCRF, CelestialFrame::EMR),
+            (CelestialFrame::ITRF, CelestialFrame::MCMF),
         ];
         for (from, to) in pairs {
             let rot = rotations_frame_to_frame(from, to, &epochs).unwrap();
@@ -1961,16 +1961,16 @@ mod tests {
 
         // Identity pair broadcasts without evaluation
         let same = positions_frame_to_frame(
-            ReferenceFrame::GCRF,
-            ReferenceFrame::GCRF,
+            CelestialFrame::GCRF,
+            CelestialFrame::GCRF,
             &epochs,
             &positions,
         )
         .unwrap();
         assert_eq!(same, positions);
         let same = states_frame_to_frame(
-            ReferenceFrame::LCI,
-            ReferenceFrame::LCI,
+            CelestialFrame::LCI,
+            CelestialFrame::LCI,
             &epochs[..1],
             &states,
         )
@@ -1979,8 +1979,8 @@ mod tests {
 
         // One position, many epochs
         let one = positions_frame_to_frame(
-            ReferenceFrame::ITRF,
-            ReferenceFrame::GCRF,
+            CelestialFrame::ITRF,
+            CelestialFrame::GCRF,
             &epochs,
             &positions[..1],
         )
@@ -1989,8 +1989,8 @@ mod tests {
             assert_eq!(
                 one[i],
                 position_frame_to_frame(
-                    ReferenceFrame::ITRF,
-                    ReferenceFrame::GCRF,
+                    CelestialFrame::ITRF,
+                    CelestialFrame::GCRF,
                     epochs[i],
                     positions[0]
                 )
@@ -2001,8 +2001,8 @@ mod tests {
         // Errors: broadcast mismatch and unsupported body
         assert!(
             states_frame_to_frame(
-                ReferenceFrame::GCRF,
-                ReferenceFrame::ITRF,
+                CelestialFrame::GCRF,
+                CelestialFrame::ITRF,
                 &epochs[..2],
                 &states
             )
@@ -2010,16 +2010,16 @@ mod tests {
         );
         assert!(
             rotations_frame_to_frame(
-                ReferenceFrame::GCRF,
-                ReferenceFrame::BodyFixedIAU(-1234),
+                CelestialFrame::GCRF,
+                CelestialFrame::BodyFixedIAU(-1234),
                 &epochs
             )
             .is_err()
         );
         assert!(
             positions_frame_to_frame(
-                ReferenceFrame::GCRF,
-                ReferenceFrame::ITRF,
+                CelestialFrame::GCRF,
+                CelestialFrame::ITRF,
                 &epochs[..1],
                 &[]
             )

@@ -33,15 +33,15 @@ pub enum TrajectoryEvictionPolicy {
 /// used to convert `OrbitFrame::BodyCenteredInertial(center)` trajectory
 /// samples (named frames for the bodies that have them, generic
 /// `BodyCenteredICRF` otherwise).
-pub(crate) fn bci_reference_frame(center: i32) -> crate::frames::ReferenceFrame {
-    use crate::frames::ReferenceFrame;
+pub(crate) fn bci_reference_frame(center: i32) -> crate::frames::CelestialFrame {
+    use crate::frames::CelestialFrame;
     match center {
-        399 => ReferenceFrame::GCRF,
-        301 => ReferenceFrame::LCI,
-        499 => ReferenceFrame::MCI,
-        3 => ReferenceFrame::EMBI,
-        0 => ReferenceFrame::SSBI,
-        id => ReferenceFrame::BodyCenteredICRF(id),
+        399 => CelestialFrame::GCRF,
+        301 => CelestialFrame::LCI,
+        499 => CelestialFrame::MCI,
+        3 => CelestialFrame::EMBI,
+        0 => CelestialFrame::SSBI,
+        id => CelestialFrame::BodyCenteredICRF(id),
     }
 }
 
@@ -49,14 +49,14 @@ pub(crate) fn bci_reference_frame(center: i32) -> crate::frames::ReferenceFrame 
 /// (mirrors `CentralBody::fixed_frame`): `ITRF` for Earth, `LFPA` for the
 /// Moon, `MCMF` for Mars, the compiled-in IAU/WGCCRE frame for bodies in the
 /// embedded rotation table, and `None` for barycenters and unknown bodies.
-pub(crate) fn bci_fixed_frame(center: i32) -> Option<crate::frames::ReferenceFrame> {
-    use crate::frames::ReferenceFrame;
+pub(crate) fn bci_fixed_frame(center: i32) -> Option<crate::frames::CelestialFrame> {
+    use crate::frames::CelestialFrame;
     match center {
-        399 => Some(ReferenceFrame::ITRF),
-        301 => Some(ReferenceFrame::LFPA),
-        499 => Some(ReferenceFrame::MCMF),
+        399 => Some(CelestialFrame::ITRF),
+        301 => Some(CelestialFrame::LFPA),
+        499 => Some(CelestialFrame::MCMF),
         id if crate::frames::iau_rotation_model_ids().contains(&id) => {
-            Some(ReferenceFrame::BodyFixedIAU(id))
+            Some(CelestialFrame::BodyFixedIAU(id))
         }
         _ => None,
     }

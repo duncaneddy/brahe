@@ -75,8 +75,8 @@ equator on the ICRF equator - the standard IAU orientation convention
 ([Archinal et al., 2018](https://doi.org/10.1007/s10569-017-9805-5)) - since
 $\hat{z}_{\text{ICRF}} \times \hat{p}$ is perpendicular to both poles, hence
 lies in both equatorial planes: the line of nodes. Once registered under an
-integer key, `ReferenceFrame.BodyFixedCustom(naif_id, key)` is usable
-anywhere a [`ReferenceFrame`](../library_api/frames/router.md#referenceframe) is accepted:
+integer key, `CelestialFrame.BodyFixedCustom(naif_id, key)` is usable
+anywhere a [`CelestialFrame`](../library_api/frames/router.md#celestialframe) is accepted:
 
 ``` python
 --8<-- "./examples/examples/dawn_ceres_orbit.py:body_fixed_frame"

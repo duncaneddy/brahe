@@ -638,7 +638,7 @@ pub fn accel_third_body_field_for_body<P: IntoPosition>(
                     gravity, body
                 ))
             })?;
-            crate::frames::rotation_frame_to_frame(crate::frames::ReferenceFrame::GCRF, frame, epc)?
+            crate::frames::rotation_frame_to_frame(crate::frames::CelestialFrame::GCRF, frame, epc)?
         }
     };
 
@@ -1760,8 +1760,8 @@ mod tests {
         let central = CentralBody::EMB;
 
         let r_i2b = crate::frames::rotation_frame_to_frame(
-            crate::frames::ReferenceFrame::GCRF,
-            crate::frames::ReferenceFrame::ITRF,
+            crate::frames::CelestialFrame::GCRF,
+            crate::frames::CelestialFrame::ITRF,
             epc,
         )
         .unwrap();
@@ -1816,8 +1816,8 @@ mod tests {
         let r_object = Vector3::new(1.0e8, 5.0e7, 2.0e7);
 
         let r_i2b = crate::frames::rotation_frame_to_frame(
-            crate::frames::ReferenceFrame::GCRF,
-            crate::frames::ReferenceFrame::ITRF,
+            crate::frames::CelestialFrame::GCRF,
+            crate::frames::CelestialFrame::ITRF,
             epc,
         )
         .unwrap();
@@ -1865,8 +1865,8 @@ mod tests {
         let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 
         let r_i2b = crate::frames::rotation_frame_to_frame(
-            crate::frames::ReferenceFrame::GCRF,
-            crate::frames::ReferenceFrame::LFPA,
+            crate::frames::CelestialFrame::GCRF,
+            crate::frames::CelestialFrame::LFPA,
             epc,
         )
         .unwrap();
@@ -1927,8 +1927,8 @@ mod tests {
         let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 
         let r_i2b = crate::frames::rotation_frame_to_frame(
-            crate::frames::ReferenceFrame::GCRF,
-            crate::frames::ReferenceFrame::LFPA,
+            crate::frames::CelestialFrame::GCRF,
+            crate::frames::CelestialFrame::LFPA,
             epc,
         )
         .unwrap();
@@ -2045,8 +2045,8 @@ mod tests {
 
         // Internal variant with explicitly resolved resources
         let r_i2b = crate::frames::rotation_frame_to_frame(
-            crate::frames::ReferenceFrame::GCRF,
-            crate::frames::ReferenceFrame::ITRF,
+            crate::frames::CelestialFrame::GCRF,
+            crate::frames::CelestialFrame::ITRF,
             epc,
         )
         .unwrap();
@@ -2163,8 +2163,8 @@ mod tests {
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let r = Vector3::new(3.8e8, 0.0, 0.0);
         let r_i2b = crate::frames::rotation_frame_to_frame(
-            crate::frames::ReferenceFrame::GCRF,
-            crate::frames::ReferenceFrame::ITRF,
+            crate::frames::CelestialFrame::GCRF,
+            crate::frames::CelestialFrame::ITRF,
             epc,
         )
         .unwrap();

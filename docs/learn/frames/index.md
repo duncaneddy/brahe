@@ -34,7 +34,7 @@ Brahe also supports Moon- and Mars-fixed frames for multibody propagation and re
 - **MCMF (Mars-Centered Mars-Fixed)**: Mars-fixed frame, evaluated from the IAU/WGCCRE rotation model
 - **EMR / SER / GSE (Earth-Moon Rotating / Sun-Earth Rotating / Geocentric Solar Ecliptic)**: synodic frames that rotate with the line between two primary bodies
 
-See [Lunar Reference Frames](lunar_frames.md), [Mars Reference Frames](mars_frames.md), and [Synodic Reference Frames](synodic_frames.md) for details, and [Reference Frame Router](frame_transformations.md) for the `ReferenceFrame` router that converts between any two frames (including generic NAIF-ID variants for bodies without a dedicated named frame). Central-body propagation is covered in [Cislunar and Lunar Propagation](../orbit_propagation/numerical_propagation/cislunar_lunar_propagation.md) and [Propagation Around Other Central Bodies](../orbit_propagation/numerical_propagation/other_central_bodies.md).
+See [Lunar Reference Frames](lunar_frames.md), [Mars Reference Frames](mars_frames.md), and [Synodic Reference Frames](synodic_frames.md) for details, and [Reference Frame Router](frame_transformations.md) for the `CelestialFrame` router that converts between any two frames (including generic NAIF-ID variants for bodies without a dedicated named frame). Central-body propagation is covered in [Cislunar and Lunar Propagation](../orbit_propagation/numerical_propagation/cislunar_lunar_propagation.md) and [Propagation Around Other Central Bodies](../orbit_propagation/numerical_propagation/other_central_bodies.md).
 
 ## Available Transformations
 

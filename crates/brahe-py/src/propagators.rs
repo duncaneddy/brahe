@@ -619,7 +619,7 @@ impl PySGPPropagator {
     /// frame, converting from the source's native central-body frame.
     ///
     /// Args:
-    ///     frame (ReferenceFrame): Reference frame to express the state in.
+    ///     frame (CelestialFrame): Reference frame to express the state in.
     ///     epoch (Epoch): Target epoch for state computation.
     ///
     /// Returns:
@@ -628,7 +628,7 @@ impl PySGPPropagator {
     pub fn state_in_frame<'a>(
         &self,
         py: Python<'a>,
-        frame: &PyReferenceFrame,
+        frame: &PyCelestialFrame,
         epoch: &PyEpoch,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
         let state = SOrbitStateProvider::state_in_frame(&self.propagator, frame.frame, epoch.obj)?;
@@ -844,7 +844,7 @@ impl PySGPPropagator {
     /// central-body frame.
     ///
     /// Args:
-    ///     frame (ReferenceFrame): The reference frame to express the states in.
+    ///     frame (CelestialFrame): The reference frame to express the states in.
     ///     epochs (list[Epoch]): List of epochs for state computation.
     ///
     /// Returns:
@@ -853,7 +853,7 @@ impl PySGPPropagator {
     pub fn states_in_frame<'a>(
         &self,
         py: Python<'a>,
-        frame: &PyReferenceFrame,
+        frame: &PyCelestialFrame,
         epochs: Vec<PyRef<PyEpoch>>,
     ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
@@ -2882,7 +2882,7 @@ impl PyKeplerianPropagator {
     /// inertial frame).
     ///
     /// Args:
-    ///     frame (ReferenceFrame): Reference frame to express the state in.
+    ///     frame (CelestialFrame): Reference frame to express the state in.
     ///     epoch (Epoch): Target epoch for state computation.
     ///
     /// Returns:
@@ -2891,7 +2891,7 @@ impl PyKeplerianPropagator {
     pub fn state_in_frame<'a>(
         &self,
         py: Python<'a>,
-        frame: &PyReferenceFrame,
+        frame: &PyCelestialFrame,
         epoch: PyRef<PyEpoch>,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
         let state = self.propagator.state_in_frame(frame.frame, epoch.obj)?;
@@ -3127,7 +3127,7 @@ impl PyKeplerianPropagator {
     /// central-body frame.
     ///
     /// Args:
-    ///     frame (ReferenceFrame): The reference frame to express the states in.
+    ///     frame (CelestialFrame): The reference frame to express the states in.
     ///     epochs (list[Epoch]): List of epochs for state computation.
     ///
     /// Returns:
@@ -3136,7 +3136,7 @@ impl PyKeplerianPropagator {
     pub fn states_in_frame<'a>(
         &self,
         py: Python<'a>,
-        frame: &PyReferenceFrame,
+        frame: &PyCelestialFrame,
         epochs: Vec<PyRef<PyEpoch>>,
     ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
@@ -5251,7 +5251,7 @@ impl PyCentralBody {
     ///     gm (float): Gravitational parameter. Units: (m^3/s^2)
     ///     radius (float, optional): Mean or equatorial radius, if known. Units: (m)
     ///     omega (numpy.ndarray or list, optional): Body-fixed axial spin vector, if known. Units: (rad/s)
-    ///     fixed_frame (ReferenceFrame, optional): Body-fixed reference frame, required for
+    ///     fixed_frame (CelestialFrame, optional): Body-fixed reference frame, required for
     ///         spherical-harmonic gravity and body-fixed rotations.
     ///
     /// Returns:
@@ -5265,7 +5265,7 @@ impl PyCentralBody {
         gm: f64,
         radius: Option<f64>,
         omega: Option<Bound<'_, PyAny>>,
-        fixed_frame: Option<PyReferenceFrame>,
+        fixed_frame: Option<PyCelestialFrame>,
     ) -> PyResult<Self> {
         let omega_vec = match omega {
             Some(o) => Some(pyany_to_svector::<3>(&o)?),
@@ -5343,10 +5343,10 @@ impl PyCentralBody {
     /// ICRF-aligned inertial reference frame centered on this body.
     ///
     /// Returns:
-    ///     ReferenceFrame: `GCRF` for `Earth`, `LCI` for `Moon`, `MCI` for `Mars`, `EMBI`
+    ///     CelestialFrame: `GCRF` for `Earth`, `LCI` for `Moon`, `MCI` for `Mars`, `EMBI`
     ///     for `EMB`, `SSBI` for `SSB`, and `BodyCenteredICRF(naif_id)` for `Custom` bodies.
-    fn inertial_frame(&self) -> PyReferenceFrame {
-        PyReferenceFrame {
+    fn inertial_frame(&self) -> PyCelestialFrame {
+        PyCelestialFrame {
             frame: self.body.inertial_frame(),
         }
     }
@@ -5354,12 +5354,12 @@ impl PyCentralBody {
     /// Body-fixed reference frame of this body, if one is defined.
     ///
     /// Returns:
-    ///     ReferenceFrame or None: `ITRF` for `Earth`, `LFPA` for `Moon`, `MCMF` for `Mars`,
+    ///     CelestialFrame or None: `ITRF` for `Earth`, `LFPA` for `Moon`, `MCMF` for `Mars`,
     ///     `None` for `EMB`/`SSB`, and `custom.fixed_frame` for `Custom` bodies.
-    fn fixed_frame(&self) -> Option<PyReferenceFrame> {
+    fn fixed_frame(&self) -> Option<PyCelestialFrame> {
         self.body
             .fixed_frame()
-            .map(|frame| PyReferenceFrame { frame })
+            .map(|frame| PyCelestialFrame { frame })
     }
 
     /// Whether this central body is a barycenter (`EMB` or `SSB`).
@@ -5853,13 +5853,13 @@ impl PyThirdBody {
     /// Mars).
     ///
     /// Returns:
-    ///     ReferenceFrame | None: Body-fixed frame, or None for the
+    ///     CelestialFrame | None: Body-fixed frame, or None for the
     ///         barycenter variants, Custom bodies, and bodies without a
     ///         rotation model.
-    fn body_fixed_frame(&self) -> Option<PyReferenceFrame> {
+    fn body_fixed_frame(&self) -> Option<PyCelestialFrame> {
         self.body
             .body_fixed_frame()
-            .map(|f| PyReferenceFrame { frame: f })
+            .map(|f| PyCelestialFrame { frame: f })
     }
 
     fn __repr__(&self) -> String {
@@ -7361,7 +7361,7 @@ impl PyNumericalOrbitPropagator {
     /// propagator.
     ///
     /// Args:
-    ///     frame (ReferenceFrame): Reference frame to express the state in.
+    ///     frame (CelestialFrame): Reference frame to express the state in.
     ///     epoch (Epoch): Target epoch for state computation.
     ///
     /// Returns:
@@ -7373,7 +7373,7 @@ impl PyNumericalOrbitPropagator {
     pub fn state_in_frame<'a>(
         &self,
         py: Python<'a>,
-        frame: &PyReferenceFrame,
+        frame: &PyCelestialFrame,
         epoch: &PyEpoch,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
         let state = self
@@ -7604,7 +7604,7 @@ impl PyNumericalOrbitPropagator {
     /// central-body frame.
     ///
     /// Args:
-    ///     frame (ReferenceFrame): The reference frame to express the states in.
+    ///     frame (CelestialFrame): The reference frame to express the states in.
     ///     epochs (list[Epoch]): List of epochs for state computation.
     ///
     /// Returns:
@@ -7613,7 +7613,7 @@ impl PyNumericalOrbitPropagator {
     pub fn states_in_frame<'a>(
         &self,
         py: Python<'a>,
-        frame: &PyReferenceFrame,
+        frame: &PyCelestialFrame,
         epochs: Vec<PyRef<PyEpoch>>,
     ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();

@@ -2444,12 +2444,12 @@ impl SOrbitStateProvider for SGPPropagator {
     /// body's inertial frame) into `frame` via the reference frame router.
     fn state_in_frame(
         &self,
-        frame: crate::frames::ReferenceFrame,
+        frame: crate::frames::CelestialFrame,
         epoch: Epoch,
     ) -> Result<Vector6<f64>, BraheError> {
         let x_gcrf = self.state_gcrf(epoch)?;
         crate::frames::state_frame_to_frame(
-            crate::frames::ReferenceFrame::GCRF,
+            crate::frames::CelestialFrame::GCRF,
             frame,
             epoch,
             x_gcrf,
@@ -2542,7 +2542,7 @@ impl crate::utils::DOrbitStateProvider for SGPPropagator {
 
     fn state_in_frame(
         &self,
-        frame: crate::frames::ReferenceFrame,
+        frame: crate::frames::CelestialFrame,
         epoch: Epoch,
     ) -> Result<Vector6<f64>, BraheError> {
         <Self as SOrbitStateProvider>::state_in_frame(self, frame, epoch)
@@ -4096,7 +4096,7 @@ mod tests {
         // SGPPropagator is Earth-centered: state_bci is its GCRF state,
         // state_bcbf its ITRF state, and state_in_frame converts from GCRF
         // via the reference frame router.
-        use crate::frames::ReferenceFrame;
+        use crate::frames::CelestialFrame;
         use approx::assert_abs_diff_eq;
         setup_global_test_eop();
 
@@ -4115,7 +4115,7 @@ mod tests {
             assert_abs_diff_eq!(bcbf[i], itrf[i], epsilon = 0.0);
         }
 
-        let in_itrf = prop.state_in_frame(ReferenceFrame::ITRF, epoch).unwrap();
+        let in_itrf = prop.state_in_frame(CelestialFrame::ITRF, epoch).unwrap();
         for i in 0..6 {
             assert_abs_diff_eq!(in_itrf[i], itrf[i], epsilon = 1e-6);
         }

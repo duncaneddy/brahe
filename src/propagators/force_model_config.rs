@@ -2037,19 +2037,19 @@ impl ThirdBody {
     /// MCMF for Mars, IAU frames for the other planet centers).
     ///
     /// # Returns
-    /// - `Some(ReferenceFrame)` when the body has a known body-fixed frame
+    /// - `Some(CelestialFrame)` when the body has a known body-fixed frame
     /// - `None` for the `*Barycenter` variants, `Custom` bodies, and bodies
     ///   without a rotation model
     ///
     /// # Examples
     /// ```
-    /// use brahe::frames::ReferenceFrame;
+    /// use brahe::frames::CelestialFrame;
     /// use brahe::propagators::force_model_config::ThirdBody;
     ///
-    /// assert_eq!(ThirdBody::Earth.body_fixed_frame(), Some(ReferenceFrame::ITRF));
+    /// assert_eq!(ThirdBody::Earth.body_fixed_frame(), Some(CelestialFrame::ITRF));
     /// assert_eq!(ThirdBody::NeptuneBarycenter.body_fixed_frame(), None);
     /// ```
-    pub fn body_fixed_frame(&self) -> Option<crate::frames::ReferenceFrame> {
+    pub fn body_fixed_frame(&self) -> Option<crate::frames::CelestialFrame> {
         self.as_central_body().and_then(|cb| cb.fixed_frame())
     }
 }
@@ -3008,21 +3008,21 @@ mod tests {
     #[test]
     #[serial_test::parallel]
     fn test_third_body_as_central_body_and_fixed_frame() {
-        use crate::frames::ReferenceFrame;
+        use crate::frames::CelestialFrame;
         assert_eq!(ThirdBody::Earth.as_central_body(), Some(CentralBody::Earth));
         assert_eq!(ThirdBody::Moon.as_central_body(), Some(CentralBody::Moon));
         assert_eq!(ThirdBody::Mars.as_central_body(), Some(CentralBody::Mars));
         assert_eq!(
             ThirdBody::Earth.body_fixed_frame(),
-            Some(ReferenceFrame::ITRF)
+            Some(CelestialFrame::ITRF)
         );
         assert_eq!(
             ThirdBody::Moon.body_fixed_frame(),
-            Some(ReferenceFrame::LFPA)
+            Some(CelestialFrame::LFPA)
         );
         assert_eq!(
             ThirdBody::Mars.body_fixed_frame(),
-            Some(ReferenceFrame::MCMF)
+            Some(CelestialFrame::MCMF)
         );
         // Planet centers resolve through from_naif_id (IAU frames)
         assert!(ThirdBody::Jupiter.body_fixed_frame().is_some());
@@ -3528,7 +3528,7 @@ mod tests {
             gm: 0.0,
             radius: None,
             omega: None,
-            fixed_frame: Some(crate::frames::ReferenceFrame::BodyFixedIAU(-1)),
+            fixed_frame: Some(crate::frames::CelestialFrame::BodyFixedIAU(-1)),
         });
         let config = ForceModelConfig {
             central_body: custom,

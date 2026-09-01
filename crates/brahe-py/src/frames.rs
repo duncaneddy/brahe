@@ -2905,7 +2905,7 @@ fn py_state_gse_to_gcrf<'py>(
 // Reference Frame Router
 // ============================================================================
 
-/// Origin choice for a generic synodic frame (`ReferenceFrame.Synodic`):
+/// Origin choice for a generic synodic frame (`CelestialFrame.Synodic`):
 /// `Primary`, `Secondary`, or the GM-weighted two-body `Barycenter`.
 #[pyclass(module = "brahe._brahe", eq, from_py_object)]
 #[pyo3(name = "SynodicOrigin")]
@@ -2967,101 +2967,101 @@ impl PySynodicOrigin {
 ///     import brahe as bh
 ///
 ///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
-///     r = bh.rotation_frame_to_frame(bh.ReferenceFrame.MCI, bh.ReferenceFrame.MCMF, epc)
+///     r = bh.rotation_frame_to_frame(bh.CelestialFrame.MCI, bh.CelestialFrame.MCMF, epc)
 ///     ```
 #[pyclass(module = "brahe._brahe", eq, from_py_object)]
-#[pyo3(name = "ReferenceFrame")]
+#[pyo3(name = "CelestialFrame")]
 #[derive(Clone, PartialEq)]
-pub struct PyReferenceFrame {
-    pub(crate) frame: frames::ReferenceFrame,
+pub struct PyCelestialFrame {
+    pub(crate) frame: frames::CelestialFrame,
 }
 
 #[pymethods]
-impl PyReferenceFrame {
+impl PyCelestialFrame {
     /// Geocentric Celestial Reference Frame (ICRF-aligned, Earth-centered).
     #[classattr]
     #[allow(non_snake_case)]
     fn GCRF() -> Self {
-        PyReferenceFrame { frame: frames::ReferenceFrame::GCRF }
+        PyCelestialFrame { frame: frames::CelestialFrame::GCRF }
     }
 
     /// International Terrestrial Reference Frame (Earth-fixed).
     #[classattr]
     #[allow(non_snake_case)]
     fn ITRF() -> Self {
-        PyReferenceFrame { frame: frames::ReferenceFrame::ITRF }
+        PyCelestialFrame { frame: frames::CelestialFrame::ITRF }
     }
 
-    /// Alias for `ReferenceFrame.GCRF`: the Earth-Centered Inertial (ECI)
+    /// Alias for `CelestialFrame.GCRF`: the Earth-Centered Inertial (ECI)
     /// frame is realized as GCRF.
     #[classattr]
     #[allow(non_snake_case)]
     fn ECI() -> Self {
-        PyReferenceFrame { frame: frames::ReferenceFrame::ECI }
+        PyCelestialFrame { frame: frames::CelestialFrame::ECI }
     }
 
-    /// Alias for `ReferenceFrame.ITRF`: the Earth-Centered Earth-Fixed (ECEF)
+    /// Alias for `CelestialFrame.ITRF`: the Earth-Centered Earth-Fixed (ECEF)
     /// frame is realized as ITRF.
     #[classattr]
     #[allow(non_snake_case)]
     fn ECEF() -> Self {
-        PyReferenceFrame { frame: frames::ReferenceFrame::ECEF }
+        PyCelestialFrame { frame: frames::CelestialFrame::ECEF }
     }
 
     /// Earth Mean Equator and Equinox of J2000.0.
     #[classattr]
     #[allow(non_snake_case)]
     fn EME2000() -> Self {
-        PyReferenceFrame { frame: frames::ReferenceFrame::EME2000 }
+        PyCelestialFrame { frame: frames::CelestialFrame::EME2000 }
     }
 
     /// Lunar-Centered Inertial (ICRF-aligned, Moon-centered).
     #[classattr]
     #[allow(non_snake_case)]
     fn LCI() -> Self {
-        PyReferenceFrame { frame: frames::ReferenceFrame::LCI }
+        PyCelestialFrame { frame: frames::CelestialFrame::LCI }
     }
 
     /// Lunar-Fixed Principal Axis (DE440 `MOON_PA_DE440`).
     #[classattr]
     #[allow(non_snake_case)]
     fn LFPA() -> Self {
-        PyReferenceFrame { frame: frames::ReferenceFrame::LFPA }
+        PyCelestialFrame { frame: frames::CelestialFrame::LFPA }
     }
 
     /// Lunar-Fixed Mean Earth/polar-axis.
     #[classattr]
     #[allow(non_snake_case)]
     fn LFME() -> Self {
-        PyReferenceFrame { frame: frames::ReferenceFrame::LFME }
+        PyCelestialFrame { frame: frames::CelestialFrame::LFME }
     }
 
     /// Mars-Centered Inertial (ICRF-aligned, Mars-centered).
     #[classattr]
     #[allow(non_snake_case)]
     fn MCI() -> Self {
-        PyReferenceFrame { frame: frames::ReferenceFrame::MCI }
+        PyCelestialFrame { frame: frames::CelestialFrame::MCI }
     }
 
     /// Mars-Centered Mars-Fixed (IAU/WGCCRE Mars rotation model).
     #[classattr]
     #[allow(non_snake_case)]
     fn MCMF() -> Self {
-        PyReferenceFrame { frame: frames::ReferenceFrame::MCMF }
+        PyCelestialFrame { frame: frames::CelestialFrame::MCMF }
     }
 
     /// Earth-Moon Barycentric Inertial (ICRF-aligned).
     #[classattr]
     #[allow(non_snake_case)]
     fn EMBI() -> Self {
-        PyReferenceFrame { frame: frames::ReferenceFrame::EMBI }
+        PyCelestialFrame { frame: frames::CelestialFrame::EMBI }
     }
 
     /// Solar System Barycentric Inertial (ICRF-aligned).
     #[classattr]
     #[allow(non_snake_case)]
     fn SSBI() -> Self {
-        PyReferenceFrame { frame: frames::ReferenceFrame::SSBI }
+        PyCelestialFrame { frame: frames::CelestialFrame::SSBI }
     }
 
     /// Earth-Moon Rotating frame (NASA TP-20220014814): x̂ Earth→Moon, ẑ
@@ -3070,7 +3070,7 @@ impl PyReferenceFrame {
     #[classattr]
     #[allow(non_snake_case)]
     fn EMR() -> Self {
-        PyReferenceFrame { frame: frames::ReferenceFrame::EMR }
+        PyCelestialFrame { frame: frames::CelestialFrame::EMR }
     }
 
     /// Sun-Earth Rotating frame (NASA TP-20220014814): x̂ Sun→Earth, ẑ
@@ -3079,7 +3079,7 @@ impl PyReferenceFrame {
     #[classattr]
     #[allow(non_snake_case)]
     fn SER() -> Self {
-        PyReferenceFrame { frame: frames::ReferenceFrame::SER }
+        PyCelestialFrame { frame: frames::CelestialFrame::SER }
     }
 
     /// Geocentric Solar Ecliptic frame (NASA TP-20220014814): x̂ Earth→Sun,
@@ -3087,7 +3087,7 @@ impl PyReferenceFrame {
     #[classattr]
     #[allow(non_snake_case)]
     fn GSE() -> Self {
-        PyReferenceFrame { frame: frames::ReferenceFrame::GSE }
+        PyCelestialFrame { frame: frames::CelestialFrame::GSE }
     }
 
     /// ICRF-aligned axes centered on the given NAIF ID.
@@ -3096,11 +3096,11 @@ impl PyReferenceFrame {
     ///     naif_id (int): NAIF ID of the frame's center
     ///
     /// Returns:
-    ///     ReferenceFrame: ICRF-aligned frame centered on `naif_id`
+    ///     CelestialFrame: ICRF-aligned frame centered on `naif_id`
     #[staticmethod]
     #[allow(non_snake_case)]
     fn BodyCenteredICRF(naif_id: i32) -> Self {
-        PyReferenceFrame { frame: frames::ReferenceFrame::BodyCenteredICRF(naif_id) }
+        PyCelestialFrame { frame: frames::CelestialFrame::BodyCenteredICRF(naif_id) }
     }
 
     /// IAU/WGCCRE body-fixed frame of the given NAIF ID, centered on that
@@ -3110,11 +3110,11 @@ impl PyReferenceFrame {
     ///     naif_id (int): NAIF ID of the body (see `iau_rotation_model_ids` for the supported set)
     ///
     /// Returns:
-    ///     ReferenceFrame: IAU/WGCCRE body-fixed frame of `naif_id`
+    ///     CelestialFrame: IAU/WGCCRE body-fixed frame of `naif_id`
     #[staticmethod]
     #[allow(non_snake_case)]
     fn BodyFixedIAU(naif_id: i32) -> Self {
-        PyReferenceFrame { frame: frames::ReferenceFrame::BodyFixedIAU(naif_id) }
+        PyCelestialFrame { frame: frames::CelestialFrame::BodyFixedIAU(naif_id) }
     }
 
     /// Body-fixed frame evaluated from a loaded binary PCK's `frame_id`,
@@ -3125,11 +3125,11 @@ impl PyReferenceFrame {
     ///     frame_id (int): NAIF binary PCK frame class ID (e.g. 31008 for `MOON_PA_DE440`)
     ///
     /// Returns:
-    ///     ReferenceFrame: Body-fixed frame for `frame_id`, centered on `center`
+    ///     CelestialFrame: Body-fixed frame for `frame_id`, centered on `center`
     #[staticmethod]
     #[allow(non_snake_case)]
     fn BodyFixedPCK(center: i32, frame_id: i32) -> Self {
-        PyReferenceFrame { frame: frames::ReferenceFrame::BodyFixedPCK { center, frame_id } }
+        PyCelestialFrame { frame: frames::CelestialFrame::BodyFixedPCK { center, frame_id } }
     }
 
     /// Body-fixed frame evaluated from a user-registered rotation callback
@@ -3151,11 +3151,11 @@ impl PyReferenceFrame {
     ///     key (int): Registry key the frame's callbacks were registered under
     ///
     /// Returns:
-    ///     ReferenceFrame: Custom body-fixed frame for `key`, centered on `center`
+    ///     CelestialFrame: Custom body-fixed frame for `key`, centered on `center`
     #[staticmethod]
     #[allow(non_snake_case)]
     fn BodyFixedCustom(center: i32, key: u32) -> Self {
-        PyReferenceFrame { frame: frames::ReferenceFrame::BodyFixedCustom { center, key } }
+        PyCelestialFrame { frame: frames::CelestialFrame::BodyFixedCustom { center, key } }
     }
 
     /// Generic two-body synodic (rotating) frame: x̂ from `primary` toward
@@ -3179,12 +3179,12 @@ impl PyReferenceFrame {
     ///     secondary (int): NAIF ID of the secondary body
     ///
     /// Returns:
-    ///     ReferenceFrame: Generic synodic frame for the pair
+    ///     CelestialFrame: Generic synodic frame for the pair
     #[staticmethod]
     #[allow(non_snake_case)]
     fn Synodic(origin: PySynodicOrigin, primary: i32, secondary: i32) -> Self {
-        PyReferenceFrame {
-            frame: frames::ReferenceFrame::Synodic { origin: origin.origin, primary, secondary },
+        PyCelestialFrame {
+            frame: frames::CelestialFrame::Synodic { origin: origin.origin, primary, secondary },
         }
     }
 
@@ -3195,11 +3195,11 @@ impl PyReferenceFrame {
     #[getter]
     fn synodic_origin(&self) -> Option<PySynodicOrigin> {
         let origin = match self.frame {
-            frames::ReferenceFrame::Synodic { origin, .. } => origin,
-            frames::ReferenceFrame::EMR | frames::ReferenceFrame::SER => {
+            frames::CelestialFrame::Synodic { origin, .. } => origin,
+            frames::CelestialFrame::EMR | frames::CelestialFrame::SER => {
                 frames::SynodicOrigin::Barycenter
             }
-            frames::ReferenceFrame::GSE => frames::SynodicOrigin::Primary,
+            frames::CelestialFrame::GSE => frames::SynodicOrigin::Primary,
             _ => return None,
         };
         Some(PySynodicOrigin { origin })
@@ -3212,9 +3212,9 @@ impl PyReferenceFrame {
     #[getter]
     fn synodic_primary(&self) -> Option<i32> {
         match self.frame {
-            frames::ReferenceFrame::Synodic { primary, .. } => Some(primary),
-            frames::ReferenceFrame::EMR | frames::ReferenceFrame::GSE => Some(399),
-            frames::ReferenceFrame::SER => Some(10),
+            frames::CelestialFrame::Synodic { primary, .. } => Some(primary),
+            frames::CelestialFrame::EMR | frames::CelestialFrame::GSE => Some(399),
+            frames::CelestialFrame::SER => Some(10),
             _ => None,
         }
     }
@@ -3226,15 +3226,15 @@ impl PyReferenceFrame {
     #[getter]
     fn synodic_secondary(&self) -> Option<i32> {
         match self.frame {
-            frames::ReferenceFrame::Synodic { secondary, .. } => Some(secondary),
-            frames::ReferenceFrame::EMR => Some(301),
-            frames::ReferenceFrame::SER => Some(399),
-            frames::ReferenceFrame::GSE => Some(10),
+            frames::CelestialFrame::Synodic { secondary, .. } => Some(secondary),
+            frames::CelestialFrame::EMR => Some(301),
+            frames::CelestialFrame::SER => Some(399),
+            frames::CelestialFrame::GSE => Some(10),
             _ => None,
         }
     }
 
-    /// Parses a `ReferenceFrame` from its string representation (named
+    /// Parses a `CelestialFrame` from its string representation (named
     /// variants only, case-insensitive), plus the common aliases `"ECI"`
     /// (-> `GCRF`) and `"ECEF"` (-> `ITRF`).
     ///
@@ -3242,7 +3242,7 @@ impl PyReferenceFrame {
     ///     s (str): String representation of the reference frame
     ///
     /// Returns:
-    ///     ReferenceFrame: Parsed reference frame
+    ///     CelestialFrame: Parsed reference frame
     ///
     /// Raises:
     ///     ValueError: If `s` is not a recognized reference frame name
@@ -3251,12 +3251,12 @@ impl PyReferenceFrame {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     assert bh.ReferenceFrame.from_string("ECI") == bh.ReferenceFrame.GCRF
+    ///     assert bh.CelestialFrame.from_string("ECI") == bh.CelestialFrame.GCRF
     ///     ```
     #[staticmethod]
     fn from_string(s: &str) -> PyResult<Self> {
-        s.parse::<frames::ReferenceFrame>()
-            .map(|frame| PyReferenceFrame { frame })
+        s.parse::<frames::CelestialFrame>()
+            .map(|frame| PyCelestialFrame { frame })
             .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))
     }
 
@@ -3265,7 +3265,7 @@ impl PyReferenceFrame {
     }
 
     fn __repr__(&self) -> String {
-        format!("ReferenceFrame.{}", self.frame)
+        format!("CelestialFrame.{}", self.frame)
     }
 }
 
@@ -3279,8 +3279,8 @@ impl PyReferenceFrame {
 /// of those frames still queries SPK.
 ///
 /// Args:
-///     from_frame (ReferenceFrame): Source reference frame
-///     to_frame (ReferenceFrame): Target reference frame
+///     from_frame (CelestialFrame): Source reference frame
+///     to_frame (CelestialFrame): Target reference frame
 ///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
 ///         one matrix per epoch.
 ///
@@ -3296,15 +3296,15 @@ impl PyReferenceFrame {
 ///     import brahe as bh
 ///
 ///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
-///     r = bh.rotation_frame_to_frame(bh.ReferenceFrame.MCI, bh.ReferenceFrame.MCMF, epc)
+///     r = bh.rotation_frame_to_frame(bh.CelestialFrame.MCI, bh.CelestialFrame.MCMF, epc)
 ///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(from_frame, to_frame, epc)")]
 #[pyo3(name = "rotation_frame_to_frame")]
 fn py_rotation_frame_to_frame<'py>(
     py: Python<'py>,
-    from_frame: PyReferenceFrame,
-    to_frame: PyReferenceFrame,
+    from_frame: PyCelestialFrame,
+    to_frame: PyCelestialFrame,
     epc: &Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyAny>> {
     let (from, to) = (from_frame.frame, to_frame.frame);
@@ -3318,7 +3318,7 @@ fn py_rotation_frame_to_frame<'py>(
 
 /// Registers (or replaces) a user-defined body-fixed frame under `key`.
 ///
-/// The frame becomes usable as `ReferenceFrame.BodyFixedCustom(center, key)`
+/// The frame becomes usable as `CelestialFrame.BodyFixedCustom(center, key)`
 /// in every frame-router function. `rotation` must be a callable taking an
 /// `Epoch` and returning a 3x3 rotation matrix (ICRF -> body-fixed, i.e.
 /// `v_body = R @ v_icrf`) as a numpy array or nested list. If `omega` is
@@ -3332,7 +3332,7 @@ fn py_rotation_frame_to_frame<'py>(
 ///
 /// Args:
 ///     key (int): Identifier to register the frame under; the same value is
-///         passed to `ReferenceFrame.BodyFixedCustom`.
+///         passed to `CelestialFrame.BodyFixedCustom`.
 ///     rotation (callable): Callable `Epoch -> 3x3 array` returning the
 ///         ICRF -> body-fixed rotation matrix.
 ///     omega (callable, optional): Callable `Epoch -> length-3 array`
@@ -3351,7 +3351,7 @@ fn py_rotation_frame_to_frame<'py>(
 ///         return np.array([[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]])
 ///
 ///     bh.register_custom_frame(42, spin)
-///     frame = bh.ReferenceFrame.BodyFixedCustom(-20001, 42)
+///     frame = bh.CelestialFrame.BodyFixedCustom(-20001, 42)
 ///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(key, rotation, omega=None)")]
@@ -3416,8 +3416,8 @@ fn py_unregister_custom_frame(key: u32) -> bool {
 /// those frames is not SPK-free.
 ///
 /// Args:
-///     from_frame (ReferenceFrame): Source reference frame
-///     to_frame (ReferenceFrame): Target reference frame
+///     from_frame (CelestialFrame): Source reference frame
+///     to_frame (CelestialFrame): Target reference frame
 ///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x (numpy.ndarray or list): Cartesian position in `from_frame` axes/center (m), shape `(3,)`, or a batch
@@ -3445,7 +3445,7 @@ fn py_unregister_custom_frame(key: u32) -> bool {
 ///
 ///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
 ///     x_gcrf = [bh.R_EARTH + 500e3, 0.0, 0.0]
-///     x_itrf = bh.position_frame_to_frame(bh.ReferenceFrame.GCRF, bh.ReferenceFrame.ITRF, epc, x_gcrf)
+///     x_itrf = bh.position_frame_to_frame(bh.CelestialFrame.GCRF, bh.CelestialFrame.ITRF, epc, x_gcrf)
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (from_frame, to_frame, epc, x, axis=-1))]
@@ -3453,8 +3453,8 @@ fn py_unregister_custom_frame(key: u32) -> bool {
 #[pyo3(name = "position_frame_to_frame")]
 fn py_position_frame_to_frame<'py>(
     py: Python<'py>,
-    from_frame: PyReferenceFrame,
-    to_frame: PyReferenceFrame,
+    from_frame: PyCelestialFrame,
+    to_frame: PyCelestialFrame,
     epc: &Bound<'py, PyAny>,
     x: &Bound<'py, PyAny>,
     axis: isize,
@@ -3484,8 +3484,8 @@ fn py_position_frame_to_frame<'py>(
 /// like GCRF <-> GSE.
 ///
 /// Args:
-///     from_frame (ReferenceFrame): Source reference frame
-///     to_frame (ReferenceFrame): Target reference frame
+///     from_frame (CelestialFrame): Source reference frame
+///     to_frame (CelestialFrame): Target reference frame
 ///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x (numpy.ndarray or list): Cartesian state in `from_frame` axes/center `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
@@ -3511,7 +3511,7 @@ fn py_position_frame_to_frame<'py>(
 ///
 ///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
 ///     x_gcrf = [1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3]
-///     x_lfpa = bh.state_frame_to_frame(bh.ReferenceFrame.GCRF, bh.ReferenceFrame.LFPA, epc, x_gcrf)
+///     x_lfpa = bh.state_frame_to_frame(bh.CelestialFrame.GCRF, bh.CelestialFrame.LFPA, epc, x_gcrf)
 ///     ```
 #[pyfunction]
 #[pyo3(signature = (from_frame, to_frame, epc, x, axis=-1))]
@@ -3519,8 +3519,8 @@ fn py_position_frame_to_frame<'py>(
 #[pyo3(name = "state_frame_to_frame")]
 fn py_state_frame_to_frame<'py>(
     py: Python<'py>,
-    from_frame: PyReferenceFrame,
-    to_frame: PyReferenceFrame,
+    from_frame: PyCelestialFrame,
+    to_frame: PyCelestialFrame,
     epc: &Bound<'py, PyAny>,
     x: &Bound<'py, PyAny>,
     axis: isize,

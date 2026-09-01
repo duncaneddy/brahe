@@ -14,6 +14,7 @@ from brahe import (
     R_EARTH,
     R_MOON,
     AngleFormat,
+    CelestialFrame,
     CentralBody,
     Epoch,
     ForceModelConfig,
@@ -23,7 +24,6 @@ from brahe import (
     NumericalOrbitPropagator,
     NumericalPropagationConfig,
     OrbitFrame,
-    ReferenceFrame,
     TimeSystem,
     VariationalConfig,
     orbital_period,
@@ -1288,10 +1288,10 @@ def test_numericalorbitpropagator_dorbitstateprovider_states_bci_bcbf_in_frame(
         single = prop.state_bcbf(epochs[i])
         np.testing.assert_allclose(state, single, rtol=1e-10)
 
-    states_itrf = prop.states_in_frame(ReferenceFrame.ITRF, epochs)
+    states_itrf = prop.states_in_frame(CelestialFrame.ITRF, epochs)
     assert len(states_itrf) == 5
     for i, state in enumerate(states_itrf):
-        single = prop.state_in_frame(ReferenceFrame.ITRF, epochs[i])
+        single = prop.state_in_frame(CelestialFrame.ITRF, epochs[i])
         np.testing.assert_allclose(state, single, rtol=1e-10)
 
 
@@ -6119,7 +6119,7 @@ class TestNumericalOrbitPropagatorCentralBodyStateAccessors:
         )
         prop.propagate_to(epoch + 60.0)
 
-        x_itrf = prop.state_in_frame(ReferenceFrame.ITRF, epoch)
+        x_itrf = prop.state_in_frame(CelestialFrame.ITRF, epoch)
         x_ecef = prop.state_ecef(epoch)
         assert np.allclose(x_itrf, x_ecef, atol=1e-9)
 
@@ -6154,7 +6154,7 @@ class TestNumericalOrbitPropagatorCentralBodyStateAccessors:
         # Provider trait accessors are frame-aware on the trajectory too.
         np.testing.assert_array_equal(traj.state_bci(epoch), prop.state_bci(epoch))
         np.testing.assert_array_equal(
-            traj.state_in_frame(ReferenceFrame.LCI, epoch), traj.state_bci(epoch)
+            traj.state_in_frame(CelestialFrame.LCI, epoch), traj.state_bci(epoch)
         )
         np.testing.assert_allclose(
             traj.state_bcbf(epoch), prop.state_bcbf(epoch), atol=1e-6
@@ -6213,7 +6213,7 @@ class TestNumericalOrbitPropagatorCentralBodyStateAccessors:
             None,
         )
 
-        x_lci = prop.state_in_frame(ReferenceFrame.LCI, epoch)
+        x_lci = prop.state_in_frame(CelestialFrame.LCI, epoch)
         x_central = prop.state_bci(epoch)
         assert np.array_equal(x_lci, x_central)
 

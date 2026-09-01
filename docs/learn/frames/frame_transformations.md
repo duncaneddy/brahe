@@ -1,6 +1,6 @@
 # Reference Frame Router
 
-`ReferenceFrame` is a single enum spanning every reference frame in Brahe &mdash; Earth-centered, lunar, Martian, barycentric, and generic NAIF-ID variants &mdash; and three router functions (`rotation_frame_to_frame`, `position_frame_to_frame`, `state_frame_to_frame`) that convert between *any* two of them. The router is the frame machinery underlying multibody numerical propagation; see [Cislunar and Lunar Propagation](../orbit_propagation/numerical_propagation/cislunar_lunar_propagation.md) and [Propagation Around Other Central Bodies](../orbit_propagation/numerical_propagation/other_central_bodies.md) for the propagation side.
+`CelestialFrame` is a single enum spanning every reference frame in Brahe &mdash; Earth-centered, lunar, Martian, barycentric, and generic NAIF-ID variants &mdash; and three router functions (`rotation_frame_to_frame`, `position_frame_to_frame`, `state_frame_to_frame`) that convert between *any* two of them. The router is the frame machinery underlying multibody numerical propagation; see [Cislunar and Lunar Propagation](../orbit_propagation/numerical_propagation/cislunar_lunar_propagation.md) and [Propagation Around Other Central Bodies](../orbit_propagation/numerical_propagation/other_central_bodies.md) for the propagation side.
 
 ## Available Frames
 

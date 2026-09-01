@@ -16,7 +16,7 @@ use nalgebra::{DMatrix, DVector, Vector3, Vector6};
 
 use crate::earth_models::{density_harris_priester, density_nrlmsise00};
 use crate::frames::{
-    ReferenceFrame, earth_rotation, rotation_eci_to_ecef, rotation_frame_to_frame,
+    CelestialFrame, earth_rotation, rotation_eci_to_ecef, rotation_frame_to_frame,
     rotation_lci_to_lfpa, rotation_mci_to_mcmf, state_frame_to_frame,
 };
 use crate::integrators::traits::DIntegrator;
@@ -3569,7 +3569,7 @@ impl DOrbitStateProvider for DNumericalOrbitPropagator {
     /// * `Err(BraheError)` - If the state cannot be computed or the frame conversion fails
     fn state_in_frame(
         &self,
-        frame: ReferenceFrame,
+        frame: CelestialFrame,
         epoch: Epoch,
     ) -> Result<Vector6<f64>, BraheError> {
         let x = self.state_central_inertial(epoch)?;
@@ -14130,7 +14130,7 @@ mod tests {
         }
         let x_lci = prop
             .trajectory()
-            .state_in_frame(ReferenceFrame::LCI, epoch0)
+            .state_in_frame(CelestialFrame::LCI, epoch0)
             .unwrap();
         for i in 0..6 {
             assert_abs_diff_eq!(x_lci[i], x_bci_traj[i], epsilon = 0.0);
@@ -14205,7 +14205,7 @@ mod tests {
 
         let (prop, epoch0, _x0) = lunar_point_mass_propagator_at_epoch0();
 
-        let x_lci = prop.state_in_frame(ReferenceFrame::LCI, epoch0).unwrap();
+        let x_lci = prop.state_in_frame(CelestialFrame::LCI, epoch0).unwrap();
         let x_central = prop.state_central_inertial(epoch0).unwrap();
 
         assert_eq!(x_lci, x_central);
@@ -14240,7 +14240,7 @@ mod tests {
         )
         .unwrap();
 
-        let x_in_frame = prop.state_in_frame(ReferenceFrame::ITRF, epoch).unwrap();
+        let x_in_frame = prop.state_in_frame(CelestialFrame::ITRF, epoch).unwrap();
         let x_ecef = prop.state_ecef(epoch).unwrap();
 
         for i in 0..6 {

@@ -30,4 +30,4 @@ Transformations between GCRF and the synodic EMR, SER, and GSE frames.
 
 ### [Reference Frame Router](router.md)
 
-`ReferenceFrame` and the generic `rotation_frame_to_frame`/`position_frame_to_frame`/`state_frame_to_frame` functions, which convert between any two supported frames, including generic NAIF-ID variants for bodies without a dedicated named frame.
+`CelestialFrame` and the generic `rotation_frame_to_frame`/`position_frame_to_frame`/`state_frame_to_frame` functions, which convert between any two supported frames, including generic NAIF-ID variants for bodies without a dedicated named frame.

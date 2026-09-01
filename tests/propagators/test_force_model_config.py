@@ -162,15 +162,15 @@ def test_centralbody_all_builtin_accessors():
     assert CentralBody.EMB.omega_vector() is None
     assert CentralBody.SSB.omega_vector() is None
     # inertial_frame
-    assert CentralBody.Earth.inertial_frame() == brahe.ReferenceFrame.GCRF
-    assert CentralBody.Moon.inertial_frame() == brahe.ReferenceFrame.LCI
-    assert CentralBody.Mars.inertial_frame() == brahe.ReferenceFrame.MCI
-    assert CentralBody.EMB.inertial_frame() == brahe.ReferenceFrame.EMBI
-    assert CentralBody.SSB.inertial_frame() == brahe.ReferenceFrame.SSBI
+    assert CentralBody.Earth.inertial_frame() == brahe.CelestialFrame.GCRF
+    assert CentralBody.Moon.inertial_frame() == brahe.CelestialFrame.LCI
+    assert CentralBody.Mars.inertial_frame() == brahe.CelestialFrame.MCI
+    assert CentralBody.EMB.inertial_frame() == brahe.CelestialFrame.EMBI
+    assert CentralBody.SSB.inertial_frame() == brahe.CelestialFrame.SSBI
     # fixed_frame
-    assert CentralBody.Earth.fixed_frame() == brahe.ReferenceFrame.ITRF
-    assert CentralBody.Moon.fixed_frame() == brahe.ReferenceFrame.LFPA
-    assert CentralBody.Mars.fixed_frame() == brahe.ReferenceFrame.MCMF
+    assert CentralBody.Earth.fixed_frame() == brahe.CelestialFrame.ITRF
+    assert CentralBody.Moon.fixed_frame() == brahe.CelestialFrame.LFPA
+    assert CentralBody.Mars.fixed_frame() == brahe.CelestialFrame.MCMF
     assert CentralBody.EMB.fixed_frame() is None
     assert CentralBody.SSB.fixed_frame() is None
     # is_barycenter
@@ -799,9 +799,9 @@ def test_force_model_third_bodies_coercion():
 
 
 def test_third_body_body_fixed_frame():
-    assert brahe.ThirdBody.EARTH.body_fixed_frame() == brahe.ReferenceFrame.ITRF
-    assert brahe.ThirdBody.MOON.body_fixed_frame() == brahe.ReferenceFrame.LFPA
-    assert brahe.ThirdBody.MARS.body_fixed_frame() == brahe.ReferenceFrame.MCMF
+    assert brahe.ThirdBody.EARTH.body_fixed_frame() == brahe.CelestialFrame.ITRF
+    assert brahe.ThirdBody.MOON.body_fixed_frame() == brahe.CelestialFrame.LFPA
+    assert brahe.ThirdBody.MARS.body_fixed_frame() == brahe.CelestialFrame.MCMF
     assert brahe.ThirdBody.MARS_BARYCENTER.body_fixed_frame() is None
 
 

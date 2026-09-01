@@ -2052,7 +2052,7 @@ impl DOrbitTrajectory {
                                 self.try_convert_orbital_preserving_additional(&s, |orbital| {
                                     crate::frames::state_frame_to_frame(
                                         native,
-                                        crate::frames::ReferenceFrame::GCRF,
+                                        crate::frames::CelestialFrame::GCRF,
                                         e,
                                         orbital,
                                     )
@@ -2165,7 +2165,7 @@ impl DOrbitTrajectory {
                                 self.try_convert_orbital_preserving_additional(&s, |orbital| {
                                     crate::frames::state_frame_to_frame(
                                         native,
-                                        crate::frames::ReferenceFrame::GCRF,
+                                        crate::frames::CelestialFrame::GCRF,
                                         e,
                                         orbital,
                                     )
@@ -2279,7 +2279,7 @@ impl DOrbitTrajectory {
                                 self.try_convert_orbital_preserving_additional(&s, |orbital| {
                                     crate::frames::state_frame_to_frame(
                                         native,
-                                        crate::frames::ReferenceFrame::ITRF,
+                                        crate::frames::CelestialFrame::ITRF,
                                         e,
                                         orbital,
                                     )
@@ -2394,7 +2394,7 @@ impl DOrbitTrajectory {
                                 self.try_convert_orbital_preserving_additional(&s, |orbital| {
                                     crate::frames::state_frame_to_frame(
                                         native,
-                                        crate::frames::ReferenceFrame::ITRF,
+                                        crate::frames::CelestialFrame::ITRF,
                                         e,
                                         orbital,
                                     )
@@ -2509,7 +2509,7 @@ impl DOrbitTrajectory {
                                 self.try_convert_orbital_preserving_additional(&s, |orbital| {
                                     crate::frames::state_frame_to_frame(
                                         native,
-                                        crate::frames::ReferenceFrame::EME2000,
+                                        crate::frames::CelestialFrame::EME2000,
                                         e,
                                         orbital,
                                     )
@@ -2924,7 +2924,7 @@ impl DOrbitStateProvider for DOrbitTrajectory {
     /// Earth round trip for `BodyCenteredInertial` trajectories).
     fn state_in_frame(
         &self,
-        frame: crate::frames::ReferenceFrame,
+        frame: crate::frames::CelestialFrame,
         epoch: Epoch,
     ) -> Result<Vector6<f64>, BraheError> {
         let x = self.state_bci(epoch)?;
@@ -2932,7 +2932,7 @@ impl DOrbitStateProvider for DOrbitTrajectory {
             OrbitFrame::BodyCenteredInertial(center) => {
                 crate::trajectories::traits::bci_reference_frame(center)
             }
-            _ => crate::frames::ReferenceFrame::GCRF,
+            _ => crate::frames::CelestialFrame::GCRF,
         };
         crate::frames::state_frame_to_frame(native, frame, epoch, x)
     }
@@ -2949,7 +2949,7 @@ impl DOrbitStateProvider for DOrbitTrajectory {
                 let x = self.bci_native_cartesian(center, state)?;
                 return crate::frames::state_frame_to_frame(
                     crate::trajectories::traits::bci_reference_frame(center),
-                    crate::frames::ReferenceFrame::GCRF,
+                    crate::frames::CelestialFrame::GCRF,
                     epoch,
                     x,
                 );
@@ -3001,7 +3001,7 @@ impl DOrbitStateProvider for DOrbitTrajectory {
                 let x = self.bci_native_cartesian(center, state)?;
                 return crate::frames::state_frame_to_frame(
                     crate::trajectories::traits::bci_reference_frame(center),
-                    crate::frames::ReferenceFrame::GCRF,
+                    crate::frames::CelestialFrame::GCRF,
                     epoch,
                     x,
                 );
@@ -3053,7 +3053,7 @@ impl DOrbitStateProvider for DOrbitTrajectory {
                 let x = self.bci_native_cartesian(center, state)?;
                 return crate::frames::state_frame_to_frame(
                     crate::trajectories::traits::bci_reference_frame(center),
-                    crate::frames::ReferenceFrame::ITRF,
+                    crate::frames::CelestialFrame::ITRF,
                     epoch,
                     x,
                 );
@@ -3116,7 +3116,7 @@ impl DOrbitStateProvider for DOrbitTrajectory {
                 let x = self.bci_native_cartesian(center, state)?;
                 return crate::frames::state_frame_to_frame(
                     crate::trajectories::traits::bci_reference_frame(center),
-                    crate::frames::ReferenceFrame::ITRF,
+                    crate::frames::CelestialFrame::ITRF,
                     epoch,
                     x,
                 );
@@ -3179,7 +3179,7 @@ impl DOrbitStateProvider for DOrbitTrajectory {
                 let x = self.bci_native_cartesian(center, state)?;
                 return crate::frames::state_frame_to_frame(
                     crate::trajectories::traits::bci_reference_frame(center),
-                    crate::frames::ReferenceFrame::EME2000,
+                    crate::frames::CelestialFrame::EME2000,
                     epoch,
                     x,
                 );
@@ -6457,7 +6457,7 @@ mod tests {
         // the batch to_gcrf/to_ecef/to_itrf/to_eme2000, each checked against
         // the equivalent Earth pairwise conversion of state_eci; covariance
         // passes through unchanged (ICRF-aligned axes).
-        use crate::frames::ReferenceFrame;
+        use crate::frames::CelestialFrame;
         setup_global_test_eop();
         crate::utils::testing::setup_global_test_spice();
         // Load the lunar PCK explicitly: this module's tests run after the
@@ -6546,7 +6546,7 @@ mod tests {
                 .unwrap();
         let state_e = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
         traj_e.add(epoch, state_e).unwrap();
-        let in_itrf = traj_e.state_in_frame(ReferenceFrame::ITRF, epoch).unwrap();
+        let in_itrf = traj_e.state_in_frame(CelestialFrame::ITRF, epoch).unwrap();
         let itrf_e = traj_e.state_itrf(epoch).unwrap();
         for i in 0..6 {
             assert_abs_diff_eq!(in_itrf[i], itrf_e[i], epsilon = 1e-6);
@@ -6641,7 +6641,7 @@ mod tests {
         // re-centers through SPK (LCI sample + Moon offset), and the batch
         // to_eci matches state_eci per epoch. Earth-frame trajectories keep
         // Earth semantics: state_bci == state_gcrf.
-        use crate::frames::ReferenceFrame;
+        use crate::frames::CelestialFrame;
         setup_global_test_eop();
         crate::utils::testing::setup_global_test_spice();
 
@@ -6660,7 +6660,7 @@ mod tests {
         for i in 0..6 {
             assert_abs_diff_eq!(bci[i], state[i], epsilon = 0.0);
         }
-        let in_lci = traj.state_in_frame(ReferenceFrame::LCI, epoch).unwrap();
+        let in_lci = traj.state_in_frame(CelestialFrame::LCI, epoch).unwrap();
         for i in 0..6 {
             assert_abs_diff_eq!(in_lci[i], bci[i], epsilon = 0.0);
         }

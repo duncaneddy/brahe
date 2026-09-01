@@ -25,7 +25,7 @@ For propagating an orbit about Mars and reporting it in the MCMF frame, see [Pro
 ## See Also
 
 - [Lunar Reference Frames](lunar_frames.md) - LCI/LFPA/LFME frames
-- [Reference Frame Router](frame_transformations.md) - `ReferenceFrame`, kernel requirements, and cross-frame conversion
+- [Reference Frame Router](frame_transformations.md) - `CelestialFrame`, kernel requirements, and cross-frame conversion
 - [Propagation Around Other Central Bodies](../orbit_propagation/numerical_propagation/other_central_bodies.md) - Mars force-model defaults and a worked propagation example
 - [Mars Frames API Reference](../../library_api/frames/mars.md)
 

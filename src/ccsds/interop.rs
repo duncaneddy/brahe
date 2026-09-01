@@ -189,7 +189,7 @@ impl OEM {
     /// under `name` with the celestial frame carried by the converted
     /// trajectory. The registered object can then be queried through
     /// `object_state`, or used as the anchor for an orbit-relative frame
-    /// such as `Frame::RTN(name)`.
+    /// such as `ReferenceFrame::RTN(name)`.
     ///
     /// # Arguments
     ///
@@ -480,7 +480,8 @@ mod tests {
     use super::*;
     use crate::ccsds::oem::OEM;
     use crate::frames::{
-        CelestialFrame, Frame, clear_object_registry, object_state, rotation_frame_to_frame,
+        CelestialFrame, ReferenceFrame, clear_object_registry, object_state,
+        rotation_frame_to_frame,
     };
     use crate::trajectories::traits::{InterpolatableTrajectory, Trajectory};
 
@@ -549,7 +550,7 @@ mod tests {
         let traj = DOrbitTrajectory::try_from(&oem).unwrap();
         let epoch = traj.first().unwrap().0 + 300.0;
 
-        let r = rotation_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("LEO"), epoch);
+        let r = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::RTN("LEO"), epoch);
         assert!(r.is_ok());
 
         let (frame, state) = object_state(&"LEO".into(), epoch).unwrap();

@@ -1,5 +1,5 @@
 /*!
- * Frame-graph resolution: reducing any [`Frame`] to a celestial root plus
+ * ReferenceFrame-graph resolution: reducing any [`ReferenceFrame`] to a celestial root plus
  * the rotation (and, where available, the angular velocity) relating the
  * two.
  *
@@ -29,7 +29,7 @@ use nalgebra::Vector3;
 use crate::frames::object_registry::object_state;
 use crate::frames::registry::{FrameKey, frame_entry};
 use crate::frames::{
-    BodyFrame, CelestialFrame, Frame, ObjectId, OrbitRelativeKind, OrbitRelativeVariant,
+    BodyFrame, CelestialFrame, ObjectId, OrbitRelativeKind, OrbitRelativeVariant, ReferenceFrame,
 };
 use crate::math::{SMatrix3, SVector6};
 use crate::relative_motion::{omega_rtn, rotation_eci_to_rtn};
@@ -58,7 +58,7 @@ pub(crate) struct Resolved {
     pub(crate) omega: Option<Vector3<f64>>,
     /// The first chain link that supplied no angular velocity, when `omega`
     /// is `None`. Names the offending link in the state-transform error.
-    pub(crate) rateless_link: Option<Frame>,
+    pub(crate) rateless_link: Option<ReferenceFrame>,
 }
 
 /// Computes the rotation matrix transforming `from` axes into `to` axes at
@@ -78,8 +78,8 @@ pub(crate) struct Resolved {
 /// - `Err(BraheError)`: If either frame is unbound, is missing a registered
 ///   link, or cannot be evaluated at `epc`
 pub(crate) fn resolve_rotation(
-    from: &Frame,
-    to: &Frame,
+    from: &ReferenceFrame,
+    to: &ReferenceFrame,
     epc: Epoch,
 ) -> Result<SMatrix3, BraheError> {
     if from == to {
@@ -110,8 +110,8 @@ pub(crate) fn resolve_rotation(
 /// - `Err(BraheError)`: If either frame is unbound, is missing a registered
 ///   link or object, or cannot be evaluated at `epc`
 pub(crate) fn resolve_position(
-    from: &Frame,
-    to: &Frame,
+    from: &ReferenceFrame,
+    to: &ReferenceFrame,
     epc: Epoch,
     x: Vector3<f64>,
 ) -> Result<Vector3<f64>, BraheError> {
@@ -158,8 +158,8 @@ pub(crate) fn resolve_position(
 ///   link or object, cannot be evaluated at `epc`, or has an orientation
 ///   link carrying no angular velocity
 pub(crate) fn resolve_state(
-    from: &Frame,
-    to: &Frame,
+    from: &ReferenceFrame,
+    to: &ReferenceFrame,
     epc: Epoch,
     x: SVector6,
 ) -> Result<SVector6, BraheError> {
@@ -217,7 +217,7 @@ pub(crate) fn resolve_state(
 /// - `Ok(Vector3<f64>)`: The frame's angular velocity relative to its root,
 ///   expressed in the frame (*rad/s*)
 /// - `Err(BraheError)`: If any link in the chain carries no angular velocity
-fn chain_rate(frame: &Frame, resolved: &Resolved) -> Result<Vector3<f64>, BraheError> {
+fn chain_rate(frame: &ReferenceFrame, resolved: &Resolved) -> Result<Vector3<f64>, BraheError> {
     match resolved.omega {
         Some(omega) => Ok(omega),
         None => {
@@ -250,29 +250,28 @@ fn chain_rate(frame: &Frame, resolved: &Resolved) -> Result<Vector3<f64>, BraheE
 /// - `Err(BraheError)`: If `frame` is unbound, is missing a registered
 ///   link, or cannot be evaluated at `epc`
 pub(crate) fn resolve_orientation(
-    frame: &Frame,
+    frame: &ReferenceFrame,
     epc: Epoch,
     need_rate: bool,
 ) -> Result<Resolved, BraheError> {
     match frame {
-        Frame::Celestial(celestial) => Ok(Resolved {
+        ReferenceFrame::Celestial(celestial) => Ok(Resolved {
             root: *celestial,
             dcm: SMatrix3::identity(),
             omega: Some(Vector3::zeros()),
             rateless_link: None,
         }),
-        Frame::Body {
+        ReferenceFrame::Body {
             object: Some(object),
             frame: body,
         } => resolve_body(frame, object, body, epc, need_rate),
-        Frame::OrbitRelative {
+        ReferenceFrame::OrbitRelative {
             kind,
             variant,
             object: Some(object),
         } => resolve_orbit_relative(*kind, *variant, object, epc),
-        Frame::Body { object: None, .. } | Frame::OrbitRelative { object: None, .. } => {
-            Err(unbound_frame_error(frame))
-        }
+        ReferenceFrame::Body { object: None, .. }
+        | ReferenceFrame::OrbitRelative { object: None, .. } => Err(unbound_frame_error(frame)),
     }
 }
 
@@ -284,10 +283,10 @@ pub(crate) fn resolve_orientation(
 ///
 /// # Returns
 /// - `BraheError`: The formatted error
-fn unbound_frame_error(frame: &Frame) -> BraheError {
+fn unbound_frame_error(frame: &ReferenceFrame) -> BraheError {
     let fix = match frame {
-        Frame::OrbitRelative { kind, .. } => format!("construct with Frame::{kind}(object)"),
-        _ => "construct with an object (e.g. Frame::SC_BODY(\"SC\")) or bind via register_for"
+        ReferenceFrame::OrbitRelative { kind, .. } => format!("construct with ReferenceFrame::{kind}(object)"),
+        _ => "construct with an object (e.g. ReferenceFrame::SC_BODY(\"SC\")) or bind via register_for"
             .to_string(),
     };
     BraheError::Error(format!(
@@ -309,7 +308,7 @@ fn unbound_frame_error(frame: &Frame) -> BraheError {
 ///   composed angular velocity (*rad/s*)
 /// - `Err(BraheError)`: If a link is unregistered or fails to evaluate
 fn resolve_body(
-    frame: &Frame,
+    frame: &ReferenceFrame,
     object: &ObjectId,
     body: &BodyFrame,
     epc: Epoch,
@@ -317,7 +316,7 @@ fn resolve_body(
 ) -> Result<Resolved, BraheError> {
     let mut dcm = SMatrix3::identity();
     let mut omega = need_rate.then(Vector3::zeros);
-    let mut rateless_link: Option<Frame> = None;
+    let mut rateless_link: Option<ReferenceFrame> = None;
     let mut link = frame.clone();
     let mut key = FrameKey::Body(object.clone(), body.clone());
 
@@ -356,7 +355,7 @@ fn resolve_body(
             .parent
             .expect("registered Body frame entries always carry a parent");
         match parent {
-            Frame::Celestial(root) => {
+            ReferenceFrame::Celestial(root) => {
                 return Ok(Resolved {
                     root,
                     dcm,
@@ -364,7 +363,7 @@ fn resolve_body(
                     rateless_link,
                 });
             }
-            Frame::Body {
+            ReferenceFrame::Body {
                 object: Some(ref parent_object),
                 frame: ref parent_body,
             } => {
@@ -388,7 +387,11 @@ fn resolve_body(
 ///
 /// # Returns
 /// - `BraheError`: The formatted error
-fn missing_link_error(frame: &Frame, link: &Frame, object: &ObjectId) -> BraheError {
+fn missing_link_error(
+    frame: &ReferenceFrame,
+    link: &ReferenceFrame,
+    object: &ObjectId,
+) -> BraheError {
     if link == frame {
         return BraheError::Error(format!(
             "frame {frame} has no registered orientation; register one with \
@@ -412,7 +415,7 @@ fn missing_link_error(frame: &Frame, link: &Frame, object: &ObjectId) -> BraheEr
 ///
 /// # Returns
 /// - `BraheError`: The wrapped error
-fn provider_error(frame: &Frame, err: BraheError) -> BraheError {
+fn provider_error(frame: &ReferenceFrame, err: BraheError) -> BraheError {
     BraheError::Error(format!("orientation for {frame}: {err}"))
 }
 
@@ -514,7 +517,7 @@ pub(crate) enum Origin {
     Object(ObjectId),
 }
 
-impl Frame {
+impl ReferenceFrame {
     /// The point this frame's positions are measured from.
     ///
     /// # Returns
@@ -523,18 +526,17 @@ impl Frame {
     ///   has no origin
     pub(crate) fn origin(&self) -> Result<Origin, BraheError> {
         match self {
-            Frame::Celestial(celestial) => Ok(Origin::Celestial(*celestial)),
-            Frame::Body {
+            ReferenceFrame::Celestial(celestial) => Ok(Origin::Celestial(*celestial)),
+            ReferenceFrame::Body {
                 object: Some(object),
                 ..
             }
-            | Frame::OrbitRelative {
+            | ReferenceFrame::OrbitRelative {
                 object: Some(object),
                 ..
             } => Ok(Origin::Object(object.clone())),
-            Frame::Body { object: None, .. } | Frame::OrbitRelative { object: None, .. } => {
-                Err(unbound_frame_error(self))
-            }
+            ReferenceFrame::Body { object: None, .. }
+            | ReferenceFrame::OrbitRelative { object: None, .. } => Err(unbound_frame_error(self)),
         }
     }
 }
@@ -683,8 +685,8 @@ mod tests {
         let direct =
             rotation_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::ITRF, epc).unwrap();
         let via_frame = rotation_frame_to_frame(
-            Frame::from(CelestialFrame::GCRF),
-            Frame::from(CelestialFrame::ITRF),
+            ReferenceFrame::from(CelestialFrame::GCRF),
+            ReferenceFrame::from(CelestialFrame::ITRF),
             epc,
         )
         .unwrap();
@@ -707,15 +709,27 @@ mod tests {
             1.1,
             AngleFormat::Radians,
         ));
-        register_frame(Frame::SC_BODY("SC"), CelestialFrame::GCRF.into(), q_body).unwrap();
-        register_frame(Frame::CSS("SC", "1"), Frame::SC_BODY("SC"), q_css).unwrap();
-        let r = rotation_frame_to_frame(CelestialFrame::GCRF, Frame::CSS("SC", "1"), epc).unwrap();
+        register_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            CelestialFrame::GCRF.into(),
+            q_body,
+        )
+        .unwrap();
+        register_frame(
+            ReferenceFrame::CSS("SC", "1"),
+            ReferenceFrame::SC_BODY("SC"),
+            q_css,
+        )
+        .unwrap();
+        let r = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::CSS("SC", "1"), epc)
+            .unwrap();
         let expected =
             q_css.to_rotation_matrix().to_matrix() * q_body.to_rotation_matrix().to_matrix();
         assert_abs_diff_eq!(r, expected, epsilon = 1e-14);
         // Inverse direction is the transpose
         let r_inv =
-            rotation_frame_to_frame(Frame::CSS("SC", "1"), CelestialFrame::GCRF, epc).unwrap();
+            rotation_frame_to_frame(ReferenceFrame::CSS("SC", "1"), CelestialFrame::GCRF, epc)
+                .unwrap();
         assert_abs_diff_eq!(r_inv, expected.transpose(), epsilon = 1e-14);
         clear_frame_registry();
     }
@@ -726,20 +740,21 @@ mod tests {
         clear_frame_registry();
         clear_object_registry();
         let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
-        let err = rotation_frame_to_frame(CelestialFrame::GCRF, Frame::CSS("SC", "1"), epc)
-            .unwrap_err()
-            .to_string();
+        let err =
+            rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::CSS("SC", "1"), epc)
+                .unwrap_err()
+                .to_string();
         assert!(err.contains("CSS_1@SC"));
         assert!(err.contains("register_frame"));
         // The queried frame is itself the unregistered link, so it is named
         // as the frame rather than as its own parent.
         assert!(err.contains("frame CSS_1@SC has no registered orientation"));
         assert!(!err.contains("parent CSS_1@SC"));
-        let err = rotation_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("A"), epc)
+        let err = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::RTN("A"), epc)
             .unwrap_err()
             .to_string();
         assert!(err.contains("object 'A' is not registered"));
-        let unbound: Frame = BodyFrame::SCBody(None).into();
+        let unbound: ReferenceFrame = BodyFrame::SCBody(None).into();
         let err = rotation_frame_to_frame(CelestialFrame::GCRF, unbound, epc)
             .unwrap_err()
             .to_string();
@@ -754,7 +769,8 @@ mod tests {
         let oe = SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
         let x = state_koe_to_eci(oe, AngleFormat::Degrees);
         register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
-        let r = rotation_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("A"), epc).unwrap();
+        let r =
+            rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::RTN("A"), epc).unwrap();
         assert_abs_diff_eq!(r, rotation_eci_to_rtn(x), epsilon = 1e-14);
         clear_object_registry();
     }
@@ -774,12 +790,22 @@ mod tests {
             |_epc: Epoch| Ok(SMatrix3::identity()),
             Some(Box::new(move |_epc: Epoch| Ok(w_body))),
         );
-        register_frame(Frame::SC_BODY("SC"), CelestialFrame::GCRF.into(), spin).unwrap();
-        register_frame(Frame::CSS("SC", "1"), Frame::SC_BODY("SC"), q_css).unwrap();
+        register_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            CelestialFrame::GCRF.into(),
+            spin,
+        )
+        .unwrap();
+        register_frame(
+            ReferenceFrame::CSS("SC", "1"),
+            ReferenceFrame::SC_BODY("SC"),
+            q_css,
+        )
+        .unwrap();
 
         // omega_css = omega_link(css) + R_css * omega_body, and the constant
         // q_css link contributes no rate of its own.
-        let resolved = resolve_orientation(&Frame::CSS("SC", "1"), epc, true).unwrap();
+        let resolved = resolve_orientation(&ReferenceFrame::CSS("SC", "1"), epc, true).unwrap();
         let expected = q_css.to_rotation_matrix().to_matrix() * w_body;
         assert_abs_diff_eq!(resolved.omega.unwrap(), expected, epsilon = 1e-15);
         assert_eq!(resolved.root, CelestialFrame::GCRF);
@@ -794,16 +820,21 @@ mod tests {
         let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
         let rotation_only = CallbackOrientation::new(|_epc: Epoch| Ok(SMatrix3::identity()), None);
         register_frame(
-            Frame::SC_BODY("SC"),
+            ReferenceFrame::SC_BODY("SC"),
             CelestialFrame::GCRF.into(),
             rotation_only,
         )
         .unwrap();
-        register_frame(Frame::CSS("SC", "1"), Frame::SC_BODY("SC"), q).unwrap();
+        register_frame(
+            ReferenceFrame::CSS("SC", "1"),
+            ReferenceFrame::SC_BODY("SC"),
+            q,
+        )
+        .unwrap();
 
         // A single rate-less link poisons the whole chain's angular velocity
         assert!(
-            resolve_orientation(&Frame::CSS("SC", "1"), epc, true)
+            resolve_orientation(&ReferenceFrame::CSS("SC", "1"), epc, true)
                 .unwrap()
                 .omega
                 .is_none()
@@ -838,17 +869,20 @@ mod tests {
         let x = state_koe_to_eci(oe, AngleFormat::Degrees);
         register_object("SC", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
         register_frame(
-            Frame::SC_BODY("SC"),
+            ReferenceFrame::SC_BODY("SC"),
             CelestialFrame::GCRF.into(),
             RotationOnlyErroringRates,
         )
         .unwrap();
 
-        assert!(rotation_frame_to_frame(CelestialFrame::GCRF, Frame::SC_BODY("SC"), epc).is_ok());
+        assert!(
+            rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::SC_BODY("SC"), epc)
+                .is_ok()
+        );
         assert!(
             position_frame_to_frame(
                 CelestialFrame::GCRF,
-                Frame::SC_BODY("SC"),
+                ReferenceFrame::SC_BODY("SC"),
                 epc,
                 Vector3::new(R_EARTH + 500e3, 0.0, 0.0),
             )
@@ -857,7 +891,7 @@ mod tests {
         // The state router does need rates, so it surfaces the provider's error.
         let err = state_frame_to_frame(
             CelestialFrame::GCRF,
-            Frame::SC_BODY("SC"),
+            ReferenceFrame::SC_BODY("SC"),
             epc,
             SVector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0),
         )
@@ -876,10 +910,16 @@ mod tests {
         clear_frame_registry();
         let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
         let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
-        register_frame(Frame::SC_BODY("SC"), CelestialFrame::ITRF.into(), q).unwrap();
+        register_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            CelestialFrame::ITRF.into(),
+            q,
+        )
+        .unwrap();
 
         // Identity link off an ITRF root: the chain reduces to GCRF -> ITRF
-        let r = rotation_frame_to_frame(CelestialFrame::GCRF, Frame::SC_BODY("SC"), epc).unwrap();
+        let r = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::SC_BODY("SC"), epc)
+            .unwrap();
         let expected =
             rotation_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::ITRF, epc).unwrap();
         assert_abs_diff_eq!(r, expected, epsilon = 1e-15);
@@ -895,10 +935,10 @@ mod tests {
         let x = state_koe_to_eci(oe, AngleFormat::Degrees);
         register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
 
-        let rotating = resolve_orientation(&Frame::RTN("A"), epc, true).unwrap();
+        let rotating = resolve_orientation(&ReferenceFrame::RTN("A"), epc, true).unwrap();
         assert_abs_diff_eq!(rotating.omega.unwrap(), omega_rtn(x), epsilon = 1e-15);
 
-        let inertial = Frame::orbit_relative(
+        let inertial = ReferenceFrame::orbit_relative(
             OrbitRelativeKind::RTN,
             OrbitRelativeVariant::Inertial,
             Some("A".into()),
@@ -925,7 +965,7 @@ mod tests {
 
         // Declared in ITRF, so the state is converted to the ICRF-aligned
         // frame sharing ITRF's center before the RTN axes are built.
-        let resolved = resolve_orientation(&Frame::RTN("A"), epc, true).unwrap();
+        let resolved = resolve_orientation(&ReferenceFrame::RTN("A"), epc, true).unwrap();
         assert_eq!(resolved.root, CelestialFrame::GCRF);
         assert_abs_diff_eq!(resolved.dcm, rotation_eci_to_rtn(x_gcrf), epsilon = 1e-9);
         clear_object_registry();
@@ -936,21 +976,24 @@ mod tests {
     fn test_unsupported_orbit_relative_kind_names_issue() {
         clear_object_registry();
         let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
-        let err = rotation_frame_to_frame(CelestialFrame::GCRF, Frame::LVLH("A"), epc)
+        let err = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::LVLH("A"), epc)
             .unwrap_err()
             .to_string();
         assert!(err.contains("LVLH"));
         assert!(err.contains("issue #452"));
         assert!(err.contains("RTN is supported"));
 
-        let unbound =
-            Frame::orbit_relative(OrbitRelativeKind::RTN, OrbitRelativeVariant::Rotating, None)
-                .unwrap();
+        let unbound = ReferenceFrame::orbit_relative(
+            OrbitRelativeKind::RTN,
+            OrbitRelativeVariant::Rotating,
+            None,
+        )
+        .unwrap();
         let err = rotation_frame_to_frame(CelestialFrame::GCRF, unbound, epc)
             .unwrap_err()
             .to_string();
         assert!(err.contains("not bound to an object"));
-        assert!(err.contains("Frame::RTN(object)"));
+        assert!(err.contains("ReferenceFrame::RTN(object)"));
     }
 
     #[test]
@@ -962,8 +1005,13 @@ mod tests {
             |_epc: Epoch| Err(BraheError::Error("epoch outside coverage".to_string())),
             None,
         );
-        register_frame(Frame::SC_BODY("SC"), CelestialFrame::GCRF.into(), failing).unwrap();
-        let err = rotation_frame_to_frame(CelestialFrame::GCRF, Frame::SC_BODY("SC"), epc)
+        register_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            CelestialFrame::GCRF.into(),
+            failing,
+        )
+        .unwrap();
+        let err = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::SC_BODY("SC"), epc)
             .unwrap_err()
             .to_string();
         assert!(err.contains("orientation for SC_BODY@SC"));
@@ -985,7 +1033,7 @@ mod tests {
                 provider: Arc::new(Quaternion::new(1.0, 0.0, 0.0, 0.0)),
             },
         );
-        let err = rotation_frame_to_frame(CelestialFrame::GCRF, Frame::SC_BODY("SC"), epc)
+        let err = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::SC_BODY("SC"), epc)
             .unwrap_err()
             .to_string();
         assert!(err.contains("cannot resolve SC_BODY@SC"));
@@ -1011,15 +1059,29 @@ mod tests {
             0.7,
             AngleFormat::Radians,
         ));
-        register_frame(Frame::SC_BODY("SC"), CelestialFrame::GCRF.into(), q_body).unwrap();
-        register_frame(Frame::CSS("SC", "1"), Frame::SC_BODY("SC"), q_css).unwrap();
+        register_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            CelestialFrame::GCRF.into(),
+            q_body,
+        )
+        .unwrap();
+        register_frame(
+            ReferenceFrame::CSS("SC", "1"),
+            ReferenceFrame::SC_BODY("SC"),
+            q_css,
+        )
+        .unwrap();
 
         // The GCRF sun direction is re-centered on the object and rotated
         // through SC_BODY -> CSS_1; equal to the manual recipe.
         let sun_gcrf = sun_position(epc);
-        let got =
-            position_frame_to_frame(CelestialFrame::GCRF, Frame::CSS("SC", "1"), epc, sun_gcrf)
-                .unwrap();
+        let got = position_frame_to_frame(
+            CelestialFrame::GCRF,
+            ReferenceFrame::CSS("SC", "1"),
+            epc,
+            sun_gcrf,
+        )
+        .unwrap();
         let manual = q_css.to_rotation_matrix().to_matrix()
             * q_body.to_rotation_matrix().to_matrix()
             * (sun_gcrf - x_sc.fixed_rows::<3>(0));
@@ -1046,12 +1108,27 @@ mod tests {
             0.7,
             AngleFormat::Radians,
         ));
-        register_frame(Frame::SC_BODY("SC"), CelestialFrame::GCRF.into(), q_body).unwrap();
-        register_frame(Frame::CSS("SC", "1"), Frame::SC_BODY("SC"), q_css).unwrap();
+        register_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            CelestialFrame::GCRF.into(),
+            q_body,
+        )
+        .unwrap();
+        register_frame(
+            ReferenceFrame::CSS("SC", "1"),
+            ReferenceFrame::SC_BODY("SC"),
+            q_css,
+        )
+        .unwrap();
 
         let x = Vector3::new(1.0, 2.0, 3.0);
-        let got =
-            position_frame_to_frame(Frame::SC_BODY("SC"), Frame::CSS("SC", "1"), epc, x).unwrap();
+        let got = position_frame_to_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            ReferenceFrame::CSS("SC", "1"),
+            epc,
+            x,
+        )
+        .unwrap();
         let expected = q_css.to_rotation_matrix().to_matrix() * x;
         assert_abs_diff_eq!(got, expected, epsilon = 1e-15);
 
@@ -1076,7 +1153,8 @@ mod tests {
         // Routing B's GCRF state into A's RTN frame is the same arithmetic
         // as the dedicated relative-motion transform, so the two agree bit
         // for bit.
-        let got = state_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("A"), epc, x_b).unwrap();
+        let got =
+            state_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::RTN("A"), epc, x_b).unwrap();
         assert_eq!(got, state_eci_to_rtn(x_a, x_b));
         clear_object_registry();
     }
@@ -1097,7 +1175,12 @@ mod tests {
             },
             None,
         );
-        register_frame(Frame::SC_BODY("SC"), CelestialFrame::GCRF.into(), spinning).unwrap();
+        register_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            CelestialFrame::GCRF.into(),
+            spinning,
+        )
+        .unwrap();
         register_object(
             "SC",
             FnProvider(move |_| Ok(SVector6::zeros())),
@@ -1109,7 +1192,7 @@ mod tests {
         // the state transform cannot form the velocity transport term.
         let err = state_frame_to_frame(
             CelestialFrame::GCRF,
-            Frame::SC_BODY("SC"),
+            ReferenceFrame::SC_BODY("SC"),
             epc,
             SVector6::zeros(),
         )
@@ -1122,7 +1205,7 @@ mod tests {
         assert!(
             position_frame_to_frame(
                 CelestialFrame::GCRF,
-                Frame::SC_BODY("SC"),
+                ReferenceFrame::SC_BODY("SC"),
                 epc,
                 Vector3::new(1.0, 2.0, 3.0)
             )
@@ -1149,7 +1232,12 @@ mod tests {
             None,
         )
         .with_numerical_rates(0.1);
-        register_frame(Frame::SC_BODY("SC"), CelestialFrame::GCRF.into(), spinning).unwrap();
+        register_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            CelestialFrame::GCRF.into(),
+            spinning,
+        )
+        .unwrap();
         register_object(
             "SC",
             FnProvider(move |_| Ok(SVector6::zeros())),
@@ -1162,7 +1250,7 @@ mod tests {
         // a central difference of the body-frame position.
         let p_gcrf = Vector3::new(9.0e3, -4.0e3, 2.0e3);
         let x_gcrf = SVector6::new(p_gcrf[0], p_gcrf[1], p_gcrf[2], 0.0, 0.0, 0.0);
-        let body = Frame::SC_BODY("SC");
+        let body = ReferenceFrame::SC_BODY("SC");
         let x_body = state_frame_to_frame(CelestialFrame::GCRF, body.clone(), epc, x_gcrf).unwrap();
 
         let delta = 0.5;
@@ -1204,18 +1292,22 @@ mod tests {
         // A's RTN frame is Earth-rooted, so routing out of it into the
         // Moon-centered inertial frame combines the object-origin offset
         // with the Earth -> Moon center offset.
-        let x_rtn = state_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("A"), epc, x_b).unwrap();
+        let x_rtn =
+            state_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::RTN("A"), epc, x_b).unwrap();
         let via_rtn =
-            state_frame_to_frame(Frame::RTN("A"), CelestialFrame::LCI, epc, x_rtn).unwrap();
+            state_frame_to_frame(ReferenceFrame::RTN("A"), CelestialFrame::LCI, epc, x_rtn)
+                .unwrap();
         let direct =
             state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::LCI, epc, x_b).unwrap();
         assert_abs_diff_eq!(via_rtn, direct, epsilon = 1e-6);
 
         let p_b: Vector3<f64> = x_b.fixed_rows::<3>(0).into_owned();
         let p_rtn =
-            position_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("A"), epc, p_b).unwrap();
+            position_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::RTN("A"), epc, p_b)
+                .unwrap();
         let p_via =
-            position_frame_to_frame(Frame::RTN("A"), CelestialFrame::LCI, epc, p_rtn).unwrap();
+            position_frame_to_frame(ReferenceFrame::RTN("A"), CelestialFrame::LCI, epc, p_rtn)
+                .unwrap();
         let p_direct =
             position_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::LCI, epc, p_b).unwrap();
         assert_abs_diff_eq!(p_via, p_direct, epsilon = 1e-6);
@@ -1228,7 +1320,7 @@ mod tests {
         clear_frame_registry();
         clear_object_registry();
         let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
-        let frame = Frame::CSS("SC", "1");
+        let frame = ReferenceFrame::CSS("SC", "1");
 
         // Nothing is registered, so resolving either endpoint would fail;
         // the identity short-circuit returns the input untouched.
@@ -1251,15 +1343,18 @@ mod tests {
     #[test]
     #[parallel]
     fn test_unbound_frame_has_no_origin() {
-        let unbound: Frame = BodyFrame::SCBody(None).into();
+        let unbound: ReferenceFrame = BodyFrame::SCBody(None).into();
         let err = unbound.origin().unwrap_err().to_string();
         assert!(err.contains("not bound to an object"));
 
-        let unbound =
-            Frame::orbit_relative(OrbitRelativeKind::RTN, OrbitRelativeVariant::Rotating, None)
-                .unwrap();
+        let unbound = ReferenceFrame::orbit_relative(
+            OrbitRelativeKind::RTN,
+            OrbitRelativeVariant::Rotating,
+            None,
+        )
+        .unwrap();
         let err = unbound.origin().unwrap_err().to_string();
-        assert!(err.contains("Frame::RTN(object)"));
+        assert!(err.contains("ReferenceFrame::RTN(object)"));
     }
 
     #[test]
@@ -1279,7 +1374,12 @@ mod tests {
             0.3,
             AngleFormat::Radians,
         ));
-        register_frame(Frame::SC_BODY("SC"), CelestialFrame::ITRF.into(), q).unwrap();
+        register_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            CelestialFrame::ITRF.into(),
+            q,
+        )
+        .unwrap();
 
         // An ITRF-rooted body frame carries the Earth-rotation transport term,
         // so the round trip exercises both the forward and inverse forms.
@@ -1287,10 +1387,20 @@ mod tests {
             SVector6::new(R_EARTH + 501e3, 0.001, 97.8, 15.0, 30.0, 45.1),
             AngleFormat::Degrees,
         );
-        let x_body =
-            state_frame_to_frame(CelestialFrame::GCRF, Frame::SC_BODY("SC"), epc, x_gcrf).unwrap();
-        let back =
-            state_frame_to_frame(Frame::SC_BODY("SC"), CelestialFrame::GCRF, epc, x_body).unwrap();
+        let x_body = state_frame_to_frame(
+            CelestialFrame::GCRF,
+            ReferenceFrame::SC_BODY("SC"),
+            epc,
+            x_gcrf,
+        )
+        .unwrap();
+        let back = state_frame_to_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            CelestialFrame::GCRF,
+            epc,
+            x_body,
+        )
+        .unwrap();
         assert_abs_diff_eq!(back, x_gcrf, epsilon = 1e-6);
         clear_frame_registry();
         clear_object_registry();

@@ -71,7 +71,7 @@ use crate::time::Epoch;
 use crate::utils::BraheError;
 use crate::utils::batch::{try_batch_map, try_batch_map_epochs};
 
-use super::frame::Frame;
+use super::frame::ReferenceFrame;
 
 use super::eme_2000::rotation_gcrf_to_eme2000;
 use super::gcrf_itrf::rotation_gcrf_to_itrf;
@@ -184,9 +184,9 @@ fn synthetic_barycenter_pair(center: i32) -> Option<(i32, i32)> {
 /// hub-and-spoke conversion design.
 #[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum CelestialFrame {
-    /// Geocentric Celestial Reference Frame (ICRF-aligned, Earth-centered).
+    /// Geocentric Celestial Reference ReferenceFrame (ICRF-aligned, Earth-centered).
     GCRF,
-    /// International Terrestrial Reference Frame (Earth-fixed).
+    /// International Terrestrial Reference ReferenceFrame (Earth-fixed).
     ITRF,
     /// Earth Mean Equator and Equinox of J2000.0.
     EME2000,
@@ -704,7 +704,7 @@ fn icrf_to_frame_dcm(frame: CelestialFrame, epc: Epoch) -> Result<SMatrix3, Brah
 /// is `R_to(epc) * R_from(epc)^T`, where `R_x` is `x`'s ICRF -> `x`
 /// rotation matrix (identity for ICRF-aligned frames).
 ///
-/// `from` and `to` accept any [`Frame`]: a [`CelestialFrame`], a
+/// `from` and `to` accept any [`ReferenceFrame`]: a [`CelestialFrame`], a
 /// registered body/sensor frame, or a bound orbit-relative frame. Body
 /// frames are resolved by walking their registered parent chain to a
 /// celestial root; orbit-relative frames are built from the bound object's
@@ -722,25 +722,27 @@ fn icrf_to_frame_dcm(frame: CelestialFrame, epc: Epoch) -> Result<SMatrix3, Brah
 ///
 /// # Examples:
 /// ```
-/// use brahe::frames::{CelestialFrame, Frame, rotation_frame_to_frame};
+/// use brahe::frames::{CelestialFrame, ReferenceFrame, rotation_frame_to_frame};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 /// let r = rotation_frame_to_frame(CelestialFrame::MCI, CelestialFrame::MCMF, epc).unwrap();
 ///
-/// // Any `Frame` is accepted, including body and orbit-relative frames
-/// let r = rotation_frame_to_frame(CelestialFrame::MCI, Frame::from(CelestialFrame::MCMF), epc)
+/// // Any `ReferenceFrame` is accepted, including body and orbit-relative frames
+/// let r = rotation_frame_to_frame(CelestialFrame::MCI, ReferenceFrame::from(CelestialFrame::MCMF), epc)
 ///     .unwrap();
 /// ```
 pub fn rotation_frame_to_frame(
-    from: impl Into<Frame>,
-    to: impl Into<Frame>,
+    from: impl Into<ReferenceFrame>,
+    to: impl Into<ReferenceFrame>,
     epc: Epoch,
 ) -> Result<SMatrix3, BraheError> {
     let from = from.into();
     let to = to.into();
     match (&from, &to) {
-        (Frame::Celestial(from), Frame::Celestial(to)) => rotation_celestial(*from, *to, epc),
+        (ReferenceFrame::Celestial(from), ReferenceFrame::Celestial(to)) => {
+            rotation_celestial(*from, *to, epc)
+        }
         _ => super::graph::resolve_rotation(&from, &to, epc),
     }
 }
@@ -776,7 +778,7 @@ pub(crate) fn rotation_celestial(
 /// ephemerides (auto-loading `de440s`), so a same-center conversion
 /// involving one of those frames is not SPK-free.
 ///
-/// `from` and `to` accept any [`Frame`]: a [`CelestialFrame`], a registered
+/// `from` and `to` accept any [`ReferenceFrame`]: a [`CelestialFrame`], a registered
 /// body/sensor frame, or a bound orbit-relative frame. A non-celestial
 /// frame's origin is the origin of the object it is bound to, so the
 /// translation step re-centers on that object's registered state. Body
@@ -796,7 +798,7 @@ pub(crate) fn rotation_celestial(
 /// # Examples:
 /// ```no_run
 /// use brahe::constants::R_EARTH;
-/// use brahe::frames::{CelestialFrame, Frame, position_frame_to_frame};
+/// use brahe::frames::{CelestialFrame, ReferenceFrame, position_frame_to_frame};
 /// use brahe::time::{Epoch, TimeSystem};
 /// use nalgebra::Vector3;
 ///
@@ -805,19 +807,21 @@ pub(crate) fn rotation_celestial(
 /// let x_itrf =
 ///     position_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::ITRF, epc, x_gcrf).unwrap();
 ///
-/// // Any `Frame` is accepted, including body and orbit-relative frames
-/// let x_rtn = position_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("SC"), epc, x_gcrf);
+/// // Any `ReferenceFrame` is accepted, including body and orbit-relative frames
+/// let x_rtn = position_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::RTN("SC"), epc, x_gcrf);
 /// ```
 pub fn position_frame_to_frame(
-    from: impl Into<Frame>,
-    to: impl Into<Frame>,
+    from: impl Into<ReferenceFrame>,
+    to: impl Into<ReferenceFrame>,
     epc: Epoch,
     x: Vector3<f64>,
 ) -> Result<Vector3<f64>, BraheError> {
     let from = from.into();
     let to = to.into();
     match (&from, &to) {
-        (Frame::Celestial(from), Frame::Celestial(to)) => position_celestial(*from, *to, epc, x),
+        (ReferenceFrame::Celestial(from), ReferenceFrame::Celestial(to)) => {
+            position_celestial(*from, *to, epc, x)
+        }
         _ => super::graph::resolve_position(&from, &to, epc, x),
     }
 }
@@ -899,7 +903,7 @@ fn frame_pair_context(
 /// Apply a precomputed frame-pair context to one position.
 ///
 /// # Arguments
-/// - `c`: Frame-pair context for the epoch
+/// - `c`: ReferenceFrame-pair context for the epoch
 /// - `x`: Cartesian position in the source frame. Units: (*m*)
 ///
 /// # Returns
@@ -939,7 +943,7 @@ fn apply_position_frame_pair(c: &FramePairContext, x: &Vector3<f64>) -> Vector3<
 /// like GCRF <-> GSE. The result is bit-identical to the underlying
 /// pairwise function.
 ///
-/// `from` and `to` accept any [`Frame`]: a [`CelestialFrame`], a registered
+/// `from` and `to` accept any [`ReferenceFrame`]: a [`CelestialFrame`], a registered
 /// body/sensor frame, or a bound orbit-relative frame. A non-celestial
 /// frame's origin is the origin of the object it is bound to, so the
 /// re-centering step uses that object's registered state; body frames share
@@ -961,7 +965,7 @@ fn apply_position_frame_pair(c: &FramePairContext, x: &Vector3<f64>) -> Vector3<
 /// # Examples:
 /// ```no_run
 /// use brahe::constants::R_MOON;
-/// use brahe::frames::{CelestialFrame, Frame, state_frame_to_frame};
+/// use brahe::frames::{CelestialFrame, ReferenceFrame, state_frame_to_frame};
 /// use brahe::math::vector6_from_array;
 /// use brahe::time::{Epoch, TimeSystem};
 ///
@@ -970,19 +974,21 @@ fn apply_position_frame_pair(c: &FramePairContext, x: &Vector3<f64>) -> Vector3<
 /// let x_lfpa =
 ///     state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::LFPA, epc, x_gcrf).unwrap();
 ///
-/// // Any `Frame` is accepted, including body and orbit-relative frames
-/// let x_rtn = state_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("SC"), epc, x_gcrf);
+/// // Any `ReferenceFrame` is accepted, including body and orbit-relative frames
+/// let x_rtn = state_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::RTN("SC"), epc, x_gcrf);
 /// ```
 pub fn state_frame_to_frame(
-    from: impl Into<Frame>,
-    to: impl Into<Frame>,
+    from: impl Into<ReferenceFrame>,
+    to: impl Into<ReferenceFrame>,
     epc: Epoch,
     x: SVector6,
 ) -> Result<SVector6, BraheError> {
     let from = from.into();
     let to = to.into();
     match (&from, &to) {
-        (Frame::Celestial(from), Frame::Celestial(to)) => state_celestial(*from, *to, epc, x),
+        (ReferenceFrame::Celestial(from), ReferenceFrame::Celestial(to)) => {
+            state_celestial(*from, *to, epc, x)
+        }
         _ => super::graph::resolve_state(&from, &to, epc, x),
     }
 }
@@ -1020,7 +1026,7 @@ pub(crate) fn state_celestial(
 /// Batch form of [`rotation_frame_to_frame`]. Evaluation runs on the global
 /// thread pool for large inputs.
 ///
-/// `from` and `to` accept any [`Frame`]: a [`CelestialFrame`], a registered
+/// `from` and `to` accept any [`ReferenceFrame`]: a [`CelestialFrame`], a registered
 /// body/sensor frame, or a bound orbit-relative frame. The same `from`/`to`
 /// values are reused for every epoch, but a non-celestial frame is resolved
 /// through the frame/object registries fresh for each one (see
@@ -1046,8 +1052,8 @@ pub(crate) fn state_celestial(
 /// assert_eq!(r.len(), 2);
 /// ```
 pub fn rotations_frame_to_frame(
-    from: impl Into<Frame>,
-    to: impl Into<Frame>,
+    from: impl Into<ReferenceFrame>,
+    to: impl Into<ReferenceFrame>,
     epochs: &[Epoch],
 ) -> Result<Vec<SMatrix3>, BraheError> {
     let from = from.into();
@@ -1066,7 +1072,7 @@ pub fn rotations_frame_to_frame(
 /// applies them to every position; per-element epochs compute them per
 /// position. Evaluation runs on the global thread pool for large inputs.
 ///
-/// `from` and `to` accept any [`Frame`]: a [`CelestialFrame`], a registered
+/// `from` and `to` accept any [`ReferenceFrame`]: a [`CelestialFrame`], a registered
 /// body/sensor frame, or a bound orbit-relative frame, resolved once and
 /// reused across every element. The shared-context hoisting above applies
 /// only when both frames are celestial; a non-celestial `from`/`to` resolves
@@ -1100,15 +1106,15 @@ pub fn rotations_frame_to_frame(
 /// assert_eq!(x_itrf.len(), 3);
 /// ```
 pub fn positions_frame_to_frame(
-    from: impl Into<Frame>,
-    to: impl Into<Frame>,
+    from: impl Into<ReferenceFrame>,
+    to: impl Into<ReferenceFrame>,
     epochs: &[Epoch],
     x: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
     let from = from.into();
     let to = to.into();
     match (&from, &to) {
-        (Frame::Celestial(from), Frame::Celestial(to)) => {
+        (ReferenceFrame::Celestial(from), ReferenceFrame::Celestial(to)) => {
             let (from, to) = (*from, *to);
             if from == to {
                 return try_batch_map_epochs(|_| Ok(()), |_, x| Ok(*x), epochs, x);
@@ -1139,7 +1145,7 @@ pub fn positions_frame_to_frame(
 /// evaluation for large inputs but not from shared-epoch hoisting. Use the
 /// frame-specific `states_*` functions for that.
 ///
-/// `from` and `to` accept any [`Frame`]: a [`CelestialFrame`], a registered
+/// `from` and `to` accept any [`ReferenceFrame`]: a [`CelestialFrame`], a registered
 /// body/sensor frame, or a bound orbit-relative frame. The same `from`/`to`
 /// values are reused for every element, but a non-celestial frame is
 /// resolved through the frame/object registries fresh for each one, per
@@ -1176,15 +1182,15 @@ pub fn positions_frame_to_frame(
 /// assert_eq!(x_itrf.len(), 3);
 /// ```
 pub fn states_frame_to_frame(
-    from: impl Into<Frame>,
-    to: impl Into<Frame>,
+    from: impl Into<ReferenceFrame>,
+    to: impl Into<ReferenceFrame>,
     epochs: &[Epoch],
     x: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
     let from = from.into();
     let to = to.into();
     match (&from, &to) {
-        (Frame::Celestial(from), Frame::Celestial(to)) => {
+        (ReferenceFrame::Celestial(from), ReferenceFrame::Celestial(to)) => {
             let (from, to) = (*from, *to);
             try_batch_map_epochs(Ok, |epc, x| state_celestial(from, to, *epc, *x), epochs, x)
         }
@@ -1281,8 +1287,8 @@ mod tests {
         let direct =
             position_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::ITRF, epc, p).unwrap();
         let via_frame = position_frame_to_frame(
-            Frame::from(CelestialFrame::GCRF),
-            Frame::from(CelestialFrame::ITRF),
+            ReferenceFrame::from(CelestialFrame::GCRF),
+            ReferenceFrame::from(CelestialFrame::ITRF),
             epc,
             p,
         )
@@ -1302,8 +1308,8 @@ mod tests {
         let direct =
             state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::ITRF, epc, x).unwrap();
         let via_frame = state_frame_to_frame(
-            Frame::from(CelestialFrame::GCRF),
-            Frame::from(CelestialFrame::ITRF),
+            ReferenceFrame::from(CelestialFrame::GCRF),
+            ReferenceFrame::from(CelestialFrame::ITRF),
             epc,
             x,
         )
@@ -2269,15 +2275,17 @@ mod tests {
         );
         register_object("A", FnProvider(move |_| Ok(x_a)), CelestialFrame::GCRF).unwrap();
         let batch =
-            rotations_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("A"), &epochs).unwrap();
+            rotations_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::RTN("A"), &epochs)
+                .unwrap();
         for (i, epc) in epochs.iter().enumerate() {
             assert_eq!(
                 batch[i],
-                rotation_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("A"), *epc).unwrap()
+                rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::RTN("A"), *epc)
+                    .unwrap()
             );
         }
 
-        // Non-celestial Frame args take the per-epoch fallback path (rather
+        // Non-celestial ReferenceFrame args take the per-epoch fallback path (rather
         // than the shared-context celestial-pair path) in the position and
         // state batch routers too.
         let positions: Vec<Vector3<f64>> = epochs
@@ -2285,21 +2293,40 @@ mod tests {
             .map(|_| Vector3::new(x_a[0], x_a[1], x_a[2]))
             .collect();
         let states: Vec<SVector6> = epochs.iter().map(|_| x_a).collect();
-        let pos_batch =
-            positions_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("A"), &epochs, &positions)
-                .unwrap();
-        let st_batch =
-            states_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("A"), &epochs, &states).unwrap();
+        let pos_batch = positions_frame_to_frame(
+            CelestialFrame::GCRF,
+            ReferenceFrame::RTN("A"),
+            &epochs,
+            &positions,
+        )
+        .unwrap();
+        let st_batch = states_frame_to_frame(
+            CelestialFrame::GCRF,
+            ReferenceFrame::RTN("A"),
+            &epochs,
+            &states,
+        )
+        .unwrap();
         for (i, epc) in epochs.iter().enumerate() {
             assert_eq!(
                 pos_batch[i],
-                position_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("A"), *epc, positions[i])
-                    .unwrap()
+                position_frame_to_frame(
+                    CelestialFrame::GCRF,
+                    ReferenceFrame::RTN("A"),
+                    *epc,
+                    positions[i]
+                )
+                .unwrap()
             );
             assert_eq!(
                 st_batch[i],
-                state_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("A"), *epc, states[i])
-                    .unwrap()
+                state_frame_to_frame(
+                    CelestialFrame::GCRF,
+                    ReferenceFrame::RTN("A"),
+                    *epc,
+                    states[i]
+                )
+                .unwrap()
             );
         }
         clear_object_registry();

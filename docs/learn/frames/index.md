@@ -38,7 +38,7 @@ See [Lunar Reference Frames](lunar_frames.md), [Mars Reference Frames](mars_fram
 
 ### Object-Scoped Frames
 
-`Frame` extends `CelestialFrame` to frames scoped to a specific object rather than a body center: orbit-relative frames (`RTN`, `LVLH`, ...) and spacecraft body/sensor/actuator frames (`SC_BODY`, `CSS_1`, ...), registered against an object identity rather than evaluated from an epoch alone. See [Frame Graph](frame_graph.md) for registering objects and orientation chains, and for the generalized `rotation_frame_to_frame`/`position_frame_to_frame`/`state_frame_to_frame` functions that accept either a `CelestialFrame` or a `Frame`.
+`ReferenceFrame` extends `CelestialFrame` to frames scoped to a specific object rather than a body center: orbit-relative frames (`RTN`, `LVLH`, ...) and spacecraft body/sensor/actuator frames (`SC_BODY`, `CSS_1`, ...), registered against an object identity rather than evaluated from an epoch alone. See [Frame Graph](frame_graph.md) for registering objects and orientation chains, and for the generalized `rotation_frame_to_frame`/`position_frame_to_frame`/`state_frame_to_frame` functions that accept either a `CelestialFrame` or a `ReferenceFrame`.
 
 ## Available Transformations
 

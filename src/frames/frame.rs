@@ -1,15 +1,15 @@
 /*!
- * Unified `Frame` type spanning celestial, orbit-relative, and body frames.
+ * Unified `ReferenceFrame` type spanning celestial, orbit-relative, and body frames.
  *
- * [`Frame`] is the top-level frame identity used throughout `brahe`. It
+ * [`ReferenceFrame`] is the top-level frame identity used throughout `brahe`. It
  * covers three kinds of frame:
  *
- * 1. **Celestial** ([`Frame::Celestial`]) — a frame the frames router can
+ * 1. **Celestial** ([`ReferenceFrame::Celestial`]) — a frame the frames router can
  *    evaluate analytically from an epoch alone ([`CelestialFrame`]).
- * 2. **Orbit-relative** ([`Frame::OrbitRelative`]) — a local orbital frame
+ * 2. **Orbit-relative** ([`ReferenceFrame::OrbitRelative`]) — a local orbital frame
  *    (RTN, LVLH, ...) of a specific object, rotating with the orbit or
  *    frozen as an inertial snapshot.
- * 3. **Body** ([`Frame::Body`]) — an object-local frame (spacecraft body,
+ * 3. **Body** ([`ReferenceFrame::Body`]) — an object-local frame (spacecraft body,
  *    sensor, actuator, ...) that has no global transformation.
  *
  * Orbit-relative and body frames carry an `object: Option<`[`ObjectId`]`>`.
@@ -350,28 +350,28 @@ impl fmt::Display for BodyFrame {
 /// Unified frame identity spanning celestial, orbit-relative, and body
 /// frames.
 ///
-/// `Frame` is the top-level frame type used throughout `brahe`. See the
+/// `ReferenceFrame` is the top-level frame type used throughout `brahe`. See the
 /// [module documentation](self) for the three frame kinds.
 ///
 /// # Examples
 ///
 /// ```rust
-/// use brahe::frames::{Frame, CelestialFrame};
+/// use brahe::frames::{ReferenceFrame, CelestialFrame};
 ///
-/// let rtn = Frame::RTN("SC");
+/// let rtn = ReferenceFrame::RTN("SC");
 /// assert_eq!(rtn.to_string(), "RTN (rotating)@SC");
 ///
-/// let gcrf: Frame = CelestialFrame::GCRF.into();
+/// let gcrf: ReferenceFrame = CelestialFrame::GCRF.into();
 /// assert_eq!(gcrf.to_string(), "GCRF");
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum Frame {
+pub enum ReferenceFrame {
     /// Evaluable analytically from an epoch alone (existing frames router).
     Celestial(CelestialFrame),
     /// Local orbital frame of `object`. Evaluable when bound (`object` is
     /// `Some`) and the object is registered.
     OrbitRelative {
-        /// Frame construction (axes definition).
+        /// ReferenceFrame construction (axes definition).
         kind: OrbitRelativeKind,
         /// Rotating (true local orbital frame) or inertial snapshot.
         variant: OrbitRelativeVariant,
@@ -388,7 +388,7 @@ pub enum Frame {
     },
 }
 
-impl Frame {
+impl ReferenceFrame {
     /// Constructs a bound Radial/Transverse/Normal orbit-relative frame
     /// (rotating variant). SANA: RSW.
     ///
@@ -396,18 +396,18 @@ impl Frame {
     /// * `object` - The object the frame is defined relative to
     ///
     /// # Returns
-    /// `Frame`: The bound `RTN (rotating)` orbit-relative frame
+    /// `ReferenceFrame`: The bound `RTN (rotating)` orbit-relative frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::RTN("SC").to_string(), "RTN (rotating)@SC");
+    /// assert_eq!(ReferenceFrame::RTN("SC").to_string(), "RTN (rotating)@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn RTN(object: impl Into<ObjectId>) -> Frame {
-        Frame::orbit_relative_unchecked(
+    pub fn RTN(object: impl Into<ObjectId>) -> ReferenceFrame {
+        ReferenceFrame::orbit_relative_unchecked(
             OrbitRelativeKind::RTN,
             OrbitRelativeVariant::Rotating,
             object,
@@ -421,18 +421,18 @@ impl Frame {
     /// * `object` - The object the frame is defined relative to
     ///
     /// # Returns
-    /// `Frame`: The bound `LVLH (rotating)` orbit-relative frame
+    /// `ReferenceFrame`: The bound `LVLH (rotating)` orbit-relative frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::LVLH("SC").to_string(), "LVLH (rotating)@SC");
+    /// assert_eq!(ReferenceFrame::LVLH("SC").to_string(), "LVLH (rotating)@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn LVLH(object: impl Into<ObjectId>) -> Frame {
-        Frame::orbit_relative_unchecked(
+    pub fn LVLH(object: impl Into<ObjectId>) -> ReferenceFrame {
+        ReferenceFrame::orbit_relative_unchecked(
             OrbitRelativeKind::LVLH,
             OrbitRelativeVariant::Rotating,
             object,
@@ -446,18 +446,18 @@ impl Frame {
     /// * `object` - The object the frame is defined relative to
     ///
     /// # Returns
-    /// `Frame`: The bound `NTW (rotating)` orbit-relative frame
+    /// `ReferenceFrame`: The bound `NTW (rotating)` orbit-relative frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::NTW("SC").to_string(), "NTW (rotating)@SC");
+    /// assert_eq!(ReferenceFrame::NTW("SC").to_string(), "NTW (rotating)@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn NTW(object: impl Into<ObjectId>) -> Frame {
-        Frame::orbit_relative_unchecked(
+    pub fn NTW(object: impl Into<ObjectId>) -> ReferenceFrame {
+        ReferenceFrame::orbit_relative_unchecked(
             OrbitRelativeKind::NTW,
             OrbitRelativeVariant::Rotating,
             object,
@@ -471,18 +471,18 @@ impl Frame {
     /// * `object` - The object the frame is defined relative to
     ///
     /// # Returns
-    /// `Frame`: The bound `TNW (rotating)` orbit-relative frame
+    /// `ReferenceFrame`: The bound `TNW (rotating)` orbit-relative frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::TNW("SC").to_string(), "TNW (rotating)@SC");
+    /// assert_eq!(ReferenceFrame::TNW("SC").to_string(), "TNW (rotating)@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn TNW(object: impl Into<ObjectId>) -> Frame {
-        Frame::orbit_relative_unchecked(
+    pub fn TNW(object: impl Into<ObjectId>) -> ReferenceFrame {
+        ReferenceFrame::orbit_relative_unchecked(
             OrbitRelativeKind::TNW,
             OrbitRelativeVariant::Rotating,
             object,
@@ -496,18 +496,18 @@ impl Frame {
     /// * `object` - The object the frame is defined relative to
     ///
     /// # Returns
-    /// `Frame`: The bound `SEZ (rotating)` orbit-relative frame
+    /// `ReferenceFrame`: The bound `SEZ (rotating)` orbit-relative frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::SEZ("SC").to_string(), "SEZ (rotating)@SC");
+    /// assert_eq!(ReferenceFrame::SEZ("SC").to_string(), "SEZ (rotating)@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn SEZ(object: impl Into<ObjectId>) -> Frame {
-        Frame::orbit_relative_unchecked(
+    pub fn SEZ(object: impl Into<ObjectId>) -> ReferenceFrame {
+        ReferenceFrame::orbit_relative_unchecked(
             OrbitRelativeKind::SEZ,
             OrbitRelativeVariant::Rotating,
             object,
@@ -521,18 +521,18 @@ impl Frame {
     /// * `object` - The object the frame is defined relative to
     ///
     /// # Returns
-    /// `Frame`: The bound `VNC (rotating)` orbit-relative frame
+    /// `ReferenceFrame`: The bound `VNC (rotating)` orbit-relative frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::VNC("SC").to_string(), "VNC (rotating)@SC");
+    /// assert_eq!(ReferenceFrame::VNC("SC").to_string(), "VNC (rotating)@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn VNC(object: impl Into<ObjectId>) -> Frame {
-        Frame::orbit_relative_unchecked(
+    pub fn VNC(object: impl Into<ObjectId>) -> ReferenceFrame {
+        ReferenceFrame::orbit_relative_unchecked(
             OrbitRelativeKind::VNC,
             OrbitRelativeVariant::Rotating,
             object,
@@ -546,18 +546,18 @@ impl Frame {
     /// * `object` - The object the frame is defined relative to
     ///
     /// # Returns
-    /// `Frame`: The bound `NSW (rotating)` orbit-relative frame
+    /// `ReferenceFrame`: The bound `NSW (rotating)` orbit-relative frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::NSW("SC").to_string(), "NSW (rotating)@SC");
+    /// assert_eq!(ReferenceFrame::NSW("SC").to_string(), "NSW (rotating)@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn NSW(object: impl Into<ObjectId>) -> Frame {
-        Frame::orbit_relative_unchecked(
+    pub fn NSW(object: impl Into<ObjectId>) -> ReferenceFrame {
+        ReferenceFrame::orbit_relative_unchecked(
             OrbitRelativeKind::NSW,
             OrbitRelativeVariant::Rotating,
             object,
@@ -571,18 +571,18 @@ impl Frame {
     /// * `object` - The object the frame is defined relative to
     ///
     /// # Returns
-    /// `Frame`: The bound `PQW (inertial)` orbit-relative frame
+    /// `ReferenceFrame`: The bound `PQW (inertial)` orbit-relative frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::PQW("SC").to_string(), "PQW (inertial)@SC");
+    /// assert_eq!(ReferenceFrame::PQW("SC").to_string(), "PQW (inertial)@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn PQW(object: impl Into<ObjectId>) -> Frame {
-        Frame::orbit_relative_unchecked(
+    pub fn PQW(object: impl Into<ObjectId>) -> ReferenceFrame {
+        ReferenceFrame::orbit_relative_unchecked(
             OrbitRelativeKind::PQW,
             OrbitRelativeVariant::Inertial,
             object,
@@ -597,18 +597,18 @@ impl Frame {
     /// * `object` - The object the frame is defined relative to
     ///
     /// # Returns
-    /// `Frame`: The bound `EQW (inertial)` orbit-relative frame
+    /// `ReferenceFrame`: The bound `EQW (inertial)` orbit-relative frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::EQW("SC").to_string(), "EQW (inertial)@SC");
+    /// assert_eq!(ReferenceFrame::EQW("SC").to_string(), "EQW (inertial)@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn EQW(object: impl Into<ObjectId>) -> Frame {
-        Frame::orbit_relative_unchecked(
+    pub fn EQW(object: impl Into<ObjectId>) -> ReferenceFrame {
+        ReferenceFrame::orbit_relative_unchecked(
             OrbitRelativeKind::EQW,
             OrbitRelativeVariant::Inertial,
             object,
@@ -617,13 +617,13 @@ impl Frame {
 
     /// Constructs a bound orbit-relative frame without kind/variant
     /// validation, for combinations known valid by construction (all
-    /// `Frame::<KIND>(object)` associated functions).
+    /// `ReferenceFrame::<KIND>(object)` associated functions).
     fn orbit_relative_unchecked(
         kind: OrbitRelativeKind,
         variant: OrbitRelativeVariant,
         object: impl Into<ObjectId>,
-    ) -> Frame {
-        Frame::OrbitRelative {
+    ) -> ReferenceFrame {
+        ReferenceFrame::OrbitRelative {
             kind,
             variant,
             object: Some(object.into()),
@@ -633,7 +633,7 @@ impl Frame {
     /// Constructs an orbit-relative frame, validating the kind/variant
     /// combination.
     ///
-    /// General form of the `Frame::<KIND>(object)` constructors, for
+    /// General form of the `ReferenceFrame::<KIND>(object)` constructors, for
     /// callers that hold a runtime `kind`/`variant` pair (e.g. parsed from
     /// a CCSDS file) and an optional, not-yet-bound object.
     ///
@@ -644,7 +644,7 @@ impl Frame {
     /// * `object` - The bound object, or `None` for an unbound label
     ///
     /// # Returns
-    /// * `Ok(Frame)`: The `OrbitRelative` frame, if the combination is
+    /// * `Ok(ReferenceFrame)`: The `OrbitRelative` frame, if the combination is
     ///   valid
     /// * `Err(BraheError)`: If `kind` is `EQW` or `PQW` and `variant` is
     ///   `Rotating`
@@ -652,19 +652,19 @@ impl Frame {
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::{Frame, OrbitRelativeKind, OrbitRelativeVariant};
+    /// use brahe::frames::{ReferenceFrame, OrbitRelativeKind, OrbitRelativeVariant};
     ///
-    /// let bound = Frame::orbit_relative(OrbitRelativeKind::RTN, OrbitRelativeVariant::Inertial, Some("SC".into()));
+    /// let bound = ReferenceFrame::orbit_relative(OrbitRelativeKind::RTN, OrbitRelativeVariant::Inertial, Some("SC".into()));
     /// assert!(bound.is_ok());
     ///
-    /// let invalid = Frame::orbit_relative(OrbitRelativeKind::EQW, OrbitRelativeVariant::Rotating, None);
+    /// let invalid = ReferenceFrame::orbit_relative(OrbitRelativeKind::EQW, OrbitRelativeVariant::Rotating, None);
     /// assert!(invalid.is_err());
     /// ```
     pub fn orbit_relative(
         kind: OrbitRelativeKind,
         variant: OrbitRelativeVariant,
         object: Option<ObjectId>,
-    ) -> Result<Frame, BraheError> {
+    ) -> Result<ReferenceFrame, BraheError> {
         if matches!(kind, OrbitRelativeKind::EQW | OrbitRelativeKind::PQW)
             && variant == OrbitRelativeVariant::Rotating
         {
@@ -674,7 +674,7 @@ impl Frame {
                 kind
             )));
         }
-        Ok(Frame::OrbitRelative {
+        Ok(ReferenceFrame::OrbitRelative {
             kind,
             variant,
             object,
@@ -687,18 +687,18 @@ impl Frame {
     /// * `object` - The object the frame is defined relative to
     ///
     /// # Returns
-    /// `Frame`: The bound `SC_BODY` body frame
+    /// `ReferenceFrame`: The bound `SC_BODY` body frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::SC_BODY("SC").to_string(), "SC_BODY@SC");
+    /// assert_eq!(ReferenceFrame::SC_BODY("SC").to_string(), "SC_BODY@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn SC_BODY(object: impl Into<ObjectId>) -> Frame {
-        Frame::body(object, BodyFrame::SCBody(None))
+    pub fn SC_BODY(object: impl Into<ObjectId>) -> ReferenceFrame {
+        ReferenceFrame::body(object, BodyFrame::SCBody(None))
     }
 
     /// Constructs a bound coarse sun sensor frame.
@@ -708,18 +708,18 @@ impl Frame {
     /// * `designator` - The sensor instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame`: The bound `CSS_<designator>` body frame
+    /// `ReferenceFrame`: The bound `CSS_<designator>` body frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::CSS("SC", "1").to_string(), "CSS_1@SC");
+    /// assert_eq!(ReferenceFrame::CSS("SC", "1").to_string(), "CSS_1@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn CSS(object: impl Into<ObjectId>, designator: impl Into<String>) -> Frame {
-        Frame::body(object, BodyFrame::CSS(Some(designator.into())))
+    pub fn CSS(object: impl Into<ObjectId>, designator: impl Into<String>) -> ReferenceFrame {
+        ReferenceFrame::body(object, BodyFrame::CSS(Some(designator.into())))
     }
 
     /// Constructs a bound accelerometer frame.
@@ -729,18 +729,18 @@ impl Frame {
     /// * `designator` - The sensor instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame`: The bound `ACC_<designator>` body frame
+    /// `ReferenceFrame`: The bound `ACC_<designator>` body frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::ACC("SC", "1").to_string(), "ACC_1@SC");
+    /// assert_eq!(ReferenceFrame::ACC("SC", "1").to_string(), "ACC_1@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn ACC(object: impl Into<ObjectId>, designator: impl Into<String>) -> Frame {
-        Frame::body(object, BodyFrame::ACC(Some(designator.into())))
+    pub fn ACC(object: impl Into<ObjectId>, designator: impl Into<String>) -> ReferenceFrame {
+        ReferenceFrame::body(object, BodyFrame::ACC(Some(designator.into())))
     }
 
     /// Constructs a bound autonomous star tracker frame.
@@ -750,18 +750,18 @@ impl Frame {
     /// * `designator` - The sensor instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame`: The bound `AST_<designator>` body frame
+    /// `ReferenceFrame`: The bound `AST_<designator>` body frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::AST("SC", "1").to_string(), "AST_1@SC");
+    /// assert_eq!(ReferenceFrame::AST("SC", "1").to_string(), "AST_1@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn AST(object: impl Into<ObjectId>, designator: impl Into<String>) -> Frame {
-        Frame::body(object, BodyFrame::AST(Some(designator.into())))
+    pub fn AST(object: impl Into<ObjectId>, designator: impl Into<String>) -> ReferenceFrame {
+        ReferenceFrame::body(object, BodyFrame::AST(Some(designator.into())))
     }
 
     /// Constructs a bound digital sun sensor frame.
@@ -771,18 +771,18 @@ impl Frame {
     /// * `designator` - The sensor instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame`: The bound `DSS_<designator>` body frame
+    /// `ReferenceFrame`: The bound `DSS_<designator>` body frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::DSS("SC", "1").to_string(), "DSS_1@SC");
+    /// assert_eq!(ReferenceFrame::DSS("SC", "1").to_string(), "DSS_1@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn DSS(object: impl Into<ObjectId>, designator: impl Into<String>) -> Frame {
-        Frame::body(object, BodyFrame::DSS(Some(designator.into())))
+    pub fn DSS(object: impl Into<ObjectId>, designator: impl Into<String>) -> ReferenceFrame {
+        ReferenceFrame::body(object, BodyFrame::DSS(Some(designator.into())))
     }
 
     /// Constructs a bound Earth sensor assembly frame.
@@ -792,18 +792,18 @@ impl Frame {
     /// * `designator` - The sensor instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame`: The bound `ESA_<designator>` body frame
+    /// `ReferenceFrame`: The bound `ESA_<designator>` body frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::ESA("SC", "1").to_string(), "ESA_1@SC");
+    /// assert_eq!(ReferenceFrame::ESA("SC", "1").to_string(), "ESA_1@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn ESA(object: impl Into<ObjectId>, designator: impl Into<String>) -> Frame {
-        Frame::body(object, BodyFrame::ESA(Some(designator.into())))
+    pub fn ESA(object: impl Into<ObjectId>, designator: impl Into<String>) -> ReferenceFrame {
+        ReferenceFrame::body(object, BodyFrame::ESA(Some(designator.into())))
     }
 
     /// Constructs a bound gyroscope frame.
@@ -813,18 +813,21 @@ impl Frame {
     /// * `designator` - The sensor instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame`: The bound `GYRO_FRAME_<designator>` body frame
+    /// `ReferenceFrame`: The bound `GYRO_FRAME_<designator>` body frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::GYRO_FRAME("SC", "1").to_string(), "GYRO_FRAME_1@SC");
+    /// assert_eq!(ReferenceFrame::GYRO_FRAME("SC", "1").to_string(), "GYRO_FRAME_1@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn GYRO_FRAME(object: impl Into<ObjectId>, designator: impl Into<String>) -> Frame {
-        Frame::body(object, BodyFrame::GyroFrame(Some(designator.into())))
+    pub fn GYRO_FRAME(
+        object: impl Into<ObjectId>,
+        designator: impl Into<String>,
+    ) -> ReferenceFrame {
+        ReferenceFrame::body(object, BodyFrame::GyroFrame(Some(designator.into())))
     }
 
     /// Constructs a bound inertial measurement unit frame.
@@ -834,18 +837,18 @@ impl Frame {
     /// * `designator` - The sensor instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame`: The bound `IMU_FRAME_<designator>` body frame
+    /// `ReferenceFrame`: The bound `IMU_FRAME_<designator>` body frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::IMU_FRAME("SC", "1").to_string(), "IMU_FRAME_1@SC");
+    /// assert_eq!(ReferenceFrame::IMU_FRAME("SC", "1").to_string(), "IMU_FRAME_1@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn IMU_FRAME(object: impl Into<ObjectId>, designator: impl Into<String>) -> Frame {
-        Frame::body(object, BodyFrame::IMUFrame(Some(designator.into())))
+    pub fn IMU_FRAME(object: impl Into<ObjectId>, designator: impl Into<String>) -> ReferenceFrame {
+        ReferenceFrame::body(object, BodyFrame::IMUFrame(Some(designator.into())))
     }
 
     /// Constructs a bound instrument frame.
@@ -855,18 +858,21 @@ impl Frame {
     /// * `designator` - The instrument instance designator (e.g. `"A"`)
     ///
     /// # Returns
-    /// `Frame`: The bound `INSTRUMENT_<designator>` body frame
+    /// `ReferenceFrame`: The bound `INSTRUMENT_<designator>` body frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::INSTRUMENT("SC", "A").to_string(), "INSTRUMENT_A@SC");
+    /// assert_eq!(ReferenceFrame::INSTRUMENT("SC", "A").to_string(), "INSTRUMENT_A@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn INSTRUMENT(object: impl Into<ObjectId>, designator: impl Into<String>) -> Frame {
-        Frame::body(object, BodyFrame::Instrument(Some(designator.into())))
+    pub fn INSTRUMENT(
+        object: impl Into<ObjectId>,
+        designator: impl Into<String>,
+    ) -> ReferenceFrame {
+        ReferenceFrame::body(object, BodyFrame::Instrument(Some(designator.into())))
     }
 
     /// Constructs a bound magnetic torque assembly frame.
@@ -876,18 +882,18 @@ impl Frame {
     /// * `designator` - The actuator instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame`: The bound `MTA_<designator>` body frame
+    /// `ReferenceFrame`: The bound `MTA_<designator>` body frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::MTA("SC", "1").to_string(), "MTA_1@SC");
+    /// assert_eq!(ReferenceFrame::MTA("SC", "1").to_string(), "MTA_1@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn MTA(object: impl Into<ObjectId>, designator: impl Into<String>) -> Frame {
-        Frame::body(object, BodyFrame::MTA(Some(designator.into())))
+    pub fn MTA(object: impl Into<ObjectId>, designator: impl Into<String>) -> ReferenceFrame {
+        ReferenceFrame::body(object, BodyFrame::MTA(Some(designator.into())))
     }
 
     /// Constructs a bound reaction wheel frame.
@@ -897,18 +903,18 @@ impl Frame {
     /// * `designator` - The actuator instance designator (e.g. `"4"`)
     ///
     /// # Returns
-    /// `Frame`: The bound `RW_<designator>` body frame
+    /// `ReferenceFrame`: The bound `RW_<designator>` body frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::RW("SC", "4").to_string(), "RW_4@SC");
+    /// assert_eq!(ReferenceFrame::RW("SC", "4").to_string(), "RW_4@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn RW(object: impl Into<ObjectId>, designator: impl Into<String>) -> Frame {
-        Frame::body(object, BodyFrame::RW(Some(designator.into())))
+    pub fn RW(object: impl Into<ObjectId>, designator: impl Into<String>) -> ReferenceFrame {
+        ReferenceFrame::body(object, BodyFrame::RW(Some(designator.into())))
     }
 
     /// Constructs a bound solar array frame.
@@ -918,18 +924,18 @@ impl Frame {
     /// * `designator` - The array instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame`: The bound `SA_<designator>` body frame
+    /// `ReferenceFrame`: The bound `SA_<designator>` body frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::SA("SC", "1").to_string(), "SA_1@SC");
+    /// assert_eq!(ReferenceFrame::SA("SC", "1").to_string(), "SA_1@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn SA(object: impl Into<ObjectId>, designator: impl Into<String>) -> Frame {
-        Frame::body(object, BodyFrame::SA(Some(designator.into())))
+    pub fn SA(object: impl Into<ObjectId>, designator: impl Into<String>) -> ReferenceFrame {
+        ReferenceFrame::body(object, BodyFrame::SA(Some(designator.into())))
     }
 
     /// Constructs a bound generic sensor frame.
@@ -939,18 +945,18 @@ impl Frame {
     /// * `designator` - The sensor instance designator (e.g. `"10"`)
     ///
     /// # Returns
-    /// `Frame`: The bound `SENSOR_<designator>` body frame
+    /// `ReferenceFrame`: The bound `SENSOR_<designator>` body frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::SENSOR("SC", "10").to_string(), "SENSOR_10@SC");
+    /// assert_eq!(ReferenceFrame::SENSOR("SC", "10").to_string(), "SENSOR_10@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn SENSOR(object: impl Into<ObjectId>, designator: impl Into<String>) -> Frame {
-        Frame::body(object, BodyFrame::Sensor(Some(designator.into())))
+    pub fn SENSOR(object: impl Into<ObjectId>, designator: impl Into<String>) -> ReferenceFrame {
+        ReferenceFrame::body(object, BodyFrame::Sensor(Some(designator.into())))
     }
 
     /// Constructs a bound star tracker frame.
@@ -960,18 +966,21 @@ impl Frame {
     /// * `designator` - The sensor instance designator (e.g. `"2"`)
     ///
     /// # Returns
-    /// `Frame`: The bound `STARTRACKER_<designator>` body frame
+    /// `ReferenceFrame`: The bound `STARTRACKER_<designator>` body frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::STARTRACKER("SC", "2").to_string(), "STARTRACKER_2@SC");
+    /// assert_eq!(ReferenceFrame::STARTRACKER("SC", "2").to_string(), "STARTRACKER_2@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn STARTRACKER(object: impl Into<ObjectId>, designator: impl Into<String>) -> Frame {
-        Frame::body(object, BodyFrame::StarTracker(Some(designator.into())))
+    pub fn STARTRACKER(
+        object: impl Into<ObjectId>,
+        designator: impl Into<String>,
+    ) -> ReferenceFrame {
+        ReferenceFrame::body(object, BodyFrame::StarTracker(Some(designator.into())))
     }
 
     /// Constructs a bound three-axis magnetometer frame.
@@ -981,18 +990,18 @@ impl Frame {
     /// * `designator` - The sensor instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame`: The bound `TAM_<designator>` body frame
+    /// `ReferenceFrame`: The bound `TAM_<designator>` body frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::TAM("SC", "1").to_string(), "TAM_1@SC");
+    /// assert_eq!(ReferenceFrame::TAM("SC", "1").to_string(), "TAM_1@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn TAM(object: impl Into<ObjectId>, designator: impl Into<String>) -> Frame {
-        Frame::body(object, BodyFrame::TAM(Some(designator.into())))
+    pub fn TAM(object: impl Into<ObjectId>, designator: impl Into<String>) -> ReferenceFrame {
+        ReferenceFrame::body(object, BodyFrame::TAM(Some(designator.into())))
     }
 
     /// Constructs a bound actuator frame.
@@ -1002,25 +1011,25 @@ impl Frame {
     /// * `designator` - The actuator instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame`: The bound `ACTUATOR_<designator>` body frame
+    /// `ReferenceFrame`: The bound `ACTUATOR_<designator>` body frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::ACTUATOR("SC", "1").to_string(), "ACTUATOR_1@SC");
+    /// assert_eq!(ReferenceFrame::ACTUATOR("SC", "1").to_string(), "ACTUATOR_1@SC");
     /// ```
     #[allow(non_snake_case)]
-    pub fn ACTUATOR(object: impl Into<ObjectId>, designator: impl Into<String>) -> Frame {
-        Frame::body(object, BodyFrame::Actuator(Some(designator.into())))
+    pub fn ACTUATOR(object: impl Into<ObjectId>, designator: impl Into<String>) -> ReferenceFrame {
+        ReferenceFrame::body(object, BodyFrame::Actuator(Some(designator.into())))
     }
 
     /// Constructs a bound body frame, general form.
     ///
     /// Covers designator-less and non-standard [`BodyFrame`] cases beyond
-    /// the family-specific constructors (e.g. `Frame::CSS`, `Frame::RW`).
-    /// Use [`From<BodyFrame>`](Frame#impl-From<BodyFrame>-for-Frame) to
+    /// the family-specific constructors (e.g. `ReferenceFrame::CSS`, `ReferenceFrame::RW`).
+    /// Use [`From<BodyFrame>`](ReferenceFrame#impl-From<BodyFrame>-for-ReferenceFrame) to
     /// construct an unbound (`object: None`) body frame.
     ///
     /// # Arguments
@@ -1028,18 +1037,18 @@ impl Frame {
     /// * `frame` - The body frame kind and optional instance designator
     ///
     /// # Returns
-    /// `Frame`: The bound body frame
+    /// `ReferenceFrame`: The bound body frame
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::{Frame, BodyFrame};
+    /// use brahe::frames::{ReferenceFrame, BodyFrame};
     ///
-    /// let frame = Frame::body("SC", BodyFrame::SCBody(None));
+    /// let frame = ReferenceFrame::body("SC", BodyFrame::SCBody(None));
     /// assert_eq!(frame.to_string(), "SC_BODY@SC");
     /// ```
-    pub fn body(object: impl Into<ObjectId>, frame: BodyFrame) -> Frame {
-        Frame::Body {
+    pub fn body(object: impl Into<ObjectId>, frame: BodyFrame) -> ReferenceFrame {
+        ReferenceFrame::Body {
             frame,
             object: Some(object.into()),
         }
@@ -1060,17 +1069,17 @@ impl Frame {
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::{Frame, BodyFrame};
+    /// use brahe::frames::{ReferenceFrame, BodyFrame};
     ///
-    /// assert!(Frame::SC_BODY("SC").is_bound());
-    /// let unbound: Frame = BodyFrame::SCBody(None).into();
+    /// assert!(ReferenceFrame::SC_BODY("SC").is_bound());
+    /// let unbound: ReferenceFrame = BodyFrame::SCBody(None).into();
     /// assert!(!unbound.is_bound());
     /// ```
     pub fn is_bound(&self) -> bool {
         match self {
-            Frame::Celestial(_) => true,
-            Frame::OrbitRelative { object, .. } => object.is_some(),
-            Frame::Body { object, .. } => object.is_some(),
+            ReferenceFrame::Celestial(_) => true,
+            ReferenceFrame::OrbitRelative { object, .. } => object.is_some(),
+            ReferenceFrame::Body { object, .. } => object.is_some(),
         }
     }
 
@@ -1083,28 +1092,28 @@ impl Frame {
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::Frame;
+    /// use brahe::frames::ReferenceFrame;
     ///
-    /// assert_eq!(Frame::RTN("SC").object().unwrap().to_string(), "SC");
+    /// assert_eq!(ReferenceFrame::RTN("SC").object().unwrap().to_string(), "SC");
     /// ```
     pub fn object(&self) -> Option<&ObjectId> {
         match self {
-            Frame::Celestial(_) => None,
-            Frame::OrbitRelative { object, .. } => object.as_ref(),
-            Frame::Body { object, .. } => object.as_ref(),
+            ReferenceFrame::Celestial(_) => None,
+            ReferenceFrame::OrbitRelative { object, .. } => object.as_ref(),
+            ReferenceFrame::Body { object, .. } => object.as_ref(),
         }
     }
 }
 
-impl From<CelestialFrame> for Frame {
+impl From<CelestialFrame> for ReferenceFrame {
     fn from(frame: CelestialFrame) -> Self {
-        Frame::Celestial(frame)
+        ReferenceFrame::Celestial(frame)
     }
 }
 
-impl From<OrbitRelativeFrame> for Frame {
+impl From<OrbitRelativeFrame> for ReferenceFrame {
     fn from(frame: OrbitRelativeFrame) -> Self {
-        Frame::OrbitRelative {
+        ReferenceFrame::OrbitRelative {
             kind: frame.kind,
             variant: frame.variant,
             object: None,
@@ -1112,20 +1121,20 @@ impl From<OrbitRelativeFrame> for Frame {
     }
 }
 
-impl From<BodyFrame> for Frame {
+impl From<BodyFrame> for ReferenceFrame {
     fn from(frame: BodyFrame) -> Self {
-        Frame::Body {
+        ReferenceFrame::Body {
             frame,
             object: None,
         }
     }
 }
 
-impl fmt::Display for Frame {
+impl fmt::Display for ReferenceFrame {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Frame::Celestial(frame) => write!(f, "{}", frame),
-            Frame::OrbitRelative {
+            ReferenceFrame::Celestial(frame) => write!(f, "{}", frame),
+            ReferenceFrame::OrbitRelative {
                 kind,
                 variant,
                 object,
@@ -1133,7 +1142,7 @@ impl fmt::Display for Frame {
                 Some(object) => write!(f, "{} ({})@{}", kind, variant, object),
                 None => write!(f, "{} ({})", kind, variant),
             },
-            Frame::Body { frame, object } => match object {
+            ReferenceFrame::Body { frame, object } => match object {
                 Some(object) => write!(f, "{}@{}", frame, object),
                 None => write!(f, "{}", frame),
             },
@@ -1151,18 +1160,18 @@ mod tests {
     #[test]
     #[parallel]
     fn test_frame_constructors_and_display() {
-        let f = Frame::RTN("SC");
+        let f = ReferenceFrame::RTN("SC");
         assert_eq!(f.to_string(), "RTN (rotating)@SC");
         assert!(f.is_bound());
         assert_eq!(f.object().unwrap().to_string(), "SC");
         // EQW/PQW default to Inertial so construction never errors
-        assert_eq!(Frame::PQW("SC").to_string(), "PQW (inertial)@SC");
-        assert_eq!(Frame::CSS("SC", "1").to_string(), "CSS_1@SC");
-        assert_eq!(Frame::SC_BODY("SC").to_string(), "SC_BODY@SC");
-        let unbound: Frame = BodyFrame::SCBody(None).into();
+        assert_eq!(ReferenceFrame::PQW("SC").to_string(), "PQW (inertial)@SC");
+        assert_eq!(ReferenceFrame::CSS("SC", "1").to_string(), "CSS_1@SC");
+        assert_eq!(ReferenceFrame::SC_BODY("SC").to_string(), "SC_BODY@SC");
+        let unbound: ReferenceFrame = BodyFrame::SCBody(None).into();
         assert!(!unbound.is_bound());
         assert_eq!(unbound.to_string(), "SC_BODY");
-        let cel: Frame = CelestialFrame::GCRF.into();
+        let cel: ReferenceFrame = CelestialFrame::GCRF.into();
         assert_eq!(cel.to_string(), "GCRF");
         assert!(cel.is_bound());
     }
@@ -1171,11 +1180,15 @@ mod tests {
     #[parallel]
     fn test_orbit_relative_validation() {
         assert!(
-            Frame::orbit_relative(OrbitRelativeKind::EQW, OrbitRelativeVariant::Rotating, None)
-                .is_err()
+            ReferenceFrame::orbit_relative(
+                OrbitRelativeKind::EQW,
+                OrbitRelativeVariant::Rotating,
+                None
+            )
+            .is_err()
         );
         assert!(
-            Frame::orbit_relative(
+            ReferenceFrame::orbit_relative(
                 OrbitRelativeKind::RTN,
                 OrbitRelativeVariant::Inertial,
                 Some("SC".into())
@@ -1188,16 +1201,16 @@ mod tests {
     #[parallel]
     fn test_frame_serde_round_trip() {
         for f in [
-            Frame::RTN("SC"),
-            Frame::CSS("SC", "1"),
+            ReferenceFrame::RTN("SC"),
+            ReferenceFrame::CSS("SC", "1"),
             CelestialFrame::ITRF.into(),
-            Frame::from(
+            ReferenceFrame::from(
                 OrbitRelativeFrame::new(OrbitRelativeKind::LVLH, OrbitRelativeVariant::Rotating)
                     .unwrap(),
             ),
         ] {
             let s = serde_json::to_string(&f).unwrap();
-            assert_eq!(serde_json::from_str::<Frame>(&s).unwrap(), f);
+            assert_eq!(serde_json::from_str::<ReferenceFrame>(&s).unwrap(), f);
         }
     }
 
@@ -1327,11 +1340,17 @@ mod tests {
     #[test]
     #[parallel]
     fn test_frame_object_accessor_all_kinds() {
-        let cel: Frame = CelestialFrame::GCRF.into();
+        let cel: ReferenceFrame = CelestialFrame::GCRF.into();
         assert!(cel.object().is_none());
-        assert_eq!(Frame::RTN("SC").object().unwrap().to_string(), "SC");
-        assert_eq!(Frame::SC_BODY("SC").object().unwrap().to_string(), "SC");
-        let unbound: Frame = BodyFrame::SCBody(None).into();
+        assert_eq!(
+            ReferenceFrame::RTN("SC").object().unwrap().to_string(),
+            "SC"
+        );
+        assert_eq!(
+            ReferenceFrame::SC_BODY("SC").object().unwrap().to_string(),
+            "SC"
+        );
+        let unbound: ReferenceFrame = BodyFrame::SCBody(None).into();
         assert!(unbound.object().is_none());
     }
 
@@ -1339,12 +1358,12 @@ mod tests {
     #[parallel]
     fn test_frame_orbit_relative_convenience_constructors() {
         let cases = [
-            (Frame::NTW("SC"), "NTW (rotating)@SC"),
-            (Frame::TNW("SC"), "TNW (rotating)@SC"),
-            (Frame::SEZ("SC"), "SEZ (rotating)@SC"),
-            (Frame::VNC("SC"), "VNC (rotating)@SC"),
-            (Frame::NSW("SC"), "NSW (rotating)@SC"),
-            (Frame::EQW("SC"), "EQW (inertial)@SC"),
+            (ReferenceFrame::NTW("SC"), "NTW (rotating)@SC"),
+            (ReferenceFrame::TNW("SC"), "TNW (rotating)@SC"),
+            (ReferenceFrame::SEZ("SC"), "SEZ (rotating)@SC"),
+            (ReferenceFrame::VNC("SC"), "VNC (rotating)@SC"),
+            (ReferenceFrame::NSW("SC"), "NSW (rotating)@SC"),
+            (ReferenceFrame::EQW("SC"), "EQW (inertial)@SC"),
         ];
         for (frame, expected) in cases {
             assert_eq!(frame.to_string(), expected);
@@ -1356,20 +1375,20 @@ mod tests {
     #[parallel]
     fn test_frame_body_family_convenience_constructors() {
         let cases = [
-            (Frame::ACC("SC", "1"), "ACC_1@SC"),
-            (Frame::AST("SC", "1"), "AST_1@SC"),
-            (Frame::DSS("SC", "1"), "DSS_1@SC"),
-            (Frame::ESA("SC", "1"), "ESA_1@SC"),
-            (Frame::GYRO_FRAME("SC", "1"), "GYRO_FRAME_1@SC"),
-            (Frame::IMU_FRAME("SC", "2"), "IMU_FRAME_2@SC"),
-            (Frame::INSTRUMENT("SC", "A"), "INSTRUMENT_A@SC"),
-            (Frame::MTA("SC", "1"), "MTA_1@SC"),
-            (Frame::RW("SC", "4"), "RW_4@SC"),
-            (Frame::SA("SC", "1"), "SA_1@SC"),
-            (Frame::SENSOR("SC", "10"), "SENSOR_10@SC"),
-            (Frame::STARTRACKER("SC", "2"), "STARTRACKER_2@SC"),
-            (Frame::TAM("SC", "1"), "TAM_1@SC"),
-            (Frame::ACTUATOR("SC", "1"), "ACTUATOR_1@SC"),
+            (ReferenceFrame::ACC("SC", "1"), "ACC_1@SC"),
+            (ReferenceFrame::AST("SC", "1"), "AST_1@SC"),
+            (ReferenceFrame::DSS("SC", "1"), "DSS_1@SC"),
+            (ReferenceFrame::ESA("SC", "1"), "ESA_1@SC"),
+            (ReferenceFrame::GYRO_FRAME("SC", "1"), "GYRO_FRAME_1@SC"),
+            (ReferenceFrame::IMU_FRAME("SC", "2"), "IMU_FRAME_2@SC"),
+            (ReferenceFrame::INSTRUMENT("SC", "A"), "INSTRUMENT_A@SC"),
+            (ReferenceFrame::MTA("SC", "1"), "MTA_1@SC"),
+            (ReferenceFrame::RW("SC", "4"), "RW_4@SC"),
+            (ReferenceFrame::SA("SC", "1"), "SA_1@SC"),
+            (ReferenceFrame::SENSOR("SC", "10"), "SENSOR_10@SC"),
+            (ReferenceFrame::STARTRACKER("SC", "2"), "STARTRACKER_2@SC"),
+            (ReferenceFrame::TAM("SC", "1"), "TAM_1@SC"),
+            (ReferenceFrame::ACTUATOR("SC", "1"), "ACTUATOR_1@SC"),
         ];
         for (frame, expected) in cases {
             assert_eq!(frame.to_string(), expected);

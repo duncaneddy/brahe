@@ -13,13 +13,13 @@ import brahe as bh
 bh.clear_frame_registry()
 bh.clear_object_registry()
 
-# A Frame::Body or Frame::OrbitRelative frame is a pure label until it is
-# bound to an object; a Frame::Celestial frame (CelestialFrame.GCRF, ...) is
-# always bound. The family staticmethods (Frame.RTN, Frame.SC_BODY,
-# Frame.CSS, ...) construct a bound frame directly; Frame.body(None, ...)
+# A ReferenceFrame::Body or ReferenceFrame::OrbitRelative frame is a pure label until it is
+# bound to an object; a ReferenceFrame::Celestial frame (CelestialFrame.GCRF, ...) is
+# always bound. The family staticmethods (ReferenceFrame.RTN, ReferenceFrame.SC_BODY,
+# ReferenceFrame.CSS, ...) construct a bound frame directly; ReferenceFrame.body(None, ...)
 # leaves it unbound.
-rtn = bh.Frame.RTN("SC")
-label = bh.Frame.body(None, bh.BodyFrame.SC_BODY())
+rtn = bh.ReferenceFrame.RTN("SC")
+label = bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY())
 print(f"{rtn}: bound={rtn.is_bound()}, object={rtn.object()}")
 print(f"{label}: bound={label.is_bound()}, object={label.object()}")
 
@@ -38,21 +38,23 @@ q_body = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
 q_css = bh.EulerAxis(
     np.array([0.0, 1.0, 0.0]), 0.7, bh.AngleFormat.RADIANS
 ).to_quaternion()
-bh.register_frame(bh.Frame.SC_BODY("SC"), bh.CelestialFrame.GCRF, q_body)
-bh.register_frame(bh.Frame.CSS("SC", "1"), bh.Frame.SC_BODY("SC"), q_css)
+bh.register_frame(bh.ReferenceFrame.SC_BODY("SC"), bh.CelestialFrame.GCRF, q_body)
+bh.register_frame(
+    bh.ReferenceFrame.CSS("SC", "1"), bh.ReferenceFrame.SC_BODY("SC"), q_css
+)
 
 # Route the Sun's GCRF position through GCRF -> SC_BODY -> CSS_1.
 epc = bh.Epoch.from_date(2024, 3, 1, bh.TimeSystem.UTC)
 sun_gcrf = bh.sun_position(epc)
 sun_css = bh.position_frame_to_frame(
-    bh.CelestialFrame.GCRF, bh.Frame.CSS("SC", "1"), epc, sun_gcrf
+    bh.CelestialFrame.GCRF, bh.ReferenceFrame.CSS("SC", "1"), epc, sun_gcrf
 )
 print(f"\nSun direction in CSS_1: {sun_css}")
 
 # Body frames share their object's origin exactly: routing SC's own position
 # into CSS_1 lands at the origin, with no lever arm applied.
 sc_in_css = bh.position_frame_to_frame(
-    bh.CelestialFrame.GCRF, bh.Frame.CSS("SC", "1"), epc, x_sc[:3]
+    bh.CelestialFrame.GCRF, bh.ReferenceFrame.CSS("SC", "1"), epc, x_sc[:3]
 )
 print(f"SC origin in CSS_1 (zero lever arm): {sc_in_css}")
 np.testing.assert_allclose(sc_in_css, 0.0, atol=1e-6)
@@ -60,7 +62,9 @@ np.testing.assert_allclose(sc_in_css, 0.0, atol=1e-6)
 # Querying an unregistered link raises with a fix: which frame is missing and
 # the register_frame call that would supply it.
 try:
-    bh.rotation_frame_to_frame(bh.CelestialFrame.GCRF, bh.Frame.CSS("SC", "2"), epc)
+    bh.rotation_frame_to_frame(
+        bh.CelestialFrame.GCRF, bh.ReferenceFrame.CSS("SC", "2"), epc
+    )
 except RuntimeError as e:
     print(f"\nMissing-link error: {e}")
 

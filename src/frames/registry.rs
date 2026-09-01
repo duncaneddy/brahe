@@ -1,6 +1,6 @@
 /*!
  * Global frame registry: parent chains and orientation providers for
- * registered [`Frame`]s.
+ * registered [`ReferenceFrame`]s.
  *
  * This is the single table backing both [`register_frame`] (arbitrary
  * `Body` frames, e.g. spacecraft body/sensor chains) and
@@ -18,7 +18,7 @@ use std::sync::{Arc, RwLock};
 
 use once_cell::sync::Lazy;
 
-use crate::frames::{BodyFrame, Frame, OrientationProvider};
+use crate::frames::{BodyFrame, OrientationProvider, ReferenceFrame};
 use crate::utils::BraheError;
 
 /// Registry key covering both doorways into the frame registry.
@@ -44,7 +44,7 @@ pub(crate) enum FrameKey {
 /// [`register_frame`] carries `Some`.
 #[derive(Clone)]
 pub(crate) struct FrameEntry {
-    pub(crate) parent: Option<Frame>,
+    pub(crate) parent: Option<ReferenceFrame>,
     pub(crate) provider: Arc<dyn OrientationProvider>,
 }
 
@@ -56,9 +56,9 @@ pub(crate) static FRAME_REGISTRY: Lazy<RwLock<HashMap<FrameKey, FrameEntry>>> =
 /// Converts a bound `Body` frame into its registry key. Returns `None` for
 /// every other frame (celestial, orbit-relative, or an unbound body frame),
 /// none of which can be registered under [`register_frame`].
-fn frame_key(frame: &Frame) -> Option<FrameKey> {
+fn frame_key(frame: &ReferenceFrame) -> Option<FrameKey> {
     match frame {
-        Frame::Body {
+        ReferenceFrame::Body {
             frame,
             object: Some(object),
         } => Some(FrameKey::Body(object.clone(), frame.clone())),
@@ -68,9 +68,9 @@ fn frame_key(frame: &Frame) -> Option<FrameKey> {
 
 /// Registers (or replaces) `frame`'s orientation relative to `parent`.
 ///
-/// `frame` must be a bound `Body` frame (e.g. `Frame::SC_BODY("SC")`,
-/// `Frame::CSS("SC", "1")`); `parent` must resolve to a celestial root by
-/// walking the registry — either `parent` is itself `Frame::Celestial`, or
+/// `frame` must be a bound `Body` frame (e.g. `ReferenceFrame::SC_BODY("SC")`,
+/// `ReferenceFrame::CSS("SC", "1")`); `parent` must resolve to a celestial root by
+/// walking the registry — either `parent` is itself `ReferenceFrame::Celestial`, or
 /// it is a bound `Body` frame that is already registered and whose own
 /// parent chain terminates at one. Re-registering an existing `frame`
 /// replaces its entry; the new parent chain is revalidated, so replacing a
@@ -97,24 +97,24 @@ fn frame_key(frame: &Frame) -> Option<FrameKey> {
 ///
 /// ```rust
 /// use brahe::attitude::Quaternion;
-/// use brahe::frames::{CelestialFrame, Frame, clear_frame_registry, register_frame};
+/// use brahe::frames::{CelestialFrame, ReferenceFrame, clear_frame_registry, register_frame};
 ///
 /// clear_frame_registry();
 /// let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
-/// register_frame(Frame::SC_BODY("SC"), CelestialFrame::GCRF.into(), q).unwrap();
-/// register_frame(Frame::CSS("SC", "1"), Frame::SC_BODY("SC"), q).unwrap();
+/// register_frame(ReferenceFrame::SC_BODY("SC"), CelestialFrame::GCRF.into(), q).unwrap();
+/// register_frame(ReferenceFrame::CSS("SC", "1"), ReferenceFrame::SC_BODY("SC"), q).unwrap();
 /// clear_frame_registry();
 /// ```
 pub fn register_frame(
-    frame: Frame,
-    parent: Frame,
+    frame: ReferenceFrame,
+    parent: ReferenceFrame,
     provider: impl OrientationProvider + 'static,
 ) -> Result<(), BraheError> {
     let key = frame_key(&frame).ok_or_else(|| {
         BraheError::Error(format!(
             "cannot register {}: target must be a bound Body frame (e.g. \
-             Frame::SC_BODY(\"SC\")); construct with a family constructor \
-             or Frame::body(object, ..) and bind an object",
+             ReferenceFrame::SC_BODY(\"SC\")); construct with a family constructor \
+             or ReferenceFrame::body(object, ..) and bind an object",
             frame
         ))
     })?;
@@ -135,15 +135,15 @@ pub fn register_frame(
 }
 
 /// Walks `parent`'s chain through the registry, requiring it to terminate
-/// at `Frame::Celestial` without passing through `frame` itself.
+/// at `ReferenceFrame::Celestial` without passing through `frame` itself.
 fn validate_parent_chain(
-    frame: &Frame,
-    parent: &Frame,
+    frame: &ReferenceFrame,
+    parent: &ReferenceFrame,
     map: &HashMap<FrameKey, FrameEntry>,
 ) -> Result<(), BraheError> {
     let mut current = parent.clone();
     loop {
-        if matches!(current, Frame::Celestial(_)) {
+        if matches!(current, ReferenceFrame::Celestial(_)) {
             return Ok(());
         }
         if &current == frame {
@@ -168,7 +168,7 @@ fn validate_parent_chain(
 
 /// Builds the D14-style error for a parent link with no registered
 /// orientation: names the missing link and the call that fixes it.
-fn missing_parent_error(frame: &Frame, parent: &Frame) -> BraheError {
+fn missing_parent_error(frame: &ReferenceFrame, parent: &ReferenceFrame) -> BraheError {
     BraheError::Error(format!(
         "cannot register {}: parent {} has no registered orientation; \
          register it first with register_frame({}, <parent>, <provider>)",
@@ -188,15 +188,15 @@ fn missing_parent_error(frame: &Frame, parent: &Frame) -> BraheError {
 ///
 /// ```rust
 /// use brahe::attitude::Quaternion;
-/// use brahe::frames::{CelestialFrame, Frame, clear_frame_registry, register_frame, unregister_frame};
+/// use brahe::frames::{CelestialFrame, ReferenceFrame, clear_frame_registry, register_frame, unregister_frame};
 ///
 /// clear_frame_registry();
 /// let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
-/// register_frame(Frame::SC_BODY("SC"), CelestialFrame::GCRF.into(), q).unwrap();
-/// assert!(unregister_frame(&Frame::SC_BODY("SC")));
-/// assert!(!unregister_frame(&Frame::SC_BODY("SC")));
+/// register_frame(ReferenceFrame::SC_BODY("SC"), CelestialFrame::GCRF.into(), q).unwrap();
+/// assert!(unregister_frame(&ReferenceFrame::SC_BODY("SC")));
+/// assert!(!unregister_frame(&ReferenceFrame::SC_BODY("SC")));
 /// ```
-pub fn unregister_frame(frame: &Frame) -> bool {
+pub fn unregister_frame(frame: &ReferenceFrame) -> bool {
     match frame_key(frame) {
         Some(key) => FRAME_REGISTRY.write().unwrap().remove(&key).is_some(),
         None => false,
@@ -248,26 +248,48 @@ mod tests {
         clear_frame_registry();
         let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
         // Unbound frame rejected
-        let unbound: Frame = BodyFrame::SCBody(None).into();
+        let unbound: ReferenceFrame = BodyFrame::SCBody(None).into();
         assert!(register_frame(unbound, CelestialFrame::GCRF.into(), q).is_err());
         // Celestial target rejected
         assert!(
             register_frame(CelestialFrame::ITRF.into(), CelestialFrame::GCRF.into(), q).is_err()
         );
         // Parent chain must exist: CSS -> SC_BODY fails before SC_BODY registered
-        let err = register_frame(Frame::CSS("SC", "1"), Frame::SC_BODY("SC"), q).unwrap_err();
+        let err = register_frame(
+            ReferenceFrame::CSS("SC", "1"),
+            ReferenceFrame::SC_BODY("SC"),
+            q,
+        )
+        .unwrap_err();
         assert!(err.to_string().contains("SC_BODY@SC"));
         // Valid chain
-        register_frame(Frame::SC_BODY("SC"), CelestialFrame::GCRF.into(), q).unwrap();
-        register_frame(Frame::CSS("SC", "1"), Frame::SC_BODY("SC"), q).unwrap();
+        register_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            CelestialFrame::GCRF.into(),
+            q,
+        )
+        .unwrap();
+        register_frame(
+            ReferenceFrame::CSS("SC", "1"),
+            ReferenceFrame::SC_BODY("SC"),
+            q,
+        )
+        .unwrap();
         // Replace that would self-cycle rejected: SC_BODY reparented onto CSS
-        assert!(register_frame(Frame::SC_BODY("SC"), Frame::CSS("SC", "1"), q).is_err());
-        assert!(unregister_frame(&Frame::CSS("SC", "1")));
-        assert!(!unregister_frame(&Frame::CSS("SC", "1")));
+        assert!(
+            register_frame(
+                ReferenceFrame::SC_BODY("SC"),
+                ReferenceFrame::CSS("SC", "1"),
+                q
+            )
+            .is_err()
+        );
+        assert!(unregister_frame(&ReferenceFrame::CSS("SC", "1")));
+        assert!(!unregister_frame(&ReferenceFrame::CSS("SC", "1")));
         // A frame with no registry key (celestial, or unbound body) is
         // never registered, so unregistering one is always a no-op.
         assert!(!unregister_frame(&CelestialFrame::GCRF.into()));
-        let unbound: Frame = BodyFrame::SCBody(None).into();
+        let unbound: ReferenceFrame = BodyFrame::SCBody(None).into();
         assert!(!unregister_frame(&unbound));
         clear_frame_registry();
     }
@@ -277,7 +299,12 @@ mod tests {
     fn test_frame_entry_clones_provider_and_clear_wipes_table() {
         clear_frame_registry();
         let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
-        register_frame(Frame::SC_BODY("SC"), CelestialFrame::GCRF.into(), q).unwrap();
+        register_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            CelestialFrame::GCRF.into(),
+            q,
+        )
+        .unwrap();
 
         let key = FrameKey::Body(crate::frames::ObjectId::from("SC"), BodyFrame::SCBody(None));
         let entry = frame_entry(&key).unwrap();
@@ -294,8 +321,8 @@ mod tests {
         let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
         // An unbound frame can never satisfy the chain walk: it is not
         // celestial and has no registry key of its own.
-        let unbound_parent: Frame = BodyFrame::SCBody(None).into();
-        assert!(register_frame(Frame::CSS("SC", "1"), unbound_parent, q).is_err());
+        let unbound_parent: ReferenceFrame = BodyFrame::SCBody(None).into();
+        assert!(register_frame(ReferenceFrame::CSS("SC", "1"), unbound_parent, q).is_err());
         clear_frame_registry();
     }
 
@@ -304,9 +331,19 @@ mod tests {
     fn test_register_frame_replace_revalidates_chain() {
         clear_frame_registry();
         let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
-        register_frame(Frame::SC_BODY("SC"), CelestialFrame::GCRF.into(), q).unwrap();
+        register_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            CelestialFrame::GCRF.into(),
+            q,
+        )
+        .unwrap();
         // Replace with a still-valid parent chain: succeeds.
-        register_frame(Frame::SC_BODY("SC"), CelestialFrame::ITRF.into(), q).unwrap();
+        register_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            CelestialFrame::ITRF.into(),
+            q,
+        )
+        .unwrap();
         let key = FrameKey::Body(crate::frames::ObjectId::from("SC"), BodyFrame::SCBody(None));
         assert_eq!(
             frame_entry(&key).unwrap().parent,

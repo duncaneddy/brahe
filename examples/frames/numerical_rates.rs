@@ -4,7 +4,7 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use brahe::frames::{CallbackOrientation, CelestialFrame, Frame, OrientationProviderExt};
+use brahe::frames::{CallbackOrientation, CelestialFrame, ReferenceFrame, OrientationProviderExt};
 use brahe::math::SMatrix3;
 use brahe::time::{Epoch, TimeSystem};
 use brahe::utils::BraheError;
@@ -36,7 +36,7 @@ fn main() {
     // transform through it fails: the velocity transport term is otherwise
     // undefined.
     bh::register_frame(
-        Frame::SC_BODY("SC"),
+        ReferenceFrame::SC_BODY("SC"),
         CelestialFrame::GCRF.into(),
         CallbackOrientation::new(rotation, None),
     )
@@ -50,7 +50,7 @@ fn main() {
 
     let epc = t0 + 100.0;
     let x_gcrf = Vector6::new(1.0e3, 2.0e3, 3.0e3, 0.0, 0.0, 0.0);
-    let err = bh::state_frame_to_frame(CelestialFrame::GCRF, Frame::SC_BODY("SC"), epc, x_gcrf)
+    let err = bh::state_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::SC_BODY("SC"), epc, x_gcrf)
         .unwrap_err();
     println!("Rates rule error: {}", err);
 
@@ -58,15 +58,15 @@ fn main() {
     // a missing angular velocity is derived by central differencing the
     // rotation over +/- step/2 seconds; a provider that already returns
     // rates is used unchanged. The state transform then succeeds.
-    bh::unregister_frame(&Frame::SC_BODY("SC"));
+    bh::unregister_frame(&ReferenceFrame::SC_BODY("SC"));
     bh::register_frame(
-        Frame::SC_BODY("SC"),
+        ReferenceFrame::SC_BODY("SC"),
         CelestialFrame::GCRF.into(),
         CallbackOrientation::new(rotation, None).with_numerical_rates(1.0),
     )
     .unwrap();
     let x_body =
-        bh::state_frame_to_frame(CelestialFrame::GCRF, Frame::SC_BODY("SC"), epc, x_gcrf).unwrap();
+        bh::state_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::SC_BODY("SC"), epc, x_gcrf).unwrap();
     println!(
         "\nBody-frame state with numerical rates: {:.6?}",
         x_body.as_slice()

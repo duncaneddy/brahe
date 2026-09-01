@@ -1,18 +1,18 @@
 # Frame Graph
 
-`Frame` is the top-level frame identity in Brahe. It extends `CelestialFrame` &mdash; the router covered in [Reference Frame Router](frame_transformations.md) &mdash; to frames that are scoped to a specific object: a spacecraft's orbit-relative frame (`RTN`, `LVLH`, ...) or a body/sensor/actuator frame (`SC_BODY`, `CSS_1`, ...). `rotation_frame_to_frame`, `position_frame_to_frame`, and `state_frame_to_frame` (and their batch forms) accept either a `CelestialFrame` or a `Frame` for `from`/`to`, so a call site that only ever uses `CelestialFrame` needs no changes to keep working.
+`ReferenceFrame` is the top-level frame identity in Brahe. It extends `CelestialFrame` &mdash; the router covered in [Reference Frame Router](frame_transformations.md) &mdash; to frames that are scoped to a specific object: a spacecraft's orbit-relative frame (`RTN`, `LVLH`, ...) or a body/sensor/actuator frame (`SC_BODY`, `CSS_1`, ...). `rotation_frame_to_frame`, `position_frame_to_frame`, and `state_frame_to_frame` (and their batch forms) accept either a `CelestialFrame` or a `ReferenceFrame` for `from`/`to`, so a call site that only ever uses `CelestialFrame` needs no changes to keep working.
 
-A `Frame` is one of three variants:
+A `ReferenceFrame` is one of three variants:
 
 - **Celestial**: any `CelestialFrame` (`GCRF`, `ITRF`, `LFPA`, ...). Evaluable analytically from an epoch alone, exactly as in the router.
 - **Orbit-relative**: a local orbital frame &mdash; `RTN`, `LVLH`, `NTW`, `TNW`, `PQW`, `EQW`, `SEZ`, `VNC`, or `NSW` &mdash; of one object, either rotating with the orbit or frozen as an inertial snapshot at each evaluation epoch.
 - **Body**: an object-local frame with no global transformation &mdash; a spacecraft body frame, a sensor, an actuator, or an instrument.
 
-Orbit-relative and body frames carry an object identity, a plain string (e.g. `"LRO"`, `"2024-123A"`) kept separate from NAIF or NORAD IDs. Constructing one through a family method, `Frame.RTN("SC")` or `Frame.CSS("SC", "1")`, binds it to that object directly.
+Orbit-relative and body frames carry an object identity, a plain string (e.g. `"LRO"`, `"2024-123A"`) kept separate from NAIF or NORAD IDs. Constructing one through a family method, `ReferenceFrame.RTN("SC")` or `ReferenceFrame.CSS("SC", "1")`, binds it to that object directly.
 
 ## Bound vs. Unbound
 
-A frame is **bound** when it can be evaluated: every `CelestialFrame` is bound by construction, and an orbit-relative or body frame is bound once it carries an object. Constructing one with no object &mdash; `Frame.body(None, ...)`/`Frame.orbit_relative(..., object=None)` in Python, or converting a bare `BodyFrame`/`OrbitRelativeFrame` in Rust &mdash; gives the unbound form instead: a pure label, useful for parsing a data file's frame column before an object identity is known. `is_bound()` and `object()` report which case a given `Frame` is in.
+A frame is **bound** when it can be evaluated: every `CelestialFrame` is bound by construction, and an orbit-relative or body frame is bound once it carries an object. Constructing one with no object &mdash; `ReferenceFrame.body(None, ...)`/`ReferenceFrame.orbit_relative(..., object=None)` in Python, or converting a bare `BodyFrame`/`OrbitRelativeFrame` in Rust &mdash; gives the unbound form instead: a pure label, useful for parsing a data file's frame column before an object identity is known. `is_bound()` and `object()` report which case a given `ReferenceFrame` is in.
 
 Calling any transform on an unbound frame raises immediately, naming the frame and the constructor that binds it, rather than failing later inside a registry lookup.
 
@@ -116,6 +116,6 @@ The example below registers a spacecraft as an object, builds a two-link orienta
 
 ## See Also
 
-- [Frame / BodyFrame API Reference](../../library_api/frames/frame.md)
+- [ReferenceFrame / BodyFrame API Reference](../../library_api/frames/frame.md)
 - [Reference Frame Router](frame_transformations.md) - `CelestialFrame` and the frame-to-frame router functions
 - [CCSDS OEM](../ccsds/oem.md) - Parsing and writing OEM ephemeris files

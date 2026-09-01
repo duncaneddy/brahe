@@ -1377,7 +1377,7 @@ impl PyOEM {
     /// under `name` with the celestial frame carried by the converted
     /// trajectory. The registered object can then be queried through
     /// `registered_objects`, or used as the anchor for an orbit-relative
-    /// frame such as `Frame.RTN(name)`.
+    /// frame such as `ReferenceFrame.RTN(name)`.
     ///
     /// Args:
     ///     name (str): The object identity to register the trajectory under

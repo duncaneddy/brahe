@@ -1214,7 +1214,7 @@ def test_position_frame_to_frame_same_frame_is_identity():
 
 
 def test_frame_to_frame_accepts_celestial_frame_and_frame_mix(clear_frame_registries):
-    """rotation_/position_/state_frame_to_frame accept CelestialFrame or Frame
+    """rotation_/position_/state_frame_to_frame accept CelestialFrame or ReferenceFrame
     for both arguments; a plain CelestialFrame <-> CelestialFrame call still
     behaves exactly as before."""
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
@@ -1225,12 +1225,12 @@ def test_frame_to_frame_accepts_celestial_frame_and_frame_mix(clear_frame_regist
     brahe.register_object("A", lambda epc: x, brahe.CelestialFrame.GCRF)
 
     r = brahe.rotation_frame_to_frame(
-        brahe.CelestialFrame.GCRF, brahe.Frame.RTN("A"), epc
+        brahe.CelestialFrame.GCRF, brahe.ReferenceFrame.RTN("A"), epc
     )
     np.testing.assert_allclose(r, brahe.rotation_eci_to_rtn(x), atol=1e-14)
 
     pos = brahe.position_frame_to_frame(
-        brahe.Frame.RTN("A"), brahe.CelestialFrame.GCRF, epc, np.zeros(3)
+        brahe.ReferenceFrame.RTN("A"), brahe.CelestialFrame.GCRF, epc, np.zeros(3)
     )
     np.testing.assert_allclose(pos, x[:3], atol=1e-6)
 

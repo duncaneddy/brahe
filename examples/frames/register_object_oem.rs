@@ -4,7 +4,7 @@
 #[allow(unused_imports)]
 use brahe as bh;
 use brahe::ccsds::OEM;
-use brahe::frames::{CelestialFrame, Frame};
+use brahe::frames::{CelestialFrame, ReferenceFrame};
 use nalgebra::Vector6;
 
 fn main() {
@@ -17,11 +17,11 @@ fn main() {
     oem.register_for("ISS").unwrap();
     println!("Registered objects: {:?}", bh::registered_objects());
 
-    // The registered object anchors Frame::RTN("ISS"): its origin is the
+    // The registered object anchors ReferenceFrame::RTN("ISS"): its origin is the
     // object's GCRF position, interpolated from the OEM ephemeris.
     let epc = oem.segments[0].metadata.start_time + 300.0;
     let x_rtn_origin = bh::state_frame_to_frame(
-        Frame::RTN("ISS"),
+        ReferenceFrame::RTN("ISS"),
         CelestialFrame::GCRF,
         epc,
         Vector6::zeros(),

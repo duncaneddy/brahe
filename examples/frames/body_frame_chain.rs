@@ -5,7 +5,7 @@
 use brahe as bh;
 use brahe::attitude::{EulerAxis, Quaternion, ToAttitude};
 use brahe::constants::AngleFormat;
-use brahe::frames::{BodyFrame, CelestialFrame, Frame};
+use brahe::frames::{BodyFrame, CelestialFrame, ReferenceFrame};
 use brahe::time::{Epoch, TimeSystem};
 use brahe::utils::BraheError;
 use brahe::utils::state_providers::SStateProvider;
@@ -24,13 +24,13 @@ fn main() {
     bh::clear_frame_registry();
     bh::clear_object_registry();
 
-    // A Frame::Body or Frame::OrbitRelative frame is a pure label until it
-    // is bound to an object; a Frame::Celestial frame (CelestialFrame::GCRF,
-    // ...) is always bound. The family constructors (Frame::RTN,
-    // Frame::SC_BODY, Frame::CSS, ...) construct a bound frame directly; an
+    // A ReferenceFrame::Body or ReferenceFrame::OrbitRelative frame is a pure label until it
+    // is bound to an object; a ReferenceFrame::Celestial frame (CelestialFrame::GCRF,
+    // ...) is always bound. The family constructors (ReferenceFrame::RTN,
+    // ReferenceFrame::SC_BODY, ReferenceFrame::CSS, ...) construct a bound frame directly; an
     // unbound label converts from a bare BodyFrame or OrbitRelativeFrame.
-    let rtn = Frame::RTN("SC");
-    let unbound: Frame = BodyFrame::SCBody(None).into();
+    let rtn = ReferenceFrame::RTN("SC");
+    let unbound: ReferenceFrame = BodyFrame::SCBody(None).into();
     println!(
         "{}: bound={}, object={:?}",
         rtn,
@@ -69,14 +69,14 @@ fn main() {
         AngleFormat::Radians,
     )
     .to_quaternion();
-    bh::register_frame(Frame::SC_BODY("SC"), CelestialFrame::GCRF.into(), q_body).unwrap();
-    bh::register_frame(Frame::CSS("SC", "1"), Frame::SC_BODY("SC"), q_css).unwrap();
+    bh::register_frame(ReferenceFrame::SC_BODY("SC"), CelestialFrame::GCRF.into(), q_body).unwrap();
+    bh::register_frame(ReferenceFrame::CSS("SC", "1"), ReferenceFrame::SC_BODY("SC"), q_css).unwrap();
 
     // Route the Sun's GCRF position through GCRF -> SC_BODY -> CSS_1.
     let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
     let sun_gcrf = bh::sun_position(epc);
     let sun_css =
-        bh::position_frame_to_frame(CelestialFrame::GCRF, Frame::CSS("SC", "1"), epc, sun_gcrf)
+        bh::position_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::CSS("SC", "1"), epc, sun_gcrf)
             .unwrap();
     println!("\nSun direction in CSS_1: {:.3?}", sun_css.as_slice());
 
@@ -84,7 +84,7 @@ fn main() {
     // position into CSS_1 lands at the origin, with no lever arm applied.
     let sc_pos = x_sc.fixed_rows::<3>(0).into_owned();
     let sc_in_css =
-        bh::position_frame_to_frame(CelestialFrame::GCRF, Frame::CSS("SC", "1"), epc, sc_pos)
+        bh::position_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::CSS("SC", "1"), epc, sc_pos)
             .unwrap();
     println!(
         "SC origin in CSS_1 (zero lever arm): {:.3?}",
@@ -95,7 +95,7 @@ fn main() {
     // Querying an unregistered link errors with a fix: which frame is
     // missing and the register_frame call that would supply it.
     let err =
-        bh::rotation_frame_to_frame(CelestialFrame::GCRF, Frame::CSS("SC", "2"), epc).unwrap_err();
+        bh::rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::CSS("SC", "2"), epc).unwrap_err();
     println!("\nMissing-link error: {}", err);
 
     bh::clear_frame_registry();

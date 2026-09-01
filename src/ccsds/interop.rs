@@ -12,6 +12,7 @@ use crate::ccsds::common::{
 };
 use crate::ccsds::oem::OEM;
 use crate::ccsds::omm::{OMM, OMMMetadata, OMMTleParameters, OMMeanElements};
+use crate::frames::{CelestialFrame, DStateAdapter, ObjectId, register_object};
 use crate::time::Epoch;
 use crate::trajectories::dorbit_trajectory::DOrbitTrajectory;
 use crate::trajectories::sorbit_trajectory::SOrbitTrajectory;
@@ -176,6 +177,59 @@ impl TryFrom<&OEM> for DOrbitTrajectory {
             )));
         }
         oem.segment_to_dorbit_trajectory(0)
+    }
+}
+
+impl OEM {
+    /// Registers this OEM as an object in the global object registry.
+    ///
+    /// Converts the OEM to a `DOrbitTrajectory` via `TryFrom<&OEM>`
+    /// (erroring for a zero- or multi-segment OEM exactly as that
+    /// conversion does), wraps it in a `DStateAdapter`, and registers it
+    /// under `name` with the celestial frame carried by the converted
+    /// trajectory. The registered object can then be queried through
+    /// `object_state`, or used as the anchor for an orbit-relative frame
+    /// such as `Frame::RTN(name)`.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The object identity to register the trajectory under
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), BraheError>` - `Ok(())` on success, or an error if the
+    ///   OEM does not have exactly one segment, or its reference frame does
+    ///   not map to a `CelestialFrame`
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use brahe::ccsds::oem::OEM;
+    /// use brahe::frames::clear_object_registry;
+    /// use std::str::FromStr;
+    ///
+    /// let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample5.txt").unwrap();
+    /// let oem = OEM::from_str(&content).unwrap();
+    ///
+    /// clear_object_registry();
+    /// oem.register_for("ISS").unwrap();
+    /// clear_object_registry();
+    /// ```
+    pub fn register_for(&self, name: impl Into<ObjectId>) -> Result<(), BraheError> {
+        let traj = DOrbitTrajectory::try_from(self)?;
+        let frame = match traj.frame {
+            OrbitFrame::GCRF => CelestialFrame::GCRF,
+            OrbitFrame::ITRF => CelestialFrame::ITRF,
+            OrbitFrame::EME2000 => CelestialFrame::EME2000,
+            other => {
+                return Err(BraheError::Error(format!(
+                    "OEM::register_for cannot map OrbitFrame '{}' to a CelestialFrame",
+                    other
+                )));
+            }
+        };
+        let adapter = DStateAdapter::new(traj)?;
+        register_object(name, adapter, frame)
     }
 }
 
@@ -421,9 +475,14 @@ impl GPRecord {
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
+    use serial_test::serial;
+
     use super::*;
     use crate::ccsds::oem::OEM;
-    use crate::trajectories::traits::Trajectory;
+    use crate::frames::{
+        CelestialFrame, Frame, clear_object_registry, object_state, rotation_frame_to_frame,
+    };
+    use crate::trajectories::traits::{InterpolatableTrajectory, Trajectory};
 
     #[test]
     fn test_oem_to_trajectory_example4() {
@@ -475,6 +534,32 @@ mod tests {
         let oem = OEM::from_str(&content).unwrap();
 
         assert!(DOrbitTrajectory::try_from(&oem).is_err());
+    }
+
+    #[test]
+    #[serial]
+    fn test_oem_register_for() {
+        clear_object_registry();
+
+        let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample5.txt").unwrap();
+        let oem = OEM::from_str(&content).unwrap();
+
+        oem.register_for("LEO").unwrap();
+
+        let traj = DOrbitTrajectory::try_from(&oem).unwrap();
+        let epoch = traj.first().unwrap().0 + 300.0;
+
+        let r = rotation_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("LEO"), epoch);
+        assert!(r.is_ok());
+
+        let (frame, state) = object_state(&"LEO".into(), epoch).unwrap();
+        assert_eq!(frame, CelestialFrame::GCRF);
+        let expected = traj.interpolate(&epoch).unwrap();
+        for i in 0..6 {
+            assert_eq!(state[i], expected[i]);
+        }
+
+        clear_object_registry();
     }
 
     #[test]

@@ -125,15 +125,24 @@ fn write_xml_header(out: &mut String, header: &ODMHeader, i1: &str, i2: &str) {
 }
 
 /// Write XML 6x6 covariance block (shared across OEM/OMM/OPM).
+/// Write an XML covariance block.
+///
+/// `with_epoch` selects whether the block carries an `EPOCH` element. CCSDS
+/// 502.0-B-3 subsection 5.2.5.3 requires one for the OEM, whose covariance
+/// matrices each belong to a navigation solution of their own, while tables
+/// 3-3 (OPM) and 4-3 (OMM) list only `COMMENT`, `COV_REF_FRAME`, and the
+/// matrix entries, the covariance there applying to the message's single
+/// state.
 fn write_xml_covariance(
     out: &mut String,
     cov: &CCSDSCovariance,
     time_system: &CCSDSTimeSystem,
+    with_epoch: bool,
     i_block: &str,
     i_elem: &str,
 ) {
     out.push_str(&format!("{}<covarianceMatrix>\n", i_block));
-    if let Some(ref epoch) = cov.epoch {
+    if with_epoch && let Some(ref epoch) = cov.epoch {
         out.push_str(&format!(
             "{}<EPOCH>{}</EPOCH>\n",
             i_elem,
@@ -365,7 +374,14 @@ pub fn write_oem_xml(oem: &crate::ccsds::oem::OEM) -> Result<String, BraheError>
 
         // Covariance
         for cov in &segment.covariances {
-            write_xml_covariance(&mut out, cov, &segment.metadata.time_system, i4, "        ");
+            write_xml_covariance(
+                &mut out,
+                cov,
+                &segment.metadata.time_system,
+                true,
+                i4,
+                "        ",
+            );
         }
 
         out.push_str(&format!("{}</data>\n", i3));
@@ -555,7 +571,14 @@ pub fn write_omm_xml(omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError>
 
     // Covariance
     if let Some(ref cov) = omm.covariance {
-        write_xml_covariance(&mut out, cov, &omm.metadata.time_system, i4, "        ");
+        write_xml_covariance(
+            &mut out,
+            cov,
+            &omm.metadata.time_system,
+            false,
+            i4,
+            "        ",
+        );
     }
 
     out.push_str(&format!("{}</data>\n", i3));
@@ -723,7 +746,14 @@ pub fn write_opm_xml(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError>
 
     // Covariance
     if let Some(ref cov) = opm.covariance {
-        write_xml_covariance(&mut out, cov, &opm.metadata.time_system, i4, "        ");
+        write_xml_covariance(
+            &mut out,
+            cov,
+            &opm.metadata.time_system,
+            false,
+            i4,
+            "        ",
+        );
     }
 
     // Maneuvers

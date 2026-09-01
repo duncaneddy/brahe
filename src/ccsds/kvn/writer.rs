@@ -283,12 +283,6 @@ pub fn write_omm(omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError> {
         for comment in &cov.comments {
             out.push_str(&format!("COMMENT {}\n", comment));
         }
-        if let Some(ref epoch) = cov.epoch {
-            out.push_str(&format!(
-                "EPOCH = {}\n",
-                format_ccsds_datetime_in(epoch, &omm.metadata.time_system)
-            ));
-        }
         if let Some(ref frame) = cov.cov_ref_frame {
             out.push_str(&format!("COV_REF_FRAME = {}\n", frame));
         }
@@ -407,12 +401,6 @@ pub fn write_opm(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError> {
         out.push('\n');
         for comment in &cov.comments {
             out.push_str(&format!("COMMENT {}\n", comment));
-        }
-        if let Some(ref epoch) = cov.epoch {
-            out.push_str(&format!(
-                "EPOCH = {}\n",
-                format_ccsds_datetime_in(epoch, &opm.metadata.time_system)
-            ));
         }
         if let Some(ref frame) = cov.cov_ref_frame {
             out.push_str(&format!("COV_REF_FRAME = {}\n", frame));
@@ -2294,5 +2282,64 @@ mod tests {
 
         let written = write_cdm(&cdm).unwrap();
         assert!(written.contains("COMMENT State vector comment"));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_opm_covariance_block_omits_epoch() {
+        use crate::ccsds::opm::OPM;
+
+        // CCSDS 502.0-B-3 table 3-3 gives the OPM covariance block only
+        // COMMENT, COV_REF_FRAME, and the matrix entries. EPOCH belongs to the
+        // OEM block alone, and the KVN parser matches it positionally, so a
+        // second assignment would land on the state vector.
+        let content = std::fs::read_to_string("test_assets/ccsds/opm/OPMExample3.txt").unwrap();
+        let written = write_opm(&OPM::from_str(&content).unwrap()).unwrap();
+
+        let epoch_lines = written
+            .lines()
+            .filter(|line| line.trim_start().starts_with("EPOCH "))
+            .count();
+        assert_eq!(
+            epoch_lines, 1,
+            "the OPM state vector's EPOCH is the only one"
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_oem_covariance_blocks_keep_their_epoch() {
+        use crate::ccsds::common::CCSDSFormat;
+        use crate::ccsds::oem::OEM;
+
+        // The OEM is the one message whose covariance block defines EPOCH
+        // (CCSDS 502.0-B-3 subsection 5.2.5.3), because each matrix belongs to
+        // a navigation solution of its own.
+        let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+        let oem = OEM::from_str(&content).unwrap();
+        let covariance_epoch = oem
+            .segments
+            .iter()
+            .flat_map(|s| s.covariances.iter())
+            .find_map(|c| c.epoch)
+            .expect("fixture has a covariance epoch");
+
+        for format in [CCSDSFormat::KVN, CCSDSFormat::XML] {
+            let reparsed = OEM::from_str(&oem.to_string(format).unwrap()).unwrap();
+            let reparsed_epoch = reparsed
+                .segments
+                .iter()
+                .flat_map(|s| s.covariances.iter())
+                .find_map(|c| c.epoch);
+            assert_eq!(
+                reparsed_epoch.map(|e| format_ccsds_datetime_in(&e, &CCSDSTimeSystem::UTC)),
+                Some(format_ccsds_datetime_in(
+                    &covariance_epoch,
+                    &CCSDSTimeSystem::UTC
+                )),
+                "{:?} dropped the OEM covariance epoch",
+                format
+            );
+        }
     }
 }

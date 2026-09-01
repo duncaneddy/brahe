@@ -1080,7 +1080,25 @@ pub fn parse_cdm_json(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheErro
     }
 
     let kvn_content = kvn_lines.join("\n");
-    crate::ccsds::kvn::parse_cdm(&kvn_content)
+    let mut cdm = crate::ccsds::kvn::parse_cdm(&kvn_content)?;
+
+    // The object Data block and its sub-blocks each carry a COMMENT row, but
+    // KVN places nothing between them, so the parser attributes a run spanning
+    // both to the innermost block. JSON keeps them apart, so the data-level
+    // comments are read from the document rather than from the flattened text.
+    for (key, object) in [("object1", &mut cdm.object1), ("object2", &mut cdm.object2)] {
+        if let Some(obj) = v.get(key).or_else(|| v.get(key.to_uppercase()))
+            && let Some(Value::Array(comments)) =
+                obj.get("comments").or_else(|| obj.get("COMMENTS"))
+        {
+            object.data.comments = comments
+                .iter()
+                .filter_map(|c| c.as_str().map(|s| s.to_string()))
+                .collect();
+        }
+    }
+
+    Ok(cdm)
 }
 
 /// Write a CDM message to JSON format.
@@ -1312,6 +1330,9 @@ pub fn write_cdm_json(
             key("Z_DOT", key_case),
             json!(d.state_vector.velocity[2] / 1e3),
         );
+        if !d.comments.is_empty() {
+            o.insert("comments".into(), json!(d.comments));
+        }
         if !d.state_vector.comments.is_empty() {
             sv.insert("comments".into(), json!(d.state_vector.comments));
         }
@@ -2668,6 +2689,24 @@ mod tests {
             .unwrap();
         assert_eq!(segment.covariances[0].comments, vec!["first covariance"]);
         assert_eq!(segment.covariances[1].comments, vec!["second covariance"]);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_cdm_json_round_trip_preserves_data_section_comments() {
+        use crate::ccsds::cdm::CDM;
+
+        // KVN puts nothing between the Data comment and the first sub-block
+        // comment, so the parser attributes the run to the innermost block.
+        // JSON keeps them apart, so this level survives there.
+        let source = std::fs::read_to_string("test_assets/ccsds/cdm/CDMExample2.txt").unwrap();
+        let mut cdm = CDM::from_str(&source).unwrap();
+        cdm.object1.data.comments = vec!["Object1 Data".to_string()];
+        cdm.object2.data.comments = vec!["Object2 Data".to_string()];
+
+        let reparsed = CDM::from_str(&cdm.to_string(CCSDSFormat::JSON).unwrap()).unwrap();
+        assert_eq!(reparsed.object1.data.comments, vec!["Object1 Data"]);
+        assert_eq!(reparsed.object2.data.comments, vec!["Object2 Data"]);
     }
 
     #[test]

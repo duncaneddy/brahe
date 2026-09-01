@@ -3576,6 +3576,132 @@ fn py_state_frame_to_frame<'py>(
 // ReferenceFrame / BodyFrame and the frame/object registries
 // ============================================================================
 
+/// Local orbital frame axes definitions.
+///
+/// `RTN` is the frame the SANA registries call `RSW`; brahe uses its
+/// existing RTN vocabulary (`state_eci_to_rtn`, `covariance_rtn`).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     kind = bh.OrbitRelativeKind.RTN
+///     ```
+#[pyclass(module = "brahe._brahe", eq, from_py_object)]
+#[pyo3(name = "OrbitRelativeKind")]
+#[derive(Clone, Copy, PartialEq)]
+pub struct PyOrbitRelativeKind {
+    pub(crate) kind: frames::OrbitRelativeKind,
+}
+
+#[pymethods]
+#[allow(non_snake_case)]
+impl PyOrbitRelativeKind {
+    /// Local-Vertical Local-Horizontal.
+    #[classattr]
+    fn LVLH() -> Self {
+        PyOrbitRelativeKind { kind: frames::OrbitRelativeKind::LVLH }
+    }
+
+    /// Radial / transverse (along-track) / normal (cross-track). SANA: RSW.
+    #[classattr]
+    fn RTN() -> Self {
+        PyOrbitRelativeKind { kind: frames::OrbitRelativeKind::RTN }
+    }
+
+    /// Normal / tangential / cross-track.
+    #[classattr]
+    fn NTW() -> Self {
+        PyOrbitRelativeKind { kind: frames::OrbitRelativeKind::NTW }
+    }
+
+    /// Tangential / normal / cross-track.
+    #[classattr]
+    fn TNW() -> Self {
+        PyOrbitRelativeKind { kind: frames::OrbitRelativeKind::TNW }
+    }
+
+    /// Perifocal. SANA-registered only as an inertial-snapshot frame.
+    #[classattr]
+    fn PQW() -> Self {
+        PyOrbitRelativeKind { kind: frames::OrbitRelativeKind::PQW }
+    }
+
+    /// Equinoctial. SANA-registered only as an inertial-snapshot frame.
+    #[classattr]
+    fn EQW() -> Self {
+        PyOrbitRelativeKind { kind: frames::OrbitRelativeKind::EQW }
+    }
+
+    /// Topocentric south / east / zenith.
+    #[classattr]
+    fn SEZ() -> Self {
+        PyOrbitRelativeKind { kind: frames::OrbitRelativeKind::SEZ }
+    }
+
+    /// Velocity / normal / co-normal.
+    #[classattr]
+    fn VNC() -> Self {
+        PyOrbitRelativeKind { kind: frames::OrbitRelativeKind::VNC }
+    }
+
+    /// Nadir / Sun / normal.
+    #[classattr]
+    fn NSW() -> Self {
+        PyOrbitRelativeKind { kind: frames::OrbitRelativeKind::NSW }
+    }
+
+    fn __str__(&self) -> String {
+        self.kind.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("OrbitRelativeKind.{}", self.kind)
+    }
+}
+
+/// Rotating vs. quasi-inertial snapshot variant of a local orbital frame.
+///
+/// - **Rotating**: True local orbital frame, rotating with the orbit.
+/// - **Inertial**: Quasi-inertial frame frozen at each evaluation time.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     variant = bh.OrbitRelativeVariant.ROTATING
+///     ```
+#[pyclass(module = "brahe._brahe", eq, from_py_object)]
+#[pyo3(name = "OrbitRelativeVariant")]
+#[derive(Clone, Copy, PartialEq)]
+pub struct PyOrbitRelativeVariant {
+    pub(crate) variant: frames::OrbitRelativeVariant,
+}
+
+#[pymethods]
+#[allow(non_snake_case)]
+impl PyOrbitRelativeVariant {
+    /// True local orbital frame, rotating with the orbit.
+    #[classattr]
+    fn ROTATING() -> Self {
+        PyOrbitRelativeVariant { variant: frames::OrbitRelativeVariant::Rotating }
+    }
+
+    /// Quasi-inertial frame frozen at each evaluation time.
+    #[classattr]
+    fn INERTIAL() -> Self {
+        PyOrbitRelativeVariant { variant: frames::OrbitRelativeVariant::Inertial }
+    }
+
+    fn __str__(&self) -> String {
+        self.variant.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("OrbitRelativeVariant.{}", self.variant)
+    }
+}
+
 /// An object-local spacecraft body frame (spacecraft body, sensor, or
 /// actuator), with an optional instance designator (e.g. `CSS("1")`).
 ///
@@ -3859,6 +3985,26 @@ pub struct PyReferenceFrame {
 
 #[pymethods]
 impl PyReferenceFrame {
+    /// Wraps a `CelestialFrame` as a `ReferenceFrame`. Mirrors Rust's
+    /// `From<CelestialFrame> for ReferenceFrame`.
+    ///
+    /// Args:
+    ///     frame (CelestialFrame): The celestial frame to wrap
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The wrapped celestial frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     gcrf = bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF)
+    ///     ```
+    #[staticmethod]
+    fn celestial(frame: PyCelestialFrame) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::Celestial(frame.frame) }
+    }
+
     /// Bound Radial/Transverse/Normal orbit-relative frame (rotating
     /// variant). SANA: RSW.
     ///
@@ -4241,50 +4387,27 @@ impl PyReferenceFrame {
     /// optional, not-yet-bound object.
     ///
     /// Args:
-    ///     kind (str): ReferenceFrame construction: one of "LVLH", "RTN", "NTW", "TNW",
-    ///         "PQW", "EQW", "SEZ", "VNC", "NSW"
-    ///     variant (str): "rotating" (true local orbital frame) or "inertial"
-    ///         (quasi-inertial snapshot)
+    ///     kind (OrbitRelativeKind): ReferenceFrame construction (axes definition)
+    ///     variant (OrbitRelativeVariant): Rotating (true local orbital frame) or
+    ///         inertial (quasi-inertial snapshot)
     ///     object (str, optional): The bound object, or `None` for an unbound label
     ///
     /// Returns:
     ///     ReferenceFrame: The orbit-relative frame
     ///
     /// Raises:
-    ///     ValueError: If `kind`/`variant` is not recognized, or if `kind` is
-    ///         "PQW"/"EQW" and `variant` is "rotating"
+    ///     ValueError: If `kind` is `OrbitRelativeKind.PQW`/`OrbitRelativeKind.EQW`
+    ///         and `variant` is `OrbitRelativeVariant.ROTATING`
     #[staticmethod]
     #[pyo3(signature = (kind, variant, object=None))]
-    fn orbit_relative(kind: &str, variant: &str, object: Option<String>) -> PyResult<Self> {
-        let kind = match kind {
-            "LVLH" => frames::OrbitRelativeKind::LVLH,
-            "RTN" => frames::OrbitRelativeKind::RTN,
-            "NTW" => frames::OrbitRelativeKind::NTW,
-            "TNW" => frames::OrbitRelativeKind::TNW,
-            "PQW" => frames::OrbitRelativeKind::PQW,
-            "EQW" => frames::OrbitRelativeKind::EQW,
-            "SEZ" => frames::OrbitRelativeKind::SEZ,
-            "VNC" => frames::OrbitRelativeKind::VNC,
-            "NSW" => frames::OrbitRelativeKind::NSW,
-            other => {
-                return Err(exceptions::PyValueError::new_err(format!(
-                    "unknown orbit-relative frame kind '{other}'; expected one of LVLH, RTN, \
-                     NTW, TNW, PQW, EQW, SEZ, VNC, NSW"
-                )));
-            }
-        };
-        let variant = match variant {
-            "rotating" => frames::OrbitRelativeVariant::Rotating,
-            "inertial" => frames::OrbitRelativeVariant::Inertial,
-            other => {
-                return Err(exceptions::PyValueError::new_err(format!(
-                    "unknown orbit-relative frame variant '{other}'; expected 'rotating' or \
-                     'inertial'"
-                )));
-            }
-        };
-        let frame = frames::ReferenceFrame::orbit_relative(kind, variant, object.map(Into::into))
-            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+    fn orbit_relative(
+        kind: PyOrbitRelativeKind,
+        variant: PyOrbitRelativeVariant,
+        object: Option<String>,
+    ) -> PyResult<Self> {
+        let frame =
+            frames::ReferenceFrame::orbit_relative(kind.kind, variant.variant, object.map(Into::into))
+                .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
         Ok(PyReferenceFrame { frame })
     }
 

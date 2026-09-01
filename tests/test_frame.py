@@ -59,16 +59,37 @@ def test_frame_eq_and_repr():
 
 def test_orbit_relative_validation():
     with pytest.raises(ValueError):
-        bh.ReferenceFrame.orbit_relative("EQW", "rotating", None)
-    ok = bh.ReferenceFrame.orbit_relative("RTN", "inertial", "SC")
+        bh.ReferenceFrame.orbit_relative(
+            bh.OrbitRelativeKind.EQW, bh.OrbitRelativeVariant.ROTATING, None
+        )
+    ok = bh.ReferenceFrame.orbit_relative(
+        bh.OrbitRelativeKind.RTN, bh.OrbitRelativeVariant.INERTIAL, "SC"
+    )
     assert str(ok) == "RTN (inertial)@SC"
 
 
-def test_orbit_relative_unknown_kind_and_variant_raise():
-    with pytest.raises(ValueError):
-        bh.ReferenceFrame.orbit_relative("BOGUS", "rotating", "SC")
-    with pytest.raises(ValueError):
-        bh.ReferenceFrame.orbit_relative("RTN", "bogus", "SC")
+def test_orbit_relative_rejects_non_enum_arguments():
+    with pytest.raises(TypeError):
+        bh.ReferenceFrame.orbit_relative("RTN", bh.OrbitRelativeVariant.ROTATING, "SC")
+    with pytest.raises(TypeError):
+        bh.ReferenceFrame.orbit_relative(bh.OrbitRelativeKind.RTN, "rotating", "SC")
+
+
+def test_orbit_relative_kind_and_variant_display():
+    assert str(bh.OrbitRelativeKind.RTN) == "RTN"
+    assert str(bh.OrbitRelativeKind.EQW) == "EQW"
+    assert str(bh.OrbitRelativeVariant.ROTATING) == "rotating"
+    assert str(bh.OrbitRelativeVariant.INERTIAL) == "inertial"
+    assert bh.OrbitRelativeKind.RTN == bh.OrbitRelativeKind.RTN
+    assert bh.OrbitRelativeKind.RTN != bh.OrbitRelativeKind.LVLH
+    assert bh.OrbitRelativeVariant.ROTATING != bh.OrbitRelativeVariant.INERTIAL
+
+
+def test_frame_celestial_constructor():
+    gcrf = bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF)
+    assert gcrf.is_bound()
+    assert gcrf.object() is None
+    assert str(gcrf) == "GCRF"
 
 
 def test_body_frame_display_all_variants():

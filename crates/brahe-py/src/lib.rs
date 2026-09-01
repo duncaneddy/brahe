@@ -969,6 +969,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // ReferenceFrame / BodyFrame and the frame/object registries
     module.add_class::<PyBodyFrame>()?;
+    module.add_class::<PyOrbitRelativeKind>()?;
+    module.add_class::<PyOrbitRelativeVariant>()?;
     module.add_class::<PyReferenceFrame>()?;
     module.add_function(wrap_pyfunction!(py_register_frame, module)?)?;
     module.add_function(wrap_pyfunction!(py_unregister_frame, module)?)?;

@@ -3,7 +3,7 @@
  */
 
 use crate::ccsds::common::{
-    CCSDSTimeSystem, covariance_to_lower_triangular, format_ccsds_datetime_in,
+    CCSDSTimeSystem, covariance_to_lower_triangular, format_ccsds_datetime_in, round_ccsds_value,
 };
 use crate::ccsds::oem::OEM;
 use crate::utils::errors::BraheError;
@@ -130,7 +130,8 @@ pub fn write_oem(oem: &OEM) -> Result<String, BraheError> {
                 }
 
                 // Convert m² → km² (factor 1e-6)
-                let values = covariance_to_lower_triangular(&cov.matrix, 1e-6);
+                let values =
+                    covariance_to_lower_triangular(&cov.matrix, 1e-6).map(round_ccsds_value);
                 let mut idx = 0;
                 for row in 0..6 {
                     let line: Vec<String> = (0..=row)
@@ -465,7 +466,7 @@ fn write_kvn_spacecraft_params(
 /// Shared helper: write covariance as named key=value elements (for OMM KVN).
 fn write_kvn_covariance_elements(out: &mut String, matrix: &nalgebra::SMatrix<f64, 6, 6>) {
     // Convert m² → km² (factor 1e-6)
-    let values = covariance_to_lower_triangular(matrix, 1e-6);
+    let values = covariance_to_lower_triangular(matrix, 1e-6).map(round_ccsds_value);
     let names = [
         "CX_X",
         "CY_X",
@@ -875,6 +876,14 @@ pub fn write_cdm(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError> {
             }
             if let Some(v) = ap.sedr {
                 kw_units(out, "SEDR", &format!("{:E}", v), "W/kg");
+            }
+            // Space-delimited RTN triples, per CCSDS 508.0-B-1 subsection
+            // 6.3.2.x; the parser already reads them.
+            if let Some(ref v) = ap.min_dv {
+                kw_units(out, "MIN_DV", &format!("{} {} {}", v[0], v[1], v[2]), "m/s");
+            }
+            if let Some(ref v) = ap.max_dv {
+                kw_units(out, "MAX_DV", &format!("{} {} {}", v[0], v[1], v[2]), "m/s");
             }
             if let Some(v) = ap.lead_time_reqd_before_tca {
                 kw_units(out, "LEAD_TIME_REQD_BEFORE_TCA", &format!("{}", v), "h");

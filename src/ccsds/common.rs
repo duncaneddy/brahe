@@ -754,6 +754,47 @@ pub fn covariance9x9_to_lower_triangular(
     values
 }
 
+/// Significant decimal digits a CCSDS numeric value is written with.
+///
+/// An `f64` carries a little under 16 significant decimal digits, and the
+/// unit conversions the ODM requires — metres to kilometres, m² to km² — are
+/// not exactly invertible in binary floating point, so a value written at full
+/// precision comes back one unit in the last place away from where it started
+/// and the encoded text never settles. Fifteen digits absorb that difference
+/// while staying inside what an `f64` can represent, and well inside the
+/// sixteen digits CCSDS 502.0-B-3 subsection 7.5.7 permits.
+const CCSDS_SIGNIFICANT_DIGITS: usize = 15;
+
+/// Round a converted CCSDS value to the precision it is written with.
+///
+/// # Arguments
+///
+/// * `value` - The value after any unit conversion.
+///
+/// # Returns
+///
+/// * `f64` - The value rounded to [`CCSDS_SIGNIFICANT_DIGITS`], which is a
+///   fixed point of the write-and-reread cycle.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::ccsds::common::round_ccsds_value;
+///
+/// // The metre/kilometre round trip is off by one unit in the last place.
+/// let km = 3.3313494e-4;
+/// assert_ne!(km * 1e6 * 1e-6, km);
+/// assert_eq!(round_ccsds_value(km * 1e6 * 1e-6), km);
+/// ```
+pub fn round_ccsds_value(value: f64) -> f64 {
+    if !value.is_finite() || value == 0.0 {
+        return value;
+    }
+    format!("{:.*e}", CCSDS_SIGNIFICANT_DIGITS - 1, value)
+        .parse()
+        .unwrap_or(value)
+}
+
 /// Extract 21 lower-triangular values from a 6x6 symmetric matrix.
 ///
 /// # Arguments
@@ -1692,5 +1733,76 @@ mod tests {
                 format
             );
         }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_round_ccsds_value_is_a_conversion_fixed_point() {
+        // The metre/kilometre round trip is off by one unit in the last place,
+        // so a value written at full precision never settles.
+        for km in [3.3313494e-4f64, 4.6189273e-4, -2.2118325e-7, 2.6088992e-10] {
+            let drifted = km * 1e6 * 1e-6;
+            assert_eq!(round_ccsds_value(drifted), km);
+            // Rounding is idempotent under further cycles.
+            assert_eq!(
+                round_ccsds_value(round_ccsds_value(drifted) * 1e6 * 1e-6),
+                km
+            );
+        }
+
+        // Degenerate values pass through untouched.
+        assert_eq!(round_ccsds_value(0.0), 0.0);
+        assert!(round_ccsds_value(f64::NAN).is_nan());
+        assert_eq!(round_ccsds_value(f64::INFINITY), f64::INFINITY);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_covariance_extractor_does_not_round() {
+        // Rounding belongs to the writers; the public extractor keeps its
+        // documented multiply-and-extract semantics so a caller asking for
+        // scale 1.0 gets the matrix back exactly.
+        let exact = 1.2345678901234567_f64;
+        let mut matrix = SMatrix::<f64, 6, 6>::zeros();
+        matrix[(0, 0)] = exact;
+
+        let values = covariance_to_lower_triangular(&matrix, 1.0);
+        assert_eq!(values[0], exact);
+        assert_ne!(round_ccsds_value(exact), exact);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_message_writes_are_stable_in_every_encoding() {
+        use crate::ccsds::cdm::CDM;
+        use crate::ccsds::oem::OEM;
+        use crate::ccsds::omm::OMM;
+        use crate::ccsds::opm::OPM;
+
+        let formats = [CCSDSFormat::KVN, CCSDSFormat::XML, CCSDSFormat::JSON];
+
+        macro_rules! assert_stable {
+            ($ty:ty, $path:expr) => {
+                let source = std::fs::read_to_string($path).unwrap();
+                let message = <$ty>::from_str(&source).unwrap();
+                for format in formats {
+                    let written = message.to_string(format).unwrap();
+                    let rewritten = <$ty>::from_str(&written)
+                        .unwrap()
+                        .to_string(format)
+                        .unwrap();
+                    assert_eq!(
+                        rewritten, written,
+                        "{} {:?} output is not stable across a reparse",
+                        $path, format
+                    );
+                }
+            };
+        }
+
+        assert_stable!(OEM, "test_assets/ccsds/oem/OEMExample1.txt");
+        assert_stable!(OMM, "test_assets/ccsds/omm/OMMExample2.txt");
+        assert_stable!(OPM, "test_assets/ccsds/opm/OPMExample3.txt");
+        assert_stable!(CDM, "test_assets/ccsds/cdm/CDMExample2.txt");
     }
 }

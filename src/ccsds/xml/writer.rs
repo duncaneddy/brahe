@@ -4,7 +4,7 @@
 
 use crate::ccsds::common::{
     CCSDSCovariance, CCSDSSpacecraftParameters, CCSDSTimeSystem, CCSDSUserDefined, ODMHeader,
-    covariance_to_lower_triangular, format_ccsds_datetime_in,
+    covariance_to_lower_triangular, format_ccsds_datetime_in, round_ccsds_value,
 };
 use crate::utils::errors::BraheError;
 
@@ -163,7 +163,7 @@ fn write_xml_covariance(
         ));
     }
     // Convert m² → km²
-    let values = covariance_to_lower_triangular(&cov.matrix, 1e-6);
+    let values = covariance_to_lower_triangular(&cov.matrix, 1e-6).map(round_ccsds_value);
     for (i, v) in values.iter().enumerate() {
         out.push_str(&format!(
             "{}<{}>{:E}</{}>\n",
@@ -1623,6 +1623,20 @@ pub fn write_cdm_xml(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError>
             }
             if let Some(v) = ap.sedr {
                 out.push_str(&format!("        <SEDR units=\"W/kg\">{:E}</SEDR>\n", v));
+            }
+            // Space-delimited RTN triples, matching the KVN form the CDM
+            // reader parses.
+            if let Some(ref v) = ap.min_dv {
+                out.push_str(&format!(
+                    "        <MIN_DV units=\"m/s\">{} {} {}</MIN_DV>\n",
+                    v[0], v[1], v[2]
+                ));
+            }
+            if let Some(ref v) = ap.max_dv {
+                out.push_str(&format!(
+                    "        <MAX_DV units=\"m/s\">{} {} {}</MAX_DV>\n",
+                    v[0], v[1], v[2]
+                ));
             }
             if let Some(v) = ap.lead_time_reqd_before_tca {
                 out.push_str(&format!("        <LEAD_TIME_REQD_BEFORE_TCA units=\"h\">{}</LEAD_TIME_REQD_BEFORE_TCA>\n", v));

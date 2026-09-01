@@ -10,6 +10,7 @@ use serde_json::{Map, Value, json};
 
 use crate::ccsds::common::{
     CCSDSJsonKeyCase, CCSDSTimeSystem, covariance_to_lower_triangular, format_ccsds_datetime_in,
+    round_ccsds_value,
 };
 use crate::ccsds::error::ccsds_parse_error;
 use crate::utils::errors::BraheError;
@@ -309,7 +310,8 @@ pub fn write_oem_json(
                     cov_obj.insert("comments".into(), json!(cov.comments));
                 }
                 // Convert m² → km² (factor 1e-6)
-                let values = covariance_to_lower_triangular(&cov.matrix, 1e-6);
+                let values =
+                    covariance_to_lower_triangular(&cov.matrix, 1e-6).map(round_ccsds_value);
                 let mut rows: Vec<Value> = Vec::new();
                 let mut idx = 0;
                 for row in 0..6 {
@@ -1277,6 +1279,9 @@ pub fn write_cdm_json(
     root.insert("relative_metadata".into(), Value::Object(rel));
 
     // Helper to build object JSON
+    // CCSDS 508.0-B-1 subsection 6.2.3.4: all CDM time tags are UTC.
+    let utc = |e: &crate::time::Epoch| format_ccsds_datetime_in(e, &CCSDSTimeSystem::UTC);
+
     let build_object = |obj: &crate::ccsds::cdm::CDMObject| -> Value {
         let m = &obj.metadata;
         let d = &obj.data;
@@ -1312,6 +1317,115 @@ pub fn write_cdm_json(
             meta.insert("comments".into(), json!(m.comments));
         }
         o.insert("metadata".into(), Value::Object(meta));
+
+        // OD parameters. Units and scaling mirror the KVN writer, since the
+        // JSON reader flattens these back into KVN lines.
+        if let Some(ref od) = d.od_parameters {
+            let mut p = Map::new();
+            if let Some(ref e) = od.time_lastob_start {
+                p.insert(key("TIME_LASTOB_START", key_case), json!(utc(e)));
+            }
+            if let Some(ref e) = od.time_lastob_end {
+                p.insert(key("TIME_LASTOB_END", key_case), json!(utc(e)));
+            }
+            if let Some(v) = od.recommended_od_span {
+                p.insert(key("RECOMMENDED_OD_SPAN", key_case), json!(v));
+            }
+            if let Some(v) = od.actual_od_span {
+                p.insert(key("ACTUAL_OD_SPAN", key_case), json!(v));
+            }
+            if let Some(v) = od.obs_available {
+                p.insert(key("OBS_AVAILABLE", key_case), json!(v));
+            }
+            if let Some(v) = od.obs_used {
+                p.insert(key("OBS_USED", key_case), json!(v));
+            }
+            if let Some(v) = od.tracks_available {
+                p.insert(key("TRACKS_AVAILABLE", key_case), json!(v));
+            }
+            if let Some(v) = od.tracks_used {
+                p.insert(key("TRACKS_USED", key_case), json!(v));
+            }
+            if let Some(v) = od.residuals_accepted {
+                p.insert(key("RESIDUALS_ACCEPTED", key_case), json!(v));
+            }
+            if let Some(v) = od.weighted_rms {
+                p.insert(key("WEIGHTED_RMS", key_case), json!(v));
+            }
+            if let Some(ref e) = od.od_epoch {
+                p.insert(key("OD_EPOCH", key_case), json!(utc(e)));
+            }
+            if !od.comments.is_empty() {
+                p.insert("comments".into(), json!(od.comments));
+            }
+            o.insert("od_parameters".into(), Value::Object(p));
+        }
+
+        // Additional parameters.
+        if let Some(ref ap) = d.additional_parameters {
+            let mut p = Map::new();
+            {
+                let mut put = |k: &str, v: Option<f64>| {
+                    if let Some(v) = v {
+                        p.insert(key(k, key_case), json!(v));
+                    }
+                };
+                put("AREA_PC", ap.area_pc);
+                put("AREA_PC_MIN", ap.area_pc_min);
+                put("AREA_PC_MAX", ap.area_pc_max);
+                put("AREA_DRG", ap.area_drg);
+                put("AREA_SRP", ap.area_srp);
+                put("OEB_Q1", ap.oeb_q1);
+                put("OEB_Q2", ap.oeb_q2);
+                put("OEB_Q3", ap.oeb_q3);
+                put("OEB_QC", ap.oeb_qc);
+                put("OEB_MAX", ap.oeb_max);
+                put("OEB_INT", ap.oeb_int);
+                put("OEB_MIN", ap.oeb_min);
+                put("AREA_ALONG_OEB_MAX", ap.area_along_oeb_max);
+                put("AREA_ALONG_OEB_INT", ap.area_along_oeb_int);
+                put("AREA_ALONG_OEB_MIN", ap.area_along_oeb_min);
+                put("RCS", ap.rcs);
+                put("RCS_MIN", ap.rcs_min);
+                put("RCS_MAX", ap.rcs_max);
+                put("VM_ABSOLUTE", ap.vm_absolute);
+                put("VM_APPARENT_MIN", ap.vm_apparent_min);
+                put("VM_APPARENT", ap.vm_apparent);
+                put("VM_APPARENT_MAX", ap.vm_apparent_max);
+                put("REFLECTANCE", ap.reflectance);
+                put("MASS", ap.mass);
+                put("HBR", ap.hbr);
+                put("CD_AREA_OVER_MASS", ap.cd_area_over_mass);
+                put("CR_AREA_OVER_MASS", ap.cr_area_over_mass);
+                put("THRUST_ACCELERATION", ap.thrust_acceleration);
+                put("SEDR", ap.sedr);
+                put("LEAD_TIME_REQD_BEFORE_TCA", ap.lead_time_reqd_before_tca);
+                put("INCLINATION", ap.inclination);
+                put("COV_CONFIDENCE", ap.cov_confidence);
+                // Altitudes are stored in metres and written in kilometres.
+                put("APOAPSIS_ALTITUDE", ap.apoapsis_altitude.map(|v| v / 1e3));
+                put("PERIAPSIS_ALTITUDE", ap.periapsis_altitude.map(|v| v / 1e3));
+            }
+            if let Some(ref v) = ap.oeb_parent_frame {
+                p.insert(key("OEB_PARENT_FRAME", key_case), json!(v));
+            }
+            if let Some(ref e) = ap.oeb_parent_frame_epoch {
+                p.insert(key("OEB_PARENT_FRAME_EPOCH", key_case), json!(utc(e)));
+            }
+            if let Some(ref v) = ap.min_dv {
+                p.insert(key("MIN_DV", key_case), json!(v.to_vec()));
+            }
+            if let Some(ref v) = ap.max_dv {
+                p.insert(key("MAX_DV", key_case), json!(v.to_vec()));
+            }
+            if let Some(ref v) = ap.cov_confidence_method {
+                p.insert(key("COV_CONFIDENCE_METHOD", key_case), json!(v));
+            }
+            if !ap.comments.is_empty() {
+                p.insert("comments".into(), json!(ap.comments));
+            }
+            o.insert("additional_parameters".into(), Value::Object(p));
+        }
 
         // State vector (in km/km/s)
         let mut sv = Map::new();
@@ -1432,7 +1546,7 @@ fn write_json_covariance_elements(
     matrix: &nalgebra::SMatrix<f64, 6, 6>,
     key_case: CCSDSJsonKeyCase,
 ) {
-    let values = covariance_to_lower_triangular(matrix, 1e-6);
+    let values = covariance_to_lower_triangular(matrix, 1e-6).map(round_ccsds_value);
     let names = [
         "CX_X",
         "CY_X",
@@ -2707,6 +2821,63 @@ mod tests {
         let reparsed = CDM::from_str(&cdm.to_string(CCSDSFormat::JSON).unwrap()).unwrap();
         assert_eq!(reparsed.object1.data.comments, vec!["Object1 Data"]);
         assert_eq!(reparsed.object2.data.comments, vec!["Object2 Data"]);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_cdm_data_blocks_survive_every_encoding() {
+        use crate::ccsds::cdm::CDM;
+
+        // CDMExample2 carries OD parameters and additional parameters for both
+        // objects; MIN_DV and MAX_DV are added because no fixture uses them.
+        let source = std::fs::read_to_string("test_assets/ccsds/cdm/CDMExample2.txt").unwrap();
+        let mut cdm = CDM::from_str(&source).unwrap();
+        let ap = cdm.object1.data.additional_parameters.as_mut().unwrap();
+        ap.min_dv = Some([0.1, 0.2, 0.3]);
+        ap.max_dv = Some([1.1, 1.2, 1.3]);
+
+        let od = cdm.object1.data.od_parameters.clone().unwrap();
+        let ap = cdm.object1.data.additional_parameters.clone().unwrap();
+
+        for format in [CCSDSFormat::KVN, CCSDSFormat::XML, CCSDSFormat::JSON] {
+            let reparsed = CDM::from_str(&cdm.to_string(format).unwrap()).unwrap();
+
+            let rod = reparsed
+                .object1
+                .data
+                .od_parameters
+                .as_ref()
+                .unwrap_or_else(|| panic!("{:?} dropped the OD parameters block", format));
+            assert_eq!(
+                rod.obs_available, od.obs_available,
+                "{:?} OBS_AVAILABLE",
+                format
+            );
+            assert_eq!(rod.obs_used, od.obs_used, "{:?} OBS_USED", format);
+            assert_eq!(rod.tracks_used, od.tracks_used, "{:?} TRACKS_USED", format);
+            assert_eq!(
+                rod.recommended_od_span, od.recommended_od_span,
+                "{:?} RECOMMENDED_OD_SPAN",
+                format
+            );
+
+            let rap = reparsed
+                .object1
+                .data
+                .additional_parameters
+                .as_ref()
+                .unwrap_or_else(|| panic!("{:?} dropped the additional parameters block", format));
+            assert_eq!(rap.area_pc, ap.area_pc, "{:?} AREA_PC", format);
+            assert_eq!(rap.mass, ap.mass, "{:?} MASS", format);
+            assert_eq!(
+                rap.cd_area_over_mass, ap.cd_area_over_mass,
+                "{:?} CD_AREA_OVER_MASS",
+                format
+            );
+            assert_eq!(rap.sedr, ap.sedr, "{:?} SEDR", format);
+            assert_eq!(rap.min_dv, ap.min_dv, "{:?} MIN_DV", format);
+            assert_eq!(rap.max_dv, ap.max_dv, "{:?} MAX_DV", format);
+        }
     }
 
     #[test]

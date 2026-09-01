@@ -185,9 +185,8 @@ impl OEM {
     ///
     /// Converts the OEM to a `DOrbitTrajectory` via `TryFrom<&OEM>`
     /// (erroring for a zero- or multi-segment OEM exactly as that
-    /// conversion does), wraps it in a `DStateAdapter`, and registers it
-    /// under `name` with the celestial frame carried by the converted
-    /// trajectory. The registered object can then be queried through
+    /// conversion does) and registers it under `name` with the celestial
+    /// frame carried by the converted trajectory. The registered object can then be queried through
     /// `object_state`, or used as the anchor for an orbit-relative frame
     /// such as `ReferenceFrame::RTN(name)`.
     ///
@@ -567,31 +566,14 @@ mod tests {
     #[serial]
     fn test_oem_register_for_itrf() {
         // Covers the ITRF arm of register_for's OrbitFrame -> CelestialFrame
-        // mapping (test_oem_register_for above only exercises GCRF). Built
-        // inline (rather than from an on-disk asset) with a handful of rows
-        // taken from OEMExample5.txt, since register_for only needs a
-        // parseable single-segment OEM.
+        // mapping (test_oem_register_for above only exercises GCRF). The
+        // asset is a short single-segment ITRF2014 OEM, which is all
+        // register_for needs.
         clear_object_registry();
 
-        let content = "CCSDS_OEM_VERS = 2.0\n\
-CREATION_DATE = 2017-04-01T00:00:00\n\
-ORIGINATOR = Orekit Testing\n\
-\n\
-META_START\n\
-OBJECT_NAME = ISS\n\
-OBJECT_ID = 1998-067A\n\
-CENTER_NAME = EARTH\n\
-REF_FRAME = ITRF2014\n\
-TIME_SYSTEM = UTC\n\
-START_TIME = 2017-04-11T22:31:43.121856000000\n\
-STOP_TIME = 2017-04-12T22:31:43.121856000000\n\
-META_STOP\n\
-\n\
-2017-04-11T22:31:43.121856000000     2906.2752178573     4076.3580691129     4561.3636609099       -6.8794973158        1.4495313106        3.0813176196\n\
-2017-04-11T23:01:43.121856000000    -6741.4652117311     -683.6762527309      369.3677257921        0.1439182083       -4.7701461485       -5.9992953679\n\
-2017-04-11T23:31:43.121856000000     3112.0482307635    -3489.7775298055    -4922.7844198192        6.7488050575        2.7970297261        2.2913162439\n\
-2017-04-12T00:01:43.121856000000     3949.2526609998     3766.2517353732     4012.4230374231       -6.1826769936        2.2715348493        3.9421071808\n";
-        let oem = OEM::from_str(content).unwrap();
+        let content =
+            std::fs::read_to_string("test_assets/ccsds/oem/OEM-single-segment-itrf.txt").unwrap();
+        let oem = OEM::from_str(&content).unwrap();
 
         oem.register_for("ISS_ITRF").unwrap();
 

@@ -386,4 +386,44 @@ mod tests {
         let w = p.angular_velocity(t0 + 1800.0).unwrap().unwrap();
         assert_abs_diff_eq!(w, axis * rate, epsilon = 1e-9);
     }
+
+    #[test]
+    #[parallel]
+    fn test_numerical_rates_time_varying_axis() {
+        // R(t) = Rz(omega1 t) Rx(theta0) Rz(omega2 t): a 3-1-3 coning
+        // sequence whose instantaneous axis, expressed in the frame,
+        // precesses at omega1 about z rather than staying fixed, so the
+        // frame-expressed omega genuinely differs from its parent-frame
+        // expression Rᵀw (checked below).
+        let omega1 = 1.0e-3;
+        let omega2 = 2.0e-3;
+        let theta0 = 0.5;
+        let t0 = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
+        let p = CallbackOrientation::new(
+            move |epc: Epoch| {
+                let t = epc - t0;
+                let rz1 = RotationMatrix::Rz(omega1 * t, AngleFormat::Radians).to_matrix();
+                let rx = RotationMatrix::Rx(theta0, AngleFormat::Radians).to_matrix();
+                let rz2 = RotationMatrix::Rz(omega2 * t, AngleFormat::Radians).to_matrix();
+                Ok(rz1 * rx * rz2)
+            },
+            None,
+        )
+        .with_numerical_rates(1.0);
+
+        let epc = t0 + 1800.0;
+        let alpha: f64 = omega1 * (epc - t0);
+        let w_expected = Vector3::new(
+            omega2 * theta0.sin() * alpha.sin(),
+            omega2 * theta0.sin() * alpha.cos(),
+            omega1 + omega2 * theta0.cos(),
+        );
+        let w = p.angular_velocity(epc).unwrap().unwrap();
+        assert_abs_diff_eq!(w, w_expected, epsilon = 1e-8);
+
+        // The frame and parent representations of omega genuinely differ
+        // here, unlike in the fixed-axis tests above.
+        let r = p.rotation_matrix(epc).unwrap().to_matrix();
+        assert!((w - r.transpose() * w).norm() > 1e-4);
+    }
 }

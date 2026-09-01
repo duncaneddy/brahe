@@ -1,0 +1,5 @@
+Registered objects: [ObjectId("ISS")]
+
+ISS position at 2017-04-11 22:36:43.122 UTC: [752.403, 4224.505, 5142.757] km
+
+Example validated successfully!

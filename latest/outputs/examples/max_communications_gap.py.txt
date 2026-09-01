@@ -10,10 +10,10 @@ Loaded 5 KSAT ground stations in 0.00 seconds:
   - Svalbard
 
 Propagating Umbra satellites for one orbit each...
-Created 3D visualization in 5.15 seconds.
+Created 3D visualization in 4.56 seconds.
 
 Computing 7-day ground contacts...
-Computed 1095 contact windows in 2.11 seconds.
+Computed 1095 contact windows in 2.18 seconds.
 
 Computing communication gaps...
 Computed 1090 communication gaps in 0.00 seconds.

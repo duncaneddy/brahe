@@ -9,22 +9,6 @@ Each release groups entries under the Keep a Changelog section headings in the o
 
 <!-- release notes start -->
 
-## [Unreleased]
-
-### Added
-
-- Unified `ReferenceFrame` type spanning celestial (`CelestialFrame`), orbit-relative (`RTN`, `LVLH`, `NTW`, `TNW`, `PQW`, `EQW`, `SEZ`, `VNC`, `NSW`), and body/sensor (`BodyFrame`) frames, bound to a string `ObjectId` rather than a NAIF or NORAD ID; `ReferenceFrame::body`/`ReferenceFrame::orbit_relative` construct the unbound label form used before an object identity is known. [@duncaneddy](https://github.com/duncaneddy) ([#508](https://github.com/duncaneddy/brahe/pull/508))
-- Global object registry (`register_object`, `register_object_from_naif`, `registered_objects`, `unregister_object`, `clear_object_registry`) storing named ephemeris providers — a callable or an `OrbitTrajectory` — that anchor orbit-relative and body frames. [@duncaneddy](https://github.com/duncaneddy) ([#508](https://github.com/duncaneddy/brahe/pull/508))
-- Global frame registry (`register_frame`, `unregister_frame`, `clear_frame_registry`) for body/sensor orientation chains, backed by the `OrientationProvider` trait (constant attitudes, `CallbackOrientation`) and `with_numerical_rates` for deriving angular velocity by central-differencing a rotation-only provider. This registry now also backs `register_custom_frame`/`unregister_custom_frame`, absorbing `CelestialFrame::BodyFixedCustom` storage into the same table without changing its observable behavior. [@duncaneddy](https://github.com/duncaneddy) ([#508](https://github.com/duncaneddy/brahe/pull/508))
-- `rotation_frame_to_frame`, `position_frame_to_frame`, `state_frame_to_frame`, and their batch forms generalized to accept a `CelestialFrame` or a `ReferenceFrame`, resolving orbit-relative and body frames through the frame and object registries and joining cross-root chains through the celestial router. [@duncaneddy](https://github.com/duncaneddy) ([#508](https://github.com/duncaneddy/brahe/pull/508))
-- `OEM::register_for` — registers a CCSDS OEM ephemeris as an object in the global object registry in one call. [@duncaneddy](https://github.com/duncaneddy) ([#508](https://github.com/duncaneddy/brahe/pull/508))
-- `omega_rtn` — angular velocity of the RTN frame relative to ECI, extracted as a standalone public function. [@duncaneddy](https://github.com/duncaneddy) ([#508](https://github.com/duncaneddy/brahe/pull/508))
-- Python bindings for `ReferenceFrame` (including a `celestial` constructor wrapping `CelestialFrame`), `BodyFrame`, `OrbitRelativeKind`, `OrbitRelativeVariant`, and every registry function above. [@duncaneddy](https://github.com/duncaneddy) ([#508](https://github.com/duncaneddy/brahe/pull/508))
-
-### Changed
-
-- **Breaking:** `ReferenceFrame` renamed to `CelestialFrame` in Rust and Python — the frame router, all frame-router functions, and every associated binding now use the new name. The `ReferenceFrame` name now denotes the new unified supertype introduced in [#508](https://github.com/duncaneddy/brahe/pull/508) spanning celestial, orbit-relative, and body frames, so code using `ReferenceFrame::GCRF` becomes `CelestialFrame::GCRF`. [@duncaneddy](https://github.com/duncaneddy) ([#507](https://github.com/duncaneddy/brahe/pull/507))
-
 ## [1.7.0] - 2026-07-21
 
 ### Added

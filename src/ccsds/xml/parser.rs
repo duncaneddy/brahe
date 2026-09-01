@@ -18,107 +18,6 @@ use crate::ccsds::oem::{OEM, OEMMetadata, OEMSegment, OEMStateVector};
 use crate::utils::errors::BraheError;
 
 // ============================================================================
-// Serde helpers
-// ============================================================================
-
-/// Deserialize a COMMENT field that may be a single string or a Vec<String>.
-fn deserialize_comments<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    struct CommentsVisitor;
-
-    impl<'de> serde::de::Visitor<'de> for CommentsVisitor {
-        type Value = Vec<String>;
-
-        fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-            f.write_str("a string or sequence of strings")
-        }
-
-        fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
-            Ok(vec![v.to_string()])
-        }
-
-        fn visit_string<E: serde::de::Error>(self, v: String) -> Result<Self::Value, E> {
-            Ok(vec![v])
-        }
-
-        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-        where
-            A: serde::de::SeqAccess<'de>,
-        {
-            let mut vec = Vec::new();
-            while let Some(item) = seq.next_element::<String>()? {
-                vec.push(item);
-            }
-            Ok(vec)
-        }
-
-        fn visit_none<E: serde::de::Error>(self) -> Result<Self::Value, E> {
-            Ok(Vec::new())
-        }
-
-        fn visit_unit<E: serde::de::Error>(self) -> Result<Self::Value, E> {
-            Ok(Vec::new())
-        }
-
-        fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
-        where
-            M: serde::de::MapAccess<'de>,
-        {
-            // Handle case where quick-xml wraps the text in a map like {"$text": "..."}
-            let mut result = Vec::new();
-            while let Some((key, value)) = map.next_entry::<String, String>()? {
-                if key == "$text" || key == "$value" {
-                    result.push(value);
-                }
-            }
-            Ok(result)
-        }
-    }
-
-    deserializer.deserialize_any(CommentsVisitor)
-}
-
-/// Deserialize a field that may be a single struct or a sequence of structs.
-fn deserialize_one_or_many<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    struct OneOrManyVisitor<T>(std::marker::PhantomData<T>);
-
-    impl<'de, T: Deserialize<'de>> serde::de::Visitor<'de> for OneOrManyVisitor<T> {
-        type Value = Vec<T>;
-
-        fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-            f.write_str("one or many elements")
-        }
-
-        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-        where
-            A: serde::de::SeqAccess<'de>,
-        {
-            let mut vec = Vec::new();
-            while let Some(item) = seq.next_element()? {
-                vec.push(item);
-            }
-            Ok(vec)
-        }
-
-        fn visit_map<M>(self, map: M) -> Result<Self::Value, M::Error>
-        where
-            M: serde::de::MapAccess<'de>,
-        {
-            let item = T::deserialize(serde::de::value::MapAccessDeserializer::new(map))?;
-            Ok(vec![item])
-        }
-    }
-
-    deserializer.deserialize_any(OneOrManyVisitor(std::marker::PhantomData))
-}
-
-// ============================================================================
 // Intermediate XML structs for OEM
 // ============================================================================
 
@@ -205,7 +104,7 @@ impl XMLHeader {
 
 #[derive(Debug, Deserialize)]
 struct XMLOEMBody {
-    #[serde(rename = "segment", deserialize_with = "deserialize_one_or_many")]
+    #[serde(rename = "segment")]
     segments: Vec<XMLOEMSegment>,
 }
 
@@ -439,7 +338,7 @@ pub(crate) struct XMLCovarianceMatrix {
     cz_dot_y_dot: XMLValue,
     #[serde(rename = "CZ_DOT_Z_DOT")]
     cz_dot_z_dot: XMLValue,
-    #[serde(rename = "COMMENT", default, deserialize_with = "deserialize_comments")]
+    #[serde(rename = "COMMENT", default)]
     comment: Vec<String>,
 }
 
@@ -742,7 +641,7 @@ struct XMLMeanElements {
     mean_anomaly: XMLValue,
     #[serde(rename = "GM")]
     gm: Option<XMLValue>,
-    #[serde(rename = "COMMENT", default, deserialize_with = "deserialize_comments")]
+    #[serde(rename = "COMMENT", default)]
     comments: Vec<String>,
 }
 
@@ -768,7 +667,7 @@ struct XMLTleParameters {
     mean_motion_ddot: Option<XMLValue>,
     #[serde(rename = "AGOM")]
     agom: Option<XMLValue>,
-    #[serde(rename = "COMMENT", default, deserialize_with = "deserialize_comments")]
+    #[serde(rename = "COMMENT", default)]
     comments: Vec<String>,
 }
 
@@ -784,7 +683,7 @@ struct XMLSpacecraftParameters {
     drag_area: Option<XMLValue>,
     #[serde(rename = "DRAG_COEFF")]
     drag_coeff: Option<XMLValue>,
-    #[serde(rename = "COMMENT", default, deserialize_with = "deserialize_comments")]
+    #[serde(rename = "COMMENT", default)]
     comments: Vec<String>,
 }
 
@@ -1079,21 +978,8 @@ struct XMLOPMData {
     spacecraft_parameters: Option<XMLSpacecraftParameters>,
     #[serde(default)]
     covariance_matrix: Option<XMLCovarianceMatrix>,
-    #[serde(
-        default,
-        rename = "maneuverParameters",
-        deserialize_with = "deserialize_one_or_many_opt"
-    )]
+    #[serde(default, rename = "maneuverParameters")]
     maneuver_parameters: Vec<XMLManeuverParameters>,
-}
-
-/// Deserialize an optional field that may be absent, a single struct, or a sequence.
-fn deserialize_one_or_many_opt<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    deserialize_one_or_many(deserializer)
 }
 
 #[derive(Debug, Deserialize)]
@@ -1112,7 +998,7 @@ struct XMLOPMStateVector {
     y_dot: XMLValue,
     #[serde(rename = "Z_DOT")]
     z_dot: XMLValue,
-    #[serde(rename = "COMMENT", default, deserialize_with = "deserialize_comments")]
+    #[serde(rename = "COMMENT", default)]
     comments: Vec<String>,
 }
 
@@ -1134,7 +1020,7 @@ struct XMLKeplerianElements {
     mean_anomaly: Option<XMLValue>,
     #[serde(rename = "GM")]
     gm: Option<XMLValue>,
-    #[serde(rename = "COMMENT", default, deserialize_with = "deserialize_comments")]
+    #[serde(rename = "COMMENT", default)]
     comments: Vec<String>,
 }
 
@@ -1154,7 +1040,7 @@ struct XMLManeuverParameters {
     dv_2: XMLValue,
     #[serde(rename = "MAN_DV_3")]
     dv_3: XMLValue,
-    #[serde(rename = "COMMENT", default, deserialize_with = "deserialize_comments")]
+    #[serde(rename = "COMMENT", default)]
     comments: Vec<String>,
 }
 
@@ -1562,5 +1448,121 @@ mod tests {
         assert_eq!(cov.cov_ref_frame.as_ref().unwrap(), &CCSDSRefFrame::ITRF97);
         // CX_X = 0.316 km² = 316000 m²
         assert!((cov.matrix[(0, 0)] - 0.316 * 1e6).abs() < 1.0);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_parse_oem_xml_multiple_comments_per_block() {
+        let oem = parse_oem_xml(
+            &std::fs::read_to_string("test_assets/ccsds/oem/OEM-multiple-comments.xml").unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            oem.header.comments,
+            vec!["first header comment", "second header comment"]
+        );
+
+        let seg = &oem.segments[0];
+        assert_eq!(
+            seg.metadata.comments,
+            vec!["first metadata comment", "second metadata comment"]
+        );
+        assert_eq!(
+            seg.comments,
+            vec!["first data comment", "second data comment"]
+        );
+        assert_eq!(
+            seg.covariances[0].comments,
+            vec!["first covariance comment", "second covariance comment"]
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_parse_omm_xml_multiple_comments_per_block() {
+        let omm = parse_omm_xml(
+            &std::fs::read_to_string("test_assets/ccsds/omm/OMM-multiple-comments.xml").unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            omm.header.comments,
+            vec!["first header comment", "second header comment"]
+        );
+        assert_eq!(
+            omm.metadata.comments,
+            vec!["first metadata comment", "second metadata comment"]
+        );
+        assert_eq!(
+            omm.mean_elements.comments,
+            vec!["first mean-element comment", "second mean-element comment"]
+        );
+        assert_eq!(
+            omm.tle_parameters.as_ref().unwrap().comments,
+            vec!["first TLE comment", "second TLE comment"]
+        );
+        assert_eq!(
+            omm.spacecraft_parameters.as_ref().unwrap().comments,
+            vec!["first spacecraft comment", "second spacecraft comment"]
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_parse_opm_xml_multiple_comments_per_block() {
+        let opm = parse_opm_xml(
+            &std::fs::read_to_string("test_assets/ccsds/opm/OPM-multiple-comments.xml").unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            opm.header.comments,
+            vec!["first header comment", "second header comment"]
+        );
+        assert_eq!(
+            opm.metadata.comments,
+            vec!["first metadata comment", "second metadata comment"]
+        );
+        assert_eq!(
+            opm.state_vector.comments,
+            vec!["first state-vector comment", "second state-vector comment"]
+        );
+        assert_eq!(
+            opm.keplerian_elements.as_ref().unwrap().comments,
+            vec!["first Keplerian comment", "second Keplerian comment"]
+        );
+        assert_eq!(
+            opm.maneuvers[0].comments,
+            vec!["first maneuver comment", "second maneuver comment"]
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_parse_oem_xml_multiple_segments() {
+        let oem = parse_oem_xml(
+            &std::fs::read_to_string("test_assets/ccsds/oem/OEM-two-segments.xml").unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(oem.segments.len(), 2);
+        assert_eq!(oem.segments[0].states.len(), 1);
+        assert_eq!(oem.segments[1].states.len(), 1);
+        assert!((oem.segments[1].states[0].position[0] + 2432200.0).abs() < 1.0);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_parse_opm_xml_multiple_maneuvers() {
+        let opm = parse_opm_xml(
+            &std::fs::read_to_string("test_assets/ccsds/opm/OPM-two-maneuvers.xml").unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(opm.maneuvers.len(), 2);
+        assert!((opm.maneuvers[0].duration - 300.0).abs() < 1e-10);
+        assert!((opm.maneuvers[1].duration - 150.0).abs() < 1e-10);
+        assert!((opm.maneuvers[1].dv[1] - 2.0).abs() < 1e-10);
     }
 }

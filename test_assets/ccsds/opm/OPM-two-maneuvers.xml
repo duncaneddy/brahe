@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<opm id="CCSDS_OPM_VERS" version="3.0">
+  <header>
+    <CREATION_DATE>2001-11-06T09:23:57</CREATION_DATE>
+    <ORIGINATOR>JAXA</ORIGINATOR>
+  </header>
+  <body><segment>
+    <metadata>
+      <OBJECT_NAME>OSPREY 5</OBJECT_NAME>
+      <OBJECT_ID>1998-999A</OBJECT_ID>
+      <CENTER_NAME>EARTH</CENTER_NAME>
+      <REF_FRAME>TOD</REF_FRAME>
+      <TIME_SYSTEM>UTC</TIME_SYSTEM>
+    </metadata>
+    <data>
+      <stateVector>
+        <EPOCH>1996-12-18T14:28:15.1172</EPOCH>
+        <X>6503.514000</X><Y>1239.647000</Y><Z>-717.490000</Z>
+        <X_DOT>-0.873160</X_DOT><Y_DOT>8.740420</Y_DOT><Z_DOT>-4.191076</Z_DOT>
+      </stateVector>
+      <maneuverParameters>
+        <MAN_EPOCH_IGNITION>2000-03-01T00:00:00.000</MAN_EPOCH_IGNITION>
+        <MAN_DURATION>300.0</MAN_DURATION>
+        <MAN_DELTA_MASS>-5.0</MAN_DELTA_MASS>
+        <MAN_REF_FRAME>RTN</MAN_REF_FRAME>
+        <MAN_DV_1>0.001</MAN_DV_1><MAN_DV_2>0.0</MAN_DV_2><MAN_DV_3>0.0</MAN_DV_3>
+      </maneuverParameters>
+      <maneuverParameters>
+        <MAN_EPOCH_IGNITION>2000-03-02T00:00:00.000</MAN_EPOCH_IGNITION>
+        <MAN_DURATION>150.0</MAN_DURATION>
+        <MAN_DELTA_MASS>-2.5</MAN_DELTA_MASS>
+        <MAN_REF_FRAME>RTN</MAN_REF_FRAME>
+        <MAN_DV_1>0.0</MAN_DV_1><MAN_DV_2>0.002</MAN_DV_2><MAN_DV_3>0.0</MAN_DV_3>
+      </maneuverParameters>
+    </data>
+  </segment></body>
+</opm>

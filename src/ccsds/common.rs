@@ -507,9 +507,37 @@ pub fn parse_ccsds_datetime(
     ))
 }
 
-/// Format an Epoch as a CCSDS datetime string.
+/// Format an `Epoch` as a CCSDS datetime string in the epoch's own time system.
 ///
-/// Output format: `YYYY-MM-DDThh:mm:ss.sssssssss`
+/// Output ranges from `YYYY-MM-DDThh:mm:ss.sss` to
+/// `YYYY-MM-DDThh:mm:ss.sssssssss`; CCSDS 502.0-B-3 subsection 7.5.10 leaves
+/// the number of fractional-second digits to the writer, and trailing zeros
+/// are trimmed to milliseconds.
+///
+/// Ten fractional digits are emitted before trimming, which is finer than a
+/// nanosecond and so absorbs the roughly 0.01 ns quantization that
+/// nanoseconds-into-day arithmetic imposes on an `Epoch`. That keeps a written
+/// value stable when it is read back and written again.
+///
+/// # Arguments
+///
+/// * `epoch` - The epoch to format, rendered in its own time system. Use
+///   [`format_ccsds_datetime_in`] to render it in the system a message
+///   declares.
+///
+/// # Returns
+///
+/// * `String` - The CCSDS time code for the epoch.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::ccsds::common::format_ccsds_datetime;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epoch = Epoch::from_datetime(1996, 11, 4, 17, 22, 31.0, 0.0, TimeSystem::UTC);
+/// assert_eq!(format_ccsds_datetime(&epoch), "1996-11-04T17:22:31.000");
+/// ```
 pub fn format_ccsds_datetime(epoch: &Epoch) -> String {
     let (year, month, day, hour, minute, second, nanosecond) = epoch.to_datetime();
     let total_seconds = second + nanosecond / 1e9;
@@ -1544,5 +1572,125 @@ mod tests {
                 .unwrap()
                 .contains("START_TIME = 1996-12-18T12:00:30.331")
         );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_format_ccsds_datetime_writes_a_whole_second_as_whole() {
+        // An epoch built on a whole second is written with no fractional
+        // nanoseconds. This used to emit `.000000001`, because the formatter
+        // wrote a sub-nanosecond remainder that `Epoch::to_datetime` reported
+        // but the epoch did not hold; brahe/pull/488 fixed that at the source.
+        let epoch =
+            Epoch::from_datetime(1996, 11, 4, 17, 22, 31.0, 0.0, crate::time::TimeSystem::UTC);
+        let (_, _, _, _, _, _, nanosecond) = epoch.to_datetime();
+        assert_eq!(nanosecond, 0.0);
+
+        assert_eq!(format_ccsds_datetime(&epoch), "1996-11-04T17:22:31.000");
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_ccsds_datetime_round_trip_is_a_fixed_point() {
+        // Writing and re-reading must converge; before whole nanoseconds were
+        // isolated, each generation added one nanosecond without bound.
+        for start in [
+            "1996-11-04T17:22:31",
+            "1996-12-18T12:00:00.331",
+            "2024-01-15T12:00:00.5",
+            "2024-06-01T00:00:10.000000100",
+        ] {
+            let first =
+                format_ccsds_datetime(&parse_ccsds_datetime(start, &CCSDSTimeSystem::UTC).unwrap());
+            let mut current = first.clone();
+            for _ in 0..4 {
+                current = format_ccsds_datetime(
+                    &parse_ccsds_datetime(&current, &CCSDSTimeSystem::UTC).unwrap(),
+                );
+                assert_eq!(
+                    current, first,
+                    "'{}' drifts across write/read cycles",
+                    start
+                );
+            }
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_kvn_message_round_trip_is_a_fixed_point() {
+        use crate::ccsds::cdm::CDM;
+        use crate::ccsds::oem::OEM;
+        use crate::ccsds::omm::OMM;
+        use crate::ccsds::opm::OPM;
+
+        type KvnRoundTrip = fn(&str) -> String;
+        let cases: [(&str, KvnRoundTrip); 4] = [
+            ("test_assets/ccsds/oem/OEMExample1.txt", |s| {
+                OEM::from_str(s)
+                    .unwrap()
+                    .to_string(CCSDSFormat::KVN)
+                    .unwrap()
+            }),
+            ("test_assets/ccsds/omm/OMMExample2.txt", |s| {
+                OMM::from_str(s)
+                    .unwrap()
+                    .to_string(CCSDSFormat::KVN)
+                    .unwrap()
+            }),
+            ("test_assets/ccsds/opm/OPMExample1.txt", |s| {
+                OPM::from_str(s)
+                    .unwrap()
+                    .to_string(CCSDSFormat::KVN)
+                    .unwrap()
+            }),
+            ("test_assets/ccsds/cdm/CDMExample1.txt", |s| {
+                CDM::from_str(s)
+                    .unwrap()
+                    .to_string(CCSDSFormat::KVN)
+                    .unwrap()
+            }),
+        ];
+
+        for (path, write) in cases {
+            let source = std::fs::read_to_string(path).unwrap();
+            let written = write(&source);
+            let mut current = written.clone();
+            for _ in 0..3 {
+                current = write(&current);
+                assert_eq!(current, written, "{} drifts across write/read cycles", path);
+            }
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_oem_epochs_survive_every_output_format() {
+        use crate::ccsds::oem::OEM;
+
+        let source = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+        let oem = OEM::from_str(&source).unwrap();
+        let epochs = |o: &OEM| -> Vec<String> {
+            o.segments
+                .iter()
+                .flat_map(|seg| {
+                    std::iter::once(format_ccsds_datetime(&seg.metadata.start_time))
+                        .chain(std::iter::once(format_ccsds_datetime(
+                            &seg.metadata.stop_time,
+                        )))
+                        .chain(seg.states.iter().map(|sv| format_ccsds_datetime(&sv.epoch)))
+                })
+                .collect()
+        };
+
+        for format in [CCSDSFormat::KVN, CCSDSFormat::XML, CCSDSFormat::JSON] {
+            let reparsed = OEM::from_str(&oem.to_string(format).unwrap()).unwrap();
+            assert_eq!(
+                epochs(&reparsed),
+                epochs(&oem),
+                "OEM epochs shifted across a {:?} round trip",
+                format
+            );
+        }
     }
 }

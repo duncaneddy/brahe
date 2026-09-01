@@ -15,11 +15,11 @@ pub fn write_oem(oem: &OEM) -> Result<String, BraheError> {
         "CCSDS_OEM_VERS = {:.1}\n",
         oem.header.format_version
     ));
-    if let Some(ref class) = oem.header.classification {
-        out.push_str(&format!("CLASSIFICATION = {}\n", class));
-    }
     for comment in &oem.header.comments {
         out.push_str(&format!("COMMENT {}\n", comment));
+    }
+    if let Some(ref class) = oem.header.classification {
+        out.push_str(&format!("CLASSIFICATION = {}\n", class));
     }
     out.push_str(&format!(
         "CREATION_DATE = {}\n",
@@ -155,11 +155,11 @@ pub fn write_omm(omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError> {
         "CCSDS_OMM_VERS = {:.1}\n",
         omm.header.format_version
     ));
-    if let Some(ref class) = omm.header.classification {
-        out.push_str(&format!("CLASSIFICATION = {}\n", class));
-    }
     for comment in &omm.header.comments {
         out.push_str(&format!("COMMENT {}\n", comment));
+    }
+    if let Some(ref class) = omm.header.classification {
+        out.push_str(&format!("CLASSIFICATION = {}\n", class));
     }
     out.push_str(&format!(
         "CREATION_DATE = {}\n",
@@ -307,11 +307,11 @@ pub fn write_opm(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError> {
         "CCSDS_OPM_VERS = {:.1}\n",
         opm.header.format_version
     ));
-    if let Some(ref class) = opm.header.classification {
-        out.push_str(&format!("CLASSIFICATION = {}\n", class));
-    }
     for comment in &opm.header.comments {
         out.push_str(&format!("COMMENT {}\n", comment));
+    }
+    if let Some(ref class) = opm.header.classification {
+        out.push_str(&format!("CLASSIFICATION = {}\n", class));
     }
     out.push_str(&format!(
         "CREATION_DATE = {}\n",
@@ -1256,6 +1256,140 @@ mod tests {
         assert_eq!(
             oem.segments[0].metadata.object_name,
             oem2.segments[0].metadata.object_name
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // Header keyword order
+    //
+    // CCSDS 502.0-B-3 section 7.4.8 (and 508.0-P-1.1 section 6.3.1.9) fix the
+    // order of KVN assignments to that of the header tables, which place
+    // COMMENT immediately after the version line and CLASSIFICATION after it.
+    // ------------------------------------------------------------------
+
+    /// Index of the first line whose trimmed form starts with `keyword`.
+    ///
+    /// # Arguments
+    ///
+    /// - `written`: Serialized KVN message to search
+    /// - `keyword`: KVN keyword to locate, matched against the start of each
+    ///   line after leading whitespace is trimmed
+    ///
+    /// # Returns
+    ///
+    /// - `usize`: Zero-based index of the first matching line
+    ///
+    /// # Panics
+    ///
+    /// Panics if no line starts with `keyword`.
+    fn line_index_of(written: &str, keyword: &str) -> usize {
+        written
+            .lines()
+            .position(|line| line.trim_start().starts_with(keyword))
+            .unwrap_or_else(|| panic!("'{}' missing from written message", keyword))
+    }
+
+    /// Assert the version line comes first, then COMMENT, then CLASSIFICATION.
+    ///
+    /// # Arguments
+    ///
+    /// - `written`: Serialized KVN message whose header order is checked
+    /// - `vers_keyword`: Message-specific version keyword, such as
+    ///   `CCSDS_OEM_VERS`
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the three keywords is absent, or if they do not appear
+    /// in the order fixed by the header tables.
+    fn assert_header_order(written: &str, vers_keyword: &str) {
+        let vers = line_index_of(written, vers_keyword);
+        let comment = line_index_of(written, "COMMENT");
+        let classification = line_index_of(written, "CLASSIFICATION");
+
+        assert!(
+            vers < comment && comment < classification,
+            "expected {} < COMMENT < CLASSIFICATION, got {} < {} < {} in:\n{}",
+            vers_keyword,
+            vers,
+            comment,
+            classification,
+            written
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_oem_write_header_comment_before_classification() {
+        let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+        let mut oem = parse_oem(&content).unwrap();
+        oem.header.classification = Some("public, test-data".to_string());
+        oem.header.comments = vec!["first header comment".to_string(), "second".to_string()];
+
+        let written = write_oem(&oem).unwrap();
+        assert_header_order(&written, "CCSDS_OEM_VERS");
+
+        // Header comments must round-trip as header comments, not be absorbed
+        // into the first segment's metadata comments.
+        let reparsed = parse_oem(&written).unwrap();
+        assert_eq!(reparsed.header.comments, oem.header.comments);
+        assert_eq!(reparsed.header.classification, oem.header.classification);
+        assert_eq!(
+            reparsed.segments[0].metadata.comments,
+            oem.segments[0].metadata.comments
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_omm_write_header_comment_before_classification() {
+        let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
+        let mut omm = crate::ccsds::kvn::parse_omm(&content).unwrap();
+        omm.header.classification = Some("public, test-data".to_string());
+        omm.header.comments = vec!["first header comment".to_string(), "second".to_string()];
+
+        let written = write_omm(&omm).unwrap();
+        assert_header_order(&written, "CCSDS_OMM_VERS");
+
+        let reparsed = crate::ccsds::kvn::parse_omm(&written).unwrap();
+        assert_eq!(reparsed.header.comments, omm.header.comments);
+        assert_eq!(reparsed.header.classification, omm.header.classification);
+        assert_eq!(reparsed.metadata.comments, omm.metadata.comments);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_opm_write_header_comment_before_classification() {
+        let content = std::fs::read_to_string("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+        let mut opm = crate::ccsds::kvn::parse_opm(&content).unwrap();
+        opm.header.classification = Some("public, test-data".to_string());
+        opm.header.comments = vec!["first header comment".to_string(), "second".to_string()];
+
+        let written = write_opm(&opm).unwrap();
+        assert_header_order(&written, "CCSDS_OPM_VERS");
+
+        let reparsed = crate::ccsds::kvn::parse_opm(&written).unwrap();
+        assert_eq!(reparsed.header.comments, opm.header.comments);
+        assert_eq!(reparsed.header.classification, opm.header.classification);
+        assert_eq!(reparsed.metadata.comments, opm.metadata.comments);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_cdm_write_header_comment_before_classification() {
+        let content = std::fs::read_to_string("test_assets/ccsds/cdm/CDMExample1.txt").unwrap();
+        let mut cdm = crate::ccsds::kvn::parse_cdm(&content).unwrap();
+        cdm.header.classification = Some("public, test-data".to_string());
+        cdm.header.comments = vec!["first header comment".to_string(), "second".to_string()];
+
+        let written = write_cdm(&cdm).unwrap();
+        assert_header_order(&written, "CCSDS_CDM_VERS");
+
+        let reparsed = crate::ccsds::kvn::parse_cdm(&written).unwrap();
+        assert_eq!(reparsed.header.comments, cdm.header.comments);
+        assert_eq!(reparsed.header.classification, cdm.header.classification);
+        assert_eq!(
+            reparsed.relative_metadata.comments,
+            cdm.relative_metadata.comments
         );
     }
 

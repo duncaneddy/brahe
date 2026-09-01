@@ -218,8 +218,8 @@ impl OrbitRelativeFrame {
     ///   snapshot
     ///
     /// # Returns
-    /// * `Ok(OrbitRelativeFrame)` - If the combination is valid
-    /// * `Err(BraheError)` - If `kind` is `EQW` or `PQW` and `variant` is
+    /// * `Ok(OrbitRelativeFrame)`: If the combination is valid
+    /// * `Err(BraheError)`: If `kind` is `EQW` or `PQW` and `variant` is
     ///   `Rotating`
     ///
     /// # Examples
@@ -249,7 +249,7 @@ impl OrbitRelativeFrame {
     /// Returns the frame construction (axes definition).
     ///
     /// # Returns
-    /// `OrbitRelativeKind` - The frame construction
+    /// `OrbitRelativeKind`: The frame construction
     pub fn kind(&self) -> OrbitRelativeKind {
         self.kind
     }
@@ -257,7 +257,7 @@ impl OrbitRelativeFrame {
     /// Returns the rotating/inertial-snapshot variant.
     ///
     /// # Returns
-    /// `OrbitRelativeVariant` - Rotating or inertial
+    /// `OrbitRelativeVariant`: Rotating or inertial
     pub fn variant(&self) -> OrbitRelativeVariant {
         self.variant
     }
@@ -396,7 +396,7 @@ impl Frame {
     /// * `object` - The object the frame is defined relative to
     ///
     /// # Returns
-    /// `Frame` - The bound `RTN (rotating)` orbit-relative frame
+    /// `Frame`: The bound `RTN (rotating)` orbit-relative frame
     ///
     /// # Examples
     ///
@@ -421,7 +421,7 @@ impl Frame {
     /// * `object` - The object the frame is defined relative to
     ///
     /// # Returns
-    /// `Frame` - The bound `LVLH (rotating)` orbit-relative frame
+    /// `Frame`: The bound `LVLH (rotating)` orbit-relative frame
     ///
     /// # Examples
     ///
@@ -446,7 +446,7 @@ impl Frame {
     /// * `object` - The object the frame is defined relative to
     ///
     /// # Returns
-    /// `Frame` - The bound `NTW (rotating)` orbit-relative frame
+    /// `Frame`: The bound `NTW (rotating)` orbit-relative frame
     ///
     /// # Examples
     ///
@@ -471,7 +471,7 @@ impl Frame {
     /// * `object` - The object the frame is defined relative to
     ///
     /// # Returns
-    /// `Frame` - The bound `TNW (rotating)` orbit-relative frame
+    /// `Frame`: The bound `TNW (rotating)` orbit-relative frame
     ///
     /// # Examples
     ///
@@ -496,7 +496,7 @@ impl Frame {
     /// * `object` - The object the frame is defined relative to
     ///
     /// # Returns
-    /// `Frame` - The bound `SEZ (rotating)` orbit-relative frame
+    /// `Frame`: The bound `SEZ (rotating)` orbit-relative frame
     ///
     /// # Examples
     ///
@@ -521,7 +521,7 @@ impl Frame {
     /// * `object` - The object the frame is defined relative to
     ///
     /// # Returns
-    /// `Frame` - The bound `VNC (rotating)` orbit-relative frame
+    /// `Frame`: The bound `VNC (rotating)` orbit-relative frame
     ///
     /// # Examples
     ///
@@ -546,7 +546,7 @@ impl Frame {
     /// * `object` - The object the frame is defined relative to
     ///
     /// # Returns
-    /// `Frame` - The bound `NSW (rotating)` orbit-relative frame
+    /// `Frame`: The bound `NSW (rotating)` orbit-relative frame
     ///
     /// # Examples
     ///
@@ -571,7 +571,7 @@ impl Frame {
     /// * `object` - The object the frame is defined relative to
     ///
     /// # Returns
-    /// `Frame` - The bound `PQW (inertial)` orbit-relative frame
+    /// `Frame`: The bound `PQW (inertial)` orbit-relative frame
     ///
     /// # Examples
     ///
@@ -597,7 +597,7 @@ impl Frame {
     /// * `object` - The object the frame is defined relative to
     ///
     /// # Returns
-    /// `Frame` - The bound `EQW (inertial)` orbit-relative frame
+    /// `Frame`: The bound `EQW (inertial)` orbit-relative frame
     ///
     /// # Examples
     ///
@@ -644,9 +644,9 @@ impl Frame {
     /// * `object` - The bound object, or `None` for an unbound label
     ///
     /// # Returns
-    /// * `Ok(Frame)` - The `OrbitRelative` frame, if the combination is
+    /// * `Ok(Frame)`: The `OrbitRelative` frame, if the combination is
     ///   valid
-    /// * `Err(BraheError)` - If `kind` is `EQW` or `PQW` and `variant` is
+    /// * `Err(BraheError)`: If `kind` is `EQW` or `PQW` and `variant` is
     ///   `Rotating`
     ///
     /// # Examples
@@ -687,7 +687,7 @@ impl Frame {
     /// * `object` - The object the frame is defined relative to
     ///
     /// # Returns
-    /// `Frame` - The bound `SC_BODY` body frame
+    /// `Frame`: The bound `SC_BODY` body frame
     ///
     /// # Examples
     ///
@@ -708,7 +708,7 @@ impl Frame {
     /// * `designator` - The sensor instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame` - The bound `CSS_<designator>` body frame
+    /// `Frame`: The bound `CSS_<designator>` body frame
     ///
     /// # Examples
     ///
@@ -729,7 +729,7 @@ impl Frame {
     /// * `designator` - The sensor instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame` - The bound `ACC_<designator>` body frame
+    /// `Frame`: The bound `ACC_<designator>` body frame
     ///
     /// # Examples
     ///
@@ -750,7 +750,7 @@ impl Frame {
     /// * `designator` - The sensor instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame` - The bound `AST_<designator>` body frame
+    /// `Frame`: The bound `AST_<designator>` body frame
     ///
     /// # Examples
     ///
@@ -771,7 +771,7 @@ impl Frame {
     /// * `designator` - The sensor instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame` - The bound `DSS_<designator>` body frame
+    /// `Frame`: The bound `DSS_<designator>` body frame
     ///
     /// # Examples
     ///
@@ -792,7 +792,7 @@ impl Frame {
     /// * `designator` - The sensor instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame` - The bound `ESA_<designator>` body frame
+    /// `Frame`: The bound `ESA_<designator>` body frame
     ///
     /// # Examples
     ///
@@ -813,7 +813,7 @@ impl Frame {
     /// * `designator` - The sensor instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame` - The bound `GYRO_FRAME_<designator>` body frame
+    /// `Frame`: The bound `GYRO_FRAME_<designator>` body frame
     ///
     /// # Examples
     ///
@@ -834,7 +834,7 @@ impl Frame {
     /// * `designator` - The sensor instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame` - The bound `IMU_FRAME_<designator>` body frame
+    /// `Frame`: The bound `IMU_FRAME_<designator>` body frame
     ///
     /// # Examples
     ///
@@ -855,7 +855,7 @@ impl Frame {
     /// * `designator` - The instrument instance designator (e.g. `"A"`)
     ///
     /// # Returns
-    /// `Frame` - The bound `INSTRUMENT_<designator>` body frame
+    /// `Frame`: The bound `INSTRUMENT_<designator>` body frame
     ///
     /// # Examples
     ///
@@ -876,7 +876,7 @@ impl Frame {
     /// * `designator` - The actuator instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame` - The bound `MTA_<designator>` body frame
+    /// `Frame`: The bound `MTA_<designator>` body frame
     ///
     /// # Examples
     ///
@@ -897,7 +897,7 @@ impl Frame {
     /// * `designator` - The actuator instance designator (e.g. `"4"`)
     ///
     /// # Returns
-    /// `Frame` - The bound `RW_<designator>` body frame
+    /// `Frame`: The bound `RW_<designator>` body frame
     ///
     /// # Examples
     ///
@@ -918,7 +918,7 @@ impl Frame {
     /// * `designator` - The array instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame` - The bound `SA_<designator>` body frame
+    /// `Frame`: The bound `SA_<designator>` body frame
     ///
     /// # Examples
     ///
@@ -939,7 +939,7 @@ impl Frame {
     /// * `designator` - The sensor instance designator (e.g. `"10"`)
     ///
     /// # Returns
-    /// `Frame` - The bound `SENSOR_<designator>` body frame
+    /// `Frame`: The bound `SENSOR_<designator>` body frame
     ///
     /// # Examples
     ///
@@ -960,7 +960,7 @@ impl Frame {
     /// * `designator` - The sensor instance designator (e.g. `"2"`)
     ///
     /// # Returns
-    /// `Frame` - The bound `STARTRACKER_<designator>` body frame
+    /// `Frame`: The bound `STARTRACKER_<designator>` body frame
     ///
     /// # Examples
     ///
@@ -981,7 +981,7 @@ impl Frame {
     /// * `designator` - The sensor instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame` - The bound `TAM_<designator>` body frame
+    /// `Frame`: The bound `TAM_<designator>` body frame
     ///
     /// # Examples
     ///
@@ -1002,7 +1002,7 @@ impl Frame {
     /// * `designator` - The actuator instance designator (e.g. `"1"`)
     ///
     /// # Returns
-    /// `Frame` - The bound `ACTUATOR_<designator>` body frame
+    /// `Frame`: The bound `ACTUATOR_<designator>` body frame
     ///
     /// # Examples
     ///
@@ -1028,7 +1028,7 @@ impl Frame {
     /// * `frame` - The body frame kind and optional instance designator
     ///
     /// # Returns
-    /// `Frame` - The bound body frame
+    /// `Frame`: The bound body frame
     ///
     /// # Examples
     ///
@@ -1049,7 +1049,7 @@ impl Frame {
     /// orbit-relative/body frame with a bound object.
     ///
     /// # Returns
-    /// `bool` - `true` if the frame is bound (celestial frames are always
+    /// `bool`: `true` if the frame is bound (celestial frames are always
     /// bound)
     ///
     /// # Examples
@@ -1072,7 +1072,7 @@ impl Frame {
     /// Returns the bound object, if any.
     ///
     /// # Returns
-    /// `Option<&ObjectId>` - The bound object, or `None` for a celestial
+    /// `Option<&ObjectId>`: The bound object, or `None` for a celestial
     /// frame or an unbound orbit-relative/body frame
     ///
     /// # Examples

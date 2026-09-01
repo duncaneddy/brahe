@@ -88,6 +88,41 @@ pub fn rotation_eci_to_rtn(x_eci: SVector6) -> SMatrix3 {
     rotation_rtn_to_eci(x_eci).transpose()
 }
 
+/// Computes the angular velocity of the radial, along-track, cross-track (RTN) frame with
+/// respect to the Earth-Centered Inertial (ECI) frame, expressed in RTN axes.
+///
+/// The RTN frame rotates about its cross-track axis at the orbital true-anomaly rate
+/// `ḟ = |r × v| / r²` (Alfriend equation 2.16), so the angular velocity is `[0, 0, ḟ]`.
+///
+/// # Arguments:
+/// - `x_eci`: 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
+///
+/// # Returns:
+/// - `omega`: Angular velocity of the RTN frame relative to ECI, expressed in RTN axes (rad/s)
+///
+/// # Examples:
+/// ```
+/// use brahe::SVector6;
+/// use brahe::R_EARTH;
+/// use brahe::orbits::*;
+/// use brahe::relative_motion::*;
+///
+/// // Define satellite position
+/// let sma = R_EARTH + 700e3; // Semi-major axis in meters
+/// let x_eci = SVector6::new(sma, 0.0, 0.0, 0.0, perigee_velocity(sma, 0.0), 0.0);
+///
+/// let omega = omega_rtn(x_eci);
+/// ```
+pub fn omega_rtn(x_eci: SVector6) -> Vector3<f64> {
+    // Extract position and velocity
+    let rc = x_eci.fixed_rows::<3>(0);
+    let vc = x_eci.fixed_rows::<3>(3);
+
+    // Get angular velocity of RTN frame with respect to ECI frame (Alfriend equation 2.16)
+    let f_dot = (rc.cross(&vc)).norm() / (rc.norm().powi(2));
+    Vector3::new(0.0, 0.0, f_dot)
+}
+
 /// Transforms the absolute states of a chief and deputy satellite from the Earth-Centered Inertial (ECI)
 /// frame to the relative state of the deputy with respect to the chief in the rotating
 /// Radial, Along-Track, Cross-Track (RTN) frame.
@@ -118,10 +153,6 @@ pub fn rotation_eci_to_rtn(x_eci: SVector6) -> SMatrix3 {
 pub fn state_eci_to_rtn(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
     // NOTE: This could potentially be more accurately revised based on equations in section 4.7.1 of Alfriend
 
-    // Extract chief position and velocity
-    let rc = x_chief.fixed_rows::<3>(0);
-    let vc = x_chief.fixed_rows::<3>(3);
-
     // Get RTN rotation matrix
     let r_eci_to_rtn = rotation_eci_to_rtn(x_chief);
 
@@ -129,9 +160,8 @@ pub fn state_eci_to_rtn(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
     let rho_eci = x_deputy.fixed_rows::<3>(0) - x_chief.fixed_rows::<3>(0);
     let rho_dot_eci = x_deputy.fixed_rows::<3>(3) - x_chief.fixed_rows::<3>(3);
 
-    // Get angular velocity of RTN frame with respect to ECI frame (Alfriend equation 2.16)
-    let f_dot = (rc.cross(&vc)).norm() / (rc.norm().powi(2));
-    let omega = Vector3::new(0.0, 0.0, f_dot);
+    // Get angular velocity of RTN frame with respect to ECI frame
+    let omega = omega_rtn(x_chief);
 
     // Transform relative position and velocity to RTN frame
     let rho_rtn = r_eci_to_rtn * rho_eci;
@@ -187,9 +217,8 @@ pub fn state_rtn_to_eci(x_chief: SVector6, x_rel_rtn: SVector6) -> SVector6 {
     let rho_rtn = x_rel_rtn.fixed_rows::<3>(0);
     let rho_dot_rtn = x_rel_rtn.fixed_rows::<3>(3);
 
-    // Get angular velocity of RTN frame with respect to ECI frame (Alfriend equation 2.16)
-    let f_dot = (rc.cross(&vc)).norm() / (rc.norm().powi(2));
-    let omega = Vector3::new(0.0, 0.0, f_dot);
+    // Get angular velocity of RTN frame with respect to ECI frame
+    let omega = omega_rtn(x_chief);
 
     // Compute deputy absolute state in ECI frame
     let r_deputy = rc + r_rtn_to_eci * rho_rtn;
@@ -340,8 +369,9 @@ mod tests {
     use crate::R_EARTH;
     use crate::coordinates::state_koe_to_eci;
     use crate::math::vector6_from_array;
-    use crate::orbits::perigee_velocity;
+    use crate::orbits::{mean_motion, perigee_velocity};
     use crate::utils::testing::setup_global_test_eop;
+    use approx::assert_abs_diff_eq;
     use serial_test::parallel;
 
     fn get_test_state() -> SVector6 {
@@ -372,6 +402,23 @@ mod tests {
         // Confirm that the product of the two rotation matrices is the identity matrix
         let identity = r_rtn_to_eci * r_eci_to_rtn;
         assert!((identity - SMatrix3::identity()).norm() < 1e-10);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_omega_rtn_circular_orbit_matches_mean_motion() {
+        let sma = R_EARTH + 700e3;
+        let x_eci = get_test_state();
+
+        // For a circular orbit the true-anomaly rate equals the mean motion
+        let omega = omega_rtn(x_eci);
+        assert_abs_diff_eq!(omega[0], 0.0, epsilon = 1e-18);
+        assert_abs_diff_eq!(omega[1], 0.0, epsilon = 1e-18);
+        assert_abs_diff_eq!(
+            omega[2],
+            mean_motion(sma, AngleFormat::Radians),
+            epsilon = 1e-12
+        );
     }
 
     #[test]

@@ -209,6 +209,7 @@ nav:
           - Mars Frames: learn/frames/mars_frames.md
           - Synodic Frames: learn/frames/synodic_frames.md
           - Reference Frame Router: learn/frames/frame_transformations.md
+          - Frame Graph: learn/frames/frame_graph.md
       - Orbits:
           - learn/orbits/index.md
           - Anomaly Conversions: learn/orbits/anomalies.md
@@ -393,6 +394,7 @@ nav:
           - Mars Frames: library_api/frames/mars.md
           - Synodic Frames: library_api/frames/synodic.md
           - Reference Frame Router: library_api/frames/router.md
+          - Frame Graph: library_api/frames/frame.md
       - Orbits:
           - library_api/orbits/index.md
           - Keplerian Elements: library_api/orbits/keplerian.md

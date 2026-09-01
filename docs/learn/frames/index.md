@@ -36,6 +36,10 @@ Brahe also supports Moon- and Mars-fixed frames for multibody propagation and re
 
 See [Lunar Reference Frames](lunar_frames.md), [Mars Reference Frames](mars_frames.md), and [Synodic Reference Frames](synodic_frames.md) for details, and [Reference Frame Router](frame_transformations.md) for the `CelestialFrame` router that converts between any two frames (including generic NAIF-ID variants for bodies without a dedicated named frame). Central-body propagation is covered in [Cislunar and Lunar Propagation](../orbit_propagation/numerical_propagation/cislunar_lunar_propagation.md) and [Propagation Around Other Central Bodies](../orbit_propagation/numerical_propagation/other_central_bodies.md).
 
+### Object-Scoped Frames
+
+`Frame` extends `CelestialFrame` to frames scoped to a specific object rather than a body center: orbit-relative frames (`RTN`, `LVLH`, ...) and spacecraft body/sensor/actuator frames (`SC_BODY`, `CSS_1`, ...), registered against an object identity rather than evaluated from an epoch alone. See [Frame Graph](frame_graph.md) for registering objects and orientation chains, and for the generalized `rotation_frame_to_frame`/`position_frame_to_frame`/`state_frame_to_frame` functions that accept either a `CelestialFrame` or a `Frame`.
+
 ## Available Transformations
 
 We can visualize the relations between the relevants reference frames and their transformations as follows

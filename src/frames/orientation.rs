@@ -1,0 +1,389 @@
+/*!
+ * `OrientationProvider` trait and the orientation providers built on it.
+ *
+ * [`OrientationProvider`] is the common interface every rotation source in
+ * the frame graph implements: a constant attitude, a user callback, or (in
+ * later tasks) an interpolated attitude trajectory. The frame registry
+ * stores providers behind this trait so the graph layer never needs to know
+ * how a given link's rotation is produced.
+ *
+ * The base attitude types ([`Quaternion`], [`RotationMatrix`],
+ * [`EulerAngle`], [`EulerAxis`]) implement [`OrientationProvider`] directly,
+ * so a constant attitude can be registered with no wrapper struct.
+ * [`CallbackOrientation`] adapts a pair of closures (rotation, and
+ * optionally angular velocity) into a provider. [`NumericalRates`] (built
+ * via [`OrientationProviderExt::with_numerical_rates`]) wraps any provider
+ * that carries no angular-velocity data and derives it by central
+ * differencing the DCM, by explicit opt-in only — matching the crate's
+ * existing precedent in `register_custom_frame`.
+ */
+
+use nalgebra::Vector3;
+
+use crate::attitude::{EulerAngle, EulerAxis, Quaternion, RotationMatrix, ToAttitude};
+use crate::math::SMatrix3;
+use crate::time::Epoch;
+use crate::utils::BraheError;
+
+/// Source of a frame's orientation relative to its parent frame.
+///
+/// A provider supplies the rotation (as a unit quaternion, A→B passive:
+/// `q.to_rotation_matrix() * v_parent = v_frame`) and, optionally, the
+/// angular velocity of the frame relative to its parent, expressed in the
+/// frame itself.
+///
+/// # Examples
+///
+/// ```rust
+/// use brahe::attitude::Quaternion;
+/// use brahe::frames::OrientationProvider;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
+/// let epc = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
+/// assert_eq!(OrientationProvider::quaternion(&q, epc).unwrap(), q);
+/// assert!(OrientationProvider::coverage(&q).is_none());
+/// ```
+pub trait OrientationProvider: Send + Sync {
+    /// Unit quaternion rotating parent-frame vectors into this frame at
+    /// `epoch`.
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch to evaluate the orientation at
+    ///
+    /// # Returns
+    /// `Result<Quaternion, BraheError>`: The A→B passive attitude
+    /// quaternion, or an error if `epoch` cannot be evaluated (e.g. out of
+    /// coverage)
+    fn quaternion(&self, epoch: Epoch) -> Result<Quaternion, BraheError>;
+
+    /// Angular velocity of this frame relative to its parent, expressed in
+    /// this frame, at `epoch`. Units: (rad/s)
+    ///
+    /// `Ok(None)` means the provider fundamentally carries no rate data
+    /// (e.g. a rotation-only callback); it is not a failure. `Err` is
+    /// reserved for real failures, such as `epoch` falling outside the
+    /// provider's coverage.
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch to evaluate the angular velocity at
+    ///
+    /// # Returns
+    /// `Result<Option<Vector3<f64>>, BraheError>`: The angular velocity
+    /// (rad/s) if the provider carries rate data, `None` if it does not, or
+    /// an error on evaluation failure
+    fn angular_velocity(&self, epoch: Epoch) -> Result<Option<Vector3<f64>>, BraheError>;
+
+    /// Time coverage of the provider. `None` means valid for all time (e.g.
+    /// a constant rotation).
+    ///
+    /// # Returns
+    /// `Option<(Epoch, Epoch)>`: The `(start, end)` coverage bounds, or
+    /// `None` if unbounded
+    fn coverage(&self) -> Option<(Epoch, Epoch)> {
+        None
+    }
+
+    /// Rotation matrix (DCM) rotating parent-frame vectors into this frame
+    /// at `epoch`. Default implementation converts [`Self::quaternion`].
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch to evaluate the orientation at
+    ///
+    /// # Returns
+    /// `Result<RotationMatrix, BraheError>`: The A→B passive rotation
+    /// matrix, or an error if `epoch` cannot be evaluated
+    fn rotation_matrix(&self, epoch: Epoch) -> Result<RotationMatrix, BraheError> {
+        Ok(self.quaternion(epoch)?.to_rotation_matrix())
+    }
+}
+
+/// Implements [`OrientationProvider`] for a constant [`ToAttitude`] type:
+/// `quaternion` ignores `epoch` and returns `self.to_quaternion()`,
+/// `angular_velocity` is always `Ok(Some(Vector3::zeros()))` (a constant
+/// rotation has zero rate relative to its parent), and `coverage` defaults
+/// to `None` (valid for all time).
+macro_rules! impl_orientation_provider_for_attitude {
+    ($t:ty) => {
+        impl OrientationProvider for $t {
+            fn quaternion(&self, _epoch: Epoch) -> Result<Quaternion, BraheError> {
+                Ok(self.to_quaternion())
+            }
+
+            fn angular_velocity(&self, _epoch: Epoch) -> Result<Option<Vector3<f64>>, BraheError> {
+                Ok(Some(Vector3::zeros()))
+            }
+        }
+    };
+}
+
+impl_orientation_provider_for_attitude!(Quaternion);
+impl_orientation_provider_for_attitude!(RotationMatrix);
+impl_orientation_provider_for_attitude!(EulerAngle);
+impl_orientation_provider_for_attitude!(EulerAxis);
+
+/// Angular-velocity callback for [`CallbackOrientation`]. Units: (rad/s)
+type OmegaCallback = dyn Fn(Epoch) -> Result<Vector3<f64>, BraheError> + Send + Sync;
+
+/// [`OrientationProvider`] built from a rotation callback and an optional
+/// angular-velocity callback.
+///
+/// The rotation callback returns the parent→frame DCM directly; a missing
+/// angular-velocity callback makes [`OrientationProvider::angular_velocity`]
+/// return `Ok(None)` rather than an error, per [`OrientationProvider`]'s
+/// contract. Pair with [`OrientationProviderExt::with_numerical_rates`] to
+/// derive rates numerically when no callback is available.
+///
+/// # Examples
+///
+/// ```rust
+/// use brahe::frames::CallbackOrientation;
+/// use brahe::math::SMatrix3;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let t0 = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
+/// let provider = CallbackOrientation::new(
+///     move |epc: Epoch| {
+///         let theta = 0.001 * (epc - t0);
+///         let (s, c) = theta.sin_cos();
+///         Ok(SMatrix3::new(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0))
+///     },
+///     None,
+/// );
+/// ```
+pub struct CallbackOrientation {
+    rotation: Box<dyn Fn(Epoch) -> Result<SMatrix3, BraheError> + Send + Sync>,
+    omega: Option<Box<OmegaCallback>>,
+}
+
+impl CallbackOrientation {
+    /// Constructs a provider from a rotation callback and an optional
+    /// angular-velocity callback.
+    ///
+    /// # Arguments
+    /// * `rotation` - Callback returning the parent→frame DCM at an epoch
+    /// * `omega` - Optional callback returning the frame's angular velocity
+    ///   relative to its parent, expressed in the frame. Units: (rad/s)
+    ///
+    /// # Returns
+    /// `CallbackOrientation`: The constructed provider
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::frames::CallbackOrientation;
+    /// use nalgebra::Vector3;
+    /// use brahe::math::SMatrix3;
+    /// use brahe::time::Epoch;
+    ///
+    /// let provider = CallbackOrientation::new(
+    ///     |_epc: Epoch| Ok(SMatrix3::identity()),
+    ///     Some(Box::new(|_epc: Epoch| Ok(Vector3::zeros()))),
+    /// );
+    /// ```
+    pub fn new(
+        rotation: impl Fn(Epoch) -> Result<SMatrix3, BraheError> + Send + Sync + 'static,
+        omega: Option<Box<OmegaCallback>>,
+    ) -> Self {
+        Self {
+            rotation: Box::new(rotation),
+            omega,
+        }
+    }
+}
+
+impl OrientationProvider for CallbackOrientation {
+    fn quaternion(&self, epoch: Epoch) -> Result<Quaternion, BraheError> {
+        Ok(self.rotation_matrix(epoch)?.to_quaternion())
+    }
+
+    fn angular_velocity(&self, epoch: Epoch) -> Result<Option<Vector3<f64>>, BraheError> {
+        match &self.omega {
+            Some(omega) => Ok(Some(omega(epoch)?)),
+            None => Ok(None),
+        }
+    }
+
+    fn rotation_matrix(&self, epoch: Epoch) -> Result<RotationMatrix, BraheError> {
+        RotationMatrix::from_matrix((self.rotation)(epoch)?)
+    }
+}
+
+/// Wraps an [`OrientationProvider`] that carries no angular-velocity data
+/// and derives it by central differencing the provider's rotation matrix.
+///
+/// Constructed via [`OrientationProviderExt::with_numerical_rates`]. When
+/// the inner provider's [`OrientationProvider::angular_velocity`] returns
+/// `Ok(Some(_))`, that value passes through unchanged; otherwise the rate is
+/// derived from `[ω]× = -Ṙ Rᵀ`, with `Ṙ ≈ (R(t+h/2) − R(t−h/2))/h` for step
+/// `h`, re-expressed in the frame by evaluating `R` at `t`. This is the same
+/// derivation `register_custom_frame` uses for its rotation-only fallback.
+///
+/// # Examples
+///
+/// ```rust
+/// use brahe::frames::{CallbackOrientation, OrientationProvider, OrientationProviderExt};
+/// use brahe::math::SMatrix3;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let t0 = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
+/// let provider = CallbackOrientation::new(
+///     move |epc: Epoch| {
+///         let theta = 0.001 * (epc - t0);
+///         let (s, c) = theta.sin_cos();
+///         Ok(SMatrix3::new(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0))
+///     },
+///     None,
+/// )
+/// .with_numerical_rates(1.0);
+///
+/// let w = provider.angular_velocity(t0 + 3600.0).unwrap().unwrap();
+/// assert!((w.z - 0.001).abs() < 1e-9);
+/// ```
+pub struct NumericalRates<P: OrientationProvider> {
+    inner: P,
+    step: f64,
+}
+
+impl<P: OrientationProvider> OrientationProvider for NumericalRates<P> {
+    fn quaternion(&self, epoch: Epoch) -> Result<Quaternion, BraheError> {
+        self.inner.quaternion(epoch)
+    }
+
+    fn angular_velocity(&self, epoch: Epoch) -> Result<Option<Vector3<f64>>, BraheError> {
+        if let Some(w) = self.inner.angular_velocity(epoch)? {
+            return Ok(Some(w));
+        }
+
+        let half_step = self.step / 2.0;
+        let r = self.inner.rotation_matrix(epoch)?.to_matrix();
+        let r_plus = self.inner.rotation_matrix(epoch + half_step)?.to_matrix();
+        let r_minus = self.inner.rotation_matrix(epoch - half_step)?.to_matrix();
+        let r_dot = (r_plus - r_minus) / self.step;
+
+        // [omega]× = -Ṙ Rᵀ for r_frame = R r_parent; extract the vector
+        // from the skew-symmetric part.
+        let s = -r_dot * r.transpose();
+        Ok(Some(Vector3::new(
+            0.5 * (s[(2, 1)] - s[(1, 2)]),
+            0.5 * (s[(0, 2)] - s[(2, 0)]),
+            0.5 * (s[(1, 0)] - s[(0, 1)]),
+        )))
+    }
+
+    fn coverage(&self) -> Option<(Epoch, Epoch)> {
+        self.inner.coverage().map(|(start, end)| {
+            let half_step = self.step / 2.0;
+            (start + half_step, end - half_step)
+        })
+    }
+
+    fn rotation_matrix(&self, epoch: Epoch) -> Result<RotationMatrix, BraheError> {
+        self.inner.rotation_matrix(epoch)
+    }
+}
+
+/// Extension trait adding [`Self::with_numerical_rates`] to every
+/// [`OrientationProvider`].
+pub trait OrientationProviderExt: OrientationProvider + Sized {
+    /// Wraps this provider so that a missing angular velocity
+    /// (`Ok(None)`) is derived numerically by central differencing the
+    /// rotation matrix, evaluated over `±step/2`.
+    ///
+    /// # Arguments
+    /// * `step` - Central-difference step. Units: (s)
+    ///
+    /// # Returns
+    /// `NumericalRates<Self>`: The wrapped provider
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::frames::{CallbackOrientation, OrientationProviderExt};
+    /// use brahe::math::SMatrix3;
+    /// use brahe::time::Epoch;
+    ///
+    /// let provider = CallbackOrientation::new(|_epc: Epoch| Ok(SMatrix3::identity()), None)
+    ///     .with_numerical_rates(1.0);
+    /// ```
+    fn with_numerical_rates(self, step: f64) -> NumericalRates<Self> {
+        NumericalRates { inner: self, step }
+    }
+}
+
+impl<P: OrientationProvider> OrientationProviderExt for P {}
+
+#[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
+mod tests {
+    use approx::assert_abs_diff_eq;
+    use nalgebra::Vector3;
+    use serial_test::parallel;
+
+    use super::*;
+    use crate::attitude::EulerAxis;
+    use crate::constants::AngleFormat;
+    use crate::time::TimeSystem;
+
+    #[test]
+    #[parallel]
+    fn test_attitude_types_are_orientation_providers() {
+        let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
+        let epc = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
+        assert_eq!(OrientationProvider::quaternion(&q, epc).unwrap(), q);
+        assert_eq!(q.angular_velocity(epc).unwrap(), Some(Vector3::zeros()));
+        assert!(OrientationProvider::coverage(&q).is_none());
+        // RotationMatrix / EulerAngle / EulerAxis round-trip through the trait too
+        let r = q.to_rotation_matrix();
+        assert_eq!(OrientationProvider::quaternion(&r, epc).unwrap(), q);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_numerical_rates_uniform_spin() {
+        // Body spinning about z at 0.001 rad/s: analytic omega recovered to 1e-9
+        let rate = 0.001;
+        let t0 = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
+        let p = CallbackOrientation::new(
+            move |epc: Epoch| {
+                let th = rate * (epc - t0);
+                Ok(SMatrix3::new(
+                    th.cos(),
+                    th.sin(),
+                    0.0,
+                    -th.sin(),
+                    th.cos(),
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                ))
+            },
+            None,
+        );
+        let epc = t0 + 3600.0;
+        assert_eq!(p.angular_velocity(epc).unwrap(), None);
+        let wrapped = p.with_numerical_rates(1.0);
+        let w = wrapped.angular_velocity(epc).unwrap().unwrap();
+        assert_abs_diff_eq!(w, Vector3::new(0.0, 0.0, rate), epsilon = 1e-9);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_numerical_rates_tilted_axis() {
+        // Spin about the fixed axis (1,1,1)/sqrt(3): full 3-axis omega recovered.
+        let rate = 0.002;
+        let axis = Vector3::new(1.0, 1.0, 1.0).normalize();
+        let t0 = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
+        let p = CallbackOrientation::new(
+            move |epc: Epoch| {
+                let ea = EulerAxis::new(axis, rate * (epc - t0), AngleFormat::Radians);
+                Ok(ea.to_rotation_matrix().to_matrix())
+            },
+            None,
+        )
+        .with_numerical_rates(1.0);
+        let w = p.angular_velocity(t0 + 1800.0).unwrap().unwrap();
+        assert_abs_diff_eq!(w, axis * rate, epsilon = 1e-9);
+    }
+}

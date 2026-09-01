@@ -18,6 +18,7 @@ pub mod gcrf_itrf;
 pub mod iau_rotation;
 pub mod lunar;
 pub mod mars;
+pub mod orientation;
 pub mod synodic;
 pub mod transform;
 
@@ -30,5 +31,6 @@ pub use gcrf_itrf::*;
 pub use iau_rotation::*;
 pub use lunar::*;
 pub use mars::*;
+pub use orientation::*;
 pub use synodic::*;
 pub use transform::*;

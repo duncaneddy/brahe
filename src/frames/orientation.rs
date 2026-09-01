@@ -118,9 +118,25 @@ macro_rules! impl_orientation_provider_for_attitude {
 }
 
 impl_orientation_provider_for_attitude!(Quaternion);
-impl_orientation_provider_for_attitude!(RotationMatrix);
 impl_orientation_provider_for_attitude!(EulerAngle);
 impl_orientation_provider_for_attitude!(EulerAxis);
+
+impl OrientationProvider for RotationMatrix {
+    fn quaternion(&self, _epoch: Epoch) -> Result<Quaternion, BraheError> {
+        Ok(self.to_quaternion())
+    }
+
+    fn angular_velocity(&self, _epoch: Epoch) -> Result<Option<Vector3<f64>>, BraheError> {
+        Ok(Some(Vector3::zeros()))
+    }
+
+    // Already a rotation matrix, so this skips the round trip through
+    // `Self::quaternion` that the default implementation would otherwise
+    // take.
+    fn rotation_matrix(&self, _epoch: Epoch) -> Result<RotationMatrix, BraheError> {
+        Ok(*self)
+    }
+}
 
 /// Angular-velocity callback for [`CallbackOrientation`]. Units: (rad/s)
 type OmegaCallback = dyn Fn(Epoch) -> Result<Vector3<f64>, BraheError> + Send + Sync;
@@ -336,6 +352,20 @@ mod tests {
         // RotationMatrix / EulerAngle / EulerAxis round-trip through the trait too
         let r = q.to_rotation_matrix();
         assert_eq!(OrientationProvider::quaternion(&r, epc).unwrap(), q);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_rotation_matrix_provider_returns_self_directly() {
+        // RotationMatrix's OrientationProvider::rotation_matrix must return
+        // the input matrix directly, bit-identical, rather than round
+        // tripping it through quaternion() and back.
+        let axis = Vector3::new(1.0, 2.0, 3.0).normalize();
+        let ea = EulerAxis::new(axis, 37.0, AngleFormat::Degrees);
+        let r = ea.to_rotation_matrix();
+        let epc = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
+        let out = OrientationProvider::rotation_matrix(&r, epc).unwrap();
+        assert_eq!(out.to_matrix(), r.to_matrix());
     }
 
     #[test]

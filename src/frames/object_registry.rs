@@ -204,6 +204,12 @@ impl DStateAdapter {
 impl SStateProvider for DStateAdapter {
     fn state(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         let state = self.provider.state(epoch)?;
+        if state.len() != 6 {
+            return Err(BraheError::Error(format!(
+                "DStateAdapter expected a 6-dimensional state, got dimension {}",
+                state.len()
+            )));
+        }
         Ok(Vector6::from_column_slice(state.as_slice()))
     }
 }
@@ -289,7 +295,7 @@ impl<F: Fn(Epoch) -> Result<Vector6<f64>, BraheError> + Send + Sync> SStateProvi
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
 
     use super::*;
     use crate::constants::R_EARTH;
@@ -372,6 +378,31 @@ mod tests {
         let epc = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
         let state = adapter.state(epc).unwrap();
         assert_eq!(state, Vector6::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dstate_adapter_rejects_lying_state_dim() {
+        use crate::utils::state_providers::DStateProvider;
+        use nalgebra::DVector;
+
+        // Reports a 6-dimensional state at construction (passing DStateAdapter::new's
+        // check) but actually returns a 5-element vector from state().
+        struct LyingProvider;
+        impl DStateProvider for LyingProvider {
+            fn state(&self, _epoch: Epoch) -> Result<DVector<f64>, BraheError> {
+                Ok(DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]))
+            }
+            fn state_dim(&self) -> usize {
+                6
+            }
+        }
+
+        let adapter = DStateAdapter::new(LyingProvider).unwrap();
+        let epc = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
+        let err = adapter.state(epc).err().unwrap().to_string();
+        assert!(err.contains('6'));
+        assert!(err.contains('5'));
     }
 
     #[test]

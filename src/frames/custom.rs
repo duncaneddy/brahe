@@ -85,7 +85,7 @@ where
 {
     let provider: Arc<dyn OrientationProvider> = match omega {
         Some(omega) => Arc::new(CallbackOrientation::new(rotation, Some(omega))),
-        None => Arc::new(CallbackOrientation::new(rotation, None).with_numerical_rates(1.0)),
+        None => Arc::new(CallbackOrientation::new(rotation, None).with_numerical_rates(2.0)),
     };
     FRAME_REGISTRY.write().unwrap().insert(
         FrameKey::Custom(key),

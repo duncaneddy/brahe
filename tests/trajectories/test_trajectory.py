@@ -1309,3 +1309,67 @@ def test_trajectory_set_interpolation_method_lagrange():
 
     traj.set_interpolation_method(InterpolationMethod.lagrange(7))
     assert traj.get_interpolation_method() == InterpolationMethod.lagrange(7)
+
+
+def test_interpolate_at_duplicate_epoch_returns_the_stored_state(eop):
+    """Mirror of test_interpolate_at_duplicate_epoch_returns_the_stored_state in Rust."""
+    start = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+
+    # An impulsive maneuver stores a pre- and a post-burn state at the same
+    # epoch. Interpolating there used to divide by a zero-length interval.
+    traj = Trajectory(6)
+    traj.add(start, np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+    traj.add(start + 60.0, np.array([2.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+    traj.add(start + 60.0, np.array([9.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+    traj.add(start + 120.0, np.array([3.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+
+    at_duplicate = traj.interpolate(start + 60.0)
+    assert np.all(np.isfinite(at_duplicate))
+    assert at_duplicate[0] == pytest.approx(9.0)
+
+    assert traj.interpolate(start + 30.0)[0] == pytest.approx(1.5)
+    assert traj.interpolate(start + 90.0)[0] == pytest.approx(6.0)
+
+
+def test_even_degree_lagrange_beats_the_earlier_window(eop):
+    """Mirror of test_even_degree_lagrange_beats_the_earlier_window in Rust."""
+    start = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+
+    def signal(x):
+        return np.cos(x / 3.0) * np.log(1.0 + 0.3 * x)
+
+    traj = Trajectory(6)
+    for i in range(12):
+        traj.add(start + 60.0 * i, np.array([signal(i), 0.0, 0.0, 0.0, 0.0, 0.0]))
+    traj.set_interpolation_method(InterpolationMethod.lagrange(3))
+
+    worst = 0.0
+    for k in range(4, 7):
+        x = k + 0.5
+        worst = max(worst, abs(traj.interpolate(start + 60.0 * x)[0] - signal(x)))
+
+    # The balanced window holds this under 4e-4; the window one sample early
+    # reaches 7.4e-4 on the same data.
+    assert worst < 4e-4
+
+
+def test_lagrange_interpolation_does_not_span_a_repeated_epoch(eop):
+    """Mirror of test_lagrange_interpolation_does_not_span_a_repeated_epoch in Rust."""
+    start = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+
+    # A four-point Lagrange stencil covering the whole trajectory would contain
+    # both copies of the repeated epoch and divide by a zero-length interval.
+    traj = Trajectory(6)
+    traj.add(start, np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+    traj.add(start + 60.0, np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+    traj.add(start + 60.0, np.array([10.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+    traj.add(start + 120.0, np.array([11.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+    traj.set_interpolation_method(InterpolationMethod.lagrange(3))
+
+    before = traj.interpolate(start + 30.0)
+    assert np.all(np.isfinite(before))
+    assert before[0] == pytest.approx(0.5)
+
+    after = traj.interpolate(start + 90.0)
+    assert np.all(np.isfinite(after))
+    assert after[0] == pytest.approx(10.5)

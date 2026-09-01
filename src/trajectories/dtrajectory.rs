@@ -28,6 +28,7 @@
  * ```
  */
 
+use crate::trajectories::traits::compute_lagrange_window;
 use nalgebra::{DMatrix, DVector};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -412,7 +413,17 @@ impl DTrajectory {
         }
 
         // Handle exact match at endpoint
-        if let Some((idx, _)) = self.epochs.iter().enumerate().find(|(_, e)| **e == epoch) {
+        // The last record at a repeated epoch, matching what `interpolate`
+        // returns there: an impulsive maneuver stores its pre- and post-burn
+        // records at the same instant, and pairing the post-burn state with
+        // pre-burn auxiliary data would misreport the maneuver.
+        if let Some((idx, _)) = self
+            .epochs
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, e)| **e == epoch)
+        {
             return Ok(Some(covs[idx].clone()));
         }
 
@@ -1323,8 +1334,18 @@ impl InterpolatableTrajectory for DTrajectory {
         let idx2 = self.index_after_epoch(epoch)?;
 
         // If indices are the same, we have an exact match
-        if idx1 == idx2 {
-            return self.state_at_idx(idx1);
+        // An exact hit, or a bracket of zero duration because the epoch is
+        // stored more than once. Repeated epochs are allowed so that an
+        // impulsive maneuver can hold both its pre- and post-burn states;
+        // interpolating across one would divide by a zero-length interval and
+        // yield NaN, so the stored state is returned instead. `add` inserts a
+        // state after any it already holds at that epoch, and for a repeated
+        // epoch `index_before_epoch` lands on the last of the run while
+        // `index_after_epoch` lands on the first, so the higher index is the
+        // most recently added state. Returning it makes a query at a
+        // discontinuity right-continuous with the states that follow.
+        if idx1 == idx2 || self.epoch_at_idx(idx1)? == self.epoch_at_idx(idx2)? {
+            return self.state_at_idx(idx1.max(idx2));
         }
 
         // Validate minimum point count
@@ -1349,7 +1370,7 @@ impl InterpolatableTrajectory for DTrajectory {
                 // Collect degree+1 points centered around query epoch
                 let n_points = degree + 1;
                 let (start_idx, end_idx) =
-                    compute_lagrange_window(self.len(), idx1, idx2, n_points)?;
+                    compute_lagrange_window(&self.epochs, idx1, idx2, n_points)?;
 
                 // Build time and value arrays
                 let times: Vec<f64> = (start_idx..=end_idx)
@@ -1373,33 +1394,6 @@ impl InterpolatableTrajectory for DTrajectory {
             }
         }
     }
-}
-
-/// Helper function to compute the window of indices for Lagrange interpolation.
-fn compute_lagrange_window(
-    len: usize,
-    idx1: usize,
-    idx2: usize,
-    n_points: usize,
-) -> Result<(usize, usize), BraheError> {
-    if len < n_points {
-        return Err(BraheError::Error(format!(
-            "Need {} points for interpolation, trajectory has {}",
-            n_points, len
-        )));
-    }
-
-    let center = (idx1 + idx2) / 2;
-    let half_window = n_points / 2;
-    let mut start_idx = center.saturating_sub(half_window);
-    let mut end_idx = start_idx + n_points - 1;
-
-    if end_idx >= len {
-        end_idx = len - 1;
-        start_idx = end_idx.saturating_sub(n_points - 1);
-    }
-
-    Ok((start_idx, end_idx))
 }
 
 #[cfg(test)]

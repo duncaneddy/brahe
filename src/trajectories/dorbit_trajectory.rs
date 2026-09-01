@@ -79,6 +79,7 @@
  * ```
  */
 
+use crate::trajectories::traits::compute_lagrange_window;
 use nalgebra::{DMatrix, DVector, SMatrix, Vector3, Vector6};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -666,7 +667,17 @@ impl DOrbitTrajectory {
         }
 
         // Handle exact match at endpoint
-        if let Some((idx, _)) = self.epochs.iter().enumerate().find(|(_, e)| **e == epoch) {
+        // The last record at a repeated epoch, matching what `interpolate`
+        // returns there: an impulsive maneuver stores its pre- and post-burn
+        // records at the same instant, and pairing the post-burn state with
+        // pre-burn auxiliary data would misreport the maneuver.
+        if let Some((idx, _)) = self
+            .epochs
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, e)| **e == epoch)
+        {
             return Ok(Some(covs[idx].clone()));
         }
 
@@ -1571,8 +1582,18 @@ impl InterpolatableTrajectory for DOrbitTrajectory {
         let idx2 = self.index_after_epoch(epoch)?;
 
         // If indices are the same, we have an exact match
-        if idx1 == idx2 {
-            return self.state_at_idx(idx1);
+        // An exact hit, or a bracket of zero duration because the epoch is
+        // stored more than once. Repeated epochs are allowed so that an
+        // impulsive maneuver can hold both its pre- and post-burn states;
+        // interpolating across one would divide by a zero-length interval and
+        // yield NaN, so the stored state is returned instead. `add` inserts a
+        // state after any it already holds at that epoch, and for a repeated
+        // epoch `index_before_epoch` lands on the last of the run while
+        // `index_after_epoch` lands on the first, so the higher index is the
+        // most recently added state. Returning it makes a query at a
+        // discontinuity right-continuous with the states that follow.
+        if idx1 == idx2 || self.epoch_at_idx(idx1)? == self.epoch_at_idx(idx2)? {
+            return self.state_at_idx(idx1.max(idx2));
         }
 
         // Validate minimum point count
@@ -1597,7 +1618,7 @@ impl InterpolatableTrajectory for DOrbitTrajectory {
                 // Collect degree+1 points centered around query epoch
                 let n_points = degree + 1;
                 let (start_idx, end_idx) =
-                    self.compute_interpolation_window(idx1, idx2, n_points)?;
+                    compute_lagrange_window(&self.epochs, idx1, idx2, n_points)?;
 
                 // Build time and value arrays
                 let times: Vec<f64> = (start_idx..=end_idx)
@@ -1679,35 +1700,7 @@ impl InterpolatableTrajectory for DOrbitTrajectory {
     }
 }
 
-impl DOrbitTrajectory {
-    /// Compute the window of indices to use for Lagrange interpolation.
-    fn compute_interpolation_window(
-        &self,
-        idx1: usize,
-        idx2: usize,
-        n_points: usize,
-    ) -> Result<(usize, usize), BraheError> {
-        if self.len() < n_points {
-            return Err(BraheError::Error(format!(
-                "Need {} points for interpolation, trajectory has {}",
-                n_points,
-                self.len()
-            )));
-        }
-
-        let center = (idx1 + idx2) / 2;
-        let half_window = n_points / 2;
-        let mut start_idx = center.saturating_sub(half_window);
-        let mut end_idx = start_idx + n_points - 1;
-
-        if end_idx >= self.len() {
-            end_idx = self.len() - 1;
-            start_idx = end_idx.saturating_sub(n_points - 1);
-        }
-
-        Ok((start_idx, end_idx))
-    }
-}
+impl DOrbitTrajectory {}
 
 impl STMStorage for DOrbitTrajectory {
     fn enable_stm_storage(&mut self) {
@@ -7299,5 +7292,64 @@ mod tests {
 
         let result = traj.covariance_at(t0 + 30.0);
         assert!(matches!(result, Err(BraheError::NumericalError(_))));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_hermite_interpolation_at_a_repeated_epoch() {
+        setup_global_test_eop();
+
+        // Hermite fits the two bracketing samples rather than a window, so it
+        // cannot straddle a discontinuity the way a Lagrange stencil can. It is
+        // still exposed to the zero-length bracket at a repeated epoch, where
+        // t1 - t0 is zero: both variants returned NaN there before the guard in
+        // `interpolate` caught it ahead of the method dispatch.
+        let start = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = |x: f64| DVector::from_vec(vec![x, 0.0, 0.0, 1.0, 0.0, 0.0]);
+        let zero = DVector::from_vec(vec![0.0, 0.0, 0.0]);
+
+        for method in [
+            InterpolationMethod::HermiteCubic,
+            InterpolationMethod::HermiteQuintic,
+        ] {
+            let mut traj =
+                DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+                    .unwrap();
+            traj.enable_acceleration_storage(3).unwrap();
+            // An impulsive maneuver at start + 60: x jumps from 1 to 10.
+            traj.add_with_acceleration(start, state(0.0), zero.clone())
+                .unwrap();
+            traj.add_with_acceleration(start + 60.0, state(1.0), zero.clone())
+                .unwrap();
+            traj.add_with_acceleration(start + 60.0, state(10.0), zero.clone())
+                .unwrap();
+            traj.add_with_acceleration(start + 120.0, state(11.0), zero.clone())
+                .unwrap();
+            traj.set_interpolation_method(method);
+
+            // At the discontinuity: the most recently added state, not NaN.
+            let at = traj.interpolate(&(start + 60.0)).unwrap();
+            assert!(
+                at.iter().all(|v| v.is_finite()),
+                "{:?} returned {:?} at the repeated epoch",
+                method,
+                at
+            );
+            assert_abs_diff_eq!(at[0], 10.0, epsilon = 1e-9);
+
+            // Either side, the fit uses only the branch that side belongs to:
+            // the bracketing pair is adjacent, so the pre-burn sample is never
+            // paired with a post-burn one.
+            assert_abs_diff_eq!(
+                traj.interpolate(&(start + 30.0)).unwrap()[0],
+                0.5,
+                epsilon = 1e-9
+            );
+            assert_abs_diff_eq!(
+                traj.interpolate(&(start + 90.0)).unwrap()[0],
+                10.5,
+                epsilon = 1e-9
+            );
+        }
     }
 }

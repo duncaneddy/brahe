@@ -4028,3 +4028,34 @@ def test_orbittrajectory_body_centered_inertial_error_branches():
         traj_unknown.state_bcbf(epoch)
     with pytest.raises(bh.BraheError):
         traj_unknown.state_koe_osc(epoch, AngleFormat.DEGREES)
+
+
+def test_hermite_interpolation_at_a_repeated_epoch(eop):
+    """Mirror of test_hermite_interpolation_at_a_repeated_epoch in Rust."""
+    start = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+
+    def state(x):
+        return np.array([x, 0.0, 0.0, 1.0, 0.0, 0.0])
+
+    # Hermite fits the two bracketing samples rather than a window, so it cannot
+    # straddle a discontinuity, but it was still exposed to the zero-length
+    # bracket at a repeated epoch and returned NaN there.
+    for method in [
+        InterpolationMethod.HERMITE_CUBIC,
+        InterpolationMethod.HERMITE_QUINTIC,
+    ]:
+        traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN)
+        traj.enable_acceleration_storage(3)
+        zero = np.zeros(3)
+        traj.add_with_acceleration(start, state(0.0), zero)
+        traj.add_with_acceleration(start + 60.0, state(1.0), zero)
+        traj.add_with_acceleration(start + 60.0, state(10.0), zero)
+        traj.add_with_acceleration(start + 120.0, state(11.0), zero)
+        traj.set_interpolation_method(method)
+
+        at = traj.interpolate(start + 60.0)
+        assert np.all(np.isfinite(at))
+        assert at[0] == pytest.approx(10.0)
+
+        assert traj.interpolate(start + 30.0)[0] == pytest.approx(0.5)
+        assert traj.interpolate(start + 90.0)[0] == pytest.approx(10.5)

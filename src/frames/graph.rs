@@ -236,11 +236,12 @@ fn chain_rate(frame: &Frame, resolved: &Resolved) -> Result<Vector3<f64>, BraheE
 /// # Arguments
 /// - `frame`: The frame to resolve
 /// - `epc`: Epoch instant for evaluation of the frame's orientation
-/// - `need_rate`: Whether to evaluate each chain link's angular velocity.
-///   Rotation-only and position-only callers pass `false` so a provider
-///   whose rotation is valid but whose rate query fails or is unsupported
-///   does not spuriously break them; `resolved.omega` is `None` when
-///   `false`.
+/// - `need_rate`: Whether to evaluate a bound `Body` frame's chain links'
+///   angular velocity. Rotation-only and position-only callers pass `false`
+///   so a provider whose rotation is valid but whose rate query fails or is
+///   unsupported does not spuriously break them; for a `Body` frame,
+///   `resolved.omega` is `None` when `false`. Celestial and orbit-relative
+///   frames derive `omega` infallibly and are unaffected by this flag.
 ///
 /// # Returns
 /// - `Ok(Resolved)`: The celestial root, the `root` -> `frame` rotation

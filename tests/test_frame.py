@@ -123,6 +123,78 @@ def test_register_frame_bad_provider_type_raises(clear_frame_registries):
         bh.register_frame(bh.Frame.SC_BODY("SC"), bh.CelestialFrame.GCRF, 5)
 
 
+def test_register_frame_rotation_matrix_provider(clear_frame_registries):
+    r = bh.RotationMatrix(0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0)
+    bh.register_frame(bh.Frame.SC_BODY("SC"), bh.CelestialFrame.GCRF, r)
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    got = bh.rotation_frame_to_frame(
+        bh.CelestialFrame.GCRF, bh.Frame.SC_BODY("SC"), epc
+    )
+    np.testing.assert_allclose(got, r.to_matrix(), atol=1e-15)
+
+
+def test_register_frame_euler_angle_provider(clear_frame_registries):
+    e = bh.EulerAngle(bh.EulerAngleOrder.ZYX, 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    bh.register_frame(bh.Frame.SC_BODY("SC"), bh.CelestialFrame.GCRF, e)
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    got = bh.rotation_frame_to_frame(
+        bh.CelestialFrame.GCRF, bh.Frame.SC_BODY("SC"), epc
+    )
+    np.testing.assert_allclose(got, e.to_rotation_matrix().to_matrix(), atol=1e-14)
+
+
+def test_register_frame_euler_axis_provider(clear_frame_registries):
+    a = bh.EulerAxis(np.array([0.0, 0.0, 1.0]), 0.5, bh.AngleFormat.RADIANS)
+    bh.register_frame(bh.Frame.SC_BODY("SC"), bh.CelestialFrame.GCRF, a)
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    got = bh.rotation_frame_to_frame(
+        bh.CelestialFrame.GCRF, bh.Frame.SC_BODY("SC"), epc
+    )
+    np.testing.assert_allclose(got, a.to_rotation_matrix().to_matrix(), atol=1e-14)
+
+
+def test_register_frame_constant_provider_rejects_omega(clear_frame_registries):
+    q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+    with pytest.raises(ValueError):
+        bh.register_frame(
+            bh.Frame.SC_BODY("SC"),
+            bh.CelestialFrame.GCRF,
+            q,
+            omega=lambda epc: np.zeros(3),
+        )
+    with pytest.raises(ValueError):
+        bh.register_frame(
+            bh.Frame.SC_BODY("SC"), bh.CelestialFrame.GCRF, q, numerical_rates_step=1.0
+        )
+
+
+def test_register_frame_rejects_non_callable_omega(clear_frame_registries):
+    with pytest.raises(TypeError):
+        bh.register_frame(
+            bh.Frame.SC_BODY("SC"),
+            bh.CelestialFrame.GCRF,
+            lambda epc: np.eye(3),
+            omega=5,
+        )
+
+
+def test_register_frame_rejects_bad_numerical_rates_step(clear_frame_registries):
+    with pytest.raises(ValueError):
+        bh.register_frame(
+            bh.Frame.SC_BODY("SC"),
+            bh.CelestialFrame.GCRF,
+            lambda epc: np.eye(3),
+            numerical_rates_step=0.0,
+        )
+    with pytest.raises(ValueError):
+        bh.register_frame(
+            bh.Frame.SC_BODY("SC"),
+            bh.CelestialFrame.GCRF,
+            lambda epc: np.eye(3),
+            numerical_rates_step=-1.0,
+        )
+
+
 def test_register_frame_replace_revalidates_chain(clear_frame_registries):
     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
     bh.register_frame(bh.Frame.SC_BODY("SC"), bh.CelestialFrame.GCRF, q)
@@ -172,6 +244,23 @@ def test_register_object_orbit_trajectory_dimension_error(clear_frame_registries
         9, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None
     )
     with pytest.raises(bh.BraheError, match="6-dimensional"):
+        bh.register_object("SC", traj, bh.CelestialFrame.GCRF)
+
+
+def test_register_object_orbit_trajectory_keplerian_representation_rejected(
+    clear_frame_registries,
+):
+    epc0 = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    oe = np.array([[bh.R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0]])
+    traj = bh.OrbitTrajectory.from_orbital_data(
+        [epc0],
+        oe,
+        bh.OrbitFrame.ECI,
+        bh.OrbitRepresentation.KEPLERIAN,
+        bh.AngleFormat.DEGREES,
+        None,
+    )
+    with pytest.raises(ValueError, match="Cartesian"):
         bh.register_object("SC", traj, bh.CelestialFrame.GCRF)
 
 
@@ -349,6 +438,40 @@ def test_batch_matches_singular_for_frame_args(clear_frame_registries):
             bh.CelestialFrame.GCRF, bh.Frame.RTN("A"), epc
         )
         np.testing.assert_array_equal(batch[i], singular)
+
+
+def test_batch_callback_provider_reacquires_gil_from_worker_threads(
+    clear_frame_registries,
+):
+    """A large batch forces evaluation on the Rayon thread pool (see
+    set_vectorization_length_threshold); each worker thread must be able to
+    reacquire the GIL to call back into the Python rotation/state callbacks
+    registered via register_frame/register_object."""
+    epc0 = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    n = 32
+    epochs = [epc0 + i * 60.0 for i in range(n)]
+    t0 = epc0
+    rate = 1.0e-3
+
+    def spin(epc):
+        theta = rate * (epc - t0)
+        c, s = np.cos(theta), np.sin(theta)
+        return np.array([[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]])
+
+    bh.register_frame(bh.Frame.SC_BODY("SC"), bh.CelestialFrame.GCRF, spin)
+
+    original_threshold = bh.get_vectorization_length_threshold()
+    bh.set_vectorization_length_threshold(1)
+    try:
+        batch = bh.rotation_frame_to_frame(
+            bh.CelestialFrame.GCRF, bh.Frame.SC_BODY("SC"), epochs
+        )
+    finally:
+        bh.set_vectorization_length_threshold(original_threshold)
+
+    assert batch.shape == (n, 3, 3)
+    for i, epc in enumerate(epochs):
+        np.testing.assert_allclose(batch[i], spin(epc), atol=1e-12)
 
 
 def test_oem_register_for(clear_frame_registries):

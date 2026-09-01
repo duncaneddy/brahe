@@ -4367,7 +4367,13 @@ impl SStateProvider for PyCallableStateProvider {
 /// Raises:
 ///     BraheError: If `frame` is not a bound `Body` frame, if the parent chain does not
 ///         terminate at a celestial frame, or if it cycles back through `frame`
-///     TypeError: If `provider` is not a constant attitude or a callable
+///     TypeError: If `provider` is not a constant attitude or a callable, or if `omega` is given
+///         and is not callable
+///     ValueError: If `omega` or `numerical_rates_step` is given for a constant-attitude
+///         `provider`, or if `numerical_rates_step` is not a positive finite number
+///
+/// Returns:
+///     None: The frame is registered in the global frame registry
 ///
 /// Example:
 ///     ```python
@@ -4387,10 +4393,21 @@ fn py_register_frame(
     frame: PyFrame,
     parent: &Bound<'_, PyAny>,
     provider: &Bound<'_, PyAny>,
-    omega: Option<Py<PyAny>>,
+    omega: Option<&Bound<'_, PyAny>>,
     numerical_rates_step: Option<f64>,
 ) -> PyResult<()> {
     let parent = extract_frame(parent)?;
+
+    let is_constant_attitude = provider.extract::<PyQuaternion>().is_ok()
+        || provider.extract::<PyRotationMatrix>().is_ok()
+        || provider.extract::<PyEulerAngle>().is_ok()
+        || provider.extract::<PyEulerAxis>().is_ok();
+    if is_constant_attitude && (omega.is_some() || numerical_rates_step.is_some()) {
+        return Err(exceptions::PyValueError::new_err(
+            "omega and numerical_rates_step apply only to a callable provider; a constant \
+             attitude already has zero angular velocity relative to its parent",
+        ));
+    }
 
     if let Ok(q) = provider.extract::<PyQuaternion>() {
         frames::register_frame(frame.frame, parent, q.obj)?;
@@ -4414,6 +4431,20 @@ fn py_register_frame(
              callable epoch -> 3x3 ndarray",
         ));
     }
+    if let Some(omega) = omega
+        && !omega.is_callable()
+    {
+        return Err(exceptions::PyTypeError::new_err(
+            "omega must be a callable epoch -> length-3 ndarray",
+        ));
+    }
+    if let Some(step) = numerical_rates_step
+        && !(step > 0.0 && step.is_finite())
+    {
+        return Err(exceptions::PyValueError::new_err(
+            "numerical_rates_step must be a positive, finite number",
+        ));
+    }
 
     let rotation_py: Py<PyAny> = provider.clone().unbind();
     let rotation_fn = move |epc: time::Epoch| -> Result<SMatrix3, RustBraheError> {
@@ -4432,6 +4463,7 @@ fn py_register_frame(
         })
     };
     let omega_fn = omega.map(|omega| -> Box<frames::CustomFrameOmega> {
+        let omega: Py<PyAny> = omega.clone().unbind();
         Box::new(move |epc: time::Epoch| {
             Python::attach(|py| {
                 let py_epc = PyEpoch { obj: epc };
@@ -4480,6 +4512,9 @@ fn py_unregister_frame(frame: PyFrame) -> bool {
 /// registered through `register_custom_frame`.
 ///
 /// Intended for test isolation.
+///
+/// Returns:
+///     None: Every frame registry entry is removed
 #[pyfunction]
 #[pyo3(name = "clear_frame_registry")]
 fn py_clear_frame_registry() {
@@ -4488,7 +4523,7 @@ fn py_clear_frame_registry() {
 
 /// Registers (or replaces) `name`'s state provider.
 ///
-/// `provider` is either an `OrbitTrajectory` or a callable
+/// `provider` is either a Cartesian `OrbitTrajectory` or a callable
 /// `Epoch -> length-6 ndarray` returning `[position (m), velocity (m/s)]`
 /// in `frame` axes/center.
 ///
@@ -4500,6 +4535,11 @@ fn py_clear_frame_registry() {
 /// Raises:
 ///     BraheError: If `provider` is an `OrbitTrajectory` whose native state dimension is not 6
 ///     TypeError: If `provider` is not an `OrbitTrajectory` or a callable
+///     ValueError: If `provider` is an `OrbitTrajectory` using the Keplerian representation
+///         rather than Cartesian position/velocity
+///
+/// Returns:
+///     None: The object is registered in the global object registry
 ///
 /// Example:
 ///     ```python
@@ -4517,6 +4557,13 @@ fn py_register_object(
     frame: PyCelestialFrame,
 ) -> PyResult<()> {
     if let Ok(traj) = provider.extract::<PyRef<'_, PyOrbitalTrajectory>>() {
+        if traj.trajectory.representation != trajectories::traits::OrbitRepresentation::Cartesian
+        {
+            return Err(exceptions::PyValueError::new_err(
+                "OrbitTrajectory provider must use the Cartesian representation \
+                 (position/velocity), not Keplerian elements",
+            ));
+        }
         let adapter = frames::DStateAdapter::new(traj.trajectory.clone())?;
         frames::register_object(name, adapter, frame.frame)?;
         return Ok(());
@@ -4547,6 +4594,9 @@ fn py_unregister_object(name: String) -> bool {
 /// Removes every entry from the object registry.
 ///
 /// Intended for test isolation.
+///
+/// Returns:
+///     None: Every object registry entry is removed
 #[pyfunction]
 #[pyo3(name = "clear_object_registry")]
 fn py_clear_object_registry() {
@@ -4575,6 +4625,9 @@ fn py_registered_objects() -> Vec<String> {
 /// Args:
 ///     name (str): The object's identity to register
 ///     naif_id (int): NAIF ID of the body to query from loaded SPICE kernels
+///
+/// Returns:
+///     None: The object is registered in the global object registry
 ///
 /// Example:
 ///     ```python

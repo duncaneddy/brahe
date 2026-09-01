@@ -1386,6 +1386,9 @@ impl PyOEM {
     ///     BraheError: If the OEM does not have exactly one segment, or its reference frame
     ///         does not map to a `CelestialFrame`
     ///
+    /// Returns:
+    ///     None: The object is registered in the global object registry
+    ///
     /// Example:
     ///     ```python
     ///     import brahe as bh

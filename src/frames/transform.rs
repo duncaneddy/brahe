@@ -776,6 +776,14 @@ pub(crate) fn rotation_celestial(
 /// ephemerides (auto-loading `de440s`), so a same-center conversion
 /// involving one of those frames is not SPK-free.
 ///
+/// `from` and `to` accept any [`Frame`]: a [`CelestialFrame`], a registered
+/// body/sensor frame, or a bound orbit-relative frame. A non-celestial
+/// frame's origin is the origin of the object it is bound to, so the
+/// translation step re-centers on that object's registered state. Body
+/// frames share their object's origin exactly — no lever arm is applied
+/// between an object's center and its sensor frames. Unlike the celestial
+/// path, no angular-velocity data is required.
+///
 /// # Arguments
 /// - `from`: Source reference frame
 /// - `to`: Target reference frame
@@ -788,7 +796,7 @@ pub(crate) fn rotation_celestial(
 /// # Examples:
 /// ```no_run
 /// use brahe::constants::R_EARTH;
-/// use brahe::frames::{CelestialFrame, position_frame_to_frame};
+/// use brahe::frames::{CelestialFrame, Frame, position_frame_to_frame};
 /// use brahe::time::{Epoch, TimeSystem};
 /// use nalgebra::Vector3;
 ///
@@ -796,8 +804,35 @@ pub(crate) fn rotation_celestial(
 /// let x_gcrf = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 /// let x_itrf =
 ///     position_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::ITRF, epc, x_gcrf).unwrap();
+///
+/// // Any `Frame` is accepted, including body and orbit-relative frames
+/// let x_rtn = position_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("SC"), epc, x_gcrf);
 /// ```
 pub fn position_frame_to_frame(
+    from: impl Into<Frame>,
+    to: impl Into<Frame>,
+    epc: Epoch,
+    x: Vector3<f64>,
+) -> Result<Vector3<f64>, BraheError> {
+    let from = from.into();
+    let to = to.into();
+    match (&from, &to) {
+        (Frame::Celestial(from), Frame::Celestial(to)) => position_celestial(*from, *to, epc, x),
+        _ => super::graph::resolve_position(&from, &to, epc, x),
+    }
+}
+
+/// Transforms a Cartesian position between two celestial frames at `epc`.
+///
+/// # Arguments
+/// - `from`: Source celestial frame
+/// - `to`: Target celestial frame
+/// - `epc`: Epoch instant for computation of the transformation
+/// - `x`: Cartesian position in `from` axes/center. Units: (*m*)
+///
+/// # Returns
+/// - `x`: Cartesian position in `to` axes/center. Units: (*m*)
+fn position_celestial(
     from: CelestialFrame,
     to: CelestialFrame,
     epc: Epoch,
@@ -904,6 +939,16 @@ fn apply_position_frame_pair(c: &FramePairContext, x: &Vector3<f64>) -> Vector3<
 /// like GCRF <-> GSE. The result is bit-identical to the underlying
 /// pairwise function.
 ///
+/// `from` and `to` accept any [`Frame`]: a [`CelestialFrame`], a registered
+/// body/sensor frame, or a bound orbit-relative frame. A non-celestial
+/// frame's origin is the origin of the object it is bound to, so the
+/// re-centering step uses that object's registered state; body frames share
+/// their object's origin exactly, with no lever arm between the object's
+/// center and its sensor frames. Every link in a non-celestial frame's
+/// orientation chain must supply an angular velocity, since the velocity
+/// transport term is otherwise undefined; wrap a rotation-only provider with
+/// [`super::OrientationProviderExt::with_numerical_rates`] to derive one.
+///
 /// # Arguments
 /// - `from`: Source reference frame
 /// - `to`: Target reference frame
@@ -916,7 +961,7 @@ fn apply_position_frame_pair(c: &FramePairContext, x: &Vector3<f64>) -> Vector3<
 /// # Examples:
 /// ```no_run
 /// use brahe::constants::R_MOON;
-/// use brahe::frames::{CelestialFrame, state_frame_to_frame};
+/// use brahe::frames::{CelestialFrame, Frame, state_frame_to_frame};
 /// use brahe::math::vector6_from_array;
 /// use brahe::time::{Epoch, TimeSystem};
 ///
@@ -924,8 +969,35 @@ fn apply_position_frame_pair(c: &FramePairContext, x: &Vector3<f64>) -> Vector3<
 /// let x_gcrf = vector6_from_array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3]);
 /// let x_lfpa =
 ///     state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::LFPA, epc, x_gcrf).unwrap();
+///
+/// // Any `Frame` is accepted, including body and orbit-relative frames
+/// let x_rtn = state_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("SC"), epc, x_gcrf);
 /// ```
 pub fn state_frame_to_frame(
+    from: impl Into<Frame>,
+    to: impl Into<Frame>,
+    epc: Epoch,
+    x: SVector6,
+) -> Result<SVector6, BraheError> {
+    let from = from.into();
+    let to = to.into();
+    match (&from, &to) {
+        (Frame::Celestial(from), Frame::Celestial(to)) => state_celestial(*from, *to, epc, x),
+        _ => super::graph::resolve_state(&from, &to, epc, x),
+    }
+}
+
+/// Transforms a Cartesian state between two celestial frames at `epc`.
+///
+/// # Arguments
+/// - `from`: Source celestial frame
+/// - `to`: Target celestial frame
+/// - `epc`: Epoch instant for computation of the transformation
+/// - `x`: Cartesian state (position, velocity) in `from` axes/center. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - `x`: Cartesian state (position, velocity) in `to` axes/center. Units: (*m*; *m/s*)
+pub(crate) fn state_celestial(
     from: CelestialFrame,
     to: CelestialFrame,
     epc: Epoch,
@@ -1073,12 +1145,7 @@ pub fn states_frame_to_frame(
     epochs: &[Epoch],
     x: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    try_batch_map_epochs(
-        Ok,
-        |epc, x| state_frame_to_frame(from, to, *epc, *x),
-        epochs,
-        x,
-    )
+    try_batch_map_epochs(Ok, |epc, x| state_celestial(from, to, *epc, *x), epochs, x)
 }
 
 /// State of `to_center` relative to `from_center` at `epc`, in ICRF axes.
@@ -1153,6 +1220,45 @@ mod tests {
     use crate::spice::spk_state;
     use crate::time::TimeSystem;
     use crate::utils::testing::{setup_global_test_eop, setup_global_test_spice};
+
+    #[test]
+    #[serial] // EOP global
+    fn test_position_celestial_bit_identity() {
+        setup_global_test_eop();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let p = Vector3::new(R_EARTH + 500e3, 100.0, -2000.0);
+        let direct =
+            position_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::ITRF, epc, p).unwrap();
+        let via_frame = position_frame_to_frame(
+            Frame::from(CelestialFrame::GCRF),
+            Frame::from(CelestialFrame::ITRF),
+            epc,
+            p,
+        )
+        .unwrap();
+        assert_eq!(direct, via_frame);
+    }
+
+    #[test]
+    #[serial] // EOP global
+    fn test_state_celestial_bit_identity() {
+        setup_global_test_eop();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let x = state_koe_to_eci(
+            vector6_from_array([R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]),
+            DEGREES,
+        );
+        let direct =
+            state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::ITRF, epc, x).unwrap();
+        let via_frame = state_frame_to_frame(
+            Frame::from(CelestialFrame::GCRF),
+            Frame::from(CelestialFrame::ITRF),
+            epc,
+            x,
+        )
+        .unwrap();
+        assert_eq!(direct, via_frame);
+    }
 
     #[test]
     #[serial] // EOP global

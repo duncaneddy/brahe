@@ -34,7 +34,6 @@ use crate::utils::state_providers::{DStateProvider, SStateProvider};
 /// A registered object's state provider and the celestial frame its states
 /// are expressed in.
 #[derive(Clone)]
-#[cfg_attr(not(test), allow(dead_code))]
 struct ObjectEntry {
     provider: Arc<dyn SStateProvider + Send + Sync>,
     frame: CelestialFrame,
@@ -131,7 +130,6 @@ pub fn registered_objects() -> Vec<ObjectId> {
 /// Builds the D14-style error for a query against an unregistered object:
 /// names the missing object, the currently registered ones, and the calls
 /// that fix it.
-#[cfg_attr(not(test), allow(dead_code))]
 fn unknown_object_error(name: &ObjectId) -> BraheError {
     let registered = registered_objects()
         .iter()
@@ -160,7 +158,6 @@ fn unknown_object_error(name: &ObjectId) -> BraheError {
 ///   frame it is expressed in
 /// * `Err(BraheError)`: If `name` is not registered, or the provider fails
 ///   to compute a state at `epoch`
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn object_state(
     name: &ObjectId,
     epoch: Epoch,

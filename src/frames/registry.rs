@@ -226,7 +226,6 @@ pub fn clear_frame_registry() {
 ///
 /// # Returns
 /// `Option<FrameEntry>`: The entry, or `None` if `key` is not registered
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn frame_entry(key: &FrameKey) -> Option<FrameEntry> {
     FRAME_REGISTRY.read().unwrap().get(key).cloned()
 }

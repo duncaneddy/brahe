@@ -71,6 +71,8 @@ use crate::time::Epoch;
 use crate::utils::BraheError;
 use crate::utils::batch::{try_batch_map, try_batch_map_epochs};
 
+use super::frame::Frame;
+
 use super::eme_2000::rotation_gcrf_to_eme2000;
 use super::gcrf_itrf::rotation_gcrf_to_itrf;
 use super::iau_rotation::{
@@ -698,9 +700,17 @@ fn icrf_to_frame_dcm(frame: CelestialFrame, epc: Epoch) -> Result<SMatrix3, Brah
 /// either frame's center. This does not mean SPK is never touched: EMR,
 /// SER, and GSE orientations are themselves derived from SPK
 /// state/acceleration (auto-loading `de440s`), so a query involving one
-/// of those frames still queries SPK. Equivalent to
-/// `R_to(epc) * R_from(epc)^T`, where `R_x` is `x`'s ICRF -> `x` rotation
-/// matrix (identity for ICRF-aligned frames).
+/// of those frames still queries SPK. For two celestial frames the result
+/// is `R_to(epc) * R_from(epc)^T`, where `R_x` is `x`'s ICRF -> `x`
+/// rotation matrix (identity for ICRF-aligned frames).
+///
+/// `from` and `to` accept any [`Frame`]: a [`CelestialFrame`], a
+/// registered body/sensor frame, or a bound orbit-relative frame. Body
+/// frames are resolved by walking their registered parent chain to a
+/// celestial root; orbit-relative frames are built from the bound object's
+/// registered state. When the two frames resolve to different celestial
+/// roots, the two chains are joined through the celestial rotation between
+/// those roots.
 ///
 /// # Arguments
 /// - `from`: Source reference frame
@@ -712,13 +722,40 @@ fn icrf_to_frame_dcm(frame: CelestialFrame, epc: Epoch) -> Result<SMatrix3, Brah
 ///
 /// # Examples:
 /// ```
-/// use brahe::frames::{CelestialFrame, rotation_frame_to_frame};
+/// use brahe::frames::{CelestialFrame, Frame, rotation_frame_to_frame};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 /// let r = rotation_frame_to_frame(CelestialFrame::MCI, CelestialFrame::MCMF, epc).unwrap();
+///
+/// // Any `Frame` is accepted, including body and orbit-relative frames
+/// let r = rotation_frame_to_frame(CelestialFrame::MCI, Frame::from(CelestialFrame::MCMF), epc)
+///     .unwrap();
 /// ```
 pub fn rotation_frame_to_frame(
+    from: impl Into<Frame>,
+    to: impl Into<Frame>,
+    epc: Epoch,
+) -> Result<SMatrix3, BraheError> {
+    let from = from.into();
+    let to = to.into();
+    match (&from, &to) {
+        (Frame::Celestial(from), Frame::Celestial(to)) => rotation_celestial(*from, *to, epc),
+        _ => super::graph::resolve_rotation(&from, &to, epc),
+    }
+}
+
+/// Rotation matrix from `from`'s axes into `to`'s axes at `epc`, for two
+/// celestial frames.
+///
+/// # Arguments
+/// - `from`: Source celestial frame
+/// - `to`: Target celestial frame
+/// - `epc`: Epoch instant for computation of the transformation
+///
+/// # Returns
+/// - `r`: 3x3 rotation matrix transforming `from` -> `to`
+pub(crate) fn rotation_celestial(
     from: CelestialFrame,
     to: CelestialFrame,
     epc: Epoch,

@@ -24,11 +24,13 @@ fn main() {
     bh::clear_frame_registry();
     bh::clear_object_registry();
 
-    // A ReferenceFrame::Body or ReferenceFrame::OrbitRelative frame is a pure label until it
-    // is bound to an object; a ReferenceFrame::Celestial frame (CelestialFrame::GCRF,
-    // ...) is always bound. The family constructors (ReferenceFrame::RTN,
-    // ReferenceFrame::SC_BODY, ReferenceFrame::CSS, ...) construct a bound frame directly; an
-    // unbound label converts from a bare BodyFrame or OrbitRelativeFrame.
+    // A body or orbit-relative frame that carries no object name is only a
+    // label: it describes a set of axes and nothing more. Binding it to a
+    // named object makes it resolvable against that object's registered data.
+    // A celestial frame such as CelestialFrame::GCRF is resolvable on its own.
+    // The family constructors (ReferenceFrame::RTN, ReferenceFrame::SC_BODY,
+    // ReferenceFrame::CSS, ...) bind an object directly, while an unbound
+    // label converts from a bare BodyFrame or OrbitRelativeFrame.
     let rtn = ReferenceFrame::RTN("SC");
     let unbound: ReferenceFrame = BodyFrame::SCBody(None).into();
     println!(
@@ -44,9 +46,9 @@ fn main() {
         unbound.object()
     );
 
-    // Register "SC" as an object: any SStateProvider, in GCRF. An
-    // OrbitTrajectory (via DStateAdapter), or an OEM's `register_for`
-    // one-liner (see the CCSDS OEM docs), registers the same way.
+    // Register "SC" as an object: any SStateProvider, in GCRF. An OEM's
+    // `register_for` one-liner (see the CCSDS OEM docs) registers the same
+    // way.
     let oe = SVector::<f64, 6>::new(
         bh::constants::R_EARTH + 500e3,
         0.001,
@@ -58,8 +60,11 @@ fn main() {
     let x_sc = bh::state_koe_to_eci(oe, AngleFormat::Degrees);
     bh::register_object("SC", ConstantProvider(x_sc), CelestialFrame::GCRF).unwrap();
 
-    // Register SC's body frame and a coarse sun sensor mounted on it. A
-    // constant attitude (Quaternion, RotationMatrix, EulerAngle, EulerAxis)
+    // Register SC's body frame and a coarse sun sensor mounted on it. The
+    // BodyFrame families (SCBody, CSS, RW, ...) are the values of the SANA
+    // spacecraft body reference frame registry:
+    // https://sanaregistry.org/r/spacecraft_body_reference_frames/
+    // A constant attitude (Quaternion, RotationMatrix, EulerAngle, EulerAxis)
     // registers directly; orientation chains driven by an attitude ephemeris
     // ship in a later release.
     let q_body = Quaternion::new(1.0, 0.0, 0.0, 0.0);

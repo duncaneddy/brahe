@@ -13,11 +13,13 @@ import brahe as bh
 bh.clear_frame_registry()
 bh.clear_object_registry()
 
-# A ReferenceFrame::Body or ReferenceFrame::OrbitRelative frame is a pure label until it is
-# bound to an object; a ReferenceFrame::Celestial frame (CelestialFrame.GCRF, ...) is
-# always bound. The family staticmethods (ReferenceFrame.RTN, ReferenceFrame.SC_BODY,
-# ReferenceFrame.CSS, ...) construct a bound frame directly; ReferenceFrame.body(None, ...)
-# leaves it unbound.
+# A body or orbit-relative frame that carries no object name is only a label:
+# it describes a set of axes and nothing more. Binding it to a named object
+# makes it resolvable against that object's registered data. A celestial frame
+# such as CelestialFrame.GCRF is resolvable on its own. The family
+# staticmethods (ReferenceFrame.RTN, ReferenceFrame.SC_BODY,
+# ReferenceFrame.CSS, ...) bind an object directly, while
+# ReferenceFrame.body(None, ...) leaves the frame unbound.
 rtn = bh.ReferenceFrame.RTN("SC")
 label = bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY())
 print(f"{rtn}: bound={rtn.is_bound()}, object={rtn.object()}")
@@ -30,10 +32,13 @@ oe = np.array([bh.R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
 x_sc = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 bh.register_object("SC", lambda epc: x_sc, bh.CelestialFrame.GCRF)
 
-# Register SC's body frame and a coarse sun sensor mounted on it. A constant
-# attitude (Quaternion, RotationMatrix, EulerAngle, EulerAxis) registers
-# directly; orientation chains driven by an attitude ephemeris ship in a
-# later release.
+# Register SC's body frame and a coarse sun sensor mounted on it. The BodyFrame
+# families (SC_BODY, CSS, RW, ...) are the values of the SANA spacecraft body
+# reference frame registry:
+# https://sanaregistry.org/r/spacecraft_body_reference_frames/
+# A constant attitude (Quaternion, RotationMatrix, EulerAngle, EulerAxis)
+# registers directly; orientation chains driven by an attitude ephemeris ship
+# in a later release.
 q_body = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
 q_css = bh.EulerAxis(
     np.array([0.0, 1.0, 0.0]), 0.7, bh.AngleFormat.RADIANS

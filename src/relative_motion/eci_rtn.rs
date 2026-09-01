@@ -94,6 +94,10 @@ pub fn rotation_eci_to_rtn(x_eci: SVector6) -> SMatrix3 {
 /// The RTN frame rotates about its cross-track axis at the orbital true-anomaly rate
 /// `ḟ = |r × v| / r²` (Alfriend equation 2.16), so the angular velocity is `[0, 0, ḟ]`.
 ///
+/// The returned vector's components are those of the RTN frame, not the ECI frame: the
+/// third component is the rate about the cross-track axis. Multiply by
+/// [`rotation_rtn_to_eci`] to express the same angular velocity in ECI axes.
+///
 /// # Arguments:
 /// - `x_eci`: 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
 ///

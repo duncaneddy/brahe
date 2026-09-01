@@ -105,6 +105,11 @@ fn py_rotation_eci_to_rtn<'py>(
 /// The RTN frame rotates about its cross-track axis at the orbital true-anomaly rate
 /// `f_dot = |r x v| / r^2`, so the angular velocity is `[0, 0, f_dot]`.
 ///
+/// The returned vector's components are those of the RTN frame, not the ECI
+/// frame: the third component is the rate about the cross-track axis.
+/// Multiply by `rotation_rtn_to_eci` to express the same angular velocity in
+/// ECI axes.
+///
 /// Args:
 ///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,)
 ///

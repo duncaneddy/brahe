@@ -260,7 +260,9 @@ pub(crate) fn resolve_orientation(frame: &Frame, epc: Epoch) -> Result<Resolved,
             variant,
             object: Some(object),
         } => resolve_orbit_relative(*kind, *variant, object, epc),
-        _ => Err(unbound_frame_error(frame)),
+        Frame::Body { object: None, .. } | Frame::OrbitRelative { object: None, .. } => {
+            Err(unbound_frame_error(frame))
+        }
     }
 }
 
@@ -512,7 +514,9 @@ impl Frame {
                 object: Some(object),
                 ..
             } => Ok(Origin::Object(object.clone())),
-            _ => Err(unbound_frame_error(self)),
+            Frame::Body { object: None, .. } | Frame::OrbitRelative { object: None, .. } => {
+                Err(unbound_frame_error(self))
+            }
         }
     }
 }
@@ -584,7 +588,7 @@ mod tests {
     use std::sync::Arc;
 
     use approx::assert_abs_diff_eq;
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
 
     use super::*;
     use crate::attitude::{EulerAxis, FromAttitude, Quaternion, ToAttitude};
@@ -593,8 +597,8 @@ mod tests {
     use crate::frames::object_registry::FnProvider;
     use crate::frames::registry::{FRAME_REGISTRY, FrameEntry};
     use crate::frames::{
-        CallbackOrientation, clear_frame_registry, clear_object_registry, position_frame_to_frame,
-        register_frame, register_object, rotation_frame_to_frame,
+        CallbackOrientation, OrientationProviderExt, clear_frame_registry, clear_object_registry,
+        position_frame_to_frame, register_frame, register_object, rotation_frame_to_frame,
     };
     use crate::math::SVector6;
     use crate::orbit_dynamics::ephemerides::sun_position;
@@ -658,6 +662,10 @@ mod tests {
             .to_string();
         assert!(err.contains("CSS_1@SC"));
         assert!(err.contains("register_frame"));
+        // The queried frame is itself the unregistered link, so it is named
+        // as the frame rather than as its own parent.
+        assert!(err.contains("frame CSS_1@SC has no registered orientation"));
+        assert!(!err.contains("parent CSS_1@SC"));
         let err = rotation_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("A"), epc)
             .unwrap_err()
             .to_string();
@@ -971,6 +979,59 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_body_frame_velocity_matches_finite_difference() {
+        clear_frame_registry();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let t0 = epc - 10.0;
+        let rate = 1.0e-3;
+        let spinning = CallbackOrientation::new(
+            move |e: Epoch| {
+                let dt: f64 = e - t0;
+                let (s, c) = (rate * dt).sin_cos();
+                Ok(SMatrix3::new(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0))
+            },
+            None,
+        )
+        .with_numerical_rates(0.1);
+        register_frame(Frame::SC_BODY("SC"), CelestialFrame::GCRF.into(), spinning).unwrap();
+        register_object(
+            "SC",
+            FnProvider(move |_| Ok(SVector6::zeros())),
+            CelestialFrame::GCRF,
+        )
+        .unwrap();
+
+        // A target held fixed in GCRF sweeps through the spinning body frame
+        // purely by the transport term, so the body-frame velocity must match
+        // a central difference of the body-frame position.
+        let p_gcrf = Vector3::new(9.0e3, -4.0e3, 2.0e3);
+        let x_gcrf = SVector6::new(p_gcrf[0], p_gcrf[1], p_gcrf[2], 0.0, 0.0, 0.0);
+        let body = Frame::SC_BODY("SC");
+        let x_body = state_frame_to_frame(CelestialFrame::GCRF, body.clone(), epc, x_gcrf).unwrap();
+
+        let delta = 0.5;
+        let p_plus =
+            position_frame_to_frame(CelestialFrame::GCRF, body.clone(), epc + delta, p_gcrf)
+                .unwrap();
+        let p_minus =
+            position_frame_to_frame(CelestialFrame::GCRF, body, epc - delta, p_gcrf).unwrap();
+        let v_numerical = (p_plus - p_minus) / (2.0 * delta);
+
+        // The tolerance is set by the central difference's own truncation
+        // error, ~(delta^2/6) * rate^3 * |p|, against a 9.85 m/s transport
+        // velocity.
+        assert_abs_diff_eq!(
+            x_body.fixed_rows::<3>(3).into_owned(),
+            v_numerical,
+            epsilon = 1e-6
+        );
+        clear_frame_registry();
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
     fn test_object_origin_offset_crosses_centers() {
         setup_global_test_spice();
         clear_object_registry();
@@ -1033,7 +1094,7 @@ mod tests {
     }
 
     #[test]
-    #[serial]
+    #[parallel]
     fn test_unbound_frame_has_no_origin() {
         let unbound: Frame = BodyFrame::SCBody(None).into();
         let err = unbound.origin().unwrap_err().to_string();

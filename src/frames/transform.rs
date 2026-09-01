@@ -1101,13 +1101,14 @@ pub fn positions_frame_to_frame(
 
 /// Transforms a batch of Cartesian states from `from` to `to`.
 ///
-/// Batch form of [`state_frame_to_frame`]. `epochs` and `x` follow the
-/// broadcast rule: each has length 1 or the common batch length. The state
-/// router evaluates the scalar transformation for each element (the
-/// per-frame velocity transport terms are resolved through the frame's own
-/// state routines rather than a shared context), so the batch benefits from
-/// thread-pool evaluation for large inputs but not from shared-epoch
-/// hoisting; use the frame-specific `states_*` functions for that.
+/// Batch form of [`state_frame_to_frame`] over two celestial frames.
+/// `epochs` and `x` follow the broadcast rule: each has length 1 or the
+/// common batch length. Each element is transformed independently, since
+/// the velocity transport terms are resolved through each frame's own state
+/// routines rather than a shared per-epoch context; the batch therefore
+/// benefits from thread-pool evaluation for large inputs but not from
+/// shared-epoch hoisting. Use the frame-specific `states_*` functions for
+/// that.
 ///
 /// # Arguments
 /// - `from`: Source reference frame

@@ -49,9 +49,9 @@ def plot_synodic_3d(
             - line_width (float, optional): Line width
             - label (str, optional): Legend label
 
-        frame (str or ReferenceFrame, optional): Synodic frame to plot in.
-            Either ``'EMR'``, ``'SER'``, ``'GSE'``, a ``ReferenceFrame`` name
-            string, or a ``ReferenceFrame.Synodic(origin, primary, secondary)``.
+        frame (str or CelestialFrame, optional): Synodic frame to plot in.
+            Either ``'EMR'``, ``'SER'``, ``'GSE'``, a ``CelestialFrame`` name
+            string, or a ``CelestialFrame.Synodic(origin, primary, secondary)``.
             Default: ``'EMR'``
         reference_epoch (Epoch, optional): Epoch at which the primary and
             secondary body spheres are placed. Default: the first epoch of
@@ -81,8 +81,8 @@ def plot_synodic_3d(
         object: Generated figure (matplotlib.figure.Figure or plotly.graph_objects.Figure)
 
     Raises:
-        ValueError: If ``frame`` is not a recognized ``ReferenceFrame`` name,
-            or resolves to a ``ReferenceFrame`` that is not synodic.
+        ValueError: If ``frame`` is not a recognized ``CelestialFrame`` name,
+            or resolves to a ``CelestialFrame`` that is not synodic.
         TypeError: If a trajectory is not an OrbitTrajectory object.
 
     Example:
@@ -110,13 +110,13 @@ def plot_synodic_3d(
     validate_backend(backend)
 
     if isinstance(frame, str):
-        frame = bh.ReferenceFrame.from_string(frame)
+        frame = bh.CelestialFrame.from_string(frame)
     primary_id = frame.synodic_primary
     secondary_id = frame.synodic_secondary
     if primary_id is None:
         raise ValueError(
             f"{frame} is not a synodic frame. Use EMR/SER/GSE or "
-            "ReferenceFrame.Synodic(origin, primary, secondary)."
+            "CelestialFrame.Synodic(origin, primary, secondary)."
         )
 
     traj_groups = _normalize_trajectory_groups(trajectories)
@@ -136,7 +136,7 @@ def plot_synodic_3d(
         states = traj.to_matrix()
         xyz = np.array(
             [
-                bh.state_frame_to_frame(bh.ReferenceFrame.GCRF, frame, epc, s)[:3]
+                bh.state_frame_to_frame(bh.CelestialFrame.GCRF, frame, epc, s)[:3]
                 for epc, s in zip(epochs, states)
             ]
         )
@@ -159,7 +159,7 @@ def plot_synodic_3d(
             )
             continue
         pos = bh.position_frame_to_frame(
-            bh.ReferenceFrame.BodyCenteredICRF(naif_id),
+            bh.CelestialFrame.BodyCenteredICRF(naif_id),
             frame,
             reference_epoch,
             np.zeros(3),
@@ -337,7 +337,7 @@ def _synodic_3d_plotly(
 def plot_earth_moon_rotating_3d(trajectories, **kwargs) -> object:
     """Plot 3D trajectories in the Earth-Moon Rotating (EMR) frame.
 
-    Alias for ``plot_synodic_3d(trajectories, frame=ReferenceFrame.EMR, ...)``;
+    Alias for ``plot_synodic_3d(trajectories, frame=CelestialFrame.EMR, ...)``;
     accepts the same keyword arguments.
 
     Args:
@@ -367,4 +367,4 @@ def plot_earth_moon_rotating_3d(trajectories, **kwargs) -> object:
         ```
     """
     kwargs.pop("frame", None)
-    return plot_synodic_3d(trajectories, frame=bh.ReferenceFrame.EMR, **kwargs)
+    return plot_synodic_3d(trajectories, frame=bh.CelestialFrame.EMR, **kwargs)

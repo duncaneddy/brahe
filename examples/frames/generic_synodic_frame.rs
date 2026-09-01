@@ -15,7 +15,7 @@ fn main() {
     // A generic Synodic frame isn't limited to the named EMR/SER/GSE
     // instances: any two SPK-covered bodies work as the primary/secondary
     // pair. Here the Sun-Mars barycenter defines a Sun-Mars rotating frame.
-    let frame = bh::ReferenceFrame::Synodic {
+    let frame = bh::CelestialFrame::Synodic {
         origin: bh::SynodicOrigin::Barycenter,
         primary: 10,
         secondary: 4,
@@ -25,7 +25,7 @@ fn main() {
     // through the frame router.
     let oe = na::SVector::<f64, 6>::new(bh::R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
     let x_gcrf = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
-    let x_syn = bh::state_frame_to_frame(bh::ReferenceFrame::GCRF, frame, epc, x_gcrf).unwrap();
+    let x_syn = bh::state_frame_to_frame(bh::CelestialFrame::GCRF, frame, epc, x_gcrf).unwrap();
 
     println!("Epoch: {}", epc);
     println!(
@@ -45,7 +45,7 @@ fn main() {
     // frame's origin is ~1e11 m from Earth, so the absolute tolerance is
     // scaled to the position magnitude rather than held at GCRF-local
     // precision.
-    let x_back = bh::state_frame_to_frame(frame, bh::ReferenceFrame::GCRF, epc, x_syn).unwrap();
+    let x_back = bh::state_frame_to_frame(frame, bh::CelestialFrame::GCRF, epc, x_syn).unwrap();
     assert!((x_back - x_gcrf).norm() < 1e-6 * x_gcrf.norm());
 
     println!("\nExample validated successfully!");

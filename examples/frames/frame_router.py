@@ -23,13 +23,13 @@ x_gcrf = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 # state_frame_to_frame routes through ICRF and re-centers Earth -> Moon, so the
 # same physical state is now expressed relative to the Moon.
 x_lci = bh.state_frame_to_frame(
-    bh.ReferenceFrame.GCRF, bh.ReferenceFrame.LCI, epc, x_gcrf
+    bh.CelestialFrame.GCRF, bh.CelestialFrame.LCI, epc, x_gcrf
 )
 
 # rotation_frame_to_frame returns only the 3x3 axis rotation (no re-centering);
 # GCRF -> MCMF uses the compiled-in WGCCRE Mars model and needs no kernel.
 r_gcrf_to_mcmf = bh.rotation_frame_to_frame(
-    bh.ReferenceFrame.GCRF, bh.ReferenceFrame.MCMF, epc
+    bh.CelestialFrame.GCRF, bh.CelestialFrame.MCMF, epc
 )
 
 print(f"Epoch: {epc}")

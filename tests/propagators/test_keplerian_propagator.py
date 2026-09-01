@@ -661,7 +661,7 @@ def test_keplerianpropagator_bci_bcbf_in_frame():
     Mirrors test_keplerian_propagator_bci_bcbf_in_frame."""
     import numpy as np
 
-    from brahe import ReferenceFrame
+    from brahe import CelestialFrame
 
     epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
     propagator = KeplerianPropagator.from_keplerian(
@@ -678,7 +678,7 @@ def test_keplerianpropagator_bci_bcbf_in_frame():
         propagator.state_bcbf(epoch), propagator.state_itrf(epoch)
     )
     np.testing.assert_allclose(
-        propagator.state_in_frame(ReferenceFrame.ITRF, epoch),
+        propagator.state_in_frame(CelestialFrame.ITRF, epoch),
         propagator.state_itrf(epoch),
         atol=1e-6,
     )
@@ -1297,7 +1297,7 @@ def test_state_provider_states_itrf():
 def test_state_provider_states_bci_bcbf_in_frame():
     """Test StateProvider states_bci(), states_bcbf(), states_in_frame()
     batch methods."""
-    from brahe import ReferenceFrame
+    from brahe import CelestialFrame
 
     epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
     elements = np.array([6878e3, 0.01, 45.0, 15.0, 30.0, 60.0])
@@ -1322,11 +1322,11 @@ def test_state_provider_states_bci_bcbf_in_frame():
     for i, epc in enumerate(epochs):
         np.testing.assert_array_equal(states_bcbf[i], prop.state_bcbf(epc))
 
-    states_itrf = prop.states_in_frame(ReferenceFrame.ITRF, epochs)
+    states_itrf = prop.states_in_frame(CelestialFrame.ITRF, epochs)
     assert len(states_itrf) == 3
     for i, epc in enumerate(epochs):
         np.testing.assert_array_equal(
-            states_itrf[i], prop.state_in_frame(ReferenceFrame.ITRF, epc)
+            states_itrf[i], prop.state_in_frame(CelestialFrame.ITRF, epc)
         )
 
 

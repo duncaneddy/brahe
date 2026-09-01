@@ -31,7 +31,7 @@ Naming Conventions:
 """
 
 from brahe._brahe import (
-    ReferenceFrame,
+    CelestialFrame,
     # Reference frame router
     SynodicOrigin,
     # EME2000 <> GCRF transformations
@@ -122,7 +122,7 @@ from brahe._brahe import (
 )
 
 __all__ = [
-    "ReferenceFrame",
+    "CelestialFrame",
     # Reference frame router
     "SynodicOrigin",
     # EME2000 <> GCRF transformations

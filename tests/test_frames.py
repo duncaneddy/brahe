@@ -895,10 +895,10 @@ def test_state_eci_to_lci_roundtrip():
 
 
 def test_reference_frame_synodic_attrs():
-    assert brahe.ReferenceFrame.from_string("EMR") == brahe.ReferenceFrame.EMR
-    assert brahe.ReferenceFrame.from_string("ser") == brahe.ReferenceFrame.SER
-    assert brahe.ReferenceFrame.from_string("GSE") == brahe.ReferenceFrame.GSE
-    assert str(brahe.ReferenceFrame.EMR) == "EMR"
+    assert brahe.CelestialFrame.from_string("EMR") == brahe.CelestialFrame.EMR
+    assert brahe.CelestialFrame.from_string("ser") == brahe.CelestialFrame.SER
+    assert brahe.CelestialFrame.from_string("GSE") == brahe.CelestialFrame.GSE
+    assert str(brahe.CelestialFrame.EMR) == "EMR"
 
 
 def test_state_gcrf_to_emr_moon_on_x_axis():
@@ -977,12 +977,12 @@ def test_synodic_router_matches_pairwise():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x = np.array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
     for frame, pairwise in [
-        (brahe.ReferenceFrame.EMR, brahe.state_gcrf_to_emr(epc, x)),
-        (brahe.ReferenceFrame.SER, brahe.state_gcrf_to_ser(epc, x)),
-        (brahe.ReferenceFrame.GSE, brahe.state_gcrf_to_gse(epc, x)),
+        (brahe.CelestialFrame.EMR, brahe.state_gcrf_to_emr(epc, x)),
+        (brahe.CelestialFrame.SER, brahe.state_gcrf_to_ser(epc, x)),
+        (brahe.CelestialFrame.GSE, brahe.state_gcrf_to_gse(epc, x)),
     ]:
         via_router = brahe.state_frame_to_frame(
-            brahe.ReferenceFrame.GCRF, frame, epc, x
+            brahe.CelestialFrame.GCRF, frame, epc, x
         )
         np.testing.assert_allclose(via_router, pairwise, atol=1e-9)
 
@@ -993,7 +993,7 @@ def test_synodic_origin_enum():
 
 
 def test_reference_frame_synodic_constructor():
-    frame = brahe.ReferenceFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 301)
+    frame = brahe.CelestialFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 301)
     assert frame.synodic_primary == 399
     assert frame.synodic_secondary == 301
     assert frame.synodic_origin == brahe.SynodicOrigin.Barycenter
@@ -1003,7 +1003,7 @@ def test_reference_frame_synodic_constructor():
 def test_reference_frame_synodic_large_ids_construct():
     # Any NAIF ID is accepted at construction time, even for a Barycenter
     # origin outside 0..=999 (no longer validated).
-    frame = brahe.ReferenceFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 1301)
+    frame = brahe.CelestialFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 1301)
     assert frame.synodic_primary == 399
     assert frame.synodic_secondary == 1301
     assert frame.synodic_origin == brahe.SynodicOrigin.Barycenter
@@ -1018,38 +1018,38 @@ def test_reference_frame_synodic_large_ids_construct():
         brahe.AngleFormat.DEGREES,
     )
     with pytest.raises(RuntimeError):
-        brahe.state_frame_to_frame(brahe.ReferenceFrame.GCRF, frame, epc, x)
+        brahe.state_frame_to_frame(brahe.CelestialFrame.GCRF, frame, epc, x)
 
 
 def test_reference_frame_synodic_non_barycenter_allows_arbitrary_ids():
-    frame = brahe.ReferenceFrame.Synodic(brahe.SynodicOrigin.Primary, 499, 401)
+    frame = brahe.CelestialFrame.Synodic(brahe.SynodicOrigin.Primary, 499, 401)
     assert frame.synodic_primary == 499
     assert frame.synodic_secondary == 401
     assert frame.synodic_origin == brahe.SynodicOrigin.Primary
 
-    frame = brahe.ReferenceFrame.Synodic(brahe.SynodicOrigin.Secondary, 10, 2000001)
+    frame = brahe.CelestialFrame.Synodic(brahe.SynodicOrigin.Secondary, 10, 2000001)
     assert frame.synodic_primary == 10
     assert frame.synodic_secondary == 2000001
     assert frame.synodic_origin == brahe.SynodicOrigin.Secondary
 
 
 def test_reference_frame_synodic_accessors_named_frames():
-    assert brahe.ReferenceFrame.EMR.synodic_primary == 399
-    assert brahe.ReferenceFrame.EMR.synodic_secondary == 301
-    assert brahe.ReferenceFrame.SER.synodic_primary == 10
-    assert brahe.ReferenceFrame.GSE.synodic_secondary == 10
-    assert brahe.ReferenceFrame.GCRF.synodic_primary is None
+    assert brahe.CelestialFrame.EMR.synodic_primary == 399
+    assert brahe.CelestialFrame.EMR.synodic_secondary == 301
+    assert brahe.CelestialFrame.SER.synodic_primary == 10
+    assert brahe.CelestialFrame.GSE.synodic_secondary == 10
+    assert brahe.CelestialFrame.GCRF.synodic_primary is None
 
 
 def test_synodic_matches_emr_state_transform():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
     x = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
-    generic = brahe.ReferenceFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 301)
+    generic = brahe.CelestialFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 301)
     x_named = brahe.state_frame_to_frame(
-        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.EMR, epc, x
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.EMR, epc, x
     )
-    x_generic = brahe.state_frame_to_frame(brahe.ReferenceFrame.GCRF, generic, epc, x)
+    x_generic = brahe.state_frame_to_frame(brahe.CelestialFrame.GCRF, generic, epc, x)
     # EMR is an analytic barycenter, the generic router resolves the same
     # pair via SPK; the ~0.1 m barycenter discrepancy is expected (mirrors
     # the Rust equivalence test in src/frames/transform.rs).
@@ -1061,7 +1061,7 @@ def test_router_lci_to_emr():
     # land on EMR's +x_hat axis with zero transverse velocity.
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x_moon_emr = brahe.state_frame_to_frame(
-        brahe.ReferenceFrame.LCI, brahe.ReferenceFrame.EMR, epc, np.zeros(6)
+        brahe.CelestialFrame.LCI, brahe.CelestialFrame.EMR, epc, np.zeros(6)
     )
     assert 3.4e8 < x_moon_emr[0] < 4.1e8
     assert x_moon_emr[1] == approx(0.0, abs=1e-3)
@@ -1070,16 +1070,16 @@ def test_router_lci_to_emr():
     assert x_moon_emr[5] == approx(0.0, abs=1e-6)
 
 
-# ReferenceFrame router tests
+# CelestialFrame router tests
 
 
 def test_reference_frame_from_string_aliases():
-    assert brahe.ReferenceFrame.from_string("ECI") == brahe.ReferenceFrame.GCRF
-    assert brahe.ReferenceFrame.from_string("ECEF") == brahe.ReferenceFrame.ITRF
-    assert brahe.ReferenceFrame.from_string("eci") == brahe.ReferenceFrame.GCRF
-    assert brahe.ReferenceFrame.from_string("LFPA") == brahe.ReferenceFrame.LFPA
+    assert brahe.CelestialFrame.from_string("ECI") == brahe.CelestialFrame.GCRF
+    assert brahe.CelestialFrame.from_string("ECEF") == brahe.CelestialFrame.ITRF
+    assert brahe.CelestialFrame.from_string("eci") == brahe.CelestialFrame.GCRF
+    assert brahe.CelestialFrame.from_string("LFPA") == brahe.CelestialFrame.LFPA
     with pytest.raises(ValueError):
-        brahe.ReferenceFrame.from_string("bogus")
+        brahe.CelestialFrame.from_string("bogus")
 
 
 def test_body_fixed_custom_frame_round_trip():
@@ -1095,8 +1095,8 @@ def test_body_fixed_custom_frame_round_trip():
         return np.array([[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]])
 
     brahe.register_custom_frame(1042, spin)
-    inertial = brahe.ReferenceFrame.BodyCenteredICRF(-20001)
-    fixed = brahe.ReferenceFrame.BodyFixedCustom(-20001, 1042)
+    inertial = brahe.CelestialFrame.BodyCenteredICRF(-20001)
+    fixed = brahe.CelestialFrame.BodyFixedCustom(-20001, 1042)
 
     epc = t0 + 600.0
     x = np.array([7.0e5, -2.0e5, 3.0e5, 10.0, 25.0, -5.0])
@@ -1128,8 +1128,8 @@ def test_body_fixed_custom_frame_explicit_omega():
         return np.array([[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]])
 
     brahe.register_custom_frame(1043, spin, lambda epc: np.array([0.0, 0.0, rate]))
-    inertial = brahe.ReferenceFrame.BodyCenteredICRF(-20002)
-    fixed = brahe.ReferenceFrame.BodyFixedCustom(-20002, 1043)
+    inertial = brahe.CelestialFrame.BodyCenteredICRF(-20002)
+    fixed = brahe.CelestialFrame.BodyFixedCustom(-20002, 1043)
 
     epc = t0 + 300.0
     x = np.array([7.0e5, -2.0e5, 3.0e5, 10.0, 25.0, -5.0])
@@ -1150,31 +1150,31 @@ def test_body_fixed_custom_allows_reserved_barycenter_range_center():
     to a custom body-fixed frame is not rejected: real user-defined bodies
     and loaded kernels may need any negative ID, and colliding with an
     actual synodic-barycenter ID is astronomically unlikely in practice."""
-    frame = brahe.ReferenceFrame.BodyFixedCustom(-1_000_000_000, 1044)
+    frame = brahe.CelestialFrame.BodyFixedCustom(-1_000_000_000, 1044)
     assert str(frame) == "BodyFixedCustom(center=-1000000000, key=1044)"
-    frame2 = brahe.ReferenceFrame.BodyFixedCustom(-1_000_010_399, 1044)
+    frame2 = brahe.CelestialFrame.BodyFixedCustom(-1_000_010_399, 1044)
     assert str(frame2) == "BodyFixedCustom(center=-1000010399, key=1044)"
 
 
 def test_reference_frame_class_aliases():
     """ECI/ECEF class attributes alias GCRF/ITRF."""
-    assert brahe.ReferenceFrame.ECI == brahe.ReferenceFrame.GCRF
-    assert brahe.ReferenceFrame.ECEF == brahe.ReferenceFrame.ITRF
+    assert brahe.CelestialFrame.ECI == brahe.CelestialFrame.GCRF
+    assert brahe.CelestialFrame.ECEF == brahe.CelestialFrame.ITRF
 
 
 def test_reference_frame_str():
-    assert str(brahe.ReferenceFrame.GCRF) == "GCRF"
-    assert str(brahe.ReferenceFrame.LFPA) == "LFPA"
+    assert str(brahe.CelestialFrame.GCRF) == "GCRF"
+    assert str(brahe.CelestialFrame.LFPA) == "LFPA"
 
 
 def test_reference_frame_generic_variants_equal_named():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     a = brahe.rotation_frame_to_frame(
-        brahe.ReferenceFrame.MCI, brahe.ReferenceFrame.MCMF, epc
+        brahe.CelestialFrame.MCI, brahe.CelestialFrame.MCMF, epc
     )
     b = brahe.rotation_frame_to_frame(
-        brahe.ReferenceFrame.BodyCenteredICRF(4),
-        brahe.ReferenceFrame.BodyFixedIAU(499),
+        brahe.CelestialFrame.BodyCenteredICRF(4),
+        brahe.CelestialFrame.BodyFixedIAU(499),
         epc,
     )
     np.testing.assert_array_equal(a, b)
@@ -1188,10 +1188,10 @@ def test_body_fixed_pck_generic_variant_equals_lfpa():
     brahe.rotation_lci_to_lfpa(epc)
 
     via_lfpa = brahe.state_frame_to_frame(
-        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.LFPA, epc, x
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.LFPA, epc, x
     )
     via_pck = brahe.state_frame_to_frame(
-        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.BodyFixedPCK(301, 31008), epc, x
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.BodyFixedPCK(301, 31008), epc, x
     )
     np.testing.assert_array_equal(via_pck, via_lfpa)
 
@@ -1199,7 +1199,7 @@ def test_body_fixed_pck_generic_variant_equals_lfpa():
 def test_rotation_frame_to_frame_same_frame_is_identity():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     r = brahe.rotation_frame_to_frame(
-        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.GCRF, epc
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.GCRF, epc
     )
     np.testing.assert_array_equal(r, np.eye(3))
 
@@ -1208,7 +1208,7 @@ def test_position_frame_to_frame_same_frame_is_identity():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x = np.array([1.0, 2.0, 3.0])
     out = brahe.position_frame_to_frame(
-        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.GCRF, epc, x
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.GCRF, epc, x
     )
     np.testing.assert_array_equal(out, x)
 
@@ -1219,7 +1219,7 @@ def test_router_matches_pairwise_gcrf_itrf(eop):
     x = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
 
     via_router = brahe.state_frame_to_frame(
-        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.ITRF, epc, x
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epc, x
     )
     pairwise = brahe.state_gcrf_to_itrf(epc, x)
     np.testing.assert_array_equal(via_router, pairwise)
@@ -1230,20 +1230,20 @@ def test_router_matches_pairwise_eci_lci_and_lfpa():
     x = np.array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
 
     via_router = brahe.state_frame_to_frame(
-        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.LCI, epc, x
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.LCI, epc, x
     )
     pairwise = brahe.state_eci_to_lci(epc, x)
     np.testing.assert_allclose(via_router, pairwise, atol=1e-9)
 
     x_lci = via_router
     via_router_lfpa = brahe.state_frame_to_frame(
-        brahe.ReferenceFrame.LCI, brahe.ReferenceFrame.LFPA, epc, x_lci
+        brahe.CelestialFrame.LCI, brahe.CelestialFrame.LFPA, epc, x_lci
     )
     pairwise_lfpa = brahe.state_lci_to_lfpa(epc, x_lci)
     np.testing.assert_array_equal(via_router_lfpa, pairwise_lfpa)  # bit-identical
 
     via_router_composed = brahe.state_frame_to_frame(
-        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.LFPA, epc, x
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.LFPA, epc, x
     )
     composed = brahe.state_lci_to_lfpa(epc, brahe.state_eci_to_lci(epc, x))
     np.testing.assert_allclose(via_router_composed, composed, atol=1e-9)
@@ -1251,16 +1251,16 @@ def test_router_matches_pairwise_eci_lci_and_lfpa():
 
 def test_router_roundtrip_all_pairs(eop):
     frames = [
-        brahe.ReferenceFrame.GCRF,
-        brahe.ReferenceFrame.ITRF,
-        brahe.ReferenceFrame.EME2000,
-        brahe.ReferenceFrame.LCI,
-        brahe.ReferenceFrame.LFPA,
-        brahe.ReferenceFrame.LFME,
-        brahe.ReferenceFrame.MCI,
-        brahe.ReferenceFrame.MCMF,
-        brahe.ReferenceFrame.EMBI,
-        brahe.ReferenceFrame.SSBI,
+        brahe.CelestialFrame.GCRF,
+        brahe.CelestialFrame.ITRF,
+        brahe.CelestialFrame.EME2000,
+        brahe.CelestialFrame.LCI,
+        brahe.CelestialFrame.LFPA,
+        brahe.CelestialFrame.LFME,
+        brahe.CelestialFrame.MCI,
+        brahe.CelestialFrame.MCMF,
+        brahe.CelestialFrame.EMBI,
+        brahe.CelestialFrame.SSBI,
     ]
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x = np.array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
@@ -1281,10 +1281,10 @@ def test_state_frame_to_frame_roundtrip_lci(eop):
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x = np.array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
     y = brahe.state_frame_to_frame(
-        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.LCI, epc, x
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.LCI, epc, x
     )
     x2 = brahe.state_frame_to_frame(
-        brahe.ReferenceFrame.LCI, brahe.ReferenceFrame.GCRF, epc, y
+        brahe.CelestialFrame.LCI, brahe.CelestialFrame.GCRF, epc, y
     )
     np.testing.assert_allclose(x2, x, atol=1e-4)
 
@@ -1298,10 +1298,10 @@ def test_body_fixed_iau_translation_auto_loads_satellite_kernel():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x = np.array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
     via_iau = brahe.state_frame_to_frame(
-        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.BodyFixedIAU(499), epc, x
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.BodyFixedIAU(499), epc, x
     )
     via_mcmf = brahe.state_frame_to_frame(
-        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.MCMF, epc, x
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.MCMF, epc, x
     )
     np.testing.assert_allclose(via_iau, via_mcmf, atol=1e-9)
 
@@ -1316,11 +1316,11 @@ def test_rotation_frame_to_frame_same_center_eme2000():
     is a same-center, EOP-free constant bias rotation."""
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     r = brahe.rotation_frame_to_frame(
-        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.EME2000, epc
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.EME2000, epc
     )
     np.testing.assert_array_equal(r, brahe.rotation_gcrf_to_eme2000())
     r_inv = brahe.rotation_frame_to_frame(
-        brahe.ReferenceFrame.EME2000, brahe.ReferenceFrame.GCRF, epc
+        brahe.CelestialFrame.EME2000, brahe.CelestialFrame.GCRF, epc
     )
     np.testing.assert_allclose(r_inv @ r, np.eye(3), atol=1e-12)
 
@@ -1331,11 +1331,11 @@ def test_state_frame_to_frame_same_center_eme2000_no_spk():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x = np.array([brahe.R_EARTH + 500e3, 1e5, 2e5, 1.0, 7.5e3, 0.5e3])
     via_router = brahe.state_frame_to_frame(
-        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.EME2000, epc, x
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.EME2000, epc, x
     )
     np.testing.assert_array_equal(via_router, brahe.state_gcrf_to_eme2000(x))
     back = brahe.state_frame_to_frame(
-        brahe.ReferenceFrame.EME2000, brahe.ReferenceFrame.GCRF, epc, via_router
+        brahe.CelestialFrame.EME2000, brahe.CelestialFrame.GCRF, epc, via_router
     )
     np.testing.assert_allclose(back, x, atol=1e-6)
 
@@ -1345,8 +1345,8 @@ def test_router_body_fixed_iau_same_center_no_kernels():
     BodyCenteredICRF(id) <-> BodyFixedIAU(id) is a same-center, kernel-free
     rotation-only + transport path (IAU analytic model)."""
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
-    icrf = brahe.ReferenceFrame.BodyCenteredICRF(599)
-    fixed = brahe.ReferenceFrame.BodyFixedIAU(599)
+    icrf = brahe.CelestialFrame.BodyCenteredICRF(599)
+    fixed = brahe.CelestialFrame.BodyFixedIAU(599)
     x = np.array([7.0e7, -2.0e7, 3.0e7, 10.0, 25.0, -5.0])
 
     x_fixed = brahe.state_frame_to_frame(icrf, fixed, epc, x)
@@ -1365,8 +1365,8 @@ def test_router_errors_on_unsupported_iau_body():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     with pytest.raises(RuntimeError):
         brahe.rotation_frame_to_frame(
-            brahe.ReferenceFrame.BodyCenteredICRF(999999),
-            brahe.ReferenceFrame.BodyFixedIAU(999999),
+            brahe.CelestialFrame.BodyCenteredICRF(999999),
+            brahe.CelestialFrame.BodyFixedIAU(999999),
             epc,
         )
 
@@ -1533,7 +1533,7 @@ def test_batch_frame_router(eop):
         ]
     )
     positions = states[:, :3]
-    RF = brahe.ReferenceFrame
+    RF = brahe.CelestialFrame
     for src, dst in [
         (RF.GCRF, RF.ITRF),
         (RF.GCRF, RF.LFPA),

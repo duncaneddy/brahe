@@ -3945,7 +3945,7 @@ def test_orbittrajectory_body_centered_inertial_providers(naif_cache_setup):
 
     np.testing.assert_array_equal(traj.state_bci(epoch), state)
     np.testing.assert_array_equal(
-        traj.state_in_frame(bh.ReferenceFrame.LCI, epoch), state
+        traj.state_in_frame(bh.CelestialFrame.LCI, epoch), state
     )
 
     offset = bh.spk_state(301, 399, epoch)

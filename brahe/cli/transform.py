@@ -15,7 +15,7 @@ class Frame(str, Enum):
     """Named reference frames accepted by the transform commands.
 
     Values mirror the strings understood by
-    [`ReferenceFrame.from_string`](../library_api/frames/router.md#brahe.ReferenceFrame.from_string).
+    [`CelestialFrame.from_string`](../library_api/frames/router.md#brahe.CelestialFrame.from_string).
     """
 
     ECI = "ECI"
@@ -42,14 +42,14 @@ class CartesianFrame(str, Enum):
     ECEF = "ECEF"
 
 
-def _resolve_frame(frame: Frame) -> "brahe.ReferenceFrame":
-    """Convert a CLI `Frame` value into a core `ReferenceFrame`.
+def _resolve_frame(frame: Frame) -> "brahe.CelestialFrame":
+    """Convert a CLI `Frame` value into a core `CelestialFrame`.
 
     Every `Frame` member mirrors a string accepted by
-    `ReferenceFrame.from_string`; Typer rejects any other value before this
+    `CelestialFrame.from_string`; Typer rejects any other value before this
     is reached.
     """
-    return brahe.ReferenceFrame.from_string(frame.value)
+    return brahe.CelestialFrame.from_string(frame.value)
 
 
 class StateRepresentation(str, Enum):

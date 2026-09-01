@@ -1793,11 +1793,11 @@ class TestSGPPropagatorAdditionalMethods:
         for i, epoch in enumerate(epochs):
             np.testing.assert_array_equal(states_bcbf[i], prop.state_bcbf(epoch))
 
-        states_itrf = prop.states_in_frame(brahe.ReferenceFrame.ITRF, epochs)
+        states_itrf = prop.states_in_frame(brahe.CelestialFrame.ITRF, epochs)
         assert len(states_itrf) == 3
         for i, epoch in enumerate(epochs):
             np.testing.assert_array_equal(
-                states_itrf[i], prop.state_in_frame(brahe.ReferenceFrame.ITRF, epoch)
+                states_itrf[i], prop.state_in_frame(brahe.CelestialFrame.ITRF, epoch)
             )
 
 
@@ -1814,7 +1814,7 @@ def test_sgppropagator_bci_bcbf_in_frame(iss_tle):
     np.testing.assert_array_equal(prop.state_bci(epoch), prop.state_gcrf(epoch))
     np.testing.assert_array_equal(prop.state_bcbf(epoch), prop.state_itrf(epoch))
     np.testing.assert_allclose(
-        prop.state_in_frame(brahe.ReferenceFrame.ITRF, epoch),
+        prop.state_in_frame(brahe.CelestialFrame.ITRF, epoch),
         prop.state_itrf(epoch),
         atol=1e-6,
     )

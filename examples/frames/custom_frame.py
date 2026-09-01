@@ -41,8 +41,8 @@ def omega(epc):
 
 bh.register_custom_frame(KEY, rotation, omega)
 
-inertial = bh.ReferenceFrame.BodyCenteredICRF(CENTER)
-fixed = bh.ReferenceFrame.BodyFixedCustom(CENTER, KEY)
+inertial = bh.CelestialFrame.BodyCenteredICRF(CENTER)
+fixed = bh.CelestialFrame.BodyFixedCustom(CENTER, KEY)
 
 # Convert an inertial state about the body into its body-fixed frame. Both
 # frames share the same center, so no ephemeris kernel is needed.

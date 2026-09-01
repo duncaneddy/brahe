@@ -35,7 +35,7 @@ def test_plot_earth_moon_rotating_3d(leo_trajectory, naif_cache_setup):
 
 def test_plot_synodic_3d_rejects_non_synodic_frame(leo_trajectory):
     with pytest.raises(ValueError):
-        bh.plot_synodic_3d([leo_trajectory], frame=bh.ReferenceFrame.GCRF)
+        bh.plot_synodic_3d([leo_trajectory], frame=bh.CelestialFrame.GCRF)
 
 
 def test_plot_synodic_3d_rejects_non_trajectory():

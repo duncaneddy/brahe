@@ -56,8 +56,8 @@ prop.propagate_to(final_epoch)
 # state_in_frame routes the propagator's native MCI state through the
 # reference frame router into any other supported frame. MCMF is the
 # Mars-fixed, IAU/WGCCRE body-fixed frame.
-x0_mcmf = prop.state_in_frame(bh.ReferenceFrame.MCMF, epoch)
-xf_mcmf = prop.state_in_frame(bh.ReferenceFrame.MCMF, final_epoch)
+x0_mcmf = prop.state_in_frame(bh.CelestialFrame.MCMF, epoch)
+xf_mcmf = prop.state_in_frame(bh.CelestialFrame.MCMF, final_epoch)
 
 print(f"Initial epoch: {epoch}")
 print(f"Final epoch:   {final_epoch}")

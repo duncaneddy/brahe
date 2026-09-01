@@ -35,8 +35,8 @@ fn main() {
 
     bh::register_custom_frame(KEY, rotation, Some(Box::new(omega)));
 
-    let inertial = bh::ReferenceFrame::BodyCenteredICRF(CENTER);
-    let fixed = bh::ReferenceFrame::BodyFixedCustom {
+    let inertial = bh::CelestialFrame::BodyCenteredICRF(CENTER);
+    let fixed = bh::CelestialFrame::BodyFixedCustom {
         center: CENTER,
         key: KEY,
     };

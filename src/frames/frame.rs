@@ -284,7 +284,7 @@ impl fmt::Display for OrbitRelativeFrame {
 /// assert_eq!(BodyFrame::CSS(Some("1".to_string())).to_string(), "CSS_1");
 /// assert_eq!(BodyFrame::SCBody(None).to_string(), "SC_BODY");
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum BodyFrame {
     /// Accelerometer frame.
     ACC(Option<String>),

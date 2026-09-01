@@ -11,21 +11,26 @@
  *
  * When no angular-velocity callback is provided, the frame's angular
  * velocity is derived numerically from the rotation callback by central
- * differencing (`[omega]× = -Ṙ Rᵀ`), so a rotation-only model still
- * produces full state (position + velocity) transforms.
+ * differencing, via [`OrientationProviderExt::with_numerical_rates`], so a
+ * rotation-only model still produces full state (position + velocity)
+ * transforms.
  *
  * Frames are registered process-wide under a caller-chosen `u32` key,
  * following the crate's global-provider pattern (EOP, gravity, SPICE
  * registries), which keeps [`CelestialFrame`](super::CelestialFrame)
- * `Copy`/serializable — the enum stores only the key.
+ * `Copy`/serializable — the enum stores only the key. Entries live in the
+ * same global table as [`register_frame`](super::register_frame), under
+ * the registry-internal `FrameKey::Custom` key variant.
  */
 
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use nalgebra::Vector3;
-use once_cell::sync::Lazy;
 
+use crate::frames::orientation::{
+    CallbackOrientation, OrientationProvider, OrientationProviderExt,
+};
+use crate::frames::registry::{FRAME_REGISTRY, FrameEntry, FrameKey};
 use crate::math::SMatrix3;
 use crate::time::Epoch;
 use crate::utils::BraheError;
@@ -36,20 +41,6 @@ pub type CustomFrameRotation = dyn Fn(Epoch) -> Result<SMatrix3, BraheError> + S
 /// Angular-velocity callback: the frame's angular velocity at an epoch,
 /// expressed in the body-fixed frame. Units: (rad/s)
 pub type CustomFrameOmega = dyn Fn(Epoch) -> Result<Vector3<f64>, BraheError> + Send + Sync;
-
-struct CustomFrameEntry {
-    rotation: Arc<CustomFrameRotation>,
-    omega: Option<Arc<CustomFrameOmega>>,
-}
-
-static CUSTOM_FRAMES: Lazy<RwLock<HashMap<u32, CustomFrameEntry>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
-
-/// Step used by the central-difference angular-velocity fallback. One
-/// second resolves every natural rotation period (the fastest-spinning
-/// catalogued asteroids rotate in minutes) without losing precision to
-/// f64 epoch arithmetic.
-const OMEGA_DIFF_STEP: f64 = 1.0;
 
 /// Registers (or replaces) a user-defined body-fixed frame under `key`.
 ///
@@ -92,11 +83,15 @@ pub fn register_custom_frame<R>(key: u32, rotation: R, omega: Option<Box<CustomF
 where
     R: Fn(Epoch) -> Result<SMatrix3, BraheError> + Send + Sync + 'static,
 {
-    CUSTOM_FRAMES.write().unwrap().insert(
-        key,
-        CustomFrameEntry {
-            rotation: Arc::new(rotation),
-            omega: omega.map(Arc::from),
+    let provider: Arc<dyn OrientationProvider> = match omega {
+        Some(omega) => Arc::new(CallbackOrientation::new(rotation, Some(omega))),
+        None => Arc::new(CallbackOrientation::new(rotation, None).with_numerical_rates(1.0)),
+    };
+    FRAME_REGISTRY.write().unwrap().insert(
+        FrameKey::Custom(key),
+        FrameEntry {
+            parent: None,
+            provider,
         },
     );
 }
@@ -109,16 +104,21 @@ where
 /// # Returns
 /// - `true` if a frame was registered under `key` and has been removed
 pub fn unregister_custom_frame(key: u32) -> bool {
-    CUSTOM_FRAMES.write().unwrap().remove(&key).is_some()
+    FRAME_REGISTRY
+        .write()
+        .unwrap()
+        .remove(&FrameKey::Custom(key))
+        .is_some()
 }
 
-/// Looks up the callbacks for `key`, cloning the `Arc`s out of the lock.
-fn entry(
-    key: u32,
-) -> Result<(Arc<CustomFrameRotation>, Option<Arc<CustomFrameOmega>>), BraheError> {
-    let map = CUSTOM_FRAMES.read().unwrap();
-    map.get(&key)
-        .map(|e| (e.rotation.clone(), e.omega.clone()))
+/// Looks up the orientation provider for `key`, cloning the `Arc` out of
+/// the lock.
+fn provider(key: u32) -> Result<Arc<dyn OrientationProvider>, BraheError> {
+    FRAME_REGISTRY
+        .read()
+        .unwrap()
+        .get(&FrameKey::Custom(key))
+        .map(|e| e.provider.clone())
         .ok_or_else(|| {
             BraheError::Error(format!(
                 "No custom frame registered under key {} — call register_custom_frame first",
@@ -129,36 +129,25 @@ fn entry(
 
 /// ICRF→body-fixed DCM of the custom frame `key` at `epc`.
 pub(crate) fn custom_frame_rotation(key: u32, epc: Epoch) -> Result<SMatrix3, BraheError> {
-    let (rotation, _) = entry(key)?;
-    rotation(epc)
+    Ok(provider(key)?.rotation_matrix(epc)?.to_matrix())
 }
 
 /// Rotation and body-frame angular velocity of the custom frame `key` at
 /// `epc`. Uses the registered angular-velocity callback when present;
 /// otherwise derives it from the rotation callback by central
-/// differencing (`[omega]× = -Ṙ Rᵀ`, evaluated over ±[`OMEGA_DIFF_STEP`]).
+/// differencing (`[omega]× = -Ṙ Rᵀ`, evaluated over ±0.5 s).
 pub(crate) fn custom_frame_rotation_and_omega(
     key: u32,
     epc: Epoch,
 ) -> Result<(SMatrix3, Vector3<f64>), BraheError> {
-    let (rotation, omega) = entry(key)?;
-    let r = rotation(epc)?;
-    let w = match omega {
-        Some(omega) => omega(epc)?,
-        None => {
-            let r_plus = rotation(epc + OMEGA_DIFF_STEP)?;
-            let r_minus = rotation(epc - OMEGA_DIFF_STEP)?;
-            let r_dot = (r_plus - r_minus) / (2.0 * OMEGA_DIFF_STEP);
-            // [omega]× = -Ṙ Rᵀ for r_b = R r_i; extract the vector from the
-            // skew-symmetric part.
-            let s = -r_dot * r.transpose();
-            Vector3::new(
-                0.5 * (s[(2, 1)] - s[(1, 2)]),
-                0.5 * (s[(0, 2)] - s[(2, 0)]),
-                0.5 * (s[(1, 0)] - s[(0, 1)]),
-            )
-        }
-    };
+    let provider = provider(key)?;
+    let r = provider.rotation_matrix(epc)?.to_matrix();
+    let w = provider.angular_velocity(epc)?.ok_or_else(|| {
+        BraheError::Error(format!(
+            "custom frame {} has no angular velocity data available",
+            key
+        ))
+    })?;
     Ok((r, w))
 }
 

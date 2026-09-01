@@ -19,6 +19,11 @@ pub mod iau_rotation;
 pub mod lunar;
 pub mod mars;
 pub mod orientation;
+// Not `pub`: `crate::spice::registry` is already a public module of that
+// name, and `pub mod registry;` here would make `pub use frames::*;` (in
+// `lib.rs`) collide with `pub use spice::*;` on the module name itself. The
+// glob re-export below still surfaces every public item.
+mod registry;
 pub mod synodic;
 pub mod transform;
 
@@ -32,5 +37,6 @@ pub use iau_rotation::*;
 pub use lunar::*;
 pub use mars::*;
 pub use orientation::*;
+pub use registry::*;
 pub use synodic::*;
 pub use transform::*;

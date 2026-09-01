@@ -184,9 +184,9 @@ fn synthetic_barycenter_pair(center: i32) -> Option<(i32, i32)> {
 /// hub-and-spoke conversion design.
 #[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum CelestialFrame {
-    /// Geocentric Celestial Reference ReferenceFrame (ICRF-aligned, Earth-centered).
+    /// Geocentric Celestial Reference Frame (ICRF-aligned, Earth-centered).
     GCRF,
-    /// International Terrestrial Reference ReferenceFrame (Earth-fixed).
+    /// International Terrestrial Reference Frame (Earth-fixed).
     ITRF,
     /// Earth Mean Equator and Equinox of J2000.0.
     EME2000,
@@ -903,7 +903,7 @@ fn frame_pair_context(
 /// Apply a precomputed frame-pair context to one position.
 ///
 /// # Arguments
-/// - `c`: ReferenceFrame-pair context for the epoch
+/// - `c`: Frame-pair context for the epoch
 /// - `x`: Cartesian position in the source frame. Units: (*m*)
 ///
 /// # Returns

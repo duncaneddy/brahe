@@ -3959,8 +3959,8 @@ impl PyBodyFrame {
 /// Unified frame identity spanning celestial, orbit-relative, and body
 /// frames.
 ///
-/// Covers three kinds of frame: a `CelestialFrame` (see `ReferenceFrame.body`'s
-/// counterpart `CelestialFrame`), a local orbital frame of a specific
+/// Covers three kinds of frame: a `CelestialFrame` (see
+/// `ReferenceFrame.celestial`), a local orbital frame of a specific
 /// object (`RTN`, `LVLH`, ...), and an object-local body/sensor frame
 /// (`SC_BODY`, `CSS`, ...). Orbit-relative and body frames carry an
 /// optional bound object: a frame constructed through one of the family
@@ -4387,7 +4387,7 @@ impl PyReferenceFrame {
     /// optional, not-yet-bound object.
     ///
     /// Args:
-    ///     kind (OrbitRelativeKind): ReferenceFrame construction (axes definition)
+    ///     kind (OrbitRelativeKind): Frame construction (axes definition)
     ///     variant (OrbitRelativeVariant): Rotating (true local orbital frame) or
     ///         inertial (quasi-inertial snapshot)
     ///     object (str, optional): The bound object, or `None` for an unbound label

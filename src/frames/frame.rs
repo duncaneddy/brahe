@@ -371,7 +371,7 @@ pub enum ReferenceFrame {
     /// Local orbital frame of `object`. Evaluable when bound (`object` is
     /// `Some`) and the object is registered.
     OrbitRelative {
-        /// ReferenceFrame construction (axes definition).
+        /// Frame construction (axes definition).
         kind: OrbitRelativeKind,
         /// Rotating (true local orbital frame) or inertial snapshot.
         variant: OrbitRelativeVariant,

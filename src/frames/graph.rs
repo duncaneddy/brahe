@@ -1,5 +1,5 @@
 /*!
- * ReferenceFrame-graph resolution: reducing any [`ReferenceFrame`] to a celestial root plus
+ * Frame-graph resolution: reducing any [`ReferenceFrame`] to a celestial root plus
  * the rotation (and, where available, the angular velocity) relating the
  * two.
  *
@@ -321,7 +321,7 @@ fn resolve_body(
     let mut key = FrameKey::Body(object.clone(), body.clone());
 
     loop {
-        let entry = frame_entry(&key).ok_or_else(|| missing_link_error(frame, &link, object))?;
+        let entry = frame_entry(&key).ok_or_else(|| missing_link_error(frame, &link))?;
         let provider = entry.provider;
         let r_link = provider
             .rotation_matrix(epc)
@@ -370,7 +370,7 @@ fn resolve_body(
                 key = FrameKey::Body(parent_object.clone(), parent_body.clone());
                 link = parent;
             }
-            other => return Err(missing_link_error(frame, &other, object)),
+            other => return Err(missing_link_error(frame, &other)),
         }
     }
 }
@@ -383,26 +383,19 @@ fn resolve_body(
 /// # Arguments
 /// - `frame`: The frame being resolved
 /// - `link`: The chain link that has no registered orientation
-/// - `object`: The object `frame` is bound to
 ///
 /// # Returns
 /// - `BraheError`: The formatted error
-fn missing_link_error(
-    frame: &ReferenceFrame,
-    link: &ReferenceFrame,
-    object: &ObjectId,
-) -> BraheError {
+fn missing_link_error(frame: &ReferenceFrame, link: &ReferenceFrame) -> BraheError {
     if link == frame {
         return BraheError::Error(format!(
             "frame {frame} has no registered orientation; register one with \
-             register_frame({frame}, <parent>, <provider>) or load an AEM and call \
-             aem.register_for(\"{object}\")"
+             register_frame({frame}, <parent>, <provider>)"
         ));
     }
     BraheError::Error(format!(
         "cannot resolve {frame}: parent {link} has no registered orientation; register one \
-         with register_frame({link}, <parent's parent>, <provider>) or load an AEM and call \
-         aem.register_for(\"{object}\")"
+         with register_frame({link}, <parent's parent>, <provider>)"
     ))
 }
 

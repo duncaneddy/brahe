@@ -23,7 +23,7 @@ Each release groups entries under the Keep a Changelog section headings in the o
 
 ### Changed
 
-- **Breaking:** `ReferenceFrame` renamed to `CelestialFrame` in Rust and Python — the frame router, all frame-router functions, and every associated binding now use the new name.
+- **Breaking:** `ReferenceFrame` renamed to `CelestialFrame` in Rust and Python — the frame router, all frame-router functions, and every associated binding now use the new name. The `ReferenceFrame` name now denotes the new unified supertype introduced in [#508](https://github.com/duncaneddy/brahe/pull/508) spanning celestial, orbit-relative, and body frames, so code using `ReferenceFrame::GCRF` becomes `CelestialFrame::GCRF`. [@duncaneddy](https://github.com/duncaneddy) ([#507](https://github.com/duncaneddy/brahe/pull/507))
 
 ## [1.7.0] - 2026-07-21
 

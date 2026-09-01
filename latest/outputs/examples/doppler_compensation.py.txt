@@ -1,5 +1,5 @@
 Downloading ISS TLE from CelesTrak...
-Downloaded ISS TLE in 0.03 seconds.
+Downloaded ISS TLE in 0.04 seconds.
 Epoch: 2026-08-30 04:13:16.870 UTC
 Semi-major axis: 6798.0 km
 
@@ -10,7 +10,7 @@ Creating ground track visualization...
 Created ground track visualization in 0.80 seconds.
 
 Computing 72-hour access windows with Doppler compensation...
-Computed 14 access windows in 0.72 seconds.
+Computed 14 access windows in 0.67 seconds.
 
 ====================================================================================================
 Sample Access Windows with Doppler Time Series (first 5)
@@ -31,7 +31,7 @@ Extracted 5030 samples (0.1s interval) in 0.00 seconds.
 ✓ Exported 11 samples to docs/figures/doppler_compensation_data.csv
 
 Creating Doppler compensation visualization...
-Created Doppler visualization in 0.17 seconds.
+Created Doppler visualization in 0.16 seconds.
 
 ✓ Generated docs/figures/doppler_compensation_groundtrack_light.html
 ✓ Generated docs/figures/doppler_compensation_groundtrack_dark.html

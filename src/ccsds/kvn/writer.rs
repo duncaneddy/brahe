@@ -744,6 +744,12 @@ pub fn write_cdm(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError> {
             kw(out, "INTRACK_THRUST", v);
         }
 
+        // Data-section comments lead the data section: table 3-4 lists the
+        // Data COMMENT row ahead of the OD Parameters sub-block.
+        for comment in &d.comments {
+            out.push_str(&format!("COMMENT {}\n", comment));
+        }
+
         // OD parameters
         if let Some(ref od) = d.od_parameters {
             for comment in &od.comments {
@@ -900,11 +906,6 @@ pub fn write_cdm(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError> {
             if let Some(ref v) = ap.cov_confidence_method {
                 kw(out, "COV_CONFIDENCE_METHOD", v);
             }
-        }
-
-        // Data comments
-        for comment in &d.comments {
-            out.push_str(&format!("COMMENT {}\n", comment));
         }
 
         // State vector (m → km, m/s → km/s)

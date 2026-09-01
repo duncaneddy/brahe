@@ -1475,6 +1475,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_body_fixed_custom_router_round_trip() {
         // A user-registered uniform-spin frame routes through the frame
         // router: the rotation matches the callback, the state transform's

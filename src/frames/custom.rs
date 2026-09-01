@@ -155,6 +155,7 @@ pub(crate) fn custom_frame_rotation_and_omega(
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
+    use serial_test::serial;
 
     use super::*;
     use crate::time::TimeSystem;
@@ -172,6 +173,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_custom_frame_rotation_and_numeric_omega() {
         let t0 = Epoch::from_date(2024, 1, 1, TimeSystem::TDB);
         let rate = 1.0e-3;
@@ -197,6 +199,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_custom_frame_explicit_omega_used() {
         let t0 = Epoch::from_date(2024, 1, 1, TimeSystem::TDB);
         let rate = 2.0e-4;
@@ -213,6 +216,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_custom_frame_unregistered_key_errors() {
         let epc = Epoch::from_date(2024, 1, 1, TimeSystem::TDB);
         let err = custom_frame_rotation(4_000_000_000, epc).unwrap_err();

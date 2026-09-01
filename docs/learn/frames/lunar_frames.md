@@ -42,7 +42,7 @@ For propagating an orbit about the Moon and reporting it in the LFPA frame, see 
 ## See Also
 
 - [Mars Reference Frames](mars_frames.md) - MCI/MCMF frames
-- [Reference Frame Router](frame_transformations.md) - `ReferenceFrame`, kernel requirements, and cross-frame conversion
+- [Reference Frame Router](frame_transformations.md) - `CelestialFrame`, kernel requirements, and cross-frame conversion
 - [Cislunar and Lunar Propagation](../orbit_propagation/numerical_propagation/cislunar_lunar_propagation.md) - lunar force-model defaults and a worked propagation example
 - [Lunar Frames API Reference](../../library_api/frames/lunar.md)
 

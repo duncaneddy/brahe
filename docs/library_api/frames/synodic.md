@@ -49,7 +49,7 @@ Transformations between GCRF and the Earth-Moon Rotating (EMR), Sun-Earth Rotati
 
 ## SynodicOrigin
 
-Origin choice for the generic [`ReferenceFrame.Synodic`](router.md) constructor.
+Origin choice for the generic [`CelestialFrame.Synodic`](router.md) constructor.
 
 ::: brahe.SynodicOrigin
 

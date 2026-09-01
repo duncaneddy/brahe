@@ -3269,6 +3269,21 @@ impl PyCelestialFrame {
     }
 }
 
+/// Extracts a `frames::ReferenceFrame` from a Python object that is either a
+/// `CelestialFrame` or a `ReferenceFrame` (`Body`/`OrbitRelative`), for the
+/// `*_frame_to_frame` functions that accept either.
+fn extract_frame(obj: &Bound<'_, PyAny>) -> PyResult<frames::ReferenceFrame> {
+    if let Ok(celestial) = obj.extract::<PyCelestialFrame>() {
+        return Ok(frames::ReferenceFrame::Celestial(celestial.frame));
+    }
+    if let Ok(frame) = obj.extract::<PyReferenceFrame>() {
+        return Ok(frame.frame);
+    }
+    Err(exceptions::PyTypeError::new_err(
+        "expected a CelestialFrame or a ReferenceFrame",
+    ))
+}
+
 /// Computes the rotation matrix transforming `from_frame` axes into
 /// `to_frame` axes at `epc`.
 ///
@@ -3278,9 +3293,13 @@ impl PyCelestialFrame {
 /// state/acceleration (auto-loading `de440s`), so a query involving one
 /// of those frames still queries SPK.
 ///
+/// `from_frame`/`to_frame` accept a `CelestialFrame` or a `ReferenceFrame`: a
+/// registered body/sensor frame, or a bound orbit-relative frame (e.g.
+/// `ReferenceFrame.RTN("SC")`), resolved by walking the frame registry.
+///
 /// Args:
-///     from_frame (CelestialFrame): Source reference frame
-///     to_frame (CelestialFrame): Target reference frame
+///     from_frame (CelestialFrame | ReferenceFrame): Source reference frame
+///     to_frame (CelestialFrame | ReferenceFrame): Target reference frame
 ///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
 ///         one matrix per epoch.
 ///
@@ -3303,16 +3322,18 @@ impl PyCelestialFrame {
 #[pyo3(name = "rotation_frame_to_frame")]
 fn py_rotation_frame_to_frame<'py>(
     py: Python<'py>,
-    from_frame: PyCelestialFrame,
-    to_frame: PyCelestialFrame,
+    from_frame: &Bound<'py, PyAny>,
+    to_frame: &Bound<'py, PyAny>,
     epc: &Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let (from, to) = (from_frame.frame, to_frame.frame);
+    let from = extract_frame(from_frame)?;
+    let to = extract_frame(to_frame)?;
+    let (from2, to2) = (from.clone(), to.clone());
     try_dispatch_epoch_rotation(
         py,
         epc,
-        |e| frames::rotation_frame_to_frame(from, to, e),
-        |es| frames::rotations_frame_to_frame(from, to, es),
+        move |e| frames::rotation_frame_to_frame(from.clone(), to.clone(), e),
+        move |es| frames::rotations_frame_to_frame(from2.clone(), to2.clone(), es),
     )
 }
 
@@ -3415,9 +3436,14 @@ fn py_unregister_custom_frame(key: u32) -> bool {
 /// (auto-loading `de440s`), so a same-center conversion involving one of
 /// those frames is not SPK-free.
 ///
+/// `from_frame`/`to_frame` accept a `CelestialFrame` or a `ReferenceFrame`: a
+/// registered body/sensor frame, or a bound orbit-relative frame (e.g.
+/// `ReferenceFrame.RTN("SC")`), resolved by walking the frame registry. A
+/// non-celestial frame's origin is the origin of the object it is bound to.
+///
 /// Args:
-///     from_frame (CelestialFrame): Source reference frame
-///     to_frame (CelestialFrame): Target reference frame
+///     from_frame (CelestialFrame | ReferenceFrame): Source reference frame
+///     to_frame (CelestialFrame | ReferenceFrame): Target reference frame
 ///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x (numpy.ndarray or list): Cartesian position in `from_frame` axes/center (m), shape `(3,)`, or a batch
@@ -3453,20 +3479,22 @@ fn py_unregister_custom_frame(key: u32) -> bool {
 #[pyo3(name = "position_frame_to_frame")]
 fn py_position_frame_to_frame<'py>(
     py: Python<'py>,
-    from_frame: PyCelestialFrame,
-    to_frame: PyCelestialFrame,
+    from_frame: &Bound<'py, PyAny>,
+    to_frame: &Bound<'py, PyAny>,
     epc: &Bound<'py, PyAny>,
     x: &Bound<'py, PyAny>,
     axis: isize,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let (from, to) = (from_frame.frame, to_frame.frame);
+    let from = extract_frame(from_frame)?;
+    let to = extract_frame(to_frame)?;
+    let (from2, to2) = (from.clone(), to.clone());
     try_dispatch_epoch_vec::<3>(
         py,
         epc,
         x,
         axis,
-        |e, v| frames::position_frame_to_frame(from, to, e, v),
-        |es, vs| frames::positions_frame_to_frame(from, to, es, vs),
+        move |e, v| frames::position_frame_to_frame(from.clone(), to.clone(), e, v),
+        move |es, vs| frames::positions_frame_to_frame(from2.clone(), to2.clone(), es, vs),
     )
 }
 
@@ -3483,9 +3511,15 @@ fn py_position_frame_to_frame<'py>(
 /// ephemerides (auto-loading `de440s`) even for a same-center conversion
 /// like GCRF <-> GSE.
 ///
+/// `from_frame`/`to_frame` accept a `CelestialFrame` or a `ReferenceFrame`: a
+/// registered body/sensor frame, or a bound orbit-relative frame (e.g.
+/// `ReferenceFrame.RTN("SC")`), resolved by walking the frame registry. Every link
+/// in a non-celestial frame's orientation chain must supply an angular
+/// velocity, since the velocity transport term is otherwise undefined.
+///
 /// Args:
-///     from_frame (CelestialFrame): Source reference frame
-///     to_frame (CelestialFrame): Target reference frame
+///     from_frame (CelestialFrame | ReferenceFrame): Source reference frame
+///     to_frame (CelestialFrame | ReferenceFrame): Target reference frame
 ///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation. A sequence evaluates
 ///         one epoch per vector (or broadcasts a single vector across all epochs).
 ///     x (numpy.ndarray or list): Cartesian state in `from_frame` axes/center `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
@@ -3519,19 +3553,1295 @@ fn py_position_frame_to_frame<'py>(
 #[pyo3(name = "state_frame_to_frame")]
 fn py_state_frame_to_frame<'py>(
     py: Python<'py>,
-    from_frame: PyCelestialFrame,
-    to_frame: PyCelestialFrame,
+    from_frame: &Bound<'py, PyAny>,
+    to_frame: &Bound<'py, PyAny>,
     epc: &Bound<'py, PyAny>,
     x: &Bound<'py, PyAny>,
     axis: isize,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let (from, to) = (from_frame.frame, to_frame.frame);
+    let from = extract_frame(from_frame)?;
+    let to = extract_frame(to_frame)?;
+    let (from2, to2) = (from.clone(), to.clone());
     try_dispatch_epoch_vec::<6>(
         py,
         epc,
         x,
         axis,
-        |e, v| frames::state_frame_to_frame(from, to, e, v),
-        |es, vs| frames::states_frame_to_frame(from, to, es, vs),
+        move |e, v| frames::state_frame_to_frame(from.clone(), to.clone(), e, v),
+        move |es, vs| frames::states_frame_to_frame(from2.clone(), to2.clone(), es, vs),
     )
+}
+
+// ============================================================================
+// ReferenceFrame / BodyFrame and the frame/object registries
+// ============================================================================
+
+/// Local orbital frame axes definitions.
+///
+/// `RTN` is the frame the SANA registries call `RSW`; brahe uses its
+/// existing RTN vocabulary (`state_eci_to_rtn`, `covariance_rtn`).
+///
+/// Every kind is a valid frame identity, which is what parsing a data file
+/// needs, but only `RTN` has an axes derivation today. A transform through
+/// any other kind raises until issue #452 adds the remaining derivations.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     kind = bh.OrbitRelativeFrameKind.RTN
+///     ```
+#[pyclass(module = "brahe._brahe", eq, from_py_object)]
+#[pyo3(name = "OrbitRelativeFrameKind")]
+#[derive(Clone, Copy, PartialEq)]
+pub struct PyOrbitRelativeFrameKind {
+    pub(crate) kind: frames::OrbitRelativeFrameKind,
+}
+
+#[pymethods]
+#[allow(non_snake_case)]
+impl PyOrbitRelativeFrameKind {
+    /// Local-Vertical Local-Horizontal.
+    #[classattr]
+    fn LVLH() -> Self {
+        PyOrbitRelativeFrameKind { kind: frames::OrbitRelativeFrameKind::LVLH }
+    }
+
+    /// Radial / transverse (along-track) / normal (cross-track). SANA: RSW.
+    #[classattr]
+    fn RTN() -> Self {
+        PyOrbitRelativeFrameKind { kind: frames::OrbitRelativeFrameKind::RTN }
+    }
+
+    /// Normal / tangential / cross-track.
+    #[classattr]
+    fn NTW() -> Self {
+        PyOrbitRelativeFrameKind { kind: frames::OrbitRelativeFrameKind::NTW }
+    }
+
+    /// Tangential / normal / cross-track.
+    #[classattr]
+    fn TNW() -> Self {
+        PyOrbitRelativeFrameKind { kind: frames::OrbitRelativeFrameKind::TNW }
+    }
+
+    /// Perifocal. SANA-registered only as an inertial-snapshot frame.
+    #[classattr]
+    fn PQW() -> Self {
+        PyOrbitRelativeFrameKind { kind: frames::OrbitRelativeFrameKind::PQW }
+    }
+
+    /// Equinoctial. SANA-registered only as an inertial-snapshot frame.
+    #[classattr]
+    fn EQW() -> Self {
+        PyOrbitRelativeFrameKind { kind: frames::OrbitRelativeFrameKind::EQW }
+    }
+
+    /// Topocentric south / east / zenith.
+    #[classattr]
+    fn SEZ() -> Self {
+        PyOrbitRelativeFrameKind { kind: frames::OrbitRelativeFrameKind::SEZ }
+    }
+
+    /// Velocity / normal / co-normal.
+    #[classattr]
+    fn VNC() -> Self {
+        PyOrbitRelativeFrameKind { kind: frames::OrbitRelativeFrameKind::VNC }
+    }
+
+    /// Nadir / Sun / normal.
+    #[classattr]
+    fn NSW() -> Self {
+        PyOrbitRelativeFrameKind { kind: frames::OrbitRelativeFrameKind::NSW }
+    }
+
+    fn __str__(&self) -> String {
+        self.kind.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("OrbitRelativeFrameKind.{}", self.kind)
+    }
+}
+
+/// Rotating vs. quasi-inertial snapshot variant of a local orbital frame.
+///
+/// - **Rotating**: True local orbital frame, rotating with the orbit. It
+///   carries the orbital angular velocity, so a state transform through it
+///   picks up the corresponding velocity transport term.
+/// - **Inertial**: The same axes, taken as an instantaneous snapshot of the
+///   orbit state at the evaluation epoch and then treated as non-rotating.
+///   Its rate is zero, so a state transform through it applies no transport
+///   term. The axes still differ from epoch to epoch, since each evaluation
+///   takes a fresh snapshot.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     variant = bh.OrbitRelativeFrameVariant.ROTATING
+///     ```
+#[pyclass(module = "brahe._brahe", eq, from_py_object)]
+#[pyo3(name = "OrbitRelativeFrameVariant")]
+#[derive(Clone, Copy, PartialEq)]
+pub struct PyOrbitRelativeFrameVariant {
+    pub(crate) variant: frames::OrbitRelativeFrameVariant,
+}
+
+#[pymethods]
+#[allow(non_snake_case)]
+impl PyOrbitRelativeFrameVariant {
+    /// True local orbital frame, rotating with the orbit.
+    #[classattr]
+    fn ROTATING() -> Self {
+        PyOrbitRelativeFrameVariant { variant: frames::OrbitRelativeFrameVariant::Rotating }
+    }
+
+    /// Quasi-inertial snapshot: the orbit-relative axes at the evaluation
+    /// epoch, with the frame's rate taken as zero.
+    #[classattr]
+    fn INERTIAL() -> Self {
+        PyOrbitRelativeFrameVariant { variant: frames::OrbitRelativeFrameVariant::Inertial }
+    }
+
+    fn __str__(&self) -> String {
+        self.variant.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("OrbitRelativeFrameVariant.{}", self.variant)
+    }
+}
+
+/// An object-local spacecraft body frame (spacecraft body, sensor, or
+/// actuator), with an optional instance designator (e.g. `CSS("1")`).
+///
+/// The families are the values of the SANA spacecraft body reference frame
+/// registry: https://sanaregistry.org/r/spacecraft_body_reference_frames/
+///
+/// Bind to an object with `ReferenceFrame.body(object, body_frame)`.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bf = bh.BodyFrame.CSS("1")
+///     frame = bh.ReferenceFrame.body("SC", bf)
+///     ```
+#[pyclass(module = "brahe._brahe", eq, from_py_object)]
+#[pyo3(name = "BodyFrame")]
+#[derive(Clone, PartialEq)]
+pub struct PyBodyFrame {
+    pub(crate) frame: frames::BodyFrame,
+}
+
+#[pymethods]
+impl PyBodyFrame {
+    /// Accelerometer frame.
+    ///
+    /// Args:
+    ///     designator (str, optional): Sensor instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     BodyFrame: The `ACC` body frame
+    #[staticmethod]
+    #[pyo3(signature = (designator=None))]
+    #[allow(non_snake_case)]
+    fn ACC(designator: Option<String>) -> Self {
+        PyBodyFrame { frame: frames::BodyFrame::ACC(designator) }
+    }
+
+    /// Actuator frame.
+    ///
+    /// Args:
+    ///     designator (str, optional): Actuator instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     BodyFrame: The `ACTUATOR` body frame
+    #[staticmethod]
+    #[pyo3(signature = (designator=None))]
+    #[allow(non_snake_case)]
+    fn ACTUATOR(designator: Option<String>) -> Self {
+        PyBodyFrame { frame: frames::BodyFrame::Actuator(designator) }
+    }
+
+    /// Autonomous star tracker frame.
+    ///
+    /// Args:
+    ///     designator (str, optional): Sensor instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     BodyFrame: The `AST` body frame
+    #[staticmethod]
+    #[pyo3(signature = (designator=None))]
+    #[allow(non_snake_case)]
+    fn AST(designator: Option<String>) -> Self {
+        PyBodyFrame { frame: frames::BodyFrame::AST(designator) }
+    }
+
+    /// Coarse sun sensor frame.
+    ///
+    /// Args:
+    ///     designator (str, optional): Sensor instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     BodyFrame: The `CSS` body frame
+    #[staticmethod]
+    #[pyo3(signature = (designator=None))]
+    #[allow(non_snake_case)]
+    fn CSS(designator: Option<String>) -> Self {
+        PyBodyFrame { frame: frames::BodyFrame::CSS(designator) }
+    }
+
+    /// Digital sun sensor frame.
+    ///
+    /// Args:
+    ///     designator (str, optional): Sensor instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     BodyFrame: The `DSS` body frame
+    #[staticmethod]
+    #[pyo3(signature = (designator=None))]
+    #[allow(non_snake_case)]
+    fn DSS(designator: Option<String>) -> Self {
+        PyBodyFrame { frame: frames::BodyFrame::DSS(designator) }
+    }
+
+    /// Earth sensor assembly frame.
+    ///
+    /// Args:
+    ///     designator (str, optional): Sensor instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     BodyFrame: The `ESA` body frame
+    #[staticmethod]
+    #[pyo3(signature = (designator=None))]
+    #[allow(non_snake_case)]
+    fn ESA(designator: Option<String>) -> Self {
+        PyBodyFrame { frame: frames::BodyFrame::ESA(designator) }
+    }
+
+    /// Gyroscope frame.
+    ///
+    /// Args:
+    ///     designator (str, optional): Sensor instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     BodyFrame: The `GYRO_FRAME` body frame
+    #[staticmethod]
+    #[pyo3(signature = (designator=None))]
+    #[allow(non_snake_case)]
+    fn GYRO_FRAME(designator: Option<String>) -> Self {
+        PyBodyFrame { frame: frames::BodyFrame::GyroFrame(designator) }
+    }
+
+    /// Inertial measurement unit frame.
+    ///
+    /// Args:
+    ///     designator (str, optional): Sensor instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     BodyFrame: The `IMU_FRAME` body frame
+    #[staticmethod]
+    #[pyo3(signature = (designator=None))]
+    #[allow(non_snake_case)]
+    fn IMU_FRAME(designator: Option<String>) -> Self {
+        PyBodyFrame { frame: frames::BodyFrame::IMUFrame(designator) }
+    }
+
+    /// Instrument frame.
+    ///
+    /// Args:
+    ///     designator (str, optional): Instrument instance designator (e.g. "A")
+    ///
+    /// Returns:
+    ///     BodyFrame: The `INSTRUMENT` body frame
+    #[staticmethod]
+    #[pyo3(signature = (designator=None))]
+    #[allow(non_snake_case)]
+    fn INSTRUMENT(designator: Option<String>) -> Self {
+        PyBodyFrame { frame: frames::BodyFrame::Instrument(designator) }
+    }
+
+    /// Magnetic torque assembly frame.
+    ///
+    /// Args:
+    ///     designator (str, optional): Actuator instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     BodyFrame: The `MTA` body frame
+    #[staticmethod]
+    #[pyo3(signature = (designator=None))]
+    #[allow(non_snake_case)]
+    fn MTA(designator: Option<String>) -> Self {
+        PyBodyFrame { frame: frames::BodyFrame::MTA(designator) }
+    }
+
+    /// Reaction wheel frame.
+    ///
+    /// Args:
+    ///     designator (str, optional): Actuator instance designator (e.g. "4")
+    ///
+    /// Returns:
+    ///     BodyFrame: The `RW` body frame
+    #[staticmethod]
+    #[pyo3(signature = (designator=None))]
+    #[allow(non_snake_case)]
+    fn RW(designator: Option<String>) -> Self {
+        PyBodyFrame { frame: frames::BodyFrame::RW(designator) }
+    }
+
+    /// Solar array frame.
+    ///
+    /// Args:
+    ///     designator (str, optional): Array instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     BodyFrame: The `SA` body frame
+    #[staticmethod]
+    #[pyo3(signature = (designator=None))]
+    #[allow(non_snake_case)]
+    fn SA(designator: Option<String>) -> Self {
+        PyBodyFrame { frame: frames::BodyFrame::SA(designator) }
+    }
+
+    /// Spacecraft body frame.
+    ///
+    /// Args:
+    ///     designator (str, optional): Instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     BodyFrame: The `SC_BODY` body frame
+    #[staticmethod]
+    #[pyo3(signature = (designator=None))]
+    #[allow(non_snake_case)]
+    fn SC_BODY(designator: Option<String>) -> Self {
+        PyBodyFrame { frame: frames::BodyFrame::SCBody(designator) }
+    }
+
+    /// Generic sensor frame.
+    ///
+    /// Args:
+    ///     designator (str, optional): Sensor instance designator (e.g. "10")
+    ///
+    /// Returns:
+    ///     BodyFrame: The `SENSOR` body frame
+    #[staticmethod]
+    #[pyo3(signature = (designator=None))]
+    #[allow(non_snake_case)]
+    fn SENSOR(designator: Option<String>) -> Self {
+        PyBodyFrame { frame: frames::BodyFrame::Sensor(designator) }
+    }
+
+    /// Star tracker frame.
+    ///
+    /// Args:
+    ///     designator (str, optional): Sensor instance designator (e.g. "2")
+    ///
+    /// Returns:
+    ///     BodyFrame: The `STARTRACKER` body frame
+    #[staticmethod]
+    #[pyo3(signature = (designator=None))]
+    #[allow(non_snake_case)]
+    fn STARTRACKER(designator: Option<String>) -> Self {
+        PyBodyFrame { frame: frames::BodyFrame::StarTracker(designator) }
+    }
+
+    /// Three-axis magnetometer frame.
+    ///
+    /// Args:
+    ///     designator (str, optional): Sensor instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     BodyFrame: The `TAM` body frame
+    #[staticmethod]
+    #[pyo3(signature = (designator=None))]
+    #[allow(non_snake_case)]
+    fn TAM(designator: Option<String>) -> Self {
+        PyBodyFrame { frame: frames::BodyFrame::TAM(designator) }
+    }
+
+    fn __str__(&self) -> String {
+        self.frame.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("BodyFrame.{}", self.frame)
+    }
+}
+
+/// Unified frame identity spanning celestial, orbit-relative, and body
+/// frames.
+///
+/// Covers three kinds of frame: a `CelestialFrame` (see
+/// `ReferenceFrame.celestial`), a local orbital frame of a specific
+/// object (`RTN`, `LVLH`, ...), and an object-local body/sensor frame
+/// (`SC_BODY`, `CSS`, ...). Orbit-relative and body frames carry an
+/// optional bound object: a frame constructed through one of the family
+/// staticmethods below (`ReferenceFrame.RTN("SC")`) is always bound; `ReferenceFrame.body`
+/// with `object=None` and `ReferenceFrame.orbit_relative` with `object=None`
+/// construct an unbound label.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     rtn = bh.ReferenceFrame.RTN("SC")
+///     css = bh.ReferenceFrame.CSS("SC", "1")
+///     print(rtn.is_bound(), rtn.object())
+///     ```
+#[pyclass(module = "brahe._brahe", eq, from_py_object)]
+#[pyo3(name = "ReferenceFrame")]
+#[derive(Clone, PartialEq)]
+pub struct PyReferenceFrame {
+    pub(crate) frame: frames::ReferenceFrame,
+}
+
+#[pymethods]
+impl PyReferenceFrame {
+    /// Wraps a `CelestialFrame` as a `ReferenceFrame`. Mirrors Rust's
+    /// `From<CelestialFrame> for ReferenceFrame`.
+    ///
+    /// Args:
+    ///     frame (CelestialFrame): The celestial frame to wrap
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The wrapped celestial frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     gcrf = bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF)
+    ///     ```
+    #[staticmethod]
+    fn celestial(frame: PyCelestialFrame) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::Celestial(frame.frame) }
+    }
+
+    /// Bound Radial/Transverse/Normal orbit-relative frame (rotating
+    /// variant). SANA: RSW.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `RTN (rotating)` orbit-relative frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn RTN(object: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::RTN(object) }
+    }
+
+    /// Bound Local-Vertical Local-Horizontal orbit-relative frame (rotating
+    /// variant).
+    ///
+    /// Among the orbit-relative kinds only `RTN` has an axes derivation
+    /// today, so this frame is constructible but every transform through
+    /// it raises until issue #452 adds the remaining derivations.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `LVLH (rotating)` orbit-relative frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn LVLH(object: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::LVLH(object) }
+    }
+
+    /// Bound Normal/Tangential/cross-track orbit-relative frame (rotating
+    /// variant).
+    ///
+    /// Among the orbit-relative kinds only `RTN` has an axes derivation
+    /// today, so this frame is constructible but every transform through
+    /// it raises until issue #452 adds the remaining derivations.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `NTW (rotating)` orbit-relative frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn NTW(object: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::NTW(object) }
+    }
+
+    /// Bound Tangential/Normal/cross-track orbit-relative frame (rotating
+    /// variant).
+    ///
+    /// Among the orbit-relative kinds only `RTN` has an axes derivation
+    /// today, so this frame is constructible but every transform through
+    /// it raises until issue #452 adds the remaining derivations.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `TNW (rotating)` orbit-relative frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn TNW(object: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::TNW(object) }
+    }
+
+    /// Bound topocentric South/East/Zenith orbit-relative frame (rotating
+    /// variant).
+    ///
+    /// Among the orbit-relative kinds only `RTN` has an axes derivation
+    /// today, so this frame is constructible but every transform through
+    /// it raises until issue #452 adds the remaining derivations.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `SEZ (rotating)` orbit-relative frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn SEZ(object: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::SEZ(object) }
+    }
+
+    /// Bound Velocity/Normal/Co-normal orbit-relative frame (rotating
+    /// variant).
+    ///
+    /// Among the orbit-relative kinds only `RTN` has an axes derivation
+    /// today, so this frame is constructible but every transform through
+    /// it raises until issue #452 adds the remaining derivations.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `VNC (rotating)` orbit-relative frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn VNC(object: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::VNC(object) }
+    }
+
+    /// Bound Nadir/Sun/Normal orbit-relative frame (rotating variant).
+    ///
+    /// Among the orbit-relative kinds only `RTN` has an axes derivation
+    /// today, so this frame is constructible but every transform through
+    /// it raises until issue #452 adds the remaining derivations.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `NSW (rotating)` orbit-relative frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn NSW(object: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::NSW(object) }
+    }
+
+    /// Bound Perifocal orbit-relative frame (inertial-snapshot variant;
+    /// `PQW` is SANA-registered only as inertial).
+    ///
+    /// Among the orbit-relative kinds only `RTN` has an axes derivation
+    /// today, so this frame is constructible but every transform through
+    /// it raises until issue #452 adds the remaining derivations.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `PQW (inertial)` orbit-relative frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn PQW(object: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::PQW(object) }
+    }
+
+    /// Bound Equinoctial orbit-relative frame (inertial-snapshot variant;
+    /// `EQW` is SANA-registered only as inertial).
+    ///
+    /// Among the orbit-relative kinds only `RTN` has an axes derivation
+    /// today, so this frame is constructible but every transform through
+    /// it raises until issue #452 adds the remaining derivations.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `EQW (inertial)` orbit-relative frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn EQW(object: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::EQW(object) }
+    }
+
+    /// Bound spacecraft body frame (no instance designator).
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `SC_BODY` body frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn SC_BODY(object: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::SC_BODY(object) }
+    }
+
+    /// Bound coarse sun sensor frame.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///     designator (str): Sensor instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `CSS_<designator>` body frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn CSS(object: String, designator: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::CSS(object, designator) }
+    }
+
+    /// Bound accelerometer frame.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///     designator (str): Sensor instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `ACC_<designator>` body frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn ACC(object: String, designator: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::ACC(object, designator) }
+    }
+
+    /// Bound autonomous star tracker frame.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///     designator (str): Sensor instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `AST_<designator>` body frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn AST(object: String, designator: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::AST(object, designator) }
+    }
+
+    /// Bound digital sun sensor frame.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///     designator (str): Sensor instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `DSS_<designator>` body frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn DSS(object: String, designator: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::DSS(object, designator) }
+    }
+
+    /// Bound Earth sensor assembly frame.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///     designator (str): Sensor instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `ESA_<designator>` body frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn ESA(object: String, designator: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::ESA(object, designator) }
+    }
+
+    /// Bound gyroscope frame.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///     designator (str): Sensor instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `GYRO_FRAME_<designator>` body frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn GYRO_FRAME(object: String, designator: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::GYRO_FRAME(object, designator) }
+    }
+
+    /// Bound inertial measurement unit frame.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///     designator (str): Sensor instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `IMU_FRAME_<designator>` body frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn IMU_FRAME(object: String, designator: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::IMU_FRAME(object, designator) }
+    }
+
+    /// Bound instrument frame.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///     designator (str): Instrument instance designator (e.g. "A")
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `INSTRUMENT_<designator>` body frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn INSTRUMENT(object: String, designator: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::INSTRUMENT(object, designator) }
+    }
+
+    /// Bound magnetic torque assembly frame.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///     designator (str): Actuator instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `MTA_<designator>` body frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn MTA(object: String, designator: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::MTA(object, designator) }
+    }
+
+    /// Bound reaction wheel frame.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///     designator (str): Actuator instance designator (e.g. "4")
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `RW_<designator>` body frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn RW(object: String, designator: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::RW(object, designator) }
+    }
+
+    /// Bound solar array frame.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///     designator (str): Array instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `SA_<designator>` body frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn SA(object: String, designator: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::SA(object, designator) }
+    }
+
+    /// Bound generic sensor frame.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///     designator (str): Sensor instance designator (e.g. "10")
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `SENSOR_<designator>` body frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn SENSOR(object: String, designator: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::SENSOR(object, designator) }
+    }
+
+    /// Bound star tracker frame.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///     designator (str): Sensor instance designator (e.g. "2")
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `STARTRACKER_<designator>` body frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn STARTRACKER(object: String, designator: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::STARTRACKER(object, designator) }
+    }
+
+    /// Bound three-axis magnetometer frame.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///     designator (str): Sensor instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `TAM_<designator>` body frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn TAM(object: String, designator: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::TAM(object, designator) }
+    }
+
+    /// Bound actuator frame.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///     designator (str): Actuator instance designator (e.g. "1")
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `ACTUATOR_<designator>` body frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn ACTUATOR(object: String, designator: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::ACTUATOR(object, designator) }
+    }
+
+    /// Constructs a body frame, general form. Covers designator-less and
+    /// non-standard `BodyFrame` cases beyond the family-specific
+    /// staticmethods (e.g. `ReferenceFrame.CSS`, `ReferenceFrame.RW`).
+    ///
+    /// Args:
+    ///     object (str, optional): The object the frame is defined relative to.
+    ///         `None` constructs an unbound label frame.
+    ///     body_frame (BodyFrame): The body frame kind and optional instance designator
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The body frame, bound to `object` if given
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.body("SC", bh.BodyFrame.SC_BODY())
+    ///     ```
+    #[staticmethod]
+    #[pyo3(signature = (object, body_frame))]
+    fn body(object: Option<String>, body_frame: PyBodyFrame) -> Self {
+        let frame = match object {
+            Some(object) => frames::ReferenceFrame::body(object, body_frame.frame),
+            None => frames::ReferenceFrame::from(body_frame.frame),
+        };
+        PyReferenceFrame { frame }
+    }
+
+    /// Constructs an orbit-relative frame, validating the kind/variant
+    /// combination. General form of the family staticmethods (`ReferenceFrame.RTN`,
+    /// ...), for callers that hold a runtime kind/variant pair and an
+    /// optional, not-yet-bound object.
+    ///
+    /// Among the orbit-relative kinds only `RTN` has an axes derivation
+    /// today; the others construct successfully but every transform through
+    /// them raises until issue #452 adds the remaining derivations.
+    ///
+    /// Args:
+    ///     kind (OrbitRelativeFrameKind): Frame construction (axes definition)
+    ///     variant (OrbitRelativeFrameVariant): Rotating (true local orbital frame) or
+    ///         inertial (quasi-inertial snapshot)
+    ///     object (str, optional): The bound object, or `None` for an unbound label
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The orbit-relative frame
+    ///
+    /// Raises:
+    ///     ValueError: If `kind` is `OrbitRelativeFrameKind.PQW`/`OrbitRelativeFrameKind.EQW`
+    ///         and `variant` is `OrbitRelativeFrameVariant.ROTATING`
+    #[staticmethod]
+    #[pyo3(signature = (kind, variant, object=None))]
+    fn orbit_relative(
+        kind: PyOrbitRelativeFrameKind,
+        variant: PyOrbitRelativeFrameVariant,
+        object: Option<String>,
+    ) -> PyResult<Self> {
+        let frame =
+            frames::ReferenceFrame::orbit_relative(kind.kind, variant.variant, object.map(Into::into))
+                .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+        Ok(PyReferenceFrame { frame })
+    }
+
+    /// Whether the frame is evaluable: a celestial frame, or an
+    /// orbit-relative/body frame with a bound object.
+    ///
+    /// Returns:
+    ///     bool: True if the frame is bound (celestial frames are always bound)
+    fn is_bound(&self) -> bool {
+        self.frame.is_bound()
+    }
+
+    /// The bound object, if any.
+    ///
+    /// Returns:
+    ///     Optional[str]: The bound object, or `None` for a celestial frame
+    ///         or an unbound orbit-relative/body frame
+    fn object(&self) -> Option<String> {
+        self.frame.object().map(|o| o.to_string())
+    }
+
+    fn __str__(&self) -> String {
+        self.frame.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("ReferenceFrame(\"{}\")", self.frame)
+    }
+}
+
+/// State provider backed by an `OrbitTrajectory`, whose native state is
+/// dynamically sized: the leading six elements are the Cartesian position and
+/// velocity, and any further elements are ignored.
+struct PyTrajectoryStateProvider {
+    trajectory: trajectories::DOrbitTrajectory,
+}
+
+impl SStateProvider for PyTrajectoryStateProvider {
+    fn state(&self, epoch: time::Epoch) -> Result<Vector6<f64>, RustBraheError> {
+        let state = DStateProvider::state(&self.trajectory, epoch)?;
+        if state.len() < 6 {
+            return Err(RustBraheError::Error(format!(
+                "OrbitTrajectory returned a state of {} elements; at least 6 \
+                 (position and velocity) are required",
+                state.len()
+            )));
+        }
+        Ok(Vector6::from_column_slice(&state.as_slice()[..6]))
+    }
+}
+
+/// State provider backed by a Python callable `epoch -> length-6 ndarray`.
+struct PyCallableStateProvider {
+    callback: Py<PyAny>,
+}
+
+impl SStateProvider for PyCallableStateProvider {
+    fn state(&self, epoch: time::Epoch) -> Result<Vector6<f64>, RustBraheError> {
+        Python::attach(|py| {
+            let py_epc = PyEpoch { obj: epoch };
+            let result = self.callback.call1(py, (py_epc,)).map_err(|e| {
+                RustBraheError::Error(format!(
+                    "object state callback raised an exception: {e}"
+                ))
+            })?;
+            pyany_to_svector::<6>(result.bind(py)).map_err(|e| {
+                RustBraheError::Error(format!(
+                    "object state callback must return a length-6 vector: {e}"
+                ))
+            })
+        })
+    }
+}
+
+/// Registers (or replaces) `frame`'s orientation relative to `parent`.
+///
+/// `frame` must be a bound `Body` frame (e.g. `ReferenceFrame.SC_BODY("SC")`,
+/// `ReferenceFrame.CSS("SC", "1")`); `parent` must resolve to a celestial root by
+/// walking the registry — either `parent` is itself a `CelestialFrame`, or
+/// it is a bound `Body` frame that is already registered and whose own
+/// parent chain terminates at one. `provider` is either a constant
+/// attitude (`Quaternion`, `RotationMatrix`, `EulerAngle`, or `EulerAxis`)
+/// or a callable `Epoch -> 3x3 ndarray` returning the parent -> frame
+/// rotation matrix. `omega` and `numerical_rates_step` are meaningful only
+/// for a callable `provider` (a constant attitude already has zero angular
+/// velocity relative to its parent): `omega` is an optional callable
+/// `Epoch -> length-3 ndarray` (rad/s, expressed in `frame`); when `omega`
+/// is omitted, passing `numerical_rates_step` derives the angular velocity
+/// numerically by central differencing the rotation over `±step/2` seconds.
+///
+/// Args:
+///     frame (ReferenceFrame): The bound `Body` frame being registered
+///     parent (CelestialFrame | ReferenceFrame): The frame `frame`'s orientation is expressed relative to
+///     provider (Quaternion or RotationMatrix or EulerAngle or EulerAxis or callable): Supplies
+///         `frame`'s rotation (and, for a callable, optionally its angular velocity) relative to `parent`
+///     omega (callable, optional): Callable `Epoch -> length-3 ndarray` returning the frame's
+///         angular velocity relative to `parent`, expressed in `frame` (rad/s)
+///     numerical_rates_step (float, optional): Central-difference step (s) used to derive the
+///         angular velocity numerically when `omega` is not given
+///
+/// Raises:
+///     BraheError: If `frame` is not a bound `Body` frame, if the parent chain does not
+///         terminate at a celestial frame, or if it cycles back through `frame`
+///     TypeError: If `provider` is not a constant attitude or a callable, or if `omega` is given
+///         and is not callable
+///     ValueError: If `omega` or `numerical_rates_step` is given for a constant-attitude
+///         `provider`, or if `numerical_rates_step` is not a positive finite number
+///
+/// Returns:
+///     None: The frame is registered in the global frame registry
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.clear_frame_registry()
+///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+///     bh.register_frame(bh.ReferenceFrame.SC_BODY("SC"), bh.CelestialFrame.GCRF, q)
+///     bh.register_frame(bh.ReferenceFrame.CSS("SC", "1"), bh.ReferenceFrame.SC_BODY("SC"), q)
+///     bh.clear_frame_registry()
+///     ```
+#[pyfunction]
+#[pyo3(signature = (frame, parent, provider, omega=None, numerical_rates_step=None))]
+#[pyo3(text_signature = "(frame, parent, provider, omega=None, numerical_rates_step=None)")]
+#[pyo3(name = "register_frame")]
+fn py_register_frame(
+    frame: PyReferenceFrame,
+    parent: &Bound<'_, PyAny>,
+    provider: &Bound<'_, PyAny>,
+    omega: Option<&Bound<'_, PyAny>>,
+    numerical_rates_step: Option<f64>,
+) -> PyResult<()> {
+    let parent = extract_frame(parent)?;
+
+    let is_constant_attitude = provider.extract::<PyQuaternion>().is_ok()
+        || provider.extract::<PyRotationMatrix>().is_ok()
+        || provider.extract::<PyEulerAngle>().is_ok()
+        || provider.extract::<PyEulerAxis>().is_ok();
+    if is_constant_attitude && (omega.is_some() || numerical_rates_step.is_some()) {
+        return Err(exceptions::PyValueError::new_err(
+            "omega and numerical_rates_step apply only to a callable provider; a constant \
+             attitude already has zero angular velocity relative to its parent",
+        ));
+    }
+
+    if let Ok(q) = provider.extract::<PyQuaternion>() {
+        frames::register_frame(frame.frame, parent, q.obj)?;
+        return Ok(());
+    }
+    if let Ok(r) = provider.extract::<PyRotationMatrix>() {
+        frames::register_frame(frame.frame, parent, r.obj)?;
+        return Ok(());
+    }
+    if let Ok(e) = provider.extract::<PyEulerAngle>() {
+        frames::register_frame(frame.frame, parent, e.obj)?;
+        return Ok(());
+    }
+    if let Ok(a) = provider.extract::<PyEulerAxis>() {
+        frames::register_frame(frame.frame, parent, a.obj)?;
+        return Ok(());
+    }
+    if !provider.is_callable() {
+        return Err(exceptions::PyTypeError::new_err(
+            "provider must be a Quaternion, RotationMatrix, EulerAngle, EulerAxis, or a \
+             callable epoch -> 3x3 ndarray",
+        ));
+    }
+    if let Some(omega) = omega
+        && !omega.is_callable()
+    {
+        return Err(exceptions::PyTypeError::new_err(
+            "omega must be a callable epoch -> length-3 ndarray",
+        ));
+    }
+    let rotation_py: Py<PyAny> = provider.clone().unbind();
+    let rotation_fn = move |epc: time::Epoch| -> Result<SMatrix3, RustBraheError> {
+        Python::attach(|py| {
+            let py_epc = PyEpoch { obj: epc };
+            let result = rotation_py.call1(py, (py_epc,)).map_err(|e| {
+                RustBraheError::Error(format!(
+                    "frame rotation callback raised an exception: {e}"
+                ))
+            })?;
+            pyany_to_smatrix::<3, 3>(result.bind(py)).map_err(|e| {
+                RustBraheError::Error(format!(
+                    "frame rotation callback must return a 3x3 matrix: {e}"
+                ))
+            })
+        })
+    };
+    let omega_fn = omega.map(|omega| -> Box<frames::CustomFrameOmega> {
+        let omega: Py<PyAny> = omega.clone().unbind();
+        Box::new(move |epc: time::Epoch| {
+            Python::attach(|py| {
+                let py_epc = PyEpoch { obj: epc };
+                let result = omega.call1(py, (py_epc,)).map_err(|e| {
+                    RustBraheError::Error(format!(
+                        "frame omega callback raised an exception: {e}"
+                    ))
+                })?;
+                pyany_to_svector::<3>(result.bind(py)).map_err(|e| {
+                    RustBraheError::Error(format!(
+                        "frame omega callback must return a length-3 vector: {e}"
+                    ))
+                })
+            })
+        })
+    });
+
+    match numerical_rates_step {
+        Some(step) => {
+            let provider = frames::CallbackOrientation::new(rotation_fn, omega_fn)
+                .with_numerical_rates(step)
+                .map_err(|e| {
+                    exceptions::PyValueError::new_err(format!("numerical_rates_step: {e}"))
+                })?;
+            frames::register_frame(frame.frame, parent, provider)?;
+        }
+        None => {
+            let provider = frames::CallbackOrientation::new(rotation_fn, omega_fn);
+            frames::register_frame(frame.frame, parent, provider)?;
+        }
+    }
+    Ok(())
+}
+
+/// Removes the registered orientation of a bound `Body` frame.
+///
+/// Args:
+///     frame (ReferenceFrame): The bound `Body` frame to unregister
+///
+/// Returns:
+///     bool: True if `frame` was registered and has been removed
+#[pyfunction]
+#[pyo3(name = "unregister_frame")]
+fn py_unregister_frame(frame: PyReferenceFrame) -> bool {
+    frames::unregister_frame(&frame.frame)
+}
+
+/// Removes every entry from the frame registry, including entries
+/// registered through `register_custom_frame`.
+///
+/// Intended for test isolation.
+///
+/// Returns:
+///     None: Every frame registry entry is removed
+#[pyfunction]
+#[pyo3(name = "clear_frame_registry")]
+fn py_clear_frame_registry() {
+    frames::clear_frame_registry();
+}
+
+/// Registers (or replaces) `name`'s state provider.
+///
+/// `provider` is either a Cartesian `OrbitTrajectory` or a callable
+/// `Epoch -> length-6 ndarray` returning `[position (m), velocity (m/s)]`
+/// in `frame` axes/center. A trajectory whose state is dynamically sized is
+/// adapted on the way in: its leading six elements are read as the position
+/// and velocity, and any further elements are ignored.
+///
+/// A parsed CCSDS OEM registers in one call with `OEM.register_for(name)`,
+/// which converts the ephemeris to a trajectory and registers it in the
+/// frame the OEM declares. OMM and OPM carry elements rather than an
+/// ephemeris, so they reach the registry through a propagator: an OMM's
+/// mean elements build an `SGPPropagator` (`SGPPropagator.from_omm_elements`),
+/// and an OPM's Cartesian state builds a `KeplerianPropagator`
+/// (`KeplerianPropagator.from_eci`). Register the propagated state in the
+/// frame named here, for example
+/// `register_object(name, lambda epc: prop.state_gcrf(epc), CelestialFrame.GCRF)`.
+///
+/// Args:
+///     name (str): The object's identity (e.g. "LRO", "2024-123A")
+///     provider (OrbitTrajectory or callable): Supplies `name`'s state at arbitrary epochs, in `frame`
+///     frame (CelestialFrame): The celestial frame `provider`'s states are expressed in
+///
+/// Raises:
+///     TypeError: If `provider` is not an `OrbitTrajectory` or a callable
+///     ValueError: If `provider` is an `OrbitTrajectory` using the Keplerian representation
+///         rather than Cartesian position/velocity
+///
+/// Returns:
+///     None: The object is registered in the global object registry
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.clear_object_registry()
+///     bh.register_object("SC", lambda epc: [bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0], bh.CelestialFrame.GCRF)
+///     bh.clear_object_registry()
+///     ```
+#[pyfunction]
+#[pyo3(name = "register_object")]
+fn py_register_object(
+    name: String,
+    provider: &Bound<'_, PyAny>,
+    frame: PyCelestialFrame,
+) -> PyResult<()> {
+    if let Ok(traj) = provider.extract::<PyRef<'_, PyOrbitalTrajectory>>() {
+        if traj.trajectory.representation != trajectories::traits::OrbitRepresentation::Cartesian
+        {
+            return Err(exceptions::PyValueError::new_err(
+                "OrbitTrajectory provider must use the Cartesian representation \
+                 (position/velocity), not Keplerian elements",
+            ));
+        }
+        let provider = PyTrajectoryStateProvider {
+            trajectory: traj.trajectory.clone(),
+        };
+        frames::register_object(name, provider, frame.frame)?;
+        return Ok(());
+    }
+    if !provider.is_callable() {
+        return Err(exceptions::PyTypeError::new_err(
+            "provider must be an OrbitTrajectory or a callable epoch -> length-6 ndarray",
+        ));
+    }
+    let callback: Py<PyAny> = provider.clone().unbind();
+    frames::register_object(name, PyCallableStateProvider { callback }, frame.frame)?;
+    Ok(())
+}
+
+/// Removes the registered provider for `name`.
+///
+/// Args:
+///     name (str): The object's identity
+///
+/// Returns:
+///     bool: True if `name` was registered and has been removed
+#[pyfunction]
+#[pyo3(name = "unregister_object")]
+fn py_unregister_object(name: String) -> bool {
+    frames::unregister_object(&name.into())
+}
+
+/// Removes every entry from the object registry.
+///
+/// Intended for test isolation.
+///
+/// Returns:
+///     None: Every object registry entry is removed
+#[pyfunction]
+#[pyo3(name = "clear_object_registry")]
+fn py_clear_object_registry() {
+    frames::clear_object_registry();
+}
+
+/// Names of every registered object, sorted for stable output.
+///
+/// Returns:
+///     List[str]: Registered object names, sorted lexicographically
+#[pyfunction]
+#[pyo3(name = "registered_objects")]
+fn py_registered_objects() -> Vec<String> {
+    frames::registered_objects()
+        .iter()
+        .map(|id| id.to_string())
+        .collect()
+}
+
+/// Registers `name` as a SPICE state provider for `naif_id`, in the GCRF
+/// frame.
+///
+/// Convenience wrapper equivalent to
+/// `register_object(name, SPKStateProvider(naif_id), CelestialFrame.GCRF)`.
+///
+/// Args:
+///     name (str): The object's identity to register
+///     naif_id (int): NAIF ID of the body to query from loaded SPICE kernels
+///
+/// Returns:
+///     None: The object is registered in the global object registry
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.clear_object_registry()
+///     bh.register_object_from_naif("MOON", 301)
+///     bh.clear_object_registry()
+///     ```
+#[pyfunction]
+#[pyo3(name = "register_object_from_naif")]
+fn py_register_object_from_naif(name: String, naif_id: i32) -> PyResult<()> {
+    frames::register_object_from_naif(name, naif_id)?;
+    Ok(())
 }

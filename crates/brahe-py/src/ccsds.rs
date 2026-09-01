@@ -1370,6 +1370,40 @@ impl PyOEM {
         Ok(())
     }
 
+    /// Registers this OEM as an object in the global object registry.
+    ///
+    /// Converts the OEM to a trajectory (erroring for a zero- or
+    /// multi-segment OEM), wraps it as a state provider, and registers it
+    /// under `name` with the celestial frame carried by the converted
+    /// trajectory. The registered object can then be queried through
+    /// `registered_objects`, or used as the anchor for an orbit-relative
+    /// frame such as `ReferenceFrame.RTN(name)`.
+    ///
+    /// Args:
+    ///     name (str): The object identity to register the trajectory under
+    ///
+    /// Raises:
+    ///     BraheError: If the OEM does not have exactly one segment, or its reference frame
+    ///         does not map to a `CelestialFrame`
+    ///
+    /// Returns:
+    ///     None: The object is registered in the global object registry
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.ccsds import OEM
+    ///
+    ///     oem = OEM.from_file("test_assets/ccsds/oem/OEMExample5.txt")
+    ///     bh.clear_object_registry()
+    ///     oem.register_for("ISS")
+    ///     bh.clear_object_registry()
+    ///     ```
+    fn register_for(&self, name: String) -> PyResult<()> {
+        self.inner.register_for(name)?;
+        Ok(())
+    }
+
     /// Convert the OEM to a Python dictionary.
     ///
     /// Epochs are serialized as CCSDS datetime strings for JSON/dict compatibility.

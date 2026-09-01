@@ -17,6 +17,7 @@ Functions are provided for:
 """
 
 from brahe._brahe import (
+    omega_rtn,
     rotation_eci_to_rtn,
     rotation_rtn_to_eci,
     state_eci_to_roe,
@@ -28,6 +29,7 @@ from brahe._brahe import (
 )
 
 __all__ = [
+    "omega_rtn",
     "rotation_eci_to_rtn",
     "rotation_rtn_to_eci",
     "state_eci_to_roe",

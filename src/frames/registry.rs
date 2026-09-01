@@ -75,10 +75,9 @@ fn frame_key(frame: &ReferenceFrame) -> Option<FrameKey> {
 /// parent chain terminates at one. Re-registering an existing `frame`
 /// replaces its entry; the new parent chain is revalidated, so replacing a
 /// frame with a parent that would cycle back through `frame` itself is
-/// rejected. Validation and insertion are not one atomic transaction, so
-/// concurrent registrations racing to create a cycle between each other
-/// (rather than through their own existing chain) are not guarded against;
-/// serialize concurrent calls to this function if that is a concern.
+/// rejected. Validation and insertion happen under a single write-lock
+/// acquisition, so two concurrent calls cannot race to co-create a cycle
+/// between each other.
 ///
 /// # Arguments
 /// * `frame` - The bound `Body` frame being registered
@@ -119,12 +118,9 @@ pub fn register_frame(
         ))
     })?;
 
-    {
-        let map = FRAME_REGISTRY.read().unwrap();
-        validate_parent_chain(&frame, &parent, &map)?;
-    }
-
-    FRAME_REGISTRY.write().unwrap().insert(
+    let mut guard = FRAME_REGISTRY.write().unwrap();
+    validate_parent_chain(&frame, &parent, &guard)?;
+    guard.insert(
         key,
         FrameEntry {
             parent: Some(parent),
@@ -348,6 +344,52 @@ mod tests {
         assert_eq!(
             frame_entry(&key).unwrap().parent,
             Some(CelestialFrame::ITRF.into())
+        );
+        clear_frame_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_register_frame_rejects_three_node_cycle_under_single_lock() {
+        // Validation and insertion now happen under one write-lock
+        // acquisition (see register_frame's doc comment); this exercises a
+        // longer chain (SC_BODY -> CSS -> AST) than the two-node self-cycle
+        // case above to confirm the walk still rejects a cycle correctly
+        // through the combined lock/validate/insert path.
+        clear_frame_registry();
+        let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
+        register_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            CelestialFrame::GCRF.into(),
+            q,
+        )
+        .unwrap();
+        register_frame(
+            ReferenceFrame::CSS("SC", "1"),
+            ReferenceFrame::SC_BODY("SC"),
+            q,
+        )
+        .unwrap();
+        register_frame(
+            ReferenceFrame::AST("SC", "1"),
+            ReferenceFrame::CSS("SC", "1"),
+            q,
+        )
+        .unwrap();
+        // Reparenting SC_BODY onto AST would cycle SC_BODY -> AST -> CSS -> SC_BODY.
+        let err = register_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            ReferenceFrame::AST("SC", "1"),
+            q,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("cycles back"));
+        // The original entry must be untouched: the rejected registration
+        // never reached the insert step.
+        let key = FrameKey::Body(crate::frames::ObjectId::from("SC"), BodyFrame::SCBody(None));
+        assert_eq!(
+            frame_entry(&key).unwrap().parent,
+            Some(CelestialFrame::GCRF.into())
         );
         clear_frame_registry();
     }

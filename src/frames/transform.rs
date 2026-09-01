@@ -1021,8 +1021,10 @@ pub(crate) fn state_celestial(
 /// thread pool for large inputs.
 ///
 /// `from` and `to` accept any [`Frame`]: a [`CelestialFrame`], a registered
-/// body/sensor frame, or a bound orbit-relative frame, resolved once and
-/// reused across every epoch (see [`rotation_frame_to_frame`]).
+/// body/sensor frame, or a bound orbit-relative frame. The same `from`/`to`
+/// values are reused for every epoch, but a non-celestial frame is resolved
+/// through the frame/object registries fresh for each one (see
+/// [`rotation_frame_to_frame`]).
 ///
 /// # Arguments
 /// - `from`: Source reference frame
@@ -1138,8 +1140,10 @@ pub fn positions_frame_to_frame(
 /// frame-specific `states_*` functions for that.
 ///
 /// `from` and `to` accept any [`Frame`]: a [`CelestialFrame`], a registered
-/// body/sensor frame, or a bound orbit-relative frame, resolved once and
-/// reused across every element.
+/// body/sensor frame, or a bound orbit-relative frame. The same `from`/`to`
+/// values are reused for every element, but a non-celestial frame is
+/// resolved through the frame/object registries fresh for each one, per
+/// [`state_frame_to_frame`].
 ///
 /// # Arguments
 /// - `from`: Source reference frame

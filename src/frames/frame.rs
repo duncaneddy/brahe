@@ -1045,8 +1045,13 @@ impl Frame {
         }
     }
 
-    /// Returns whether the frame is evaluable: a celestial frame, or an
-    /// orbit-relative/body frame with a bound object.
+    /// Returns whether the frame carries the object identity resolution
+    /// requires: a celestial frame (always), or an orbit-relative/body
+    /// frame with a bound object. `true` is necessary but not sufficient
+    /// for the frame to actually resolve — an orbit-relative frame also
+    /// needs an axes derivation for its `kind` (currently only `RTN`), and
+    /// a body frame also needs its orientation chain registered
+    /// (`register_frame`).
     ///
     /// # Returns
     /// `bool`: `true` if the frame is bound (celestial frames are always

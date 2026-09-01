@@ -75,7 +75,10 @@ fn frame_key(frame: &Frame) -> Option<FrameKey> {
 /// parent chain terminates at one. Re-registering an existing `frame`
 /// replaces its entry; the new parent chain is revalidated, so replacing a
 /// frame with a parent that would cycle back through `frame` itself is
-/// rejected.
+/// rejected. Validation and insertion are not one atomic transaction, so
+/// concurrent registrations racing to create a cycle between each other
+/// (rather than through their own existing chain) are not guarded against;
+/// serialize concurrent calls to this function if that is a concern.
 ///
 /// # Arguments
 /// * `frame` - The bound `Body` frame being registered

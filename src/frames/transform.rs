@@ -1281,7 +1281,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reference_frame_from_str_aliases() {
+    fn test_celestial_frame_from_str_aliases() {
         assert_eq!(
             "ECI".parse::<CelestialFrame>().unwrap(),
             CelestialFrame::GCRF
@@ -1305,7 +1305,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reference_frame_from_str_rejects_parameterized_variants() {
+    fn test_celestial_frame_from_str_rejects_parameterized_variants() {
         // The generic variants' own Display output is not a valid FromStr
         // input -- they must be constructed directly, per the FromStr
         // doc comment.
@@ -1368,7 +1368,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reference_frame_display() {
+    fn test_celestial_frame_display() {
         assert_eq!(CelestialFrame::GCRF.to_string(), "GCRF");
         assert_eq!(CelestialFrame::LFPA.to_string(), "LFPA");
         assert_eq!(
@@ -1390,7 +1390,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reference_frame_display_from_str_roundtrip() {
+    fn test_celestial_frame_display_from_str_roundtrip() {
         let frames = [
             CelestialFrame::GCRF,
             CelestialFrame::ITRF,
@@ -1409,7 +1409,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reference_frame_center_naif_id() {
+    fn test_celestial_frame_center_naif_id() {
         assert_eq!(CelestialFrame::GCRF.center_naif_id(), 399);
         assert_eq!(CelestialFrame::ITRF.center_naif_id(), 399);
         assert_eq!(CelestialFrame::EME2000.center_naif_id(), 399);
@@ -1433,7 +1433,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reference_frame_serde_roundtrip() {
+    fn test_celestial_frame_serde_roundtrip() {
         let frames = [
             CelestialFrame::GCRF,
             CelestialFrame::LFPA,
@@ -1643,7 +1643,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reference_frame_display_and_center_body_fixed_custom() {
+    fn test_celestial_frame_display_and_center_body_fixed_custom() {
         // The BodyFixedCustom Display and center_naif_id arms are not covered by
         // the other Display/center tests.
         let f = CelestialFrame::BodyFixedCustom {

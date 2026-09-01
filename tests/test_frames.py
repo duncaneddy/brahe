@@ -894,7 +894,7 @@ def test_state_eci_to_lci_roundtrip():
 # ---------------------------------------------------------------------------
 
 
-def test_reference_frame_synodic_attrs():
+def test_celestial_frame_synodic_attrs():
     assert brahe.CelestialFrame.from_string("EMR") == brahe.CelestialFrame.EMR
     assert brahe.CelestialFrame.from_string("ser") == brahe.CelestialFrame.SER
     assert brahe.CelestialFrame.from_string("GSE") == brahe.CelestialFrame.GSE
@@ -992,7 +992,7 @@ def test_synodic_origin_enum():
     assert str(brahe.SynodicOrigin.Barycenter) == "Barycenter"
 
 
-def test_reference_frame_synodic_constructor():
+def test_celestial_frame_synodic_constructor():
     frame = brahe.CelestialFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 301)
     assert frame.synodic_primary == 399
     assert frame.synodic_secondary == 301
@@ -1000,7 +1000,7 @@ def test_reference_frame_synodic_constructor():
     assert "Synodic" in str(frame)
 
 
-def test_reference_frame_synodic_large_ids_construct():
+def test_celestial_frame_synodic_large_ids_construct():
     # Any NAIF ID is accepted at construction time, even for a Barycenter
     # origin outside 0..=999 (no longer validated).
     frame = brahe.CelestialFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 1301)
@@ -1021,7 +1021,7 @@ def test_reference_frame_synodic_large_ids_construct():
         brahe.state_frame_to_frame(brahe.CelestialFrame.GCRF, frame, epc, x)
 
 
-def test_reference_frame_synodic_non_barycenter_allows_arbitrary_ids():
+def test_celestial_frame_synodic_non_barycenter_allows_arbitrary_ids():
     frame = brahe.CelestialFrame.Synodic(brahe.SynodicOrigin.Primary, 499, 401)
     assert frame.synodic_primary == 499
     assert frame.synodic_secondary == 401
@@ -1033,7 +1033,7 @@ def test_reference_frame_synodic_non_barycenter_allows_arbitrary_ids():
     assert frame.synodic_origin == brahe.SynodicOrigin.Secondary
 
 
-def test_reference_frame_synodic_accessors_named_frames():
+def test_celestial_frame_synodic_accessors_named_frames():
     assert brahe.CelestialFrame.EMR.synodic_primary == 399
     assert brahe.CelestialFrame.EMR.synodic_secondary == 301
     assert brahe.CelestialFrame.SER.synodic_primary == 10
@@ -1073,7 +1073,7 @@ def test_router_lci_to_emr():
 # CelestialFrame router tests
 
 
-def test_reference_frame_from_string_aliases():
+def test_celestial_frame_from_string_aliases():
     assert brahe.CelestialFrame.from_string("ECI") == brahe.CelestialFrame.GCRF
     assert brahe.CelestialFrame.from_string("ECEF") == brahe.CelestialFrame.ITRF
     assert brahe.CelestialFrame.from_string("eci") == brahe.CelestialFrame.GCRF
@@ -1156,18 +1156,18 @@ def test_body_fixed_custom_allows_reserved_barycenter_range_center():
     assert str(frame2) == "BodyFixedCustom(center=-1000010399, key=1044)"
 
 
-def test_reference_frame_class_aliases():
+def test_celestial_frame_class_aliases():
     """ECI/ECEF class attributes alias GCRF/ITRF."""
     assert brahe.CelestialFrame.ECI == brahe.CelestialFrame.GCRF
     assert brahe.CelestialFrame.ECEF == brahe.CelestialFrame.ITRF
 
 
-def test_reference_frame_str():
+def test_celestial_frame_str():
     assert str(brahe.CelestialFrame.GCRF) == "GCRF"
     assert str(brahe.CelestialFrame.LFPA) == "LFPA"
 
 
-def test_reference_frame_generic_variants_equal_named():
+def test_celestial_frame_generic_variants_equal_named():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     a = brahe.rotation_frame_to_frame(
         brahe.CelestialFrame.MCI, brahe.CelestialFrame.MCMF, epc

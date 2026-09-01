@@ -411,7 +411,6 @@ nav:
           - Euler Angles: library_api/attitude/euler_angles.md
           - Euler Axis: library_api/attitude/euler_axis.md
           - EulerAngleOrder: library_api/attitude/euler_angle_order.md
-          - Attitude Frame: library_api/attitude/attitude_frame.md
       - Trajectories:
           - library_api/trajectories/index.md
           - Trajectory: library_api/trajectories/trajectory.md

@@ -28,7 +28,6 @@ flexibility in how orientation is specified and computed.
 """
 
 from brahe._brahe import (
-    AttitudeFrame,
     EulerAngle,
     EulerAngleOrder,
     EulerAxis,
@@ -42,7 +41,6 @@ from brahe._brahe import (
 )
 
 __all__ = [
-    "AttitudeFrame",
     "EulerAngle",
     "EulerAngleOrder",
     "EulerAxis",

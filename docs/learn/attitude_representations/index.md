@@ -42,26 +42,25 @@ Brahe provides functions to convert between all attitude representations. You ca
 ## Attitude Frames
 
 An attitude relates two frames: it is the passive rotation taking vector
-components in a source frame A to components in a target frame B. Brahe
-models each endpoint with the `AttitudeFrame` type, which distinguishes three
-kinds of frame. A `ReferenceFrame` endpoint is any frame the frame
-transformation system supports (GCRF, ITRF, EME2000, and the other members of
-`ReferenceFrame`) and composes directly with `rotation_frame_to_frame`. An
-`OrbitRelative` endpoint is a local orbital frame such as RTN or LVLH, which
-is only defined for a given orbit state. A `SpacecraftBodyFrame` is an
-object-local frame — a spacecraft body, sensor, or actuator frame — that has
-no global definition; it is the frame that attitude data itself defines.
+components in a source frame A to components in a target frame B. Both
+endpoints are `ReferenceFrame` values. A `Celestial` endpoint is any frame the
+frame transformation system evaluates from an epoch alone (GCRF, ITRF,
+EME2000, and the other members of `CelestialFrame`); it composes directly with
+`rotation_frame_to_frame`. An `OrbitRelative` endpoint is a local orbital frame
+such as RTN or LVLH, defined only given an orbit state. A `Body` endpoint is an
+object-local frame — a spacecraft body, sensor, or actuator frame — whose
+orientation the attitude data itself supplies.
 
-The distinction matters when converting attitude data between
-representations: transformations into or out of a `ReferenceFrame` endpoint
-can be computed by the frames module, while `SpacecraftBody` endpoints are
-carried as labels. CCSDS attitude messages (APM, AEM) declare their frame pair
-with these semantics, and brahe's CCSDS module converts between the CCSDS frame
-vocabulary and `AttitudeFrame` where a native equivalent exists.
+CCSDS attitude messages (APM, AEM) declare their frame pair with these
+semantics, and brahe's CCSDS module converts between the CCSDS frame vocabulary
+and `ReferenceFrame` where a native equivalent exists. A CCSDS frame keyword
+names the frame but not the object it belongs to, so orbit-relative and body
+keywords convert to unbound endpoints; binding them to an object is the
+caller's job.
 
 ---
 
 ## See Also
 
 - [API Reference - Attitude](../../library_api/attitude/index.md)
-- [AttitudeFrame](../../library_api/attitude/attitude_frame.md)
+- [Frame Graph](../frames/frame_graph.md)

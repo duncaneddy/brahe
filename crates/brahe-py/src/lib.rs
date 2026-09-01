@@ -37,7 +37,7 @@ use brahe::math::interpolation::CovarianceInterpolationConfig;
 use brahe::traits::*;
 use brahe::utils::python_interop::BraheError;
 use brahe::utils::{
-    BraheError as RustBraheError, format_time_string, get_brahe_cache_dir,
+    BraheError as RustBraheError, SStateProvider, format_time_string, get_brahe_cache_dir,
     get_brahe_cache_dir_with_subdir, get_celestrak_cache_dir, get_eop_cache_dir, get_max_threads,
     get_vectorization_length_threshold, network_mode, set_max_threads, set_num_threads,
     set_vectorization_length_threshold,
@@ -967,6 +967,18 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_position_frame_to_frame, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_frame_to_frame, module)?)?;
 
+    // Frame / BodyFrame and the frame/object registries
+    module.add_class::<PyBodyFrame>()?;
+    module.add_class::<PyFrame>()?;
+    module.add_function(wrap_pyfunction!(py_register_frame, module)?)?;
+    module.add_function(wrap_pyfunction!(py_unregister_frame, module)?)?;
+    module.add_function(wrap_pyfunction!(py_clear_frame_registry, module)?)?;
+    module.add_function(wrap_pyfunction!(py_register_object, module)?)?;
+    module.add_function(wrap_pyfunction!(py_unregister_object, module)?)?;
+    module.add_function(wrap_pyfunction!(py_clear_object_registry, module)?)?;
+    module.add_function(wrap_pyfunction!(py_registered_objects, module)?)?;
+    module.add_function(wrap_pyfunction!(py_register_object_from_naif, module)?)?;
+
     //* Coordinates *//
 
     // Coordinate Types
@@ -1111,6 +1123,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     //* Relative Motion *//
     module.add_function(wrap_pyfunction!(py_rotation_rtn_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_eci_to_rtn, module)?)?;
+    module.add_function(wrap_pyfunction!(py_omega_rtn, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_rtn, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_rtn_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_oe_to_roe, module)?)?;

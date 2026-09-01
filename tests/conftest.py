@@ -138,6 +138,16 @@ def eop_original_brahe(brahe_original_eop_filepath):
     yield eop
 
 
+@pytest.fixture(scope="function")
+def clear_frame_registries():
+    """Clear the global frame and object registries before and after a test."""
+    brahe.clear_frame_registry()
+    brahe.clear_object_registry()
+    yield
+    brahe.clear_frame_registry()
+    brahe.clear_object_registry()
+
+
 @pytest.fixture(scope="module")
 def point_earth():
     """Two-body point mass Earth dynamics for 6D state [r, v].

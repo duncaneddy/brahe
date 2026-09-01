@@ -99,6 +99,36 @@ fn py_rotation_eci_to_rtn<'py>(
     )
 }
 
+/// Computes the angular velocity of the radial, along-track, cross-track (RTN) frame with
+/// respect to the Earth-Centered Inertial (ECI) frame, expressed in RTN axes.
+///
+/// The RTN frame rotates about its cross-track axis at the orbital true-anomaly rate
+/// `f_dot = |r x v| / r^2`, so the angular velocity is `[0, 0, f_dot]`.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,)
+///
+/// Returns:
+///     numpy.ndarray: Angular velocity of the RTN frame relative to ECI, expressed in RTN axes (rad/s), shape (3,)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sma = bh.R_EARTH + 700e3
+///     state = np.array([sma, 0.0, 0.0, 0.0, bh.perigee_velocity(sma, 0.0), 0.0])
+///     omega = bh.omega_rtn(state)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(x_eci)")]
+#[pyo3(name = "omega_rtn")]
+fn py_omega_rtn<'py>(py: Python<'py>, x_eci: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let x = pyany_to_svector::<6>(x_eci)?;
+    let omega = relative_motion::omega_rtn(x);
+    Ok(vector_to_numpy!(py, omega, 3, f64))
+}
+
 /// Transforms the absolute states of a chief and deputy satellite from the Earth-Centered Inertial (ECI)
 /// frame to the relative state of the deputy with respect to the chief in the rotating
 /// Radial, Along-Track, Cross-Track (RTN) frame.

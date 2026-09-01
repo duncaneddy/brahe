@@ -31,13 +31,17 @@ Naming Conventions:
 """
 
 from brahe._brahe import (
+    BodyFrame,
     CelestialFrame,
+    Frame,
     # Reference frame router
     SynodicOrigin,
     # EME2000 <> GCRF transformations
     bias_eme2000,
     # Rotation matrix components
     bias_precession_nutation,
+    clear_frame_registry,
+    clear_object_registry,
     earth_rotation,
     iau_rotation_model_ids,
     polar_motion,
@@ -67,6 +71,10 @@ from brahe._brahe import (
     position_mcmf_to_mci,
     position_ser_to_gcrf,
     register_custom_frame,
+    register_frame,
+    register_object,
+    register_object_from_naif,
+    registered_objects,
     rotation_ecef_to_eci,
     rotation_eci_to_ecef,
     rotation_eme2000_to_gcrf,
@@ -119,16 +127,22 @@ from brahe._brahe import (
     state_mcmf_to_mci,
     state_ser_to_gcrf,
     unregister_custom_frame,
+    unregister_frame,
+    unregister_object,
 )
 
 __all__ = [
+    "BodyFrame",
     "CelestialFrame",
+    "Frame",
     # Reference frame router
     "SynodicOrigin",
     # EME2000 <> GCRF transformations
     "bias_eme2000",
     # Rotation matrix components
     "bias_precession_nutation",
+    "clear_frame_registry",
+    "clear_object_registry",
     "earth_rotation",
     "iau_rotation_model_ids",
     "polar_motion",
@@ -158,6 +172,10 @@ __all__ = [
     "position_mcmf_to_mci",
     "position_ser_to_gcrf",
     "register_custom_frame",
+    "register_frame",
+    "register_object",
+    "register_object_from_naif",
+    "registered_objects",
     "rotation_ecef_to_eci",
     "rotation_eci_to_ecef",
     "rotation_eme2000_to_gcrf",
@@ -210,4 +228,6 @@ __all__ = [
     "state_mcmf_to_mci",
     "state_ser_to_gcrf",
     "unregister_custom_frame",
+    "unregister_frame",
+    "unregister_object",
 ]

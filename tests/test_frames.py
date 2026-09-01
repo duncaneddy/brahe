@@ -1213,6 +1213,43 @@ def test_position_frame_to_frame_same_frame_is_identity():
     np.testing.assert_array_equal(out, x)
 
 
+def test_frame_to_frame_accepts_celestial_frame_and_frame_mix(clear_frame_registries):
+    """rotation_/position_/state_frame_to_frame accept CelestialFrame or Frame
+    for both arguments; a plain CelestialFrame <-> CelestialFrame call still
+    behaves exactly as before."""
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x = brahe.state_koe_to_eci(
+        np.array([brahe.R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0]),
+        brahe.AngleFormat.DEGREES,
+    )
+    brahe.register_object("A", lambda epc: x, brahe.CelestialFrame.GCRF)
+
+    r = brahe.rotation_frame_to_frame(
+        brahe.CelestialFrame.GCRF, brahe.Frame.RTN("A"), epc
+    )
+    np.testing.assert_allclose(r, brahe.rotation_eci_to_rtn(x), atol=1e-14)
+
+    pos = brahe.position_frame_to_frame(
+        brahe.Frame.RTN("A"), brahe.CelestialFrame.GCRF, epc, np.zeros(3)
+    )
+    np.testing.assert_allclose(pos, x[:3], atol=1e-6)
+
+    state = brahe.state_frame_to_frame(
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epc, x
+    )
+    np.testing.assert_array_equal(state, brahe.state_gcrf_to_itrf(epc, x))
+
+
+def test_frame_to_frame_rejects_unrecognized_frame_type():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    with pytest.raises(TypeError):
+        brahe.rotation_frame_to_frame(5, brahe.CelestialFrame.GCRF, epc)
+    with pytest.raises(TypeError):
+        brahe.position_frame_to_frame(
+            brahe.CelestialFrame.GCRF, "not-a-frame", epc, np.zeros(3)
+        )
+
+
 def test_router_matches_pairwise_gcrf_itrf(eop):
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])

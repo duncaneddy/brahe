@@ -9,12 +9,6 @@ Each release groups entries under the Keep a Changelog section headings in the o
 
 <!-- release notes start -->
 
-## [Unreleased]
-
-### Changed
-
-- **Breaking:** `ReferenceFrame` renamed to `CelestialFrame` in Rust and Python — the frame router, all frame-router functions, and every associated binding now use the new name.
-
 ## [1.7.0] - 2026-07-21
 
 ### Added

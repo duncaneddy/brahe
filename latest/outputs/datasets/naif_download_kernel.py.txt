@@ -1,0 +1,3 @@
+Kernel cached at: /home/runner/.cache/brahe/naif/de440s.bsp
+Retrieved from cache: /home/runner/.cache/brahe/naif/de440s.bsp
+Copied to: /tmp/my_kernel.bsp

@@ -1020,6 +1020,10 @@ pub(crate) fn state_celestial(
 /// Batch form of [`rotation_frame_to_frame`]. Evaluation runs on the global
 /// thread pool for large inputs.
 ///
+/// `from` and `to` accept any [`Frame`]: a [`CelestialFrame`], a registered
+/// body/sensor frame, or a bound orbit-relative frame, resolved once and
+/// reused across every epoch (see [`rotation_frame_to_frame`]).
+///
 /// # Arguments
 /// - `from`: Source reference frame
 /// - `to`: Target reference frame
@@ -1040,11 +1044,16 @@ pub(crate) fn state_celestial(
 /// assert_eq!(r.len(), 2);
 /// ```
 pub fn rotations_frame_to_frame(
-    from: CelestialFrame,
-    to: CelestialFrame,
+    from: impl Into<Frame>,
+    to: impl Into<Frame>,
     epochs: &[Epoch],
 ) -> Result<Vec<SMatrix3>, BraheError> {
-    try_batch_map(|epc| rotation_frame_to_frame(from, to, *epc), epochs)
+    let from = from.into();
+    let to = to.into();
+    try_batch_map(
+        |epc| rotation_frame_to_frame(from.clone(), to.clone(), *epc),
+        epochs,
+    )
 }
 
 /// Transforms a batch of Cartesian positions from `from` to `to`.
@@ -1054,6 +1063,12 @@ pub fn rotations_frame_to_frame(
 /// epoch computes the frame-pair rotation matrices and center offset once and
 /// applies them to every position; per-element epochs compute them per
 /// position. Evaluation runs on the global thread pool for large inputs.
+///
+/// `from` and `to` accept any [`Frame`]: a [`CelestialFrame`], a registered
+/// body/sensor frame, or a bound orbit-relative frame, resolved once and
+/// reused across every element. The shared-context hoisting above applies
+/// only when both frames are celestial; a non-celestial `from`/`to` resolves
+/// per element through [`position_frame_to_frame`].
 ///
 /// # Arguments
 /// - `from`: Source reference frame
@@ -1083,32 +1098,48 @@ pub fn rotations_frame_to_frame(
 /// assert_eq!(x_itrf.len(), 3);
 /// ```
 pub fn positions_frame_to_frame(
-    from: CelestialFrame,
-    to: CelestialFrame,
+    from: impl Into<Frame>,
+    to: impl Into<Frame>,
     epochs: &[Epoch],
     x: &[Vector3<f64>],
 ) -> Result<Vec<Vector3<f64>>, BraheError> {
-    if from == to {
-        return try_batch_map_epochs(|_| Ok(()), |_, x| Ok(*x), epochs, x);
+    let from = from.into();
+    let to = to.into();
+    match (&from, &to) {
+        (Frame::Celestial(from), Frame::Celestial(to)) => {
+            let (from, to) = (*from, *to);
+            if from == to {
+                return try_batch_map_epochs(|_| Ok(()), |_, x| Ok(*x), epochs, x);
+            }
+            try_batch_map_epochs(
+                |epc| frame_pair_context(from, to, epc),
+                |c, x| Ok(apply_position_frame_pair(c, x)),
+                epochs,
+                x,
+            )
+        }
+        _ => try_batch_map_epochs(
+            Ok,
+            |epc, x| position_frame_to_frame(from.clone(), to.clone(), *epc, *x),
+            epochs,
+            x,
+        ),
     }
-    try_batch_map_epochs(
-        |epc| frame_pair_context(from, to, epc),
-        |c, x| Ok(apply_position_frame_pair(c, x)),
-        epochs,
-        x,
-    )
 }
 
 /// Transforms a batch of Cartesian states from `from` to `to`.
 ///
-/// Batch form of [`state_frame_to_frame`] over two celestial frames.
-/// `epochs` and `x` follow the broadcast rule: each has length 1 or the
-/// common batch length. Each element is transformed independently, since
-/// the velocity transport terms are resolved through each frame's own state
-/// routines rather than a shared per-epoch context; the batch therefore
-/// benefits from thread-pool evaluation for large inputs but not from
-/// shared-epoch hoisting. Use the frame-specific `states_*` functions for
-/// that.
+/// Batch form of [`state_frame_to_frame`]. `epochs` and `x` follow the
+/// broadcast rule: each has length 1 or the common batch length. Each
+/// element is transformed independently, since the velocity transport terms
+/// are resolved through each frame's own state routines rather than a
+/// shared per-epoch context; the batch therefore benefits from thread-pool
+/// evaluation for large inputs but not from shared-epoch hoisting. Use the
+/// frame-specific `states_*` functions for that.
+///
+/// `from` and `to` accept any [`Frame`]: a [`CelestialFrame`], a registered
+/// body/sensor frame, or a bound orbit-relative frame, resolved once and
+/// reused across every element.
 ///
 /// # Arguments
 /// - `from`: Source reference frame
@@ -1141,12 +1172,25 @@ pub fn positions_frame_to_frame(
 /// assert_eq!(x_itrf.len(), 3);
 /// ```
 pub fn states_frame_to_frame(
-    from: CelestialFrame,
-    to: CelestialFrame,
+    from: impl Into<Frame>,
+    to: impl Into<Frame>,
     epochs: &[Epoch],
     x: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    try_batch_map_epochs(Ok, |epc, x| state_celestial(from, to, *epc, *x), epochs, x)
+    let from = from.into();
+    let to = to.into();
+    match (&from, &to) {
+        (Frame::Celestial(from), Frame::Celestial(to)) => {
+            let (from, to) = (*from, *to);
+            try_batch_map_epochs(Ok, |epc, x| state_celestial(from, to, *epc, *x), epochs, x)
+        }
+        _ => try_batch_map_epochs(
+            Ok,
+            |epc, x| state_frame_to_frame(from.clone(), to.clone(), *epc, *x),
+            epochs,
+            x,
+        ),
+    }
 }
 
 /// State of `to_center` relative to `from_center` at `epc`, in ICRF axes.
@@ -1217,6 +1261,8 @@ mod tests {
     use super::*;
     use crate::constants::{DEGREES, R_EARTH};
     use crate::coordinates::state_koe_to_eci;
+    use crate::frames::object_registry::FnProvider;
+    use crate::frames::{clear_object_registry, register_object};
     use crate::math::vector6_from_array;
     use crate::spice::spk_state;
     use crate::time::TimeSystem;
@@ -2171,5 +2217,27 @@ mod tests {
             .unwrap()
             .is_empty()
         );
+    }
+
+    #[test]
+    #[serial]
+    fn test_batch_matches_singular_for_frame_args() {
+        clear_object_registry();
+        let epc0 = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let epochs: Vec<Epoch> = (0..5).map(|i| epc0 + (i as f64) * 60.0).collect();
+        let x_a = state_koe_to_eci(
+            vector6_from_array([R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0]),
+            DEGREES,
+        );
+        register_object("A", FnProvider(move |_| Ok(x_a)), CelestialFrame::GCRF).unwrap();
+        let batch =
+            rotations_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("A"), &epochs).unwrap();
+        for (i, epc) in epochs.iter().enumerate() {
+            assert_eq!(
+                batch[i],
+                rotation_frame_to_frame(CelestialFrame::GCRF, Frame::RTN("A"), *epc).unwrap()
+            );
+        }
+        clear_object_registry();
     }
 }

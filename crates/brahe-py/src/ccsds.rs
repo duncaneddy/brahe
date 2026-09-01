@@ -1388,7 +1388,7 @@ impl PyOEM {
         )?;
         header.set_item(
             "creation_date",
-            brahe::ccsds::common::format_ccsds_datetime(&self.inner.header.creation_date),
+            brahe::ccsds::common::format_ccsds_datetime_in(&self.inner.header.creation_date, &brahe::ccsds::common::CCSDSTimeSystem::UTC),
         )?;
         header.set_item("originator", &self.inner.header.originator)?;
         header.set_item("message_id", self.inner.header.message_id.as_deref())?;
@@ -1409,11 +1409,11 @@ impl PyOEM {
             meta.set_item("time_system", format!("{}", seg.metadata.time_system))?;
             meta.set_item(
                 "start_time",
-                brahe::ccsds::common::format_ccsds_datetime(&seg.metadata.start_time),
+                brahe::ccsds::common::format_ccsds_datetime_in(&seg.metadata.start_time, &seg.metadata.time_system),
             )?;
             meta.set_item(
                 "stop_time",
-                brahe::ccsds::common::format_ccsds_datetime(&seg.metadata.stop_time),
+                brahe::ccsds::common::format_ccsds_datetime_in(&seg.metadata.stop_time, &seg.metadata.time_system),
             )?;
             meta.set_item("interpolation", seg.metadata.interpolation.as_deref())?;
             meta.set_item("interpolation_degree", seg.metadata.interpolation_degree)?;
@@ -1426,7 +1426,7 @@ impl PyOEM {
                 let sv_dict = pyo3::types::PyDict::new(py);
                 sv_dict.set_item(
                     "epoch",
-                    brahe::ccsds::common::format_ccsds_datetime(&sv.epoch),
+                    brahe::ccsds::common::format_ccsds_datetime_in(&sv.epoch, &seg.metadata.time_system),
                 )?;
                 sv_dict.set_item("position", sv.position.to_vec())?;
                 sv_dict.set_item("velocity", sv.velocity.to_vec())?;
@@ -2606,7 +2606,7 @@ impl PyOMM {
         header.set_item("format_version", self.inner.header.format_version)?;
         header.set_item(
             "creation_date",
-            brahe::ccsds::common::format_ccsds_datetime(&self.inner.header.creation_date),
+            brahe::ccsds::common::format_ccsds_datetime_in(&self.inner.header.creation_date, &brahe::ccsds::common::CCSDSTimeSystem::UTC),
         )?;
         header.set_item("originator", &self.inner.header.originator)?;
         dict.set_item("header", header)?;
@@ -2631,7 +2631,7 @@ impl PyOMM {
         let me = pyo3::types::PyDict::new(py);
         me.set_item(
             "epoch",
-            brahe::ccsds::common::format_ccsds_datetime(&self.inner.mean_elements.epoch),
+            brahe::ccsds::common::format_ccsds_datetime_in(&self.inner.mean_elements.epoch, &self.inner.metadata.time_system),
         )?;
         me.set_item("mean_motion", self.inner.mean_elements.mean_motion)?;
         me.set_item(
@@ -3428,7 +3428,7 @@ impl PyOPM {
         header.set_item("format_version", self.inner.header.format_version)?;
         header.set_item(
             "creation_date",
-            brahe::ccsds::common::format_ccsds_datetime(&self.inner.header.creation_date),
+            brahe::ccsds::common::format_ccsds_datetime_in(&self.inner.header.creation_date, &brahe::ccsds::common::CCSDSTimeSystem::UTC),
         )?;
         header.set_item("originator", &self.inner.header.originator)?;
         header.set_item("comments", &self.inner.header.comments)?;
@@ -3450,7 +3450,7 @@ impl PyOPM {
         let sv = pyo3::types::PyDict::new(py);
         sv.set_item(
             "epoch",
-            brahe::ccsds::common::format_ccsds_datetime(&self.inner.state_vector.epoch),
+            brahe::ccsds::common::format_ccsds_datetime_in(&self.inner.state_vector.epoch, &self.inner.metadata.time_system),
         )?;
         sv.set_item("position", self.inner.state_vector.position.to_vec())?;
         sv.set_item("velocity", self.inner.state_vector.velocity.to_vec())?;
@@ -3488,7 +3488,7 @@ impl PyOPM {
                 let m_dict = pyo3::types::PyDict::new(py);
                 m_dict.set_item(
                     "epoch_ignition",
-                    brahe::ccsds::common::format_ccsds_datetime(&m.epoch_ignition),
+                    brahe::ccsds::common::format_ccsds_datetime_in(&m.epoch_ignition, &self.inner.metadata.time_system),
                 )?;
                 m_dict.set_item("duration", m.duration)?;
                 m_dict.set_item("delta_mass", m.delta_mass)?;
@@ -4666,7 +4666,7 @@ impl PyCDM {
     fn __repr__(&self) -> String {
         format!(
             "CDM(tca={}, miss_distance={:.1}m, obj1='{}', obj2='{}')",
-            brahe::ccsds::common::format_ccsds_datetime(self.inner.tca()),
+            brahe::ccsds::common::format_ccsds_datetime_in(self.inner.tca(), &brahe::ccsds::common::CCSDSTimeSystem::UTC),
             self.inner.miss_distance(),
             self.inner.object1.metadata.object_name,
             self.inner.object2.metadata.object_name,

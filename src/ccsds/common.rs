@@ -534,6 +534,45 @@ pub fn format_ccsds_datetime(epoch: &Epoch) -> String {
     }
 }
 
+/// Format an `Epoch` as a CCSDS datetime string in a given CCSDS time system.
+///
+/// CCSDS 502.0-B-3 subsection 7.5.11 ties every time or epoch keyword other
+/// than `CREATION_DATE` to the message's `TIME_SYSTEM`, and CCSDS 508.0-B-1
+/// subsection 6.2.3.4 fixes every CDM time tag to UTC. An `Epoch` carries its
+/// own time system, which need not be the one the message declares, so writers
+/// convert before formatting.
+///
+/// Five CCSDS time systems — `MET`, `MRT`, `SCLK`, `GMST`, and `TDR` — are
+/// mission- or spacecraft-specific clocks with no fixed relationship to the
+/// physical time systems `Epoch` represents. For those the epoch is formatted
+/// as stored, unconverted.
+///
+/// # Arguments
+///
+/// * `epoch` - The epoch to format.
+/// * `time_system` - The CCSDS time system the message declares.
+///
+/// # Returns
+///
+/// * `String` - The epoch rendered as `YYYY-MM-DDThh:mm:ss.sss`.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::ccsds::common::{CCSDSTimeSystem, format_ccsds_datetime_in};
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epoch = Epoch::from_datetime(2024, 3, 1, 12, 0, 0.0, 0.0, TimeSystem::TAI);
+/// let written = format_ccsds_datetime_in(&epoch, &CCSDSTimeSystem::UTC);
+/// assert!(written.starts_with("2024-03-01T11:59:"));
+/// ```
+pub fn format_ccsds_datetime_in(epoch: &Epoch, time_system: &CCSDSTimeSystem) -> String {
+    match time_system.to_time_system() {
+        Some(ts) => format_ccsds_datetime(&epoch.to_time_system(ts)),
+        None => format_ccsds_datetime(epoch),
+    }
+}
+
 /// Strip unit annotations from a CCSDS KVN value string.
 ///
 /// CCSDS KVN values may contain optional unit annotations in square brackets
@@ -713,6 +752,10 @@ pub fn covariance_to_lower_triangular(matrix: &SMatrix<f64, 6, 6>, scale: f64) -
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::ccsds::cdm::CDM;
+    use crate::ccsds::oem::OEM;
+    use crate::ccsds::omm::OMM;
+    use crate::ccsds::opm::OPM;
 
     #[test]
     fn test_ccsds_format_display() {
@@ -1264,5 +1307,242 @@ mod tests {
         assert!(CCSDSTimeSystem::GMST.to_time_system().is_none());
         assert!(CCSDSTimeSystem::MRT.to_time_system().is_none());
         assert!(CCSDSTimeSystem::SCLK.to_time_system().is_none());
+    }
+
+    /// Retag an epoch into another time system without moving the instant, the
+    /// way a user-constructed message can end up holding epochs in a system
+    /// other than the one its metadata declares.
+    fn retag(e: &Epoch) -> Epoch {
+        e.to_time_system(crate::time::TimeSystem::TAI)
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_format_ccsds_datetime_in_converts_to_declared_system() {
+        let utc = Epoch::from_datetime(2024, 3, 1, 12, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+
+        // Same instant, formatted in each declared system.
+        assert_eq!(
+            format_ccsds_datetime_in(&utc, &CCSDSTimeSystem::UTC),
+            "2024-03-01T12:00:00.000"
+        );
+        assert_eq!(
+            format_ccsds_datetime_in(&utc, &CCSDSTimeSystem::TAI),
+            "2024-03-01T12:00:37.000"
+        );
+
+        // The epoch's own time system does not influence the result.
+        assert_eq!(
+            format_ccsds_datetime_in(&retag(&utc), &CCSDSTimeSystem::UTC),
+            format_ccsds_datetime_in(&utc, &CCSDSTimeSystem::UTC)
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_format_ccsds_datetime_in_leaves_mission_clocks_unconverted() {
+        let tai = Epoch::from_datetime(2024, 3, 1, 12, 0, 0.0, 0.0, crate::time::TimeSystem::TAI);
+
+        // MET, MRT, SCLK, GMST, and TDR have no `TimeSystem` counterpart, so
+        // the epoch is written exactly as stored.
+        for ts in [
+            CCSDSTimeSystem::MET,
+            CCSDSTimeSystem::MRT,
+            CCSDSTimeSystem::SCLK,
+            CCSDSTimeSystem::GMST,
+            CCSDSTimeSystem::TDR,
+        ] {
+            assert_eq!(
+                format_ccsds_datetime_in(&tai, &ts),
+                format_ccsds_datetime(&tai)
+            );
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_writers_use_declared_time_system_not_epoch_time_system() {
+        let formats = [CCSDSFormat::KVN, CCSDSFormat::XML, CCSDSFormat::JSON];
+
+        // OEM
+        let src = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+        let oem = OEM::from_str(&src).unwrap();
+        let mut retagged = oem.clone();
+        retagged.header.creation_date = retag(&retagged.header.creation_date);
+        for seg in &mut retagged.segments {
+            seg.metadata.start_time = retag(&seg.metadata.start_time);
+            seg.metadata.stop_time = retag(&seg.metadata.stop_time);
+            seg.metadata.useable_start_time = seg.metadata.useable_start_time.as_ref().map(retag);
+            seg.metadata.useable_stop_time = seg.metadata.useable_stop_time.as_ref().map(retag);
+            for sv in &mut seg.states {
+                sv.epoch = retag(&sv.epoch);
+            }
+            for cov in &mut seg.covariances {
+                cov.epoch = cov.epoch.as_ref().map(retag);
+            }
+        }
+        for format in formats {
+            assert_eq!(
+                retagged.to_string(format).unwrap(),
+                oem.to_string(format).unwrap(),
+                "OEM {:?} output depends on the epoch's own time system",
+                format
+            );
+        }
+
+        // OMM
+        let src = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
+        let mut omm = OMM::from_str(&src).unwrap();
+        // The fixture leaves these unset, so populate them: every epoch the
+        // writers can emit has to follow the declared system, not just the
+        // ones a stock message happens to carry.
+        omm.metadata.ref_frame_epoch = Some(omm.mean_elements.epoch);
+        omm.covariance = Some(CCSDSCovariance {
+            epoch: Some(omm.mean_elements.epoch),
+            cov_ref_frame: None,
+            matrix: SMatrix::<f64, 6, 6>::identity(),
+            comments: Vec::new(),
+        });
+        let omm = omm;
+        let mut retagged = omm.clone();
+        retagged.header.creation_date = retag(&retagged.header.creation_date);
+        retagged.mean_elements.epoch = retag(&retagged.mean_elements.epoch);
+        retagged.metadata.ref_frame_epoch = retagged.metadata.ref_frame_epoch.as_ref().map(retag);
+        if let Some(ref mut cov) = retagged.covariance {
+            cov.epoch = cov.epoch.as_ref().map(retag);
+        }
+        for format in formats {
+            assert_eq!(
+                retagged.to_string(format).unwrap(),
+                omm.to_string(format).unwrap(),
+                "OMM {:?} output depends on the epoch's own time system",
+                format
+            );
+        }
+
+        // OPM
+        let src = std::fs::read_to_string("test_assets/ccsds/opm/OPMExample2.txt").unwrap();
+        let mut opm = OPM::from_str(&src).unwrap();
+        assert!(!opm.maneuvers.is_empty(), "fixture has maneuvers");
+        opm.metadata.ref_frame_epoch = Some(opm.state_vector.epoch);
+        opm.covariance = Some(CCSDSCovariance {
+            epoch: Some(opm.state_vector.epoch),
+            cov_ref_frame: None,
+            matrix: SMatrix::<f64, 6, 6>::identity(),
+            comments: Vec::new(),
+        });
+        let opm = opm;
+        let mut retagged = opm.clone();
+        retagged.header.creation_date = retag(&retagged.header.creation_date);
+        retagged.state_vector.epoch = retag(&retagged.state_vector.epoch);
+        retagged.metadata.ref_frame_epoch = retagged.metadata.ref_frame_epoch.as_ref().map(retag);
+        if let Some(ref mut cov) = retagged.covariance {
+            cov.epoch = cov.epoch.as_ref().map(retag);
+        }
+        for man in &mut retagged.maneuvers {
+            man.epoch_ignition = retag(&man.epoch_ignition);
+        }
+        for format in formats {
+            assert_eq!(
+                retagged.to_string(format).unwrap(),
+                opm.to_string(format).unwrap(),
+                "OPM {:?} output depends on the epoch's own time system",
+                format
+            );
+        }
+
+        // CDM
+        let src = std::fs::read_to_string("test_assets/ccsds/cdm/CDMExample1.txt").unwrap();
+        let mut cdm = CDM::from_str(&src).unwrap();
+        cdm.relative_metadata.previous_message_epoch = Some(cdm.relative_metadata.tca);
+        cdm.relative_metadata.next_message_epoch = Some(cdm.relative_metadata.tca);
+        let cdm = cdm;
+        let mut retagged = cdm.clone();
+        retagged.header.creation_date = retag(&retagged.header.creation_date);
+        retagged.relative_metadata.tca = retag(&retagged.relative_metadata.tca);
+        retagged.relative_metadata.previous_message_epoch = retagged
+            .relative_metadata
+            .previous_message_epoch
+            .as_ref()
+            .map(retag);
+        retagged.relative_metadata.next_message_epoch = retagged
+            .relative_metadata
+            .next_message_epoch
+            .as_ref()
+            .map(retag);
+        for format in formats {
+            assert_eq!(
+                retagged.to_string(format).unwrap(),
+                cdm.to_string(format).unwrap(),
+                "CDM {:?} output depends on the epoch's own time system",
+                format
+            );
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_ref_frame_epoch_survives_a_non_utc_time_system() {
+        // Under a non-UTC TIME_SYSTEM the message has to come back declaring
+        // that same system, with every epoch on it. REF_FRAME_EPOCH precedes
+        // TIME_SYSTEM in the fixed keyword order and JSON object keys put
+        // START_TIME ahead of it, so a reader that resolves either eagerly
+        // falls back to UTC and shifts the instant by the scale offset.
+        let source = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+        let mut oem = OEM::from_str(&source).unwrap();
+        let segment = &mut oem.segments[0];
+        segment.metadata.ref_frame_epoch = Some(segment.metadata.start_time);
+        segment.metadata.time_system = CCSDSTimeSystem::TAI;
+        let expected = segment.metadata.ref_frame_epoch.unwrap();
+
+        let start = segment.metadata.start_time;
+
+        for format in [CCSDSFormat::KVN, CCSDSFormat::XML, CCSDSFormat::JSON] {
+            let reparsed = OEM::from_str(&oem.to_string(format).unwrap()).unwrap();
+
+            assert_eq!(
+                reparsed.segments[0].metadata.time_system,
+                CCSDSTimeSystem::TAI,
+                "{:?} did not round-trip the declared time system",
+                format
+            );
+
+            let got = reparsed.segments[0].metadata.ref_frame_epoch.unwrap();
+            assert!(
+                (got - expected).abs() < 1e-9,
+                "{:?} shifted REF_FRAME_EPOCH by {} s",
+                format,
+                got - expected
+            );
+
+            let got_start = reparsed.segments[0].metadata.start_time;
+            assert!(
+                (got_start - start).abs() < 1e-9,
+                "{:?} shifted START_TIME by {} s",
+                format,
+                got_start - start
+            );
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_write_oem_epochs_follow_the_declared_time_system() {
+        let src = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+        let mut oem = OEM::from_str(&src).unwrap();
+        assert_eq!(oem.segments[0].metadata.time_system, CCSDSTimeSystem::UTC);
+        assert!(
+            oem.to_string(CCSDSFormat::KVN)
+                .unwrap()
+                .contains("START_TIME = 1996-12-18T12:00:00.331")
+        );
+
+        // Redeclaring TIME_SYSTEM moves the written epochs onto that scale.
+        oem.segments[0].metadata.time_system = CCSDSTimeSystem::TAI;
+        assert!(
+            oem.to_string(CCSDSFormat::KVN)
+                .unwrap()
+                .contains("START_TIME = 1996-12-18T12:00:30.331")
+        );
     }
 }

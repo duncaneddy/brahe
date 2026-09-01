@@ -111,7 +111,7 @@ pub fn parse_oem(content: &str) -> Result<OEM, BraheError> {
     let mut meta_object_id: Option<String> = None;
     let mut meta_center_name: Option<String> = None;
     let mut meta_ref_frame: Option<CCSDSRefFrame> = None;
-    let mut meta_ref_frame_epoch: Option<Epoch> = None;
+    let mut meta_ref_frame_epoch: Option<String> = None;
     let mut meta_time_system: Option<CCSDSTimeSystem> = None;
     let mut meta_start_time: Option<Epoch> = None;
     let mut meta_useable_start_time: Option<Epoch> = None;
@@ -174,10 +174,7 @@ pub fn parse_oem(content: &str) -> Result<OEM, BraheError> {
                     "OBJECT_ID" => meta_object_id = Some(value),
                     "CENTER_NAME" => meta_center_name = Some(value),
                     "REF_FRAME" => meta_ref_frame = Some(CCSDSRefFrame::parse(&value)),
-                    "REF_FRAME_EPOCH" => {
-                        let ts = meta_time_system.as_ref().unwrap_or(&CCSDSTimeSystem::UTC);
-                        meta_ref_frame_epoch = Some(parse_ccsds_datetime(&value, ts)?);
-                    }
+                    "REF_FRAME_EPOCH" => meta_ref_frame_epoch = Some(value),
                     "TIME_SYSTEM" => {
                         let ts = CCSDSTimeSystem::parse(&value)?;
                         active_time_system = ts.clone();
@@ -223,7 +220,15 @@ pub fn parse_oem(content: &str) -> Result<OEM, BraheError> {
                             ref_frame: meta_ref_frame
                                 .take()
                                 .ok_or_else(|| ccsds_missing_field("OEM", "REF_FRAME"))?,
-                            ref_frame_epoch: meta_ref_frame_epoch.take(),
+                            ref_frame_epoch: meta_ref_frame_epoch
+                                .take()
+                                .map(|raw| {
+                                    parse_ccsds_datetime(
+                                        &raw,
+                                        meta_time_system.as_ref().unwrap_or(&CCSDSTimeSystem::UTC),
+                                    )
+                                })
+                                .transpose()?,
                             time_system: meta_time_system
                                 .take()
                                 .ok_or_else(|| ccsds_missing_field("OEM", "TIME_SYSTEM"))?,
@@ -475,7 +480,7 @@ pub fn parse_omm(content: &str) -> Result<OMM, BraheError> {
     let mut object_id: Option<String> = None;
     let mut center_name: Option<String> = None;
     let mut ref_frame: Option<CCSDSRefFrame> = None;
-    let mut ref_frame_epoch: Option<Epoch> = None;
+    let mut ref_frame_epoch: Option<String> = None;
     let mut time_system: Option<CCSDSTimeSystem> = None;
     let mut mean_element_theory: Option<String> = None;
 
@@ -567,10 +572,7 @@ pub fn parse_omm(content: &str) -> Result<OMM, BraheError> {
                     "REF_FRAME" => {
                         ref_frame = Some(CCSDSRefFrame::parse(val));
                     }
-                    "REF_FRAME_EPOCH" => {
-                        ref_frame_epoch =
-                            Some(parse_ccsds_datetime(val, &active_ts(&time_system))?);
-                    }
+                    "REF_FRAME_EPOCH" => ref_frame_epoch = Some(val.to_string()),
                     "TIME_SYSTEM" => {
                         time_system = Some(CCSDSTimeSystem::parse(val)?);
                     }
@@ -779,7 +781,9 @@ pub fn parse_omm(content: &str) -> Result<OMM, BraheError> {
         object_id: object_id.ok_or_else(|| ccsds_missing_field("OMM", "OBJECT_ID"))?,
         center_name: center_name.ok_or_else(|| ccsds_missing_field("OMM", "CENTER_NAME"))?,
         ref_frame: ref_frame.ok_or_else(|| ccsds_missing_field("OMM", "REF_FRAME"))?,
-        ref_frame_epoch,
+        ref_frame_epoch: ref_frame_epoch
+            .map(|raw| parse_ccsds_datetime(&raw, &active_ts(&time_system)))
+            .transpose()?,
         time_system: time_system.ok_or_else(|| ccsds_missing_field("OMM", "TIME_SYSTEM"))?,
         mean_element_theory: mean_element_theory
             .ok_or_else(|| ccsds_missing_field("OMM", "MEAN_ELEMENT_THEORY"))?,
@@ -900,7 +904,7 @@ pub fn parse_opm(content: &str) -> Result<OPM, BraheError> {
     let mut object_id: Option<String> = None;
     let mut center_name: Option<String> = None;
     let mut ref_frame: Option<CCSDSRefFrame> = None;
-    let mut ref_frame_epoch: Option<Epoch> = None;
+    let mut ref_frame_epoch: Option<String> = None;
     let mut time_system: Option<CCSDSTimeSystem> = None;
 
     // State vector
@@ -1016,10 +1020,7 @@ pub fn parse_opm(content: &str) -> Result<OPM, BraheError> {
                     "REF_FRAME" if ref_frame.is_none() => {
                         ref_frame = Some(CCSDSRefFrame::parse(val));
                     }
-                    "REF_FRAME_EPOCH" => {
-                        ref_frame_epoch =
-                            Some(parse_ccsds_datetime(val, &active_ts(&time_system))?);
-                    }
+                    "REF_FRAME_EPOCH" => ref_frame_epoch = Some(val.to_string()),
                     "TIME_SYSTEM" => {
                         time_system = Some(CCSDSTimeSystem::parse(val)?);
                     }
@@ -1333,7 +1334,9 @@ pub fn parse_opm(content: &str) -> Result<OPM, BraheError> {
             object_id: object_id.ok_or_else(|| ccsds_missing_field("OPM", "OBJECT_ID"))?,
             center_name: center_name.ok_or_else(|| ccsds_missing_field("OPM", "CENTER_NAME"))?,
             ref_frame: ref_frame.ok_or_else(|| ccsds_missing_field("OPM", "REF_FRAME"))?,
-            ref_frame_epoch,
+            ref_frame_epoch: ref_frame_epoch
+                .map(|raw| parse_ccsds_datetime(&raw, &active_ts(&time_system)))
+                .transpose()?,
             time_system: time_system.ok_or_else(|| ccsds_missing_field("OPM", "TIME_SYSTEM"))?,
             comments: metadata_comments,
         },

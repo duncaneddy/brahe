@@ -6,8 +6,7 @@
  * space kept separate from NAIF IDs: no self-assigned integers, no
  * ambiguity with NORAD/NAIF/asteroid numbering. Kernel data enters the
  * object space only through the explicit [`SPKStateProvider`] door
- * (`register_object_from_naif`) — there is no implicit path from a NAIF ID
- * to an object.
+ * (`register_object_from_naif`), never implicitly from a NAIF ID.
  *
  * The registry is a single global table (D2), matching the crate's other
  * process-wide providers (EOP, SPICE kernels, the frame registry):
@@ -49,6 +48,30 @@ static OBJECT_REGISTRY: Lazy<RwLock<HashMap<ObjectId, ObjectEntry>>> =
 /// Re-registering an existing `name` replaces its entry, matching the
 /// frame registry's register-or-replace precedent (updating an object with
 /// a fresher provider is a normal operation).
+///
+/// # CCSDS messages
+///
+/// A parsed OEM registers in one call:
+/// [`OEM::register_for`](crate::ccsds::oem::OEM::register_for) converts the
+/// ephemeris to a trajectory and registers it under a name, in the frame the
+/// OEM itself declares.
+///
+/// A provider whose native state is dynamically sized (a `DOrbitTrajectory`,
+/// or a propagator that appends further quantities to the state) is adapted
+/// on the way in: its leading six elements are read as the position and
+/// velocity, and the rest are ignored.
+///
+/// OMM and OPM carry elements rather than an ephemeris, so they reach the
+/// registry through a propagator: an OMM's mean elements build an
+/// [`SGPPropagator`](crate::propagators::SGPPropagator) with
+/// `SGPPropagator::from_gp_record` (or `from_omm_elements`), and an OPM's
+/// Cartesian state builds a
+/// [`KeplerianPropagator`](crate::propagators::KeplerianPropagator) with
+/// `KeplerianPropagator::from_eci`. Register a provider that reports the
+/// propagated state in the frame named here, for example an
+/// [`SStateProvider`] returning the propagator's `state_gcrf` alongside
+/// `CelestialFrame::GCRF`. A propagator whose native `state` is expressed in
+/// another frame (SGP4's is TEME) must not be registered as if it were GCRF.
 ///
 /// # Arguments
 /// * `name` - The object's identity (e.g. `"LRO"`, `"2024-123A"`)
@@ -172,27 +195,41 @@ pub(crate) fn object_state(
     Ok((entry.frame, state))
 }
 
-/// Adapts a dynamic-sized [`DStateProvider`] into [`SStateProvider`], for
-/// providers whose native state is a 6-dimensional `DVector` (e.g.
-/// `DOrbitTrajectory`) to register as objects.
-pub struct DStateAdapter {
+/// Adapts a dynamic-sized [`DStateProvider`] into [`SStateProvider`], so a
+/// provider whose native state is a `DVector` (e.g. `DOrbitTrajectory`, or a
+/// propagator carrying a state transition matrix alongside the state) can
+/// register as an object.
+///
+/// The first six elements are taken as the Cartesian position and velocity
+/// and any further elements are ignored, so a provider that appends extra
+/// quantities to the state adapts without repacking. A provider whose first
+/// six elements are something else (a Keplerian-element trajectory, say) is
+/// not a candidate for this adapter.
+///
+/// Internal machinery: the registration entry points that accept a dynamic
+/// provider apply it themselves, so callers never name it.
+pub(crate) struct DStateAdapter {
     provider: Box<dyn DStateProvider + Send + Sync>,
 }
 
 impl DStateAdapter {
-    /// Wraps `provider`, requiring its state dimension to be exactly 6.
+    /// Wraps `provider`, requiring its state dimension to be at least 6.
     ///
     /// # Arguments
     /// * `provider` - The dynamic-sized state provider to adapt
     ///
     /// # Returns
-    /// * `Ok(DStateAdapter)`: If `provider.state_dim() == 6`
-    /// * `Err(BraheError)`: If `provider.state_dim() != 6`
-    pub fn new(provider: impl DStateProvider + Send + Sync + 'static) -> Result<Self, BraheError> {
+    /// * `Ok(DStateAdapter)`: If `provider.state_dim() >= 6`
+    /// * `Err(BraheError)`: If `provider.state_dim() < 6`, which cannot carry
+    ///   a position and velocity
+    pub(crate) fn new(
+        provider: impl DStateProvider + Send + Sync + 'static,
+    ) -> Result<Self, BraheError> {
         let dim = provider.state_dim();
-        if dim != 6 {
+        if dim < 6 {
             return Err(BraheError::Error(format!(
-                "DStateAdapter requires a 6-dimensional state provider, got dimension {dim}"
+                "DStateAdapter requires a state provider of at least 6 dimensions \
+                 (position and velocity), got dimension {dim}"
             )));
         }
         Ok(Self {
@@ -204,13 +241,13 @@ impl DStateAdapter {
 impl SStateProvider for DStateAdapter {
     fn state(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         let state = self.provider.state(epoch)?;
-        if state.len() != 6 {
+        if state.len() < 6 {
             return Err(BraheError::Error(format!(
-                "DStateAdapter expected a 6-dimensional state, got dimension {}",
+                "DStateAdapter expected a state of at least 6 dimensions, got dimension {}",
                 state.len()
             )));
         }
-        Ok(Vector6::from_column_slice(state.as_slice()))
+        Ok(Vector6::from_column_slice(&state.as_slice()[..6]))
     }
 }
 
@@ -382,7 +419,7 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_dstate_adapter_rejects_lying_state_dim() {
+    fn test_dstate_adapter_rejects_short_returned_state() {
         use crate::utils::state_providers::DStateProvider;
         use nalgebra::DVector;
 
@@ -401,8 +438,37 @@ mod tests {
         let adapter = DStateAdapter::new(LyingProvider).unwrap();
         let epc = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
         let err = adapter.state(epc).err().unwrap().to_string();
-        assert!(err.contains('6'));
+        assert!(err.contains("at least 6"));
         assert!(err.contains('5'));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dstate_adapter_accepts_longer_state_and_uses_first_six() {
+        use crate::utils::state_providers::DStateProvider;
+        use nalgebra::DVector;
+
+        // A provider carrying extra elements past the position and velocity
+        // (e.g. a propagator appending a state transition matrix) adapts,
+        // with only the leading six elements read.
+        struct AugmentedProvider;
+        impl DStateProvider for AugmentedProvider {
+            fn state(&self, _epoch: Epoch) -> Result<DVector<f64>, BraheError> {
+                Ok(DVector::from_vec(vec![
+                    1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0,
+                ]))
+            }
+            fn state_dim(&self) -> usize {
+                8
+            }
+        }
+
+        let adapter = DStateAdapter::new(AugmentedProvider).unwrap();
+        let epc = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
+        assert_eq!(
+            adapter.state(epc).unwrap(),
+            Vector6::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0)
+        );
     }
 
     #[test]
@@ -422,7 +488,7 @@ mod tests {
         }
 
         let err = DStateAdapter::new(FourDProvider).err().unwrap().to_string();
-        assert!(err.contains("6-dimensional"));
+        assert!(err.contains("at least 6 dimensions"));
     }
 
     #[test]

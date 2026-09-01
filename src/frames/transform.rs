@@ -951,7 +951,7 @@ fn apply_position_frame_pair(c: &FramePairContext, x: &Vector3<f64>) -> Vector3<
 /// center and its sensor frames. Every link in a non-celestial frame's
 /// orientation chain must supply an angular velocity, since the velocity
 /// transport term is otherwise undefined; wrap a rotation-only provider with
-/// [`super::OrientationProviderExt::with_numerical_rates`] to derive one.
+/// [`super::OrientationProvider::with_numerical_rates`] to derive one.
 ///
 /// # Arguments
 /// - `from`: Source reference frame

@@ -5,7 +5,7 @@
  * This is the single table backing both [`register_frame`] (arbitrary
  * `Body` frames, e.g. spacecraft body/sensor chains) and
  * [`register_custom_frame`](super::register_custom_frame) (user-defined
- * `CelestialFrame::BodyFixedCustom` orientation models) — one registry, two
+ * `CelestialFrame::BodyFixedCustom` orientation models): one registry, two
  * doorways. Every entry carries the [`OrientationProvider`] supplying its
  * rotation relative to `parent`; `parent` is `None` only for `Custom`
  * entries, whose parent (ICRF axes) and center are implied by the
@@ -70,8 +70,8 @@ fn frame_key(frame: &ReferenceFrame) -> Option<FrameKey> {
 ///
 /// `frame` must be a bound `Body` frame (e.g. `ReferenceFrame::SC_BODY("SC")`,
 /// `ReferenceFrame::CSS("SC", "1")`); `parent` must resolve to a celestial root by
-/// walking the registry — either `parent` is itself `ReferenceFrame::Celestial`, or
-/// it is a bound `Body` frame that is already registered and whose own
+/// walking the registry: either `parent` is itself `ReferenceFrame::Celestial`,
+/// or it is a bound `Body` frame that is already registered and whose own
 /// parent chain terminates at one. Re-registering an existing `frame`
 /// replaces its entry; the new parent chain is revalidated, so replacing a
 /// frame with a parent that would cycle back through `frame` itself is

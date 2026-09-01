@@ -4,7 +4,7 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use brahe::frames::{CallbackOrientation, CelestialFrame, ReferenceFrame, OrientationProviderExt};
+use brahe::frames::{CallbackOrientation, CelestialFrame, OrientationProvider, ReferenceFrame};
 use brahe::math::SMatrix3;
 use brahe::time::{Epoch, TimeSystem};
 use brahe::utils::BraheError;
@@ -62,7 +62,9 @@ fn main() {
     bh::register_frame(
         ReferenceFrame::SC_BODY("SC"),
         CelestialFrame::GCRF.into(),
-        CallbackOrientation::new(rotation, None).with_numerical_rates(1.0),
+        CallbackOrientation::new(rotation, None)
+            .with_numerical_rates(1.0)
+            .unwrap(),
     )
     .unwrap();
     let x_body =

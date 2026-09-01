@@ -11,7 +11,7 @@
  *
  * When no angular-velocity callback is provided, the frame's angular
  * velocity is derived numerically from the rotation callback by central
- * differencing, via [`OrientationProviderExt::with_numerical_rates`], so a
+ * differencing, via [`OrientationProvider::with_numerical_rates`], so a
  * rotation-only model still produces full state (position + velocity)
  * transforms.
  *
@@ -27,9 +27,7 @@ use std::sync::Arc;
 
 use nalgebra::Vector3;
 
-use crate::frames::orientation::{
-    CallbackOrientation, OrientationProvider, OrientationProviderExt,
-};
+use crate::frames::orientation::{CallbackOrientation, OrientationProvider};
 use crate::frames::registry::{FRAME_REGISTRY, FrameEntry, FrameKey};
 use crate::math::SMatrix3;
 use crate::time::Epoch;
@@ -85,7 +83,11 @@ where
 {
     let provider: Arc<dyn OrientationProvider> = match omega {
         Some(omega) => Arc::new(CallbackOrientation::new(rotation, Some(omega))),
-        None => Arc::new(CallbackOrientation::new(rotation, None).with_numerical_rates(2.0)),
+        None => Arc::new(
+            CallbackOrientation::new(rotation, None)
+                .with_numerical_rates(2.0)
+                .expect("2.0 s is a positive, finite central-difference step"),
+        ),
     };
     FRAME_REGISTRY.write().unwrap().insert(
         FrameKey::Custom(key),

@@ -18,8 +18,8 @@
  * two roots, pre- and post-multiplied by the two chains.
  *
  * Position and state transforms add a translation: each endpoint also has an
- * [`Origin`] — a celestial center for a `Celestial` frame, and the bound
- * object for an `OrbitRelative` or `Body` frame. The two origins are
+ * [`Origin`], which is a celestial center for a `Celestial` frame and the
+ * bound object for an `OrbitRelative` or `Body` frame. The two origins are
  * differenced in ICRF axes by [`origin_offset_state`], between the two
  * chains' de-rotation and re-rotation steps.
  */
@@ -29,7 +29,8 @@ use nalgebra::Vector3;
 use crate::frames::object_registry::object_state;
 use crate::frames::registry::{FrameKey, frame_entry};
 use crate::frames::{
-    BodyFrame, CelestialFrame, ObjectId, OrbitRelativeKind, OrbitRelativeVariant, ReferenceFrame,
+    BodyFrame, CelestialFrame, ObjectId, OrbitRelativeFrameKind, OrbitRelativeFrameVariant,
+    ReferenceFrame,
 };
 use crate::math::{SMatrix3, SVector6};
 use crate::relative_motion::{omega_rtn, rotation_eci_to_rtn};
@@ -141,9 +142,9 @@ pub(crate) fn resolve_position(
 /// Follows [`resolve_position`]'s pipeline with the velocity transport
 /// terms restored: the state is de-rotated out of `from`'s axes
 /// (`p_root = Rᵀ p`, `v_root = Rᵀ (v + ω × p)`), carried into ICRF axes
-/// through the celestial state machinery — which handles the celestial
-/// frames' own rotation rates exactly — re-centered by
-/// [`origin_offset_state`], and rotated into `to`'s axes (`p = R p_root`,
+/// through the celestial state machinery, which handles the celestial
+/// frames' own rotation rates exactly, then re-centered by
+/// [`origin_offset_state`] and rotated into `to`'s axes (`p = R p_root`,
 /// `v = R v_root − ω × p`).
 ///
 /// # Arguments
@@ -245,8 +246,8 @@ fn chain_rate(frame: &ReferenceFrame, resolved: &Resolved) -> Result<Vector3<f64
 ///
 /// # Returns
 /// - `Ok(Resolved)`: The celestial root, the `root` -> `frame` rotation
-///   matrix, and — when `need_rate` is `true` — the frame's angular
-///   velocity relative to `root` (*rad/s*) if every link supplies one
+///   matrix, and (when `need_rate` is `true`) the frame's angular velocity
+///   relative to `root` (*rad/s*) if every link supplies one
 /// - `Err(BraheError)`: If `frame` is unbound, is missing a registered
 ///   link, or cannot be evaluated at `epc`
 pub(crate) fn resolve_orientation(
@@ -297,6 +298,13 @@ fn unbound_frame_error(frame: &ReferenceFrame) -> BraheError {
 /// Walks a bound `Body` frame's registered parent links up to a celestial
 /// root, composing each link's rotation and angular velocity.
 ///
+/// Rotations compose by matrix product, and rates compose by the angular
+/// velocity addition theorem, `ω_{C/A} = ω_{C/B} + R_{B→C} ω_{B/A}` in the
+/// resolved frame's axes (Markley & Crassidis, *Fundamentals of Spacecraft
+/// Attitude Determination and Control*, Springer, 2014, attitude kinematics;
+/// Schaub & Junkins, *Analytical Mechanics of Space Systems*, 4th ed., AIAA,
+/// 2018, rigid body kinematics).
+///
 /// # Arguments
 /// - `frame`: The bound `Body` frame being resolved (named in errors)
 /// - `object`: The object `frame` is bound to
@@ -337,10 +345,18 @@ fn resolve_body(
                 .angular_velocity(epc)
                 .map_err(|e| provider_error(&link, e))?;
 
-            // The contribution of this link is expressed in the frame being
-            // resolved, so it is rotated by the product accumulated so far
-            // (which maps this link's axes into the resolved frame's axes)
-            // before the product absorbs the link itself.
+            // Angular velocity addition theorem: for a parent frame A, this
+            // link B, and the frame being resolved C,
+            // omega_{C/A} = omega_{C/B} + omega_{B/A}. Expressing every term
+            // in C's axes turns the second term into R_{B->C} omega_{B/A},
+            // and R_{B->C} is exactly the product accumulated so far, which
+            // maps this link's axes into the resolved frame's axes. The
+            // link's contribution is therefore rotated by that product before
+            // the product absorbs the link itself. See Markley, F. L. and
+            // Crassidis, J. L., "Fundamentals of Spacecraft Attitude
+            // Determination and Control", Springer, 2014, attitude kinematics;
+            // and Schaub, H. and Junkins, J. L., "Analytical Mechanics of
+            // Space Systems", 4th ed., AIAA, 2018, rigid body kinematics.
             if omega_link.is_none() && rateless_link.is_none() {
                 rateless_link = Some(link.clone());
             }
@@ -427,17 +443,17 @@ fn provider_error(frame: &ReferenceFrame, err: BraheError) -> BraheError {
 ///
 /// # Returns
 /// - `Ok(Resolved)`: The inertial root, the `root` -> frame rotation, and
-///   the frame's angular velocity relative to `root` (*rad/s*) — the
-///   orbital rate for the rotating variant, zero for the inertial snapshot
+///   the frame's angular velocity relative to `root` (*rad/s*): the orbital
+///   rate for the rotating variant, zero for the inertial snapshot
 /// - `Err(BraheError)`: If `kind` has no axes derivation, `object` is not
 ///   registered, or its state cannot be evaluated at `epc`
 fn resolve_orbit_relative(
-    kind: OrbitRelativeKind,
-    variant: OrbitRelativeVariant,
+    kind: OrbitRelativeFrameKind,
+    variant: OrbitRelativeFrameVariant,
     object: &ObjectId,
     epc: Epoch,
 ) -> Result<Resolved, BraheError> {
-    if kind != OrbitRelativeKind::RTN {
+    if kind != OrbitRelativeFrameKind::RTN {
         return Err(BraheError::Error(format!(
             "orbit-relative kind {kind} does not yet have an axes derivation (tracked in \
              issue #452); RTN is supported"
@@ -452,8 +468,8 @@ fn resolve_orbit_relative(
         root,
         dcm: rotation_eci_to_rtn(x_root),
         omega: Some(match variant {
-            OrbitRelativeVariant::Rotating => omega_rtn(x_root),
-            OrbitRelativeVariant::Inertial => Vector3::zeros(),
+            OrbitRelativeFrameVariant::Rotating => omega_rtn(x_root),
+            OrbitRelativeFrameVariant::Inertial => Vector3::zeros(),
         }),
         rateless_link: None,
     })
@@ -462,7 +478,10 @@ fn resolve_orbit_relative(
 /// The ICRF-aligned inertial frame sharing `frame`'s center.
 ///
 /// Returns `frame` itself when it is already ICRF-aligned, so a state
-/// declared in such a frame is used without conversion.
+/// declared in such a frame is used without conversion. `EME2000` is
+/// Earth-centered but carries the J2000 frame bias rather than ICRF axes, so
+/// it maps to `GCRF`: the bias rotation is then applied by the celestial
+/// router, exactly as for any other Earth-centered non-ICRF frame.
 ///
 /// # Arguments
 /// - `frame`: The celestial frame whose center to match
@@ -477,6 +496,7 @@ fn icrf_aligned_inertial(frame: CelestialFrame) -> CelestialFrame {
         | CelestialFrame::EMBI
         | CelestialFrame::SSBI
         | CelestialFrame::BodyCenteredICRF(_) => frame,
+        CelestialFrame::EME2000 => CelestialFrame::GCRF,
         other => {
             let center = other.center_naif_id();
             if center == NAIFId::Earth.id() {
@@ -617,9 +637,8 @@ mod tests {
     use crate::frames::object_registry::FnProvider;
     use crate::frames::registry::{FRAME_REGISTRY, FrameEntry};
     use crate::frames::{
-        CallbackOrientation, OrientationProvider, OrientationProviderExt, clear_frame_registry,
-        clear_object_registry, position_frame_to_frame, register_frame, register_object,
-        rotation_frame_to_frame,
+        CallbackOrientation, OrientationProvider, clear_frame_registry, clear_object_registry,
+        position_frame_to_frame, register_frame, register_object, rotation_frame_to_frame,
     };
     use crate::math::SVector6;
     use crate::orbit_dynamics::ephemerides::sun_position;
@@ -662,12 +681,54 @@ mod tests {
             )),
             CelestialFrame::SSBI
         );
+        // Earth-centered but J2000-biased rather than ICRF-aligned.
+        assert_eq!(
+            icrf_aligned_inertial(CelestialFrame::EME2000),
+            CelestialFrame::GCRF
+        );
         // Any other center falls back to a generic ICRF-aligned frame at
         // that center.
         assert_eq!(
             icrf_aligned_inertial(CelestialFrame::BodyFixedIAU(-20001)),
             CelestialFrame::BodyCenteredICRF(-20001)
         );
+    }
+
+    #[test]
+    #[serial]
+    fn test_rtn_eme2000_declared_object_matches_gcrf_declared() {
+        setup_global_test_eop();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
+        let x_gcrf = state_koe_to_eci(oe, AngleFormat::Degrees);
+        let x_eme =
+            state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::EME2000, epc, x_gcrf)
+                .unwrap();
+
+        // Declared in EME2000: the J2000 frame bias is removed before the RTN
+        // axes are built, so the root is GCRF and the axes match the
+        // GCRF-declared object's.
+        register_object("A", FnProvider(move |_| Ok(x_eme)), CelestialFrame::EME2000).unwrap();
+        let from_eme = resolve_orientation(&ReferenceFrame::RTN("A"), epc, true).unwrap();
+        assert_eq!(from_eme.root, CelestialFrame::GCRF);
+        assert_abs_diff_eq!(from_eme.dcm, rotation_eci_to_rtn(x_gcrf), epsilon = 1e-12);
+
+        // Routing a GCRF state into the EME2000-declared object's RTN frame
+        // gives the same answer as declaring the object in GCRF directly.
+        let x_b = state_koe_to_eci(
+            SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.2),
+            AngleFormat::Degrees,
+        );
+        let via_eme =
+            state_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::RTN("A"), epc, x_b).unwrap();
+
+        clear_object_registry();
+        register_object("A", FnProvider(move |_| Ok(x_gcrf)), CelestialFrame::GCRF).unwrap();
+        let via_gcrf =
+            state_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::RTN("A"), epc, x_b).unwrap();
+        assert_abs_diff_eq!(via_eme, via_gcrf, epsilon = 1e-6);
+        clear_object_registry();
     }
 
     #[test]
@@ -932,8 +993,8 @@ mod tests {
         assert_abs_diff_eq!(rotating.omega.unwrap(), omega_rtn(x), epsilon = 1e-15);
 
         let inertial = ReferenceFrame::orbit_relative(
-            OrbitRelativeKind::RTN,
-            OrbitRelativeVariant::Inertial,
+            OrbitRelativeFrameKind::RTN,
+            OrbitRelativeFrameVariant::Inertial,
             Some("A".into()),
         )
         .unwrap();
@@ -977,8 +1038,8 @@ mod tests {
         assert!(err.contains("RTN is supported"));
 
         let unbound = ReferenceFrame::orbit_relative(
-            OrbitRelativeKind::RTN,
-            OrbitRelativeVariant::Rotating,
+            OrbitRelativeFrameKind::RTN,
+            OrbitRelativeFrameVariant::Rotating,
             None,
         )
         .unwrap();
@@ -1224,7 +1285,8 @@ mod tests {
             },
             None,
         )
-        .with_numerical_rates(0.1);
+        .with_numerical_rates(0.1)
+        .unwrap();
         register_frame(
             ReferenceFrame::SC_BODY("SC"),
             CelestialFrame::GCRF.into(),
@@ -1261,6 +1323,80 @@ mod tests {
             x_body.fixed_rows::<3>(3).into_owned(),
             v_numerical,
             epsilon = 1e-6
+        );
+        clear_frame_registry();
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_two_link_chain_velocity_matches_finite_difference() {
+        clear_frame_registry();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let t0 = epc - 10.0;
+        // Two time-varying links about different axes, so the composed rate
+        // exercises the angular velocity addition theorem rather than a
+        // single link's rate.
+        let rate_body = 1.0e-3;
+        let rate_css = 7.0e-4;
+        let spin_z = move |e: Epoch| {
+            let dt: f64 = e - t0;
+            let (s, c) = (rate_body * dt).sin_cos();
+            Ok(SMatrix3::new(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0))
+        };
+        let spin_x = move |e: Epoch| {
+            let dt: f64 = e - t0;
+            let (s, c) = (rate_css * dt).sin_cos();
+            Ok(SMatrix3::new(1.0, 0.0, 0.0, 0.0, c, s, 0.0, -s, c))
+        };
+        register_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            CelestialFrame::GCRF.into(),
+            CallbackOrientation::new(spin_z, None)
+                .with_numerical_rates(0.1)
+                .unwrap(),
+        )
+        .unwrap();
+        register_frame(
+            ReferenceFrame::CSS("SC", "1"),
+            ReferenceFrame::SC_BODY("SC"),
+            CallbackOrientation::new(spin_x, None)
+                .with_numerical_rates(0.1)
+                .unwrap(),
+        )
+        .unwrap();
+        register_object(
+            "SC",
+            FnProvider(move |_| Ok(SVector6::zeros())),
+            CelestialFrame::GCRF,
+        )
+        .unwrap();
+
+        // A target held fixed in GCRF sweeps through the two-link chain purely
+        // by the transport term, so the sensor-frame velocity must match a
+        // central difference of the sensor-frame position.
+        let p_gcrf = Vector3::new(9.0e3, -4.0e3, 2.0e3);
+        let x_gcrf = SVector6::new(p_gcrf[0], p_gcrf[1], p_gcrf[2], 0.0, 0.0, 0.0);
+        let css = ReferenceFrame::CSS("SC", "1");
+        let x_css = state_frame_to_frame(CelestialFrame::GCRF, css.clone(), epc, x_gcrf).unwrap();
+
+        let delta = 0.5;
+        let p_plus =
+            position_frame_to_frame(CelestialFrame::GCRF, css.clone(), epc + delta, p_gcrf)
+                .unwrap();
+        let p_minus =
+            position_frame_to_frame(CelestialFrame::GCRF, css, epc - delta, p_gcrf).unwrap();
+        let v_numerical = (p_plus - p_minus) / (2.0 * delta);
+
+        // The tolerance is set by the central difference's own truncation
+        // error, ~(delta^2/6) * |omega|^3 * |p| with |omega| bounded by the
+        // sum of the two link rates, which is ~2.1e-6 m/s here, taken with a
+        // ~3x margin.
+        assert_abs_diff_eq!(
+            x_css.fixed_rows::<3>(3).into_owned(),
+            v_numerical,
+            epsilon = 6.0e-6
         );
         clear_frame_registry();
         clear_object_registry();
@@ -1341,8 +1477,8 @@ mod tests {
         assert!(err.contains("not bound to an object"));
 
         let unbound = ReferenceFrame::orbit_relative(
-            OrbitRelativeKind::RTN,
-            OrbitRelativeVariant::Rotating,
+            OrbitRelativeFrameKind::RTN,
+            OrbitRelativeFrameVariant::Rotating,
             None,
         )
         .unwrap();

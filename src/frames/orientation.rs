@@ -12,15 +12,17 @@
  * so a constant attitude can be registered with no wrapper struct.
  * [`CallbackOrientation`] adapts a pair of closures (rotation, and
  * optionally angular velocity) into a provider. [`NumericalRates`] (built
- * via [`OrientationProviderExt::with_numerical_rates`]) wraps any provider
+ * via [`OrientationProvider::with_numerical_rates`]) wraps any provider
  * that carries no angular-velocity data and derives it by central
- * differencing the DCM, by explicit opt-in only — matching the crate's
+ * differencing the DCM, by explicit opt-in only, matching the crate's
  * existing precedent in `register_custom_frame`.
  */
 
 use nalgebra::Vector3;
 
-use crate::attitude::{EulerAngle, EulerAxis, Quaternion, RotationMatrix, ToAttitude};
+use crate::attitude::{
+    EulerAngle, EulerAngleOrder, EulerAxis, Quaternion, RotationMatrix, ToAttitude,
+};
 use crate::math::SMatrix3;
 use crate::time::Epoch;
 use crate::utils::BraheError;
@@ -96,6 +98,66 @@ pub trait OrientationProvider: Send + Sync {
     fn rotation_matrix(&self, epoch: Epoch) -> Result<RotationMatrix, BraheError> {
         Ok(self.quaternion(epoch)?.to_rotation_matrix())
     }
+
+    /// Euler angles of the parent→frame rotation at `epoch`, in `order`.
+    /// Default implementation converts [`Self::quaternion`].
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch to evaluate the orientation at
+    /// * `order` - The Euler angle rotation sequence
+    ///
+    /// # Returns
+    /// `Result<EulerAngle, BraheError>`: The A→B passive attitude as Euler
+    /// angles, or an error if `epoch` cannot be evaluated
+    fn euler_angle(&self, epoch: Epoch, order: EulerAngleOrder) -> Result<EulerAngle, BraheError> {
+        Ok(self.quaternion(epoch)?.to_euler_angle(order))
+    }
+
+    /// Euler axis and angle of the parent→frame rotation at `epoch`.
+    /// Default implementation converts [`Self::quaternion`].
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch to evaluate the orientation at
+    ///
+    /// # Returns
+    /// `Result<EulerAxis, BraheError>`: The A→B passive attitude as an Euler
+    /// axis and angle, or an error if `epoch` cannot be evaluated
+    fn euler_axis(&self, epoch: Epoch) -> Result<EulerAxis, BraheError> {
+        Ok(self.quaternion(epoch)?.to_euler_axis())
+    }
+
+    /// Wraps this provider so that a missing angular velocity (`Ok(None)`)
+    /// is derived numerically by central differencing the rotation matrix,
+    /// evaluated over `±step/2`.
+    ///
+    /// A provider that already reports rates keeps them: the wrapper only
+    /// fills the gap left by a rotation-only provider.
+    ///
+    /// # Arguments
+    /// * `step` - Central-difference step, which must be positive and
+    ///   finite. Units: (s)
+    ///
+    /// # Returns
+    /// * `Ok(NumericalRates<Self>)`: The wrapped provider
+    /// * `Err(BraheError)`: If `step` is not positive and finite
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::frames::{CallbackOrientation, OrientationProvider};
+    /// use brahe::math::SMatrix3;
+    /// use brahe::time::Epoch;
+    ///
+    /// let provider = CallbackOrientation::new(|_epc: Epoch| Ok(SMatrix3::identity()), None)
+    ///     .with_numerical_rates(1.0)
+    ///     .unwrap();
+    /// ```
+    fn with_numerical_rates(self, step: f64) -> Result<NumericalRates<Self>, BraheError>
+    where
+        Self: Sized,
+    {
+        NumericalRates::new(self, step)
+    }
 }
 
 /// Implements [`OrientationProvider`] for a constant [`ToAttitude`] type:
@@ -147,7 +209,7 @@ type OmegaCallback = dyn Fn(Epoch) -> Result<Vector3<f64>, BraheError> + Send + 
 /// The rotation callback returns the parent→frame DCM directly; a missing
 /// angular-velocity callback makes [`OrientationProvider::angular_velocity`]
 /// return `Ok(None)` rather than an error, per [`OrientationProvider`]'s
-/// contract. Pair with [`OrientationProviderExt::with_numerical_rates`] to
+/// contract. Pair with [`OrientationProvider::with_numerical_rates`] to
 /// derive rates numerically when no callback is available.
 ///
 /// # Examples
@@ -228,7 +290,7 @@ impl OrientationProvider for CallbackOrientation {
 /// Wraps an [`OrientationProvider`] that carries no angular-velocity data
 /// and derives it by central differencing the provider's rotation matrix.
 ///
-/// Constructed via [`OrientationProviderExt::with_numerical_rates`]. When
+/// Constructed via [`OrientationProvider::with_numerical_rates`]. When
 /// the inner provider's [`OrientationProvider::angular_velocity`] returns
 /// `Ok(Some(_))`, that value passes through unchanged; otherwise the rate is
 /// derived from `[ω]× = -Ṙ Rᵀ`, with `Ṙ ≈ (R(t+h/2) − R(t−h/2))/h` for step
@@ -238,7 +300,7 @@ impl OrientationProvider for CallbackOrientation {
 /// # Examples
 ///
 /// ```rust
-/// use brahe::frames::{CallbackOrientation, OrientationProvider, OrientationProviderExt};
+/// use brahe::frames::{CallbackOrientation, OrientationProvider};
 /// use brahe::math::SMatrix3;
 /// use brahe::time::{Epoch, TimeSystem};
 ///
@@ -251,7 +313,8 @@ impl OrientationProvider for CallbackOrientation {
 ///     },
 ///     None,
 /// )
-/// .with_numerical_rates(1.0);
+/// .with_numerical_rates(1.0)
+/// .unwrap();
 ///
 /// let w = provider.angular_velocity(t0 + 3600.0).unwrap().unwrap();
 /// assert!((w.z - 0.001).abs() < 1e-9);
@@ -259,6 +322,44 @@ impl OrientationProvider for CallbackOrientation {
 pub struct NumericalRates<P: OrientationProvider> {
     inner: P,
     step: f64,
+}
+
+impl<P: OrientationProvider> NumericalRates<P> {
+    /// Wraps `inner`, validating the central-difference step.
+    ///
+    /// The single validation point behind
+    /// [`OrientationProvider::with_numerical_rates`]: a non-positive or
+    /// non-finite step would make the difference quotient meaningless, so it
+    /// is rejected at construction rather than producing a `NaN` rate at
+    /// query time.
+    ///
+    /// # Arguments
+    /// * `inner` - The provider whose missing rates are to be derived
+    /// * `step` - Central-difference step, which must be positive and
+    ///   finite. Units: (s)
+    ///
+    /// # Returns
+    /// * `Ok(NumericalRates<P>)`: The wrapped provider
+    /// * `Err(BraheError)`: If `step` is zero, negative, `NaN`, or infinite
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::attitude::Quaternion;
+    /// use brahe::frames::NumericalRates;
+    ///
+    /// let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
+    /// assert!(NumericalRates::new(q, 1.0).is_ok());
+    /// assert!(NumericalRates::new(q, 0.0).is_err());
+    /// ```
+    pub fn new(inner: P, step: f64) -> Result<Self, BraheError> {
+        if !(step.is_finite() && step > 0.0) {
+            return Err(BraheError::Error(format!(
+                "numerical rate step must be a positive, finite number of seconds, got {step}"
+            )));
+        }
+        Ok(Self { inner, step })
+    }
 }
 
 impl<P: OrientationProvider> OrientationProvider for NumericalRates<P> {
@@ -277,8 +378,14 @@ impl<P: OrientationProvider> OrientationProvider for NumericalRates<P> {
         let r_minus = self.inner.rotation_matrix(epoch - half_step)?.to_matrix();
         let r_dot = (r_plus - r_minus) / self.step;
 
-        // [omega]× = -Ṙ Rᵀ for r_frame = R r_parent; extract the vector
-        // from the skew-symmetric part.
+        // For the passive parent->frame DCM `r_frame = R r_parent`, Poisson's
+        // kinematic equation reads Ṙ = -[omega]× R, so [omega]× = -Ṙ Rᵀ.
+        // Differentiating R Rᵀ = I confirms that -Ṙ Rᵀ is skew-symmetric, so
+        // the angular velocity is recovered from its off-diagonal entries.
+        // See Markley, F. L. and Crassidis, J. L., "Fundamentals of Spacecraft
+        // Attitude Determination and Control", Springer, 2014, attitude
+        // kinematics; and Schaub, H. and Junkins, J. L., "Analytical Mechanics
+        // of Space Systems", 4th ed., AIAA, 2018, rigid body kinematics.
         let s = -r_dot * r.transpose();
         Ok(Some(Vector3::new(
             0.5 * (s[(2, 1)] - s[(1, 2)]),
@@ -298,36 +405,6 @@ impl<P: OrientationProvider> OrientationProvider for NumericalRates<P> {
         self.inner.rotation_matrix(epoch)
     }
 }
-
-/// Extension trait adding [`Self::with_numerical_rates`] to every
-/// [`OrientationProvider`].
-pub trait OrientationProviderExt: OrientationProvider + Sized {
-    /// Wraps this provider so that a missing angular velocity
-    /// (`Ok(None)`) is derived numerically by central differencing the
-    /// rotation matrix, evaluated over `±step/2`.
-    ///
-    /// # Arguments
-    /// * `step` - Central-difference step. Units: (s)
-    ///
-    /// # Returns
-    /// `NumericalRates<Self>`: The wrapped provider
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use brahe::frames::{CallbackOrientation, OrientationProviderExt};
-    /// use brahe::math::SMatrix3;
-    /// use brahe::time::Epoch;
-    ///
-    /// let provider = CallbackOrientation::new(|_epc: Epoch| Ok(SMatrix3::identity()), None)
-    ///     .with_numerical_rates(1.0);
-    /// ```
-    fn with_numerical_rates(self, step: f64) -> NumericalRates<Self> {
-        NumericalRates { inner: self, step }
-    }
-}
-
-impl<P: OrientationProvider> OrientationProviderExt for P {}
 
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
@@ -393,7 +470,7 @@ mod tests {
         );
         let epc = t0 + 3600.0;
         assert_eq!(p.angular_velocity(epc).unwrap(), None);
-        let wrapped = p.with_numerical_rates(1.0);
+        let wrapped = p.with_numerical_rates(1.0).unwrap();
         let w = wrapped.angular_velocity(epc).unwrap().unwrap();
         assert_abs_diff_eq!(w, Vector3::new(0.0, 0.0, rate), epsilon = 1e-9);
     }
@@ -412,7 +489,8 @@ mod tests {
             },
             None,
         )
-        .with_numerical_rates(1.0);
+        .with_numerical_rates(1.0)
+        .unwrap();
         let w = p.angular_velocity(t0 + 1800.0).unwrap().unwrap();
         assert_abs_diff_eq!(w, axis * rate, epsilon = 1e-9);
     }
@@ -439,7 +517,8 @@ mod tests {
             },
             None,
         )
-        .with_numerical_rates(1.0);
+        .with_numerical_rates(1.0)
+        .unwrap();
 
         let epc = t0 + 1800.0;
         let alpha: f64 = omega1 * (epc - t0);
@@ -489,7 +568,8 @@ mod tests {
             },
             None,
         )
-        .with_numerical_rates(1.0);
+        .with_numerical_rates(1.0)
+        .unwrap();
 
         let epc = t0 + 1800.0;
         assert_eq!(
@@ -524,7 +604,9 @@ mod tests {
     fn test_numerical_rates_coverage_contracts_by_half_step() {
         let start = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
         let end = start + 86400.0;
-        let p = BoundedProvider { start, end }.with_numerical_rates(2.0);
+        let p = BoundedProvider { start, end }
+            .with_numerical_rates(2.0)
+            .unwrap();
         let (c_start, c_end) = p.coverage().unwrap();
         assert_abs_diff_eq!(c_start - start, 1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(c_end - end, -1.0, epsilon = 1e-12);
@@ -540,8 +622,66 @@ mod tests {
             |_epc: Epoch| Ok(SMatrix3::identity()),
             Some(Box::new(move |_epc: Epoch| Ok(rate))),
         )
-        .with_numerical_rates(1.0);
+        .with_numerical_rates(1.0)
+        .unwrap();
         let epc = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
         assert_eq!(p.angular_velocity(epc).unwrap(), Some(rate));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_with_numerical_rates_rejects_invalid_step() {
+        // A step that is not positive and finite makes the central-difference
+        // quotient meaningless, so it is rejected at construction.
+        for step in [0.0, -1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let p = CallbackOrientation::new(|_epc: Epoch| Ok(SMatrix3::identity()), None);
+            let err = p.with_numerical_rates(step).err().unwrap().to_string();
+            assert!(err.contains("positive, finite"));
+        }
+        // The same validation backs NumericalRates::new directly.
+        let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
+        assert!(NumericalRates::new(q, 0.0).is_err());
+        assert!(NumericalRates::new(q, 1.0).is_ok());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_orientation_provider_euler_defaults_match_quaternion() {
+        // euler_angle and euler_axis default to converting the provider's
+        // quaternion, so they agree with the direct attitude conversions.
+        let t0 = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
+        let rate = 0.001;
+        let p = CallbackOrientation::new(
+            move |epc: Epoch| {
+                let theta = rate * (epc - t0);
+                let (s, c) = theta.sin_cos();
+                Ok(SMatrix3::new(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0))
+            },
+            None,
+        );
+        let epc = t0 + 3600.0;
+        let q = p.quaternion(epc).unwrap();
+
+        let ea = p.euler_angle(epc, EulerAngleOrder::XYZ).unwrap();
+        let expected_ea = q.to_euler_angle(EulerAngleOrder::XYZ);
+        assert_abs_diff_eq!(ea.phi, expected_ea.phi, epsilon = 1e-15);
+        assert_abs_diff_eq!(ea.theta, expected_ea.theta, epsilon = 1e-15);
+        assert_abs_diff_eq!(ea.psi, expected_ea.psi, epsilon = 1e-15);
+
+        let ex = p.euler_axis(epc).unwrap();
+        let expected_ex = q.to_euler_axis();
+        assert_abs_diff_eq!(ex.angle, expected_ex.angle, epsilon = 1e-15);
+        assert_abs_diff_eq!(ex.axis, expected_ex.axis, epsilon = 1e-15);
+
+        // The constant-attitude implementations share the same defaults.
+        let axis = Vector3::new(1.0, 2.0, 3.0).normalize();
+        let constant = EulerAxis::new(axis, 37.0, AngleFormat::Degrees);
+        let from_provider = constant.euler_axis(epc).unwrap();
+        assert_abs_diff_eq!(from_provider.axis, axis, epsilon = 1e-14);
+        assert_abs_diff_eq!(
+            from_provider.angle,
+            constant.to_euler_axis().angle,
+            epsilon = 1e-14
+        );
     }
 }

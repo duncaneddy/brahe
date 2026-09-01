@@ -4,18 +4,18 @@
  * [`ReferenceFrame`] is the top-level frame identity used throughout `brahe`. It
  * covers three kinds of frame:
  *
- * 1. **Celestial** ([`ReferenceFrame::Celestial`]) — a frame the frames router can
+ * 1. **Celestial** ([`ReferenceFrame::Celestial`]): a frame the frames router can
  *    evaluate analytically from an epoch alone ([`CelestialFrame`]).
- * 2. **Orbit-relative** ([`ReferenceFrame::OrbitRelative`]) — a local orbital frame
+ * 2. **Orbit-relative** ([`ReferenceFrame::OrbitRelative`]): a local orbital frame
  *    (RTN, LVLH, ...) of a specific object, rotating with the orbit or
  *    frozen as an inertial snapshot.
- * 3. **Body** ([`ReferenceFrame::Body`]) — an object-local frame (spacecraft body,
+ * 3. **Body** ([`ReferenceFrame::Body`]): an object-local frame (spacecraft body,
  *    sensor, actuator, ...) that has no global transformation.
  *
  * Orbit-relative and body frames carry an `object: Option<`[`ObjectId`]`>`.
- * `None` is a pure label — what a data file can express before binding to a
- * specific object; `Some` identifies the object the frame is evaluable
- * against.
+ * `None` is a pure label, which is what a data file can express before
+ * binding to a specific object; `Some` identifies the object the frame is
+ * evaluable against.
  */
 
 use std::fmt;
@@ -102,15 +102,19 @@ impl<'de> Deserialize<'de> for ObjectId {
 /// `RTN` is the frame the SANA registries call `RSW`; brahe uses its
 /// existing RTN vocabulary (`state_eci_to_rtn`, `covariance_rtn`).
 ///
+/// Every kind is a valid frame identity, which is what parsing a data file
+/// needs, but only `RTN` has an axes derivation today. A transform through
+/// any other kind errors until issue #452 adds the remaining derivations.
+///
 /// # Examples
 ///
 /// ```rust
-/// use brahe::frames::OrbitRelativeKind;
+/// use brahe::frames::OrbitRelativeFrameKind;
 ///
-/// assert_eq!(OrbitRelativeKind::RTN.to_string(), "RTN");
+/// assert_eq!(OrbitRelativeFrameKind::RTN.to_string(), "RTN");
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum OrbitRelativeKind {
+pub enum OrbitRelativeFrameKind {
     /// Local-Vertical Local-Horizontal.
     LVLH,
     /// Radial / transverse (along-track) / normal (cross-track). SANA: RSW.
@@ -131,7 +135,7 @@ pub enum OrbitRelativeKind {
     NSW,
 }
 
-impl fmt::Display for OrbitRelativeKind {
+impl fmt::Display for OrbitRelativeFrameKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let token = match self {
             Self::LVLH => "LVLH",
@@ -150,25 +154,32 @@ impl fmt::Display for OrbitRelativeKind {
 
 /// Rotating vs. quasi-inertial snapshot variant of a local orbital frame.
 ///
-/// - **Rotating**: True local orbital frame, rotating with the orbit.
-/// - **Inertial**: Quasi-inertial frame frozen at each evaluation time.
+/// - **Rotating**: True local orbital frame, rotating with the orbit. It
+///   carries the orbital angular velocity, so a state transform through it
+///   picks up the corresponding velocity transport term.
+/// - **Inertial**: The same axes, taken as an instantaneous snapshot of the
+///   orbit state at the evaluation epoch and then treated as non-rotating.
+///   Its rate is zero, so a state transform through it applies no transport
+///   term. The axes still differ from epoch to epoch, since each evaluation
+///   takes a fresh snapshot.
 ///
 /// # Examples
 ///
 /// ```rust
-/// use brahe::frames::OrbitRelativeVariant;
+/// use brahe::frames::OrbitRelativeFrameVariant;
 ///
-/// assert_eq!(OrbitRelativeVariant::Rotating.to_string(), "rotating");
+/// assert_eq!(OrbitRelativeFrameVariant::Rotating.to_string(), "rotating");
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum OrbitRelativeVariant {
+pub enum OrbitRelativeFrameVariant {
     /// True local orbital frame, rotating with the orbit.
     Rotating,
-    /// Quasi-inertial frame frozen at each evaluation time.
+    /// Quasi-inertial snapshot: the orbit-relative axes at the evaluation
+    /// epoch, with the frame's rate taken as zero.
     Inertial,
 }
 
-impl fmt::Display for OrbitRelativeVariant {
+impl fmt::Display for OrbitRelativeFrameVariant {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Rotating => write!(f, "rotating"),
@@ -192,16 +203,16 @@ impl fmt::Display for OrbitRelativeVariant {
 /// # Examples
 ///
 /// ```rust
-/// use brahe::frames::{OrbitRelativeFrame, OrbitRelativeKind, OrbitRelativeVariant};
+/// use brahe::frames::{OrbitRelativeFrame, OrbitRelativeFrameKind, OrbitRelativeFrameVariant};
 ///
-/// let rtn = OrbitRelativeFrame::new(OrbitRelativeKind::RTN, OrbitRelativeVariant::Rotating);
+/// let rtn = OrbitRelativeFrame::new(OrbitRelativeFrameKind::RTN, OrbitRelativeFrameVariant::Rotating);
 /// assert!(rtn.is_ok());
 /// assert_eq!(rtn.unwrap().to_string(), "RTN (rotating)");
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OrbitRelativeFrame {
-    kind: OrbitRelativeKind,
-    variant: OrbitRelativeVariant,
+    kind: OrbitRelativeFrameKind,
+    variant: OrbitRelativeFrameVariant,
 }
 
 impl OrbitRelativeFrame {
@@ -225,17 +236,22 @@ impl OrbitRelativeFrame {
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::{OrbitRelativeFrame, OrbitRelativeKind, OrbitRelativeVariant};
+    /// use brahe::frames::{OrbitRelativeFrame, OrbitRelativeFrameKind, OrbitRelativeFrameVariant};
     ///
-    /// let rtn = OrbitRelativeFrame::new(OrbitRelativeKind::RTN, OrbitRelativeVariant::Rotating);
+    /// let rtn = OrbitRelativeFrame::new(OrbitRelativeFrameKind::RTN, OrbitRelativeFrameVariant::Rotating);
     /// assert!(rtn.is_ok());
     ///
-    /// let eqw_rotating = OrbitRelativeFrame::new(OrbitRelativeKind::EQW, OrbitRelativeVariant::Rotating);
+    /// let eqw_rotating = OrbitRelativeFrame::new(OrbitRelativeFrameKind::EQW, OrbitRelativeFrameVariant::Rotating);
     /// assert!(eqw_rotating.is_err());
     /// ```
-    pub fn new(kind: OrbitRelativeKind, variant: OrbitRelativeVariant) -> Result<Self, BraheError> {
-        if matches!(kind, OrbitRelativeKind::EQW | OrbitRelativeKind::PQW)
-            && variant == OrbitRelativeVariant::Rotating
+    pub fn new(
+        kind: OrbitRelativeFrameKind,
+        variant: OrbitRelativeFrameVariant,
+    ) -> Result<Self, BraheError> {
+        if matches!(
+            kind,
+            OrbitRelativeFrameKind::EQW | OrbitRelativeFrameKind::PQW
+        ) && variant == OrbitRelativeFrameVariant::Rotating
         {
             return Err(BraheError::Error(format!(
                 "orbit-relative frame {} exists only as an inertial SANA frame and cannot be \
@@ -249,16 +265,16 @@ impl OrbitRelativeFrame {
     /// Returns the frame construction (axes definition).
     ///
     /// # Returns
-    /// `OrbitRelativeKind`: The frame construction
-    pub fn kind(&self) -> OrbitRelativeKind {
+    /// `OrbitRelativeFrameKind`: The frame construction
+    pub fn kind(&self) -> OrbitRelativeFrameKind {
         self.kind
     }
 
     /// Returns the rotating/inertial-snapshot variant.
     ///
     /// # Returns
-    /// `OrbitRelativeVariant`: Rotating or inertial
-    pub fn variant(&self) -> OrbitRelativeVariant {
+    /// `OrbitRelativeFrameVariant`: Rotating or inertial
+    pub fn variant(&self) -> OrbitRelativeFrameVariant {
         self.variant
     }
 }
@@ -272,9 +288,11 @@ impl fmt::Display for OrbitRelativeFrame {
 /// An object-local spacecraft body frame with an optional instance
 /// designator.
 ///
-/// Variants represent different spacecraft subsystems and sensors. The
-/// optional `String` designator (e.g., `SCBody(Some("1"))`) is appended to
-/// the frame name in [`Display`](fmt::Display) output (e.g., `SC_BODY_1`).
+/// The variants are the values of the SANA spacecraft body reference frame
+/// registry (<https://sanaregistry.org/r/spacecraft_body_reference_frames/>),
+/// covering spacecraft subsystems, sensors, and actuators. The optional
+/// `String` designator (e.g., `SCBody(Some("1"))`) is appended to the frame
+/// name in [`Display`](fmt::Display) output (e.g., `SC_BODY_1`).
 ///
 /// # Examples
 ///
@@ -372,9 +390,9 @@ pub enum ReferenceFrame {
     /// `Some`) and the object is registered.
     OrbitRelative {
         /// Frame construction (axes definition).
-        kind: OrbitRelativeKind,
+        kind: OrbitRelativeFrameKind,
         /// Rotating (true local orbital frame) or inertial snapshot.
-        variant: OrbitRelativeVariant,
+        variant: OrbitRelativeFrameVariant,
         /// Bound object, if any. `None` is a pure label.
         object: Option<ObjectId>,
     },
@@ -408,14 +426,18 @@ impl ReferenceFrame {
     #[allow(non_snake_case)]
     pub fn RTN(object: impl Into<ObjectId>) -> ReferenceFrame {
         ReferenceFrame::orbit_relative_unchecked(
-            OrbitRelativeKind::RTN,
-            OrbitRelativeVariant::Rotating,
+            OrbitRelativeFrameKind::RTN,
+            OrbitRelativeFrameVariant::Rotating,
             object,
         )
     }
 
     /// Constructs a bound Local-Vertical Local-Horizontal orbit-relative
     /// frame (rotating variant).
+    ///
+    /// Among the orbit-relative kinds only `RTN` has an axes derivation
+    /// today, so this frame is constructible but every transform through
+    /// it errors until issue #452 adds the remaining derivations.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -433,14 +455,18 @@ impl ReferenceFrame {
     #[allow(non_snake_case)]
     pub fn LVLH(object: impl Into<ObjectId>) -> ReferenceFrame {
         ReferenceFrame::orbit_relative_unchecked(
-            OrbitRelativeKind::LVLH,
-            OrbitRelativeVariant::Rotating,
+            OrbitRelativeFrameKind::LVLH,
+            OrbitRelativeFrameVariant::Rotating,
             object,
         )
     }
 
     /// Constructs a bound Normal/Tangential/cross-track orbit-relative
     /// frame (rotating variant).
+    ///
+    /// Among the orbit-relative kinds only `RTN` has an axes derivation
+    /// today, so this frame is constructible but every transform through
+    /// it errors until issue #452 adds the remaining derivations.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -458,14 +484,18 @@ impl ReferenceFrame {
     #[allow(non_snake_case)]
     pub fn NTW(object: impl Into<ObjectId>) -> ReferenceFrame {
         ReferenceFrame::orbit_relative_unchecked(
-            OrbitRelativeKind::NTW,
-            OrbitRelativeVariant::Rotating,
+            OrbitRelativeFrameKind::NTW,
+            OrbitRelativeFrameVariant::Rotating,
             object,
         )
     }
 
     /// Constructs a bound Tangential/Normal/cross-track orbit-relative
     /// frame (rotating variant).
+    ///
+    /// Among the orbit-relative kinds only `RTN` has an axes derivation
+    /// today, so this frame is constructible but every transform through
+    /// it errors until issue #452 adds the remaining derivations.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -483,14 +513,18 @@ impl ReferenceFrame {
     #[allow(non_snake_case)]
     pub fn TNW(object: impl Into<ObjectId>) -> ReferenceFrame {
         ReferenceFrame::orbit_relative_unchecked(
-            OrbitRelativeKind::TNW,
-            OrbitRelativeVariant::Rotating,
+            OrbitRelativeFrameKind::TNW,
+            OrbitRelativeFrameVariant::Rotating,
             object,
         )
     }
 
     /// Constructs a bound topocentric South/East/Zenith orbit-relative
     /// frame (rotating variant).
+    ///
+    /// Among the orbit-relative kinds only `RTN` has an axes derivation
+    /// today, so this frame is constructible but every transform through
+    /// it errors until issue #452 adds the remaining derivations.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -508,14 +542,18 @@ impl ReferenceFrame {
     #[allow(non_snake_case)]
     pub fn SEZ(object: impl Into<ObjectId>) -> ReferenceFrame {
         ReferenceFrame::orbit_relative_unchecked(
-            OrbitRelativeKind::SEZ,
-            OrbitRelativeVariant::Rotating,
+            OrbitRelativeFrameKind::SEZ,
+            OrbitRelativeFrameVariant::Rotating,
             object,
         )
     }
 
     /// Constructs a bound Velocity/Normal/Co-normal orbit-relative frame
     /// (rotating variant).
+    ///
+    /// Among the orbit-relative kinds only `RTN` has an axes derivation
+    /// today, so this frame is constructible but every transform through
+    /// it errors until issue #452 adds the remaining derivations.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -533,14 +571,18 @@ impl ReferenceFrame {
     #[allow(non_snake_case)]
     pub fn VNC(object: impl Into<ObjectId>) -> ReferenceFrame {
         ReferenceFrame::orbit_relative_unchecked(
-            OrbitRelativeKind::VNC,
-            OrbitRelativeVariant::Rotating,
+            OrbitRelativeFrameKind::VNC,
+            OrbitRelativeFrameVariant::Rotating,
             object,
         )
     }
 
     /// Constructs a bound Nadir/Sun/Normal orbit-relative frame (rotating
     /// variant).
+    ///
+    /// Among the orbit-relative kinds only `RTN` has an axes derivation
+    /// today, so this frame is constructible but every transform through
+    /// it errors until issue #452 adds the remaining derivations.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -558,14 +600,18 @@ impl ReferenceFrame {
     #[allow(non_snake_case)]
     pub fn NSW(object: impl Into<ObjectId>) -> ReferenceFrame {
         ReferenceFrame::orbit_relative_unchecked(
-            OrbitRelativeKind::NSW,
-            OrbitRelativeVariant::Rotating,
+            OrbitRelativeFrameKind::NSW,
+            OrbitRelativeFrameVariant::Rotating,
             object,
         )
     }
 
     /// Constructs a bound Perifocal orbit-relative frame (inertial-snapshot
     /// variant; `PQW` is SANA-registered only as inertial).
+    ///
+    /// Among the orbit-relative kinds only `RTN` has an axes derivation
+    /// today, so this frame is constructible but every transform through
+    /// it errors until issue #452 adds the remaining derivations.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -583,8 +629,8 @@ impl ReferenceFrame {
     #[allow(non_snake_case)]
     pub fn PQW(object: impl Into<ObjectId>) -> ReferenceFrame {
         ReferenceFrame::orbit_relative_unchecked(
-            OrbitRelativeKind::PQW,
-            OrbitRelativeVariant::Inertial,
+            OrbitRelativeFrameKind::PQW,
+            OrbitRelativeFrameVariant::Inertial,
             object,
         )
     }
@@ -592,6 +638,10 @@ impl ReferenceFrame {
     /// Constructs a bound Equinoctial orbit-relative frame
     /// (inertial-snapshot variant; `EQW` is SANA-registered only as
     /// inertial).
+    ///
+    /// Among the orbit-relative kinds only `RTN` has an axes derivation
+    /// today, so this frame is constructible but every transform through
+    /// it errors until issue #452 adds the remaining derivations.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -609,8 +659,8 @@ impl ReferenceFrame {
     #[allow(non_snake_case)]
     pub fn EQW(object: impl Into<ObjectId>) -> ReferenceFrame {
         ReferenceFrame::orbit_relative_unchecked(
-            OrbitRelativeKind::EQW,
-            OrbitRelativeVariant::Inertial,
+            OrbitRelativeFrameKind::EQW,
+            OrbitRelativeFrameVariant::Inertial,
             object,
         )
     }
@@ -619,8 +669,8 @@ impl ReferenceFrame {
     /// validation, for combinations known valid by construction (all
     /// `ReferenceFrame::<KIND>(object)` associated functions).
     fn orbit_relative_unchecked(
-        kind: OrbitRelativeKind,
-        variant: OrbitRelativeVariant,
+        kind: OrbitRelativeFrameKind,
+        variant: OrbitRelativeFrameVariant,
         object: impl Into<ObjectId>,
     ) -> ReferenceFrame {
         ReferenceFrame::OrbitRelative {
@@ -637,6 +687,10 @@ impl ReferenceFrame {
     /// callers that hold a runtime `kind`/`variant` pair (e.g. parsed from
     /// a CCSDS file) and an optional, not-yet-bound object.
     ///
+    /// Among the orbit-relative kinds only `RTN` has an axes derivation
+    /// today; the others construct successfully but every transform through
+    /// them errors until issue #452 adds the remaining derivations.
+    ///
     /// # Arguments
     /// * `kind` - The frame construction (axes definition)
     /// * `variant` - Rotating (true local orbital frame) or inertial
@@ -652,21 +706,23 @@ impl ReferenceFrame {
     /// # Examples
     ///
     /// ```rust
-    /// use brahe::frames::{ReferenceFrame, OrbitRelativeKind, OrbitRelativeVariant};
+    /// use brahe::frames::{ReferenceFrame, OrbitRelativeFrameKind, OrbitRelativeFrameVariant};
     ///
-    /// let bound = ReferenceFrame::orbit_relative(OrbitRelativeKind::RTN, OrbitRelativeVariant::Inertial, Some("SC".into()));
+    /// let bound = ReferenceFrame::orbit_relative(OrbitRelativeFrameKind::RTN, OrbitRelativeFrameVariant::Inertial, Some("SC".into()));
     /// assert!(bound.is_ok());
     ///
-    /// let invalid = ReferenceFrame::orbit_relative(OrbitRelativeKind::EQW, OrbitRelativeVariant::Rotating, None);
+    /// let invalid = ReferenceFrame::orbit_relative(OrbitRelativeFrameKind::EQW, OrbitRelativeFrameVariant::Rotating, None);
     /// assert!(invalid.is_err());
     /// ```
     pub fn orbit_relative(
-        kind: OrbitRelativeKind,
-        variant: OrbitRelativeVariant,
+        kind: OrbitRelativeFrameKind,
+        variant: OrbitRelativeFrameVariant,
         object: Option<ObjectId>,
     ) -> Result<ReferenceFrame, BraheError> {
-        if matches!(kind, OrbitRelativeKind::EQW | OrbitRelativeKind::PQW)
-            && variant == OrbitRelativeVariant::Rotating
+        if matches!(
+            kind,
+            OrbitRelativeFrameKind::EQW | OrbitRelativeFrameKind::PQW
+        ) && variant == OrbitRelativeFrameVariant::Rotating
         {
             return Err(BraheError::Error(format!(
                 "orbit-relative frame {} exists only as an inertial SANA frame and cannot be \
@@ -1057,9 +1113,9 @@ impl ReferenceFrame {
     /// Returns whether the frame carries the object identity resolution
     /// requires: a celestial frame (always), or an orbit-relative/body
     /// frame with a bound object. `true` is necessary but not sufficient
-    /// for the frame to actually resolve — an orbit-relative frame also
-    /// needs an axes derivation for its `kind` (currently only `RTN`), and
-    /// a body frame also needs its orientation chain registered
+    /// for the frame to actually resolve. An orbit-relative frame also needs
+    /// an axes derivation for its `kind` (currently only `RTN`), and a body
+    /// frame also needs its orientation chain registered
     /// (`register_frame`).
     ///
     /// # Returns
@@ -1181,16 +1237,16 @@ mod tests {
     fn test_orbit_relative_validation() {
         assert!(
             ReferenceFrame::orbit_relative(
-                OrbitRelativeKind::EQW,
-                OrbitRelativeVariant::Rotating,
+                OrbitRelativeFrameKind::EQW,
+                OrbitRelativeFrameVariant::Rotating,
                 None
             )
             .is_err()
         );
         assert!(
             ReferenceFrame::orbit_relative(
-                OrbitRelativeKind::RTN,
-                OrbitRelativeVariant::Inertial,
+                OrbitRelativeFrameKind::RTN,
+                OrbitRelativeFrameVariant::Inertial,
                 Some("SC".into())
             )
             .is_ok()
@@ -1205,8 +1261,11 @@ mod tests {
             ReferenceFrame::CSS("SC", "1"),
             CelestialFrame::ITRF.into(),
             ReferenceFrame::from(
-                OrbitRelativeFrame::new(OrbitRelativeKind::LVLH, OrbitRelativeVariant::Rotating)
-                    .unwrap(),
+                OrbitRelativeFrame::new(
+                    OrbitRelativeFrameKind::LVLH,
+                    OrbitRelativeFrameVariant::Rotating,
+                )
+                .unwrap(),
             ),
         ] {
             let s = serde_json::to_string(&f).unwrap();
@@ -1218,15 +1277,15 @@ mod tests {
     #[parallel]
     fn test_orbit_relative_kind_display_all_variants() {
         let cases = [
-            (OrbitRelativeKind::LVLH, "LVLH"),
-            (OrbitRelativeKind::RTN, "RTN"),
-            (OrbitRelativeKind::NTW, "NTW"),
-            (OrbitRelativeKind::TNW, "TNW"),
-            (OrbitRelativeKind::PQW, "PQW"),
-            (OrbitRelativeKind::EQW, "EQW"),
-            (OrbitRelativeKind::SEZ, "SEZ"),
-            (OrbitRelativeKind::VNC, "VNC"),
-            (OrbitRelativeKind::NSW, "NSW"),
+            (OrbitRelativeFrameKind::LVLH, "LVLH"),
+            (OrbitRelativeFrameKind::RTN, "RTN"),
+            (OrbitRelativeFrameKind::NTW, "NTW"),
+            (OrbitRelativeFrameKind::TNW, "TNW"),
+            (OrbitRelativeFrameKind::PQW, "PQW"),
+            (OrbitRelativeFrameKind::EQW, "EQW"),
+            (OrbitRelativeFrameKind::SEZ, "SEZ"),
+            (OrbitRelativeFrameKind::VNC, "VNC"),
+            (OrbitRelativeFrameKind::NSW, "NSW"),
         ];
         for (kind, expected) in cases {
             assert_eq!(kind.to_string(), expected);
@@ -1236,8 +1295,8 @@ mod tests {
     #[test]
     #[parallel]
     fn test_orbit_relative_variant_display() {
-        assert_eq!(OrbitRelativeVariant::Rotating.to_string(), "rotating");
-        assert_eq!(OrbitRelativeVariant::Inertial.to_string(), "inertial");
+        assert_eq!(OrbitRelativeFrameVariant::Rotating.to_string(), "rotating");
+        assert_eq!(OrbitRelativeFrameVariant::Inertial.to_string(), "inertial");
     }
 
     #[test]
@@ -1273,18 +1332,32 @@ mod tests {
     #[parallel]
     fn test_orbit_relative_frame_new_rejects_eqw_pqw_rotating() {
         assert!(
-            OrbitRelativeFrame::new(OrbitRelativeKind::EQW, OrbitRelativeVariant::Rotating)
-                .is_err()
+            OrbitRelativeFrame::new(
+                OrbitRelativeFrameKind::EQW,
+                OrbitRelativeFrameVariant::Rotating
+            )
+            .is_err()
         );
         assert!(
-            OrbitRelativeFrame::new(OrbitRelativeKind::PQW, OrbitRelativeVariant::Rotating)
-                .is_err()
+            OrbitRelativeFrame::new(
+                OrbitRelativeFrameKind::PQW,
+                OrbitRelativeFrameVariant::Rotating
+            )
+            .is_err()
         );
         assert!(
-            OrbitRelativeFrame::new(OrbitRelativeKind::EQW, OrbitRelativeVariant::Inertial).is_ok()
+            OrbitRelativeFrame::new(
+                OrbitRelativeFrameKind::EQW,
+                OrbitRelativeFrameVariant::Inertial
+            )
+            .is_ok()
         );
         assert!(
-            OrbitRelativeFrame::new(OrbitRelativeKind::PQW, OrbitRelativeVariant::Inertial).is_ok()
+            OrbitRelativeFrame::new(
+                OrbitRelativeFrameKind::PQW,
+                OrbitRelativeFrameVariant::Inertial
+            )
+            .is_ok()
         );
     }
 
@@ -1292,33 +1365,39 @@ mod tests {
     #[parallel]
     fn test_orbit_relative_frame_new_accepts_valid_combos() {
         for kind in [
-            OrbitRelativeKind::LVLH,
-            OrbitRelativeKind::RTN,
-            OrbitRelativeKind::NTW,
-            OrbitRelativeKind::TNW,
-            OrbitRelativeKind::SEZ,
-            OrbitRelativeKind::VNC,
-            OrbitRelativeKind::NSW,
+            OrbitRelativeFrameKind::LVLH,
+            OrbitRelativeFrameKind::RTN,
+            OrbitRelativeFrameKind::NTW,
+            OrbitRelativeFrameKind::TNW,
+            OrbitRelativeFrameKind::SEZ,
+            OrbitRelativeFrameKind::VNC,
+            OrbitRelativeFrameKind::NSW,
         ] {
-            assert!(OrbitRelativeFrame::new(kind, OrbitRelativeVariant::Rotating).is_ok());
-            assert!(OrbitRelativeFrame::new(kind, OrbitRelativeVariant::Inertial).is_ok());
+            assert!(OrbitRelativeFrame::new(kind, OrbitRelativeFrameVariant::Rotating).is_ok());
+            assert!(OrbitRelativeFrame::new(kind, OrbitRelativeFrameVariant::Inertial).is_ok());
         }
     }
 
     #[test]
     #[parallel]
     fn test_orbit_relative_frame_kind_variant_accessors() {
-        let frame = OrbitRelativeFrame::new(OrbitRelativeKind::RTN, OrbitRelativeVariant::Rotating)
-            .unwrap();
-        assert_eq!(frame.kind(), OrbitRelativeKind::RTN);
-        assert_eq!(frame.variant(), OrbitRelativeVariant::Rotating);
+        let frame = OrbitRelativeFrame::new(
+            OrbitRelativeFrameKind::RTN,
+            OrbitRelativeFrameVariant::Rotating,
+        )
+        .unwrap();
+        assert_eq!(frame.kind(), OrbitRelativeFrameKind::RTN);
+        assert_eq!(frame.variant(), OrbitRelativeFrameVariant::Rotating);
     }
 
     #[test]
     #[parallel]
     fn test_orbit_relative_frame_display() {
-        let frame = OrbitRelativeFrame::new(OrbitRelativeKind::VNC, OrbitRelativeVariant::Rotating)
-            .unwrap();
+        let frame = OrbitRelativeFrame::new(
+            OrbitRelativeFrameKind::VNC,
+            OrbitRelativeFrameVariant::Rotating,
+        )
+        .unwrap();
         assert_eq!(frame.to_string(), "VNC (rotating)");
     }
 

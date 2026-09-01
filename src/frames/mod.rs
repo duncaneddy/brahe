@@ -15,8 +15,7 @@ pub mod emb;
 pub mod eme_2000;
 pub mod frame;
 pub mod gcrf_itrf;
-// Not `pub`: chain resolution is an internal seam of the frames router; its
-// results reach callers through `transform`'s public router functions.
+// Not `pub`: chain resolution is internal machinery.
 mod graph;
 pub mod iau_rotation;
 pub mod lunar;

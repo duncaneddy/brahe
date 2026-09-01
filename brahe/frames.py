@@ -33,8 +33,8 @@ Naming Conventions:
 from brahe._brahe import (
     BodyFrame,
     CelestialFrame,
-    OrbitRelativeKind,
-    OrbitRelativeVariant,
+    OrbitRelativeFrameKind,
+    OrbitRelativeFrameVariant,
     ReferenceFrame,
     # Reference frame router
     SynodicOrigin,
@@ -136,8 +136,8 @@ from brahe._brahe import (
 __all__ = [
     "BodyFrame",
     "CelestialFrame",
-    "OrbitRelativeKind",
-    "OrbitRelativeVariant",
+    "OrbitRelativeFrameKind",
+    "OrbitRelativeFrameVariant",
     "ReferenceFrame",
     # Reference frame router
     "SynodicOrigin",

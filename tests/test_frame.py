@@ -60,29 +60,35 @@ def test_frame_eq_and_repr():
 def test_orbit_relative_validation():
     with pytest.raises(ValueError):
         bh.ReferenceFrame.orbit_relative(
-            bh.OrbitRelativeKind.EQW, bh.OrbitRelativeVariant.ROTATING, None
+            bh.OrbitRelativeFrameKind.EQW, bh.OrbitRelativeFrameVariant.ROTATING, None
         )
     ok = bh.ReferenceFrame.orbit_relative(
-        bh.OrbitRelativeKind.RTN, bh.OrbitRelativeVariant.INERTIAL, "SC"
+        bh.OrbitRelativeFrameKind.RTN, bh.OrbitRelativeFrameVariant.INERTIAL, "SC"
     )
     assert str(ok) == "RTN (inertial)@SC"
 
 
 def test_orbit_relative_rejects_non_enum_arguments():
     with pytest.raises(TypeError):
-        bh.ReferenceFrame.orbit_relative("RTN", bh.OrbitRelativeVariant.ROTATING, "SC")
+        bh.ReferenceFrame.orbit_relative(
+            "RTN", bh.OrbitRelativeFrameVariant.ROTATING, "SC"
+        )
     with pytest.raises(TypeError):
-        bh.ReferenceFrame.orbit_relative(bh.OrbitRelativeKind.RTN, "rotating", "SC")
+        bh.ReferenceFrame.orbit_relative(
+            bh.OrbitRelativeFrameKind.RTN, "rotating", "SC"
+        )
 
 
 def test_orbit_relative_kind_and_variant_display():
-    assert str(bh.OrbitRelativeKind.RTN) == "RTN"
-    assert str(bh.OrbitRelativeKind.EQW) == "EQW"
-    assert str(bh.OrbitRelativeVariant.ROTATING) == "rotating"
-    assert str(bh.OrbitRelativeVariant.INERTIAL) == "inertial"
-    assert bh.OrbitRelativeKind.RTN == bh.OrbitRelativeKind.RTN
-    assert bh.OrbitRelativeKind.RTN != bh.OrbitRelativeKind.LVLH
-    assert bh.OrbitRelativeVariant.ROTATING != bh.OrbitRelativeVariant.INERTIAL
+    assert str(bh.OrbitRelativeFrameKind.RTN) == "RTN"
+    assert str(bh.OrbitRelativeFrameKind.EQW) == "EQW"
+    assert str(bh.OrbitRelativeFrameVariant.ROTATING) == "rotating"
+    assert str(bh.OrbitRelativeFrameVariant.INERTIAL) == "inertial"
+    assert bh.OrbitRelativeFrameKind.RTN == bh.OrbitRelativeFrameKind.RTN
+    assert bh.OrbitRelativeFrameKind.RTN != bh.OrbitRelativeFrameKind.LVLH
+    assert (
+        bh.OrbitRelativeFrameVariant.ROTATING != bh.OrbitRelativeFrameVariant.INERTIAL
+    )
 
 
 def test_frame_celestial_constructor():
@@ -275,12 +281,20 @@ def test_register_object_callable_bad_return_raises(clear_frame_registries):
         )
 
 
-def test_register_object_orbit_trajectory_dimension_error(clear_frame_registries):
+def test_register_object_orbit_trajectory_extra_dimensions(clear_frame_registries):
+    # A trajectory carrying quantities past the position and velocity registers
+    # fine: only the leading six elements are read as the object's state.
+    epc0 = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    x = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0, 1.0, 2.0, 3.0])
     traj = bh.OrbitTrajectory(
         9, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None
     )
-    with pytest.raises(bh.BraheError, match="6-dimensional"):
-        bh.register_object("SC", traj, bh.CelestialFrame.GCRF)
+    traj.add(epc0, x)
+    bh.register_object("SC", traj, bh.CelestialFrame.GCRF)
+    got = bh.position_frame_to_frame(
+        bh.CelestialFrame.GCRF, bh.ReferenceFrame.RTN("SC"), epc0, x[:3]
+    )
+    np.testing.assert_allclose(got, [0.0, 0.0, 0.0], atol=1e-6)
 
 
 def test_register_object_orbit_trajectory_keplerian_representation_rejected(

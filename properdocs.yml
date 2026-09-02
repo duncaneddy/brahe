@@ -305,6 +305,7 @@ nav:
           - OEM - Orbit Ephemeris Message: learn/ccsds/oem.md
           - OMM - Orbit Mean-elements Message: learn/ccsds/omm.md
           - OPM - Orbit Parameter Message: learn/ccsds/opm.md
+          - APM - Attitude Parameter Message: learn/ccsds/apm.md
           - CDM - Conjunction Data Message: learn/ccsds/cdm.md
       - Plots:
           - learn/plots/index.md
@@ -503,6 +504,7 @@ nav:
           - OEM: library_api/ccsds/oem.md
           - OMM: library_api/ccsds/omm.md
           - OPM: library_api/ccsds/opm.md
+          - APM: library_api/ccsds/apm.md
           - CDM: library_api/ccsds/cdm.md
       - Plots:
           - library_api/plots/index.md

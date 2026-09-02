@@ -12,6 +12,7 @@ use std::fmt;
 use nalgebra::SMatrix;
 use serde::{Deserialize, Serialize};
 
+use crate::attitude::attitude_types::EulerAngleOrder;
 use crate::time::Epoch;
 
 /// Controls the casing of CCSDS data field keys in JSON output.
@@ -344,6 +345,7 @@ pub fn parse_ccsds_datetime(
     time_system: &CCSDSTimeSystem,
 ) -> Result<Epoch, crate::utils::errors::BraheError> {
     let s = s.trim();
+    let s = s.strip_suffix('Z').unwrap_or(s);
     let ts = time_system.to_time_system().ok_or_else(|| {
         crate::ccsds::error::ccsds_parse_error(
             "common",
@@ -611,6 +613,74 @@ pub fn strip_units(value: &str) -> &str {
     } else {
         value.trim()
     }
+}
+
+/// Parses an ADM `EULER_ROT_SEQ` letter triple (e.g. `"ZXZ"`) into an
+/// [`EulerAngleOrder`].
+///
+/// Matching is case-insensitive. Only the twelve letter-triple sequences
+/// defined by CCSDS 504.0-B-2 are accepted; the numeric sequence forms used
+/// by 504.0-B-1 (e.g. `"121"`) are rejected.
+///
+/// # Arguments
+///
+/// * `s` - The `EULER_ROT_SEQ` token to parse.
+///
+/// # Returns
+///
+/// * `Result<EulerAngleOrder, BraheError>` - The parsed rotation order, or a
+///   `ParseError` naming the offending value.
+pub(crate) fn parse_euler_rot_seq(
+    s: &str,
+) -> Result<EulerAngleOrder, crate::utils::errors::BraheError> {
+    match s.trim().to_uppercase().as_str() {
+        "XYX" => Ok(EulerAngleOrder::XYX),
+        "XYZ" => Ok(EulerAngleOrder::XYZ),
+        "XZX" => Ok(EulerAngleOrder::XZX),
+        "XZY" => Ok(EulerAngleOrder::XZY),
+        "YXY" => Ok(EulerAngleOrder::YXY),
+        "YXZ" => Ok(EulerAngleOrder::YXZ),
+        "YZX" => Ok(EulerAngleOrder::YZX),
+        "YZY" => Ok(EulerAngleOrder::YZY),
+        "ZXY" => Ok(EulerAngleOrder::ZXY),
+        "ZXZ" => Ok(EulerAngleOrder::ZXZ),
+        "ZYX" => Ok(EulerAngleOrder::ZYX),
+        "ZYZ" => Ok(EulerAngleOrder::ZYZ),
+        _ => Err(crate::ccsds::error::ccsds_parse_error(
+            "ADM",
+            &format!(
+                "invalid EULER_ROT_SEQ value '{}'; expected a three-letter sequence from {{X,Y,Z}} (e.g. 'ZXZ') - numeric forms (e.g. '121') are 504.0-B-1 and not supported",
+                s
+            ),
+        )),
+    }
+}
+
+/// Formats an [`EulerAngleOrder`] as the ADM `EULER_ROT_SEQ` letter triple.
+///
+/// # Arguments
+///
+/// * `order` - The rotation order to format.
+///
+/// # Returns
+///
+/// * `String` - The three-letter sequence (e.g. `"ZXZ"`).
+pub(crate) fn format_euler_rot_seq(order: EulerAngleOrder) -> String {
+    match order {
+        EulerAngleOrder::XYX => "XYX",
+        EulerAngleOrder::XYZ => "XYZ",
+        EulerAngleOrder::XZX => "XZX",
+        EulerAngleOrder::XZY => "XZY",
+        EulerAngleOrder::YXY => "YXY",
+        EulerAngleOrder::YXZ => "YXZ",
+        EulerAngleOrder::YZX => "YZX",
+        EulerAngleOrder::YZY => "YZY",
+        EulerAngleOrder::ZXY => "ZXY",
+        EulerAngleOrder::ZXZ => "ZXZ",
+        EulerAngleOrder::ZYX => "ZYX",
+        EulerAngleOrder::ZYZ => "ZYZ",
+    }
+    .to_string()
 }
 
 /// Parse a lower-triangular covariance matrix from 21 values.
@@ -1257,6 +1327,24 @@ mod tests {
 
     #[test]
     #[parallel]
+    fn test_parse_ccsds_datetime_trailing_z() {
+        let ts = CCSDSTimeSystem::UTC;
+        let with_z = parse_ccsds_datetime("2003-09-30T19:23:57Z", &ts).unwrap();
+        let without_z = parse_ccsds_datetime("2003-09-30T19:23:57", &ts).unwrap();
+        assert_eq!(with_z, without_z);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_parse_ccsds_datetime_trailing_z_fractional_seconds() {
+        let ts = CCSDSTimeSystem::UTC;
+        let with_z = parse_ccsds_datetime("2003-09-30T19:23:57.1234Z", &ts).unwrap();
+        let without_z = parse_ccsds_datetime("2003-09-30T19:23:57.1234", &ts).unwrap();
+        assert_eq!(with_z, without_z);
+    }
+
+    #[test]
+    #[parallel]
     fn test_parse_ccsds_datetime_ut1() {
         // UT1 is supported but requires EOP initialization
         crate::utils::testing::setup_global_test_eop();
@@ -1841,5 +1929,57 @@ mod tests {
         assert_stable!(OMM, "test_assets/ccsds/omm/OMMExample2.txt");
         assert_stable!(OPM, "test_assets/ccsds/opm/OPMExample3.txt");
         assert_stable!(CDM, "test_assets/ccsds/cdm/CDMExample2.txt");
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_parse_euler_rot_seq_valid() {
+        assert_eq!(parse_euler_rot_seq("ZXZ").unwrap(), EulerAngleOrder::ZXZ);
+        assert_eq!(parse_euler_rot_seq("XYZ").unwrap(), EulerAngleOrder::XYZ);
+        assert_eq!(parse_euler_rot_seq("YXY").unwrap(), EulerAngleOrder::YXY);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_parse_euler_rot_seq_lowercase_accepted() {
+        assert_eq!(parse_euler_rot_seq("zxz").unwrap(), EulerAngleOrder::ZXZ);
+        assert_eq!(
+            parse_euler_rot_seq("  yxz  ").unwrap(),
+            EulerAngleOrder::YXZ
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_parse_euler_rot_seq_numeric_form_rejected() {
+        let result = parse_euler_rot_seq("121");
+        assert!(result.is_err());
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(err_msg.contains("121"));
+        assert!(err_msg.contains("504.0-B-1"));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_parse_euler_rot_seq_invalid_letters_rejected() {
+        let result = parse_euler_rot_seq("XXY");
+        assert!(result.is_err());
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(err_msg.contains("XXY"));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_format_euler_rot_seq_roundtrips_all_orders() {
+        use crate::IntoEnumIterator;
+
+        for order in EulerAngleOrder::iter() {
+            let formatted = format_euler_rot_seq(order);
+            let parsed = parse_euler_rot_seq(&formatted).unwrap();
+            assert_eq!(parsed, order, "round-trip mismatch for {:?}", order);
+        }
+        // Spot-check specific formats
+        assert_eq!(format_euler_rot_seq(EulerAngleOrder::ZXZ), "ZXZ");
+        assert_eq!(format_euler_rot_seq(EulerAngleOrder::XYZ), "XYZ");
     }
 }

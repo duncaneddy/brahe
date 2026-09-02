@@ -1,17 +1,19 @@
 /*!
  * CCSDS XML format support.
  *
- * Stub — implemented in Stage 2 (OEM), Stage 5 (OMM), Stage 6 (OPM).
+ * Each message type has its own reader and writer module; the intermediate
+ * serde structs and block writers they share live in `common`.
  */
 
-mod parser;
-mod writer;
+mod apm;
+mod cdm;
+mod common;
+mod oem;
+mod omm;
+mod opm;
 
-pub use parser::parse_cdm_xml;
-pub use parser::parse_oem_xml;
-pub use parser::parse_omm_xml;
-pub use parser::parse_opm_xml;
-pub use writer::write_cdm_xml;
-pub use writer::write_oem_xml;
-pub use writer::write_omm_xml;
-pub use writer::write_opm_xml;
+pub use apm::{parse_apm_xml, write_apm_xml};
+pub use cdm::{parse_cdm_xml, write_cdm_xml};
+pub use oem::{parse_oem_xml, write_oem_xml};
+pub use omm::{parse_omm_xml, write_omm_xml};
+pub use opm::{parse_opm_xml, write_opm_xml};

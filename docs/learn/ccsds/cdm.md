@@ -1,6 +1,6 @@
 # CDM — Conjunction Data Message
 
-A Conjunction Data Message (CDM) describes a close approach between two space objects, providing state vectors, covariance matrices, and collision probability data at the Time of Closest Approach (TCA). It is the standard format used by conjunction assessment services (e.g., 18th Space Defense Squadron) to communicate collision risk to satellite operators.
+A Conjunction Data Message (CDM), defined by the [CCSDS 508.0-B-1 Conjunction Data Message standard](https://ccsds.org/Pubs/508x0b1e2c2.pdf), describes a close approach between two space objects, providing state vectors, covariance matrices, and collision probability data at the Time of Closest Approach (TCA). It is the standard format used by conjunction assessment services (e.g., 18th Space Defense Squadron) to communicate collision risk to satellite operators.
 
 ## Parsing a CDM
 
@@ -119,3 +119,4 @@ json_str = cdm.to_string("JSON")
 - [CDM API Reference](../../library_api/ccsds/cdm.md) — Full API documentation
 - [OPM Format Guide](opm.md) — Single-state messages (closest analog)
 - [CCSDS Module](index.md) — Module overview
+- [CCSDS 508.0-B-1](https://ccsds.org/Pubs/508x0b1e2c2.pdf) — Conjunction Data Message, the standard CDM implements

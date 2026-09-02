@@ -1572,6 +1572,13 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCDMObject>()?;
     module.add_class::<PyCDMStateVector>()?;
     module.add_class::<PyCDMRTNCovariance>()?;
+    module.add_class::<PyAPM>()?;
+    module.add_class::<PyAPMQuaternionState>()?;
+    module.add_class::<PyAPMEulerState>()?;
+    module.add_class::<PyAPMAngularVelocity>()?;
+    module.add_class::<PyAPMSpin>()?;
+    module.add_class::<PyAPMInertia>()?;
+    module.add_class::<PyAPMManeuver>()?;
 
     //* Estimation *//
     module.add_class::<PyProcessNoiseConfig>()?;

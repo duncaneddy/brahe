@@ -1,6 +1,6 @@
 # OMM — Orbit Mean-elements Message
 
-An Orbit Mean-elements Message (OMM) is the CCSDS-standardized representation of TLE/GP data — the same orbital elements traditionally distributed as Two-Line Element sets, in a structured, self-describing format. Data sources like CelesTrak and Space-Track distribute GP data as OMM. The typical workflow is to parse an OMM and initialize an SGP4 propagator.
+An Orbit Mean-elements Message (OMM), defined by the [CCSDS 502.0-B-3 Orbit Data Messages standard](https://ccsds.org/Pubs/502x0b3e1.pdf), is the CCSDS-standardized representation of TLE/GP data — the same orbital elements traditionally distributed as Two-Line Element sets, in a structured, self-describing format. Data sources like CelesTrak and Space-Track distribute GP data as OMM. The typical workflow is to parse an OMM and initialize an SGP4 propagator.
 
 ## Parse and Propagate with SGP4
 
@@ -106,3 +106,4 @@ Note that OMM KVN does not use `META_START`/`META_STOP` markers — all keywords
 - [Two-Line Elements](../orbits/two_line_elements.md) — Traditional TLE format
 - [Ephemeris Data Sources](../ephemeris/index.md) — CelesTrak and Space-Track clients
 - [SGP Propagation](../orbit_propagation/sgp_propagation.md) — SGP4/SDP4 propagation theory and usage
+- [CCSDS 502.0-B-3](https://ccsds.org/Pubs/502x0b3e1.pdf) — Orbit Data Messages, the standard OMM implements

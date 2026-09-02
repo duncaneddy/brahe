@@ -1,14 +1,28 @@
 /*!
- * CCSDS Attitude Parameter Message (APM) header.
+ * CCSDS Attitude Parameter Message (APM).
  *
- * APM messages contain attitude-related parameters for spacecraft and can include
- * attitude sensor data, maneuvers, and covariance information. This module
- * provides the message header; the full message structure is added incrementally.
+ * An APM describes a spacecraft's attitude state at a single epoch, per
+ * CCSDS 504.0-B-2 §3. The message data section is composed of up to six
+ * repeatable logical blocks: attitude quaternion, Euler angle, angular
+ * velocity, spin, inertia, and maneuver. This module provides the message
+ * types, KVN/XML/JSON read and write support, and uses brahe-native
+ * (radian, SI) internal units, converting to/from the wire units defined by
+ * the standard.
  *
  * Reference: CCSDS 504.0-B-2 (Attitude Data Messages), table 3-1
  */
 
+use std::path::Path;
+
+use nalgebra::{Vector3, Vector4};
+
+use crate::attitude::attitude_types::{EulerAngle, Quaternion};
+use crate::ccsds::common::{CCSDSFormat, CCSDSJsonKeyCase, CCSDSTimeSystem};
+use crate::ccsds::frames::ADMReferenceFrame;
+use crate::constants::{AngleFormat, DEG2RAD};
+use crate::math::SMatrix3;
 use crate::time::Epoch;
+use crate::utils::errors::BraheError;
 
 /// CCSDS APM message header (504.0-B-2 table 3-1).
 #[derive(Debug, Clone)]
@@ -112,6 +126,1046 @@ impl APMHeader {
     }
 }
 
+/// CCSDS APM message metadata (504.0-B-2 table 3-2).
+#[derive(Debug, Clone)]
+pub struct APMMetadata {
+    /// Spacecraft name.
+    pub object_name: String,
+    /// International designator, recommended form `YYYY-NNNP{PP}`.
+    pub object_id: String,
+    /// Optional celestial body the object is centered on (e.g. `EARTH`).
+    pub center_name: Option<String>,
+    /// Time system used for `EPOCH` and all epoch-valued keywords.
+    pub time_system: CCSDSTimeSystem,
+    /// Metadata comment lines.
+    pub comments: Vec<String>,
+}
+
+impl APMMetadata {
+    /// Creates metadata with the mandatory fields; `center_name` defaults to
+    /// unset.
+    ///
+    /// # Arguments
+    /// - `object_name`: spacecraft name.
+    /// - `object_id`: international designator.
+    /// - `time_system`: time system for the message's epochs.
+    ///
+    /// # Returns
+    /// APMMetadata: Metadata with defaulted optional fields.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::APMMetadata;
+    /// use brahe::ccsds::CCSDSTimeSystem;
+    /// let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+    /// assert_eq!(metadata.object_name, "SAT1");
+    /// assert!(metadata.center_name.is_none());
+    /// ```
+    pub fn new(object_name: &str, object_id: &str, time_system: CCSDSTimeSystem) -> Self {
+        Self {
+            object_name: object_name.to_string(),
+            object_id: object_id.to_string(),
+            center_name: None,
+            time_system,
+            comments: Vec::new(),
+        }
+    }
+
+    /// Sets the celestial body the object is centered on.
+    ///
+    /// # Arguments
+    /// - `center_name`: celestial body name (e.g. `"EARTH"`).
+    ///
+    /// # Returns
+    /// APMMetadata: The metadata with the center name set.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::APMMetadata;
+    /// use brahe::ccsds::CCSDSTimeSystem;
+    /// let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC)
+    ///     .with_center_name("EARTH");
+    /// assert_eq!(metadata.center_name.as_deref(), Some("EARTH"));
+    /// ```
+    pub fn with_center_name(mut self, center_name: &str) -> Self {
+        self.center_name = Some(center_name.to_string());
+        self
+    }
+}
+
+/// Attitude quaternion logical block of an APM (504.0-B-2 §3.3, quaternion
+/// block, p. 3-5).
+#[derive(Debug, Clone)]
+pub struct APMQuaternionState {
+    /// Frame defining the transformation start point.
+    pub ref_frame_a: ADMReferenceFrame,
+    /// Frame defining the transformation end point.
+    pub ref_frame_b: ADMReferenceFrame,
+    /// Attitude quaternion from `ref_frame_a` to `ref_frame_b`.
+    pub quaternion: Quaternion,
+    /// Optional quaternion time derivative, scalar-first. Units: 1/s.
+    pub quaternion_derivative: Option<Vector4<f64>>,
+    /// Block comment lines.
+    pub comments: Vec<String>,
+}
+
+impl APMQuaternionState {
+    /// Creates a quaternion state with the mandatory fields; the derivative
+    /// defaults to unset.
+    ///
+    /// # Arguments
+    /// - `ref_frame_a`: frame defining the transformation start point.
+    /// - `ref_frame_b`: frame defining the transformation end point.
+    /// - `quaternion`: attitude quaternion from `ref_frame_a` to `ref_frame_b`.
+    ///
+    /// # Returns
+    /// APMQuaternionState: A quaternion block with no derivative set.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::APMQuaternionState;
+    /// use brahe::ccsds::ADMReferenceFrame;
+    /// use brahe::attitude::Quaternion;
+    /// let state = APMQuaternionState::new(
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     Quaternion::new(1.0, 0.0, 0.0, 0.0),
+    /// );
+    /// assert!(state.quaternion_derivative.is_none());
+    /// ```
+    pub fn new(
+        ref_frame_a: ADMReferenceFrame,
+        ref_frame_b: ADMReferenceFrame,
+        quaternion: Quaternion,
+    ) -> Self {
+        Self {
+            ref_frame_a,
+            ref_frame_b,
+            quaternion,
+            quaternion_derivative: None,
+            comments: Vec::new(),
+        }
+    }
+
+    /// Sets the quaternion time derivative.
+    ///
+    /// # Arguments
+    /// - `derivative`: quaternion time derivative, scalar-first. Units: 1/s.
+    ///
+    /// # Returns
+    /// APMQuaternionState: The quaternion block with the derivative set.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::APMQuaternionState;
+    /// use brahe::ccsds::ADMReferenceFrame;
+    /// use brahe::attitude::Quaternion;
+    /// use nalgebra::Vector4;
+    /// let state = APMQuaternionState::new(
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     Quaternion::new(1.0, 0.0, 0.0, 0.0),
+    /// ).with_derivative(Vector4::new(0.0, 0.0, 0.0, 0.001));
+    /// assert!(state.quaternion_derivative.is_some());
+    /// ```
+    pub fn with_derivative(mut self, derivative: Vector4<f64>) -> Self {
+        self.quaternion_derivative = Some(derivative);
+        self
+    }
+}
+
+/// Euler angle logical block of an APM (504.0-B-2 §3.3, Euler angle block,
+/// p. 3-6). The rotation sequence is carried by `angles.order`.
+#[derive(Debug, Clone)]
+pub struct APMEulerState {
+    /// Frame defining the transformation start point.
+    pub ref_frame_a: ADMReferenceFrame,
+    /// Frame defining the transformation end point.
+    pub ref_frame_b: ADMReferenceFrame,
+    /// Euler angles from `ref_frame_a` to `ref_frame_b`; `angles.order`
+    /// carries the `EULER_ROT_SEQ` rotation sequence. Units: radians.
+    pub angles: EulerAngle,
+    /// Optional angle rates `[ANGLE_1_DOT, ANGLE_2_DOT, ANGLE_3_DOT]`, in
+    /// the same sequence order as `angles.order`. Units: rad/s.
+    pub rates: Option<Vector3<f64>>,
+    /// Block comment lines.
+    pub comments: Vec<String>,
+}
+
+impl APMEulerState {
+    /// Creates a Euler angle state with the mandatory fields; rates default
+    /// to unset.
+    ///
+    /// # Arguments
+    /// - `ref_frame_a`: frame defining the transformation start point.
+    /// - `ref_frame_b`: frame defining the transformation end point.
+    /// - `angles`: Euler angles (with rotation sequence) from `ref_frame_a`
+    ///   to `ref_frame_b`.
+    ///
+    /// # Returns
+    /// APMEulerState: A Euler angle block with no rates set.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::APMEulerState;
+    /// use brahe::ccsds::ADMReferenceFrame;
+    /// use brahe::attitude::{EulerAngle, EulerAngleOrder};
+    /// use brahe::AngleFormat;
+    /// let angles = EulerAngle::new(EulerAngleOrder::ZXZ, 10.0, 20.0, 30.0, AngleFormat::Degrees);
+    /// let state = APMEulerState::new(
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     angles,
+    /// );
+    /// assert!(state.rates.is_none());
+    /// ```
+    pub fn new(
+        ref_frame_a: ADMReferenceFrame,
+        ref_frame_b: ADMReferenceFrame,
+        angles: EulerAngle,
+    ) -> Self {
+        Self {
+            ref_frame_a,
+            ref_frame_b,
+            angles,
+            rates: None,
+            comments: Vec::new(),
+        }
+    }
+
+    /// Sets the Euler angle rates.
+    ///
+    /// # Arguments
+    /// - `rates`: angle rates `[ANGLE_1_DOT, ANGLE_2_DOT, ANGLE_3_DOT]`, in
+    ///   the same sequence order as `angles.order`. Units: rad/s.
+    ///
+    /// # Returns
+    /// APMEulerState: The Euler angle block with the rates set.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::APMEulerState;
+    /// use brahe::ccsds::ADMReferenceFrame;
+    /// use brahe::attitude::{EulerAngle, EulerAngleOrder};
+    /// use brahe::AngleFormat;
+    /// use nalgebra::Vector3;
+    /// let angles = EulerAngle::new(EulerAngleOrder::ZXZ, 10.0, 20.0, 30.0, AngleFormat::Degrees);
+    /// let state = APMEulerState::new(
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     angles,
+    /// ).with_rates(Vector3::new(0.001, 0.0, 0.0));
+    /// assert!(state.rates.is_some());
+    /// ```
+    pub fn with_rates(mut self, rates: Vector3<f64>) -> Self {
+        self.rates = Some(rates);
+        self
+    }
+}
+
+/// Angular velocity logical block of an APM (504.0-B-2 §3.3, angular
+/// velocity block, p. 3-6).
+#[derive(Debug, Clone)]
+pub struct APMAngularVelocity {
+    /// Frame defining the transformation start point.
+    pub ref_frame_a: ADMReferenceFrame,
+    /// Frame defining the transformation end point.
+    pub ref_frame_b: ADMReferenceFrame,
+    /// Frame in which `angular_velocity` components are expressed.
+    pub angvel_frame: ADMReferenceFrame,
+    /// Angular velocity vector from `ref_frame_a` to `ref_frame_b`,
+    /// expressed in `angvel_frame`. Units: rad/s.
+    pub angular_velocity: Vector3<f64>,
+    /// Block comment lines.
+    pub comments: Vec<String>,
+}
+
+impl APMAngularVelocity {
+    /// Creates an angular velocity block. All fields of this block are
+    /// mandatory.
+    ///
+    /// # Arguments
+    /// - `ref_frame_a`: frame defining the transformation start point.
+    /// - `ref_frame_b`: frame defining the transformation end point.
+    /// - `angvel_frame`: frame in which `angular_velocity` is expressed.
+    /// - `angular_velocity`: angular velocity vector. Units: rad/s.
+    ///
+    /// # Returns
+    /// APMAngularVelocity: A new angular velocity block.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::APMAngularVelocity;
+    /// use brahe::ccsds::ADMReferenceFrame;
+    /// use nalgebra::Vector3;
+    /// let block = APMAngularVelocity::new(
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     Vector3::new(0.001, 0.0, 0.0),
+    /// );
+    /// assert_eq!(block.angular_velocity[0], 0.001);
+    /// ```
+    pub fn new(
+        ref_frame_a: ADMReferenceFrame,
+        ref_frame_b: ADMReferenceFrame,
+        angvel_frame: ADMReferenceFrame,
+        angular_velocity: Vector3<f64>,
+    ) -> Self {
+        Self {
+            ref_frame_a,
+            ref_frame_b,
+            angvel_frame,
+            angular_velocity,
+            comments: Vec::new(),
+        }
+    }
+}
+
+/// Nutation description for an [`APMSpin`] block (504.0-B-2 §3.2.4.6, p.
+/// 3-5). A spin block carries either the angle triple, the momentum triple,
+/// or neither (a simple, non-nutating spin).
+#[derive(Debug, Clone)]
+pub enum APMNutation {
+    /// No nutation keywords present (simple spin).
+    None,
+    /// `NUTATION` / `NUTATION_PER` / `NUTATION_PHASE` triple.
+    Angle {
+        /// Nutation angle. Units: radians.
+        nutation: f64,
+        /// Nutation period. Units: seconds.
+        nutation_period: f64,
+        /// Inertial nutation phase. Units: radians.
+        nutation_phase: f64,
+    },
+    /// `MOMENTUM_ALPHA` / `MOMENTUM_DELTA` / `NUTATION_VEL` triple.
+    Momentum {
+        /// Right ascension of the angular momentum vector. Units: radians.
+        momentum_alpha: f64,
+        /// Declination of the angular momentum vector. Units: radians.
+        momentum_delta: f64,
+        /// Angular velocity of the spin axis around the momentum vector.
+        /// Units: rad/s.
+        nutation_vel: f64,
+    },
+}
+
+/// Spin logical block of an APM (504.0-B-2 §3.3, spin block, p. 3-7).
+#[derive(Debug, Clone)]
+pub struct APMSpin {
+    /// Frame defining the transformation start point.
+    pub ref_frame_a: ADMReferenceFrame,
+    /// Frame defining the transformation end point.
+    pub ref_frame_b: ADMReferenceFrame,
+    /// Right ascension of the spin axis in `ref_frame_a`. Units: radians.
+    pub spin_alpha: f64,
+    /// Declination of the spin axis in `ref_frame_a`. Units: radians.
+    pub spin_delta: f64,
+    /// Phase angle about the spin axis. Units: radians.
+    pub spin_angle: f64,
+    /// Angular velocity about the spin axis. Units: rad/s.
+    pub spin_angle_vel: f64,
+    /// Nutation description; `APMNutation::None` for a simple spin.
+    pub nutation: APMNutation,
+    /// Block comment lines.
+    pub comments: Vec<String>,
+}
+
+impl APMSpin {
+    /// Creates a spin block with the mandatory fields; nutation defaults to
+    /// `APMNutation::None`.
+    ///
+    /// # Arguments
+    /// - `ref_frame_a`: frame defining the transformation start point.
+    /// - `ref_frame_b`: frame defining the transformation end point.
+    /// - `spin_alpha`: right ascension of the spin axis in `ref_frame_a`.
+    /// - `spin_delta`: declination of the spin axis in `ref_frame_a`.
+    /// - `spin_angle`: phase angle about the spin axis.
+    /// - `spin_angle_vel`: angular velocity about the spin axis.
+    /// - `angle_format`: format (`Radians` or `Degrees`) of `spin_alpha`,
+    ///   `spin_delta`, `spin_angle`, and `spin_angle_vel`.
+    ///
+    /// # Returns
+    /// APMSpin: A spin block with no nutation set.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::APMSpin;
+    /// use brahe::ccsds::ADMReferenceFrame;
+    /// use brahe::AngleFormat;
+    /// let spin = APMSpin::new(
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     10.0, 20.0, 30.0, 1.0,
+    ///     AngleFormat::Degrees,
+    /// );
+    /// assert!((spin.spin_alpha - 10.0_f64.to_radians()).abs() < 1e-12);
+    /// ```
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        ref_frame_a: ADMReferenceFrame,
+        ref_frame_b: ADMReferenceFrame,
+        spin_alpha: f64,
+        spin_delta: f64,
+        spin_angle: f64,
+        spin_angle_vel: f64,
+        angle_format: AngleFormat,
+    ) -> Self {
+        let (spin_alpha, spin_delta, spin_angle, spin_angle_vel) = match angle_format {
+            AngleFormat::Degrees => (
+                spin_alpha * DEG2RAD,
+                spin_delta * DEG2RAD,
+                spin_angle * DEG2RAD,
+                spin_angle_vel * DEG2RAD,
+            ),
+            AngleFormat::Radians => (spin_alpha, spin_delta, spin_angle, spin_angle_vel),
+        };
+        Self {
+            ref_frame_a,
+            ref_frame_b,
+            spin_alpha,
+            spin_delta,
+            spin_angle,
+            spin_angle_vel,
+            nutation: APMNutation::None,
+            comments: Vec::new(),
+        }
+    }
+
+    /// Sets the nutation description to the `NUTATION` / `NUTATION_PER` /
+    /// `NUTATION_PHASE` triple.
+    ///
+    /// # Arguments
+    /// - `nutation`: nutation angle.
+    /// - `nutation_period`: nutation period. Units: seconds (unaffected by
+    ///   `angle_format`).
+    /// - `nutation_phase`: inertial nutation phase.
+    /// - `angle_format`: format of `nutation` and `nutation_phase`.
+    ///
+    /// # Returns
+    /// APMSpin: The spin block with the angle-triple nutation description set.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::{APMSpin, APMNutation};
+    /// use brahe::ccsds::ADMReferenceFrame;
+    /// use brahe::AngleFormat;
+    /// let spin = APMSpin::new(
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     10.0, 20.0, 30.0, 1.0,
+    ///     AngleFormat::Degrees,
+    /// ).with_nutation_angle(1.0, 100.0, 5.0, AngleFormat::Degrees);
+    /// assert!(matches!(spin.nutation, APMNutation::Angle { .. }));
+    /// ```
+    pub fn with_nutation_angle(
+        mut self,
+        nutation: f64,
+        nutation_period: f64,
+        nutation_phase: f64,
+        angle_format: AngleFormat,
+    ) -> Self {
+        let (nutation, nutation_phase) = match angle_format {
+            AngleFormat::Degrees => (nutation * DEG2RAD, nutation_phase * DEG2RAD),
+            AngleFormat::Radians => (nutation, nutation_phase),
+        };
+        self.nutation = APMNutation::Angle {
+            nutation,
+            nutation_period,
+            nutation_phase,
+        };
+        self
+    }
+
+    /// Sets the nutation description to the `MOMENTUM_ALPHA` /
+    /// `MOMENTUM_DELTA` / `NUTATION_VEL` triple.
+    ///
+    /// # Arguments
+    /// - `momentum_alpha`: right ascension of the angular momentum vector.
+    /// - `momentum_delta`: declination of the angular momentum vector.
+    /// - `nutation_vel`: angular velocity of the spin axis around the
+    ///   momentum vector.
+    /// - `angle_format`: format of `momentum_alpha`, `momentum_delta`, and
+    ///   `nutation_vel`.
+    ///
+    /// # Returns
+    /// APMSpin: The spin block with the momentum-triple nutation description
+    /// set.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::{APMSpin, APMNutation};
+    /// use brahe::ccsds::ADMReferenceFrame;
+    /// use brahe::AngleFormat;
+    /// let spin = APMSpin::new(
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     10.0, 20.0, 30.0, 1.0,
+    ///     AngleFormat::Degrees,
+    /// ).with_nutation_momentum(15.0, 25.0, 0.5, AngleFormat::Degrees);
+    /// assert!(matches!(spin.nutation, APMNutation::Momentum { .. }));
+    /// ```
+    pub fn with_nutation_momentum(
+        mut self,
+        momentum_alpha: f64,
+        momentum_delta: f64,
+        nutation_vel: f64,
+        angle_format: AngleFormat,
+    ) -> Self {
+        let (momentum_alpha, momentum_delta, nutation_vel) = match angle_format {
+            AngleFormat::Degrees => (
+                momentum_alpha * DEG2RAD,
+                momentum_delta * DEG2RAD,
+                nutation_vel * DEG2RAD,
+            ),
+            AngleFormat::Radians => (momentum_alpha, momentum_delta, nutation_vel),
+        };
+        self.nutation = APMNutation::Momentum {
+            momentum_alpha,
+            momentum_delta,
+            nutation_vel,
+        };
+        self
+    }
+}
+
+/// Inertia logical block of an APM (504.0-B-2 §3.3, inertia block, p. 3-7).
+#[derive(Debug, Clone)]
+pub struct APMInertia {
+    /// Reference frame the inertia tensor is expressed in.
+    pub inertia_ref_frame: ADMReferenceFrame,
+    /// Moment of inertia about X. Units: kg·m².
+    pub ixx: f64,
+    /// Moment of inertia about Y. Units: kg·m².
+    pub iyy: f64,
+    /// Moment of inertia about Z. Units: kg·m².
+    pub izz: f64,
+    /// Product of inertia XY. Units: kg·m².
+    pub ixy: f64,
+    /// Product of inertia XZ. Units: kg·m².
+    pub ixz: f64,
+    /// Product of inertia YZ. Units: kg·m².
+    pub iyz: f64,
+    /// Block comment lines.
+    pub comments: Vec<String>,
+}
+
+impl APMInertia {
+    /// Creates an inertia block. All fields of this block are mandatory.
+    ///
+    /// # Arguments
+    /// - `inertia_ref_frame`: reference frame the inertia tensor is
+    ///   expressed in.
+    /// - `ixx`, `iyy`, `izz`: moments of inertia. Units: kg·m².
+    /// - `ixy`, `ixz`, `iyz`: products of inertia. Units: kg·m².
+    ///
+    /// # Returns
+    /// APMInertia: A new inertia block.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::APMInertia;
+    /// use brahe::ccsds::ADMReferenceFrame;
+    /// let inertia = APMInertia::new(
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     6080.0, 5245.5, 8067.3, -135.9, 89.3, -90.7,
+    /// );
+    /// assert_eq!(inertia.ixx, 6080.0);
+    /// ```
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        inertia_ref_frame: ADMReferenceFrame,
+        ixx: f64,
+        iyy: f64,
+        izz: f64,
+        ixy: f64,
+        ixz: f64,
+        iyz: f64,
+    ) -> Self {
+        Self {
+            inertia_ref_frame,
+            ixx,
+            iyy,
+            izz,
+            ixy,
+            ixz,
+            iyz,
+            comments: Vec::new(),
+        }
+    }
+
+    /// Builds the 3x3 inertia matrix per CCSDS 504.0-B-2 Annex F6: the
+    /// cross-product (off-diagonal) terms are negated.
+    ///
+    /// `I = [[ixx, -ixy, -ixz], [-ixy, iyy, -iyz], [-ixz, -iyz, izz]]`
+    ///
+    /// # Returns
+    /// SMatrix3: The symmetric 3x3 inertia tensor. Units: kg·m².
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::APMInertia;
+    /// use brahe::ccsds::ADMReferenceFrame;
+    /// let inertia = APMInertia::new(
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     6080.0, 5245.5, 8067.3, -135.9, 89.3, -90.7,
+    /// );
+    /// let matrix = inertia.inertia_matrix();
+    /// assert_eq!(matrix[(0, 1)], 135.9);
+    /// ```
+    pub fn inertia_matrix(&self) -> SMatrix3 {
+        SMatrix3::new(
+            self.ixx, -self.ixy, -self.ixz, -self.ixy, self.iyy, -self.iyz, -self.ixz, -self.iyz,
+            self.izz,
+        )
+    }
+}
+
+/// Maneuver logical block of an APM (504.0-B-2 §3.3, maneuver block, p.
+/// 3-8). Repeatable; unlike the other blocks, maneuvers are not relative to
+/// the message `EPOCH` (504.0-B-2 §3.2.4.5).
+#[derive(Debug, Clone)]
+pub struct APMManeuver {
+    /// Epoch of maneuver start.
+    pub epoch_start: Epoch,
+    /// Maneuver duration. Units: seconds.
+    pub duration: f64,
+    /// Reference frame for the torque vector.
+    pub ref_frame: ADMReferenceFrame,
+    /// Torque vector. Units: N·m.
+    pub torque: Vector3<f64>,
+    /// Optional mass change (must be ≤ 0). Units: kg.
+    pub delta_mass: Option<f64>,
+    /// Block comment lines.
+    pub comments: Vec<String>,
+}
+
+impl APMManeuver {
+    /// Creates a maneuver with the mandatory fields; `delta_mass` defaults
+    /// to unset.
+    ///
+    /// # Arguments
+    /// - `epoch_start`: epoch of maneuver start.
+    /// - `duration`: maneuver duration. Units: seconds.
+    /// - `ref_frame`: reference frame for the torque vector.
+    /// - `torque`: torque vector. Units: N·m.
+    ///
+    /// # Returns
+    /// APMManeuver: A maneuver with no mass change set.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::APMManeuver;
+    /// use brahe::ccsds::ADMReferenceFrame;
+    /// use brahe::time::Epoch;
+    /// use nalgebra::Vector3;
+    /// let man = APMManeuver::new(
+    ///     Epoch::now(),
+    ///     3.0,
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     Vector3::new(-1.25, -0.5, 0.5),
+    /// );
+    /// assert!(man.delta_mass.is_none());
+    /// ```
+    pub fn new(
+        epoch_start: Epoch,
+        duration: f64,
+        ref_frame: ADMReferenceFrame,
+        torque: Vector3<f64>,
+    ) -> Self {
+        Self {
+            epoch_start,
+            duration,
+            ref_frame,
+            torque,
+            delta_mass: None,
+            comments: Vec::new(),
+        }
+    }
+
+    /// Sets the mass change due to the maneuver.
+    ///
+    /// # Arguments
+    /// - `delta_mass`: mass change. Units: kg.
+    ///
+    /// # Returns
+    /// - `Ok(APMManeuver)` - The maneuver with the mass change set
+    /// - `Err(BraheError)` - If `delta_mass` is positive; CCSDS 504.0-B-2
+    ///   table 3-3 requires `MAN_DELTA_MASS <= 0`
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::APMManeuver;
+    /// use brahe::ccsds::ADMReferenceFrame;
+    /// use brahe::time::Epoch;
+    /// use nalgebra::Vector3;
+    /// let man = APMManeuver::new(
+    ///     Epoch::now(),
+    ///     3.0,
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     Vector3::new(-1.25, -0.5, 0.5),
+    /// ).with_delta_mass(-0.05).unwrap();
+    /// assert_eq!(man.delta_mass, Some(-0.05));
+    /// ```
+    pub fn with_delta_mass(mut self, delta_mass: f64) -> Result<Self, BraheError> {
+        if delta_mass > 0.0 {
+            return Err(BraheError::Error(format!(
+                "APM MAN_DELTA_MASS {} must be <= 0; it represents mass lost during the \
+                 maneuver",
+                delta_mass
+            )));
+        }
+        self.delta_mass = Some(delta_mass);
+        Ok(self)
+    }
+}
+
+/// A complete CCSDS Attitude Parameter Message.
+#[derive(Debug, Clone)]
+pub struct APM {
+    /// Message header.
+    pub header: APMHeader,
+    /// Metadata.
+    pub metadata: APMMetadata,
+    /// Epoch of the attitude elements and all blocks except maneuvers.
+    pub epoch: Epoch,
+    /// Data-section comment lines (before the first logical block).
+    pub comments: Vec<String>,
+    /// Attitude quaternion blocks.
+    pub quaternion_states: Vec<APMQuaternionState>,
+    /// Euler angle blocks.
+    pub euler_states: Vec<APMEulerState>,
+    /// Angular velocity blocks.
+    pub angular_velocities: Vec<APMAngularVelocity>,
+    /// Spin blocks.
+    pub spins: Vec<APMSpin>,
+    /// Inertia blocks.
+    pub inertias: Vec<APMInertia>,
+    /// Maneuver blocks.
+    pub maneuvers: Vec<APMManeuver>,
+}
+
+impl APM {
+    /// Creates a new APM message with no logical blocks. Per 504.0-B-2
+    /// §3.2.4.3 the message must contain at least one logical block before
+    /// it is valid to write or parse; see [`APM::has_blocks`].
+    ///
+    /// # Arguments
+    /// - `originator`: creating agency or operator identifier.
+    /// - `metadata`: APM metadata.
+    /// - `epoch`: epoch of the attitude elements and all blocks except
+    ///   maneuvers.
+    ///
+    /// # Returns
+    /// APM: A message with an empty data section.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::{APM, APMMetadata};
+    /// use brahe::ccsds::CCSDSTimeSystem;
+    /// use brahe::time::Epoch;
+    /// let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+    /// let apm = APM::new("BRAHE", metadata, Epoch::now());
+    /// assert!(!apm.has_blocks());
+    /// ```
+    pub fn new(originator: &str, metadata: APMMetadata, epoch: Epoch) -> Self {
+        Self {
+            header: APMHeader::new(originator),
+            metadata,
+            epoch,
+            comments: Vec::new(),
+            quaternion_states: Vec::new(),
+            euler_states: Vec::new(),
+            angular_velocities: Vec::new(),
+            spins: Vec::new(),
+            inertias: Vec::new(),
+            maneuvers: Vec::new(),
+        }
+    }
+
+    /// Appends an attitude quaternion block.
+    ///
+    /// # Arguments
+    /// - `state`: attitude quaternion block to append.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::{APM, APMMetadata, APMQuaternionState};
+    /// use brahe::ccsds::{ADMReferenceFrame, CCSDSTimeSystem};
+    /// use brahe::attitude::Quaternion;
+    /// use brahe::time::Epoch;
+    /// let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+    /// let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+    /// apm.push_quaternion_state(APMQuaternionState::new(
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     Quaternion::new(1.0, 0.0, 0.0, 0.0),
+    /// ));
+    /// assert_eq!(apm.quaternion_states.len(), 1);
+    /// ```
+    pub fn push_quaternion_state(&mut self, state: APMQuaternionState) {
+        self.quaternion_states.push(state);
+    }
+
+    /// Appends a Euler angle block.
+    ///
+    /// # Arguments
+    /// - `state`: Euler angle block to append.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::{APM, APMMetadata, APMEulerState};
+    /// use brahe::ccsds::{ADMReferenceFrame, CCSDSTimeSystem};
+    /// use brahe::attitude::{EulerAngle, EulerAngleOrder};
+    /// use brahe::time::Epoch;
+    /// use brahe::AngleFormat;
+    /// let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+    /// let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+    /// let angles = EulerAngle::new(EulerAngleOrder::ZXZ, 10.0, 20.0, 30.0, AngleFormat::Degrees);
+    /// apm.push_euler_state(APMEulerState::new(
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     angles,
+    /// ));
+    /// assert_eq!(apm.euler_states.len(), 1);
+    /// ```
+    pub fn push_euler_state(&mut self, state: APMEulerState) {
+        self.euler_states.push(state);
+    }
+
+    /// Appends an angular velocity block.
+    ///
+    /// # Arguments
+    /// - `angular_velocity`: angular velocity block to append.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::{APM, APMMetadata, APMAngularVelocity};
+    /// use brahe::ccsds::{ADMReferenceFrame, CCSDSTimeSystem};
+    /// use brahe::time::Epoch;
+    /// use nalgebra::Vector3;
+    /// let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+    /// let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+    /// apm.push_angular_velocity(APMAngularVelocity::new(
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     Vector3::new(0.001, 0.0, 0.0),
+    /// ));
+    /// assert_eq!(apm.angular_velocities.len(), 1);
+    /// ```
+    pub fn push_angular_velocity(&mut self, angular_velocity: APMAngularVelocity) {
+        self.angular_velocities.push(angular_velocity);
+    }
+
+    /// Appends a spin block.
+    ///
+    /// # Arguments
+    /// - `spin`: spin block to append.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::{APM, APMMetadata, APMSpin};
+    /// use brahe::ccsds::{ADMReferenceFrame, CCSDSTimeSystem};
+    /// use brahe::time::Epoch;
+    /// use brahe::AngleFormat;
+    /// let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+    /// let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+    /// apm.push_spin(APMSpin::new(
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     10.0, 20.0, 30.0, 1.0,
+    ///     AngleFormat::Degrees,
+    /// ));
+    /// assert_eq!(apm.spins.len(), 1);
+    /// ```
+    pub fn push_spin(&mut self, spin: APMSpin) {
+        self.spins.push(spin);
+    }
+
+    /// Appends an inertia block.
+    ///
+    /// # Arguments
+    /// - `inertia`: inertia block to append.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::{APM, APMMetadata, APMInertia};
+    /// use brahe::ccsds::{ADMReferenceFrame, CCSDSTimeSystem};
+    /// use brahe::time::Epoch;
+    /// let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+    /// let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+    /// apm.push_inertia(APMInertia::new(
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     6080.0, 5245.5, 8067.3, -135.9, 89.3, -90.7,
+    /// ));
+    /// assert_eq!(apm.inertias.len(), 1);
+    /// ```
+    pub fn push_inertia(&mut self, inertia: APMInertia) {
+        self.inertias.push(inertia);
+    }
+
+    /// Appends a maneuver block.
+    ///
+    /// # Arguments
+    /// - `maneuver`: maneuver block to append.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::{APM, APMMetadata, APMManeuver};
+    /// use brahe::ccsds::{ADMReferenceFrame, CCSDSTimeSystem};
+    /// use brahe::time::Epoch;
+    /// use nalgebra::Vector3;
+    /// let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+    /// let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+    /// apm.push_maneuver(APMManeuver::new(
+    ///     Epoch::now(),
+    ///     3.0,
+    ///     ADMReferenceFrame::parse("ICRF"),
+    ///     Vector3::new(-1.25, -0.5, 0.5),
+    /// ));
+    /// assert_eq!(apm.maneuvers.len(), 1);
+    /// ```
+    pub fn push_maneuver(&mut self, maneuver: APMManeuver) {
+        self.maneuvers.push(maneuver);
+    }
+
+    /// Returns `true` if at least one logical block is present.
+    ///
+    /// Per CCSDS 504.0-B-2 §3.2.4.3 a valid APM must contain at least one
+    /// logical block; this check is used by validation on both the parse
+    /// and write paths.
+    ///
+    /// # Returns
+    /// bool: `true` if any of the six logical-block `Vec` fields is
+    /// non-empty.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::apm::{APM, APMMetadata, APMInertia};
+    /// use brahe::ccsds::{ADMReferenceFrame, CCSDSTimeSystem};
+    /// use brahe::time::Epoch;
+    /// let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+    /// let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+    /// assert!(!apm.has_blocks());
+    /// apm.push_inertia(APMInertia::new(
+    ///     ADMReferenceFrame::parse("SC_BODY_1"),
+    ///     6080.0, 5245.5, 8067.3, -135.9, 89.3, -90.7,
+    /// ));
+    /// assert!(apm.has_blocks());
+    /// ```
+    pub fn has_blocks(&self) -> bool {
+        !self.quaternion_states.is_empty()
+            || !self.euler_states.is_empty()
+            || !self.angular_velocities.is_empty()
+            || !self.spins.is_empty()
+            || !self.inertias.is_empty()
+            || !self.maneuvers.is_empty()
+    }
+
+    /// Validates maneuver fields that `APMManeuver`'s public fields do not
+    /// themselves protect against direct mutation.
+    ///
+    /// `APMManeuver::with_delta_mass` rejects a positive `delta_mass` at
+    /// construction time, but `delta_mass` (like the maneuver's other
+    /// fields) is public, so a maneuver built or mutated without the
+    /// builder can still carry an invalid value. Every writer calls this
+    /// before serializing so an invalid value cannot reach the wire.
+    ///
+    /// # Returns
+    /// Result<(), BraheError>: `Ok(())` if every maneuver's `delta_mass` is
+    /// `None` or `<= 0`, otherwise an error naming the offending value.
+    pub(crate) fn validate_maneuvers(&self) -> Result<(), BraheError> {
+        for man in &self.maneuvers {
+            if let Some(delta_mass) = man.delta_mass
+                && delta_mass > 0.0
+            {
+                return Err(BraheError::Error(format!(
+                    "APM MAN_DELTA_MASS {} must be <= 0; it represents mass lost during the                      maneuver",
+                    delta_mass
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    /// Parses an APM message from a string, auto-detecting the format.
+    ///
+    /// # Arguments
+    /// - `content`: string content of the APM message (KVN, XML, or JSON).
+    ///
+    /// # Returns
+    /// Result<APM, BraheError>: The parsed message, or an error if the
+    /// content is malformed or does not contain at least one logical block.
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_str(content: &str) -> Result<Self, BraheError> {
+        let format = crate::ccsds::common::detect_format(content);
+        match format {
+            CCSDSFormat::KVN => crate::ccsds::kvn::parse_apm(content),
+            CCSDSFormat::XML => crate::ccsds::xml::parse_apm_xml(content),
+            CCSDSFormat::JSON => crate::ccsds::json::parse_apm_json(content),
+        }
+    }
+
+    /// Parses an APM message from a file, auto-detecting the format.
+    ///
+    /// # Arguments
+    /// - `path`: path to the APM file.
+    ///
+    /// # Returns
+    /// Result<APM, BraheError>: The parsed message, or an error if the file
+    /// cannot be read or its content is malformed.
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, BraheError> {
+        let content = std::fs::read_to_string(path.as_ref())
+            .map_err(|e| BraheError::IoError(format!("Failed to read APM file: {}", e)))?;
+        Self::from_str(&content)
+    }
+
+    /// Writes the APM message to a string in the specified format.
+    ///
+    /// # Arguments
+    /// - `format`: output encoding format (KVN, XML, or JSON).
+    ///
+    /// # Returns
+    /// Result<String, BraheError>: The serialized message, or an error if
+    /// the message does not contain at least one logical block.
+    pub fn to_string(&self, format: CCSDSFormat) -> Result<String, BraheError> {
+        match format {
+            CCSDSFormat::KVN => crate::ccsds::kvn::write_apm(self),
+            CCSDSFormat::XML => crate::ccsds::xml::write_apm_xml(self),
+            CCSDSFormat::JSON => crate::ccsds::json::write_apm_json(self, CCSDSJsonKeyCase::Lower),
+        }
+    }
+
+    /// Writes the APM message to JSON with explicit key case control.
+    ///
+    /// # Arguments
+    /// - `key_case`: whether CCSDS keywords should be lowercase or
+    ///   uppercase.
+    ///
+    /// # Returns
+    /// Result<String, BraheError>: The serialized JSON string, or an error
+    /// if the message does not contain at least one logical block.
+    pub fn to_json_string(&self, key_case: CCSDSJsonKeyCase) -> Result<String, BraheError> {
+        crate::ccsds::json::write_apm_json(self, key_case)
+    }
+
+    /// Writes the APM message to a file in the specified format.
+    ///
+    /// # Arguments
+    /// - `path`: output file path.
+    /// - `format`: output encoding format (KVN, XML, or JSON).
+    ///
+    /// # Returns
+    /// Result<(), BraheError>: Success, or an error if serialization or the
+    /// file write fails.
+    pub fn to_file<P: AsRef<Path>>(&self, path: P, format: CCSDSFormat) -> Result<(), BraheError> {
+        let content = self.to_string(format)?;
+        std::fs::write(path.as_ref(), content)
+            .map_err(|e| BraheError::IoError(format!("Failed to write APM file: {}", e)))
+    }
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
@@ -139,5 +1193,902 @@ mod tests {
         assert_eq!(header.classification.as_deref(), Some("UNCLASSIFIED"));
         assert_eq!(header.message_id.as_deref(), Some("MSG-001"));
         assert_eq!(header.comments.len(), 1);
+    }
+
+    use crate::attitude::attitude_types::EulerAngleOrder;
+
+    fn icrf() -> ADMReferenceFrame {
+        ADMReferenceFrame::parse("ICRF")
+    }
+
+    fn sc_body_1() -> ADMReferenceFrame {
+        ADMReferenceFrame::parse("SC_BODY_1")
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_metadata_new_defaults() {
+        let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+        assert_eq!(metadata.object_name, "SAT1");
+        assert_eq!(metadata.object_id, "2024-001A");
+        assert!(metadata.center_name.is_none());
+        assert_eq!(metadata.time_system, CCSDSTimeSystem::UTC);
+        assert!(metadata.comments.is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_metadata_with_center_name() {
+        let metadata =
+            APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC).with_center_name("EARTH");
+        assert_eq!(metadata.center_name.as_deref(), Some("EARTH"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_quaternion_state_new_defaults() {
+        let state =
+            APMQuaternionState::new(icrf(), sc_body_1(), Quaternion::new(1.0, 0.0, 0.0, 0.0));
+        assert_eq!(state.ref_frame_a, icrf());
+        assert_eq!(state.ref_frame_b, sc_body_1());
+        assert!(state.quaternion_derivative.is_none());
+        assert!(state.comments.is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_quaternion_state_with_derivative() {
+        let derivative = Vector4::new(0.1, 0.0, 0.0, 0.0);
+        let state =
+            APMQuaternionState::new(icrf(), sc_body_1(), Quaternion::new(1.0, 0.0, 0.0, 0.0))
+                .with_derivative(derivative);
+        assert_eq!(state.quaternion_derivative, Some(derivative));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_euler_state_new_defaults() {
+        let angles = EulerAngle::new(EulerAngleOrder::ZXZ, 10.0, 20.0, 30.0, AngleFormat::Degrees);
+        let state = APMEulerState::new(icrf(), sc_body_1(), angles);
+        assert!(state.rates.is_none());
+        assert!(state.comments.is_empty());
+        assert!(matches!(state.angles.order, EulerAngleOrder::ZXZ));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_euler_state_with_rates() {
+        let angles = EulerAngle::new(EulerAngleOrder::ZXZ, 10.0, 20.0, 30.0, AngleFormat::Degrees);
+        let rates = Vector3::new(0.01, 0.02, 0.03);
+        let state = APMEulerState::new(icrf(), sc_body_1(), angles).with_rates(rates);
+        assert_eq!(state.rates, Some(rates));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_angular_velocity_new() {
+        let angvel = Vector3::new(0.001, 0.002, 0.003);
+        let block = APMAngularVelocity::new(icrf(), sc_body_1(), sc_body_1(), angvel);
+        assert_eq!(block.angvel_frame, sc_body_1());
+        assert_eq!(block.angular_velocity, angvel);
+        assert!(block.comments.is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_spin_new_defaults_degrees() {
+        let spin = APMSpin::new(
+            icrf(),
+            sc_body_1(),
+            10.0,
+            20.0,
+            30.0,
+            1.0,
+            AngleFormat::Degrees,
+        );
+        assert!((spin.spin_alpha - 10.0 * DEG2RAD).abs() < 1e-15);
+        assert!((spin.spin_delta - 20.0 * DEG2RAD).abs() < 1e-15);
+        assert!((spin.spin_angle - 30.0 * DEG2RAD).abs() < 1e-15);
+        assert!((spin.spin_angle_vel - 1.0 * DEG2RAD).abs() < 1e-15);
+        assert!(matches!(spin.nutation, APMNutation::None));
+        assert!(spin.comments.is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_spin_new_radians() {
+        let spin = APMSpin::new(
+            icrf(),
+            sc_body_1(),
+            0.1,
+            0.2,
+            0.3,
+            0.01,
+            AngleFormat::Radians,
+        );
+        assert!((spin.spin_alpha - 0.1).abs() < 1e-15);
+        assert!((spin.spin_delta - 0.2).abs() < 1e-15);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_spin_with_nutation_angle() {
+        let spin = APMSpin::new(
+            icrf(),
+            sc_body_1(),
+            10.0,
+            20.0,
+            30.0,
+            1.0,
+            AngleFormat::Degrees,
+        )
+        .with_nutation_angle(5.0, 100.0, 15.0, AngleFormat::Degrees);
+        match spin.nutation {
+            APMNutation::Angle {
+                nutation,
+                nutation_period,
+                nutation_phase,
+            } => {
+                assert!((nutation - 5.0 * DEG2RAD).abs() < 1e-15);
+                assert!((nutation_period - 100.0).abs() < 1e-15);
+                assert!((nutation_phase - 15.0 * DEG2RAD).abs() < 1e-15);
+            }
+            _ => panic!("expected APMNutation::Angle"),
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_spin_with_nutation_momentum() {
+        let spin = APMSpin::new(
+            icrf(),
+            sc_body_1(),
+            10.0,
+            20.0,
+            30.0,
+            1.0,
+            AngleFormat::Degrees,
+        )
+        .with_nutation_momentum(7.0, 8.0, 0.5, AngleFormat::Degrees);
+        match spin.nutation {
+            APMNutation::Momentum {
+                momentum_alpha,
+                momentum_delta,
+                nutation_vel,
+            } => {
+                assert!((momentum_alpha - 7.0 * DEG2RAD).abs() < 1e-15);
+                assert!((momentum_delta - 8.0 * DEG2RAD).abs() < 1e-15);
+                assert!((nutation_vel - 0.5 * DEG2RAD).abs() < 1e-15);
+            }
+            _ => panic!("expected APMNutation::Momentum"),
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_inertia_matrix_sign_convention() {
+        let inertia = APMInertia::new(sc_body_1(), 6080.0, 5245.5, 8067.3, -135.9, 89.3, -90.7);
+        let matrix = inertia.inertia_matrix();
+        // Diagonals unchanged
+        assert_eq!(matrix[(0, 0)], 6080.0);
+        assert_eq!(matrix[(1, 1)], 5245.5);
+        assert_eq!(matrix[(2, 2)], 8067.3);
+        // Off-diagonals negated relative to the stored (unsigned-convention) fields
+        assert_eq!(matrix[(0, 1)], 135.9);
+        assert_eq!(matrix[(0, 2)], -89.3);
+        assert_eq!(matrix[(1, 2)], 90.7);
+        // Symmetry
+        assert_eq!(matrix[(0, 1)], matrix[(1, 0)]);
+        assert_eq!(matrix[(0, 2)], matrix[(2, 0)]);
+        assert_eq!(matrix[(1, 2)], matrix[(2, 1)]);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_maneuver_new_defaults() {
+        let man = APMManeuver::new(Epoch::now(), 3.0, icrf(), Vector3::new(-1.25, -0.5, 0.5));
+        assert!((man.duration - 3.0).abs() < 1e-15);
+        assert!(man.delta_mass.is_none());
+        assert!(man.comments.is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_maneuver_with_delta_mass() {
+        let man = APMManeuver::new(Epoch::now(), 3.0, icrf(), Vector3::new(-1.25, -0.5, 0.5))
+            .with_delta_mass(-0.5)
+            .unwrap();
+        assert_eq!(man.delta_mass, Some(-0.5));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_maneuver_with_delta_mass_positive_errors() {
+        // CCSDS 504.0-B-2 table 3-3 requires MAN_DELTA_MASS <= 0.
+        let err = APMManeuver::new(Epoch::now(), 3.0, icrf(), Vector3::new(-1.25, -0.5, 0.5))
+            .with_delta_mass(0.5)
+            .unwrap_err();
+        assert!(err.to_string().contains("MAN_DELTA_MASS"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_write_rejects_maneuver_with_positive_delta_mass_via_direct_mutation() {
+        // `APMManeuver::delta_mass` is public, so `with_delta_mass`'s
+        // construction-time check can be bypassed by direct field
+        // mutation; every writer must still reject it before serializing.
+        let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+        let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+        let mut man = APMManeuver::new(Epoch::now(), 3.0, icrf(), Vector3::new(-1.25, -0.5, 0.5));
+        man.delta_mass = Some(0.5);
+        apm.push_maneuver(man);
+
+        for format in [CCSDSFormat::KVN, CCSDSFormat::XML, CCSDSFormat::JSON] {
+            let err = apm.to_string(format).unwrap_err();
+            assert!(
+                err.to_string().contains("MAN_DELTA_MASS"),
+                "format {:?}: unexpected message: {}",
+                format,
+                err
+            );
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_new_defaults_and_has_blocks() {
+        let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+        let apm = APM::new("BRAHE", metadata, Epoch::now());
+        assert_eq!(apm.header.originator, "BRAHE");
+        assert!(apm.comments.is_empty());
+        assert!(apm.quaternion_states.is_empty());
+        assert!(apm.euler_states.is_empty());
+        assert!(apm.angular_velocities.is_empty());
+        assert!(apm.spins.is_empty());
+        assert!(apm.inertias.is_empty());
+        assert!(apm.maneuvers.is_empty());
+        assert!(!apm.has_blocks());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_push_methods_and_has_blocks() {
+        let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+        let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+
+        apm.push_quaternion_state(APMQuaternionState::new(
+            icrf(),
+            sc_body_1(),
+            Quaternion::new(1.0, 0.0, 0.0, 0.0),
+        ));
+        assert!(apm.has_blocks());
+        assert_eq!(apm.quaternion_states.len(), 1);
+
+        let angles = EulerAngle::new(EulerAngleOrder::ZXZ, 10.0, 20.0, 30.0, AngleFormat::Degrees);
+        apm.push_euler_state(APMEulerState::new(icrf(), sc_body_1(), angles));
+        assert_eq!(apm.euler_states.len(), 1);
+
+        apm.push_angular_velocity(APMAngularVelocity::new(
+            icrf(),
+            sc_body_1(),
+            sc_body_1(),
+            Vector3::new(0.001, 0.0, 0.0),
+        ));
+        assert_eq!(apm.angular_velocities.len(), 1);
+
+        apm.push_spin(APMSpin::new(
+            icrf(),
+            sc_body_1(),
+            10.0,
+            20.0,
+            30.0,
+            1.0,
+            AngleFormat::Degrees,
+        ));
+        assert_eq!(apm.spins.len(), 1);
+
+        apm.push_inertia(APMInertia::new(
+            sc_body_1(),
+            6080.0,
+            5245.5,
+            8067.3,
+            -135.9,
+            89.3,
+            -90.7,
+        ));
+        assert_eq!(apm.inertias.len(), 1);
+
+        apm.push_maneuver(APMManeuver::new(
+            Epoch::now(),
+            3.0,
+            icrf(),
+            Vector3::new(-1.25, -0.5, 0.5),
+        ));
+        assert_eq!(apm.maneuvers.len(), 1);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_has_blocks_false_when_empty() {
+        let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+        let apm = APM::new("BRAHE", metadata, Epoch::now());
+        assert!(!apm.has_blocks());
+    }
+
+    // ------------------------------------------------------------------
+    // Format dispatch (from_str/from_file/to_string/to_json_string/to_file)
+    // ------------------------------------------------------------------
+
+    /// Compares every value field of two APM messages, including all
+    /// logical blocks and comment vectors (header, metadata, data, and
+    /// per-block), with approximate comparison for floats.
+    fn assert_apm_fields_match(a: &APM, b: &APM) {
+        // Header
+        assert!((a.header.format_version - b.header.format_version).abs() < 1e-9);
+        assert_eq!(a.header.classification, b.header.classification);
+        assert_eq!(a.header.originator, b.header.originator);
+        assert_eq!(a.header.message_id, b.header.message_id);
+        assert_eq!(a.header.comments, b.header.comments);
+
+        // Metadata
+        assert_eq!(a.metadata.object_name, b.metadata.object_name);
+        assert_eq!(a.metadata.object_id, b.metadata.object_id);
+        assert_eq!(a.metadata.center_name, b.metadata.center_name);
+        assert_eq!(a.metadata.time_system, b.metadata.time_system);
+        assert_eq!(a.metadata.comments, b.metadata.comments);
+
+        // Epoch
+        assert!((a.epoch - b.epoch).abs() < 1e-6);
+
+        // Data-section comments
+        assert_eq!(a.comments, b.comments);
+
+        // Quaternion states
+        assert_eq!(a.quaternion_states.len(), b.quaternion_states.len());
+        for (qa, qb) in a.quaternion_states.iter().zip(b.quaternion_states.iter()) {
+            assert_eq!(qa.ref_frame_a, qb.ref_frame_a);
+            assert_eq!(qa.ref_frame_b, qb.ref_frame_b);
+            assert_eq!(qa.comments, qb.comments);
+            let va = qa.quaternion.to_vector(false);
+            let vb = qb.quaternion.to_vector(false);
+            for i in 0..4 {
+                assert!((va[i] - vb[i]).abs() < 1e-9);
+            }
+            assert_eq!(
+                qa.quaternion_derivative.is_some(),
+                qb.quaternion_derivative.is_some()
+            );
+            if let (Some(da), Some(db)) = (qa.quaternion_derivative, qb.quaternion_derivative) {
+                for i in 0..4 {
+                    assert!((da[i] - db[i]).abs() < 1e-9);
+                }
+            }
+        }
+
+        // Euler angle states
+        assert_eq!(a.euler_states.len(), b.euler_states.len());
+        for (ea, eb) in a.euler_states.iter().zip(b.euler_states.iter()) {
+            assert_eq!(ea.ref_frame_a, eb.ref_frame_a);
+            assert_eq!(ea.ref_frame_b, eb.ref_frame_b);
+            assert_eq!(ea.comments, eb.comments);
+            assert_eq!(ea.angles.order, eb.angles.order);
+            assert!((ea.angles.phi - eb.angles.phi).abs() < 1e-9);
+            assert!((ea.angles.theta - eb.angles.theta).abs() < 1e-9);
+            assert!((ea.angles.psi - eb.angles.psi).abs() < 1e-9);
+            assert_eq!(ea.rates.is_some(), eb.rates.is_some());
+            if let (Some(ra), Some(rb)) = (ea.rates, eb.rates) {
+                for i in 0..3 {
+                    assert!((ra[i] - rb[i]).abs() < 1e-9);
+                }
+            }
+        }
+
+        // Angular velocities
+        assert_eq!(a.angular_velocities.len(), b.angular_velocities.len());
+        for (va, vb) in a.angular_velocities.iter().zip(b.angular_velocities.iter()) {
+            assert_eq!(va.ref_frame_a, vb.ref_frame_a);
+            assert_eq!(va.ref_frame_b, vb.ref_frame_b);
+            assert_eq!(va.angvel_frame, vb.angvel_frame);
+            assert_eq!(va.comments, vb.comments);
+            for i in 0..3 {
+                assert!((va.angular_velocity[i] - vb.angular_velocity[i]).abs() < 1e-9);
+            }
+        }
+
+        // Spins
+        assert_eq!(a.spins.len(), b.spins.len());
+        for (sa, sb) in a.spins.iter().zip(b.spins.iter()) {
+            assert_eq!(sa.ref_frame_a, sb.ref_frame_a);
+            assert_eq!(sa.ref_frame_b, sb.ref_frame_b);
+            assert_eq!(sa.comments, sb.comments);
+            assert!((sa.spin_alpha - sb.spin_alpha).abs() < 1e-9);
+            assert!((sa.spin_delta - sb.spin_delta).abs() < 1e-9);
+            assert!((sa.spin_angle - sb.spin_angle).abs() < 1e-9);
+            assert!((sa.spin_angle_vel - sb.spin_angle_vel).abs() < 1e-9);
+            match (&sa.nutation, &sb.nutation) {
+                (APMNutation::None, APMNutation::None) => {}
+                (
+                    APMNutation::Angle {
+                        nutation: na,
+                        nutation_period: pa,
+                        nutation_phase: ha,
+                    },
+                    APMNutation::Angle {
+                        nutation: nb,
+                        nutation_period: pb,
+                        nutation_phase: hb,
+                    },
+                ) => {
+                    assert!((na - nb).abs() < 1e-9);
+                    assert!((pa - pb).abs() < 1e-9);
+                    assert!((ha - hb).abs() < 1e-9);
+                }
+                (
+                    APMNutation::Momentum {
+                        momentum_alpha: aa,
+                        momentum_delta: da,
+                        nutation_vel: va,
+                    },
+                    APMNutation::Momentum {
+                        momentum_alpha: ab,
+                        momentum_delta: db,
+                        nutation_vel: vb,
+                    },
+                ) => {
+                    assert!((aa - ab).abs() < 1e-9);
+                    assert!((da - db).abs() < 1e-9);
+                    assert!((va - vb).abs() < 1e-9);
+                }
+                (na, nb) => panic!("nutation variant mismatch: {:?} vs {:?}", na, nb),
+            }
+        }
+
+        // Inertias
+        assert_eq!(a.inertias.len(), b.inertias.len());
+        for (ia, ib) in a.inertias.iter().zip(b.inertias.iter()) {
+            assert_eq!(ia.inertia_ref_frame, ib.inertia_ref_frame);
+            assert_eq!(ia.comments, ib.comments);
+            assert!((ia.ixx - ib.ixx).abs() < 1e-6);
+            assert!((ia.iyy - ib.iyy).abs() < 1e-6);
+            assert!((ia.izz - ib.izz).abs() < 1e-6);
+            assert!((ia.ixy - ib.ixy).abs() < 1e-6);
+            assert!((ia.ixz - ib.ixz).abs() < 1e-6);
+            assert!((ia.iyz - ib.iyz).abs() < 1e-6);
+        }
+
+        // Maneuvers
+        assert_eq!(a.maneuvers.len(), b.maneuvers.len());
+        for (ma, mb) in a.maneuvers.iter().zip(b.maneuvers.iter()) {
+            assert!((ma.epoch_start - mb.epoch_start).abs() < 1e-6);
+            assert!((ma.duration - mb.duration).abs() < 1e-9);
+            assert_eq!(ma.ref_frame, mb.ref_frame);
+            for i in 0..3 {
+                assert!((ma.torque[i] - mb.torque[i]).abs() < 1e-9);
+            }
+            assert_eq!(ma.delta_mass, mb.delta_mass);
+            assert_eq!(ma.comments, mb.comments);
+        }
+    }
+
+    fn apm_g1() -> APM {
+        let content = std::fs::read_to_string("test_assets/ccsds/apm/APMExampleG1.txt").unwrap();
+        APM::from_str(&content).unwrap()
+    }
+
+    fn apm_g2() -> APM {
+        let content = std::fs::read_to_string("test_assets/ccsds/apm/APMExampleG2.txt").unwrap();
+        APM::from_str(&content).unwrap()
+    }
+
+    fn apm_g3() -> APM {
+        let content = std::fs::read_to_string("test_assets/ccsds/apm/APMExampleG3.txt").unwrap();
+        APM::from_str(&content).unwrap()
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_g1_kvn_round_trip() {
+        let apm1 = apm_g1();
+        let kvn = apm1.to_string(CCSDSFormat::KVN).unwrap();
+        let apm2 = APM::from_str(&kvn).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_g1_xml_round_trip() {
+        let apm1 = apm_g1();
+        let xml = apm1.to_string(CCSDSFormat::XML).unwrap();
+        let apm2 = APM::from_str(&xml).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_g1_json_round_trip() {
+        let apm1 = apm_g1();
+        let json = apm1.to_string(CCSDSFormat::JSON).unwrap();
+        let apm2 = APM::from_str(&json).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_g2_kvn_round_trip() {
+        let apm1 = apm_g2();
+        let kvn = apm1.to_string(CCSDSFormat::KVN).unwrap();
+        let apm2 = APM::from_str(&kvn).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_g2_xml_round_trip() {
+        let apm1 = apm_g2();
+        let xml = apm1.to_string(CCSDSFormat::XML).unwrap();
+        let apm2 = APM::from_str(&xml).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_g2_json_round_trip() {
+        let apm1 = apm_g2();
+        let json = apm1.to_string(CCSDSFormat::JSON).unwrap();
+        let apm2 = APM::from_str(&json).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_g3_kvn_round_trip() {
+        let apm1 = apm_g3();
+        let kvn = apm1.to_string(CCSDSFormat::KVN).unwrap();
+        let apm2 = APM::from_str(&kvn).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_g3_xml_round_trip() {
+        let apm1 = apm_g3();
+        let xml = apm1.to_string(CCSDSFormat::XML).unwrap();
+        let apm2 = APM::from_str(&xml).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_g3_json_round_trip() {
+        let apm1 = apm_g3();
+        let json = apm1.to_string(CCSDSFormat::JSON).unwrap();
+        let apm2 = APM::from_str(&json).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_from_str_detects_format() {
+        let apm1 = apm_g1();
+
+        let kvn = apm1.to_string(CCSDSFormat::KVN).unwrap();
+        let xml = apm1.to_string(CCSDSFormat::XML).unwrap();
+        let json = apm1.to_string(CCSDSFormat::JSON).unwrap();
+
+        assert_eq!(
+            APM::from_str(&kvn).unwrap().metadata.object_name,
+            apm1.metadata.object_name
+        );
+        assert_eq!(
+            APM::from_str(&xml).unwrap().metadata.object_name,
+            apm1.metadata.object_name
+        );
+        assert_eq!(
+            APM::from_str(&json).unwrap().metadata.object_name,
+            apm1.metadata.object_name
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_from_file_g1() {
+        let apm = APM::from_file("test_assets/ccsds/apm/APMExampleG1.txt").unwrap();
+        assert_eq!(apm.metadata.object_name, "TRMM");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_from_file_nonexistent() {
+        let result = APM::from_file("nonexistent_file.txt");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_to_string_no_blocks_rejected_all_formats() {
+        let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+        let apm = APM::new("BRAHE", metadata, Epoch::now());
+
+        assert!(apm.to_string(CCSDSFormat::KVN).is_err());
+        assert!(apm.to_string(CCSDSFormat::XML).is_err());
+        assert!(apm.to_string(CCSDSFormat::JSON).is_err());
+        assert!(apm.to_json_string(CCSDSJsonKeyCase::Upper).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_json_round_trip_key_cases() {
+        let apm1 = apm_g3();
+
+        let json_lower = apm1.to_json_string(CCSDSJsonKeyCase::Lower).unwrap();
+        assert!(json_lower.contains("\"object_name\""));
+        assert!(!json_lower.contains("\"OBJECT_NAME\""));
+        let apm_lower = APM::from_str(&json_lower).unwrap();
+        assert_apm_fields_match(&apm1, &apm_lower);
+
+        let json_upper = apm1.to_json_string(CCSDSJsonKeyCase::Upper).unwrap();
+        assert!(json_upper.contains("\"OBJECT_NAME\""));
+        assert!(!json_upper.contains("\"object_name\""));
+        let apm_upper = APM::from_str(&json_upper).unwrap();
+        assert_apm_fields_match(&apm1, &apm_upper);
+    }
+
+    /// Builds an APM containing one of every logical block type, with the
+    /// optional sub-fields of each block populated (quaternion derivative,
+    /// Euler rates, both spin nutation variants, maneuver delta mass).
+    fn apm_all_blocks() -> APM {
+        let metadata =
+            APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC).with_center_name("EARTH");
+        let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+        apm.header = apm
+            .header
+            .with_comments(vec!["synthetic header comment".to_string()]);
+
+        apm.push_quaternion_state(
+            APMQuaternionState::new(icrf(), sc_body_1(), Quaternion::new(0.5, 0.5, 0.5, 0.5))
+                .with_derivative(Vector4::new(0.01, 0.02, 0.03, 0.04)),
+        );
+
+        let angles = EulerAngle::new(EulerAngleOrder::ZXZ, 10.0, 20.0, 30.0, AngleFormat::Degrees);
+        apm.push_euler_state(
+            APMEulerState::new(icrf(), sc_body_1(), angles)
+                .with_rates(Vector3::new(0.01, 0.02, 0.03)),
+        );
+
+        apm.push_spin(
+            APMSpin::new(
+                icrf(),
+                sc_body_1(),
+                10.0,
+                20.0,
+                30.0,
+                1.0,
+                AngleFormat::Degrees,
+            )
+            .with_nutation_angle(5.0, 100.0, 15.0, AngleFormat::Degrees),
+        );
+        apm.push_spin(
+            APMSpin::new(
+                icrf(),
+                sc_body_1(),
+                40.0,
+                50.0,
+                60.0,
+                2.0,
+                AngleFormat::Degrees,
+            )
+            .with_nutation_momentum(7.0, 8.0, 0.5, AngleFormat::Degrees),
+        );
+
+        apm.push_angular_velocity(APMAngularVelocity::new(
+            icrf(),
+            sc_body_1(),
+            sc_body_1(),
+            Vector3::new(0.001, 0.002, 0.003),
+        ));
+
+        apm.push_inertia(APMInertia::new(
+            sc_body_1(),
+            6080.0,
+            5245.5,
+            8067.3,
+            -135.9,
+            89.3,
+            -90.7,
+        ));
+
+        apm.push_maneuver(
+            APMManeuver::new(Epoch::now(), 3.0, icrf(), Vector3::new(-1.25, -0.5, 0.5))
+                .with_delta_mass(-0.25)
+                .unwrap(),
+        );
+
+        apm
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_all_blocks_kvn_round_trip() {
+        let apm1 = apm_all_blocks();
+        let kvn = apm1.to_string(CCSDSFormat::KVN).unwrap();
+        let apm2 = APM::from_str(&kvn).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_all_blocks_xml_round_trip() {
+        let apm1 = apm_all_blocks();
+        let xml = apm1.to_string(CCSDSFormat::XML).unwrap();
+        let apm2 = APM::from_str(&xml).unwrap();
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_all_blocks_json_round_trip_key_cases() {
+        let apm1 = apm_all_blocks();
+
+        let json_lower = apm1.to_json_string(CCSDSJsonKeyCase::Lower).unwrap();
+        let apm_lower = APM::from_str(&json_lower).unwrap();
+        assert_apm_fields_match(&apm1, &apm_lower);
+
+        let json_upper = apm1.to_json_string(CCSDSJsonKeyCase::Upper).unwrap();
+        let apm_upper = APM::from_str(&json_upper).unwrap();
+        assert_apm_fields_match(&apm1, &apm_upper);
+    }
+
+    /// Builds an APM with a simple (non-nutating) spin block, which is not
+    /// exercised by `apm_all_blocks()` or the G1/G2/G3 fixtures, leaving the
+    /// `APMNutation::None` writer arm uncovered.
+    fn apm_simple_spin() -> APM {
+        let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+        let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+
+        apm.push_quaternion_state(APMQuaternionState::new(
+            icrf(),
+            sc_body_1(),
+            Quaternion::new(1.0, 0.0, 0.0, 0.0),
+        ));
+        apm.push_spin(APMSpin::new(
+            icrf(),
+            sc_body_1(),
+            10.0,
+            20.0,
+            30.0,
+            1.0,
+            AngleFormat::Degrees,
+        ));
+
+        apm
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_simple_spin_kvn_round_trip() {
+        let apm1 = apm_simple_spin();
+        let kvn = apm1.to_string(CCSDSFormat::KVN).unwrap();
+        let apm2 = APM::from_str(&kvn).unwrap();
+        assert!(matches!(apm2.spins[0].nutation, APMNutation::None));
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_simple_spin_xml_round_trip() {
+        let apm1 = apm_simple_spin();
+        let xml = apm1.to_string(CCSDSFormat::XML).unwrap();
+        let apm2 = APM::from_str(&xml).unwrap();
+        assert!(matches!(apm2.spins[0].nutation, APMNutation::None));
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_simple_spin_json_round_trip() {
+        let apm1 = apm_simple_spin();
+        let json = apm1.to_string(CCSDSFormat::JSON).unwrap();
+        let apm2 = APM::from_str(&json).unwrap();
+        assert!(matches!(apm2.spins[0].nutation, APMNutation::None));
+        assert_apm_fields_match(&apm1, &apm2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_json_round_trip_preserves_data_comments() {
+        let apm1 = apm_g3();
+        assert!(!apm1.comments.is_empty());
+
+        let json = apm1.to_json_string(CCSDSJsonKeyCase::Lower).unwrap();
+        let apm2 = APM::from_str(&json).unwrap();
+        assert_eq!(apm1.comments, apm2.comments);
+    }
+
+    /// EPOCH (and MAN_EPOCH_START) must be written in the metadata
+    /// TIME_SYSTEM, not the `Epoch`'s own internal time system.
+    #[test]
+    #[parallel]
+    fn test_apm_epoch_written_in_metadata_time_system() {
+        use crate::time::TimeSystem;
+
+        let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::TAI);
+        let epoch_utc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let mut apm = APM::new("BRAHE", metadata, epoch_utc);
+        apm.push_quaternion_state(APMQuaternionState::new(
+            icrf(),
+            sc_body_1(),
+            Quaternion::new(1.0, 0.0, 0.0, 0.0),
+        ));
+
+        let kvn = apm.to_string(CCSDSFormat::KVN).unwrap();
+
+        // The emitted EPOCH string must equal the TAI representation of the
+        // (UTC-constructed) epoch, not its UTC representation.
+        let epoch_tai = epoch_utc.to_time_system(TimeSystem::TAI);
+        let expected = crate::ccsds::common::format_ccsds_datetime(&epoch_tai);
+        let unexpected = crate::ccsds::common::format_ccsds_datetime(&epoch_utc);
+        assert_ne!(expected, unexpected);
+        assert!(
+            kvn.contains(&format!("EPOCH = {}\n", expected)),
+            "expected EPOCH line for '{}' in:\n{}",
+            expected,
+            kvn
+        );
+
+        // Reparsing must yield the same instant, compared in a
+        // time-system-independent way.
+        let apm2 = APM::from_str(&kvn).unwrap();
+        assert!(
+            (apm2.epoch.mjd_as_time_system(TimeSystem::TAI)
+                - epoch_utc.mjd_as_time_system(TimeSystem::TAI))
+            .abs()
+                < 1e-9
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_creation_date_written_in_utc() {
+        // CREATION_DATE is a UTC field (504.0-B-2 table 3-1), so a header
+        // epoch held in another time system must be converted, not relabelled.
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+        let creation_tai =
+            Epoch::from_datetime(2024, 3, 1, 12, 0, 37.0, 0.0, crate::time::TimeSystem::TAI);
+
+        let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::TAI);
+        let mut apm = APM::new("BRAHE", metadata, epoch);
+        apm.header.creation_date = creation_tai;
+        apm.push_quaternion_state(APMQuaternionState::new(
+            ADMReferenceFrame::parse("ICRF"),
+            ADMReferenceFrame::parse("SC_BODY_1"),
+            Quaternion::new(1.0, 0.0, 0.0, 0.0),
+        ));
+
+        // 2024-03-01T12:00:37 TAI is 2024-03-01T12:00:00 UTC.
+        let kvn = apm.to_string(CCSDSFormat::KVN).unwrap();
+        assert!(
+            kvn.contains("CREATION_DATE = 2024-03-01T12:00:00.000"),
+            "CREATION_DATE not written in UTC: {}",
+            kvn.lines()
+                .find(|l| l.starts_with("CREATION_DATE"))
+                .unwrap()
+        );
+
+        let xml = apm.to_string(CCSDSFormat::XML).unwrap();
+        assert!(
+            xml.contains("<CREATION_DATE>2024-03-01T12:00:00.000</CREATION_DATE>"),
+            "CREATION_DATE not written in UTC: {}",
+            xml
+        );
+
+        let json = apm.to_string(CCSDSFormat::JSON).unwrap();
+        assert!(
+            json.contains("2024-03-01T12:00:00.000"),
+            "CREATION_DATE not written in UTC: {}",
+            json
+        );
+
+        // The data EPOCH still follows the metadata TIME_SYSTEM, not UTC.
+        assert!(kvn.contains("EPOCH = 2024-03-01T00:00:37.000"), "{}", kvn);
     }
 }

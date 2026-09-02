@@ -1,6 +1,6 @@
 # OEM — Orbit Ephemeris Message
 
-An Orbit Ephemeris Message (OEM) carries time-ordered state vectors for spacecraft ephemeris exchange. The typical workflow is to parse an OEM file and convert it into an `OrbitTrajectory` for interpolation and analysis, or to generate an OEM from a propagator for distribution.
+An Orbit Ephemeris Message (OEM) carries time-ordered state vectors for spacecraft ephemeris exchange. The message is defined by the [CCSDS 502.0-B-3 Orbit Data Messages standard](https://ccsds.org/Pubs/502x0b3e1.pdf). The typical workflow is to parse an OEM file and convert it into an `OrbitTrajectory` for interpolation and analysis, or to generate an OEM from a propagator for distribution.
 
 ## Parse and Access
 
@@ -144,3 +144,4 @@ The data lines contain epoch followed by position (km) and velocity (km/s), spac
 - [API Reference — OEM](../../library_api/ccsds/oem.md)
 - [CCSDS Data Formats](index.md) — Overview of all message types
 - [Trajectories](../trajectories/index.md) — Brahe trajectory containers
+- [CCSDS 502.0-B-3](https://ccsds.org/Pubs/502x0b3e1.pdf) — Orbit Data Messages, the standard OEM implements

@@ -6,16 +6,20 @@
  * - Comments (e.g., `COMMENT This is a comment`)
  * - Data lines (space-separated numeric values, e.g., ephemeris entries)
  * - Section markers (`META_START`, `META_STOP`, `COVARIANCE_START`, `COVARIANCE_STOP`)
+ *
+ * Each message type has its own reader and writer module; the token stream
+ * and the block writers they share live in `common`.
  */
 
-mod parser;
-mod writer;
+mod apm;
+mod cdm;
+mod common;
+mod oem;
+mod omm;
+mod opm;
 
-pub use parser::parse_cdm;
-pub use parser::parse_oem;
-pub use parser::parse_omm;
-pub use parser::parse_opm;
-pub use writer::write_cdm;
-pub use writer::write_oem;
-pub use writer::write_omm;
-pub use writer::write_opm;
+pub use apm::{parse_apm, write_apm};
+pub use cdm::{parse_cdm, write_cdm};
+pub use oem::{parse_oem, write_oem};
+pub use omm::{parse_omm, write_omm};
+pub use opm::{parse_opm, write_opm};

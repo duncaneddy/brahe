@@ -7171,6 +7171,41 @@ impl PyAEM {
 
     // --- AttitudeTrajectory interop ---
 
+    /// Register this AEM's attitude as the orientation of `name`'s body frame.
+    ///
+    /// Converts the AEM to an `AttitudeTrajectory` (requiring exactly one segment) and
+    /// registers it in the global frame registry as the link between the segment's two
+    /// `REF_FRAME` endpoints. A CCSDS message names its frames but not the object they
+    /// belong to, so the body endpoint is bound to `name` here. One endpoint must resolve
+    /// to a `CelestialFrame` — that becomes the parent — and the other must be a body
+    /// frame. The quaternion series is inverted when the celestial frame is endpoint B, so
+    /// the registered orientation always rotates parent-frame vectors into the body frame.
+    ///
+    /// Args:
+    ///     name (str): The object identity to bind the body frame endpoint to
+    ///
+    /// Raises:
+    ///     BraheError: If the AEM does not have exactly one segment, neither endpoint
+    ///         resolves to a celestial frame, or the remaining endpoint is not a body frame
+    ///
+    /// Returns:
+    ///     None: The frame is registered in the global frame registry
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.ccsds import AEM
+    ///
+    ///     aem = AEM.from_file("test_assets/ccsds/aem/AEMExampleG5.txt")
+    ///     bh.clear_frame_registry()
+    ///     aem.register_for("SC")
+    ///     bh.clear_frame_registry()
+    ///     ```
+    fn register_for(&self, name: String) -> PyResult<()> {
+        self.inner.register_for(name)?;
+        Ok(())
+    }
+
     /// Convert a single segment to an `AttitudeTrajectory`.
     ///
     /// The SPIN* attitude types have no `AttitudeTrajectory` representation and raise an

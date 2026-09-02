@@ -25,7 +25,7 @@ use crate::ccsds::oem::OEM;
 use crate::ccsds::omm::{OMM, OMMMetadata, OMMTleParameters, OMMeanElements};
 use crate::frames::{
     BodyFrame, CelestialFrame, DStateAdapter, ObjectId, OrbitRelativeFrameKind,
-    OrbitRelativeFrameVariant, ReferenceFrame, register_object,
+    OrbitRelativeFrameVariant, ReferenceFrame, register_frame, register_object,
 };
 use crate::time::Epoch;
 use crate::trajectories::dorbit_trajectory::DOrbitTrajectory;
@@ -597,6 +597,115 @@ impl AEM {
     }
 }
 
+impl AEM {
+    /// Registers this AEM's attitude as the orientation of `name`'s body
+    /// frame in the global frame registry.
+    ///
+    /// Converts the AEM to an [`AttitudeTrajectory`] via `TryFrom<&AEM>`
+    /// (erroring for a zero- or multi-segment AEM exactly as that conversion
+    /// does), then registers it as the link between the segment's two
+    /// `REF_FRAME` endpoints.
+    ///
+    /// A CCSDS message names its frames but not the object they belong to,
+    /// so the body endpoint parses unbound and is bound to `name` here. One
+    /// endpoint must resolve to a [`CelestialFrame`] — that becomes the
+    /// parent — and the other must be a body frame, which becomes the
+    /// registered frame. Because `REF_FRAME_A`/`REF_FRAME_B` order is not
+    /// fixed by the standard, the quaternion series is inverted when the
+    /// celestial frame is endpoint B, so the registered provider always
+    /// rotates parent-frame vectors into the body frame as
+    /// [`OrientationProvider`] requires.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The object identity to bind the body frame endpoint to
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), BraheError>` - `Ok(())` on success, or an error if the
+    ///   AEM does not have exactly one segment, neither endpoint resolves to
+    ///   a celestial frame, or the remaining endpoint is not a body frame
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use brahe::ccsds::AEM;
+    /// use brahe::frames::clear_frame_registry;
+    /// use std::str::FromStr;
+    ///
+    /// let content = std::fs::read_to_string("test_assets/ccsds/aem/AEMExampleG5.txt").unwrap();
+    /// let aem = AEM::from_str(&content).unwrap();
+    ///
+    /// clear_frame_registry();
+    /// aem.register_for("SC").unwrap();
+    /// clear_frame_registry();
+    /// ```
+    pub fn register_for(&self, name: impl Into<ObjectId>) -> Result<(), BraheError> {
+        let traj = AttitudeTrajectory::try_from(self)?;
+        let object = name.into();
+
+        // Exactly one endpoint must be celestial: it is the parent the body
+        // frame's orientation is expressed relative to.
+        let (parent, body_frame, invert) = match (&traj.frame_a, &traj.frame_b) {
+            (ReferenceFrame::Celestial(parent), ReferenceFrame::Body { frame, .. }) => {
+                (*parent, frame.clone(), false)
+            }
+            (ReferenceFrame::Body { frame, .. }, ReferenceFrame::Celestial(parent)) => {
+                (*parent, frame.clone(), true)
+            }
+            (a, b) => {
+                return Err(BraheError::Error(format!(
+                    "AEM::register_for requires one REF_FRAME endpoint to resolve to a \
+                     celestial frame and the other to be a body frame, but this segment \
+                     relates '{a}' and '{b}'; only a body frame can be bound to an object \
+                     and registered"
+                )));
+            }
+        };
+
+        let registered = if invert {
+            invert_trajectory(&traj)
+        } else {
+            traj
+        };
+        register_frame(
+            ReferenceFrame::body(object, body_frame),
+            ReferenceFrame::Celestial(parent),
+            registered,
+        )
+    }
+}
+
+/// Reverses an attitude trajectory's sense, so that quaternions which
+/// rotated frame A into frame B instead rotate frame B into frame A.
+///
+/// The quaternion of each state is conjugated. Its angular velocity, which
+/// is the rate of B relative to A expressed in B, becomes the rate of A
+/// relative to B expressed in A: negating gives `omega_{A/B}`, and
+/// re-expressing it in A applies `R_{A->B}^T`.
+fn invert_trajectory(traj: &AttitudeTrajectory) -> AttitudeTrajectory {
+    let mut inverted = AttitudeTrajectory::new(traj.frame_b.clone(), traj.frame_a.clone());
+    inverted.set_interpolation_method(traj.interpolation_method);
+    inverted.name = traj.name.clone();
+    inverted.metadata = traj.metadata.clone();
+
+    inverted.epochs = traj.epochs.clone();
+    inverted.states = traj
+        .states
+        .iter()
+        .map(|state| {
+            let mut flipped = AttitudeState::new(state.quaternion.conjugate());
+            if let Some(omega) = state.angular_velocity {
+                let r_a_to_b = state.quaternion.to_rotation_matrix().to_matrix();
+                flipped = flipped.with_angular_velocity(-r_a_to_b.transpose() * omega);
+            }
+            flipped
+        })
+        .collect();
+
+    inverted
+}
+
 impl TryFrom<&AEM> for AttitudeTrajectory {
     type Error = BraheError;
 
@@ -1114,8 +1223,8 @@ mod tests {
     use crate::ccsds::oem::OEM;
     use crate::constants::AngleFormat;
     use crate::frames::{
-        CelestialFrame, ReferenceFrame, clear_object_registry, object_state,
-        rotation_frame_to_frame,
+        CelestialFrame, OrientationProvider, ReferenceFrame, clear_frame_registry,
+        clear_object_registry, object_state, rotation_frame_to_frame,
     };
     use crate::time::TimeSystem;
     use crate::trajectories::traits::{InterpolatableTrajectory, Trajectory};
@@ -2757,5 +2866,108 @@ mod tests {
             traj.interpolation_method,
             AttitudeInterpolationMethod::Linear
         );
+    }
+
+    /// Builds a single-segment AEM from AEMExampleG4's segment 1 (the
+    /// quaternion segment that converts cleanly), so `register_for`'s
+    /// single-segment requirement is satisfied by fixture data.
+    fn g4_single_segment_aem() -> AEM {
+        let content = std::fs::read_to_string("test_assets/ccsds/aem/AEMExampleG4.txt").unwrap();
+        let parsed = AEM::from_str(&content).unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(parsed.segments[1].clone());
+        aem
+    }
+
+    fn sc_body_1() -> ReferenceFrame {
+        ReferenceFrame::body("SC", BodyFrame::SCBody(Some("1".to_string())))
+    }
+
+    #[test]
+    #[serial]
+    fn test_aem_register_for_registers_body_frame() {
+        clear_frame_registry();
+        clear_object_registry();
+
+        let aem = g4_single_segment_aem();
+        let traj = AttitudeTrajectory::try_from(&aem).unwrap();
+        let epoch = traj.start_epoch().unwrap() + 30.0;
+
+        aem.register_for("SC").unwrap();
+
+        // REF_FRAME_A is the celestial endpoint, so the stored series
+        // already rotates parent into body and is registered unchanged.
+        let resolved =
+            rotation_frame_to_frame(CelestialFrame::EME2000, sc_body_1(), epoch).unwrap();
+        let expected = traj
+            .quaternion(epoch)
+            .unwrap()
+            .to_rotation_matrix()
+            .to_matrix();
+        assert_abs_diff_eq!(resolved, expected, epsilon = 1e-12);
+
+        clear_frame_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_aem_register_for_inverts_when_celestial_is_frame_b() {
+        clear_frame_registry();
+        clear_object_registry();
+
+        // Swap the endpoints so the celestial frame is REF_FRAME_B. The
+        // stored quaternions then rotate body into parent, and registration
+        // must invert them.
+        let mut aem = g4_single_segment_aem();
+        let metadata = &mut aem.segments[0].metadata;
+        std::mem::swap(&mut metadata.ref_frame_a, &mut metadata.ref_frame_b);
+
+        let traj = AttitudeTrajectory::try_from(&aem).unwrap();
+        let epoch = traj.start_epoch().unwrap() + 30.0;
+
+        aem.register_for("SC").unwrap();
+
+        let resolved =
+            rotation_frame_to_frame(CelestialFrame::EME2000, sc_body_1(), epoch).unwrap();
+        let expected = traj
+            .quaternion(epoch)
+            .unwrap()
+            .conjugate()
+            .to_rotation_matrix()
+            .to_matrix();
+        assert_abs_diff_eq!(resolved, expected, epsilon = 1e-12);
+
+        clear_frame_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_aem_register_for_errors_without_celestial_endpoint() {
+        clear_frame_registry();
+        clear_object_registry();
+
+        let mut aem = g4_single_segment_aem();
+        aem.segments[0].metadata.ref_frame_a = ADMReferenceFrame::parse("SC_BODY_2");
+
+        let err = aem.register_for("SC").unwrap_err().to_string();
+        assert!(err.contains("celestial frame"), "{}", err);
+        assert!(err.contains("body frame"), "{}", err);
+
+        clear_frame_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_aem_register_for_rejects_multi_segment() {
+        clear_frame_registry();
+        clear_object_registry();
+
+        let content = std::fs::read_to_string("test_assets/ccsds/aem/AEMExampleG4.txt").unwrap();
+        let aem = AEM::from_str(&content).unwrap();
+
+        let err = aem.register_for("SC").unwrap_err().to_string();
+        assert!(err.contains("exactly 1 segment"), "{}", err);
+
+        clear_frame_registry();
     }
 }

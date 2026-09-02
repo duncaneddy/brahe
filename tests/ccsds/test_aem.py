@@ -701,3 +701,43 @@ def test_aem_try_from_single_segment_helper_three_way():
         traj1.quaternion(t0).to_vector(scalar_first=True),
         atol=1e-12,
     )
+
+
+def _g4_single_segment_aem() -> AEM:
+    """Single-segment AEM built from AEMExampleG4's clean quaternion segment."""
+    parsed = AEM.from_file("test_assets/ccsds/aem/AEMExampleG4.txt")
+    aem = AEM("BRAHE")
+    aem.add_segment(parsed.segments[1])
+    return aem
+
+
+def test_aem_register_for_registers_body_frame(eop):
+    """Mirror of test_aem_register_for_registers_body_frame in Rust."""
+    bh.clear_frame_registry()
+    bh.clear_object_registry()
+
+    aem = _g4_single_segment_aem()
+    traj = aem.segment_to_attitude_trajectory(0)
+    epoch = traj.start_epoch + 30.0
+
+    aem.register_for("SC")
+
+    body = bh.ReferenceFrame.body("SC", bh.BodyFrame.SC_BODY("1"))
+    resolved = bh.rotation_frame_to_frame(
+        bh.ReferenceFrame.celestial(bh.CelestialFrame.EME2000), body, epoch
+    )
+    expected = traj.quaternion(epoch).to_rotation_matrix().to_matrix()
+    np.testing.assert_allclose(resolved, expected, atol=1e-12)
+
+    bh.clear_frame_registry()
+
+
+def test_aem_register_for_rejects_multi_segment(eop):
+    """Mirror of test_aem_register_for_rejects_multi_segment in Rust."""
+    bh.clear_frame_registry()
+    aem = AEM.from_file("test_assets/ccsds/aem/AEMExampleG4.txt")
+
+    with pytest.raises(Exception, match="exactly 1 segment"):
+        aem.register_for("SC")
+
+    bh.clear_frame_registry()

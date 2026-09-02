@@ -406,12 +406,14 @@ fn missing_link_error(frame: &ReferenceFrame, link: &ReferenceFrame) -> BraheErr
     if link == frame {
         return BraheError::Error(format!(
             "frame {frame} has no registered orientation; register one with \
-             register_frame({frame}, <parent>, <provider>)"
+             register_frame({frame}, <parent>, <provider>), or with \
+             aem.register_for(<object>) to register the attitude carried by a CCSDS AEM"
         ));
     }
     BraheError::Error(format!(
         "cannot resolve {frame}: parent {link} has no registered orientation; register one \
-         with register_frame({link}, <parent's parent>, <provider>)"
+         with register_frame({link}, <parent's parent>, <provider>), or with \
+         aem.register_for(<object>) to register the attitude carried by a CCSDS AEM"
     ))
 }
 
@@ -804,6 +806,9 @@ mod tests {
         // as the frame rather than as its own parent.
         assert!(err.contains("frame CSS_1@SC has no registered orientation"));
         assert!(!err.contains("parent CSS_1@SC"));
+        // An AEM is a first-class source of a body frame's orientation, so
+        // the guidance names it alongside register_frame.
+        assert!(err.contains("aem.register_for"));
         let err = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::RTN("A"), epc)
             .unwrap_err()
             .to_string();

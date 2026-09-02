@@ -181,16 +181,17 @@ def test_attitude_trajectory_interpolate_lagrange_degree_zero_errors():
         traj.quaternion(t0 + 30.0)
 
 
-def test_attitude_provider_angular_velocity_error_without_rates():
-    """Mirror of test_attitude_provider_angular_velocity_error_without_rates in Rust."""
+def test_attitude_provider_angular_velocity_none_without_rates():
+    """Mirror of test_attitude_provider_angular_velocity_none_without_rates in Rust."""
     frame_a, frame_b = body_frames()
     traj = AttitudeTrajectory(frame_a, frame_b)
     t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
     assert not traj.has_rates
 
-    with pytest.raises(Exception, match="angular velocity"):
-        traj.angular_velocity(t0)
+    # The merged OrientationProvider contract reports a provider carrying no
+    # rate data as None rather than raising.
+    assert traj.angular_velocity(t0) is None
 
 
 def test_attitude_provider_euler_angle_euler_axis_rotation_matrix():

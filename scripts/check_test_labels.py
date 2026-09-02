@@ -22,22 +22,32 @@ LABEL_ATTR = re.compile(r"^#\[(?:serial_test::)?(?:serial|parallel)\b")
 CASE_ATTR = re.compile(r"^#\[(?:values|case)\b")
 
 
-def _strip_literals(line: str) -> str:
-    """Blank out string and char literals so their brackets are not counted.
+# Raw strings (r"...", r#"..."# with any hash count), ordinary strings, char
+# literals, then line comments. Order matters: strings are removed first so a
+# `//` inside one is not mistaken for a comment.
+LITERAL = re.compile(
+    r'r(#*)"(?:(?!"\1).)*"\1'  # raw string, hashes balanced via backreference
+    r'|"(?:[^"\\]|\\.)*"'  # ordinary string
+    r"|'(?:[^'\\]|\\.)'"  # char literal
+    r"|//.*$"  # line comment
+)
 
-    `#[case("[")]` is balanced Rust but not balanced text, and miscounting it
-    would make the scanner lose the attribute block and skip a real test.
+
+def _strip_literals(line: str) -> str:
+    """Blank out literals and comments so their brackets are not counted.
+
+    `#[case("[")]` is balanced Rust but not balanced text. Miscounting it would
+    strand the scanner mid-attribute and lose the test entirely.
     """
-    return re.sub(r'r?"(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)\'', "", line)
+    return LITERAL.sub("", line)
 
 
 def _attribute_block(lines: list[str], start: int) -> tuple[list[str], int, str] | None:
     """Collect the attributes from `start` up to the `fn` they decorate.
 
     Multi-line attributes are joined into one entry so the caller sees an
-    ordered list of complete attributes. Returns `None` if anything other than
-    an attribute or doc comment intervenes, which means `start` does not
-    decorate a function.
+    ordered list of complete attributes. Returns `None` when the block cannot
+    be resolved to a function, which the caller reports rather than skips.
     """
     attrs: list[str] = []
     pending = ""
@@ -91,6 +101,11 @@ def unlabeled_tests(path: Path) -> list[tuple[int, str]]:
 
         block = _attribute_block(lines, start)
         if block is None:
+            # The attribute block did not resolve to a function. Report it
+            # instead of moving on: a silent skip here would let an unlabeled
+            # test through, which is the one outcome this check exists to
+            # prevent.
+            missing.append((i + 1, "<unparsed attribute block>"))
             i += 1
             continue
 

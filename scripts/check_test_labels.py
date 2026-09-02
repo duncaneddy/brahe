@@ -22,6 +22,15 @@ LABEL_ATTR = re.compile(r"^#\[(?:serial_test::)?(?:serial|parallel)\b")
 CASE_ATTR = re.compile(r"^#\[(?:values|case)\b")
 
 
+def _strip_literals(line: str) -> str:
+    """Blank out string and char literals so their brackets are not counted.
+
+    `#[case("[")]` is balanced Rust but not balanced text, and miscounting it
+    would make the scanner lose the attribute block and skip a real test.
+    """
+    return re.sub(r'r?"(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)\'', "", line)
+
+
 def _attribute_block(lines: list[str], start: int) -> tuple[list[str], int, str] | None:
     """Collect the attributes from `start` up to the `fn` they decorate.
 
@@ -49,7 +58,8 @@ def _attribute_block(lines: list[str], start: int) -> tuple[list[str], int, str]
                 return None
 
         pending = f"{pending} {stripped}".strip() if pending else stripped
-        depth += stripped.count("[") - stripped.count("]")
+        code = _strip_literals(stripped)
+        depth += code.count("[") - code.count("]")
         if depth <= 0:
             attrs.append(pending)
             pending, depth = "", 0
@@ -129,8 +139,9 @@ def main() -> None:
             "#[serial] to tests that mutate it (global EOP, gravity, space "
             "weather, the SPICE kernel registry, the frame and object "
             "registries, the thread pool, or environment variables).\n"
-            "The attribute must sit directly above fn — rstest drops it if "
-            "placed among the #[case] rows.",
+            "On an rstest the attribute must follow the last #[case] or "
+            "#[values] row; rstest silently drops one placed above them, and "
+            "every generated case then runs unserialized.",
             markup=False,
         )
         raise typer.Exit(1)

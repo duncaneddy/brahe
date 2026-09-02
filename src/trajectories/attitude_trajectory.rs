@@ -2074,4 +2074,143 @@ mod tests {
         let norm = state.quaternion.to_vector(true).norm();
         assert_abs_diff_eq!(norm, 1.0, epsilon = 1e-9);
     }
+
+    // =========================================================================
+    // OrientationProvider tests
+    // =========================================================================
+
+    fn small_attitude_trajectory() -> AttitudeTrajectory {
+        let (a, b) = body_frames();
+        let mut traj = AttitudeTrajectory::new(a, b);
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        traj.add(t0, AttitudeState::new(z_axis_quaternion(0.0)))
+            .unwrap();
+        traj.add(t0 + 60.0, AttitudeState::new(z_axis_quaternion(0.2)))
+            .unwrap();
+        traj
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_provider_quaternion_and_defaults_consistent() {
+        use crate::attitude::{EulerAngle, EulerAngleOrder, ToAttitude};
+
+        let traj = small_attitude_trajectory();
+        let epoch = traj.start_epoch().unwrap() + 30.0;
+
+        let q = traj.quaternion(epoch).unwrap();
+
+        // euler_angle default: EulerAngle::from_quaternion(quaternion, order)
+        let euler = traj.euler_angle(epoch, EulerAngleOrder::ZYX).unwrap();
+        let expected_euler = EulerAngle::from_quaternion(q, EulerAngleOrder::ZYX);
+        assert_eq!(euler.phi, expected_euler.phi);
+        assert_eq!(euler.theta, expected_euler.theta);
+        assert_eq!(euler.psi, expected_euler.psi);
+
+        // euler_axis default: ToAttitude::to_euler_axis on the same quaternion
+        let axis = traj.euler_axis(epoch).unwrap();
+        let expected_axis = q.to_euler_axis();
+        assert_eq!(axis.angle, expected_axis.angle);
+
+        // rotation_matrix default: ToAttitude::to_rotation_matrix on the same quaternion
+        let r = traj.rotation_matrix(epoch).unwrap();
+        let expected_r = q.to_rotation_matrix();
+        assert_eq!(r.to_matrix(), expected_r.to_matrix());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_provider_angular_velocity_none_without_rates() {
+        let traj = small_attitude_trajectory();
+        let epoch = traj.start_epoch().unwrap();
+
+        // The merged `OrientationProvider` contract reports a provider that
+        // carries no rate data as `Ok(None)`; `Err` is reserved for real
+        // evaluation failures such as an out-of-coverage epoch.
+        assert_eq!(traj.angular_velocity(epoch).unwrap(), None);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_provider_angular_velocity_errors_out_of_coverage_without_rates() {
+        // A rate-less trajectory must still validate the queried epoch
+        // against its coverage: `Ok(None)` reports "no rate data", not "any
+        // epoch is fine because there is nothing to check".
+        let traj = small_attitude_trajectory();
+        let before_start = traj.start_epoch().unwrap() - 10.0;
+        let after_end = traj.end_epoch().unwrap() + 10.0;
+
+        assert!(traj.angular_velocity(before_start).is_err());
+        assert!(traj.angular_velocity(after_end).is_err());
+        assert!(traj.angular_velocities(&[before_start]).is_err());
+        assert!(traj.angular_velocities(&[after_end]).is_err());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_provider_angular_velocity_errors_for_empty_trajectory() {
+        // An empty trajectory has no evaluable coverage at all, so it must
+        // error rather than silently report `Ok(None)`.
+        let (a, b) = body_frames();
+        let traj = AttitudeTrajectory::new(a, b);
+        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        assert!(traj.angular_velocity(epoch).is_err());
+        assert!(traj.angular_velocities(&[epoch]).is_err());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_provider_angular_velocity_with_rates() {
+        let (a, b) = body_frames();
+        let mut traj = AttitudeTrajectory::new(a, b);
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let omega = Vector3::new(0.0, 0.0, 0.01);
+        traj.add(
+            t0,
+            AttitudeState::new(z_axis_quaternion(0.0)).with_angular_velocity(omega),
+        )
+        .unwrap();
+        traj.add(
+            t0 + 60.0,
+            AttitudeState::new(z_axis_quaternion(0.6)).with_angular_velocity(omega),
+        )
+        .unwrap();
+
+        let result = traj.angular_velocity(t0 + 30.0).unwrap();
+        assert_eq!(result, Some(omega));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_provider_plural_batch_methods() {
+        let (a, b) = body_frames();
+        let mut traj = AttitudeTrajectory::new(a, b);
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let omega = Vector3::new(0.0, 0.0, 0.01);
+        traj.add(
+            t0,
+            AttitudeState::new(z_axis_quaternion(0.0)).with_angular_velocity(omega),
+        )
+        .unwrap();
+        traj.add(
+            t0 + 60.0,
+            AttitudeState::new(z_axis_quaternion(0.6)).with_angular_velocity(omega),
+        )
+        .unwrap();
+
+        let epochs = vec![t0, t0 + 15.0, t0 + 30.0, t0 + 60.0];
+
+        let quaternions = traj.quaternions(&epochs).unwrap();
+        assert_eq!(quaternions.len(), epochs.len());
+        for (i, &epoch) in epochs.iter().enumerate() {
+            assert_eq!(quaternions[i], traj.quaternion(epoch).unwrap());
+        }
+
+        let omegas = traj.angular_velocities(&epochs).unwrap().unwrap();
+        assert_eq!(omegas.len(), epochs.len());
+        for (i, &epoch) in epochs.iter().enumerate() {
+            assert_eq!(Some(omegas[i]), traj.angular_velocity(epoch).unwrap());
+        }
+    }
 }

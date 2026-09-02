@@ -1,5 +1,5 @@
 """Tests for AttitudeTrajectory / AttitudeState / OrientationProvider bindings — parity with
-Rust tests in src/trajectories/attitude_trajectory.rs and src/utils/state_providers.rs."""
+Rust tests in src/trajectories/attitude_trajectory.rs."""
 
 import math
 
@@ -218,78 +218,4 @@ def test_attitude_provider_euler_angle_euler_axis_rotation_matrix():
     rot = traj.rotation_matrix(t0)
     np.testing.assert_allclose(
         rot.to_matrix(), q.to_rotation_matrix().to_matrix(), atol=1e-10
-    )
-
-
-def test_attitude_trajectory_quaternion_from_frame_matches_manual_composition(eop):
-    """Mirror of test_quaternion_from_frame_matches_manual_composition in Rust."""
-    traj = AttitudeTrajectory(
-        bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
-        bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY(None)),
-    )
-    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    traj.add(t0, z_axis_quaternion(0.3))
-    traj.add(t0 + 60.0, z_axis_quaternion(0.5))
-
-    epoch = t0 + 30.0
-    q = traj.quaternion_from_frame(
-        epoch, bh.ReferenceFrame.celestial(bh.CelestialFrame.EME2000)
-    )
-
-    r_from_to_a = bh.rotation_frame_to_frame(
-        bh.CelestialFrame.EME2000, bh.CelestialFrame.GCRF, epoch
-    )
-    q_from_to_a = bh.Quaternion.from_rotation_matrix(
-        bh.RotationMatrix.from_matrix(r_from_to_a)
-    )
-    expected = q_from_to_a * traj.quaternion(epoch)
-
-    np.testing.assert_allclose(
-        q.to_vector(scalar_first=True),
-        expected.to_vector(scalar_first=True),
-        atol=1e-12,
-    )
-
-
-def test_attitude_trajectory_quaternion_from_frame_errors_for_unbound_body_frame_a():
-    """Mirror of test_quaternion_from_frame_errors_for_unbound_body_frame_a in Rust."""
-    frame_a, frame_b = body_frames()
-    traj = AttitudeTrajectory(frame_a, frame_b)
-    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    traj.add(t0, z_axis_quaternion(0.0))
-
-    # `body_frames` binds no object, so the frame graph reports frame_a as
-    # unbound rather than the composition succeeding.
-    with pytest.raises(Exception, match="not bound to an object"):
-        traj.quaternion_from_frame(
-            t0, bh.ReferenceFrame.celestial(bh.CelestialFrame.EME2000)
-        )
-
-
-def test_attitude_trajectory_quaternion_from_frame_succeeds_for_bound_body_frame_a(
-    clear_frame_registries,
-):
-    """Mirror of test_quaternion_from_frame_succeeds_for_bound_body_frame_a in Rust."""
-    q_body = z_axis_quaternion(0.3)
-    bh.register_frame(
-        bh.ReferenceFrame.SC_BODY("QFF"),
-        bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
-        q_body,
-    )
-
-    _, frame_b = body_frames()
-    traj = AttitudeTrajectory(bh.ReferenceFrame.SC_BODY("QFF"), frame_b)
-    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    q_a_to_b = z_axis_quaternion(0.1)
-    traj.add(t0, q_a_to_b)
-
-    q = traj.quaternion_from_frame(
-        t0, bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF)
-    )
-    expected = q_body * q_a_to_b
-
-    np.testing.assert_allclose(
-        q.to_vector(scalar_first=True),
-        expected.to_vector(scalar_first=True),
-        atol=1e-12,
     )

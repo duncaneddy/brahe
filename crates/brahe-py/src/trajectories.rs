@@ -4230,29 +4230,6 @@ impl PyAttitudeTrajectory {
         Ok(PyRotationMatrix { obj: self.trajectory.rotation_matrix(epoch.obj)? })
     }
 
-    /// Re-express this trajectory's attitude relative to an arbitrary reference frame.
-    ///
-    /// Requires `frame_a` to be a celestial `ReferenceFrame` (constructed via
-    /// `ReferenceFrame.celestial`).
-    ///
-    /// Args:
-    ///     epoch (Epoch): Target epoch
-    ///     frame (ReferenceFrame): Reference frame to express the attitude relative to
-    ///
-    /// Returns:
-    ///     Quaternion: Attitude quaternion from `frame` to `frame_b` at epoch
-    ///
-    /// Raises:
-    ///     RuntimeError: If `frame_a` is not a celestial `ReferenceFrame`, the frame
-    ///         transformation fails, or the attitude at epoch cannot be computed
-    fn quaternion_from_frame(
-        &self,
-        epoch: PyEpoch,
-        frame: &PyReferenceFrame,
-    ) -> PyResult<PyQuaternion> {
-        Ok(PyQuaternion { obj: self.trajectory.quaternion_from_frame(epoch.obj, frame.frame.clone())? })
-    }
-
     /// bool: True if the trajectory is non-empty and its states carry angular velocity
     #[getter]
     fn has_rates(&self) -> bool {

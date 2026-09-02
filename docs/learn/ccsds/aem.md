@@ -91,97 +91,37 @@ Build an AEM programmatically by defining metadata, adding attitude states to a 
 
 === "Python"
     ``` python
-    import brahe as bh
-    from brahe.ccsds import AEM, AEMSegment, AEMAttitudeState
-
-    t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    t1 = t0 + 60.0
-
-    segment = AEMSegment(
-        "SAT1", "2024-001A", "EME2000", "SC_BODY_1", "UTC", t0, t1, "QUATERNION"
-    )
-    segment.add_state(AEMAttitudeState.from_quaternion(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0)))
-    segment.add_state(
-        AEMAttitudeState.from_quaternion(t1, bh.Quaternion(0.9998, 0.0, 0.0, 0.0196))
-    )
-
-    aem = AEM("BRAHE")
-    aem.add_segment(segment)
-    kvn = aem.to_string("KVN")
+    --8<-- "./examples/ccsds/aem_create_write.py:8"
     ```
 
 === "Rust"
     ``` rust
-    use brahe::attitude::Quaternion;
-    use brahe::ccsds::{
-        ADMReferenceFrame, AEM, AEMAttitudeData, AEMAttitudeState, AEMAttitudeType, AEMMetadata,
-        AEMSegment, CCSDSFormat, CCSDSTimeSystem,
-    };
-    use brahe::time::{Epoch, TimeSystem};
-
-    let ref_frame_a = ADMReferenceFrame::parse("EME2000");
-    let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
-    let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-    let t1 = t0 + 60.0;
-
-    let metadata = AEMMetadata::new(
-        "SAT1", "2024-001A", ref_frame_a, ref_frame_b, CCSDSTimeSystem::UTC,
-        t0, t1, AEMAttitudeType::Quaternion,
-    );
-    let mut segment = AEMSegment::new(metadata);
-    segment.push_state(AEMAttitudeState {
-        epoch: t0,
-        data: AEMAttitudeData::Quaternion { quaternion: Quaternion::new(1.0, 0.0, 0.0, 0.0) },
-    }).unwrap();
-    segment.push_state(AEMAttitudeState {
-        epoch: t1,
-        data: AEMAttitudeData::Quaternion { quaternion: Quaternion::new(0.9998, 0.0, 0.0, 0.0196) },
-    }).unwrap();
-
-    let mut aem = AEM::new("BRAHE");
-    aem.push_segment(segment);
-    let kvn = aem.to_string(CCSDSFormat::KVN).unwrap();
+    --8<-- "./examples/ccsds/aem_create_write.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/ccsds/aem_create_write.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/ccsds/aem_create_write.rs.txt"
+        ```
 
 !!! info "Round-Trip Fidelity"
     Writing and re-parsing an AEM preserves all header, metadata, and attitude-state values. Numeric precision may vary slightly due to floating-point formatting, but values are preserved within the precision of the output format.
 
 ## KVN Format Example
 
-An excerpt from the CCSDS 504.0-B-2 Annex G-4 example file, containing a header, one segment's metadata, and its first and last data lines:
+The CCSDS 504.0-B-2 Annex G-4 example file ships with brahe as `test_assets/ccsds/aem/AEMExampleG4.txt`, and is the file the [Parse and Access](#parse-and-access) example reads. It holds a header followed by two segments, each with its own metadata block and data block:
 
 ```text
-CCSDS_AEM_VERS = 2.0
-CREATION_DATE = 2002-11-04T17:22:31
-ORIGINATOR = NASA/JPL
-MESSAGE_ID = A7015Z3
-
-META_START
-COMMENT This file was produced by M.R. Somebody, MSOO NAV/JPL.
-COMMENT It is to be used for attitude reconstruction only. The relative accuracy of these
-COMMENT  attitudes is 0.1 degrees per axis.
-OBJECT_NAME     = MARS GLOBAL SURVEYOR
-OBJECT_ID       = 1996-062A
-CENTER_NAME     = MARS BARYCENTER
-REF_FRAME_A     = EME2000
-REF_FRAME_B     = SC_BODY_1
-TIME_SYSTEM     = UTC
-START_TIME      = 1996-11-28T21:29:07.2555
-USEABLE_START_TIME = 1996-11-28T22:08:02.5555
-USEABLE_STOP_TIME  = 1996-11-30T01:18:02.5555
-STOP_TIME       = 1996-11-30T01:28:02.5555
-ATTITUDE_TYPE   = QUATERNION
-INTERPOLATION_METHOD = hermite
-INTERPOLATION_DEGREE = 7
-META_STOP
-
-DATA_START
-1996-11-28T21:29:07.2555 0.56748  0.03146  0.45689  0.68427
-1996-11-30T01:28:02.5555 0.74563  -0.45375  0.36875  0.31964
-DATA_STOP
+--8<-- "./test_assets/ccsds/aem/AEMExampleG4.txt"
 ```
 
-The data lines carry no keyword names — `QUATERNION` fixes the column order to epoch, `Q1`, `Q2`, `Q3`, `QC`. This segment's `INTERPOLATION_METHOD = hermite` is preserved on parse and write, but has no `AttitudeTrajectory` equivalent; see [Converting to AttitudeTrajectory](#converting-to-attitudetrajectory) above.
+The data lines carry no keyword names. `QUATERNION` fixes the column order to epoch, `Q1`, `Q2`, `Q3`, `QC`. The first segment's `INTERPOLATION_METHOD = hermite` is preserved on parse and write, but has no `AttitudeTrajectory` equivalent; see [Converting to AttitudeTrajectory](#converting-to-attitudetrajectory) above.
 
 ---
 

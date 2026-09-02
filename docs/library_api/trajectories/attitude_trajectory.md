@@ -20,7 +20,7 @@ AttitudeTrajectory has the same API as [Trajectory](trajectory.md), plus quatern
 
 ## See Also
 
-- [AttitudeTrajectory Guide](../../learn/trajectories/attitude_trajectory.md) — Canonical state, interpolation methods, and frame composition
+- [AttitudeTrajectory Guide](../../learn/trajectories/attitude_trajectory.md) — Canonical state and interpolation methods
 - [Trajectory](trajectory.md) — Dynamic-dimension trajectory
 - [AEM API Reference](../ccsds/aem.md) — Converting AEM segments to `AttitudeTrajectory`
-- [Attitude Frame](../attitude/attitude_frame.md) — Frame specifications
+- [ReferenceFrame](../frames/frame.md) — Frame endpoint specifications

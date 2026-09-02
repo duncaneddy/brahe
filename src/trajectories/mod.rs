@@ -38,7 +38,6 @@
  * ```
  */
 
-mod attitude_frames;
 pub mod attitude_trajectory;
 pub mod dorbit_trajectory;
 pub mod dtrajectory;

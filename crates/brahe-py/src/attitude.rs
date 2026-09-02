@@ -1826,10 +1826,6 @@ impl PyRotationMatrix {
 /// Computes the time derivative of an attitude quaternion from the
 /// body-frame angular velocity.
 ///
-/// Implements Diebel (2006), eq. 157, `q̇ = ½ [0; ω']·q`, restated under
-/// brahe's Hamilton product convention (see the attitude representations
-/// documentation, Attitude Kinematics section) as `q̇ = ½ · (q * [0; ω])`.
-///
 /// Args:
 ///     q (Quaternion): Attitude quaternion transforming frame A to frame B.
 ///     angular_velocity (numpy.ndarray): Angular velocity of B relative to A,
@@ -1847,6 +1843,10 @@ impl PyRotationMatrix {
 ///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
 ///     q_dot = bh.quaternion_derivative(q, np.array([0.0, 0.0, 0.1]))
 ///     ```
+///
+/// References:
+///     J. Diebel, Representing Attitude: Euler Angles, Unit Quaternions, and
+///     Rotation Vectors, 2006. Eq. 157.
 fn py_quaternion_derivative<'py>(
     py: Python<'py>,
     q: &PyQuaternion,
@@ -1863,14 +1863,11 @@ fn py_quaternion_derivative<'py>(
 /// Recovers the body-frame angular velocity from an attitude quaternion and
 /// its time derivative.
 ///
-/// Implements Diebel (2006), eq. 147, `[0; ω'] = 2 q̇·q̄`, restated under
-/// brahe's Hamilton product convention (see the attitude representations
-/// documentation, Attitude Kinematics section) as `[0; ω] = 2 · (q̄ * q̇)`.
-/// Exact inverse of `quaternion_derivative` for unit `q` with `q̇` tangent
-/// to the unit-quaternion manifold (`q · q̇ = 0`); a radial (norm-drift)
-/// component in `q̇` is deliberately projected out, which is the desired
-/// behavior for numerically differentiated or integrated quaternion
-/// histories.
+/// Exact inverse of `quaternion_derivative` for a unit quaternion whose
+/// derivative is tangent to the unit-quaternion manifold. A radial
+/// (norm-drift) component of `q_dot` is projected out, so quaternion
+/// derivatives obtained by numerical differentiation or integration are
+/// accepted.
 ///
 /// Args:
 ///     q (Quaternion): Attitude quaternion transforming frame A to frame B.
@@ -1891,6 +1888,10 @@ fn py_quaternion_derivative<'py>(
 ///     q_dot = bh.quaternion_derivative(q, omega)
 ///     recovered = bh.angular_velocity_from_quaternion_derivative(q, q_dot)
 ///     ```
+///
+/// References:
+///     J. Diebel, Representing Attitude: Euler Angles, Unit Quaternions, and
+///     Rotation Vectors, 2006. Eq. 147.
 fn py_angular_velocity_from_quaternion_derivative<'py>(
     py: Python<'py>,
     q: &PyQuaternion,
@@ -1905,11 +1906,6 @@ fn py_angular_velocity_from_quaternion_derivative<'py>(
 #[pyo3(name = "euler_rates_to_angular_velocity")]
 #[pyo3(text_signature = "(angles, rates)")]
 /// Converts Euler-angle rates to the body-frame angular velocity.
-///
-/// Implements Diebel (2006), eqs. 38 and 40, `ω' = E′_ijk(u) u̇`, with the
-/// sequence and angle relabeling from brahe's application-order convention
-/// to Diebel's matrix-order convention described in the attitude
-/// representations documentation (Attitude Kinematics section).
 ///
 /// Args:
 ///     angles (EulerAngle): Euler angles in brahe application order.
@@ -1930,6 +1926,10 @@ fn py_angular_velocity_from_quaternion_derivative<'py>(
 ///     rates = np.array([0.1, -0.2, 0.3])
 ///     omega = bh.euler_rates_to_angular_velocity(angles, rates)
 ///     ```
+///
+/// References:
+///     J. Diebel, Representing Attitude: Euler Angles, Unit Quaternions, and
+///     Rotation Vectors, 2006. Eqs. 38 and 40.
 fn py_euler_rates_to_angular_velocity<'py>(
     py: Python<'py>,
     angles: &PyEulerAngle,
@@ -1945,14 +1945,11 @@ fn py_euler_rates_to_angular_velocity<'py>(
 #[pyo3(text_signature = "(angles, angular_velocity)")]
 /// Converts body-frame angular velocity to Euler-angle rates.
 ///
-/// Implements the inverse of Diebel (2006) eq. 40, `u̇ = E′_ijk(u)⁻¹ ω'`, by
-/// inverting the eq. 38 matrix directly, with the sequence and angle
-/// relabeling described in the attitude representations documentation
-/// (Attitude Kinematics section). Exact inverse of
-/// `euler_rates_to_angular_velocity` away from the sequence's gimbal-lock
-/// singularity: this function raises when `|det E'| < 1e-6`, which bounds
-/// the inverse's conditioning (roughly `2 / |det E'|`) at roughly `2e6` and
-/// rejects only inputs within roughly `1e-6` rad of the exact singularity.
+/// Exact inverse of `euler_rates_to_angular_velocity` away from the
+/// sequence's gimbal-lock singularity. Sequences with three distinct axes are
+/// singular at `θ = ±90°`; sequences that repeat the first axis are singular
+/// at `θ = 0°` and `θ = 180°`. This function raises within roughly `1e-6` rad
+/// of either condition.
 ///
 /// Args:
 ///     angles (EulerAngle): Euler angles in brahe application order.
@@ -1965,8 +1962,8 @@ fn py_euler_rates_to_angular_velocity<'py>(
 ///     shape (3,). Units: (rad/s)
 ///
 /// Raises:
-///     BraheError: If `|det E'| < 1e-6` (at or near the sequence's
-///         gimbal-lock singularity).
+///     BraheError: If `angles` is at or near the sequence's gimbal-lock
+///         singularity.
 ///
 /// Example:
 ///     ```python
@@ -1978,6 +1975,10 @@ fn py_euler_rates_to_angular_velocity<'py>(
 ///     omega = bh.euler_rates_to_angular_velocity(angles, rates)
 ///     recovered = bh.angular_velocity_to_euler_rates(angles, omega)
 ///     ```
+///
+/// References:
+///     J. Diebel, Representing Attitude: Euler Angles, Unit Quaternions, and
+///     Rotation Vectors, 2006. Eq. 40.
 fn py_angular_velocity_to_euler_rates<'py>(
     py: Python<'py>,
     angles: &PyEulerAngle,

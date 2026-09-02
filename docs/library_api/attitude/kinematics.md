@@ -22,6 +22,7 @@
 
 ## See Also
 
+- [Attitude Kinematics](../../learn/attitude_representations/kinematics.md)
 - [Quaternion](quaternion.md)
 - [EulerAngle](euler_angles.md)
 - [Frame Graph](../frames/frame.md)

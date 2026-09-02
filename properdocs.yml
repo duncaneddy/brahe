@@ -223,6 +223,7 @@ nav:
           - learn/attitude_representations/rotation_matrices.md
           - learn/attitude_representations/euler_angles.md
           - learn/attitude_representations/euler_axis.md
+          - learn/attitude_representations/kinematics.md
       - Trajectories:
           - learn/trajectories/index.md
           - learn/trajectories/trajectory.md

@@ -252,13 +252,11 @@ impl OEM {
 ///
 /// The AEM ANGVEL types express angular velocity in the segment's
 /// `ANGVEL_FRAME`, which `AEMMetadata::validate` guarantees equals either
-/// `ref_frame_a` or `ref_frame_b`. If it is `ref_frame_b`, the value is
-/// already the canonical body-frame rate and is returned unchanged. If it is
-/// `ref_frame_a`, it must be re-expressed in frame B: Diebel (2006) eq. 41
-/// gives the frame-A-to-frame-B relation `ω' = R ω` for a vector expressed
-/// in frame A rotated into frame B by the direction cosine matrix `R`, so
-/// `ω_B = R(q) · ω_A` with `R(q)` the DCM of the state's attitude
-/// quaternion.
+/// `ref_frame_a` or `ref_frame_b`. A rate already given in frame B is
+/// returned unchanged; one given in frame A is re-expressed in frame B.
+///
+/// Diebel, J., "Representing Attitude: Euler Angles, Unit Quaternions, and
+/// Rotation Vectors", 2006, eq. 41.
 fn aem_angvel_to_canonical(
     angular_velocity: Vector3<f64>,
     quaternion: &Quaternion,
@@ -271,6 +269,9 @@ fn aem_angvel_to_canonical(
     })?;
 
     if *angvel_frame == metadata.ref_frame_a {
+        // A vector expressed in frame A is rotated into frame B by the
+        // direction cosine matrix of the state's attitude quaternion, so
+        // omega_B = R(q) * omega_A.
         let r = quaternion.to_rotation_matrix().to_matrix();
         Ok(r * angular_velocity)
     } else {

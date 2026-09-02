@@ -232,10 +232,12 @@ def test_attitude_trajectory_quaternion_from_frame_matches_manual_composition(eo
     traj.add(t0 + 60.0, z_axis_quaternion(0.5))
 
     epoch = t0 + 30.0
-    q = traj.quaternion_from_frame(epoch, bh.ReferenceFrame.EME2000)
+    q = traj.quaternion_from_frame(
+        epoch, bh.ReferenceFrame.celestial(bh.CelestialFrame.EME2000)
+    )
 
     r_from_to_a = bh.rotation_frame_to_frame(
-        bh.ReferenceFrame.EME2000, bh.ReferenceFrame.GCRF, epoch
+        bh.CelestialFrame.EME2000, bh.CelestialFrame.GCRF, epoch
     )
     q_from_to_a = bh.Quaternion.from_rotation_matrix(
         bh.RotationMatrix.from_matrix(r_from_to_a)
@@ -249,12 +251,14 @@ def test_attitude_trajectory_quaternion_from_frame_matches_manual_composition(eo
     )
 
 
-def test_attitude_trajectory_quaternion_from_frame_errors_for_spacecraft_frame_a():
-    """Mirror of test_quaternion_from_frame_errors_for_spacecraft_frame_a in Rust."""
+def test_attitude_trajectory_quaternion_from_frame_errors_for_body_frame_a():
+    """Mirror of test_quaternion_from_frame_errors_for_body_frame_a in Rust."""
     frame_a, frame_b = body_frames()
     traj = AttitudeTrajectory(frame_a, frame_b)
     t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     traj.add(t0, z_axis_quaternion(0.0))
 
-    with pytest.raises(Exception, match="Spacecraft"):
-        traj.quaternion_from_frame(t0, bh.ReferenceFrame.EME2000)
+    with pytest.raises(Exception, match="Body"):
+        traj.quaternion_from_frame(
+            t0, bh.ReferenceFrame.celestial(bh.CelestialFrame.EME2000)
+        )

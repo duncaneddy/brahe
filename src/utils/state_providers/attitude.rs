@@ -45,7 +45,6 @@ impl AttitudeTrajectory {
     /// ```
     /// use brahe::attitude::Quaternion;
     /// use brahe::frames::{BodyFrame, CelestialFrame, ReferenceFrame};
-    /// use brahe::frames::ReferenceFrame;
     /// use brahe::time::{Epoch, TimeSystem};
     /// use brahe::traits::Trajectory;
     /// use brahe::trajectories::{AttitudeState, AttitudeTrajectory};

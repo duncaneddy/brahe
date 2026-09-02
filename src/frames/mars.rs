@@ -789,7 +789,7 @@ pub fn states_mci_to_eci(
 mod tests {
     use approx::assert_abs_diff_eq;
     use nalgebra::Vector3;
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
 
     use super::*;
     use crate::constants::R_MARS;
@@ -801,6 +801,7 @@ mod tests {
     };
 
     #[test]
+    #[parallel]
     fn test_state_mci_to_mcmf_roundtrip() {
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let x = vector6_from_array([R_MARS + 400e3, 0.0, 0.0, 0.0, 3.4e3, 0.0]);
@@ -811,6 +812,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_state_mci_to_mcmf_transport_term() {
         // Velocity of a body-fixed point: numerically differentiate R(t)*r and
         // compare with the analytic transport term. Catches sign/frame errors.
@@ -833,6 +835,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_mcmf_surface_point_is_stationary() {
         // A point rotating with Mars has near-zero MCMF velocity
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -848,6 +851,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_position_mcmf_to_mci_roundtrip() {
         // Exercises position_mcmf_to_mci and rotation_mcmf_to_mci, which the
         // state-based tests above don't touch directly.

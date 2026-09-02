@@ -584,6 +584,7 @@ mod tests {
     use crate::orbit_dynamics::gravity::{GravityModel, GravityModelTideSystem, GravityModelType};
 
     #[test]
+    #[serial_test::parallel]
     fn test_perm_constants_match_iers() {
         // Constants are exact products of the verbatim IERS TN36 factors
         // (A0 = 4.4228e-8, H0 = -0.31460, k20 = 0.30190).
@@ -596,6 +597,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_offsets_relative_to_tide_free() {
         assert_eq!(
             tide_system_c20_offset(GravityModelTideSystem::TideFree),
@@ -614,6 +616,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_convert_zero_to_tide_free_matches_egm2008_within_tolerance() {
         // EGM2008 is tide-free; load, force-label zero-tide, convert back to tide-free.
         let mut m = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
@@ -633,6 +636,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_convert_roundtrip_is_identity() {
         let mut m = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
         let c20 = m.get(2, 0).unwrap().0;
@@ -651,6 +655,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_convert_from_unknown_errors() {
         let mut m = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
         assert!(
@@ -668,6 +673,7 @@ mod tests {
     use nalgebra::Vector3;
 
     #[test]
+    #[serial_test::parallel]
     fn test_step1_c20_magnitude_and_lunar_dominance() {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         // Moon ~ along +x at ~384400 km; Sun ~ along +x at 1 AU.
@@ -699,6 +705,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_accel_solid_tides_finite_and_small() {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let r_sat = Vector3::new(7.0e6, 0.0, 0.0);
@@ -736,6 +743,7 @@ mod tests {
     /// Verify table row counts and spot-check anchor values against the data
     /// file (iers-step2-tables.md / IERS TN36 Ch.6 PDF).
     #[test]
+    #[serial_test::parallel]
     fn test_step2_table_integrity() {
         use crate::orbit_dynamics::tides_step2_tables::{TABLE_M0, TABLE_M1, TABLE_M2};
 

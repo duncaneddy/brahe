@@ -353,6 +353,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_cof_basic() {
         let coeffs = &*WMMHR_COEFFICIENTS;
         assert_eq!(coeffs.n_max, 133);

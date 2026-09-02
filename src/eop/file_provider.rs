@@ -1376,6 +1376,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_detect_eop_file_type() {
         let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
         let filepath = Path::new(&manifest_dir).join("test_assets");
@@ -1399,6 +1400,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_c04_file() {
         let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
         let filepath = Path::new(&manifest_dir)
@@ -1417,6 +1419,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_default_c04() {
         let eop =
             FileEOPProvider::from_default_file(EOPType::C04, true, EOPExtrapolation::Hold).unwrap();
@@ -1433,6 +1436,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_standard_file() {
         let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
         let filepath = Path::new(&manifest_dir)
@@ -1451,6 +1455,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_default_standard() {
         let eop = FileEOPProvider::from_default_file(
             EOPType::StandardBulletinA,
@@ -1471,6 +1476,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_ut1_utc() {
         let eop = setup_test_eop(true, EOPExtrapolation::Hold);
 
@@ -1500,6 +1506,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_pm_xy() {
         let eop = setup_test_eop(true, EOPExtrapolation::Hold);
 
@@ -1535,6 +1542,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    #[serial_test::parallel]
     fn test_get_dxdy() {
         let eop = setup_test_eop(true, EOPExtrapolation::Hold);
 
@@ -1573,6 +1581,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_lod() {
         let eop = setup_test_eop(true, EOPExtrapolation::Hold);
 
@@ -1602,6 +1611,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_eop_extrapolation_error() {
         let eop = setup_test_eop(true, EOPExtrapolation::Error);
 
@@ -1674,6 +1684,7 @@ mod tests {
     // }
 
     #[test]
+    #[serial_test::parallel]
     fn test_default_implementation() {
         // Test that Default::default() is equivalent to new()
         let eop_default = FileEOPProvider::default();
@@ -1693,6 +1704,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_display_format() {
         let eop = setup_test_eop(true, EOPExtrapolation::Hold);
         let display_string = format!("{}", eop);
@@ -1708,6 +1720,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_debug_format() {
         let eop = setup_test_eop(true, EOPExtrapolation::Hold);
         let debug_string = format!("{:?}", eop);
@@ -1722,6 +1735,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_eopkey_partial_cmp() {
         // Test that EOPKey implements PartialOrd correctly
         let key1 = EOPKey(100.0);
@@ -1736,6 +1750,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_extrapolate_before_min_zero() {
         // Test extrapolation with Zero mode for mjd < mjd_min
         let eop = setup_test_eop(true, EOPExtrapolation::Zero);
@@ -1770,6 +1785,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_extrapolate_before_min_hold() {
         // Test extrapolation with Hold mode for mjd < mjd_min
         let eop = setup_test_eop(true, EOPExtrapolation::Hold);
@@ -1810,6 +1826,9 @@ mod tests {
     }
 
     #[test]
+    // Wall-clock throughput assertion: run alone so CPU contention from other
+    // tests cannot push the measurement past the threshold.
+    #[serial_test::serial]
     fn test_eop_lookup_performance() {
         let eop = setup_test_eop(true, EOPExtrapolation::Hold);
         let mjd_min = eop.mjd_min();
@@ -1837,6 +1856,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_extrapolate_before_min_error() {
         // Test extrapolation with Error mode for mjd < mjd_min
         let eop = setup_test_eop(true, EOPExtrapolation::Error);

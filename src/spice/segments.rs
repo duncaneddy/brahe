@@ -1184,7 +1184,7 @@ impl SpkSegment {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
 
     use super::*;
 
@@ -1220,6 +1220,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_chebyshev_position_exact() {
         let seg = synthetic_segment();
         // et=75 -> record 0, s = 0.5
@@ -1231,6 +1232,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_chebyshev_velocity_exact() {
         let seg = synthetic_segment();
         // d/ds: x' = 2·T0' etc. T1'=1, T2'=4s, T3'=12s²-3. At s=0.5:
@@ -1243,6 +1245,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_chebyshev_velocity_degree_one() {
         // Regression test: degree-1 records (n=1 in the derivative
         // recurrence) occur in real SPK data (e.g. a Mercury/Mercury
@@ -1277,6 +1280,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_chebyshev_acceleration_exact() {
         let seg = synthetic_segment();
         // d²/ds²: T0''=T1''=0, T2''=4, T3''=24s. At s=0.5 (et=75):
@@ -1289,6 +1293,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_chebyshev_acceleration_degree_one() {
         // p(s) = a0 + a1*s has zero second derivative for all s.
         let degree = 1usize;
@@ -1320,6 +1325,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_chebyshev_acceleration_type_3() {
         // Type 3: components 0-2 position, 3-5 velocity polynomials.
         // Acceleration = d/det of the stored velocity polynomials.
@@ -1357,6 +1363,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_record_selection_and_bounds() {
         let seg = synthetic_segment();
         // Second record: et=150 -> s=0.0 -> x = 1 + 3*(-1) = -2 (T2(0)=-1)
@@ -1374,6 +1381,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_zero_radius_record_is_rejected() {
         // A record with RADIUS=0.0 would otherwise divide-by-zero into
         // NaN/Inf rather than a clean error.
@@ -1400,6 +1408,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_state_matches_position_and_velocity() {
         let seg = synthetic_segment();
         let (r, v) = seg.state(42.0).unwrap();
@@ -1408,6 +1417,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_from_spk_summary_de440s() {
         let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("test_assets")
@@ -1443,6 +1453,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_unsupported_type_error_names_type() {
         let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("test_assets")
@@ -1460,6 +1471,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_pck_type_3_error_does_not_claim_type_3_supported() {
         let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("test_assets")
@@ -1484,6 +1496,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_from_spk_summary_rejects_non_j2000_frame() {
         // A Type 2/3 segment in a non-J2000 frame (e.g. ECLIPJ2000 = 17,
         // seen in some Horizons/generic small-body SPKs) must be rejected
@@ -1505,6 +1518,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_from_pck_summary_rejects_non_j2000_frame() {
         // Same guard, mirrored for PCK: ints[1] is the reference frame.
         let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -1526,6 +1540,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_from_spk_summary_rejects_short_ints() {
         let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("test_assets")
@@ -1541,6 +1556,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_is_coverage_error_classification() {
         // `is_coverage_error` must recognize exactly the errors built by
         // `coverage_error` (the epoch-aware chain fallback is gated on it)
@@ -1556,6 +1572,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_is_coverage_error_classifies_pck_and_multi_variants() {
         // `is_coverage_error` must also recognize the multi-candidate SPK
         // variant and both PCK frame-lookup misses (used by
@@ -1572,6 +1589,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_from_summary_rejects_directory_shorter_than_descriptor_end() {
         // Regression test: a malformed kernel could claim descriptor
         // coverage [start_et, end_et] wider than what the record directory
@@ -1596,6 +1614,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_chebyshev_derivative_degree_zero_is_zero() {
         // A degree-0 (single-coefficient) record has a constant position, so
         // its analytic velocity is exactly zero. Exercises the n == 0 early
@@ -1628,6 +1647,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_validate_count_rejects_invalid_values() {
         // `validate_count`'s error branch rejects NaN, negative, and
         // fractional counts; a finite nonnegative integer is accepted.
@@ -1638,6 +1658,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_type3_velocity_and_state_read_stored_velocity_polynomials() {
         // SPK Type 3 stores velocity coefficients directly (rather than
         // differentiating position), so `velocity` and `state` must read
@@ -1679,6 +1700,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_from_pck_summary_rejects_short_summary() {
         // `from_pck_summary`'s guard: fewer than 5 ints must be rejected
         // before any word access, so the DAF contents are irrelevant.
@@ -1696,6 +1718,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_from_summary_rejects_invalid_address_range() {
         // A start address of 0 (below the 1-based minimum) is rejected.
         let daf = DAFFile::from_bytes(&crate::utils::testing::synthetic_spk_kernel_bytes(&[(
@@ -1709,6 +1732,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_from_summary_rejects_segment_too_short() {
         // A one-word address range cannot hold the 4-word trailer.
         let daf = DAFFile::from_bytes(&crate::utils::testing::synthetic_spk_kernel_bytes(&[(
@@ -1723,6 +1747,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_from_summary_rejects_inconsistent_directory() {
         // Pointing the segment at the record's first four words makes the
         // trailer read RSIZE=1, N=0 -- an internally inconsistent directory.
@@ -2089,6 +2114,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_type21_rejects_short_summary() {
         let daf = DAFFile::from_bytes(&synthetic_type21_daf_bytes(&[])).unwrap();
         let summary = DAFSummary {
@@ -2101,6 +2127,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_type21_rejects_non_j2000_frame() {
         let daf = DAFFile::from_bytes(&synthetic_type21_daf_bytes(&[0.0, 1.0])).unwrap();
         let summary = DAFSummary {
@@ -2113,6 +2140,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_type21_rejects_invalid_address_range() {
         let daf = DAFFile::from_bytes(&synthetic_type21_daf_bytes(&[])).unwrap();
         let summary = DAFSummary {
@@ -2125,6 +2153,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_type21_rejects_segment_too_short() {
         let daf = DAFFile::from_bytes(&synthetic_type21_daf_bytes(&[42.0])).unwrap();
         let summary = DAFSummary {
@@ -2137,6 +2166,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_type21_rejects_maxdim_out_of_range() {
         // MAXDIM == 0.
         let daf = DAFFile::from_bytes(&synthetic_type21_daf_bytes(&[0.0, 1.0])).unwrap();
@@ -2155,6 +2185,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_type21_rejects_inconsistent_directory() {
         // MAXDIM=1, N=1 (dlsize=15) claims a directory needing 18 words, but
         // only 3 are supplied.
@@ -2169,6 +2200,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_type21_rejects_non_finite_epoch_directory() {
         // MAXDIM=1, N=2 (dlsize=15): 30 record words + 2 epoch words + 2
         // trailer words = 34. The first epoch is NaN.
@@ -2188,6 +2220,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_type21_rejects_directory_not_covering_descriptor() {
         // Same layout as above, but with a finite ascending epoch directory
         // that starts after the descriptor's claimed start_et.
@@ -2207,6 +2240,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_type21_spke21_rejects_zero_stepsize() {
         // A record with a zero stepsize G[0] would divide by zero in the
         // interpolation loop; it must be rejected explicitly rather than
@@ -2266,6 +2300,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_spk_segment_from_spk_summary_propagates_type21_error() {
         // The `?` in the Type21 dispatch arm must surface the inner
         // `Type21Segment::from_spk_summary` error rather than swallowing it.
@@ -2280,6 +2315,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_spk_segment_from_spk_summary_propagates_chebyshev_error() {
         // The `?` in the Chebyshev dispatch arm must surface the inner
         // `ChebyshevSegment::from_spk_summary` error rather than swallowing
@@ -2297,6 +2333,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_from_summary_rejects_directory_starting_after_descriptor_start() {
         // Same defect as above, mirrored on the start side: INIT after
         // start_et means the directory doesn't cover the descriptor's

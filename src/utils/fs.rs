@@ -62,6 +62,7 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
+    #[serial_test::parallel]
     fn test_atomic_write_basic() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("test.txt");
@@ -73,6 +74,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_atomic_write_creates_parent_dirs() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("a").join("b").join("test.txt");
@@ -84,6 +86,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_atomic_write_overwrites_existing() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("test.txt");
@@ -96,6 +99,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_atomic_write_no_temp_file_on_success() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("test.txt");

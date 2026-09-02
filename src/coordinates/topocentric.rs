@@ -966,6 +966,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[parallel]
     fn test_rotation_ellipsoid_to_enz() {
         // Epsilon Tolerance
         let tol = f64::EPSILON;
@@ -1035,6 +1036,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rotation_enz_to_ellipsoid() {
         let tol = f64::EPSILON;
 
@@ -1057,6 +1059,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_relative_position_ecef_to_enz() {
         let tol = f64::EPSILON;
 
@@ -1123,6 +1126,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_relative_position_enz_to_ecef() {
         let tol = f64::EPSILON;
 
@@ -1138,6 +1142,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rotation_ellipsoid_to_sez() {
         // Epsilon Tolerance
         let tol = f64::EPSILON;
@@ -1207,6 +1212,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rotation_sez_to_ellipsoid() {
         let tol = f64::EPSILON;
 
@@ -1229,6 +1235,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_relative_position_ecef_to_sez() {
         let tol = f64::EPSILON;
 
@@ -1295,6 +1302,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_relative_position_sez_to_ecef() {
         let tol = f64::EPSILON;
 
@@ -1310,6 +1318,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_position_enz_to_azel() {
         let tol = f64::EPSILON;
 
@@ -1347,6 +1356,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_position_sez_to_azel() {
         let tol = f64::EPSILON;
 

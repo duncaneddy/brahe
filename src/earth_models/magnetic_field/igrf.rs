@@ -349,6 +349,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_shc_basic() {
         let coeffs = &*IGRF_COEFFICIENTS;
         assert_eq!(coeffs.n_max, 13);

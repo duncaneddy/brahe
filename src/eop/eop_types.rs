@@ -74,6 +74,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[serial_test::parallel]
     fn test_eop_extrapolation_display() {
         assert_eq!(
             format!("{}", EOPExtrapolation::Zero),
@@ -90,6 +91,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_eop_type_display() {
         assert_eq!(format!("{}", EOPType::Unknown), "Unknown");
         assert_eq!(format!("{}", EOPType::C04), "C04");

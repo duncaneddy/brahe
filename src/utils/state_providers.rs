@@ -1036,6 +1036,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_to_propagator_refs_single_propagator() {
         let prop = create_test_propagator();
         let refs = prop.to_refs();
@@ -1045,6 +1046,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_to_propagator_refs_slice_of_propagators() {
         let props = [
             create_test_propagator(),
@@ -1061,6 +1063,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_to_propagator_refs_vec_of_propagators() {
         let props = vec![create_test_propagator(), create_test_propagator()];
         let refs = props.to_refs();
@@ -1072,6 +1075,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_to_propagator_refs_slice_of_refs() {
         let props = [
             create_test_propagator(),
@@ -1092,6 +1096,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_to_propagator_refs_empty_vec() {
         let props: Vec<KeplerianPropagator> = vec![];
         let refs = props.to_refs();
@@ -1099,6 +1104,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_to_propagator_refs_empty_slice() {
         let props: Vec<KeplerianPropagator> = vec![];
         let slice: &[KeplerianPropagator] = &props;

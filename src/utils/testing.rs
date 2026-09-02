@@ -654,6 +654,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_fixture_orbit_leo_elements() {
         // Verify LEO orbit fixture values in radians
         let leo = fixture_orbit_leo(AngleFormat::Radians);
@@ -673,6 +674,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_fixture_orbit_geo_elements() {
         // Verify GEO orbit fixture values
         let geo = fixture_orbit_geo(AngleFormat::Radians);
@@ -681,6 +683,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_fixture_orbit_sso_elements() {
         // Verify SSO orbit fixture values
         let sso = fixture_orbit_sso(AngleFormat::Radians);
@@ -693,6 +696,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_fixture_orbit_molniya_elements() {
         // Verify Molniya orbit fixture values
         let molniya = fixture_orbit_molniya(AngleFormat::Radians);
@@ -707,6 +711,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_fixture_orbit_polar_elements() {
         // Verify polar orbit fixture values in radians
         let polar = fixture_orbit_polar(AngleFormat::Radians);
@@ -724,6 +729,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_fixture_orbit_elliptical_elements() {
         // Verify elliptical orbit fixture values in radians
         let elliptical = fixture_orbit_elliptical(AngleFormat::Radians);
@@ -741,6 +747,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_fixture_orbit_retrograde_elements() {
         // Verify retrograde orbit fixture values in radians
         let retrograde = fixture_orbit_retrograde(AngleFormat::Radians);
@@ -758,6 +765,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_fixture_orbit_equatorial_elements() {
         // Verify equatorial orbit fixture values in radians
         let equatorial = fixture_orbit_equatorial(AngleFormat::Radians);
@@ -775,6 +783,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_fixture_circular_velocity_calculation() {
         // Verify circular velocity is reasonable (should be ~7.5 km/s at LEO)
         let v = fixture_circular_velocity();
@@ -790,6 +799,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_eci_state_equatorial_plus_x() {
         let state = fixture_state_eci_plus_x();
         let v = fixture_circular_velocity();
@@ -806,6 +816,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_eci_state_equatorial_minus_x() {
         let state = fixture_state_eci_minus_x();
         let v = fixture_circular_velocity();
@@ -822,6 +833,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_eci_state_north_pole() {
         let state = fixture_state_eci_north_vel_px();
         let v = fixture_circular_velocity();
@@ -838,6 +850,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_eci_state_south_pole() {
         let state = fixture_state_eci_south_vel_ny();
         let v = fixture_circular_velocity();
@@ -854,6 +867,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_all_state_velocities_have_correct_magnitude() {
         // All test states should have the same velocity magnitude
         let expected_v = fixture_circular_velocity();
@@ -880,6 +894,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_all_state_positions_have_correct_radius() {
         // All test states should have the same position magnitude
         let states = vec![
@@ -930,6 +945,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_setup_global_test_gravity_model() {
         // Test that gravity model setup works
         setup_global_test_gravity_model();
@@ -939,6 +955,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_setup_global_test_space_weather() {
         use crate::space_weather::get_global_kp;
 
@@ -953,6 +970,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_test_space_weather_filepath() {
         let filepath = get_test_space_weather_filepath();
         assert!(filepath.exists());

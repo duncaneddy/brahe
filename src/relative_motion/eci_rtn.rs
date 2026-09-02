@@ -384,6 +384,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rotation_rtn_to_eci() {
         let x_eci = get_test_state();
         let p_eci = x_eci.fixed_rows::<3>(0);
@@ -397,6 +398,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rotation_eci_to_rtn_inverse() {
         let x_eci = get_test_state();
 
@@ -426,6 +428,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_state_eci_to_rtn_and_back() {
         let x_chief = get_test_state();
         let x_deputy = get_test_state() + SVector6::new(100.0, 200.0, 300.0, 0.1, 0.2, 0.3);

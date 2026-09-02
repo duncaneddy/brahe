@@ -913,18 +913,21 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_trajectory_eviction_policy_debug_none() {
         let policy = TrajectoryEvictionPolicy::None;
         assert_eq!(format!("{:?}", policy), "None");
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_trajectory_eviction_policy_debug_keep_count() {
         let policy = TrajectoryEvictionPolicy::KeepCount;
         assert_eq!(format!("{:?}", policy), "KeepCount");
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_trajectory_eviction_policy_debug_keep_within_duration() {
         let policy = TrajectoryEvictionPolicy::KeepWithinDuration;
         assert_eq!(format!("{:?}", policy), "KeepWithinDuration");
@@ -935,36 +938,42 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbit_frame_display_eci() {
         let frame = OrbitFrame::ECI;
         assert_eq!(format!("{}", frame), "ECI");
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbit_frame_display_ecef() {
         let frame = OrbitFrame::ECEF;
         assert_eq!(format!("{}", frame), "ECEF");
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbit_frame_display_gcrf() {
         let frame = OrbitFrame::GCRF;
         assert_eq!(format!("{}", frame), "GCRF");
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbit_frame_display_itrf() {
         let frame = OrbitFrame::ITRF;
         assert_eq!(format!("{}", frame), "ITRF");
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbit_frame_display_eme2000() {
         let frame = OrbitFrame::EME2000;
         assert_eq!(format!("{}", frame), "EME2000");
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbit_frame_debug_eci() {
         let frame = OrbitFrame::ECI;
         assert_eq!(
@@ -974,6 +983,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbit_frame_debug_ecef() {
         let frame = OrbitFrame::ECEF;
         assert_eq!(
@@ -983,6 +993,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbit_frame_debug_gcrf() {
         let frame = OrbitFrame::GCRF;
         assert_eq!(
@@ -992,6 +1003,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbit_frame_debug_itrf() {
         let frame = OrbitFrame::ITRF;
         assert_eq!(
@@ -1001,6 +1013,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbit_frame_debug_eme2000() {
         let frame = OrbitFrame::EME2000;
         assert_eq!(
@@ -1014,24 +1027,28 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbit_representation_display_cartesian() {
         let rep = OrbitRepresentation::Cartesian;
         assert_eq!(format!("{}", rep), "Cartesian");
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbit_representation_display_keplerian() {
         let rep = OrbitRepresentation::Keplerian;
         assert_eq!(format!("{}", rep), "Keplerian");
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbit_representation_debug_cartesian() {
         let rep = OrbitRepresentation::Cartesian;
         assert_eq!(format!("{:?}", rep), "OrbitRepresentation(Cartesian)");
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbit_representation_debug_keplerian() {
         let rep = OrbitRepresentation::Keplerian;
         assert_eq!(format!("{:?}", rep), "OrbitRepresentation(Keplerian)");

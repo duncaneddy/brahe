@@ -2124,6 +2124,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[serial_test::parallel]
     fn test_default_configuration() {
         let config = ForceModelConfig::default();
 
@@ -2150,6 +2151,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parametersource_get_value_valid() {
         // Fixed value resolves without a parameter vector; an in-range index
         // resolves from the provided vector.
@@ -2165,6 +2167,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parametersource_get_value_missing_params() {
         // A ParameterIndex source with no parameter vector is out of bounds.
         let result = ParameterSource::ParameterIndex(2).get_value(None);
@@ -2172,6 +2175,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parametersource_get_value_index_out_of_bounds() {
         // A ParameterIndex beyond the vector length is out of bounds.
         let params = nalgebra::DVector::from_vec(vec![1.0, 2.0]);
@@ -2180,6 +2184,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_high_fidelity_configuration() {
         let config = ForceModelConfig::high_fidelity();
 
@@ -2219,6 +2224,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_ephemeris_source_to_spk_kernel() {
         assert_eq!(
             SPICEKernel::try_from(EphemerisSource::DE440s).unwrap(),
@@ -2236,6 +2242,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gravity_only_configuration() {
         let config = ForceModelConfig::earth_gravity();
 
@@ -2251,6 +2258,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_leo_configuration() {
         let config = ForceModelConfig::leo_default();
 
@@ -2271,6 +2279,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_geo_configuration() {
         let config = ForceModelConfig::geo_default();
 
@@ -2285,6 +2294,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_default_parameter_layout() {
         let params = DefaultParameterLayout::default_values();
 
@@ -2297,6 +2307,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_custom_parameter_layout() {
         let params = DefaultParameterLayout::create(500.0, 5.0, 2.0, 8.0, 1.5);
 
@@ -2308,6 +2319,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_serialization() {
         let config = ForceModelConfig::default();
 
@@ -2326,6 +2338,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_requires_params_with_mass_param_index() {
         // When mass uses ParameterIndex, requires_params should return true
         let config = ForceModelConfig {
@@ -2339,6 +2352,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_requires_params_with_mass_value() {
         // When mass uses Value, requires_params should return false (if no other params needed)
         let config = ForceModelConfig {
@@ -2352,17 +2366,20 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_tides_config_default_none() {
         let config = ForceModelConfig::default();
         assert!(config.tides.is_none());
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_permanent_tide_default_is_auto() {
         assert_eq!(PermanentTideConfig::default(), PermanentTideConfig::Auto);
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_tides_config_serde_roundtrip() {
         use crate::orbit_dynamics::gravity::GravityModelTideSystem;
         let cfg = TidesConfiguration {
@@ -2380,6 +2397,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_force_config_missing_tides_field_deserializes() {
         // Back-compat: configs serialized before this field still load.
         let json = r#"{"gravity":"PointMass","drag":null,"srp":null,"third_body":null,
@@ -2537,6 +2555,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_spherical_harmonic_parallel_serde_default() {
         // A JSON config missing `parallel` deserializes to Auto.
         let json =
@@ -2556,6 +2575,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_srp_config_serde_default_occulting_bodies() {
         // Old serialized config without the field deserializes to [Earth]
         let json = r#"{"area":{"Value":1.0},"cr":{"Value":1.8},"eclipse_model":"Conical"}"#;
@@ -2564,6 +2584,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_occulting_body_radius_and_naif_ids() {
         assert_eq!(OccultingBody::Earth.radius(), R_EARTH);
         assert_eq!(OccultingBody::Earth.naif_id(), 399);
@@ -2592,6 +2613,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_default_config_central_body_earth_and_valid() {
         let cfg = ForceModelConfig::default();
         assert_eq!(cfg.central_body, CentralBody::Earth);
@@ -2599,6 +2621,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_serde_backward_compat_missing_central_body() {
         let mut v = serde_json::to_value(ForceModelConfig::default()).unwrap();
         v.as_object_mut().unwrap().remove("central_body");
@@ -2607,6 +2630,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_lunar_mars_cislunar_defaults_valid() {
         for cfg in [
             ForceModelConfig::lunar_default(),
@@ -2623,6 +2647,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_for_body_constructs_expected_fields() {
         let cfg = ForceModelConfig::for_body(
             CentralBody::Mars,
@@ -2647,6 +2672,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_validate_rejects_harris_priester_non_earth() {
         let cfg = ForceModelConfig {
             tides: None,
@@ -2670,6 +2696,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_validate_rejects_nrlmsise00_non_earth() {
         let cfg = ForceModelConfig {
             tides: None,
@@ -2693,6 +2720,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_validate_rejects_earth_zonal_non_earth() {
         let cfg = ForceModelConfig {
             tides: None,
@@ -2713,6 +2741,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_validate_rejects_earth_rotation_only_non_earth() {
         let cfg = ForceModelConfig {
             tides: None,
@@ -2731,6 +2760,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_validate_rejects_tides_non_earth() {
         let cfg = ForceModelConfig {
             tides: Some(TidesConfiguration::default()),
@@ -2749,6 +2779,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_validate_rejects_low_precision_ephemeris_non_earth() {
         let cfg = ForceModelConfig {
             tides: None,
@@ -2771,6 +2802,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_validate_allows_low_precision_earth_sun_moon() {
         let cfg = ForceModelConfig {
             tides: None,
@@ -2798,6 +2830,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_validate_rejects_low_precision_earth_planet() {
         let cfg = ForceModelConfig {
             tides: None,
@@ -2820,6 +2853,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_validate_rejects_third_body_same_naif_id_as_central_body() {
         let cfg = ForceModelConfig {
             tides: None,
@@ -2837,6 +2871,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_validate_rejects_spherical_harmonic_barycenter() {
         let cfg = ForceModelConfig {
             tides: None,
@@ -2860,6 +2895,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_validate_rejects_drag_barycenter() {
         let cfg = ForceModelConfig {
             tides: None,
@@ -2887,6 +2923,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_validate_rejects_drag_without_radius_and_omega() {
         let custom = CentralBody::Custom(crate::propagators::central_body::CustomBody {
             name: "TestBody".to_string(),
@@ -2922,6 +2959,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_validate_rejects_custom_spherical_harmonic_without_fixed_frame() {
         let custom = CentralBody::Custom(crate::propagators::central_body::CustomBody {
             name: "TestBody".to_string(),

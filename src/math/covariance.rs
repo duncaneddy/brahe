@@ -210,6 +210,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
 
     #[test]
+    #[serial_test::parallel]
     fn test_isotropic_covariance() {
         let r = isotropic_covariance(3, 10.0);
         assert_eq!(r.nrows(), 3);
@@ -222,6 +223,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_isotropic_covariance_1d() {
         let r = isotropic_covariance(1, 5.0);
         assert_eq!(r.nrows(), 1);
@@ -229,6 +231,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_diagonal_covariance() {
         let r = diagonal_covariance(&[5.0, 10.0, 15.0]);
         assert_eq!(r.nrows(), 3);
@@ -239,6 +242,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_diagonal_covariance_6d() {
         let sigmas = [5.0, 10.0, 15.0, 0.05, 0.1, 0.15];
         let r = diagonal_covariance(&sigmas);
@@ -249,12 +253,14 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_validate_covariance_valid() {
         let r = DMatrix::from_diagonal_element(3, 3, 100.0);
         assert!(validate_covariance(r).is_ok());
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_validate_covariance_symmetric_with_offdiag() {
         let mut r = DMatrix::zeros(3, 3);
         r[(0, 0)] = 100.0;
@@ -266,6 +272,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_validate_covariance_non_square() {
         let r = DMatrix::zeros(3, 4);
         let result = validate_covariance(r);
@@ -274,6 +281,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_validate_covariance_asymmetric() {
         let mut r = DMatrix::zeros(3, 3);
         r[(0, 0)] = 100.0;
@@ -287,6 +295,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_validate_covariance_non_finite() {
         let mut r = DMatrix::from_diagonal_element(3, 3, 100.0);
         r[(1, 1)] = f64::NAN;
@@ -296,6 +305,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_validate_covariance_indefinite() {
         // Symmetric but indefinite: eigenvalues 101 and -99
         let mut r = DMatrix::zeros(2, 2);
@@ -314,6 +324,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_from_upper_triangular_indefinite() {
         // Symmetric but indefinite 2x2: [[1, 100], [100, 1]]
         let result = covariance_from_upper_triangular(2, &[1.0, 100.0, 1.0]);
@@ -321,6 +332,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_from_upper_triangular_3d() {
         // [c00, c01, c02, c11, c12, c22]
         let upper = [100.0, 5.0, 0.0, 225.0, 10.0, 400.0];
@@ -344,6 +356,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_from_upper_triangular_6d() {
         // 6x6 → 21 elements, packed row-major upper triangle:
         // Row 0: indices 0..5 → (0,0),(0,1),(0,2),(0,3),(0,4),(0,5)
@@ -378,6 +391,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_from_upper_triangular_wrong_count() {
         let result = covariance_from_upper_triangular(3, &[1.0, 2.0, 3.0]);
         assert!(result.is_err());
@@ -385,6 +399,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_from_upper_triangular_1d() {
         let r = covariance_from_upper_triangular(1, &[42.0]).unwrap();
         assert_eq!(r.nrows(), 1);

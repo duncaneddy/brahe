@@ -384,6 +384,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[serial_test::parallel]
     fn test_gp_record_deserialize_full() {
         let json = r#"[{
             "CCSDS_OMM_VERS": "3.0",
@@ -446,6 +447,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gp_record_deserialize_minimal() {
         let json = r#"[{
             "OBJECT_NAME": "ISS (ZARYA)",
@@ -461,6 +463,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gp_record_unknown_fields_ignored() {
         let json = r#"[{
             "OBJECT_NAME": "ISS (ZARYA)",
@@ -474,6 +477,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gp_record_empty_array() {
         let json = "[]";
         let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
@@ -481,6 +485,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gp_record_deserialize_numeric_values() {
         // Celestrak returns numeric values as JSON numbers, not strings
         let json = r#"[{
@@ -516,6 +521,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gp_record_clone() {
         let json = r#"[{"OBJECT_NAME": "ISS", "NORAD_CAT_ID": "25544"}]"#;
         let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
@@ -524,6 +530,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gp_record_debug() {
         let json = r#"[{"OBJECT_NAME": "ISS"}]"#;
         let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
@@ -532,6 +539,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gp_record_serialize() {
         let json = r#"[{"OBJECT_NAME":"ISS","NORAD_CAT_ID":"25544"}]"#;
         let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
@@ -541,6 +549,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_field_accessor_string_fields() {
         let json = r#"{"OBJECT_NAME": "ISS (ZARYA)", "OBJECT_TYPE": "PAYLOAD"}"#;
         let record: GPRecord = serde_json::from_str(json).unwrap();
@@ -552,6 +561,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_field_accessor_numeric_fields() {
         let json = r#"{"NORAD_CAT_ID": 25544, "INCLINATION": 51.64, "ECCENTRICITY": 0.0001}"#;
         let record: GPRecord = serde_json::from_str(json).unwrap();
@@ -561,6 +571,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_field_accessor_missing_field() {
         let json = r#"{"OBJECT_NAME": "ISS"}"#;
         let record: GPRecord = serde_json::from_str(json).unwrap();

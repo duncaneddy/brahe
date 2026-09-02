@@ -4243,6 +4243,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_force_model_configuration_construction_variants() {
         let _ = ForceModelConfig::default();
         let _ = ForceModelConfig::high_fidelity();
@@ -13795,6 +13796,7 @@ mod tests {
     /// vector is supplied. Triggers the `enable_sensitivity && params.is_empty()`
     /// guard in `new`, which fires before any frame/gravity work (no EOP needed).
     #[test]
+    #[serial_test::parallel]
     fn test_new_rejects_sensitivity_without_params() {
         let mut prop_cfg = NumericalPropagationConfig::default();
         prop_cfg.variational.enable_sensitivity = true;

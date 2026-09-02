@@ -565,7 +565,7 @@ pub fn ssb_state_spice(epc: Epoch, kernel: SPICEKernel) -> Result<Vector6<f64>, 
 mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
 
     use super::*;
     use crate::orbit_dynamics::ephemerides::{moon_position, sun_position};
@@ -940,6 +940,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_system_kernel_panics_for_unsupported_body() {
         // The `_` arm of `system_kernel` panics for any body without a
         // satellite ephemeris kernel.
@@ -948,6 +949,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_spk_pair_position_error_for_unmapped_id() {
         // `strict_anchor_and_leg` error branch: an ID that is neither
         // DE-covered nor in a satellite system with a known ephemeris

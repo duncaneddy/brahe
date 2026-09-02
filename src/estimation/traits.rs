@@ -326,6 +326,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_numerical_jacobian_central_difference() {
         let model = InertialPositionMeasurementModel::new(10.0);
         let epoch = test_epoch();
@@ -351,6 +352,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_numerical_jacobian_forward_difference() {
         let model = InertialPositionMeasurementModel::new(10.0);
         let epoch = test_epoch();
@@ -374,6 +376,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_numerical_jacobian_backward_difference() {
         let model = InertialPositionMeasurementModel::new(10.0);
         let epoch = test_epoch();
@@ -397,6 +400,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_numerical_jacobian_perturbation_strategies() {
         let model = InertialPositionMeasurementModel::new(10.0);
         let epoch = test_epoch();
@@ -446,6 +450,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_residual_default_is_subtraction() {
         let model = InertialPositionMeasurementModel::new(10.0);
         let measured = DVector::from_vec(vec![10.0, 20.0, 30.0]);
@@ -455,6 +460,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_compute_residual_rejects_wrong_input_lengths() {
         // compute_residual must validate both inputs before any subtraction so
         // no filter call site (pre-fit, post-fit, or UKF sigma-point deviation)
@@ -499,6 +505,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_measurement_jacobian_numerical_rejects_wrong_predict_length() {
         // A mis-shaped predict() output must surface as a structured error
         // naming the model, not an nalgebra dimension panic while differencing.

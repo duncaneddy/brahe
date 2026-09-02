@@ -2862,6 +2862,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[serial_test::parallel]
     fn test_gravity_model_from_file() {
         let filepath = Path::new("data/gravity_models/EGM2008_120.gfc");
         let gravity_model = GravityModel::from_file(filepath).unwrap();
@@ -2880,6 +2881,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gravity_model_from_file_non_earth_header_with_fortran_exponents() {
         // Non-Earth ICGEM models (e.g. GRGM660PRIM for the Moon) use the
         // unprefixed "gravity_constant" header key instead of
@@ -2996,6 +2998,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gravity_model_from_model_type_egm2008_120() {
         let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 
@@ -3013,6 +3016,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gravity_model_from_model_type_ggm05s() {
         let gravity_model = GravityModel::from_model_type(&GravityModelType::GGM05S).unwrap();
 
@@ -3030,6 +3034,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gravity_model_from_model_type_jgm3() {
         let gravity_model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
 
@@ -3252,6 +3257,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gravity_model_type_is_hash_eq() {
         // Static check: the cache won't compile (and hence neither will the
         // crate) without GravityModelType: Hash + Eq, but make the contract
@@ -3262,6 +3268,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gravity_model_get() {
         let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 
@@ -3282,6 +3289,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gravity_model_get_c_get_s() {
         let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 
@@ -3308,6 +3316,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_accel_point_mass_gravity() {
         let r_object = Vector3::new(R_EARTH, 0.0, 0.0);
         let r_central_body = Vector3::new(0.0, 0.0, 0.0);
@@ -3343,6 +3352,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_accel_earth_zonal_gravity() {
         let earth_center = Vector3::new(0.0, 0.0, 0.0);
 
@@ -3404,6 +3414,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_clenshaw_matches_cunningham() {
         let model = GravityModel::from_model_type_with_coefficients(
             &GravityModelType::EGM2008_120,
@@ -3484,6 +3495,7 @@ mod tests {
 
     #[test]
     #[allow(clippy::excessive_precision)]
+    #[serial_test::parallel]
     fn test_clenshaw_high_precision_reference() {
         // Reference accelerations from an independent mpmath (40-digit)
         // evaluation of the same truncated EGM2008_120 sums (forward-column
@@ -3578,6 +3590,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_clenshaw_point_mass_equivalence() {
         let model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
         let r_body = Vector3::new(R_EARTH, 0.0, 0.0);
@@ -3590,6 +3603,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_clenshaw_bounds_errors_match_cunningham() {
         let model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
         let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
@@ -3779,6 +3793,7 @@ mod tests {
     #[case(18, 18, - 6.97926208121, - 1.829284918, - 2.6899952379)]
     #[case(19, 19, - 6.97926229494, - 1.82928369323, - 2.68999256236)]
     #[case(20, 20, - 6.979261862, - 1.82928315091, - 2.68999053339)]
+    #[serial_test::parallel]
     fn test_accel_gravity_jgm3_validation(
         #[case] n: usize,
         #[case] m: usize,
@@ -3812,6 +3827,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_set_max_degree_order_basic() {
         // Load JGM3 (70x70) and truncate to 20x20
         let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
@@ -3828,6 +3844,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_set_max_degree_order_coefficient_preservation() {
         // Load JGM3 and verify coefficients are preserved after truncation
         let original_model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
@@ -3865,6 +3882,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_set_max_degree_order_validation_m_greater_than_n() {
         let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
 
@@ -3875,6 +3893,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_set_max_degree_order_validation_n_exceeds_max() {
         let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
 
@@ -3888,6 +3907,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_set_max_degree_order_validation_m_exceeds_max() {
         let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
 
@@ -3906,6 +3926,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_set_max_degree_order_no_change() {
         let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
         let original_size = model.data.nrows();
@@ -3920,6 +3941,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_set_max_degree_order_asymmetric() {
         // Test with m < n (less common but valid)
         let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
@@ -4012,6 +4034,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gravity_model_type_from_file_valid_path() {
         let model_type =
             GravityModelType::from_file("data/gravity_models/EGM2008_120.gfc").unwrap();
@@ -4019,6 +4042,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gravity_model_type_from_file_nonexistent_path() {
         let result = GravityModelType::from_file("/nonexistent/path/to/model.gfc");
         assert!(result.is_err());
@@ -4026,6 +4050,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gravity_model_type_from_file_directory_path() {
         let result = GravityModelType::from_file("data/gravity_models");
         assert!(result.is_err());
@@ -4184,6 +4209,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_should_parallelize_modes() {
         // Always / Never ignore n_max
         assert!(should_parallelize(ParallelMode::Always, 0));
@@ -4208,6 +4234,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_should_parallelize_clenshaw_modes() {
         assert!(should_parallelize_clenshaw(ParallelMode::Always, 0));
         assert!(!should_parallelize_clenshaw(ParallelMode::Never, 1000));
@@ -4222,6 +4249,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_clenshaw_parallel_bitwise_matches_serial() {
         let model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
         let positions = [
@@ -4356,11 +4384,13 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parallel_mode_default_is_auto() {
         assert_eq!(ParallelMode::default(), ParallelMode::Auto);
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parallel_matches_serial_spherical_harmonics() {
         let model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 
@@ -4389,6 +4419,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_serial_spherical_harmonics_characterization() {
         // Golden values captured from the reference (pre-optimization) serial
         // implementation. This guards the optimized serial recurrence and
@@ -4479,6 +4510,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_clenshaw_coefficients_packing_and_values() {
         // JGM3 is fully normalized: packed Clenshaw values must equal the raw
         // stored coefficients (no conversion applied).
@@ -4532,6 +4564,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_clenshaw_coefficients_unnormalized_model_normalizes() {
         // A tiny unnormalized model: C20 = -1.0826e-3 (unnormalized J2-like).
         // The Clenshaw table must store C20 / sqrt(5) (the n=2, m=0
@@ -4580,6 +4613,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gravity_model_coefficients_default_is_clenshaw_only() {
         let model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
         assert!(model.has_clenshaw_coefficients());
@@ -4603,6 +4637,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gravity_model_coefficients_load_variants() {
         let both = GravityModel::from_model_type_with_coefficients(
             &GravityModelType::JGM3,
@@ -4626,6 +4661,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gravity_model_coefficients_precompute_drop_roundtrip() {
         let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
         let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
@@ -4660,6 +4696,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gravity_model_coefficients_truncation_rebuilds_existing_sets() {
         let mut model = GravityModel::from_model_type_with_coefficients(
             &GravityModelType::EGM2008_120,
@@ -4679,6 +4716,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_cunningham_high_degree_overflow_errors() {
         // Degree 160 at LEO altitude overflows the denormalized V/W recursion;
         // the kernel must surface a descriptive error, not silent NaN. The
@@ -4715,6 +4753,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_accel_wrappers_apply_frame_round_trip() {
         // Each wrapper must compute R_i2bᵀ · kernel(R_i2b · r). Comparing
         // against the manually rotated kernel output pins the transpose
@@ -4768,6 +4807,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_accel_cunningham_workspace_ignores_stale_cells() {
         // The workspace-reuse wrapper writes-then-reads only the cells it
         // needs, so an oversized workspace holding garbage from a prior call
@@ -4813,6 +4853,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_accel_wrapper_accepts_state_vector() {
         // The `IntoPosition` generic must accept a 6D state and use only its
         // position component — the result matches passing the bare position.
@@ -4844,6 +4885,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_file_with_coefficients_clenshaw_only() {
         // Exercises both `from_file_with_coefficients` and the `apply_coefficients`
         // Clenshaw arm (which drops any Cunningham coefficients).
@@ -4857,6 +4899,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_apply_coefficients_clenshaw_drops_cunningham() {
         // Starting from a model that has Cunningham coefficients, applying the
         // Clenshaw configuration must build Clenshaw and drop Cunningham.
@@ -4873,6 +4916,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_clenshaw_kernel_errors_without_coefficients() {
         // Calling the Clenshaw kernel directly on a Cunningham-only model must
         // surface a descriptive error rather than panicking or falling back.
@@ -4893,6 +4937,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_gravity_model_display_and_debug() {
         let model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
 

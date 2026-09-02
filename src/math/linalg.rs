@@ -507,6 +507,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[serial_test::parallel]
     fn test_split_float_f32() {
         assert_eq!(split_float(1.5_f32), (1.0, 0.5));
         assert_eq!(split_float(-1.5_f32), (-1.0, -0.5));
@@ -516,6 +517,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_split_float_f64() {
         assert_eq!(split_float(1.5_f64), (1.0, 0.5));
         assert_eq!(split_float(-1.5_f64), (-1.0, -0.5));
@@ -525,6 +527,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_vector3_from_array() {
         let vec = [1.0, 2.0, 3.0];
         let v = vector3_from_array(vec);
@@ -532,6 +535,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_vector6_from_array() {
         let vec = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
         let v = vector6_from_array(vec);
@@ -539,6 +543,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_matrix3_from_array() {
         let mat = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]];
         let m = matrix3_from_array(&mat);
@@ -561,6 +566,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_kronecker_delta() {
         assert_eq!(kronecker_delta(0, 0), 1);
         assert_eq!(kronecker_delta(0, 1), 0);
@@ -569,6 +575,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_spd_sqrtm_identity() {
         // Test identity matrix
         let identity = na::SMatrix::<f64, 3, 3>::identity();
@@ -579,6 +586,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_spd_sqrtm_diagonal() {
         // Test diagonal matrix
         let diag = na::SMatrix::<f64, 3, 3>::new(4.0, 0.0, 0.0, 0.0, 9.0, 0.0, 0.0, 0.0, 16.0);
@@ -594,6 +602,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_spd_sqrtm_covariance() {
         // Test a realistic 6x6 covariance matrix
         let mut cov = na::SMatrix::<f64, 6, 6>::identity() * 100.0;
@@ -615,6 +624,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_spd_sqrtm_error_negative_eigenvalue() {
         // Create a matrix with a negative eigenvalue
         // This is not positive-definite
@@ -626,6 +636,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sqrtm_wiki_test_case() {
         // Wikipedia test case: A = [33 24; 48 57], sqrtm(A) = [5 2; 4 7]
         let a = na::SMatrix::<f64, 2, 2>::new(33.0, 24.0, 48.0, 57.0);
@@ -642,6 +653,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sqrtm_3x3_general() {
         // Test a 3x3 non-symmetric matrix with real eigenvalues
         let mat = na::SMatrix::<f64, 3, 3>::new(5.0, 2.0, 1.0, 0.0, 3.0, 1.0, 0.0, 0.0, 2.0);
@@ -654,6 +666,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sqrtm_symmetric_matches_spd() {
         // For a symmetric positive-definite matrix, both functions should give same result
         let mat = na::SMatrix::<f64, 3, 3>::new(4.0, 2.0, 0.0, 2.0, 3.0, 0.0, 0.0, 0.0, 5.0);
@@ -666,6 +679,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sqrtm_error_negative_eigenvalue() {
         // Matrix with negative eigenvalue
         // The Denman-Beavers iteration will fail to converge for this matrix
@@ -752,6 +766,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_sqrtm_dmatrix_wiki_test_case() {
         // Wikipedia test case: A = [33 24; 48 57], sqrtm(A) = [5 2; 4 7]
         let a = na::DMatrix::from_row_slice(2, 2, &[33.0, 24.0, 48.0, 57.0]);
@@ -768,6 +783,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sqrtm_dmatrix_identity() {
         // sqrtm(I) = I
         let identity = na::DMatrix::<f64>::identity(4, 4);
@@ -776,6 +792,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sqrtm_dmatrix_diagonal() {
         // Diagonal matrix: sqrt([4 0; 0 9]) = [2 0; 0 3]
         let diag = na::DMatrix::from_row_slice(2, 2, &[4.0, 0.0, 0.0, 9.0]);
@@ -839,6 +856,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sqrtm_dmatrix_non_square_error() {
         let mat = na::DMatrix::from_row_slice(2, 3, &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
         let result = sqrtm_dmatrix(&mat);

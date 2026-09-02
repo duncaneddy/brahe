@@ -103,6 +103,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[serial_test::parallel]
     fn test_time_system_display() {
         assert_eq!(format!("{}", TimeSystem::GPS), "GPS");
         assert_eq!(format!("{}", TimeSystem::TAI), "TAI");

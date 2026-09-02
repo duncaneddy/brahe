@@ -109,6 +109,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    #[serial_test::parallel]
     fn test_parse_standard_line_full() {
         let line = "2311 1 60249.00 I  0.274620 0.000020  0.268283 0.000018  I 0.0113205 0.0000039 -0.3630 0.0029  I     0.293    0.290    -0.045    0.041  0.274569  0.268315  0.0113342     0.238    -0.039  ";
 
@@ -128,6 +129,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    #[serial_test::parallel]
     fn test_parse_standard_line_no_bulletin_b() {
         let line = "231220 60298.00 I  0.167496 0.000091  0.200643 0.000091  I 0.0109716 0.0000102  0.7706 0.0069  P     0.103    0.128    -0.193    0.160                                                     ";
 
@@ -147,6 +149,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    #[serial_test::parallel]
     fn test_parse_standard_line_no_bulletin_b_no_lod() {
         let line = "24 3 4 60373.00 P  0.026108 0.007892  0.289637 0.008989  P 0.0110535 0.0072179                 P     0.006    0.128    -0.118    0.160                                                     ";
 
@@ -166,6 +169,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    #[serial_test::parallel]
     fn test_parse_standard_line_no_bulletin_b_no_lod_no_dxdy() {
         let line = "241228 60672.00 P  0.173369 0.019841  0.266914 0.028808  P 0.0420038 0.0254096                                                                                                             ";
 
@@ -185,6 +189,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    #[serial_test::parallel]
     fn test_parse_standard_line_only_mjd() {
         let line = "241229 60673.00                                                                                                                                                                            ";
 
@@ -195,6 +200,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    #[serial_test::parallel]
     fn test_parse_standard_line_short_line_pads_successfully() {
         // Simulate a prediction line with trailing whitespace trimmed by the IERS
         // server — shorter than 187 chars but valid core data.
@@ -214,6 +220,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_standard_line_wrong_length_too_long() {
         let line = "2311 1 60249.00 I  0.274620 0.000020  0.268283 0.000018  I 0.0113205 0.0000039 -0.3630 0.0029  I     0.293    0.290    -0.045    0.041  0.274569  0.268315  0.0113342     0.238    -0.039  EXTRA";
         let result = parse_standard_line(line.to_string());
@@ -227,6 +234,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_standard_line_invalid_mjd() {
         let line = "2311 1 XXXXX.XX I  0.274620 0.000020  0.268283 0.000018  I 0.0113205 0.0000039 -0.3630 0.0029  I     0.293    0.290    -0.045    0.041  0.274569  0.268315  0.0113342     0.238    -0.039  ";
         let result = parse_standard_line(line.to_string());
@@ -240,6 +248,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_standard_line_invalid_pm_x() {
         let line = "2311 1 60249.00 I  XXXXXXXX 0.000020  0.268283 0.000018  I 0.0113205 0.0000039 -0.3630 0.0029  I     0.293    0.290    -0.045    0.041  0.274569  0.268315  0.0113342     0.238    -0.039  ";
         let result = parse_standard_line(line.to_string());
@@ -253,6 +262,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_standard_line_invalid_pm_y() {
         let line = "2311 1 60249.00 I  0.274620 0.000020  XXXXXXXX 0.000018  I 0.0113205 0.0000039 -0.3630 0.0029  I     0.293    0.290    -0.045    0.041  0.274569  0.268315  0.0113342     0.238    -0.039  ";
         let result = parse_standard_line(line.to_string());
@@ -266,6 +276,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_standard_line_invalid_ut1_utc() {
         let line = "2311 1 60249.00 I  0.274620 0.000020  0.268283 0.000018  I XXXXXXXXX 0.0000039 -0.3630 0.0029  I     0.293    0.290    -0.045    0.041  0.274569  0.268315  0.0113342     0.238    -0.039  ";
         let result = parse_standard_line(line.to_string());
@@ -279,6 +290,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_standard_line_empty_string() {
         // Empty string gets padded to all spaces, then fails on mjd parse
         let line = "";

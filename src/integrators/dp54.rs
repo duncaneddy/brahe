@@ -718,6 +718,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54_integrator_parabola() {
         // Test DP54 on simple parabola x' = 2t
         let f = |t: f64,
@@ -746,6 +747,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54_integrator_adaptive() {
         // Test adaptive stepping on parabola
         let f = |t: f64,
@@ -778,6 +780,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54_integrator_orbit() {
         // Test DP54 on orbital mechanics
         let config = IntegratorConfig::adaptive(1e-9, 1e-6);
@@ -815,6 +818,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54_accuracy() {
         // Verify DP54 achieves expected 5th order accuracy
         let f = |t: f64,
@@ -846,6 +850,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54_step_size_increases() {
         // Verify that adaptive stepping increases step size when error is small
         let f = |t: f64,
@@ -878,6 +883,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54_step_size_decreases() {
         // Verify that adaptive stepping decreases step size when error is large
         let f = |_t: f64,
@@ -903,6 +909,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54_step_returns_dt_below_requested_when_rejected() {
         // The propagation loops decide whether a step the target truncated is
         // also one the integrator reduced, by comparing dt_used against the
@@ -942,6 +949,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54_config_parameters() {
         // Verify that config parameters are actually used
         let f = |t: f64,
@@ -966,6 +974,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54_fsal_cache() {
         // Verify that FSAL optimization works - second step should reuse cached value
         let f = |t: f64,
@@ -994,6 +1003,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54_vs_rkf45_accuracy() {
         // Compare DP54 and RKF45 accuracy on same problem
         let f = |t: f64,
@@ -1239,6 +1249,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54d_integrator_parabola() {
         let f = |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| {
             Ok(DVector::from_vec(vec![2.0 * t]))
@@ -1262,6 +1273,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54d_integrator_adaptive() {
         let f = |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| {
             Ok(DVector::from_vec(vec![2.0 * t]))
@@ -1286,6 +1298,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54d_integrator_orbit() {
         // Setup integrator
         let config = IntegratorConfig::adaptive(1e-8, 1e-6);
@@ -1324,6 +1337,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54d_accuracy() {
         let f = |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| {
             Ok(DVector::from_vec(vec![3.0 * t * t]))
@@ -1349,6 +1363,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54d_step_size_increases() {
         let f = |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| {
             Ok(DVector::from_vec(vec![2.0 * t]))
@@ -1368,6 +1383,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54d_step_size_decreases() {
         let f = |_t: f64, state: &DVector<f64>, _: Option<&DVector<f64>>| {
             Ok(DVector::from_vec(vec![-1000.0 * state[0]]))
@@ -1386,6 +1402,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54d_config_parameters() {
         // Setup with custom configuration
         let f = |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| {
@@ -1407,6 +1424,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54d_fsal_cache() {
         // Setup integrator
         let f = |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| {
@@ -1428,6 +1446,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54d_vs_rkf45_accuracy() {
         // Setup both integrators
         let f = |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| {
@@ -1595,6 +1614,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54_s_vs_d_consistency() {
         // Verify DormandPrince54SIntegrator and DormandPrince54DIntegrator produce identical results
         let f_static = |_t: f64,
@@ -1649,6 +1669,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54d_varmat_sensmat() {
         // Test step_with_varmat_sensmat using simple exponential decay: dx/dt = -k*x
         // where k is a parameter. This has analytical solutions for both STM and sensitivity.
@@ -1843,6 +1864,7 @@ mod tests {
     // ========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54s_sensmat() {
         // Test sensitivity matrix propagation using exponential decay: dx/dt = -k*x
 
@@ -1918,6 +1940,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54d_sensmat() {
         // Test sensitivity matrix propagation (standalone dynamic version)
 
@@ -1993,6 +2016,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54s_varmat_sensmat() {
         // Test combined STM and sensitivity matrix propagation (static version)
 
@@ -2106,6 +2130,7 @@ mod tests {
     // =============================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54s_new_uses_default_config() {
         fn dynamics(
             _t: f64,
@@ -2136,6 +2161,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54s_with_config_stores_config() {
         fn dynamics(
             _t: f64,
@@ -2183,6 +2209,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54s_config_returns_reference() {
         fn dynamics(
             _t: f64,
@@ -2211,6 +2238,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54d_new_uses_default_config() {
         fn dynamics(
             _t: f64,
@@ -2240,6 +2268,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54d_with_config_stores_config() {
         fn dynamics(
             _t: f64,
@@ -2288,6 +2317,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54d_config_returns_reference() {
         fn dynamics(
             _t: f64,
@@ -2315,6 +2345,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54d_dimension_method() {
         fn dynamics(
             _t: f64,
@@ -2348,6 +2379,7 @@ mod tests {
     // =============================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54s_errors_on_max_attempts_exceeded() {
         fn stiff_dynamics(
             _t: f64,
@@ -2384,6 +2416,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54d_errors_on_max_attempts_exceeded() {
         fn stiff_dynamics(
             _t: f64,
@@ -2427,6 +2460,7 @@ mod tests {
     // propagation output, ensuring parameters flow through to dynamics correctly.
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54s_params_affect_step_output() {
         // Test exponential decay where the decay rate comes from params:
         // dx/dt = -k * x, where k = params[0]
@@ -2484,6 +2518,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54d_params_affect_step_output() {
         // Same test for dynamic-sized integrator
         // dx/dt = -k * x, where k = params[0]
@@ -2540,6 +2575,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54s_params_multi_step_propagation() {
         // Verify params affect output over multiple adaptive steps
         // dx/dt = -k * x, where k = params[0]
@@ -2608,6 +2644,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54s_params_with_varmat() {
         // Verify params affect step_with_varmat output
         // dx/dt = -k * x, where k = params[0]
@@ -2681,6 +2718,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dp54d_params_with_varmat() {
         // Same test for dynamic-sized integrator with variational matrix
 

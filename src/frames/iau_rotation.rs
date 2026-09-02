@@ -715,6 +715,7 @@ mod tests {
     use crate::time::{Epoch, TimeSystem};
 
     #[test]
+    #[parallel]
     fn test_iau_mars_pole_at_j2000() {
         // At J2000 TDB, alpha0/delta0/W from WGCCRE 2015 polynomials (T=0, d=0):
         // trig terms with nonzero phase still contribute; check against direct evaluation.
@@ -735,6 +736,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_iau_mars_spin_rate() {
         // W rate must match OMEGA_MARS to within the small trig-term rates
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -743,6 +745,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_iau_unknown_body_errors() {
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let e = rotation_icrf_to_body_fixed_iau(999999, epc);
@@ -751,6 +754,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_iau_mars_transcription_guard() {
         // Regression guard for direct transcription errors in the `IAU_ROTATION_MODELS`
         // table that the orthonormality tests above cannot catch (any
@@ -779,6 +783,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_iau_enceladus_transcription_guard() {
         // Regression guard for Enceladus, which has no periodic
         // (nutation-precession) terms in `pck00011.tpc` — a pure
@@ -802,6 +807,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_euler313_omega_pure_spin() {
         // Pure z-spin: angles (0, 0, psi), rates (0, 0, w) -> omega_body = [0, 0, w]
         let omega =
@@ -812,6 +818,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_iau_rotation_model_ids_sorted_and_contains_all_bodies() {
         let ids = iau_rotation_model_ids();
         let expected = [
@@ -824,6 +831,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_iau_angles_and_rates_all_bodies_finite_and_spin() {
         // Every embedded body must yield finite Euler angles and rates, and a
         // body-frame angular velocity whose magnitude is dominated by the prime
@@ -848,6 +856,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_iau_angles_and_rates_unknown_body_errors() {
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let e = body_fixed_iau_angles_and_rates(123456, epc);
@@ -857,6 +866,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_iau_rotation_orthonormal_for_all_bodies() {
         // Every embedded body should produce an orthonormal, proper (det = +1)
         // DCM across a range of epochs, not just Mars at J2000.
@@ -964,6 +974,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
+    #[parallel]
     fn test_validate_iau_rotation_against_anise() {
         use anise::prelude::{Almanac, Epoch as AniseEpoch, Frame};
 

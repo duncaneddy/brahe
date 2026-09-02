@@ -1714,6 +1714,7 @@ mod tests {
     // ---- OEM ----
 
     #[test]
+    #[serial_test::parallel]
     fn test_oem_json_round_trip() {
         let oem = OEM::from_file("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
         let json_str = write_oem_json(&oem, CCSDSJsonKeyCase::Lower).unwrap();
@@ -1747,6 +1748,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_oem_json_round_trip_with_covariance() {
         let oem = OEM::from_file("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
         // Segment 2 has covariances
@@ -1770,6 +1772,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_oem_json_uppercase_keys() {
         let oem = OEM::from_file("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
         let json_str = write_oem_json(&oem, CCSDSJsonKeyCase::Upper).unwrap();
@@ -1789,6 +1792,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_oem_json_parse_malformed() {
         let result = parse_oem_json("not valid json");
         assert!(result.is_err());
@@ -1797,6 +1801,7 @@ mod tests {
     // ---- OMM ----
 
     #[test]
+    #[serial_test::parallel]
     fn test_omm_json_round_trip() {
         let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
         let json_str = write_omm_json(&omm, CCSDSJsonKeyCase::Lower).unwrap();
@@ -1815,6 +1820,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_omm_json_uppercase_keys() {
         let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
         let json_str = write_omm_json(&omm, CCSDSJsonKeyCase::Upper).unwrap();
@@ -1829,6 +1835,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_omm_json_parse_malformed() {
         let result = parse_omm_json("not valid json");
         assert!(result.is_err());
@@ -1837,6 +1844,7 @@ mod tests {
     // ---- OPM ----
 
     #[test]
+    #[serial_test::parallel]
     fn test_opm_json_round_trip() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
         let json_str = write_opm_json(&opm, CCSDSJsonKeyCase::Lower).unwrap();
@@ -1859,6 +1867,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_opm_json_round_trip_with_maneuvers() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample5.txt").unwrap();
         assert_eq!(opm.maneuvers.len(), 3);
@@ -1876,6 +1885,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_opm_json_with_keplerian() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample5.txt").unwrap();
         assert!(opm.keplerian_elements.is_some());
@@ -1890,6 +1900,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_opm_json_uppercase_keys() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
         let json_str = write_opm_json(&opm, CCSDSJsonKeyCase::Upper).unwrap();
@@ -1904,6 +1915,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_opm_json_parse_malformed() {
         let result = parse_opm_json("not valid json");
         assert!(result.is_err());
@@ -1912,6 +1924,7 @@ mod tests {
     // ---- CDM ----
 
     #[test]
+    #[serial_test::parallel]
     fn test_cdm_json_round_trip_lowercase() {
         let cdm =
             crate::ccsds::cdm::CDM::from_file("test_assets/ccsds/cdm/CDMExample1.txt").unwrap();
@@ -1923,6 +1936,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_cdm_json_key_case() {
         let cdm =
             crate::ccsds::cdm::CDM::from_file("test_assets/ccsds/cdm/CDMExample1.txt").unwrap();
@@ -1939,6 +1953,7 @@ mod tests {
     // ---- key helper ----
 
     #[test]
+    #[serial_test::parallel]
     fn test_key_case_conversion() {
         assert_eq!(key("OBJECT_NAME", CCSDSJsonKeyCase::Lower), "object_name");
         assert_eq!(key("OBJECT_NAME", CCSDSJsonKeyCase::Upper), "OBJECT_NAME");
@@ -1951,6 +1966,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_oem_json_missing_header() {
         // JSON with segments but no header — KVN parser requires CCSDS_OEM_VERS,
         // so this should return an error.
@@ -1977,6 +1993,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_oem_json_missing_segments() {
         // JSON with header but no segments array — should produce an OEM
         // with zero segments (KVN parser treats this as empty data).
@@ -1996,6 +2013,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_oem_json_incomplete_state_vector() {
         // State missing Z_DOT — should be silently skipped (not included in KVN)
         let json = r#"{
@@ -2034,6 +2052,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_omm_json_uppercase_section_keys() {
         // OMM JSON with uppercase section names (HEADER, METADATA, etc.)
         let json = r#"{
@@ -2067,6 +2086,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_opm_json_uppercase_section_keys() {
         // OPM JSON with uppercase section names
         let json = r#"{
@@ -2094,6 +2114,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_cdm_json_uppercase_container_keys() {
         // CDM with OBJECT1/OBJECT2 uppercase container keys
         let cdm =
@@ -2116,6 +2137,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_json_f64_string_values() {
         // get_json_f64 should handle string-encoded numbers (e.g. SpaceTrack)
         let mut obj = Map::new();
@@ -2136,6 +2158,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_write_oem_json_optional_header_fields() {
         let mut oem = OEM::from_file("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
         oem.header.classification = Some("PUBLIC".to_string());
@@ -2155,6 +2178,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_write_oem_json_optional_metadata_fields() {
         // OEMExample4.txt has useable_start/stop, interpolation, interpolation_degree
         let oem = OEM::from_file("test_assets/ccsds/oem/OEMExample4.txt").unwrap();
@@ -2182,6 +2206,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_write_oem_json_ref_frame_epoch() {
         let mut oem = OEM::from_file("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
         let ref_epoch = crate::time::Epoch::from_datetime(
@@ -2202,6 +2227,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_write_oem_json_state_with_acceleration() {
         let mut oem = OEM::from_file("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
         // Add acceleration to the first state in the first segment
@@ -2225,6 +2251,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_write_omm_json_with_semi_major_axis() {
         let metadata = crate::ccsds::omm::OMMMetadata::new(
             "SMA_SAT".to_string(),
@@ -2261,6 +2288,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_write_omm_json_with_gm() {
         let metadata = crate::ccsds::omm::OMMMetadata::new(
             "GM_SAT".to_string(),
@@ -2304,6 +2332,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_write_omm_json_with_user_defined() {
         let metadata = crate::ccsds::omm::OMMMetadata::new(
             "UD_SAT".to_string(),
@@ -2350,6 +2379,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_write_opm_json_true_anomaly_only() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample5.txt").unwrap();
         let kep = opm.keplerian_elements.as_ref().unwrap();
@@ -2367,6 +2397,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_write_opm_json_mean_anomaly_only() {
         // Build an OPM with keplerian elements that have mean_anomaly but not true_anomaly
         let metadata = crate::ccsds::opm::OPMMetadata::new(
@@ -2419,6 +2450,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_write_opm_json_maneuver_with_delta_mass() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample5.txt").unwrap();
         // OPMExample5 has maneuvers with delta_mass
@@ -2435,6 +2467,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_write_opm_json_with_user_defined() {
         let metadata = crate::ccsds::opm::OPMMetadata::new(
             "UD_OPM".to_string(),
@@ -2469,6 +2502,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_write_opm_json_with_spacecraft_parameters() {
         // OPMExample5 has spacecraft parameters
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample5.txt").unwrap();
@@ -2489,6 +2523,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_emit_kvn_bool_values() {
         let mut lines = Vec::new();
         emit_kvn(&mut lines, "FLAG_TRUE", &json!(true));
@@ -2500,6 +2535,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_emit_kvn_null_skipped() {
         let mut lines = Vec::new();
         emit_kvn(&mut lines, "NULL_KEY", &json!(null));
@@ -2507,6 +2543,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_emit_kvn_array_values() {
         let mut lines = Vec::new();
         emit_kvn(&mut lines, "ARR", &json!([1, 2, 3]));
@@ -2515,6 +2552,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_flatten_object_ordered_deduplication() {
         // Priority keys should appear first and not be duplicated in the
         // remaining keys pass.
@@ -2549,6 +2587,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_flatten_object_ordered_lowercase_keys() {
         // The ordered flattener should find keys case-insensitively
         let obj = json!({
@@ -2569,6 +2608,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_cdm_json_bool_in_flatten() {
         // The CDM flatten function handles Bool values (YES/NO).
         // Verify via a CDM round-trip that boolean-like fields survive.
@@ -2589,6 +2629,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_cdm_json_parse_malformed() {
         let result = parse_cdm_json("not valid json");
         assert!(result.is_err());
@@ -2599,6 +2640,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_oem_json_round_trip_example4_full() {
         // OEMExample4.txt has USEABLE_START_TIME, USEABLE_STOP_TIME,
         // INTERPOLATION, INTERPOLATION_DEGREE
@@ -2624,6 +2666,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_opm_json_keplerian_gm_conversion() {
         // OPMExample5 has GM = 398600.4415 km^3/s^2
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample5.txt").unwrap();
@@ -2646,6 +2689,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_oem_json_lowercase_state_keys() {
         // Verify that lowercase state vector keys (x, y, z, x_dot...) are handled
         let json = r#"{
@@ -2678,6 +2722,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_oem_json_with_acceleration_lowercase() {
         // Verify x_ddot/y_ddot/z_ddot lowercase keys
         let json = r#"{

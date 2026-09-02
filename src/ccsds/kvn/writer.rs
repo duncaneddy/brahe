@@ -1185,6 +1185,7 @@ mod tests {
     use crate::ccsds::kvn::parse_oem;
 
     #[test]
+    #[serial_test::parallel]
     fn test_oem_kvn_round_trip_example1() {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
         let oem = parse_oem(&content).unwrap();
@@ -1249,6 +1250,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_oem_kvn_round_trip_example5() {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample5.txt").unwrap();
         let oem = parse_oem(&content).unwrap();
@@ -1401,6 +1403,7 @@ mod tests {
     // ------------------------------------------------------------------
 
     #[test]
+    #[serial_test::parallel]
     fn test_oem_write_header_classification() {
         // OEMExample1 has CLASSIFICATION = public, test-data
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
@@ -1412,6 +1415,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_oem_write_header_message_id() {
         // OEMExample3 has MESSAGE_ID
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample3.txt").unwrap();
@@ -1423,6 +1427,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_oem_write_ref_frame_epoch() {
         use crate::ccsds::common::{CCSDSRefFrame, CCSDSTimeSystem, ODMHeader};
         use crate::ccsds::oem::{OEMMetadata, OEMSegment, OEMStateVector};
@@ -1466,6 +1471,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_oem_write_useable_times() {
         // OEMExample1 has USEABLE_START_TIME and USEABLE_STOP_TIME
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
@@ -1479,6 +1485,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_oem_write_interpolation() {
         // OEMExample1 has INTERPOLATION and INTERPOLATION_DEGREE
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
@@ -1492,6 +1499,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_oem_write_acceleration() {
         use crate::ccsds::common::{CCSDSRefFrame, CCSDSTimeSystem, ODMHeader};
         use crate::ccsds::oem::{OEMMetadata, OEMSegment, OEMStateVector};
@@ -1550,6 +1558,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_oem_write_covariance_with_epoch_and_frame() {
         use crate::ccsds::common::{CCSDSCovariance, CCSDSRefFrame, CCSDSTimeSystem, ODMHeader};
         use crate::ccsds::oem::{OEMMetadata, OEMSegment, OEMStateVector};
@@ -1613,6 +1622,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_oem_write_data_block_comments() {
         use crate::ccsds::common::{CCSDSRefFrame, CCSDSTimeSystem, ODMHeader};
         use crate::ccsds::oem::{OEMMetadata, OEMSegment, OEMStateVector};
@@ -1658,6 +1668,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_oem_write_all_optional_fields_round_trip() {
         // Build OEM with all optional metadata fields set
         use crate::ccsds::common::{CCSDSRefFrame, CCSDSTimeSystem, ODMHeader};
@@ -1718,6 +1729,7 @@ mod tests {
     // ------------------------------------------------------------------
 
     #[test]
+    #[serial_test::parallel]
     fn test_cdm_kvn_round_trip_example2() {
         // CDMExample2 has many optional fields: MESSAGE_FOR, OBJECT_TYPE,
         // OPERATOR_*, ORBIT_CENTER, OD params, additional params, 8x8 covariance
@@ -1806,6 +1818,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_cdm_write_programmatic_all_optional_fields() {
         use crate::ccsds::cdm::*;
         use crate::ccsds::common::{CCSDSRefFrame, CCSDSUserDefined, CDMCovarianceDimension};
@@ -2189,6 +2202,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_cdm_kvn_round_trip_example4_9x9_covariance() {
         // CDMExample4 has 9x9 covariance (THR row)
         let content = std::fs::read_to_string("test_assets/ccsds/cdm/CDMExample4.txt").unwrap();
@@ -2211,6 +2225,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_cdm_write_ion_starlink_round_trip() {
         // ION_SCV8_vs_STARLINK_1233 has operator fields and ITRF ref frame
         let content =
@@ -2232,6 +2247,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_cdm_write_minimal_round_trip() {
         // CDMExample5 is a minimal CDM (only mandatory fields)
         let content = std::fs::read_to_string("test_assets/ccsds/cdm/CDMExample5.txt").unwrap();
@@ -2245,6 +2261,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_cdm_write_state_vector_comments() {
         use crate::ccsds::cdm::*;
         use crate::ccsds::common::{CCSDSRefFrame, CDMCovarianceDimension};

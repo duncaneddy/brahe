@@ -827,6 +827,7 @@ mod tests {
     use crate::ccsds::opm::OPM;
 
     #[test]
+    #[serial_test::parallel]
     fn test_ccsds_format_display() {
         assert_eq!(format!("{}", CCSDSFormat::KVN), "KVN");
         assert_eq!(format!("{}", CCSDSFormat::XML), "XML");
@@ -834,6 +835,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_ccsds_time_system_parse() {
         assert_eq!(CCSDSTimeSystem::parse("UTC").unwrap(), CCSDSTimeSystem::UTC);
         assert_eq!(CCSDSTimeSystem::parse("TAI").unwrap(), CCSDSTimeSystem::TAI);
@@ -851,6 +853,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_ccsds_time_system_to_brahe() {
         assert!(CCSDSTimeSystem::UTC.to_time_system().is_some());
         assert!(CCSDSTimeSystem::TAI.to_time_system().is_some());
@@ -866,6 +869,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_ccsds_ref_frame_parse() {
         assert_eq!(CCSDSRefFrame::parse("EME2000"), CCSDSRefFrame::EME2000);
         assert_eq!(CCSDSRefFrame::parse("GCRF"), CCSDSRefFrame::GCRF);
@@ -881,6 +885,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_ccsds_ref_frame_display() {
         assert_eq!(format!("{}", CCSDSRefFrame::EME2000), "EME2000");
         assert_eq!(format!("{}", CCSDSRefFrame::RTN), "RTN");
@@ -891,6 +896,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strip_units() {
         assert_eq!(strip_units("6655.9942 [km]"), "6655.9942");
         assert_eq!(strip_units("3.11548208 [km/s]"), "3.11548208");
@@ -899,6 +905,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_round_trip() {
         let values: [f64; 21] = [
             3.331e-04, 4.619e-04, 6.782e-04, -3.070e-04, -4.221e-04, 3.232e-04, -3.349e-07,
@@ -919,6 +926,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_ccsds_datetime_calendar() {
         let ts = CCSDSTimeSystem::UTC;
         let epoch = parse_ccsds_datetime("1996-12-18T12:00:00.331", &ts).unwrap();
@@ -931,6 +939,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_ccsds_datetime_doy() {
         let ts = CCSDSTimeSystem::UTC;
         // 1996-353 = 1996-12-18
@@ -944,6 +953,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_cdm_covariance_dimension() {
         assert_eq!(CDMCovarianceDimension::SixBySix.size(), 6);
         assert_eq!(CDMCovarianceDimension::SevenBySeven.size(), 7);
@@ -965,6 +975,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance9x9_round_trip_6x6() {
         // Standard 6x6 RTN covariance values from CDMExample1.txt Object1
         let values: Vec<f64> = vec![
@@ -994,6 +1005,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance9x9_round_trip_8x8() {
         // 8x8 = 36 elements (6x6 core + drag row + SRP row)
         let mut values = vec![0.0; 36];
@@ -1010,6 +1022,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_ccsds_datetime_no_fractional() {
         let ts = CCSDSTimeSystem::UTC;
         let epoch = parse_ccsds_datetime("1998-11-06T09:23:57", &ts).unwrap();
@@ -1023,11 +1036,13 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_detect_format_kvn() {
         assert_eq!(detect_format("CCSDS_OEM_VERS = 3.0\n"), CCSDSFormat::KVN);
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_detect_format_xml() {
         assert_eq!(
             detect_format("<?xml version=\"1.0\"?>\n<oem>"),
@@ -1037,12 +1052,14 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_detect_format_json() {
         assert_eq!(detect_format("{\"header\": {}}"), CCSDSFormat::JSON);
         assert_eq!(detect_format("[{\"header\": {}}]"), CCSDSFormat::JSON);
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_detect_format_whitespace() {
         assert_eq!(
             detect_format("  \n  CCSDS_OEM_VERS = 3.0"),
@@ -1052,6 +1069,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_ccsds_datetime_unsupported_time_system() {
         let unsupported = [
             CCSDSTimeSystem::TDR,
@@ -1074,6 +1092,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_ccsds_datetime_supported_time_systems() {
         let supported = [
             CCSDSTimeSystem::UTC,
@@ -1095,6 +1114,7 @@ mod tests {
     // --- 1. CCSDSTimeSystem Display for exotic variants ---
 
     #[test]
+    #[serial_test::parallel]
     fn test_ccsds_time_system_display_exotic() {
         assert_eq!(format!("{}", CCSDSTimeSystem::TDB), "TDB");
         assert_eq!(format!("{}", CCSDSTimeSystem::TCB), "TCB");
@@ -1109,6 +1129,7 @@ mod tests {
     // --- 2. CCSDSTimeSystem::parse() for exotic variants ---
 
     #[test]
+    #[serial_test::parallel]
     fn test_ccsds_time_system_parse_exotic() {
         assert_eq!(CCSDSTimeSystem::parse("TCB").unwrap(), CCSDSTimeSystem::TCB);
         assert_eq!(CCSDSTimeSystem::parse("TDR").unwrap(), CCSDSTimeSystem::TDR);
@@ -1126,6 +1147,7 @@ mod tests {
     // --- 3. CCSDSRefFrame Display for untested variants ---
 
     #[test]
+    #[serial_test::parallel]
     fn test_ccsds_ref_frame_display_all_variants() {
         assert_eq!(format!("{}", CCSDSRefFrame::GCRF), "GCRF");
         assert_eq!(format!("{}", CCSDSRefFrame::ITRF2000), "ITRF2000");
@@ -1145,6 +1167,7 @@ mod tests {
     // --- 4. CCSDSRefFrame::parse() alternative formats ---
 
     #[test]
+    #[serial_test::parallel]
     fn test_ccsds_ref_frame_parse_alternative_formats() {
         assert_eq!(CCSDSRefFrame::parse("ITRF-2005"), CCSDSRefFrame::ITRF2005);
         assert_eq!(CCSDSRefFrame::parse("ITRF-2008"), CCSDSRefFrame::ITRF2008);
@@ -1161,6 +1184,7 @@ mod tests {
     // --- 5. format_ccsds_datetime edge cases ---
 
     #[test]
+    #[serial_test::parallel]
     fn test_format_ccsds_datetime_zero_nanoseconds() {
         // Zero nanoseconds should produce the simpler 3-decimal format (via the nanosecond==0.0 branch)
         // Use from_date which guarantees zero nanosecond component
@@ -1170,6 +1194,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_format_ccsds_datetime_trailing_zeros_trimmed() {
         // Non-zero nanoseconds that would leave trailing zeros after trimming
         let epoch = Epoch::from_datetime(
@@ -1188,6 +1213,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_format_ccsds_datetime_integer_second_with_nanoseconds() {
         // Nanoseconds that result in a trailing-dot scenario after trim (whole number of seconds from ns)
         // e.g. 1_000_000_000 ns = 1.0 extra second. This tests the ".0" branch.
@@ -1201,6 +1227,7 @@ mod tests {
     // --- 6. parse_ccsds_datetime edge cases ---
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_ccsds_datetime_date_only() {
         let ts = CCSDSTimeSystem::UTC;
         let epoch = parse_ccsds_datetime("2024-01-15", &ts).unwrap();
@@ -1214,6 +1241,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_ccsds_datetime_doy_high_precision() {
         let ts = CCSDSTimeSystem::UTC;
         // DOY format with high-precision fractional seconds
@@ -1239,6 +1267,7 @@ mod tests {
     // --- 7. Covariance scale factor tests ---
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_from_lower_triangular_with_scale() {
         let values: [f64; 21] = [
             1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0,
@@ -1253,6 +1282,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_to_lower_triangular_with_scale() {
         let values: [f64; 21] = [
             1.0e6, 2.0e6, 3.0e6, 4.0e6, 5.0e6, 6.0e6, 7.0e6, 8.0e6, 9.0e6, 10.0e6, 11.0e6, 12.0e6,
@@ -1267,6 +1297,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_round_trip_with_scale() {
         let values: [f64; 21] = [
             3.331e-04, 4.619e-04, 6.782e-04, -3.070e-04, -4.221e-04, 3.232e-04, -3.349e-07,
@@ -1290,6 +1321,7 @@ mod tests {
     // --- 8. covariance9x9 7x7 and 9x9 round-trips ---
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance9x9_round_trip_7x7() {
         let mut values = vec![0.0; 28];
         for (i, v) in values.iter_mut().enumerate() {
@@ -1323,6 +1355,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance9x9_round_trip_9x9() {
         let mut values = vec![0.0; 45];
         for (i, v) in values.iter_mut().enumerate() {
@@ -1350,6 +1383,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance9x9_invalid_element_count() {
         let values = vec![0.0; 10]; // Invalid count
         let result = covariance9x9_from_lower_triangular(&values);
@@ -1359,6 +1393,7 @@ mod tests {
     // --- Additional edge cases for CCSDSTimeSystem ---
 
     #[test]
+    #[serial_test::parallel]
     fn test_ccsds_time_system_display_all_standard() {
         // Cover the standard variants that Display test above already covers
         // but ensure all are tested including UTC/TAI/GPS/TT/UT1
@@ -1370,6 +1405,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_ccsds_time_system_to_brahe_exotic_none() {
         // Verify exotic/unsupported variants return None
         assert!(CCSDSTimeSystem::TDR.to_time_system().is_none());

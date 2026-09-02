@@ -867,6 +867,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolation_method_debug_linear() {
         let method = InterpolationMethod::Linear;
         assert_eq!(format!("{:?}", method), "Linear");
@@ -877,18 +878,21 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_interpolation_method_debug_matrix_square_root() {
         let method = CovarianceInterpolationMethod::MatrixSquareRoot;
         assert_eq!(format!("{:?}", method), "MatrixSquareRoot");
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_interpolation_method_debug_two_wasserstein() {
         let method = CovarianceInterpolationMethod::TwoWasserstein;
         assert_eq!(format!("{:?}", method), "TwoWasserstein");
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolate_out_of_range_t_errors() {
         // Every interpolation entry point rejects t outside [0, 1].
         let sv1 = SVector::<f64, 3>::new(0.0, 0.0, 0.0);
@@ -929,6 +933,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolate_linear_svector() {
         let v1 = SVector::<f64, 3>::new(0.0, 0.0, 0.0);
         let v2 = SVector::<f64, 3>::new(1.0, 2.0, 3.0);
@@ -953,6 +958,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolate_linear_dvector() {
         let v1 = DVector::<f64>::from_vec(vec![0.0, 0.0, 0.0]);
         let v2 = DVector::<f64>::from_vec(vec![1.0, 2.0, 3.0]);
@@ -977,6 +983,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolate_linear_dvector_dimension_mismatch() {
         let v1 = DVector::<f64>::from_vec(vec![0.0, 0.0]);
         let v2 = DVector::<f64>::from_vec(vec![1.0, 2.0, 3.0]);
@@ -985,6 +992,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolate_covariance_sqrt_smatrix() {
         let cov1 = SMatrix6::identity();
         let cov2 = SMatrix6::identity() * 4.0;
@@ -1000,6 +1008,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolate_covariance_two_wasserstein_smatrix() {
         let cov1 = SMatrix6::identity();
         let cov2 = SMatrix6::identity() * 4.0;
@@ -1014,6 +1023,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolate_covariance_sqrt_dmatrix() {
         let cov1 = DMatrix::<f64>::identity(6, 6);
         let cov2 = DMatrix::<f64>::identity(6, 6) * 4.0;
@@ -1029,6 +1039,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolate_covariance_two_wasserstein_dmatrix() {
         let cov1 = DMatrix::<f64>::identity(6, 6);
         let cov2 = DMatrix::<f64>::identity(6, 6) * 4.0;
@@ -1043,6 +1054,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolate_covariance_sqrt_dmatrix_dimension_mismatch() {
         let cov1 = DMatrix::<f64>::identity(3, 3);
         let cov2 = DMatrix::<f64>::identity(4, 4);
@@ -1148,6 +1160,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolate_covariance_two_wasserstein_dmatrix_dimension_mismatch() {
         let cov1 = DMatrix::<f64>::identity(3, 3);
         let cov2 = DMatrix::<f64>::identity(4, 4);
@@ -1160,30 +1173,35 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolation_method_debug_lagrange() {
         let method = InterpolationMethod::Lagrange { degree: 3 };
         assert_eq!(format!("{:?}", method), "Lagrange { degree: 3 }");
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolation_method_debug_hermite_cubic() {
         let method = InterpolationMethod::HermiteCubic;
         assert_eq!(format!("{:?}", method), "HermiteCubic");
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolation_method_debug_hermite_quintic() {
         let method = InterpolationMethod::HermiteQuintic;
         assert_eq!(format!("{:?}", method), "HermiteQuintic");
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolation_method_min_points_required_linear() {
         let method = InterpolationMethod::Linear;
         assert_eq!(method.min_points_required(), 2);
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolation_method_min_points_required_lagrange() {
         // Degree 1 requires 2 points
         assert_eq!(
@@ -1203,24 +1221,28 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolation_method_min_points_required_hermite_cubic() {
         let method = InterpolationMethod::HermiteCubic;
         assert_eq!(method.min_points_required(), 2);
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolation_method_min_points_required_hermite_quintic() {
         let method = InterpolationMethod::HermiteQuintic;
         assert_eq!(method.min_points_required(), 2);
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolation_method_default_is_linear() {
         let method = InterpolationMethod::default();
         assert_eq!(method, InterpolationMethod::Linear);
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interpolation_method_requires_6d() {
         // Linear and Lagrange do NOT require 6D
         assert!(!InterpolationMethod::Linear.requires_6d());
@@ -1237,6 +1259,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_lagrange_svector_linear_case() {
         // Linear interpolation (degree 1): y = x
         let times = [0.0, 1.0];
@@ -1251,6 +1274,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_lagrange_svector_quadratic_case() {
         // Quadratic interpolation (degree 2): y = x^2
         let times = [0.0, 1.0, 2.0];
@@ -1268,6 +1292,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_lagrange_svector_cubic_case() {
         // Cubic interpolation (degree 3): y = x^3
         let times = [0.0, 1.0, 2.0, 3.0];
@@ -1283,6 +1308,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_lagrange_svector_endpoint_values() {
         let times = [0.0, 1.0, 2.0];
         let values = [
@@ -1303,6 +1329,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_lagrange_dvector_linear_case() {
         let times = vec![0.0, 1.0];
         let values = vec![
@@ -1316,6 +1343,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_lagrange_dvector_quadratic_case() {
         let times = vec![0.0, 1.0, 2.0];
         let values = vec![
@@ -1330,6 +1358,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Lagrange interpolation requires at least 2 points")]
+    #[serial_test::parallel]
     fn test_lagrange_svector_insufficient_points() {
         let times = [0.0];
         let values = [SVector::<f64, 3>::new(0.0, 0.0, 0.0)];
@@ -1338,6 +1367,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Times and values must have the same length")]
+    #[serial_test::parallel]
     fn test_lagrange_svector_mismatched_lengths() {
         let times = [0.0, 1.0, 2.0];
         let values = [
@@ -1349,6 +1379,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Lagrange interpolation requires at least 2 points")]
+    #[serial_test::parallel]
     fn test_lagrange_dvector_insufficient_points() {
         let times = vec![0.0];
         let values = vec![DVector::<f64>::from_vec(vec![0.0, 0.0, 0.0])];
@@ -1357,6 +1388,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Times and values must have the same length")]
+    #[serial_test::parallel]
     fn test_lagrange_dvector_mismatched_lengths() {
         let times = vec![0.0, 1.0, 2.0];
         let values = vec![
@@ -1371,6 +1403,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_hermite_cubic_svector6_linear_motion() {
         // Linear motion: position = t * v0, velocity = v0 (constant)
         let t0 = 0.0;
@@ -1391,6 +1424,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_hermite_cubic_svector6_endpoint_interpolation() {
         let t0 = 0.0;
         let t1 = 1.0;
@@ -1411,6 +1445,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_hermite_cubic_svector6_c1_continuity() {
         // Test that interpolation is C1 continuous (velocity matches at endpoints)
         let t0 = 0.0;
@@ -1430,6 +1465,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_hermite_cubic_dvector6_linear_motion() {
         let t0 = 0.0;
         let t1 = 10.0;
@@ -1446,6 +1482,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "State vectors must be 6D")]
+    #[serial_test::parallel]
     fn test_hermite_cubic_dvector6_wrong_dimension() {
         let t0 = 0.0;
         let t1 = 1.0;
@@ -1459,6 +1496,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_hermite_quintic_svector6_constant_acceleration() {
         // Constant acceleration motion: x = x0 + v0*t + 0.5*a*t^2
         // v = v0 + a*t
@@ -1490,6 +1528,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_hermite_quintic_svector6_endpoint_interpolation() {
         let t0 = 0.0;
         let t1 = 1.0;
@@ -1512,6 +1551,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_hermite_quintic_dvector6_constant_acceleration() {
         let t0 = 0.0;
         let t1 = 2.0;
@@ -1537,6 +1577,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "State vectors must be 6D")]
+    #[serial_test::parallel]
     fn test_hermite_quintic_dvector6_wrong_state_dimension() {
         let t0 = 0.0;
         let t1 = 1.0;
@@ -1549,6 +1590,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Acceleration vectors must be 3D")]
+    #[serial_test::parallel]
     fn test_hermite_quintic_dvector6_wrong_acc_dimension() {
         let t0 = 0.0;
         let t1 = 1.0;

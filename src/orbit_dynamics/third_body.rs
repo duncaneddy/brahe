@@ -1037,6 +1037,7 @@ mod tests {
     #[case(60310.0, 6193136.2430559, - 2411369.56203787, - 1669079.86356028, - 1.77151028990413e-07, - 3.3756567861856e-07, - 1.20350830019883e-07)]
     #[case(60310.0, 6790850.71407875, 45505.4274329756, - 727399.838172203, - 2.54224503688731e-07, - 1.580949129909e-07, - 3.73927783617869e-08)]
     #[case(60310.0, 6333183.86841522, 2494761.03873549, 327102.634966258, - 2.91770539678173e-07, 4.58908225325491e-08, 5.13518087266698e-08)]
+    #[parallel]
     fn test_accel_third_body_sun(
         #[case] mjd_tt: f64,
         #[case] rx: f64,
@@ -1073,6 +1074,7 @@ mod tests {
     #[case(60310.0, 6193136.2430559, - 2411369.56203787, - 1669079.86356028, 9.01868211930885e-07, - 3.48656149518958e-07, - 2.07100394322338e-07)]
     #[case(60310.0, 6790850.71407875, 45505.4274329756, - 727399.838172203, 7.59196602766636e-07, - 4.83281433661868e-07, - 2.49203881536061e-07)]
     #[case(60310.0, 6333183.86841522, 2494761.03873549, 327102.634966258, 5.01475600782815e-07, - 5.47736810287354e-07, - 2.54764046632745e-07)]
+    #[parallel]
     fn test_accel_third_body_moon(
         #[case] mjd_tt: f64,
         #[case] rx: f64,
@@ -1230,7 +1232,7 @@ mod tests {
     }
 
     use crate::{GM_EARTH, R_EARTH, R_MARS};
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
@@ -1367,6 +1369,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_accel_third_body_for_body_low_precision_earth_matches_legacy() {
         // LowPrecision Sun/Moon about Earth: the differential form in
         // `accel_third_body_for_body` (direct - GM s/|s|^3) is algebraically
@@ -1395,6 +1398,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_accel_third_body_for_body_low_precision_planet_rejected() {
         // LowPrecision is only valid for Sun/Moon; a planet perturber about
         // Earth with LowPrecision hits the `(LowPrecision, other)` error arm.
@@ -1411,6 +1415,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_low_precision_rejected_for_non_earth_center() {
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let e = accel_third_body_for_body(
@@ -1424,6 +1429,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_accel_third_body_for_body_rejects_body_equal_to_center() {
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let e = accel_third_body_for_body(
@@ -1696,6 +1702,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_accel_third_body_errors_for_unsupported_perturbers() {
         // The unsupported-bodies arm errors for every source: Earth, Phobos,
         // Deimos, and Custom only make sense via
@@ -1723,6 +1730,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_accel_third_body_errors_for_planet_with_low_precision() {
         // The low-precision arm errors for any body other than Sun/Moon.
         // Errors before any ephemeris query, so this is offline.

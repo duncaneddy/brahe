@@ -4795,6 +4795,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_gp_record_missing_epoch() {
         let json = r#"{
             "MEAN_MOTION": 15.5,
@@ -4812,6 +4813,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_gp_record_missing_mean_motion() {
         let json = r#"{
             "EPOCH": "2024-01-15T12:00:00.000000",
@@ -4829,6 +4831,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_gp_record_missing_norad_cat_id() {
         let json = r#"{
             "EPOCH": "2024-01-15T12:00:00.000000",

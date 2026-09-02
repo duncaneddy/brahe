@@ -1163,6 +1163,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_config_builder() {
         let config = OrbitGeometryTessellatorConfig::new(10000.0, 15000.0)
             .with_crosstrack_overlap(300.0)
@@ -1286,6 +1287,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_follows_index() {
         assert_eq!(follows_index(0.5, &[1.0, 2.0, 3.0]), -1);
         assert_eq!(follows_index(1.5, &[1.0, 2.0, 3.0]), 0);
@@ -1293,6 +1295,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_skew_mergable_small_angle() {
         // Small angle difference → should be mergable
         let vertices = vec![
@@ -1313,6 +1316,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_skew_mergable_large_angle() {
         let vertices = vec![
             Vector3::new(10.0, 50.0, 0.0),

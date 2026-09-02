@@ -65,6 +65,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)] // Only run in CI to avoid network calls
+    #[serial_test::parallel]
     fn test_download_standard_eop_file() {
         // Mock return of contents of HTTP call
         let server = MockServer::start();
@@ -86,6 +87,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)] // Only run in CI to avoid network calls
+    #[serial_test::parallel]
     fn test_download_c04_eop_file() {
         // Mock return of contents of HTTP call
         let server = MockServer::start();

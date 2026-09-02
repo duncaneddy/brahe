@@ -636,16 +636,19 @@ mod tests {
     use super::*;
 
     #[test]
+    #[serial_test::parallel]
     fn test_datetime_to_jd() {
         assert_eq!(datetime_to_jd(2000, 1, 1, 12, 0, 0.0, 0.0), 2451545.0);
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_datetime_to_mjd() {
         assert_eq!(datetime_to_mjd(2000, 1, 1, 12, 0, 0.0, 0.0), 51544.5);
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_jd_to_datetime() {
         let (year, month, day, hour, minute, second, nanosecond) = jd_to_datetime(2451545.0);
 
@@ -659,6 +662,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_mjd_to_datetime() {
         let (year, month, day, hour, minute, second, nanosecond) = mjd_to_datetime(51544.5);
 

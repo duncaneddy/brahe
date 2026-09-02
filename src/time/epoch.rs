@@ -2123,6 +2123,7 @@ mod tests {
     use crate::utils::testing::setup_global_test_eop;
 
     #[test]
+    #[serial_test::parallel]
     fn test_epoch_serialization() {
         let epc = Epoch::from_datetime(2022, 4, 1, 12, 34, 56.789, 0.0, TimeSystem::UTC);
         let json = serde_json::to_string(&epc).unwrap();
@@ -2132,6 +2133,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_epoch_deserialization() {
         let json = r#""2022-04-01T12:34:56.789Z""#;
         let epc: Epoch = serde_json::from_str(json).unwrap();
@@ -2148,6 +2150,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_epoch_roundtrip() {
         let epc1 = Epoch::from_datetime(2022, 4, 1, 12, 34, 56.789, 0.0, TimeSystem::UTC);
         let json = serde_json::to_string(&epc1).unwrap();
@@ -2771,6 +2774,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_unix_timestamp_zero_epoch() {
         // Unix epoch zero: 1970-01-01 00:00:00 UTC must be exactly 0.0
         let epc = Epoch::from_datetime(1970, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -3967,6 +3971,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)] // This test is slow and only executed in CI
+    #[serial_test::parallel]
     fn test_nanosecond_addition_stability() {
         let mut epc = Epoch::from_datetime(2022, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::TAI);
 

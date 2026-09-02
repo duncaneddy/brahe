@@ -1422,6 +1422,7 @@ mod tests {
     // Trajectory Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_new_with_dimension() {
         // 3
         let traj = DTrajectory::new(3).unwrap();
@@ -1444,11 +1445,13 @@ mod tests {
 
     // Test panic on zero dimension
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_new_with_zero_dimension() {
         assert!(DTrajectory::new(0).is_err());
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_with_interpolation_method() {
         let traj = DTrajectory::new(12)
             .unwrap()
@@ -1458,6 +1461,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_with_eviction_policy_max_size_builder() {
         // Test builder pattern for max size eviction policy
         let traj = DTrajectory::new(6)
@@ -1473,6 +1477,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_with_eviction_policy_max_age_builder() {
         // Test builder pattern for max age eviction policy
         let traj = DTrajectory::new(6)
@@ -1488,6 +1493,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_builder_pattern_chaining() {
         // Test chaining multiple builder methods
         let mut traj = DTrajectory::new(6)
@@ -1516,6 +1522,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_dimension() {
         let traj = DTrajectory::new(9).unwrap();
         assert_eq!(traj.dimension(), 9);
@@ -1525,6 +1532,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_interpolatable_set_interpolation_method() {
         let mut traj = DTrajectory::new(6).unwrap();
         assert_eq!(traj.interpolation_method, InterpolationMethod::Linear);
@@ -1534,6 +1542,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_to_matrix() {
         let traj = create_test_trajectory();
         let matrix = traj.to_matrix().unwrap();
@@ -1569,6 +1578,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_get_eviction_policy() {
         let mut traj = DTrajectory::new(6).unwrap();
 
@@ -1591,6 +1601,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_apply_eviction_policy_keep_count() {
         let mut traj = DTrajectory::new(6)
             .unwrap()
@@ -1611,6 +1622,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_apply_eviction_policy_keep_within_duration() {
         let mut traj = DTrajectory::new(6)
             .unwrap()
@@ -1649,6 +1661,7 @@ mod tests {
     // Default Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_default() {
         let traj = DTrajectory::default();
         assert_eq!(traj.dimension, 6);
@@ -1660,6 +1673,7 @@ mod tests {
 
     // Index Trait Tests
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_index() {
         let traj = create_test_trajectory();
         let state = &traj[0];
@@ -1691,6 +1705,7 @@ mod tests {
 
     #[test]
     #[should_panic]
+    #[serial_test::parallel]
     fn test_dtrajectory_index_index_out_of_bounds() {
         let traj = create_test_trajectory();
         let _ = &traj[10]; // Should panic
@@ -1699,6 +1714,7 @@ mod tests {
     // Iterator Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_iterator_iterator_len() {
         let traj = create_test_trajectory();
 
@@ -1707,6 +1723,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_iterator_iterator_size_hint() {
         let traj = create_test_trajectory();
 
@@ -1719,6 +1736,7 @@ mod tests {
     // ExactSizeIterator Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_exactsizeiterator_len() {
         let traj = create_test_trajectory();
         let iter = traj.into_iter();
@@ -1728,6 +1746,7 @@ mod tests {
     // IntoIterator Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_intoiterator_into_iter() {
         let traj = create_test_trajectory();
 
@@ -1754,6 +1773,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_intoiterator_into_iter_empty() {
         let traj = DTrajectory::new(6).unwrap();
 
@@ -1767,6 +1787,7 @@ mod tests {
     // Trajectory Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_from_data() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
@@ -1783,6 +1804,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_from_data_errors() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
@@ -1800,6 +1822,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_add() {
         let mut trajectory = DTrajectory::new(6).unwrap();
 
@@ -1820,6 +1843,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_add_out_of_order() {
         let mut trajectory = DTrajectory::new(6).unwrap();
         let epoch1 = Epoch::from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -1841,6 +1865,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_add_dimension_mismatch() {
         let mut trajectory = DTrajectory::new(6).unwrap();
         let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -1850,6 +1875,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_add_append() {
         let mut trajectory = DTrajectory::new(6).unwrap();
         let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -1867,6 +1893,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_epoch() {
         let traj = create_test_trajectory();
 
@@ -1878,6 +1905,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_state() {
         let traj = create_test_trajectory();
 
@@ -1889,6 +1917,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_nearest_state() {
         let traj = create_test_trajectory();
 
@@ -1914,6 +1943,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_len() {
         let traj = create_test_trajectory();
         assert_eq!(traj.len(), 3);
@@ -1923,6 +1953,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_is_empty() {
         let traj = create_test_trajectory();
         assert!(!traj.is_empty());
@@ -1932,6 +1963,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_start_epoch() {
         let traj = create_test_trajectory();
         let start = traj.start_epoch().unwrap();
@@ -1942,6 +1974,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_end_epoch() {
         let traj = create_test_trajectory();
         let end = traj.end_epoch().unwrap();
@@ -1952,6 +1985,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_timespan() {
         let traj = create_test_trajectory();
         let timespan = traj.timespan().unwrap();
@@ -1962,6 +1996,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_first() {
         let traj = create_test_trajectory();
         let (epoch, state) = traj.first().unwrap();
@@ -1973,6 +2008,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_last() {
         let traj = create_test_trajectory();
         let (epoch, state) = traj.last().unwrap();
@@ -1984,6 +2020,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_clear() {
         let mut traj = create_test_trajectory();
         assert_eq!(traj.len(), 3);
@@ -1994,6 +2031,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_remove_epoch() {
         let mut traj = create_test_trajectory();
         let epoch = Epoch::from_jd(2451545.1, TimeSystem::UTC);
@@ -2004,6 +2042,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_remove() {
         let mut traj = create_test_trajectory();
 
@@ -2014,6 +2053,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_remove_out_of_bounds() {
         let mut traj = create_test_trajectory();
 
@@ -2022,6 +2062,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_get() {
         let traj = create_test_trajectory();
 
@@ -2031,6 +2072,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_index_before_epoch() {
         // Create a 6-dimensional DTrajectory with states at epochs: t0, t0+60s, t0+120s
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -2070,6 +2112,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_index_after_epoch() {
         // Create a 6-dimensional DTrajectory with states at epochs: t0, t0+60s, t0+120s
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -2112,6 +2155,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_state_before_epoch() {
         // Create a DTrajectory with distinguishable states at 3 epochs
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -2149,6 +2193,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_trajectory_state_after_epoch() {
         // Create a DTrajectory with distinguishable states at 3 epochs
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -2186,6 +2231,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_set_eviction_policy_max_size() {
         let mut traj = create_test_trajectory();
         assert_eq!(traj.len(), 3);
@@ -2196,6 +2242,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_set_eviction_policy_max_age() {
         let mut traj = create_test_trajectory();
 
@@ -2211,6 +2258,7 @@ mod tests {
     // Interpolatable Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_interpolatable_get_interpolation_method() {
         // Create a trajectory with default Linear interpolation
         let mut traj = DTrajectory::new(6).unwrap();
@@ -2225,6 +2273,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_interpolatable_interpolate_linear() {
         // Create a 6-dimensional trajectory with 3 states at t0, t0+60s, t0+120s
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -2304,6 +2353,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_interpolatable_interpolate() {
         // Create a trajectory for testing
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -2334,6 +2384,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_interpolate_before_start() {
         // Create a trajectory for testing
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -2368,6 +2419,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_interpolate_after_end() {
         // Create a trajectory for testing
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -2402,6 +2454,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_covariance_interpolation_config() {
         // Test the CovarianceInterpolationConfig trait implementation
 
@@ -2436,6 +2489,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_covariance_interpolation_methods() {
         // Test that covariance interpolation produces correct results
 
@@ -2499,6 +2553,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_covariance_at_exact_epochs() {
         // Test that covariance_at returns exact values at data points
 
@@ -2532,6 +2587,7 @@ mod tests {
     // ============================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_enable_stm_storage() {
         let mut traj = create_test_trajectory();
         assert!(traj.stms.is_none());
@@ -2560,6 +2616,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_enable_stm_storage_idempotent() {
         let mut traj = create_test_trajectory();
 
@@ -2578,6 +2635,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_set_stm_at() {
         let mut traj = create_test_trajectory();
         traj.enable_stm_storage();
@@ -2591,6 +2649,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_set_stm_at_auto_enables() {
         let mut traj = create_test_trajectory();
         assert!(traj.stms.is_none());
@@ -2610,6 +2669,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_set_stm_at_dimension_mismatch() {
         let mut traj = create_test_trajectory();
         traj.enable_stm_storage();
@@ -2620,6 +2680,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_set_stm_at_out_of_bounds() {
         let mut traj = create_test_trajectory();
         traj.enable_stm_storage();
@@ -2629,6 +2690,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_stm_at_idx() {
         let mut traj = create_test_trajectory();
         traj.enable_stm_storage();
@@ -2644,6 +2706,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_stm_at_idx_no_storage() {
         let traj = create_test_trajectory();
         // No STM storage enabled
@@ -2652,6 +2715,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_stm_at_interpolation() {
         let mut traj = create_test_trajectory();
         traj.enable_stm_storage();
@@ -2674,6 +2738,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_stm_dimensions() {
         let traj = DTrajectory::new(6).unwrap();
         let dims = traj.stm_dimensions();
@@ -2689,6 +2754,7 @@ mod tests {
     // ============================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_enable_sensitivity_storage() {
         let mut traj = create_test_trajectory();
         assert!(traj.sensitivities.is_none());
@@ -2716,12 +2782,14 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_enable_sensitivity_storage_zero_param() {
         let mut traj = create_test_trajectory();
         assert!(traj.enable_sensitivity_storage(0).is_err());
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_set_sensitivity_at() {
         let mut traj = create_test_trajectory();
         traj.enable_sensitivity_storage(2).unwrap();
@@ -2735,6 +2803,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_set_sensitivity_at_auto_enables() {
         let mut traj = create_test_trajectory();
         assert!(traj.sensitivities.is_none());
@@ -2755,6 +2824,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_set_sensitivity_at_row_mismatch() {
         let mut traj = create_test_trajectory();
         traj.enable_sensitivity_storage(2).unwrap();
@@ -2765,6 +2835,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_set_sensitivity_at_col_mismatch() {
         let mut traj = create_test_trajectory();
         traj.enable_sensitivity_storage(2).unwrap();
@@ -2775,6 +2846,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_sensitivity_at_idx() {
         let mut traj = create_test_trajectory();
         traj.enable_sensitivity_storage(2).unwrap();
@@ -2790,6 +2862,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_sensitivity_at_idx_no_storage() {
         let traj = create_test_trajectory();
         // No sensitivity storage enabled
@@ -2798,6 +2871,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_sensitivity_at_interpolation() {
         let mut traj = create_test_trajectory();
         traj.enable_sensitivity_storage(2).unwrap();
@@ -2820,6 +2894,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_sensitivity_dimensions() {
         let traj = DTrajectory::new(6).unwrap();
         assert_eq!(traj.sensitivity_dimensions(), None);
@@ -2838,6 +2913,7 @@ mod tests {
     // ============================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_add_full_state_only() {
         let mut traj = DTrajectory::new(6).unwrap();
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -2857,6 +2933,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_add_full_with_covariance() {
         let mut traj = DTrajectory::new(6).unwrap();
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -2875,6 +2952,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_add_full_with_stm() {
         let mut traj = DTrajectory::new(6).unwrap();
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -2893,6 +2971,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_add_full_with_sensitivity() {
         let mut traj = DTrajectory::new(6).unwrap();
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -2912,6 +2991,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_add_full_all_matrices() {
         let mut traj = DTrajectory::new(6).unwrap();
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -2930,6 +3010,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_add_full_maintains_order() {
         let mut traj = DTrajectory::new(6).unwrap();
         let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -2957,6 +3038,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_add_full_state_dimension_mismatch() {
         let mut traj = DTrajectory::new(6).unwrap();
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -2966,6 +3048,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_add_full_stm_dimension_mismatch() {
         let mut traj = DTrajectory::new(6).unwrap();
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -2979,6 +3062,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_add_full_err_leaves_trajectory_unchanged() {
         // A rejected add_full must not mutate the trajectory: a valid
         // covariance combined with an invalid STM must not auto-enable
@@ -3037,6 +3121,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_add_full_sensitivity_row_mismatch() {
         let mut traj = DTrajectory::new(6).unwrap();
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -3050,6 +3135,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_add_full_sensitivity_col_mismatch() {
         let mut traj = DTrajectory::new(6).unwrap();
         let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -3071,6 +3157,7 @@ mod tests {
     // ============================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_epoch_initial() {
         let traj = create_test_trajectory();
         let initial = traj.epoch_initial();
@@ -3079,12 +3166,14 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_epoch_initial_empty() {
         let traj = DTrajectory::new(6).unwrap();
         assert!(traj.epoch_initial().is_none());
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_find_surrounding_indices() {
         let traj = create_test_trajectory();
         let t0 = traj.epochs[0];
@@ -3099,6 +3188,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_find_surrounding_indices_empty() {
         let traj = DTrajectory::new(6).unwrap();
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -3106,6 +3196,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_find_surrounding_indices_before_start() {
         let traj = create_test_trajectory();
         let before = traj.epochs[0] - 100.0;
@@ -3113,6 +3204,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_find_surrounding_indices_after_end() {
         let traj = create_test_trajectory();
         let after = traj.epochs[2] + 100.0;
@@ -3124,6 +3216,7 @@ mod tests {
     // ============================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_eviction_keep_count_with_covariances() {
         let mut traj = DTrajectory::new(6)
             .unwrap()
@@ -3150,6 +3243,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_eviction_keep_count_with_stms() {
         let mut traj = DTrajectory::new(6)
             .unwrap()
@@ -3177,6 +3271,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_eviction_keep_count_with_sensitivities() {
         let mut traj = DTrajectory::new(6)
             .unwrap()
@@ -3204,6 +3299,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_eviction_keep_count_all_data() {
         let mut traj = DTrajectory::new(6)
             .unwrap()
@@ -3243,6 +3339,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_eviction_keep_within_duration_with_covariances() {
         let mut traj = DTrajectory::new(6)
             .unwrap()
@@ -3266,6 +3363,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_eviction_keep_within_duration_with_stms() {
         let mut traj = DTrajectory::new(6)
             .unwrap()
@@ -3287,6 +3385,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_eviction_keep_within_duration_with_sensitivities() {
         let mut traj = DTrajectory::new(6)
             .unwrap()
@@ -3312,6 +3411,7 @@ mod tests {
     // ============================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_with_interpolation_method_builder_pattern() {
         let traj = DTrajectory::new(6)
             .unwrap()
@@ -3320,6 +3420,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_with_interpolation_method_lagrange() {
         let traj = DTrajectory::new(6)
             .unwrap()
@@ -3331,6 +3432,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_add_with_covariance_state_dimension_mismatch() {
         let mut traj = DTrajectory::new(6).unwrap();
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -3341,6 +3443,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_add_with_covariance_covariance_dimension_mismatch() {
         let mut traj = DTrajectory::new(6).unwrap();
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -3351,6 +3454,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_set_covariance_at_index_out_of_bounds() {
         let mut traj = create_test_trajectory();
         let cov = DMatrix::identity(6, 6);
@@ -3359,6 +3463,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_set_covariance_at_covariance_dimension_mismatch() {
         let mut traj = create_test_trajectory();
         let bad_cov = DMatrix::identity(3, 3);
@@ -3367,6 +3472,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_covariance_at_without_storage_returns_none() {
         let traj = create_test_trajectory();
         let epoch = Epoch::from_jd(2451545.05, TimeSystem::UTC);
@@ -3374,6 +3480,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_covariance_at_empty_returns_none() {
         let mut traj = DTrajectory::new(6).unwrap();
         traj.enable_covariance_storage();
@@ -3382,6 +3489,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_covariance_at_out_of_range_returns_none() {
         let mut traj = create_test_trajectory();
         traj.enable_covariance_storage();
@@ -3392,6 +3500,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_add_full_covariance_dimension_mismatch() {
         let mut traj = DTrajectory::new(6).unwrap();
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -3402,6 +3511,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dtrajectory_set_sensitivity_at_index_out_of_bounds() {
         let mut traj = create_test_trajectory();
         traj.enable_sensitivity_storage(2).unwrap();

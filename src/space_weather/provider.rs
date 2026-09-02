@@ -370,6 +370,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_space_weather_provider_is_empty_default() {
         // Test that default is_empty() returns true when len() == 0
         let empty_provider = MockSpaceWeatherProvider { len: 0 };
@@ -385,6 +386,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_mock_space_weather_provider_trait_methods() {
         // Test all SpaceWeatherProvider trait methods on MockSpaceWeatherProvider
         let provider = MockSpaceWeatherProvider { len: 5 };

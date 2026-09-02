@@ -615,6 +615,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_short_hash_is_stable_and_hex() {
         let a = short_hash("DES=2000001;|2015-12-01|2016-03-01|500@0");
         let b = short_hash("DES=2000001;|2015-12-01|2016-03-01|500@0");

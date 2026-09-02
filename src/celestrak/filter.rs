@@ -221,6 +221,7 @@ mod tests {
     // -- Greater than tests --
 
     #[test]
+    #[serial_test::parallel]
     fn test_filter_greater_than_numeric() {
         let records = sample_gp_records();
         let filters = vec![Filter {
@@ -236,6 +237,7 @@ mod tests {
     // -- Less than tests --
 
     #[test]
+    #[serial_test::parallel]
     fn test_filter_less_than_numeric() {
         let records = sample_gp_records();
         let filters = vec![Filter {
@@ -251,6 +253,7 @@ mod tests {
     // -- Not equal tests --
 
     #[test]
+    #[serial_test::parallel]
     fn test_filter_not_equal() {
         let records = sample_gp_records();
         let filters = vec![Filter {
@@ -269,6 +272,7 @@ mod tests {
     // -- Range tests --
 
     #[test]
+    #[serial_test::parallel]
     fn test_filter_range_inclusive() {
         let records = sample_gp_records();
         let filters = vec![Filter {
@@ -284,6 +288,7 @@ mod tests {
     // -- Like tests --
 
     #[test]
+    #[serial_test::parallel]
     fn test_filter_like_case_insensitive() {
         let records = sample_gp_records();
         let filters = vec![Filter {
@@ -298,6 +303,7 @@ mod tests {
     // -- Starts with tests --
 
     #[test]
+    #[serial_test::parallel]
     fn test_filter_starts_with() {
         let records = sample_gp_records();
         let filters = vec![Filter {
@@ -312,6 +318,7 @@ mod tests {
     // -- Exact match tests --
 
     #[test]
+    #[serial_test::parallel]
     fn test_filter_exact_match() {
         let records = sample_gp_records();
         let filters = vec![Filter {
@@ -326,6 +333,7 @@ mod tests {
     // -- Multiple filters (AND logic) --
 
     #[test]
+    #[serial_test::parallel]
     fn test_multiple_filters_and_logic() {
         let records = sample_gp_records();
         let filters = vec![
@@ -345,6 +353,7 @@ mod tests {
     // -- Missing field tests --
 
     #[test]
+    #[serial_test::parallel]
     fn test_filter_missing_field_excluded() {
         let records = sample_gp_records();
         let filters = vec![Filter {
@@ -358,6 +367,7 @@ mod tests {
     // -- Empty filters --
 
     #[test]
+    #[serial_test::parallel]
     fn test_empty_filters_returns_all() {
         let records = sample_gp_records();
         let filters: Vec<Filter> = vec![];
@@ -368,6 +378,7 @@ mod tests {
     // -- Ordering tests --
 
     #[test]
+    #[serial_test::parallel]
     fn test_order_by_ascending_numeric() {
         let mut records = sample_gp_records();
         let order_by = vec![OrderBy {
@@ -380,6 +391,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_order_by_descending_numeric() {
         let mut records = sample_gp_records();
         let order_by = vec![OrderBy {
@@ -392,6 +404,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_order_by_lexicographic() {
         let mut records = sample_gp_records();
         let order_by = vec![OrderBy {
@@ -404,6 +417,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_empty_order_by() {
         let mut records = sample_gp_records();
         let original_first = records[0].object_name.clone();
@@ -415,6 +429,7 @@ mod tests {
     // -- Limit tests --
 
     #[test]
+    #[serial_test::parallel]
     fn test_limit_truncates() {
         let records = sample_gp_records();
         let result = apply_limit(records, Some(2));
@@ -422,6 +437,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_limit_none_returns_all() {
         let records = sample_gp_records();
         let result = apply_limit(records, None);
@@ -429,6 +445,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_limit_larger_than_records() {
         let records = sample_gp_records();
         let result = apply_limit(records, Some(100));
@@ -438,6 +455,7 @@ mod tests {
     // -- SATCAT record filtering --
 
     #[test]
+    #[serial_test::parallel]
     fn test_satcat_filter() {
         let records = vec![
             make_satcat_record("ISS (ZARYA)", "25544", "51.64", "ISS"),
@@ -454,6 +472,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_satcat_order_by() {
         let mut records = vec![
             make_satcat_record("NOAA 18", "28654", "98.70", "US"),
@@ -473,6 +492,7 @@ mod tests {
     // -- Edge cases --
 
     #[test]
+    #[serial_test::parallel]
     fn test_filter_not_equal_case_insensitive() {
         let records = sample_gp_records();
         let filters = vec![Filter {
@@ -484,6 +504,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_filter_unknown_field() {
         let records = sample_gp_records();
         let filters = vec![Filter {
@@ -495,6 +516,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_combined_filter_order_limit() {
         let mut records = sample_gp_records();
         let filters = vec![Filter {

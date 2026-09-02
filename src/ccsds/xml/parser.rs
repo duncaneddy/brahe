@@ -1448,6 +1448,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_oem_xml_example3() {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample3.xml").unwrap();
         let oem = parse_oem_xml(&content).unwrap();

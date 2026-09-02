@@ -656,6 +656,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45s_integrator_parabola() {
         // Test RKF45 on simple parabola x' = 2t
         let f = |t: f64,
@@ -684,6 +685,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45s_integrator_adaptive() {
         // Test adaptive stepping on parabola
         let f = |t: f64,
@@ -716,6 +718,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45s_integrator_orbit() {
         // Test RKF45 on orbital mechanics (more stringent than RK4)
         let config = IntegratorConfig::adaptive(1e-8, 1e-6);
@@ -747,6 +750,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45s_accuracy() {
         // Verify RKF45 achieves expected 5th order accuracy
         let f = |t: f64,
@@ -778,6 +782,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45s_step_size_increases() {
         // Verify that adaptive stepping increases step size when error is small
         let f = |t: f64,
@@ -810,6 +815,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45s_step_size_decreases() {
         // Verify that adaptive stepping decreases step size when error is large
         let f = |_t: f64,
@@ -835,6 +841,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45s_config_parameters() {
         // Verify that config parameters are actually used
         let f = |t: f64,
@@ -859,6 +866,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45s_no_limits() {
         // Verify that setting limits to None removes protections
         let f = |t: f64,
@@ -1076,6 +1084,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45d_integrator_parabola() {
         let f = |t: f64,
                  _: &DVector<f64>,
@@ -1101,6 +1110,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45d_integrator_adaptive() {
         let f = |t: f64,
                  _: &DVector<f64>,
@@ -1129,6 +1139,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45d_integrator_orbit() {
         // Setup integrator
         let config = IntegratorConfig::adaptive(1e-8, 1e-6);
@@ -1167,6 +1178,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45d_accuracy() {
         let f = |t: f64,
                  _: &DVector<f64>,
@@ -1195,6 +1207,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45d_step_size_increases() {
         let f = |t: f64,
                  _: &DVector<f64>,
@@ -1222,6 +1235,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45d_step_size_decreases() {
         let f = |_t: f64,
                  state: &DVector<f64>,
@@ -1242,6 +1256,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45d_config_parameters() {
         // Setup with custom configuration
         let f = |t: f64,
@@ -1265,6 +1280,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45d_no_limits() {
         // Setup with all limits disabled
         let f = |t: f64,
@@ -1442,6 +1458,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45_s_vs_d_consistency() {
         // Verify RKF45SIntegrator and RKF45DIntegrator produce identical results
         let f_static = |_t: f64,
@@ -1485,6 +1502,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45s_backward_integration() {
         // Test backward propagation with orbital mechanics
         let config = IntegratorConfig::adaptive(1e-10, 1e-8);
@@ -1526,6 +1544,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45d_backward_integration() {
         // Test backward propagation with orbital mechanics (dynamic variant)
         let config = IntegratorConfig::adaptive(1e-10, 1e-8);
@@ -1574,6 +1593,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45d_varmat_sensmat() {
         // Test step_with_varmat_sensmat using simple exponential decay: dx/dt = -k*x
         // where k is a parameter. This has analytical solutions for both STM and sensitivity.
@@ -1768,6 +1788,7 @@ mod tests {
     // ========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45s_sensmat() {
         // Test sensitivity matrix propagation using exponential decay: dx/dt = -k*x
 
@@ -1849,6 +1870,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45d_sensmat() {
         // Test sensitivity matrix propagation (standalone dynamic version)
 
@@ -1924,6 +1946,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45s_varmat_sensmat() {
         // Test combined STM and sensitivity matrix propagation (static version)
 
@@ -2037,6 +2060,7 @@ mod tests {
     // =============================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45s_new_uses_default_config() {
         fn dynamics(
             _t: f64,
@@ -2065,6 +2089,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45s_with_config_stores_config() {
         fn dynamics(
             _t: f64,
@@ -2110,6 +2135,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45s_config_returns_reference() {
         fn dynamics(
             _t: f64,
@@ -2137,6 +2163,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45d_new_uses_default_config() {
         fn dynamics(
             _t: f64,
@@ -2164,6 +2191,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45d_with_config_stores_config() {
         fn dynamics(
             _t: f64,
@@ -2210,6 +2238,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45d_config_returns_reference() {
         fn dynamics(
             _t: f64,
@@ -2236,6 +2265,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45d_dimension_method() {
         fn dynamics(
             _t: f64,
@@ -2263,6 +2293,7 @@ mod tests {
     // =============================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45s_errors_on_max_attempts_exceeded() {
         // Create a "stiff" problem that will fail to converge
         // Use very tight tolerances and small max_step_attempts
@@ -2298,6 +2329,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45d_errors_on_max_attempts_exceeded() {
         fn stiff_dynamics(
             _t: f64,
@@ -2335,6 +2367,7 @@ mod tests {
     // propagation output, ensuring parameters flow through to dynamics correctly.
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45s_params_affect_step_output() {
         // Test exponential decay where the decay rate comes from params:
         // dx/dt = -k * x, where k = params[0]
@@ -2392,6 +2425,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45d_params_affect_step_output() {
         // Same test for dynamic-sized integrator
         // dx/dt = -k * x, where k = params[0]
@@ -2447,6 +2481,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45s_params_multi_step_propagation() {
         // Verify params affect output over multiple adaptive steps
         // dx/dt = -k * x, where k = params[0]
@@ -2513,6 +2548,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45s_params_with_varmat() {
         // Verify params affect step_with_varmat output
         // dx/dt = -k * x, where k = params[0]
@@ -2586,6 +2622,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rkf45d_params_with_varmat() {
         // Same test for dynamic-sized integrator with variational matrix
 

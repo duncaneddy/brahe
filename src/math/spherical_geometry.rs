@@ -265,6 +265,7 @@ mod tests {
     use std::f64::consts::FRAC_PI_2;
 
     #[test]
+    #[serial_test::parallel]
     fn test_rodrigues_rotation_90_degrees() {
         // Rotate [1,0,0] around [0,0,1] by π/2 → [0,1,0]
         let result = rodrigues_rotation(
@@ -278,6 +279,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rodrigues_rotation_identity() {
         // Zero angle → no change
         let v = Vector3::new(0.5, 0.3, 0.8);
@@ -288,6 +290,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rodrigues_rotation_180_degrees() {
         // Rotate [1,0,0] around [0,0,1] by π → [-1,0,0]
         let result = rodrigues_rotation(
@@ -301,6 +304,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_great_circle_arcs_intersect_orthogonal() {
         // Arc along equator (x to y) intersects arc from south pole to north pole region
         let a1 = Vector3::new(1.0, 0.0, 0.0);
@@ -312,6 +316,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_great_circle_arcs_no_intersect() {
         // Two arcs on the same latitude but not overlapping
         let a1 = Vector3::new(1.0, 0.0, 0.0);
@@ -323,6 +328,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_great_circle_arc_intersection_at_known_point() {
         // Arc from +x to +y on equator, arc from -z to +z through (1,1,0)/sqrt(2)
         let a1 = Vector3::new(1.0, 0.0, 0.0);
@@ -341,6 +347,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_great_circle_arc_intersection_parallel() {
         // Two arcs on the same great circle → None
         let a1 = Vector3::new(1.0, 0.0, 0.0);
@@ -354,6 +361,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_cross_track_projection_on_arc() {
         // Point on the equator, arc on the equator → distance = 0
         let p = Vector3::new(1.0, 1.0, 0.0).normalize();
@@ -367,6 +375,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_cross_track_projection_off_arc() {
         // Point at north pole, arc on equator → distance = π/2
         let p = Vector3::new(0.0, 0.0, 1.0);
@@ -378,6 +387,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_polygon_circumscription_angle() {
         // Three points forming an equilateral triangle on the equator
         // at 0°, 120°, 240° longitude
@@ -392,12 +402,14 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_polygon_circumscription_single_point() {
         let v1 = Vector3::new(1.0, 0.0, 0.0);
         assert_abs_diff_eq!(polygon_circumscription_angle(&[v1]), 0.0, epsilon = 1e-12);
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_great_circle_arc_polygon_intersections() {
         // Square polygon on equator from (1,0,0) CCW
         let v1 = Vector3::new(1.0, 0.0, 0.1).normalize();

@@ -150,6 +150,7 @@ mod tests {
     }"#;
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_ceres_success() {
         let obj = SBDBObject::from_json(CERES_JSON).unwrap();
         assert_eq!(obj.spkid, 2000001);
@@ -166,6 +167,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_missing_phys_par_is_none() {
         let json = r#"{"object":{"spkid":"2000004","fullname":"4 Vesta",
                        "des":"4","neo":false,"kind":"an"}}"#;
@@ -177,6 +179,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_ambiguous_lists_candidates() {
         let json = r#"{"code":"300","list":[
             {"pdes":"1","name":"Ceres"},{"pdes":"1P","name":"Halley"}]}"#;
@@ -188,6 +191,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_not_found() {
         let json = r#"{"code":"200","message":"specified object was not found"}"#;
         let err = SBDBObject::from_json(json).unwrap_err();
@@ -195,12 +199,14 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_invalid_json() {
         let err = SBDBObject::from_json("not json").unwrap_err();
         assert!(matches!(err, BraheError::ParseError(_)));
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_invalid_spkid_errors() {
         let json = r#"{"object":{"spkid":"notanumber","fullname":"X",
                        "des":"1","neo":false,"kind":"an"}}"#;
@@ -209,6 +215,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_phys_par_skips_unparseable_and_unknown_names() {
         // "GM" with a non-numeric value hits the `None => continue` skip arm;
         // "albedo" is an unrecognized name and hits the `_ => {}` arm.

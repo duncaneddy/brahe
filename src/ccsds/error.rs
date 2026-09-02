@@ -44,6 +44,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[serial_test::parallel]
     fn test_ccsds_parse_error() {
         let err = ccsds_parse_error("OEM", "invalid format version");
         match err {
@@ -55,6 +56,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_ccsds_missing_field() {
         let err = ccsds_missing_field("OPM", "OBJECT_NAME");
         match err {

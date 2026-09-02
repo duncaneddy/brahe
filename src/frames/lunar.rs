@@ -1220,7 +1220,7 @@ pub fn states_lci_to_eci(
 mod tests {
     use approx::assert_abs_diff_eq;
     use nalgebra::Vector3;
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
 
     use super::*;
     use crate::constants::R_MOON;
@@ -1241,6 +1241,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rotation_lfpa_to_lfme_is_small_constant() {
         let r = rotation_lfpa_to_lfme();
         // Total rotation angle ~ sqrt(0.2785^2 + 78.6944^2 + 67.8526^2)
@@ -1266,6 +1267,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rotation_lfpa_to_lfme_surface_displacement() {
         // NASA/TP-20220014814 Sec. 4.2: PA/ME surface displacement ~875 m.
         let r = rotation_lfpa_to_lfme();
@@ -1279,6 +1281,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rotation_lfme_to_lfpa_is_lfpa_to_lfme_transpose() {
         let r_pa_to_me = rotation_lfpa_to_lfme();
         let r_me_to_pa = rotation_lfme_to_lfpa();

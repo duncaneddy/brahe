@@ -161,9 +161,10 @@ pub fn get_max_threads() -> usize {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
 
     #[test]
+    #[parallel]
     fn test_default_thread_count() {
         let num_cpus = num_cpus::get();
         let expected = ((num_cpus as f64 * 0.9).ceil() as usize).max(1);
@@ -173,6 +174,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_get_max_threads() {
         // Get current thread count (initializes with default if needed)
         let threads = get_max_threads();
@@ -237,6 +239,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_get_thread_pool_returns_valid_pool() {
         // Test that get_thread_pool returns a valid thread pool
         let pool = get_thread_pool();

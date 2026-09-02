@@ -1003,6 +1003,7 @@ mod tests {
     // STrajectory Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_strajectory_new() {
         let trajectory = STrajectory6::new();
 
@@ -1012,6 +1013,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_with_interpolation_method() {
         // Test creating trajectory with specific interpolation method using builder pattern
         let traj = STrajectory6::new().with_interpolation_method(InterpolationMethod::Linear);
@@ -1028,6 +1030,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_with_eviction_policy_max_size_builder() {
         // Test builder pattern for max size eviction policy
         let traj = STrajectory6::new()
@@ -1042,6 +1045,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_with_eviction_policy_max_age_builder() {
         // Test builder pattern for max age eviction policy
         let traj = STrajectory6::new()
@@ -1056,6 +1060,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_builder_pattern_chaining() {
         // Test chaining multiple builder methods
         let mut traj = STrajectory6::new()
@@ -1082,6 +1087,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_dimension() {
         let traj = STrajectory6::new();
         assert_eq!(traj.dimension(), 6);
@@ -1097,6 +1103,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_to_matrix() {
         let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let epochs = vec![t0, t0 + 60.0, t0 + 120.0];
@@ -1147,6 +1154,7 @@ mod tests {
     // Default Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_default() {
         let trajectory = STrajectory6::default();
         assert_eq!(trajectory.len(), 0);
@@ -1157,6 +1165,7 @@ mod tests {
     // Index Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_index_index() {
         let trajectory = create_test_trajectory();
 
@@ -1173,6 +1182,7 @@ mod tests {
 
     #[test]
     #[should_panic]
+    #[serial_test::parallel]
     fn test_strajectory_index_index_out_of_bounds() {
         let trajectory = create_test_trajectory();
         let _ = &trajectory[10]; // Should panic
@@ -1181,6 +1191,7 @@ mod tests {
     // IntoIterator Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_intoiterator_into_iter() {
         let trajectory = create_test_trajectory();
 
@@ -1207,6 +1218,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_intoiterator_into_iter_empty() {
         let trajectory = STrajectory6::new();
 
@@ -1218,6 +1230,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_iterator_iterator_size_hint() {
         let trajectory = create_test_trajectory();
 
@@ -1228,6 +1241,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_iterator_iterator_len() {
         let trajectory = create_test_trajectory();
 
@@ -1238,6 +1252,7 @@ mod tests {
     // Trajectory Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_trajectory_add() {
         let mut trajectory = STrajectory6::new();
 
@@ -1262,6 +1277,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_trajectory_add_append() {
         let mut trajectory = STrajectory6::new();
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -1279,6 +1295,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_trajectory_state() {
         let trajectory = create_test_trajectory();
 
@@ -1297,6 +1314,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_trajectory_epoch() {
         let trajectory = create_test_trajectory();
 
@@ -1315,6 +1333,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_trajectory_nearest_state() {
         let trajectory = create_test_trajectory();
 
@@ -1350,6 +1369,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_trajectory_len() {
         let mut trajectory = STrajectory6::new();
         assert_eq!(trajectory.len(), 0);
@@ -1372,6 +1392,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_trajectory_is_empty() {
         let mut trajectory = STrajectory6::new();
         assert!(trajectory.is_empty());
@@ -1389,6 +1410,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_trajectory_start_epoch() {
         let trajectory = create_test_trajectory();
 
@@ -1401,6 +1423,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_trajectory_end_epoch() {
         let trajectory = create_test_trajectory();
 
@@ -1413,6 +1436,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_trajectory_timespan() {
         let trajectory = create_test_trajectory();
 
@@ -1435,6 +1459,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_trajectory_first() {
         // Test empty trajectory
         let empty_trajectory = STrajectory6::new();
@@ -1458,6 +1483,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_trajectory_last() {
         // Test empty trajectory
         let empty_trajectory = STrajectory6::new();
@@ -1481,6 +1507,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_trajectory_clear() {
         let mut trajectory = create_test_trajectory();
         assert_eq!(trajectory.len(), 3);
@@ -1494,6 +1521,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_trajectory_remove_epoch() {
         let mut trajectory = create_test_trajectory();
 
@@ -1508,6 +1536,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_trajectory_remove() {
         let mut trajectory = create_test_trajectory();
 
@@ -1521,6 +1550,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_trajectory_get() {
         let trajectory = create_test_trajectory();
 
@@ -1533,6 +1563,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_trajectory_index_before_epoch() {
         // Create a trajectory with states at epochs: t0, t0+60s, t0+120s
         let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -1575,6 +1606,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_trajectory_index_after_epoch() {
         // Create a trajectory with states at epochs: t0, t0+60s, t0+120s
         let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -1621,6 +1653,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_trajectory_state_before_epoch() {
         // Create a trajectory with distinguishable states at 3 epochs
         let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -1676,6 +1709,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_trajectory_state_after_epoch() {
         // Create a trajectory with distinguishable states at 3 epochs
         let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -1737,6 +1771,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_trajectory_get_eviction_policy() {
         let mut traj = STrajectory6::new();
 
@@ -1759,6 +1794,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_set_eviction_policy_max_size() {
         let mut traj = STrajectory6::new();
 
@@ -1795,6 +1831,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_set_eviction_policy_max_age() {
         let mut traj = STrajectory6::new();
 
@@ -1828,6 +1865,7 @@ mod tests {
     // Interpolatable Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_interpolatable_get_interpolation_method() {
         let mut traj = STrajectory6::new();
 
@@ -2222,6 +2260,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_set_covariance_at_index_out_of_bounds() {
         let mut traj = create_test_trajectory();
         let cov = na::SMatrix::<f64, 6, 6>::identity();
@@ -2230,6 +2269,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_covariance_at_without_storage_returns_none() {
         let traj = create_test_trajectory();
         let epoch = Epoch::from_jd(2451545.05, TimeSystem::UTC);
@@ -2237,6 +2277,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_covariance_at_empty_returns_none() {
         let mut traj = STrajectory6::new();
         traj.enable_covariance_storage();
@@ -2245,6 +2286,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_strajectory_covariance_at_out_of_range_returns_none() {
         let mut traj = create_test_trajectory();
         traj.enable_covariance_storage();

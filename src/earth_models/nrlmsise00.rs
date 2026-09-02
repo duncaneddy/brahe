@@ -2791,6 +2791,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_nrlmsise00_case_1() {
         let cases = get_test_cases();
         let case = &cases[0];
@@ -2856,6 +2857,7 @@ mod tests {
     #[case(12)]
     #[case(13)]
     #[case(14)]
+    #[serial_test::parallel]
     fn test_nrlmsise00_all_cases(#[case] case_idx: usize) {
         let cases = get_test_cases();
         let case = &cases[case_idx];

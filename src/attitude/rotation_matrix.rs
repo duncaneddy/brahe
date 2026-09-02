@@ -727,6 +727,7 @@ mod tests {
     use strum::IntoEnumIterator;
 
     #[test]
+    #[serial_test::parallel]
     fn test_new() {
         let r = RotationMatrix::new(
             1.0,
@@ -752,6 +753,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_matrix() {
         let matrix = Matrix3::new(
             1.0,
@@ -770,6 +772,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_to_matrix() {
         let r = RotationMatrix::new(
             1.0,
@@ -803,6 +806,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    #[serial_test::parallel]
     fn test_Rx() {
         let r = RotationMatrix::Rx(45.0, DEGREES);
         let expected = RotationMatrix::new(
@@ -823,6 +827,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    #[serial_test::parallel]
     fn test_Ry() {
         let r = RotationMatrix::Ry(45.0, DEGREES);
         let expected = RotationMatrix::new(
@@ -843,6 +848,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    #[serial_test::parallel]
     fn test_Rz() {
         let r = RotationMatrix::Rz(45.0, DEGREES);
         let expected = RotationMatrix::new(
@@ -863,6 +869,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    #[serial_test::parallel]
     fn test_Rx_free_function() {
         // Hand-computed 45 deg rotation about x, and agreement with the
         // RotationMatrix::Rx constructor.
@@ -894,6 +901,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    #[serial_test::parallel]
     fn test_Ry_free_function() {
         let r = Ry(45.0, DEGREES);
         let s = std::f64::consts::FRAC_1_SQRT_2;
@@ -910,6 +918,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    #[serial_test::parallel]
     fn test_Rz_free_function() {
         let r = Rz(45.0, DEGREES);
         let s = std::f64::consts::FRAC_1_SQRT_2;
@@ -927,6 +936,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_quaternion() {
         let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
         let r = RotationMatrix::from_quaternion(q);
@@ -937,6 +947,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    #[serial_test::parallel]
     fn test_from_euler_axis_Rx() {
         let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 45.0, DEGREES);
         let r = RotationMatrix::from_euler_axis(e);
@@ -958,6 +969,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    #[serial_test::parallel]
     fn test_from_euler_axis_Ry() {
         let e = EulerAxis::new(Vector3::new(0.0, 1.0, 0.0), 45.0, DEGREES);
         let r = RotationMatrix::from_euler_axis(e);
@@ -979,6 +991,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    #[serial_test::parallel]
     fn test_from_euler_axis_Rz() {
         let e = EulerAxis::new(Vector3::new(0.0, 0.0, 1.0), 45.0, DEGREES);
         let r = RotationMatrix::from_euler_axis(e);
@@ -999,6 +1012,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_euler_angle() {
         let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 0.0, 0.0, DEGREES);
         let r = RotationMatrix::from_euler_angle(e);
@@ -1018,6 +1032,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_euler_angle_all_orders() {
         for order in EulerAngleOrder::iter() {
             let e = EulerAngle::new(order, 45.0, 30.0, 60.0, DEGREES);
@@ -1028,6 +1043,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_rotation_matrix() {
         let r = RotationMatrix::new(
             1.0,
@@ -1047,6 +1063,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_to_quaternion() {
         let r = RotationMatrix::new(
             1.0,
@@ -1067,6 +1084,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    #[serial_test::parallel]
     fn test_to_euler_axis_Rx() {
         let r = RotationMatrix::new(
             1.0,
@@ -1087,6 +1105,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    #[serial_test::parallel]
     fn test_to_euler_axis_Ry() {
         let r = RotationMatrix::new(
             std::f64::consts::FRAC_1_SQRT_2,
@@ -1107,6 +1126,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    #[serial_test::parallel]
     fn test_to_euler_axis_Rz() {
         let r = RotationMatrix::new(
             std::f64::consts::FRAC_1_SQRT_2,
@@ -1126,6 +1146,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_to_euler_angle_circular_xyx() {
         let r = RotationMatrix::Rx(30.0, DEGREES)
             * RotationMatrix::Ry(45.0, DEGREES)
@@ -1136,6 +1157,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_to_euler_angle_circular_xyz() {
         let r = RotationMatrix::Rx(30.0, DEGREES)
             * RotationMatrix::Ry(45.0, DEGREES)
@@ -1146,6 +1168,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_to_euler_angle_circular_xzx() {
         let r = RotationMatrix::Rx(30.0, DEGREES)
             * RotationMatrix::Ry(45.0, DEGREES)
@@ -1156,6 +1179,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_to_euler_angle_circular_xzy() {
         let r = RotationMatrix::Rx(30.0, DEGREES)
             * RotationMatrix::Ry(45.0, DEGREES)
@@ -1166,6 +1190,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_to_euler_angle_circular_yxy() {
         let r = RotationMatrix::Rx(30.0, DEGREES)
             * RotationMatrix::Ry(45.0, DEGREES)
@@ -1176,6 +1201,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_to_euler_angle_circular_yxz() {
         let r = RotationMatrix::Rx(30.0, DEGREES)
             * RotationMatrix::Ry(45.0, DEGREES)
@@ -1186,6 +1212,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_to_euler_angle_circular_yzx() {
         let r = RotationMatrix::Rx(30.0, DEGREES)
             * RotationMatrix::Ry(45.0, DEGREES)
@@ -1196,6 +1223,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_to_euler_angle_circular_yzy() {
         let r = RotationMatrix::Rx(30.0, DEGREES)
             * RotationMatrix::Ry(45.0, DEGREES)
@@ -1206,6 +1234,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_to_euler_angle_circular_zxy() {
         let r = RotationMatrix::Rx(30.0, DEGREES)
             * RotationMatrix::Ry(45.0, DEGREES)
@@ -1216,6 +1245,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_to_euler_angle_circular_zxz() {
         let r = RotationMatrix::Rx(30.0, DEGREES)
             * RotationMatrix::Ry(45.0, DEGREES)
@@ -1226,6 +1256,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_to_euler_angle_circular_zyx() {
         let r = RotationMatrix::Rx(30.0, DEGREES)
             * RotationMatrix::Ry(45.0, DEGREES)
@@ -1236,6 +1267,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_to_euler_angle_circular_zyz() {
         let r = RotationMatrix::Rx(30.0, DEGREES)
             * RotationMatrix::Ry(45.0, DEGREES)
@@ -1246,6 +1278,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_to_rotation_matrix() {
         let r = RotationMatrix::new(
             1.0,

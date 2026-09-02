@@ -1022,7 +1022,7 @@ pub fn pck_rotation_matrix(
 mod tests {
     use approx::assert_abs_diff_eq;
     use nalgebra::Matrix3;
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
 
     use super::*;
     use crate::attitude::ToAttitude;
@@ -1601,6 +1601,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_naif_kernel_name() {
         use super::super::kernels::SPICEKernel;
         assert_eq!(SPICEKernel::DE440s.name(), "de440s");
@@ -1610,6 +1611,7 @@ mod tests {
     /// The kernel sets are compile-time lists; assert contents so docs stay
     /// honest.
     #[test]
+    #[parallel]
     fn test_common_and_all_kernel_lists() {
         assert_eq!(
             COMMON_SPICE_KERNELS,

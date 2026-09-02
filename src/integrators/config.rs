@@ -149,6 +149,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[serial_test::parallel]
     fn test_default_config() {
         let config = IntegratorConfig::default();
         assert_eq!(config.abs_tol, 1e-8);
@@ -164,6 +165,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_fixed_step_config() {
         let config = IntegratorConfig::fixed_step(0.1);
         assert_eq!(config.fixed_step_size, Some(0.1));
@@ -172,6 +174,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_adaptive_config() {
         let config = IntegratorConfig::adaptive(1e-9, 1e-6);
         assert_eq!(config.abs_tol, 1e-9);

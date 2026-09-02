@@ -237,6 +237,7 @@ mod tests {
     const EARTH_FIXTURE: &str = include_str!("../../../test_assets/icgem/tom_longtime_sample.html");
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_earth_catalog_has_entries() {
         let entries = parse_earth_catalog(EARTH_FIXTURE).unwrap();
         assert!(
@@ -253,6 +254,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_earth_catalog_empty_html_errors() {
         let result = parse_earth_catalog("<html><body></body></html>");
         assert!(result.is_err());
@@ -262,6 +264,7 @@ mod tests {
         include_str!("../../../test_assets/icgem/tom_celestial_sample.html");
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_earth_catalog_multi_variant_degrees_from_cell() {
         // WHU-CASM-UGM2025_2159 is in the fixture and has 4 download variants.
         // The Degree column lists 2190, 11000, 5500, 760 (in that order); the
@@ -288,6 +291,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_earth_catalog_single_variant_uses_cell_name() {
         // EGM2008 is a single-variant row. Name comes from cell[2], degree from cell[4].
         let entries = parse_earth_catalog(EARTH_FIXTURE).unwrap();
@@ -297,6 +301,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_earth_catalog_keeps_year_range_degrees() {
         // EIGEN-6C2 and EIGEN-6C3stat have degree 1949, which falls within the
         // year range 1900-2100. The parser must not exclude it.
@@ -309,6 +314,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_parse_celestial_catalog_assigns_bodies() {
         let entries = parse_celestial_catalog(CELESTIAL_FIXTURE).unwrap();
         assert!(!entries.is_empty());

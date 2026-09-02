@@ -3172,6 +3172,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sorbittrajectory_bci_error_branches() {
         // Offline error branches, mirroring the DOrbitTrajectory test:
         // elements about a barycenter, body-fixed frame for a barycenter or
@@ -3263,6 +3264,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_new() {
         let traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -3274,12 +3276,14 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_new_invalid_keplerian_none() {
         let result = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Keplerian, None);
         assert!(result.is_err());
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_new_invalid_cartesian_degrees() {
         let result = SOrbitTrajectory::new(
             OrbitFrame::ECI,
@@ -3290,6 +3294,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_new_invalid_cartesian_radians() {
         let result = SOrbitTrajectory::new(
             OrbitFrame::ECI,
@@ -3300,6 +3305,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_new_invalid_keplerian_ecef_degrees() {
         let result = SOrbitTrajectory::new(
             OrbitFrame::ECEF,
@@ -3310,6 +3316,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_new_invalid_keplerian_ecef_radians() {
         let result = SOrbitTrajectory::new(
             OrbitFrame::ECEF,
@@ -3320,18 +3327,21 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_new_invalid_keplerian_ecef_none() {
         let result = SOrbitTrajectory::new(OrbitFrame::ECEF, OrbitRepresentation::Keplerian, None);
         assert!(result.is_err());
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajetory_dimension() {
         let traj = create_test_trajectory();
         assert_eq!(traj.dimension(), 6);
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_to_matrix() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
@@ -3393,6 +3403,7 @@ mod tests {
     // Additional Trajectory Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_trajectory_add() {
         let mut traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -3419,6 +3430,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_trajectory_state() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
@@ -3455,6 +3467,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_trajectory_epoch() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
@@ -3491,6 +3504,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_trajectory_nearest_state() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
@@ -3544,6 +3558,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_trajectory_len() {
         let mut traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -3560,6 +3575,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_trajectory_is_empty() {
         let mut traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -3574,6 +3590,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_trajectory_start_epoch() {
         let mut traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -3588,6 +3605,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_trajectory_end_epoch() {
         let mut traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -3604,6 +3622,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_trajectory_timespan() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
@@ -3628,6 +3647,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_trajectory_first() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
@@ -3653,6 +3673,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_trajectory_last() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
@@ -3678,6 +3699,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_trajectory_clear() {
         let mut traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -3692,6 +3714,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_trajectory_remove_epoch() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
@@ -3717,6 +3740,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_trajectory_remove() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
@@ -3743,6 +3767,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_trajectory_get() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
@@ -3768,6 +3793,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_trajectory_index_before_epoch() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -3814,6 +3840,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_trajectory_index_after_epoch() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -3863,6 +3890,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_trajectory_state_before_epoch() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -3907,6 +3935,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_trajectory_state_after_epoch() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -3951,6 +3980,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_trajectory_set_eviction_policy_max_size() {
         let mut traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -3987,6 +4017,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_trajectory_set_eviction_policy_max_age() {
         let mut traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -4023,6 +4054,7 @@ mod tests {
     // Default Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_default() {
         let traj = SOrbitTrajectory::default();
         assert_eq!(traj.len(), 0);
@@ -4035,6 +4067,7 @@ mod tests {
     // Index Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_index_index() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
@@ -4069,6 +4102,7 @@ mod tests {
 
     #[test]
     #[should_panic]
+    #[serial_test::parallel]
     fn test_orbittrajectory_index_index_out_of_bounds() {
         let epochs = vec![Epoch::from_jd(2451545.0, TimeSystem::UTC)];
         let states = vec![Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0)];
@@ -4088,6 +4122,7 @@ mod tests {
     // IntoIterator Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_intoiterator_into_iter() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
@@ -4132,6 +4167,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_intoiterator_into_iter_empty() {
         let traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -4144,6 +4180,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_iterator_iterator_size_hint() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
@@ -4172,6 +4209,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_iterator_iterator_len() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
@@ -4200,6 +4238,7 @@ mod tests {
     // Interpolatable Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_interpolatable_set_interpolation_method() {
         let mut traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -4215,6 +4254,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_interpolatable_get_interpolation_method() {
         let mut traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -4232,6 +4272,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_interpolatable_interpolate_linear() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -4300,6 +4341,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_interpolatable_interpolate() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -4340,6 +4382,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_interpolate_before_start() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -4381,6 +4424,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_interpolate_after_end() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -4424,6 +4468,7 @@ mod tests {
     // OrbitalTrajectory Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_orbitaltrajectory_from_orbital_data() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
@@ -5185,6 +5230,7 @@ mod tests {
     // SOrbitStateProvider Trait Tests
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stateprovider_state_eci_cartesian() {
         // Test SOrbitStateProvider::state() for ECI Cartesian trajectory
         let mut traj =
@@ -5235,6 +5281,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stateprovider_state_eci_from_keplerian() {
         // Test SOrbitStateProvider::state_eci() for Keplerian trajectory
         let mut traj = SOrbitTrajectory::new(
@@ -5284,6 +5331,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stateprovider_state_gcrf_cartesian() {
         // Test SOrbitStateProvider::state() for ECI Cartesian trajectory
         let mut traj =
@@ -5334,6 +5382,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stateprovider_state_gcrf_from_keplerian() {
         // Test SOrbitStateProvider::state_gcrf() for Keplerian trajectory
         let mut traj = SOrbitTrajectory::new(
@@ -5531,6 +5580,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stateprovider_state_eme2000() {
         // Test SOrbitStateProvider::state_eme2000() for EME2000 Cartesian trajectory
         let mut traj =
@@ -5550,6 +5600,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stateprovider_state_eme2000_from_keplerian() {
         // Test SOrbitStateProvider::state_eme2000() for Keplerian trajectory
         let mut traj = SOrbitTrajectory::new(
@@ -5576,6 +5627,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stateprovider_state_eme2000_from_gcrf() {
         // Test SOrbitStateProvider::state_eme2000() for GCRF Cartesian trajectory
         let mut traj =
@@ -5622,6 +5674,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stateprovider_state_koe_from_cartesian() {
         // Test SOrbitStateProvider::state_koe_osc() for ECI Cartesian trajectory
         let mut traj =
@@ -5651,6 +5704,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stateprovider_state_koe_from_keplerian() {
         // Test SOrbitStateProvider::state_koe_osc() for Keplerian trajectory
         let mut traj = SOrbitTrajectory::new(
@@ -5717,6 +5771,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_identifiable_with_name() {
         let traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -5726,6 +5781,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_identifiable_with_id() {
         let traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -5735,6 +5791,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_identifiable_with_uuid() {
         let traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -5744,6 +5801,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_identifiable_with_identity() {
         let uuid = Uuid::now_v7();
         let traj =
@@ -5756,6 +5814,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_identifiable_set_methods() {
         let mut traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -5799,6 +5858,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_orbital_data_covariances_length_mismatch() {
         let epoch1 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let epoch2 = Epoch::from_datetime(2024, 1, 1, 0, 10, 0.0, 0.0, TimeSystem::UTC);
@@ -5820,6 +5880,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_orbital_data_covariances_invalid_frame_itrf() {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
@@ -5837,6 +5898,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_orbital_data_covariances_invalid_frame_ecef() {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
@@ -6426,6 +6488,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_display() {
         let traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -6451,6 +6514,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_with_interpolation_method() {
         let traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap()
@@ -6460,6 +6524,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_with_eviction_policy_max_size() {
         let traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap()
@@ -6473,6 +6538,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_with_eviction_policy_max_size_zero_err() {
         let result = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap()
@@ -6481,6 +6547,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_with_eviction_policy_max_age() {
         let traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap()
@@ -6494,6 +6561,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_with_eviction_policy_max_age_zero_err() {
         let result = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap()
@@ -6502,6 +6570,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_with_eviction_policy_max_age_negative_err() {
         let result = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap()
@@ -6510,6 +6579,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_add_state_and_covariance_insert_before() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 120.0; // Second epoch at +120s
@@ -6557,6 +6627,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_add_state_and_covariance_append_equal_epoch() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -6601,6 +6672,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_from_data_trait() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -6616,6 +6688,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_from_data_length_mismatch() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let epochs = vec![t0];
@@ -6629,6 +6702,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_from_data_empty() {
         let epochs: Vec<Epoch> = vec![];
         let states: Vec<Vector6<f64>> = vec![];
@@ -6638,6 +6712,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_nearest_state_empty_trajectory() {
         let traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -6648,6 +6723,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_with_uuid() {
         let uuid = Uuid::now_v7();
         let traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -6658,6 +6734,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_get_eviction_policy_default() {
         let traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -6665,6 +6742,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_timespan_empty() {
         let traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -6672,6 +6750,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_timespan_single_state() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let mut traj =
@@ -6683,6 +6762,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_first_empty() {
         let traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -6690,6 +6770,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_last_empty() {
         let traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -6697,6 +6778,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_remove_epoch_not_found() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -6714,6 +6796,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_remove_out_of_bounds() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let mut traj =
@@ -6726,6 +6809,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_get_out_of_bounds() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let mut traj =
@@ -6738,6 +6822,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_index_before_epoch_empty() {
         let traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -6748,6 +6833,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_index_before_epoch_before_all_states() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t_before = t0 - 60.0;
@@ -6762,6 +6848,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_index_after_epoch_empty() {
         let traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -6772,6 +6859,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_index_after_epoch_after_all_states() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t_after = t0 + 60.0;
@@ -6790,6 +6878,7 @@ mod tests {
     // ========================
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_interpolation_linear() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -6811,6 +6900,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_interpolation_lagrange_degree2() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -6837,6 +6927,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_interpolation_lagrange_degree3() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -6863,6 +6954,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_interpolation_hermite_cubic() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -6890,6 +6982,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_interpolation_hermite_quintic_with_accelerations() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -6921,6 +7014,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_interpolation_hermite_quintic_without_accelerations_errors() {
         // Without enabled acceleration storage, HermiteQuintic must error — even
         // when many points are available — since the FD fallback has been removed.
@@ -6949,6 +7043,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_interpolation_lagrange_vs_linear_different() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -6997,6 +7092,7 @@ mod tests {
     // ========================
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_acceleration_storage_disabled_by_default() {
         let traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -7004,6 +7100,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_enable_acceleration_storage() {
         let mut traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -7012,6 +7109,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_add_with_acceleration() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7032,6 +7130,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_set_acceleration_at() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7057,6 +7156,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_acceleration_at_idx_no_storage() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7071,6 +7171,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_acceleration_eviction() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7099,6 +7200,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_hermite_quintic_errors_with_only_two_points() {
         // Even with 2 points, HermiteQuintic without acceleration storage must error
         // (previously this branch panicked; now it returns a structured error).
@@ -7126,6 +7228,7 @@ mod tests {
     // ========================
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stm_enable_stm_storage_empty() {
         let mut traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -7138,6 +7241,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stm_enable_stm_storage_with_existing_states() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7166,6 +7270,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stm_enable_stm_storage_idempotent() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7191,6 +7296,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stm_set_stm_at() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7208,6 +7314,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stm_set_stm_at_auto_enable() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7227,6 +7334,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stm_set_stm_at_out_of_bounds() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7240,6 +7348,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stm_stm_at_idx_valid() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7259,6 +7368,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stm_stm_at_idx_no_storage() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7273,6 +7383,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stm_stm_at_idx_out_of_bounds() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7287,6 +7398,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stm_stm_at_exact_epoch() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -7315,6 +7427,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stm_stm_at_interpolation() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -7343,6 +7456,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stm_stm_at_empty_trajectory() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7355,6 +7469,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stm_stm_at_no_storage() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7369,6 +7484,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_stm_stm_at_out_of_bounds() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -7395,6 +7511,7 @@ mod tests {
     // ========================
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_sensitivity_enable_sensitivity_storage_empty() {
         let mut traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -7408,6 +7525,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_sensitivity_enable_sensitivity_storage_with_existing_states() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7437,6 +7555,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_sensitivity_enable_sensitivity_storage_idempotent() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7465,6 +7584,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_sensitivity_enable_sensitivity_storage_zero_param_dim() {
         let mut traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -7472,6 +7592,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_sensitivity_set_sensitivity_at() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7492,6 +7613,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_sensitivity_set_sensitivity_at_auto_enable() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7515,6 +7637,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_sensitivity_set_sensitivity_at_out_of_bounds() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7528,6 +7651,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_sensitivity_set_sensitivity_at_wrong_rows() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7542,6 +7666,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_sensitivity_set_sensitivity_at_wrong_cols() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7559,6 +7684,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_sensitivity_sensitivity_at_idx_valid() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7577,6 +7703,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_sensitivity_sensitivity_at_idx_no_storage() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7591,6 +7718,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_sensitivity_sensitivity_at_idx_out_of_bounds() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7605,6 +7733,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_sensitivity_sensitivity_at_exact_epoch() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -7633,6 +7762,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_sensitivity_sensitivity_at_interpolation() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -7659,6 +7789,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_sensitivity_sensitivity_at_empty_trajectory() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7671,6 +7802,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_sensitivity_sensitivity_at_no_storage() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7685,6 +7817,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_sensitivity_sensitivity_at_out_of_bounds() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -7711,6 +7844,7 @@ mod tests {
     // ========================
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_add_full_basic() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7728,6 +7862,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_add_full_with_all_options() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7757,6 +7892,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_add_full_sorted_insertion() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -7803,6 +7939,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_add_full_auto_enable_covariance() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7819,6 +7956,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_add_full_err_leaves_trajectory_unchanged() {
         // A rejected add_full must not mutate the trajectory: a valid
         // covariance combined with an invalid sensitivity must not
@@ -7859,6 +7997,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_add_full_auto_enable_stm() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7875,6 +8014,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_add_full_auto_enable_sensitivity() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7893,6 +8033,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_add_full_sensitivity_wrong_rows() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7907,6 +8048,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_add_full_sensitivity_wrong_cols() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7931,6 +8073,7 @@ mod tests {
     // ========================
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_to_matrix_empty() {
         let traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -7940,6 +8083,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_to_matrix_success() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7966,6 +8110,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_add_state_and_covariance_no_covariance_storage() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -7981,6 +8126,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_add_state_and_covariance_success() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -8012,6 +8158,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_covariance_no_storage() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -8026,6 +8173,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_covariance_empty_covariances() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -8039,6 +8187,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_covariance_out_of_bounds() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -8071,6 +8220,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_covariance_exact_epoch() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -8092,6 +8242,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_orbittrajectory_covariance_interpolation() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -8129,6 +8280,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sorbittrajectory_set_acceleration_at_index_out_of_bounds() {
         let mut traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
@@ -8138,6 +8290,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sorbittrajectory_from_orbital_data_ecef_keplerian_err() {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let result = SOrbitTrajectory::from_orbital_data(
@@ -8152,6 +8305,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sorbittrajectory_bci_keplerian_barycenter_conversions_err() {
         // Keplerian elements about the Earth-Moon barycenter (NAIF 3) are
         // undefined; every batch conversion that redirects through
@@ -8173,6 +8327,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_sorbittrajectory_to_keplerian_missing_angle_format_err() {
         let mut traj = SOrbitTrajectory::new(
             OrbitFrame::ECI,

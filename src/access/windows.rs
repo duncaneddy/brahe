@@ -1036,7 +1036,7 @@ mod tests {
     use crate::utils::state_providers::DOrbitStateProvider;
     use crate::utils::testing::setup_global_test_eop;
     use nalgebra::Vector6;
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
 
     #[test]
     #[serial]
@@ -2178,6 +2178,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_subdivision_config_equal_count_validation() {
         // Valid
         assert!(SubdivisionConfig::equal_count(1).is_ok());
@@ -2185,6 +2186,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_subdivision_config_fixed_duration_validation() {
         // Valid
         assert!(SubdivisionConfig::fixed_duration(30.0, 0.0, 0.0, false).is_ok());

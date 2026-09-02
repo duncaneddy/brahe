@@ -539,6 +539,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_j2_earth_derived_from_egm2008() {
         assert_abs_diff_eq!(
             J2_EARTH,
@@ -548,6 +549,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_j3_earth_derived_from_egm2008() {
         assert_abs_diff_eq!(
             J3_EARTH,
@@ -557,6 +559,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_j4_earth_derived_from_egm2008() {
         assert_abs_diff_eq!(
             J4_EARTH,
@@ -566,6 +569,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_j5_earth_derived_from_egm2008() {
         assert_abs_diff_eq!(
             J5_EARTH,
@@ -575,6 +579,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_j6_earth_derived_from_egm2008() {
         assert_abs_diff_eq!(
             J6_EARTH,
@@ -584,6 +589,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_mars_rotation_constants() {
         // OMEGA_MARS derives from the WGCCRE 2015 prime-meridian rate (350.891982443297 deg/day)
         assert_abs_diff_eq!(
@@ -595,6 +601,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_moon_rotation_constant() {
         // OMEGA_MOON derives from the IAU W1 rate for the Moon (13.17635815 deg/day)
         assert_abs_diff_eq!(
@@ -605,6 +612,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_mars_moon_gm_constants() {
         // Values from NAIF gm_de440.tpc (km^3/s^2 -> m^3/s^2); verify against the file
         assert_abs_diff_eq!(GM_PHOBOS, 7.087546066894452e5, epsilon = 1e-3);
@@ -612,6 +620,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_planetary_radius_constants() {
         // IAU/WGCCRE 2015 mean (Mercury, Venus) and volumetric mean (giant
         // planets) radii, in meters.

@@ -290,6 +290,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_daf_from_file_de440s() {
         let Some(path) = de440s_path() else { return };
         let daf = DAFFile::from_file(&path).unwrap();
@@ -332,6 +333,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_daf_words_addressing() {
         let Some(path) = de440s_path() else { return };
         let daf = DAFFile::from_file(&path).unwrap();
@@ -348,6 +350,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_daf_rejects_garbage() {
         assert!(DAFFile::from_bytes(&[0u8; 100]).is_err()); // too short
         let mut junk = vec![0u8; 2048];
@@ -356,6 +359,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_daf_rejects_negative_header_fields() {
         // A negative ND must not wrap to a huge usize on cast; it should be
         // rejected cleanly instead of panicking downstream.
@@ -370,6 +374,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_daf_rejects_invalid_control_fields() {
         // NEXT = NaN in the summary record must be rejected rather than
         // silently cast to an incorrect usize.
@@ -389,6 +394,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_daf_big_endian_synthetic() {
         // Build a minimal valid big-endian DAF with one summary and no data,
         // to exercise the byte-swap path. Layout mirrors from_bytes' parsing.
@@ -428,6 +434,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_file_missing_path_errors() {
         // `from_file`'s read error branch: a nonexistent path surfaces a
         // clean IoError rather than panicking.
@@ -436,6 +443,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_read_daf_count_rejects_non_integer_control_value() {
         // Reach `read_daf_count`'s error branch: a summary record whose NEXT
         // pointer is NaN. The file needs a third record so the summary
@@ -493,6 +501,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_locfmt_fallback_infers_little_endian() {
         // Unrecognized LOCFMT + ND valid as little-endian -> little-endian.
         let daf = DAFFile::from_bytes(&locfmt_fallback_file(false)).unwrap();
@@ -502,6 +511,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_locfmt_fallback_infers_big_endian() {
         // Unrecognized LOCFMT + ND invalid as LE but valid as BE -> big-endian.
         let daf = DAFFile::from_bytes(&locfmt_fallback_file(true)).unwrap();
@@ -511,6 +521,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_locfmt_fallback_rejects_when_nd_implausible_both_ways() {
         // Unrecognized LOCFMT and ND out of range as both LE and BE: the
         // fallback cannot infer endianness and must error.

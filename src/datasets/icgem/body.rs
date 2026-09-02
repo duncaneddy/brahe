@@ -70,6 +70,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_name_known_bodies_case_insensitive() {
         assert_eq!(ICGEMBody::from_name("Earth"), ICGEMBody::Earth);
         assert_eq!(ICGEMBody::from_name("earth"), ICGEMBody::Earth);
@@ -80,6 +81,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_name_unknown_falls_through_to_other_lowercased() {
         assert_eq!(
             ICGEMBody::from_name("Pluto"),
@@ -92,6 +94,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_as_name_round_trip() {
         for body in [
             ICGEMBody::Earth,
@@ -106,6 +109,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_is_earth() {
         assert!(ICGEMBody::Earth.is_earth());
         assert!(!ICGEMBody::Moon.is_earth());

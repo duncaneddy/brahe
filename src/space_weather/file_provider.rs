@@ -762,6 +762,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_default_file() {
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
         assert!(sw.is_initialized());
@@ -770,6 +771,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_mjd_range() {
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
         // Data should start from 1957
@@ -779,6 +781,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_kp() {
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
         // Test data for 1957-10-01 (MJD ~36114)
@@ -789,6 +792,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_kp_all() {
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
         let mjd = 36114.0;
@@ -800,6 +804,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_ap_daily() {
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
         let mjd = 36114.0;
@@ -809,6 +814,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_f107() {
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
         let mjd = 36114.0;
@@ -818,6 +824,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_sunspot_number() {
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
         let mjd = 36114.0;
@@ -827,6 +834,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_interval_index() {
         // 00:00 -> index 0
         assert_eq!(FileSpaceWeatherProvider::get_interval_index(36114.0), 0);
@@ -845,6 +853,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_extrapolation_hold() {
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
         // Request data before the start
@@ -855,6 +864,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_not_initialized() {
         let sw = FileSpaceWeatherProvider::new();
         assert!(!sw.is_initialized());
@@ -862,6 +872,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_display() {
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
         let display = format!("{}", sw);
@@ -870,6 +881,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_debug() {
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
         let debug = format!("{:?}", sw);
@@ -877,6 +889,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_clone() {
         let sw1 = FileSpaceWeatherProvider::from_default_file().unwrap();
         let sw2 = sw1.clone();
@@ -885,6 +898,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_last_kp_boundary_hours() {
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
         let base_mjd = 60000.0;
@@ -915,6 +929,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_last_ap_boundary_hours() {
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
         let base_mjd = 60000.0;
@@ -934,6 +949,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_last_kp_crosses_day_boundary() {
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
         let base_mjd = 60000.0;
@@ -955,6 +971,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_last_daily_kp() {
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
         let base_mjd = 60000.0;
@@ -982,6 +999,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_last_daily_ap() {
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
         let base_mjd = 60000.0;
@@ -1009,6 +1027,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_last_f107() {
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
         let base_mjd = 60000.0;
@@ -1036,6 +1055,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_last_kp_mid_interval() {
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
         let base_mjd = 60000.0;
@@ -1051,6 +1071,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_kp_quantization() {
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
         let base_mjd = 60000.0;
@@ -1067,6 +1088,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_test_file() {
         // Load from the test file with known values
         let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -1085,6 +1107,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_test_file_known_kp_values() {
         // Load from the test file and verify known Kp values for 1957-10-01
         let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -1114,6 +1137,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_test_file_known_ap_values() {
         // Load from the test file and verify known Ap values for 1957-10-01
         let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -1144,6 +1168,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_test_file_known_f107_and_sunspot() {
         // Load from the test file and verify known F10.7 and sunspot values
         let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -1168,6 +1193,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_test_file_kp_daily() {
         // Test daily Kp average calculation from known values
         let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -1187,6 +1213,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_section_boundaries() {
         // Test that section boundary MJDs are correctly set
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
@@ -1201,6 +1228,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_f107_in_monthly_predicted() {
         // Test that F10.7 data is available in MONTHLY_PREDICTED section
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
@@ -1218,6 +1246,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_kp_ap_extrapolation_hold() {
         // Test that Kp/Ap in MONTHLY_PREDICTED section extrapolates from last daily
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
@@ -1238,6 +1267,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_kp_ap_extrapolation_zero() {
         // Test that Kp/Ap in MONTHLY_PREDICTED section returns zero with Zero extrapolation
         let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -1260,6 +1290,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_kp_ap_extrapolation_error() {
         // Test that Kp/Ap in MONTHLY_PREDICTED section errors with Error extrapolation
         let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -1282,6 +1313,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_monthly_predicted_f107_not_nan() {
         // Verify that F10.7 values in MONTHLY_PREDICTED are actual values, not NaN
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
@@ -1306,6 +1338,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_f107_adj_avg81() {
         let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
         let mjd = 60000.0;

@@ -250,6 +250,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[serial_test::parallel]
     fn test_naif_id_values() {
         assert_eq!(NAIFId::SolarSystemBarycenter.id(), 0);
         assert_eq!(NAIFId::EarthMoonBarycenter.id(), 3);
@@ -263,6 +264,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_naif_id_equality_across_forms() {
         assert_eq!(NAIFId::Sun, NAIFId::Id(10));
         assert_eq!(NAIFId::from(399), NAIFId::Earth);
@@ -271,6 +273,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_frame_id_values() {
         assert_eq!(FrameId::MoonPaDe440.id(), 31008);
         assert_eq!(FrameId::Id(31006).id(), 31006);
@@ -278,6 +281,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_naif_id_all_variants_exhaustive() {
         // Every named variant maps to its documented NAIF integer ID,
         // exercising all arms of `NAIFId::id`.
@@ -325,6 +329,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_naif_id_hash_matches_by_id() {
         use std::collections::HashSet;
         // Hash follows the integer ID, so a named variant and its raw-ID
@@ -339,6 +344,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_frame_id_from_impls_and_hash() {
         use std::collections::HashSet;
         // From<i32> yields the raw-ID form; the named variant compares equal.

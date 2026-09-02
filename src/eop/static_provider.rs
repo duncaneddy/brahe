@@ -550,6 +550,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_values() {
         let eop = StaticEOPProvider::from_values((0.001, 0.002, 0.003, 0.004, 0.005, 0.006));
 
@@ -571,6 +572,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_ut1_utc() {
         let provider = StaticEOPProvider::from_values((0.1, 0.2, 0.3, 0.4, 0.5, 0.6));
         let result = provider.get_ut1_utc(2459455.5);
@@ -591,6 +593,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_pm() {
         let provider = StaticEOPProvider::from_values((0.1, 0.2, 0.3, 0.4, 0.5, 0.6));
         let result = provider.get_pm(2459455.5);
@@ -611,6 +614,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_dxdy() {
         let provider = StaticEOPProvider::from_values((0.1, 0.2, 0.3, 0.4, 0.5, 0.6));
         let result = provider.get_dxdy(2459455.5);
@@ -631,6 +635,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_lod() {
         let provider = StaticEOPProvider::from_values((0.1, 0.2, 0.3, 0.4, 0.5, 0.6));
         let result = provider.get_lod(2459455.5);
@@ -651,6 +656,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_get_eop() {
         let provider = StaticEOPProvider::from_values((0.1, 0.2, 0.3, 0.4, 0.5, 0.6));
         let result = provider.get_eop(2459455.5);
@@ -691,6 +697,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_display_format() {
         let eop = StaticEOPProvider::from_values((0.001, 0.002, 0.003, 0.004, 0.005, 0.006));
         let display_string = format!("{}", eop);
@@ -705,6 +712,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_debug_format() {
         let eop = StaticEOPProvider::from_values((0.001, 0.002, 0.003, 0.004, 0.005, 0.006));
         let debug_string = format!("{:?}", eop);

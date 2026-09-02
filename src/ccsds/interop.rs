@@ -478,7 +478,7 @@ impl GPRecord {
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
 
     use super::*;
     use crate::ccsds::oem::OEM;
@@ -489,6 +489,7 @@ mod tests {
     use crate::trajectories::traits::{InterpolatableTrajectory, Trajectory};
 
     #[test]
+    #[parallel]
     fn test_oem_to_trajectory_example4() {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample4.txt").unwrap();
         let oem = OEM::from_str(&content).unwrap();
@@ -505,6 +506,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_oem_to_trajectory_example5() {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample5.txt").unwrap();
         let oem = OEM::from_str(&content).unwrap();
@@ -515,6 +517,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_oem_to_trajectories_multi_segment() {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
         let oem = OEM::from_str(&content).unwrap();
@@ -524,6 +527,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_oem_try_from_single_segment() {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample4.txt").unwrap();
         let oem = OEM::from_str(&content).unwrap();
@@ -533,6 +537,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_oem_try_from_multi_segment_fails() {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
         let oem = OEM::from_str(&content).unwrap();
@@ -596,6 +601,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_oem_segment_out_of_bounds() {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample4.txt").unwrap();
         let oem = OEM::from_str(&content).unwrap();
@@ -604,6 +610,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_ccsds_ref_frame_mapping() {
         assert_eq!(
             ccsds_ref_frame_to_orbit_frame(&CCSDSRefFrame::EME2000).unwrap(),
@@ -658,6 +665,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_gp_record_to_omm() {
         let record: GPRecord = serde_json::from_str(sample_gp_record_json()).unwrap();
         let omm = record.to_omm().unwrap();
@@ -695,6 +703,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_gp_record_to_omm_missing_required() {
         // Missing epoch
         let json = r#"{"ECCENTRICITY": 0.001, "INCLINATION": 51.64, "RA_OF_ASC_NODE": 200.0, "ARG_OF_PERICENTER": 100.0, "MEAN_ANOMALY": 260.0}"#;
@@ -708,6 +717,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_omm_to_gp_record() {
         let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
         let omm = OMM::from_str(&content).unwrap();
@@ -726,6 +736,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_omm_gp_record_roundtrip() {
         let record: GPRecord = serde_json::from_str(sample_gp_record_json()).unwrap();
 

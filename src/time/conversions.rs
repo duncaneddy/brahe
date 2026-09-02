@@ -517,7 +517,17 @@ pub fn time_system_offset(
 /// - `time_system`: Time system the date is expressed in
 ///
 /// # Returns
-/// - Offset that must be added to the date to obtain TAI. Units: [s]
+/// - `f64`: Offset that must be added to the date to obtain TAI. Units: [s]
+///
+/// # Examples
+/// ```ignore
+/// // 2022-04-01 01:02:33.4 GPS, with the offset evaluated at the instant
+/// // rather than at the start of the minute.
+/// let jd = 2459670.5;
+/// let fd = (1.0 * 3600.0 + 2.0 * 60.0) / SECONDS_PER_DAY;
+/// let offset = tai_offset_for_datetime(jd, fd, 33.4, TimeSystem::GPS);
+/// assert_eq!(offset, 19.0);
+/// ```
 pub(crate) fn tai_offset_for_datetime(
     jd: f64,
     fd: f64,

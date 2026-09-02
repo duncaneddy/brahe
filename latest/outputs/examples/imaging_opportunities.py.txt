@@ -20,7 +20,7 @@ ICEYE Constellation:
   ... and 48 more
 
 Propagating constellation for visualization...
-Created 3D visualization in 3.71 seconds.
+Created 3D visualization in 5.45 seconds.
 
 Resetting propagators for access computation...
 
@@ -34,7 +34,7 @@ Defining imaging constraints:
   - Off-nadir angle: 35-45 degrees
 
 Computing 7-day imaging opportunities...
-Computed 2975 imaging opportunities in 12.78 seconds.
+Computed 2975 imaging opportunities in 13.44 seconds.
 
 ==========================================================================================
 Sample Imaging Opportunities (first 10)

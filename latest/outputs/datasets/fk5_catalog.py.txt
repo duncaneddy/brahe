@@ -1,6 +1,0 @@
-Loaded 1535 FK5 records
-FK5 699: HD 172167, ra=279.2347 deg, dec=38.7837 deg, vmag=0.03
-Stars brighter than Vmag 3.0: 157
-Stars within 5 deg of (101.28, -16.72): 2
-Bright stars within 5 deg of target: 1
-  HD 48915: Vmag=-1.46

@@ -635,6 +635,7 @@ pub fn write_apm_xml(apm: &APM) -> Result<String, BraheError> {
     if !apm.has_blocks() {
         return Err(ccsds_missing_field("APM", "at least one logical block"));
     }
+    apm.validate_maneuvers()?;
 
     let mut out = String::new();
     let i1 = "  ";

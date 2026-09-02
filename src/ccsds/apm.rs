@@ -1063,6 +1063,32 @@ impl APM {
             || !self.maneuvers.is_empty()
     }
 
+    /// Validates maneuver fields that `APMManeuver`'s public fields do not
+    /// themselves protect against direct mutation.
+    ///
+    /// `APMManeuver::with_delta_mass` rejects a positive `delta_mass` at
+    /// construction time, but `delta_mass` (like the maneuver's other
+    /// fields) is public, so a maneuver built or mutated without the
+    /// builder can still carry an invalid value. Every writer calls this
+    /// before serializing so an invalid value cannot reach the wire.
+    ///
+    /// # Returns
+    /// Result<(), BraheError>: `Ok(())` if every maneuver's `delta_mass` is
+    /// `None` or `<= 0`, otherwise an error naming the offending value.
+    pub(crate) fn validate_maneuvers(&self) -> Result<(), BraheError> {
+        for man in &self.maneuvers {
+            if let Some(delta_mass) = man.delta_mass
+                && delta_mass > 0.0
+            {
+                return Err(BraheError::Error(format!(
+                    "APM MAN_DELTA_MASS {} must be <= 0; it represents mass lost during the                      maneuver",
+                    delta_mass
+                )));
+            }
+        }
+        Ok(())
+    }
+
     /// Parses an APM message from a string, auto-detecting the format.
     ///
     /// # Arguments
@@ -1383,6 +1409,29 @@ mod tests {
             .with_delta_mass(0.5)
             .unwrap_err();
         assert!(err.to_string().contains("MAN_DELTA_MASS"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_write_rejects_maneuver_with_positive_delta_mass_via_direct_mutation() {
+        // `APMManeuver::delta_mass` is public, so `with_delta_mass`'s
+        // construction-time check can be bypassed by direct field
+        // mutation; every writer must still reject it before serializing.
+        let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::UTC);
+        let mut apm = APM::new("BRAHE", metadata, Epoch::now());
+        let mut man = APMManeuver::new(Epoch::now(), 3.0, icrf(), Vector3::new(-1.25, -0.5, 0.5));
+        man.delta_mass = Some(0.5);
+        apm.push_maneuver(man);
+
+        for format in [CCSDSFormat::KVN, CCSDSFormat::XML, CCSDSFormat::JSON] {
+            let err = apm.to_string(format).unwrap_err();
+            assert!(
+                err.to_string().contains("MAN_DELTA_MASS"),
+                "format {:?}: unexpected message: {}",
+                format,
+                err
+            );
+        }
     }
 
     #[test]

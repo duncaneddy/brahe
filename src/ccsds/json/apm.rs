@@ -129,6 +129,7 @@ pub fn write_apm_json(
     if !apm.has_blocks() {
         return Err(ccsds_missing_field("APM", "at least one logical block"));
     }
+    apm.validate_maneuvers()?;
 
     let mut root = Map::new();
 

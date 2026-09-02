@@ -4048,7 +4048,7 @@ fn parse_attitude_interpolation_method(
     }
 }
 
-/// A chronologically sorted collection of `AttitudeState` samples relating two `AttitudeFrame`
+/// A chronologically sorted collection of `AttitudeState` samples relating two `ReferenceFrame`
 /// endpoints.
 ///
 /// Every stored quaternion represents the attitude of `frame_b` relative to `frame_a`. All
@@ -4056,8 +4056,8 @@ fn parse_attitude_interpolation_method(
 /// rejects a state that would mix the two.
 ///
 /// Args:
-///     frame_a (AttitudeFrame): Frame endpoint A
-///     frame_b (AttitudeFrame): Frame endpoint B (stored quaternions rotate from frame_a to
+///     frame_a (ReferenceFrame): Frame endpoint A
+///     frame_b (ReferenceFrame): Frame endpoint B (stored quaternions rotate from frame_a to
 ///         frame_b)
 ///
 /// Example:
@@ -4066,8 +4066,8 @@ fn parse_attitude_interpolation_method(
 ///     from brahe.trajectories import AttitudeTrajectory
 ///
 ///     traj = bh.AttitudeTrajectory(
-///         bh.AttitudeFrame.reference_frame(bh.ReferenceFrame.GCRF),
-///         bh.AttitudeFrame.spacecraft_body_frame("SC_BODY", "1"),
+///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
 ///     )
 ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 ///     traj.add(epoch, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
@@ -4081,7 +4081,7 @@ pub struct PyAttitudeTrajectory {
 #[pymethods]
 impl PyAttitudeTrajectory {
     #[new]
-    fn new(frame_a: &PyAttitudeFrame, frame_b: &PyAttitudeFrame) -> Self {
+    fn new(frame_a: &PyReferenceFrame, frame_b: &PyReferenceFrame) -> Self {
         Self {
             trajectory: trajectories::AttitudeTrajectory::new(
                 frame_a.frame.clone(),
@@ -4173,22 +4173,27 @@ impl PyAttitudeTrajectory {
 
     /// Return the body angular velocity at the given epoch.
     ///
+    /// Returns `None` when the trajectory carries no rate data (see
+    /// `has_rates`); that is not an error.
+    ///
     /// Args:
     ///     epoch (Epoch): Target epoch
     ///
     /// Returns:
-    ///     numpy.ndarray: Angular velocity of frame B relative to frame A, expressed in
-    ///     frame B, in rad/s
+    ///     numpy.ndarray | None: Angular velocity of frame B relative to frame A, expressed
+    ///     in frame B, in rad/s, or None if the trajectory carries no rate data
     ///
     /// Raises:
-    ///     RuntimeError: If this trajectory's states do not carry angular velocity data
+    ///     RuntimeError: If the attitude at epoch cannot be computed
     fn angular_velocity<'py>(
         &self,
         py: Python<'py>,
         epoch: PyEpoch,
-    ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-        let w = self.trajectory.angular_velocity(epoch.obj)?;
-        Ok(vector_to_numpy!(py, w, 3, f64))
+    ) -> PyResult<Option<Bound<'py, PyArray<f64, Ix1>>>> {
+        match self.trajectory.angular_velocity(epoch.obj)? {
+            Some(w) => Ok(Some(vector_to_numpy!(py, w, 3, f64))),
+            None => Ok(None),
+        }
     }
 
     /// Return the attitude at the given epoch as Euler angles in the requested sequence.
@@ -4227,8 +4232,8 @@ impl PyAttitudeTrajectory {
 
     /// Re-express this trajectory's attitude relative to an arbitrary reference frame.
     ///
-    /// Requires `frame_a` to be a reference-frame `AttitudeFrame` (constructed via
-    /// `AttitudeFrame.reference_frame`).
+    /// Requires `frame_a` to be a celestial `ReferenceFrame` (constructed via
+    /// `ReferenceFrame.celestial`).
     ///
     /// Args:
     ///     epoch (Epoch): Target epoch
@@ -4238,14 +4243,14 @@ impl PyAttitudeTrajectory {
     ///     Quaternion: Attitude quaternion from `frame` to `frame_b` at epoch
     ///
     /// Raises:
-    ///     RuntimeError: If `frame_a` is not a reference-frame `AttitudeFrame`, the frame
+    ///     RuntimeError: If `frame_a` is not a celestial `ReferenceFrame`, the frame
     ///         transformation fails, or the attitude at epoch cannot be computed
     fn quaternion_from_frame(
         &self,
         epoch: PyEpoch,
         frame: &PyReferenceFrame,
     ) -> PyResult<PyQuaternion> {
-        Ok(PyQuaternion { obj: self.trajectory.quaternion_from_frame(epoch.obj, frame.frame)? })
+        Ok(PyQuaternion { obj: self.trajectory.quaternion_from_frame(epoch.obj, frame.frame.clone())? })
     }
 
     /// bool: True if the trajectory is non-empty and its states carry angular velocity
@@ -4266,16 +4271,16 @@ impl PyAttitudeTrajectory {
         self.trajectory.end_epoch().map(|obj| PyEpoch { obj })
     }
 
-    /// AttitudeFrame: Frame endpoint A
+    /// ReferenceFrame: Frame endpoint A
     #[getter]
-    fn frame_a(&self) -> PyAttitudeFrame {
-        PyAttitudeFrame { frame: self.trajectory.frame_a.clone() }
+    fn frame_a(&self) -> PyReferenceFrame {
+        PyReferenceFrame { frame: self.trajectory.frame_a.clone() }
     }
 
-    /// AttitudeFrame: Frame endpoint B (stored quaternions rotate from frame_a to frame_b)
+    /// ReferenceFrame: Frame endpoint B (stored quaternions rotate from frame_a to frame_b)
     #[getter]
-    fn frame_b(&self) -> PyAttitudeFrame {
-        PyAttitudeFrame { frame: self.trajectory.frame_b.clone() }
+    fn frame_b(&self) -> PyReferenceFrame {
+        PyReferenceFrame { frame: self.trajectory.frame_b.clone() }
     }
 
     /// str | None: Trajectory name

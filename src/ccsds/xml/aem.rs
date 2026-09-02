@@ -643,7 +643,6 @@ pub fn parse_aem_xml(content: &str) -> Result<AEM, BraheError> {
     Ok(AEM { header, segments })
 }
 
-
 // ============================================================================
 // AEM XML Writer
 // ============================================================================
@@ -1189,7 +1188,7 @@ mod tests {
         let mut aem = AEM::new("BRAHE");
         aem.push_segment(segment);
 
-        let xml = super::super::writer::write_aem_xml(&aem).unwrap();
+        let xml = write_aem_xml(&aem).unwrap();
         assert!(xml.contains("<ANGVEL_FRAME>EME2000</ANGVEL_FRAME>"));
         let xml_literal = xml.replace(
             "<ANGVEL_FRAME>EME2000</ANGVEL_FRAME>",

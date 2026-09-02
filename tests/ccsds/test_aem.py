@@ -344,8 +344,8 @@ def test_aem_g4_segment_to_attitude_trajectory(eop):
     traj = aem.segment_to_attitude_trajectory(1)
 
     assert len(traj) == 4
-    assert traj.frame_a == bh.AttitudeFrame.reference_frame(bh.ReferenceFrame.EME2000)
-    assert traj.frame_b == bh.AttitudeFrame.spacecraft_body_frame("SC_BODY", "1")
+    assert traj.frame_a == bh.ReferenceFrame.celestial(bh.CelestialFrame.EME2000)
+    assert traj.frame_b == bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1"))
     assert traj.interpolation_method == "SLERP"
     assert not traj.has_rates
     assert traj.name == "mars global surveyor"
@@ -499,8 +499,8 @@ def test_aem_angvel_frame_neither_a_nor_b_errors_via_validate():
 
 def test_aem_from_attitude_trajectory_without_rates():
     """Mirror of test_aem_from_attitude_trajectory_without_rates in Rust."""
-    frame_a = bh.AttitudeFrame.reference_frame(bh.ReferenceFrame.EME2000)
-    frame_b = bh.AttitudeFrame.spacecraft_body_frame("SC_BODY")
+    frame_a = bh.ReferenceFrame.celestial(bh.CelestialFrame.EME2000)
+    frame_b = bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY(None))
     traj = AttitudeTrajectory(frame_a, frame_b)
     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
@@ -515,8 +515,8 @@ def test_aem_from_attitude_trajectory_without_rates():
 
 
 def test_aem_from_attitude_trajectory_with_rates():
-    frame_a = bh.AttitudeFrame.reference_frame(bh.ReferenceFrame.EME2000)
-    frame_b = bh.AttitudeFrame.spacecraft_body_frame("SC_BODY")
+    frame_a = bh.ReferenceFrame.celestial(bh.CelestialFrame.EME2000)
+    frame_b = bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY(None))
     traj = AttitudeTrajectory(frame_a, frame_b)
     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     omega = np.array([0.001, 0.0, 0.0])
@@ -531,8 +531,8 @@ def test_aem_from_attitude_trajectory_with_rates():
 
 def test_aem_from_attitude_trajectory_empty_errors():
     """Mirror of test_aem_from_attitude_trajectory_empty_errors in Rust."""
-    frame_a = bh.AttitudeFrame.reference_frame(bh.ReferenceFrame.EME2000)
-    frame_b = bh.AttitudeFrame.spacecraft_body_frame("SC_BODY")
+    frame_a = bh.ReferenceFrame.celestial(bh.CelestialFrame.EME2000)
+    frame_b = bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY(None))
     traj = AttitudeTrajectory(frame_a, frame_b)
     with pytest.raises(Exception, match="empty"):
         AEM.from_attitude_trajectory(traj, "SAT1", "2024-001A", "BRAHE", "UTC")
@@ -683,8 +683,8 @@ def test_aem_all_types_three_way_round_trip(fmt):
 
 def test_aem_try_from_single_segment_helper_three_way():
     """AEM -> AttitudeTrajectory -> AEM three-way round trip through the interop helpers."""
-    frame_a = bh.AttitudeFrame.reference_frame(bh.ReferenceFrame.EME2000)
-    frame_b = bh.AttitudeFrame.spacecraft_body_frame("SC_BODY", "1")
+    frame_a = bh.ReferenceFrame.celestial(bh.CelestialFrame.EME2000)
+    frame_b = bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1"))
     traj1 = AttitudeTrajectory(frame_a, frame_b)
     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     traj1.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))

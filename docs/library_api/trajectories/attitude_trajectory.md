@@ -1,8 +1,8 @@
 # AttitudeTrajectory
 
-`AttitudeTrajectory` is a chronologically sorted collection of `AttitudeState` samples (a unit quaternion plus an optional body angular velocity) relating two `AttitudeFrame` endpoints, with slerp, linear, and Lagrange interpolation.
+`AttitudeTrajectory` is a chronologically sorted collection of `AttitudeState` samples (a unit quaternion plus an optional body angular velocity) relating two `ReferenceFrame` endpoints, with slerp, linear, and Lagrange interpolation.
 
-AttitudeTrajectory has the same API as [Trajectory](trajectory.md), plus quaternion-aware interpolation and the `AttitudeProvider` accessors (`quaternion`, `angular_velocity`, `euler_angle`, `euler_axis`, `rotation_matrix`) documented below.
+AttitudeTrajectory has the same API as [Trajectory](trajectory.md), plus quaternion-aware interpolation and the `OrientationProvider` accessors (`quaternion`, `angular_velocity`, `euler_angle`, `euler_axis`, `rotation_matrix`) documented below.
 
 ::: brahe.AttitudeTrajectory
     options:

@@ -3,7 +3,7 @@
  *
  * This module provides [`AttitudeState`] (a quaternion plus optional body
  * rate) and [`AttitudeTrajectory`] (a chronologically sorted collection of
- * `AttitudeState` samples relating two [`AttitudeFrame`] endpoints).
+ * `AttitudeState` samples relating two [`ReferenceFrame`] endpoints).
  *
  * `AttitudeTrajectory` implements [`Trajectory`] but not
  * `InterpolatableTrajectory`: that trait's default interpolation methods
@@ -19,7 +19,8 @@ use std::collections::HashMap;
 use nalgebra::{Vector3, Vector4};
 use serde_json::Value;
 
-use crate::attitude::{AttitudeFrame, Quaternion};
+use crate::attitude::Quaternion;
+use crate::frames::{OrientationProvider, ReferenceFrame};
 use crate::math::interpolate_lagrange_svector;
 use crate::time::Epoch;
 use crate::utils::BraheError;
@@ -124,7 +125,7 @@ impl AttitudeInterpolationMethod {
 }
 
 /// A chronologically sorted collection of [`AttitudeState`] samples relating
-/// two [`AttitudeFrame`] endpoints.
+/// two [`ReferenceFrame`] endpoints.
 ///
 /// Every stored quaternion represents the attitude of `frame_b` relative to
 /// `frame_a`. All states in a trajectory must uniformly carry angular
@@ -138,14 +139,15 @@ impl AttitudeInterpolationMethod {
 ///
 /// # Examples
 /// ```rust
-/// use brahe::attitude::{AttitudeFrame, Quaternion, SpacecraftBodyFrame};
+/// use brahe::attitude::Quaternion;
+/// use brahe::frames::{BodyFrame, ReferenceFrame};
 /// use brahe::time::{Epoch, TimeSystem};
 /// use brahe::traits::Trajectory;
 /// use brahe::trajectories::{AttitudeState, AttitudeTrajectory};
 ///
 /// let mut traj = AttitudeTrajectory::new(
-///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
-///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
+///     ReferenceFrame::from(BodyFrame::SCBody(None)),
+///     ReferenceFrame::from(BodyFrame::SCBody(None)),
 /// );
 ///
 /// let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -162,11 +164,11 @@ pub struct AttitudeTrajectory {
 
     /// Frame endpoint A. Stored quaternions represent the attitude of
     /// `frame_b` relative to `frame_a`.
-    pub frame_a: AttitudeFrame,
+    pub frame_a: ReferenceFrame,
 
     /// Frame endpoint B. Stored quaternions represent the attitude of
     /// `frame_b` relative to `frame_a`.
-    pub frame_b: AttitudeFrame,
+    pub frame_b: ReferenceFrame,
 
     /// Interpolation method for state retrieval at arbitrary epochs.
     /// Default is spherical linear interpolation (slerp).
@@ -207,17 +209,17 @@ impl AttitudeTrajectory {
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::attitude::{AttitudeFrame, SpacecraftBodyFrame};
+    /// use brahe::frames::{BodyFrame, ReferenceFrame};
     /// use brahe::traits::Trajectory;
     /// use brahe::trajectories::AttitudeTrajectory;
     ///
     /// let traj = AttitudeTrajectory::new(
-    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
-    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
+    ///     ReferenceFrame::from(BodyFrame::SCBody(None)),
+    ///     ReferenceFrame::from(BodyFrame::SCBody(None)),
     /// );
     /// assert_eq!(traj.len(), 0);
     /// ```
-    pub fn new(frame_a: AttitudeFrame, frame_b: AttitudeFrame) -> Self {
+    pub fn new(frame_a: ReferenceFrame, frame_b: ReferenceFrame) -> Self {
         Self {
             epochs: Vec::new(),
             states: Vec::new(),
@@ -253,7 +255,8 @@ impl AttitudeTrajectory {
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::attitude::{AttitudeFrame, Quaternion, SpacecraftBodyFrame};
+    /// use brahe::attitude::Quaternion;
+    /// use brahe::frames::{BodyFrame, ReferenceFrame};
     /// use brahe::time::{Epoch, TimeSystem};
     /// use brahe::trajectories::{AttitudeState, AttitudeTrajectory};
     ///
@@ -269,15 +272,15 @@ impl AttitudeTrajectory {
     /// let traj = AttitudeTrajectory::from_data(
     ///     epochs,
     ///     states,
-    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
-    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
+    ///     ReferenceFrame::from(BodyFrame::SCBody(None)),
+    ///     ReferenceFrame::from(BodyFrame::SCBody(None)),
     /// ).unwrap();
     /// ```
     pub fn from_data(
         epochs: Vec<Epoch>,
         states: Vec<AttitudeState>,
-        frame_a: AttitudeFrame,
-        frame_b: AttitudeFrame,
+        frame_a: ReferenceFrame,
+        frame_b: ReferenceFrame,
     ) -> Result<Self, BraheError> {
         if epochs.len() != states.len() {
             return Err(BraheError::Error(
@@ -336,12 +339,12 @@ impl AttitudeTrajectory {
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::attitude::{AttitudeFrame, SpacecraftBodyFrame};
+    /// use brahe::frames::{BodyFrame, ReferenceFrame};
     /// use brahe::trajectories::{AttitudeInterpolationMethod, AttitudeTrajectory};
     ///
     /// let traj = AttitudeTrajectory::new(
-    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
-    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
+    ///     ReferenceFrame::from(BodyFrame::SCBody(None)),
+    ///     ReferenceFrame::from(BodyFrame::SCBody(None)),
     /// )
     /// .with_interpolation_method(AttitudeInterpolationMethod::Linear);
     /// ```
@@ -368,14 +371,15 @@ impl AttitudeTrajectory {
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::attitude::{AttitudeFrame, Quaternion, SpacecraftBodyFrame};
+    /// use brahe::attitude::Quaternion;
+    /// use brahe::frames::{BodyFrame, ReferenceFrame};
     /// use brahe::time::{Epoch, TimeSystem};
     /// use brahe::traits::Trajectory;
     /// use brahe::trajectories::{AttitudeState, AttitudeTrajectory};
     ///
     /// let mut traj = AttitudeTrajectory::new(
-    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
-    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
+    ///     ReferenceFrame::from(BodyFrame::SCBody(None)),
+    ///     ReferenceFrame::from(BodyFrame::SCBody(None)),
     /// );
     /// assert!(!traj.has_rates());
     ///
@@ -448,14 +452,15 @@ impl AttitudeTrajectory {
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::attitude::{AttitudeFrame, Quaternion, SpacecraftBodyFrame};
+    /// use brahe::attitude::Quaternion;
+    /// use brahe::frames::{BodyFrame, ReferenceFrame};
     /// use brahe::time::{Epoch, TimeSystem};
     /// use brahe::traits::Trajectory;
     /// use brahe::trajectories::{AttitudeState, AttitudeTrajectory};
     ///
     /// let mut traj = AttitudeTrajectory::new(
-    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
-    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
+    ///     ReferenceFrame::from(BodyFrame::SCBody(None)),
+    ///     ReferenceFrame::from(BodyFrame::SCBody(None)),
     /// );
     /// let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
     /// traj.add(t0, AttitudeState::new(Quaternion::new(1.0, 0.0, 0.0, 0.0))).unwrap();
@@ -960,18 +965,147 @@ impl Trajectory for AttitudeTrajectory {
     }
 }
 
+impl AttitudeTrajectory {
+    /// Interpolated attitude quaternions at each epoch in `epochs`.
+    ///
+    /// # Arguments
+    ///
+    /// * `epochs` - Epochs to evaluate the attitude at
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Vec<Quaternion>, BraheError>` - The interpolated quaternion
+    ///   at each epoch, or an error if any epoch lies outside the trajectory
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::attitude::Quaternion;
+    /// use brahe::frames::{BodyFrame, ReferenceFrame};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use brahe::trajectories::{AttitudeState, AttitudeTrajectory};
+    /// use brahe::traits::Trajectory;
+    ///
+    /// let mut traj = AttitudeTrajectory::new(
+    ///     ReferenceFrame::from(BodyFrame::SCBody(None)),
+    ///     ReferenceFrame::from(BodyFrame::SCBody(None)),
+    /// );
+    /// let epc = Epoch::from_date(2024, 1, 1, TimeSystem::UTC);
+    /// traj.add(epc, AttitudeState::new(Quaternion::new(1.0, 0.0, 0.0, 0.0))).unwrap();
+    ///
+    /// let quaternions = traj.quaternions(&[epc]).unwrap();
+    /// assert_eq!(quaternions.len(), 1);
+    /// ```
+    pub fn quaternions(&self, epochs: &[Epoch]) -> Result<Vec<Quaternion>, BraheError> {
+        epochs
+            .iter()
+            .map(|&epoch| OrientationProvider::quaternion(self, epoch))
+            .collect()
+    }
+
+    /// Interpolated body angular velocities at each epoch in `epochs`.
+    ///
+    /// Rate data is uniform across a trajectory (see
+    /// [`AttitudeTrajectory::has_rates`]), so this returns `Ok(None)` for a
+    /// trajectory that carries no rates rather than a per-epoch mixture.
+    ///
+    /// # Arguments
+    ///
+    /// * `epochs` - Epochs to evaluate the angular velocity at
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Option<Vec<Vector3<f64>>>, BraheError>` - The interpolated
+    ///   angular velocity (rad/s) at each epoch, `None` if the trajectory
+    ///   carries no rate data, or an error if any epoch lies outside the
+    ///   trajectory
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::attitude::Quaternion;
+    /// use brahe::frames::{BodyFrame, ReferenceFrame};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use brahe::trajectories::{AttitudeState, AttitudeTrajectory};
+    /// use brahe::traits::Trajectory;
+    ///
+    /// let mut traj = AttitudeTrajectory::new(
+    ///     ReferenceFrame::from(BodyFrame::SCBody(None)),
+    ///     ReferenceFrame::from(BodyFrame::SCBody(None)),
+    /// );
+    /// let epc = Epoch::from_date(2024, 1, 1, TimeSystem::UTC);
+    /// traj.add(epc, AttitudeState::new(Quaternion::new(1.0, 0.0, 0.0, 0.0))).unwrap();
+    ///
+    /// assert!(traj.angular_velocities(&[epc]).unwrap().is_none());
+    /// ```
+    pub fn angular_velocities(
+        &self,
+        epochs: &[Epoch],
+    ) -> Result<Option<Vec<Vector3<f64>>>, BraheError> {
+        if !self.has_rates() {
+            return Ok(None);
+        }
+        let mut rates = Vec::with_capacity(epochs.len());
+        for &epoch in epochs {
+            match OrientationProvider::angular_velocity(self, epoch)? {
+                Some(omega) => rates.push(omega),
+                None => return Ok(None),
+            }
+        }
+        Ok(Some(rates))
+    }
+}
+
+impl OrientationProvider for AttitudeTrajectory {
+    /// Interpolated attitude quaternion at `epoch`; see
+    /// [`AttitudeTrajectory::interpolate`] for the interpolation-method
+    /// semantics.
+    fn quaternion(&self, epoch: Epoch) -> Result<Quaternion, BraheError> {
+        Ok(self.interpolate(&epoch)?.quaternion)
+    }
+
+    /// Interpolated body angular velocity at `epoch`, or `Ok(None)` when
+    /// [`AttitudeTrajectory::has_rates`] is `false`.
+    ///
+    /// brahe never silently finite-differences a quaternion history to
+    /// approximate a rate. A trajectory without rate data reports `None`
+    /// here; callers that want a derived rate opt in explicitly through
+    /// [`OrientationProvider::with_numerical_rates`].
+    fn angular_velocity(&self, epoch: Epoch) -> Result<Option<Vector3<f64>>, BraheError> {
+        if !self.has_rates() {
+            return Ok(None);
+        }
+        match self.interpolate(&epoch)?.angular_velocity {
+            Some(omega) => Ok(Some(omega)),
+            None => Err(BraheError::Error(
+                "AttitudeTrajectory::has_rates() reported true but the interpolated state has \
+                 no angular_velocity; this indicates a rate-uniformity invariant violation"
+                    .to_string(),
+            )),
+        }
+    }
+
+    /// Coverage bounds of the trajectory, or `None` when it holds no states.
+    fn coverage(&self) -> Option<(Epoch, Epoch)> {
+        match (self.start_epoch(), self.end_epoch()) {
+            (Some(start), Some(end)) => Some((start, end)),
+            _ => None,
+        }
+    }
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
-    use crate::attitude::SpacecraftBodyFrame;
+    use crate::frames::BodyFrame;
     use crate::time::TimeSystem;
     use approx::assert_abs_diff_eq;
 
-    fn body_frames() -> (AttitudeFrame, AttitudeFrame) {
+    fn body_frames() -> (ReferenceFrame, ReferenceFrame) {
         (
-            AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
-            AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
+            ReferenceFrame::from(BodyFrame::SCBody(None)),
+            ReferenceFrame::from(BodyFrame::SCBody(None)),
         )
     }
 

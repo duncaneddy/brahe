@@ -463,7 +463,6 @@ pub fn parse_aem(content: &str) -> Result<AEM, BraheError> {
     Ok(AEM { header, segments })
 }
 
-
 /// Write an AEM message to KVN format.
 ///
 /// Requires at least one segment, each with at least one attitude state,
@@ -717,7 +716,6 @@ pub fn write_aem(aem: &AEM) -> Result<String, BraheError> {
 
     Ok(out)
 }
-
 
 #[cfg(test)]
 mod tests {

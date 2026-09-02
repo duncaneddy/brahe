@@ -26,9 +26,7 @@ use crate::utils::errors::BraheError;
 
 /// Ordered data-line column keywords for a given AEM `ATTITUDE_TYPE`
 /// (504.0-B-2 table 4-4), excluding `EPOCH` which is handled separately.
-fn aem_data_column_keys(
-    attitude_type: AEMAttitudeType,
-) -> &'static [&'static str] {
+fn aem_data_column_keys(attitude_type: AEMAttitudeType) -> &'static [&'static str] {
     use AEMAttitudeType::*;
     match attitude_type {
         Quaternion => &["Q1", "Q2", "Q3", "QC"],
@@ -94,7 +92,6 @@ fn aem_json_state_columns(
 /// and DATA_START/DATA_STOP delimiters for each segment, then delegates to
 /// the KVN parser.
 pub fn parse_aem_json(content: &str) -> Result<AEM, BraheError> {
-
     let v: Value = serde_json::from_str(content)
         .map_err(|e| ccsds_parse_error("AEM", &format!("JSON parse error: {}", e)))?;
 
@@ -193,10 +190,7 @@ pub fn parse_aem_json(content: &str) -> Result<AEM, BraheError> {
 /// Requires at least one segment, each with at least one attitude state,
 /// and metadata that passes [`crate::ccsds::aem::AEMMetadata::validate`];
 /// see [`crate::ccsds::aem::AEM::validate_for_write`].
-pub fn write_aem_json(
-    aem: &AEM,
-    key_case: CCSDSJsonKeyCase,
-) -> Result<String, BraheError> {
+pub fn write_aem_json(aem: &AEM, key_case: CCSDSJsonKeyCase) -> Result<String, BraheError> {
     aem.validate_for_write()?;
 
     let mut root = Map::new();
@@ -477,4 +471,3 @@ pub fn write_aem_json(
     serde_json::to_string_pretty(&Value::Object(root))
         .map_err(|e| BraheError::Error(format!("AEM JSON serialization error: {}", e)))
 }
-

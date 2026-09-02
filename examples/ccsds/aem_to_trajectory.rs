@@ -3,7 +3,8 @@
 #[allow(unused_imports)]
 use brahe as bh;
 use brahe::ccsds::AEM;
-use brahe::traits::{AttitudeProvider, Trajectory};
+use brahe::frames::OrientationProvider;
+use brahe::traits::Trajectory;
 
 fn main() {
     bh::initialize_eop().unwrap();

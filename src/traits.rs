@@ -24,7 +24,6 @@
  * - `DOrbitStateProvider` - Trait for dynamic-sized state with orbital capabilities (extends `DStateProvider`)
  * - `SIdentifiableStateProvider` - Combined trait for static-sized state providers with identity tracking
  * - `DIdentifiableStateProvider` - Combined trait for dynamic-sized state providers with identity tracking
- * - `AttitudeProvider` - Trait for attitude access at arbitrary epochs (quaternion, Euler angles, angular velocity)
  *
  * ## Covariance Providers
  * - `SCovarianceProvider` - Base trait for static-sized covariance access (frame-agnostic)
@@ -63,9 +62,9 @@ pub use crate::propagators::traits::{
 
 // State and covariance provider traits
 pub use crate::utils::state_providers::{
-    AttitudeProvider, DCovarianceProvider, DIdentifiableStateProvider, DOrbitCovarianceProvider,
-    DOrbitStateProvider, DStateProvider, SCovarianceProvider, SIdentifiableStateProvider,
-    SOrbitCovarianceProvider, SOrbitStateProvider, SStateProvider,
+    DCovarianceProvider, DIdentifiableStateProvider, DOrbitCovarianceProvider, DOrbitStateProvider,
+    DStateProvider, SCovarianceProvider, SIdentifiableStateProvider, SOrbitCovarianceProvider,
+    SOrbitStateProvider, SStateProvider,
 };
 
 // Interpolation configuration traits (from math module)

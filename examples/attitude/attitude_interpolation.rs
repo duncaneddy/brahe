@@ -2,10 +2,10 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use brahe::attitude::{AttitudeFrame, Quaternion, SpacecraftBodyFrame, ToAttitude};
-use brahe::frames::ReferenceFrame;
+use brahe::attitude::{Quaternion, ToAttitude};
+use brahe::frames::{BodyFrame, CelestialFrame, OrientationProvider, ReferenceFrame};
 use brahe::time::{Epoch, TimeSystem};
-use brahe::traits::{AttitudeProvider, Trajectory};
+use brahe::traits::Trajectory;
 use brahe::trajectories::{AttitudeInterpolationMethod, AttitudeState, AttitudeTrajectory};
 
 fn main() {
@@ -14,8 +14,8 @@ fn main() {
     // Two attitude samples 60 seconds apart: a constant-rate rotation of
     // 2 deg/s about the spacecraft Z axis, from 0 to 120 degrees.
     let mut traj = AttitudeTrajectory::new(
-        AttitudeFrame::ReferenceFrame(ReferenceFrame::GCRF),
-        AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
+        ReferenceFrame::from(CelestialFrame::GCRF),
+        ReferenceFrame::from(BodyFrame::SCBody(None)),
     );
 
     let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);

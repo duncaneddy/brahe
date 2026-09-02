@@ -21,14 +21,11 @@
  * - Better code reusability across different trajectory types
  */
 
-use nalgebra::{DMatrix, DVector, SMatrix, Vector3, Vector6};
+use nalgebra::{DMatrix, DVector, SMatrix, Vector6};
 
-use crate::attitude::{
-    AttitudeFrame, EulerAngle, EulerAngleOrder, EulerAxis, FromAttitude, Quaternion,
-    RotationMatrix, ToAttitude,
-};
+use crate::attitude::{FromAttitude, Quaternion, RotationMatrix};
 use crate::constants::AngleFormat;
-use crate::frames::{CelestialFrame, ReferenceFrame, rotation_frame_to_frame};
+use crate::frames::{CelestialFrame, OrientationProvider, ReferenceFrame, rotation_frame_to_frame};
 use crate::orbits::{MeanElementMethod, state_koe_osc_to_mean};
 use crate::time::Epoch;
 use crate::trajectories::AttitudeTrajectory;
@@ -926,155 +923,14 @@ pub trait DOrbitCovarianceProvider: DCovarianceProvider {
     fn covariance_rtn(&self, epoch: Epoch) -> Result<DMatrix<f64>, BraheError>;
 }
 
-// ============================================================================
-// Attitude Provider Trait
-// ============================================================================
-
-/// Trait for types that can provide attitude representations at arbitrary
-/// epochs.
-///
-/// Mirrors the [`SStateProvider`]/[`SOrbitStateProvider`] shape used for
-/// orbital state, but for attitude: implementors provide only
-/// [`Self::quaternion`] and [`Self::angular_velocity`], and every other
-/// representation (Euler angles, Euler axis, rotation matrix) and the
-/// plural batch accessors have default implementations built on top of
-/// those two via [`ToAttitude`]/[`EulerAngle::from_quaternion`].
-pub trait AttitudeProvider {
-    /// Returns the attitude quaternion at the given epoch.
-    ///
-    /// # Arguments
-    /// * `epoch` - The epoch at which to compute the attitude
-    ///
-    /// # Returns
-    /// * `Ok(Quaternion)` - Unit quaternion attitude at `epoch`
-    /// * `Err(BraheError)` - If the attitude cannot be computed (e.g. epoch out of bounds)
-    fn quaternion(&self, epoch: Epoch) -> Result<Quaternion, BraheError>;
-
-    /// Returns the body angular velocity at the given epoch.
-    ///
-    /// # Arguments
-    /// * `epoch` - The epoch at which to compute the angular velocity
-    ///
-    /// # Returns
-    /// * `Ok(Vector3<f64>)` - Angular velocity (rad/s) at `epoch`
-    /// * `Err(BraheError)` - If the provider does not carry angular velocity data, or the epoch is out of bounds
-    fn angular_velocity(&self, epoch: Epoch) -> Result<Vector3<f64>, BraheError>;
-
-    /// Returns the attitude at the given epoch as Euler angles in the requested sequence.
-    ///
-    /// Default implementation: converts [`Self::quaternion`] via
-    /// [`EulerAngle::from_quaternion`].
-    ///
-    /// # Arguments
-    /// * `epoch` - The epoch at which to compute the attitude
-    /// * `order` - Euler angle rotation sequence
-    ///
-    /// # Returns
-    /// * `Ok(EulerAngle)` - Euler angles (radians) at `epoch` in the requested sequence
-    /// * `Err(BraheError)` - If the attitude cannot be computed
-    fn euler_angle(&self, epoch: Epoch, order: EulerAngleOrder) -> Result<EulerAngle, BraheError> {
-        Ok(EulerAngle::from_quaternion(self.quaternion(epoch)?, order))
-    }
-
-    /// Returns the attitude at the given epoch as an Euler axis (axis-angle).
-    ///
-    /// Default implementation: converts [`Self::quaternion`] via
-    /// [`ToAttitude::to_euler_axis`].
-    ///
-    /// # Arguments
-    /// * `epoch` - The epoch at which to compute the attitude
-    ///
-    /// # Returns
-    /// * `Ok(EulerAxis)` - Unit rotation axis and angle (radians) at `epoch`
-    /// * `Err(BraheError)` - If the attitude cannot be computed
-    fn euler_axis(&self, epoch: Epoch) -> Result<EulerAxis, BraheError> {
-        Ok(self.quaternion(epoch)?.to_euler_axis())
-    }
-
-    /// Returns the attitude at the given epoch as a rotation matrix (DCM).
-    ///
-    /// Default implementation: converts [`Self::quaternion`] via
-    /// [`ToAttitude::to_rotation_matrix`].
-    ///
-    /// # Arguments
-    /// * `epoch` - The epoch at which to compute the attitude
-    ///
-    /// # Returns
-    /// * `Ok(RotationMatrix)` - 3x3 direction cosine matrix at `epoch`
-    /// * `Err(BraheError)` - If the attitude cannot be computed
-    fn rotation_matrix(&self, epoch: Epoch) -> Result<RotationMatrix, BraheError> {
-        Ok(self.quaternion(epoch)?.to_rotation_matrix())
-    }
-
-    /// Returns attitude quaternions at multiple epochs.
-    ///
-    /// # Arguments
-    /// * `epochs` - Slice of epochs at which to compute attitudes
-    ///
-    /// # Returns
-    /// * `Ok(Vec<Quaternion>)` - Quaternions at each epoch
-    /// * `Err(BraheError)` - If any attitude cannot be computed
-    fn quaternions(&self, epochs: &[Epoch]) -> Result<Vec<Quaternion>, BraheError> {
-        epochs.iter().map(|&epoch| self.quaternion(epoch)).collect()
-    }
-
-    /// Returns body angular velocities at multiple epochs.
-    ///
-    /// # Arguments
-    /// * `epochs` - Slice of epochs at which to compute angular velocities
-    ///
-    /// # Returns
-    /// * `Ok(Vec<Vector3<f64>>)` - Angular velocities (rad/s) at each epoch
-    /// * `Err(BraheError)` - If any angular velocity cannot be computed
-    fn angular_velocities(&self, epochs: &[Epoch]) -> Result<Vec<Vector3<f64>>, BraheError> {
-        epochs
-            .iter()
-            .map(|&epoch| self.angular_velocity(epoch))
-            .collect()
-    }
-}
-
-impl AttitudeProvider for AttitudeTrajectory {
-    /// Returns the interpolated attitude quaternion at `epoch`; see
-    /// [`AttitudeTrajectory::interpolate`] for the interpolation method
-    /// semantics.
-    fn quaternion(&self, epoch: Epoch) -> Result<Quaternion, BraheError> {
-        Ok(self.interpolate(&epoch)?.quaternion)
-    }
-
-    /// Returns the interpolated body angular velocity at `epoch`.
-    ///
-    /// # Returns
-    /// * `Err(BraheError)` - If [`AttitudeTrajectory::has_rates`] is `false`.
-    ///   brahe never silently finite-differences a quaternion history to
-    ///   approximate a rate; a trajectory without rate data must error here
-    ///   rather than fabricate one.
-    fn angular_velocity(&self, epoch: Epoch) -> Result<Vector3<f64>, BraheError> {
-        if !self.has_rates() {
-            return Err(BraheError::Error(format!(
-                "Cannot provide angular_velocity at epoch {}: this AttitudeTrajectory's states \
-                 do not carry angular velocity data",
-                epoch
-            )));
-        }
-        self.interpolate(&epoch)?.angular_velocity.ok_or_else(|| {
-            BraheError::Error(
-                "AttitudeTrajectory::has_rates() reported true but the interpolated state has \
-                 no angular_velocity; this indicates a rate-uniformity invariant violation"
-                    .to_string(),
-            )
-        })
-    }
-}
-
 impl AttitudeTrajectory {
     /// Re-expresses this trajectory's attitude relative to an arbitrary
     /// reference frame `from`, given that `frame_a` is itself a
-    /// [`AttitudeFrame::ReferenceFrame`] frame.
+    /// [`ReferenceFrame::Celestial`] frame.
     ///
     /// # Derivation
     ///
-    /// This method requires `frame_a` to be `AttitudeFrame::ReferenceFrame(a)`.
+    /// This method requires `frame_a` to be `ReferenceFrame::Celestial(a)`.
     /// The stored quaternion `self.quaternion(epoch)` then represents the
     /// rotation `q_a_to_b` from `a` to `frame_b`. Given a brahe frame-router
     /// rotation from `from` to `a`, converted to a quaternion `q_from_to_a`,
@@ -1091,13 +947,14 @@ impl AttitudeTrajectory {
     ///
     /// # Returns
     /// * `Ok(Quaternion)` - Attitude quaternion from `from` to `frame_b` at `epoch`
-    /// * `Err(BraheError)` - If `frame_a` is not `AttitudeFrame::ReferenceFrame`, the frame
+    /// * `Err(BraheError)` - If `frame_a` is not `ReferenceFrame::Celestial`, the frame
     ///   transformation from `from` to `frame_a`'s reference frame fails, or the
     ///   attitude at `epoch` cannot be computed
     ///
     /// # Examples
     /// ```
-    /// use brahe::attitude::{AttitudeFrame, Quaternion, SpacecraftBodyFrame};
+    /// use brahe::attitude::Quaternion;
+    /// use brahe::frames::{BodyFrame, CelestialFrame, ReferenceFrame};
     /// use brahe::frames::ReferenceFrame;
     /// use brahe::time::{Epoch, TimeSystem};
     /// use brahe::traits::Trajectory;
@@ -1105,32 +962,32 @@ impl AttitudeTrajectory {
     ///
     /// // GCRF <-> EME2000 is a fixed frame-bias rotation and needs no EOP data.
     /// let mut traj = AttitudeTrajectory::new(
-    ///     AttitudeFrame::ReferenceFrame(ReferenceFrame::GCRF),
-    ///     AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
+    ///     ReferenceFrame::from(CelestialFrame::GCRF),
+    ///     ReferenceFrame::from(BodyFrame::SCBody(None)),
     /// );
     /// let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
     /// traj.add(epoch, AttitudeState::new(Quaternion::new(1.0, 0.0, 0.0, 0.0))).unwrap();
     ///
-    /// let q = traj.quaternion_from_frame(epoch, ReferenceFrame::EME2000).unwrap();
+    /// let q = traj.quaternion_from_frame(epoch, CelestialFrame::EME2000).unwrap();
     /// ```
     pub fn quaternion_from_frame(
         &self,
         epoch: Epoch,
-        from: ReferenceFrame,
+        from: impl Into<ReferenceFrame>,
     ) -> Result<Quaternion, BraheError> {
         let a = match &self.frame_a {
-            AttitudeFrame::ReferenceFrame(reference) => *reference,
-            AttitudeFrame::OrbitRelative(_) => {
+            ReferenceFrame::Celestial(celestial) => *celestial,
+            ReferenceFrame::OrbitRelative { .. } => {
                 return Err(BraheError::Error(
-                    "quaternion_from_frame requires frame_a to be AttitudeFrame::ReferenceFrame, but \
-                     this trajectory's frame_a is AttitudeFrame::OrbitRelative"
+                    "quaternion_from_frame requires frame_a to be ReferenceFrame::Celestial, but \
+                     this trajectory's frame_a is ReferenceFrame::OrbitRelative"
                         .to_string(),
                 ));
             }
-            AttitudeFrame::SpacecraftBody(_) => {
+            ReferenceFrame::Body { .. } => {
                 return Err(BraheError::Error(
-                    "quaternion_from_frame requires frame_a to be AttitudeFrame::ReferenceFrame, but \
-                     this trajectory's frame_a is AttitudeFrame::SpacecraftBody"
+                    "quaternion_from_frame requires frame_a to be ReferenceFrame::Celestial, but \
+                     this trajectory's frame_a is ReferenceFrame::Body"
                         .to_string(),
                 ));
             }
@@ -1235,11 +1092,13 @@ impl<P: DIdentifiableStateProvider> ToPropagatorRefs<P> for [&P] {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::attitude::{EulerAngle, ToAttitude};
     use crate::constants::DEGREES;
     use crate::propagators::KeplerianPropagator;
     use crate::propagators::traits::SStatePropagator;
     use crate::time::{Epoch, TimeSystem};
     use crate::traits::{OrbitFrame, OrbitRepresentation};
+    use nalgebra::Vector3;
     use nalgebra::Vector6;
     use serial_test::parallel;
 
@@ -1393,17 +1252,18 @@ mod tests {
     }
 
     // =========================================================================
-    // AttitudeProvider tests
+    // OrientationProvider tests
     // =========================================================================
 
-    use crate::attitude::{Quaternion, SpacecraftBodyFrame};
+    use crate::attitude::Quaternion;
+    use crate::frames::BodyFrame;
     use crate::traits::Trajectory;
     use crate::trajectories::AttitudeState;
 
-    fn spacecraft_frames() -> (AttitudeFrame, AttitudeFrame) {
+    fn spacecraft_frames() -> (ReferenceFrame, ReferenceFrame) {
         (
-            AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
-            AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
+            ReferenceFrame::from(BodyFrame::SCBody(None)),
+            ReferenceFrame::from(BodyFrame::SCBody(None)),
         )
     }
 
@@ -1453,14 +1313,14 @@ mod tests {
 
     #[test]
     #[serial_test::parallel]
-    fn test_attitude_provider_angular_velocity_error_without_rates() {
+    fn test_attitude_provider_angular_velocity_none_without_rates() {
         let traj = small_attitude_trajectory();
         let epoch = traj.start_epoch().unwrap();
 
-        let result = traj.angular_velocity(epoch);
-        assert!(result.is_err());
-        let message = format!("{}", result.unwrap_err());
-        assert!(message.contains("angular velocity"));
+        // The merged `OrientationProvider` contract reports a provider that
+        // carries no rate data as `Ok(None)`; `Err` is reserved for real
+        // evaluation failures such as an out-of-coverage epoch.
+        assert_eq!(traj.angular_velocity(epoch).unwrap(), None);
     }
 
     #[test]
@@ -1482,7 +1342,7 @@ mod tests {
         .unwrap();
 
         let result = traj.angular_velocity(t0 + 30.0).unwrap();
-        assert_eq!(result, omega);
+        assert_eq!(result, Some(omega));
     }
 
     #[test]
@@ -1511,10 +1371,10 @@ mod tests {
             assert_eq!(quaternions[i], traj.quaternion(epoch).unwrap());
         }
 
-        let omegas = traj.angular_velocities(&epochs).unwrap();
+        let omegas = traj.angular_velocities(&epochs).unwrap().unwrap();
         assert_eq!(omegas.len(), epochs.len());
         for (i, &epoch) in epochs.iter().enumerate() {
-            assert_eq!(omegas[i], traj.angular_velocity(epoch).unwrap());
+            assert_eq!(Some(omegas[i]), traj.angular_velocity(epoch).unwrap());
         }
     }
 
@@ -1525,8 +1385,8 @@ mod tests {
         setup_global_test_eop();
 
         let mut traj = AttitudeTrajectory::new(
-            AttitudeFrame::ReferenceFrame(ReferenceFrame::GCRF),
-            AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None)),
+            ReferenceFrame::from(CelestialFrame::GCRF),
+            ReferenceFrame::from(BodyFrame::SCBody(None)),
         );
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         traj.add(t0, AttitudeState::new(z_axis_quaternion(0.3)))
@@ -1536,13 +1396,13 @@ mod tests {
 
         let epoch = t0 + 30.0;
         let q = traj
-            .quaternion_from_frame(epoch, ReferenceFrame::EME2000)
+            .quaternion_from_frame(epoch, CelestialFrame::EME2000)
             .unwrap();
 
         // Manual composition: q_from_to_a * q_a_to_b, with q_from_to_a built
         // from the frame-router rotation EME2000 -> GCRF.
         let r_from_to_a =
-            rotation_frame_to_frame(ReferenceFrame::EME2000, ReferenceFrame::GCRF, epoch).unwrap();
+            rotation_frame_to_frame(CelestialFrame::EME2000, CelestialFrame::GCRF, epoch).unwrap();
         let q_from_to_a =
             Quaternion::from_rotation_matrix(RotationMatrix::from_matrix(r_from_to_a).unwrap());
         let expected = q_from_to_a * traj.quaternion(epoch).unwrap();
@@ -1552,27 +1412,32 @@ mod tests {
 
     #[test]
     #[serial_test::parallel]
-    fn test_quaternion_from_frame_errors_for_spacecraft_frame_a() {
+    fn test_quaternion_from_frame_errors_for_body_frame_a() {
         let (a, b) = spacecraft_frames();
         let mut traj = AttitudeTrajectory::new(a, b);
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         traj.add(t0, AttitudeState::new(z_axis_quaternion(0.0)))
             .unwrap();
 
-        let result = traj.quaternion_from_frame(t0, ReferenceFrame::EME2000);
+        let result = traj.quaternion_from_frame(t0, CelestialFrame::EME2000);
         assert!(result.is_err());
         let message = format!("{}", result.unwrap_err());
-        assert!(message.contains("Spacecraft"));
+        assert!(message.contains("Body"));
     }
 
     #[test]
     #[serial_test::parallel]
     fn test_quaternion_from_frame_errors_for_orbit_relative_frame_a() {
-        use crate::attitude::{OrbitRelativeFrame, OrbitRelativeKind, OrbitRelativeVariant};
+        use crate::frames::{
+            OrbitRelativeFrame, OrbitRelativeFrameKind, OrbitRelativeFrameVariant,
+        };
 
-        let a = AttitudeFrame::OrbitRelative(
-            OrbitRelativeFrame::new(OrbitRelativeKind::RTN, OrbitRelativeVariant::Rotating)
-                .unwrap(),
+        let a = ReferenceFrame::from(
+            OrbitRelativeFrame::new(
+                OrbitRelativeFrameKind::RTN,
+                OrbitRelativeFrameVariant::Rotating,
+            )
+            .unwrap(),
         );
         let (_, b) = spacecraft_frames();
         let mut traj = AttitudeTrajectory::new(a, b);
@@ -1580,7 +1445,7 @@ mod tests {
         traj.add(t0, AttitudeState::new(z_axis_quaternion(0.0)))
             .unwrap();
 
-        let result = traj.quaternion_from_frame(t0, ReferenceFrame::EME2000);
+        let result = traj.quaternion_from_frame(t0, CelestialFrame::EME2000);
         assert!(result.is_err());
         let message = format!("{}", result.unwrap_err());
         assert!(message.contains("OrbitRelative"));

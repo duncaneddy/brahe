@@ -14,8 +14,8 @@ bh.initialize_eop()
 # Two attitude samples 60 seconds apart: a constant-rate rotation of 2 deg/s
 # about the spacecraft Z axis, from 0 to 120 degrees.
 traj = bh.AttitudeTrajectory(
-    bh.AttitudeFrame.reference_frame(bh.ReferenceFrame.GCRF),
-    bh.AttitudeFrame.spacecraft_body_frame("SC_BODY"),
+    bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+    bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY(None)),
 )
 
 t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)

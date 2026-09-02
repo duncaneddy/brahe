@@ -7,9 +7,6 @@
 
 use nalgebra::{DVector, SVector, Vector3};
 
-use crate::attitude::frames::{
-    AttitudeFrame, OrbitRelativeFrame, OrbitRelativeKind, OrbitRelativeVariant, SpacecraftBodyFrame,
-};
 use crate::attitude::{
     FromAttitude, Quaternion, ToAttitude, angular_velocity_from_quaternion_derivative,
     euler_rates_to_angular_velocity,
@@ -345,7 +342,7 @@ fn aem_attitude_data_to_state(
 impl AEM {
     /// Convert a single AEM segment to an `AttitudeTrajectory`.
     ///
-    /// Frame endpoints convert via `AttitudeFrame::try_from(&ADMReferenceFrame)`
+    /// Frame endpoints convert via `ReferenceFrame::try_from(&ADMReferenceFrame)`
     /// (the PR-1 frame bridge). Each attitude representation normalizes to a
     /// canonical quaternion (frame A to frame B) plus optional body-frame
     /// angular velocity: Quaternion* variants convert directly or via PR-2's
@@ -395,8 +392,8 @@ impl AEM {
         // segment built in code rather than parsed from the wire is not
         // otherwise guaranteed to satisfy it.
         metadata.validate()?;
-        let frame_a = AttitudeFrame::try_from(&metadata.ref_frame_a)?;
-        let frame_b = AttitudeFrame::try_from(&metadata.ref_frame_b)?;
+        let frame_a = ReferenceFrame::try_from(&metadata.ref_frame_a)?;
+        let frame_b = ReferenceFrame::try_from(&metadata.ref_frame_b)?;
 
         let interpolation_method = match metadata.interpolation_method {
             None => AttitudeInterpolationMethod::Slerp,
@@ -455,13 +452,19 @@ impl AEM {
         if let Some(useable_start_time) = metadata.useable_start_time {
             traj.metadata.insert(
                 "useable_start_time".to_string(),
-                serde_json::Value::String(format_ccsds_datetime(&useable_start_time)),
+                serde_json::Value::String(format_ccsds_datetime_in(
+                    &useable_start_time,
+                    &metadata.time_system,
+                )),
             );
         }
         if let Some(useable_stop_time) = metadata.useable_stop_time {
             traj.metadata.insert(
                 "useable_stop_time".to_string(),
-                serde_json::Value::String(format_ccsds_datetime(&useable_stop_time)),
+                serde_json::Value::String(format_ccsds_datetime_in(
+                    &useable_stop_time,
+                    &metadata.time_system,
+                )),
             );
         }
 
@@ -482,7 +485,7 @@ impl AEM {
     /// `ANGVEL_FRAME` set to `REF_FRAME_B` (the trajectory's canonical
     /// angular velocity convention already expresses rates in frame B, so no
     /// re-expression is needed on write); otherwise `QUATERNION`. Frame
-    /// endpoints convert via `ADMReferenceFrame::try_from(&AttitudeFrame)`
+    /// endpoints convert via `ADMReferenceFrame::try_from(&ReferenceFrame)`
     /// (the reverse PR-1 frame bridge). `START_TIME`/`STOP_TIME` are the
     /// trajectory's first and last epochs, and the header is built from
     /// `originator` via `AEMHeader::new`. The trajectory's interpolation
@@ -1117,7 +1120,6 @@ mod tests {
     use crate::time::TimeSystem;
     use crate::trajectories::traits::{InterpolatableTrajectory, Trajectory};
     use approx::assert_abs_diff_eq;
-    use serial_test::parallel;
 
     #[test]
     #[parallel]
@@ -1937,13 +1939,10 @@ mod tests {
         let traj = aem.segment_to_attitude_trajectory(1).unwrap();
 
         assert_eq!(traj.len(), 4);
-        assert_eq!(
-            traj.frame_a,
-            AttitudeFrame::ReferenceFrame(ReferenceFrame::EME2000)
-        );
+        assert_eq!(traj.frame_a, ReferenceFrame::from(CelestialFrame::EME2000));
         assert_eq!(
             traj.frame_b,
-            AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(Some("1".to_string())))
+            ReferenceFrame::from(BodyFrame::SCBody(Some("1".to_string())))
         );
         assert_eq!(
             traj.interpolation_method,
@@ -2191,8 +2190,8 @@ mod tests {
     #[test]
     #[parallel]
     fn test_aem_trajectory_round_trip_with_rates() {
-        let frame_a = AttitudeFrame::ReferenceFrame(ReferenceFrame::EME2000);
-        let frame_b = AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None));
+        let frame_a = ReferenceFrame::from(CelestialFrame::EME2000);
+        let frame_b = ReferenceFrame::from(BodyFrame::SCBody(None));
         let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let omega = Vector3::new(0.001, 0.002, -0.003);
 
@@ -2248,8 +2247,8 @@ mod tests {
     #[test]
     #[parallel]
     fn test_aem_trajectory_round_trip_interpolation_method_lagrange() {
-        let frame_a = AttitudeFrame::ReferenceFrame(ReferenceFrame::EME2000);
-        let frame_b = AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None));
+        let frame_a = ReferenceFrame::from(CelestialFrame::EME2000);
+        let frame_b = ReferenceFrame::from(BodyFrame::SCBody(None));
         let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
         let epochs = vec![t0, t0 + 60.0, t0 + 120.0];
@@ -2286,8 +2285,8 @@ mod tests {
     #[test]
     #[parallel]
     fn test_aem_trajectory_round_trip_interpolation_method_linear() {
-        let frame_a = AttitudeFrame::ReferenceFrame(ReferenceFrame::EME2000);
-        let frame_b = AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None));
+        let frame_a = ReferenceFrame::from(CelestialFrame::EME2000);
+        let frame_b = ReferenceFrame::from(BodyFrame::SCBody(None));
         let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
         let epochs = vec![t0, t0 + 60.0];
@@ -2323,8 +2322,8 @@ mod tests {
     #[test]
     #[parallel]
     fn test_aem_from_attitude_trajectory_without_rates() {
-        let frame_a = AttitudeFrame::ReferenceFrame(ReferenceFrame::EME2000);
-        let frame_b = AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None));
+        let frame_a = ReferenceFrame::from(CelestialFrame::EME2000);
+        let frame_b = ReferenceFrame::from(BodyFrame::SCBody(None));
         let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
         let epochs = vec![t0, t0 + 60.0];
@@ -2352,8 +2351,8 @@ mod tests {
     #[test]
     #[parallel]
     fn test_aem_from_attitude_trajectory_unmappable_time_system_errors() {
-        let frame_a = AttitudeFrame::ReferenceFrame(ReferenceFrame::EME2000);
-        let frame_b = AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None));
+        let frame_a = ReferenceFrame::from(CelestialFrame::EME2000);
+        let frame_b = ReferenceFrame::from(BodyFrame::SCBody(None));
         let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
         let epochs = vec![t0, t0 + 60.0];
@@ -2377,8 +2376,8 @@ mod tests {
     #[test]
     #[parallel]
     fn test_aem_from_attitude_trajectory_empty_errors() {
-        let frame_a = AttitudeFrame::ReferenceFrame(ReferenceFrame::EME2000);
-        let frame_b = AttitudeFrame::SpacecraftBody(SpacecraftBodyFrame::SCBody(None));
+        let frame_a = ReferenceFrame::from(CelestialFrame::EME2000);
+        let frame_b = ReferenceFrame::from(BodyFrame::SCBody(None));
         let traj = AttitudeTrajectory::new(frame_a, frame_b);
 
         let result = AEM::from_attitude_trajectory(

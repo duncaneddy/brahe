@@ -344,7 +344,6 @@ pub(super) struct XMLQuaternionDot {
     pub(super) qc_dot: XMLValue,
 }
 
-
 /// Escape the XML markup delimiters in element text content.
 ///
 /// CCSDS 502.0-B-3 subsection 8.2 fixes the XML version declaration at 1.0 and

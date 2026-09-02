@@ -489,6 +489,84 @@ pub fn time_system_offset(
     offset
 }
 
+/// Compute the offset in seconds from a Gregorian date given in `time_system`
+/// to TAI, consistent with the reverse TAI to `time_system` conversion.
+///
+/// [`time_system_offset`] evaluates its models at whichever instant it is
+/// handed. Reading an epoch converts the stored TAI instant into the requested
+/// system and so evaluates them at that TAI instant, while asking for the
+/// offset with the source and destination swapped evaluates them at the
+/// instant expressed in `time_system`. For UT1, TDB, TCB, and TCG those models
+/// vary with time, so the two evaluations disagree and the swapped call is not
+/// the inverse of the read. This function refines the swapped call until it is:
+/// the returned offset `dt` satisfies
+/// `time_system_offset(jd, fd + (seconds + dt) / 86400, TAI, time_system) == -dt`.
+///
+/// The remaining systems are returned unrefined. TAI, GPS, TT, BDT, and GST
+/// sit at a fixed offset from TAI that does not depend on the instant, so the
+/// swapped call already answers exactly. UTC is held back so that its
+/// leap-second lookup stays anchored on `fd`, resolving a `seconds` of 60 on a
+/// leap-second day to the leap second rather than to midnight of the following
+/// day. Refining UTC would additionally require the TAI to UTC direction to
+/// agree with it, which it does not in the pre-1972 rate-offset regime.
+///
+/// # Arguments
+/// - `jd`: Julian date of the start of the requested minute, expressed in `time_system`
+/// - `fd`: Fractional day locating the start of the requested minute within `jd`
+/// - `seconds`: Seconds elapsed since the start of that minute. Units: [s]
+/// - `time_system`: Time system the date is expressed in
+///
+/// # Returns
+/// - `f64`: Offset that must be added to the date to obtain TAI. Units: [s]
+///
+/// # Examples
+/// ```ignore
+/// // 2022-04-01 01:02:33.4 GPS, with the offset evaluated at the instant
+/// // rather than at the start of the minute.
+/// let jd = 2459670.5;
+/// let fd = (1.0 * 3600.0 + 2.0 * 60.0) / SECONDS_PER_DAY;
+/// let offset = tai_offset_for_datetime(jd, fd, 33.4, TimeSystem::GPS);
+/// assert_eq!(offset, 19.0);
+/// ```
+pub(crate) fn tai_offset_for_datetime(
+    jd: f64,
+    fd: f64,
+    seconds: f64,
+    time_system: TimeSystem,
+) -> f64 {
+    let mut offset = time_system_offset(jd, fd, time_system, TimeSystem::TAI);
+
+    match time_system {
+        TimeSystem::UT1 | TimeSystem::TDB | TimeSystem::TCB | TimeSystem::TCG => {
+            // Every model involved varies by less than 3e-8 seconds per second,
+            // so each pass shrinks the residual by at least that factor and two
+            // are enough to reach the resolution of an f64 offset. The third is
+            // there to let the loop exit on an exact fixed point.
+            let fd = fd + seconds / SECONDS_PER_DAY;
+            for _ in 0..3 {
+                let refined = -time_system_offset(
+                    jd,
+                    fd + offset / SECONDS_PER_DAY,
+                    TimeSystem::TAI,
+                    time_system,
+                );
+                if refined == offset {
+                    break;
+                }
+                offset = refined;
+            }
+        }
+        TimeSystem::TAI
+        | TimeSystem::UTC
+        | TimeSystem::GPS
+        | TimeSystem::TT
+        | TimeSystem::BDT
+        | TimeSystem::GST => {}
+    }
+
+    offset
+}
+
 /// Compute the offset between two time systems at a given Modified Julian Date.
 ///
 /// The offset (in seconds) is computed as:

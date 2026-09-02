@@ -176,12 +176,12 @@ mod tests {
     #[test]
     #[parallel]
     fn test_get_max_threads() {
-        // Get current thread count (initializes with default if needed)
+        // The pool holds whatever count was last configured; `set_num_threads`
+        // permits oversubscription, so the CPU count is not an upper bound
+        // here. The bound on the default count is covered by
+        // `test_default_thread_count`.
         let threads = get_max_threads();
-
-        // Should be at least 1 and at most number of CPUs
         assert!(threads >= 1);
-        assert!(threads <= num_cpus::get());
     }
 
     #[test]

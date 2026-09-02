@@ -1694,12 +1694,84 @@ def test_to_datetime_reports_no_nanoseconds_on_a_whole_second(eop):
 
 def test_to_datetime_is_stable_across_repeated_round_trips(eop):
     """Mirror of test_to_datetime_is_stable_across_repeated_round_trips in Rust."""
-    # UT1 and TDB are excluded: their offset from TAI is recovered iteratively
-    # and does not round-trip exactly, which is a separate defect.
-    for ts in [bh.UTC, bh.TAI, bh.GPS, bh.TT]:
-        epc = bh.Epoch.from_datetime(1996, 11, 4, 17, 22, 31.0, 0.0, ts)
+    # UT1, TDB, TCB, and TCG reach TAI through offsets that are not a whole
+    # number of nanoseconds, so their nanosecond field is reproduced to the
+    # precision the representation carries rather than bit-for-bit.
+    for ts in [bh.UTC, bh.TAI, bh.GPS, bh.TT, bh.UT1, bh.TDB, bh.TCB, bh.TCG]:
+        start = bh.Epoch.from_datetime(1996, 11, 4, 17, 22, 31.0, 0.0, ts)
+        epc = start
         first = epc.to_datetime()
         for _ in range(5):
             fields = epc.to_datetime()
-            assert fields == first, f"{ts} drifted"
+            assert fields[:6] == first[:6], f"{ts} drifted"
+            assert fields[6] == pytest.approx(first[6], abs=1e-3)
+            assert epc - start == pytest.approx(0.0, abs=1e-11)
             epc = bh.Epoch.from_datetime(*fields, ts)
+
+
+def test_from_datetime_lands_on_the_requested_second(eop):
+    """Mirror of test_from_datetime_lands_on_the_requested_second in Rust."""
+    for ts in [bh.UTC, bh.TAI, bh.GPS, bh.TT, bh.UT1, bh.TDB, bh.TCB, bh.TCG]:
+        epc = bh.Epoch.from_datetime(1996, 11, 4, 17, 22, 31.0, 0.0, ts)
+        (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime()
+        assert (year, month, day, hour, minute, second) == (
+            1996,
+            11,
+            4,
+            17,
+            22,
+            31.0,
+        ), ts
+        assert nanosecond == pytest.approx(0.0, abs=1e-3)
+
+
+def test_from_datetime_reaches_the_same_epoch_from_either_spelling_of_a_second(eop):
+    """Mirror of test_from_datetime_reaches_the_same_epoch_from_either_spelling_of_a_second in Rust."""
+    for ts in [bh.GPS, bh.UTC, bh.UT1, bh.TDB]:
+        whole = bh.Epoch.from_datetime(2020, 2, 3, 4, 5, 6.0, 0.0, ts)
+        carried = bh.Epoch.from_datetime(2020, 2, 3, 4, 5, 5.0, 1.0e9, ts)
+
+        assert whole - carried == pytest.approx(0.0, abs=1e-11)
+
+        for epc in [whole, carried]:
+            fields = epc.to_datetime()
+            assert fields[:6] == (2020, 2, 3, 4, 5, 6.0), ts
+            assert fields[6] == pytest.approx(0.0, abs=1e-3)
+            assert bh.Epoch.from_datetime(*fields, ts) - epc == pytest.approx(
+                0.0, abs=1e-11
+            )
+
+
+def test_to_datetime_as_time_system_reports_the_leap_second_from_tai(eop):
+    """Mirror of test_to_datetime_as_time_system_reports_the_leap_second_from_tai in Rust."""
+    for tai_second, expected in [
+        (35.0, (2016, 12, 31, 23, 59, 59.0)),
+        (36.0, (2016, 12, 31, 23, 59, 60.0)),
+        (37.0, (2017, 1, 1, 0, 0, 0.0)),
+    ]:
+        epc = bh.Epoch.from_datetime(2017, 1, 1, 0, 0, tai_second, 0.0, bh.TAI)
+        fields = epc.to_datetime_as_time_system(bh.UTC)
+        assert fields[:6] == expected
+        assert fields[6] == pytest.approx(0.0, abs=1e-3)
+
+    epc = bh.Epoch.from_datetime(2017, 1, 1, 0, 0, 36.5, 0.0, bh.TAI)
+    fields = epc.to_datetime_as_time_system(bh.UTC)
+    assert fields[:6] == (2016, 12, 31, 23, 59, 60.0)
+    assert fields[6] == pytest.approx(5.0e8, abs=1e-3)
+
+
+def test_to_datetime_reports_whole_seconds_across_a_leap_second(eop):
+    """Mirror of test_to_datetime_reports_whole_seconds_across_a_leap_second in Rust."""
+    for second, expected in [
+        (59.0, (2016, 12, 31, 23, 59, 59.0)),
+        (60.0, (2016, 12, 31, 23, 59, 60.0)),
+    ]:
+        epc = bh.Epoch.from_datetime(2016, 12, 31, 23, 59, second, 0.0, bh.UTC)
+        fields = epc.to_datetime()
+        assert fields[:6] == expected
+        assert fields[6] == pytest.approx(0.0, abs=1e-3)
+
+    epc = bh.Epoch.from_datetime(2016, 12, 31, 23, 59, 60.5, 0.0, bh.UTC)
+    fields = epc.to_datetime()
+    assert fields[:6] == (2016, 12, 31, 23, 59, 60.0)
+    assert fields[6] == pytest.approx(5.0e8, abs=1e-3)

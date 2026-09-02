@@ -1038,21 +1038,6 @@ pub fn write_apm_json(
         return Err(ccsds_missing_field("APM", "at least one logical block"));
     }
 
-    // EPOCH and MAN_EPOCH_START must be written in the metadata TIME_SYSTEM
-    // (504.0-B-2 §3.2.4.4), not the `Epoch`'s own internal time system. A
-    // handful of CCSDS time systems (SCLK, MET, MRT, GMST, TDR) have no
-    // corresponding `crate::time::TimeSystem` — they are spacecraft- or
-    // mission-specific clocks with no fixed relationship to the physical
-    // time systems `Epoch` represents — so for those the epoch is written
-    // as stored, unconverted.
-    let write_ts = apm.metadata.time_system.to_time_system();
-    let epoch_for_write = |e: &crate::time::Epoch| -> crate::time::Epoch {
-        match write_ts {
-            Some(ts) => e.to_time_system(ts),
-            None => *e,
-        }
-    };
-
     let mut root = Map::new();
 
     // Header
@@ -1066,7 +1051,10 @@ pub fn write_apm_json(
     }
     header.insert(
         key("CREATION_DATE", key_case),
-        json!(format_ccsds_datetime(&apm.header.creation_date)),
+        json!(format_ccsds_datetime_in(
+            &apm.header.creation_date,
+            &CCSDSTimeSystem::UTC
+        )),
     );
     header.insert(key("ORIGINATOR", key_case), json!(&apm.header.originator));
     if let Some(ref msg_id) = apm.header.message_id {
@@ -1098,7 +1086,10 @@ pub fn write_apm_json(
 
     root.insert(
         "epoch".into(),
-        json!(format_ccsds_datetime(&epoch_for_write(&apm.epoch))),
+        json!(format_ccsds_datetime_in(
+            &apm.epoch,
+            &apm.metadata.time_system
+        )),
     );
 
     if !apm.comments.is_empty() {
@@ -1296,7 +1287,10 @@ pub fn write_apm_json(
             let mut obj = Map::new();
             obj.insert(
                 key("MAN_EPOCH_START", key_case),
-                json!(format_ccsds_datetime(&epoch_for_write(&m.epoch_start))),
+                json!(format_ccsds_datetime_in(
+                    &m.epoch_start,
+                    &apm.metadata.time_system
+                )),
             );
             obj.insert(key("MAN_DURATION", key_case), json!(m.duration));
             obj.insert(

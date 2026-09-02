@@ -5,8 +5,8 @@
 use crate::ccsds::apm::{APM, APMNutation};
 use crate::ccsds::common::{
     CCSDSCovariance, CCSDSSpacecraftParameters, CCSDSTimeSystem, CCSDSUserDefined, ODMHeader,
-    covariance_to_lower_triangular, format_ccsds_datetime, format_ccsds_datetime_in,
-    format_euler_rot_seq, round_ccsds_value,
+    covariance_to_lower_triangular, format_ccsds_datetime_in, format_euler_rot_seq,
+    round_ccsds_value,
 };
 use crate::ccsds::error::ccsds_missing_field;
 use crate::constants::RAD2DEG;
@@ -315,14 +315,6 @@ fn write_xml_user_defined(out: &mut String, ud: &CCSDSUserDefined, i_block: &str
         ));
     }
     out.push_str(&format!("{}</userDefinedParameters>\n", i_block));
-}
-
-/// Escapes `&`, `<`, and `>` in free-text XML element content. Attribute
-/// quoting is not needed since this is only used for element text.
-fn escape_xml_text(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
 }
 
 // ============================================================================
@@ -939,21 +931,6 @@ pub fn write_apm_xml(apm: &APM) -> Result<String, BraheError> {
         apm.header.format_version
     ));
 
-    // EPOCH and MAN_EPOCH_START must be written in the metadata TIME_SYSTEM
-    // (504.0-B-2 §3.2.4.4), not the `Epoch`'s own internal time system. A
-    // handful of CCSDS time systems (SCLK, MET, MRT, GMST, TDR) have no
-    // corresponding `crate::time::TimeSystem` — they are spacecraft- or
-    // mission-specific clocks with no fixed relationship to the physical
-    // time systems `Epoch` represents — so for those the epoch is written
-    // as stored, unconverted.
-    let write_ts = apm.metadata.time_system.to_time_system();
-    let epoch_for_write = |e: &crate::time::Epoch| -> crate::time::Epoch {
-        match write_ts {
-            Some(ts) => e.to_time_system(ts),
-            None => *e,
-        }
-    };
-
     // Header
     out.push_str(&format!("{}<header>\n", i1));
     for c in &apm.header.comments {
@@ -973,7 +950,7 @@ pub fn write_apm_xml(apm: &APM) -> Result<String, BraheError> {
     out.push_str(&format!(
         "{}<CREATION_DATE>{}</CREATION_DATE>\n",
         i2,
-        format_ccsds_datetime(&apm.header.creation_date)
+        format_ccsds_datetime_in(&apm.header.creation_date, &CCSDSTimeSystem::UTC)
     ));
     out.push_str(&format!(
         "{}<ORIGINATOR>{}</ORIGINATOR>\n",
@@ -1036,7 +1013,7 @@ pub fn write_apm_xml(apm: &APM) -> Result<String, BraheError> {
     out.push_str(&format!(
         "{}<EPOCH>{}</EPOCH>\n",
         i4,
-        format_ccsds_datetime(&epoch_for_write(&apm.epoch))
+        format_ccsds_datetime_in(&apm.epoch, &apm.metadata.time_system)
     ));
 
     // Quaternion blocks
@@ -1305,7 +1282,7 @@ pub fn write_apm_xml(apm: &APM) -> Result<String, BraheError> {
         out.push_str(&format!(
             "{}<MAN_EPOCH_START>{}</MAN_EPOCH_START>\n",
             i5,
-            format_ccsds_datetime(&epoch_for_write(&m.epoch_start))
+            format_ccsds_datetime_in(&m.epoch_start, &apm.metadata.time_system)
         ));
         out.push_str(&format!(
             "{}<MAN_DURATION>{}</MAN_DURATION>\n",

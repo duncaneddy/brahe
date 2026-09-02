@@ -4,8 +4,8 @@
 
 use crate::ccsds::apm::{APM, APMNutation};
 use crate::ccsds::common::{
-    CCSDSTimeSystem, covariance_to_lower_triangular, format_ccsds_datetime,
-    format_ccsds_datetime_in, format_euler_rot_seq, round_ccsds_value,
+    CCSDSTimeSystem, covariance_to_lower_triangular, format_ccsds_datetime_in,
+    format_euler_rot_seq, round_ccsds_value,
 };
 use crate::ccsds::error::ccsds_missing_field;
 use crate::ccsds::oem::OEM;
@@ -520,21 +520,6 @@ pub fn write_apm(apm: &APM) -> Result<String, BraheError> {
 
     let mut out = String::new();
 
-    // EPOCH and MAN_EPOCH_START must be written in the metadata TIME_SYSTEM
-    // (504.0-B-2 §3.2.4.4), not the `Epoch`'s own internal time system. A
-    // handful of CCSDS time systems (SCLK, MET, MRT, GMST, TDR) have no
-    // corresponding `crate::time::TimeSystem` — they are spacecraft- or
-    // mission-specific clocks with no fixed relationship to the physical
-    // time systems `Epoch` represents — so for those the epoch is written
-    // as stored, unconverted.
-    let write_ts = apm.metadata.time_system.to_time_system();
-    let epoch_for_write = |e: &crate::time::Epoch| -> crate::time::Epoch {
-        match write_ts {
-            Some(ts) => e.to_time_system(ts),
-            None => *e,
-        }
-    };
-
     // Header. Table 3-1 fixes the field order as VERS, COMMENT,
     // CLASSIFICATION, CREATION_DATE, ORIGINATOR, MESSAGE_ID; comments must
     // precede CLASSIFICATION so the parser (which routes any comment seen
@@ -552,7 +537,7 @@ pub fn write_apm(apm: &APM) -> Result<String, BraheError> {
     }
     out.push_str(&format!(
         "CREATION_DATE = {}\n",
-        format_ccsds_datetime(&apm.header.creation_date)
+        format_ccsds_datetime_in(&apm.header.creation_date, &CCSDSTimeSystem::UTC)
     ));
     out.push_str(&format!("ORIGINATOR = {}\n", apm.header.originator));
     if let Some(ref msg_id) = apm.header.message_id {
@@ -577,7 +562,7 @@ pub fn write_apm(apm: &APM) -> Result<String, BraheError> {
     }
     out.push_str(&format!(
         "EPOCH = {}\n",
-        format_ccsds_datetime(&epoch_for_write(&apm.epoch))
+        format_ccsds_datetime_in(&apm.epoch, &apm.metadata.time_system)
     ));
 
     // Quaternion blocks
@@ -713,7 +698,7 @@ pub fn write_apm(apm: &APM) -> Result<String, BraheError> {
         }
         out.push_str(&format!(
             "MAN_EPOCH_START = {}\n",
-            format_ccsds_datetime(&epoch_for_write(&m.epoch_start))
+            format_ccsds_datetime_in(&m.epoch_start, &apm.metadata.time_system)
         ));
         out.push_str(&format!("MAN_DURATION = {}\n", m.duration));
         out.push_str(&format!("MAN_REF_FRAME = {}\n", m.ref_frame));

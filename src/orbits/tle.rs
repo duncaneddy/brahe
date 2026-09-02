@@ -601,6 +601,7 @@ mod tests {
     use crate::orbits::keplerian::semimajor_axis;
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
+    use serial_test::parallel;
 
     #[rstest]
     #[case(
@@ -643,7 +644,7 @@ mod tests {
         "2 31127  98.3591 223.5782 0064856  30.4095 330.0844 14.63937036981529",
         9
     )]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_calculate_tle_line_checksum(#[case] line: &str, #[case] expected: u32) {
         let checksum = calculate_tle_line_checksum(line);
         assert_eq!(checksum, expected);
@@ -660,7 +661,7 @@ mod tests {
     #[case("1 19751U 89001C   25260.63997541  .00000045  00000+0  00000+0 0  9997")]
     #[case("1 29228U 06021A   25261.14661065  .00002029  00000+0  12599-3 0  9998")]
     #[case("2 31127  98.3591 223.5782 0064856  30.4095 330.0844 14.63937036981529")]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_validate_tle_line_valid(#[case] line: &str) {
         assert!(validate_tle_line(line));
     }
@@ -674,7 +675,7 @@ mod tests {
     #[case("1 28414U 04035B   25261.30628127  .00003436  00000+0  25400-3 0  9923421295")]
     #[case("3 28371U 04025F   25260.92882365  .00000356  00000+0  90884-4 0  9996")]
     #[case("3 19751U 89001C   25260.63997541  .00000045  00000+0  00000+0 0  9999")]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_validate_tle_invalid(#[case] line: &str) {
         assert!(!validate_tle_line(line));
     }
@@ -688,7 +689,7 @@ mod tests {
         "1 23613U 95035B   25260.68951341 -.00000252  00000+0  00000+0 0  9997",
         "2 23613  13.4910 350.0515 0007963 105.8217 238.1991  1.00277726110516"
     )]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_validate_tle_lines_valid(#[case] line1: &str, #[case] line2: &str) {
         assert!(validate_tle_lines(line1, line2));
     }
@@ -722,7 +723,7 @@ mod tests {
         "1 23613U 95035B   25260.68951341 -.00000252  00000+0  00000+0 0  9997",
         "2 23614  13.4910 350.0515 0007963 105.8217 238.1991  1.00277726110517"
     )]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_validate_tle_lines_invalid(#[case] line1: &str, #[case] line2: &str) {
         assert!(!validate_tle_lines(line1, line2));
     }
@@ -732,7 +733,7 @@ mod tests {
     #[case("00001", 1)]
     #[case("99999", 99999)]
     #[case("    1", 1)]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_norad_id(#[case] id_str: &str, #[case] expected: u32) {
         assert_eq!(parse_norad_id(id_str).unwrap(), expected);
     }
@@ -766,7 +767,7 @@ mod tests {
     #[case("X8901", 318901)]
     #[case("Y2345", 322345)]
     #[case("Z6789", 336789)]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_norad_id_alpha5_valid(#[case] id_str: &str, #[case] expected: u32) {
         assert_eq!(parse_norad_id(id_str).unwrap(), expected);
     }
@@ -780,13 +781,13 @@ mod tests {
     #[case("!2345")] // Invalid character
     #[case("")] // Empty string
     #[case("     ")] // Only spaces
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_norad_id_invalid(#[case] id_str: &str) {
         assert!(parse_norad_id(id_str).is_err());
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerian_elements_from_tle() {
         let line1 = "1 25544U 98067A   21001.50000000  .00001764  00000-0  40967-4 0  9997";
         let line2 = "2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003";
@@ -814,7 +815,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_create_tle_lines() {
         let epoch = Epoch::from_datetime(2021, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let semi_major_axis = 6786000.0; // meters
@@ -889,7 +890,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerian_elements_to_tle() {
         let epoch = Epoch::from_datetime(2021, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let semi_major_axis = 6786000.0; // meters
@@ -926,13 +927,13 @@ mod tests {
     #[case(-0.00012345, "-12345-3")]
     #[case(12345.0, " 12345+5")]
     #[case(-12345.0, "-12345+5")]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_format_exponential(#[case] value: f64, #[case] expected: &str) {
         assert_eq!(format_exponential(value), expected);
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_format_exponential_against_sgp4_parsed_tle() {
         // Real TLE from Celestrak (used in examples/access/computation/basic_workflow.py)
         let line1 = "1 25544U 98067A   25306.42331346  .00010070  00000-0  18610-3 0  9999";
@@ -966,7 +967,7 @@ mod tests {
     #[case(186789, "J6789")] // Skip I
     #[case(236789, "P6789")] // Skip O
     #[case(339999, "Z9999")] // Alpha-5 boundary
-    #[serial_test::parallel]
+    #[parallel]
     fn test_norad_id_numeric_to_alpha5_valid(#[case] norad_id: u32, #[case] expected: &str) {
         assert_eq!(norad_id_numeric_to_alpha5(norad_id).unwrap(), expected);
     }
@@ -974,7 +975,7 @@ mod tests {
     #[rstest]
     #[case(340000)] // Too high
     #[case(999999)] // Way too high
-    #[serial_test::parallel]
+    #[parallel]
     fn test_norad_id_numeric_to_alpha5_invalid(#[case] norad_id: u32) {
         assert!(norad_id_numeric_to_alpha5(norad_id).is_err());
     }
@@ -989,7 +990,7 @@ mod tests {
     #[case("J6789", 186789)] // Skip I
     #[case("P6789", 236789)] // Skip O
     #[case("Z9999", 339999)]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_norad_id_alpha5_to_numeric_valid(#[case] alpha5_id: &str, #[case] expected: u32) {
         assert_eq!(norad_id_alpha5_to_numeric(alpha5_id).unwrap(), expected);
     }
@@ -1002,7 +1003,7 @@ mod tests {
     #[case("A00")] // Too short
     #[case("")] // Empty
     #[case("AAAAA")] // All letters
-    #[serial_test::parallel]
+    #[parallel]
     fn test_norad_id_alpha5_to_numeric_invalid(#[case] alpha5_id: &str) {
         assert!(norad_id_alpha5_to_numeric(alpha5_id).is_err());
     }
@@ -1016,7 +1017,7 @@ mod tests {
     #[case(186789)]
     #[case(236789)]
     #[case(339999)]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_norad_id_alpha5_numeric_round_trip(#[case] id: u32) {
         let alpha5 = norad_id_numeric_to_alpha5(id).unwrap();
         let parsed_id = norad_id_alpha5_to_numeric(&alpha5).unwrap();
@@ -1028,7 +1029,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerian_tle_circularity() {
         // Test circularity: Keplerian elements -> TLE -> Keplerian elements
         let original_epoch = Epoch::from_datetime(2021, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -1072,7 +1073,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_tle_keplerian_circularity() {
         // Test circularity: TLE -> Keplerian elements -> TLE
         let original_line1 =
@@ -1109,7 +1110,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_tle_basic() {
         // Test basic epoch extraction from ISS TLE
         let line1 = "1 25544U 98067A   21001.50000000  .00001764  00000-0  40967-4 0  9997";
@@ -1190,7 +1191,7 @@ mod tests {
         0,
         0.0
     )] // Last day of 1999
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_tle_various_dates(
         #[case] line1: &str,
         #[case] year: u32,
@@ -1211,7 +1212,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_tle_fractional_day() {
         // Test with fractional day of year
         let line1 = "1 25544U 98067A   21001.75000000  .00001764  00000-0  40967-4 0  9997";
@@ -1226,7 +1227,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_tle_with_seconds() {
         // Test with fractional seconds
         // 0.00069444 days * 86400 s/day = 60.0 seconds exactly
@@ -1244,7 +1245,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_tle_leap_year() {
         // Test leap year day 366
         let line1 = "1 25544U 98067A   20366.00000000  .00001764  00000-0  40967-4 0  9997";
@@ -1262,13 +1263,13 @@ mod tests {
     #[case("1 25544U 98067A   21001.5000000")] // Too short
     #[case("Too short")] // Way too short
     #[case("")] // Empty
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_tle_invalid_lines(#[case] line1: &str) {
         assert!(epoch_from_tle(line1).is_err());
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_tle_consistency_with_keplerian() {
         // Verify epoch_from_tle matches the epoch from keplerian_elements_from_tle
         let line1 = "1 25544U 98067A   21001.50000000  .00001764  00000-0  40967-4 0  9997";

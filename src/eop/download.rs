@@ -37,6 +37,7 @@ pub fn download_standard_eop_file(filepath: &str) -> Result<(), BraheError> {
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
+    use serial_test::parallel;
     use std::env;
     use std::fs;
 
@@ -65,7 +66,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)] // Only run in CI to avoid network calls
-    #[serial_test::parallel]
+    #[parallel]
     fn test_download_standard_eop_file() {
         // Mock return of contents of HTTP call
         let server = MockServer::start();
@@ -87,7 +88,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)] // Only run in CI to avoid network calls
-    #[serial_test::parallel]
+    #[parallel]
     fn test_download_c04_eop_file() {
         // Mock return of contents of HTTP call
         let server = MockServer::start();

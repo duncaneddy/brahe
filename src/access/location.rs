@@ -852,9 +852,10 @@ impl Identifiable for PolygonLocation {
 mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_point_location_new() {
         let loc = PointLocation::new(15.4, 78.2, 0.0).unwrap();
 
@@ -868,7 +869,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_point_location_identifiable() {
         let loc = PointLocation::new(15.4, 78.2, 0.0)
             .unwrap()
@@ -882,7 +883,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_point_location_properties() {
         let loc = PointLocation::new(15.4, 78.2, 0.0)
             .unwrap()
@@ -894,7 +895,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_point_location_geojson_roundtrip() {
         let original = PointLocation::new(15.4, 78.2, 100.0)
             .unwrap()
@@ -912,7 +913,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_polygon_location_new() {
         let vertices = vec![
             Vector3::new(10.0, 50.0, 0.0),
@@ -934,7 +935,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_polygon_location_auto_close() {
         // Missing closure vertex
         let vertices = vec![
@@ -952,7 +953,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_polygon_location_validation() {
         // Too few vertices
         let result = PolygonLocation::new(vec![
@@ -972,7 +973,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_polygon_location_geojson_roundtrip() {
         let vertices = vec![
             Vector3::new(10.0, 50.0, 0.0),
@@ -1000,7 +1001,7 @@ mod tests {
     // ========================================================================
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_point_location_coordinate_accessors() {
         let loc = PointLocation::new(15.4, 78.2, 500.0).unwrap();
 
@@ -1022,7 +1023,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_point_location_center_geodetic() {
         let loc = PointLocation::new(15.4, 78.2, 500.0).unwrap();
         let center = loc.center_geodetic();
@@ -1033,7 +1034,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_point_location_center_ecef() {
         let loc = PointLocation::new(0.0, 0.0, 0.0).unwrap();
         let ecef = loc.center_ecef();
@@ -1045,7 +1046,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_point_location_properties_accessor() {
         let mut loc = PointLocation::new(15.4, 78.2, 0.0).unwrap();
 
@@ -1060,7 +1061,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_point_location_add_property_builder() {
         let loc = PointLocation::new(15.4, 78.2, 0.0)
             .unwrap()
@@ -1074,7 +1075,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_point_location_to_geojson_required_fields() {
         let loc = PointLocation::new(15.4, 78.2, 100.0)
             .unwrap()
@@ -1107,7 +1108,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_point_location_from_geojson_minimal() {
         let geojson = json!({
             "type": "Feature",
@@ -1125,7 +1126,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_point_location_from_geojson_with_altitude() {
         let geojson = json!({
             "type": "Feature",
@@ -1141,7 +1142,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_point_location_from_geojson_invalid_type() {
         let geojson = json!({
             "type": "FeatureCollection",
@@ -1153,7 +1154,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_point_location_from_geojson_wrong_geometry() {
         let geojson = json!({
             "type": "Feature",
@@ -1169,7 +1170,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_point_location_identifiable_methods() {
         let uuid = Uuid::now_v7();
 
@@ -1227,7 +1228,7 @@ mod tests {
     // ========================================================================
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_polygon_location_coordinate_accessors() {
         let vertices = vec![
             Vector3::new(10.0, 50.0, 100.0),
@@ -1257,7 +1258,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_polygon_location_vertices_accessor() {
         let vertices = vec![
             Vector3::new(10.0, 50.0, 0.0),
@@ -1277,7 +1278,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_polygon_location_num_vertices() {
         let vertices = vec![
             Vector3::new(10.0, 50.0, 0.0),
@@ -1294,7 +1295,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_polygon_location_center_geodetic() {
         let vertices = vec![
             Vector3::new(10.0, 50.0, 100.0),
@@ -1313,7 +1314,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_polygon_location_center_ecef() {
         let vertices = vec![
             Vector3::new(0.0, 0.0, 0.0),
@@ -1331,7 +1332,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_polygon_location_properties_accessor() {
         let vertices = vec![
             Vector3::new(10.0, 50.0, 0.0),
@@ -1354,7 +1355,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_polygon_location_add_property_builder() {
         let vertices = vec![
             Vector3::new(10.0, 50.0, 0.0),
@@ -1376,7 +1377,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_polygon_location_to_geojson_required_fields() {
         let vertices = vec![
             Vector3::new(10.0, 50.0, 0.0),
@@ -1423,7 +1424,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_polygon_location_from_geojson_minimal() {
         let geojson = json!({
             "type": "Feature",
@@ -1445,7 +1446,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_polygon_location_from_geojson_with_altitude() {
         let geojson = json!({
             "type": "Feature",
@@ -1467,7 +1468,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_polygon_location_from_geojson_invalid_type() {
         let geojson = json!({
             "type": "FeatureCollection",
@@ -1479,7 +1480,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_polygon_location_from_geojson_wrong_geometry() {
         let geojson = json!({
             "type": "Feature",
@@ -1495,7 +1496,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_polygon_location_identifiable_methods() {
         let vertices = vec![
             Vector3::new(10.0, 50.0, 0.0),

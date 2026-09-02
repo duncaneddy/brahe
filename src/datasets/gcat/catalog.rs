@@ -404,6 +404,7 @@ impl GCATPsatcat {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     fn sample_satcat_records() -> Vec<GCATSatcatRecord> {
         vec![
@@ -610,7 +611,7 @@ mod tests {
     // === GCATSatcat tests ===
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_new_and_len() {
         let catalog = GCATSatcat::new(sample_satcat_records());
         assert_eq!(catalog.len(), 3);
@@ -618,7 +619,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_empty() {
         let catalog = GCATSatcat::new(vec![]);
         assert_eq!(catalog.len(), 0);
@@ -626,14 +627,14 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_records() {
         let catalog = GCATSatcat::new(sample_satcat_records());
         assert_eq!(catalog.records().len(), 3);
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_into_records() {
         let catalog = GCATSatcat::new(sample_satcat_records());
         let records = catalog.into_records();
@@ -641,7 +642,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_get_by_jcat() {
         let catalog = GCATSatcat::new(sample_satcat_records());
         let iss = catalog.get_by_jcat("S049652");
@@ -652,7 +653,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_get_by_satcat() {
         let catalog = GCATSatcat::new(sample_satcat_records());
         let iss = catalog.get_by_satcat("25544");
@@ -663,7 +664,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_search_by_name() {
         let catalog = GCATSatcat::new(sample_satcat_records());
 
@@ -683,7 +684,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_filter_by_type() {
         let catalog = GCATSatcat::new(sample_satcat_records());
 
@@ -695,7 +696,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_filter_by_owner() {
         let catalog = GCATSatcat::new(sample_satcat_records());
 
@@ -707,7 +708,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_filter_by_state() {
         let catalog = GCATSatcat::new(sample_satcat_records());
 
@@ -719,7 +720,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_filter_by_status() {
         let catalog = GCATSatcat::new(sample_satcat_records());
 
@@ -731,7 +732,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_filter_by_perigee_range() {
         let catalog = GCATSatcat::new(sample_satcat_records());
 
@@ -743,7 +744,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_filter_by_apogee_range() {
         let catalog = GCATSatcat::new(sample_satcat_records());
 
@@ -752,7 +753,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_filter_by_inc_range() {
         let catalog = GCATSatcat::new(sample_satcat_records());
 
@@ -764,7 +765,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_immutable_filters() {
         // Verify that filtering does not modify the original catalog
         let catalog = GCATSatcat::new(sample_satcat_records());
@@ -775,7 +776,7 @@ mod tests {
     // === GCATPsatcat tests ===
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_psatcat_new_and_len() {
         let catalog = GCATPsatcat::new(sample_psatcat_records());
         assert_eq!(catalog.len(), 2);
@@ -783,7 +784,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_psatcat_get_by_jcat() {
         let catalog = GCATPsatcat::new(sample_psatcat_records());
         let iss = catalog.get_by_jcat("S049652");
@@ -792,7 +793,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_psatcat_search_by_name() {
         let catalog = GCATPsatcat::new(sample_psatcat_records());
 
@@ -802,7 +803,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_psatcat_filter_by_category() {
         let catalog = GCATPsatcat::new(sample_psatcat_records());
 
@@ -811,7 +812,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_psatcat_filter_by_class() {
         let catalog = GCATPsatcat::new(sample_psatcat_records());
 
@@ -820,7 +821,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_psatcat_filter_by_result() {
         let catalog = GCATPsatcat::new(sample_psatcat_records());
 
@@ -829,7 +830,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_psatcat_filter_active() {
         let catalog = GCATPsatcat::new(sample_psatcat_records());
 
@@ -841,7 +842,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_psatcat_into_records() {
         let catalog = GCATPsatcat::new(sample_psatcat_records());
         let records = catalog.into_records();
@@ -851,7 +852,7 @@ mod tests {
     // === DataFrame tests ===
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_to_dataframe() {
         let catalog = GCATSatcat::new(sample_satcat_records());
         let df = catalog.to_dataframe().unwrap();
@@ -875,7 +876,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_to_dataframe_empty() {
         let catalog = GCATSatcat::new(vec![]);
         let df = catalog.to_dataframe().unwrap();
@@ -884,7 +885,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_psatcat_to_dataframe() {
         let catalog = GCATPsatcat::new(sample_psatcat_records());
         let df = catalog.to_dataframe().unwrap();
@@ -900,7 +901,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_psatcat_to_dataframe_empty() {
         let catalog = GCATPsatcat::new(vec![]);
         let df = catalog.to_dataframe().unwrap();

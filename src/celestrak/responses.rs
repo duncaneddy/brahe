@@ -159,9 +159,10 @@ pub struct CelestrakSATCATRecord {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_celestrak_satcat_record_deserialize_full() {
         let json = r#"[{
             "OBJECT_NAME": "ISS (ZARYA)",
@@ -205,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_celestrak_satcat_record_deserialize_minimal() {
         let json = r#"[{
             "OBJECT_NAME": "ISS (ZARYA)",
@@ -221,7 +222,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_celestrak_satcat_record_unknown_fields_ignored() {
         let json = r#"[{
             "OBJECT_NAME": "ISS (ZARYA)",
@@ -235,7 +236,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_celestrak_satcat_record_empty_array() {
         let json = "[]";
         let records: Vec<CelestrakSATCATRecord> = serde_json::from_str(json).unwrap();
@@ -243,7 +244,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_celestrak_satcat_record_clone() {
         let json = r#"[{"OBJECT_NAME": "ISS", "NORAD_CAT_ID": "25544"}]"#;
         let records: Vec<CelestrakSATCATRecord> = serde_json::from_str(json).unwrap();
@@ -252,7 +253,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_celestrak_satcat_record_debug() {
         let json = r#"[{"OBJECT_NAME": "ISS"}]"#;
         let records: Vec<CelestrakSATCATRecord> = serde_json::from_str(json).unwrap();
@@ -261,7 +262,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_celestrak_satcat_record_serialize() {
         let json = r#"[{"OBJECT_NAME":"ISS","NORAD_CAT_ID":"25544"}]"#;
         let records: Vec<CelestrakSATCATRecord> = serde_json::from_str(json).unwrap();
@@ -271,7 +272,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_celestrak_satcat_record_numeric_norad_cat_id() {
         let json = r#"[{"OBJECT_NAME": "ISS", "NORAD_CAT_ID": 25544}]"#;
         let records: Vec<CelestrakSATCATRecord> = serde_json::from_str(json).unwrap();

@@ -105,9 +105,10 @@ pub fn convert_3le_to_2le(data: &[(String, String, String)]) -> Vec<(String, Str
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_3le_text_single_entry() {
         let text = "ISS (ZARYA)\n\
                     1 25544U 98067A   21001.50000000  .00001764  00000-0  40967-4 0  9997\n\
@@ -121,7 +122,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_3le_text_multiple_entries() {
         let text = "ISS (ZARYA)\n\
                     1 25544U 98067A   21001.50000000  .00001764  00000-0  40967-4 0  9997\n\
@@ -137,7 +138,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_3le_text_with_empty_lines() {
         let text = "\n\
                     ISS (ZARYA)\n\
@@ -153,7 +154,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_3le_text_invalid_line_start() {
         let text = "ISS (ZARYA)\n\
                     2 25544U 98067A   21001.50000000  .00001764  00000-0  40967-4 0  9997\n\
@@ -170,7 +171,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_3le_text_invalid_line_length() {
         let text = "ISS (ZARYA)\n\
                     1 25544U 98067A   21001.50000000  .00001764  00000-0  40967-4 0  999\n\
@@ -187,7 +188,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_3le_text_empty_input() {
         let text = "";
         let result = parse_3le_text(text);
@@ -201,7 +202,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_3le_text_only_empty_lines() {
         let text = "\n\n\n";
         let result = parse_3le_text(text);
@@ -215,7 +216,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_convert_3le_to_2le_single() {
         let data_3le = vec![(
             "ISS (ZARYA)".to_string(),
@@ -236,7 +237,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_convert_3le_to_2le_multiple() {
         let data_3le = vec![
             (
@@ -256,7 +257,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_convert_3le_to_2le_empty() {
         let data_3le: Vec<(String, String, String)> = vec![];
         let data_2le = convert_3le_to_2le(&data_3le);

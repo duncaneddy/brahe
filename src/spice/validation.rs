@@ -9,6 +9,7 @@ use anise::astro::Aberration;
 use anise::math::Vector3 as AniseVector3;
 use anise::prelude::{Almanac, Epoch as AniseEpoch, Frame, SPK as AniseSPK};
 use approx::assert_abs_diff_eq;
+use serial_test::{parallel, serial};
 use std::path::PathBuf;
 
 use crate::spice::naif_id::NAIFId;
@@ -75,7 +76,7 @@ fn anise_state_km(
 }
 
 #[test]
-#[serial_test::parallel]
+#[parallel]
 fn test_validation_position_velocity_vs_anise_matched_et() {
     let Some((native, almanac)) = load_both() else {
         return;
@@ -144,7 +145,7 @@ fn test_validation_position_velocity_vs_anise_matched_et() {
 }
 
 #[test]
-#[serial_test::parallel]
+#[parallel]
 fn test_validation_et_conversion_vs_anise() {
     // Our Epoch -> ET vs hifitime's UTC -> ET. Both apply UTC leap seconds
     // identically, but the TT->TDB periodic term uses two different
@@ -160,7 +161,7 @@ fn test_validation_et_conversion_vs_anise() {
 }
 
 #[test]
-#[serial_test::parallel]
+#[parallel]
 fn test_validation_end_to_end_epoch_path() {
     // Same UTC epoch through both full stacks (native: Epoch -> ET -> SPK;
     // ANISE: gregorian UTC -> hifitime -> SPK). Differences are bounded by
@@ -202,7 +203,7 @@ fn test_validation_end_to_end_epoch_path() {
 
 #[test]
 #[cfg_attr(not(feature = "integration"), ignore)]
-#[serial_test::serial]
+#[serial]
 fn test_validation_pck_moon_pa_vs_anise() {
     use crate::datasets::naif::download_spice_kernel;
     use crate::spice::SPICEKernel;

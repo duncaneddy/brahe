@@ -128,26 +128,27 @@ pub fn wrap_to_2pi(angle: f64) -> f64 {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
     use std::f64::consts::PI;
 
     use super::*;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_from_degrees() {
         assert_eq!(from_degrees(180.0, true), PI);
         assert_eq!(from_degrees(PI, false), PI);
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_to_degrees() {
         assert_eq!(to_degrees(PI, false), PI);
         assert_eq!(to_degrees(PI, true), 180.0);
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_wrap_to_2pi() {
         assert_eq!(wrap_to_2pi(PI), PI);
         assert_eq!(wrap_to_2pi(2.0 * PI), 0.0);
@@ -158,7 +159,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_oe_to_radians() {
         let oe_deg = SVector6::new(7000.0, 0.001, 45.0, 120.0, 90.0, 30.0);
         let oe_rad = oe_to_radians(oe_deg, AngleFormat::Degrees);
@@ -179,7 +180,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_oe_to_degrees() {
         let oe_rad = SVector6::new(7000.0, 0.001, PI / 4.0, 2.0 * PI / 3.0, PI / 2.0, PI / 6.0);
         let oe_deg = oe_to_degrees(oe_rad, AngleFormat::Radians);

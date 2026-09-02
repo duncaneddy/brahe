@@ -137,10 +137,11 @@ pub fn parse_c04_line(line: String) -> EOPParseResult {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
     #[allow(non_snake_case)]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_c04_line() {
         let line = "2023  11  21   0  60269.00    0.244498    0.234480   0.0111044    0.000305   -0.000100   -0.000720   -0.001318   0.0002867    0.000052    0.000051   0.0000171    0.000054    0.000044    0.000094    0.000068   0.0000298";
 
@@ -159,7 +160,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_c04_line_wrong_length_too_short() {
         let line = "short line";
         let result = parse_c04_line(line.to_string());
@@ -173,7 +174,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_c04_line_wrong_length_too_long() {
         let line = "2023  11  21   0  60269.00    0.244498    0.234480   0.0111044    0.000305   -0.000100   -0.000720   -0.001318   0.0002867    0.000052    0.000051   0.0000171    0.000054    0.000044    0.000094    0.000068   0.0000298EXTRACHARACTERS";
         let result = parse_c04_line(line.to_string());
@@ -181,7 +182,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_c04_line_invalid_mjd() {
         // Create a line with invalid MJD (letters instead of numbers)
         let line = "2023  11  21   0  XXXXX.XX    0.244498    0.234480   0.0111044    0.000305   -0.000100   -0.000720   -0.001318   0.0002867    0.000052    0.000051   0.0000171    0.000054    0.000044    0.000094    0.000068   0.0000298";
@@ -196,7 +197,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_c04_line_invalid_pm_x() {
         // Create a line with invalid pm_x
         let line = "2023  11  21   0  60269.00    XXXXXXXX    0.234480   0.0111044    0.000305   -0.000100   -0.000720   -0.001318   0.0002867    0.000052    0.000051   0.0000171    0.000054    0.000044    0.000094    0.000068   0.0000298";
@@ -211,7 +212,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_c04_line_invalid_pm_y() {
         // Create a line with invalid pm_y
         let line = "2023  11  21   0  60269.00    0.244498    XXXXXXXX   0.0111044    0.000305   -0.000100   -0.000720   -0.001318   0.0002867    0.000052    0.000051   0.0000171    0.000054    0.000044    0.000094    0.000068   0.0000298";
@@ -226,7 +227,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_c04_line_invalid_ut1_utc() {
         // Create a line with invalid ut1_utc
         let line = "2023  11  21   0  60269.00    0.244498    0.234480   XXXXXXXXX    0.000305   -0.000100   -0.000720   -0.001318   0.0002867    0.000052    0.000051   0.0000171    0.000054    0.000044    0.000094    0.000068   0.0000298";
@@ -242,7 +243,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_c04_line_invalid_dX() {
         // Create a line with invalid dX
         let line = "2023  11  21   0  60269.00    0.244498    0.234480   0.0111044    XXXXXXXX   -0.000100   -0.000720   -0.001318   0.0002867    0.000052    0.000051   0.0000171    0.000054    0.000044    0.000094    0.000068   0.0000298";
@@ -258,7 +259,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_c04_line_invalid_dY() {
         // Create a line with invalid dY
         let line = "2023  11  21   0  60269.00    0.244498    0.234480   0.0111044    0.000305   XXXXXXXXX   -0.000720   -0.001318   0.0002867    0.000052    0.000051   0.0000171    0.000054    0.000044    0.000094    0.000068   0.0000298";
@@ -273,7 +274,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_c04_line_invalid_lod() {
         // Create a line with invalid lod
         let line = "2023  11  21   0  60269.00    0.244498    0.234480   0.0111044    0.000305   -0.000100   -0.000720   -0.001318   XXXXXXXXX    0.000052    0.000051   0.0000171    0.000054    0.000044    0.000094    0.000068   0.0000298";
@@ -288,7 +289,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_c04_line_empty_string() {
         let line = "";
         let result = parse_c04_line(line.to_string());

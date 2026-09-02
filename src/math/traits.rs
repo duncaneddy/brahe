@@ -65,9 +65,10 @@ impl IntoPosition for na::SVector<f64, 6> {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_into_position_vector3() {
         let r = na::Vector3::new(1.0, 2.0, 3.0);
         let pos = r.position();
@@ -75,7 +76,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_into_position_vector6() {
         let x = na::SVector::<f64, 6>::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0);
         let pos = x.position();
@@ -83,7 +84,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_into_position_generic_function() {
         fn get_norm<P: IntoPosition>(r: P) -> f64 {
             r.position().norm()

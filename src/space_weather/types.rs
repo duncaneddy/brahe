@@ -214,9 +214,10 @@ impl fmt::Display for SpaceWeatherData {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_space_weather_extrapolation_display() {
         assert_eq!(
             format!("{}", SpaceWeatherExtrapolation::Zero),
@@ -233,7 +234,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_space_weather_type_display() {
         assert_eq!(format!("{}", SpaceWeatherType::Unknown), "Unknown");
         assert_eq!(
@@ -244,7 +245,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_space_weather_data_default() {
         let data = SpaceWeatherData::default();
         assert_eq!(data.year, 0);
@@ -257,7 +258,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_space_weather_data_display() {
         let data = SpaceWeatherData {
             year: 2024,
@@ -288,7 +289,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_space_weather_section_display() {
         assert_eq!(format!("{}", SpaceWeatherSection::Observed), "Observed");
         assert_eq!(
@@ -302,7 +303,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_space_weather_section_clone_eq() {
         let s1 = SpaceWeatherSection::DailyPredicted;
         let s2 = s1; // Copy type
@@ -310,7 +311,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_space_weather_extrapolation_clone_eq() {
         let ext1 = SpaceWeatherExtrapolation::Hold;
         let ext2 = ext1; // Copy type
@@ -318,7 +319,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_space_weather_type_clone_eq() {
         let t1 = SpaceWeatherType::CssiSpaceWeather;
         let t2 = t1; // Copy type
@@ -326,7 +327,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_space_weather_data_clone_eq() {
         let data1 = SpaceWeatherData::default();
         let data2 = data1.clone();

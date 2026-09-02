@@ -101,9 +101,10 @@ impl fmt::Display for TimeSystem {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_time_system_display() {
         assert_eq!(format!("{}", TimeSystem::GPS), "GPS");
         assert_eq!(format!("{}", TimeSystem::TAI), "TAI");

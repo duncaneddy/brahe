@@ -393,9 +393,10 @@ impl SpaceTrackQuery {
 mod tests {
     use super::*;
     use crate::spacetrack::operators;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_basic_query() {
         let query = SpaceTrackQuery::new(RequestClass::GP);
         let path = query.build();
@@ -403,7 +404,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_with_filter() {
         let query = SpaceTrackQuery::new(RequestClass::GP).filter("NORAD_CAT_ID", "25544");
 
@@ -415,7 +416,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_with_multiple_filters() {
         let query = SpaceTrackQuery::new(RequestClass::GP)
             .filter("NORAD_CAT_ID", "25544")
@@ -427,7 +428,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_with_order_by() {
         let query = SpaceTrackQuery::new(RequestClass::GP)
             .filter("NORAD_CAT_ID", "25544")
@@ -438,7 +439,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_with_multiple_order_by() {
         let query = SpaceTrackQuery::new(RequestClass::GP)
             .order_by("EPOCH", SortOrder::Desc)
@@ -449,7 +450,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_with_limit() {
         let query = SpaceTrackQuery::new(RequestClass::GP)
             .filter("NORAD_CAT_ID", "25544")
@@ -460,7 +461,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_with_limit_offset() {
         let query = SpaceTrackQuery::new(RequestClass::GP)
             .filter("NORAD_CAT_ID", "25544")
@@ -471,7 +472,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_with_format() {
         let query = SpaceTrackQuery::new(RequestClass::GP)
             .filter("NORAD_CAT_ID", "25544")
@@ -482,7 +483,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_with_3le_format() {
         let query = SpaceTrackQuery::new(RequestClass::GP)
             .filter("NORAD_CAT_ID", "25544")
@@ -493,7 +494,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_with_predicates() {
         let query = SpaceTrackQuery::new(RequestClass::GP)
             .filter("NORAD_CAT_ID", "25544")
@@ -504,7 +505,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_with_metadata() {
         let query = SpaceTrackQuery::new(RequestClass::GP).metadata(true);
 
@@ -513,7 +514,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_with_distinct() {
         let query = SpaceTrackQuery::new(RequestClass::GP).distinct(true);
 
@@ -522,7 +523,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_with_empty_result() {
         let query = SpaceTrackQuery::new(RequestClass::GP).empty_result(true);
 
@@ -531,7 +532,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_with_favorites() {
         let query = SpaceTrackQuery::new(RequestClass::GP).favorites("my_favorites");
 
@@ -540,7 +541,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_with_custom_controller() {
         let query =
             SpaceTrackQuery::new(RequestClass::GP).controller(RequestController::ExpandedSpaceData);
@@ -550,7 +551,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_cdm_public_default_controller() {
         let query = SpaceTrackQuery::new(RequestClass::CDMPublic);
 
@@ -559,7 +560,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_satcat() {
         let query = SpaceTrackQuery::new(RequestClass::SATCAT)
             .filter("NORAD_CAT_ID", "25544")
@@ -573,7 +574,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_full_query() {
         let query = SpaceTrackQuery::new(RequestClass::GP)
             .filter("NORAD_CAT_ID", "25544")
@@ -588,7 +589,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_with_operators() {
         let query = SpaceTrackQuery::new(RequestClass::GP)
             .filter("EPOCH", &operators::greater_than(operators::now_offset(-7)))
@@ -605,7 +606,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_output_format_accessor() {
         let query = SpaceTrackQuery::new(RequestClass::GP);
         assert_eq!(query.output_format(), OutputFormat::JSON);
@@ -615,7 +616,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_request_class_accessor() {
         let query = SpaceTrackQuery::new(RequestClass::GP);
         assert_eq!(query.request_class(), RequestClass::GP);
@@ -625,7 +626,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_clone() {
         let query = SpaceTrackQuery::new(RequestClass::GP)
             .filter("NORAD_CAT_ID", "25544")
@@ -636,7 +637,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_metadata_false_not_in_url() {
         let query = SpaceTrackQuery::new(RequestClass::GP).metadata(false);
 
@@ -645,7 +646,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_distinct_false_not_in_url() {
         let query = SpaceTrackQuery::new(RequestClass::GP).distinct(false);
 
@@ -654,7 +655,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_empty_result_false_not_in_url() {
         let query = SpaceTrackQuery::new(RequestClass::GP).empty_result(false);
 
@@ -663,7 +664,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_all_request_classes() {
         let classes = vec![
             RequestClass::GP,
@@ -687,7 +688,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_with_xml_format() {
         let query = SpaceTrackQuery::new(RequestClass::GP).format(OutputFormat::XML);
         let path = query.build();
@@ -695,7 +696,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_with_html_format() {
         let query = SpaceTrackQuery::new(RequestClass::GP).format(OutputFormat::HTML);
         let path = query.build();
@@ -703,7 +704,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_with_csv_format() {
         let query = SpaceTrackQuery::new(RequestClass::GP).format(OutputFormat::CSV);
         let path = query.build();
@@ -711,7 +712,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_with_kvn_format() {
         let query = SpaceTrackQuery::new(RequestClass::GP).format(OutputFormat::KVN);
         let path = query.build();
@@ -719,7 +720,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_with_json_format_explicit() {
         let query = SpaceTrackQuery::new(RequestClass::GP).format(OutputFormat::JSON);
         let path = query.build();
@@ -727,7 +728,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_with_all_controllers() {
         let controllers = vec![
             (RequestController::BasicSpaceData, "basicspacedata"),

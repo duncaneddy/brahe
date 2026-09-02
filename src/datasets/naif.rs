@@ -163,7 +163,7 @@ pub fn download_spice_kernel(
 mod tests {
     use super::*;
     use httpmock::prelude::*;
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
     use tempfile::tempdir;
 
     /// Setup helper: Copy de440s.bsp from test_assets to cache for CI tests.
@@ -271,7 +271,7 @@ mod tests {
     // ========== HTTP Error Tests ==========
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_fetch_kernel_http_404() {
         // Setup mock server that returns 404 Not Found
         let server = MockServer::start();
@@ -296,7 +296,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_fetch_kernel_http_500() {
         // Setup mock server that returns 500 Server Error
         let server = MockServer::start();
@@ -321,7 +321,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_fetch_kernel_empty_response() {
         // Setup mock server that returns 200 OK with empty body
         let server = MockServer::start();
@@ -346,7 +346,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_fetch_kernel_with_url_uses_filename_override() {
         // The Ura184 kernel's file name differs from its short name; the
         // with-URL seam must append the *filename*, not the name.

@@ -255,9 +255,10 @@ pub fn is_data_line(line: &str) -> bool {
 mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_convert_kp_to_float() {
         // Test base values
         assert_abs_diff_eq!(convert_kp_to_float(0), 0.0, epsilon = 1e-10);
@@ -277,7 +278,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_cssi_line() {
         // Sample line from the actual file
         let line = "1957 10 01 1700 19 43 40 30 20 37 23 43 37 273  32  27  15   7  22   9  32  22  21 1.1 5 334 269.8 0 266.8 235.5 269.3 266.6 230.9";
@@ -341,7 +342,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_cssi_line_short() {
         let short_line = "1957 10 01";
         let result = parse_cssi_line(short_line);
@@ -349,7 +350,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_is_data_line() {
         assert!(is_data_line(
             "1957 10 01 1700 19 43 40 30 20 37 23 43 37 273"
@@ -361,7 +362,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_detect_section() {
         assert_eq!(detect_section("BEGIN OBSERVED"), Some("OBSERVED"));
         assert_eq!(
@@ -377,7 +378,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_another_line() {
         // Another line from the file with different values
         let line = "1957 10 06 1700 24 17  3 10  7  0  0  3  3  43   6   2   4   3   0   0   2   2   2 0.0 0 321 250.9 0 269.3 238.4 251.2 269.6 234.3";
@@ -404,7 +405,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_cssi_line_with_section() {
         // Sample line with complete data
         let line = "1957 10 01 1700 19 43 40 30 20 37 23 43 37 273  32  27  15   7  22   9  32  22  21 1.1 5 334 269.8 0 266.8 235.5 269.3 266.6 230.9";
@@ -421,7 +422,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_monthly_predicted_line() {
         // Sample MONTHLY_PREDICTED line with blank Kp/Ap fields
         // Format: year, month, day, bsrn, nd, then blanks, then ISN and F10.7 values
@@ -465,7 +466,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_monthly_predicted_fails_as_observed() {
         // MONTHLY_PREDICTED line should fail if parsed as OBSERVED (blank fields)
         let line = "2041 10 01 2837  1                                                                        10  70.0    69.2  70.5  69.8  68.8  69.0";

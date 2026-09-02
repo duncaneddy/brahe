@@ -622,6 +622,7 @@ impl RKF78DIntegrator {
 mod tests {
     use approx::assert_abs_diff_eq;
     use nalgebra::{DMatrix, DVector, SMatrix, SVector};
+    use serial_test::parallel;
 
     use crate::constants::{DEGREES, RADIANS};
     use crate::integrators::IntegratorConfig;
@@ -656,7 +657,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_integrator_parabola() {
         // Test RKF78 on simple parabola x' = 2t
         let f = |t: f64,
@@ -685,7 +686,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_integrator_adaptive() {
         // Test adaptive stepping on parabola
         let f = |t: f64,
@@ -718,7 +719,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_integrator_orbit() {
         // Test RKF78 on orbital mechanics (more stringent than RK4)
         let config = IntegratorConfig::adaptive(1e-8, 1e-6);
@@ -750,7 +751,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_accuracy() {
         // Verify RKF78 achieves expected 7th order accuracy
         let f = |t: f64,
@@ -782,7 +783,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_step_size_increases() {
         // Verify that adaptive stepping increases step size when error is small
         let f = |t: f64,
@@ -815,7 +816,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_step_size_decreases() {
         // Verify that adaptive stepping decreases step size when error is large
         let f = |_t: f64,
@@ -841,7 +842,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_config_parameters() {
         // Verify that config parameters are actually used
         let f = |t: f64,
@@ -866,7 +867,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_no_limits() {
         // Verify that setting limits to None removes protections
         let f = |t: f64,
@@ -894,7 +895,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_stm_accuracy() {
         setup_global_test_eop();
 
@@ -977,7 +978,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_stm_vs_direct_perturbation() {
         setup_global_test_eop();
 
@@ -1084,7 +1085,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_integrator_parabola() {
         let f = |t: f64,
                  _: &DVector<f64>,
@@ -1110,7 +1111,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_integrator_adaptive() {
         let f = |t: f64,
                  _: &DVector<f64>,
@@ -1139,7 +1140,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_integrator_orbit() {
         // Setup integrator
         let config = IntegratorConfig::adaptive(1e-8, 1e-6);
@@ -1178,7 +1179,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_accuracy() {
         let f = |t: f64,
                  _: &DVector<f64>,
@@ -1207,7 +1208,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_step_size_increases() {
         let f = |t: f64,
                  _: &DVector<f64>,
@@ -1235,7 +1236,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_step_size_decreases() {
         let f = |_t: f64,
                  state: &DVector<f64>,
@@ -1256,7 +1257,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_config_parameters() {
         // Setup with custom configuration
         let f = |t: f64,
@@ -1280,7 +1281,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_no_limits() {
         // Setup with all limits disabled
         let f = |t: f64,
@@ -1306,7 +1307,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_stm_accuracy() {
         setup_global_test_eop();
 
@@ -1386,7 +1387,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_stm_vs_direct_perturbation() {
         setup_global_test_eop();
 
@@ -1458,7 +1459,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78_s_vs_d_consistency() {
         // Verify RKF78SIntegrator and RKF78DIntegrator produce identical results
         let f_static = |_t: f64,
@@ -1502,7 +1503,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_backward_integration() {
         // Test backward propagation with orbital mechanics
         let config = IntegratorConfig::adaptive(1e-10, 1e-8);
@@ -1544,7 +1545,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_backward_integration() {
         // Test backward propagation with orbital mechanics (dynamic variant)
         let config = IntegratorConfig::adaptive(1e-10, 1e-8);
@@ -1593,7 +1594,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_varmat_sensmat() {
         // Test step_with_varmat_sensmat using simple exponential decay: dx/dt = -k*x
         // where k is a parameter. This has analytical solutions for both STM and sensitivity.
@@ -1788,7 +1789,7 @@ mod tests {
     // ========================================================================
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_sensmat() {
         // Test sensitivity matrix propagation using exponential decay: dx/dt = -k*x
 
@@ -1870,7 +1871,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_sensmat() {
         // Test sensitivity matrix propagation (standalone dynamic version)
 
@@ -1946,7 +1947,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_varmat_sensmat() {
         // Test combined STM and sensitivity matrix propagation (static version)
 
@@ -2060,7 +2061,7 @@ mod tests {
     // =============================================================================
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_new_uses_default_config() {
         fn dynamics(
             _t: f64,
@@ -2089,7 +2090,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_with_config_stores_config() {
         fn dynamics(
             _t: f64,
@@ -2135,7 +2136,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_config_returns_reference() {
         fn dynamics(
             _t: f64,
@@ -2163,7 +2164,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_new_uses_default_config() {
         fn dynamics(
             _t: f64,
@@ -2191,7 +2192,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_with_config_stores_config() {
         fn dynamics(
             _t: f64,
@@ -2238,7 +2239,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_config_returns_reference() {
         fn dynamics(
             _t: f64,
@@ -2265,7 +2266,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_dimension_method() {
         fn dynamics(
             _t: f64,
@@ -2293,7 +2294,7 @@ mod tests {
     // =============================================================================
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_errors_on_max_attempts_exceeded() {
         // Create a "stiff" problem that will fail to converge
         // Use very tight tolerances and small max_step_attempts
@@ -2329,7 +2330,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_errors_on_max_attempts_exceeded() {
         fn stiff_dynamics(
             _t: f64,
@@ -2367,7 +2368,7 @@ mod tests {
     // propagation output, ensuring parameters flow through to dynamics correctly.
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_params_affect_step_output() {
         // Test exponential decay where the decay rate comes from params:
         // dx/dt = -k * x, where k = params[0]
@@ -2416,7 +2417,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_params_affect_step_output() {
         // Same test for dynamic-sized integrator
         // dx/dt = -k * x, where k = params[0]
@@ -2462,7 +2463,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_params_multi_step_propagation() {
         // Verify params affect output over multiple adaptive steps
         // dx/dt = -k * x, where k = params[0]
@@ -2529,7 +2530,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_params_with_varmat() {
         // Verify params affect step_with_varmat output
         // dx/dt = -k * x, where k = params[0]
@@ -2599,7 +2600,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_params_with_varmat() {
         // Same test for dynamic-sized integrator with variational matrix
 
@@ -2686,7 +2687,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_step_methods_require_dt() {
         // Adaptive integrators require an explicit dt; all four step variants must
         // return PropagatorError when dt is None.
@@ -2716,7 +2717,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_step_methods_require_dt() {
         let integrator = RKF78DIntegrator::new(1, Box::new(simple_decay_d), None, None, None);
         let state = DVector::from_vec(vec![1.0]);
@@ -2743,7 +2744,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_control_input_applied() {
         // Zero dynamics with a constant control input exercises the control branch
         // in step_internal and produces a nonzero state derivative.
@@ -2764,7 +2765,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_control_input_applied() {
         let f = |_t: f64,
                  x: &DVector<f64>,
@@ -2782,7 +2783,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78s_step_with_sensmat_requires_sensmat() {
         // varmat present but sensmat missing: the sensmat ok_or_else closure must fire
         let jacobian = SNumericalJacobian::new(Box::new(simple_decay_s));
@@ -2800,7 +2801,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkf78d_step_with_sensmat_requires_sensmat() {
         let jacobian = DNumericalJacobian::new(Box::new(simple_decay_d));
         let integrator = RKF78DIntegrator::new(

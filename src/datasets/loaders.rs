@@ -145,9 +145,10 @@ pub fn parse_point_locations_from_geojson(
 mod tests {
     use super::*;
     use serde_json::json;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_single_point() {
         let geojson = json!({
             "type": "FeatureCollection",
@@ -173,7 +174,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_multiple_points() {
         let geojson = json!({
             "type": "FeatureCollection",
@@ -206,7 +207,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_empty_feature_collection() {
         let geojson = json!({
             "type": "FeatureCollection",
@@ -218,7 +219,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_invalid_type() {
         let geojson = json!({
             "type": "Feature",
@@ -233,7 +234,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_mixed_geometries() {
         // Should skip non-Point geometries and still return valid Points
         let geojson = json!({
@@ -268,7 +269,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_load_from_nonexistent_file() {
         // Test error when trying to load from a file that doesn't exist
         let result = load_point_locations_from_geojson("/nonexistent/path/to/file.geojson");
@@ -284,7 +285,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_load_from_invalid_json_file() {
         // Test error when file contains invalid JSON
         use std::io::Write;
@@ -308,7 +309,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_load_from_valid_file() {
         // Test successfully loading from a valid GeoJSON file
         use std::io::Write;

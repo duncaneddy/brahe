@@ -303,9 +303,10 @@ mod tests {
     use super::*;
     use crate::utils::testing::CacheRedirect;
     use crate::utils::testing::NetworkModeGuard;
+    use serial_test::{parallel, serial};
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_index_entry_round_trip_json() {
         let entry = IndexEntry {
             body: ICGEMBody::Earth,
@@ -320,7 +321,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_index_file_round_trip_json() {
         let file = IndexFile {
             fetched_at: 1_700_000_000,
@@ -339,7 +340,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_index_path_dispatches_by_body() {
         let earth = index_path_for(&ICGEMBody::Earth).unwrap();
         assert!(earth.to_string_lossy().ends_with("index_earth.json"));
@@ -350,7 +351,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_read_index_file_missing_returns_none() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("nope.json");
@@ -358,7 +359,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_write_then_read_index_file() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("x.json");
@@ -372,7 +373,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_fetch_index_offline_errors_without_request() {
         use httpmock::prelude::*;
         let _mode = NetworkModeGuard::set(Some("offline"));
@@ -393,7 +394,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_fetch_index_http_404() {
         use httpmock::prelude::*;
         let server = MockServer::start();
@@ -406,7 +407,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_fetch_index_success_serves_fixture() {
         use httpmock::prelude::*;
         let fixture =
@@ -423,7 +424,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_list_models_uses_fresh_cache() {
         let _cache = CacheRedirect::new();
 
@@ -447,7 +448,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_list_models_refreshes_stale_cache() {
         use httpmock::prelude::*;
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -473,7 +474,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_list_models_stale_fallback_on_network_failure() {
         let _cache = CacheRedirect::new();
 
@@ -497,7 +498,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_list_models_filters_celestial_by_body() {
         // The celestial cache file holds entries for ALL non-Earth bodies.
         // list_icgem_models(Mars) must return only Mars entries — not Moon,
@@ -557,7 +558,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_list_models_offline_serves_stale_index_without_request() {
         use httpmock::prelude::*;
         let _cache = CacheRedirect::new();
@@ -589,7 +590,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_list_models_offline_strict_stale_index_errors() {
         use httpmock::prelude::*;
         let _cache = CacheRedirect::new();
@@ -617,7 +618,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_list_models_offline_missing_index_errors() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("offline"));

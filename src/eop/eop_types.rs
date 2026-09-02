@@ -72,9 +72,10 @@ impl fmt::Display for EOPType {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_eop_extrapolation_display() {
         assert_eq!(
             format!("{}", EOPExtrapolation::Zero),
@@ -91,7 +92,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_eop_type_display() {
         assert_eq!(format!("{}", EOPType::Unknown), "Unknown");
         assert_eq!(format!("{}", EOPType::C04), "C04");

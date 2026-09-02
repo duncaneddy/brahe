@@ -217,11 +217,12 @@ impl fmt::Display for SupGPSource {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     // -- CelestrakQueryType tests --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_type_as_str() {
         assert_eq!(CelestrakQueryType::GP.as_str(), "gp");
         assert_eq!(CelestrakQueryType::SupGP.as_str(), "sup_gp");
@@ -229,7 +230,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_type_endpoint_path() {
         assert_eq!(
             CelestrakQueryType::GP.endpoint_path(),
@@ -246,7 +247,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_type_display() {
         assert_eq!(format!("{}", CelestrakQueryType::GP), "gp");
         assert_eq!(format!("{}", CelestrakQueryType::SupGP), "sup_gp");
@@ -256,7 +257,7 @@ mod tests {
     // -- CelestrakOutputFormat tests --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_output_format_as_str() {
         assert_eq!(CelestrakOutputFormat::Tle.as_str(), "TLE");
         assert_eq!(CelestrakOutputFormat::TwoLe.as_str(), "2LE");
@@ -269,7 +270,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_output_format_display() {
         assert_eq!(format!("{}", CelestrakOutputFormat::Tle), "TLE");
         assert_eq!(format!("{}", CelestrakOutputFormat::TwoLe), "2LE");
@@ -285,7 +286,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_output_format_is_json() {
         assert!(CelestrakOutputFormat::Json.is_json());
         assert!(CelestrakOutputFormat::JsonPretty.is_json());
@@ -300,7 +301,7 @@ mod tests {
     // -- SupGPSource tests --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sup_gp_source_as_str() {
         assert_eq!(SupGPSource::SpaceX.as_str(), "spacex");
         assert_eq!(SupGPSource::SpaceXSup.as_str(), "spacex-sup");
@@ -325,7 +326,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sup_gp_source_display() {
         assert_eq!(format!("{}", SupGPSource::SpaceX), "spacex");
         assert_eq!(format!("{}", SupGPSource::Planet), "planet");
@@ -337,7 +338,7 @@ mod tests {
     // -- Shared trait tests --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_enum_equality() {
         assert_eq!(CelestrakQueryType::GP, CelestrakQueryType::GP);
         assert_ne!(CelestrakQueryType::GP, CelestrakQueryType::SATCAT);
@@ -348,7 +349,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_enum_clone() {
         let qt = CelestrakQueryType::GP;
         let cloned = qt;
@@ -364,7 +365,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_enum_debug() {
         assert_eq!(format!("{:?}", CelestrakQueryType::GP), "GP");
         assert_eq!(format!("{:?}", CelestrakQueryType::SupGP), "SupGP");

@@ -555,6 +555,7 @@ mod tests {
     use super::*;
     use crate::time::TimeSystem;
     use nalgebra::Vector6;
+    use serial_test::parallel;
 
     struct SimpleTimeEvent {
         target_time: Epoch,
@@ -581,7 +582,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_bisection_search_time_event() {
         let start_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let target_epoch = start_epoch + 100.0; // 100 seconds later
@@ -619,7 +620,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_scan_for_event() {
         let start_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let target_epoch = start_epoch + 50.0;
@@ -657,7 +658,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_scan_for_event_backward() {
         // Backward propagation hands the scan prev_time later than
         // current_time, so the bracket bounds arrive reversed in time.
@@ -728,7 +729,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_step_reduction_factor_is_used() {
         // Test that a custom step reduction factor is used in the bisection
         let start_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -767,7 +768,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_bracket_termination() {
         // Test that search terminates when bracket is tight enough
         let start_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -807,7 +808,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_event_near_bracket_boundary() {
         // Test finding an event very close to the end of the search window
         let start_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -849,7 +850,7 @@ mod tests {
     use crate::events::DValueEvent;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dscan_value_event_position_crossing() {
         // Simulate SHO: position crosses from positive to negative
         // x_prev = [1.0, 0.0] (position=1, velocity=0)
@@ -906,7 +907,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dscan_value_event_no_crossing() {
         // Position stays positive - no crossing should be detected
         let start_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -947,7 +948,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dscan_value_event_increasing_direction() {
         // Position crosses from negative to positive (increasing)
         let start_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);

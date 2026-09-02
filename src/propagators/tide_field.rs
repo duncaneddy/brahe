@@ -314,6 +314,7 @@ impl TideField {
 #[cfg(test)]
 mod tests {
     use nalgebra::{DVector, Vector3, Vector6};
+    use serial_test::serial;
 
     use super::TideField;
     use crate::constants::units::AngleFormat;
@@ -327,7 +328,7 @@ mod tests {
     use crate::time::{Epoch, TimeSystem};
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_tide_field_fold_in_linearity() {
         // Single fold-in evaluation == static-only + delta-only evaluations.
         use crate::propagators::force_model_config::{
@@ -391,7 +392,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_tide_field_epoch_cache_idempotent() {
         use crate::propagators::force_model_config::{
             OceanTideConfig, PermanentTideConfig, TidesConfiguration,
@@ -420,7 +421,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_tide_field_point_mass_delta_only() {
         // PointMass gravity + solid tides: field is delta-only and matches the
         // standalone accel_solid_earth_tides evaluation.
@@ -453,7 +454,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_tide_field_build_gravity_bounds_error() {
         // Requested gravity degree/order above the loaded model's bounds must
         // be rejected as OutOfBounds at fold-in construction; and a ModelType
@@ -500,7 +501,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_tide_field_build_ocean_load_failure() {
         // A corrupt FES2004 cache file makes the ocean-model load (and thus
         // TideField::build) fail.
@@ -532,7 +533,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_tide_field_build_pole_tide_without_eop_errors() {
         // Installing an uninitialized provider de-initializes global EOP
         // in-process (the eop module's own tests use the same reset), so the
@@ -566,7 +567,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_propagator_pole_tide_requires_eop() {
         // The pole-tide EOP check is at construction; with test EOP initialized
         // construction succeeds.

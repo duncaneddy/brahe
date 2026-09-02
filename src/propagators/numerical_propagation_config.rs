@@ -508,16 +508,17 @@ impl NumericalPropagationConfig {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_integrator_method_default() {
         let method = IntegratorMethod::default();
         assert_eq!(method, IntegratorMethod::DP54);
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_integrator_method_is_adaptive() {
         assert!(!IntegratorMethod::RK4.is_adaptive());
         assert!(IntegratorMethod::RKF45.is_adaptive());
@@ -527,7 +528,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_numerical_propagation_config_default() {
         let config = NumericalPropagationConfig::default();
 
@@ -543,14 +544,14 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_numerical_propagation_config_with_method() {
         let config = NumericalPropagationConfig::with_method(IntegratorMethod::RKF45);
         assert_eq!(config.method, IntegratorMethod::RKF45);
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_numerical_propagation_config_high_precision() {
         let config = NumericalPropagationConfig::high_precision();
 
@@ -561,7 +562,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_variational_config_default() {
         let config = VariationalConfig::default();
 
@@ -574,7 +575,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_variational_config_new() {
         let config = VariationalConfig::new(
             true,
@@ -594,7 +595,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_variational_config_partial() {
         let config = VariationalConfig::new(
             true,
@@ -614,7 +615,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_numerical_propagation_config_default_variational() {
         let config = NumericalPropagationConfig::default();
 
@@ -623,7 +624,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_numerical_propagation_config_new() {
         let config = NumericalPropagationConfig::new(
             IntegratorMethod::RKN1210,
@@ -645,7 +646,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_numerical_propagation_config_default_accelerations() {
         let config = NumericalPropagationConfig::default();
 
@@ -656,7 +657,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_numerical_propagation_config_with_store_accelerations() {
         let config = NumericalPropagationConfig::default().with_store_accelerations(false);
         assert!(!config.store_accelerations);
@@ -666,7 +667,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_numerical_propagation_config_with_interpolation_method() {
         let config = NumericalPropagationConfig::default()
             .with_interpolation_method(InterpolationMethod::Lagrange { degree: 5 });
@@ -691,7 +692,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_numerical_propagation_config_builder_chaining() {
         let config = NumericalPropagationConfig::default()
             .with_store_accelerations(false)
@@ -705,7 +706,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_numerical_propagation_config_high_precision_new_fields() {
         let config = NumericalPropagationConfig::high_precision();
 
@@ -716,14 +717,14 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_numerical_propagation_config_validate_default_ok() {
         // Default config is valid (Linear interpolation, accelerations off)
         assert!(NumericalPropagationConfig::default().validate().is_ok());
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_numerical_propagation_config_validate_hermite_quintic_without_accelerations() {
         let config = NumericalPropagationConfig::default()
             .with_interpolation_method(InterpolationMethod::HermiteQuintic);
@@ -740,7 +741,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_numerical_propagation_config_validate_hermite_quintic_with_accelerations_ok() {
         let config = NumericalPropagationConfig::default()
             .with_interpolation_method(InterpolationMethod::HermiteQuintic)
@@ -749,7 +750,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_numerical_propagation_config_validate_hermite_cubic_without_accelerations_ok() {
         // HermiteCubic does not require accelerations, so it should validate fine.
         let config = NumericalPropagationConfig::default()

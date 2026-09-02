@@ -1324,6 +1324,7 @@ impl AccessPropertyComputer for RangeRateComputer {
 mod tests {
     use super::*;
     use nalgebra::{Vector3, Vector6};
+    use serial_test::parallel;
 
     use crate::constants::AngleFormat;
     use crate::coordinates::position_geodetic_to_ecef;
@@ -1339,7 +1340,7 @@ mod tests {
     };
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_property_value_serialization() {
         // Scalar
         let scalar = PropertyValue::Scalar(42.0);
@@ -1376,7 +1377,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_state_provider_propagator() {
         use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation};
 
@@ -1412,7 +1413,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_state_provider_orbit_trajectory() {
         use crate::trajectories::sorbit_trajectory::SOrbitTrajectory;
         use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
@@ -1439,7 +1440,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_access_properties_creation() {
         let props = AccessProperties::new(
             45.0,
@@ -1478,7 +1479,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_accessproperties_builder_equivalence() {
         let from_builder = AccessProperties::builder()
             .azimuth_open(45.0)
@@ -1521,7 +1522,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_accessproperties_builder_missing_fields() {
         let result = AccessProperties::builder().azimuth_open(45.0).build();
         let err = result.unwrap_err().to_string();
@@ -1531,7 +1532,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_accessproperties_builder_additional() {
         let props = AccessProperties::builder()
             .azimuth_open(45.0)
@@ -1566,7 +1567,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_access_properties_additional() {
         let mut props = AccessProperties::new(
             45.0,
@@ -1601,7 +1602,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_compute_azimuth_elevation() {
         use crate::coordinates::position_geodetic_to_ecef;
 
@@ -1624,7 +1625,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_compute_off_nadir() {
         // Satellite at altitude
         let sat_ecef = Vector3::new(7000e3, 0.0, 0.0);
@@ -1641,7 +1642,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_compute_local_time() {
         // Initialize EOP for UT1 time conversions
         setup_global_test_eop();
@@ -1659,7 +1660,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_compute_asc_dsc() {
         // Ascending: positive z-velocity in inertial frame
         let state_ascending = Vector6::new(
@@ -1681,7 +1682,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_compute_look_direction() {
         // Satellite state
         let sat_state = Vector6::new(
@@ -1733,7 +1734,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_property_computer() {
         use crate::access::{AccessibleLocation, PointLocation};
         use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation};
@@ -1831,7 +1832,7 @@ mod tests {
     // ================================
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sampling_config_midpoint() {
         let config = SamplingConfig::Midpoint;
         let window_open =
@@ -1847,7 +1848,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sampling_config_relative_points() {
         let config = SamplingConfig::RelativePoints(vec![0.0, 0.5, 1.0]);
         let window_open =
@@ -1865,7 +1866,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sampling_config_relative_points_out_of_bounds_negative() {
         // Values outside [0, 1] should error
         let config = SamplingConfig::RelativePoints(vec![-0.5, 0.0, 0.5]);
@@ -1881,7 +1882,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sampling_config_relative_points_out_of_bounds_positive() {
         // Values outside [0, 1] should error
         let config = SamplingConfig::RelativePoints(vec![0.0, 0.5, 1.5]);
@@ -1897,7 +1898,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sampling_config_relative_points_empty() {
         // Empty vector should error
         let config = SamplingConfig::RelativePoints(vec![]);
@@ -1913,7 +1914,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sampling_config_fixed_interval() {
         let config = SamplingConfig::FixedInterval {
             interval: 600.0, // 10 minutes in seconds
@@ -1938,7 +1939,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sampling_config_fixed_interval_with_offset() {
         let config = SamplingConfig::FixedInterval {
             interval: 1200.0, // 20 minutes in seconds
@@ -1960,7 +1961,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sampling_config_fixed_interval_zero() {
         // Zero interval should error
         let config = SamplingConfig::FixedInterval {
@@ -1979,7 +1980,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sampling_config_fixed_interval_negative() {
         // Negative interval should error
         let config = SamplingConfig::FixedInterval {
@@ -1998,7 +1999,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sampling_config_fixed_interval_negative_offset() {
         // Negative offset should error
         let config = SamplingConfig::FixedInterval {
@@ -2017,7 +2018,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sampling_config_fixed_interval_offset_beyond_window() {
         // If offset is beyond window duration, should error
         let config = SamplingConfig::FixedInterval {
@@ -2036,7 +2037,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sampling_config_fixed_count() {
         let config = SamplingConfig::FixedCount(5);
         let window_open =
@@ -2057,7 +2058,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sampling_config_fixed_count_single() {
         let config = SamplingConfig::FixedCount(1);
         let window_open =
@@ -2074,7 +2075,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sampling_config_fixed_count_two() {
         let config = SamplingConfig::FixedCount(2);
         let window_open =
@@ -2092,7 +2093,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sampling_config_fixed_count_zero() {
         // Zero count should error
         let config = SamplingConfig::FixedCount(0);
@@ -2108,7 +2109,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sampling_config_serialization() {
         // Midpoint
         let config = SamplingConfig::Midpoint;
@@ -2139,7 +2140,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_doppler_computer_downlink() {
         setup_global_test_eop();
 
@@ -2244,7 +2245,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_doppler_computer_uplink() {
         setup_global_test_eop();
 
@@ -2342,7 +2343,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_doppler_computer_both_frequencies() {
         setup_global_test_eop();
 
@@ -2451,7 +2452,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_range_computer() {
         setup_global_test_eop();
 
@@ -2566,7 +2567,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_range_rate_computer() {
         setup_global_test_eop();
 

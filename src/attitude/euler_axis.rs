@@ -413,10 +413,11 @@ mod tests {
     use super::*;
     use crate::constants::{DEGREES, RADIANS};
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
     use std::f64::consts::PI;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn new() {
         let e = EulerAxis::new(Vector3::new(1.0, 1.0, 1.0), 45.0, DEGREES);
         assert_eq!(e.axis, Vector3::new(1.0, 1.0, 1.0));
@@ -424,7 +425,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn from_values() {
         let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, DEGREES);
         assert_eq!(e.axis, Vector3::new(1.0, 1.0, 1.0));
@@ -432,7 +433,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn from_vector_vector_first() {
         let vector = Vector4::new(1.0, 1.0, 1.0, 45.0);
         let e = EulerAxis::from_vector(vector, DEGREES, true);
@@ -441,7 +442,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn from_vector_angle_first() {
         let vector = Vector4::new(45.0, 1.0, 1.0, 1.0);
         let e = EulerAxis::from_vector(vector, DEGREES, false);
@@ -450,7 +451,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn to_vector_vector_first() {
         let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, DEGREES);
         let vector = e.to_vector(DEGREES, true);
@@ -458,7 +459,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn to_vector_angle_first() {
         let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, DEGREES);
         let vector = e.to_vector(DEGREES, false);
@@ -466,7 +467,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn from_quaternion() {
         let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
         let e = EulerAxis::from_quaternion(q);
@@ -475,7 +476,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn from_euler_axis() {
         let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, DEGREES);
         let e2 = EulerAxis::from_euler_axis(e);
@@ -486,7 +487,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn from_euler_angle_x_axis() {
         let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 0.0, 0.0, DEGREES);
         let e2 = EulerAxis::from_euler_angle(e);
@@ -495,7 +496,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn from_euler_angle_y_axis() {
         let e = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 45.0, 0.0, DEGREES);
         let e2 = EulerAxis::from_euler_angle(e);
@@ -504,7 +505,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn from_euler_angle_z_axis() {
         let e = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 0.0, 45.0, DEGREES);
         let e2 = EulerAxis::from_euler_angle(e);
@@ -514,7 +515,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    #[serial_test::parallel]
+    #[parallel]
     fn from_rotation_matrix_Rx() {
         let r = RotationMatrix::new(
             1.0,
@@ -535,7 +536,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    #[serial_test::parallel]
+    #[parallel]
     fn from_rotation_matrix_Ry() {
         let r = RotationMatrix::new(
             std::f64::consts::FRAC_1_SQRT_2,
@@ -556,7 +557,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    #[serial_test::parallel]
+    #[parallel]
     fn from_rotation_matrix_Rz() {
         let r = RotationMatrix::new(
             std::f64::consts::FRAC_1_SQRT_2,
@@ -576,7 +577,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn to_quaternion() {
         let e = EulerAxis::from_values(1.0, 0.0, 0.0, 0.0, RADIANS);
         let q = e.to_quaternion();
@@ -584,7 +585,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn to_euler_axis() {
         let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, DEGREES);
         let e2 = e.to_euler_axis();
@@ -596,7 +597,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    #[serial_test::parallel]
+    #[parallel]
     fn to_euler_angle_Rx() {
         let e = EulerAxis::from_values(1.0, 0.0, 0.0, PI / 4.0, RADIANS);
         let e2 = e.to_euler_angle(EulerAngleOrder::XYZ);
@@ -608,7 +609,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    #[serial_test::parallel]
+    #[parallel]
     fn to_euler_angle_Ry() {
         let e = EulerAxis::from_values(0.0, 1.0, 0.0, PI / 4.0, RADIANS);
         let e2 = e.to_euler_angle(EulerAngleOrder::XYZ);
@@ -620,7 +621,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    #[serial_test::parallel]
+    #[parallel]
     fn to_euler_angle_Rz() {
         let e = EulerAxis::from_values(0.0, 0.0, 1.0, PI / 4.0, RADIANS);
         let e2 = e.to_euler_angle(EulerAngleOrder::XYZ);
@@ -632,7 +633,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    #[serial_test::parallel]
+    #[parallel]
     fn to_rotation_matrix_Rx() {
         let e = EulerAxis::from_values(1.0, 0.0, 0.0, PI / 4.0, RADIANS);
         let r = e.to_rotation_matrix();
@@ -649,7 +650,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    #[serial_test::parallel]
+    #[parallel]
     fn to_rotation_matrix_Ry() {
         let e = EulerAxis::from_values(0.0, 1.0, 0.0, PI / 4.0, RADIANS);
         let r = e.to_rotation_matrix();
@@ -666,7 +667,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    #[serial_test::parallel]
+    #[parallel]
     fn to_rotation_matrix_Rz() {
         let e = EulerAxis::from_values(0.0, 0.0, 1.0, PI / 4.0, RADIANS);
         let r = e.to_rotation_matrix();

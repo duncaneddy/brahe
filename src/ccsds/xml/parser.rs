@@ -1446,9 +1446,10 @@ pub fn parse_cdm_xml(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_oem_xml_example3() {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample3.xml").unwrap();
         let oem = parse_oem_xml(&content).unwrap();
@@ -1498,7 +1499,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_oem_xml_multiple_comments_per_block() {
         let oem = parse_oem_xml(
             &std::fs::read_to_string("test_assets/ccsds/oem/OEM-multiple-comments.xml").unwrap(),
@@ -1526,7 +1527,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_omm_xml_multiple_comments_per_block() {
         let omm = parse_omm_xml(
             &std::fs::read_to_string("test_assets/ccsds/omm/OMM-multiple-comments.xml").unwrap(),
@@ -1556,7 +1557,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_opm_xml_multiple_comments_per_block() {
         let opm = parse_opm_xml(
             &std::fs::read_to_string("test_assets/ccsds/opm/OPM-multiple-comments.xml").unwrap(),
@@ -1586,7 +1587,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_oem_xml_multiple_segments() {
         let oem = parse_oem_xml(
             &std::fs::read_to_string("test_assets/ccsds/oem/OEM-two-segments.xml").unwrap(),
@@ -1600,7 +1601,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_opm_xml_multiple_maneuvers() {
         let opm = parse_opm_xml(
             &std::fs::read_to_string("test_assets/ccsds/opm/OPM-two-maneuvers.xml").unwrap(),
@@ -1614,7 +1615,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_cdm_xml_resolves_entity_references() {
         // quick-xml reports each entity reference as its own event, so element
         // text that contains one arrives in several pieces. A conforming CDM
@@ -1636,7 +1637,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_cdm_xml_reads_cdata_sections() {
         // A CDATA section is character data that carries markup characters
         // unescaped; quick-xml reports it as its own event.
@@ -1651,7 +1652,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_cdm_xml_unescapes_user_defined_attribute() {
         let content = std::fs::read_to_string("test_assets/ccsds/cdm/CDMExample1.xml").unwrap();
         let content = content.replace(

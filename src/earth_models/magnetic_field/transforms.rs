@@ -181,9 +181,10 @@ pub(crate) fn field_geodetic_enz_to_ecef(
 mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_to_decimal_year() {
         use crate::time::TimeSystem;
         let epoch = Epoch::from_datetime(2025, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -195,7 +196,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_geodetic_to_geocentric_equator() {
         // At equator, geodetic and geocentric should agree closely
         let (r, theta, phi) = geodetic_to_geocentric_mag(0.0, 0.0, 0.0);
@@ -206,7 +207,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_geodetic_to_geocentric_pole() {
         // At north pole, colatitude should be ~0
         let (r, theta, _phi) = geodetic_to_geocentric_mag(90.0, 0.0, 0.0);
@@ -217,7 +218,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_field_geodetic_enz_at_equator() {
         // At equator, psi should be ~0, so B_north = -B_theta, B_zenith = B_r
         let b_r = 100.0;
@@ -235,7 +236,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_field_geocentric_enz() {
         let b_r = 100.0;
         let b_theta = 50.0;

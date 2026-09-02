@@ -694,7 +694,7 @@ mod tests {
     use crate::utils::testing::setup_global_test_eop;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_state_koe_to_eci() {
         setup_global_test_eop();
 
@@ -720,7 +720,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_state_eci_to_koe() {
         setup_global_test_eop();
 

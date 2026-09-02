@@ -85,72 +85,73 @@ impl From<String> for BraheError {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_brahe_error() {
         let e = BraheError::Error("Test error".to_string());
         assert_eq!(e.to_string(), "Test error");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_io_error() {
         let e = BraheError::IoError("Test error".to_string());
         assert_eq!(e.to_string(), "Test error");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_eop_error() {
         let e = BraheError::EOPError("Test error".to_string());
         assert_eq!(e.to_string(), "Test error");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_out_of_bounds_error() {
         let e = BraheError::OutOfBoundsError("Test error".to_string());
         assert_eq!(e.to_string(), "Test error");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_error() {
         let e = BraheError::ParseError("Test error".to_string());
         assert_eq!(e.to_string(), "Test error");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_initialization_error() {
         let e = BraheError::InitializationError("Test error".to_string());
         assert_eq!(e.to_string(), "Test error");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_propagator_error() {
         let e = BraheError::PropagatorError("Test error".to_string());
         assert_eq!(e.to_string(), "Test error");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_numerical_error() {
         let e = BraheError::NumericalError("Test error".to_string());
         assert_eq!(e.to_string(), "Test error");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_space_weather_error() {
         let e = BraheError::SpaceWeatherError("Test error".to_string());
         assert_eq!(e.to_string(), "Test error");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_from_io_error() {
         let io_error = io::Error::new(io::ErrorKind::NotFound, "File not found");
         let brahe_error = BraheError::from(io_error);
@@ -159,7 +160,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_from_parse_float_error() {
         let result = "not_a_number".parse::<f64>();
         assert!(result.is_err());
@@ -169,7 +170,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_from_parse_int_error() {
         let result = "not_an_int".parse::<i32>();
         assert!(result.is_err());
@@ -179,7 +180,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_from_string() {
         let msg = "Test error message".to_string();
         let brahe_error = BraheError::from(msg.clone());
@@ -188,7 +189,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_error_trait() {
         // Test that BraheError implements std::error::Error
         let e = BraheError::Error("Test".to_string());
@@ -196,7 +197,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_debug_format() {
         let e = BraheError::Error("Debug test".to_string());
         let debug_str = format!("{:?}", e);
@@ -205,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_partial_eq() {
         let e1 = BraheError::Error("Test".to_string());
         let e2 = BraheError::Error("Test".to_string());

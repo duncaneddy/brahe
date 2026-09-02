@@ -2383,6 +2383,7 @@ mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
+    use serial_test::{parallel, serial};
 
     /// Test case structure for NRLMSISE-00 validation
     #[allow(dead_code)]
@@ -2791,7 +2792,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_nrlmsise00_case_1() {
         let cases = get_test_cases();
         let case = &cases[0];
@@ -2857,7 +2858,7 @@ mod tests {
     #[case(12)]
     #[case(13)]
     #[case(14)]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_nrlmsise00_all_cases(#[case] case_idx: usize) {
         let cases = get_test_cases();
         let case = &cases[case_idx];
@@ -2912,7 +2913,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_density_nrlmsise00_lunar_distance_is_negligible() {
         // An Earth-attributed drag model on a cislunar trajectory evaluates
         // density at very large Earth distances; the exosphere extrapolation

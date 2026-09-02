@@ -244,9 +244,10 @@ pub struct SPEphemerisFileRecord {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_record_deserialize() {
         let json = r#"[{
             "INTLDES": "1998-067A",
@@ -287,7 +288,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_record_unknown_fields_ignored() {
         let json = r#"[{
             "SATNAME": "ISS",
@@ -301,7 +302,7 @@ mod tests {
     // -- FileShareFileRecord tests --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_fileshare_file_record_deserialize() {
         let json = r#"[{
             "FILE_ID": "12345",
@@ -321,7 +322,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_fileshare_file_record_minimal() {
         let json = r#"[{"FILE_ID": "12345"}]"#;
         let records: Vec<FileShareFileRecord> = serde_json::from_str(json).unwrap();
@@ -330,7 +331,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_fileshare_file_record_unknown_fields() {
         let json = r#"[{"FILE_ID": "12345", "UNKNOWN": "value"}]"#;
         let records: Vec<FileShareFileRecord> = serde_json::from_str(json).unwrap();
@@ -340,7 +341,7 @@ mod tests {
     // -- FolderRecord tests --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_folder_record_deserialize() {
         let json = r#"[{
             "FOLDER_ID": "100",
@@ -357,7 +358,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_folder_record_minimal() {
         let json = r#"[{"FOLDER_ID": "100"}]"#;
         let records: Vec<FolderRecord> = serde_json::from_str(json).unwrap();
@@ -368,7 +369,7 @@ mod tests {
     // -- SPEphemerisFileRecord tests --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_spephemeris_file_record_deserialize() {
         let json = r#"[{
             "FILE_ID": "99999",
@@ -393,7 +394,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_spephemeris_file_record_minimal() {
         let json = r#"[{"FILE_ID": "99999"}]"#;
         let records: Vec<SPEphemerisFileRecord> = serde_json::from_str(json).unwrap();
@@ -402,7 +403,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_spephemeris_file_record_numeric_norad_cat_id() {
         let json = r#"[{"FILE_ID": "99999", "NORAD_CAT_ID": 25544}]"#;
         let records: Vec<SPEphemerisFileRecord> = serde_json::from_str(json).unwrap();
@@ -410,7 +411,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_record_numeric_norad_cat_id() {
         let json = r#"[{"SATNAME": "ISS", "NORAD_CAT_ID": 25544}]"#;
         let records: Vec<SATCATRecord> = serde_json::from_str(json).unwrap();

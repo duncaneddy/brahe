@@ -258,9 +258,10 @@ mod tests {
     use super::*;
     use crate::ccsds::common::CCSDSJsonKeyCase;
     use crate::time::TimeSystem;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_omm_json_round_trip_via_dispatch() {
         let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
         let json_str = omm.to_string(CCSDSFormat::JSON).unwrap();
@@ -273,14 +274,14 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_omm_from_file_nonexistent() {
         let result = OMM::from_file("nonexistent_file.txt");
         assert!(result.is_err());
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_omm_metadata_new() {
         let meta = OMMMetadata::new(
             "ISS".to_string(),
@@ -301,7 +302,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_omm_mean_elements_new() {
         let epoch = Epoch::from_datetime(2024, 1, 15, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let elems = OMMeanElements::new(epoch, 0.001, 51.6, 120.0, 90.0, 45.0);
@@ -317,7 +318,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_omm_mean_elements_with_mean_motion() {
         let epoch = Epoch::from_datetime(2024, 1, 15, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let elems =
@@ -326,7 +327,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_omm_mean_elements_with_gm() {
         let epoch = Epoch::from_datetime(2024, 1, 15, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let elems = OMMeanElements::new(epoch, 0.001, 51.6, 120.0, 90.0, 45.0).with_gm(398600.8e9);
@@ -334,7 +335,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_omm_new() {
         let meta = OMMMetadata::new(
             "SAT1".to_string(),
@@ -363,7 +364,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_omm_kvn_parse_example1() {
         let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
         assert_eq!(omm.metadata.object_name, "GOES 9");
@@ -385,7 +386,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_omm_kvn_parse_example2_with_covariance() {
         // OMMExample2 has covariance data
         let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
@@ -398,7 +399,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_omm_kvn_round_trip() {
         let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
         let kvn_str = omm.to_string(CCSDSFormat::KVN).unwrap();
@@ -422,7 +423,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_omm_kvn_round_trip_with_covariance() {
         let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
         let kvn_str = omm.to_string(CCSDSFormat::KVN).unwrap();
@@ -435,7 +436,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_omm_xml_round_trip() {
         let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample2.xml").unwrap();
         let xml_str = omm.to_string(CCSDSFormat::XML).unwrap();
@@ -456,7 +457,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_omm_xml_parse_example4() {
         let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample4.xml").unwrap();
         assert_eq!(omm.metadata.object_name, "STARLETTE");
@@ -468,7 +469,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_omm_to_file_kvn() {
         let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
         let dir = std::env::temp_dir();
@@ -480,7 +481,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_omm_kvn_parse_with_gm() {
         // OMMExample1 has GM = 398600.8, verify it is parsed and converted to m^3/s^2
         let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
@@ -491,7 +492,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_omm_to_json_string_upper_key_case() {
         let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
         let json_str = omm.to_json_string(CCSDSJsonKeyCase::Upper).unwrap();
@@ -613,7 +614,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_omm_kvn_full_round_trip() {
         // OMMExample2 has covariance + full TLE parameters + GM
         let omm1 = OMM::from_file("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
@@ -623,7 +624,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_omm_xml_full_round_trip() {
         // Start from KVN (richest fields), write to XML, re-parse
         let omm1 = OMM::from_file("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
@@ -633,7 +634,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_omm_json_full_round_trip() {
         let omm1 = OMM::from_file("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
         let json = omm1.to_string(CCSDSFormat::JSON).unwrap();

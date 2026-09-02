@@ -732,23 +732,24 @@ impl From<RotationMatrix> for Quaternion {
 mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_quaternion_display() {
         let q = Quaternion::new(1.0, 1.0, 1.0, 1.0);
         assert_eq!(format!("{}", q), "Quaternion: [s: 0.5, v: [0.5, 0.5, 0.5]]");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_quaternion_debug() {
         let q = Quaternion::new(1.0, 1.0, 1.0, 1.0);
         assert_eq!(format!("{:?}", q), "Quaternion<0.5, 0.5, 0.5, 0.5>");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_quaternion_new() {
         let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
         assert_eq!(q.data, Vector4::new(1.0, 0.0, 0.0, 0.0));
@@ -758,7 +759,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_quaternion_from_vector() {
         let v = Vector4::new(1.0, 0.0, 0.0, 0.0);
         let q = Quaternion::from_vector(v, true);
@@ -770,7 +771,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_quaternion_to_vector() {
         let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
         let v = q.to_vector(true);
@@ -782,7 +783,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_quaternion_normalize() {
         let mut q = Quaternion::new(1.0, 1.0, 1.0, 1.0);
         q.data = Vector4::new(4.0, 4.0, 4.0, 4.0);
@@ -792,7 +793,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_quaternion_norm() {
         let q = Quaternion::new(1.0, 1.0, 1.0, 1.0);
         assert_eq!(q.norm(), 1.0);
@@ -803,7 +804,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_quaternion_conjugate() {
         let q = Quaternion::new(1.0, 1.0, 1.0, 1.0);
         let q_conj = q.conjugate();
@@ -811,7 +812,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_quaternion_inverse() {
         let q = Quaternion::new(1.0, 1.0, 1.0, 1.0);
         let q_inv = q.inverse();
@@ -823,7 +824,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_quaternion_slerp() {
         let q1 = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 0.0, 0.0, DEGREES).to_quaternion();
         let q2 = EulerAngle::new(EulerAngleOrder::XYZ, 180.0, 0.0, 0.0, DEGREES).to_quaternion();
@@ -835,7 +836,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_quaternion_add() {
         let q1 = Quaternion::new(0.5, 1.0, 0.0, 0.5);
         let q2 = Quaternion::new(0.5, 0.0, 1.0, 0.5);
@@ -844,7 +845,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_quaternion_sub() {
         let q1 = Quaternion::new(0.5, 0.5, 0.0, 0.0);
         let q2 = Quaternion::new(-0.5, 0.0, 0.0, -0.5);
@@ -858,7 +859,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_quaternion_add_assign() {
         let mut q1 = Quaternion::new(0.5, 1.0, 0.0, 0.5);
         let q2 = Quaternion::new(0.5, 0.0, 1.0, 0.5);
@@ -867,7 +868,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_quaternion_sub_assign() {
         let mut q1 = Quaternion::new(0.5, 0.5, 0.0, 0.0);
         let q2 = Quaternion::new(-0.5, 0.0, 0.0, -0.5);
@@ -881,7 +882,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_quaternion_mul() {
         let q1 = Quaternion::new(1.0, 1.0, 0.0, 0.0);
         let q2 = Quaternion::new(1.0, 0.0, 1.0, 0.0);
@@ -890,7 +891,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_attitude_representation_from_quaternion() {
         let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
         let q2 = Quaternion::from_quaternion(q);
@@ -899,7 +900,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_attitude_representation_from_euler_axis() {
         let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 0.0, DEGREES);
         let q = Quaternion::from_euler_axis(e);
@@ -913,7 +914,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_attitude_representation_from_euler_angle() {
         let e = EulerAngle::new(EulerAngleOrder::XYZ, 90.0, 0.0, 0.0, DEGREES);
         let q = Quaternion::from_euler_angle(e);
@@ -930,7 +931,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_attitude_representation_from_rotation_matrix() {
         let r = RotationMatrix::new(
             1.0,
@@ -953,7 +954,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_attitude_representation_to_quaternion() {
         let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
         let q2 = q.to_quaternion();
@@ -965,7 +966,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_attitude_representation_to_euler_axis() {
         let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
         let e = q.to_euler_axis();
@@ -974,7 +975,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_attitude_representation_to_euler_angle_xyx() {
         let order = EulerAngleOrder::XYX;
         let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
@@ -984,7 +985,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_attitude_representation_to_euler_angle_xyz() {
         let order = EulerAngleOrder::XYZ;
         let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
@@ -994,7 +995,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_attitude_representation_to_euler_angle_xzx() {
         let order = EulerAngleOrder::XZX;
         let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
@@ -1004,7 +1005,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_attitude_representation_to_euler_angle_xzy() {
         let order = EulerAngleOrder::XZY;
         let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
@@ -1014,7 +1015,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_attitude_representation_to_euler_angle_yxy() {
         let order = EulerAngleOrder::YXY;
         let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
@@ -1024,7 +1025,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_attitude_representation_to_euler_angle_yxz() {
         let order = EulerAngleOrder::YXZ;
         let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
@@ -1034,7 +1035,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_attitude_representation_to_euler_angle_yzx() {
         let order = EulerAngleOrder::YZX;
         let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
@@ -1044,7 +1045,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_attitude_representation_to_euler_angle_yzy() {
         let order = EulerAngleOrder::YZY;
         let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
@@ -1054,7 +1055,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_attitude_representation_to_euler_angle_zxy() {
         let order = EulerAngleOrder::ZXZ;
         let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
@@ -1064,7 +1065,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_attitude_representation_to_euler_angle_zyx() {
         let order = EulerAngleOrder::ZYX;
         let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
@@ -1074,7 +1075,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_attitude_representation_to_euler_angle_zyz() {
         let order = EulerAngleOrder::ZYZ;
         let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
@@ -1084,7 +1085,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_attitude_representation_to_rotation_matrix() {
         let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
         let r = q.to_rotation_matrix();
@@ -1093,7 +1094,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_quaternion_to_euler_axis_circular() {
         let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
         let e = q.to_euler_axis();
@@ -1102,7 +1103,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_quaternion_to_rotation_matrix_circular() {
         let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
         let r = q.to_rotation_matrix();

@@ -3073,9 +3073,10 @@ pub fn parse_cdm(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError> {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_tokenize_empty() {
         match tokenize_line("") {
             KVNToken::Empty => {}
@@ -3084,7 +3085,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_tokenize_comment() {
         match tokenize_line("COMMENT This is a test") {
             KVNToken::Comment(text) => assert_eq!(text, "This is a test"),
@@ -3093,7 +3094,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_tokenize_key_value() {
         match tokenize_line("OBJECT_NAME = ISS") {
             KVNToken::KeyValue { key, value } => {
@@ -3105,7 +3106,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_tokenize_data_line() {
         match tokenize_line(
             "2017-04-11T22:31:43.121856 2906.275 4076.358 4561.364 -6.879 1.450 3.081",
@@ -3119,7 +3120,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_oem_example1() {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
         let oem = parse_oem(&content).unwrap();
@@ -3191,7 +3192,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_oem_example2_unsupported_time_system() {
         // OEMExample2.txt uses TIME_SYSTEM = MRT which is not supported for epoch conversion
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample2.txt").unwrap();
@@ -3206,7 +3207,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_ccsds_datetime_doy_utc() {
         // Test DOY format with a supported time system (UTC)
         use crate::ccsds::common::{CCSDSTimeSystem, parse_ccsds_datetime};
@@ -3223,7 +3224,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_oem_example4() {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample4.txt").unwrap();
         let oem = parse_oem(&content).unwrap();
@@ -3237,7 +3238,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_oem_example5_gcrf() {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample5.txt").unwrap();
         let oem = parse_oem(&content).unwrap();
@@ -3250,7 +3251,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_oem_with_header_comment() {
         let content =
             std::fs::read_to_string("test_assets/ccsds/oem/OEMExampleWithHeaderComment.txt")
@@ -3261,7 +3262,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_oem_iss_truncated() {
         let content =
             std::fs::read_to_string("test_assets/ccsds/oem/ISS.resampled.truncated.txt").unwrap();
@@ -3272,7 +3273,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_oem_lowercase_value() {
         let content =
             std::fs::read_to_string("test_assets/ccsds/oem/oemLowerCaseValue.oem").unwrap();
@@ -3285,7 +3286,7 @@ mod tests {
     // OMM Tests
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_omm_example1() {
         let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
         let omm = parse_omm(&content).unwrap();
@@ -3325,7 +3326,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_omm_example2_with_covariance() {
         let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
         let omm = parse_omm(&content).unwrap();
@@ -3339,7 +3340,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_omm_example3_unsupported_time_system() {
         // OMMExample3.txt uses TIME_SYSTEM = MRT which is not supported for epoch conversion
         let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample3.txt").unwrap();
@@ -3354,7 +3355,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_omm_example4() {
         let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample4.txt").unwrap();
         let omm = parse_omm(&content).unwrap();
@@ -3371,7 +3372,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_omm_example5_sgp4xp() {
         let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample5.txt").unwrap();
         let omm = parse_omm(&content).unwrap();
@@ -3386,7 +3387,7 @@ mod tests {
     // OPM Tests
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_opm_example1() {
         let content = std::fs::read_to_string("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
         let opm = parse_opm(&content).unwrap();
@@ -3417,7 +3418,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_opm_example2_with_keplerian_and_maneuvers() {
         let content = std::fs::read_to_string("test_assets/ccsds/opm/OPMExample2.txt").unwrap();
         let opm = parse_opm(&content).unwrap();
@@ -3451,7 +3452,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_opm_example4_with_covariance_and_user_defined() {
         let content = std::fs::read_to_string("test_assets/ccsds/opm/OPMExample4.txt").unwrap();
         let opm = parse_opm(&content).unwrap();
@@ -3470,7 +3471,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_opm_example5_with_three_maneuvers() {
         let content = std::fs::read_to_string("test_assets/ccsds/opm/OPMExample5.txt").unwrap();
         let opm = parse_opm(&content).unwrap();
@@ -3481,7 +3482,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_opm_attributes_comments_to_the_block_they_introduce() {
         let opm = parse_opm(
             &std::fs::read_to_string("test_assets/ccsds/opm/OPM-section-comments.txt").unwrap(),
@@ -3505,7 +3506,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_omm_attributes_comments_to_the_block_they_introduce() {
         let omm = parse_omm(
             &std::fs::read_to_string("test_assets/ccsds/omm/OMM-section-comments.txt").unwrap(),
@@ -3526,7 +3527,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_cdm_attributes_comments_to_the_block_they_introduce() {
         let content = std::fs::read_to_string("test_assets/ccsds/cdm/CDMExample2.txt").unwrap();
         let cdm = parse_cdm(&content).unwrap();
@@ -3572,7 +3573,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_cdm_comment_buckets_survive_a_kvn_round_trip() {
         use crate::ccsds::common::CCSDSFormat;
 

@@ -260,7 +260,7 @@ pub(crate) fn cache_policy(resource: &str, stale: bool) -> Result<CacheDecision,
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
 
     use super::*;
     use crate::utils::testing::NetworkModeGuard;
@@ -305,7 +305,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_network_mode_display_roundtrip() {
         for mode in [
             NetworkMode::Online,
@@ -350,7 +350,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_url_host() {
         for (url, host) in [
             ("http://user@Localhost:8080/x", "localhost"),
@@ -369,7 +369,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_is_loopback_url() {
         for url in [
             "http://localhost:8080/x",

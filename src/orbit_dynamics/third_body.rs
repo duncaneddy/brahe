@@ -2088,7 +2088,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_accel_third_body_field_for_body_with_model_point_mass_and_zero_branches() {
         use crate::propagators::force_model_config::{GravityConfiguration, GravityModelSource};
 
@@ -2207,7 +2207,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_accel_third_body_field_for_body_with_model_rejects_central_body_coincidence() {
         use crate::propagators::force_model_config::{GravityConfiguration, ZonalHarmonicsDegree};
 

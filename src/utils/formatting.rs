@@ -101,9 +101,10 @@ fn format_time_string_long(seconds: f64) -> String {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_format_time_string_short_seconds() {
         assert_eq!(format_time_string(45.5, true), "45s");
         assert_eq!(format_time_string(0.5, true), "0s");
@@ -111,35 +112,35 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_format_time_string_short_minutes() {
         assert_eq!(format_time_string(90.0, true), "1m 30s");
         assert_eq!(format_time_string(125.75, true), "2m 5s");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_format_time_string_short_hours() {
         assert_eq!(format_time_string(3665.0, true), "1h 1m 5s");
         assert_eq!(format_time_string(7200.0, true), "2h");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_format_time_string_short_days() {
         assert_eq!(format_time_string(86400.0, true), "1d");
         assert_eq!(format_time_string(90061.5, true), "1d 1h 1m 1s");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_format_time_string_long_seconds() {
         assert_eq!(format_time_string(45.5, false), "45.50 seconds");
         assert_eq!(format_time_string(0.5, false), "0.50 seconds");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_format_time_string_long_minutes() {
         assert_eq!(
             format_time_string(90.0, false),
@@ -152,7 +153,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_format_time_string_long_hours() {
         assert_eq!(
             format_time_string(3665.0, false),
@@ -165,7 +166,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_format_time_string_long_days() {
         assert_eq!(
             format_time_string(86400.0, false),

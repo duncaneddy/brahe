@@ -1814,6 +1814,7 @@ mod tests {
     use crate::ccsds::oem::OEM;
     use crate::ccsds::omm::OMM;
     use crate::ccsds::opm::OPM;
+    use serial_test::parallel;
 
     /// Free text exercising every character that terminates XML markup.
     const MARKUP: &str = "R&D <ops> \"quoted\"";
@@ -1822,7 +1823,7 @@ mod tests {
     const MARKUP_ESCAPED: &str = "R&amp;D &lt;ops&gt; \"quoted\"";
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_escape_xml_text_and_attribute() {
         assert_eq!(escape_xml_text(MARKUP), MARKUP_ESCAPED);
         assert_eq!(
@@ -1833,7 +1834,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_write_oem_xml_escapes_free_text() {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
         let mut oem = OEM::from_str(&content).unwrap();
@@ -1853,7 +1854,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_write_omm_xml_escapes_free_text_and_user_defined() {
         let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
         let mut omm = OMM::from_str(&content).unwrap();
@@ -1881,7 +1882,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_write_opm_xml_escapes_free_text() {
         let content = std::fs::read_to_string("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
         let mut opm = OPM::from_str(&content).unwrap();
@@ -1900,7 +1901,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_write_cdm_xml_escapes_free_text() {
         let content = std::fs::read_to_string("test_assets/ccsds/cdm/CDMExample1.txt").unwrap();
         let mut cdm = CDM::from_str(&content).unwrap();
@@ -1926,7 +1927,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_xml_escapes_comments_in_every_block() {
         // Every block that can carry a COMMENT gets one containing markup, so
         // the escaping is exercised on each emission site rather than only the

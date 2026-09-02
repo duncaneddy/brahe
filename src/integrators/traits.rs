@@ -779,9 +779,10 @@ pub fn get_step_size(dt: Option<f64>, config: &IntegratorConfig) -> Result<f64, 
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_get_step_size_errors_without_dt_or_config() {
         let config = IntegratorConfig::default();
         assert!(config.fixed_step_size.is_none());

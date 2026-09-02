@@ -188,7 +188,7 @@ mod tests {
     use super::*;
     use crate::utils::testing::{CacheRedirect, NetworkModeGuard};
     use httpmock::prelude::*;
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
     use std::fs;
     use std::time::{Duration, SystemTime};
 
@@ -257,7 +257,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_new_and_default_ctors() {
         let c = SBDBClient::new();
         assert_eq!(c.base_url, DEFAULT_BASE_URL);
@@ -269,7 +269,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_with_cache_age_ctor() {
         let c = SBDBClient::with_cache_age(3600);
         assert_eq!(c.base_url, DEFAULT_BASE_URL);

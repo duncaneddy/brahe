@@ -206,6 +206,7 @@ impl BPCK {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
 
     use super::*;
 
@@ -268,7 +269,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_bpck_euler_angles_exact() {
         let bpck = BPCK::from_bytes(&synthetic_bpck_bytes()).unwrap();
         // et=750 -> s=0.5: phi=0.2, delta=0.3, w=0.65
@@ -283,7 +284,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_bpck_rotation_matrix_is_313() {
         let bpck = BPCK::from_bytes(&synthetic_bpck_bytes()).unwrap();
         let (angles, _) = bpck.euler_angles(31006, 750.0).unwrap();
@@ -306,7 +307,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_pck_typed_returns_consistent() {
         let bpck = BPCK::from_bytes(&synthetic_bpck_bytes()).unwrap();
         let et = 250.0;
@@ -338,7 +339,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_bpck_unknown_frame_error() {
         let bpck = BPCK::from_bytes(&synthetic_bpck_bytes()).unwrap();
         let err = bpck.euler_angles(99999, 750.0).unwrap_err();
@@ -346,7 +347,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_bpck_out_of_coverage_error() {
         let bpck = BPCK::from_bytes(&synthetic_bpck_bytes()).unwrap();
         // Frame exists but et=2000 is outside the [0, 1000] coverage
@@ -356,14 +357,14 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_bpck_frame_ids() {
         let bpck = BPCK::from_bytes(&synthetic_bpck_bytes()).unwrap();
         assert_eq!(bpck.frame_ids(), vec![31006]);
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_bpck_rejects_garbage_bytes() {
         assert!(BPCK::from_bytes(&[0u8; 100]).is_err()); // too short
         let mut junk = vec![0u8; 2048];
@@ -372,7 +373,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_bpck_rejects_spk_file() {
         let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("test_assets")

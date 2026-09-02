@@ -86,6 +86,7 @@ pub trait EarthOrientationProvider {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     // Test implementation of EarthOrientationProvider for testing the default is_empty() method
     struct MockEOPProvider {
@@ -151,7 +152,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_earth_orientation_provider_is_empty_default() {
         // Test that default is_empty() returns true when len() == 0
         let empty_provider = MockEOPProvider { len: 0 };
@@ -167,7 +168,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_mock_eop_provider_trait_methods() {
         // Test all EarthOrientationProvider trait methods on MockEOPProvider
         let provider = MockEOPProvider { len: 5 };

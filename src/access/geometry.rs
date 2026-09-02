@@ -182,9 +182,10 @@ mod tests {
     use super::*;
     use crate::coordinates::position_geodetic_to_ecef;
     use crate::utils::testing::setup_global_test_eop;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_compute_azimuth_elevation() {
         // Location: (0° lon, 45° lat, 0 alt)
         let loc_geodetic = Vector3::new(0.0, 45.0_f64.to_radians(), 0.0);
@@ -205,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_compute_off_nadir() {
         // Satellite at altitude
         let sat_ecef = Vector3::new(7000e3, 0.0, 0.0);
@@ -222,7 +223,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_compute_local_time() {
         setup_global_test_eop();
 
@@ -239,7 +240,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_compute_asc_dsc() {
         // Ascending: positive z-velocity in inertial frame
         let state_ascending = Vector6::new(
@@ -261,7 +262,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_compute_look_direction() {
         // Satellite state
         let sat_state = Vector6::new(

@@ -449,6 +449,7 @@ mod tests {
     use crate::math::jacobian::{DifferenceMethod, PerturbationStrategy};
     use crate::time::TimeSystem;
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
 
     fn test_epoch() -> Epoch {
         Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC)
@@ -459,7 +460,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_inertial_position_jacobian_matches_numerical() {
         let model = InertialPositionMeasurementModel::new(10.0);
         let epoch = test_epoch();
@@ -488,7 +489,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_inertial_velocity_jacobian_matches_numerical() {
         let model = InertialVelocityMeasurementModel::new(0.05);
         let epoch = test_epoch();
@@ -517,7 +518,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_inertial_state_jacobian_matches_numerical() {
         let model = InertialStateMeasurementModel::new(5.0, 0.05);
         let epoch = test_epoch();
@@ -545,7 +546,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_inertial_position_constructors() {
         let m = InertialPositionMeasurementModel::new(10.0);
         assert_eq!(m.measurement_dim(), 3);
@@ -568,7 +569,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_inertial_velocity_constructors() {
         let m = InertialVelocityMeasurementModel::new(0.05);
         assert_eq!(m.measurement_dim(), 3);
@@ -590,7 +591,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_inertial_state_constructors() {
         let m = InertialStateMeasurementModel::new(5.0, 0.05);
         assert_eq!(m.measurement_dim(), 6);
@@ -614,7 +615,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_inertial_position_predict() {
         let model = InertialPositionMeasurementModel::new(10.0);
         let epoch = test_epoch();
@@ -627,7 +628,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_inertial_velocity_predict() {
         let model = InertialVelocityMeasurementModel::new(0.05);
         let epoch = test_epoch();
@@ -640,7 +641,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_inertial_state_predict() {
         let model = InertialStateMeasurementModel::new(5.0, 0.05);
         let epoch = test_epoch();

@@ -420,9 +420,10 @@ impl std::fmt::Display for CentralBody {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_central_body_properties() {
         assert_eq!(CentralBody::Earth.naif_id(), 399);
         assert_eq!(CentralBody::Moon.gm(), GM_MOON);
@@ -435,7 +436,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_from_naif_id() {
         assert_eq!(CentralBody::from_naif_id(301).unwrap(), CentralBody::Moon);
         let enceladus = CentralBody::from_naif_id(602).unwrap();
@@ -451,7 +452,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_central_body_serde_roundtrip() {
         let cb = CentralBody::from_naif_id(602).unwrap();
         let s = serde_json::to_string(&cb).unwrap();
@@ -459,14 +460,14 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_from_naif_id_mars_accepts_both_ids() {
         assert_eq!(CentralBody::from_naif_id(4).unwrap(), CentralBody::Mars);
         assert_eq!(CentralBody::from_naif_id(499).unwrap(), CentralBody::Mars);
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_custom_body_display() {
         let enceladus = CentralBody::from_naif_id(602).unwrap();
         assert_eq!(enceladus.to_string(), "Enceladus");
@@ -474,7 +475,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_earth_moon_mars_omega_and_frames() {
         assert_eq!(
             CentralBody::Earth.omega_vector(),
@@ -490,13 +491,13 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_central_body_default_is_earth() {
         assert_eq!(CentralBody::default(), CentralBody::Earth);
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_central_body_all_builtin_accessors() {
         // Exercise every accessor arm for each built-in variant so no match
         // arm is left uncovered.
@@ -560,7 +561,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_from_naif_id_builtin_barycenters() {
         assert_eq!(CentralBody::from_naif_id(399).unwrap(), CentralBody::Earth);
         assert_eq!(CentralBody::from_naif_id(3).unwrap(), CentralBody::EMB);
@@ -568,7 +569,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_custom_body_omega_and_fixed_frame_accessors() {
         // A Custom body with an explicit spin and fixed frame exercises the
         // `Custom(c)` arms of omega_vector/fixed_frame/inertial_frame.
@@ -590,7 +591,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_from_naif_id_all_table_entries_have_bodyfixediau() {
         for id in [199, 299, 599, 699, 799, 899, 10, 401, 402, 602, 606] {
             let body = CentralBody::from_naif_id(id).unwrap();

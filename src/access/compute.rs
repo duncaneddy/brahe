@@ -293,6 +293,7 @@ mod tests {
     use crate::time::TimeSystem;
     use crate::utils::testing::setup_global_test_eop;
     use nalgebra::Vector6;
+    use serial_test::parallel;
 
     fn create_test_propagator(epoch: Epoch) -> KeplerianPropagator {
         let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
@@ -308,7 +309,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_location_accesses_single() {
         setup_global_test_eop();
 
@@ -356,7 +357,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_location_accesses_multiple_sats() {
         setup_global_test_eop();
 
@@ -446,7 +447,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_location_accesses_multiple_locations() {
         setup_global_test_eop();
 
@@ -498,7 +499,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_location_accesses_multiple() {
         setup_global_test_eop();
 
@@ -569,7 +570,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_location_accesses_sequential() {
         setup_global_test_eop();
 
@@ -618,7 +619,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_access_identification_traceability() {
         use crate::propagators::sgp_propagator::SGPPropagator;
         use crate::utils::Identifiable;
@@ -758,7 +759,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_access_default_uuid_traceability() {
         use crate::utils::Identifiable;
         use std::collections::HashSet;

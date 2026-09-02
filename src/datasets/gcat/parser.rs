@@ -247,6 +247,7 @@ pub fn parse_psatcat_tsv(data: &str) -> Result<Vec<GCATPsatcatRecord>, BraheErro
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     fn sample_satcat_tsv() -> String {
         // 42 columns: jcat through alt_names (41 required + 1 optional alt_names)
@@ -264,7 +265,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_satcat_basic() {
         let data = sample_satcat_tsv();
         let records = parse_satcat_tsv(&data).unwrap();
@@ -291,7 +292,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_psatcat_basic() {
         let data = sample_psatcat_tsv();
         let records = parse_psatcat_tsv(&data).unwrap();
@@ -315,14 +316,14 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_satcat_empty_data() {
         let result = parse_satcat_tsv("");
         assert!(result.is_err());
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_satcat_no_hash_header() {
         let data = "JCAT\tSatcat\n";
         let result = parse_satcat_tsv(data);
@@ -330,7 +331,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_satcat_insufficient_columns() {
         let data = "#JCAT\tSatcat\nS001\tonly_two_cols\n";
         let result = parse_satcat_tsv(data);
@@ -338,7 +339,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_satcat_skips_comments() {
         let header = "#JCAT\tSatcat\tLTag\tPiece\tType\tName\tPLName\tLDate\tParent\tSDate\tPrimary\tDDate\tStatus\tDest\tOwner\tState\tManufacturer\tBus\tMotor\tMass\tMassFlag\tDryMass\tDryFlag\tTotMass\tTotFlag\tLength\tLengthFlag\tDiameter\tDiameterFlag\tSpan\tSpanFlag\tShape\tODate\tPerigee\tPerigeeFlag\tApogee\tApogeeFlag\tInc\tIncFlag\tOpOrbit\tOQual\tAltNames";
         let comment = "# This is a comment";
@@ -349,7 +350,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_satcat_skips_empty_lines() {
         let header = "#JCAT\tSatcat\tLTag\tPiece\tType\tName\tPLName\tLDate\tParent\tSDate\tPrimary\tDDate\tStatus\tDest\tOwner\tState\tManufacturer\tBus\tMotor\tMass\tMassFlag\tDryMass\tDryFlag\tTotMass\tTotFlag\tLength\tLengthFlag\tDiameter\tDiameterFlag\tSpan\tSpanFlag\tShape\tODate\tPerigee\tPerigeeFlag\tApogee\tApogeeFlag\tInc\tIncFlag\tOpOrbit\tOQual\tAltNames";
         let row = "S049652\t25544\t1998-067\tA\tP\tISS\t-\t1998 Nov 20\t-\t1998 Nov 20\tE\t-\tO\tLEO\tNASA\tUS\t-\t-\t-\t19323\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-\t408\t-\t418\t-\t51.6\t-\tLEO/I\tQ\t-";
@@ -359,7 +360,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_optional_string() {
         assert_eq!(parse_optional_string("hello"), Some("hello".to_string()));
         assert_eq!(parse_optional_string(" hello "), Some("hello".to_string()));
@@ -369,7 +370,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_optional_f64() {
         assert_eq!(parse_optional_f64("42.5"), Some(42.5));
         assert_eq!(parse_optional_f64(" 42.5 "), Some(42.5));
@@ -379,14 +380,14 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_psatcat_empty_data() {
         let result = parse_psatcat_tsv("");
         assert!(result.is_err());
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_psatcat_no_hash_header() {
         let data = "JCAT\tPiece\n";
         let result = parse_psatcat_tsv(data);

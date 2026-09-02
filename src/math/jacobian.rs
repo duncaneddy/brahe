@@ -797,6 +797,7 @@ where
 mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
 
     // Simple linear system: dx/dt = Ax where A = [[0, 1], [-1, 0]]
     // Analytical Jacobian is constant: A
@@ -833,7 +834,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sanalytic_jacobian() {
         let provider = SAnalyticJacobian::new(Box::new(analytical_jacobian_static));
         let state = SVector::<f64, 2>::new(1.0, 0.5);
@@ -845,7 +846,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_danalytic_jacobian() {
         let provider = DAnalyticJacobian::new(Box::new(analytical_jacobian_dynamic));
         let state = DVector::from_vec(vec![1.0, 0.5]);
@@ -857,7 +858,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_snumerical_jacobian_central() {
         let provider =
             SNumericalJacobian::central(Box::new(linear_dynamics_static)).with_fixed_offset(1e-6);
@@ -871,7 +872,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_snumerical_jacobian_forward() {
         let provider =
             SNumericalJacobian::forward(Box::new(linear_dynamics_static)).with_fixed_offset(1e-6);
@@ -886,7 +887,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_snumerical_jacobian_backward() {
         let provider =
             SNumericalJacobian::backward(Box::new(linear_dynamics_static)).with_fixed_offset(1e-6);
@@ -901,7 +902,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dnumerical_jacobian_central() {
         let provider =
             DNumericalJacobian::central(Box::new(linear_dynamics_dynamic)).with_fixed_offset(1e-6);
@@ -915,7 +916,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dnumerical_jacobian_forward() {
         let provider =
             DNumericalJacobian::forward(Box::new(linear_dynamics_dynamic)).with_fixed_offset(1e-6);
@@ -930,7 +931,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dnumerical_jacobian_backward() {
         let provider =
             DNumericalJacobian::backward(Box::new(linear_dynamics_dynamic)).with_fixed_offset(1e-6);
@@ -945,7 +946,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_perturbation_strategies() {
         // Test adaptive perturbation
         let provider =
@@ -966,7 +967,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_numerical_jacobian_rectangular() {
         // f: R^3 -> R^2, f(x) = [x0 + 2*x1, x1 * x2]
         // Jacobian: [[1, 2, 0], [0, x2, x1]]
@@ -999,7 +1000,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_numerical_jacobian_propagates_function_error() {
         let f = |_x: &DVector<f64>| -> Result<DVector<f64>, BraheError> {
             Err(BraheError::Error("function failure".to_string()))
@@ -1019,7 +1020,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_numerical_jacobian_inconsistent_output_dim_errors() {
         // Function whose output length depends on the sign of a perturbation
         let f = |x: &DVector<f64>| -> Result<DVector<f64>, BraheError> {

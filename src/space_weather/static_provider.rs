@@ -421,16 +421,17 @@ impl SpaceWeatherProvider for StaticSpaceWeatherProvider {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_uninitialized_provider() {
         let provider = StaticSpaceWeatherProvider::new();
         assert!(!provider.is_initialized());
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_from_zero() {
         let sw = StaticSpaceWeatherProvider::from_zero();
 
@@ -454,7 +455,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_from_values() {
         let sw = StaticSpaceWeatherProvider::from_values(3.5, 15.0, 150.0, 148.0, 100);
 
@@ -478,7 +479,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_error_when_not_initialized() {
         let provider = StaticSpaceWeatherProvider::new();
 
@@ -496,7 +497,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_default_implementation() {
         let sw_default = StaticSpaceWeatherProvider::default();
         let sw_new = StaticSpaceWeatherProvider::new();
@@ -508,7 +509,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_display() {
         let sw = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
         let display = format!("{}", sw);
@@ -519,7 +520,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_debug() {
         let sw = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
         let debug = format!("{:?}", sw);
@@ -527,7 +528,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_clone() {
         let sw1 = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
         let sw2 = sw1.clone();
@@ -543,7 +544,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_mjd_last_daily_predicted() {
         let sw = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
         // Static provider returns max float for all MJD boundaries
@@ -551,7 +552,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_mjd_last_monthly_predicted() {
         let sw = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
         // Static provider returns max float for all MJD boundaries
@@ -559,7 +560,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_get_last_kp() {
         let sw = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
         let kp_values = sw.get_last_kp(60000.0, 5).unwrap();
@@ -570,7 +571,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_get_last_ap() {
         let sw = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
         let ap_values = sw.get_last_ap(60000.0, 5).unwrap();
@@ -581,7 +582,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_get_last_daily_kp() {
         let sw = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
         let daily_kp = sw.get_last_daily_kp(60000.0, 3).unwrap();
@@ -592,7 +593,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_get_last_daily_ap() {
         let sw = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
         let daily_ap = sw.get_last_daily_ap(60000.0, 3).unwrap();
@@ -603,7 +604,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_get_last_f107() {
         let sw = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
         let f107_values = sw.get_last_f107(60000.0, 3).unwrap();
@@ -614,7 +615,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_get_last_kpap_epochs() {
         let sw = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
         let epochs = sw.get_last_kpap_epochs(60000.0, 5).unwrap();
@@ -627,7 +628,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_get_last_daily_epochs() {
         let sw = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
         let epochs = sw.get_last_daily_epochs(60000.0, 3).unwrap();

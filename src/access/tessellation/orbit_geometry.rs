@@ -1150,6 +1150,7 @@ mod tests {
     use super::*;
     use crate::propagators::SGPPropagator;
     use crate::utils::testing::setup_global_test_eop;
+    use serial_test::parallel;
 
     // ISS TLE for testing (from sgp_propagator.rs tests)
     const ISS_LINE1: &str = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
@@ -1163,7 +1164,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_config_builder() {
         let config = OrbitGeometryTessellatorConfig::new(10000.0, 15000.0)
             .with_crosstrack_overlap(300.0)
@@ -1182,7 +1183,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_point_tessellation_ascending() {
         setup_global_test_eop();
         let tess = make_tessellator(AscDsc::Ascending);
@@ -1208,7 +1209,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_point_tessellation_either() {
         setup_global_test_eop();
         let tess = make_tessellator(AscDsc::Either);
@@ -1226,7 +1227,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_polygon_tessellation_small_rect() {
         setup_global_test_eop();
         let tess = make_tessellator(AscDsc::Ascending);
@@ -1257,7 +1258,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_polygon_tessellation_larger() {
         setup_global_test_eop();
         let tess = make_tessellator(AscDsc::Ascending);
@@ -1279,7 +1280,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_tessellator_name() {
         setup_global_test_eop();
         let tess = make_tessellator(AscDsc::Ascending);
@@ -1287,7 +1288,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_follows_index() {
         assert_eq!(follows_index(0.5, &[1.0, 2.0, 3.0]), -1);
         assert_eq!(follows_index(1.5, &[1.0, 2.0, 3.0]), 0);
@@ -1295,7 +1296,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_skew_mergable_small_angle() {
         // Small angle difference → should be mergable
         let vertices = vec![
@@ -1316,7 +1317,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_skew_mergable_large_angle() {
         let vertices = vec![
             Vector3::new(10.0, 50.0, 0.0),

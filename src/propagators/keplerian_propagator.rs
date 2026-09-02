@@ -762,6 +762,7 @@ mod tests {
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
 
     // Test data constants
     const TEST_EPOCH_JD: f64 = 2451545.0;
@@ -788,7 +789,7 @@ mod tests {
     // KeplerianPropagator Method Tests
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_new() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -810,7 +811,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_new_rejects_bci_frame() {
         // KeplerianPropagator is Earth-only; body-centered inertial frames are rejected
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
@@ -835,7 +836,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_with_output_format_success() {
         // Changing the output format from radians to degrees resets the
         // trajectory to the initial state expressed in the new format.
@@ -870,7 +871,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_with_output_format_invalid() {
         // Keplerian representation without an angle format is rejected
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
@@ -892,7 +893,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Angle format must be specified for Keplerian elements")]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_new_invalid_angle_format() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -911,7 +912,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Keplerian elements must be in ECI frame")]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_new_invalid_frame() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -930,7 +931,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Angle format should be None for Cartesian representation")]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_new_invalid_cartesian_angle_format() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let state = create_test_elements(); // Using elements for simplicity
@@ -949,7 +950,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Step size must be positive")]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_new_invalid_step_size_neative() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -968,7 +969,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Step size must be positive")]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_new_invalid_step_size_zero() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -986,7 +987,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_from_keplerian() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1000,7 +1001,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_from_eci() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let cartesian = create_cartesian_state();
@@ -1012,7 +1013,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_from_ecef() {
         setup_global_test_eop();
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
@@ -1028,7 +1029,7 @@ mod tests {
     // OrbitPropagator Trait Tests
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_orbitpropagator_step() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1053,7 +1054,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_orbitpropagator_step_by() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1080,7 +1081,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerian_orbitpropagator_step_past() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1109,7 +1110,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_orbitpropagator_propagate_steps() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1134,7 +1135,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_orbitpropagator_propagate_to() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1162,7 +1163,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_orbitpropagator_current_epoch() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1179,7 +1180,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_orbitpropagator_current_state() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1198,7 +1199,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_orbitpropagator_initial_epoch() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1215,7 +1216,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_orbitpropagator_initial_state() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1232,7 +1233,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_orbitpropagator_step_size() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1245,7 +1246,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_orbitpropagator_set_step_size() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1263,7 +1264,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_orbitpropagator_reset() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1283,7 +1284,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_orbitpropagator_set_initial_conditions() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1311,7 +1312,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_orbitpropagator_set_eviction_policy_max_size() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1330,7 +1331,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_orbitpropagator_set_eviction_policy_max_age() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1355,7 +1356,7 @@ mod tests {
     // StateProvider Trait Tests
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_analyticpropagator_state() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1374,7 +1375,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_analyticpropagator_state_eci() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1399,7 +1400,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_analyticpropagator_state_ecef() {
         setup_global_test_eop();
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
@@ -1424,7 +1425,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_analyticpropagator_state_itrf() {
         setup_global_test_eop();
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
@@ -1449,7 +1450,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_analyticpropagator_state_gcrf() {
         setup_global_test_eop();
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
@@ -1473,7 +1474,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_analyticpropagator_state_eme2000() {
         setup_global_test_eop();
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
@@ -1498,7 +1499,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_analyticpropagator_state_koe_osc() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1529,7 +1530,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_analyticpropagator_states() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1556,7 +1557,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_analyticpropagator_states_eci() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1583,7 +1584,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_analyticpropagator_states_ecef() {
         setup_global_test_eop();
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
@@ -1612,7 +1613,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_analyticpropagator_states_bci() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1632,7 +1633,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_analyticpropagator_states_bcbf() {
         setup_global_test_eop();
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
@@ -1653,7 +1654,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_analyticpropagator_states_in_frame() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1677,7 +1678,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_analyticpropagator_states_koe() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1723,7 +1724,7 @@ mod tests {
     // Identifiable Trait Tests
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_identifiable_with_name() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1738,7 +1739,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_identifiable_with_id() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1753,7 +1754,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_identifiable_with_uuid() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1769,7 +1770,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_identifiable_with_new_uuid() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1784,7 +1785,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_identifiable_with_identity() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1800,7 +1801,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_identifiable_set_name() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1817,7 +1818,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_identifiable_set_id() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1834,7 +1835,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_identifiable_generate_uuid() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1859,7 +1860,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_identifiable_set_identity() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
@@ -1883,7 +1884,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerianpropagator_identifiable_chaining() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();

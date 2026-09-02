@@ -845,6 +845,7 @@ impl RKN1210DIntegrator {
 mod tests {
     use approx::assert_abs_diff_eq;
     use nalgebra::{SMatrix, SVector};
+    use serial_test::parallel;
 
     use crate::constants::DEGREES;
     use crate::integrators::butcher_tableau::rkn1210_tableau;
@@ -857,7 +858,7 @@ mod tests {
     use crate::{GM_EARTH, R_EARTH, orbital_period, state_koe_to_eci};
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_coefficients() {
         // Verify Butcher tableau coefficient sums
         // For RKN methods: b_pos should sum to 0.5, b_vel should sum to 1.0
@@ -912,7 +913,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_single_step() {
         // Test a single step with constant acceleration to verify formulas
         let f = |_t: f64,
@@ -946,7 +947,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_integrator_parabola() {
         // Test with simple parabolic motion: x'' = 2 (constant acceleration)
         // Solution: x(t) = t²
@@ -996,7 +997,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_integrator_orbit() {
         let config = IntegratorConfig::adaptive(1e-9, 1e-6);
         let rkn: RKN1210SIntegrator<6, 0> =
@@ -1027,7 +1028,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_accuracy() {
         // Verify 12th order convergence on simple problem
         let f = |_t: f64,
@@ -1059,7 +1060,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_step_size_increases() {
         let f = |_t: f64,
                  state: &SVector<f64, 2>,
@@ -1082,7 +1083,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_adaptive_mechanism() {
         // Verify that the adaptive step mechanism works correctly
         // Note: RKN1210 is a very high-order (12th) method, so it may meet tight tolerances
@@ -1116,7 +1117,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_config_parameters() {
         let f = |_t: f64,
                  state: &SVector<f64, 2>,
@@ -1149,7 +1150,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_high_precision() {
         // Test with very tight tolerances
         let f = |_t: f64,
@@ -1181,7 +1182,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_varmat() {
         // Define variational matrix computation using JacobianProvider
         // Use forward differences to match old test behavior
@@ -1238,7 +1239,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_stm_accuracy() {
         // Comprehensive test comparing STM propagation with direct numerical perturbation
         // This validates that the STM correctly predicts how perturbations evolve
@@ -1321,7 +1322,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_stm_vs_direct_perturbation() {
         // This test specifically validates the STM weight choice by comparing
         // multiple propagation steps with direct perturbation
@@ -1419,7 +1420,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_coefficients() {
         let bt = rkn1210_tableau();
         let b_pos_high_sum: f64 = bt.b_pos_high.iter().sum();
@@ -1433,7 +1434,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_single_step() {
         setup_global_test_eop();
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
@@ -1457,7 +1458,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_integrator_parabola() {
         let f = |_t: f64,
                  state: &DVector<f64>,
@@ -1480,7 +1481,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_integrator_orbit() {
         setup_global_test_eop();
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
@@ -1509,7 +1510,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_accuracy() {
         setup_global_test_eop();
         let config = IntegratorConfig::adaptive(1e-13, 1e-11);
@@ -1530,7 +1531,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_step_size_increases() {
         let f = |_t: f64,
                  state: &DVector<f64>,
@@ -1549,7 +1550,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_adaptive_mechanism() {
         let f = |t: f64,
                  state: &DVector<f64>,
@@ -1571,7 +1572,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_config_parameters() {
         let f = |_t: f64,
                  state: &DVector<f64>,
@@ -1604,7 +1605,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_high_precision() {
         setup_global_test_eop();
         let config = IntegratorConfig::adaptive(1e-14, 1e-12);
@@ -1624,7 +1625,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_varmat() {
         setup_global_test_eop();
         let point_earth_for_jacobian =
@@ -1665,7 +1666,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_stm_accuracy() {
         setup_global_test_eop();
         let point_earth_for_jacobian =
@@ -1711,7 +1712,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_stm_vs_direct_perturbation() {
         setup_global_test_eop();
         let point_earth_for_jacobian =
@@ -1772,7 +1773,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210_s_vs_d_consistency() {
         // Verify RKN1210SIntegrator and RKN1210DIntegrator produce identical results
         let f_static = |_t: f64,
@@ -1820,7 +1821,7 @@ mod tests {
     // ========================================================================
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_sensmat() {
         // Test sensitivity matrix propagation using harmonic oscillator: dx/dt = v, dv/dt = -k*x
         // RKN requires even-dimensional state (position + velocity)
@@ -1906,7 +1907,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_sensmat() {
         // Test sensitivity matrix propagation (dynamic version)
 
@@ -1984,7 +1985,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_varmat_sensmat() {
         // Test combined STM and sensitivity matrix propagation (static version)
 
@@ -2072,7 +2073,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_varmat_sensmat() {
         // Test combined STM and sensitivity matrix propagation (dynamic version)
 
@@ -2164,7 +2165,7 @@ mod tests {
     // =============================================================================
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_new_uses_default_config() {
         fn dynamics(
             _t: f64,
@@ -2195,7 +2196,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_with_config_stores_config() {
         fn dynamics(
             _t: f64,
@@ -2243,7 +2244,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_config_returns_reference() {
         fn dynamics(
             _t: f64,
@@ -2272,7 +2273,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_new_uses_default_config() {
         fn dynamics(
             _t: f64,
@@ -2302,7 +2303,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_with_config_stores_config() {
         fn dynamics(
             _t: f64,
@@ -2351,7 +2352,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_config_returns_reference() {
         fn dynamics(
             _t: f64,
@@ -2379,7 +2380,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_dimension_method() {
         fn dynamics(
             _t: f64,
@@ -2409,7 +2410,7 @@ mod tests {
     // =============================================================================
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_errors_on_max_attempts_exceeded() {
         fn stiff_dynamics(
             _t: f64,
@@ -2442,7 +2443,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_errors_on_max_attempts_exceeded() {
         fn stiff_dynamics(
             _t: f64,
@@ -2484,7 +2485,7 @@ mod tests {
     // We use a simple harmonic oscillator: x'' = -k*x where k is from params.
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_params_affect_step_output() {
         // Test harmonic oscillator where spring constant comes from params:
         // x'' = -k * x, where k = params[0]
@@ -2529,7 +2530,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_params_affect_step_output() {
         // Same test for dynamic-sized integrator
 
@@ -2567,7 +2568,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_params_multi_step_propagation() {
         // Verify params affect output over multiple adaptive steps
         // Harmonic oscillator: x'' = -k*x
@@ -2636,7 +2637,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_params_with_varmat() {
         // Verify params affect step_with_varmat output
 
@@ -2707,7 +2708,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_params_with_varmat() {
         // Same test for dynamic-sized integrator with variational matrix
 
@@ -2778,7 +2779,7 @@ mod tests {
     // =========================================================================
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_step_methods_require_dt() {
         fn harmonic(
             _t: f64,
@@ -2817,7 +2818,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_step_methods_require_dt() {
         fn harmonic(
             _t: f64,
@@ -2862,7 +2863,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_step_with_providers_requires_provider() {
         use crate::math::jacobian::SJacobianProvider;
 
@@ -2917,7 +2918,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_step_with_providers_requires_provider() {
         use crate::math::jacobian::DJacobianProvider;
 
@@ -2977,7 +2978,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210s_control_and_providers_step() {
         use crate::math::jacobian::SJacobianProvider;
         use crate::math::sensitivity::SSensitivityProvider;
@@ -3044,7 +3045,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rkn1210d_control_and_providers_step() {
         use crate::math::jacobian::DJacobianProvider;
         use crate::math::sensitivity::DSensitivityProvider;

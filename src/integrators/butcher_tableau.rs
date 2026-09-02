@@ -939,9 +939,10 @@ pub(crate) fn rkn1210_tableau() -> EmbeddedRKNButcherTableau<17> {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_butcher_tableau() {
         let a = SMatrix::<f64, 4, 4>::new(
             0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
@@ -956,13 +957,13 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_validate_rk4_butcher_tableau() {
         assert!(RK4_TABLEAU.validate().is_ok());
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_butcher_tableau_invalid_b_sum() {
         // Test b coefficients that don't sum to 1.0
         let a = SMatrix::<f64, 4, 4>::new(
@@ -982,7 +983,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_butcher_tableau_invalid_c_first() {
         // Test c[0] that is not 0.0
         let a = SMatrix::<f64, 4, 4>::new(
@@ -997,7 +998,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_butcher_tableau_invalid_upper_diagonal() {
         // Test upper diagonal of 'a' that contains non-zero
         let a = SMatrix::<f64, 4, 4>::new(
@@ -1018,7 +1019,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_butcher_tableau_valid_with_correct_values() {
         // Verify that a valid tableau passes all checks
         let a = SMatrix::<f64, 4, 4>::new(

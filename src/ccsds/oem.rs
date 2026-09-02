@@ -319,9 +319,10 @@ impl OEM {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_oem_builder() {
         let mut oem = OEM::new("TEST_ORG".to_string());
         assert_eq!(oem.header.originator, "TEST_ORG");
@@ -357,7 +358,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_oem_builder_round_trip() {
         let mut oem = OEM::new("ROUND_TRIP".to_string());
         let metadata = OEMMetadata::new(
@@ -385,7 +386,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_oem_metadata_with_interpolation() {
         let metadata = OEMMetadata::new(
             "SAT".to_string(),
@@ -403,7 +404,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_oem_json_round_trip_via_dispatch() {
         let mut oem = OEM::new("JSON_RT".to_string());
         let metadata = OEMMetadata::new(
@@ -433,7 +434,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_oem_xml_round_trip() {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample3.xml").unwrap();
         let oem = OEM::from_str(&content).unwrap();
@@ -460,7 +461,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_oem_from_file_nonexistent() {
         let result = OEM::from_file("nonexistent_file.txt");
         assert!(result.is_err());
@@ -543,7 +544,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_oem_kvn_full_round_trip() {
         // OEMExample5 has multiple state vectors and metadata
         let oem1 = OEM::from_file("test_assets/ccsds/oem/OEMExample5.txt").unwrap();
@@ -553,7 +554,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_oem_xml_full_round_trip() {
         // OEMExample3.xml has acceleration + covariance + interpolation
         let oem1 = OEM::from_file("test_assets/ccsds/oem/OEMExample3.xml").unwrap();
@@ -563,7 +564,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_oem_json_full_round_trip() {
         let oem1 = OEM::from_file("test_assets/ccsds/oem/OEMExample3.xml").unwrap();
         let json = oem1.to_string(CCSDSFormat::JSON).unwrap();

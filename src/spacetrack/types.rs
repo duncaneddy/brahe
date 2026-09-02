@@ -229,11 +229,12 @@ impl fmt::Display for OutputFormat {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     // -- RequestController tests --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_request_controller_as_str() {
         assert_eq!(RequestController::BasicSpaceData.as_str(), "basicspacedata");
         assert_eq!(
@@ -246,7 +247,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_request_controller_display() {
         assert_eq!(
             format!("{}", RequestController::BasicSpaceData),
@@ -264,7 +265,7 @@ mod tests {
     // -- RequestClass tests --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_request_class_as_str() {
         assert_eq!(RequestClass::GP.as_str(), "gp");
         assert_eq!(RequestClass::GPHistory.as_str(), "gp_history");
@@ -280,7 +281,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_request_class_display() {
         assert_eq!(format!("{}", RequestClass::GP), "gp");
         assert_eq!(format!("{}", RequestClass::GPHistory), "gp_history");
@@ -296,7 +297,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_request_class_default_controller() {
         assert_eq!(
             RequestClass::GP.default_controller(),
@@ -347,14 +348,14 @@ mod tests {
     // -- SortOrder tests --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sort_order_as_str() {
         assert_eq!(SortOrder::Asc.as_str(), "asc");
         assert_eq!(SortOrder::Desc.as_str(), "desc");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sort_order_display() {
         assert_eq!(format!("{}", SortOrder::Asc), "asc");
         assert_eq!(format!("{}", SortOrder::Desc), "desc");
@@ -363,7 +364,7 @@ mod tests {
     // -- OutputFormat tests --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_output_format_as_str() {
         assert_eq!(OutputFormat::JSON.as_str(), "json");
         assert_eq!(OutputFormat::XML.as_str(), "xml");
@@ -375,7 +376,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_output_format_display() {
         assert_eq!(format!("{}", OutputFormat::JSON), "json");
         assert_eq!(format!("{}", OutputFormat::XML), "xml");
@@ -387,7 +388,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_output_format_is_json() {
         assert!(OutputFormat::JSON.is_json());
         assert!(!OutputFormat::XML.is_json());
@@ -401,7 +402,7 @@ mod tests {
     // -- Shared trait tests --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_enum_equality() {
         assert_eq!(
             RequestController::BasicSpaceData,
@@ -416,7 +417,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_enum_clone() {
         let controller = RequestController::BasicSpaceData;
         let cloned = controller;
@@ -428,7 +429,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_enum_debug() {
         assert_eq!(
             format!("{:?}", RequestController::BasicSpaceData),

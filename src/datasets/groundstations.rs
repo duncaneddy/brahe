@@ -167,11 +167,12 @@ mod tests {
     use super::*;
     use crate::access::location::AccessibleLocation;
     use crate::utils::identifiable::Identifiable;
+    use serial_test::parallel;
     use std::io::Write;
     use tempfile::NamedTempFile;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_load_ksat_groundstations() {
         let stations = load_groundstations("ksat").unwrap();
         assert!(
@@ -189,7 +190,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_load_atlas_groundstations() {
         let stations = load_groundstations("atlas").unwrap();
         assert!(
@@ -207,7 +208,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_load_aws_groundstations() {
         let stations = load_groundstations("aws").unwrap();
         assert!(
@@ -225,7 +226,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_load_leaf_groundstations() {
         let stations = load_groundstations("leaf").unwrap();
         assert!(
@@ -243,7 +244,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_load_ssc_groundstations() {
         let stations = load_groundstations("ssc").unwrap();
         assert!(
@@ -261,7 +262,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_load_viasat_groundstations() {
         let stations = load_groundstations("viasat").unwrap();
         assert!(
@@ -279,14 +280,14 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_load_invalid_provider() {
         let result = load_groundstations("nonexistent");
         assert!(result.is_err(), "Should error on invalid provider");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_case_insensitive_provider() {
         let stations1 = load_groundstations("KSAT").unwrap();
         let stations2 = load_groundstations("ksat").unwrap();
@@ -297,7 +298,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_load_all_groundstations() {
         let all_stations = load_all_groundstations().unwrap();
         assert!(
@@ -320,7 +321,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_list_providers() {
         let providers = list_providers();
         assert_eq!(providers.len(), AVAILABLE_PROVIDERS.len());
@@ -336,7 +337,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_groundstation_properties() {
         for provider in AVAILABLE_PROVIDERS {
             let stations = load_groundstations(provider).unwrap();
@@ -379,7 +380,7 @@ mod tests {
     // load_groundstations_from_file tests
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_load_groundstations_from_file_valid() {
         // Create a temporary file with valid GeoJSON
         let geojson = r#"{
@@ -435,7 +436,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_load_groundstations_from_file_single_station() {
         let geojson = r#"{
             "type": "FeatureCollection",
@@ -467,7 +468,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_load_groundstations_from_file_with_properties() {
         let geojson = r#"{
             "type": "FeatureCollection",
@@ -506,14 +507,14 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_load_groundstations_from_file_nonexistent() {
         let result = load_groundstations_from_file("/nonexistent/path/file.json");
         assert!(result.is_err(), "Should error when file does not exist");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_load_groundstations_from_file_invalid_json() {
         let invalid_json = "{ this is not valid JSON }";
 
@@ -527,7 +528,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_load_groundstations_from_file_invalid_geojson() {
         // Valid JSON but not valid GeoJSON FeatureCollection
         let invalid_geojson = r#"{
@@ -545,7 +546,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_load_groundstations_from_file_empty_features() {
         let empty_geojson = r#"{
             "type": "FeatureCollection",
@@ -565,7 +566,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_load_groundstations_from_file_missing_coordinates() {
         let geojson = r#"{
             "type": "FeatureCollection",
@@ -592,7 +593,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_load_groundstations_from_file_invalid_coordinates() {
         // Coordinates outside valid range - latitude > 90
         let geojson = r#"{
@@ -624,7 +625,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_load_groundstations_from_file_mixed_valid_invalid() {
         // Mix of valid and potentially problematic features
         let geojson = r#"{

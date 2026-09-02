@@ -168,6 +168,7 @@ pub fn moon_position(epc: Epoch) -> Vector3<f64> {
 mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
+    use serial_test::parallel;
 
     use super::*;
     use crate::frames::rotation_gcrf_to_eme2000;
@@ -198,7 +199,7 @@ mod tests {
     #[case(60310.9166666667, 26983374459.1741, - 132672541791.966, - 57520586530.5326)]
     #[case(60310.9583333333, 27090531565.6459, - 132654090024.114, - 57512586710.1098)]
     #[case(60311.0, 27197674033.8982, - 132635566579.098, - 57504555813.8335)]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sun_position(#[case] mjd_tt: f64, #[case] px: f64, #[case] py: f64, #[case] pz: f64) {
         let epc = Epoch::from_mjd(mjd_tt, TimeSystem::TT);
         // Need to convert from GCRF to EME2000 for comparison with reference data
@@ -242,7 +243,7 @@ mod tests {
     #[case(60310.9166666667, - 393191639.189418, 78545096.3782326, 55893167.3891384)]
     #[case(60310.9583333333, - 393984765.133349, 75546882.5419835, 54316044.3538419)]
     #[case(60311.0, - 394746662.3846, 72542978.2908859, 52734738.1846248)]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_moon_position(#[case] mjd_tt: f64, #[case] px: f64, #[case] py: f64, #[case] pz: f64) {
         let epc = Epoch::from_mjd(mjd_tt, TimeSystem::TT);
         // Need to convert from GCRF to EME2000 for comparison with reference data

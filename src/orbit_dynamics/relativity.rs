@@ -81,9 +81,10 @@ mod tests {
     use crate::DEGREES;
     use crate::constants::R_EARTH;
     use crate::coordinates::*;
+    use serial_test::parallel;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_accel_relativity() {
         use super::*;
 
@@ -99,7 +100,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_accel_relativity_for_body_matches_legacy_for_earth_gm() {
         use super::*;
         use approx::assert_abs_diff_eq;

@@ -315,11 +315,12 @@ mod tests {
     use super::*;
     use crate::constants::{DEGREES, RADIANS};
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
     use std::f64::consts::PI;
     use strum::IntoEnumIterator;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_euler_angle_new() {
         let e1 = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, DEGREES);
         assert_eq!(e1.phi, 30.0 * DEG2RAD);
@@ -337,7 +338,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_all_euler_angle_orders() {
         for order in EulerAngleOrder::iter() {
             let e = EulerAngle::new(order, 30.0, 45.0, 60.0, DEGREES);
@@ -346,7 +347,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_euler_angle_from_vector() {
         let v = Vector3::new(30.0, 45.0, 60.0);
         let e = EulerAngle::from_vector(v, EulerAngleOrder::XYZ, DEGREES);
@@ -357,7 +358,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_euler_angle_from_quaternion() {
         let q = Quaternion::new(
             std::f64::consts::FRAC_1_SQRT_2,
@@ -373,7 +374,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_euler_angle_from_euler_axis() {
         let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 45.0, DEGREES);
         let e = EulerAngle::from_euler_axis(e, EulerAngleOrder::XYZ);
@@ -398,7 +399,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_euler_angle_from_euler_angle() {
         let e1 = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, DEGREES);
         let e2 = EulerAngle::from_euler_angle(e1, EulerAngleOrder::ZYX);
@@ -406,7 +407,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_euler_angle_from_rotation_matrix() {
         let r = RotationMatrix::new(
             1.0,
@@ -428,7 +429,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_euler_angle_to_quaternion() {
         let e = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 0.0, 0.0, DEGREES);
         let q = e.to_quaternion();
@@ -448,7 +449,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_euler_angle_to_euler_axis() {
         let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 0.0, 0.0, DEGREES);
         let e = e.to_euler_axis();
@@ -473,7 +474,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_euler_angle_to_euler_angle() {
         let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, DEGREES);
         let e = e.to_euler_angle(EulerAngleOrder::ZYX);
@@ -482,7 +483,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_euler_angle_to_rotation_matrix_Rx() {
         let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 0.0, 0.0, DEGREES);
         let r = e.to_rotation_matrix();
@@ -499,7 +500,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_euler_angle_to_rotation_matrix_Ry() {
         let e = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 45.0, 0.0, DEGREES);
         let r = e.to_rotation_matrix();
@@ -516,7 +517,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_euler_angle_to_rotation_matrix_Rz() {
         let e = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 0.0, 45.0, DEGREES);
         let r = e.to_rotation_matrix();
@@ -532,7 +533,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_to_euler_angle_circular_xyx() {
         let e = EulerAngle::new(EulerAngleOrder::XYX, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::XYX);
@@ -540,7 +541,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_to_euler_angle_circular_xyz() {
         let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::XYZ);
@@ -548,7 +549,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_to_euler_angle_circular_xzx() {
         let e = EulerAngle::new(EulerAngleOrder::XZX, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::XZX);
@@ -556,7 +557,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_to_euler_angle_circular_xzy() {
         let e = EulerAngle::new(EulerAngleOrder::XZY, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::XZY);
@@ -564,7 +565,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_to_euler_angle_circular_yxy() {
         let e = EulerAngle::new(EulerAngleOrder::YXY, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::YXY);
@@ -572,7 +573,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_to_euler_angle_circular_yxz() {
         let e = EulerAngle::new(EulerAngleOrder::YXZ, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::YXZ);
@@ -580,7 +581,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_to_euler_angle_circular_yzx() {
         let e = EulerAngle::new(EulerAngleOrder::YZX, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::YZX);
@@ -588,7 +589,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_to_euler_angle_circular_yzy() {
         let e = EulerAngle::new(EulerAngleOrder::YZY, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::YZY);
@@ -596,7 +597,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_to_euler_angle_circular_zxy() {
         let e = EulerAngle::new(EulerAngleOrder::ZXY, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::ZXY);
@@ -604,7 +605,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_to_euler_angle_circular_zxz() {
         let e = EulerAngle::new(EulerAngleOrder::ZXZ, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::ZXZ);
@@ -612,7 +613,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_to_euler_angle_circular_zyx() {
         let e = EulerAngle::new(EulerAngleOrder::ZYX, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::ZYX);
@@ -620,7 +621,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_to_euler_angle_circular_zyz() {
         let e = EulerAngle::new(EulerAngleOrder::ZYZ, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::ZYZ);

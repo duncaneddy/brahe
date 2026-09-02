@@ -3211,7 +3211,7 @@ mod tests {
     // =========================================================================
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAltitudeEvent_new() {
         setup_global_test_eop();
 
@@ -3247,7 +3247,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAltitudeEvent_target_value() {
         setup_global_test_eop();
 
@@ -3256,7 +3256,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAltitudeEvent_name() {
         setup_global_test_eop();
 
@@ -3265,7 +3265,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAltitudeEvent_with_instance() {
         setup_global_test_eop();
 
@@ -3276,7 +3276,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAltitudeEvent_with_tolerances() {
         setup_global_test_eop();
 
@@ -3294,7 +3294,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAltitudeEvent_time_tolerance() {
         setup_global_test_eop();
 
@@ -3305,7 +3305,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAltitudeEvent_value_tolerance() {
         setup_global_test_eop();
 
@@ -3316,7 +3316,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAltitudeEvent_with_step_reduction_factor() {
         setup_global_test_eop();
 
@@ -3331,7 +3331,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAltitudeEvent_step_reduction_factor() {
         setup_global_test_eop();
 
@@ -3342,7 +3342,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAltitudeEvent_with_callback() {
         setup_global_test_eop();
 
@@ -3370,7 +3370,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAltitudeEvent_callback_none() {
         setup_global_test_eop();
 
@@ -3379,7 +3379,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAltitudeEvent_set_terminal() {
         setup_global_test_eop();
 
@@ -3391,7 +3391,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAltitudeEvent_action_continue() {
         setup_global_test_eop();
 
@@ -3400,7 +3400,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAltitudeEvent_action_stop() {
         setup_global_test_eop();
 
@@ -3409,7 +3409,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAltitudeEvent_direction_increasing() {
         setup_global_test_eop();
 
@@ -3418,7 +3418,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAltitudeEvent_direction_decreasing() {
         setup_global_test_eop();
 
@@ -3427,7 +3427,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAltitudeEvent_direction_any() {
         setup_global_test_eop();
 
@@ -3453,7 +3453,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAltitudeEvent_builder_chaining() {
         setup_global_test_eop();
 
@@ -3480,7 +3480,7 @@ mod tests {
     // =========================================================================
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAltitudeEvent_new() {
         setup_global_test_eop();
 
@@ -3514,7 +3514,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAltitudeEvent_target_value() {
         setup_global_test_eop();
 
@@ -3523,7 +3523,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAltitudeEvent_name() {
         setup_global_test_eop();
 
@@ -3532,7 +3532,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAltitudeEvent_with_instance() {
         setup_global_test_eop();
 
@@ -3543,7 +3543,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAltitudeEvent_with_tolerances() {
         setup_global_test_eop();
 
@@ -3555,7 +3555,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAltitudeEvent_time_tolerance() {
         setup_global_test_eop();
 
@@ -3566,7 +3566,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAltitudeEvent_value_tolerance() {
         setup_global_test_eop();
 
@@ -3577,7 +3577,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAltitudeEvent_with_step_reduction_factor() {
         setup_global_test_eop();
 
@@ -3592,7 +3592,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAltitudeEvent_step_reduction_factor() {
         setup_global_test_eop();
 
@@ -3603,7 +3603,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAltitudeEvent_with_callback() {
         setup_global_test_eop();
 
@@ -3621,7 +3621,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAltitudeEvent_callback_none() {
         setup_global_test_eop();
 
@@ -3630,7 +3630,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAltitudeEvent_set_terminal() {
         setup_global_test_eop();
 
@@ -3642,7 +3642,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAltitudeEvent_action_continue() {
         setup_global_test_eop();
 
@@ -3651,7 +3651,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAltitudeEvent_action_stop() {
         setup_global_test_eop();
 
@@ -3660,7 +3660,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAltitudeEvent_direction_increasing() {
         setup_global_test_eop();
 
@@ -3669,7 +3669,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAltitudeEvent_direction_decreasing() {
         setup_global_test_eop();
 
@@ -3678,7 +3678,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAltitudeEvent_direction_any() {
         setup_global_test_eop();
 
@@ -3687,7 +3687,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAltitudeEvent_builder_chaining() {
         setup_global_test_eop();
 
@@ -6747,7 +6747,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLongitudeEvent_new() {
         setup_global_test_eop();
         let event = SLongitudeEvent::<6, 0>::new(
@@ -6761,7 +6761,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLongitudeEvent_new() {
         setup_global_test_eop();
         let event = DLongitudeEvent::new(
@@ -6793,7 +6793,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLongitudeEvent_target_value() {
         setup_global_test_eop();
         let event = SLongitudeEvent::<6, 0>::new(
@@ -6806,7 +6806,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLongitudeEvent_with_instance() {
         setup_global_test_eop();
         let event = SLongitudeEvent::<6, 0>::new(
@@ -6820,7 +6820,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLongitudeEvent_with_tolerances() {
         setup_global_test_eop();
         let event = SLongitudeEvent::<6, 0>::new(
@@ -6835,7 +6835,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLongitudeEvent_time_tolerance() {
         setup_global_test_eop();
         let event = SLongitudeEvent::<6, 0>::new(
@@ -6849,7 +6849,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLongitudeEvent_value_tolerance() {
         setup_global_test_eop();
         let event = SLongitudeEvent::<6, 0>::new(
@@ -6863,7 +6863,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLongitudeEvent_with_step_reduction_factor() {
         setup_global_test_eop();
         let event = SLongitudeEvent::<6, 0>::new(
@@ -6877,7 +6877,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLongitudeEvent_step_reduction_factor() {
         setup_global_test_eop();
         let event = SLongitudeEvent::<6, 0>::new(
@@ -6892,7 +6892,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLongitudeEvent_with_callback() {
         setup_global_test_eop();
         let callback: SEventCallback<6, 0> =
@@ -6908,7 +6908,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLongitudeEvent_callback_none() {
         setup_global_test_eop();
         let event = SLongitudeEvent::<6, 0>::new(
@@ -6921,7 +6921,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLongitudeEvent_set_terminal() {
         setup_global_test_eop();
         let event = SLongitudeEvent::<6, 0>::new(
@@ -6935,7 +6935,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLongitudeEvent_action_continue() {
         setup_global_test_eop();
         let event = SLongitudeEvent::<6, 0>::new(
@@ -6948,7 +6948,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLongitudeEvent_action_stop() {
         setup_global_test_eop();
         let event = SLongitudeEvent::<6, 0>::new(
@@ -6962,7 +6962,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLongitudeEvent_direction_increasing() {
         setup_global_test_eop();
         let event = SLongitudeEvent::<6, 0>::new(
@@ -6975,7 +6975,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLongitudeEvent_direction_decreasing() {
         setup_global_test_eop();
         let event = SLongitudeEvent::<6, 0>::new(
@@ -6988,7 +6988,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLongitudeEvent_direction_any() {
         setup_global_test_eop();
         let event = SLongitudeEvent::<6, 0>::new(
@@ -7001,7 +7001,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLongitudeEvent_angle_format_radians() {
         setup_global_test_eop();
         let event = SLongitudeEvent::<6, 0>::new(
@@ -7014,7 +7014,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLongitudeEvent_builder_chaining() {
         setup_global_test_eop();
         let callback: SEventCallback<6, 0> =
@@ -7053,7 +7053,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLongitudeEvent_target_value() {
         setup_global_test_eop();
         let event =
@@ -7062,7 +7062,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLongitudeEvent_with_instance() {
         setup_global_test_eop();
         let event =
@@ -7072,7 +7072,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLongitudeEvent_with_tolerances() {
         setup_global_test_eop();
         let event =
@@ -7083,7 +7083,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLongitudeEvent_time_tolerance() {
         setup_global_test_eop();
         let event =
@@ -7092,7 +7092,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLongitudeEvent_value_tolerance() {
         setup_global_test_eop();
         let event =
@@ -7101,7 +7101,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLongitudeEvent_with_step_reduction_factor() {
         setup_global_test_eop();
         let event =
@@ -7111,7 +7111,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLongitudeEvent_step_reduction_factor() {
         setup_global_test_eop();
         let event =
@@ -7121,7 +7121,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLongitudeEvent_with_callback() {
         setup_global_test_eop();
         let callback: DEventCallback =
@@ -7133,7 +7133,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLongitudeEvent_callback_none() {
         setup_global_test_eop();
         let event =
@@ -7142,7 +7142,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLongitudeEvent_set_terminal() {
         setup_global_test_eop();
         let event =
@@ -7152,7 +7152,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLongitudeEvent_action_continue() {
         setup_global_test_eop();
         let event =
@@ -7161,7 +7161,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLongitudeEvent_action_stop() {
         setup_global_test_eop();
         let event =
@@ -7171,7 +7171,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLongitudeEvent_direction_increasing() {
         setup_global_test_eop();
         let event = DLongitudeEvent::new(
@@ -7184,7 +7184,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLongitudeEvent_direction_decreasing() {
         setup_global_test_eop();
         let event = DLongitudeEvent::new(
@@ -7197,7 +7197,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLongitudeEvent_direction_any() {
         setup_global_test_eop();
         let event =
@@ -7206,7 +7206,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLongitudeEvent_angle_format_radians() {
         setup_global_test_eop();
         let event = DLongitudeEvent::new(
@@ -7219,7 +7219,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLongitudeEvent_builder_chaining() {
         setup_global_test_eop();
         let callback: DEventCallback =
@@ -7244,7 +7244,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLatitudeEvent_new() {
         setup_global_test_eop();
         let event = SLatitudeEvent::<6, 0>::new(
@@ -7258,7 +7258,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLatitudeEvent_new() {
         setup_global_test_eop();
         let event = DLatitudeEvent::new(
@@ -7288,7 +7288,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLatitudeEvent_target_value() {
         setup_global_test_eop();
         let event = SLatitudeEvent::<6, 0>::new(
@@ -7301,7 +7301,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLatitudeEvent_with_instance() {
         setup_global_test_eop();
         let event =
@@ -7311,7 +7311,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLatitudeEvent_with_tolerances() {
         setup_global_test_eop();
         let event =
@@ -7322,7 +7322,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLatitudeEvent_time_tolerance() {
         setup_global_test_eop();
         let event =
@@ -7331,7 +7331,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLatitudeEvent_value_tolerance() {
         setup_global_test_eop();
         let event =
@@ -7340,7 +7340,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLatitudeEvent_with_step_reduction_factor() {
         setup_global_test_eop();
         let event =
@@ -7350,7 +7350,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLatitudeEvent_step_reduction_factor() {
         setup_global_test_eop();
         let event =
@@ -7360,7 +7360,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLatitudeEvent_with_callback() {
         setup_global_test_eop();
         let callback: SEventCallback<6, 0> =
@@ -7372,7 +7372,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLatitudeEvent_callback_none() {
         setup_global_test_eop();
         let event =
@@ -7381,7 +7381,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLatitudeEvent_set_terminal() {
         setup_global_test_eop();
         let event =
@@ -7391,7 +7391,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLatitudeEvent_action_continue() {
         setup_global_test_eop();
         let event =
@@ -7400,7 +7400,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLatitudeEvent_action_stop() {
         setup_global_test_eop();
         let event =
@@ -7410,7 +7410,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLatitudeEvent_direction_increasing() {
         setup_global_test_eop();
         let event = SLatitudeEvent::<6, 0>::new(
@@ -7423,7 +7423,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLatitudeEvent_direction_decreasing() {
         setup_global_test_eop();
         let event = SLatitudeEvent::<6, 0>::new(
@@ -7436,7 +7436,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLatitudeEvent_direction_any() {
         setup_global_test_eop();
         let event =
@@ -7445,7 +7445,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLatitudeEvent_angle_format_radians() {
         setup_global_test_eop();
         let event = SLatitudeEvent::<6, 0>::new(
@@ -7458,7 +7458,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SLatitudeEvent_builder_chaining() {
         setup_global_test_eop();
         let callback: SEventCallback<6, 0> =
@@ -7496,7 +7496,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLatitudeEvent_target_value() {
         setup_global_test_eop();
         let event =
@@ -7505,7 +7505,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLatitudeEvent_with_instance() {
         setup_global_test_eop();
         let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees)
@@ -7514,7 +7514,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLatitudeEvent_with_tolerances() {
         setup_global_test_eop();
         let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees)
@@ -7524,7 +7524,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLatitudeEvent_time_tolerance() {
         setup_global_test_eop();
         let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees);
@@ -7532,7 +7532,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLatitudeEvent_value_tolerance() {
         setup_global_test_eop();
         let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees);
@@ -7540,7 +7540,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLatitudeEvent_with_step_reduction_factor() {
         setup_global_test_eop();
         let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees)
@@ -7549,7 +7549,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLatitudeEvent_step_reduction_factor() {
         setup_global_test_eop();
         let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees);
@@ -7558,7 +7558,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLatitudeEvent_with_callback() {
         setup_global_test_eop();
         let callback: DEventCallback =
@@ -7569,7 +7569,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLatitudeEvent_callback_none() {
         setup_global_test_eop();
         let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees);
@@ -7577,7 +7577,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLatitudeEvent_set_terminal() {
         setup_global_test_eop();
         let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees)
@@ -7586,7 +7586,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLatitudeEvent_action_continue() {
         setup_global_test_eop();
         let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees);
@@ -7594,7 +7594,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLatitudeEvent_action_stop() {
         setup_global_test_eop();
         let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees)
@@ -7603,7 +7603,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLatitudeEvent_direction_increasing() {
         setup_global_test_eop();
         let event = DLatitudeEvent::new(
@@ -7616,7 +7616,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLatitudeEvent_direction_decreasing() {
         setup_global_test_eop();
         let event = DLatitudeEvent::new(
@@ -7629,7 +7629,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLatitudeEvent_direction_any() {
         setup_global_test_eop();
         let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees);
@@ -7637,7 +7637,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLatitudeEvent_angle_format_radians() {
         setup_global_test_eop();
         let event = DLatitudeEvent::new(
@@ -7650,7 +7650,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DLatitudeEvent_builder_chaining() {
         setup_global_test_eop();
         let callback: DEventCallback =
@@ -8811,7 +8811,7 @@ mod tests {
     // =========================================================================
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAOIEntryEvent_from_coordinates() {
         setup_global_test_eop();
 
@@ -8832,7 +8832,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAOIEntryEvent_from_polygon() {
         setup_global_test_eop();
 
@@ -8917,7 +8917,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAOIEntryEvent_with_instance() {
         setup_global_test_eop();
 
@@ -8937,7 +8937,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAOIEntryEvent_set_terminal() {
         setup_global_test_eop();
 
@@ -8957,7 +8957,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAOIEntryEvent_with_tolerances() {
         setup_global_test_eop();
 
@@ -8977,7 +8977,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAOIEntryEvent_radians_input() {
         setup_global_test_eop();
 
@@ -9006,7 +9006,7 @@ mod tests {
     // =========================================================================
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAOIExitEvent_from_coordinates() {
         setup_global_test_eop();
 
@@ -9026,7 +9026,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAOIExitEvent_from_polygon() {
         setup_global_test_eop();
 
@@ -9107,7 +9107,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAOIExitEvent_with_instance() {
         setup_global_test_eop();
 
@@ -9127,7 +9127,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAOIExitEvent_set_terminal() {
         setup_global_test_eop();
 
@@ -9151,7 +9151,7 @@ mod tests {
     // =========================================================================
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAOIEntryEvent_from_coordinates() {
         setup_global_test_eop();
 
@@ -9171,7 +9171,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAOIEntryEvent_from_polygon() {
         setup_global_test_eop();
 
@@ -9230,7 +9230,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAOIEntryEvent_with_instance() {
         setup_global_test_eop();
 
@@ -9254,7 +9254,7 @@ mod tests {
     // =========================================================================
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAOIExitEvent_from_coordinates() {
         setup_global_test_eop();
 
@@ -9274,7 +9274,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAOIExitEvent_from_polygon() {
         setup_global_test_eop();
 
@@ -9333,7 +9333,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_DAOIExitEvent_with_instance() {
         setup_global_test_eop();
 
@@ -9357,7 +9357,7 @@ mod tests {
     // =========================================================================
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAOIEntryEvent_antimeridian() {
         setup_global_test_eop();
 
@@ -9381,7 +9381,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_SAOIExitEvent_antimeridian() {
         setup_global_test_eop();
 

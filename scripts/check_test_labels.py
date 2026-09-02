@@ -24,10 +24,13 @@ CASE_ATTR = re.compile(r"^#\[(?:values|case)\b")
 # A function declaration, including the modifiers Rust allows before `fn`.
 # They must be part of the match: treating `async` or `pub` as an unrelated
 # token would end the attribute run and lose the test.
+# `(?:r#)?[^\W\d]\w*` is a Rust identifier: Python's \w is Unicode-aware, and
+# Rust accepts non-ASCII identifiers, so an ASCII-only name pattern would miss
+# `fn 测试()` entirely and truncate `fn café_test()`.
 FN_DECL = re.compile(
     r"(?:(?:pub\s*(?:\([^)]*\)\s*)?|const\s+|async\s+|unsafe\s+"
     r'|extern\s+(?:"[^"]*"\s+)?)\s*)*'
-    r"fn\s+([A-Za-z0-9_]+)"
+    r"fn\s+((?:r#)?[^\W\d]\w*)"
 )
 
 # Openers for the regions that must be blanked. Matching them in one

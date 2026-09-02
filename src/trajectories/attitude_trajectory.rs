@@ -1138,6 +1138,14 @@ impl OrientationProvider for AttitudeTrajectory {
     }
 
     /// Coverage bounds of the trajectory, or `None` when it holds no states.
+    ///
+    /// [`OrientationProvider::coverage`] documents `None` as meaning
+    /// "valid for all time"; an `AttitudeTrajectory` is never actually
+    /// unbounded, so for this type `None` unambiguously means "no states",
+    /// not "any epoch is evaluable". Evaluation methods (`quaternion`,
+    /// `angular_velocity`) independently `Err` on every unevaluable epoch,
+    /// including an empty trajectory, regardless of what `coverage`
+    /// reports.
     fn coverage(&self) -> Option<(Epoch, Epoch)> {
         match (self.start_epoch(), self.end_epoch()) {
             (Some(start), Some(end)) => Some((start, end)),

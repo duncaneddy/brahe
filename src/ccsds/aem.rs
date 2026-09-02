@@ -563,9 +563,8 @@ pub struct AEMMetadata {
     /// Euler angle types, and not applicable otherwise.
     pub euler_rot_seq: Option<EulerAngleOrder>,
     /// Frame in which angular velocity components are expressed; required
-    /// when `attitude_type` is one of the `/ANGVEL` types, and not
-    /// applicable otherwise. Any reference frame is permitted; it is not
-    /// required to equal `ref_frame_a` or `ref_frame_b`.
+    /// when `attitude_type` is one of the `/ANGVEL` types (and must equal
+    /// `ref_frame_a` or `ref_frame_b`), and not applicable otherwise.
     pub angvel_frame: Option<ADMReferenceFrame>,
     /// Recommended interpolation method for this data block.
     pub interpolation_method: Option<AEMInterpolationMethod>,
@@ -697,9 +696,8 @@ impl AEMMetadata {
     ///   `EulerAngleAngVel`); it is an error both for it to be missing on a
     ///   Euler type and for it to be present on a non-Euler type.
     /// - `ANGVEL_FRAME` is present iff `attitude_type` is one of the
-    ///   `/ANGVEL` types (`QuaternionAngVel`, `EulerAngleAngVel`); no
-    ///   constraint is placed on its value relative to `ref_frame_a` or
-    ///   `ref_frame_b`.
+    ///   `/ANGVEL` types (`QuaternionAngVel`, `EulerAngleAngVel`), and when
+    ///   present must equal `ref_frame_a` or `ref_frame_b`.
     /// - `interpolation_degree` is present whenever `interpolation_method`
     ///   is present (a degree given without a method is permitted).
     /// - `useable_start_time` and `useable_stop_time`, when present, fall
@@ -791,11 +789,18 @@ impl AEMMetadata {
                     ),
                 ));
             }
-            // CCSDS 504.0-B-2 table 4-3 allows ANGVEL_FRAME to be any
-            // reference frame from annex B subsection B3 (its own listed
-            // example is ICRF); it is not required to equal REF_FRAME_A or
-            // REF_FRAME_B.
-            (true, Some(_)) | (false, None) => {}
+            (true, Some(angvel_frame)) => {
+                if angvel_frame != &self.ref_frame_a && angvel_frame != &self.ref_frame_b {
+                    return Err(ccsds_parse_error(
+                        "AEM",
+                        &format!(
+                            "ANGVEL_FRAME '{}' must equal REF_FRAME_A '{}' or REF_FRAME_B '{}'",
+                            angvel_frame, self.ref_frame_a, self.ref_frame_b
+                        ),
+                    ));
+                }
+            }
+            (false, None) => {}
         }
 
         if self.interpolation_method.is_some() && self.interpolation_degree.is_none() {
@@ -1516,13 +1521,11 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_aem_metadata_validate_angvel_frame_independent_of_ref_frames_ok() {
-        // CCSDS 504.0-B-2 table 4-3 places no constraint on ANGVEL_FRAME
-        // relative to REF_FRAME_A/REF_FRAME_B (its own listed example,
-        // ICRF, is independent of either in a typical AEM).
+    fn test_aem_metadata_validate_angvel_frame_mismatch_errors() {
         let metadata = base_metadata(AEMAttitudeType::QuaternionAngVel)
             .with_angvel_frame(ADMReferenceFrame::parse("INSTRUMENT_A"));
-        assert!(metadata.validate().is_ok());
+        let err = metadata.validate().unwrap_err();
+        assert!(err.to_string().contains("must equal REF_FRAME_A"));
     }
 
     #[test]

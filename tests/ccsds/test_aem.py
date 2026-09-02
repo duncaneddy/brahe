@@ -470,8 +470,8 @@ def test_aem_angvel_frame_a_reexpression():
     assert np.linalg.norm(stored_omega - omega_a) > 1e-6
 
 
-def test_aem_angvel_frame_neither_a_nor_b_errors_via_conversion():
-    """Mirror of test_aem_angvel_frame_neither_a_nor_b_errors_via_conversion in Rust."""
+def test_aem_angvel_frame_neither_a_nor_b_errors_via_validate():
+    """Mirror of test_aem_angvel_frame_neither_a_nor_b_errors_via_validate in Rust."""
     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     t1 = t0 + 60.0
     seg = AEMSegment(

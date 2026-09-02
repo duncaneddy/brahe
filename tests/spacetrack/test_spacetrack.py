@@ -473,7 +473,12 @@ class TestSpaceTrackClientMethods:
 
 
 def _serve_slowly(port, delay):
-    """Answer every request with an empty JSON list after `delay` seconds."""
+    """Answer every request with an empty JSON list after `delay` seconds.
+
+    The handler closes the socket after each response, so it must advertise
+    `Connection: close`. Without it the client pools the connection and sends
+    its next request on a socket the server has already abandoned.
+    """
 
     class Handler(BaseHTTPRequestHandler):
         def _reply(self):
@@ -482,6 +487,7 @@ def _serve_slowly(port, delay):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(payload)
 

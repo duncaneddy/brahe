@@ -25,7 +25,8 @@ use crate::ccsds::oem::OEM;
 use crate::ccsds::omm::{OMM, OMMMetadata, OMMTleParameters, OMMeanElements};
 use crate::frames::{
     BodyFrame, CelestialFrame, DStateAdapter, ObjectId, OrbitRelativeFrameKind,
-    OrbitRelativeFrameVariant, ReferenceFrame, register_frame, register_object,
+    OrbitRelativeFrameVariant, OrientationProvider, ReferenceFrame, register_frame,
+    register_object,
 };
 use crate::time::Epoch;
 use crate::trajectories::dorbit_trajectory::DOrbitTrajectory;
@@ -250,10 +251,12 @@ impl OEM {
 /// Converts AEM `/ANGVEL` attitude data into a canonical body-frame (frame
 /// B) angular velocity.
 ///
-/// The AEM ANGVEL types express angular velocity in the segment's
-/// `ANGVEL_FRAME`, which `AEMMetadata::validate` guarantees equals either
-/// `ref_frame_a` or `ref_frame_b`. A rate already given in frame B is
-/// returned unchanged; one given in frame A is re-expressed in frame B.
+/// CCSDS 504.0-B-2 table 4-3 permits `ANGVEL_FRAME` to be any registered
+/// reference frame, not only `ref_frame_a` or `ref_frame_b`. `AttitudeTrajectory`
+/// can only natively express a rate in frame A or frame B terms, so this is
+/// the conversion-time gate: a rate already given in frame B is returned
+/// unchanged, one given in frame A is re-expressed in frame B, and any other
+/// `ANGVEL_FRAME` is rejected rather than silently treated as frame B.
 ///
 /// Diebel, J., "Representing Attitude: Euler Angles, Unit Quaternions, and
 /// Rotation Vectors", 2006, eq. 41.
@@ -274,8 +277,15 @@ fn aem_angvel_to_canonical(
         // omega_B = R(q) * omega_A.
         let r = quaternion.to_rotation_matrix().to_matrix();
         Ok(r * angular_velocity)
-    } else {
+    } else if *angvel_frame == metadata.ref_frame_b {
         Ok(angular_velocity)
+    } else {
+        Err(BraheError::Error(format!(
+            "AEM metadata ANGVEL_FRAME '{}' must equal REF_FRAME_A '{}' or REF_FRAME_B '{}' to \
+             convert to AttitudeTrajectory; the message can still be read and written, but the \
+             rate cannot be re-expressed in either of the trajectory's two frames",
+            angvel_frame, metadata.ref_frame_a, metadata.ref_frame_b
+        )))
     }
 }
 
@@ -362,10 +372,12 @@ impl AEM {
     /// no `AttitudeTrajectory` equivalent and errors, directing the caller to
     /// pick an explicit interpolation method instead.
     ///
-    /// `metadata.validate()` runs first, so every conversion path (in
-    /// particular the ANGVEL_FRAME re-expression) can assume the conditional
-    /// metadata rules hold even for a segment built directly in code rather
-    /// than parsed from the wire.
+    /// `metadata.validate()` runs first, so every conversion path can
+    /// assume the conditional metadata rules table 4-3 imposes hold even
+    /// for a segment built directly in code rather than parsed from the
+    /// wire. The ANGVEL_FRAME re-expression rule is not one of those
+    /// table 4-3 rules (the wire format allows any registered frame), so
+    /// [`aem_angvel_to_canonical`] enforces it itself.
     ///
     /// # Arguments
     ///
@@ -387,11 +399,12 @@ impl AEM {
         })?;
 
         let metadata = &segment.metadata;
-        // Gates every downstream conversion path (in particular
-        // `aem_angvel_to_canonical`'s ANGVEL_FRAME == REF_FRAME_A check) on
-        // the ANGVEL_FRAME in {REF_FRAME_A, REF_FRAME_B} invariant; a
-        // segment built in code rather than parsed from the wire is not
-        // otherwise guaranteed to satisfy it.
+        // Enforces the table 4-3 conditional metadata rules; a segment
+        // built in code rather than parsed from the wire is not otherwise
+        // guaranteed to satisfy them. `aem_angvel_to_canonical` enforces
+        // the ANGVEL_FRAME in {REF_FRAME_A, REF_FRAME_B} rule separately,
+        // since that constraint applies to native trajectory conversion
+        // rather than to the message's own validity.
         metadata.validate()?;
         let frame_a = ReferenceFrame::try_from(&metadata.ref_frame_a)?;
         let frame_b = ReferenceFrame::try_from(&metadata.ref_frame_b)?;
@@ -669,11 +682,108 @@ impl AEM {
         } else {
             traj
         };
+
+        // CCSDS 504.0-B-2 table 4-3 permits DATA outside
+        // [USEABLE_START_TIME, USEABLE_STOP_TIME] purely to support
+        // interpolation accuracy near the useable boundary; that padding is
+        // not itself authoritative attitude data. `UseableBounded` keeps
+        // the padded series for interpolation but rejects queries outside
+        // the useable window, falling back to the trajectory's own data
+        // bounds on the side(s) where no useable time is given.
+        let metadata = &self.segments[0].metadata;
+        let bounded = UseableBounded::new(
+            registered,
+            metadata.useable_start_time,
+            metadata.useable_stop_time,
+        )?;
+
         register_frame(
             ReferenceFrame::body(object, body_frame),
             ReferenceFrame::Celestial(parent),
-            registered,
+            bounded,
         )
+    }
+}
+
+/// Wraps an [`OrientationProvider`] so queries are rejected outside
+/// `[start, stop]`, while interpolation itself still sees the wrapped
+/// provider's full underlying data.
+///
+/// Used by [`AEM::register_for`] to keep a CCSDS AEM's
+/// `USEABLE_START_TIME`/`USEABLE_STOP_TIME` padding available to
+/// interpolation without letting it become directly queryable.
+struct UseableBounded<P> {
+    inner: P,
+    start: Epoch,
+    stop: Epoch,
+}
+
+impl<P: OrientationProvider> UseableBounded<P> {
+    /// Builds a bounded wrapper around `inner`, defaulting each side of the
+    /// window to `inner`'s own coverage when the corresponding useable time
+    /// is not given.
+    ///
+    /// # Arguments
+    /// * `inner` - The provider to wrap
+    /// * `useable_start` - `USEABLE_START_TIME`, or `None` to use `inner`'s
+    ///   coverage start
+    /// * `useable_stop` - `USEABLE_STOP_TIME`, or `None` to use `inner`'s
+    ///   coverage stop
+    ///
+    /// # Returns
+    /// * `Ok(UseableBounded<P>)` - The bounded wrapper
+    /// * `Err(BraheError)` - If either side falls back to `inner`'s
+    ///   coverage and `inner` reports unbounded (`None`) coverage
+    fn new(
+        inner: P,
+        useable_start: Option<Epoch>,
+        useable_stop: Option<Epoch>,
+    ) -> Result<Self, BraheError> {
+        let fallback = || {
+            inner.coverage().ok_or_else(|| {
+                BraheError::Error(
+                    "cannot register a provider with no USEABLE_START_TIME/USEABLE_STOP_TIME \
+                     and unbounded coverage"
+                        .to_string(),
+                )
+            })
+        };
+        let start = match useable_start {
+            Some(epoch) => epoch,
+            None => fallback()?.0,
+        };
+        let stop = match useable_stop {
+            Some(epoch) => epoch,
+            None => fallback()?.1,
+        };
+        Ok(Self { inner, start, stop })
+    }
+
+    /// Returns an error if `epoch` falls outside `[self.start, self.stop]`.
+    fn check_bounds(&self, epoch: Epoch) -> Result<(), BraheError> {
+        if epoch < self.start || epoch > self.stop {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "epoch {} is outside the useable coverage [{}, {}]",
+                epoch, self.start, self.stop
+            )));
+        }
+        Ok(())
+    }
+}
+
+impl<P: OrientationProvider> OrientationProvider for UseableBounded<P> {
+    fn quaternion(&self, epoch: Epoch) -> Result<Quaternion, BraheError> {
+        self.check_bounds(epoch)?;
+        self.inner.quaternion(epoch)
+    }
+
+    fn angular_velocity(&self, epoch: Epoch) -> Result<Option<Vector3<f64>>, BraheError> {
+        self.check_bounds(epoch)?;
+        self.inner.angular_velocity(epoch)
+    }
+
+    fn coverage(&self) -> Option<(Epoch, Epoch)> {
+        Some((self.start, self.stop))
     }
 }
 
@@ -2257,12 +2367,13 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_aem_angvel_frame_neither_a_nor_b_errors_via_validate() {
-        // A segment built directly in code (not via the KVN/XML/JSON
-        // parsers, which call metadata.validate() themselves) can carry an
-        // ANGVEL_FRAME that names neither REF_FRAME_A nor REF_FRAME_B.
-        // segment_to_attitude_trajectory must reject this rather than
-        // silently treating the "not frame A" branch as frame B.
+    fn test_aem_angvel_frame_neither_a_nor_b_errors_via_conversion() {
+        // CCSDS 504.0-B-2 table 4-3 lets ANGVEL_FRAME name any registered
+        // frame, so `metadata.validate()` accepts this segment; the
+        // rejection must come from `aem_angvel_to_canonical` at conversion
+        // time instead, since `AttitudeTrajectory` cannot express a rate
+        // given in a third frame and must not silently treat the "not
+        // frame A" branch as frame B.
         let ref_frame_a = ADMReferenceFrame::parse("EME2000");
         let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
         let other_frame = ADMReferenceFrame::parse("ITRF2014");
@@ -2897,7 +3008,10 @@ mod tests {
 
         let aem = g4_single_segment_aem();
         let traj = AttitudeTrajectory::try_from(&aem).unwrap();
-        let epoch = traj.start_epoch().unwrap() + 30.0;
+        // Inside [USEABLE_START_TIME, USEABLE_STOP_TIME]: querying the
+        // fixture's data-start padding (`start_epoch() + 30.0`) instead
+        // would fall outside the registered provider's useable window.
+        let epoch = aem.segments[0].metadata.useable_start_time.unwrap() + 30.0;
 
         aem.register_for("SC").unwrap();
 
@@ -2929,7 +3043,9 @@ mod tests {
         std::mem::swap(&mut metadata.ref_frame_a, &mut metadata.ref_frame_b);
 
         let traj = AttitudeTrajectory::try_from(&aem).unwrap();
-        let epoch = traj.start_epoch().unwrap() + 30.0;
+        // Inside [USEABLE_START_TIME, USEABLE_STOP_TIME]; see
+        // `test_aem_register_for_registers_body_frame`.
+        let epoch = aem.segments[0].metadata.useable_start_time.unwrap() + 30.0;
 
         aem.register_for("SC").unwrap();
 
@@ -2942,6 +3058,34 @@ mod tests {
             .to_rotation_matrix()
             .to_matrix();
         assert_abs_diff_eq!(resolved, expected, epsilon = 1e-12);
+
+        clear_frame_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_aem_register_for_rejects_queries_outside_useable_window() {
+        clear_frame_registry();
+        clear_object_registry();
+
+        // AEMExampleG4's segment 1 pads its DATA span 5 minutes before
+        // USEABLE_START_TIME (and after USEABLE_STOP_TIME) purely to
+        // support interpolation accuracy at the useable boundary; that
+        // padding must not itself be queryable through the registered
+        // frame graph link.
+        let aem = g4_single_segment_aem();
+        let metadata = &aem.segments[0].metadata;
+        let before_useable = metadata.useable_start_time.unwrap() - 30.0;
+        let after_useable = metadata.useable_stop_time.unwrap() + 30.0;
+
+        aem.register_for("SC").unwrap();
+
+        assert!(
+            rotation_frame_to_frame(CelestialFrame::EME2000, sc_body_1(), before_useable).is_err()
+        );
+        assert!(
+            rotation_frame_to_frame(CelestialFrame::EME2000, sc_body_1(), after_useable).is_err()
+        );
 
         clear_frame_registry();
     }

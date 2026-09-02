@@ -15,8 +15,8 @@ use super::attitude_trajectory::AttitudeTrajectory;
 
 impl AttitudeTrajectory {
     /// Re-expresses this trajectory's attitude relative to an arbitrary
-    /// reference frame `from`, given that `frame_a` is itself a
-    /// [`ReferenceFrame::Celestial`] frame.
+    /// reference frame `from`, using the frame graph to relate `from` to
+    /// this trajectory's `frame_a`.
     ///
     /// # Arguments
     /// * `epoch` - The epoch at which to compute the attitude
@@ -24,9 +24,9 @@ impl AttitudeTrajectory {
     ///
     /// # Returns
     /// * `Ok(Quaternion)` - Attitude quaternion from `from` to `frame_b` at `epoch`
-    /// * `Err(BraheError)` - If `frame_a` is not `ReferenceFrame::Celestial`, the frame
-    ///   transformation from `from` to `frame_a`'s reference frame fails, or the
-    ///   attitude at `epoch` cannot be computed
+    /// * `Err(BraheError)` - If the frame transformation from `from` to `frame_a`
+    ///   fails (for example, `frame_a` is a `Body` or `OrbitRelative` frame that is
+    ///   not bound to an object), or the attitude at `epoch` cannot be computed
     ///
     /// # Examples
     /// ```
@@ -51,25 +51,7 @@ impl AttitudeTrajectory {
         epoch: Epoch,
         from: impl Into<ReferenceFrame>,
     ) -> Result<Quaternion, BraheError> {
-        let a = match &self.frame_a {
-            ReferenceFrame::Celestial(celestial) => *celestial,
-            ReferenceFrame::OrbitRelative { .. } => {
-                return Err(BraheError::Error(
-                    "quaternion_from_frame requires frame_a to be ReferenceFrame::Celestial, but \
-                     this trajectory's frame_a is ReferenceFrame::OrbitRelative"
-                        .to_string(),
-                ));
-            }
-            ReferenceFrame::Body { .. } => {
-                return Err(BraheError::Error(
-                    "quaternion_from_frame requires frame_a to be ReferenceFrame::Celestial, but \
-                     this trajectory's frame_a is ReferenceFrame::Body"
-                        .to_string(),
-                ));
-            }
-        };
-
-        let r_from_to_a = rotation_frame_to_frame(from, a, epoch)?;
+        let r_from_to_a = rotation_frame_to_frame(from, self.frame_a.clone(), epoch)?;
         let q_from_to_a =
             Quaternion::from_rotation_matrix(RotationMatrix::from_matrix(r_from_to_a)?);
 
@@ -156,6 +138,35 @@ mod tests {
         // carries no rate data as `Ok(None)`; `Err` is reserved for real
         // evaluation failures such as an out-of-coverage epoch.
         assert_eq!(traj.angular_velocity(epoch).unwrap(), None);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_provider_angular_velocity_errors_out_of_coverage_without_rates() {
+        // A rate-less trajectory must still validate the queried epoch
+        // against its coverage: `Ok(None)` reports "no rate data", not "any
+        // epoch is fine because there is nothing to check".
+        let traj = small_attitude_trajectory();
+        let before_start = traj.start_epoch().unwrap() - 10.0;
+        let after_end = traj.end_epoch().unwrap() + 10.0;
+
+        assert!(traj.angular_velocity(before_start).is_err());
+        assert!(traj.angular_velocity(after_end).is_err());
+        assert!(traj.angular_velocities(&[before_start]).is_err());
+        assert!(traj.angular_velocities(&[after_end]).is_err());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_provider_angular_velocity_errors_for_empty_trajectory() {
+        // An empty trajectory has no evaluable coverage at all, so it must
+        // error rather than silently report `Ok(None)`.
+        let (a, b) = spacecraft_frames();
+        let traj = AttitudeTrajectory::new(a, b);
+        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        assert!(traj.angular_velocity(epoch).is_err());
+        assert!(traj.angular_velocities(&[epoch]).is_err());
     }
 
     #[test]
@@ -247,22 +258,24 @@ mod tests {
 
     #[test]
     #[serial_test::parallel]
-    fn test_quaternion_from_frame_errors_for_body_frame_a() {
+    fn test_quaternion_from_frame_errors_for_unbound_body_frame_a() {
         let (a, b) = spacecraft_frames();
         let mut traj = AttitudeTrajectory::new(a, b);
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         traj.add(t0, AttitudeState::new(z_axis_quaternion(0.0)))
             .unwrap();
 
+        // `spacecraft_frames` binds no object, so the frame graph reports
+        // frame_a as unbound rather than the composition succeeding.
         let result = traj.quaternion_from_frame(t0, CelestialFrame::EME2000);
         assert!(result.is_err());
         let message = format!("{}", result.unwrap_err());
-        assert!(message.contains("Body"));
+        assert!(message.contains("not bound to an object"));
     }
 
     #[test]
     #[serial_test::parallel]
-    fn test_quaternion_from_frame_errors_for_orbit_relative_frame_a() {
+    fn test_quaternion_from_frame_errors_for_unbound_orbit_relative_frame_a() {
         use crate::frames::{
             OrbitRelativeFrame, OrbitRelativeFrameKind, OrbitRelativeFrameVariant,
         };
@@ -283,6 +296,38 @@ mod tests {
         let result = traj.quaternion_from_frame(t0, CelestialFrame::EME2000);
         assert!(result.is_err());
         let message = format!("{}", result.unwrap_err());
-        assert!(message.contains("OrbitRelative"));
+        assert!(message.contains("not bound to an object"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_quaternion_from_frame_succeeds_for_bound_body_frame_a() {
+        use crate::frames::{clear_frame_registry, register_frame};
+
+        clear_frame_registry();
+        let q_body = z_axis_quaternion(0.3);
+        register_frame(
+            ReferenceFrame::SC_BODY("QFF"),
+            ReferenceFrame::from(CelestialFrame::GCRF),
+            q_body,
+        )
+        .unwrap();
+
+        let (_, b) = spacecraft_frames();
+        let mut traj = AttitudeTrajectory::new(ReferenceFrame::SC_BODY("QFF"), b);
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let q_a_to_b = z_axis_quaternion(0.1);
+        traj.add(t0, AttitudeState::new(q_a_to_b)).unwrap();
+
+        // frame_a is a bound Body frame, which the old Celestial-only
+        // restriction rejected outright; the frame graph now resolves it
+        // like any other registered frame.
+        let q = traj
+            .quaternion_from_frame(t0, CelestialFrame::GCRF)
+            .unwrap();
+        let expected = q_body * q_a_to_b;
+        assert_eq!(q, expected);
+
+        clear_frame_registry();
     }
 }

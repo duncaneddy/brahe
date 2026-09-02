@@ -1091,7 +1091,10 @@ META_STOP\n";
 
     #[test]
     #[parallel]
-    fn test_parse_aem_angvel_frame_mismatch_rejected() {
+    fn test_parse_aem_angvel_frame_independent_of_ref_frames_accepted() {
+        // CCSDS 504.0-B-2 table 4-3 places no constraint on ANGVEL_FRAME
+        // relative to REF_FRAME_A/REF_FRAME_B, so a third, independent
+        // frame token must parse successfully rather than being rejected.
         let content = "CCSDS_AEM_VERS = 2.0\n\
 CREATION_DATE = 2002-11-04T17:22:31\n\
 ORIGINATOR = BRAHE\n\
@@ -1107,13 +1110,16 @@ START_TIME = 1996-11-28T21:29:07.2555\n\
 STOP_TIME = 1996-11-30T01:28:02.5555\n\
 ATTITUDE_TYPE = QUATERNION/ANGVEL\n\
 ANGVEL_FRAME = INSTRUMENT_A\n\
-META_STOP\n";
-        let err = parse_aem(content).unwrap_err();
-        let msg = format!("{}", err);
-        assert!(
-            msg.contains("must equal REF_FRAME_A"),
-            "unexpected message: {}",
-            msg
+META_STOP\n\
+\n\
+DATA_START\n\
+1996-11-28T21:29:07.2555 0.56748 0.03146 0.45689 0.68427 0.01 0.02 0.03\n\
+DATA_STOP\n";
+        let aem = parse_aem(content).unwrap();
+        let metadata = &aem.segments[0].metadata;
+        assert_eq!(
+            metadata.angvel_frame,
+            Some(ADMReferenceFrame::parse("INSTRUMENT_A"))
         );
     }
 

@@ -1078,6 +1078,14 @@ impl AttitudeTrajectory {
         epochs: &[Epoch],
     ) -> Result<Option<Vec<Vector3<f64>>>, BraheError> {
         if !self.has_rates() {
+            // `Ok(None)` reports the absence of rate data, not the absence
+            // of a failure; every epoch must still be validated against
+            // coverage (and an empty trajectory must still error) so the
+            // `OrientationProvider` contract's `Err`-for-out-of-coverage
+            // guarantee holds regardless of whether rates are present.
+            for &epoch in epochs {
+                self.interpolate(&epoch)?;
+            }
             return Ok(None);
         }
         let mut rates = Vec::with_capacity(epochs.len());
@@ -1100,7 +1108,9 @@ impl OrientationProvider for AttitudeTrajectory {
     }
 
     /// Interpolated body angular velocity at `epoch`, or `Ok(None)` when
-    /// [`AttitudeTrajectory::has_rates`] is `false`.
+    /// [`AttitudeTrajectory::has_rates`] is `false`. `epoch` is still
+    /// validated against the trajectory's coverage in the rate-less case,
+    /// so an out-of-coverage query returns `Err` rather than `Ok(None)`.
     ///
     /// brahe never silently finite-differences a quaternion history to
     /// approximate a rate. A trajectory without rate data reports `None`
@@ -1108,6 +1118,13 @@ impl OrientationProvider for AttitudeTrajectory {
     /// [`OrientationProvider::with_numerical_rates`].
     fn angular_velocity(&self, epoch: Epoch) -> Result<Option<Vector3<f64>>, BraheError> {
         if !self.has_rates() {
+            // `Ok(None)` reports the absence of rate data, not the absence
+            // of a failure; validate `epoch` against coverage (an empty
+            // trajectory included) before reporting the trajectory
+            // rate-less, so the `OrientationProvider` contract's
+            // `Err`-for-out-of-coverage guarantee holds regardless of
+            // whether rates are present.
+            self.interpolate(&epoch)?;
             return Ok(None);
         }
         match self.interpolate(&epoch)?.angular_velocity {

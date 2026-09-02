@@ -470,8 +470,8 @@ def test_aem_angvel_frame_a_reexpression():
     assert np.linalg.norm(stored_omega - omega_a) > 1e-6
 
 
-def test_aem_angvel_frame_neither_a_nor_b_errors_via_validate():
-    """Mirror of test_aem_angvel_frame_neither_a_nor_b_errors_via_validate in Rust."""
+def test_aem_angvel_frame_neither_a_nor_b_errors_via_conversion():
+    """Mirror of test_aem_angvel_frame_neither_a_nor_b_errors_via_conversion in Rust."""
     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     t1 = t0 + 60.0
     seg = AEMSegment(
@@ -718,7 +718,10 @@ def test_aem_register_for_registers_body_frame(eop):
 
     aem = _g4_single_segment_aem()
     traj = aem.segment_to_attitude_trajectory(0)
-    epoch = traj.start_epoch + 30.0
+    # Inside [USEABLE_START_TIME, USEABLE_STOP_TIME]: querying the
+    # fixture's data-start padding (`start_epoch + 30.0`) instead would
+    # fall outside the registered provider's useable window.
+    epoch = aem.segments[0].useable_start_time + 30.0
 
     aem.register_for("SC")
 
@@ -728,6 +731,35 @@ def test_aem_register_for_registers_body_frame(eop):
     )
     expected = traj.quaternion(epoch).to_rotation_matrix().to_matrix()
     np.testing.assert_allclose(resolved, expected, atol=1e-12)
+
+    bh.clear_frame_registry()
+
+
+def test_aem_register_for_rejects_queries_outside_useable_window(eop):
+    """Mirror of test_aem_register_for_rejects_queries_outside_useable_window in Rust."""
+    bh.clear_frame_registry()
+    bh.clear_object_registry()
+
+    # AEMExampleG4's segment 1 pads its DATA span 5 minutes before
+    # USEABLE_START_TIME (and after USEABLE_STOP_TIME) purely to support
+    # interpolation accuracy at the useable boundary; that padding must not
+    # itself be queryable through the registered frame graph link.
+    aem = _g4_single_segment_aem()
+    segment = aem.segments[0]
+    before_useable = segment.useable_start_time - 30.0
+    after_useable = segment.useable_stop_time + 30.0
+
+    aem.register_for("SC")
+
+    body = bh.ReferenceFrame.body("SC", bh.BodyFrame.SC_BODY("1"))
+    with pytest.raises(Exception, match="useable coverage"):
+        bh.rotation_frame_to_frame(
+            bh.ReferenceFrame.celestial(bh.CelestialFrame.EME2000), body, before_useable
+        )
+    with pytest.raises(Exception, match="useable coverage"):
+        bh.rotation_frame_to_frame(
+            bh.ReferenceFrame.celestial(bh.CelestialFrame.EME2000), body, after_useable
+        )
 
     bh.clear_frame_registry()
 

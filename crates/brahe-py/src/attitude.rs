@@ -1822,7 +1822,7 @@ impl PyRotationMatrix {
 
 #[pyfunction]
 #[pyo3(name = "quaternion_derivative")]
-#[pyo3(text_signature = "(q, angular_velocity)")]
+#[pyo3(text_signature = "(q, angular_velocity, scalar_first)")]
 /// Computes the time derivative of an attitude quaternion from the
 /// body-frame angular velocity.
 ///
@@ -1830,10 +1830,12 @@ impl PyRotationMatrix {
 ///     q (Quaternion): Attitude quaternion transforming frame A to frame B.
 ///     angular_velocity (numpy.ndarray): Angular velocity of B relative to A,
 ///         expressed in B, shape (3,). Units: (rad/s)
+///     scalar_first (bool): If True, the returned array is
+///         `[q̇s, q̇1, q̇2, q̇3]`, else `[q̇1, q̇2, q̇3, q̇s]`
 ///
 /// Returns:
-///     numpy.ndarray: Scalar-first quaternion derivative `[q̇s, q̇1, q̇2, q̇3]`,
-///     shape (4,). Not a unit quaternion. Units: (1/s)
+///     numpy.ndarray: Quaternion derivative, shape (4,), ordered per
+///     `scalar_first`. Not a unit quaternion. Units: (1/s)
 ///
 /// Example:
 ///     ```python
@@ -1841,7 +1843,7 @@ impl PyRotationMatrix {
 ///     import numpy as np
 ///
 ///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
-///     q_dot = bh.quaternion_derivative(q, np.array([0.0, 0.0, 0.1]))
+///     q_dot = bh.quaternion_derivative(q, np.array([0.0, 0.0, 0.1]), scalar_first=True)
 ///     ```
 ///
 /// References:
@@ -1851,15 +1853,16 @@ fn py_quaternion_derivative<'py>(
     py: Python<'py>,
     q: &PyQuaternion,
     angular_velocity: Bound<'py, PyAny>,
+    scalar_first: bool,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let omega = pyany_to_svector::<3>(&angular_velocity)?;
-    let q_dot = attitude::quaternion_derivative(&q.obj, omega);
+    let q_dot = attitude::quaternion_derivative(&q.obj, omega, scalar_first);
     Ok(vector_to_numpy!(py, q_dot, 4, f64))
 }
 
 #[pyfunction]
 #[pyo3(name = "angular_velocity_from_quaternion_derivative")]
-#[pyo3(text_signature = "(q, q_dot)")]
+#[pyo3(text_signature = "(q, q_dot, scalar_first)")]
 /// Recovers the body-frame angular velocity from an attitude quaternion and
 /// its time derivative.
 ///
@@ -1871,8 +1874,10 @@ fn py_quaternion_derivative<'py>(
 ///
 /// Args:
 ///     q (Quaternion): Attitude quaternion transforming frame A to frame B.
-///     q_dot (numpy.ndarray): Scalar-first quaternion derivative
-///         `[q̇s, q̇1, q̇2, q̇3]`, shape (4,). Units: (1/s)
+///     q_dot (numpy.ndarray): Quaternion derivative, shape (4,), ordered per
+///         `scalar_first`. Units: (1/s)
+///     scalar_first (bool): If True, `q_dot` is `[q̇s, q̇1, q̇2, q̇3]`,
+///         else `[q̇1, q̇2, q̇3, q̇s]`
 ///
 /// Returns:
 ///     numpy.ndarray: Angular velocity of B relative to A, expressed in B,
@@ -1885,8 +1890,8 @@ fn py_quaternion_derivative<'py>(
 ///
 ///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
 ///     omega = np.array([0.02, -0.01, 0.3])
-///     q_dot = bh.quaternion_derivative(q, omega)
-///     recovered = bh.angular_velocity_from_quaternion_derivative(q, q_dot)
+///     q_dot = bh.quaternion_derivative(q, omega, scalar_first=True)
+///     recovered = bh.angular_velocity_from_quaternion_derivative(q, q_dot, scalar_first=True)
 ///     ```
 ///
 /// References:
@@ -1896,9 +1901,11 @@ fn py_angular_velocity_from_quaternion_derivative<'py>(
     py: Python<'py>,
     q: &PyQuaternion,
     q_dot: Bound<'py, PyAny>,
+    scalar_first: bool,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let q_dot_vec = pyany_to_svector::<4>(&q_dot)?;
-    let omega = attitude::angular_velocity_from_quaternion_derivative(&q.obj, q_dot_vec);
+    let omega =
+        attitude::angular_velocity_from_quaternion_derivative(&q.obj, q_dot_vec, scalar_first);
     Ok(vector_to_numpy!(py, omega, 3, f64))
 }
 

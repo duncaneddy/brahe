@@ -758,11 +758,12 @@ pub(crate) fn raw_quaternion_product(a: Vector4<f64>, b: Vector4<f64>) -> Vector
 ///
 /// * `q`: Attitude quaternion transforming frame A to frame B
 /// * `angular_velocity`: Angular velocity of B relative to A, expressed in B. Units: (rad/s)
+/// * `scalar_first`: A boolean indicating if the scalar component should be first in the returned vector
 ///
 /// # Returns
 ///
-/// * `q_dot`: Scalar-first quaternion derivative `[q̇s, q̇1, q̇2, q̇3]`. Not a unit
-///   quaternion. Units: (1/s)
+/// * `q_dot`: Quaternion derivative, `[q̇s, q̇1, q̇2, q̇3]` when `scalar_first` is
+///   `true` and `[q̇1, q̇2, q̇3, q̇s]` otherwise. Not a unit quaternion. Units: (1/s)
 ///
 /// # Examples
 /// ```
@@ -770,14 +771,18 @@ pub(crate) fn raw_quaternion_product(a: Vector4<f64>, b: Vector4<f64>) -> Vector
 /// use nalgebra::Vector3;
 ///
 /// let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
-/// let q_dot = quaternion_derivative(&q, Vector3::new(0.0, 0.0, 0.1));
+/// let q_dot = quaternion_derivative(&q, Vector3::new(0.0, 0.0, 0.1), true);
 /// assert!((q_dot[3] - 0.05).abs() < 1e-12);
 /// ```
 ///
 /// # References:
 ///  1. J. Diebel, *Representing Attitude: Euler Angles, Unit Quaternions, and
 ///     Rotation Vectors*, 2006. Eq. 157.
-pub fn quaternion_derivative(q: &Quaternion, angular_velocity: Vector3<f64>) -> Vector4<f64> {
+pub fn quaternion_derivative(
+    q: &Quaternion,
+    angular_velocity: Vector3<f64>,
+    scalar_first: bool,
+) -> Vector4<f64> {
     let omega_bar = Vector4::new(
         0.0,
         angular_velocity[0],
@@ -787,7 +792,13 @@ pub fn quaternion_derivative(q: &Quaternion, angular_velocity: Vector3<f64>) -> 
     // Diebel's quaternion product is brahe's Hamilton product with the operands
     // exchanged, so his q̇ = ½ [0; ω]·q is q̇ = ½ (q * [0; ω]) here. The product
     // runs on raw components because q̇ is not a unit quaternion.
-    0.5 * raw_quaternion_product(q.to_vector(true), omega_bar)
+    let q_dot = 0.5 * raw_quaternion_product(q.to_vector(true), omega_bar);
+
+    if scalar_first {
+        q_dot
+    } else {
+        Vector4::new(q_dot[1], q_dot[2], q_dot[3], q_dot[0])
+    }
 }
 
 /// Recovers the body-frame angular velocity from an attitude quaternion and its
@@ -801,7 +812,9 @@ pub fn quaternion_derivative(q: &Quaternion, angular_velocity: Vector3<f64>) -> 
 /// # Arguments
 ///
 /// * `q`: Attitude quaternion transforming frame A to frame B
-/// * `q_dot`: Scalar-first quaternion derivative `[q̇s, q̇1, q̇2, q̇3]`. Units: (1/s)
+/// * `q_dot`: Quaternion derivative, `[q̇s, q̇1, q̇2, q̇3]` when `scalar_first` is
+///   `true` and `[q̇1, q̇2, q̇3, q̇s]` otherwise. Units: (1/s)
+/// * `scalar_first`: A boolean indicating if the scalar component is first in `q_dot`
 ///
 /// # Returns
 ///
@@ -814,8 +827,8 @@ pub fn quaternion_derivative(q: &Quaternion, angular_velocity: Vector3<f64>) -> 
 ///
 /// let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
 /// let omega = Vector3::new(0.02, -0.01, 0.3);
-/// let q_dot = quaternion_derivative(&q, omega);
-/// let recovered = angular_velocity_from_quaternion_derivative(&q, q_dot);
+/// let q_dot = quaternion_derivative(&q, omega, true);
+/// let recovered = angular_velocity_from_quaternion_derivative(&q, q_dot, true);
 /// assert!((recovered - omega).norm() < 1e-12);
 /// ```
 ///
@@ -825,7 +838,13 @@ pub fn quaternion_derivative(q: &Quaternion, angular_velocity: Vector3<f64>) -> 
 pub fn angular_velocity_from_quaternion_derivative(
     q: &Quaternion,
     q_dot: Vector4<f64>,
+    scalar_first: bool,
 ) -> Vector3<f64> {
+    let q_dot = if scalar_first {
+        q_dot
+    } else {
+        Vector4::new(q_dot[3], q_dot[0], q_dot[1], q_dot[2])
+    };
     // Diebel's [0; ω] = 2 q̇·q̄ is 2 (q̄ * q̇) under the same operand exchange. The
     // scalar component of the product carries only the norm drift of q̇ and is
     // discarded.
@@ -1251,7 +1270,7 @@ mod tests {
             let w = 0.37;
             for t in [0.0, 0.4, 1.9, 5.0] {
                 let (q, q_dot_expected) = axis_history(n, w, t);
-                let q_dot = quaternion_derivative(&q, w * n);
+                let q_dot = quaternion_derivative(&q, w * n, true);
                 for i in 0..4 {
                     assert_abs_diff_eq!(q_dot[i], q_dot_expected[i], epsilon = 1e-12);
                 }
@@ -1270,8 +1289,8 @@ mod tests {
             AngleFormat::Radians,
         ));
         let omega = Vector3::new(0.05, -0.02, 0.4);
-        let q_dot = quaternion_derivative(&q, omega);
-        let recovered = angular_velocity_from_quaternion_derivative(&q, q_dot);
+        let q_dot = quaternion_derivative(&q, omega, true);
+        let recovered = angular_velocity_from_quaternion_derivative(&q, q_dot, true);
         for i in 0..3 {
             assert_abs_diff_eq!(recovered[i], omega[i], epsilon = 1e-12);
         }
@@ -1314,7 +1333,7 @@ mod tests {
         }
         let q_dot_numeric = (qp - qm) / (2.0 * dt);
 
-        let q_dot = quaternion_derivative(&q_at(t), omega);
+        let q_dot = quaternion_derivative(&q_at(t), omega, true);
         for i in 0..4 {
             assert_abs_diff_eq!(q_dot[i], q_dot_numeric[i], epsilon = 1e-8);
         }
@@ -1328,7 +1347,7 @@ mod tests {
             (s[(0, 2)] - s[(2, 0)]) / 2.0,
             (s[(1, 0)] - s[(0, 1)]) / 2.0,
         );
-        let omega_recovered = angular_velocity_from_quaternion_derivative(&q_at(t), q_dot);
+        let omega_recovered = angular_velocity_from_quaternion_derivative(&q_at(t), q_dot, true);
         for i in 0..3 {
             assert_abs_diff_eq!(omega_matrix[i], omega[i], epsilon = 1e-8);
             assert_abs_diff_eq!(omega_recovered[i], omega[i], epsilon = 1e-10);
@@ -1349,17 +1368,42 @@ mod tests {
         let q_neg = Quaternion::new(-q_vec[0], -q_vec[1], -q_vec[2], -q_vec[3]);
         let omega = Vector3::new(0.05, -0.02, 0.4);
 
-        let q_dot = quaternion_derivative(&q, omega);
-        let q_dot_neg = quaternion_derivative(&q_neg, omega);
+        let q_dot = quaternion_derivative(&q, omega, true);
+        let q_dot_neg = quaternion_derivative(&q_neg, omega, true);
         for i in 0..4 {
             assert_abs_diff_eq!(q_dot_neg[i], -q_dot[i], epsilon = 1e-12);
         }
 
-        let q_dot_vec = quaternion_derivative(&q, omega);
-        let omega_from_pos = angular_velocity_from_quaternion_derivative(&q, q_dot_vec);
-        let omega_from_neg = angular_velocity_from_quaternion_derivative(&q_neg, -q_dot_vec);
+        let q_dot_vec = quaternion_derivative(&q, omega, true);
+        let omega_from_pos = angular_velocity_from_quaternion_derivative(&q, q_dot_vec, true);
+        let omega_from_neg = angular_velocity_from_quaternion_derivative(&q_neg, -q_dot_vec, true);
         for i in 0..3 {
             assert_abs_diff_eq!(omega_from_neg[i], omega_from_pos[i], epsilon = 1e-12);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_quaternion_kinematics_scalar_last_convention() {
+        let q = Quaternion::from_euler_angle(EulerAngle::new(
+            EulerAngleOrder::ZYX,
+            0.3,
+            -0.7,
+            1.1,
+            AngleFormat::Radians,
+        ));
+        let omega = Vector3::new(0.05, -0.02, 0.4);
+
+        let q_dot_first = quaternion_derivative(&q, omega, true);
+        let q_dot_last = quaternion_derivative(&q, omega, false);
+        for i in 0..3 {
+            assert_abs_diff_eq!(q_dot_last[i], q_dot_first[i + 1], epsilon = 1e-15);
+        }
+        assert_abs_diff_eq!(q_dot_last[3], q_dot_first[0], epsilon = 1e-15);
+
+        let recovered = angular_velocity_from_quaternion_derivative(&q, q_dot_last, false);
+        for i in 0..3 {
+            assert_abs_diff_eq!(recovered[i], omega[i], epsilon = 1e-12);
         }
     }
 }

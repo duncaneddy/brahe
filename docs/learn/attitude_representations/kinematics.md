@@ -36,6 +36,8 @@ $$\bar{\omega} = 2\, \bar{q} * \dot{q}$$
 
 from Diebel's eq. 147, $[0;\omega'] = 2\,\dot q \cdot \bar q$, restated the same way, with $\bar q$ the quaternion conjugate.
 
+Both quaternion functions exchange raw four-component vectors rather than `Quaternion` values, because $\dot q$ is not a unit quaternion. They take the same `scalar_first` argument as `Quaternion::from_vector` and `Quaternion::to_vector`: `true` orders the components as $[\dot q_s, \dot q_1, \dot q_2, \dot q_3]$, `false` as $[\dot q_1, \dot q_2, \dot q_3, \dot q_s]$. The argument sets the layout of `quaternion_derivative`'s return value and of the derivative `angular_velocity_from_quaternion_derivative` reads.
+
 `euler_rates_to_angular_velocity` and its inverse `angular_velocity_to_euler_rates` compute the body-frame angular velocity from Euler-angle rates, and back, as
 
 $$\omega = E'\, \dot{u}$$

@@ -851,7 +851,7 @@ mod tests {
             qm = -qm;
         }
         let q_dot = (qp - qm) / (2.0 * dt);
-        let omega_ref = angular_velocity_from_quaternion_derivative(&q_of(t), q_dot);
+        let omega_ref = angular_velocity_from_quaternion_derivative(&q_of(t), q_dot, true);
 
         for i in 0..3 {
             assert_abs_diff_eq!(omega[i], omega_ref[i], epsilon = 1e-8);

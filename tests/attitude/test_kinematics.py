@@ -46,7 +46,7 @@ def test_quaternion_derivative_single_axis():
     for n in axes:
         for t in [0.0, 0.4, 1.9, 5.0]:
             q, q_dot_expected = axis_history(n, w, t)
-            q_dot = quaternion_derivative(q, w * n)
+            q_dot = quaternion_derivative(q, w * n, True)
             for i in range(4):
                 assert q_dot[i] == pytest.approx(q_dot_expected[i], abs=1e-12)
 
@@ -56,8 +56,8 @@ def test_angular_velocity_from_quaternion_derivative_roundtrip():
         EulerAngle(EulerAngleOrder.ZYX, 0.3, -0.7, 1.1, AngleFormat.RADIANS)
     )
     omega = np.array([0.05, -0.02, 0.4])
-    q_dot = quaternion_derivative(q, omega)
-    recovered = angular_velocity_from_quaternion_derivative(q, q_dot)
+    q_dot = quaternion_derivative(q, omega, True)
+    recovered = angular_velocity_from_quaternion_derivative(q, q_dot, True)
     for i in range(3):
         assert recovered[i] == pytest.approx(omega[i], abs=1e-12)
 
@@ -153,14 +153,14 @@ def test_quaternion_derivative_sign_covariance():
     q_neg = Quaternion(-q_vec[0], -q_vec[1], -q_vec[2], -q_vec[3])
     omega = np.array([0.05, -0.02, 0.4])
 
-    q_dot = quaternion_derivative(q, omega)
-    q_dot_neg = quaternion_derivative(q_neg, omega)
+    q_dot = quaternion_derivative(q, omega, True)
+    q_dot_neg = quaternion_derivative(q_neg, omega, True)
     for i in range(4):
         assert q_dot_neg[i] == pytest.approx(-q_dot[i], abs=1e-12)
 
-    omega_from_pos = angular_velocity_from_quaternion_derivative(q, q_dot)
+    omega_from_pos = angular_velocity_from_quaternion_derivative(q, q_dot, True)
     omega_from_neg = angular_velocity_from_quaternion_derivative(
-        q_neg, -np.array(q_dot)
+        q_neg, -np.array(q_dot), True
     )
     for i in range(3):
         assert omega_from_neg[i] == pytest.approx(omega_from_pos[i], abs=1e-12)
@@ -190,7 +190,7 @@ def test_quaternion_derivative_matches_rotation_matrix_derivative():
         qm = -qm
     q_dot_numeric = (qp - qm) / (2.0 * dt)
 
-    q_dot = quaternion_derivative(q_at(t), omega)
+    q_dot = quaternion_derivative(q_at(t), omega, True)
     for i in range(4):
         assert q_dot[i] == pytest.approx(q_dot_numeric[i], abs=1e-8)
 
@@ -207,7 +207,7 @@ def test_quaternion_derivative_matches_rotation_matrix_derivative():
             (s[1, 0] - s[0, 1]) / 2.0,
         ]
     )
-    omega_recovered = angular_velocity_from_quaternion_derivative(q_at(t), q_dot)
+    omega_recovered = angular_velocity_from_quaternion_derivative(q_at(t), q_dot, True)
     for i in range(3):
         assert omega_matrix[i] == pytest.approx(omega[i], abs=1e-8)
         assert omega_recovered[i] == pytest.approx(omega[i], abs=1e-10)
@@ -267,7 +267,7 @@ def test_euler_rates_consistent_with_quaternion_kinematics(order):
     if np.dot(qm, qc) < 0.0:
         qm = -qm
     q_dot = (qp - qm) / (2.0 * dt)
-    omega_ref = angular_velocity_from_quaternion_derivative(q_of(t), q_dot)
+    omega_ref = angular_velocity_from_quaternion_derivative(q_of(t), q_dot, True)
 
     for i in range(3):
         assert omega[i] == pytest.approx(omega_ref[i], abs=1e-8)
@@ -278,11 +278,11 @@ def test_euler_rates_consistent_with_quaternion_kinematics(order):
     [
         (
             quaternion_derivative,
-            lambda: (Quaternion(1.0, 0.0, 0.0, 0.0), np.array([0.0, 0.0])),
+            lambda: (Quaternion(1.0, 0.0, 0.0, 0.0), np.array([0.0, 0.0]), True),
         ),
         (
             angular_velocity_from_quaternion_derivative,
-            lambda: (Quaternion(1.0, 0.0, 0.0, 0.0), np.array([0.0, 0.0])),
+            lambda: (Quaternion(1.0, 0.0, 0.0, 0.0), np.array([0.0, 0.0]), True),
         ),
         (
             euler_rates_to_angular_velocity,
@@ -305,3 +305,20 @@ def test_kinematics_shape_error_consistency(func, args):
     # vector argument with the same exception type.
     with pytest.raises(ValueError):
         func(*args())
+
+
+def test_quaternion_kinematics_scalar_last_convention():
+    q = Quaternion.from_euler_angle(
+        EulerAngle(EulerAngleOrder.ZYX, 0.3, -0.7, 1.1, AngleFormat.RADIANS)
+    )
+    omega = np.array([0.05, -0.02, 0.4])
+
+    q_dot_first = np.array(quaternion_derivative(q, omega, True))
+    q_dot_last = np.array(quaternion_derivative(q, omega, False))
+    for i in range(3):
+        assert q_dot_last[i] == pytest.approx(q_dot_first[i + 1], abs=1e-15)
+    assert q_dot_last[3] == pytest.approx(q_dot_first[0], abs=1e-15)
+
+    recovered = angular_velocity_from_quaternion_derivative(q, q_dot_last, False)
+    for i in range(3):
+        assert recovered[i] == pytest.approx(omega[i], abs=1e-12)

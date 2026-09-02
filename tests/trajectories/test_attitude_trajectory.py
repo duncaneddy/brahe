@@ -49,17 +49,25 @@ def test_attitude_trajectory_add_and_len():
     assert traj.end_epoch == t0 + 60.0
 
 
-def test_attitude_trajectory_add_rejects_duplicate_epoch():
-    """Mirror of test_attitude_trajectory_add_duplicate_epoch_errors in Rust."""
+def test_attitude_trajectory_add_repeated_epoch_is_discontinuity():
+    """Mirror of test_attitude_trajectory_add_repeated_epoch_is_discontinuity in Rust."""
     frame_a, frame_b = body_frames()
     traj = AttitudeTrajectory(frame_a, frame_b)
     t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    traj.add(t0, z_axis_quaternion(0.0))
+    traj.add(t0, z_axis_quaternion(0.1))
 
-    with pytest.raises(Exception) as excinfo:
-        traj.add(t0, z_axis_quaternion(0.1))
-    assert str(t0) in str(excinfo.value)
-    assert len(traj) == 1
+    # Both states are kept, so an impulsive slew can hold its pre- and
+    # post-maneuver attitude at the same instant.
+    assert len(traj) == 2
+
+    # A query at the discontinuity is right-continuous: it returns the most
+    # recently added state rather than producing NaN.
+    np.testing.assert_allclose(
+        traj.quaternion(t0).to_vector(scalar_first=True),
+        z_axis_quaternion(0.1).to_vector(scalar_first=True),
+        atol=1e-12,
+    )
 
 
 def test_attitude_trajectory_add_rejects_mixed_rate_presence():

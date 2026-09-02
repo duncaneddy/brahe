@@ -19,8 +19,7 @@ use crate::ccsds::common::{
 use crate::ccsds::error::{ccsds_missing_field, ccsds_parse_error};
 use crate::ccsds::frames::ADMReferenceFrame;
 use crate::ccsds::xml::common::{
-    XMLHeader, XMLQuaternion, XMLQuaternionDot, XMLValue, escape_xml_text,
-    validate_xml_characters,
+    XMLHeader, XMLQuaternion, XMLQuaternionDot, XMLValue, escape_xml_text, validate_xml_characters,
 };
 use crate::constants::{AngleFormat, DEG2RAD, RAD2DEG};
 use crate::utils::errors::BraheError;

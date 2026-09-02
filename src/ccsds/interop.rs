@@ -303,7 +303,7 @@ fn aem_attitude_data_to_state(
             quaternion,
             derivative,
         } => {
-            let omega = angular_velocity_from_quaternion_derivative(quaternion, *derivative);
+            let omega = angular_velocity_from_quaternion_derivative(quaternion, *derivative, true);
             Ok(AttitudeState::new(*quaternion).with_angular_velocity(omega))
         }
         AEMAttitudeData::QuaternionAngVel {
@@ -2556,7 +2556,7 @@ mod tests {
 
         let quaternion = Quaternion::new(1.0, 0.0, 0.0, 0.0);
         let omega = Vector3::new(0.02, -0.01, 0.3);
-        let derivative = crate::attitude::quaternion_derivative(&quaternion, omega);
+        let derivative = crate::attitude::quaternion_derivative(&quaternion, omega, true);
 
         let mut segment = AEMSegment::new(metadata);
         segment

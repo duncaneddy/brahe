@@ -25,7 +25,7 @@ use crate::math::interpolate_lagrange_svector;
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
-use super::traits::{Trajectory, TrajectoryEvictionPolicy};
+use super::traits::{Trajectory, TrajectoryEvictionPolicy, compute_lagrange_window};
 
 /// A single attitude sample: a unit quaternion and an optional body rate.
 ///
@@ -91,6 +91,16 @@ impl AttitudeState {
 }
 
 /// Interpolation method for retrieving an [`AttitudeState`] at an arbitrary epoch.
+///
+/// [`Slerp`](Self::Slerp) is the default because it is the only method here
+/// that depends on nothing beyond the two bracketing quaternions: it needs no
+/// angular-velocity data, stays on the unit sphere without renormalization,
+/// and resolves the double cover of rotations to the shorter arc, so it
+/// behaves the same for a trajectory that carries rates and one that does
+/// not. Methods that consume the stored rates for a higher-order fit
+/// (attitude analogues of Hermite interpolation) would be exact for more
+/// motions, but only for a trajectory that carries rates, so they are
+/// additive rather than a better default.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum AttitudeInterpolationMethod {
     /// Spherical linear interpolation (slerp) of the bracketing quaternions.
@@ -251,7 +261,7 @@ impl AttitudeTrajectory {
     ///
     /// # Returns
     /// * `Ok(Self)` - Trajectory successfully created with sorted data
-    /// * `Err(BraheError)` - If validation fails (length mismatch, empty vectors, mixed angular velocity presence, or duplicate epochs)
+    /// * `Err(BraheError)` - If validation fails (length mismatch, empty vectors, or mixed angular velocity presence)
     ///
     /// # Examples
     /// ```rust
@@ -296,22 +306,15 @@ impl AttitudeTrajectory {
 
         validate_rate_uniformity(&states)?;
 
-        // Ensure epochs are sorted
+        // Ensure epochs are sorted. `sort_by` is stable, so states sharing an
+        // epoch keep their input order and the last one given remains the
+        // most recently added state at that discontinuity.
         let mut indices: Vec<usize> = (0..epochs.len()).collect();
         indices.sort_by(|&i, &j| epochs[i].partial_cmp(&epochs[j]).unwrap());
 
         let sorted_epochs: Vec<Epoch> = indices.iter().map(|&i| epochs[i]).collect();
         let sorted_states: Vec<AttitudeState> =
             indices.iter().map(|&i| states[i].clone()).collect();
-
-        for window in sorted_epochs.windows(2) {
-            if window[0] == window[1] {
-                return Err(BraheError::Error(format!(
-                    "Cannot create trajectory: duplicate epoch {} in input data",
-                    window[0]
-                )));
-            }
-        }
 
         Ok(Self {
             epochs: sorted_epochs,
@@ -491,9 +494,14 @@ impl AttitudeTrajectory {
         let idx1 = self.index_before_epoch(epoch)?;
         let idx2 = self.index_after_epoch(epoch)?;
 
-        // Exact match against a stored node
-        if idx1 == idx2 {
-            return self.state_at_idx(idx1);
+        // Exact match against a stored node. `add` inserts a state after
+        // any it already holds at that epoch, and for a repeated epoch
+        // `index_before_epoch` lands on the last of the run while
+        // `index_after_epoch` lands on the first, so the higher index is the
+        // most recently added state. Returning it makes a query at a
+        // discontinuity right-continuous with the states that follow.
+        if idx1 == idx2 || self.epochs[idx1] == self.epochs[idx2] {
+            return self.state_at_idx(idx1.max(idx2));
         }
 
         let method = self.interpolation_method;
@@ -563,7 +571,7 @@ impl AttitudeTrajectory {
             AttitudeInterpolationMethod::Lagrange { degree } => {
                 let n_points = degree + 1;
                 let (start_idx, end_idx) =
-                    compute_interpolation_window(self.len(), idx1, idx2, n_points)?;
+                    compute_lagrange_window(&self.epochs, idx1, idx2, n_points)?;
 
                 let ref_epoch = self.start_epoch().unwrap();
                 let times: Vec<f64> = (start_idx..=end_idx)
@@ -651,34 +659,6 @@ fn validate_rate_uniformity(states: &[AttitudeState]) -> Result<(), BraheError> 
     Ok(())
 }
 
-/// Compute the `[start_idx, end_idx]` window of `n_points` samples centered
-/// on the bracketing indices `idx1`/`idx2`, clamped to `[0, len)`.
-fn compute_interpolation_window(
-    len: usize,
-    idx1: usize,
-    idx2: usize,
-    n_points: usize,
-) -> Result<(usize, usize), BraheError> {
-    if len < n_points {
-        return Err(BraheError::Error(format!(
-            "Need {} points for interpolation, trajectory has {}",
-            n_points, len
-        )));
-    }
-
-    let center = (idx1 + idx2) / 2;
-    let half_window = n_points / 2;
-    let mut start_idx = center.saturating_sub(half_window);
-    let mut end_idx = start_idx + n_points - 1;
-
-    if end_idx >= len {
-        end_idx = len - 1;
-        start_idx = end_idx.saturating_sub(n_points - 1);
-    }
-
-    Ok((start_idx, end_idx))
-}
-
 impl Trajectory for AttitudeTrajectory {
     type StateVector = AttitudeState;
 
@@ -702,14 +682,11 @@ impl Trajectory for AttitudeTrajectory {
 
     /// Inserts `state` at `epoch` in chronological order.
     ///
-    /// Rejects an `epoch` already present in the trajectory (naming the
-    /// epoch in the error) rather than inserting a second state there. This
-    /// intentionally differs from `STrajectory::add`, which permits repeated
-    /// time tags to represent impulsive maneuvers (distinct pre- and
-    /// post-maneuver states at the same epoch): `AttitudeTrajectory`'s
-    /// quaternion interpolation has no equivalent instantaneous-jump
-    /// concept, and a duplicate epoch would instead make the epoch's local
-    /// interpolation interval degenerate (zero-length), producing NaN.
+    /// A repeated epoch is allowed, and represents a discontinuity: an
+    /// impulsive attitude maneuver holds its pre- and post-maneuver states
+    /// at the same instant. The new state is inserted after any already
+    /// stored at `epoch`, so the most recently added is the one
+    /// [`AttitudeTrajectory::interpolate`] returns for a query there.
     fn add(&mut self, epoch: Epoch, state: Self::StateVector) -> Result<(), BraheError> {
         if let Some(existing) = self.states.first() {
             let existing_has_rate = existing.angular_velocity.is_some();
@@ -733,14 +710,9 @@ impl Trajectory for AttitudeTrajectory {
             }
         }
 
-        if self.epochs.contains(&epoch) {
-            return Err(BraheError::Error(format!(
-                "Cannot add state at epoch {}: an attitude state at this epoch already exists",
-                epoch
-            )));
-        }
-
-        // Find the correct position to insert based on epoch.
+        // Find the correct position to insert based on epoch. A strict `<`
+        // comparison places the new state after any already stored at the
+        // same epoch, keeping the most recently added last in a repeated run.
         let mut insert_idx = self.epochs.len();
         for (i, existing_epoch) in self.epochs.iter().enumerate() {
             if epoch < *existing_epoch {
@@ -1198,22 +1170,34 @@ mod tests {
 
     #[test]
     #[serial_test::parallel]
-    fn test_attitude_trajectory_add_duplicate_epoch_errors() {
+    fn test_attitude_trajectory_add_repeated_epoch_is_discontinuity() {
         let (a, b) = body_frames();
         let mut traj = AttitudeTrajectory::new(a, b);
 
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         traj.add(t0, AttitudeState::new(z_axis_quaternion(0.0)))
             .unwrap();
-        let err = traj
-            .add(t0, AttitudeState::new(z_axis_quaternion(0.1)))
-            .unwrap_err();
+        traj.add(t0, AttitudeState::new(z_axis_quaternion(0.1)))
+            .unwrap();
 
-        assert!(err.to_string().contains(&t0.to_string()));
-        assert_eq!(traj.len(), 1);
+        // Both states are kept, in insertion order, so the pre- and
+        // post-maneuver attitudes of an impulsive slew both survive.
+        assert_eq!(traj.len(), 2);
         assert_eq!(
             traj.state_at_idx(0).unwrap().quaternion,
             z_axis_quaternion(0.0)
+        );
+        assert_eq!(
+            traj.state_at_idx(1).unwrap().quaternion,
+            z_axis_quaternion(0.1)
+        );
+
+        // A query at the discontinuity is right-continuous: it returns the
+        // most recently added state rather than dividing by a zero-length
+        // interval and producing NaN.
+        assert_eq!(
+            traj.interpolate(&t0).unwrap().quaternion,
+            z_axis_quaternion(0.1)
         );
     }
 
@@ -1301,11 +1285,11 @@ mod tests {
 
     #[test]
     #[serial_test::parallel]
-    fn test_attitude_trajectory_from_data_duplicate_epoch_errors() {
+    fn test_attitude_trajectory_from_data_repeated_epoch_is_discontinuity() {
         let (a, b) = body_frames();
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
-        // Duplicate epoch present even though the input is not pre-sorted.
+        // Repeated epoch present even though the input is not pre-sorted.
         let epochs = vec![t0 + 60.0, t0, t0];
         let states = vec![
             AttitudeState::new(z_axis_quaternion(0.1)),
@@ -1313,11 +1297,24 @@ mod tests {
             AttitudeState::new(z_axis_quaternion(0.2)),
         ];
 
-        let result = AttitudeTrajectory::from_data(epochs, states, a, b);
-        assert!(result.is_err());
-        let message = format!("{}", result.unwrap_err());
-        assert!(message.contains("duplicate epoch"));
-        assert!(message.contains(&t0.to_string()));
+        let traj = AttitudeTrajectory::from_data(epochs, states, a, b).unwrap();
+
+        // The sort is stable, so the two states at t0 keep their input order.
+        assert_eq!(traj.len(), 3);
+        assert_eq!(
+            traj.state_at_idx(0).unwrap().quaternion,
+            z_axis_quaternion(0.0)
+        );
+        assert_eq!(
+            traj.state_at_idx(1).unwrap().quaternion,
+            z_axis_quaternion(0.2)
+        );
+
+        // Right-continuous at the discontinuity, and finite rather than NaN.
+        assert_eq!(
+            traj.interpolate(&t0).unwrap().quaternion,
+            z_axis_quaternion(0.2)
+        );
     }
 
     #[test]
@@ -1893,28 +1890,41 @@ mod tests {
     }
 
     // =========================================================================
-    // compute_interpolation_window (private helper)
+    // Lagrange windowing around a discontinuity
     // =========================================================================
 
     #[test]
     #[serial_test::parallel]
-    fn test_compute_interpolation_window_too_few_points_errors() {
-        let result = compute_interpolation_window(2, 0, 1, 4);
-        assert!(result.is_err());
-    }
+    fn test_lagrange_window_does_not_span_a_discontinuity() {
+        let (a, b) = body_frames();
+        let mut traj = AttitudeTrajectory::new(a, b);
+        traj.set_interpolation_method(AttitudeInterpolationMethod::Lagrange { degree: 3 });
 
-    #[test]
-    #[serial_test::parallel]
-    fn test_compute_interpolation_window_clamps_at_start_and_end() {
-        // Window centered near the start would begin before index 0: clamp
-        // to [0, n_points - 1].
-        let (start, end) = compute_interpolation_window(10, 0, 1, 4).unwrap();
-        assert_eq!((start, end), (0, 3));
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        // Continuous run, then an impulsive slew at t0 + 20 whose post-state
+        // jumps, then a second continuous run.
+        for (offset, angle) in [(0.0, 0.0), (10.0, 0.2), (20.0, 0.4)] {
+            traj.add(t0 + offset, AttitudeState::new(z_axis_quaternion(angle)))
+                .unwrap();
+        }
+        for (offset, angle) in [(20.0, 2.0), (30.0, 2.2), (40.0, 2.4)] {
+            traj.add(t0 + offset, AttitudeState::new(z_axis_quaternion(angle)))
+                .unwrap();
+        }
 
-        // Window centered near the end would run past the last index:
-        // clamp to [len - n_points, len - 1].
-        let (start, end) = compute_interpolation_window(6, 4, 5, 5).unwrap();
-        assert_eq!((start, end), (1, 5));
+        // A query inside the first run fits only that run's samples. Fitting
+        // across the repeated epoch would divide by a zero-length abscissa
+        // difference and return NaN.
+        let q = traj.interpolate(&(t0 + 5.0)).unwrap().quaternion;
+        let v = q.to_vector(true);
+        assert!(v.iter().all(|c| c.is_finite()), "{:?}", v);
+        assert_abs_diff_eq!(v.norm(), 1.0, epsilon = 1e-12);
+
+        // The same holds for a query inside the second run.
+        let q = traj.interpolate(&(t0 + 35.0)).unwrap().quaternion;
+        let v = q.to_vector(true);
+        assert!(v.iter().all(|c| c.is_finite()), "{:?}", v);
+        assert_abs_diff_eq!(v.norm(), 1.0, epsilon = 1e-12);
     }
 
     // =========================================================================

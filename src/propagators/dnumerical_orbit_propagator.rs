@@ -3910,7 +3910,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     fn test_dnumericalorbitpropagator_construction_default() {
         setup_global_test_eop();
         setup_global_test_space_weather(); // Required for NRLMSISE00 in default config
@@ -8532,7 +8532,7 @@ mod tests {
     // =========================================================================
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     fn test_dnumericalorbitpropagator_construction_with_custom_params() {
         setup_global_test_eop();
         setup_global_test_space_weather(); // Required for NRLMSISE00 in default config
@@ -8918,7 +8918,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     fn test_dnumericalorbitpropagator_current_params() {
         setup_global_test_eop();
         setup_global_test_space_weather(); // Required for NRLMSISE00 in default config
@@ -9711,7 +9711,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     fn test_dnumericalorbitpropagator_force_gravity_global_vs_modeltype() {
         setup_global_test_eop();
         setup_global_test_gravity_model();
@@ -9922,7 +9922,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     fn test_dnumericalorbitpropagator_force_drag_nrlmsise00() {
         use crate::propagators::force_model_config::{DragConfiguration, ParameterSource};
 
@@ -10624,7 +10624,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     fn test_dnumericalorbitpropagator_force_combined_leo() {
         setup_global_test_eop();
         setup_global_test_space_weather();
@@ -13342,7 +13342,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     fn test_dnumericalorbitpropagator_builder_with_params() {
         setup_global_test_eop();
         setup_global_test_space_weather();
@@ -13377,7 +13377,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     fn test_dnumericalorbitpropagator_builder_full() {
         setup_global_test_eop();
         setup_global_test_space_weather();
@@ -13581,7 +13581,7 @@ mod tests {
     }
 
     #[rstest]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     fn test_dnumericalorbitpropagator_builder_optionals() {
         setup_global_test_eop();
         setup_global_test_space_weather();
@@ -14101,7 +14101,7 @@ mod tests {
     /// rejected instead of silently treating body-centered samples as
     /// geocentric ECI; an Earth propagator's trajectory stays `ECI`.
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     fn test_trajectory_frame_matches_central_body() {
         setup_global_test_eop();
 

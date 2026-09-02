@@ -3620,7 +3620,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     fn test_spherical_harmonic_agrees_with_fast_zonal() {
         let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
         set_global_eop_provider(eop);

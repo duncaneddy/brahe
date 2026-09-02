@@ -19,6 +19,43 @@ SEARCH_ROOTS = ("src", "crates", "tests", "profiles")
 TEST_ATTR = re.compile(r"^#\[(?:test|rstest(?:\(.*\))?|tokio::test(?:\(.*\))?)\]$")
 FN_DECL = re.compile(r"^(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+([A-Za-z0-9_]+)")
 LABEL_ATTR = re.compile(r"^#\[(?:serial_test::)?(?:serial|parallel)\b")
+CASE_ATTR = re.compile(r"^#\[(?:values|case)\b")
+
+
+def _attribute_block(lines: list[str], start: int) -> tuple[list[str], int, str] | None:
+    """Collect the attributes from `start` up to the `fn` they decorate.
+
+    Multi-line attributes are joined into one entry so the caller sees an
+    ordered list of complete attributes. Returns `None` if anything other than
+    an attribute or doc comment intervenes, which means `start` does not
+    decorate a function.
+    """
+    attrs: list[str] = []
+    pending = ""
+    depth = 0
+    i = start
+
+    while i < len(lines):
+        stripped = lines[i].strip()
+
+        if depth == 0:
+            decl = FN_DECL.match(stripped)
+            if decl:
+                return attrs, i, decl.group(1)
+            if stripped.startswith("//") or not stripped:
+                i += 1
+                continue
+            if not stripped.startswith("#["):
+                return None
+
+        pending = f"{pending} {stripped}".strip() if pending else stripped
+        depth += stripped.count("[") - stripped.count("]")
+        if depth <= 0:
+            attrs.append(pending)
+            pending, depth = "", 0
+        i += 1
+
+    return None
 
 
 def unlabeled_tests(path: Path) -> list[tuple[int, str]]:
@@ -32,21 +69,34 @@ def unlabeled_tests(path: Path) -> list[tuple[int, str]]:
             i += 1
             continue
 
-        # Scan forward across the attribute block (rstest `#[case]` rows can be
-        # numerous) to the `fn` the attributes decorate.
-        labeled = False
-        j = i
-        while j < len(lines):
-            stripped = lines[j].strip()
-            if LABEL_ATTR.match(stripped):
-                labeled = True
-            decl = FN_DECL.match(stripped)
-            if decl:
-                if not labeled:
-                    missing.append((j + 1, decl.group(1)))
+        # A label may sit above the test attribute, so rewind to the start of
+        # the contiguous attribute block before collecting it.
+        start = i
+        while start > 0:
+            previous = lines[start - 1].strip()
+            if previous.startswith(("#[", "//")):
+                start -= 1
+            else:
                 break
-            j += 1
-        i = j + 1
+
+        block = _attribute_block(lines, start)
+        if block is None:
+            i += 1
+            continue
+
+        attrs, fn_line, name = block
+
+        # rstest expands #[case]/#[values] rows into separate test functions and
+        # only carries attributes that follow the last such row, so a label
+        # placed above them is silently dropped. Only labels after the final
+        # case row count.
+        last_case = max(
+            (n for n, attr in enumerate(attrs) if CASE_ATTR.match(attr)), default=-1
+        )
+        if not any(LABEL_ATTR.match(attr) for attr in attrs[last_case + 1 :]):
+            missing.append((fn_line + 1, name))
+
+        i = fn_line + 1
 
     return missing
 

@@ -934,7 +934,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     fn test_setup_global_test_eop_original_brahe() {
         // Test that setup with original brahe EOP file works
         setup_global_test_eop_original_brahe();

@@ -3696,7 +3696,7 @@ mod tests {
     // State Output Tests - From Older Brahe Versions (for validation)
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     fn test_sgppropagator_state_teme() {
         setup_global_test_eop_original_brahe();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3716,7 +3716,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     fn test_tle_gmst82() {
         setup_global_test_eop_original_brahe();
         let epoch = epoch_from_tle(ISS_LINE1).unwrap();
@@ -3725,7 +3725,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     fn test_sgppropagator_state_pef() {
         setup_global_test_eop_original_brahe();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -3748,7 +3748,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     #[ignore] // TODO: Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
     fn test_sgppropagator_state_ecef_values() {
         setup_global_test_eop_original_brahe();
@@ -3769,7 +3769,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     #[ignore] // TODO: Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
     fn test_sgppropagator_state_itrf_values() {
         setup_global_test_eop_original_brahe();
@@ -3790,7 +3790,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     #[ignore] // TODO: Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
     fn test_sgppropagator_state_eci_values() {
         setup_global_test_eop_original_brahe();
@@ -3811,7 +3811,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     #[ignore] // TODO: Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
     fn test_sgppropagator_state_gcrf_values() {
         setup_global_test_eop_original_brahe();
@@ -3832,7 +3832,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     #[ignore] // TODO: Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
     fn test_sgppropagator_state_eme2000_values() {
         setup_global_test_eop_original_brahe();

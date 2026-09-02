@@ -16,112 +16,103 @@ from _build_utils import REPO_ROOT, console
 # Crates whose test binaries are built by `just test` / CI.
 SEARCH_ROOTS = ("src", "crates", "tests", "profiles")
 
-TEST_ATTR = re.compile(r"^#\[(?:test|rstest(?:\(.*\))?|tokio::test(?:\(.*\))?)\]$")
-FN_DECL = re.compile(r"^(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+([A-Za-z0-9_]+)")
+TEST_ATTR = re.compile(r"^#\[(?:test|rstest\b|tokio::test\b)")
 LABEL_ATTR = re.compile(r"^#\[(?:serial_test::)?(?:serial|parallel)\b")
 CASE_ATTR = re.compile(r"^#\[(?:values|case)\b")
+FN_DECL = re.compile(r"\bfn\s+([A-Za-z0-9_]+)")
 
-
-# Raw strings (r"...", r#"..."# with any hash count), ordinary strings, char
-# literals, then line comments. Order matters: strings are removed first so a
-# `//` inside one is not mistaken for a comment.
-LITERAL = re.compile(
+# String and char literals, then comments. Matching them in one alternation is
+# what keeps a `//` inside a string from reading as a comment, and a quote
+# inside a comment from opening a string.
+NOISE = re.compile(
     r'r(#*)"(?:(?!"\1).)*"\1'  # raw string, hashes balanced via backreference
     r'|"(?:[^"\\]|\\.)*"'  # ordinary string
     r"|'(?:[^'\\]|\\.)'"  # char literal
-    r"|//.*$"  # line comment
+    r"|//[^\n]*"  # line comment
+    r"|/\*(?:[^*]|\*(?!/))*\*/",  # block comment
+    re.DOTALL,
 )
 
 
-def _strip_literals(line: str) -> str:
-    """Blank out literals and comments so their brackets are not counted.
+def _blank(text: str) -> str:
+    """Replace literals and comments with spaces, preserving every offset.
 
-    `#[case("[")]` is balanced Rust but not balanced text. Miscounting it would
-    strand the scanner mid-attribute and lose the test entirely.
+    Bracket counting and attribute matching then operate on text that cannot
+    contain a stray `[`, `]`, `#` or `fn` inside a string or comment, while
+    line numbers and positions still map back to the original file.
     """
-    return LITERAL.sub("", line)
+    return NOISE.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), text)
 
 
-def _attribute_block(lines: list[str], start: int) -> tuple[list[str], int, str] | None:
-    """Collect the attributes from `start` up to the `fn` they decorate.
-
-    Multi-line attributes are joined into one entry so the caller sees an
-    ordered list of complete attributes. Returns `None` when the block cannot
-    be resolved to a function, which the caller reports rather than skips.
-    """
-    attrs: list[str] = []
-    pending = ""
+def _attribute_end(text: str, start: int) -> int | None:
+    """Return the offset just past the attribute beginning at `start`."""
     depth = 0
-    i = start
-
-    while i < len(lines):
-        stripped = lines[i].strip()
-
-        if depth == 0:
-            decl = FN_DECL.match(stripped)
-            if decl:
-                return attrs, i, decl.group(1)
-            if stripped.startswith("//") or not stripped:
-                i += 1
-                continue
-            if not stripped.startswith("#["):
-                return None
-
-        pending = f"{pending} {stripped}".strip() if pending else stripped
-        code = _strip_literals(stripped)
-        depth += code.count("[") - code.count("]")
-        if depth <= 0:
-            attrs.append(pending)
-            pending, depth = "", 0
+    i = start + 1  # step over '#', landing on '['
+    while i < len(text):
+        if text[i] == "[":
+            depth += 1
+        elif text[i] == "]":
+            depth -= 1
+            if depth == 0:
+                return i + 1
         i += 1
-
     return None
 
 
 def unlabeled_tests(path: Path) -> list[tuple[int, str]]:
     """Return `(line number, test name)` for each unlabeled test in `path`."""
-    lines = path.read_text(encoding="utf-8").split("\n")
+    raw = path.read_text(encoding="utf-8")
+    if "#[test" not in raw and "#[rstest" not in raw:
+        return []
+
+    text = _blank(raw)
     missing: list[tuple[int, str]] = []
 
+    # Walk the file as an alternating stream of attributes and items, so a
+    # test is found wherever it sits -- attributes and `fn` on one line, or
+    # separated by comments and blank lines.
+    attrs: list[str] = []
     i = 0
-    while i < len(lines):
-        if not TEST_ATTR.match(lines[i].strip()):
+    while i < len(text):
+        char = text[i]
+
+        if char.isspace():
             i += 1
             continue
 
-        # A label may sit above the test attribute, so rewind to the start of
-        # the contiguous attribute block before collecting it.
-        start = i
-        while start > 0:
-            previous = lines[start - 1].strip()
-            if previous.startswith(("#[", "//")):
-                start -= 1
-            else:
+        if char == "#" and text.startswith("#[", i):
+            end = _attribute_end(text, i)
+            if end is None:
+                # An unterminated attribute means the file does not parse the
+                # way this scanner assumes. Report it: staying quiet here is
+                # what would let an unlabeled test through.
+                missing.append((text.count("\n", 0, i) + 1, "<unparsed attribute>"))
                 break
-
-        block = _attribute_block(lines, start)
-        if block is None:
-            # The attribute block did not resolve to a function. Report it
-            # instead of moving on: a silent skip here would let an unlabeled
-            # test through, which is the one outcome this check exists to
-            # prevent.
-            missing.append((i + 1, "<unparsed attribute block>"))
-            i += 1
+            attrs.append(" ".join(text[i:end].split()))
+            i = end
             continue
 
-        attrs, fn_line, name = block
+        decl = FN_DECL.match(text, i)
+        if decl:
+            if any(TEST_ATTR.match(attr) for attr in attrs):
+                # rstest expands #[case]/#[values] rows into separate test
+                # functions and only carries attributes that follow the last
+                # such row, so a label placed above them is silently dropped.
+                last_case = max(
+                    (n for n, attr in enumerate(attrs) if CASE_ATTR.match(attr)),
+                    default=-1,
+                )
+                tail = attrs[last_case + 1 :]
+                if not any(LABEL_ATTR.match(attr) for attr in tail):
+                    line = text.count("\n", 0, decl.start(1)) + 1
+                    missing.append((line, decl.group(1)))
+            attrs.clear()
+            i = decl.end()
+            continue
 
-        # rstest expands #[case]/#[values] rows into separate test functions and
-        # only carries attributes that follow the last such row, so a label
-        # placed above them is silently dropped. Only labels after the final
-        # case row count.
-        last_case = max(
-            (n for n, attr in enumerate(attrs) if CASE_ATTR.match(attr)), default=-1
-        )
-        if not any(LABEL_ATTR.match(attr) for attr in attrs[last_case + 1 :]):
-            missing.append((fn_line + 1, name))
-
-        i = fn_line + 1
+        # Any other token ends the current attribute run.
+        attrs.clear()
+        i += 1
 
     return missing
 

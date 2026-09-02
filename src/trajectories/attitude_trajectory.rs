@@ -364,6 +364,60 @@ impl AttitudeTrajectory {
         self.interpolation_method = method;
     }
 
+    /// Sets the eviction policy to keep at most `max_size` states, using the
+    /// builder pattern.
+    ///
+    /// # Arguments
+    /// * `max_size` - Maximum number of states to retain (must be > 0)
+    ///
+    /// # Returns
+    /// * `Ok(Self)` - Trajectory with updated eviction policy
+    /// * `Err(BraheError)` - If `max_size` is zero
+    ///
+    /// # Examples
+    /// ```rust
+    /// use brahe::frames::{BodyFrame, ReferenceFrame};
+    /// use brahe::trajectories::AttitudeTrajectory;
+    ///
+    /// let traj = AttitudeTrajectory::new(
+    ///     ReferenceFrame::from(BodyFrame::SCBody(None)),
+    ///     ReferenceFrame::from(BodyFrame::SCBody(None)),
+    /// )
+    /// .with_eviction_policy_max_size(100)
+    /// .unwrap();
+    /// ```
+    pub fn with_eviction_policy_max_size(mut self, max_size: usize) -> Result<Self, BraheError> {
+        self.set_eviction_policy_max_size(max_size)?;
+        Ok(self)
+    }
+
+    /// Sets the eviction policy to keep states within a maximum age, using the
+    /// builder pattern.
+    ///
+    /// # Arguments
+    /// * `max_age` - Maximum age of states to retain. Units: (s)
+    ///
+    /// # Returns
+    /// * `Ok(Self)` - Trajectory with updated eviction policy
+    /// * `Err(BraheError)` - If `max_age` is not positive
+    ///
+    /// # Examples
+    /// ```rust
+    /// use brahe::frames::{BodyFrame, ReferenceFrame};
+    /// use brahe::trajectories::AttitudeTrajectory;
+    ///
+    /// let traj = AttitudeTrajectory::new(
+    ///     ReferenceFrame::from(BodyFrame::SCBody(None)),
+    ///     ReferenceFrame::from(BodyFrame::SCBody(None)),
+    /// )
+    /// .with_eviction_policy_max_age(3600.0)
+    /// .unwrap();
+    /// ```
+    pub fn with_eviction_policy_max_age(mut self, max_age: f64) -> Result<Self, BraheError> {
+        self.set_eviction_policy_max_age(max_age)?;
+        Ok(self)
+    }
+
     /// Returns true if the trajectory is non-empty and its states carry angular velocity.
     ///
     /// # Returns

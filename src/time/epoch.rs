@@ -893,7 +893,35 @@ impl Epoch {
         // date from the stored instant, which is what recovering the
         // nanoseconds through a fractional day would risk: the fractional day
         // resolves the counter only to roughly a hundredth of a nanosecond.
-        let fd = seconds as f64 / SECONDS_PER_DAY;
+        let (jd, fd) = match time_system {
+            TimeSystem::UTC => {
+                // SOFA encodes UTC so that a day carrying a leap second still
+                // spans exactly one day of Julian date, and `iauD2dtf` undoes
+                // that scaling when it reports the time of day. `iauTaiutc`
+                // builds the encoding; a fraction formed by dividing seconds by
+                // 86400 would be scaled a second time, moving the reported time
+                // by up to a second across a leap-second day. Feed it the TAI
+                // instant of the whole UTC second, which is the stored instant
+                // less the nanoseconds into that second.
+                let (d, s, ns) = align_epoch_data(
+                    self.days,
+                    self.seconds as i64,
+                    self.nanoseconds + self.nanoseconds_kc - nanoseconds,
+                );
+                let mut utc1: f64 = 0.0;
+                let mut utc2: f64 = 0.0;
+                unsafe {
+                    rsofa::iauTaiutc(
+                        d as f64,
+                        (s as f64 + ns / NANOSECONDS_PER_SECOND_FLOAT) / SECONDS_PER_DAY,
+                        &mut utc1,
+                        &mut utc2,
+                    );
+                }
+                (utc1, utc2)
+            }
+            _ => (days as f64, seconds as f64 / SECONDS_PER_DAY),
+        };
 
         let mut iy: i32 = 0;
         let mut im: i32 = 0;
@@ -904,7 +932,7 @@ impl Epoch {
             rsofa::iauD2dtf(
                 CString::new(time_system.to_string()).unwrap().as_ptr() as *const c_char,
                 0,
-                days as f64,
+                jd,
                 fd,
                 &mut iy,
                 &mut im,
@@ -4692,6 +4720,65 @@ mod tests {
         let (y, mo, d, h, mi, s, ns) = epc.to_datetime();
         assert_eq!((y, mo, d, h, mi, s), (2016, 12, 31, 23, 59, 60.0));
         assert_abs_diff_eq!(ns, 5.0e8, epsilon = 1.0e-3);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_from_datetime_round_trips_before_1972() {
+        setup_global_test_eop();
+
+        // Before 1972 UTC ran at a rate offset from TAI rather than a whole
+        // number of seconds, so the offset varies across the requested minute
+        // and has a sub-second part that the nanosecond field has to carry.
+        for (year, month, day, hour, minute, second) in [
+            (1961, 1, 1, 0, 0, 30.0),
+            (1965, 7, 1, 12, 34, 56.0),
+            (1968, 3, 15, 6, 0, 0.0),
+            (1970, 1, 1, 0, 0, 0.0),
+            (1971, 12, 31, 23, 59, 59.0),
+        ] {
+            let epc =
+                Epoch::from_datetime(year, month, day, hour, minute, second, 0.0, TimeSystem::UTC);
+            let (y, mo, d, h, mi, s, ns) = epc.to_datetime();
+            assert_eq!(
+                (y, mo, d, h, mi, s),
+                (year, month, day, hour, minute, second)
+            );
+            assert_abs_diff_eq!(ns, 0.0, epsilon = 1.0e-3);
+            assert_abs_diff_eq!(
+                Epoch::from_datetime(y, mo, d, h, mi, s, ns, TimeSystem::UTC) - epc,
+                0.0,
+                epsilon = 1.0e-11
+            );
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_to_datetime_reports_whole_seconds_throughout_a_leap_second_day() {
+        setup_global_test_eop();
+
+        // SOFA encodes UTC so that a day carrying a leap second still spans one
+        // day of Julian date, and undoes that scaling when reporting the time of
+        // day. An epoch anywhere in such a day must still report the second it
+        // was built on rather than one scaled by how far into the day it falls.
+        for (year, month, day) in [(2016, 12, 31), (2015, 6, 30), (2012, 6, 30)] {
+            for hour in [0, 3, 6, 9, 12, 15, 18, 21, 23] {
+                let epc =
+                    Epoch::from_datetime(year, month, day, hour, 30, 15.0, 0.0, TimeSystem::UTC);
+                let (y, mo, d, h, mi, s, ns) = epc.to_datetime();
+                assert_eq!(
+                    (y, mo, d, h, mi, s),
+                    (year, month, day, hour, 30, 15.0),
+                    "{}-{}-{} {}h",
+                    year,
+                    month,
+                    day,
+                    hour
+                );
+                assert_abs_diff_eq!(ns, 0.0, epsilon = 1.0e-3);
+            }
+        }
     }
 
     #[test]

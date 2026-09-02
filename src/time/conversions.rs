@@ -210,23 +210,22 @@ pub fn mjd_to_datetime(mjd: f64) -> (u32, u8, u8, u8, u8, f64, f64) {
 /// - `jd`: Julian date of epoch in the TAI time system
 /// - `fd`: Fractional day of epoch in the TAI time system
 ///
-/// Returns:
-/// - offset (float): Offset between UTC and TAI in seconds.
+/// # Returns
+/// - `f64`: Offset between UTC and TAI. Units: [s]
 #[allow(dangling_pointers_from_temporaries)]
 fn tai_jdfd_to_utc_offset(jd: f64, fd: f64) -> f64 {
-    // Initial UTC guess
     let mut u1 = jd;
     let mut u2 = fd;
 
-    // Convert TAI into quasi-UTC per SOFA documentation
-    // The quasi-UTC time can then be used with the iauD2dtf function to
-    // get the UTC offset for the current TAI time
+    // `iauTaiutc` runs the TAI to UTC direction and yields the quasi-UTC
+    // encoding that the leap-second table is indexed by, so the lookup below
+    // lands on the entry that applies at this instant: the pre-step value
+    // within `dat` seconds of a leap second, and the right point on the rate
+    // offset that UTC carried from TAI before 1972.
     unsafe {
-        rsofa::iauUtctai(jd, fd, &mut u1, &mut u2);
+        rsofa::iauTaiutc(jd, fd, &mut u1, &mut u2);
     }
 
-    // Return the difference between the input TAI time and the adjusted UTC time
-    // now that we have a good guess for UTC.
     utc_jdfd_to_utc_offset(u1, u2)
 }
 
@@ -237,8 +236,8 @@ fn tai_jdfd_to_utc_offset(jd: f64, fd: f64) -> f64 {
 /// - `jd`: Julian date of epoch in the UTC time system
 /// - `fd`: Fractional day of epoch in the UTC time system
 ///
-/// Returns:
-/// - offset (float): Offset between UTC and TAI in seconds.
+/// # Returns
+/// - `f64`: Offset between UTC and TAI. Units: [s]
 #[allow(dangling_pointers_from_temporaries)]
 fn utc_jdfd_to_utc_offset(jd: f64, fd: f64) -> f64 {
     let mut iy: i32 = 0;
@@ -261,10 +260,15 @@ fn utc_jdfd_to_utc_offset(jd: f64, fd: f64) -> f64 {
             &mut ihmsf as *mut i32,
         );
 
-        // Get utc offset
+        // Get utc offset. A leap second carries the seconds into the day past
+        // 86400, and `iauDat` rejects a day fraction above one and leaves the
+        // offset untouched. The fraction feeds only the drift term that UTC
+        // carried from TAI before 1972, an era with no leap seconds, so
+        // clamping it costs nothing.
         let seconds =
             (ihmsf[0] * 3600 + ihmsf[1] * 60 + ihmsf[2]) as f64 + (ihmsf[3] as f64) / 1.0e9;
-        rsofa::iauDat(iy, im, id, seconds / 86400.0, &mut dutc);
+        let day_fraction = (seconds / SECONDS_PER_DAY).clamp(0.0, 1.0);
+        rsofa::iauDat(iy, im, id, day_fraction, &mut dutc);
     }
 
     dutc
@@ -333,8 +337,8 @@ fn tcb_tdb_offset(jd_tt: f64) -> f64 {
 /// - `time_system_src`: Source time system
 /// - `time_system_dst`: Destination time system
 ///
-/// Returns:
-///     offset (float): Offset between soruce and destination time systems in seconds.
+/// # Returns
+/// - `f64`: Offset between the source and destination time systems. Units: [s]
 ///
 /// # Panics
 /// Panics when converting to or from UT1 if Earth orientation data is
@@ -344,7 +348,7 @@ fn tcb_tdb_offset(jd_tt: f64) -> f64 {
 /// use (see `ensure_global_eop_coverage`). Conversions between all other time
 /// systems do not require Earth orientation data.
 ///
-/// Example:
+/// # Examples
 /// ```
 /// use brahe::constants::MJD_ZERO;
 /// use brahe::eop::*;
@@ -398,8 +402,8 @@ pub fn time_system_offset(
                 )
             });
 
-            // UTC -> TAI offset
-            offset += utc_jdfd_to_utc_offset(jd, fd - dut1);
+            // UTC -> TAI offset. `dut1` is in seconds and `fd` in days.
+            offset += utc_jdfd_to_utc_offset(jd, fd - dut1 / SECONDS_PER_DAY);
             offset -= dut1;
         }
         TimeSystem::TDB => {
@@ -496,19 +500,22 @@ pub fn time_system_offset(
 /// handed. Reading an epoch converts the stored TAI instant into the requested
 /// system and so evaluates them at that TAI instant, while asking for the
 /// offset with the source and destination swapped evaluates them at the
-/// instant expressed in `time_system`. For UT1, TDB, TCB, and TCG those models
-/// vary with time, so the two evaluations disagree and the swapped call is not
-/// the inverse of the read. This function refines the swapped call until it is:
+/// instant expressed in `time_system`. For UT1, TDB, TCB and TCG, and for UTC
+/// before 1972, those models vary with time, so the two evaluations disagree
+/// and the swapped call is not the inverse of the read. After 1972 UTC steps
+/// rather than varies, and the two already agree. This function refines the
+/// swapped call until it inverts the read:
 /// the returned offset `dt` satisfies
 /// `time_system_offset(jd, fd + (seconds + dt) / 86400, TAI, time_system) == -dt`.
 ///
-/// The remaining systems are returned unrefined. TAI, GPS, TT, BDT, and GST
-/// sit at a fixed offset from TAI that does not depend on the instant, so the
-/// swapped call already answers exactly. UTC is held back so that its
-/// leap-second lookup stays anchored on `fd`, resolving a `seconds` of 60 on a
+/// TAI, GPS, TT, BDT, and GST sit at a fixed offset from TAI that does not
+/// depend on the instant, so the swapped call already answers exactly and is
+/// returned unrefined.
+///
+/// `fd` locates the start of the requested minute rather than the epoch so that
+/// the leap-second lookup seeding the refinement resolves a `seconds` of 60 on a
 /// leap-second day to the leap second rather than to midnight of the following
-/// day. Refining UTC would additionally require the TAI to UTC direction to
-/// agree with it, which it does not in the pre-1972 rate-offset regime.
+/// day.
 ///
 /// # Arguments
 /// - `jd`: Julian date of the start of the requested minute, expressed in `time_system`
@@ -537,11 +544,12 @@ pub(crate) fn tai_offset_for_datetime(
     let mut offset = time_system_offset(jd, fd, time_system, TimeSystem::TAI);
 
     match time_system {
-        TimeSystem::UT1 | TimeSystem::TDB | TimeSystem::TCB | TimeSystem::TCG => {
+        TimeSystem::UTC | TimeSystem::UT1 | TimeSystem::TDB | TimeSystem::TCB | TimeSystem::TCG => {
             // Every model involved varies by less than 3e-8 seconds per second,
             // so each pass shrinks the residual by at least that factor and two
             // are enough to reach the resolution of an f64 offset. The third is
-            // there to let the loop exit on an exact fixed point.
+            // there to let the loop exit on an exact fixed point. UTC steps
+            // rather than varies after 1972, and settles on the first pass.
             let fd = fd + seconds / SECONDS_PER_DAY;
             for _ in 0..3 {
                 let refined = -time_system_offset(
@@ -556,12 +564,7 @@ pub(crate) fn tai_offset_for_datetime(
                 offset = refined;
             }
         }
-        TimeSystem::TAI
-        | TimeSystem::UTC
-        | TimeSystem::GPS
-        | TimeSystem::TT
-        | TimeSystem::BDT
-        | TimeSystem::GST => {}
+        TimeSystem::TAI | TimeSystem::GPS | TimeSystem::TT | TimeSystem::BDT | TimeSystem::GST => {}
     }
 
     offset
@@ -921,6 +924,58 @@ mod tests {
             time_system_offset(jd, 0.0, TimeSystem::GST, TimeSystem::GPS),
             0.0
         );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_time_system_offset_tai_utc_before_1972() {
+        setup_global_test_eop();
+
+        // Before 1972 UTC ran at a rate offset from TAI rather than a whole
+        // number of seconds. The IERS entry in force from 1968 February 1 is
+        // TAI - UTC = 4.2131700 + (MJD - 39126) * 0.0025920 seconds, so at
+        // 1971-12-31T23:59:59 UTC (MJD 41316.99998843) it is 9.892242 s.
+        let jd = 2441316.5;
+        let fd = 86399.0 / SECONDS_PER_DAY;
+        let expected = 4.213_170_0 + (41316.0 + fd - 39126.0) * 0.002_592_0;
+        assert_abs_diff_eq!(expected, 9.892_242, epsilon = 1.0e-6);
+
+        // Both directions must report that offset at the same instant, so that
+        // building an epoch from a date and reading it back agree.
+        let utc_to_tai = time_system_offset(jd, fd, TimeSystem::UTC, TimeSystem::TAI);
+        assert_abs_diff_eq!(utc_to_tai, expected, epsilon = 1.0e-6);
+
+        let tai_to_utc = time_system_offset(
+            jd,
+            fd + utc_to_tai / SECONDS_PER_DAY,
+            TimeSystem::TAI,
+            TimeSystem::UTC,
+        );
+        assert_abs_diff_eq!(tai_to_utc, -expected, epsilon = 1.0e-6);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_time_system_offset_tai_utc_within_a_leap_second() {
+        setup_global_test_eop();
+
+        // 2016-12-31T23:59:60 UTC is TAI 2017-01-01T00:00:36, so TAI - UTC is
+        // still 36 s throughout the leap second and steps to 37 s after it.
+        let jd = 2457753.5;
+        for (tai_seconds_into_day, expected) in [
+            (86435.0, -36.0),
+            (86436.0, -36.0),
+            (86436.5, -36.0),
+            (86437.0, -37.0),
+        ] {
+            let offset = time_system_offset(
+                jd,
+                tai_seconds_into_day / SECONDS_PER_DAY,
+                TimeSystem::TAI,
+                TimeSystem::UTC,
+            );
+            assert_eq!(offset, expected, "TAI second {}", tai_seconds_into_day);
+        }
     }
 
     #[test]

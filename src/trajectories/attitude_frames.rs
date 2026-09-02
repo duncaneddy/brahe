@@ -1,35 +1,22 @@
 /*!
  * Frame composition for [`AttitudeTrajectory`].
  *
- * The trajectory's own orientation interface is
- * [`OrientationProvider`](crate::frames::OrientationProvider), implemented
- * in `crate::trajectories`. This module adds the composition that needs the
- * frames router.
+ * [`AttitudeTrajectory`] stores an attitude relating its own two frame
+ * endpoints. This module adds the composition that re-expresses that
+ * attitude against an arbitrary frame, which needs the frames router.
  */
 
 use crate::attitude::{FromAttitude, Quaternion, RotationMatrix};
 use crate::frames::{OrientationProvider, ReferenceFrame, rotation_frame_to_frame};
 use crate::time::Epoch;
-use crate::trajectories::AttitudeTrajectory;
 use crate::utils::errors::BraheError;
+
+use super::attitude_trajectory::AttitudeTrajectory;
 
 impl AttitudeTrajectory {
     /// Re-expresses this trajectory's attitude relative to an arbitrary
     /// reference frame `from`, given that `frame_a` is itself a
     /// [`ReferenceFrame::Celestial`] frame.
-    ///
-    /// # Derivation
-    ///
-    /// This method requires `frame_a` to be `ReferenceFrame::Celestial(a)`.
-    /// The stored quaternion `self.quaternion(epoch)` then represents the
-    /// rotation `q_a_to_b` from `a` to `frame_b`. Given a brahe frame-router
-    /// rotation from `from` to `a`, converted to a quaternion `q_from_to_a`,
-    /// the rotation from `from` to `frame_b` is the composition of the two:
-    /// first `from -> a`, then `a -> b`. Because brahe's Hamilton product
-    /// `x * y` applies `x` first (`R(x * y) = R(y) · R(x)`), that
-    /// first-then-second composition is written `q_from_to_a * q_a_to_b`,
-    /// not the reverse — hence the returned value is
-    /// `q_from_to_a * self.quaternion(epoch)`.
     ///
     /// # Arguments
     /// * `epoch` - The epoch at which to compute the attitude
@@ -86,6 +73,10 @@ impl AttitudeTrajectory {
         let q_from_to_a =
             Quaternion::from_rotation_matrix(RotationMatrix::from_matrix(r_from_to_a)?);
 
+        // The stored quaternion rotates `a` into frame_b, so the result is
+        // the composition `from -> a` then `a -> b`. brahe's Hamilton
+        // product applies its left operand first (R(x * y) = R(y) * R(x)),
+        // so that composition is written left-to-right rather than reversed.
         Ok(q_from_to_a * self.quaternion(epoch)?)
     }
 }

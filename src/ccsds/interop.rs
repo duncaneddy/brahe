@@ -684,25 +684,27 @@ impl AEM {
 /// is the rate of B relative to A expressed in B, becomes the rate of A
 /// relative to B expressed in A: negating gives `omega_{A/B}`, and
 /// re-expressing it in A applies `R_{A->B}^T`.
+///
+/// Configuration that describes how the trajectory behaves — interpolation
+/// method, eviction policy and its bounds, name, and metadata — carries
+/// over. The `id` and `uuid` do not: the reversed series is a distinct
+/// object and is left to take a fresh identity.
 fn invert_trajectory(traj: &AttitudeTrajectory) -> AttitudeTrajectory {
-    let mut inverted = AttitudeTrajectory::new(traj.frame_b.clone(), traj.frame_a.clone());
-    inverted.set_interpolation_method(traj.interpolation_method);
-    inverted.name = traj.name.clone();
-    inverted.metadata = traj.metadata.clone();
+    // Cloning carries the whole configuration across — interpolation method,
+    // eviction policy and its bounds, name, and metadata — so only the parts
+    // that actually reverse need rewriting.
+    let mut inverted = traj.clone();
+    std::mem::swap(&mut inverted.frame_a, &mut inverted.frame_b);
+    inverted.id = None;
+    inverted.uuid = None;
 
-    inverted.epochs = traj.epochs.clone();
-    inverted.states = traj
-        .states
-        .iter()
-        .map(|state| {
-            let mut flipped = AttitudeState::new(state.quaternion.conjugate());
-            if let Some(omega) = state.angular_velocity {
-                let r_a_to_b = state.quaternion.to_rotation_matrix().to_matrix();
-                flipped = flipped.with_angular_velocity(-r_a_to_b.transpose() * omega);
-            }
-            flipped
-        })
-        .collect();
+    for state in inverted.states.iter_mut() {
+        if let Some(omega) = state.angular_velocity {
+            let r_a_to_b = state.quaternion.to_rotation_matrix().to_matrix();
+            state.angular_velocity = Some(-r_a_to_b.transpose() * omega);
+        }
+        state.quaternion = state.quaternion.conjugate();
+    }
 
     inverted
 }
@@ -1223,13 +1225,16 @@ mod tests {
     use crate::ccsds::aem::AEM;
     use crate::ccsds::oem::OEM;
     use crate::constants::AngleFormat;
+    use crate::frames::FnProvider;
     use crate::frames::{
         CelestialFrame, OrientationProvider, ReferenceFrame, clear_frame_registry,
-        clear_object_registry, object_state, rotation_frame_to_frame,
+        clear_object_registry, object_state, rotation_frame_to_frame, state_frame_to_frame,
     };
+    use crate::math::SVector6;
     use crate::time::TimeSystem;
     use crate::trajectories::traits::{InterpolatableTrajectory, Trajectory};
     use approx::assert_abs_diff_eq;
+    use nalgebra::Vector6;
 
     #[test]
     #[parallel]
@@ -2953,6 +2958,99 @@ mod tests {
         let err = aem.register_for("SC").unwrap_err().to_string();
         assert!(err.contains("celestial frame"), "{}", err);
         assert!(err.contains("body frame"), "{}", err);
+
+        clear_frame_registry();
+    }
+
+    /// Single-segment `QUATERNION/ANGVEL` AEM whose celestial endpoint is
+    /// `REF_FRAME_B`, so registration must invert both the quaternion series
+    /// and the angular-velocity series. `ANGVEL_FRAME = REF_FRAME_B` means
+    /// the wire rate is already the canonical frame-B rate, so the expected
+    /// inverted rate is composed directly from the parsed state.
+    fn angvel_aem_celestial_on_b() -> AEM {
+        let content = "CCSDS_AEM_VERS = 2.0\n\
+CREATION_DATE = 2002-11-04T17:22:31\n\
+ORIGINATOR = BRAHE\n\
+\n\
+META_START\n\
+OBJECT_NAME = TESTSAT\n\
+OBJECT_ID = 2024-001A\n\
+CENTER_NAME = EARTH\n\
+REF_FRAME_A = SC_BODY_1\n\
+REF_FRAME_B = EME2000\n\
+TIME_SYSTEM = UTC\n\
+START_TIME = 2024-01-01T00:00:00.000\n\
+STOP_TIME = 2024-01-01T00:01:00.000\n\
+ATTITUDE_TYPE = QUATERNION/ANGVEL\n\
+ANGVEL_FRAME = REF_FRAME_B\n\
+META_STOP\n\
+\n\
+DATA_START\n\
+2024-01-01T00:00:00.000 0.0 0.0 0.70710678 0.70710678 0.1 0.2 0.3\n\
+2024-01-01T00:01:00.000 0.0 0.0 0.70710678 0.70710678 0.1 0.2 0.3\n\
+DATA_STOP\n";
+        AEM::from_str(content).unwrap()
+    }
+
+    #[test]
+    #[serial]
+    fn test_aem_register_for_inverts_angular_velocity() {
+        clear_frame_registry();
+        clear_object_registry();
+
+        let aem = angvel_aem_celestial_on_b();
+        let traj = AttitudeTrajectory::try_from(&aem).unwrap();
+        assert!(traj.has_rates());
+        assert_eq!(traj.frame_b, ReferenceFrame::from(CelestialFrame::EME2000));
+
+        let epoch = traj.start_epoch().unwrap();
+        let stored = traj.interpolate(&epoch).unwrap();
+        let omega = stored.angular_velocity.unwrap();
+        let r_a_to_b = stored.quaternion.to_rotation_matrix().to_matrix();
+
+        // Registration reverses the series' sense, so the registered rate is
+        // the rate of A relative to B expressed in A.
+        let omega_expected = -r_a_to_b.transpose() * omega;
+
+        aem.register_for("SC").unwrap();
+
+        // A body frame's origin is its object, so the state transform needs
+        // the object registered too. Placing it at the frame origin keeps the
+        // translation zero, leaving a pure rotation plus the transport term.
+        register_object(
+            "SC",
+            FnProvider(move |_| Ok(Vector6::zeros())),
+            CelestialFrame::EME2000,
+        )
+        .unwrap();
+
+        let body = ReferenceFrame::body("SC", BodyFrame::SCBody(Some("1".to_string())));
+        let dcm = rotation_frame_to_frame(CelestialFrame::EME2000, body.clone(), epoch).unwrap();
+
+        // `resolve_state` carries the registered rate into the velocity by
+        // the transport theorem: v_to = R v - omega_to x p_to. Transforming a
+        // known state therefore pins omega_to, which no rotation-only query
+        // can observe.
+        let p = Vector3::new(7000e3, 1200e3, -300e3);
+        let v = Vector3::new(-1.2e3, 7.1e3, 0.4e3);
+        let x = SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2]);
+        let x_body = state_frame_to_frame(CelestialFrame::EME2000, body, epoch, x).unwrap();
+
+        let p_to = dcm * p;
+        let v_to = dcm * v - omega_expected.cross(&p_to);
+
+        for i in 0..3 {
+            assert_abs_diff_eq!(x_body[i], p_to[i], epsilon = 1e-6);
+            assert_abs_diff_eq!(x_body[i + 3], v_to[i], epsilon = 1e-9);
+        }
+
+        // Guard against the sign/transpose being silently right by symmetry:
+        // the un-inverted rate must not reproduce the same velocity.
+        let v_wrong = dcm * v - omega.cross(&p_to);
+        assert!(
+            (v_to - v_wrong).norm() > 1e-3,
+            "test cannot distinguish the inverted rate from the stored one"
+        );
 
         clear_frame_registry();
     }

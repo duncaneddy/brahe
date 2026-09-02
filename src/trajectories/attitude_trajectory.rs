@@ -659,9 +659,18 @@ impl AttitudeTrajectory {
                 let quaternion = Quaternion::new(q_vec[0], q_vec[1], q_vec[2], q_vec[3]);
 
                 let angular_velocity = if self.has_rates() {
-                    let omega_values: Vec<Vector3<f64>> = (start_idx..=end_idx)
-                        .map(|i| self.states[i].angular_velocity.unwrap())
-                        .collect();
+                    let mut omega_values: Vec<Vector3<f64>> =
+                        Vec::with_capacity(end_idx - start_idx + 1);
+                    for i in start_idx..=end_idx {
+                        omega_values.push(self.states[i].angular_velocity.ok_or_else(|| {
+                            BraheError::Error(
+                                "AttitudeTrajectory::has_rates() reported true but a state in \
+                                 the interpolation window has no angular_velocity; this \
+                                 indicates a rate-uniformity invariant violation"
+                                    .to_string(),
+                            )
+                        })?);
+                    }
                     Some(interpolate_lagrange_svector(&times, &omega_values, t))
                 } else {
                     None

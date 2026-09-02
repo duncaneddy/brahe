@@ -24,7 +24,6 @@
  * here, so `crate::utils::state_providers::X` resolves as before.
  */
 
-mod attitude;
 mod combined;
 mod covariance;
 mod orbit_covariance;

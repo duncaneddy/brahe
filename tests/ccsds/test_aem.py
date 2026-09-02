@@ -741,3 +741,138 @@ def test_aem_register_for_rejects_multi_segment(eop):
         aem.register_for("SC")
 
     bh.clear_frame_registry()
+
+
+def _swapped_frames_aem(attitude_type: str, data_lines: str) -> AEM:
+    """Single-segment AEM whose celestial endpoint is REF_FRAME_B.
+
+    Registration must invert the series, since the stored quaternions rotate
+    body into parent rather than parent into body.
+    """
+    angvel = "ANGVEL_FRAME = REF_FRAME_B\n" if "ANGVEL" in attitude_type else ""
+    return AEM.from_str(
+        "CCSDS_AEM_VERS = 2.0\n"
+        "CREATION_DATE = 2002-11-04T17:22:31\n"
+        "ORIGINATOR = BRAHE\n"
+        "\n"
+        "META_START\n"
+        "OBJECT_NAME = TESTSAT\n"
+        "OBJECT_ID = 2024-001A\n"
+        "CENTER_NAME = EARTH\n"
+        "REF_FRAME_A = SC_BODY_1\n"
+        "REF_FRAME_B = EME2000\n"
+        "TIME_SYSTEM = UTC\n"
+        "START_TIME = 2024-01-01T00:00:00.000\n"
+        "STOP_TIME = 2024-01-01T00:01:00.000\n"
+        f"ATTITUDE_TYPE = {attitude_type}\n"
+        f"{angvel}"
+        "META_STOP\n"
+        "\n"
+        "DATA_START\n"
+        f"{data_lines}"
+        "DATA_STOP\n"
+    )
+
+
+def test_aem_register_for_inverts_when_celestial_is_frame_b(eop):
+    """Mirror of test_aem_register_for_inverts_when_celestial_is_frame_b in Rust."""
+    bh.clear_frame_registry()
+    bh.clear_object_registry()
+
+    aem = _swapped_frames_aem(
+        "QUATERNION",
+        "2024-01-01T00:00:00.000 0.0 0.0 0.70710678 0.70710678\n"
+        "2024-01-01T00:01:00.000 0.0 0.0 0.70710678 0.70710678\n",
+    )
+    traj = aem.segment_to_attitude_trajectory(0)
+    epoch = traj.start_epoch
+
+    aem.register_for("SC")
+
+    body = bh.ReferenceFrame.body("SC", bh.BodyFrame.SC_BODY("1"))
+    resolved = bh.rotation_frame_to_frame(
+        bh.ReferenceFrame.celestial(bh.CelestialFrame.EME2000), body, epoch
+    )
+
+    # Inverting conjugates the quaternion, so the registered rotation is the
+    # transpose of the stored one.
+    expected = traj.quaternion(epoch).to_rotation_matrix().to_matrix().T
+    np.testing.assert_allclose(resolved, expected, atol=1e-12)
+
+    bh.clear_frame_registry()
+
+
+def test_aem_register_for_inverts_angular_velocity(eop):
+    """Mirror of test_aem_register_for_inverts_angular_velocity in Rust."""
+    bh.clear_frame_registry()
+    bh.clear_object_registry()
+
+    aem = _swapped_frames_aem(
+        "QUATERNION/ANGVEL",
+        "2024-01-01T00:00:00.000 0.0 0.0 0.70710678 0.70710678 0.1 0.2 0.3\n"
+        "2024-01-01T00:01:00.000 0.0 0.0 0.70710678 0.70710678 0.1 0.2 0.3\n",
+    )
+    traj = aem.segment_to_attitude_trajectory(0)
+    assert traj.has_rates
+    epoch = traj.start_epoch
+
+    omega = traj.angular_velocity(epoch)
+    r_a_to_b = traj.quaternion(epoch).to_rotation_matrix().to_matrix()
+    omega_expected = -r_a_to_b.T @ omega
+
+    aem.register_for("SC")
+    # A body frame's origin is its object, so the state transform needs the
+    # object registered too; placing it at the origin keeps translation zero.
+    bh.register_object("SC", lambda _: np.zeros(6), bh.CelestialFrame.EME2000)
+
+    body = bh.ReferenceFrame.body("SC", bh.BodyFrame.SC_BODY("1"))
+    eme = bh.ReferenceFrame.celestial(bh.CelestialFrame.EME2000)
+    dcm = bh.rotation_frame_to_frame(eme, body, epoch)
+
+    # resolve_state carries the registered rate into the velocity by the
+    # transport theorem, so a state transform pins the inverted rate that no
+    # rotation-only query can observe.
+    p = np.array([7000e3, 1200e3, -300e3])
+    v = np.array([-1.2e3, 7.1e3, 0.4e3])
+    x_body = bh.state_frame_to_frame(eme, body, epoch, np.concatenate([p, v]))
+
+    p_to = dcm @ p
+    v_to = dcm @ v - np.cross(omega_expected, p_to)
+
+    np.testing.assert_allclose(x_body[:3], p_to, atol=1e-6)
+    np.testing.assert_allclose(x_body[3:], v_to, atol=1e-9)
+
+    bh.clear_frame_registry()
+    bh.clear_object_registry()
+
+
+def test_aem_register_for_errors_without_celestial_endpoint(eop):
+    """Mirror of test_aem_register_for_errors_without_celestial_endpoint in Rust."""
+    bh.clear_frame_registry()
+
+    aem = AEM.from_str(
+        "CCSDS_AEM_VERS = 2.0\n"
+        "CREATION_DATE = 2002-11-04T17:22:31\n"
+        "ORIGINATOR = BRAHE\n"
+        "\n"
+        "META_START\n"
+        "OBJECT_NAME = TESTSAT\n"
+        "OBJECT_ID = 2024-001A\n"
+        "CENTER_NAME = EARTH\n"
+        "REF_FRAME_A = SC_BODY_2\n"
+        "REF_FRAME_B = SC_BODY_1\n"
+        "TIME_SYSTEM = UTC\n"
+        "START_TIME = 2024-01-01T00:00:00.000\n"
+        "STOP_TIME = 2024-01-01T00:01:00.000\n"
+        "ATTITUDE_TYPE = QUATERNION\n"
+        "META_STOP\n"
+        "\n"
+        "DATA_START\n"
+        "2024-01-01T00:00:00.000 0.0 0.0 0.70710678 0.70710678\n"
+        "DATA_STOP\n"
+    )
+
+    with pytest.raises(Exception, match="celestial frame"):
+        aem.register_for("SC")
+
+    bh.clear_frame_registry()

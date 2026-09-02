@@ -1,6 +1,6 @@
 # AEM — Attitude Ephemeris Message
 
-An Attitude Ephemeris Message (AEM) carries a spacecraft's time-ordered attitude history as one or more segments, each holding a sequence of attitude data lines at strictly increasing epochs. It is the attitude-message counterpart to the OEM: the standard format for exchanging attitude ephemerides between agencies and operators.
+An Attitude Ephemeris Message (AEM) carries a spacecraft's time-ordered attitude history as one or more segments, each holding a sequence of attitude data lines at strictly increasing epochs. It is the attitude-message counterpart to the OEM: the standard format for exchanging attitude ephemerides between agencies and operators. The message is defined by the [CCSDS 504.0-B-2 Attitude Data Messages standard](https://ccsds.org/Pubs/504x0b2.pdf).
 
 ## Parse and Access
 
@@ -193,3 +193,4 @@ The data lines carry no keyword names — `QUATERNION` fixes the column order to
 - [APM — Attitude Parameter Message](apm.md) — Single-epoch attitude snapshot
 - [AttitudeTrajectory](../trajectories/attitude_trajectory.md) — Native attitude trajectory storage and interpolation
 - [Attitude Representations](../attitude_representations/index.md) — Quaternion, Euler angle, and rotation matrix conventions
+- [CCSDS 504.0-B-2](https://ccsds.org/Pubs/504x0b2.pdf) — Attitude Data Messages, the standard AEM implements

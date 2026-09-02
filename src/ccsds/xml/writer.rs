@@ -62,6 +62,93 @@ fn escape_xml_attribute(s: &str) -> String {
     escape_xml_text(s).replace('"', "&quot;")
 }
 
+/// Test a character against the XML 1.0 `Char` production.
+///
+/// XML 1.0 subsection 2.2 admits `#x9`, `#xA`, `#xD`, and the ranges
+/// `[#x20-#xD7FF]`, `[#xE000-#xFFFD]`, and `[#x10000-#x10FFFF]`. The remaining
+/// C0 controls, `U+FFFE`, and `U+FFFF` cannot appear in a document at all, and
+/// unlike the markup delimiters they cannot be rescued by escaping: the
+/// numeric character reference for such a character is equally forbidden.
+///
+/// # Arguments
+///
+/// * `c` - The character to test.
+///
+/// # Returns
+///
+/// * `bool` - `true` when XML 1.0 permits the character in a document.
+///
+/// # Examples
+///
+/// ```ignore
+/// assert!(is_xml_char('\t'));
+/// assert!(!is_xml_char('\u{1}'));
+/// ```
+fn is_xml_char(c: char) -> bool {
+    matches!(c,
+        '\u{9}' | '\u{A}' | '\u{D}'
+        | '\u{20}'..='\u{D7FF}'
+        | '\u{E000}'..='\u{FFFD}'
+        | '\u{10000}'..='\u{10FFFF}'
+    )
+}
+
+/// Reject a document carrying a character XML 1.0 forbids.
+///
+/// CCSDS 502.0-B-3 subsection 8.2 fixes the XML version at 1.0 and subsection
+/// 8.13.5 defines every ODM text value as the XML Schema `string` type, so a
+/// value carrying a character outside the `Char` production has no valid
+/// representation and the message cannot be written. The check runs over the
+/// assembled document rather than each value, which covers every emission
+/// site: element content, attribute values, and the element names the
+/// user-defined block builds from its keys.
+///
+/// # Arguments
+///
+/// * `msg_type` - The CCSDS message type named in the error (e.g. "OPM")
+/// * `document` - The assembled XML document.
+///
+/// # Returns
+///
+/// * `Result<(), BraheError>` - `Ok` when every character is writable, or an
+///   `Error` naming the element and the offending code point.
+///
+/// # Examples
+///
+/// ```ignore
+/// assert!(validate_xml_characters("OPM", "<ORIGINATOR>GSOC</ORIGINATOR>").is_ok());
+/// assert!(validate_xml_characters("OPM", "<ORIGINATOR>GS\u{1}C</ORIGINATOR>").is_err());
+/// ```
+fn validate_xml_characters(msg_type: &str, document: &str) -> Result<(), BraheError> {
+    let Some((index, c)) = document.char_indices().find(|(_, c)| !is_xml_char(*c)) else {
+        return Ok(());
+    };
+
+    // The offending character sits inside the element opened most recently, so
+    // the enclosing tag name is the CCSDS keyword to name in the error. A
+    // character that interrupts the name rather than following it leaves only
+    // a prefix, since the rest of the name cannot be printed.
+    let tag = document[..index]
+        .rfind('<')
+        .map(|open| &document[open + 1..index])
+        .unwrap_or_default();
+    let element: String = tag
+        .chars()
+        .take_while(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.' | ':'))
+        .collect();
+    let located = if element.len() == tag.len() {
+        format!("XML element name beginning '{}'", element)
+    } else {
+        format!("XML element '{}'", element)
+    };
+
+    Err(BraheError::Error(format!(
+        "CCSDS {}: {} contains U+{:04X}, which XML 1.0 forbids in any document; \
+         the character has no XML representation and must be removed before writing",
+        msg_type, located, c as u32
+    )))
+}
+
 /// XML covariance element names (6x6 lower-triangular, 21 elements).
 const COV_NAMES: [&str; 21] = [
     "CX_X",
@@ -391,6 +478,8 @@ pub fn write_oem_xml(oem: &crate::ccsds::oem::OEM) -> Result<String, BraheError>
     out.push_str(&format!("{}</body>\n", i1));
     out.push_str("</oem>\n");
 
+    validate_xml_characters("OEM", &out)?;
+
     Ok(out)
 }
 
@@ -591,6 +680,8 @@ pub fn write_omm_xml(omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError>
 
     out.push_str(&format!("{}</body>\n", i1));
     out.push_str("</omm>\n");
+
+    validate_xml_characters("OMM", &out)?;
 
     Ok(out)
 }
@@ -806,6 +897,8 @@ pub fn write_opm_xml(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError>
 
     out.push_str(&format!("{}</body>\n", i1));
     out.push_str("</opm>\n");
+
+    validate_xml_characters("OPM", &out)?;
 
     Ok(out)
 }
@@ -1802,6 +1895,8 @@ pub fn write_cdm_xml(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError>
     out.push_str(&format!("{}</body>\n", i1));
     out.push_str("</cdm>\n");
 
+    validate_xml_characters("CDM", &out)?;
+
     Ok(out)
 }
 
@@ -1820,6 +1915,9 @@ mod tests {
 
     /// The same text once escaped for element content.
     const MARKUP_ESCAPED: &str = "R&amp;D &lt;ops&gt; \"quoted\"";
+
+    /// Free text carrying U+0001, which XML 1.0 forbids in any document.
+    const FORBIDDEN: &str = "GSOC\u{1}LAB";
 
     #[test]
     #[serial_test::parallel]
@@ -2036,5 +2134,129 @@ mod tests {
 
         // Nothing raw leaked into any of them.
         assert!(!xml.contains("R&D <ops>"));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_write_oem_xml_rejects_forbidden_characters() {
+        let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+        let mut oem = OEM::from_str(&content).unwrap();
+        oem.header.originator = FORBIDDEN.to_string();
+
+        let msg = oem.to_string(CCSDSFormat::XML).unwrap_err().to_string();
+        assert!(msg.contains("OEM"), "{}", msg);
+        assert!(msg.contains("ORIGINATOR"), "{}", msg);
+        assert!(msg.contains("U+0001"), "{}", msg);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_write_omm_xml_rejects_forbidden_characters() {
+        let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
+        let mut omm = OMM::from_str(&content).unwrap();
+        omm.metadata.object_name = FORBIDDEN.to_string();
+
+        let msg = omm.to_string(CCSDSFormat::XML).unwrap_err().to_string();
+        assert!(msg.contains("OMM"), "{}", msg);
+        assert!(msg.contains("OBJECT_NAME"), "{}", msg);
+        assert!(msg.contains("U+0001"), "{}", msg);
+
+        // A user-defined parameter reaches the document as an attribute value
+        // and as part of an element name, neither of which the element-content
+        // escaping touches.
+        let mut omm = OMM::from_str(&content).unwrap();
+        omm.user_defined = Some(crate::ccsds::common::CCSDSUserDefined {
+            parameters: std::collections::HashMap::from([(
+                "EARTH_MODEL".to_string(),
+                FORBIDDEN.to_string(),
+            )]),
+        });
+        let msg = omm.to_string(CCSDSFormat::XML).unwrap_err().to_string();
+        assert!(msg.contains("USER_DEFINED_EARTH_MODEL"), "{}", msg);
+        assert!(msg.contains("U+0001"), "{}", msg);
+
+        let mut omm = OMM::from_str(&content).unwrap();
+        omm.user_defined = Some(crate::ccsds::common::CCSDSUserDefined {
+            parameters: std::collections::HashMap::from([(
+                FORBIDDEN.to_string(),
+                "value".to_string(),
+            )]),
+        });
+        let msg = omm.to_string(CCSDSFormat::XML).unwrap_err().to_string();
+        assert!(msg.contains("USER_DEFINED_GSOC"), "{}", msg);
+        assert!(msg.contains("U+0001"), "{}", msg);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_write_opm_xml_rejects_forbidden_characters() {
+        let content = std::fs::read_to_string("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+        let mut opm = OPM::from_str(&content).unwrap();
+        opm.metadata.comments = vec![FORBIDDEN.to_string()];
+
+        let msg = opm.to_string(CCSDSFormat::XML).unwrap_err().to_string();
+        assert!(msg.contains("OPM"), "{}", msg);
+        assert!(msg.contains("COMMENT"), "{}", msg);
+        assert!(msg.contains("U+0001"), "{}", msg);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_write_cdm_xml_rejects_forbidden_characters() {
+        let content = std::fs::read_to_string("test_assets/ccsds/cdm/CDMExample1.txt").unwrap();
+        let mut cdm = CDM::from_str(&content).unwrap();
+        cdm.object1.metadata.object_name = FORBIDDEN.to_string();
+
+        let msg = cdm.to_string(CCSDSFormat::XML).unwrap_err().to_string();
+        assert!(msg.contains("CDM"), "{}", msg);
+        assert!(msg.contains("OBJECT_NAME"), "{}", msg);
+        assert!(msg.contains("U+0001"), "{}", msg);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_write_xml_follows_the_xml_char_production() {
+        // XML 1.0 subsection 2.2 admits #x9, #xA, #xD, and the ranges
+        // [#x20-#xD7FF], [#xE000-#xFFFD], and [#x10000-#x10FFFF]; everything
+        // else is forbidden outright.
+        let content = std::fs::read_to_string("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+        let write_with_originator = |c: char| {
+            let mut opm = OPM::from_str(&content).unwrap();
+            opm.header.originator = format!("GSOC{}LAB", c);
+            opm.to_string(CCSDSFormat::XML)
+        };
+
+        for c in [
+            '\t',
+            '\n',
+            '\r',
+            ' ',
+            '\u{D7FF}',
+            '\u{E000}',
+            '\u{FFFD}',
+            '\u{10000}',
+            '\u{1FFFE}',
+            '\u{10FFFF}',
+        ] {
+            let xml = write_with_originator(c)
+                .unwrap_or_else(|e| panic!("U+{:04X} should be written: {}", c as u32, e));
+            assert!(
+                xml.contains(&format!("<ORIGINATOR>GSOC{}LAB</ORIGINATOR>", c)),
+                "U+{:04X} missing from output",
+                c as u32
+            );
+        }
+
+        for c in [
+            '\u{0}', '\u{8}', '\u{B}', '\u{C}', '\u{E}', '\u{1F}', '\u{FFFE}', '\u{FFFF}',
+        ] {
+            let err = write_with_originator(c)
+                .expect_err(&format!("U+{:04X} should be rejected", c as u32));
+            assert!(
+                err.to_string().contains(&format!("U+{:04X}", c as u32)),
+                "{}",
+                err
+            );
+        }
     }
 }

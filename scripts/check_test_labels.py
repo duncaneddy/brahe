@@ -16,32 +16,80 @@ from _build_utils import REPO_ROOT, console
 # Crates whose test binaries are built by `just test` / CI.
 SEARCH_ROOTS = ("src", "crates", "tests", "profiles")
 
-TEST_ATTR = re.compile(r"^#\[(?:test|rstest\b|tokio::test\b)")
+TEST_ATTRS = ("#[test", "#[rstest", "#[tokio::test")
+TEST_ATTR = re.compile(r"^#\[(?:test\]|test\(|rstest\b|tokio::test\b)")
 LABEL_ATTR = re.compile(r"^#\[(?:serial_test::)?(?:serial|parallel)\b")
 CASE_ATTR = re.compile(r"^#\[(?:values|case)\b")
-FN_DECL = re.compile(r"\bfn\s+([A-Za-z0-9_]+)")
 
-# String and char literals, then comments. Matching them in one alternation is
-# what keeps a `//` inside a string from reading as a comment, and a quote
-# inside a comment from opening a string.
-NOISE = re.compile(
-    r'r(#*)"(?:(?!"\1).)*"\1'  # raw string, hashes balanced via backreference
-    r'|"(?:[^"\\]|\\.)*"'  # ordinary string
-    r"|'(?:[^'\\]|\\.)'"  # char literal
-    r"|//[^\n]*"  # line comment
-    r"|/\*(?:[^*]|\*(?!/))*\*/",  # block comment
-    re.DOTALL,
+# A function declaration, including the modifiers Rust allows before `fn`.
+# They must be part of the match: treating `async` or `pub` as an unrelated
+# token would end the attribute run and lose the test.
+FN_DECL = re.compile(
+    r"(?:(?:pub\s*(?:\([^)]*\)\s*)?|const\s+|async\s+|unsafe\s+"
+    r'|extern\s+(?:"[^"]*"\s+)?)\s*)*'
+    r"fn\s+([A-Za-z0-9_]+)"
 )
+
+# Openers for the regions that must be blanked. Matching them in one
+# alternation is what keeps a `//` inside a string from reading as a comment,
+# and a quote inside a comment from opening a string.
+OPENER = re.compile(
+    r'(?P<raw>r(?P<hashes>#*)")'
+    r'|(?P<string>")'
+    r"|(?P<char>'(?:[^'\\\n]|\\.)')"
+    r"|(?P<line>//)"
+    r"|(?P<block>/\*)"
+)
+STRING_BODY = re.compile(r'(?:[^"\\]|\\.)*"', re.DOTALL)
+BLOCK_EDGE = re.compile(r"/\*|\*/")
 
 
 def _blank(text: str) -> str:
     """Replace literals and comments with spaces, preserving every offset.
 
-    Bracket counting and attribute matching then operate on text that cannot
-    contain a stray `[`, `]`, `#` or `fn` inside a string or comment, while
-    line numbers and positions still map back to the original file.
+    Attribute matching then operates on text that cannot contain a stray `[`,
+    `]`, `#` or `fn` inside a string or comment, while line numbers and
+    positions still map back to the original file. Block comments nest in
+    Rust, so they are matched by depth rather than to the first `*/`.
     """
-    return NOISE.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), text)
+    out = list(text)
+
+    def blank(start: int, end: int) -> None:
+        for k in range(start, end):
+            if out[k] != "\n":
+                out[k] = " "
+
+    i = 0
+    while True:
+        m = OPENER.search(text, i)
+        if m is None:
+            break
+        start = m.start()
+
+        if m.lastgroup == "char":
+            end = m.end()
+        elif m.group("line") is not None:
+            end = text.find("\n", start)
+            end = len(text) if end < 0 else end
+        elif m.group("block") is not None:
+            depth = 0
+            end = len(text)
+            for edge in BLOCK_EDGE.finditer(text, start):
+                depth += 1 if edge.group() == "/*" else -1
+                if depth == 0:
+                    end = edge.end()
+                    break
+        elif m.group("raw") is not None:
+            close = text.find('"' + m.group("hashes"), m.end())
+            end = len(text) if close < 0 else close + 1 + len(m.group("hashes"))
+        else:  # ordinary string
+            body = STRING_BODY.match(text, m.end())
+            end = len(text) if body is None else body.end()
+
+        blank(start, end)
+        i = max(end, start + 1)
+
+    return "".join(out)
 
 
 def _attribute_end(text: str, start: int) -> int | None:
@@ -62,7 +110,7 @@ def _attribute_end(text: str, start: int) -> int | None:
 def unlabeled_tests(path: Path) -> list[tuple[int, str]]:
     """Return `(line number, test name)` for each unlabeled test in `path`."""
     raw = path.read_text(encoding="utf-8")
-    if "#[test" not in raw and "#[rstest" not in raw:
+    if not any(attr in raw for attr in TEST_ATTRS):
         return []
 
     text = _blank(raw)

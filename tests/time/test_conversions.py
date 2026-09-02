@@ -19,6 +19,41 @@ def test_mjd_to_datetime():
     assert brahe.mjd_to_datetime(51544.5) == (2000, 1, 1, 12, 0, 0.0, 0.0)
 
 
+def test_time_system_offset_tai_utc_before_1972(eop):
+    """Mirror of test_time_system_offset_tai_utc_before_1972 in Rust."""
+    # Before 1972 UTC ran at a rate offset from TAI rather than a whole number
+    # of seconds. The IERS entry in force from 1968 February 1 is
+    # TAI - UTC = 4.2131700 + (MJD - 39126) * 0.0025920 seconds, so at
+    # 1971-12-31T23:59:59 UTC (MJD 41316.99998843) it is 9.892242 s.
+    fd = 86399.0 / 86400.0
+    expected = 4.2131700 + (41316.0 + fd - 39126.0) * 0.0025920
+    assert expected == pytest.approx(9.892242, abs=1e-6)
+
+    jd = 2441316.5 + fd
+    utc_to_tai = brahe.time_system_offset_for_jd(jd, brahe.UTC, brahe.TAI)
+    assert utc_to_tai == pytest.approx(expected, abs=1e-6)
+
+    tai_to_utc = brahe.time_system_offset_for_jd(
+        jd + utc_to_tai / 86400.0, brahe.TAI, brahe.UTC
+    )
+    assert tai_to_utc == pytest.approx(-expected, abs=1e-6)
+
+
+def test_time_system_offset_tai_utc_within_a_leap_second(eop):
+    """Mirror of test_time_system_offset_tai_utc_within_a_leap_second in Rust."""
+    # 2016-12-31T23:59:60 UTC is TAI 2017-01-01T00:00:36, so TAI - UTC is still
+    # 36 s throughout the leap second and steps to 37 s after it.
+    for tai_seconds_into_day, expected in [
+        (86435.0, -36.0),
+        (86436.0, -36.0),
+        (86436.5, -36.0),
+        (86437.0, -37.0),
+    ]:
+        jd = 2457753.5 + tai_seconds_into_day / 86400.0
+        offset = brahe.time_system_offset_for_jd(jd, brahe.TAI, brahe.UTC)
+        assert offset == expected, f"TAI second {tai_seconds_into_day}"
+
+
 def test_time_system_offset_for_jd(eop):  # Test date
     jd = brahe.datetime_to_jd(2018, 6, 1, 0, 0, 0.0, 0.0)
 

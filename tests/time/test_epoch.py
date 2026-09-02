@@ -1742,6 +1742,34 @@ def test_from_datetime_reaches_the_same_epoch_from_either_spelling_of_a_second(e
             )
 
 
+def test_from_datetime_round_trips_before_1972(eop):
+    """Mirror of test_from_datetime_round_trips_before_1972 in Rust."""
+    for args in [
+        (1961, 1, 1, 0, 0, 30.0),
+        (1965, 7, 1, 12, 34, 56.0),
+        (1968, 3, 15, 6, 0, 0.0),
+        (1970, 1, 1, 0, 0, 0.0),
+        (1971, 12, 31, 23, 59, 59.0),
+    ]:
+        epc = bh.Epoch.from_datetime(*args, 0.0, bh.UTC)
+        fields = epc.to_datetime()
+        assert fields[:6] == args
+        assert fields[6] == pytest.approx(0.0, abs=1e-3)
+        assert bh.Epoch.from_datetime(*fields, bh.UTC) - epc == pytest.approx(
+            0.0, abs=1e-11
+        )
+
+
+def test_to_datetime_reports_whole_seconds_throughout_a_leap_second_day(eop):
+    """Mirror of test_to_datetime_reports_whole_seconds_throughout_a_leap_second_day in Rust."""
+    for year, month, day in [(2016, 12, 31), (2015, 6, 30), (2012, 6, 30)]:
+        for hour in [0, 3, 6, 9, 12, 15, 18, 21, 23]:
+            epc = bh.Epoch.from_datetime(year, month, day, hour, 30, 15.0, 0.0, bh.UTC)
+            fields = epc.to_datetime()
+            assert fields[:6] == (year, month, day, hour, 30, 15.0)
+            assert fields[6] == pytest.approx(0.0, abs=1e-3)
+
+
 def test_to_datetime_as_time_system_reports_the_leap_second_from_tai(eop):
     """Mirror of test_to_datetime_as_time_system_reports_the_leap_second_from_tai in Rust."""
     for tai_second, expected in [

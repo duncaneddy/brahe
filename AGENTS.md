@@ -37,7 +37,8 @@ Check src/* for existing code patterns and functions before writing new code. Bi
 - **Orbital elements**: `[a, e, i, raan, argp, mean_anomaly]` — meters, degrees (or randians with angle_format::RADIANS), but generally prefer degrees for tests/docs/examples
 - **Geodetic order**: `(longitude, latitude, altitude)` — degrees for `PointLocation`/`PolygonLocation`
 - Prefer existing library functions (`time::conversions`, `coordinates`, `orbits::keplerian`, `frames`)
-- Imports always at top of file; no AI-assistance comments in code
+- Imports always at top of file or top of module (e.g. mod tests { ... }), avoid importing at function level unless necessary.
+- Fully capitalize acronyms in names (e.g., `EOP`, `TLE`, `ECI`, `ECEF`, `LLA`, `RAAN`, `ARGP`) in names with proper allow-attributes for clippy.
 
 ## Testing
 - **Naming**: `test_<functionality>` or `test_<Struct>_<Trait>_<Method>`
@@ -64,3 +65,8 @@ Every new/modified function MUST have complete docs:
 - Use library constants (`bh.R_EARTH + 500e3`), SI units, LaTeX (`$\mu$`) over Unicode in docs
 - Write in bottom-line-up-front style. Avoid subjective language ("best", "easy"). Focus on explaining concepts and how to use the library, in particular for concrete problems.
 - Avoid bullet points, pithy AI statements, and AI generated language tells.
+
+## Development Process
+- **PRs**: Use stacked PRs for large changes (if possible). Each PR should be a single logical change. Avoid mixing unrelated changes in a single PR.
+- **Don't Commit CHANGELOG.md**: The changelog is generated automatically from PRs text bodies. Do not manually edit it. Use the PR template to provide a clear description of changes, and the changelog will be updated accordingly.
+- **Submit PRs with template description**: Use the exact format in .github/pull_request_template.md. Remove any sections that do not apply. Do not add any additional sections. Use continuous lines for bullets, don't wrap or use line breaks. Do not attribute users in changelog (it's automatically generated from PRs). Do not use emojis in changelog. Use imperative verbs in PR titles. Add the description at creation time, not after opening so that PR validation can check format.

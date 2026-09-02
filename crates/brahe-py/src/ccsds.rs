@@ -5309,7 +5309,10 @@ impl PyAPMInertia {
 ///     duration (float): Maneuver duration, in seconds
 ///     ref_frame (str): Reference frame for the torque vector
 ///     torque (numpy.ndarray): Torque vector [x, y, z], in N*m
-///     delta_mass (float | None): Mass change (should be <= 0), in kg
+///     delta_mass (float | None): Mass change, in kg. Must be <= 0.
+///
+/// Raises:
+///     BraheError: If `delta_mass` is positive
 ///
 /// Example:
 ///     ```python
@@ -5343,7 +5346,9 @@ impl PyAPMManeuver {
             ADMReferenceFrame::parse(ref_frame),
             torque_vec,
         );
-        inner.delta_mass = delta_mass;
+        if let Some(dm) = delta_mass {
+            inner = inner.with_delta_mass(dm)?;
+        }
         Ok(Self { inner })
     }
 
@@ -5371,7 +5376,7 @@ impl PyAPMManeuver {
         vector_to_numpy!(py, self.inner.torque, 3, f64)
     }
 
-    /// float | None: Mass change (should be <= 0), in kg
+    /// float | None: Mass change, in kg. Must be <= 0.
     #[getter]
     fn delta_mass(&self) -> Option<f64> {
         self.inner.delta_mass

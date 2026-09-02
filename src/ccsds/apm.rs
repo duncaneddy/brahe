@@ -786,10 +786,12 @@ impl APMManeuver {
     /// Sets the mass change due to the maneuver.
     ///
     /// # Arguments
-    /// - `delta_mass`: mass change (should be ≤ 0). Units: kg.
+    /// - `delta_mass`: mass change. Units: kg.
     ///
     /// # Returns
-    /// APMManeuver: The maneuver with the mass change set.
+    /// - `Ok(APMManeuver)` - The maneuver with the mass change set
+    /// - `Err(BraheError)` - If `delta_mass` is positive; CCSDS 504.0-B-2
+    ///   table 3-3 requires `MAN_DELTA_MASS <= 0`
     ///
     /// # Examples
     /// ```
@@ -802,12 +804,19 @@ impl APMManeuver {
     ///     3.0,
     ///     ADMReferenceFrame::parse("ICRF"),
     ///     Vector3::new(-1.25, -0.5, 0.5),
-    /// ).with_delta_mass(-0.05);
+    /// ).with_delta_mass(-0.05).unwrap();
     /// assert_eq!(man.delta_mass, Some(-0.05));
     /// ```
-    pub fn with_delta_mass(mut self, delta_mass: f64) -> Self {
+    pub fn with_delta_mass(mut self, delta_mass: f64) -> Result<Self, BraheError> {
+        if delta_mass > 0.0 {
+            return Err(BraheError::Error(format!(
+                "APM MAN_DELTA_MASS {} must be <= 0; it represents mass lost during the \
+                 maneuver",
+                delta_mass
+            )));
+        }
         self.delta_mass = Some(delta_mass);
-        self
+        Ok(self)
     }
 }
 
@@ -1361,8 +1370,19 @@ mod tests {
     #[parallel]
     fn test_apm_maneuver_with_delta_mass() {
         let man = APMManeuver::new(Epoch::now(), 3.0, icrf(), Vector3::new(-1.25, -0.5, 0.5))
-            .with_delta_mass(-0.5);
+            .with_delta_mass(-0.5)
+            .unwrap();
         assert_eq!(man.delta_mass, Some(-0.5));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_apm_maneuver_with_delta_mass_positive_errors() {
+        // CCSDS 504.0-B-2 table 3-3 requires MAN_DELTA_MASS <= 0.
+        let err = APMManeuver::new(Epoch::now(), 3.0, icrf(), Vector3::new(-1.25, -0.5, 0.5))
+            .with_delta_mass(0.5)
+            .unwrap_err();
+        assert!(err.to_string().contains("MAN_DELTA_MASS"));
     }
 
     #[test]
@@ -1830,7 +1850,8 @@ mod tests {
 
         apm.push_maneuver(
             APMManeuver::new(Epoch::now(), 3.0, icrf(), Vector3::new(-1.25, -0.5, 0.5))
-                .with_delta_mass(-0.25),
+                .with_delta_mass(-0.25)
+                .unwrap(),
         );
 
         apm

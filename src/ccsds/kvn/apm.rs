@@ -720,7 +720,7 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                             Vector3::new(tx, ty, tz),
                         );
                         if let Some(dm) = man_delta_mass.take() {
-                            man = man.with_delta_mass(dm);
+                            man = man.with_delta_mass(dm)?;
                         }
                         man.comments = std::mem::take(&mut blk_comments);
                         maneuvers.push(man);
@@ -1266,6 +1266,29 @@ mod tests {
         let msg = format!("{}", err);
         assert!(
             msg.contains("invalid EULER_ROT_SEQ value '121'"),
+            "unexpected message: {}",
+            msg
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_parse_apm_positive_man_delta_mass_rejected() {
+        // CCSDS 504.0-B-2 table 3-3 requires MAN_DELTA_MASS <= 0.
+        let content = apm_prefix()
+            + "MAN_START\n\
+MAN_EPOCH_START = 2004-02-14T14:29:00.5098\n\
+MAN_DURATION = 3\n\
+MAN_REF_FRAME = ICRF\n\
+MAN_TOR_X = -1.25\n\
+MAN_TOR_Y = -0.5\n\
+MAN_TOR_Z = 0.5\n\
+MAN_DELTA_MASS = 0.5\n\
+MAN_STOP\n";
+        let err = parse_apm(&content).unwrap_err();
+        let msg = format!("{}", err);
+        assert!(
+            msg.contains("MAN_DELTA_MASS"),
             "unexpected message: {}",
             msg
         );

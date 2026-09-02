@@ -524,6 +524,13 @@ def test_apm_builder_maneuver(eop):
     assert apm2.maneuvers[0].delta_mass == pytest.approx(-0.5)
 
 
+def test_apm_maneuver_positive_delta_mass_rejected(eop):
+    # CCSDS 504.0-B-2 table 3-3 requires MAN_DELTA_MASS <= 0.
+    epoch = Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    with pytest.raises(Exception, match="MAN_DELTA_MASS"):
+        APMManeuver(epoch, 3.0, "ICRF", np.array([-1.25, -0.5, 0.5]), delta_mass=0.5)
+
+
 def test_apm_header_metadata_setters(eop):
     epoch = Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     apm = APM("BRAHE", "SAT1", "2024-001A", "UTC", epoch)

@@ -600,7 +600,7 @@ pub fn parse_apm_xml(content: &str) -> Result<APM, BraheError> {
         );
         let mut man = APMManeuver::new(epoch_start, m.duration.parse_f64()?, frame, torque);
         if let Some(ref dm) = m.delta_mass {
-            man = man.with_delta_mass(dm.parse_f64()?);
+            man = man.with_delta_mass(dm.parse_f64()?)?;
         }
         man.comments = m.comments.clone();
         maneuvers.push(man);

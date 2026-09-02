@@ -1,0 +1,24 @@
+Format version: 2.0
+Originator:     NASA/JPL
+Creation date:  2002-11-04 17:22:31.000 UTC
+Message ID:     A7015Z3
+
+Segments: 2
+
+  Segment 0:
+    Object name:   MARS GLOBAL SURVEYOR
+    Ref frame A:   EME2000
+    Ref frame B:   SC_BODY_1
+    Attitude type: QUATERNION
+    Interpolation: HERMITE
+    States:        4
+    First quaternion [Q1, Q2, Q3, QC] @ 1996-11-28 21:29:07.255 UTC: [0.56748, 0.03146, 0.45689, 0.68427]
+
+  Segment 1:
+    Object name:   mars global surveyor
+    Ref frame A:   EME2000
+    Ref frame B:   SC_BODY_1
+    Attitude type: QUATERNION
+    Interpolation: None
+    States:        4
+    First quaternion [Q1, Q2, Q3, QC] @ 1996-12-18 12:05:00.555 UTC: [-0.64585, 0.01854, -0.23854, 0.72501]

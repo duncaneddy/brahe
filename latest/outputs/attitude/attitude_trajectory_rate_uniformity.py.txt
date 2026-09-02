@@ -1,0 +1,6 @@
+frame_a:   GCRF
+frame_b:   SC_BODY_1
+States:    1
+has_rates: False
+
+Mixed rate rejected: Cannot add state at epoch 2024-01-01 00:01:00.000 UTC: trajectory states do not carry angular velocity, but the new state carries angular velocity

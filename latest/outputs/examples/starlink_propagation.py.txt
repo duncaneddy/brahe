@@ -1,1 +1,1 @@
-Propagated 11040 Starlink satellites to one orbit in 6 minutes and 15.61 seconds.
+Propagated 11040 Starlink satellites to one orbit in 4 minutes and 25.54 seconds.

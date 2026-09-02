@@ -209,6 +209,10 @@
          <lastmod>2026-09-02</lastmod>
     </url>
     <url>
+         <loc>https://docs.brahe.space/latest/learn/attitude_representations/kinematics.html</loc>
+         <lastmod>2026-09-02</lastmod>
+    </url>
+    <url>
          <loc>https://docs.brahe.space/latest/learn/attitude_representations/quaternions.html</loc>
          <lastmod>2026-09-02</lastmod>
     </url>
@@ -218,6 +222,14 @@
     </url>
     <url>
          <loc>https://docs.brahe.space/latest/learn/ccsds/index.html</loc>
+         <lastmod>2026-09-02</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.brahe.space/latest/learn/ccsds/aem.html</loc>
+         <lastmod>2026-09-02</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.brahe.space/latest/learn/ccsds/apm.html</loc>
          <lastmod>2026-09-02</lastmod>
     </url>
     <url>
@@ -669,6 +681,10 @@
          <lastmod>2026-09-02</lastmod>
     </url>
     <url>
+         <loc>https://docs.brahe.space/latest/learn/trajectories/attitude_trajectory.html</loc>
+         <lastmod>2026-09-02</lastmod>
+    </url>
+    <url>
          <loc>https://docs.brahe.space/latest/learn/trajectories/orbit_trajectory.html</loc>
          <lastmod>2026-09-02</lastmod>
     </url>
@@ -749,6 +765,10 @@
          <lastmod>2026-09-02</lastmod>
     </url>
     <url>
+         <loc>https://docs.brahe.space/latest/library_api/attitude/kinematics.html</loc>
+         <lastmod>2026-09-02</lastmod>
+    </url>
+    <url>
          <loc>https://docs.brahe.space/latest/library_api/attitude/quaternion.html</loc>
          <lastmod>2026-09-02</lastmod>
     </url>
@@ -758,6 +778,14 @@
     </url>
     <url>
          <loc>https://docs.brahe.space/latest/library_api/ccsds/index.html</loc>
+         <lastmod>2026-09-02</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.brahe.space/latest/library_api/ccsds/aem.html</loc>
+         <lastmod>2026-09-02</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.brahe.space/latest/library_api/ccsds/apm.html</loc>
          <lastmod>2026-09-02</lastmod>
     </url>
     <url>
@@ -1262,6 +1290,10 @@
     </url>
     <url>
          <loc>https://docs.brahe.space/latest/library_api/trajectories/index.html</loc>
+         <lastmod>2026-09-02</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.brahe.space/latest/library_api/trajectories/attitude_trajectory.html</loc>
          <lastmod>2026-09-02</lastmod>
     </url>
     <url>

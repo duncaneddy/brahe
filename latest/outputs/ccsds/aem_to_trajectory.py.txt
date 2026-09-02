@@ -1,0 +1,9 @@
+Trajectory: 4 states
+  Frame A:       EME2000
+  Frame B:       SC_BODY_1
+  Interpolation: SLERP
+  Has rates:     False
+  Start:         1996-12-18 12:05:00.555 UTC
+  End:           1996-12-28 21:28:00.555 UTC
+
+Interpolated quaternion [Q1, Q2, Q3, QC] at 1996-12-23 16:46:30.555 UTC: [0.20225, -0.88118, 0.42637, 0.02872]

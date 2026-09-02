@@ -4,6 +4,6 @@ SC_BODY: bound=False, object=None
 Sun direction in CSS_1: [ 1.19549280e+11 -4.54273510e+10  7.49355215e+10]
 SC origin in CSS_1 (zero lever arm): [0. 0. 0.]
 
-Missing-link error: frame CSS_2@SC has no registered orientation; register one with register_frame(CSS_2@SC, <parent>, <provider>)
+Missing-link error: frame CSS_2@SC has no registered orientation; register one with register_frame(CSS_2@SC, <parent>, <provider>), or with aem.register_for(<object>) to register the attitude carried by a CCSDS AEM
 
 Example validated successfully!

@@ -1,0 +1,3 @@
+Query epoch: 2024-01-01 00:00:20.000 UTC (1/3 of the way from t0 to t1)
+Slerp  rotation angle:  40.0000 deg (exact)
+Linear rotation angle:  38.2132 deg (approximate)

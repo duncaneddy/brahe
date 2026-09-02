@@ -604,6 +604,30 @@ def test_apm_to_dict_epoch_written_in_metadata_time_system(eop):
     assert apm.to_dict()["epoch"] == kvn_epoch_str
 
 
+def test_apm_to_dict_creation_date_written_in_utc(eop):
+    """Mirror of test_apm_creation_date_written_in_utc in Rust: CREATION_DATE
+    is a UTC field, so to_dict() must convert a header epoch held in another
+    time system rather than relabel it, matching the KVN writer."""
+    epoch_utc = Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    apm = APM("BRAHE", "SAT1", "2024-001A", "TAI", epoch_utc)
+    apm.creation_date = Epoch.from_datetime(
+        2024, 3, 1, 12, 0, 37.0, 0.0, bh.TimeSystem.TAI
+    )
+    apm.add_quaternion_state(
+        APMQuaternionState("ICRF", "SC_BODY_1", Quaternion(1.0, 0.0, 0.0, 0.0))
+    )
+
+    kvn = apm.to_string("KVN")
+    creation_line = next(
+        line for line in kvn.splitlines() if line.startswith("CREATION_DATE")
+    )
+    kvn_creation_str = creation_line.split(" = ", 1)[1]
+
+    # 2024-03-01T12:00:37 TAI is 2024-03-01T12:00:00 UTC.
+    assert kvn_creation_str == "2024-03-01T12:00:00.000"
+    assert apm.to_dict()["header"]["creation_date"] == kvn_creation_str
+
+
 # ------------------------------------------------------------------
 # Additional KVN block parsing (mirrors synthetic-content Rust tests in
 # src/ccsds/kvn/parser.rs)

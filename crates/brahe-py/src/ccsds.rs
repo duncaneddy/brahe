@@ -5543,26 +5543,13 @@ impl PyAPM {
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, pyo3::types::PyDict>> {
         let dict = pyo3::types::PyDict::new(py);
 
-        // EPOCH and MAN_EPOCH_START are written in the metadata TIME_SYSTEM
-        // (504.0-B-2 §3.2.4.4), not the `Epoch`'s own internal time system,
-        // mirroring the KVN/XML/JSON writers. A handful of CCSDS time
-        // systems (SCLK, MET, MRT, GMST, TDR) have no corresponding
-        // `brahe::time::TimeSystem` and are left unconverted.
-        let write_ts = self.inner.metadata.time_system.to_time_system();
-        let epoch_for_write = |e: &brahe::time::Epoch| -> brahe::time::Epoch {
-            match write_ts {
-                Some(ts) => e.to_time_system(ts),
-                None => *e,
-            }
-        };
-
         // Header
         let header = pyo3::types::PyDict::new(py);
         header.set_item("format_version", self.inner.header.format_version)?;
         header.set_item("classification", &self.inner.header.classification)?;
         header.set_item(
             "creation_date",
-            brahe::ccsds::common::format_ccsds_datetime(&self.inner.header.creation_date),
+            brahe::ccsds::common::format_ccsds_datetime_in(&self.inner.header.creation_date, &brahe::ccsds::common::CCSDSTimeSystem::UTC),
         )?;
         header.set_item("originator", &self.inner.header.originator)?;
         header.set_item("message_id", &self.inner.header.message_id)?;
@@ -5584,7 +5571,7 @@ impl PyAPM {
         // Data section
         dict.set_item(
             "epoch",
-            brahe::ccsds::common::format_ccsds_datetime(&epoch_for_write(&self.inner.epoch)),
+            brahe::ccsds::common::format_ccsds_datetime_in(&self.inner.epoch, &self.inner.metadata.time_system),
         )?;
         dict.set_item("comments", &self.inner.comments)?;
 
@@ -5687,7 +5674,7 @@ impl PyAPM {
             let m_dict = pyo3::types::PyDict::new(py);
             m_dict.set_item(
                 "epoch_start",
-                brahe::ccsds::common::format_ccsds_datetime(&epoch_for_write(&m.epoch_start)),
+                brahe::ccsds::common::format_ccsds_datetime_in(&m.epoch_start, &self.inner.metadata.time_system),
             )?;
             m_dict.set_item("duration", m.duration)?;
             m_dict.set_item("ref_frame", format!("{}", m.ref_frame))?;

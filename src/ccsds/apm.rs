@@ -1975,4 +1975,50 @@ mod tests {
                 < 1e-9
         );
     }
+
+    #[test]
+    #[parallel]
+    fn test_apm_creation_date_written_in_utc() {
+        // CREATION_DATE is a UTC field (504.0-B-2 table 3-1), so a header
+        // epoch held in another time system must be converted, not relabelled.
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+        let creation_tai =
+            Epoch::from_datetime(2024, 3, 1, 12, 0, 37.0, 0.0, crate::time::TimeSystem::TAI);
+
+        let metadata = APMMetadata::new("SAT1", "2024-001A", CCSDSTimeSystem::TAI);
+        let mut apm = APM::new("BRAHE", metadata, epoch);
+        apm.header.creation_date = creation_tai;
+        apm.push_quaternion_state(APMQuaternionState::new(
+            ADMReferenceFrame::parse("ICRF"),
+            ADMReferenceFrame::parse("SC_BODY_1"),
+            Quaternion::new(1.0, 0.0, 0.0, 0.0),
+        ));
+
+        // 2024-03-01T12:00:37 TAI is 2024-03-01T12:00:00 UTC.
+        let kvn = apm.to_string(CCSDSFormat::KVN).unwrap();
+        assert!(
+            kvn.contains("CREATION_DATE = 2024-03-01T12:00:00.000"),
+            "CREATION_DATE not written in UTC: {}",
+            kvn.lines()
+                .find(|l| l.starts_with("CREATION_DATE"))
+                .unwrap()
+        );
+
+        let xml = apm.to_string(CCSDSFormat::XML).unwrap();
+        assert!(
+            xml.contains("<CREATION_DATE>2024-03-01T12:00:00.000</CREATION_DATE>"),
+            "CREATION_DATE not written in UTC: {}",
+            xml
+        );
+
+        let json = apm.to_string(CCSDSFormat::JSON).unwrap();
+        assert!(
+            json.contains("2024-03-01T12:00:00.000"),
+            "CREATION_DATE not written in UTC: {}",
+            json
+        );
+
+        // The data EPOCH still follows the metadata TIME_SYSTEM, not UTC.
+        assert!(kvn.contains("EPOCH = 2024-03-01T00:00:37.000"), "{}", kvn);
+    }
 }

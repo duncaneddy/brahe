@@ -1580,7 +1580,7 @@ fn parse_apm_f64(val: &str, field: &str) -> Result<f64, BraheError> {
 
 /// Parser state for APM KVN parsing.
 #[derive(Debug, PartialEq)]
-enum ApmState {
+enum APMState {
     Header,
     Metadata,
     /// Top-level data section: between/before logical blocks.
@@ -1602,7 +1602,7 @@ enum ApmState {
 /// maneuver) are delimited by `*_START`/`*_STOP` markers; a flat accumulator
 /// is flushed and validated at each `*_STOP`.
 pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
-    let mut state = ApmState::Header;
+    let mut state = APMState::Header;
 
     // Header
     let mut format_version: Option<f64> = None;
@@ -1702,7 +1702,7 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
         let token = tokenize_line(line);
         match (&state, token) {
             // ===== HEADER =====
-            (ApmState::Header, KVNToken::KeyValue { key, value }) => {
+            (APMState::Header, KVNToken::KeyValue { key, value }) => {
                 let val = strip_units(&value);
                 match key.as_str() {
                     "CCSDS_APM_VERS" => {
@@ -1735,7 +1735,7 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                     }
                     "OBJECT_NAME" => {
                         object_name = Some(val.to_string());
-                        state = ApmState::Metadata;
+                        state = APMState::Metadata;
                     }
                     _ => {
                         return Err(ccsds_parse_error(
@@ -1745,17 +1745,17 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                     }
                 }
             }
-            (ApmState::Header, KVNToken::Comment(text)) => {
+            (APMState::Header, KVNToken::Comment(text)) => {
                 if header_fields_started {
                     metadata_comments.push(text);
                 } else {
                     header_comments.push(text);
                 }
             }
-            (ApmState::Header, KVNToken::Empty) => {}
+            (APMState::Header, KVNToken::Empty) => {}
 
             // ===== METADATA =====
-            (ApmState::Metadata, KVNToken::KeyValue { key, value }) => {
+            (APMState::Metadata, KVNToken::KeyValue { key, value }) => {
                 let val = strip_units(&value);
                 match key.as_str() {
                     "OBJECT_ID" => object_id = Some(val.to_string()),
@@ -1763,7 +1763,7 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                     "TIME_SYSTEM" => time_system = Some(CCSDSTimeSystem::parse(val)?),
                     "EPOCH" => {
                         epoch = Some(parse_ccsds_datetime(val, &active_ts(&time_system))?);
-                        state = ApmState::Data;
+                        state = APMState::Data;
                     }
                     _ => {
                         return Err(ccsds_parse_error(
@@ -1777,13 +1777,13 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
             // OBJECT_NAME (handled above, in the Header state); a comment
             // seen after OBJECT_NAME belongs to the data section's top-level
             // comment block (before the first logical block).
-            (ApmState::Metadata, KVNToken::Comment(text)) => {
+            (APMState::Metadata, KVNToken::Comment(text)) => {
                 data_comments.push(text);
             }
-            (ApmState::Metadata, KVNToken::Empty) => {}
+            (APMState::Metadata, KVNToken::Empty) => {}
 
             // ===== DATA (top level, between/before blocks) =====
-            (ApmState::Data, KVNToken::KeyValue { key, value: _ }) => match key.as_str() {
+            (APMState::Data, KVNToken::KeyValue { key, value: _ }) => match key.as_str() {
                 "QUAT_START" => {
                     blk_ref_frame_a = None;
                     blk_ref_frame_b = None;
@@ -1796,7 +1796,7 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                     q2_dot = None;
                     q3_dot = None;
                     qc_dot = None;
-                    state = ApmState::Quat;
+                    state = APMState::Quat;
                 }
                 "EULER_START" => {
                     blk_ref_frame_a = None;
@@ -1809,7 +1809,7 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                     angle1_dot = None;
                     angle2_dot = None;
                     angle3_dot = None;
-                    state = ApmState::Euler;
+                    state = APMState::Euler;
                 }
                 "ANGVEL_START" => {
                     blk_ref_frame_a = None;
@@ -1819,7 +1819,7 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                     angvel_x = None;
                     angvel_y = None;
                     angvel_z = None;
-                    state = ApmState::AngVel;
+                    state = APMState::AngVel;
                 }
                 "SPIN_START" => {
                     blk_ref_frame_a = None;
@@ -1835,7 +1835,7 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                     momentum_alpha = None;
                     momentum_delta = None;
                     nutation_vel = None;
-                    state = ApmState::Spin;
+                    state = APMState::Spin;
                 }
                 "INERTIA_START" => {
                     inertia_ref_frame = None;
@@ -1846,7 +1846,7 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                     ixy = None;
                     ixz = None;
                     iyz = None;
-                    state = ApmState::Inertia;
+                    state = APMState::Inertia;
                 }
                 "MAN_START" => {
                     man_epoch_start = None;
@@ -1857,7 +1857,7 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                     man_tor_z = None;
                     man_delta_mass = None;
                     blk_comments.clear();
-                    state = ApmState::Man;
+                    state = APMState::Man;
                 }
                 k if k.starts_with("USER_DEFINED_") => {
                     return Err(ccsds_parse_error(
@@ -1875,13 +1875,13 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                     ));
                 }
             },
-            (ApmState::Data, KVNToken::Comment(text)) => {
+            (APMState::Data, KVNToken::Comment(text)) => {
                 data_comments.push(text);
             }
-            (ApmState::Data, KVNToken::Empty) => {}
+            (APMState::Data, KVNToken::Empty) => {}
 
             // ===== QUATERNION BLOCK =====
-            (ApmState::Quat, KVNToken::KeyValue { key, value }) => {
+            (APMState::Quat, KVNToken::KeyValue { key, value }) => {
                 let val = strip_units(&value);
                 match key.as_str() {
                     "REF_FRAME_A" => blk_ref_frame_a = Some(ADMReferenceFrame::parse(val)),
@@ -1931,7 +1931,7 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                         }
                         quat.comments = std::mem::take(&mut blk_comments);
                         quaternion_states.push(quat);
-                        state = ApmState::Data;
+                        state = APMState::Data;
                     }
                     _ => {
                         return Err(ccsds_parse_error(
@@ -1941,11 +1941,11 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                     }
                 }
             }
-            (ApmState::Quat, KVNToken::Comment(text)) => blk_comments.push(text),
-            (ApmState::Quat, KVNToken::Empty) => {}
+            (APMState::Quat, KVNToken::Comment(text)) => blk_comments.push(text),
+            (APMState::Quat, KVNToken::Empty) => {}
 
             // ===== EULER ANGLE BLOCK =====
-            (ApmState::Euler, KVNToken::KeyValue { key, value }) => {
+            (APMState::Euler, KVNToken::KeyValue { key, value }) => {
                 let val = strip_units(&value);
                 match key.as_str() {
                     "REF_FRAME_A" => blk_ref_frame_a = Some(ADMReferenceFrame::parse(val)),
@@ -1998,7 +1998,7 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                         }
                         euler.comments = std::mem::take(&mut blk_comments);
                         euler_states.push(euler);
-                        state = ApmState::Data;
+                        state = APMState::Data;
                     }
                     _ => {
                         return Err(ccsds_parse_error(
@@ -2008,11 +2008,11 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                     }
                 }
             }
-            (ApmState::Euler, KVNToken::Comment(text)) => blk_comments.push(text),
-            (ApmState::Euler, KVNToken::Empty) => {}
+            (APMState::Euler, KVNToken::Comment(text)) => blk_comments.push(text),
+            (APMState::Euler, KVNToken::Empty) => {}
 
             // ===== ANGULAR VELOCITY BLOCK =====
-            (ApmState::AngVel, KVNToken::KeyValue { key, value }) => {
+            (APMState::AngVel, KVNToken::KeyValue { key, value }) => {
                 let val = strip_units(&value);
                 match key.as_str() {
                     "REF_FRAME_A" => blk_ref_frame_a = Some(ADMReferenceFrame::parse(val)),
@@ -2044,7 +2044,7 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                         let mut av = APMAngularVelocity::new(ref_frame_a, ref_frame_b, frame, vel);
                         av.comments = std::mem::take(&mut blk_comments);
                         angular_velocities.push(av);
-                        state = ApmState::Data;
+                        state = APMState::Data;
                     }
                     _ => {
                         return Err(ccsds_parse_error(
@@ -2054,11 +2054,11 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                     }
                 }
             }
-            (ApmState::AngVel, KVNToken::Comment(text)) => blk_comments.push(text),
-            (ApmState::AngVel, KVNToken::Empty) => {}
+            (APMState::AngVel, KVNToken::Comment(text)) => blk_comments.push(text),
+            (APMState::AngVel, KVNToken::Empty) => {}
 
             // ===== SPIN BLOCK =====
-            (ApmState::Spin, KVNToken::KeyValue { key, value }) => {
+            (APMState::Spin, KVNToken::KeyValue { key, value }) => {
                 let val = strip_units(&value);
                 match key.as_str() {
                     "REF_FRAME_A" => blk_ref_frame_a = Some(ADMReferenceFrame::parse(val)),
@@ -2163,7 +2163,7 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                         }
                         spin.comments = std::mem::take(&mut blk_comments);
                         spins.push(spin);
-                        state = ApmState::Data;
+                        state = APMState::Data;
                     }
                     _ => {
                         return Err(ccsds_parse_error(
@@ -2173,11 +2173,11 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                     }
                 }
             }
-            (ApmState::Spin, KVNToken::Comment(text)) => blk_comments.push(text),
-            (ApmState::Spin, KVNToken::Empty) => {}
+            (APMState::Spin, KVNToken::Comment(text)) => blk_comments.push(text),
+            (APMState::Spin, KVNToken::Empty) => {}
 
             // ===== INERTIA BLOCK =====
-            (ApmState::Inertia, KVNToken::KeyValue { key, value }) => {
+            (APMState::Inertia, KVNToken::KeyValue { key, value }) => {
                 let val = strip_units(&value);
                 match key.as_str() {
                     "INERTIA_REF_FRAME" => inertia_ref_frame = Some(ADMReferenceFrame::parse(val)),
@@ -2212,7 +2212,7 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                         let mut inertia = APMInertia::new(frame, xx, yy, zz, xy, xz, yz);
                         inertia.comments = std::mem::take(&mut blk_comments);
                         inertias.push(inertia);
-                        state = ApmState::Data;
+                        state = APMState::Data;
                     }
                     _ => {
                         return Err(ccsds_parse_error(
@@ -2222,11 +2222,11 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                     }
                 }
             }
-            (ApmState::Inertia, KVNToken::Comment(text)) => blk_comments.push(text),
-            (ApmState::Inertia, KVNToken::Empty) => {}
+            (APMState::Inertia, KVNToken::Comment(text)) => blk_comments.push(text),
+            (APMState::Inertia, KVNToken::Empty) => {}
 
             // ===== MANEUVER BLOCK =====
-            (ApmState::Man, KVNToken::KeyValue { key, value }) => {
+            (APMState::Man, KVNToken::KeyValue { key, value }) => {
                 let val = strip_units(&value);
                 match key.as_str() {
                     "MAN_EPOCH_START" => {
@@ -2273,7 +2273,7 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                         }
                         man.comments = std::mem::take(&mut blk_comments);
                         maneuvers.push(man);
-                        state = ApmState::Data;
+                        state = APMState::Data;
                     }
                     _ => {
                         return Err(ccsds_parse_error(
@@ -2283,8 +2283,8 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
                     }
                 }
             }
-            (ApmState::Man, KVNToken::Comment(text)) => blk_comments.push(text),
-            (ApmState::Man, KVNToken::Empty) => {}
+            (APMState::Man, KVNToken::Comment(text)) => blk_comments.push(text),
+            (APMState::Man, KVNToken::Empty) => {}
 
             // Catch unexpected tokens
             (st, token) => {
@@ -2300,13 +2300,13 @@ pub fn parse_apm(content: &str) -> Result<APM, BraheError> {
     // block (a `*_START` without a matching `*_STOP`) is malformed per
     // 504.0-B-2 §3.2.4.3.
     let unterminated_block = match state {
-        ApmState::Quat => Some("QUAT"),
-        ApmState::Euler => Some("EULER"),
-        ApmState::AngVel => Some("ANGVEL"),
-        ApmState::Spin => Some("SPIN"),
-        ApmState::Inertia => Some("INERTIA"),
-        ApmState::Man => Some("MAN"),
-        ApmState::Header | ApmState::Metadata | ApmState::Data => None,
+        APMState::Quat => Some("QUAT"),
+        APMState::Euler => Some("EULER"),
+        APMState::AngVel => Some("ANGVEL"),
+        APMState::Spin => Some("SPIN"),
+        APMState::Inertia => Some("INERTIA"),
+        APMState::Man => Some("MAN"),
+        APMState::Header | APMState::Metadata | APMState::Data => None,
     };
     if let Some(block) = unterminated_block {
         return Err(ccsds_parse_error(

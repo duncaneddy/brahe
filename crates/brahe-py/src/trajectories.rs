@@ -4167,6 +4167,10 @@ impl PyAttitudeTrajectory {
     ///
     /// Returns:
     ///     Quaternion: Unit quaternion attitude, frame A to frame B, at epoch
+    ///
+    /// Raises:
+    ///     BraheError: If the epoch lies outside the trajectory's coverage, or the
+    ///         trajectory is empty
     fn quaternion(&self, epoch: PyEpoch) -> PyResult<PyQuaternion> {
         Ok(PyQuaternion { obj: self.trajectory.quaternion(epoch.obj)? })
     }
@@ -4205,6 +4209,10 @@ impl PyAttitudeTrajectory {
     ///
     /// Returns:
     ///     EulerAngle: Euler angles (radians) at epoch in the requested sequence
+    ///
+    /// Raises:
+    ///     BraheError: If the epoch lies outside the trajectory's coverage, or the
+    ///         trajectory is empty
     fn euler_angle(&self, epoch: PyEpoch, order: &PyEulerAngleOrder) -> PyResult<PyEulerAngle> {
         Ok(PyEulerAngle { obj: self.trajectory.euler_angle(epoch.obj, order.value)? })
     }
@@ -4216,6 +4224,10 @@ impl PyAttitudeTrajectory {
     ///
     /// Returns:
     ///     EulerAxis: Unit rotation axis and angle (radians) at epoch
+    ///
+    /// Raises:
+    ///     BraheError: If the epoch lies outside the trajectory's coverage, or the
+    ///         trajectory is empty
     fn euler_axis(&self, epoch: PyEpoch) -> PyResult<PyEulerAxis> {
         Ok(PyEulerAxis { obj: self.trajectory.euler_axis(epoch.obj)? })
     }
@@ -4227,6 +4239,10 @@ impl PyAttitudeTrajectory {
     ///
     /// Returns:
     ///     RotationMatrix: 3x3 direction cosine matrix at epoch
+    ///
+    /// Raises:
+    ///     BraheError: If the epoch lies outside the trajectory's coverage, or the
+    ///         trajectory is empty
     fn rotation_matrix(&self, epoch: PyEpoch) -> PyResult<PyRotationMatrix> {
         Ok(PyRotationMatrix { obj: self.trajectory.rotation_matrix(epoch.obj)? })
     }

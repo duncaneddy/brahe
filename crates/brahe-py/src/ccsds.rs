@@ -6600,6 +6600,11 @@ impl PyAEMAttitudeState {
 ///     interpolation_degree (int | None): Interpolation polynomial degree; required iff
 ///         interpolation_method is present
 ///
+/// Raises:
+///     ValueError: If `time_system` does not name a CCSDS time system.
+///     BraheError: If `attitude_type` or `interpolation_method` does not name a value the
+///         CCSDS ADM defines.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh

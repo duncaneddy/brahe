@@ -598,32 +598,33 @@ impl CelestrakQuery {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     // -- Constructor tests --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_gp_constructor() {
         let query = CelestrakQuery::gp();
         assert_eq!(query.query_type(), CelestrakQueryType::GP);
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sup_gp_constructor() {
         let query = CelestrakQuery::sup_gp();
         assert_eq!(query.query_type(), CelestrakQueryType::SupGP);
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_constructor() {
         let query = CelestrakQuery::satcat();
         assert_eq!(query.query_type(), CelestrakQueryType::SATCAT);
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_new_constructor() {
         let query = CelestrakQuery::new(CelestrakQueryType::GP);
         assert_eq!(query.query_type(), CelestrakQueryType::GP);
@@ -632,35 +633,35 @@ mod tests {
     // -- GP URL building tests --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_gp_by_group() {
         let query = CelestrakQuery::gp().group("stations");
         assert_eq!(query.build_url(), "GROUP=stations");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_gp_by_catnr() {
         let query = CelestrakQuery::gp().catnr(25544);
         assert_eq!(query.build_url(), "CATNR=25544");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_gp_by_intdes() {
         let query = CelestrakQuery::gp().intdes("1998-067A");
         assert_eq!(query.build_url(), "INTDES=1998-067A");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_gp_by_name() {
         let query = CelestrakQuery::gp().name_search("ISS");
         assert_eq!(query.build_url(), "NAME=ISS");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_gp_with_format() {
         let query = CelestrakQuery::gp()
             .group("stations")
@@ -669,7 +670,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_gp_with_tle_format() {
         let query = CelestrakQuery::gp()
             .group("stations")
@@ -678,14 +679,14 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_gp_with_special() {
         let query = CelestrakQuery::gp().special("all");
         assert_eq!(query.build_url(), "SPECIAL=all");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_gp_multiple_params() {
         let query = CelestrakQuery::gp()
             .group("stations")
@@ -697,28 +698,28 @@ mod tests {
     // -- SupGP URL building tests --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sup_gp_by_source() {
         let query = CelestrakQuery::sup_gp().source(SupGPSource::SpaceX);
         assert_eq!(query.build_url(), "SOURCE=spacex");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sup_gp_by_file() {
         let query = CelestrakQuery::sup_gp().file("starlink");
         assert_eq!(query.build_url(), "FILE=starlink");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sup_gp_by_catnr() {
         let query = CelestrakQuery::sup_gp().catnr(25544);
         assert_eq!(query.build_url(), "CATNR=25544");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sup_gp_with_source_and_format() {
         let query = CelestrakQuery::sup_gp()
             .source(SupGPSource::Starlink)
@@ -727,7 +728,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sup_gp_with_name() {
         let query = CelestrakQuery::sup_gp().name_search("STARLINK-1234");
         assert_eq!(query.build_url(), "NAME=STARLINK-1234");
@@ -736,42 +737,42 @@ mod tests {
     // -- SATCAT URL building tests --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_by_group() {
         let query = CelestrakQuery::satcat().group("stations");
         assert_eq!(query.build_url(), "GROUP=stations");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_active() {
         let query = CelestrakQuery::satcat().active(true);
         assert_eq!(query.build_url(), "ACTIVE=Y");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_payloads() {
         let query = CelestrakQuery::satcat().payloads(true);
         assert_eq!(query.build_url(), "PAYLOADS=Y");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_on_orbit() {
         let query = CelestrakQuery::satcat().on_orbit(true);
         assert_eq!(query.build_url(), "ONORBIT=Y");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_with_max() {
         let query = CelestrakQuery::satcat().active(true).max(100);
         assert_eq!(query.build_url(), "ACTIVE=Y&MAX=100");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_multiple_flags() {
         let query = CelestrakQuery::satcat()
             .active(true)
@@ -785,7 +786,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_false_flags_not_in_url() {
         let query = CelestrakQuery::satcat()
             .active(false)
@@ -795,7 +796,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_satcat_by_name() {
         let query = CelestrakQuery::satcat()
             .name_search("ISS")
@@ -806,7 +807,7 @@ mod tests {
     // -- Client-side parameter tests --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_client_side_filter() {
         let query = CelestrakQuery::gp()
             .group("stations")
@@ -820,7 +821,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_client_side_order_by() {
         let query = CelestrakQuery::gp()
             .group("stations")
@@ -832,7 +833,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_client_side_limit() {
         let query = CelestrakQuery::gp().group("stations").limit(10);
         assert!(query.has_client_side_processing());
@@ -840,14 +841,14 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_no_client_side_processing() {
         let query = CelestrakQuery::gp().group("stations");
         assert!(!query.has_client_side_processing());
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_multiple_client_side_filters() {
         let query = CelestrakQuery::gp()
             .group("active")
@@ -860,14 +861,14 @@ mod tests {
     // -- Accessor tests --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_output_format_accessor_none() {
         let query = CelestrakQuery::gp();
         assert_eq!(query.output_format(), None);
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_output_format_accessor_set() {
         let query = CelestrakQuery::gp().format(CelestrakOutputFormat::Json);
         assert_eq!(query.output_format(), Some(CelestrakOutputFormat::Json));
@@ -876,7 +877,7 @@ mod tests {
     // -- Builder immutability tests --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_builder_immutability() {
         let base = CelestrakQuery::gp().group("stations");
         let extended = base.clone().filter("INCLINATION", ">50");
@@ -891,7 +892,7 @@ mod tests {
     // -- Clone tests --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_clone() {
         let query = CelestrakQuery::gp()
             .group("stations")
@@ -916,7 +917,7 @@ mod tests {
     // -- All format tests --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_all_output_formats() {
         let formats = vec![
             (CelestrakOutputFormat::Tle, "FORMAT=TLE"),
@@ -938,7 +939,7 @@ mod tests {
     // -- Empty query test --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_empty_query() {
         let query = CelestrakQuery::gp();
         assert_eq!(query.build_url(), "");
@@ -947,7 +948,7 @@ mod tests {
     // -- Debug test --
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_query_debug() {
         let query = CelestrakQuery::gp().group("stations");
         let debug = format!("{:?}", query);
@@ -965,7 +966,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_local_selector_single_selectors() {
         assert_eq!(
             CelestrakQuery::gp().catnr(25544).local_selector(),
@@ -982,7 +983,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_local_selector_allows_format_and_client_side_processing() {
         let query = CelestrakQuery::gp()
             .catnr(25544)
@@ -994,7 +995,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_local_selector_none_for_group_special_or_combined() {
         assert_eq!(
             CelestrakQuery::gp().group("stations").local_selector(),
@@ -1019,7 +1020,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_local_selector_none_for_sup_gp_and_satcat() {
         assert_eq!(CelestrakQuery::sup_gp().catnr(25544).local_selector(), None);
         assert_eq!(CelestrakQuery::satcat().catnr(25544).local_selector(), None);
@@ -1032,7 +1033,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_local_selector_matches_records() {
         let iss = record("ISS (ZARYA)", "1998-067A", 25544);
         let nisar = record("NISAR", "2025-158A", 65053);
@@ -1049,7 +1050,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_local_selector_missing_fields_never_match() {
         let bare: GPRecord = serde_json::from_str("{}").unwrap();
         assert!(!LocalSelector::Catnr(1).matches(&bare));

@@ -551,15 +551,21 @@ format-check: _setup
     cargo fmt -- --check
     uv run ruff format --check
 
-# Run linters (clippy + ruff)
+# Run linters (clippy + ruff + test labels)
 lint: _setup
     cargo clippy --all-targets --all-features -- -D warnings
     uv run ruff check
+    uv run scripts/check_test_labels.py
 
 # Run linters with auto-fix
 lint-fix: _setup
     cargo clippy --all-targets --all-features --fix --allow-dirty -- -D warnings
     uv run ruff check --fix
+    uv run scripts/check_test_labels.py
+
+# Check every Rust test carries #[serial] or #[parallel]
+check-test-labels: _setup
+    uv run scripts/check_test_labels.py
 
 # ───── Documentation ─────
 

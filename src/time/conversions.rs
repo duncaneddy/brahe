@@ -628,6 +628,7 @@ pub fn time_system_offset_for_datetime(
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
 
     use crate::constants::*;
     use crate::time::*;
@@ -636,16 +637,19 @@ mod tests {
     use super::*;
 
     #[test]
+    #[parallel]
     fn test_datetime_to_jd() {
         assert_eq!(datetime_to_jd(2000, 1, 1, 12, 0, 0.0, 0.0), 2451545.0);
     }
 
     #[test]
+    #[parallel]
     fn test_datetime_to_mjd() {
         assert_eq!(datetime_to_mjd(2000, 1, 1, 12, 0, 0.0, 0.0), 51544.5);
     }
 
     #[test]
+    #[parallel]
     fn test_jd_to_datetime() {
         let (year, month, day, hour, minute, second, nanosecond) = jd_to_datetime(2451545.0);
 
@@ -659,6 +663,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_mjd_to_datetime() {
         let (year, month, day, hour, minute, second, nanosecond) = mjd_to_datetime(51544.5);
 
@@ -672,7 +677,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_time_system_offset() {
         setup_global_test_eop();
 
@@ -841,7 +846,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_time_system_offset_tdb_tcg() {
         setup_global_test_eop();
 
@@ -884,7 +889,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_time_system_offset_tcb() {
         setup_global_test_eop();
 
@@ -921,7 +926,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_time_system_offset_for_mjd() {
         setup_global_test_eop();
 
@@ -1053,7 +1058,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_time_system_offset_for_jd() {
         setup_global_test_eop();
 
@@ -1185,7 +1190,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_time_system_offset_for_datetime() {
         setup_global_test_eop();
 

@@ -203,8 +203,10 @@ pub(crate) fn num_coefficients(n_max: usize) -> usize {
 mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
 
     #[test]
+    #[parallel]
     fn test_legendre_p00_is_one() {
         // P[0][0] = 1.0 for any theta
         for &theta_deg in &[0.1_f64, 30.0, 45.0, 60.0, 89.9, 179.9] {
@@ -215,6 +217,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_legendre_p10_is_cos_theta() {
         // After Schmidt normalization, P[1][0] = cos(theta)
         for &theta_deg in &[10.0_f64, 30.0, 45.0, 60.0, 80.0, 150.0] {
@@ -225,6 +228,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_legendre_p11_is_sin_theta() {
         // P[1][1] = sin(theta) (Schmidt semi-normalized)
         for &theta_deg in &[10.0_f64, 30.0, 45.0, 60.0, 80.0, 150.0] {
@@ -235,6 +239,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_legendre_p20() {
         // Verify P[2][0] at theta = 60 degrees using recursion math.
         // From recursion (before normalization): P[2][0] = cos*P[1][0] - K20*P[0][0]
@@ -254,6 +259,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_nm_to_idx_roundtrip() {
         // Verify index mapping
         assert_eq!(nm_to_idx(1, 0), 0);
@@ -265,6 +271,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_num_coefficients() {
         // n_max=1: (1,0), (1,1) = 2 coefficients
         assert_eq!(num_coefficients(1), 2);

@@ -347,8 +347,10 @@ mod tests {
     use crate::time::TimeSystem;
     use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
 
     #[test]
+    #[parallel]
     fn test_parse_shc_basic() {
         let coeffs = &*IGRF_COEFFICIENTS;
         assert_eq!(coeffs.n_max, 13);
@@ -376,7 +378,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_igrf_geodetic_enz_known_values() {
         setup_global_test_eop();
 
@@ -404,7 +406,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_igrf_epoch_out_of_range() {
         setup_global_test_eop();
 
@@ -419,7 +421,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_igrf_radians_input() {
         setup_global_test_eop();
 
@@ -438,7 +440,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_igrf_ecef_enz_consistency() {
         setup_global_test_eop();
 

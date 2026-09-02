@@ -548,6 +548,7 @@ impl EarthOrientationProvider for CachingEOPProvider {
 mod tests {
     use super::*;
     use crate::utils::testing::NetworkModeGuard;
+    use serial_test::{parallel, serial};
     use std::env;
     use std::fs::File;
     use std::thread;
@@ -555,7 +556,7 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_check_file_age_nonexistent() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("nonexistent.txt");
@@ -565,7 +566,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_check_file_age_current() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("current.txt");
@@ -579,7 +580,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_check_file_age_stale() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("stale.txt");
@@ -596,7 +597,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_new_offline_serves_stale_file_without_download() {
         let _mode = NetworkModeGuard::set(Some("offline"));
         let dir = tempdir().unwrap();
@@ -631,7 +632,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_new_offline_strict_stale_file_errors() {
         let _mode = NetworkModeGuard::set(Some("offline-strict"));
         let dir = tempdir().unwrap();
@@ -657,7 +658,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_new_with_existing_file() {
         // Copy test EOP file to temporary location
         let dir = tempdir().unwrap();
@@ -685,7 +686,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_new_seeds_from_bundled_when_missing_standard() {
         // A missing cache file should be seeded from the compiled-in bundled data,
         // allowing initialization to succeed offline (no network required).
@@ -712,7 +713,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_new_seeds_from_bundled_when_missing_c04() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("seeded_c04.txt");
@@ -735,7 +736,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_new_creates_missing_file() {
         // This test requires network access and is marked to skip in normal test runs
         // Uncomment the line below to run it manually
@@ -758,7 +759,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_new_with_default_path() {
         // This test requires network access and writes to default cache directory
         let provider = CachingEOPProvider::new(
@@ -782,7 +783,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_refresh() {
         // Copy test EOP file to temporary location
         let dir = tempdir().unwrap();
@@ -814,7 +815,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_eop_provider_delegation() {
         // Test that EarthOrientationProvider methods are properly delegated
         let dir = tempdir().unwrap();
@@ -860,7 +861,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_new_with_c04_type() {
         // Test creating provider with C04 type
         let dir = tempdir().unwrap();
@@ -887,7 +888,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_new_with_unknown_type_error() {
         // Test that creating provider with Unknown type returns error
         let dir = tempdir().unwrap();
@@ -906,7 +907,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_file_epoch() {
         // Test file_epoch returns correct timestamp
         let dir = tempdir().unwrap();
@@ -938,7 +939,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_file_age() {
         // Test file_age returns correct age
         let dir = tempdir().unwrap();
@@ -971,7 +972,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_mjd_last_lod_delegation() {
         // Test that mjd_last_lod delegates to FileEOPProvider
         let dir = tempdir().unwrap();
@@ -997,7 +998,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_mjd_last_dxdy_delegation() {
         // Test that mjd_last_dxdy delegates to FileEOPProvider
         let dir = tempdir().unwrap();
@@ -1023,7 +1024,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_get_eop_method() {
         // Test that get_eop works correctly with auto_refresh
         let dir = tempdir().unwrap();

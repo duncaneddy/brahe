@@ -1390,8 +1390,10 @@ impl CDM {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
+    #[parallel]
     fn test_cdm_new() {
         let sv1 = CDMStateVector::new([7000e3, 0.0, 0.0], [0.0, 7500.0, 0.0]);
         let sv2 = CDMStateVector::new([7001e3, 0.0, 0.0], [0.0, -7500.0, 0.0]);
@@ -1449,6 +1451,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdmobjectmetadata_builder_equivalence() {
         let from_builder = CDMObjectMetadata::builder()
             .object("OBJECT1")
@@ -1479,6 +1482,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdmobjectmetadata_builder_optional_fields() {
         let metadata = CDMObjectMetadata::builder()
             .object("OBJECT1")
@@ -1504,6 +1508,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdmobjectmetadata_builder_missing_fields() {
         let err = CDMObjectMetadata::builder()
             .object("OBJECT1")
@@ -1515,6 +1520,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdmobjectmetadata_builder_missing_all_fields() {
         // An untouched builder must report every required field, including
         // `object` itself.
@@ -1543,6 +1549,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdmobjectmetadata_builder_all_optional_setters() {
         let metadata = required_metadata_builder()
             .ephemeris_name("NONE")
@@ -1608,6 +1615,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdmobjectmetadata_builder_odm_requires_msg_link() {
         let err = required_metadata_builder()
             .ephemeris_name("ODM")
@@ -1618,6 +1626,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdmobjectmetadata_builder_odm_with_msg_link_succeeds() {
         let metadata = required_metadata_builder()
             .ephemeris_name("ODM")
@@ -1632,6 +1641,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdmobjectmetadata_builder_alt_cov_type_requires_ref_frame() {
         let err = required_metadata_builder()
             .ephemeris_name("NONE")
@@ -1643,6 +1653,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdmobjectmetadata_builder_alt_cov_type_with_ref_frame_succeeds() {
         let metadata = required_metadata_builder()
             .ephemeris_name("NONE")
@@ -1655,6 +1666,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdm_kvn_parse_example1() {
         let cdm = CDM::from_file("test_assets/ccsds/cdm/CDMExample1.txt").unwrap();
 
@@ -1708,6 +1720,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdm_kvn_parse_example2_extended_cov() {
         let cdm = CDM::from_file("test_assets/ccsds/cdm/CDMExample2.txt").unwrap();
 
@@ -1765,6 +1778,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdm_kvn_parse_issue940_v2() {
         let cdm = CDM::from_file("test_assets/ccsds/cdm/CDMExample_issue_940.txt").unwrap();
 
@@ -1830,12 +1844,14 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdm_kvn_parse_issue942_maneuverable_na() {
         let cdm = CDM::from_file("test_assets/ccsds/cdm/CDMExample_issue942.txt").unwrap();
         assert_eq!(cdm.object1.metadata.maneuverable, "N/A");
     }
 
     #[test]
+    #[parallel]
     fn test_cdm_kvn_parse_alfano01() {
         let cdm = CDM::from_file("test_assets/ccsds/cdm/AlfanoTestCase01.cdm").unwrap();
         assert!(cdm.miss_distance() > 0.0);
@@ -1850,6 +1866,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdm_kvn_parse_real_world() {
         let cdm = CDM::from_file("test_assets/ccsds/cdm/ION_SCV8_vs_STARLINK_1233.txt").unwrap();
         assert!(cdm.miss_distance() > 0.0);
@@ -1858,6 +1875,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdm_kvn_missing_tca() {
         let result = CDM::from_file("test_assets/ccsds/cdm/CDM-missing-TCA.txt");
         assert!(result.is_err());
@@ -1870,12 +1888,14 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdm_kvn_missing_obj2_state() {
         let result = CDM::from_file("test_assets/ccsds/cdm/CDM-missing-object2-state-vector.txt");
         assert!(result.is_err());
     }
 
     #[test]
+    #[parallel]
     fn test_cdm_kvn_round_trip_example1() {
         let cdm1 = CDM::from_file("test_assets/ccsds/cdm/CDMExample1.txt").unwrap();
         let kvn = cdm1.to_string(CCSDSFormat::KVN).unwrap();
@@ -1928,6 +1948,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdm_xml_parse_example1() {
         let cdm = CDM::from_file("test_assets/ccsds/cdm/CDMExample1.xml").unwrap();
 
@@ -1956,6 +1977,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdm_xml_round_trip() {
         let cdm1 = CDM::from_file("test_assets/ccsds/cdm/CDMExample1.xml").unwrap();
         let xml = cdm1.to_string(CCSDSFormat::XML).unwrap();
@@ -1970,6 +1992,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdm_json_round_trip() {
         let cdm1 = CDM::from_file("test_assets/ccsds/cdm/CDMExample1.txt").unwrap();
         let json = cdm1.to_string(CCSDSFormat::JSON).unwrap();
@@ -1989,6 +2012,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdm_kvn_to_xml_cross_format() {
         // Parse KVN
         let cdm_kvn = CDM::from_file("test_assets/ccsds/cdm/CDMExample1.txt").unwrap();
@@ -2007,6 +2031,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdm_kvn_round_trip_example2() {
         let cdm1 = CDM::from_file("test_assets/ccsds/cdm/CDMExample2.txt").unwrap();
         let kvn = cdm1.to_string(CCSDSFormat::KVN).unwrap();
@@ -2036,6 +2061,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdm_xml_round_trip_issue940_all_fields() {
         // CDMExample_issue_940.txt has nearly all optional fields populated
         let cdm1 = CDM::from_file("test_assets/ccsds/cdm/CDMExample_issue_940.txt").unwrap();
@@ -2155,6 +2181,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdm_rtn_covariance_6x6() {
         let mut m6 = SMatrix::<f64, 6, 6>::zeros();
         m6[(0, 0)] = 41.42;
@@ -2316,6 +2343,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdm_kvn_full_round_trip() {
         // CDMExample_issue_940 has the most comprehensive field coverage
         let cdm1 = CDM::from_file("test_assets/ccsds/cdm/CDMExample_issue_940.txt").unwrap();
@@ -2325,6 +2353,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdm_xml_full_round_trip() {
         let cdm1 = CDM::from_file("test_assets/ccsds/cdm/CDMExample_issue_940.txt").unwrap();
         let xml = cdm1.to_string(CCSDSFormat::XML).unwrap();
@@ -2333,6 +2362,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_cdm_json_full_round_trip() {
         // Use CDMExample2 for JSON round-trip (the JSON writer does not yet
         // emit all v2.0-only fields like OD/additional parameters)

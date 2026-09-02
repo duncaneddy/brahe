@@ -785,11 +785,13 @@ pub fn anomaly_mean_to_true(
 mod tests {
     use crate::constants::{DEGREES, GM_EARTH, R_EARTH, R_MOON, RADIANS};
     use crate::{GM_SUN, R_SUN, constants, orbits::*};
+    use serial_test::parallel;
     use std::f64::consts::PI;
 
     use approx::{assert_abs_diff_eq, assert_abs_diff_ne};
 
     #[test]
+    #[parallel]
     fn test_orbital_period() {
         assert_abs_diff_eq!(
             orbital_period(R_EARTH + 500e3),
@@ -799,6 +801,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_orbital_period_general() {
         assert_abs_diff_eq!(
             orbital_period_general(R_EARTH + 500e3, GM_EARTH),
@@ -808,6 +811,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_orbital_period_from_state_circular() {
         // Create a circular orbit at 500 km altitude
         // For a circular orbit: v = sqrt(GM/r)
@@ -827,6 +831,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_orbital_period_from_state_elliptical() {
         // Create an elliptical orbit with known semi-major axis
         let a = R_EARTH + 500e3;
@@ -848,6 +853,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_orbital_period_from_state_different_gm() {
         // Test with lunar orbit
         let r = R_MOON + 100e3;
@@ -862,6 +868,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_mean_motion() {
         let n = mean_motion(R_EARTH + 500e3, RADIANS);
         assert_abs_diff_eq!(n, 0.0011067836148773837, epsilon = 1e-12);
@@ -871,6 +878,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_mean_motion_general() {
         let n = mean_motion_general(R_EARTH + 500e3, GM_EARTH, RADIANS);
         assert_abs_diff_eq!(n, 0.0011067836148773837, epsilon = 1e-12);
@@ -892,6 +900,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_semimajor_axis() {
         let n = semimajor_axis(0.0011067836148773837, RADIANS);
         assert_abs_diff_eq!(n, R_EARTH + 500e3, epsilon = 1e-8);
@@ -901,6 +910,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_semimajor_axis_general() {
         let n = semimajor_axis_general(0.0011067836148773837, GM_EARTH, RADIANS);
         assert_abs_diff_eq!(n, R_EARTH + 500e3, epsilon = 1e-8);
@@ -916,6 +926,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_orbital_period_from_semimajor_axis() {
         let period = orbital_period_general(R_EARTH + 500e3, GM_EARTH);
         let a = semimajor_axis_from_orbital_period_general(period, GM_EARTH);
@@ -923,6 +934,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_orbital_period_from_semimajor_axis_general() {
         let period = orbital_period_general(R_SUN + 1000e3, GM_SUN);
         let a = semimajor_axis_from_orbital_period_general(period, GM_SUN);
@@ -930,18 +942,21 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_perigee_velocity() {
         let vp = perigee_velocity(R_EARTH + 500e3, 0.001);
         assert_abs_diff_eq!(vp, 7620.224976404526, epsilon = 1e-12);
     }
 
     #[test]
+    #[parallel]
     fn test_periapsis_velocity() {
         let vp = periapsis_velocity(R_MOON + 500e3, 0.001, constants::GM_MOON);
         assert_abs_diff_eq!(vp, 1481.5842246768275, epsilon = 1e-12);
     }
 
     #[test]
+    #[parallel]
     fn test_periapsis_distance() {
         let rp = periapsis_distance(R_EARTH + 500e3, 0.0);
         assert_eq!(rp, R_EARTH + 500e3);
@@ -951,18 +966,21 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_apogee_velocity() {
         let va = apogee_velocity(R_EARTH + 500e3, 0.001);
         assert_abs_diff_eq!(va, 7604.999751676446, epsilon = 1e-12);
     }
 
     #[test]
+    #[parallel]
     fn test_apoapsis_velocity() {
         let va = apoapsis_velocity(R_MOON + 500e3, 0.001, constants::GM_MOON);
         assert_abs_diff_eq!(va, 1478.624016435715, epsilon = 1e-12);
     }
 
     #[test]
+    #[parallel]
     fn test_apoapsis_distance() {
         let rp = apoapsis_distance(R_EARTH + 500e3, 0.0);
         assert_eq!(rp, R_EARTH + 500e3);
@@ -972,18 +990,21 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_sun_synchronous_inclination() {
         let inc = sun_synchronous_inclination(R_EARTH + 500e3, 0.001, DEGREES);
         assert_abs_diff_eq!(inc, 97.40179532653737, epsilon = 1e-12);
     }
 
     #[test]
+    #[parallel]
     fn test_geo_sma() {
         let a_geo = geo_sma();
         assert_abs_diff_eq!(a_geo, 42164172.0, epsilon = 1.0);
     }
 
     #[test]
+    #[parallel]
     fn test_anomaly_eccentric_to_mean() {
         // 0 degrees
         let m = anomaly_eccentric_to_mean(0.0, 0.0, RADIANS);
@@ -1008,6 +1029,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_anomaly_mean_to_eccentric() {
         // 0 degrees
         let e = anomaly_mean_to_eccentric(0.0, 0.0, RADIANS).unwrap();
@@ -1032,6 +1054,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_anm_mean_ecc() {
         // Test to confirm the bijectivity of the mean and eccentric anomaly
         for j in 0..9 {
@@ -1069,6 +1092,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_anomaly_true_to_eccentric() {
         // 0 degrees
         let anm_ecc = anomaly_true_to_eccentric(0.0, 0.0, RADIANS);
@@ -1099,6 +1123,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_anomaly_eccentric_to_true() {
         // 0 degrees
         let anm_true = anomaly_eccentric_to_true(0.0, 0.0, RADIANS);
@@ -1129,6 +1154,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_anomaly_mean_eccentric() {
         // Test to confirm the bijectivity of the mean and eccentric anomaly
         for j in 0..9 {
@@ -1165,6 +1191,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_anomaly_true_to_mean() {
         // 0 degrees
         let m = anomaly_true_to_mean(0.0, 0.0, RADIANS);
@@ -1189,6 +1216,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_anomaly_mean_to_true() {
         // 0 degrees
         let e = anomaly_mean_to_true(0.0, 0.0, RADIANS).unwrap();
@@ -1213,6 +1241,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_anm_mean_true() {
         // Test to confirm the bijectivity of the mean and eccentric anomaly
         for j in 0..9 {
@@ -1246,6 +1275,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_periapsis_altitude() {
         // Test with Earth
         let a = R_EARTH + 500e3; // 500 km mean altitude orbit
@@ -1261,6 +1291,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_perigee_altitude() {
         // Test Earth-specific function
         let a = R_EARTH + 420e3; // ISS-like orbit (420 km mean altitude)
@@ -1276,6 +1307,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_apoapsis_altitude() {
         // Test with Moon
         let a = R_MOON + 100e3; // 100 km altitude orbit
@@ -1291,6 +1323,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_apogee_altitude() {
         // Test Earth-specific function with highly eccentric orbit (Molniya-type)
         let a = 26554e3; // ~26554 km semi-major axis
@@ -1306,6 +1339,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_altitude_symmetry() {
         // Test that periapsis and apoapsis are symmetric around semi-major axis
         let a = R_EARTH + 1000e3;
@@ -1321,6 +1355,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_circular_orbit_altitudes() {
         // For circular orbit (e=0), perigee and apogee should be equal
         let a = R_EARTH + 600e3;

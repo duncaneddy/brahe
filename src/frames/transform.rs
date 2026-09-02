@@ -1416,6 +1416,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_synodic_frame_parse_and_display() {
         for (s, f) in [
             ("EMR", CelestialFrame::EMR),
@@ -1481,6 +1482,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_celestial_frame_from_str_aliases() {
         assert_eq!(
             "ECI".parse::<CelestialFrame>().unwrap(),
@@ -1505,6 +1507,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_celestial_frame_from_str_rejects_parameterized_variants() {
         // The generic variants' own Display output is not a valid FromStr
         // input -- they must be constructed directly, per the FromStr
@@ -1535,6 +1538,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_generic_variants_equal_named() {
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let a = rotation_frame_to_frame(CelestialFrame::MCI, CelestialFrame::MCMF, epc).unwrap();
@@ -1552,6 +1556,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rotation_frame_to_frame_same_frame_is_identity_even_for_unsupported_body() {
         // Rotation from a frame to itself is definitionally the identity,
         // regardless of whether the underlying rotation model supports the
@@ -1602,6 +1607,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_celestial_frame_display() {
         assert_eq!(CelestialFrame::GCRF.to_string(), "GCRF");
         assert_eq!(CelestialFrame::LFPA.to_string(), "LFPA");
@@ -1624,6 +1630,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_celestial_frame_display_from_str_roundtrip() {
         let frames = [
             CelestialFrame::GCRF,
@@ -1643,6 +1650,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_celestial_frame_center_naif_id() {
         assert_eq!(CelestialFrame::GCRF.center_naif_id(), 399);
         assert_eq!(CelestialFrame::ITRF.center_naif_id(), 399);
@@ -1667,6 +1675,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_celestial_frame_serde_roundtrip() {
         let frames = [
             CelestialFrame::GCRF,
@@ -1686,6 +1695,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_position_frame_to_frame_same_frame_is_identity() {
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let x = Vector3::new(1.0, 2.0, 3.0);
@@ -1695,7 +1705,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_position_frame_to_frame_matches_pairwise_gcrf_itrf() {
         setup_global_test_eop();
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -1773,6 +1783,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rotation_frame_to_frame_same_center_eme2000() {
         // GCRF <-> EME2000 is a same-center (Earth), EOP-free constant bias
         // rotation: rotation_frame_to_frame never touches SPK or EOP here.
@@ -1801,6 +1812,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_state_frame_to_frame_same_center_eme2000_no_spk() {
         // Same-center GCRF <-> EME2000 skips the translation step (no SPK) and
         // needs no EOP: the result is bit-identical to the pairwise transform.
@@ -1828,6 +1840,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_router_body_fixed_iau_same_center_no_kernels() {
         // BodyCenteredICRF(id) <-> BodyFixedIAU(id) is a same-center, kernel-free
         // rotation-only + transport-velocity path (IAU analytic model). Exercises
@@ -1853,6 +1866,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_router_errors_on_unsupported_iau_body() {
         // A non-identity path through an unsupported IAU body surfaces the
         // rotation-model lookup error (icrf_to_frame_dcm error propagation).
@@ -1878,6 +1892,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_celestial_frame_display_and_center_body_fixed_custom() {
         // The BodyFixedCustom Display and center_naif_id arms are not covered by
         // the other Display/center tests.

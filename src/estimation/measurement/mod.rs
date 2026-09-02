@@ -43,7 +43,7 @@ mod tests {
     use crate::utils::errors::BraheError;
     use approx::assert_abs_diff_eq;
     use nalgebra::{DMatrix, DVector};
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
 
     fn setup_global_test_eop() {
         let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
@@ -66,6 +66,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_inertial_position_predict() {
         let model = InertialPositionMeasurementModel::new(10.0);
         let state = test_state();
@@ -79,6 +80,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_inertial_position_jacobian() {
         let model = InertialPositionMeasurementModel::new(10.0);
         let state = test_state();
@@ -96,6 +98,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_inertial_position_noise_covariance() {
         let model = InertialPositionMeasurementModel::new(10.0);
         let r = model.noise_covariance();
@@ -105,6 +108,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_inertial_position_per_axis() {
         let model = InertialPositionMeasurementModel::new_per_axis(5.0, 10.0, 15.0);
         let r = model.noise_covariance();
@@ -114,6 +118,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_inertial_position_name_and_dim() {
         let model = InertialPositionMeasurementModel::new(10.0);
         assert_eq!(model.name(), "InertialPosition");
@@ -121,6 +126,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_inertial_position_analytical_jacobian_correctness() {
         let model = InertialPositionMeasurementModel::new(10.0);
         let state = test_state();
@@ -142,6 +148,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_inertial_velocity_predict() {
         let model = InertialVelocityMeasurementModel::new(0.1);
         let state = test_state();
@@ -155,6 +162,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_inertial_velocity_jacobian() {
         let model = InertialVelocityMeasurementModel::new(0.1);
         let state = test_state();
@@ -168,6 +176,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_inertial_velocity_name_and_dim() {
         let model = InertialVelocityMeasurementModel::new(0.1);
         assert_eq!(model.name(), "InertialVelocity");
@@ -179,6 +188,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_inertial_state_predict() {
         let model = InertialStateMeasurementModel::new(10.0, 0.1);
         let state = test_state();
@@ -191,6 +201,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_inertial_state_jacobian_is_identity() {
         let model = InertialStateMeasurementModel::new(10.0, 0.1);
         let state = test_state();
@@ -206,6 +217,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_inertial_state_noise_covariance() {
         let model = InertialStateMeasurementModel::new(10.0, 0.1);
         let r = model.noise_covariance();
@@ -215,6 +227,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_inertial_state_per_axis() {
         let model = InertialStateMeasurementModel::new_per_axis(5.0, 10.0, 15.0, 0.05, 0.1, 0.15);
         let r = model.noise_covariance();
@@ -223,6 +236,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_inertial_state_name_and_dim() {
         let model = InertialStateMeasurementModel::new(10.0, 0.1);
         assert_eq!(model.name(), "InertialState");
@@ -234,6 +248,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_inertial_position_extended_state() {
         let model = InertialPositionMeasurementModel::new(10.0);
         let state = DVector::from_vec(vec![6878.0e3, 100.0e3, 50.0e3, 0.0, 7612.0, 100.0, 1000.0]);
@@ -245,6 +260,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_inertial_position_state_too_short() {
         let model = InertialPositionMeasurementModel::new(10.0);
         let state = DVector::from_vec(vec![1.0, 2.0]);
@@ -253,6 +269,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_inertial_velocity_state_too_short() {
         let model = InertialVelocityMeasurementModel::new(0.1);
         let state = DVector::from_vec(vec![1.0, 2.0, 3.0]);
@@ -265,6 +282,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_default_jacobian_finite_difference() {
         struct RangeModel;
         impl MeasurementModel for RangeModel {
@@ -325,6 +343,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_gnss_position_name_and_dim() {
         let model = ECEFPositionMeasurementModel::new(5.0);
         assert_eq!(model.name(), "EcefPosition");
@@ -352,6 +371,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_gnss_state_name_and_dim() {
         let model = ECEFStateMeasurementModel::new(5.0, 0.05);
         assert_eq!(model.name(), "EcefState");
@@ -359,6 +379,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_gnss_velocity_name_and_dim() {
         let model = ECEFVelocityMeasurementModel::new(0.05);
         assert_eq!(model.name(), "EcefVelocity");
@@ -366,6 +387,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_gnss_position_noise() {
         let model = ECEFPositionMeasurementModel::new_per_axis(3.0, 5.0, 8.0);
         let r = model.noise_covariance();
@@ -375,6 +397,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_gnss_state_too_short() {
         let model = ECEFStateMeasurementModel::new(5.0, 0.05);
         let state = DVector::from_vec(vec![1.0, 2.0, 3.0]);
@@ -387,6 +410,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_inertial_position_from_covariance() {
         // Build a 3×3 covariance with off-diagonal terms
         let mut cov = DMatrix::zeros(3, 3);
@@ -406,12 +430,14 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_inertial_position_from_covariance_wrong_dim() {
         let cov = DMatrix::from_diagonal_element(6, 6, 100.0);
         assert!(InertialPositionMeasurementModel::from_covariance(cov).is_err());
     }
 
     #[test]
+    #[parallel]
     fn test_inertial_position_from_upper_triangular() {
         // [c00, c01, c02, c11, c12, c22]
         let model = InertialPositionMeasurementModel::from_upper_triangular(&[
@@ -427,6 +453,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_inertial_state_from_covariance() {
         let cov = DMatrix::from_diagonal_element(6, 6, 50.0);
         let model = InertialStateMeasurementModel::from_covariance(cov).unwrap();
@@ -438,12 +465,14 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_inertial_state_from_covariance_wrong_dim() {
         let cov = DMatrix::from_diagonal_element(3, 3, 100.0);
         assert!(InertialStateMeasurementModel::from_covariance(cov).is_err());
     }
 
     #[test]
+    #[parallel]
     fn test_ecef_position_from_covariance() {
         let mut cov = DMatrix::zeros(3, 3);
         cov[(0, 0)] = 25.0;
@@ -459,6 +488,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_ecef_state_from_upper_triangular() {
         // 6×6 → 21 elements, all diagonal
         let mut upper = vec![0.0; 21];

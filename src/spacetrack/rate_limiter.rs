@@ -164,8 +164,10 @@ impl RateLimiter {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
+    #[parallel]
     fn test_rate_limit_config_default() {
         let config = RateLimitConfig::default();
         assert_eq!(config.max_per_minute, 25);
@@ -173,6 +175,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rate_limit_config_disabled() {
         let config = RateLimitConfig::disabled();
         assert_eq!(config.max_per_minute, u32::MAX);
@@ -180,6 +183,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rate_limit_config_custom() {
         let config = RateLimitConfig {
             max_per_minute: 10,
@@ -190,6 +194,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rate_limit_config_clone() {
         let config = RateLimitConfig::default();
         let cloned = config.clone();
@@ -197,6 +202,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rate_limit_config_debug() {
         let config = RateLimitConfig::default();
         let debug = format!("{:?}", config);
@@ -205,6 +211,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rate_limit_config_equality() {
         let a = RateLimitConfig::default();
         let b = RateLimitConfig::default();
@@ -214,6 +221,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rate_limiter_acquire_within_limits() {
         let config = RateLimitConfig {
             max_per_minute: 5,
@@ -229,6 +237,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rate_limiter_acquire_at_minute_limit() {
         let config = RateLimitConfig {
             max_per_minute: 3,
@@ -249,6 +258,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rate_limiter_acquire_at_hour_limit() {
         let config = RateLimitConfig {
             max_per_minute: 100,
@@ -269,6 +279,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rate_limiter_disabled_no_wait() {
         let config = RateLimitConfig::disabled();
         let mut limiter = RateLimiter::new(config);
@@ -281,6 +292,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rate_limiter_records_future_timestamps() {
         let config = RateLimitConfig {
             max_per_minute: 2,
@@ -304,6 +316,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rate_limiter_minute_window_takes_precedence() {
         // Minute limit is tighter than hour limit in terms of burst
         let config = RateLimitConfig {

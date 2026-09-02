@@ -42,8 +42,10 @@ pub(crate) fn ccsds_missing_field(msg_type: &str, field: &str) -> BraheError {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
+    #[parallel]
     fn test_ccsds_parse_error() {
         let err = ccsds_parse_error("OEM", "invalid format version");
         match err {
@@ -55,6 +57,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_ccsds_missing_field() {
         let err = ccsds_missing_field("OPM", "OBJECT_NAME");
         match err {

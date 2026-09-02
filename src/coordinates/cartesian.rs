@@ -694,7 +694,7 @@ mod tests {
     use crate::utils::testing::setup_global_test_eop;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_state_koe_to_eci() {
         setup_global_test_eop();
 
@@ -720,7 +720,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_state_eci_to_koe() {
         setup_global_test_eop();
 
@@ -764,6 +764,7 @@ mod tests {
     #[case(26560e3, 0.74, 63.4, 250.0, 90.0, 180.0)]
     #[case(42164e3, 0.0, 0.0, 0.0, 0.0, 0.0)]
     #[case(7000e3, 0.5, 45.0, 120.0, 270.0, 300.0)]
+    #[parallel]
     fn test_round_trip_conversion_deg(
         #[case] a: f64,
         #[case] e: f64,
@@ -789,6 +790,7 @@ mod tests {
     #[case(26560e3, 0.74, 63.4 * DEG2RAD, 250.0 * DEG2RAD, 90.0 * DEG2RAD, 180.0 * DEG2RAD)]
     #[case(42164e3, 0.0, 0.0, 0.0, 0.0, 0.0)]
     #[case(7000e3, 0.5, 45.0 * DEG2RAD, 120.0 * DEG2RAD, 270.0 * DEG2RAD, 300.0 * DEG2RAD)]
+    #[parallel]
     fn test_round_trip_conversion_rad(
         #[case] a: f64,
         #[case] e: f64,
@@ -810,6 +812,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_state_koe_to_inertial_for_body_earth_is_exact() {
         // Earth (NAIF 399) must be a bit-identical passthrough of
         // state_koe_to_eci: GCRF is the Earth mean-equator inertial frame.
@@ -832,6 +835,7 @@ mod tests {
     #[rstest]
     #[case(crate::propagators::CentralBody::Moon, 1_838_000.0)]
     #[case(crate::propagators::CentralBody::Mars, 3_796_000.0)]
+    #[parallel]
     fn test_round_trip_conversion_for_body(
         #[case] central_body: crate::propagators::CentralBody,
         #[case] a: f64,
@@ -855,6 +859,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_polar_orbit_normal_perpendicular_to_mars_pole() {
         // The whole point of the for_body reference frame: an i=90 deg polar
         // orbit referenced to Mars's equator must have an orbit normal
@@ -890,6 +895,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_for_body_custom_with_fixed_frame() {
         // A Custom body whose naif_id is not in the IAU table but which carries
         // a fixed_frame resolves its pole through that frame (rule 3). Using
@@ -917,6 +923,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_for_body_error_cases() {
         // Barycenters (no GM, no pole) and Custom bodies without a fixed_frame
         // cannot define a mean-equator reference plane.

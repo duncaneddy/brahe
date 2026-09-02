@@ -237,6 +237,7 @@ pub trait SpaceWeatherProvider: Send + Sync {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     // Test implementation of SpaceWeatherProvider for testing the default is_empty() method
     struct MockSpaceWeatherProvider {
@@ -370,6 +371,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_space_weather_provider_is_empty_default() {
         // Test that default is_empty() returns true when len() == 0
         let empty_provider = MockSpaceWeatherProvider { len: 0 };
@@ -385,6 +387,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_mock_space_weather_provider_trait_methods() {
         // Test all SpaceWeatherProvider trait methods on MockSpaceWeatherProvider
         let provider = MockSpaceWeatherProvider { len: 5 };

@@ -137,7 +137,7 @@ mod tests {
     use crate::utils::testing::CacheRedirect;
     use base64::Engine;
     use httpmock::prelude::*;
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
 
     fn req() -> HorizonsSPKRequest {
         let t0 = Epoch::from_datetime(2015, 12, 1, 0, 0, 0.0, 0.0, TimeSystem::TDB);
@@ -229,6 +229,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_new_and_default_ctors() {
         let c = HorizonsClient::new();
         assert_eq!(c.base_url, DEFAULT_BASE_URL);

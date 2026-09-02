@@ -648,6 +648,7 @@ impl SPK {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
 
     use super::*;
     use crate::spice::segments::ChebyshevSegment;
@@ -694,6 +695,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_covering_segment_error_reports_union_and_candidate_count() {
         // Regression test: when a pair has multiple candidate segments with
         // disjoint coverage and none covers the queried epoch, the error
@@ -712,6 +714,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_chain_overlapping_segments_last_wins() {
         // SPICE precedence: when multiple same-pair segments cover an epoch,
         // the LAST one in input (load) order wins. Regression test for the
@@ -730,6 +733,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_resolve_chain_reversed_pair_last_loaded_wins() {
         // Segment A: 301 rel 3 (direct), loaded first, x = 100.0.
         // Segment B: 3 rel 301 (reversed), loaded second, x = -200.0 (i.e.
@@ -745,6 +749,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_resolve_chain_for_epoch_excludes_non_covering_segments() {
         // Direct A rel B [0,100] plus a two-hop A rel C [0,200] / C rel B
         // [0,200] path. At et=150 only the two-hop path covers, so the
@@ -774,6 +779,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_spk_position_falls_back_to_epoch_aware_chain() {
         // End-to-end SPK-level regression for the cached-chain-misses-
         // coverage defect: a direct segment [0,100] plus a two-hop
@@ -842,6 +848,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_spk_corrupt_record_error_propagates_end_to_end() {
         // End-to-end via SPK::position: a corrupt covering segment (record
         // RADIUS=0 -> invalid-RADIUS IoError) must surface its error, with
@@ -868,6 +875,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_fallback_guard_ignores_non_coverage_error_even_when_fallback_would_succeed() {
         // Discriminating regression test for the is_coverage_error gate in
         // `evaluate_with_epoch_fallback`: the cached chain is built from a
@@ -923,6 +931,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_spk_direct_segment_query() {
         let Some(spk) = load_de440s() else { return };
         // Moon rel EMB is a direct segment (301, 3)
@@ -934,6 +943,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_spk_two_hop_chain() {
         let Some(spk) = load_de440s() else { return };
         // Moon rel Earth = +(301 rel 3) - (399 rel 3)
@@ -946,6 +956,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_spk_three_hop_chain_sun_earth() {
         let Some(spk) = load_de440s() else { return };
         // Sun rel Earth = +(10 rel 0) - (3 rel 0) - (399 rel 3)
@@ -956,6 +967,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_spk_reverse_direction_is_negation() {
         let Some(spk) = load_de440s() else { return };
         let a = spk.position(399, 10, ET_2025).unwrap();
@@ -964,6 +976,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_spk_identity_is_zero() {
         let Some(spk) = load_de440s() else { return };
         let r = spk.position(399, 399, ET_2025).unwrap();
@@ -971,6 +984,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_spk_state_consistent_and_units() {
         let Some(spk) = load_de440s() else { return };
         let x = spk.state(301, 399, ET_2025).unwrap();
@@ -984,6 +998,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_spk_velocity_matches_finite_difference() {
         let Some(spk) = load_de440s() else { return };
         let h = 10.0; // seconds
@@ -996,6 +1011,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_spk_acceleration_finite_difference() {
         let Some(spk) = load_de440s() else { return };
         let et = 0.0;
@@ -1010,6 +1026,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_spk_no_path_error() {
         let Some(spk) = load_de440s() else { return };
         let err = spk.position(301, 12345, ET_2025).unwrap_err();
@@ -1018,6 +1035,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_spk_out_of_coverage_error() {
         let Some(spk) = load_de440s() else { return };
         // DE440s covers ~1849..2150; ET far outside
@@ -1026,6 +1044,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_spk_chain_cache_reused() {
         let Some(spk) = load_de440s() else { return };
         let _ = spk.position(10, 399, ET_2025).unwrap();
@@ -1037,6 +1056,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_spk_rejects_pck_file() {
         // A DAF/PCK ID word must be rejected by SPK::from_bytes. The DAF
         // must still be structurally valid (file record + one empty summary

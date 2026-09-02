@@ -343,8 +343,10 @@ impl DSensitivityProvider for DNumericalSensitivity {
 mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
 
     #[test]
+    #[parallel]
     fn test_dynamic_numerical_sensitivity() {
         // Dynamics: f(t, x, p) = p[0] * x
         let dynamics = |_t: f64,
@@ -367,6 +369,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dynamic_analytical_sensitivity() {
         // Analytical sensitivity: ∂f/∂p = x
         let sensitivity_fn = |_t: f64,
@@ -390,6 +393,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_static_numerical_sensitivity() {
         // Dynamics: f(t, x, p) = [p[0] * x[0], p[1] * x[1]]
         let dynamics = |_t: f64,
@@ -417,6 +421,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_static_analytical_sensitivity() {
         // Analytical sensitivity
         let sensitivity_fn = |_t: f64,
@@ -440,6 +445,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_forward_vs_central_difference() {
         // Simple quadratic dynamics to test difference methods
         let dynamics = |_t: f64,
@@ -465,6 +471,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_static_numerical_sensitivity_forward() {
         // Dynamics: f(t, x, p) = [p[0] * x[0], p[1] * x[1]]
         let dynamics = |_t: f64,
@@ -492,6 +499,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_static_numerical_sensitivity_backward() {
         // Dynamics: f(t, x, p) = [p[0] * x[0], p[1] * x[1]]
         let dynamics = |_t: f64,
@@ -519,6 +527,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_static_numerical_sensitivity_with_strategy_fixed() {
         // Dynamics: f(t, x, p) = [p[0] * x[0], p[1] * x[1]]
         let dynamics = |_t: f64,
@@ -547,6 +556,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_static_numerical_sensitivity_with_strategy_percentage() {
         // Dynamics: f(t, x, p) = [p[0] * x[0], p[1] * x[1]]
         let dynamics = |_t: f64,
@@ -575,6 +585,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dynamic_numerical_sensitivity_backward() {
         // Dynamics: f(t, x, p) = p[0] * x
         let dynamics = |_t: f64,
@@ -597,6 +608,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dynamic_numerical_sensitivity_with_strategy() {
         // Dynamics: f(t, x, p) = p[0] * x
         let dynamics = |_t: f64,
@@ -620,6 +632,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dynamic_numerical_sensitivity_fixed_perturbation() {
         // Test that Fixed perturbation strategy is used correctly
         // Dynamics: f(t, x, p) = p[0]^2 * x
@@ -642,6 +655,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dynamic_numerical_sensitivity_percentage_perturbation() {
         // Test that Percentage perturbation strategy is used correctly
         // Dynamics: f(t, x, p) = p[0]^2 * x
@@ -664,6 +678,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_static_forward_vs_central_vs_backward() {
         // Quadratic dynamics to compare difference methods
         let dynamics = |_t: f64,
@@ -692,6 +707,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dynamic_backward_vs_central() {
         // Quadratic dynamics to compare backward and central
         let dynamics = |_t: f64,

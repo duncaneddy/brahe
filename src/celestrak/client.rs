@@ -932,12 +932,12 @@ mod tests {
     use super::*;
     use crate::utils::testing::{CacheRedirect, NetworkModeGuard, setup_global_test_eop};
     use httpmock::prelude::*;
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
     use std::fs;
     use std::time::{Duration, SystemTime};
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_client_creation() {
         let client = CelestrakClient::new();
         assert_eq!(client.base_url, DEFAULT_BASE_URL);
@@ -945,7 +945,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_client_with_cache_age() {
         let client = CelestrakClient::with_cache_age(3600.0);
         assert_eq!(client.base_url, DEFAULT_BASE_URL);
@@ -953,21 +953,21 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_client_with_base_url() {
         let client = CelestrakClient::with_base_url("https://test.celestrak.org/");
         assert_eq!(client.base_url, "https://test.celestrak.org");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_client_with_base_url_no_trailing_slash() {
         let client = CelestrakClient::with_base_url("https://test.celestrak.org");
         assert_eq!(client.base_url, "https://test.celestrak.org");
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_client_with_base_url_and_cache_age() {
         let client =
             CelestrakClient::with_base_url_and_cache_age("https://test.celestrak.org", 1800.0);
@@ -976,14 +976,14 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_client_default() {
         let client = CelestrakClient::default();
         assert_eq!(client.base_url, DEFAULT_BASE_URL);
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_build_full_url_gp_with_params() {
         let client = CelestrakClient::new();
         let query = CelestrakQuery::gp().group("stations");
@@ -995,7 +995,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_build_full_url_gp_empty() {
         let client = CelestrakClient::new();
         let query = CelestrakQuery::gp();
@@ -1004,7 +1004,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_build_full_url_sup_gp() {
         let client = CelestrakClient::new();
         let query = CelestrakQuery::sup_gp().source(crate::celestrak::SupGPSource::SpaceX);
@@ -1016,7 +1016,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_build_full_url_satcat() {
         let client = CelestrakClient::new();
         let query = CelestrakQuery::satcat().active(true);
@@ -1025,7 +1025,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_query_raw_gp() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -1052,7 +1052,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_query_gp_typed() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -1084,7 +1084,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_query_gp_with_client_side_filter() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -1116,7 +1116,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_query_gp_with_order_and_limit() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -1149,7 +1149,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_query_satcat_typed() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -1180,7 +1180,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_query_raw_tle_format() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -1207,7 +1207,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_http_error_404() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -1226,7 +1226,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_invalid_json_response() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -1246,7 +1246,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_empty_json_response() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -1266,7 +1266,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_download_to_file() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -1298,7 +1298,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_cache_key_generation() {
         let client = CelestrakClient::new();
         let key = client.cache_key_for_url("https://celestrak.org/gp.php?GROUP=stations");
@@ -1411,7 +1411,7 @@ mod tests {
     // -- Convenience method tests --
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_get_gp_by_catnr() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -1437,7 +1437,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_get_gp_by_group() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -1461,7 +1461,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_get_gp_by_name() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -1486,7 +1486,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_get_gp_by_intdes() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -1510,7 +1510,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_get_sup_gp() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -1534,7 +1534,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_get_satcat_by_catnr() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -1560,7 +1560,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_get_sgp_propagator_by_catnr_empty_results() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -1587,7 +1587,7 @@ mod tests {
     // -- Retry behavior tests --
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_retry_on_503() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -1608,7 +1608,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_is_retryable_error_transport_failures() {
         for e in [
             ureq::Error::HostNotFound,
@@ -1623,7 +1623,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_no_retry_on_404() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -1644,7 +1644,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_max_retries_zero_no_retry() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -1665,7 +1665,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_max_retries_builder() {
         let client = CelestrakClient::new().max_retries(5);
         assert_eq!(client.max_retries, 5);
@@ -1678,7 +1678,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
-    #[serial_test::serial]
+    #[serial]
     fn test_integration_gp_by_group() {
         let client = CelestrakClient::with_cache_age(0.0);
         let records = client.get_gp_by_group("stations").expect("GP query failed");
@@ -1687,7 +1687,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
-    #[serial_test::serial]
+    #[serial]
     fn test_integration_gp_by_catnr() {
         let client = CelestrakClient::with_cache_age(0.0);
         let records = client.get_gp_by_catnr(25544).expect("GP query failed");
@@ -1697,7 +1697,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
-    #[serial_test::serial]
+    #[serial]
     fn test_integration_gp_by_name() {
         let client = CelestrakClient::with_cache_age(0.0);
         let records = client.get_gp_by_name("ISS").expect("GP query failed");
@@ -1709,7 +1709,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
-    #[serial_test::serial]
+    #[serial]
     fn test_integration_satcat() {
         let client = CelestrakClient::with_cache_age(0.0);
         let records = client
@@ -1721,7 +1721,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
-    #[serial_test::serial]
+    #[serial]
     fn test_integration_get_sgp_propagator_by_catnr() {
         let client = CelestrakClient::with_cache_age(0.0);
         let propagator = client

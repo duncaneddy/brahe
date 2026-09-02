@@ -252,8 +252,10 @@ pub fn or_list<T: Display>(values: &[T]) -> String {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
+    #[parallel]
     fn test_greater_than() {
         assert_eq!(greater_than("25544"), ">25544");
         assert_eq!(greater_than("0.5"), ">0.5");
@@ -261,6 +263,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_less_than() {
         assert_eq!(less_than("0.01"), "<0.01");
         assert_eq!(less_than("2024-01-01"), "<2024-01-01");
@@ -268,12 +271,14 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_not_equal() {
         assert_eq!(not_equal("DEBRIS"), "<>DEBRIS");
         assert_eq!(not_equal("null-val"), "<>null-val");
     }
 
     #[test]
+    #[parallel]
     fn test_inclusive_range() {
         assert_eq!(inclusive_range("25544", "25600"), "25544--25600");
         assert_eq!(
@@ -284,23 +289,27 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_like() {
         assert_eq!(like("STARLINK"), "~~STARLINK");
         assert_eq!(like("ISS%"), "~~ISS%");
     }
 
     #[test]
+    #[parallel]
     fn test_startswith() {
         assert_eq!(startswith("NOAA"), "^NOAA");
         assert_eq!(startswith("2024"), "^2024");
     }
 
     #[test]
+    #[parallel]
     fn test_now() {
         assert_eq!(now(), "now");
     }
 
     #[test]
+    #[parallel]
     fn test_now_offset() {
         assert_eq!(now_offset(-7), "now-7");
         assert_eq!(now_offset(14), "now+14");
@@ -310,11 +319,13 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_null_val() {
         assert_eq!(null_val(), "null-val");
     }
 
     #[test]
+    #[parallel]
     fn test_or_list() {
         assert_eq!(or_list(&["25544", "25545", "25546"]), "25544,25545,25546");
         assert_eq!(or_list(&["US", "PRC"]), "US,PRC");
@@ -323,11 +334,13 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_or_list_with_integers() {
         assert_eq!(or_list(&[25544, 25545]), "25544,25545");
     }
 
     #[test]
+    #[parallel]
     fn test_operator_composition() {
         // Operators can be composed in filter values
         let range = inclusive_range(now_offset(-7), now());

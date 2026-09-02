@@ -150,6 +150,7 @@ fn escape_csv_field(field: &str) -> String {
 mod tests {
     use super::*;
     use rstest::rstest;
+    use serial_test::parallel;
 
     fn get_test_data() -> Vec<(String, String, String)> {
         vec![
@@ -167,6 +168,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_serialize_to_txt_with_names() {
         let data = get_test_data();
         let txt = serialize_3le_to_txt(&data, true);
@@ -187,6 +189,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_serialize_to_txt_without_names() {
         let data = get_test_data();
         let txt = serialize_3le_to_txt(&data, false);
@@ -205,6 +208,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_serialize_to_txt_empty() {
         let data: Vec<(String, String, String)> = vec![];
         let txt = serialize_3le_to_txt(&data, true);
@@ -212,6 +216,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_serialize_to_csv_with_names() {
         let data = get_test_data();
         let csv = serialize_3le_to_csv(&data, true);
@@ -233,6 +238,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_serialize_to_csv_without_names() {
         let data = get_test_data();
         let csv = serialize_3le_to_csv(&data, false);
@@ -254,6 +260,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_serialize_to_csv_empty() {
         let data: Vec<(String, String, String)> = vec![];
         let csv = serialize_3le_to_csv(&data, true);
@@ -261,6 +268,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_serialize_to_json_with_names() {
         let data = vec![(
             "ISS (ZARYA)".to_string(),
@@ -291,6 +299,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_serialize_to_json_without_names() {
         let data = vec![(
             "ISS (ZARYA)".to_string(),
@@ -313,6 +322,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_serialize_to_json_empty() {
         let data: Vec<(String, String, String)> = vec![];
         let json_str = serialize_3le_to_json(&data, true);
@@ -329,11 +339,13 @@ mod tests {
     #[case("with\"quote", "\"with\"\"quote\"")]
     #[case("with\nnewline", "\"with\nnewline\"")]
     #[case("ISS (ZARYA)", "ISS (ZARYA)")]
+    #[parallel]
     fn test_escape_csv_field(#[case] input: &str, #[case] expected: &str) {
         assert_eq!(escape_csv_field(input), expected);
     }
 
     #[test]
+    #[parallel]
     fn test_csv_with_special_characters_in_name() {
         let data = vec![(
             "Satellite, with \"quotes\" and, commas".to_string(),

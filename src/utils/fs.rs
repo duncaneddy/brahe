@@ -59,9 +59,11 @@ pub fn atomic_write(filepath: &Path, data: impl AsRef<[u8]>) -> Result<(), io::E
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
     use tempfile::tempdir;
 
     #[test]
+    #[parallel]
     fn test_atomic_write_basic() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("test.txt");
@@ -73,6 +75,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_atomic_write_creates_parent_dirs() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("a").join("b").join("test.txt");
@@ -84,6 +87,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_atomic_write_overwrites_existing() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("test.txt");
@@ -96,6 +100,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_atomic_write_no_temp_file_on_success() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("test.txt");

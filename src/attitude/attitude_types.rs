@@ -201,8 +201,10 @@ pub struct RotationMatrix {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
+    #[parallel]
     fn test_euler_angle_order_display() {
         assert_eq!(format!("{}", EulerAngleOrder::XYX), "121");
         assert_eq!(format!("{}", EulerAngleOrder::XYZ), "123");
@@ -219,6 +221,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_euler_angle_order_debug() {
         assert_eq!(format!("{:?}", EulerAngleOrder::XYX), "XYX::121");
         assert_eq!(format!("{:?}", EulerAngleOrder::XYZ), "XYZ::123");
@@ -235,6 +238,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_euler_angle_order_iter() {
         // Test that EnumIter works correctly
         let all_orders: Vec<EulerAngleOrder> = EulerAngleOrder::iter().collect();

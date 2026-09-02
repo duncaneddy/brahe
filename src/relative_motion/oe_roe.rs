@@ -250,6 +250,7 @@ mod tests {
     use serial_test::parallel;
 
     #[test]
+    #[parallel]
     fn test_state_oe_to_roe() {
         let oe_chief = SVector6::new(R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0);
         let oe_deputy = SVector6::new(R_EARTH + 701e3, 0.0015, 97.85, 15.05, 30.05, 45.05);
@@ -265,6 +266,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_state_roe_to_oe() {
         // Test roundtrip: OE -> ROE -> OE
         let oe_chief = SVector6::new(R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0);
@@ -286,6 +288,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_state_oe_to_roe_radians() {
         use crate::constants::DEG2RAD;
 
@@ -318,6 +321,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_state_roe_to_oe_radians() {
         use crate::constants::DEG2RAD;
 

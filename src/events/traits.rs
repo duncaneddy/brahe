@@ -432,12 +432,14 @@ mod tests {
     use super::*;
     use crate::time::TimeSystem;
     use nalgebra::{DVector, Vector6};
+    use serial_test::parallel;
 
     // =========================================================================
     // Enum Tests
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_EventDirection_variants() {
         // Test that all variants exist and are distinct
         let increasing = EventDirection::Increasing;
@@ -454,6 +456,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EventDirection_debug() {
         assert_eq!(format!("{:?}", EventDirection::Increasing), "Increasing");
         assert_eq!(format!("{:?}", EventDirection::Decreasing), "Decreasing");
@@ -461,6 +464,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EventDirection_clone() {
         let dir = EventDirection::Increasing;
         let cloned = Clone::clone(&dir); // Explicit trait call to test Clone impl
@@ -468,6 +472,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EventDirection_copy() {
         let dir = EventDirection::Decreasing;
         let copied: EventDirection = dir; // Copy semantics
@@ -475,6 +480,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EdgeType_variants() {
         let rising = EdgeType::RisingEdge;
         let falling = EdgeType::FallingEdge;
@@ -490,6 +496,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EdgeType_debug() {
         assert_eq!(format!("{:?}", EdgeType::RisingEdge), "RisingEdge");
         assert_eq!(format!("{:?}", EdgeType::FallingEdge), "FallingEdge");
@@ -497,6 +504,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EdgeType_clone() {
         let edge = EdgeType::FallingEdge;
         let cloned = Clone::clone(&edge); // Explicit trait call to test Clone impl
@@ -504,6 +512,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EdgeType_copy() {
         let edge = EdgeType::AnyEdge;
         let copied: EdgeType = edge;
@@ -511,6 +520,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EventType_variants() {
         let instant = EventType::Instantaneous;
         let window = EventType::Window;
@@ -521,12 +531,14 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EventType_debug() {
         assert_eq!(format!("{:?}", EventType::Instantaneous), "Instantaneous");
         assert_eq!(format!("{:?}", EventType::Window), "Window");
     }
 
     #[test]
+    #[parallel]
     fn test_EventType_clone() {
         let event_type = EventType::Window;
         let cloned = Clone::clone(&event_type); // Explicit trait call to test Clone impl
@@ -534,6 +546,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EventType_copy() {
         let event_type = EventType::Instantaneous;
         let copied: EventType = event_type;
@@ -541,6 +554,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EventAction_variants() {
         let stop = EventAction::Stop;
         let cont = EventAction::Continue;
@@ -551,12 +565,14 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EventAction_debug() {
         assert_eq!(format!("{:?}", EventAction::Stop), "Stop");
         assert_eq!(format!("{:?}", EventAction::Continue), "Continue");
     }
 
     #[test]
+    #[parallel]
     fn test_EventAction_clone() {
         let action = EventAction::Stop;
         let cloned = Clone::clone(&action); // Explicit trait call to test Clone impl
@@ -564,6 +580,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EventAction_copy() {
         let action = EventAction::Continue;
         let copied: EventAction = action;
@@ -592,30 +609,35 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SDetectedEvent_t_start() {
         let event = create_test_sdetected_event();
         assert_eq!(event.t_start(), event.window_open);
     }
 
     #[test]
+    #[parallel]
     fn test_SDetectedEvent_t_end() {
         let event = create_test_sdetected_event();
         assert_eq!(event.t_end(), event.window_close);
     }
 
     #[test]
+    #[parallel]
     fn test_SDetectedEvent_start_time() {
         let event = create_test_sdetected_event();
         assert_eq!(event.start_time(), event.window_open);
     }
 
     #[test]
+    #[parallel]
     fn test_SDetectedEvent_end_time() {
         let event = create_test_sdetected_event();
         assert_eq!(event.end_time(), event.window_close);
     }
 
     #[test]
+    #[parallel]
     fn test_SDetectedEvent_fields() {
         let event = create_test_sdetected_event();
 
@@ -627,6 +649,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SDetectedEvent_clone() {
         let event = create_test_sdetected_event();
         let cloned = event.clone();
@@ -637,6 +660,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SDetectedEvent_debug() {
         let event = create_test_sdetected_event();
         let debug_str = format!("{:?}", event);
@@ -666,30 +690,35 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DDetectedEvent_t_start() {
         let event = create_test_ddetected_event();
         assert_eq!(event.t_start(), event.window_open);
     }
 
     #[test]
+    #[parallel]
     fn test_DDetectedEvent_t_end() {
         let event = create_test_ddetected_event();
         assert_eq!(event.t_end(), event.window_close);
     }
 
     #[test]
+    #[parallel]
     fn test_DDetectedEvent_start_time() {
         let event = create_test_ddetected_event();
         assert_eq!(event.start_time(), event.window_open);
     }
 
     #[test]
+    #[parallel]
     fn test_DDetectedEvent_end_time() {
         let event = create_test_ddetected_event();
         assert_eq!(event.end_time(), event.window_close);
     }
 
     #[test]
+    #[parallel]
     fn test_DDetectedEvent_fields() {
         let event = create_test_ddetected_event();
 
@@ -701,6 +730,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DDetectedEvent_clone() {
         let event = create_test_ddetected_event();
         let cloned = event.clone();
@@ -711,6 +741,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DDetectedEvent_debug() {
         let event = create_test_ddetected_event();
         let debug_str = format!("{:?}", event);
@@ -747,6 +778,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SEventDetector_default_event_type() {
         let detector = MinimalSEventDetector {
             name: "Test".to_string(),
@@ -755,6 +787,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SEventDetector_default_direction() {
         let detector = MinimalSEventDetector {
             name: "Test".to_string(),
@@ -763,6 +796,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SEventDetector_default_time_tolerance() {
         let detector = MinimalSEventDetector {
             name: "Test".to_string(),
@@ -771,6 +805,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SEventDetector_default_value_tolerance() {
         let detector = MinimalSEventDetector {
             name: "Test".to_string(),
@@ -779,6 +814,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SEventDetector_default_step_reduction_factor() {
         let detector = MinimalSEventDetector {
             name: "Test".to_string(),
@@ -787,6 +823,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SEventDetector_default_callback() {
         let detector = MinimalSEventDetector {
             name: "Test".to_string(),
@@ -795,6 +832,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SEventDetector_default_action() {
         let detector = MinimalSEventDetector {
             name: "Test".to_string(),
@@ -803,6 +841,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SEventDetector_default_mark_processed() {
         let detector = MinimalSEventDetector {
             name: "Test".to_string(),
@@ -812,6 +851,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SEventDetector_default_is_processed() {
         let detector = MinimalSEventDetector {
             name: "Test".to_string(),
@@ -821,6 +861,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SEventDetector_default_reset_processed() {
         let detector = MinimalSEventDetector {
             name: "Test".to_string(),
@@ -858,6 +899,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DEventDetector_default_event_type() {
         let detector = MinimalDEventDetector {
             name: "Test".to_string(),
@@ -866,6 +908,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DEventDetector_default_direction() {
         let detector = MinimalDEventDetector {
             name: "Test".to_string(),
@@ -874,6 +917,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DEventDetector_default_time_tolerance() {
         let detector = MinimalDEventDetector {
             name: "Test".to_string(),
@@ -882,6 +926,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DEventDetector_default_value_tolerance() {
         let detector = MinimalDEventDetector {
             name: "Test".to_string(),
@@ -890,6 +935,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DEventDetector_default_step_reduction_factor() {
         let detector = MinimalDEventDetector {
             name: "Test".to_string(),
@@ -898,6 +944,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DEventDetector_default_callback() {
         let detector = MinimalDEventDetector {
             name: "Test".to_string(),
@@ -906,6 +953,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DEventDetector_default_action() {
         let detector = MinimalDEventDetector {
             name: "Test".to_string(),
@@ -914,6 +962,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DEventDetector_default_mark_processed() {
         let detector = MinimalDEventDetector {
             name: "Test".to_string(),
@@ -923,6 +972,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DEventDetector_default_is_processed() {
         let detector = MinimalDEventDetector {
             name: "Test".to_string(),
@@ -932,6 +982,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DEventDetector_default_reset_processed() {
         let detector = MinimalDEventDetector {
             name: "Test".to_string(),

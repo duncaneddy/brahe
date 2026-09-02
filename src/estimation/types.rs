@@ -127,8 +127,10 @@ mod tests {
     use super::*;
     use crate::time::TimeSystem;
     use nalgebra::{DMatrix, DVector};
+    use serial_test::parallel;
 
     #[test]
+    #[parallel]
     fn test_bls_iteration_record_construction() {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![6878e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
@@ -153,6 +155,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_bls_observation_residual_construction() {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let residual = BLSObservationResidual {

@@ -459,6 +459,7 @@ mod tests {
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
     use nalgebra::Vector6;
+    use serial_test::parallel;
 
     fn create_test_propagator() -> KeplerianPropagator {
         setup_global_test_eop();
@@ -564,6 +565,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dstate_default_step_past_forward() {
         let epoch = mock_epoch();
         let mut prop = MockDPropagator::new(epoch, 60.0);
@@ -572,6 +574,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dstate_default_step_past_forward_wrong_direction() {
         let epoch = mock_epoch();
         let mut prop = MockDPropagator::new(epoch, 60.0);
@@ -581,6 +584,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dstate_default_step_past_backward() {
         let epoch = mock_epoch();
         let mut prop = MockDPropagator::new(epoch, -60.0);
@@ -589,6 +593,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dstate_default_step_past_backward_wrong_direction() {
         let epoch = mock_epoch();
         let mut prop = MockDPropagator::new(epoch, -60.0);
@@ -598,6 +603,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dstate_default_propagate_to_forward() {
         let epoch = mock_epoch();
         let mut prop = MockDPropagator::new(epoch, 60.0);
@@ -607,6 +613,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dstate_default_propagate_to_forward_wrong_direction() {
         let epoch = mock_epoch();
         let mut prop = MockDPropagator::new(epoch, 60.0);
@@ -615,6 +622,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dstate_default_propagate_to_backward() {
         let epoch = mock_epoch();
         let mut prop = MockDPropagator::new(epoch, -60.0);
@@ -624,6 +632,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dstate_default_propagate_to_backward_wrong_direction() {
         let epoch = mock_epoch();
         let mut prop = MockDPropagator::new(epoch, -60.0);
@@ -632,6 +641,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dstate_default_propagate_trajectory() {
         let epoch = mock_epoch();
         let mut prop = MockDPropagator::new(epoch, 60.0);
@@ -641,6 +651,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_sorbit_propagator_step() {
         let mut prop = create_test_propagator();
         let initial_epoch = prop.current_epoch();
@@ -655,6 +666,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_sorbit_propagator_step_past() {
         let mut prop = create_test_propagator();
         let initial_epoch = prop.current_epoch();
@@ -668,6 +680,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_sorbit_propagator_step_past_already_past() {
         let mut prop = create_test_propagator();
         let initial_epoch = prop.current_epoch();
@@ -684,6 +697,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_sorbit_propagator_propagate_steps() {
         let mut prop = create_test_propagator();
         let initial_epoch = prop.current_epoch();
@@ -700,6 +714,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_sorbit_propagator_propagate_to() {
         let mut prop = create_test_propagator();
         let initial_epoch = prop.current_epoch();
@@ -714,6 +729,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_sorbit_propagator_propagate_to_past_epoch() {
         let mut prop = create_test_propagator();
         let initial_epoch = prop.current_epoch();
@@ -727,6 +743,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_sorbit_propagator_step_past_backward() {
         let mut prop = create_test_propagator();
         prop.set_step_size(-60.0);
@@ -741,6 +758,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_sorbit_propagator_step_past_backward_wrong_direction() {
         let mut prop = create_test_propagator();
         prop.set_step_size(-60.0);
@@ -753,6 +771,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_sorbit_propagator_propagate_to_backward() {
         let mut prop = create_test_propagator();
         prop.set_step_size(-60.0);
@@ -766,6 +785,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_sorbit_propagator_propagate_to_backward_wrong_direction() {
         let mut prop = create_test_propagator();
         prop.set_step_size(-60.0);
@@ -778,6 +798,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_sorbit_propagator_propagate_trajectory() {
         let mut prop = create_test_propagator();
         let initial_epoch = prop.current_epoch();
@@ -798,7 +819,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sorbit_state_provider_states() {
         setup_global_test_eop();
 
@@ -850,7 +871,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sorbit_state_provider_states_eci() {
         setup_global_test_eop();
 
@@ -887,7 +908,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sorbit_state_provider_states_ecef() {
         setup_global_test_eop();
 
@@ -917,7 +938,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sorbit_state_provider_states_gcrf() {
         setup_global_test_eop();
 
@@ -947,7 +968,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sorbit_state_provider_states_itrf() {
         setup_global_test_eop();
 

@@ -23,6 +23,9 @@ brahe = { path = "../..", version = "*" }
 nalgebra = "0.34.1"
 dhat = { version = "0.3.3", optional = true }
 
+[dev-dependencies]
+serial_test = "4"
+
 [features]
 # Heap-allocation profiling via dhat. When enabled, each bin should wire up
 # `#[global_allocator]` and `dhat::Profiler::new_heap()` behind the same cfg.

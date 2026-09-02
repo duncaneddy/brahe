@@ -120,6 +120,7 @@ pub fn accel_drag_for_body(
 mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
+    use serial_test::parallel;
 
     use crate::DEGREES;
     use crate::constants::R_EARTH;
@@ -131,6 +132,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[parallel]
     fn test_accel_drag() {
         let oe = Vector6::new(R_EARTH + 500e3, 0.01, 97.3, 15.0, 30.0, 45.0);
 
@@ -142,6 +144,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_accel_drag_for_body_earth_omega_matches_legacy() {
         // `accel_drag` delegates to `accel_drag_for_body` with Earth's spin
         // vector; passing the same rate must reproduce it bit-for-bit.
@@ -197,6 +200,7 @@ mod tests {
     #[case(60310.000, 1.000, 100.000, 2.300, 6.693864225551e+06, 1.295667609670e+06, - 2.041642113971e+05, - 1.297593298229e+03, 6.948825108710e+03, 2.991652446262e+03, 2.271126461274e-07, - 1.219593187243e-06, - 5.647373599657e-07)]
     #[case(60310.000, 1.000, 100.000, 2.300, 6.333183868415e+06, 2.494761038735e+06, 3.271026349663e+05, - 2.755843531779e+03, 6.524454555312e+03, 2.977862301791e+03, 4.385586274848e-07, - 1.032983373613e-06, - 5.073840303605e-07)]
     #[case(60310.000, 1.000, 100.000, 2.300, 5.722314467058e+06, 3.595279736803e+06, 8.454390492652e+05, - 4.108466612970e+03, 5.841107621980e+03, 2.846284516417e+03, 5.767674716446e-07, - 8.133252603937e-07, - 4.268119157331e-07)]
+    #[parallel]
     fn validate_acceleration_drag(
         #[case] mjd_tt: f64,
         #[case] area: f64,

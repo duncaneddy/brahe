@@ -2114,6 +2114,7 @@ impl Ord for Epoch {
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
+    use serial_test::parallel;
     use std::f64::consts::PI;
 
     use approx::assert_abs_diff_eq;
@@ -2123,6 +2124,7 @@ mod tests {
     use crate::utils::testing::setup_global_test_eop;
 
     #[test]
+    #[parallel]
     fn test_epoch_serialization() {
         let epc = Epoch::from_datetime(2022, 4, 1, 12, 34, 56.789, 0.0, TimeSystem::UTC);
         let json = serde_json::to_string(&epc).unwrap();
@@ -2132,6 +2134,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_epoch_deserialization() {
         let json = r#""2022-04-01T12:34:56.789Z""#;
         let epc: Epoch = serde_json::from_str(json).unwrap();
@@ -2148,6 +2151,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_epoch_roundtrip() {
         let epc1 = Epoch::from_datetime(2022, 4, 1, 12, 34, 56.789, 0.0, TimeSystem::UTC);
         let json = serde_json::to_string(&epc1).unwrap();
@@ -2158,7 +2162,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_display() {
         setup_global_test_eop();
 
@@ -2168,7 +2172,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_debug() {
         setup_global_test_eop();
 
@@ -2181,7 +2185,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_date() {
         setup_global_test_eop();
 
@@ -2199,7 +2203,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_datetime() {
         setup_global_test_eop();
 
@@ -2231,7 +2235,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_now() {
         use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -2262,7 +2266,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_string_long_subseconds() {
         setup_global_test_eop();
 
@@ -2276,7 +2280,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_string() {
         setup_global_test_eop();
 
@@ -2433,7 +2437,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_string_new_time_systems() {
         setup_global_test_eop();
 
@@ -2454,7 +2458,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_jd() {
         setup_global_test_eop();
 
@@ -2485,7 +2489,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_mjd() {
         setup_global_test_eop();
 
@@ -2516,7 +2520,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_gps_date() {
         setup_global_test_eop();
 
@@ -2544,7 +2548,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_gps_seconds() {
         setup_global_test_eop();
 
@@ -2572,7 +2576,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_gps_nanoseconds() {
         setup_global_test_eop();
 
@@ -2601,7 +2605,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_to_jd() {
         setup_global_test_eop();
 
@@ -2617,7 +2621,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_to_mjd() {
         setup_global_test_eop();
 
@@ -2633,7 +2637,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_seconds_past_j2000_as_time_system() {
         setup_global_test_eop();
 
@@ -2690,7 +2694,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_spice_et() {
         setup_global_test_eop();
         let epc = Epoch::from_datetime(2025, 3, 15, 6, 30, 21.0, 0.0, TimeSystem::UTC);
@@ -2702,7 +2706,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_gps_date() {
         setup_global_test_eop();
 
@@ -2728,7 +2732,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_gps_seconds() {
         setup_global_test_eop();
 
@@ -2740,7 +2744,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_gps_nanoseconds() {
         setup_global_test_eop();
 
@@ -2752,7 +2756,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_unix_timestamp() {
         setup_global_test_eop();
 
@@ -2771,6 +2775,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_unix_timestamp_zero_epoch() {
         // Unix epoch zero: 1970-01-01 00:00:00 UTC must be exactly 0.0
         let epc = Epoch::from_datetime(1970, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -2778,7 +2783,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_from_unix_timestamp() {
         setup_global_test_eop();
 
@@ -2807,7 +2812,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_isostring() {
         setup_global_test_eop();
 
@@ -2825,7 +2830,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_isostring_with_decimals() {
         setup_global_test_eop();
 
@@ -2838,7 +2843,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_to_string_as_time_system() {
         setup_global_test_eop();
 
@@ -2855,7 +2860,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_to_time_system() {
         setup_global_test_eop();
 
@@ -2906,7 +2911,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_gmst() {
         setup_global_test_eop();
 
@@ -2922,7 +2927,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_gast() {
         setup_global_test_eop();
 
@@ -2938,7 +2943,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_ops_add_assign() {
         setup_global_test_eop();
 
@@ -3031,7 +3036,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_ops_sub_assign() {
         setup_global_test_eop();
 
@@ -3089,7 +3094,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_ops_add() {
         setup_global_test_eop();
 
@@ -3178,7 +3183,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_ops_sub() {
         setup_global_test_eop();
 
@@ -3222,7 +3227,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_ops_add_large_offsets_equivalent_to_chained_small_adds() {
         // Regression: `Epoch + dt` for day-sized `dt` used to be O(|dt|) because
         // align_epoch_data unwound the nanoseconds field one second at a time.
@@ -3252,7 +3257,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_ops_add_negative_day_offset_normalizes_correctly() {
         // Subtracting a day from a midnight epoch must land on the prior
         // day at midnight, exactly. Pins the signed-carry path in
@@ -3271,7 +3276,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_ops_add_fractional_day_offset_preserves_subsecond() {
         // Day + half-second + sub-nanosecond. Verifies the split between
         // integer-seconds (folded into the seconds field) and sub-second
@@ -3287,7 +3292,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_ops_sub_epoch() {
         setup_global_test_eop();
 
@@ -3315,7 +3320,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_add_assign_f32() {
         setup_global_test_eop();
 
@@ -3332,7 +3337,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_add_assign_u8() {
         setup_global_test_eop();
 
@@ -3349,7 +3354,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_add_assign_u16() {
         setup_global_test_eop();
 
@@ -3366,7 +3371,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_add_assign_u32() {
         setup_global_test_eop();
 
@@ -3383,7 +3388,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_add_assign_u64() {
         setup_global_test_eop();
 
@@ -3400,7 +3405,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_add_assign_i8() {
         setup_global_test_eop();
 
@@ -3417,7 +3422,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_add_assign_i16() {
         setup_global_test_eop();
 
@@ -3434,7 +3439,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_add_assign_i32() {
         setup_global_test_eop();
 
@@ -3451,7 +3456,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_add_assign_i64() {
         setup_global_test_eop();
 
@@ -3468,7 +3473,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_sub_assign_f32() {
         setup_global_test_eop();
 
@@ -3485,7 +3490,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_sub_assign_u8() {
         setup_global_test_eop();
 
@@ -3502,7 +3507,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_sub_assign_u16() {
         setup_global_test_eop();
 
@@ -3519,7 +3524,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_sub_assign_u32() {
         setup_global_test_eop();
 
@@ -3536,7 +3541,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_sub_assign_u64() {
         setup_global_test_eop();
 
@@ -3553,7 +3558,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_sub_assign_i8() {
         setup_global_test_eop();
 
@@ -3570,7 +3575,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_sub_assign_i16() {
         setup_global_test_eop();
 
@@ -3587,7 +3592,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_sub_assign_i32() {
         setup_global_test_eop();
 
@@ -3604,7 +3609,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_sub_assign_i64() {
         setup_global_test_eop();
 
@@ -3621,7 +3626,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_add_f32() {
         setup_global_test_eop();
 
@@ -3638,7 +3643,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_add_u8() {
         setup_global_test_eop();
 
@@ -3655,7 +3660,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_add_u16() {
         setup_global_test_eop();
 
@@ -3672,7 +3677,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_add_u32() {
         setup_global_test_eop();
 
@@ -3689,7 +3694,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_add_u64() {
         setup_global_test_eop();
 
@@ -3706,7 +3711,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_add_i8() {
         setup_global_test_eop();
 
@@ -3723,7 +3728,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_add_i16() {
         setup_global_test_eop();
 
@@ -3740,7 +3745,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_add_i32() {
         setup_global_test_eop();
 
@@ -3757,7 +3762,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_add_i64() {
         setup_global_test_eop();
 
@@ -3774,7 +3779,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_sub_f32() {
         setup_global_test_eop();
 
@@ -3791,7 +3796,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_sub_u8() {
         setup_global_test_eop();
 
@@ -3808,7 +3813,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_sub_u16() {
         setup_global_test_eop();
 
@@ -3825,7 +3830,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_sub_u32() {
         setup_global_test_eop();
 
@@ -3842,7 +3847,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_sub_u64() {
         setup_global_test_eop();
 
@@ -3859,7 +3864,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_sub_i8() {
         setup_global_test_eop();
 
@@ -3876,7 +3881,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_sub_i16() {
         setup_global_test_eop();
 
@@ -3893,7 +3898,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_sub_i32() {
         setup_global_test_eop();
 
@@ -3910,7 +3915,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_sub_i64() {
         setup_global_test_eop();
 
@@ -3927,7 +3932,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_eq_epoch() {
         setup_global_test_eop();
 
@@ -3946,7 +3951,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_cmp_epoch() {
         setup_global_test_eop();
 
@@ -3967,6 +3972,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)] // This test is slow and only executed in CI
+    #[parallel]
     fn test_nanosecond_addition_stability() {
         let mut epc = Epoch::from_datetime(2022, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::TAI);
 
@@ -3985,7 +3991,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_datetime_accessors() {
         setup_global_test_eop();
 
@@ -4002,7 +4008,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_datetime_accessors_edge_cases() {
         setup_global_test_eop();
 
@@ -4031,7 +4037,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_datetime_accessors_different_time_systems() {
         setup_global_test_eop();
 
@@ -4058,7 +4064,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_datetime_accessors_leap_year() {
         setup_global_test_eop();
 
@@ -4075,7 +4081,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_day_of_year() {
         setup_global_test_eop();
 
@@ -4108,7 +4114,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_day_of_year_leap_year() {
         setup_global_test_eop();
 
@@ -4127,7 +4133,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_day_of_year_fractional() {
         setup_global_test_eop();
 
@@ -4151,7 +4157,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_day_of_year_time_systems() {
         setup_global_test_eop();
 
@@ -4173,7 +4179,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_from_day_of_year_invalid_day() {
         setup_global_test_eop();
 
@@ -4184,7 +4190,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_day_of_year() {
         setup_global_test_eop();
 
@@ -4206,7 +4212,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_day_of_year_leap_year() {
         setup_global_test_eop();
 
@@ -4224,7 +4230,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_day_of_year_fractional() {
         setup_global_test_eop();
 
@@ -4245,7 +4251,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_day_of_year_as_time_system() {
         setup_global_test_eop();
 
@@ -4278,7 +4284,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_epoch_day_of_year_consistency() {
         setup_global_test_eop();
 
@@ -4306,7 +4312,7 @@ mod tests {
     // ========================================
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_display_all_time_systems() {
         setup_global_test_eop();
 
@@ -4326,7 +4332,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_display_with_fractional_seconds() {
         setup_global_test_eop();
 
@@ -4340,7 +4346,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_display_with_nanoseconds() {
         setup_global_test_eop();
 
@@ -4353,7 +4359,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_display_midnight() {
         setup_global_test_eop();
 
@@ -4362,7 +4368,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_display_end_of_day() {
         setup_global_test_eop();
 
@@ -4373,7 +4379,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_display_leap_year_date() {
         setup_global_test_eop();
 
@@ -4382,7 +4388,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_debug_all_time_systems() {
         setup_global_test_eop();
 
@@ -4412,7 +4418,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_debug_shows_internal_representation() {
         setup_global_test_eop();
 
@@ -4426,7 +4432,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_debug_different_from_display() {
         setup_global_test_eop();
 
@@ -4445,7 +4451,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_display_format_consistency() {
         setup_global_test_eop();
 
@@ -4464,7 +4470,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_display_with_string_interpolation() {
         setup_global_test_eop();
 
@@ -4484,7 +4490,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_debug_with_different_internal_values() {
         setup_global_test_eop();
 
@@ -4504,7 +4510,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_to_datetime_reports_the_nanoseconds_the_epoch_holds() {
         setup_global_test_eop();
 
@@ -4528,7 +4534,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_to_datetime_reports_no_nanoseconds_on_a_whole_second() {
         setup_global_test_eop();
 
@@ -4557,7 +4563,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_to_datetime_is_stable_across_repeated_round_trips() {
         setup_global_test_eop();
 
@@ -4591,7 +4597,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_to_datetime_keeps_subnanosecond_input() {
         setup_global_test_eop();
 

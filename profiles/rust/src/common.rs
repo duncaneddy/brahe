@@ -91,11 +91,14 @@ pub fn duration_from_env() -> f64 {
 
 #[cfg(test)]
 mod tests {
+    use serial_test::{parallel, serial};
+
     use super::*;
 
     /// `run_until_elapsed` must actually run for ≥ the requested duration.
     /// Use a small duration (50 ms) to keep the test fast.
     #[test]
+    #[parallel]
     fn run_until_elapsed_respects_duration() {
         let target_s = 0.05;
         let mut counter = 0;
@@ -110,10 +113,10 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn duration_from_env_reads_env_var_or_returns_ten_by_default() {
-        // SAFETY: env var manipulation is process-global. By keeping both
-        // branches inside one test, we serialize the mutation against
-        // any concurrent test in this binary.
+        // SAFETY: env var manipulation is process-global. `#[serial]` keeps
+        // this test from overlapping any other test in this binary.
         unsafe { std::env::remove_var("PROFILE_DURATION_S"); }
         assert_eq!(duration_from_env(), 10.0);
 

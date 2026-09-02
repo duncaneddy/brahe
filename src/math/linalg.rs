@@ -505,8 +505,10 @@ pub fn sqrtm_dmatrix(matrix: &na::DMatrix<f64>) -> Result<na::DMatrix<f64>, Stri
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
+    #[parallel]
     fn test_split_float_f32() {
         assert_eq!(split_float(1.5_f32), (1.0, 0.5));
         assert_eq!(split_float(-1.5_f32), (-1.0, -0.5));
@@ -516,6 +518,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_split_float_f64() {
         assert_eq!(split_float(1.5_f64), (1.0, 0.5));
         assert_eq!(split_float(-1.5_f64), (-1.0, -0.5));
@@ -525,6 +528,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_vector3_from_array() {
         let vec = [1.0, 2.0, 3.0];
         let v = vector3_from_array(vec);
@@ -532,6 +536,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_vector6_from_array() {
         let vec = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
         let v = vector6_from_array(vec);
@@ -539,6 +544,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_matrix3_from_array() {
         let mat = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]];
         let m = matrix3_from_array(&mat);
@@ -561,6 +567,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_kronecker_delta() {
         assert_eq!(kronecker_delta(0, 0), 1);
         assert_eq!(kronecker_delta(0, 1), 0);
@@ -569,6 +576,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_spd_sqrtm_identity() {
         // Test identity matrix
         let identity = na::SMatrix::<f64, 3, 3>::identity();
@@ -579,6 +587,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_spd_sqrtm_diagonal() {
         // Test diagonal matrix
         let diag = na::SMatrix::<f64, 3, 3>::new(4.0, 0.0, 0.0, 0.0, 9.0, 0.0, 0.0, 0.0, 16.0);
@@ -594,6 +603,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_spd_sqrtm_covariance() {
         // Test a realistic 6x6 covariance matrix
         let mut cov = na::SMatrix::<f64, 6, 6>::identity() * 100.0;
@@ -615,6 +625,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_spd_sqrtm_error_negative_eigenvalue() {
         // Create a matrix with a negative eigenvalue
         // This is not positive-definite
@@ -626,6 +637,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_sqrtm_wiki_test_case() {
         // Wikipedia test case: A = [33 24; 48 57], sqrtm(A) = [5 2; 4 7]
         let a = na::SMatrix::<f64, 2, 2>::new(33.0, 24.0, 48.0, 57.0);
@@ -642,6 +654,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_sqrtm_3x3_general() {
         // Test a 3x3 non-symmetric matrix with real eigenvalues
         let mat = na::SMatrix::<f64, 3, 3>::new(5.0, 2.0, 1.0, 0.0, 3.0, 1.0, 0.0, 0.0, 2.0);
@@ -654,6 +667,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_sqrtm_symmetric_matches_spd() {
         // For a symmetric positive-definite matrix, both functions should give same result
         let mat = na::SMatrix::<f64, 3, 3>::new(4.0, 2.0, 0.0, 2.0, 3.0, 0.0, 0.0, 0.0, 5.0);
@@ -666,6 +680,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_sqrtm_error_negative_eigenvalue() {
         // Matrix with negative eigenvalue
         // The Denman-Beavers iteration will fail to converge for this matrix
@@ -683,7 +698,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sqrtm_converges_at_large_magnitude() {
         // The iterate tracks the square root, so a stopping test scaled by the
         // matrix norm stops short by roughly the square root of that norm.
@@ -702,7 +717,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sqrtm_dmatrix_converges_at_large_magnitude() {
         for magnitude in [1e4_f64, 1e12, 1e20, 1e24] {
             let mat = na::DMatrix::from_row_slice(1, 1, &[magnitude]);
@@ -720,7 +735,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sqrtm_error_negative_eigenvalue_masked_by_scale() {
         // No real square root, but the negative eigenvalue is small next to the
         // matrix norm. A residual bound scaled by the whole matrix would accept
@@ -736,7 +751,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sqrtm_large_magnitude_accepted() {
         // The Wiki case scaled up. The residual is large in absolute terms but
         // negligible against the entries, so it must still be accepted.
@@ -752,6 +767,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_sqrtm_dmatrix_wiki_test_case() {
         // Wikipedia test case: A = [33 24; 48 57], sqrtm(A) = [5 2; 4 7]
         let a = na::DMatrix::from_row_slice(2, 2, &[33.0, 24.0, 48.0, 57.0]);
@@ -768,6 +784,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_sqrtm_dmatrix_identity() {
         // sqrtm(I) = I
         let identity = na::DMatrix::<f64>::identity(4, 4);
@@ -776,6 +793,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_sqrtm_dmatrix_diagonal() {
         // Diagonal matrix: sqrt([4 0; 0 9]) = [2 0; 0 3]
         let diag = na::DMatrix::from_row_slice(2, 2, &[4.0, 0.0, 0.0, 9.0]);
@@ -785,7 +803,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_spd_sqrtm_dmatrix_non_square_error() {
         let mat = na::DMatrix::from_row_slice(2, 3, &[1.0, 0.0, 0.0, 0.0, 1.0, 0.0]);
         let err = spd_sqrtm_dmatrix(&mat).unwrap_err();
@@ -793,7 +811,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_spd_sqrtm_dmatrix_negative_eigenvalue_error() {
         // Negative well beyond what round-off could explain.
         let mat = na::DMatrix::from_row_slice(2, 2, &[4.0, 0.0, 0.0, -9.0]);
@@ -802,7 +820,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_spd_sqrtm_dmatrix_clamps_roundoff_negative_eigenvalue() {
         // A negative eigenvalue at round-off level relative to the largest is
         // treated as zero rather than rejected, which a propagated covariance
@@ -814,7 +832,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sqrtm_dmatrix_error_negative_eigenvalue_masked_by_scale() {
         // Dynamic mirror of test_sqrtm_error_negative_eigenvalue_masked_by_scale.
         let mat = na::DMatrix::from_row_slice(2, 2, &[1e12, 0.0, 0.0, -100.0]);
@@ -828,7 +846,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_sqrtm_dmatrix_large_magnitude_accepted() {
         // Dynamic mirror of test_sqrtm_large_magnitude_accepted.
         let mat = na::DMatrix::from_row_slice(2, 2, &[33.0e10, 24.0e10, 48.0e10, 57.0e10]);
@@ -839,6 +857,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_sqrtm_dmatrix_non_square_error() {
         let mat = na::DMatrix::from_row_slice(2, 3, &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
         let result = sqrtm_dmatrix(&mat);

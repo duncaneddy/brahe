@@ -356,6 +356,7 @@ mod tests {
     };
     use crate::utils::testing::CacheRedirect;
     use crate::utils::testing::NetworkModeGuard;
+    use serial_test::{parallel, serial};
 
     fn entry(body: ICGEMBody, name: &str, degree: u32) -> IndexEntry {
         IndexEntry {
@@ -379,7 +380,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_resolve_exact_single_variant() {
         let entries = earth_fixture();
         let got = resolve_icgem_model(&ICGEMBody::Earth, "JGM3", &entries).unwrap();
@@ -388,7 +389,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_resolve_largest_degree_when_ambiguous() {
         let entries = earth_fixture();
         let got =
@@ -397,7 +398,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_resolve_with_explicit_degree_suffix() {
         let entries = earth_fixture();
         let got =
@@ -406,7 +407,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_resolve_missing_degree_errors_with_available_list() {
         let entries = earth_fixture();
         let err = resolve_icgem_model(&ICGEMBody::Earth, "WHU-CASM-UGM2025_2159-99", &entries)
@@ -417,7 +418,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_resolve_typo_returns_nearest_names() {
         let entries = earth_fixture();
         let err = resolve_icgem_model(&ICGEMBody::Earth, "EGM200", &entries).unwrap_err();
@@ -426,7 +427,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_resolve_other_body_does_not_leak_earth_results() {
         let entries = earth_fixture();
         let err = resolve_icgem_model(&ICGEMBody::Mars, "EGM2008", &entries).unwrap_err();
@@ -434,7 +435,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_resolve_exact_match_takes_precedence_over_suffix_split() {
         let mut entries = earth_fixture();
         entries.push(entry(ICGEMBody::Earth, "MODEL-X-2020", 200));
@@ -444,7 +445,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_download_end_to_end_with_mock_server() {
         use httpmock::prelude::*;
 
@@ -480,7 +481,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_download_offline_errors_without_request() {
         use httpmock::prelude::*;
 
@@ -522,7 +523,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_download_uses_cache_on_second_call() {
         use httpmock::prelude::*;
 
@@ -558,7 +559,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_download_offline_strict_serves_cached_model_with_stale_index() {
         use httpmock::prelude::*;
 
@@ -604,7 +605,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_download_offline_strict_stale_index_missing_model_errors() {
         use httpmock::prelude::*;
 
@@ -643,7 +644,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_download_online_refreshes_stale_index_even_with_cached_model() {
         use httpmock::prelude::*;
 
@@ -713,14 +714,14 @@ mod tests {
     // }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_extract_icgem_hash_well_formed() {
         let h = extract_icgem_hash("/getmodel/gfc/abc123def456/EGM2008.gfc");
         assert_eq!(h, Some("abc123def456"));
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_extract_icgem_hash_malformed_returns_none() {
         assert_eq!(extract_icgem_hash(""), None);
         assert_eq!(extract_icgem_hash("/wrong/prefix/abc/x.gfc"), None);
@@ -728,7 +729,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_cache_filename_includes_hash_so_republished_models_get_new_path() {
         // Two index entries for the same body/name/degree but with different
         // ICGEM download hashes (e.g. the model was republished) must produce
@@ -760,7 +761,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_cache_filename_falls_back_when_hash_missing() {
         // Defensive: if download_path doesn't match the /getmodel/gfc/<hash>/...
         // pattern (shouldn't happen in practice), we still produce a stable
@@ -776,7 +777,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_model_cache_path_dispatches_by_body() {
         let cache_root = PathBuf::from("/cache");
         for (body, subdir) in [
@@ -801,7 +802,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_finalize_model_path_copies_to_output_path() {
         let dir = tempfile::tempdir().unwrap();
         let cache_file = dir.path().join("cached.gfc");
@@ -815,7 +816,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_finalize_model_path_returns_cache_file_without_output_path() {
         let dir = tempfile::tempdir().unwrap();
         let cache_file = dir.path().join("cached.gfc");

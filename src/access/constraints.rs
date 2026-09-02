@@ -1391,6 +1391,7 @@ mod tests {
     use crate::frames::state_eci_to_ecef;
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
+    use serial_test::parallel;
 
     // -----------------
     // Helper functions
@@ -1538,6 +1539,7 @@ mod tests {
     // -------------
 
     #[test]
+    #[parallel]
     fn test_constraint_name() {
         let elev = ElevationConstraint::new(Some(5.0), Some(90.0)).unwrap();
         assert_eq!(elev.name(), "ElevationConstraint(5.00° - 90.00°)");
@@ -1604,7 +1606,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_elevation_constraint_satisfied() {
         setup_global_test_eop();
 
@@ -1643,7 +1645,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_elevation_constraint_at_limit() {
         setup_global_test_eop();
 
@@ -1682,6 +1684,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_elevation_constraint_violated() {
         // Very high minimum elevation constraint (70-90°) should be violated
         // because realistic satellite-ground geometry has elevation around 66°
@@ -1720,6 +1723,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_elevation_constraint_both_none_error() {
         // Both None should return error
         let result = ElevationConstraint::new(None, None);
@@ -1727,6 +1731,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_elevation_mask_interpolation() {
         let mask = vec![(0.0, 10.0), (90.0, 10.0), (180.0, 20.0), (270.0, 20.0)];
         let constraint = ElevationMaskConstraint::new(mask);
@@ -1749,7 +1754,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_elevation_mask_constraint() {
         setup_global_test_eop();
 
@@ -1828,7 +1833,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_off_nadir_constraint() {
         setup_global_test_eop();
 
@@ -1844,6 +1849,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_off_nadir_constraint_both_none_error() {
         // Both None should return error
         let result = OffNadirConstraint::new(None, None);
@@ -1851,6 +1857,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_off_nadir_constraint_negative_error() {
         // Negative angles should return error
         let result = OffNadirConstraint::new(Some(-5.0), Some(45.0));
@@ -1861,7 +1868,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_local_time_constraint() {
         setup_global_test_eop();
 
@@ -1883,6 +1890,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_local_time_hour_validation() {
         // Out of range hours should return error
         let result = LocalTimeConstraint::from_hours(vec![(25.0, 26.0)]);
@@ -1890,6 +1898,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_local_time_military_validation() {
         // Out of range military time should return error
         let result = LocalTimeConstraint::new(vec![(2500, 2600)]);
@@ -1901,6 +1910,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_local_time_seconds_validation() {
         // Out of range seconds should return error
         let result = LocalTimeConstraint::from_seconds(vec![(90000.0, 95000.0)]);
@@ -1908,7 +1918,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_look_direction_constraint_asc() {
         setup_global_test_eop();
 
@@ -1928,7 +1938,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_look_direction_constraint_dsc() {
         setup_global_test_eop();
         let (epoch, sat_state, location) = test_geometry_west_dsc();
@@ -1947,6 +1957,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_asc_dsc_constraint_ascending() {
         let (epoch, sat_state, location) = test_geometry_west_asc();
         let constraint = AscDscConstraint::new(AscDsc::Ascending);
@@ -1954,6 +1965,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_asc_dsc_constraint_descending() {
         let (epoch, sat_state, location) = test_geometry_west_dsc();
         let constraint = AscDscConstraint::new(AscDsc::Descending);
@@ -1961,6 +1973,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_asc_dsc_constraint_either() {
         let constraint = AscDscConstraint::new(AscDsc::Either);
 
@@ -1974,6 +1987,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_constraint_composite_chaining() {
         // Test complex nested composition
         // Create: (Elevation >= 5°) AND (NOT(LookDirection == Right) OR (OffNadir <= 30°))
@@ -2001,6 +2015,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_constraint_composite_display() {
         // Test Display implementation for pretty printing
         let c1 = Box::new(ElevationConstraint::new(Some(5.0), None).unwrap());
@@ -2047,6 +2062,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_constraint_composite_nested_display() {
         // Test nested composite display with precedence
         // C1 && (C2 || C3) - OR has lower precedence, needs parens
@@ -2091,6 +2107,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_elevation_constraint_display() {
         // Min-only constraint
         let constraint_min = ElevationConstraint::new(Some(10.0), None).unwrap();
@@ -2109,6 +2126,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_elevation_mask_constraint_display() {
         let mask = vec![(0.0, 10.0), (90.0, 5.0), (180.0, 15.0), (270.0, 8.0)];
         let constraint = ElevationMaskConstraint::new(mask);
@@ -2121,6 +2139,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_off_nadir_constraint_display() {
         // Min-only constraint
         let constraint_min = OffNadirConstraint::new(Some(10.0), None).unwrap();
@@ -2139,6 +2158,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_local_time_constraint_display() {
         // Single window
         let constraint_single = LocalTimeConstraint::new(vec![(800, 1800)]).unwrap();
@@ -2163,6 +2183,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_look_direction_constraint_display() {
         let constraint_left = LookDirectionConstraint::new(LookDirection::Left);
         assert_eq!(
@@ -2184,6 +2205,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_asc_dsc_constraint_display() {
         let constraint_asc = AscDscConstraint::new(AscDsc::Ascending);
         assert_eq!(format!("{}", constraint_asc), "AscDscConstraint(Ascending)");
@@ -2199,6 +2221,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_look_direction_enum_display() {
         assert_eq!(format!("{}", LookDirection::Left), "Left");
         assert_eq!(format!("{}", LookDirection::Right), "Right");
@@ -2206,6 +2229,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_asc_dsc_enum_display() {
         assert_eq!(format!("{}", AscDsc::Ascending), "Ascending");
         assert_eq!(format!("{}", AscDsc::Descending), "Descending");
@@ -2213,7 +2237,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_local_time_constraint_wrap_around_evaluation() {
         setup_global_test_eop();
 
@@ -2254,7 +2278,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_local_time_constraint_multiple_windows_evaluation() {
         setup_global_test_eop();
 
@@ -2283,7 +2307,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_local_time_constraint_boundary_cases() {
         setup_global_test_eop();
 
@@ -2308,7 +2332,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_off_nadir_constraint_evaluate_min_only() {
         setup_global_test_eop();
 
@@ -2351,7 +2375,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_off_nadir_constraint_evaluate_both_bounds() {
         setup_global_test_eop();
 
@@ -2375,7 +2399,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_elevation_mask_constraint_evaluate_interpolation() {
         setup_global_test_eop();
 
@@ -2400,7 +2424,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_elevation_mask_constraint_evaluate_azimuth_wrap() {
         setup_global_test_eop();
 
@@ -2428,7 +2452,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_access_constraint_computer_wrapper_new_and_evaluate() {
         setup_global_test_eop();
 
@@ -2484,7 +2508,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_azimuth_constraint_window() {
         let location = Vector3::new(0.0, 0.0, 0.0);
         let location_ecef = position_geodetic_to_ecef(location, AngleFormat::Degrees).unwrap();
@@ -2512,7 +2536,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_range_constraint_bounds() {
         let location = Vector3::new(0.0, 0.0, 0.0);
         let location_ecef = position_geodetic_to_ecef(location, AngleFormat::Degrees).unwrap();
@@ -2553,7 +2577,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_azimuth_range_constraint_name_and_display() {
         let az = AzimuthConstraint::new(90.0, 180.0).unwrap();
         assert_eq!(format!("{}", az), az.name());

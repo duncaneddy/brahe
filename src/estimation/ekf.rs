@@ -1145,7 +1145,7 @@ mod tests {
     use crate::propagators::traits::DStatePropagator;
     use crate::time::TimeSystem;
     use approx::assert_abs_diff_eq;
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
 
     fn setup_global_test_eop() {
         let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
@@ -2890,7 +2890,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_process_noise_config_validate_rejects_bad_max_noise_dt() {
         let q = DMatrix::identity(6, 6);
         for bad in [0.0, -1.0, f64::NAN] {

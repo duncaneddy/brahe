@@ -360,12 +360,13 @@ fn download_bytes_impl(
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use httpmock::prelude::*;
+    use serial_test::{parallel, serial};
 
     use super::*;
     use crate::utils::testing::NetworkModeGuard;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_download_bytes_returns_body_on_success() {
         let server = MockServer::start();
         let _mock = server.mock(|when, then| {
@@ -378,7 +379,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_download_bytes_with_user_agent_sends_header() {
         // Mirrors are known to 403 default HTTP client user agents (e.g. the
         // star catalog data source); download_bytes_with_user_agent must send
@@ -402,7 +403,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_download_bytes_retries_transient_failure() {
         // A persistently transient (503) endpoint is retried up to the attempt
         // cap before failing, so the mock records exactly MAX_DOWNLOAD_ATTEMPTS
@@ -419,7 +420,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_download_bytes_retries_truncated_body() {
         // A body that ends before its declared length fails in the read phase.
         // That is a transport error, so the whole request is retried up to the
@@ -461,7 +462,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_download_bytes_does_not_retry_client_error() {
         // A 404 is not transient: download_bytes must fail after a single request.
         let server = MockServer::start();
@@ -476,7 +477,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_is_retryable_error() {
         use std::io;
 
@@ -496,7 +497,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_backoff_delay_bounds() {
         // Delay for a given attempt must never exceed the exponential window,
         // and the window is capped at BACKOFF_MAX_DELAY.
@@ -514,7 +515,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_download_string_returns_body() {
         let server = MockServer::start();
         let _mock = server.mock(|when, then| {
@@ -527,7 +528,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_download_string_retries_transient_then_errors() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -541,7 +542,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_download_to_file_writes_body_to_disk() {
         let server = MockServer::start();
         let _mock = server.mock(|when, then| {
@@ -556,7 +557,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_urlencode_reserved_chars() {
         assert_eq!(urlencode("Ceres"), "Ceres");
         assert_eq!(urlencode("DES=2000001;"), "DES%3D2000001%3B");
@@ -566,7 +567,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_download_string_offline_makes_no_request() {
         let _guard = NetworkModeGuard::set(Some("offline"));
         let server = MockServer::start();
@@ -589,7 +590,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_download_bytes_offline_strict_makes_no_request() {
         let _guard = NetworkModeGuard::set(Some("offline-strict"));
         let server = MockServer::start();
@@ -612,7 +613,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_download_string_offline_allows_loopback() {
         let _guard = NetworkModeGuard::set(Some("offline"));
         let server = MockServer::start();

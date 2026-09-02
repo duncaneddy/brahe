@@ -257,6 +257,7 @@ pub fn eclipse_cylindrical_for_body<P: IntoPosition>(
 mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
+    use serial_test::parallel;
 
     use crate::constants::R_MOON;
     use crate::{Epoch, TimeSystem, sun_position};
@@ -264,6 +265,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[parallel]
     fn test_eclipse_for_body_earth_at_origin_matches_legacy() {
         let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
         let r_sun = Vector3::new(-AU, 0.0, 0.0); // object behind Earth
@@ -278,6 +280,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_eclipse_for_body_offset_occulter() {
         // Moon occulting: object 2000 km behind the Moon on the anti-Sun line, Moon offset from origin
         let r_moon = Vector3::new(3.844e8, 0.0, 0.0);
@@ -296,6 +299,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_accel_solar_radiation_pressure() {
         let r_object = Vector3::new(AU, 0.0, 0.0);
         let r_sun = Vector3::new(0.0, 0.0, 0.0);
@@ -342,6 +346,7 @@ mod tests {
     #[case(60310.0, 1.0, 100.0, 1.8, 4.56e-06, 149597870000.0, 1.0, 6693864.22555059, 1295667.60967006, - 204164.211397098, - 1.4204788995187e-08, 7.67850203052004e-08, 3.32899385735956e-08)]
     #[case(60310.0, 1.0, 100.0, 1.8, 4.56e-06, 149597870000.0, 1.0, 6333183.86841522, 2494761.03873549, 327102.634966258, - 1.42046050834611e-08, 7.67835930304877e-08, 3.32893263626367e-08)]
     #[case(60310.0, 1.0, 100.0, 1.8, 4.56e-06, 149597870000.0, 0.0, 5722314.46705829, 3595279.7368028, 845439.049265208, - 1.42045807122508e-08, 7.67821909185259e-08, 3.32887422598158e-08)]
+    #[parallel]
     fn test_cross_validation_srp_and_eclipse(
         #[case] mjd_tt: f64,
         #[case] area: f64,
@@ -733,6 +738,7 @@ mod tests {
     #[case(60310.0, 5128708.87668871, 4314160.70056012, 1205403.08321316, 0.0)]
     #[case(60310.0, 5049046.55863509, 4395331.48419301, 1247435.88746564, 0.0)]
     #[case(60310.0, 4967799.20643349, 4475122.45261482, 1289077.08733042, 0.0)]
+    #[parallel]
     fn test_eclipse_cross_validation(
         #[case] mjd_tt: f64,
         #[case] rx: f64,

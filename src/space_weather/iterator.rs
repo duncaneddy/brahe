@@ -210,8 +210,10 @@ mod tests {
     use super::*;
     use crate::space_weather::FileSpaceWeatherProvider;
     use crate::time::TimeSystem;
+    use serial_test::parallel;
 
     #[test]
+    #[parallel]
     fn test_kp_iterator_basic() {
         let provider = FileSpaceWeatherProvider::from_default_file().unwrap();
         let start = Epoch::from_datetime(2023, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -233,6 +235,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_ap_iterator_basic() {
         let provider = FileSpaceWeatherProvider::from_default_file().unwrap();
         let start = Epoch::from_datetime(2023, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -253,6 +256,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_kp_iterator_full_day() {
         let provider = FileSpaceWeatherProvider::from_default_file().unwrap();
         let start = Epoch::from_datetime(2023, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -266,6 +270,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_kp_iterator_multiple_days() {
         let provider = FileSpaceWeatherProvider::from_default_file().unwrap();
         let start = Epoch::from_datetime(2023, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -279,6 +284,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_iterator_invalid_range() {
         let provider = FileSpaceWeatherProvider::from_default_file().unwrap();
         let start = Epoch::from_datetime(2023, 1, 2, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -289,6 +295,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_iterator_mid_interval_start() {
         let provider = FileSpaceWeatherProvider::from_default_file().unwrap();
         // Start at 01:30 (middle of first interval)
@@ -303,6 +310,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_iterator_epoch_values() {
         let provider = FileSpaceWeatherProvider::from_default_file().unwrap();
         let start = Epoch::from_datetime(2023, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);

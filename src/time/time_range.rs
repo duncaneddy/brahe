@@ -94,11 +94,12 @@ impl Iterator for TimeRange {
 mod tests {
     use crate::time::time_types::TimeSystem;
     use crate::utils::testing::setup_global_test_eop;
+    use serial_test::parallel;
 
     use super::*;
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_time_series() {
         setup_global_test_eop();
 
@@ -118,7 +119,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_time_series_negative() {
         setup_global_test_eop();
 

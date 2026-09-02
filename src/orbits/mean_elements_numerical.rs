@@ -489,7 +489,7 @@ mod tests {
     use crate::time::Epoch;
     use approx::assert_abs_diff_eq;
     use nalgebra::SVector;
-    use serial_test::parallel;
+    use serial_test::{parallel, serial};
 
     // Build a synthetic osculating trajectory by analytically expanding a fixed mean
     // state across one period (varying only M). Averaging must recover the mean a,e,i.
@@ -685,7 +685,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_numerical_mean_to_osc_round_trip() {
         use crate::propagators::{ForceModelConfig, NumericalPropagationConfig};
         crate::utils::testing::setup_global_test_eop();
@@ -823,7 +823,7 @@ mod tests {
     /// inclination makes the seed divide by `tan(i) = 0`) must fall back to seeding from
     /// the target itself and never return a NaN result.
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_numerical_mean_to_osc_nonfinite_seed_fallback() {
         use crate::propagators::{ForceModelConfig, NumericalPropagationConfig};
         crate::utils::testing::setup_global_test_eop();
@@ -866,7 +866,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_numerical_mean_to_osc_requires_inverse_config() {
         let mean_rad = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 0.78, 0.5, 1.0, 0.0);
         let cfg = MeanElementNumericalMethodConfig {
@@ -885,7 +885,7 @@ mod tests {
     /// and produces a non-finite seed. The solver must fall back to seeding from the
     /// target mean elements rather than propagating NaNs.
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_numerical_mean_to_osc_near_critical_inclination_seed_fallback() {
         use crate::propagators::{ForceModelConfig, NumericalPropagationConfig};
         crate::utils::testing::setup_global_test_eop();
@@ -1214,7 +1214,7 @@ mod tests {
     // iteration must surface a clean `NumericalError` rather than looping forever or
     // silently returning an under-converged result.
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_numerical_mean_to_osc_non_convergence_returns_numerical_error() {
         use crate::propagators::{ForceModelConfig, NumericalPropagationConfig};
         crate::utils::testing::setup_global_test_eop();
@@ -1246,7 +1246,7 @@ mod tests {
     // Trailing/Leading `forward_average` span arms: a single LEO mean state must still
     // converge and recover a, e, i under both non-centered alignments.
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_numerical_mean_to_osc_trailing_alignment() {
         use crate::propagators::{ForceModelConfig, NumericalPropagationConfig};
         crate::utils::testing::setup_global_test_eop();
@@ -1276,7 +1276,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_numerical_mean_to_osc_leading_alignment() {
         use crate::propagators::{ForceModelConfig, NumericalPropagationConfig};
         crate::utils::testing::setup_global_test_eop();

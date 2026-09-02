@@ -351,8 +351,10 @@ mod tests {
     use crate::time::TimeSystem;
     use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
 
     #[test]
+    #[parallel]
     fn test_parse_cof_basic() {
         let coeffs = &*WMMHR_COEFFICIENTS;
         assert_eq!(coeffs.n_max, 133);
@@ -380,7 +382,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_wmmhr_geodetic_enz_known_values() {
         setup_global_test_eop();
 
@@ -398,7 +400,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_wmmhr_geodetic_enz_equator() {
         setup_global_test_eop();
 
@@ -415,7 +417,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_wmmhr_geodetic_enz_south() {
         setup_global_test_eop();
 
@@ -432,7 +434,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_wmmhr_at_altitude() {
         setup_global_test_eop();
 
@@ -448,7 +450,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_wmmhr_secular_variation() {
         setup_global_test_eop();
 
@@ -464,7 +466,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_wmmhr_nmax_truncation() {
         setup_global_test_eop();
 
@@ -492,7 +494,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_wmmhr_invalid_nmax() {
         setup_global_test_eop();
 
@@ -507,7 +509,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_wmmhr_ecef_enz_consistency() {
         setup_global_test_eop();
 

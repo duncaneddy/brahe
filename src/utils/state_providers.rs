@@ -1018,6 +1018,7 @@ mod tests {
     use crate::time::{Epoch, TimeSystem};
     use crate::traits::{OrbitFrame, OrbitRepresentation};
     use nalgebra::Vector6;
+    use serial_test::parallel;
 
     const TEST_EPOCH_JD: f64 = 2451545.0;
 
@@ -1036,6 +1037,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_to_propagator_refs_single_propagator() {
         let prop = create_test_propagator();
         let refs = prop.to_refs();
@@ -1045,6 +1047,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_to_propagator_refs_slice_of_propagators() {
         let props = [
             create_test_propagator(),
@@ -1061,6 +1064,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_to_propagator_refs_vec_of_propagators() {
         let props = vec![create_test_propagator(), create_test_propagator()];
         let refs = props.to_refs();
@@ -1072,6 +1076,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_to_propagator_refs_slice_of_refs() {
         let props = [
             create_test_propagator(),
@@ -1092,6 +1097,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_to_propagator_refs_empty_vec() {
         let props: Vec<KeplerianPropagator> = vec![];
         let refs = props.to_refs();
@@ -1099,6 +1105,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_to_propagator_refs_empty_slice() {
         let props: Vec<KeplerianPropagator> = vec![];
         let slice: &[KeplerianPropagator] = &props;
@@ -1107,7 +1114,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbit_state_provider_default_koe_mean() {
         // KeplerianPropagator does not override the DOrbitStateProvider
         // default state_koe_mean, so this exercises the default impl in this
@@ -1131,7 +1138,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_keplerian_propagator_bci_bcbf_in_frame() {
         // KeplerianPropagator is Earth-centered: state_bci is its GCRF
         // state, state_bcbf its ITRF state, and state_in_frame converts

@@ -211,6 +211,7 @@ mod tests {
     use super::*;
     use nalgebra::Vector3;
     use serde_json::json;
+    use serial_test::parallel;
 
     fn make_tile(
         center_lon: f64,
@@ -236,12 +237,14 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_merge_empty() {
         let result = tile_merge_orbit_geometry(&[], 200.0, 200.0, 2.0);
         assert!(result.is_empty());
     }
 
     #[test]
+    #[parallel]
     fn test_merge_single_group() {
         let tiles = vec![
             make_tile(10.0, 50.0, [0.0, 1.0, 0.0], "group1", "sc1"),
@@ -252,6 +255,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_merge_similar_directions() {
         // Two spacecraft with very similar directions → should merge
         let dir1 = [0.0_f64, 1.0, 0.0];
@@ -281,6 +285,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_merge_different_directions() {
         // Two spacecraft with very different directions → should NOT merge
         let dir1 = [0.0, 1.0, 0.0];

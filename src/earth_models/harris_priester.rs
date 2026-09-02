@@ -122,6 +122,7 @@ pub fn density_harris_priester(r_tod: Vector3<f64>, r_sun: Vector3<f64>) -> f64 
 mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
+    use serial_test::parallel;
 
     use crate::constants::AngleFormat;
     use crate::coordinates::*;
@@ -147,6 +148,7 @@ mod tests {
     #[case(24622331959.580, - 133060326832.922, - 57688711921.833, 5019636.693, 0.000, - 4989394.224, 1.28079e-13)]
     #[case(24622331959.580, - 133060326832.922, - 57688711921.833, 5090347.372, 0.000, - 5060104.902, 4.79319e-14)]
     #[case(24622331959.580, - 133060326832.922, - 57688711921.833, 5161058.050, 0.000, - 5130815.580, 2.16372e-14)]
+    #[parallel]
     fn test_harris_priester_cross_validation(
         #[case] rsun_x: f64,
         #[case] rsun_y: f64,
@@ -165,6 +167,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_harris_priester_bounds() {
         let r_sun = Vector3::new(24622331959.580, -133060326832.922, -57688711921.833);
 

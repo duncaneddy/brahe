@@ -353,6 +353,7 @@ mod tests {
     use crate::math::vector6_from_array;
 
     #[test]
+    #[parallel]
     fn test_bias_eme2000() {
         let r_eme2000 = bias_eme2000();
 
@@ -388,6 +389,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rotation_gcrf_to_eme2000() {
         let r_e2g = rotation_gcrf_to_eme2000();
 
@@ -402,6 +404,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rotation_eme2000_to_gcrf() {
         let r_g2e = rotation_eme2000_to_gcrf();
         let r_e2g = rotation_gcrf_to_eme2000().transpose();
@@ -415,6 +418,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_position_gcrf_to_eme2000() {
         let p_gcrf = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 
@@ -430,6 +434,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_position_eme2000_to_gcrf() {
         let p_eme2000 = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 
@@ -445,6 +450,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_state_gcrf_to_eme2000() {
         let oe = vector6_from_array([R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]);
         let gcrf = state_koe_to_eci(oe, DEGREES);
@@ -467,6 +473,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_state_eme2000_to_gcrf() {
         let oe = vector6_from_array([R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]);
         let eme2000 = state_koe_to_eci(oe, DEGREES);
@@ -489,6 +496,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_eme2000_gcrf_roundtrip() {
         let oe = vector6_from_array([R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]);
         let eme2000 = state_koe_to_eci(oe, DEGREES);

@@ -75,6 +75,7 @@ pub(crate) fn get_tile_property_vec3(
 mod tests {
     use super::*;
     use nalgebra::Vector3;
+    use serial_test::parallel;
 
     use crate::access::location::PointLocation;
 
@@ -102,6 +103,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_mock_tessellator() {
         let tess = MockTessellator;
         let point = PointLocation::new(10.5, 50.5, 0.0).unwrap();
@@ -111,6 +113,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_tessellate_batch_default() {
         let tess = MockTessellator;
         let p1 = PointLocation::new(10.5, 50.5, 0.0).unwrap();
@@ -123,6 +126,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_tessellate_with_point_and_polygon() {
         let tess = MockTessellator;
 

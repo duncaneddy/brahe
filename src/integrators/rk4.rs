@@ -678,6 +678,7 @@ impl RK4DIntegrator {
 mod tests {
     use approx::assert_abs_diff_eq;
     use nalgebra::{DMatrix, DVector, SMatrix, SVector};
+    use serial_test::parallel;
 
     use crate::constants::{DEGREES, RADIANS};
     use crate::integrators::rk4::{RK4DIntegrator, RK4SIntegrator};
@@ -710,6 +711,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4s_integrator_cubic() {
         // Define a simple function for testing x' = 2x,
         let f = |t: f64,
@@ -734,6 +736,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4s_integrator_parabola() {
         // Define a simple function for testing x' = 2x,
         let f = |t: f64,
@@ -760,6 +763,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4s_integrator_orbit() {
         let rk4: RK4SIntegrator<6, 0> =
             RK4SIntegrator::new(Box::new(point_earth), None, None, None);
@@ -791,6 +795,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4s_integrator_varmat() {
         // Define how we want to calculate the variational matrix for the RK4 integrator
         // Use SNumericalJacobian with fixed offset
@@ -893,6 +898,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4d_integrator_cubic() {
         // Define a simple function for testing x' = 3t²
         let f = |t: f64,
@@ -915,6 +921,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4d_integrator_parabola() {
         // Define a simple function for testing x' = 2t
         let f = |t: f64,
@@ -939,6 +946,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4d_integrator_orbit() {
         let rk4 = RK4DIntegrator::new(6, Box::new(point_earth_dynamic), None, None, None);
 
@@ -970,6 +978,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4d_integrator_varmat() {
         // Define a 2-argument wrapper for the jacobian (it doesn't need params)
         let point_earth_for_jacobian =
@@ -1071,6 +1080,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4_s_vs_d_consistency() {
         // Verify RK4SIntegrator and RK4DIntegrator produce identical results
         let f_static = |_t: f64,
@@ -1103,6 +1113,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4s_backward_integration() {
         // Test backward propagation with orbital mechanics
         let rk4: RK4SIntegrator<6, 0> =
@@ -1139,6 +1150,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4d_backward_integration() {
         // Test backward propagation with orbital mechanics (dynamic variant)
         let rk4 = RK4DIntegrator::new(6, Box::new(point_earth_dynamic), None, None, None);
@@ -1179,6 +1191,7 @@ mod tests {
     // ========================================================================
 
     #[test]
+    #[parallel]
     fn test_rk4s_integrator_with_control_input() {
         // Simple dynamics: x' = 0 (constant state without control)
         let f = |_t: f64,
@@ -1207,6 +1220,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4d_integrator_with_control_input() {
         // Simple dynamics: x' = 0 (constant state without control)
         let f = |_t: f64,
@@ -1239,6 +1253,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4s_integrator_control_with_dynamics() {
         // Dynamics: x' = -x (exponential decay)
         let f = |_t: f64,
@@ -1270,6 +1285,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4s_integrator_state_dependent_control() {
         // Dynamics: x' = 0
         let f = |_t: f64,
@@ -1304,6 +1320,7 @@ mod tests {
     // ========================================================================
 
     #[test]
+    #[parallel]
     fn test_rk4s_integrator_sensmat() {
         // Test sensitivity matrix propagation using exponential decay: dx/dt = -k*x
         // where k is a parameter.
@@ -1390,6 +1407,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4d_integrator_sensmat() {
         // Test sensitivity matrix propagation using exponential decay (dynamic version)
 
@@ -1469,6 +1487,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4s_integrator_varmat_sensmat() {
         // Test combined STM and sensitivity matrix propagation
 
@@ -1567,6 +1586,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4d_integrator_varmat_sensmat() {
         // Test combined STM and sensitivity matrix propagation (dynamic version)
 
@@ -1669,6 +1689,7 @@ mod tests {
     // =============================================================================
 
     #[test]
+    #[parallel]
     fn test_rk4s_new_uses_default_config() {
         // Simple linear ODE: dx/dt = x
         fn dynamics(
@@ -1699,6 +1720,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4s_with_config_stores_config() {
         fn dynamics(
             _t: f64,
@@ -1747,6 +1769,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4s_config_returns_reference() {
         fn dynamics(
             _t: f64,
@@ -1775,6 +1798,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4d_new_uses_default_config() {
         fn dynamics(
             _t: f64,
@@ -1803,6 +1827,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4d_with_config_stores_config() {
         fn dynamics(
             _t: f64,
@@ -1852,6 +1877,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4d_config_returns_reference() {
         fn dynamics(
             _t: f64,
@@ -1879,6 +1905,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4d_dimension_method() {
         fn dynamics(
             _t: f64,
@@ -1908,6 +1935,7 @@ mod tests {
     // propagation output, ensuring parameters flow through to dynamics correctly.
 
     #[test]
+    #[parallel]
     fn test_rk4s_params_affect_step_output() {
         // Test exponential decay where the decay rate comes from params:
         // dx/dt = -k * x, where k = params[0]
@@ -1957,6 +1985,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4d_params_affect_step_output() {
         // Same test for dynamic-sized integrator
         // dx/dt = -k * x, where k = params[0]
@@ -2003,6 +2032,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4s_params_multi_step_propagation() {
         // Verify params affect output over multiple steps
         // dx/dt = -k * x, where k = params[0]
@@ -2063,6 +2093,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4s_params_with_varmat() {
         // Verify params affect step_with_varmat output
         // dx/dt = -k * x, where k = params[0]
@@ -2132,6 +2163,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_rk4d_params_with_varmat() {
         // Same test for dynamic-sized integrator with variational matrix
 
@@ -2218,7 +2250,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rk4s_step_with_varmat_requires_varmat() {
         // No varmat provider: step_with_varmat must error via the ok_or_else closure
         let integrator: RK4SIntegrator<1, 0> =
@@ -2230,7 +2262,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rk4s_step_with_sensmat_requires_sensmat() {
         // varmat present but sensmat missing: the sensmat ok_or_else closure must fire
         let jacobian = SNumericalJacobian::new(Box::new(simple_decay_s));
@@ -2248,7 +2280,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rk4d_step_with_varmat_requires_varmat() {
         let integrator = RK4DIntegrator::new(1, Box::new(simple_decay_d), None, None, None);
         let state = DVector::from_vec(vec![1.0]);
@@ -2258,7 +2290,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_rk4d_step_with_sensmat_requires_sensmat() {
         let jacobian = DNumericalJacobian::new(Box::new(simple_decay_d));
         let integrator = RK4DIntegrator::new(

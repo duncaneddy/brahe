@@ -721,7 +721,7 @@ fn transform_koe(oe: &SVector<f64, 6>, direction: TransformDirection) -> SVector
 mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
-    use serial_test::parallel;
+    use serial_test::{parallel, serial};
 
     /// Test round-trip: mean → osc → mean ≈ original (radians)
     #[test]
@@ -1130,7 +1130,7 @@ mod tests {
     /// windowed averaging: the recovered osculating semi-major axis stays within a
     /// few percent of the target mean (osc oscillates about mean).
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_batch_numerical_mean_to_osc_round_trips_through_averaging() {
         crate::utils::testing::setup_global_test_eop();
         use crate::propagators::{ForceModelConfig, NumericalPropagationConfig};
@@ -1169,7 +1169,7 @@ mod tests {
     /// With the alignment-aware fix, Trailing numerical mean->osc must still converge
     /// and recover the target mean semi-major axis.
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_batch_numerical_mean_to_osc_trailing_alignment_recovers_mean() {
         crate::utils::testing::setup_global_test_eop();
         use crate::propagators::{ForceModelConfig, NumericalPropagationConfig};

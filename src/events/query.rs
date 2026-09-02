@@ -437,6 +437,7 @@ mod tests {
     use super::*;
     use crate::time::TimeSystem;
     use nalgebra::DVector;
+    use serial_test::parallel;
 
     /// Helper function to create test events
     fn create_test_event(
@@ -468,6 +469,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_EventQuery_by_name_exact_matches() {
         let events = [
             create_test_event(
@@ -495,6 +497,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EventQuery_by_name_exact_no_match() {
         let events = [create_test_event(
             "Altitude Event",
@@ -512,6 +515,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EventQuery_by_name_exact_partial_no_match() {
         let events = [create_test_event(
             "Altitude Event",
@@ -534,6 +538,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_EventQuery_after_includes_matching_epoch() {
         let base_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let events = [create_test_event(
@@ -551,6 +556,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EventQuery_after_includes_later_events() {
         let base_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let events = [
@@ -579,6 +585,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EventQuery_after_excludes_earlier_events() {
         let base_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let events = [
@@ -610,6 +617,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_EventQuery_before_includes_matching_epoch() {
         let base_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let events = [create_test_event(
@@ -627,6 +635,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EventQuery_before_includes_earlier_events() {
         let base_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let events = [
@@ -655,6 +664,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EventQuery_before_excludes_later_events() {
         let base_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let events = [
@@ -686,6 +696,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_EventQuery_by_event_type_instantaneous() {
         let events = [
             create_test_event(
@@ -708,6 +719,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EventQuery_by_event_type_window() {
         let events = [
             create_test_event(
@@ -730,6 +742,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EventQuery_by_event_type_no_match() {
         let events = [create_test_event(
             "Instant",
@@ -751,6 +764,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_EventQuery_by_action_stop() {
         let events = [
             create_test_event(
@@ -779,6 +793,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EventQuery_by_action_continue() {
         let events = [
             create_test_event(
@@ -807,6 +822,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_EventQuery_by_action_no_match() {
         let events = [create_test_event(
             "Continue Event",
@@ -828,6 +844,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_EventQuery_combined_filters() {
         let base_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let events = [

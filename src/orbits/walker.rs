@@ -1034,12 +1034,14 @@ mod tests {
     use super::*;
     use crate::constants::R_EARTH;
     use approx::assert_abs_diff_eq;
+    use serial_test::{parallel, serial};
 
     fn test_epoch() -> Epoch {
         Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, crate::time::TimeSystem::UTC)
     }
 
     #[test]
+    #[parallel]
     fn test_walker_new_basic() {
         let walker = WalkerConstellationGenerator::new(
             12,
@@ -1067,6 +1069,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_walker_zero_planes() {
         let result = WalkerConstellationGenerator::new(
             12,
@@ -1091,6 +1094,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_walker_not_divisible() {
         let result = WalkerConstellationGenerator::new(
             10,
@@ -1112,6 +1116,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_walker_phasing_too_large() {
         let result = WalkerConstellationGenerator::new(
             12,
@@ -1133,6 +1138,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_walker_raan_spacing_delta() {
         // Walker Delta: 6 satellites in 3 planes -> planes at RAAN 0, 120, 240 degrees
         let walker = WalkerConstellationGenerator::new(
@@ -1162,6 +1168,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_walker_raan_spacing_star() {
         // Walker Star: 6 satellites in 3 planes -> planes at RAAN 0, 60, 120 degrees
         let walker = WalkerConstellationGenerator::new(
@@ -1191,6 +1198,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_walker_ma_spacing_within_plane() {
         // 6 satellites in 2 planes -> 3 per plane, MA spacing = 120 degrees
         let walker = WalkerConstellationGenerator::new(
@@ -1220,6 +1228,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_walker_phasing() {
         // 12:3:1 constellation
         // Phase offset per plane = 1 * 360/12 = 30 degrees
@@ -1253,6 +1262,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_walker_all_elements() {
         let walker = WalkerConstellationGenerator::new(
             6,
@@ -1283,6 +1293,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_walker_with_base_name() {
         let walker = WalkerConstellationGenerator::new(
             6,
@@ -1316,6 +1327,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_walker_satellite_id() {
         let walker = WalkerConstellationGenerator::new(
             6,
@@ -1343,6 +1355,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_walker_as_keplerian_propagators() {
         let walker = WalkerConstellationGenerator::new(
             6,
@@ -1373,6 +1386,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_walker_reference_offsets() {
         // Test with non-zero reference RAAN and MA
         let walker = WalkerConstellationGenerator::new(
@@ -1399,6 +1413,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_walker_radians_input() {
         let walker = WalkerConstellationGenerator::new(
             4,
@@ -1424,6 +1439,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_walker_star_pattern() {
         // Test Walker Star pattern (Iridium-like: 66:6:2)
         let walker = WalkerConstellationGenerator::new(
@@ -1456,6 +1472,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_walkerconstellationgenerator_builder_equivalence() {
         let epoch = test_epoch();
 
@@ -1506,6 +1523,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_walkerconstellationgenerator_builder_all_setters() {
         let epoch = test_epoch();
 
@@ -1553,7 +1571,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_walker_as_numerical_propagators() {
         crate::utils::testing::setup_global_test_eop();
         let epoch = test_epoch();
@@ -1578,6 +1596,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_walkerconstellationgenerator_builder_invalid() {
         let epoch = test_epoch();
 

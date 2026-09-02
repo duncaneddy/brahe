@@ -740,9 +740,10 @@ impl OceanTideModel {
 mod tests {
     use super::*;
     use crate::time::{Epoch, TimeSystem};
+    use serial_test::{parallel, serial};
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_doodson_to_delaunay_matches_iers_tables() {
         // M2 (255.555): Table 6.5c row τ s h p N' ps = 2 0 0 0 0 0,
         // Delaunay l l' F D Ω = 0 0 2 0 2 (subtracted) => additive multipliers:
@@ -768,7 +769,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_theta_dot_matches_table_65c() {
         // Table 6.5c "deg/hr" column: M2 = 28.98410, N2 = 28.43973.
         let m2 = theta_dot_deg_per_hour(parse_doodson("255.555").unwrap());
@@ -781,7 +782,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_tide_argument_m2_period() {
         // Finite-difference the M2 argument over one hour: expect ~28.984 deg/hr.
         crate::utils::testing::setup_global_test_eop();
@@ -798,7 +799,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_doodson() {
         assert_eq!(parse_doodson("255.555").unwrap(), [2, 0, 0, 0, 0, 0]);
         assert_eq!(parse_doodson("55.565").unwrap(), [0, 0, 0, 0, 1, 0]);
@@ -809,7 +810,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_fes2004_fixture() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("test_data/fes2004_Cnm-Snm_n30.dat");
@@ -850,7 +851,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_fes2004_path_uses_cache_without_network() {
         let _guard = crate::utils::testing::setup_test_fes2004_cache();
         let path = fes2004_coefficients_path().unwrap();
@@ -859,7 +860,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     #[cfg_attr(not(feature = "integration"), ignore)]
     fn test_fes2004_download() {
         // Network-gated: clean cache, real download, file is complete.
@@ -870,7 +871,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_new_rejects_bad_bounds_without_deleting_cache() {
         // Out-of-range truncation bounds are a caller-input error, not cache
         // corruption: `new` must reject them without ever touching a
@@ -900,7 +901,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_fes2004_rejects_order_gt_degree() {
         // A data row with m > n would alias another packed (n, m) entry and must
         // be rejected outright rather than silently corrupting the model.
@@ -912,7 +913,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_from_file_rejects_out_of_range_bounds() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("test_data/fes2004_Cnm-Snm_n30.dat");
@@ -923,7 +924,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_new_rejects_and_removes_truncated_cache() {
         // A pre-existing cache file missing main constituents must be rejected
         // and deleted so the next call re-downloads.
@@ -945,7 +946,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_new_rejects_degree_truncated_cache() {
         // The n30 fixture holds all 18 main waves (so `validate_main_waves`
         // alone would pass it) but only up to degree 30. Requesting a higher
@@ -972,7 +973,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_admittance_table_integrity() {
         use crate::orbit_dynamics::ocean_tides_admittance::ADMITTANCE_TABLE;
         // 18 main rows (in the FES2004 file), S1 excluded (no pivots, not in file),
@@ -1009,7 +1010,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_expand_admittance_155555_weights() {
         // 155.555 (Hf = -0.00399) pivots O1 (145.555, H1 = -0.26221) and
         // K1 (165.555, H2 = 0.36878). Its frequency is exactly midway:
@@ -1048,7 +1049,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_ocean_accumulate_single_constituent() {
         // Synthetic wave with known argument: multipliers all zero except γ, so
         // θ = γ. Check the Eq. (6.15) real expansion at two argument values.
@@ -1086,7 +1087,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_ocean_model_new_magnitude() {
         crate::utils::testing::setup_global_test_eop();
         let _guard = crate::utils::testing::setup_test_fes2004_cache();
@@ -1106,7 +1107,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_ocean_model_admittance_toggle() {
         let _guard = crate::utils::testing::setup_test_fes2004_cache();
         let with = OceanTideModel::new(20, 20, true).unwrap();
@@ -1137,7 +1138,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_fetch_and_cache_fes2004_promotes_valid_download() {
         // A complete fake download is validated and atomically promoted into
         // the cache path, and the promoted file parses.
@@ -1157,7 +1158,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_fetch_and_cache_fes2004_rejects_short_download() {
         // A payload under the line-count floor is rejected and never cached.
         let dir = tempfile::tempdir().unwrap();
@@ -1169,7 +1170,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_fetch_and_cache_fes2004_rejects_empty_download() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("fes2004_Cnm-Snm.dat");
@@ -1179,7 +1180,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_fetch_and_cache_fes2004_propagates_fetch_error() {
         // A failing fetch propagates with the manual-download hint and leaves
         // nothing behind at the cache path.
@@ -1199,7 +1200,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_doodson_error_branches() {
         // Every malformed-input arm of parse_doodson.
         let cases = [
@@ -1223,7 +1224,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_parse_fes2004_error_branches() {
         let dir = tempfile::tempdir().unwrap();
         let write = |name: &str, content: &str| {
@@ -1262,7 +1263,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_expand_admittance_missing_pivot_errors() {
         // Drop the K1 (165.555) main wave from the parsed list: the first
         // Table 6.7 row that pivots on K1 must error, naming the pivot.
@@ -1280,7 +1281,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_ocean_model_truncation_accessors() {
         // n_max()/m_max() report the construction truncation.
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))

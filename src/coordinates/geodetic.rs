@@ -202,6 +202,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[parallel]
     fn test_position_geodetic() {
         let tol = 1.0e-7;
 

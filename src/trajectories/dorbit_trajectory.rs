@@ -3451,8 +3451,10 @@ mod tests {
     use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
     use nalgebra::{DMatrix, DVector};
+    use serial_test::{parallel, serial};
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_new() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap();
@@ -3465,6 +3467,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_default() {
         let traj = DOrbitTrajectory::default();
         assert_eq!(traj.frame, OrbitFrame::ECI);
@@ -3474,6 +3477,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_add_state() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -3492,6 +3496,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_add_state_inserts_dimension_sized_placeholders() {
         // With covariance/STM/sensitivity storage enabled on an extended-state
         // trajectory, add() must insert placeholders sized to the trajectory
@@ -3523,6 +3528,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_display() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap();
@@ -3535,6 +3541,7 @@ mod tests {
     // ========== Extended State Tests ==========
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_extended_state_7d() {
         let mut traj =
             DOrbitTrajectory::new(7, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -3558,6 +3565,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_extended_state_9d() {
         let mut traj =
             DOrbitTrajectory::new(9, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -3583,6 +3591,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_invalid_dimension() {
         let result =
             DOrbitTrajectory::new(5, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
@@ -3590,6 +3599,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_dimension_mismatch() {
         let mut traj =
             DOrbitTrajectory::new(7, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -3600,6 +3610,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_from_data_infers_dimension() {
         let epochs = vec![
             Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC),
@@ -3618,6 +3629,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_from_data_inconsistent_dimensions() {
         let epochs = vec![
             Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC),
@@ -3641,7 +3653,7 @@ mod tests {
     // ========== Conversion Preservation Tests ==========
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_frame_conversion_preserves_additional() {
         setup_global_test_eop();
 
@@ -3672,6 +3684,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_to_gcrf_preserves_additional() {
         let mut traj =
             DOrbitTrajectory::new(9, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -3692,7 +3705,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_to_itrf_preserves_additional() {
         setup_global_test_eop();
 
@@ -3713,6 +3726,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_to_eme2000_preserves_additional() {
         let mut traj =
             DOrbitTrajectory::new(7, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -3730,6 +3744,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_representation_conversion_preserves_additional() {
         use crate::constants::{GM_EARTH, R_EARTH};
 
@@ -3762,6 +3777,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_covariance_stays_6x6() {
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0, 1.0, 2.0, 3.0]);
@@ -3785,6 +3801,7 @@ mod tests {
     // ========== Helper Function Tests ==========
 
     #[test]
+    #[parallel]
     fn test_smat66_to_dmat_basic() {
         use nalgebra::SMatrix;
 
@@ -3804,6 +3821,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dmat_to_smat66_basic() {
         let dm = DMatrix::identity(6, 6);
         let sm = dmat_to_smat66(dm);
@@ -3822,6 +3840,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "DMatrix must have 6 rows")]
+    #[parallel]
     fn test_dmat_to_smat66_panic_wrong_rows() {
         let dm = DMatrix::identity(5, 6);
         let _ = dmat_to_smat66(dm);
@@ -3829,6 +3848,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "DMatrix must have 6 columns")]
+    #[parallel]
     fn test_dmat_to_smat66_panic_wrong_cols() {
         let dm = DMatrix::identity(6, 5);
         let _ = dmat_to_smat66(dm);
@@ -3837,6 +3857,7 @@ mod tests {
     // ========== Constructor Panic Tests ==========
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_new_err_keplerian_no_angle_format() {
         let result =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Keplerian, None);
@@ -3844,6 +3865,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_new_err_cartesian_with_angle_format() {
         let result = DOrbitTrajectory::new(
             6,
@@ -3855,6 +3877,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_new_err_ecef_keplerian() {
         let result = DOrbitTrajectory::new(
             6,
@@ -3868,6 +3891,7 @@ mod tests {
     // ========== Builder Method Tests ==========
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_with_interpolation_method_linear() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap()
@@ -3876,6 +3900,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_with_interpolation_method_lagrange() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap()
@@ -3887,6 +3912,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_with_interpolation_method_hermite() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap()
@@ -3895,6 +3921,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_with_eviction_policy_max_size() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap()
@@ -3906,6 +3933,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_with_eviction_policy_max_size_err_zero() {
         let result =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -3915,6 +3943,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_with_eviction_policy_max_age() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap()
@@ -3929,6 +3958,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_with_eviction_policy_max_age_err_zero() {
         let result =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -3938,6 +3968,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_with_eviction_policy_max_age_err_negative() {
         let result =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -3949,6 +3980,7 @@ mod tests {
     // ========== add_state_and_covariance Tests ==========
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_add_state_and_covariance_basic() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -3968,6 +4000,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_add_state_and_covariance_ordering() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -3995,6 +4028,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_add_state_and_covariance_err_no_init() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4009,6 +4043,7 @@ mod tests {
     // ========== to_matrix Tests ==========
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_to_matrix_basic() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4026,6 +4061,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_to_matrix_multiple_states() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4047,6 +4083,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_to_matrix_error_empty() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap();
@@ -4063,6 +4100,7 @@ mod tests {
     // ========== covariance_at Tests ==========
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_covariance_at_exact_match() {
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -4083,6 +4121,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_covariance_at_interpolation() {
         let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 2, 0.0, 0.0, TimeSystem::UTC);
@@ -4108,6 +4147,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_covariance_at_none_disabled() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4121,6 +4161,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_covariance_at_none_empty() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4133,6 +4174,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_covariance_at_none_out_of_range() {
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -4157,6 +4199,7 @@ mod tests {
     // ========== add_full Tests ==========
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_add_full_all_optional_provided() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4186,6 +4229,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_add_full_only_state() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4203,6 +4247,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_add_full_with_covariance() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4223,6 +4268,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_add_full_with_stm() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4239,6 +4285,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_add_full_with_sensitivity() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4261,6 +4308,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_add_full_with_acceleration() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4282,6 +4330,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_add_full_err_state_dimension() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4293,6 +4342,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_add_full_err_cov_dimension() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4308,6 +4358,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_add_full_err_stm_dimension() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4323,6 +4374,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_add_full_err_sens_rows() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4338,6 +4390,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_add_full_err_sens_cols() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4357,6 +4410,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_add_full_err_accel_dimension() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4376,6 +4430,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_add_full_err_leaves_trajectory_unchanged() {
         // A rejected add_full must not mutate the trajectory: a valid
         // covariance combined with an invalid STM must not auto-enable
@@ -4441,6 +4496,7 @@ mod tests {
     // ========== Trajectory Trait Tests ==========
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_from_data_basic() {
         let epochs = vec![
             Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC),
@@ -4457,6 +4513,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_from_data_sorts_epochs() {
         let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC);
@@ -4475,6 +4532,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_from_data_error_empty() {
         let epochs: Vec<Epoch> = vec![];
         let states: Vec<DVector<f64>> = vec![];
@@ -4489,6 +4547,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_from_data_error_length_mismatch() {
         let epochs = vec![
             Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC),
@@ -4502,6 +4561,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_from_data_error_dimension_too_small() {
         let epochs = vec![Epoch::from_datetime(
             2024,
@@ -4526,6 +4586,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_epoch_at_idx_valid() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4539,6 +4600,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_epoch_at_idx_error_out_of_bounds() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap();
@@ -4548,6 +4610,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_state_at_idx_valid() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4563,6 +4626,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_state_at_idx_error_out_of_bounds() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap();
@@ -4572,6 +4636,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_nearest_state_exact() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4588,6 +4653,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_nearest_state_closest() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4611,6 +4677,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_nearest_state_error_empty() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap();
@@ -4621,6 +4688,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_len_and_is_empty() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4637,6 +4705,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_start_end_epoch() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4652,6 +4721,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_start_end_epoch_empty() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap();
@@ -4660,6 +4730,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_timespan_multiple() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4675,6 +4746,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_timespan_single_none() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4687,6 +4759,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_timespan_empty_none() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap();
@@ -4694,6 +4767,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_first_last() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4715,6 +4789,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_first_last_empty() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap();
@@ -4723,6 +4798,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_clear_all_storage_types() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4762,6 +4838,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_remove_epoch_found() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4780,6 +4857,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_remove_epoch_not_found() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4795,6 +4873,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_remove_by_index() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4811,6 +4890,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_remove_by_index_error_out_of_bounds() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4821,6 +4901,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_get_valid() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4837,6 +4918,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_get_error_out_of_bounds() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap();
@@ -4846,6 +4928,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_index_before_epoch_valid() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4863,6 +4946,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_index_before_epoch_exact_match() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4876,6 +4960,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_index_before_epoch_error_empty() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap();
@@ -4886,6 +4971,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_index_before_epoch_error_before_all() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4906,6 +4992,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_index_after_epoch_valid() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4923,6 +5010,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_index_after_epoch_exact_match() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4936,6 +5024,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_index_after_epoch_error_empty() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap();
@@ -4946,6 +5035,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_index_after_epoch_error_after_all() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4961,6 +5051,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_set_eviction_policy_max_size() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4971,6 +5062,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_set_eviction_policy_max_size_error_zero() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4981,6 +5073,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_set_eviction_policy_max_age() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -4994,6 +5087,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_set_eviction_policy_max_age_error_negative() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5004,6 +5098,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_get_eviction_policy() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap();
@@ -5019,6 +5114,7 @@ mod tests {
     // ========== InterpolationConfig Trait Tests ==========
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_interpolation_config_set_get() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5053,6 +5149,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_interpolation_config_with_builder() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap()
@@ -5067,6 +5164,7 @@ mod tests {
     // ========== InterpolatableTrajectory Trait Tests ==========
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_interpolate_linear_basic() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5091,6 +5189,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_interpolate_exact_match() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5106,6 +5205,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_interpolate_error_before_start() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5126,6 +5226,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_interpolate_error_after_end() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5146,6 +5247,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_interpolate_lagrange() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5176,6 +5278,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_interpolate_lagrange_error_insufficient_points() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5196,6 +5299,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_interpolate_hermite_cubic() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5215,6 +5319,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_interpolate_hermite_cubic_error_non_6d() {
         let mut traj =
             DOrbitTrajectory::new(9, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5236,6 +5341,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_interpolate_hermite_quintic_with_accelerations() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5259,6 +5365,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_interpolate_hermite_quintic_without_accelerations_errors() {
         // Without enabled acceleration storage, HermiteQuintic must error — even
         // when many points are available — since the FD fallback has been removed.
@@ -5294,6 +5401,7 @@ mod tests {
     // ========== STMStorage Trait Tests ==========
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_enable_stm_storage() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5320,6 +5428,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_stm_at_idx_valid() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5336,6 +5445,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_stm_at_idx_none_disabled() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5350,6 +5460,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_set_stm_at() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5370,6 +5481,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_set_stm_at_err_out_of_bounds() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5379,6 +5491,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_set_stm_at_err_wrong_dimensions() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5392,6 +5505,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_stm_dimensions() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap();
@@ -5399,6 +5513,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_stm_storage_mut() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5421,6 +5536,7 @@ mod tests {
     // ========== SensitivityStorage Trait Tests ==========
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_enable_sensitivity_storage() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5441,6 +5557,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_enable_sensitivity_storage_err_zero() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5449,6 +5566,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_sensitivity_at_idx_valid() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5465,6 +5583,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_sensitivity_at_idx_none_disabled() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5479,6 +5598,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_set_sensitivity_at() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5499,6 +5619,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_set_sensitivity_at_err_out_of_bounds() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5508,6 +5629,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_set_sensitivity_at_err_wrong_rows() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5521,6 +5643,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_set_sensitivity_at_err_wrong_cols() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5538,6 +5661,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_sensitivity_dimensions() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5551,6 +5675,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_sensitivity_storage_mut() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5573,6 +5698,7 @@ mod tests {
     // ========== CovarianceInterpolationConfig Tests ==========
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_covariance_interpolation_with_builder() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap()
@@ -5585,6 +5711,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_covariance_interpolation_set_get() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -5604,6 +5731,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_covariance_interpolation_sqrt_method() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap()
@@ -5616,6 +5744,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_covariance_interpolation_wasserstein_method() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap()
@@ -5630,6 +5759,7 @@ mod tests {
     // ========== from_orbital_data Tests ==========
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_from_orbital_data_basic() {
         let epochs = vec![
             Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC),
@@ -5657,6 +5787,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_from_orbital_data_with_covariances() {
         let epochs = vec![
             Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC),
@@ -5686,6 +5817,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_from_orbital_data_err_empty_states() {
         let epochs: Vec<Epoch> = vec![];
         let states: Vec<DVector<f64>> = vec![];
@@ -5702,6 +5834,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_from_orbital_data_err_dimension_too_small() {
         let epochs = vec![Epoch::from_datetime(
             2024,
@@ -5727,6 +5860,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_from_orbital_data_err_inconsistent_dimension() {
         let epochs = vec![
             Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC),
@@ -5749,6 +5883,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_from_orbital_data_err_ecef_keplerian() {
         let epochs = vec![Epoch::from_datetime(
             2024,
@@ -5774,6 +5909,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_from_orbital_data_err_cov_length_mismatch() {
         let epochs = vec![
             Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC),
@@ -5797,6 +5933,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_from_orbital_data_err_cov_invalid_frame() {
         let epochs = vec![Epoch::from_datetime(
             2024,
@@ -5825,7 +5962,7 @@ mod tests {
     // ========== Frame Conversion Tests ==========
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_to_eci_already_eci() {
         setup_global_test_eop();
 
@@ -5846,7 +5983,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_to_eci_already_gcrf() {
         setup_global_test_eop();
 
@@ -5867,7 +6004,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_to_eci_from_keplerian() {
         setup_global_test_eop();
 
@@ -5892,7 +6029,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_to_eci_from_ecef() {
         setup_global_test_eop();
 
@@ -5910,7 +6047,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_to_gcrf_already_gcrf() {
         setup_global_test_eop();
 
@@ -5930,7 +6067,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_to_gcrf_from_eci() {
         setup_global_test_eop();
 
@@ -5951,7 +6088,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_to_ecef_already_ecef() {
         setup_global_test_eop();
 
@@ -5971,7 +6108,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_to_ecef_from_eci() {
         setup_global_test_eop();
 
@@ -5989,7 +6126,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_to_itrf_already_itrf() {
         setup_global_test_eop();
 
@@ -6009,7 +6146,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_to_itrf_from_eci() {
         setup_global_test_eop();
 
@@ -6026,7 +6163,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_to_eme2000_already_eme2000() {
         setup_global_test_eop();
 
@@ -6046,7 +6183,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_to_eme2000_from_eci() {
         setup_global_test_eop();
 
@@ -6063,7 +6200,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_to_keplerian_from_cartesian_eci() {
         setup_global_test_eop();
 
@@ -6083,7 +6220,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_to_keplerian_already_keplerian_same_format() {
         setup_global_test_eop();
 
@@ -6107,7 +6244,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_to_keplerian_angle_format_conversion() {
         setup_global_test_eop();
 
@@ -6140,6 +6277,7 @@ mod tests {
     // ========== Identifiable Trait Tests ==========
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_with_name() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap()
@@ -6149,6 +6287,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_with_uuid() {
         let test_uuid = uuid::Uuid::now_v7();
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -6159,6 +6298,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_with_new_uuid() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap()
@@ -6168,6 +6308,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_with_id() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap()
@@ -6177,6 +6318,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_with_identity() {
         let test_uuid = uuid::Uuid::now_v7();
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -6189,6 +6331,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_set_identity() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -6202,6 +6345,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_set_id() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -6211,6 +6355,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_set_name() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -6220,6 +6365,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_generate_uuid() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -6230,6 +6376,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_get_id_name_uuid() {
         let test_uuid = uuid::Uuid::now_v7();
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -6246,6 +6393,7 @@ mod tests {
     // ========== DStateProvider Trait Tests ==========
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_state_provider_state() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -6261,6 +6409,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_state_provider_state_dim() {
         // state_dim returns dimension from first state, or 6 if empty
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -6278,6 +6427,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_state_provider_state_error() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -6295,6 +6445,7 @@ mod tests {
     // ========== DCovarianceProvider Trait Tests ==========
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_covariance_provider_basic() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -6311,6 +6462,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_covariance_provider_error_not_enabled() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -6326,6 +6478,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_covariance_provider_error_before_start() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -6343,6 +6496,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_covariance_provider_error_after_end() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -6360,6 +6514,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_covariance_provider_dim() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap();
@@ -6369,7 +6524,7 @@ mod tests {
     // ========== DOrbitStateProvider Trait Tests ==========
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_state_eci_from_eci_cartesian() {
         setup_global_test_eop();
 
@@ -6387,7 +6542,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_state_eci_from_gcrf_cartesian() {
         setup_global_test_eop();
 
@@ -6406,7 +6561,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_state_eci_from_eci_keplerian() {
         setup_global_test_eop();
 
@@ -6428,7 +6583,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_state_eci_from_ecef_cartesian() {
         setup_global_test_eop();
 
@@ -6444,7 +6599,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_dorbittrajectory_bci_all_frame_conversions() {
         // Remaining BCI(301) arms: state_gcrf/ecef/itrf/eme2000/koe_osc and
         // the batch to_gcrf/to_ecef/to_itrf/to_eme2000, each checked against
@@ -6552,6 +6707,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_bci_error_branches() {
         // Offline error branches: elements about a barycenter, body-fixed
         // frame for a barycenter or uncatalogued body, Keplerian samples
@@ -6627,7 +6783,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_dorbittrajectory_body_centered_inertial_providers() {
         // A BodyCenteredInertial(301) trajectory: state_bci returns the raw
         // LCI sample, state_in_frame(LCI) is the identity on it, state_eci
@@ -6687,7 +6843,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_dorbittrajectory_bci_keplerian_to_eci_uses_center_gm() {
         // A Keplerian BodyCenteredInertial(301) trajectory converts elements
         // with the Moon's GM and re-centers through SPK, matching the
@@ -6725,7 +6881,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_state_gcrf_from_gcrf_cartesian() {
         setup_global_test_eop();
 
@@ -6743,7 +6899,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_state_gcrf_from_eci_cartesian() {
         setup_global_test_eop();
 
@@ -6762,7 +6918,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_state_ecef_from_ecef_cartesian() {
         setup_global_test_eop();
 
@@ -6780,7 +6936,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_state_ecef_from_eci_cartesian() {
         setup_global_test_eop();
 
@@ -6796,7 +6952,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_state_itrf_from_itrf_cartesian() {
         setup_global_test_eop();
 
@@ -6814,7 +6970,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_state_eme2000_from_eme2000_cartesian() {
         setup_global_test_eop();
 
@@ -6832,7 +6988,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_state_koe_osc_from_eci_cartesian() {
         setup_global_test_eop();
 
@@ -6849,7 +7005,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_state_koe_osc_from_eci_keplerian_same_format() {
         setup_global_test_eop();
 
@@ -6873,7 +7029,7 @@ mod tests {
     // ========== DOrbitCovarianceProvider Trait Tests ==========
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_covariance_eci_from_eci() {
         setup_global_test_eop();
 
@@ -6892,7 +7048,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_covariance_eci_from_gcrf() {
         setup_global_test_eop();
 
@@ -6912,7 +7068,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_covariance_eci_error_ecef() {
         setup_global_test_eop();
 
@@ -6932,7 +7088,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_covariance_gcrf() {
         setup_global_test_eop();
 
@@ -6951,7 +7107,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_dorbittrajectory_covariance_rtn() {
         setup_global_test_eop();
 
@@ -6972,6 +7128,7 @@ mod tests {
     // ========== Iterator and Index Tests ==========
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_index_valid() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -6989,6 +7146,7 @@ mod tests {
 
     #[test]
     #[should_panic]
+    #[parallel]
     fn test_dorbittrajectory_index_panic_out_of_bounds() {
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap();
@@ -6996,6 +7154,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_into_iter() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -7015,6 +7174,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_iterator_size_hint() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -7030,6 +7190,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_iterator_len() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -7045,6 +7206,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_iterator_next() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -7067,6 +7229,7 @@ mod tests {
     // ========== Acceleration Storage Tests ==========
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_enable_acceleration_storage() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -7079,6 +7242,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_enable_acceleration_storage_err_mismatch() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -7091,6 +7255,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_has_accelerations() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -7102,6 +7267,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_acceleration_dim() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -7113,6 +7279,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_acceleration_at_idx() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -7131,6 +7298,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_set_acceleration_at() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -7150,6 +7318,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_set_acceleration_at_err_dimension() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -7164,6 +7333,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_add_with_acceleration() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -7183,6 +7353,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_enable_acceleration_storage_dimension_mismatch() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -7196,6 +7367,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_set_acceleration_at_index_out_of_bounds() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
@@ -7207,6 +7379,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_bci_keplerian_barycenter_conversions_err() {
         // Keplerian elements about the Earth-Moon barycenter (NAIF 3) are
         // undefined; every batch conversion that redirects through
@@ -7229,6 +7402,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_to_keplerian_missing_angle_format_err() {
         let mut traj = DOrbitTrajectory::new(
             6,
@@ -7248,6 +7422,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_keplerian_conversion_preserves_additional_states() {
         // Extended Keplerian state (dimension > 6): to_gcrf must convert the
         // first six elements and carry the extra components through
@@ -7272,6 +7447,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_dorbittrajectory_covariance_at_sqrt_singular_err() {
         // Matrix-square-root interpolation over a singular covariance cannot
         // compute the required matrix square root and must surface the error.
@@ -7295,7 +7471,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_hermite_interpolation_at_a_repeated_epoch() {
         setup_global_test_eop();
 

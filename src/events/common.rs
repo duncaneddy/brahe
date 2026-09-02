@@ -816,6 +816,7 @@ mod tests {
     use super::*;
     use crate::time::TimeSystem;
     use nalgebra::{DVector, Vector6};
+    use serial_test::parallel;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -824,6 +825,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_STimeEvent_new() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let event = STimeEvent::<6, 0>::new(target, "Test Event");
@@ -835,6 +837,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_STimeEvent_evaluate() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let event = STimeEvent::<6, 0>::new(target, "Test");
@@ -858,6 +861,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_STimeEvent_reset() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let event = STimeEvent::<6, 0>::new(target, "Test");
@@ -875,6 +879,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_STimeEvent_with_instance() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let event = STimeEvent::<6, 0>::new(target, "Maneuver").with_instance(3);
@@ -883,6 +888,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_STimeEvent_with_callback() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let called = Arc::new(AtomicBool::new(false));
@@ -907,6 +913,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_STimeEvent_set_terminal() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
 
@@ -918,6 +925,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_STimeEvent_with_step_reduction_factor() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
 
@@ -931,6 +939,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_STimeEvent_mark_processed() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let event = STimeEvent::<6, 0>::new(target, "Test");
@@ -941,6 +950,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_STimeEvent_reset_processed() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let event = STimeEvent::<6, 0>::new(target, "Test");
@@ -953,6 +963,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_STimeEvent_evaluate_after_processed() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let event = STimeEvent::<6, 0>::new(target, "Test");
@@ -973,6 +984,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_DTimeEvent_new() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let event = DTimeEvent::new(target, "Test Event");
@@ -984,6 +996,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DTimeEvent_evaluate() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let event = DTimeEvent::new(target, "Test");
@@ -1004,6 +1017,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DTimeEvent_reset() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let event = DTimeEvent::new(target, "Test");
@@ -1016,6 +1030,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DTimeEvent_with_instance() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let event = DTimeEvent::new(target, "Maneuver").with_instance(5);
@@ -1024,6 +1039,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DTimeEvent_with_callback() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let called = Arc::new(AtomicBool::new(false));
@@ -1039,6 +1055,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DTimeEvent_set_terminal() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
 
@@ -1050,6 +1067,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DTimeEvent_with_step_reduction_factor() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
 
@@ -1061,6 +1079,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DTimeEvent_mark_processed() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let event = DTimeEvent::new(target, "Test");
@@ -1071,6 +1090,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DTimeEvent_reset_processed() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let event = DTimeEvent::new(target, "Test");
@@ -1081,6 +1101,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DTimeEvent_evaluate_after_processed() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let event = DTimeEvent::new(target, "Test");
@@ -1101,6 +1122,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_SValueEvent_new() {
         let event = SValueEvent::<6, 0>::new(
             "X-Crossing",
@@ -1116,6 +1138,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SValueEvent_evaluate() {
         let event = SValueEvent::<6, 0>::new(
             "X-Crossing",
@@ -1145,6 +1168,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SValueEvent_with_instance() {
         let event = SValueEvent::<6, 0>::new(
             "Altitude",
@@ -1158,6 +1182,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SValueEvent_with_tolerances() {
         let event = SValueEvent::<6, 0>::new(
             "Test",
@@ -1184,6 +1209,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SValueEvent_with_step_reduction_factor() {
         let event = SValueEvent::<6, 0>::new(
             "Test",
@@ -1199,6 +1225,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SValueEvent_with_callback() {
         let called = Arc::new(AtomicBool::new(false));
         let called_clone = called.clone();
@@ -1220,6 +1247,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SValueEvent_set_terminal() {
         let event = SValueEvent::<6, 0>::new(
             "Test",
@@ -1235,6 +1263,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SValueEvent_direction_increasing() {
         let event = SValueEvent::<6, 0>::new(
             "Test",
@@ -1247,6 +1276,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SValueEvent_direction_decreasing() {
         let event = SValueEvent::<6, 0>::new(
             "Test",
@@ -1263,6 +1293,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_DValueEvent_new() {
         let event = DValueEvent::new(
             "X-Crossing",
@@ -1277,6 +1308,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DValueEvent_evaluate() {
         let event = DValueEvent::new(
             "X-Crossing",
@@ -1293,6 +1325,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DValueEvent_with_instance() {
         let event = DValueEvent::new(
             "Altitude",
@@ -1306,6 +1339,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DValueEvent_with_tolerances() {
         let event = DValueEvent::new(
             "Test",
@@ -1320,6 +1354,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DValueEvent_with_step_reduction_factor() {
         let event = DValueEvent::new(
             "Test",
@@ -1333,6 +1368,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DValueEvent_with_callback() {
         let callback: DEventCallback =
             Box::new(|_t, _state, _params| (None, None, EventAction::Continue));
@@ -1349,6 +1385,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DValueEvent_set_terminal() {
         let event = DValueEvent::new(
             "Test",
@@ -1366,6 +1403,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_SBinaryEvent_new() {
         let event = SBinaryEvent::<6, 0>::new(
             "X-Positive",
@@ -1379,6 +1417,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SBinaryEvent_evaluate_true_returns_positive() {
         let event = SBinaryEvent::<6, 0>::new(
             "Test",
@@ -1393,6 +1432,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SBinaryEvent_evaluate_false_returns_negative() {
         let event = SBinaryEvent::<6, 0>::new(
             "Test",
@@ -1407,6 +1447,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SBinaryEvent_edge_rising() {
         let event = SBinaryEvent::<6, 0>::new(
             "Test",
@@ -1418,6 +1459,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SBinaryEvent_edge_falling() {
         let event = SBinaryEvent::<6, 0>::new(
             "Test",
@@ -1429,6 +1471,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SBinaryEvent_edge_any() {
         let event = SBinaryEvent::<6, 0>::new(
             "Test",
@@ -1440,6 +1483,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SBinaryEvent_with_instance() {
         let event = SBinaryEvent::<6, 0>::new(
             "Eclipse",
@@ -1452,6 +1496,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SBinaryEvent_with_tolerances() {
         let event = SBinaryEvent::<6, 0>::new(
             "Test",
@@ -1465,6 +1510,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SBinaryEvent_with_step_reduction_factor() {
         let event = SBinaryEvent::<6, 0>::new(
             "Test",
@@ -1477,6 +1523,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SBinaryEvent_with_callback() {
         let callback: SEventCallback<6, 0> =
             Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
@@ -1492,6 +1539,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_SBinaryEvent_set_terminal() {
         let event = SBinaryEvent::<6, 0>::new(
             "Test",
@@ -1508,6 +1556,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_DBinaryEvent_new() {
         let event = DBinaryEvent::new(
             "X-Positive",
@@ -1520,6 +1569,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DBinaryEvent_evaluate_true_returns_positive() {
         let event = DBinaryEvent::new(
             "Test",
@@ -1534,6 +1584,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DBinaryEvent_evaluate_false_returns_negative() {
         let event = DBinaryEvent::new(
             "Test",
@@ -1548,6 +1599,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DBinaryEvent_edge_rising() {
         let event = DBinaryEvent::new(
             "Test",
@@ -1559,6 +1611,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DBinaryEvent_edge_falling() {
         let event = DBinaryEvent::new(
             "Test",
@@ -1570,6 +1623,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DBinaryEvent_edge_any() {
         let event = DBinaryEvent::new(
             "Test",
@@ -1581,6 +1635,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DBinaryEvent_with_instance() {
         let event = DBinaryEvent::new(
             "Eclipse",
@@ -1593,6 +1648,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DBinaryEvent_with_tolerances() {
         let event = DBinaryEvent::new(
             "Test",
@@ -1606,6 +1662,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DBinaryEvent_with_step_reduction_factor() {
         let event = DBinaryEvent::new(
             "Test",
@@ -1618,6 +1675,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DBinaryEvent_with_callback() {
         let callback: DEventCallback =
             Box::new(|_t, _state, _params| (None, None, EventAction::Continue));
@@ -1633,6 +1691,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_DBinaryEvent_set_terminal() {
         let event = DBinaryEvent::new(
             "Test",

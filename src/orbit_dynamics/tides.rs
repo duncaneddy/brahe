@@ -582,8 +582,10 @@ pub fn ocean_pole_tide_deltas(m1_arcsec: f64, m2_arcsec: f64) -> (f64, f64) {
 mod tests {
     use super::*;
     use crate::orbit_dynamics::gravity::{GravityModel, GravityModelTideSystem, GravityModelType};
+    use serial_test::{parallel, serial};
 
     #[test]
+    #[parallel]
     fn test_perm_constants_match_iers() {
         // Constants are exact products of the verbatim IERS TN36 factors
         // (A0 = 4.4228e-8, H0 = -0.31460, k20 = 0.30190).
@@ -596,6 +598,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_offsets_relative_to_tide_free() {
         assert_eq!(
             tide_system_c20_offset(GravityModelTideSystem::TideFree),
@@ -614,6 +617,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_convert_zero_to_tide_free_matches_egm2008_within_tolerance() {
         // EGM2008 is tide-free; load, force-label zero-tide, convert back to tide-free.
         let mut m = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
@@ -633,6 +637,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_convert_roundtrip_is_identity() {
         let mut m = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
         let c20 = m.get(2, 0).unwrap().0;
@@ -651,6 +656,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_convert_from_unknown_errors() {
         let mut m = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
         assert!(
@@ -668,6 +674,7 @@ mod tests {
     use nalgebra::Vector3;
 
     #[test]
+    #[parallel]
     fn test_step1_c20_magnitude_and_lunar_dominance() {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         // Moon ~ along +x at ~384400 km; Sun ~ along +x at 1 AU.
@@ -699,6 +706,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_accel_solid_tides_finite_and_small() {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let r_sat = Vector3::new(7.0e6, 0.0, 0.0);
@@ -715,7 +723,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_doodson_k1_equals_gmst_plus_pi() {
         crate::utils::testing::setup_global_test_eop();
         let epoch = Epoch::from_datetime(2015, 6, 15, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -736,6 +744,7 @@ mod tests {
     /// Verify table row counts and spot-check anchor values against the data
     /// file (iers-step2-tables.md / IERS TN36 Ch.6 PDF).
     #[test]
+    #[parallel]
     fn test_step2_table_integrity() {
         use crate::orbit_dynamics::tides_step2_tables::{TABLE_M0, TABLE_M1, TABLE_M2};
 
@@ -822,7 +831,7 @@ mod tests {
     /// Step-2 corrections change the low-degree (n=2) coefficients at ~1e-11 scale
     /// and do NOT alter degree-3 or degree-4 terms (which come from Step 1 only).
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_step2_toggle_changes_low_degree_terms() {
         crate::utils::testing::setup_global_test_eop();
         let epoch = Epoch::from_datetime(2015, 6, 15, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -905,7 +914,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_tide_deltas_packing_roundtrip() {
         let mut d = TideDeltas::new(4, 4);
         d.add(2, 0, 1.0e-9, 0.0);
@@ -921,7 +930,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_secular_pole_reference_values() {
         // icc7 §7.1.4 Eq. (21): xs = 55.0 mas, ys = 320.5 mas at t = 2000.0.
         let epoch = Epoch::from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::TT);
@@ -936,7 +945,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_solid_pole_tide_reference_values() {
         // TN36 §6.4 (formulas after Eq. 6.22): unit wobble responses.
         let (dc, ds) = solid_earth_pole_tide_deltas(1.0, 0.0);
@@ -948,7 +957,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_ocean_pole_tide_reference_values() {
         // TN36 §6.5 Eq. (6.24). Note the DIFFERENT ΔS̄21 leading factor.
         let (dc, ds) = ocean_pole_tide_deltas(1.0, 0.0);
@@ -960,7 +969,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_wobble_parameters_sign_convention() {
         crate::utils::testing::setup_global_test_eop();
         let epoch = Epoch::from_datetime(2015, 6, 15, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -975,7 +984,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[parallel]
     fn test_tide_deltas_clenshaw_matches_full_path() {
         // Retarget of test_low_degree_evaluator_matches_full_path: the delta set
         // evaluated through zero-baseline Clenshaw tables must match a dense

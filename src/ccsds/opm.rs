@@ -272,8 +272,10 @@ mod tests {
     use super::*;
     use crate::ccsds::common::CCSDSJsonKeyCase;
     use crate::time::TimeSystem;
+    use serial_test::parallel;
 
     #[test]
+    #[parallel]
     fn test_opm_builder() {
         let metadata = OPMMetadata::new(
             "SAT1".to_string(),
@@ -295,6 +297,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_opm_json_round_trip_via_dispatch() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
         let json_str = opm.to_string(CCSDSFormat::JSON).unwrap();
@@ -307,12 +310,14 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_opm_from_file_nonexistent() {
         let result = OPM::from_file("nonexistent_file.txt");
         assert!(result.is_err());
     }
 
     #[test]
+    #[parallel]
     fn test_opm_metadata_new() {
         let meta = OPMMetadata::new(
             "ISS".to_string(),
@@ -331,6 +336,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_opm_state_vector_new() {
         let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let pos = [6503.514e3, 1239.647e3, -717.490e3];
@@ -347,6 +353,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_opm_new() {
         let meta = OPMMetadata::new(
             "SAT1".to_string(),
@@ -373,6 +380,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_opm_kvn_parse_example1() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
         assert_eq!(opm.metadata.object_name, "GODZILLA 5");
@@ -391,6 +399,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_opm_with_keplerian_elements() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample5.txt").unwrap();
         assert!(
@@ -407,6 +416,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_opm_with_maneuvers() {
         // OPMExample5 has 3 maneuvers
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample5.txt").unwrap();
@@ -421,6 +431,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_opm_kvn_round_trip() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
         let kvn_str = opm.to_string(CCSDSFormat::KVN).unwrap();
@@ -437,6 +448,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_opm_kvn_round_trip_with_keplerian_and_maneuvers() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample5.txt").unwrap();
         let kvn_str = opm.to_string(CCSDSFormat::KVN).unwrap();
@@ -454,6 +466,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_opm_xml_round_trip() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample3.xml").unwrap();
         let xml_str = opm.to_string(CCSDSFormat::XML).unwrap();
@@ -470,6 +483,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_opm_xml_parse_example3() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample3.xml").unwrap();
         assert_eq!(opm.metadata.object_name, "OSPREY 5");
@@ -493,6 +507,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_opm_to_file_kvn() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
         let dir = std::env::temp_dir();
@@ -504,6 +519,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_opm_maneuver_new() {
         let epoch = Epoch::from_datetime(2024, 6, 1, 9, 0, 0.0, 0.0, TimeSystem::UTC);
         let m = OPMManeuver::new(epoch, 132.6, CCSDSRefFrame::EME2000, [10.0, -5.0, 2.0]);
@@ -517,6 +533,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_opm_maneuver_with_delta_mass() {
         let epoch = Epoch::from_datetime(2024, 6, 1, 9, 0, 0.0, 0.0, TimeSystem::UTC);
         let m = OPMManeuver::new(epoch, 100.0, CCSDSRefFrame::RTN, [1.0, 0.0, 0.0])
@@ -525,6 +542,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_opm_push_maneuver() {
         let meta = OPMMetadata::new(
             "SAT".to_string(),
@@ -556,6 +574,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_opm_kvn_parse_spacecraft_params() {
         // OPMExample1 has spacecraft parameters
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
@@ -566,6 +585,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_opm_to_json_string_upper_key_case() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
         let json_str = opm.to_json_string(CCSDSJsonKeyCase::Upper).unwrap();
@@ -709,6 +729,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_opm_kvn_full_round_trip() {
         // OPMExample4 has: state, Keplerian, spacecraft params, covariance, user_defined
         let opm1 = OPM::from_file("test_assets/ccsds/opm/OPMExample4.txt").unwrap();
@@ -718,6 +739,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_opm_xml_full_round_trip() {
         // Start from KVN (richer fields), write to XML, re-parse
         let opm1 = OPM::from_file("test_assets/ccsds/opm/OPMExample4.txt").unwrap();
@@ -727,6 +749,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_opm_json_full_round_trip() {
         let opm1 = OPM::from_file("test_assets/ccsds/opm/OPMExample4.txt").unwrap();
         let json = opm1.to_string(CCSDSFormat::JSON).unwrap();
@@ -735,6 +758,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_opm_kvn_full_round_trip_with_maneuvers() {
         // OPMExample5 has Keplerian elements and maneuvers
         let opm1 = OPM::from_file("test_assets/ccsds/opm/OPMExample5.txt").unwrap();

@@ -241,16 +241,19 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_normalize_longitude_positive_zero() {
         assert_abs_diff_eq!(normalize_longitude_positive(0.0), 0.0, epsilon = 1e-10);
     }
 
     #[test]
+    #[parallel]
     fn test_normalize_longitude_positive_positive() {
         assert_abs_diff_eq!(normalize_longitude_positive(PI), PI, epsilon = 1e-10);
     }
 
     #[test]
+    #[parallel]
     fn test_normalize_longitude_positive_negative() {
         // -90° should become 270° (in radians: -π/2 → 3π/2)
         let result = normalize_longitude_positive(-PI / 2.0);
@@ -258,6 +261,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_normalize_longitude_positive_wrap() {
         // 370° should become 10° (in radians)
         let result = normalize_longitude_positive(deg_to_rad(370.0));
@@ -265,6 +269,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_normalize_longitude_positive_negative_wrap() {
         // -190° should become 170°
         let result = normalize_longitude_positive(deg_to_rad(-190.0));
@@ -276,18 +281,21 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_polygon_crosses_antimeridian_empty() {
         let vertices: Vec<(f64, f64)> = vec![];
         assert!(!polygon_crosses_antimeridian(&vertices));
     }
 
     #[test]
+    #[parallel]
     fn test_polygon_crosses_antimeridian_single() {
         let vertices = polygon_from_degrees(&[(10.0, 10.0)]);
         assert!(!polygon_crosses_antimeridian(&vertices));
     }
 
     #[test]
+    #[parallel]
     fn test_polygon_crosses_antimeridian_simple_no_cross() {
         // Simple square in Europe - doesn't cross
         let vertices = polygon_from_degrees(&[
@@ -301,6 +309,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_polygon_crosses_antimeridian_crosses() {
         // Polygon spanning 170° to -170° (crosses anti-meridian)
         let vertices = polygon_from_degrees(&[
@@ -314,6 +323,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_polygon_crosses_antimeridian_near_but_no_cross() {
         // Polygon from 170° to 175° - close to anti-meridian but doesn't cross
         let vertices = polygon_from_degrees(&[
@@ -331,12 +341,14 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_point_in_polygon_empty() {
         let vertices: Vec<(f64, f64)> = vec![];
         assert!(!point_in_polygon(0.0, 0.0, &vertices));
     }
 
     #[test]
+    #[parallel]
     fn test_point_in_polygon_insufficient_vertices() {
         // Only 3 vertices (need 4 including closure)
         let vertices = polygon_from_degrees(&[(10.0, 10.0), (20.0, 10.0), (15.0, 20.0)]);
@@ -348,6 +360,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_point_in_polygon_square_inside() {
         // Simple square: 10-20° lon, 10-20° lat
         let vertices = polygon_from_degrees(&[
@@ -367,6 +380,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_point_in_polygon_square_outside_west() {
         let vertices = polygon_from_degrees(&[
             (10.0, 10.0),
@@ -385,6 +399,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_point_in_polygon_square_outside_east() {
         let vertices = polygon_from_degrees(&[
             (10.0, 10.0),
@@ -403,6 +418,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_point_in_polygon_square_outside_north() {
         let vertices = polygon_from_degrees(&[
             (10.0, 10.0),
@@ -421,6 +437,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_point_in_polygon_square_outside_south() {
         let vertices = polygon_from_degrees(&[
             (10.0, 10.0),
@@ -443,6 +460,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_point_in_polygon_concave_inside() {
         // L-shaped polygon
         let vertices = polygon_from_degrees(&[
@@ -471,6 +489,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_point_in_polygon_concave_outside_in_concavity() {
         // L-shaped polygon - point in the concave region
         let vertices = polygon_from_degrees(&[
@@ -496,6 +515,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_point_in_polygon_antimeridian_inside() {
         // Polygon spanning 170° to -170° (20° wide across anti-meridian)
         let vertices = polygon_from_degrees(&[
@@ -529,6 +549,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_point_in_polygon_antimeridian_outside() {
         // Polygon spanning 170° to -170°
         let vertices = polygon_from_degrees(&[
@@ -566,6 +587,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_point_in_polygon_southern_hemisphere() {
         // Polygon in southern hemisphere
         let vertices = polygon_from_degrees(&[
@@ -596,6 +618,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_point_in_polygon_western_hemisphere() {
         // Polygon in western hemisphere (e.g., over USA)
         let vertices = polygon_from_degrees(&[
@@ -626,6 +649,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_point_in_polygon_triangle() {
         // Triangle
         let vertices =
@@ -651,6 +675,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[parallel]
     fn test_point_in_polygon_high_latitude() {
         // Polygon near (but not at) the north pole
         let vertices = polygon_from_degrees(&[

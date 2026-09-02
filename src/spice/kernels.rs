@@ -266,8 +266,10 @@ impl KernelSource {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::parallel;
 
     #[test]
+    #[parallel]
     fn test_naif_kernel_names_roundtrip() {
         for k in SPICEKernel::all() {
             assert_eq!(SPICEKernel::from_name(k.name()), Some(*k));
@@ -276,6 +278,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_naif_kernel_filenames() {
         assert_eq!(SPICEKernel::DE440s.filename(), "de440s.bsp");
         assert_eq!(SPICEKernel::Ura184.filename(), "ura184_part-3.bsp");
@@ -288,6 +291,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_kernel_source_from_str() {
         assert!(matches!(
             KernelSource::from("de440s"),
@@ -301,6 +305,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_naif_kernel_filename_exhaustive() {
         // Every variant's on-disk file name, covering all arms of `filename`.
         let cases = [
@@ -327,6 +332,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_naif_kernel_url_by_category() {
         // Planetary DE kernels use the planets base URL.
         assert_eq!(
@@ -370,6 +376,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_kernel_source_from_string_and_kernel() {
         // From<String>: known name -> Kernel, unknown -> Path.
         assert!(matches!(

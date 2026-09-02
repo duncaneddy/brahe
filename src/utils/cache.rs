@@ -281,6 +281,7 @@ pub fn short_hash(input: &str) -> String {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::{parallel, serial};
 
     /// Restore `BRAHE_CACHE` to `original`: set it back if it was
     /// previously set, or leave it unset otherwise. Shared by the
@@ -295,7 +296,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_get_brahe_cache_dir() {
         // Save current env var state
         let original_brahe_cache = env::var("BRAHE_CACHE").ok();
@@ -319,7 +320,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_get_eop_cache_dir() {
         // Save current env var state
         let original_brahe_cache = env::var("BRAHE_CACHE").ok();
@@ -345,7 +346,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_get_space_weather_cache_dir() {
         // Save current env var state
         let original_brahe_cache = env::var("BRAHE_CACHE").ok();
@@ -371,7 +372,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_get_celestrak_cache_dir() {
         // Save current env var state
         let original_brahe_cache = env::var("BRAHE_CACHE").ok();
@@ -397,7 +398,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_get_naif_cache_dir() {
         // Save current env var state
         let original_brahe_cache = env::var("BRAHE_CACHE").ok();
@@ -423,7 +424,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_cache_dir_from_env() {
         // Save current env var state
         let original_brahe_cache = env::var("BRAHE_CACHE").ok();
@@ -486,7 +487,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_get_icgem_cache_dir() {
         let original_brahe_cache = env::var("BRAHE_CACHE").ok();
         unsafe {
@@ -507,7 +508,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_get_brahe_cache_dir_with_subdir() {
         // Save current env var state
         let original_brahe_cache = env::var("BRAHE_CACHE").ok();
@@ -551,7 +552,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_get_sbdb_cache_dir() {
         let true_original = env::var("BRAHE_CACHE").ok();
 
@@ -583,7 +584,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
+    #[serial]
     fn test_get_horizons_cache_dir() {
         let true_original = env::var("BRAHE_CACHE").ok();
 
@@ -615,6 +616,7 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
     fn test_short_hash_is_stable_and_hex() {
         let a = short_hash("DES=2000001;|2015-12-01|2016-03-01|500@0");
         let b = short_hash("DES=2000001;|2015-12-01|2016-03-01|500@0");

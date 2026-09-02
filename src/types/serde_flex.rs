@@ -194,6 +194,7 @@ pub mod flex_string {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use serde::Deserialize;
+    use serial_test::parallel;
 
     // Test struct using flex_f64
     #[derive(Deserialize)]
@@ -240,42 +241,49 @@ mod tests {
     // -- flex_f64 tests --
 
     #[test]
+    #[parallel]
     fn test_flex_f64_from_number() {
         let t: TestF64 = serde_json::from_str(r#"{"value": 15.48}"#).unwrap();
         assert_eq!(t.value, Some(15.48));
     }
 
     #[test]
+    #[parallel]
     fn test_flex_f64_from_string() {
         let t: TestF64 = serde_json::from_str(r#"{"value": "15.48"}"#).unwrap();
         assert_eq!(t.value, Some(15.48));
     }
 
     #[test]
+    #[parallel]
     fn test_flex_f64_from_null() {
         let t: TestF64 = serde_json::from_str(r#"{"value": null}"#).unwrap();
         assert!(t.value.is_none());
     }
 
     #[test]
+    #[parallel]
     fn test_flex_f64_from_missing() {
         let t: TestF64 = serde_json::from_str(r#"{}"#).unwrap();
         assert!(t.value.is_none());
     }
 
     #[test]
+    #[parallel]
     fn test_flex_f64_from_zero() {
         let t: TestF64 = serde_json::from_str(r#"{"value": 0}"#).unwrap();
         assert_eq!(t.value, Some(0.0));
     }
 
     #[test]
+    #[parallel]
     fn test_flex_f64_from_string_zero() {
         let t: TestF64 = serde_json::from_str(r#"{"value": "0"}"#).unwrap();
         assert_eq!(t.value, Some(0.0));
     }
 
     #[test]
+    #[parallel]
     fn test_flex_f64_from_empty_string() {
         let t: TestF64 = serde_json::from_str(r#"{"value": ""}"#).unwrap();
         assert!(t.value.is_none());
@@ -284,30 +292,35 @@ mod tests {
     // -- flex_u32 tests --
 
     #[test]
+    #[parallel]
     fn test_flex_u32_from_number() {
         let t: TestU32 = serde_json::from_str(r#"{"value": 25544}"#).unwrap();
         assert_eq!(t.value, Some(25544));
     }
 
     #[test]
+    #[parallel]
     fn test_flex_u32_from_string() {
         let t: TestU32 = serde_json::from_str(r#"{"value": "25544"}"#).unwrap();
         assert_eq!(t.value, Some(25544));
     }
 
     #[test]
+    #[parallel]
     fn test_flex_u32_from_null() {
         let t: TestU32 = serde_json::from_str(r#"{"value": null}"#).unwrap();
         assert!(t.value.is_none());
     }
 
     #[test]
+    #[parallel]
     fn test_flex_u32_from_missing() {
         let t: TestU32 = serde_json::from_str(r#"{}"#).unwrap();
         assert!(t.value.is_none());
     }
 
     #[test]
+    #[parallel]
     fn test_flex_u32_from_empty_string() {
         let t: TestU32 = serde_json::from_str(r#"{"value": ""}"#).unwrap();
         assert!(t.value.is_none());
@@ -316,12 +329,14 @@ mod tests {
     // -- flex_u8 tests --
 
     #[test]
+    #[parallel]
     fn test_flex_u8_from_number() {
         let t: TestU8 = serde_json::from_str(r#"{"value": 0}"#).unwrap();
         assert_eq!(t.value, Some(0));
     }
 
     #[test]
+    #[parallel]
     fn test_flex_u8_from_string() {
         let t: TestU8 = serde_json::from_str(r#"{"value": "2"}"#).unwrap();
         assert_eq!(t.value, Some(2));
@@ -330,12 +345,14 @@ mod tests {
     // -- flex_u16 tests --
 
     #[test]
+    #[parallel]
     fn test_flex_u16_from_number() {
         let t: TestU16 = serde_json::from_str(r#"{"value": 999}"#).unwrap();
         assert_eq!(t.value, Some(999));
     }
 
     #[test]
+    #[parallel]
     fn test_flex_u16_from_string() {
         let t: TestU16 = serde_json::from_str(r#"{"value": "999"}"#).unwrap();
         assert_eq!(t.value, Some(999));
@@ -344,12 +361,14 @@ mod tests {
     // -- flex_u64 tests --
 
     #[test]
+    #[parallel]
     fn test_flex_u64_from_number() {
         let t: TestU64 = serde_json::from_str(r#"{"value": 1234567890}"#).unwrap();
         assert_eq!(t.value, Some(1234567890));
     }
 
     #[test]
+    #[parallel]
     fn test_flex_u64_from_string() {
         let t: TestU64 = serde_json::from_str(r#"{"value": "1234567890"}"#).unwrap();
         assert_eq!(t.value, Some(1234567890));
@@ -358,30 +377,35 @@ mod tests {
     // -- flex_string tests --
 
     #[test]
+    #[parallel]
     fn test_flex_string_from_string() {
         let t: TestString = serde_json::from_str(r#"{"value": "hello"}"#).unwrap();
         assert_eq!(t.value.as_deref(), Some("hello"));
     }
 
     #[test]
+    #[parallel]
     fn test_flex_string_from_number() {
         let t: TestString = serde_json::from_str(r#"{"value": 25544}"#).unwrap();
         assert_eq!(t.value.as_deref(), Some("25544"));
     }
 
     #[test]
+    #[parallel]
     fn test_flex_string_from_float() {
         let t: TestString = serde_json::from_str(r#"{"value": 15.48}"#).unwrap();
         assert_eq!(t.value.as_deref(), Some("15.48"));
     }
 
     #[test]
+    #[parallel]
     fn test_flex_string_from_null() {
         let t: TestString = serde_json::from_str(r#"{"value": null}"#).unwrap();
         assert!(t.value.is_none());
     }
 
     #[test]
+    #[parallel]
     fn test_flex_string_from_missing() {
         let t: TestString = serde_json::from_str(r#"{}"#).unwrap();
         assert!(t.value.is_none());

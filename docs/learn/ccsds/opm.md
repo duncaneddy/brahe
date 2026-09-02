@@ -1,6 +1,6 @@
 # OPM — Orbit Parameter Message
 
-An Orbit Parameter Message (OPM) carries a single spacecraft state at one epoch — position, velocity, and optionally Keplerian elements, spacecraft parameters, maneuvers, and covariance. It is the standard format for handing off initial conditions for propagation or documenting a maneuver plan.
+An Orbit Parameter Message (OPM), defined by the [CCSDS 502.0-B-3 Orbit Data Messages standard](https://ccsds.org/Pubs/502x0b3e1.pdf), carries a single spacecraft state at one epoch — position, velocity, and optionally Keplerian elements, spacecraft parameters, maneuvers, and covariance. It is the standard format for handing off initial conditions for propagation or documenting a maneuver plan.
 
 ## Parse and Initialize a Propagator
 
@@ -138,3 +138,4 @@ Note the optional unit annotations in square brackets (`[km]`, `[deg]`). Brahe s
 - [API Reference — OPM](../../library_api/ccsds/opm.md)
 - [CCSDS Data Formats](index.md) — Overview of all message types
 - [Keplerian Elements](../orbits/properties.md) — Orbital element definitions
+- [CCSDS 502.0-B-3](https://ccsds.org/Pubs/502x0b3e1.pdf) — Orbit Data Messages, the standard OPM implements

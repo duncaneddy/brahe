@@ -41,26 +41,18 @@ Brahe provides functions to convert between all attitude representations. You ca
 
 ## Attitude Frames
 
-An attitude relates two frames: it is the passive rotation taking vector
-components in a source frame A to components in a target frame B. Both
-endpoints are `ReferenceFrame` values. A `Celestial` endpoint is any frame the
-frame transformation system evaluates from an epoch alone (GCRF, ITRF,
-EME2000, and the other members of `CelestialFrame`); it composes directly with
-`rotation_frame_to_frame`. An `OrbitRelative` endpoint is a local orbital frame
-such as RTN or LVLH, defined only given an orbit state. A `Body` endpoint is an
-object-local frame — a spacecraft body, sensor, or actuator frame — whose
-orientation the attitude data itself supplies.
+An attitude relates two frames: in brahe it is the [passive rotation](https://en.wikipedia.org/wiki/Active_and_passive_transformation) taking vector components in a source frame A to components in a target frame B. Both endpoints are `ReferenceFrame` values, so any frame the library knows about can serve as either endpoint.
 
-CCSDS attitude messages (APM, AEM) declare their frame pair with these
-semantics, and brahe's CCSDS module converts between the CCSDS frame vocabulary
-and `ReferenceFrame` where a native equivalent exists. A CCSDS frame keyword
-names the frame but not the object it belongs to, so orbit-relative and body
-keywords convert to unbound endpoints; binding them to an object is the
-caller's job.
+A `Celestial` endpoint is a frame the frame transformation system evaluates from an epoch alone (GCRF, ITRF, EME2000, and the other members of `CelestialFrame`); it composes directly with `rotation_frame_to_frame`. An `OrbitRelative` endpoint is a local orbital frame such as RTN or LVLH, defined only given an orbit state. A `Body` endpoint is an object-local frame — a spacecraft body, sensor, or actuator frame — whose orientation the attitude data itself supplies.
+
+## Attitude Kinematics
+
+The [kinematics functions](kinematics.md) relate an attitude representation's time derivative to angular velocity, in both directions, for quaternions and for all twelve Euler-angle sequences.
 
 ---
 
 ## See Also
 
+- [Attitude Kinematics](kinematics.md)
 - [API Reference - Attitude](../../library_api/attitude/index.md)
 - [Frame Graph](../frames/frame_graph.md)

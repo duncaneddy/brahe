@@ -1815,3 +1815,183 @@ impl PyRotationMatrix {
         }
     }
 }
+
+// ================================
+// Attitude Kinematics Free Functions
+// ================================
+
+#[pyfunction]
+#[pyo3(name = "quaternion_derivative")]
+#[pyo3(text_signature = "(q, angular_velocity, scalar_first)")]
+/// Computes the time derivative of an attitude quaternion from the
+/// body-frame angular velocity.
+///
+/// Args:
+///     q (Quaternion): Attitude quaternion transforming frame A to frame B.
+///     angular_velocity (numpy.ndarray): Angular velocity of B relative to A,
+///         expressed in B, shape (3,). Units: (rad/s)
+///     scalar_first (bool): If True, the returned array is
+///         `[q̇s, q̇1, q̇2, q̇3]`, else `[q̇1, q̇2, q̇3, q̇s]`
+///
+/// Returns:
+///     numpy.ndarray: Quaternion derivative, shape (4,), ordered per
+///     `scalar_first`. Not a unit quaternion. Units: (1/s)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+///     q_dot = bh.quaternion_derivative(q, np.array([0.0, 0.0, 0.1]), scalar_first=True)
+///     ```
+///
+/// References:
+///     J. Diebel, Representing Attitude: Euler Angles, Unit Quaternions, and
+///     Rotation Vectors, 2006. Eq. 157.
+fn py_quaternion_derivative<'py>(
+    py: Python<'py>,
+    q: &PyQuaternion,
+    angular_velocity: Bound<'py, PyAny>,
+    scalar_first: bool,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let omega = pyany_to_svector::<3>(&angular_velocity)?;
+    let q_dot = attitude::quaternion_derivative(&q.obj, omega, scalar_first);
+    Ok(vector_to_numpy!(py, q_dot, 4, f64))
+}
+
+#[pyfunction]
+#[pyo3(name = "angular_velocity_from_quaternion_derivative")]
+#[pyo3(text_signature = "(q, q_dot, scalar_first)")]
+/// Recovers the body-frame angular velocity from an attitude quaternion and
+/// its time derivative.
+///
+/// Exact inverse of `quaternion_derivative` for a unit quaternion whose
+/// derivative is tangent to the unit-quaternion manifold. A radial
+/// (norm-drift) component of `q_dot` is projected out, so quaternion
+/// derivatives obtained by numerical differentiation or integration are
+/// accepted.
+///
+/// Args:
+///     q (Quaternion): Attitude quaternion transforming frame A to frame B.
+///     q_dot (numpy.ndarray): Quaternion derivative, shape (4,), ordered per
+///         `scalar_first`. Units: (1/s)
+///     scalar_first (bool): If True, `q_dot` is `[q̇s, q̇1, q̇2, q̇3]`,
+///         else `[q̇1, q̇2, q̇3, q̇s]`
+///
+/// Returns:
+///     numpy.ndarray: Angular velocity of B relative to A, expressed in B,
+///     shape (3,). Units: (rad/s)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+///     omega = np.array([0.02, -0.01, 0.3])
+///     q_dot = bh.quaternion_derivative(q, omega, scalar_first=True)
+///     recovered = bh.angular_velocity_from_quaternion_derivative(q, q_dot, scalar_first=True)
+///     ```
+///
+/// References:
+///     J. Diebel, Representing Attitude: Euler Angles, Unit Quaternions, and
+///     Rotation Vectors, 2006. Eq. 147.
+fn py_angular_velocity_from_quaternion_derivative<'py>(
+    py: Python<'py>,
+    q: &PyQuaternion,
+    q_dot: Bound<'py, PyAny>,
+    scalar_first: bool,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let q_dot_vec = pyany_to_svector::<4>(&q_dot)?;
+    let omega =
+        attitude::angular_velocity_from_quaternion_derivative(&q.obj, q_dot_vec, scalar_first);
+    Ok(vector_to_numpy!(py, omega, 3, f64))
+}
+
+#[pyfunction]
+#[pyo3(name = "euler_rates_to_angular_velocity")]
+#[pyo3(text_signature = "(angles, rates)")]
+/// Converts Euler-angle rates to the body-frame angular velocity.
+///
+/// Args:
+///     angles (EulerAngle): Euler angles in brahe application order.
+///         Units: (rad)
+///     rates (numpy.ndarray): Angle rates `(φ̇, θ̇, ψ̇)` in the same order as
+///         `angles`, shape (3,). Units: (rad/s)
+///
+/// Returns:
+///     numpy.ndarray: Angular velocity of frame B relative to frame A,
+///     expressed in B, shape (3,). Units: (rad/s)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     angles = bh.EulerAngle(bh.EulerAngleOrder.ZYX, 0.0, 0.0, 0.0, bh.AngleFormat.RADIANS)
+///     rates = np.array([0.1, -0.2, 0.3])
+///     omega = bh.euler_rates_to_angular_velocity(angles, rates)
+///     ```
+///
+/// References:
+///     J. Diebel, Representing Attitude: Euler Angles, Unit Quaternions, and
+///     Rotation Vectors, 2006. Eqs. 38 and 40.
+fn py_euler_rates_to_angular_velocity<'py>(
+    py: Python<'py>,
+    angles: &PyEulerAngle,
+    rates: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let rates_vec = pyany_to_svector::<3>(&rates)?;
+    let omega = attitude::euler_rates_to_angular_velocity(&angles.obj, rates_vec);
+    Ok(vector_to_numpy!(py, omega, 3, f64))
+}
+
+#[pyfunction]
+#[pyo3(name = "angular_velocity_to_euler_rates")]
+#[pyo3(text_signature = "(angles, angular_velocity)")]
+/// Converts body-frame angular velocity to Euler-angle rates.
+///
+/// Exact inverse of `euler_rates_to_angular_velocity` away from the
+/// sequence's gimbal-lock singularity. Sequences with three distinct axes are
+/// singular at `θ = ±90°`; sequences that repeat the first axis are singular
+/// at `θ = 0°` and `θ = 180°`. This function raises within roughly `1e-6` rad
+/// of either condition.
+///
+/// Args:
+///     angles (EulerAngle): Euler angles in brahe application order.
+///         Units: (rad)
+///     angular_velocity (numpy.ndarray): Body-frame angular velocity,
+///         shape (3,). Units: (rad/s)
+///
+/// Returns:
+///     numpy.ndarray: Angle rates `(φ̇, θ̇, ψ̇)` in the same order as `angles`,
+///     shape (3,). Units: (rad/s)
+///
+/// Raises:
+///     BraheError: If `angles` is at or near the sequence's gimbal-lock
+///         singularity.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     angles = bh.EulerAngle(bh.EulerAngleOrder.ZXZ, 0.5, 0.8, -1.2, bh.AngleFormat.RADIANS)
+///     rates = np.array([0.02, 0.13, -0.07])
+///     omega = bh.euler_rates_to_angular_velocity(angles, rates)
+///     recovered = bh.angular_velocity_to_euler_rates(angles, omega)
+///     ```
+///
+/// References:
+///     J. Diebel, Representing Attitude: Euler Angles, Unit Quaternions, and
+///     Rotation Vectors, 2006. Eq. 40.
+fn py_angular_velocity_to_euler_rates<'py>(
+    py: Python<'py>,
+    angles: &PyEulerAngle,
+    angular_velocity: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let omega = pyany_to_svector::<3>(&angular_velocity)?;
+    let rates = attitude::angular_velocity_to_euler_rates(&angles.obj, omega)?;
+    Ok(vector_to_numpy!(py, rates, 3, f64))
+}

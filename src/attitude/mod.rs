@@ -5,6 +5,7 @@ The `attitude` module provides types and traits for representing and converting 
 #![allow(unused_imports)]
 
 pub mod attitude_types;
+pub(crate) mod common;
 pub mod euler_angle;
 pub mod euler_axis;
 pub mod quaternion;

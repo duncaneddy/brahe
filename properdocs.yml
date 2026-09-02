@@ -223,6 +223,7 @@ nav:
           - learn/attitude_representations/rotation_matrices.md
           - learn/attitude_representations/euler_angles.md
           - learn/attitude_representations/euler_axis.md
+          - learn/attitude_representations/kinematics.md
       - Trajectories:
           - learn/trajectories/index.md
           - learn/trajectories/trajectory.md
@@ -411,6 +412,7 @@ nav:
           - Euler Angles: library_api/attitude/euler_angles.md
           - Euler Axis: library_api/attitude/euler_axis.md
           - EulerAngleOrder: library_api/attitude/euler_angle_order.md
+          - Kinematics: library_api/attitude/kinematics.md
       - Trajectories:
           - library_api/trajectories/index.md
           - Trajectory: library_api/trajectories/trajectory.md

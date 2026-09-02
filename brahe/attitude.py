@@ -38,6 +38,11 @@ from brahe._brahe import (
     Rx,
     Ry,
     Rz,
+    # Attitude kinematics
+    angular_velocity_from_quaternion_derivative,
+    angular_velocity_to_euler_rates,
+    euler_rates_to_angular_velocity,
+    quaternion_derivative,
 )
 
 __all__ = [
@@ -51,4 +56,9 @@ __all__ = [
     "Rx",
     "Ry",
     "Rz",
+    # Attitude kinematics
+    "angular_velocity_from_quaternion_derivative",
+    "angular_velocity_to_euler_rates",
+    "euler_rates_to_angular_velocity",
+    "quaternion_derivative",
 ]

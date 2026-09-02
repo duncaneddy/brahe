@@ -6,6 +6,7 @@ use std::cmp::Ordering;
 use std::f64::consts::PI;
 use std::ffi::CString;
 use std::os::raw::{c_char, c_int};
+use std::sync::LazyLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{fmt, ops};
 
@@ -22,14 +23,18 @@ const NANOSECONDS_PER_SECOND_INT: u64 = 1_000_000_000;
 const NANOSECONDS_PER_SECOND_FLOAT: f64 = 1.0e9;
 
 /// VALID_EPOCH_REGEX defines valid regex expressions that the Epoch
-/// constructor can parse into a valid instant in time.
-const VALID_EPOCH_REGEX: [&str; 5] = [
-    r"^(\d{4})\-(\d{2})\-(\d{2})$",
-    r"^(\d{4})\-(\d{2})\-(\d{2})[T](\d{2}):(\d{2}):(\d{2})[Z]$",
-    r"^(\d{4})\-(\d{2})\-(\d{2})[T](\d{2}):(\d{2}):(\d{2})[.](\d*)[Z]$",
-    r"^(\d{4})(\d{2})(\d{2})[T](\d{2})(\d{2})(\d{2})[Z]$",
-    r"^(\d{4})\-(\d{2})\-(\d{2})\s(\d{2}):(\d{2}):(\d{2})\.*\s*(\d*)\s*([A-Z]*)$",
-];
+/// constructor can parse into a valid instant in time. The patterns are compiled
+/// once on first use and reused by every subsequent parse.
+static VALID_EPOCH_REGEX: LazyLock<[Regex; 5]> = LazyLock::new(|| {
+    [
+        Regex::new(r"^(\d{4})\-(\d{2})\-(\d{2})$").unwrap(),
+        Regex::new(r"^(\d{4})\-(\d{2})\-(\d{2})[T](\d{2}):(\d{2}):(\d{2})[Z]$").unwrap(),
+        Regex::new(r"^(\d{4})\-(\d{2})\-(\d{2})[T](\d{2}):(\d{2}):(\d{2})[.](\d*)[Z]$").unwrap(),
+        Regex::new(r"^(\d{4})(\d{2})(\d{2})[T](\d{2})(\d{2})(\d{2})[Z]$").unwrap(),
+        Regex::new(r"^(\d{4})\-(\d{2})\-(\d{2})\s(\d{2}):(\d{2}):(\d{2})\.*\s*(\d*)\s*([A-Z]*)$")
+            .unwrap(),
+    ]
+});
 
 /// Helper function to rectify any arbitrary input days, seconds, and nanoseconds
 /// to the expected ranges of an Epoch class. The expected ranges are:
@@ -446,8 +451,8 @@ impl Epoch {
         let nanoseconds: f64;
         let time_system: TimeSystem;
 
-        for regex in VALID_EPOCH_REGEX.into_iter() {
-            if let Some(caps) = Regex::new(regex).unwrap().captures(date_string) {
+        for regex in VALID_EPOCH_REGEX.iter() {
+            if let Some(caps) = regex.captures(date_string) {
                 year = caps.get(1).map_or("", |s| s.as_str()).parse::<u32>().ok()?;
                 month = caps.get(2).map_or("", |s| s.as_str()).parse::<u8>().ok()?;
                 day = caps.get(3).map_or("", |s| s.as_str()).parse::<u8>().ok()?;

@@ -16,8 +16,13 @@ from _build_utils import REPO_ROOT, console
 # Crates whose test binaries are built by `just test` / CI.
 SEARCH_ROOTS = ("src", "crates", "tests", "profiles")
 
-TEST_ATTRS = ("#[test", "#[rstest", "#[tokio::test")
-TEST_ATTR = re.compile(r"^#\[(?:test\]|test\(|rstest\b|tokio::test\b)")
+# Whitespace is legal between an attribute's tokens -- `# [ test ]` is the same
+# attribute as `#[test]` -- so the prefilter tolerates it, the scanner accepts
+# it when it opens an attribute, and each attribute is compacted (all
+# whitespace removed) before the patterns below are matched against it.
+ATTR_PREFILTER = re.compile(r"#\s*!?\s*\[\s*(?:test|rstest|tokio\s*::\s*test)\b")
+ATTR_START = re.compile(r"#\s*!?\s*\[")
+TEST_ATTR = re.compile(r"^#\[(?:test[\](]|rstest\b|tokio::test\b)")
 LABEL_ATTR = re.compile(r"^#\[(?:serial_test::)?(?:serial|parallel)\b")
 CASE_ATTR = re.compile(r"^#\[(?:values|case)\b")
 
@@ -95,10 +100,10 @@ def _blank(text: str) -> str:
     return "".join(out)
 
 
-def _attribute_end(text: str, start: int) -> int | None:
-    """Return the offset just past the attribute beginning at `start`."""
+def _attribute_end(text: str, bracket: int) -> int | None:
+    """Return the offset just past the attribute whose `[` is at `bracket`."""
     depth = 0
-    i = start + 1  # step over '#', landing on '['
+    i = bracket
     while i < len(text):
         if text[i] == "[":
             depth += 1
@@ -113,7 +118,7 @@ def _attribute_end(text: str, start: int) -> int | None:
 def unlabeled_tests(path: Path) -> list[tuple[int, str]]:
     """Return `(line number, test name)` for each unlabeled test in `path`."""
     raw = path.read_text(encoding="utf-8")
-    if not any(attr in raw for attr in TEST_ATTRS):
+    if not ATTR_PREFILTER.search(raw):
         return []
 
     text = _blank(raw)
@@ -131,15 +136,18 @@ def unlabeled_tests(path: Path) -> list[tuple[int, str]]:
             i += 1
             continue
 
-        if char == "#" and text.startswith("#[", i):
-            end = _attribute_end(text, i)
+        opener = ATTR_START.match(text, i) if char == "#" else None
+        if opener:
+            end = _attribute_end(text, opener.end() - 1)
             if end is None:
                 # An unterminated attribute means the file does not parse the
                 # way this scanner assumes. Report it: staying quiet here is
                 # what would let an unlabeled test through.
                 missing.append((text.count("\n", 0, i) + 1, "<unparsed attribute>"))
                 break
-            attrs.append(" ".join(text[i:end].split()))
+            # Compacted: with literals already blanked, dropping every space
+            # makes `# [ tokio :: test ]` and `#[tokio::test]` one spelling.
+            attrs.append("".join(text[i:end].split()))
             i = end
             continue
 

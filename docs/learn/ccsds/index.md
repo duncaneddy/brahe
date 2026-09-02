@@ -39,7 +39,7 @@ This three-step pattern — parse, convert, interpolate — applies across the l
 
 **CDM** (Conjunction Data Message) describes a close approach between two space objects, providing state vectors, covariance matrices, and collision probability at the Time of Closest Approach (TCA). Use it when processing conjunction screening data from services like the 18th Space Defense Squadron. See the [CDM detail page](cdm.md).
 
-**APM** (Attitude Parameter Message) carries a spacecraft's attitude state at a single epoch through quaternion, Euler angle, angular velocity, spin, inertia, and maneuver blocks. Use it when handing off attitude state for propagation or documenting an attitude maneuver plan. See the [APM detail page](apm.md).
+**APM** (Attitude Parameter Message) carries a spacecraft's attitude state at a single epoch through quaternion, Euler angle, angular velocity, spin, inertia, and maneuver blocks. It comes from the [CCSDS 504.0-B-2 standard](https://ccsds.org/Pubs/504x0b2.pdf) rather than the ODM standard the orbit messages share. Use it when handing off attitude state for propagation or documenting an attitude maneuver plan. See the [APM detail page](apm.md).
 
 !!! info "OCM Not Yet Supported"
     The Orbit Comprehensive Message (OCM) is not yet implemented. OCM combines features of OEM, OMM, and OPM into a single flexible format and will be added in a future release.

@@ -1,6 +1,6 @@
 # APM — Attitude Parameter Message
 
-An Attitude Parameter Message (APM) carries a spacecraft's attitude state at a single epoch through one or more logical blocks — quaternion, Euler angle, angular velocity, spin, inertia, and maneuver. It is the attitude-message counterpart to the OPM: a compact snapshot for handing off attitude state or documenting a planned attitude maneuver.
+An Attitude Parameter Message (APM) carries a spacecraft's attitude state at a single epoch through one or more logical blocks — quaternion, Euler angle, angular velocity, spin, inertia, and maneuver. It is the attitude-message counterpart to the OPM: a compact snapshot for handing off attitude state or documenting a planned attitude maneuver. The message is defined by the [CCSDS 504.0-B-2 Attitude Data Messages standard](https://ccsds.org/Pubs/504x0b2.pdf).
 
 ## Parse and Access
 
@@ -114,3 +114,4 @@ Note that this quaternion block has no bracketed unit annotations — quaternion
 - [CCSDS Data Formats](index.md) — Overview of all message types
 - [OPM — Orbit Parameter Message](opm.md) — The orbit-state counterpart to APM
 - [Attitude Representations](../attitude_representations/index.md) — Quaternion, Euler angle, and rotation matrix conventions
+- [CCSDS 504.0-B-2](https://ccsds.org/Pubs/504x0b2.pdf) — Attitude Data Messages, the standard APM implements

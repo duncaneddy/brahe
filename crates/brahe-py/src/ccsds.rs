@@ -6788,7 +6788,7 @@ impl PyAEMSegment {
     ///     int: Index of the new state
     ///
     /// Raises:
-    ///     ValueError: If the state's attitude type does not match the segment's
+    ///     BraheError: If the state's attitude type does not match the segment's
     ///         attitude_type, or its epoch is not strictly after the last state's epoch
     fn add_state(&mut self, state: &PyAEMAttitudeState) -> PyResult<usize> {
         self.inner.push_state(state.inner.clone())?;

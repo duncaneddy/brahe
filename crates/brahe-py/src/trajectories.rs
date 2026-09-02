@@ -4100,7 +4100,7 @@ impl PyAttitudeTrajectory {
     ///         uniformly absent across every state added to this trajectory.
     ///
     /// Raises:
-    ///     ValueError: If the new state's angular-velocity presence does not match the
+    ///     BraheError: If the new state's angular-velocity presence does not match the
     ///         trajectory's existing states.
     #[pyo3(signature = (epoch, quaternion, angular_velocity=None))]
     fn add(
@@ -4184,7 +4184,8 @@ impl PyAttitudeTrajectory {
     ///     in frame B, in rad/s, or None if the trajectory carries no rate data
     ///
     /// Raises:
-    ///     RuntimeError: If the attitude at epoch cannot be computed
+    ///     BraheError: If the epoch lies outside the trajectory's coverage, or the
+    ///         trajectory is empty
     fn angular_velocity<'py>(
         &self,
         py: Python<'py>,

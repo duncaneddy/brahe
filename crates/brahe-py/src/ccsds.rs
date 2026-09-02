@@ -12,6 +12,10 @@
 // calls, and list getters return owned clones. Mutating a returned element
 // does not write back into the parent message; see the APM section below.
 
+use brahe::ccsds::aem::{
+    AEM as RustAEM, AEMAttitudeData, AEMAttitudeState as RustAEMAttitudeState, AEMAttitudeType,
+    AEMInterpolationMethod, AEMMetadata as RustAEMMetadata, AEMSegment as RustAEMSegment,
+};
 use brahe::ccsds::apm::{
     APM as RustAPM, APMAngularVelocity, APMEulerState, APMInertia, APMManeuver as RustAPMManeuver,
     APMMetadata as RustAPMMetadata, APMNutation, APMQuaternionState, APMSpin,
@@ -6093,5 +6097,1178 @@ fn pyany_to_optional_array3(
     match val {
         Some(v) if !v.is_none() => Ok(Some(pyany_to_array3(v, name)?)),
         _ => Ok(None),
+    }
+}
+
+// ─────────────────────────────────────────────
+// PyAEM — Attitude Ephemeris Message
+//
+// Design: mirrors the APM section's owned-copy pattern. A single
+// `AEMAttitudeState` class carries all nine attitude representations (typed
+// per-variant accessors return `None` unless the variant holds that field),
+// constructed via per-variant static constructors. `AEMSegment` owns its
+// metadata plus a `Vec<AEMAttitudeState>`; `AEM` owns a `Vec<AEMSegment>`.
+// List getters return owned clones; mutating a returned element does not
+// write back into the parent.
+// ─────────────────────────────────────────────
+
+/// A single AEM ephemeris line: an epoch plus attitude data at that epoch.
+///
+/// Construct with the static method matching the desired `ATTITUDE_TYPE`
+/// (`from_quaternion`, `from_quaternion_derivative`, `from_quaternion_angvel`,
+/// `from_euler_angle`, `from_euler_angle_derivative`, `from_euler_angle_angvel`, `from_spin`,
+/// `from_spin_nutation`, `from_spin_nutation_mom`). Unlike `APMSpin`, the spin constructors take no
+/// `AngleFormat` conversion: pass radian values directly.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     from brahe.ccsds import AEMAttitudeState
+///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     state = AEMAttitudeState.from_quaternion(epoch, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "AEMAttitudeState")]
+pub struct PyAEMAttitudeState {
+    inner: RustAEMAttitudeState,
+}
+
+#[pymethods]
+impl PyAEMAttitudeState {
+    /// Construct a `QUATERNION` attitude state.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch of this attitude state
+    ///     quaternion (Quaternion): Attitude quaternion from ref_frame_a to ref_frame_b
+    ///
+    /// Returns:
+    ///     AEMAttitudeState: New attitude state
+    #[staticmethod]
+    fn from_quaternion(epoch: PyEpoch, quaternion: &PyQuaternion) -> Self {
+        Self {
+            inner: RustAEMAttitudeState {
+                epoch: epoch.obj,
+                data: AEMAttitudeData::Quaternion { quaternion: quaternion.obj },
+            },
+        }
+    }
+
+    /// Construct a `QUATERNION/DERIVATIVE` attitude state.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch of this attitude state
+    ///     quaternion (Quaternion): Attitude quaternion from ref_frame_a to ref_frame_b
+    ///     derivative (numpy.ndarray): Quaternion time derivative [q0_dot, q1_dot, q2_dot,
+    ///         q3_dot] (scalar-first), in 1/s
+    ///
+    /// Returns:
+    ///     AEMAttitudeState: New attitude state
+    #[staticmethod]
+    fn from_quaternion_derivative(
+        epoch: PyEpoch,
+        quaternion: &PyQuaternion,
+        derivative: &pyo3::Bound<'_, pyo3::types::PyAny>,
+    ) -> PyResult<Self> {
+        let derivative = pyany_to_svector::<4>(derivative)?;
+        Ok(Self {
+            inner: RustAEMAttitudeState {
+                epoch: epoch.obj,
+                data: AEMAttitudeData::QuaternionDerivative { quaternion: quaternion.obj, derivative },
+            },
+        })
+    }
+
+    /// Construct a `QUATERNION/ANGVEL` attitude state.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch of this attitude state
+    ///     quaternion (Quaternion): Attitude quaternion from ref_frame_a to ref_frame_b
+    ///     angular_velocity (numpy.ndarray): Angular velocity vector [x, y, z], expressed in
+    ///         the segment's ANGVEL_FRAME. Units: rad/s
+    ///
+    /// Returns:
+    ///     AEMAttitudeState: New attitude state
+    #[staticmethod]
+    fn from_quaternion_angvel(
+        epoch: PyEpoch,
+        quaternion: &PyQuaternion,
+        angular_velocity: &pyo3::Bound<'_, pyo3::types::PyAny>,
+    ) -> PyResult<Self> {
+        let angular_velocity = pyany_to_svector::<3>(angular_velocity)?;
+        Ok(Self {
+            inner: RustAEMAttitudeState {
+                epoch: epoch.obj,
+                data: AEMAttitudeData::QuaternionAngVel { quaternion: quaternion.obj, angular_velocity },
+            },
+        })
+    }
+
+    /// Construct an `EULER_ANGLE` attitude state.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch of this attitude state
+    ///     angles (EulerAngle): Euler angles (with rotation sequence) from ref_frame_a to
+    ///         ref_frame_b
+    ///
+    /// Returns:
+    ///     AEMAttitudeState: New attitude state
+    #[staticmethod]
+    fn from_euler_angle(epoch: PyEpoch, angles: &PyEulerAngle) -> Self {
+        Self {
+            inner: RustAEMAttitudeState {
+                epoch: epoch.obj,
+                data: AEMAttitudeData::EulerAngle { angles: angles.obj },
+            },
+        }
+    }
+
+    /// Construct an `EULER_ANGLE/DERIVATIVE` attitude state.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch of this attitude state
+    ///     angles (EulerAngle): Euler angles (with rotation sequence) from ref_frame_a to
+    ///         ref_frame_b
+    ///     rates (numpy.ndarray): Angle rates [angle_1_dot, angle_2_dot, angle_3_dot], in the
+    ///         same sequence order as `angles.order`. Units: rad/s
+    ///
+    /// Returns:
+    ///     AEMAttitudeState: New attitude state
+    #[staticmethod]
+    fn from_euler_angle_derivative(
+        epoch: PyEpoch,
+        angles: &PyEulerAngle,
+        rates: &pyo3::Bound<'_, pyo3::types::PyAny>,
+    ) -> PyResult<Self> {
+        let rates = pyany_to_svector::<3>(rates)?;
+        Ok(Self {
+            inner: RustAEMAttitudeState {
+                epoch: epoch.obj,
+                data: AEMAttitudeData::EulerAngleDerivative { angles: angles.obj, rates },
+            },
+        })
+    }
+
+    /// Construct an `EULER_ANGLE/ANGVEL` attitude state.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch of this attitude state
+    ///     angles (EulerAngle): Euler angles (with rotation sequence) from ref_frame_a to
+    ///         ref_frame_b
+    ///     angular_velocity (numpy.ndarray): Angular velocity vector [x, y, z], expressed in
+    ///         the segment's ANGVEL_FRAME. Units: rad/s
+    ///
+    /// Returns:
+    ///     AEMAttitudeState: New attitude state
+    #[staticmethod]
+    fn from_euler_angle_angvel(
+        epoch: PyEpoch,
+        angles: &PyEulerAngle,
+        angular_velocity: &pyo3::Bound<'_, pyo3::types::PyAny>,
+    ) -> PyResult<Self> {
+        let angular_velocity = pyany_to_svector::<3>(angular_velocity)?;
+        Ok(Self {
+            inner: RustAEMAttitudeState {
+                epoch: epoch.obj,
+                data: AEMAttitudeData::EulerAngleAngVel { angles: angles.obj, angular_velocity },
+            },
+        })
+    }
+
+    /// Construct a `SPIN` attitude state (simple, non-nutating spin).
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch of this attitude state
+    ///     spin_alpha (float): Right ascension of the spin axis in ref_frame_a, in radians
+    ///     spin_delta (float): Declination of the spin axis in ref_frame_a, in radians
+    ///     spin_angle (float): Phase angle about the spin axis, in radians
+    ///     spin_angle_vel (float): Angular velocity about the spin axis, in rad/s
+    ///
+    /// Returns:
+    ///     AEMAttitudeState: New attitude state
+    #[staticmethod]
+    fn from_spin(epoch: PyEpoch, spin_alpha: f64, spin_delta: f64, spin_angle: f64, spin_angle_vel: f64) -> Self {
+        Self {
+            inner: RustAEMAttitudeState {
+                epoch: epoch.obj,
+                data: AEMAttitudeData::Spin { spin_alpha, spin_delta, spin_angle, spin_angle_vel },
+            },
+        }
+    }
+
+    /// Construct a `SPIN/NUTATION` attitude state.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch of this attitude state
+    ///     spin_alpha (float): Right ascension of the spin axis in ref_frame_a, in radians
+    ///     spin_delta (float): Declination of the spin axis in ref_frame_a, in radians
+    ///     spin_angle (float): Phase angle about the spin axis, in radians
+    ///     spin_angle_vel (float): Angular velocity about the spin axis, in rad/s
+    ///     nutation (float): Nutation angle, in radians
+    ///     nutation_period (float): Nutation period, in seconds
+    ///     nutation_phase (float): Inertial nutation phase, in radians
+    ///
+    /// Returns:
+    ///     AEMAttitudeState: New attitude state
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    fn from_spin_nutation(
+        epoch: PyEpoch,
+        spin_alpha: f64,
+        spin_delta: f64,
+        spin_angle: f64,
+        spin_angle_vel: f64,
+        nutation: f64,
+        nutation_period: f64,
+        nutation_phase: f64,
+    ) -> Self {
+        Self {
+            inner: RustAEMAttitudeState {
+                epoch: epoch.obj,
+                data: AEMAttitudeData::SpinNutation {
+                    spin_alpha,
+                    spin_delta,
+                    spin_angle,
+                    spin_angle_vel,
+                    nutation,
+                    nutation_period,
+                    nutation_phase,
+                },
+            },
+        }
+    }
+
+    /// Construct a `SPIN/NUTATION_MOM` attitude state.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch of this attitude state
+    ///     spin_alpha (float): Right ascension of the spin axis in ref_frame_a, in radians
+    ///     spin_delta (float): Declination of the spin axis in ref_frame_a, in radians
+    ///     spin_angle (float): Phase angle about the spin axis, in radians
+    ///     spin_angle_vel (float): Angular velocity about the spin axis, in rad/s
+    ///     momentum_alpha (float): Right ascension of the angular momentum vector, in radians
+    ///     momentum_delta (float): Declination of the angular momentum vector, in radians
+    ///     nutation_vel (float): Angular velocity of the spin axis around the momentum vector,
+    ///         in rad/s
+    ///
+    /// Returns:
+    ///     AEMAttitudeState: New attitude state
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    fn from_spin_nutation_mom(
+        epoch: PyEpoch,
+        spin_alpha: f64,
+        spin_delta: f64,
+        spin_angle: f64,
+        spin_angle_vel: f64,
+        momentum_alpha: f64,
+        momentum_delta: f64,
+        nutation_vel: f64,
+    ) -> Self {
+        Self {
+            inner: RustAEMAttitudeState {
+                epoch: epoch.obj,
+                data: AEMAttitudeData::SpinNutationMom {
+                    spin_alpha,
+                    spin_delta,
+                    spin_angle,
+                    spin_angle_vel,
+                    momentum_alpha,
+                    momentum_delta,
+                    nutation_vel,
+                },
+            },
+        }
+    }
+
+    /// Epoch: Epoch of this attitude state
+    #[getter]
+    fn epoch(&self) -> PyEpoch {
+        PyEpoch { obj: self.inner.epoch }
+    }
+
+    /// str: `ATTITUDE_TYPE` token matching this state's variant (e.g. `"QUATERNION"`,
+    /// `"QUATERNION/ANGVEL"`, `"SPIN/NUTATION_MOM"`)
+    #[getter]
+    fn attitude_type(&self) -> String {
+        format!("{}", self.inner.data.attitude_type())
+    }
+
+    /// Quaternion | None: Attitude quaternion, or None unless attitude_type is one of the
+    /// QUATERNION* variants
+    #[getter]
+    fn quaternion(&self) -> Option<PyQuaternion> {
+        match &self.inner.data {
+            AEMAttitudeData::Quaternion { quaternion }
+            | AEMAttitudeData::QuaternionDerivative { quaternion, .. }
+            | AEMAttitudeData::QuaternionAngVel { quaternion, .. } => {
+                Some(PyQuaternion { obj: *quaternion })
+            }
+            _ => None,
+        }
+    }
+
+    /// numpy.ndarray | None: Quaternion time derivative [q0_dot, q1_dot, q2_dot, q3_dot]
+    /// (scalar-first), in 1/s, or None unless attitude_type is `"QUATERNION/DERIVATIVE"`
+    #[getter]
+    fn derivative<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyArray<f64, Ix1>>> {
+        match &self.inner.data {
+            AEMAttitudeData::QuaternionDerivative { derivative, .. } => {
+                Some(vector_to_numpy!(py, derivative, 4, f64))
+            }
+            _ => None,
+        }
+    }
+
+    /// numpy.ndarray | None: Angular velocity vector [x, y, z] in rad/s, or None unless
+    /// attitude_type is one of the `/ANGVEL` variants
+    #[getter]
+    fn angular_velocity<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyArray<f64, Ix1>>> {
+        match &self.inner.data {
+            AEMAttitudeData::QuaternionAngVel { angular_velocity, .. }
+            | AEMAttitudeData::EulerAngleAngVel { angular_velocity, .. } => {
+                Some(vector_to_numpy!(py, angular_velocity, 3, f64))
+            }
+            _ => None,
+        }
+    }
+
+    /// EulerAngle | None: Euler angles (with rotation sequence), or None unless attitude_type
+    /// is one of the EULER_ANGLE* variants
+    #[getter]
+    fn euler_angles(&self) -> Option<PyEulerAngle> {
+        match &self.inner.data {
+            AEMAttitudeData::EulerAngle { angles }
+            | AEMAttitudeData::EulerAngleDerivative { angles, .. }
+            | AEMAttitudeData::EulerAngleAngVel { angles, .. } => Some(PyEulerAngle { obj: *angles }),
+            _ => None,
+        }
+    }
+
+    /// numpy.ndarray | None: Angle rates [angle_1_dot, angle_2_dot, angle_3_dot] in rad/s, in
+    /// the same sequence order as `euler_angles.order`, or None unless attitude_type is
+    /// `"EULER_ANGLE/DERIVATIVE"`
+    #[getter]
+    fn rates<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyArray<f64, Ix1>>> {
+        match &self.inner.data {
+            AEMAttitudeData::EulerAngleDerivative { rates, .. } => {
+                Some(vector_to_numpy!(py, rates, 3, f64))
+            }
+            _ => None,
+        }
+    }
+
+    /// float | None: Right ascension of the spin axis in ref_frame_a, in radians, or None
+    /// unless attitude_type is one of the SPIN* variants
+    #[getter]
+    fn spin_alpha(&self) -> Option<f64> {
+        match &self.inner.data {
+            AEMAttitudeData::Spin { spin_alpha, .. }
+            | AEMAttitudeData::SpinNutation { spin_alpha, .. }
+            | AEMAttitudeData::SpinNutationMom { spin_alpha, .. } => Some(*spin_alpha),
+            _ => None,
+        }
+    }
+
+    /// float | None: Declination of the spin axis in ref_frame_a, in radians, or None unless
+    /// attitude_type is one of the SPIN* variants
+    #[getter]
+    fn spin_delta(&self) -> Option<f64> {
+        match &self.inner.data {
+            AEMAttitudeData::Spin { spin_delta, .. }
+            | AEMAttitudeData::SpinNutation { spin_delta, .. }
+            | AEMAttitudeData::SpinNutationMom { spin_delta, .. } => Some(*spin_delta),
+            _ => None,
+        }
+    }
+
+    /// float | None: Phase angle about the spin axis, in radians, or None unless
+    /// attitude_type is one of the SPIN* variants
+    #[getter]
+    fn spin_angle(&self) -> Option<f64> {
+        match &self.inner.data {
+            AEMAttitudeData::Spin { spin_angle, .. }
+            | AEMAttitudeData::SpinNutation { spin_angle, .. }
+            | AEMAttitudeData::SpinNutationMom { spin_angle, .. } => Some(*spin_angle),
+            _ => None,
+        }
+    }
+
+    /// float | None: Angular velocity about the spin axis, in rad/s, or None unless
+    /// attitude_type is one of the SPIN* variants
+    #[getter]
+    fn spin_angle_vel(&self) -> Option<f64> {
+        match &self.inner.data {
+            AEMAttitudeData::Spin { spin_angle_vel, .. }
+            | AEMAttitudeData::SpinNutation { spin_angle_vel, .. }
+            | AEMAttitudeData::SpinNutationMom { spin_angle_vel, .. } => Some(*spin_angle_vel),
+            _ => None,
+        }
+    }
+
+    /// float | None: Nutation angle, in radians, or None unless attitude_type is
+    /// `"SPIN/NUTATION"`
+    #[getter]
+    fn nutation(&self) -> Option<f64> {
+        match &self.inner.data {
+            AEMAttitudeData::SpinNutation { nutation, .. } => Some(*nutation),
+            _ => None,
+        }
+    }
+
+    /// float | None: Nutation period, in seconds, or None unless attitude_type is
+    /// `"SPIN/NUTATION"`
+    #[getter]
+    fn nutation_period(&self) -> Option<f64> {
+        match &self.inner.data {
+            AEMAttitudeData::SpinNutation { nutation_period, .. } => Some(*nutation_period),
+            _ => None,
+        }
+    }
+
+    /// float | None: Inertial nutation phase, in radians, or None unless attitude_type is
+    /// `"SPIN/NUTATION"`
+    #[getter]
+    fn nutation_phase(&self) -> Option<f64> {
+        match &self.inner.data {
+            AEMAttitudeData::SpinNutation { nutation_phase, .. } => Some(*nutation_phase),
+            _ => None,
+        }
+    }
+
+    /// float | None: Right ascension of the angular momentum vector, in radians, or None
+    /// unless attitude_type is `"SPIN/NUTATION_MOM"`
+    #[getter]
+    fn momentum_alpha(&self) -> Option<f64> {
+        match &self.inner.data {
+            AEMAttitudeData::SpinNutationMom { momentum_alpha, .. } => Some(*momentum_alpha),
+            _ => None,
+        }
+    }
+
+    /// float | None: Declination of the angular momentum vector, in radians, or None unless
+    /// attitude_type is `"SPIN/NUTATION_MOM"`
+    #[getter]
+    fn momentum_delta(&self) -> Option<f64> {
+        match &self.inner.data {
+            AEMAttitudeData::SpinNutationMom { momentum_delta, .. } => Some(*momentum_delta),
+            _ => None,
+        }
+    }
+
+    /// float | None: Angular velocity of the spin axis around the momentum vector, in rad/s,
+    /// or None unless attitude_type is `"SPIN/NUTATION_MOM"`
+    #[getter]
+    fn nutation_vel(&self) -> Option<f64> {
+        match &self.inner.data {
+            AEMAttitudeData::SpinNutationMom { nutation_vel, .. } => Some(*nutation_vel),
+            _ => None,
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "AEMAttitudeState(epoch={}, attitude_type='{}')",
+            self.inner.epoch,
+            self.inner.data.attitude_type()
+        )
+    }
+}
+
+/// A single segment within an AEM message: metadata plus a time-ordered
+/// sequence of attitude states.
+///
+/// Args:
+///     object_name (str): Spacecraft name
+///     object_id (str): International designator
+///     ref_frame_a (str): Frame defining the transformation start point
+///     ref_frame_b (str): Frame defining the transformation end point
+///     time_system (str): Time system for all epochs in this segment
+///     start_time (Epoch): Start of the total time span covered by the data block
+///     stop_time (Epoch): End of the total time span covered by the data block
+///     attitude_type (str): Attitude representation for this segment's data, e.g.
+///         `"QUATERNION"`, `"QUATERNION/ANGVEL"`, `"EULER_ANGLE"`, `"SPIN"`
+///     center_name (str | None): Celestial body the object is centered on (e.g. "EARTH")
+///     useable_start_time (Epoch | None): Start of the useable (interpolation-safe) span
+///     useable_stop_time (Epoch | None): End of the useable (interpolation-safe) span
+///     euler_rot_seq (EulerAngleOrder | None): Euler rotation sequence; required iff
+///         attitude_type is one of the Euler angle types
+///     angvel_frame (str | None): Frame in which angular velocity components are expressed;
+///         required iff attitude_type is one of the `/ANGVEL` types, and must equal
+///         ref_frame_a or ref_frame_b
+///     interpolation_method (str | None): Recommended interpolation method - "LINEAR",
+///         "HERMITE", or "LAGRANGE"
+///     interpolation_degree (int | None): Interpolation polynomial degree; required iff
+///         interpolation_method is present
+///
+/// Raises:
+///     ValueError: If `time_system` does not name a CCSDS time system.
+///     BraheError: If `attitude_type` or `interpolation_method` does not name a value the
+///         CCSDS ADM defines.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     from brahe.ccsds import AEMSegment
+///     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     t1 = t0 + 60.0
+///     segment = AEMSegment(
+///         "SAT1", "2024-001A", "EME2000", "SC_BODY_1", "UTC", t0, t1, "QUATERNION"
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "AEMSegment")]
+pub struct PyAEMSegment {
+    inner: RustAEMSegment,
+}
+
+#[pymethods]
+impl PyAEMSegment {
+    #[new]
+    #[pyo3(signature = (
+        object_name, object_id, ref_frame_a, ref_frame_b, time_system, start_time, stop_time,
+        attitude_type, center_name=None, useable_start_time=None, useable_stop_time=None,
+        euler_rot_seq=None, angvel_frame=None, interpolation_method=None, interpolation_degree=None
+    ))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        object_name: &str,
+        object_id: &str,
+        ref_frame_a: &str,
+        ref_frame_b: &str,
+        time_system: &str,
+        start_time: PyEpoch,
+        stop_time: PyEpoch,
+        attitude_type: &str,
+        center_name: Option<String>,
+        useable_start_time: Option<PyEpoch>,
+        useable_stop_time: Option<PyEpoch>,
+        euler_rot_seq: Option<&PyEulerAngleOrder>,
+        angvel_frame: Option<&str>,
+        interpolation_method: Option<&str>,
+        interpolation_degree: Option<u32>,
+    ) -> PyResult<Self> {
+        let ts = CCSDSTimeSystem::parse(time_system).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("Invalid time_system: {}", e))
+        })?;
+        let attitude_type = AEMAttitudeType::parse(attitude_type)?;
+
+        let mut metadata = RustAEMMetadata::new(
+            object_name,
+            object_id,
+            ADMReferenceFrame::parse(ref_frame_a),
+            ADMReferenceFrame::parse(ref_frame_b),
+            ts,
+            start_time.obj,
+            stop_time.obj,
+            attitude_type,
+        );
+        metadata.center_name = center_name;
+        metadata.useable_start_time = useable_start_time.map(|e| e.obj);
+        metadata.useable_stop_time = useable_stop_time.map(|e| e.obj);
+        metadata.euler_rot_seq = euler_rot_seq.map(|o| o.value);
+        metadata.angvel_frame = angvel_frame.map(ADMReferenceFrame::parse);
+        metadata.interpolation_method =
+            interpolation_method.map(AEMInterpolationMethod::parse).transpose()?;
+        metadata.interpolation_degree = interpolation_degree;
+
+        Ok(Self { inner: RustAEMSegment::new(metadata) })
+    }
+
+    /// str: Spacecraft name
+    #[getter]
+    fn object_name(&self) -> String {
+        self.inner.metadata.object_name.clone()
+    }
+
+    /// str: International designator
+    #[getter]
+    fn object_id(&self) -> String {
+        self.inner.metadata.object_id.clone()
+    }
+
+    /// str | None: Celestial body the object is centered on
+    #[getter]
+    fn center_name(&self) -> Option<String> {
+        self.inner.metadata.center_name.clone()
+    }
+
+    /// str: Frame defining the transformation start point
+    #[getter]
+    fn ref_frame_a(&self) -> String {
+        format!("{}", self.inner.metadata.ref_frame_a)
+    }
+
+    /// str: Frame defining the transformation end point
+    #[getter]
+    fn ref_frame_b(&self) -> String {
+        format!("{}", self.inner.metadata.ref_frame_b)
+    }
+
+    /// str: Time system for all epochs in this segment
+    #[getter]
+    fn time_system(&self) -> String {
+        format!("{}", self.inner.metadata.time_system)
+    }
+
+    /// Epoch: Start of the total time span covered by the data block
+    #[getter]
+    fn start_time(&self) -> PyEpoch {
+        PyEpoch { obj: self.inner.metadata.start_time }
+    }
+
+    /// Epoch: End of the total time span covered by the data block
+    #[getter]
+    fn stop_time(&self) -> PyEpoch {
+        PyEpoch { obj: self.inner.metadata.stop_time }
+    }
+
+    /// Epoch | None: Start of the useable (interpolation-safe) span
+    #[getter]
+    fn useable_start_time(&self) -> Option<PyEpoch> {
+        self.inner.metadata.useable_start_time.map(|e| PyEpoch { obj: e })
+    }
+
+    /// Epoch | None: End of the useable (interpolation-safe) span
+    #[getter]
+    fn useable_stop_time(&self) -> Option<PyEpoch> {
+        self.inner.metadata.useable_stop_time.map(|e| PyEpoch { obj: e })
+    }
+
+    /// str: Attitude representation and accompanying derivative/rate data for this segment
+    #[getter]
+    fn attitude_type(&self) -> String {
+        format!("{}", self.inner.metadata.attitude_type)
+    }
+
+    /// EulerAngleOrder | None: Euler rotation sequence, or None unless attitude_type is one
+    /// of the Euler angle types
+    #[getter]
+    fn euler_rot_seq(&self) -> Option<PyEulerAngleOrder> {
+        self.inner.metadata.euler_rot_seq.map(|value| PyEulerAngleOrder { value })
+    }
+
+    /// str | None: Frame in which angular velocity components are expressed, or None unless
+    /// attitude_type is one of the `/ANGVEL` types
+    #[getter]
+    fn angvel_frame(&self) -> Option<String> {
+        self.inner.metadata.angvel_frame.as_ref().map(|f| format!("{}", f))
+    }
+
+    /// str | None: Recommended interpolation method for this data block
+    #[getter]
+    fn interpolation_method(&self) -> Option<String> {
+        self.inner.metadata.interpolation_method.as_ref().map(|m| format!("{}", m))
+    }
+
+    /// int | None: Interpolation polynomial degree
+    #[getter]
+    fn interpolation_degree(&self) -> Option<u32> {
+        self.inner.metadata.interpolation_degree
+    }
+
+    /// list[str]: Metadata section comments
+    #[getter]
+    fn metadata_comments(&self) -> Vec<String> {
+        self.inner.metadata.comments.clone()
+    }
+
+    /// list[str]: Comments associated with the data block (before the first state)
+    #[getter]
+    fn comments(&self) -> Vec<String> {
+        self.inner.comments.clone()
+    }
+
+    /// list[AEMAttitudeState]: Time-ordered attitude states (owned copies)
+    #[getter]
+    fn states(&self) -> Vec<PyAEMAttitudeState> {
+        self.inner.states.iter().cloned().map(|inner| PyAEMAttitudeState { inner }).collect()
+    }
+
+    /// Append an attitude state to this segment.
+    ///
+    /// Args:
+    ///     state (AEMAttitudeState): Attitude state to append
+    ///
+    /// Returns:
+    ///     int: Index of the new state
+    ///
+    /// Raises:
+    ///     BraheError: If the state's attitude type does not match the segment's
+    ///         attitude_type, or its epoch is not strictly after the last state's epoch
+    fn add_state(&mut self, state: &PyAEMAttitudeState) -> PyResult<usize> {
+        self.inner.push_state(state.inner.clone())?;
+        Ok(self.inner.states.len() - 1)
+    }
+
+    fn __len__(&self) -> usize {
+        self.inner.states.len()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "AEMSegment(object_name='{}', object_id='{}', attitude_type='{}')",
+            self.inner.metadata.object_name, self.inner.metadata.object_id, self.inner.metadata.attitude_type
+        )
+    }
+}
+
+/// A complete CCSDS Attitude Ephemeris Message.
+///
+/// Args:
+///     originator (str): Creating agency or operator identifier
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     from brahe.ccsds import AEM
+///     aem = AEM("BRAHE")
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "AEM")]
+pub struct PyAEM {
+    inner: RustAEM,
+}
+
+#[pymethods]
+impl PyAEM {
+    // --- constructors ---
+
+    /// Create a new AEM message programmatically with no segments. Per CCSDS 504.0-B-2, at
+    /// least one segment, each with at least one attitude state, must be added before the
+    /// message can be written.
+    ///
+    /// Args:
+    ///     originator (str): Creating agency or operator identifier
+    ///
+    /// Returns:
+    ///     AEM: New AEM message with no segments
+    #[new]
+    fn new(originator: &str) -> Self {
+        PyAEM { inner: RustAEM::new(originator) }
+    }
+
+    /// Parse an AEM from a string, auto-detecting the format.
+    ///
+    /// Args:
+    ///     content (str): String content of the AEM message
+    ///
+    /// Returns:
+    ///     AEM: Parsed AEM message
+    #[staticmethod]
+    #[allow(clippy::should_implement_trait)]
+    fn from_str(content: &str) -> PyResult<Self> {
+        let inner = RustAEM::from_str(content)?;
+        Ok(PyAEM { inner })
+    }
+
+    /// Parse an AEM from a file, auto-detecting the format.
+    ///
+    /// Args:
+    ///     path (str): Path to the AEM file
+    ///
+    /// Returns:
+    ///     AEM: Parsed AEM message
+    #[staticmethod]
+    fn from_file(path: &str) -> PyResult<Self> {
+        let inner = RustAEM::from_file(path)?;
+        Ok(PyAEM { inner })
+    }
+
+    // --- serialization ---
+
+    /// Write the AEM to a string in the specified format.
+    ///
+    /// Args:
+    ///     format (str): Output format - "KVN", "XML", or "JSON"
+    ///
+    /// Returns:
+    ///     str: Serialized AEM string
+    fn to_string(&self, format: &str) -> PyResult<String> {
+        let fmt = parse_format(format)?;
+        let result = self.inner.to_string(fmt)?;
+        Ok(result)
+    }
+
+    /// Write the AEM to JSON with explicit key case control.
+    ///
+    /// Args:
+    ///     uppercase_keys (bool): If True, use uppercase CCSDS keywords. Default: False.
+    ///
+    /// Returns:
+    ///     str: Serialized JSON string
+    #[pyo3(signature = (uppercase_keys=false))]
+    fn to_json_string(&self, uppercase_keys: bool) -> PyResult<String> {
+        let key_case = if uppercase_keys {
+            brahe::ccsds::common::CCSDSJsonKeyCase::Upper
+        } else {
+            brahe::ccsds::common::CCSDSJsonKeyCase::Lower
+        };
+        let result = self.inner.to_json_string(key_case)?;
+        Ok(result)
+    }
+
+    /// Write the AEM to a file in the specified format.
+    ///
+    /// Args:
+    ///     path (str): Output file path
+    ///     format (str): Output format - "KVN", "XML", or "JSON"
+    fn to_file(&self, path: &str, format: &str) -> PyResult<()> {
+        let fmt = parse_format(format)?;
+        self.inner.to_file(path, fmt)?;
+        Ok(())
+    }
+
+    /// Convert the AEM to a Python dictionary.
+    ///
+    /// Epochs are serialized as CCSDS datetime strings for JSON/dict compatibility.
+    ///
+    /// Returns:
+    ///     dict: Dictionary representation of the AEM
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, pyo3::types::PyDict>> {
+        let dict = pyo3::types::PyDict::new(py);
+
+        // Header
+        let header = pyo3::types::PyDict::new(py);
+        header.set_item("format_version", self.inner.header.format_version)?;
+        header.set_item("classification", &self.inner.header.classification)?;
+        header.set_item(
+            "creation_date",
+            brahe::ccsds::common::format_ccsds_datetime(&self.inner.header.creation_date),
+        )?;
+        header.set_item("originator", &self.inner.header.originator)?;
+        header.set_item("message_id", &self.inner.header.message_id)?;
+        header.set_item("comments", &self.inner.header.comments)?;
+        dict.set_item("header", header)?;
+
+        // Segments
+        let segments = pyo3::types::PyList::empty(py);
+        for segment in &self.inner.segments {
+            let s_dict = pyo3::types::PyDict::new(py);
+            let metadata = &segment.metadata;
+
+            // START_TIME, STOP_TIME, and each state's EPOCH are written in
+            // the segment's TIME_SYSTEM (504.0-B-2 §4.2.4.4), not the
+            // `Epoch`'s own internal time system, mirroring the KVN/XML/JSON
+            // writers. A handful of CCSDS time systems (SCLK, MET, MRT,
+            // GMST, TDR) have no corresponding `brahe::time::TimeSystem` and
+            // are left unconverted.
+            let write_ts = metadata.time_system.to_time_system();
+            let epoch_for_write = |e: &brahe::time::Epoch| -> brahe::time::Epoch {
+                match write_ts {
+                    Some(ts) => e.to_time_system(ts),
+                    None => *e,
+                }
+            };
+
+            s_dict.set_item("object_name", &metadata.object_name)?;
+            s_dict.set_item("object_id", &metadata.object_id)?;
+            s_dict.set_item("center_name", &metadata.center_name)?;
+            s_dict.set_item("ref_frame_a", format!("{}", metadata.ref_frame_a))?;
+            s_dict.set_item("ref_frame_b", format!("{}", metadata.ref_frame_b))?;
+            s_dict.set_item("time_system", format!("{}", metadata.time_system))?;
+            s_dict.set_item(
+                "start_time",
+                brahe::ccsds::common::format_ccsds_datetime(&epoch_for_write(&metadata.start_time)),
+            )?;
+            s_dict.set_item(
+                "stop_time",
+                brahe::ccsds::common::format_ccsds_datetime(&epoch_for_write(&metadata.stop_time)),
+            )?;
+            s_dict.set_item("attitude_type", format!("{}", metadata.attitude_type))?;
+            s_dict.set_item(
+                "interpolation_method",
+                metadata.interpolation_method.map(|m| format!("{}", m)),
+            )?;
+            s_dict.set_item("interpolation_degree", metadata.interpolation_degree)?;
+            s_dict.set_item("metadata_comments", &metadata.comments)?;
+            s_dict.set_item("comments", &segment.comments)?;
+
+            let states = pyo3::types::PyList::empty(py);
+            for state in &segment.states {
+                let st_dict = pyo3::types::PyDict::new(py);
+                st_dict.set_item(
+                    "epoch",
+                    brahe::ccsds::common::format_ccsds_datetime(&epoch_for_write(&state.epoch)),
+                )?;
+                st_dict.set_item("attitude_type", format!("{}", state.data.attitude_type()))?;
+
+                match &state.data {
+                    AEMAttitudeData::Quaternion { quaternion } => {
+                        st_dict.set_item("quaternion", quaternion.to_vector(false).as_slice().to_vec())?;
+                    }
+                    AEMAttitudeData::QuaternionDerivative { quaternion, derivative } => {
+                        st_dict.set_item("quaternion", quaternion.to_vector(false).as_slice().to_vec())?;
+                        st_dict.set_item("derivative", derivative.as_slice().to_vec())?;
+                    }
+                    AEMAttitudeData::QuaternionAngVel { quaternion, angular_velocity } => {
+                        st_dict.set_item("quaternion", quaternion.to_vector(false).as_slice().to_vec())?;
+                        st_dict.set_item("angular_velocity", angular_velocity.as_slice().to_vec())?;
+                    }
+                    AEMAttitudeData::EulerAngle { angles } => {
+                        st_dict.set_item("order", format!("{:?}", angles.order))?;
+                        st_dict.set_item("phi", angles.phi)?;
+                        st_dict.set_item("theta", angles.theta)?;
+                        st_dict.set_item("psi", angles.psi)?;
+                    }
+                    AEMAttitudeData::EulerAngleDerivative { angles, rates } => {
+                        st_dict.set_item("order", format!("{:?}", angles.order))?;
+                        st_dict.set_item("phi", angles.phi)?;
+                        st_dict.set_item("theta", angles.theta)?;
+                        st_dict.set_item("psi", angles.psi)?;
+                        st_dict.set_item("rates", rates.as_slice().to_vec())?;
+                    }
+                    AEMAttitudeData::EulerAngleAngVel { angles, angular_velocity } => {
+                        st_dict.set_item("order", format!("{:?}", angles.order))?;
+                        st_dict.set_item("phi", angles.phi)?;
+                        st_dict.set_item("theta", angles.theta)?;
+                        st_dict.set_item("psi", angles.psi)?;
+                        st_dict.set_item("angular_velocity", angular_velocity.as_slice().to_vec())?;
+                    }
+                    AEMAttitudeData::Spin { spin_alpha, spin_delta, spin_angle, spin_angle_vel } => {
+                        st_dict.set_item("spin_alpha", *spin_alpha)?;
+                        st_dict.set_item("spin_delta", *spin_delta)?;
+                        st_dict.set_item("spin_angle", *spin_angle)?;
+                        st_dict.set_item("spin_angle_vel", *spin_angle_vel)?;
+                    }
+                    AEMAttitudeData::SpinNutation {
+                        spin_alpha,
+                        spin_delta,
+                        spin_angle,
+                        spin_angle_vel,
+                        nutation,
+                        nutation_period,
+                        nutation_phase,
+                    } => {
+                        st_dict.set_item("spin_alpha", *spin_alpha)?;
+                        st_dict.set_item("spin_delta", *spin_delta)?;
+                        st_dict.set_item("spin_angle", *spin_angle)?;
+                        st_dict.set_item("spin_angle_vel", *spin_angle_vel)?;
+                        st_dict.set_item("nutation", *nutation)?;
+                        st_dict.set_item("nutation_period", *nutation_period)?;
+                        st_dict.set_item("nutation_phase", *nutation_phase)?;
+                    }
+                    AEMAttitudeData::SpinNutationMom {
+                        spin_alpha,
+                        spin_delta,
+                        spin_angle,
+                        spin_angle_vel,
+                        momentum_alpha,
+                        momentum_delta,
+                        nutation_vel,
+                    } => {
+                        st_dict.set_item("spin_alpha", *spin_alpha)?;
+                        st_dict.set_item("spin_delta", *spin_delta)?;
+                        st_dict.set_item("spin_angle", *spin_angle)?;
+                        st_dict.set_item("spin_angle_vel", *spin_angle_vel)?;
+                        st_dict.set_item("momentum_alpha", *momentum_alpha)?;
+                        st_dict.set_item("momentum_delta", *momentum_delta)?;
+                        st_dict.set_item("nutation_vel", *nutation_vel)?;
+                    }
+                }
+
+                states.append(st_dict)?;
+            }
+            s_dict.set_item("states", states)?;
+
+            segments.append(s_dict)?;
+        }
+        dict.set_item("segments", segments)?;
+
+        Ok(dict)
+    }
+
+    // --- header properties ---
+
+    /// float: CCSDS format version
+    #[getter]
+    fn format_version(&self) -> f64 {
+        self.inner.header.format_version
+    }
+
+    /// Set CCSDS format version.
+    ///
+    /// Args:
+    ///     val (float): Format version
+    #[setter]
+    fn set_format_version(&mut self, val: f64) {
+        self.inner.header.format_version = val;
+    }
+
+    /// str: Originator of the message
+    #[getter]
+    fn originator(&self) -> String {
+        self.inner.header.originator.clone()
+    }
+
+    /// Set originator.
+    ///
+    /// Args:
+    ///     val (str): Originator string
+    #[setter]
+    fn set_originator(&mut self, val: String) {
+        self.inner.header.originator = val;
+    }
+
+    /// str | None: Classification marking
+    #[getter]
+    fn classification(&self) -> Option<String> {
+        self.inner.header.classification.clone()
+    }
+
+    /// Set classification marking.
+    ///
+    /// Args:
+    ///     val (str | None): Classification marking
+    #[setter]
+    fn set_classification(&mut self, val: Option<String>) {
+        self.inner.header.classification = val;
+    }
+
+    /// Epoch: Creation date of the message
+    #[getter]
+    fn creation_date(&self) -> PyEpoch {
+        PyEpoch { obj: self.inner.header.creation_date }
+    }
+
+    /// Set creation date.
+    ///
+    /// Args:
+    ///     val (Epoch): Creation date
+    #[setter]
+    fn set_creation_date(&mut self, val: PyEpoch) {
+        self.inner.header.creation_date = val.obj;
+    }
+
+    /// str | None: Message identifier, unique within the originator's context
+    #[getter]
+    fn message_id(&self) -> Option<String> {
+        self.inner.header.message_id.clone()
+    }
+
+    /// Set message identifier.
+    ///
+    /// Args:
+    ///     val (str | None): Message identifier
+    #[setter]
+    fn set_message_id(&mut self, val: Option<String>) {
+        self.inner.header.message_id = val;
+    }
+
+    // --- segment access ---
+
+    /// list[AEMSegment]: Attitude ephemeris segments (owned copies)
+    #[getter]
+    fn segments(&self) -> Vec<PyAEMSegment> {
+        self.inner.segments.iter().cloned().map(|inner| PyAEMSegment { inner }).collect()
+    }
+
+    /// Add a segment to the message.
+    ///
+    /// Args:
+    ///     segment (AEMSegment): Segment to append
+    ///
+    /// Returns:
+    ///     int: Index of the new segment
+    fn add_segment(&mut self, segment: &PyAEMSegment) -> usize {
+        self.inner.push_segment(segment.inner.clone());
+        self.inner.segments.len() - 1
+    }
+
+    // --- AttitudeTrajectory interop ---
+
+    /// Register this AEM's attitude as the orientation of `name`'s body frame.
+    ///
+    /// Converts the AEM to an `AttitudeTrajectory` (requiring exactly one segment) and
+    /// registers it in the global frame registry as the link between the segment's two
+    /// `REF_FRAME` endpoints. A CCSDS message names its frames but not the object they
+    /// belong to, so the body endpoint is bound to `name` here. One endpoint must resolve
+    /// to a `CelestialFrame` — that becomes the parent — and the other must be a body
+    /// frame. The quaternion series is inverted when the celestial frame is endpoint B, so
+    /// the registered orientation always rotates parent-frame vectors into the body frame.
+    ///
+    /// Args:
+    ///     name (str): The object identity to bind the body frame endpoint to
+    ///
+    /// Raises:
+    ///     BraheError: If the AEM does not have exactly one segment, neither endpoint
+    ///         resolves to a celestial frame, or the remaining endpoint is not a body frame
+    ///
+    /// Returns:
+    ///     None: The frame is registered in the global frame registry
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.ccsds import AEM
+    ///
+    ///     aem = AEM.from_file("test_assets/ccsds/aem/AEMExampleG5.txt")
+    ///     bh.clear_frame_registry()
+    ///     aem.register_for("SC")
+    ///     bh.clear_frame_registry()
+    ///     ```
+    fn register_for(&self, name: String) -> PyResult<()> {
+        self.inner.register_for(name)?;
+        Ok(())
+    }
+
+    /// Convert a single segment to an `AttitudeTrajectory`.
+    ///
+    /// The SPIN* attitude types have no `AttitudeTrajectory` representation and raise an
+    /// error (the message can still be read and written, but not converted). A segment
+    /// with `INTERPOLATION_METHOD = HERMITE` also raises, since `AttitudeTrajectory` has no
+    /// Hermite interpolation mode.
+    ///
+    /// Args:
+    ///     segment_idx (int): Index of the segment to convert
+    ///
+    /// Returns:
+    ///     AttitudeTrajectory: Converted trajectory
+    fn segment_to_attitude_trajectory(&self, segment_idx: usize) -> PyResult<PyAttitudeTrajectory> {
+        let trajectory = self.inner.segment_to_attitude_trajectory(segment_idx)?;
+        Ok(PyAttitudeTrajectory { trajectory })
+    }
+
+    /// Convert all segments to `AttitudeTrajectory` objects.
+    ///
+    /// Returns:
+    ///     list[AttitudeTrajectory]: Converted trajectories, one per segment
+    fn to_attitude_trajectories(&self) -> PyResult<Vec<PyAttitudeTrajectory>> {
+        let trajectories = self.inner.to_attitude_trajectories()?;
+        Ok(trajectories.into_iter().map(|trajectory| PyAttitudeTrajectory { trajectory }).collect())
+    }
+
+    /// Build a single-segment AEM from a native `AttitudeTrajectory`.
+    ///
+    /// `ATTITUDE_TYPE` is `QUATERNION/ANGVEL` when the trajectory carries angular velocity,
+    /// otherwise `QUATERNION`. Frame endpoints convert via the reverse PR-1 frame bridge.
+    ///
+    /// Args:
+    ///     traj (AttitudeTrajectory): Trajectory to convert
+    ///     object_name (str): OBJECT_NAME metadata value
+    ///     object_id (str): OBJECT_ID metadata value
+    ///     originator (str): Message originator (creating agency or operator)
+    ///     time_system (str): Time system to record in TIME_SYSTEM
+    ///
+    /// Returns:
+    ///     AEM: Single-segment AEM
+    #[staticmethod]
+    #[pyo3(signature = (traj, object_name, object_id, originator, time_system))]
+    fn from_attitude_trajectory(
+        traj: &PyAttitudeTrajectory,
+        object_name: &str,
+        object_id: &str,
+        originator: &str,
+        time_system: &str,
+    ) -> PyResult<Self> {
+        let ts = CCSDSTimeSystem::parse(time_system).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("Invalid time_system: {}", e))
+        })?;
+        let inner =
+            RustAEM::from_attitude_trajectory(&traj.trajectory, object_name, object_id, originator, ts)?;
+        Ok(PyAEM { inner })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("AEM(originator='{}', segments={})", self.inner.header.originator, self.inner.segments.len())
     }
 }

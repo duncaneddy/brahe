@@ -8,6 +8,7 @@ This module provides containers for storing and interpolating spacecraft traject
 **Trajectory Types:**
 - Trajectory: Dynamic trajectory container for arbitrary state vectors
 - OrbitTrajectory: Orbital trajectory with frame/representation conversions
+- AttitudeTrajectory: Chronologically sorted attitude (quaternion + optional rate) samples
 
 **Trajectory Features:**
 - Time-series state storage
@@ -15,6 +16,8 @@ This module provides containers for storing and interpolating spacecraft traject
 - Support for multiple reference frames (ECI, ECEF)
 - Support for multiple orbit representations (Cartesian, Keplerian)
 - Angle format handling (radians, degrees)
+- Attitude interpolation (slerp, linear, Lagrange) and provider access (quaternion, Euler
+  angles, Euler axis, rotation matrix, angular velocity)
 
 **Enumerations:**
 - OrbitFrame: Reference frame specification
@@ -26,6 +29,8 @@ This module provides containers for storing and interpolating spacecraft traject
 
 from brahe._brahe import (
     AngleFormat,
+    AttitudeState,
+    AttitudeTrajectory,
     CovarianceInterpolationMethod,
     InterpolationMethod,
     # Configuration enums
@@ -38,6 +43,8 @@ from brahe._brahe import (
 
 __all__ = [
     "AngleFormat",
+    "AttitudeState",
+    "AttitudeTrajectory",
     "CovarianceInterpolationMethod",
     "InterpolationMethod",
     # Configuration enums

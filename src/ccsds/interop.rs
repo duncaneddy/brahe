@@ -5,8 +5,16 @@
  * trajectory, propagator, and state vector types.
  */
 
-use nalgebra::{DVector, SVector};
+use nalgebra::{DVector, SVector, Vector3};
 
+use crate::attitude::{
+    FromAttitude, Quaternion, ToAttitude, angular_velocity_from_quaternion_derivative,
+    euler_rates_to_angular_velocity,
+};
+use crate::ccsds::aem::{
+    AEM, AEMAttitudeData, AEMAttitudeState, AEMAttitudeType, AEMInterpolationMethod, AEMMetadata,
+    AEMSegment,
+};
 use crate::ccsds::common::{
     CCSDSRefFrame, CCSDSTimeSystem, ODMHeader, format_ccsds_datetime_in, parse_ccsds_datetime,
 };
@@ -17,12 +25,14 @@ use crate::ccsds::oem::OEM;
 use crate::ccsds::omm::{OMM, OMMMetadata, OMMTleParameters, OMMeanElements};
 use crate::frames::{
     BodyFrame, CelestialFrame, DStateAdapter, ObjectId, OrbitRelativeFrameKind,
-    OrbitRelativeFrameVariant, ReferenceFrame, register_object,
+    OrbitRelativeFrameVariant, OrientationProvider, ReferenceFrame, register_frame,
+    register_object,
 };
 use crate::time::Epoch;
 use crate::trajectories::dorbit_trajectory::DOrbitTrajectory;
 use crate::trajectories::sorbit_trajectory::SOrbitTrajectory;
 use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
+use crate::trajectories::{AttitudeInterpolationMethod, AttitudeState, AttitudeTrajectory};
 use crate::types::GPRecord;
 use crate::utils::errors::BraheError;
 
@@ -235,6 +245,599 @@ impl OEM {
         };
         let adapter = DStateAdapter::new(traj)?;
         register_object(name, adapter, frame)
+    }
+}
+
+/// Converts AEM `/ANGVEL` attitude data into a canonical body-frame (frame
+/// B) angular velocity.
+///
+/// The AEM ANGVEL types express angular velocity in the segment's
+/// `ANGVEL_FRAME`, which `AEMMetadata::validate` guarantees equals either
+/// `ref_frame_a` or `ref_frame_b`. A rate already given in frame B is
+/// returned unchanged; one given in frame A is re-expressed in frame B.
+///
+/// Diebel, J., "Representing Attitude: Euler Angles, Unit Quaternions, and
+/// Rotation Vectors", 2006, eq. 41.
+fn aem_angvel_to_canonical(
+    angular_velocity: Vector3<f64>,
+    quaternion: &Quaternion,
+    metadata: &AEMMetadata,
+) -> Result<Vector3<f64>, BraheError> {
+    let angvel_frame = metadata.angvel_frame.as_ref().ok_or_else(|| {
+        BraheError::Error(
+            "AEM metadata ANGVEL_FRAME is required for '/ANGVEL' ATTITUDE_TYPE values".to_string(),
+        )
+    })?;
+
+    if *angvel_frame == metadata.ref_frame_a {
+        // A vector expressed in frame A is rotated into frame B by the
+        // direction cosine matrix of the state's attitude quaternion, so
+        // omega_B = R(q) * omega_A.
+        let r = quaternion.to_rotation_matrix().to_matrix();
+        Ok(r * angular_velocity)
+    } else {
+        Ok(angular_velocity)
+    }
+}
+
+/// Builds the "message can still be read and written, but not converted"
+/// error for the SPIN* AEM attitude types: spin-parameterized attitude
+/// types have no native `AttitudeTrajectory` mapping, though the message
+/// can still be read and written.
+fn aem_spin_conversion_error(attitude_type: AEMAttitudeType) -> BraheError {
+    BraheError::Error(format!(
+        "AEM attitude type '{}' has no AttitudeTrajectory representation; the message can still \
+         be read and written, but not converted to a native trajectory",
+        attitude_type
+    ))
+}
+
+/// Converts one AEM ephemeris line's attitude data into a canonical
+/// [`AttitudeState`] (quaternion, frame A to frame B, plus optional
+/// body-frame angular velocity).
+fn aem_attitude_data_to_state(
+    data: &AEMAttitudeData,
+    metadata: &AEMMetadata,
+) -> Result<AttitudeState, BraheError> {
+    match data {
+        AEMAttitudeData::Quaternion { quaternion } => Ok(AttitudeState::new(*quaternion)),
+        AEMAttitudeData::QuaternionDerivative {
+            quaternion,
+            derivative,
+        } => {
+            let omega = angular_velocity_from_quaternion_derivative(quaternion, *derivative, true);
+            Ok(AttitudeState::new(*quaternion).with_angular_velocity(omega))
+        }
+        AEMAttitudeData::QuaternionAngVel {
+            quaternion,
+            angular_velocity,
+        } => {
+            let omega = aem_angvel_to_canonical(*angular_velocity, quaternion, metadata)?;
+            Ok(AttitudeState::new(*quaternion).with_angular_velocity(omega))
+        }
+        AEMAttitudeData::EulerAngle { angles } => {
+            Ok(AttitudeState::new(Quaternion::from_euler_angle(*angles)))
+        }
+        AEMAttitudeData::EulerAngleDerivative { angles, rates } => {
+            let quaternion = Quaternion::from_euler_angle(*angles);
+            let omega = euler_rates_to_angular_velocity(angles, *rates);
+            Ok(AttitudeState::new(quaternion).with_angular_velocity(omega))
+        }
+        AEMAttitudeData::EulerAngleAngVel {
+            angles,
+            angular_velocity,
+        } => {
+            let quaternion = Quaternion::from_euler_angle(*angles);
+            let omega = aem_angvel_to_canonical(*angular_velocity, &quaternion, metadata)?;
+            Ok(AttitudeState::new(quaternion).with_angular_velocity(omega))
+        }
+        AEMAttitudeData::Spin { .. } => Err(aem_spin_conversion_error(AEMAttitudeType::Spin)),
+        AEMAttitudeData::SpinNutation { .. } => {
+            Err(aem_spin_conversion_error(AEMAttitudeType::SpinNutation))
+        }
+        AEMAttitudeData::SpinNutationMom { .. } => {
+            Err(aem_spin_conversion_error(AEMAttitudeType::SpinNutationMom))
+        }
+    }
+}
+
+impl AEM {
+    /// Convert a single AEM segment to an `AttitudeTrajectory`.
+    ///
+    /// Frame endpoints convert via `ReferenceFrame::try_from(&ADMReferenceFrame)`
+    /// (the PR-1 frame bridge). Each attitude representation normalizes to a
+    /// canonical quaternion (frame A to frame B) plus optional body-frame
+    /// angular velocity: Quaternion* variants convert directly or via PR-2's
+    /// attitude kinematics (`euler_rates_to_angular_velocity`,
+    /// `angular_velocity_from_quaternion_derivative`); `*AngVel` variants
+    /// re-express into frame B when `ANGVEL_FRAME` names frame A (see
+    /// [`aem_angvel_to_canonical`]). The SPIN* types are spin-parameterized
+    /// attitude types with no `AttitudeTrajectory` representation and return
+    /// a descriptive error without affecting the message's ability to be
+    /// read or written.
+    ///
+    /// The segment's `INTERPOLATION_METHOD` maps onto
+    /// [`AttitudeInterpolationMethod`]: unset defaults to `Slerp`, `LINEAR`
+    /// maps to `Linear`, `LAGRANGE` maps to `Lagrange { degree }` (the degree
+    /// is guaranteed present by `AEMMetadata::validate`), and `HERMITE` has
+    /// no `AttitudeTrajectory` equivalent and errors, directing the caller to
+    /// pick an explicit interpolation method instead.
+    ///
+    /// `metadata.validate()` runs first, so every conversion path (in
+    /// particular the ANGVEL_FRAME re-expression) can assume the conditional
+    /// metadata rules hold even for a segment built directly in code rather
+    /// than parsed from the wire.
+    ///
+    /// # Arguments
+    ///
+    /// * `segment_idx` - Index of the segment to convert (0-based)
+    ///
+    /// # Returns
+    ///
+    /// * `Result<AttitudeTrajectory, BraheError>` - Trajectory or error
+    pub fn segment_to_attitude_trajectory(
+        &self,
+        segment_idx: usize,
+    ) -> Result<AttitudeTrajectory, BraheError> {
+        let segment = self.segments.get(segment_idx).ok_or_else(|| {
+            BraheError::OutOfBoundsError(format!(
+                "AEM segment index {} out of range (have {})",
+                segment_idx,
+                self.segments.len()
+            ))
+        })?;
+
+        let metadata = &segment.metadata;
+        // Gates every downstream conversion path (in particular
+        // `aem_angvel_to_canonical`'s ANGVEL_FRAME == REF_FRAME_A check) on
+        // the ANGVEL_FRAME in {REF_FRAME_A, REF_FRAME_B} invariant; a
+        // segment built in code rather than parsed from the wire is not
+        // otherwise guaranteed to satisfy it.
+        metadata.validate()?;
+        let frame_a = ReferenceFrame::try_from(&metadata.ref_frame_a)?;
+        let frame_b = ReferenceFrame::try_from(&metadata.ref_frame_b)?;
+
+        let interpolation_method = match metadata.interpolation_method {
+            None => AttitudeInterpolationMethod::Slerp,
+            Some(AEMInterpolationMethod::Linear) => AttitudeInterpolationMethod::Linear,
+            Some(AEMInterpolationMethod::Lagrange) => {
+                let degree = metadata.interpolation_degree.ok_or_else(|| {
+                    BraheError::Error(
+                        "AEM metadata INTERPOLATION_METHOD is LAGRANGE but \
+                         INTERPOLATION_DEGREE is missing"
+                            .to_string(),
+                    )
+                })?;
+                if degree == 0 {
+                    return Err(BraheError::Error(
+                        "AEM metadata INTERPOLATION_METHOD is LAGRANGE but \
+                         INTERPOLATION_DEGREE is 0; Lagrange interpolation requires a degree \
+                         >= 1"
+                            .to_string(),
+                    ));
+                }
+                AttitudeInterpolationMethod::Lagrange {
+                    degree: degree as usize,
+                }
+            }
+            Some(AEMInterpolationMethod::Hermite) => {
+                return Err(BraheError::Error(
+                    "AEM segment INTERPOLATION_METHOD is HERMITE, which AttitudeTrajectory does \
+                     not support; construct the trajectory and call \
+                     set_interpolation_method with an explicit choice instead of converting \
+                     the AEM interpolation metadata"
+                        .to_string(),
+                ));
+            }
+        };
+
+        let mut epochs = Vec::with_capacity(segment.states.len());
+        let mut states = Vec::with_capacity(segment.states.len());
+        for state in &segment.states {
+            epochs.push(state.epoch);
+            states.push(aem_attitude_data_to_state(&state.data, metadata)?);
+        }
+
+        let mut traj = AttitudeTrajectory::from_data(epochs, states, frame_a, frame_b)?;
+        traj.set_interpolation_method(interpolation_method);
+        traj.name = Some(metadata.object_name.clone());
+        traj.metadata.insert(
+            "object_id".to_string(),
+            serde_json::Value::String(metadata.object_id.clone()),
+        );
+        if let Some(center_name) = &metadata.center_name {
+            traj.metadata.insert(
+                "center_name".to_string(),
+                serde_json::Value::String(center_name.clone()),
+            );
+        }
+        if let Some(useable_start_time) = metadata.useable_start_time {
+            traj.metadata.insert(
+                "useable_start_time".to_string(),
+                serde_json::Value::String(format_ccsds_datetime_in(
+                    &useable_start_time,
+                    &metadata.time_system,
+                )),
+            );
+        }
+        if let Some(useable_stop_time) = metadata.useable_stop_time {
+            traj.metadata.insert(
+                "useable_stop_time".to_string(),
+                serde_json::Value::String(format_ccsds_datetime_in(
+                    &useable_stop_time,
+                    &metadata.time_system,
+                )),
+            );
+        }
+
+        Ok(traj)
+    }
+
+    /// Convert all segments to `AttitudeTrajectory` objects.
+    pub fn to_attitude_trajectories(&self) -> Result<Vec<AttitudeTrajectory>, BraheError> {
+        (0..self.segments.len())
+            .map(|i| self.segment_to_attitude_trajectory(i))
+            .collect()
+    }
+
+    /// Builds a single-segment AEM from a native `AttitudeTrajectory`.
+    ///
+    /// `ATTITUDE_TYPE` is `QUATERNION/ANGVEL` when the trajectory carries
+    /// angular velocity (`AttitudeTrajectory::has_rates`), with
+    /// `ANGVEL_FRAME` set to `REF_FRAME_B` (the trajectory's canonical
+    /// angular velocity convention already expresses rates in frame B, so no
+    /// re-expression is needed on write); otherwise `QUATERNION`. Frame
+    /// endpoints convert via `ADMReferenceFrame::try_from(&ReferenceFrame)`
+    /// (the reverse PR-1 frame bridge). `START_TIME`/`STOP_TIME` are the
+    /// trajectory's first and last epochs, and the header is built from
+    /// `originator` via `AEMHeader::new`. The trajectory's interpolation
+    /// method maps into `INTERPOLATION_METHOD`/`INTERPOLATION_DEGREE`:
+    /// `Linear` maps to `LINEAR` with degree 1 (`AttitudeInterpolationMethod`
+    /// has no degree concept for linear interpolation, and
+    /// [`AEMMetadata::validate`] requires a degree whenever a method is
+    /// set), `Lagrange { degree }` maps to `LAGRANGE` with that degree, and
+    /// `Slerp` has no CCSDS equivalent and leaves both fields unset.
+    ///
+    /// # Arguments
+    ///
+    /// * `traj` - Trajectory to convert
+    /// * `object_name` - `OBJECT_NAME` metadata value
+    /// * `object_id` - `OBJECT_ID` metadata value
+    /// * `originator` - Message originator (creating agency or operator)
+    /// * `time_system` - Time system to record in `TIME_SYSTEM`
+    ///
+    /// # Returns
+    ///
+    /// * `Result<AEM, BraheError>` - Single-segment AEM, or an error if the
+    ///   trajectory is empty, its frames have no CCSDS ADM token equivalent,
+    ///   or `time_system` has no native brahe representation (`SCLK`, `MET`,
+    ///   `MRT`, `GMST`, `TDR`)
+    pub fn from_attitude_trajectory(
+        traj: &AttitudeTrajectory,
+        object_name: &str,
+        object_id: &str,
+        originator: &str,
+        time_system: CCSDSTimeSystem,
+    ) -> Result<AEM, BraheError> {
+        if traj.is_empty() {
+            return Err(BraheError::Error(
+                "Cannot build an AEM from an empty AttitudeTrajectory".to_string(),
+            ));
+        }
+
+        if time_system.to_time_system().is_none() {
+            return Err(BraheError::Error(format!(
+                "TIME_SYSTEM '{}' cannot be used to build an AEM: brahe has no native \
+                 representation for its epochs (SCLK, MET, MRT, GMST, and TDR are spacecraft- \
+                 or mission-specific clocks with no fixed relationship to brahe's physical time \
+                 systems), so a message using it could not be read back by brahe's own parsers",
+                time_system
+            )));
+        }
+
+        let ref_frame_a = ADMReferenceFrame::try_from(&traj.frame_a)?;
+        let ref_frame_b = ADMReferenceFrame::try_from(&traj.frame_b)?;
+
+        let attitude_type = if traj.has_rates() {
+            AEMAttitudeType::QuaternionAngVel
+        } else {
+            AEMAttitudeType::Quaternion
+        };
+
+        let start_time = traj.start_epoch().unwrap();
+        let stop_time = traj.end_epoch().unwrap();
+
+        let mut metadata = AEMMetadata::new(
+            object_name,
+            object_id,
+            ref_frame_a,
+            ref_frame_b.clone(),
+            time_system,
+            start_time,
+            stop_time,
+            attitude_type,
+        );
+        if traj.has_rates() {
+            metadata = metadata.with_angvel_frame(ref_frame_b);
+        }
+
+        // Map the trajectory's interpolation method into segment metadata.
+        // `AEMMetadata::validate` requires `interpolation_degree` whenever
+        // `interpolation_method` is set, so `Linear` (which has no degree
+        // concept in `AttitudeInterpolationMethod`) is recorded with degree
+        // 1, the minimal degree consistent with linear interpolation.
+        // `Slerp` has no CCSDS interpolation-method equivalent and is left
+        // unset.
+        metadata = match traj.interpolation_method {
+            AttitudeInterpolationMethod::Linear => {
+                metadata.with_interpolation(AEMInterpolationMethod::Linear, Some(1))
+            }
+            AttitudeInterpolationMethod::Lagrange { degree } => {
+                metadata.with_interpolation(AEMInterpolationMethod::Lagrange, Some(degree as u32))
+            }
+            AttitudeInterpolationMethod::Slerp => metadata,
+        };
+
+        let mut segment = AEMSegment::new(metadata);
+        for i in 0..traj.len() {
+            let (epoch, state) = traj.get(i)?;
+            let data = match state.angular_velocity {
+                Some(angular_velocity) => AEMAttitudeData::QuaternionAngVel {
+                    quaternion: state.quaternion,
+                    angular_velocity,
+                },
+                None => AEMAttitudeData::Quaternion {
+                    quaternion: state.quaternion,
+                },
+            };
+            segment.push_state(AEMAttitudeState { epoch, data })?;
+        }
+
+        let mut aem = AEM::new(originator);
+        aem.push_segment(segment);
+        Ok(aem)
+    }
+}
+
+impl AEM {
+    /// Registers this AEM's attitude as the orientation of `name`'s body
+    /// frame in the global frame registry.
+    ///
+    /// Converts the AEM to an [`AttitudeTrajectory`] via `TryFrom<&AEM>`
+    /// (erroring for a zero- or multi-segment AEM exactly as that conversion
+    /// does), then registers it as the link between the segment's two
+    /// `REF_FRAME` endpoints.
+    ///
+    /// A CCSDS message names its frames but not the object they belong to,
+    /// so the body endpoint parses unbound and is bound to `name` here. One
+    /// endpoint must resolve to a [`CelestialFrame`] — that becomes the
+    /// parent — and the other must be a body frame, which becomes the
+    /// registered frame. Because `REF_FRAME_A`/`REF_FRAME_B` order is not
+    /// fixed by the standard, the quaternion series is inverted when the
+    /// celestial frame is endpoint B, so the registered provider always
+    /// rotates parent-frame vectors into the body frame as
+    /// [`OrientationProvider`] requires.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The object identity to bind the body frame endpoint to
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), BraheError>` - `Ok(())` on success, or an error if the
+    ///   AEM does not have exactly one segment, neither endpoint resolves to
+    ///   a celestial frame, or the remaining endpoint is not a body frame
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use brahe::ccsds::AEM;
+    /// use brahe::frames::clear_frame_registry;
+    /// use std::str::FromStr;
+    ///
+    /// let content = std::fs::read_to_string("test_assets/ccsds/aem/AEMExampleG5.txt").unwrap();
+    /// let aem = AEM::from_str(&content).unwrap();
+    ///
+    /// clear_frame_registry();
+    /// aem.register_for("SC").unwrap();
+    /// clear_frame_registry();
+    /// ```
+    pub fn register_for(&self, name: impl Into<ObjectId>) -> Result<(), BraheError> {
+        let traj = AttitudeTrajectory::try_from(self)?;
+        let object = name.into();
+
+        // Exactly one endpoint must be celestial: it is the parent the body
+        // frame's orientation is expressed relative to.
+        let (parent, body_frame, invert) = match (&traj.frame_a, &traj.frame_b) {
+            (ReferenceFrame::Celestial(parent), ReferenceFrame::Body { frame, .. }) => {
+                (*parent, frame.clone(), false)
+            }
+            (ReferenceFrame::Body { frame, .. }, ReferenceFrame::Celestial(parent)) => {
+                (*parent, frame.clone(), true)
+            }
+            (a, b) => {
+                return Err(BraheError::Error(format!(
+                    "AEM::register_for requires one REF_FRAME endpoint to resolve to a \
+                     celestial frame and the other to be a body frame, but this segment \
+                     relates '{a}' and '{b}'; only a body frame can be bound to an object \
+                     and registered"
+                )));
+            }
+        };
+
+        let registered = if invert {
+            invert_trajectory(&traj)
+        } else {
+            traj
+        };
+
+        // CCSDS 504.0-B-2 table 4-3 permits DATA outside
+        // [USEABLE_START_TIME, USEABLE_STOP_TIME] purely to support
+        // interpolation accuracy near the useable boundary; that padding is
+        // not itself authoritative attitude data. `UseableBounded` keeps
+        // the padded series for interpolation but rejects queries outside
+        // the useable window, falling back to the trajectory's own data
+        // bounds on the side(s) where no useable time is given.
+        let metadata = &self.segments[0].metadata;
+        let bounded = UseableBounded::new(
+            registered,
+            metadata.useable_start_time,
+            metadata.useable_stop_time,
+        )?;
+
+        register_frame(
+            ReferenceFrame::body(object, body_frame),
+            ReferenceFrame::Celestial(parent),
+            bounded,
+        )
+    }
+}
+
+/// Wraps an [`OrientationProvider`] so queries are rejected outside
+/// `[start, stop]`, while interpolation itself still sees the wrapped
+/// provider's full underlying data.
+///
+/// Used by [`AEM::register_for`] to keep a CCSDS AEM's
+/// `USEABLE_START_TIME`/`USEABLE_STOP_TIME` padding available to
+/// interpolation without letting it become directly queryable.
+struct UseableBounded<P> {
+    inner: P,
+    start: Epoch,
+    stop: Epoch,
+}
+
+impl<P: OrientationProvider> UseableBounded<P> {
+    /// Builds a bounded wrapper around `inner`, defaulting each side of the
+    /// window to `inner`'s own coverage when the corresponding useable time
+    /// is not given, and intersecting with `inner`'s coverage on the
+    /// side(s) where a useable time is given.
+    ///
+    /// The intersection matters because CCSDS does not require
+    /// `USEABLE_START_TIME`/`USEABLE_STOP_TIME` to coincide with the
+    /// message's actual first/last data epoch; without it, a useable time
+    /// wider than `inner`'s real coverage would let this wrapper advertise
+    /// (via [`Self::coverage`]) a window that `inner` cannot actually
+    /// evaluate end to end.
+    ///
+    /// # Arguments
+    /// * `inner` - The provider to wrap
+    /// * `useable_start` - `USEABLE_START_TIME`, or `None` to use `inner`'s
+    ///   coverage start
+    /// * `useable_stop` - `USEABLE_STOP_TIME`, or `None` to use `inner`'s
+    ///   coverage stop
+    ///
+    /// # Returns
+    /// * `Ok(UseableBounded<P>)` - The bounded wrapper
+    /// * `Err(BraheError)` - If either side falls back to `inner`'s
+    ///   coverage and `inner` reports unbounded (`None`) coverage, or if
+    ///   the resulting window is empty (`start > stop`)
+    fn new(
+        inner: P,
+        useable_start: Option<Epoch>,
+        useable_stop: Option<Epoch>,
+    ) -> Result<Self, BraheError> {
+        let fallback = || {
+            inner.coverage().ok_or_else(|| {
+                BraheError::Error(
+                    "cannot register a provider with no USEABLE_START_TIME/USEABLE_STOP_TIME \
+                     and unbounded coverage"
+                        .to_string(),
+                )
+            })
+        };
+        let start = match (useable_start, inner.coverage()) {
+            (Some(useable), Some((data_start, _))) => useable.max(data_start),
+            (Some(useable), None) => useable,
+            (None, _) => fallback()?.0,
+        };
+        let stop = match (useable_stop, inner.coverage()) {
+            (Some(useable), Some((_, data_stop))) => useable.min(data_stop),
+            (Some(useable), None) => useable,
+            (None, _) => fallback()?.1,
+        };
+        if start > stop {
+            return Err(BraheError::Error(format!(
+                "useable window [{}, {}] does not overlap the provider's coverage",
+                start, stop
+            )));
+        }
+        Ok(Self { inner, start, stop })
+    }
+
+    /// Returns an error if `epoch` falls outside `[self.start, self.stop]`.
+    fn check_bounds(&self, epoch: Epoch) -> Result<(), BraheError> {
+        if epoch < self.start || epoch > self.stop {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "epoch {} is outside the useable coverage [{}, {}]",
+                epoch, self.start, self.stop
+            )));
+        }
+        Ok(())
+    }
+}
+
+impl<P: OrientationProvider> OrientationProvider for UseableBounded<P> {
+    fn quaternion(&self, epoch: Epoch) -> Result<Quaternion, BraheError> {
+        self.check_bounds(epoch)?;
+        self.inner.quaternion(epoch)
+    }
+
+    fn angular_velocity(&self, epoch: Epoch) -> Result<Option<Vector3<f64>>, BraheError> {
+        self.check_bounds(epoch)?;
+        self.inner.angular_velocity(epoch)
+    }
+
+    fn coverage(&self) -> Option<(Epoch, Epoch)> {
+        Some((self.start, self.stop))
+    }
+}
+
+/// Reverses an attitude trajectory's sense, so that quaternions which
+/// rotated frame A into frame B instead rotate frame B into frame A.
+///
+/// The quaternion of each state is conjugated. Its angular velocity, which
+/// is the rate of B relative to A expressed in B, becomes the rate of A
+/// relative to B expressed in A: negating gives `omega_{A/B}`, and
+/// re-expressing it in A applies `R_{A->B}^T`.
+///
+/// Configuration that describes how the trajectory behaves — interpolation
+/// method, eviction policy and its bounds, name, and metadata — carries
+/// over. The `id` and `uuid` do not: the reversed series is a distinct
+/// object and is left to take a fresh identity.
+fn invert_trajectory(traj: &AttitudeTrajectory) -> AttitudeTrajectory {
+    // Cloning carries the whole configuration across — interpolation method,
+    // eviction policy and its bounds, name, and metadata — so only the parts
+    // that actually reverse need rewriting.
+    let mut inverted = traj.clone();
+    std::mem::swap(&mut inverted.frame_a, &mut inverted.frame_b);
+    inverted.id = None;
+    inverted.uuid = None;
+
+    for state in inverted.states.iter_mut() {
+        if let Some(omega) = state.angular_velocity {
+            let r_a_to_b = state.quaternion.to_rotation_matrix().to_matrix();
+            state.angular_velocity = Some(-r_a_to_b.transpose() * omega);
+        }
+        state.quaternion = state.quaternion.conjugate();
+    }
+
+    inverted
+}
+
+impl TryFrom<&AEM> for AttitudeTrajectory {
+    type Error = BraheError;
+
+    /// Convert a single-segment AEM to an `AttitudeTrajectory`.
+    ///
+    /// Returns an error if the AEM has zero or more than one segment.
+    fn try_from(aem: &AEM) -> Result<Self, Self::Error> {
+        if aem.segments.len() != 1 {
+            return Err(BraheError::Error(format!(
+                "TryFrom<&AEM> requires exactly 1 segment, but AEM has {}",
+                aem.segments.len()
+            )));
+        }
+        aem.segment_to_attitude_trajectory(0)
     }
 }
 
@@ -733,12 +1336,20 @@ mod tests {
     use serial_test::{parallel, serial};
 
     use super::*;
+    use crate::attitude::{EulerAngle, EulerAngleOrder};
+    use crate::ccsds::aem::AEM;
     use crate::ccsds::oem::OEM;
+    use crate::constants::AngleFormat;
+    use crate::frames::FnProvider;
     use crate::frames::{
-        CelestialFrame, ReferenceFrame, clear_object_registry, object_state,
-        rotation_frame_to_frame,
+        CelestialFrame, OrientationProvider, ReferenceFrame, clear_frame_registry,
+        clear_object_registry, object_state, rotation_frame_to_frame, state_frame_to_frame,
     };
+    use crate::math::SVector6;
+    use crate::time::TimeSystem;
     use crate::trajectories::traits::{InterpolatableTrajectory, Trajectory};
+    use approx::assert_abs_diff_eq;
+    use nalgebra::Vector6;
 
     #[test]
     #[parallel]
@@ -1539,5 +2150,1135 @@ mod tests {
         let adm = ADMReferenceFrame::parse("MOON_PA421");
         let err = ReferenceFrame::try_from(&adm).unwrap_err();
         assert!(err.to_string().contains("MOON_PA421"));
+    }
+
+    // =========================================================================
+    // AEM <-> AttitudeTrajectory interop
+    // =========================================================================
+
+    #[test]
+    #[parallel]
+    fn test_aem_g4_segment_to_attitude_trajectory() {
+        let content = std::fs::read_to_string("test_assets/ccsds/aem/AEMExampleG4.txt").unwrap();
+        let aem = AEM::from_str(&content).unwrap();
+
+        // Segment 1 (0-indexed) carries no INTERPOLATION_METHOD, so it
+        // defaults to Slerp and converts cleanly; segment 0 sets
+        // INTERPOLATION_METHOD = hermite and is covered by the Hermite
+        // error test below.
+        let traj = aem.segment_to_attitude_trajectory(1).unwrap();
+
+        assert_eq!(traj.len(), 4);
+        assert_eq!(traj.frame_a, ReferenceFrame::from(CelestialFrame::EME2000));
+        assert_eq!(
+            traj.frame_b,
+            ReferenceFrame::from(BodyFrame::SCBody(Some("1".to_string())))
+        );
+        assert_eq!(
+            traj.interpolation_method,
+            AttitudeInterpolationMethod::Slerp
+        );
+        assert_eq!(traj.name.as_deref(), Some("mars global surveyor"));
+        assert!(!traj.has_rates());
+
+        // First and last quaternion values must match the parsed AEM data
+        // exactly (quaternion conversion for the Quaternion type is a
+        // direct passthrough).
+        let segment = &aem.segments[1];
+        let AEMAttitudeData::Quaternion {
+            quaternion: q_first,
+        } = &segment.states[0].data
+        else {
+            panic!("expected Quaternion data");
+        };
+        let AEMAttitudeData::Quaternion { quaternion: q_last } =
+            &segment.states[segment.states.len() - 1].data
+        else {
+            panic!("expected Quaternion data");
+        };
+        assert_eq!(traj.state_at_idx(0).unwrap().quaternion, *q_first);
+        assert_eq!(traj.state_at_idx(3).unwrap().quaternion, *q_last);
+
+        // Slerp query strictly between the first two data epochs.
+        let t0 = traj.epoch_at_idx(0).unwrap();
+        let t1 = traj.epoch_at_idx(1).unwrap();
+        let mid = t0 + (t1 - t0) / 2.0;
+        let interpolated = traj.interpolate(&mid).unwrap();
+        let expected = q_first.slerp(traj.state_at_idx(1).unwrap().quaternion, 0.5);
+        assert_eq!(interpolated.quaternion, expected);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_g5_spin_conversion_errors() {
+        let content = std::fs::read_to_string("test_assets/ccsds/aem/AEMExampleG5.txt").unwrap();
+        let aem = AEM::from_str(&content).unwrap();
+
+        let result = aem.segment_to_attitude_trajectory(0);
+        assert!(result.is_err());
+        let message = format!("{}", result.unwrap_err());
+        assert!(message.contains("SPIN"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_g4_hermite_interpolation_method_errors() {
+        let content = std::fs::read_to_string("test_assets/ccsds/aem/AEMExampleG4.txt").unwrap();
+        let aem = AEM::from_str(&content).unwrap();
+
+        // Segment 0 sets INTERPOLATION_METHOD = hermite, which has no
+        // AttitudeTrajectory equivalent.
+        let result = aem.segment_to_attitude_trajectory(0);
+        assert!(result.is_err());
+        let message = format!("{}", result.unwrap_err());
+        assert!(message.contains("HERMITE"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_to_attitude_trajectories_multi_segment() {
+        // Only segment 1 of G-4 converts (segment 0 is Hermite), so
+        // exercise the batch API against a message where every segment
+        // converts: build one in code with two Slerp-default segments.
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let mut aem = AEM::new("BRAHE");
+        for _ in 0..2 {
+            let metadata = AEMMetadata::new(
+                "SAT1",
+                "2024-001A",
+                ref_frame_a.clone(),
+                ref_frame_b.clone(),
+                CCSDSTimeSystem::UTC,
+                t0,
+                t1,
+                AEMAttitudeType::Quaternion,
+            );
+            let mut segment = AEMSegment::new(metadata);
+            segment
+                .push_state(AEMAttitudeState {
+                    epoch: t0,
+                    data: AEMAttitudeData::Quaternion {
+                        quaternion: Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                    },
+                })
+                .unwrap();
+            segment
+                .push_state(AEMAttitudeState {
+                    epoch: t1,
+                    data: AEMAttitudeData::Quaternion {
+                        quaternion: Quaternion::new(0.9998, 0.0, 0.0, 0.0196),
+                    },
+                })
+                .unwrap();
+            aem.push_segment(segment);
+        }
+
+        let trajs = aem.to_attitude_trajectories().unwrap();
+        assert_eq!(trajs.len(), 2);
+        for traj in &trajs {
+            assert_eq!(traj.len(), 2);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_try_from_single_segment() {
+        let content = std::fs::read_to_string("test_assets/ccsds/aem/AEMExampleG5.txt").unwrap();
+        let aem = AEM::from_str(&content).unwrap();
+
+        // G-5 has a single SPIN segment; TryFrom requires exactly one
+        // segment but the underlying conversion still errors on SPIN.
+        let result = AttitudeTrajectory::try_from(&aem);
+        assert!(result.is_err());
+        let message = format!("{}", result.unwrap_err());
+        assert!(message.contains("SPIN"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_try_from_multi_segment_fails() {
+        let content = std::fs::read_to_string("test_assets/ccsds/aem/AEMExampleG4.txt").unwrap();
+        let aem = AEM::from_str(&content).unwrap();
+
+        let result = AttitudeTrajectory::try_from(&aem);
+        assert!(result.is_err());
+        let message = format!("{}", result.unwrap_err());
+        assert!(message.contains("exactly 1 segment"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_angvel_frame_a_reexpression() {
+        // In-code AEM whose ANGVEL_FRAME names REF_FRAME_A: the stored
+        // angular velocity is in frame A and must be re-expressed in frame
+        // B (the canonical AttitudeState convention) as omega_B = R(q) *
+        // omega_A per Diebel eq. 41.
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let metadata = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a.clone(),
+            ref_frame_b,
+            CCSDSTimeSystem::UTC,
+            t0,
+            t1,
+            AEMAttitudeType::QuaternionAngVel,
+        )
+        .with_angvel_frame(ref_frame_a);
+
+        let quaternion = Quaternion::from_euler_angle(EulerAngle::new(
+            EulerAngleOrder::ZYX,
+            0.3,
+            -0.4,
+            0.2,
+            AngleFormat::Radians,
+        ));
+        let omega_a = Vector3::new(0.01, -0.02, 0.03);
+
+        let mut segment = AEMSegment::new(metadata);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::QuaternionAngVel {
+                    quaternion,
+                    angular_velocity: omega_a,
+                },
+            })
+            .unwrap();
+
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let traj = aem.segment_to_attitude_trajectory(0).unwrap();
+        let stored_omega = traj.state_at_idx(0).unwrap().angular_velocity.unwrap();
+
+        let expected_omega = quaternion.to_rotation_matrix().to_matrix() * omega_a;
+        assert_abs_diff_eq!(stored_omega[0], expected_omega[0], epsilon = 1e-12);
+        assert_abs_diff_eq!(stored_omega[1], expected_omega[1], epsilon = 1e-12);
+        assert_abs_diff_eq!(stored_omega[2], expected_omega[2], epsilon = 1e-12);
+
+        // Sanity check: the re-expressed rate must differ from the raw
+        // frame-A value (otherwise the re-expression path silently no-ops).
+        assert!((stored_omega - omega_a).norm() > 1e-6);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_angvel_frame_neither_a_nor_b_errors_via_validate() {
+        // A segment built directly in code (not via the KVN/XML/JSON
+        // parsers, which call metadata.validate() themselves) can carry an
+        // ANGVEL_FRAME that names neither REF_FRAME_A nor REF_FRAME_B.
+        // segment_to_attitude_trajectory must reject this rather than
+        // silently treating the "not frame A" branch as frame B.
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let other_frame = ADMReferenceFrame::parse("ITRF2014");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let metadata = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a,
+            ref_frame_b,
+            CCSDSTimeSystem::UTC,
+            t0,
+            t1,
+            AEMAttitudeType::QuaternionAngVel,
+        )
+        .with_angvel_frame(other_frame);
+
+        let mut segment = AEMSegment::new(metadata);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::QuaternionAngVel {
+                    quaternion: Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                    angular_velocity: Vector3::new(0.01, -0.02, 0.03),
+                },
+            })
+            .unwrap();
+
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let result = aem.segment_to_attitude_trajectory(0);
+        assert!(result.is_err());
+        let message = format!("{}", result.unwrap_err());
+        assert!(message.contains("ANGVEL_FRAME"));
+        assert!(message.contains("must equal"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_trajectory_round_trip_with_rates() {
+        let frame_a = ReferenceFrame::from(CelestialFrame::EME2000);
+        let frame_b = ReferenceFrame::from(BodyFrame::SCBody(None));
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let omega = Vector3::new(0.001, 0.002, -0.003);
+
+        let epochs = vec![t0, t0 + 60.0, t0 + 120.0];
+        let states = vec![
+            AttitudeState::new(Quaternion::new(1.0, 0.0, 0.0, 0.0)).with_angular_velocity(omega),
+            AttitudeState::new(Quaternion::new(0.9998, 0.0, 0.0, 0.0196))
+                .with_angular_velocity(omega),
+            AttitudeState::new(Quaternion::new(0.9992, 0.0, 0.0, 0.0392))
+                .with_angular_velocity(omega),
+        ];
+        let mut traj =
+            AttitudeTrajectory::from_data(epochs, states, frame_a.clone(), frame_b.clone())
+                .unwrap();
+        traj.name = Some("SAT1".to_string());
+
+        let aem = AEM::from_attitude_trajectory(
+            &traj,
+            "SAT1",
+            "2024-001A",
+            "BRAHE",
+            CCSDSTimeSystem::UTC,
+        )
+        .unwrap();
+        assert_eq!(aem.segments.len(), 1);
+        assert_eq!(
+            aem.segments[0].metadata.attitude_type,
+            AEMAttitudeType::QuaternionAngVel
+        );
+        assert_eq!(
+            aem.segments[0].metadata.angvel_frame,
+            Some(ADMReferenceFrame::try_from(&frame_b).unwrap())
+        );
+
+        let round_tripped = AttitudeTrajectory::try_from(&aem).unwrap();
+
+        assert_eq!(round_tripped.len(), traj.len());
+        assert_eq!(round_tripped.frame_a, traj.frame_a);
+        assert_eq!(round_tripped.frame_b, traj.frame_b);
+        assert_eq!(round_tripped.name.as_deref(), Some("SAT1"));
+        for i in 0..traj.len() {
+            let original = traj.state_at_idx(i).unwrap();
+            let recovered = round_tripped.state_at_idx(i).unwrap();
+            assert_eq!(
+                traj.epoch_at_idx(i).unwrap(),
+                round_tripped.epoch_at_idx(i).unwrap()
+            );
+            assert_eq!(recovered.quaternion, original.quaternion);
+            assert_eq!(recovered.angular_velocity, original.angular_velocity);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_trajectory_round_trip_interpolation_method_lagrange() {
+        let frame_a = ReferenceFrame::from(CelestialFrame::EME2000);
+        let frame_b = ReferenceFrame::from(BodyFrame::SCBody(None));
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let epochs = vec![t0, t0 + 60.0, t0 + 120.0];
+        let states = vec![
+            AttitudeState::new(Quaternion::new(1.0, 0.0, 0.0, 0.0)),
+            AttitudeState::new(Quaternion::new(0.9998, 0.0, 0.0, 0.0196)),
+            AttitudeState::new(Quaternion::new(0.9992, 0.0, 0.0, 0.0392)),
+        ];
+        let mut traj = AttitudeTrajectory::from_data(epochs, states, frame_a, frame_b).unwrap();
+        traj.set_interpolation_method(AttitudeInterpolationMethod::Lagrange { degree: 5 });
+
+        let aem = AEM::from_attitude_trajectory(
+            &traj,
+            "SAT1",
+            "2024-001A",
+            "BRAHE",
+            CCSDSTimeSystem::UTC,
+        )
+        .unwrap();
+        assert_eq!(
+            aem.segments[0].metadata.interpolation_method,
+            Some(AEMInterpolationMethod::Lagrange)
+        );
+        assert_eq!(aem.segments[0].metadata.interpolation_degree, Some(5));
+        aem.segments[0].metadata.validate().unwrap();
+
+        let round_tripped = AttitudeTrajectory::try_from(&aem).unwrap();
+        assert_eq!(
+            round_tripped.interpolation_method,
+            AttitudeInterpolationMethod::Lagrange { degree: 5 }
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_trajectory_round_trip_interpolation_method_linear() {
+        let frame_a = ReferenceFrame::from(CelestialFrame::EME2000);
+        let frame_b = ReferenceFrame::from(BodyFrame::SCBody(None));
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let epochs = vec![t0, t0 + 60.0];
+        let states = vec![
+            AttitudeState::new(Quaternion::new(1.0, 0.0, 0.0, 0.0)),
+            AttitudeState::new(Quaternion::new(0.9998, 0.0, 0.0, 0.0196)),
+        ];
+        let mut traj = AttitudeTrajectory::from_data(epochs, states, frame_a, frame_b).unwrap();
+        traj.set_interpolation_method(AttitudeInterpolationMethod::Linear);
+
+        let aem = AEM::from_attitude_trajectory(
+            &traj,
+            "SAT1",
+            "2024-001A",
+            "BRAHE",
+            CCSDSTimeSystem::UTC,
+        )
+        .unwrap();
+        assert_eq!(
+            aem.segments[0].metadata.interpolation_method,
+            Some(AEMInterpolationMethod::Linear)
+        );
+        assert_eq!(aem.segments[0].metadata.interpolation_degree, Some(1));
+        aem.segments[0].metadata.validate().unwrap();
+
+        let round_tripped = AttitudeTrajectory::try_from(&aem).unwrap();
+        assert_eq!(
+            round_tripped.interpolation_method,
+            AttitudeInterpolationMethod::Linear
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_from_attitude_trajectory_without_rates() {
+        let frame_a = ReferenceFrame::from(CelestialFrame::EME2000);
+        let frame_b = ReferenceFrame::from(BodyFrame::SCBody(None));
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let epochs = vec![t0, t0 + 60.0];
+        let states = vec![
+            AttitudeState::new(Quaternion::new(1.0, 0.0, 0.0, 0.0)),
+            AttitudeState::new(Quaternion::new(0.9998, 0.0, 0.0, 0.0196)),
+        ];
+        let traj = AttitudeTrajectory::from_data(epochs, states, frame_a, frame_b).unwrap();
+
+        let aem = AEM::from_attitude_trajectory(
+            &traj,
+            "SAT1",
+            "2024-001A",
+            "BRAHE",
+            CCSDSTimeSystem::UTC,
+        )
+        .unwrap();
+        assert_eq!(
+            aem.segments[0].metadata.attitude_type,
+            AEMAttitudeType::Quaternion
+        );
+        assert!(aem.segments[0].metadata.angvel_frame.is_none());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_from_attitude_trajectory_unmappable_time_system_errors() {
+        let frame_a = ReferenceFrame::from(CelestialFrame::EME2000);
+        let frame_b = ReferenceFrame::from(BodyFrame::SCBody(None));
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let epochs = vec![t0, t0 + 60.0];
+        let states = vec![
+            AttitudeState::new(Quaternion::new(1.0, 0.0, 0.0, 0.0)),
+            AttitudeState::new(Quaternion::new(0.9998, 0.0, 0.0, 0.0196)),
+        ];
+        let traj = AttitudeTrajectory::from_data(epochs, states, frame_a, frame_b).unwrap();
+
+        let err = AEM::from_attitude_trajectory(
+            &traj,
+            "SAT1",
+            "2024-001A",
+            "BRAHE",
+            CCSDSTimeSystem::MET,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("TIME_SYSTEM"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_from_attitude_trajectory_empty_errors() {
+        let frame_a = ReferenceFrame::from(CelestialFrame::EME2000);
+        let frame_b = ReferenceFrame::from(BodyFrame::SCBody(None));
+        let traj = AttitudeTrajectory::new(frame_a, frame_b);
+
+        let result = AEM::from_attitude_trajectory(
+            &traj,
+            "SAT1",
+            "2024-001A",
+            "BRAHE",
+            CCSDSTimeSystem::UTC,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_segment_to_attitude_trajectory_out_of_range_index_errors() {
+        let content = std::fs::read_to_string("test_assets/ccsds/aem/AEMExampleG4.txt").unwrap();
+        let aem = AEM::from_str(&content).unwrap();
+
+        let result = aem.segment_to_attitude_trajectory(aem.segments.len());
+        assert!(result.is_err());
+        let message = format!("{}", result.unwrap_err());
+        assert!(message.contains("out of range"));
+    }
+
+    fn euler_angvel_metadata(
+        ref_frame_a: ADMReferenceFrame,
+        ref_frame_b: ADMReferenceFrame,
+        t0: Epoch,
+        t1: Epoch,
+        attitude_type: AEMAttitudeType,
+    ) -> AEMMetadata {
+        let mut metadata = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a.clone(),
+            ref_frame_b.clone(),
+            CCSDSTimeSystem::UTC,
+            t0,
+            t1,
+            attitude_type,
+        )
+        .with_euler_rot_seq(EulerAngleOrder::ZYX);
+        if attitude_type == AEMAttitudeType::EulerAngleAngVel {
+            metadata = metadata.with_angvel_frame(ref_frame_b);
+        }
+        metadata
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_quaternion_derivative_conversion() {
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let metadata = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a,
+            ref_frame_b,
+            CCSDSTimeSystem::UTC,
+            t0,
+            t1,
+            AEMAttitudeType::QuaternionDerivative,
+        );
+
+        let quaternion = Quaternion::new(1.0, 0.0, 0.0, 0.0);
+        let omega = Vector3::new(0.02, -0.01, 0.3);
+        let derivative = crate::attitude::quaternion_derivative(&quaternion, omega, true);
+
+        let mut segment = AEMSegment::new(metadata);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::QuaternionDerivative {
+                    quaternion,
+                    derivative,
+                },
+            })
+            .unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let traj = aem.segment_to_attitude_trajectory(0).unwrap();
+        let recovered_omega = traj.state_at_idx(0).unwrap().angular_velocity.unwrap();
+        assert_abs_diff_eq!(recovered_omega[0], omega[0], epsilon = 1e-9);
+        assert_abs_diff_eq!(recovered_omega[1], omega[1], epsilon = 1e-9);
+        assert_abs_diff_eq!(recovered_omega[2], omega[2], epsilon = 1e-9);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_euler_angle_conversion() {
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+        let metadata = euler_angvel_metadata(
+            ref_frame_a,
+            ref_frame_b,
+            t0,
+            t1,
+            AEMAttitudeType::EulerAngle,
+        );
+
+        let angles = EulerAngle::new(EulerAngleOrder::ZYX, 0.3, -0.2, 0.1, AngleFormat::Radians);
+        let mut segment = AEMSegment::new(metadata);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::EulerAngle { angles },
+            })
+            .unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let traj = aem.segment_to_attitude_trajectory(0).unwrap();
+        assert!(!traj.has_rates());
+        let expected = Quaternion::from_euler_angle(angles);
+        assert_eq!(traj.state_at_idx(0).unwrap().quaternion, expected);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_euler_angle_derivative_conversion() {
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+        let metadata = euler_angvel_metadata(
+            ref_frame_a,
+            ref_frame_b,
+            t0,
+            t1,
+            AEMAttitudeType::EulerAngleDerivative,
+        );
+
+        let angles = EulerAngle::new(EulerAngleOrder::ZYX, 0.3, -0.2, 0.1, AngleFormat::Radians);
+        let rates = Vector3::new(0.01, 0.02, -0.03);
+        let mut segment = AEMSegment::new(metadata);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::EulerAngleDerivative { angles, rates },
+            })
+            .unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let traj = aem.segment_to_attitude_trajectory(0).unwrap();
+        let expected_omega = euler_rates_to_angular_velocity(&angles, rates);
+        let recovered_omega = traj.state_at_idx(0).unwrap().angular_velocity.unwrap();
+        assert_abs_diff_eq!(recovered_omega[0], expected_omega[0], epsilon = 1e-12);
+        assert_abs_diff_eq!(recovered_omega[1], expected_omega[1], epsilon = 1e-12);
+        assert_abs_diff_eq!(recovered_omega[2], expected_omega[2], epsilon = 1e-12);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_euler_angle_angvel_conversion() {
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+        let metadata = euler_angvel_metadata(
+            ref_frame_a,
+            ref_frame_b,
+            t0,
+            t1,
+            AEMAttitudeType::EulerAngleAngVel,
+        );
+
+        let angles = EulerAngle::new(EulerAngleOrder::ZYX, 0.3, -0.2, 0.1, AngleFormat::Radians);
+        let angular_velocity = Vector3::new(0.001, 0.002, 0.003);
+        let mut segment = AEMSegment::new(metadata);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::EulerAngleAngVel {
+                    angles,
+                    angular_velocity,
+                },
+            })
+            .unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let traj = aem.segment_to_attitude_trajectory(0).unwrap();
+        // ANGVEL_FRAME is REF_FRAME_B, so no re-expression: the stored rate
+        // must equal the raw AEM value.
+        let recovered_omega = traj.state_at_idx(0).unwrap().angular_velocity.unwrap();
+        assert_eq!(recovered_omega, angular_velocity);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_spin_nutation_variants_conversion_errors() {
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let mut metadata_nutation = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a.clone(),
+            ref_frame_b.clone(),
+            CCSDSTimeSystem::UTC,
+            t0,
+            t1,
+            AEMAttitudeType::SpinNutation,
+        );
+        metadata_nutation = metadata_nutation.with_center_name("EARTH");
+        let mut segment = AEMSegment::new(metadata_nutation);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::SpinNutation {
+                    spin_alpha: 0.1,
+                    spin_delta: 0.2,
+                    spin_angle: 0.3,
+                    spin_angle_vel: 0.4,
+                    nutation: 0.05,
+                    nutation_period: 120.0,
+                    nutation_phase: 0.06,
+                },
+            })
+            .unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+        let message = format!("{}", aem.segment_to_attitude_trajectory(0).unwrap_err());
+        assert!(message.contains("SPIN/NUTATION"));
+
+        let metadata_mom = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a,
+            ref_frame_b,
+            CCSDSTimeSystem::UTC,
+            t0,
+            t1,
+            AEMAttitudeType::SpinNutationMom,
+        );
+        let mut segment = AEMSegment::new(metadata_mom);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::SpinNutationMom {
+                    spin_alpha: 0.1,
+                    spin_delta: 0.2,
+                    spin_angle: 0.3,
+                    spin_angle_vel: 0.4,
+                    momentum_alpha: 0.07,
+                    momentum_delta: 0.08,
+                    nutation_vel: 0.09,
+                },
+            })
+            .unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+        let message = format!("{}", aem.segment_to_attitude_trajectory(0).unwrap_err());
+        assert!(message.contains("SPIN/NUTATION_MOM"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_lagrange_interpolation_method_maps_with_degree() {
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let metadata = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a,
+            ref_frame_b,
+            CCSDSTimeSystem::UTC,
+            t0,
+            t1,
+            AEMAttitudeType::Quaternion,
+        )
+        .with_interpolation(AEMInterpolationMethod::Lagrange, Some(3));
+
+        let mut segment = AEMSegment::new(metadata);
+        for i in 0..4 {
+            segment
+                .push_state(AEMAttitudeState {
+                    epoch: t0 + (i as f64) * 15.0,
+                    data: AEMAttitudeData::Quaternion {
+                        quaternion: Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                    },
+                })
+                .unwrap();
+        }
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let traj = aem.segment_to_attitude_trajectory(0).unwrap();
+        assert_eq!(
+            traj.interpolation_method,
+            AttitudeInterpolationMethod::Lagrange { degree: 3 }
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_lagrange_interpolation_degree_zero_errors() {
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let metadata = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a,
+            ref_frame_b,
+            CCSDSTimeSystem::UTC,
+            t0,
+            t1,
+            AEMAttitudeType::Quaternion,
+        )
+        .with_interpolation(AEMInterpolationMethod::Lagrange, Some(0));
+
+        let mut segment = AEMSegment::new(metadata);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::Quaternion {
+                    quaternion: Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                },
+            })
+            .unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let err = aem.segment_to_attitude_trajectory(0).unwrap_err();
+        assert!(err.to_string().contains("degree"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_aem_linear_interpolation_method_maps() {
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let metadata = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a,
+            ref_frame_b,
+            CCSDSTimeSystem::UTC,
+            t0,
+            t1,
+            AEMAttitudeType::Quaternion,
+        )
+        .with_interpolation(AEMInterpolationMethod::Linear, Some(1));
+
+        let mut segment = AEMSegment::new(metadata);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0,
+                data: AEMAttitudeData::Quaternion {
+                    quaternion: Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                },
+            })
+            .unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        let traj = aem.segment_to_attitude_trajectory(0).unwrap();
+        assert_eq!(
+            traj.interpolation_method,
+            AttitudeInterpolationMethod::Linear
+        );
+    }
+
+    /// Builds a single-segment AEM from AEMExampleG4's segment 1 (the
+    /// quaternion segment that converts cleanly), so `register_for`'s
+    /// single-segment requirement is satisfied by fixture data.
+    fn g4_single_segment_aem() -> AEM {
+        let content = std::fs::read_to_string("test_assets/ccsds/aem/AEMExampleG4.txt").unwrap();
+        let parsed = AEM::from_str(&content).unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(parsed.segments[1].clone());
+        aem
+    }
+
+    fn sc_body_1() -> ReferenceFrame {
+        ReferenceFrame::body("SC", BodyFrame::SCBody(Some("1".to_string())))
+    }
+
+    #[test]
+    #[serial]
+    fn test_aem_register_for_registers_body_frame() {
+        clear_frame_registry();
+        clear_object_registry();
+
+        let aem = g4_single_segment_aem();
+        let traj = AttitudeTrajectory::try_from(&aem).unwrap();
+        // Inside [USEABLE_START_TIME, USEABLE_STOP_TIME]: querying the
+        // fixture's data-start padding (`start_epoch() + 30.0`) instead
+        // would fall outside the registered provider's useable window.
+        let epoch = aem.segments[0].metadata.useable_start_time.unwrap() + 30.0;
+
+        aem.register_for("SC").unwrap();
+
+        // REF_FRAME_A is the celestial endpoint, so the stored series
+        // already rotates parent into body and is registered unchanged.
+        let resolved =
+            rotation_frame_to_frame(CelestialFrame::EME2000, sc_body_1(), epoch).unwrap();
+        let expected = traj
+            .quaternion(epoch)
+            .unwrap()
+            .to_rotation_matrix()
+            .to_matrix();
+        assert_abs_diff_eq!(resolved, expected, epsilon = 1e-12);
+
+        clear_frame_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_aem_register_for_inverts_when_celestial_is_frame_b() {
+        clear_frame_registry();
+        clear_object_registry();
+
+        // Swap the endpoints so the celestial frame is REF_FRAME_B. The
+        // stored quaternions then rotate body into parent, and registration
+        // must invert them.
+        let mut aem = g4_single_segment_aem();
+        let metadata = &mut aem.segments[0].metadata;
+        std::mem::swap(&mut metadata.ref_frame_a, &mut metadata.ref_frame_b);
+
+        let traj = AttitudeTrajectory::try_from(&aem).unwrap();
+        // Inside [USEABLE_START_TIME, USEABLE_STOP_TIME]; see
+        // `test_aem_register_for_registers_body_frame`.
+        let epoch = aem.segments[0].metadata.useable_start_time.unwrap() + 30.0;
+
+        aem.register_for("SC").unwrap();
+
+        let resolved =
+            rotation_frame_to_frame(CelestialFrame::EME2000, sc_body_1(), epoch).unwrap();
+        let expected = traj
+            .quaternion(epoch)
+            .unwrap()
+            .conjugate()
+            .to_rotation_matrix()
+            .to_matrix();
+        assert_abs_diff_eq!(resolved, expected, epsilon = 1e-12);
+
+        clear_frame_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_aem_register_for_rejects_queries_outside_useable_window() {
+        clear_frame_registry();
+        clear_object_registry();
+
+        // AEMExampleG4's segment 1 pads its DATA span 5 minutes before
+        // USEABLE_START_TIME (and after USEABLE_STOP_TIME) purely to
+        // support interpolation accuracy at the useable boundary; that
+        // padding must not itself be queryable through the registered
+        // frame graph link.
+        let aem = g4_single_segment_aem();
+        let metadata = &aem.segments[0].metadata;
+        let before_useable = metadata.useable_start_time.unwrap() - 30.0;
+        let after_useable = metadata.useable_stop_time.unwrap() + 30.0;
+
+        aem.register_for("SC").unwrap();
+
+        assert!(
+            rotation_frame_to_frame(CelestialFrame::EME2000, sc_body_1(), before_useable).is_err()
+        );
+        assert!(
+            rotation_frame_to_frame(CelestialFrame::EME2000, sc_body_1(), after_useable).is_err()
+        );
+
+        clear_frame_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_aem_register_for_useable_window_intersects_data_coverage() {
+        // CCSDS does not require USEABLE_START_TIME/USEABLE_STOP_TIME to
+        // coincide with the message's actual first/last data epoch. Here
+        // the declared useable window [t0, t0+120] is wider than the
+        // segment's real data span [t0+30, t0+90], so the registered
+        // provider's coverage must be clamped to the data it can actually
+        // evaluate rather than advertising the wider declared window.
+        clear_frame_registry();
+        clear_object_registry();
+
+        let ref_frame_a = ADMReferenceFrame::parse("EME2000");
+        let ref_frame_b = ADMReferenceFrame::parse("SC_BODY_1");
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 120.0;
+
+        let metadata = AEMMetadata::new(
+            "SAT1",
+            "2024-001A",
+            ref_frame_a,
+            ref_frame_b,
+            CCSDSTimeSystem::UTC,
+            t0,
+            t1,
+            AEMAttitudeType::Quaternion,
+        )
+        .with_useable_times(t0, t1);
+
+        let mut segment = AEMSegment::new(metadata);
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0 + 30.0,
+                data: AEMAttitudeData::Quaternion {
+                    quaternion: Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                },
+            })
+            .unwrap();
+        segment
+            .push_state(AEMAttitudeState {
+                epoch: t0 + 90.0,
+                data: AEMAttitudeData::Quaternion {
+                    quaternion: Quaternion::new(0.0, 1.0, 0.0, 0.0),
+                },
+            })
+            .unwrap();
+        let mut aem = AEM::new("BRAHE");
+        aem.push_segment(segment);
+
+        aem.register_for("SC").unwrap();
+
+        let body = ReferenceFrame::body("SC", BodyFrame::SCBody(Some("1".to_string())));
+        // Within the declared useable window but outside the actual data:
+        // must still error rather than silently extrapolating.
+        assert!(rotation_frame_to_frame(CelestialFrame::EME2000, body.clone(), t0 + 10.0).is_err());
+        assert!(
+            rotation_frame_to_frame(CelestialFrame::EME2000, body.clone(), t0 + 110.0).is_err()
+        );
+        // Within the actual data span: must succeed.
+        assert!(rotation_frame_to_frame(CelestialFrame::EME2000, body, t0 + 60.0).is_ok());
+
+        clear_frame_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_aem_register_for_errors_without_celestial_endpoint() {
+        clear_frame_registry();
+        clear_object_registry();
+
+        let mut aem = g4_single_segment_aem();
+        aem.segments[0].metadata.ref_frame_a = ADMReferenceFrame::parse("SC_BODY_2");
+
+        let err = aem.register_for("SC").unwrap_err().to_string();
+        assert!(err.contains("celestial frame"), "{}", err);
+        assert!(err.contains("body frame"), "{}", err);
+
+        clear_frame_registry();
+    }
+
+    /// Single-segment `QUATERNION/ANGVEL` AEM whose celestial endpoint is
+    /// `REF_FRAME_B`, so registration must invert both the quaternion series
+    /// and the angular-velocity series. `ANGVEL_FRAME = REF_FRAME_B` means
+    /// the wire rate is already the canonical frame-B rate, so the expected
+    /// inverted rate is composed directly from the parsed state.
+    fn angvel_aem_celestial_on_b() -> AEM {
+        let content = "CCSDS_AEM_VERS = 2.0\n\
+CREATION_DATE = 2002-11-04T17:22:31\n\
+ORIGINATOR = BRAHE\n\
+\n\
+META_START\n\
+OBJECT_NAME = TESTSAT\n\
+OBJECT_ID = 2024-001A\n\
+CENTER_NAME = EARTH\n\
+REF_FRAME_A = SC_BODY_1\n\
+REF_FRAME_B = EME2000\n\
+TIME_SYSTEM = UTC\n\
+START_TIME = 2024-01-01T00:00:00.000\n\
+STOP_TIME = 2024-01-01T00:01:00.000\n\
+ATTITUDE_TYPE = QUATERNION/ANGVEL\n\
+ANGVEL_FRAME = REF_FRAME_B\n\
+META_STOP\n\
+\n\
+DATA_START\n\
+2024-01-01T00:00:00.000 0.0 0.0 0.70710678 0.70710678 0.1 0.2 0.3\n\
+2024-01-01T00:01:00.000 0.0 0.0 0.70710678 0.70710678 0.1 0.2 0.3\n\
+DATA_STOP\n";
+        AEM::from_str(content).unwrap()
+    }
+
+    #[test]
+    #[serial]
+    fn test_aem_register_for_inverts_angular_velocity() {
+        clear_frame_registry();
+        clear_object_registry();
+
+        let aem = angvel_aem_celestial_on_b();
+        let traj = AttitudeTrajectory::try_from(&aem).unwrap();
+        assert!(traj.has_rates());
+        assert_eq!(traj.frame_b, ReferenceFrame::from(CelestialFrame::EME2000));
+
+        let epoch = traj.start_epoch().unwrap();
+        let stored = traj.interpolate(&epoch).unwrap();
+        let omega = stored.angular_velocity.unwrap();
+        let r_a_to_b = stored.quaternion.to_rotation_matrix().to_matrix();
+
+        // Registration reverses the series' sense, so the registered rate is
+        // the rate of A relative to B expressed in A.
+        let omega_expected = -r_a_to_b.transpose() * omega;
+
+        aem.register_for("SC").unwrap();
+
+        // A body frame's origin is its object, so the state transform needs
+        // the object registered too. Placing it at the frame origin keeps the
+        // translation zero, leaving a pure rotation plus the transport term.
+        register_object(
+            "SC",
+            FnProvider(move |_| Ok(Vector6::zeros())),
+            CelestialFrame::EME2000,
+        )
+        .unwrap();
+
+        let body = ReferenceFrame::body("SC", BodyFrame::SCBody(Some("1".to_string())));
+        let dcm = rotation_frame_to_frame(CelestialFrame::EME2000, body.clone(), epoch).unwrap();
+
+        // `resolve_state` carries the registered rate into the velocity by
+        // the transport theorem: v_to = R v - omega_to x p_to. Transforming a
+        // known state therefore pins omega_to, which no rotation-only query
+        // can observe.
+        let p = Vector3::new(7000e3, 1200e3, -300e3);
+        let v = Vector3::new(-1.2e3, 7.1e3, 0.4e3);
+        let x = SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2]);
+        let x_body = state_frame_to_frame(CelestialFrame::EME2000, body, epoch, x).unwrap();
+
+        let p_to = dcm * p;
+        let v_to = dcm * v - omega_expected.cross(&p_to);
+
+        for i in 0..3 {
+            assert_abs_diff_eq!(x_body[i], p_to[i], epsilon = 1e-6);
+            assert_abs_diff_eq!(x_body[i + 3], v_to[i], epsilon = 1e-9);
+        }
+
+        // Guard against the sign/transpose being silently right by symmetry:
+        // the un-inverted rate must not reproduce the same velocity.
+        let v_wrong = dcm * v - omega.cross(&p_to);
+        assert!(
+            (v_to - v_wrong).norm() > 1e-3,
+            "test cannot distinguish the inverted rate from the stored one"
+        );
+
+        clear_frame_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_aem_register_for_rejects_multi_segment() {
+        clear_frame_registry();
+        clear_object_registry();
+
+        let content = std::fs::read_to_string("test_assets/ccsds/aem/AEMExampleG4.txt").unwrap();
+        let aem = AEM::from_str(&content).unwrap();
+
+        let err = aem.register_for("SC").unwrap_err().to_string();
+        assert!(err.contains("exactly 1 segment"), "{}", err);
+
+        clear_frame_registry();
     }
 }

@@ -18,7 +18,9 @@ use crate::ccsds::common::{
 };
 use crate::ccsds::error::{ccsds_missing_field, ccsds_parse_error};
 use crate::ccsds::frames::ADMReferenceFrame;
-use crate::ccsds::xml::common::{XMLHeader, XMLValue, escape_xml_text, validate_xml_characters};
+use crate::ccsds::xml::common::{
+    XMLHeader, XMLQuaternion, XMLQuaternionDot, XMLValue, escape_xml_text, validate_xml_characters,
+};
 use crate::constants::{AngleFormat, DEG2RAD, RAD2DEG};
 use crate::utils::errors::BraheError;
 
@@ -226,30 +228,6 @@ impl XMLAPMData {
 }
 
 #[derive(Debug, Deserialize)]
-struct XMLAPMQuaternion {
-    #[serde(rename = "Q1")]
-    q1: XMLValue,
-    #[serde(rename = "Q2")]
-    q2: XMLValue,
-    #[serde(rename = "Q3")]
-    q3: XMLValue,
-    #[serde(rename = "QC")]
-    qc: XMLValue,
-}
-
-#[derive(Debug, Deserialize)]
-struct XMLAPMQuaternionDot {
-    #[serde(rename = "Q1_DOT")]
-    q1_dot: XMLValue,
-    #[serde(rename = "Q2_DOT")]
-    q2_dot: XMLValue,
-    #[serde(rename = "Q3_DOT")]
-    q3_dot: XMLValue,
-    #[serde(rename = "QC_DOT")]
-    qc_dot: XMLValue,
-}
-
-#[derive(Debug, Deserialize)]
 struct XMLAPMQuaternionState {
     #[serde(rename = "COMMENT", default)]
     comments: Vec<String>,
@@ -257,9 +235,9 @@ struct XMLAPMQuaternionState {
     ref_frame_a: String,
     #[serde(rename = "REF_FRAME_B")]
     ref_frame_b: String,
-    quaternion: XMLAPMQuaternion,
+    quaternion: XMLQuaternion,
     #[serde(rename = "quaternionDot", default)]
-    quaternion_dot: Option<XMLAPMQuaternionDot>,
+    quaternion_dot: Option<XMLQuaternionDot>,
 }
 
 #[derive(Debug, Deserialize)]

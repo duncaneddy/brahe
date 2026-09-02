@@ -3965,3 +3965,351 @@ impl PyTrajectoryIterator {
         }
     }
 }
+
+/// A single attitude sample: a unit quaternion and an optional body rate.
+///
+/// The quaternion represents the attitude of frame B relative to frame A (see
+/// `AttitudeTrajectory`). When present, `angular_velocity` is the angular velocity of frame B
+/// relative to frame A, expressed in frame B, in rad/s.
+///
+/// Args:
+///     quaternion (Quaternion): Unit quaternion attitude, frame A to frame B
+///     angular_velocity (numpy.ndarray | None): Angular velocity of frame B relative to
+///         frame A, expressed in frame B. Units: rad/s
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     from brahe.trajectories import AttitudeState
+///     state = AttitudeState(bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "AttitudeState")]
+pub struct PyAttitudeState {
+    pub(crate) state: trajectories::AttitudeState,
+}
+
+#[pymethods]
+impl PyAttitudeState {
+    #[new]
+    #[pyo3(signature = (quaternion, angular_velocity=None))]
+    fn new(
+        quaternion: &PyQuaternion,
+        angular_velocity: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Self> {
+        let mut state = trajectories::AttitudeState::new(quaternion.obj);
+        if let Some(v) = angular_velocity
+            && !v.is_none()
+        {
+            state = state.with_angular_velocity(pyany_to_svector::<3>(v)?);
+        }
+        Ok(Self { state })
+    }
+
+    /// Quaternion: Unit quaternion attitude, frame A to frame B
+    #[getter]
+    fn quaternion(&self) -> PyQuaternion {
+        PyQuaternion { obj: self.state.quaternion }
+    }
+
+    /// numpy.ndarray | None: Angular velocity of frame B relative to frame A, expressed in
+    /// frame B, in rad/s, or None if this state does not carry rate data
+    #[getter]
+    fn angular_velocity<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyArray<f64, Ix1>>> {
+        self.state.angular_velocity.map(|v| vector_to_numpy!(py, v, 3, f64))
+    }
+
+    fn __repr__(&self) -> String {
+        format!("AttitudeState(has_angular_velocity={})", self.state.angular_velocity.is_some())
+    }
+}
+
+/// Parse an `AttitudeInterpolationMethod` token ("SLERP", "LINEAR", or "LAGRANGE",
+/// case-insensitive).
+fn parse_attitude_interpolation_method(
+    method: &str,
+    degree: Option<usize>,
+) -> PyResult<trajectories::AttitudeInterpolationMethod> {
+    match method.to_uppercase().as_str() {
+        "SLERP" => Ok(trajectories::AttitudeInterpolationMethod::Slerp),
+        "LINEAR" => Ok(trajectories::AttitudeInterpolationMethod::Linear),
+        "LAGRANGE" => {
+            let degree = degree.ok_or_else(|| {
+                exceptions::PyValueError::new_err(
+                    "degree is required when method is 'LAGRANGE'",
+                )
+            })?;
+            Ok(trajectories::AttitudeInterpolationMethod::Lagrange { degree })
+        }
+        other => Err(exceptions::PyValueError::new_err(format!(
+            "Unknown interpolation method '{}'. Expected 'SLERP', 'LINEAR', or 'LAGRANGE'",
+            other
+        ))),
+    }
+}
+
+/// A chronologically sorted collection of `AttitudeState` samples relating two `ReferenceFrame`
+/// endpoints.
+///
+/// Every stored quaternion represents the attitude of `frame_b` relative to `frame_a`. All
+/// states in a trajectory must uniformly carry angular velocity or uniformly omit it; `add`
+/// rejects a state that would mix the two.
+///
+/// Args:
+///     frame_a (ReferenceFrame): Frame endpoint A
+///     frame_b (ReferenceFrame): Frame endpoint B (stored quaternions rotate from frame_a to
+///         frame_b)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     from brahe.trajectories import AttitudeTrajectory
+///
+///     traj = bh.AttitudeTrajectory(
+///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
+///     )
+///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     traj.add(epoch, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "AttitudeTrajectory")]
+pub struct PyAttitudeTrajectory {
+    pub(crate) trajectory: trajectories::AttitudeTrajectory,
+}
+
+#[pymethods]
+impl PyAttitudeTrajectory {
+    #[new]
+    fn new(frame_a: &PyReferenceFrame, frame_b: &PyReferenceFrame) -> Self {
+        Self {
+            trajectory: trajectories::AttitudeTrajectory::new(
+                frame_a.frame.clone(),
+                frame_b.frame.clone(),
+            ),
+        }
+    }
+
+    /// Add an attitude state at the given epoch.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch of the new state
+    ///     quaternion (Quaternion): Unit quaternion attitude, frame A to frame B
+    ///     angular_velocity (numpy.ndarray | None): Angular velocity of frame B relative to
+    ///         frame A, expressed in frame B. Units: rad/s. Must be uniformly present or
+    ///         uniformly absent across every state added to this trajectory.
+    ///
+    /// Raises:
+    ///     BraheError: If the new state's angular-velocity presence does not match the
+    ///         trajectory's existing states.
+    #[pyo3(signature = (epoch, quaternion, angular_velocity=None))]
+    fn add(
+        &mut self,
+        epoch: PyEpoch,
+        quaternion: &PyQuaternion,
+        angular_velocity: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        let mut state = trajectories::AttitudeState::new(quaternion.obj);
+        if let Some(v) = angular_velocity
+            && !v.is_none()
+        {
+            state = state.with_angular_velocity(pyany_to_svector::<3>(v)?);
+        }
+        self.trajectory.add(epoch.obj, state)?;
+        Ok(())
+    }
+
+    fn __len__(&self) -> usize {
+        self.trajectory.len()
+    }
+
+    /// Set the interpolation method used for state retrieval at arbitrary epochs.
+    ///
+    /// Args:
+    ///     method (str): Interpolation method - "SLERP" (default), "LINEAR", or "LAGRANGE"
+    ///         (case-insensitive)
+    ///     degree (int | None): Polynomial degree, required iff method is "LAGRANGE"
+    ///
+    /// Raises:
+    ///     ValueError: If method is not recognized, or degree is missing for "LAGRANGE"
+    #[pyo3(signature = (method, degree=None))]
+    fn set_interpolation_method(&mut self, method: &str, degree: Option<usize>) -> PyResult<()> {
+        let parsed = parse_attitude_interpolation_method(method, degree)?;
+        self.trajectory.set_interpolation_method(parsed);
+        Ok(())
+    }
+
+    /// str: Current interpolation method - "SLERP", "LINEAR", or "LAGRANGE"
+    #[getter]
+    fn interpolation_method(&self) -> &'static str {
+        match self.trajectory.interpolation_method {
+            trajectories::AttitudeInterpolationMethod::Slerp => "SLERP",
+            trajectories::AttitudeInterpolationMethod::Linear => "LINEAR",
+            trajectories::AttitudeInterpolationMethod::Lagrange { .. } => "LAGRANGE",
+        }
+    }
+
+    /// int | None: Polynomial degree for Lagrange interpolation, or None unless
+    /// interpolation_method is "LAGRANGE"
+    #[getter]
+    fn interpolation_degree(&self) -> Option<usize> {
+        match self.trajectory.interpolation_method {
+            trajectories::AttitudeInterpolationMethod::Lagrange { degree } => Some(degree),
+            _ => None,
+        }
+    }
+
+    /// Return the attitude quaternion at the given epoch using the configured interpolation
+    /// method.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     Quaternion: Unit quaternion attitude, frame A to frame B, at epoch
+    ///
+    /// Raises:
+    ///     BraheError: If the epoch lies outside the trajectory's coverage, or the
+    ///         trajectory is empty
+    fn quaternion(&self, epoch: PyEpoch) -> PyResult<PyQuaternion> {
+        Ok(PyQuaternion { obj: self.trajectory.quaternion(epoch.obj)? })
+    }
+
+    /// Return the body angular velocity at the given epoch.
+    ///
+    /// Returns `None` when the trajectory carries no rate data (see
+    /// `has_rates`); that is not an error.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     numpy.ndarray | None: Angular velocity of frame B relative to frame A, expressed
+    ///     in frame B, in rad/s, or None if the trajectory carries no rate data
+    ///
+    /// Raises:
+    ///     BraheError: If the epoch lies outside the trajectory's coverage, or the
+    ///         trajectory is empty
+    fn angular_velocity<'py>(
+        &self,
+        py: Python<'py>,
+        epoch: PyEpoch,
+    ) -> PyResult<Option<Bound<'py, PyArray<f64, Ix1>>>> {
+        match self.trajectory.angular_velocity(epoch.obj)? {
+            Some(w) => Ok(Some(vector_to_numpy!(py, w, 3, f64))),
+            None => Ok(None),
+        }
+    }
+
+    /// Return the attitude at the given epoch as Euler angles in the requested sequence.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch
+    ///     order (EulerAngleOrder): Euler angle rotation sequence
+    ///
+    /// Returns:
+    ///     EulerAngle: Euler angles (radians) at epoch in the requested sequence
+    ///
+    /// Raises:
+    ///     BraheError: If the epoch lies outside the trajectory's coverage, or the
+    ///         trajectory is empty
+    fn euler_angle(&self, epoch: PyEpoch, order: &PyEulerAngleOrder) -> PyResult<PyEulerAngle> {
+        Ok(PyEulerAngle { obj: self.trajectory.euler_angle(epoch.obj, order.value)? })
+    }
+
+    /// Return the attitude at the given epoch as an Euler axis (axis-angle).
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     EulerAxis: Unit rotation axis and angle (radians) at epoch
+    ///
+    /// Raises:
+    ///     BraheError: If the epoch lies outside the trajectory's coverage, or the
+    ///         trajectory is empty
+    fn euler_axis(&self, epoch: PyEpoch) -> PyResult<PyEulerAxis> {
+        Ok(PyEulerAxis { obj: self.trajectory.euler_axis(epoch.obj)? })
+    }
+
+    /// Return the attitude at the given epoch as a rotation matrix (DCM).
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     RotationMatrix: 3x3 direction cosine matrix at epoch
+    ///
+    /// Raises:
+    ///     BraheError: If the epoch lies outside the trajectory's coverage, or the
+    ///         trajectory is empty
+    fn rotation_matrix(&self, epoch: PyEpoch) -> PyResult<PyRotationMatrix> {
+        Ok(PyRotationMatrix { obj: self.trajectory.rotation_matrix(epoch.obj)? })
+    }
+
+    /// bool: True if the trajectory is non-empty and its states carry angular velocity
+    #[getter]
+    fn has_rates(&self) -> bool {
+        self.trajectory.has_rates()
+    }
+
+    /// Epoch | None: First epoch if the trajectory is not empty, None otherwise
+    #[getter]
+    fn start_epoch(&self) -> Option<PyEpoch> {
+        self.trajectory.start_epoch().map(|obj| PyEpoch { obj })
+    }
+
+    /// Epoch | None: Last epoch if the trajectory is not empty, None otherwise
+    #[getter]
+    fn end_epoch(&self) -> Option<PyEpoch> {
+        self.trajectory.end_epoch().map(|obj| PyEpoch { obj })
+    }
+
+    /// ReferenceFrame: Frame endpoint A
+    #[getter]
+    fn frame_a(&self) -> PyReferenceFrame {
+        PyReferenceFrame { frame: self.trajectory.frame_a.clone() }
+    }
+
+    /// ReferenceFrame: Frame endpoint B (stored quaternions rotate from frame_a to frame_b)
+    #[getter]
+    fn frame_b(&self) -> PyReferenceFrame {
+        PyReferenceFrame { frame: self.trajectory.frame_b.clone() }
+    }
+
+    /// str | None: Trajectory name
+    #[getter]
+    fn name(&self) -> Option<String> {
+        self.trajectory.name.clone()
+    }
+
+    /// Set the trajectory name.
+    ///
+    /// Args:
+    ///     val (str | None): Trajectory name, or None to clear
+    #[setter]
+    fn set_name(&mut self, val: Option<String>) {
+        self.trajectory.name = val;
+    }
+
+    /// dict: Trajectory metadata key-value pairs
+    #[getter]
+    fn metadata(&self, py: Python) -> PyResult<Py<PyAny>> {
+        let json_str = serde_json::to_string(&self.trajectory.metadata).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("JSON error: {}", e))
+        })?;
+        let json_module = py.import("json")?;
+        let loads = json_module.getattr("loads")?;
+        let result = loads.call1((json_str,))?;
+        Ok(result.into())
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "AttitudeTrajectory(frame_a={}, frame_b={}, len={})",
+            self.trajectory.frame_a,
+            self.trajectory.frame_b,
+            self.trajectory.len()
+        )
+    }
+}

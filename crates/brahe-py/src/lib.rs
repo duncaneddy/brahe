@@ -1141,6 +1141,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCovarianceInterpolationMethod>()?;
     module.add_class::<PyOrbitalTrajectory>()?;
     module.add_class::<PyTrajectory>()?;
+    module.add_class::<PyAttitudeState>()?;
+    module.add_class::<PyAttitudeTrajectory>()?;
 
     //* Attitude *//
     module.add_class::<PyQuaternion>()?;
@@ -1573,6 +1575,9 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCDMStateVector>()?;
     module.add_class::<PyCDMRTNCovariance>()?;
     module.add_class::<PyAPM>()?;
+    module.add_class::<PyAEM>()?;
+    module.add_class::<PyAEMSegment>()?;
+    module.add_class::<PyAEMAttitudeState>()?;
     module.add_class::<PyAPMQuaternionState>()?;
     module.add_class::<PyAPMEulerState>()?;
     module.add_class::<PyAPMAngularVelocity>()?;

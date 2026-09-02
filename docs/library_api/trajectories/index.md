@@ -12,6 +12,9 @@ Trajectory containers for storing, managing, and interpolating time-series state
 ### [OrbitTrajectory](orbit_trajectory.md)
 **Specialized orbital** trajectory with frame-aware storage and automatic coordinate transformations.
 
+### [AttitudeTrajectory](attitude_trajectory.md)
+**Attitude** trajectory storing quaternion (plus optional body rate) samples, with slerp, linear, and Lagrange interpolation and the `OrientationProvider` accessors.
+
 ---
 
 ## See Also

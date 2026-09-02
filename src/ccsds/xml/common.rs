@@ -318,6 +318,32 @@ pub(super) fn extract_xml_user_defined(content: &str) -> Option<CCSDSUserDefined
 // Shared XML writing helpers
 // ============================================================================
 
+/// The ADM `<quaternion>` element, shared by the APM and AEM XML schemas.
+#[derive(Debug, Deserialize)]
+pub(super) struct XMLQuaternion {
+    #[serde(rename = "Q1")]
+    pub(super) q1: XMLValue,
+    #[serde(rename = "Q2")]
+    pub(super) q2: XMLValue,
+    #[serde(rename = "Q3")]
+    pub(super) q3: XMLValue,
+    #[serde(rename = "QC")]
+    pub(super) qc: XMLValue,
+}
+
+/// The ADM `<quaternionDot>` element, shared by the APM and AEM XML schemas.
+#[derive(Debug, Deserialize)]
+pub(super) struct XMLQuaternionDot {
+    #[serde(rename = "Q1_DOT")]
+    pub(super) q1_dot: XMLValue,
+    #[serde(rename = "Q2_DOT")]
+    pub(super) q2_dot: XMLValue,
+    #[serde(rename = "Q3_DOT")]
+    pub(super) q3_dot: XMLValue,
+    #[serde(rename = "QC_DOT")]
+    pub(super) qc_dot: XMLValue,
+}
+
 /// Escape the XML markup delimiters in element text content.
 ///
 /// CCSDS 502.0-B-3 subsection 8.2 fixes the XML version declaration at 1.0 and

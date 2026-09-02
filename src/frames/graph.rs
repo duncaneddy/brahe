@@ -406,12 +406,14 @@ fn missing_link_error(frame: &ReferenceFrame, link: &ReferenceFrame) -> BraheErr
     if link == frame {
         return BraheError::Error(format!(
             "frame {frame} has no registered orientation; register one with \
-             register_frame({frame}, <parent>, <provider>)"
+             register_frame({frame}, <parent>, <provider>), or with \
+             aem.register_for(<object>) to register the attitude carried by a CCSDS AEM"
         ));
     }
     BraheError::Error(format!(
         "cannot resolve {frame}: parent {link} has no registered orientation; register one \
-         with register_frame({link}, <parent's parent>, <provider>)"
+         with register_frame({link}, <parent's parent>, <provider>), or with \
+         aem.register_for(<object>) to register the attitude carried by a CCSDS AEM"
     ))
 }
 
@@ -639,6 +641,7 @@ mod tests {
     use crate::frames::{
         CallbackOrientation, OrientationProvider, clear_frame_registry, clear_object_registry,
         position_frame_to_frame, register_frame, register_object, rotation_frame_to_frame,
+        unregister_frame,
     };
     use crate::math::SVector6;
     use crate::orbit_dynamics::ephemerides::sun_position;
@@ -804,6 +807,9 @@ mod tests {
         // as the frame rather than as its own parent.
         assert!(err.contains("frame CSS_1@SC has no registered orientation"));
         assert!(!err.contains("parent CSS_1@SC"));
+        // An AEM is a first-class source of a body frame's orientation, so
+        // the guidance names it alongside register_frame.
+        assert!(err.contains("aem.register_for"));
         let err = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::RTN("A"), epc)
             .unwrap_err()
             .to_string();
@@ -813,6 +819,34 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(err.contains("not bound to an object"));
+
+        // The other guidance branch: the queried frame resolves but a link
+        // further up its chain does not, so the missing link is named as a
+        // parent. Build a two-link chain, then drop the middle link.
+        let body = ReferenceFrame::SC_BODY("SC");
+        let sensor = ReferenceFrame::CSS("SC", "1");
+        register_frame(
+            body.clone(),
+            CelestialFrame::GCRF.into(),
+            Quaternion::new(1.0, 0.0, 0.0, 0.0),
+        )
+        .unwrap();
+        register_frame(
+            sensor.clone(),
+            body.clone(),
+            Quaternion::new(1.0, 0.0, 0.0, 0.0),
+        )
+        .unwrap();
+        assert!(unregister_frame(&body));
+
+        let err = rotation_frame_to_frame(CelestialFrame::GCRF, sensor, epc)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("parent SC_BODY@SC has no registered orientation"));
+        assert!(err.contains("register_frame"));
+        assert!(err.contains("aem.register_for"));
+
+        clear_frame_registry();
     }
 
     #[test]

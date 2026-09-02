@@ -40,7 +40,10 @@ pub mod tdm;
 pub mod xml;
 
 // Re-export commonly used types at the ccsds module level
-pub use aem::AEMHeader;
+pub use aem::{
+    AEM, AEMAttitudeData, AEMAttitudeState, AEMAttitudeType, AEMHeader, AEMInterpolationMethod,
+    AEMMetadata, AEMSegment,
+};
 pub use apm::{
     APM, APMAngularVelocity, APMEulerState, APMHeader, APMInertia, APMManeuver, APMMetadata,
     APMNutation, APMQuaternionState, APMSpin,

@@ -18,7 +18,7 @@ fn main() {
     println!("Epoch:  {}", opm.state_vector.epoch);
     println!("Maneuvers: {}", opm.maneuvers.len());
 
-    // Extract initial state (OPM is in TOD frame, convert to ECI)
+    // Extract initial state (OPM is in TOD frame, treat it as ECEF for this example even though it's not strictly correct)
     let pos = opm.state_vector.position;
     let vel = opm.state_vector.velocity;
     let initial_state =

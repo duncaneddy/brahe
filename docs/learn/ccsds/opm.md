@@ -70,7 +70,7 @@ Read OPM maneuvers and apply them as impulsive delta-V events during propagation
 
 === "Python"
     ``` python
-    --8<-- "./examples/ccsds/opm_maneuver_propagation.py:8"
+    --8<-- "./examples/ccsds/opm_maneuver_propagation.py:10"
     ```
 
 === "Rust"

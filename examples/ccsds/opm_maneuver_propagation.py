@@ -21,7 +21,7 @@ print(f"Object: {opm.object_name}")
 print(f"Epoch:  {opm.epoch}")
 print(f"Maneuvers: {len(opm.maneuvers)}")
 
-# Extract initial state (OPM is in TOD frame, convert to ECI)
+# Extract initial state (OPM is in TOD frame, treat it as ECEF for this example even though it's not strictly correct)
 state_eci = bh.state_ecef_to_eci(opm.epoch, opm.state)
 
 # Spacecraft parameters from OPM

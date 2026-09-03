@@ -14,7 +14,6 @@ matplotlib.use("Agg")
 # Testing Paths
 PACKAGE_ROOT = pathlib.Path(__file__).resolve().parent.parent
 TEST_ASSETS = PACKAGE_ROOT / "test_assets"
-TEST_DATA = PACKAGE_ROOT / "test_data"
 
 
 @pytest.fixture(scope="session")
@@ -114,7 +113,7 @@ def _fes2004_cache_setup():
         not cached.exists() or cached.stat().st_size < _FES2004_FULL_DOWNLOAD_MIN_BYTES
     )
     if created_or_replaced:
-        shutil.copy2(TEST_DATA / "fes2004_Cnm-Snm_n30.dat", cached)
+        shutil.copy2(TEST_ASSETS / "fes2004_Cnm-Snm_n30.dat", cached)
 
     yield str(cached)
 

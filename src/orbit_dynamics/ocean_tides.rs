@@ -813,7 +813,7 @@ mod tests {
     #[parallel]
     fn test_parse_fes2004_fixture() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("test_data/fes2004_Cnm-Snm_n30.dat");
+            .join("test_assets/fes2004_Cnm-Snm_n30.dat");
         let waves = parse_fes2004_file(&path, 30, 30).unwrap();
         // 18 constituents in the file (TN36 §6.3.2 prose lists T2, but the actual
         // coefficient file does not include it; T2 arrives via admittance).
@@ -916,7 +916,7 @@ mod tests {
     #[parallel]
     fn test_from_file_rejects_out_of_range_bounds() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("test_data/fes2004_Cnm-Snm_n30.dat");
+            .join("test_assets/fes2004_Cnm-Snm_n30.dat");
         // m_max < 2, n_max > 100, and m_max > n_max are all rejected.
         assert!(OceanTideModel::from_file(&path, 1, 1, false).is_err());
         assert!(OceanTideModel::from_file(&path, 101, 20, false).is_err());
@@ -933,7 +933,7 @@ mod tests {
         std::fs::create_dir_all(&tides).unwrap();
         let cached = tides.join("fes2004_Cnm-Snm.dat");
         let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("test_data/fes2004_Cnm-Snm_n30.dat");
+            .join("test_assets/fes2004_Cnm-Snm_n30.dat");
         let content = std::fs::read_to_string(&fixture).unwrap();
         // Keep only the first few hundred lines: far fewer than the 18 required
         // main constituents, so `validate_main_waves` fails.
@@ -1121,7 +1121,7 @@ mod tests {
     /// completeness floor, so the promote path can be exercised offline.
     fn synthetic_fes2004_payload() -> Vec<u8> {
         let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("test_data/fes2004_Cnm-Snm_n30.dat");
+            .join("test_assets/fes2004_Cnm-Snm_n30.dat");
         let content = std::fs::read_to_string(&fixture).unwrap();
         let mut lines = content.lines();
         let header: Vec<&str> = lines.by_ref().take(4).collect();
@@ -1268,7 +1268,7 @@ mod tests {
         // Drop the K1 (165.555) main wave from the parsed list: the first
         // Table 6.7 row that pivots on K1 must error, naming the pivot.
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("test_data/fes2004_Cnm-Snm_n30.dat");
+            .join("test_assets/fes2004_Cnm-Snm_n30.dat");
         let main = parse_fes2004_file(&path, 30, 30).unwrap();
         let k1 = parse_doodson("165.555").unwrap();
         let pruned: Vec<OceanTideConstituent> =
@@ -1285,7 +1285,7 @@ mod tests {
     fn test_ocean_model_truncation_accessors() {
         // n_max()/m_max() report the construction truncation.
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("test_data/fes2004_Cnm-Snm_n30.dat");
+            .join("test_assets/fes2004_Cnm-Snm_n30.dat");
         let model = OceanTideModel::from_file(&path, 10, 5, false).unwrap();
         assert_eq!(model.n_max(), 10);
         assert_eq!(model.m_max(), 5);

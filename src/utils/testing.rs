@@ -602,7 +602,7 @@ pub(crate) fn setup_test_fes2004_cache() -> CacheRedirect {
     let redirect = CacheRedirect::new();
     let tides = redirect.cache_path().join("tides");
     fs::create_dir_all(&tides).expect("tides cache subdir");
-    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("test_data/fes2004_Cnm-Snm_n30.dat");
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("test_assets/fes2004_Cnm-Snm_n30.dat");
     fs::copy(&fixture, tides.join("fes2004_Cnm-Snm.dat")).expect("copy FES2004 fixture");
     redirect
 }

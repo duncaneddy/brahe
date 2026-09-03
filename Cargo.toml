@@ -24,7 +24,6 @@ categories = ["science"]
 readme = "README.md"
 license = "MIT"
 exclude = [# We need to keep the size down for crates.io these don't need to be included
-    "/test_data",
     "/tests",
     "/scripts",
     "/docs",
@@ -33,11 +32,16 @@ exclude = [# We need to keep the size down for crates.io these don't need to be 
     ".github",
     "/examples",
     "/plots",
+    "/joss",
     "/test_assets",
+    "/profiles",
+    "/benchmarks",
     "/data/textures/world.topo.200410.3x5400x2700.png", # Python-only
     "justfile",
     "properdocs.yml",
-    "uv.lock"
+    "uv.lock",
+    "CLAUDE.md",
+    "AGENTS.md"
 ]
 
 [lib]

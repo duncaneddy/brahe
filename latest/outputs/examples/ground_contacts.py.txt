@@ -11,10 +11,10 @@ Orbital period: 99.8 minutes
 Propagated NISAR for 3 orbits in 0.01 seconds.
 
 Creating ground track visualization with communication cones...
-Created ground track visualization in 0.62 seconds.
+Created ground track visualization in 0.46 seconds.
 
 Computing 7-day ground contacts...
-Computed 908 contact windows in 0.65 seconds.
+Computed 908 contact windows in 0.44 seconds.
 
 ================================================================================
 Sample Contact Windows (first 10)

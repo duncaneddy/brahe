@@ -7,18 +7,18 @@ Using RKN1210 with tol=1e-14
 Propagating for one orbital period...
 
 t=  0.02h  r=  6915.2km  dt=  60.0s  err=1.14e-03
-t=  0.61h  r= 14336.8km  dt= 308.4s  err=2.37e-02
-t=  2.54h  r= 34813.8km  dt= 900.0s  err=1.52e-03
-t=  5.04h  r= 45404.2km  dt= 900.0s  err=1.65e-03
-t=  7.54h  r= 44004.3km  dt= 900.0s  err=0.00e+00
-t= 10.04h  r= 29862.5km  dt= 900.0s  err=6.33e-03
-t= 11.66h  r=  9739.4km  dt= 291.4s  err=2.59e-01
+t=  0.61h  r= 14345.4km  dt= 308.9s  err=2.36e-02
+t=  2.54h  r= 34831.8km  dt= 900.0s  err=1.23e-03
+t=  5.04h  r= 45408.5km  dt= 900.0s  err=1.40e-03
+t=  7.54h  r= 43997.1km  dt= 900.0s  err=0.00e+00
+t= 10.04h  r= 29839.8km  dt= 900.0s  err=5.29e-03
+t= 11.66h  r=  9723.6km  dt= 291.5s  err=2.64e-01
 
 Propagation complete!
 Total steps: 67
 Average step: 642.7 s
-Cumulative error estimate: 5.85e+00
+Cumulative error estimate: 5.88e+00
 
 Orbit element errors after one period:
-  Semi-major axis: 3.725e-08 m
-  Eccentricity:    4.441e-16
+  Semi-major axis: 7.451e-08 m
+  Eccentricity:    1.110e-15

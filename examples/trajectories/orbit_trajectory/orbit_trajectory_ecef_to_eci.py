@@ -13,7 +13,7 @@ bh.initialize_eop()
 
 # Create trajectory in ECEF frame
 traj_ecef = bh.OrbitTrajectory(
-    6, bh.OrbitFrame.ECEF, bh.OrbitRepresentation.CARTESIAN, None
+    6, bh.CelestialFrame.ECEF, bh.OrbitRepresentation.CARTESIAN, None
 )
 
 # Add dummy states in ECEF
@@ -24,12 +24,12 @@ for i in range(3):
     state_ecef = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 7600.0])
     traj_ecef.add(epoch, state_ecef)
 
-print(f"Original frame: {traj_ecef.frame}")  # Output: OrbitFrame.ECEF
+print(f"Original frame: {traj_ecef.frame}")  # Output: ITRF
 
 # Convert to ECI
 traj_eci = traj_ecef.to_eci()
 
-print(f"Converted frame: {traj_eci.frame}")  # Output: OrbitFrame.ECI
+print(f"Converted frame: {traj_eci.frame}")  # Output: GCRF
 print(f"Trajectory length: {len(traj_eci)}")  # Output: 3
 
 # Iterate over converted states

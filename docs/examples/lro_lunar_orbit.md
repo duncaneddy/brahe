@@ -107,12 +107,13 @@ perilune altitude stays above 26 km, remaining bound to the Moon.
 ## 3D Visualization
 
 [`plot_trajectory_3d`](../library_api/plots/3d_trajectory.md) accepts `central_body="moon"` to render an interactive
-3D view of the trajectory around a textured Moon. Non-Earth central bodies
-require the plotted trajectory to already be in
-[`OrbitFrame.BodyCenteredInertial(naif_id)`](../library_api/orbits/enums.md#brahe.OrbitFrame.BodyCenteredInertial) for that body; a Moon-centered
-[`NumericalOrbitPropagator`](../library_api/propagators/numerical_orbit_propagator.md)'s `.trajectory` is already in that frame, so no
-conversion is needed. We plot the final 12 hours of the full-gravity
-trajectory:
+3D view of the trajectory around a textured Moon. Non-Earth central bodies plot
+the trajectory in that body's centered-inertial frame, converting through the
+[reference frame router](../library_api/frames/router.md) with `to_frame()` when
+the trajectory is declared in another frame; a Moon-centered
+[`NumericalOrbitPropagator`](../library_api/propagators/numerical_orbit_propagator.md)'s `.trajectory` is already in
+`CelestialFrame.LCI`, so no conversion is needed. We plot the final 12 hours of
+the full-gravity trajectory:
 
 ``` python
 --8<-- "./examples/examples/lro_lunar_orbit.py:plot_3d"

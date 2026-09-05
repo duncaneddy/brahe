@@ -4,7 +4,8 @@
 use brahe as bh;
 use bh::time::Epoch;
 use bh::trajectories::SOrbitTrajectory;
-use bh::trajectories::traits::{OrbitFrame, OrbitRepresentation, OrbitalTrajectory};
+use bh::frames::CelestialFrame;
+use bh::trajectories::traits::{OrbitRepresentation, OrbitalTrajectory};
 use bh::traits::Trajectory;
 use bh::constants::R_EARTH;
 use nalgebra as na;
@@ -14,7 +15,7 @@ fn main() {
 
     // Create trajectory in ECEF frame
     let mut traj_ecef = SOrbitTrajectory::new(
-        OrbitFrame::ECEF,
+        CelestialFrame::ECEF,
         OrbitRepresentation::Cartesian,
         None
     ).unwrap();

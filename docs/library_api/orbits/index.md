@@ -11,6 +11,6 @@ Comprehensive tools for orbital mechanics computations and TLE handling.
 - **[Mean Elements](mean_elements.md)** - Mean-osculating Keplerian element conversions
 - **[Two-Line Elements (TLE)](tle.md)** - TLE parsing, validation, and conversion utilities
 - **[Walker Constellations](walker.md)** - Generator for Walker Delta and Star constellation patterns
-- **[Enumerations](enums.md)** - Orbit-related enumerations (OrbitRepresentation, OrbitFrame, etc.)
+- **[Enumerations](enums.md)** - Orbit-related enumerations (OrbitRepresentation, InterpolationMethod, etc.)
 
 **Note**: Orbit propagators have been moved to the [`brahe.propagators`](../propagators/index.md) module.

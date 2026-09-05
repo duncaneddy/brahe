@@ -2,7 +2,8 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use brahe::traits::{OrbitFrame, SStatePropagator, OrbitRepresentation};
+use brahe::frames::CelestialFrame;
+use brahe::traits::{SStatePropagator, OrbitRepresentation};
 
 fn main() {
     bh::initialize_eop().unwrap();
@@ -12,11 +13,11 @@ fn main() {
 
     // Create with ECEF Cartesian output
     let mut prop_ecef = bh::SGPPropagator::from_tle(line1, line2, 60.0).unwrap()
-        .with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None).unwrap();
+        .with_output_format(CelestialFrame::ECEF, OrbitRepresentation::Cartesian, None).unwrap();
 
-    // Or with Keplerian output (ECI only)
+    // Or with Keplerian output (GCRF only)
     let mut prop_kep = bh::SGPPropagator::from_tle(line1, line2, 60.0).unwrap()
-        .with_output_format(OrbitFrame::ECI, OrbitRepresentation::Keplerian, Some(bh::AngleFormat::Degrees)).unwrap();
+        .with_output_format(CelestialFrame::ECI, OrbitRepresentation::Keplerian, Some(bh::AngleFormat::Degrees)).unwrap();
 
     // Propagate to 1 hour after epoch
     let dt = 3600.0;

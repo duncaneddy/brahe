@@ -1,6 +1,6 @@
 # Orbit Enumerations
 
-Enumerations for specifying orbit representation types and reference frames.
+Enumerations for specifying orbit representation types.
 
 ## OrbitRepresentation
 
@@ -11,16 +11,6 @@ Enumerations for specifying orbit representation types and reference frames.
       heading_level: 3
 
 Specifies the type of orbital elements being used.
-
----
-
-## OrbitFrame
-
-::: brahe.OrbitFrame
-    options:
-      show_root_heading: true
-      show_root_full_path: false
-      heading_level: 3
 
 ---
 

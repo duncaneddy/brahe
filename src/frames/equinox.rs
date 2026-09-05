@@ -27,12 +27,6 @@ use crate::utils::batch::{batch_map, batch_map_epochs};
 /// Equinox-based precession-nutation products for one epoch, computed once
 /// and shared by the pairwise and batch transformations.
 pub(crate) struct EquinoxContext {
-    /// GCRF -> MOD bias-precession matrix (`rp * rb`), as returned by
-    /// `iauPn00b`. `bias_precession` computes this independently via
-    /// `bias_precession_matrix` so it does not require Earth orientation
-    /// data; this field exists to cross-check that the two agree.
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) rbp: SMatrix3,
     /// MOD -> TOD nutation matrix, including the IERS dPsi/dEps corrections.
     pub(crate) rn: SMatrix3,
     /// GCRF -> TOD matrix (`rn * rbp`).
@@ -121,7 +115,6 @@ impl EquinoxContext {
         }
 
         Self {
-            rbp: matrix3_from_array(&rbp),
             rn: matrix3_from_array(&rn),
             rnpb: matrix3_from_array(&rnpb),
             gast,
@@ -2438,8 +2431,8 @@ mod tests {
         let pm_x = 0.0349282 * AS2RAD;
         let pm_y = 0.4833163 * AS2RAD;
         let ut1_utc = -0.072073685;
-        let dX = 0.0001750 * AS2RAD * 1.0e-3;
-        let dY = -0.0002259 * AS2RAD * 1.0e-3;
+        let dX = 0.0001750 * AS2RAD;
+        let dY = -0.0002259 * AS2RAD;
         set_global_eop_provider(StaticEOPProvider::from_values((
             pm_x, pm_y, ut1_utc, dX, dY, 0.0,
         )));
@@ -2498,11 +2491,9 @@ mod tests {
         }
         let oracle = matrix3_from_array(&rbp);
         let from_fn = bias_precession(epc);
-        let from_ctx = EquinoxContext::new(epc).rbp;
         for i in 0..3 {
             for j in 0..3 {
                 assert_eq!(from_fn[(i, j)], oracle[(i, j)]);
-                assert_eq!(from_fn[(i, j)], from_ctx[(i, j)]);
             }
         }
     }
@@ -2539,7 +2530,7 @@ mod tests {
         let ut1 = epc.mjd_as_time_system(TimeSystem::UT1);
 
         // iauC2t00b omits the TIO locator s'; polar_motion includes it, so
-        // the two agree to the size of s' (about 1e-10 rad at this epoch).
+        // the two agree to the size of s' (about 2e-11 rad at this epoch).
         let mut rc2t = [[0.0; 3]; 3];
         unsafe {
             rsofa::iauC2t00b(MJD_ZERO, tt, MJD_ZERO, ut1, 0.0, 0.0, &mut rc2t[0]);

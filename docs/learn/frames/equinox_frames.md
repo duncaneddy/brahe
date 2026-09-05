@@ -29,7 +29,7 @@ The frame bias between GCRF and the classical J2000.0 mean equator and equinox i
 
 ## Velocities
 
-MOD and TOD are treated as non-rotating relative to the GCRF: their precession and nutation rates are on the order of $10^{-12}$ rad/s, well below the level that affects orbital velocities, so state transforms among GCRF, MOD, and TOD rotate position and velocity by the same matrix. The TOD to ITRF transformation includes the Earth rotation transport term, exactly as the GCRF to ITRF transformation does.
+MOD and TOD are treated as non-rotating relative to the GCRF: their precession and nutation rates are below $10^{-11}$ rad/s, under $10^{-4}$ m/s in low Earth orbit, so state transforms among GCRF, MOD, and TOD rotate position and velocity by the same matrix. This differs from EME2000, whose bias rotation relative to the GCRF is exactly fixed; MOD and TOD rotate slowly relative to the GCRF, and that rate is neglected here. The TOD to ITRF transformation includes the Earth rotation transport term, exactly as the GCRF to ITRF transformation does.
 
 ## GCRF to TOD
 

@@ -1210,8 +1210,7 @@ fn py_rotation_itrf_to_tod<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyR
 }
 
 /// Transforms a position vector from the GCRF to the mean equator and
-/// equinox of date (MOD). The position is rotated by `rotation_gcrf_to_mod`;
-/// the frames are non-rotating relative to each other at the 1e-12 rad/s level.
+/// equinox of date (MOD). The position is rotated by `rotation_gcrf_to_mod`.
 ///
 /// Args:
 ///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
@@ -1252,8 +1251,7 @@ fn py_position_gcrf_to_mod<'py>(
 }
 
 /// Transforms a position vector from the mean equator and equinox of date
-/// (MOD) to the GCRF. The position is rotated by `rotation_mod_to_gcrf`;
-/// the frames are non-rotating relative to each other at the 1e-12 rad/s level.
+/// (MOD) to the GCRF. The position is rotated by `rotation_mod_to_gcrf`.
 ///
 /// Args:
 ///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
@@ -1295,8 +1293,7 @@ fn py_position_mod_to_gcrf<'py>(
 
 /// Transforms a position vector from the mean equator and equinox of date
 /// (MOD) to the Earth true equator and equinox of date (TOD). The position
-/// is rotated by `rotation_mod_to_tod`; the frames are non-rotating relative
-/// to each other at the 1e-12 rad/s level.
+/// is rotated by `rotation_mod_to_tod`.
 ///
 /// Args:
 ///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
@@ -1338,8 +1335,7 @@ fn py_position_mod_to_tod<'py>(
 
 /// Transforms a position vector from the Earth true equator and equinox of
 /// date (TOD) to the mean equator and equinox of date (MOD). The position
-/// is rotated by `rotation_tod_to_mod`; the frames are non-rotating relative
-/// to each other at the 1e-12 rad/s level.
+/// is rotated by `rotation_tod_to_mod`.
 ///
 /// Args:
 ///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
@@ -1380,8 +1376,7 @@ fn py_position_tod_to_mod<'py>(
 }
 
 /// Transforms a position vector from the GCRF to the Earth true equator and
-/// equinox of date (TOD). The position is rotated by `rotation_gcrf_to_tod`;
-/// the frames are non-rotating relative to each other at the 1e-12 rad/s level.
+/// equinox of date (TOD). The position is rotated by `rotation_gcrf_to_tod`.
 ///
 /// Args:
 ///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
@@ -1422,8 +1417,7 @@ fn py_position_gcrf_to_tod<'py>(
 }
 
 /// Transforms a position vector from the Earth true equator and equinox of
-/// date (TOD) to the GCRF. The position is rotated by `rotation_tod_to_gcrf`;
-/// the frames are non-rotating relative to each other at the 1e-12 rad/s level.
+/// date (TOD) to the GCRF. The position is rotated by `rotation_tod_to_gcrf`.
 ///
 /// Args:
 ///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
@@ -1550,7 +1544,7 @@ fn py_position_itrf_to_tod<'py>(
 /// Transforms a state vector (position and velocity) from the GCRF to the
 /// mean equator and equinox of date (MOD). Both halves are rotated by
 /// `rotation_gcrf_to_mod`; the frames are non-rotating relative to each
-/// other at the 1e-12 rad/s level.
+/// other, below 1e-11 rad/s, under 1e-4 m/s in low Earth orbit.
 ///
 /// Args:
 ///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
@@ -1593,7 +1587,7 @@ fn py_state_gcrf_to_mod<'py>(
 /// Transforms a state vector (position and velocity) from the mean equator
 /// and equinox of date (MOD) to the GCRF. Both halves are rotated by
 /// `rotation_mod_to_gcrf`; the frames are non-rotating relative to each
-/// other at the 1e-12 rad/s level.
+/// other, below 1e-11 rad/s, under 1e-4 m/s in low Earth orbit.
 ///
 /// Args:
 ///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
@@ -1636,7 +1630,8 @@ fn py_state_mod_to_gcrf<'py>(
 /// Transforms a state vector (position and velocity) from the mean equator
 /// and equinox of date (MOD) to the Earth true equator and equinox of date
 /// (TOD). Both halves are rotated by `rotation_mod_to_tod`; the frames are
-/// non-rotating relative to each other at the 1e-12 rad/s level.
+/// non-rotating relative to each other, below 1e-11 rad/s, under 1e-4 m/s in
+/// low Earth orbit.
 ///
 /// Args:
 ///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
@@ -1679,7 +1674,8 @@ fn py_state_mod_to_tod<'py>(
 /// Transforms a state vector (position and velocity) from the Earth true
 /// equator and equinox of date (TOD) to the mean equator and equinox of
 /// date (MOD). Both halves are rotated by `rotation_tod_to_mod`; the frames
-/// are non-rotating relative to each other at the 1e-12 rad/s level.
+/// are non-rotating relative to each other, below 1e-11 rad/s, under 1e-4
+/// m/s in low Earth orbit.
 ///
 /// Args:
 ///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
@@ -1722,7 +1718,7 @@ fn py_state_tod_to_mod<'py>(
 /// Transforms a state vector (position and velocity) from the GCRF to the
 /// Earth true equator and equinox of date (TOD). Both halves are rotated by
 /// `rotation_gcrf_to_tod`; the frames are non-rotating relative to each
-/// other at the 1e-12 rad/s level.
+/// other, below 1e-11 rad/s, under 1e-4 m/s in low Earth orbit.
 ///
 /// Args:
 ///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
@@ -1765,7 +1761,7 @@ fn py_state_gcrf_to_tod<'py>(
 /// Transforms a state vector (position and velocity) from the Earth true
 /// equator and equinox of date (TOD) to the GCRF. Both halves are rotated by
 /// `rotation_tod_to_gcrf`; the frames are non-rotating relative to each
-/// other at the 1e-12 rad/s level.
+/// other, below 1e-11 rad/s, under 1e-4 m/s in low Earth orbit.
 ///
 /// Args:
 ///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates

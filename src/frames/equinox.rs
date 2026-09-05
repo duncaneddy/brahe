@@ -986,8 +986,11 @@ pub fn positions_mod_to_gcrf(
 /// # References
 /// - SOFA `pn00b` notes 4-6 (`rbp = rp * rb`); SOFA cookbook Section 3.1
 ///   (classical precession) and Appendix p. A4 ("GCRF to MOD")
-pub fn states_gcrf_to_mod(epochs: &[Epoch], x: &[SVector6]) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(rotation_gcrf_to_mod, rotate_state, epochs, x)
+pub fn states_gcrf_to_mod(
+    epochs: &[Epoch],
+    x_gcrf: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(rotation_gcrf_to_mod, rotate_state, epochs, x_gcrf)
 }
 
 /// Transforms a batch of Cartesian states from MOD to GCRF.
@@ -1033,8 +1036,11 @@ pub fn states_gcrf_to_mod(epochs: &[Epoch], x: &[SVector6]) -> Result<Vec<SVecto
 /// # References
 /// - SOFA `pn00b` notes 4-6 (`rbp = rp * rb`); SOFA cookbook Section 3.1
 ///   (classical precession) and Appendix p. A4 ("GCRF to MOD")
-pub fn states_mod_to_gcrf(epochs: &[Epoch], x: &[SVector6]) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(rotation_mod_to_gcrf, rotate_state, epochs, x)
+pub fn states_mod_to_gcrf(
+    epochs: &[Epoch],
+    x_mod: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(rotation_mod_to_gcrf, rotate_state, epochs, x_mod)
 }
 
 /// Transforms a Cartesian position in the mean equator and equinox of date
@@ -1439,8 +1445,11 @@ pub fn positions_tod_to_mod(
 /// - SOFA cookbook Section 5.4 p. 23 (correction conversion) and Section
 ///   3.2 (classical nutation); SOFA `numat` note 3, `pn00b` notes 2, 3, 7;
 ///   Capitaine & Wallace 2006, A&A 450, 855
-pub fn states_mod_to_tod(epochs: &[Epoch], x: &[SVector6]) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(rotation_mod_to_tod, rotate_state, epochs, x)
+pub fn states_mod_to_tod(
+    epochs: &[Epoch],
+    x_mod: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(rotation_mod_to_tod, rotate_state, epochs, x_mod)
 }
 
 /// Transforms a batch of Cartesian states from TOD to MOD.
@@ -1491,8 +1500,11 @@ pub fn states_mod_to_tod(epochs: &[Epoch], x: &[SVector6]) -> Result<Vec<SVector
 /// - SOFA cookbook Section 5.4 p. 23 (correction conversion) and Section
 ///   3.2 (classical nutation); SOFA `numat` note 3, `pn00b` notes 2, 3, 7;
 ///   Capitaine & Wallace 2006, A&A 450, 855
-pub fn states_tod_to_mod(epochs: &[Epoch], x: &[SVector6]) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(rotation_tod_to_mod, rotate_state, epochs, x)
+pub fn states_tod_to_mod(
+    epochs: &[Epoch],
+    x_tod: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(rotation_tod_to_mod, rotate_state, epochs, x_tod)
 }
 
 /// Transforms a Cartesian position in the GCRF to the equivalent position
@@ -1886,8 +1898,11 @@ pub fn positions_tod_to_gcrf(
 /// # References
 /// - SOFA `pn00b` note 8; SOFA cookbook Section 2.9 and Appendix p. A4
 ///   ("NPB: GCRS -> true of date")
-pub fn states_gcrf_to_tod(epochs: &[Epoch], x: &[SVector6]) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(rotation_gcrf_to_tod, rotate_state, epochs, x)
+pub fn states_gcrf_to_tod(
+    epochs: &[Epoch],
+    x_gcrf: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(rotation_gcrf_to_tod, rotate_state, epochs, x_gcrf)
 }
 
 /// Transforms a batch of Cartesian states from TOD to GCRF.
@@ -1937,8 +1952,11 @@ pub fn states_gcrf_to_tod(epochs: &[Epoch], x: &[SVector6]) -> Result<Vec<SVecto
 /// # References
 /// - SOFA `pn00b` note 8; SOFA cookbook Section 2.9 and Appendix p. A4
 ///   ("NPB: GCRS -> true of date")
-pub fn states_tod_to_gcrf(epochs: &[Epoch], x: &[SVector6]) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(rotation_tod_to_gcrf, rotate_state, epochs, x)
+pub fn states_tod_to_gcrf(
+    epochs: &[Epoch],
+    x_tod: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(rotation_tod_to_gcrf, rotate_state, epochs, x_tod)
 }
 
 /// Transforms a Cartesian position in the true equator and equinox of date
@@ -2338,8 +2356,11 @@ pub fn positions_itrf_to_tod(
 /// # References
 /// - SOFA `c2teqx` note 2; SOFA cookbook Section 3.5 (polar motion) and
 ///   Appendix p. A4 (`R3(GAST)`, `W` rows)
-pub fn states_tod_to_itrf(epochs: &[Epoch], x: &[SVector6]) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(tod_itrf_context, apply_state_tod_to_itrf, epochs, x)
+pub fn states_tod_to_itrf(
+    epochs: &[Epoch],
+    x_tod: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(tod_itrf_context, apply_state_tod_to_itrf, epochs, x_tod)
 }
 
 /// Transforms a batch of Cartesian states from ITRF to TOD.
@@ -2389,8 +2410,11 @@ pub fn states_tod_to_itrf(epochs: &[Epoch], x: &[SVector6]) -> Result<Vec<SVecto
 /// # References
 /// - SOFA `c2teqx` note 2; SOFA cookbook Section 3.5 (polar motion) and
 ///   Appendix p. A4 (`R3(GAST)`, `W` rows)
-pub fn states_itrf_to_tod(epochs: &[Epoch], x: &[SVector6]) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(tod_itrf_context, apply_state_itrf_to_tod, epochs, x)
+pub fn states_itrf_to_tod(
+    epochs: &[Epoch],
+    x_itrf: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_map_epochs(tod_itrf_context, apply_state_itrf_to_tod, epochs, x_itrf)
 }
 
 #[cfg(test)]

@@ -83,6 +83,48 @@ class TestFrameCommand:
         assert result.exit_code == 0
         assert "6878137" in result.stdout
 
+    def test_gcrf_to_tod(self):
+        """Test GCRF to TOD conversion through the CLI."""
+        result = runner.invoke(
+            app,
+            [
+                "transform",
+                "frame",
+                "GCRF",
+                "TOD",
+                "2024-01-01T00:00:00Z",
+                "6878137",
+                "0",
+                "0",
+                "0",
+                "7500",
+                "0",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "[" in result.stdout
+
+    def test_mod_to_gcrf(self):
+        """Test MOD to GCRF conversion through the CLI."""
+        result = runner.invoke(
+            app,
+            [
+                "transform",
+                "frame",
+                "MOD",
+                "GCRF",
+                "2024-01-01T00:00:00Z",
+                "6878137",
+                "0",
+                "0",
+                "0",
+                "7500",
+                "0",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "[" in result.stdout
+
 
 class TestCoordinatesCommand:
     """Test coordinates conversion command."""

@@ -16,6 +16,17 @@ def static_eop():
     brahe.set_global_eop_provider(eop)
 
 
+@pytest.fixture()
+def cookbook_eop():
+    pm_x = 0.0349282 * brahe.AS2RAD
+    pm_y = 0.4833163 * brahe.AS2RAD
+    ut1_utc = -0.072073685
+    dX = 0.0001750 * brahe.AS2RAD
+    dY = -0.0002259 * brahe.AS2RAD
+    eop = brahe.StaticEOPProvider.from_values(pm_x, pm_y, ut1_utc, dX, dY, 0.0)
+    brahe.set_global_eop_provider(eop)
+
+
 def test_bias_precession_nutation(static_eop):
     epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0, 0.0, brahe.UTC)
 
@@ -1604,3 +1615,161 @@ def test_batch_frame_router(eop):
     np.testing.assert_array_equal(same, positions)
     with pytest.raises(RuntimeError):
         brahe.state_frame_to_frame(RF.GCRF, RF.BodyFixedIAU(-1234), epochs, states)
+
+
+def test_celestial_frame_mod_tod_attrs():
+    assert brahe.CelestialFrame.from_string("MOD") == brahe.CelestialFrame.MOD
+    assert brahe.CelestialFrame.from_string("tod") == brahe.CelestialFrame.TOD
+    assert str(brahe.CelestialFrame.MOD) == "MOD"
+    assert str(brahe.CelestialFrame.TOD) == "TOD"
+
+
+def test_rotation_gcrf_to_tod_cookbook(cookbook_eop):
+    """Equinox chain GCRF -> TOD -> ITRF against SOFA cookbook 5.4 (2000B vs 2000A)."""
+    epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, brahe.UTC)
+
+    r = brahe.rotation_tod_to_itrf(epc) @ brahe.rotation_gcrf_to_tod(epc)
+
+    tol = 1e-8
+    assert r[0, 0] == approx(+0.973104317697618, abs=tol)
+    assert r[0, 1] == approx(+0.230363826238780, abs=tol)
+    assert r[0, 2] == approx(-0.000703163482352, abs=tol)
+    assert r[1, 0] == approx(-0.230363800455689, abs=tol)
+    assert r[1, 1] == approx(+0.973104570632883, abs=tol)
+    assert r[1, 2] == approx(+0.000118545366826, abs=tol)
+    assert r[2, 0] == approx(+0.000711560162864, abs=tol)
+    assert r[2, 1] == approx(+0.000046626403835, abs=tol)
+    assert r[2, 2] == approx(+0.999999745754024, abs=tol)
+
+    np.testing.assert_allclose(r, brahe.rotation_gcrf_to_itrf(epc), atol=1e-10)
+
+
+def test_equinox_building_blocks(cookbook_eop):
+    epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, brahe.UTC)
+    np.testing.assert_array_equal(
+        brahe.bias_precession(epc), brahe.rotation_gcrf_to_mod(epc)
+    )
+    np.testing.assert_array_equal(brahe.nutation(epc), brahe.rotation_mod_to_tod(epc))
+    np.testing.assert_allclose(
+        brahe.nutation(epc) @ brahe.bias_precession(epc),
+        brahe.rotation_gcrf_to_tod(epc),
+        atol=1e-15,
+    )
+    np.testing.assert_allclose(
+        brahe.polar_motion(epc) @ brahe.greenwich_apparent_sidereal_rotation(epc),
+        brahe.rotation_tod_to_itrf(epc),
+        atol=1e-15,
+    )
+
+
+def test_equinox_rotation_inverses(cookbook_eop):
+    epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, brahe.UTC)
+    for fwd, inv in [
+        (brahe.rotation_gcrf_to_mod, brahe.rotation_mod_to_gcrf),
+        (brahe.rotation_mod_to_tod, brahe.rotation_tod_to_mod),
+        (brahe.rotation_gcrf_to_tod, brahe.rotation_tod_to_gcrf),
+        (brahe.rotation_tod_to_itrf, brahe.rotation_itrf_to_tod),
+    ]:
+        np.testing.assert_array_equal(inv(epc), fwd(epc).T)
+
+
+def test_equinox_position_and_state_round_trips(eop):
+    epc = brahe.Epoch.from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, brahe.UTC)
+    oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
+    x = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
+    for fwd, inv in [
+        (brahe.state_gcrf_to_mod, brahe.state_mod_to_gcrf),
+        (brahe.state_mod_to_tod, brahe.state_tod_to_mod),
+        (brahe.state_gcrf_to_tod, brahe.state_tod_to_gcrf),
+        (brahe.state_tod_to_itrf, brahe.state_itrf_to_tod),
+    ]:
+        y = fwd(epc, x)
+        assert not np.allclose(y[:3], x[:3])
+        np.testing.assert_allclose(inv(epc, y)[:3], x[:3], atol=1e-6)
+        np.testing.assert_allclose(inv(epc, y)[3:], x[3:], atol=1e-9)
+    for fwd, inv in [
+        (brahe.position_gcrf_to_mod, brahe.position_mod_to_gcrf),
+        (brahe.position_mod_to_tod, brahe.position_tod_to_mod),
+        (brahe.position_gcrf_to_tod, brahe.position_tod_to_gcrf),
+        (brahe.position_tod_to_itrf, brahe.position_itrf_to_tod),
+    ]:
+        np.testing.assert_allclose(inv(epc, fwd(epc, x[:3])), x[:3], atol=1e-6)
+
+
+def test_state_tod_to_itrf_matches_cio_chain(eop):
+    epc = brahe.Epoch.from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, brahe.UTC)
+    oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
+    x_gcrf = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
+    x_tod = brahe.state_gcrf_to_tod(epc, x_gcrf)
+    via_tod = brahe.state_tod_to_itrf(epc, x_tod)
+    direct = brahe.state_gcrf_to_itrf(epc, x_gcrf)
+    np.testing.assert_allclose(via_tod[:3], direct[:3], atol=1e-3)
+    np.testing.assert_allclose(via_tod[3:], direct[3:], atol=1e-6)
+
+
+def test_equinox_batch_forms(eop):
+    epochs = _sample_epochs(3)
+    states = _sample_states(3)
+    out = brahe.state_gcrf_to_tod(epochs, states)
+    assert out.shape == (3, 6)
+    for i in range(3):
+        np.testing.assert_array_equal(
+            out[i], brahe.state_gcrf_to_tod(epochs[i], states[i])
+        )
+    rots = brahe.rotation_tod_to_itrf(epochs)
+    assert rots.shape == (3, 3, 3)
+    np.testing.assert_array_equal(rots[1], brahe.rotation_tod_to_itrf(epochs[1]))
+    pos = brahe.position_mod_to_tod(epochs[0], states[:, :3])
+    assert pos.shape == (3, 3)
+    np.testing.assert_array_equal(
+        pos[2], brahe.position_mod_to_tod(epochs[0], states[2, :3])
+    )
+
+
+def test_router_equinox_frames_match_pairwise(eop):
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x = np.array([brahe.R_EARTH + 500e3, 1.0e6, -2.0e6, 100.0, 7500.0, 200.0])
+    np.testing.assert_array_equal(
+        brahe.rotation_frame_to_frame(
+            brahe.CelestialFrame.GCRF, brahe.CelestialFrame.TOD, epc
+        ),
+        brahe.rotation_gcrf_to_tod(epc),
+    )
+    np.testing.assert_array_equal(
+        brahe.state_frame_to_frame(
+            brahe.CelestialFrame.TOD, brahe.CelestialFrame.GCRF, epc, x
+        ),
+        brahe.state_tod_to_gcrf(epc, x),
+    )
+    np.testing.assert_array_equal(
+        brahe.state_frame_to_frame(
+            brahe.CelestialFrame.MOD, brahe.CelestialFrame.GCRF, epc, x
+        ),
+        brahe.state_mod_to_gcrf(epc, x),
+    )
+    np.testing.assert_array_equal(
+        brahe.state_frame_to_frame(
+            brahe.CelestialFrame.GCRF, brahe.CelestialFrame.MOD, epc, x
+        ),
+        brahe.state_gcrf_to_mod(epc, x),
+    )
+    np.testing.assert_array_equal(
+        brahe.state_frame_to_frame(
+            brahe.CelestialFrame.GCRF, brahe.CelestialFrame.TOD, epc, x
+        ),
+        brahe.state_gcrf_to_tod(epc, x),
+    )
+    np.testing.assert_allclose(
+        brahe.rotation_frame_to_frame(
+            brahe.CelestialFrame.MOD, brahe.CelestialFrame.TOD, epc
+        ),
+        brahe.rotation_mod_to_tod(epc),
+        atol=1e-15,
+    )
+    np.testing.assert_allclose(
+        brahe.rotation_frame_to_frame(
+            brahe.CelestialFrame.TOD, brahe.CelestialFrame.ITRF, epc
+        ),
+        brahe.rotation_tod_to_itrf(epc),
+        atol=1e-10,
+    )

@@ -7,12 +7,14 @@
  * - ECI/ECEF: Earth-Centered Inertial and Earth-Centered Earth-Fixed (aliases for GCRF/ITRF)
  * - EME2000: Earth Mean Equator and Equinox of J2000.0
  * - EMR/SER/GSE: Earth-Moon Rotating, Sun-Earth Rotating, and Geocentric Solar Ecliptic (synodic frames)
+ * - MOD/TOD: Earth mean-of-date and true-of-date (equinox-based) frames
  */
 
 pub mod custom;
 pub mod eci_ecef;
 pub mod emb;
 pub mod eme_2000;
+pub mod equinox;
 pub mod frame;
 pub mod gcrf_itrf;
 // Not `pub`: chain resolution is internal machinery.
@@ -34,6 +36,7 @@ pub use custom::*;
 pub use eci_ecef::*;
 pub use emb::*;
 pub use eme_2000::*;
+pub use equinox::*;
 pub use frame::*;
 pub use gcrf_itrf::*;
 pub use iau_rotation::*;

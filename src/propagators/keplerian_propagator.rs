@@ -929,6 +929,92 @@ mod tests {
     }
 
     #[test]
+    #[serial]
+    fn test_keplerianpropagator_new_errors_when_orbit_relative_provider_fails() {
+        use crate::frames::object_registry::FnProvider;
+
+        setup_global_test_eop();
+        clear_object_registry();
+        register_object(
+            "CHIEF_FAIL",
+            FnProvider(|_epoch| Err(BraheError::Error("provider unavailable".to_string()))),
+            CelestialFrame::GCRF,
+        )
+        .unwrap();
+
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let state = create_cartesian_state();
+        let result = KeplerianPropagator::new(
+            epoch,
+            state,
+            ReferenceFrame::RTN("CHIEF_FAIL"),
+            OrbitRepresentation::Cartesian,
+            None,
+            60.0,
+        );
+
+        assert!(result.is_err());
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_keplerianpropagator_with_output_format_errors_when_orbit_relative_provider_fails() {
+        use crate::frames::object_registry::FnProvider;
+
+        setup_global_test_eop();
+        clear_object_registry();
+        register_object(
+            "CHIEF_FAIL",
+            FnProvider(|_epoch| Err(BraheError::Error("provider unavailable".to_string()))),
+            CelestialFrame::GCRF,
+        )
+        .unwrap();
+
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let prop = KeplerianPropagator::from_eci(epoch, create_cartesian_state(), 60.0).unwrap();
+
+        let result = prop.with_output_format(
+            ReferenceFrame::RTN("CHIEF_FAIL"),
+            OrbitRepresentation::Cartesian,
+            None,
+        );
+
+        assert!(result.is_err());
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_keplerianpropagator_set_initial_conditions_errors_when_orbit_relative_provider_fails() {
+        use crate::frames::object_registry::FnProvider;
+
+        setup_global_test_eop();
+        clear_object_registry();
+        register_object(
+            "CHIEF_FAIL",
+            FnProvider(|_epoch| Err(BraheError::Error("provider unavailable".to_string()))),
+            CelestialFrame::GCRF,
+        )
+        .unwrap();
+
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let mut prop =
+            KeplerianPropagator::from_eci(epoch, create_cartesian_state(), 60.0).unwrap();
+
+        let result = prop.set_initial_conditions(
+            epoch,
+            create_cartesian_state(),
+            ReferenceFrame::RTN("CHIEF_FAIL"),
+            OrbitRepresentation::Cartesian,
+            None,
+        );
+
+        assert!(result.is_err());
+        clear_object_registry();
+    }
+
+    #[test]
     #[should_panic(expected = "Angle format must be specified for Keplerian elements")]
     #[parallel]
     fn test_keplerianpropagator_new_invalid_angle_format() {

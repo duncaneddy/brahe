@@ -6289,6 +6289,54 @@ mod tests {
         }
     }
 
+    #[test]
+    #[parallel]
+    fn test_dorbittrajectory_state_koe_osc_from_eci_keplerian_degrees_to_radians() {
+        setup_global_test_eop();
+
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+        )
+        .unwrap();
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.01, 45.0, 15.0, 30.0, 60.0]);
+        traj.add(epoch, state.clone()).unwrap();
+
+        let koe = traj.state_koe_osc(epoch, AngleFormat::Radians).unwrap();
+        assert_abs_diff_eq!(koe[0], state[0], epsilon = 1e-6);
+        assert_abs_diff_eq!(koe[1], state[1], epsilon = 1e-9);
+        for i in 2..6 {
+            assert_abs_diff_eq!(koe[i], state[i] * DEG2RAD, epsilon = 1e-9);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dorbittrajectory_state_koe_osc_from_eci_keplerian_radians_to_degrees() {
+        setup_global_test_eop();
+
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+        )
+        .unwrap();
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.01, 0.5, 0.2, 0.4, 0.9]);
+        traj.add(epoch, state.clone()).unwrap();
+
+        let koe = traj.state_koe_osc(epoch, AngleFormat::Degrees).unwrap();
+        assert_abs_diff_eq!(koe[0], state[0], epsilon = 1e-6);
+        assert_abs_diff_eq!(koe[1], state[1], epsilon = 1e-9);
+        for i in 2..6 {
+            assert_abs_diff_eq!(koe[i], state[i] * RAD2DEG, epsilon = 1e-9);
+        }
+    }
+
     // ========== DOrbitCovarianceProvider Trait Tests ==========
 
     #[test]
@@ -6356,6 +6404,38 @@ mod tests {
         // ECEF covariances cannot be transformed to ECI
         let result = traj.covariance_eci(epoch);
         assert!(result.is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dorbittrajectory_covariance_eci_from_eme2000() {
+        setup_global_test_eop();
+
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::EME2000,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
+        traj.covariances = Some(Vec::new());
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov = DMatrix::identity(6, 6) * 100.0;
+        traj.add_state_and_covariance(epoch, state, cov).unwrap();
+
+        let retrieved = traj.covariance_eci(epoch).unwrap();
+        // The EME2000-GCRF frame bias rotation is a small angle, so the
+        // diagonal is preserved to within numerical precision.
+        for i in 0..6 {
+            assert_abs_diff_eq!(retrieved[(i, i)], 100.0, epsilon = 1e-3);
+        }
+        for i in 0..6 {
+            for j in 0..6 {
+                assert_abs_diff_eq!(retrieved[(i, j)], retrieved[(j, i)], epsilon = 1e-9);
+            }
+        }
     }
 
     #[test]

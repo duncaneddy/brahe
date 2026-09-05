@@ -4090,6 +4090,106 @@ mod tests {
             .unwrap();
     }
 
+    #[test]
+    #[serial]
+    fn test_sgppropagator_with_output_format_errors_when_orbit_relative_provider_fails() {
+        use crate::frames::object_registry::FnProvider;
+        use crate::frames::{clear_object_registry, register_object};
+
+        setup_global_test_eop();
+        clear_object_registry();
+        register_object(
+            "CHIEF_FAIL",
+            FnProvider(|_epoch| Err(BraheError::Error("provider unavailable".to_string()))),
+            CelestialFrame::GCRF,
+        )
+        .unwrap();
+
+        let result = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
+            .unwrap()
+            .with_output_format(
+                ReferenceFrame::RTN("CHIEF_FAIL"),
+                OrbitRepresentation::Cartesian,
+                None,
+            );
+
+        assert!(result.is_err());
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_sgppropagator_step_by_errors_when_orbit_relative_object_becomes_unavailable() {
+        use crate::frames::object_registry::FnProvider;
+        use crate::frames::{clear_object_registry, register_object, unregister_object};
+
+        setup_global_test_eop();
+        clear_object_registry();
+        let chief_state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        register_object(
+            "CHIEF_OK",
+            FnProvider(move |_epoch| Ok(chief_state)),
+            CelestialFrame::GCRF,
+        )
+        .unwrap();
+
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
+            .unwrap()
+            .with_output_format(
+                ReferenceFrame::RTN("CHIEF_OK"),
+                OrbitRepresentation::Cartesian,
+                None,
+            )
+            .unwrap();
+
+        // Remove the chief object so the next step can no longer resolve the
+        // RTN frame's rotation.
+        unregister_object(&"CHIEF_OK".into());
+
+        let result = prop.step_by(60.0);
+        assert!(result.is_err());
+
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_sgppropagator_step_by_errors_converting_event_state_when_orbit_relative_object_becomes_unavailable()
+     {
+        use crate::frames::object_registry::FnProvider;
+        use crate::frames::{clear_object_registry, register_object, unregister_object};
+
+        setup_global_test_eop();
+        clear_object_registry();
+        let chief_state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        register_object(
+            "CHIEF_OK",
+            FnProvider(move |_epoch| Ok(chief_state)),
+            CelestialFrame::GCRF,
+        )
+        .unwrap();
+
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
+            .unwrap()
+            .with_output_format(
+                ReferenceFrame::RTN("CHIEF_OK"),
+                OrbitRepresentation::Cartesian,
+                None,
+            )
+            .unwrap();
+        let epoch = prop.initial_epoch();
+        prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 30.0, "mid-step")));
+
+        // Remove the chief object so converting the event's state can no
+        // longer resolve the RTN frame's rotation.
+        unregister_object(&"CHIEF_OK".into());
+
+        let result = prop.step_by(60.0);
+        assert!(result.is_err());
+
+        clear_object_registry();
+    }
+
     // state_gcrf and state_eme2000 Tests (non-ignored basic tests)
 
     #[test]

@@ -5065,6 +5065,32 @@ mod tests {
 
     #[test]
     #[parallel]
+    fn test_orbittrajectory_stateprovider_state_koe_from_keplerian_radians_to_degrees() {
+        // Test SOrbitStateProvider::state_koe_osc() converting native radians to degrees
+        let mut traj = SOrbitTrajectory::new(
+            CelestialFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+        )
+        .unwrap();
+
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state_kep_rad = Vector6::new(R_EARTH + 500e3, 0.001, 1.71, 0.26, 0.52, 0.79);
+        traj.add(epoch, state_kep_rad).unwrap();
+
+        let result_deg = traj.state_koe_osc(epoch, AngleFormat::Degrees).unwrap();
+
+        assert_abs_diff_eq!(result_deg[0], state_kep_rad[0], epsilon = 1e-6);
+        assert_abs_diff_eq!(result_deg[1], state_kep_rad[1], epsilon = 1e-9);
+
+        use crate::constants::math::RAD2DEG;
+        for i in 2..6 {
+            assert_abs_diff_eq!(result_deg[i], state_kep_rad[i] * RAD2DEG, epsilon = 1e-9);
+        }
+    }
+
+    #[test]
+    #[parallel]
     fn test_orbittrajectory_stateprovider_state_koe_from_ecef() {
         setup_global_test_eop();
 
@@ -5414,6 +5440,26 @@ mod tests {
         for i in 0..6 {
             assert_abs_diff_eq!(cov_eci[(i, i)], 100.0, epsilon = 1e-3);
         }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_covariance_eci_error_ecef() {
+        setup_global_test_eop();
+
+        let mut traj =
+            SOrbitTrajectory::new(CelestialFrame::ECEF, OrbitRepresentation::Cartesian, None)
+                .unwrap();
+        traj.covariances = Some(Vec::new());
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 7500.0);
+        let cov = SMatrix::<f64, 6, 6>::identity();
+        traj.add_state_and_covariance(epoch, state, cov).unwrap();
+
+        // ECEF covariances cannot be transformed to ECI
+        let result = traj.covariance_eci(epoch);
+        assert!(result.is_err());
     }
 
     #[test]

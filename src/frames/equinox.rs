@@ -22,7 +22,11 @@ use crate::time::{Epoch, TimeSystem};
 /// Equinox-based precession-nutation products for one epoch, computed once
 /// and shared by the pairwise and batch transformations.
 pub(crate) struct EquinoxContext {
-    /// GCRF -> MOD bias-precession matrix (`rp * rb`).
+    /// GCRF -> MOD bias-precession matrix (`rp * rb`), as returned by
+    /// `iauPn00b`. `bias_precession` computes this independently via
+    /// `bias_precession_matrix` so it does not require Earth orientation
+    /// data; this field exists to cross-check that the two agree.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) rbp: SMatrix3,
     /// MOD -> TOD nutation matrix, including the IERS dPsi/dEps corrections.
     pub(crate) rn: SMatrix3,
@@ -129,6 +133,32 @@ impl EquinoxContext {
     }
 }
 
+/// Computes the IAU 2000 bias-precession matrix `rp * rb` at `tt` using
+/// `iauBp00` directly, without evaluating the nutation corrections that
+/// require Earth orientation data.
+///
+/// This is the same `rbp` that `iauPn00b` returns internally, since
+/// `iauPn00b` obtains it by calling `iauBp00`.
+///
+/// # Arguments
+/// - `tt`: TT as a Modified Julian Date. Units: (*days*)
+///
+/// # Returns
+/// - `rbp`: 3x3 rotation matrix transforming GCRF -> MOD
+///
+/// # References
+/// - SOFA `pn00b` notes 4-6 (`rbp = rp * rb`); SOFA cookbook Section 3.1
+///   (classical precession) and Appendix p. A4 (`B`, `P` rows)
+fn bias_precession_matrix(tt: f64) -> SMatrix3 {
+    let mut rb = [[0.0; 3]; 3];
+    let mut rp = [[0.0; 3]; 3];
+    let mut rbp = [[0.0; 3]; 3];
+    unsafe {
+        rsofa::iauBp00(MJD_ZERO, tt, &mut rb[0], &mut rp[0], &mut rbp[0]);
+    }
+    matrix3_from_array(&rbp)
+}
+
 /// Computes the bias-precession matrix transforming the GCRF to the mean
 /// equator and equinox of date (MOD) using the IAU 2000 precession model.
 ///
@@ -141,10 +171,6 @@ impl EquinoxContext {
 ///
 /// # Returns
 /// - `rbp`: 3x3 rotation matrix transforming GCRF -> MOD
-///
-/// # Panics
-/// Panics if Earth orientation data is unavailable for the requested epoch
-/// (the shared equinox context also evaluates the nutation corrections).
 ///
 /// # Examples
 /// ```
@@ -165,7 +191,7 @@ impl EquinoxContext {
 /// - SOFA `pn00b` notes 4-6 (`rbp = rp * rb`); SOFA cookbook Section 3.1
 ///   (classical precession) and Appendix p. A4 (`B`, `P` rows)
 pub fn bias_precession(epc: Epoch) -> SMatrix3 {
-    EquinoxContext::new(epc).rbp
+    bias_precession_matrix(epc.mjd_as_time_system(TimeSystem::TT))
 }
 
 /// Computes the nutation matrix transforming the mean equator and equinox
@@ -263,10 +289,6 @@ pub fn greenwich_apparent_sidereal_rotation(epc: Epoch) -> SMatrix3 {
 /// # Returns
 /// - `r`: 3x3 rotation matrix transforming GCRF -> MOD
 ///
-/// # Panics
-/// Panics if Earth orientation data is unavailable for the requested epoch
-/// (the shared equinox context also evaluates the nutation corrections).
-///
 /// # Examples
 /// ```
 /// use brahe::eop::*;
@@ -297,10 +319,6 @@ pub fn rotation_gcrf_to_mod(epc: Epoch) -> SMatrix3 {
 ///
 /// # Returns
 /// - `r`: 3x3 rotation matrix transforming MOD -> GCRF
-///
-/// # Panics
-/// Panics if Earth orientation data is unavailable for the requested epoch
-/// (the shared equinox context also evaluates the nutation corrections).
 ///
 /// # Examples
 /// ```
@@ -598,6 +616,39 @@ mod tests {
         }
         assert_matrix_eq(&bias_precession(epc), &matrix3_from_array(&rbp), 1e-15);
         assert_matrix_eq(&rotation_gcrf_to_mod(epc), &matrix3_from_array(&rbp), 1e-15);
+    }
+
+    #[test]
+    #[serial]
+    fn test_bias_precession_needs_no_eop() {
+        // Large dX/dY corrections have no effect on bias-precession: it does
+        // not read the nutation-only Earth orientation corrections at all.
+        set_global_eop_provider(StaticEOPProvider::from_values((
+            0.0,
+            0.0,
+            0.0,
+            1.0 * AS2RAD,
+            1.0 * AS2RAD,
+            0.0,
+        )));
+        let epc = cookbook_epoch();
+        let tt = epc.mjd_as_time_system(TimeSystem::TT);
+
+        let mut rb = [[0.0; 3]; 3];
+        let mut rp = [[0.0; 3]; 3];
+        let mut rbp = [[0.0; 3]; 3];
+        unsafe {
+            rsofa::iauBp00(MJD_ZERO, tt, &mut rb[0], &mut rp[0], &mut rbp[0]);
+        }
+        let oracle = matrix3_from_array(&rbp);
+        let from_fn = bias_precession(epc);
+        let from_ctx = EquinoxContext::new(epc).rbp;
+        for i in 0..3 {
+            for j in 0..3 {
+                assert_eq!(from_fn[(i, j)], oracle[(i, j)]);
+                assert_eq!(from_fn[(i, j)], from_ctx[(i, j)]);
+            }
+        }
     }
 
     #[test]

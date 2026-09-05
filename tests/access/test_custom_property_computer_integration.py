@@ -89,7 +89,7 @@ def test_custom_property_computer_polar_orbit():
         prop = bh.KeplerianPropagator(
             epoch,
             oe,
-            frame=bh.OrbitFrame.ECI,
+            frame=bh.CelestialFrame.ECI,
             representation=bh.OrbitRepresentation.KEPLERIAN,
             angle_format=bh.AngleFormat.RADIANS,
             step_size=60.0,
@@ -211,7 +211,7 @@ def test_property_computer_error_handling():
     propagator = bh.KeplerianPropagator(
         epoch,
         oe,
-        frame=bh.OrbitFrame.ECI,
+        frame=bh.CelestialFrame.ECI,
         representation=bh.OrbitRepresentation.KEPLERIAN,
         angle_format=bh.AngleFormat.RADIANS,
         step_size=60.0,
@@ -285,7 +285,7 @@ def test_property_computer_is_called():
     propagator = bh.KeplerianPropagator(
         epoch,
         oe,
-        frame=bh.OrbitFrame.ECI,
+        frame=bh.CelestialFrame.ECI,
         representation=bh.OrbitRepresentation.KEPLERIAN,
         angle_format=bh.AngleFormat.RADIANS,
         step_size=60.0,
@@ -368,7 +368,7 @@ def test_property_computer_wrong_signature_raises_error():
     propagator = bh.KeplerianPropagator(
         epoch,
         oe,
-        frame=bh.OrbitFrame.ECI,
+        frame=bh.CelestialFrame.ECI,
         representation=bh.OrbitRepresentation.KEPLERIAN,
         angle_format=bh.AngleFormat.RADIANS,
         step_size=60.0,

@@ -12,7 +12,7 @@ import numpy as np
 import plotly.graph_objects as go
 from loguru import logger
 
-from brahe._brahe import OrbitFrame, OrbitRepresentation, OrbitTrajectory
+from brahe._brahe import CelestialFrame, OrbitRepresentation, OrbitTrajectory
 from brahe.plots.backend import apply_scienceplots_style, validate_backend
 from brahe.plots.bodies import resolve_body
 from brahe.plots.texture_utils import load_body_texture
@@ -40,11 +40,9 @@ def plot_trajectory_3d(
     """Plot 3D trajectories about a central body.
 
     Trajectories are plotted in the central body's centered-inertial frame.
-    For Earth (the default), trajectories in any frame are converted via
-    ``to_eci()``. For other central bodies, trajectories must already be in
-    ``OrbitFrame.BodyCenteredInertial(naif_id)`` for that body's NAIF ID;
-    custom bodies without a NAIF ID are plotted using the trajectory's raw
-    Cartesian position, unconverted.
+    A trajectory declared in any other frame is converted to it via
+    ``to_frame()``. Custom bodies without a NAIF ID are plotted using the
+    trajectory's raw Cartesian position, unconverted.
 
     Args:
         trajectories (list of dict): List of trajectory groups, each with:
@@ -100,8 +98,10 @@ def plot_trajectory_3d(
         object: Generated figure (matplotlib.figure.Figure or plotly.graph_objects.Figure)
 
     Raises:
-        ValueError: If ``central_body`` is not recognized, or a trajectory's
-            frame does not match the expected body-centered-inertial frame.
+        ValueError: If ``central_body`` is not recognized, if a trajectory
+            cannot be converted to the central body's centered-inertial frame,
+            or if a non-Cartesian trajectory is plotted about a custom central
+            body that has no NAIF ID.
         TypeError: If a trajectory is not an OrbitTrajectory object.
 
     Example:
@@ -146,7 +146,7 @@ def plot_trajectory_3d(
         ])
         lunar_traj = bh.OrbitTrajectory.from_orbital_data(
             [epoch + i*60 for i in range(20)], states,
-            bh.OrbitFrame.BodyCenteredInertial(301),
+            bh.CelestialFrame.LCI,
             bh.OrbitRepresentation.CARTESIAN, None, None
         )
 
@@ -241,31 +241,37 @@ def _normalize_trajectory_groups(trajectories):
     return [{**defaults, **group} for group in trajectories]
 
 
+def _body_inertial_frame(naif_id):
+    """Centered inertial frame for a body's NAIF ID."""
+    named = {
+        399: CelestialFrame.GCRF,
+        301: CelestialFrame.LCI,
+        499: CelestialFrame.MCI,
+        3: CelestialFrame.EMBI,
+        0: CelestialFrame.SSBI,
+    }
+    return named.get(naif_id) or CelestialFrame.BodyCenteredICRF(naif_id)
+
+
 def _coerce_trajectory_frame(trajectory, body):
-    """Validate/convert a trajectory into the central body's centered-inertial frame."""
+    """Convert a trajectory into the central body's centered-inertial frame."""
     if not isinstance(trajectory, OrbitTrajectory):
         raise TypeError(
             f"Trajectory must be an OrbitTrajectory object, got {type(trajectory)}"
         )
 
-    if body["naif_id"] == 399:
+    if body["naif_id"] is not None:
+        frame = _body_inertial_frame(body["naif_id"])
         if (
-            trajectory.frame != OrbitFrame.ECI
+            trajectory.frame != frame
             or trajectory.representation != OrbitRepresentation.CARTESIAN
         ):
             logger.debug(
-                f"Converting trajectory from {trajectory.frame}/{trajectory.representation} to ECI/CARTESIAN"
+                f"Converting trajectory from {trajectory.frame}/"
+                f"{trajectory.representation} to {frame}/CARTESIAN"
             )
-            trajectory = trajectory.to_eci()
+            trajectory = trajectory.to_frame(frame)
         return trajectory
-
-    if body["naif_id"] is not None:
-        expected_frame = OrbitFrame.BodyCenteredInertial(body["naif_id"])
-        if trajectory.frame != expected_frame:
-            raise ValueError(
-                f"Trajectory frame {trajectory.frame} does not match the expected "
-                f"frame {expected_frame} for central body '{body['name']}'"
-            )
 
     if trajectory.representation != OrbitRepresentation.CARTESIAN:
         raise ValueError(

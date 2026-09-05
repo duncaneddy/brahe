@@ -27,29 +27,20 @@ use brahe::ccsds::common::{
     CCSDSFormat, CCSDSRefFrame, CCSDSTimeSystem, ODMHeader,
 };
 use brahe::ccsds::frames::ADMReferenceFrame;
-use brahe::ccsds::interop::ccsds_ref_frame_to_orbit_frame;
+use brahe::ccsds::interop::ccsds_ref_frame_to_reference_frame;
 use brahe::ccsds::oem::{OEM as RustOEM, OEMMetadata, OEMSegment, OEMStateVector};
 use brahe::ccsds::omm::OMM as RustOMM;
 use brahe::ccsds::opm::{OPM as RustOPM, OPMManeuver};
+use brahe::frames::{CelestialFrame, state_frame_to_frame};
 use brahe::trajectories::DOrbitTrajectory;
-use brahe::trajectories::traits::OrbitFrame;
 
 /// Push all states from a trajectory into an OEM segment, converting to the
 /// segment's declared reference frame using the trajectory's frame-aware methods.
 fn push_trajectory_states(seg: &mut OEMSegment, traj: &DOrbitTrajectory) -> Result<(), brahe::utils::BraheError> {
-    let orbit_frame = ccsds_ref_frame_to_orbit_frame(&seg.metadata.ref_frame)?;
+    let frame = ccsds_ref_frame_to_reference_frame(&seg.metadata.ref_frame)?;
     for epoch in traj.epochs.iter() {
-        let state = match orbit_frame {
-            OrbitFrame::EME2000 => traj.state_eme2000(*epoch)?,
-            OrbitFrame::GCRF => traj.state_gcrf(*epoch)?,
-            OrbitFrame::ECI => traj.state_eci(*epoch)?,
-            OrbitFrame::ECEF | OrbitFrame::ITRF => traj.state_itrf(*epoch)?,
-            OrbitFrame::BodyCenteredInertial(_) => {
-                return Err(brahe::utils::BraheError::Error(
-                    "body-centered inertial (non-Earth) trajectories cannot be exported to CCSDS Earth reference frames".to_string(),
-                ));
-            }
-        };
+        let x = traj.state_gcrf(*epoch)?;
+        let state = state_frame_to_frame(CelestialFrame::GCRF, frame.clone(), *epoch, x)?;
         seg.states.push(OEMStateVector {
             epoch: *epoch,
             position: [state[0], state[1], state[2]],
@@ -1042,26 +1033,23 @@ impl PyOEMSegment {
                         "Parent is not an OEM object"
                     ))?;
                 let ref_frame = oem_bound.borrow().inner.segments[*seg_idx].metadata.ref_frame.clone();
-                let orbit_frame = ccsds_ref_frame_to_orbit_frame(&ref_frame).map_err(|e| {
+                let frame = ccsds_ref_frame_to_reference_frame(&ref_frame).map_err(|e| {
                     pyo3::exceptions::PyValueError::new_err(format!(
                         "Unsupported ref_frame for trajectory conversion: {}", e
                     ))
                 })?;
 
                 for epoch in traj.epochs.iter() {
-                    let state = match orbit_frame {
-                        OrbitFrame::EME2000 => traj.state_eme2000(*epoch),
-                        OrbitFrame::GCRF => traj.state_gcrf(*epoch),
-                        OrbitFrame::ECI => traj.state_eci(*epoch),
-                        OrbitFrame::ECEF | OrbitFrame::ITRF => traj.state_itrf(*epoch),
-                        OrbitFrame::BodyCenteredInertial(_) => Err(brahe::utils::BraheError::Error(
-                            "body-centered inertial (non-Earth) trajectories cannot be exported to CCSDS Earth reference frames".to_string(),
-                        )),
-                    }.map_err(|e| {
-                        pyo3::exceptions::PyRuntimeError::new_err(format!(
-                            "Failed to convert trajectory state at {}: {}", epoch, e
-                        ))
-                    })?;
+                    let state = traj
+                        .state_gcrf(*epoch)
+                        .and_then(|x| {
+                            state_frame_to_frame(CelestialFrame::GCRF, frame.clone(), *epoch, x)
+                        })
+                        .map_err(|e| {
+                            pyo3::exceptions::PyRuntimeError::new_err(format!(
+                                "Failed to convert trajectory state at {}: {}", epoch, e
+                            ))
+                        })?;
 
                     let pos = vec![state[0], state[1], state[2]];
                     let vel = vec![state[3], state[4], state[5]];

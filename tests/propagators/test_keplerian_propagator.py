@@ -10,10 +10,11 @@ import pytest
 from brahe import (
     AngleFormat,
     BraheError,
+    CelestialFrame,
     Epoch,
     KeplerianPropagator,
-    OrbitFrame,
     OrbitRepresentation,
+    ReferenceFrame,
     TimeSystem,
     mean_motion,
     orbital_period,
@@ -64,7 +65,7 @@ def test_keplerianpropagator_new():
     propagator = KeplerianPropagator(
         epoch,
         elements,
-        OrbitFrame.ECI,
+        CelestialFrame.ECI,
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.RADIANS,
         60.0,
@@ -77,6 +78,41 @@ def test_keplerianpropagator_new():
     assert abs(state[1] - 0.01) < 1e-10
 
 
+def test_keplerianpropagator_accepts_reference_frame():
+    """The frame argument accepts a CelestialFrame or a ReferenceFrame."""
+    epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
+    elements = create_test_elements()
+
+    propagator = KeplerianPropagator(
+        epoch,
+        elements,
+        ReferenceFrame.celestial(CelestialFrame.GCRF),
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.RADIANS,
+        60.0,
+    )
+    assert propagator.trajectory.frame == CelestialFrame.GCRF
+
+    propagator.set_initial_conditions(
+        epoch,
+        elements,
+        ReferenceFrame.celestial(CelestialFrame.EME2000),
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.RADIANS,
+    )
+    assert propagator.trajectory.frame == CelestialFrame.EME2000
+
+    with pytest.raises(TypeError):
+        KeplerianPropagator(
+            epoch,
+            elements,
+            "GCRF",
+            OrbitRepresentation.KEPLERIAN,
+            AngleFormat.RADIANS,
+            60.0,
+        )
+
+
 def test_keplerianpropagator_new_invalid_angle_format():
     """Test that new() raises TypeError when angle_format is None for Keplerian elements"""
     epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
@@ -87,7 +123,7 @@ def test_keplerianpropagator_new_invalid_angle_format():
         KeplerianPropagator(
             epoch,
             elements,
-            OrbitFrame.ECI,
+            CelestialFrame.ECI,
             OrbitRepresentation.KEPLERIAN,
             None,  # Invalid: angle_format must be specified for Keplerian
             60.0,
@@ -104,7 +140,7 @@ def test_keplerianpropagator_new_invalid_frame():
         KeplerianPropagator(
             epoch,
             elements,
-            OrbitFrame.ECEF,
+            CelestialFrame.ECEF,
             OrbitRepresentation.KEPLERIAN,
             AngleFormat.RADIANS,
             60.0,
@@ -121,7 +157,7 @@ def test_keplerianpropagator_new_invalid_cartesian_angle_format():
         KeplerianPropagator(
             epoch,
             state,
-            OrbitFrame.ECI,
+            CelestialFrame.ECI,
             OrbitRepresentation.CARTESIAN,
             AngleFormat.RADIANS,
             60.0,
@@ -138,7 +174,7 @@ def test_keplerianpropagator_new_invalid_step_size_negative():
         KeplerianPropagator(
             epoch,
             elements,
-            OrbitFrame.ECI,
+            CelestialFrame.ECI,
             OrbitRepresentation.KEPLERIAN,
             AngleFormat.RADIANS,
             -10.0,
@@ -155,7 +191,7 @@ def test_keplerianpropagator_new_invalid_step_size_zero():
         KeplerianPropagator(
             epoch,
             elements,
-            OrbitFrame.ECI,
+            CelestialFrame.ECI,
             OrbitRepresentation.KEPLERIAN,
             AngleFormat.RADIANS,
             0.0,
@@ -531,7 +567,7 @@ def test_keplerianpropagator_orbitpropagator_set_initial_conditions():
     propagator.set_initial_conditions(
         new_epoch,
         new_elements,
-        OrbitFrame.ECI,
+        CelestialFrame.ECI,
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.RADIANS,
     )
@@ -1005,7 +1041,7 @@ def test_orbit_propagator_step():
     prop = KeplerianPropagator(
         epoch,
         elements,
-        OrbitFrame.ECI,
+        CelestialFrame.ECI,
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.DEGREES,
         60.0,
@@ -1029,7 +1065,7 @@ def test_orbit_propagator_step_past():
     prop = KeplerianPropagator(
         epoch,
         elements,
-        OrbitFrame.ECI,
+        CelestialFrame.ECI,
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.DEGREES,
         60.0,
@@ -1052,7 +1088,7 @@ def test_orbit_propagator_step_past_already_past():
     prop = KeplerianPropagator(
         epoch,
         elements,
-        OrbitFrame.ECI,
+        CelestialFrame.ECI,
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.DEGREES,
         60.0,
@@ -1078,7 +1114,7 @@ def test_orbit_propagator_propagate_steps():
     prop = KeplerianPropagator(
         epoch,
         elements,
-        OrbitFrame.ECI,
+        CelestialFrame.ECI,
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.DEGREES,
         60.0,
@@ -1104,7 +1140,7 @@ def test_orbit_propagator_propagate_to():
     prop = KeplerianPropagator(
         epoch,
         elements,
-        OrbitFrame.ECI,
+        CelestialFrame.ECI,
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.DEGREES,
         60.0,
@@ -1128,7 +1164,7 @@ def test_orbit_propagator_propagate_to_past_epoch():
     prop = KeplerianPropagator(
         epoch,
         elements,
-        OrbitFrame.ECI,
+        CelestialFrame.ECI,
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.DEGREES,
         60.0,
@@ -1159,7 +1195,7 @@ def test_state_provider_states():
     prop = KeplerianPropagator(
         epoch,
         elements,
-        OrbitFrame.ECI,
+        CelestialFrame.ECI,
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.DEGREES,
         60.0,
@@ -1205,7 +1241,7 @@ def test_state_provider_states_eci():
     prop = KeplerianPropagator(
         epoch,
         elements,
-        OrbitFrame.ECI,
+        CelestialFrame.ECI,
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.DEGREES,
         60.0,
@@ -1229,7 +1265,7 @@ def test_state_provider_states_ecef():
     prop = KeplerianPropagator(
         epoch,
         elements,
-        OrbitFrame.ECI,
+        CelestialFrame.ECI,
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.DEGREES,
         60.0,
@@ -1253,7 +1289,7 @@ def test_state_provider_states_gcrf():
     prop = KeplerianPropagator(
         epoch,
         elements,
-        OrbitFrame.ECI,
+        CelestialFrame.ECI,
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.DEGREES,
         60.0,
@@ -1277,7 +1313,7 @@ def test_state_provider_states_itrf():
     prop = KeplerianPropagator(
         epoch,
         elements,
-        OrbitFrame.ECI,
+        CelestialFrame.ECI,
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.DEGREES,
         60.0,
@@ -1304,7 +1340,7 @@ def test_state_provider_states_bci_bcbf_in_frame():
     prop = KeplerianPropagator(
         epoch,
         elements,
-        OrbitFrame.ECI,
+        CelestialFrame.ECI,
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.DEGREES,
         60.0,

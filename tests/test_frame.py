@@ -287,7 +287,7 @@ def test_register_object_orbit_trajectory_extra_dimensions(clear_frame_registrie
     epc0 = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
     x = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0, 1.0, 2.0, 3.0])
     traj = bh.OrbitTrajectory(
-        9, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None
+        9, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None
     )
     traj.add(epc0, x)
     bh.register_object("SC", traj, bh.CelestialFrame.GCRF)
@@ -305,7 +305,7 @@ def test_register_object_orbit_trajectory_keplerian_representation_rejected(
     traj = bh.OrbitTrajectory.from_orbital_data(
         [epc0],
         oe,
-        bh.OrbitFrame.ECI,
+        bh.CelestialFrame.ECI,
         bh.OrbitRepresentation.KEPLERIAN,
         bh.AngleFormat.DEGREES,
         None,
@@ -319,7 +319,7 @@ def test_register_object_orbit_trajectory(clear_frame_registries):
     epochs = [epc0]
     x = np.array([[bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0]])
     traj = bh.OrbitTrajectory.from_orbital_data(
-        epochs, x, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, None
+        epochs, x, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, None
     )
     bh.register_object("SC", traj, bh.CelestialFrame.GCRF)
     # The object's own position expressed in its own RTN frame is the origin.

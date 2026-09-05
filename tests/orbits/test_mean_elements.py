@@ -595,7 +595,7 @@ class TestStateKoeMeanOnProviders:
         """Test OrbitTrajectory.state_koe_mean returns different values from osculating."""
         traj = brahe.OrbitTrajectory(
             6,
-            brahe.OrbitFrame.ECI,
+            brahe.CelestialFrame.ECI,
             brahe.OrbitRepresentation.CARTESIAN,
             None,
         )

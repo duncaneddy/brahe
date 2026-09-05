@@ -449,19 +449,20 @@ impl PySGPPropagator {
     /// Set output format (frame, representation, and angle format).
     ///
     /// Args:
-    ///     frame (OrbitFrame): Output frame (ECI or ECEF).
+    ///     frame (CelestialFrame or ReferenceFrame): Output frame (ECI or ECEF).
     ///     representation (OrbitRepresentation): Output representation (Cartesian or Keplerian).
     ///     angle_format (AngleFormat or None): Angle format for Keplerian (None for Cartesian).
     #[pyo3(text_signature = "(frame, representation, angle_format)")]
     pub fn set_output_format(
         &mut self,
-        frame: PyRef<PyOrbitFrame>,
+        frame: &Bound<'_, PyAny>,
         representation: PyRef<PyOrbitRepresentation>,
         angle_format: Option<PyRef<PyAngleFormat>>,
     ) -> PyResult<()> {
+        let frame = extract_frame(frame)?;
         let angle_fmt = angle_format.map(|af| af.value);
         self.propagator = self.propagator.clone().with_output_format(
-            frame.frame,
+            frame,
             representation.representation,
             angle_fmt,
         )?;
@@ -2170,7 +2171,7 @@ impl PySGPPropagatorBuilder {
     /// frame/representation/angle-format combinations it accepts.
     ///
     /// Args:
-    ///     frame (OrbitFrame): Output frame (ECI or ECEF).
+    ///     frame (CelestialFrame or ReferenceFrame): Output frame (ECI or ECEF).
     ///     representation (OrbitRepresentation): Output representation (Cartesian or Keplerian).
     ///     angle_format (AngleFormat or None): Angle format for Keplerian (None for Cartesian).
     ///
@@ -2178,16 +2179,17 @@ impl PySGPPropagatorBuilder {
     ///     SGPPropagatorBuilder: The builder, for method chaining.
     fn output_format<'a>(
         mut slf: PyRefMut<'a, Self>,
-        frame: PyRef<PyOrbitFrame>,
+        frame: &Bound<'_, PyAny>,
         representation: PyRef<PyOrbitRepresentation>,
         angle_format: Option<PyRef<PyAngleFormat>>,
-    ) -> PyRefMut<'a, Self> {
+    ) -> PyResult<PyRefMut<'a, Self>> {
+        let frame = extract_frame(frame)?;
         let angle_fmt = angle_format.map(|af| af.value);
         slf.inner = slf
             .inner
             .take()
-            .map(|b| b.output_format(frame.frame, representation.representation, angle_fmt));
-        slf
+            .map(|b| b.output_format(frame, representation.representation, angle_fmt));
+        Ok(slf)
     }
 
     /// Construct the propagator from the accumulated configuration.
@@ -2257,7 +2259,7 @@ impl PySGPPropagatorBuilder {
 ///     # Create from Cartesian state
 ///     x_cart = np.array([7000000.0, 0.0, 0.0, 0.0, 7546.0, 0.0])
 ///     prop2 = bh.KeplerianPropagator(
-///         epc0, x_cart, bh.OrbitFrame.ECI,
+///         epc0, x_cart, bh.CelestialFrame.ECI,
 ///         bh.OrbitRepresentation.CARTESIAN,
 ///         bh.AngleFormat.RADIANS, 60.0
 ///     )
@@ -2275,7 +2277,7 @@ impl PyKeplerianPropagator {
     /// Args:
     ///     epoch (Epoch): Initial epoch.
     ///     state (numpy.ndarray): 6-element state vector.
-    ///     frame (OrbitFrame): Reference frame.
+    ///     frame (CelestialFrame or ReferenceFrame): Reference frame.
     ///     representation (OrbitRepresentation): State representation.
     ///     angle_format (AngleFormat): Angle format (only for Keplerian).
     ///     step_size (float): Step size in seconds for propagation.
@@ -2287,11 +2289,12 @@ impl PyKeplerianPropagator {
     pub fn new(
         epoch: PyRef<PyEpoch>,
         state: PyReadonlyArray1<f64>,
-        frame: PyRef<PyOrbitFrame>,
+        frame: &Bound<'_, PyAny>,
         representation: PyRef<PyOrbitRepresentation>,
         angle_format: PyRef<PyAngleFormat>,
         step_size: f64,
     ) -> PyResult<Self> {
+        let frame = extract_frame(frame)?;
         let state_array = state.as_array();
         if state_array.len() != 6 {
             return Err(exceptions::PyValueError::new_err(
@@ -2308,7 +2311,7 @@ impl PyKeplerianPropagator {
         let propagator = propagators::KeplerianPropagator::new(
             epoch.obj,
             state_vec,
-            frame.frame,
+            frame,
             representation.representation,
             Some(angle_format.value),
             step_size,
@@ -2524,7 +2527,7 @@ impl PyKeplerianPropagator {
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
     ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
-    ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+    ///     prop = bh.KeplerianPropagator(epc, state, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     prop.step()  # Advance by default step_size (60 seconds)
     ///     print(f"Advanced to: {prop.current_epoch()}")
     ///     ```
@@ -2549,7 +2552,7 @@ impl PyKeplerianPropagator {
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
     ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
-    ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+    ///     prop = bh.KeplerianPropagator(epc, state, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     prop.step_by(120.0)  # Advance by 120 seconds
     ///     print(f"Advanced to: {prop.current_epoch()}")
     ///     ```
@@ -2574,7 +2577,7 @@ impl PyKeplerianPropagator {
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
     ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
-    ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+    ///     prop = bh.KeplerianPropagator(epc, state, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     target = epc + 300.0  # Target 5 minutes ahead
     ///     prop.step_past(target)
     ///     print(f"Advanced to: {prop.current_epoch()}")
@@ -2600,7 +2603,7 @@ impl PyKeplerianPropagator {
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
     ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
-    ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+    ///     prop = bh.KeplerianPropagator(epc, state, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     prop.propagate_steps(10)  # Take 10 steps (600 seconds total)
     ///     print(f"Advanced to: {prop.current_epoch()}")
     ///     ```
@@ -2625,7 +2628,7 @@ impl PyKeplerianPropagator {
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
     ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
-    ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+    ///     prop = bh.KeplerianPropagator(epc, state, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     target = epc + 3600.0  # Propagate to 1 hour ahead
     ///     prop.propagate_to(target)
     ///     print(f"Propagated to: {prop.current_epoch()}")
@@ -2648,7 +2651,7 @@ impl PyKeplerianPropagator {
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
     ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
-    ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+    ///     prop = bh.KeplerianPropagator(epc, state, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     prop.propagate_steps(10)
     ///     prop.reset()  # Return to initial epoch and state
     ///     print(f"Reset to: {prop.current_epoch()}")
@@ -2663,7 +2666,7 @@ impl PyKeplerianPropagator {
     /// Args:
     ///     epoch (Epoch): Initial epoch.
     ///     state (numpy.ndarray): Initial state vector.
-    ///     frame (OrbitFrame): Reference frame.
+    ///     frame (CelestialFrame or ReferenceFrame): Reference frame.
     ///     representation (OrbitRepresentation): State representation.
     ///     angle_format (AngleFormat): Angle format.
     ///
@@ -2675,13 +2678,13 @@ impl PyKeplerianPropagator {
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
     ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
-    ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+    ///     prop = bh.KeplerianPropagator(epc, state, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///
     ///     # Change initial conditions to a different orbit
     ///     new_oe = np.array([bh.R_EARTH + 800e3, 0.02, 1.2, 0.5, 0.3, 0.0])
     ///     new_state = bh.state_koe_to_eci(new_oe, bh.AngleFormat.RADIANS)
     ///     new_epc = bh.Epoch.from_datetime(2024, 1, 2, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     prop.set_initial_conditions(new_epc, new_state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, bh.AngleFormat.RADIANS)
+    ///     prop.set_initial_conditions(new_epc, new_state, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, bh.AngleFormat.RADIANS)
     ///     print(f"New initial epoch: {prop.initial_epoch}")
     ///     ```
     #[pyo3(text_signature = "(epoch, state, frame, representation, angle_format)")]
@@ -2689,10 +2692,11 @@ impl PyKeplerianPropagator {
         &mut self,
         epoch: PyRef<PyEpoch>,
         state: PyReadonlyArray1<f64>,
-        frame: PyRef<PyOrbitFrame>,
+        frame: &Bound<'_, PyAny>,
         representation: PyRef<PyOrbitRepresentation>,
         angle_format: PyRef<PyAngleFormat>,
     ) -> PyResult<()> {
+        let frame = extract_frame(frame)?;
         let state_array = state.as_array();
         if state_array.len() != 6 {
             return Err(exceptions::PyValueError::new_err(
@@ -2709,7 +2713,7 @@ impl PyKeplerianPropagator {
         self.propagator.set_initial_conditions(
             epoch.obj,
             state_vec,
-            frame.frame,
+            frame,
             representation.representation,
             Some(angle_format.value),
         )?;
@@ -2730,7 +2734,7 @@ impl PyKeplerianPropagator {
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
     ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
-    ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+    ///     prop = bh.KeplerianPropagator(epc, state, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     prop.set_eviction_policy_max_size(100)  # Keep only 100 most recent states
     ///     prop.propagate_steps(200)
     ///     print(f"Trajectory length: {prop.trajectory.len()}")
@@ -2756,7 +2760,7 @@ impl PyKeplerianPropagator {
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
     ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
-    ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+    ///     prop = bh.KeplerianPropagator(epc, state, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     prop.set_eviction_policy_max_age(3600.0)  # Keep only states within 1 hour
     ///     prop.propagate_to(epc + 7200.0)  # Propagate 2 hours
     ///     print(f"Trajectory length: {prop.trajectory.len()}")
@@ -3235,7 +3239,7 @@ impl PyKeplerianPropagator {
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
     ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
-    ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+    ///     prop = bh.KeplerianPropagator(epc, state, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     prop.propagate_steps(10)
     ///     traj = prop.trajectory
     ///     print(f"Trajectory contains {traj.len()} states")
@@ -3261,7 +3265,7 @@ impl PyKeplerianPropagator {
         let mut d_traj = trajectories::DOrbitTrajectory::from_orbital_data(
             traj.epochs.clone(),
             states,
-            traj.frame,
+            traj.frame.clone(),
             traj.representation,
             traj.angle_format,
             covariances,

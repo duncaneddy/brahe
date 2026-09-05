@@ -23,7 +23,7 @@ def create_test_window():
     propagator = bh.KeplerianPropagator(
         epoch,
         oe,
-        frame=bh.OrbitFrame.ECI,
+        frame=bh.CelestialFrame.ECI,
         representation=bh.OrbitRepresentation.KEPLERIAN,
         angle_format=bh.AngleFormat.RADIANS,
         step_size=60.0,
@@ -122,7 +122,7 @@ def test_auto_naming_with_named_location_and_satellite():
     propagator = bh.KeplerianPropagator(
         epoch,
         oe,
-        frame=bh.OrbitFrame.ECI,
+        frame=bh.CelestialFrame.ECI,
         representation=bh.OrbitRepresentation.KEPLERIAN,
         angle_format=bh.AngleFormat.RADIANS,
         step_size=60.0,
@@ -156,7 +156,7 @@ def test_auto_naming_without_names():
     propagator = bh.KeplerianPropagator(
         epoch,
         oe,
-        frame=bh.OrbitFrame.ECI,
+        frame=bh.CelestialFrame.ECI,
         representation=bh.OrbitRepresentation.KEPLERIAN,
         angle_format=bh.AngleFormat.RADIANS,
         step_size=60.0,
@@ -193,7 +193,7 @@ def test_location_satellite_identification():
     propagator = bh.KeplerianPropagator(
         epoch,
         oe,
-        frame=bh.OrbitFrame.ECI,
+        frame=bh.CelestialFrame.ECI,
         representation=bh.OrbitRepresentation.KEPLERIAN,
         angle_format=bh.AngleFormat.RADIANS,
         step_size=60.0,
@@ -293,7 +293,7 @@ def test_counter_increments():
     propagator = bh.KeplerianPropagator(
         epoch,
         oe,
-        frame=bh.OrbitFrame.ECI,
+        frame=bh.CelestialFrame.ECI,
         representation=bh.OrbitRepresentation.KEPLERIAN,
         angle_format=bh.AngleFormat.RADIANS,
         step_size=60.0,

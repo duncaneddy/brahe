@@ -6,6 +6,8 @@ import plotly.graph_objects as go
 import pytest
 
 import brahe as bh
+from brahe.plots.bodies import resolve_body
+from brahe.plots.trajectory_3d import _coerce_trajectory_frame
 
 
 @pytest.fixture
@@ -49,7 +51,7 @@ def lunar_trajectory():
     return bh.OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        bh.OrbitFrame.BodyCenteredInertial(301),
+        bh.CelestialFrame.LCI,
         bh.OrbitRepresentation.CARTESIAN,
         None,
         None,
@@ -265,26 +267,37 @@ def test_plot_trajectory_3d_moon_centered(lunar_trajectory):
     plt.close(fig)
 
 
-def test_plot_trajectory_3d_moon_centered_keplerian_rejected():
-    """A Keplerian-representation trajectory in the right frame must be
-    rejected rather than silently plotted as bogus Cartesian data."""
+def test_plot_trajectory_3d_moon_centered_keplerian_converted():
+    """A Keplerian-representation trajectory about a body with a NAIF ID is
+    converted to that body's centered-inertial Cartesian frame rather than
+    being plotted as bogus Cartesian data."""
     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     traj = bh.OrbitTrajectory(
         6,
-        bh.OrbitFrame.BodyCenteredInertial(301),
+        bh.CelestialFrame.LCI,
         bh.OrbitRepresentation.KEPLERIAN,
         bh.AngleFormat.DEGREES,
     )
     oe = np.array([bh.R_MOON + 100e3, 0.01, 45.0, 0.0, 0.0, 0.0])
-    traj.add(epoch, oe)
+    for i in range(10):
+        oe_i = oe.copy()
+        oe_i[5] = 10.0 * i
+        traj.add(epoch + i * 60.0, oe_i)
 
-    with pytest.raises(ValueError, match="CARTESIAN"):
-        bh.plot_trajectory_3d(
-            [{"trajectory": traj, "label": "LLO"}],
-            central_body="moon",
-            texture="simple",
-            backend="matplotlib",
-        )
+    converted = _coerce_trajectory_frame(traj, resolve_body("moon"))
+    assert converted.frame == bh.CelestialFrame.LCI
+    assert converted.representation == bh.OrbitRepresentation.CARTESIAN
+    radius = np.linalg.norm(converted.to_matrix()[0, 0:3])
+    assert radius == pytest.approx(oe[0] * (1.0 - oe[1]), rel=1e-9)
+
+    fig = bh.plot_trajectory_3d(
+        [{"trajectory": traj, "label": "LLO"}],
+        central_body="moon",
+        texture="simple",
+        backend="matplotlib",
+    )
+    assert fig is not None
+    plt.close(fig)
 
 
 def test_plot_trajectory_3d_custom_body_keplerian_rejected():
@@ -295,7 +308,7 @@ def test_plot_trajectory_3d_custom_body_keplerian_rejected():
     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     traj = bh.OrbitTrajectory(
         6,
-        bh.OrbitFrame.BodyCenteredInertial(301),
+        bh.CelestialFrame.LCI,
         bh.OrbitRepresentation.KEPLERIAN,
         bh.AngleFormat.DEGREES,
     )

@@ -45,8 +45,9 @@ use crate::propagators::{
 use crate::relative_motion::rotation_eci_to_rtn;
 use crate::spice::{SPICEKernel, moon_position_spice, spk_position, spk_state, sun_position_spice};
 use crate::time::Epoch;
-use crate::traits::{OrbitFrame, OrbitRepresentation};
+use crate::traits::OrbitRepresentation;
 use crate::trajectories::DOrbitTrajectory;
+use crate::trajectories::traits::bci_reference_frame;
 use crate::trajectories::traits::{
     InterpolatableTrajectory, STMStorage, SensitivityStorage, Trajectory,
 };
@@ -1077,8 +1078,8 @@ impl DNumericalOrbitPropagator {
         // stored states and Earth-frame trajectory conversions are rejected
         // for non-Earth propagators.
         let trajectory_frame = match force_config.central_body {
-            CentralBody::Earth => OrbitFrame::ECI,
-            ref cb => OrbitFrame::BodyCenteredInertial(cb.naif_id()),
+            CentralBody::Earth => CelestialFrame::GCRF,
+            ref cb => bci_reference_frame(cb.naif_id()),
         };
         let trajectory = DOrbitTrajectory::new(
             state_dim,
@@ -3324,8 +3325,8 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
         // Clear trajectory, keeping the frame metadata consistent with the
         // central body (ECI for Earth, body-centered inertial otherwise).
         let trajectory_frame = match self.central_body.as_ref() {
-            CentralBody::Earth => OrbitFrame::ECI,
-            cb => OrbitFrame::BodyCenteredInertial(cb.naif_id()),
+            CentralBody::Earth => CelestialFrame::GCRF,
+            cb => bci_reference_frame(cb.naif_id()),
         };
         self.trajectory = DOrbitTrajectory::new(
             self.state_dim,
@@ -7557,7 +7558,7 @@ mod tests {
         let mut kep_prop = KeplerianPropagator::new(
             epoch,
             state,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             60.0,
@@ -14107,10 +14108,7 @@ mod tests {
         setup_global_test_eop();
 
         let (mut prop, epoch0, _x0) = lunar_point_mass_propagator_at_epoch0();
-        assert_eq!(
-            prop.trajectory().frame,
-            OrbitFrame::BodyCenteredInertial(301)
-        );
+        assert_eq!(prop.trajectory().frame, CelestialFrame::LCI);
 
         // Earth-frame conversions on the body-centered trajectory re-center
         // through SPK instead of mislabeling LCI samples as geocentric: the
@@ -14147,10 +14145,7 @@ mod tests {
 
         // reset preserves the body-centered frame metadata.
         prop.reset();
-        assert_eq!(
-            prop.trajectory().frame,
-            OrbitFrame::BodyCenteredInertial(301)
-        );
+        assert_eq!(prop.trajectory().frame, CelestialFrame::LCI);
 
         // Earth-centered propagators keep the ECI label and conversions.
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -14166,7 +14161,7 @@ mod tests {
             None,
         )
         .unwrap();
-        assert_eq!(earth_prop.trajectory().frame, OrbitFrame::ECI);
+        assert_eq!(earth_prop.trajectory().frame, CelestialFrame::ECI);
         earth_prop.propagate_to(epoch + 60.0).unwrap();
         assert!(earth_prop.trajectory().state_eci(epoch).is_ok());
     }

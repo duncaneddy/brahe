@@ -13,7 +13,8 @@
  * # Examples
  * ```rust
  * use brahe::trajectories::{DTrajectory, STrajectory6, SOrbitTrajectory, DOrbitTrajectory};
- * use brahe::traits::{Trajectory, OrbitFrame, OrbitRepresentation};
+ * use brahe::traits::{Trajectory, OrbitRepresentation};
+ * use brahe::frames::CelestialFrame;
  *
  * // Dynamic trajectory - any dimension
  * let mut dyn_traj = DTrajectory::new(7).unwrap(); // 7-dimensional
@@ -23,7 +24,7 @@
  *
  * // Static orbital trajectory - 6D with orbital-specific features
  * let mut sorbit_traj = SOrbitTrajectory::new(
- *     OrbitFrame::ECI,
+ *     CelestialFrame::ECI,
  *     OrbitRepresentation::Cartesian,
  *     None,
  * );
@@ -31,7 +32,7 @@
  * // Dynamic orbital trajectory - 6D with orbital-specific features
  * let mut dorbit_traj = DOrbitTrajectory::new(
  *     6,  // dimension
- *     OrbitFrame::ECI,
+ *     CelestialFrame::ECI,
  *     OrbitRepresentation::Cartesian,
  *     None,
  * );

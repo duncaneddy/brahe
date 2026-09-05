@@ -31,36 +31,36 @@ use crate::frames::{
 use crate::time::Epoch;
 use crate::trajectories::dorbit_trajectory::DOrbitTrajectory;
 use crate::trajectories::sorbit_trajectory::SOrbitTrajectory;
-use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
+use crate::trajectories::traits::{OrbitRepresentation, Trajectory};
 use crate::trajectories::{AttitudeInterpolationMethod, AttitudeState, AttitudeTrajectory};
 use crate::types::GPRecord;
 use crate::utils::errors::BraheError;
 
-/// Map a CCSDS reference frame to a brahe `OrbitFrame`.
+/// Map a CCSDS reference frame to a brahe `CelestialFrame`.
 ///
 /// Only inertial and terrestrial frames supported by brahe are mapped.
 /// Orbit-relative frames (RTN, TNW, RSW) and exotic frames return an error.
-pub fn ccsds_ref_frame_to_orbit_frame(frame: &CCSDSRefFrame) -> Result<OrbitFrame, BraheError> {
+pub fn ccsds_ref_frame_to_orbit_frame(frame: &CCSDSRefFrame) -> Result<CelestialFrame, BraheError> {
     match frame {
-        CCSDSRefFrame::EME2000 => Ok(OrbitFrame::EME2000),
-        CCSDSRefFrame::J2000 => Ok(OrbitFrame::EME2000),
-        CCSDSRefFrame::GCRF => Ok(OrbitFrame::GCRF),
+        CCSDSRefFrame::EME2000 => Ok(CelestialFrame::EME2000),
+        CCSDSRefFrame::J2000 => Ok(CelestialFrame::EME2000),
+        CCSDSRefFrame::GCRF => Ok(CelestialFrame::GCRF),
         CCSDSRefFrame::ITRF2000
         | CCSDSRefFrame::ITRF93
         | CCSDSRefFrame::ITRF97
         | CCSDSRefFrame::ITRF2005
         | CCSDSRefFrame::ITRF2008
-        | CCSDSRefFrame::ITRF2014 => Ok(OrbitFrame::ITRF),
+        | CCSDSRefFrame::ITRF2014 => Ok(CelestialFrame::ITRF),
         CCSDSRefFrame::TEME => Err(BraheError::Error(
-            "Cannot map CCSDS frame 'TEME' to brahe OrbitFrame. TEME is not equivalent to GCRF or EME2000. \
+            "Cannot map CCSDS frame 'TEME' to brahe CelestialFrame. TEME is not equivalent to GCRF or EME2000. \
              Use frame conversion before creating a trajectory.".to_string(),
         )),
         CCSDSRefFrame::TOD => Err(BraheError::Error(
-            "Cannot map CCSDS frame 'TOD' to brahe OrbitFrame. TOD is not equivalent to GCRF or EME2000. \
+            "Cannot map CCSDS frame 'TOD' to brahe CelestialFrame. TOD is not equivalent to GCRF or EME2000. \
              Use frame conversion before creating a trajectory.".to_string(),
         )),
         _ => Err(BraheError::Error(format!(
-            "Cannot map CCSDS frame '{}' to brahe OrbitFrame",
+            "Cannot map CCSDS frame '{}' to brahe CelestialFrame",
             frame
         ))),
     }
@@ -233,12 +233,12 @@ impl OEM {
     pub fn register_for(&self, name: impl Into<ObjectId>) -> Result<(), BraheError> {
         let traj = DOrbitTrajectory::try_from(self)?;
         let frame = match traj.frame {
-            OrbitFrame::GCRF => CelestialFrame::GCRF,
-            OrbitFrame::ITRF => CelestialFrame::ITRF,
-            OrbitFrame::EME2000 => CelestialFrame::EME2000,
-            other => {
+            ReferenceFrame::Celestial(
+                c @ (CelestialFrame::GCRF | CelestialFrame::ITRF | CelestialFrame::EME2000),
+            ) => c,
+            ref other => {
                 return Err(BraheError::Error(format!(
-                    "OEM::register_for cannot map OrbitFrame '{}' to a CelestialFrame",
+                    "OEM::register_for cannot map frame '{}' to a CelestialFrame",
                     other
                 )));
             }
@@ -1360,7 +1360,7 @@ mod tests {
         let traj = oem.segment_to_trajectory(0).unwrap();
         assert_eq!(traj.len(), 3);
         assert_eq!(traj.name.as_deref(), Some("MARS GLOBAL SURVEYOR"));
-        assert_eq!(traj.frame, OrbitFrame::EME2000);
+        assert_eq!(traj.frame, CelestialFrame::EME2000);
 
         // Verify first state
         let (_epoch, state) = traj.first().unwrap();
@@ -1376,7 +1376,7 @@ mod tests {
 
         let traj = oem.segment_to_trajectory(0).unwrap();
         assert_eq!(traj.len(), 49);
-        assert_eq!(traj.frame, OrbitFrame::GCRF);
+        assert_eq!(traj.frame, CelestialFrame::GCRF);
     }
 
     #[test]
@@ -1437,7 +1437,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_oem_register_for_itrf() {
-        // Covers the ITRF arm of register_for's OrbitFrame -> CelestialFrame
+        // Covers the ITRF arm of register_for's frame mapping
         // mapping (test_oem_register_for above only exercises GCRF). The
         // asset is a short single-segment ITRF2014 OEM, which is all
         // register_for needs.
@@ -1450,7 +1450,7 @@ mod tests {
         oem.register_for("ISS_ITRF").unwrap();
 
         let traj = DOrbitTrajectory::try_from(&oem).unwrap();
-        assert_eq!(traj.frame, OrbitFrame::ITRF);
+        assert_eq!(traj.frame, CelestialFrame::ITRF);
         let epoch = traj.first().unwrap().0 + 300.0;
 
         let (frame, state) = object_state(&"ISS_ITRF".into(), epoch).unwrap();
@@ -1477,19 +1477,19 @@ mod tests {
     fn test_ccsds_ref_frame_mapping() {
         assert_eq!(
             ccsds_ref_frame_to_orbit_frame(&CCSDSRefFrame::EME2000).unwrap(),
-            OrbitFrame::EME2000
+            CelestialFrame::EME2000
         );
         assert_eq!(
             ccsds_ref_frame_to_orbit_frame(&CCSDSRefFrame::GCRF).unwrap(),
-            OrbitFrame::GCRF
+            CelestialFrame::GCRF
         );
         assert_eq!(
             ccsds_ref_frame_to_orbit_frame(&CCSDSRefFrame::ITRF2000).unwrap(),
-            OrbitFrame::ITRF
+            CelestialFrame::ITRF
         );
         assert_eq!(
             ccsds_ref_frame_to_orbit_frame(&CCSDSRefFrame::J2000).unwrap(),
-            OrbitFrame::EME2000
+            CelestialFrame::EME2000
         );
         // Orbit-relative frames should fail
         assert!(ccsds_ref_frame_to_orbit_frame(&CCSDSRefFrame::RTN).is_err());

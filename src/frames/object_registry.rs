@@ -203,7 +203,6 @@ pub(crate) fn object_state(
 /// # Returns
 /// * `Ok(CelestialFrame)`: The declared frame
 /// * `Err(BraheError)`: If no object is registered under `name`
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn object_frame(name: &ObjectId) -> Result<CelestialFrame, BraheError> {
     OBJECT_REGISTRY
         .read()

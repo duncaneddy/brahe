@@ -5,8 +5,9 @@
 use nalgebra::{DVector, Vector6};
 
 use crate::constants::AngleFormat;
+use crate::frames::CelestialFrame;
 use crate::time::Epoch;
-use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation};
+use crate::trajectories::traits::OrbitRepresentation;
 use crate::utils::BraheError;
 
 // Re-export state provider traits for convenience
@@ -411,7 +412,7 @@ pub trait SOrbitPropagator: SStatePropagator {
         &mut self,
         epoch: Epoch,
         state: Vector6<f64>,
-        frame: OrbitFrame,
+        frame: CelestialFrame,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
     ) -> Result<(), BraheError>;
@@ -444,7 +445,7 @@ pub trait DOrbitPropagator: DStatePropagator {
         &mut self,
         epoch: Epoch,
         state: DVector<f64>,
-        frame: OrbitFrame,
+        frame: CelestialFrame,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
     ) -> Result<(), BraheError>;
@@ -478,7 +479,7 @@ mod tests {
         KeplerianPropagator::new(
             epoch,
             state,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -829,7 +830,7 @@ mod tests {
         let prop = KeplerianPropagator::new(
             epoch,
             elements,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
             60.0,
@@ -880,7 +881,7 @@ mod tests {
         let prop = KeplerianPropagator::new(
             epoch,
             elements,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
             60.0,
@@ -917,7 +918,7 @@ mod tests {
         let prop = KeplerianPropagator::new(
             epoch,
             elements,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
             60.0,
@@ -947,7 +948,7 @@ mod tests {
         let prop = KeplerianPropagator::new(
             epoch,
             elements,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
             60.0,
@@ -977,7 +978,7 @@ mod tests {
         let prop = KeplerianPropagator::new(
             epoch,
             elements,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
             60.0,

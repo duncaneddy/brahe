@@ -1059,7 +1059,7 @@ mod tests {
         let propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -1110,7 +1110,7 @@ mod tests {
         let propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -1161,7 +1161,7 @@ mod tests {
         let propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -1197,7 +1197,7 @@ mod tests {
         let propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -1253,7 +1253,7 @@ mod tests {
         let propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -1304,7 +1304,7 @@ mod tests {
         let mut propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -1344,7 +1344,7 @@ mod tests {
         let propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -1382,7 +1382,7 @@ mod tests {
         let propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -1457,7 +1457,7 @@ mod tests {
         let propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -1538,7 +1538,7 @@ mod tests {
         let propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -1581,7 +1581,7 @@ mod tests {
         let propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -1632,7 +1632,7 @@ mod tests {
         let propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -1685,7 +1685,7 @@ mod tests {
         let propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -1737,7 +1737,7 @@ mod tests {
         let propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -1785,7 +1785,7 @@ mod tests {
         let propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -1896,7 +1896,7 @@ mod tests {
         let propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -2004,7 +2004,7 @@ mod tests {
         let propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -2121,7 +2121,7 @@ mod tests {
         let propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -2216,7 +2216,7 @@ mod tests {
         let propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -2287,7 +2287,7 @@ mod tests {
         let propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -2346,7 +2346,7 @@ mod tests {
         let propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -2438,7 +2438,7 @@ mod tests {
         let propagator = KeplerianPropagator::new(
             epoch,
             oe,
-            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::frames::CelestialFrame::ECI,
             crate::trajectories::traits::OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,

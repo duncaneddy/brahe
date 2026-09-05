@@ -6,6 +6,9 @@
  */
 
 use crate::constants::AngleFormat;
+use crate::frames::{
+    CelestialFrame, ReferenceFrame, iau_rotation_model_ids, icrf_aligned_inertial,
+};
 use crate::time::Epoch;
 use crate::utils::BraheError;
 use nalgebra::{DMatrix, SMatrix};
@@ -29,12 +32,16 @@ pub enum TrajectoryEvictionPolicy {
     KeepWithinDuration,
 }
 
-/// Reference-frame-router frame with ICRF-aligned axes centered on `center`,
-/// used to convert `OrbitFrame::BodyCenteredInertial(center)` trajectory
-/// samples (named frames for the bodies that have them, generic
-/// `BodyCenteredICRF` otherwise).
-pub(crate) fn bci_reference_frame(center: i32) -> crate::frames::CelestialFrame {
-    use crate::frames::CelestialFrame;
+/// Reference-frame-router frame with ICRF-aligned axes centered on `center`
+/// (named frames for the bodies that have them, generic `BodyCenteredICRF`
+/// otherwise).
+///
+/// # Arguments
+/// * `center` - NAIF ID of the frame's center
+///
+/// # Returns
+/// * `CelestialFrame`: ICRF-aligned frame centered on `center`
+pub(crate) fn bci_reference_frame(center: i32) -> CelestialFrame {
     match center {
         399 => CelestialFrame::GCRF,
         301 => CelestialFrame::LCI,
@@ -49,68 +56,57 @@ pub(crate) fn bci_reference_frame(center: i32) -> crate::frames::CelestialFrame 
 /// (mirrors `CentralBody::fixed_frame`): `ITRF` for Earth, `LFPA` for the
 /// Moon, `MCMF` for Mars, the compiled-in IAU/WGCCRE frame for bodies in the
 /// embedded rotation table, and `None` for barycenters and unknown bodies.
-pub(crate) fn bci_fixed_frame(center: i32) -> Option<crate::frames::CelestialFrame> {
-    use crate::frames::CelestialFrame;
+///
+/// # Arguments
+/// * `center` - NAIF ID of the body
+///
+/// # Returns
+/// * `Option<CelestialFrame>`: The body-fixed frame, if one is defined
+pub(crate) fn bci_fixed_frame(center: i32) -> Option<CelestialFrame> {
     match center {
         399 => Some(CelestialFrame::ITRF),
         301 => Some(CelestialFrame::LFPA),
         499 => Some(CelestialFrame::MCMF),
-        id if crate::frames::iau_rotation_model_ids().contains(&id) => {
-            Some(CelestialFrame::BodyFixedIAU(id))
-        }
+        id if iau_rotation_model_ids().contains(&id) => Some(CelestialFrame::BodyFixedIAU(id)),
         _ => None,
     }
 }
 
-/// Enumeration of orbit reference frames
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum OrbitFrame {
-    /// Earth-Centered Inertial (legacy, ambiguous - prefer GCRF or EME2000)
-    ECI,
-    /// Earth-Centered Earth-Fixed (legacy, ambiguous - prefer ITRF)
-    ECEF,
-    /// Geocentric Celestial Reference Frame (IAU 2006/2000A)
-    GCRF,
-    /// International Terrestrial Reference Frame
-    ITRF,
-    /// Earth Mean Equator and Equinox of J2000.0
-    EME2000,
-    /// Body-centered inertial: ICRF-aligned axes centered on the non-Earth
-    /// body with the given NAIF ID (e.g. `BodyCenteredInertial(301)` for
-    /// LCI samples from a Moon-centered propagator, `499` for MCI, `3` for
-    /// EMBI). Earth-frame conversions resolve the center offset through the
-    /// loaded SPK kernels via the reference frame router.
-    BodyCenteredInertial(i32),
-}
-
-impl fmt::Display for OrbitFrame {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            OrbitFrame::ECI => write!(f, "ECI"),
-            OrbitFrame::ECEF => write!(f, "ECEF"),
-            OrbitFrame::GCRF => write!(f, "GCRF"),
-            OrbitFrame::ITRF => write!(f, "ITRF"),
-            OrbitFrame::EME2000 => write!(f, "EME2000"),
-            OrbitFrame::BodyCenteredInertial(center) => write!(f, "BCI({})", center),
+/// Celestial center about which Keplerian elements declared in `frame` are
+/// defined.
+///
+/// Elements are accepted in ICRF-aligned inertial celestial frames and in
+/// `EME2000`. Every other frame (Earth-fixed, of-date, orbit-relative, body)
+/// is rejected.
+///
+/// # Arguments
+/// * `frame` - Frame the elements are declared in
+///
+/// # Returns
+/// * `Ok(i32)`: NAIF ID of the center the elements orbit
+/// * `Err(BraheError)`: If `frame` is not an inertial celestial frame
+pub(crate) fn keplerian_center(frame: &ReferenceFrame) -> Result<i32, BraheError> {
+    match frame {
+        ReferenceFrame::Celestial(c)
+            if *c == CelestialFrame::EME2000 || icrf_aligned_inertial(*c) == *c =>
+        {
+            Ok(c.center_naif_id())
         }
+        _ => Err(BraheError::Error(
+            "Keplerian element trajectories should be in an inertial frame".to_string(),
+        )),
     }
 }
 
-impl fmt::Debug for OrbitFrame {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            OrbitFrame::ECI => write!(f, "OrbitFrame(Earth-Centered Inertial)"),
-            OrbitFrame::ECEF => write!(f, "OrbitFrame(Earth-Centered Earth-Fixed)"),
-            OrbitFrame::GCRF => write!(f, "OrbitFrame(Geocentric Celestial Reference Frame)"),
-            OrbitFrame::ITRF => write!(f, "OrbitFrame(International Terrestrial Reference Frame)"),
-            OrbitFrame::EME2000 => {
-                write!(f, "OrbitFrame(Earth Mean Equator and Equinox of J2000.0)")
-            }
-            OrbitFrame::BodyCenteredInertial(center) => {
-                write!(f, "OrbitFrame(Body-Centered Inertial, NAIF ID {})", center)
-            }
-        }
-    }
+/// Whether covariances may be attached to a trajectory declared in `frame`.
+///
+/// # Arguments
+/// * `frame` - Frame the trajectory is declared in
+///
+/// # Returns
+/// * `bool`: `true` for `GCRF` (equivalently `ECI`) and `EME2000`
+pub(crate) fn covariance_frame_allowed(frame: &ReferenceFrame) -> bool {
+    *frame == CelestialFrame::GCRF || *frame == CelestialFrame::EME2000
 }
 
 /// Enumeration of orbit state representations
@@ -626,7 +622,7 @@ pub trait InterpolatableTrajectory: Trajectory + InterpolationConfig {
 /// Trait for orbital-specific functionality on 6-dimensional trajectories.
 ///
 /// This trait provides methods for working with orbital state trajectories, including
-/// conversions between reference frames (ECI/ECEF), state representations (Cartesian/Keplerian),
+/// conversions between reference frames, state representations (Cartesian/Keplerian),
 /// and angle formats (radians/degrees). It also provides convenient accessors for position
 /// and velocity components.
 ///
@@ -635,8 +631,9 @@ pub trait InterpolatableTrajectory: Trajectory + InterpolationConfig {
 /// interpolation configuration, and state interpolation.
 ///
 /// # Reference Frames
-/// - **ECI (Earth-Centered Inertial)**: GCRF inertial reference frame
-/// - **ECEF (Earth-Centered Earth-Fixed)**: Earth-fixed rotating frame
+/// Any [`crate::frames::ReferenceFrame`]: celestial frames such as `GCRF`,
+/// `ITRF`, `EME2000`, `TOD`, and `LCI`, as well as orbit-relative and body
+/// frames bound to a registered object.
 ///
 /// # State Representations
 /// - **Cartesian**: Position and velocity vectors [x, y, z, vx, vy, vz] in meters and m/s
@@ -650,14 +647,15 @@ pub trait InterpolatableTrajectory: Trajectory + InterpolationConfig {
 /// # Examples
 /// ```rust
 /// use brahe::trajectories::SOrbitTrajectory;
-/// use brahe::traits::{OrbitalTrajectory, OrbitFrame, OrbitRepresentation, Trajectory};
+/// use brahe::traits::{OrbitalTrajectory, OrbitRepresentation, Trajectory};
+/// use brahe::frames::CelestialFrame;
 /// use brahe::AngleFormat;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use nalgebra::Vector6;
 ///
 /// // Create orbital trajectory in ECI Cartesian coordinates
 /// let mut traj = SOrbitTrajectory::new(
-///     OrbitFrame::ECI,
+///     CelestialFrame::ECI,
 ///     OrbitRepresentation::Cartesian,
 ///     None,
 /// )
@@ -677,24 +675,41 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
     /// # Arguments
     /// * `epochs` - Vector of epochs
     /// * `states` - Vector of state vectors
-    /// * `frame` - Reference frame (ECI or ECEF)
+    /// * `frame` - Reference frame the states are declared in
     /// * `representation` - State representation (Cartesian or Keplerian)
     /// * `angle_format` - Angle format (None for Cartesian, Radians/Degrees for Keplerian)
     /// * `covariances` - Optional vector of 6x6 covariance matrices corresponding to states
     ///
     /// # Returns
     /// New orbital trajectory with data, or an error if parameters are
-    /// invalid (e.g., None angle_format with Keplerian, Keplerian with ECEF,
-    /// covariances provided for a non-inertial frame, or a covariances length
-    /// that does not match the states length).
+    /// invalid (e.g., None angle_format with Keplerian, Keplerian outside an
+    /// inertial frame, covariances provided for a frame other than GCRF or
+    /// EME2000, or a covariances length that does not match the states
+    /// length).
     fn from_orbital_data(
         epochs: Vec<Epoch>,
         states: Vec<Self::StateVector>,
-        frame: OrbitFrame,
+        frame: ReferenceFrame,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
         covariances: Option<Vec<SMatrix<f64, 6, 6>>>,
     ) -> Result<Self, BraheError>
+    where
+        Self: Sized;
+
+    /// Converts every sample to Cartesian coordinates in `frame`, routing
+    /// through the reference frame router. Covariances, state transition
+    /// matrices, sensitivities, and accelerations are dropped.
+    ///
+    /// # Arguments
+    /// * `frame` - Target frame
+    ///
+    /// # Returns
+    /// * `Ok(Self)` - New Cartesian trajectory in `frame`
+    /// * `Err(BraheError)` - If a sample cannot be converted (unbound or
+    ///   unregistered frame, missing ephemeris, or Keplerian elements about
+    ///   a barycenter)
+    fn to_frame(&self, frame: ReferenceFrame) -> Result<Self, BraheError>
     where
         Self: Sized;
 
@@ -907,6 +922,7 @@ pub trait SensitivityStorage: Trajectory {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::spice::NAIFId;
     use serial_test::parallel;
 
     // =========================================================================
@@ -935,92 +951,68 @@ mod tests {
     }
 
     // =========================================================================
-    // OrbitFrame Display/Debug Tests
+    // Frame Helper Tests
     // =========================================================================
 
     #[test]
     #[parallel]
-    fn test_orbit_frame_display_eci() {
-        let frame = OrbitFrame::ECI;
-        assert_eq!(format!("{}", frame), "ECI");
-    }
-
-    #[test]
-    #[parallel]
-    fn test_orbit_frame_display_ecef() {
-        let frame = OrbitFrame::ECEF;
-        assert_eq!(format!("{}", frame), "ECEF");
-    }
-
-    #[test]
-    #[parallel]
-    fn test_orbit_frame_display_gcrf() {
-        let frame = OrbitFrame::GCRF;
-        assert_eq!(format!("{}", frame), "GCRF");
-    }
-
-    #[test]
-    #[parallel]
-    fn test_orbit_frame_display_itrf() {
-        let frame = OrbitFrame::ITRF;
-        assert_eq!(format!("{}", frame), "ITRF");
-    }
-
-    #[test]
-    #[parallel]
-    fn test_orbit_frame_display_eme2000() {
-        let frame = OrbitFrame::EME2000;
-        assert_eq!(format!("{}", frame), "EME2000");
-    }
-
-    #[test]
-    #[parallel]
-    fn test_orbit_frame_debug_eci() {
-        let frame = OrbitFrame::ECI;
+    fn test_bci_reference_frame_names_known_centers() {
+        assert_eq!(bci_reference_frame(399), CelestialFrame::GCRF);
+        assert_eq!(bci_reference_frame(301), CelestialFrame::LCI);
+        assert_eq!(bci_reference_frame(499), CelestialFrame::MCI);
+        assert_eq!(bci_reference_frame(3), CelestialFrame::EMBI);
+        assert_eq!(bci_reference_frame(0), CelestialFrame::SSBI);
         assert_eq!(
-            format!("{:?}", frame),
-            "OrbitFrame(Earth-Centered Inertial)"
+            bci_reference_frame(599),
+            CelestialFrame::BodyCenteredICRF(599)
         );
     }
 
     #[test]
     #[parallel]
-    fn test_orbit_frame_debug_ecef() {
-        let frame = OrbitFrame::ECEF;
+    fn test_bci_fixed_frame_known_and_unknown_centers() {
+        assert_eq!(bci_fixed_frame(399), Some(CelestialFrame::ITRF));
+        assert_eq!(bci_fixed_frame(301), Some(CelestialFrame::LFPA));
+        assert_eq!(bci_fixed_frame(499), Some(CelestialFrame::MCMF));
         assert_eq!(
-            format!("{:?}", frame),
-            "OrbitFrame(Earth-Centered Earth-Fixed)"
+            bci_fixed_frame(599),
+            Some(CelestialFrame::BodyFixedIAU(599))
         );
+        assert_eq!(bci_fixed_frame(3), None);
+        assert_eq!(bci_fixed_frame(-20001), None);
     }
 
     #[test]
     #[parallel]
-    fn test_orbit_frame_debug_gcrf() {
-        let frame = OrbitFrame::GCRF;
+    fn test_keplerian_center_accepts_only_inertial_frames() {
         assert_eq!(
-            format!("{:?}", frame),
-            "OrbitFrame(Geocentric Celestial Reference Frame)"
+            keplerian_center(&CelestialFrame::GCRF.into()).unwrap(),
+            NAIFId::Earth.id()
         );
+        assert_eq!(
+            keplerian_center(&CelestialFrame::EME2000.into()).unwrap(),
+            NAIFId::Earth.id()
+        );
+        assert_eq!(
+            keplerian_center(&CelestialFrame::LCI.into()).unwrap(),
+            NAIFId::Moon.id()
+        );
+        assert_eq!(keplerian_center(&CelestialFrame::EMBI.into()).unwrap(), 3);
+        assert!(keplerian_center(&CelestialFrame::ITRF.into()).is_err());
+        assert!(keplerian_center(&CelestialFrame::TOD.into()).is_err());
+        assert!(keplerian_center(&CelestialFrame::LFPA.into()).is_err());
+        assert!(keplerian_center(&ReferenceFrame::RTN("SC")).is_err());
     }
 
     #[test]
     #[parallel]
-    fn test_orbit_frame_debug_itrf() {
-        let frame = OrbitFrame::ITRF;
-        assert_eq!(
-            format!("{:?}", frame),
-            "OrbitFrame(International Terrestrial Reference Frame)"
-        );
-    }
-
-    #[test]
-    #[parallel]
-    fn test_orbit_frame_debug_eme2000() {
-        let frame = OrbitFrame::EME2000;
-        assert_eq!(
-            format!("{:?}", frame),
-            "OrbitFrame(Earth Mean Equator and Equinox of J2000.0)"
-        );
+    fn test_covariance_frame_allowed_only_gcrf_and_eme2000() {
+        assert!(covariance_frame_allowed(&CelestialFrame::GCRF.into()));
+        assert!(covariance_frame_allowed(&CelestialFrame::ECI.into()));
+        assert!(covariance_frame_allowed(&CelestialFrame::EME2000.into()));
+        assert!(!covariance_frame_allowed(&CelestialFrame::ITRF.into()));
+        assert!(!covariance_frame_allowed(&CelestialFrame::LCI.into()));
+        assert!(!covariance_frame_allowed(&ReferenceFrame::RTN("SC")));
     }
 
     // =========================================================================

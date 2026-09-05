@@ -75,7 +75,7 @@ pub use crate::math::interpolation::{
 
 // Trajectory traits and types
 pub use crate::trajectories::traits::{
-    InterpolatableTrajectory, OrbitFrame, OrbitRepresentation, OrbitalTrajectory, Trajectory,
+    InterpolatableTrajectory, OrbitRepresentation, OrbitalTrajectory, Trajectory,
     TrajectoryEvictionPolicy,
 };
 

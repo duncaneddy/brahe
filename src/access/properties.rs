@@ -1379,7 +1379,8 @@ mod tests {
     #[test]
     #[parallel]
     fn test_state_provider_propagator() {
-        use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation};
+        use crate::frames::CelestialFrame;
+        use crate::trajectories::traits::OrbitRepresentation;
 
         // Initialize EOP for frame conversions
         setup_global_test_eop();
@@ -1397,7 +1398,7 @@ mod tests {
         let prop = KeplerianPropagator::new(
             epoch,
             elements,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,
@@ -1415,8 +1416,9 @@ mod tests {
     #[test]
     #[parallel]
     fn test_state_provider_orbit_trajectory() {
+        use crate::frames::CelestialFrame;
         use crate::trajectories::sorbit_trajectory::SOrbitTrajectory;
-        use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
+        use crate::trajectories::traits::{OrbitRepresentation, Trajectory};
 
         // Initialize EOP for frame conversions
         setup_global_test_eop();
@@ -1429,7 +1431,8 @@ mod tests {
         let state2 = Vector6::new(7000e3, 100e3, 10e3, 10.0, 7500.0, 100.0);
 
         let mut traj =
-            SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None).unwrap();
+            SOrbitTrajectory::new(CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
         traj.add(epoch1, state1).unwrap();
         traj.add(epoch2, state2).unwrap();
 
@@ -1737,7 +1740,8 @@ mod tests {
     #[parallel]
     fn test_property_computer() {
         use crate::access::{AccessibleLocation, PointLocation};
-        use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation};
+        use crate::frames::CelestialFrame;
+        use crate::trajectories::traits::OrbitRepresentation;
 
         // Initialize EOP for frame conversions
         setup_global_test_eop();
@@ -1782,7 +1786,7 @@ mod tests {
         let prop = KeplerianPropagator::new(
             epoch1,
             elements,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             60.0,

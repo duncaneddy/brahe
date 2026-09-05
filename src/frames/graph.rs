@@ -526,7 +526,6 @@ pub(crate) fn icrf_aligned_inertial(frame: CelestialFrame) -> CelestialFrame {
 /// - `Ok(CelestialFrame)`: The root
 /// - `Err(BraheError)`: If `frame` is unbound, its object is not
 ///   registered, or a link in its chain is missing
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn celestial_root(frame: &ReferenceFrame) -> Result<CelestialFrame, BraheError> {
     match frame {
         ReferenceFrame::Celestial(celestial) => Ok(*celestial),

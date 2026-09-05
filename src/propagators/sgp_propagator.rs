@@ -32,6 +32,7 @@
 use crate::attitude::RotationMatrix;
 use crate::constants::{AngleFormat, DEG2RAD, OMEGA_EARTH, RAD2DEG};
 use crate::coordinates::state_eci_to_koe;
+use crate::frames::CelestialFrame;
 use crate::frames::{polar_motion, state_ecef_to_eci, state_gcrf_to_eme2000, state_itrf_to_gcrf};
 use crate::orbits::tle::{
     TleFormat, calculate_tle_line_checksum, create_tle_lines, epoch_from_tle,
@@ -41,7 +42,7 @@ use crate::propagators::TrajectoryMode;
 use crate::propagators::traits::{SOrbitStateProvider, SStatePropagator, SStateProvider};
 use crate::time::{Epoch, TimeSystem};
 use crate::trajectories::DOrbitTrajectory;
-use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
+use crate::trajectories::traits::{OrbitRepresentation, Trajectory};
 use crate::utils::{BraheError, Identifiable};
 use nalgebra::{DVector, Vector3, Vector6};
 use sgp4::chrono::{Datelike, NaiveDate, NaiveDateTime, Timelike};
@@ -83,7 +84,7 @@ fn tle_gmst82(epoch: Epoch, angle_format: AngleFormat) -> f64 {
 fn convert_state_from_spg4_frame(
     epoch: Epoch,
     tle_state: Vector6<f64>,
-    frame: OrbitFrame,
+    frame: CelestialFrame,
     representation: OrbitRepresentation,
     angle_format: Option<AngleFormat>,
 ) -> Vector6<f64> {
@@ -112,22 +113,16 @@ fn convert_state_from_spg4_frame(
 
     match representation {
         OrbitRepresentation::Cartesian => match frame {
-            OrbitFrame::BodyCenteredInertial(_) => {
-                unreachable!(
-                    "BodyCenteredInertial frames are rejected when the output format is set"
-                )
-            }
-            OrbitFrame::ECI => state_ecef_to_eci(epoch, ecef_state),
-            OrbitFrame::GCRF => state_ecef_to_eci(epoch, ecef_state),
-            OrbitFrame::EME2000 => {
+            CelestialFrame::GCRF => state_ecef_to_eci(epoch, ecef_state),
+            CelestialFrame::EME2000 => {
                 let gcrf_state = state_ecef_to_eci(epoch, ecef_state);
                 state_gcrf_to_eme2000(gcrf_state)
             }
-            OrbitFrame::ECEF => ecef_state,
-            OrbitFrame::ITRF => ecef_state,
+            CelestialFrame::ITRF => ecef_state,
+            other => unreachable!("frame {other} is rejected when the output format is set"),
         },
         OrbitRepresentation::Keplerian => {
-            if frame != OrbitFrame::ECI && frame != OrbitFrame::GCRF {
+            if frame != CelestialFrame::ECI && frame != CelestialFrame::GCRF {
                 unreachable!(
                     "Keplerian output outside ECI/GCRF is rejected when the output format is set"
                 );
@@ -161,9 +156,9 @@ fn svec6_to_dvec(sv: &Vector6<f64>) -> DVector<f64> {
 /// - Keplerian representation is requested without `angle_format`
 /// - Keplerian representation is requested in a non-ECI frame
 /// - Cartesian representation is given with `angle_format`
-/// - The frame is body-centered inertial (Earth-only propagator)
+/// - The frame is not one of GCRF, EME2000, or ITRF (Earth-only propagator)
 fn validate_output_format(
-    frame: OrbitFrame,
+    frame: CelestialFrame,
     representation: OrbitRepresentation,
     angle_format: Option<AngleFormat>,
 ) -> Result<(), BraheError> {
@@ -173,7 +168,7 @@ fn validate_output_format(
         ));
     }
 
-    if representation == OrbitRepresentation::Keplerian && frame != OrbitFrame::ECI {
+    if representation == OrbitRepresentation::Keplerian && frame != CelestialFrame::ECI {
         return Err(BraheError::PropagatorError(
             "Keplerian elements must be in ECI frame".to_string(),
         ));
@@ -185,11 +180,14 @@ fn validate_output_format(
         ));
     }
 
-    if matches!(frame, OrbitFrame::BodyCenteredInertial(_)) {
-        return Err(BraheError::PropagatorError(
-            "OrbitFrame::BodyCenteredInertial is not supported by SGPPropagator (Earth-only)"
-                .to_string(),
-        ));
+    if !matches!(
+        frame,
+        CelestialFrame::GCRF | CelestialFrame::EME2000 | CelestialFrame::ITRF
+    ) {
+        return Err(BraheError::PropagatorError(format!(
+            "frame {frame} is not supported by SGPPropagator (Earth-only: GCRF/ECI, \
+             EME2000, and ITRF/ECEF)"
+        )));
     }
 
     Ok(())
@@ -241,7 +239,7 @@ pub struct SGPPropagator {
     pub step_size: f64,
 
     /// Output frame (default: ECI)
-    pub frame: OrbitFrame,
+    pub frame: CelestialFrame,
 
     /// Output representation (default: Cartesian)
     pub representation: OrbitRepresentation,
@@ -396,7 +394,7 @@ pub struct SGPPropagatorBuilder {
     ephemeris_type: Option<u8>,
     element_set_no: Option<u64>,
     rev_at_epoch: Option<u64>,
-    output_format: Option<(OrbitFrame, OrbitRepresentation, Option<AngleFormat>)>,
+    output_format: Option<(CelestialFrame, OrbitRepresentation, Option<AngleFormat>)>,
 }
 
 impl SGPPropagatorBuilder {
@@ -762,7 +760,8 @@ impl SGPPropagatorBuilder {
     ///
     /// ```rust
     /// use brahe::propagators::SGPPropagator;
-    /// use brahe::traits::{OrbitFrame, OrbitRepresentation};
+    /// use brahe::traits::OrbitRepresentation;
+    /// use brahe::frames::CelestialFrame;
     /// use brahe::constants::AngleFormat;
     /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
     /// use brahe::time::{Epoch, TimeSystem};
@@ -775,13 +774,13 @@ impl SGPPropagatorBuilder {
     ///     15.49193835, 0.0003723, 51.6312,
     ///     206.3646, 184.1118, 175.9840, 25544,
     /// )
-    /// .output_format(OrbitFrame::ECI, OrbitRepresentation::Keplerian, Some(AngleFormat::Degrees))
+    /// .output_format(CelestialFrame::ECI, OrbitRepresentation::Keplerian, Some(AngleFormat::Degrees))
     /// .build()
     /// .unwrap();
     /// ```
     pub fn output_format(
         mut self,
-        frame: OrbitFrame,
+        frame: CelestialFrame,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
     ) -> Self {
@@ -977,14 +976,14 @@ impl SGPPropagator {
         let initial_state = convert_state_from_spg4_frame(
             epoch,
             tle_state,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None, // angle_format is not meaningful for Cartesian
         );
 
         // Create trajectory with initial state
         let mut trajectory =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)?;
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)?;
 
         // Set trajectory identity from propagator identity
         if let Some(n) = name {
@@ -1010,7 +1009,7 @@ impl SGPPropagator {
             trajectory,
             trajectory_mode: TrajectoryMode::OutputStepsOnly,
             step_size,
-            frame: OrbitFrame::ECI,
+            frame: CelestialFrame::ECI,
             representation: OrbitRepresentation::Cartesian,
             angle_format: None, // angle_format is not meaningful for Cartesian
             name: name.map(|s| s.to_string()),
@@ -1248,14 +1247,14 @@ impl SGPPropagator {
         let initial_state = convert_state_from_spg4_frame(
             brahe_epoch,
             tle_state,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
         );
 
         // Create trajectory with initial state
         let mut trajectory =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)?;
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)?;
 
         // Set trajectory identity from propagator identity
         if let Some(n) = object_name {
@@ -1280,7 +1279,7 @@ impl SGPPropagator {
             trajectory,
             trajectory_mode: TrajectoryMode::OutputStepsOnly,
             step_size,
-            frame: OrbitFrame::ECI,
+            frame: CelestialFrame::ECI,
             representation: OrbitRepresentation::Cartesian,
             angle_format: None,
             name: object_name.map(|s| s.to_string()),
@@ -1514,7 +1513,7 @@ impl SGPPropagator {
     /// - SGP4 propagation of the TLE epoch state fails
     pub fn with_output_format(
         mut self,
-        frame: OrbitFrame,
+        frame: CelestialFrame,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
     ) -> Result<Self, BraheError> {
@@ -1883,7 +1882,7 @@ impl SGPPropagator {
         Ok(convert_state_from_spg4_frame(
             epoch,
             tle_state,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
         ))
@@ -2955,14 +2954,14 @@ mod tests {
             25544,
         )
         .output_format(
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
         )
         .build()
         .unwrap();
 
-        assert_eq!(prop.frame, OrbitFrame::ECI);
+        assert_eq!(prop.frame, CelestialFrame::ECI);
         assert_eq!(prop.representation, OrbitRepresentation::Keplerian);
         assert_eq!(prop.angle_format, Some(AngleFormat::Degrees));
     }
@@ -2982,7 +2981,7 @@ mod tests {
             175.9840,
             25544,
         )
-        .output_format(OrbitFrame::ECI, OrbitRepresentation::Keplerian, None)
+        .output_format(CelestialFrame::ECI, OrbitRepresentation::Keplerian, None)
         .build();
 
         assert!(result.is_err());
@@ -3010,7 +3009,7 @@ mod tests {
             25544,
         )
         .output_format(
-            OrbitFrame::ECEF,
+            CelestialFrame::ECEF,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
         )
@@ -3041,7 +3040,7 @@ mod tests {
             25544,
         )
         .output_format(
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             Some(AngleFormat::Degrees),
         )
@@ -3862,10 +3861,10 @@ mod tests {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
-            .with_output_format(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_output_format(CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
             .unwrap();
 
-        assert_eq!(prop.frame, OrbitFrame::ECI);
+        assert_eq!(prop.frame, CelestialFrame::ECI);
         assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
         assert_eq!(prop.angle_format, None);
         assert_eq!(prop.trajectory.len(), 1); // Only initial state
@@ -3877,10 +3876,10 @@ mod tests {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
-            .with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None)
+            .with_output_format(CelestialFrame::ECEF, OrbitRepresentation::Cartesian, None)
             .unwrap();
 
-        assert_eq!(prop.frame, OrbitFrame::ECEF);
+        assert_eq!(prop.frame, CelestialFrame::ECEF);
         assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
         assert_eq!(prop.angle_format, None);
 
@@ -3895,10 +3894,10 @@ mod tests {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
-            .with_output_format(OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None)
+            .with_output_format(CelestialFrame::GCRF, OrbitRepresentation::Cartesian, None)
             .unwrap();
 
-        assert_eq!(prop.frame, OrbitFrame::GCRF);
+        assert_eq!(prop.frame, CelestialFrame::GCRF);
         assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
         assert_eq!(prop.angle_format, None);
 
@@ -3913,10 +3912,14 @@ mod tests {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
-            .with_output_format(OrbitFrame::EME2000, OrbitRepresentation::Cartesian, None)
+            .with_output_format(
+                CelestialFrame::EME2000,
+                OrbitRepresentation::Cartesian,
+                None,
+            )
             .unwrap();
 
-        assert_eq!(prop.frame, OrbitFrame::EME2000);
+        assert_eq!(prop.frame, CelestialFrame::EME2000);
         assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
         assert_eq!(prop.angle_format, None);
 
@@ -3931,10 +3934,10 @@ mod tests {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
-            .with_output_format(OrbitFrame::ITRF, OrbitRepresentation::Cartesian, None)
+            .with_output_format(CelestialFrame::ITRF, OrbitRepresentation::Cartesian, None)
             .unwrap();
 
-        assert_eq!(prop.frame, OrbitFrame::ITRF);
+        assert_eq!(prop.frame, CelestialFrame::ITRF);
         assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
         assert_eq!(prop.angle_format, None);
 
@@ -3950,13 +3953,13 @@ mod tests {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
             .with_output_format(
-                OrbitFrame::ECI,
+                CelestialFrame::ECI,
                 OrbitRepresentation::Keplerian,
                 Some(AngleFormat::Degrees),
             )
             .unwrap();
 
-        assert_eq!(prop.frame, OrbitFrame::ECI);
+        assert_eq!(prop.frame, CelestialFrame::ECI);
         assert_eq!(prop.representation, OrbitRepresentation::Keplerian);
         assert_eq!(prop.angle_format, Some(AngleFormat::Degrees));
 
@@ -3973,13 +3976,13 @@ mod tests {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
             .with_output_format(
-                OrbitFrame::ECI,
+                CelestialFrame::ECI,
                 OrbitRepresentation::Keplerian,
                 Some(AngleFormat::Radians),
             )
             .unwrap();
 
-        assert_eq!(prop.frame, OrbitFrame::ECI);
+        assert_eq!(prop.frame, CelestialFrame::ECI);
         assert_eq!(prop.representation, OrbitRepresentation::Keplerian);
         assert_eq!(prop.angle_format, Some(AngleFormat::Radians));
 
@@ -4003,7 +4006,7 @@ mod tests {
 
         // Change output format - should reset trajectory
         let prop = prop
-            .with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None)
+            .with_output_format(CelestialFrame::ECEF, OrbitRepresentation::Cartesian, None)
             .unwrap();
         assert_eq!(prop.trajectory.len(), 1); // Only initial state in new format
     }
@@ -4014,7 +4017,7 @@ mod tests {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
-            .with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None)
+            .with_output_format(CelestialFrame::ECEF, OrbitRepresentation::Cartesian, None)
             .unwrap();
 
         // Propagate in new format
@@ -4033,7 +4036,7 @@ mod tests {
         setup_global_test_eop();
         let _prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
-            .with_output_format(OrbitFrame::ECI, OrbitRepresentation::Keplerian, None)
+            .with_output_format(CelestialFrame::ECI, OrbitRepresentation::Keplerian, None)
             .unwrap();
     }
 
@@ -4045,7 +4048,7 @@ mod tests {
         let _prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
             .with_output_format(
-                OrbitFrame::ECEF,
+                CelestialFrame::ECEF,
                 OrbitRepresentation::Keplerian,
                 Some(AngleFormat::Degrees),
             )
@@ -4060,7 +4063,7 @@ mod tests {
         let _prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
             .with_output_format(
-                OrbitFrame::ECI,
+                CelestialFrame::ECI,
                 OrbitRepresentation::Cartesian,
                 Some(AngleFormat::Degrees),
             )
@@ -5088,20 +5091,17 @@ mod tests {
     fn test_sgppropagator_with_output_format_rejects_bci() {
         setup_global_test_eop();
 
-        // SGPPropagator is Earth-only; body-centered inertial output is rejected
+        // SGPPropagator is Earth-only; other central bodies are rejected
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
-        let result = prop.with_output_format(
-            OrbitFrame::BodyCenteredInertial(399),
-            OrbitRepresentation::Cartesian,
-            None,
-        );
+        let result =
+            prop.with_output_format(CelestialFrame::LCI, OrbitRepresentation::Cartesian, None);
 
         assert!(result.is_err());
         assert!(
             result
                 .unwrap_err()
                 .to_string()
-                .contains("BodyCenteredInertial is not supported")
+                .contains("is not supported by SGPPropagator")
         );
     }
 

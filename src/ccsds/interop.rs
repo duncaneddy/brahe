@@ -133,24 +133,6 @@ impl TryFrom<&ReferenceFrame> for CCSDSRefFrame {
     }
 }
 
-/// Map a CCSDS reference frame to a brahe `ReferenceFrame`.
-///
-/// Delegates to `ReferenceFrame::try_from(&CCSDSRefFrame)`.
-///
-/// # Arguments
-///
-/// * `frame` - CCSDS ODM reference frame token
-///
-/// # Returns
-///
-/// * `Ok(ReferenceFrame)`: The equivalent native frame
-/// * `Err(BraheError)`: If the token has no native equivalent
-pub fn ccsds_ref_frame_to_reference_frame(
-    frame: &CCSDSRefFrame,
-) -> Result<ReferenceFrame, BraheError> {
-    ReferenceFrame::try_from(frame)
-}
-
 impl OEM {
     /// Convert a single OEM segment to a `DOrbitTrajectory`.
     ///

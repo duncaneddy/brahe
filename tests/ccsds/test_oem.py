@@ -1315,3 +1315,90 @@ def test_oem_segments_repr(eop):
     r = repr(oem.segments)
     assert "OEMSegments" in r
     assert "3" in r
+
+
+def test_oem_in_tod_loads_as_tod_trajectory(eop):
+    """Mirror of test_oem_in_tod_loads_as_tod_trajectory in Rust."""
+    oem = OEM.from_file("test_assets/ccsds/oem/test.oem")
+    assert oem.segments[0].ref_frame == "TOD"
+
+    traj = oem.to_trajectories()[0]
+    assert traj.frame == brahe.CelestialFrame.TOD
+
+    epc, x_tod = traj.get(0)
+    assert x_tod[0] == pytest.approx(3156654.9969124, abs=1e-6)
+    assert x_tod[1] == pytest.approx(-5911757.307689572, abs=1e-6)
+
+    gcrf = traj.to_frame(brahe.CelestialFrame.GCRF)
+    assert gcrf.frame == brahe.CelestialFrame.GCRF
+    _, x_gcrf = gcrf.get(0)
+    np.testing.assert_allclose(x_gcrf, brahe.state_tod_to_gcrf(epc, x_tod), atol=1e-9)
+    assert np.linalg.norm(x_gcrf[:3] - x_tod[:3]) > 1.0e3
+
+
+def test_oem_segment_add_trajectory_tod_from_tod(eop):
+    """A TOD trajectory written to a TOD segment stores its samples unchanged."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    traj = brahe.OrbitTrajectory(
+        6,
+        brahe.CelestialFrame.TOD,
+        brahe.OrbitRepresentation.CARTESIAN,
+        None,
+    )
+    samples = [
+        np.array([brahe.R_EARTH + 500e3, 1.0e5, -2.0e5, 10.0, 7.6e3, -5.0]),
+        np.array([brahe.R_EARTH + 501e3, 1.1e5, -2.1e5, 11.0, 7.5e3, -6.0]),
+    ]
+    for i, sample in enumerate(samples):
+        traj.add(epoch + i * 60.0, sample)
+
+    seg = OEMSegment(
+        object_name="SAT",
+        object_id="2024-100A",
+        center_name="EARTH",
+        ref_frame="TOD",
+        time_system="UTC",
+        start_time=epoch,
+        stop_time=epoch + 60.0,
+    )
+    seg.add_trajectory(traj)
+
+    assert seg.num_states == len(samples)
+    for written, sample in zip(seg.states, samples):
+        np.testing.assert_array_equal(written.position, sample[:3])
+        np.testing.assert_array_equal(written.velocity, sample[3:6])
+
+
+def test_oem_segment_add_trajectory_tod_from_gcrf(eop):
+    """A GCRF trajectory written to a TOD segment is rotated into TOD."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    traj = brahe.OrbitTrajectory(
+        6,
+        brahe.CelestialFrame.GCRF,
+        brahe.OrbitRepresentation.CARTESIAN,
+        None,
+    )
+    samples = [
+        np.array([brahe.R_EARTH + 500e3, 1.0e5, -2.0e5, 10.0, 7.6e3, -5.0]),
+        np.array([brahe.R_EARTH + 501e3, 1.1e5, -2.1e5, 11.0, 7.5e3, -6.0]),
+    ]
+    for i, sample in enumerate(samples):
+        traj.add(epoch + i * 60.0, sample)
+
+    seg = OEMSegment(
+        object_name="SAT",
+        object_id="2024-100A",
+        center_name="EARTH",
+        ref_frame="TOD",
+        time_system="UTC",
+        start_time=epoch,
+        stop_time=epoch + 60.0,
+    )
+    seg.add_trajectory(traj)
+
+    assert seg.num_states == len(samples)
+    for i, (written, sample) in enumerate(zip(seg.states, samples)):
+        expected = brahe.state_gcrf_to_tod(epoch + i * 60.0, sample)
+        np.testing.assert_allclose(written.position, expected[:3], atol=1e-6)
+        np.testing.assert_allclose(written.velocity, expected[3:6], atol=1e-9)
+        assert np.linalg.norm(np.array(written.position) - sample[:3]) > 1.0e3

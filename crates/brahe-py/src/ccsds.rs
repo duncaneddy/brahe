@@ -27,7 +27,6 @@ use brahe::ccsds::common::{
     CCSDSFormat, CCSDSRefFrame, CCSDSTimeSystem, ODMHeader,
 };
 use brahe::ccsds::frames::ADMReferenceFrame;
-use brahe::ccsds::interop::ccsds_ref_frame_to_reference_frame;
 use brahe::ccsds::oem::{OEM as RustOEM, OEMMetadata, OEMSegment, OEMStateVector};
 use brahe::ccsds::omm::OMM as RustOMM;
 use brahe::ccsds::opm::{OPM as RustOPM, OPMManeuver};
@@ -53,7 +52,7 @@ fn oem_segment_celestial_frame(
 /// Push all states from a trajectory into an OEM segment, converting to the
 /// segment's declared reference frame using the trajectory's frame-aware methods.
 fn push_trajectory_states(seg: &mut OEMSegment, traj: &DOrbitTrajectory) -> Result<(), brahe::utils::BraheError> {
-    let frame = ccsds_ref_frame_to_reference_frame(&seg.metadata.ref_frame)?;
+    let frame = ReferenceFrame::try_from(&seg.metadata.ref_frame)?;
     let target = oem_segment_celestial_frame(&frame)?;
     for epoch in traj.epochs.iter() {
         let state = traj.state_in_frame(target, *epoch)?;
@@ -1049,7 +1048,7 @@ impl PyOEMSegment {
                         "Parent is not an OEM object"
                     ))?;
                 let ref_frame = oem_bound.borrow().inner.segments[*seg_idx].metadata.ref_frame.clone();
-                let frame = ccsds_ref_frame_to_reference_frame(&ref_frame).map_err(|e| {
+                let frame = ReferenceFrame::try_from(&ref_frame).map_err(|e| {
                     pyo3::exceptions::PyValueError::new_err(format!(
                         "Unsupported ref_frame for trajectory conversion: {}", e
                     ))
@@ -3813,6 +3812,44 @@ impl PyOPM {
         self.inner.state_vector.position = [sv[0], sv[1], sv[2]];
         self.inner.state_vector.velocity = [sv[3], sv[4], sv[5]];
         Ok(())
+    }
+
+    /// State vector expressed in `frame` at the state-vector epoch.
+    ///
+    /// Maps the message's `REF_FRAME` onto its native frame and converts
+    /// through the reference frame router, so a message declared in `TOD`
+    /// yields a GCRF state directly usable for propagation.
+    ///
+    /// Args:
+    ///     frame (CelestialFrame | ReferenceFrame): Target reference frame
+    ///
+    /// Returns:
+    ///     numpy.ndarray: 6-element state vector [x, y, z, vx, vy, vz] in `frame` (position in meters, velocity in m/s)
+    ///
+    /// Raises:
+    ///     ValueError: If `REF_FRAME` has no native frame or the conversion cannot be evaluated at the epoch
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.ccsds import OPM
+    ///
+    ///     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2.txt")
+    ///     x_gcrf = opm.state_in_frame(bh.CelestialFrame.GCRF)
+    ///     ```
+    #[pyo3(text_signature = "(frame)")]
+    fn state_in_frame<'py>(
+        &self,
+        py: Python<'py>,
+        frame: &Bound<'_, PyAny>,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+        let frame = extract_frame(frame)?;
+        let x = self.inner.state_in_frame(frame).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!(
+                "Failed to convert OPM state to frame: {}", e
+            ))
+        })?;
+        Ok(vec![x[0], x[1], x[2], x[3], x[4], x[5]].into_pyarray(py))
     }
 
     // --- keplerian properties ---

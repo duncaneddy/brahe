@@ -910,3 +910,31 @@ def test_opm_maneuver_repr(eop):
     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2.txt")
     r2 = repr(opm.maneuvers[0])
     assert "OPMManeuver" in r2
+
+
+def test_opm_state_in_frame(eop):
+    """Mirror of test_opm_state_in_frame in Rust."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2.txt")
+    assert opm.ref_frame == "TOD"
+
+    x_tod = opm.state_in_frame(brahe.CelestialFrame.TOD)
+    np.testing.assert_array_equal(x_tod, opm.state)
+
+    x_gcrf = opm.state_in_frame(brahe.CelestialFrame.GCRF)
+    np.testing.assert_array_equal(x_gcrf, brahe.state_tod_to_gcrf(opm.epoch, opm.state))
+    assert np.linalg.norm(x_gcrf[:3] - x_tod[:3]) > 1.0e3
+
+    x_rf = opm.state_in_frame(brahe.ReferenceFrame.celestial(brahe.CelestialFrame.GCRF))
+    np.testing.assert_array_equal(x_rf, x_gcrf)
+
+    x_itrf = opm.state_in_frame(brahe.CelestialFrame.ITRF)
+    assert np.linalg.norm(x_itrf[:3]) == pytest.approx(
+        np.linalg.norm(x_tod[:3]), abs=1.0
+    )
+
+
+def test_opm_state_in_frame_invalid_type(eop):
+    """A non-frame argument raises TypeError."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2.txt")
+    with pytest.raises(TypeError):
+        opm.state_in_frame("GCRF")

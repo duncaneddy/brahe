@@ -11,6 +11,8 @@ The **transformation source** column names how each frame's orientation is reali
 | `GCRF` | Inertial | 399 | ICRF-aligned identity |
 | `ITRF` | Earth-fixed | 399 | IAU 2006/2000A (native) |
 | `EME2000` | Inertial | 399 | IAU 2006 frame bias (native) |
+| `MOD` | Inertial | 399 | IAU 2000 bias-precession (native) |
+| `TOD` | Inertial | 399 | IAU 2000 bias-precession + IAU 2000B nutation with EOP (native) |
 | `LCI` | Inertial | 301 | ICRF-aligned identity |
 | `LFPA` | Moon-fixed | 301 | DE440 binary PCK (SPICE) |
 | `LFME` | Moon-fixed | 301 | DE440 PA + constant PA&rarr;ME rotation (native) |
@@ -72,7 +74,7 @@ Four variants cover bodies without a dedicated named frame:
 
 | Frame(s) | Kernel needed | Auto-loaded? |
 |---|---|---|
-| `GCRF`, `ITRF`, `EME2000` | None (SOFA-based) | N/A |
+| `GCRF`, `ITRF`, `EME2000`, `MOD`, `TOD` | None (SOFA-based) | N/A |
 | `LCI` (rotation only) | None (ICRF-aligned) | N/A |
 | `LCI`, `MCI`, `EMBI`, `SSBI` (translation to/from another center) | `de440s` SPK | Yes, on first `spk_*` query |
 | `MCI`, `MCMF` (translation to/from another center) | `de440s` SPK + `mar099s` satellite ephemeris | Yes, on first Mars body-center query |

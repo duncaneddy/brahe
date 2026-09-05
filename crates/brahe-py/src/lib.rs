@@ -894,6 +894,36 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_position_eme2000_to_gcrf, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_gcrf_to_eme2000, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eme2000_to_gcrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_bias_precession, module)?)?;
+    module.add_function(wrap_pyfunction!(py_nutation, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_greenwich_apparent_sidereal_rotation,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_gcrf_to_mod, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_mod_to_gcrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_mod_to_tod, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_tod_to_mod, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_gcrf_to_tod, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_tod_to_gcrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_tod_to_itrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_itrf_to_tod, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_gcrf_to_mod, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_mod_to_gcrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_mod_to_tod, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_tod_to_mod, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_gcrf_to_tod, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_tod_to_gcrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_tod_to_itrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_itrf_to_tod, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_gcrf_to_mod, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_mod_to_gcrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_mod_to_tod, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_tod_to_mod, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_gcrf_to_tod, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_tod_to_gcrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_tod_to_itrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_itrf_to_tod, module)?)?;
 
     // IAU/WGCCRE body rotation model
     module.add_function(wrap_pyfunction!(

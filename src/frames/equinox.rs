@@ -2780,14 +2780,73 @@ mod tests {
             .collect();
 
         let rots = rotations_gcrf_to_tod(&epochs);
+        let rots_tod_gcrf = rotations_tod_to_gcrf(&epochs);
+        let rots_gcrf_mod = rotations_gcrf_to_mod(&epochs);
+        let rots_mod_gcrf = rotations_mod_to_gcrf(&epochs);
+        let rots_mod_tod = rotations_mod_to_tod(&epochs);
+        let rots_tod_mod = rotations_tod_to_mod(&epochs);
+        let rots_tod_itrf = rotations_tod_to_itrf(&epochs);
+        let rots_itrf_tod = rotations_itrf_to_tod(&epochs);
         let poss = positions_tod_to_itrf(&epochs, &positions).unwrap();
+        let poss_itrf_tod = positions_itrf_to_tod(&epochs, &positions).unwrap();
+        let poss_gcrf_mod_fwd = positions_gcrf_to_mod(&epochs, &positions).unwrap();
+        let poss_gcrf_mod = positions_mod_to_gcrf(&epochs, &positions).unwrap();
+        let poss_mod_tod = positions_mod_to_tod(&epochs, &positions).unwrap();
+        let poss_tod_mod = positions_tod_to_mod(&epochs, &positions).unwrap();
+        let poss_gcrf_tod = positions_gcrf_to_tod(&epochs, &positions).unwrap();
+        let poss_tod_gcrf = positions_tod_to_gcrf(&epochs, &positions).unwrap();
         let sts = states_gcrf_to_tod(&epochs, &states).unwrap();
         let sts_inv = states_itrf_to_tod(&epochs, &states).unwrap();
+        let sts_tod_itrf = states_tod_to_itrf(&epochs, &states).unwrap();
+        let sts_gcrf_mod = states_gcrf_to_mod(&epochs, &states).unwrap();
+        let sts_mod_gcrf = states_mod_to_gcrf(&epochs, &states).unwrap();
+        let sts_tod_mod = states_tod_to_mod(&epochs, &states).unwrap();
+        let sts_tod_gcrf = states_tod_to_gcrf(&epochs, &states).unwrap();
         for i in 0..3 {
             assert_matrix_eq(&rots[i], &rotation_gcrf_to_tod(epochs[i]), 0.0);
+            assert_matrix_eq(&rots_tod_gcrf[i], &rotation_tod_to_gcrf(epochs[i]), 0.0);
+            assert_matrix_eq(&rots_gcrf_mod[i], &rotation_gcrf_to_mod(epochs[i]), 0.0);
+            assert_matrix_eq(&rots_mod_gcrf[i], &rotation_mod_to_gcrf(epochs[i]), 0.0);
+            assert_matrix_eq(&rots_mod_tod[i], &rotation_mod_to_tod(epochs[i]), 0.0);
+            assert_matrix_eq(&rots_tod_mod[i], &rotation_tod_to_mod(epochs[i]), 0.0);
+            assert_matrix_eq(&rots_tod_itrf[i], &rotation_tod_to_itrf(epochs[i]), 0.0);
+            assert_matrix_eq(&rots_itrf_tod[i], &rotation_itrf_to_tod(epochs[i]), 0.0);
             assert_eq!(poss[i], position_tod_to_itrf(epochs[i], positions[i]));
+            assert_eq!(
+                poss_itrf_tod[i],
+                position_itrf_to_tod(epochs[i], positions[i])
+            );
+            assert_eq!(
+                poss_gcrf_mod_fwd[i],
+                position_gcrf_to_mod(epochs[i], positions[i])
+            );
+            assert_eq!(
+                poss_gcrf_mod[i],
+                position_mod_to_gcrf(epochs[i], positions[i])
+            );
+            assert_eq!(
+                poss_mod_tod[i],
+                position_mod_to_tod(epochs[i], positions[i])
+            );
+            assert_eq!(
+                poss_tod_mod[i],
+                position_tod_to_mod(epochs[i], positions[i])
+            );
+            assert_eq!(
+                poss_gcrf_tod[i],
+                position_gcrf_to_tod(epochs[i], positions[i])
+            );
+            assert_eq!(
+                poss_tod_gcrf[i],
+                position_tod_to_gcrf(epochs[i], positions[i])
+            );
             assert_eq!(sts[i], state_gcrf_to_tod(epochs[i], states[i]));
             assert_eq!(sts_inv[i], state_itrf_to_tod(epochs[i], states[i]));
+            assert_eq!(sts_tod_itrf[i], state_tod_to_itrf(epochs[i], states[i]));
+            assert_eq!(sts_gcrf_mod[i], state_gcrf_to_mod(epochs[i], states[i]));
+            assert_eq!(sts_mod_gcrf[i], state_mod_to_gcrf(epochs[i], states[i]));
+            assert_eq!(sts_tod_mod[i], state_tod_to_mod(epochs[i], states[i]));
+            assert_eq!(sts_tod_gcrf[i], state_tod_to_gcrf(epochs[i], states[i]));
         }
         // Broadcast: one epoch, many states.
         let one = states_mod_to_tod(&epochs[..1], &states).unwrap();

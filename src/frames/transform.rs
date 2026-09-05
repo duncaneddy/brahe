@@ -1294,7 +1294,8 @@ mod tests {
     use crate::frames::object_registry::FnProvider;
     use crate::frames::{
         clear_object_registry, register_object, rotation_gcrf_to_mod, rotation_gcrf_to_tod,
-        rotation_mod_to_tod, rotation_tod_to_itrf, state_tod_to_gcrf, state_tod_to_itrf,
+        rotation_mod_to_tod, rotation_tod_to_itrf, state_gcrf_to_mod, state_gcrf_to_tod,
+        state_mod_to_gcrf, state_tod_to_gcrf, state_tod_to_itrf,
     };
     use crate::math::vector6_from_array;
     use crate::spice::spk_state;
@@ -1496,6 +1497,18 @@ mod tests {
         assert_eq!(
             state_frame_to_frame(CelestialFrame::TOD, CelestialFrame::GCRF, epc, x).unwrap(),
             state_tod_to_gcrf(epc, x)
+        );
+        assert_eq!(
+            state_frame_to_frame(CelestialFrame::MOD, CelestialFrame::GCRF, epc, x).unwrap(),
+            state_mod_to_gcrf(epc, x)
+        );
+        assert_eq!(
+            state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::MOD, epc, x).unwrap(),
+            state_gcrf_to_mod(epc, x)
+        );
+        assert_eq!(
+            state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::TOD, epc, x).unwrap(),
+            state_gcrf_to_tod(epc, x)
         );
         let r_mod_tod =
             rotation_frame_to_frame(CelestialFrame::MOD, CelestialFrame::TOD, epc).unwrap();

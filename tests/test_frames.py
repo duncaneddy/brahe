@@ -1730,6 +1730,24 @@ def test_router_equinox_frames_match_pairwise(eop):
         ),
         brahe.state_tod_to_gcrf(epc, x),
     )
+    np.testing.assert_array_equal(
+        brahe.state_frame_to_frame(
+            brahe.CelestialFrame.MOD, brahe.CelestialFrame.GCRF, epc, x
+        ),
+        brahe.state_mod_to_gcrf(epc, x),
+    )
+    np.testing.assert_array_equal(
+        brahe.state_frame_to_frame(
+            brahe.CelestialFrame.GCRF, brahe.CelestialFrame.MOD, epc, x
+        ),
+        brahe.state_gcrf_to_mod(epc, x),
+    )
+    np.testing.assert_array_equal(
+        brahe.state_frame_to_frame(
+            brahe.CelestialFrame.GCRF, brahe.CelestialFrame.TOD, epc, x
+        ),
+        brahe.state_gcrf_to_tod(epc, x),
+    )
     np.testing.assert_allclose(
         brahe.rotation_frame_to_frame(
             brahe.CelestialFrame.MOD, brahe.CelestialFrame.TOD, epc

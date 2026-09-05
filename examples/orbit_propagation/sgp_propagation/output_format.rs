@@ -15,7 +15,7 @@ fn main() {
     let mut prop_ecef = bh::SGPPropagator::from_tle(line1, line2, 60.0).unwrap()
         .with_output_format(CelestialFrame::ECEF, OrbitRepresentation::Cartesian, None).unwrap();
 
-    // Or with Keplerian output (GCRF only)
+    // Or with Keplerian output (available in GCRF and EME2000)
     let mut prop_kep = bh::SGPPropagator::from_tle(line1, line2, 60.0).unwrap()
         .with_output_format(CelestialFrame::ECI, OrbitRepresentation::Keplerian, Some(bh::AngleFormat::Degrees)).unwrap();
 

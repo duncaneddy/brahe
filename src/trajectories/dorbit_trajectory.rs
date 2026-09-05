@@ -90,7 +90,7 @@ use uuid::Uuid;
 
 use crate::constants::AngleFormat;
 use crate::constants::{DEG2RAD, RAD2DEG};
-use crate::coordinates::{state_eci_to_koe, state_inertial_to_koe_gm, state_koe_to_inertial_gm};
+use crate::coordinates::{state_inertial_to_koe_gm, state_koe_to_inertial_gm};
 use crate::frames::{
     CelestialFrame, ReferenceFrame, celestial_root, icrf_aligned_inertial,
     rotation_eme2000_to_gcrf, state_frame_to_frame,
@@ -102,7 +102,6 @@ use crate::math::{
 };
 use crate::propagators::CentralBody;
 use crate::relative_motion::rotation_eci_to_rtn;
-use crate::spice::NAIFId;
 use crate::time::Epoch;
 use crate::utils::state_providers::{
     DCovarianceProvider, DOrbitCovarianceProvider, DOrbitStateProvider, DStateProvider,
@@ -2126,9 +2125,10 @@ impl DOrbitTrajectory {
 
     /// Convert trajectory to Keplerian orbital elements representation.
     ///
-    /// Converts all states to Keplerian elements [a, e, i, raan, argp, anomaly]
-    /// in the current frame. For Cartesian inputs, uses two-body conversion.
-    /// For Keplerian inputs with different angle format, converts angles.
+    /// Cartesian samples are converted to elements [a, e, i, raan, argp, anomaly]
+    /// with a two-body conversion about the center of this trajectory's frame,
+    /// using that body's gravitational parameter. Keplerian samples only have
+    /// their angular elements rescaled to `angle_format`.
     ///
     /// For extended states (dimension > 6), only the first 6 elements (orbital state)
     /// are converted. Additional elements (6+) are preserved unchanged.
@@ -2137,10 +2137,12 @@ impl DOrbitTrajectory {
     /// * `angle_format` - Desired angle format (Radians or Degrees) for output elements
     ///
     /// # Returns
-    /// * `Ok(Self)` - New trajectory with Keplerian representation in specified
-    ///   angle format, preserving dimension.
-    /// * `Err(BraheError)` - If the trajectory is not Earth-centered (its
-    ///   Keplerian result would be undefined) or conversion otherwise fails.
+    /// * `Ok(Self)` - New trajectory of Keplerian elements referenced to this
+    ///   trajectory's own frame, in the requested angle format, preserving dimension.
+    /// * `Err(BraheError)` - If the frame does not admit Keplerian elements
+    ///   (Earth-fixed, of-date, or orbit-relative frames), if the frame's center
+    ///   is an unknown body or a massless barycenter, or if a Keplerian
+    ///   trajectory is missing its angle format.
     pub fn to_keplerian(&self, angle_format: AngleFormat) -> Result<Self, BraheError> {
         let states_converted: Vec<DVector<f64>> = match self.representation {
             OrbitRepresentation::Keplerian => {
@@ -2184,33 +2186,24 @@ impl DOrbitTrajectory {
                 }
             }
             OrbitRepresentation::Cartesian => {
-                if celestial_root(&self.frame)?.center_naif_id() != NAIFId::Earth.id() {
-                    return Err(BraheError::Error(
-                        "to_keplerian labels its result ECI, which is undefined for a \
-                         trajectory centered on another body; use state_koe_osc for \
-                         per-epoch elements about the trajectory's own center"
-                            .to_string(),
-                    ));
+                let center = keplerian_center(&self.frame)?;
+                let cb = CentralBody::from_naif_id(center)?;
+                if cb.is_barycenter() {
+                    return Err(BraheError::Error(format!(
+                        "Keplerian elements are undefined about massless barycenter {}",
+                        center
+                    )));
                 }
-                // Route to GCRF, then take two-body elements about the Earth.
-                let gcrf = self.to_frame(CelestialFrame::GCRF)?;
-                let mut states_converted = Vec::with_capacity(gcrf.states.len());
-                for (_e, s) in (&gcrf).into_iter() {
-                    let converted = gcrf.convert_orbital_preserving_additional(&s, |orbital| {
-                        state_eci_to_koe(orbital, angle_format)
+                let gm = cb.gm();
+                let mut states_converted = Vec::with_capacity(self.states.len());
+                for (_e, s) in self.into_iter() {
+                    let converted = self.convert_orbital_preserving_additional(&s, |orbital| {
+                        state_inertial_to_koe_gm(orbital, gm, angle_format)
                     });
                     states_converted.push(converted);
                 }
                 states_converted
             }
-        };
-
-        // Cartesian samples are relabeled GCRF; element samples keep the
-        // frame their elements are already referenced to.
-        let frame = if self.representation == OrbitRepresentation::Cartesian {
-            CelestialFrame::GCRF.into()
-        } else {
-            self.frame.clone()
         };
 
         Ok(Self {
@@ -2226,7 +2219,7 @@ impl DOrbitTrajectory {
             eviction_policy: self.eviction_policy,
             max_size: self.max_size,
             max_age: self.max_age,
-            frame,
+            frame: self.frame.clone(),
             representation: OrbitRepresentation::Keplerian,
             angle_format: Some(angle_format),
             name: self.name.clone(),
@@ -2623,7 +2616,8 @@ impl DOrbitCovarianceProvider for DOrbitTrajectory {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
-    use crate::coordinates::state_koe_to_eci;
+    use crate::constants::{GM_MOON, R_EARTH, R_MOON};
+    use crate::coordinates::{state_eci_to_koe, state_koe_to_eci};
     use crate::frames::state_gcrf_to_itrf;
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
@@ -5452,6 +5446,65 @@ mod tests {
 
     #[test]
     #[parallel]
+    fn test_dorbittrajectory_to_keplerian_uses_the_frame_center() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // A circular lunar orbit declared in LCI: elements are taken about the
+        // Moon and keep the trajectory's own frame.
+        let r_moon = R_MOON + 100e3;
+        let v_moon = (GM_MOON / r_moon).sqrt();
+        let mut lci =
+            DOrbitTrajectory::new(6, CelestialFrame::LCI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
+        lci.add(
+            epoch,
+            DVector::from_vec(vec![r_moon, 0.0, 0.0, 0.0, v_moon, 0.0]),
+        )
+        .unwrap();
+
+        let lci_kep = lci.to_keplerian(AngleFormat::Degrees).unwrap();
+        assert_eq!(lci_kep.frame, CelestialFrame::LCI);
+        assert_eq!(lci_kep.representation, OrbitRepresentation::Keplerian);
+        assert_abs_diff_eq!(lci_kep.states[0][0], r_moon, epsilon = 1e-6);
+        assert_abs_diff_eq!(lci_kep.states[0][1], 0.0, epsilon = 1e-9);
+
+        // Earth-centered Cartesian input matches the pairwise Earth conversion
+        // exactly and keeps its GCRF label.
+        let x_gcrf = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.6e3, 10.0);
+        let mut gcrf = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::GCRF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
+        gcrf.add(epoch, svec6_to_dvec(x_gcrf)).unwrap();
+
+        let gcrf_kep = gcrf.to_keplerian(AngleFormat::Degrees).unwrap();
+        assert_eq!(gcrf_kep.frame, CelestialFrame::GCRF);
+        let expected = state_eci_to_koe(x_gcrf, AngleFormat::Degrees);
+        for i in 0..6 {
+            assert_eq!(gcrf_kep.states[0][i], expected[i]);
+        }
+
+        // Earth-fixed and of-date frames admit no Keplerian elements.
+        for frame in [CelestialFrame::ITRF, CelestialFrame::TOD] {
+            let mut traj =
+                DOrbitTrajectory::new(6, frame, OrbitRepresentation::Cartesian, None).unwrap();
+            traj.add(epoch, svec6_to_dvec(x_gcrf)).unwrap();
+            assert!(
+                traj.to_keplerian(AngleFormat::Degrees)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("inertial frame")
+            );
+        }
+    }
+
+    #[test]
+    #[parallel]
     fn test_dorbittrajectory_to_keplerian_already_keplerian_same_format() {
         setup_global_test_eop();
 
@@ -5848,7 +5901,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_dorbittrajectory_bci_all_frame_conversions() {
-        // Remaining BCI(301) arms: state_gcrf/ecef/itrf/eme2000/koe_osc and
+        // Remaining LCI arms: state_gcrf/ecef/itrf/eme2000/koe_osc and
         // the batch to_gcrf/to_ecef/to_itrf/to_eme2000, each checked against
         // the equivalent Earth pairwise conversion of state_eci; covariance
         // passes through unchanged (ICRF-aligned axes).
@@ -6025,8 +6078,14 @@ mod tests {
                 .contains("barycenter")
         );
 
-        // to_keplerian labels its result ECI and rejects BCI.
-        assert!(traj_emb.to_keplerian(AngleFormat::Degrees).is_err());
+        // to_keplerian is undefined about a massless barycenter.
+        assert!(
+            traj_emb
+                .to_keplerian(AngleFormat::Degrees)
+                .unwrap_err()
+                .to_string()
+                .contains("barycenter")
+        );
     }
 
     #[test]
@@ -6982,20 +7041,23 @@ mod tests {
         let rtn = traj.to_frame(ReferenceFrame::RTN("CHIEF")).unwrap();
         assert_eq!(rtn.frame, ReferenceFrame::RTN("CHIEF"));
 
-        // The trajectory is its own chief, so its RTN position is zero.
+        // The trajectory is its own chief, so both its RTN position and its
+        // RTN velocity, which includes the angular-velocity transport term,
+        // are zero.
         for i in 0..traj.len() {
-            for k in 0..3 {
+            for k in 0..6 {
                 assert_abs_diff_eq!(rtn.states[i][k], 0.0, epsilon = 1e-6);
             }
         }
 
         // state_bci on an orbit-relative trajectory resolves GCRF through the
-        // chief's declared frame.
+        // chief's declared frame, recovering the full Cartesian state.
         let e = traj.epochs[3];
         let bci = rtn.state_bci(e).unwrap();
         let expected = traj.state_gcrf(e).unwrap();
-        for k in 0..3 {
-            assert_abs_diff_eq!(bci[k], expected[k], epsilon = 1e-3);
+        for k in 0..6 {
+            let tol = if k < 3 { 1e-3 } else { 1e-6 };
+            assert_abs_diff_eq!(bci[k], expected[k], epsilon = tol);
         }
 
         crate::frames::clear_object_registry();

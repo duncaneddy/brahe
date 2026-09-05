@@ -534,9 +534,10 @@ impl SStatePropagator for KeplerianPropagator {
     ///
     /// Panics if the initial state cannot be converted into the propagator's
     /// output frame. The trait method is infallible, and the only way the
-    /// conversion can fail is an output frame that has become unresolvable
-    /// since the propagator was constructed, for example an orbit-relative
-    /// frame whose anchor object was removed from the object registry.
+    /// conversion can fail is if the output frame can no longer be resolved by
+    /// the reference frame router, for example an orbit-relative frame whose
+    /// anchor object was unregistered, or a body-fixed frame whose kernels are
+    /// no longer loaded.
     fn reset(&mut self) {
         // Reset trajectory to initial state only, preserving identity
         let name = self.trajectory.get_name().map(|s| s.to_string());
@@ -790,6 +791,7 @@ mod tests {
     use super::*;
     use crate::DEGREES;
     use crate::coordinates::state_eci_to_koe;
+    use crate::frames::object_registry::FnProvider;
     use crate::frames::{
         CelestialFrame, DStateAdapter, ReferenceFrame, clear_object_registry, register_object,
         state_ecef_to_eci, state_eme2000_to_gcrf, state_gcrf_to_tod, state_itrf_to_gcrf,
@@ -931,8 +933,6 @@ mod tests {
     #[test]
     #[serial]
     fn test_keplerianpropagator_new_errors_when_orbit_relative_provider_fails() {
-        use crate::frames::object_registry::FnProvider;
-
         setup_global_test_eop();
         clear_object_registry();
         register_object(
@@ -960,8 +960,6 @@ mod tests {
     #[test]
     #[serial]
     fn test_keplerianpropagator_with_output_format_errors_when_orbit_relative_provider_fails() {
-        use crate::frames::object_registry::FnProvider;
-
         setup_global_test_eop();
         clear_object_registry();
         register_object(
@@ -987,8 +985,6 @@ mod tests {
     #[test]
     #[serial]
     fn test_keplerianpropagator_set_initial_conditions_errors_when_orbit_relative_provider_fails() {
-        use crate::frames::object_registry::FnProvider;
-
         setup_global_test_eop();
         clear_object_registry();
         register_object(
@@ -2026,7 +2022,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_keplerian_propagator_output_in_tod_and_rtn() {
+    fn test_keplerianpropagator_output_in_tod_and_rtn() {
         setup_global_test_eop();
         clear_object_registry();
 
@@ -2118,7 +2114,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_keplerian_propagator_keplerian_elements_in_eme2000() {
+    fn test_keplerianpropagator_keplerian_elements_in_eme2000() {
         setup_global_test_eop();
 
         // Keplerian output is allowed in any inertial Earth-centered frame, and

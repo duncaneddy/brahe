@@ -919,7 +919,6 @@ mod tests {
         );
 
         // Orbit-relative: root is the bound object's declared frame.
-        let epc = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let oe = SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
         let x = state_koe_to_eci(oe, AngleFormat::Degrees);
         register_object("SC", FnProvider(move |_e| Ok(x)), CelestialFrame::EME2000).unwrap();
@@ -960,7 +959,6 @@ mod tests {
         );
         assert!(celestial_root(&ReferenceFrame::RTN("GHOST")).is_err());
         assert!(celestial_root(&ReferenceFrame::SC_BODY("GHOST")).is_err());
-        let _ = epc;
         clear_frame_registry();
         clear_object_registry();
     }

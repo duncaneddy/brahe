@@ -18,7 +18,7 @@ prop_ecef.set_output_format(
     bh.CelestialFrame.ECEF, bh.OrbitRepresentation.CARTESIAN, None
 )
 
-# Or with Keplerian output (GCRF only)
+# Or with Keplerian output (available in GCRF and EME2000)
 prop_kep = bh.SGPPropagator.from_tle(line1, line2, 60.0)
 prop_kep.set_output_format(
     bh.CelestialFrame.ECI, bh.OrbitRepresentation.KEPLERIAN, bh.AngleFormat.DEGREES

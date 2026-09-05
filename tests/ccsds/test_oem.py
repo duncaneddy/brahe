@@ -1024,6 +1024,41 @@ def test_OEMSegment_add_trajectory_gcrf_frame(keplerian_trajectory):
     assert states[0].velocity == pytest.approx(list(expected[3:6]), abs=0.001)
 
 
+def test_OEMSegment_add_trajectory_itrf_frame(eop):
+    """An ITRF trajectory written to an ITRF segment takes the same-frame
+    shortcut, so the written states are the stored samples exactly."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    traj = brahe.OrbitTrajectory(
+        6,
+        brahe.CelestialFrame.ITRF,
+        brahe.OrbitRepresentation.CARTESIAN,
+        None,
+    )
+    samples = [
+        np.array([brahe.R_EARTH + 500e3, 1.0e5, -2.0e5, 10.0, 7.6e3, -5.0]),
+        np.array([brahe.R_EARTH + 501e3, 1.1e5, -2.1e5, 11.0, 7.5e3, -6.0]),
+        np.array([brahe.R_EARTH + 502e3, 1.2e5, -2.2e5, 12.0, 7.4e3, -7.0]),
+    ]
+    for i, sample in enumerate(samples):
+        traj.add(epoch + i * 60.0, sample)
+
+    seg = OEMSegment(
+        object_name="SAT",
+        object_id="2024-100A",
+        center_name="EARTH",
+        ref_frame="ITRF2000",
+        time_system="UTC",
+        start_time=epoch,
+        stop_time=epoch + 120.0,
+    )
+    seg.add_trajectory(traj)
+
+    assert seg.num_states == len(samples)
+    for written, sample in zip(seg.states, samples):
+        np.testing.assert_array_equal(written.position, sample[:3])
+        np.testing.assert_array_equal(written.velocity, sample[3:6])
+
+
 def test_OEM_trajectory_round_trip(keplerian_trajectory):
     """Test full pipeline: trajectory → OEM → file → load → compare states."""
     epoch, prop = keplerian_trajectory

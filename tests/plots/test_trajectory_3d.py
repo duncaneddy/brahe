@@ -7,7 +7,7 @@ import pytest
 
 import brahe as bh
 from brahe.plots.bodies import resolve_body
-from brahe.plots.trajectory_3d import _coerce_trajectory_frame
+from brahe.plots.trajectory_3d import _body_inertial_frame, _coerce_trajectory_frame
 
 
 @pytest.fixture
@@ -353,3 +353,23 @@ def test_plot_trajectory_3d_rejects_removed_kwargs(eci_trajectory):
         bh.plot_trajectory_3d(
             [{"trajectory": eci_trajectory}], None, "km", False, "earth"
         )
+
+
+def test_coerce_trajectory_frame_custom_body_centered_icrf():
+    """A body without a named centered-inertial frame falls back to
+    BodyCenteredICRF on its NAIF ID, and a trajectory already declared there is
+    passed through unchanged."""
+    ceres_naif_id = 2000001
+    frame = _body_inertial_frame(ceres_naif_id)
+    assert frame == bh.CelestialFrame.BodyCenteredICRF(ceres_naif_id)
+
+    epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj = bh.OrbitTrajectory(6, frame, bh.OrbitRepresentation.CARTESIAN, None)
+    state = np.array([5.0e5, 0.0, 0.0, 0.0, 3.0e2, 0.0])
+    traj.add(epoch, state)
+
+    converted = _coerce_trajectory_frame(
+        traj, {"naif_id": ceres_naif_id, "name": "ceres"}
+    )
+    assert converted.frame == frame
+    np.testing.assert_array_equal(converted.to_matrix()[0, 0:6], state)

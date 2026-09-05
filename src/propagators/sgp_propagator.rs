@@ -2676,7 +2676,10 @@ impl Identifiable for SGPPropagator {
 mod tests {
     use super::*;
     use crate::RADIANS;
-    use crate::frames::state_itrf_to_tod;
+    use crate::frames::object_registry::FnProvider;
+    use crate::frames::{
+        clear_object_registry, register_object, state_itrf_to_tod, unregister_object,
+    };
     use crate::utils::testing::{setup_global_test_eop, setup_global_test_eop_original_brahe};
     use approx::assert_abs_diff_eq;
     use serial_test::{parallel, serial};
@@ -4093,9 +4096,6 @@ mod tests {
     #[test]
     #[serial]
     fn test_sgppropagator_with_output_format_errors_when_orbit_relative_provider_fails() {
-        use crate::frames::object_registry::FnProvider;
-        use crate::frames::{clear_object_registry, register_object};
-
         setup_global_test_eop();
         clear_object_registry();
         register_object(
@@ -4120,9 +4120,6 @@ mod tests {
     #[test]
     #[serial]
     fn test_sgppropagator_step_by_errors_when_orbit_relative_object_becomes_unavailable() {
-        use crate::frames::object_registry::FnProvider;
-        use crate::frames::{clear_object_registry, register_object, unregister_object};
-
         setup_global_test_eop();
         clear_object_registry();
         let chief_state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
@@ -4156,9 +4153,6 @@ mod tests {
     #[serial]
     fn test_sgppropagator_step_by_errors_converting_event_state_when_orbit_relative_object_becomes_unavailable()
      {
-        use crate::frames::object_registry::FnProvider;
-        use crate::frames::{clear_object_registry, register_object, unregister_object};
-
         setup_global_test_eop();
         clear_object_registry();
         let chief_state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);

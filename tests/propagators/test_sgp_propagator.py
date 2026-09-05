@@ -261,6 +261,32 @@ class TestSGPPropagatorMethods:
         # Verify it doesn't error and trajectory stores states
         assert prop.trajectory.length > 0
 
+    def test_sgppropagator_output_format_tod(self, iss_tle):
+        """Rust: test_sgppropagator_output_format_tod"""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epc = prop.epoch
+        expected = brahe.state_itrf_to_tod(epc, prop.state_ecef(epc))
+
+        prop.set_output_format(
+            brahe.CelestialFrame.TOD, brahe.OrbitRepresentation.CARTESIAN, None
+        )
+        assert prop.trajectory.frame == brahe.CelestialFrame.TOD
+        np.testing.assert_allclose(prop.current_state(), expected, atol=1e-6)
+
+        # Non-Earth frames are rejected: Earth-only propagator.
+        with pytest.raises(brahe.BraheError):
+            prop.set_output_format(
+                brahe.CelestialFrame.LCI, brahe.OrbitRepresentation.CARTESIAN, None
+            )
+
+        # Keplerian output requires an inertial frame.
+        with pytest.raises(brahe.BraheError):
+            prop.set_output_format(
+                brahe.CelestialFrame.ITRF,
+                brahe.OrbitRepresentation.KEPLERIAN,
+                brahe.AngleFormat.DEGREES,
+            )
+
     def test_sgppropagator_set_output_format_ecef(self, iss_tle):
         """Test setting output format to ECEF Cartesian."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)

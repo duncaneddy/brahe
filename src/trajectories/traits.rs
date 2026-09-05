@@ -770,14 +770,20 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
 
     /// Convert to Keplerian elements with specified angle format.
     ///
-    /// Returns a new trajectory in Keplerian representation.
+    /// Cartesian samples are converted with a two-body conversion about the
+    /// center of the trajectory's frame, using that body's gravitational
+    /// parameter. Keplerian samples only have their angular elements rescaled.
     ///
     /// # Arguments
     /// * `angle_format` - Format for angular elements (Radians or Degrees, cannot be None)
     ///
     /// # Returns
-    /// * `Ok(Self)` - New trajectory in Keplerian representation
-    /// * `Err(BraheError)` - If the frame is unsupported or conversion fails
+    /// * `Ok(Self)` - New trajectory of Keplerian elements referenced to the
+    ///   trajectory's own frame
+    /// * `Err(BraheError)` - If the frame does not admit Keplerian elements
+    ///   (Earth-fixed, of-date, or orbit-relative frames), if the frame's center
+    ///   is an unknown body or a massless barycenter, or if a Keplerian
+    ///   trajectory is missing its angle format
     fn to_keplerian(&self, angle_format: AngleFormat) -> Result<Self, BraheError>
     where
         Self: Sized;

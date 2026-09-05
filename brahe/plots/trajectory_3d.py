@@ -250,7 +250,9 @@ def _body_inertial_frame(naif_id):
         3: CelestialFrame.EMBI,
         0: CelestialFrame.SSBI,
     }
-    return named.get(naif_id) or CelestialFrame.BodyCenteredICRF(naif_id)
+    if naif_id in named:
+        return named[naif_id]
+    return CelestialFrame.BodyCenteredICRF(naif_id)
 
 
 def _coerce_trajectory_frame(trajectory, body):

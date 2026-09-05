@@ -1453,8 +1453,12 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
+    ///     import numpy as np
+    ///
     ///     bh.initialize_eop()
     ///     traj = bh.OrbitTrajectory(6, bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj.add(epc, np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0]))
     ///     traj_tod = traj.to_frame(bh.CelestialFrame.TOD)
     ///     ```
     #[pyo3(text_signature = "(frame)")]

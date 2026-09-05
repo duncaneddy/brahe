@@ -22,6 +22,8 @@ from brahe import (
     state_eci_to_ecef,
     state_eci_to_koe,
     state_eme2000_to_gcrf,
+    state_gcrf_to_eme2000,
+    state_gcrf_to_tod,
     state_itrf_to_gcrf,
     state_koe_to_eci,
 )
@@ -113,13 +115,76 @@ def test_keplerianpropagator_accepts_reference_frame():
         )
 
 
+def test_keplerianpropagator_output_in_tod(eop):
+    """Rust: test_keplerianpropagator_output_in_tod_and_rtn"""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    x_gcrf = create_cartesian_state()
+
+    gcrf_prop = KeplerianPropagator(
+        epoch,
+        x_gcrf,
+        CelestialFrame.GCRF,
+        OrbitRepresentation.CARTESIAN,
+        None,
+        60.0,
+    )
+    tod_prop = KeplerianPropagator(
+        epoch,
+        state_gcrf_to_tod(epoch, x_gcrf),
+        CelestialFrame.TOD,
+        OrbitRepresentation.CARTESIAN,
+        None,
+        60.0,
+    )
+    assert tod_prop.trajectory.frame == CelestialFrame.TOD
+
+    # A true-of-date output frame matches the direct GCRF -> TOD rotation, both
+    # at the initial epoch and after propagation.
+    for dt in (0.0, 600.0):
+        epc = epoch + dt
+        np.testing.assert_allclose(
+            tod_prop.state(epc),
+            state_gcrf_to_tod(epc, gcrf_prop.state(epc)),
+            atol=1e-6,
+        )
+
+    # The inertial accessors are independent of the output frame.
+    np.testing.assert_allclose(tod_prop.state_gcrf(epoch), x_gcrf, atol=1e-6)
+
+
+def test_keplerianpropagator_keplerian_elements_in_eme2000(eop):
+    """Rust: test_keplerianpropagator_keplerian_elements_in_eme2000"""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    x_gcrf = create_cartesian_state()
+
+    # Keplerian output is allowed in any inertial Earth-centered frame, and the
+    # elements are about the Earth in that frame's own axes.
+    x_eme2000 = state_gcrf_to_eme2000(x_gcrf)
+    oe_eme2000 = state_eci_to_koe(x_eme2000, AngleFormat.DEGREES)
+
+    prop = KeplerianPropagator(
+        epoch,
+        oe_eme2000,
+        CelestialFrame.EME2000,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
+        60.0,
+    )
+    assert prop.trajectory.frame == CelestialFrame.EME2000
+
+    # The elements are realized as Cartesian in EME2000, not treated as GCRF
+    # elements, so the original GCRF state comes back.
+    np.testing.assert_allclose(prop.state_eme2000(epoch), x_eme2000, atol=1e-6)
+    np.testing.assert_allclose(prop.state_gcrf(epoch), x_gcrf, atol=1e-6)
+
+
 def test_keplerianpropagator_new_invalid_angle_format():
-    """Test that new() raises TypeError when angle_format is None for Keplerian elements"""
+    """Test that new() raises when angle_format is None for Keplerian elements"""
     epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
     elements = create_test_elements()
 
-    # This should raise TypeError because angle format cannot be None
-    with pytest.raises(TypeError):
+    # Keplerian elements require an angle format
+    with pytest.raises(BraheError, match="Angle format must be specified"):
         KeplerianPropagator(
             epoch,
             elements,

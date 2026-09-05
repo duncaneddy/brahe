@@ -14092,10 +14092,10 @@ mod tests {
         (prop, epoch0, x0)
     }
 
-    /// A non-Earth propagator's stored trajectory is labeled
-    /// `BodyCenteredInertial`, so Earth-frame trajectory conversions are
-    /// rejected instead of silently treating body-centered samples as
-    /// geocentric ECI; an Earth propagator's trajectory stays `ECI`.
+    /// A non-Earth propagator's stored trajectory is labeled with that body's
+    /// centered inertial frame, so Earth-frame trajectory conversions re-center
+    /// the samples instead of silently treating them as geocentric ECI; an
+    /// Earth propagator's trajectory stays `ECI`.
     #[test]
     #[serial]
     fn test_trajectory_frame_matches_central_body() {

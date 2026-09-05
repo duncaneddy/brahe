@@ -449,7 +449,7 @@ impl PySGPPropagator {
     /// Set output format (frame, representation, and angle format).
     ///
     /// Args:
-    ///     frame (CelestialFrame or ReferenceFrame): Output frame (ECI or ECEF).
+    ///     frame (CelestialFrame or ReferenceFrame): Output frame; any Earth-centered CelestialFrame or ReferenceFrame.
     ///     representation (OrbitRepresentation): Output representation (Cartesian or Keplerian).
     ///     angle_format (AngleFormat or None): Angle format for Keplerian (None for Cartesian).
     #[pyo3(text_signature = "(frame, representation, angle_format)")]
@@ -2171,7 +2171,7 @@ impl PySGPPropagatorBuilder {
     /// frame/representation/angle-format combinations it accepts.
     ///
     /// Args:
-    ///     frame (CelestialFrame or ReferenceFrame): Output frame (ECI or ECEF).
+    ///     frame (CelestialFrame or ReferenceFrame): Output frame; any Earth-centered CelestialFrame or ReferenceFrame.
     ///     representation (OrbitRepresentation): Output representation (Cartesian or Keplerian).
     ///     angle_format (AngleFormat or None): Angle format for Keplerian (None for Cartesian).
     ///
@@ -2279,7 +2279,7 @@ impl PyKeplerianPropagator {
     ///     state (numpy.ndarray): 6-element state vector.
     ///     frame (CelestialFrame or ReferenceFrame): Reference frame.
     ///     representation (OrbitRepresentation): State representation.
-    ///     angle_format (AngleFormat): Angle format (only for Keplerian).
+    ///     angle_format (AngleFormat or None): Angle format for Keplerian elements; None for Cartesian.
     ///     step_size (float): Step size in seconds for propagation.
     ///
     /// Returns:
@@ -2291,7 +2291,7 @@ impl PyKeplerianPropagator {
         state: PyReadonlyArray1<f64>,
         frame: &Bound<'_, PyAny>,
         representation: PyRef<PyOrbitRepresentation>,
-        angle_format: PyRef<PyAngleFormat>,
+        angle_format: Option<PyRef<PyAngleFormat>>,
         step_size: f64,
     ) -> PyResult<Self> {
         let frame = extract_frame(frame)?;
@@ -2313,7 +2313,7 @@ impl PyKeplerianPropagator {
             state_vec,
             frame,
             representation.representation,
-            Some(angle_format.value),
+            angle_format.map(|a| a.value),
             step_size,
         )?;
 
@@ -2668,7 +2668,7 @@ impl PyKeplerianPropagator {
     ///     state (numpy.ndarray): Initial state vector.
     ///     frame (CelestialFrame or ReferenceFrame): Reference frame.
     ///     representation (OrbitRepresentation): State representation.
-    ///     angle_format (AngleFormat): Angle format.
+    ///     angle_format (AngleFormat or None): Angle format for Keplerian elements; None for Cartesian.
     ///
     /// Example:
     ///     ```python
@@ -2687,14 +2687,14 @@ impl PyKeplerianPropagator {
     ///     prop.set_initial_conditions(new_epc, new_state, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, bh.AngleFormat.RADIANS)
     ///     print(f"New initial epoch: {prop.initial_epoch}")
     ///     ```
-    #[pyo3(text_signature = "(epoch, state, frame, representation, angle_format)")]
+    #[pyo3(signature = (epoch, state, frame, representation, angle_format), text_signature = "(epoch, state, frame, representation, angle_format)")]
     pub fn set_initial_conditions(
         &mut self,
         epoch: PyRef<PyEpoch>,
         state: PyReadonlyArray1<f64>,
         frame: &Bound<'_, PyAny>,
         representation: PyRef<PyOrbitRepresentation>,
-        angle_format: PyRef<PyAngleFormat>,
+        angle_format: Option<PyRef<PyAngleFormat>>,
     ) -> PyResult<()> {
         let frame = extract_frame(frame)?;
         let state_array = state.as_array();
@@ -2715,7 +2715,7 @@ impl PyKeplerianPropagator {
             state_vec,
             frame,
             representation.representation,
-            Some(angle_format.value),
+            angle_format.map(|a| a.value),
         )?;
 
         Ok(())

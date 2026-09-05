@@ -107,7 +107,15 @@ def test_trajectory_to_frame_orbit_relative(eop, leo_trajectory):
         brahe.register_object("CHIEF", leo_trajectory, CelestialFrame.GCRF)
         rtn = leo_trajectory.to_frame(brahe.ReferenceFrame.RTN("CHIEF"))
         assert rtn.frame == brahe.ReferenceFrame.RTN("CHIEF")
-        np.testing.assert_allclose(rtn.to_matrix()[:, 0:3], 0.0, atol=1e-6)
+        # The trajectory is its own chief, so position and the transported
+        # velocity are both zero.
+        np.testing.assert_allclose(rtn.to_matrix()[:, 0:6], 0.0, atol=1e-6)
+
+        epc = leo_trajectory.epochs()[3]
+        bci = rtn.state_bci(epc)
+        expected = leo_trajectory.state_gcrf(epc)
+        np.testing.assert_allclose(bci[0:3], expected[0:3], atol=1e-3)
+        np.testing.assert_allclose(bci[3:6], expected[3:6], atol=1e-6)
     finally:
         brahe.clear_object_registry()
 
@@ -126,6 +134,45 @@ def test_keplerian_frame_rule():
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.DEGREES,
     )
+
+
+def test_trajectory_to_keplerian_uses_the_frame_center(eop):
+    """Rust: test_dorbittrajectory_to_keplerian_uses_the_frame_center"""
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+
+    # A circular lunar orbit declared in LCI: elements are taken about the Moon
+    # and keep the trajectory's own frame.
+    r_moon = brahe.R_MOON + 100e3
+    v_moon = np.sqrt(brahe.GM_MOON / r_moon)
+    lci = OrbitTrajectory(6, CelestialFrame.LCI, OrbitRepresentation.CARTESIAN, None)
+    lci.add(epoch, np.array([r_moon, 0.0, 0.0, 0.0, v_moon, 0.0]))
+
+    lci_kep = lci.to_keplerian(AngleFormat.DEGREES)
+    assert lci_kep.frame == CelestialFrame.LCI
+    assert lci_kep.representation == OrbitRepresentation.KEPLERIAN
+    _, elements = lci_kep.get(0)
+    assert elements[0] == pytest.approx(r_moon, abs=1e-6)
+    assert elements[1] == pytest.approx(0.0, abs=1e-9)
+
+    # Earth-centered Cartesian input matches the pairwise Earth conversion
+    # exactly and keeps its GCRF label.
+    x_gcrf = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.6e3, 10.0])
+    gcrf = OrbitTrajectory(6, CelestialFrame.GCRF, OrbitRepresentation.CARTESIAN, None)
+    gcrf.add(epoch, x_gcrf)
+
+    gcrf_kep = gcrf.to_keplerian(AngleFormat.DEGREES)
+    assert gcrf_kep.frame == CelestialFrame.GCRF
+    _, elements = gcrf_kep.get(0)
+    np.testing.assert_array_equal(
+        elements, state_eci_to_koe(x_gcrf, AngleFormat.DEGREES)
+    )
+
+    # Earth-fixed and of-date frames admit no Keplerian elements.
+    for frame in (CelestialFrame.ITRF, CelestialFrame.TOD):
+        traj = OrbitTrajectory(6, frame, OrbitRepresentation.CARTESIAN, None)
+        traj.add(epoch, x_gcrf)
+        with pytest.raises(BraheError, match="inertial frame"):
+            traj.to_keplerian(AngleFormat.DEGREES)
 
 
 def test_orbit_frame_is_removed():
@@ -1866,7 +1913,7 @@ def test_orbittrajectory_orbitaltrajectory_to_keplerian_deg():
     for i in range(6):
         assert state_out[i] == pytest.approx(state_kep_deg[i], abs=tol)
 
-    # Convert ECEF to Keplerian Degrees
+    # ECEF is Earth-fixed, so it admits no Keplerian elements.
     ecef_traj = OrbitTrajectory(
         6,
         CelestialFrame.ECEF,
@@ -1875,15 +1922,8 @@ def test_orbittrajectory_orbitaltrajectory_to_keplerian_deg():
     )
     ecef_state = state_eci_to_ecef(epoch, cart_state)
     ecef_traj.add(epoch, ecef_state)
-    kep_from_ecef = ecef_traj.to_keplerian(AngleFormat.DEGREES)
-    assert kep_from_ecef.frame == CelestialFrame.ECI
-    assert kep_from_ecef.representation == OrbitRepresentation.KEPLERIAN
-    assert kep_from_ecef.angle_format == AngleFormat.DEGREES
-    assert len(kep_from_ecef) == 1
-    epoch_out, state_out = kep_from_ecef.get(0)
-    assert epoch_out.jd() == epoch.jd()
-    for i in range(6):
-        assert state_out[i] == pytest.approx(state_kep_deg[i], abs=tol)
+    with pytest.raises(BraheError, match="inertial frame"):
+        ecef_traj.to_keplerian(AngleFormat.DEGREES)
 
 
 def test_orbittrajectory_orbitaltrajectory_to_keplerian_rad():
@@ -1952,7 +1992,7 @@ def test_orbittrajectory_orbitaltrajectory_to_keplerian_rad():
     for i in range(6):
         assert state_out[i] == pytest.approx(state_kep_rad[i], abs=tol)
 
-    # Convert ECEF to Keplerian Radians
+    # ECEF is Earth-fixed, so it admits no Keplerian elements.
     ecef_traj = OrbitTrajectory(
         6,
         CelestialFrame.ECEF,
@@ -1961,15 +2001,8 @@ def test_orbittrajectory_orbitaltrajectory_to_keplerian_rad():
     )
     ecef_state = state_eci_to_ecef(epoch, cart_state)
     ecef_traj.add(epoch, ecef_state)
-    kep_from_ecef = ecef_traj.to_keplerian(AngleFormat.RADIANS)
-    assert kep_from_ecef.frame == CelestialFrame.ECI
-    assert kep_from_ecef.representation == OrbitRepresentation.KEPLERIAN
-    assert kep_from_ecef.angle_format == AngleFormat.RADIANS
-    assert len(kep_from_ecef) == 1
-    epoch_out, state_out = kep_from_ecef.get(0)
-    assert epoch_out.jd() == epoch.jd()
-    for i in range(6):
-        assert state_out[i] == pytest.approx(state_kep_rad[i], abs=tol)
+    with pytest.raises(BraheError, match="inertial frame"):
+        ecef_traj.to_keplerian(AngleFormat.RADIANS)
 
 
 # StateProvider Tests

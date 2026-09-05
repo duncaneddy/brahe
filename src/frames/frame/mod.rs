@@ -835,6 +835,20 @@ impl From<CelestialFrame> for ReferenceFrame {
     }
 }
 
+impl PartialEq<CelestialFrame> for ReferenceFrame {
+    /// A `ReferenceFrame` equals a `CelestialFrame` when it is that celestial
+    /// frame; orbit-relative and body frames never equal a celestial frame.
+    fn eq(&self, other: &CelestialFrame) -> bool {
+        matches!(self, ReferenceFrame::Celestial(c) if c == other)
+    }
+}
+
+impl PartialEq<ReferenceFrame> for CelestialFrame {
+    fn eq(&self, other: &ReferenceFrame) -> bool {
+        other == self
+    }
+}
+
 impl From<OrbitRelativeFrame> for ReferenceFrame {
     fn from(frame: OrbitRelativeFrame) -> Self {
         ReferenceFrame::OrbitRelative {
@@ -919,6 +933,16 @@ mod tests {
             )
             .is_ok()
         );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_reference_frame_equals_celestial_frame() {
+        let gcrf: ReferenceFrame = CelestialFrame::GCRF.into();
+        assert!(gcrf == CelestialFrame::GCRF);
+        assert!(CelestialFrame::GCRF == gcrf);
+        assert!(gcrf != CelestialFrame::ITRF);
+        assert!(ReferenceFrame::RTN("SC") != CelestialFrame::GCRF);
     }
 
     #[test]

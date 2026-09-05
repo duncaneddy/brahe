@@ -27,8 +27,8 @@
 use nalgebra::Vector3;
 
 use crate::frames::kinematics::{state_inertial_to_rotating, state_rotating_to_inertial};
-use crate::frames::object_registry::object_state;
-use crate::frames::registry::{FrameKey, frame_entry};
+use crate::frames::object_registry::{object_frame, object_state};
+use crate::frames::registry::{FrameKey, frame_entry, frame_key};
 use crate::frames::{
     BodyFrame, CelestialFrame, ObjectId, OrbitRelativeFrameKind, OrbitRelativeFrameVariant,
     ReferenceFrame,
@@ -484,7 +484,7 @@ fn resolve_orbit_relative(
 ///
 /// # Returns
 /// - `CelestialFrame`: The ICRF-aligned frame centered on `frame`'s center
-fn icrf_aligned_inertial(frame: CelestialFrame) -> CelestialFrame {
+pub(crate) fn icrf_aligned_inertial(frame: CelestialFrame) -> CelestialFrame {
     match frame {
         CelestialFrame::GCRF
         | CelestialFrame::LCI
@@ -509,6 +509,47 @@ fn icrf_aligned_inertial(frame: CelestialFrame) -> CelestialFrame {
                 CelestialFrame::BodyCenteredICRF(center)
             }
         }
+    }
+}
+
+/// The celestial frame terminating `frame`'s chain, found without
+/// evaluating any rotation.
+///
+/// A celestial frame is its own root. A bound orbit-relative frame's root is
+/// its object's declared frame. A bound body frame's root is found by walking
+/// the frame registry's parent links until a celestial frame.
+///
+/// # Arguments
+/// - `frame`: The frame to resolve
+///
+/// # Returns
+/// - `Ok(CelestialFrame)`: The root
+/// - `Err(BraheError)`: If `frame` is unbound, its object is not
+///   registered, or a link in its chain is missing
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn celestial_root(frame: &ReferenceFrame) -> Result<CelestialFrame, BraheError> {
+    match frame {
+        ReferenceFrame::Celestial(celestial) => Ok(*celestial),
+        ReferenceFrame::OrbitRelative {
+            object: Some(object),
+            ..
+        } => object_frame(object),
+        ReferenceFrame::Body {
+            object: Some(_), ..
+        } => {
+            let mut current = frame.clone();
+            loop {
+                let key = frame_key(&current).ok_or_else(|| missing_link_error(frame, &current))?;
+                let entry = frame_entry(&key).ok_or_else(|| missing_link_error(frame, &current))?;
+                match entry.parent {
+                    Some(ReferenceFrame::Celestial(celestial)) => return Ok(celestial),
+                    Some(parent) => current = parent,
+                    None => return Err(missing_link_error(frame, &current)),
+                }
+            }
+        }
+        ReferenceFrame::Body { object: None, .. }
+        | ReferenceFrame::OrbitRelative { object: None, .. } => Err(unbound_frame_error(frame)),
     }
 }
 
@@ -863,6 +904,65 @@ mod tests {
         let r =
             rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::RTN("A"), epc).unwrap();
         assert_abs_diff_eq!(r, rotation_eci_to_rtn(x), epsilon = 1e-14);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_celestial_root_resolves_every_frame_kind() {
+        clear_frame_registry();
+        clear_object_registry();
+        setup_global_test_eop();
+
+        assert_eq!(
+            celestial_root(&CelestialFrame::TOD.into()).unwrap(),
+            CelestialFrame::TOD
+        );
+
+        // Orbit-relative: root is the bound object's declared frame.
+        let epc = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("SC", FnProvider(move |_e| Ok(x)), CelestialFrame::EME2000).unwrap();
+        assert_eq!(
+            celestial_root(&ReferenceFrame::RTN("SC")).unwrap(),
+            CelestialFrame::EME2000
+        );
+
+        // Body chain: SC_BODY -> GCRF, CSS_1 -> SC_BODY.
+        register_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            CelestialFrame::GCRF.into(),
+            Quaternion::new(1.0, 0.0, 0.0, 0.0),
+        )
+        .unwrap();
+        register_frame(
+            ReferenceFrame::CSS("SC", "1"),
+            ReferenceFrame::SC_BODY("SC"),
+            Quaternion::new(1.0, 0.0, 0.0, 0.0),
+        )
+        .unwrap();
+        assert_eq!(
+            celestial_root(&ReferenceFrame::CSS("SC", "1")).unwrap(),
+            CelestialFrame::GCRF
+        );
+
+        // Unbound and unregistered frames error.
+        assert!(
+            celestial_root(
+                &ReferenceFrame::orbit_relative(
+                    OrbitRelativeFrameKind::RTN,
+                    OrbitRelativeFrameVariant::Rotating,
+                    None
+                )
+                .unwrap()
+            )
+            .is_err()
+        );
+        assert!(celestial_root(&ReferenceFrame::RTN("GHOST")).is_err());
+        assert!(celestial_root(&ReferenceFrame::SC_BODY("GHOST")).is_err());
+        let _ = epc;
+        clear_frame_registry();
         clear_object_registry();
     }
 

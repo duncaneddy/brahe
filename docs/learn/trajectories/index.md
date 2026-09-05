@@ -106,7 +106,7 @@ Eviction policies are useful for real-time applications where memory must be bou
 
 ### Reference frames
 
-An orbital trajectory's `frame` attribute is a [`ReferenceFrame`](../../library_api/frames/frame.md), the same type used throughout the frame router. Any [`CelestialFrame`](../../library_api/frames/router.md) member is accepted, including `GCRF`, `ITRF`, `EME2000`, `MOD`, `TOD`, and body-centered inertial frames such as `LCI` for the Moon, along with a bound orbit-relative frame (RTN, NTW, VNB, LVLH) or a bound body frame declared through the object registry. `ECI` and `ECEF` remain accepted as aliases of `GCRF` and `ITRF`.
+An orbital trajectory's `frame` attribute is a [`ReferenceFrame`](../../library_api/frames/frame.md), the same type used throughout the frame router. Any [`CelestialFrame`](../../library_api/frames/router.md) member is accepted, including `GCRF`, `ITRF`, `EME2000`, `MOD`, `TOD`, and body-centered inertial frames such as `LCI` for the Moon, along with a bound orbit-relative frame (RTN, NTW, VNC, LVLH) or a bound body frame declared through the object registry. `ECI` and `ECEF` remain accepted as aliases of `GCRF` and `ITRF`.
 
 `to_frame(frame)` converts every stored sample to the target frame by routing through the frame graph, resolving whatever path connects the trajectory's current frame to the requested one. Keplerian representation is restricted to frames that are ICRF-aligned and inertial: `GCRF`, `EME2000`, and the body-centered inertial frames (`LCI`, `MCI`, `EMBI`, `SSBI`, `BodyCenteredICRF`); converting to a Keplerian representation in any other frame returns an error.
 

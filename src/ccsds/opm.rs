@@ -14,6 +14,8 @@ use crate::ccsds::common::{
     CCSDSCovariance, CCSDSFormat, CCSDSRefFrame, CCSDSSpacecraftParameters, CCSDSTimeSystem,
     CCSDSUserDefined, ODMHeader,
 };
+use crate::frames::{ReferenceFrame, state_frame_to_frame};
+use crate::math::SVector6;
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
 
@@ -220,6 +222,40 @@ impl OPM {
         self.maneuvers.push(maneuver);
     }
 
+    /// The state vector expressed in `frame` at the state-vector epoch.
+    ///
+    /// Maps the message's `REF_FRAME` to its native frame and converts
+    /// through the reference frame router, so a message declared in `TOD`
+    /// yields a GCRF state directly usable for propagation.
+    ///
+    /// # Arguments
+    /// - `frame`: Target frame
+    ///
+    /// # Returns
+    /// - `Ok(SVector6)`: `[x, y, z, vx, vy, vz]` in `frame`. Units: (*m*; *m/s*)
+    /// - `Err(BraheError)`: If `REF_FRAME` has no native frame or the
+    ///   conversion cannot be evaluated at the epoch
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::ccsds::opm::OPM;
+    /// use brahe::eop::*;
+    /// use brahe::frames::CelestialFrame;
+    ///
+    /// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample2.txt").unwrap();
+    /// let x_gcrf = opm.state_in_frame(CelestialFrame::GCRF).unwrap();
+    /// ```
+    pub fn state_in_frame(&self, frame: impl Into<ReferenceFrame>) -> Result<SVector6, BraheError> {
+        let native = ReferenceFrame::try_from(&self.metadata.ref_frame)?;
+        let p = self.state_vector.position;
+        let v = self.state_vector.velocity;
+        let x = SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2]);
+        state_frame_to_frame(native, frame, self.state_vector.epoch, x)
+    }
+
     /// Parse an OPM message from a string, auto-detecting the format.
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(content: &str) -> Result<Self, BraheError> {
@@ -271,8 +307,31 @@ impl OPM {
 mod tests {
     use super::*;
     use crate::ccsds::common::CCSDSJsonKeyCase;
+    use crate::frames::{CelestialFrame, state_tod_to_gcrf};
+    use crate::math::SVector6;
     use crate::time::TimeSystem;
-    use serial_test::parallel;
+    use crate::utils::testing::setup_global_test_eop;
+    use serial_test::{parallel, serial};
+
+    #[test]
+    #[serial]
+    fn test_opm_state_in_frame() {
+        setup_global_test_eop();
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample2.txt").unwrap();
+        assert_eq!(opm.metadata.ref_frame, CCSDSRefFrame::TOD);
+        let p = opm.state_vector.position;
+        let v = opm.state_vector.velocity;
+        let x = SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2]);
+        let same = opm.state_in_frame(CelestialFrame::TOD).unwrap();
+        assert_eq!(same, x);
+        let gcrf = opm.state_in_frame(CelestialFrame::GCRF).unwrap();
+        let expected = state_tod_to_gcrf(opm.state_vector.epoch, x);
+        for k in 0..6 {
+            assert_eq!(gcrf[k], expected[k]);
+        }
+        let itrf = opm.state_in_frame(CelestialFrame::ITRF).unwrap();
+        assert!((itrf.fixed_rows::<3>(0).norm() - x.fixed_rows::<3>(0).norm()).abs() < 1.0);
+    }
 
     #[test]
     #[parallel]

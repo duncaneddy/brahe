@@ -5,7 +5,7 @@
 use nalgebra::{DVector, Vector6};
 
 use crate::constants::AngleFormat;
-use crate::frames::CelestialFrame;
+use crate::frames::ReferenceFrame;
 use crate::time::Epoch;
 use crate::trajectories::traits::OrbitRepresentation;
 use crate::utils::BraheError;
@@ -412,7 +412,7 @@ pub trait SOrbitPropagator: SStatePropagator {
         &mut self,
         epoch: Epoch,
         state: Vector6<f64>,
-        frame: CelestialFrame,
+        frame: ReferenceFrame,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
     ) -> Result<(), BraheError>;
@@ -445,7 +445,7 @@ pub trait DOrbitPropagator: DStatePropagator {
         &mut self,
         epoch: Epoch,
         state: DVector<f64>,
-        frame: CelestialFrame,
+        frame: ReferenceFrame,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
     ) -> Result<(), BraheError>;
@@ -455,6 +455,7 @@ pub trait DOrbitPropagator: DStatePropagator {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::frames::CelestialFrame;
     use crate::orbits;
     use crate::propagators::KeplerianPropagator;
     use crate::time::{Epoch, TimeSystem};

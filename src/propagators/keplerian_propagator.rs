@@ -9,16 +9,16 @@ use std::f64::consts::PI;
 use crate::constants::AngleFormat;
 use crate::constants::{DEG2RAD, RAD2DEG, RADIANS};
 use crate::coordinates::{state_eci_to_koe, state_koe_to_eci};
-use crate::frames::CelestialFrame;
 use crate::frames::{
-    state_eci_to_ecef, state_eme2000_to_gcrf, state_gcrf_to_eme2000, state_gcrf_to_itrf,
-    state_itrf_to_gcrf,
+    CelestialFrame, ReferenceFrame, celestial_root, state_eci_to_ecef, state_frame_to_frame,
+    state_gcrf_to_eme2000, state_gcrf_to_itrf,
 };
 use crate::orbits::keplerian::mean_motion;
 use crate::propagators::traits::{SOrbitPropagator, SStatePropagator};
+use crate::spice::NAIFId;
 use crate::time::Epoch;
 use crate::trajectories::DOrbitTrajectory;
-use crate::trajectories::traits::{OrbitRepresentation, Trajectory};
+use crate::trajectories::traits::{OrbitRepresentation, Trajectory, keplerian_center};
 use crate::utils::state_providers::{DOrbitStateProvider, DStateProvider};
 use crate::utils::{BraheError, Identifiable};
 
@@ -38,7 +38,7 @@ pub struct KeplerianPropagator {
     pub initial_state: Vector6<f64>,
 
     /// Frame of the input/output states
-    pub frame: CelestialFrame,
+    pub frame: ReferenceFrame,
 
     /// Representation of the input/output states
     pub representation: OrbitRepresentation,
@@ -77,11 +77,16 @@ pub struct KeplerianPropagator {
 impl KeplerianPropagator {
     /// Validate a frame / representation / angle-format combination.
     ///
+    /// # Arguments
+    /// * `frame` - Frame the states are expressed in
+    /// * `representation` - Type of state representation
+    /// * `angle_format` - Format for angular elements (`None` for Cartesian)
+    ///
     /// # Returns
     /// `Ok(())` when the combination is supported, or an error describing the
     /// incompatibility.
     fn validate_format(
-        frame: CelestialFrame,
+        frame: &ReferenceFrame,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
     ) -> Result<(), BraheError> {
@@ -91,25 +96,20 @@ impl KeplerianPropagator {
             ));
         }
 
-        if representation == OrbitRepresentation::Keplerian && frame != CelestialFrame::ECI {
-            return Err(BraheError::PropagatorError(
-                "Keplerian elements must be in ECI frame".to_string(),
-            ));
-        }
-
         if representation == OrbitRepresentation::Cartesian && angle_format.is_some() {
             return Err(BraheError::PropagatorError(
                 "Angle format should be None for Cartesian representation".to_string(),
             ));
         }
 
-        if !matches!(
-            frame,
-            CelestialFrame::GCRF | CelestialFrame::EME2000 | CelestialFrame::ITRF
-        ) {
+        if representation == OrbitRepresentation::Keplerian {
+            keplerian_center(frame)?;
+        }
+
+        let center = celestial_root(frame)?.center_naif_id();
+        if center != NAIFId::Earth.id() {
             return Err(BraheError::PropagatorError(format!(
-                "frame {frame} is not supported by KeplerianPropagator (Earth-only: \
-                 GCRF/ECI, EME2000, and ITRF/ECEF)"
+                "KeplerianPropagator is Earth-only; frame {frame} is centered on {center}"
             )));
         }
 
@@ -123,16 +123,18 @@ impl KeplerianPropagator {
     ///
     /// If the output format needs to be changed, use the `with_output_format` method after initialization.
     ///
-    /// The input representation and angle format must be compatible:
-    /// * Keplerian representation requires ECI frame and a specified angle format (Degrees or Radians)
-    /// * Cartesian representation can be in ECI or ECEF frame, but angle format must be None
+    /// The propagator models two-body motion about the Earth, so every frame it
+    /// accepts must resolve to an Earth-centered frame. Cartesian states may be
+    /// expressed in any such frame, including non-celestial ones such as an
+    /// orbit-relative `RTN` frame anchored on a registered object. Keplerian
+    /// elements additionally require an inertial frame and an angle format.
     ///
     /// The step size must be positive.
     ///
     /// # Arguments
     /// * `epoch` - Initial epoch
     /// * `state` - State vector (Keplerian elements or Cartesian position/velocity)
-    /// * `frame` - Reference frame
+    /// * `frame` - Reference frame of the input and output states
     /// * `representation` - Type of state representation
     /// * `angle_format` - Format for angular elements (only for Keplerian)
     /// * `step_size` - Step size in seconds for propagation
@@ -140,19 +142,47 @@ impl KeplerianPropagator {
     /// # Returns
     /// New KeplerianPropagator instance, or an error if:
     /// - Angle format is None for Keplerian representation
-    /// - Keplerian elements are not in ECI frame
+    /// - Keplerian elements are not in an inertial frame
     /// - Angle format is not None for Cartesian representation
-    /// - The frame is body-centered inertial (Earth-only propagator)
+    /// - The frame is not Earth-centered (Earth-only propagator), or cannot be
+    ///   resolved because it is unbound or unregistered
     /// - Step size is not positive
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::KeplerianPropagator;
+    /// use brahe::traits::OrbitRepresentation;
+    /// use brahe::frames::CelestialFrame;
+    /// use brahe::constants::AngleFormat;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use nalgebra::Vector6;
+    ///
+    /// set_global_eop_provider(StaticEOPProvider::from_zero());
+    ///
+    /// let epc = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let oe = Vector6::new(6878e3, 0.001, 97.8, 15.0, 30.0, 45.0);
+    ///
+    /// let prop = KeplerianPropagator::new(
+    ///     epc,
+    ///     oe,
+    ///     CelestialFrame::GCRF,
+    ///     OrbitRepresentation::Keplerian,
+    ///     Some(AngleFormat::Degrees),
+    ///     60.0,
+    /// ).unwrap();
+    /// ```
     pub fn new(
         epoch: Epoch,
         state: Vector6<f64>,
-        frame: CelestialFrame,
+        frame: impl Into<ReferenceFrame>,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
         step_size: f64,
     ) -> Result<Self, BraheError> {
-        Self::validate_format(frame, representation, angle_format)?;
+        let frame = frame.into();
+        Self::validate_format(&frame, representation, angle_format)?;
 
         if step_size <= 0.0 {
             return Err(BraheError::PropagatorError(
@@ -163,17 +193,17 @@ impl KeplerianPropagator {
         // Unwrap angle_format for internal conversion (use RADIANS for Cartesian)
         let angle_format_unwrapped = angle_format.unwrap_or(RADIANS);
 
-        // Convert input state to internal osculating elements in ECI frame with radians
+        // Convert input state to internal osculating elements in GCRF with radians
         let internal_elements = Self::convert_to_internal_osculating(
             epoch,
             state,
-            frame,
+            &frame,
             representation,
             angle_format_unwrapped,
-        );
+        )?;
 
         // Create initial trajectory (Keplerian propagator always uses 6D states)
-        let mut trajectory = DOrbitTrajectory::new(6, frame, representation, angle_format)?;
+        let mut trajectory = DOrbitTrajectory::new(6, frame.clone(), representation, angle_format)?;
         trajectory.add(epoch, svec6_to_dvec(state))?;
 
         let n = mean_motion(internal_elements[0], AngleFormat::Radians);
@@ -279,8 +309,8 @@ impl KeplerianPropagator {
     /// used with initialization or after a reset to avoid inconsistencies.
     ///
     /// The frame, representation, and angle format must be compatible:
-    /// * Keplerian representation requires ECI frame and a specified angle format (Degrees or Radians)
-    /// * Cartesian representation can be in ECI or ECEF frame, but angle format must be None
+    /// * Keplerian representation requires an inertial frame and a specified angle format (Degrees or Radians)
+    /// * Cartesian representation accepts any Earth-centered frame, but angle format must be None
     ///
     /// # Arguments
     /// * `frame` - Desired output frame
@@ -293,13 +323,14 @@ impl KeplerianPropagator {
     #[allow(dead_code)]
     fn with_output_format(
         mut self,
-        frame: CelestialFrame,
+        frame: impl Into<ReferenceFrame>,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
     ) -> Result<Self, BraheError> {
-        Self::validate_format(frame, representation, angle_format)?;
+        let frame = frame.into();
+        Self::validate_format(&frame, representation, angle_format)?;
 
-        self.frame = frame;
+        self.frame = frame.clone();
         self.representation = representation;
         self.angle_format = angle_format;
 
@@ -315,7 +346,7 @@ impl KeplerianPropagator {
         let converted_state = self.convert_from_internal_osculating(
             self.initial_epoch,
             self.internal_osculating_elements,
-        );
+        )?;
         self.trajectory
             .add(self.initial_epoch, svec6_to_dvec(converted_state))?;
 
@@ -325,7 +356,7 @@ impl KeplerianPropagator {
         Ok(self)
     }
 
-    /// Convert any state to internal osculating elements (ECI, radians)
+    /// Convert any state to internal osculating elements (GCRF, radians)
     ///
     /// # Arguments
     /// * `epoch` - Epoch of the input state
@@ -335,7 +366,8 @@ impl KeplerianPropagator {
     /// * `angle_format` - Angle format of the input state (only for Keplerian)
     ///
     /// # Returns
-    /// * Internal osculating elements in ECI frame with radians
+    /// * `Ok(Vector6<f64>)`: Internal osculating elements in GCRF with radians
+    /// * `Err(BraheError)`: If the frame conversion from `frame` to GCRF fails
     ///
     /// # Note
     /// Assumes that the input state is valid and consistent with the specified frame, representation, and angle format.
@@ -343,76 +375,85 @@ impl KeplerianPropagator {
     fn convert_to_internal_osculating(
         epoch: Epoch,
         state: Vector6<f64>,
-        frame: CelestialFrame,
+        frame: &ReferenceFrame,
         representation: OrbitRepresentation,
         angle_format: AngleFormat,
-    ) -> Vector6<f64> {
+    ) -> Result<Vector6<f64>, BraheError> {
         match representation {
             OrbitRepresentation::Cartesian => {
-                // First convert to ECI frame if needed
-                let eci_state = match frame {
-                    CelestialFrame::GCRF => state,
-                    CelestialFrame::EME2000 => state_eme2000_to_gcrf(state),
-                    CelestialFrame::ITRF => state_itrf_to_gcrf(epoch, state),
-                    other => {
-                        unreachable!("frame {other} is rejected by validate_format at construction")
-                    }
-                };
-
-                // Convert Cartesian to osculating elements
-                state_eci_to_koe(eci_state, AngleFormat::Radians)
+                let x_gcrf =
+                    state_frame_to_frame(frame.clone(), CelestialFrame::GCRF, epoch, state)?;
+                Ok(state_eci_to_koe(x_gcrf, AngleFormat::Radians))
             }
             OrbitRepresentation::Keplerian => {
-                // Convert angles to radians if needed
-                if angle_format == AngleFormat::Radians {
-                    state
-                } else {
-                    let mut elements = state;
+                let mut elements = state;
+                if angle_format == AngleFormat::Degrees {
                     // Convert angles from degrees to radians (i, RAAN, argp, mean_anomaly)
                     for i in 2..6 {
                         elements[i] *= DEG2RAD;
                     }
-                    elements
                 }
+
+                if *frame == CelestialFrame::GCRF {
+                    return Ok(elements);
+                }
+
+                // Elements about the Earth in another inertial frame's axes:
+                // realize them as a Cartesian state and rotate into GCRF.
+                let x_frame = state_koe_to_eci(elements, AngleFormat::Radians);
+                let x_gcrf =
+                    state_frame_to_frame(frame.clone(), CelestialFrame::GCRF, epoch, x_frame)?;
+                Ok(state_eci_to_koe(x_gcrf, AngleFormat::Radians))
             }
         }
     }
 
-    /// Convert internal osculating elements back to original state format
+    /// Convert internal osculating elements back to the output state format
+    ///
+    /// # Arguments
+    /// * `epoch` - Epoch of the internal elements
+    /// * `internal_elements` - Internal osculating elements (GCRF, radians)
+    ///
+    /// # Returns
+    /// * `Ok(Vector6<f64>)`: State in the propagator's output frame, representation and angle format
+    /// * `Err(BraheError)`: If the frame conversion from GCRF to the output frame fails
     fn convert_from_internal_osculating(
         &self,
         epoch: Epoch,
         internal_elements: Vector6<f64>,
-    ) -> Vector6<f64> {
+    ) -> Result<Vector6<f64>, BraheError> {
         match self.representation {
             OrbitRepresentation::Cartesian => {
-                // Convert osculating elements to Cartesian in ECI
-                let eci_cartesian = state_koe_to_eci(internal_elements, AngleFormat::Radians);
-
-                // Convert to original frame if needed
-                match self.frame {
-                    CelestialFrame::GCRF => eci_cartesian,
-                    CelestialFrame::EME2000 => state_gcrf_to_eme2000(eci_cartesian),
-                    CelestialFrame::ITRF => state_gcrf_to_itrf(epoch, eci_cartesian),
-                    other => {
-                        unreachable!("frame {other} is rejected by validate_format at construction")
-                    }
-                }
+                let x_gcrf = state_koe_to_eci(internal_elements, AngleFormat::Radians);
+                state_frame_to_frame(CelestialFrame::GCRF, self.frame.clone(), epoch, x_gcrf)
             }
             OrbitRepresentation::Keplerian => {
-                // Convert to original angle format
                 // For Keplerian, angle_format is guaranteed to be Some() by validation
-                match self.angle_format.unwrap() {
-                    AngleFormat::Radians => internal_elements,
-                    AngleFormat::Degrees => {
-                        let mut elements = internal_elements;
-                        // Convert angles from radians to degrees (i, RAAN, argp, mean_anomaly)
-                        for i in 2..6 {
-                            elements[i] *= RAD2DEG;
-                        }
-                        elements
+                let format = self.angle_format.unwrap();
+
+                let mut elements = if self.frame == CelestialFrame::GCRF {
+                    internal_elements
+                } else {
+                    // Elements about the Earth in another inertial frame's
+                    // axes: realize them in GCRF and rotate before converting.
+                    let x_gcrf = state_koe_to_eci(internal_elements, AngleFormat::Radians);
+                    let x_frame = state_frame_to_frame(
+                        CelestialFrame::GCRF,
+                        self.frame.clone(),
+                        epoch,
+                        x_gcrf,
+                    )?;
+                    state_eci_to_koe(x_frame, AngleFormat::Radians)
+                };
+
+                if format == AngleFormat::Degrees {
+                    // Convert angles from radians to degrees (i, RAAN, argp, mean_anomaly)
+                    for i in 2..6 {
+                        elements[i] *= RAD2DEG;
                     }
                 }
+
+                Ok(elements)
             }
         }
     }
@@ -450,7 +491,7 @@ impl SStatePropagator for KeplerianPropagator {
         let new_state = self.propagate_internal(target_epoch);
 
         // Convert back to original state format
-        let state = self.convert_from_internal_osculating(target_epoch, new_state);
+        let state = self.convert_from_internal_osculating(target_epoch, new_state)?;
 
         self.trajectory.add(target_epoch, svec6_to_dvec(state))?;
         self.epoch_current = target_epoch;
@@ -489,22 +530,32 @@ impl SStatePropagator for KeplerianPropagator {
         self.step_size = step_size;
     }
 
+    /// # Panics
+    ///
+    /// Panics if the initial state cannot be converted into the propagator's
+    /// output frame. The trait method is infallible, and the only way the
+    /// conversion can fail is an output frame that has become unresolvable
+    /// since the propagator was constructed, for example an orbit-relative
+    /// frame whose anchor object was removed from the object registry.
     fn reset(&mut self) {
         // Reset trajectory to initial state only, preserving identity
         let name = self.trajectory.get_name().map(|s| s.to_string());
         let uuid = self.trajectory.get_uuid();
         let id = self.trajectory.get_id();
 
-        self.trajectory =
-            DOrbitTrajectory::new(6, self.frame, self.representation, self.angle_format)
-                .expect("trajectory format validated at construction")
-                .with_identity(name.as_deref(), uuid, id);
+        self.trajectory = DOrbitTrajectory::new(
+            6,
+            self.frame.clone(),
+            self.representation,
+            self.angle_format,
+        )
+        .expect("trajectory format validated at construction")
+        .with_identity(name.as_deref(), uuid, id);
 
         // Convert initial state to new format and add to trajectory
-        let converted_state = self.convert_from_internal_osculating(
-            self.initial_epoch,
-            self.internal_osculating_elements,
-        );
+        let converted_state = self
+            .convert_from_internal_osculating(self.initial_epoch, self.internal_osculating_elements)
+            .unwrap_or_else(|e| panic!("frame conversion to {} failed: {}", self.frame, e));
         self.trajectory
             .add(self.initial_epoch, svec6_to_dvec(converted_state))
             .expect("trajectory state validated at construction");
@@ -527,31 +578,31 @@ impl SOrbitPropagator for KeplerianPropagator {
         &mut self,
         epoch: Epoch,
         state: Vector6<f64>,
-        frame: CelestialFrame,
+        frame: ReferenceFrame,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
     ) -> Result<(), BraheError> {
-        Self::validate_format(frame, representation, angle_format)?;
+        Self::validate_format(&frame, representation, angle_format)?;
 
         // Unwrap angle_format for internal conversion (use RADIANS for Cartesian)
         let angle_format_unwrapped = angle_format.unwrap_or(RADIANS);
-
-        // Update all state
-        self.initial_epoch = epoch;
-        self.initial_state = state;
-        self.frame = frame;
-        self.representation = representation;
-        self.angle_format = angle_format;
 
         // Recompute internal elements
         self.internal_osculating_elements = Self::convert_to_internal_osculating(
             epoch,
             state,
-            frame,
+            &frame,
             representation,
             angle_format_unwrapped,
-        );
+        )?;
         self.n = mean_motion(self.internal_osculating_elements[0], AngleFormat::Radians);
+
+        // Update all state
+        self.initial_epoch = epoch;
+        self.initial_state = state;
+        self.frame = frame.clone();
+        self.representation = representation;
+        self.angle_format = angle_format;
 
         // Reset trajectory to new initial conditions, preserving identity
         let name = self.trajectory.get_name().map(|s| s.to_string());
@@ -646,7 +697,7 @@ impl DStateProvider for KeplerianPropagator {
     fn state(&self, epoch: Epoch) -> Result<DVector<f64>, BraheError> {
         // Reuse existing internal propagation logic
         let internal_state = self.propagate_internal(epoch);
-        let sv = self.convert_from_internal_osculating(epoch, internal_state);
+        let sv = self.convert_from_internal_osculating(epoch, internal_state)?;
         Ok(svec6_to_dvec(sv))
     }
 
@@ -693,19 +744,13 @@ impl DOrbitStateProvider for KeplerianPropagator {
         Ok(state_eci_to_ecef(epoch, state_eci))
     }
 
+    /// The internal osculating elements are held in GCRF, so this is the
+    /// propagator's native output and does not depend on the configured output
+    /// frame.
     fn state_gcrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         let internal_state = self.propagate_internal(epoch);
         // Always convert to Cartesian for DOrbitStateProvider methods
-        let state_eci = state_koe_to_eci(internal_state, AngleFormat::Radians);
-
-        match self.frame {
-            CelestialFrame::GCRF | CelestialFrame::ITRF => Ok(state_eci),
-            CelestialFrame::EME2000 => Ok(state_eme2000_to_gcrf(state_eci)),
-            other => Err(BraheError::Error(format!(
-                "frame {other} is not supported by KeplerianPropagator (Earth-only: \
-                 GCRF/ECI, EME2000, and ITRF/ECEF)"
-            ))),
-        }
+        Ok(state_koe_to_eci(internal_state, AngleFormat::Radians))
     }
 
     fn state_itrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
@@ -745,12 +790,15 @@ mod tests {
     use super::*;
     use crate::DEGREES;
     use crate::coordinates::state_eci_to_koe;
-    use crate::frames::{CelestialFrame, state_ecef_to_eci};
+    use crate::frames::{
+        CelestialFrame, DStateAdapter, ReferenceFrame, clear_object_registry, register_object,
+        state_ecef_to_eci, state_eme2000_to_gcrf, state_gcrf_to_tod, state_itrf_to_gcrf,
+    };
     use crate::orbits::keplerian::orbital_period;
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
-    use serial_test::parallel;
+    use serial_test::{parallel, serial};
 
     // Test data constants
     const TEST_EPOCH_JD: f64 = 2451545.0;
@@ -801,7 +849,7 @@ mod tests {
     #[test]
     #[parallel]
     fn test_keplerianpropagator_new_rejects_bci_frame() {
-        // KeplerianPropagator is Earth-only; body-centered inertial frames are rejected
+        // KeplerianPropagator is Earth-only; frames centered on another body are rejected
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let state = create_cartesian_state();
 
@@ -819,7 +867,7 @@ mod tests {
             result
                 .unwrap_err()
                 .to_string()
-                .contains("is not supported by KeplerianPropagator")
+                .contains("KeplerianPropagator is Earth-only")
         );
     }
 
@@ -900,13 +948,13 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Keplerian elements must be in ECI frame")]
+    #[should_panic(expected = "Keplerian element trajectories should be in an inertial frame")]
     #[parallel]
     fn test_keplerianpropagator_new_invalid_frame() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
 
-        // This should panic because Keplerian elements are not in ECI frame
+        // This should panic because Keplerian elements are not in an inertial frame
         let _propagator = KeplerianPropagator::new(
             epoch,
             elements,
@@ -1290,7 +1338,7 @@ mod tests {
             .set_initial_conditions(
                 new_epoch,
                 new_elements,
-                CelestialFrame::ECI,
+                CelestialFrame::ECI.into(),
                 OrbitRepresentation::Keplerian,
                 Some(AngleFormat::Radians),
             )
@@ -1888,5 +1936,150 @@ mod tests {
         assert_eq!(prop.get_name(), Some("Chained Orbit"));
         assert_eq!(prop.get_id(), Some(999));
         assert_eq!(prop.get_uuid(), Some(test_uuid));
+    }
+
+    #[test]
+    #[serial]
+    fn test_keplerian_propagator_output_in_tod_and_rtn() {
+        setup_global_test_eop();
+        clear_object_registry();
+
+        let epc = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let x_gcrf = create_cartesian_state();
+
+        let prop = KeplerianPropagator::new(
+            epc,
+            x_gcrf,
+            CelestialFrame::GCRF,
+            OrbitRepresentation::Cartesian,
+            None,
+            60.0,
+        )
+        .unwrap();
+
+        // A true-of-date output format matches the direct GCRF -> TOD rotation.
+        let tod = prop
+            .clone()
+            .with_output_format(CelestialFrame::TOD, OrbitRepresentation::Cartesian, None)
+            .unwrap();
+        let x_tod = tod.state(epc).unwrap();
+        let expected = state_gcrf_to_tod(epc, x_gcrf);
+        for k in 0..6 {
+            assert_abs_diff_eq!(x_tod[k], expected[k], epsilon = 1e-6);
+        }
+
+        // The inertial accessors are independent of the output format.
+        let x_back = tod.state_gcrf(epc).unwrap();
+        for k in 0..6 {
+            assert_abs_diff_eq!(x_back[k], x_gcrf[k], epsilon = 1e-6);
+        }
+
+        // An orbit-relative output frame anchored on the propagated orbit puts
+        // the propagated state at the frame origin.
+        let mut anchor = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::GCRF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
+        for k in 0..5 {
+            let epc_k = epc + 60.0 * k as f64;
+            anchor
+                .add(epc_k, svec6_to_dvec(prop.state_gcrf(epc_k).unwrap()))
+                .unwrap();
+        }
+        register_object(
+            "KEPLERIAN_RTN_ANCHOR",
+            DStateAdapter::new(anchor).unwrap(),
+            CelestialFrame::GCRF,
+        )
+        .unwrap();
+
+        let rtn = prop
+            .clone()
+            .with_output_format(
+                ReferenceFrame::RTN("KEPLERIAN_RTN_ANCHOR"),
+                OrbitRepresentation::Cartesian,
+                None,
+            )
+            .unwrap();
+        let x_rtn = rtn.state(epc + 120.0).unwrap();
+        for k in 0..3 {
+            assert_abs_diff_eq!(x_rtn[k], 0.0, epsilon = 1e-6);
+        }
+
+        // Non-Earth frames are rejected: Earth-only propagator.
+        assert!(
+            prop.clone()
+                .with_output_format(CelestialFrame::LCI, OrbitRepresentation::Cartesian, None)
+                .is_err()
+        );
+
+        // Keplerian output requires an inertial frame.
+        assert!(
+            prop.clone()
+                .with_output_format(
+                    CelestialFrame::ITRF,
+                    OrbitRepresentation::Keplerian,
+                    Some(AngleFormat::Degrees),
+                )
+                .is_err()
+        );
+
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_keplerian_propagator_keplerian_elements_in_eme2000() {
+        setup_global_test_eop();
+
+        // Keplerian output is allowed in any inertial Earth-centered frame, and
+        // the elements are about the Earth in that frame's own axes.
+        let epc = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let x_gcrf = create_cartesian_state();
+
+        let prop = KeplerianPropagator::new(
+            epc,
+            x_gcrf,
+            CelestialFrame::GCRF,
+            OrbitRepresentation::Cartesian,
+            None,
+            60.0,
+        )
+        .unwrap();
+
+        let eme = prop
+            .clone()
+            .with_output_format(
+                CelestialFrame::EME2000,
+                OrbitRepresentation::Keplerian,
+                Some(DEGREES),
+            )
+            .unwrap();
+
+        let oe_eme = eme.state(epc).unwrap();
+        let expected = state_eci_to_koe(state_gcrf_to_eme2000(x_gcrf), DEGREES);
+        for k in 0..6 {
+            assert_abs_diff_eq!(oe_eme[k], expected[k], epsilon = 1e-8);
+        }
+
+        // Feeding those elements back in as EME2000 elements recovers the
+        // original GCRF state, rather than treating them as GCRF elements.
+        let round_trip = KeplerianPropagator::new(
+            epc,
+            Vector6::from_iterator(oe_eme.iter().copied()),
+            CelestialFrame::EME2000,
+            OrbitRepresentation::Keplerian,
+            Some(DEGREES),
+            60.0,
+        )
+        .unwrap();
+
+        let x_back = round_trip.state_gcrf(epc).unwrap();
+        for k in 0..6 {
+            assert_abs_diff_eq!(x_back[k], x_gcrf[k], epsilon = 1e-6);
+        }
     }
 }

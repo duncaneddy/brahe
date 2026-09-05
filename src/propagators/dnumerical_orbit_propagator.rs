@@ -1077,10 +1077,7 @@ impl DNumericalOrbitPropagator {
         // (LCI/MCI/EMBI/...) otherwise, so the frame metadata matches the
         // stored states and Earth-frame trajectory conversions are rejected
         // for non-Earth propagators.
-        let trajectory_frame = match force_config.central_body {
-            CentralBody::Earth => CelestialFrame::GCRF,
-            ref cb => bci_reference_frame(cb.naif_id()),
-        };
+        let trajectory_frame = bci_reference_frame(force_config.central_body.naif_id());
         let trajectory = DOrbitTrajectory::new(
             state_dim,
             trajectory_frame,
@@ -3324,10 +3321,7 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
 
         // Clear trajectory, keeping the frame metadata consistent with the
         // central body (ECI for Earth, body-centered inertial otherwise).
-        let trajectory_frame = match self.central_body.as_ref() {
-            CentralBody::Earth => CelestialFrame::GCRF,
-            cb => bci_reference_frame(cb.naif_id()),
-        };
+        let trajectory_frame = bci_reference_frame(self.central_body.naif_id());
         self.trajectory = DOrbitTrajectory::new(
             self.state_dim,
             trajectory_frame,

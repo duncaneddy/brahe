@@ -1,5 +1,6 @@
 //! Get the GCRF to MOD rotation matrix and show that it reduces to the frame bias at J2000
 
+#[allow(unused_imports)]
 use brahe as bh;
 
 fn main() {

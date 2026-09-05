@@ -1,5 +1,6 @@
 //! Get the MOD to TOD rotation matrix and compute the nutation angle it represents
 
+#[allow(unused_imports)]
 use brahe as bh;
 
 fn main() {

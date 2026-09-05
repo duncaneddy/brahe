@@ -1168,7 +1168,8 @@ impl TryFrom<&ADMReferenceFrame> for ReferenceFrame {
     ///
     /// Celestial frames map onto [`ReferenceFrame::Celestial`] where brahe
     /// implements the frame (ICRF/GCRF → GCRF, EME2000/J2000 → EME2000, ITRF
-    /// realizations → ITRF, TOD_EARTH → TOD, MOD_EARTH → MOD, MOON_ME → LFME). Only the bare `MOON_PA` token and
+    /// realizations → ITRF, TOD_EARTH → TOD, MOD_EARTH → MOD, MOON_ME → LFME).
+    /// Only the bare `MOON_PA` token and
     /// its explicit DE440 realization (`MOON_PA440`) map to `LFPA`, since
     /// brahe's LFPA is the DE440 lunar principal-axes frame and other DE
     /// realizations (e.g. `MOON_PA421`) differ materially. Orbit-relative and
@@ -1664,6 +1665,12 @@ mod tests {
         for k in 0..6 {
             assert_abs_diff_eq!(x_gcrf[k], expected[k], epsilon = 1e-9);
         }
+        assert_abs_diff_eq!(x_tod[0], 3156654.9969124, epsilon = 1e-6);
+        assert_abs_diff_eq!(x_tod[1], -5911757.307689572, epsilon = 1e-6);
+        assert!(
+            (x_gcrf.fixed_rows::<3>(0) - x_tod.fixed_rows::<3>(0)).norm() > 1.0e3,
+            "GCRF state must differ from the TOD ephemeris"
+        );
         clear_object_registry();
         oem.register_for("TOD_SAT").unwrap();
         assert!(
@@ -1671,6 +1678,11 @@ mod tests {
                 .iter()
                 .any(|o| o.to_string() == "TOD_SAT")
         );
+        let (registered_frame, x_reg) = object_state(&"TOD_SAT".into(), e).unwrap();
+        assert_eq!(registered_frame, CelestialFrame::TOD);
+        for k in 0..6 {
+            assert_abs_diff_eq!(x_reg[k], x_tod[k], epsilon = 1e-9);
+        }
         clear_object_registry();
     }
 

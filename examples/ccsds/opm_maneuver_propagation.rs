@@ -18,12 +18,8 @@ fn main() {
     println!("Epoch:  {}", opm.state_vector.epoch);
     println!("Maneuvers: {}", opm.maneuvers.len());
 
-    // Extract initial state (OPM is in TOD frame, treat it as ECEF for this example even though it's not correct)
-    let pos = opm.state_vector.position;
-    let vel = opm.state_vector.velocity;
-    let initial_state =
-        na::SVector::<f64, 6>::new(pos[0], pos[1], pos[2], vel[0], vel[1], vel[2]);
-    let state_eci = bh::state_ecef_to_eci(opm.state_vector.epoch, initial_state);
+    // Extract initial state; the OPM declares its state in the TOD frame
+    let state_eci = opm.state_in_frame(bh::CelestialFrame::GCRF).unwrap();
 
     // Spacecraft parameters
     let sc = opm.spacecraft_parameters.as_ref();

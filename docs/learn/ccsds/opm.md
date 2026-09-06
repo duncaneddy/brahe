@@ -66,7 +66,7 @@ Every OPM has a **header** (version, creation date, originator), **metadata** (o
 
 ## Maneuver Propagation
 
-Read OPM maneuvers and apply them as impulsive delta-V events during propagation:
+Read OPM maneuvers and apply them as impulsive delta-V events during propagation. The example message declares its state vector in the TOD frame, and `state_in_frame` converts it to GCRF through the reference frame router before it is handed to the propagator:
 
 === "Python"
     ``` python

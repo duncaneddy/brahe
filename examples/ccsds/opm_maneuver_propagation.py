@@ -21,8 +21,8 @@ print(f"Object: {opm.object_name}")
 print(f"Epoch:  {opm.epoch}")
 print(f"Maneuvers: {len(opm.maneuvers)}")
 
-# Extract initial state (OPM is in TOD frame, treat it as ECEF for this example even though it's not correct)
-state_eci = bh.state_ecef_to_eci(opm.epoch, opm.state)
+# Extract initial state; the OPM declares its state in the TOD frame
+state_eci = opm.state_in_frame(bh.CelestialFrame.GCRF)
 
 # Spacecraft parameters from OPM
 mass = opm.mass or 500.0

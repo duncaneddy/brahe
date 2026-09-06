@@ -2,6 +2,9 @@
  * Typed NAIF body and frame identifiers.
  */
 
+use crate::utils::errors::BraheError;
+use std::fmt;
+
 /// NAIF integer ID codes for solar-system bodies.
 ///
 /// Named variants cover the planets, planetary-system barycenters, and
@@ -96,6 +99,47 @@ pub enum NAIFId {
     Id(i32),
 }
 
+/// Named `NAIFId` variants paired with their raw NAIF integer ID and their
+/// canonical NAIF body name, used to keep `From<i32>`, [`NAIFId::name`], and
+/// [`NAIFId::from_name`] from drifting apart.
+const NAMED: &[(NAIFId, i32, &str)] = &[
+    (NAIFId::SolarSystemBarycenter, 0, "SOLAR SYSTEM BARYCENTER"),
+    (NAIFId::MercuryBarycenter, 1, "MERCURY BARYCENTER"),
+    (NAIFId::VenusBarycenter, 2, "VENUS BARYCENTER"),
+    (NAIFId::EarthMoonBarycenter, 3, "EARTH MOON BARYCENTER"),
+    (NAIFId::MarsBarycenter, 4, "MARS BARYCENTER"),
+    (NAIFId::JupiterBarycenter, 5, "JUPITER BARYCENTER"),
+    (NAIFId::SaturnBarycenter, 6, "SATURN BARYCENTER"),
+    (NAIFId::UranusBarycenter, 7, "URANUS BARYCENTER"),
+    (NAIFId::NeptuneBarycenter, 8, "NEPTUNE BARYCENTER"),
+    (NAIFId::PlutoBarycenter, 9, "PLUTO BARYCENTER"),
+    (NAIFId::Sun, 10, "SUN"),
+    (NAIFId::Mercury, 199, "MERCURY"),
+    (NAIFId::Venus, 299, "VENUS"),
+    (NAIFId::Earth, 399, "EARTH"),
+    (NAIFId::Moon, 301, "MOON"),
+    (NAIFId::Mars, 499, "MARS"),
+    (NAIFId::Jupiter, 599, "JUPITER"),
+    (NAIFId::Saturn, 699, "SATURN"),
+    (NAIFId::Uranus, 799, "URANUS"),
+    (NAIFId::Neptune, 899, "NEPTUNE"),
+    (NAIFId::Pluto, 999, "PLUTO"),
+    (NAIFId::Phobos, 401, "PHOBOS"),
+    (NAIFId::Deimos, 402, "DEIMOS"),
+    (NAIFId::Io, 501, "IO"),
+    (NAIFId::Europa, 502, "EUROPA"),
+    (NAIFId::Ganymede, 503, "GANYMEDE"),
+    (NAIFId::Callisto, 504, "CALLISTO"),
+    (NAIFId::Titan, 606, "TITAN"),
+    (NAIFId::Ariel, 701, "ARIEL"),
+    (NAIFId::Umbriel, 702, "UMBRIEL"),
+    (NAIFId::Titania, 703, "TITANIA"),
+    (NAIFId::Oberon, 704, "OBERON"),
+    (NAIFId::Miranda, 705, "MIRANDA"),
+    (NAIFId::Triton, 801, "TRITON"),
+    (NAIFId::Charon, 901, "CHARON"),
+];
+
 impl NAIFId {
     /// The raw NAIF integer ID code.
     ///
@@ -149,11 +193,94 @@ impl NAIFId {
             NAIFId::Id(raw) => raw,
         }
     }
+
+    /// The canonical NAIF body name.
+    ///
+    /// Named variants return their NAIF body name (e.g. `"EARTH MOON
+    /// BARYCENTER"`); [`NAIFId::Id`] returns its raw integer ID formatted
+    /// as a string.
+    ///
+    /// # Returns
+    /// - The NAIF body name, or the raw integer ID as a string for
+    ///   [`NAIFId::Id`]
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::spice::NAIFId;
+    ///
+    /// assert_eq!(NAIFId::Earth.name(), "EARTH");
+    /// assert_eq!(NAIFId::EarthMoonBarycenter.name(), "EARTH MOON BARYCENTER");
+    /// assert_eq!(NAIFId::Id(2000001).name(), "2000001");
+    /// ```
+    pub fn name(&self) -> String {
+        match self {
+            NAIFId::Id(raw) => raw.to_string(),
+            _ => NAMED
+                .iter()
+                .find(|(_, id, _)| *id == self.id())
+                .map(|(_, _, name)| name.to_string())
+                .unwrap_or_else(|| self.id().to_string()),
+        }
+    }
+
+    /// Resolves a NAIF body name or integer ID string to a [`NAIFId`].
+    ///
+    /// Matching is case-insensitive and trims surrounding whitespace;
+    /// underscores are treated as spaces (so `"EARTH_MOON_BARYCENTER"`
+    /// matches `"EARTH MOON BARYCENTER"`). A string that does not match a
+    /// known name is parsed as an integer NAIF ID; if that also fails, an
+    /// error is returned.
+    ///
+    /// # Arguments
+    /// - `name`: A NAIF body name (e.g. `"MARS BARYCENTER"`) or an integer
+    ///   NAIF ID string (e.g. `"2000001"`)
+    ///
+    /// # Returns
+    /// - The matching [`NAIFId`], or a [`BraheError::Error`] if `name` is
+    ///   neither a known NAIF body name nor a valid integer ID
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::spice::NAIFId;
+    ///
+    /// assert_eq!(
+    ///     NAIFId::from_name("mars barycenter").unwrap(),
+    ///     NAIFId::MarsBarycenter
+    /// );
+    /// assert_eq!(NAIFId::from_name("2000001").unwrap(), NAIFId::Id(2000001));
+    /// assert!(NAIFId::from_name("not a body").is_err());
+    /// ```
+    pub fn from_name(name: &str) -> Result<NAIFId, BraheError> {
+        let trimmed = name.trim();
+        let normalized = trimmed.to_uppercase().replace('_', " ");
+        if let Some((variant, _, _)) = NAMED.iter().find(|(_, _, n)| *n == normalized) {
+            return Ok(*variant);
+        }
+        if let Ok(raw) = normalized.parse::<i32>() {
+            return Ok(NAIFId::Id(raw));
+        }
+        Err(BraheError::Error(format!(
+            "'{}' is not a known NAIF body name or ID",
+            trimmed
+        )))
+    }
+}
+
+impl fmt::Display for NAIFId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.name())
+    }
 }
 
 impl From<i32> for NAIFId {
+    /// Canonicalizes a raw NAIF integer ID to its named variant when one
+    /// exists, otherwise wraps it in [`NAIFId::Id`].
     fn from(raw: i32) -> Self {
-        NAIFId::Id(raw)
+        NAMED
+            .iter()
+            .find(|(_, id, _)| *id == raw)
+            .map(|(variant, _, _)| *variant)
+            .unwrap_or(NAIFId::Id(raw))
     }
 }
 
@@ -342,6 +469,45 @@ mod tests {
         // A distinct ID is a separate entry.
         assert!(set.insert(NAIFId::Earth));
         assert_eq!(set.len(), 2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_naifid_from_i32_canonicalizes() {
+        assert!(matches!(NAIFId::from(399), NAIFId::Earth));
+        assert!(matches!(NAIFId::from(4), NAIFId::MarsBarycenter));
+        assert!(matches!(NAIFId::from(-42), NAIFId::Id(-42)));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_naifid_name_and_from_name_round_trip() {
+        for id in [
+            NAIFId::SolarSystemBarycenter,
+            NAIFId::EarthMoonBarycenter,
+            NAIFId::Earth,
+            NAIFId::Moon,
+            NAIFId::Mars,
+            NAIFId::MarsBarycenter,
+            NAIFId::Titan,
+        ] {
+            assert_eq!(NAIFId::from_name(&id.name()).unwrap(), id);
+        }
+        assert_eq!(NAIFId::Earth.name(), "EARTH");
+        assert_eq!(NAIFId::EarthMoonBarycenter.name(), "EARTH MOON BARYCENTER");
+        assert_eq!(
+            NAIFId::from_name(" mars barycenter ").unwrap(),
+            NAIFId::MarsBarycenter
+        );
+        assert_eq!(
+            NAIFId::from_name("EARTH_MOON_BARYCENTER").unwrap(),
+            NAIFId::EarthMoonBarycenter
+        );
+        assert_eq!(NAIFId::from_name("2000001").unwrap(), NAIFId::Id(2000001));
+        assert_eq!(NAIFId::Id(2000001).name(), "2000001");
+        let err = NAIFId::from_name("PLANET X").unwrap_err();
+        assert!(err.to_string().contains("PLANET X"));
+        assert_eq!(format!("{}", NAIFId::Moon), "MOON");
     }
 
     #[test]

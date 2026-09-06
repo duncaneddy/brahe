@@ -114,6 +114,54 @@ fn py_kernel_is_loaded(fragment: &str) -> bool {
     spice::kernel_is_loaded(fragment)
 }
 
+/// Resolve a NAIF body name or integer ID string to its NAIF integer ID.
+///
+/// Matching is case-insensitive and trims surrounding whitespace;
+/// underscores are treated as spaces (so "EARTH_MOON_BARYCENTER" matches
+/// "EARTH MOON BARYCENTER"). A string that does not match a known name is
+/// parsed as an integer NAIF ID.
+///
+/// Args:
+///     name (str): NAIF body name (e.g. "MARS BARYCENTER") or an integer NAIF ID string
+///
+/// Returns:
+///     int: The matching NAIF integer ID
+///
+/// Raises:
+///     BraheError: If `name` is neither a known NAIF body name nor a valid integer ID
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     assert bh.naif_id_from_name("mars barycenter") == bh.NAIFId.MARS_BARYCENTER
+///     ```
+#[pyfunction]
+#[pyo3(name = "naif_id_from_name")]
+fn py_naif_id_from_name(name: &str) -> Result<i32, RustBraheError> {
+    Ok(spice::NAIFId::from_name(name)?.id())
+}
+
+/// The canonical NAIF body name for a NAIF integer ID.
+///
+/// Args:
+///     naif_id (int): NAIF integer ID (e.g. 399 for Earth)
+///
+/// Returns:
+///     str: The NAIF body name, or the ID itself formatted as a string if it has no known name
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     assert bh.naif_name(bh.NAIFId.EARTH) == "EARTH"
+///     ```
+#[pyfunction]
+#[pyo3(name = "naif_name")]
+fn py_naif_name(naif_id: i32) -> String {
+    spice::NAIFId::from(naif_id).name()
+}
+
 /// Load the kernels most applications need: "de440s" (planetary ephemeris)
 /// and "moon_pa_de440" (lunar principal-axes orientation).
 ///

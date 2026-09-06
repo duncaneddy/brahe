@@ -59,6 +59,28 @@ def test_position_inertial_to_radec_ra_normalization():
     assert x_radec[2] == pytest.approx(math.sqrt(1.0 + 1e-6), abs=1e-9)
 
 
+def test_position_inertial_to_radec_stays_below_full_turn():
+    # A direction a few ulps clockwise of the vernal equinox: the raw atan2
+    # is a tiny negative angle, which must report as 0, not 360.
+    ra = -1e-17
+    r = 1.0e7
+    x_inertial = np.array([r * math.cos(ra), r * math.sin(ra), 0.0])
+
+    x_radec = bh.position_inertial_to_radec(x_inertial, AngleFormat.DEGREES)
+    assert 0.0 <= x_radec[0] < 360.0
+    assert x_radec[0] == 0.0
+
+    x_radec_rad = bh.position_inertial_to_radec(x_inertial, AngleFormat.RADIANS)
+    assert 0.0 <= x_radec_rad[0] < 2.0 * math.pi
+    assert x_radec_rad[0] == 0.0
+
+    x_state = np.array([*x_inertial, 0.0, r * math.sin(ra), 0.0])
+    assert bh.state_inertial_to_radec(x_state, AngleFormat.DEGREES)[0] == 0.0
+
+    over_pole = np.array([0.0, 0.0, r, r * math.cos(ra), r * math.sin(ra), 0.0])
+    assert bh.state_inertial_to_radec(over_pole, AngleFormat.DEGREES)[0] == 0.0
+
+
 def test_position_inertial_to_radec_polar_singularity():
     # x=(0,0,7000e3) -> ra=0, dec=90, range=7000e3
     x_inertial = np.array([0.0, 0.0, 7000e3])

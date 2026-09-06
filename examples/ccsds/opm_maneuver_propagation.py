@@ -5,6 +5,11 @@
 """
 Read an OPM with maneuvers, initialize a propagator, and apply each maneuver
 as an impulsive delta-V at the specified ignition epoch using TimeEvent callbacks.
+
+Each delta-V is expressed in the frame named by its MAN_REF_FRAME. Inertial
+vectors (J2000/EME2000) are rotated into GCRF by the frame bias, and RTN
+vectors are rotated by the RTN-to-inertial matrix built from the spacecraft
+state at the ignition epoch.
 """
 
 import numpy as np
@@ -52,38 +57,56 @@ scheduled_epochs = [
     opm.epoch + 3600.0 + (man.epoch_ignition - first_ignition) for man in opm.maneuvers
 ]
 
-# Add event detectors for each maneuver with inertial delta-V
+
+def make_callback(dv_vec, man_idx, is_rtn):
+    """Create a closure that rotates the delta-V into GCRF and applies it.
+
+    Args:
+        dv_vec (numpy.ndarray): Delta-V [dv1, dv2, dv3] in the maneuver frame (m/s)
+        man_idx (int): Index of the maneuver within the OPM
+        is_rtn (bool): True if `dv_vec` is expressed in the RTN frame
+
+    Returns:
+        callable: Event callback returning the post-maneuver state and action
+    """
+
+    def apply_dv(epoch, state):
+        dv_gcrf = bh.rotation_rtn_to_eci(state) @ dv_vec if is_rtn else dv_vec
+        new_state = state.copy()
+        new_state[3] += dv_gcrf[0]
+        new_state[4] += dv_gcrf[1]
+        new_state[5] += dv_gcrf[2]
+        dv_mag = np.linalg.norm(dv_gcrf)
+        print(f"  Applied maneuver {man_idx} at {epoch}: |dv|={dv_mag:.3f} m/s")
+        return (new_state, bh.EventAction.CONTINUE)
+
+    return apply_dv
+
+
+# The frame bias between EME2000 (alias J2000) and GCRF is epoch-independent
+r_eme2000_to_gcrf = bh.rotation_eme2000_to_gcrf()
+
+# Add an event detector for each maneuver
 for i, (man, sched_epoch) in enumerate(zip(opm.maneuvers, scheduled_epochs)):
-    dv = man.dv  # [dvx, dvy, dvz] in m/s in the maneuver's ref frame
+    dv = man.dv  # [dv1, dv2, dv3] in m/s in the maneuver's ref frame
     frame = man.ref_frame
 
-    # For this example, only apply inertial-frame maneuvers (J2000/EME2000)
-    # RTN maneuvers would require frame rotation which adds complexity
     if frame in ("J2000", "EME2000"):
-
-        def make_callback(dv_vec, man_idx):
-            """Create a closure that applies the delta-V."""
-
-            def apply_dv(epoch, state):
-                new_state = state.copy()
-                new_state[3] += dv_vec[0]
-                new_state[4] += dv_vec[1]
-                new_state[5] += dv_vec[2]
-                dv_mag = np.linalg.norm(dv_vec)
-                print(f"  Applied maneuver {man_idx} at {epoch}: |dv|={dv_mag:.3f} m/s")
-                return (new_state, bh.EventAction.CONTINUE)
-
-            return apply_dv
-
-        event = bh.TimeEvent(sched_epoch, f"Maneuver-{i}")
-        event = event.with_callback(make_callback(dv, i))
-        prop.add_event_detector(event)
-        print(
-            f"  Registered maneuver {i}: epoch={sched_epoch}, frame={frame}, "
-            f"|dv|={np.linalg.norm(dv):.3f} m/s"
-        )
+        # Inertial delta-V: rotate into GCRF once, ahead of propagation
+        callback = make_callback(r_eme2000_to_gcrf @ dv, i, False)
+    elif frame == "RTN":
+        # RTN delta-V: the rotation depends on the state at the ignition epoch
+        callback = make_callback(dv, i, True)
     else:
-        print(f"  Skipping maneuver {i} (RTN frame — requires frame rotation)")
+        raise ValueError(f"Unsupported maneuver reference frame: {frame}")
+
+    event = bh.TimeEvent(sched_epoch, f"Maneuver-{i}")
+    event = event.with_callback(callback)
+    prop.add_event_detector(event)
+    print(
+        f"  Registered maneuver {i}: epoch={sched_epoch}, frame={frame}, "
+        f"|dv|={np.linalg.norm(dv):.3f} m/s"
+    )
 
 # Propagate past all maneuvers
 target = scheduled_epochs[-1] + 3600.0  # 1 hour after last maneuver

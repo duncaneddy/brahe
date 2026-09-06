@@ -229,12 +229,12 @@ impl OPM {
     /// yields a GCRF state directly usable for propagation.
     ///
     /// # Arguments
-    /// - `frame`: Target frame
+    /// * `frame`: Target frame
     ///
     /// # Returns
-    /// - `Ok(SVector6)`: `[x, y, z, vx, vy, vz]` in `frame`. Units: (*m*; *m/s*)
-    /// - `Err(BraheError)`: If `REF_FRAME` has no native frame or the
-    ///   conversion cannot be evaluated at the epoch
+    /// * `Ok(SVector6)`: `[x, y, z, vx, vy, vz]` in `frame`. Units: (*m*; *m/s*)
+    /// * `Err(BraheError)`: If `REF_FRAME` has no native frame equivalent, or
+    ///   if the router cannot convert between the two frames
     ///
     /// # Examples
     /// ```

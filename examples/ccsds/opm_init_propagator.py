@@ -40,9 +40,9 @@ params = np.array([mass, drag_area, drag_coeff, srp_area, srp_coeff])
 print(f"\nSpacecraft params: mass={mass}kg, Cd={drag_coeff}, Cr={srp_coeff}")
 
 # Initialize propagator from OPM state
-# Note: OPM frame is ITRF2000; we convert to ECI for propagation
-# The propagator expects ECI coordinates
-state_eci = bh.state_ecef_to_eci(opm.epoch, initial_state)
+# The message declares its state in ITRF2000; the propagator expects GCRF, and
+# state_in_frame maps the declared frame through the reference frame router
+state_eci = opm.state_in_frame(bh.CelestialFrame.GCRF)
 prop = bh.NumericalOrbitPropagator(
     opm.epoch,
     state_eci,

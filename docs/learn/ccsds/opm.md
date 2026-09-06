@@ -66,16 +66,16 @@ Every OPM has a **header** (version, creation date, originator), **metadata** (o
 
 ## Maneuver Propagation
 
-Read OPM maneuvers and apply them as impulsive delta-V events during propagation. The example message declares its state vector in the TOD frame, and `state_in_frame` converts it to GCRF through the reference frame router before it is handed to the propagator. The message's maneuver ignition epochs precede its state vector epoch, so the example schedules the maneuvers relative to the state epoch, preserving the spacing between them:
+Read OPM maneuvers and apply them as impulsive delta-V events during propagation. The example message declares its state vector in the TOD frame, and `state_in_frame` converts it to GCRF through the reference frame router before it is handed to the propagator. Each delta-V is expressed in the frame named by its `MAN_REF_FRAME`: inertial vectors are rotated into GCRF by the frame bias between EME2000 and GCRF, and RTN vectors are rotated by the RTN-to-inertial matrix built from the spacecraft state at the ignition epoch. The message's maneuver ignition epochs precede its state vector epoch, so the example schedules the maneuvers relative to the state epoch, preserving the spacing between them:
 
 === "Python"
     ``` python
-    --8<-- "./examples/ccsds/opm_maneuver_propagation.py:10"
+    --8<-- "./examples/ccsds/opm_maneuver_propagation.py:15"
     ```
 
 === "Rust"
     ``` rust
-    --8<-- "./examples/ccsds/opm_maneuver_propagation.rs:4"
+    --8<-- "./examples/ccsds/opm_maneuver_propagation.rs:9"
     ```
 
 ??? example "Output"

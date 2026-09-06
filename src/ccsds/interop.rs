@@ -58,6 +58,19 @@ impl TryFrom<&CCSDSRefFrame> for CelestialFrame {
     ///
     /// * `Ok(CelestialFrame)`: The equivalent native celestial frame
     /// * `Err(BraheError)`: If the token has no native equivalent
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::common::CCSDSRefFrame;
+    /// use brahe::frames::CelestialFrame;
+    ///
+    /// let frame = CelestialFrame::try_from(&CCSDSRefFrame::TOD).unwrap();
+    /// assert_eq!(frame, CelestialFrame::TOD);
+    ///
+    /// // TEME has no native celestial frame
+    /// assert!(CelestialFrame::try_from(&CCSDSRefFrame::TEME).is_err());
+    /// ```
     fn try_from(frame: &CCSDSRefFrame) -> Result<Self, Self::Error> {
         match frame {
             CCSDSRefFrame::EME2000 | CCSDSRefFrame::J2000 => Ok(CelestialFrame::EME2000),
@@ -69,6 +82,22 @@ impl TryFrom<&CCSDSRefFrame> for CelestialFrame {
             | CCSDSRefFrame::ITRF2008
             | CCSDSRefFrame::ITRF2014 => Ok(CelestialFrame::ITRF),
             CCSDSRefFrame::TOD => Ok(CelestialFrame::TOD),
+            CCSDSRefFrame::TEME => Err(BraheError::Error(
+                "CCSDS reference frame 'TEME' has no native ReferenceFrame; convert the \
+                 data before creating a trajectory"
+                    .to_string(),
+            )),
+            CCSDSRefFrame::RTN | CCSDSRefFrame::TNW | CCSDSRefFrame::RSW => {
+                Err(BraheError::Error(format!(
+                    "CCSDS reference frame '{}' is orbit-relative and requires the object it \
+                     is anchored to; it cannot be used as a trajectory frame",
+                    frame
+                )))
+            }
+            CCSDSRefFrame::Other(token) => Err(BraheError::Error(format!(
+                "CCSDS reference frame '{}' is not a recognized reference frame token",
+                token
+            ))),
             other => Err(BraheError::Error(format!(
                 "CCSDS reference frame '{}' has no native ReferenceFrame; convert the \
                  data before creating a trajectory",
@@ -84,8 +113,8 @@ impl TryFrom<&CCSDSRefFrame> for ReferenceFrame {
     /// Maps a CCSDS ODM reference frame token onto the native frame the frame
     /// router evaluates.
     ///
-    /// Delegates to [`CelestialFrame::try_from`]; every ODM token that has a
-    /// native frame names a celestial frame.
+    /// Delegates to [`CelestialFrame::try_from`]; every ODM token with a native
+    /// frame names a celestial frame.
     ///
     /// # Arguments
     ///
@@ -95,6 +124,19 @@ impl TryFrom<&CCSDSRefFrame> for ReferenceFrame {
     ///
     /// * `Ok(ReferenceFrame)`: The equivalent native frame
     /// * `Err(BraheError)`: If the token has no native equivalent
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::common::CCSDSRefFrame;
+    /// use brahe::frames::{CelestialFrame, ReferenceFrame};
+    ///
+    /// let frame = ReferenceFrame::try_from(&CCSDSRefFrame::TOD).unwrap();
+    /// assert_eq!(frame, ReferenceFrame::Celestial(CelestialFrame::TOD));
+    ///
+    /// // TEME has no native ReferenceFrame
+    /// assert!(ReferenceFrame::try_from(&CCSDSRefFrame::TEME).is_err());
+    /// ```
     fn try_from(frame: &CCSDSRefFrame) -> Result<Self, Self::Error> {
         CelestialFrame::try_from(frame).map(ReferenceFrame::Celestial)
     }
@@ -119,6 +161,20 @@ impl TryFrom<&ReferenceFrame> for CCSDSRefFrame {
     ///
     /// * `Ok(CCSDSRefFrame)`: The equivalent ODM reference frame token
     /// * `Err(BraheError)`: If the frame has no ODM token
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::common::CCSDSRefFrame;
+    /// use brahe::frames::{CelestialFrame, ReferenceFrame};
+    ///
+    /// let frame = ReferenceFrame::Celestial(CelestialFrame::TOD);
+    /// assert_eq!(CCSDSRefFrame::try_from(&frame).unwrap(), CCSDSRefFrame::TOD);
+    ///
+    /// // MOD has no ODM reference frame token
+    /// let frame = ReferenceFrame::Celestial(CelestialFrame::MOD);
+    /// assert!(CCSDSRefFrame::try_from(&frame).is_err());
+    /// ```
     fn try_from(frame: &ReferenceFrame) -> Result<Self, Self::Error> {
         match frame {
             ReferenceFrame::Celestial(CelestialFrame::GCRF) => Ok(CCSDSRefFrame::GCRF),
@@ -1578,9 +1634,29 @@ mod tests {
             ReferenceFrame::try_from(&CCSDSRefFrame::TOD).unwrap(),
             CelestialFrame::TOD
         );
-        assert!(ReferenceFrame::try_from(&CCSDSRefFrame::TEME).is_err());
-        assert!(ReferenceFrame::try_from(&CCSDSRefFrame::RTN).is_err());
-        assert!(ReferenceFrame::try_from(&CCSDSRefFrame::Other("XYZ".to_string())).is_err());
+        let teme = ReferenceFrame::try_from(&CCSDSRefFrame::TEME).unwrap_err();
+        assert!(
+            teme.to_string().contains("'TEME'") && teme.to_string().contains("no native"),
+            "unexpected TEME message: {}",
+            teme
+        );
+        for frame in [CCSDSRefFrame::RTN, CCSDSRefFrame::TNW, CCSDSRefFrame::RSW] {
+            let err = ReferenceFrame::try_from(&frame).unwrap_err();
+            let msg = err.to_string();
+            assert!(
+                msg.contains(&format!("'{}'", frame))
+                    && msg.contains("orbit-relative")
+                    && msg.contains("anchored"),
+                "unexpected orbit-relative message: {}",
+                msg
+            );
+        }
+        let other = ReferenceFrame::try_from(&CCSDSRefFrame::Other("XYZ".to_string())).unwrap_err();
+        assert!(
+            other.to_string().contains("'XYZ'") && other.to_string().contains("not a recognized"),
+            "unexpected unknown-token message: {}",
+            other
+        );
     }
 
     #[test]
@@ -1641,6 +1717,13 @@ mod tests {
         let traj = oem.segment_to_dorbit_trajectory(0).unwrap();
         assert_eq!(traj.frame, CelestialFrame::TOD);
         let e = traj.epochs[0];
+
+        let straj = oem.segment_to_sorbit_trajectory(0).unwrap();
+        assert_eq!(straj.frame, CelestialFrame::TOD);
+        for k in 0..6 {
+            assert_abs_diff_eq!(straj.states[0][k], traj.states[0][k], epsilon = 1e-12);
+        }
+
         let x_tod = traj.state_in_frame(CelestialFrame::TOD, e).unwrap();
         let x_gcrf = traj.state_gcrf(e).unwrap();
         let expected = state_tod_to_gcrf(e, x_tod);

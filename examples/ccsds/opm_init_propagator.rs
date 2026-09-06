@@ -22,8 +22,6 @@ fn main() {
     // Extract initial conditions from OPM
     let pos = opm.state_vector.position;
     let vel = opm.state_vector.velocity;
-    let initial_state =
-        na::SVector::<f64, 6>::new(pos[0], pos[1], pos[2], vel[0], vel[1], vel[2]);
     println!("\nInitial state:");
     println!(
         "  Position: [{:.3}, {:.3}, {:.3}] km",
@@ -49,8 +47,9 @@ fn main() {
         mass, drag_coeff, srp_coeff
     );
 
-    // Convert from ITRF to ECI for propagation
-    let state_eci = bh::state_ecef_to_eci(opm.state_vector.epoch, initial_state);
+    // The message declares its state in ITRF2000; the propagator expects GCRF,
+    // and state_in_frame maps the declared frame through the reference frame router
+    let state_eci = opm.state_in_frame(bh::CelestialFrame::GCRF).unwrap();
     let state_dyn = na::DVector::from_column_slice(state_eci.as_slice());
 
     // Initialize propagator from OPM state

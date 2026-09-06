@@ -1405,3 +1405,65 @@ def test_OEMSegment_add_trajectory_tod_from_gcrf(eop):
         np.testing.assert_allclose(written.position, expected[:3], atol=1e-6)
         np.testing.assert_allclose(written.velocity, expected[3:6], atol=1e-9)
         assert np.linalg.norm(np.array(written.position) - sample[:3]) > 1.0e3
+
+
+def _teme_trajectory(epoch):
+    """Build a two-sample GCRF trajectory for unsupported-frame tests.
+
+    Args:
+        epoch (Epoch): Epoch of the first sample
+
+    Returns:
+        OrbitTrajectory: Trajectory holding two Cartesian GCRF samples
+    """
+    traj = brahe.OrbitTrajectory(
+        6,
+        brahe.CelestialFrame.GCRF,
+        brahe.OrbitRepresentation.CARTESIAN,
+        None,
+    )
+    for i in range(2):
+        traj.add(
+            epoch + i * 60.0,
+            np.array([brahe.R_EARTH + 500e3, 1.0e5, -2.0e5, 10.0, 7.6e3, -5.0]),
+        )
+    return traj
+
+
+def test_OEMSegment_add_trajectory_unsupported_frame_owned(eop):
+    """A standalone segment declared in TEME raises BraheError."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    traj = _teme_trajectory(epoch)
+
+    seg = OEMSegment(
+        object_name="SAT",
+        object_id="2024-100A",
+        center_name="EARTH",
+        ref_frame="TEME",
+        time_system="UTC",
+        start_time=epoch,
+        stop_time=epoch + 60.0,
+    )
+
+    with pytest.raises(brahe.BraheError, match="TEME"):
+        seg.add_trajectory(traj)
+
+
+def test_OEMSegment_add_trajectory_unsupported_frame_proxy(eop):
+    """A segment attached to an OEM and declared in TEME raises BraheError."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    traj = _teme_trajectory(epoch)
+
+    oem = OEM(originator="TEST")
+    seg_idx = oem.add_segment(
+        object_name="SAT",
+        object_id="2024-100A",
+        center_name="EARTH",
+        ref_frame="TEME",
+        time_system="UTC",
+        start_time=epoch,
+        stop_time=epoch + 60.0,
+    )
+
+    with pytest.raises(brahe.BraheError, match="TEME"):
+        oem.segments[seg_idx].add_trajectory(traj)

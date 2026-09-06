@@ -894,12 +894,9 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_position_eme2000_to_gcrf, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_gcrf_to_eme2000, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eme2000_to_gcrf, module)?)?;
-    module.add_function(wrap_pyfunction!(py_bias_precession, module)?)?;
-    module.add_function(wrap_pyfunction!(py_nutation, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_greenwich_apparent_sidereal_rotation,
-        module
-    )?)?;
+    module.add_function(wrap_pyfunction!(py_bias_precession_iau2000, module)?)?;
+    module.add_function(wrap_pyfunction!(py_nutation_iau2000b, module)?)?;
+    module.add_function(wrap_pyfunction!(py_gast_rotation_iau2000b, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_gcrf_to_mod, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_mod_to_gcrf, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_mod_to_tod, module)?)?;

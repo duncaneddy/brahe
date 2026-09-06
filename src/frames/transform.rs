@@ -74,6 +74,10 @@ use crate::utils::batch::{try_batch_map, try_batch_map_epochs};
 use super::frame::ReferenceFrame;
 
 use super::eme_2000::rotation_gcrf_to_eme2000;
+use super::equinox::{
+    rotation_gcrf_to_mod, rotation_gcrf_to_tod, state_gcrf_to_mod, state_gcrf_to_tod,
+    state_mod_to_gcrf, state_tod_to_gcrf,
+};
 use super::gcrf_itrf::rotation_gcrf_to_itrf;
 use super::iau_rotation::{
     body_fixed_iau_angles_and_rates, euler313_omega_body, rotation_icrf_to_body_fixed_iau,
@@ -192,11 +196,10 @@ pub enum CelestialFrame {
     /// Earth Mean Equator and Equinox of J2000.0.
     EME2000,
     /// Earth mean equator and equinox of date (IAU 2000 bias-precession
-    /// applied to the GCRF; see [`super::equinox`]).
+    /// applied to the GCRF).
     MOD,
     /// Earth true equator and equinox of date (IAU 2000 bias-precession and
-    /// IAU 2000B nutation with IERS corrections applied to the GCRF; see
-    /// [`super::equinox`]).
+    /// IAU 2000B nutation with IERS corrections applied to the GCRF).
     TOD,
     /// Lunar-Centered Inertial (ICRF-aligned, Moon-centered).
     LCI,
@@ -351,8 +354,8 @@ impl CelestialFrame {
             | CelestialFrame::BodyCenteredICRF(_) => Ok(x),
             CelestialFrame::ITRF => Ok(super::gcrf_itrf::state_itrf_to_gcrf(epc, x)),
             CelestialFrame::EME2000 => Ok(super::eme_2000::state_eme2000_to_gcrf(x)),
-            CelestialFrame::MOD => Ok(super::equinox::state_mod_to_gcrf(epc, x)),
-            CelestialFrame::TOD => Ok(super::equinox::state_tod_to_gcrf(epc, x)),
+            CelestialFrame::MOD => Ok(state_mod_to_gcrf(epc, x)),
+            CelestialFrame::TOD => Ok(state_tod_to_gcrf(epc, x)),
             CelestialFrame::LFPA => Ok(super::lunar::state_lfpa_to_lci(epc, x)),
             CelestialFrame::LFME => Ok(super::lunar::state_lfme_to_lci(epc, x)),
             CelestialFrame::MCMF => Ok(super::mars::state_mcmf_to_mci(epc, x)),
@@ -398,8 +401,8 @@ impl CelestialFrame {
             | CelestialFrame::BodyCenteredICRF(_) => Ok(x_icrf),
             CelestialFrame::ITRF => Ok(super::gcrf_itrf::state_gcrf_to_itrf(epc, x_icrf)),
             CelestialFrame::EME2000 => Ok(super::eme_2000::state_gcrf_to_eme2000(x_icrf)),
-            CelestialFrame::MOD => Ok(super::equinox::state_gcrf_to_mod(epc, x_icrf)),
-            CelestialFrame::TOD => Ok(super::equinox::state_gcrf_to_tod(epc, x_icrf)),
+            CelestialFrame::MOD => Ok(state_gcrf_to_mod(epc, x_icrf)),
+            CelestialFrame::TOD => Ok(state_gcrf_to_tod(epc, x_icrf)),
             CelestialFrame::LFPA => Ok(super::lunar::state_lci_to_lfpa(epc, x_icrf)),
             CelestialFrame::LFME => Ok(super::lunar::state_lci_to_lfme(epc, x_icrf)),
             CelestialFrame::MCMF => Ok(super::mars::state_mci_to_mcmf(epc, x_icrf)),
@@ -692,8 +695,8 @@ fn icrf_to_frame_dcm(frame: CelestialFrame, epc: Epoch) -> Result<SMatrix3, Brah
         | CelestialFrame::BodyCenteredICRF(_) => Ok(SMatrix3::identity()),
         CelestialFrame::ITRF => Ok(rotation_gcrf_to_itrf(epc)),
         CelestialFrame::EME2000 => Ok(rotation_gcrf_to_eme2000()),
-        CelestialFrame::MOD => Ok(super::equinox::rotation_gcrf_to_mod(epc)),
-        CelestialFrame::TOD => Ok(super::equinox::rotation_gcrf_to_tod(epc)),
+        CelestialFrame::MOD => Ok(rotation_gcrf_to_mod(epc)),
+        CelestialFrame::TOD => Ok(rotation_gcrf_to_tod(epc)),
         CelestialFrame::LFPA => Ok(rotation_lci_to_lfpa(epc)),
         CelestialFrame::LFME => Ok(rotation_lci_to_lfme(epc)),
         CelestialFrame::MCMF => Ok(rotation_mci_to_mcmf(epc)),

@@ -6,22 +6,33 @@ MOD and TOD are the classical equinox-based Earth frames. Brahe defines them fro
 
 ### Mean Equator and Equinox of Date (MOD)
 
-MOD is defined by the mean equator and mean equinox of date: the frame bias and precession from the GCRF, with no nutation applied. It is the intermediate frame `P B [GCRF]` in the SOFA cookbook Appendix p. A4 summary table, and corresponds to the mean-of-date frame in NASA TP-20220014814.
+MOD is defined by the mean equator and mean equinox of date: the frame bias and precession from the GCRF, with no nutation applied. It is the intermediate frame
+
+$$[\mathrm{MOD}] = P \, B \, [\mathrm{GCRF}]$$
+
+in the [SOFA C transformation cookbook](https://www.iausofa.org/s/sofa_pn_c.pdf) Appendix p. A4 summary table, where $P$ is precession and $B$ is the frame bias. It corresponds to the mean-of-date frame in [NASA TP-20220014814](https://ntrs.nasa.gov/citations/20220014814).
 
 ### True Equator and Equinox of Date (TOD)
 
-TOD is defined by the true equator and true equinox of date: nutation applied on top of MOD, giving the intermediate frame `N P B [GCRF]` in the same cookbook table. TOD is the frame in which the classical equation of the equinoxes and Greenwich apparent sidereal time are defined.
+TOD is defined by the true equator and true equinox of date: nutation applied on top of MOD, giving the intermediate frame
+
+$$[\mathrm{TOD}] = N \, P \, B \, [\mathrm{GCRF}]$$
+
+in the same cookbook table, where $N$ is the nutation matrix. TOD is the frame in which the classical equation of the equinoxes and Greenwich apparent sidereal time are defined.
 
 ## Relationship to the CIO-Based Chain
 
-The SOFA cookbook gives two equivalent factorizations of the transformation between the GCRF and the ITRF:
+The SOFA cookbook gives two equivalent factorizations of the transformation between the GCRF and the ITRF.
 
-```
-CIO based:      [ITRF] = W  R3(ERA)   C    [GCRF]
-equinox based:  [ITRF] = W  R3(GAST)  N P B [GCRF]
-```
+The CIO-based form is
 
-`W` is polar motion, `C` is the CIO-based bias-precession-nutation matrix used by [GCRF ↔ ITRF Transformations](gcrf_itrf.md), and `N`, `P`, `B` are the classical nutation, precession, and frame bias matrices of the equinox chain. Brahe evaluates both chains on the IAU 2000/2000B model basis and computes Greenwich apparent sidereal time (GAST) as `ERA` minus the equation of the origins taken from the same combined nutation-precession-bias matrix used to reach TOD. As a result, converting a state from GCRF to ITRF through TOD agrees with the direct GCRF to ITRF transformation at the microarcsecond level.
+$$[\mathrm{ITRF}] = W \, R_3(\mathrm{ERA}) \, C \, [\mathrm{GCRF}]$$
+
+and the equinox-based form is
+
+$$[\mathrm{ITRF}] = W \, R_3(\mathrm{GAST}) \, N \, P \, B \, [\mathrm{GCRF}]$$
+
+In both equations $W$ is polar motion, $C$ is the CIO-based bias-precession-nutation matrix used by [GCRF ↔ ITRF Transformations](gcrf_itrf.md), and $N$, $P$, $B$ are the classical nutation, precession, and frame bias matrices of the equinox chain. Brahe evaluates both chains on the IAU 2000/2000B model basis and computes Greenwich apparent sidereal time ($\mathrm{GAST}$) as $\mathrm{ERA}$ minus the equation of the origins taken from the same combined nutation-precession-bias matrix used to reach TOD. As a result, converting a state from GCRF to ITRF through TOD agrees with the direct GCRF to ITRF transformation at the microarcsecond level.
 
 ## Frame Bias and Earth Orientation Corrections
 

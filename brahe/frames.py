@@ -40,16 +40,15 @@ from brahe._brahe import (
     SynodicOrigin,
     # EME2000 <> GCRF transformations
     bias_eme2000,
-    # Equinox-based MOD/TOD transformations
-    bias_precession,
+    bias_precession_iau2000,
     # Rotation matrix components
     bias_precession_nutation,
     clear_frame_registry,
     clear_object_registry,
     earth_rotation,
-    greenwich_apparent_sidereal_rotation,
+    gast_rotation_iau2000b,
     iau_rotation_model_ids,
-    nutation,
+    nutation_iau2000b,
     polar_motion,
     position_ecef_to_eci,
     position_eci_to_ecef,
@@ -171,16 +170,15 @@ __all__ = [
     "SynodicOrigin",
     # EME2000 <> GCRF transformations
     "bias_eme2000",
-    # Equinox-based MOD/TOD transformations
-    "bias_precession",
+    "bias_precession_iau2000",
     # Rotation matrix components
     "bias_precession_nutation",
     "clear_frame_registry",
     "clear_object_registry",
     "earth_rotation",
-    "greenwich_apparent_sidereal_rotation",
+    "gast_rotation_iau2000b",
     "iau_rotation_model_ids",
-    "nutation",
+    "nutation_iau2000b",
     "polar_motion",
     "position_ecef_to_eci",
     "position_eci_to_ecef",

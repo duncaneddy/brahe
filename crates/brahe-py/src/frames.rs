@@ -931,13 +931,13 @@ fn py_state_eme2000_to_gcrf<'py>(
 ///
 ///     bh.initialize_eop()
 ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-///     B = bh.bias_precession(epc)
+///     B = bh.bias_precession_iau2000(epc)
 ///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
-#[pyo3(name = "bias_precession")]
-unsafe fn py_bias_precession<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyArray<f64, Ix2>> {
-    let mat = frames::bias_precession(epc.obj);
+#[pyo3(name = "bias_precession_iau2000")]
+unsafe fn py_bias_precession_iau2000<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyArray<f64, Ix2>> {
+    let mat = frames::bias_precession_iau2000(epc.obj);
     matrix_to_numpy!(py, mat, 3, 3, f64)
 }
 
@@ -958,13 +958,13 @@ unsafe fn py_bias_precession<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, 
 ///
 ///     bh.initialize_eop()
 ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-///     N = bh.nutation(epc)
+///     N = bh.nutation_iau2000b(epc)
 ///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
-#[pyo3(name = "nutation")]
-unsafe fn py_nutation<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyArray<f64, Ix2>> {
-    let mat = frames::nutation(epc.obj);
+#[pyo3(name = "nutation_iau2000b")]
+unsafe fn py_nutation_iau2000b<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyArray<f64, Ix2>> {
+    let mat = frames::nutation_iau2000b(epc.obj);
     matrix_to_numpy!(py, mat, 3, 3, f64)
 }
 
@@ -984,16 +984,16 @@ unsafe fn py_nutation<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyArray
 ///
 ///     bh.initialize_eop()
 ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-///     R = bh.greenwich_apparent_sidereal_rotation(epc)
+///     R = bh.gast_rotation_iau2000b(epc)
 ///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
-#[pyo3(name = "greenwich_apparent_sidereal_rotation")]
-unsafe fn py_greenwich_apparent_sidereal_rotation<'py>(
+#[pyo3(name = "gast_rotation_iau2000b")]
+unsafe fn py_gast_rotation_iau2000b<'py>(
     py: Python<'py>,
     epc: &PyEpoch,
 ) -> Bound<'py, PyArray<f64, Ix2>> {
-    let mat = frames::greenwich_apparent_sidereal_rotation(epc.obj);
+    let mat = frames::gast_rotation_iau2000b(epc.obj);
     matrix_to_numpy!(py, mat, 3, 3, f64)
 }
 

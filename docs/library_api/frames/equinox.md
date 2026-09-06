@@ -7,11 +7,11 @@ Equinox-based transformations between the Geocentric Celestial Reference Frame (
 
 ## Building Blocks
 
-::: brahe.bias_precession
+::: brahe.bias_precession_iau2000
 
-::: brahe.nutation
+::: brahe.nutation_iau2000b
 
-::: brahe.greenwich_apparent_sidereal_rotation
+::: brahe.gast_rotation_iau2000b
 
 ## GCRF ↔ MOD
 

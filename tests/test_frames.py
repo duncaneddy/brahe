@@ -1647,16 +1647,18 @@ def test_rotation_gcrf_to_tod_cookbook(cookbook_eop):
 def test_equinox_building_blocks(cookbook_eop):
     epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, brahe.UTC)
     np.testing.assert_array_equal(
-        brahe.bias_precession(epc), brahe.rotation_gcrf_to_mod(epc)
+        brahe.bias_precession_iau2000(epc), brahe.rotation_gcrf_to_mod(epc)
     )
-    np.testing.assert_array_equal(brahe.nutation(epc), brahe.rotation_mod_to_tod(epc))
+    np.testing.assert_array_equal(
+        brahe.nutation_iau2000b(epc), brahe.rotation_mod_to_tod(epc)
+    )
     np.testing.assert_allclose(
-        brahe.nutation(epc) @ brahe.bias_precession(epc),
+        brahe.nutation_iau2000b(epc) @ brahe.bias_precession_iau2000(epc),
         brahe.rotation_gcrf_to_tod(epc),
         atol=1e-15,
     )
     np.testing.assert_allclose(
-        brahe.polar_motion(epc) @ brahe.greenwich_apparent_sidereal_rotation(epc),
+        brahe.polar_motion(epc) @ brahe.gast_rotation_iau2000b(epc),
         brahe.rotation_tod_to_itrf(epc),
         atol=1e-15,
     )

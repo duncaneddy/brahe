@@ -182,13 +182,13 @@ fn bias_precession_matrix(tt: f64) -> SMatrix3 {
 ///
 /// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 ///
-/// let rbp = bias_precession(epc);
+/// let rbp = bias_precession_iau2000(epc);
 /// ```
 ///
 /// # References
 /// - SOFA `pn00b` notes 4-6 (`rbp = rp * rb`); SOFA cookbook Section 3.1
 ///   (classical precession) and Appendix p. A4 (`B`, `P` rows)
-pub fn bias_precession(epc: Epoch) -> SMatrix3 {
+pub fn bias_precession_iau2000(epc: Epoch) -> SMatrix3 {
     bias_precession_matrix(epc.mjd_as_time_system(TimeSystem::TT))
 }
 
@@ -223,14 +223,14 @@ pub fn bias_precession(epc: Epoch) -> SMatrix3 {
 ///
 /// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 ///
-/// let rn = nutation(epc);
+/// let rn = nutation_iau2000b(epc);
 /// ```
 ///
 /// # References
 /// - SOFA cookbook Section 5.4 p. 23 (correction conversion) and Section
 ///   3.2 (classical nutation); SOFA `numat` note 3, `pn00b` notes 2, 3, 7;
 ///   Capitaine & Wallace 2006, A&A 450, 855
-pub fn nutation(epc: Epoch) -> SMatrix3 {
+pub fn nutation_iau2000b(epc: Epoch) -> SMatrix3 {
     EquinoxContext::new(epc).rn
 }
 
@@ -264,13 +264,13 @@ pub fn nutation(epc: Epoch) -> SMatrix3 {
 ///
 /// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 ///
-/// let r = greenwich_apparent_sidereal_rotation(epc);
+/// let r = gast_rotation_iau2000b(epc);
 /// ```
 ///
 /// # References
 /// - SOFA `eors` notes 1-2, `gst06` note 3; SOFA cookbook Sections 2.7 and
 ///   3.6; Wallace & Capitaine 2006, A&A 459, 981
-pub fn greenwich_apparent_sidereal_rotation(epc: Epoch) -> SMatrix3 {
+pub fn gast_rotation_iau2000b(epc: Epoch) -> SMatrix3 {
     EquinoxContext::new(epc).sidereal_rotation()
 }
 
@@ -306,7 +306,7 @@ pub fn greenwich_apparent_sidereal_rotation(epc: Epoch) -> SMatrix3 {
 /// - SOFA `pn00b` notes 4-6 (`rbp = rp * rb`); SOFA cookbook Section 3.1
 ///   (classical precession) and Appendix p. A4 ("GCRF to MOD")
 pub fn rotation_gcrf_to_mod(epc: Epoch) -> SMatrix3 {
-    bias_precession(epc)
+    bias_precession_iau2000(epc)
 }
 
 /// Computes the rotation matrix transforming the mean equator and equinox
@@ -379,7 +379,7 @@ pub fn rotation_mod_to_gcrf(epc: Epoch) -> SMatrix3 {
 ///   3.2 (classical nutation); SOFA `numat` note 3, `pn00b` notes 2, 3, 7;
 ///   Capitaine & Wallace 2006, A&A 450, 855
 pub fn rotation_mod_to_tod(epc: Epoch) -> SMatrix3 {
-    nutation(epc)
+    nutation_iau2000b(epc)
 }
 
 /// Computes the rotation matrix transforming the true equator and equinox
@@ -2459,7 +2459,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_bias_precession_matches_sofa_bp00() {
+    fn test_bias_precession_iau2000_matches_sofa_bp00() {
         set_global_eop_provider(StaticEOPProvider::from_zero());
         let epc = cookbook_epoch();
         let tt = epc.mjd_as_time_system(TimeSystem::TT);
@@ -2470,13 +2470,17 @@ mod tests {
         unsafe {
             rsofa::iauBp00(MJD_ZERO, tt, &mut rb[0], &mut rp[0], &mut rbp[0]);
         }
-        assert_matrix_eq(&bias_precession(epc), &matrix3_from_array(&rbp), 1e-15);
+        assert_matrix_eq(
+            &bias_precession_iau2000(epc),
+            &matrix3_from_array(&rbp),
+            1e-15,
+        );
         assert_matrix_eq(&rotation_gcrf_to_mod(epc), &matrix3_from_array(&rbp), 1e-15);
     }
 
     #[test]
     #[serial]
-    fn test_bias_precession_needs_no_eop() {
+    fn test_bias_precession_iau2000_needs_no_eop() {
         // Large dX/dY corrections have no effect on bias-precession: it does
         // not read the nutation-only Earth orientation corrections at all.
         set_global_eop_provider(StaticEOPProvider::from_values((
@@ -2497,7 +2501,7 @@ mod tests {
             rsofa::iauBp00(MJD_ZERO, tt, &mut rb[0], &mut rp[0], &mut rbp[0]);
         }
         let oracle = matrix3_from_array(&rbp);
-        let from_fn = bias_precession(epc);
+        let from_fn = bias_precession_iau2000(epc);
         for i in 0..3 {
             for j in 0..3 {
                 assert_eq!(from_fn[(i, j)], oracle[(i, j)]);
@@ -2522,7 +2526,7 @@ mod tests {
             1e-15,
         );
         assert_matrix_eq(
-            &(nutation(epc) * bias_precession(epc)),
+            &(nutation_iau2000b(epc) * bias_precession_iau2000(epc)),
             &matrix3_from_array(&rbpn),
             1e-15,
         );
@@ -2573,7 +2577,7 @@ mod tests {
             rsofa::iauCr(&mut rc2i[0], &mut rc2ti[0]);
             rsofa::iauRz(era, &mut rc2ti[0]);
         }
-        let equinox = greenwich_apparent_sidereal_rotation(epc) * rnpb;
+        let equinox = gast_rotation_iau2000b(epc) * rnpb;
         assert_matrix_eq(&equinox, &matrix3_from_array(&rc2ti), 1e-14);
     }
 
@@ -2615,7 +2619,7 @@ mod tests {
             assert_abs_diff_eq!(npb_equinox[(2, j)], c_cio[(2, j)], epsilon = 1e-10);
         }
         // TOD -> TIRS from the equinox chain equals CIRS -> TIRS from ERA.
-        let tirs_equinox = greenwich_apparent_sidereal_rotation(epc) * npb_equinox;
+        let tirs_equinox = gast_rotation_iau2000b(epc) * npb_equinox;
         let tirs_cio = earth_rotation(epc) * c_cio;
         assert_matrix_eq(&tirs_equinox, &tirs_cio, 1e-10);
     }
@@ -2645,7 +2649,7 @@ mod tests {
             &rotation_tod_to_itrf(epc).transpose(),
             0.0,
         );
-        assert_matrix_eq(&rotation_mod_to_tod(epc), &nutation(epc), 0.0);
+        assert_matrix_eq(&rotation_mod_to_tod(epc), &nutation_iau2000b(epc), 0.0);
         let identity = rotation_gcrf_to_tod(epc) * rotation_tod_to_gcrf(epc);
         assert_matrix_eq(&identity, &SMatrix3::identity(), 1e-15);
     }
@@ -2674,7 +2678,11 @@ mod tests {
             epsilon = 1e-3 * dx
         );
         // MOD does not depend on the corrections.
-        assert_matrix_eq(&rotation_gcrf_to_mod(epc), &bias_precession(epc), 0.0);
+        assert_matrix_eq(
+            &rotation_gcrf_to_mod(epc),
+            &bias_precession_iau2000(epc),
+            0.0,
+        );
     }
 
     fn sample_state() -> SVector6 {

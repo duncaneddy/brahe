@@ -22,7 +22,7 @@ print(f"Frame:  {opm.ref_frame}")
 
 # Extract initial conditions from OPM via .state property
 initial_state = opm.state  # numpy array [x, y, z, vx, vy, vz]
-print("\nInitial state (ECI):")
+print("\nInitial state (ITRF):")
 print(
     f"  Position: [{initial_state[0] / 1e3:.3f}, {initial_state[1] / 1e3:.3f}, {initial_state[2] / 1e3:.3f}] km"
 )

@@ -42,10 +42,18 @@ fn main() {
     .build()
     .unwrap();
 
+    // The message's ignition epochs precede its state epoch, so maneuvers are
+    // scheduled relative to the state epoch, preserving the spacing between them
+    let first_ignition = opm.maneuvers[0].epoch_ignition;
+    let scheduled_epochs: Vec<bh::Epoch> = opm
+        .maneuvers
+        .iter()
+        .map(|man| opm.state_vector.epoch + 3600.0 + (man.epoch_ignition - first_ignition))
+        .collect();
+
     // Add event detectors for inertial-frame maneuvers
-    let mut last_man_epoch = opm.state_vector.epoch;
     for (i, man) in opm.maneuvers.iter().enumerate() {
-        last_man_epoch = man.epoch_ignition;
+        let sched_epoch = scheduled_epochs[i];
         let frame_str = format!("{}", man.ref_frame);
 
         // Only apply inertial-frame maneuvers (J2000/EME2000)
@@ -71,12 +79,12 @@ fn main() {
                 },
             );
 
-            let event = DTimeEvent::new(man.epoch_ignition, format!("Maneuver-{}", i))
+            let event = DTimeEvent::new(sched_epoch, format!("Maneuver-{}", i))
                 .with_callback(callback);
             prop.add_event_detector(Box::new(event));
             println!(
                 "  Registered maneuver {}: epoch={}, frame={}, |dv|={:.3} m/s",
-                i, man.epoch_ignition, frame_str, dv_mag
+                i, sched_epoch, frame_str, dv_mag
             );
         } else {
             println!("  Skipping maneuver {} (RTN frame)", i);
@@ -84,7 +92,7 @@ fn main() {
     }
 
     // Propagate past all maneuvers
-    let target = last_man_epoch + 3600.0;
+    let target = *scheduled_epochs.last().unwrap() + 3600.0;
     println!("\nPropagating to {}...", target);
     prop.propagate_to(target).unwrap();
 

@@ -45,8 +45,15 @@ prop = bh.NumericalOrbitPropagator(
     params,
 )
 
+# The message's ignition epochs precede its state epoch, so maneuvers are
+# scheduled relative to the state epoch, preserving the spacing between them
+first_ignition = opm.maneuvers[0].epoch_ignition
+scheduled_epochs = [
+    opm.epoch + 3600.0 + (man.epoch_ignition - first_ignition) for man in opm.maneuvers
+]
+
 # Add event detectors for each maneuver with inertial delta-V
-for i, man in enumerate(opm.maneuvers):
+for i, (man, sched_epoch) in enumerate(zip(opm.maneuvers, scheduled_epochs)):
     dv = man.dv  # [dvx, dvy, dvz] in m/s in the maneuver's ref frame
     frame = man.ref_frame
 
@@ -68,19 +75,18 @@ for i, man in enumerate(opm.maneuvers):
 
             return apply_dv
 
-        event = bh.TimeEvent(man.epoch_ignition, f"Maneuver-{i}")
+        event = bh.TimeEvent(sched_epoch, f"Maneuver-{i}")
         event = event.with_callback(make_callback(dv, i))
         prop.add_event_detector(event)
         print(
-            f"  Registered maneuver {i}: epoch={man.epoch_ignition}, frame={frame}, "
+            f"  Registered maneuver {i}: epoch={sched_epoch}, frame={frame}, "
             f"|dv|={np.linalg.norm(dv):.3f} m/s"
         )
     else:
         print(f"  Skipping maneuver {i} (RTN frame — requires frame rotation)")
 
 # Propagate past all maneuvers
-last_man = opm.maneuvers[-1]
-target = last_man.epoch_ignition + 3600.0  # 1 hour after last maneuver
+target = scheduled_epochs[-1] + 3600.0  # 1 hour after last maneuver
 print(f"\nPropagating to {target}...")
 prop.propagate_to(target)
 

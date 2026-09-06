@@ -709,6 +709,32 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
     /// * `Err(BraheError)` - If a sample cannot be converted (unbound or
     ///   unregistered frame, missing ephemeris, or Keplerian elements about
     ///   a barycenter)
+    ///
+    /// # Examples
+    /// ```rust
+    /// use brahe::eop::*;
+    /// use brahe::trajectories::SOrbitTrajectory;
+    /// use brahe::traits::{OrbitalTrajectory, OrbitRepresentation, Trajectory};
+    /// use brahe::frames::CelestialFrame;
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use nalgebra::Vector6;
+    ///
+    /// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let mut traj = SOrbitTrajectory::new(
+    ///     CelestialFrame::GCRF,
+    ///     OrbitRepresentation::Cartesian,
+    ///     None,
+    /// )
+    /// .unwrap();
+    ///
+    /// let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// traj.add(epoch, Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0)).unwrap();
+    ///
+    /// let itrf = OrbitalTrajectory::to_frame(&traj, CelestialFrame::ITRF.into()).unwrap();
+    /// assert_eq!(itrf.frame, CelestialFrame::ITRF);
+    /// ```
     fn to_frame(&self, frame: ReferenceFrame) -> Result<Self, BraheError>
     where
         Self: Sized;

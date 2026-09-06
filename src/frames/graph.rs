@@ -538,12 +538,13 @@ pub(crate) fn celestial_root(frame: &ReferenceFrame) -> Result<CelestialFrame, B
         } => {
             let mut current = frame.clone();
             loop {
-                let key = frame_key(&current).ok_or_else(|| missing_link_error(frame, &current))?;
-                let entry = frame_entry(&key).ok_or_else(|| missing_link_error(frame, &current))?;
-                match entry.parent {
-                    Some(ReferenceFrame::Celestial(celestial)) => return Ok(celestial),
-                    Some(parent) => current = parent,
-                    None => return Err(missing_link_error(frame, &current)),
+                let parent = frame_key(&current)
+                    .and_then(|key| frame_entry(&key))
+                    .and_then(|entry| entry.parent)
+                    .ok_or_else(|| missing_link_error(frame, &current))?;
+                match parent {
+                    ReferenceFrame::Celestial(celestial) => return Ok(celestial),
+                    parent => current = parent,
                 }
             }
         }

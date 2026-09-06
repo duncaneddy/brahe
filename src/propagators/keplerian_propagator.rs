@@ -2164,4 +2164,51 @@ mod tests {
             assert_abs_diff_eq!(x_back[k], x_gcrf[k], epsilon = 1e-6);
         }
     }
+
+    #[test]
+    #[serial]
+    fn test_keplerianpropagator_propagate_keplerian_elements_in_eme2000() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let x_gcrf = create_cartesian_state();
+        let oe_eme = state_eci_to_koe(state_gcrf_to_eme2000(x_gcrf), DEGREES);
+
+        let mut prop = KeplerianPropagator::new(
+            epc,
+            oe_eme,
+            CelestialFrame::EME2000,
+            OrbitRepresentation::Keplerian,
+            Some(DEGREES),
+            60.0,
+        )
+        .unwrap();
+
+        // Independent oracle: the same orbit propagated as a GCRF Cartesian
+        // state, then rotated into EME2000 and converted to elements.
+        let mut oracle = KeplerianPropagator::new(
+            epc,
+            x_gcrf,
+            CelestialFrame::GCRF,
+            OrbitRepresentation::Cartesian,
+            None,
+            60.0,
+        )
+        .unwrap();
+
+        let target = epc + 3600.0;
+        prop.propagate_to(target).unwrap();
+        oracle.propagate_to(target).unwrap();
+
+        assert_eq!(prop.current_epoch(), target);
+
+        let expected = state_eci_to_koe(state_gcrf_to_eme2000(oracle.current_state()), DEGREES);
+        let elements = prop.current_state();
+        // Semi-major axis is in meters, the remaining elements are
+        // dimensionless or in degrees.
+        assert_abs_diff_eq!(elements[0], expected[0], epsilon = 1e-6);
+        for k in 1..6 {
+            assert_abs_diff_eq!(elements[k], expected[k], epsilon = 1e-8);
+        }
+    }
 }

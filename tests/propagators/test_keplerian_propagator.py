@@ -178,6 +178,48 @@ def test_keplerianpropagator_keplerian_elements_in_eme2000(eop):
     np.testing.assert_allclose(prop.state_gcrf(epoch), x_gcrf, atol=1e-6)
 
 
+def test_keplerianpropagator_propagate_keplerian_elements_in_eme2000(eop):
+    """Rust: test_keplerianpropagator_propagate_keplerian_elements_in_eme2000"""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    x_gcrf = create_cartesian_state()
+    oe_eme2000 = state_eci_to_koe(state_gcrf_to_eme2000(x_gcrf), AngleFormat.DEGREES)
+
+    prop = KeplerianPropagator(
+        epoch,
+        oe_eme2000,
+        CelestialFrame.EME2000,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
+        60.0,
+    )
+
+    # Independent oracle: the same orbit propagated as a GCRF Cartesian state,
+    # then rotated into EME2000 and converted to elements.
+    oracle = KeplerianPropagator(
+        epoch,
+        x_gcrf,
+        CelestialFrame.GCRF,
+        OrbitRepresentation.CARTESIAN,
+        None,
+        60.0,
+    )
+
+    target = epoch + 3600.0
+    prop.propagate_to(target)
+    oracle.propagate_to(target)
+
+    assert prop.current_epoch() == target
+
+    expected = state_eci_to_koe(
+        state_gcrf_to_eme2000(oracle.current_state()), AngleFormat.DEGREES
+    )
+    elements = prop.current_state()
+    # Semi-major axis is in meters, the remaining elements are dimensionless or
+    # in degrees.
+    assert elements[0] == pytest.approx(expected[0], abs=1e-6)
+    np.testing.assert_allclose(elements[1:], expected[1:], atol=1e-8)
+
+
 def test_keplerianpropagator_new_invalid_angle_format():
     """Test that new() raises when angle_format is None for Keplerian elements"""
     epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)

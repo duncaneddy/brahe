@@ -438,11 +438,11 @@ impl OEM {
     pub fn register_for(&self, name: impl Into<ObjectId>) -> Result<(), BraheError> {
         // TryFrom requires exactly one segment, so segment 0 is the
         // trajectory's segment and carries the frame it was built in.
-        let traj = DOrbitTrajectory::try_from(self)?;
         let (frame, _) = odm_native_frame(
             &self.segments[0].metadata.ref_frame,
             self.segments[0].metadata.ref_frame_epoch,
         )?;
+        let traj = DOrbitTrajectory::try_from(self)?;
         let adapter = DStateAdapter::new(traj)?;
         register_object(name, adapter, frame)
     }
@@ -1581,11 +1581,33 @@ mod tests {
     #[test]
     #[parallel]
     fn test_oem_segment_to_sorbit_trajectory_rejects_unmapped_frame() {
-        let oem = OEM::from_file("test_assets/ccsds/oem/test.oem").unwrap();
-        assert_eq!(oem.segments[0].metadata.ref_frame, CCSDSRefFrame::TOD);
+        let mut oem = OEM::from_file("test_assets/ccsds/oem/test.oem").unwrap();
+        oem.segments[0].metadata.ref_frame = CCSDSRefFrame::TEME;
 
         let err = oem.segment_to_sorbit_trajectory(0).unwrap_err();
-        assert!(err.to_string().contains("TOD"));
+        assert!(err.to_string().contains("TEME"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_oem_segment_to_dorbit_trajectory_rejects_unmapped_frame() {
+        let mut oem = OEM::from_file("test_assets/ccsds/oem/test.oem").unwrap();
+        oem.segments[0].metadata.ref_frame = CCSDSRefFrame::TEME;
+
+        let err = oem.segment_to_dorbit_trajectory(0).unwrap_err();
+        assert!(err.to_string().contains("TEME"));
+    }
+
+    #[test]
+    #[serial]
+    fn test_oem_register_for_rejects_unmapped_frame() {
+        clear_object_registry();
+        let mut oem = OEM::from_file("test_assets/ccsds/oem/test.oem").unwrap();
+        oem.segments[0].metadata.ref_frame = CCSDSRefFrame::TEME;
+
+        let err = oem.register_for("TEME_SAT").unwrap_err();
+        assert!(err.to_string().contains("TEME"));
+        clear_object_registry();
     }
 
     #[test]

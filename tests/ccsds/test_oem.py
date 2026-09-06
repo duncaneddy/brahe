@@ -1469,6 +1469,24 @@ def test_OEMSegment_add_trajectory_unsupported_frame_proxy(eop):
         oem.segments[seg_idx].add_trajectory(traj)
 
 
+def test_oem_to_trajectories_rejects_unmapped_frame(eop):
+    """Mirror of test_oem_segment_to_dorbit_trajectory_rejects_unmapped_frame in Rust."""
+    oem = OEM.from_file("test_assets/ccsds/oem/test.oem")
+    oem.segments[0].ref_frame = "TEME"
+
+    with pytest.raises(brahe.BraheError, match="TEME"):
+        oem.to_trajectories()
+
+
+def test_oem_register_for_rejects_unmapped_frame(eop, clear_frame_registries):
+    """Mirror of test_oem_register_for_rejects_unmapped_frame in Rust."""
+    oem = OEM.from_file("test_assets/ccsds/oem/test.oem")
+    oem.segments[0].ref_frame = "TEME"
+
+    with pytest.raises(brahe.BraheError, match="TEME"):
+        oem.register_for("TEME_SAT")
+
+
 def test_oem_in_tod_with_frame_epoch_loads_as_gcrf_trajectory(
     eop, clear_frame_registries
 ):

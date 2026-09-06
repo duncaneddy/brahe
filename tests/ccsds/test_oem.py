@@ -1467,3 +1467,26 @@ def test_OEMSegment_add_trajectory_unsupported_frame_proxy(eop):
 
     with pytest.raises(brahe.BraheError, match="TEME"):
         oem.segments[seg_idx].add_trajectory(traj)
+
+
+def test_oem_in_tod_with_frame_epoch_loads_as_gcrf_trajectory(
+    eop, clear_frame_registries
+):
+    """Mirror of test_oem_in_tod_with_frame_epoch_loads_as_gcrf_trajectory in Rust."""
+    raw = OEM.from_file("test_assets/ccsds/oem/test.oem")
+    oem = OEM.from_file("test_assets/ccsds/oem/test_tod_epoch.oem")
+    ref_epoch = Epoch.from_string("2019-09-08T00:00:00.0Z")
+
+    traj = oem.to_trajectories()[0]
+    assert traj.frame == brahe.CelestialFrame.GCRF
+
+    _, x_raw = raw.to_trajectories()[0].get(0)
+    expected = brahe.state_tod_to_gcrf(ref_epoch, x_raw)
+    epc, x_gcrf = traj.get(0)
+    np.testing.assert_allclose(x_gcrf, expected, atol=1e-9)
+
+    of_date = brahe.state_tod_to_gcrf(epc, x_raw)
+    assert np.linalg.norm(expected[:3] - of_date[:3]) > 1.0
+
+    oem.register_for("TOD_EPOCH_SAT")
+    assert "TOD_EPOCH_SAT" in brahe.registered_objects()

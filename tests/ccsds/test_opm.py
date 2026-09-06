@@ -946,3 +946,25 @@ def test_opm_state_in_frame_unsupported_ref_frame(eop):
     opm.ref_frame = "TEME"
     with pytest.raises(brahe.BraheError, match="TEME"):
         opm.state_in_frame(brahe.CelestialFrame.GCRF)
+
+
+def test_opm_state_in_frame_rejects_non_earth_center(eop):
+    """Mirror of test_opm_state_in_frame_rejects_non_earth_center in Rust."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPM-dummy-moon-EME2000.txt")
+    assert opm.center_name == "MOON"
+    with pytest.raises(brahe.BraheError, match="MOON"):
+        opm.state_in_frame(brahe.CelestialFrame.GCRF)
+
+
+def test_opm_state_in_frame_frozen_tod_frame_epoch(eop):
+    """Mirror of test_opm_state_in_frame_frozen_tod_frame_epoch in Rust."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2_ref_epoch.txt")
+    assert opm.ref_frame == "TOD"
+    ref_epoch = Epoch.from_string("2006-06-02T00:00:00.000Z")
+
+    x_gcrf = opm.state_in_frame(brahe.CelestialFrame.GCRF)
+    expected = brahe.state_tod_to_gcrf(ref_epoch, opm.state)
+    np.testing.assert_allclose(x_gcrf, expected, atol=1e-9)
+
+    of_date = brahe.state_tod_to_gcrf(opm.epoch, opm.state)
+    assert np.linalg.norm(x_gcrf[:3] - of_date[:3]) > 1.0

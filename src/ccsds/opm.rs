@@ -14,6 +14,8 @@ use crate::ccsds::common::{
     CCSDSCovariance, CCSDSFormat, CCSDSRefFrame, CCSDSSpacecraftParameters, CCSDSTimeSystem,
     CCSDSUserDefined, ODMHeader,
 };
+use crate::ccsds::interop::{ensure_earth_center, odm_native_frame};
+use crate::frames::equinox::rotate_state;
 use crate::frames::{ReferenceFrame, state_frame_to_frame};
 use crate::math::SVector6;
 use crate::time::Epoch;
@@ -228,13 +230,22 @@ impl OPM {
     /// through the reference frame router, so a message declared in `TOD`
     /// yields a GCRF state directly usable for propagation.
     ///
+    /// The native ODM frames are Earth-centered, so the message must declare
+    /// `CENTER_NAME = EARTH`. A message centered on any other body describes a
+    /// state these frames cannot express and is rejected.
+    ///
+    /// A `TOD` message that also carries a `REF_FRAME_EPOCH` names the
+    /// true-of-date axes frozen at that epoch. Its state is carried into GCRF
+    /// by the rotation evaluated at the frame epoch before routing.
+    ///
     /// # Arguments
     /// * `frame`: Target frame
     ///
     /// # Returns
     /// * `Ok(SVector6)`: `[x, y, z, vx, vy, vz]` in `frame`. Units: (*m*; *m/s*)
-    /// * `Err(BraheError)`: If `REF_FRAME` has no native frame equivalent, or
-    ///   if the router cannot convert between the two frames
+    /// * `Err(BraheError)`: If `CENTER_NAME` is not `EARTH`, if `REF_FRAME` has
+    ///   no native frame equivalent, or if the router cannot convert between
+    ///   the two frames
     ///
     /// # Examples
     /// ```
@@ -249,10 +260,15 @@ impl OPM {
     /// let x_gcrf = opm.state_in_frame(CelestialFrame::GCRF).unwrap();
     /// ```
     pub fn state_in_frame(&self, frame: impl Into<ReferenceFrame>) -> Result<SVector6, BraheError> {
-        let native = ReferenceFrame::try_from(&self.metadata.ref_frame)?;
+        ensure_earth_center(&self.metadata.center_name)?;
+        let (native, rotation) =
+            odm_native_frame(&self.metadata.ref_frame, self.metadata.ref_frame_epoch)?;
         let p = self.state_vector.position;
         let v = self.state_vector.velocity;
-        let x = SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2]);
+        let x = rotate_state(
+            &rotation,
+            &SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2]),
+        );
         state_frame_to_frame(native, frame, self.state_vector.epoch, x)
     }
 
@@ -311,6 +327,7 @@ mod tests {
     use crate::math::SVector6;
     use crate::time::TimeSystem;
     use crate::utils::testing::setup_global_test_eop;
+    use approx::assert_abs_diff_eq;
     use serial_test::{parallel, serial};
 
     #[test]
@@ -331,6 +348,51 @@ mod tests {
         }
         let itrf = opm.state_in_frame(CelestialFrame::ITRF).unwrap();
         assert!((itrf.fixed_rows::<3>(0).norm() - x.fixed_rows::<3>(0).norm()).abs() < 1.0);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_opm_state_in_frame_rejects_non_earth_center() {
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPM-dummy-moon-EME2000.txt").unwrap();
+        assert_eq!(opm.metadata.center_name, "MOON");
+        let err = opm
+            .state_in_frame(CelestialFrame::GCRF)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("'MOON'") && err.contains("is not EARTH"),
+            "unexpected center-name message: {}",
+            err
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_opm_state_in_frame_frozen_tod_frame_epoch() {
+        setup_global_test_eop();
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample2_ref_epoch.txt").unwrap();
+        assert_eq!(opm.metadata.ref_frame, CCSDSRefFrame::TOD);
+        let ref_epoch = opm.metadata.ref_frame_epoch.unwrap();
+
+        let p = opm.state_vector.position;
+        let v = opm.state_vector.velocity;
+        let x = SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2]);
+
+        // The frozen frame's axes are the true-of-date axes at REF_FRAME_EPOCH,
+        // so the message data is already GCRF once that rotation is applied.
+        let gcrf = opm.state_in_frame(CelestialFrame::GCRF).unwrap();
+        let expected = state_tod_to_gcrf(ref_epoch, x);
+        for k in 0..6 {
+            assert_abs_diff_eq!(gcrf[k], expected[k], epsilon = 1e-9);
+        }
+
+        // Evaluating the rotation at the state epoch instead would move the
+        // state by far more than a meter, so the frozen epoch is what is used.
+        let of_date = state_tod_to_gcrf(opm.state_vector.epoch, x);
+        assert!(
+            (gcrf.fixed_rows::<3>(0) - of_date.fixed_rows::<3>(0)).norm() > 1.0,
+            "frozen-epoch rotation must differ from the of-date rotation"
+        );
     }
 
     #[test]

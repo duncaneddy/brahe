@@ -5,7 +5,7 @@
  * trajectory, propagator, and state vector types.
  */
 
-use nalgebra::{DVector, SVector, Vector3};
+use nalgebra::{DVector, Vector3};
 
 use crate::attitude::{
     FromAttitude, Quaternion, ToAttitude, angular_velocity_from_quaternion_derivative,
@@ -23,11 +23,13 @@ use crate::ccsds::frames::{
 };
 use crate::ccsds::oem::OEM;
 use crate::ccsds::omm::{OMM, OMMMetadata, OMMTleParameters, OMMeanElements};
+use crate::frames::equinox::rotate_state;
 use crate::frames::{
     BodyFrame, CelestialFrame, DStateAdapter, ObjectId, OrbitRelativeFrameKind,
     OrbitRelativeFrameVariant, OrientationProvider, ReferenceFrame, register_frame,
-    register_object,
+    register_object, rotation_tod_to_gcrf,
 };
+use crate::math::{SMatrix3, SVector6};
 use crate::time::Epoch;
 use crate::trajectories::dorbit_trajectory::DOrbitTrajectory;
 use crate::trajectories::sorbit_trajectory::SOrbitTrajectory;
@@ -189,12 +191,76 @@ impl TryFrom<&ReferenceFrame> for CCSDSRefFrame {
     }
 }
 
+/// Confirms that a CCSDS message is Earth-centered.
+///
+/// The native frames an ODM `REF_FRAME` token maps to — GCRF, EME2000, TOD,
+/// and ITRF — are all Earth-centered, so a message whose `CENTER_NAME` names
+/// another body describes a state those frames cannot express.
+///
+/// # Arguments
+///
+/// * `center_name` - `CENTER_NAME` value carried by the message metadata
+///
+/// # Returns
+///
+/// * `Ok(())`: If the central body is Earth
+/// * `Err(BraheError)`: If the central body is any other body
+pub(crate) fn ensure_earth_center(center_name: &str) -> Result<(), BraheError> {
+    let center = center_name.trim();
+    if center.eq_ignore_ascii_case("EARTH") {
+        Ok(())
+    } else {
+        Err(BraheError::Error(format!(
+            "CCSDS message CENTER_NAME '{}' is not EARTH; only Earth-centered reference \
+             frames map to native frames",
+            center
+        )))
+    }
+}
+
+/// Resolves an ODM reference frame and frame epoch to a native frame and the
+/// constant rotation that carries message data into it.
+///
+/// `TOD` with a `REF_FRAME_EPOCH` names the true-of-date axes frozen at that
+/// epoch. Those axes do not move, so the frame is inertial rather than an
+/// of-date frame re-evaluated at every sample. Data expressed in it is carried
+/// into GCRF by `rotation_tod_to_gcrf` evaluated once at the frame epoch and
+/// applied to position and velocity alike, both frames being inertial. Every
+/// other token maps through `CelestialFrame::try_from` and gets the identity
+/// rotation.
+///
+/// # Arguments
+///
+/// * `ref_frame` - `REF_FRAME` token carried by the message metadata
+/// * `ref_frame_epoch` - `REF_FRAME_EPOCH` value, when the message declares one
+///
+/// # Returns
+///
+/// * `Ok((CelestialFrame, SMatrix3))`: The native frame the data is expressed
+///   in, and the rotation to apply to each state to reach it
+/// * `Err(BraheError)`: If the token has no native equivalent
+pub(crate) fn odm_native_frame(
+    ref_frame: &CCSDSRefFrame,
+    ref_frame_epoch: Option<Epoch>,
+) -> Result<(CelestialFrame, SMatrix3), BraheError> {
+    match (ref_frame, ref_frame_epoch) {
+        (CCSDSRefFrame::TOD, Some(epc)) => Ok((CelestialFrame::GCRF, rotation_tod_to_gcrf(epc))),
+        _ => Ok((CelestialFrame::try_from(ref_frame)?, SMatrix3::identity())),
+    }
+}
+
 impl OEM {
     /// Convert a single OEM segment to a `DOrbitTrajectory`.
     ///
     /// Returns a dynamic-dimension trajectory that implements
     /// `DIdentifiableStateProvider`, making it directly usable with the
     /// access computation API (`location_accesses`).
+    ///
+    /// A segment declaring `REF_FRAME = TOD` together with a
+    /// `REF_FRAME_EPOCH` names the true-of-date axes frozen at that epoch.
+    /// Those axes are inertial, so the states are rotated into GCRF with the
+    /// rotation evaluated once at the frame epoch and the trajectory is
+    /// labelled `GCRF`.
     ///
     /// # Arguments
     ///
@@ -215,22 +281,28 @@ impl OEM {
             ))
         })?;
 
-        let frame = ReferenceFrame::try_from(&segment.metadata.ref_frame)?;
+        let (frame, rotation) = odm_native_frame(
+            &segment.metadata.ref_frame,
+            segment.metadata.ref_frame_epoch,
+        )?;
 
         let mut traj = DOrbitTrajectory::new(6, frame, OrbitRepresentation::Cartesian, None)?;
 
         traj.name = Some(segment.metadata.object_name.clone());
 
         for sv in &segment.states {
-            let state = DVector::from_column_slice(&[
-                sv.position[0],
-                sv.position[1],
-                sv.position[2],
-                sv.velocity[0],
-                sv.velocity[1],
-                sv.velocity[2],
-            ]);
-            traj.add(sv.epoch, state)?;
+            let x = rotate_state(
+                &rotation,
+                &SVector6::new(
+                    sv.position[0],
+                    sv.position[1],
+                    sv.position[2],
+                    sv.velocity[0],
+                    sv.velocity[1],
+                    sv.velocity[2],
+                ),
+            );
+            traj.add(sv.epoch, DVector::from_column_slice(x.as_slice()))?;
         }
 
         Ok(traj)
@@ -242,6 +314,10 @@ impl OEM {
     /// Note: `SOrbitTrajectory` does not implement `DIdentifiableStateProvider`,
     /// so it cannot be used directly with `location_accesses`. Use
     /// `segment_to_dorbit_trajectory` for access computation.
+    ///
+    /// A segment declaring `REF_FRAME = TOD` together with a
+    /// `REF_FRAME_EPOCH` is converted to `GCRF` exactly as in
+    /// `segment_to_dorbit_trajectory`.
     ///
     /// # Arguments
     ///
@@ -262,20 +338,26 @@ impl OEM {
             ))
         })?;
 
-        let frame = ReferenceFrame::try_from(&segment.metadata.ref_frame)?;
+        let (frame, rotation) = odm_native_frame(
+            &segment.metadata.ref_frame,
+            segment.metadata.ref_frame_epoch,
+        )?;
 
         let mut traj = SOrbitTrajectory::new(frame, OrbitRepresentation::Cartesian, None)?;
 
         traj.name = Some(segment.metadata.object_name.clone());
 
         for sv in &segment.states {
-            let state = SVector::<f64, 6>::new(
-                sv.position[0],
-                sv.position[1],
-                sv.position[2],
-                sv.velocity[0],
-                sv.velocity[1],
-                sv.velocity[2],
+            let state = rotate_state(
+                &rotation,
+                &SVector6::new(
+                    sv.position[0],
+                    sv.position[1],
+                    sv.position[2],
+                    sv.velocity[0],
+                    sv.velocity[1],
+                    sv.velocity[2],
+                ),
             );
             traj.add(sv.epoch, state)?;
         }
@@ -357,7 +439,10 @@ impl OEM {
         // TryFrom requires exactly one segment, so segment 0 is the
         // trajectory's segment and carries the frame it was built in.
         let traj = DOrbitTrajectory::try_from(self)?;
-        let frame = CelestialFrame::try_from(&self.segments[0].metadata.ref_frame)?;
+        let (frame, _) = odm_native_frame(
+            &self.segments[0].metadata.ref_frame,
+            self.segments[0].metadata.ref_frame_epoch,
+        )?;
         let adapter = DStateAdapter::new(traj)?;
         register_object(name, adapter, frame)
     }
@@ -1657,6 +1742,12 @@ mod tests {
             "unexpected unknown-token message: {}",
             other
         );
+        let tdr = ReferenceFrame::try_from(&CCSDSRefFrame::TDR).unwrap_err();
+        assert!(
+            tdr.to_string().contains("'TDR'") && tdr.to_string().contains("no native"),
+            "unexpected TDR message: {}",
+            tdr
+        );
     }
 
     #[test]
@@ -1747,6 +1838,59 @@ mod tests {
         assert_eq!(registered_frame, CelestialFrame::TOD);
         for k in 0..6 {
             assert_abs_diff_eq!(x_reg[k], x_tod[k], epsilon = 1e-9);
+        }
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_oem_in_tod_with_frame_epoch_loads_as_gcrf_trajectory() {
+        setup_global_test_eop();
+        let raw =
+            OEM::from_str(&std::fs::read_to_string("test_assets/ccsds/oem/test.oem").unwrap())
+                .unwrap();
+        let content = std::fs::read_to_string("test_assets/ccsds/oem/test_tod_epoch.oem").unwrap();
+        let oem = OEM::from_str(&content).unwrap();
+        let ref_epoch = oem.segments[0].metadata.ref_frame_epoch.unwrap();
+
+        let traj = oem.segment_to_dorbit_trajectory(0).unwrap();
+        assert_eq!(traj.frame, CelestialFrame::GCRF);
+
+        let sv = &raw.segments[0].states[0];
+        let x_raw = SVector6::new(
+            sv.position[0],
+            sv.position[1],
+            sv.position[2],
+            sv.velocity[0],
+            sv.velocity[1],
+            sv.velocity[2],
+        );
+        let expected = state_tod_to_gcrf(ref_epoch, x_raw);
+        for k in 0..6 {
+            assert_abs_diff_eq!(traj.states[0][k], expected[k], epsilon = 1e-9);
+        }
+
+        let straj = oem.segment_to_sorbit_trajectory(0).unwrap();
+        assert_eq!(straj.frame, CelestialFrame::GCRF);
+        for k in 0..6 {
+            assert_abs_diff_eq!(straj.states[0][k], expected[k], epsilon = 1e-9);
+        }
+
+        // The of-date rotation at the sample epoch is a different rotation, so
+        // the frozen frame epoch is what the conversion honors.
+        let of_date = state_tod_to_gcrf(traj.epochs[0], x_raw);
+        assert!(
+            (expected.fixed_rows::<3>(0) - of_date.fixed_rows::<3>(0)).norm() > 1.0,
+            "frozen-epoch rotation must differ from the of-date rotation"
+        );
+
+        clear_object_registry();
+        oem.register_for("TOD_EPOCH_SAT").unwrap();
+        let (registered_frame, x_reg) =
+            object_state(&"TOD_EPOCH_SAT".into(), traj.epochs[0]).unwrap();
+        assert_eq!(registered_frame, CelestialFrame::GCRF);
+        for k in 0..6 {
+            assert_abs_diff_eq!(x_reg[k], expected[k], epsilon = 1e-9);
         }
         clear_object_registry();
     }

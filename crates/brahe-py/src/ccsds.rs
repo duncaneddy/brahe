@@ -1631,7 +1631,11 @@ impl PyOEM {
     /// Convert a single OEM segment to an OrbitTrajectory.
     ///
     /// The trajectory contains Cartesian state vectors (position/velocity)
-    /// in the reference frame specified by the segment metadata.
+    /// in the reference frame specified by the segment metadata. A segment
+    /// declaring `REF_FRAME = TOD` together with a `REF_FRAME_EPOCH` names the
+    /// true-of-date axes frozen at that epoch, so its states are rotated into
+    /// GCRF with the rotation evaluated at the frame epoch and the trajectory
+    /// is labelled GCRF.
     ///
     /// Args:
     ///     segment_idx (int): Index of the segment to convert (0-based)
@@ -3804,6 +3808,12 @@ impl PyOPM {
     /// through the reference frame router, so a message declared in `TOD`
     /// yields a GCRF state directly usable for propagation.
     ///
+    /// The native ODM frames are Earth-centered, so the message must declare
+    /// `CENTER_NAME = EARTH`. A `TOD` message that also carries a
+    /// `REF_FRAME_EPOCH` names the true-of-date axes frozen at that epoch, and
+    /// its state is carried into GCRF by the rotation evaluated at the frame
+    /// epoch before routing.
+    ///
     /// Args:
     ///     frame (CelestialFrame | ReferenceFrame): Target reference frame
     ///
@@ -3811,7 +3821,7 @@ impl PyOPM {
     ///     numpy.ndarray: 6-element state vector [x, y, z, vx, vy, vz] in `frame` (position in meters, velocity in m/s)
     ///
     /// Raises:
-    ///     BraheError: If `REF_FRAME` has no native frame equivalent, or if the router cannot convert between the two frames
+    ///     BraheError: If `CENTER_NAME` is not `EARTH`, if `REF_FRAME` has no native frame equivalent, or if the router cannot convert between the two frames
     ///
     /// Example:
     ///     ```python

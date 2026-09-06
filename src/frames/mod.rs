@@ -10,6 +10,7 @@
  * - MOD/TOD: Earth mean-of-date and true-of-date (equinox-based) frames
  */
 
+pub mod axes;
 pub mod custom;
 pub mod eci_ecef;
 pub mod emb;
@@ -37,6 +38,7 @@ pub mod transform;
 
 pub(crate) use graph::{celestial_root, icrf_aligned_inertial};
 
+pub use axes::*;
 pub use custom::*;
 pub use eci_ecef::*;
 pub use emb::*;

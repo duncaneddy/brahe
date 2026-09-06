@@ -54,6 +54,7 @@
  * | SER | Sun-Earth barycenter (synthetic, see [`SUN_EARTH_BARYCENTER_ID`]) |
  * | GSE | Earth (399) |
  * | `Synodic { origin, primary, secondary }` | `primary`, `secondary`, or the pair's GM-weighted barycenter (synthetic, see [`synodic_barycenter_id`]), per `origin` |
+ * | `Centered { axes, center }` | `center` |
  *
  * Translations involving a satellite-system body center (e.g. Mars, NAIF
  * 499, or an outer-planet moon) auto-load that system's satellite
@@ -71,6 +72,7 @@ use crate::time::Epoch;
 use crate::utils::BraheError;
 use crate::utils::batch::{try_batch_map, try_batch_map_epochs};
 
+use super::axes::FrameAxes;
 use super::frame::ReferenceFrame;
 
 use super::eme_2000::rotation_gcrf_to_eme2000;
@@ -287,6 +289,24 @@ pub enum CelestialFrame {
         /// NAIF ID of the secondary body (x̂ target).
         secondary: i32,
     },
+    /// `axes` orientation centered on `center`, for pairs that have no
+    /// named variant (e.g. EME2000 axes about Mars).
+    ///
+    /// The library constructs this variant only through
+    /// [`CelestialFrame::centered`], which returns the named shorthand
+    /// whenever the `(axes, center)` pair has one, so a library-produced
+    /// `Centered` value never duplicates a named frame. Equality is
+    /// structural: a `Centered` literal written by hand for a pair that
+    /// does have a named form (e.g. `Centered { axes: FrameAxes::ITRF,
+    /// center: NAIFId::Earth }`) compares unequal to that shorthand
+    /// (`ITRF`) and is not recognized by code matching on the named
+    /// variant. Build frames with [`CelestialFrame::centered`].
+    Centered {
+        /// Orientation of the frame's axes.
+        axes: FrameAxes,
+        /// Body or barycenter at the frame's origin.
+        center: NAIFId,
+    },
 }
 
 impl CelestialFrame {
@@ -340,6 +360,183 @@ impl CelestialFrame {
                 SynodicOrigin::Secondary => *secondary,
                 SynodicOrigin::Barycenter => synodic_barycenter_id(*primary, *secondary),
             },
+            CelestialFrame::Centered { center, .. } => center.id(),
+        }
+    }
+
+    /// Orientation of this frame's axes, independent of its origin.
+    ///
+    /// Every frame is the pair `(axes(), center())`, and
+    /// [`CelestialFrame::centered`] rebuilds the frame from that pair.
+    ///
+    /// # Returns:
+    /// - `axes`: Orientation of the frame's axes
+    ///
+    /// # Examples:
+    /// ```
+    /// use brahe::frames::{CelestialFrame, FrameAxes};
+    ///
+    /// assert_eq!(CelestialFrame::GCRF.axes(), FrameAxes::ICRF);
+    /// assert_eq!(CelestialFrame::MCMF.axes(), FrameAxes::MarsFixed);
+    /// ```
+    pub fn axes(&self) -> FrameAxes {
+        match self {
+            CelestialFrame::GCRF
+            | CelestialFrame::LCI
+            | CelestialFrame::MCI
+            | CelestialFrame::EMBI
+            | CelestialFrame::SSBI
+            | CelestialFrame::BodyCenteredICRF(_) => FrameAxes::ICRF,
+            CelestialFrame::ITRF => FrameAxes::ITRF,
+            CelestialFrame::EME2000 => FrameAxes::EME2000,
+            CelestialFrame::MOD => FrameAxes::MOD,
+            CelestialFrame::TOD => FrameAxes::TOD,
+            CelestialFrame::LFPA => FrameAxes::LunarPA,
+            CelestialFrame::LFME => FrameAxes::LunarME,
+            CelestialFrame::MCMF => FrameAxes::MarsFixed,
+            CelestialFrame::EMR => FrameAxes::EMR,
+            CelestialFrame::SER => FrameAxes::SER,
+            CelestialFrame::GSE => FrameAxes::GSE,
+            CelestialFrame::BodyFixedIAU(id) => FrameAxes::BodyFixedIAU(*id),
+            CelestialFrame::BodyFixedPCK { frame_id, .. } => FrameAxes::BodyFixedPCK(*frame_id),
+            CelestialFrame::BodyFixedCustom { key, .. } => FrameAxes::BodyFixedCustom(*key),
+            CelestialFrame::Synodic {
+                primary, secondary, ..
+            } => FrameAxes::Synodic {
+                primary: *primary,
+                secondary: *secondary,
+            },
+            CelestialFrame::Centered { axes, .. } => *axes,
+        }
+    }
+
+    /// Body or barycenter at this frame's origin.
+    ///
+    /// The semantic form of [`CelestialFrame::center_naif_id`]: named
+    /// [`NAIFId`] variants for catalogued bodies and barycenters, and
+    /// [`NAIFId::Id`] for every other ID, including self-assigned negative
+    /// centers and the synthetic synodic barycenters.
+    ///
+    /// # Returns:
+    /// - `center`: The frame's origin
+    ///
+    /// # Examples:
+    /// ```
+    /// use brahe::frames::CelestialFrame;
+    /// use brahe::spice::NAIFId;
+    ///
+    /// assert_eq!(CelestialFrame::GCRF.center(), NAIFId::Earth);
+    /// assert_eq!(CelestialFrame::LFPA.center(), NAIFId::Moon);
+    /// ```
+    pub fn center(&self) -> NAIFId {
+        NAIFId::from(self.center_naif_id())
+    }
+
+    /// Frame with the given `axes` centered on `center`.
+    ///
+    /// Returns the named shorthand whenever the pair has one (so
+    /// `centered(FrameAxes::EME2000, 399)` is [`CelestialFrame::EME2000`]
+    /// and `centered(FrameAxes::ICRF, 301)` is [`CelestialFrame::LCI`]),
+    /// and [`CelestialFrame::Centered`] otherwise.
+    /// `centered(f.axes(), f.center()) == f` holds for every frame the
+    /// library produces. Where a named frame and a generic frame describe
+    /// the same pair (`SER` and `Synodic { Barycenter, 10, 399 }`, `GSE`
+    /// and `Synodic { Primary, 399, 10 }`), the named form is returned.
+    ///
+    /// # Arguments:
+    /// - `axes`: Orientation of the frame's axes
+    /// - `center`: NAIF ID of the frame's origin, as an `i32` or [`NAIFId`]
+    ///
+    /// # Returns:
+    /// - `frame`: The frame with those axes and that center
+    ///
+    /// # Examples:
+    /// ```
+    /// use brahe::frames::{CelestialFrame, FrameAxes};
+    /// use brahe::spice::NAIFId;
+    ///
+    /// assert_eq!(CelestialFrame::centered(FrameAxes::ICRF, 399), CelestialFrame::GCRF);
+    ///
+    /// // EME2000 axes about Mars have no named form
+    /// let frame = CelestialFrame::centered(FrameAxes::EME2000, NAIFId::Mars);
+    /// assert_eq!(frame.axes(), FrameAxes::EME2000);
+    /// assert_eq!(frame.center(), NAIFId::Mars);
+    /// ```
+    pub fn centered(axes: FrameAxes, center: impl Into<NAIFId>) -> CelestialFrame {
+        let id = center.into().id();
+        match (axes, id) {
+            (FrameAxes::ICRF, 399) => CelestialFrame::GCRF,
+            (FrameAxes::ICRF, 301) => CelestialFrame::LCI,
+            (FrameAxes::ICRF, 499) => CelestialFrame::MCI,
+            (FrameAxes::ICRF, 3) => CelestialFrame::EMBI,
+            (FrameAxes::ICRF, 0) => CelestialFrame::SSBI,
+            (FrameAxes::ICRF, c) => CelestialFrame::BodyCenteredICRF(c),
+            (FrameAxes::ITRF, 399) => CelestialFrame::ITRF,
+            (FrameAxes::EME2000, 399) => CelestialFrame::EME2000,
+            (FrameAxes::MOD, 399) => CelestialFrame::MOD,
+            (FrameAxes::TOD, 399) => CelestialFrame::TOD,
+            (FrameAxes::LunarPA, 301) => CelestialFrame::LFPA,
+            (FrameAxes::LunarME, 301) => CelestialFrame::LFME,
+            (FrameAxes::MarsFixed, 499) => CelestialFrame::MCMF,
+            (FrameAxes::EMR, 3) => CelestialFrame::EMR,
+            (FrameAxes::SER, c) if c == SUN_EARTH_BARYCENTER_ID => CelestialFrame::SER,
+            (FrameAxes::GSE, 399) => CelestialFrame::GSE,
+            (FrameAxes::BodyFixedIAU(body), c) if body == c => CelestialFrame::BodyFixedIAU(body),
+            (FrameAxes::BodyFixedPCK(frame_id), c) => CelestialFrame::BodyFixedPCK {
+                center: c,
+                frame_id,
+            },
+            (FrameAxes::BodyFixedCustom(key), c) => {
+                CelestialFrame::BodyFixedCustom { center: c, key }
+            }
+            (
+                FrameAxes::Synodic {
+                    primary: 399,
+                    secondary: 301,
+                },
+                3,
+            ) => CelestialFrame::EMR,
+            (
+                FrameAxes::Synodic {
+                    primary: 10,
+                    secondary: 399,
+                },
+                c,
+            ) if c == SUN_EARTH_BARYCENTER_ID => CelestialFrame::SER,
+            (
+                FrameAxes::Synodic {
+                    primary: 399,
+                    secondary: 10,
+                },
+                399,
+            ) => CelestialFrame::GSE,
+            (FrameAxes::Synodic { primary, secondary }, c) if c == primary => {
+                CelestialFrame::Synodic {
+                    origin: SynodicOrigin::Primary,
+                    primary,
+                    secondary,
+                }
+            }
+            (FrameAxes::Synodic { primary, secondary }, c) if c == secondary => {
+                CelestialFrame::Synodic {
+                    origin: SynodicOrigin::Secondary,
+                    primary,
+                    secondary,
+                }
+            }
+            (FrameAxes::Synodic { primary, secondary }, c)
+                if c == synodic_barycenter_id(primary, secondary) =>
+            {
+                CelestialFrame::Synodic {
+                    origin: SynodicOrigin::Barycenter,
+                    primary,
+                    secondary,
+                }
+            }
+            _ => CelestialFrame::Centered {
+                axes,
+                center: NAIFId::from(id),
+            },
         }
     }
 
@@ -388,6 +585,7 @@ impl CelestialFrame {
                 let (s, s_dot) = super::synodic::generic_synodic_axes(epc, *primary, *secondary)?;
                 Ok(super::synodic::state_synodic_to_inertial(&s, &s_dot, x))
             }
+            CelestialFrame::Centered { axes, .. } => axes_carrier(*axes).state_to_icrf_axes(epc, x),
         }
     }
 
@@ -443,6 +641,9 @@ impl CelestialFrame {
                     &s, &s_dot, x_icrf,
                 ))
             }
+            CelestialFrame::Centered { axes, .. } => {
+                axes_carrier(*axes).state_from_icrf_axes(epc, x_icrf)
+            }
         }
     }
 }
@@ -482,6 +683,9 @@ impl fmt::Display for CelestialFrame {
                 "Synodic(origin={:?}, primary={}, secondary={})",
                 origin, primary, secondary
             ),
+            CelestialFrame::Centered { axes, center } => {
+                write!(f, "Centered({}, {})", axes, center)
+            }
         }
     }
 }
@@ -658,6 +862,42 @@ fn state_pck_body_to_icrf(
     ))
 }
 
+/// A frame whose axes are `axes`, used to evaluate the orientation of a
+/// [`CelestialFrame::Centered`] frame. Orientation never depends on a
+/// frame's center, so any frame carrying `axes` yields the same rotation
+/// and transport-velocity terms. Never returns
+/// [`CelestialFrame::Centered`], so the router arms that delegate to it
+/// terminate.
+fn axes_carrier(axes: FrameAxes) -> CelestialFrame {
+    match axes {
+        FrameAxes::ICRF => CelestialFrame::GCRF,
+        FrameAxes::EME2000 => CelestialFrame::EME2000,
+        FrameAxes::MOD => CelestialFrame::MOD,
+        FrameAxes::TOD => CelestialFrame::TOD,
+        FrameAxes::ITRF => CelestialFrame::ITRF,
+        FrameAxes::LunarPA => CelestialFrame::LFPA,
+        FrameAxes::LunarME => CelestialFrame::LFME,
+        FrameAxes::MarsFixed => CelestialFrame::MCMF,
+        FrameAxes::EMR => CelestialFrame::EMR,
+        FrameAxes::SER => CelestialFrame::SER,
+        FrameAxes::GSE => CelestialFrame::GSE,
+        FrameAxes::BodyFixedIAU(id) => CelestialFrame::BodyFixedIAU(id),
+        FrameAxes::BodyFixedPCK(frame_id) => CelestialFrame::BodyFixedPCK {
+            center: NAIFId::SolarSystemBarycenter.id(),
+            frame_id,
+        },
+        FrameAxes::BodyFixedCustom(key) => CelestialFrame::BodyFixedCustom {
+            center: NAIFId::SolarSystemBarycenter.id(),
+            key,
+        },
+        FrameAxes::Synodic { primary, secondary } => CelestialFrame::Synodic {
+            origin: SynodicOrigin::Primary,
+            primary,
+            secondary,
+        },
+    }
+}
+
 /// Rotation matrix from ICRF axes to `frame`'s own axes at `epc`. Identity
 /// for ICRF-aligned frames.
 fn icrf_to_frame_dcm(frame: CelestialFrame, epc: Epoch) -> Result<SMatrix3, BraheError> {
@@ -688,6 +928,7 @@ fn icrf_to_frame_dcm(frame: CelestialFrame, epc: Epoch) -> Result<SMatrix3, Brah
         CelestialFrame::Synodic {
             primary, secondary, ..
         } => Ok(super::synodic::generic_synodic_axes(epc, primary, secondary)?.0),
+        CelestialFrame::Centered { axes, .. } => icrf_to_frame_dcm(axes_carrier(axes), epc),
     }
 }
 
@@ -2428,5 +2669,241 @@ mod tests {
             );
         }
         clear_object_registry();
+    }
+
+    #[test]
+    #[parallel]
+    fn test_celestialframe_axes_and_center() {
+        assert_eq!(CelestialFrame::EME2000.axes(), FrameAxes::EME2000);
+        assert_eq!(CelestialFrame::EME2000.center(), NAIFId::Earth);
+        assert_eq!(CelestialFrame::LFPA.axes(), FrameAxes::LunarPA);
+        assert_eq!(CelestialFrame::MCMF.center(), NAIFId::Mars);
+        assert_eq!(
+            CelestialFrame::BodyFixedPCK {
+                center: 301,
+                frame_id: 31008
+            }
+            .axes(),
+            FrameAxes::BodyFixedPCK(31008)
+        );
+        assert_eq!(CelestialFrame::EMR.axes(), FrameAxes::EMR);
+        assert_eq!(CelestialFrame::EMR.center(), NAIFId::EarthMoonBarycenter);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_celestialframe_centered_canonical_forms() {
+        assert_eq!(
+            CelestialFrame::centered(FrameAxes::EME2000, 399),
+            CelestialFrame::EME2000
+        );
+        assert_eq!(
+            CelestialFrame::centered(FrameAxes::ICRF, NAIFId::Moon),
+            CelestialFrame::LCI
+        );
+        assert_eq!(
+            CelestialFrame::centered(FrameAxes::ICRF, 499),
+            CelestialFrame::MCI
+        );
+        assert_eq!(
+            CelestialFrame::centered(FrameAxes::ICRF, 3),
+            CelestialFrame::EMBI
+        );
+        assert_eq!(
+            CelestialFrame::centered(FrameAxes::ICRF, 0),
+            CelestialFrame::SSBI
+        );
+        assert_eq!(
+            CelestialFrame::centered(FrameAxes::ICRF, 2000001),
+            CelestialFrame::BodyCenteredICRF(2000001)
+        );
+        assert_eq!(
+            CelestialFrame::centered(FrameAxes::ITRF, 399),
+            CelestialFrame::ITRF
+        );
+        assert_eq!(
+            CelestialFrame::centered(FrameAxes::BodyFixedIAU(499), 499),
+            CelestialFrame::BodyFixedIAU(499)
+        );
+        assert_eq!(
+            CelestialFrame::centered(FrameAxes::BodyFixedPCK(31008), 301),
+            CelestialFrame::BodyFixedPCK {
+                center: 301,
+                frame_id: 31008
+            }
+        );
+        assert_eq!(
+            CelestialFrame::centered(
+                FrameAxes::Synodic {
+                    primary: 399,
+                    secondary: 301
+                },
+                3
+            ),
+            CelestialFrame::EMR
+        );
+        assert_eq!(
+            CelestialFrame::centered(
+                FrameAxes::Synodic {
+                    primary: 399,
+                    secondary: 10
+                },
+                399
+            ),
+            CelestialFrame::GSE
+        );
+        let mars_eme = CelestialFrame::centered(FrameAxes::EME2000, 499);
+        assert_eq!(
+            mars_eme,
+            CelestialFrame::Centered {
+                axes: FrameAxes::EME2000,
+                center: NAIFId::Mars
+            }
+        );
+        assert_eq!(mars_eme.center_naif_id(), 499);
+        assert_eq!(format!("{}", mars_eme), "Centered(EME2000, MARS)");
+        assert_eq!(
+            format!("{}", CelestialFrame::centered(FrameAxes::ITRF, -42)),
+            "Centered(ITRF, -42)"
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_celestialframe_centered_round_trips_every_named_frame() {
+        for f in [
+            CelestialFrame::GCRF,
+            CelestialFrame::ITRF,
+            CelestialFrame::EME2000,
+            CelestialFrame::MOD,
+            CelestialFrame::TOD,
+            CelestialFrame::LCI,
+            CelestialFrame::LFPA,
+            CelestialFrame::LFME,
+            CelestialFrame::MCI,
+            CelestialFrame::MCMF,
+            CelestialFrame::EMBI,
+            CelestialFrame::SSBI,
+            CelestialFrame::EMR,
+            CelestialFrame::SER,
+            CelestialFrame::GSE,
+            CelestialFrame::BodyCenteredICRF(2000001),
+            CelestialFrame::BodyFixedIAU(599),
+            CelestialFrame::BodyFixedPCK {
+                center: 301,
+                frame_id: 31008,
+            },
+            CelestialFrame::BodyFixedCustom {
+                center: -20001,
+                key: 7,
+            },
+            CelestialFrame::Synodic {
+                origin: SynodicOrigin::Secondary,
+                primary: 10,
+                secondary: 599,
+            },
+        ] {
+            assert_eq!(CelestialFrame::centered(f.axes(), f.center()), f, "{f}");
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_frameaxes_display_from_str() {
+        for a in [
+            FrameAxes::ICRF,
+            FrameAxes::EME2000,
+            FrameAxes::MOD,
+            FrameAxes::TOD,
+            FrameAxes::ITRF,
+            FrameAxes::LunarPA,
+            FrameAxes::LunarME,
+            FrameAxes::MarsFixed,
+            FrameAxes::EMR,
+            FrameAxes::SER,
+            FrameAxes::GSE,
+        ] {
+            assert_eq!(a.to_string().parse::<FrameAxes>().unwrap(), a);
+        }
+        assert_eq!(
+            FrameAxes::BodyFixedIAU(499).to_string(),
+            "BodyFixedIAU(499)"
+        );
+        assert_eq!(
+            FrameAxes::BodyFixedPCK(31008).to_string(),
+            "BodyFixedPCK(31008)"
+        );
+        assert_eq!(
+            FrameAxes::BodyFixedCustom(7).to_string(),
+            "BodyFixedCustom(7)"
+        );
+        assert_eq!(
+            FrameAxes::Synodic {
+                primary: 10,
+                secondary: 599
+            }
+            .to_string(),
+            "Synodic(10,599)"
+        );
+        assert!("BodyFixedIAU(499)".parse::<FrameAxes>().is_err());
+        assert!("nope".parse::<FrameAxes>().is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_celestialframe_centered_serde_round_trip() {
+        let f = CelestialFrame::centered(FrameAxes::TOD, 499);
+        let s = serde_json::to_string(&f).unwrap();
+        assert_eq!(serde_json::from_str::<CelestialFrame>(&s).unwrap(), f);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_axes_carrier_preserves_axes() {
+        for a in [
+            FrameAxes::ICRF,
+            FrameAxes::EME2000,
+            FrameAxes::MOD,
+            FrameAxes::TOD,
+            FrameAxes::ITRF,
+            FrameAxes::LunarPA,
+            FrameAxes::LunarME,
+            FrameAxes::MarsFixed,
+            FrameAxes::EMR,
+            FrameAxes::SER,
+            FrameAxes::GSE,
+            FrameAxes::BodyFixedIAU(599),
+            FrameAxes::BodyFixedPCK(31008),
+            FrameAxes::BodyFixedCustom(7),
+            FrameAxes::Synodic {
+                primary: 10,
+                secondary: 599,
+            },
+        ] {
+            assert_eq!(axes_carrier(a).axes(), a, "{a}");
+        }
+    }
+
+    #[test]
+    #[serial] // EOP global
+    fn test_router_centered_frame_rotation_and_state_round_trip() {
+        setup_global_test_eop();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+
+        // Orientation of a Centered frame is its axes' rotation, evaluated
+        // without any center lookup: Mars-centered EME2000 -> MCI is the
+        // EME2000 frame bias alone.
+        let mars_eme = CelestialFrame::centered(FrameAxes::EME2000, 499);
+        let r = rotation_frame_to_frame(mars_eme, CelestialFrame::MCI, epc).unwrap();
+        assert_abs_diff_eq!(r, rotation_gcrf_to_eme2000().transpose(), epsilon = 1e-15);
+
+        // Same-center state conversions through a Centered frame keep the
+        // transport-velocity terms of the underlying rotating axes.
+        let mars_itrf = CelestialFrame::centered(FrameAxes::ITRF, 499);
+        let x = vector6_from_array([3.6e6, -1.2e6, 2.0e6, 1.0e2, 3.4e3, -1.1e3]);
+        let x_mci = state_frame_to_frame(mars_itrf, CelestialFrame::MCI, epc, x).unwrap();
+        assert!((x_mci - x).norm() > 1.0);
+        let x_back = state_frame_to_frame(CelestialFrame::MCI, mars_itrf, epc, x_mci).unwrap();
+        assert_abs_diff_eq!(x_back, x, epsilon = 1e-6);
     }
 }

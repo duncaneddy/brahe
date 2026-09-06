@@ -6,6 +6,13 @@ import brahe
 
 
 @pytest.fixture()
+def default_pn_model():
+    """Restore the default precession-nutation model after a test switches it."""
+    yield
+    brahe.set_precession_nutation_model(brahe.PrecessionNutationModel.IAU2006A)
+
+
+@pytest.fixture()
 def static_eop():
     pm_x = 0.0349282 * brahe.AS2RAD
     pm_y = 0.4833163 * brahe.AS2RAD
@@ -43,7 +50,7 @@ def test_bias_precession_nutation(static_eop):
 
     rc2i = brahe.bias_precession_nutation(epc)
 
-    tol = 1e-8
+    tol = 1e-12
     assert rc2i[0, 0] == approx(+0.999999746339445, abs=tol)
     assert rc2i[0, 1] == approx(-0.000000005138822, abs=tol)
     assert rc2i[0, 2] == approx(-0.000712264730072, abs=tol)
@@ -62,7 +69,7 @@ def test_earth_rotation(static_eop):
 
     r = brahe.earth_rotation(epc) @ brahe.bias_precession_nutation(epc)
 
-    tol = 1e-8
+    tol = 2e-11
     assert r[0, 0] == approx(+0.973104317573127, abs=tol)
     assert r[0, 1] == approx(+0.230363826247709, abs=tol)
     assert r[0, 2] == approx(-0.000703332818845, abs=tol)
@@ -81,7 +88,7 @@ def test_eci_to_ecef(static_eop):
 
     r = brahe.rotation_eci_to_ecef(epc)
 
-    tol = 1e-8
+    tol = 2e-11
     assert r[0, 0] == approx(+0.973104317697535, abs=tol)
     assert r[0, 1] == approx(+0.230363826239128, abs=tol)
     assert r[0, 2] == approx(-0.000703163482198, abs=tol)
@@ -100,7 +107,7 @@ def test_ecef_to_eci(static_eop):
 
     r = brahe.rotation_ecef_to_eci(epc)
 
-    tol = 1e-8
+    tol = 2e-11
     assert r[0, 0] == approx(+0.973104317697535, abs=tol)
     assert r[0, 1] == approx(-0.230363800456037, abs=tol)
     assert r[0, 2] == approx(+0.000711560162668, abs=tol)
@@ -172,7 +179,7 @@ def test_rotation_gcrf_to_itrf(static_eop):
 
     r = brahe.rotation_gcrf_to_itrf(epc)
 
-    tol = 1e-8
+    tol = 2e-11
     assert r[0, 0] == approx(+0.973104317697535, abs=tol)
     assert r[0, 1] == approx(+0.230363826239128, abs=tol)
     assert r[0, 2] == approx(-0.000703163482198, abs=tol)
@@ -192,7 +199,7 @@ def test_rotation_itrf_to_gcrf(static_eop):
 
     r = brahe.rotation_itrf_to_gcrf(epc)
 
-    tol = 1e-8
+    tol = 2e-11
     assert r[0, 0] == approx(+0.973104317697535, abs=tol)
     assert r[0, 1] == approx(-0.230363800456037, abs=tol)
     assert r[0, 2] == approx(+0.000711560162668, abs=tol)
@@ -1636,12 +1643,12 @@ def test_celestial_frame_mod_tod_attrs():
 
 
 def test_rotation_gcrf_to_tod_cookbook(static_eop):
-    """Equinox chain GCRF -> TOD -> ITRF against SOFA cookbook 5.4 (2000B vs 2000A)."""
+    """Equinox chain GCRF -> TOD -> ITRF against the SOFA cookbook 5.4 matrix."""
     epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, brahe.UTC)
 
     r = brahe.rotation_tod_to_itrf(epc) @ brahe.rotation_gcrf_to_tod(epc)
 
-    tol = 1e-8
+    tol = 2e-11
     assert r[0, 0] == approx(+0.973104317697618, abs=tol)
     assert r[0, 1] == approx(+0.230363826238780, abs=tol)
     assert r[0, 2] == approx(-0.000703163482352, abs=tol)
@@ -1657,22 +1664,135 @@ def test_rotation_gcrf_to_tod_cookbook(static_eop):
 
 def test_equinox_building_blocks(static_eop):
     epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, brahe.UTC)
+    model = brahe.get_precession_nutation_model()
     np.testing.assert_array_equal(
-        brahe.bias_precession_iau2000(epc), brahe.rotation_gcrf_to_mod(epc)
+        brahe.bias_precession(epc, model), brahe.rotation_gcrf_to_mod(epc)
     )
     np.testing.assert_array_equal(
-        brahe.nutation_iau2000b(epc), brahe.rotation_mod_to_tod(epc)
+        brahe.nutation(epc, model), brahe.rotation_mod_to_tod(epc)
     )
     np.testing.assert_allclose(
-        brahe.nutation_iau2000b(epc) @ brahe.bias_precession_iau2000(epc),
+        brahe.nutation(epc, model) @ brahe.bias_precession(epc, model),
         brahe.rotation_gcrf_to_tod(epc),
         atol=1e-15,
     )
     np.testing.assert_allclose(
-        brahe.polar_motion(epc) @ brahe.gast_rotation_iau2000b(epc),
+        brahe.polar_motion(epc) @ brahe.gast_rotation(epc, model),
         brahe.rotation_tod_to_itrf(epc),
         atol=1e-15,
     )
+
+
+def test_equinox_building_blocks_iau2000b(static_eop, default_pn_model):
+    epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, brahe.UTC)
+    truncated = brahe.PrecessionNutationModel.IAU2000B
+    # The explicit-model forms do not read the global setting.
+    expected = brahe.bias_precession(epc, truncated)
+    brahe.set_precession_nutation_model(truncated)
+    np.testing.assert_array_equal(brahe.rotation_gcrf_to_mod(epc), expected)
+    np.testing.assert_array_equal(
+        brahe.nutation(epc, truncated), brahe.rotation_mod_to_tod(epc)
+    )
+    np.testing.assert_allclose(
+        brahe.polar_motion(epc) @ brahe.gast_rotation(epc, truncated),
+        brahe.rotation_tod_to_itrf(epc),
+        atol=1e-15,
+    )
+    # Reaching the ITRF through TOD still agrees with the direct chain.
+    np.testing.assert_allclose(
+        brahe.rotation_tod_to_itrf(epc) @ brahe.rotation_gcrf_to_tod(epc),
+        brahe.rotation_gcrf_to_itrf(epc),
+        atol=1e-10,
+    )
+
+
+def test_precession_nutation_model_default_and_switch(static_eop, default_pn_model):
+    epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, brahe.UTC)
+
+    assert brahe.get_precession_nutation_model() == (
+        brahe.PrecessionNutationModel.IAU2006A
+    )
+    default = brahe.bias_precession_nutation(epc)
+    np.testing.assert_array_equal(
+        default,
+        brahe.bias_precession_nutation_model(
+            epc, brahe.PrecessionNutationModel.IAU2006A
+        ),
+    )
+
+    brahe.set_precession_nutation_model(brahe.PrecessionNutationModel.IAU2000B)
+    assert brahe.get_precession_nutation_model() == (
+        brahe.PrecessionNutationModel.IAU2000B
+    )
+    truncated = brahe.bias_precession_nutation(epc)
+    np.testing.assert_array_equal(
+        truncated,
+        brahe.bias_precession_nutation_model(
+            epc, brahe.PrecessionNutationModel.IAU2000B
+        ),
+    )
+    delta = np.max(np.abs(default - truncated))
+    assert 1e-10 < delta < 1e-7
+
+    brahe.set_precession_nutation_model(brahe.PrecessionNutationModel.IAU2006A)
+    np.testing.assert_array_equal(brahe.bias_precession_nutation(epc), default)
+
+
+def test_precession_nutation_model_repr_and_equality():
+    assert str(brahe.PrecessionNutationModel.IAU2006A) == "IAU 2006/2000A"
+    assert str(brahe.PrecessionNutationModel.IAU2000B) == "IAU 2000B"
+    assert (
+        repr(brahe.PrecessionNutationModel.IAU2000B)
+        == "PrecessionNutationModel.IAU2000B"
+    )
+    assert (
+        brahe.PrecessionNutationModel.IAU2006A == brahe.PrecessionNutationModel.IAU2006A
+    )
+    assert (
+        brahe.PrecessionNutationModel.IAU2006A != brahe.PrecessionNutationModel.IAU2000B
+    )
+
+
+def test_bias_precession_nutation_iau2000b(static_eop, default_pn_model):
+    epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0, 0.0, brahe.UTC)
+    brahe.set_precession_nutation_model(brahe.PrecessionNutationModel.IAU2000B)
+
+    rc2i = brahe.bias_precession_nutation(epc)
+
+    tol = 1e-8
+    assert rc2i[0, 0] == approx(+0.999999746339445, abs=tol)
+    assert rc2i[0, 1] == approx(-0.000000005138822, abs=tol)
+    assert rc2i[0, 2] == approx(-0.000712264730072, abs=tol)
+
+    assert rc2i[1, 0] == approx(-0.000000026475227, abs=tol)
+    assert rc2i[1, 1] == approx(+0.999999999014975, abs=tol)
+    assert rc2i[1, 2] == approx(-0.000044385242827, abs=tol)
+
+    assert rc2i[2, 0] == approx(+0.000712264729599, abs=tol)
+    assert rc2i[2, 1] == approx(+0.000044385250426, abs=tol)
+    assert rc2i[2, 2] == approx(+0.999999745354420, abs=tol)
+
+
+def test_rotation_gcrf_to_itrf_iau2000b(static_eop, default_pn_model):
+    epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, brahe.UTC)
+    brahe.set_precession_nutation_model(brahe.PrecessionNutationModel.IAU2000B)
+
+    r = brahe.rotation_gcrf_to_itrf(epc)
+
+    tol = 1e-8
+    assert r[0, 0] == approx(+0.973104317697535, abs=tol)
+    assert r[0, 1] == approx(+0.230363826239128, abs=tol)
+    assert r[0, 2] == approx(-0.000703163482198, abs=tol)
+
+    assert r[1, 0] == approx(-0.230363800456037, abs=tol)
+    assert r[1, 1] == approx(+0.973104570632801, abs=tol)
+    assert r[1, 2] == approx(+0.000118545366625, abs=tol)
+
+    assert r[2, 0] == approx(+0.000711560162668, abs=tol)
+    assert r[2, 1] == approx(+0.000046626403995, abs=tol)
+    assert r[2, 2] == approx(+0.999999745754024, abs=tol)
+
+    np.testing.assert_array_equal(brahe.rotation_itrf_to_gcrf(epc), r.T)
 
 
 def test_equinox_rotation_inverses(static_eop):

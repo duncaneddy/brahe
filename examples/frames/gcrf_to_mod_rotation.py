@@ -46,5 +46,5 @@ print(
 B = bh.bias_eme2000()
 print("Comparison with the EME2000 frame bias matrix at J2000:")
 print(f"  Max absolute difference: {np.max(np.abs(R_gcrf_to_mod_j2000 - B)):.2e}")
-print("\nNote: at J2000 the IAU 2000 precession is identity, so MOD reduces")
+print("\nNote: at J2000 the precession is identity, so MOD reduces")
 print("to the constant frame bias between GCRF and EME2000.")

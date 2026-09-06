@@ -15,6 +15,9 @@ use crate::AngleFormat;
 use crate::constants::DEG2RAD;
 use crate::constants::physical::R_EARTH;
 use crate::eop::*;
+use crate::frames::precession_nutation::{
+    PrecessionNutationModel, get_precession_nutation_model, set_precession_nutation_model,
+};
 use crate::math::angles::oe_to_radians;
 use crate::orbit_dynamics::gravity::{GravityModel, GravityModelType, set_global_gravity_model};
 use crate::orbits::keplerian::{geo_sma, perigee_velocity, sun_synchronous_inclination};
@@ -590,6 +593,27 @@ impl Drop for NetworkModeGuard {
                 None => env::remove_var(NETWORK_MODE_ENV),
             }
         }
+    }
+}
+
+/// Sets the crate-wide precession-nutation model for the lifetime of the
+/// guard and restores the previous model on drop. Callers must be `#[serial]`.
+pub(crate) struct PrecessionNutationModelGuard {
+    prev: PrecessionNutationModel,
+}
+
+impl PrecessionNutationModelGuard {
+    /// Select `model` until the guard is dropped.
+    pub(crate) fn set(model: PrecessionNutationModel) -> Self {
+        let prev = get_precession_nutation_model();
+        set_precession_nutation_model(model);
+        PrecessionNutationModelGuard { prev }
+    }
+}
+
+impl Drop for PrecessionNutationModelGuard {
+    fn drop(&mut self) {
+        set_precession_nutation_model(self.prev);
     }
 }
 

@@ -8,6 +8,7 @@ use crate::math::{SMatrix3, SVector6};
 use crate::constants;
 use crate::constants::MJD_ZERO;
 use crate::eop;
+use crate::frames::precession_nutation::{PrecessionNutationModel, get_precession_nutation_model};
 use crate::math::matrix3_from_array;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
@@ -19,8 +20,8 @@ use crate::utils::batch::{batch_map, batch_map_epochs};
 /// respect to inertial space.
 ///
 /// This formulation computes the Bias-Precession-Nutation correction matrix
-/// according using a CIO based model using using the IAU 2006
-/// precession and IAU 2000A nutation models.
+/// using a CIO based model, evaluating the precession-nutation model selected
+/// by [`crate::frames::set_precession_nutation_model`] (IAU 2006/2000A by default).
 ///
 /// The function will utilize the global Earth orientation and loaded data to
 /// apply corrections to the Celestial Intermediate Pole (CIP) derived from
@@ -57,23 +58,65 @@ use crate::utils::batch::{batch_map, batch_map_epochs};
 ///
 /// # References:
 /// - [IAU SOFA Tools For Earth Attitude, Example 5.5](http://www.iausofa.org/2021_0512_C/sofa/sofa_pn_c.pdf) Software Version 18, 2021-04-18
-#[allow(non_snake_case)]
 pub fn bias_precession_nutation(epc: Epoch) -> SMatrix3 {
-    // Compute X, Y, s terms using low-precision series terms
+    bias_precession_nutation_model(epc, get_precession_nutation_model())
+}
+
+/// Computes the Bias-Precession-Nutation matrix transforming the GCRS to the
+/// CIRS intermediate reference frame using an explicitly chosen
+/// precession-nutation model.
+///
+/// The CIP coordinates and the CIO locator come from the model series; the
+/// Celestial Intermediate Pole corrections from the global Earth orientation
+/// data are then added to `X` and `Y` regardless of the model.
+///
+/// # Arguments:
+/// - `epc`: Epoch instant for computation of transformation matrix
+/// - `model`: Precession-nutation model to evaluate
+///
+/// # Returns:
+/// - `rc2i`: 3x3 Rotation matrix transforming GCRS -> CIRS
+///
+/// # Panics
+/// Panics if Earth orientation data is unavailable for the requested epoch,
+/// matching [`bias_precession_nutation`].
+///
+/// # Examples:
+/// ```
+/// use brahe::eop::*;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::frames::*;
+///
+/// // Quick EOP initialization
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+///
+/// let rc2i = bias_precession_nutation_model(epc, PrecessionNutationModel::IAU2000B);
+/// ```
+///
+/// # References:
+/// - [IAU SOFA Tools For Earth Attitude, Example 5.5](http://www.iausofa.org/2021_0512_C/sofa/sofa_pn_c.pdf) Software Version 18, 2021-04-18
+#[allow(non_snake_case)]
+pub fn bias_precession_nutation_model(epc: Epoch, model: PrecessionNutationModel) -> SMatrix3 {
+    // CIP coordinates X, Y and the CIO locator s from the selected series.
     let mut x = 0.0;
     let mut y = 0.0;
     let mut s = 0.0;
 
+    let tt = epc.mjd_as_time_system(TimeSystem::TT);
     unsafe {
-        // iauXys06a is the full-precision IAU 2006/2000A model, while iauXys00b is a truncated version that is sufficient for nearly all astrodynamics applications and significantly faster to compute.
-        // For now we switch to using the truncated version (all tests still pass). In the future we might want to consider a way to allow users to select/customize the model behind the function.
-        rsofa::iauXys00b(
-            MJD_ZERO,
-            epc.mjd_as_time_system(TimeSystem::TT),
-            &mut x,
-            &mut y,
-            &mut s,
-        );
+        match model {
+            // Full IAU 2006 precession with the IAU 2000A nutation series.
+            PrecessionNutationModel::IAU2006A => {
+                rsofa::iauXys06a(MJD_ZERO, tt, &mut x, &mut y, &mut s);
+            }
+            // IAU 2000 precession with the truncated IAU 2000B nutation series.
+            PrecessionNutationModel::IAU2000B => {
+                rsofa::iauXys00b(MJD_ZERO, tt, &mut x, &mut y, &mut s);
+            }
+        }
     }
 
     // Apply Celestial Intermediate Pole corrections
@@ -95,11 +138,6 @@ pub fn bias_precession_nutation(epc: Epoch) -> SMatrix3 {
     }
 
     matrix3_from_array(&rc2i)
-
-    // Placeholder identity matrix - for debugging with old brahe implementation
-    // nalgebra::Matrix3::new(1.0, 0.0, 0.0,
-    //                        0.0, 1.0, 0.0,
-    //                        0.0, 0.0, 1.0)
 }
 
 /// Computes the Earth rotation matrix transforming the CIRS to the TIRS
@@ -209,9 +247,10 @@ pub fn polar_motion(epc: Epoch) -> SMatrix3 {
 /// to the ITRF (International Terrestrial Reference Frame). Applies corrections for bias,
 /// precession, nutation, Earth-rotation, and polar motion.
 ///
-/// The transformation is accomplished using the IAU 2006/2000A, CIO-based
-/// theory using classical angles. The method as described in section 5.5 of
-/// the SOFA C transformation cookbook.
+/// The transformation is accomplished using the CIO-based theory with
+/// classical angles, as described in section 5.5 of the SOFA C transformation
+/// cookbook. It uses the precession-nutation model selected by
+/// [`crate::frames::set_precession_nutation_model`] (IAU 2006/2000A by default).
 ///
 /// The function will utilize the global Earth orientation and loaded data to
 /// apply corrections for Celestial Intermediate Pole (CIP) and polar motion drift
@@ -248,9 +287,10 @@ pub fn rotation_gcrf_to_itrf(epc: Epoch) -> SMatrix3 {
 /// to the GCRF (Geocentric Celestial Reference Frame). Applies corrections for bias,
 /// precession, nutation, Earth-rotation, and polar motion.
 ///
-/// The transformation is accomplished using the IAU 2006/2000A, CIO-based
-/// theory using classical angles. The method as described in section 5.5 of
-/// the SOFA C transformation cookbook.
+/// The transformation is accomplished using the CIO-based theory with
+/// classical angles, as described in section 5.5 of the SOFA C transformation
+/// cookbook. It uses the precession-nutation model selected by
+/// [`crate::frames::set_precession_nutation_model`] (IAU 2006/2000A by default).
 ///
 /// The function will utilize the global Earth orientation and loaded data to
 /// apply corrections for Celestial Intermediate Pole (CIP) and polar motion drift
@@ -286,9 +326,10 @@ pub fn rotation_itrf_to_gcrf(epc: Epoch) -> SMatrix3 {
 /// Transforms a Cartesian position in GCRF (Geocentric Celestial Reference Frame)
 /// to the equivalent position in ITRF (International Terrestrial Reference Frame).
 ///
-/// The transformation is accomplished using the IAU 2006/2000A, CIO-based
-/// theory using classical angles. The method as described in section 5.5 of
-/// the SOFA C transformation cookbook.
+/// The transformation is accomplished using the CIO-based theory with
+/// classical angles, as described in section 5.5 of the SOFA C transformation
+/// cookbook. It uses the precession-nutation model selected by
+/// [`crate::frames::set_precession_nutation_model`] (IAU 2006/2000A by default).
 ///
 /// # Arguments
 /// - `epc`: Epoch instant for computation of the transformation
@@ -324,9 +365,10 @@ pub fn position_gcrf_to_itrf(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
 /// Transforms a Cartesian position in ITRF (International Terrestrial Reference Frame)
 /// to the equivalent position in GCRF (Geocentric Celestial Reference Frame).
 ///
-/// The transformation is accomplished using the IAU 2006/2000A, CIO-based
-/// theory using classical angles. The method as described in section 5.5 of
-/// the SOFA C transformation cookbook.
+/// The transformation is accomplished using the CIO-based theory with
+/// classical angles, as described in section 5.5 of the SOFA C transformation
+/// cookbook. It uses the precession-nutation model selected by
+/// [`crate::frames::set_precession_nutation_model`] (IAU 2006/2000A by default).
 ///
 /// # Arguments
 /// - `epc`: Epoch instant for computation of the transformation
@@ -468,9 +510,10 @@ fn apply_state_itrf_to_gcrf(c: &GcrfItrfContext, x_itrf: &SVector6) -> SVector6 
 /// Transforms a Cartesian state in GCRF (Geocentric Celestial Reference Frame)
 /// to the equivalent state in ITRF (International Terrestrial Reference Frame).
 ///
-/// The transformation is accomplished using the IAU 2006/2000A, CIO-based
-/// theory using classical angles. The method as described in section 5.5 of
-/// the SOFA C transformation cookbook.
+/// The transformation is accomplished using the CIO-based theory with
+/// classical angles, as described in section 5.5 of the SOFA C transformation
+/// cookbook. It uses the precession-nutation model selected by
+/// [`crate::frames::set_precession_nutation_model`] (IAU 2006/2000A by default).
 ///
 /// # Arguments
 /// - `epc`: Epoch instant for computation of the transformation
@@ -507,9 +550,10 @@ pub fn state_gcrf_to_itrf(epc: Epoch, x_gcrf: SVector6) -> SVector6 {
 /// Transforms a Cartesian state in ITRF (International Terrestrial Reference Frame)
 /// to the equivalent state in GCRF (Geocentric Celestial Reference Frame).
 ///
-/// The transformation is accomplished using the IAU 2006/2000A, CIO-based
-/// theory using classical angles. The method as described in section 5.5 of
-/// the SOFA C transformation cookbook.
+/// The transformation is accomplished using the CIO-based theory with
+/// classical angles, as described in section 5.5 of the SOFA C transformation
+/// cookbook. It uses the precession-nutation model selected by
+/// [`crate::frames::set_precession_nutation_model`] (IAU 2006/2000A by default).
 ///
 /// # Arguments
 /// - `epc`: Epoch instant for computation of the transformation
@@ -807,7 +851,7 @@ mod tests {
     use crate::math::{SVector6, vector6_from_array};
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::batch::get_vectorization_length_threshold;
-    use crate::utils::testing::setup_global_test_eop;
+    use crate::utils::testing::{PrecessionNutationModelGuard, setup_global_test_eop};
 
     #[allow(non_snake_case)]
     #[serial]
@@ -835,6 +879,37 @@ mod tests {
 
         let rc2i = bias_precession_nutation(epc);
 
+        let tol = 1.0e-12;
+        assert_abs_diff_eq!(rc2i[(0, 0)], 0.999999746339445, epsilon = tol);
+        assert_abs_diff_eq!(rc2i[(0, 1)], -0.000000005138822, epsilon = tol);
+        assert_abs_diff_eq!(rc2i[(0, 2)], -0.000712264730072, epsilon = tol);
+
+        assert_abs_diff_eq!(rc2i[(1, 0)], -0.000000026475227, epsilon = tol);
+        assert_abs_diff_eq!(rc2i[(1, 1)], 0.999999999014975, epsilon = tol);
+        assert_abs_diff_eq!(rc2i[(1, 2)], -0.000044385242827, epsilon = tol);
+
+        assert_abs_diff_eq!(rc2i[(2, 0)], 0.000712264729599, epsilon = tol);
+        assert_abs_diff_eq!(rc2i[(2, 1)], 0.000044385250426, epsilon = tol);
+        assert_abs_diff_eq!(rc2i[(2, 2)], 0.999999745354420, epsilon = tol);
+    }
+
+    #[test]
+    #[serial]
+    fn test_bias_precession_nutation_iau2000b() {
+        // Same Example 5.5 reference matrix reached on the truncated IAU
+        // 2000B model, which agrees with IAU 2006/2000A to about 1 mas.
+        set_test_static_eop();
+        let _model = PrecessionNutationModelGuard::set(PrecessionNutationModel::IAU2000B);
+
+        let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let rc2i = bias_precession_nutation(epc);
+        // The explicit-model form returns the same matrix.
+        assert_eq!(
+            rc2i,
+            bias_precession_nutation_model(epc, PrecessionNutationModel::IAU2000B)
+        );
+
         let tol = 1.0e-8;
         assert_abs_diff_eq!(rc2i[(0, 0)], 0.999999746339445, epsilon = tol);
         assert_abs_diff_eq!(rc2i[(0, 1)], -0.000000005138822, epsilon = tol);
@@ -847,6 +922,88 @@ mod tests {
         assert_abs_diff_eq!(rc2i[(2, 0)], 0.000712264729599, epsilon = tol);
         assert_abs_diff_eq!(rc2i[(2, 1)], 0.000044385250426, epsilon = tol);
         assert_abs_diff_eq!(rc2i[(2, 2)], 0.999999745354420, epsilon = tol);
+    }
+
+    #[test]
+    #[serial]
+    fn test_earth_rotation_iau2000b() {
+        set_test_static_eop();
+        let _model = PrecessionNutationModelGuard::set(PrecessionNutationModel::IAU2000B);
+
+        let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let r = earth_rotation(epc) * bias_precession_nutation(epc);
+
+        let tol = 1.0e-8;
+        assert_abs_diff_eq!(r[(0, 0)], 0.973104317573127, epsilon = tol);
+        assert_abs_diff_eq!(r[(0, 1)], 0.230363826247709, epsilon = tol);
+        assert_abs_diff_eq!(r[(0, 2)], -0.000703332818845, epsilon = tol);
+
+        assert_abs_diff_eq!(r[(1, 0)], -0.230363798804182, epsilon = tol);
+        assert_abs_diff_eq!(r[(1, 1)], 0.973104570735574, epsilon = tol);
+        assert_abs_diff_eq!(r[(1, 2)], 0.000120888549586, epsilon = tol);
+
+        assert_abs_diff_eq!(r[(2, 0)], 0.000712264729599, epsilon = tol);
+        assert_abs_diff_eq!(r[(2, 1)], 0.000044385250426, epsilon = tol);
+        assert_abs_diff_eq!(r[(2, 2)], 0.999999745354420, epsilon = tol);
+    }
+
+    #[test]
+    #[serial]
+    fn test_rotation_gcrf_itrf_iau2000b() {
+        set_test_static_eop();
+        let _model = PrecessionNutationModelGuard::set(PrecessionNutationModel::IAU2000B);
+
+        let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let r = rotation_gcrf_to_itrf(epc);
+
+        let tol = 1.0e-8;
+        assert_abs_diff_eq!(r[(0, 0)], 0.973104317697535, epsilon = tol);
+        assert_abs_diff_eq!(r[(0, 1)], 0.230363826239128, epsilon = tol);
+        assert_abs_diff_eq!(r[(0, 2)], -0.000703163482198, epsilon = tol);
+
+        assert_abs_diff_eq!(r[(1, 0)], -0.230363800456037, epsilon = tol);
+        assert_abs_diff_eq!(r[(1, 1)], 0.973104570632801, epsilon = tol);
+        assert_abs_diff_eq!(r[(1, 2)], 0.000118545366625, epsilon = tol);
+
+        assert_abs_diff_eq!(r[(2, 0)], 0.000711560162668, epsilon = tol);
+        assert_abs_diff_eq!(r[(2, 1)], 0.000046626403995, epsilon = tol);
+        assert_abs_diff_eq!(r[(2, 2)], 0.999999745754024, epsilon = tol);
+
+        // The inverse transformation is the transpose on the same model.
+        assert_eq!(rotation_itrf_to_gcrf(epc), r.transpose());
+    }
+
+    #[test]
+    #[serial]
+    fn test_precession_nutation_model_default_and_switch() {
+        set_test_static_eop();
+        let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        assert_eq!(
+            get_precession_nutation_model(),
+            PrecessionNutationModel::IAU2006A
+        );
+        let default = bias_precession_nutation(epc);
+        assert_eq!(
+            default,
+            bias_precession_nutation_model(epc, PrecessionNutationModel::IAU2006A)
+        );
+
+        set_precession_nutation_model(PrecessionNutationModel::IAU2000B);
+        let truncated = bias_precession_nutation(epc);
+        // The models differ by more than numerical noise but by well under
+        // the ~1 mas bound on the truncated series.
+        let delta = (0..3)
+            .flat_map(|i| (0..3).map(move |j| (i, j)))
+            .map(|(i, j)| (default[(i, j)] - truncated[(i, j)]).abs())
+            .fold(0.0_f64, f64::max);
+        assert!(delta > 1.0e-10, "models differ by only {}", delta);
+        assert!(delta < 1.0e-7, "models differ by {}", delta);
+
+        set_precession_nutation_model(PrecessionNutationModel::IAU2006A);
+        assert_eq!(bias_precession_nutation(epc), default);
     }
 
     #[test]
@@ -885,7 +1042,7 @@ mod tests {
 
         let r = earth_rotation(epc) * bias_precession_nutation(epc);
 
-        let tol = 1.0e-8;
+        let tol = 2.0e-11;
         assert_abs_diff_eq!(r[(0, 0)], 0.973104317573127, epsilon = tol);
         assert_abs_diff_eq!(r[(0, 1)], 0.230363826247709, epsilon = tol);
         assert_abs_diff_eq!(r[(0, 2)], -0.000703332818845, epsilon = tol);
@@ -913,7 +1070,7 @@ mod tests {
 
         let r = rotation_gcrf_to_itrf(epc);
 
-        let tol = 1.0e-8;
+        let tol = 2.0e-11;
         assert_abs_diff_eq!(r[(0, 0)], 0.973104317697535, epsilon = tol);
         assert_abs_diff_eq!(r[(0, 1)], 0.230363826239128, epsilon = tol);
         assert_abs_diff_eq!(r[(0, 2)], -0.000703163482198, epsilon = tol);
@@ -941,7 +1098,7 @@ mod tests {
 
         let r = rotation_itrf_to_gcrf(epc);
 
-        let tol = 1.0e-8;
+        let tol = 2.0e-11;
         assert_abs_diff_eq!(r[(0, 0)], 0.973104317697535, epsilon = tol);
         assert_abs_diff_eq!(r[(0, 1)], -0.230363800456037, epsilon = tol);
         assert_abs_diff_eq!(r[(0, 2)], 0.000711560162668, epsilon = tol);

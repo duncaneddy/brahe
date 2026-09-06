@@ -9,10 +9,10 @@ The **transformation source** column names how each frame's orientation is reali
 | Frame | Kind | NAIF ID (If Any) | Transformation source |
 |---|---|---|---|
 | `GCRF` | Inertial | 399 | ICRF-aligned identity |
-| `ITRF` | Earth-fixed | 399 | IAU 2006/2000A (native) |
-| `EME2000` | Inertial | 399 | IAU 2006 frame bias (native) |
-| `MOD` | Inertial | 399 | IAU 2000 bias-precession (native) |
-| `TOD` | Inertial | 399 | IAU 2000 bias-precession + IAU 2000B nutation with EOP (native) |
+| `ITRF` | Earth-fixed | 399 | IAU 2006/2000A precession-nutation with EOP (native, model selectable) |
+| `EME2000` | Inertial | 399 | Frame bias (native) |
+| `MOD` | Inertial | 399 | IAU 2006 bias-precession (native, model selectable) |
+| `TOD` | Inertial | 399 | IAU 2006/2000A bias-precession-nutation with EOP (native, model selectable) |
 | `LCI` | Inertial | 301 | ICRF-aligned identity |
 | `LFPA` | Moon-fixed | 301 | DE440 binary PCK (SPICE) |
 | `LFME` | Moon-fixed | 301 | DE440 PA + constant PA&rarr;ME rotation (native) |

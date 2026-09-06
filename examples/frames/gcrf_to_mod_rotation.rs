@@ -31,6 +31,6 @@ fn main() {
     println!("Comparison with the EME2000 frame bias matrix at J2000:");
     println!("  Max absolute difference: {:.2e}", max_diff);
 
-    println!("\nNote: at J2000 the IAU 2000 precession is identity, so MOD reduces");
+    println!("\nNote: at J2000 the precession is identity, so MOD reduces");
     println!("to the constant frame bias between GCRF and EME2000.");
 }

@@ -4,8 +4,8 @@
 /// respect to inertial space.
 ///
 /// This formulation computes the Bias-Precession-Nutation correction matrix
-/// according using a `CIO` based model using using the `IAU 2006`
-/// precession and `IAU 2000A` nutation models.
+/// using a `CIO` based model, evaluating the precession-nutation model
+/// selected by `set_precession_nutation_model` (`IAU 2006/2000A` by default).
 ///
 /// The function will utilize the global Earth orientation and loaded data to
 /// apply corrections to the Celestial Intermediate Pole (`CIP`) derived from
@@ -15,7 +15,7 @@
 ///     epc (Epoch): Epoch instant for computation of transformation matrix
 ///
 /// Returns:
-///     (numpy.ndarray): 3x3 rotation matrix transforming `GCRS` -> `CIRS`
+///     numpy.ndarray: 3x3 rotation matrix transforming `GCRS` -> `CIRS`, shape `(3, 3)`.
 ///
 /// References:
 ///     IAU SOFA Tools For Earth Attitude, Example 5.5
@@ -27,6 +27,131 @@
 unsafe fn py_bias_precession_nutation<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyArray<f64, Ix2>> {
     let mat = frames::bias_precession_nutation(epc.obj);
     matrix_to_numpy!(py, mat, 3, 3, f64)
+}
+
+/// Computes the Bias-Precession-Nutation matrix transforming the `GCRS` to the
+/// `CIRS` intermediate reference frame using an explicitly chosen
+/// precession-nutation model.
+///
+/// The Celestial Intermediate Pole corrections from the global Earth
+/// orientation data are applied for either model.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of transformation matrix.
+///     model (PrecessionNutationModel): Precession-nutation model to evaluate.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming `GCRS` -> `CIRS`, shape `(3, 3)`.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.initialize_eop()
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     rc2i = bh.bias_precession_nutation_model(epc, bh.PrecessionNutationModel.IAU2000B)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, model)")]
+#[pyo3(name = "bias_precession_nutation_model")]
+unsafe fn py_bias_precession_nutation_model<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    model: &PyPrecessionNutationModel,
+) -> Bound<'py, PyArray<f64, Ix2>> {
+    let mat = frames::bias_precession_nutation_model(epc.obj, model.model);
+    matrix_to_numpy!(py, mat, 3, 3, f64)
+}
+
+/// Precession-nutation model evaluated by the `GCRF` to `ITRF` and
+/// `GCRF` to `MOD` to `TOD` transformations.
+///
+/// Attributes:
+///     IAU2006A: IAU 2006 precession with the full IAU 2000A nutation series. The default.
+///     IAU2000B: IAU 2000 precession with the truncated IAU 2000B nutation series; about seven times faster and within about 1 mas of IAU 2006/2000A.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.set_precession_nutation_model(bh.PrecessionNutationModel.IAU2000B)
+///     ```
+#[pyclass(module = "brahe._brahe", eq, from_py_object)]
+#[pyo3(name = "PrecessionNutationModel")]
+#[derive(Clone, PartialEq)]
+pub struct PyPrecessionNutationModel {
+    pub(crate) model: frames::PrecessionNutationModel,
+}
+
+#[pymethods]
+impl PyPrecessionNutationModel {
+    /// IAU 2006 precession with the full IAU 2000A nutation series.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn IAU2006A() -> Self {
+        PyPrecessionNutationModel { model: frames::PrecessionNutationModel::IAU2006A }
+    }
+
+    /// IAU 2000 precession with the truncated IAU 2000B nutation series.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn IAU2000B() -> Self {
+        PyPrecessionNutationModel { model: frames::PrecessionNutationModel::IAU2000B }
+    }
+
+    fn __str__(&self) -> String {
+        self.model.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("PrecessionNutationModel.{:?}", self.model)
+    }
+}
+
+/// Set the crate-wide precession-nutation model evaluated by the Earth
+/// orientation transformations.
+///
+/// The setting applies to every subsequent call of the `GCRF` to `ITRF` and
+/// `GCRF` to `MOD` to `TOD` transformations, including the frame router and
+/// the batch forms. Functions that take a model argument explicitly are
+/// unaffected.
+///
+/// Args:
+///     model (PrecessionNutationModel): Precession-nutation model to evaluate.
+///
+/// Returns:
+///     None: The crate-wide model is replaced.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.set_precession_nutation_model(bh.PrecessionNutationModel.IAU2000B)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(model)")]
+#[pyo3(name = "set_precession_nutation_model")]
+fn py_set_precession_nutation_model(model: &PyPrecessionNutationModel) {
+    frames::set_precession_nutation_model(model.model);
+}
+
+/// Get the crate-wide precession-nutation model evaluated by the Earth
+/// orientation transformations.
+///
+/// Returns:
+///     PrecessionNutationModel: Model currently selected. `IAU2006A` unless `set_precession_nutation_model` has been called.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     model = bh.get_precession_nutation_model()
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+#[pyo3(name = "get_precession_nutation_model")]
+fn py_get_precession_nutation_model() -> PyPrecessionNutationModel {
+    PyPrecessionNutationModel { model: frames::get_precession_nutation_model() }
 }
 
 /// Computes the Earth rotation matrix transforming the `CIRS` to the `TIRS`
@@ -915,12 +1040,14 @@ fn py_state_eme2000_to_gcrf<'py>(
     dispatch_vec::<6>(py, x_eme2000, axis, frames::state_eme2000_to_gcrf, frames::states_eme2000_to_gcrf)
 }
 
-/// Computes the IAU 2000 bias-precession matrix transforming the GCRF to
-/// the mean equator and equinox of date (MOD): frame bias followed by
-/// precession from J2000.0 to date. Equivalent to `rotation_gcrf_to_mod`.
+/// Computes the bias-precession matrix transforming the GCRF to the mean
+/// equator and equinox of date (MOD) on the given precession-nutation model:
+/// frame bias followed by precession from J2000.0 to date. Equivalent to
+/// `rotation_gcrf_to_mod` when `model` is the selected model.
 ///
 /// Args:
 ///     epc (Epoch): Epoch instant for computation of the transformation matrix.
+///     model (PrecessionNutationModel): Precession-nutation model to evaluate.
 ///
 /// Returns:
 ///     numpy.ndarray: 3x3 rotation matrix transforming `GCRF` -> `MOD`, shape `(3, 3)`.
@@ -931,23 +1058,28 @@ fn py_state_eme2000_to_gcrf<'py>(
 ///
 ///     bh.initialize_eop()
 ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-///     B = bh.bias_precession_iau2000(epc)
+///     B = bh.bias_precession(epc, bh.PrecessionNutationModel.IAU2006A)
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc)")]
-#[pyo3(name = "bias_precession_iau2000")]
-unsafe fn py_bias_precession_iau2000<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyArray<f64, Ix2>> {
-    let mat = frames::bias_precession_iau2000(epc.obj);
+#[pyo3(text_signature = "(epc, model)")]
+#[pyo3(name = "bias_precession")]
+unsafe fn py_bias_precession<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    model: &PyPrecessionNutationModel,
+) -> Bound<'py, PyArray<f64, Ix2>> {
+    let mat = frames::bias_precession(epc.obj, model.model);
     matrix_to_numpy!(py, mat, 3, 3, f64)
 }
 
 /// Computes the nutation matrix transforming the mean equator and equinox
-/// of date (MOD) to the true equator and equinox of date (TOD) using the
-/// IAU 2000B nutation series with IERS celestial pole offset corrections.
-/// Equivalent to `rotation_mod_to_tod`.
+/// of date (MOD) to the true equator and equinox of date (TOD) on the given
+/// precession-nutation model, with IERS celestial pole offset corrections.
+/// Equivalent to `rotation_mod_to_tod` when `model` is the selected model.
 ///
 /// Args:
 ///     epc (Epoch): Epoch instant for computation of the transformation matrix.
+///     model (PrecessionNutationModel): Precession-nutation model to evaluate.
 ///
 /// Returns:
 ///     numpy.ndarray: 3x3 rotation matrix transforming `MOD` -> `TOD`, shape `(3, 3)`.
@@ -958,22 +1090,28 @@ unsafe fn py_bias_precession_iau2000<'py>(py: Python<'py>, epc: &PyEpoch) -> Bou
 ///
 ///     bh.initialize_eop()
 ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-///     N = bh.nutation_iau2000b(epc)
+///     N = bh.nutation(epc, bh.PrecessionNutationModel.IAU2006A)
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc)")]
-#[pyo3(name = "nutation_iau2000b")]
-unsafe fn py_nutation_iau2000b<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyArray<f64, Ix2>> {
-    let mat = frames::nutation_iau2000b(epc.obj);
+#[pyo3(text_signature = "(epc, model)")]
+#[pyo3(name = "nutation")]
+unsafe fn py_nutation<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    model: &PyPrecessionNutationModel,
+) -> Bound<'py, PyArray<f64, Ix2>> {
+    let mat = frames::nutation(epc.obj, model.model);
     matrix_to_numpy!(py, mat, 3, 3, f64)
 }
 
 /// Computes the Earth rotation matrix `R3(GAST)` transforming the true
 /// equator and equinox of date (TOD) to the Terrestrial Intermediate
-/// Reference System (TIRS), using Greenwich apparent sidereal time.
+/// Reference System (TIRS), using Greenwich apparent sidereal time evaluated
+/// on the given precession-nutation model.
 ///
 /// Args:
 ///     epc (Epoch): Epoch instant for computation of the transformation matrix.
+///     model (PrecessionNutationModel): Precession-nutation model to evaluate.
 ///
 /// Returns:
 ///     numpy.ndarray: 3x3 rotation matrix transforming `TOD` -> `TIRS`, shape `(3, 3)`.
@@ -984,21 +1122,23 @@ unsafe fn py_nutation_iau2000b<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py
 ///
 ///     bh.initialize_eop()
 ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-///     R = bh.gast_rotation_iau2000b(epc)
+///     R = bh.gast_rotation(epc, bh.PrecessionNutationModel.IAU2006A)
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(epc)")]
-#[pyo3(name = "gast_rotation_iau2000b")]
-unsafe fn py_gast_rotation_iau2000b<'py>(
+#[pyo3(text_signature = "(epc, model)")]
+#[pyo3(name = "gast_rotation")]
+unsafe fn py_gast_rotation<'py>(
     py: Python<'py>,
     epc: &PyEpoch,
+    model: &PyPrecessionNutationModel,
 ) -> Bound<'py, PyArray<f64, Ix2>> {
-    let mat = frames::gast_rotation_iau2000b(epc.obj);
+    let mat = frames::gast_rotation(epc.obj, model.model);
     matrix_to_numpy!(py, mat, 3, 3, f64)
 }
 
 /// Computes the rotation matrix transforming the GCRF to the mean equator
-/// and equinox of date (MOD) using the IAU 2000 bias-precession model.
+/// and equinox of date (MOD) using the bias-precession of the selected
+/// precession-nutation model (`IAU 2006/2000A` by default).
 ///
 /// Args:
 ///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation matrix. A sequence
@@ -1051,7 +1191,9 @@ fn py_rotation_mod_to_gcrf<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyR
 
 /// Computes the rotation matrix transforming the mean equator and equinox
 /// of date (MOD) to the true equator and equinox of date (TOD) using the
-/// IAU 2000B nutation series with IERS celestial pole offset corrections.
+/// nutation series of the selected precession-nutation model
+/// (`IAU 2006/2000A` by default), with IERS celestial pole offset
+/// corrections.
 ///
 /// Args:
 ///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation matrix. A sequence
@@ -1104,8 +1246,9 @@ fn py_rotation_tod_to_mod<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyRe
 }
 
 /// Computes the rotation matrix transforming the GCRF to the Earth true
-/// equator and equinox of date (TOD): IAU 2000 bias-precession followed by
-/// IAU 2000B nutation with IERS celestial pole offset corrections.
+/// equator and equinox of date (TOD): bias-precession followed by nutation
+/// with IERS celestial pole offset corrections, on the selected
+/// precession-nutation model (`IAU 2006/2000A` by default).
 ///
 /// Args:
 ///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation matrix. A sequence
@@ -3987,15 +4130,16 @@ impl PyCelestialFrame {
         PyCelestialFrame { frame: frames::CelestialFrame::EME2000 }
     }
 
-    /// Earth mean equator and equinox of date (IAU 2000 bias-precession).
+    /// Earth mean equator and equinox of date (bias-precession of the
+    /// selected precession-nutation model).
     #[classattr]
     #[allow(non_snake_case)]
     fn MOD() -> Self {
         PyCelestialFrame { frame: frames::CelestialFrame::MOD }
     }
 
-    /// Earth true equator and equinox of date (IAU 2000 bias-precession and
-    /// IAU 2000B nutation with IERS corrections).
+    /// Earth true equator and equinox of date (bias-precession and nutation
+    /// of the selected precession-nutation model, with IERS corrections).
     #[classattr]
     #[allow(non_snake_case)]
     fn TOD() -> Self {

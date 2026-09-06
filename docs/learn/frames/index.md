@@ -14,8 +14,8 @@ Inertial reference frames currently supported in Brahe are:
 
 - **GCRF (Geocentric Celestial Reference Frame)**: The standard modern inertial reference frame for Earth-orbiting satellites, aligned with the International Celestial Reference Frame (ICRF)
 - **EME2000 (Earth Mean Equator and Equinox of J2000.0)**: Classical J2000.0 mean equator and mean equinox inertial frame. Derived from the FK5 catalog and widely used in older systems
-- **MOD (Mean Equator and Equinox of Date)**: Earth mean equator and mean equinox of date, related to the GCRF by frame bias and IAU 2000 precession
-- **TOD (True Equator and Equinox of Date)**: Earth true equator and true equinox of date, related to MOD by IAU 2000B nutation
+- **MOD (Mean Equator and Equinox of Date)**: Earth mean equator and mean equinox of date, related to the GCRF by frame bias and precession
+- **TOD (True Equator and Equinox of Date)**: Earth true equator and true equinox of date, related to MOD by nutation
 - **LCI (Lunar-Centered Inertial)**: ICRF-aligned, centered on the Moon
 - **MCI (Mars-Centered Inertial)**: ICRF-aligned, centered on the Mars body center (NAIF ID 499)
 - **EMBI / SSBI**: ICRF-aligned, centered on the Earth-Moon and Solar System barycenters, respectively
@@ -85,6 +85,6 @@ Learn more in [EME2000 ↔ GCRF Transformations](eme2000_gcrf.md)
 
 ### GCRF ↔ MOD ↔ TOD
 
-Equinox-based transformations from the GCRF to the mean equator and equinox of date (MOD) and the true equator and equinox of date (TOD), and from TOD to the ITRF through Greenwich apparent sidereal time. The chain is `[ITRF] = W R3(GAST) N P B [GCRF]` from the [SOFA C transformation cookbook](https://www.iausofa.org/s/sofa_pn_c.pdf), evaluated on the IAU 2000/2000B model basis shared with the GCRF ↔ ITRF transformation.
+Equinox-based transformations from the GCRF to the mean equator and equinox of date (MOD) and the true equator and equinox of date (TOD), and from TOD to the ITRF through Greenwich apparent sidereal time. The chain is `[ITRF] = W R3(GAST) N P B [GCRF]` from the [SOFA C transformation cookbook](https://www.iausofa.org/s/sofa_pn_c.pdf), evaluated on the precession-nutation model shared with the GCRF ↔ ITRF transformation.
 
 Learn more in [GCRF ↔ MOD ↔ TOD Transformations](equinox_frames.md)

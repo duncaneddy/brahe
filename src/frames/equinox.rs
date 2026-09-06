@@ -562,6 +562,13 @@ pub fn rotation_itrf_to_tod(epc: Epoch) -> SMatrix3 {
 }
 
 /// Applies a rotation to both the position and velocity halves of a state.
+///
+/// # Arguments
+/// - `r`: Rotation matrix applied to both halves of the state
+/// - `x`: Cartesian state (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Rotated Cartesian state (position, velocity). Units: (*m*; *m/s*)
 fn rotate_state(r: &SMatrix3, x: &SVector6) -> SVector6 {
     let p: Vector3<f64> = r * x.fixed_rows::<3>(0);
     let v: Vector3<f64> = r * x.fixed_rows::<3>(3);

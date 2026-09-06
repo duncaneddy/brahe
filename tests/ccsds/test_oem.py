@@ -1317,7 +1317,7 @@ def test_oem_segments_repr(eop):
     assert "3" in r
 
 
-def test_oem_in_tod_loads_as_tod_trajectory(eop):
+def test_oem_in_tod_loads_as_tod_trajectory(eop, clear_frame_registries):
     """Mirror of test_oem_in_tod_loads_as_tod_trajectory in Rust."""
     oem = OEM.from_file("test_assets/ccsds/oem/test.oem")
     assert oem.segments[0].ref_frame == "TOD"
@@ -1335,8 +1335,11 @@ def test_oem_in_tod_loads_as_tod_trajectory(eop):
     np.testing.assert_allclose(x_gcrf, brahe.state_tod_to_gcrf(epc, x_tod), atol=1e-9)
     assert np.linalg.norm(x_gcrf[:3] - x_tod[:3]) > 1.0e3
 
+    oem.register_for("TOD_SAT")
+    assert "TOD_SAT" in brahe.registered_objects()
 
-def test_oem_segment_add_trajectory_tod_from_tod(eop):
+
+def test_OEMSegment_add_trajectory_tod_from_tod(eop):
     """A TOD trajectory written to a TOD segment stores its samples unchanged."""
     epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     traj = brahe.OrbitTrajectory(
@@ -1369,7 +1372,7 @@ def test_oem_segment_add_trajectory_tod_from_tod(eop):
         np.testing.assert_array_equal(written.velocity, sample[3:6])
 
 
-def test_oem_segment_add_trajectory_tod_from_gcrf(eop):
+def test_OEMSegment_add_trajectory_tod_from_gcrf(eop):
     """A GCRF trajectory written to a TOD segment is rotated into TOD."""
     epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     traj = brahe.OrbitTrajectory(

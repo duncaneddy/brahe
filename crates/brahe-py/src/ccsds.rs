@@ -3827,13 +3827,14 @@ impl PyOPM {
     ///     numpy.ndarray: 6-element state vector [x, y, z, vx, vy, vz] in `frame` (position in meters, velocity in m/s)
     ///
     /// Raises:
-    ///     ValueError: If `REF_FRAME` has no native frame or the conversion cannot be evaluated at the epoch
+    ///     BraheError: If `REF_FRAME` has no native frame equivalent
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///     from brahe.ccsds import OPM
     ///
+    ///     bh.initialize_eop()
     ///     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2.txt")
     ///     x_gcrf = opm.state_in_frame(bh.CelestialFrame.GCRF)
     ///     ```
@@ -3844,11 +3845,7 @@ impl PyOPM {
         frame: &Bound<'_, PyAny>,
     ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
         let frame = extract_frame(frame)?;
-        let x = self.inner.state_in_frame(frame).map_err(|e| {
-            pyo3::exceptions::PyValueError::new_err(format!(
-                "Failed to convert OPM state to frame: {}", e
-            ))
-        })?;
+        let x = self.inner.state_in_frame(frame)?;
         Ok(vec![x[0], x[1], x[2], x[3], x[4], x[5]].into_pyarray(py))
     }
 

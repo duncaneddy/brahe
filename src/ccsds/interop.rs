@@ -1410,6 +1410,16 @@ mod tests {
 
     #[test]
     #[parallel]
+    fn test_oem_segment_to_sorbit_trajectory_rejects_unmapped_frame() {
+        let oem = OEM::from_file("test_assets/ccsds/oem/test.oem").unwrap();
+        assert_eq!(oem.segments[0].metadata.ref_frame, CCSDSRefFrame::TOD);
+
+        let err = oem.segment_to_sorbit_trajectory(0).unwrap_err();
+        assert!(err.to_string().contains("TOD"));
+    }
+
+    #[test]
+    #[parallel]
     fn test_oem_to_trajectory_example5() {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample5.txt").unwrap();
         let oem = OEM::from_str(&content).unwrap();

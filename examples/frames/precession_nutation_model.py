@@ -13,7 +13,7 @@ bh.initialize_eop()
 
 print(f"Default precession-nutation model: {bh.get_precession_nutation_model()}")
 
-epc = bh.Epoch(2024, 3, 1, 0, 0, 0.0, time_system=bh.UTC)
+epc = bh.Epoch(2040, 3, 1, 0, 0, 0.0, time_system=bh.UTC)
 print(f"Epoch: {epc}")
 
 R_2006a = bh.rotation_gcrf_to_itrf(epc)

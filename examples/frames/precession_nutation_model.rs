@@ -8,7 +8,7 @@ fn main() {
 
     println!("Default precession-nutation model: {}", bh::get_precession_nutation_model());
 
-    let epc = bh::Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh::TimeSystem::UTC);
+    let epc = bh::Epoch::from_datetime(2040, 3, 1, 0, 0, 0.0, 0.0, bh::TimeSystem::UTC);
     println!("Epoch: {}", epc);
 
     let r_2006a = bh::rotation_gcrf_to_itrf(epc);

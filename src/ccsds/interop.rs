@@ -199,7 +199,9 @@ impl TryFrom<&ReferenceFrame> for CCSDSRefFrame {
 /// axes do not move, so the frame is inertial rather than of-date and its
 /// axes are `ICRF`; the returned epoch is the one every state is converted
 /// from `TOD` at. Every other token needs no conversion, so the returned
-/// epoch is `None`.
+/// epoch is `None`. `TEME` with a `REF_FRAME_EPOCH` is currently loaded as
+/// the of-date `TEME` axes with the epoch ignored, since no frozen `TEME`
+/// frame exists yet.
 ///
 /// # Arguments
 ///
@@ -2321,6 +2323,18 @@ mod tests {
         // requested.
         let (frame, frozen) = odm_celestial_frame(&CCSDSRefFrame::TOD, None, NAIFId::Mars).unwrap();
         assert_eq!(frame, CelestialFrame::centered(499, FrameAxes::TOD));
+        assert_eq!(frozen, None);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_odm_celestial_frame_teme_ignores_frame_epoch() {
+        // TEME has no frozen counterpart, so a REF_FRAME_EPOCH is ignored and
+        // the states are loaded as of-date TEME axes.
+        let ref_epoch = Epoch::from_datetime(2019, 9, 8, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let (frame, frozen) =
+            odm_celestial_frame(&CCSDSRefFrame::TEME, Some(ref_epoch), NAIFId::Earth).unwrap();
+        assert_eq!(frame, CelestialFrame::TEME);
         assert_eq!(frozen, None);
     }
 

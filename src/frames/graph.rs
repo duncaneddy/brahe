@@ -710,6 +710,10 @@ mod tests {
             icrf_aligned_inertial(CelestialFrame::TOD),
             CelestialFrame::GCRF
         );
+        assert_eq!(
+            icrf_aligned_inertial(CelestialFrame::TEME),
+            CelestialFrame::GCRF
+        );
         // Any other center falls back to a generic ICRF-aligned frame at
         // that center.
         assert_eq!(

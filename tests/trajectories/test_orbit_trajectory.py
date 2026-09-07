@@ -4271,7 +4271,7 @@ def test_keplerian_center_accepts_generic_icrf_frames(eop):
     assert elements[0] == pytest.approx(r, abs=1e-6)
 
     # The of-date axes are accepted at any center for the same reason.
-    for axes in (brahe.FrameAxes.TOD, brahe.FrameAxes.MOD):
+    for axes in (brahe.FrameAxes.TOD, brahe.FrameAxes.MOD, brahe.FrameAxes.TEME):
         of_date = CelestialFrame.Centered(brahe.NAIFId.MARS, axes)
         traj = OrbitTrajectory(6, of_date, OrbitRepresentation.CARTESIAN, None)
         traj.add(epoch, state)

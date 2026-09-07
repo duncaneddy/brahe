@@ -13,52 +13,17 @@
  */
 use nalgebra::Vector3;
 
+use crate::attitude::Rz;
 use crate::constants;
-use crate::constants::MJD_ZERO;
+use crate::constants::{AngleFormat, MJD_ZERO};
 use crate::frames::gcrf_itrf::{bias_precession_nutation, polar_motion};
 use crate::frames::kinematics::{
     rotate_state, state_inertial_to_rotating, state_rotating_to_inertial,
 };
-use crate::math::angles::wrap_to_2pi;
-use crate::math::{SMatrix3, SVector6, matrix3_from_array};
+use crate::math::{SMatrix3, SVector6};
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
 use crate::utils::batch::{batch_map, batch_map_epochs};
-
-/// Computes Greenwich mean sidereal time on the IAU 1982 model.
-///
-/// This is the sidereal time convention used by SGP4 to relate the TEME
-/// frame to the Earth-fixed frame.
-///
-/// # Arguments
-/// - `epc`: Epoch instant for computation of the sidereal time
-///
-/// # Returns
-/// - `gmst`: Greenwich mean sidereal time, wrapped to `[0, 2pi)`. Units: (*rad*)
-///
-/// # Examples
-/// ```
-/// use brahe::eop::*;
-/// use brahe::time::{Epoch, TimeSystem};
-/// use brahe::frames::*;
-///
-/// // Quick EOP initialization
-/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
-/// set_global_eop_provider(eop);
-///
-/// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-/// let gmst = gmst82(epc);
-/// assert!(gmst >= 0.0 && gmst < 2.0 * std::f64::consts::PI);
-/// ```
-///
-/// # References
-/// - SOFA `gmst82`; Vallado et al., "Revisiting Spacetrack Report #3",
-///   AIAA 2006-6753, Appendix C
-pub fn gmst82(epc: Epoch) -> f64 {
-    let ut1 = epc.mjd_as_time_system(TimeSystem::UT1);
-    let gmst = unsafe { rsofa::iauGmst82(MJD_ZERO, ut1) };
-    wrap_to_2pi(gmst)
-}
 
 /// Computes the rotation `R3(GMST82)` about the celestial pole by Greenwich
 /// mean sidereal time on the IAU 1982 model.
@@ -84,14 +49,10 @@ pub fn gmst82(epc: Epoch) -> f64 {
 /// ```
 ///
 /// # References
-/// - SOFA `rz`; Vallado, "Fundamentals of Astrodynamics and Applications",
-///   4th ed., Section 3.7
+/// - `crate::attitude::Rz`; Vallado, "Fundamentals of Astrodynamics and
+///   Applications", 4th ed., Section 3.7
 pub fn greenwich_mean_sidereal_rotation(epc: Epoch) -> SMatrix3 {
-    let mut r = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
-    unsafe {
-        rsofa::iauRz(gmst82(epc), &mut r[0]);
-    }
-    matrix3_from_array(&r)
+    Rz(epc.gmst82(AngleFormat::Radians), AngleFormat::Radians)
 }
 
 /// Computes the rotation matrix transforming the GCRF to the true equator
@@ -124,17 +85,13 @@ pub fn greenwich_mean_sidereal_rotation(epc: Epoch) -> SMatrix3 {
 /// ```
 ///
 /// # References
-/// - Vallado et al., "Revisiting Spacetrack Report #3", AIAA 2006-6753,
-///   Appendix C; Vallado, "Fundamentals of Astrodynamics and Applications",
-///   4th ed., Section 3.7
+/// - `crate::attitude::Rz`; Vallado et al., "Revisiting Spacetrack Report
+///   #3", AIAA 2006-6753, Appendix C; Vallado, "Fundamentals of
+///   Astrodynamics and Applications", 4th ed., Section 3.7
 pub fn rotation_gcrf_to_teme(epc: Epoch) -> SMatrix3 {
     let ut1 = epc.mjd_as_time_system(TimeSystem::UT1);
-    let mut r = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
-    unsafe {
-        let era = rsofa::iauEra00(MJD_ZERO, ut1);
-        rsofa::iauRz(era - gmst82(epc), &mut r[0]);
-    }
-    matrix3_from_array(&r) * bias_precession_nutation(epc)
+    let era = unsafe { rsofa::iauEra00(MJD_ZERO, ut1) };
+    Rz(era - epc.gmst82(AngleFormat::Radians), AngleFormat::Radians) * bias_precession_nutation(epc)
 }
 
 /// Computes the rotation matrix transforming the true equator and mean
@@ -1200,43 +1157,15 @@ mod tests {
     use super::*;
     use crate::constants;
     use crate::frames::gcrf_itrf::rotation_gcrf_to_itrf;
-    use crate::math::vector6_from_array;
-    use crate::utils::testing::{setup_global_test_eop, setup_global_test_eop_original_brahe};
-
-    fn iss_epoch() -> Epoch {
-        // TLE epoch 08264.51782528 of the ISS test TLE used by the SGP tests.
-        crate::orbits::epoch_from_tle(
-            "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927",
-        )
-        .unwrap()
-    }
-
-    #[test]
-    #[serial]
-    fn test_gmst82_matches_sgp4_polynomial_value() {
-        setup_global_test_eop_original_brahe();
-        // IAU 1982 polynomial (Vallado, Revisiting Spacetrack Report #3,
-        // Appendix C) evaluated at the same UT1; the tolerance covers the
-        // JD-versus-MJD floating-point representation of UT1.
-        let gmst = gmst82(iss_epoch());
-        assert_abs_diff_eq!(gmst, 3.249456480084191, epsilon = 2e-9);
-    }
-
-    #[test]
-    #[serial]
-    fn test_gmst82_is_wrapped_to_2pi() {
-        setup_global_test_eop();
-        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let gmst = gmst82(epc);
-        assert!((0.0..std::f64::consts::TAU).contains(&gmst));
-    }
+    use crate::math::{matrix3_from_array, vector6_from_array};
+    use crate::utils::testing::setup_global_test_eop;
 
     #[test]
     #[serial]
     fn test_greenwich_mean_sidereal_rotation_is_r3_of_gmst82() {
         setup_global_test_eop();
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let theta = gmst82(epc);
+        let theta = epc.gmst82(AngleFormat::Radians);
         let r = greenwich_mean_sidereal_rotation(epc);
         let (s, c) = theta.sin_cos();
         assert_abs_diff_eq!(r[(0, 0)], c, epsilon = 1e-15);
@@ -1274,7 +1203,7 @@ mod tests {
         let era = unsafe { rsofa::iauEra00(MJD_ZERO, ut1) };
         let mut r3 = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
         unsafe {
-            rsofa::iauRz(era - gmst82(epc), &mut r3[0]);
+            rsofa::iauRz(era - epc.gmst82(AngleFormat::Radians), &mut r3[0]);
         }
         let expected = matrix3_from_array(&r3) * bias_precession_nutation(epc);
         assert_matrix_eq(&rotation_gcrf_to_teme(epc), &expected, 1e-15);

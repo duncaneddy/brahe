@@ -7,8 +7,6 @@ Transformations between the Geocentric Celestial Reference Frame (GCRF), the tru
 
 ## Building Blocks
 
-::: brahe.gmst82
-
 ::: brahe.greenwich_mean_sidereal_rotation
 
 ## GCRF ↔ TEME

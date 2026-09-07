@@ -613,6 +613,24 @@ def test_gast(eop):
     )
 
 
+def test_epoch_gmst82_matches_sgp4_polynomial_value(eop_original_brahe):
+    epc = bh.epoch_from_tle(
+        "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    )
+    assert epc.gmst82(bh.AngleFormat.RADIANS) == pytest.approx(
+        3.249456480084191, abs=2e-9
+    )
+
+
+def test_epoch_gmst82_degrees_is_radians_scaled(eop):
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    gmst_rad = epc.gmst82(bh.AngleFormat.RADIANS)
+    assert epc.gmst82(bh.AngleFormat.DEGREES) == pytest.approx(
+        gmst_rad * 180.0 / math.pi, abs=1.0e-9
+    )
+    assert 0.0 <= gmst_rad < 2.0 * math.pi
+
+
 def test_ops_add_assign():
     # Test Positive additions of different size
     epc = bh.Epoch.from_date(2022, 1, 31, bh.TAI)

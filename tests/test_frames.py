@@ -1908,12 +1908,6 @@ def test_router_equinox_frames_match_pairwise(eop):
     )
 
 
-def test_gmst82_in_range(eop):
-    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
-    gmst = brahe.gmst82(epc)
-    assert 0.0 <= gmst < 2.0 * np.pi
-
-
 def test_teme_rotations_compose_to_cio_chain(eop):
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     composed = brahe.rotation_teme_to_itrf(epc) @ brahe.rotation_gcrf_to_teme(epc)
@@ -1994,19 +1988,12 @@ def test_router_teme_matches_pairwise(eop):
 
 def test_greenwich_mean_sidereal_rotation_is_r3_of_gmst82(eop):
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
-    theta = brahe.gmst82(epc)
+    theta = epc.gmst82(brahe.AngleFormat.RADIANS)
     c, s = np.cos(theta), np.sin(theta)
     r3 = np.array([[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]])
     np.testing.assert_allclose(
         brahe.greenwich_mean_sidereal_rotation(epc), r3, atol=1e-15, rtol=0
     )
-
-
-def test_gmst82_matches_sgp4_polynomial_value(eop_original_brahe):
-    epc = brahe.epoch_from_tle(
-        "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
-    )
-    assert brahe.gmst82(epc) == pytest.approx(3.249456480084191, abs=2e-9)
 
 
 def test_static_itrf_point_has_earth_rotation_velocity_in_teme(eop):

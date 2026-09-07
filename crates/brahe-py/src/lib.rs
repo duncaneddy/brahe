@@ -924,7 +924,6 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_state_tod_to_gcrf, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_tod_to_itrf, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_itrf_to_tod, module)?)?;
-    module.add_function(wrap_pyfunction!(py_gmst82, module)?)?;
     module.add_function(wrap_pyfunction!(
         py_greenwich_mean_sidereal_rotation,
         module

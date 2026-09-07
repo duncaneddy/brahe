@@ -2030,31 +2030,6 @@ fn py_state_itrf_to_tod<'py>(
     dispatch_epoch_vec::<6>(py, epc, x_itrf, axis, frames::state_itrf_to_tod, frames::states_itrf_to_tod)
 }
 
-/// Computes Greenwich mean sidereal time on the IAU 1982 model, the
-/// sidereal time convention SGP4 uses to relate TEME to the Earth-fixed
-/// frame.
-///
-/// Args:
-///     epc (Epoch): Epoch instant for computation of the sidereal time.
-///
-/// Returns:
-///     float: Greenwich mean sidereal time in `[0, 2pi)`. Units: (rad)
-///
-/// Example:
-///     ```python
-///     import brahe as bh
-///
-///     bh.initialize_eop()
-///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-///     gmst = bh.gmst82(epc)
-///     ```
-#[pyfunction]
-#[pyo3(text_signature = "(epc)")]
-#[pyo3(name = "gmst82")]
-fn py_gmst82(epc: &PyEpoch) -> f64 {
-    frames::gmst82(epc.obj)
-}
-
 /// Computes the rotation `R3(GMST82)` about the celestial pole by Greenwich
 /// mean sidereal time on the IAU 1982 model.
 ///

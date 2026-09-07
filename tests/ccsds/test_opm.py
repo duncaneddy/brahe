@@ -948,12 +948,20 @@ def test_opm_state_in_frame_unsupported_ref_frame(eop):
         opm.state_in_frame(brahe.CelestialFrame.GCRF)
 
 
-def test_opm_state_in_frame_rejects_non_earth_center(eop):
-    """Mirror of test_opm_state_in_frame_rejects_non_earth_center in Rust."""
+def test_opm_state_in_frame_moon_center(eop, naif_cache_setup):
+    """Mirror of test_opm_state_in_frame_moon_center in Rust."""
+    brahe.load_spice_kernel("de440s")
     opm = OPM.from_file("test_assets/ccsds/opm/OPM-dummy-moon-EME2000.txt")
     assert opm.center_name == "MOON"
-    with pytest.raises(brahe.BraheError, match="MOON"):
-        opm.state_in_frame(brahe.CelestialFrame.GCRF)
+    raw = opm.state
+
+    # EME2000 axes about the Moon differ from LCI by the frame bias only.
+    x_lci = opm.state_in_frame(brahe.CelestialFrame.LCI)
+    np.testing.assert_allclose(x_lci, brahe.state_eme2000_to_gcrf(raw), atol=1e-9)
+
+    # Retargeting to GCRF translates by the Earth-Moon separation.
+    x_gcrf = opm.state_in_frame(brahe.CelestialFrame.GCRF)
+    assert np.linalg.norm(x_gcrf[:3] - x_lci[:3]) > 3.0e8
 
 
 def test_opm_state_in_frame_frozen_tod_frame_epoch(eop):

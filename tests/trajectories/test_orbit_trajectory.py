@@ -4227,3 +4227,65 @@ def test_hermite_interpolation_at_a_repeated_epoch(eop):
 
         assert traj.interpolate(start + 30.0)[0] == pytest.approx(0.5)
         assert traj.interpolate(start + 90.0)[0] == pytest.approx(10.5)
+
+
+def test_keplerian_center_accepts_generic_icrf_frames(eop):
+    """Rust: test_keplerian_center_accepts_generic_icrf_frames.
+
+    `keplerian_center` is crate-private, so acceptance is exercised through
+    `OrbitTrajectory.to_keplerian`.
+    """
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    r = brahe.R_MARS + 400e3
+    v = np.sqrt(brahe.GM_MARS / r)
+    state = np.array([r, 0.0, 0.0, 0.0, v, 0.0])
+
+    # Acceptance turns on the frame's axes, so the generic spelling of an
+    # ICRF-aligned frame is accepted alongside the named one.
+    for frame in (
+        CelestialFrame.BodyCenteredICRF(499),
+        CelestialFrame.Centered(brahe.FrameAxes.ICRF, brahe.NAIFId.MARS),
+    ):
+        traj = OrbitTrajectory(6, frame, OrbitRepresentation.CARTESIAN, None)
+        traj.add(epoch, state)
+        kep = traj.to_keplerian(AngleFormat.DEGREES)
+        assert kep.frame == frame
+        _, elements = kep.get(0)
+        assert elements[0] == pytest.approx(r, abs=1e-6)
+
+    # EME2000 axes about a body other than Earth are accepted too, since
+    # acceptance turns on axes rather than a fixed list of named frames.
+    mars_eme2000 = CelestialFrame.Centered(brahe.FrameAxes.EME2000, brahe.NAIFId.MARS)
+    traj = OrbitTrajectory(6, mars_eme2000, OrbitRepresentation.CARTESIAN, None)
+    traj.add(epoch, state)
+    kep = traj.to_keplerian(AngleFormat.DEGREES)
+    assert kep.frame == mars_eme2000
+    _, elements = kep.get(0)
+    assert elements[0] == pytest.approx(r, abs=1e-6)
+
+    # Non-inertial axes about that same body are still rejected.
+    mars_tod = CelestialFrame.Centered(brahe.FrameAxes.TOD, brahe.NAIFId.MARS)
+    traj = OrbitTrajectory(6, mars_tod, OrbitRepresentation.CARTESIAN, None)
+    traj.add(epoch, state)
+    with pytest.raises(BraheError, match="inertial frame"):
+        traj.to_keplerian(AngleFormat.DEGREES)
+
+
+def test_orbittrajectory_state_koe_osc_fast_path_for_icrf_axes_frames(eop):
+    """Rust: test_dorbittrajectory_state_koe_osc_fast_path_for_icrf_axes_frames"""
+    # Elements stored in a frame with ICRF axes about the same center are
+    # returned as stored, with no Cartesian round trip, so the equality is
+    # exact rather than approximate.
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    for frame, sma in (
+        (CelestialFrame.BodyCenteredICRF(399), 7000e3),
+        (CelestialFrame.LCI, 2000e3),
+    ):
+        traj = OrbitTrajectory(
+            6, frame, OrbitRepresentation.KEPLERIAN, AngleFormat.RADIANS
+        )
+        state = np.array([sma, 0.01, 0.5, 0.3, 0.7, 1.1])
+        traj.add(epoch, state)
+
+        koe = traj.state_koe_osc(epoch, AngleFormat.RADIANS)
+        np.testing.assert_array_equal(koe, state, err_msg=str(frame))

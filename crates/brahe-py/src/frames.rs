@@ -4020,6 +4020,202 @@ fn py_state_gse_to_gcrf<'py>(
 // Reference Frame Router
 // ============================================================================
 
+/// Orientation of a celestial frame, independent of its origin.
+///
+/// A `CelestialFrame` is the pair of one `FrameAxes` value and one NAIF
+/// center; `CelestialFrame.Centered(axes, center)` builds that pair and
+/// `CelestialFrame.axes` / `CelestialFrame.center` read it back.
+///
+/// The argument-free orientations are class attributes (`ICRF`, `EME2000`,
+/// `MOD`, `TOD`, `ITRF`, `LunarPA`, `LunarME`, `MarsFixed`, `EMR`, `SER`,
+/// `GSE`); the parameterized ones are built with `BodyFixedIAU(naif_id)`,
+/// `BodyFixedPCK(frame_id)`, `BodyFixedCustom(key)` and
+/// `Synodic(primary, secondary)`.
+///
+/// Rotating axes (`ITRF`, the body-fixed families, and the synodic
+/// families) carry transport-velocity terms that depend only on the axes'
+/// angular velocity, so they apply unchanged to a frame centered on a body
+/// other than the orientation's native one.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     mars_eme2000 = bh.CelestialFrame.Centered(bh.FrameAxes.EME2000, bh.NAIFId.MARS)
+///     assert mars_eme2000.axes == bh.FrameAxes.EME2000
+///     ```
+#[pyclass(module = "brahe._brahe", eq, from_py_object)]
+#[pyo3(name = "FrameAxes")]
+#[derive(Clone, PartialEq)]
+pub struct PyFrameAxes {
+    pub(crate) axes: frames::FrameAxes,
+}
+
+#[pymethods]
+#[allow(non_snake_case)]
+impl PyFrameAxes {
+    /// ICRF axes (identity).
+    #[classattr]
+    fn ICRF() -> Self {
+        PyFrameAxes { axes: frames::FrameAxes::ICRF }
+    }
+
+    /// Earth mean equator and equinox of J2000.0 (frame bias from ICRF).
+    #[classattr]
+    fn EME2000() -> Self {
+        PyFrameAxes { axes: frames::FrameAxes::EME2000 }
+    }
+
+    /// Earth mean equator and equinox of date (bias-precession).
+    #[classattr]
+    fn MOD() -> Self {
+        PyFrameAxes { axes: frames::FrameAxes::MOD }
+    }
+
+    /// Earth true equator and equinox of date (bias-precession-nutation
+    /// with Earth orientation parameter corrections).
+    #[classattr]
+    fn TOD() -> Self {
+        PyFrameAxes { axes: frames::FrameAxes::TOD }
+    }
+
+    /// Earth-fixed (ITRF): bias-precession-nutation, Earth rotation, and
+    /// polar motion.
+    #[classattr]
+    fn ITRF() -> Self {
+        PyFrameAxes { axes: frames::FrameAxes::ITRF }
+    }
+
+    /// Lunar principal-axis axes from the loaded binary PCK
+    /// (`MOON_PA_DE440`).
+    #[classattr]
+    fn LunarPA() -> Self {
+        PyFrameAxes { axes: frames::FrameAxes::LunarPA }
+    }
+
+    /// Lunar mean-Earth/polar-axis axes.
+    #[classattr]
+    fn LunarME() -> Self {
+        PyFrameAxes { axes: frames::FrameAxes::LunarME }
+    }
+
+    /// Mars body-fixed axes (IAU/WGCCRE Mars rotation model).
+    #[classattr]
+    fn MarsFixed() -> Self {
+        PyFrameAxes { axes: frames::FrameAxes::MarsFixed }
+    }
+
+    /// Earth-Moon rotating axes (x̂ from Earth to Moon).
+    #[classattr]
+    fn EMR() -> Self {
+        PyFrameAxes { axes: frames::FrameAxes::EMR }
+    }
+
+    /// Sun-Earth rotating axes (x̂ from Sun to Earth).
+    #[classattr]
+    fn SER() -> Self {
+        PyFrameAxes { axes: frames::FrameAxes::SER }
+    }
+
+    /// Geocentric solar ecliptic axes (x̂ from Earth to Sun).
+    #[classattr]
+    fn GSE() -> Self {
+        PyFrameAxes { axes: frames::FrameAxes::GSE }
+    }
+
+    /// IAU/WGCCRE body-fixed axes of the given NAIF ID.
+    ///
+    /// Args:
+    ///     naif_id (int): NAIF ID of the body (see `iau_rotation_model_ids` for the supported set)
+    ///
+    /// Returns:
+    ///     FrameAxes: IAU/WGCCRE body-fixed axes of `naif_id`
+    #[staticmethod]
+    fn BodyFixedIAU(naif_id: i32) -> Self {
+        PyFrameAxes { axes: frames::FrameAxes::BodyFixedIAU(naif_id) }
+    }
+
+    /// Body-fixed axes evaluated from a loaded binary PCK's frame class ID.
+    ///
+    /// Args:
+    ///     frame_id (int): NAIF binary PCK frame class ID (e.g. 31008 for `MOON_PA_DE440`)
+    ///
+    /// Returns:
+    ///     FrameAxes: Body-fixed axes for `frame_id`
+    #[staticmethod]
+    fn BodyFixedPCK(frame_id: i32) -> Self {
+        PyFrameAxes { axes: frames::FrameAxes::BodyFixedPCK(frame_id) }
+    }
+
+    /// Body-fixed axes from a user-registered rotation callback (see
+    /// `register_custom_frame`), keyed by its registry key.
+    ///
+    /// Args:
+    ///     key (int): Registry key the frame's callbacks were registered under
+    ///
+    /// Returns:
+    ///     FrameAxes: Custom body-fixed axes for `key`
+    #[staticmethod]
+    fn BodyFixedCustom(key: u32) -> Self {
+        PyFrameAxes { axes: frames::FrameAxes::BodyFixedCustom(key) }
+    }
+
+    /// Generic two-body synodic (rotating) axes: x̂ from `primary` toward
+    /// `secondary`, ẑ along the secondary's orbital angular momentum
+    /// relative to the primary.
+    ///
+    /// `EMR`, `SER` and `GSE` name the same orientations as the pairs
+    /// `Synodic(399, 301)`, `Synodic(10, 399)` and `Synodic(399, 10)`.
+    ///
+    /// Args:
+    ///     primary (int): NAIF ID of the primary body
+    ///     secondary (int): NAIF ID of the secondary body
+    ///
+    /// Returns:
+    ///     FrameAxes: Synodic axes for the pair
+    #[staticmethod]
+    fn Synodic(primary: i32, secondary: i32) -> Self {
+        PyFrameAxes { axes: frames::FrameAxes::Synodic { primary, secondary } }
+    }
+
+    /// Parses `FrameAxes` from its string representation (the eleven
+    /// argument-free names, case-insensitively).
+    ///
+    /// The parameterized variants are not parseable from a string;
+    /// construct them with `BodyFixedIAU`, `BodyFixedPCK`,
+    /// `BodyFixedCustom` or `Synodic`.
+    ///
+    /// Args:
+    ///     s (str): String representation of the axes
+    ///
+    /// Returns:
+    ///     FrameAxes: Parsed axes
+    ///
+    /// Raises:
+    ///     ValueError: If `s` is not a recognized axes name
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     assert bh.FrameAxes.from_string("tod") == bh.FrameAxes.TOD
+    ///     ```
+    #[staticmethod]
+    fn from_string(s: &str) -> PyResult<Self> {
+        s.parse::<frames::FrameAxes>()
+            .map(|axes| PyFrameAxes { axes })
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    fn __str__(&self) -> String {
+        self.axes.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("FrameAxes.{}", self.axes)
+    }
+}
+
 /// Origin choice for a generic synodic frame (`CelestialFrame.Synodic`):
 /// `Primary`, `Secondary`, or the GM-weighted two-body `Barycenter`.
 #[pyclass(module = "brahe._brahe", eq, from_py_object)]
@@ -4319,7 +4515,86 @@ impl PyCelestialFrame {
         }
     }
 
+    /// Frame with the given `axes` centered on `center`.
+    ///
+    /// Returns the named shorthand whenever the pair has one (so
+    /// `Centered(FrameAxes.EME2000, 399)` is `CelestialFrame.EME2000` and
+    /// `Centered(FrameAxes.ICRF, 301)` is `CelestialFrame.LCI`), and a
+    /// generic centered frame otherwise.
+    /// `CelestialFrame.Centered(f.axes, f.center) == f` holds for every
+    /// frame the library produces.
+    ///
+    /// `FrameAxes.EMR`, `FrameAxes.SER` and `FrameAxes.GSE` are the same
+    /// orientations as their generic synodic pairs, so they are accepted at
+    /// any center: `Centered(FrameAxes.EMR, 3)` is `CelestialFrame.EMR` and
+    /// `Centered(FrameAxes.EMR, 399)` is the Earth-centered frame with
+    /// those same axes.
+    ///
+    /// Args:
+    ///     axes (FrameAxes): Orientation of the frame's axes
+    ///     center (int | NAIFId): NAIF ID of the frame's origin
+    ///
+    /// Returns:
+    ///     CelestialFrame: The frame with those axes and that center
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     mars_eme2000 = bh.CelestialFrame.Centered(bh.FrameAxes.EME2000, bh.NAIFId.MARS)
+    ///     assert mars_eme2000.center_naif_id == 499
+    ///     ```
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn Centered(axes: PyFrameAxes, center: i32) -> Self {
+        PyCelestialFrame { frame: frames::CelestialFrame::centered(axes.axes, center) }
+    }
+
+    /// Orientation of this frame's axes, independent of its origin.
+    ///
+    /// Returns:
+    ///     FrameAxes: The frame's axes
+    #[getter]
+    fn axes(&self) -> PyFrameAxes {
+        PyFrameAxes { axes: self.frame.axes() }
+    }
+
+    /// Body or barycenter at this frame's origin.
+    ///
+    /// The semantic form of `center_naif_id`: a `NAIFId` member for
+    /// catalogued bodies and barycenters, and the plain integer for every
+    /// other ID, including self-assigned negative centers and the synthetic
+    /// synodic barycenters.
+    ///
+    /// Returns:
+    ///     NAIFId | int: The frame's origin
+    #[getter]
+    fn center<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let id = self.frame.center_naif_id();
+        let naif_id = py.import("brahe.spice")?.getattr("NAIFId")?;
+        match naif_id.call1((id,)) {
+            Ok(member) => Ok(member),
+            Err(e) if e.is_instance_of::<exceptions::PyValueError>(py) => {
+                Ok(id.into_pyobject(py)?.into_any())
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// NAIF ID of the body or barycenter at this frame's origin.
+    ///
+    /// Returns:
+    ///     int: NAIF ID of the frame's origin
+    #[getter]
+    fn center_naif_id(&self) -> i32 {
+        self.frame.center_naif_id()
+    }
+
     /// Origin choice of a synodic frame (`Synodic`, `EMR`, `SER`, `GSE`).
+    ///
+    /// A centered frame carrying synodic axes has no origin choice: its
+    /// center is stored directly, so this returns `None` while
+    /// `synodic_primary` and `synodic_secondary` still report the pair.
     ///
     /// Returns:
     ///     Optional[SynodicOrigin]: Origin choice, or `None` for non-synodic frames
@@ -4336,31 +4611,33 @@ impl PyCelestialFrame {
         Some(PySynodicOrigin { origin })
     }
 
-    /// NAIF ID of the synodic primary (`Synodic`, `EMR`, `SER`, `GSE`).
+    /// NAIF ID of the synodic primary (`Synodic`, `EMR`, `SER`, `GSE`, and
+    /// a centered frame with synodic axes).
     ///
     /// Returns:
     ///     Optional[int]: NAIF ID of the primary body, or `None` for non-synodic frames
     #[getter]
     fn synodic_primary(&self) -> Option<i32> {
-        match self.frame {
-            frames::CelestialFrame::Synodic { primary, .. } => Some(primary),
-            frames::CelestialFrame::EMR | frames::CelestialFrame::GSE => Some(399),
-            frames::CelestialFrame::SER => Some(10),
+        match self.frame.axes() {
+            frames::FrameAxes::Synodic { primary, .. } => Some(primary),
+            frames::FrameAxes::EMR | frames::FrameAxes::GSE => Some(399),
+            frames::FrameAxes::SER => Some(10),
             _ => None,
         }
     }
 
-    /// NAIF ID of the synodic secondary (`Synodic`, `EMR`, `SER`, `GSE`).
+    /// NAIF ID of the synodic secondary (`Synodic`, `EMR`, `SER`, `GSE`,
+    /// and a centered frame with synodic axes).
     ///
     /// Returns:
     ///     Optional[int]: NAIF ID of the secondary body, or `None` for non-synodic frames
     #[getter]
     fn synodic_secondary(&self) -> Option<i32> {
-        match self.frame {
-            frames::CelestialFrame::Synodic { secondary, .. } => Some(secondary),
-            frames::CelestialFrame::EMR => Some(301),
-            frames::CelestialFrame::SER => Some(399),
-            frames::CelestialFrame::GSE => Some(10),
+        match self.frame.axes() {
+            frames::FrameAxes::Synodic { secondary, .. } => Some(secondary),
+            frames::FrameAxes::EMR => Some(301),
+            frames::FrameAxes::SER => Some(399),
+            frames::FrameAxes::GSE => Some(10),
             _ => None,
         }
     }

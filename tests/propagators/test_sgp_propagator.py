@@ -859,6 +859,22 @@ class TestSGPPropagatorStateProviderTrait:
         )
         np.testing.assert_allclose(tod, expected, atol=1e-9)
 
+    def test_sgppropagator_output_format_teme_stores_raw_states(
+        self, iss_tle, eop_original_brahe
+    ):
+        """Trajectory stores raw TEME states when output format is TEME."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        prop.set_output_format(
+            brahe.CelestialFrame.TEME, brahe.OrbitRepresentation.CARTESIAN, None
+        )
+        prop.propagate_to(prop.epoch + 120.0)
+
+        traj = prop.trajectory
+        e = traj.epoch_at_idx(1)
+        stored = traj.state_at_idx(1)
+        raw = prop.state(e)
+        np.testing.assert_allclose(stored, raw, atol=1e-9)
+
 
 class TestOldBraheTLEFunctions:
     """Test standalone TLE utility functions."""

@@ -1906,3 +1906,478 @@ def test_router_equinox_frames_match_pairwise(eop):
         brahe.rotation_tod_to_itrf(epc),
         atol=1e-10,
     )
+
+
+def test_frameaxes_display_from_str():
+    """Rust: test_frameaxes_display_from_str"""
+    for axes in (
+        brahe.FrameAxes.ICRF,
+        brahe.FrameAxes.EME2000,
+        brahe.FrameAxes.MOD,
+        brahe.FrameAxes.TOD,
+        brahe.FrameAxes.ITRF,
+        brahe.FrameAxes.LunarPA,
+        brahe.FrameAxes.LunarME,
+        brahe.FrameAxes.MarsFixed,
+        brahe.FrameAxes.EMR,
+        brahe.FrameAxes.SER,
+        brahe.FrameAxes.GSE,
+    ):
+        assert brahe.FrameAxes.from_string(str(axes)) == axes
+
+    assert str(brahe.FrameAxes.BodyFixedIAU(499)) == "BodyFixedIAU(499)"
+    assert str(brahe.FrameAxes.BodyFixedPCK(31008)) == "BodyFixedPCK(31008)"
+    assert str(brahe.FrameAxes.BodyFixedCustom(7)) == "BodyFixedCustom(7)"
+    assert str(brahe.FrameAxes.Synodic(10, 599)) == "Synodic(10,599)"
+    assert repr(brahe.FrameAxes.ICRF) == "FrameAxes.ICRF"
+    assert brahe.FrameAxes.from_string("tod") == brahe.FrameAxes.TOD
+
+    with pytest.raises(ValueError):
+        brahe.FrameAxes.from_string("BodyFixedIAU(499)")
+    with pytest.raises(ValueError):
+        brahe.FrameAxes.from_string("nope")
+
+
+def test_celestialframe_axes_and_center():
+    """Rust: test_celestialframe_axes_and_center"""
+    assert brahe.CelestialFrame.EME2000.axes == brahe.FrameAxes.EME2000
+    assert brahe.CelestialFrame.EME2000.center == brahe.NAIFId.EARTH
+    assert brahe.CelestialFrame.EME2000.center.name == "EARTH"
+    assert brahe.CelestialFrame.EME2000.center_naif_id == 399
+    assert brahe.CelestialFrame.LFPA.axes == brahe.FrameAxes.LunarPA
+    assert brahe.CelestialFrame.MCMF.center == brahe.NAIFId.MARS
+    assert brahe.CelestialFrame.MCI.center == brahe.FrameCenter.Body(brahe.NAIFId.MARS)
+    assert brahe.CelestialFrame.MCI.center.name == "MARS"
+    assert brahe.CelestialFrame.BodyFixedPCK(
+        301, 31008
+    ).axes == brahe.FrameAxes.BodyFixedPCK(31008)
+
+    # EMR is centered on the catalogued Earth-Moon barycenter, so its center
+    # is a body; SER and a barycenter-origin Synodic are centered on the
+    # GM-weighted barycenter of their pair.
+    assert brahe.CelestialFrame.EMR.axes == brahe.FrameAxes.EMR
+    assert brahe.CelestialFrame.EMR.center == brahe.NAIFId.EARTH_MOON_BARYCENTER
+    assert brahe.CelestialFrame.EMR.center.name == "EARTH MOON BARYCENTER"
+    assert brahe.CelestialFrame.SER.center == brahe.FrameCenter.Barycenter(
+        brahe.NAIFId.SUN, brahe.NAIFId.EARTH
+    )
+    assert brahe.CelestialFrame.SER.center.name == "BARYCENTER(SUN, EARTH)"
+    assert (
+        brahe.CelestialFrame.SER.center.naif_id
+        == brahe.CelestialFrame.SER.center_naif_id
+    )
+    assert brahe.CelestialFrame.SER.center.body is None
+
+    emr_barycenter = brahe.CelestialFrame.Synodic(
+        brahe.SynodicOrigin.Barycenter, 399, 301
+    )
+    assert emr_barycenter.center == brahe.FrameCenter.Barycenter(399, 301)
+    assert emr_barycenter.center.name == "BARYCENTER(EARTH, MOON)"
+
+    # An ID with no NAIFId member keeps the plain integer, while
+    # center_naif_id always returns the integer.
+    custom = brahe.CelestialFrame.BodyFixedCustom(-20001, 7)
+    assert custom.center == -20001
+    assert isinstance(custom.center, brahe.FrameCenter)
+    assert custom.center.body == -20001
+    assert not isinstance(custom.center.body, brahe.NAIFId)
+    assert custom.center_naif_id == -20001
+
+
+def test_framecenter_from_conversions():
+    """Rust: test_framecenter_from_conversions"""
+    assert brahe.FrameCenter.Body(brahe.NAIFId.MARS) == brahe.FrameCenter.Body(499)
+    assert brahe.FrameCenter.Body(499) == brahe.NAIFId.MARS
+    assert brahe.FrameCenter.Body(499) == 499
+    assert brahe.FrameCenter.Body(-42).body == -42
+
+    # A synthetic synodic-barycenter ID stays a body, and equality and hashing
+    # compare NAIF IDs in Rust and Python alike, so it equals the barycenter
+    # that encodes to the same ID while the two keep their own variants.
+    seb = brahe.CelestialFrame.SER.center_naif_id
+    barycenter = brahe.FrameCenter.Barycenter(brahe.NAIFId.SUN, brahe.NAIFId.EARTH)
+    assert brahe.FrameCenter.Body(seb).body == seb
+    assert barycenter.body is None
+    assert brahe.FrameCenter.Body(seb).naif_id == seb
+    assert brahe.FrameCenter.Body(seb) == barycenter
+    assert hash(brahe.FrameCenter.Body(seb)) == hash(barycenter)
+
+
+def test_framecenter_naif_id():
+    """Rust: test_framecenter_naif_id"""
+    assert brahe.FrameCenter.Body(brahe.NAIFId.EARTH).naif_id == 399
+    assert brahe.FrameCenter.Body(-20001).naif_id == -20001
+    assert (
+        brahe.FrameCenter.Barycenter(399, 301).naif_id
+        == brahe.CelestialFrame.Synodic(
+            brahe.SynodicOrigin.Barycenter, 399, 301
+        ).center_naif_id
+    )
+    assert (
+        brahe.FrameCenter.Barycenter(brahe.NAIFId.SUN, brahe.NAIFId.EARTH).naif_id
+        == brahe.CelestialFrame.SER.center_naif_id
+    )
+
+
+def test_framecenter_name_and_body():
+    """Rust: test_framecenter_name_and_body"""
+    assert brahe.FrameCenter.Body(brahe.NAIFId.EARTH).name == "EARTH"
+    assert (
+        brahe.FrameCenter.Body(brahe.NAIFId.EARTH_MOON_BARYCENTER).name
+        == "EARTH MOON BARYCENTER"
+    )
+    assert brahe.FrameCenter.Body(-42).name == "-42"
+    assert brahe.FrameCenter.Barycenter(399, 301).name == "BARYCENTER(EARTH, MOON)"
+    assert str(brahe.FrameCenter.Barycenter(399, 301)) == "BARYCENTER(EARTH, MOON)"
+    assert repr(brahe.FrameCenter.Body(499)) == "FrameCenter.MARS"
+
+    assert brahe.FrameCenter.Body(brahe.NAIFId.MARS).body == brahe.NAIFId.MARS
+    assert isinstance(brahe.FrameCenter.Body(499).body, brahe.NAIFId)
+    assert brahe.FrameCenter.Barycenter(399, 301).body is None
+
+
+def test_framecenter_from_str():
+    """Rust: test_framecenter_from_str"""
+    for center in (
+        brahe.FrameCenter.Body(brahe.NAIFId.EARTH),
+        brahe.FrameCenter.Body(brahe.NAIFId.MARS_BARYCENTER),
+        brahe.FrameCenter.Body(2000001),
+    ):
+        assert brahe.FrameCenter.from_string(center.name) == center
+
+    assert brahe.FrameCenter.from_string("mars") == brahe.NAIFId.MARS
+    assert brahe.FrameCenter.from_string("-42") == -42
+
+    with pytest.raises(ValueError):
+        brahe.FrameCenter.from_string("BARYCENTER(EARTH, MOON)")
+    with pytest.raises(ValueError):
+        brahe.FrameCenter.from_string("not a body")
+
+
+def test_framecenter_hash():
+    """A FrameCenter hashes by its NAIF ID."""
+    assert hash(brahe.FrameCenter.Body(499)) == hash(brahe.FrameCenter.Body(499))
+    assert len({brahe.FrameCenter.Body(499), brahe.FrameCenter.Body(499)}) == 1
+
+
+def test_celestialframe_centered_canonical_forms():
+    """Rust: test_celestialframe_centered_canonical_forms"""
+    assert (
+        brahe.CelestialFrame.Centered(399, brahe.FrameAxes.EME2000)
+        == brahe.CelestialFrame.EME2000
+    )
+    assert (
+        brahe.CelestialFrame.Centered(brahe.NAIFId.MOON, brahe.FrameAxes.ICRF)
+        == brahe.CelestialFrame.LCI
+    )
+    assert (
+        brahe.CelestialFrame.Centered(499, brahe.FrameAxes.ICRF)
+        == brahe.CelestialFrame.MCI
+    )
+    assert (
+        brahe.CelestialFrame.Centered(3, brahe.FrameAxes.ICRF)
+        == brahe.CelestialFrame.EMBI
+    )
+    assert (
+        brahe.CelestialFrame.Centered(0, brahe.FrameAxes.ICRF)
+        == brahe.CelestialFrame.SSBI
+    )
+    assert brahe.CelestialFrame.Centered(
+        2000001, brahe.FrameAxes.ICRF
+    ) == brahe.CelestialFrame.BodyCenteredICRF(2000001)
+    assert (
+        brahe.CelestialFrame.Centered(399, brahe.FrameAxes.ITRF)
+        == brahe.CelestialFrame.ITRF
+    )
+    assert brahe.CelestialFrame.Centered(
+        499, brahe.FrameAxes.BodyFixedIAU(499)
+    ) == brahe.CelestialFrame.BodyFixedIAU(499)
+    assert brahe.CelestialFrame.Centered(
+        301, brahe.FrameAxes.BodyFixedPCK(31008)
+    ) == brahe.CelestialFrame.BodyFixedPCK(301, 31008)
+    assert (
+        brahe.CelestialFrame.Centered(3, brahe.FrameAxes.Synodic(399, 301))
+        == brahe.CelestialFrame.EMR
+    )
+    assert (
+        brahe.CelestialFrame.Centered(399, brahe.FrameAxes.Synodic(399, 10))
+        == brahe.CelestialFrame.GSE
+    )
+    assert (
+        brahe.CelestialFrame.Centered(3, brahe.FrameAxes.EMR)
+        == brahe.CelestialFrame.EMR
+    )
+    assert (
+        brahe.CelestialFrame.Centered(
+            brahe.CelestialFrame.SER.center_naif_id, brahe.FrameAxes.SER
+        )
+        == brahe.CelestialFrame.SER
+    )
+    assert (
+        brahe.CelestialFrame.Centered(399, brahe.FrameAxes.GSE)
+        == brahe.CelestialFrame.GSE
+    )
+
+    # The named synodic axes are the same orientations as their generic
+    # pairs, so every center with a named `Synodic` form returns it.
+    emr_barycenter = brahe.CelestialFrame.Synodic(
+        brahe.SynodicOrigin.Barycenter, 399, 301
+    ).center_naif_id
+    gse_barycenter = brahe.CelestialFrame.Synodic(
+        brahe.SynodicOrigin.Barycenter, 399, 10
+    ).center_naif_id
+    assert brahe.CelestialFrame.Centered(
+        399, brahe.FrameAxes.EMR
+    ) == brahe.CelestialFrame.Synodic(brahe.SynodicOrigin.Primary, 399, 301)
+    assert brahe.CelestialFrame.Centered(
+        301, brahe.FrameAxes.EMR
+    ) == brahe.CelestialFrame.Synodic(brahe.SynodicOrigin.Secondary, 399, 301)
+    assert brahe.CelestialFrame.Centered(
+        emr_barycenter, brahe.FrameAxes.EMR
+    ) == brahe.CelestialFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 301)
+    assert brahe.CelestialFrame.Centered(
+        10, brahe.FrameAxes.SER
+    ) == brahe.CelestialFrame.Synodic(brahe.SynodicOrigin.Primary, 10, 399)
+    assert brahe.CelestialFrame.Centered(
+        399, brahe.FrameAxes.SER
+    ) == brahe.CelestialFrame.Synodic(brahe.SynodicOrigin.Secondary, 10, 399)
+    assert brahe.CelestialFrame.Centered(
+        10, brahe.FrameAxes.GSE
+    ) == brahe.CelestialFrame.Synodic(brahe.SynodicOrigin.Secondary, 399, 10)
+    assert brahe.CelestialFrame.Centered(
+        gse_barycenter, brahe.FrameAxes.GSE
+    ) == brahe.CelestialFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 10)
+
+    # A named synodic orientation about an unrelated body still has no named
+    # form, and carries the normalized generic axes.
+    mars_emr = brahe.CelestialFrame.Centered(499, brahe.FrameAxes.EMR)
+    assert mars_emr.axes == brahe.FrameAxes.Synodic(399, 301)
+    assert mars_emr.center == brahe.NAIFId.MARS
+
+    mars_eme = brahe.CelestialFrame.Centered(499, brahe.FrameAxes.EME2000)
+    assert mars_eme.axes == brahe.FrameAxes.EME2000
+    assert mars_eme.center == brahe.NAIFId.MARS
+    assert mars_eme.center_naif_id == 499
+    assert str(mars_eme) == "Centered(MARS, EME2000)"
+    assert repr(mars_eme) == "CelestialFrame.Centered(MARS, EME2000)"
+    assert (
+        str(brahe.CelestialFrame.Centered(-42, brahe.FrameAxes.ITRF))
+        == "Centered(-42, ITRF)"
+    )
+
+    # A NAIFId member and its integer value construct the same frame.
+    assert (
+        brahe.CelestialFrame.Centered(brahe.NAIFId.MARS, brahe.FrameAxes.EME2000)
+        == mars_eme
+    )
+
+    # A FrameCenter is accepted directly, and canonicalizes on its NAIF ID, so
+    # a barycenter and the raw synthetic ID of the same pair select the same
+    # named frame.
+    assert (
+        brahe.CelestialFrame.Centered(
+            brahe.FrameCenter.Body(brahe.NAIFId.MARS), brahe.FrameAxes.EME2000
+        )
+        == mars_eme
+    )
+    assert (
+        brahe.CelestialFrame.Centered(
+            brahe.FrameCenter.Barycenter(brahe.NAIFId.SUN, brahe.NAIFId.EARTH),
+            brahe.FrameAxes.SER,
+        )
+        == brahe.CelestialFrame.SER
+    )
+    assert brahe.CelestialFrame.Centered(
+        brahe.FrameCenter.Barycenter(399, 301), brahe.FrameAxes.EMR
+    ) == brahe.CelestialFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 301)
+
+    # With no named form the origin is stored as given: the two spellings of
+    # one synthetic barycenter keep their own variant but compare equal,
+    # because frames compare by NAIF ID.
+    barycentric_eme = brahe.CelestialFrame.Centered(
+        brahe.FrameCenter.Barycenter(399, 301), brahe.FrameAxes.EME2000
+    )
+    synthetic_eme = brahe.CelestialFrame.Centered(
+        emr_barycenter, brahe.FrameAxes.EME2000
+    )
+    assert barycentric_eme == synthetic_eme
+    assert barycentric_eme.center.body is None
+    assert synthetic_eme.center.body == synthetic_eme.center_naif_id
+    assert barycentric_eme.center_naif_id == synthetic_eme.center_naif_id
+    assert str(barycentric_eme) == "Centered(BARYCENTER(EARTH, MOON), EME2000)"
+
+    with pytest.raises(TypeError):
+        brahe.CelestialFrame.Centered("EARTH", brahe.FrameAxes.EME2000)
+
+
+def test_celestialframe_centered_round_trips_every_named_frame():
+    """Rust: test_celestialframe_centered_round_trips_every_named_frame"""
+    for frame in (
+        brahe.CelestialFrame.GCRF,
+        brahe.CelestialFrame.ITRF,
+        brahe.CelestialFrame.EME2000,
+        brahe.CelestialFrame.MOD,
+        brahe.CelestialFrame.TOD,
+        brahe.CelestialFrame.LCI,
+        brahe.CelestialFrame.LFPA,
+        brahe.CelestialFrame.LFME,
+        brahe.CelestialFrame.MCI,
+        brahe.CelestialFrame.MCMF,
+        brahe.CelestialFrame.EMBI,
+        brahe.CelestialFrame.SSBI,
+        brahe.CelestialFrame.EMR,
+        brahe.CelestialFrame.SER,
+        brahe.CelestialFrame.GSE,
+        brahe.CelestialFrame.BodyCenteredICRF(2000001),
+        brahe.CelestialFrame.BodyFixedIAU(599),
+        brahe.CelestialFrame.BodyFixedPCK(301, 31008),
+        brahe.CelestialFrame.BodyFixedCustom(-20001, 7),
+        brahe.CelestialFrame.Synodic(brahe.SynodicOrigin.Secondary, 10, 599),
+        brahe.CelestialFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 301),
+        brahe.CelestialFrame.Synodic(brahe.SynodicOrigin.Barycenter, 10, 599),
+        brahe.CelestialFrame.Centered(brahe.NAIFId.MARS, brahe.FrameAxes.EME2000),
+        brahe.CelestialFrame.Centered(
+            brahe.FrameCenter.Barycenter(399, 301), brahe.FrameAxes.EME2000
+        ),
+    ):
+        assert brahe.CelestialFrame.Centered(frame.center, frame.axes) == frame, str(
+            frame
+        )
+
+
+def test_centered_preserves_axes_at_foreign_center():
+    """Rust: test_centered_preserves_axes_at_foreign_center"""
+    emr = brahe.FrameAxes.Synodic(399, 301)
+    ser = brahe.FrameAxes.Synodic(10, 399)
+    gse = brahe.FrameAxes.Synodic(399, 10)
+    for axes, expected in (
+        (brahe.FrameAxes.ICRF, brahe.FrameAxes.ICRF),
+        (brahe.FrameAxes.EME2000, brahe.FrameAxes.EME2000),
+        (brahe.FrameAxes.MOD, brahe.FrameAxes.MOD),
+        (brahe.FrameAxes.TOD, brahe.FrameAxes.TOD),
+        (brahe.FrameAxes.ITRF, brahe.FrameAxes.ITRF),
+        (brahe.FrameAxes.LunarPA, brahe.FrameAxes.LunarPA),
+        (brahe.FrameAxes.LunarME, brahe.FrameAxes.LunarME),
+        (brahe.FrameAxes.MarsFixed, brahe.FrameAxes.MarsFixed),
+        (brahe.FrameAxes.EMR, emr),
+        (brahe.FrameAxes.SER, ser),
+        (brahe.FrameAxes.GSE, gse),
+        (brahe.FrameAxes.BodyFixedIAU(499), brahe.FrameAxes.BodyFixedIAU(499)),
+        (brahe.FrameAxes.BodyFixedPCK(31008), brahe.FrameAxes.BodyFixedPCK(31008)),
+        (brahe.FrameAxes.BodyFixedCustom(7), brahe.FrameAxes.BodyFixedCustom(7)),
+        (brahe.FrameAxes.Synodic(10, 599), brahe.FrameAxes.Synodic(10, 599)),
+    ):
+        assert brahe.CelestialFrame.Centered(599, axes).axes == expected, str(axes)
+
+
+def test_centered_synodic_accessors():
+    """A centered frame with synodic axes reports its pair but no origin."""
+    frame = brahe.CelestialFrame.Centered(499, brahe.FrameAxes.Synodic(399, 301))
+    assert frame.synodic_primary == 399
+    assert frame.synodic_secondary == 301
+    assert frame.synodic_origin is None
+    assert (
+        brahe.CelestialFrame.Centered(499, brahe.FrameAxes.EME2000).synodic_primary
+        is None
+    )
+
+
+def test_router_centered_frame_rotation_and_state_round_trip(eop):
+    """Rust: test_router_centered_frame_rotation_and_state_round_trip"""
+    epc = brahe.Epoch.from_date(2024, 3, 1, brahe.UTC)
+
+    # Orientation of a Centered frame is its axes' rotation, evaluated
+    # without any center lookup: Mars-centered EME2000 -> MCI is the EME2000
+    # frame bias alone.
+    mars_eme = brahe.CelestialFrame.Centered(499, brahe.FrameAxes.EME2000)
+    r = brahe.rotation_frame_to_frame(mars_eme, brahe.CelestialFrame.MCI, epc)
+    np.testing.assert_allclose(r, brahe.rotation_gcrf_to_eme2000().T, atol=1e-15)
+
+    # Same-center state conversions through a Centered frame keep the
+    # transport-velocity terms of the underlying rotating axes.
+    mars_itrf = brahe.CelestialFrame.Centered(499, brahe.FrameAxes.ITRF)
+    x = np.array([3.6e6, -1.2e6, 2.0e6, 1.0e2, 3.4e3, -1.1e3])
+    x_mci = brahe.state_frame_to_frame(mars_itrf, brahe.CelestialFrame.MCI, epc, x)
+    assert np.linalg.norm(x_mci - x) > 1.0
+    x_back = brahe.state_frame_to_frame(brahe.CelestialFrame.MCI, mars_itrf, epc, x_mci)
+    np.testing.assert_allclose(x_back, x, atol=1e-6)
+
+
+def test_centered_same_center_is_rotation_only(eop, no_spice_kernels):
+    """Rust: test_centered_same_center_is_rotation_only"""
+    # With no kernel loaded a same-center conversion must still succeed, which
+    # is only true if it never consults the ephemeris.
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    mars_eme = brahe.CelestialFrame.Centered(499, brahe.FrameAxes.EME2000)
+    r = brahe.rotation_frame_to_frame(mars_eme, brahe.CelestialFrame.MCI, epc)
+    np.testing.assert_array_equal(r, brahe.rotation_eme2000_to_gcrf())
+
+    x = np.array([4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3])
+    x_mci = brahe.state_frame_to_frame(mars_eme, brahe.CelestialFrame.MCI, epc, x)
+    back = brahe.state_frame_to_frame(brahe.CelestialFrame.MCI, mars_eme, epc, x_mci)
+    np.testing.assert_allclose(back, x, atol=1e-6)
+
+
+def test_centered_rotating_axes_matches_explicit_kinematics(eop, no_spice_kernels):
+    """Rust: test_centered_rotating_axes_matches_explicit_kinematics"""
+    # Both frames are centered on Mars, so the conversion is the ITRF axes'
+    # rigid rotation alone and needs no ephemeris.
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    mars_itrf = brahe.CelestialFrame.Centered(499, brahe.FrameAxes.ITRF)
+    x = np.array([4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3])
+
+    # Independent oracle: the ITRF axes turn about the Celestial Intermediate
+    # Pole at OMEGA_EARTH, and polar motion carries that vector into the ITRF,
+    # so the ITRF-axes angular velocity is `pm @ [0, 0, OMEGA_EARTH]`.
+    # Inverting the rigid-rotation kinematics gives `p = R.T @ p_itrf` and
+    # `v = R.T @ (v_itrf + omega_b x p_itrf)`.
+    r_mat = brahe.rotation_gcrf_to_itrf(epc)
+    omega_b = brahe.polar_motion(epc) @ np.array([0.0, 0.0, brahe.OMEGA_EARTH])
+    p_expected = r_mat.T @ x[:3]
+    v_expected = r_mat.T @ (x[3:] + np.cross(omega_b, x[:3]))
+
+    x_mci = brahe.state_frame_to_frame(mars_itrf, brahe.CelestialFrame.MCI, epc, x)
+    np.testing.assert_allclose(x_mci[:3], p_expected, atol=1e-9)
+    np.testing.assert_allclose(x_mci[3:], v_expected, atol=1e-12)
+
+
+def test_centered_cross_center_matches_rotate_then_translate(eop, naif_cache_setup):
+    """Rust: test_centered_cross_center_matches_rotate_then_translate"""
+    brahe.load_spice_kernel("de440s")
+    brahe.load_spice_kernel("mar099s")
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    mars_eme = brahe.CelestialFrame.Centered(499, brahe.FrameAxes.EME2000)
+    x = np.array([4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3])
+
+    direct = brahe.state_frame_to_frame(mars_eme, brahe.CelestialFrame.GCRF, epc, x)
+    x_mci = brahe.state_eme2000_to_gcrf(x)
+    via = brahe.state_frame_to_frame(
+        brahe.CelestialFrame.MCI, brahe.CelestialFrame.GCRF, epc, x_mci
+    )
+    np.testing.assert_allclose(direct, via, atol=1e-6)
+
+
+def test_centered_rotating_axes_round_trip(eop, naif_cache_setup):
+    """Rust: test_centered_rotating_axes_round_trip"""
+    brahe.load_spice_kernel("de440s")
+    brahe.load_spice_kernel("mar099s")
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    mars_itrf = brahe.CelestialFrame.Centered(499, brahe.FrameAxes.ITRF)
+    x = np.array([4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3])
+
+    x_gcrf = brahe.state_frame_to_frame(mars_itrf, brahe.CelestialFrame.GCRF, epc, x)
+    back = brahe.state_frame_to_frame(brahe.CelestialFrame.GCRF, mars_itrf, epc, x_gcrf)
+    # The round trip passes through the Earth-relative hub state, whose
+    # magnitude is the Earth-Mars distance (~3.3e11 m at this epoch), so the
+    # position residual is bounded by one ulp of that (~6.1e-5 m) and the
+    # velocity residual by the Earth rotation rate acting on it.
+    np.testing.assert_allclose(back[:3], x[:3], atol=1e-4)
+    np.testing.assert_allclose(back[3:6], x[3:6], atol=1e-8)
+
+    # A same-center conversion to Mars-centered ICRF axes is the ITRF -> GCRF
+    # rotation alone, applied to the Mars-relative state.
+    x_rot_only = brahe.state_itrf_to_gcrf(epc, x)
+    x_icrf_axes = brahe.state_frame_to_frame(
+        mars_itrf, brahe.CelestialFrame.MCI, epc, x
+    )
+    np.testing.assert_allclose(x_icrf_axes, x_rot_only, atol=1e-9)

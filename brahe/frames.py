@@ -33,6 +33,8 @@ Naming Conventions:
 from brahe._brahe import (
     BodyFrame,
     CelestialFrame,
+    FrameAxes,
+    FrameCenter,
     OrbitRelativeFrameKind,
     OrbitRelativeFrameVariant,
     PrecessionNutationModel,
@@ -167,6 +169,8 @@ from brahe._brahe import (
 __all__ = [
     "BodyFrame",
     "CelestialFrame",
+    "FrameAxes",
+    "FrameCenter",
     "OrbitRelativeFrameKind",
     "OrbitRelativeFrameVariant",
     "PrecessionNutationModel",

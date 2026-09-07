@@ -87,6 +87,41 @@ Four variants cover bodies without a dedicated named frame:
 
 The lunar PCK auto-load is a narrow exception to the general SPICE registry rule that binary PCKs are never auto-initialized (see [SPICE Kernels](../spice/index.md)); it exists because `LFPA`/`LFME` have no meaning without `moon_pa_de440` loaded, so every lunar body-fixed conversion loads it transparently on first use. `MCI`/`MCMF` are centered on the Mars body center (NAIF 499); a translation to or from another center resolves the body-center leg through the `mar099s` satellite ephemeris kernel, which is auto-loaded the same way.
 
+## Axes and Centers
+
+`CelestialFrame` pairs one origin with one orientation. `FrameCenter` names the origin alone: `Body(naif_id)` for a catalogued body or system barycenter (or any raw ID, including a self-assigned negative one), and `Barycenter(primary, secondary)` for the GM-weighted barycenter of a two-body pair that the synodic frames compute analytically. `FrameAxes` names the orientation alone &mdash; `ICRF`, `EME2000`, `MOD`, `TOD`, `ITRF`, `LunarPA`, `LunarME`, `MarsFixed`, `EMR`, `SER`, `GSE`, and the parameterized `BodyFixedIAU(naif_id)`, `BodyFixedPCK(frame_id)`, `BodyFixedCustom(key)`, and `Synodic(primary, secondary)`. `CelestialFrame::centered(center, axes)` builds the pair, returning a named shorthand when one exists (`centered(399, EME2000)` is `EME2000`; `centered(301, ICRF)` is `LCI`) and the generic `Centered { center, axes }` variant otherwise. `center()` and `axes()` split any frame back into its two halves, so `centered(f.center(), f.axes()) == f` holds for every frame Brahe produces.
+
+`center()` returns the semantic `FrameCenter` rather than the raw integer `center_naif_id()` returns. `FrameCenter::naif_id()` is the identity the router translates on, so a `Barycenter` and the raw synthetic ID encoding the same pair reach the same origin; `centered` canonicalizes on that ID, and stores the `FrameCenter` as given when the pair has no named form. `FrameCenter::name()` prints the NAIF body name, the raw ID for an uncatalogued body, or `BARYCENTER(primary, secondary)`.
+
+This split matters because most named frames only cover one origin: `EME2000`, `MOD`, `TOD`, and `ITRF` are welded to Earth, `MCI`/`MCMF` to Mars, and so on. `Centered` lifts that restriction, pairing any orientation with any NAIF center.
+
+In Python a trajectory's `frame` attribute is a `ReferenceFrame`, and its `celestial_frame` attribute gives the underlying `CelestialFrame` whose `axes` and `center` split it into its two halves.
+
+Converting between two frames that share a center is a rotation only and never touches an SPK kernel; converting between frames centered on different bodies also translates by the vector between those centers, resolved through the loaded ephemeris exactly as any other cross-center router call. The example below loads an OEM whose `CENTER_NAME` is Mars, converts a sample to `MCI` (same center, rotation only) and to `GCRF` (different center, needs the `de440s` kernel loaded below):
+
+=== "Python"
+
+    ```python
+    --8<-- "./examples/frames/mars_centered_eme2000.py:17"
+    ```
+
+=== "Rust"
+
+    ```rust
+    --8<-- "./examples/frames/mars_centered_eme2000.rs:14"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/mars_centered_eme2000.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/mars_centered_eme2000.rs.txt"
+        ```
+
 ## See Also
 
 - [Lunar Reference Frames](lunar_frames.md)

@@ -56,6 +56,8 @@ Parse from file or string, then access the state vector, optional Keplerian elem
 
 Every OPM has a **header** (version, creation date, originator), **metadata** (object identity, center body, reference frame, time system), and a **state vector** (epoch plus position and velocity). Beyond these required parts, four optional sections can be present.
 
+`CENTER_NAME` and `REF_FRAME` are resolved jointly: `REF_FRAME` names the state vector's orientation and `CENTER_NAME` its origin, independently of each other. `state_in_frame` converts the state vector to any other supported frame through the reference frame router; converting to a frame centered on the same body as the OPM's `CENTER_NAME` is a rotation only, while converting to a frame centered on a different body also translates through the loaded SPK kernels. See [Axes and Centers](../frames/frame_transformations.md#axes-and-centers) for the full `FrameAxes`/`CelestialFrame` picture.
+
 **Keplerian elements** duplicate the state vector information in orbital-element form — semi-major axis, eccentricity, inclination, RAAN, argument of pericenter, and true or mean anomaly, plus $GM$. The redundancy is intentional: elements are easier for humans to review at a glance, and some receiving systems prefer them as input.
 
 **Spacecraft parameters** record physical properties relevant to force modeling — mass, drag area and coefficient ($C_D$), and solar radiation pressure area and coefficient ($C_R$). These feed directly into atmospheric drag and SRP force models during numerical propagation.

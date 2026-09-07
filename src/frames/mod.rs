@@ -33,6 +33,7 @@ pub mod precession_nutation;
 // glob re-export below still surfaces every public item.
 mod registry;
 pub mod synodic;
+pub mod teme;
 pub mod transform;
 
 pub(crate) use graph::{celestial_root, icrf_aligned_inertial};
@@ -52,4 +53,5 @@ pub use orientation::*;
 pub use precession_nutation::*;
 pub use registry::*;
 pub use synodic::*;
+pub use teme::*;
 pub use transform::*;

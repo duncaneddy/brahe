@@ -29,7 +29,7 @@ Parse from file or string, then access header properties, segment metadata, and 
 
 ## Converting to OrbitTrajectory
 
-The primary interoperability point for OEM data is conversion to brahe's `OrbitTrajectory`. Each OEM segment maps to a trajectory object, giving you Hermite interpolation at arbitrary epochs within the covered time span. A segment with `REF_FRAME = TOD` loads as a trajectory in the TOD frame; use `to_frame` to convert it to GCRF, ITRF, or another supported frame. A segment that pairs `REF_FRAME = TOD` with a `REF_FRAME_EPOCH` names the true-of-date axes frozen at that epoch, which are inertial, so it loads as a GCRF trajectory built with the true-of-date axes at the frame epoch:
+The primary interoperability point for OEM data is conversion to brahe's `OrbitTrajectory`. Each OEM segment maps to a trajectory object, giving you Hermite interpolation at arbitrary epochs within the covered time span. A segment with `REF_FRAME = TOD` loads as a trajectory in the TOD frame; use `to_frame` to convert it to GCRF, ITRF, or another supported frame:
 
 === "Python"
     ``` python

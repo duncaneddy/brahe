@@ -15,8 +15,7 @@ use crate::ccsds::common::{
     CCSDSUserDefined, ODMHeader,
 };
 use crate::ccsds::interop::{ensure_earth_center, odm_native_frame};
-use crate::frames::equinox::rotate_state;
-use crate::frames::{ReferenceFrame, state_frame_to_frame};
+use crate::frames::{CelestialFrame, ReferenceFrame, state_frame_to_frame};
 use crate::math::SVector6;
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
@@ -235,8 +234,8 @@ impl OPM {
     /// state these frames cannot express and is rejected.
     ///
     /// A `TOD` message that also carries a `REF_FRAME_EPOCH` names the
-    /// true-of-date axes frozen at that epoch. Its state is carried into GCRF
-    /// by the rotation evaluated at the frame epoch before routing.
+    /// true-of-date axes frozen at that epoch. Its state is converted from
+    /// `TOD` at the frame epoch before routing.
     ///
     /// # Arguments
     /// * `frame`: Target frame
@@ -261,14 +260,14 @@ impl OPM {
     /// ```
     pub fn state_in_frame(&self, frame: impl Into<ReferenceFrame>) -> Result<SVector6, BraheError> {
         ensure_earth_center(&self.metadata.center_name)?;
-        let (native, rotation) =
+        let (native, frozen_epoch) =
             odm_native_frame(&self.metadata.ref_frame, self.metadata.ref_frame_epoch)?;
         let p = self.state_vector.position;
         let v = self.state_vector.velocity;
-        let x = rotate_state(
-            &rotation,
-            &SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2]),
-        );
+        let mut x = SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2]);
+        if let Some(epc) = frozen_epoch {
+            x = state_frame_to_frame(CelestialFrame::TOD, CelestialFrame::GCRF, epc, x)?;
+        }
         state_frame_to_frame(native, frame, self.state_vector.epoch, x)
     }
 

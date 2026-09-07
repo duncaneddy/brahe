@@ -23,13 +23,12 @@ use crate::ccsds::frames::{
 };
 use crate::ccsds::oem::OEM;
 use crate::ccsds::omm::{OMM, OMMMetadata, OMMTleParameters, OMMeanElements};
-use crate::frames::equinox::rotate_state;
 use crate::frames::{
     BodyFrame, CelestialFrame, DStateAdapter, ObjectId, OrbitRelativeFrameKind,
     OrbitRelativeFrameVariant, OrientationProvider, ReferenceFrame, register_frame,
-    register_object, rotation_tod_to_gcrf,
+    register_object, state_frame_to_frame,
 };
-use crate::math::{SMatrix3, SVector6};
+use crate::math::SVector6;
 use crate::time::Epoch;
 use crate::trajectories::dorbit_trajectory::DOrbitTrajectory;
 use crate::trajectories::sorbit_trajectory::SOrbitTrajectory;
@@ -219,15 +218,14 @@ pub(crate) fn ensure_earth_center(center_name: &str) -> Result<(), BraheError> {
 }
 
 /// Resolves an ODM reference frame and frame epoch to a native frame and the
-/// constant rotation that carries message data into it.
+/// epoch at which the message axes are frozen.
 ///
 /// `TOD` with a `REF_FRAME_EPOCH` names the true-of-date axes frozen at that
 /// epoch. Those axes do not move, so the frame is inertial rather than an
-/// of-date frame re-evaluated at every sample. Data expressed in it is carried
-/// into GCRF by `rotation_tod_to_gcrf` evaluated once at the frame epoch and
-/// applied to position and velocity alike, both frames being inertial. Every
-/// other token maps through `CelestialFrame::try_from` and gets the identity
-/// rotation.
+/// of-date frame re-evaluated at every sample: the native frame is `GCRF` and
+/// the returned epoch is the one every state is converted from `TOD` at. Every
+/// other token maps through `CelestialFrame::try_from` and needs no
+/// conversion, so the returned epoch is `None`.
 ///
 /// # Arguments
 ///
@@ -236,16 +234,17 @@ pub(crate) fn ensure_earth_center(center_name: &str) -> Result<(), BraheError> {
 ///
 /// # Returns
 ///
-/// * `Ok((CelestialFrame, SMatrix3))`: The native frame the data is expressed
-///   in, and the rotation to apply to each state to reach it
+/// * `Ok((CelestialFrame, Option<Epoch>))`: The native frame the data is
+///   expressed in, and the frozen frame epoch to convert each state from `TOD`
+///   at, when the message declares one
 /// * `Err(BraheError)`: If the token has no native equivalent
 pub(crate) fn odm_native_frame(
     ref_frame: &CCSDSRefFrame,
     ref_frame_epoch: Option<Epoch>,
-) -> Result<(CelestialFrame, SMatrix3), BraheError> {
+) -> Result<(CelestialFrame, Option<Epoch>), BraheError> {
     match (ref_frame, ref_frame_epoch) {
-        (CCSDSRefFrame::TOD, Some(epc)) => Ok((CelestialFrame::GCRF, rotation_tod_to_gcrf(epc))),
-        _ => Ok((CelestialFrame::try_from(ref_frame)?, SMatrix3::identity())),
+        (CCSDSRefFrame::TOD, Some(epc)) => Ok((CelestialFrame::GCRF, Some(epc))),
+        _ => Ok((CelestialFrame::try_from(ref_frame)?, None)),
     }
 }
 
@@ -258,9 +257,8 @@ impl OEM {
     ///
     /// A segment declaring `REF_FRAME = TOD` together with a
     /// `REF_FRAME_EPOCH` names the true-of-date axes frozen at that epoch.
-    /// Those axes are inertial, so the states are rotated into GCRF with the
-    /// rotation evaluated once at the frame epoch and the trajectory is
-    /// labelled `GCRF`.
+    /// Those axes are inertial, so every state is converted from `TOD` at the
+    /// frame epoch and the trajectory is labelled `GCRF`.
     ///
     /// # Arguments
     ///
@@ -281,7 +279,7 @@ impl OEM {
             ))
         })?;
 
-        let (frame, rotation) = odm_native_frame(
+        let (frame, frozen_epoch) = odm_native_frame(
             &segment.metadata.ref_frame,
             segment.metadata.ref_frame_epoch,
         )?;
@@ -291,17 +289,17 @@ impl OEM {
         traj.name = Some(segment.metadata.object_name.clone());
 
         for sv in &segment.states {
-            let x = rotate_state(
-                &rotation,
-                &SVector6::new(
-                    sv.position[0],
-                    sv.position[1],
-                    sv.position[2],
-                    sv.velocity[0],
-                    sv.velocity[1],
-                    sv.velocity[2],
-                ),
+            let mut x = SVector6::new(
+                sv.position[0],
+                sv.position[1],
+                sv.position[2],
+                sv.velocity[0],
+                sv.velocity[1],
+                sv.velocity[2],
             );
+            if let Some(epc) = frozen_epoch {
+                x = state_frame_to_frame(CelestialFrame::TOD, CelestialFrame::GCRF, epc, x)?;
+            }
             traj.add(sv.epoch, DVector::from_column_slice(x.as_slice()))?;
         }
 
@@ -338,7 +336,7 @@ impl OEM {
             ))
         })?;
 
-        let (frame, rotation) = odm_native_frame(
+        let (frame, frozen_epoch) = odm_native_frame(
             &segment.metadata.ref_frame,
             segment.metadata.ref_frame_epoch,
         )?;
@@ -348,17 +346,18 @@ impl OEM {
         traj.name = Some(segment.metadata.object_name.clone());
 
         for sv in &segment.states {
-            let state = rotate_state(
-                &rotation,
-                &SVector6::new(
-                    sv.position[0],
-                    sv.position[1],
-                    sv.position[2],
-                    sv.velocity[0],
-                    sv.velocity[1],
-                    sv.velocity[2],
-                ),
+            let mut state = SVector6::new(
+                sv.position[0],
+                sv.position[1],
+                sv.position[2],
+                sv.velocity[0],
+                sv.velocity[1],
+                sv.velocity[2],
             );
+            if let Some(epc) = frozen_epoch {
+                state =
+                    state_frame_to_frame(CelestialFrame::TOD, CelestialFrame::GCRF, epc, state)?;
+            }
             traj.add(sv.epoch, state)?;
         }
 

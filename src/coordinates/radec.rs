@@ -1,12 +1,11 @@
 /*! Right ascension/declination coordinate transformations (Vallado §4.4). */
 
-use std::f64::consts::TAU;
-
 use crate::constants::{AngleFormat, DEG2RAD, JD_J2000, RAD2DEG};
 use crate::coordinates::topocentric::{
     position_enz_to_azel, rotation_ellipsoid_to_enz, rotation_enz_to_ellipsoid,
 };
 use crate::frames::{rotation_ecef_to_eci, rotation_eci_to_ecef};
+use crate::math::angles::wrap_to_2pi;
 use crate::math::{SMatrix3, SVector3, SVector6};
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
@@ -81,7 +80,7 @@ pub fn position_inertial_to_radec(x_inertial: SVector3, angle_format: AngleForma
     let r_eq = (x_inertial[0].powi(2) + x_inertial[1].powi(2)).sqrt();
     let dec = (x_inertial[2] / r).asin();
     let ra = if r_eq > 1e-12 * r {
-        x_inertial[1].atan2(x_inertial[0]).rem_euclid(TAU)
+        wrap_to_2pi(x_inertial[1].atan2(x_inertial[0]))
     } else {
         0.0 // RA indeterminate directly over the pole; use state variant to resolve
     };
@@ -189,9 +188,9 @@ pub fn state_inertial_to_radec(x_inertial: SVector6, angle_format: AngleFormat) 
     let dec = (rk / r).asin();
     let polar = r_eq <= 1e-12 * r;
     let ra = if !polar {
-        rj.atan2(ri).rem_euclid(TAU)
+        wrap_to_2pi(rj.atan2(ri))
     } else {
-        vj.atan2(vi).rem_euclid(TAU)
+        wrap_to_2pi(vj.atan2(vi))
     };
 
     let r_dot = (ri * vi + rj * vj + rk * vk) / r;
@@ -364,7 +363,7 @@ pub fn apply_proper_motion(
         );
     }
 
-    let ra_new = ra2.rem_euclid(TAU);
+    let ra_new = wrap_to_2pi(ra2);
     let dec_new = dec2;
 
     match angle_format {
@@ -851,6 +850,8 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use serial_test::{parallel, serial};
 
+    use std::f64::consts::PI;
+
     use crate::constants::AngleFormat;
     use crate::coordinates::geodetic::position_geodetic_to_ecef;
     use crate::frames::rotation_ecef_to_eci;
@@ -858,6 +859,36 @@ mod tests {
     use crate::utils::testing::setup_global_test_eop;
 
     use super::*;
+
+    #[test]
+    #[parallel]
+    fn test_position_inertial_to_radec_stays_below_full_turn() {
+        // A direction a few ulps clockwise of the vernal equinox: the raw
+        // atan2 is a tiny negative angle, which must report as 0, not 360.
+        let ra = -1.0e-17_f64;
+        let range = 1.0e7;
+        let x = SVector3::new(range * ra.cos(), range * ra.sin(), 0.0);
+
+        let radec = position_inertial_to_radec(x, AngleFormat::Degrees);
+        assert!(
+            (0.0..360.0).contains(&radec[0]),
+            "right ascension {} outside [0, 360)",
+            radec[0]
+        );
+        assert_eq!(radec[0], 0.0);
+
+        let radec_rad = position_inertial_to_radec(x, AngleFormat::Radians);
+        assert!(radec_rad[0] < 2.0 * PI);
+        assert_eq!(radec_rad[0], 0.0);
+
+        // The state form shares the normalization on both its branches.
+        let x_state = SVector6::new(x[0], x[1], x[2], 0.0, range * ra.sin(), 0.0);
+        let radec_state = state_inertial_to_radec(x_state, AngleFormat::Degrees);
+        assert_eq!(radec_state[0], 0.0);
+        let over_pole = SVector6::new(0.0, 0.0, range, range * ra.cos(), range * ra.sin(), 0.0);
+        let radec_pole = state_inertial_to_radec(over_pole, AngleFormat::Degrees);
+        assert_eq!(radec_pole[0], 0.0);
+    }
 
     #[test]
     #[serial]

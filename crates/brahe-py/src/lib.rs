@@ -873,6 +873,9 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     //* Frames *//
     module.add_function(wrap_pyfunction!(py_bias_precession_nutation, module)?)?;
+    module.add_function(wrap_pyfunction!(py_bias_precession_nutation_model, module)?)?;
+    module.add_function(wrap_pyfunction!(py_set_precession_nutation_model, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_precession_nutation_model, module)?)?;
     module.add_function(wrap_pyfunction!(py_earth_rotation, module)?)?;
     module.add_function(wrap_pyfunction!(py_polar_motion, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_gcrf_to_itrf, module)?)?;
@@ -894,9 +897,9 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_position_eme2000_to_gcrf, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_gcrf_to_eme2000, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eme2000_to_gcrf, module)?)?;
-    module.add_function(wrap_pyfunction!(py_bias_precession_iau2000, module)?)?;
-    module.add_function(wrap_pyfunction!(py_nutation_iau2000b, module)?)?;
-    module.add_function(wrap_pyfunction!(py_gast_rotation_iau2000b, module)?)?;
+    module.add_function(wrap_pyfunction!(py_bias_precession, module)?)?;
+    module.add_function(wrap_pyfunction!(py_nutation, module)?)?;
+    module.add_function(wrap_pyfunction!(py_gast_rotation, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_gcrf_to_mod, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_mod_to_gcrf, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_mod_to_tod, module)?)?;
@@ -986,6 +989,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_state_gse_to_gcrf, module)?)?;
 
     // Reference frame router
+    module.add_class::<PyPrecessionNutationModel>()?;
     module.add_class::<PySynodicOrigin>()?;
     module.add_class::<PyCelestialFrame>()?;
     module.add_function(wrap_pyfunction!(py_rotation_frame_to_frame, module)?)?;

@@ -1,6 +1,6 @@
 # GCRF ↔ MOD ↔ TOD Transformations
 
-MOD and TOD are the classical equinox-based Earth frames. Brahe defines them from the GCRF using the IAU 2000 precession and IAU 2000B nutation models together with the loaded Earth orientation data, and they are available both as pairwise functions and through the frame router as `CelestialFrame.MOD` / `CelestialFrame.TOD`.
+MOD and TOD are the classical equinox-based Earth frames. Brahe defines them from the GCRF using the selected precession-nutation model, IAU 2006/2000A by default, together with the loaded Earth orientation data, and they are available both as pairwise functions and through the frame router as `CelestialFrame.MOD` / `CelestialFrame.TOD`.
 
 ## Reference Frames
 
@@ -32,11 +32,7 @@ and the equinox-based form is
 
 $$[\mathrm{ITRF}] = W \, R_3(\mathrm{GAST}) \, N \, P \, B \, [\mathrm{GCRF}]$$
 
-In both equations $W$ is polar motion, $C$ is the CIO-based bias-precession-nutation matrix used by [GCRF ↔ ITRF Transformations](gcrf_itrf.md), and $N$, $P$, $B$ are the classical nutation, precession, and frame bias matrices of the equinox chain. Brahe evaluates both chains on the IAU 2000/2000B model basis and computes Greenwich apparent sidereal time ($\mathrm{GAST}$) as $\mathrm{ERA}$ minus the equation of the origins taken from the same combined nutation-precession-bias matrix used to reach TOD. As a result, converting a state from GCRF to ITRF through TOD agrees with the direct GCRF to ITRF transformation at the microarcsecond level.
-
-## Frame Bias and Earth Orientation Corrections
-
-The frame bias between GCRF and the classical J2000.0 mean equator and equinox is applied explicitly inside the bias-precession matrix that defines GCRF to MOD. The IERS dX/dY celestial pole offsets are residuals relative to this already-biased IAU 2000 model, so no bias is double-counted; they enter the nutation step after conversion to dPsi/dEps corrections following SOFA cookbook Section 5.4. This differs from the IAU 1976/1980 convention, where the IERS dPsi/dEps corrections are measured against the unbiased model and therefore absorb the bias themselves, so no separate bias matrix is applied. TOD computed from the two conventions differs at the sub-milliarcsecond level, which is immaterial for interpreting data products labeled TOD.
+In both equations $W$ is polar motion, $C$ is the CIO-based bias-precession-nutation matrix used by [GCRF ↔ ITRF Transformations](gcrf_itrf.md), and $N$, $P$, $B$ are the classical nutation, precession, and frame bias matrices of the equinox chain. Brahe evaluates the IAU 2006/2000A precession-nutation model by default. The truncated IAU 2000B model (IAU 2000 precession with the abridged IAU 2000B nutation series) is selectable with a single global setting that applies to every subsequent transformation; see [Precession-Nutation Model](precession_nutation_model.md). Greenwich apparent sidereal time ($\mathrm{GAST}$) is $\mathrm{ERA}$ minus the equation of the origins taken from the same combined nutation-precession-bias matrix used to reach TOD. As a result, converting a state from GCRF to ITRF through TOD agrees with the direct GCRF to ITRF transformation at the microarcsecond level.
 
 ## Velocities
 
@@ -131,7 +127,7 @@ Transform a complete state vector (position and velocity) from TOD to GCRF:
 
 ### Rotation Matrix
 
-Get the GCRF to MOD rotation matrix and confirm it reduces to the EME2000 frame bias at J2000.0, where the IAU 2000 precession is identity:
+Get the GCRF to MOD rotation matrix and confirm it reduces to the EME2000 frame bias at J2000.0, where the precession is identity:
 
 === "Python"
 

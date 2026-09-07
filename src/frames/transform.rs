@@ -195,11 +195,13 @@ pub enum CelestialFrame {
     ITRF,
     /// Earth Mean Equator and Equinox of J2000.0.
     EME2000,
-    /// Earth mean equator and equinox of date (IAU 2000 bias-precession
-    /// applied to the GCRF).
+    /// Earth mean equator and equinox of date (bias-precession applied to
+    /// the GCRF, IAU 2006/2000A by default; see
+    /// [`crate::frames::PrecessionNutationModel`]).
     MOD,
-    /// Earth true equator and equinox of date (IAU 2000 bias-precession and
-    /// IAU 2000B nutation with IERS corrections applied to the GCRF).
+    /// Earth true equator and equinox of date (bias-precession and nutation
+    /// with IERS corrections applied to the GCRF, IAU 2006/2000A by default;
+    /// see [`crate::frames::PrecessionNutationModel`]).
     TOD,
     /// Lunar-Centered Inertial (ICRF-aligned, Moon-centered).
     LCI,

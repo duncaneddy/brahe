@@ -1,6 +1,6 @@
 # GCRF ↔ ITRF Transformations
 
-Transformations between Geocentric Celestial Reference Frame (GCRF, inertial) and International Terrestrial Reference Frame (ITRF, Earth-fixed). Uses IAU 2006/2000A CIO-based theory with classical angles.
+Transformations between Geocentric Celestial Reference Frame (GCRF, inertial) and International Terrestrial Reference Frame (ITRF, Earth-fixed). Uses CIO-based theory with classical angles on the selected precession-nutation model, IAU 2006/2000A by default.
 
 !!! note
     For conceptual explanations and examples, see [GCRF ↔ ITRF Transformations](../../learn/frames/gcrf_itrf.md) in the Learn section.
@@ -28,6 +28,16 @@ Transformations between Geocentric Celestial Reference Frame (GCRF, inertial) an
 ::: brahe.earth_rotation
 
 ::: brahe.polar_motion
+
+## Precession-Nutation Model
+
+::: brahe.PrecessionNutationModel
+
+::: brahe.set_precession_nutation_model
+
+::: brahe.get_precession_nutation_model
+
+::: brahe.bias_precession_nutation_model
 
 ## See Also
 

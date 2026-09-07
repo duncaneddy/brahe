@@ -18,7 +18,7 @@ The ITRF is an Earth-centered Earth-fixed (ECEF) frame, meaning it rotates with 
 
 ## Transformation Model
 
-Brahe implements the IAU 2006/2000A precession-nutation model with Celestial Intermediate Origin (CIO) based transformation, following IERS conventions. The transformation is accomplished using the IAU 2006/2000A, CIO-based theory using classical angles. The method as described in section 5.5 of the [SOFA C transformation cookbook](https://www.iausofa.org/s/sofa_pn_c.pdf). The transformation accounts for:
+Brahe implements a Celestial Intermediate Origin (CIO) based transformation following IERS conventions, using the CIO-based theory with classical angles described in section 5.5 of the [SOFA C transformation cookbook](https://www.iausofa.org/s/sofa_pn_c.pdf). The precession-nutation model is IAU 2006/2000A by default and is selectable; see [Precession-Nutation Model](precession_nutation_model.md). The transformation accounts for:
 
 - **Precession and nutation** of Earth's rotation axis
 - **Earth's rotation** about its instantaneous spin axis

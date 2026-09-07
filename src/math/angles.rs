@@ -101,27 +101,38 @@ pub fn oe_to_radians(oe: SVector6, angle_format: AngleFormat) -> SVector6 {
     }
 }
 
-/// Wrap an angle to the range \[0, 2π\].
+/// Wrap an angle to the half-open range \[0, 2π).
+///
+/// An angle a few ulps below zero is closer to 2π than to any representable
+/// value beneath it, so the Euclidean remainder rounds it up to exactly 2π.
+/// That result is folded back to zero, keeping the returned value strictly
+/// below 2π.
 ///
 /// # Arguments
 ///
-/// - `angle`: The angle to wrap.
+/// - `angle`: The angle to wrap. Units: (*rad*)
 ///
 /// # Returns
 ///
-/// - `f64`: The wrapped angle.
+/// - `f64`: The wrapped angle, in \[0, 2π). Units: (*rad*)
 ///
 /// # Examples
 ///
 /// ```
+/// use std::f64::consts::PI;
 /// use brahe::math::angles::wrap_to_2pi;
 ///
-/// assert_eq!(wrap_to_2pi(2.0 * std::f64::consts::PI), 0.0);
-/// assert_eq!(wrap_to_2pi(3.0 * std::f64::consts::PI), std::f64::consts::PI);
+/// assert_eq!(wrap_to_2pi(2.0 * PI), 0.0);
+/// assert_eq!(wrap_to_2pi(-1.0e-17), 0.0);
+/// assert_eq!(wrap_to_2pi(3.0 * PI), PI);
 /// ```
 pub fn wrap_to_2pi(angle: f64) -> f64 {
-    let two_pi = 2.0 * std::f64::consts::PI;
-    angle.rem_euclid(two_pi)
+    let wrapped = angle.rem_euclid(std::f64::consts::TAU);
+    if wrapped >= std::f64::consts::TAU {
+        0.0
+    } else {
+        wrapped
+    }
 }
 
 #[cfg(test)]
@@ -129,7 +140,7 @@ pub fn wrap_to_2pi(angle: f64) -> f64 {
 mod tests {
     use approx::assert_abs_diff_eq;
     use serial_test::parallel;
-    use std::f64::consts::PI;
+    use std::f64::consts::{PI, TAU};
 
     use super::*;
 
@@ -156,6 +167,27 @@ mod tests {
 
         assert_eq!(wrap_to_2pi(-PI), PI);
         assert_eq!(wrap_to_2pi(-3.0 / 2.0 * PI), PI / 2.0);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_wrap_to_2pi_stays_below_two_pi() {
+        // A tiny negative angle rounds up to exactly TAU under the Euclidean
+        // remainder; the result must fold back to the bottom of the range.
+        assert_eq!(wrap_to_2pi(-1.0e-17), 0.0);
+        assert_eq!(wrap_to_2pi(TAU), 0.0);
+        assert_eq!(wrap_to_2pi(-TAU), 0.0);
+        assert_eq!(wrap_to_2pi(-1.0e-17 - TAU), 0.0);
+
+        for angle in [-1.0e-17, -1.0e-20, TAU, -TAU, 3.0 * TAU, 0.0] {
+            let wrapped = wrap_to_2pi(angle);
+            assert!(
+                (0.0..TAU).contains(&wrapped),
+                "{} wrapped to {}",
+                angle,
+                wrapped
+            );
+        }
     }
 
     #[test]

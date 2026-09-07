@@ -4522,7 +4522,15 @@ impl PyCelestialFrame {
     /// `Centered(FrameAxes.ICRF, 301)` is `CelestialFrame.LCI`), and a
     /// generic centered frame otherwise.
     /// `CelestialFrame.Centered(f.axes, f.center) == f` holds for every
-    /// frame the library produces.
+    /// canonical frame value. Where a named frame and a generic frame
+    /// describe the same pair, the named form is returned:
+    /// `CelestialFrame.Synodic(SynodicOrigin.Barycenter, 10, 399)` round
+    /// trips to `CelestialFrame.SER` and
+    /// `CelestialFrame.Synodic(SynodicOrigin.Primary, 399, 10)` to
+    /// `CelestialFrame.GSE`, and `CelestialFrame.BodyCenteredICRF` at 399,
+    /// 301, 499, 3 or 0 round trips to `CelestialFrame.GCRF`,
+    /// `CelestialFrame.LCI`, `CelestialFrame.MCI`, `CelestialFrame.EMBI` or
+    /// `CelestialFrame.SSBI`.
     ///
     /// `FrameAxes.EMR`, `FrameAxes.SER` and `FrameAxes.GSE` are the same
     /// orientations as their generic synodic pairs, so they are accepted at
@@ -5382,7 +5390,8 @@ impl PyBodyFrame {
 /// frames.
 ///
 /// Covers three kinds of frame: a `CelestialFrame` (see
-/// `ReferenceFrame.celestial`), a local orbital frame of a specific
+/// `ReferenceFrame.celestial` to wrap one and the `celestial_frame`
+/// attribute to read one back), a local orbital frame of a specific
 /// object (`RTN`, `LVLH`, ...), and an object-local body/sensor frame
 /// (`SC_BODY`, `CSS`, ...). Orbit-relative and body frames carry an
 /// optional bound object: a frame constructed through one of the family
@@ -5885,6 +5894,35 @@ impl PyReferenceFrame {
     ///         or an unbound orbit-relative/body frame
     fn object(&self) -> Option<String> {
         self.frame.object().map(|o| o.to_string())
+    }
+
+    /// The wrapped `CelestialFrame` when this is a celestial frame.
+    ///
+    /// This is the Python spelling of matching on the `Celestial` arm in
+    /// Rust, and is how a caller reaches `CelestialFrame.axes` and
+    /// `CelestialFrame.center` from a frame handed back by a trajectory or a
+    /// message.
+    ///
+    /// Returns:
+    ///     Optional[CelestialFrame]: The celestial frame, or `None` for
+    ///         orbit-relative and body frames
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.celestial(bh.CelestialFrame.MCI)
+    ///     print(frame.celestial_frame.axes, frame.celestial_frame.center)
+    ///     print(bh.ReferenceFrame.RTN("SC").celestial_frame)
+    ///     ```
+    #[getter]
+    fn celestial_frame(&self) -> Option<PyCelestialFrame> {
+        match &self.frame {
+            frames::ReferenceFrame::Celestial(celestial) => {
+                Some(PyCelestialFrame { frame: *celestial })
+            }
+            _ => None,
+        }
     }
 
     fn __str__(&self) -> String {

@@ -21,7 +21,7 @@ use crate::ccsds::common::{
 use crate::ccsds::frames::{
     ADMReferenceFrame, CCSDSCelestialBodyFrame, CCSDSOrbitRelativeFrame, CCSDSSpacecraftBodyFrame,
 };
-use crate::ccsds::oem::OEM;
+use crate::ccsds::oem::{OEM, OEMMetadata};
 use crate::ccsds::omm::{OMM, OMMMetadata, OMMTleParameters, OMMeanElements};
 use crate::frames::{
     BodyFrame, CelestialFrame, DStateAdapter, FrameAxes, ObjectId, OrbitRelativeFrameKind,
@@ -117,11 +117,13 @@ impl TryFrom<&ReferenceFrame> for CCSDSRefFrame {
     ///
     /// `REF_FRAME` records only the axes, so the mapping reads
     /// [`CelestialFrame::axes`] and the frame's origin is written separately
-    /// as `CENTER_NAME`. [`FrameAxes::ICRF`] writes as `GCRF` and
-    /// [`FrameAxes::ITRF`] as `ITRF2000`, the realization brahe records for
-    /// the terrestrial frame. Axes with no ODM token — MOD, the body-fixed
-    /// and synodic axes — and the orbit-relative and body frames return an
-    /// error naming the frame.
+    /// as `CENTER_NAME`. [`FrameAxes::ICRF`] writes as `GCRF` when the frame
+    /// is Earth-centered and as `ICRF` for every other origin, matching the
+    /// ODM convention that `GCRF` names the geocentric realization of the
+    /// International Celestial Reference System. [`FrameAxes::ITRF`] writes as
+    /// `ITRF2000`, the realization brahe records for the terrestrial frame.
+    /// Axes with no ODM token — MOD, the body-fixed and synodic axes — and
+    /// the orbit-relative and body frames return an error naming the frame.
     ///
     /// # Arguments
     ///
@@ -140,6 +142,10 @@ impl TryFrom<&ReferenceFrame> for CCSDSRefFrame {
     ///
     /// let frame = ReferenceFrame::Celestial(CelestialFrame::TOD);
     /// assert_eq!(CCSDSRefFrame::try_from(&frame).unwrap(), CCSDSRefFrame::TOD);
+    ///
+    /// // ICRF axes about a non-Earth origin write as ICRF, not GCRF.
+    /// let frame = ReferenceFrame::Celestial(CelestialFrame::MCI);
+    /// assert_eq!(CCSDSRefFrame::try_from(&frame).unwrap(), CCSDSRefFrame::ICRF);
     ///
     /// // The token follows the axes, so a Mars-centered EME2000 frame writes
     /// // as EME2000 and its origin is written as CENTER_NAME.
@@ -163,7 +169,13 @@ impl TryFrom<&ReferenceFrame> for CCSDSRefFrame {
         };
 
         match celestial.axes() {
-            FrameAxes::ICRF => Ok(CCSDSRefFrame::GCRF),
+            FrameAxes::ICRF => {
+                if celestial.center() == NAIFId::Earth {
+                    Ok(CCSDSRefFrame::GCRF)
+                } else {
+                    Ok(CCSDSRefFrame::ICRF)
+                }
+            }
             FrameAxes::EME2000 => Ok(CCSDSRefFrame::EME2000),
             FrameAxes::ITRF => Ok(CCSDSRefFrame::ITRF2000),
             FrameAxes::TOD => Ok(CCSDSRefFrame::TOD),
@@ -224,6 +236,100 @@ pub fn odm_native_frame(
             Ok((CelestialFrame::centered(FrameAxes::ICRF, center), Some(epc)))
         }
         _ => Ok((CelestialFrame::centered(axes, center), None)),
+    }
+}
+
+/// Native frame an OEM segment's states are expressed in.
+///
+/// The segment's `REF_FRAME` names the axes and its `CENTER_NAME` names the
+/// origin, so the pair resolves through [`odm_native_frame`] to one
+/// [`CelestialFrame`]. A segment declaring `REF_FRAME = TOD` together with a
+/// `REF_FRAME_EPOCH` stores its states in the true-of-date axes frozen at that
+/// epoch; the returned frame is then the ICRF-axes frame about the same
+/// center, and the returned epoch is the one every stored state is converted
+/// from `TOD` at.
+///
+/// # Arguments
+///
+/// * `metadata` - Metadata of the segment being read or written
+///
+/// # Returns
+///
+/// * `Ok((CelestialFrame, Option<Epoch>))`: The frame the segment's states are
+///   expressed in, and the frozen frame epoch when the segment declares one
+/// * `Err(BraheError)`: If `REF_FRAME` has no native axes, or if `CENTER_NAME`
+///   is not a known NAIF body name or ID
+///
+/// # Examples
+///
+/// ```
+/// use brahe::ccsds::interop::segment_native_frame;
+/// use brahe::ccsds::oem::OEM;
+/// use brahe::frames::{CelestialFrame, FrameAxes};
+///
+/// let oem = OEM::from_file("test_assets/ccsds/oem/OEMExample4.txt").unwrap();
+/// let (frame, frozen) = segment_native_frame(&oem.segments[0].metadata).unwrap();
+/// assert_eq!(frame, CelestialFrame::centered(FrameAxes::EME2000, 499));
+/// assert_eq!(frozen, None);
+/// ```
+pub fn segment_native_frame(
+    metadata: &OEMMetadata,
+) -> Result<(CelestialFrame, Option<Epoch>), BraheError> {
+    odm_native_frame(
+        &metadata.ref_frame,
+        metadata.ref_frame_epoch,
+        &metadata.center_name,
+    )
+}
+
+/// State to store in an OEM segment, given that state in the segment's native
+/// frame.
+///
+/// This is the inverse of the conversion a reader applies. For every segment
+/// but a frozen-`TOD` one the native frame is what is stored, so the state
+/// passes through unchanged. A segment declaring `REF_FRAME = TOD` with a
+/// `REF_FRAME_EPOCH` stores its states in the true-of-date axes frozen at that
+/// epoch, which a reader converts from `TOD` at the frame epoch, so writing
+/// rotates the ICRF-axes state back into `TOD` at that same epoch.
+///
+/// # Arguments
+///
+/// * `metadata` - Metadata of the segment being written
+/// * `x_native` - Cartesian state in the frame [`segment_native_frame`] returns
+///   for `metadata`. Units: (*m*; *m/s*)
+///
+/// # Returns
+///
+/// * `Ok(SVector6)`: `[x, y, z, vx, vy, vz]` in the segment's stored axes.
+///   Units: (*m*; *m/s*)
+/// * `Err(BraheError)`: If `REF_FRAME` has no native axes, if `CENTER_NAME` is
+///   not a known NAIF body name or ID, or if the router cannot apply the
+///   frozen-frame rotation
+///
+/// # Examples
+///
+/// ```
+/// use brahe::ccsds::interop::{segment_native_frame, state_for_segment};
+/// use brahe::ccsds::oem::OEM;
+/// use brahe::math::SVector6;
+///
+/// let oem = OEM::from_file("test_assets/ccsds/oem/OEMExample4.txt").unwrap();
+/// let metadata = &oem.segments[0].metadata;
+/// let (_frame, frozen) = segment_native_frame(metadata).unwrap();
+/// assert_eq!(frozen, None);
+///
+/// // A segment with no REF_FRAME_EPOCH stores its native state unchanged.
+/// let x = SVector6::new(4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3);
+/// assert_eq!(state_for_segment(metadata, x).unwrap(), x);
+/// ```
+pub fn state_for_segment(
+    metadata: &OEMMetadata,
+    x_native: SVector6,
+) -> Result<SVector6, BraheError> {
+    let (_, frozen_epoch) = segment_native_frame(metadata)?;
+    match frozen_epoch {
+        Some(epc) => state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::TOD, epc, x_native),
+        None => Ok(x_native),
     }
 }
 
@@ -420,14 +526,16 @@ impl OEM {
     /// clear_object_registry();
     /// ```
     pub fn register_for(&self, name: impl Into<ObjectId>) -> Result<(), BraheError> {
-        // TryFrom requires exactly one segment, so segment 0 is the
-        // trajectory's segment and carries the frame it was built in.
-        let (frame, _) = odm_native_frame(
-            &self.segments[0].metadata.ref_frame,
-            self.segments[0].metadata.ref_frame_epoch,
-            &self.segments[0].metadata.center_name,
-        )?;
+        // TryFrom requires exactly one segment, so the trajectory carries the
+        // celestial frame that segment's metadata resolved to; take it from
+        // the trajectory rather than resolving the metadata a second time.
         let traj = DOrbitTrajectory::try_from(self)?;
+        let ReferenceFrame::Celestial(frame) = traj.frame else {
+            return Err(BraheError::Error(format!(
+                "OEM trajectory frame '{}' is not a celestial frame",
+                traj.frame
+            )));
+        };
         let adapter = DStateAdapter::new(traj)?;
         register_object(name, adapter, frame)
     }
@@ -1808,9 +1916,24 @@ mod tests {
             CCSDSRefFrame::try_from(&mars_eme2000).unwrap(),
             CCSDSRefFrame::EME2000
         );
+
+        // GCRF is the geocentric realization of the ICRS, so ICRF axes write
+        // as GCRF only about Earth and as ICRF everywhere else.
+        assert_eq!(
+            CCSDSRefFrame::try_from(&ReferenceFrame::from(CelestialFrame::GCRF)).unwrap(),
+            CCSDSRefFrame::GCRF
+        );
         assert_eq!(
             CCSDSRefFrame::try_from(&ReferenceFrame::from(CelestialFrame::LCI)).unwrap(),
-            CCSDSRefFrame::GCRF
+            CCSDSRefFrame::ICRF
+        );
+        assert_eq!(
+            CCSDSRefFrame::try_from(&ReferenceFrame::from(CelestialFrame::MCI)).unwrap(),
+            CCSDSRefFrame::ICRF
+        );
+        assert_eq!(
+            CCSDSRefFrame::try_from(&ReferenceFrame::from(CelestialFrame::SSBI)).unwrap(),
+            CCSDSRefFrame::ICRF
         );
 
         // MOD has no ODM token at any center.
@@ -2021,6 +2144,69 @@ mod tests {
         let (frame, frozen) = odm_native_frame(&CCSDSRefFrame::TOD, None, "MARS").unwrap();
         assert_eq!(frame, CelestialFrame::centered(FrameAxes::TOD, 499));
         assert_eq!(frozen, None);
+    }
+
+    #[test]
+    #[serial] // EOP global
+    fn test_segment_native_frame_and_state_for_segment() {
+        setup_global_test_eop();
+
+        // A segment with no REF_FRAME_EPOCH stores its native state as is.
+        let oem = OEM::from_file("test_assets/ccsds/oem/OEMExample4.txt").unwrap();
+        let metadata = &oem.segments[0].metadata;
+        let (frame, frozen) = segment_native_frame(metadata).unwrap();
+        assert_eq!(frame, CelestialFrame::centered(FrameAxes::EME2000, 499));
+        assert_eq!(frozen, None);
+        let x = SVector6::new(4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3);
+        assert_eq!(state_for_segment(metadata, x).unwrap(), x);
+
+        // A frozen-TOD segment reads from TOD at REF_FRAME_EPOCH, so writing
+        // is the inverse rotation at that same epoch.
+        let frozen_oem = OEM::from_file("test_assets/ccsds/oem/test_tod_epoch.oem").unwrap();
+        let metadata = &frozen_oem.segments[0].metadata;
+        let ref_epoch = Epoch::from_datetime(2019, 9, 8, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let (frame, frozen) = segment_native_frame(metadata).unwrap();
+        assert_eq!(frame, CelestialFrame::GCRF);
+        assert_eq!(frozen, Some(ref_epoch));
+
+        let stored = state_for_segment(metadata, x).unwrap();
+        let expected =
+            state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::TOD, ref_epoch, x).unwrap();
+        for k in 0..6 {
+            assert_abs_diff_eq!(stored[k], expected[k], epsilon = 1e-9);
+        }
+
+        // Reading the stored state back returns the native state.
+        let read_back =
+            state_frame_to_frame(CelestialFrame::TOD, CelestialFrame::GCRF, ref_epoch, stored)
+                .unwrap();
+        for k in 0..6 {
+            assert_abs_diff_eq!(read_back[k], x[k], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    #[serial] // EOP global
+    fn test_segment_native_frame_unknown_center_errors() {
+        setup_global_test_eop();
+        let mut oem = OEM::from_file("test_assets/ccsds/oem/OEMExample4.txt").unwrap();
+        oem.segments[0].metadata.center_name = "PLANET X".to_string();
+        let metadata = &oem.segments[0].metadata;
+
+        let err = segment_native_frame(metadata).unwrap_err();
+        assert!(
+            err.to_string().contains("PLANET X"),
+            "unexpected center-name message: {}",
+            err
+        );
+
+        let x = SVector6::new(4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3);
+        let err = state_for_segment(metadata, x).unwrap_err();
+        assert!(
+            err.to_string().contains("PLANET X"),
+            "unexpected center-name message: {}",
+            err
+        );
     }
 
     fn sample_gp_record_json() -> &'static str {

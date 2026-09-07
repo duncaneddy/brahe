@@ -98,6 +98,22 @@ def test_frame_celestial_constructor():
     assert str(gcrf) == "GCRF"
 
 
+def test_referenceframe_celestial_getter():
+    mci = bh.ReferenceFrame.celestial(bh.CelestialFrame.MCI)
+    assert mci.celestial_frame == bh.CelestialFrame.MCI
+    assert mci.celestial_frame.axes == bh.FrameAxes.ICRF
+    assert mci.celestial_frame.center == bh.NAIFId.MARS
+
+    centered = bh.ReferenceFrame.celestial(
+        bh.CelestialFrame.Centered(bh.FrameAxes.EME2000, bh.NAIFId.MARS)
+    )
+    assert centered.celestial_frame.axes == bh.FrameAxes.EME2000
+    assert centered.celestial_frame.center == bh.NAIFId.MARS
+
+    assert bh.ReferenceFrame.RTN("SC").celestial_frame is None
+    assert bh.ReferenceFrame.SC_BODY("SC").celestial_frame is None
+
+
 def test_body_frame_display_all_variants():
     cases = [
         (bh.BodyFrame.ACC("1"), "ACC_1"),

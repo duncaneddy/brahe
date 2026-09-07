@@ -316,7 +316,11 @@ pub enum CelestialFrame {
     /// as [`CelestialFrame::SER`] and [`CelestialFrame::GSE`], and
     /// `centered` returns the named frame for both, so those two generic
     /// literals do not survive a `centered(f.axes(), f.center())` round
-    /// trip.
+    /// trip. [`CelestialFrame::BodyCenteredICRF`] behaves the same way at
+    /// the centers that have named ICRF frames: `BodyCenteredICRF(399)`,
+    /// `(301)`, `(499)`, `(3)` and `(0)` are non-canonical spellings of
+    /// `GCRF`, `LCI`, `MCI`, `EMBI` and `SSBI`, and `centered` returns the
+    /// named frame for them.
     Centered {
         /// Orientation of the frame's axes.
         axes: FrameAxes,
@@ -454,10 +458,15 @@ impl CelestialFrame {
     /// `centered(FrameAxes::EME2000, 399)` is [`CelestialFrame::EME2000`]
     /// and `centered(FrameAxes::ICRF, 301)` is [`CelestialFrame::LCI`]),
     /// and [`CelestialFrame::Centered`] otherwise.
-    /// `centered(f.axes(), f.center()) == f` holds for every frame the
-    /// library produces. Where a named frame and a generic frame describe
-    /// the same pair (`SER` and `Synodic { Barycenter, 10, 399 }`, `GSE`
-    /// and `Synodic { Primary, 399, 10 }`), the named form is returned.
+    /// `centered(f.axes(), f.center()) == f` holds for every canonical frame
+    /// value. `BodyCenteredICRF(399 | 301 | 499 | 3 | 0)` written as a literal
+    /// is a non-canonical spelling of [`CelestialFrame::GCRF`],
+    /// [`CelestialFrame::LCI`], [`CelestialFrame::MCI`],
+    /// [`CelestialFrame::EMBI`] and [`CelestialFrame::SSBI`], and `centered`
+    /// returns the named frame for those centers. Where a named frame and a
+    /// generic frame describe the same pair (`SER` and
+    /// `Synodic { Barycenter, 10, 399 }`, `GSE` and
+    /// `Synodic { Primary, 399, 10 }`), the named form is returned.
     ///
     /// [`FrameAxes::EMR`], [`FrameAxes::SER`] and [`FrameAxes::GSE`] are
     /// the same orientations as their generic synodic pairs, so they are
@@ -1481,19 +1490,21 @@ mod tests {
     use serial_test::{parallel, serial};
 
     use super::*;
-    use crate::constants::{DEGREES, R_EARTH};
+    use crate::constants::{DEGREES, OMEGA_EARTH, R_EARTH};
     use crate::coordinates::state_koe_to_eci;
     use crate::frames::object_registry::FnProvider;
     use crate::frames::{
-        clear_object_registry, register_object, rotation_eme2000_to_gcrf, rotation_gcrf_to_mod,
-        rotation_gcrf_to_tod, rotation_mod_to_tod, rotation_tod_to_itrf, state_eme2000_to_gcrf,
-        state_gcrf_to_mod, state_gcrf_to_tod, state_itrf_to_gcrf, state_mod_to_gcrf,
-        state_tod_to_gcrf, state_tod_to_itrf,
+        clear_object_registry, polar_motion, register_object, rotation_eme2000_to_gcrf,
+        rotation_gcrf_to_mod, rotation_gcrf_to_tod, rotation_mod_to_tod, rotation_tod_to_itrf,
+        state_eme2000_to_gcrf, state_gcrf_to_mod, state_gcrf_to_tod, state_itrf_to_gcrf,
+        state_mod_to_gcrf, state_tod_to_gcrf, state_tod_to_itrf,
     };
     use crate::math::vector6_from_array;
     use crate::spice::spk_state;
     use crate::time::TimeSystem;
-    use crate::utils::testing::{setup_global_test_eop, setup_global_test_spice};
+    use crate::utils::testing::{
+        setup_global_test_eop, setup_global_test_spice, without_spice_kernels,
+    };
 
     #[test]
     #[serial] // EOP global
@@ -2995,23 +3006,58 @@ mod tests {
     }
 
     #[test]
-    #[serial] // EOP global
+    #[serial] // EOP + SPICE globals
     fn test_centered_same_center_is_rotation_only() {
         setup_global_test_eop();
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let mars_eme = CelestialFrame::centered(FrameAxes::EME2000, 499);
-        let r = rotation_frame_to_frame(mars_eme, CelestialFrame::MCI, epc).unwrap();
-        let expected = rotation_eme2000_to_gcrf();
-        for i in 0..3 {
-            for j in 0..3 {
-                assert_eq!(r[(i, j)], expected[(i, j)]);
+        // With no kernel loaded a same-center conversion must still succeed,
+        // which is only true if it never consults the ephemeris.
+        without_spice_kernels(|| {
+            let r = rotation_frame_to_frame(mars_eme, CelestialFrame::MCI, epc).unwrap();
+            let expected = rotation_eme2000_to_gcrf();
+            for i in 0..3 {
+                for j in 0..3 {
+                    assert_eq!(r[(i, j)], expected[(i, j)]);
+                }
             }
-        }
+            let x = SVector6::new(4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3);
+            let x_mci = state_frame_to_frame(mars_eme, CelestialFrame::MCI, epc, x).unwrap();
+            let back = state_frame_to_frame(CelestialFrame::MCI, mars_eme, epc, x_mci).unwrap();
+            for k in 0..6 {
+                assert_abs_diff_eq!(back[k], x[k], epsilon = 1e-6);
+            }
+        });
+    }
+
+    #[test]
+    #[serial] // EOP global
+    fn test_centered_rotating_axes_matches_explicit_kinematics() {
+        setup_global_test_eop();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let mars_itrf = CelestialFrame::centered(FrameAxes::ITRF, 499);
         let x = SVector6::new(4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3);
-        let x_mci = state_frame_to_frame(mars_eme, CelestialFrame::MCI, epc, x).unwrap();
-        let back = state_frame_to_frame(CelestialFrame::MCI, mars_eme, epc, x_mci).unwrap();
-        for k in 0..6 {
-            assert_abs_diff_eq!(back[k], x[k], epsilon = 1e-6);
+
+        // Independent oracle: the ITRF axes turn about the Celestial
+        // Intermediate Pole at OMEGA_EARTH, and polar motion carries that
+        // vector into the ITRF, so the ITRF-axes angular velocity is
+        // `pm * (0, 0, OMEGA_EARTH)`. Inverting the rigid-rotation kinematics
+        // gives `p = R^T p_itrf` and `v = R^T (v_itrf + omega_b x p_itrf)`.
+        let r_mat = rotation_gcrf_to_itrf(epc);
+        let omega_b = polar_motion(epc) * Vector3::new(0.0, 0.0, OMEGA_EARTH);
+        let p_itrf = Vector3::new(x[0], x[1], x[2]);
+        let v_itrf = Vector3::new(x[3], x[4], x[5]);
+        let p_expected = r_mat.transpose() * p_itrf;
+        let v_expected = r_mat.transpose() * (v_itrf + omega_b.cross(&p_itrf));
+
+        // Both frames are centered on Mars, so the conversion is the ITRF
+        // axes' rigid rotation alone and needs no ephemeris.
+        let x_mci = without_spice_kernels(|| {
+            state_frame_to_frame(mars_itrf, CelestialFrame::MCI, epc, x).unwrap()
+        });
+        for k in 0..3 {
+            assert_abs_diff_eq!(x_mci[k], p_expected[k], epsilon = 1e-9);
+            assert_abs_diff_eq!(x_mci[3 + k], v_expected[k], epsilon = 1e-12);
         }
     }
 

@@ -28,11 +28,11 @@ traj = oem.to_trajectories()[0]
 print(f"\nTrajectory frame: {traj.frame}")
 
 # The trajectory's native frame is a CelestialFrame naming the (axes, center)
-# pair; axes and center split it back into its two halves.
-native_frame = bh.CelestialFrame.Centered(bh.FrameAxes.EME2000, bh.NAIFId.MARS)
-assert traj.frame == native_frame
+# pair; celestial_frame unwraps the ReferenceFrame and axes and center split
+# the result back into its two halves.
+native_frame = traj.frame.celestial_frame
 print(f"  Axes:   {native_frame.axes}")
-print(f"  Center: {native_frame.center!r}")
+print(f"  Center: {native_frame.center.naif_name}")
 
 # Same-center conversion: EME2000 to MCI is a rotation only, both centered on
 # Mars.

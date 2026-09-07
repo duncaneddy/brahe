@@ -352,6 +352,19 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
+    fn test_opm_state_in_frame_unknown_center_errors() {
+        let mut opm = OPM::from_file("test_assets/ccsds/opm/OPMExample2.txt").unwrap();
+        opm.metadata.center_name = "PLANET X".to_string();
+        let err = opm.state_in_frame(CelestialFrame::GCRF).unwrap_err();
+        assert!(
+            err.to_string().contains("PLANET X"),
+            "unexpected center-name message: {}",
+            err
+        );
+    }
+
+    #[test]
     #[serial]
     fn test_opm_state_in_frame_moon_center() {
         setup_global_test_eop();
@@ -391,7 +404,7 @@ mod tests {
         let (frame, frozen) = odm_native_frame(
             &opm.metadata.ref_frame,
             opm.metadata.ref_frame_epoch,
-            "SOLAR SYSTEM BARYCENTER",
+            &opm.metadata.center_name,
         )
         .unwrap();
         assert_eq!(frame, CelestialFrame::SSBI);

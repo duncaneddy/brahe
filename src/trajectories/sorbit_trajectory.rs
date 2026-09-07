@@ -68,8 +68,8 @@ use crate::utils::{BraheError, Identifiable};
 use super::traits::{
     CovarianceInterpolationMethod, InterpolatableTrajectory, InterpolationConfig,
     InterpolationMethod, OrbitRepresentation, OrbitalTrajectory, Trajectory,
-    TrajectoryEvictionPolicy, bci_fixed_frame, covariance_frame_allowed, is_icrf_axes_frame,
-    keplerian_center,
+    TrajectoryEvictionPolicy, bci_fixed_frame, covariance_frame_allowed, is_eme2000_axes_frame,
+    is_icrf_axes_frame, keplerian_center,
 };
 
 /// Static (compile-time sized) orbital trajectory container.
@@ -2126,7 +2126,7 @@ impl SOrbitCovarianceProvider for SOrbitTrajectory {
         // Get covariance in native frame
         let cov_native = self.covariance(epoch)?;
 
-        if self.frame == CelestialFrame::EME2000 {
+        if is_eme2000_axes_frame(&self.frame) {
             // We just construct a block diagonal rotation matrix using the
             // EME2000 to GCRF rotation matrix
             let rot_eme2000_to_gcrf = rotation_eme2000_to_gcrf();

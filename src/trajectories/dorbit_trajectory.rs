@@ -142,8 +142,8 @@ fn smat66_to_dmat(sm: SMatrix<f64, 6, 6>) -> DMatrix<f64> {
 use super::traits::{
     CovarianceInterpolationMethod, InterpolatableTrajectory, InterpolationConfig,
     InterpolationMethod, OrbitRepresentation, STMStorage, SensitivityStorage, Trajectory,
-    TrajectoryEvictionPolicy, bci_fixed_frame, covariance_frame_allowed, is_icrf_axes_frame,
-    keplerian_center,
+    TrajectoryEvictionPolicy, bci_fixed_frame, covariance_frame_allowed, is_eme2000_axes_frame,
+    is_icrf_axes_frame, keplerian_center,
 };
 
 /// Dynamic (runtime-sized) orbital trajectory container.
@@ -2514,7 +2514,7 @@ impl DOrbitCovarianceProvider for DOrbitTrajectory {
         let cov_native = self.covariance(epoch)?;
         let dim = cov_native.nrows();
 
-        if self.frame == CelestialFrame::EME2000 {
+        if is_eme2000_axes_frame(&self.frame) {
             // Apply frame bias rotation to first 6x6 block only
             let rot = rotation_eme2000_to_gcrf();
 

@@ -30,34 +30,20 @@ use brahe::ccsds::frames::ADMReferenceFrame;
 use brahe::ccsds::oem::{OEM as RustOEM, OEMMetadata, OEMSegment, OEMStateVector};
 use brahe::ccsds::omm::OMM as RustOMM;
 use brahe::ccsds::opm::{OPM as RustOPM, OPMManeuver};
-use brahe::ccsds::interop::odm_native_frame;
-use brahe::frames::{CelestialFrame, state_frame_to_frame};
+use brahe::ccsds::interop::{segment_native_frame, state_for_segment};
 use brahe::math::SVector6;
 use brahe::trajectories::DOrbitTrajectory;
 
 /// State a trajectory writes into an OEM segment at `epoch`, in the units and
 /// axes the segment's own metadata declares.
-///
-/// `REF_FRAME` names the axes and `CENTER_NAME` names the origin, resolved by
-/// `odm_native_frame` so the segment reads back in the frame it was written
-/// from. A segment declaring `REF_FRAME = TOD` with a `REF_FRAME_EPOCH` stores
-/// its states in the true-of-date axes frozen at that epoch, which the reader
-/// converts from `TOD` at the frame epoch, so writing applies the inverse.
 fn trajectory_state_for_segment(
     metadata: &OEMMetadata,
     traj: &DOrbitTrajectory,
     epoch: &brahe::time::Epoch,
 ) -> Result<SVector6, brahe::utils::BraheError> {
-    let (native, frozen_epoch) = odm_native_frame(
-        &metadata.ref_frame,
-        metadata.ref_frame_epoch,
-        &metadata.center_name,
-    )?;
+    let (native, _) = segment_native_frame(metadata)?;
     let state = traj.state_in_frame(native, *epoch)?;
-    match frozen_epoch {
-        Some(epc) => state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::TOD, epc, state),
-        None => Ok(state),
-    }
+    state_for_segment(metadata, state)
 }
 
 /// Push all states from a trajectory into an OEM segment, converting to the

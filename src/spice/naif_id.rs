@@ -140,6 +140,15 @@ const NAMED: &[(NAIFId, i32, &str)] = &[
     (NAIFId::Charon, 901, "CHARON"),
 ];
 
+/// Alternate spellings accepted by [`NAIFId::from_name`], paired with the
+/// variant they resolve to. These are alias inputs only; [`NAIFId::name`]
+/// always returns the canonical spelling from `NAMED`.
+const ALIASES: &[(&str, NAIFId)] = &[
+    ("SSB", NAIFId::SolarSystemBarycenter),
+    ("EMB", NAIFId::EarthMoonBarycenter),
+    ("EARTH BARYCENTER", NAIFId::EarthMoonBarycenter),
+];
+
 impl NAIFId {
     /// The raw NAIF integer ID code.
     ///
@@ -226,14 +235,17 @@ impl NAIFId {
     /// Resolves a NAIF body name or integer ID string to a [`NAIFId`].
     ///
     /// Matching is case-insensitive and trims surrounding whitespace;
-    /// underscores are treated as spaces (so `"EARTH_MOON_BARYCENTER"`
-    /// matches `"EARTH MOON BARYCENTER"`). A string that does not match a
-    /// known name is parsed as an integer NAIF ID; if that also fails, an
-    /// error is returned.
+    /// underscores are treated as spaces and runs of whitespace collapse to a
+    /// single space (so `"EARTH_MOON_BARYCENTER"` and
+    /// `"EARTH   MOON   BARYCENTER"` both match `"EARTH MOON BARYCENTER"`).
+    /// The abbreviations `"SSB"`, `"EMB"`, and `"EARTH BARYCENTER"` are
+    /// accepted as aliases for the solar system and Earth-Moon barycenters. A
+    /// string that does not match a known name or alias is parsed as an
+    /// integer NAIF ID; if that also fails, an error is returned.
     ///
     /// # Arguments
-    /// - `name`: A NAIF body name (e.g. `"MARS BARYCENTER"`) or an integer
-    ///   NAIF ID string (e.g. `"2000001"`)
+    /// - `name`: A NAIF body name (e.g. `"MARS BARYCENTER"`), an accepted
+    ///   alias (e.g. `"SSB"`), or an integer NAIF ID string (e.g. `"2000001"`)
     ///
     /// # Returns
     /// - The matching [`NAIFId`], or a [`BraheError::Error`] if `name` is
@@ -247,13 +259,23 @@ impl NAIFId {
     ///     NAIFId::from_name("mars barycenter").unwrap(),
     ///     NAIFId::MarsBarycenter
     /// );
+    /// assert_eq!(NAIFId::from_name("SSB").unwrap(), NAIFId::SolarSystemBarycenter);
+    /// assert_eq!(NAIFId::from_name("emb").unwrap(), NAIFId::EarthMoonBarycenter);
     /// assert_eq!(NAIFId::from_name("2000001").unwrap(), NAIFId::Id(2000001));
     /// assert!(NAIFId::from_name("not a body").is_err());
     /// ```
     pub fn from_name(name: &str) -> Result<NAIFId, BraheError> {
         let trimmed = name.trim();
-        let normalized = trimmed.to_uppercase().replace('_', " ");
+        let normalized = trimmed
+            .to_uppercase()
+            .replace('_', " ")
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
         if let Some((variant, _, _)) = NAMED.iter().find(|(_, _, n)| *n == normalized) {
+            return Ok(*variant);
+        }
+        if let Some((_, variant)) = ALIASES.iter().find(|(alias, _)| *alias == normalized) {
             return Ok(*variant);
         }
         if let Ok(raw) = normalized.parse::<i32>() {
@@ -508,6 +530,42 @@ mod tests {
         let err = NAIFId::from_name("PLANET X").unwrap_err();
         assert!(err.to_string().contains("PLANET X"));
         assert_eq!(format!("{}", NAIFId::Moon), "MOON");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_naifid_from_name_aliases() {
+        assert_eq!(
+            NAIFId::from_name("SSB").unwrap(),
+            NAIFId::SolarSystemBarycenter
+        );
+        assert_eq!(
+            NAIFId::from_name(" ssb ").unwrap(),
+            NAIFId::SolarSystemBarycenter
+        );
+        assert_eq!(
+            NAIFId::from_name("emb").unwrap(),
+            NAIFId::EarthMoonBarycenter
+        );
+        assert_eq!(
+            NAIFId::from_name("EARTH         BARYCENTER").unwrap(),
+            NAIFId::EarthMoonBarycenter
+        );
+        assert_eq!(
+            NAIFId::from_name("Mars_Barycenter").unwrap(),
+            NAIFId::MarsBarycenter
+        );
+        assert_eq!(
+            NAIFId::from_name("EARTH\tMOON\nBARYCENTER").unwrap(),
+            NAIFId::EarthMoonBarycenter
+        );
+        // Aliases are input spellings only; `name` stays canonical.
+        assert_eq!(
+            NAIFId::SolarSystemBarycenter.name(),
+            "SOLAR SYSTEM BARYCENTER"
+        );
+        assert_eq!(NAIFId::EarthMoonBarycenter.name(), "EARTH MOON BARYCENTER");
+        assert_eq!(NAIFId::MarsBarycenter.name(), "MARS BARYCENTER");
     }
 
     #[test]

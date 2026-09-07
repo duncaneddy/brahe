@@ -2158,8 +2158,10 @@ def test_router_centered_frame_rotation_and_state_round_trip(eop):
     np.testing.assert_allclose(x_back, x, atol=1e-6)
 
 
-def test_centered_same_center_is_rotation_only(eop):
+def test_centered_same_center_is_rotation_only(eop, no_spice_kernels):
     """Rust: test_centered_same_center_is_rotation_only"""
+    # With no kernel loaded a same-center conversion must still succeed, which
+    # is only true if it never consults the ephemeris.
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     mars_eme = brahe.CelestialFrame.Centered(brahe.FrameAxes.EME2000, 499)
     r = brahe.rotation_frame_to_frame(mars_eme, brahe.CelestialFrame.MCI, epc)
@@ -2169,6 +2171,29 @@ def test_centered_same_center_is_rotation_only(eop):
     x_mci = brahe.state_frame_to_frame(mars_eme, brahe.CelestialFrame.MCI, epc, x)
     back = brahe.state_frame_to_frame(brahe.CelestialFrame.MCI, mars_eme, epc, x_mci)
     np.testing.assert_allclose(back, x, atol=1e-6)
+
+
+def test_centered_rotating_axes_matches_explicit_kinematics(eop, no_spice_kernels):
+    """Rust: test_centered_rotating_axes_matches_explicit_kinematics"""
+    # Both frames are centered on Mars, so the conversion is the ITRF axes'
+    # rigid rotation alone and needs no ephemeris.
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    mars_itrf = brahe.CelestialFrame.Centered(brahe.FrameAxes.ITRF, 499)
+    x = np.array([4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3])
+
+    # Independent oracle: the ITRF axes turn about the Celestial Intermediate
+    # Pole at OMEGA_EARTH, and polar motion carries that vector into the ITRF,
+    # so the ITRF-axes angular velocity is `pm @ [0, 0, OMEGA_EARTH]`.
+    # Inverting the rigid-rotation kinematics gives `p = R.T @ p_itrf` and
+    # `v = R.T @ (v_itrf + omega_b x p_itrf)`.
+    r_mat = brahe.rotation_gcrf_to_itrf(epc)
+    omega_b = brahe.polar_motion(epc) @ np.array([0.0, 0.0, brahe.OMEGA_EARTH])
+    p_expected = r_mat.T @ x[:3]
+    v_expected = r_mat.T @ (x[3:] + np.cross(omega_b, x[:3]))
+
+    x_mci = brahe.state_frame_to_frame(mars_itrf, brahe.CelestialFrame.MCI, epc, x)
+    np.testing.assert_allclose(x_mci[:3], p_expected, atol=1e-9)
+    np.testing.assert_allclose(x_mci[3:], v_expected, atol=1e-12)
 
 
 def test_centered_cross_center_matches_rotate_then_translate(eop, naif_cache_setup):

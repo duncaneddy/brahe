@@ -1541,8 +1541,8 @@ def test_oem_to_trajectories_multi_segment(eop):
 def test_odm_native_frame_center_names(eop):
     """Mirror of test_odm_native_frame_center_names in Rust.
 
-    `odm_native_frame` is crate-private, so the joint CENTER_NAME/REF_FRAME
-    resolution is exercised through `OEM.from_file`.
+    `odm_native_frame` has no Python binding, so the joint
+    CENTER_NAME/REF_FRAME resolution is exercised through `OEM.from_file`.
     """
     mars = OEM.from_file("test_assets/ccsds/oem/OEMExample4.txt")
     assert mars.segments[0].center_name == "MARS"
@@ -1559,6 +1559,18 @@ def test_odm_native_frame_center_names(eop):
     earth = OEM.from_file("test_assets/ccsds/oem/test.oem")
     assert earth.segments[0].center_name == "EARTH"
     assert earth.to_trajectories()[0].frame == brahe.CelestialFrame.TOD
+
+    # Center names are matched case-insensitively.
+    lowercase = OEM.from_file("test_assets/ccsds/oem/test.oem")
+    lowercase.segments[0].center_name = "earth"
+    assert lowercase.to_trajectories()[0].frame == brahe.CelestialFrame.TOD
+
+    # A numeric center name resolves to the same NAIF ID as its body name.
+    numeric = OEM.from_file("test_assets/ccsds/oem/OEMExample4.txt")
+    numeric.segments[0].center_name = "499"
+    assert numeric.to_trajectories()[0].frame == brahe.CelestialFrame.Centered(
+        brahe.FrameAxes.EME2000, 499
+    )
 
     unknown = OEM.from_file("test_assets/ccsds/oem/test.oem")
     unknown.segments[0].center_name = "PLANET X"

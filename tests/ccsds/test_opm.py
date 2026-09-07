@@ -964,17 +964,32 @@ def test_opm_state_in_frame_moon_center(eop, naif_cache_setup):
     assert np.linalg.norm(x_gcrf[:3] - x_lci[:3]) > 3.0e8
 
 
+def test_opm_state_in_frame_unknown_center_errors(eop):
+    """Mirror of test_opm_state_in_frame_unknown_center_errors in Rust."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2.txt")
+    opm.center_name = "PLANET X"
+    with pytest.raises(brahe.BraheError, match="PLANET X"):
+        opm.state_in_frame(brahe.CelestialFrame.GCRF)
+
+
 def test_opm_icrf_ref_frame_resolves(eop):
     """Mirror of test_opm_icrf_ref_frame_resolves in Rust."""
     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample8.txt")
     assert opm.ref_frame == "ICRF"
     assert opm.center_name == "SSB"
 
-    # ICRF and GCRF name the same orientation, so an ICRF message about Earth
-    # is already GCRF and the center chooses the origin.
-    opm.center_name = "EARTH"
-    x_gcrf = opm.state_in_frame(brahe.CelestialFrame.GCRF)
-    np.testing.assert_allclose(x_gcrf, opm.state, atol=1e-6)
+    # ICRF and GCRF name the same orientation, so both tokens resolve to the
+    # ICRF axes and the center chooses the origin. CENTER_NAME = SSB resolves
+    # through NAIFId.from_name to the solar system barycenter, making the
+    # native frame SSBI.
+    x_ssbi = opm.state_in_frame(brahe.CelestialFrame.SSBI)
+    np.testing.assert_allclose(x_ssbi, opm.state, atol=1e-9)
+
+    # An ICRF message centered on Earth resolves to GCRF instead.
+    opm_earth = OPM.from_file("test_assets/ccsds/opm/OPMExample8.txt")
+    opm_earth.center_name = "EARTH"
+    x_gcrf = opm_earth.state_in_frame(brahe.CelestialFrame.GCRF)
+    np.testing.assert_allclose(x_gcrf, opm_earth.state, atol=1e-9)
 
     # The token survives a round trip through the writer.
     assert "ICRF" in opm.to_string("kvn")

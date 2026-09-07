@@ -93,6 +93,8 @@ The lunar PCK auto-load is a narrow exception to the general SPICE registry rule
 
 This split matters because most named frames only cover one origin: `EME2000`, `MOD`, `TOD`, and `ITRF` are welded to Earth, `MCI`/`MCMF` to Mars, and so on. `Centered` lifts that restriction, pairing any orientation with any NAIF center. The CCSDS Orbit Data Message formats need exactly this: a message's `REF_FRAME` names the orientation and its `CENTER_NAME` names the origin independently, so an OEM with `REF_FRAME = EME2000` and `CENTER_NAME = MARS` is EME2000 orientation about Mars, not about Earth. Brahe resolves that pair to `CelestialFrame::Centered(EME2000, MARS)`; see [OEM](../ccsds/oem.md) and [OPM](../ccsds/opm.md) for the full mapping.
 
+In Python a trajectory's `frame` attribute is a `ReferenceFrame`, and its `celestial_frame` attribute gives the underlying `CelestialFrame` whose `axes` and `center` split it into its two halves.
+
 Converting between two frames that share a center is a rotation only and never touches an SPK kernel; converting between frames centered on different bodies also translates by the vector between those centers, resolved through the loaded ephemeris exactly as any other cross-center router call. The example below loads an OEM whose `CENTER_NAME` is Mars, converts a sample to `MCI` (same center, rotation only) and to `GCRF` (different center, needs the `de440s` kernel loaded below):
 
 === "Python"

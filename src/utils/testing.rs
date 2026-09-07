@@ -329,6 +329,33 @@ pub(crate) fn setup_global_test_gravity_model() {
     set_global_gravity_model(gravity_model);
 }
 
+/// Runs `f` with the global SPICE registry emptied, then restores the kernels
+/// that were loaded before the call.
+///
+/// Use this to prove that a code path consults no ephemeris: any SPK or PCK
+/// query inside `f` fails instead of silently succeeding on a kernel another
+/// test left resident. Restoring afterwards matters because several auto-load
+/// paths latch on first use and never re-detect a cleared registry.
+///
+/// # Arguments
+/// - `f`: Body to run with no kernels loaded
+///
+/// # Returns
+/// - The value `f` returns
+///
+/// # Panics
+/// Panics if a kernel that was loaded before the call cannot be reloaded.
+pub(crate) fn without_spice_kernels<T>(f: impl FnOnce() -> T) -> T {
+    let loaded = crate::spice::loaded_spice_kernels();
+    crate::spice::clear_spice_kernels();
+    let result = f();
+    for kernel in loaded {
+        crate::spice::load_spice_kernel(kernel.as_str())
+            .expect("Failed to restore a previously loaded SPICE kernel");
+    }
+    result
+}
+
 /// Initialize the global SPICE kernel registry with the DE440s test asset.
 ///
 /// Copies `test_assets/de440s.bsp` into the NAIF cache directory (if present)

@@ -110,8 +110,8 @@ catch-all is `NAIFId::Id(i32)`.
 string to the matching `NAIFId` member, falling back to the plain integer
 when the ID has no member; `naif_name` is the reverse, returning the NAIF
 body name (e.g. `"MARS BARYCENTER"`) of any member. `CelestialFrame.center`
-and the CCSDS `CENTER_NAME` mapping use these to move between a frame's
-origin and its name.
+returns the `NAIFId` at a frame's origin, and reading a CCSDS message
+resolves its `CENTER_NAME` field with `NAIFId.from_name`.
 
 ## FrameId
 

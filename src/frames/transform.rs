@@ -1818,6 +1818,15 @@ mod tests {
         );
         assert_eq!(CelestialFrame::TEME.to_string(), "TEME");
         assert_eq!(CelestialFrame::TEME.center_naif_id(), 399);
+        assert_eq!(CelestialFrame::TEME.axes(), FrameAxes::TEME);
+        assert_eq!(
+            CelestialFrame::TEME.center(),
+            FrameCenter::Body(NAIFId::Earth)
+        );
+        assert_eq!(
+            CelestialFrame::centered(NAIFId::Earth, FrameAxes::TEME),
+            CelestialFrame::TEME
+        );
         let json = serde_json::to_string(&CelestialFrame::TEME).unwrap();
         assert_eq!(
             serde_json::from_str::<CelestialFrame>(&json).unwrap(),
@@ -3119,6 +3128,7 @@ mod tests {
             CelestialFrame::EME2000,
             CelestialFrame::MOD,
             CelestialFrame::TOD,
+            CelestialFrame::TEME,
             CelestialFrame::LCI,
             CelestialFrame::LFPA,
             CelestialFrame::LFME,
@@ -3176,6 +3186,7 @@ mod tests {
             FrameAxes::EME2000,
             FrameAxes::MOD,
             FrameAxes::TOD,
+            FrameAxes::TEME,
             FrameAxes::ITRF,
             FrameAxes::LunarPA,
             FrameAxes::LunarME,
@@ -3242,6 +3253,7 @@ mod tests {
             (FrameAxes::EME2000, FrameAxes::EME2000),
             (FrameAxes::MOD, FrameAxes::MOD),
             (FrameAxes::TOD, FrameAxes::TOD),
+            (FrameAxes::TEME, FrameAxes::TEME),
             (FrameAxes::ITRF, FrameAxes::ITRF),
             (FrameAxes::LunarPA, FrameAxes::LunarPA),
             (FrameAxes::LunarME, FrameAxes::LunarME),

@@ -140,7 +140,7 @@ pub struct SOrbitTrajectory {
 
     /// State representation (Cartesian or Keplerian).
     /// Keplerian elements require a celestial frame whose axes are `ICRF`,
-    /// `EME2000`, `MOD`, or `TOD`, at any center.
+    /// `EME2000`, `MOD`, `TOD`, or `TEME`, at any center.
     /// Cartesian states may be declared in any frame.
     pub representation: OrbitRepresentation,
 
@@ -2278,7 +2278,8 @@ mod tests {
     use crate::coordinates::{state_eci_to_koe, state_koe_to_eci};
     use crate::frames::{
         state_ecef_to_eci, state_eci_to_ecef, state_eme2000_to_gcrf, state_gcrf_to_eme2000,
-        state_gcrf_to_itrf, state_gcrf_to_mod, state_gcrf_to_tod, state_itrf_to_gcrf,
+        state_gcrf_to_itrf, state_gcrf_to_mod, state_gcrf_to_teme, state_gcrf_to_tod,
+        state_itrf_to_gcrf,
     };
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
@@ -4230,9 +4231,10 @@ mod tests {
         let x_gcrf = state_koe_to_eci(oe_gcrf, AngleFormat::Degrees);
 
         type Rotate = fn(Epoch, Vector6<f64>) -> Vector6<f64>;
-        let cases: [(CelestialFrame, Rotate); 2] = [
+        let cases: [(CelestialFrame, Rotate); 3] = [
             (CelestialFrame::TOD, state_gcrf_to_tod),
             (CelestialFrame::MOD, state_gcrf_to_mod),
+            (CelestialFrame::TEME, state_gcrf_to_teme),
         ];
 
         for (frame, rotate) in cases {
@@ -8077,6 +8079,14 @@ mod tests {
         assert!(
             SOrbitTrajectory::new(
                 CelestialFrame::MOD,
+                OrbitRepresentation::Keplerian,
+                Some(DEGREES)
+            )
+            .is_ok()
+        );
+        assert!(
+            SOrbitTrajectory::new(
+                CelestialFrame::TEME,
                 OrbitRepresentation::Keplerian,
                 Some(DEGREES)
             )

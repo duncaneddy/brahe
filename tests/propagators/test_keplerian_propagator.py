@@ -24,6 +24,7 @@ from brahe import (
     state_eme2000_to_gcrf,
     state_gcrf_to_eme2000,
     state_gcrf_to_mod,
+    state_gcrf_to_teme,
     state_gcrf_to_tod,
     state_itrf_to_gcrf,
     state_koe_to_eci,
@@ -198,6 +199,7 @@ def test_keplerianpropagator_keplerian_elements_in_of_date_frames(eop):
     for frame, rotate in (
         (CelestialFrame.TOD, state_gcrf_to_tod),
         (CelestialFrame.MOD, state_gcrf_to_mod),
+        (CelestialFrame.TEME, state_gcrf_to_teme),
     ):
         oe_frame = state_eci_to_koe(rotate(epoch, x_gcrf), AngleFormat.DEGREES)
         of_date = KeplerianPropagator(

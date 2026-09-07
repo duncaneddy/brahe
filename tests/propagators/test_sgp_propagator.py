@@ -296,6 +296,7 @@ class TestSGPPropagatorMethods:
         for frame, rotate in (
             (brahe.CelestialFrame.TOD, brahe.state_gcrf_to_tod),
             (brahe.CelestialFrame.MOD, brahe.state_gcrf_to_mod),
+            (brahe.CelestialFrame.TEME, brahe.state_gcrf_to_teme),
         ):
             of_date = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
             of_date.set_output_format(

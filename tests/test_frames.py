@@ -1983,6 +1983,13 @@ def test_router_teme_matches_pairwise(eop):
     )
     assert brahe.CelestialFrame.from_string("teme") == brahe.CelestialFrame.TEME
     assert str(brahe.CelestialFrame.TEME) == "TEME"
+    assert brahe.CelestialFrame.TEME.axes == brahe.FrameAxes.TEME
+    assert brahe.CelestialFrame.TEME.center == brahe.NAIFId.EARTH
+    assert (
+        brahe.CelestialFrame.Centered(brahe.NAIFId.EARTH, brahe.FrameAxes.TEME)
+        == brahe.CelestialFrame.TEME
+    )
+    assert brahe.FrameAxes.from_string("TEME") == brahe.FrameAxes.TEME
 
 
 def test_greenwich_mean_sidereal_rotation_is_r3_of_gmst82(eop):
@@ -2061,6 +2068,7 @@ def test_frameaxes_display_from_str():
         brahe.FrameAxes.EME2000,
         brahe.FrameAxes.MOD,
         brahe.FrameAxes.TOD,
+        brahe.FrameAxes.TEME,
         brahe.FrameAxes.ITRF,
         brahe.FrameAxes.LunarPA,
         brahe.FrameAxes.LunarME,

@@ -120,7 +120,7 @@ fn svec6_to_dvec(sv: &Vector6<f64>) -> DVector<f64> {
 /// - Keplerian representation is requested without `angle_format`
 /// - Keplerian representation is requested outside the frames that admit
 ///   orbital elements (`GCRF` or another ICRF-aligned Earth-centered frame,
-///   `EME2000`, `MOD`, `TOD`)
+///   `EME2000`, `MOD`, `TOD`, `TEME`)
 /// - Cartesian representation is given with `angle_format`
 /// - The frame is not Earth-centered (Earth-only propagator), or cannot be
 ///   resolved because it is unbound or unregistered
@@ -1466,7 +1466,7 @@ impl SGPPropagator {
     /// registered object. Keplerian output additionally requires an angle
     /// format and an Earth equatorial frame that admits orbital elements:
     /// `GCRF` (or another ICRF-aligned Earth-centered frame), `EME2000`, `MOD`,
-    /// or `TOD`.
+    /// `TOD`, or `TEME`.
     ///
     /// # Arguments
     /// - `frame`: Target reference frame, which must be Earth-centered
@@ -1477,7 +1477,7 @@ impl SGPPropagator {
     /// Self for method chaining, or an error if:
     /// - Keplerian representation is requested without angle_format
     /// - Keplerian representation is requested outside `GCRF`, `EME2000`, `MOD`,
-    ///   or `TOD`
+    ///   `TOD`, or `TEME`
     /// - Cartesian representation is given with angle_format
     /// - The frame is not Earth-centered (Earth-only propagator), or cannot be
     ///   resolved because it is unbound or unregistered
@@ -2598,8 +2598,8 @@ mod tests {
     use crate::coordinates::state_eci_to_koe;
     use crate::frames::object_registry::FnProvider;
     use crate::frames::{
-        clear_object_registry, register_object, state_gcrf_to_mod, state_gcrf_to_tod,
-        state_itrf_to_tod, unregister_object,
+        clear_object_registry, register_object, state_gcrf_to_mod, state_gcrf_to_teme,
+        state_gcrf_to_tod, state_itrf_to_tod, unregister_object,
     };
     use crate::utils::testing::{setup_global_test_eop, setup_global_test_eop_original_brahe};
     use crate::{DEGREES, RADIANS};
@@ -4132,9 +4132,10 @@ mod tests {
         let x_gcrf = prop.state_gcrf(epc).unwrap();
 
         type Rotate = fn(Epoch, Vector6<f64>) -> Vector6<f64>;
-        let cases: [(CelestialFrame, Rotate); 2] = [
+        let cases: [(CelestialFrame, Rotate); 3] = [
             (CelestialFrame::TOD, state_gcrf_to_tod),
             (CelestialFrame::MOD, state_gcrf_to_mod),
+            (CelestialFrame::TEME, state_gcrf_to_teme),
         ];
 
         for (frame, rotate) in cases {

@@ -4525,8 +4525,8 @@ fn py_state_gse_to_gcrf<'py>(
 /// pair and `CelestialFrame.center` / `CelestialFrame.axes` read it back.
 ///
 /// The argument-free orientations are class attributes (`ICRF`, `EME2000`,
-/// `MOD`, `TOD`, `ITRF`, `LunarPA`, `LunarME`, `MarsFixed`, `EMR`, `SER`,
-/// `GSE`); the parameterized ones are built with `BodyFixedIAU(naif_id)`,
+/// `MOD`, `TOD`, `TEME`, `ITRF`, `LunarPA`, `LunarME`, `MarsFixed`, `EMR`,
+/// `SER`, `GSE`); the parameterized ones are built with `BodyFixedIAU(naif_id)`,
 /// `BodyFixedPCK(frame_id)`, `BodyFixedCustom(key)` and
 /// `Synodic(primary, secondary)`.
 ///
@@ -4575,6 +4575,13 @@ impl PyFrameAxes {
     #[classattr]
     fn TOD() -> Self {
         PyFrameAxes { axes: frames::FrameAxes::TOD }
+    }
+
+    /// Earth true equator and mean equinox of date, anchored to GMST 1982
+    /// (the SGP4 output frame).
+    #[classattr]
+    fn TEME() -> Self {
+        PyFrameAxes { axes: frames::FrameAxes::TEME }
     }
 
     /// Earth-fixed (ITRF): bias-precession-nutation, Earth rotation, and
@@ -4676,7 +4683,7 @@ impl PyFrameAxes {
         PyFrameAxes { axes: frames::FrameAxes::Synodic { primary, secondary } }
     }
 
-    /// Parses `FrameAxes` from its string representation (the eleven
+    /// Parses `FrameAxes` from its string representation (the twelve
     /// argument-free names, case-insensitively).
     ///
     /// The parameterized variants are not parseable from a string;

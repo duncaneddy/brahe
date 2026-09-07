@@ -23,7 +23,7 @@ use crate::utils::BraheError;
 ///
 /// [`Display`](fmt::Display) prints the variant name, with the payload in
 /// parentheses for the parameterized variants. [`FromStr`] parses the
-/// eleven argument-free names case-insensitively; the parameterized
+/// twelve argument-free names case-insensitively; the parameterized
 /// variants are constructed directly.
 ///
 /// # Examples
@@ -110,7 +110,7 @@ impl fmt::Display for FrameAxes {
 impl FromStr for FrameAxes {
     type Err = BraheError;
 
-    /// Parses the eleven argument-free axes names case-insensitively.
+    /// Parses the twelve argument-free axes names case-insensitively.
     ///
     /// The parameterized variants (`BodyFixedIAU`, `BodyFixedPCK`,
     /// `BodyFixedCustom`, `Synodic`) are not parseable from a string;

@@ -129,7 +129,7 @@ impl KeplerianPropagator {
     /// orbit-relative `RTN` frame anchored on a registered object. Keplerian
     /// elements additionally require an angle format and an Earth equatorial
     /// frame that admits orbital elements, `GCRF` (or another ICRF-aligned
-    /// Earth-centered frame), `EME2000`, `MOD`, or `TOD`, and are read about the
+    /// Earth-centered frame), `EME2000`, `MOD`, `TOD`, or `TEME`, and are read about the
     /// Earth in that frame's axes.
     ///
     /// The step size must be positive.
@@ -147,7 +147,7 @@ impl KeplerianPropagator {
     /// - Angle format is None for Keplerian representation
     /// - Keplerian elements are declared outside the frames that admit orbital
     ///   elements (`GCRF` or another ICRF-aligned Earth-centered frame,
-    ///   `EME2000`, `MOD`, `TOD`)
+    ///   `EME2000`, `MOD`, `TOD`, `TEME`)
     /// - Angle format is not None for Cartesian representation
     /// - The frame is not Earth-centered (Earth-only propagator), or cannot be
     ///   resolved because it is unbound or unregistered
@@ -314,7 +314,7 @@ impl KeplerianPropagator {
     /// used with initialization or after a reset to avoid inconsistencies.
     ///
     /// The frame, representation, and angle format must be compatible:
-    /// * Keplerian representation requires a frame that admits orbital elements (`GCRF` or another ICRF-aligned Earth-centered frame, `EME2000`, `MOD`, `TOD`) and a specified angle format (Degrees or Radians)
+    /// * Keplerian representation requires a frame that admits orbital elements (`GCRF` or another ICRF-aligned Earth-centered frame, `EME2000`, `MOD`, `TOD`, `TEME`) and a specified angle format (Degrees or Radians)
     /// * Cartesian representation accepts any Earth-centered frame, but angle format must be None
     ///
     /// # Arguments
@@ -799,8 +799,8 @@ mod tests {
     use crate::frames::object_registry::FnProvider;
     use crate::frames::{
         CelestialFrame, DStateAdapter, ReferenceFrame, clear_object_registry, register_object,
-        state_ecef_to_eci, state_eme2000_to_gcrf, state_gcrf_to_mod, state_gcrf_to_tod,
-        state_itrf_to_gcrf,
+        state_ecef_to_eci, state_eme2000_to_gcrf, state_gcrf_to_mod, state_gcrf_to_teme,
+        state_gcrf_to_tod, state_itrf_to_gcrf,
     };
     use crate::orbits::keplerian::orbital_period;
     use crate::time::{Epoch, TimeSystem};
@@ -2192,9 +2192,10 @@ mod tests {
         .unwrap();
 
         type Rotate = fn(Epoch, Vector6<f64>) -> Vector6<f64>;
-        let cases: [(CelestialFrame, Rotate); 2] = [
+        let cases: [(CelestialFrame, Rotate); 3] = [
             (CelestialFrame::TOD, state_gcrf_to_tod),
             (CelestialFrame::MOD, state_gcrf_to_mod),
+            (CelestialFrame::TEME, state_gcrf_to_teme),
         ];
 
         for (frame, rotate) in cases {

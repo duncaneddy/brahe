@@ -25,6 +25,8 @@ from brahe import (
     state_eme2000_to_gcrf,
     state_gcrf_to_eme2000,
     state_gcrf_to_itrf,
+    state_gcrf_to_mod,
+    state_gcrf_to_tod,
     state_itrf_to_gcrf,
     state_koe_to_eci,
 )
@@ -128,12 +130,13 @@ def test_keplerian_frame_rule():
             OrbitRepresentation.KEPLERIAN,
             AngleFormat.DEGREES,
         )
-    OrbitTrajectory(
-        6,
-        CelestialFrame.EME2000,
-        OrbitRepresentation.KEPLERIAN,
-        AngleFormat.DEGREES,
-    )
+    for frame in (CelestialFrame.EME2000, CelestialFrame.MOD, CelestialFrame.TOD):
+        OrbitTrajectory(
+            6,
+            frame,
+            OrbitRepresentation.KEPLERIAN,
+            AngleFormat.DEGREES,
+        )
 
 
 def test_trajectory_to_keplerian_uses_the_frame_center(eop):
@@ -167,12 +170,52 @@ def test_trajectory_to_keplerian_uses_the_frame_center(eop):
         elements, state_eci_to_koe(x_gcrf, AngleFormat.DEGREES)
     )
 
-    # Earth-fixed and of-date frames admit no Keplerian elements.
-    for frame in (CelestialFrame.ITRF, CelestialFrame.TOD):
-        traj = OrbitTrajectory(6, frame, OrbitRepresentation.CARTESIAN, None)
-        traj.add(epoch, x_gcrf)
-        with pytest.raises(BraheError, match="inertial frame"):
-            traj.to_keplerian(AngleFormat.DEGREES)
+    # Earth-fixed frames admit no Keplerian elements.
+    itrf = OrbitTrajectory(6, CelestialFrame.ITRF, OrbitRepresentation.CARTESIAN, None)
+    itrf.add(epoch, x_gcrf)
+    with pytest.raises(BraheError, match="inertial frame"):
+        itrf.to_keplerian(AngleFormat.DEGREES)
+
+
+def test_trajectory_keplerian_in_of_date_frames_round_trips_to_gcrf(eop):
+    """Rust: test_dorbittrajectory_keplerian_in_of_date_frames_round_trips_to_gcrf"""
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    oe_gcrf = np.array([R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+    x_gcrf = state_koe_to_eci(oe_gcrf, AngleFormat.DEGREES)
+
+    for frame, rotate in (
+        (CelestialFrame.TOD, state_gcrf_to_tod),
+        (CelestialFrame.MOD, state_gcrf_to_mod),
+    ):
+        x_frame = rotate(epoch, x_gcrf)
+
+        # Cartesian samples convert to elements about the Earth in the frame's
+        # own axes and keep the frame label.
+        cart = OrbitTrajectory(6, frame, OrbitRepresentation.CARTESIAN, None)
+        cart.add(epoch, x_frame)
+        kep = cart.to_keplerian(AngleFormat.DEGREES)
+        assert kep.frame == frame
+        assert kep.representation == OrbitRepresentation.KEPLERIAN
+        _, elements = kep.get(0)
+        np.testing.assert_array_equal(
+            elements, state_eci_to_koe(x_frame, AngleFormat.DEGREES)
+        )
+
+        # The elements are read in the declared frame, so the inertial
+        # accessors recover the GCRF state.
+        np.testing.assert_allclose(kep.state_gcrf(epoch), x_gcrf, atol=1e-6)
+
+        # Osculating elements are taken about the ICRF-aligned axes.
+        oe_back = kep.state_koe_osc(epoch, AngleFormat.DEGREES)
+        assert oe_back[0] == pytest.approx(oe_gcrf[0], abs=1e-6)
+        np.testing.assert_allclose(oe_back[1:], oe_gcrf[1:], atol=1e-8)
+
+        # Frame conversion realizes the elements in the declared frame before
+        # routing.
+        gcrf = kep.to_frame(CelestialFrame.GCRF)
+        assert gcrf.representation == OrbitRepresentation.CARTESIAN
+        _, x_back = gcrf.get(0)
+        np.testing.assert_allclose(x_back, x_gcrf, atol=1e-6)
 
 
 def test_orbit_frame_is_removed():

@@ -23,6 +23,7 @@ from brahe import (
     state_eci_to_koe,
     state_eme2000_to_gcrf,
     state_gcrf_to_eme2000,
+    state_gcrf_to_mod,
     state_gcrf_to_tod,
     state_itrf_to_gcrf,
     state_koe_to_eci,
@@ -176,6 +177,52 @@ def test_keplerianpropagator_keplerian_elements_in_eme2000(eop):
     # elements, so the original GCRF state comes back.
     np.testing.assert_allclose(prop.state_eme2000(epoch), x_eme2000, atol=1e-6)
     np.testing.assert_allclose(prop.state_gcrf(epoch), x_gcrf, atol=1e-6)
+
+
+def test_keplerianpropagator_keplerian_elements_in_of_date_frames(eop):
+    """Rust: test_keplerianpropagator_keplerian_elements_in_of_date_frames"""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    x_gcrf = create_cartesian_state()
+
+    prop = KeplerianPropagator(
+        epoch,
+        x_gcrf,
+        CelestialFrame.GCRF,
+        OrbitRepresentation.CARTESIAN,
+        None,
+        60.0,
+    )
+
+    # Keplerian input and output are accepted in the of-date frames, with the
+    # elements about the Earth in that frame's own axes.
+    for frame, rotate in (
+        (CelestialFrame.TOD, state_gcrf_to_tod),
+        (CelestialFrame.MOD, state_gcrf_to_mod),
+    ):
+        oe_frame = state_eci_to_koe(rotate(epoch, x_gcrf), AngleFormat.DEGREES)
+        of_date = KeplerianPropagator(
+            epoch,
+            oe_frame,
+            frame,
+            OrbitRepresentation.KEPLERIAN,
+            AngleFormat.DEGREES,
+            60.0,
+        )
+        assert of_date.trajectory.frame == frame
+
+        # The elements are read in the declared frame, so the original GCRF
+        # state comes back rather than treating them as GCRF elements.
+        np.testing.assert_allclose(of_date.state_gcrf(epoch), x_gcrf, atol=1e-6)
+
+        # Output elements follow the frame's axes as the orbit propagates.
+        for dt in (0.0, 600.0):
+            epc = epoch + dt
+            oe = of_date.state(epc)
+            expected = state_eci_to_koe(
+                rotate(epc, prop.state_gcrf(epc)), AngleFormat.DEGREES
+            )
+            assert oe[0] == pytest.approx(expected[0], abs=1e-6)
+            np.testing.assert_allclose(oe[1:], expected[1:], atol=1e-8)
 
 
 def test_keplerianpropagator_propagate_keplerian_elements_in_eme2000(eop):

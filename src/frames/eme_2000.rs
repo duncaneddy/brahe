@@ -5,6 +5,7 @@
 use nalgebra::{Vector3, matrix};
 
 use crate::constants::AS2RAD;
+use crate::frames::kinematics::rotate_state;
 use crate::math::{SMatrix3, SVector6};
 use crate::utils::batch::batch_map;
 
@@ -182,15 +183,7 @@ pub fn position_eme2000_to_gcrf(x_eme2000: Vector3<f64>) -> Vector3<f64> {
 /// let x_eme2000 = state_gcrf_to_eme2000(x_gcrf);
 /// ```
 pub fn state_gcrf_to_eme2000(x_gcrf: SVector6) -> SVector6 {
-    let r = rotation_gcrf_to_eme2000();
-
-    let r_gcrf = x_gcrf.fixed_rows::<3>(0);
-    let v_gcrf = x_gcrf.fixed_rows::<3>(3);
-
-    let p: Vector3<f64> = Vector3::from(r * r_gcrf);
-    let v: Vector3<f64> = Vector3::from(r * v_gcrf);
-
-    SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
+    rotate_state(&rotation_gcrf_to_eme2000(), &x_gcrf)
 }
 
 /// Transforms a Cartesian state in EME 2000 (Earth Mean Equator and Equinox of J2000.0)
@@ -223,15 +216,7 @@ pub fn state_gcrf_to_eme2000(x_gcrf: SVector6) -> SVector6 {
 /// let x_gcrf = state_eme2000_to_gcrf(x_eme2000);
 /// ```
 pub fn state_eme2000_to_gcrf(x_eme2000: SVector6) -> SVector6 {
-    let r = rotation_eme2000_to_gcrf();
-
-    let r_eme2000 = x_eme2000.fixed_rows::<3>(0);
-    let v_eme2000 = x_eme2000.fixed_rows::<3>(3);
-
-    let p: Vector3<f64> = Vector3::from(r * r_eme2000);
-    let v: Vector3<f64> = Vector3::from(r * v_eme2000);
-
-    SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
+    rotate_state(&rotation_eme2000_to_gcrf(), &x_eme2000)
 }
 
 /// Transforms a batch of Cartesian positions from GCRF to EME2000.

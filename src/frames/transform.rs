@@ -82,6 +82,7 @@ use super::gcrf_itrf::rotation_gcrf_to_itrf;
 use super::iau_rotation::{
     body_fixed_iau_angles_and_rates, euler313_omega_body, rotation_icrf_to_body_fixed_iau,
 };
+use super::kinematics::{state_inertial_to_rotating, state_rotating_to_inertial};
 use super::lunar::{rotation_lci_to_lfme, rotation_lci_to_lfpa};
 use super::mars::rotation_mci_to_mcmf;
 
@@ -379,7 +380,7 @@ impl CelestialFrame {
             }
             CelestialFrame::BodyFixedCustom { key, .. } => {
                 let (r_mat, omega) = super::custom::custom_frame_rotation_and_omega(*key, epc)?;
-                Ok(state_rotating_to_icrf(r_mat, omega, x))
+                Ok(state_rotating_to_inertial(&r_mat, &omega, &x))
             }
             CelestialFrame::Synodic {
                 primary, secondary, ..
@@ -432,7 +433,7 @@ impl CelestialFrame {
             }
             CelestialFrame::BodyFixedCustom { key, .. } => {
                 let (r_mat, omega) = super::custom::custom_frame_rotation_and_omega(*key, epc)?;
-                Ok(state_icrf_to_rotating(r_mat, omega, x_icrf))
+                Ok(state_inertial_to_rotating(&r_mat, &omega, &x_icrf))
             }
             CelestialFrame::Synodic {
                 primary, secondary, ..
@@ -524,34 +525,6 @@ impl FromStr for CelestialFrame {
     }
 }
 
-/// Applies the rigid-rotation state transform from ICRF axes into a rotating
-/// body-fixed frame, given the ICRF-to-body DCM `r_mat` and the frame's
-/// angular velocity `omega_b` (rad/s, expressed in the body-fixed frame):
-/// `r_b = R r`, `v_b = R v - omega_b x r_b`. Single shared implementation of
-/// the transport-term algebra used by the IAU and PCK body-fixed helpers
-/// below (and identical to the pairwise forms in `mars.rs`/`lunar.rs`).
-fn state_icrf_to_rotating(r_mat: SMatrix3, omega_b: Vector3<f64>, x_icrf: SVector6) -> SVector6 {
-    let r = x_icrf.fixed_rows::<3>(0);
-    let v = x_icrf.fixed_rows::<3>(3);
-
-    let r_b: Vector3<f64> = r_mat * r;
-    let v_b: Vector3<f64> = r_mat * v - omega_b.cross(&r_b);
-
-    SVector6::new(r_b[0], r_b[1], r_b[2], v_b[0], v_b[1], v_b[2])
-}
-
-/// Inverse of [`state_icrf_to_rotating`]: `r = R^T r_b`,
-/// `v = R^T (v_b + omega_b x r_b)`.
-fn state_rotating_to_icrf(r_mat: SMatrix3, omega_b: Vector3<f64>, x_body: SVector6) -> SVector6 {
-    let r_b: Vector3<f64> = x_body.fixed_rows::<3>(0).into_owned();
-    let v_b: Vector3<f64> = x_body.fixed_rows::<3>(3).into_owned();
-
-    let r: Vector3<f64> = r_mat.transpose() * r_b;
-    let v: Vector3<f64> = r_mat.transpose() * (v_b + omega_b.cross(&r_b));
-
-    SVector6::new(r[0], r[1], r[2], v[0], v[1], v[2])
-}
-
 /// ICRF-to-body-fixed rotation matrix and body-frame angular velocity of a
 /// rotating frame at one epoch, shared by the lunar and Mars body-fixed
 /// transformations and their batch forms.
@@ -583,7 +556,7 @@ pub(crate) fn apply_state_icrf_to_rotating(
     c: &RotatingFrameContext,
     x_icrf: &SVector6,
 ) -> SVector6 {
-    state_icrf_to_rotating(c.r_mat, c.omega_b, *x_icrf)
+    state_inertial_to_rotating(&c.r_mat, &c.omega_b, x_icrf)
 }
 
 /// Apply a precomputed rotating-frame context to one body-fixed state,
@@ -610,7 +583,7 @@ pub(crate) fn apply_state_rotating_to_icrf(
     c: &RotatingFrameContext,
     x_body: &SVector6,
 ) -> SVector6 {
-    state_rotating_to_icrf(c.r_mat, c.omega_b, *x_body)
+    state_rotating_to_inertial(&c.r_mat, &c.omega_b, x_body)
 }
 
 /// Rotates an ICRF-axis state into the IAU/WGCCRE body-fixed frame of
@@ -624,10 +597,10 @@ fn state_icrf_to_iau_body(
 ) -> Result<SVector6, BraheError> {
     let (angles, rates) = body_fixed_iau_angles_and_rates(naif_id, epc)?;
     let r_mat = rotation_icrf_to_body_fixed_iau(naif_id, epc)?;
-    Ok(state_icrf_to_rotating(
-        r_mat,
-        euler313_omega_body(angles, rates),
-        x_icrf,
+    Ok(state_inertial_to_rotating(
+        &r_mat,
+        &euler313_omega_body(angles, rates),
+        &x_icrf,
     ))
 }
 
@@ -640,10 +613,10 @@ fn state_iau_body_to_icrf(
 ) -> Result<SVector6, BraheError> {
     let (angles, rates) = body_fixed_iau_angles_and_rates(naif_id, epc)?;
     let r_mat = rotation_icrf_to_body_fixed_iau(naif_id, epc)?;
-    Ok(state_rotating_to_icrf(
-        r_mat,
-        euler313_omega_body(angles, rates),
-        x_body,
+    Ok(state_rotating_to_inertial(
+        &r_mat,
+        &euler313_omega_body(angles, rates),
+        &x_body,
     ))
 }
 
@@ -662,10 +635,10 @@ fn state_icrf_to_pck_body(
 ) -> Result<SVector6, BraheError> {
     let (angles, rates) = crate::spice::pck_euler_angles(frame_id, epc)?;
     let r_mat = crate::spice::pck_rotation_matrix(frame_id, epc)?.to_matrix();
-    Ok(state_icrf_to_rotating(
-        r_mat,
-        euler313_omega_body(angles, rates),
-        x_icrf,
+    Ok(state_inertial_to_rotating(
+        &r_mat,
+        &euler313_omega_body(angles, rates),
+        &x_icrf,
     ))
 }
 
@@ -678,10 +651,10 @@ fn state_pck_body_to_icrf(
 ) -> Result<SVector6, BraheError> {
     let (angles, rates) = crate::spice::pck_euler_angles(frame_id, epc)?;
     let r_mat = crate::spice::pck_rotation_matrix(frame_id, epc)?.to_matrix();
-    Ok(state_rotating_to_icrf(
-        r_mat,
-        euler313_omega_body(angles, rates),
-        x_body,
+    Ok(state_rotating_to_inertial(
+        &r_mat,
+        &euler313_omega_body(angles, rates),
+        &x_body,
     ))
 }
 

@@ -26,6 +26,7 @@
 
 use nalgebra::Vector3;
 
+use crate::frames::kinematics::{state_inertial_to_rotating, state_rotating_to_inertial};
 use crate::frames::object_registry::object_state;
 use crate::frames::registry::{FrameKey, frame_entry};
 use crate::frames::{
@@ -173,14 +174,7 @@ pub(crate) fn resolve_state(
     let omega_to = chain_rate(to, &resolved_to)?;
     let offset = origin_offset_state(&from.origin()?, &to.origin()?, epc)?;
 
-    let dcm_from = resolved_from.dcm.transpose();
-    let p: Vector3<f64> = x.fixed_rows::<3>(0).into_owned();
-    let v: Vector3<f64> = x.fixed_rows::<3>(3).into_owned();
-    let p_root = dcm_from * p;
-    let v_root = dcm_from * (v + omega_from.cross(&p));
-    let x_root = SVector6::new(
-        p_root[0], p_root[1], p_root[2], v_root[0], v_root[1], v_root[2],
-    );
+    let x_root = state_rotating_to_inertial(&resolved_from.dcm, &omega_from, &x);
 
     // Both celestial legs share their frame's center, so they rotate only;
     // the whole translation is carried by `offset`.
@@ -197,10 +191,10 @@ pub(crate) fn resolve_state(
         x_icrf,
     )?;
 
-    let p_to: Vector3<f64> = resolved_to.dcm * x_root_to.fixed_rows::<3>(0);
-    let v_to: Vector3<f64> = resolved_to.dcm * x_root_to.fixed_rows::<3>(3) - omega_to.cross(&p_to);
-    Ok(SVector6::new(
-        p_to[0], p_to[1], p_to[2], v_to[0], v_to[1], v_to[2],
+    Ok(state_inertial_to_rotating(
+        &resolved_to.dcm,
+        &omega_to,
+        &x_root_to,
     ))
 }
 

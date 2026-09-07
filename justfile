@@ -633,6 +633,7 @@ stats: _setup
 # ───── Release ─────
 
 # Set the workspace version in Cargo.toml (single source of truth for all crates)
+# and mirror it into CITATION.cff
 set-version version:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -646,20 +647,35 @@ set-version version:
     import re, pathlib
     p = pathlib.Path('Cargo.toml')
     text = p.read_text()
-    new = re.sub(
+    new, count = re.subn(
         r'(\[workspace\.package\][^\[]*?\nversion = )\"[^\"]+\"',
         r'\\g<1>\"{{version}}\"',
         text,
         count=1,
         flags=re.DOTALL,
     )
-    if new == text:
+    if count == 0:
         raise SystemExit('error: could not find [workspace.package] version in Cargo.toml')
     p.write_text(new)
     "
     # Refresh Cargo.lock so the workspace version bump is reflected there too.
     cargo update --workspace --quiet
-    echo "✓ Set workspace version to {{version}}"
+    # Mirror the version into CITATION.cff so citation metadata tracks the release.
+    python3 -c "
+    import re, pathlib
+    p = pathlib.Path('CITATION.cff')
+    text = p.read_text()
+    new, count = re.subn(
+        r'(?m)^version: \".*\"$',
+        'version: \"{{version}}\"',
+        text,
+        count=1,
+    )
+    if count == 0:
+        raise SystemExit('error: could not find version field in CITATION.cff')
+    p.write_text(new)
+    "
+    echo "✓ Set workspace version to {{version}} (Cargo.toml, Cargo.lock, CITATION.cff)"
 
 # Regenerate the CHANGELOG.md entry for an upcoming release.
 # Defaults: version from Cargo.toml, prev-tag from `git describe --tags`.

@@ -32,6 +32,16 @@ jobs:
           fi
           echo "Cargo.toml version matches: $CARGO_VERSION"
 
+      - name: Validate CITATION.cff version
+        run: |
+          CITATION_VERSION=$(sed -n 's/^version: "\(.*\)"$/\1/p' CITATION.cff | head -1)
+          if [ "$CITATION_VERSION" != "${{ steps.extract.outputs.version }}" ]; then
+            echo "ERROR: Tag version (${{ steps.extract.outputs.version }}) does not match CITATION.cff version ($CITATION_VERSION)"
+            echo "Run 'just set-version ${{ steps.extract.outputs.version }}' locally before tagging, then commit and re-tag."
+            exit 1
+          fi
+          echo "CITATION.cff version matches: $CITATION_VERSION"
+
       - name: Validate CHANGELOG entry for this version
         run: |
           VERSION="${{ steps.extract.outputs.version }}"

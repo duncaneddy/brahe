@@ -468,7 +468,7 @@ CHANGELOG generation and version bumps happen **locally before tagging**, so the
    ```bash
    just set-version 1.2.3
    ```
-   This updates `[workspace.package].version` in `Cargo.toml` (inherited by `brahe` and `brahe-py`) and refreshes `Cargo.lock`.
+   This updates `[workspace.package].version` in `Cargo.toml` (inherited by `brahe` and `brahe-py`), refreshes `Cargo.lock`, and mirrors the version into `CITATION.cff`.
 
 2. **Regenerate the CHANGELOG entry** for this release:
    ```bash
@@ -485,7 +485,7 @@ CHANGELOG generation and version bumps happen **locally before tagging**, so the
 
 4. **Commit and tag**:
    ```bash
-   git add Cargo.toml Cargo.lock CHANGELOG.md
+   git add Cargo.toml Cargo.lock CITATION.cff CHANGELOG.md
    git commit -m "Prepare release v1.2.3"
    git push origin main
    git tag v1.2.3
@@ -496,7 +496,7 @@ CHANGELOG generation and version bumps happen **locally before tagging**, so the
 
 Once the tag is pushed, GitHub Actions automatically:
 
-1. Validates the tag version matches `Cargo.toml` **and** that `CHANGELOG.md` contains a `## [1.2.3]` entry (fails fast if `just generate-changelog` was skipped).
+1. Validates the tag version matches `Cargo.toml` and `CITATION.cff`, **and** that `CHANGELOG.md` contains a `## [1.2.3]` entry (fails fast if `just set-version` or `just generate-changelog` was skipped).
 2. Runs all tests (Rust, Python, examples).
 3. Extracts `release_notes.md` from the committed `CHANGELOG.md` (via `scripts/extract_release_notes.py`) for use as the GitHub Release body — no commits or pushes from CI.
 4. Builds documentation and deploys to GitHub Pages.

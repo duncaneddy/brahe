@@ -492,7 +492,10 @@ pub(crate) fn icrf_aligned_inertial(frame: CelestialFrame) -> CelestialFrame {
         | CelestialFrame::EMBI
         | CelestialFrame::SSBI
         | CelestialFrame::BodyCenteredICRF(_) => frame,
-        CelestialFrame::EME2000 | CelestialFrame::MOD | CelestialFrame::TOD => CelestialFrame::GCRF,
+        CelestialFrame::EME2000
+        | CelestialFrame::MOD
+        | CelestialFrame::TOD
+        | CelestialFrame::TEME => CelestialFrame::GCRF,
         other => {
             let center = other.center_naif_id();
             if center == NAIFId::Earth.id() {

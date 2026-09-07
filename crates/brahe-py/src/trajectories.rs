@@ -1469,9 +1469,9 @@ impl PyOrbitalTrajectory {
 
     /// Convert to Keplerian representation, keeping the trajectory's frame.
     ///
-    /// Elements are taken about the center of the trajectory's own frame, which
-    /// must admit orbital elements: an ICRF-aligned inertial frame such as GCRF
-    /// or LCI, or one of EME2000, MOD, TOD.
+    /// Elements are taken about the center of the trajectory's own frame, whose
+    /// axes must admit orbital elements: ICRF, EME2000, MOD, or TOD, at any
+    /// center.
     ///
     /// Args:
     ///     angle_format (AngleFormat): Angle format for the result (Radians or Degrees)

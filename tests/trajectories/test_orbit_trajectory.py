@@ -4263,9 +4263,19 @@ def test_keplerian_center_accepts_generic_icrf_frames(eop):
     _, elements = kep.get(0)
     assert elements[0] == pytest.approx(r, abs=1e-6)
 
-    # Non-inertial axes about that same body are still rejected.
-    mars_tod = CelestialFrame.Centered(brahe.NAIFId.MARS, brahe.FrameAxes.TOD)
-    traj = OrbitTrajectory(6, mars_tod, OrbitRepresentation.CARTESIAN, None)
+    # The of-date axes are accepted at any center for the same reason.
+    for axes in (brahe.FrameAxes.TOD, brahe.FrameAxes.MOD):
+        of_date = CelestialFrame.Centered(brahe.NAIFId.MARS, axes)
+        traj = OrbitTrajectory(6, of_date, OrbitRepresentation.CARTESIAN, None)
+        traj.add(epoch, state)
+        kep = traj.to_keplerian(AngleFormat.DEGREES)
+        assert kep.frame == of_date
+        _, elements = kep.get(0)
+        assert elements[0] == pytest.approx(r, abs=1e-6)
+
+    # Body-fixed axes about that same body are still rejected.
+    mars_fixed = CelestialFrame.Centered(brahe.NAIFId.MARS, brahe.FrameAxes.ITRF)
+    traj = OrbitTrajectory(6, mars_fixed, OrbitRepresentation.CARTESIAN, None)
     traj.add(epoch, state)
     with pytest.raises(BraheError, match="inertial frame"):
         traj.to_keplerian(AngleFormat.DEGREES)

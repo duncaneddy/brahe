@@ -139,8 +139,8 @@ pub struct SOrbitTrajectory {
     pub frame: ReferenceFrame,
 
     /// State representation (Cartesian or Keplerian).
-    /// Keplerian elements require an ICRF-aligned inertial frame or one of
-    /// `EME2000`, `MOD`, `TOD`.
+    /// Keplerian elements require a celestial frame whose axes are `ICRF`,
+    /// `EME2000`, `MOD`, or `TOD`, at any center.
     /// Cartesian states may be declared in any frame.
     pub representation: OrbitRepresentation,
 

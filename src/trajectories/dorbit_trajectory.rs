@@ -215,8 +215,8 @@ pub struct DOrbitTrajectory {
     pub frame: ReferenceFrame,
 
     /// State representation (Cartesian or Keplerian).
-    /// Keplerian elements require an ICRF-aligned inertial frame or one of
-    /// `EME2000`, `MOD`, `TOD`.
+    /// Keplerian elements require a celestial frame whose axes are `ICRF`,
+    /// `EME2000`, `MOD`, or `TOD`, at any center.
     /// Cartesian states may be declared in any frame.
     pub representation: OrbitRepresentation,
 
@@ -281,7 +281,8 @@ impl DOrbitTrajectory {
     /// * If Keplerian representation without angle_format
     /// * If Cartesian representation with angle_format
     /// * If Keplerian representation is declared outside the frames that admit
-    ///   orbital elements (ICRF-aligned inertial frames, `EME2000`, `MOD`, `TOD`)
+    ///   orbital elements (a celestial frame with `ICRF`, `EME2000`, `MOD`, or
+    ///   `TOD` axes)
     ///
     /// # Examples
     /// ```rust

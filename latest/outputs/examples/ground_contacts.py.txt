@@ -8,13 +8,13 @@ Loaded 18 NASA NEN ground stations in 0.00 seconds.
 
 Propagating NISAR for 3 orbits...
 Orbital period: 99.8 minutes
-Propagated NISAR for 3 orbits in 0.07 seconds.
+Propagated NISAR for 3 orbits in 0.05 seconds.
 
 Creating ground track visualization with communication cones...
-Created ground track visualization in 0.74 seconds.
+Created ground track visualization in 0.64 seconds.
 
 Computing 7-day ground contacts...
-Computed 908 contact windows in 4.27 seconds.
+Computed 908 contact windows in 2.40 seconds.
 
 ================================================================================
 Sample Contact Windows (first 10)

@@ -30,29 +30,25 @@ use brahe::ccsds::frames::ADMReferenceFrame;
 use brahe::ccsds::oem::{OEM as RustOEM, OEMMetadata, OEMSegment, OEMStateVector};
 use brahe::ccsds::omm::OMM as RustOMM;
 use brahe::ccsds::opm::{OPM as RustOPM, OPMManeuver};
-use brahe::frames::{CelestialFrame, ReferenceFrame};
+use brahe::frames::{CelestialFrame, FrameAxes};
+use brahe::spice::NAIFId;
 use brahe::trajectories::DOrbitTrajectory;
 
-/// Celestial frame an OEM segment's declared reference frame token resolves to.
+/// Celestial frame an OEM segment's declared metadata resolves to.
 ///
-/// Every CCSDS reference frame with a native equivalent maps onto a celestial
-/// frame; the error arm guards against a future mapping that does not.
+/// `REF_FRAME` names the axes and `CENTER_NAME` names the origin.
 fn oem_segment_celestial_frame(
-    ref_frame: &CCSDSRefFrame,
+    metadata: &OEMMetadata,
 ) -> Result<CelestialFrame, brahe::utils::BraheError> {
-    match ReferenceFrame::try_from(ref_frame)? {
-        ReferenceFrame::Celestial(target) => Ok(target),
-        other => Err(brahe::utils::BraheError::Error(format!(
-            "OEM segment frame {} is not a celestial frame",
-            other
-        ))),
-    }
+    let axes = FrameAxes::try_from(&metadata.ref_frame)?;
+    let center = NAIFId::from_name(&metadata.center_name)?;
+    Ok(CelestialFrame::centered(axes, center))
 }
 
 /// Push all states from a trajectory into an OEM segment, converting to the
 /// segment's declared reference frame using the trajectory's frame-aware methods.
 fn push_trajectory_states(seg: &mut OEMSegment, traj: &DOrbitTrajectory) -> Result<(), brahe::utils::BraheError> {
-    let target = oem_segment_celestial_frame(&seg.metadata.ref_frame)?;
+    let target = oem_segment_celestial_frame(&seg.metadata)?;
     for epoch in traj.epochs.iter() {
         let state = traj.state_in_frame(target, *epoch)?;
         seg.states.push(OEMStateVector {
@@ -1039,14 +1035,14 @@ impl PyOEMSegment {
                 Ok(())
             }
             SegmentMode::Proxy { parent, seg_idx } => {
-                // Get the ref_frame from the parent OEM's segment metadata
+                // Get the frame metadata from the parent OEM's segment
                 let parent_ref = parent.bind(py);
                 let oem_bound = parent_ref.cast::<PyOEM>()
                     .map_err(|_| pyo3::exceptions::PyRuntimeError::new_err(
                         "Parent is not an OEM object"
                     ))?;
-                let ref_frame = oem_bound.borrow().inner.segments[*seg_idx].metadata.ref_frame.clone();
-                let target = oem_segment_celestial_frame(&ref_frame)?;
+                let metadata = oem_bound.borrow().inner.segments[*seg_idx].metadata.clone();
+                let target = oem_segment_celestial_frame(&metadata)?;
 
                 for epoch in traj.epochs.iter() {
                     let state = traj.state_in_frame(target, *epoch)?;

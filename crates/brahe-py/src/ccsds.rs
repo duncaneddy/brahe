@@ -30,27 +30,27 @@ use brahe::ccsds::frames::ADMReferenceFrame;
 use brahe::ccsds::oem::{OEM as RustOEM, OEMMetadata, OEMSegment, OEMStateVector};
 use brahe::ccsds::omm::OMM as RustOMM;
 use brahe::ccsds::opm::{OPM as RustOPM, OPMManeuver};
-use brahe::ccsds::interop::{segment_native_frame, state_for_segment};
+use brahe::ccsds::interop::{segment_native_frame, state_into_segment_axes};
 use brahe::math::SVector6;
 use brahe::trajectories::DOrbitTrajectory;
 
 /// State a trajectory writes into an OEM segment at `epoch`, in the units and
 /// axes the segment's own metadata declares.
 fn trajectory_state_for_segment(
-    metadata: &OEMMetadata,
+    segment_frame: &(CelestialFrame, Option<brahe::time::Epoch>),
     traj: &DOrbitTrajectory,
     epoch: &brahe::time::Epoch,
 ) -> Result<SVector6, brahe::utils::BraheError> {
-    let (native, _) = segment_native_frame(metadata)?;
-    let state = traj.state_in_frame(native, *epoch)?;
-    state_for_segment(metadata, state)
+    let state = traj.state_in_frame(segment_frame.0, *epoch)?;
+    state_into_segment_axes(segment_frame.1, state)
 }
 
 /// Push all states from a trajectory into an OEM segment, converting to the
 /// frame the segment's metadata declares.
 fn push_trajectory_states(seg: &mut OEMSegment, traj: &DOrbitTrajectory) -> Result<(), brahe::utils::BraheError> {
+    let segment_frame = segment_native_frame(&seg.metadata)?;
     for epoch in traj.epochs.iter() {
-        let state = trajectory_state_for_segment(&seg.metadata, traj, epoch)?;
+        let state = trajectory_state_for_segment(&segment_frame, traj, epoch)?;
         seg.states.push(OEMStateVector {
             epoch: *epoch,
             position: [state[0], state[1], state[2]],
@@ -1044,9 +1044,10 @@ impl PyOEMSegment {
                         "Parent is not an OEM object"
                     ))?;
                 let metadata = oem_bound.borrow().inner.segments[*seg_idx].metadata.clone();
+                let segment_frame = segment_native_frame(&metadata)?;
 
                 for epoch in traj.epochs.iter() {
-                    let state = trajectory_state_for_segment(&metadata, traj, epoch)?;
+                    let state = trajectory_state_for_segment(&segment_frame, traj, epoch)?;
 
                     let pos = vec![state[0], state[1], state[2]];
                     let vel = vec![state[3], state[4], state[5]];

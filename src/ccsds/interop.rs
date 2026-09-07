@@ -327,6 +327,41 @@ pub fn state_for_segment(
     x_native: SVector6,
 ) -> Result<SVector6, BraheError> {
     let (_, frozen_epoch) = segment_native_frame(metadata)?;
+    state_into_segment_axes(frozen_epoch, x_native)
+}
+
+/// Rotates a native-frame state into a segment's stored axes given the frozen
+/// frame epoch that [`segment_native_frame`] resolved for it.
+///
+/// Callers writing many states into one segment resolve the segment frame
+/// once and pass its frozen epoch here for every state.
+///
+/// # Arguments
+///
+/// * `frozen_epoch` - `Some(epoch)` when the segment declares TOD axes frozen
+///   at `REF_FRAME_EPOCH`, `None` otherwise
+/// * `x_native` - Cartesian state in the segment's native frame.
+///   Units: (*m*; *m/s*)
+///
+/// # Returns
+///
+/// * `Ok(SVector6)`: `[x, y, z, vx, vy, vz]` in the segment's stored axes.
+///   Units: (*m*; *m/s*)
+/// * `Err(BraheError)`: If the router cannot apply the frozen-frame rotation
+///
+/// # Examples
+///
+/// ```
+/// use brahe::ccsds::interop::state_into_segment_axes;
+/// use brahe::math::SVector6;
+///
+/// let x = SVector6::new(4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3);
+/// assert_eq!(state_into_segment_axes(None, x).unwrap(), x);
+/// ```
+pub fn state_into_segment_axes(
+    frozen_epoch: Option<Epoch>,
+    x_native: SVector6,
+) -> Result<SVector6, BraheError> {
     match frozen_epoch {
         Some(epc) => state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::TOD, epc, x_native),
         None => Ok(x_native),
@@ -2175,6 +2210,8 @@ mod tests {
         for k in 0..6 {
             assert_abs_diff_eq!(stored[k], expected[k], epsilon = 1e-9);
         }
+        assert_eq!(state_into_segment_axes(frozen, x).unwrap(), stored);
+        assert_eq!(state_into_segment_axes(None, x).unwrap(), x);
 
         // Reading the stored state back returns the native state.
         let read_back =

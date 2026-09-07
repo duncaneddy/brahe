@@ -348,12 +348,15 @@ pub(crate) fn setup_global_test_gravity_model() {
 pub(crate) fn without_spice_kernels<T>(f: impl FnOnce() -> T) -> T {
     let loaded = crate::spice::loaded_spice_kernels();
     crate::spice::clear_spice_kernels();
-    let result = f();
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
     for kernel in loaded {
         crate::spice::load_spice_kernel(kernel.as_str())
             .expect("Failed to restore a previously loaded SPICE kernel");
     }
-    result
+    match result {
+        Ok(value) => value,
+        Err(payload) => std::panic::resume_unwind(payload),
+    }
 }
 
 /// Initialize the global SPICE kernel registry with the DE440s test asset.

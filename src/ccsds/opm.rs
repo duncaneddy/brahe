@@ -322,7 +322,7 @@ impl OPM {
 mod tests {
     use super::*;
     use crate::ccsds::common::CCSDSJsonKeyCase;
-    use crate::frames::{CelestialFrame, state_tod_to_gcrf};
+    use crate::frames::{CelestialFrame, state_teme_to_gcrf, state_tod_to_gcrf};
     use crate::math::SVector6;
     use crate::time::TimeSystem;
     use crate::utils::testing::setup_global_test_eop;
@@ -392,6 +392,28 @@ mod tests {
             (gcrf.fixed_rows::<3>(0) - of_date.fixed_rows::<3>(0)).norm() > 1.0,
             "frozen-epoch rotation must differ from the of-date rotation"
         );
+    }
+
+    #[test]
+    #[serial]
+    fn test_opm_state_in_frame_teme() {
+        setup_global_test_eop();
+        let mut opm = OPM::from_file("test_assets/ccsds/opm/OPMExample2.txt").unwrap();
+        opm.metadata.ref_frame = CCSDSRefFrame::TEME;
+        opm.metadata.ref_frame_epoch = None;
+
+        let p = opm.state_vector.position;
+        let v = opm.state_vector.velocity;
+        let x = SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2]);
+
+        let gcrf = opm.state_in_frame(CelestialFrame::GCRF).unwrap();
+        let expected = state_teme_to_gcrf(opm.state_vector.epoch, x);
+        for k in 0..6 {
+            assert_abs_diff_eq!(gcrf[k], expected[k], epsilon = 1e-9);
+        }
+
+        let teme = opm.state_in_frame(CelestialFrame::TEME).unwrap();
+        assert_eq!(teme, x);
     }
 
     #[test]

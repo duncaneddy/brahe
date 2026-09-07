@@ -255,6 +255,9 @@ pub fn position_teme_to_gcrf(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
 /// Transforms a Cartesian state in the GCRF to the equivalent state in the
 /// true equator and mean equinox of date (TEME).
 ///
+/// Position and velocity are rotated by the same matrix because GCRF and
+/// TEME are treated as non-rotating relative to each other.
+///
 /// # Arguments
 /// - `epc`: Epoch instant for computation of the transformation
 /// - `x_gcrf`: Cartesian GCRF state (position, velocity). Units: (*m*; *m/s*)
@@ -295,6 +298,9 @@ pub fn state_gcrf_to_teme(epc: Epoch, x_gcrf: SVector6) -> SVector6 {
 /// Transforms a Cartesian state in the true equator and mean equinox of
 /// date (TEME) to the equivalent state in the GCRF: the inverse of
 /// [`state_gcrf_to_teme`].
+///
+/// Position and velocity are rotated by the same matrix because GCRF and
+/// TEME are treated as non-rotating relative to each other.
 ///
 /// # Arguments
 /// - `epc`: Epoch instant for computation of the transformation

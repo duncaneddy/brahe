@@ -16,7 +16,7 @@ from the [SOFA C transformation cookbook](https://www.iausofa.org/s/sofa_pn_c.pd
 
 $$[\mathrm{TEME}] = R_3(\mathrm{ERA} - \mathrm{GMST}_{82}) \, C \, [\mathrm{GCRF}]$$
 
-where $C$ is the bias-precession-nutation matrix used by [GCRF ↔ ITRF Transformations](gcrf_itrf.md). The TEME equator is therefore the true equator of date. Its origin of right ascension is the mean equinox implied by the IAU 1982 sidereal time model, which differs from the IAU 2006 mean equinox of [MOD](equinox_frames.md) by the precession-model offset and from the true equinox of TOD by the equation of the equinoxes. The rotation from TEME to TOD is $R_3(\mathrm{GMST}_{82} - \mathrm{GAST})$, evaluated by the frame router.
+where $C$ is the bias-precession-nutation matrix used by [GCRF ↔ ITRF Transformations](gcrf_itrf.md). The TEME equator is therefore the true equator of date. Its origin of right ascension is the mean equinox implied by the IAU 1982 sidereal time model, which differs from the IAU 2006 mean equinox of [MOD](equinox_frames.md) by the precession-model offset and from the true equinox of TOD by the equation of the equinoxes. The rotation from TEME to TOD is $R_3(\mathrm{GMST}_{82} - \mathrm{GAST})$, where $\mathrm{GAST}$ is Greenwich apparent sidereal time (GAST), evaluated by the frame router.
 
 ## Velocities
 
@@ -24,7 +24,7 @@ TEME is treated as non-rotating relative to the GCRF: its precession and nutatio
 
 ## SGP4 Propagator
 
-`SGPPropagator.state` returns the raw SGP4 output in TEME. The configured output frame, `GCRF` by default, applies to `propagate_to`, the stored trajectory, and the frame-specific accessors `state_gcrf` and `state_itrf`, which use the pairwise TEME transforms. `state_in_frame` converts the TEME output into any router frame.
+`SGPPropagator.state` returns the raw SGP4 output in TEME. The configured output frame, `GCRF` by default, applies to `propagate_to`, the stored trajectory, and `current_state`/`initial_state`. The frame-specific accessors `state_gcrf` and `state_itrf` always return the GCRF and ITRF states respectively, using the pairwise TEME transforms, regardless of the configured output frame. `state_in_frame` likewise always returns the requested frame, converting the TEME output through the frame router.
 
 ## GCRF to TEME
 

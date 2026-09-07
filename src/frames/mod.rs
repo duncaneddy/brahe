@@ -37,6 +37,7 @@ pub mod teme;
 pub mod transform;
 
 pub(crate) use graph::{celestial_root, icrf_aligned_inertial};
+pub(crate) use kinematics::state_inertial_to_rotating;
 
 pub use custom::*;
 pub use eci_ecef::*;

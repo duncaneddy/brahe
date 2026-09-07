@@ -33,7 +33,7 @@ use crate::constants::{AngleFormat, DEG2RAD, OMEGA_EARTH};
 use crate::coordinates::state_eci_to_koe;
 use crate::frames::{
     CelestialFrame, ReferenceFrame, celestial_root, greenwich_mean_sidereal_rotation,
-    state_ecef_to_eci, state_frame_to_frame, state_gcrf_to_eme2000, state_teme_to_gcrf,
+    state_frame_to_frame, state_gcrf_to_eme2000, state_inertial_to_rotating, state_teme_to_gcrf,
     state_teme_to_itrf,
 };
 use crate::orbits::tle::{
@@ -1571,13 +1571,10 @@ impl SGPPropagator {
     /// State vector [x, y, z, vx, vy, vz] in PEF frame. Units: meters, meters/second.
     pub fn state_pef(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         let tle_state = self.propagate_internal(epoch)?;
-        let r = greenwich_mean_sidereal_rotation(epoch);
-        let omega_earth = Vector3::new(0.0, 0.0, OMEGA_EARTH);
-        let r_pef: Vector3<f64> = r * Vector3::<f64>::from(tle_state.fixed_rows::<3>(0));
-        let v_pef: Vector3<f64> =
-            r * Vector3::<f64>::from(tle_state.fixed_rows::<3>(3)) - omega_earth.cross(&r_pef);
-        Ok(Vector6::new(
-            r_pef[0], r_pef[1], r_pef[2], v_pef[0], v_pef[1], v_pef[2],
+        Ok(state_inertial_to_rotating(
+            &greenwich_mean_sidereal_rotation(epoch),
+            &Vector3::new(0.0, 0.0, OMEGA_EARTH),
+            &tle_state,
         ))
     }
 
@@ -2409,10 +2406,7 @@ impl SOrbitStateProvider for SGPPropagator {
     }
 
     fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        let state_ecef = self.state_ecef(epoch)?;
-
-        // Step 3: ECEF to ECI
-        Ok(state_ecef_to_eci(epoch, state_ecef))
+        self.state_gcrf(epoch)
     }
 
     fn state_ecef(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
@@ -3883,7 +3877,7 @@ mod tests {
         let state = prop.state_eci(epoch).unwrap();
 
         assert_eq!(state.len(), 6);
-        // ECI/GCRF frame (after TEME -> PEF -> ECEF -> ECI conversion)
+        // ECI/GCRF frame (direct TEME -> GCRF rotation)
         assert_abs_diff_eq!(state[0], 4086521.040536244, epsilon = 1.5e-1);
         assert_abs_diff_eq!(state[1], -1001422.0787863219, epsilon = 1.5e-1);
         assert_abs_diff_eq!(state[2], 5240097.960898061, epsilon = 1.5e-1);
@@ -3904,7 +3898,7 @@ mod tests {
         let state = prop.state_gcrf(epoch).unwrap();
 
         assert_eq!(state.len(), 6);
-        // ECI/GCRF frame (after TEME -> PEF -> ECEF -> ECI conversion)
+        // ECI/GCRF frame (direct TEME -> GCRF rotation)
         assert_abs_diff_eq!(state[0], 4086521.040536244, epsilon = 1.5e-1);
         assert_abs_diff_eq!(state[1], -1001422.0787863219, epsilon = 1.5e-1);
         assert_abs_diff_eq!(state[2], 5240097.960898061, epsilon = 1.5e-1);

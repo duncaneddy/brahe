@@ -1032,6 +1032,7 @@ mod tests {
         assert_eq!(keplerian_center(&CelestialFrame::EMBI.into()).unwrap(), 3);
         assert!(keplerian_center(&CelestialFrame::ITRF.into()).is_err());
         assert!(keplerian_center(&CelestialFrame::TOD.into()).is_err());
+        assert!(keplerian_center(&CelestialFrame::TEME.into()).is_err());
         assert!(keplerian_center(&CelestialFrame::LFPA.into()).is_err());
         assert!(keplerian_center(&ReferenceFrame::RTN("SC")).is_err());
     }

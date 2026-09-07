@@ -840,8 +840,8 @@ class TestSGPPropagatorStateProviderTrait:
                 (prop.state_itrf(epc), itrf),
                 (prop.state_pef(epc), pef),
             ):
-                np.testing.assert_allclose(got[:3], want[:3], atol=2e-2)
-                np.testing.assert_allclose(got[3:], want[3:], atol=2e-5)
+                np.testing.assert_allclose(got[:3], want[:3], atol=2e-2, rtol=0)
+                np.testing.assert_allclose(got[3:], want[3:], atol=2e-5, rtol=0)
 
     def test_sgppropagator_state_in_frame_teme_is_raw_output(
         self, iss_tle, eop_original_brahe
@@ -851,13 +851,13 @@ class TestSGPPropagatorStateProviderTrait:
         epc = prop.epoch + 600.0
         raw = prop.state(epc)
         via_router = prop.state_in_frame(brahe.CelestialFrame.TEME, epc)
-        np.testing.assert_allclose(via_router, raw, atol=1e-9)
+        np.testing.assert_allclose(via_router, raw, atol=1e-9, rtol=0)
 
         tod = prop.state_in_frame(brahe.CelestialFrame.TOD, epc)
         expected = brahe.state_frame_to_frame(
             brahe.CelestialFrame.TEME, brahe.CelestialFrame.TOD, epc, raw
         )
-        np.testing.assert_allclose(tod, expected, atol=1e-9)
+        np.testing.assert_allclose(tod, expected, atol=1e-9, rtol=0)
 
     def test_sgppropagator_output_format_teme_stores_raw_states(
         self, iss_tle, eop_original_brahe
@@ -873,7 +873,7 @@ class TestSGPPropagatorStateProviderTrait:
         e = traj.epoch_at_idx(1)
         stored = traj.state_at_idx(1)
         raw = prop.state(e)
-        np.testing.assert_allclose(stored, raw, atol=1e-9)
+        np.testing.assert_allclose(stored, raw, atol=1e-9, rtol=0)
 
 
 class TestOldBraheTLEFunctions:

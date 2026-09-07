@@ -8,6 +8,7 @@ use crate::math::{SMatrix3, SVector6};
 use crate::constants;
 use crate::constants::MJD_ZERO;
 use crate::eop;
+use crate::frames::kinematics::{state_inertial_to_rotating, state_rotating_to_inertial};
 use crate::frames::precession_nutation::{PrecessionNutationModel, get_precession_nutation_model};
 use crate::math::matrix3_from_array;
 use crate::time::{Epoch, TimeSystem};
@@ -434,6 +435,25 @@ fn gcrf_itrf_context(epc: Epoch) -> GcrfItrfContext {
     }
 }
 
+/// Assembles the GCRF-to-ITRF rotation and the ITRF-frame angular velocity
+/// from a precomputed context.
+///
+/// The ITRF axes rotate about the Celestial Intermediate Pole at
+/// [`constants::OMEGA_EARTH`]; polar motion carries that vector from the
+/// terrestrial intermediate axes into the ITRF, so the angular velocity in
+/// ITRF axes is `pm * (0, 0, OMEGA_EARTH)`.
+///
+/// # Arguments
+/// - `c`: Transformation matrices for the epoch
+///
+/// # Returns
+/// - GCRF -> ITRF rotation matrix (dimensionless) and the ITRF axes' angular
+///   velocity expressed in the ITRF. Units: (*rad/s*)
+fn gcrf_itrf_rotating_axes(c: &GcrfItrfContext) -> (SMatrix3, Vector3<f64>) {
+    let omega_cip = Vector3::new(0.0, 0.0, constants::OMEGA_EARTH);
+    (c.pm * c.r * c.bpn, c.pm * omega_cip)
+}
+
 /// Apply a precomputed GCRF-to-ITRF context to one Cartesian GCRF state.
 ///
 /// # Arguments
@@ -456,18 +476,8 @@ fn gcrf_itrf_context(epc: Epoch) -> GcrfItrfContext {
 /// let x_itrf = apply_state_gcrf_to_itrf(&c, &x_gcrf);
 /// ```
 fn apply_state_gcrf_to_itrf(c: &GcrfItrfContext, x_gcrf: &SVector6) -> SVector6 {
-    let (bpn, r, pm) = (c.bpn, c.r, c.pm);
-
-    // Create Earth's Angular Rotation Vector
-    let omega_vec = Vector3::new(0.0, 0.0, constants::OMEGA_EARTH);
-
-    let r_gcrf = x_gcrf.fixed_rows::<3>(0);
-    let v_gcrf = x_gcrf.fixed_rows::<3>(3);
-
-    let p: Vector3<f64> = Vector3::from(pm * r * bpn * r_gcrf);
-    let v: Vector3<f64> = pm * (r * bpn * v_gcrf - omega_vec.cross(&(r * bpn * r_gcrf)));
-
-    SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
+    let (r_mat, omega_b) = gcrf_itrf_rotating_axes(c);
+    state_inertial_to_rotating(&r_mat, &omega_b, x_gcrf)
 }
 
 /// Apply a precomputed GCRF-to-ITRF context to one Cartesian ITRF state,
@@ -492,19 +502,8 @@ fn apply_state_gcrf_to_itrf(c: &GcrfItrfContext, x_gcrf: &SVector6) -> SVector6 
 /// let x_gcrf = apply_state_itrf_to_gcrf(&c, &x_itrf);
 /// ```
 fn apply_state_itrf_to_gcrf(c: &GcrfItrfContext, x_itrf: &SVector6) -> SVector6 {
-    let (bpn, r, pm) = (c.bpn, c.r, c.pm);
-
-    // Create Earth's Angular Rotation Vector
-    let omega_vec = Vector3::new(0.0, 0.0, constants::OMEGA_EARTH);
-
-    let r_itrf = x_itrf.fixed_rows::<3>(0);
-    let v_itrf = x_itrf.fixed_rows::<3>(3);
-
-    let p: Vector3<f64> = Vector3::from((pm * r * bpn).transpose() * r_itrf);
-    let v: Vector3<f64> = (r * bpn).transpose()
-        * (pm.transpose() * v_itrf + omega_vec.cross(&(pm.transpose() * r_itrf)));
-
-    SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
+    let (r_mat, omega_b) = gcrf_itrf_rotating_axes(c);
+    state_rotating_to_inertial(&r_mat, &omega_b, x_itrf)
 }
 
 /// Transforms a Cartesian state in GCRF (Geocentric Celestial Reference Frame)

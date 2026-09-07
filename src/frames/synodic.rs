@@ -14,6 +14,9 @@ use crate::constants::{
     GM_NEPTUNE, GM_NEPTUNE_SYSTEM, GM_PLUTO, GM_PLUTO_SYSTEM, GM_SATURN, GM_SATURN_SYSTEM, GM_SUN,
     GM_URANUS, GM_URANUS_SYSTEM, GM_VENUS,
 };
+use crate::frames::kinematics::{
+    angular_velocity_from_rotation_rate, state_inertial_to_rotating, state_rotating_to_inertial,
+};
 use crate::math::{SMatrix3, SVector6};
 use crate::spice::{NAIFId, spk_acceleration, spk_position, spk_state};
 use crate::time::Epoch;
@@ -110,6 +113,10 @@ pub(crate) fn synodic_axes(
 /// frame's origin) into synodic axes: `r_s = R r`, `v_s = R v + Ṙ r`
 /// (NASA TP-20220014814 Eq. 67/70, translation handled by the caller).
 ///
+/// The transport term is evaluated as `−ω_b × r_s`, with `ω_b` the synodic
+/// axes' angular velocity recovered from `Ṙ` by
+/// [`angular_velocity_from_rotation_rate`].
+///
 /// # Arguments
 /// - `r_mat`: Inertial→synodic rotation matrix from [`synodic_axes`]
 /// - `r_dot_mat`: Its time derivative. Units: [1/s]
@@ -122,16 +129,13 @@ pub(crate) fn state_inertial_to_synodic(
     r_dot_mat: &SMatrix3,
     x: SVector6,
 ) -> SVector6 {
-    let r = x.fixed_rows::<3>(0).into_owned();
-    let v = x.fixed_rows::<3>(3).into_owned();
-    let r_s: Vector3<f64> = r_mat * r;
-    let v_s: Vector3<f64> = r_mat * v + r_dot_mat * r;
-    SVector6::new(r_s[0], r_s[1], r_s[2], v_s[0], v_s[1], v_s[2])
+    let omega_b = angular_velocity_from_rotation_rate(r_mat, r_dot_mat);
+    state_inertial_to_rotating(r_mat, &omega_b, &x)
 }
 
 /// Inverse of [`state_inertial_to_synodic`]: `r = Rᵀ r_s`,
-/// `v = Rᵀ v_s + Ṙᵀ r_s` (using Ṙᵀ = −RᵀṘRᵀ from d/dt(RᵀR) = 0, which
-/// reduces TP Eq. 68/71 to this form).
+/// `v = Rᵀ (v_s + ω_b × r_s)` (TP Eq. 68/71, with `Ṙᵀ = Rᵀ [ω_b]×` from
+/// d/dt(RᵀR) = 0).
 ///
 /// # Arguments
 /// - `r_mat`: Inertial→synodic rotation matrix from [`synodic_axes`]
@@ -145,11 +149,8 @@ pub(crate) fn state_synodic_to_inertial(
     r_dot_mat: &SMatrix3,
     x: SVector6,
 ) -> SVector6 {
-    let r_s = x.fixed_rows::<3>(0).into_owned();
-    let v_s = x.fixed_rows::<3>(3).into_owned();
-    let r: Vector3<f64> = r_mat.transpose() * r_s;
-    let v: Vector3<f64> = r_mat.transpose() * v_s + r_dot_mat.transpose() * r_s;
-    SVector6::new(r[0], r[1], r[2], v[0], v[1], v[2])
+    let omega_b = angular_velocity_from_rotation_rate(r_mat, r_dot_mat);
+    state_rotating_to_inertial(r_mat, &omega_b, &x)
 }
 
 /// Gravitational parameter for the NAIF IDs supported as generic synodic
@@ -267,11 +268,13 @@ struct SynodicPositionContext {
     offset: Vector3<f64>,
 }
 
-/// Synodic rotation matrix, its time derivative, and origin offset state
-/// (ICRF axes, from Earth) for a state transformation at one epoch.
+/// Synodic rotation matrix, the synodic axes' angular velocity, and origin
+/// offset state (ICRF axes, from Earth) for a state transformation at one
+/// epoch.
 struct SynodicStateContext {
     r_mat: SMatrix3,
-    r_dot_mat: SMatrix3,
+    /// Angular velocity of the synodic axes, expressed in them. Units: [rad/s]
+    omega_b: Vector3<f64>,
     offset: SVector6,
 }
 
@@ -350,7 +353,7 @@ fn apply_position_synodic_to_inertial(
 /// let x_emr = apply_state_inertial_to_synodic(&c, &vector6_from_array([1.0e8, -2.0e8, 5.0e7, 1.0e3, -2.0e3, 0.5e3]));
 /// ```
 fn apply_state_inertial_to_synodic(c: &SynodicStateContext, x: &SVector6) -> SVector6 {
-    state_inertial_to_synodic(&c.r_mat, &c.r_dot_mat, x - c.offset)
+    state_inertial_to_rotating(&c.r_mat, &c.omega_b, &(x - c.offset))
 }
 
 /// Apply a synodic state context in the inverse direction.
@@ -373,7 +376,7 @@ fn apply_state_inertial_to_synodic(c: &SynodicStateContext, x: &SVector6) -> SVe
 /// let x_gcrf = apply_state_synodic_to_inertial(&c, &vector6_from_array([3.8e8, 0.0, 0.0, 0.0, 0.0, 0.0]));
 /// ```
 fn apply_state_synodic_to_inertial(c: &SynodicStateContext, x: &SVector6) -> SVector6 {
-    state_synodic_to_inertial(&c.r_mat, &c.r_dot_mat, *x) + c.offset
+    state_rotating_to_inertial(&c.r_mat, &c.omega_b, x) + c.offset
 }
 
 /// EMR position context: rotation from [`emr_axes`] and the Earth -> EMB
@@ -424,7 +427,7 @@ fn emr_state_context(epc: Epoch) -> Result<SynodicStateContext, BraheError> {
     let offset = spk_state(NAIFId::EarthMoonBarycenter, NAIFId::Earth, epc)?;
     Ok(SynodicStateContext {
         r_mat,
-        r_dot_mat,
+        omega_b: angular_velocity_from_rotation_rate(&r_mat, &r_dot_mat),
         offset,
     })
 }
@@ -730,7 +733,7 @@ fn ser_state_context(epc: Epoch) -> Result<SynodicStateContext, BraheError> {
     let offset = seb_offset_from_earth(epc)?;
     Ok(SynodicStateContext {
         r_mat,
-        r_dot_mat,
+        omega_b: angular_velocity_from_rotation_rate(&r_mat, &r_dot_mat),
         offset,
     })
 }
@@ -1046,6 +1049,26 @@ pub fn position_gse_to_gcrf(epc: Epoch, x_gse: Vector3<f64>) -> Result<Vector3<f
     Ok(gse_axes(epc)?.0.transpose() * x_gse)
 }
 
+/// GSE rotation matrix and the GSE axes' angular velocity for one epoch.
+///
+/// GSE is Earth-centered, so a state transformation needs no origin offset
+/// and this pair is the whole context.
+///
+/// # Arguments
+/// - `epc`: Epoch instant
+///
+/// # Returns
+/// - GCRF -> GSE rotation matrix (dimensionless) and the GSE axes' angular
+///   velocity expressed in the GSE. Units: [rad/s]
+/// - Error if the ephemeris cannot be evaluated
+fn gse_rotating_axes(epc: Epoch) -> Result<(SMatrix3, Vector3<f64>), BraheError> {
+    let (r_mat, r_dot_mat) = gse_axes(epc)?;
+    Ok((
+        r_mat,
+        angular_velocity_from_rotation_rate(&r_mat, &r_dot_mat),
+    ))
+}
+
 /// Transforms a Cartesian GCRF state (position and velocity) into the
 /// equivalent Cartesian Geocentric Solar Ecliptic (GSE) state.
 ///
@@ -1075,8 +1098,8 @@ pub fn position_gse_to_gcrf(epc: Epoch, x_gse: Vector3<f64>) -> Result<Vector3<f
 /// let x_gse = state_gcrf_to_gse(epc, x_gcrf).unwrap();
 /// ```
 pub fn state_gcrf_to_gse(epc: Epoch, x_gcrf: SVector6) -> Result<SVector6, BraheError> {
-    let (r_mat, r_dot_mat) = gse_axes(epc)?;
-    Ok(state_inertial_to_synodic(&r_mat, &r_dot_mat, x_gcrf))
+    let (r_mat, omega_b) = gse_rotating_axes(epc)?;
+    Ok(state_inertial_to_rotating(&r_mat, &omega_b, &x_gcrf))
 }
 
 /// Transforms a Cartesian Geocentric Solar Ecliptic (GSE) state (position
@@ -1107,8 +1130,8 @@ pub fn state_gcrf_to_gse(epc: Epoch, x_gcrf: SVector6) -> Result<SVector6, Brahe
 /// let x_gcrf2 = state_gse_to_gcrf(epc, x_gse).unwrap();
 /// ```
 pub fn state_gse_to_gcrf(epc: Epoch, x_gse: SVector6) -> Result<SVector6, BraheError> {
-    let (r_mat, r_dot_mat) = gse_axes(epc)?;
-    Ok(state_synodic_to_inertial(&r_mat, &r_dot_mat, x_gse))
+    let (r_mat, omega_b) = gse_rotating_axes(epc)?;
+    Ok(state_rotating_to_inertial(&r_mat, &omega_b, &x_gse))
 }
 
 /// Computes the GCRF to Earth-Moon Rotating (EMR) rotation matrix for each epoch in `epochs`.
@@ -1689,8 +1712,8 @@ pub fn states_gcrf_to_gse(
     x_gcrf: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
     try_batch_map_epochs(
-        gse_axes,
-        |(r_mat, r_dot_mat), x| Ok(state_inertial_to_synodic(r_mat, r_dot_mat, *x)),
+        gse_rotating_axes,
+        |(r_mat, omega_b), x| Ok(state_inertial_to_rotating(r_mat, omega_b, x)),
         epochs,
         x_gcrf,
     )
@@ -1729,8 +1752,8 @@ pub fn states_gse_to_gcrf(
     x_gse: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
     try_batch_map_epochs(
-        gse_axes,
-        |(r_mat, r_dot_mat), x| Ok(state_synodic_to_inertial(r_mat, r_dot_mat, *x)),
+        gse_rotating_axes,
+        |(r_mat, omega_b), x| Ok(state_rotating_to_inertial(r_mat, omega_b, x)),
         epochs,
         x_gse,
     )

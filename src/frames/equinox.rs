@@ -21,6 +21,9 @@ use crate::constants;
 use crate::constants::MJD_ZERO;
 use crate::eop;
 use crate::frames::gcrf_itrf::polar_motion;
+use crate::frames::kinematics::{
+    rotate_state, state_inertial_to_rotating, state_rotating_to_inertial,
+};
 use crate::frames::precession_nutation::{PrecessionNutationModel, get_precession_nutation_model};
 use crate::math::{SMatrix3, SVector6, matrix3_from_array};
 use crate::time::{Epoch, TimeSystem};
@@ -605,74 +608,34 @@ pub fn rotation_itrf_to_tod(epc: Epoch) -> SMatrix3 {
     rotation_tod_to_itrf(epc).transpose()
 }
 
-/// Applies a rotation to both the position and velocity halves of a state.
-///
-/// # Arguments
-/// - `r`: Rotation matrix applied to both halves of the state
-/// - `x`: Cartesian state (position, velocity). Units: (*m*; *m/s*)
-///
-/// # Returns
-/// - Rotated Cartesian state (position, velocity). Units: (*m*; *m/s*)
-fn rotate_state(r: &SMatrix3, x: &SVector6) -> SVector6 {
-    let p: Vector3<f64> = r * x.fixed_rows::<3>(0);
-    let v: Vector3<f64> = r * x.fixed_rows::<3>(3);
-    SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
-}
-
-/// Rotation and polar-motion matrices for the TOD <-> ITRF state transforms.
+/// TOD -> ITRF rotation and the ITRF axes' angular velocity for one epoch.
 struct TodItrfContext {
-    r: SMatrix3,
-    pm: SMatrix3,
+    /// TOD -> ITRF rotation, `W R3(GAST)`.
+    r_mat: SMatrix3,
+    /// Angular velocity of the ITRF axes, expressed in the ITRF. Units: (*rad/s*)
+    omega_b: Vector3<f64>,
 }
 
-/// Computes the sidereal-rotation and polar-motion matrices for `epc`.
+/// Computes the TOD -> ITRF rotation and the ITRF angular velocity for `epc`.
+///
+/// The ITRF axes rotate about the true celestial pole at
+/// [`constants::OMEGA_EARTH`]; polar motion carries that vector from the
+/// terrestrial intermediate axes into the ITRF, so the angular velocity
+/// expressed in the ITRF is `W (0, 0, OMEGA_EARTH)`.
 ///
 /// # Arguments
-/// - `epc`: Epoch instant for computation of the transformation matrices
+/// - `epc`: Epoch instant for computation of the transformation
 ///
 /// # Returns
-/// - Context holding the `R3(GAST)` and polar-motion matrices
+/// - Context holding the `W R3(GAST)` rotation (dimensionless) and the ITRF
+///   axes' angular velocity. Units: (*rad/s*)
 fn tod_itrf_context(epc: Epoch) -> TodItrfContext {
+    let r = EquinoxContext::new(epc, get_precession_nutation_model()).sidereal_rotation();
+    let pm = polar_motion(epc);
     TodItrfContext {
-        r: EquinoxContext::new(epc, get_precession_nutation_model()).sidereal_rotation(),
-        pm: polar_motion(epc),
+        r_mat: pm * r,
+        omega_b: pm * Vector3::new(0.0, 0.0, constants::OMEGA_EARTH),
     }
-}
-
-/// Apply a precomputed TOD-to-ITRF context to one Cartesian TOD state.
-///
-/// # Arguments
-/// - `c`: Transformation matrices for the epoch
-/// - `x_tod`: Cartesian TOD state (position, velocity). Units: (*m*; *m/s*)
-///
-/// # Returns
-/// - Cartesian ITRF state (position, velocity). Units: (*m*; *m/s*)
-fn apply_state_tod_to_itrf(c: &TodItrfContext, x_tod: &SVector6) -> SVector6 {
-    let omega_vec = Vector3::new(0.0, 0.0, constants::OMEGA_EARTH);
-    let r_tod = x_tod.fixed_rows::<3>(0);
-    let v_tod = x_tod.fixed_rows::<3>(3);
-    let p: Vector3<f64> = c.pm * c.r * r_tod;
-    let v: Vector3<f64> = c.pm * (c.r * v_tod - omega_vec.cross(&(c.r * r_tod)));
-    SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
-}
-
-/// Apply a precomputed TOD-to-ITRF context to one Cartesian ITRF state,
-/// producing the TOD state.
-///
-/// # Arguments
-/// - `c`: Transformation matrices for the epoch
-/// - `x_itrf`: Cartesian ITRF state (position, velocity). Units: (*m*; *m/s*)
-///
-/// # Returns
-/// - Cartesian TOD state (position, velocity). Units: (*m*; *m/s*)
-fn apply_state_itrf_to_tod(c: &TodItrfContext, x_itrf: &SVector6) -> SVector6 {
-    let omega_vec = Vector3::new(0.0, 0.0, constants::OMEGA_EARTH);
-    let r_itrf = x_itrf.fixed_rows::<3>(0);
-    let v_itrf = x_itrf.fixed_rows::<3>(3);
-    let p: Vector3<f64> = (c.pm * c.r).transpose() * r_itrf;
-    let v: Vector3<f64> = c.r.transpose()
-        * (c.pm.transpose() * v_itrf + omega_vec.cross(&(c.pm.transpose() * r_itrf)));
-    SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
 }
 
 /// Transforms a Cartesian position in the GCRF to the equivalent position
@@ -2122,7 +2085,8 @@ pub fn position_itrf_to_tod(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
 /// - SOFA `c2teqx` note 2; SOFA cookbook Section 3.5 (polar motion) and
 ///   Appendix p. A4 (`R3(GAST)`, `W` rows)
 pub fn state_tod_to_itrf(epc: Epoch, x_tod: SVector6) -> SVector6 {
-    apply_state_tod_to_itrf(&tod_itrf_context(epc), &x_tod)
+    let c = tod_itrf_context(epc);
+    state_inertial_to_rotating(&c.r_mat, &c.omega_b, &x_tod)
 }
 
 /// Transforms a Cartesian state in the ITRF to the equivalent state in the
@@ -2166,7 +2130,8 @@ pub fn state_tod_to_itrf(epc: Epoch, x_tod: SVector6) -> SVector6 {
 /// - SOFA `c2teqx` note 2; SOFA cookbook Section 3.5 (polar motion) and
 ///   Appendix p. A4 (`R3(GAST)`, `W` rows)
 pub fn state_itrf_to_tod(epc: Epoch, x_itrf: SVector6) -> SVector6 {
-    apply_state_itrf_to_tod(&tod_itrf_context(epc), &x_itrf)
+    let c = tod_itrf_context(epc);
+    state_rotating_to_inertial(&c.r_mat, &c.omega_b, &x_itrf)
 }
 
 /// Computes the TOD-to-ITRF rotation matrix for each epoch in `epochs`.
@@ -2404,7 +2369,12 @@ pub fn states_tod_to_itrf(
     epochs: &[Epoch],
     x_tod: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(tod_itrf_context, apply_state_tod_to_itrf, epochs, x_tod)
+    batch_map_epochs(
+        tod_itrf_context,
+        |c, x| state_inertial_to_rotating(&c.r_mat, &c.omega_b, x),
+        epochs,
+        x_tod,
+    )
 }
 
 /// Transforms a batch of Cartesian states from ITRF to TOD.
@@ -2458,7 +2428,12 @@ pub fn states_itrf_to_tod(
     epochs: &[Epoch],
     x_itrf: &[SVector6],
 ) -> Result<Vec<SVector6>, BraheError> {
-    batch_map_epochs(tod_itrf_context, apply_state_itrf_to_tod, epochs, x_itrf)
+    batch_map_epochs(
+        tod_itrf_context,
+        |c, x| state_rotating_to_inertial(&c.r_mat, &c.omega_b, x),
+        epochs,
+        x_itrf,
+    )
 }
 
 #[cfg(test)]

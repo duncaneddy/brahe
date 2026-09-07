@@ -20,6 +20,8 @@ pub mod gcrf_itrf;
 // Not `pub`: chain resolution is internal machinery.
 mod graph;
 pub mod iau_rotation;
+// Not `pub`: shared state-kinematics algebra used by the pairwise modules.
+mod kinematics;
 pub mod lunar;
 pub mod mars;
 pub mod object_registry;

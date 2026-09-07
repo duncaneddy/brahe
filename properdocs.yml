@@ -204,6 +204,7 @@ nav:
           - learn/frames/eci_ecef.md
           - learn/frames/gcrf_itrf.md
           - learn/frames/eme2000_gcrf.md
+          - learn/frames/equinox_frames.md
           - Vectorized Transformations: learn/frames/vectorized.md
           - Lunar Frames: learn/frames/lunar_frames.md
           - Mars Frames: learn/frames/mars_frames.md
@@ -394,6 +395,7 @@ nav:
           - ECI ↔ ECEF: library_api/frames/eci_ecef.md
           - GCRF ↔ ITRF: library_api/frames/gcrf_itrf.md
           - EME2000 ↔ GCRF: library_api/frames/eme2000_gcrf.md
+          - GCRF ↔ MOD ↔ TOD: library_api/frames/equinox.md
           - Lunar Frames: library_api/frames/lunar.md
           - Mars Frames: library_api/frames/mars.md
           - Synodic Frames: library_api/frames/synodic.md

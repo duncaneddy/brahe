@@ -23,6 +23,8 @@ class Frame(str, Enum):
     GCRF = "GCRF"
     ITRF = "ITRF"
     EME2000 = "EME2000"
+    MOD = "MOD"
+    TOD = "TOD"
     LCI = "LCI"
     LFPA = "LFPA"
     LFME = "LFME"

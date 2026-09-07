@@ -498,7 +498,7 @@ fn icrf_aligned_inertial(frame: CelestialFrame) -> CelestialFrame {
         | CelestialFrame::EMBI
         | CelestialFrame::SSBI
         | CelestialFrame::BodyCenteredICRF(_) => frame,
-        CelestialFrame::EME2000 => CelestialFrame::GCRF,
+        CelestialFrame::EME2000 | CelestialFrame::MOD | CelestialFrame::TOD => CelestialFrame::GCRF,
         other => {
             let center = other.center_naif_id();
             if center == NAIFId::Earth.id() {
@@ -687,6 +687,15 @@ mod tests {
         // Earth-centered but J2000-biased rather than ICRF-aligned.
         assert_eq!(
             icrf_aligned_inertial(CelestialFrame::EME2000),
+            CelestialFrame::GCRF
+        );
+        // Earth-centered equinox-of-date frames.
+        assert_eq!(
+            icrf_aligned_inertial(CelestialFrame::MOD),
+            CelestialFrame::GCRF
+        );
+        assert_eq!(
+            icrf_aligned_inertial(CelestialFrame::TOD),
             CelestialFrame::GCRF
         );
         // Any other center falls back to a generic ICRF-aligned frame at

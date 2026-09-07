@@ -4244,7 +4244,7 @@ def test_keplerian_center_accepts_generic_icrf_frames(eop):
     # ICRF-aligned frame is accepted alongside the named one.
     for frame in (
         CelestialFrame.BodyCenteredICRF(499),
-        CelestialFrame.Centered(brahe.FrameAxes.ICRF, brahe.NAIFId.MARS),
+        CelestialFrame.Centered(brahe.NAIFId.MARS, brahe.FrameAxes.ICRF),
     ):
         traj = OrbitTrajectory(6, frame, OrbitRepresentation.CARTESIAN, None)
         traj.add(epoch, state)
@@ -4255,7 +4255,7 @@ def test_keplerian_center_accepts_generic_icrf_frames(eop):
 
     # EME2000 axes about a body other than Earth are accepted too, since
     # acceptance turns on axes rather than a fixed list of named frames.
-    mars_eme2000 = CelestialFrame.Centered(brahe.FrameAxes.EME2000, brahe.NAIFId.MARS)
+    mars_eme2000 = CelestialFrame.Centered(brahe.NAIFId.MARS, brahe.FrameAxes.EME2000)
     traj = OrbitTrajectory(6, mars_eme2000, OrbitRepresentation.CARTESIAN, None)
     traj.add(epoch, state)
     kep = traj.to_keplerian(AngleFormat.DEGREES)
@@ -4264,7 +4264,7 @@ def test_keplerian_center_accepts_generic_icrf_frames(eop):
     assert elements[0] == pytest.approx(r, abs=1e-6)
 
     # Non-inertial axes about that same body are still rejected.
-    mars_tod = CelestialFrame.Centered(brahe.FrameAxes.TOD, brahe.NAIFId.MARS)
+    mars_tod = CelestialFrame.Centered(brahe.NAIFId.MARS, brahe.FrameAxes.TOD)
     traj = OrbitTrajectory(6, mars_tod, OrbitRepresentation.CARTESIAN, None)
     traj.add(epoch, state)
     with pytest.raises(BraheError, match="inertial frame"):

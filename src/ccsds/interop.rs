@@ -24,9 +24,9 @@ use crate::ccsds::frames::{
 use crate::ccsds::oem::{OEM, OEMMetadata};
 use crate::ccsds::omm::{OMM, OMMMetadata, OMMTleParameters, OMMeanElements};
 use crate::frames::{
-    BodyFrame, CelestialFrame, DStateAdapter, FrameAxes, ObjectId, OrbitRelativeFrameKind,
-    OrbitRelativeFrameVariant, OrientationProvider, ReferenceFrame, register_frame,
-    register_object, state_frame_to_frame,
+    BodyFrame, CelestialFrame, DStateAdapter, FrameAxes, FrameCenter, ObjectId,
+    OrbitRelativeFrameKind, OrbitRelativeFrameVariant, OrientationProvider, ReferenceFrame,
+    register_frame, register_object, state_frame_to_frame,
 };
 use crate::math::SVector6;
 use crate::spice::NAIFId;
@@ -156,7 +156,7 @@ impl TryFrom<&ReferenceFrame> for CCSDSRefFrame {
     ///
     /// // The token follows the axes, so a Mars-centered EME2000 frame writes
     /// // as EME2000 and its origin is written as CENTER_NAME.
-    /// let frame = ReferenceFrame::Celestial(CelestialFrame::centered(FrameAxes::EME2000, 499));
+    /// let frame = ReferenceFrame::Celestial(CelestialFrame::centered(499, FrameAxes::EME2000));
     /// assert_eq!(CCSDSRefFrame::try_from(&frame).unwrap(), CCSDSRefFrame::EME2000);
     ///
     /// // MOD has no ODM reference frame token
@@ -176,9 +176,9 @@ impl TryFrom<&ReferenceFrame> for CCSDSRefFrame {
         };
 
         match celestial.axes() {
-            FrameAxes::ICRF => match celestial.center() {
-                NAIFId::Earth => Ok(CCSDSRefFrame::GCRF),
-                NAIFId::Mars => Ok(CCSDSRefFrame::MCI),
+            FrameAxes::ICRF => match celestial.center().naif_id() {
+                id if id == NAIFId::Earth.id() => Ok(CCSDSRefFrame::GCRF),
+                id if id == NAIFId::Mars.id() => Ok(CCSDSRefFrame::MCI),
                 _ => Ok(CCSDSRefFrame::ICRF),
             },
             FrameAxes::EME2000 => Ok(CCSDSRefFrame::EME2000),
@@ -194,7 +194,7 @@ impl TryFrom<&ReferenceFrame> for CCSDSRefFrame {
 /// the message axes are frozen.
 ///
 /// `REF_FRAME` chooses the axes and the center chooses the origin, so the
-/// pair resolves to `CelestialFrame::centered(axes, center)`.
+/// pair resolves to `CelestialFrame::centered(center, axes)`.
 ///
 /// `REF_FRAME_EPOCH` only has meaning for axes of date. `TOD` with a
 /// `REF_FRAME_EPOCH` names the true-of-date axes frozen at that epoch. Those
@@ -208,8 +208,9 @@ impl TryFrom<&ReferenceFrame> for CCSDSRefFrame {
 /// * `ref_frame` - `REF_FRAME` token carried by the message metadata
 /// * `ref_frame_epoch` - (Optional) `REF_FRAME_EPOCH` value, `None` when the
 ///   message does not declare one
-/// * `center` - NAIF ID of the origin named by the message's `CENTER_NAME`.
-///   A `CENTER_NAME` string is resolved with [`NAIFId::from_name`] first
+/// * `center` - Origin named by the message's `CENTER_NAME`, as a
+///   [`FrameCenter`], a [`NAIFId`], or a raw `i32` NAIF ID. A `CENTER_NAME`
+///   string is resolved with [`NAIFId::from_name`] first
 ///
 /// # Returns
 ///
@@ -229,21 +230,21 @@ impl TryFrom<&ReferenceFrame> for CCSDSRefFrame {
 /// // REF_FRAME = EME2000 with CENTER_NAME = MARS
 /// let (frame, frozen) =
 ///     odm_celestial_frame(&CCSDSRefFrame::EME2000, None, NAIFId::Mars).unwrap();
-/// assert_eq!(frame, CelestialFrame::centered(FrameAxes::EME2000, 499));
+/// assert_eq!(frame, CelestialFrame::centered(499, FrameAxes::EME2000));
 /// assert_eq!(frozen, None);
 /// ```
 pub fn odm_celestial_frame(
     ref_frame: &CCSDSRefFrame,
     ref_frame_epoch: Option<Epoch>,
-    center: impl Into<NAIFId>,
+    center: impl Into<FrameCenter>,
 ) -> Result<(CelestialFrame, Option<Epoch>), BraheError> {
     let center = center.into();
     let axes = FrameAxes::try_from(ref_frame)?;
     match (axes, ref_frame_epoch) {
         (FrameAxes::TOD, Some(epc)) => {
-            Ok((CelestialFrame::centered(FrameAxes::ICRF, center), Some(epc)))
+            Ok((CelestialFrame::centered(center, FrameAxes::ICRF), Some(epc)))
         }
-        _ => Ok((CelestialFrame::centered(axes, center), None)),
+        _ => Ok((CelestialFrame::centered(center, axes), None)),
     }
 }
 
@@ -277,7 +278,7 @@ pub fn odm_celestial_frame(
 ///
 /// let oem = OEM::from_file("test_assets/ccsds/oem/OEMExample4.txt").unwrap();
 /// let (frame, frozen) = segment_celestial_frame(&oem.segments[0].metadata).unwrap();
-/// assert_eq!(frame, CelestialFrame::centered(FrameAxes::EME2000, 499));
+/// assert_eq!(frame, CelestialFrame::centered(499, FrameAxes::EME2000));
 /// assert_eq!(frozen, None);
 /// ```
 pub fn segment_celestial_frame(
@@ -386,7 +387,7 @@ impl OEM {
     ///
     /// The trajectory frame is the segment's `REF_FRAME` axes centered on the
     /// body its `CENTER_NAME` names, so a Mars-centered EME2000 segment loads
-    /// as `CelestialFrame::centered(FrameAxes::EME2000, NAIFId::Mars)`.
+    /// as `CelestialFrame::centered(NAIFId::Mars, FrameAxes::EME2000)`.
     ///
     /// A segment declaring `REF_FRAME = TOD` together with a
     /// `REF_FRAME_EPOCH` names the true-of-date axes frozen at that epoch.
@@ -1710,7 +1711,7 @@ mod tests {
         assert_eq!(traj.name.as_deref(), Some("MARS GLOBAL SURVEYOR"));
         assert_eq!(
             traj.frame,
-            CelestialFrame::centered(FrameAxes::EME2000, NAIFId::Mars)
+            CelestialFrame::centered(NAIFId::Mars, FrameAxes::EME2000)
         );
 
         // Verify first state
@@ -1773,7 +1774,7 @@ mod tests {
         for traj in &trajs {
             assert_eq!(
                 traj.frame,
-                CelestialFrame::centered(FrameAxes::EME2000, NAIFId::MarsBarycenter)
+                CelestialFrame::centered(NAIFId::MarsBarycenter, FrameAxes::EME2000)
             );
         }
     }
@@ -1788,7 +1789,7 @@ mod tests {
         assert_eq!(traj.len(), 3);
         assert_eq!(
             traj.frame,
-            CelestialFrame::centered(FrameAxes::EME2000, NAIFId::Mars)
+            CelestialFrame::centered(NAIFId::Mars, FrameAxes::EME2000)
         );
     }
 
@@ -1957,7 +1958,7 @@ mod tests {
     fn test_reference_frame_to_ccsds_ref_frame_by_axes() {
         // REF_FRAME names only the axes, so a frame keeps its token at any
         // center; CENTER_NAME carries the origin.
-        let mars_eme2000 = ReferenceFrame::from(CelestialFrame::centered(FrameAxes::EME2000, 499));
+        let mars_eme2000 = ReferenceFrame::from(CelestialFrame::centered(499, FrameAxes::EME2000));
         assert_eq!(
             CCSDSRefFrame::try_from(&mars_eme2000).unwrap(),
             CCSDSRefFrame::EME2000
@@ -1984,7 +1985,7 @@ mod tests {
         );
 
         // MOD has no ODM token at any center.
-        let mars_mod = ReferenceFrame::from(CelestialFrame::centered(FrameAxes::MOD, 499));
+        let mars_mod = ReferenceFrame::from(CelestialFrame::centered(499, FrameAxes::MOD));
         assert!(CCSDSRefFrame::try_from(&mars_mod).is_err());
     }
 
@@ -2011,8 +2012,8 @@ mod tests {
         // ICRF axes about any other body keep the generic ICRF token.
         assert_eq!(
             CCSDSRefFrame::try_from(&ReferenceFrame::from(CelestialFrame::centered(
-                FrameAxes::ICRF,
-                301
+                301,
+                FrameAxes::ICRF
             )))
             .unwrap(),
             CCSDSRefFrame::ICRF
@@ -2186,7 +2187,7 @@ mod tests {
             odm_celestial_frame(&CCSDSRefFrame::EME2000, None, NAIFId::Mars)
                 .unwrap()
                 .0,
-            CelestialFrame::centered(FrameAxes::EME2000, 499)
+            CelestialFrame::centered(499, FrameAxes::EME2000)
         );
         // Callers holding a CENTER_NAME resolve it with `NAIFId::from_name`
         // before calling, so name spellings and raw IDs both reach the
@@ -2209,7 +2210,7 @@ mod tests {
             )
             .unwrap()
             .0,
-            CelestialFrame::centered(FrameAxes::ITRF, 499)
+            CelestialFrame::centered(499, FrameAxes::ITRF)
         );
         let err = NAIFId::from_name("PLANET X").unwrap_err();
         assert!(
@@ -2225,13 +2226,13 @@ mod tests {
         let ref_epoch = Epoch::from_datetime(2019, 9, 8, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let (frame, frozen) =
             odm_celestial_frame(&CCSDSRefFrame::TOD, Some(ref_epoch), NAIFId::Mars).unwrap();
-        assert_eq!(frame, CelestialFrame::centered(FrameAxes::ICRF, 499));
+        assert_eq!(frame, CelestialFrame::centered(499, FrameAxes::ICRF));
         assert_eq!(frozen, Some(ref_epoch));
 
         // Without a REF_FRAME_EPOCH the axes stay of-date and no conversion is
         // requested.
         let (frame, frozen) = odm_celestial_frame(&CCSDSRefFrame::TOD, None, NAIFId::Mars).unwrap();
-        assert_eq!(frame, CelestialFrame::centered(FrameAxes::TOD, 499));
+        assert_eq!(frame, CelestialFrame::centered(499, FrameAxes::TOD));
         assert_eq!(frozen, None);
     }
 
@@ -2244,7 +2245,7 @@ mod tests {
         let oem = OEM::from_file("test_assets/ccsds/oem/OEMExample4.txt").unwrap();
         let metadata = &oem.segments[0].metadata;
         let (frame, frozen) = segment_celestial_frame(metadata).unwrap();
-        assert_eq!(frame, CelestialFrame::centered(FrameAxes::EME2000, 499));
+        assert_eq!(frame, CelestialFrame::centered(499, FrameAxes::EME2000));
         assert_eq!(frozen, None);
         let x = SVector6::new(4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3);
         assert_eq!(state_for_segment(metadata, x).unwrap(), x);

@@ -105,7 +105,7 @@ pub(crate) fn keplerian_center(frame: &ReferenceFrame) -> Result<i32, BraheError
 ///
 /// True for the named ICRF-aligned frames (`GCRF`, `LCI`, `MCI`, `EMBI`,
 /// `SSBI`), for `BodyCenteredICRF` at any center, and for any frame built as
-/// `CelestialFrame::centered(FrameAxes::ICRF, ..)`. Orientation alone decides:
+/// `CelestialFrame::centered(.., FrameAxes::ICRF)`. Orientation alone decides:
 /// reaching ICRF axes from such a frame is the identity rotation whatever body
 /// it is centered on, so a rotation-only quantity such as a covariance passes
 /// through unchanged. Body and orbit-relative frames are never ICRF axes.
@@ -123,7 +123,7 @@ pub(crate) fn is_icrf_axes_frame(frame: &ReferenceFrame) -> bool {
 /// mean equator and equinox.
 ///
 /// True for `EME2000` and for any frame built as
-/// `CelestialFrame::centered(FrameAxes::EME2000, ..)`. Orientation alone
+/// `CelestialFrame::centered(.., FrameAxes::EME2000)`. Orientation alone
 /// decides: the rotation from EME2000 axes to ICRF axes is the constant frame
 /// bias whatever body the frame is centered on, so a rotation-only quantity
 /// such as a covariance takes the same Jacobian at every center.
@@ -1098,21 +1098,21 @@ mod tests {
         // EME2000 axes about a body other than Earth are accepted too, since
         // acceptance turns on axes rather than a fixed list of named frames.
         assert_eq!(
-            keplerian_center(&CelestialFrame::centered(FrameAxes::EME2000, 499).into()).unwrap(),
+            keplerian_center(&CelestialFrame::centered(499, FrameAxes::EME2000).into()).unwrap(),
             499
         );
         // The of-date axes are accepted at any center for the same reason.
         assert_eq!(
-            keplerian_center(&CelestialFrame::centered(FrameAxes::TOD, 499).into()).unwrap(),
+            keplerian_center(&CelestialFrame::centered(499, FrameAxes::TOD).into()).unwrap(),
             499
         );
         assert_eq!(
-            keplerian_center(&CelestialFrame::centered(FrameAxes::MOD, 499).into()).unwrap(),
+            keplerian_center(&CelestialFrame::centered(499, FrameAxes::MOD).into()).unwrap(),
             499
         );
         // Body-fixed axes about that same body are still rejected.
         let err =
-            keplerian_center(&CelestialFrame::centered(FrameAxes::ITRF, 499).into()).unwrap_err();
+            keplerian_center(&CelestialFrame::centered(499, FrameAxes::ITRF).into()).unwrap_err();
         assert!(err.to_string().contains("inertial frame"));
     }
 
@@ -1173,7 +1173,7 @@ mod tests {
             CelestialFrame::MCI,
             CelestialFrame::EMBI,
             CelestialFrame::SSBI,
-            CelestialFrame::centered(FrameAxes::ICRF, NAIFId::Mars),
+            CelestialFrame::centered(NAIFId::Mars, FrameAxes::ICRF),
             CelestialFrame::BodyCenteredICRF(299),
         ] {
             assert!(is_icrf_axes_frame(&ReferenceFrame::from(frame)));
@@ -1194,9 +1194,9 @@ mod tests {
         // Earth-centered shorthand.
         for frame in [
             CelestialFrame::EME2000,
-            CelestialFrame::centered(FrameAxes::EME2000, NAIFId::Mars),
-            CelestialFrame::centered(FrameAxes::EME2000, 499),
-            CelestialFrame::centered(FrameAxes::EME2000, NAIFId::SolarSystemBarycenter),
+            CelestialFrame::centered(NAIFId::Mars, FrameAxes::EME2000),
+            CelestialFrame::centered(499, FrameAxes::EME2000),
+            CelestialFrame::centered(NAIFId::SolarSystemBarycenter, FrameAxes::EME2000),
         ] {
             assert!(is_eme2000_axes_frame(&ReferenceFrame::from(frame)));
             assert!(!is_icrf_axes_frame(&ReferenceFrame::from(frame)));

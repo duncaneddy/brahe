@@ -11,8 +11,8 @@
  *
  * # Hub-and-spoke design
  *
- * Every frame is the pair of an orientation and an origin,
- * [`CelestialFrame::axes`] and [`CelestialFrame::center`], and every
+ * Every frame is the pair of an origin and an orientation,
+ * [`CelestialFrame::center`] and [`CelestialFrame::axes`], and every
  * conversion is performed in two independent steps, one per half of that
  * pair:
  *
@@ -61,7 +61,7 @@
  * | SER | Sun-Earth barycenter (synthetic, see [`SUN_EARTH_BARYCENTER_ID`]) |
  * | GSE | Earth (399) |
  * | `Synodic { origin, primary, secondary }` | `primary`, `secondary`, or the pair's GM-weighted barycenter (synthetic, see [`synodic_barycenter_id`]), per `origin` |
- * | `Centered { axes, center }` | `center` |
+ * | `Centered { center, axes }` | `center` |
  *
  * Translations involving a satellite-system body center (e.g. Mars, NAIF
  * 499, or an outer-planet moon) auto-load that system's satellite
@@ -80,6 +80,7 @@ use crate::utils::BraheError;
 use crate::utils::batch::{try_batch_map, try_batch_map_epochs};
 
 use super::axes::FrameAxes;
+use super::center::FrameCenter;
 use super::frame::ReferenceFrame;
 
 use super::eme_2000::rotation_gcrf_to_eme2000;
@@ -301,31 +302,38 @@ pub enum CelestialFrame {
     ///
     /// The library constructs this variant only through
     /// [`CelestialFrame::centered`], which returns the named shorthand
-    /// whenever the `(axes, center)` pair has one, so no `Centered` value
+    /// whenever the `(center, axes)` pair has one, so no `Centered` value
     /// the library produces holds a pair that a named variant already
     /// describes. Equality is structural: a `Centered` literal written by
     /// hand for a pair that does have a named form (e.g.
-    /// `Centered { axes: FrameAxes::ITRF, center: NAIFId::Earth }`)
+    /// `Centered { center: FrameCenter::Body(NAIFId::Earth), axes: FrameAxes::ITRF }`)
     /// compares unequal to that shorthand (`ITRF`) and is not recognized
     /// by code matching on the named variant. Build frames with
     /// [`CelestialFrame::centered`].
+    ///
+    /// Structural equality also separates the two spellings of a synthetic
+    /// synodic-barycenter origin, which share one
+    /// [`FrameCenter::naif_id`]: a `Centered` frame built from
+    /// `FrameCenter::Barycenter { primary, secondary }` and one built from
+    /// the raw [`synodic_barycenter_id`] of the same pair name the same
+    /// point and translate identically, but compare unequal.
     ///
     /// One pair of representations shares a single canonical form rather
     /// than being distinguished: `Synodic { Barycenter, 10, 399 }` and
     /// `Synodic { Primary, 399, 10 }` describe the same coordinate systems
     /// as [`CelestialFrame::SER`] and [`CelestialFrame::GSE`], and
     /// `centered` returns the named frame for both, so those two generic
-    /// literals do not survive a `centered(f.axes(), f.center())` round
+    /// literals do not survive a `centered(f.center(), f.axes())` round
     /// trip. [`CelestialFrame::BodyCenteredICRF`] behaves the same way at
     /// the centers that have named ICRF frames: `BodyCenteredICRF(399)`,
     /// `(301)`, `(499)`, `(3)` and `(0)` are non-canonical spellings of
     /// `GCRF`, `LCI`, `MCI`, `EMBI` and `SSBI`, and `centered` returns the
     /// named frame for them.
     Centered {
+        /// Body or barycenter at the frame's origin.
+        center: FrameCenter,
         /// Orientation of the frame's axes.
         axes: FrameAxes,
-        /// Body or barycenter at the frame's origin.
-        center: NAIFId,
     },
 }
 
@@ -380,13 +388,13 @@ impl CelestialFrame {
                 SynodicOrigin::Secondary => *secondary,
                 SynodicOrigin::Barycenter => synodic_barycenter_id(*primary, *secondary),
             },
-            CelestialFrame::Centered { center, .. } => center.id(),
+            CelestialFrame::Centered { center, .. } => center.naif_id(),
         }
     }
 
     /// Orientation of this frame's axes, independent of its origin.
     ///
-    /// Every frame is the pair `(axes(), center())`, and
+    /// Every frame is the pair `(center(), axes())`, and
     /// [`CelestialFrame::centered`] rebuilds the frame from that pair.
     ///
     /// # Returns:
@@ -432,33 +440,63 @@ impl CelestialFrame {
 
     /// Body or barycenter at this frame's origin.
     ///
-    /// The semantic form of [`CelestialFrame::center_naif_id`]: named
-    /// [`NAIFId`] variants for catalogued bodies and barycenters, and
-    /// [`NAIFId::Id`] for every other ID, including self-assigned negative
-    /// centers and the synthetic synodic barycenters.
+    /// The semantic form of [`CelestialFrame::center_naif_id`]: a
+    /// [`FrameCenter::Body`] holding the named [`NAIFId`] variant of a
+    /// catalogued body or system barycenter, or [`NAIFId::Id`] for every
+    /// other ID (including a self-assigned negative center), and a
+    /// [`FrameCenter::Barycenter`] for the frames centered on the
+    /// GM-weighted barycenter of a two-body pair
+    /// ([`CelestialFrame::SER`] and a `Barycenter`-origin
+    /// [`CelestialFrame::Synodic`]).
+    ///
+    /// [`CelestialFrame::EMR`] is centered on the catalogued Earth-Moon
+    /// barycenter rather than the GM-weighted one, so its center is
+    /// `Body(NAIFId::EarthMoonBarycenter)`.
+    ///
+    /// Every frame is the pair `(center(), axes())`, and
+    /// [`CelestialFrame::centered`] rebuilds the frame from that pair.
     ///
     /// # Returns:
     /// - `center`: The frame's origin
     ///
     /// # Examples:
     /// ```
-    /// use brahe::frames::CelestialFrame;
+    /// use brahe::frames::{CelestialFrame, FrameCenter};
     /// use brahe::spice::NAIFId;
     ///
-    /// assert_eq!(CelestialFrame::GCRF.center(), NAIFId::Earth);
-    /// assert_eq!(CelestialFrame::LFPA.center(), NAIFId::Moon);
+    /// assert_eq!(CelestialFrame::GCRF.center(), FrameCenter::Body(NAIFId::Earth));
+    /// assert_eq!(CelestialFrame::LFPA.center(), FrameCenter::Body(NAIFId::Moon));
+    /// assert_eq!(
+    ///     CelestialFrame::SER.center(),
+    ///     FrameCenter::Barycenter { primary: NAIFId::Sun, secondary: NAIFId::Earth }
+    /// );
     /// ```
-    pub fn center(&self) -> NAIFId {
-        NAIFId::from(self.center_naif_id())
+    pub fn center(&self) -> FrameCenter {
+        match self {
+            CelestialFrame::SER => FrameCenter::Barycenter {
+                primary: NAIFId::Sun,
+                secondary: NAIFId::Earth,
+            },
+            CelestialFrame::Synodic {
+                origin: SynodicOrigin::Barycenter,
+                primary,
+                secondary,
+            } => FrameCenter::Barycenter {
+                primary: NAIFId::from(*primary),
+                secondary: NAIFId::from(*secondary),
+            },
+            CelestialFrame::Centered { center, .. } => *center,
+            _ => FrameCenter::Body(NAIFId::from(self.center_naif_id())),
+        }
     }
 
-    /// Frame with the given `axes` centered on `center`.
+    /// Frame centered on `center` with the given `axes`.
     ///
     /// Returns the named shorthand whenever the pair has one (so
-    /// `centered(FrameAxes::EME2000, 399)` is [`CelestialFrame::EME2000`]
-    /// and `centered(FrameAxes::ICRF, 301)` is [`CelestialFrame::LCI`]),
+    /// `centered(399, FrameAxes::EME2000)` is [`CelestialFrame::EME2000`]
+    /// and `centered(301, FrameAxes::ICRF)` is [`CelestialFrame::LCI`]),
     /// and [`CelestialFrame::Centered`] otherwise.
-    /// `centered(f.axes(), f.center()) == f` holds for every canonical frame
+    /// `centered(f.center(), f.axes()) == f` holds for every canonical frame
     /// value. `BodyCenteredICRF(399 | 301 | 499 | 3 | 0)` written as a literal
     /// is a non-canonical spelling of [`CelestialFrame::GCRF`],
     /// [`CelestialFrame::LCI`], [`CelestialFrame::MCI`],
@@ -468,34 +506,43 @@ impl CelestialFrame {
     /// `Synodic { Barycenter, 10, 399 }`, `GSE` and
     /// `Synodic { Primary, 399, 10 }`), the named form is returned.
     ///
+    /// The origin is canonicalized on [`FrameCenter::naif_id`], so a
+    /// [`FrameCenter::Barycenter`] and the raw [`synodic_barycenter_id`]
+    /// of the same pair select the same named frame. When no named form
+    /// exists, the [`FrameCenter`] is stored as given, so those two
+    /// spellings produce structurally distinct (but identically
+    /// translating) [`CelestialFrame::Centered`] values.
+    ///
     /// [`FrameAxes::EMR`], [`FrameAxes::SER`] and [`FrameAxes::GSE`] are
     /// the same orientations as their generic synodic pairs, so they are
-    /// accepted at any center: `centered(FrameAxes::EMR, 3)` is
-    /// [`CelestialFrame::EMR`] and `centered(FrameAxes::EMR, 399)` is
+    /// accepted at any center: `centered(3, FrameAxes::EMR)` is
+    /// [`CelestialFrame::EMR`] and `centered(399, FrameAxes::EMR)` is
     /// `Synodic { Primary, 399, 301 }`, the Earth-centered frame with
     /// those same axes.
     ///
     /// # Arguments:
+    /// - `center`: The frame's origin, as a [`FrameCenter`], a [`NAIFId`],
+    ///   or a raw `i32` NAIF ID
     /// - `axes`: Orientation of the frame's axes
-    /// - `center`: NAIF ID of the frame's origin, as an `i32` or [`NAIFId`]
     ///
     /// # Returns:
-    /// - `frame`: The frame with those axes and that center
+    /// - `frame`: The frame with that center and those axes
     ///
     /// # Examples:
     /// ```
-    /// use brahe::frames::{CelestialFrame, FrameAxes};
+    /// use brahe::frames::{CelestialFrame, FrameAxes, FrameCenter};
     /// use brahe::spice::NAIFId;
     ///
-    /// assert_eq!(CelestialFrame::centered(FrameAxes::ICRF, 399), CelestialFrame::GCRF);
+    /// assert_eq!(CelestialFrame::centered(399, FrameAxes::ICRF), CelestialFrame::GCRF);
     ///
     /// // EME2000 axes about Mars have no named form
-    /// let frame = CelestialFrame::centered(FrameAxes::EME2000, NAIFId::Mars);
+    /// let frame = CelestialFrame::centered(NAIFId::Mars, FrameAxes::EME2000);
     /// assert_eq!(frame.axes(), FrameAxes::EME2000);
-    /// assert_eq!(frame.center(), NAIFId::Mars);
+    /// assert_eq!(frame.center(), FrameCenter::Body(NAIFId::Mars));
     /// ```
-    pub fn centered(axes: FrameAxes, center: impl Into<NAIFId>) -> CelestialFrame {
-        let id = center.into().id();
+    pub fn centered(center: impl Into<FrameCenter>, axes: FrameAxes) -> CelestialFrame {
+        let center = center.into();
+        let id = center.naif_id();
         // `EMR`, `SER` and `GSE` name the same orientations as their generic
         // synodic pairs, so they share one representation; the pair arms
         // below still return the named frames at their own centers.
@@ -580,10 +627,7 @@ impl CelestialFrame {
                     secondary,
                 }
             }
-            _ => CelestialFrame::Centered {
-                axes,
-                center: NAIFId::from(id),
-            },
+            _ => CelestialFrame::Centered { center, axes },
         }
     }
 
@@ -708,8 +752,8 @@ impl fmt::Display for CelestialFrame {
                 "Synodic(origin={:?}, primary={}, secondary={})",
                 origin, primary, secondary
             ),
-            CelestialFrame::Centered { axes, center } => {
-                write!(f, "Centered({}, {})", axes, center)
+            CelestialFrame::Centered { center, axes } => {
+                write!(f, "Centered({}, {})", center, axes)
             }
         }
     }
@@ -2660,9 +2704,19 @@ mod tests {
     #[parallel]
     fn test_celestialframe_axes_and_center() {
         assert_eq!(CelestialFrame::EME2000.axes(), FrameAxes::EME2000);
-        assert_eq!(CelestialFrame::EME2000.center(), NAIFId::Earth);
+        assert_eq!(
+            CelestialFrame::EME2000.center(),
+            FrameCenter::Body(NAIFId::Earth)
+        );
         assert_eq!(CelestialFrame::LFPA.axes(), FrameAxes::LunarPA);
-        assert_eq!(CelestialFrame::MCMF.center(), NAIFId::Mars);
+        assert_eq!(
+            CelestialFrame::MCMF.center(),
+            FrameCenter::Body(NAIFId::Mars)
+        );
+        assert_eq!(
+            CelestialFrame::MCI.center(),
+            FrameCenter::Body(NAIFId::Mars)
+        );
         assert_eq!(
             CelestialFrame::BodyFixedPCK {
                 center: 301,
@@ -2671,47 +2725,97 @@ mod tests {
             .axes(),
             FrameAxes::BodyFixedPCK(31008)
         );
+
+        // EMR is centered on the catalogued Earth-Moon barycenter, so its
+        // center is a body; SER and a `Barycenter`-origin `Synodic` are
+        // centered on the GM-weighted barycenter of their pair.
         assert_eq!(CelestialFrame::EMR.axes(), FrameAxes::EMR);
-        assert_eq!(CelestialFrame::EMR.center(), NAIFId::EarthMoonBarycenter);
+        assert_eq!(
+            CelestialFrame::EMR.center(),
+            FrameCenter::Body(NAIFId::EarthMoonBarycenter)
+        );
+        assert_eq!(CelestialFrame::EMR.center().name(), "EARTH MOON BARYCENTER");
+        assert_eq!(
+            CelestialFrame::SER.center(),
+            FrameCenter::Barycenter {
+                primary: NAIFId::Sun,
+                secondary: NAIFId::Earth
+            }
+        );
+        assert_eq!(
+            CelestialFrame::SER.center().name(),
+            "BARYCENTER(SUN, EARTH)"
+        );
+        assert_eq!(
+            CelestialFrame::SER.center().naif_id(),
+            CelestialFrame::SER.center_naif_id()
+        );
+        let emr_barycenter = CelestialFrame::Synodic {
+            origin: SynodicOrigin::Barycenter,
+            primary: 399,
+            secondary: 301,
+        };
+        assert_eq!(
+            emr_barycenter.center(),
+            FrameCenter::Barycenter {
+                primary: NAIFId::Earth,
+                secondary: NAIFId::Moon
+            }
+        );
+        assert_eq!(emr_barycenter.center().name(), "BARYCENTER(EARTH, MOON)");
+        assert_eq!(
+            emr_barycenter.center().naif_id(),
+            synodic_barycenter_id(399, 301)
+        );
+
+        // A self-assigned center with no catalogued name stays a body.
+        assert_eq!(
+            CelestialFrame::BodyFixedCustom {
+                center: -20001,
+                key: 7
+            }
+            .center(),
+            FrameCenter::Body(NAIFId::Id(-20001))
+        );
     }
 
     #[test]
     #[parallel]
     fn test_celestialframe_centered_canonical_forms() {
         assert_eq!(
-            CelestialFrame::centered(FrameAxes::EME2000, 399),
+            CelestialFrame::centered(399, FrameAxes::EME2000),
             CelestialFrame::EME2000
         );
         assert_eq!(
-            CelestialFrame::centered(FrameAxes::ICRF, NAIFId::Moon),
+            CelestialFrame::centered(NAIFId::Moon, FrameAxes::ICRF),
             CelestialFrame::LCI
         );
         assert_eq!(
-            CelestialFrame::centered(FrameAxes::ICRF, 499),
+            CelestialFrame::centered(499, FrameAxes::ICRF),
             CelestialFrame::MCI
         );
         assert_eq!(
-            CelestialFrame::centered(FrameAxes::ICRF, 3),
+            CelestialFrame::centered(3, FrameAxes::ICRF),
             CelestialFrame::EMBI
         );
         assert_eq!(
-            CelestialFrame::centered(FrameAxes::ICRF, 0),
+            CelestialFrame::centered(0, FrameAxes::ICRF),
             CelestialFrame::SSBI
         );
         assert_eq!(
-            CelestialFrame::centered(FrameAxes::ICRF, 2000001),
+            CelestialFrame::centered(2000001, FrameAxes::ICRF),
             CelestialFrame::BodyCenteredICRF(2000001)
         );
         assert_eq!(
-            CelestialFrame::centered(FrameAxes::ITRF, 399),
+            CelestialFrame::centered(399, FrameAxes::ITRF),
             CelestialFrame::ITRF
         );
         assert_eq!(
-            CelestialFrame::centered(FrameAxes::BodyFixedIAU(499), 499),
+            CelestialFrame::centered(499, FrameAxes::BodyFixedIAU(499)),
             CelestialFrame::BodyFixedIAU(499)
         );
         assert_eq!(
-            CelestialFrame::centered(FrameAxes::BodyFixedPCK(31008), 301),
+            CelestialFrame::centered(301, FrameAxes::BodyFixedPCK(31008)),
             CelestialFrame::BodyFixedPCK {
                 center: 301,
                 frame_id: 31008
@@ -2719,41 +2823,41 @@ mod tests {
         );
         assert_eq!(
             CelestialFrame::centered(
+                3,
                 FrameAxes::Synodic {
                     primary: 399,
                     secondary: 301
-                },
-                3
+                }
             ),
             CelestialFrame::EMR
         );
         assert_eq!(
             CelestialFrame::centered(
+                399,
                 FrameAxes::Synodic {
                     primary: 399,
                     secondary: 10
-                },
-                399
+                }
             ),
             CelestialFrame::GSE
         );
         assert_eq!(
-            CelestialFrame::centered(FrameAxes::EMR, 3),
+            CelestialFrame::centered(3, FrameAxes::EMR),
             CelestialFrame::EMR
         );
         assert_eq!(
-            CelestialFrame::centered(FrameAxes::SER, SUN_EARTH_BARYCENTER_ID),
+            CelestialFrame::centered(SUN_EARTH_BARYCENTER_ID, FrameAxes::SER),
             CelestialFrame::SER
         );
         assert_eq!(
-            CelestialFrame::centered(FrameAxes::GSE, 399),
+            CelestialFrame::centered(399, FrameAxes::GSE),
             CelestialFrame::GSE
         );
 
         // The named synodic axes are the same orientations as their generic
         // pairs, so every center with a named `Synodic` form returns it.
         assert_eq!(
-            CelestialFrame::centered(FrameAxes::EMR, 399),
+            CelestialFrame::centered(399, FrameAxes::EMR),
             CelestialFrame::Synodic {
                 origin: SynodicOrigin::Primary,
                 primary: 399,
@@ -2761,7 +2865,7 @@ mod tests {
             }
         );
         assert_eq!(
-            CelestialFrame::centered(FrameAxes::EMR, 301),
+            CelestialFrame::centered(301, FrameAxes::EMR),
             CelestialFrame::Synodic {
                 origin: SynodicOrigin::Secondary,
                 primary: 399,
@@ -2769,7 +2873,7 @@ mod tests {
             }
         );
         assert_eq!(
-            CelestialFrame::centered(FrameAxes::EMR, synodic_barycenter_id(399, 301)),
+            CelestialFrame::centered(synodic_barycenter_id(399, 301), FrameAxes::EMR),
             CelestialFrame::Synodic {
                 origin: SynodicOrigin::Barycenter,
                 primary: 399,
@@ -2777,7 +2881,7 @@ mod tests {
             }
         );
         assert_eq!(
-            CelestialFrame::centered(FrameAxes::SER, 10),
+            CelestialFrame::centered(10, FrameAxes::SER),
             CelestialFrame::Synodic {
                 origin: SynodicOrigin::Primary,
                 primary: 10,
@@ -2785,7 +2889,7 @@ mod tests {
             }
         );
         assert_eq!(
-            CelestialFrame::centered(FrameAxes::SER, 399),
+            CelestialFrame::centered(399, FrameAxes::SER),
             CelestialFrame::Synodic {
                 origin: SynodicOrigin::Secondary,
                 primary: 10,
@@ -2793,7 +2897,7 @@ mod tests {
             }
         );
         assert_eq!(
-            CelestialFrame::centered(FrameAxes::GSE, 10),
+            CelestialFrame::centered(10, FrameAxes::GSE),
             CelestialFrame::Synodic {
                 origin: SynodicOrigin::Secondary,
                 primary: 399,
@@ -2801,7 +2905,7 @@ mod tests {
             }
         );
         assert_eq!(
-            CelestialFrame::centered(FrameAxes::GSE, synodic_barycenter_id(399, 10)),
+            CelestialFrame::centered(synodic_barycenter_id(399, 10), FrameAxes::GSE),
             CelestialFrame::Synodic {
                 origin: SynodicOrigin::Barycenter,
                 primary: 399,
@@ -2812,28 +2916,103 @@ mod tests {
         // A named synodic orientation about an unrelated body still has no
         // named form.
         assert_eq!(
-            CelestialFrame::centered(FrameAxes::EMR, 499),
+            CelestialFrame::centered(499, FrameAxes::EMR),
             CelestialFrame::Centered {
+                center: FrameCenter::Body(NAIFId::Mars),
                 axes: FrameAxes::Synodic {
                     primary: 399,
                     secondary: 301
-                },
-                center: NAIFId::Mars
+                }
             }
         );
-        let mars_eme = CelestialFrame::centered(FrameAxes::EME2000, 499);
+        let mars_eme = CelestialFrame::centered(499, FrameAxes::EME2000);
         assert_eq!(
             mars_eme,
             CelestialFrame::Centered {
-                axes: FrameAxes::EME2000,
-                center: NAIFId::Mars
+                center: FrameCenter::Body(NAIFId::Mars),
+                axes: FrameAxes::EME2000
             }
         );
         assert_eq!(mars_eme.center_naif_id(), 499);
-        assert_eq!(format!("{}", mars_eme), "Centered(EME2000, MARS)");
+        assert_eq!(format!("{}", mars_eme), "Centered(MARS, EME2000)");
         assert_eq!(
-            format!("{}", CelestialFrame::centered(FrameAxes::ITRF, -42)),
-            "Centered(ITRF, -42)"
+            format!("{}", CelestialFrame::centered(-42, FrameAxes::ITRF)),
+            "Centered(-42, ITRF)"
+        );
+
+        // A `FrameCenter` is accepted directly, and canonicalizes on its
+        // NAIF ID, so a `Barycenter` and the raw synthetic ID of the same
+        // pair select the same named frame.
+        assert_eq!(
+            CelestialFrame::centered(FrameCenter::Body(NAIFId::Mars), FrameAxes::EME2000),
+            mars_eme
+        );
+        assert_eq!(
+            CelestialFrame::centered(
+                FrameCenter::Barycenter {
+                    primary: NAIFId::Sun,
+                    secondary: NAIFId::Earth
+                },
+                FrameAxes::SER
+            ),
+            CelestialFrame::SER
+        );
+        assert_eq!(
+            CelestialFrame::centered(SUN_EARTH_BARYCENTER_ID, FrameAxes::SER),
+            CelestialFrame::SER
+        );
+        assert_eq!(
+            CelestialFrame::centered(
+                FrameCenter::Barycenter {
+                    primary: NAIFId::Earth,
+                    secondary: NAIFId::Moon
+                },
+                FrameAxes::EMR
+            ),
+            CelestialFrame::Synodic {
+                origin: SynodicOrigin::Barycenter,
+                primary: 399,
+                secondary: 301
+            }
+        );
+
+        // With no named form, the `FrameCenter` is stored as given: the two
+        // spellings of one synthetic barycenter share a NAIF ID but compare
+        // unequal.
+        let barycentric_eme = CelestialFrame::centered(
+            FrameCenter::Barycenter {
+                primary: NAIFId::Earth,
+                secondary: NAIFId::Moon,
+            },
+            FrameAxes::EME2000,
+        );
+        let synthetic_eme =
+            CelestialFrame::centered(synodic_barycenter_id(399, 301), FrameAxes::EME2000);
+        assert_eq!(
+            barycentric_eme,
+            CelestialFrame::Centered {
+                center: FrameCenter::Barycenter {
+                    primary: NAIFId::Earth,
+                    secondary: NAIFId::Moon
+                },
+                axes: FrameAxes::EME2000
+            }
+        );
+        assert_eq!(
+            synthetic_eme,
+            CelestialFrame::Centered {
+                center: FrameCenter::Body(NAIFId::Id(synodic_barycenter_id(399, 301))),
+                axes: FrameAxes::EME2000
+            }
+        );
+        assert_ne!(barycentric_eme, synthetic_eme);
+        assert_eq!(
+            barycentric_eme.center_naif_id(),
+            synthetic_eme.center_naif_id()
+        );
+        assert_eq!(
+            format!("{}", barycentric_eme),
+            "Centered(BARYCENTER(EARTH, MOON), EME2000)"
         );
     }
 
@@ -2871,8 +3050,26 @@ mod tests {
                 primary: 10,
                 secondary: 599,
             },
+            CelestialFrame::Synodic {
+                origin: SynodicOrigin::Barycenter,
+                primary: 399,
+                secondary: 301,
+            },
+            CelestialFrame::Synodic {
+                origin: SynodicOrigin::Barycenter,
+                primary: 10,
+                secondary: 599,
+            },
+            CelestialFrame::centered(NAIFId::Mars, FrameAxes::EME2000),
+            CelestialFrame::centered(
+                FrameCenter::Barycenter {
+                    primary: NAIFId::Earth,
+                    secondary: NAIFId::Moon,
+                },
+                FrameAxes::EME2000,
+            ),
         ] {
-            assert_eq!(CelestialFrame::centered(f.axes(), f.center()), f, "{f}");
+            assert_eq!(CelestialFrame::centered(f.center(), f.axes()), f, "{f}");
         }
     }
 
@@ -2921,7 +3118,7 @@ mod tests {
     #[test]
     #[parallel]
     fn test_celestialframe_centered_serde_round_trip() {
-        let f = CelestialFrame::centered(FrameAxes::TOD, 499);
+        let f = CelestialFrame::centered(499, FrameAxes::TOD);
         let s = serde_json::to_string(&f).unwrap();
         assert_eq!(serde_json::from_str::<CelestialFrame>(&s).unwrap(), f);
     }
@@ -2975,7 +3172,7 @@ mod tests {
             ),
         ] {
             assert_eq!(
-                CelestialFrame::centered(axes, 599).axes(),
+                CelestialFrame::centered(599, axes).axes(),
                 expected,
                 "{axes}"
             );
@@ -2991,13 +3188,13 @@ mod tests {
         // Orientation of a Centered frame is its axes' rotation, evaluated
         // without any center lookup: Mars-centered EME2000 -> MCI is the
         // EME2000 frame bias alone.
-        let mars_eme = CelestialFrame::centered(FrameAxes::EME2000, 499);
+        let mars_eme = CelestialFrame::centered(499, FrameAxes::EME2000);
         let r = rotation_frame_to_frame(mars_eme, CelestialFrame::MCI, epc).unwrap();
         assert_abs_diff_eq!(r, rotation_gcrf_to_eme2000().transpose(), epsilon = 1e-15);
 
         // Same-center state conversions through a Centered frame keep the
         // transport-velocity terms of the underlying rotating axes.
-        let mars_itrf = CelestialFrame::centered(FrameAxes::ITRF, 499);
+        let mars_itrf = CelestialFrame::centered(499, FrameAxes::ITRF);
         let x = vector6_from_array([3.6e6, -1.2e6, 2.0e6, 1.0e2, 3.4e3, -1.1e3]);
         let x_mci = state_frame_to_frame(mars_itrf, CelestialFrame::MCI, epc, x).unwrap();
         assert!((x_mci - x).norm() > 1.0);
@@ -3010,7 +3207,7 @@ mod tests {
     fn test_centered_same_center_is_rotation_only() {
         setup_global_test_eop();
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let mars_eme = CelestialFrame::centered(FrameAxes::EME2000, 499);
+        let mars_eme = CelestialFrame::centered(499, FrameAxes::EME2000);
         // With no kernel loaded a same-center conversion must still succeed,
         // which is only true if it never consults the ephemeris.
         without_spice_kernels(|| {
@@ -3035,7 +3232,7 @@ mod tests {
     fn test_centered_rotating_axes_matches_explicit_kinematics() {
         setup_global_test_eop();
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let mars_itrf = CelestialFrame::centered(FrameAxes::ITRF, 499);
+        let mars_itrf = CelestialFrame::centered(499, FrameAxes::ITRF);
         let x = SVector6::new(4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3);
 
         // Independent oracle: the ITRF axes turn about the Celestial
@@ -3067,7 +3264,7 @@ mod tests {
         setup_global_test_eop();
         setup_global_test_spice();
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let mars_eme = CelestialFrame::centered(FrameAxes::EME2000, 499);
+        let mars_eme = CelestialFrame::centered(499, FrameAxes::EME2000);
         let x = SVector6::new(4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3);
         let direct = state_frame_to_frame(mars_eme, CelestialFrame::GCRF, epc, x).unwrap();
         let x_mci = state_eme2000_to_gcrf(x);
@@ -3084,7 +3281,7 @@ mod tests {
         setup_global_test_eop();
         setup_global_test_spice();
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let mars_itrf = CelestialFrame::centered(FrameAxes::ITRF, 499);
+        let mars_itrf = CelestialFrame::centered(499, FrameAxes::ITRF);
         let x = SVector6::new(4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3);
         let x_gcrf = state_frame_to_frame(mars_itrf, CelestialFrame::GCRF, epc, x).unwrap();
         let back = state_frame_to_frame(CelestialFrame::GCRF, mars_itrf, epc, x_gcrf).unwrap();

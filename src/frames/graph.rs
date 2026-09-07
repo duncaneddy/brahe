@@ -485,7 +485,7 @@ fn resolve_orbit_relative(
 /// # Returns
 /// - `CelestialFrame`: The ICRF-aligned frame centered on `frame`'s center
 pub(crate) fn icrf_aligned_inertial(frame: CelestialFrame) -> CelestialFrame {
-    CelestialFrame::centered(FrameAxes::ICRF, frame.center())
+    CelestialFrame::centered(frame.center(), FrameAxes::ICRF)
 }
 
 /// The celestial frame terminating `frame`'s chain, found without
@@ -722,11 +722,11 @@ mod tests {
     #[parallel]
     fn test_icrf_aligned_inertial_uses_centered() {
         assert_eq!(
-            icrf_aligned_inertial(CelestialFrame::centered(FrameAxes::TOD, 499)),
+            icrf_aligned_inertial(CelestialFrame::centered(499, FrameAxes::TOD)),
             CelestialFrame::MCI
         );
         assert_eq!(
-            icrf_aligned_inertial(CelestialFrame::centered(FrameAxes::ITRF, 2000001)),
+            icrf_aligned_inertial(CelestialFrame::centered(2000001, FrameAxes::ITRF)),
             CelestialFrame::BodyCenteredICRF(2000001)
         );
     }

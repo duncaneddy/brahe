@@ -9,6 +9,10 @@
 
 ::: brahe.CelestialFrame
 
+## FrameCenter
+
+::: brahe.FrameCenter
+
 ## FrameAxes
 
 ::: brahe.FrameAxes

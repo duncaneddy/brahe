@@ -4022,9 +4022,9 @@ fn py_state_gse_to_gcrf<'py>(
 
 /// Orientation of a celestial frame, independent of its origin.
 ///
-/// A `CelestialFrame` is the pair of one `FrameAxes` value and one NAIF
-/// center; `CelestialFrame.Centered(axes, center)` builds that pair and
-/// `CelestialFrame.axes` / `CelestialFrame.center` read it back.
+/// A `CelestialFrame` is the pair of one `FrameCenter` value and one
+/// `FrameAxes` value; `CelestialFrame.Centered(center, axes)` builds that
+/// pair and `CelestialFrame.center` / `CelestialFrame.axes` read it back.
 ///
 /// The argument-free orientations are class attributes (`ICRF`, `EME2000`,
 /// `MOD`, `TOD`, `ITRF`, `LunarPA`, `LunarME`, `MarsFixed`, `EMR`, `SER`,
@@ -4041,7 +4041,7 @@ fn py_state_gse_to_gcrf<'py>(
 ///     ```python
 ///     import brahe as bh
 ///
-///     mars_eme2000 = bh.CelestialFrame.Centered(bh.FrameAxes.EME2000, bh.NAIFId.MARS)
+///     mars_eme2000 = bh.CelestialFrame.Centered(bh.NAIFId.MARS, bh.FrameAxes.EME2000)
 ///     assert mars_eme2000.axes == bh.FrameAxes.EME2000
 ///     ```
 #[pyclass(module = "brahe._brahe", eq, from_py_object)]
@@ -4213,6 +4213,164 @@ impl PyFrameAxes {
 
     fn __repr__(&self) -> String {
         format!("FrameAxes.{}", self.axes)
+    }
+}
+
+/// Origin of a celestial frame, independent of its axes.
+///
+/// `FrameCenter.Body(naif_id)` names a NAIF-catalogued body or system
+/// barycenter, or any raw integer ID such as a self-assigned negative
+/// center. `FrameCenter.Barycenter(primary, secondary)` names the
+/// GM-weighted barycenter of a two-body pair, the origin the synodic frames
+/// compute analytically rather than reading from an ephemeris; it is a
+/// different point from a catalogued system barycenter such as
+/// `NAIFId.EARTH_MOON_BARYCENTER`, which is a body.
+///
+/// `naif_id` is the identity the frame router uses: two centers with the
+/// same `naif_id` translate identically, and `CelestialFrame.Centered`
+/// canonicalizes on it. Equality against another `FrameCenter`, a `NAIFId`,
+/// or a plain integer likewise compares `naif_id`.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     assert bh.CelestialFrame.MCI.center == bh.NAIFId.MARS
+///     assert bh.CelestialFrame.MCI.center.name == "MARS"
+///     assert bh.CelestialFrame.SER.center.name == "BARYCENTER(SUN, EARTH)"
+///     ```
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "FrameCenter")]
+#[derive(Clone)]
+pub struct PyFrameCenter {
+    pub(crate) center: frames::FrameCenter,
+}
+
+#[pymethods]
+#[allow(non_snake_case)]
+impl PyFrameCenter {
+    /// A NAIF-catalogued body or system barycenter, or any raw integer ID.
+    ///
+    /// Args:
+    ///     naif_id (int | NAIFId): NAIF ID of the body or system barycenter
+    ///
+    /// Returns:
+    ///     FrameCenter: The body-centered origin
+    #[staticmethod]
+    fn Body(naif_id: i32) -> Self {
+        PyFrameCenter { center: frames::FrameCenter::from(naif_id) }
+    }
+
+    /// GM-weighted barycenter of a two-body pair, as used by the synodic
+    /// frames.
+    ///
+    /// Args:
+    ///     primary (int | NAIFId): NAIF ID of the primary body
+    ///     secondary (int | NAIFId): NAIF ID of the secondary body
+    ///
+    /// Returns:
+    ///     FrameCenter: The two-body barycentric origin
+    #[staticmethod]
+    fn Barycenter(primary: i32, secondary: i32) -> Self {
+        PyFrameCenter {
+            center: frames::FrameCenter::Barycenter {
+                primary: spice::NAIFId::from(primary),
+                secondary: spice::NAIFId::from(secondary),
+            },
+        }
+    }
+
+    /// Parses a NAIF body name, accepted alias, or integer ID string into a
+    /// body-centered origin.
+    ///
+    /// The `BARYCENTER(primary, secondary)` form `name` prints for a
+    /// two-body barycenter is not parsed; build that with `Barycenter`.
+    ///
+    /// Args:
+    ///     s (str): A NAIF body name (e.g. "MARS BARYCENTER"), an accepted alias
+    ///         (e.g. "SSB"), or an integer NAIF ID string
+    ///
+    /// Returns:
+    ///     FrameCenter: Parsed origin
+    ///
+    /// Raises:
+    ///     ValueError: If `s` names no known body and is not a valid integer ID
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     assert bh.FrameCenter.from_string("mars") == bh.NAIFId.MARS
+    ///     ```
+    #[staticmethod]
+    fn from_string(s: &str) -> PyResult<Self> {
+        s.parse::<frames::FrameCenter>()
+            .map(|center| PyFrameCenter { center })
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    /// NAIF ID of this origin.
+    ///
+    /// Returns:
+    ///     int: NAIF ID of the origin, synthetic and negative for a two-body barycenter
+    #[getter]
+    fn naif_id(&self) -> i32 {
+        self.center.naif_id()
+    }
+
+    /// Name of this origin.
+    ///
+    /// Returns:
+    ///     str: NAIF body name (or the raw integer ID for an uncatalogued body),
+    ///         or `BARYCENTER(primary, secondary)` for a two-body barycenter
+    #[getter]
+    fn name(&self) -> String {
+        self.center.name()
+    }
+
+    /// The single body at this origin, when there is one.
+    ///
+    /// Returns:
+    ///     NAIFId | int | None: The `NAIFId` member for a catalogued body, the
+    ///         plain integer for any other ID, or `None` for a two-body barycenter
+    #[getter]
+    fn body<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyAny>>> {
+        let Some(id) = self.center.body() else {
+            return Ok(None);
+        };
+        let naif_id = py.import("brahe.spice")?.getattr("NAIFId")?;
+        match naif_id.call1((id.id(),)) {
+            Ok(member) => Ok(Some(member)),
+            Err(e) if e.is_instance_of::<exceptions::PyValueError>(py) => {
+                Ok(Some(id.id().into_pyobject(py)?.into_any()))
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    fn __str__(&self) -> String {
+        self.center.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("FrameCenter.{}", self.center)
+    }
+
+    /// Equality with another `FrameCenter`, a `NAIFId`, or a plain integer,
+    /// comparing `naif_id`.
+    fn __eq__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        let id = if let Ok(center) = other.extract::<PyFrameCenter>() {
+            center.center.naif_id()
+        } else if let Ok(id) = other.extract::<i32>() {
+            id
+        } else {
+            return Ok(py.NotImplemented());
+        };
+        Ok((self.center.naif_id() == id).into_pyobject(py)?.to_owned().into_any().unbind())
+    }
+
+    fn __hash__(&self) -> i64 {
+        self.center.naif_id() as i64
     }
 }
 
@@ -4515,13 +4673,13 @@ impl PyCelestialFrame {
         }
     }
 
-    /// Frame with the given `axes` centered on `center`.
+    /// Frame centered on `center` with the given `axes`.
     ///
     /// Returns the named shorthand whenever the pair has one (so
-    /// `Centered(FrameAxes.EME2000, 399)` is `CelestialFrame.EME2000` and
-    /// `Centered(FrameAxes.ICRF, 301)` is `CelestialFrame.LCI`), and a
+    /// `Centered(399, FrameAxes.EME2000)` is `CelestialFrame.EME2000` and
+    /// `Centered(301, FrameAxes.ICRF)` is `CelestialFrame.LCI`), and a
     /// generic centered frame otherwise.
-    /// `CelestialFrame.Centered(f.axes, f.center) == f` holds for every
+    /// `CelestialFrame.Centered(f.center, f.axes) == f` holds for every
     /// canonical frame value. Where a named frame and a generic frame
     /// describe the same pair, the named form is returned:
     /// `CelestialFrame.Synodic(SynodicOrigin.Barycenter, 10, 399)` round
@@ -4532,30 +4690,41 @@ impl PyCelestialFrame {
     /// `CelestialFrame.LCI`, `CelestialFrame.MCI`, `CelestialFrame.EMBI` or
     /// `CelestialFrame.SSBI`.
     ///
+    /// The origin is canonicalized on `FrameCenter.naif_id`, so
+    /// `FrameCenter.Barycenter(primary, secondary)` and the equivalent raw
+    /// synthetic ID select the same named frame. When no named form exists,
+    /// the origin is stored as given, so those two spellings produce
+    /// distinct (but identically translating) frames.
+    ///
     /// `FrameAxes.EMR`, `FrameAxes.SER` and `FrameAxes.GSE` are the same
     /// orientations as their generic synodic pairs, so they are accepted at
-    /// any center: `Centered(FrameAxes.EMR, 3)` is `CelestialFrame.EMR` and
-    /// `Centered(FrameAxes.EMR, 399)` is the Earth-centered frame with
+    /// any center: `Centered(3, FrameAxes.EMR)` is `CelestialFrame.EMR` and
+    /// `Centered(399, FrameAxes.EMR)` is the Earth-centered frame with
     /// those same axes.
     ///
     /// Args:
+    ///     center (FrameCenter | NAIFId | int): The frame's origin
     ///     axes (FrameAxes): Orientation of the frame's axes
-    ///     center (int | NAIFId): NAIF ID of the frame's origin
     ///
     /// Returns:
-    ///     CelestialFrame: The frame with those axes and that center
+    ///     CelestialFrame: The frame with that center and those axes
+    ///
+    /// Raises:
+    ///     TypeError: If `center` is not a `FrameCenter`, a `NAIFId`, or an integer
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     mars_eme2000 = bh.CelestialFrame.Centered(bh.FrameAxes.EME2000, bh.NAIFId.MARS)
+    ///     mars_eme2000 = bh.CelestialFrame.Centered(bh.NAIFId.MARS, bh.FrameAxes.EME2000)
     ///     assert mars_eme2000.center_naif_id == 499
     ///     ```
     #[staticmethod]
     #[allow(non_snake_case)]
-    fn Centered(axes: PyFrameAxes, center: i32) -> Self {
-        PyCelestialFrame { frame: frames::CelestialFrame::centered(axes.axes, center) }
+    fn Centered(center: &Bound<'_, PyAny>, axes: PyFrameAxes) -> PyResult<Self> {
+        Ok(PyCelestialFrame {
+            frame: frames::CelestialFrame::centered(extract_frame_center(center)?, axes.axes),
+        })
     }
 
     /// Orientation of this frame's axes, independent of its origin.
@@ -4569,24 +4738,16 @@ impl PyCelestialFrame {
 
     /// Body or barycenter at this frame's origin.
     ///
-    /// The semantic form of `center_naif_id`: a `NAIFId` member for
-    /// catalogued bodies and barycenters, and the plain integer for every
-    /// other ID, including self-assigned negative centers and the synthetic
-    /// synodic barycenters.
+    /// The semantic form of `center_naif_id`: a `FrameCenter` naming either a
+    /// single body (catalogued or a self-assigned raw ID) or the GM-weighted
+    /// barycenter of a two-body pair. It compares equal to a `NAIFId` or a
+    /// plain integer with the same NAIF ID.
     ///
     /// Returns:
-    ///     NAIFId | int: The frame's origin
+    ///     FrameCenter: The frame's origin
     #[getter]
-    fn center<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let id = self.frame.center_naif_id();
-        let naif_id = py.import("brahe.spice")?.getattr("NAIFId")?;
-        match naif_id.call1((id,)) {
-            Ok(member) => Ok(member),
-            Err(e) if e.is_instance_of::<exceptions::PyValueError>(py) => {
-                Ok(id.into_pyobject(py)?.into_any())
-            }
-            Err(e) => Err(e),
-        }
+    fn center(&self) -> PyFrameCenter {
+        PyFrameCenter { center: self.frame.center() }
     }
 
     /// NAIF ID of the body or barycenter at this frame's origin.
@@ -4683,6 +4844,20 @@ impl PyCelestialFrame {
     fn __repr__(&self) -> String {
         format!("CelestialFrame.{}", self.frame)
     }
+}
+
+/// Extracts a `frames::FrameCenter` from a Python object that is a
+/// `FrameCenter`, a `NAIFId`, or a plain integer NAIF ID.
+fn extract_frame_center(obj: &Bound<'_, PyAny>) -> PyResult<frames::FrameCenter> {
+    if let Ok(center) = obj.extract::<PyFrameCenter>() {
+        return Ok(center.center);
+    }
+    if let Ok(id) = obj.extract::<i32>() {
+        return Ok(frames::FrameCenter::from(id));
+    }
+    Err(exceptions::PyTypeError::new_err(
+        "expected a FrameCenter, a NAIFId, or an integer NAIF ID",
+    ))
 }
 
 /// Extracts a `frames::ReferenceFrame` from a Python object that is either a

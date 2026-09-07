@@ -4,7 +4,7 @@
 //!
 //! OEMExample4.txt declares CENTER_NAME = MARS with REF_FRAME = EME2000:
 //! EME2000 orientation about Mars rather than Earth. OEM::to_trajectories
-//! resolves that pair to CelestialFrame::Centered(EME2000, MARS) instead of
+//! resolves that pair to CelestialFrame::Centered(MARS, EME2000) instead of
 //! the Earth-centered EME2000 shorthand. Converting a sample to MCI only
 //! rotates (no ephemeris needed, since both frames share Mars as their
 //! center); converting to GCRF also translates by the Earth-Mars vector,
@@ -13,7 +13,7 @@
 #[allow(unused_imports)]
 use brahe as bh;
 use brahe::ccsds::OEM;
-use brahe::frames::{CelestialFrame, ReferenceFrame};
+use brahe::frames::{CelestialFrame, FrameCenter, ReferenceFrame};
 use brahe::traits::Trajectory;
 
 fn main() {
@@ -68,7 +68,7 @@ fn main() {
         x_gcrf[3], x_gcrf[4], x_gcrf[5]
     );
 
-    assert_eq!(traj_frame.center(), bh::NAIFId::Mars);
+    assert_eq!(traj_frame.center(), FrameCenter::Body(bh::NAIFId::Mars));
     assert_eq!(traj_frame.axes(), bh::FrameAxes::EME2000);
     println!("\nExample validated successfully!");
 }

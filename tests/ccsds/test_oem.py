@@ -1518,7 +1518,7 @@ def test_oem_to_trajectory_example4(eop):
     assert len(traj) == 3
     assert oem.segments[0].object_name == "MARS GLOBAL SURVEYOR"
     assert traj.frame == brahe.CelestialFrame.Centered(
-        brahe.FrameAxes.EME2000, brahe.NAIFId.MARS
+        brahe.NAIFId.MARS, brahe.FrameAxes.EME2000
     )
 
     _, state = traj.get(0)
@@ -1534,7 +1534,7 @@ def test_oem_to_trajectories_multi_segment(eop):
     assert len(trajs) == 3
     for traj in trajs:
         assert traj.frame == brahe.CelestialFrame.Centered(
-            brahe.FrameAxes.EME2000, brahe.NAIFId.MARS_BARYCENTER
+            brahe.NAIFId.MARS_BARYCENTER, brahe.FrameAxes.EME2000
         )
 
 
@@ -1547,13 +1547,13 @@ def test_odm_celestial_frame_center_names(eop):
     mars = OEM.from_file("test_assets/ccsds/oem/OEMExample4.txt")
     assert mars.segments[0].center_name == "MARS"
     assert mars.to_trajectories()[0].frame == brahe.CelestialFrame.Centered(
-        brahe.FrameAxes.EME2000, 499
+        499, brahe.FrameAxes.EME2000
     )
 
     mars_barycenter = OEM.from_file("test_assets/ccsds/oem/OEMExample1.txt")
     assert mars_barycenter.segments[0].center_name == "MARS BARYCENTER"
     assert mars_barycenter.to_trajectories()[0].frame == brahe.CelestialFrame.Centered(
-        brahe.FrameAxes.EME2000, 4
+        4, brahe.FrameAxes.EME2000
     )
 
     earth = OEM.from_file("test_assets/ccsds/oem/test.oem")
@@ -1569,7 +1569,7 @@ def test_odm_celestial_frame_center_names(eop):
     numeric = OEM.from_file("test_assets/ccsds/oem/OEMExample4.txt")
     numeric.segments[0].center_name = "499"
     assert numeric.to_trajectories()[0].frame == brahe.CelestialFrame.Centered(
-        brahe.FrameAxes.EME2000, 499
+        499, brahe.FrameAxes.EME2000
     )
 
     unknown = OEM.from_file("test_assets/ccsds/oem/test.oem")
@@ -1587,13 +1587,13 @@ def test_odm_celestial_frame_frozen_tod_mars_center(eop):
     frozen = OEM.from_file("test_assets/ccsds/oem/test_tod_epoch.oem")
     frozen.segments[0].center_name = "MARS"
     assert frozen.to_trajectories()[0].frame == brahe.CelestialFrame.Centered(
-        brahe.FrameAxes.ICRF, 499
+        499, brahe.FrameAxes.ICRF
     )
 
     of_date = OEM.from_file("test_assets/ccsds/oem/test.oem")
     of_date.segments[0].center_name = "MARS"
     assert of_date.to_trajectories()[0].frame == brahe.CelestialFrame.Centered(
-        brahe.FrameAxes.TOD, 499
+        499, brahe.FrameAxes.TOD
     )
 
 
@@ -1602,7 +1602,7 @@ def test_OEMSegment_add_trajectory_uses_the_segment_center(eop):
     center as well as its REF_FRAME axes."""
     epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     mars_eme2000 = brahe.CelestialFrame.Centered(
-        brahe.FrameAxes.EME2000, brahe.NAIFId.MARS
+        brahe.NAIFId.MARS, brahe.FrameAxes.EME2000
     )
     traj = brahe.OrbitTrajectory(
         6,

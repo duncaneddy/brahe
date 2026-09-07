@@ -7,7 +7,7 @@ Loading a CENTER_NAME/REF_FRAME pair that names a non-Earth origin.
 
 OEMExample4.txt declares CENTER_NAME = MARS with REF_FRAME = EME2000: EME2000
 orientation about Mars rather than Earth. OEM.to_trajectories resolves that
-pair to CelestialFrame.Centered(EME2000, MARS) instead of the Earth-centered
+pair to CelestialFrame.Centered(MARS, EME2000) instead of the Earth-centered
 EME2000 shorthand. Converting a sample to MCI only rotates (no ephemeris
 needed, since both frames share Mars as their center); converting to GCRF
 also translates by the Earth-Mars vector, which requires the DE440s planetary
@@ -32,7 +32,7 @@ print(f"\nTrajectory frame: {traj.frame}")
 # the result back into its two halves.
 traj_frame = traj.frame.celestial_frame
 print(f"  Axes:   {traj_frame.axes}")
-print(f"  Center: {traj_frame.center.naif_name}")
+print(f"  Center: {traj_frame.center.name}")
 
 # Same-center conversion: EME2000 to MCI is a rotation only, both centered on
 # Mars.

@@ -105,7 +105,7 @@ def test_referenceframe_celestial_getter():
     assert mci.celestial_frame.center == bh.NAIFId.MARS
 
     centered = bh.ReferenceFrame.celestial(
-        bh.CelestialFrame.Centered(bh.FrameAxes.EME2000, bh.NAIFId.MARS)
+        bh.CelestialFrame.Centered(bh.NAIFId.MARS, bh.FrameAxes.EME2000)
     )
     assert centered.celestial_frame.axes == bh.FrameAxes.EME2000
     assert centered.celestial_frame.center == bh.NAIFId.MARS

@@ -11,6 +11,7 @@
  */
 
 pub mod axes;
+pub mod center;
 pub mod custom;
 pub mod eci_ecef;
 pub mod emb;
@@ -39,6 +40,7 @@ pub mod transform;
 pub(crate) use graph::{celestial_root, icrf_aligned_inertial};
 
 pub use axes::*;
+pub use center::*;
 pub use custom::*;
 pub use eci_ecef::*;
 pub use emb::*;

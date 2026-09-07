@@ -943,8 +943,8 @@ def test_opm_state_in_frame_invalid_type(eop):
 def test_opm_state_in_frame_unsupported_ref_frame(eop):
     """A REF_FRAME with no native equivalent raises BraheError."""
     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2.txt")
-    opm.ref_frame = "TEME"
-    with pytest.raises(brahe.BraheError, match="TEME"):
+    opm.ref_frame = "TDR"
+    with pytest.raises(brahe.BraheError, match="TDR"):
         opm.state_in_frame(brahe.CelestialFrame.GCRF)
 
 

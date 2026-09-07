@@ -147,6 +147,22 @@ def clear_frame_registries():
     brahe.clear_object_registry()
 
 
+@pytest.fixture(scope="function")
+def no_spice_kernels():
+    """Empty the global SPICE registry for a test, then restore what was loaded.
+
+    Use this to prove that a code path consults no ephemeris: any SPK or PCK
+    query inside the test fails instead of silently succeeding on a kernel
+    another test left resident. Restoring afterwards matters because several
+    auto-load paths latch on first use and never re-detect a cleared registry.
+    """
+    loaded = brahe.loaded_spice_kernels()
+    brahe.clear_spice_kernels()
+    yield
+    for kernel in loaded:
+        brahe.load_spice_kernel(kernel)
+
+
 @pytest.fixture(scope="module")
 def point_earth():
     """Two-body point mass Earth dynamics for 6D state [r, v].

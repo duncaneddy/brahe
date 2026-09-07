@@ -43,7 +43,7 @@ For cartesian representation, the frame can be `ECI` or `ECEF`. The `AngleFormat
 
 ### Empty Trajectory - Keplerian Elements
 
-To create an empty trajectory in Keplerian representation you **must** specify the frame as `ECI` and provide an `AngleFormat`.
+To create an empty trajectory in Keplerian representation you must provide an `AngleFormat` and declare a celestial frame whose axes admit orbital elements: `ICRF`, `EME2000`, `MOD`, or `TOD`, at any center. `GCRF`, `LCI`, `EME2000`, `MOD`, and `TOD` all qualify.
 
 === "Python"
 

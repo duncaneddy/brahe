@@ -30,12 +30,11 @@ use crate::frames::kinematics::{state_inertial_to_rotating, state_rotating_to_in
 use crate::frames::object_registry::{object_frame, object_state};
 use crate::frames::registry::{FrameKey, frame_entry, frame_key};
 use crate::frames::{
-    BodyFrame, CelestialFrame, ObjectId, OrbitRelativeFrameKind, OrbitRelativeFrameVariant,
-    ReferenceFrame,
+    BodyFrame, CelestialFrame, FrameAxes, ObjectId, OrbitRelativeFrameKind,
+    OrbitRelativeFrameVariant, ReferenceFrame,
 };
 use crate::math::{SMatrix3, SVector6};
 use crate::relative_motion::{omega_rtn, rotation_eci_to_rtn};
-use crate::spice::NAIFId;
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
@@ -473,11 +472,12 @@ fn resolve_orbit_relative(
 
 /// The ICRF-aligned inertial frame sharing `frame`'s center.
 ///
-/// Returns `frame` itself when it is already ICRF-aligned, so a state
-/// declared in such a frame is used without conversion. `EME2000` is
-/// Earth-centered but carries the J2000 frame bias rather than ICRF axes, so
-/// it maps to `GCRF`: the bias rotation is then applied by the celestial
-/// router, exactly as for any other Earth-centered non-ICRF frame.
+/// Pairs [`FrameAxes::ICRF`] with [`CelestialFrame::center`], so an
+/// already-ICRF-aligned `frame` maps to itself and a state declared in it
+/// is used without conversion. `EME2000` is Earth-centered but carries the
+/// J2000 frame bias rather than ICRF axes, so it maps to `GCRF`: the bias
+/// rotation is then applied by the celestial router, exactly as for any
+/// other Earth-centered non-ICRF frame.
 ///
 /// # Arguments
 /// - `frame`: The celestial frame whose center to match
@@ -485,34 +485,7 @@ fn resolve_orbit_relative(
 /// # Returns
 /// - `CelestialFrame`: The ICRF-aligned frame centered on `frame`'s center
 pub(crate) fn icrf_aligned_inertial(frame: CelestialFrame) -> CelestialFrame {
-    match frame {
-        CelestialFrame::GCRF
-        | CelestialFrame::LCI
-        | CelestialFrame::MCI
-        | CelestialFrame::EMBI
-        | CelestialFrame::SSBI
-        | CelestialFrame::BodyCenteredICRF(_) => frame,
-        CelestialFrame::EME2000
-        | CelestialFrame::MOD
-        | CelestialFrame::TOD
-        | CelestialFrame::TEME => CelestialFrame::GCRF,
-        other => {
-            let center = other.center_naif_id();
-            if center == NAIFId::Earth.id() {
-                CelestialFrame::GCRF
-            } else if center == NAIFId::Moon.id() {
-                CelestialFrame::LCI
-            } else if center == NAIFId::Mars.id() {
-                CelestialFrame::MCI
-            } else if center == NAIFId::EarthMoonBarycenter.id() {
-                CelestialFrame::EMBI
-            } else if center == NAIFId::SolarSystemBarycenter.id() {
-                CelestialFrame::SSBI
-            } else {
-                CelestialFrame::BodyCenteredICRF(center)
-            }
-        }
-    }
+    CelestialFrame::centered(frame.center(), FrameAxes::ICRF)
 }
 
 /// The celestial frame terminating `frame`'s chain, found without
@@ -684,6 +657,7 @@ mod tests {
     use crate::math::SVector6;
     use crate::orbit_dynamics::ephemerides::sun_position;
     use crate::relative_motion::state_eci_to_rtn;
+    use crate::spice::NAIFId;
     use crate::time::TimeSystem;
     use crate::utils::testing::{setup_global_test_eop, setup_global_test_spice};
 
@@ -741,6 +715,19 @@ mod tests {
         assert_eq!(
             icrf_aligned_inertial(CelestialFrame::BodyFixedIAU(-20001)),
             CelestialFrame::BodyCenteredICRF(-20001)
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_icrf_aligned_inertial_uses_centered() {
+        assert_eq!(
+            icrf_aligned_inertial(CelestialFrame::centered(499, FrameAxes::TOD)),
+            CelestialFrame::MCI
+        );
+        assert_eq!(
+            icrf_aligned_inertial(CelestialFrame::centered(2000001, FrameAxes::ITRF)),
+            CelestialFrame::BodyCenteredICRF(2000001)
         );
     }
 

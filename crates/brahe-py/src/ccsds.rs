@@ -30,31 +30,27 @@ use brahe::ccsds::frames::ADMReferenceFrame;
 use brahe::ccsds::oem::{OEM as RustOEM, OEMMetadata, OEMSegment, OEMStateVector};
 use brahe::ccsds::omm::OMM as RustOMM;
 use brahe::ccsds::opm::{OPM as RustOPM, OPMManeuver};
-use brahe::frames::{CelestialFrame, ReferenceFrame};
+use brahe::ccsds::interop::{segment_celestial_frame, state_into_segment_axes};
+use brahe::math::SVector6;
 use brahe::trajectories::DOrbitTrajectory;
 
-/// Celestial frame an OEM segment's declared reference frame token resolves to.
-///
-/// Every CCSDS reference frame with a native equivalent maps onto a celestial
-/// frame; the error arm guards against a future mapping that does not.
-fn oem_segment_celestial_frame(
-    ref_frame: &CCSDSRefFrame,
-) -> Result<CelestialFrame, brahe::utils::BraheError> {
-    match ReferenceFrame::try_from(ref_frame)? {
-        ReferenceFrame::Celestial(target) => Ok(target),
-        other => Err(brahe::utils::BraheError::Error(format!(
-            "OEM segment frame {} is not a celestial frame",
-            other
-        ))),
-    }
+/// State a trajectory writes into an OEM segment at `epoch`, in the units and
+/// axes the segment's own metadata declares.
+fn trajectory_state_for_segment(
+    segment_frame: &(CelestialFrame, Option<brahe::time::Epoch>),
+    traj: &DOrbitTrajectory,
+    epoch: &brahe::time::Epoch,
+) -> Result<SVector6, brahe::utils::BraheError> {
+    let state = traj.state_in_frame(segment_frame.0, *epoch)?;
+    state_into_segment_axes(segment_frame.1, state)
 }
 
 /// Push all states from a trajectory into an OEM segment, converting to the
-/// segment's declared reference frame using the trajectory's frame-aware methods.
+/// frame the segment's metadata declares.
 fn push_trajectory_states(seg: &mut OEMSegment, traj: &DOrbitTrajectory) -> Result<(), brahe::utils::BraheError> {
-    let target = oem_segment_celestial_frame(&seg.metadata.ref_frame)?;
+    let segment_frame = segment_celestial_frame(&seg.metadata)?;
     for epoch in traj.epochs.iter() {
-        let state = traj.state_in_frame(target, *epoch)?;
+        let state = trajectory_state_for_segment(&segment_frame, traj, epoch)?;
         seg.states.push(OEMStateVector {
             epoch: *epoch,
             position: [state[0], state[1], state[2]],
@@ -1011,14 +1007,16 @@ impl PyOEMSegment {
 
     /// Bulk-add states from an orbital trajectory to this segment.
     ///
-    /// Iterates the trajectory's epochs and states, extracting position and
-    /// velocity components to create OEM state vectors.
+    /// Iterates the trajectory's epochs, converting each state into the frame
+    /// the segment declares: `ref_frame` chooses the axes and `center_name`
+    /// chooses the origin, so a Mars-centered segment stores Mars-centered
+    /// states.
     ///
     /// Args:
     ///     trajectory (OrbitTrajectory): Orbital trajectory to import states from
     ///
     /// Raises:
-    ///     BraheError: If the segment's declared reference frame has no native frame equivalent, or if the router cannot convert the trajectory states into it
+    ///     BraheError: If the segment's `ref_frame` has no `FrameAxes` equivalent, if its `center_name` is not a known NAIF body name or ID, or if the router cannot convert the trajectory states into that frame
     ///
     /// Example:
     ///     ```python
@@ -1039,17 +1037,17 @@ impl PyOEMSegment {
                 Ok(())
             }
             SegmentMode::Proxy { parent, seg_idx } => {
-                // Get the ref_frame from the parent OEM's segment metadata
+                // Get the frame metadata from the parent OEM's segment
                 let parent_ref = parent.bind(py);
                 let oem_bound = parent_ref.cast::<PyOEM>()
                     .map_err(|_| pyo3::exceptions::PyRuntimeError::new_err(
                         "Parent is not an OEM object"
                     ))?;
-                let ref_frame = oem_bound.borrow().inner.segments[*seg_idx].metadata.ref_frame.clone();
-                let target = oem_segment_celestial_frame(&ref_frame)?;
+                let metadata = oem_bound.borrow().inner.segments[*seg_idx].metadata.clone();
+                let segment_frame = segment_celestial_frame(&metadata)?;
 
                 for epoch in traj.epochs.iter() {
-                    let state = traj.state_in_frame(target, *epoch)?;
+                    let state = trajectory_state_for_segment(&segment_frame, traj, epoch)?;
 
                     let pos = vec![state[0], state[1], state[2]];
                     let vel = vec![state[3], state[4], state[5]];
@@ -3800,14 +3798,16 @@ impl PyOPM {
 
     /// State vector expressed in `frame` at the state-vector epoch.
     ///
-    /// Maps the message's `REF_FRAME` onto its native frame and converts
-    /// through the reference frame router, so a message declared in `TOD`
-    /// yields a GCRF state directly usable for propagation.
+    /// The message's `REF_FRAME` chooses the axes and its `CENTER_NAME`
+    /// chooses the origin of the frame the data is expressed in, and the state
+    /// is converted from there through the reference frame router. A message
+    /// declared in `TOD` about Earth yields a GCRF state directly usable for
+    /// propagation, and one declared in `EME2000` about the Moon converts to
+    /// any frame the router reaches from Moon-centered EME2000 axes.
     ///
-    /// The native ODM frames are Earth-centered, so the message must declare
-    /// `CENTER_NAME = EARTH`. A `TOD` message that also carries a
-    /// `REF_FRAME_EPOCH` names the true-of-date axes frozen at that epoch, and
-    /// its state is converted from `TOD` at the frame epoch before routing.
+    /// A `TOD` message that also carries a `REF_FRAME_EPOCH` names the
+    /// true-of-date axes frozen at that epoch, and its state is converted from
+    /// `TOD` at the frame epoch before routing.
     ///
     /// Args:
     ///     frame (CelestialFrame | ReferenceFrame): Target reference frame
@@ -3816,7 +3816,7 @@ impl PyOPM {
     ///     numpy.ndarray: 6-element state vector [x, y, z, vx, vy, vz] in `frame` (position in meters, velocity in m/s)
     ///
     /// Raises:
-    ///     BraheError: If `CENTER_NAME` is not `EARTH`, if `REF_FRAME` has no native frame equivalent, or if the router cannot convert between the two frames
+    ///     BraheError: If `REF_FRAME` has no `FrameAxes` equivalent, if `CENTER_NAME` is not a known NAIF body name or ID, or if the router cannot convert between the two frames
     ///
     /// Example:
     ///     ```python

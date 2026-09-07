@@ -11,6 +11,7 @@ This module provides:
 - spk_position / spk_velocity / spk_state / spk_acceleration: Generic SPK queries against all loaded kernels
 - spk_position_from_kernel / spk_velocity_from_kernel / spk_state_from_kernel / spk_acceleration_from_kernel: SPK queries scoped to a single named kernel
 - pck_euler_angles / pck_euler_angle / pck_euler_rates / pck_euler_angle_and_rates / pck_quaternion / pck_rotation_matrix: Generic binary PCK orientation queries
+- naif_id_from_name / naif_name: NAIF body name and integer ID resolution
 - NAIFId / FrameId: NAIF body ID and PCK frame ID IntEnums
 
 Example:
@@ -32,6 +33,8 @@ from brahe._brahe import (
     load_common_spice_kernels,
     load_spice_kernel,
     loaded_spice_kernels,
+    naif_id_from_name,
+    naif_name,
     pck_euler_angle,
     pck_euler_angle_and_rates,
     pck_euler_angles,
@@ -94,6 +97,27 @@ class NAIFId(IntEnum):
     TRITON = 801
     CHARON = 901
 
+    @classmethod
+    def from_name(cls, name: str) -> "NAIFId | int":
+        """Resolve a NAIF body name or integer string to its ID.
+
+        Args:
+            name (str): NAIF body name such as "MARS BARYCENTER" (case-insensitive) or an integer string
+
+        Returns:
+            NAIFId | int: The matching member, or the plain integer when the ID has no member
+        """
+        value = naif_id_from_name(name)
+        try:
+            return cls(value)
+        except ValueError:
+            return value
+
+    @property
+    def naif_name(self) -> str:
+        """str: NAIF body name, such as "EARTH MOON BARYCENTER"."""
+        return naif_name(int(self))
+
 
 class FrameId(IntEnum):
     """PCK body-frame class IDs. Raw integer IDs are equally accepted."""
@@ -110,6 +134,8 @@ __all__ = [
     "load_common_spice_kernels",
     "load_spice_kernel",
     "loaded_spice_kernels",
+    "naif_id_from_name",
+    "naif_name",
     "pck_euler_angle",
     "pck_euler_angle_and_rates",
     "pck_euler_angles",

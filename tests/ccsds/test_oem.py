@@ -1562,3 +1562,127 @@ def test_oem_in_tod_with_frame_epoch_loads_as_gcrf_trajectory(
 
     oem.register_for("TOD_EPOCH_SAT")
     assert "TOD_EPOCH_SAT" in brahe.registered_objects()
+
+
+def test_oem_to_trajectory_example4(eop):
+    """Mirror of test_oem_to_trajectory_example4 in Rust."""
+    oem = OEM.from_file("test_assets/ccsds/oem/OEMExample4.txt")
+
+    traj = oem.to_trajectories()[0]
+    assert len(traj) == 3
+    assert oem.segments[0].object_name == "MARS GLOBAL SURVEYOR"
+    assert traj.frame == brahe.CelestialFrame.Centered(
+        brahe.NAIFId.MARS, brahe.FrameAxes.EME2000
+    )
+
+    _, state = traj.get(0)
+    assert state[0] == pytest.approx(2789.619 * 1000.0, abs=1.0)
+    assert state[3] == pytest.approx(4.73372 * 1000.0, abs=1.0)
+
+
+def test_oem_to_trajectories_multi_segment(eop):
+    """Mirror of test_oem_to_trajectories_multi_segment in Rust."""
+    oem = OEM.from_file("test_assets/ccsds/oem/OEMExample1.txt")
+
+    trajs = oem.to_trajectories()
+    assert len(trajs) == 3
+    for traj in trajs:
+        assert traj.frame == brahe.CelestialFrame.Centered(
+            brahe.NAIFId.MARS_BARYCENTER, brahe.FrameAxes.EME2000
+        )
+
+
+def test_odm_celestial_frame_center_names(eop):
+    """Mirror of test_odm_celestial_frame_center_names in Rust.
+
+    `odm_celestial_frame` has no Python binding, so the joint
+    CENTER_NAME/REF_FRAME resolution is exercised through `OEM.from_file`.
+    """
+    mars = OEM.from_file("test_assets/ccsds/oem/OEMExample4.txt")
+    assert mars.segments[0].center_name == "MARS"
+    assert mars.to_trajectories()[0].frame == brahe.CelestialFrame.Centered(
+        499, brahe.FrameAxes.EME2000
+    )
+
+    mars_barycenter = OEM.from_file("test_assets/ccsds/oem/OEMExample1.txt")
+    assert mars_barycenter.segments[0].center_name == "MARS BARYCENTER"
+    assert mars_barycenter.to_trajectories()[0].frame == brahe.CelestialFrame.Centered(
+        4, brahe.FrameAxes.EME2000
+    )
+
+    earth = OEM.from_file("test_assets/ccsds/oem/test.oem")
+    assert earth.segments[0].center_name == "EARTH"
+    assert earth.to_trajectories()[0].frame == brahe.CelestialFrame.TOD
+
+    # Center names are matched case-insensitively.
+    lowercase = OEM.from_file("test_assets/ccsds/oem/test.oem")
+    lowercase.segments[0].center_name = "earth"
+    assert lowercase.to_trajectories()[0].frame == brahe.CelestialFrame.TOD
+
+    # A numeric center name resolves to the same NAIF ID as its body name.
+    numeric = OEM.from_file("test_assets/ccsds/oem/OEMExample4.txt")
+    numeric.segments[0].center_name = "499"
+    assert numeric.to_trajectories()[0].frame == brahe.CelestialFrame.Centered(
+        499, brahe.FrameAxes.EME2000
+    )
+
+    unknown = OEM.from_file("test_assets/ccsds/oem/test.oem")
+    unknown.segments[0].center_name = "PLANET X"
+    with pytest.raises(brahe.BraheError, match="PLANET X"):
+        unknown.to_trajectories()
+
+
+def test_odm_celestial_frame_frozen_tod_mars_center(eop):
+    """Mirror of test_odm_celestial_frame_frozen_tod_mars_center in Rust.
+
+    A TOD segment with a REF_FRAME_EPOCH is frozen onto ICRF axes at that
+    epoch; without one the axes stay of-date.
+    """
+    frozen = OEM.from_file("test_assets/ccsds/oem/test_tod_epoch.oem")
+    frozen.segments[0].center_name = "MARS"
+    assert frozen.to_trajectories()[0].frame == brahe.CelestialFrame.Centered(
+        499, brahe.FrameAxes.ICRF
+    )
+
+    of_date = OEM.from_file("test_assets/ccsds/oem/test.oem")
+    of_date.segments[0].center_name = "MARS"
+    assert of_date.to_trajectories()[0].frame == brahe.CelestialFrame.Centered(
+        499, brahe.FrameAxes.TOD
+    )
+
+
+def test_OEMSegment_add_trajectory_uses_the_segment_center(eop):
+    """A trajectory written to a Mars-centered segment keeps the segment's
+    center as well as its REF_FRAME axes."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    mars_eme2000 = brahe.CelestialFrame.Centered(
+        brahe.NAIFId.MARS, brahe.FrameAxes.EME2000
+    )
+    traj = brahe.OrbitTrajectory(
+        6,
+        mars_eme2000,
+        brahe.OrbitRepresentation.CARTESIAN,
+        None,
+    )
+    samples = [
+        np.array([brahe.R_MARS + 400e3, 1.0e5, -2.0e5, 10.0, 3.3e3, -5.0]),
+        np.array([brahe.R_MARS + 401e3, 1.1e5, -2.1e5, 11.0, 3.2e3, -6.0]),
+    ]
+    for i, sample in enumerate(samples):
+        traj.add(epoch + i * 60.0, sample)
+
+    seg = OEMSegment(
+        object_name="MARS SAT",
+        object_id="2024-100A",
+        center_name="MARS",
+        ref_frame="EME2000",
+        time_system="UTC",
+        start_time=epoch,
+        stop_time=epoch + 60.0,
+    )
+    seg.add_trajectory(traj)
+
+    assert seg.num_states == len(samples)
+    for written, sample in zip(seg.states, samples):
+        np.testing.assert_array_equal(written.position, sample[:3])
+        np.testing.assert_array_equal(written.velocity, sample[3:6])

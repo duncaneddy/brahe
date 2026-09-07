@@ -1007,6 +1007,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Reference frame router
     module.add_class::<PyPrecessionNutationModel>()?;
+    module.add_class::<PyFrameAxes>()?;
+    module.add_class::<PyFrameCenter>()?;
     module.add_class::<PySynodicOrigin>()?;
     module.add_class::<PyCelestialFrame>()?;
     module.add_function(wrap_pyfunction!(py_rotation_frame_to_frame, module)?)?;
@@ -1263,6 +1265,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_clear_kernels, module)?)?;
     module.add_function(wrap_pyfunction!(py_loaded_kernels, module)?)?;
     module.add_function(wrap_pyfunction!(py_kernel_is_loaded, module)?)?;
+    module.add_function(wrap_pyfunction!(py_naif_id_from_name, module)?)?;
+    module.add_function(wrap_pyfunction!(py_naif_name, module)?)?;
     module.add_function(wrap_pyfunction!(py_load_common_kernels, module)?)?;
     module.add_function(wrap_pyfunction!(py_load_all_kernels, module)?)?;
     module.add_function(wrap_pyfunction!(py_spk_position, module)?)?;

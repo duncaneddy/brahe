@@ -127,7 +127,10 @@ impl KeplerianPropagator {
     /// accepts must resolve to an Earth-centered frame. Cartesian states may be
     /// expressed in any such frame, including non-celestial ones such as an
     /// orbit-relative `RTN` frame anchored on a registered object. Keplerian
-    /// elements additionally require an inertial frame and an angle format.
+    /// elements additionally require an angle format and an Earth equatorial
+    /// frame that admits orbital elements, `GCRF` (or another ICRF-aligned
+    /// Earth-centered frame), `EME2000`, `MOD`, or `TOD`, and are read about the
+    /// Earth in that frame's axes.
     ///
     /// The step size must be positive.
     ///
@@ -142,7 +145,9 @@ impl KeplerianPropagator {
     /// # Returns
     /// New KeplerianPropagator instance, or an error if:
     /// - Angle format is None for Keplerian representation
-    /// - Keplerian elements are not in an inertial frame
+    /// - Keplerian elements are declared outside the frames that admit orbital
+    ///   elements (`GCRF` or another ICRF-aligned Earth-centered frame,
+    ///   `EME2000`, `MOD`, `TOD`)
     /// - Angle format is not None for Cartesian representation
     /// - The frame is not Earth-centered (Earth-only propagator), or cannot be
     ///   resolved because it is unbound or unregistered
@@ -309,7 +314,7 @@ impl KeplerianPropagator {
     /// used with initialization or after a reset to avoid inconsistencies.
     ///
     /// The frame, representation, and angle format must be compatible:
-    /// * Keplerian representation requires an inertial frame and a specified angle format (Degrees or Radians)
+    /// * Keplerian representation requires a frame that admits orbital elements (`GCRF` or another ICRF-aligned Earth-centered frame, `EME2000`, `MOD`, `TOD`) and a specified angle format (Degrees or Radians)
     /// * Cartesian representation accepts any Earth-centered frame, but angle format must be None
     ///
     /// # Arguments
@@ -794,7 +799,8 @@ mod tests {
     use crate::frames::object_registry::FnProvider;
     use crate::frames::{
         CelestialFrame, DStateAdapter, ReferenceFrame, clear_object_registry, register_object,
-        state_ecef_to_eci, state_eme2000_to_gcrf, state_gcrf_to_tod, state_itrf_to_gcrf,
+        state_ecef_to_eci, state_eme2000_to_gcrf, state_gcrf_to_mod, state_gcrf_to_tod,
+        state_itrf_to_gcrf,
     };
     use crate::orbits::keplerian::orbital_period;
     use crate::time::{Epoch, TimeSystem};
@@ -2098,7 +2104,7 @@ mod tests {
                 .is_err()
         );
 
-        // Keplerian output requires an inertial frame.
+        // Keplerian output is rejected in body-fixed frames.
         assert!(
             prop.clone()
                 .with_output_format(
@@ -2162,6 +2168,70 @@ mod tests {
         let x_back = round_trip.state_gcrf(epc).unwrap();
         for k in 0..6 {
             assert_abs_diff_eq!(x_back[k], x_gcrf[k], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_keplerianpropagator_keplerian_elements_in_of_date_frames() {
+        setup_global_test_eop();
+
+        // Keplerian input and output are accepted in the of-date frames, with
+        // the elements about the Earth in that frame's own axes.
+        let epc = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let x_gcrf = create_cartesian_state();
+
+        let prop = KeplerianPropagator::new(
+            epc,
+            x_gcrf,
+            CelestialFrame::GCRF,
+            OrbitRepresentation::Cartesian,
+            None,
+            60.0,
+        )
+        .unwrap();
+
+        type Rotate = fn(Epoch, Vector6<f64>) -> Vector6<f64>;
+        let cases: [(CelestialFrame, Rotate); 2] = [
+            (CelestialFrame::TOD, state_gcrf_to_tod),
+            (CelestialFrame::MOD, state_gcrf_to_mod),
+        ];
+
+        for (frame, rotate) in cases {
+            let of_date = prop
+                .clone()
+                .with_output_format(frame, OrbitRepresentation::Keplerian, Some(DEGREES))
+                .unwrap();
+            assert_eq!(of_date.trajectory.frame, frame);
+
+            for dt in [0.0, 600.0] {
+                let epc_k = epc + dt;
+                let oe = of_date.state(epc_k).unwrap();
+                let expected =
+                    state_eci_to_koe(rotate(epc_k, prop.state_gcrf(epc_k).unwrap()), DEGREES);
+                assert_abs_diff_eq!(oe[0], expected[0], epsilon = 1e-6);
+                for k in 1..6 {
+                    assert_abs_diff_eq!(oe[k], expected[k], epsilon = 1e-8);
+                }
+            }
+
+            // Feeding those elements back in as elements of the same frame
+            // recovers the original GCRF state.
+            let oe_epc = of_date.state(epc).unwrap();
+            let round_trip = KeplerianPropagator::new(
+                epc,
+                Vector6::from_iterator(oe_epc.iter().copied()),
+                frame,
+                OrbitRepresentation::Keplerian,
+                Some(DEGREES),
+                60.0,
+            )
+            .unwrap();
+
+            let x_back = round_trip.state_gcrf(epc).unwrap();
+            for k in 0..6 {
+                assert_abs_diff_eq!(x_back[k], x_gcrf[k], epsilon = 1e-6);
+            }
         }
     }
 

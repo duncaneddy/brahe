@@ -97,12 +97,21 @@ Full NAIF integer ID listing: [NAIF Integer ID Codes](https://naif.jpl.nasa.gov/
         - MIRANDA
         - TRITON
         - CHARON
+        - from_name
+        - naif_name
       show_bases: false
       heading_level: 3
 
 Any other NAIF ID present in a loaded kernel (e.g. a spacecraft or minor
 body) also works — pass the raw integer directly. In Rust the equivalent
 catch-all is `NAIFId::Id(i32)`.
+
+`from_name` resolves a NAIF body name (case-insensitive) or an integer
+string to the matching `NAIFId` member, falling back to the plain integer
+when the ID has no member; `naif_name` is the reverse, returning the NAIF
+body name (e.g. `"MARS BARYCENTER"`) of any member. `CelestialFrame.center`
+returns the `NAIFId` at a frame's origin, and reading a CCSDS message
+resolves its `CENTER_NAME` field with `NAIFId.from_name`.
 
 ## FrameId
 

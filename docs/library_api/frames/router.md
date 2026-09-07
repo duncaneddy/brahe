@@ -9,6 +9,14 @@
 
 ::: brahe.CelestialFrame
 
+## FrameCenter
+
+::: brahe.FrameCenter
+
+## FrameAxes
+
+::: brahe.FrameAxes
+
 ## Router Functions
 
 ::: brahe.rotation_frame_to_frame

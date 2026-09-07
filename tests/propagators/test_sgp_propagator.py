@@ -279,13 +279,41 @@ class TestSGPPropagatorMethods:
                 brahe.CelestialFrame.LCI, brahe.OrbitRepresentation.CARTESIAN, None
             )
 
-        # Keplerian output requires an inertial frame.
+        # Keplerian output is rejected in body-fixed frames.
         with pytest.raises(brahe.BraheError):
             prop.set_output_format(
                 brahe.CelestialFrame.ITRF,
                 brahe.OrbitRepresentation.KEPLERIAN,
                 brahe.AngleFormat.DEGREES,
             )
+
+    def test_sgppropagator_set_output_format_keplerian_of_date_frames(self, iss_tle):
+        """Rust: test_sgppropagator_with_output_format_keplerian_of_date_frames"""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epc = prop.epoch + 600.0
+        x_gcrf = prop.state_gcrf(epc)
+
+        for frame, rotate in (
+            (brahe.CelestialFrame.TOD, brahe.state_gcrf_to_tod),
+            (brahe.CelestialFrame.MOD, brahe.state_gcrf_to_mod),
+        ):
+            of_date = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+            of_date.set_output_format(
+                frame, brahe.OrbitRepresentation.KEPLERIAN, brahe.AngleFormat.DEGREES
+            )
+            assert of_date.trajectory.frame == frame
+
+            # Elements are about the Earth in the frame's own axes.
+            of_date.propagate_to(epc)
+            oe = of_date.current_state()
+            expected = brahe.state_eci_to_koe(
+                rotate(epc, x_gcrf), brahe.AngleFormat.DEGREES
+            )
+            assert oe[0] == pytest.approx(expected[0], abs=1e-3)
+            np.testing.assert_allclose(oe[1:], expected[1:], atol=1e-8)
+
+            # The inertial accessors are independent of the output format.
+            np.testing.assert_allclose(of_date.state_gcrf(epc), x_gcrf, atol=1e-9)
 
     def test_sgppropagator_set_output_format_ecef(self, iss_tle):
         """Test setting output format to ECEF Cartesian."""

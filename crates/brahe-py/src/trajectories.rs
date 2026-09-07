@@ -1467,13 +1467,17 @@ impl PyOrbitalTrajectory {
         Ok(PyOrbitalTrajectory { trajectory: self.trajectory.to_frame(frame)? })
     }
 
-    /// Convert to Keplerian representation in ECI frame.
+    /// Convert to Keplerian representation, keeping the trajectory's frame.
+    ///
+    /// Elements are taken about the center of the trajectory's own frame, whose
+    /// axes must admit orbital elements: ICRF, EME2000, MOD, or TOD, at any
+    /// center.
     ///
     /// Args:
     ///     angle_format (AngleFormat): Angle format for the result (Radians or Degrees)
     ///
     /// Returns:
-    ///     OrbitTrajectory: Trajectory in ECI Keplerian representation
+    ///     OrbitTrajectory: Trajectory of Keplerian elements referenced to the trajectory's own frame
     ///
     /// Raises:
     ///     BraheError: If the representation conversion fails.

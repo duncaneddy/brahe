@@ -45,12 +45,12 @@ impl TryFrom<&CCSDSRefFrame> for FrameAxes {
     ///
     /// `REF_FRAME` names an orientation, not a complete frame: the origin
     /// comes from the message's `CENTER_NAME`. `EME2000` and `J2000` map to
-    /// [`FrameAxes::EME2000`], `GCRF` to [`FrameAxes::ICRF`], every ITRF
-    /// realization to [`FrameAxes::ITRF`], and `TOD` to [`FrameAxes::TOD`].
-    /// `TEME` has no native axes, and the orbit-relative tokens (RTN, TNW,
-    /// RSW) name axes without the object they are anchored to, so both return
-    /// an error. The containing message still loads and writes; only
-    /// conversion to a native trajectory is unsupported.
+    /// [`FrameAxes::EME2000`], `GCRF` and `ICRF` to [`FrameAxes::ICRF`], every
+    /// ITRF realization to [`FrameAxes::ITRF`], and `TOD` to
+    /// [`FrameAxes::TOD`]. `TEME` has no native axes, and the orbit-relative
+    /// tokens (RTN, TNW, RSW) name axes without the object they are anchored
+    /// to, so both return an error. The containing message still loads and
+    /// writes; only conversion to a native trajectory is unsupported.
     ///
     /// # Arguments
     ///
@@ -76,7 +76,7 @@ impl TryFrom<&CCSDSRefFrame> for FrameAxes {
     fn try_from(frame: &CCSDSRefFrame) -> Result<Self, Self::Error> {
         match frame {
             CCSDSRefFrame::EME2000 | CCSDSRefFrame::J2000 => Ok(FrameAxes::EME2000),
-            CCSDSRefFrame::GCRF => Ok(FrameAxes::ICRF),
+            CCSDSRefFrame::GCRF | CCSDSRefFrame::ICRF => Ok(FrameAxes::ICRF),
             CCSDSRefFrame::ITRF2000
             | CCSDSRefFrame::ITRF93
             | CCSDSRefFrame::ITRF97
@@ -85,7 +85,7 @@ impl TryFrom<&CCSDSRefFrame> for FrameAxes {
             | CCSDSRefFrame::ITRF2014 => Ok(FrameAxes::ITRF),
             CCSDSRefFrame::TOD => Ok(FrameAxes::TOD),
             CCSDSRefFrame::TEME => Err(BraheError::Error(
-                "CCSDS reference frame 'TEME' has no native ReferenceFrame; convert the \
+                "CCSDS reference frame 'TEME' has no native axes; convert the \
                  data before creating a trajectory"
                     .to_string(),
             )),
@@ -101,7 +101,7 @@ impl TryFrom<&CCSDSRefFrame> for FrameAxes {
                 token
             ))),
             other => Err(BraheError::Error(format!(
-                "CCSDS reference frame '{}' has no native ReferenceFrame; convert the \
+                "CCSDS reference frame '{}' has no native axes; convert the \
                  data before creating a trajectory",
                 other
             ))),
@@ -199,7 +199,20 @@ impl TryFrom<&ReferenceFrame> for CCSDSRefFrame {
 ///   at, when the message declares one
 /// * `Err(BraheError)`: If the token has no native equivalent, or if
 ///   `center_name` is not a known NAIF body name or ID
-pub(crate) fn odm_native_frame(
+///
+/// # Examples
+///
+/// ```
+/// use brahe::ccsds::common::CCSDSRefFrame;
+/// use brahe::ccsds::interop::odm_native_frame;
+/// use brahe::frames::{CelestialFrame, FrameAxes};
+///
+/// // REF_FRAME = EME2000 with CENTER_NAME = MARS
+/// let (frame, frozen) = odm_native_frame(&CCSDSRefFrame::EME2000, None, "MARS").unwrap();
+/// assert_eq!(frame, CelestialFrame::centered(FrameAxes::EME2000, 499));
+/// assert_eq!(frozen, None);
+/// ```
+pub fn odm_native_frame(
     ref_frame: &CCSDSRefFrame,
     ref_frame_epoch: Option<Epoch>,
     center_name: &str,
@@ -1716,6 +1729,10 @@ mod tests {
             FrameAxes::ICRF
         );
         assert_eq!(
+            FrameAxes::try_from(&CCSDSRefFrame::ICRF).unwrap(),
+            FrameAxes::ICRF
+        );
+        assert_eq!(
             FrameAxes::try_from(&CCSDSRefFrame::ITRF2000).unwrap(),
             FrameAxes::ITRF
         );
@@ -1924,7 +1941,7 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_ccsds_ref_frame_to_celestial_frame() {
+    fn test_odm_native_frame_earth_center_tokens() {
         assert_eq!(
             odm_native_frame(&CCSDSRefFrame::EME2000, None, "EARTH")
                 .unwrap()

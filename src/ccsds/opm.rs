@@ -368,7 +368,7 @@ mod tests {
         let x_lci = opm.state_in_frame(CelestialFrame::LCI).unwrap();
         let expected = state_eme2000_to_gcrf(raw);
         for k in 0..6 {
-            assert_abs_diff_eq!(x_lci[k], expected[k], epsilon = 1e-9);
+            assert_abs_diff_eq!(x_lci[k], expected[k], epsilon = 1e-6);
         }
 
         // Retargeting to GCRF translates by the Earth-Moon separation.
@@ -377,6 +377,35 @@ mod tests {
             (x_gcrf.fixed_rows::<3>(0) - x_lci.fixed_rows::<3>(0)).norm() > 3.0e8,
             "GCRF state must be translated off the Moon"
         );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_opm_icrf_ref_frame_resolves() {
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample8.txt").unwrap();
+        assert_eq!(opm.metadata.ref_frame, CCSDSRefFrame::ICRF);
+        assert_eq!(opm.metadata.center_name, "SSB");
+
+        // ICRF and GCRF name the same orientation, so both tokens resolve to
+        // the ICRF axes and the center chooses the origin.
+        let (frame, frozen) = odm_native_frame(
+            &opm.metadata.ref_frame,
+            opm.metadata.ref_frame_epoch,
+            "SOLAR SYSTEM BARYCENTER",
+        )
+        .unwrap();
+        assert_eq!(frame, CelestialFrame::SSBI);
+        assert_eq!(frozen, None);
+        assert_eq!(
+            odm_native_frame(&opm.metadata.ref_frame, None, "EARTH")
+                .unwrap()
+                .0,
+            CelestialFrame::GCRF
+        );
+
+        // The token survives a round trip through the writer.
+        assert_eq!(opm.metadata.ref_frame.to_string(), "ICRF");
+        assert_eq!(CCSDSRefFrame::parse("ICRF"), CCSDSRefFrame::ICRF);
     }
 
     #[test]

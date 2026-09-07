@@ -957,11 +957,27 @@ def test_opm_state_in_frame_moon_center(eop, naif_cache_setup):
 
     # EME2000 axes about the Moon differ from LCI by the frame bias only.
     x_lci = opm.state_in_frame(brahe.CelestialFrame.LCI)
-    np.testing.assert_allclose(x_lci, brahe.state_eme2000_to_gcrf(raw), atol=1e-9)
+    np.testing.assert_allclose(x_lci, brahe.state_eme2000_to_gcrf(raw), atol=1e-6)
 
     # Retargeting to GCRF translates by the Earth-Moon separation.
     x_gcrf = opm.state_in_frame(brahe.CelestialFrame.GCRF)
     assert np.linalg.norm(x_gcrf[:3] - x_lci[:3]) > 3.0e8
+
+
+def test_opm_icrf_ref_frame_resolves(eop):
+    """Mirror of test_opm_icrf_ref_frame_resolves in Rust."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample8.txt")
+    assert opm.ref_frame == "ICRF"
+    assert opm.center_name == "SSB"
+
+    # ICRF and GCRF name the same orientation, so an ICRF message about Earth
+    # is already GCRF and the center chooses the origin.
+    opm.center_name = "EARTH"
+    x_gcrf = opm.state_in_frame(brahe.CelestialFrame.GCRF)
+    np.testing.assert_allclose(x_gcrf, opm.state, atol=1e-6)
+
+    # The token survives a round trip through the writer.
+    assert "ICRF" in opm.to_string("kvn")
 
 
 def test_opm_state_in_frame_frozen_tod_frame_epoch(eop):

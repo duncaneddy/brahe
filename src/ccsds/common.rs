@@ -189,6 +189,8 @@ pub enum CCSDSRefFrame {
     EME2000,
     /// Geocentric Celestial Reference Frame
     GCRF,
+    /// International Celestial Reference Frame
+    ICRF,
     /// International Terrestrial Reference Frame (2000)
     ITRF2000,
     /// International Terrestrial Reference Frame (1993)
@@ -224,6 +226,7 @@ impl fmt::Display for CCSDSRefFrame {
         match self {
             CCSDSRefFrame::EME2000 => write!(f, "EME2000"),
             CCSDSRefFrame::GCRF => write!(f, "GCRF"),
+            CCSDSRefFrame::ICRF => write!(f, "ICRF"),
             CCSDSRefFrame::ITRF2000 => write!(f, "ITRF2000"),
             CCSDSRefFrame::ITRF93 => write!(f, "ITRF93"),
             CCSDSRefFrame::ITRF97 => write!(f, "ITRF97"),
@@ -251,6 +254,7 @@ impl CCSDSRefFrame {
         match s.trim() {
             "EME2000" => CCSDSRefFrame::EME2000,
             "GCRF" => CCSDSRefFrame::GCRF,
+            "ICRF" => CCSDSRefFrame::ICRF,
             "ITRF2000" | "ITRF-2000" => CCSDSRefFrame::ITRF2000,
             "ITRF93" | "ITRF-93" => CCSDSRefFrame::ITRF93,
             "ITRF97" | "ITRF-97" | "ITRF1997" => CCSDSRefFrame::ITRF97,

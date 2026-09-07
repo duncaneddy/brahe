@@ -4403,7 +4403,7 @@ impl PyCelestialFrame {
 /// Extracts a `frames::ReferenceFrame` from a Python object that is either a
 /// `CelestialFrame` or a `ReferenceFrame` (`Body`/`OrbitRelative`), for the
 /// `*_frame_to_frame` functions that accept either.
-fn extract_frame(obj: &Bound<'_, PyAny>) -> PyResult<frames::ReferenceFrame> {
+pub(crate) fn extract_frame(obj: &Bound<'_, PyAny>) -> PyResult<frames::ReferenceFrame> {
     if let Ok(celestial) = obj.extract::<PyCelestialFrame>() {
         return Ok(frames::ReferenceFrame::Celestial(celestial.frame));
     }
@@ -5121,7 +5121,7 @@ impl PyBodyFrame {
 ///     css = bh.ReferenceFrame.CSS("SC", "1")
 ///     print(rtn.is_bound(), rtn.object())
 ///     ```
-#[pyclass(module = "brahe._brahe", eq, from_py_object)]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "ReferenceFrame")]
 #[derive(Clone, PartialEq)]
 pub struct PyReferenceFrame {
@@ -5616,6 +5616,15 @@ impl PyReferenceFrame {
 
     fn __repr__(&self) -> String {
         format!("ReferenceFrame(\"{}\")", self.frame)
+    }
+
+    /// Equality with another `ReferenceFrame` or with a `CelestialFrame`
+    /// (which compares equal to the `ReferenceFrame` wrapping it).
+    fn __eq__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        match extract_frame(other) {
+            Ok(frame) => Ok((self.frame == frame).into_pyobject(py)?.to_owned().into_any().unbind()),
+            Err(_) => Ok(py.NotImplemented()),
+        }
     }
 }
 

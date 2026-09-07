@@ -32,5 +32,5 @@ propagator.propagate_steps(10)
 # Access the trajectory
 traj = propagator.trajectory
 print(f"Trajectory length: {len(traj)}")  # Output: 11 (initial + 10 steps)
-print(f"Frame: {traj.frame}")  # Output: OrbitFrame.ECI
+print(f"Frame: {traj.frame}")  # Output: GCRF
 print(f"Representation: {traj.representation}")  # Output: Keplerian

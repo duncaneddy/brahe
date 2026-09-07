@@ -29,7 +29,7 @@ fn main() {
     // Access the trajectory
     let traj = &propagator.trajectory;
     println!("Trajectory length: {}", traj.len());  // Output: 11
-    println!("Frame: {}", traj.frame);  // Output: ECI
+    println!("Frame: {}", traj.frame);  // Output: GCRF
     println!("Representation: {}", traj.representation);  // Output: Keplerian
 }
 

@@ -23,7 +23,6 @@ from brahe import (
     IntegratorConfig,
     NumericalOrbitPropagator,
     NumericalPropagationConfig,
-    OrbitFrame,
     TimeSystem,
     VariationalConfig,
     orbital_period,
@@ -6145,7 +6144,7 @@ class TestNumericalOrbitPropagatorCentralBodyStateAccessors:
         prop.propagate_to(epoch + 60.0)
 
         traj = prop.trajectory
-        assert traj.frame == OrbitFrame.BodyCenteredInertial(301)
+        assert traj.frame == CelestialFrame.LCI
         # Earth-frame conversions re-center through SPK: the trajectory's
         # state_eci matches the propagator's own state_eci.
         np.testing.assert_allclose(
@@ -6168,7 +6167,7 @@ class TestNumericalOrbitPropagatorCentralBodyStateAccessors:
             None,
         )
         earth_prop.propagate_to(epoch + 60.0)
-        assert earth_prop.trajectory.frame == OrbitFrame.ECI
+        assert earth_prop.trajectory.frame == CelestialFrame.ECI
         assert np.all(np.isfinite(earth_prop.trajectory.state_eci(epoch)))
 
     def test_lunar_propagation_state_eci_adds_moon_offset(self, naif_cache_setup):

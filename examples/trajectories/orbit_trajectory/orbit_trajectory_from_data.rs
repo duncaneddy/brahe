@@ -4,7 +4,8 @@
 use brahe as bh;
 use bh::time::Epoch;
 use bh::trajectories::SOrbitTrajectory;
-use bh::trajectories::traits::{OrbitFrame, OrbitRepresentation, OrbitalTrajectory};
+use bh::frames::CelestialFrame;
+use bh::trajectories::traits::{OrbitRepresentation, OrbitalTrajectory};
 use bh::traits::Trajectory;
 use bh::constants::R_EARTH;
 use nalgebra as na;
@@ -35,7 +36,7 @@ fn main() {
     let traj = SOrbitTrajectory::from_orbital_data(
         epochs,
         states,
-        OrbitFrame::ECI,
+        CelestialFrame::ECI,
         OrbitRepresentation::Cartesian,
         None, // Angle Format
         None  // No covariances

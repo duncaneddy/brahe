@@ -195,6 +195,23 @@ pub(crate) fn object_state(
     Ok((entry.frame, state))
 }
 
+/// The celestial frame a registered object's states are declared in.
+///
+/// # Arguments
+/// * `name` - The registered object
+///
+/// # Returns
+/// * `Ok(CelestialFrame)`: The declared frame
+/// * `Err(BraheError)`: If no object is registered under `name`
+pub(crate) fn object_frame(name: &ObjectId) -> Result<CelestialFrame, BraheError> {
+    OBJECT_REGISTRY
+        .read()
+        .unwrap()
+        .get(name)
+        .map(|entry| entry.frame)
+        .ok_or_else(|| unknown_object_error(name))
+}
+
 /// Adapts a dynamic-sized [`DStateProvider`] into [`SStateProvider`], so a
 /// provider whose native state is a `DVector` (e.g. `DOrbitTrajectory`, or a
 /// propagator carrying a state transition matrix alongside the state) can

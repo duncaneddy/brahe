@@ -215,126 +215,6 @@ impl PyCovarianceInterpolationMethod {
 }
 
 
-/// Reference frame for orbital trajectory representation.
-///
-/// Specifies the coordinate reference frame for position and velocity states.
-#[pyclass(module = "brahe._brahe", from_py_object)]
-#[pyo3(name = "OrbitFrame")]
-#[derive(Clone)]
-pub struct PyOrbitFrame {
-    pub(crate) frame: trajectories::traits::OrbitFrame,
-}
-
-#[pymethods]
-impl PyOrbitFrame {
-    /// Earth-Centered Inertial (J2000) frame.
-    ///
-    /// Returns:
-    ///     OrbitFrame: ECI frame constant
-    #[classattr]
-    #[pyo3(name = "ECI")]
-    fn eci() -> Self {
-        PyOrbitFrame { frame: trajectories::traits::OrbitFrame::ECI }
-    }
-
-    /// Earth-Centered Earth-Fixed frame.
-    ///
-    /// Returns:
-    ///     OrbitFrame: ECEF frame constant
-    #[classattr]
-    #[pyo3(name = "ECEF")]
-    fn ecef() -> Self {
-        PyOrbitFrame { frame: trajectories::traits::OrbitFrame::ECEF }
-    }
-
-    /// Geocentric Celestial Reference Frame (IAU 2006/2000A).
-    ///
-    /// Returns:
-    ///     OrbitFrame: GCRF frame constant
-    #[classattr]
-    #[pyo3(name = "GCRF")]
-    fn gcrf() -> Self {
-        PyOrbitFrame { frame: trajectories::traits::OrbitFrame::GCRF }
-    }
-
-    /// Earth Mean Equator and Equinox of J2000.0 frame.
-    ///
-    /// Returns:
-    ///     OrbitFrame: EME2000 frame constant
-    #[classattr]
-    #[pyo3(name = "EME2000")]
-    fn eme2000() -> Self {
-        PyOrbitFrame { frame: trajectories::traits::OrbitFrame::EME2000 }
-    }
-
-    /// International Terrestrial Reference Frame.
-    ///
-    /// Returns:
-    ///     OrbitFrame: ITRF frame constant
-    #[classattr]
-    #[pyo3(name = "ITRF")]
-    fn itrf() -> Self {
-        PyOrbitFrame { frame: trajectories::traits::OrbitFrame::ITRF }
-    }
-
-    /// Body-centered inertial frame for a non-Earth central body: ICRF-aligned
-    /// axes centered on the body with the given NAIF ID (e.g. 301 for LCI
-    /// samples from a Moon-centered propagator, 499 for MCI). Produced by
-    /// non-Earth `NumericalOrbitPropagator` trajectories; Earth-frame
-    /// conversions re-center through the loaded SPK kernels.
-    ///
-    /// Args:
-    ///     naif_id (int): NAIF ID of the body the frame is centered on.
-    ///
-    /// Returns:
-    ///     OrbitFrame: Body-centered inertial frame for that body
-    #[staticmethod]
-    #[allow(non_snake_case)]
-    fn BodyCenteredInertial(naif_id: i32) -> Self {
-        PyOrbitFrame {
-            frame: trajectories::traits::OrbitFrame::BodyCenteredInertial(naif_id),
-        }
-    }
-
-    /// Get the full name of the reference frame.
-    ///
-    /// Returns:
-    ///     str: Human-readable frame name
-    fn name(&self) -> &str {
-        match self.frame {
-            trajectories::traits::OrbitFrame::ECI => "Earth-Centered Inertial",
-            trajectories::traits::OrbitFrame::ECEF => "Earth-Centered Earth-Fixed",
-            trajectories::traits::OrbitFrame::GCRF => "Geocentric Celestial Reference Frame",
-            trajectories::traits::OrbitFrame::EME2000 => "Earth Mean Equator and Equinox of J2000.0",
-            trajectories::traits::OrbitFrame::ITRF => "International Terrestrial Reference Frame",
-            trajectories::traits::OrbitFrame::BodyCenteredInertial(_) => "Body-Centered Inertial",
-        }
-    }
-
-    fn __str__(&self) -> String {
-        match self.frame {
-            trajectories::traits::OrbitFrame::ECI => "ECI".to_string(),
-            trajectories::traits::OrbitFrame::ECEF => "ECEF".to_string(),
-            trajectories::traits::OrbitFrame::GCRF => "GCRF".to_string(),
-            trajectories::traits::OrbitFrame::EME2000 => "EME2000".to_string(),
-            trajectories::traits::OrbitFrame::ITRF => "ITRF".to_string(),
-            trajectories::traits::OrbitFrame::BodyCenteredInertial(center) => format!("BCI({})", center),
-        }
-    }
-
-    fn __repr__(&self) -> String {
-        format!("OrbitFrame({})", self.name())
-    }
-
-    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
-        match op {
-            CompareOp::Eq => Ok(self.frame == other.frame),
-            CompareOp::Ne => Ok(self.frame != other.frame),
-            _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
-        }
-    }
-}
-
 /// Orbital state representation format.
 ///
 /// Specifies how orbital states are represented in the trajectory.
@@ -402,14 +282,14 @@ impl PyOrbitRepresentation {
 ///
 /// Args:
 ///     dimension (int): State dimension (minimum 6 for position + velocity)
-///     frame (OrbitFrame): Reference frame for the trajectory
+///     frame (CelestialFrame or ReferenceFrame): Reference frame for the trajectory
 ///     representation (OrbitRepresentation): State representation format
 ///     angle_format (AngleFormat or None): Angle format for Keplerian states,
 ///         must be None for Cartesian representation
 ///
 /// Attributes:
 ///     dimension (int): State vector dimension
-///     frame (OrbitFrame): Reference frame
+///     frame (ReferenceFrame): Reference frame
 ///     representation (OrbitRepresentation): State representation format
 ///     angle_format (AngleFormat or None): Angle format for Keplerian representation
 ///     interpolation_method (InterpolationMethod): Current interpolation method
@@ -419,7 +299,7 @@ impl PyOrbitRepresentation {
 ///     import brahe as bh
 ///
 ///     # Create trajectory in ECI Cartesian frame
-///     traj = bh.OrbitTrajectory(6, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+///     traj = bh.OrbitTrajectory(6, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "OrbitTrajectory")]
@@ -432,7 +312,7 @@ impl PyOrbitalTrajectory {
     /// Create a new empty orbital trajectory.
     ///
     /// Args:
-    ///     frame (OrbitFrame): Reference frame for the trajectory
+    ///     frame (CelestialFrame or ReferenceFrame): Reference frame for the trajectory
     ///     representation (OrbitRepresentation): State representation format
     ///     angle_format (AngleFormat or None): Angle format for Keplerian states,
     ///         must be None for Cartesian representation
@@ -450,7 +330,7 @@ impl PyOrbitalTrajectory {
     ///     import numpy as np
     ///
     ///     # Create trajectory in ECI Cartesian frame
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///
     ///     # Define Keplerian elements for a 500 km circular orbit
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])  # a, e, i, raan, argp, M
@@ -463,16 +343,18 @@ impl PyOrbitalTrajectory {
     ///     print(f"Trajectory has {traj.len()} states")
     ///
     ///     # Extended 9D trajectory (6D orbit + 3 additional states)
-    ///     traj_extended = bh.OrbitTrajectory(9, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj_extended = bh.OrbitTrajectory(9, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     ```
     #[new]
     #[pyo3(signature = (dimension, frame, representation, angle_format=None), text_signature = "(dimension, frame, representation, angle_format=None)")]
     pub fn new(
         dimension: usize,
-        frame: PyRef<PyOrbitFrame>,
+        frame: &Bound<'_, PyAny>,
         representation: PyRef<PyOrbitRepresentation>,
         angle_format: Option<PyRef<PyAngleFormat>>,
     ) -> PyResult<Self> {
+        let frame = extract_frame(frame)?;
+
         // Validate dimension
         if dimension < 6 {
             return Err(exceptions::PyValueError::new_err(
@@ -499,7 +381,7 @@ impl PyOrbitalTrajectory {
 
         let trajectory = trajectories::DOrbitTrajectory::new(
             dimension,
-            frame.frame,
+            frame,
             representation.representation,
             angle_fmt,
         )?;
@@ -524,7 +406,7 @@ impl PyOrbitalTrajectory {
     ///     epochs (list[Epoch]): List of time epochs for each state
     ///     states (numpy.ndarray): 2D array of 6-element state vectors with shape (N, 6)
     ///         where N is the number of epochs. Each row is one state vector.
-    ///     frame (OrbitFrame): Reference frame for the states
+    ///     frame (CelestialFrame or ReferenceFrame): Reference frame for the states
     ///     representation (OrbitRepresentation): State representation format
     ///     angle_format (AngleFormat or None): Angle format for Keplerian states,
     ///         must be None for Cartesian representation
@@ -550,7 +432,7 @@ impl PyOrbitalTrajectory {
     ///     covs = np.array([np.eye(6) * 100.0])  # 100 m² position variance
     ///
     ///     traj = bh.OrbitTrajectory.from_orbital_data(
-    ///         epochs, states, bh.OrbitFrame.ECI,
+    ///         epochs, states, bh.CelestialFrame.ECI,
     ///         bh.OrbitRepresentation.CARTESIAN, None,
     ///         covariances=covs
     ///     )
@@ -561,11 +443,13 @@ impl PyOrbitalTrajectory {
         _cls: &Bound<'_, PyType>,
         epochs: Vec<PyRef<PyEpoch>>,
         states: PyReadonlyArray2<f64>,
-        frame: PyRef<PyOrbitFrame>,
+        frame: &Bound<'_, PyAny>,
         representation: PyRef<PyOrbitRepresentation>,
         angle_format: Option<PyRef<PyAngleFormat>>,
         covariances: Option<PyReadonlyArray3<f64>>,
     ) -> PyResult<Self> {
+        let frame = extract_frame(frame)?;
+
         // Validate: Cartesian must have None, Keplerian must have Some
         match (representation.representation, &angle_format) {
             (trajectories::traits::OrbitRepresentation::Cartesian, Some(_)) => {
@@ -649,7 +533,7 @@ impl PyOrbitalTrajectory {
         let trajectory = trajectories::DOrbitTrajectory::from_orbital_data(
             epochs_vec,
             states_vec,
-            frame.frame,
+            frame,
             representation.representation,
             angle_fmt,
             covariances_vec,
@@ -669,7 +553,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj = traj.with_interpolation_method(bh.InterpolationMethod.LINEAR)
     ///     ```
     #[pyo3(text_signature = "(interpolation_method)")]
@@ -690,7 +574,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj = traj.with_covariance_interpolation_method(bh.CovarianceInterpolationMethod.TWO_WASSERSTEIN)
     ///     ```
     #[pyo3(text_signature = "(method)")]
@@ -711,7 +595,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj.set_covariance_interpolation_method(bh.CovarianceInterpolationMethod.MATRIX_SQUARE_ROOT)
     ///     ```
     #[pyo3(text_signature = "(method)")]
@@ -731,7 +615,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     method = traj.get_covariance_interpolation_method()
     ///     ```
     #[pyo3(text_signature = "()")]
@@ -756,7 +640,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj = traj.with_eviction_policy_max_size(1000)
     ///     ```
     #[pyo3(text_signature = "(max_size)")]
@@ -780,7 +664,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj = traj.with_eviction_policy_max_age(3600.0)
     ///     ```
     #[pyo3(text_signature = "(max_age)")]
@@ -798,7 +682,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(6, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(6, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     print(f"Dimension: {traj.dimension()}")
     ///     print(f"Orbital dimension: {traj.orbital_dimension()}")
     ///     print(f"Additional dimension: {traj.additional_dimension()}")
@@ -819,7 +703,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(9, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(9, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     print(f"Orbital dimension: {traj.orbital_dimension()}")  # 6
     ///     ```
     #[pyo3(text_signature = "()")]
@@ -836,7 +720,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(9, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(9, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     print(f"Additional dimension: {traj.additional_dimension()}")  # 3
     ///     ```
     #[pyo3(text_signature = "()")]
@@ -856,13 +740,13 @@ impl PyOrbitalTrajectory {
     ///     import numpy as np
     ///
     ///     # Standard 6D trajectory
-    ///     traj = bh.OrbitTrajectory(6, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(6, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
     ///
     ///     # Extended 9D trajectory
-    ///     traj_ext = bh.OrbitTrajectory(9, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj_ext = bh.OrbitTrajectory(9, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     state_ext = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0, 1.0, 2.0, 3.0])
     ///     traj_ext.add(epc, state_ext)
     ///     ```
@@ -900,7 +784,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state)
@@ -930,7 +814,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state)
@@ -958,7 +842,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state)
@@ -986,7 +870,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state)
@@ -1016,7 +900,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state)
@@ -1042,7 +926,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj.set_interpolation_method(bh.InterpolationMethod.LINEAR)
     ///     ```
     #[pyo3(text_signature = "(method)")]
@@ -1059,7 +943,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     method = traj.get_interpolation_method()
     ///     ```
     #[pyo3(text_signature = "()")]
@@ -1080,7 +964,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state1 = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state1)
@@ -1111,7 +995,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state1 = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state1)
@@ -1174,18 +1058,18 @@ impl PyOrbitalTrajectory {
     /// Get trajectory reference frame.
     ///
     /// Returns:
-    ///     OrbitFrame: Reference frame of the trajectory
+    ///     ReferenceFrame: Reference frame of the trajectory
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     print(f"Frame: {traj.frame}")
     ///     ```
     #[getter]
-    pub fn frame(&self) -> PyOrbitFrame {
-        PyOrbitFrame { frame: self.trajectory.frame }
+    pub fn frame(&self) -> PyReferenceFrame {
+        PyReferenceFrame { frame: self.trajectory.frame.clone() }
     }
 
     /// Get trajectory state representation.
@@ -1197,7 +1081,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     print(f"Representation: {traj.representation}")
     ///     ```
     #[getter]
@@ -1214,7 +1098,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     print(f"Angle format: {traj.angle_format}")
     ///     ```
     #[getter]
@@ -1229,7 +1113,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1250,7 +1134,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1271,7 +1155,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1292,7 +1176,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1314,7 +1198,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1337,7 +1221,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1360,7 +1244,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1383,7 +1267,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1419,7 +1303,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     print(f"Is empty: {traj.is_empty()}")
     ///     ```
     #[pyo3(text_signature = "()")]
@@ -1440,7 +1324,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECEF, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECEF, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0])
     ///     traj.add(epc, state)
@@ -1465,7 +1349,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1490,7 +1374,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.EME2000, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.EME2000, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1515,7 +1399,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1540,7 +1424,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1550,6 +1434,37 @@ impl PyOrbitalTrajectory {
     pub fn to_itrf(&self) -> PyResult<Self> {
         let new_trajectory = self.trajectory.to_itrf()?;
         Ok(PyOrbitalTrajectory { trajectory: new_trajectory })
+    }
+
+    /// Convert every sample to Cartesian coordinates in `frame` through the
+    /// reference frame router. Covariances, STMs, sensitivities, and
+    /// accelerations are dropped.
+    ///
+    /// Args:
+    ///     frame (CelestialFrame or ReferenceFrame): Target frame.
+    ///
+    /// Returns:
+    ///     OrbitTrajectory: New Cartesian trajectory in `frame`.
+    ///
+    /// Raises:
+    ///     BraheError: If the frame conversion fails.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     import numpy as np
+    ///
+    ///     bh.initialize_eop()
+    ///     traj = bh.OrbitTrajectory(6, bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj.add(epc, np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0]))
+    ///     traj_tod = traj.to_frame(bh.CelestialFrame.TOD)
+    ///     ```
+    #[pyo3(text_signature = "(frame)")]
+    pub fn to_frame(&self, frame: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let frame = extract_frame(frame)?;
+        Ok(PyOrbitalTrajectory { trajectory: self.trajectory.to_frame(frame)? })
     }
 
     /// Convert to Keplerian representation in ECI frame.
@@ -1568,7 +1483,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1590,7 +1505,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1629,7 +1544,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1656,7 +1571,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1685,7 +1600,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1710,7 +1625,7 @@ impl PyOrbitalTrajectory {
     fn __repr__(&self) -> String {
         format!(
             "DOrbitTrajectory(frame={}, representation={}, states={})",
-            PyOrbitFrame { frame: self.trajectory.frame }.__repr__(),
+            self.trajectory.frame,
             PyOrbitRepresentation { representation: self.trajectory.representation }.__repr__(),
             self.trajectory.len()
         )
@@ -1720,7 +1635,7 @@ impl PyOrbitalTrajectory {
     fn __str__(&self) -> String {
         format!(
             "DOrbitTrajectory(frame={}, representation={}, states={})",
-            PyOrbitFrame { frame: self.trajectory.frame }.__str__(),
+            self.trajectory.frame,
             PyOrbitRepresentation { representation: self.trajectory.representation }.__str__(),
             self.trajectory.len()
         )
@@ -1735,7 +1650,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj.set_eviction_policy_max_size(1000)
     ///     ```
     #[pyo3(text_signature = "(max_size)")]
@@ -1755,7 +1670,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj.set_eviction_policy_max_age(3600.0)
     ///     ```
     #[pyo3(text_signature = "(max_age)")]
@@ -1775,7 +1690,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     policy = traj.get_eviction_policy()
     ///     ```
     #[pyo3(text_signature = "()")]
@@ -1819,7 +1734,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
     ///     state = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     traj.add(epc, state)
@@ -1848,7 +1763,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
     ///     state = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     traj.add(epc, state)
@@ -1878,7 +1793,7 @@ impl PyOrbitalTrajectory {
     ///     import numpy as np
     ///
     ///     # Create ECI Cartesian trajectory
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
     ///     state1 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     traj.add(epc1, state1)
@@ -1906,7 +1821,7 @@ impl PyOrbitalTrajectory {
     ///     import numpy as np
     ///
     ///     # Create trajectory in any frame/representation
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.KEPLERIAN, bh.AngleFormat.DEGREES)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.KEPLERIAN, bh.AngleFormat.DEGREES)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.001, 98.0, 15.0, 30.0, 45.0])
     ///     traj.add(epc, oe)
@@ -1934,7 +1849,7 @@ impl PyOrbitalTrajectory {
     ///     import numpy as np
     ///
     ///     # Create ECI trajectory
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
     ///     state_eci = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     traj.add(epc, state_eci)
@@ -1962,7 +1877,7 @@ impl PyOrbitalTrajectory {
     ///     import numpy as np
     ///
     ///     # Create ITRF trajectory
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ITRF, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ITRF, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
     ///     state_itrf = np.array([7000e3, 0.0, 0.0, 0.0, 0.0, 7.5e3])
     ///     traj.add(epc, state_itrf)
@@ -2051,7 +1966,7 @@ impl PyOrbitalTrajectory {
     ///     import numpy as np
     ///
     ///     # Create GCRF trajectory
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
     ///     state_gcrf = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     traj.add(epc, state_gcrf)
@@ -2079,7 +1994,7 @@ impl PyOrbitalTrajectory {
     ///     import numpy as np
     ///
     ///     # Create GCRF trajectory
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
     ///     state_gcrf = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     traj.add(epc, state_gcrf)
@@ -2108,7 +2023,7 @@ impl PyOrbitalTrajectory {
     ///     import numpy as np
     ///
     ///     # Create Cartesian trajectory
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
     ///     state_cart = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     traj.add(epc, state_cart)
@@ -2147,7 +2062,7 @@ impl PyOrbitalTrajectory {
     ///     import numpy as np
     ///
     ///     # Create Cartesian trajectory
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
     ///     state_cart = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     traj.add(epc, state_cart)
@@ -2234,7 +2149,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj = traj.with_name("My Trajectory")
     ///     ```
     fn with_name(slf: PyRefMut<'_, Self>, name: &str) -> Py<Self> {
@@ -2256,7 +2171,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj = traj.with_id(12345)
     ///     ```
     fn with_id(slf: PyRefMut<'_, Self>, id: u64) -> Py<Self> {
@@ -2275,7 +2190,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj = traj.with_name("My Trajectory")
     ///     print(traj.get_name())  # "My Trajectory"
     ///     ```
@@ -2288,7 +2203,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj = traj.with_name("My Trajectory")
     ///     print(traj.get_name())  # "My Trajectory"
     ///     ```
@@ -2313,7 +2228,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj = traj.with_id(12345)
     ///     print(traj.get_id())  # 12345
     ///     ```
@@ -2338,7 +2253,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj = traj.with_new_uuid()
     ///     print(traj.get_uuid())  # e.g., "550e8400-e29b-41d4-a716-446655440000"
     ///     ```
@@ -2355,7 +2270,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj = traj.with_new_uuid()
     ///     ```
     fn with_new_uuid(slf: PyRefMut<'_, Self>) -> Py<Self> {
@@ -2385,7 +2300,7 @@ impl PyOrbitalTrajectory {
     ///     cov = np.eye(6) * 1000.0
     ///
     ///     traj = bh.OrbitTrajectory.from_orbital_data(
-    ///         [epoch], [state], bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
+    ///         [epoch], [state], bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
     ///         covariances=np.array([cov])
     ///     )
     ///
@@ -2448,7 +2363,7 @@ impl PyOrbitalTrajectory {
     ///     cov = np.eye(6) * 1000.0
     ///
     ///     traj = bh.OrbitTrajectory.from_orbital_data(
-    ///         [epoch], [state], bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
+    ///         [epoch], [state], bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
     ///         covariances=np.array([cov])
     ///     )
     ///
@@ -2487,7 +2402,7 @@ impl PyOrbitalTrajectory {
     ///     cov = np.eye(6) * 1000.0
     ///
     ///     traj = bh.OrbitTrajectory.from_orbital_data(
-    ///         [epoch], [state], bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
+    ///         [epoch], [state], bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
     ///         covariances=np.array([cov])
     ///     )
     ///
@@ -2526,7 +2441,7 @@ impl PyOrbitalTrajectory {
     ///     cov = np.eye(6) * 1000.0
     ///
     ///     traj = bh.OrbitTrajectory.from_orbital_data(
-    ///         [epoch], [state], bh.OrbitFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
+    ///         [epoch], [state], bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
     ///         covariances=np.array([cov])
     ///     )
     ///
@@ -2570,7 +2485,7 @@ impl PyOrbitalTrajectory {
     ///     cov = np.eye(6) * 1000.0
     ///
     ///     traj = bh.OrbitTrajectory.from_orbital_data(
-    ///         [epoch], [state], bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
+    ///         [epoch], [state], bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
     ///         covariances=np.array([cov])
     ///     )
     ///
@@ -2615,7 +2530,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(6, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(6, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj.enable_acceleration_storage(3)  # Enable 3D acceleration storage
     ///
     ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
@@ -2637,7 +2552,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(6, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(6, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     print(traj.has_accelerations())  # False
     ///
     ///     traj.enable_acceleration_storage(3)
@@ -2664,7 +2579,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(6, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(6, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj.enable_acceleration_storage(3)
     ///
     ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
@@ -2704,7 +2619,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(6, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(6, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj.enable_acceleration_storage(3)
     ///
     ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
@@ -2748,7 +2663,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(6, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(6, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj.enable_acceleration_storage(3)
     ///     traj.set_interpolation_method(bh.InterpolationMethod.HERMITE_QUINTIC)
     ///
@@ -3082,7 +2997,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state)
@@ -3112,7 +3027,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state)
@@ -3140,7 +3055,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state)
@@ -3168,7 +3083,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state)
@@ -3198,7 +3113,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state)
@@ -3228,7 +3143,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state1 = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state1)
@@ -3259,7 +3174,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state1 = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state1)
@@ -3528,7 +3443,7 @@ impl PyTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     policy = traj.get_eviction_policy()
     ///     ```
     #[pyo3(text_signature = "()")]
@@ -3570,7 +3485,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -3593,7 +3508,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -3640,7 +3555,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -3667,7 +3582,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -3696,7 +3611,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)

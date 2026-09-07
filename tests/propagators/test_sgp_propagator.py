@@ -224,19 +224,35 @@ class TestSGPPropagatorMethods:
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
 
         prop.set_output_format(
-            brahe.OrbitFrame.ECI, brahe.OrbitRepresentation.CARTESIAN, None
+            brahe.CelestialFrame.ECI, brahe.OrbitRepresentation.CARTESIAN, None
         )
         prop.step()
 
         # Verify it doesn't error and trajectory stores states
         assert prop.trajectory.length > 0
 
+    def test_sgppropagator_set_output_format_reference_frame(self, iss_tle):
+        """set_output_format accepts a ReferenceFrame as well as a CelestialFrame."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        prop.set_output_format(
+            brahe.ReferenceFrame.celestial(brahe.CelestialFrame.ITRF),
+            brahe.OrbitRepresentation.CARTESIAN,
+            None,
+        )
+        prop.step()
+
+        assert prop.trajectory.frame == brahe.CelestialFrame.ITRF
+
+        with pytest.raises(TypeError):
+            prop.set_output_format("ITRF", brahe.OrbitRepresentation.CARTESIAN, None)
+
     def test_sgppropagator_set_output_format_keplerian(self, iss_tle):
         """Test setting output format to ECI Keplerian."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
 
         prop.set_output_format(
-            brahe.OrbitFrame.ECI,
+            brahe.CelestialFrame.ECI,
             brahe.OrbitRepresentation.KEPLERIAN,
             brahe.AngleFormat.RADIANS,
         )
@@ -245,12 +261,38 @@ class TestSGPPropagatorMethods:
         # Verify it doesn't error and trajectory stores states
         assert prop.trajectory.length > 0
 
+    def test_sgppropagator_output_format_tod(self, iss_tle):
+        """Rust: test_sgppropagator_output_format_tod"""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epc = prop.epoch
+        expected = brahe.state_itrf_to_tod(epc, prop.state_ecef(epc))
+
+        prop.set_output_format(
+            brahe.CelestialFrame.TOD, brahe.OrbitRepresentation.CARTESIAN, None
+        )
+        assert prop.trajectory.frame == brahe.CelestialFrame.TOD
+        np.testing.assert_allclose(prop.current_state(), expected, atol=1e-6)
+
+        # Non-Earth frames are rejected: Earth-only propagator.
+        with pytest.raises(brahe.BraheError):
+            prop.set_output_format(
+                brahe.CelestialFrame.LCI, brahe.OrbitRepresentation.CARTESIAN, None
+            )
+
+        # Keplerian output requires an inertial frame.
+        with pytest.raises(brahe.BraheError):
+            prop.set_output_format(
+                brahe.CelestialFrame.ITRF,
+                brahe.OrbitRepresentation.KEPLERIAN,
+                brahe.AngleFormat.DEGREES,
+            )
+
     def test_sgppropagator_set_output_format_ecef(self, iss_tle):
         """Test setting output format to ECEF Cartesian."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
 
         prop.set_output_format(
-            brahe.OrbitFrame.ECEF, brahe.OrbitRepresentation.CARTESIAN, None
+            brahe.CelestialFrame.ECEF, brahe.OrbitRepresentation.CARTESIAN, None
         )
         prop.step()
 
@@ -262,7 +304,7 @@ class TestSGPPropagatorMethods:
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
 
         prop.set_output_format(
-            brahe.OrbitFrame.ECI,
+            brahe.CelestialFrame.ECI,
             brahe.OrbitRepresentation.KEPLERIAN,
             brahe.AngleFormat.DEGREES,
         )
@@ -1923,7 +1965,26 @@ class TestSGPPropagatorBuilder:
         angle_format) must raise RuntimeError from build() rather than
         crashing the interpreter with an unrecoverable Rust panic."""
         builder = brahe.SGPPropagator.builder(*self._omm_args()).output_format(
-            brahe.OrbitFrame.ECI, brahe.OrbitRepresentation.KEPLERIAN, None
+            brahe.CelestialFrame.ECI, brahe.OrbitRepresentation.KEPLERIAN, None
         )
         with pytest.raises(RuntimeError):
             builder.build()
+
+    def test_sgppropagator_builder_output_format_reference_frame(self):
+        """The builder's output_format accepts either frame type and rejects others."""
+        prop = (
+            brahe.SGPPropagator.builder(*self._omm_args())
+            .output_format(
+                brahe.ReferenceFrame.celestial(brahe.CelestialFrame.ITRF),
+                brahe.OrbitRepresentation.CARTESIAN,
+                None,
+            )
+            .build()
+        )
+        prop.step()
+        assert prop.trajectory.frame == brahe.CelestialFrame.ITRF
+
+        with pytest.raises(TypeError):
+            brahe.SGPPropagator.builder(*self._omm_args()).output_format(
+                "ITRF", brahe.OrbitRepresentation.CARTESIAN, None
+            )

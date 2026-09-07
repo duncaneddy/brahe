@@ -20,6 +20,7 @@ Trajectory containers for storing, managing, and interpolating time-series state
 ## See Also
 
 - [InterpolationMethod](../orbits/enums.md#interpolationmethod) - Interpolation options
-- [OrbitFrame](../orbits/enums.md#orbitframe) - Frame specifications
+- [CelestialFrame](../frames/router.md#brahe.CelestialFrame) - Named celestial reference frames
+- [ReferenceFrame](../frames/frame.md#brahe.ReferenceFrame) - Unified frame identity accepted by trajectories
 - [KeplerianPropagator](../propagators/keplerian_propagator.md) - Analytical orbit propagation
 - [SGPPropagator](../propagators/sgp_propagator.md) - SGP4/SDP4 orbit propagation

@@ -98,10 +98,11 @@ impl<P: DIdentifiableStateProvider> ToPropagatorRefs<P> for [&P] {
 mod tests {
     use super::*;
     use crate::constants::DEGREES;
+    use crate::frames::CelestialFrame;
     use crate::propagators::KeplerianPropagator;
     use crate::propagators::traits::SStatePropagator;
     use crate::time::{Epoch, TimeSystem};
-    use crate::traits::{OrbitFrame, OrbitRepresentation};
+    use crate::traits::OrbitRepresentation;
     use nalgebra::Vector6;
 
     use serial_test::parallel;
@@ -113,7 +114,7 @@ mod tests {
         KeplerianPropagator::new(
             epoch,
             elements,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Keplerian,
             Some(DEGREES),
             60.0,

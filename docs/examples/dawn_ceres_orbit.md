@@ -182,9 +182,12 @@ propagation shows this divergence accumulating from zero:
 [`plot_trajectory_3d`](../library_api/plots/3d_trajectory.md) accepts `central_body="ceres"`: Ceres is already in the
 plotting library's body-visuals registry (radius and NAIF ID for frame
 validation, plus a default texture), so no custom dict is needed. Non-Earth
-central bodies require the plotted trajectory to already be in
-[`OrbitFrame.BodyCenteredInertial(naif_id)`](../library_api/orbits/enums.md#brahe.OrbitFrame.BodyCenteredInertial) for that body; a Ceres-centered
-[`NumericalOrbitPropagator`](../library_api/propagators/numerical_orbit_propagator.md)'s `.trajectory` is already in that frame:
+central bodies plot the trajectory in that body's centered-inertial frame,
+converting through the [reference frame router](../library_api/frames/router.md)
+with `to_frame()` when the trajectory is declared in another frame; a
+Ceres-centered
+[`NumericalOrbitPropagator`](../library_api/propagators/numerical_orbit_propagator.md)'s `.trajectory` is already in
+`CelestialFrame.BodyCenteredICRF(2000001)`:
 
 ``` python
 --8<-- "./examples/examples/dawn_ceres_orbit.py:plot_3d"

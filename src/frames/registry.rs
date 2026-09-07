@@ -56,7 +56,7 @@ pub(crate) static FRAME_REGISTRY: Lazy<RwLock<HashMap<FrameKey, FrameEntry>>> =
 /// Converts a bound `Body` frame into its registry key. Returns `None` for
 /// every other frame (celestial, orbit-relative, or an unbound body frame),
 /// none of which can be registered under [`register_frame`].
-fn frame_key(frame: &ReferenceFrame) -> Option<FrameKey> {
+pub(crate) fn frame_key(frame: &ReferenceFrame) -> Option<FrameKey> {
     match frame {
         ReferenceFrame::Body {
             frame,

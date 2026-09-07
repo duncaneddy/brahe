@@ -125,11 +125,12 @@ above the Mars surface throughout.
 ## 3D Visualization
 
 [`plot_trajectory_3d`](../library_api/plots/3d_trajectory.md) accepts `central_body="mars"` to render an interactive
-3D view of the trajectory around a textured Mars. Non-Earth central bodies
-require the plotted trajectory to already be in
-[`OrbitFrame.BodyCenteredInertial(naif_id)`](../library_api/orbits/enums.md#brahe.OrbitFrame.BodyCenteredInertial) for that body; a Mars-centered
-[`NumericalOrbitPropagator`](../library_api/propagators/numerical_orbit_propagator.md)'s `.trajectory` is already in that frame, so no
-conversion is needed:
+3D view of the trajectory around a textured Mars. Non-Earth central bodies plot
+the trajectory in that body's centered-inertial frame, converting through the
+[reference frame router](../library_api/frames/router.md) with `to_frame()` when
+the trajectory is declared in another frame; a Mars-centered
+[`NumericalOrbitPropagator`](../library_api/propagators/numerical_orbit_propagator.md)'s `.trajectory` is already in
+`CelestialFrame.MCI`, so no conversion is needed:
 
 ``` python
 --8<-- "./examples/examples/mro_mars_orbit.py:plot_3d"

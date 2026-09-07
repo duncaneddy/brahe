@@ -69,7 +69,7 @@ Since trajectories often store states at discrete epochs, the `Interpolatable` t
 
 ### `OrbitalTrajectory` Trait
 
-The `OrbitalTrajectory` trait specializes trajectories for orbital mechanics applications. It adds awareness of reference frames (ECI/ECEF) and orbital representations (Cartesian/Keplerian), enabling automatic conversions of the stored states to different frames or representations.
+The `OrbitalTrajectory` trait specializes trajectories for orbital mechanics applications. It adds awareness of reference frames and orbital representations (Cartesian/Keplerian), enabling automatic conversions of the stored states to different frames or representations.
 
 **Creation**:
 
@@ -77,8 +77,10 @@ The `OrbitalTrajectory` trait specializes trajectories for orbital mechanics app
 
 **Frame Conversions**:
 
-- `to_eci()` - Convert all states to Earth-Centered Inertial frame
-- `to_ecef()` - Convert all states to Earth-Centered Earth-Fixed frame
+- `to_frame(frame)` - Convert all states to any reference frame reachable through the frame router
+- `to_eci()` / `to_gcrf()` - Convert all states to the GCRF frame
+- `to_ecef()` / `to_itrf()` - Convert all states to the ITRF frame
+- `to_eme2000()` - Convert all states to the EME2000 frame
 
 **Representation Conversions**:
 
@@ -102,12 +104,11 @@ Controls automatic memory management for long-running applications:
 
 Eviction policies are useful for real-time applications where memory must be bounded, such as satellite ground station passes or long-term simulations.
 
-### OrbitFrame
+### Reference frames
 
-Specifies the reference frame for orbital states:
+An orbital trajectory's `frame` attribute is a [`ReferenceFrame`](../../library_api/frames/frame.md), the same type used throughout the frame router. Any [`CelestialFrame`](../../library_api/frames/router.md) member is accepted, including `GCRF`, `ITRF`, `EME2000`, `MOD`, `TOD`, and body-centered inertial frames such as `LCI` for the Moon, along with a bound orbit-relative frame (RTN, NTW, VNC, LVLH) or a bound body frame declared through the object registry. `ECI` and `ECEF` remain accepted as aliases of `GCRF` and `ITRF`.
 
-- `ECI` - Earth-Centered Inertial frame (GCRF/J2000)
-- `ECEF` - Earth-Centered Earth-Fixed frame
+`to_frame(frame)` converts every stored sample to the target frame by routing through the frame graph, resolving whatever path connects the trajectory's current frame to the requested one. Keplerian elements are accepted in the ICRF-aligned inertial frames, `GCRF` and the body-centered inertial frames (`LCI`, `MCI`, `EMBI`, `SSBI`, `BodyCenteredICRF`), and in `EME2000`, whose axes carry the frame bias. `to_keplerian(angle_format)` follows the same rule: it converts Cartesian samples about the center of the trajectory's own frame and returns an error for any frame outside that set, such as `ITRF`, `TOD`, or an orbit-relative frame.
 
 ### OrbitRepresentation
 
@@ -155,14 +156,14 @@ The `STrajectory<R>` implementation uses compile-time sized state vectors, provi
 
 ### SOrbitTrajectory - Orbital Mechanics
 
-The `SOrbitTrajectory` implementation is specialized for orbital mechanics applications. It always 6-dimensional state vectors (position + velocity or orbital elements) and tracks the reference frame (ECI/ECEF) and representation (Cartesian/Keplerian). It provides built-in methods for converting between frames and representations. The `SOrbitTrajectory` is ideal for satellite orbit propagation and analysis where you expect to need frame conversions.
+The `SOrbitTrajectory` implementation is specialized for orbital mechanics applications. It always 6-dimensional state vectors (position + velocity or orbital elements) and tracks the reference frame and representation (Cartesian/Keplerian). It provides built-in methods for converting between frames and representations. The `SOrbitTrajectory` is ideal for satellite orbit propagation and analysis where you expect to need frame conversions.
 
 **Features**:
 
 - Always 6-dimensional (position + velocity)
-- Tracks reference frame (ECI/ECEF)
+- Tracks reference frame as a `ReferenceFrame`
 - Tracks representation (Cartesian/Keplerian)
-- Frame conversions: ECI ↔ ECEF
+- Frame conversions through `to_frame(frame)` to any frame reachable via the frame router
 - Representation conversions: Cartesian ↔ Keplerian
 - Implements traits: `Trajectory`, `Interpolatable`, `OrbitalTrajectory`
 

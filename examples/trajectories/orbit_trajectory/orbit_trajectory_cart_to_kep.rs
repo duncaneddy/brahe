@@ -4,7 +4,8 @@
 use brahe as bh;
 use bh::time::Epoch;
 use bh::trajectories::SOrbitTrajectory;
-use bh::trajectories::traits::{OrbitFrame, OrbitRepresentation, OrbitalTrajectory};
+use bh::frames::CelestialFrame;
+use bh::trajectories::traits::{OrbitRepresentation, OrbitalTrajectory};
 use bh::traits::Trajectory;
 use bh::{state_koe_to_eci, R_EARTH, AngleFormat};
 use nalgebra as na;
@@ -14,7 +15,7 @@ fn main() {
 
     // Create trajectory in ECI Cartesian
     let mut traj_cart = SOrbitTrajectory::new(
-        OrbitFrame::ECI,
+        CelestialFrame::ECI,
         OrbitRepresentation::Cartesian,
         None
     ).unwrap();

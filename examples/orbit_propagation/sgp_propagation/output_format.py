@@ -14,12 +14,14 @@ line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
 
 # Create with ECEF Cartesian output
 prop_ecef = bh.SGPPropagator.from_tle(line1, line2, 60.0)
-prop_ecef.set_output_format(bh.OrbitFrame.ECEF, bh.OrbitRepresentation.CARTESIAN, None)
+prop_ecef.set_output_format(
+    bh.CelestialFrame.ECEF, bh.OrbitRepresentation.CARTESIAN, None
+)
 
-# Or with Keplerian output (ECI only)
+# Or with Keplerian output (available in GCRF and EME2000)
 prop_kep = bh.SGPPropagator.from_tle(line1, line2, 60.0)
 prop_kep.set_output_format(
-    bh.OrbitFrame.ECI, bh.OrbitRepresentation.KEPLERIAN, bh.AngleFormat.DEGREES
+    bh.CelestialFrame.ECI, bh.OrbitRepresentation.KEPLERIAN, bh.AngleFormat.DEGREES
 )
 
 # Propagate to 1 hour after epoch

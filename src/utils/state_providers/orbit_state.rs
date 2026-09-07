@@ -649,9 +649,10 @@ pub trait DOrbitStateProvider: DStateProvider {
 mod tests {
     use super::*;
     use crate::constants::DEGREES;
+    use crate::frames::CelestialFrame;
     use crate::propagators::KeplerianPropagator;
     use crate::time::{Epoch, TimeSystem};
-    use crate::traits::{OrbitFrame, OrbitRepresentation};
+    use crate::traits::OrbitRepresentation;
     use approx::assert_abs_diff_eq;
     use nalgebra::Vector6;
 
@@ -663,7 +664,7 @@ mod tests {
         KeplerianPropagator::new(
             epoch,
             elements,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Keplerian,
             Some(DEGREES),
             60.0,

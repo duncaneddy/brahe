@@ -17,7 +17,7 @@ def create_test_propagator(epoch):
     return bh.KeplerianPropagator(
         epoch,
         oe,
-        frame=bh.OrbitFrame.ECI,
+        frame=bh.CelestialFrame.ECI,
         representation=bh.OrbitRepresentation.KEPLERIAN,
         angle_format=bh.AngleFormat.DEGREES,
         step_size=60.0,
@@ -78,7 +78,7 @@ def test_location_accesses_multiple_sats():
                     0.0,
                 ]
             ),
-            frame=bh.OrbitFrame.ECI,
+            frame=bh.CelestialFrame.ECI,
             representation=bh.OrbitRepresentation.KEPLERIAN,
             angle_format=bh.AngleFormat.DEGREES,
             step_size=60.0,
@@ -95,7 +95,7 @@ def test_location_accesses_multiple_sats():
                     0.0,
                 ]
             ),
-            frame=bh.OrbitFrame.ECI,
+            frame=bh.CelestialFrame.ECI,
             representation=bh.OrbitRepresentation.KEPLERIAN,
             angle_format=bh.AngleFormat.DEGREES,
             step_size=60.0,
@@ -191,7 +191,7 @@ def test_location_accesses_multiple():
                     0.0,
                 ]
             ),
-            frame=bh.OrbitFrame.ECI,
+            frame=bh.CelestialFrame.ECI,
             representation=bh.OrbitRepresentation.KEPLERIAN,
             angle_format=bh.AngleFormat.DEGREES,
             step_size=60.0,
@@ -252,7 +252,7 @@ def test_elevation_boundary_precision():
     propagator = bh.KeplerianPropagator(
         epoch,
         oe,
-        frame=bh.OrbitFrame.ECI,
+        frame=bh.CelestialFrame.ECI,
         representation=bh.OrbitRepresentation.KEPLERIAN,
         angle_format=bh.AngleFormat.DEGREES,
         step_size=60.0,
@@ -1069,7 +1069,7 @@ def test_access_default_uuid_traceability():
     prop2 = bh.KeplerianPropagator(
         epoch,
         np.array([bh.R_EARTH + 500e3, 0.0, 45.0, 60.0, 0.0, 0.0]),
-        frame=bh.OrbitFrame.ECI,
+        frame=bh.CelestialFrame.ECI,
         representation=bh.OrbitRepresentation.KEPLERIAN,
         angle_format=bh.AngleFormat.DEGREES,
         step_size=60.0,

@@ -67,7 +67,7 @@ The matplotlib backend produces publication-ready 3D figures with customizable v
 
 ## Plotting Around Other Central Bodies
 
-`plot_trajectory_3d` is not limited to Earth. The `central_body` parameter accepts either a registry key from `brahe.plots.bodies.BODY_VISUALS` (`'earth'`, `'moon'`, `'mars'`, `'sun'`, and the other planets) or a custom dict `{name, radius, texture}` (radius in meters) for bodies outside the registry. Trajectories plotted around a non-Earth central body must already be in `OrbitFrame.BodyCenteredInertial(naif_id)` for that body's NAIF ID; Earth trajectories in any frame are converted via `to_eci()` as before.
+`plot_trajectory_3d` is not limited to Earth. The `central_body` parameter accepts either a registry key from `brahe.plots.bodies.BODY_VISUALS` (`'earth'`, `'moon'`, `'mars'`, `'sun'`, and the other planets) or a custom dict `{name, radius, texture}` (radius in meters) for bodies outside the registry. Trajectories are plotted in the central body's centered-inertial frame (`CelestialFrame.GCRF` for Earth, `CelestialFrame.LCI` for the Moon, `CelestialFrame.MCI` for Mars, and so on); a trajectory declared in any other frame is converted to it with `to_frame()`.
 
 - `show_body` (bool): show the central body sphere at the origin. Default: `True`.
 - `texture`: texture for the central body sphere (plotly only). Accepts `'simple'`, `'blue_marble'` or `'natural_earth_50m'`/`'natural_earth_10m'` (Earth only), any `brahe.plots.texture_utils.PLANET_TEXTURES` key, or a path to an image file. Defaults to the central body's registry texture (or `'simple'` for custom bodies without one).
@@ -88,7 +88,7 @@ states = np.column_stack([
 ])
 lunar_traj = bh.OrbitTrajectory.from_orbital_data(
     [epoch + i * 60 for i in range(20)], states,
-    bh.OrbitFrame.BodyCenteredInertial(301),
+    bh.CelestialFrame.LCI,
     bh.OrbitRepresentation.CARTESIAN, None, None,
 )
 

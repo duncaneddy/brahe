@@ -23,7 +23,8 @@
  * ## Standard 6D orbital trajectory
  * ```rust
  * use brahe::trajectories::DOrbitTrajectory;
- * use brahe::traits::{Trajectory, OrbitFrame, OrbitRepresentation};
+ * use brahe::traits::{Trajectory, OrbitRepresentation};
+ * use brahe::frames::CelestialFrame;
  * use brahe::AngleFormat;
  * use brahe::time::{Epoch, TimeSystem};
  * use nalgebra::DVector;
@@ -31,7 +32,7 @@
  * // Create 6D orbital trajectory in ECI Cartesian coordinates
  * let mut traj = DOrbitTrajectory::new(
  *     6,  // dimension
- *     OrbitFrame::ECI,
+ *     CelestialFrame::ECI,
  *     OrbitRepresentation::Cartesian,
  *     None,
  * ).unwrap();
@@ -48,7 +49,8 @@
  * ## Extended state trajectory (6D + additional states)
  * ```rust
  * use brahe::trajectories::DOrbitTrajectory;
- * use brahe::traits::{Trajectory, OrbitFrame, OrbitRepresentation};
+ * use brahe::traits::{Trajectory, OrbitRepresentation};
+ * use brahe::frames::CelestialFrame;
  * use brahe::time::{Epoch, TimeSystem};
  * use nalgebra::DVector;
  *
@@ -60,7 +62,7 @@
  * // Create 9D trajectory (6D orbit + 3 additional states)
  * let mut traj = DOrbitTrajectory::new(
  *     9,  // dimension
- *     OrbitFrame::ECI,
+ *     CelestialFrame::ECI,
  *     OrbitRepresentation::Cartesian,
  *     None,
  * ).unwrap();
@@ -88,16 +90,17 @@ use uuid::Uuid;
 
 use crate::constants::AngleFormat;
 use crate::constants::{DEG2RAD, RAD2DEG};
-use crate::coordinates::{state_eci_to_koe, state_koe_to_eci};
+use crate::coordinates::{state_inertial_to_koe_gm, state_koe_to_inertial_gm};
 use crate::frames::{
-    rotation_eme2000_to_gcrf, state_ecef_to_eci, state_eci_to_ecef, state_eme2000_to_gcrf,
-    state_gcrf_to_eme2000, state_gcrf_to_itrf, state_itrf_to_gcrf,
+    CelestialFrame, ReferenceFrame, celestial_root, icrf_aligned_inertial,
+    rotation_eme2000_to_gcrf, state_frame_to_frame,
 };
 use crate::math::{
     CovarianceInterpolationConfig, interpolate_covariance_sqrt_dmatrix,
     interpolate_covariance_two_wasserstein_dmatrix, interpolate_hermite_cubic_dvector6,
     interpolate_hermite_quintic_dvector6, interpolate_lagrange_dvector,
 };
+use crate::propagators::CentralBody;
 use crate::relative_motion::rotation_eci_to_rtn;
 use crate::time::Epoch;
 use crate::utils::state_providers::{
@@ -138,8 +141,8 @@ fn smat66_to_dmat(sm: SMatrix<f64, 6, 6>) -> DMatrix<f64> {
 
 use super::traits::{
     CovarianceInterpolationMethod, InterpolatableTrajectory, InterpolationConfig,
-    InterpolationMethod, OrbitFrame, OrbitRepresentation, STMStorage, SensitivityStorage,
-    Trajectory, TrajectoryEvictionPolicy,
+    InterpolationMethod, OrbitRepresentation, STMStorage, SensitivityStorage, Trajectory,
+    TrajectoryEvictionPolicy, bci_fixed_frame, covariance_frame_allowed, keplerian_center,
 };
 
 /// Dynamic (runtime-sized) orbital trajectory container.
@@ -208,11 +211,11 @@ pub struct DOrbitTrajectory {
     max_age: Option<f64>,
 
     /// Reference frame of the orbital states.
-    pub frame: OrbitFrame,
+    pub frame: ReferenceFrame,
 
     /// State representation (Cartesian or Keplerian).
-    /// Keplerian elements are always in ECI frame.
-    /// Cartesian can be in ECI or ECEF.
+    /// Keplerian elements require an inertial frame.
+    /// Cartesian states may be declared in any frame.
     pub representation: OrbitRepresentation,
 
     /// Angle format for angular elements
@@ -263,7 +266,7 @@ impl DOrbitTrajectory {
     /// # Arguments
     /// * `dimension` - State vector dimension (must be >= 6). First 6 elements are orbital state,
     ///   elements 6+ are additional states passed through conversions unchanged.
-    /// * `frame` - Reference frame (ECI or ECEF)
+    /// * `frame` - Reference frame the states are declared in
     /// * `representation` - State representation (Cartesian or Keplerian)
     /// * `angle_format` - Angle format (None for Cartesian, Radians/Degrees for Keplerian)
     ///
@@ -275,18 +278,19 @@ impl DOrbitTrajectory {
     /// * If `dimension < 6`
     /// * If Keplerian representation without angle_format
     /// * If Cartesian representation with angle_format
-    /// * If ECEF frame with Keplerian representation
+    /// * If Keplerian representation outside an inertial frame
     ///
     /// # Examples
     /// ```rust
     /// use brahe::trajectories::DOrbitTrajectory;
-    /// use brahe::traits::{OrbitFrame, OrbitRepresentation};
+    /// use brahe::traits::OrbitRepresentation;
+    /// use brahe::frames::CelestialFrame;
     /// use brahe::AngleFormat;
     ///
     /// // Standard 6D orbital trajectory
     /// let traj = DOrbitTrajectory::new(
     ///     6,
-    ///     OrbitFrame::ECI,
+    ///     CelestialFrame::ECI,
     ///     OrbitRepresentation::Cartesian,
     ///     None,
     /// ).unwrap();
@@ -294,17 +298,19 @@ impl DOrbitTrajectory {
     /// // Extended 9D trajectory (6D orbit + 3 additional states)
     /// let traj_extended = DOrbitTrajectory::new(
     ///     9,
-    ///     OrbitFrame::ECI,
+    ///     CelestialFrame::ECI,
     ///     OrbitRepresentation::Cartesian,
     ///     None,
     /// ).unwrap();
     /// ```
     pub fn new(
         dimension: usize,
-        frame: OrbitFrame,
+        frame: impl Into<ReferenceFrame>,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
     ) -> Result<Self, BraheError> {
+        let frame = frame.into();
+
         // Validate dimension
         if dimension < 6 {
             return Err(BraheError::Error(format!(
@@ -326,10 +332,8 @@ impl DOrbitTrajectory {
         }
 
         // Validate frame for representation
-        if frame == OrbitFrame::ECEF && representation == OrbitRepresentation::Keplerian {
-            return Err(BraheError::Error(
-                "Keplerian elements should be in ECI frame".to_string(),
-            ));
+        if representation == OrbitRepresentation::Keplerian {
+            keplerian_center(&frame)?;
         }
 
         Ok(Self {
@@ -371,8 +375,9 @@ impl DOrbitTrajectory {
     /// # Examples
     /// ```rust
     /// use brahe::trajectories::DOrbitTrajectory;
-    /// use brahe::traits::{OrbitFrame, OrbitRepresentation, InterpolationMethod};
-    /// let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+    /// use brahe::traits::{OrbitRepresentation, InterpolationMethod};
+    /// use brahe::frames::CelestialFrame;
+    /// let traj = DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
     ///     .unwrap()
     ///     .with_interpolation_method(InterpolationMethod::Linear);
     /// ```
@@ -399,8 +404,9 @@ impl DOrbitTrajectory {
     /// # Examples
     /// ```rust
     /// use brahe::trajectories::DOrbitTrajectory;
-    /// use brahe::traits::{OrbitFrame, OrbitRepresentation};
-    /// let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+    /// use brahe::traits::OrbitRepresentation;
+    /// use brahe::frames::CelestialFrame;
+    /// let traj = DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
     ///     .unwrap()
     ///     .with_eviction_policy_max_size(100)
     ///     .unwrap();
@@ -428,8 +434,9 @@ impl DOrbitTrajectory {
     /// # Examples
     /// ```rust
     /// use brahe::trajectories::DOrbitTrajectory;
-    /// use brahe::traits::{OrbitFrame, OrbitRepresentation};
-    /// let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+    /// use brahe::traits::OrbitRepresentation;
+    /// use brahe::frames::CelestialFrame;
+    /// let traj = DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
     ///     .unwrap()
     ///     .with_eviction_policy_max_age(3600.0)
     ///     .unwrap();
@@ -566,13 +573,14 @@ impl DOrbitTrajectory {
     /// # Examples
     /// ```
     /// use brahe::trajectories::DOrbitTrajectory;
-    /// use brahe::traits::{OrbitFrame, OrbitRepresentation};
+    /// use brahe::traits::OrbitRepresentation;
+    /// use brahe::frames::CelestialFrame;
     /// use brahe::time::{Epoch, TimeSystem};
     /// use nalgebra::{DMatrix, DVector};
     ///
     /// let mut traj = DOrbitTrajectory::new(
     ///     6,
-    ///     OrbitFrame::ECI,
+    ///     CelestialFrame::ECI,
     ///     OrbitRepresentation::Cartesian,
     ///     None,
     /// ).unwrap();
@@ -1083,7 +1091,7 @@ impl Default for DOrbitTrajectory {
     fn default() -> Self {
         Self::new(
             6, // dimension: standard 6D orbital states
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None, // angle_format is None for Cartesian
         )
@@ -1206,7 +1214,7 @@ impl Trajectory for DOrbitTrajectory {
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
             max_age: None,
-            frame: OrbitFrame::ECI, // Default to ECI Cartesian
+            frame: CelestialFrame::ECI.into(), // Default to ECI Cartesian
             representation: OrbitRepresentation::Cartesian,
             angle_format: None, // angle_format is not meaningful for Cartesian
             name: None,
@@ -1875,16 +1883,18 @@ impl DOrbitTrajectory {
     /// * `Err(BraheError)` - If parameters are invalid or data validation fails
     ///
     /// # Errors
-    /// * If covariances are provided but frame is not ECI or GCRF
+    /// * If covariances are provided but the frame is neither GCRF nor EME2000
     /// * If covariances length does not match states length
     pub fn from_orbital_data(
         epochs: Vec<Epoch>,
         states: Vec<DVector<f64>>,
-        frame: OrbitFrame,
+        frame: impl Into<ReferenceFrame>,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
         covariances: Option<Vec<DMatrix<f64>>>,
     ) -> Result<Self, BraheError> {
+        let frame = frame.into();
+
         // Validate inputs
         if states.is_empty() {
             return Err(BraheError::Error(
@@ -1913,10 +1923,8 @@ impl DOrbitTrajectory {
             }
         }
 
-        if frame == OrbitFrame::ECEF && representation == OrbitRepresentation::Keplerian {
-            return Err(BraheError::Error(
-                "Keplerian elements should be in ECI frame".to_string(),
-            ));
+        if representation == OrbitRepresentation::Keplerian {
+            keplerian_center(&frame)?;
         }
 
         // Validate covariances if provided
@@ -1931,8 +1939,7 @@ impl DOrbitTrajectory {
             }
 
             // Check that frame is ECI, GCRF, or EME2000
-            if frame != OrbitFrame::ECI && frame != OrbitFrame::GCRF && frame != OrbitFrame::EME2000
-            {
+            if !covariance_frame_allowed(&frame) {
                 return Err(BraheError::Error(format!(
                     "Covariances are only supported for ECI, GCRF, and EME2000 frames. Got: {}",
                     frame
@@ -1968,612 +1975,160 @@ impl DOrbitTrajectory {
         })
     }
 
-    /// Cartesian twin of a Keplerian `BodyCenteredInertial` trajectory:
-    /// converts each element set to Cartesian about the center body using
-    /// that body's gravitational parameter. Errors for unknown centers and
-    /// barycenters.
-    fn bci_keplerian_to_cartesian(&self, center: i32) -> Result<Self, BraheError> {
-        let cb = crate::propagators::CentralBody::from_naif_id(center)?;
-        if cb.is_barycenter() {
-            return Err(BraheError::Error(format!(
-                "Keplerian elements are undefined about massless barycenter {}",
-                center
-            )));
+    /// Converts every sample to Cartesian coordinates in `frame`.
+    ///
+    /// Keplerian samples are first converted to Cartesian coordinates about
+    /// their own frame's center, using that body's gravitational parameter.
+    /// The result is then routed to `frame` by the reference frame router,
+    /// which resolves any center offset through the loaded SPK kernels.
+    /// Covariances, state transition matrices, sensitivities, and
+    /// accelerations are dropped.
+    ///
+    /// For extended states (dimension > 6), only the first 6 elements
+    /// (orbital state) are converted. Additional elements (6+) are preserved
+    /// unchanged.
+    ///
+    /// # Arguments
+    /// * `frame` - Target reference frame
+    ///
+    /// # Returns
+    /// * `Ok(DOrbitTrajectory)` - New Cartesian trajectory in `frame`, preserving dimension
+    /// * `Err(BraheError)` - If a sample cannot be converted (unbound or
+    ///   unregistered frame, missing ephemeris, or Keplerian elements about
+    ///   a massless barycenter)
+    ///
+    /// # Examples
+    /// ```rust
+    /// use brahe::trajectories::DOrbitTrajectory;
+    /// use brahe::traits::{Trajectory, OrbitRepresentation};
+    /// use brahe::frames::CelestialFrame;
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use nalgebra::DVector;
+    ///
+    /// brahe::eop::set_global_eop_provider(
+    ///     brahe::eop::StaticEOPProvider::from_values((0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+    /// );
+    ///
+    /// let mut traj = DOrbitTrajectory::new(
+    ///     6,
+    ///     CelestialFrame::GCRF,
+    ///     OrbitRepresentation::Cartesian,
+    ///     None,
+    /// ).unwrap();
+    /// let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// traj.add(epoch, DVector::from_vec(vec![6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0])).unwrap();
+    ///
+    /// let itrf = traj.to_frame(CelestialFrame::ITRF).unwrap();
+    /// assert!(itrf.frame == CelestialFrame::ITRF);
+    /// ```
+    pub fn to_frame(&self, frame: impl Into<ReferenceFrame>) -> Result<Self, BraheError> {
+        let frame = frame.into();
+
+        let mut states_converted = Vec::with_capacity(self.states.len());
+        for (e, s) in self.into_iter() {
+            let converted = self.try_convert_orbital_preserving_additional(&s, |orbital| {
+                let x = self.native_cartesian(orbital)?;
+                if self.frame == frame {
+                    Ok(x)
+                } else {
+                    state_frame_to_frame(self.frame.clone(), frame.clone(), e, x)
+                }
+            })?;
+            states_converted.push(converted);
         }
-        let angle_fmt = self
-            .angle_format
-            .expect("Keplerian representation must have angle_format");
-        let mut out = self.clone();
-        out.states = self
-            .states
-            .iter()
-            .map(|s| {
-                self.convert_orbital_preserving_additional(s, |orbital| {
-                    crate::coordinates::state_koe_to_inertial_gm(orbital, cb.gm(), angle_fmt)
-                })
-            })
-            .collect();
-        out.representation = OrbitRepresentation::Cartesian;
-        out.angle_format = None;
-        Ok(out)
+
+        Ok(Self {
+            epochs: self.epochs.clone(),
+            states: states_converted,
+            covariances: None,   // Covariances are dropped during frame conversions
+            stms: None,          // STMs are dropped during frame conversions
+            sensitivities: None, // Sensitivities are dropped during frame conversions
+            sensitivity_dimension: None,
+            dimension: self.dimension, // Preserve dimension
+            interpolation_method: self.interpolation_method,
+            covariance_interpolation_method: self.covariance_interpolation_method,
+            eviction_policy: self.eviction_policy,
+            max_size: self.max_size,
+            max_age: self.max_age,
+            frame,
+            representation: OrbitRepresentation::Cartesian,
+            angle_format: None,
+            name: self.name.clone(),
+            id: self.id,
+            uuid: self.uuid,
+            metadata: self.metadata.clone(),
+            accelerations: None, // Accelerations are dropped during frame conversions
+            acceleration_dimension: None,
+        })
     }
 
     /// Convert trajectory to ECI (Earth-Centered Inertial) frame with Cartesian representation.
     ///
-    /// Converts all states to ECI frame and Cartesian representation.
-    /// For Keplerian inputs, converts to Cartesian first.
-    /// For ECEF/ITRF frames, uses epoch-dependent transformation.
-    ///
-    /// For extended states (dimension > 6), only the first 6 elements (orbital state)
-    /// are converted. Additional elements (6+) are preserved unchanged.
+    /// ECI is realized as GCRF. See [`Self::to_frame`] for the conversion
+    /// rules and the treatment of extended states.
     ///
     /// # Returns
-    /// New trajectory in ECI frame with Cartesian states, preserving dimension.
+    /// * `Ok(DOrbitTrajectory)` - New trajectory in GCRF with Cartesian states
+    /// * `Err(BraheError)` - If conversion fails
     pub fn to_eci(&self) -> Result<Self, BraheError> {
-        // Keplerian samples about a non-Earth center would otherwise be
-        // converted with Earth's GM and no re-centering: convert to native
-        // Cartesian about the center first, then take the Cartesian path.
-        if let OrbitFrame::BodyCenteredInertial(center) = self.frame
-            && self.representation == OrbitRepresentation::Keplerian
-        {
-            return self.bci_keplerian_to_cartesian(center)?.to_eci();
-        }
-        let states_converted: Vec<DVector<f64>> = match self.representation {
-            OrbitRepresentation::Keplerian => {
-                let mut states_converted = Vec::with_capacity(self.states.len());
-                let angle_fmt = self
-                    .angle_format
-                    .expect("Keplerian representation must have angle_format");
-                // Convert Keplerian to Cartesian (first 6 elements only)
-                for (_e, s) in self.into_iter() {
-                    let converted = self.convert_orbital_preserving_additional(&s, |orbital| {
-                        state_koe_to_eci(orbital, angle_fmt)
-                    });
-                    states_converted.push(converted);
-                }
-                states_converted
-            }
-            OrbitRepresentation::Cartesian => {
-                match self.frame {
-                    OrbitFrame::BodyCenteredInertial(center) => {
-                        // Re-center through the frame router (SPK-resolved
-                        // center offset).
-                        let native = crate::trajectories::traits::bci_reference_frame(center);
-                        let mut states_converted = Vec::with_capacity(self.states.len());
-                        for (e, s) in self.into_iter() {
-                            let converted =
-                                self.try_convert_orbital_preserving_additional(&s, |orbital| {
-                                    crate::frames::state_frame_to_frame(
-                                        native,
-                                        crate::frames::CelestialFrame::GCRF,
-                                        e,
-                                        orbital,
-                                    )
-                                })?;
-                            states_converted.push(converted);
-                        }
-                        states_converted
-                    }
-                    OrbitFrame::EME2000 => {
-                        let mut states_converted = Vec::with_capacity(self.states.len());
-                        // EME2000 Cartesian to GCRF Cartesian (no epoch needed)
-                        for (_e, s) in self.into_iter() {
-                            let converted = self
-                                .convert_orbital_preserving_additional(&s, |orbital| {
-                                    state_eme2000_to_gcrf(orbital)
-                                });
-                            states_converted.push(converted);
-                        }
-                        states_converted
-                    }
-                    OrbitFrame::ITRF | OrbitFrame::ECEF => {
-                        let mut states_converted = Vec::with_capacity(self.states.len());
-                        // ITRF/ECEF Cartesian to GCRF Cartesian (requires epoch)
-                        for (e, s) in self.into_iter() {
-                            let converted = self
-                                .convert_orbital_preserving_additional(&s, |orbital| {
-                                    state_itrf_to_gcrf(e, orbital)
-                                });
-                            states_converted.push(converted);
-                        }
-                        states_converted
-                    }
-                    OrbitFrame::ECI | OrbitFrame::GCRF => {
-                        // No conversion needed
-                        self.states.clone()
-                    }
-                }
-            }
-        };
-
-        Ok(Self {
-            epochs: self.epochs.clone(),
-            states: states_converted,
-            covariances: None,   // Covariances are dropped during frame conversions
-            stms: None,          // STMs are dropped during frame conversions
-            sensitivities: None, // Sensitivities are dropped during frame conversions
-            sensitivity_dimension: None,
-            dimension: self.dimension, // Preserve dimension
-            interpolation_method: self.interpolation_method,
-            covariance_interpolation_method: self.covariance_interpolation_method,
-            eviction_policy: self.eviction_policy,
-            max_size: self.max_size,
-            max_age: self.max_age,
-            frame: OrbitFrame::ECI,
-            representation: OrbitRepresentation::Cartesian,
-            angle_format: None,
-            name: self.name.clone(),
-            id: self.id,
-            uuid: self.uuid,
-            metadata: self.metadata.clone(),
-            accelerations: None, // Accelerations are dropped during frame conversions
-            acceleration_dimension: None,
-        })
+        self.to_frame(CelestialFrame::GCRF)
     }
 
     /// Convert trajectory to GCRF (Geocentric Celestial Reference Frame) with Cartesian representation.
     ///
-    /// Converts all states to GCRF frame and Cartesian representation.
-    /// For Keplerian inputs, converts to Cartesian first.
-    /// For ECEF/ITRF frames, uses epoch-dependent transformation.
-    ///
-    /// For extended states (dimension > 6), only the first 6 elements (orbital state)
-    /// are converted. Additional elements (6+) are preserved unchanged.
+    /// See [`Self::to_frame`] for the conversion rules and the treatment of
+    /// extended states.
     ///
     /// # Returns
-    /// New trajectory in GCRF frame with Cartesian states, preserving dimension.
+    /// * `Ok(DOrbitTrajectory)` - New trajectory in GCRF with Cartesian states
+    /// * `Err(BraheError)` - If conversion fails
     pub fn to_gcrf(&self) -> Result<Self, BraheError> {
-        // Keplerian samples about a non-Earth center would otherwise be
-        // converted with Earth's GM and no re-centering: convert to native
-        // Cartesian about the center first, then take the Cartesian path.
-        if let OrbitFrame::BodyCenteredInertial(center) = self.frame
-            && self.representation == OrbitRepresentation::Keplerian
-        {
-            return self.bci_keplerian_to_cartesian(center)?.to_gcrf();
-        }
-        let states_converted: Vec<DVector<f64>> = match self.representation {
-            OrbitRepresentation::Keplerian => {
-                let mut states_converted = Vec::with_capacity(self.states.len());
-                let angle_fmt = self
-                    .angle_format
-                    .expect("Keplerian representation must have angle_format");
-                // Convert Keplerian to Cartesian (first 6 elements only)
-                for (_e, s) in self.into_iter() {
-                    let converted = self.convert_orbital_preserving_additional(&s, |orbital| {
-                        state_koe_to_eci(orbital, angle_fmt)
-                    });
-                    states_converted.push(converted);
-                }
-                states_converted
-            }
-            OrbitRepresentation::Cartesian => {
-                match self.frame {
-                    OrbitFrame::BodyCenteredInertial(center) => {
-                        // Re-center through the frame router (SPK-resolved
-                        // center offset).
-                        let native = crate::trajectories::traits::bci_reference_frame(center);
-                        let mut states_converted = Vec::with_capacity(self.states.len());
-                        for (e, s) in self.into_iter() {
-                            let converted =
-                                self.try_convert_orbital_preserving_additional(&s, |orbital| {
-                                    crate::frames::state_frame_to_frame(
-                                        native,
-                                        crate::frames::CelestialFrame::GCRF,
-                                        e,
-                                        orbital,
-                                    )
-                                })?;
-                            states_converted.push(converted);
-                        }
-                        states_converted
-                    }
-                    OrbitFrame::EME2000 => {
-                        let mut states_converted = Vec::with_capacity(self.states.len());
-                        // EME2000 Cartesian to GCRF Cartesian (no epoch needed)
-                        for (_e, s) in self.into_iter() {
-                            let converted = self
-                                .convert_orbital_preserving_additional(&s, |orbital| {
-                                    state_eme2000_to_gcrf(orbital)
-                                });
-                            states_converted.push(converted);
-                        }
-                        states_converted
-                    }
-                    OrbitFrame::ITRF | OrbitFrame::ECEF => {
-                        let mut states_converted = Vec::with_capacity(self.states.len());
-                        // ITRF/ECEF Cartesian to GCRF Cartesian (requires epoch)
-                        for (e, s) in self.into_iter() {
-                            let converted = self
-                                .convert_orbital_preserving_additional(&s, |orbital| {
-                                    state_itrf_to_gcrf(e, orbital)
-                                });
-                            states_converted.push(converted);
-                        }
-                        states_converted
-                    }
-                    OrbitFrame::ECI | OrbitFrame::GCRF => {
-                        // No conversion needed
-                        self.states.clone()
-                    }
-                }
-            }
-        };
-
-        Ok(Self {
-            epochs: self.epochs.clone(),
-            states: states_converted,
-            covariances: None,   // Covariances are dropped during frame conversions
-            stms: None,          // STMs are dropped during frame conversions
-            sensitivities: None, // Sensitivities are dropped during frame conversions
-            sensitivity_dimension: None,
-            dimension: self.dimension, // Preserve dimension
-            interpolation_method: self.interpolation_method,
-            covariance_interpolation_method: self.covariance_interpolation_method,
-            eviction_policy: self.eviction_policy,
-            max_size: self.max_size,
-            max_age: self.max_age,
-            frame: OrbitFrame::GCRF,
-            representation: OrbitRepresentation::Cartesian,
-            angle_format: None,
-            name: self.name.clone(),
-            id: self.id,
-            uuid: self.uuid,
-            metadata: self.metadata.clone(),
-            accelerations: None, // Accelerations are dropped during frame conversions
-            acceleration_dimension: None,
-        })
+        self.to_frame(CelestialFrame::GCRF)
     }
 
     /// Convert trajectory to ECEF (Earth-Centered Earth-Fixed) frame with Cartesian representation.
     ///
-    /// Converts all states to ECEF frame and Cartesian representation.
-    /// For Keplerian inputs, converts to Cartesian first.
-    /// For ECI/GCRF/EME2000 frames, uses epoch-dependent transformation.
-    ///
-    /// For extended states (dimension > 6), only the first 6 elements (orbital state)
-    /// are converted. Additional elements (6+) are preserved unchanged.
+    /// ECEF is realized as ITRF. See [`Self::to_frame`] for the conversion
+    /// rules and the treatment of extended states.
     ///
     /// # Returns
-    /// New trajectory in ECEF frame with Cartesian states, preserving dimension.
+    /// * `Ok(DOrbitTrajectory)` - New trajectory in ITRF with Cartesian states
+    /// * `Err(BraheError)` - If conversion fails
     pub fn to_ecef(&self) -> Result<Self, BraheError> {
-        // Keplerian samples about a non-Earth center would otherwise be
-        // converted with Earth's GM and no re-centering: convert to native
-        // Cartesian about the center first, then take the Cartesian path.
-        if let OrbitFrame::BodyCenteredInertial(center) = self.frame
-            && self.representation == OrbitRepresentation::Keplerian
-        {
-            return self.bci_keplerian_to_cartesian(center)?.to_ecef();
-        }
-        let states_converted: Vec<DVector<f64>> = match self.representation {
-            OrbitRepresentation::Keplerian => {
-                let mut states_converted = Vec::with_capacity(self.states.len());
-                let angle_fmt = self
-                    .angle_format
-                    .expect("Keplerian representation must have angle_format");
-                // Convert Keplerian to Cartesian ECI, then to ECEF
-                for (e, s) in self.into_iter() {
-                    let converted = self.convert_orbital_preserving_additional(&s, |orbital| {
-                        let state_eci = state_koe_to_eci(orbital, angle_fmt);
-                        state_eci_to_ecef(e, state_eci)
-                    });
-                    states_converted.push(converted);
-                }
-                states_converted
-            }
-            OrbitRepresentation::Cartesian => {
-                match self.frame {
-                    OrbitFrame::BodyCenteredInertial(center) => {
-                        // Re-center through the frame router (SPK-resolved
-                        // center offset).
-                        let native = crate::trajectories::traits::bci_reference_frame(center);
-                        let mut states_converted = Vec::with_capacity(self.states.len());
-                        for (e, s) in self.into_iter() {
-                            let converted =
-                                self.try_convert_orbital_preserving_additional(&s, |orbital| {
-                                    crate::frames::state_frame_to_frame(
-                                        native,
-                                        crate::frames::CelestialFrame::ITRF,
-                                        e,
-                                        orbital,
-                                    )
-                                })?;
-                            states_converted.push(converted);
-                        }
-                        states_converted
-                    }
-                    OrbitFrame::EME2000 => {
-                        let mut states_converted = Vec::with_capacity(self.states.len());
-                        // EME2000 -> GCRF -> ITRF
-                        for (e, s) in self.into_iter() {
-                            let converted =
-                                self.convert_orbital_preserving_additional(&s, |orbital| {
-                                    let state_gcrf = state_eme2000_to_gcrf(orbital);
-                                    state_gcrf_to_itrf(e, state_gcrf)
-                                });
-                            states_converted.push(converted);
-                        }
-                        states_converted
-                    }
-                    OrbitFrame::ITRF | OrbitFrame::ECEF => {
-                        // Already in ITRF frame
-                        self.states.clone()
-                    }
-                    OrbitFrame::ECI | OrbitFrame::GCRF => {
-                        let mut states_converted = Vec::with_capacity(self.states.len());
-                        // GCRF/ECI to ITRF
-                        for (e, s) in self.into_iter() {
-                            let converted = self
-                                .convert_orbital_preserving_additional(&s, |orbital| {
-                                    state_gcrf_to_itrf(e, orbital)
-                                });
-                            states_converted.push(converted);
-                        }
-                        states_converted
-                    }
-                }
-            }
-        };
-
-        Ok(Self {
-            epochs: self.epochs.clone(),
-            states: states_converted,
-            covariances: None,   // Covariances are dropped during frame conversions
-            stms: None,          // STMs are dropped during frame conversions
-            sensitivities: None, // Sensitivities are dropped during frame conversions
-            sensitivity_dimension: None,
-            dimension: self.dimension, // Preserve dimension
-            interpolation_method: self.interpolation_method,
-            covariance_interpolation_method: self.covariance_interpolation_method,
-            eviction_policy: self.eviction_policy,
-            max_size: self.max_size,
-            max_age: self.max_age,
-            frame: OrbitFrame::ECEF,
-            representation: OrbitRepresentation::Cartesian,
-            angle_format: None,
-            name: self.name.clone(),
-            id: self.id,
-            uuid: self.uuid,
-            metadata: self.metadata.clone(),
-            accelerations: None, // Accelerations are dropped during frame conversions
-            acceleration_dimension: None,
-        })
+        self.to_frame(CelestialFrame::ITRF)
     }
 
     /// Convert trajectory to ITRF (International Terrestrial Reference Frame) with Cartesian representation.
     ///
-    /// Converts all states to ITRF frame and Cartesian representation.
-    /// For Keplerian inputs, converts to Cartesian first.
-    /// For ECI/GCRF/EME2000 frames, uses epoch-dependent transformation.
-    ///
-    /// For extended states (dimension > 6), only the first 6 elements (orbital state)
-    /// are converted. Additional elements (6+) are preserved unchanged.
+    /// See [`Self::to_frame`] for the conversion rules and the treatment of
+    /// extended states.
     ///
     /// # Returns
-    /// New trajectory in ITRF frame with Cartesian states, preserving dimension.
+    /// * `Ok(DOrbitTrajectory)` - New trajectory in ITRF with Cartesian states
+    /// * `Err(BraheError)` - If conversion fails
     pub fn to_itrf(&self) -> Result<Self, BraheError> {
-        // Keplerian samples about a non-Earth center would otherwise be
-        // converted with Earth's GM and no re-centering: convert to native
-        // Cartesian about the center first, then take the Cartesian path.
-        if let OrbitFrame::BodyCenteredInertial(center) = self.frame
-            && self.representation == OrbitRepresentation::Keplerian
-        {
-            return self.bci_keplerian_to_cartesian(center)?.to_itrf();
-        }
-        let states_converted: Vec<DVector<f64>> = match self.representation {
-            OrbitRepresentation::Keplerian => {
-                let mut states_converted = Vec::with_capacity(self.states.len());
-                let angle_fmt = self
-                    .angle_format
-                    .expect("Keplerian representation must have angle_format");
-                // Keplerian to Cartesian (in GCRF/ECI), then GCRF to ITRF
-                for (e, s) in self.into_iter() {
-                    let converted = self.convert_orbital_preserving_additional(&s, |orbital| {
-                        let state_cartesian = state_koe_to_eci(orbital, angle_fmt);
-                        state_gcrf_to_itrf(e, state_cartesian)
-                    });
-                    states_converted.push(converted);
-                }
-                states_converted
-            }
-            OrbitRepresentation::Cartesian => {
-                match self.frame {
-                    OrbitFrame::BodyCenteredInertial(center) => {
-                        // Re-center through the frame router (SPK-resolved
-                        // center offset).
-                        let native = crate::trajectories::traits::bci_reference_frame(center);
-                        let mut states_converted = Vec::with_capacity(self.states.len());
-                        for (e, s) in self.into_iter() {
-                            let converted =
-                                self.try_convert_orbital_preserving_additional(&s, |orbital| {
-                                    crate::frames::state_frame_to_frame(
-                                        native,
-                                        crate::frames::CelestialFrame::ITRF,
-                                        e,
-                                        orbital,
-                                    )
-                                })?;
-                            states_converted.push(converted);
-                        }
-                        states_converted
-                    }
-                    OrbitFrame::EME2000 => {
-                        let mut states_converted = Vec::with_capacity(self.states.len());
-                        // EME2000 -> GCRF -> ITRF
-                        for (e, s) in self.into_iter() {
-                            let converted =
-                                self.convert_orbital_preserving_additional(&s, |orbital| {
-                                    let state_gcrf = state_eme2000_to_gcrf(orbital);
-                                    state_gcrf_to_itrf(e, state_gcrf)
-                                });
-                            states_converted.push(converted);
-                        }
-                        states_converted
-                    }
-                    OrbitFrame::ITRF | OrbitFrame::ECEF => {
-                        // Already in ITRF frame
-                        self.states.clone()
-                    }
-                    OrbitFrame::ECI | OrbitFrame::GCRF => {
-                        let mut states_converted = Vec::with_capacity(self.states.len());
-                        // GCRF/ECI to ITRF
-                        for (e, s) in self.into_iter() {
-                            let converted = self
-                                .convert_orbital_preserving_additional(&s, |orbital| {
-                                    state_gcrf_to_itrf(e, orbital)
-                                });
-                            states_converted.push(converted);
-                        }
-                        states_converted
-                    }
-                }
-            }
-        };
-
-        Ok(Self {
-            epochs: self.epochs.clone(),
-            states: states_converted,
-            covariances: None,   // Covariances are dropped during frame conversions
-            stms: None,          // STMs are dropped during frame conversions
-            sensitivities: None, // Sensitivities are dropped during frame conversions
-            sensitivity_dimension: None,
-            dimension: self.dimension, // Preserve dimension
-            interpolation_method: self.interpolation_method,
-            covariance_interpolation_method: self.covariance_interpolation_method,
-            eviction_policy: self.eviction_policy,
-            max_size: self.max_size,
-            max_age: self.max_age,
-            frame: OrbitFrame::ITRF,
-            representation: OrbitRepresentation::Cartesian,
-            angle_format: None,
-            name: self.name.clone(),
-            id: self.id,
-            uuid: self.uuid,
-            metadata: self.metadata.clone(),
-            accelerations: None, // Accelerations are dropped during frame conversions
-            acceleration_dimension: None,
-        })
+        self.to_frame(CelestialFrame::ITRF)
     }
 
-    /// Convert trajectory to EME2000 (Earth Mean Equator and Equinox of J2000) frame with Cartesian representation.
+    /// Convert trajectory to EME2000 (Earth Mean Equator and Equinox of J2000.0) frame
+    /// with Cartesian representation.
     ///
-    /// Converts all states to EME2000 frame and Cartesian representation.
-    /// For Keplerian inputs, converts to Cartesian first.
-    /// For ECEF/ITRF frames, uses epoch-dependent transformation to GCRF first.
-    ///
-    /// For extended states (dimension > 6), only the first 6 elements (orbital state)
-    /// are converted. Additional elements (6+) are preserved unchanged.
+    /// See [`Self::to_frame`] for the conversion rules and the treatment of
+    /// extended states.
     ///
     /// # Returns
-    /// New trajectory in EME2000 frame with Cartesian states, preserving dimension.
+    /// * `Ok(DOrbitTrajectory)` - New trajectory in EME2000 with Cartesian states
+    /// * `Err(BraheError)` - If conversion fails
     pub fn to_eme2000(&self) -> Result<Self, BraheError> {
-        // Keplerian samples about a non-Earth center would otherwise be
-        // converted with Earth's GM and no re-centering: convert to native
-        // Cartesian about the center first, then take the Cartesian path.
-        if let OrbitFrame::BodyCenteredInertial(center) = self.frame
-            && self.representation == OrbitRepresentation::Keplerian
-        {
-            return self.bci_keplerian_to_cartesian(center)?.to_eme2000();
-        }
-        let states_converted: Vec<DVector<f64>> = match self.representation {
-            OrbitRepresentation::Keplerian => {
-                let mut states_converted = Vec::with_capacity(self.states.len());
-                let angle_fmt = self
-                    .angle_format
-                    .expect("Keplerian representation must have angle_format");
-                // Keplerian to Cartesian GCRF, then to EME2000
-                for (_e, s) in self.into_iter() {
-                    let converted = self.convert_orbital_preserving_additional(&s, |orbital| {
-                        let state_cartesian = state_koe_to_eci(orbital, angle_fmt);
-                        state_gcrf_to_eme2000(state_cartesian)
-                    });
-                    states_converted.push(converted);
-                }
-                states_converted
-            }
-            OrbitRepresentation::Cartesian => {
-                match self.frame {
-                    OrbitFrame::BodyCenteredInertial(center) => {
-                        // Re-center through the frame router (SPK-resolved
-                        // center offset).
-                        let native = crate::trajectories::traits::bci_reference_frame(center);
-                        let mut states_converted = Vec::with_capacity(self.states.len());
-                        for (e, s) in self.into_iter() {
-                            let converted =
-                                self.try_convert_orbital_preserving_additional(&s, |orbital| {
-                                    crate::frames::state_frame_to_frame(
-                                        native,
-                                        crate::frames::CelestialFrame::EME2000,
-                                        e,
-                                        orbital,
-                                    )
-                                })?;
-                            states_converted.push(converted);
-                        }
-                        states_converted
-                    }
-                    OrbitFrame::EME2000 => {
-                        // Already in EME2000 frame
-                        self.states.clone()
-                    }
-                    OrbitFrame::ITRF | OrbitFrame::ECEF => {
-                        let mut states_converted = Vec::with_capacity(self.states.len());
-                        // ITRF/ECEF -> GCRF -> EME2000
-                        for (e, s) in self.into_iter() {
-                            let converted =
-                                self.convert_orbital_preserving_additional(&s, |orbital| {
-                                    let state_gcrf = state_itrf_to_gcrf(e, orbital);
-                                    state_gcrf_to_eme2000(state_gcrf)
-                                });
-                            states_converted.push(converted);
-                        }
-                        states_converted
-                    }
-                    OrbitFrame::ECI | OrbitFrame::GCRF => {
-                        let mut states_converted = Vec::with_capacity(self.states.len());
-                        // ECI/GCRF to EME2000
-                        for (_e, s) in self.into_iter() {
-                            let converted = self
-                                .convert_orbital_preserving_additional(&s, |orbital| {
-                                    state_gcrf_to_eme2000(orbital)
-                                });
-                            states_converted.push(converted);
-                        }
-                        states_converted
-                    }
-                }
-            }
-        };
-
-        Ok(Self {
-            epochs: self.epochs.clone(),
-            states: states_converted,
-            covariances: None,   // Covariances are dropped during frame conversions
-            stms: None,          // STMs are dropped during frame conversions
-            sensitivities: None, // Sensitivities are dropped during frame conversions
-            sensitivity_dimension: None,
-            dimension: self.dimension, // Preserve dimension
-            interpolation_method: self.interpolation_method,
-            covariance_interpolation_method: self.covariance_interpolation_method,
-            eviction_policy: self.eviction_policy,
-            max_size: self.max_size,
-            max_age: self.max_age,
-            frame: OrbitFrame::EME2000,
-            representation: OrbitRepresentation::Cartesian,
-            angle_format: None,
-            name: self.name.clone(),
-            id: self.id,
-            uuid: self.uuid,
-            metadata: self.metadata.clone(),
-            accelerations: None, // Accelerations are dropped during frame conversions
-            acceleration_dimension: None,
-        })
+        self.to_frame(CelestialFrame::EME2000)
     }
 
     /// Convert trajectory to Keplerian orbital elements representation.
     ///
-    /// Converts all states to Keplerian elements [a, e, i, raan, argp, anomaly]
-    /// in the current frame. For Cartesian inputs, uses two-body conversion.
-    /// For Keplerian inputs with different angle format, converts angles.
+    /// Cartesian samples are converted to elements [a, e, i, raan, argp, anomaly]
+    /// with a two-body conversion about the center of this trajectory's frame,
+    /// using that body's gravitational parameter. Keplerian samples only have
+    /// their angular elements rescaled to `angle_format`.
     ///
     /// For extended states (dimension > 6), only the first 6 elements (orbital state)
     /// are converted. Additional elements (6+) are preserved unchanged.
@@ -2582,10 +2137,12 @@ impl DOrbitTrajectory {
     /// * `angle_format` - Desired angle format (Radians or Degrees) for output elements
     ///
     /// # Returns
-    /// * `Ok(Self)` - New trajectory with Keplerian representation in specified
-    ///   angle format, preserving dimension.
-    /// * `Err(BraheError)` - If the trajectory is body-centered inertial (its
-    ///   Keplerian result would be undefined) or conversion otherwise fails.
+    /// * `Ok(Self)` - New trajectory of Keplerian elements referenced to this
+    ///   trajectory's own frame, in the requested angle format, preserving dimension.
+    /// * `Err(BraheError)` - If the frame does not admit Keplerian elements
+    ///   (Earth-fixed, of-date, or orbit-relative frames), if the frame's center
+    ///   is an unknown body or a massless barycenter, or if a Keplerian
+    ///   trajectory is missing its angle format.
     pub fn to_keplerian(&self, angle_format: AngleFormat) -> Result<Self, BraheError> {
         let states_converted: Vec<DVector<f64>> = match self.representation {
             OrbitRepresentation::Keplerian => {
@@ -2629,54 +2186,23 @@ impl DOrbitTrajectory {
                 }
             }
             OrbitRepresentation::Cartesian => {
-                match self.frame {
-                    OrbitFrame::BodyCenteredInertial(_) => {
-                        return Err(BraheError::Error(
-                            "to_keplerian labels its result ECI, which is undefined for a \
-                             body-centered inertial trajectory; use state_koe_osc for \
-                             per-epoch elements about the trajectory's own center"
-                                .to_string(),
-                        ));
-                    }
-                    OrbitFrame::EME2000 => {
-                        let mut states_converted = Vec::with_capacity(self.states.len());
-                        // EME2000 -> GCRF -> Keplerian
-                        for (_e, s) in self.into_iter() {
-                            let converted =
-                                self.convert_orbital_preserving_additional(&s, |orbital| {
-                                    let state_gcrf = state_eme2000_to_gcrf(orbital);
-                                    state_eci_to_koe(state_gcrf, angle_format)
-                                });
-                            states_converted.push(converted);
-                        }
-                        states_converted
-                    }
-                    OrbitFrame::ITRF | OrbitFrame::ECEF => {
-                        let mut states_converted = Vec::with_capacity(self.states.len());
-                        // ITRF/ECEF -> ECI -> Keplerian
-                        for (e, s) in self.into_iter() {
-                            let converted =
-                                self.convert_orbital_preserving_additional(&s, |orbital| {
-                                    let state_eci = state_ecef_to_eci(e, orbital);
-                                    state_eci_to_koe(state_eci, angle_format)
-                                });
-                            states_converted.push(converted);
-                        }
-                        states_converted
-                    }
-                    OrbitFrame::ECI | OrbitFrame::GCRF => {
-                        let mut states_converted = Vec::with_capacity(self.states.len());
-                        // ECI/GCRF Cartesian -> Keplerian
-                        for (_e, s) in self.into_iter() {
-                            let converted = self
-                                .convert_orbital_preserving_additional(&s, |orbital| {
-                                    state_eci_to_koe(orbital, angle_format)
-                                });
-                            states_converted.push(converted);
-                        }
-                        states_converted
-                    }
+                let center = keplerian_center(&self.frame)?;
+                let cb = CentralBody::from_naif_id(center)?;
+                if cb.is_barycenter() {
+                    return Err(BraheError::Error(format!(
+                        "Keplerian elements are undefined about massless barycenter {}",
+                        center
+                    )));
                 }
+                let gm = cb.gm();
+                let mut states_converted = Vec::with_capacity(self.states.len());
+                for (_e, s) in self.into_iter() {
+                    let converted = self.convert_orbital_preserving_additional(&s, |orbital| {
+                        state_inertial_to_koe_gm(orbital, gm, angle_format)
+                    });
+                    states_converted.push(converted);
+                }
+                states_converted
             }
         };
 
@@ -2693,7 +2219,7 @@ impl DOrbitTrajectory {
             eviction_policy: self.eviction_policy,
             max_size: self.max_size,
             max_age: self.max_age,
-            frame: OrbitFrame::ECI,
+            frame: self.frame.clone(),
             representation: OrbitRepresentation::Keplerian,
             angle_format: Some(angle_format),
             name: self.name.clone(),
@@ -2840,26 +2366,31 @@ impl DCovarianceProvider for DOrbitTrajectory {
 // =============================================================================
 
 impl DOrbitTrajectory {
-    /// Native Cartesian orbital state about this BodyCenteredInertial
-    /// trajectory's own center: identity for Cartesian representation,
-    /// elements-to-Cartesian about the center body (using its GM) for
-    /// Keplerian representation.
-    fn bci_native_cartesian(
-        &self,
-        center: i32,
-        state: Vector6<f64>,
-    ) -> Result<Vector6<f64>, BraheError> {
+    /// The first six elements of `state` as a Cartesian state in this
+    /// trajectory's own frame: unchanged for Cartesian samples, converted
+    /// from Keplerian elements with the gravitational parameter of the
+    /// frame's center otherwise.
+    ///
+    /// # Arguments
+    /// * `state` - Orbital state in this trajectory's native representation
+    ///
+    /// # Returns
+    /// * `Ok(Vector6<f64>)`: Cartesian state in this trajectory's frame. Units: (*m*; *m/s*)
+    /// * `Err(BraheError)`: If the frame does not admit Keplerian elements,
+    ///   or its center is an unknown body or a massless barycenter
+    fn native_cartesian(&self, state: Vector6<f64>) -> Result<Vector6<f64>, BraheError> {
         match self.representation {
             OrbitRepresentation::Cartesian => Ok(state),
             OrbitRepresentation::Keplerian => {
-                let cb = crate::propagators::CentralBody::from_naif_id(center)?;
+                let center = keplerian_center(&self.frame)?;
+                let cb = CentralBody::from_naif_id(center)?;
                 if cb.is_barycenter() {
                     return Err(BraheError::Error(format!(
                         "Keplerian elements are undefined about massless barycenter {}",
                         center
                     )));
                 }
-                Ok(crate::coordinates::state_koe_to_inertial_gm(
+                Ok(state_koe_to_inertial_gm(
                     state,
                     cb.gm(),
                     self.angle_format
@@ -2871,355 +2402,61 @@ impl DOrbitTrajectory {
 }
 
 impl DOrbitStateProvider for DOrbitTrajectory {
-    /// Returns the state in this trajectory's own body-centered inertial
-    /// frame: the raw interpolated state for a `BodyCenteredInertial`
-    /// trajectory (converted from elements if Keplerian), `GCRF` for
-    /// Earth-frame trajectories.
+    /// Returns the state in the ICRF-aligned inertial frame centered on this
+    /// trajectory's own central body, found from the trajectory's frame via
+    /// its celestial root.
     fn state_bci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        match self.frame {
-            OrbitFrame::BodyCenteredInertial(center) => {
-                let state_dvec = self.interpolate(&epoch)?;
-                let state = Vector6::from_iterator(state_dvec.iter().take(6).copied());
-                self.bci_native_cartesian(center, state)
-            }
-            _ => self.state_gcrf(epoch),
-        }
+        let root = celestial_root(&self.frame)?;
+        self.state_in_frame(icrf_aligned_inertial(root), epoch)
     }
 
-    /// Returns the state in this trajectory's central body's body-fixed
-    /// frame (`ITRF` for Earth-frame trajectories, `LFPA`/`MCMF`/IAU frame
-    /// for a `BodyCenteredInertial` trajectory); errors for centers without
-    /// a body-fixed frame (barycenters, uncatalogued bodies).
+    /// Returns the state in the body-fixed frame of this trajectory's central
+    /// body (`ITRF` for Earth-centered trajectories, `LFPA`/`MCMF`/the IAU
+    /// frame otherwise); errors for centers without a body-fixed frame
+    /// (barycenters, uncatalogued bodies).
     fn state_bcbf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        match self.frame {
-            OrbitFrame::BodyCenteredInertial(center) => {
-                let fixed =
-                    crate::trajectories::traits::bci_fixed_frame(center).ok_or_else(|| {
-                        BraheError::Error(format!(
-                            "central body {} has no body-fixed frame",
-                            center
-                        ))
-                    })?;
-                let x = self.state_bci(epoch)?;
-                crate::frames::state_frame_to_frame(
-                    crate::trajectories::traits::bci_reference_frame(center),
-                    fixed,
-                    epoch,
-                    x,
-                )
-            }
-            _ => self.state_itrf(epoch),
-        }
+        let root = celestial_root(&self.frame)?;
+        let center = root.center_naif_id();
+        let fixed = bci_fixed_frame(center).ok_or_else(|| {
+            BraheError::Error(format!("central body {} has no body-fixed frame", center))
+        })?;
+        self.state_in_frame(fixed, epoch)
     }
 
-    /// Returns the state expressed in an arbitrary reference frame,
-    /// converting directly from this trajectory's own native frame (no
-    /// Earth round trip for `BodyCenteredInertial` trajectories).
+    /// Returns the state expressed in an arbitrary celestial frame,
+    /// converting directly from this trajectory's own declared frame.
     fn state_in_frame(
         &self,
-        frame: crate::frames::CelestialFrame,
+        frame: CelestialFrame,
         epoch: Epoch,
     ) -> Result<Vector6<f64>, BraheError> {
-        let x = self.state_bci(epoch)?;
-        let native = match self.frame {
-            OrbitFrame::BodyCenteredInertial(center) => {
-                crate::trajectories::traits::bci_reference_frame(center)
-            }
-            _ => crate::frames::CelestialFrame::GCRF,
-        };
-        crate::frames::state_frame_to_frame(native, frame, epoch, x)
+        let state_dvec = self.interpolate(&epoch)?;
+        let state = Vector6::from_iterator(state_dvec.iter().take(6).copied());
+        let x = self.native_cartesian(state)?;
+        if self.frame == frame {
+            return Ok(x);
+        }
+        state_frame_to_frame(self.frame.clone(), frame, epoch, x)
     }
 
     fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        // Get state in native format (full dimensions)
-        let state_dvec = self.interpolate(&epoch)?;
-
-        // Extract first 6 elements (orbital state only - ignore extended dimensions)
-        let state = Vector6::from_iterator(state_dvec.iter().take(6).copied());
-
-        Ok(match (self.frame, self.representation) {
-            (OrbitFrame::BodyCenteredInertial(center), _) => {
-                let x = self.bci_native_cartesian(center, state)?;
-                return crate::frames::state_frame_to_frame(
-                    crate::trajectories::traits::bci_reference_frame(center),
-                    crate::frames::CelestialFrame::GCRF,
-                    epoch,
-                    x,
-                );
-            }
-            (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state,
-            (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state, // GCRF treated as ECI
-            (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => state_koe_to_eci(
-                state,
-                self.angle_format
-                    .expect("Keplerian representation must have angle_format"),
-            ),
-            (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => state_koe_to_eci(
-                state,
-                self.angle_format
-                    .expect("Keplerian representation must have angle_format"),
-            ),
-            (OrbitFrame::EME2000, OrbitRepresentation::Keplerian) => {
-                state_eme2000_to_gcrf(state_koe_to_eci(
-                    state,
-                    self.angle_format
-                        .expect("Keplerian representation must have angle_format"),
-                ))
-            }
-            (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => state_ecef_to_eci(epoch, state),
-            (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => state_itrf_to_gcrf(epoch, state),
-            (OrbitFrame::EME2000, OrbitRepresentation::Cartesian) => state_eme2000_to_gcrf(state),
-            (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
-                return Err(BraheError::Error(
-                    "Keplerian element trajectories should be in an inertial frame".to_string(),
-                ));
-            }
-            (OrbitFrame::ITRF, OrbitRepresentation::Keplerian) => {
-                return Err(BraheError::Error(
-                    "Keplerian element trajectories should be in an inertial frame".to_string(),
-                ));
-            }
-        })
+        self.state_in_frame(CelestialFrame::GCRF, epoch)
     }
 
     fn state_gcrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        // Get state in native format (full dimensions)
-        let state_dvec = self.interpolate(&epoch)?;
-
-        // Extract first 6 elements (orbital state only - ignore extended dimensions)
-        let state = Vector6::from_iterator(state_dvec.iter().take(6).copied());
-
-        Ok(match (self.frame, self.representation) {
-            (OrbitFrame::BodyCenteredInertial(center), _) => {
-                let x = self.bci_native_cartesian(center, state)?;
-                return crate::frames::state_frame_to_frame(
-                    crate::trajectories::traits::bci_reference_frame(center),
-                    crate::frames::CelestialFrame::GCRF,
-                    epoch,
-                    x,
-                );
-            }
-            (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state,
-            (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state, // ECI treated as GCRF
-            (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => state_koe_to_eci(
-                state,
-                self.angle_format
-                    .expect("Keplerian representation must have angle_format"),
-            ),
-            (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => state_koe_to_eci(
-                state,
-                self.angle_format
-                    .expect("Keplerian representation must have angle_format"),
-            ),
-            (OrbitFrame::EME2000, OrbitRepresentation::Keplerian) => {
-                state_eme2000_to_gcrf(state_koe_to_eci(
-                    state,
-                    self.angle_format
-                        .expect("Keplerian representation must have angle_format"),
-                ))
-            }
-            (OrbitFrame::EME2000, OrbitRepresentation::Cartesian) => state_eme2000_to_gcrf(state),
-            (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => state_itrf_to_gcrf(epoch, state),
-            (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => state_itrf_to_gcrf(epoch, state),
-            (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
-                return Err(BraheError::Error(
-                    "Keplerian element trajectories should be in an inertial frame".to_string(),
-                ));
-            }
-            (OrbitFrame::ITRF, OrbitRepresentation::Keplerian) => {
-                return Err(BraheError::Error(
-                    "Keplerian element trajectories should be in an inertial frame".to_string(),
-                ));
-            }
-        })
+        self.state_in_frame(CelestialFrame::GCRF, epoch)
     }
 
     fn state_ecef(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        // Get state in native format (full dimensions)
-        let state_dvec = self.interpolate(&epoch)?;
-
-        // Extract first 6 elements (orbital state only - ignore extended dimensions)
-        let state = Vector6::from_iterator(state_dvec.iter().take(6).copied());
-
-        Ok(match (self.frame, self.representation) {
-            (OrbitFrame::BodyCenteredInertial(center), _) => {
-                let x = self.bci_native_cartesian(center, state)?;
-                return crate::frames::state_frame_to_frame(
-                    crate::trajectories::traits::bci_reference_frame(center),
-                    crate::frames::CelestialFrame::ITRF,
-                    epoch,
-                    x,
-                );
-            }
-            (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => state,
-            (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => state,
-            (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state_eci_to_ecef(epoch, state),
-            (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state_gcrf_to_itrf(epoch, state),
-            (OrbitFrame::EME2000, OrbitRepresentation::Cartesian) => {
-                let state_gcrf = state_eme2000_to_gcrf(state);
-                state_gcrf_to_itrf(epoch, state_gcrf)
-            }
-            (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => {
-                let state_eci_cart = state_koe_to_eci(
-                    state,
-                    self.angle_format
-                        .expect("Keplerian representation must have angle_format"),
-                );
-                state_eci_to_ecef(epoch, state_eci_cart)
-            }
-            (OrbitFrame::EME2000, OrbitRepresentation::Keplerian) => {
-                let state_eme2000_cart = state_koe_to_eci(
-                    state,
-                    self.angle_format
-                        .expect("Keplerian representation must have angle_format"),
-                );
-                let state_gcrf = state_eme2000_to_gcrf(state_eme2000_cart);
-                state_gcrf_to_itrf(epoch, state_gcrf)
-            }
-            (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => {
-                let state_gcrf_cart = state_koe_to_eci(
-                    state,
-                    self.angle_format
-                        .expect("Keplerian representation must have angle_format"),
-                );
-                state_gcrf_to_itrf(epoch, state_gcrf_cart)
-            }
-            (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
-                return Err(BraheError::Error(
-                    "Keplerian element trajectories should be in an inertial frame".to_string(),
-                ));
-            }
-            (OrbitFrame::ITRF, OrbitRepresentation::Keplerian) => {
-                return Err(BraheError::Error(
-                    "Keplerian element trajectories should be in an inertial frame".to_string(),
-                ));
-            }
-        })
+        self.state_in_frame(CelestialFrame::ITRF, epoch)
     }
 
     fn state_itrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        // Get state in native format (full dimensions)
-        let state_dvec = self.interpolate(&epoch)?;
-
-        // Extract first 6 elements (orbital state only - ignore extended dimensions)
-        let state = Vector6::from_iterator(state_dvec.iter().take(6).copied());
-
-        Ok(match (self.frame, self.representation) {
-            (OrbitFrame::BodyCenteredInertial(center), _) => {
-                let x = self.bci_native_cartesian(center, state)?;
-                return crate::frames::state_frame_to_frame(
-                    crate::trajectories::traits::bci_reference_frame(center),
-                    crate::frames::CelestialFrame::ITRF,
-                    epoch,
-                    x,
-                );
-            }
-            (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => state,
-            (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => state,
-            (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state_eci_to_ecef(epoch, state),
-            (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state_gcrf_to_itrf(epoch, state),
-            (OrbitFrame::EME2000, OrbitRepresentation::Cartesian) => {
-                let state_gcrf = state_eme2000_to_gcrf(state);
-                state_gcrf_to_itrf(epoch, state_gcrf)
-            }
-            (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => {
-                let state_eci_cart = state_koe_to_eci(
-                    state,
-                    self.angle_format
-                        .expect("Keplerian representation must have angle_format"),
-                );
-                state_eci_to_ecef(epoch, state_eci_cart)
-            }
-            (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => {
-                let state_gcrf_cart = state_koe_to_eci(
-                    state,
-                    self.angle_format
-                        .expect("Keplerian representation must have angle_format"),
-                );
-                state_gcrf_to_itrf(epoch, state_gcrf_cart)
-            }
-            (OrbitFrame::EME2000, OrbitRepresentation::Keplerian) => {
-                let state_eme2000_cart = state_koe_to_eci(
-                    state,
-                    self.angle_format
-                        .expect("Keplerian representation must have angle_format"),
-                );
-                let state_gcrf = state_eme2000_to_gcrf(state_eme2000_cart);
-                state_gcrf_to_itrf(epoch, state_gcrf)
-            }
-            (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
-                return Err(BraheError::Error(
-                    "Keplerian element trajectories should be in an inertial frame".to_string(),
-                ));
-            }
-            (OrbitFrame::ITRF, OrbitRepresentation::Keplerian) => {
-                return Err(BraheError::Error(
-                    "Keplerian element trajectories should be in an inertial frame".to_string(),
-                ));
-            }
-        })
+        self.state_in_frame(CelestialFrame::ITRF, epoch)
     }
 
     fn state_eme2000(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        // Get state in native format (full dimensions)
-        let state_dvec = self.interpolate(&epoch)?;
-
-        // Extract first 6 elements (orbital state only - ignore extended dimensions)
-        let state = Vector6::from_iterator(state_dvec.iter().take(6).copied());
-
-        Ok(match (self.frame, self.representation) {
-            (OrbitFrame::BodyCenteredInertial(center), _) => {
-                let x = self.bci_native_cartesian(center, state)?;
-                return crate::frames::state_frame_to_frame(
-                    crate::trajectories::traits::bci_reference_frame(center),
-                    crate::frames::CelestialFrame::EME2000,
-                    epoch,
-                    x,
-                );
-            }
-            (OrbitFrame::EME2000, OrbitRepresentation::Cartesian) => state,
-            (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state_gcrf_to_eme2000(state),
-            (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state_gcrf_to_eme2000(state), // ECI treated as GCRF
-            (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => {
-                let state_gcrf_cart = state_koe_to_eci(
-                    state,
-                    self.angle_format
-                        .expect("Keplerian representation must have angle_format"),
-                );
-                state_gcrf_to_eme2000(state_gcrf_cart)
-            }
-            (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => {
-                let state_eci_cart = state_koe_to_eci(
-                    state,
-                    self.angle_format
-                        .expect("Keplerian representation must have angle_format"),
-                );
-                state_gcrf_to_eme2000(state_eci_cart)
-            }
-            (OrbitFrame::EME2000, OrbitRepresentation::Keplerian) => state_koe_to_eci(
-                state,
-                self.angle_format
-                    .expect("Keplerian representation must have angle_format"),
-            ),
-            (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => {
-                let state_gcrf = state_itrf_to_gcrf(epoch, state);
-                state_gcrf_to_eme2000(state_gcrf)
-            }
-            (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => {
-                let state_gcrf = state_itrf_to_gcrf(epoch, state);
-                state_gcrf_to_eme2000(state_gcrf)
-            }
-            (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
-                return Err(BraheError::Error(
-                    "Keplerian element trajectories should be in an inertial frame".to_string(),
-                ));
-            }
-            (OrbitFrame::ITRF, OrbitRepresentation::Keplerian) => {
-                return Err(BraheError::Error(
-                    "Keplerian element trajectories should be in an inertial frame".to_string(),
-                ));
-            }
-        })
+        self.state_in_frame(CelestialFrame::EME2000, epoch)
     }
 
     fn state_koe_osc(
@@ -3227,109 +2464,40 @@ impl DOrbitStateProvider for DOrbitTrajectory {
         epoch: Epoch,
         angle_format: AngleFormat,
     ) -> Result<Vector6<f64>, BraheError> {
-        // Get state in native format (full dimensions)
-        let state_dvec = self.interpolate(&epoch)?;
+        let root = celestial_root(&self.frame)?;
+        let center = root.center_naif_id();
+        let cb = CentralBody::from_naif_id(center)?;
+        if cb.is_barycenter() {
+            return Err(BraheError::Error(format!(
+                "osculating elements are undefined about massless barycenter {}",
+                center
+            )));
+        }
 
-        // Extract first 6 elements (orbital state only - ignore extended dimensions)
-        let state = Vector6::from_iterator(state_dvec.iter().take(6).copied());
+        let inertial = icrf_aligned_inertial(root);
+        if self.representation == OrbitRepresentation::Keplerian && self.frame == inertial {
+            // Elements already reference this center's inertial axes: only
+            // the angle format may differ.
+            let state_dvec = self.interpolate(&epoch)?;
+            let mut state: Vector6<f64> =
+                Vector6::from_iterator(state_dvec.iter().take(6).copied());
+            let native_format = self.angle_format.unwrap_or(AngleFormat::Radians);
+            if native_format != angle_format {
+                let factor = if angle_format == AngleFormat::Degrees {
+                    RAD2DEG
+                } else {
+                    DEG2RAD
+                };
+                state[2] *= factor; // inclination
+                state[3] *= factor; // RAAN
+                state[4] *= factor; // argument of periapsis
+                state[5] *= factor; // mean anomaly
+            }
+            return Ok(state);
+        }
 
-        Ok(match (self.frame, self.representation) {
-            (OrbitFrame::BodyCenteredInertial(center), _) => {
-                // Osculating elements about the trajectory's own center,
-                // using that body's gravitational parameter.
-                let cb = crate::propagators::CentralBody::from_naif_id(center)?;
-                if cb.is_barycenter() {
-                    return Err(BraheError::Error(format!(
-                        "osculating elements are undefined about massless barycenter {}",
-                        center
-                    )));
-                }
-                let x = self.bci_native_cartesian(center, state)?;
-                return Ok(crate::coordinates::state_inertial_to_koe_gm(
-                    x,
-                    cb.gm(),
-                    angle_format,
-                ));
-            }
-            (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => {
-                // Already in Keplerian, just convert angle format if needed
-                let native_format = self.angle_format.unwrap_or(AngleFormat::Radians);
-                if native_format == angle_format {
-                    state
-                } else {
-                    // Convert angles
-                    let mut converted = state;
-                    let factor = if angle_format == AngleFormat::Degrees {
-                        RAD2DEG
-                    } else {
-                        DEG2RAD
-                    };
-                    converted[2] *= factor; // inclination
-                    converted[3] *= factor; // RAAN
-                    converted[4] *= factor; // arg periapsis
-                    converted[5] *= factor; // mean anomaly
-                    converted
-                }
-            }
-            (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => {
-                // Already in Keplerian, just convert angle format if needed
-                let native_format = self.angle_format.unwrap_or(AngleFormat::Radians);
-                if native_format == angle_format {
-                    state
-                } else {
-                    // Convert angles
-                    let mut converted = state;
-                    let factor = if angle_format == AngleFormat::Degrees {
-                        RAD2DEG
-                    } else {
-                        DEG2RAD
-                    };
-                    converted[2] *= factor; // inclination
-                    converted[3] *= factor; // RAAN
-                    converted[4] *= factor; // arg periapsis
-                    converted[5] *= factor; // mean anomaly
-                    converted
-                }
-            }
-            (OrbitFrame::EME2000, OrbitRepresentation::Keplerian) => {
-                // Convert back to Cartesian, to GCRF, then to osculating elements
-                let state_eme2000_cart = state_koe_to_eci(
-                    state,
-                    self.angle_format
-                        .expect("Keplerian representation must have angle_format"),
-                );
-                let state_gcrf = state_eme2000_to_gcrf(state_eme2000_cart);
-                state_eci_to_koe(state_gcrf, angle_format)
-            }
-            (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => {
-                state_eci_to_koe(state, angle_format)
-            }
-            (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => {
-                state_eci_to_koe(state, angle_format)
-            }
-            (OrbitFrame::EME2000, OrbitRepresentation::Cartesian) => {
-                let state_gcrf = state_eme2000_to_gcrf(state);
-                state_eci_to_koe(state_gcrf, angle_format)
-            }
-            (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => {
-                let state_eci = state_ecef_to_eci(epoch, state);
-                state_eci_to_koe(state_eci, angle_format)
-            }
-            (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => {
-                let state_gcrf = state_itrf_to_gcrf(epoch, state);
-                state_eci_to_koe(state_gcrf, angle_format)
-            }
-            (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
-                return Err(BraheError::Error(
-                    "Keplerian element trajectories should be in an inertial frame".to_string(),
-                ));
-            }
-            (OrbitFrame::ITRF, OrbitRepresentation::Keplerian) => {
-                return Err(BraheError::Error(
-                    "Keplerian element trajectories should be in an inertial frame".to_string(),
-                ));
-            }
-        })
+        let x = self.state_in_frame(inertial, epoch)?;
+        Ok(state_inertial_to_koe_gm(x, cb.gm(), angle_format))
     }
 }
 
@@ -3342,39 +2510,40 @@ impl DOrbitCovarianceProvider for DOrbitTrajectory {
         let cov_native = self.covariance(epoch)?;
         let dim = cov_native.nrows();
 
-        match self.frame {
-            // Body-centered inertial axes are ICRF-aligned, so the covariance
-            // is identical under the identity rotation (the center offset is a
-            // translation, which does not affect covariance).
-            OrbitFrame::BodyCenteredInertial(_) => Ok(cov_native),
-            OrbitFrame::ECI | OrbitFrame::GCRF => Ok(cov_native),
-            OrbitFrame::EME2000 => {
-                // Apply frame bias rotation to first 6x6 block only
-                let rot = rotation_eme2000_to_gcrf();
+        let root = celestial_root(&self.frame)?;
 
-                // Build full-dimensional Jacobian
-                let mut jacobian = DMatrix::<f64>::zeros(dim, dim);
+        if self.frame == CelestialFrame::EME2000 {
+            // Apply frame bias rotation to first 6x6 block only
+            let rot = rotation_eme2000_to_gcrf();
 
-                // Position and velocity blocks (top-left 3x3, and indices 3-5)
-                for i in 0..3 {
-                    for j in 0..3 {
-                        jacobian[(i, j)] = rot[(i, j)];
-                        jacobian[(3 + i, 3 + j)] = rot[(i, j)];
-                    }
+            // Build full-dimensional Jacobian
+            let mut jacobian = DMatrix::<f64>::zeros(dim, dim);
+
+            // Position and velocity blocks (top-left 3x3, and indices 3-5)
+            for i in 0..3 {
+                for j in 0..3 {
+                    jacobian[(i, j)] = rot[(i, j)];
+                    jacobian[(3 + i, 3 + j)] = rot[(i, j)];
                 }
-
-                // Extended dimensions use identity (pass through unchanged)
-                for i in 6..dim {
-                    jacobian[(i, i)] = 1.0;
-                }
-
-                // Transform: C_ECI = J * C_EME2000 * J^T
-                Ok(&jacobian * &cov_native * jacobian.transpose())
             }
-            OrbitFrame::ECEF | OrbitFrame::ITRF => Err(BraheError::Error(
-                "ECEF/ITRF covariance transformation not supported (requires time-dependent rotation derivatives)"
-                    .to_string(),
-            )),
+
+            // Extended dimensions use identity (pass through unchanged)
+            for i in 6..dim {
+                jacobian[(i, i)] = 1.0;
+            }
+
+            // Transform: C_ECI = J * C_EME2000 * J^T
+            Ok(&jacobian * &cov_native * jacobian.transpose())
+        } else if self.frame == icrf_aligned_inertial(root) {
+            // ICRF-aligned axes leave the covariance unchanged under the
+            // identity rotation (a center offset is a translation, which does
+            // not affect covariance).
+            Ok(cov_native)
+        } else {
+            Err(BraheError::Error(format!(
+                "covariance transformation from {} is not supported (requires time-dependent rotation derivatives)",
+                self.frame
+            )))
         }
     }
 
@@ -3447,6 +2616,9 @@ impl DOrbitCovarianceProvider for DOrbitTrajectory {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::constants::{GM_MOON, R_EARTH, R_MOON};
+    use crate::coordinates::{state_eci_to_koe, state_koe_to_eci};
+    use crate::frames::state_gcrf_to_itrf;
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
@@ -3456,9 +2628,10 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_new() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap();
-        assert_eq!(traj.frame, OrbitFrame::ECI);
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
+        assert_eq!(traj.frame, CelestialFrame::ECI);
         assert_eq!(traj.representation, OrbitRepresentation::Cartesian);
         assert_eq!(traj.dimension(), 6);
         assert_eq!(traj.orbital_dimension(), 6);
@@ -3470,7 +2643,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_default() {
         let traj = DOrbitTrajectory::default();
-        assert_eq!(traj.frame, OrbitFrame::ECI);
+        assert_eq!(traj.frame, CelestialFrame::ECI);
         assert_eq!(traj.representation, OrbitRepresentation::Cartesian);
         assert_eq!(traj.dimension(), 6);
         assert!(traj.is_empty());
@@ -3480,7 +2653,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_add_state() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -3502,7 +2675,7 @@ mod tests {
         // trajectory, add() must insert placeholders sized to the trajectory
         // dimension, not a hard-coded 6.
         let mut traj =
-            DOrbitTrajectory::new(7, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(7, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         traj.covariances = Some(Vec::new());
         STMStorage::enable_stm_storage(&mut traj);
@@ -3530,11 +2703,12 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_display() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap();
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
         let display = format!("{}", traj);
         assert!(display.contains("DOrbitTrajectory"));
-        assert!(display.contains("ECI"));
+        assert!(display.contains("GCRF"));
         assert!(display.contains("Cartesian"));
     }
 
@@ -3544,7 +2718,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_extended_state_7d() {
         let mut traj =
-            DOrbitTrajectory::new(7, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(7, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         assert_eq!(traj.dimension(), 7);
         assert_eq!(traj.orbital_dimension(), 6);
@@ -3568,7 +2742,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_extended_state_9d() {
         let mut traj =
-            DOrbitTrajectory::new(9, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(9, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         assert_eq!(traj.dimension(), 9);
         assert_eq!(traj.additional_dimension(), 3);
@@ -3594,7 +2768,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_invalid_dimension() {
         let result =
-            DOrbitTrajectory::new(5, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+            DOrbitTrajectory::new(5, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None);
         assert!(result.is_err());
     }
 
@@ -3602,7 +2776,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_dimension_mismatch() {
         let mut traj =
-            DOrbitTrajectory::new(7, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(7, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]); // 6D state for 7D trajectory
@@ -3658,7 +2832,7 @@ mod tests {
         setup_global_test_eop();
 
         let mut traj =
-            DOrbitTrajectory::new(9, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(9, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![
@@ -3672,7 +2846,7 @@ mod tests {
         // Convert ECI -> ECEF
         let traj_ecef = traj.to_ecef().unwrap();
         assert_eq!(traj_ecef.dimension(), 9);
-        assert_eq!(traj_ecef.frame, OrbitFrame::ECEF);
+        assert_eq!(traj_ecef.frame, CelestialFrame::ECEF);
 
         let (_, state_ecef) = traj_ecef.get(0).unwrap();
         // Orbital part should be different (transformed)
@@ -3687,7 +2861,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_to_gcrf_preserves_additional() {
         let mut traj =
-            DOrbitTrajectory::new(9, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(9, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0, 100.0, 200.0, 300.0]);
@@ -3710,7 +2884,7 @@ mod tests {
         setup_global_test_eop();
 
         let mut traj =
-            DOrbitTrajectory::new(8, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(8, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0, 50.0, 60.0]);
@@ -3729,7 +2903,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_to_eme2000_preserves_additional() {
         let mut traj =
-            DOrbitTrajectory::new(7, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(7, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0, 999.0]);
@@ -3749,7 +2923,7 @@ mod tests {
         use crate::constants::{GM_EARTH, R_EARTH};
 
         let mut traj =
-            DOrbitTrajectory::new(9, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(9, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -3786,7 +2960,7 @@ mod tests {
         let traj = DOrbitTrajectory::from_orbital_data(
             vec![epoch],
             vec![state],
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov.clone()]),
@@ -3860,7 +3034,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_new_err_keplerian_no_angle_format() {
         let result =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Keplerian, None);
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Keplerian, None);
         assert!(result.is_err());
     }
 
@@ -3869,7 +3043,7 @@ mod tests {
     fn test_dorbittrajectory_new_err_cartesian_with_angle_format() {
         let result = DOrbitTrajectory::new(
             6,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             Some(AngleFormat::Degrees),
         );
@@ -3881,7 +3055,7 @@ mod tests {
     fn test_dorbittrajectory_new_err_ecef_keplerian() {
         let result = DOrbitTrajectory::new(
             6,
-            OrbitFrame::ECEF,
+            CelestialFrame::ECEF,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
         );
@@ -3893,18 +3067,20 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_with_interpolation_method_linear() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap()
-            .with_interpolation_method(InterpolationMethod::Linear);
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap()
+                .with_interpolation_method(InterpolationMethod::Linear);
         assert_eq!(traj.interpolation_method, InterpolationMethod::Linear);
     }
 
     #[test]
     #[parallel]
     fn test_dorbittrajectory_with_interpolation_method_lagrange() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap()
-            .with_interpolation_method(InterpolationMethod::Lagrange { degree: 5 });
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap()
+                .with_interpolation_method(InterpolationMethod::Lagrange { degree: 5 });
         assert!(matches!(
             traj.interpolation_method,
             InterpolationMethod::Lagrange { degree: 5 }
@@ -3914,19 +3090,21 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_with_interpolation_method_hermite() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap()
-            .with_interpolation_method(InterpolationMethod::HermiteCubic);
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap()
+                .with_interpolation_method(InterpolationMethod::HermiteCubic);
         assert_eq!(traj.interpolation_method, InterpolationMethod::HermiteCubic);
     }
 
     #[test]
     #[parallel]
     fn test_dorbittrajectory_with_eviction_policy_max_size() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap()
-            .with_eviction_policy_max_size(100)
-            .unwrap();
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap()
+                .with_eviction_policy_max_size(100)
+                .unwrap();
         assert_eq!(traj.eviction_policy, TrajectoryEvictionPolicy::KeepCount);
         assert_eq!(traj.max_size, Some(100));
         assert_eq!(traj.max_age, None);
@@ -3936,7 +3114,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_with_eviction_policy_max_size_err_zero() {
         let result =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap()
                 .with_eviction_policy_max_size(0);
         assert!(result.is_err());
@@ -3945,10 +3123,11 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_with_eviction_policy_max_age() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap()
-            .with_eviction_policy_max_age(3600.0)
-            .unwrap();
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap()
+                .with_eviction_policy_max_age(3600.0)
+                .unwrap();
         assert_eq!(
             traj.eviction_policy,
             TrajectoryEvictionPolicy::KeepWithinDuration
@@ -3961,7 +3140,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_with_eviction_policy_max_age_err_zero() {
         let result =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap()
                 .with_eviction_policy_max_age(0.0);
         assert!(result.is_err());
@@ -3971,7 +3150,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_with_eviction_policy_max_age_err_negative() {
         let result =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap()
                 .with_eviction_policy_max_age(-1.0);
         assert!(result.is_err());
@@ -3983,7 +3162,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_add_state_and_covariance_basic() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         traj.covariances = Some(Vec::new());
 
@@ -4003,7 +3182,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_add_state_and_covariance_ordering() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         traj.covariances = Some(Vec::new());
 
@@ -4031,7 +3210,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_add_state_and_covariance_err_no_init() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -4046,7 +3225,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_to_matrix_basic() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 1000.0, 2000.0, 100.0, 7.5e3, 50.0]);
@@ -4064,7 +3243,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_to_matrix_multiple_states() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC);
@@ -4085,8 +3264,9 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_to_matrix_error_empty() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap();
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
         let result = traj.to_matrix();
         assert!(result.is_err());
         assert!(
@@ -4109,7 +3289,7 @@ mod tests {
         let traj = DOrbitTrajectory::from_orbital_data(
             vec![epoch],
             vec![state],
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov.clone()]),
@@ -4132,7 +3312,7 @@ mod tests {
         let traj = DOrbitTrajectory::from_orbital_data(
             vec![epoch1, epoch2],
             vec![state.clone(), state],
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov1, cov2]),
@@ -4150,7 +3330,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_covariance_at_none_disabled() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -4164,7 +3344,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_covariance_at_none_empty() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         traj.covariances = Some(Vec::new());
 
@@ -4183,7 +3363,7 @@ mod tests {
         let traj = DOrbitTrajectory::from_orbital_data(
             vec![epoch],
             vec![state],
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov]),
@@ -4202,7 +3382,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_add_full_all_optional_provided() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -4232,7 +3412,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_add_full_only_state() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -4250,7 +3430,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_add_full_with_covariance() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -4271,7 +3451,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_add_full_with_stm() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -4288,7 +3468,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_add_full_with_sensitivity() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -4311,7 +3491,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_add_full_with_acceleration() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -4333,7 +3513,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_add_full_err_state_dimension() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3]); // 5D instead of 6D
@@ -4345,7 +3525,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_add_full_err_cov_dimension() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -4361,7 +3541,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_add_full_err_stm_dimension() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -4377,7 +3557,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_add_full_err_sens_rows() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -4393,7 +3573,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_add_full_err_sens_cols() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC);
@@ -4413,7 +3593,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_add_full_err_accel_dimension() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC);
@@ -4436,7 +3616,7 @@ mod tests {
         // covariance combined with an invalid STM must not auto-enable
         // covariance storage or insert any data.
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -4589,7 +3769,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_epoch_at_idx_valid() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -4602,8 +3782,9 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_epoch_at_idx_error_out_of_bounds() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap();
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
         let result = traj.epoch_at_idx(0);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("out of bounds"));
@@ -4613,7 +3794,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_state_at_idx_valid() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 100.0, 200.0, 10.0, 7.5e3, 5.0]);
@@ -4628,8 +3809,9 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_state_at_idx_error_out_of_bounds() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap();
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
         let result = traj.state_at_idx(0);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("out of bounds"));
@@ -4639,7 +3821,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_nearest_state_exact() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -4656,7 +3838,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_nearest_state_closest() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
@@ -4679,8 +3861,9 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_nearest_state_error_empty() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap();
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let result = traj.nearest_state(&epoch);
         assert!(result.is_err());
@@ -4691,7 +3874,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_len_and_is_empty() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         assert!(traj.is_empty());
         assert_eq!(traj.len(), 0);
@@ -4708,7 +3891,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_start_end_epoch() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
@@ -4723,8 +3906,9 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_start_end_epoch_empty() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap();
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
         assert_eq!(traj.start_epoch(), None);
         assert_eq!(traj.end_epoch(), None);
     }
@@ -4733,7 +3917,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_timespan_multiple() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
@@ -4749,7 +3933,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_timespan_single_none() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -4761,8 +3945,9 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_timespan_empty_none() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap();
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
         assert!(traj.timespan().is_none());
     }
 
@@ -4770,7 +3955,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_first_last() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
@@ -4791,8 +3976,9 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_first_last_empty() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap();
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
         assert!(traj.first().is_none());
         assert!(traj.last().is_none());
     }
@@ -4801,7 +3987,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_clear_all_storage_types() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -4841,7 +4027,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_remove_epoch_found() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
@@ -4860,7 +4046,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_remove_epoch_not_found() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
@@ -4876,7 +4062,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_remove_by_index() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
@@ -4893,7 +4079,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_remove_by_index_error_out_of_bounds() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let result = traj.remove(0);
         assert!(result.is_err());
@@ -4904,7 +4090,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_get_valid() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -4920,8 +4106,9 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_get_error_out_of_bounds() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap();
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
         let result = traj.get(0);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("out of bounds"));
@@ -4931,7 +4118,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_index_before_epoch_valid() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
@@ -4949,7 +4136,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_index_before_epoch_exact_match() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -4962,8 +4149,9 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_index_before_epoch_error_empty() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap();
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let result = traj.index_before_epoch(&epoch);
         assert!(result.is_err());
@@ -4974,7 +4162,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_index_before_epoch_error_before_all() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -4995,7 +4183,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_index_after_epoch_valid() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
@@ -5013,7 +4201,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_index_after_epoch_exact_match() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -5026,8 +4214,9 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_index_after_epoch_error_empty() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap();
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let result = traj.index_after_epoch(&epoch);
         assert!(result.is_err());
@@ -5038,7 +4227,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_index_after_epoch_error_after_all() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -5054,7 +4243,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_set_eviction_policy_max_size() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         traj.set_eviction_policy_max_size(50).unwrap();
         assert_eq!(traj.eviction_policy, TrajectoryEvictionPolicy::KeepCount);
@@ -5065,7 +4254,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_set_eviction_policy_max_size_error_zero() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let result = traj.set_eviction_policy_max_size(0);
         assert!(result.is_err());
@@ -5076,7 +4265,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_set_eviction_policy_max_age() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         traj.set_eviction_policy_max_age(1800.0).unwrap();
         assert_eq!(
@@ -5090,7 +4279,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_set_eviction_policy_max_age_error_negative() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let result = traj.set_eviction_policy_max_age(-100.0);
         assert!(result.is_err());
@@ -5100,8 +4289,9 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_get_eviction_policy() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap();
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
         assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::None);
 
         let traj2 = traj.with_eviction_policy_max_size(10).unwrap();
@@ -5117,7 +4307,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_interpolation_config_set_get() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
 
         // Default is HermiteCubic (orbit states carry velocity)
@@ -5151,9 +4341,10 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_interpolation_config_with_builder() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap()
-            .with_interpolation_method(InterpolationMethod::Lagrange { degree: 7 });
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap()
+                .with_interpolation_method(InterpolationMethod::Lagrange { degree: 7 });
 
         assert_eq!(
             traj.get_interpolation_method(),
@@ -5167,7 +4358,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_interpolate_linear_basic() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         // This test exercises linear interpolation of sparse points; the
         // default is now HermiteCubic, so request Linear explicitly.
@@ -5192,7 +4383,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_interpolate_exact_match() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 100.0, 200.0, 10.0, 7.5e3, 5.0]);
@@ -5208,7 +4399,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_interpolate_error_before_start() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -5229,7 +4420,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_interpolate_error_after_end() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -5250,7 +4441,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_interpolate_lagrange() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap()
                 .with_interpolation_method(InterpolationMethod::Lagrange { degree: 3 });
 
@@ -5281,7 +4472,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_interpolate_lagrange_error_insufficient_points() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap()
                 .with_interpolation_method(InterpolationMethod::Lagrange { degree: 5 });
 
@@ -5302,7 +4493,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_interpolate_hermite_cubic() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap()
                 .with_interpolation_method(InterpolationMethod::HermiteCubic);
 
@@ -5322,7 +4513,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_interpolate_hermite_cubic_error_non_6d() {
         let mut traj =
-            DOrbitTrajectory::new(9, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(9, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap()
                 .with_interpolation_method(InterpolationMethod::HermiteCubic);
 
@@ -5344,7 +4535,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_interpolate_hermite_quintic_with_accelerations() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap()
                 .with_interpolation_method(InterpolationMethod::HermiteQuintic);
         traj.enable_acceleration_storage(3).unwrap();
@@ -5370,7 +4561,7 @@ mod tests {
         // Without enabled acceleration storage, HermiteQuintic must error — even
         // when many points are available — since the FD fallback has been removed.
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap()
                 .with_interpolation_method(InterpolationMethod::HermiteQuintic);
 
@@ -5404,7 +4595,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_enable_stm_storage() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -5431,7 +4622,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_stm_at_idx_valid() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -5448,7 +4639,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_stm_at_idx_none_disabled() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -5463,7 +4654,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_set_stm_at() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -5484,7 +4675,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_set_stm_at_err_out_of_bounds() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let stm = DMatrix::identity(6, 6);
         assert!(traj.set_stm_at(0, stm).is_err()); // No states added yet
@@ -5494,7 +4685,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_set_stm_at_err_wrong_dimensions() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -5507,8 +4698,9 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_stm_dimensions() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap();
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
         assert_eq!(traj.stm_dimensions(), (6, 6));
     }
 
@@ -5516,7 +4708,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_stm_storage_mut() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -5539,7 +4731,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_enable_sensitivity_storage() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -5560,7 +4752,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_enable_sensitivity_storage_err_zero() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         assert!(traj.enable_sensitivity_storage(0).is_err());
     }
@@ -5569,7 +4761,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_sensitivity_at_idx_valid() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -5586,7 +4778,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_sensitivity_at_idx_none_disabled() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -5601,7 +4793,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_set_sensitivity_at() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -5622,7 +4814,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_set_sensitivity_at_err_out_of_bounds() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let sens = DMatrix::zeros(6, 3);
         assert!(traj.set_sensitivity_at(0, sens).is_err()); // No states added yet
@@ -5632,7 +4824,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_set_sensitivity_at_err_wrong_rows() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -5646,7 +4838,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_set_sensitivity_at_err_wrong_cols() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC);
@@ -5664,7 +4856,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_sensitivity_dimensions() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
 
         // Before enabling, should be None
@@ -5678,7 +4870,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_sensitivity_storage_mut() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -5700,9 +4892,12 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_covariance_interpolation_with_builder() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap()
-            .with_covariance_interpolation_method(CovarianceInterpolationMethod::MatrixSquareRoot);
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap()
+                .with_covariance_interpolation_method(
+                    CovarianceInterpolationMethod::MatrixSquareRoot,
+                );
 
         assert_eq!(
             traj.get_covariance_interpolation_method(),
@@ -5714,7 +4909,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_covariance_interpolation_set_get() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
 
         // Default is TwoWasserstein
@@ -5733,9 +4928,12 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_covariance_interpolation_sqrt_method() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap()
-            .with_covariance_interpolation_method(CovarianceInterpolationMethod::MatrixSquareRoot);
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap()
+                .with_covariance_interpolation_method(
+                    CovarianceInterpolationMethod::MatrixSquareRoot,
+                );
 
         assert_eq!(
             traj.get_covariance_interpolation_method(),
@@ -5746,9 +4944,12 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_covariance_interpolation_wasserstein_method() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap()
-            .with_covariance_interpolation_method(CovarianceInterpolationMethod::TwoWasserstein);
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap()
+                .with_covariance_interpolation_method(
+                    CovarianceInterpolationMethod::TwoWasserstein,
+                );
 
         assert_eq!(
             traj.get_covariance_interpolation_method(),
@@ -5773,7 +4974,7 @@ mod tests {
         let traj = DOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -5782,7 +4983,7 @@ mod tests {
 
         assert_eq!(traj.len(), 2);
         assert_eq!(traj.dimension(), 6);
-        assert_eq!(traj.frame, OrbitFrame::ECI);
+        assert_eq!(traj.frame, CelestialFrame::ECI);
         assert_eq!(traj.representation, OrbitRepresentation::Cartesian);
     }
 
@@ -5805,7 +5006,7 @@ mod tests {
         let traj = DOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(covariances),
@@ -5825,7 +5026,7 @@ mod tests {
         let result = DOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -5851,7 +5052,7 @@ mod tests {
         let result = DOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -5874,7 +5075,7 @@ mod tests {
         let result = DOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -5900,7 +5101,7 @@ mod tests {
         let result = DOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            OrbitFrame::ECEF,
+            CelestialFrame::ECEF,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
             None,
@@ -5924,7 +5125,7 @@ mod tests {
         let result = DOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(covariances),
@@ -5951,7 +5152,7 @@ mod tests {
         let result = DOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            OrbitFrame::ECEF,
+            CelestialFrame::ECEF,
             OrbitRepresentation::Cartesian,
             None,
             Some(covariances),
@@ -5967,7 +5168,7 @@ mod tests {
         setup_global_test_eop();
 
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -5975,7 +5176,7 @@ mod tests {
 
         let converted = traj.to_eci().unwrap();
 
-        assert_eq!(converted.frame, OrbitFrame::ECI);
+        assert_eq!(converted.frame, CelestialFrame::ECI);
         assert_eq!(converted.representation, OrbitRepresentation::Cartesian);
         for i in 0..6 {
             assert_abs_diff_eq!(converted.states[0][i], state[i], epsilon = 1e-6);
@@ -5987,9 +5188,13 @@ mod tests {
     fn test_dorbittrajectory_to_eci_already_gcrf() {
         setup_global_test_eop();
 
-        let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None)
-                .unwrap();
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::GCRF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
         traj.add(epoch, state.clone()).unwrap();
@@ -5997,7 +5202,7 @@ mod tests {
         let converted = traj.to_eci().unwrap();
 
         // GCRF and ECI are equivalent, so states should be the same
-        assert_eq!(converted.frame, OrbitFrame::ECI);
+        assert_eq!(converted.frame, CelestialFrame::ECI);
         for i in 0..6 {
             assert_abs_diff_eq!(converted.states[0][i], state[i], epsilon = 1e-6);
         }
@@ -6010,7 +5215,7 @@ mod tests {
 
         let mut traj = DOrbitTrajectory::new(
             6,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
         )
@@ -6022,7 +5227,7 @@ mod tests {
 
         let converted = traj.to_eci().unwrap();
 
-        assert_eq!(converted.frame, OrbitFrame::ECI);
+        assert_eq!(converted.frame, CelestialFrame::ECI);
         assert_eq!(converted.representation, OrbitRepresentation::Cartesian);
         // Cartesian state should have reasonable orbital values
         assert!(converted.states[0][0].abs() > 1e6); // Position should be in meters
@@ -6033,16 +5238,20 @@ mod tests {
     fn test_dorbittrajectory_to_eci_from_ecef() {
         setup_global_test_eop();
 
-        let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None)
-                .unwrap();
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::ECEF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
         traj.add(epoch, state).unwrap();
 
         let converted = traj.to_eci().unwrap();
 
-        assert_eq!(converted.frame, OrbitFrame::ECI);
+        assert_eq!(converted.frame, CelestialFrame::ECI);
         assert_eq!(converted.representation, OrbitRepresentation::Cartesian);
     }
 
@@ -6051,16 +5260,20 @@ mod tests {
     fn test_dorbittrajectory_to_gcrf_already_gcrf() {
         setup_global_test_eop();
 
-        let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None)
-                .unwrap();
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::GCRF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
         traj.add(epoch, state.clone()).unwrap();
 
         let converted = traj.to_gcrf().unwrap();
 
-        assert_eq!(converted.frame, OrbitFrame::GCRF);
+        assert_eq!(converted.frame, CelestialFrame::GCRF);
         for i in 0..6 {
             assert_abs_diff_eq!(converted.states[0][i], state[i], epsilon = 1e-6);
         }
@@ -6072,7 +5285,7 @@ mod tests {
         setup_global_test_eop();
 
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -6080,7 +5293,7 @@ mod tests {
 
         let converted = traj.to_gcrf().unwrap();
 
-        assert_eq!(converted.frame, OrbitFrame::GCRF);
+        assert_eq!(converted.frame, CelestialFrame::GCRF);
         // ECI and GCRF are equivalent
         for i in 0..6 {
             assert_abs_diff_eq!(converted.states[0][i], state[i], epsilon = 1e-6);
@@ -6092,16 +5305,20 @@ mod tests {
     fn test_dorbittrajectory_to_ecef_already_ecef() {
         setup_global_test_eop();
 
-        let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None)
-                .unwrap();
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::ECEF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
         traj.add(epoch, state.clone()).unwrap();
 
         let converted = traj.to_ecef().unwrap();
 
-        assert_eq!(converted.frame, OrbitFrame::ECEF);
+        assert_eq!(converted.frame, CelestialFrame::ECEF);
         for i in 0..6 {
             assert_abs_diff_eq!(converted.states[0][i], state[i], epsilon = 1e-6);
         }
@@ -6113,7 +5330,7 @@ mod tests {
         setup_global_test_eop();
 
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -6121,7 +5338,7 @@ mod tests {
 
         let converted = traj.to_ecef().unwrap();
 
-        assert_eq!(converted.frame, OrbitFrame::ECEF);
+        assert_eq!(converted.frame, CelestialFrame::ECEF);
         assert_eq!(converted.representation, OrbitRepresentation::Cartesian);
     }
 
@@ -6130,16 +5347,20 @@ mod tests {
     fn test_dorbittrajectory_to_itrf_already_itrf() {
         setup_global_test_eop();
 
-        let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ITRF, OrbitRepresentation::Cartesian, None)
-                .unwrap();
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::ITRF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
         traj.add(epoch, state.clone()).unwrap();
 
         let converted = traj.to_itrf().unwrap();
 
-        assert_eq!(converted.frame, OrbitFrame::ITRF);
+        assert_eq!(converted.frame, CelestialFrame::ITRF);
         for i in 0..6 {
             assert_abs_diff_eq!(converted.states[0][i], state[i], epsilon = 1e-6);
         }
@@ -6151,7 +5372,7 @@ mod tests {
         setup_global_test_eop();
 
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -6159,7 +5380,7 @@ mod tests {
 
         let converted = traj.to_itrf().unwrap();
 
-        assert_eq!(converted.frame, OrbitFrame::ITRF);
+        assert_eq!(converted.frame, CelestialFrame::ITRF);
     }
 
     #[test]
@@ -6167,16 +5388,20 @@ mod tests {
     fn test_dorbittrajectory_to_eme2000_already_eme2000() {
         setup_global_test_eop();
 
-        let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::EME2000, OrbitRepresentation::Cartesian, None)
-                .unwrap();
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::EME2000,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
         traj.add(epoch, state.clone()).unwrap();
 
         let converted = traj.to_eme2000().unwrap();
 
-        assert_eq!(converted.frame, OrbitFrame::EME2000);
+        assert_eq!(converted.frame, CelestialFrame::EME2000);
         for i in 0..6 {
             assert_abs_diff_eq!(converted.states[0][i], state[i], epsilon = 1e-6);
         }
@@ -6188,7 +5413,7 @@ mod tests {
         setup_global_test_eop();
 
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -6196,7 +5421,7 @@ mod tests {
 
         let converted = traj.to_eme2000().unwrap();
 
-        assert_eq!(converted.frame, OrbitFrame::EME2000);
+        assert_eq!(converted.frame, CelestialFrame::EME2000);
     }
 
     #[test]
@@ -6205,7 +5430,7 @@ mod tests {
         setup_global_test_eop();
 
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -6221,12 +5446,71 @@ mod tests {
 
     #[test]
     #[parallel]
+    fn test_dorbittrajectory_to_keplerian_uses_the_frame_center() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // A circular lunar orbit declared in LCI: elements are taken about the
+        // Moon and keep the trajectory's own frame.
+        let r_moon = R_MOON + 100e3;
+        let v_moon = (GM_MOON / r_moon).sqrt();
+        let mut lci =
+            DOrbitTrajectory::new(6, CelestialFrame::LCI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
+        lci.add(
+            epoch,
+            DVector::from_vec(vec![r_moon, 0.0, 0.0, 0.0, v_moon, 0.0]),
+        )
+        .unwrap();
+
+        let lci_kep = lci.to_keplerian(AngleFormat::Degrees).unwrap();
+        assert_eq!(lci_kep.frame, CelestialFrame::LCI);
+        assert_eq!(lci_kep.representation, OrbitRepresentation::Keplerian);
+        assert_abs_diff_eq!(lci_kep.states[0][0], r_moon, epsilon = 1e-6);
+        assert_abs_diff_eq!(lci_kep.states[0][1], 0.0, epsilon = 1e-9);
+
+        // Earth-centered Cartesian input matches the pairwise Earth conversion
+        // exactly and keeps its GCRF label.
+        let x_gcrf = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.6e3, 10.0);
+        let mut gcrf = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::GCRF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
+        gcrf.add(epoch, svec6_to_dvec(x_gcrf)).unwrap();
+
+        let gcrf_kep = gcrf.to_keplerian(AngleFormat::Degrees).unwrap();
+        assert_eq!(gcrf_kep.frame, CelestialFrame::GCRF);
+        let expected = state_eci_to_koe(x_gcrf, AngleFormat::Degrees);
+        for i in 0..6 {
+            assert_eq!(gcrf_kep.states[0][i], expected[i]);
+        }
+
+        // Earth-fixed and of-date frames admit no Keplerian elements.
+        for frame in [CelestialFrame::ITRF, CelestialFrame::TOD] {
+            let mut traj =
+                DOrbitTrajectory::new(6, frame, OrbitRepresentation::Cartesian, None).unwrap();
+            traj.add(epoch, svec6_to_dvec(x_gcrf)).unwrap();
+            assert!(
+                traj.to_keplerian(AngleFormat::Degrees)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("inertial frame")
+            );
+        }
+    }
+
+    #[test]
+    #[parallel]
     fn test_dorbittrajectory_to_keplerian_already_keplerian_same_format() {
         setup_global_test_eop();
 
         let mut traj = DOrbitTrajectory::new(
             6,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
         )
@@ -6250,7 +5534,7 @@ mod tests {
 
         let mut traj = DOrbitTrajectory::new(
             6,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
         )
@@ -6279,9 +5563,10 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_with_name() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap()
-            .with_name("TestTrajectory");
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap()
+                .with_name("TestTrajectory");
 
         assert_eq!(traj.get_name(), Some("TestTrajectory"));
     }
@@ -6290,9 +5575,10 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_with_uuid() {
         let test_uuid = uuid::Uuid::now_v7();
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap()
-            .with_uuid(test_uuid);
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap()
+                .with_uuid(test_uuid);
 
         assert_eq!(traj.get_uuid(), Some(test_uuid));
     }
@@ -6300,9 +5586,10 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_with_new_uuid() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap()
-            .with_new_uuid();
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap()
+                .with_new_uuid();
 
         assert!(traj.get_uuid().is_some());
     }
@@ -6310,9 +5597,10 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_with_id() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap()
-            .with_id(42);
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap()
+                .with_id(42);
 
         assert_eq!(traj.get_id(), Some(42));
     }
@@ -6321,9 +5609,10 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_with_identity() {
         let test_uuid = uuid::Uuid::now_v7();
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap()
-            .with_identity(Some("Name"), Some(test_uuid), Some(1));
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap()
+                .with_identity(Some("Name"), Some(test_uuid), Some(1));
 
         assert_eq!(traj.get_id(), Some(1));
         assert_eq!(traj.get_name(), Some("Name"));
@@ -6334,7 +5623,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_set_identity() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let test_uuid = uuid::Uuid::now_v7();
         traj.set_identity(Some("NewName"), Some(test_uuid), Some(10));
@@ -6348,7 +5637,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_set_id() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         traj.set_id(Some(99));
         assert_eq!(traj.get_id(), Some(99));
@@ -6358,7 +5647,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_set_name() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         traj.set_name(Some("SetName"));
         assert_eq!(traj.get_name(), Some("SetName"));
@@ -6368,7 +5657,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_generate_uuid() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         assert!(traj.get_uuid().is_none());
         traj.generate_uuid();
@@ -6379,11 +5668,12 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_get_id_name_uuid() {
         let test_uuid = uuid::Uuid::now_v7();
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap()
-            .with_id(5)
-            .with_name("GetTest")
-            .with_uuid(test_uuid);
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap()
+                .with_id(5)
+                .with_name("GetTest")
+                .with_uuid(test_uuid);
 
         assert_eq!(traj.get_id(), Some(5));
         assert_eq!(traj.get_name(), Some("GetTest"));
@@ -6396,7 +5686,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_state_provider_state() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 100.0, 200.0, 10.0, 7.5e3, 5.0]);
@@ -6412,13 +5702,14 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_state_provider_state_dim() {
         // state_dim returns dimension from first state, or 6 if empty
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap();
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
         assert_eq!(traj.state_dim(), 6); // default for empty
 
         // Add a 9D state to verify dimension is correctly detected
         let mut traj9 =
-            DOrbitTrajectory::new(9, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(9, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0, 0.1, 0.2, 0.3]);
@@ -6430,7 +5721,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_state_provider_state_error() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -6448,7 +5739,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_covariance_provider_basic() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         traj.covariances = Some(Vec::new());
 
@@ -6465,7 +5756,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_covariance_provider_error_not_enabled() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -6481,7 +5772,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_covariance_provider_error_before_start() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         traj.covariances = Some(Vec::new());
 
@@ -6499,7 +5790,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_covariance_provider_error_after_end() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         traj.covariances = Some(Vec::new());
 
@@ -6516,8 +5807,9 @@ mod tests {
     #[test]
     #[parallel]
     fn test_dorbittrajectory_covariance_provider_dim() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap();
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
         assert_eq!(traj.covariance_dim(), 6);
     }
 
@@ -6529,7 +5821,7 @@ mod tests {
         setup_global_test_eop();
 
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 100.0, 200.0, 10.0, 7.5e3, 5.0]);
@@ -6546,9 +5838,13 @@ mod tests {
     fn test_dorbittrajectory_state_eci_from_gcrf_cartesian() {
         setup_global_test_eop();
 
-        let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None)
-                .unwrap();
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::GCRF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
         traj.add(epoch, state.clone()).unwrap();
@@ -6567,7 +5863,7 @@ mod tests {
 
         let mut traj = DOrbitTrajectory::new(
             6,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
         )
@@ -6587,9 +5883,13 @@ mod tests {
     fn test_dorbittrajectory_state_eci_from_ecef_cartesian() {
         setup_global_test_eop();
 
-        let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None)
-                .unwrap();
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::ECEF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
         traj.add(epoch, state).unwrap();
@@ -6601,7 +5901,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_dorbittrajectory_bci_all_frame_conversions() {
-        // Remaining BCI(301) arms: state_gcrf/ecef/itrf/eme2000/koe_osc and
+        // Remaining LCI arms: state_gcrf/ecef/itrf/eme2000/koe_osc and
         // the batch to_gcrf/to_ecef/to_itrf/to_eme2000, each checked against
         // the equivalent Earth pairwise conversion of state_eci; covariance
         // passes through unchanged (ICRF-aligned axes).
@@ -6613,13 +5913,9 @@ mod tests {
         // auto-load latch (OnceLock) does not re-detect the clear.
         crate::spice::load_spice_kernel("moon_pa_de440").unwrap();
 
-        let mut traj = DOrbitTrajectory::new(
-            6,
-            OrbitFrame::BodyCenteredInertial(301),
-            OrbitRepresentation::Cartesian,
-            None,
-        )
-        .unwrap();
+        let mut traj =
+            DOrbitTrajectory::new(6, CelestialFrame::LCI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
         traj.covariances = Some(Vec::new());
         let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![2.0e6, 1.0e5, -3.0e5, 10.0, 1.6e3, -5.0]);
@@ -6668,10 +5964,10 @@ mod tests {
 
         // Batch conversions agree with the point queries and are relabeled.
         for (converted, expected, frame) in [
-            (traj.to_gcrf().unwrap(), gcrf, OrbitFrame::GCRF),
-            (traj.to_ecef().unwrap(), ecef, OrbitFrame::ECEF),
-            (traj.to_itrf().unwrap(), itrf, OrbitFrame::ITRF),
-            (traj.to_eme2000().unwrap(), eme, OrbitFrame::EME2000),
+            (traj.to_gcrf().unwrap(), gcrf, CelestialFrame::GCRF),
+            (traj.to_ecef().unwrap(), ecef, CelestialFrame::ECEF),
+            (traj.to_itrf().unwrap(), itrf, CelestialFrame::ITRF),
+            (traj.to_eme2000().unwrap(), eme, CelestialFrame::EME2000),
         ] {
             assert_eq!(converted.frame, frame);
             let s0 = &converted.states[0];
@@ -6689,9 +5985,13 @@ mod tests {
         }
 
         // state_in_frame on an Earth-frame trajectory routes from GCRF.
-        let mut traj_e =
-            DOrbitTrajectory::new(6, OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None)
-                .unwrap();
+        let mut traj_e = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::GCRF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
         let state_e = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
         traj_e.add(epoch, state_e).unwrap();
         let in_itrf = traj_e.state_in_frame(CelestialFrame::ITRF, epoch).unwrap();
@@ -6716,7 +6016,7 @@ mod tests {
 
         let mut traj_emb = DOrbitTrajectory::new(
             6,
-            OrbitFrame::BodyCenteredInertial(3),
+            CelestialFrame::EMBI,
             OrbitRepresentation::Cartesian,
             None,
         )
@@ -6741,7 +6041,7 @@ mod tests {
 
         let mut traj_unknown = DOrbitTrajectory::new(
             6,
-            OrbitFrame::BodyCenteredInertial(-20001),
+            CelestialFrame::BodyCenteredICRF(-20001),
             OrbitRepresentation::Cartesian,
             None,
         )
@@ -6759,7 +6059,7 @@ mod tests {
         // Keplerian representation about a barycenter has no defined GM.
         let mut traj_kep = DOrbitTrajectory::new(
             6,
-            OrbitFrame::BodyCenteredInertial(3),
+            CelestialFrame::EMBI,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
         )
@@ -6778,14 +6078,20 @@ mod tests {
                 .contains("barycenter")
         );
 
-        // to_keplerian labels its result ECI and rejects BCI.
-        assert!(traj_emb.to_keplerian(AngleFormat::Degrees).is_err());
+        // to_keplerian is undefined about a massless barycenter.
+        assert!(
+            traj_emb
+                .to_keplerian(AngleFormat::Degrees)
+                .unwrap_err()
+                .to_string()
+                .contains("barycenter")
+        );
     }
 
     #[test]
     #[serial]
     fn test_dorbittrajectory_body_centered_inertial_providers() {
-        // A BodyCenteredInertial(301) trajectory: state_bci returns the raw
+        // A Moon-centered (LCI) trajectory: state_bci returns the raw
         // LCI sample, state_in_frame(LCI) is the identity on it, state_eci
         // re-centers through SPK (LCI sample + Moon offset), and the batch
         // to_eci matches state_eci per epoch. Earth-frame trajectories keep
@@ -6794,13 +6100,9 @@ mod tests {
         setup_global_test_eop();
         crate::utils::testing::setup_global_test_spice();
 
-        let mut traj = DOrbitTrajectory::new(
-            6,
-            OrbitFrame::BodyCenteredInertial(301),
-            OrbitRepresentation::Cartesian,
-            None,
-        )
-        .unwrap();
+        let mut traj =
+            DOrbitTrajectory::new(6, CelestialFrame::LCI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
         let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![2.0e6, 1.0e5, -3.0e5, 10.0, 1.6e3, -5.0]);
         traj.add(epoch, state.clone()).unwrap();
@@ -6823,16 +6125,20 @@ mod tests {
 
         // Batch conversion matches the per-epoch provider result.
         let traj_eci = traj.to_eci().unwrap();
-        assert_eq!(traj_eci.frame, OrbitFrame::ECI);
+        assert_eq!(traj_eci.frame, CelestialFrame::ECI);
         let batch = traj_eci.state_eci(epoch).unwrap();
         for i in 0..6 {
             assert_abs_diff_eq!(batch[i], eci[i], epsilon = 1e-6);
         }
 
         // Earth-frame trajectory: state_bci == state_gcrf.
-        let mut traj_e =
-            DOrbitTrajectory::new(6, OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None)
-                .unwrap();
+        let mut traj_e = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::GCRF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
         let state_e = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
         traj_e.add(epoch, state_e).unwrap();
         let bci_e = traj_e.state_bci(epoch).unwrap();
@@ -6845,7 +6151,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_dorbittrajectory_bci_keplerian_to_eci_uses_center_gm() {
-        // A Keplerian BodyCenteredInertial(301) trajectory converts elements
+        // A Keplerian LCI trajectory converts elements
         // with the Moon's GM and re-centers through SPK, matching the
         // point-query provider result exactly.
         setup_global_test_eop();
@@ -6853,7 +6159,7 @@ mod tests {
 
         let mut traj = DOrbitTrajectory::new(
             6,
-            OrbitFrame::BodyCenteredInertial(301),
+            CelestialFrame::LCI,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
         )
@@ -6871,7 +6177,7 @@ mod tests {
 
         let eci_point = traj.state_eci(epoch).unwrap();
         let traj_eci = traj.to_eci().unwrap();
-        assert_eq!(traj_eci.frame, OrbitFrame::ECI);
+        assert_eq!(traj_eci.frame, CelestialFrame::ECI);
         let eci_batch = traj_eci.state_eci(epoch).unwrap();
         for i in 0..6 {
             assert_abs_diff_eq!(eci_batch[i], eci_point[i], epsilon = 1e-6);
@@ -6885,9 +6191,13 @@ mod tests {
     fn test_dorbittrajectory_state_gcrf_from_gcrf_cartesian() {
         setup_global_test_eop();
 
-        let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None)
-                .unwrap();
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::GCRF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
         traj.add(epoch, state.clone()).unwrap();
@@ -6904,7 +6214,7 @@ mod tests {
         setup_global_test_eop();
 
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -6922,9 +6232,13 @@ mod tests {
     fn test_dorbittrajectory_state_ecef_from_ecef_cartesian() {
         setup_global_test_eop();
 
-        let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None)
-                .unwrap();
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::ECEF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
         traj.add(epoch, state.clone()).unwrap();
@@ -6941,7 +6255,7 @@ mod tests {
         setup_global_test_eop();
 
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -6956,9 +6270,13 @@ mod tests {
     fn test_dorbittrajectory_state_itrf_from_itrf_cartesian() {
         setup_global_test_eop();
 
-        let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ITRF, OrbitRepresentation::Cartesian, None)
-                .unwrap();
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::ITRF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
         traj.add(epoch, state.clone()).unwrap();
@@ -6974,9 +6292,13 @@ mod tests {
     fn test_dorbittrajectory_state_eme2000_from_eme2000_cartesian() {
         setup_global_test_eop();
 
-        let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::EME2000, OrbitRepresentation::Cartesian, None)
-                .unwrap();
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::EME2000,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
         traj.add(epoch, state.clone()).unwrap();
@@ -6993,7 +6315,7 @@ mod tests {
         setup_global_test_eop();
 
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -7011,7 +6333,7 @@ mod tests {
 
         let mut traj = DOrbitTrajectory::new(
             6,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
         )
@@ -7026,6 +6348,54 @@ mod tests {
         }
     }
 
+    #[test]
+    #[parallel]
+    fn test_dorbittrajectory_state_koe_osc_from_eci_keplerian_degrees_to_radians() {
+        setup_global_test_eop();
+
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+        )
+        .unwrap();
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.01, 45.0, 15.0, 30.0, 60.0]);
+        traj.add(epoch, state.clone()).unwrap();
+
+        let koe = traj.state_koe_osc(epoch, AngleFormat::Radians).unwrap();
+        assert_abs_diff_eq!(koe[0], state[0], epsilon = 1e-6);
+        assert_abs_diff_eq!(koe[1], state[1], epsilon = 1e-9);
+        for i in 2..6 {
+            assert_abs_diff_eq!(koe[i], state[i] * DEG2RAD, epsilon = 1e-9);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dorbittrajectory_state_koe_osc_from_eci_keplerian_radians_to_degrees() {
+        setup_global_test_eop();
+
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+        )
+        .unwrap();
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.01, 0.5, 0.2, 0.4, 0.9]);
+        traj.add(epoch, state.clone()).unwrap();
+
+        let koe = traj.state_koe_osc(epoch, AngleFormat::Degrees).unwrap();
+        assert_abs_diff_eq!(koe[0], state[0], epsilon = 1e-6);
+        assert_abs_diff_eq!(koe[1], state[1], epsilon = 1e-9);
+        for i in 2..6 {
+            assert_abs_diff_eq!(koe[i], state[i] * RAD2DEG, epsilon = 1e-9);
+        }
+    }
+
     // ========== DOrbitCovarianceProvider Trait Tests ==========
 
     #[test]
@@ -7034,7 +6404,7 @@ mod tests {
         setup_global_test_eop();
 
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         traj.covariances = Some(Vec::new());
 
@@ -7052,9 +6422,13 @@ mod tests {
     fn test_dorbittrajectory_covariance_eci_from_gcrf() {
         setup_global_test_eop();
 
-        let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None)
-                .unwrap();
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::GCRF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
         traj.covariances = Some(Vec::new());
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -7072,9 +6446,13 @@ mod tests {
     fn test_dorbittrajectory_covariance_eci_error_ecef() {
         setup_global_test_eop();
 
-        let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None)
-                .unwrap();
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::ECEF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
         traj.covariances = Some(Vec::new());
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -7089,12 +6467,48 @@ mod tests {
 
     #[test]
     #[parallel]
+    fn test_dorbittrajectory_covariance_eci_from_eme2000() {
+        setup_global_test_eop();
+
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::EME2000,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
+        traj.covariances = Some(Vec::new());
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov = DMatrix::identity(6, 6) * 100.0;
+        traj.add_state_and_covariance(epoch, state, cov).unwrap();
+
+        let retrieved = traj.covariance_eci(epoch).unwrap();
+        // The EME2000-GCRF frame bias rotation is a small angle, so the
+        // diagonal is preserved to within numerical precision.
+        for i in 0..6 {
+            assert_abs_diff_eq!(retrieved[(i, i)], 100.0, epsilon = 1e-3);
+        }
+        for i in 0..6 {
+            for j in 0..6 {
+                assert_abs_diff_eq!(retrieved[(i, j)], retrieved[(j, i)], epsilon = 1e-9);
+            }
+        }
+    }
+
+    #[test]
+    #[parallel]
     fn test_dorbittrajectory_covariance_gcrf() {
         setup_global_test_eop();
 
-        let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None)
-                .unwrap();
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::GCRF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
         traj.covariances = Some(Vec::new());
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -7112,7 +6526,7 @@ mod tests {
         setup_global_test_eop();
 
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         traj.covariances = Some(Vec::new());
 
@@ -7131,7 +6545,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_index_valid() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 100.0, 200.0, 10.0, 7.5e3, 5.0]);
@@ -7148,8 +6562,9 @@ mod tests {
     #[should_panic]
     #[parallel]
     fn test_dorbittrajectory_index_panic_out_of_bounds() {
-        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-            .unwrap();
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
         let _ = &traj[0]; // Empty trajectory
     }
 
@@ -7157,7 +6572,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_into_iter() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC);
@@ -7177,7 +6592,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_iterator_size_hint() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         for i in 0..5 {
             let epoch = Epoch::from_datetime(2024, 1, 1, 12, i, 0.0, 0.0, TimeSystem::UTC);
@@ -7193,7 +6608,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_iterator_len() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         for i in 0..3 {
             let epoch = Epoch::from_datetime(2024, 1, 1, 12, i, 0.0, 0.0, TimeSystem::UTC);
@@ -7209,7 +6624,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_iterator_next() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -7232,7 +6647,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_enable_acceleration_storage() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
 
         assert!(traj.accelerations.is_none());
@@ -7245,7 +6660,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_enable_acceleration_storage_err_mismatch() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         traj.enable_acceleration_storage(3).unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -7258,7 +6673,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_has_accelerations() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         assert!(!traj.has_accelerations());
 
@@ -7270,7 +6685,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_acceleration_dim() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         assert_eq!(traj.acceleration_dim(), None);
 
@@ -7282,7 +6697,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_acceleration_at_idx() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         traj.enable_acceleration_storage(3).unwrap();
 
@@ -7301,7 +6716,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_set_acceleration_at() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -7321,7 +6736,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_set_acceleration_at_err_dimension() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
@@ -7336,7 +6751,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_add_with_acceleration() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         traj.enable_acceleration_storage(3).unwrap();
 
@@ -7356,7 +6771,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_enable_acceleration_storage_dimension_mismatch() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         traj.enable_acceleration_storage(3).unwrap();
         // Re-enabling with the same dimension is a no-op that returns Ok.
@@ -7370,7 +6785,7 @@ mod tests {
     #[parallel]
     fn test_dorbittrajectory_set_acceleration_at_index_out_of_bounds() {
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         traj.enable_acceleration_storage(3).unwrap();
         let acc = DVector::zeros(3);
@@ -7383,10 +6798,10 @@ mod tests {
     fn test_dorbittrajectory_bci_keplerian_barycenter_conversions_err() {
         // Keplerian elements about the Earth-Moon barycenter (NAIF 3) are
         // undefined; every batch conversion that redirects through
-        // bci_keplerian_to_cartesian must surface the barycenter error.
+        // native_cartesian must surface the barycenter error.
         let mut traj = DOrbitTrajectory::new(
             6,
-            OrbitFrame::BodyCenteredInertial(3),
+            CelestialFrame::EMBI,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
         )
@@ -7406,7 +6821,7 @@ mod tests {
     fn test_dorbittrajectory_to_keplerian_missing_angle_format_err() {
         let mut traj = DOrbitTrajectory::new(
             6,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
         )
@@ -7429,7 +6844,7 @@ mod tests {
         // convert_orbital_preserving_additional unchanged.
         let mut traj = DOrbitTrajectory::new(
             8,
-            OrbitFrame::ECI,
+            CelestialFrame::ECI,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
         )
@@ -7452,7 +6867,7 @@ mod tests {
         // Matrix-square-root interpolation over a singular covariance cannot
         // compute the required matrix square root and must surface the error.
         let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .unwrap();
         traj.covariances = Some(Vec::new());
         traj.set_covariance_interpolation_method(CovarianceInterpolationMethod::MatrixSquareRoot);
@@ -7489,7 +6904,7 @@ mod tests {
             InterpolationMethod::HermiteQuintic,
         ] {
             let mut traj =
-                DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+                DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
                     .unwrap();
             traj.enable_acceleration_storage(3).unwrap();
             // An impulsive maneuver at start + 60: x jumps from 1 to 10.
@@ -7526,6 +6941,226 @@ mod tests {
                 10.5,
                 epsilon = 1e-9
             );
+        }
+    }
+
+    // =========================================================================
+    // to_frame / ReferenceFrame Tests
+    // =========================================================================
+
+    /// Ten GCRF Cartesian samples over a quarter of a LEO orbit.
+    fn sample_leo_trajectory() -> DOrbitTrajectory {
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let oe = Vector6::new(
+            crate::constants::R_EARTH + 500e3,
+            0.001,
+            97.8,
+            15.0,
+            30.0,
+            45.0,
+        );
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::GCRF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
+        for i in 0..10 {
+            let mut elements = oe;
+            elements[5] += 3.0 * i as f64;
+            let x = state_koe_to_eci(elements, AngleFormat::Degrees);
+            traj.add(epoch + 60.0 * i as f64, svec6_to_dvec(x)).unwrap();
+        }
+        traj
+    }
+
+    #[test]
+    #[serial]
+    fn test_dorbittrajectory_to_frame_matches_named_wrappers_bitwise() {
+        setup_global_test_eop();
+        let traj = sample_leo_trajectory();
+
+        let itrf = traj.to_frame(CelestialFrame::ITRF).unwrap();
+        assert_eq!(itrf.frame, CelestialFrame::ITRF);
+        assert_eq!(itrf.states, traj.to_itrf().unwrap().states);
+        assert_eq!(
+            traj.to_frame(CelestialFrame::EME2000).unwrap().states,
+            traj.to_eme2000().unwrap().states
+        );
+
+        // The wrappers agree with the pairwise functions they replaced.
+        for (i, (e, s)) in (&traj).into_iter().enumerate() {
+            let expected = state_gcrf_to_itrf(e, dvec_to_svec6(s.rows(0, 6).into_owned()));
+            for k in 0..6 {
+                assert_eq!(itrf.states[i][k], expected[k]);
+            }
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_dorbittrajectory_to_frame_tod_and_lunar_and_round_trip() {
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+        crate::spice::load_spice_kernel("moon_pa_de440").unwrap();
+        let traj = sample_leo_trajectory();
+
+        let tod = traj.to_frame(CelestialFrame::TOD).unwrap();
+        assert_eq!(tod.frame, CelestialFrame::TOD);
+        let back = tod.to_frame(CelestialFrame::GCRF).unwrap();
+        for i in 0..traj.len() {
+            for k in 0..3 {
+                assert_abs_diff_eq!(back.states[i][k], traj.states[i][k], epsilon = 1e-6);
+                assert_abs_diff_eq!(back.states[i][k + 3], traj.states[i][k + 3], epsilon = 1e-9);
+            }
+        }
+
+        // A non-Earth frame re-centers through the router.
+        let lci = traj.to_frame(CelestialFrame::LCI).unwrap();
+        assert_eq!(lci.frame, CelestialFrame::LCI);
+        assert!(lci.states[0].rows(0, 3).norm() > 3.0e8);
+        let lfpa = traj.to_frame(CelestialFrame::LFPA).unwrap();
+        assert_eq!(lfpa.frame, CelestialFrame::LFPA);
+    }
+
+    #[test]
+    #[serial]
+    fn test_dorbittrajectory_to_frame_orbit_relative_target_and_state_bci() {
+        setup_global_test_eop();
+        crate::frames::clear_object_registry();
+        let traj = sample_leo_trajectory();
+
+        // Register the trajectory itself and express it in its own RTN frame.
+        crate::frames::register_object(
+            "CHIEF",
+            crate::frames::DStateAdapter::new(traj.clone()).unwrap(),
+            CelestialFrame::GCRF,
+        )
+        .unwrap();
+        let rtn = traj.to_frame(ReferenceFrame::RTN("CHIEF")).unwrap();
+        assert_eq!(rtn.frame, ReferenceFrame::RTN("CHIEF"));
+
+        // The trajectory is its own chief, so both its RTN position and its
+        // RTN velocity, which includes the angular-velocity transport term,
+        // are zero.
+        for i in 0..traj.len() {
+            for k in 0..6 {
+                assert_abs_diff_eq!(rtn.states[i][k], 0.0, epsilon = 1e-6);
+            }
+        }
+
+        // state_bci on an orbit-relative trajectory resolves GCRF through the
+        // chief's declared frame, recovering the full Cartesian state.
+        let e = traj.epochs[3];
+        let bci = rtn.state_bci(e).unwrap();
+        let expected = traj.state_gcrf(e).unwrap();
+        for k in 0..6 {
+            let tol = if k < 3 { 1e-3 } else { 1e-6 };
+            assert_abs_diff_eq!(bci[k], expected[k], epsilon = tol);
+        }
+
+        crate::frames::clear_object_registry();
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dorbittrajectory_keplerian_frame_rule() {
+        assert!(
+            DOrbitTrajectory::new(
+                6,
+                CelestialFrame::ITRF,
+                OrbitRepresentation::Keplerian,
+                Some(AngleFormat::Degrees)
+            )
+            .is_err()
+        );
+        assert!(
+            DOrbitTrajectory::new(
+                6,
+                CelestialFrame::TOD,
+                OrbitRepresentation::Keplerian,
+                Some(AngleFormat::Degrees)
+            )
+            .is_err()
+        );
+        assert!(
+            DOrbitTrajectory::new(
+                6,
+                ReferenceFrame::RTN("SC"),
+                OrbitRepresentation::Keplerian,
+                Some(AngleFormat::Degrees)
+            )
+            .is_err()
+        );
+        assert!(
+            DOrbitTrajectory::new(
+                6,
+                CelestialFrame::EME2000,
+                OrbitRepresentation::Keplerian,
+                Some(AngleFormat::Degrees)
+            )
+            .is_ok()
+        );
+        assert!(
+            DOrbitTrajectory::new(
+                6,
+                CelestialFrame::LCI,
+                OrbitRepresentation::Keplerian,
+                Some(AngleFormat::Degrees)
+            )
+            .is_ok()
+        );
+        assert!(
+            DOrbitTrajectory::new(
+                6,
+                ReferenceFrame::RTN("SC"),
+                OrbitRepresentation::Cartesian,
+                None
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dorbittrajectory_frame_display_uses_celestial_names() {
+        let traj =
+            DOrbitTrajectory::new(6, CelestialFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
+        assert_eq!(traj.frame.to_string(), "GCRF");
+        assert!(traj.frame == CelestialFrame::GCRF);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dorbittrajectory_koe_to_inertial_gm_matches_koe_to_eci() {
+        // native_cartesian converts Earth-centered elements with
+        // CentralBody::Earth's GM; that must be the GM_EARTH state_koe_to_eci
+        // uses, bit for bit.
+        let oe = Vector6::new(
+            crate::constants::R_EARTH + 500e3,
+            0.001,
+            97.8,
+            15.0,
+            30.0,
+            45.0,
+        );
+        for format in [AngleFormat::Degrees, AngleFormat::Radians] {
+            let elements = if format == AngleFormat::Radians {
+                let mut x = oe;
+                for i in 2..6 {
+                    x[i] *= DEG2RAD;
+                }
+                x
+            } else {
+                oe
+            };
+            let with_gm = state_koe_to_inertial_gm(elements, CentralBody::Earth.gm(), format);
+            let with_eci = state_koe_to_eci(elements, format);
+            for k in 0..6 {
+                assert_eq!(with_gm[k], with_eci[k]);
+            }
         }
     }
 }

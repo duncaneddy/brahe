@@ -20,7 +20,6 @@ This module provides containers for storing and interpolating spacecraft traject
   angles, Euler axis, rotation matrix, angular velocity)
 
 **Enumerations:**
-- OrbitFrame: Reference frame specification
 - OrbitRepresentation: State representation format
 - AngleFormat: Angle unit specification
 - InterpolationMethod: Interpolation algorithm selection
@@ -34,7 +33,6 @@ from brahe._brahe import (
     CovarianceInterpolationMethod,
     InterpolationMethod,
     # Configuration enums
-    OrbitFrame,
     OrbitRepresentation,
     OrbitTrajectory,
     # Trajectory classes
@@ -48,7 +46,6 @@ __all__ = [
     "CovarianceInterpolationMethod",
     "InterpolationMethod",
     # Configuration enums
-    "OrbitFrame",
     "OrbitRepresentation",
     "OrbitTrajectory",
     # Trajectory classes

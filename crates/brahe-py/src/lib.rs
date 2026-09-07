@@ -1165,7 +1165,6 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_state_roe_to_eci, module)?)?;
 
     //* Trajectories *//
-    module.add_class::<PyOrbitFrame>()?;
     module.add_class::<PyOrbitRepresentation>()?;
     module.add_class::<PyAngleFormat>()?;
     module.add_class::<PyInterpolationMethod>()?;

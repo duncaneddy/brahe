@@ -35,6 +35,8 @@ mod registry;
 pub mod synodic;
 pub mod transform;
 
+pub(crate) use graph::{celestial_root, icrf_aligned_inertial};
+
 pub use custom::*;
 pub use eci_ecef::*;
 pub use emb::*;

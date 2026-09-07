@@ -13,7 +13,7 @@ bh.initialize_eop()
 
 # Create trajectory in ECI frame
 traj_eci = bh.OrbitTrajectory(
-    6, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None
+    6, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None
 )
 
 # Add states in ECI

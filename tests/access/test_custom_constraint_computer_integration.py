@@ -130,7 +130,7 @@ def test_custom_constraint_computer_polar_orbit():
     prop = bh.KeplerianPropagator(
         epoch,
         oe,
-        frame=bh.OrbitFrame.ECI,
+        frame=bh.CelestialFrame.ECI,
         representation=bh.OrbitRepresentation.KEPLERIAN,
         angle_format=bh.AngleFormat.RADIANS,
         step_size=60.0,
@@ -184,7 +184,7 @@ def test_constraint_computer_error_handling():
     propagator = bh.KeplerianPropagator(
         epoch,
         oe,
-        frame=bh.OrbitFrame.ECI,
+        frame=bh.CelestialFrame.ECI,
         representation=bh.OrbitRepresentation.KEPLERIAN,
         angle_format=bh.AngleFormat.RADIANS,
         step_size=60.0,
@@ -242,7 +242,7 @@ def test_constraint_computer_with_stateful_logic():
     propagator = bh.KeplerianPropagator(
         epoch,
         oe,
-        frame=bh.OrbitFrame.ECI,
+        frame=bh.CelestialFrame.ECI,
         representation=bh.OrbitRepresentation.KEPLERIAN,
         angle_format=bh.AngleFormat.RADIANS,
         step_size=60.0,
@@ -298,7 +298,7 @@ def test_constraint_computer_hemisphere_detection():
     prop = bh.KeplerianPropagator(
         epoch,
         oe,
-        frame=bh.OrbitFrame.ECI,
+        frame=bh.CelestialFrame.ECI,
         representation=bh.OrbitRepresentation.KEPLERIAN,
         angle_format=bh.AngleFormat.RADIANS,
         step_size=60.0,
@@ -337,7 +337,7 @@ def test_constraint_computer_hemisphere_detection():
     prop_south = bh.KeplerianPropagator(
         epoch,
         oe_south,
-        frame=bh.OrbitFrame.ECI,
+        frame=bh.CelestialFrame.ECI,
         representation=bh.OrbitRepresentation.KEPLERIAN,
         angle_format=bh.AngleFormat.RADIANS,
         step_size=60.0,

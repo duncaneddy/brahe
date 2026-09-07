@@ -27,29 +27,36 @@ use brahe::ccsds::common::{
     CCSDSFormat, CCSDSRefFrame, CCSDSTimeSystem, ODMHeader,
 };
 use brahe::ccsds::frames::ADMReferenceFrame;
-use brahe::ccsds::interop::ccsds_ref_frame_to_orbit_frame;
+use brahe::ccsds::interop::ccsds_ref_frame_to_reference_frame;
 use brahe::ccsds::oem::{OEM as RustOEM, OEMMetadata, OEMSegment, OEMStateVector};
 use brahe::ccsds::omm::OMM as RustOMM;
 use brahe::ccsds::opm::{OPM as RustOPM, OPMManeuver};
+use brahe::frames::{CelestialFrame, ReferenceFrame};
 use brahe::trajectories::DOrbitTrajectory;
-use brahe::trajectories::traits::OrbitFrame;
+
+/// Celestial frame an OEM segment's declared reference frame resolves to.
+///
+/// Every CCSDS reference frame maps onto a celestial frame; the error arm
+/// guards against a future mapping that does not.
+fn oem_segment_celestial_frame(
+    frame: &ReferenceFrame,
+) -> Result<CelestialFrame, brahe::utils::BraheError> {
+    match frame {
+        ReferenceFrame::Celestial(target) => Ok(*target),
+        other => Err(brahe::utils::BraheError::Error(format!(
+            "OEM segment frame {} is not a celestial frame",
+            other
+        ))),
+    }
+}
 
 /// Push all states from a trajectory into an OEM segment, converting to the
 /// segment's declared reference frame using the trajectory's frame-aware methods.
 fn push_trajectory_states(seg: &mut OEMSegment, traj: &DOrbitTrajectory) -> Result<(), brahe::utils::BraheError> {
-    let orbit_frame = ccsds_ref_frame_to_orbit_frame(&seg.metadata.ref_frame)?;
+    let frame = ccsds_ref_frame_to_reference_frame(&seg.metadata.ref_frame)?;
+    let target = oem_segment_celestial_frame(&frame)?;
     for epoch in traj.epochs.iter() {
-        let state = match orbit_frame {
-            OrbitFrame::EME2000 => traj.state_eme2000(*epoch)?,
-            OrbitFrame::GCRF => traj.state_gcrf(*epoch)?,
-            OrbitFrame::ECI => traj.state_eci(*epoch)?,
-            OrbitFrame::ECEF | OrbitFrame::ITRF => traj.state_itrf(*epoch)?,
-            OrbitFrame::BodyCenteredInertial(_) => {
-                return Err(brahe::utils::BraheError::Error(
-                    "body-centered inertial (non-Earth) trajectories cannot be exported to CCSDS Earth reference frames".to_string(),
-                ));
-            }
-        };
+        let state = traj.state_in_frame(target, *epoch)?;
         seg.states.push(OEMStateVector {
             epoch: *epoch,
             position: [state[0], state[1], state[2]],
@@ -1042,22 +1049,20 @@ impl PyOEMSegment {
                         "Parent is not an OEM object"
                     ))?;
                 let ref_frame = oem_bound.borrow().inner.segments[*seg_idx].metadata.ref_frame.clone();
-                let orbit_frame = ccsds_ref_frame_to_orbit_frame(&ref_frame).map_err(|e| {
+                let frame = ccsds_ref_frame_to_reference_frame(&ref_frame).map_err(|e| {
+                    pyo3::exceptions::PyValueError::new_err(format!(
+                        "Unsupported ref_frame for trajectory conversion: {}", e
+                    ))
+                })?;
+
+                let target = oem_segment_celestial_frame(&frame).map_err(|e| {
                     pyo3::exceptions::PyValueError::new_err(format!(
                         "Unsupported ref_frame for trajectory conversion: {}", e
                     ))
                 })?;
 
                 for epoch in traj.epochs.iter() {
-                    let state = match orbit_frame {
-                        OrbitFrame::EME2000 => traj.state_eme2000(*epoch),
-                        OrbitFrame::GCRF => traj.state_gcrf(*epoch),
-                        OrbitFrame::ECI => traj.state_eci(*epoch),
-                        OrbitFrame::ECEF | OrbitFrame::ITRF => traj.state_itrf(*epoch),
-                        OrbitFrame::BodyCenteredInertial(_) => Err(brahe::utils::BraheError::Error(
-                            "body-centered inertial (non-Earth) trajectories cannot be exported to CCSDS Earth reference frames".to_string(),
-                        )),
-                    }.map_err(|e| {
+                    let state = traj.state_in_frame(target, *epoch).map_err(|e| {
                         pyo3::exceptions::PyRuntimeError::new_err(format!(
                             "Failed to convert trajectory state at {}: {}", epoch, e
                         ))

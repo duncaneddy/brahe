@@ -3,14 +3,15 @@
 #[allow(unused_imports)]
 use brahe as bh;
 use bh::trajectories::SOrbitTrajectory;
-use bh::trajectories::traits::{OrbitFrame, OrbitRepresentation};
+use bh::frames::CelestialFrame;
+use bh::trajectories::traits::OrbitRepresentation;
 
 fn main() {
     bh::initialize_eop().unwrap();
 
     // Create trajectory in ECI frame, Cartesian representation
     let traj_eci = SOrbitTrajectory::new(
-        OrbitFrame::ECI,
+        CelestialFrame::ECI,
         OrbitRepresentation::Cartesian,
         None
     ).unwrap();
@@ -21,7 +22,7 @@ fn main() {
 
     // Create trajectory in ECEF frame, Cartesian representation
     let traj_ecef = SOrbitTrajectory::new(
-        OrbitFrame::ECEF,
+        CelestialFrame::ECEF,
         OrbitRepresentation::Cartesian,
         None
     ).unwrap();

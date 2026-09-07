@@ -703,7 +703,7 @@ def solved_bls():
 
     traj = bh.OrbitTrajectory(
         6,
-        bh.OrbitFrame.ECI,
+        bh.CelestialFrame.ECI,
         bh.OrbitRepresentation.CARTESIAN,
         None,
     )

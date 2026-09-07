@@ -3,7 +3,8 @@
 #[allow(unused_imports)]
 use brahe as bh;
 use bh::trajectories::SOrbitTrajectory;
-use bh::trajectories::traits::{OrbitFrame, OrbitRepresentation};
+use bh::frames::CelestialFrame;
+use bh::trajectories::traits::OrbitRepresentation;
 use bh::AngleFormat;
 
 fn main() {
@@ -11,14 +12,14 @@ fn main() {
 
     // Create trajectory in ECI frame, Keplerian representation with radians
     let _traj_kep_rad = SOrbitTrajectory::new(
-        OrbitFrame::ECI,
+        CelestialFrame::ECI,
         OrbitRepresentation::Keplerian,
         Some(AngleFormat::Radians)
     ).unwrap();
 
     // Create trajectory in ECI frame, Keplerian representation with degrees
     let _traj_kep_deg = SOrbitTrajectory::new(
-        OrbitFrame::ECI,
+        CelestialFrame::ECI,
         OrbitRepresentation::Keplerian,
         Some(AngleFormat::Degrees)
     ).unwrap();

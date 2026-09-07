@@ -850,7 +850,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use serial_test::{parallel, serial};
 
-    use std::f64::consts::TAU;
+    use std::f64::consts::PI;
 
     use crate::constants::AngleFormat;
     use crate::coordinates::geodetic::position_geodetic_to_ecef;
@@ -878,7 +878,7 @@ mod tests {
         assert_eq!(radec[0], 0.0);
 
         let radec_rad = position_inertial_to_radec(x, AngleFormat::Radians);
-        assert!(radec_rad[0] < TAU);
+        assert!(radec_rad[0] < 2.0 * PI);
         assert_eq!(radec_rad[0], 0.0);
 
         // The state form shares the normalization on both its branches.

@@ -119,12 +119,12 @@ pub fn oe_to_radians(oe: SVector6, angle_format: AngleFormat) -> SVector6 {
 /// # Examples
 ///
 /// ```
-/// use std::f64::consts::TAU;
+/// use std::f64::consts::PI;
 /// use brahe::math::angles::wrap_to_2pi;
 ///
-/// assert_eq!(wrap_to_2pi(TAU), 0.0);
+/// assert_eq!(wrap_to_2pi(2.0 * PI), 0.0);
 /// assert_eq!(wrap_to_2pi(-1.0e-17), 0.0);
-/// assert_eq!(wrap_to_2pi(3.0 * std::f64::consts::PI), std::f64::consts::PI);
+/// assert_eq!(wrap_to_2pi(3.0 * PI), PI);
 /// ```
 pub fn wrap_to_2pi(angle: f64) -> f64 {
     let wrapped = angle.rem_euclid(std::f64::consts::TAU);

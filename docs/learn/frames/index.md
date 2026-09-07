@@ -88,3 +88,9 @@ Learn more in [EME2000 ↔ GCRF Transformations](eme2000_gcrf.md)
 Equinox-based transformations from the GCRF to the mean equator and equinox of date (MOD) and the true equator and equinox of date (TOD), and from TOD to the ITRF through Greenwich apparent sidereal time. The chain is `[ITRF] = W R3(GAST) N P B [GCRF]` from the [SOFA C transformation cookbook](https://www.iausofa.org/s/sofa_pn_c.pdf), evaluated on the precession-nutation model shared with the GCRF ↔ ITRF transformation.
 
 Learn more in [GCRF ↔ MOD ↔ TOD Transformations](equinox_frames.md)
+
+### Precession-Nutation Model
+
+The GCRF ↔ ITRF and GCRF ↔ MOD ↔ TOD transformations evaluate the same precession-nutation model, IAU 2006/2000A by default, with the truncated IAU 2000B model selectable through a single global setting.
+
+Learn more in [Precession-Nutation Model](precession_nutation_model.md)

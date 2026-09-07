@@ -205,6 +205,7 @@ nav:
           - learn/frames/gcrf_itrf.md
           - learn/frames/eme2000_gcrf.md
           - learn/frames/equinox_frames.md
+          - learn/frames/precession_nutation_model.md
           - Vectorized Transformations: learn/frames/vectorized.md
           - Lunar Frames: learn/frames/lunar_frames.md
           - Mars Frames: learn/frames/mars_frames.md

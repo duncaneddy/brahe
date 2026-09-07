@@ -18,35 +18,13 @@ The ITRF is an Earth-centered Earth-fixed (ECEF) frame, meaning it rotates with 
 
 ## Transformation Model
 
-Brahe implements a Celestial Intermediate Origin (CIO) based transformation following IERS conventions, using the CIO-based theory with classical angles described in section 5.5 of the [SOFA C transformation cookbook](https://www.iausofa.org/s/sofa_pn_c.pdf). The precession-nutation model is IAU 2006/2000A by default and is selectable; see [Precession-Nutation Model](#precession-nutation-model). The transformation accounts for:
+Brahe implements a Celestial Intermediate Origin (CIO) based transformation following IERS conventions, using the CIO-based theory with classical angles described in section 5.5 of the [SOFA C transformation cookbook](https://www.iausofa.org/s/sofa_pn_c.pdf). The precession-nutation model is IAU 2006/2000A by default and is selectable; see [Precession-Nutation Model](precession_nutation_model.md). The transformation accounts for:
 
 - **Precession and nutation** of Earth's rotation axis
 - **Earth's rotation** about its instantaneous spin axis
 - **Polar motion** and UT1-UTC corrections
 
 These transformations are **time-dependent** and require Earth Orientation Parameters (EOP) for high accuracy. The transformations will use the currently loaded Earth orientation data provider to obtain the necessary parameters automatically. See [Earth Orientation Data](../eop/index.md) for more details.
-
-## Precession-Nutation Model
-
-Brahe evaluates the IAU 2006/2000A precession-nutation model by default. The truncated IAU 2000B model (IAU 2000 precession with the abridged IAU 2000B nutation series) is selectable with a single global setting that applies to every subsequent transformation, including the frame router and the batch forms:
-
-=== "Python"
-
-    ``` python
-    import brahe as bh
-
-    bh.set_precession_nutation_model(bh.PrecessionNutationModel.IAU2000B)
-    ```
-
-=== "Rust"
-
-    ``` rust
-    use brahe::frames::*;
-
-    set_precession_nutation_model(PrecessionNutationModel::IAU2000B);
-    ```
-
-IAU 2000B evaluates the Celestial Intermediate Pole about eight times faster than IAU 2006/2000A, because its nutation series has 77 terms instead of roughly 1300. The two models place the pole within 0.3 mas RMS and 1.2 mas at worst over 1990 to 2040, which moves a position by at most 25 cm at geostationary altitude and 4 cm in low Earth orbit. Use IAU 2000B where throughput matters more than that difference, and the default elsewhere.
 
 ## GCRF to ITRF
 

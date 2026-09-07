@@ -14,9 +14,10 @@ use crate::ccsds::common::{
     CCSDSCovariance, CCSDSFormat, CCSDSRefFrame, CCSDSSpacecraftParameters, CCSDSTimeSystem,
     CCSDSUserDefined, ODMHeader,
 };
-use crate::ccsds::interop::odm_native_frame;
+use crate::ccsds::interop::odm_celestial_frame;
 use crate::frames::{CelestialFrame, ReferenceFrame, state_frame_to_frame};
 use crate::math::SVector6;
+use crate::spice::NAIFId;
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
 
@@ -242,9 +243,9 @@ impl OPM {
     ///
     /// # Returns
     /// * `Ok(SVector6)`: `[x, y, z, vx, vy, vz]` in `frame`. Units: (*m*; *m/s*)
-    /// * `Err(BraheError)`: If `REF_FRAME` has no native axes, if `CENTER_NAME`
-    ///   is not a known NAIF body name or ID, or if the router cannot convert
-    ///   between the two frames
+    /// * `Err(BraheError)`: If `REF_FRAME` has no `FrameAxes` equivalent, if
+    ///   `CENTER_NAME` is not a known NAIF body name or ID, or if the router
+    ///   cannot convert between the two frames
     ///
     /// # Examples
     /// ```
@@ -259,10 +260,10 @@ impl OPM {
     /// let x_gcrf = opm.state_in_frame(CelestialFrame::GCRF).unwrap();
     /// ```
     pub fn state_in_frame(&self, frame: impl Into<ReferenceFrame>) -> Result<SVector6, BraheError> {
-        let (native, frozen_epoch) = odm_native_frame(
+        let (message_frame, frozen_epoch) = odm_celestial_frame(
             &self.metadata.ref_frame,
             self.metadata.ref_frame_epoch,
-            &self.metadata.center_name,
+            NAIFId::from_name(&self.metadata.center_name)?,
         )?;
         let p = self.state_vector.position;
         let v = self.state_vector.velocity;
@@ -270,7 +271,7 @@ impl OPM {
         if let Some(epc) = frozen_epoch {
             x = state_frame_to_frame(CelestialFrame::TOD, CelestialFrame::GCRF, epc, x)?;
         }
-        state_frame_to_frame(native, frame, self.state_vector.epoch, x)
+        state_frame_to_frame(message_frame, frame, self.state_vector.epoch, x)
     }
 
     /// Parse an OPM message from a string, auto-detecting the format.
@@ -393,6 +394,28 @@ mod tests {
     }
 
     #[test]
+    #[serial]
+    fn test_opm_mci_ref_frame_resolves() {
+        setup_global_test_eop();
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample7.txt").unwrap();
+        assert_eq!(opm.metadata.ref_frame, CCSDSRefFrame::MCI);
+        assert_eq!(opm.metadata.center_name, "MARS");
+
+        // MCI names ICRF-aligned axes about Mars, which is exactly
+        // CelestialFrame::MCI, so no conversion is applied.
+        let raw = {
+            let p = opm.state_vector.position;
+            let v = opm.state_vector.velocity;
+            SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
+        };
+        assert_eq!(opm.state_in_frame(CelestialFrame::MCI).unwrap(), raw);
+
+        // The token survives a round trip through the writer.
+        assert_eq!(opm.metadata.ref_frame.to_string(), "MCI");
+        assert_eq!(CCSDSRefFrame::parse("MCI"), CCSDSRefFrame::MCI);
+    }
+
+    #[test]
     #[parallel]
     fn test_opm_icrf_ref_frame_resolves() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample8.txt").unwrap();
@@ -401,16 +424,16 @@ mod tests {
 
         // ICRF and GCRF name the same orientation, so both tokens resolve to
         // the ICRF axes and the center chooses the origin.
-        let (frame, frozen) = odm_native_frame(
+        let (frame, frozen) = odm_celestial_frame(
             &opm.metadata.ref_frame,
             opm.metadata.ref_frame_epoch,
-            &opm.metadata.center_name,
+            NAIFId::from_name(&opm.metadata.center_name).unwrap(),
         )
         .unwrap();
         assert_eq!(frame, CelestialFrame::SSBI);
         assert_eq!(frozen, None);
         assert_eq!(
-            odm_native_frame(&opm.metadata.ref_frame, None, "EARTH")
+            odm_celestial_frame(&opm.metadata.ref_frame, None, NAIFId::Earth)
                 .unwrap()
                 .0,
             CelestialFrame::GCRF

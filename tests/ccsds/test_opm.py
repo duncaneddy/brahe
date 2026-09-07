@@ -941,7 +941,7 @@ def test_opm_state_in_frame_invalid_type(eop):
 
 
 def test_opm_state_in_frame_unsupported_ref_frame(eop):
-    """A REF_FRAME with no native equivalent raises BraheError."""
+    """A REF_FRAME with no FrameAxes equivalent raises BraheError."""
     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2.txt")
     opm.ref_frame = "TEME"
     with pytest.raises(brahe.BraheError, match="TEME"):
@@ -972,6 +972,22 @@ def test_opm_state_in_frame_unknown_center_errors(eop):
         opm.state_in_frame(brahe.CelestialFrame.GCRF)
 
 
+def test_opm_mci_ref_frame_resolves(eop):
+    """Mirror of test_opm_mci_ref_frame_resolves in Rust."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample7.txt")
+    assert opm.ref_frame == "MCI"
+    assert opm.center_name == "MARS"
+
+    # MCI names ICRF-aligned axes about Mars, which is exactly
+    # CelestialFrame.MCI, so no conversion is applied.
+    x_mci = opm.state_in_frame(brahe.CelestialFrame.MCI)
+    np.testing.assert_array_equal(x_mci, opm.state)
+
+    # The token survives a round trip through the writer.
+    assert "MCI" in opm.to_string("kvn")
+    assert OPM.from_str(opm.to_string("kvn")).ref_frame == "MCI"
+
+
 def test_opm_icrf_ref_frame_resolves(eop):
     """Mirror of test_opm_icrf_ref_frame_resolves in Rust."""
     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample8.txt")
@@ -981,7 +997,7 @@ def test_opm_icrf_ref_frame_resolves(eop):
     # ICRF and GCRF name the same orientation, so both tokens resolve to the
     # ICRF axes and the center chooses the origin. CENTER_NAME = SSB resolves
     # through NAIFId.from_name to the solar system barycenter, making the
-    # native frame SSBI.
+    # message frame SSBI.
     x_ssbi = opm.state_in_frame(brahe.CelestialFrame.SSBI)
     np.testing.assert_allclose(x_ssbi, opm.state, atol=1e-9)
 

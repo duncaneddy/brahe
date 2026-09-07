@@ -1538,10 +1538,10 @@ def test_oem_to_trajectories_multi_segment(eop):
         )
 
 
-def test_odm_native_frame_center_names(eop):
-    """Mirror of test_odm_native_frame_center_names in Rust.
+def test_odm_celestial_frame_center_names(eop):
+    """Mirror of test_odm_celestial_frame_center_names in Rust.
 
-    `odm_native_frame` has no Python binding, so the joint
+    `odm_celestial_frame` has no Python binding, so the joint
     CENTER_NAME/REF_FRAME resolution is exercised through `OEM.from_file`.
     """
     mars = OEM.from_file("test_assets/ccsds/oem/OEMExample4.txt")
@@ -1578,8 +1578,8 @@ def test_odm_native_frame_center_names(eop):
         unknown.to_trajectories()
 
 
-def test_odm_native_frame_frozen_tod_mars_center(eop):
-    """Mirror of test_odm_native_frame_frozen_tod_mars_center in Rust.
+def test_odm_celestial_frame_frozen_tod_mars_center(eop):
+    """Mirror of test_odm_celestial_frame_frozen_tod_mars_center in Rust.
 
     A TOD segment with a REF_FRAME_EPOCH is frozen onto ICRF axes at that
     epoch; without one the axes stay of-date.

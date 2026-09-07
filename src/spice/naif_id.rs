@@ -4,6 +4,7 @@
 
 use crate::utils::errors::BraheError;
 use std::fmt;
+use std::str::FromStr;
 
 /// NAIF integer ID codes for solar-system bodies.
 ///
@@ -312,6 +313,39 @@ impl From<NAIFId> for i32 {
     }
 }
 
+impl FromStr for NAIFId {
+    type Err = BraheError;
+
+    /// Parses a NAIF body name, accepted alias, or integer ID string.
+    ///
+    /// Delegates to [`NAIFId::from_name`], so matching is case-insensitive,
+    /// underscores are treated as spaces, and a string that names no known
+    /// body is parsed as an integer NAIF ID.
+    ///
+    /// # Arguments
+    /// - `s`: A NAIF body name (e.g. `"MARS BARYCENTER"`), an accepted alias
+    ///   (e.g. `"SSB"`), or an integer NAIF ID string (e.g. `"2000001"`)
+    ///
+    /// # Returns
+    /// - The matching [`NAIFId`], or a [`BraheError::Error`] if `s` is
+    ///   neither a known NAIF body name nor a valid integer ID
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::spice::NAIFId;
+    ///
+    /// assert_eq!(
+    ///     "MARS BARYCENTER".parse::<NAIFId>().unwrap(),
+    ///     NAIFId::MarsBarycenter
+    /// );
+    /// assert_eq!("2000001".parse::<NAIFId>().unwrap(), NAIFId::Id(2000001));
+    /// assert!("not a body".parse::<NAIFId>().is_err());
+    /// ```
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        NAIFId::from_name(s)
+    }
+}
+
 impl PartialEq for NAIFId {
     fn eq(&self, other: &Self) -> bool {
         self.id() == other.id()
@@ -566,6 +600,32 @@ mod tests {
         );
         assert_eq!(NAIFId::EarthMoonBarycenter.name(), "EARTH MOON BARYCENTER");
         assert_eq!(NAIFId::MarsBarycenter.name(), "MARS BARYCENTER");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_naifid_from_str() {
+        assert_eq!(
+            "MARS BARYCENTER".parse::<NAIFId>().unwrap(),
+            NAIFId::MarsBarycenter
+        );
+        assert_eq!("mars".parse::<NAIFId>().unwrap(), NAIFId::Mars);
+        assert_eq!(
+            "ssb".parse::<NAIFId>().unwrap(),
+            NAIFId::SolarSystemBarycenter
+        );
+        assert_eq!("2000001".parse::<NAIFId>().unwrap(), NAIFId::Id(2000001));
+        assert_eq!(
+            NAIFId::from_str("EARTH_MOON_BARYCENTER").unwrap(),
+            NAIFId::EarthMoonBarycenter
+        );
+
+        let err = "PLANET X".parse::<NAIFId>().unwrap_err();
+        assert!(
+            err.to_string().contains("not a known NAIF body name or ID"),
+            "unexpected error message: {}",
+            err
+        );
     }
 
     #[test]

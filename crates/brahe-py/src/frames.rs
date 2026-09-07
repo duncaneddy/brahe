@@ -4035,7 +4035,7 @@ fn py_state_gse_to_gcrf<'py>(
 /// Rotating axes (`ITRF`, the body-fixed families, and the synodic
 /// families) carry transport-velocity terms that depend only on the axes'
 /// angular velocity, so they apply unchanged to a frame centered on a body
-/// other than the orientation's native one.
+/// other than the orientation's usual center.
 ///
 /// Example:
 ///     ```python

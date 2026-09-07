@@ -27,12 +27,12 @@ print(f"REF_FRAME = {seg.ref_frame}, CENTER_NAME = {seg.center_name}")
 traj = oem.to_trajectories()[0]
 print(f"\nTrajectory frame: {traj.frame}")
 
-# The trajectory's native frame is a CelestialFrame naming the (axes, center)
+# The trajectory's frame is a CelestialFrame naming the (axes, center)
 # pair; celestial_frame unwraps the ReferenceFrame and axes and center split
 # the result back into its two halves.
-native_frame = traj.frame.celestial_frame
-print(f"  Axes:   {native_frame.axes}")
-print(f"  Center: {native_frame.center.naif_name}")
+traj_frame = traj.frame.celestial_frame
+print(f"  Axes:   {traj_frame.axes}")
+print(f"  Center: {traj_frame.center.naif_name}")
 
 # Same-center conversion: EME2000 to MCI is a rotation only, both centered on
 # Mars.
@@ -54,6 +54,6 @@ print(
 )
 print(f"  Velocity (m/s): [{x_gcrf[3]:.3f}, {x_gcrf[4]:.3f}, {x_gcrf[5]:.3f}]")
 
-assert native_frame.center == bh.NAIFId.MARS
-assert native_frame.axes == bh.FrameAxes.EME2000
+assert traj_frame.center == bh.NAIFId.MARS
+assert traj_frame.axes == bh.FrameAxes.EME2000
 print("\nExample validated successfully!")

@@ -28,13 +28,13 @@ fn main() {
     );
 
     let traj = oem.to_trajectories().unwrap().remove(0);
-    let ReferenceFrame::Celestial(native_frame) = &traj.frame else {
+    let ReferenceFrame::Celestial(traj_frame) = &traj.frame else {
         panic!("OEM trajectory frame is always celestial");
     };
-    let native_frame = *native_frame;
-    println!("\nTrajectory frame: {}", native_frame);
-    println!("  Axes:   {}", native_frame.axes());
-    println!("  Center: {}", native_frame.center());
+    let traj_frame = *traj_frame;
+    println!("\nTrajectory frame: {}", traj_frame);
+    println!("  Axes:   {}", traj_frame.axes());
+    println!("  Center: {}", traj_frame.center());
 
     // Same-center conversion: EME2000 to MCI is a rotation only, both
     // centered on Mars.
@@ -68,7 +68,7 @@ fn main() {
         x_gcrf[3], x_gcrf[4], x_gcrf[5]
     );
 
-    assert_eq!(native_frame.center(), bh::NAIFId::Mars);
-    assert_eq!(native_frame.axes(), bh::FrameAxes::EME2000);
+    assert_eq!(traj_frame.center(), bh::NAIFId::Mars);
+    assert_eq!(traj_frame.axes(), bh::FrameAxes::EME2000);
     println!("\nExample validated successfully!");
 }

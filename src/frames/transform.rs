@@ -2930,7 +2930,7 @@ mod tests {
     #[parallel]
     fn test_centered_preserves_axes_at_foreign_center() {
         // A frame keeps its orientation when centered on a body other than
-        // the orientation's native one, so the router evaluates the same
+        // the orientation's usual center, so the router evaluates the same
         // rotation for it. `EMR`, `SER` and `GSE` name the same orientations
         // as their generic synodic pairs and canonicalize to them.
         let emr = FrameAxes::Synodic {

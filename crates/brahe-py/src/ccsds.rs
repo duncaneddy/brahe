@@ -30,7 +30,7 @@ use brahe::ccsds::frames::ADMReferenceFrame;
 use brahe::ccsds::oem::{OEM as RustOEM, OEMMetadata, OEMSegment, OEMStateVector};
 use brahe::ccsds::omm::OMM as RustOMM;
 use brahe::ccsds::opm::{OPM as RustOPM, OPMManeuver};
-use brahe::ccsds::interop::{segment_native_frame, state_into_segment_axes};
+use brahe::ccsds::interop::{segment_celestial_frame, state_into_segment_axes};
 use brahe::math::SVector6;
 use brahe::trajectories::DOrbitTrajectory;
 
@@ -48,7 +48,7 @@ fn trajectory_state_for_segment(
 /// Push all states from a trajectory into an OEM segment, converting to the
 /// frame the segment's metadata declares.
 fn push_trajectory_states(seg: &mut OEMSegment, traj: &DOrbitTrajectory) -> Result<(), brahe::utils::BraheError> {
-    let segment_frame = segment_native_frame(&seg.metadata)?;
+    let segment_frame = segment_celestial_frame(&seg.metadata)?;
     for epoch in traj.epochs.iter() {
         let state = trajectory_state_for_segment(&segment_frame, traj, epoch)?;
         seg.states.push(OEMStateVector {
@@ -1016,7 +1016,7 @@ impl PyOEMSegment {
     ///     trajectory (OrbitTrajectory): Orbital trajectory to import states from
     ///
     /// Raises:
-    ///     BraheError: If the segment's `ref_frame` has no native axes, if its `center_name` is not a known NAIF body name or ID, or if the router cannot convert the trajectory states into that frame
+    ///     BraheError: If the segment's `ref_frame` has no `FrameAxes` equivalent, if its `center_name` is not a known NAIF body name or ID, or if the router cannot convert the trajectory states into that frame
     ///
     /// Example:
     ///     ```python
@@ -1044,7 +1044,7 @@ impl PyOEMSegment {
                         "Parent is not an OEM object"
                     ))?;
                 let metadata = oem_bound.borrow().inner.segments[*seg_idx].metadata.clone();
-                let segment_frame = segment_native_frame(&metadata)?;
+                let segment_frame = segment_celestial_frame(&metadata)?;
 
                 for epoch in traj.epochs.iter() {
                     let state = trajectory_state_for_segment(&segment_frame, traj, epoch)?;
@@ -3816,7 +3816,7 @@ impl PyOPM {
     ///     numpy.ndarray: 6-element state vector [x, y, z, vx, vy, vz] in `frame` (position in meters, velocity in m/s)
     ///
     /// Raises:
-    ///     BraheError: If `REF_FRAME` has no native axes, if `CENTER_NAME` is not a known NAIF body name or ID, or if the router cannot convert between the two frames
+    ///     BraheError: If `REF_FRAME` has no `FrameAxes` equivalent, if `CENTER_NAME` is not a known NAIF body name or ID, or if the router cannot convert between the two frames
     ///
     /// Example:
     ///     ```python

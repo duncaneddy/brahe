@@ -19,7 +19,7 @@ use crate::utils::BraheError;
 /// frame router evaluates. Rotating axes (`ITRF`, the body-fixed families,
 /// and the synodic families) carry transport-velocity terms that depend
 /// only on the axes' angular velocity, so they apply unchanged to a frame
-/// centered on a body other than the orientation's native one.
+/// centered on a body other than the orientation's usual center.
 ///
 /// [`Display`](fmt::Display) prints the variant name, with the payload in
 /// parentheses for the parameterized variants. [`FromStr`] parses the

@@ -1,9 +1,14 @@
 //! Read an OPM with maneuvers, initialize a propagator, and apply each maneuver
 //! as an impulsive delta-V at the specified ignition epoch using TimeEvent callbacks.
+//!
+//! Each delta-V is expressed in the frame named by its MAN_REF_FRAME. Inertial
+//! vectors (J2000/EME2000) are rotated into GCRF by the frame bias, and RTN
+//! vectors are rotated by the RTN-to-inertial matrix built from the spacecraft
+//! state at the ignition epoch.
 //! FLAGS = [SLOW]
 
 use brahe as bh;
-use bh::ccsds::OPM;
+use bh::ccsds::{CCSDSRefFrame, OPM};
 use bh::events::{DTimeEvent, EventAction};
 use bh::traits::DStatePropagator;
 use nalgebra as na;
@@ -18,12 +23,8 @@ fn main() {
     println!("Epoch:  {}", opm.state_vector.epoch);
     println!("Maneuvers: {}", opm.maneuvers.len());
 
-    // Extract initial state (OPM is in TOD frame, treat it as ECEF for this example even though it's not correct)
-    let pos = opm.state_vector.position;
-    let vel = opm.state_vector.velocity;
-    let initial_state =
-        na::SVector::<f64, 6>::new(pos[0], pos[1], pos[2], vel[0], vel[1], vel[2]);
-    let state_eci = bh::state_ecef_to_eci(opm.state_vector.epoch, initial_state);
+    // Extract initial state; the OPM declares its state in the TOD frame
+    let state_eci = opm.state_in_frame(bh::CelestialFrame::GCRF).unwrap();
 
     // Spacecraft parameters
     let sc = opm.spacecraft_parameters.as_ref();
@@ -46,49 +47,65 @@ fn main() {
     .build()
     .unwrap();
 
-    // Add event detectors for inertial-frame maneuvers
-    let mut last_man_epoch = opm.state_vector.epoch;
+    // The message's ignition epochs precede its state epoch, so maneuvers are
+    // scheduled relative to the state epoch, preserving the spacing between them
+    let first_ignition = opm.maneuvers[0].epoch_ignition;
+    let scheduled_epochs: Vec<bh::Epoch> = opm
+        .maneuvers
+        .iter()
+        .map(|man| opm.state_vector.epoch + 3600.0 + (man.epoch_ignition - first_ignition))
+        .collect();
+
+    // The frame bias between EME2000 (alias J2000) and GCRF is epoch-independent
+    let r_eme2000_to_gcrf = bh::rotation_eme2000_to_gcrf();
+
+    // Add an event detector for each maneuver
     for (i, man) in opm.maneuvers.iter().enumerate() {
-        last_man_epoch = man.epoch_ignition;
-        let frame_str = format!("{}", man.ref_frame);
+        let sched_epoch = scheduled_epochs[i];
+        let dv = na::Vector3::new(man.dv[0], man.dv[1], man.dv[2]);
+        let dv_mag = dv.norm();
+        let idx = i;
 
-        // Only apply inertial-frame maneuvers (J2000/EME2000)
-        if frame_str == "J2000" || frame_str == "EME2000" {
-            let dv = man.dv;
-            let dv_mag = (dv[0].powi(2) + dv[1].powi(2) + dv[2].powi(2)).sqrt();
-            let idx = i;
+        // Inertial delta-Vs rotate into GCRF once; RTN delta-Vs depend on the
+        // state at the ignition epoch and rotate inside the callback
+        let is_rtn = match man.ref_frame {
+            CCSDSRefFrame::J2000 | CCSDSRefFrame::EME2000 => false,
+            CCSDSRefFrame::RTN => true,
+            ref other => panic!("Unsupported maneuver reference frame: {}", other),
+        };
+        let dv_frame = if is_rtn { dv } else { r_eme2000_to_gcrf * dv };
 
-            let callback: bh::events::DEventCallback = Box::new(
-                move |_t: bh::Epoch,
-                      state: &na::DVector<f64>,
-                      _params: Option<&na::DVector<f64>>|
-                      -> (Option<na::DVector<f64>>, Option<na::DVector<f64>>, EventAction) {
-                    let mut new_state = state.clone();
-                    new_state[3] += dv[0];
-                    new_state[4] += dv[1];
-                    new_state[5] += dv[2];
-                    println!(
-                        "  Applied maneuver {}: |dv|={:.3} m/s",
-                        idx, dv_mag
-                    );
-                    (Some(new_state), None, EventAction::Continue)
-                },
-            );
+        let callback: bh::events::DEventCallback = Box::new(
+            move |_t: bh::Epoch,
+                  state: &na::DVector<f64>,
+                  _params: Option<&na::DVector<f64>>|
+                  -> (Option<na::DVector<f64>>, Option<na::DVector<f64>>, EventAction) {
+                let dv_gcrf = if is_rtn {
+                    let x = na::SVector::<f64, 6>::from_column_slice(&state.as_slice()[..6]);
+                    bh::rotation_rtn_to_eci(x) * dv_frame
+                } else {
+                    dv_frame
+                };
+                let mut new_state = state.clone();
+                new_state[3] += dv_gcrf[0];
+                new_state[4] += dv_gcrf[1];
+                new_state[5] += dv_gcrf[2];
+                println!("  Applied maneuver {}: |dv|={:.3} m/s", idx, dv_gcrf.norm());
+                (Some(new_state), None, EventAction::Continue)
+            },
+        );
 
-            let event = DTimeEvent::new(man.epoch_ignition, format!("Maneuver-{}", i))
-                .with_callback(callback);
-            prop.add_event_detector(Box::new(event));
-            println!(
-                "  Registered maneuver {}: epoch={}, frame={}, |dv|={:.3} m/s",
-                i, man.epoch_ignition, frame_str, dv_mag
-            );
-        } else {
-            println!("  Skipping maneuver {} (RTN frame)", i);
-        }
+        let event =
+            DTimeEvent::new(sched_epoch, format!("Maneuver-{}", i)).with_callback(callback);
+        prop.add_event_detector(Box::new(event));
+        println!(
+            "  Registered maneuver {}: epoch={}, frame={}, |dv|={:.3} m/s",
+            i, sched_epoch, man.ref_frame, dv_mag
+        );
     }
 
     // Propagate past all maneuvers
-    let target = last_man_epoch + 3600.0;
+    let target = *scheduled_epochs.last().unwrap() + 3600.0;
     println!("\nPropagating to {}...", target);
     prop.propagate_to(target).unwrap();
 

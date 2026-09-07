@@ -27,22 +27,21 @@ use brahe::ccsds::common::{
     CCSDSFormat, CCSDSRefFrame, CCSDSTimeSystem, ODMHeader,
 };
 use brahe::ccsds::frames::ADMReferenceFrame;
-use brahe::ccsds::interop::ccsds_ref_frame_to_reference_frame;
 use brahe::ccsds::oem::{OEM as RustOEM, OEMMetadata, OEMSegment, OEMStateVector};
 use brahe::ccsds::omm::OMM as RustOMM;
 use brahe::ccsds::opm::{OPM as RustOPM, OPMManeuver};
 use brahe::frames::{CelestialFrame, ReferenceFrame};
 use brahe::trajectories::DOrbitTrajectory;
 
-/// Celestial frame an OEM segment's declared reference frame resolves to.
+/// Celestial frame an OEM segment's declared reference frame token resolves to.
 ///
-/// Every CCSDS reference frame maps onto a celestial frame; the error arm
-/// guards against a future mapping that does not.
+/// Every CCSDS reference frame with a native equivalent maps onto a celestial
+/// frame; the error arm guards against a future mapping that does not.
 fn oem_segment_celestial_frame(
-    frame: &ReferenceFrame,
+    ref_frame: &CCSDSRefFrame,
 ) -> Result<CelestialFrame, brahe::utils::BraheError> {
-    match frame {
-        ReferenceFrame::Celestial(target) => Ok(*target),
+    match ReferenceFrame::try_from(ref_frame)? {
+        ReferenceFrame::Celestial(target) => Ok(target),
         other => Err(brahe::utils::BraheError::Error(format!(
             "OEM segment frame {} is not a celestial frame",
             other
@@ -53,8 +52,7 @@ fn oem_segment_celestial_frame(
 /// Push all states from a trajectory into an OEM segment, converting to the
 /// segment's declared reference frame using the trajectory's frame-aware methods.
 fn push_trajectory_states(seg: &mut OEMSegment, traj: &DOrbitTrajectory) -> Result<(), brahe::utils::BraheError> {
-    let frame = ccsds_ref_frame_to_reference_frame(&seg.metadata.ref_frame)?;
-    let target = oem_segment_celestial_frame(&frame)?;
+    let target = oem_segment_celestial_frame(&seg.metadata.ref_frame)?;
     for epoch in traj.epochs.iter() {
         let state = traj.state_in_frame(target, *epoch)?;
         seg.states.push(OEMStateVector {
@@ -1019,6 +1017,9 @@ impl PyOEMSegment {
     /// Args:
     ///     trajectory (OrbitTrajectory): Orbital trajectory to import states from
     ///
+    /// Raises:
+    ///     BraheError: If the segment's declared reference frame has no native frame equivalent, or if the router cannot convert the trajectory states into it
+    ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
@@ -1034,11 +1035,7 @@ impl PyOEMSegment {
         let traj = &trajectory.trajectory;
         match &mut self.mode {
             SegmentMode::Owned { data } => {
-                push_trajectory_states(data, traj).map_err(|e| {
-                    pyo3::exceptions::PyRuntimeError::new_err(format!(
-                        "Failed to convert trajectory states: {}", e
-                    ))
-                })?;
+                push_trajectory_states(data, traj)?;
                 Ok(())
             }
             SegmentMode::Proxy { parent, seg_idx } => {
@@ -1049,24 +1046,10 @@ impl PyOEMSegment {
                         "Parent is not an OEM object"
                     ))?;
                 let ref_frame = oem_bound.borrow().inner.segments[*seg_idx].metadata.ref_frame.clone();
-                let frame = ccsds_ref_frame_to_reference_frame(&ref_frame).map_err(|e| {
-                    pyo3::exceptions::PyValueError::new_err(format!(
-                        "Unsupported ref_frame for trajectory conversion: {}", e
-                    ))
-                })?;
-
-                let target = oem_segment_celestial_frame(&frame).map_err(|e| {
-                    pyo3::exceptions::PyValueError::new_err(format!(
-                        "Unsupported ref_frame for trajectory conversion: {}", e
-                    ))
-                })?;
+                let target = oem_segment_celestial_frame(&ref_frame)?;
 
                 for epoch in traj.epochs.iter() {
-                    let state = traj.state_in_frame(target, *epoch).map_err(|e| {
-                        pyo3::exceptions::PyRuntimeError::new_err(format!(
-                            "Failed to convert trajectory state at {}: {}", epoch, e
-                        ))
-                    })?;
+                    let state = traj.state_in_frame(target, *epoch)?;
 
                     let pos = vec![state[0], state[1], state[2]];
                     let vel = vec![state[3], state[4], state[5]];
@@ -1647,8 +1630,8 @@ impl PyOEM {
 
     /// Convert a single OEM segment to an OrbitTrajectory.
     ///
-    /// The trajectory contains Cartesian state vectors (position/velocity)
-    /// in the reference frame specified by the segment metadata.
+    /// The trajectory contains Cartesian state vectors (position/velocity) in
+    /// the reference frame specified by the segment metadata.
     ///
     /// Args:
     ///     segment_idx (int): Index of the segment to convert (0-based)
@@ -3813,6 +3796,46 @@ impl PyOPM {
         self.inner.state_vector.position = [sv[0], sv[1], sv[2]];
         self.inner.state_vector.velocity = [sv[3], sv[4], sv[5]];
         Ok(())
+    }
+
+    /// State vector expressed in `frame` at the state-vector epoch.
+    ///
+    /// Maps the message's `REF_FRAME` onto its native frame and converts
+    /// through the reference frame router, so a message declared in `TOD`
+    /// yields a GCRF state directly usable for propagation.
+    ///
+    /// The native ODM frames are Earth-centered, so the message must declare
+    /// `CENTER_NAME = EARTH`. A `TOD` message that also carries a
+    /// `REF_FRAME_EPOCH` names the true-of-date axes frozen at that epoch, and
+    /// its state is converted from `TOD` at the frame epoch before routing.
+    ///
+    /// Args:
+    ///     frame (CelestialFrame | ReferenceFrame): Target reference frame
+    ///
+    /// Returns:
+    ///     numpy.ndarray: 6-element state vector [x, y, z, vx, vy, vz] in `frame` (position in meters, velocity in m/s)
+    ///
+    /// Raises:
+    ///     BraheError: If `CENTER_NAME` is not `EARTH`, if `REF_FRAME` has no native frame equivalent, or if the router cannot convert between the two frames
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.ccsds import OPM
+    ///
+    ///     bh.initialize_eop()
+    ///     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2.txt")
+    ///     x_gcrf = opm.state_in_frame(bh.CelestialFrame.GCRF)
+    ///     ```
+    #[pyo3(text_signature = "(frame)")]
+    fn state_in_frame<'py>(
+        &self,
+        py: Python<'py>,
+        frame: &Bound<'_, PyAny>,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+        let frame = extract_frame(frame)?;
+        let x = self.inner.state_in_frame(frame)?;
+        Ok(vec![x[0], x[1], x[2], x[3], x[4], x[5]].into_pyarray(py))
     }
 
     // --- keplerian properties ---

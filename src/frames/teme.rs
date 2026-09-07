@@ -104,14 +104,13 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_gmst82_matches_previous_polynomial_value() {
+    fn test_gmst82_matches_sgp4_polynomial_value() {
         setup_global_test_eop_original_brahe();
+        // IAU 1982 polynomial (Vallado, Revisiting Spacetrack Report #3,
+        // Appendix C) evaluated at the same UT1; the tolerance covers the
+        // JD-versus-MJD floating-point representation of UT1.
         let gmst = gmst82(iss_epoch());
-        // `crate::propagators::sgp_propagator::tle_gmst82` evaluates the same
-        // IAU 1982 polynomial as a single ~1e8 second magnitude sum, which
-        // loses precision that SOFA's split day-fraction form retains; the
-        // two disagree by ~2.5e-8 rad at this epoch.
-        assert_abs_diff_eq!(gmst, 3.2494565064865406, epsilon = 1e-7);
+        assert_abs_diff_eq!(gmst, 3.249456480084191, epsilon = 2e-9);
     }
 
     #[test]

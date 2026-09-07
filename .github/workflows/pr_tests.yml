@@ -3,25 +3,60 @@ name: PR Tests
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    paths-ignore:
-      - 'CHANGELOG.md'
-      - 'CITATION.cff'
-      - 'profiles/**'
 
 concurrency:
   group: pr-tests-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
+  # Decide whether this PR touches only files that cannot affect the build.
+  # The filter lives here rather than in a workflow-level `paths-ignore` because
+  # a filtered-out workflow never starts, so the `ci-success` job below is never
+  # created — and that job is the required status check on `main`. GitHub would
+  # leave it pending forever and block exactly the trivial PRs a path filter is
+  # meant to speed up. Running the workflow and skipping the expensive jobs
+  # inside it lets `ci-success` report success (it tolerates `skipped`).
   check-skip:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
     steps:
       - id: skip_check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Paths that cannot affect the build, tested against the full path of
+          # every file the PR changes.
+          IGNORED: '^(CHANGELOG\.md|CITATION\.cff)$|^profiles/'
         run: |
-          echo "should_skip=false" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          PR="repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}"
+          CHANGED=$(gh api "$PR" --jq '.changed_files')
+          # `previous_filename` is listed alongside `filename` so a rename is
+          # judged by both its old and its new path. Moving a source file into
+          # an ignored directory reports only the destination otherwise, and
+          # would read as an ignorable change.
+          FILES=$(gh api --paginate "$PR/files" \
+            --jq '.[] | .filename, (.previous_filename // empty)')
+          echo "Changed files ($CHANGED):"
+          echo "$FILES"
+          # Three ways to end up running the full suite:
+          #   - an empty list, meaning the file list could not be determined;
+          #   - a PR at or above the 3000-file cap on the `/files` endpoint,
+          #     where the list is truncated and may omit a relevant file;
+          #   - any listed path that is not build-irrelevant.
+          # A herestring, not a pipe: `grep -q` exits at its first match, and
+          # under `pipefail` the resulting SIGPIPE on `echo` would surface as a
+          # non-zero pipeline status, inverting this test.
+          if [ -n "$FILES" ] && [ "$CHANGED" -lt 3000 ] && ! grep -qvE "$IGNORED" <<< "$FILES"; then
+            echo "should_skip=true" >> "$GITHUB_OUTPUT"
+            echo "Every changed file is build-irrelevant; skipping test jobs."
+          else
+            echo "should_skip=false" >> "$GITHUB_OUTPUT"
+          fi
 
   test-rust:
     needs: [check-skip]

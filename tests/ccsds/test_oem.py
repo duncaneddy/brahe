@@ -1461,6 +1461,68 @@ def test_OEMSegment_add_trajectory_tod_from_gcrf(eop):
         assert np.linalg.norm(np.array(written.position) - sample[:3]) > 1.0e3
 
 
+def test_OEMSegment_add_trajectory_tod_of_epoch_from_gcrf(eop):
+    """A GCRF trajectory written to a TOD segment with REF_FRAME_EPOCH is rotated at the frozen epoch."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    ref_epoch = Epoch.from_datetime(2020, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    traj = brahe.OrbitTrajectory(
+        6, brahe.CelestialFrame.GCRF, brahe.OrbitRepresentation.CARTESIAN, None
+    )
+    sample = np.array([brahe.R_EARTH + 500e3, 1.0e5, -2.0e5, 10.0, 7.6e3, -5.0])
+    traj.add(epoch, sample)
+    seg = OEMSegment(
+        object_name="SAT",
+        object_id="2024-100A",
+        center_name="EARTH",
+        ref_frame="TOD",
+        time_system="UTC",
+        start_time=epoch,
+        stop_time=epoch + 60.0,
+        ref_frame_epoch=ref_epoch,
+    )
+    assert seg.ref_frame_epoch == ref_epoch
+    seg.add_trajectory(traj)
+    expected = brahe.state_gcrf_to_tod(ref_epoch, sample)
+    np.testing.assert_allclose(seg.states[0].position, expected[:3], atol=1e-9, rtol=0)
+    np.testing.assert_allclose(seg.states[0].velocity, expected[3:], atol=1e-12, rtol=0)
+    seg.ref_frame_epoch = None
+    assert seg.ref_frame_epoch is None
+
+
+def test_OEMSegment_add_trajectory_tod_of_epoch_from_gcrf_proxy(eop):
+    """Proxy-mode mirror of test_OEMSegment_add_trajectory_tod_of_epoch_from_gcrf."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    ref_epoch = Epoch.from_datetime(2020, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    traj = brahe.OrbitTrajectory(
+        6, brahe.CelestialFrame.GCRF, brahe.OrbitRepresentation.CARTESIAN, None
+    )
+    sample = np.array([brahe.R_EARTH + 500e3, 1.0e5, -2.0e5, 10.0, 7.6e3, -5.0])
+    traj.add(epoch, sample)
+
+    oem = OEM(originator="TEST")
+    seg_idx = oem.add_segment(
+        object_name="SAT",
+        object_id="2024-100A",
+        center_name="EARTH",
+        ref_frame="TOD",
+        time_system="UTC",
+        start_time=epoch,
+        stop_time=epoch + 60.0,
+    )
+    oem.segments[seg_idx].ref_frame_epoch = ref_epoch
+    assert oem.segments[seg_idx].ref_frame_epoch == ref_epoch
+
+    oem.segments[seg_idx].add_trajectory(traj)
+
+    seg = oem.segments[seg_idx]
+    expected = brahe.state_gcrf_to_tod(ref_epoch, sample)
+    np.testing.assert_allclose(seg.states[0].position, expected[:3], atol=1e-9, rtol=0)
+    np.testing.assert_allclose(seg.states[0].velocity, expected[3:], atol=1e-12, rtol=0)
+
+    oem.segments[seg_idx].ref_frame_epoch = None
+    assert oem.segments[seg_idx].ref_frame_epoch is None
+
+
 def _tdr_trajectory(epoch):
     """Build a two-sample GCRF trajectory for unsupported-frame tests.
 
@@ -1541,20 +1603,24 @@ def test_oem_register_for_rejects_unmapped_frame(eop, clear_frame_registries):
         oem.register_for("TDR_SAT")
 
 
-def test_oem_in_tod_with_frame_epoch_loads_as_gcrf_trajectory(
+def test_oem_in_tod_with_frame_epoch_loads_as_tod_of_epoch_trajectory(
     eop, clear_frame_registries
 ):
-    """Mirror of test_oem_in_tod_with_frame_epoch_loads_as_gcrf_trajectory in Rust."""
+    """Mirror of test_oem_in_tod_with_frame_epoch_loads_as_tod_of_epoch_trajectory in Rust."""
     raw = OEM.from_file("test_assets/ccsds/oem/test.oem")
     oem = OEM.from_file("test_assets/ccsds/oem/test_tod_epoch.oem")
     ref_epoch = Epoch.from_string("2019-09-08T00:00:00.0Z")
 
-    traj = oem.to_trajectories()[0]
-    assert traj.frame == brahe.CelestialFrame.GCRF
-
     _, x_raw = raw.to_trajectories()[0].get(0)
+
+    traj = oem.to_trajectories()[0]
+    assert traj.frame == brahe.CelestialFrame.tod_of_epoch(ref_epoch)
+    # Samples are stored unchanged in the declared frame.
+    epc, x_stored = traj.get(0)
+    np.testing.assert_array_equal(x_stored, x_raw)
+
+    x_gcrf = traj.to_frame(brahe.CelestialFrame.GCRF).get(0)[1]
     expected = brahe.state_tod_to_gcrf(ref_epoch, x_raw)
-    epc, x_gcrf = traj.get(0)
     np.testing.assert_allclose(x_gcrf, expected, atol=1e-9)
 
     of_date = brahe.state_tod_to_gcrf(epc, x_raw)
@@ -1562,6 +1628,23 @@ def test_oem_in_tod_with_frame_epoch_loads_as_gcrf_trajectory(
 
     oem.register_for("TOD_EPOCH_SAT")
     assert "TOD_EPOCH_SAT" in brahe.registered_objects()
+
+
+def test_oem_in_teme_with_frame_epoch_loads_as_teme_of_epoch_trajectory(
+    eop, clear_frame_registries
+):
+    """Mirror of test_oem_in_teme_with_frame_epoch_loads_as_teme_of_epoch_trajectory in Rust."""
+    oem = OEM.from_file("test_assets/ccsds/oem/test_tod_epoch.oem")
+    oem.segments[0].ref_frame = "TEME"
+    ref_epoch = Epoch.from_string("2019-09-08T00:00:00.0Z")
+
+    traj = oem.to_trajectories()[0]
+    assert traj.frame == brahe.CelestialFrame.teme_of_epoch(ref_epoch)
+    _, x_raw = traj.get(0)
+
+    x_gcrf = traj.to_frame(brahe.CelestialFrame.GCRF).get(0)[1]
+    expected = brahe.state_teme_to_gcrf(ref_epoch, x_raw)
+    np.testing.assert_allclose(x_gcrf, expected, atol=1e-9)
 
 
 def test_oem_to_trajectory_example4(eop):
@@ -1635,13 +1718,16 @@ def test_odm_celestial_frame_center_names(eop):
 def test_odm_celestial_frame_frozen_tod_mars_center(eop):
     """Mirror of test_odm_celestial_frame_frozen_tod_mars_center in Rust.
 
-    A TOD segment with a REF_FRAME_EPOCH is frozen onto ICRF axes at that
-    epoch; without one the axes stay of-date.
+    A TOD or TEME segment with a REF_FRAME_EPOCH loads in the corresponding
+    of-epoch frame; without one the axes stay of-date. A REF_FRAME_EPOCH on
+    any other token is ignored.
     """
+    ref_epoch = Epoch.from_string("2019-09-08T00:00:00.0Z")
+
     frozen = OEM.from_file("test_assets/ccsds/oem/test_tod_epoch.oem")
     frozen.segments[0].center_name = "MARS"
     assert frozen.to_trajectories()[0].frame == brahe.CelestialFrame.Centered(
-        499, brahe.FrameAxes.ICRF
+        499, brahe.FrameAxes.TODofEpoch(ref_epoch)
     )
 
     of_date = OEM.from_file("test_assets/ccsds/oem/test.oem")
@@ -1649,6 +1735,16 @@ def test_odm_celestial_frame_frozen_tod_mars_center(eop):
     assert of_date.to_trajectories()[0].frame == brahe.CelestialFrame.Centered(
         499, brahe.FrameAxes.TOD
     )
+
+    teme_frozen = OEM.from_file("test_assets/ccsds/oem/test_tod_epoch.oem")
+    teme_frozen.segments[0].ref_frame = "TEME"
+    assert teme_frozen.to_trajectories()[0].frame == brahe.CelestialFrame.teme_of_epoch(
+        ref_epoch
+    )
+
+    gcrf_frozen = OEM.from_file("test_assets/ccsds/oem/test_tod_epoch.oem")
+    gcrf_frozen.segments[0].ref_frame = "GCRF"
+    assert gcrf_frozen.to_trajectories()[0].frame == brahe.CelestialFrame.GCRF
 
 
 def test_OEMSegment_add_trajectory_uses_the_segment_center(eop):

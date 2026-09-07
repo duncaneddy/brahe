@@ -1024,6 +1024,12 @@ def test_opm_state_in_frame_frozen_tod_frame_epoch(eop):
     of_date = brahe.state_tod_to_gcrf(opm.epoch, opm.state)
     assert np.linalg.norm(x_gcrf[:3] - of_date[:3]) > 1.0
 
+    # The message data is expressed in the frozen frame directly, so
+    # requesting that frame back returns it unchanged.
+    np.testing.assert_array_equal(
+        opm.state_in_frame(brahe.CelestialFrame.tod_of_epoch(ref_epoch)), opm.state
+    )
+
 
 def test_opm_state_in_frame_teme(eop):
     """Mirror of test_opm_state_in_frame_teme in Rust."""

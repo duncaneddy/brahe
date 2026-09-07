@@ -294,13 +294,22 @@ pub enum CelestialFrame {
     ///
     /// The library constructs this variant only through
     /// [`CelestialFrame::centered`], which returns the named shorthand
-    /// whenever the `(axes, center)` pair has one, so a library-produced
-    /// `Centered` value never duplicates a named frame. Equality is
-    /// structural: a `Centered` literal written by hand for a pair that
-    /// does have a named form (e.g. `Centered { axes: FrameAxes::ITRF,
-    /// center: NAIFId::Earth }`) compares unequal to that shorthand
-    /// (`ITRF`) and is not recognized by code matching on the named
-    /// variant. Build frames with [`CelestialFrame::centered`].
+    /// whenever the `(axes, center)` pair has one, so no `Centered` value
+    /// the library produces holds a pair that a named variant already
+    /// describes. Equality is structural: a `Centered` literal written by
+    /// hand for a pair that does have a named form (e.g.
+    /// `Centered { axes: FrameAxes::ITRF, center: NAIFId::Earth }`)
+    /// compares unequal to that shorthand (`ITRF`) and is not recognized
+    /// by code matching on the named variant. Build frames with
+    /// [`CelestialFrame::centered`].
+    ///
+    /// One pair of representations shares a single canonical form rather
+    /// than being distinguished: `Synodic { Barycenter, 10, 399 }` and
+    /// `Synodic { Primary, 399, 10 }` describe the same coordinate systems
+    /// as [`CelestialFrame::SER`] and [`CelestialFrame::GSE`], and
+    /// `centered` returns the named frame for both, so those two generic
+    /// literals do not survive a `centered(f.axes(), f.center())` round
+    /// trip.
     Centered {
         /// Orientation of the frame's axes.
         axes: FrameAxes,
@@ -443,6 +452,13 @@ impl CelestialFrame {
     /// the same pair (`SER` and `Synodic { Barycenter, 10, 399 }`, `GSE`
     /// and `Synodic { Primary, 399, 10 }`), the named form is returned.
     ///
+    /// [`FrameAxes::EMR`], [`FrameAxes::SER`] and [`FrameAxes::GSE`] are
+    /// the same orientations as their generic synodic pairs, so they are
+    /// accepted at any center: `centered(FrameAxes::EMR, 3)` is
+    /// [`CelestialFrame::EMR`] and `centered(FrameAxes::EMR, 399)` is
+    /// `Synodic { Primary, 399, 301 }`, the Earth-centered frame with
+    /// those same axes.
+    ///
     /// # Arguments:
     /// - `axes`: Orientation of the frame's axes
     /// - `center`: NAIF ID of the frame's origin, as an `i32` or [`NAIFId`]
@@ -464,6 +480,24 @@ impl CelestialFrame {
     /// ```
     pub fn centered(axes: FrameAxes, center: impl Into<NAIFId>) -> CelestialFrame {
         let id = center.into().id();
+        // `EMR`, `SER` and `GSE` name the same orientations as their generic
+        // synodic pairs, so they share one representation; the pair arms
+        // below still return the named frames at their own centers.
+        let axes = match axes {
+            FrameAxes::EMR => FrameAxes::Synodic {
+                primary: 399,
+                secondary: 301,
+            },
+            FrameAxes::SER => FrameAxes::Synodic {
+                primary: 10,
+                secondary: 399,
+            },
+            FrameAxes::GSE => FrameAxes::Synodic {
+                primary: 399,
+                secondary: 10,
+            },
+            other => other,
+        };
         match (axes, id) {
             (FrameAxes::ICRF, 399) => CelestialFrame::GCRF,
             (FrameAxes::ICRF, 301) => CelestialFrame::LCI,
@@ -478,9 +512,6 @@ impl CelestialFrame {
             (FrameAxes::LunarPA, 301) => CelestialFrame::LFPA,
             (FrameAxes::LunarME, 301) => CelestialFrame::LFME,
             (FrameAxes::MarsFixed, 499) => CelestialFrame::MCMF,
-            (FrameAxes::EMR, 3) => CelestialFrame::EMR,
-            (FrameAxes::SER, c) if c == SUN_EARTH_BARYCENTER_ID => CelestialFrame::SER,
-            (FrameAxes::GSE, 399) => CelestialFrame::GSE,
             (FrameAxes::BodyFixedIAU(body), c) if body == c => CelestialFrame::BodyFixedIAU(body),
             (FrameAxes::BodyFixedPCK(frame_id), c) => CelestialFrame::BodyFixedPCK {
                 center: c,
@@ -2751,6 +2782,90 @@ mod tests {
                 399
             ),
             CelestialFrame::GSE
+        );
+        assert_eq!(
+            CelestialFrame::centered(FrameAxes::EMR, 3),
+            CelestialFrame::EMR
+        );
+        assert_eq!(
+            CelestialFrame::centered(FrameAxes::SER, SUN_EARTH_BARYCENTER_ID),
+            CelestialFrame::SER
+        );
+        assert_eq!(
+            CelestialFrame::centered(FrameAxes::GSE, 399),
+            CelestialFrame::GSE
+        );
+
+        // The named synodic axes are the same orientations as their generic
+        // pairs, so every center with a named `Synodic` form returns it.
+        assert_eq!(
+            CelestialFrame::centered(FrameAxes::EMR, 399),
+            CelestialFrame::Synodic {
+                origin: SynodicOrigin::Primary,
+                primary: 399,
+                secondary: 301
+            }
+        );
+        assert_eq!(
+            CelestialFrame::centered(FrameAxes::EMR, 301),
+            CelestialFrame::Synodic {
+                origin: SynodicOrigin::Secondary,
+                primary: 399,
+                secondary: 301
+            }
+        );
+        assert_eq!(
+            CelestialFrame::centered(FrameAxes::EMR, synodic_barycenter_id(399, 301)),
+            CelestialFrame::Synodic {
+                origin: SynodicOrigin::Barycenter,
+                primary: 399,
+                secondary: 301
+            }
+        );
+        assert_eq!(
+            CelestialFrame::centered(FrameAxes::SER, 10),
+            CelestialFrame::Synodic {
+                origin: SynodicOrigin::Primary,
+                primary: 10,
+                secondary: 399
+            }
+        );
+        assert_eq!(
+            CelestialFrame::centered(FrameAxes::SER, 399),
+            CelestialFrame::Synodic {
+                origin: SynodicOrigin::Secondary,
+                primary: 10,
+                secondary: 399
+            }
+        );
+        assert_eq!(
+            CelestialFrame::centered(FrameAxes::GSE, 10),
+            CelestialFrame::Synodic {
+                origin: SynodicOrigin::Secondary,
+                primary: 399,
+                secondary: 10
+            }
+        );
+        assert_eq!(
+            CelestialFrame::centered(FrameAxes::GSE, synodic_barycenter_id(399, 10)),
+            CelestialFrame::Synodic {
+                origin: SynodicOrigin::Barycenter,
+                primary: 399,
+                secondary: 10
+            }
+        );
+
+        // A named synodic orientation about an unrelated body still has no
+        // named form.
+        assert_eq!(
+            CelestialFrame::centered(FrameAxes::EMR, 499),
+            CelestialFrame::Centered {
+                axes: FrameAxes::Synodic {
+                    primary: 399,
+                    secondary: 301
+                },
+                center: NAIFId::Mars
+            }
         );
         let mars_eme = CelestialFrame::centered(FrameAxes::EME2000, 499);
         assert_eq!(

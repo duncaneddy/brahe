@@ -73,10 +73,11 @@ pub(crate) fn bci_fixed_frame(center: i32) -> Option<CelestialFrame> {
 /// Celestial center about which Keplerian elements declared in `frame` are
 /// defined.
 ///
-/// Elements are accepted in the ICRF-aligned inertial celestial frames and in
-/// the Earth equatorial frames `EME2000`, `MOD`, and `TOD`, whose axes are
-/// fixed or drift slowly enough that elements about them are well defined.
-/// Every other frame (body-fixed, orbit-relative, body) is rejected.
+/// Elements are accepted in any celestial frame whose axes are `ICRF`,
+/// `EME2000`, `MOD`, or `TOD`, at any center. The ICRF and EME2000 axes are
+/// fixed, and the of-date axes drift slowly enough with precession and
+/// nutation that elements about them are well defined. Every other frame
+/// (body-fixed, orbit-relative, body) is rejected.
 ///
 /// # Arguments
 /// * `frame` - Frame the elements are declared in
@@ -88,9 +89,9 @@ pub(crate) fn keplerian_center(frame: &ReferenceFrame) -> Result<i32, BraheError
     match frame {
         ReferenceFrame::Celestial(c)
             if matches!(
-                c,
-                CelestialFrame::EME2000 | CelestialFrame::MOD | CelestialFrame::TOD
-            ) || c.axes() == FrameAxes::ICRF =>
+                c.axes(),
+                FrameAxes::ICRF | FrameAxes::EME2000 | FrameAxes::MOD | FrameAxes::TOD
+            ) =>
         {
             Ok(c.center_naif_id())
         }
@@ -1058,10 +1059,25 @@ mod tests {
             keplerian_center(&CelestialFrame::BodyCenteredICRF(599).into()).unwrap(),
             599
         );
-        // EME2000 axes about a body other than Earth are not yet accepted.
-        assert!(
-            keplerian_center(&CelestialFrame::centered(FrameAxes::EME2000, 499).into()).is_err()
+        // EME2000 axes about a body other than Earth are accepted too, since
+        // acceptance turns on axes rather than a fixed list of named frames.
+        assert_eq!(
+            keplerian_center(&CelestialFrame::centered(FrameAxes::EME2000, 499).into()).unwrap(),
+            499
         );
+        // The of-date axes are accepted at any center for the same reason.
+        assert_eq!(
+            keplerian_center(&CelestialFrame::centered(FrameAxes::TOD, 499).into()).unwrap(),
+            499
+        );
+        assert_eq!(
+            keplerian_center(&CelestialFrame::centered(FrameAxes::MOD, 499).into()).unwrap(),
+            499
+        );
+        // Body-fixed axes about that same body are still rejected.
+        let err =
+            keplerian_center(&CelestialFrame::centered(FrameAxes::ITRF, 499).into()).unwrap_err();
+        assert!(err.to_string().contains("inertial frame"));
     }
 
     #[test]

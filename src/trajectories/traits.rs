@@ -6,9 +6,7 @@
  */
 
 use crate::constants::AngleFormat;
-use crate::frames::{
-    CelestialFrame, ReferenceFrame, iau_rotation_model_ids, icrf_aligned_inertial,
-};
+use crate::frames::{CelestialFrame, FrameAxes, ReferenceFrame, iau_rotation_model_ids};
 use crate::time::Epoch;
 use crate::utils::BraheError;
 use nalgebra::{DMatrix, SMatrix};
@@ -92,7 +90,7 @@ pub(crate) fn keplerian_center(frame: &ReferenceFrame) -> Result<i32, BraheError
             if matches!(
                 c,
                 CelestialFrame::EME2000 | CelestialFrame::MOD | CelestialFrame::TOD
-            ) || icrf_aligned_inertial(*c) == *c =>
+            ) || c.axes() == FrameAxes::ICRF =>
         {
             Ok(c.center_naif_id())
         }
@@ -1045,6 +1043,25 @@ mod tests {
         assert!(keplerian_center(&CelestialFrame::ITRF.into()).is_err());
         assert!(keplerian_center(&CelestialFrame::LFPA.into()).is_err());
         assert!(keplerian_center(&ReferenceFrame::RTN("SC")).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_keplerian_center_accepts_generic_icrf_frames() {
+        // Acceptance turns on the frame's axes, so the generic spelling of an
+        // ICRF-aligned frame is accepted alongside the named one.
+        assert_eq!(
+            keplerian_center(&CelestialFrame::BodyCenteredICRF(NAIFId::Earth.id()).into()).unwrap(),
+            NAIFId::Earth.id()
+        );
+        assert_eq!(
+            keplerian_center(&CelestialFrame::BodyCenteredICRF(599).into()).unwrap(),
+            599
+        );
+        // EME2000 axes about a body other than Earth are not yet accepted.
+        assert!(
+            keplerian_center(&CelestialFrame::centered(FrameAxes::EME2000, 499).into()).is_err()
+        );
     }
 
     #[test]

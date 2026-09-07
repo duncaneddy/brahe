@@ -11,28 +11,34 @@
  *
  * # Hub-and-spoke design
  *
- * Every conversion is performed in two independent steps:
+ * Every frame is the pair of an orientation and an origin,
+ * [`CelestialFrame::axes`] and [`CelestialFrame::center`], and every
+ * conversion is performed in two independent steps, one per half of that
+ * pair:
  *
  * 1. **Orientation**: the state is rotated from the source frame's axes
  *    into ICRF axes (still centered on the source frame's origin), using
- *    the exact pairwise rotation/transport-velocity transform for that
- *    frame. [`CelestialFrame::GCRF`], [`CelestialFrame::LCI`],
+ *    the exact pairwise rotation/transport-velocity transform for those
+ *    axes. The transform is selected by [`CelestialFrame::axes`] alone, so
+ *    a given orientation is evaluated identically whatever body the frame
+ *    is centered on. Frames whose axes are [`FrameAxes::ICRF`] --
+ *    [`CelestialFrame::GCRF`], [`CelestialFrame::LCI`],
  *    [`CelestialFrame::MCI`], [`CelestialFrame::EMBI`],
- *    [`CelestialFrame::SSBI`], and [`CelestialFrame::BodyCenteredICRF`] are
- *    already ICRF-aligned (this crate treats GCRF, LCI, MCI, and the ICRF
- *    as equivalent axes, consistent with [`crate::frames::lunar`] and
+ *    [`CelestialFrame::SSBI`], and [`CelestialFrame::BodyCenteredICRF`] --
+ *    are already ICRF-aligned (this crate treats GCRF, LCI, MCI, and the
+ *    ICRF as equivalent axes, consistent with [`crate::frames::lunar`] and
  *    [`crate::frames::mars`]), so this step is the identity for them.
- * 2. **Translation**: if the source and target frames are centered on
- *    different bodies, the ICRF-axis state is re-centered using
- *    `center_offset_state`, the single seam where a body-to-body
- *    translation is looked up (currently always via SPK; a future
- *    analytic ephemeris provider would plug in here without touching any
- *    other code in this module).
+ * 2. **Translation**: if the source and target frames'
+ *    [`CelestialFrame::center`] values differ, the ICRF-axis state is
+ *    re-centered using `center_offset_state`, the single seam where a
+ *    body-to-body translation is looked up (currently always via SPK; a
+ *    future analytic ephemeris provider would plug in here without
+ *    touching any other code in this module).
  *
  * The target frame's axes are then produced by inverting step 1 for the
  * target frame. Same-center conversions (e.g. GCRF <-> ITRF, LCI <->
- * LFPA) skip the translation step entirely, so that step never queries
- * SPK. This does not make step 1 SPK-free for every frame: EMR, SER, and
+ * LFPA, or Mars-centered EME2000 <-> MCI) skip the translation step
+ * entirely, so that step never queries SPK. This does not make step 1 SPK-free for every frame: EMR, SER, and
  * GSE orientations are themselves derived from SPK state/acceleration
  * (auto-loading `de440s`), so even a same-center conversion like GCRF <->
  * GSE queries SPK during step 1. The router is bit-identical to the
@@ -576,47 +582,37 @@ impl CelestialFrame {
     /// ICRF-aligned; inverts the frame's body-fixed transport transform
     /// otherwise.
     fn state_to_icrf_axes(&self, epc: Epoch, x: SVector6) -> Result<SVector6, BraheError> {
-        match self {
-            CelestialFrame::GCRF
-            | CelestialFrame::LCI
-            | CelestialFrame::MCI
-            | CelestialFrame::EMBI
-            | CelestialFrame::SSBI
-            | CelestialFrame::BodyCenteredICRF(_) => Ok(x),
-            CelestialFrame::ITRF => Ok(super::gcrf_itrf::state_itrf_to_gcrf(epc, x)),
-            CelestialFrame::EME2000 => Ok(super::eme_2000::state_eme2000_to_gcrf(x)),
-            CelestialFrame::MOD => Ok(state_mod_to_gcrf(epc, x)),
-            CelestialFrame::TOD => Ok(state_tod_to_gcrf(epc, x)),
-            CelestialFrame::LFPA => Ok(super::lunar::state_lfpa_to_lci(epc, x)),
-            CelestialFrame::LFME => Ok(super::lunar::state_lfme_to_lci(epc, x)),
-            CelestialFrame::MCMF => Ok(super::mars::state_mcmf_to_mci(epc, x)),
-            CelestialFrame::EMR => {
+        match self.axes() {
+            FrameAxes::ICRF => Ok(x),
+            FrameAxes::ITRF => Ok(super::gcrf_itrf::state_itrf_to_gcrf(epc, x)),
+            FrameAxes::EME2000 => Ok(super::eme_2000::state_eme2000_to_gcrf(x)),
+            FrameAxes::MOD => Ok(state_mod_to_gcrf(epc, x)),
+            FrameAxes::TOD => Ok(state_tod_to_gcrf(epc, x)),
+            FrameAxes::LunarPA => Ok(super::lunar::state_lfpa_to_lci(epc, x)),
+            FrameAxes::LunarME => Ok(super::lunar::state_lfme_to_lci(epc, x)),
+            FrameAxes::MarsFixed => Ok(super::mars::state_mcmf_to_mci(epc, x)),
+            FrameAxes::EMR => {
                 let (s, s_dot) = super::synodic::emr_axes(epc)?;
                 Ok(super::synodic::state_synodic_to_inertial(&s, &s_dot, x))
             }
-            CelestialFrame::SER => {
+            FrameAxes::SER => {
                 let (s, s_dot) = super::synodic::ser_axes(epc)?;
                 Ok(super::synodic::state_synodic_to_inertial(&s, &s_dot, x))
             }
-            CelestialFrame::GSE => {
+            FrameAxes::GSE => {
                 let (s, s_dot) = super::synodic::gse_axes(epc)?;
                 Ok(super::synodic::state_synodic_to_inertial(&s, &s_dot, x))
             }
-            CelestialFrame::BodyFixedIAU(id) => state_iau_body_to_icrf(*id, epc, x),
-            CelestialFrame::BodyFixedPCK { frame_id, .. } => {
-                state_pck_body_to_icrf(*frame_id, epc, x)
-            }
-            CelestialFrame::BodyFixedCustom { key, .. } => {
-                let (r_mat, omega) = super::custom::custom_frame_rotation_and_omega(*key, epc)?;
+            FrameAxes::BodyFixedIAU(id) => state_iau_body_to_icrf(id, epc, x),
+            FrameAxes::BodyFixedPCK(frame_id) => state_pck_body_to_icrf(frame_id, epc, x),
+            FrameAxes::BodyFixedCustom(key) => {
+                let (r_mat, omega) = super::custom::custom_frame_rotation_and_omega(key, epc)?;
                 Ok(state_rotating_to_inertial(&r_mat, &omega, &x))
             }
-            CelestialFrame::Synodic {
-                primary, secondary, ..
-            } => {
-                let (s, s_dot) = super::synodic::generic_synodic_axes(epc, *primary, *secondary)?;
+            FrameAxes::Synodic { primary, secondary } => {
+                let (s, s_dot) = super::synodic::generic_synodic_axes(epc, primary, secondary)?;
                 Ok(super::synodic::state_synodic_to_inertial(&s, &s_dot, x))
             }
-            CelestialFrame::Centered { axes, .. } => axes_carrier(*axes).state_to_icrf_axes(epc, x),
         }
     }
 
@@ -624,56 +620,44 @@ impl CelestialFrame {
     /// origin) into this frame's own axes. Inverse of
     /// [`CelestialFrame::state_to_icrf_axes`].
     fn state_from_icrf_axes(&self, epc: Epoch, x_icrf: SVector6) -> Result<SVector6, BraheError> {
-        match self {
-            CelestialFrame::GCRF
-            | CelestialFrame::LCI
-            | CelestialFrame::MCI
-            | CelestialFrame::EMBI
-            | CelestialFrame::SSBI
-            | CelestialFrame::BodyCenteredICRF(_) => Ok(x_icrf),
-            CelestialFrame::ITRF => Ok(super::gcrf_itrf::state_gcrf_to_itrf(epc, x_icrf)),
-            CelestialFrame::EME2000 => Ok(super::eme_2000::state_gcrf_to_eme2000(x_icrf)),
-            CelestialFrame::MOD => Ok(state_gcrf_to_mod(epc, x_icrf)),
-            CelestialFrame::TOD => Ok(state_gcrf_to_tod(epc, x_icrf)),
-            CelestialFrame::LFPA => Ok(super::lunar::state_lci_to_lfpa(epc, x_icrf)),
-            CelestialFrame::LFME => Ok(super::lunar::state_lci_to_lfme(epc, x_icrf)),
-            CelestialFrame::MCMF => Ok(super::mars::state_mci_to_mcmf(epc, x_icrf)),
-            CelestialFrame::EMR => {
+        match self.axes() {
+            FrameAxes::ICRF => Ok(x_icrf),
+            FrameAxes::ITRF => Ok(super::gcrf_itrf::state_gcrf_to_itrf(epc, x_icrf)),
+            FrameAxes::EME2000 => Ok(super::eme_2000::state_gcrf_to_eme2000(x_icrf)),
+            FrameAxes::MOD => Ok(state_gcrf_to_mod(epc, x_icrf)),
+            FrameAxes::TOD => Ok(state_gcrf_to_tod(epc, x_icrf)),
+            FrameAxes::LunarPA => Ok(super::lunar::state_lci_to_lfpa(epc, x_icrf)),
+            FrameAxes::LunarME => Ok(super::lunar::state_lci_to_lfme(epc, x_icrf)),
+            FrameAxes::MarsFixed => Ok(super::mars::state_mci_to_mcmf(epc, x_icrf)),
+            FrameAxes::EMR => {
                 let (s, s_dot) = super::synodic::emr_axes(epc)?;
                 Ok(super::synodic::state_inertial_to_synodic(
                     &s, &s_dot, x_icrf,
                 ))
             }
-            CelestialFrame::SER => {
+            FrameAxes::SER => {
                 let (s, s_dot) = super::synodic::ser_axes(epc)?;
                 Ok(super::synodic::state_inertial_to_synodic(
                     &s, &s_dot, x_icrf,
                 ))
             }
-            CelestialFrame::GSE => {
+            FrameAxes::GSE => {
                 let (s, s_dot) = super::synodic::gse_axes(epc)?;
                 Ok(super::synodic::state_inertial_to_synodic(
                     &s, &s_dot, x_icrf,
                 ))
             }
-            CelestialFrame::BodyFixedIAU(id) => state_icrf_to_iau_body(*id, epc, x_icrf),
-            CelestialFrame::BodyFixedPCK { frame_id, .. } => {
-                state_icrf_to_pck_body(*frame_id, epc, x_icrf)
-            }
-            CelestialFrame::BodyFixedCustom { key, .. } => {
-                let (r_mat, omega) = super::custom::custom_frame_rotation_and_omega(*key, epc)?;
+            FrameAxes::BodyFixedIAU(id) => state_icrf_to_iau_body(id, epc, x_icrf),
+            FrameAxes::BodyFixedPCK(frame_id) => state_icrf_to_pck_body(frame_id, epc, x_icrf),
+            FrameAxes::BodyFixedCustom(key) => {
+                let (r_mat, omega) = super::custom::custom_frame_rotation_and_omega(key, epc)?;
                 Ok(state_inertial_to_rotating(&r_mat, &omega, &x_icrf))
             }
-            CelestialFrame::Synodic {
-                primary, secondary, ..
-            } => {
-                let (s, s_dot) = super::synodic::generic_synodic_axes(epc, *primary, *secondary)?;
+            FrameAxes::Synodic { primary, secondary } => {
+                let (s, s_dot) = super::synodic::generic_synodic_axes(epc, primary, secondary)?;
                 Ok(super::synodic::state_inertial_to_synodic(
                     &s, &s_dot, x_icrf,
                 ))
-            }
-            CelestialFrame::Centered { axes, .. } => {
-                axes_carrier(*axes).state_from_icrf_axes(epc, x_icrf)
             }
         }
     }
@@ -893,73 +877,30 @@ fn state_pck_body_to_icrf(
     ))
 }
 
-/// A frame whose axes are `axes`, used to evaluate the orientation of a
-/// [`CelestialFrame::Centered`] frame. Orientation never depends on a
-/// frame's center, so any frame carrying `axes` yields the same rotation
-/// and transport-velocity terms. Never returns
-/// [`CelestialFrame::Centered`], so the router arms that delegate to it
-/// terminate.
-fn axes_carrier(axes: FrameAxes) -> CelestialFrame {
-    match axes {
-        FrameAxes::ICRF => CelestialFrame::GCRF,
-        FrameAxes::EME2000 => CelestialFrame::EME2000,
-        FrameAxes::MOD => CelestialFrame::MOD,
-        FrameAxes::TOD => CelestialFrame::TOD,
-        FrameAxes::ITRF => CelestialFrame::ITRF,
-        FrameAxes::LunarPA => CelestialFrame::LFPA,
-        FrameAxes::LunarME => CelestialFrame::LFME,
-        FrameAxes::MarsFixed => CelestialFrame::MCMF,
-        FrameAxes::EMR => CelestialFrame::EMR,
-        FrameAxes::SER => CelestialFrame::SER,
-        FrameAxes::GSE => CelestialFrame::GSE,
-        FrameAxes::BodyFixedIAU(id) => CelestialFrame::BodyFixedIAU(id),
-        FrameAxes::BodyFixedPCK(frame_id) => CelestialFrame::BodyFixedPCK {
-            center: NAIFId::SolarSystemBarycenter.id(),
-            frame_id,
-        },
-        FrameAxes::BodyFixedCustom(key) => CelestialFrame::BodyFixedCustom {
-            center: NAIFId::SolarSystemBarycenter.id(),
-            key,
-        },
-        FrameAxes::Synodic { primary, secondary } => CelestialFrame::Synodic {
-            origin: SynodicOrigin::Primary,
-            primary,
-            secondary,
-        },
-    }
-}
-
 /// Rotation matrix from ICRF axes to `frame`'s own axes at `epc`. Identity
-/// for ICRF-aligned frames.
+/// for ICRF-aligned frames. Depends only on `frame.axes()`: a frame's
+/// orientation is independent of the body it is centered on.
 fn icrf_to_frame_dcm(frame: CelestialFrame, epc: Epoch) -> Result<SMatrix3, BraheError> {
-    match frame {
-        CelestialFrame::GCRF
-        | CelestialFrame::LCI
-        | CelestialFrame::MCI
-        | CelestialFrame::EMBI
-        | CelestialFrame::SSBI
-        | CelestialFrame::BodyCenteredICRF(_) => Ok(SMatrix3::identity()),
-        CelestialFrame::ITRF => Ok(rotation_gcrf_to_itrf(epc)),
-        CelestialFrame::EME2000 => Ok(rotation_gcrf_to_eme2000()),
-        CelestialFrame::MOD => Ok(rotation_gcrf_to_mod(epc)),
-        CelestialFrame::TOD => Ok(rotation_gcrf_to_tod(epc)),
-        CelestialFrame::LFPA => Ok(rotation_lci_to_lfpa(epc)),
-        CelestialFrame::LFME => Ok(rotation_lci_to_lfme(epc)),
-        CelestialFrame::MCMF => Ok(rotation_mci_to_mcmf(epc)),
-        CelestialFrame::EMR => Ok(super::synodic::emr_axes(epc)?.0),
-        CelestialFrame::SER => Ok(super::synodic::ser_axes(epc)?.0),
-        CelestialFrame::GSE => Ok(super::synodic::gse_axes(epc)?.0),
-        CelestialFrame::BodyFixedIAU(id) => rotation_icrf_to_body_fixed_iau(id, epc),
-        CelestialFrame::BodyFixedPCK { frame_id, .. } => {
+    match frame.axes() {
+        FrameAxes::ICRF => Ok(SMatrix3::identity()),
+        FrameAxes::ITRF => Ok(rotation_gcrf_to_itrf(epc)),
+        FrameAxes::EME2000 => Ok(rotation_gcrf_to_eme2000()),
+        FrameAxes::MOD => Ok(rotation_gcrf_to_mod(epc)),
+        FrameAxes::TOD => Ok(rotation_gcrf_to_tod(epc)),
+        FrameAxes::LunarPA => Ok(rotation_lci_to_lfpa(epc)),
+        FrameAxes::LunarME => Ok(rotation_lci_to_lfme(epc)),
+        FrameAxes::MarsFixed => Ok(rotation_mci_to_mcmf(epc)),
+        FrameAxes::EMR => Ok(super::synodic::emr_axes(epc)?.0),
+        FrameAxes::SER => Ok(super::synodic::ser_axes(epc)?.0),
+        FrameAxes::GSE => Ok(super::synodic::gse_axes(epc)?.0),
+        FrameAxes::BodyFixedIAU(id) => rotation_icrf_to_body_fixed_iau(id, epc),
+        FrameAxes::BodyFixedPCK(frame_id) => {
             crate::spice::pck_rotation_matrix(frame_id, epc).map(|r| r.to_matrix())
         }
-        CelestialFrame::BodyFixedCustom { key, .. } => {
-            super::custom::custom_frame_rotation(key, epc)
+        FrameAxes::BodyFixedCustom(key) => super::custom::custom_frame_rotation(key, epc),
+        FrameAxes::Synodic { primary, secondary } => {
+            Ok(super::synodic::generic_synodic_axes(epc, primary, secondary)?.0)
         }
-        CelestialFrame::Synodic {
-            primary, secondary, ..
-        } => Ok(super::synodic::generic_synodic_axes(epc, primary, secondary)?.0),
-        CelestialFrame::Centered { axes, .. } => icrf_to_frame_dcm(axes_carrier(axes), epc),
     }
 }
 
@@ -1543,9 +1484,10 @@ mod tests {
     use crate::coordinates::state_koe_to_eci;
     use crate::frames::object_registry::FnProvider;
     use crate::frames::{
-        clear_object_registry, register_object, rotation_gcrf_to_mod, rotation_gcrf_to_tod,
-        rotation_mod_to_tod, rotation_tod_to_itrf, state_gcrf_to_mod, state_gcrf_to_tod,
-        state_mod_to_gcrf, state_tod_to_gcrf, state_tod_to_itrf,
+        clear_object_registry, register_object, rotation_eme2000_to_gcrf, rotation_gcrf_to_mod,
+        rotation_gcrf_to_tod, rotation_mod_to_tod, rotation_tod_to_itrf, state_eme2000_to_gcrf,
+        state_gcrf_to_mod, state_gcrf_to_tod, state_itrf_to_gcrf, state_mod_to_gcrf,
+        state_tod_to_gcrf, state_tod_to_itrf,
     };
     use crate::math::vector6_from_array;
     use crate::spice::spk_state;
@@ -2974,28 +2916,57 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_axes_carrier_preserves_axes() {
-        for a in [
-            FrameAxes::ICRF,
-            FrameAxes::EME2000,
-            FrameAxes::MOD,
-            FrameAxes::TOD,
-            FrameAxes::ITRF,
-            FrameAxes::LunarPA,
-            FrameAxes::LunarME,
-            FrameAxes::MarsFixed,
-            FrameAxes::EMR,
-            FrameAxes::SER,
-            FrameAxes::GSE,
-            FrameAxes::BodyFixedIAU(599),
-            FrameAxes::BodyFixedPCK(31008),
-            FrameAxes::BodyFixedCustom(7),
-            FrameAxes::Synodic {
-                primary: 10,
-                secondary: 599,
-            },
+    fn test_centered_preserves_axes_at_foreign_center() {
+        // A frame keeps its orientation when centered on a body other than
+        // the orientation's native one, so the router evaluates the same
+        // rotation for it. `EMR`, `SER` and `GSE` name the same orientations
+        // as their generic synodic pairs and canonicalize to them.
+        let emr = FrameAxes::Synodic {
+            primary: 399,
+            secondary: 301,
+        };
+        let ser = FrameAxes::Synodic {
+            primary: 10,
+            secondary: 399,
+        };
+        let gse = FrameAxes::Synodic {
+            primary: 399,
+            secondary: 10,
+        };
+        for (axes, expected) in [
+            (FrameAxes::ICRF, FrameAxes::ICRF),
+            (FrameAxes::EME2000, FrameAxes::EME2000),
+            (FrameAxes::MOD, FrameAxes::MOD),
+            (FrameAxes::TOD, FrameAxes::TOD),
+            (FrameAxes::ITRF, FrameAxes::ITRF),
+            (FrameAxes::LunarPA, FrameAxes::LunarPA),
+            (FrameAxes::LunarME, FrameAxes::LunarME),
+            (FrameAxes::MarsFixed, FrameAxes::MarsFixed),
+            (FrameAxes::EMR, emr),
+            (FrameAxes::SER, ser),
+            (FrameAxes::GSE, gse),
+            (FrameAxes::BodyFixedIAU(499), FrameAxes::BodyFixedIAU(499)),
+            (
+                FrameAxes::BodyFixedPCK(31008),
+                FrameAxes::BodyFixedPCK(31008),
+            ),
+            (FrameAxes::BodyFixedCustom(7), FrameAxes::BodyFixedCustom(7)),
+            (
+                FrameAxes::Synodic {
+                    primary: 10,
+                    secondary: 599,
+                },
+                FrameAxes::Synodic {
+                    primary: 10,
+                    secondary: 599,
+                },
+            ),
         ] {
-            assert_eq!(axes_carrier(a).axes(), a, "{a}");
+            assert_eq!(
+                CelestialFrame::centered(axes, 599).axes(),
+                expected,
+                "{axes}"
+            );
         }
     }
 
@@ -3020,5 +2991,76 @@ mod tests {
         assert!((x_mci - x).norm() > 1.0);
         let x_back = state_frame_to_frame(CelestialFrame::MCI, mars_itrf, epc, x_mci).unwrap();
         assert_abs_diff_eq!(x_back, x, epsilon = 1e-6);
+    }
+
+    #[test]
+    #[serial] // EOP global
+    fn test_centered_same_center_is_rotation_only() {
+        setup_global_test_eop();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let mars_eme = CelestialFrame::centered(FrameAxes::EME2000, 499);
+        let r = rotation_frame_to_frame(mars_eme, CelestialFrame::MCI, epc).unwrap();
+        let expected = rotation_eme2000_to_gcrf();
+        for i in 0..3 {
+            for j in 0..3 {
+                assert_eq!(r[(i, j)], expected[(i, j)]);
+            }
+        }
+        let x = SVector6::new(4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3);
+        let x_mci = state_frame_to_frame(mars_eme, CelestialFrame::MCI, epc, x).unwrap();
+        let back = state_frame_to_frame(CelestialFrame::MCI, mars_eme, epc, x_mci).unwrap();
+        for k in 0..6 {
+            assert_abs_diff_eq!(back[k], x[k], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    #[serial] // EOP + SPICE globals
+    fn test_centered_cross_center_matches_rotate_then_translate() {
+        setup_global_test_eop();
+        setup_global_test_spice();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let mars_eme = CelestialFrame::centered(FrameAxes::EME2000, 499);
+        let x = SVector6::new(4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3);
+        let direct = state_frame_to_frame(mars_eme, CelestialFrame::GCRF, epc, x).unwrap();
+        let x_mci = state_eme2000_to_gcrf(x);
+        let via =
+            state_frame_to_frame(CelestialFrame::MCI, CelestialFrame::GCRF, epc, x_mci).unwrap();
+        for k in 0..6 {
+            assert_abs_diff_eq!(direct[k], via[k], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    #[serial] // EOP + SPICE globals
+    fn test_centered_rotating_axes_round_trip() {
+        setup_global_test_eop();
+        setup_global_test_spice();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let mars_itrf = CelestialFrame::centered(FrameAxes::ITRF, 499);
+        let x = SVector6::new(4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3);
+        let x_gcrf = state_frame_to_frame(mars_itrf, CelestialFrame::GCRF, epc, x).unwrap();
+        let back = state_frame_to_frame(CelestialFrame::GCRF, mars_itrf, epc, x_gcrf).unwrap();
+        // The round trip passes through the Earth-relative hub state, whose
+        // magnitude is the Earth-Mars distance (~3.3e11 m at this epoch). The
+        // Mars-relative position is recovered by subtracting that offset
+        // again, so the residual is bounded by one ulp of 3.3e11 (~6.1e-5 m),
+        // and the velocity residual by the Earth rotation rate acting on it
+        // (7.29e-5 rad/s * 1e-4 m ~ 7.3e-9 m/s). Observed here: 5.8e-6 m and
+        // 4.2e-10 m/s.
+        for k in 0..3 {
+            assert_abs_diff_eq!(back[k], x[k], epsilon = 1e-4);
+        }
+        for k in 3..6 {
+            assert_abs_diff_eq!(back[k], x[k], epsilon = 1e-8);
+        }
+        // The transport term is the Earth rotation rate applied to the
+        // Mars-relative position: a same-center conversion to Mars-centered
+        // ICRF axes is the ITRF -> GCRF rotation alone.
+        let x_rot_only = state_itrf_to_gcrf(epc, x);
+        let x_icrf_axes = state_frame_to_frame(mars_itrf, CelestialFrame::MCI, epc, x).unwrap();
+        for k in 0..6 {
+            assert_abs_diff_eq!(x_icrf_axes[k], x_rot_only[k], epsilon = 1e-9);
+        }
     }
 }

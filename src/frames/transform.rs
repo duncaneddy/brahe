@@ -50,6 +50,7 @@
  * | Frame | Center (NAIF ID) |
  * |---|---|
  * | GCRF, ITRF, EME2000, MOD, TOD, TEME | Earth (399) |
+ * | `Centered { center, TODofEpoch(e) }`, `Centered { center, TEMEofEpoch(e) }` | `center` (Earth for `tod_of_epoch` / `teme_of_epoch`) |
  * | LCI, LFPA, LFME | Moon (301) |
  * | MCI, MCMF | Mars (499) |
  * | EMBI | Earth-Moon barycenter (3) |
@@ -85,17 +86,19 @@ use super::frame::ReferenceFrame;
 
 use super::eme_2000::rotation_gcrf_to_eme2000;
 use super::equinox::{
-    rotation_gcrf_to_mod, rotation_gcrf_to_tod, state_gcrf_to_mod, state_gcrf_to_tod,
-    state_mod_to_gcrf, state_tod_to_gcrf,
+    rotation_gcrf_to_mod, rotation_gcrf_to_tod, rotation_tod_to_gcrf, state_gcrf_to_mod,
+    state_gcrf_to_tod, state_mod_to_gcrf, state_tod_to_gcrf,
 };
 use super::gcrf_itrf::rotation_gcrf_to_itrf;
 use super::iau_rotation::{
     body_fixed_iau_angles_and_rates, euler313_omega_body, rotation_icrf_to_body_fixed_iau,
 };
-use super::kinematics::{state_inertial_to_rotating, state_rotating_to_inertial};
+use super::kinematics::{rotate_state, state_inertial_to_rotating, state_rotating_to_inertial};
 use super::lunar::{rotation_lci_to_lfme, rotation_lci_to_lfpa};
 use super::mars::rotation_mci_to_mcmf;
-use super::teme::{rotation_gcrf_to_teme, state_gcrf_to_teme, state_teme_to_gcrf};
+use super::teme::{
+    rotation_gcrf_to_teme, rotation_teme_to_gcrf, state_gcrf_to_teme, state_teme_to_gcrf,
+};
 
 /// Brahe-internal synthetic center ID for the Sun-Earth barycenter, the
 /// origin of [`CelestialFrame::SER`]. The SEB has no catalogued NAIF ID
@@ -196,6 +199,10 @@ fn synthetic_barycenter_pair(center: i32) -> Option<(i32, i32)> {
 ///   (rotating) frame for an arbitrary primary/secondary pair, of which
 ///   `EMR`/`SER`/`GSE` are specific configurations (see
 ///   [`CelestialFrame::Synodic`]).
+/// - `Centered { center, axes: TODofEpoch(e) | TEMEofEpoch(e) }`: the TOD
+///   or TEME axes frozen at `e`; inertial, rotation evaluated at the
+///   stored epoch regardless of the transform epoch (`tod_of_epoch` /
+///   `teme_of_epoch` build the Earth-centered ones).
 ///
 /// See the module-level documentation for the full center table and the
 /// hub-and-spoke conversion design.
@@ -639,6 +646,69 @@ impl CelestialFrame {
         }
     }
 
+    /// Epoch at which this frame's axes are held fixed.
+    ///
+    /// # Returns
+    /// - `Some(epoch)` when the axes are [`FrameAxes::TODofEpoch`] or
+    ///   [`FrameAxes::TEMEofEpoch`]; `None` for every other frame
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::frames::CelestialFrame;
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let e = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// assert_eq!(CelestialFrame::tod_of_epoch(e).frame_epoch(), Some(e));
+    /// assert_eq!(CelestialFrame::TOD.frame_epoch(), None);
+    /// ```
+    pub fn frame_epoch(&self) -> Option<Epoch> {
+        self.axes().frame_epoch()
+    }
+
+    /// Earth-centered frame whose axes are the true equator and equinox of
+    /// date frozen at `epoch`: `centered(399, FrameAxes::TODofEpoch(epoch))`.
+    ///
+    /// # Arguments
+    /// - `epoch`: Epoch at which the TOD axes are frozen
+    ///
+    /// # Returns
+    /// - `CelestialFrame`: Inertial Earth-centered frame with the TOD axes of `epoch`
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::frames::{CelestialFrame, FrameAxes};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let e = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let frame = CelestialFrame::tod_of_epoch(e);
+    /// assert_eq!(frame.axes(), FrameAxes::TODofEpoch(e));
+    /// ```
+    pub fn tod_of_epoch(epoch: Epoch) -> CelestialFrame {
+        CelestialFrame::centered(NAIFId::Earth, FrameAxes::TODofEpoch(epoch))
+    }
+
+    /// Earth-centered frame whose axes are TEME frozen at `epoch`:
+    /// `centered(399, FrameAxes::TEMEofEpoch(epoch))`.
+    ///
+    /// # Arguments
+    /// - `epoch`: Epoch at which the TEME axes are frozen
+    ///
+    /// # Returns
+    /// - `CelestialFrame`: Inertial Earth-centered frame with the TEME axes of `epoch`
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::frames::{CelestialFrame, FrameAxes};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let e = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let frame = CelestialFrame::teme_of_epoch(e);
+    /// assert_eq!(frame.axes(), FrameAxes::TEMEofEpoch(e));
+    /// ```
+    pub fn teme_of_epoch(epoch: Epoch) -> CelestialFrame {
+        CelestialFrame::centered(NAIFId::Earth, FrameAxes::TEMEofEpoch(epoch))
+    }
+
     /// Rotates a state from this frame's own axes (still centered on this
     /// frame's origin) into ICRF axes. Identity for frames already
     /// ICRF-aligned; inverts the frame's body-fixed transport transform
@@ -651,6 +721,8 @@ impl CelestialFrame {
             FrameAxes::MOD => Ok(state_mod_to_gcrf(epc, x)),
             FrameAxes::TOD => Ok(state_tod_to_gcrf(epc, x)),
             FrameAxes::TEME => Ok(state_teme_to_gcrf(epc, x)),
+            FrameAxes::TODofEpoch(e) => Ok(rotate_state(&rotation_tod_to_gcrf(e), &x)),
+            FrameAxes::TEMEofEpoch(e) => Ok(rotate_state(&rotation_teme_to_gcrf(e), &x)),
             FrameAxes::LunarPA => Ok(super::lunar::state_lfpa_to_lci(epc, x)),
             FrameAxes::LunarME => Ok(super::lunar::state_lfme_to_lci(epc, x)),
             FrameAxes::MarsFixed => Ok(super::mars::state_mcmf_to_mci(epc, x)),
@@ -690,6 +762,8 @@ impl CelestialFrame {
             FrameAxes::MOD => Ok(state_gcrf_to_mod(epc, x_icrf)),
             FrameAxes::TOD => Ok(state_gcrf_to_tod(epc, x_icrf)),
             FrameAxes::TEME => Ok(state_gcrf_to_teme(epc, x_icrf)),
+            FrameAxes::TODofEpoch(e) => Ok(rotate_state(&rotation_gcrf_to_tod(e), &x_icrf)),
+            FrameAxes::TEMEofEpoch(e) => Ok(rotate_state(&rotation_gcrf_to_teme(e), &x_icrf)),
             FrameAxes::LunarPA => Ok(super::lunar::state_lci_to_lfpa(epc, x_icrf)),
             FrameAxes::LunarME => Ok(super::lunar::state_lci_to_lfme(epc, x_icrf)),
             FrameAxes::MarsFixed => Ok(super::mars::state_mci_to_mcmf(epc, x_icrf)),
@@ -954,6 +1028,8 @@ fn icrf_to_frame_dcm(frame: CelestialFrame, epc: Epoch) -> Result<SMatrix3, Brah
         FrameAxes::MOD => Ok(rotation_gcrf_to_mod(epc)),
         FrameAxes::TOD => Ok(rotation_gcrf_to_tod(epc)),
         FrameAxes::TEME => Ok(rotation_gcrf_to_teme(epc)),
+        FrameAxes::TODofEpoch(e) => Ok(rotation_gcrf_to_tod(e)),
+        FrameAxes::TEMEofEpoch(e) => Ok(rotation_gcrf_to_teme(e)),
         FrameAxes::LunarPA => Ok(rotation_lci_to_lfpa(epc)),
         FrameAxes::LunarME => Ok(rotation_lci_to_lfme(epc)),
         FrameAxes::MarsFixed => Ok(rotation_mci_to_mcmf(epc)),
@@ -1554,9 +1630,9 @@ mod tests {
         clear_object_registry, polar_motion, register_object, rotation_eme2000_to_gcrf,
         rotation_gcrf_to_mod, rotation_gcrf_to_teme, rotation_gcrf_to_tod, rotation_mod_to_tod,
         rotation_teme_to_gcrf, rotation_teme_to_itrf, rotation_tod_to_itrf, state_eme2000_to_gcrf,
-        state_gcrf_to_mod, state_gcrf_to_teme, state_gcrf_to_tod, state_itrf_to_gcrf,
-        state_mod_to_gcrf, state_teme_to_gcrf, state_teme_to_itrf, state_tod_to_gcrf,
-        state_tod_to_itrf,
+        state_gcrf_to_itrf, state_gcrf_to_mod, state_gcrf_to_teme, state_gcrf_to_tod,
+        state_itrf_to_gcrf, state_mod_to_gcrf, state_teme_to_gcrf, state_teme_to_itrf,
+        state_tod_to_gcrf, state_tod_to_itrf,
     };
     use crate::math::vector6_from_array;
     use crate::spice::spk_state;
@@ -1888,9 +1964,75 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_of_epoch_rotation_ignores_transform_epoch() {
+        setup_global_test_eop();
+        let e = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let x = vector6_from_array([R_EARTH + 500e3, 1.0e6, -2.0e6, 100.0, 7500.0, 200.0]);
+        let tod = CelestialFrame::tod_of_epoch(e);
+        let teme = CelestialFrame::teme_of_epoch(e);
+        for dt in [
+            -3.0 * 365.25 * 86400.0,
+            0.0,
+            86400.0,
+            5.0 * 365.25 * 86400.0,
+        ] {
+            let t = e + dt;
+            assert_eq!(
+                rotation_frame_to_frame(CelestialFrame::GCRF, tod, t).unwrap(),
+                rotation_gcrf_to_tod(e)
+            );
+            assert_eq!(
+                rotation_frame_to_frame(teme, CelestialFrame::GCRF, t).unwrap(),
+                rotation_teme_to_gcrf(e)
+            );
+            let x_f = state_frame_to_frame(CelestialFrame::GCRF, tod, t, x).unwrap();
+            let r = rotation_gcrf_to_tod(e);
+            let p = r * Vector3::from(x.fixed_rows::<3>(0));
+            let v = r * Vector3::from(x.fixed_rows::<3>(3));
+            for k in 0..3 {
+                assert_eq!(x_f[k], p[k]);
+                assert_eq!(x_f[k + 3], v[k]);
+            }
+            let back = state_frame_to_frame(tod, CelestialFrame::GCRF, t, x_f).unwrap();
+            for k in 0..6 {
+                assert_abs_diff_eq!(back[k], x[k], epsilon = 1e-6);
+            }
+        }
+        let far = e + 5.0 * 365.25 * 86400.0;
+        let frozen = state_frame_to_frame(CelestialFrame::GCRF, tod, far, x).unwrap();
+        let of_date =
+            state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::TOD, far, x).unwrap();
+        assert!((frozen.fixed_rows::<3>(0) - of_date.fixed_rows::<3>(0)).norm() > 1.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_of_epoch_to_itrf_routes_through_icrf_axes_with_transport_term() {
+        setup_global_test_eop();
+        let e = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t = e + 86400.0;
+        let x = vector6_from_array([R_EARTH + 500e3, 1.0e6, -2.0e6, 100.0, 7500.0, 200.0]);
+        let teme = CelestialFrame::teme_of_epoch(e);
+        let via_router = state_frame_to_frame(teme, CelestialFrame::ITRF, t, x).unwrap();
+        let expected = state_gcrf_to_itrf(t, state_teme_to_gcrf(e, x));
+        for k in 0..6 {
+            assert_abs_diff_eq!(via_router[k], expected[k], epsilon = 1e-9);
+        }
+        assert_eq!(state_frame_to_frame(teme, teme, t, x).unwrap(), x);
+        // A foreign center composes the same rotation with the center translation.
+        let mars = CelestialFrame::centered(499, FrameAxes::TODofEpoch(e));
+        assert_eq!(
+            rotation_frame_to_frame(CelestialFrame::MCI, mars, t).unwrap(),
+            rotation_gcrf_to_tod(e)
+        );
+    }
+
+    #[test]
+    #[serial]
     fn test_router_roundtrip_all_pairs() {
         setup_global_test_eop();
         setup_global_test_spice();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let frames = [
             CelestialFrame::GCRF,
             CelestialFrame::ITRF,
@@ -1906,8 +2048,9 @@ mod tests {
             CelestialFrame::SER,
             CelestialFrame::GSE,
             CelestialFrame::TEME,
+            CelestialFrame::tod_of_epoch(epc),
+            CelestialFrame::teme_of_epoch(epc),
         ];
-        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let x = vector6_from_array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3]);
         // Position tolerance is looser than a same-magnitude round trip would
         // suggest because some pairs (e.g. MCI <-> EME2000) compose the
@@ -3217,7 +3360,28 @@ mod tests {
             .to_string(),
             "Synodic(10,599)"
         );
+        let e = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert_eq!(
+            FrameAxes::TODofEpoch(e).to_string(),
+            format!("TODofEpoch({})", e)
+        );
+        assert_eq!(
+            FrameAxes::TEMEofEpoch(e).to_string(),
+            format!("TEMEofEpoch({})", e)
+        );
         assert!("BodyFixedIAU(499)".parse::<FrameAxes>().is_err());
+        assert!(
+            FrameAxes::TODofEpoch(e)
+                .to_string()
+                .parse::<FrameAxes>()
+                .is_err()
+        );
+        assert!(
+            FrameAxes::TEMEofEpoch(e)
+                .to_string()
+                .parse::<FrameAxes>()
+                .is_err()
+        );
         assert!("nope".parse::<FrameAxes>().is_err());
     }
 
@@ -3227,6 +3391,39 @@ mod tests {
         let f = CelestialFrame::centered(499, FrameAxes::TOD);
         let s = serde_json::to_string(&f).unwrap();
         assert_eq!(serde_json::from_str::<CelestialFrame>(&s).unwrap(), f);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_of_epoch_constructors_center_axes_and_epoch() {
+        let e = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let tod = CelestialFrame::tod_of_epoch(e);
+        let teme = CelestialFrame::teme_of_epoch(e);
+        assert_eq!(tod, CelestialFrame::centered(399, FrameAxes::TODofEpoch(e)));
+        assert_eq!(
+            teme,
+            CelestialFrame::centered(NAIFId::Earth, FrameAxes::TEMEofEpoch(e))
+        );
+        assert!(matches!(tod, CelestialFrame::Centered { .. }));
+        assert_eq!(tod.axes(), FrameAxes::TODofEpoch(e));
+        assert_eq!(tod.center(), FrameCenter::Body(NAIFId::Earth));
+        assert_eq!(tod.center_naif_id(), 399);
+        assert_eq!(tod.frame_epoch(), Some(e));
+        assert_eq!(teme.frame_epoch(), Some(e));
+        assert_eq!(CelestialFrame::TOD.frame_epoch(), None);
+        assert_ne!(tod, CelestialFrame::TOD);
+        assert_ne!(tod, CelestialFrame::tod_of_epoch(e + 1.0));
+        assert_eq!(
+            tod.to_string(),
+            format!("Centered(EARTH, TODofEpoch({}))", e)
+        );
+        // A foreign center keeps the axes and the epoch.
+        let mars = CelestialFrame::centered(499, FrameAxes::TEMEofEpoch(e));
+        assert_eq!(mars.axes(), FrameAxes::TEMEofEpoch(e));
+        assert_eq!(mars.frame_epoch(), Some(e));
+        assert_eq!(CelestialFrame::centered(mars.center(), mars.axes()), mars);
+        let json = serde_json::to_string(&tod).unwrap();
+        assert_eq!(serde_json::from_str::<CelestialFrame>(&json).unwrap(), tod);
     }
 
     #[test]
@@ -3248,12 +3445,15 @@ mod tests {
             primary: 399,
             secondary: 10,
         };
+        let e = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         for (axes, expected) in [
             (FrameAxes::ICRF, FrameAxes::ICRF),
             (FrameAxes::EME2000, FrameAxes::EME2000),
             (FrameAxes::MOD, FrameAxes::MOD),
             (FrameAxes::TOD, FrameAxes::TOD),
             (FrameAxes::TEME, FrameAxes::TEME),
+            (FrameAxes::TODofEpoch(e), FrameAxes::TODofEpoch(e)),
+            (FrameAxes::TEMEofEpoch(e), FrameAxes::TEMEofEpoch(e)),
             (FrameAxes::ITRF, FrameAxes::ITRF),
             (FrameAxes::LunarPA, FrameAxes::LunarPA),
             (FrameAxes::LunarME, FrameAxes::LunarME),

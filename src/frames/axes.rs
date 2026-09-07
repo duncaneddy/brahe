@@ -11,6 +11,7 @@
 use std::fmt;
 use std::str::FromStr;
 
+use crate::time::Epoch;
 use crate::utils::BraheError;
 
 /// Orientation of a celestial frame, independent of its origin.
@@ -49,6 +50,13 @@ pub enum FrameAxes {
     /// Earth true equator and mean equinox of date, anchored to GMST 1982
     /// (the SGP4 output frame).
     TEME,
+    /// Earth true equator and equinox frozen at the carried epoch: the TOD
+    /// axes evaluated once at that epoch and held fixed, so the axes are
+    /// inertial. Used for CCSDS `TOD` with `REF_FRAME_EPOCH`.
+    TODofEpoch(Epoch),
+    /// TEME axes frozen at the carried epoch and held fixed, so the axes are
+    /// inertial. Used for CCSDS `TEME` with `REF_FRAME_EPOCH`.
+    TEMEofEpoch(Epoch),
     /// Earth-fixed (ITRF): bias-precession-nutation, Earth rotation, and
     /// polar motion.
     ITRF,
@@ -82,6 +90,30 @@ pub enum FrameAxes {
     },
 }
 
+impl FrameAxes {
+    /// Epoch at which epoch-frozen axes are held fixed.
+    ///
+    /// # Returns
+    /// - `Some(epoch)` for [`FrameAxes::TODofEpoch`] and
+    ///   [`FrameAxes::TEMEofEpoch`]; `None` for every other orientation
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::frames::FrameAxes;
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let e = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// assert_eq!(FrameAxes::TODofEpoch(e).frame_epoch(), Some(e));
+    /// assert_eq!(FrameAxes::TOD.frame_epoch(), None);
+    /// ```
+    pub fn frame_epoch(&self) -> Option<Epoch> {
+        match self {
+            FrameAxes::TODofEpoch(e) | FrameAxes::TEMEofEpoch(e) => Some(*e),
+            _ => None,
+        }
+    }
+}
+
 impl fmt::Display for FrameAxes {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -90,6 +122,8 @@ impl fmt::Display for FrameAxes {
             FrameAxes::MOD => write!(f, "MOD"),
             FrameAxes::TOD => write!(f, "TOD"),
             FrameAxes::TEME => write!(f, "TEME"),
+            FrameAxes::TODofEpoch(e) => write!(f, "TODofEpoch({})", e),
+            FrameAxes::TEMEofEpoch(e) => write!(f, "TEMEofEpoch({})", e),
             FrameAxes::ITRF => write!(f, "ITRF"),
             FrameAxes::LunarPA => write!(f, "LunarPA"),
             FrameAxes::LunarME => write!(f, "LunarME"),
@@ -113,8 +147,8 @@ impl FromStr for FrameAxes {
     /// Parses the twelve argument-free axes names case-insensitively.
     ///
     /// The parameterized variants (`BodyFixedIAU`, `BodyFixedPCK`,
-    /// `BodyFixedCustom`, `Synodic`) are not parseable from a string;
-    /// construct them directly.
+    /// `BodyFixedCustom`, `Synodic`, `TODofEpoch`, `TEMEofEpoch`) are not
+    /// parseable from a string; construct them directly.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.trim().to_ascii_uppercase().as_str() {
             "ICRF" => Ok(FrameAxes::ICRF),
@@ -144,6 +178,7 @@ mod tests {
     use serial_test::parallel;
 
     use super::*;
+    use crate::time::TimeSystem;
 
     #[test]
     #[parallel]
@@ -169,6 +204,32 @@ mod tests {
             .to_string(),
             "Synodic(399,301)"
         );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_frameaxes_of_epoch_display_epoch_and_equality() {
+        let e = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let tod = FrameAxes::TODofEpoch(e);
+        let teme = FrameAxes::TEMEofEpoch(e);
+        assert_eq!(tod.to_string(), format!("TODofEpoch({})", e));
+        assert_eq!(teme.to_string(), format!("TEMEofEpoch({})", e));
+        assert_eq!(tod.frame_epoch(), Some(e));
+        assert_eq!(teme.frame_epoch(), Some(e));
+        assert_eq!(FrameAxes::TOD.frame_epoch(), None);
+        assert_eq!(FrameAxes::TEME.frame_epoch(), None);
+        assert_eq!(tod, FrameAxes::TODofEpoch(e));
+        assert_ne!(tod, FrameAxes::TODofEpoch(e + 1.0));
+        assert_ne!(tod, FrameAxes::TOD);
+        assert_ne!(tod, teme);
+        for s in [tod.to_string(), teme.to_string()] {
+            let err = s.parse::<FrameAxes>().unwrap_err().to_string();
+            assert!(err.contains(&s), "error should name the input '{s}': {err}");
+        }
+        for axes in [tod, teme] {
+            let json = serde_json::to_string(&axes).unwrap();
+            assert_eq!(serde_json::from_str::<FrameAxes>(&json).unwrap(), axes);
+        }
     }
 
     #[test]

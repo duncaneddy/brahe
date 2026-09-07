@@ -510,8 +510,8 @@ impl CelestialFrame {
     /// [`FrameCenter::Barycenter`] and the raw [`synodic_barycenter_id`]
     /// of the same pair select the same named frame. When no named form
     /// exists, the [`FrameCenter`] is stored as given, so those two
-    /// spellings produce structurally distinct (but identically
-    /// translating) [`CelestialFrame::Centered`] values.
+    /// spellings keep their own variant while comparing equal, because
+    /// [`FrameCenter`] equality is by NAIF ID.
     ///
     /// [`FrameAxes::EMR`], [`FrameAxes::SER`] and [`FrameAxes::GSE`] are
     /// the same orientations as their generic synodic pairs, so they are
@@ -2977,8 +2977,8 @@ mod tests {
         );
 
         // With no named form, the `FrameCenter` is stored as given: the two
-        // spellings of one synthetic barycenter share a NAIF ID but compare
-        // unequal.
+        // spellings of one synthetic barycenter keep their own variant and
+        // compare equal by NAIF ID.
         let barycentric_eme = CelestialFrame::centered(
             FrameCenter::Barycenter {
                 primary: NAIFId::Earth,
@@ -3005,7 +3005,12 @@ mod tests {
                 axes: FrameAxes::EME2000
             }
         );
-        assert_ne!(barycentric_eme, synthetic_eme);
+        assert_eq!(barycentric_eme, synthetic_eme);
+        assert!(matches!(
+            barycentric_eme.center(),
+            FrameCenter::Barycenter { .. }
+        ));
+        assert!(matches!(synthetic_eme.center(), FrameCenter::Body(_)));
         assert_eq!(
             barycentric_eme.center_naif_id(),
             synthetic_eme.center_naif_id()
@@ -3070,6 +3075,7 @@ mod tests {
             ),
         ] {
             assert_eq!(CelestialFrame::centered(f.center(), f.axes()), f, "{f}");
+            assert_eq!(f.center().naif_id(), f.center_naif_id(), "{f}");
         }
     }
 

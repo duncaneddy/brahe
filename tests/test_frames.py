@@ -1991,14 +1991,16 @@ def test_framecenter_from_conversions():
     assert brahe.FrameCenter.Body(499) == 499
     assert brahe.FrameCenter.Body(-42).body == -42
 
-    # A synthetic synodic-barycenter ID stays a body, so it is a different
-    # value from the barycenter it encodes even though both share a NAIF ID.
+    # A synthetic synodic-barycenter ID stays a body, and equality and hashing
+    # compare NAIF IDs in Rust and Python alike, so it equals the barycenter
+    # that encodes to the same ID while the two keep their own variants.
     seb = brahe.CelestialFrame.SER.center_naif_id
+    barycenter = brahe.FrameCenter.Barycenter(brahe.NAIFId.SUN, brahe.NAIFId.EARTH)
     assert brahe.FrameCenter.Body(seb).body == seb
-    assert (
-        brahe.FrameCenter.Barycenter(brahe.NAIFId.SUN, brahe.NAIFId.EARTH).body is None
-    )
+    assert barycenter.body is None
     assert brahe.FrameCenter.Body(seb).naif_id == seb
+    assert brahe.FrameCenter.Body(seb) == barycenter
+    assert hash(brahe.FrameCenter.Body(seb)) == hash(barycenter)
 
 
 def test_framecenter_naif_id():
@@ -2190,14 +2192,17 @@ def test_celestialframe_centered_canonical_forms():
     ) == brahe.CelestialFrame.Synodic(brahe.SynodicOrigin.Barycenter, 399, 301)
 
     # With no named form the origin is stored as given: the two spellings of
-    # one synthetic barycenter share a NAIF ID but are different frames.
+    # one synthetic barycenter keep their own variant but compare equal,
+    # because frames compare by NAIF ID.
     barycentric_eme = brahe.CelestialFrame.Centered(
         brahe.FrameCenter.Barycenter(399, 301), brahe.FrameAxes.EME2000
     )
     synthetic_eme = brahe.CelestialFrame.Centered(
         emr_barycenter, brahe.FrameAxes.EME2000
     )
-    assert barycentric_eme != synthetic_eme
+    assert barycentric_eme == synthetic_eme
+    assert barycentric_eme.center.body is None
+    assert synthetic_eme.center.body == synthetic_eme.center_naif_id
     assert barycentric_eme.center_naif_id == synthetic_eme.center_naif_id
     assert str(barycentric_eme) == "Centered(BARYCENTER(EARTH, MOON), EME2000)"
 

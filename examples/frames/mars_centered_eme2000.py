@@ -27,7 +27,7 @@ print(f"REF_FRAME = {seg.ref_frame}, CENTER_NAME = {seg.center_name}")
 traj = oem.to_trajectories()[0]
 print(f"\nTrajectory frame: {traj.frame}")
 
-# The trajectory's frame is a CelestialFrame naming the (axes, center)
+# The trajectory's frame is a CelestialFrame naming the (center, axes)
 # pair; celestial_frame unwraps the ReferenceFrame and axes and center split
 # the result back into its two halves.
 traj_frame = traj.frame.celestial_frame

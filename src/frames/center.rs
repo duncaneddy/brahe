@@ -39,6 +39,11 @@ use super::transform::synodic_barycenter_id;
 /// `BARYCENTER(..)` form `name` prints for a `Barycenter` is not parsed
 /// back.
 ///
+/// Equality and hashing compare [`FrameCenter::naif_id`], the identity the
+/// frame router translates by, so a `Body` built from a synthetic synodic
+/// barycenter ID equals the `Barycenter` that encodes to that ID, exactly as
+/// [`NAIFId`] compares by its integer code.
+///
 /// # Examples
 /// ```
 /// use brahe::frames::FrameCenter;
@@ -55,7 +60,7 @@ use super::transform::synodic_barycenter_id;
 ///     "BARYCENTER(SUN, EARTH)"
 /// );
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub enum FrameCenter {
     /// A NAIF-catalogued body or system barycenter.
     Body(NAIFId),
@@ -168,6 +173,20 @@ impl FrameCenter {
     }
 }
 
+impl PartialEq for FrameCenter {
+    fn eq(&self, other: &Self) -> bool {
+        self.naif_id() == other.naif_id()
+    }
+}
+
+impl Eq for FrameCenter {}
+
+impl std::hash::Hash for FrameCenter {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.naif_id().hash(state);
+    }
+}
+
 impl From<NAIFId> for FrameCenter {
     /// Wraps a [`NAIFId`] as a [`FrameCenter::Body`].
     ///
@@ -258,18 +277,20 @@ mod tests {
         assert_eq!(FrameCenter::from(499), FrameCenter::Body(NAIFId::Mars));
         assert_eq!(FrameCenter::from(-42), FrameCenter::Body(NAIFId::Id(-42)));
 
-        // A synthetic synodic-barycenter ID stays a `Body`.
-        assert_eq!(
-            FrameCenter::from(SUN_EARTH_BARYCENTER_ID),
-            FrameCenter::Body(NAIFId::Id(SUN_EARTH_BARYCENTER_ID))
-        );
-        assert_ne!(
-            FrameCenter::from(SUN_EARTH_BARYCENTER_ID),
-            FrameCenter::Barycenter {
-                primary: NAIFId::Sun,
-                secondary: NAIFId::Earth
-            }
-        );
+        // A synthetic synodic-barycenter ID stays a `Body`, and compares equal
+        // to the `Barycenter` that encodes to the same NAIF ID.
+        let seb = FrameCenter::from(SUN_EARTH_BARYCENTER_ID);
+        assert!(matches!(seb, FrameCenter::Body(NAIFId::Id(id)) if id == SUN_EARTH_BARYCENTER_ID));
+        let barycenter = FrameCenter::Barycenter {
+            primary: NAIFId::Sun,
+            secondary: NAIFId::Earth,
+        };
+        assert_eq!(seb, barycenter);
+        assert_eq!(seb.body(), Some(NAIFId::Id(SUN_EARTH_BARYCENTER_ID)));
+        assert_eq!(barycenter.body(), None);
+        let mut set = std::collections::HashSet::new();
+        set.insert(seb);
+        assert!(set.contains(&barycenter));
     }
 
     #[test]

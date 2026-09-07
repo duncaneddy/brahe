@@ -104,6 +104,27 @@ class TestFrameCommand:
         assert result.exit_code == 0
         assert "[" in result.stdout
 
+    def test_gcrf_to_teme(self):
+        """Test GCRF to TEME conversion through the CLI."""
+        result = runner.invoke(
+            app,
+            [
+                "transform",
+                "frame",
+                "GCRF",
+                "TEME",
+                "2024-01-01T00:00:00Z",
+                "6878137",
+                "0",
+                "0",
+                "0",
+                "7500",
+                "0",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "[" in result.stdout
+
     def test_mod_to_gcrf(self):
         """Test MOD to GCRF conversion through the CLI."""
         result = runner.invoke(

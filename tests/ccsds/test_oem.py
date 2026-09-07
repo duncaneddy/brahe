@@ -1535,6 +1535,40 @@ def test_OEMSegment_add_trajectory_of_epoch_from_gcrf_proxy(
     assert oem.segments[seg_idx].ref_frame_epoch is None
 
 
+@pytest.mark.parametrize(
+    "ref_frame, state_gcrf_to_frame",
+    [("TOD", brahe.state_gcrf_to_tod), ("TEME", brahe.state_gcrf_to_teme)],
+)
+def test_OEM_add_segment_of_epoch_with_trajectory(eop, ref_frame, state_gcrf_to_frame):
+    """OEM.add_segment carries ref_frame_epoch through so the trajectory is frozen at that epoch."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    ref_epoch = Epoch.from_datetime(2020, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    traj = brahe.OrbitTrajectory(
+        6, brahe.CelestialFrame.GCRF, brahe.OrbitRepresentation.CARTESIAN, None
+    )
+    sample = np.array([brahe.R_EARTH + 500e3, 1.0e5, -2.0e5, 10.0, 7.6e3, -5.0])
+    traj.add(epoch, sample)
+
+    oem = OEM(originator="TEST")
+    seg_idx = oem.add_segment(
+        object_name="SAT",
+        object_id="2024-100A",
+        center_name="EARTH",
+        ref_frame=ref_frame,
+        time_system="UTC",
+        start_time=epoch,
+        stop_time=epoch + 60.0,
+        trajectory=traj,
+        ref_frame_epoch=ref_epoch,
+    )
+
+    assert oem.segments[seg_idx].ref_frame_epoch == ref_epoch
+    expected = state_gcrf_to_frame(ref_epoch, sample)
+    written = oem.segments[seg_idx].states[0]
+    np.testing.assert_allclose(written.position, expected[:3], atol=1e-9, rtol=0)
+    np.testing.assert_allclose(written.velocity, expected[3:], atol=1e-12, rtol=0)
+
+
 def _tdr_trajectory(epoch):
     """Build a two-sample GCRF trajectory for unsupported-frame tests.
 

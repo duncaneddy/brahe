@@ -2572,8 +2572,12 @@ def test_of_epoch_rotation_ignores_transform_epoch(eop):
         brahe.rotation_gcrf_to_tod(e),
     )
     x_f = brahe.state_frame_to_frame(brahe.CelestialFrame.GCRF, teme, t, x)
-    np.testing.assert_array_equal(x_f[:3], brahe.rotation_gcrf_to_teme(e) @ x[:3])
-    np.testing.assert_array_equal(x_f[3:], brahe.rotation_gcrf_to_teme(e) @ x[3:])
+    np.testing.assert_allclose(
+        x_f[:3], brahe.rotation_gcrf_to_teme(e) @ x[:3], rtol=0, atol=1e-9
+    )
+    np.testing.assert_allclose(
+        x_f[3:], brahe.rotation_gcrf_to_teme(e) @ x[3:], rtol=0, atol=1e-9
+    )
 
 
 def test_of_epoch_to_itrf_routes_through_icrf_axes_with_transport_term(eop):

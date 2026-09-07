@@ -1714,6 +1714,7 @@ impl PyOEM {
     ///     interpolation (str | None): Interpolation method
     ///     interpolation_degree (int | None): Interpolation degree
     ///     trajectory (OrbitTrajectory | None): Optional trajectory to populate states from
+    ///     ref_frame_epoch (Epoch | None): `REF_FRAME_EPOCH` value. Only meaningful when `ref_frame` is `TOD` or `TEME`, in which case it names those axes frozen at that epoch instead of of-date. Set before `trajectory` is converted so the frozen axes are used
     ///
     /// Returns:
     ///     int: Index of the new segment
@@ -1732,7 +1733,7 @@ impl PyOEM {
     ///         trajectory=prop.trajectory,
     ///     )
     ///     ```
-    #[pyo3(signature = (object_name, object_id, center_name, ref_frame, time_system, start_time, stop_time, interpolation=None, interpolation_degree=None, trajectory=None))]
+    #[pyo3(signature = (object_name, object_id, center_name, ref_frame, time_system, start_time, stop_time, interpolation=None, interpolation_degree=None, trajectory=None, ref_frame_epoch=None))]
     #[allow(clippy::too_many_arguments)]
     fn add_segment(
         &mut self,
@@ -1746,6 +1747,7 @@ impl PyOEM {
         interpolation: Option<String>,
         interpolation_degree: Option<u32>,
         trajectory: Option<PyRef<PyOrbitalTrajectory>>,
+        ref_frame_epoch: Option<PyEpoch>,
     ) -> PyResult<usize> {
         let rf = CCSDSRefFrame::parse(&ref_frame);
         let ts = CCSDSTimeSystem::parse(&time_system).map_err(|e| {
@@ -1757,7 +1759,7 @@ impl PyOEM {
                 object_id,
                 center_name,
                 ref_frame: rf,
-                ref_frame_epoch: None,
+                ref_frame_epoch: ref_frame_epoch.map(|e| e.obj),
                 time_system: ts,
                 start_time: start_time.obj,
                 useable_start_time: None,

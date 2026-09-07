@@ -1681,11 +1681,13 @@ impl OrbitalTrajectory for SOrbitTrajectory {
     fn from_orbital_data(
         epochs: Vec<Epoch>,
         states: Vec<Vector6<f64>>,
-        frame: ReferenceFrame,
+        frame: impl Into<ReferenceFrame>,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
         covariances: Option<Vec<SMatrix<f64, 6, 6>>>,
     ) -> Result<Self, BraheError> {
+        let frame = frame.into();
+
         // Validate inputs
         if representation == OrbitRepresentation::Keplerian {
             keplerian_center(&frame)?;
@@ -2623,7 +2625,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             epochs,
             states.clone(),
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -2713,7 +2715,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -2750,7 +2752,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -2787,7 +2789,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             epochs.clone(),
             states,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -2907,7 +2909,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -2932,7 +2934,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             epochs.clone(),
             states.clone(),
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -2958,7 +2960,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             epochs.clone(),
             states.clone(),
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -3000,7 +3002,7 @@ mod tests {
         let mut traj = SOrbitTrajectory::from_orbital_data(
             epochs.clone(),
             states,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -3026,7 +3028,7 @@ mod tests {
         let mut traj = SOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -3053,7 +3055,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -3082,7 +3084,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -3129,7 +3131,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -3179,7 +3181,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -3224,7 +3226,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -3357,7 +3359,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -3384,7 +3386,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -3412,7 +3414,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -3470,7 +3472,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -3499,7 +3501,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -3565,7 +3567,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -3605,7 +3607,7 @@ mod tests {
         let single_traj = SOrbitTrajectory::from_orbital_data(
             single_epoch,
             single_state,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -3634,7 +3636,7 @@ mod tests {
         let mut traj = SOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -3675,7 +3677,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -3717,7 +3719,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -3759,7 +3761,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             epochs,
             states,
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             None,
@@ -5236,7 +5238,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             vec![epoch1, epoch2],
             vec![state1, state2],
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov1, cov2]),
@@ -5260,7 +5262,7 @@ mod tests {
         let result = SOrbitTrajectory::from_orbital_data(
             vec![epoch1, epoch2],
             vec![state1, state2],
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov1]),
@@ -5278,7 +5280,7 @@ mod tests {
         let result = SOrbitTrajectory::from_orbital_data(
             vec![epoch],
             vec![state],
-            CelestialFrame::ITRF.into(),
+            CelestialFrame::ITRF,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov]),
@@ -5296,7 +5298,7 @@ mod tests {
         let result = SOrbitTrajectory::from_orbital_data(
             vec![epoch],
             vec![state],
-            CelestialFrame::ECEF.into(),
+            CelestialFrame::ECEF,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov]),
@@ -5341,7 +5343,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             vec![epoch],
             vec![state],
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov]),
@@ -5365,7 +5367,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             vec![epoch],
             vec![state],
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov]),
@@ -5393,7 +5395,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             vec![epoch],
             vec![state],
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov]),
@@ -5421,7 +5423,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             vec![epoch],
             vec![state],
-            CelestialFrame::GCRF.into(),
+            CelestialFrame::GCRF,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov]),
@@ -5451,7 +5453,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             vec![epoch],
             vec![state],
-            CelestialFrame::EME2000.into(),
+            CelestialFrame::EME2000,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov_eme2000]),
@@ -5517,7 +5519,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             vec![epoch],
             vec![state],
-            CelestialFrame::EME2000.into(),
+            CelestialFrame::EME2000,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov_eme2000]),
@@ -5554,7 +5556,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             vec![epoch],
             vec![state],
-            CelestialFrame::EME2000.into(),
+            CelestialFrame::EME2000,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov_eme2000]),
@@ -5600,7 +5602,7 @@ mod tests {
         let mut traj = SOrbitTrajectory::from_orbital_data(
             vec![epoch],
             vec![state],
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov]),
@@ -5649,7 +5651,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             vec![epoch1, epoch2, epoch3],
             vec![state1, state2, state3],
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov1, cov2, cov3]),
@@ -5701,7 +5703,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             vec![epoch1, epoch2, epoch3],
             vec![state1, state2, state3],
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov1, cov2, cov3]),
@@ -5751,7 +5753,7 @@ mod tests {
         let traj_wasserstein = SOrbitTrajectory::from_orbital_data(
             vec![epoch1, epoch2],
             vec![state1, state2],
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov1, cov2]),
@@ -5762,7 +5764,7 @@ mod tests {
         let traj_matrix_sqrt = SOrbitTrajectory::from_orbital_data(
             vec![epoch1, epoch2],
             vec![state1, state2],
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov1, cov2]),
@@ -5818,7 +5820,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             vec![epoch],
             vec![state],
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov]),
@@ -5862,7 +5864,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             vec![epoch],
             vec![state],
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov]),
@@ -6009,7 +6011,7 @@ mod tests {
         let mut traj = SOrbitTrajectory::from_orbital_data(
             vec![t0, t1],
             vec![state1, state2],
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov1, cov2]),
@@ -6054,7 +6056,7 @@ mod tests {
         let mut traj = SOrbitTrajectory::from_orbital_data(
             vec![t0, t1],
             vec![state1, state2],
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![cov1, cov2]),
@@ -7611,7 +7613,7 @@ mod tests {
         let mut traj = SOrbitTrajectory::from_orbital_data(
             vec![t0 - 60.0],
             vec![initial_state],
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![initial_cov]),
@@ -7674,7 +7676,7 @@ mod tests {
         let mut traj = SOrbitTrajectory::from_orbital_data(
             vec![t0],
             vec![initial_state],
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![initial_cov]),
@@ -7706,7 +7708,7 @@ mod tests {
         let traj = SOrbitTrajectory::from_orbital_data(
             vec![t0],
             vec![initial_state],
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![initial_cov]),
@@ -7729,7 +7731,7 @@ mod tests {
         let mut traj = SOrbitTrajectory::from_orbital_data(
             vec![t0],
             vec![initial_state],
-            CelestialFrame::ECI.into(),
+            CelestialFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
             Some(vec![initial_cov]),
@@ -7774,7 +7776,7 @@ mod tests {
         let result = SOrbitTrajectory::from_orbital_data(
             vec![epoch],
             vec![Vector6::zeros()],
-            CelestialFrame::ECEF.into(),
+            CelestialFrame::ECEF,
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
             None,

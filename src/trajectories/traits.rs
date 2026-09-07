@@ -689,7 +689,7 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
     fn from_orbital_data(
         epochs: Vec<Epoch>,
         states: Vec<Self::StateVector>,
-        frame: ReferenceFrame,
+        frame: impl Into<ReferenceFrame>,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
         covariances: Option<Vec<SMatrix<f64, 6, 6>>>,

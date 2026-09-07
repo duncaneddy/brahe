@@ -36,7 +36,7 @@ fn main() {
     let traj = SOrbitTrajectory::from_orbital_data(
         epochs,
         states,
-        CelestialFrame::ECI.into(),
+        CelestialFrame::ECI,
         OrbitRepresentation::Cartesian,
         None, // Angle Format
         None  // No covariances

@@ -2,7 +2,7 @@ Object: GODZILLA 5 (1998-999A)
 Epoch:  1998-12-18 14:28:15.117 UTC
 Frame:  ITRF2000
 
-Initial state (ECI):
+Initial state (ITRF):
   Position: [6503.514, 1239.647, -717.490] km
   Velocity: [-873.160, 8740.420, -4191.076] m/s
 

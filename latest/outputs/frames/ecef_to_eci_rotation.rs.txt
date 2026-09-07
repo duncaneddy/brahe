@@ -9,7 +9,7 @@ Verification: R_ecef_to_eci = R_eci_to_ecef^T
   Max difference: 0.00e0
 
 Satellite position in ECEF:
-  [757164.270, 1725863.558, 6564672.303] m
+  [757164.267, 1725863.563, 6564672.302] m
 
 Satellite position in ECI (using rotation matrix):
   [1848964.106, -434937.468, 6560410.530] m

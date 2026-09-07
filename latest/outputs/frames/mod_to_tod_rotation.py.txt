@@ -1,0 +1,8 @@
+Epoch: 2024-01-01 12:00:00.000 UTC
+
+MOD to TOD rotation matrix:
+  [ 0.9999999997,  0.0000238977,  0.0000103593]
+  [-0.0000238972,  0.9999999989, -0.0000392153]
+  [-0.0000103603,  0.0000392150,  0.9999999992]
+
+Nutation angle (rotation angle of the MOD -> TOD matrix): 9.710 arcsec

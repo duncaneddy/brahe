@@ -1,16 +1,16 @@
 Original:
-  Frame: ECI
+  Frame: GCRF
   Representation: Cartesian
 
 After to_ecef():
-  Frame: ECEF
+  Frame: ITRF
   Representation: Cartesian
 
 After to_eci():
-  Frame: ECI
+  Frame: GCRF
   Representation: Cartesian
 
 After to_keplerian():
-  Frame: ECI
+  Frame: GCRF
   Representation: Keplerian
   Angle format: Degrees

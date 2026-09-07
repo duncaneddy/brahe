@@ -1,6 +1,6 @@
 ECI states shape: (6, 6)
 ECEF states shape: (6, 6)
-First ECEF state: [1233073.576 6759694.049   15958.273    1507.424    -292.801    7549.666]
+First ECEF state: [1233073.576 6759694.049   15958.268    1507.424    -292.801    7549.666]
 Transposed layout shape: (6, 6)
 Station ECI positions shape: (6, 3)
   2024-01-01 12:00:00.000 UTC: [-4667539.5, 1895484.8, 3898713.9] m

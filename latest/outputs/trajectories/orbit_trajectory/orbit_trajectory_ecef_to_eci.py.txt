@@ -1,5 +1,5 @@
-Original frame: ECEF
-Converted frame: ECI
+Original frame: ITRF
+Converted frame: GCRF
 Trajectory length: 3
 Epoch: 2024-01-01 00:00:00.000 UTC
   Position magnitude: 6878.14 km

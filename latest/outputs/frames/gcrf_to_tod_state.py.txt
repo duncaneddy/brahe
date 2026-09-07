@@ -1,0 +1,11 @@
+Epoch: 2024-01-01 12:00:00.000 UTC
+
+GCRF state vector:
+  Position: [1848964.106, -434937.468, 6560410.530] m
+  Velocity: [-7098.379734, -2173.344867, 1913.333385] m/s
+
+TOD state vector:
+  Position: [1836027.207, -425349.906, 6564671.107] m
+  Velocity: [-7091.088683, -2211.326789, 1896.776877] m/s
+
+Position difference norm: 16656.447 m

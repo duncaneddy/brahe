@@ -1,0 +1,11 @@
+Default precession-nutation model: IAU 2006/2000A
+Epoch: 2040-03-01 00:00:00.000 UTC
+Selected precession-nutation model: IAU 2000B
+
+GCRF to ITRF rotation difference between the two models:
+  Angle: 0.2311 mas
+
+Bias-precession-nutation matrices evaluated per call:
+  Max absolute difference: 1.00e-09
+
+Restored precession-nutation model: IAU 2006/2000A

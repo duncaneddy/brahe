@@ -10,9 +10,9 @@ z = 3855145.604 m
 
 Epoch: 2024-01-01 17:05:00.000 UTC
 Satellite ECEF:
-x = -842800.795 m
-y = 431996.776 m
-z = 6812629.388 m
+x = -842800.791 m
+y = 431996.779 m
+z = 6812629.389 m
 
 Satellite position in SEZ frame (relative to Stanford):
 South:  -5380.227 km

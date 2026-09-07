@@ -12,8 +12,8 @@ ECI state vector:
   Velocity: [-7098.379734, -2173.344867, 1913.333385] m/s
 
 ECEF state vector:
-  Position: [757164.270, 1725863.558, 6564672.303] m
-  Velocity: [989.350643, -7432.740023, 1896.768928] m/s
+  Position: [757164.267, 1725863.563, 6564672.302] m
+  Velocity: [989.350643, -7432.740021, 1896.768934] m/s
 
 
 ECI state vector (transformed from ECEF):
@@ -21,5 +21,5 @@ ECI state vector (transformed from ECEF):
   Velocity: [-7098.379734, -2173.344867, 1913.333385] m/s
 
 Round-trip error:
-  Position: 5.820766e-11 m
-  Velocity: 2.033692e-12 m/s
+  Position: 9.617484e-10 m
+  Velocity: 9.374857e-13 m/s

@@ -1,6 +1,6 @@
-Frame (Display): ECI
-Frame (Debug): OrbitFrame(Earth-Centered Inertial)
+Frame (Display): GCRF
+Frame (Debug): Celestial(GCRF)
 Representation (Display): Cartesian
 Representation (Debug): OrbitRepresentation(Cartesian)
-Frame (Display): ECEF
-Frame (Debug): OrbitFrame(Earth-Centered Earth-Fixed)
+Frame (Display): ITRF
+Frame (Debug): Celestial(ITRF)

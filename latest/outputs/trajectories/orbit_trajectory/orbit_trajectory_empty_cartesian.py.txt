@@ -1,6 +1,6 @@
-Frame (str): ECI
-Frame (repr): OrbitFrame(Earth-Centered Inertial)
+Frame (str): GCRF
+Frame (repr): ReferenceFrame("GCRF")
 Representation (str): Cartesian
 Representation (repr): OrbitRepresentation(Cartesian)
-Frame (str): ECEF
-Frame (repr): OrbitFrame(Earth-Centered Earth-Fixed)
+Frame (str): ITRF
+Frame (repr): ReferenceFrame("ITRF")

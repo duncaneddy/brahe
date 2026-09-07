@@ -1,7 +1,7 @@
 Segment: ISS, 49 states, frame=GCRF
 
 Trajectory: 49 states
-  Frame: OrbitFrame(Geocentric Celestial Reference Frame)
+  Frame: Celestial(GCRF)
   Start: 2017-04-11 22:31:43.122 UTC
   End:   2017-04-12 22:31:43.122 UTC
   Span:  86400 seconds

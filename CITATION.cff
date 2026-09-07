@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "Brahe: A Modern Astrodynamics Library for Research and Engineering Applications"
+authors:
+  - family-names: "Eddy"
+    given-names: "Duncan"
+    orcid: "https://orcid.org/0009-0000-2832-9711"
+  - family-names: "Kochenderfer"
+    given-names: "Mykel"
+    orcid: "https://orcid.org/0000-0002-7238-9663"
+repository-code: "https://github.com/duncaneddy/brahe"
+license: "MIT"
+version: "1.7.0"

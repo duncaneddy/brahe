@@ -816,8 +816,8 @@ mod tests {
         let pm_x = 0.0349282 * AS2RAD;
         let pm_y = 0.4833163 * AS2RAD;
         let ut1_utc = -0.072073685;
-        let dX = 0.0001750 * AS2RAD * 1.0e-3;
-        let dY = -0.0002259 * AS2RAD * 1.0e-3;
+        let dX = 0.0001750 * AS2RAD;
+        let dY = -0.0002259 * AS2RAD;
         let eop = StaticEOPProvider::from_values((pm_x, pm_y, ut1_utc, dX, dY, 0.0));
         set_global_eop_provider(eop);
     }
@@ -847,6 +847,29 @@ mod tests {
         assert_abs_diff_eq!(rc2i[(2, 0)], 0.000712264729599, epsilon = tol);
         assert_abs_diff_eq!(rc2i[(2, 1)], 0.000044385250426, epsilon = tol);
         assert_abs_diff_eq!(rc2i[(2, 2)], 0.999999745354420, epsilon = tol);
+    }
+
+    #[test]
+    #[serial]
+    fn test_bias_precession_nutation_applies_cip_offsets() {
+        let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let dx = 0.0001750 * AS2RAD;
+        let dy = -0.0002259 * AS2RAD;
+
+        set_test_static_eop();
+        let rc2i = bias_precession_nutation(epc);
+        set_global_eop_provider(StaticEOPProvider::from_values((
+            0.0349282 * AS2RAD,
+            0.4833163 * AS2RAD,
+            -0.072073685,
+            0.0,
+            0.0,
+            0.0,
+        )));
+        let rc2i_zero = bias_precession_nutation(epc);
+
+        assert_abs_diff_eq!(rc2i[(2, 0)] - rc2i_zero[(2, 0)], dx, epsilon = 1.0e-12);
+        assert_abs_diff_eq!(rc2i[(2, 1)] - rc2i_zero[(2, 1)], dy, epsilon = 1.0e-12);
     }
 
     #[test]

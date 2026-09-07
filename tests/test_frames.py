@@ -10,21 +10,32 @@ def static_eop():
     pm_x = 0.0349282 * brahe.AS2RAD
     pm_y = 0.4833163 * brahe.AS2RAD
     ut1_utc = -0.072073685
-    dX = 0.0001750 * brahe.AS2RAD * 1.0e-3
-    dY = -0.0002259 * brahe.AS2RAD * 1.0e-3
-    eop = brahe.StaticEOPProvider.from_values(pm_x, pm_y, ut1_utc, dX, dY, 0.0)
-    brahe.set_global_eop_provider(eop)
-
-
-@pytest.fixture()
-def cookbook_eop():
-    pm_x = 0.0349282 * brahe.AS2RAD
-    pm_y = 0.4833163 * brahe.AS2RAD
-    ut1_utc = -0.072073685
     dX = 0.0001750 * brahe.AS2RAD
     dY = -0.0002259 * brahe.AS2RAD
     eop = brahe.StaticEOPProvider.from_values(pm_x, pm_y, ut1_utc, dX, dY, 0.0)
     brahe.set_global_eop_provider(eop)
+
+
+def test_bias_precession_nutation_applies_cip_offsets(static_eop):
+    epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0, 0.0, brahe.UTC)
+    dX = 0.0001750 * brahe.AS2RAD
+    dY = -0.0002259 * brahe.AS2RAD
+
+    rc2i = brahe.bias_precession_nutation(epc)
+    brahe.set_global_eop_provider(
+        brahe.StaticEOPProvider.from_values(
+            0.0349282 * brahe.AS2RAD,
+            0.4833163 * brahe.AS2RAD,
+            -0.072073685,
+            0.0,
+            0.0,
+            0.0,
+        )
+    )
+    rc2i_zero = brahe.bias_precession_nutation(epc)
+
+    assert rc2i[2, 0] - rc2i_zero[2, 0] == pytest.approx(dX, abs=1e-12)
+    assert rc2i[2, 1] - rc2i_zero[2, 1] == pytest.approx(dY, abs=1e-12)
 
 
 def test_bias_precession_nutation(static_eop):
@@ -1624,7 +1635,7 @@ def test_celestial_frame_mod_tod_attrs():
     assert str(brahe.CelestialFrame.TOD) == "TOD"
 
 
-def test_rotation_gcrf_to_tod_cookbook(cookbook_eop):
+def test_rotation_gcrf_to_tod_cookbook(static_eop):
     """Equinox chain GCRF -> TOD -> ITRF against SOFA cookbook 5.4 (2000B vs 2000A)."""
     epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, brahe.UTC)
 
@@ -1644,7 +1655,7 @@ def test_rotation_gcrf_to_tod_cookbook(cookbook_eop):
     np.testing.assert_allclose(r, brahe.rotation_gcrf_to_itrf(epc), atol=1e-10)
 
 
-def test_equinox_building_blocks(cookbook_eop):
+def test_equinox_building_blocks(static_eop):
     epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, brahe.UTC)
     np.testing.assert_array_equal(
         brahe.bias_precession_iau2000(epc), brahe.rotation_gcrf_to_mod(epc)
@@ -1664,7 +1675,7 @@ def test_equinox_building_blocks(cookbook_eop):
     )
 
 
-def test_equinox_rotation_inverses(cookbook_eop):
+def test_equinox_rotation_inverses(static_eop):
     epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, brahe.UTC)
     for fwd, inv in [
         (brahe.rotation_gcrf_to_mod, brahe.rotation_mod_to_gcrf),

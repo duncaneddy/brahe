@@ -1644,7 +1644,7 @@ def test_oem_in_teme_with_frame_epoch_loads_as_teme_of_epoch_trajectory(
 
     x_gcrf = traj.to_frame(brahe.CelestialFrame.GCRF).get(0)[1]
     expected = brahe.state_teme_to_gcrf(ref_epoch, x_raw)
-    np.testing.assert_allclose(x_gcrf, expected, atol=1e-9)
+    np.testing.assert_allclose(x_gcrf, expected, rtol=0, atol=1e-9)
 
 
 def test_oem_to_trajectory_example4(eop):

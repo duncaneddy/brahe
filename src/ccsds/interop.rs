@@ -1333,9 +1333,11 @@ impl TryFrom<&ADMReferenceFrame> for ReferenceFrame {
     /// spacecraft frames map structurally onto unbound
     /// [`ReferenceFrame::OrbitRelative`] and [`ReferenceFrame::Body`] frames:
     /// a CCSDS message names the frame but not the object it belongs to, so
-    /// binding an [`ObjectId`] is the caller's job. All other frames return an
-    /// error; the containing message still loads and writes — only conversion
-    /// to native types is unsupported.
+    /// binding an [`ObjectId`] is the caller's job. `TEMEOFEPOCH` also returns
+    /// an error, since ADM metadata carries no reference frame epoch to
+    /// recover the frozen TEME axes. All other frames return an error; the
+    /// containing message still loads and writes — only conversion to native
+    /// types is unsupported.
     fn try_from(frame: &ADMReferenceFrame) -> Result<Self, Self::Error> {
         match frame {
             ADMReferenceFrame::Celestial(celestial) => {
@@ -1353,6 +1355,15 @@ impl TryFrom<&ADMReferenceFrame> for ReferenceFrame {
                     CCSDSCelestialBodyFrame::MoonPA(None)
                     | CCSDSCelestialBodyFrame::MoonPA(Some(440)) => CelestialFrame::LFPA,
                     CCSDSCelestialBodyFrame::MoonME => CelestialFrame::LFME,
+                    CCSDSCelestialBodyFrame::TEMEOfEpoch => {
+                        return Err(BraheError::Error(
+                            "CCSDS celestial frame 'TEMEOFEPOCH' names TEME axes frozen at an \
+                             epoch, but ADM metadata carries no reference frame epoch, so the \
+                             frozen epoch cannot be recovered; the message can still be read and \
+                             written, but not converted to native attitude types"
+                                .to_string(),
+                        ));
+                    }
                     other => {
                         return Err(BraheError::Error(format!(
                             "CCSDS celestial frame '{}' has no brahe CelestialFrame equivalent; \
@@ -1494,7 +1505,9 @@ impl TryFrom<&ReferenceFrame> for ADMReferenceFrame {
     /// ...) return an error. Orbit-relative and body frames map by
     /// kind/designator alone: an
     /// ADM frame keyword carries no object field, so a bound frame writes the
-    /// same token as its unbound counterpart and the binding is dropped.
+    /// same token as its unbound counterpart and the binding is dropped. A
+    /// celestial frame frozen at an epoch (TOD-of-epoch, TEME-of-epoch) also
+    /// returns an error, since ADM has no keyword to carry that epoch.
     fn try_from(frame: &ReferenceFrame) -> Result<Self, Self::Error> {
         match frame {
             ReferenceFrame::Celestial(reference) => {
@@ -1507,6 +1520,13 @@ impl TryFrom<&ReferenceFrame> for ADMReferenceFrame {
                     CelestialFrame::TEME => CCSDSCelestialBodyFrame::TEMEOfDate,
                     CelestialFrame::LFPA => CCSDSCelestialBodyFrame::MoonPA(None),
                     CelestialFrame::LFME => CCSDSCelestialBodyFrame::MoonME,
+                    frozen if frozen.frame_epoch().is_some() => {
+                        return Err(BraheError::Error(format!(
+                            "brahe frame '{}' is frozen at an epoch, and ADM has no keyword to \
+                             carry the frame epoch, so it cannot be written into an ADM message",
+                            frozen
+                        )));
+                    }
                     other => {
                         return Err(BraheError::Error(format!(
                             "brahe frame '{:?}' has no SANA celestial-body frame token and \
@@ -2535,6 +2555,21 @@ mod tests {
     fn test_reference_frame_to_adm_frame_unsupported() {
         let frame = ReferenceFrame::Celestial(CelestialFrame::EMR);
         assert!(ADMReferenceFrame::try_from(&frame).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_adm_teme_of_epoch_has_no_native_frame() {
+        let err = ReferenceFrame::try_from(&ADMReferenceFrame::parse("TEMEOFEPOCH")).unwrap_err();
+        assert!(err.to_string().contains("reference frame epoch"), "{err}");
+        let e = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        for frame in [
+            CelestialFrame::teme_of_epoch(e),
+            CelestialFrame::tod_of_epoch(e),
+        ] {
+            let err = ADMReferenceFrame::try_from(&ReferenceFrame::from(frame)).unwrap_err();
+            assert!(err.to_string().contains("frame epoch"), "{err}");
+        }
     }
 
     #[test]

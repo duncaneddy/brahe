@@ -556,6 +556,47 @@ def test_aem_round_trip_in_tod_mod_and_teme_earth_frames(eop, celestial_frame, t
     assert f"REF_FRAME_A = {token}" in written
 
 
+def test_aem_teme_of_epoch_has_no_native_frame(eop):
+    """Mirror of test_adm_teme_of_epoch_has_no_native_frame in Rust."""
+    aem = AEM.from_str(
+        "CCSDS_AEM_VERS = 2.0\n"
+        "CREATION_DATE = 2002-11-04T17:22:31\n"
+        "ORIGINATOR = BRAHE\n"
+        "\n"
+        "META_START\n"
+        "OBJECT_NAME = TESTSAT\n"
+        "OBJECT_ID = 2024-001A\n"
+        "REF_FRAME_A = TEMEOFEPOCH\n"
+        "REF_FRAME_B = SC_BODY_1\n"
+        "TIME_SYSTEM = UTC\n"
+        "START_TIME = 2024-01-01T00:00:00.000\n"
+        "STOP_TIME = 2024-01-01T00:01:00.000\n"
+        "ATTITUDE_TYPE = QUATERNION\n"
+        "META_STOP\n"
+        "\n"
+        "DATA_START\n"
+        "2024-01-01T00:00:00.000 0.0 0.0 0.0 1.0\n"
+        "2024-01-01T00:01:00.000 0.0 0.0 0.0 1.0\n"
+        "DATA_STOP\n"
+    )
+    with pytest.raises(Exception, match="reference frame epoch"):
+        aem.segment_to_attitude_trajectory(0)
+
+    frame_b = bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY(None))
+    t0 = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    for celestial_frame in [
+        bh.CelestialFrame.teme_of_epoch(t0),
+        bh.CelestialFrame.tod_of_epoch(t0),
+    ]:
+        frame_a = bh.ReferenceFrame.celestial(celestial_frame)
+        traj = AttitudeTrajectory(frame_a, frame_b)
+        traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+        traj.add(t0 + 60.0, bh.Quaternion(0.9998, 0.0, 0.0, 0.0196))
+
+        with pytest.raises(Exception, match="frame epoch"):
+            AEM.from_attitude_trajectory(traj, "SAT1", "2024-001A", "BRAHE", "UTC")
+
+
 def test_aem_from_attitude_trajectory_empty_errors():
     """Mirror of test_aem_from_attitude_trajectory_empty_errors in Rust."""
     frame_a = bh.ReferenceFrame.celestial(bh.CelestialFrame.EME2000)

@@ -29,12 +29,12 @@
  * - Vallado, D. A., et al. (2006). Revisiting Spacetrack Report #3.
  */
 
-use crate::attitude::RotationMatrix;
-use crate::constants::{AngleFormat, DEG2RAD, OMEGA_EARTH, RAD2DEG};
+use crate::constants::{AngleFormat, DEG2RAD, OMEGA_EARTH};
 use crate::coordinates::state_eci_to_koe;
 use crate::frames::{
-    CelestialFrame, ReferenceFrame, celestial_root, polar_motion, state_ecef_to_eci,
-    state_frame_to_frame, state_gcrf_to_eme2000, state_itrf_to_gcrf,
+    CelestialFrame, ReferenceFrame, celestial_root, greenwich_mean_sidereal_rotation,
+    state_ecef_to_eci, state_frame_to_frame, state_gcrf_to_eme2000, state_teme_to_gcrf,
+    state_teme_to_itrf,
 };
 use crate::orbits::tle::{
     TleFormat, calculate_tle_line_checksum, create_tle_lines, epoch_from_tle,
@@ -53,38 +53,10 @@ use sgp4::chrono::{Datelike, NaiveDate, NaiveDateTime, Timelike};
 // Event detection imports
 use crate::events::{DDetectedEvent, DEventDetector, EventAction, EventQuery, dscan_for_event};
 
-/// Helper functions
-/// Compute Greenwich Mean Sidereal Time 1982 Model. Formulae taken from
-/// `Revisiting Spacetrack Report No 3` by David Vallado for use in transforming
-/// between the TEME and PEF frames.
-///
-/// # Arguments:
-/// * epoch (:obj:`Epoch`): Epoch of transformation
-///
-/// # Returns:
-/// * Greenwich mean sidereal time as angle. Units: Radians [0, 2pi)
-/// * Rate of change of Greenwich mean sidereal time as angle. Units: Radians/second [0, 2pi)
-fn tle_gmst82(epoch: Epoch, angle_format: AngleFormat) -> f64 {
-    // Calculate Julian Date in UT1
-    let jd_ut1 = epoch.jd_as_time_system(TimeSystem::UT1);
-    let tut1 = (jd_ut1 - 2451545.0) / 36525.0;
-
-    // GMST in seconds
-    let gmst_sec =
-        67310.54841 + (876600.0 * 3600.0 + 8640184.812866) * tut1 + 0.093104 * tut1 * tut1
-            - 6.2e-6 * tut1 * tut1 * tut1;
-
-    // Normalize to [0, 86400)
-    let theta = (gmst_sec * DEG2RAD / 240.0) % (2.0 * std::f64::consts::PI);
-
-    // Convert to radians or degrees
-    match angle_format {
-        AngleFormat::Radians => theta,
-        AngleFormat::Degrees => theta * RAD2DEG,
-    }
-}
-
 /// Convert an SGP4 TEME state into the requested output frame and representation.
+///
+/// `GCRF` and `ITRF` targets use the pairwise TEME transforms directly; every
+/// other target routes through the reference frame router from `TEME`.
 ///
 /// # Arguments
 /// * `epoch` - Epoch of the state
@@ -95,41 +67,22 @@ fn tle_gmst82(epoch: Epoch, angle_format: AngleFormat) -> f64 {
 ///
 /// # Returns
 /// * `Ok(Vector6<f64>)`: State in `frame` and `representation`
-/// * `Err(BraheError)`: If the conversion from ITRF into `frame` fails
-fn convert_state_from_spg4_frame(
+/// * `Err(BraheError)`: If the conversion from TEME into `frame` fails
+fn teme_state_to_output(
     epoch: Epoch,
     tle_state: Vector6<f64>,
     frame: &ReferenceFrame,
     representation: OrbitRepresentation,
     angle_format: Option<AngleFormat>,
 ) -> Result<Vector6<f64>, BraheError> {
-    // SGP4 outputs state in TEME
-    // Conversion chain is TEME -> PEF -> ECEF -> ECI
-
-    // Step 1: TEME to PEF
-    let gmst = tle_gmst82(epoch, AngleFormat::Radians);
-    #[allow(non_snake_case)]
-    let R = RotationMatrix::Rz(gmst, AngleFormat::Radians);
-    let omega_earth = Vector3::new(0.0, 0.0, OMEGA_EARTH); // rad/s
-
-    let r_pef: Vector3<f64> = R * Vector3::<f64>::from(tle_state.fixed_rows::<3>(0));
-    let v_pef: Vector3<f64> =
-        R * Vector3::<f64>::from(tle_state.fixed_rows::<3>(3)) - omega_earth.cross(&r_pef);
-
-    // Step 2: PEF to ECEF
-    #[allow(non_snake_case)]
-    let PM = polar_motion(epoch);
-
-    let r_ecef = PM * r_pef;
-    let v_ecef = PM * v_pef;
-    let ecef_state = Vector6::new(
-        r_ecef[0], r_ecef[1], r_ecef[2], v_ecef[0], v_ecef[1], v_ecef[2],
-    );
+    let x = match frame {
+        ReferenceFrame::Celestial(CelestialFrame::GCRF) => state_teme_to_gcrf(epoch, tle_state),
+        ReferenceFrame::Celestial(CelestialFrame::ITRF) => state_teme_to_itrf(epoch, tle_state),
+        other => state_frame_to_frame(CelestialFrame::TEME, other.clone(), epoch, tle_state)?,
+    };
 
     match representation {
-        OrbitRepresentation::Cartesian => {
-            state_frame_to_frame(CelestialFrame::ITRF, frame.clone(), epoch, ecef_state)
-        }
+        OrbitRepresentation::Cartesian => Ok(x),
         OrbitRepresentation::Keplerian => {
             let Some(format) = angle_format else {
                 unreachable!(
@@ -137,12 +90,7 @@ fn convert_state_from_spg4_frame(
                      format is set"
                 );
             };
-
-            // `frame` is inertial and Earth-centered here, so the rotated state
-            // yields elements about the Earth in that frame's axes.
-            let x_inertial =
-                state_frame_to_frame(CelestialFrame::ITRF, frame.clone(), epoch, ecef_state)?;
-            Ok(state_eci_to_koe(x_inertial, format))
+            Ok(state_eci_to_koe(x, format))
         }
     }
 }
@@ -985,7 +933,7 @@ impl SGPPropagator {
         );
 
         // Convert initial state to ECI Cartesian
-        let initial_state = convert_state_from_spg4_frame(
+        let initial_state = teme_state_to_output(
             epoch,
             tle_state,
             &CelestialFrame::ECI.into(),
@@ -1256,7 +1204,7 @@ impl SGPPropagator {
         );
 
         // Convert initial state to ECI Cartesian
-        let initial_state = convert_state_from_spg4_frame(
+        let initial_state = teme_state_to_output(
             brahe_epoch,
             tle_state,
             &CelestialFrame::ECI.into(),
@@ -1566,7 +1514,7 @@ impl SGPPropagator {
             prediction.velocity[2] * 1000.0,
         );
 
-        let initial_state = convert_state_from_spg4_frame(
+        let initial_state = teme_state_to_output(
             self.epoch,
             tle_state,
             &self.frame,
@@ -1612,9 +1560,9 @@ impl SGPPropagator {
 
     /// Get propagated state in Pseudo-Earth-Fixed (PEF) frame.
     ///
-    /// Propagates to the given epoch and transforms from TEME to PEF using simplified
-    /// rotation (GMST only, no polar motion or nutation). For higher accuracy, use
-    /// propagate() with ECEF output format.
+    /// Propagates to the given epoch and transforms from TEME to PEF with the
+    /// Greenwich mean sidereal rotation on the IAU 1982 model (no polar motion).
+    /// For higher accuracy, use propagate() with ECEF output format.
     ///
     /// # Arguments
     /// - `epoch`: Time to propagate to
@@ -1623,19 +1571,11 @@ impl SGPPropagator {
     /// State vector [x, y, z, vx, vy, vz] in PEF frame. Units: meters, meters/second.
     pub fn state_pef(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         let tle_state = self.propagate_internal(epoch)?;
-        // SGP4 outputs state in TEME
-        // Conversion chain is TEME -> PEF
-
-        // Step 1: TEME to PEF
-        let gmst = tle_gmst82(epoch, AngleFormat::Radians);
-        #[allow(non_snake_case)]
-        let R = RotationMatrix::Rz(gmst, AngleFormat::Radians);
-        let omega_earth = Vector3::new(0.0, 0.0, OMEGA_EARTH); // rad/s
-
-        let r_pef: Vector3<f64> = R * Vector3::<f64>::from(tle_state.fixed_rows::<3>(0));
+        let r = greenwich_mean_sidereal_rotation(epoch);
+        let omega_earth = Vector3::new(0.0, 0.0, OMEGA_EARTH);
+        let r_pef: Vector3<f64> = r * Vector3::<f64>::from(tle_state.fixed_rows::<3>(0));
         let v_pef: Vector3<f64> =
-            R * Vector3::<f64>::from(tle_state.fixed_rows::<3>(3)) - omega_earth.cross(&r_pef);
-
+            r * Vector3::<f64>::from(tle_state.fixed_rows::<3>(3)) - omega_earth.cross(&r_pef);
         Ok(Vector6::new(
             r_pef[0], r_pef[1], r_pef[2], v_pef[0], v_pef[1], v_pef[2],
         ))
@@ -1898,7 +1838,7 @@ impl SGPPropagator {
     /// since all event detectors expect ECI Cartesian state.
     fn state_eci_cartesian(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         let tle_state = self.propagate_internal(epoch)?;
-        convert_state_from_spg4_frame(
+        teme_state_to_output(
             epoch,
             tle_state,
             &CelestialFrame::ECI.into(),
@@ -2287,7 +2227,7 @@ impl SStatePropagator for SGPPropagator {
                         return Ok(());
                     }
                 };
-                let event_state_output = convert_state_from_spg4_frame(
+                let event_state_output = teme_state_to_output(
                     event.window_open,
                     event_tle_state,
                     &self.frame,
@@ -2322,7 +2262,7 @@ impl SStatePropagator for SGPPropagator {
                 return Ok(());
             }
         };
-        let new_state = convert_state_from_spg4_frame(
+        let new_state = teme_state_to_output(
             target_epoch,
             tle_state,
             &self.frame,
@@ -2458,20 +2398,14 @@ impl SOrbitStateProvider for SGPPropagator {
         self.state_itrf(epoch)
     }
 
-    /// Converts the propagated state from GCRF (this propagator's central
-    /// body's inertial frame) into `frame` via the reference frame router.
+    /// Converts the raw TEME output into `frame` via the reference frame router.
     fn state_in_frame(
         &self,
         frame: crate::frames::CelestialFrame,
         epoch: Epoch,
     ) -> Result<Vector6<f64>, BraheError> {
-        let x_gcrf = self.state_gcrf(epoch)?;
-        crate::frames::state_frame_to_frame(
-            crate::frames::CelestialFrame::GCRF,
-            frame,
-            epoch,
-            x_gcrf,
-        )
+        let x_teme = self.propagate_internal(epoch)?;
+        state_frame_to_frame(CelestialFrame::TEME, frame, epoch, x_teme)
     }
 
     fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
@@ -2486,24 +2420,11 @@ impl SOrbitStateProvider for SGPPropagator {
     }
 
     fn state_itrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        let state_pef = self.state_pef(epoch)?;
-
-        // Step 2: PEF to ECEF
-        #[allow(non_snake_case)]
-        let PM = polar_motion(epoch);
-
-        let r_itrf = PM * Vector3::<f64>::from(state_pef.fixed_rows::<3>(0));
-        let v_itrf = PM * Vector3::<f64>::from(state_pef.fixed_rows::<3>(3));
-
-        Ok(Vector6::new(
-            r_itrf[0], r_itrf[1], r_itrf[2], v_itrf[0], v_itrf[1], v_itrf[2],
-        ))
+        Ok(state_teme_to_itrf(epoch, self.propagate_internal(epoch)?))
     }
 
     fn state_gcrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        // Get ECEF state and convert to GCRF/ECI
-        let state_itrf = self.state_itrf(epoch)?;
-        Ok(state_itrf_to_gcrf(epoch, state_itrf))
+        Ok(state_teme_to_gcrf(epoch, self.propagate_internal(epoch)?))
     }
 
     fn state_eme2000(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
@@ -3738,13 +3659,151 @@ mod tests {
         assert_abs_diff_eq!(state[5], -583.775727402632, epsilon = 1e-8);
     }
 
+    /// Reference values were produced with a single-double Julian-date
+    /// evaluation of GMST 1982; the two-part MJD evaluation used here
+    /// differs by about 1e-9 rad about the pole, which the tolerances
+    /// cover.
     #[test]
     #[serial]
-    fn test_tle_gmst82() {
+    #[allow(clippy::type_complexity)]
+    fn test_sgppropagator_gcrf_itrf_pef_match_reference_values() {
         setup_global_test_eop_original_brahe();
-        let epoch = epoch_from_tle(ISS_LINE1).unwrap();
-        let gmst = tle_gmst82(epoch, AngleFormat::Radians);
-        assert_abs_diff_eq!(gmst, 3.2494565064865406, epsilon = 1e-6);
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let e0 = prop.initial_epoch();
+        // (dt, gcrf, itrf, pef) reference values.
+        let baseline: [(f64, [f64; 6], [f64; 6], [f64; 6]); 3] = [
+            (
+                0.0,
+                [
+                    4086521.042786044,
+                    -1001422.0696173717,
+                    5240097.960895796,
+                    2526.475467427297,
+                    7254.936292440023,
+                    -586.2164672516562,
+                ],
+                [
+                    -3953198.5496517573,
+                    1427508.1713723878,
+                    5243621.714247745,
+                    -3175.692765664617,
+                    -6658.886489084969,
+                    -583.7795319062526,
+                ],
+                [
+                    -3953205.7482107906,
+                    1427514.600436758,
+                    5243614.536966578,
+                    -3175.6919643759434,
+                    -6658.887204764712,
+                    -583.7757274026374,
+                ],
+            ),
+            (
+                3600.0,
+                [
+                    -4145099.0865794336,
+                    -4675192.1218095245,
+                    -2522878.693222248,
+                    2438.7449992842166,
+                    -5012.1607340901755,
+                    5296.6589595687765,
+                ],
+                [
+                    5548632.33724781,
+                    2869310.27560821,
+                    -2526642.5236751116,
+                    -256.3539512104304,
+                    5148.019774857155,
+                    5298.614828236159,
+                ],
+                [
+                    5548635.804940798,
+                    2869307.17943649,
+                    -2526638.4245217,
+                    -256.36122306958725,
+                    5148.026267595539,
+                    5298.608168196459,
+                ],
+            ),
+            (
+                86400.0,
+                [
+                    -3210729.8240172863,
+                    -5919606.81746119,
+                    -101232.01756464649,
+                    4161.601320160006,
+                    -2348.7210332919162,
+                    6030.701245985069,
+                ],
+                [
+                    3913296.210448205,
+                    5480513.610907296,
+                    -104221.5308794935,
+                    -3436.780994597425,
+                    2556.1961990831373,
+                    6034.247447699681,
+                ],
+                [
+                    3913296.352627009,
+                    5480513.484774249,
+                    -104222.82509622916,
+                    -3436.789219827968,
+                    2556.203497300671,
+                    6034.239671405616,
+                ],
+            ),
+        ];
+        for (dt, gcrf, itrf, pef) in baseline {
+            let epc = e0 + dt;
+            let g = prop.state_gcrf(epc).unwrap();
+            let i = prop.state_itrf(epc).unwrap();
+            let p = prop.state_pef(epc).unwrap();
+            for k in 0..3 {
+                assert_abs_diff_eq!(g[k], gcrf[k], epsilon = 2e-2);
+                assert_abs_diff_eq!(i[k], itrf[k], epsilon = 2e-2);
+                assert_abs_diff_eq!(p[k], pef[k], epsilon = 2e-2);
+                assert_abs_diff_eq!(g[k + 3], gcrf[k + 3], epsilon = 2e-5);
+                assert_abs_diff_eq!(i[k + 3], itrf[k + 3], epsilon = 2e-5);
+                assert_abs_diff_eq!(p[k + 3], pef[k + 3], epsilon = 2e-5);
+            }
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_sgppropagator_state_in_frame_teme_is_raw_output() {
+        setup_global_test_eop_original_brahe();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let epc = prop.initial_epoch() + 600.0;
+        let raw = prop.state(epc).unwrap();
+        let via_router = prop.state_in_frame(CelestialFrame::TEME, epc).unwrap();
+        for k in 0..6 {
+            assert_abs_diff_eq!(via_router[k], raw[k], epsilon = 1e-9);
+        }
+        let tod = prop.state_in_frame(CelestialFrame::TOD, epc).unwrap();
+        let expected =
+            state_frame_to_frame(CelestialFrame::TEME, CelestialFrame::TOD, epc, raw).unwrap();
+        for k in 0..6 {
+            assert_abs_diff_eq!(tod[k], expected[k], epsilon = 1e-9);
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_sgppropagator_output_format_teme_stores_raw_states() {
+        setup_global_test_eop_original_brahe();
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
+            .unwrap()
+            .with_output_format(CelestialFrame::TEME, OrbitRepresentation::Cartesian, None)
+            .unwrap();
+        prop.propagate_to(prop.initial_epoch() + 120.0).unwrap();
+        let e = prop.trajectory.epochs[1];
+        let stored = prop.trajectory.states[1].clone();
+        let raw = prop.state(e).unwrap();
+        for k in 0..6 {
+            assert_abs_diff_eq!(stored[k], raw[k], epsilon = 1e-9);
+        }
     }
 
     #[test]

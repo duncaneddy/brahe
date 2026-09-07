@@ -490,13 +490,17 @@ impl PySGPPropagator {
         state.as_slice().to_pyarray(py).to_owned()
     }
 
-    /// Compute state at a specific epoch.
+    /// Compute the raw SGP4 state at a specific epoch.
+    ///
+    /// The result is in the true equator, mean equinox of date (TEME) frame,
+    /// the native SGP4 output, regardless of the configured output format.
+    /// Use `state_gcrf`, `state_itrf`, or `state_in_frame` for other frames.
     ///
     /// Args:
     ///     epoch (Epoch): Target epoch for state computation.
     ///
     /// Returns:
-    ///     numpy.ndarray: State vector in the propagator's current output format.
+    ///     numpy.ndarray: State vector `[x, y, z, vx, vy, vz]` in TEME. Units: (m, m/s)
     #[pyo3(text_signature = "(epoch)")]
     pub fn state<'a>(
         &self,

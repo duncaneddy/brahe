@@ -739,6 +739,126 @@ class TestSGPPropagatorStateProviderTrait:
                     np.radians(elements_list[i][j]), rel=1e-8
                 )
 
+    def test_sgppropagator_gcrf_itrf_pef_match_reference_values(
+        self, iss_tle, eop_original_brahe
+    ):
+        """state_gcrf, state_itrf, and state_pef match reference values.
+
+        Reference values were produced with a single-double Julian-date
+        evaluation of GMST 1982; the two-part MJD evaluation used here
+        differs by about 1e-9 rad about the pole, which the tolerances
+        cover.
+        """
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        baseline = [
+            (
+                0.0,
+                [
+                    4086521.042786044,
+                    -1001422.0696173717,
+                    5240097.960895796,
+                    2526.475467427297,
+                    7254.936292440023,
+                    -586.2164672516562,
+                ],
+                [
+                    -3953198.5496517573,
+                    1427508.1713723878,
+                    5243621.714247745,
+                    -3175.692765664617,
+                    -6658.886489084969,
+                    -583.7795319062526,
+                ],
+                [
+                    -3953205.7482107906,
+                    1427514.600436758,
+                    5243614.536966578,
+                    -3175.6919643759434,
+                    -6658.887204764712,
+                    -583.7757274026374,
+                ],
+            ),
+            (
+                3600.0,
+                [
+                    -4145099.0865794336,
+                    -4675192.1218095245,
+                    -2522878.693222248,
+                    2438.7449992842166,
+                    -5012.1607340901755,
+                    5296.6589595687765,
+                ],
+                [
+                    5548632.33724781,
+                    2869310.27560821,
+                    -2526642.5236751116,
+                    -256.3539512104304,
+                    5148.019774857155,
+                    5298.614828236159,
+                ],
+                [
+                    5548635.804940798,
+                    2869307.17943649,
+                    -2526638.4245217,
+                    -256.36122306958725,
+                    5148.026267595539,
+                    5298.608168196459,
+                ],
+            ),
+            (
+                86400.0,
+                [
+                    -3210729.8240172863,
+                    -5919606.81746119,
+                    -101232.01756464649,
+                    4161.601320160006,
+                    -2348.7210332919162,
+                    6030.701245985069,
+                ],
+                [
+                    3913296.210448205,
+                    5480513.610907296,
+                    -104221.5308794935,
+                    -3436.780994597425,
+                    2556.1961990831373,
+                    6034.247447699681,
+                ],
+                [
+                    3913296.352627009,
+                    5480513.484774249,
+                    -104222.82509622916,
+                    -3436.789219827968,
+                    2556.203497300671,
+                    6034.239671405616,
+                ],
+            ),
+        ]
+        for dt, gcrf, itrf, pef in baseline:
+            epc = prop.epoch + dt
+            for got, want in (
+                (prop.state_gcrf(epc), gcrf),
+                (prop.state_itrf(epc), itrf),
+                (prop.state_pef(epc), pef),
+            ):
+                np.testing.assert_allclose(got[:3], want[:3], atol=2e-2)
+                np.testing.assert_allclose(got[3:], want[3:], atol=2e-5)
+
+    def test_sgppropagator_state_in_frame_teme_is_raw_output(
+        self, iss_tle, eop_original_brahe
+    ):
+        """state_in_frame(TEME) matches the raw state; TOD matches the router."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epc = prop.epoch + 600.0
+        raw = prop.state(epc)
+        via_router = prop.state_in_frame(brahe.CelestialFrame.TEME, epc)
+        np.testing.assert_allclose(via_router, raw, atol=1e-9)
+
+        tod = prop.state_in_frame(brahe.CelestialFrame.TOD, epc)
+        expected = brahe.state_frame_to_frame(
+            brahe.CelestialFrame.TEME, brahe.CelestialFrame.TOD, epc, raw
+        )
+        np.testing.assert_allclose(tod, expected, atol=1e-9)
+
 
 class TestOldBraheTLEFunctions:
     """Test standalone TLE utility functions."""

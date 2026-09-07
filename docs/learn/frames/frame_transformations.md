@@ -87,6 +87,37 @@ Four variants cover bodies without a dedicated named frame:
 
 The lunar PCK auto-load is a narrow exception to the general SPICE registry rule that binary PCKs are never auto-initialized (see [SPICE Kernels](../spice/index.md)); it exists because `LFPA`/`LFME` have no meaning without `moon_pa_de440` loaded, so every lunar body-fixed conversion loads it transparently on first use. `MCI`/`MCMF` are centered on the Mars body center (NAIF 499); a translation to or from another center resolves the body-center leg through the `mar099s` satellite ephemeris kernel, which is auto-loaded the same way.
 
+## Axes and Centers
+
+`CelestialFrame` pairs one orientation with one origin. `FrameAxes` names the orientation alone &mdash; `ICRF`, `EME2000`, `MOD`, `TOD`, `ITRF`, `LunarPA`, `LunarME`, `MarsFixed`, `EMR`, `SER`, `GSE`, and the parameterized `BodyFixedIAU(naif_id)`, `BodyFixedPCK(frame_id)`, `BodyFixedCustom(key)`, and `Synodic(primary, secondary)` &mdash; and `CelestialFrame::centered(axes, center)` builds the pair, returning a named shorthand when one exists (`centered(EME2000, 399)` is `EME2000`; `centered(ICRF, 301)` is `LCI`) and the generic `Centered { axes, center }` variant otherwise. `axes()` and `center()` split any frame back into its two halves, so `centered(f.axes(), f.center()) == f` holds for every frame Brahe produces; `center()` returns the semantic `NAIFId` (`NAIFId::Mars`, or `NAIFId::Id(n)` for an uncatalogued ID) rather than the raw integer `center_naif_id()` returns.
+
+This split matters because most named frames only cover one origin: `EME2000`, `MOD`, `TOD`, and `ITRF` are welded to Earth, `MCI`/`MCMF` to Mars, and so on. `Centered` lifts that restriction, pairing any orientation with any NAIF center. The CCSDS Orbit Data Message formats need exactly this: a message's `REF_FRAME` names the orientation and its `CENTER_NAME` names the origin independently, so an OEM with `REF_FRAME = EME2000` and `CENTER_NAME = MARS` is EME2000 orientation about Mars, not about Earth. Brahe resolves that pair to `CelestialFrame::Centered(EME2000, MARS)`; see [OEM](../ccsds/oem.md) and [OPM](../ccsds/opm.md) for the full mapping.
+
+Converting between two frames that share a center is a rotation only and never touches an SPK kernel; converting between frames centered on different bodies also translates by the vector between those centers, resolved through the loaded ephemeris exactly as any other cross-center router call. The example below loads an OEM whose `CENTER_NAME` is Mars, converts a sample to `MCI` (same center, rotation only) and to `GCRF` (different center, needs the `de440s` kernel loaded below):
+
+=== "Python"
+
+    ```python
+    --8<-- "./examples/frames/mars_centered_eme2000.py:17"
+    ```
+
+=== "Rust"
+
+    ```rust
+    --8<-- "./examples/frames/mars_centered_eme2000.rs:14"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/mars_centered_eme2000.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/mars_centered_eme2000.rs.txt"
+        ```
+
 ## See Also
 
 - [Lunar Reference Frames](lunar_frames.md)

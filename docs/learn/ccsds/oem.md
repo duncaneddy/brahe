@@ -29,7 +29,7 @@ Parse from file or string, then access header properties, segment metadata, and 
 
 ## Converting to OrbitTrajectory
 
-The primary interoperability point for OEM data is conversion to brahe's `OrbitTrajectory`. Each OEM segment maps to a trajectory object, giving you Hermite interpolation at arbitrary epochs within the covered time span. A segment with `REF_FRAME = TOD` loads as a trajectory in the TOD frame; use `to_frame` to convert it to GCRF, ITRF, or another supported frame:
+The primary interoperability point for OEM data is conversion to brahe's `OrbitTrajectory`. Each OEM segment maps to a trajectory object, giving you Hermite interpolation at arbitrary epochs within the covered time span. `REF_FRAME` and `CENTER_NAME` are resolved jointly: `REF_FRAME` names the trajectory's orientation and `CENTER_NAME` its origin, so a segment with `REF_FRAME = TOD` and the default `CENTER_NAME = EARTH` loads as the `TOD` frame, while `REF_FRAME = EME2000` with `CENTER_NAME = MARS` loads as EME2000 orientation centered on Mars (`CelestialFrame.Centered(EME2000, MARS)`) rather than the Earth-centered `EME2000` shorthand. Use `to_frame` to convert to GCRF, ITRF, MCI, or another supported frame; converting to a frame centered on a different body translates through the loaded SPK kernels, while converting to a same-centered frame is a rotation only. See [Axes and Centers](../frames/frame_transformations.md#axes-and-centers) for the full `FrameAxes`/`CelestialFrame` picture.
 
 === "Python"
     ``` python

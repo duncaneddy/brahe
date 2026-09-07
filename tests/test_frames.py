@@ -2524,8 +2524,8 @@ def test_centered_rotating_axes_round_trip(eop, naif_cache_setup):
     np.testing.assert_allclose(x_icrf_axes, x_rot_only, atol=1e-9)
 
 
-def test_of_epoch_axes_and_constructors(eop):
-    """Rust: test_of_epoch_axes_and_constructors"""
+def test_frameaxes_of_epoch_display_epoch_and_equality(eop):
+    """Rust: test_frameaxes_of_epoch_display_epoch_and_equality"""
     e = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     tod_axes = brahe.FrameAxes.TODofEpoch(e)
     teme_axes = brahe.FrameAxes.TEMEofEpoch(e)
@@ -2540,6 +2540,12 @@ def test_of_epoch_axes_and_constructors(eop):
     with pytest.raises(ValueError):
         brahe.FrameAxes.from_string(str(tod_axes))
 
+
+def test_of_epoch_constructors_center_axes_and_epoch(eop):
+    """Rust: test_of_epoch_constructors_center_axes_and_epoch"""
+    e = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    tod_axes = brahe.FrameAxes.TODofEpoch(e)
+    teme_axes = brahe.FrameAxes.TEMEofEpoch(e)
     tod = brahe.CelestialFrame.tod_of_epoch(e)
     teme = brahe.CelestialFrame.teme_of_epoch(e)
     assert tod == brahe.CelestialFrame.Centered(brahe.NAIFId.EARTH, tod_axes)
@@ -2554,8 +2560,8 @@ def test_of_epoch_axes_and_constructors(eop):
     assert mars.axes == teme_axes
 
 
-def test_of_epoch_router_ignores_transform_epoch(eop):
-    """Rust: test_of_epoch_router_ignores_transform_epoch"""
+def test_of_epoch_rotation_ignores_transform_epoch(eop):
+    """Rust: test_of_epoch_rotation_ignores_transform_epoch"""
     e = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     t = e + 86400.0 * 365.0
     x = np.array([brahe.R_EARTH + 500e3, 1.0e6, -2.0e6, 100.0, 7500.0, 200.0])
@@ -2568,9 +2574,22 @@ def test_of_epoch_router_ignores_transform_epoch(eop):
     x_f = brahe.state_frame_to_frame(brahe.CelestialFrame.GCRF, teme, t, x)
     np.testing.assert_array_equal(x_f[:3], brahe.rotation_gcrf_to_teme(e) @ x[:3])
     np.testing.assert_array_equal(x_f[3:], brahe.rotation_gcrf_to_teme(e) @ x[3:])
+
+
+def test_of_epoch_to_itrf_routes_through_icrf_axes_with_transport_term(eop):
+    """Rust: test_of_epoch_to_itrf_routes_through_icrf_axes_with_transport_term"""
+    e = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    t = e + 86400.0 * 365.0
+    x = np.array([brahe.R_EARTH + 500e3, 1.0e6, -2.0e6, 100.0, 7500.0, 200.0])
+    teme = brahe.CelestialFrame.teme_of_epoch(e)
     x_itrf = brahe.state_frame_to_frame(teme, brahe.CelestialFrame.ITRF, t, x)
     expected = brahe.state_gcrf_to_itrf(t, brahe.state_teme_to_gcrf(e, x))
     np.testing.assert_allclose(x_itrf, expected, atol=1e-9, rtol=0)
+
+    # The router keeps the Earth-rotation transport term instead of applying
+    # a pure rotation of the of-epoch velocity.
+    pure = brahe.rotation_frame_to_frame(teme, brahe.CelestialFrame.ITRF, t) @ x[3:]
+    assert np.linalg.norm(x_itrf[3:] - pure) > 100.0
 
 
 def test_trajectory_in_of_epoch_frame_round_trips(eop):
@@ -2585,5 +2604,7 @@ def test_trajectory_in_of_epoch_frame_round_trips(eop):
     np.testing.assert_allclose(
         gcrf.state(e + 60.0), brahe.state_tod_to_gcrf(e, x), atol=1e-9, rtol=0
     )
+    back = gcrf.to_frame(frame)
+    assert back.frame == frame
     kep = traj.to_keplerian(brahe.AngleFormat.DEGREES)
     assert kep.frame == frame

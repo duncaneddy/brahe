@@ -1461,8 +1461,14 @@ def test_OEMSegment_add_trajectory_tod_from_gcrf(eop):
         assert np.linalg.norm(np.array(written.position) - sample[:3]) > 1.0e3
 
 
-def test_OEMSegment_add_trajectory_tod_of_epoch_from_gcrf(eop):
-    """A GCRF trajectory written to a TOD segment with REF_FRAME_EPOCH is rotated at the frozen epoch."""
+@pytest.mark.parametrize(
+    "ref_frame, state_gcrf_to_frame",
+    [("TOD", brahe.state_gcrf_to_tod), ("TEME", brahe.state_gcrf_to_teme)],
+)
+def test_OEMSegment_add_trajectory_of_epoch_from_gcrf(
+    eop, ref_frame, state_gcrf_to_frame
+):
+    """A GCRF trajectory written to a TOD/TEME segment with REF_FRAME_EPOCH is rotated at the frozen epoch."""
     epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     ref_epoch = Epoch.from_datetime(2020, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     traj = brahe.OrbitTrajectory(
@@ -1474,7 +1480,7 @@ def test_OEMSegment_add_trajectory_tod_of_epoch_from_gcrf(eop):
         object_name="SAT",
         object_id="2024-100A",
         center_name="EARTH",
-        ref_frame="TOD",
+        ref_frame=ref_frame,
         time_system="UTC",
         start_time=epoch,
         stop_time=epoch + 60.0,
@@ -1482,15 +1488,21 @@ def test_OEMSegment_add_trajectory_tod_of_epoch_from_gcrf(eop):
     )
     assert seg.ref_frame_epoch == ref_epoch
     seg.add_trajectory(traj)
-    expected = brahe.state_gcrf_to_tod(ref_epoch, sample)
+    expected = state_gcrf_to_frame(ref_epoch, sample)
     np.testing.assert_allclose(seg.states[0].position, expected[:3], atol=1e-9, rtol=0)
     np.testing.assert_allclose(seg.states[0].velocity, expected[3:], atol=1e-12, rtol=0)
     seg.ref_frame_epoch = None
     assert seg.ref_frame_epoch is None
 
 
-def test_OEMSegment_add_trajectory_tod_of_epoch_from_gcrf_proxy(eop):
-    """Proxy-mode mirror of test_OEMSegment_add_trajectory_tod_of_epoch_from_gcrf."""
+@pytest.mark.parametrize(
+    "ref_frame, state_gcrf_to_frame",
+    [("TOD", brahe.state_gcrf_to_tod), ("TEME", brahe.state_gcrf_to_teme)],
+)
+def test_OEMSegment_add_trajectory_of_epoch_from_gcrf_proxy(
+    eop, ref_frame, state_gcrf_to_frame
+):
+    """Proxy-mode mirror of test_OEMSegment_add_trajectory_of_epoch_from_gcrf."""
     epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     ref_epoch = Epoch.from_datetime(2020, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     traj = brahe.OrbitTrajectory(
@@ -1504,7 +1516,7 @@ def test_OEMSegment_add_trajectory_tod_of_epoch_from_gcrf_proxy(eop):
         object_name="SAT",
         object_id="2024-100A",
         center_name="EARTH",
-        ref_frame="TOD",
+        ref_frame=ref_frame,
         time_system="UTC",
         start_time=epoch,
         stop_time=epoch + 60.0,
@@ -1515,7 +1527,7 @@ def test_OEMSegment_add_trajectory_tod_of_epoch_from_gcrf_proxy(eop):
     oem.segments[seg_idx].add_trajectory(traj)
 
     seg = oem.segments[seg_idx]
-    expected = brahe.state_gcrf_to_tod(ref_epoch, sample)
+    expected = state_gcrf_to_frame(ref_epoch, sample)
     np.testing.assert_allclose(seg.states[0].position, expected[:3], atol=1e-9, rtol=0)
     np.testing.assert_allclose(seg.states[0].velocity, expected[3:], atol=1e-12, rtol=0)
 
@@ -1621,7 +1633,7 @@ def test_oem_in_tod_with_frame_epoch_loads_as_tod_of_epoch_trajectory(
 
     x_gcrf = traj.to_frame(brahe.CelestialFrame.GCRF).get(0)[1]
     expected = brahe.state_tod_to_gcrf(ref_epoch, x_raw)
-    np.testing.assert_allclose(x_gcrf, expected, atol=1e-9)
+    np.testing.assert_allclose(x_gcrf, expected, rtol=0, atol=1e-9)
 
     of_date = brahe.state_tod_to_gcrf(epc, x_raw)
     assert np.linalg.norm(expected[:3] - of_date[:3]) > 1.0
@@ -1638,9 +1650,14 @@ def test_oem_in_teme_with_frame_epoch_loads_as_teme_of_epoch_trajectory(
     oem.segments[0].ref_frame = "TEME"
     ref_epoch = Epoch.from_string("2019-09-08T00:00:00.0Z")
 
+    sv = oem.segments[0].states[0]
+    x_raw = np.concatenate([sv.position, sv.velocity])
+
     traj = oem.to_trajectories()[0]
     assert traj.frame == brahe.CelestialFrame.teme_of_epoch(ref_epoch)
-    _, x_raw = traj.get(0)
+    # Samples are stored unchanged in the declared frame.
+    _, x_stored = traj.get(0)
+    np.testing.assert_array_equal(x_stored, x_raw)
 
     x_gcrf = traj.to_frame(brahe.CelestialFrame.GCRF).get(0)[1]
     expected = brahe.state_teme_to_gcrf(ref_epoch, x_raw)

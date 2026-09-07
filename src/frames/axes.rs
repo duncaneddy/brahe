@@ -22,6 +22,11 @@ use crate::utils::BraheError;
 /// only on the axes' angular velocity, so they apply unchanged to a frame
 /// centered on a body other than the orientation's usual center.
 ///
+/// `TODofEpoch` and `TEMEofEpoch` carry the epoch at which their axes are
+/// frozen; the rotation router evaluates the underlying TOD/TEME rotation at
+/// that epoch regardless of the epoch a transform is requested at, so both
+/// variants are inertial.
+///
 /// [`Display`](fmt::Display) prints the variant name, with the payload in
 /// parentheses for the parameterized variants. [`FromStr`] parses the
 /// twelve argument-free names case-insensitively; the parameterized

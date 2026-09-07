@@ -3809,6 +3809,34 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_sgppropagator_output_format_tod_of_epoch() {
+        setup_global_test_eop_original_brahe();
+        let base = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let e = base.initial_epoch();
+        let mut prop = base
+            .with_output_format(
+                CelestialFrame::tod_of_epoch(e),
+                OrbitRepresentation::Cartesian,
+                None,
+            )
+            .unwrap();
+        prop.propagate_to(prop.initial_epoch() + 120.0).unwrap();
+        let epoch = prop.trajectory.epochs[1];
+        let stored = prop.trajectory.states[1].clone();
+        let expected = state_frame_to_frame(
+            CelestialFrame::TEME,
+            CelestialFrame::tod_of_epoch(e),
+            epoch,
+            prop.state(epoch).unwrap(),
+        )
+        .unwrap();
+        for k in 0..6 {
+            assert_abs_diff_eq!(stored[k], expected[k], epsilon = 1e-9);
+        }
+    }
+
+    #[test]
+    #[serial]
     fn test_sgppropagator_state_pef() {
         setup_global_test_eop_original_brahe();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();

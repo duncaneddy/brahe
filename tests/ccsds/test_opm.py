@@ -1019,7 +1019,7 @@ def test_opm_state_in_frame_frozen_tod_frame_epoch(eop):
 
     x_gcrf = opm.state_in_frame(brahe.CelestialFrame.GCRF)
     expected = brahe.state_tod_to_gcrf(ref_epoch, opm.state)
-    np.testing.assert_allclose(x_gcrf, expected, atol=1e-9)
+    np.testing.assert_allclose(x_gcrf, expected, rtol=0, atol=1e-9)
 
     of_date = brahe.state_tod_to_gcrf(opm.epoch, opm.state)
     assert np.linalg.norm(x_gcrf[:3] - of_date[:3]) > 1.0
@@ -1028,6 +1028,23 @@ def test_opm_state_in_frame_frozen_tod_frame_epoch(eop):
     # requesting that frame back returns it unchanged.
     np.testing.assert_array_equal(
         opm.state_in_frame(brahe.CelestialFrame.tod_of_epoch(ref_epoch)), opm.state
+    )
+
+
+def test_opm_state_in_frame_teme_of_epoch(eop):
+    """Mirror of test_opm_state_in_frame_teme_of_epoch in Rust."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2_ref_epoch.txt")
+    opm.ref_frame = "TEME"
+    ref_epoch = Epoch.from_string("2006-06-02T00:00:00.000Z")
+
+    x_gcrf = opm.state_in_frame(brahe.CelestialFrame.GCRF)
+    expected = brahe.state_teme_to_gcrf(ref_epoch, opm.state)
+    np.testing.assert_allclose(x_gcrf, expected, rtol=0, atol=1e-9)
+
+    # The message data is expressed in the frozen frame directly, so
+    # requesting that frame back returns it unchanged.
+    np.testing.assert_array_equal(
+        opm.state_in_frame(brahe.CelestialFrame.teme_of_epoch(ref_epoch)), opm.state
     )
 
 

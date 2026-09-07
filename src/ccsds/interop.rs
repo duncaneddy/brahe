@@ -2086,6 +2086,10 @@ mod tests {
 
         let traj = oem.segment_to_dorbit_trajectory(0).unwrap();
         assert_eq!(traj.frame, CelestialFrame::teme_of_epoch(ref_epoch));
+        // Samples are stored unchanged in the declared frame.
+        for k in 0..6 {
+            assert_eq!(traj.states[0][k], x_raw[k]);
+        }
         let e = traj.epochs[0];
         let x_gcrf = traj.state_gcrf(e).unwrap();
         let expected = state_teme_to_gcrf(ref_epoch, x_raw);

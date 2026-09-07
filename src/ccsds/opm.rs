@@ -479,6 +479,33 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_opm_state_in_frame_teme_of_epoch() {
+        setup_global_test_eop();
+        let mut opm = OPM::from_file("test_assets/ccsds/opm/OPMExample2_ref_epoch.txt").unwrap();
+        opm.metadata.ref_frame = CCSDSRefFrame::TEME;
+        let ref_epoch = opm.metadata.ref_frame_epoch.unwrap();
+
+        let p = opm.state_vector.position;
+        let v = opm.state_vector.velocity;
+        let x = SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2]);
+
+        let gcrf = opm.state_in_frame(CelestialFrame::GCRF).unwrap();
+        let expected = state_teme_to_gcrf(ref_epoch, x);
+        for k in 0..6 {
+            assert_abs_diff_eq!(gcrf[k], expected[k], epsilon = 1e-9);
+        }
+
+        // The message data is expressed in the frozen frame directly, so
+        // requesting that frame back returns it unchanged.
+        assert_eq!(
+            opm.state_in_frame(CelestialFrame::teme_of_epoch(ref_epoch))
+                .unwrap(),
+            x
+        );
+    }
+
+    #[test]
+    #[serial]
     fn test_opm_state_in_frame_teme() {
         setup_global_test_eop();
         let mut opm = OPM::from_file("test_assets/ccsds/opm/OPMExample2.txt").unwrap();

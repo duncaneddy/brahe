@@ -2018,6 +2018,11 @@ mod tests {
         for k in 0..6 {
             assert_abs_diff_eq!(via_router[k], expected[k], epsilon = 1e-9);
         }
+        // The router keeps the Earth-rotation transport term instead of
+        // applying a pure rotation of the of-epoch velocity.
+        let pure = rotation_frame_to_frame(teme, CelestialFrame::ITRF, t).unwrap()
+            * Vector3::from(x.fixed_rows::<3>(3));
+        assert!((Vector3::from(via_router.fixed_rows::<3>(3)) - pure).norm() > 100.0);
         assert_eq!(state_frame_to_frame(teme, teme, t, x).unwrap(), x);
         // A foreign center composes the same rotation with the center translation.
         let mars = CelestialFrame::centered(499, FrameAxes::TODofEpoch(e));

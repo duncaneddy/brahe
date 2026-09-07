@@ -75,20 +75,24 @@ pub(crate) fn bci_fixed_frame(center: i32) -> Option<CelestialFrame> {
 /// Celestial center about which Keplerian elements declared in `frame` are
 /// defined.
 ///
-/// Elements are accepted in ICRF-aligned inertial celestial frames and in
-/// `EME2000`. Every other frame (Earth-fixed, of-date, orbit-relative, body)
-/// is rejected.
+/// Elements are accepted in the ICRF-aligned inertial celestial frames and in
+/// the Earth equatorial frames `EME2000`, `MOD`, and `TOD`, whose axes are
+/// fixed or drift slowly enough that elements about them are well defined.
+/// Every other frame (body-fixed, orbit-relative, body) is rejected.
 ///
 /// # Arguments
 /// * `frame` - Frame the elements are declared in
 ///
 /// # Returns
 /// * `Ok(i32)`: NAIF ID of the center the elements orbit
-/// * `Err(BraheError)`: If `frame` is not an inertial celestial frame
+/// * `Err(BraheError)`: If `frame` is not one of the accepted celestial frames
 pub(crate) fn keplerian_center(frame: &ReferenceFrame) -> Result<i32, BraheError> {
     match frame {
         ReferenceFrame::Celestial(c)
-            if *c == CelestialFrame::EME2000 || icrf_aligned_inertial(*c) == *c =>
+            if matches!(
+                c,
+                CelestialFrame::EME2000 | CelestialFrame::MOD | CelestialFrame::TOD
+            ) || icrf_aligned_inertial(*c) == *c =>
         {
             Ok(c.center_naif_id())
         }
@@ -807,7 +811,7 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
     /// * `Ok(Self)` - New trajectory of Keplerian elements referenced to the
     ///   trajectory's own frame
     /// * `Err(BraheError)` - If the frame does not admit Keplerian elements
-    ///   (Earth-fixed, of-date, or orbit-relative frames), if the frame's center
+    ///   (body-fixed or orbit-relative frames), if the frame's center
     ///   is an unknown body or a massless barycenter, or if a Keplerian
     ///   trajectory is missing its angle format
     fn to_keplerian(&self, angle_format: AngleFormat) -> Result<Self, BraheError>
@@ -1016,7 +1020,7 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_keplerian_center_accepts_only_inertial_frames() {
+    fn test_keplerian_center_accepts_inertial_and_of_date_frames() {
         assert_eq!(
             keplerian_center(&CelestialFrame::GCRF.into()).unwrap(),
             NAIFId::Earth.id()
@@ -1026,12 +1030,19 @@ mod tests {
             NAIFId::Earth.id()
         );
         assert_eq!(
+            keplerian_center(&CelestialFrame::MOD.into()).unwrap(),
+            NAIFId::Earth.id()
+        );
+        assert_eq!(
+            keplerian_center(&CelestialFrame::TOD.into()).unwrap(),
+            NAIFId::Earth.id()
+        );
+        assert_eq!(
             keplerian_center(&CelestialFrame::LCI.into()).unwrap(),
             NAIFId::Moon.id()
         );
         assert_eq!(keplerian_center(&CelestialFrame::EMBI.into()).unwrap(), 3);
         assert!(keplerian_center(&CelestialFrame::ITRF.into()).is_err());
-        assert!(keplerian_center(&CelestialFrame::TOD.into()).is_err());
         assert!(keplerian_center(&CelestialFrame::LFPA.into()).is_err());
         assert!(keplerian_center(&ReferenceFrame::RTN("SC")).is_err());
     }

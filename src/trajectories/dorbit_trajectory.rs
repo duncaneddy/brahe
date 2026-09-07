@@ -214,7 +214,8 @@ pub struct DOrbitTrajectory {
     pub frame: ReferenceFrame,
 
     /// State representation (Cartesian or Keplerian).
-    /// Keplerian elements require an inertial frame.
+    /// Keplerian elements require an ICRF-aligned inertial frame or one of
+    /// `EME2000`, `MOD`, `TOD`.
     /// Cartesian states may be declared in any frame.
     pub representation: OrbitRepresentation,
 
@@ -278,7 +279,8 @@ impl DOrbitTrajectory {
     /// * If `dimension < 6`
     /// * If Keplerian representation without angle_format
     /// * If Cartesian representation with angle_format
-    /// * If Keplerian representation outside an inertial frame
+    /// * If Keplerian representation is declared outside the frames that admit
+    ///   orbital elements (ICRF-aligned inertial frames, `EME2000`, `MOD`, `TOD`)
     ///
     /// # Examples
     /// ```rust
@@ -2140,7 +2142,7 @@ impl DOrbitTrajectory {
     /// * `Ok(Self)` - New trajectory of Keplerian elements referenced to this
     ///   trajectory's own frame, in the requested angle format, preserving dimension.
     /// * `Err(BraheError)` - If the frame does not admit Keplerian elements
-    ///   (Earth-fixed, of-date, or orbit-relative frames), if the frame's center
+    ///   (body-fixed or orbit-relative frames), if the frame's center
     ///   is an unknown body or a massless barycenter, or if a Keplerian
     ///   trajectory is missing its angle format.
     pub fn to_keplerian(&self, angle_format: AngleFormat) -> Result<Self, BraheError> {
@@ -2618,7 +2620,7 @@ mod tests {
     use super::*;
     use crate::constants::{GM_MOON, R_EARTH, R_MOON};
     use crate::coordinates::{state_eci_to_koe, state_koe_to_eci};
-    use crate::frames::state_gcrf_to_itrf;
+    use crate::frames::{state_gcrf_to_itrf, state_gcrf_to_mod, state_gcrf_to_tod};
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
@@ -5489,17 +5491,76 @@ mod tests {
             assert_eq!(gcrf_kep.states[0][i], expected[i]);
         }
 
-        // Earth-fixed and of-date frames admit no Keplerian elements.
-        for frame in [CelestialFrame::ITRF, CelestialFrame::TOD] {
-            let mut traj =
+        // Earth-fixed frames admit no Keplerian elements.
+        let mut itrf = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::ITRF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
+        itrf.add(epoch, svec6_to_dvec(x_gcrf)).unwrap();
+        assert!(
+            itrf.to_keplerian(AngleFormat::Degrees)
+                .unwrap_err()
+                .to_string()
+                .contains("inertial frame")
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dorbittrajectory_keplerian_in_of_date_frames_round_trips_to_gcrf() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let oe_gcrf = Vector6::new(R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0);
+        let x_gcrf = state_koe_to_eci(oe_gcrf, AngleFormat::Degrees);
+
+        type Rotate = fn(Epoch, Vector6<f64>) -> Vector6<f64>;
+        let cases: [(CelestialFrame, Rotate); 2] = [
+            (CelestialFrame::TOD, state_gcrf_to_tod),
+            (CelestialFrame::MOD, state_gcrf_to_mod),
+        ];
+
+        for (frame, rotate) in cases {
+            let x_frame = rotate(epoch, x_gcrf);
+
+            // Cartesian samples convert to elements about the Earth in the
+            // frame's own axes and keep the frame label.
+            let mut cart =
                 DOrbitTrajectory::new(6, frame, OrbitRepresentation::Cartesian, None).unwrap();
-            traj.add(epoch, svec6_to_dvec(x_gcrf)).unwrap();
-            assert!(
-                traj.to_keplerian(AngleFormat::Degrees)
-                    .unwrap_err()
-                    .to_string()
-                    .contains("inertial frame")
-            );
+            cart.add(epoch, svec6_to_dvec(x_frame)).unwrap();
+            let kep = cart.to_keplerian(AngleFormat::Degrees).unwrap();
+            assert_eq!(kep.frame, frame);
+            assert_eq!(kep.representation, OrbitRepresentation::Keplerian);
+            let expected = state_eci_to_koe(x_frame, AngleFormat::Degrees);
+            for k in 0..6 {
+                assert_eq!(kep.states[0][k], expected[k]);
+            }
+
+            // The elements are read in the declared frame, so the inertial
+            // accessors recover the GCRF state rather than treating them as
+            // GCRF elements.
+            let x_back = kep.state_gcrf(epoch).unwrap();
+            for k in 0..6 {
+                assert_abs_diff_eq!(x_back[k], x_gcrf[k], epsilon = 1e-6);
+            }
+
+            // Osculating elements are taken about the ICRF-aligned axes.
+            let oe_back = kep.state_koe_osc(epoch, AngleFormat::Degrees).unwrap();
+            assert_abs_diff_eq!(oe_back[0], oe_gcrf[0], epsilon = 1e-6);
+            for k in 1..6 {
+                assert_abs_diff_eq!(oe_back[k], oe_gcrf[k], epsilon = 1e-8);
+            }
+
+            // Frame conversion realizes the elements in the declared frame
+            // before routing.
+            let gcrf = kep.to_frame(CelestialFrame::GCRF).unwrap();
+            assert_eq!(gcrf.representation, OrbitRepresentation::Cartesian);
+            for k in 0..6 {
+                assert_abs_diff_eq!(gcrf.states[0][k], x_gcrf[k], epsilon = 1e-6);
+            }
         }
     }
 
@@ -7082,7 +7143,16 @@ mod tests {
                 OrbitRepresentation::Keplerian,
                 Some(AngleFormat::Degrees)
             )
-            .is_err()
+            .is_ok()
+        );
+        assert!(
+            DOrbitTrajectory::new(
+                6,
+                CelestialFrame::MOD,
+                OrbitRepresentation::Keplerian,
+                Some(AngleFormat::Degrees)
+            )
+            .is_ok()
         );
         assert!(
             DOrbitTrajectory::new(

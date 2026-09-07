@@ -170,7 +170,9 @@ fn svec6_to_dvec(sv: &Vector6<f64>) -> DVector<f64> {
 /// # Errors
 /// Returns `BraheError` if:
 /// - Keplerian representation is requested without `angle_format`
-/// - Keplerian representation is requested in a non-inertial frame
+/// - Keplerian representation is requested outside the frames that admit
+///   orbital elements (`GCRF` or another ICRF-aligned Earth-centered frame,
+///   `EME2000`, `MOD`, `TOD`)
 /// - Cartesian representation is given with `angle_format`
 /// - The frame is not Earth-centered (Earth-only propagator), or cannot be
 ///   resolved because it is unbound or unregistered
@@ -762,7 +764,7 @@ impl SGPPropagatorBuilder {
     /// [`SGPPropagatorBuilder::build`] returns `Err` if the stored
     /// combination is invalid:
     /// - Keplerian representation requested without `angle_format`
-    /// - Keplerian representation requested in a non-inertial frame
+    /// - Keplerian representation requested outside the frames that admit orbital elements
     /// - Cartesian representation given with `angle_format`
     ///
     /// # Returns
@@ -815,7 +817,7 @@ impl SGPPropagatorBuilder {
     /// - [`SGPPropagatorBuilder::output_format`] was called with an invalid
     ///   combination:
     ///   - Keplerian representation requested without `angle_format`
-    ///   - Keplerian representation requested in a non-inertial frame
+    ///   - Keplerian representation requested outside the frames that admit orbital elements
     ///   - Cartesian representation given with `angle_format`
     ///   - A frame that is not Earth-centered (Earth-only propagator)
     ///
@@ -1513,8 +1515,10 @@ impl SGPPropagator {
     ///
     /// Cartesian output may be requested in any Earth-centered frame, including
     /// non-celestial ones such as an orbit-relative `RTN` frame anchored on a
-    /// registered object. Keplerian output additionally requires an inertial
-    /// frame and an angle format.
+    /// registered object. Keplerian output additionally requires an angle
+    /// format and an Earth equatorial frame that admits orbital elements:
+    /// `GCRF` (or another ICRF-aligned Earth-centered frame), `EME2000`, `MOD`,
+    /// or `TOD`.
     ///
     /// # Arguments
     /// - `frame`: Target reference frame, which must be Earth-centered
@@ -1524,7 +1528,8 @@ impl SGPPropagator {
     /// # Returns
     /// Self for method chaining, or an error if:
     /// - Keplerian representation is requested without angle_format
-    /// - Keplerian representation is requested in a non-inertial frame
+    /// - Keplerian representation is requested outside `GCRF`, `EME2000`, `MOD`,
+    ///   or `TOD`
     /// - Cartesian representation is given with angle_format
     /// - The frame is not Earth-centered (Earth-only propagator), or cannot be
     ///   resolved because it is unbound or unregistered
@@ -2675,12 +2680,14 @@ impl Identifiable for SGPPropagator {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
-    use crate::RADIANS;
+    use crate::coordinates::state_eci_to_koe;
     use crate::frames::object_registry::FnProvider;
     use crate::frames::{
-        clear_object_registry, register_object, state_itrf_to_tod, unregister_object,
+        clear_object_registry, register_object, state_gcrf_to_mod, state_gcrf_to_tod,
+        state_itrf_to_tod, unregister_object,
     };
     use crate::utils::testing::{setup_global_test_eop, setup_global_test_eop_original_brahe};
+    use crate::{DEGREES, RADIANS};
     use approx::assert_abs_diff_eq;
     use serial_test::{parallel, serial};
 
@@ -4065,6 +4072,45 @@ mod tests {
 
     #[test]
     #[parallel]
+    fn test_sgppropagator_with_output_format_keplerian_of_date_frames() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let epc = prop.initial_epoch() + 600.0;
+        let x_gcrf = prop.state_gcrf(epc).unwrap();
+
+        type Rotate = fn(Epoch, Vector6<f64>) -> Vector6<f64>;
+        let cases: [(CelestialFrame, Rotate); 2] = [
+            (CelestialFrame::TOD, state_gcrf_to_tod),
+            (CelestialFrame::MOD, state_gcrf_to_mod),
+        ];
+
+        for (frame, rotate) in cases {
+            let of_date = prop
+                .clone()
+                .with_output_format(frame, OrbitRepresentation::Keplerian, Some(DEGREES))
+                .unwrap();
+            assert_eq!(of_date.trajectory.frame, frame);
+
+            // Elements are about the Earth in the frame's own axes.
+            let mut of_date = of_date;
+            of_date.propagate_to(epc).unwrap();
+            let oe = of_date.current_state();
+            let expected = state_eci_to_koe(rotate(epc, x_gcrf), DEGREES);
+            assert_abs_diff_eq!(oe[0], expected[0], epsilon = 1e-3);
+            for k in 1..6 {
+                assert_abs_diff_eq!(oe[k], expected[k], epsilon = 1e-8);
+            }
+
+            // The inertial accessors are independent of the output format.
+            let x_back = of_date.state_gcrf(epc).unwrap();
+            for k in 0..6 {
+                assert_abs_diff_eq!(x_back[k], x_gcrf[k], epsilon = 1e-9);
+            }
+        }
+    }
+
+    #[test]
+    #[parallel]
     #[should_panic(expected = "Keplerian element trajectories should be in an inertial frame")]
     fn test_sgppropagator_with_output_format_keplerian_non_eci_frame() {
         setup_global_test_eop();
@@ -5291,7 +5337,7 @@ mod tests {
                 .is_err()
         );
 
-        // Keplerian output requires an inertial frame.
+        // Keplerian output is rejected in body-fixed frames.
         assert!(
             prop.with_output_format(
                 CelestialFrame::ITRF,

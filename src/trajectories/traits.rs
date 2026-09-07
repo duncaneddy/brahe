@@ -101,6 +101,24 @@ pub(crate) fn keplerian_center(frame: &ReferenceFrame) -> Result<i32, BraheError
     }
 }
 
+/// Whether `frame` is a celestial frame whose axes are already ICRF.
+///
+/// True for the named ICRF-aligned frames (`GCRF`, `LCI`, `MCI`, `EMBI`,
+/// `SSBI`), for `BodyCenteredICRF` at any center, and for any frame built as
+/// `CelestialFrame::centered(FrameAxes::ICRF, ..)`. Orientation alone decides:
+/// reaching ICRF axes from such a frame is the identity rotation whatever body
+/// it is centered on, so a rotation-only quantity such as a covariance passes
+/// through unchanged. Body and orbit-relative frames are never ICRF axes.
+///
+/// # Arguments
+/// * `frame` - Frame to test
+///
+/// # Returns
+/// * `bool`: `true` if `frame` is a celestial frame with ICRF axes
+pub(crate) fn is_icrf_axes_frame(frame: &ReferenceFrame) -> bool {
+    matches!(frame, ReferenceFrame::Celestial(c) if c.axes() == FrameAxes::ICRF)
+}
+
 /// Whether covariances may be attached to a trajectory declared in `frame`.
 ///
 /// # Arguments

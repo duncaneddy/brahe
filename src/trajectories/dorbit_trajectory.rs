@@ -142,7 +142,8 @@ fn smat66_to_dmat(sm: SMatrix<f64, 6, 6>) -> DMatrix<f64> {
 use super::traits::{
     CovarianceInterpolationMethod, InterpolatableTrajectory, InterpolationConfig,
     InterpolationMethod, OrbitRepresentation, STMStorage, SensitivityStorage, Trajectory,
-    TrajectoryEvictionPolicy, bci_fixed_frame, covariance_frame_allowed, keplerian_center,
+    TrajectoryEvictionPolicy, bci_fixed_frame, covariance_frame_allowed, is_icrf_axes_frame,
+    keplerian_center,
 };
 
 /// Dynamic (runtime-sized) orbital trajectory container.
@@ -2477,7 +2478,8 @@ impl DOrbitStateProvider for DOrbitTrajectory {
         }
 
         let inertial = icrf_aligned_inertial(root);
-        if self.representation == OrbitRepresentation::Keplerian && self.frame == inertial {
+        if self.representation == OrbitRepresentation::Keplerian && is_icrf_axes_frame(&self.frame)
+        {
             // Elements already reference this center's inertial axes: only
             // the angle format may differ.
             let state_dvec = self.interpolate(&epoch)?;
@@ -2512,8 +2514,6 @@ impl DOrbitCovarianceProvider for DOrbitTrajectory {
         let cov_native = self.covariance(epoch)?;
         let dim = cov_native.nrows();
 
-        let root = celestial_root(&self.frame)?;
-
         if self.frame == CelestialFrame::EME2000 {
             // Apply frame bias rotation to first 6x6 block only
             let rot = rotation_eme2000_to_gcrf();
@@ -2536,7 +2536,7 @@ impl DOrbitCovarianceProvider for DOrbitTrajectory {
 
             // Transform: C_ECI = J * C_EME2000 * J^T
             Ok(&jacobian * &cov_native * jacobian.transpose())
-        } else if self.frame == icrf_aligned_inertial(root) {
+        } else if is_icrf_axes_frame(&self.frame) {
             // ICRF-aligned axes leave the covariance unchanged under the
             // identity rotation (a center offset is a translation, which does
             // not affect covariance).
@@ -6554,6 +6554,57 @@ mod tests {
         for i in 0..6 {
             for j in 0..6 {
                 assert_abs_diff_eq!(retrieved[(i, j)], retrieved[(j, i)], epsilon = 1e-9);
+            }
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dorbittrajectory_covariance_eci_from_icrf_axes_frames() {
+        // Whether a covariance passes through unrotated depends on the
+        // frame's axes, not on which named variant spells them: the generic
+        // Earth-centered ICRF frame and a Moon-centered one both qualify.
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        for frame in [CelestialFrame::BodyCenteredICRF(399), CelestialFrame::LCI] {
+            let mut traj =
+                DOrbitTrajectory::new(6, frame, OrbitRepresentation::Cartesian, None).unwrap();
+            traj.covariances = Some(Vec::new());
+
+            let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+            let cov = DMatrix::identity(6, 6) * 100.0;
+            traj.add_state_and_covariance(epoch, state, cov).unwrap();
+
+            let retrieved = traj.covariance_eci(epoch).unwrap();
+            for i in 0..6 {
+                assert_eq!(retrieved[(i, i)], 100.0, "{frame}");
+            }
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dorbittrajectory_state_koe_osc_fast_path_for_icrf_axes_frames() {
+        // Elements stored in a frame with ICRF axes about the same center are
+        // returned as stored, with no Cartesian round trip, so the equality is
+        // exact rather than approximate.
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        for (frame, sma) in [
+            (CelestialFrame::BodyCenteredICRF(399), 7000e3),
+            (CelestialFrame::LCI, 2000e3),
+        ] {
+            let mut traj = DOrbitTrajectory::new(
+                6,
+                frame,
+                OrbitRepresentation::Keplerian,
+                Some(AngleFormat::Radians),
+            )
+            .unwrap();
+            let state = DVector::from_vec(vec![sma, 0.01, 0.5, 0.3, 0.7, 1.1]);
+            traj.add(epoch, state.clone()).unwrap();
+
+            let koe = traj.state_koe_osc(epoch, AngleFormat::Radians).unwrap();
+            for i in 0..6 {
+                assert_eq!(koe[i], state[i], "{frame}");
             }
         }
     }

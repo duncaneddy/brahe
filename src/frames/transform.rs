@@ -38,11 +38,12 @@
  * The target frame's axes are then produced by inverting step 1 for the
  * target frame. Same-center conversions (e.g. GCRF <-> ITRF, LCI <->
  * LFPA, or Mars-centered EME2000 <-> MCI) skip the translation step
- * entirely, so that step never queries SPK. This does not make step 1 SPK-free for every frame: EMR, SER, and
- * GSE orientations are themselves derived from SPK state/acceleration
- * (auto-loading `de440s`), so even a same-center conversion like GCRF <->
- * GSE queries SPK during step 1. The router is bit-identical to the
- * underlying pairwise function in every case.
+ * entirely, so that step never queries SPK. This does not make step 1
+ * SPK-free for every frame: EMR, SER, and GSE orientations are themselves
+ * derived from SPK state/acceleration (auto-loading `de440s`), so even a
+ * same-center conversion like GCRF <-> GSE queries SPK during step 1. The
+ * router is bit-identical to the underlying pairwise function in every
+ * case.
  *
  * # Frame centers
  *

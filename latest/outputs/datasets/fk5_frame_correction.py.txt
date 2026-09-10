@@ -1,0 +1,7 @@
+FK5 699: HD 172167
+  Catalog (EME2000) position, J2000.0: RA=279.234717 deg, Dec=38.783658 deg
+  Propagated to epoch:                 RA=279.236458 deg, Dec=38.785583 deg
+
+EME2000 -> GCRF frame-bias shift: 22.71 mas
+GCRF unit vector: [0.125116, -0.769389, 0.626408]
+ITRF unit vector: [0.147737, -0.765154, 0.626668]

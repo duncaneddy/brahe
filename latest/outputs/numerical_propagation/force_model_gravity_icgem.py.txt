@@ -1,0 +1,1 @@
+Propagated 60 s with JGM3 (ICGEM source); position drift = 456974.7 m

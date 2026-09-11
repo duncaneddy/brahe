@@ -924,6 +924,22 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_state_tod_to_gcrf, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_tod_to_itrf, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_itrf_to_tod, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_greenwich_mean_sidereal_rotation,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_gcrf_to_teme, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_teme_to_gcrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_teme_to_itrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_itrf_to_teme, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_gcrf_to_teme, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_teme_to_gcrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_teme_to_itrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_itrf_to_teme, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_gcrf_to_teme, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_teme_to_gcrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_teme_to_itrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_itrf_to_teme, module)?)?;
 
     // IAU/WGCCRE body rotation model
     module.add_function(wrap_pyfunction!(

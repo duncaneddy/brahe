@@ -25,6 +25,7 @@ class Frame(str, Enum):
     EME2000 = "EME2000"
     MOD = "MOD"
     TOD = "TOD"
+    TEME = "TEME"
     LCI = "LCI"
     LFPA = "LFPA"
     LFME = "LFME"

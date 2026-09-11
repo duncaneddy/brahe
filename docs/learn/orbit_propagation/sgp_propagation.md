@@ -287,6 +287,33 @@ SGP4 natively outputs states in the TEME (True Equator Mean Equinox) frame. For 
         --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/pef_frame.rs.txt"
         ```
 
+### TEME Output
+
+`state` returns the raw SGP4 output in TEME. `state_gcrf`, `state_itrf`, and `state_in_frame` convert it into GCRF, ITRF, or any other router frame; see [GCRF ↔ TEME ↔ ITRF Transformations](../frames/teme.md).
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/orbit_propagation/sgp_propagation/state_in_tod.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/orbit_propagation/sgp_propagation/state_in_tod.rs:4"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/state_in_tod.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/state_in_tod.rs.txt"
+        ```
+
 ## Extracting Orbital Elements from TLE
 
 The propagator can extract Keplerian orbital elements directly from the TLE data:

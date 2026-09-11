@@ -1908,6 +1908,146 @@ def test_router_equinox_frames_match_pairwise(eop):
     )
 
 
+def test_teme_rotations_compose_to_cio_chain(eop):
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    composed = brahe.rotation_teme_to_itrf(epc) @ brahe.rotation_gcrf_to_teme(epc)
+    np.testing.assert_allclose(
+        composed, brahe.rotation_gcrf_to_itrf(epc), atol=1e-15, rtol=0
+    )
+    np.testing.assert_array_equal(
+        brahe.rotation_teme_to_gcrf(epc), brahe.rotation_gcrf_to_teme(epc).T
+    )
+    np.testing.assert_array_equal(
+        brahe.rotation_itrf_to_teme(epc), brahe.rotation_teme_to_itrf(epc).T
+    )
+
+
+def test_teme_position_and_state_round_trips(eop):
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x = np.array([brahe.R_EARTH + 500e3, 1.0e6, -2.0e6, 100.0, 7500.0, 200.0])
+    p = x[:3]
+    np.testing.assert_allclose(
+        brahe.position_teme_to_gcrf(epc, brahe.position_gcrf_to_teme(epc, p)),
+        p,
+        atol=1e-6,
+        rtol=0,
+    )
+    np.testing.assert_allclose(
+        brahe.position_itrf_to_teme(epc, brahe.position_teme_to_itrf(epc, p)),
+        p,
+        atol=1e-6,
+        rtol=0,
+    )
+    np.testing.assert_allclose(
+        brahe.state_teme_to_gcrf(epc, brahe.state_gcrf_to_teme(epc, x)),
+        x,
+        atol=1e-6,
+        rtol=0,
+    )
+    x_itrf = brahe.state_teme_to_itrf(epc, x)
+    np.testing.assert_allclose(
+        brahe.state_itrf_to_teme(epc, x_itrf), x, atol=1e-6, rtol=0
+    )
+    # Transport term: matches the CIO chain applied to the GCRF state.
+    x_itrf_cio = brahe.state_gcrf_to_itrf(epc, brahe.state_teme_to_gcrf(epc, x))
+    np.testing.assert_allclose(x_itrf, x_itrf_cio, atol=1e-6, rtol=0)
+
+
+def test_teme_batch_matches_scalar(eop):
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    epochs = [epc, epc + 60.0, epc + 120.0]
+    x = np.array([brahe.R_EARTH + 500e3, 1.0e6, -2.0e6, 100.0, 7500.0, 200.0])
+    rots = brahe.rotation_gcrf_to_teme(epochs)
+    assert rots.shape == (3, 3, 3)
+    states = brahe.state_teme_to_itrf(epochs, x)
+    assert states.shape == (3, 6)
+    for k, e in enumerate(epochs):
+        np.testing.assert_array_equal(rots[k], brahe.rotation_gcrf_to_teme(e))
+        np.testing.assert_array_equal(states[k], brahe.state_teme_to_itrf(e, x))
+
+
+def test_router_teme_matches_pairwise(eop):
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x = np.array([brahe.R_EARTH + 500e3, 1.0e6, -2.0e6, 100.0, 7500.0, 200.0])
+    np.testing.assert_array_equal(
+        brahe.state_frame_to_frame(
+            brahe.CelestialFrame.TEME, brahe.CelestialFrame.GCRF, epc, x
+        ),
+        brahe.state_teme_to_gcrf(epc, x),
+    )
+    assert brahe.CelestialFrame.from_string("teme") == brahe.CelestialFrame.TEME
+    assert str(brahe.CelestialFrame.TEME) == "TEME"
+    assert brahe.CelestialFrame.TEME.axes == brahe.FrameAxes.TEME
+    assert brahe.CelestialFrame.TEME.center == brahe.NAIFId.EARTH
+    assert (
+        brahe.CelestialFrame.Centered(brahe.NAIFId.EARTH, brahe.FrameAxes.TEME)
+        == brahe.CelestialFrame.TEME
+    )
+    assert brahe.FrameAxes.from_string("TEME") == brahe.FrameAxes.TEME
+
+
+def test_greenwich_mean_sidereal_rotation_is_r3_of_gmst82(eop):
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    theta = epc.gmst82(brahe.AngleFormat.RADIANS)
+    c, s = np.cos(theta), np.sin(theta)
+    r3 = np.array([[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]])
+    np.testing.assert_allclose(
+        brahe.greenwich_mean_sidereal_rotation(epc), r3, atol=1e-15, rtol=0
+    )
+
+
+def test_static_itrf_point_has_earth_rotation_velocity_in_teme(eop):
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x_itrf = np.array([brahe.R_EARTH, 0.0, 0.0, 0.0, 0.0, 0.0])
+    x_teme = brahe.state_itrf_to_teme(epc, x_itrf)
+    assert np.linalg.norm(x_teme[3:]) == pytest.approx(
+        brahe.OMEGA_EARTH * brahe.R_EARTH, abs=1e-3
+    )
+
+
+def test_teme_batch_matches_scalar_all_functions(eop):
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    epochs = [epc, epc + 60.0, epc + 120.0]
+    x = np.array([brahe.R_EARTH + 500e3, 1.0e6, -2.0e6, 100.0, 7500.0, 200.0])
+    p = x[:3]
+
+    rotation_fns = [
+        brahe.rotation_gcrf_to_teme,
+        brahe.rotation_teme_to_gcrf,
+        brahe.rotation_teme_to_itrf,
+        brahe.rotation_itrf_to_teme,
+    ]
+    for fn in rotation_fns:
+        batch = fn(epochs)
+        assert batch.shape == (3, 3, 3)
+        for k, e in enumerate(epochs):
+            np.testing.assert_array_equal(batch[k], fn(e))
+
+    position_fns = [
+        brahe.position_gcrf_to_teme,
+        brahe.position_teme_to_gcrf,
+        brahe.position_teme_to_itrf,
+        brahe.position_itrf_to_teme,
+    ]
+    for fn in position_fns:
+        batch = fn(epochs, p)
+        assert batch.shape == (3, 3)
+        for k, e in enumerate(epochs):
+            np.testing.assert_array_equal(batch[k], fn(e, p))
+
+    state_fns = [
+        brahe.state_gcrf_to_teme,
+        brahe.state_teme_to_gcrf,
+        brahe.state_teme_to_itrf,
+        brahe.state_itrf_to_teme,
+    ]
+    for fn in state_fns:
+        batch = fn(epochs, x)
+        assert batch.shape == (3, 6)
+        for k, e in enumerate(epochs):
+            np.testing.assert_array_equal(batch[k], fn(e, x))
+
+
 def test_frameaxes_display_from_str():
     """Rust: test_frameaxes_display_from_str"""
     for axes in (
@@ -1915,6 +2055,7 @@ def test_frameaxes_display_from_str():
         brahe.FrameAxes.EME2000,
         brahe.FrameAxes.MOD,
         brahe.FrameAxes.TOD,
+        brahe.FrameAxes.TEME,
         brahe.FrameAxes.ITRF,
         brahe.FrameAxes.LunarPA,
         brahe.FrameAxes.LunarME,

@@ -46,13 +46,13 @@ impl TryFrom<&CCSDSRefFrame> for FrameAxes {
     /// `REF_FRAME` names an orientation, not a complete frame: the origin
     /// comes from the message's `CENTER_NAME`. `EME2000` and `J2000` map to
     /// [`FrameAxes::EME2000`], `GCRF`, `ICRF`, and `MCI` to
-    /// [`FrameAxes::ICRF`], every ITRF realization to [`FrameAxes::ITRF`], and
-    /// `TOD` to [`FrameAxes::TOD`]. `MCI` names the Mars-centered realization
-    /// of the same ICRF-aligned axes, so its origin still comes from
-    /// `CENTER_NAME`. `TEME` has no [`FrameAxes`] equivalent, and the
-    /// orbit-relative tokens (RTN, TNW, RSW) name axes without the object they
-    /// are anchored to, so both return an error. The containing message still
-    /// loads and writes; only conversion to a brahe trajectory is unsupported.
+    /// [`FrameAxes::ICRF`], every ITRF realization to [`FrameAxes::ITRF`],
+    /// `TOD` to [`FrameAxes::TOD`], and `TEME` to [`FrameAxes::TEME`]. `MCI`
+    /// names the Mars-centered realization of the same ICRF-aligned axes, so
+    /// its origin still comes from `CENTER_NAME`. The orbit-relative tokens
+    /// (RTN, TNW, RSW) name axes without the object they are anchored to and
+    /// return an error. The containing message still loads and writes; only
+    /// conversion to a brahe trajectory is unsupported.
     ///
     /// # Arguments
     ///
@@ -72,8 +72,8 @@ impl TryFrom<&CCSDSRefFrame> for FrameAxes {
     /// let axes = FrameAxes::try_from(&CCSDSRefFrame::TOD).unwrap();
     /// assert_eq!(axes, FrameAxes::TOD);
     ///
-    /// // TEME has no FrameAxes equivalent
-    /// assert!(FrameAxes::try_from(&CCSDSRefFrame::TEME).is_err());
+    /// let axes = FrameAxes::try_from(&CCSDSRefFrame::TEME).unwrap();
+    /// assert_eq!(axes, FrameAxes::TEME);
     /// ```
     fn try_from(frame: &CCSDSRefFrame) -> Result<Self, Self::Error> {
         match frame {
@@ -86,11 +86,7 @@ impl TryFrom<&CCSDSRefFrame> for FrameAxes {
             | CCSDSRefFrame::ITRF2008
             | CCSDSRefFrame::ITRF2014 => Ok(FrameAxes::ITRF),
             CCSDSRefFrame::TOD => Ok(FrameAxes::TOD),
-            CCSDSRefFrame::TEME => Err(BraheError::Error(
-                "CCSDS reference frame 'TEME' has no FrameAxes equivalent; convert \
-                 the data before creating a trajectory"
-                    .to_string(),
-            )),
+            CCSDSRefFrame::TEME => Ok(FrameAxes::TEME),
             CCSDSRefFrame::RTN | CCSDSRefFrame::TNW | CCSDSRefFrame::RSW => {
                 Err(BraheError::Error(format!(
                     "CCSDS reference frame '{}' is orbit-relative and requires the object it \
@@ -124,9 +120,10 @@ impl TryFrom<&ReferenceFrame> for CCSDSRefFrame {
     /// every other origin, matching the ODM convention that `GCRF` and `MCI`
     /// name the geocentric and Mars-centered realizations of the
     /// International Celestial Reference System. [`FrameAxes::ITRF`] writes as
-    /// `ITRF2000`, the realization brahe records for the terrestrial frame.
-    /// Axes with no ODM token — MOD, the body-fixed and synodic axes — and
-    /// the orbit-relative and body frames return an error naming the frame.
+    /// `ITRF2000`, the realization brahe records for the terrestrial frame,
+    /// and [`FrameAxes::TEME`] writes as `TEME`. Axes with no ODM token — MOD,
+    /// the body-fixed and synodic axes — and the orbit-relative and body
+    /// frames return an error naming the frame.
     ///
     /// # Arguments
     ///
@@ -184,6 +181,7 @@ impl TryFrom<&ReferenceFrame> for CCSDSRefFrame {
             FrameAxes::EME2000 => Ok(CCSDSRefFrame::EME2000),
             FrameAxes::ITRF => Ok(CCSDSRefFrame::ITRF2000),
             FrameAxes::TOD => Ok(CCSDSRefFrame::TOD),
+            FrameAxes::TEME => Ok(CCSDSRefFrame::TEME),
             _ => Err(no_token()),
         }
     }
@@ -201,7 +199,9 @@ impl TryFrom<&ReferenceFrame> for CCSDSRefFrame {
 /// axes do not move, so the frame is inertial rather than of-date and its
 /// axes are `ICRF`; the returned epoch is the one every state is converted
 /// from `TOD` at. Every other token needs no conversion, so the returned
-/// epoch is `None`.
+/// epoch is `None`. `TEME` with a `REF_FRAME_EPOCH` is currently loaded as
+/// the of-date `TEME` axes with the epoch ignored, since no frozen `TEME`
+/// frame exists yet.
 ///
 /// # Arguments
 ///
@@ -1429,8 +1429,8 @@ impl TryFrom<&ADMReferenceFrame> for ReferenceFrame {
     ///
     /// Celestial frames map onto [`ReferenceFrame::Celestial`] where brahe
     /// implements the frame (ICRF/GCRF → GCRF, EME2000/J2000 → EME2000, ITRF
-    /// realizations → ITRF, TOD_EARTH → TOD, MOD_EARTH → MOD, MOON_ME → LFME).
-    /// Only the bare `MOON_PA` token and
+    /// realizations → ITRF, TOD_EARTH → TOD, MOD_EARTH → MOD, TEMEOFDATE →
+    /// TEME, MOON_ME → LFME). Only the bare `MOON_PA` token and
     /// its explicit DE440 realization (`MOON_PA440`) map to `LFPA`, since
     /// brahe's LFPA is the DE440 lunar principal-axes frame and other DE
     /// realizations (e.g. `MOON_PA421`) differ materially. Orbit-relative and
@@ -1453,6 +1453,7 @@ impl TryFrom<&ADMReferenceFrame> for ReferenceFrame {
                     CCSDSCelestialBodyFrame::ITRF(_) => CelestialFrame::ITRF,
                     CCSDSCelestialBodyFrame::TODEarth => CelestialFrame::TOD,
                     CCSDSCelestialBodyFrame::MODEarth => CelestialFrame::MOD,
+                    CCSDSCelestialBodyFrame::TEMEOfDate => CelestialFrame::TEME,
                     CCSDSCelestialBodyFrame::MoonPA(None)
                     | CCSDSCelestialBodyFrame::MoonPA(Some(440)) => CelestialFrame::LFPA,
                     CCSDSCelestialBodyFrame::MoonME => CelestialFrame::LFME,
@@ -1590,11 +1591,12 @@ impl TryFrom<&ReferenceFrame> for ADMReferenceFrame {
     /// Converts a native [`ReferenceFrame`] into a CCSDS ADM frame token for
     /// writing messages.
     ///
-    /// GCRF, EME2000, ITRF, TOD, MOD, LFPA, and LFME write their SANA
-    /// celestial tokens (TOD and MOD as `TOD_EARTH` and `MOD_EARTH`).
-    /// [`ReferenceFrame::Celestial`] variants without a SANA celestial token
-    /// (synodic, body-centered generic, Mars/lunar inertial, ...) return an
-    /// error. Orbit-relative and body frames map by kind/designator alone: an
+    /// GCRF, EME2000, ITRF, TOD, MOD, TEME, LFPA, and LFME write their SANA
+    /// celestial tokens (TOD and MOD as `TOD_EARTH` and `MOD_EARTH`, TEME as
+    /// `TEMEOFDATE`). [`ReferenceFrame::Celestial`] variants without a SANA
+    /// celestial token (synodic, body-centered generic, Mars/lunar inertial,
+    /// ...) return an error. Orbit-relative and body frames map by
+    /// kind/designator alone: an
     /// ADM frame keyword carries no object field, so a bound frame writes the
     /// same token as its unbound counterpart and the binding is dropped.
     fn try_from(frame: &ReferenceFrame) -> Result<Self, Self::Error> {
@@ -1606,6 +1608,7 @@ impl TryFrom<&ReferenceFrame> for ADMReferenceFrame {
                     CelestialFrame::ITRF => CCSDSCelestialBodyFrame::ITRF(None),
                     CelestialFrame::TOD => CCSDSCelestialBodyFrame::TODEarth,
                     CelestialFrame::MOD => CCSDSCelestialBodyFrame::MODEarth,
+                    CelestialFrame::TEME => CCSDSCelestialBodyFrame::TEMEOfDate,
                     CelestialFrame::LFPA => CCSDSCelestialBodyFrame::MoonPA(None),
                     CelestialFrame::LFME => CCSDSCelestialBodyFrame::MoonME,
                     other => {
@@ -1683,13 +1686,14 @@ mod tests {
     use super::*;
     use crate::attitude::{EulerAngle, EulerAngleOrder};
     use crate::ccsds::aem::AEM;
+    use crate::ccsds::common::CCSDSFormat;
     use crate::ccsds::oem::OEM;
     use crate::constants::AngleFormat;
     use crate::frames::FnProvider;
     use crate::frames::{
         CelestialFrame, FrameAxes, OrientationProvider, ReferenceFrame, clear_frame_registry,
         clear_object_registry, object_state, registered_objects, rotation_frame_to_frame,
-        state_frame_to_frame, state_tod_to_gcrf,
+        state_frame_to_frame, state_teme_to_gcrf, state_tod_to_gcrf,
     };
     use crate::math::SVector6;
     use crate::spice::NAIFId;
@@ -1724,20 +1728,20 @@ mod tests {
     #[parallel]
     fn test_oem_segment_to_sorbit_trajectory_rejects_unmapped_frame() {
         let mut oem = OEM::from_file("test_assets/ccsds/oem/test.oem").unwrap();
-        oem.segments[0].metadata.ref_frame = CCSDSRefFrame::TEME;
+        oem.segments[0].metadata.ref_frame = CCSDSRefFrame::TDR;
 
         let err = oem.segment_to_sorbit_trajectory(0).unwrap_err();
-        assert!(err.to_string().contains("TEME"));
+        assert!(err.to_string().contains("TDR"));
     }
 
     #[test]
     #[parallel]
     fn test_oem_segment_to_dorbit_trajectory_rejects_unmapped_frame() {
         let mut oem = OEM::from_file("test_assets/ccsds/oem/test.oem").unwrap();
-        oem.segments[0].metadata.ref_frame = CCSDSRefFrame::TEME;
+        oem.segments[0].metadata.ref_frame = CCSDSRefFrame::TDR;
 
         let err = oem.segment_to_dorbit_trajectory(0).unwrap_err();
-        assert!(err.to_string().contains("TEME"));
+        assert!(err.to_string().contains("TDR"));
     }
 
     #[test]
@@ -1745,10 +1749,10 @@ mod tests {
     fn test_oem_register_for_rejects_unmapped_frame() {
         clear_object_registry();
         let mut oem = OEM::from_file("test_assets/ccsds/oem/test.oem").unwrap();
-        oem.segments[0].metadata.ref_frame = CCSDSRefFrame::TEME;
+        oem.segments[0].metadata.ref_frame = CCSDSRefFrame::TDR;
 
-        let err = oem.register_for("TEME_SAT").unwrap_err();
-        assert!(err.to_string().contains("TEME"));
+        let err = oem.register_for("TDR_SAT").unwrap_err();
+        assert!(err.to_string().contains("TDR"));
         clear_object_registry();
     }
 
@@ -1897,12 +1901,9 @@ mod tests {
             FrameAxes::try_from(&CCSDSRefFrame::TOD).unwrap(),
             FrameAxes::TOD
         );
-        let teme = FrameAxes::try_from(&CCSDSRefFrame::TEME).unwrap_err();
-        assert!(
-            teme.to_string().contains("'TEME'")
-                && teme.to_string().contains("no FrameAxes equivalent"),
-            "unexpected TEME message: {}",
-            teme
+        assert_eq!(
+            FrameAxes::try_from(&CCSDSRefFrame::TEME).unwrap(),
+            FrameAxes::TEME
         );
         for frame in [CCSDSRefFrame::RTN, CCSDSRefFrame::TNW, CCSDSRefFrame::RSW] {
             let err = FrameAxes::try_from(&frame).unwrap_err();
@@ -1948,6 +1949,10 @@ mod tests {
         assert_eq!(
             CCSDSRefFrame::try_from(&ReferenceFrame::from(CelestialFrame::TOD)).unwrap(),
             CCSDSRefFrame::TOD
+        );
+        assert_eq!(
+            CCSDSRefFrame::try_from(&ReferenceFrame::from(CelestialFrame::TEME)).unwrap(),
+            CCSDSRefFrame::TEME
         );
         assert!(CCSDSRefFrame::try_from(&ReferenceFrame::from(CelestialFrame::MOD)).is_err());
         assert!(CCSDSRefFrame::try_from(&ReferenceFrame::RTN("SC")).is_err());
@@ -2042,6 +2047,16 @@ mod tests {
                 .unwrap()
                 .to_string(),
             "MOD_EARTH"
+        );
+        assert_eq!(
+            ReferenceFrame::try_from(&ADMReferenceFrame::parse("TEMEOFDATE")).unwrap(),
+            CelestialFrame::TEME
+        );
+        assert_eq!(
+            ADMReferenceFrame::try_from(&ReferenceFrame::from(CelestialFrame::TEME))
+                .unwrap()
+                .to_string(),
+            "TEMEOFDATE"
         );
     }
 
@@ -2142,6 +2157,77 @@ mod tests {
     }
 
     #[test]
+    #[serial]
+    fn test_oem_in_teme_loads_as_teme_trajectory() {
+        setup_global_test_eop();
+        let content = std::fs::read_to_string("test_assets/ccsds/oem/test.oem").unwrap();
+        let mut oem = OEM::from_str(&content).unwrap();
+        oem.segments[0].metadata.ref_frame = CCSDSRefFrame::TEME;
+        let traj = oem.segment_to_dorbit_trajectory(0).unwrap();
+        assert_eq!(traj.frame, CelestialFrame::TEME);
+        let e = traj.epochs[0];
+        let x_teme = traj.state_in_frame(CelestialFrame::TEME, e).unwrap();
+        let x_gcrf = traj.state_gcrf(e).unwrap();
+        let expected = state_teme_to_gcrf(e, x_teme);
+        for k in 0..6 {
+            assert_abs_diff_eq!(x_gcrf[k], expected[k], epsilon = 1e-9);
+        }
+        let straj = oem.segment_to_sorbit_trajectory(0).unwrap();
+        assert_eq!(straj.frame, CelestialFrame::TEME);
+        clear_object_registry();
+        oem.register_for("TEME_SAT").unwrap();
+        let (registered_frame, x_reg) = object_state(&"TEME_SAT".into(), e).unwrap();
+        assert_eq!(registered_frame, CelestialFrame::TEME);
+        for k in 0..6 {
+            assert_abs_diff_eq!(x_reg[k], x_teme[k], epsilon = 1e-9);
+        }
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_aem_round_trip_in_tod_mod_and_teme_earth_frames() {
+        setup_global_test_eop();
+        let frame_b = ReferenceFrame::from(BodyFrame::SCBody(None));
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epochs = vec![t0, t0 + 60.0, t0 + 120.0];
+        let states = vec![
+            AttitudeState::new(Quaternion::new(1.0, 0.0, 0.0, 0.0)),
+            AttitudeState::new(Quaternion::new(0.9998, 0.0, 0.0, 0.0196)),
+            AttitudeState::new(Quaternion::new(0.9992, 0.0, 0.0, 0.0392)),
+        ];
+
+        for token in ["TOD_EARTH", "MOD_EARTH", "TEMEOFDATE"] {
+            let frame_a = ReferenceFrame::try_from(&ADMReferenceFrame::parse(token)).unwrap();
+            let traj = AttitudeTrajectory::from_data(
+                epochs.clone(),
+                states.clone(),
+                frame_a.clone(),
+                frame_b.clone(),
+            )
+            .unwrap();
+
+            let aem = AEM::from_attitude_trajectory(
+                &traj,
+                "SAT1",
+                "2024-001A",
+                "BRAHE",
+                CCSDSTimeSystem::UTC,
+            )
+            .unwrap();
+
+            let round_tripped = AttitudeTrajectory::try_from(&aem).unwrap();
+            assert_eq!(round_tripped.frame_a, frame_a, "token {}", token);
+
+            let written = aem.to_string(CCSDSFormat::KVN).unwrap();
+            assert!(
+                written.contains(&format!("REF_FRAME_A = {token}")),
+                "{written}"
+            );
+        }
+    }
+
+    #[test]
     #[parallel]
     fn test_odm_celestial_frame_earth_center_tokens() {
         assert_eq!(
@@ -2176,8 +2262,12 @@ mod tests {
         );
         // Orbit-relative frames should fail
         assert!(odm_celestial_frame(&CCSDSRefFrame::RTN, None, NAIFId::Earth).is_err());
-        // TEME is not equivalent to GCRF or EME2000
-        assert!(odm_celestial_frame(&CCSDSRefFrame::TEME, None, NAIFId::Earth).is_err());
+        assert_eq!(
+            odm_celestial_frame(&CCSDSRefFrame::TEME, None, NAIFId::Earth)
+                .unwrap()
+                .0,
+            CelestialFrame::TEME
+        );
     }
 
     #[test]
@@ -2233,6 +2323,18 @@ mod tests {
         // requested.
         let (frame, frozen) = odm_celestial_frame(&CCSDSRefFrame::TOD, None, NAIFId::Mars).unwrap();
         assert_eq!(frame, CelestialFrame::centered(499, FrameAxes::TOD));
+        assert_eq!(frozen, None);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_odm_celestial_frame_teme_ignores_frame_epoch() {
+        // TEME has no frozen counterpart, so a REF_FRAME_EPOCH is ignored and
+        // the states are loaded as of-date TEME axes.
+        let ref_epoch = Epoch::from_datetime(2019, 9, 8, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let (frame, frozen) =
+            odm_celestial_frame(&CCSDSRefFrame::TEME, Some(ref_epoch), NAIFId::Earth).unwrap();
+        assert_eq!(frame, CelestialFrame::TEME);
         assert_eq!(frozen, None);
     }
 
@@ -2463,7 +2565,7 @@ mod tests {
     #[test]
     #[parallel]
     fn test_adm_frame_to_reference_frame_unsupported() {
-        for token in ["B1950", "WGS84", "TEMEOFDATE", "BODY_FRAME_A"] {
+        for token in ["B1950", "WGS84", "BODY_FRAME_A"] {
             let adm = ADMReferenceFrame::parse(token);
             let err = ReferenceFrame::try_from(&adm).unwrap_err();
             assert!(

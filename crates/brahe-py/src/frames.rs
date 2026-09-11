@@ -2030,6 +2030,479 @@ fn py_state_itrf_to_tod<'py>(
     dispatch_epoch_vec::<6>(py, epc, x_itrf, axis, frames::state_itrf_to_tod, frames::states_itrf_to_tod)
 }
 
+/// Computes the rotation `R3(GMST82)` about the celestial pole by Greenwich
+/// mean sidereal time on the IAU 1982 model.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the rotation matrix.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix `R3(GMST82)`, shape `(3, 3)`.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.initialize_eop()
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     R = bh.greenwich_mean_sidereal_rotation(epc)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc)")]
+#[pyo3(name = "greenwich_mean_sidereal_rotation")]
+unsafe fn py_greenwich_mean_sidereal_rotation<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyArray<f64, Ix2>> {
+    let mat = frames::greenwich_mean_sidereal_rotation(epc.obj);
+    matrix_to_numpy!(py, mat, 3, 3, f64)
+}
+
+/// Computes the rotation matrix transforming the GCRF to the true equator
+/// and mean equinox of date (TEME): `R3(ERA - GMST82) C`, the CIO-based
+/// bias-precession-nutation matrix followed by the rotation from the
+/// Celestial Intermediate Origin to the IAU 1982 mean equinox.
+///
+/// Args:
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation matrix. A sequence
+///         evaluates one matrix per epoch.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming `GCRF` -> `TEME`, shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.initialize_eop()
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     R = bh.rotation_gcrf_to_teme(epc)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc)")]
+#[pyo3(name = "rotation_gcrf_to_teme")]
+fn py_rotation_gcrf_to_teme<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_rotation(py, epc, frames::rotation_gcrf_to_teme, frames::rotations_gcrf_to_teme)
+}
+
+/// Computes the rotation matrix transforming the true equator and mean
+/// equinox of date (TEME) to the GCRF: the transpose of
+/// `rotation_gcrf_to_teme`.
+///
+/// Args:
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation matrix. A sequence
+///         evaluates one matrix per epoch.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming `TEME` -> `GCRF`, shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.initialize_eop()
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     R = bh.rotation_teme_to_gcrf(epc)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc)")]
+#[pyo3(name = "rotation_teme_to_gcrf")]
+fn py_rotation_teme_to_gcrf<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_rotation(py, epc, frames::rotation_teme_to_gcrf, frames::rotations_teme_to_gcrf)
+}
+
+/// Computes the rotation matrix transforming the true equator, mean
+/// equinox of date (TEME) to the ITRF: polar motion applied after the
+/// Greenwich mean sidereal rotation, `W R3(GMST82)`.
+///
+/// Args:
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation matrix. A sequence
+///         evaluates one matrix per epoch.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming `TEME` -> `ITRF`, shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.initialize_eop()
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     R = bh.rotation_teme_to_itrf(epc)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc)")]
+#[pyo3(name = "rotation_teme_to_itrf")]
+fn py_rotation_teme_to_itrf<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_rotation(py, epc, frames::rotation_teme_to_itrf, frames::rotations_teme_to_itrf)
+}
+
+/// Computes the rotation matrix transforming the ITRF to the true equator,
+/// mean equinox of date (TEME): the transpose of `rotation_teme_to_itrf`.
+///
+/// Args:
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for computation of the transformation matrix. A sequence
+///         evaluates one matrix per epoch.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming `ITRF` -> `TEME`, shape `(3, 3)` for a single epoch or `(n, 3, 3)`
+///         for a sequence of `n` epochs.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.initialize_eop()
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     R = bh.rotation_itrf_to_teme(epc)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc)")]
+#[pyo3(name = "rotation_itrf_to_teme")]
+fn py_rotation_itrf_to_teme<'py>(py: Python<'py>, epc: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_rotation(py, epc, frames::rotation_itrf_to_teme, frames::rotations_itrf_to_teme)
+}
+
+/// Transforms a position vector from the GCRF to the true equator and mean
+/// equinox of date (TEME). The position is rotated by
+/// `rotation_gcrf_to_teme`.
+///
+/// Args:
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x (numpy.ndarray or list): Position vector in `GCRF` frame (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: Position vector in `TEME` frame (m), shape `(3,)` for a single
+///         input, or the batch layout of `x` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     r_gcrf = np.array([7000000.0, 0.0, 0.0])
+///     r_teme = bh.position_gcrf_to_teme(epc, r_gcrf)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (epc, x, axis=-1))]
+#[pyo3(text_signature = "(epc, x, axis=-1)")]
+#[pyo3(name = "position_gcrf_to_teme")]
+fn py_position_gcrf_to_teme<'py>(
+    py: Python<'py>,
+    epc: &Bound<'py, PyAny>,
+    x: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<3>(py, epc, x, axis, frames::position_gcrf_to_teme, frames::positions_gcrf_to_teme)
+}
+
+/// Transforms a position vector from the true equator and mean equinox of
+/// date (TEME) to the GCRF. The position is rotated by
+/// `rotation_teme_to_gcrf`.
+///
+/// Args:
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x (numpy.ndarray or list): Position vector in `TEME` frame (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: Position vector in `GCRF` frame (m), shape `(3,)` for a single
+///         input, or the batch layout of `x` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     r_teme = np.array([7000000.0, 0.0, 0.0])
+///     r_gcrf = bh.position_teme_to_gcrf(epc, r_teme)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (epc, x, axis=-1))]
+#[pyo3(text_signature = "(epc, x, axis=-1)")]
+#[pyo3(name = "position_teme_to_gcrf")]
+fn py_position_teme_to_gcrf<'py>(
+    py: Python<'py>,
+    epc: &Bound<'py, PyAny>,
+    x: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<3>(py, epc, x, axis, frames::position_teme_to_gcrf, frames::positions_teme_to_gcrf)
+}
+
+/// Transforms a position vector from the true equator, mean equinox of date
+/// (TEME) to the ITRF. Applies the Earth-rotation and polar-motion rotation
+/// `W R3(GMST82)`.
+///
+/// Args:
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x (numpy.ndarray or list): Position vector in `TEME` frame (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: Position vector in `ITRF` frame (m), shape `(3,)` for a single
+///         input, or the batch layout of `x` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     r_teme = np.array([7000000.0, 0.0, 0.0])
+///     r_itrf = bh.position_teme_to_itrf(epc, r_teme)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (epc, x, axis=-1))]
+#[pyo3(text_signature = "(epc, x, axis=-1)")]
+#[pyo3(name = "position_teme_to_itrf")]
+fn py_position_teme_to_itrf<'py>(
+    py: Python<'py>,
+    epc: &Bound<'py, PyAny>,
+    x: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<3>(py, epc, x, axis, frames::position_teme_to_itrf, frames::positions_teme_to_itrf)
+}
+
+/// Transforms a position vector from the ITRF to the true equator, mean
+/// equinox of date (TEME). Applies the transpose of the Earth-rotation and
+/// polar-motion rotation `W R3(GMST82)`.
+///
+/// Args:
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x (numpy.ndarray or list): Position vector in `ITRF` frame (m), shape `(3,)`, or a batch
+///         of vectors with the 3 components along `axis` (for example shape `(n, 3)`).
+///     axis (int, optional): The axis of `x` along which the 3 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 3)` the components lie along the last axis, so the default `-1`
+///         applies; a `(3, n)` column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: Position vector in `TEME` frame (m), shape `(3,)` for a single
+///         input, or the batch layout of `x` (shape `(n, 3)` for a single vector
+///         with a sequence of `n` epochs).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     r_itrf = np.array([4000000.0, 3000000.0, 4000000.0])
+///     r_teme = bh.position_itrf_to_teme(epc, r_itrf)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (epc, x, axis=-1))]
+#[pyo3(text_signature = "(epc, x, axis=-1)")]
+#[pyo3(name = "position_itrf_to_teme")]
+fn py_position_itrf_to_teme<'py>(
+    py: Python<'py>,
+    epc: &Bound<'py, PyAny>,
+    x: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<3>(py, epc, x, axis, frames::position_itrf_to_teme, frames::positions_itrf_to_teme)
+}
+
+/// Transforms a state vector (position and velocity) from the GCRF to the
+/// true equator and mean equinox of date (TEME). Both halves are rotated by
+/// `rotation_gcrf_to_teme`; the frames are non-rotating relative to each
+/// other, below 1e-11 rad/s, under 1e-4 m/s in low Earth orbit.
+///
+/// Args:
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_gcrf (numpy.ndarray or list): State vector in `GCRF` frame `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_gcrf` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: State vector in `TEME` frame `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_gcrf` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     state_gcrf = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+///     state_teme = bh.state_gcrf_to_teme(epc, state_gcrf)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (epc, x_gcrf, axis=-1))]
+#[pyo3(text_signature = "(epc, x_gcrf, axis=-1)")]
+#[pyo3(name = "state_gcrf_to_teme")]
+fn py_state_gcrf_to_teme<'py>(
+    py: Python<'py>,
+    epc: &Bound<'py, PyAny>,
+    x_gcrf: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<6>(py, epc, x_gcrf, axis, frames::state_gcrf_to_teme, frames::states_gcrf_to_teme)
+}
+
+/// Transforms a state vector (position and velocity) from the true equator
+/// and mean equinox of date (TEME) to the GCRF. Both halves are rotated by
+/// `rotation_teme_to_gcrf`; the frames are non-rotating relative to each
+/// other, below 1e-11 rad/s, under 1e-4 m/s in low Earth orbit.
+///
+/// Args:
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_teme (numpy.ndarray or list): State vector in `TEME` frame `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_teme` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: State vector in `GCRF` frame `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_teme` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     state_teme = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+///     state_gcrf = bh.state_teme_to_gcrf(epc, state_teme)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (epc, x_teme, axis=-1))]
+#[pyo3(text_signature = "(epc, x_teme, axis=-1)")]
+#[pyo3(name = "state_teme_to_gcrf")]
+fn py_state_teme_to_gcrf<'py>(
+    py: Python<'py>,
+    epc: &Bound<'py, PyAny>,
+    x_teme: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<6>(py, epc, x_teme, axis, frames::state_teme_to_gcrf, frames::states_teme_to_gcrf)
+}
+
+/// Transforms a state vector (position and velocity) from the true equator,
+/// mean equinox of date (TEME) to the ITRF. Accounts for the transport term
+/// from Earth's rotation, so the ITRF velocity is not simply a rotated TEME
+/// velocity.
+///
+/// Args:
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_teme (numpy.ndarray or list): State vector in `TEME` frame `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_teme` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: State vector in `ITRF` frame `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_teme` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     state_teme = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+///     state_itrf = bh.state_teme_to_itrf(epc, state_teme)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (epc, x_teme, axis=-1))]
+#[pyo3(text_signature = "(epc, x_teme, axis=-1)")]
+#[pyo3(name = "state_teme_to_itrf")]
+fn py_state_teme_to_itrf<'py>(
+    py: Python<'py>,
+    epc: &Bound<'py, PyAny>,
+    x_teme: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<6>(py, epc, x_teme, axis, frames::state_teme_to_itrf, frames::states_teme_to_itrf)
+}
+
+/// Transforms a state vector (position and velocity) from the ITRF to the
+/// true equator, mean equinox of date (TEME). Accounts for the transport
+/// term from Earth's rotation, so the TEME velocity is not simply a rotated
+/// ITRF velocity.
+///
+/// Args:
+///     epc (Epoch or Sequence[Epoch]): Epoch instant for the transformation. A sequence evaluates
+///         one epoch per vector (or broadcasts a single vector across all epochs).
+///     x_itrf (numpy.ndarray or list): State vector in `ITRF` frame `[position (m), velocity (m/s)]`, shape `(6,)`, or a batch
+///         of vectors with the 6 components along `axis` (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `x_itrf` along which the 6 components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: State vector in `TEME` frame `[position (m), velocity (m/s)]`, shape `(6,)` for a single
+///         input, or the batch layout of `x_itrf` (shape `(n, 6)` for a single vector
+///         with a sequence of `n` epochs).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     state_itrf = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+///     state_teme = bh.state_itrf_to_teme(epc, state_itrf)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (epc, x_itrf, axis=-1))]
+#[pyo3(text_signature = "(epc, x_itrf, axis=-1)")]
+#[pyo3(name = "state_itrf_to_teme")]
+fn py_state_itrf_to_teme<'py>(
+    py: Python<'py>,
+    epc: &Bound<'py, PyAny>,
+    x_itrf: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_epoch_vec::<6>(py, epc, x_itrf, axis, frames::state_itrf_to_teme, frames::states_itrf_to_teme)
+}
+
 // ============================================================================
 // IAU/WGCCRE Body Rotation Model
 // ============================================================================
@@ -4027,8 +4500,8 @@ fn py_state_gse_to_gcrf<'py>(
 /// pair and `CelestialFrame.center` / `CelestialFrame.axes` read it back.
 ///
 /// The argument-free orientations are class attributes (`ICRF`, `EME2000`,
-/// `MOD`, `TOD`, `ITRF`, `LunarPA`, `LunarME`, `MarsFixed`, `EMR`, `SER`,
-/// `GSE`); the parameterized ones are built with `BodyFixedIAU(naif_id)`,
+/// `MOD`, `TOD`, `TEME`, `ITRF`, `LunarPA`, `LunarME`, `MarsFixed`, `EMR`,
+/// `SER`, `GSE`); the parameterized ones are built with `BodyFixedIAU(naif_id)`,
 /// `BodyFixedPCK(frame_id)`, `BodyFixedCustom(key)` and
 /// `Synodic(primary, secondary)`.
 ///
@@ -4077,6 +4550,13 @@ impl PyFrameAxes {
     #[classattr]
     fn TOD() -> Self {
         PyFrameAxes { axes: frames::FrameAxes::TOD }
+    }
+
+    /// Earth true equator and mean equinox of date, anchored to GMST 1982
+    /// (the SGP4 output frame).
+    #[classattr]
+    fn TEME() -> Self {
+        PyFrameAxes { axes: frames::FrameAxes::TEME }
     }
 
     /// Earth-fixed (ITRF): bias-precession-nutation, Earth rotation, and
@@ -4178,7 +4658,7 @@ impl PyFrameAxes {
         PyFrameAxes { axes: frames::FrameAxes::Synodic { primary, secondary } }
     }
 
-    /// Parses `FrameAxes` from its string representation (the eleven
+    /// Parses `FrameAxes` from its string representation (the twelve
     /// argument-free names, case-insensitively).
     ///
     /// The parameterized variants are not parseable from a string;
@@ -4419,14 +4899,14 @@ impl PySynodicOrigin {
 /// (`rotation_frame_to_frame`, `position_frame_to_frame`, `state_frame_to_frame`).
 ///
 /// Includes every named frame defined elsewhere in this module (`GCRF`,
-/// `ITRF`, `EME2000`, the lunar frames `LFPA`/`LFME`, and the Mars frame
-/// `MCMF`, plus the corresponding inertial frames `LCI`/`MCI`), the
+/// `ITRF`, `EME2000`, `TEME`, the lunar frames `LFPA`/`LFME`, and the Mars
+/// frame `MCMF`, plus the corresponding inertial frames `LCI`/`MCI`), the
 /// Earth-Moon and Solar System barycentric inertial frames (`EMBI`, `SSBI`),
 /// and three generic constructors for bodies without a dedicated named
 /// frame: `BodyCenteredICRF(naif_id)`, `BodyFixedIAU(naif_id)`, and
 /// `BodyFixedPCK(center, frame_id)`.
 ///
-/// Frame centers (NAIF ID): GCRF/ITRF/EME2000 -> Earth (399); LCI/LFPA/LFME
+/// Frame centers (NAIF ID): GCRF/ITRF/EME2000/TEME -> Earth (399); LCI/LFPA/LFME
 /// -> Moon (301); MCI/MCMF -> Mars (499); EMBI -> 3; SSBI ->
 /// 0; `BodyCenteredICRF(id)`/`BodyFixedIAU(id)` -> `id`; `BodyFixedPCK` ->
 /// its `center`.
@@ -4498,6 +4978,14 @@ impl PyCelestialFrame {
     #[allow(non_snake_case)]
     fn TOD() -> Self {
         PyCelestialFrame { frame: frames::CelestialFrame::TOD }
+    }
+
+    /// Earth true equator and mean equinox of date (TEME): the SGP4 output
+    /// frame, anchored to Greenwich mean sidereal time on the IAU 1982 model.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn TEME() -> Self {
+        PyCelestialFrame { frame: frames::CelestialFrame::TEME }
     }
 
     /// Lunar-Centered Inertial (ICRF-aligned, Moon-centered).

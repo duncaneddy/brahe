@@ -1339,6 +1339,60 @@ def test_oem_in_tod_loads_as_tod_trajectory(eop, clear_frame_registries):
     assert "TOD_SAT" in brahe.registered_objects()
 
 
+def test_oem_in_teme_loads_as_teme_trajectory(eop, clear_frame_registries):
+    """Mirror of test_oem_in_teme_loads_as_teme_trajectory in Rust."""
+    oem = OEM.from_file("test_assets/ccsds/oem/test.oem")
+    oem.segments[0].ref_frame = "TEME"
+
+    traj = oem.segment_to_trajectory(0)
+    assert traj.frame == brahe.CelestialFrame.TEME
+
+    epc, x_teme = traj.get(0)
+    x_gcrf = traj.to_frame(brahe.CelestialFrame.GCRF).get(0)[1]
+    np.testing.assert_allclose(x_gcrf, brahe.state_teme_to_gcrf(epc, x_teme), atol=1e-9)
+
+    oem.register_for("TEME_SAT")
+    assert "TEME_SAT" in brahe.registered_objects()
+
+
+def test_OEMSegment_add_trajectory_teme_from_teme(eop):
+    """A TEME trajectory written to a TEME segment stores its samples unchanged."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    traj = brahe.OrbitTrajectory(
+        6,
+        brahe.CelestialFrame.TEME,
+        brahe.OrbitRepresentation.CARTESIAN,
+        None,
+    )
+    samples = [
+        np.array([brahe.R_EARTH + 500e3, 1.0e5, -2.0e5, 10.0, 7.6e3, -5.0]),
+        np.array([brahe.R_EARTH + 501e3, 1.1e5, -2.1e5, 11.0, 7.5e3, -6.0]),
+    ]
+    for i, sample in enumerate(samples):
+        traj.add(epoch + i * 60.0, sample)
+
+    oem = OEM(originator="TEST")
+    seg_idx = oem.add_segment(
+        object_name="SAT",
+        object_id="2024-100A",
+        center_name="EARTH",
+        ref_frame="TEME",
+        time_system="UTC",
+        start_time=epoch,
+        stop_time=epoch + 60.0,
+    )
+    oem.segments[seg_idx].add_trajectory(traj)
+
+    seg = oem.segments[seg_idx]
+    assert seg.num_states == len(samples)
+    for written, sample in zip(seg.states, samples):
+        np.testing.assert_array_equal(written.position, sample[:3])
+        np.testing.assert_array_equal(written.velocity, sample[3:6])
+
+    traj_back = oem.segment_to_trajectory(seg_idx)
+    assert traj_back.frame == brahe.CelestialFrame.TEME
+
+
 def test_OEMSegment_add_trajectory_tod_from_tod(eop):
     """A TOD trajectory written to a TOD segment stores its samples unchanged."""
     epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
@@ -1407,7 +1461,7 @@ def test_OEMSegment_add_trajectory_tod_from_gcrf(eop):
         assert np.linalg.norm(np.array(written.position) - sample[:3]) > 1.0e3
 
 
-def _teme_trajectory(epoch):
+def _tdr_trajectory(epoch):
     """Build a two-sample GCRF trajectory for unsupported-frame tests.
 
     Args:
@@ -1431,60 +1485,60 @@ def _teme_trajectory(epoch):
 
 
 def test_OEMSegment_add_trajectory_unsupported_frame_owned(eop):
-    """A standalone segment declared in TEME raises BraheError."""
+    """A standalone segment declared in TDR raises BraheError."""
     epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
-    traj = _teme_trajectory(epoch)
+    traj = _tdr_trajectory(epoch)
 
     seg = OEMSegment(
         object_name="SAT",
         object_id="2024-100A",
         center_name="EARTH",
-        ref_frame="TEME",
+        ref_frame="TDR",
         time_system="UTC",
         start_time=epoch,
         stop_time=epoch + 60.0,
     )
 
-    with pytest.raises(brahe.BraheError, match="TEME"):
+    with pytest.raises(brahe.BraheError, match="TDR"):
         seg.add_trajectory(traj)
 
 
 def test_OEMSegment_add_trajectory_unsupported_frame_proxy(eop):
-    """A segment attached to an OEM and declared in TEME raises BraheError."""
+    """A segment attached to an OEM and declared in TDR raises BraheError."""
     epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
-    traj = _teme_trajectory(epoch)
+    traj = _tdr_trajectory(epoch)
 
     oem = OEM(originator="TEST")
     seg_idx = oem.add_segment(
         object_name="SAT",
         object_id="2024-100A",
         center_name="EARTH",
-        ref_frame="TEME",
+        ref_frame="TDR",
         time_system="UTC",
         start_time=epoch,
         stop_time=epoch + 60.0,
     )
 
-    with pytest.raises(brahe.BraheError, match="TEME"):
+    with pytest.raises(brahe.BraheError, match="TDR"):
         oem.segments[seg_idx].add_trajectory(traj)
 
 
 def test_oem_to_trajectories_rejects_unmapped_frame(eop):
     """Mirror of test_oem_segment_to_dorbit_trajectory_rejects_unmapped_frame in Rust."""
     oem = OEM.from_file("test_assets/ccsds/oem/test.oem")
-    oem.segments[0].ref_frame = "TEME"
+    oem.segments[0].ref_frame = "TDR"
 
-    with pytest.raises(brahe.BraheError, match="TEME"):
+    with pytest.raises(brahe.BraheError, match="TDR"):
         oem.to_trajectories()
 
 
 def test_oem_register_for_rejects_unmapped_frame(eop, clear_frame_registries):
     """Mirror of test_oem_register_for_rejects_unmapped_frame in Rust."""
     oem = OEM.from_file("test_assets/ccsds/oem/test.oem")
-    oem.segments[0].ref_frame = "TEME"
+    oem.segments[0].ref_frame = "TDR"
 
-    with pytest.raises(brahe.BraheError, match="TEME"):
-        oem.register_for("TEME_SAT")
+    with pytest.raises(brahe.BraheError, match="TDR"):
+        oem.register_for("TDR_SAT")
 
 
 def test_oem_in_tod_with_frame_epoch_loads_as_gcrf_trajectory(

@@ -23,7 +23,7 @@ use crate::utils::BraheError;
 ///
 /// [`Display`](fmt::Display) prints the variant name, with the payload in
 /// parentheses for the parameterized variants. [`FromStr`] parses the
-/// eleven argument-free names case-insensitively; the parameterized
+/// twelve argument-free names case-insensitively; the parameterized
 /// variants are constructed directly.
 ///
 /// # Examples
@@ -46,6 +46,9 @@ pub enum FrameAxes {
     /// Earth true equator and equinox of date (bias-precession-nutation
     /// with Earth orientation parameter corrections).
     TOD,
+    /// Earth true equator and mean equinox of date, anchored to GMST 1982
+    /// (the SGP4 output frame).
+    TEME,
     /// Earth-fixed (ITRF): bias-precession-nutation, Earth rotation, and
     /// polar motion.
     ITRF,
@@ -86,6 +89,7 @@ impl fmt::Display for FrameAxes {
             FrameAxes::EME2000 => write!(f, "EME2000"),
             FrameAxes::MOD => write!(f, "MOD"),
             FrameAxes::TOD => write!(f, "TOD"),
+            FrameAxes::TEME => write!(f, "TEME"),
             FrameAxes::ITRF => write!(f, "ITRF"),
             FrameAxes::LunarPA => write!(f, "LunarPA"),
             FrameAxes::LunarME => write!(f, "LunarME"),
@@ -106,7 +110,7 @@ impl fmt::Display for FrameAxes {
 impl FromStr for FrameAxes {
     type Err = BraheError;
 
-    /// Parses the eleven argument-free axes names case-insensitively.
+    /// Parses the twelve argument-free axes names case-insensitively.
     ///
     /// The parameterized variants (`BodyFixedIAU`, `BodyFixedPCK`,
     /// `BodyFixedCustom`, `Synodic`) are not parseable from a string;
@@ -117,6 +121,7 @@ impl FromStr for FrameAxes {
             "EME2000" => Ok(FrameAxes::EME2000),
             "MOD" => Ok(FrameAxes::MOD),
             "TOD" => Ok(FrameAxes::TOD),
+            "TEME" => Ok(FrameAxes::TEME),
             "ITRF" => Ok(FrameAxes::ITRF),
             "LUNARPA" => Ok(FrameAxes::LunarPA),
             "LUNARME" => Ok(FrameAxes::LunarME),
@@ -125,8 +130,8 @@ impl FromStr for FrameAxes {
             "SER" => Ok(FrameAxes::SER),
             "GSE" => Ok(FrameAxes::GSE),
             _ => Err(BraheError::ParseError(format!(
-                "Unknown frame axes '{}'. Supported: ICRF, EME2000, MOD, TOD, ITRF, LunarPA, \
-                 LunarME, MarsFixed, EMR, SER, GSE",
+                "Unknown frame axes '{}'. Supported: ICRF, EME2000, MOD, TOD, TEME, ITRF, \
+                 LunarPA, LunarME, MarsFixed, EMR, SER, GSE",
                 s
             ))),
         }
@@ -144,6 +149,7 @@ mod tests {
     #[parallel]
     fn test_frameaxes_display() {
         assert_eq!(FrameAxes::ICRF.to_string(), "ICRF");
+        assert_eq!(FrameAxes::TEME.to_string(), "TEME");
         assert_eq!(FrameAxes::LunarPA.to_string(), "LunarPA");
         assert_eq!(FrameAxes::LunarME.to_string(), "LunarME");
         assert_eq!(FrameAxes::MarsFixed.to_string(), "MarsFixed");
@@ -170,6 +176,7 @@ mod tests {
     fn test_frameaxes_from_str_case_insensitive() {
         assert_eq!("icrf".parse::<FrameAxes>().unwrap(), FrameAxes::ICRF);
         assert_eq!("  MoD ".parse::<FrameAxes>().unwrap(), FrameAxes::MOD);
+        assert_eq!("teme".parse::<FrameAxes>().unwrap(), FrameAxes::TEME);
         assert_eq!("lunarpa".parse::<FrameAxes>().unwrap(), FrameAxes::LunarPA);
         assert_eq!(
             "MARSFIXED".parse::<FrameAxes>().unwrap(),

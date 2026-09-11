@@ -13,6 +13,7 @@ The **transformation source** column names how each frame's orientation is reali
 | `EME2000` | Inertial | 399 | Frame bias (native) |
 | `MOD` | Inertial | 399 | IAU 2006 bias-precession (native, model selectable) |
 | `TOD` | Inertial | 399 | IAU 2006/2000A bias-precession-nutation with EOP (native, model selectable) |
+| `TEME` | Inertial | 399 | GMST 1982 anchored true equator, mean equinox of date (native) |
 | `LCI` | Inertial | 301 | ICRF-aligned identity |
 | `LFPA` | Moon-fixed | 301 | DE440 binary PCK (SPICE) |
 | `LFME` | Moon-fixed | 301 | DE440 PA + constant PA&rarr;ME rotation (native) |
@@ -74,7 +75,7 @@ Four variants cover bodies without a dedicated named frame:
 
 | Frame(s) | Kernel needed | Auto-loaded? |
 |---|---|---|
-| `GCRF`, `ITRF`, `EME2000`, `MOD`, `TOD` | None (SOFA-based) | N/A |
+| `GCRF`, `ITRF`, `EME2000`, `MOD`, `TOD`, `TEME` | None (SOFA-based) | N/A |
 | `LCI` (rotation only) | None (ICRF-aligned) | N/A |
 | `LCI`, `MCI`, `EMBI`, `SSBI` (translation to/from another center) | `de440s` SPK | Yes, on first `spk_*` query |
 | `MCI`, `MCMF` (translation to/from another center) | `de440s` SPK + `mar099s` satellite ephemeris | Yes, on first Mars body-center query |
@@ -89,11 +90,11 @@ The lunar PCK auto-load is a narrow exception to the general SPICE registry rule
 
 ## Axes and Centers
 
-`CelestialFrame` pairs one origin with one orientation. `FrameCenter` names the origin alone: `Body(naif_id)` for a catalogued body or system barycenter (or any raw ID, including a self-assigned negative one), and `Barycenter(primary, secondary)` for the GM-weighted barycenter of a two-body pair that the synodic frames compute analytically. `FrameAxes` names the orientation alone &mdash; `ICRF`, `EME2000`, `MOD`, `TOD`, `ITRF`, `LunarPA`, `LunarME`, `MarsFixed`, `EMR`, `SER`, `GSE`, and the parameterized `BodyFixedIAU(naif_id)`, `BodyFixedPCK(frame_id)`, `BodyFixedCustom(key)`, and `Synodic(primary, secondary)`. `CelestialFrame::centered(center, axes)` builds the pair, returning a named shorthand when one exists (`centered(399, EME2000)` is `EME2000`; `centered(301, ICRF)` is `LCI`) and the generic `Centered { center, axes }` variant otherwise. `center()` and `axes()` split any frame back into its two halves, so `centered(f.center(), f.axes()) == f` holds for every frame Brahe produces.
+`CelestialFrame` pairs one origin with one orientation. `FrameCenter` names the origin alone: `Body(naif_id)` for a catalogued body or system barycenter (or any raw ID, including a self-assigned negative one), and `Barycenter(primary, secondary)` for the GM-weighted barycenter of a two-body pair that the synodic frames compute analytically. `FrameAxes` names the orientation alone &mdash; `ICRF`, `EME2000`, `MOD`, `TOD`, `TEME`, `ITRF`, `LunarPA`, `LunarME`, `MarsFixed`, `EMR`, `SER`, `GSE`, and the parameterized `BodyFixedIAU(naif_id)`, `BodyFixedPCK(frame_id)`, `BodyFixedCustom(key)`, and `Synodic(primary, secondary)`. `CelestialFrame::centered(center, axes)` builds the pair, returning a named shorthand when one exists (`centered(399, EME2000)` is `EME2000`; `centered(301, ICRF)` is `LCI`) and the generic `Centered { center, axes }` variant otherwise. `center()` and `axes()` split any frame back into its two halves, so `centered(f.center(), f.axes()) == f` holds for every frame Brahe produces.
 
 `center()` returns the semantic `FrameCenter` rather than the raw integer `center_naif_id()` returns. `FrameCenter::naif_id()` is the identity the router translates on, so a `Barycenter` and the raw synthetic ID encoding the same pair reach the same origin; `centered` canonicalizes on that ID, and stores the `FrameCenter` as given when the pair has no named form. `FrameCenter::name()` prints the NAIF body name, the raw ID for an uncatalogued body, or `BARYCENTER(primary, secondary)`.
 
-This split matters because most named frames only cover one origin: `EME2000`, `MOD`, `TOD`, and `ITRF` are welded to Earth, `MCI`/`MCMF` to Mars, and so on. `Centered` lifts that restriction, pairing any orientation with any NAIF center.
+This split matters because most named frames only cover one origin: `EME2000`, `MOD`, `TOD`, `TEME`, and `ITRF` are welded to Earth, `MCI`/`MCMF` to Mars, and so on. `Centered` lifts that restriction, pairing any orientation with any NAIF center.
 
 In Python a trajectory's `frame` attribute is a `ReferenceFrame`, and its `celestial_frame` attribute gives the underlying `CelestialFrame` whose `axes` and `center` split it into its two halves.
 

@@ -1759,6 +1759,51 @@ impl Epoch {
             AngleFormat::Radians => gast,
         }
     }
+
+    /// Computes the Greenwich Mean Sidereal Time on the IAU 1982 model (GMST
+    /// 1982) as an angular value for the instantaneous time of the `Epoch`.
+    /// This is the sidereal time convention SGP4 uses to relate the TEME
+    /// frame to the Earth-fixed frame.
+    ///
+    /// # Arguments
+    /// - `angle_format`: Specifies output format - `AngleFormat::Degrees` or `AngleFormat::Radians`
+    ///
+    /// # Returns
+    /// - `gmst82`: Greenwich Mean Sidereal Time 1982 in specified angle format
+    ///
+    /// # Example
+    /// ```
+    /// use brahe::eop::*;
+    /// use brahe::time::*;
+    /// use brahe::constants::AngleFormat;
+    ///
+    /// // Quick EOP initialization
+    /// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+    /// set_global_eop_provider(eop);
+    ///
+    /// // April 1, 2022
+    /// let epc = Epoch::from_datetime(2022, 4, 1, 1, 2, 3.0, 456000000000.0, TimeSystem::UTC);
+    ///
+    /// let gmst82 = epc.gmst82(AngleFormat::Degrees);
+    /// ```
+    ///
+    /// # References
+    /// - SOFA `gmst82`; Vallado et al., "Revisiting Spacetrack Report #3",
+    ///   AIAA 2006-6753, Appendix C
+    pub fn gmst82(&self, angle_format: AngleFormat) -> f64 {
+        let (uta, utb) = self.get_jdfd(TimeSystem::UT1);
+
+        let gmst;
+
+        unsafe {
+            gmst = rsofa::iauGmst82(uta, utb);
+        }
+
+        match angle_format {
+            AngleFormat::Degrees => gmst * 180.0 / PI,
+            AngleFormat::Radians => gmst,
+        }
+    }
 }
 
 // Epoch Arithmetic
@@ -2155,7 +2200,7 @@ impl Ord for Epoch {
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
-    use serial_test::parallel;
+    use serial_test::{parallel, serial};
     use std::f64::consts::PI;
 
     use approx::assert_abs_diff_eq;
@@ -3011,6 +3056,37 @@ mod tests {
             99.965 * PI / 180.0,
             epsilon = 1.0e-3
         );
+    }
+
+    #[test]
+    #[serial]
+    fn test_epoch_gmst82_matches_sgp4_polynomial_value() {
+        crate::utils::testing::setup_global_test_eop_original_brahe();
+        // TLE epoch 08264.51782528 of the ISS test TLE used by the SGP tests.
+        let epc = crate::orbits::epoch_from_tle(
+            "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927",
+        )
+        .unwrap();
+        assert_abs_diff_eq!(
+            epc.gmst82(AngleFormat::Radians),
+            3.249456480084191,
+            epsilon = 2e-9
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_epoch_gmst82_degrees_is_radians_scaled() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let gmst_rad = epc.gmst82(AngleFormat::Radians);
+        assert_abs_diff_eq!(
+            epc.gmst82(AngleFormat::Degrees),
+            gmst_rad * 180.0 / PI,
+            epsilon = 1.0e-9
+        );
+        assert!((0.0..std::f64::consts::TAU).contains(&gmst_rad));
     }
 
     #[test]

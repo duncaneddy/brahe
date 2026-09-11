@@ -74,9 +74,9 @@ pub(crate) fn bci_fixed_frame(center: i32) -> Option<CelestialFrame> {
 /// defined.
 ///
 /// Elements are accepted in any celestial frame whose axes are `ICRF`,
-/// `EME2000`, `MOD`, or `TOD`, at any center. The ICRF and EME2000 axes are
-/// fixed, and the of-date axes drift slowly enough with precession and
-/// nutation that elements about them are well defined. Every other frame
+/// `EME2000`, `MOD`, `TOD`, or `TEME`, at any center. The ICRF and EME2000
+/// axes are fixed, and the of-date axes drift slowly enough with precession
+/// and nutation that elements about them are well defined. Every other frame
 /// (body-fixed, orbit-relative, body) is rejected.
 ///
 /// # Arguments
@@ -90,7 +90,11 @@ pub(crate) fn keplerian_center(frame: &ReferenceFrame) -> Result<i32, BraheError
         ReferenceFrame::Celestial(c)
             if matches!(
                 c.axes(),
-                FrameAxes::ICRF | FrameAxes::EME2000 | FrameAxes::MOD | FrameAxes::TOD
+                FrameAxes::ICRF
+                    | FrameAxes::EME2000
+                    | FrameAxes::MOD
+                    | FrameAxes::TOD
+                    | FrameAxes::TEME
             ) =>
         {
             Ok(c.center_naif_id())
@@ -1073,6 +1077,10 @@ mod tests {
             NAIFId::Earth.id()
         );
         assert_eq!(
+            keplerian_center(&CelestialFrame::TEME.into()).unwrap(),
+            NAIFId::Earth.id()
+        );
+        assert_eq!(
             keplerian_center(&CelestialFrame::LCI.into()).unwrap(),
             NAIFId::Moon.id()
         );
@@ -1108,6 +1116,10 @@ mod tests {
         );
         assert_eq!(
             keplerian_center(&CelestialFrame::centered(499, FrameAxes::MOD).into()).unwrap(),
+            499
+        );
+        assert_eq!(
+            keplerian_center(&CelestialFrame::centered(499, FrameAxes::TEME).into()).unwrap(),
             499
         );
         // Body-fixed axes about that same body are still rejected.

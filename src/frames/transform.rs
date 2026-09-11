@@ -49,7 +49,7 @@
  *
  * | Frame | Center (NAIF ID) |
  * |---|---|
- * | GCRF, ITRF, EME2000, MOD, TOD | Earth (399) |
+ * | GCRF, ITRF, EME2000, MOD, TOD, TEME | Earth (399) |
  * | LCI, LFPA, LFME | Moon (301) |
  * | MCI, MCMF | Mars (499) |
  * | EMBI | Earth-Moon barycenter (3) |
@@ -95,6 +95,7 @@ use super::iau_rotation::{
 use super::kinematics::{state_inertial_to_rotating, state_rotating_to_inertial};
 use super::lunar::{rotation_lci_to_lfme, rotation_lci_to_lfpa};
 use super::mars::rotation_mci_to_mcmf;
+use super::teme::{rotation_gcrf_to_teme, state_gcrf_to_teme, state_teme_to_gcrf};
 
 /// Brahe-internal synthetic center ID for the Sun-Earth barycenter, the
 /// origin of [`CelestialFrame::SER`]. The SEB has no catalogued NAIF ID
@@ -177,8 +178,8 @@ fn synthetic_barycenter_pair(center: i32) -> Option<(i32, i32)> {
 /// [`state_frame_to_frame`]).
 ///
 /// Includes every named frame defined elsewhere in [`crate::frames`]
-/// (`GCRF`, `ITRF`, `EME2000`, the equinox-of-date frames `MOD`/`TOD`, the
-/// lunar frames `LCI`/`LFPA`/`LFME`, and the Mars frames `MCI`/`MCMF`), the
+/// (`GCRF`, `ITRF`, `EME2000`, the equinox-of-date frames `MOD`/`TOD`/`TEME`,
+/// the lunar frames `LCI`/`LFPA`/`LFME`, and the Mars frames `MCI`/`MCMF`), the
 /// Earth-Moon and Solar System barycentric inertial frames (`EMBI`,
 /// `SSBI`), the synodic (rotating) frames (`EMR`, `SER`, `GSE`), and
 /// several generic variants for bodies or configurations without a
@@ -214,6 +215,10 @@ pub enum CelestialFrame {
     /// with IERS corrections applied to the GCRF, IAU 2006/2000A by default;
     /// see [`crate::frames::PrecessionNutationModel`]).
     TOD,
+    /// Earth true equator and mean equinox of date (TEME), the SGP4 output
+    /// frame, anchored to Greenwich mean sidereal time on the IAU 1982 model:
+    /// `[ITRF] = W R3(GMST82) [TEME]`.
+    TEME,
     /// Lunar-Centered Inertial (ICRF-aligned, Moon-centered).
     LCI,
     /// Lunar-Fixed Principal Axis (DE440 `MOON_PA_DE440`).
@@ -367,7 +372,8 @@ impl CelestialFrame {
             | CelestialFrame::ITRF
             | CelestialFrame::EME2000
             | CelestialFrame::MOD
-            | CelestialFrame::TOD => NAIFId::Earth.id(),
+            | CelestialFrame::TOD
+            | CelestialFrame::TEME => NAIFId::Earth.id(),
             CelestialFrame::LCI | CelestialFrame::LFPA | CelestialFrame::LFME => NAIFId::Moon.id(),
             CelestialFrame::MCI | CelestialFrame::MCMF => NAIFId::Mars.id(),
             CelestialFrame::EMBI => NAIFId::EarthMoonBarycenter.id(),
@@ -419,6 +425,7 @@ impl CelestialFrame {
             CelestialFrame::EME2000 => FrameAxes::EME2000,
             CelestialFrame::MOD => FrameAxes::MOD,
             CelestialFrame::TOD => FrameAxes::TOD,
+            CelestialFrame::TEME => FrameAxes::TEME,
             CelestialFrame::LFPA => FrameAxes::LunarPA,
             CelestialFrame::LFME => FrameAxes::LunarME,
             CelestialFrame::MCMF => FrameAxes::MarsFixed,
@@ -572,6 +579,7 @@ impl CelestialFrame {
             (FrameAxes::EME2000, 399) => CelestialFrame::EME2000,
             (FrameAxes::MOD, 399) => CelestialFrame::MOD,
             (FrameAxes::TOD, 399) => CelestialFrame::TOD,
+            (FrameAxes::TEME, 399) => CelestialFrame::TEME,
             (FrameAxes::LunarPA, 301) => CelestialFrame::LFPA,
             (FrameAxes::LunarME, 301) => CelestialFrame::LFME,
             (FrameAxes::MarsFixed, 499) => CelestialFrame::MCMF,
@@ -642,6 +650,7 @@ impl CelestialFrame {
             FrameAxes::EME2000 => Ok(super::eme_2000::state_eme2000_to_gcrf(x)),
             FrameAxes::MOD => Ok(state_mod_to_gcrf(epc, x)),
             FrameAxes::TOD => Ok(state_tod_to_gcrf(epc, x)),
+            FrameAxes::TEME => Ok(state_teme_to_gcrf(epc, x)),
             FrameAxes::LunarPA => Ok(super::lunar::state_lfpa_to_lci(epc, x)),
             FrameAxes::LunarME => Ok(super::lunar::state_lfme_to_lci(epc, x)),
             FrameAxes::MarsFixed => Ok(super::mars::state_mcmf_to_mci(epc, x)),
@@ -680,6 +689,7 @@ impl CelestialFrame {
             FrameAxes::EME2000 => Ok(super::eme_2000::state_gcrf_to_eme2000(x_icrf)),
             FrameAxes::MOD => Ok(state_gcrf_to_mod(epc, x_icrf)),
             FrameAxes::TOD => Ok(state_gcrf_to_tod(epc, x_icrf)),
+            FrameAxes::TEME => Ok(state_gcrf_to_teme(epc, x_icrf)),
             FrameAxes::LunarPA => Ok(super::lunar::state_lci_to_lfpa(epc, x_icrf)),
             FrameAxes::LunarME => Ok(super::lunar::state_lci_to_lfme(epc, x_icrf)),
             FrameAxes::MarsFixed => Ok(super::mars::state_mci_to_mcmf(epc, x_icrf)),
@@ -725,6 +735,7 @@ impl fmt::Display for CelestialFrame {
             CelestialFrame::EME2000 => write!(f, "EME2000"),
             CelestialFrame::MOD => write!(f, "MOD"),
             CelestialFrame::TOD => write!(f, "TOD"),
+            CelestialFrame::TEME => write!(f, "TEME"),
             CelestialFrame::LCI => write!(f, "LCI"),
             CelestialFrame::LFPA => write!(f, "LFPA"),
             CelestialFrame::LFME => write!(f, "LFME"),
@@ -779,6 +790,7 @@ impl FromStr for CelestialFrame {
             "EME2000" => Ok(CelestialFrame::EME2000),
             "MOD" => Ok(CelestialFrame::MOD),
             "TOD" => Ok(CelestialFrame::TOD),
+            "TEME" => Ok(CelestialFrame::TEME),
             "LCI" => Ok(CelestialFrame::LCI),
             "LFPA" => Ok(CelestialFrame::LFPA),
             "LFME" => Ok(CelestialFrame::LFME),
@@ -791,7 +803,7 @@ impl FromStr for CelestialFrame {
             "GSE" => Ok(CelestialFrame::GSE),
             _ => Err(BraheError::ParseError(format!(
                 "Unknown reference frame '{}'. Supported: GCRF (alias ECI), ITRF (alias ECEF), \
-                 EME2000, MOD, TOD, LCI, LFPA, LFME, MCI, MCMF, EMBI, SSBI, EMR, SER, GSE",
+                 EME2000, MOD, TOD, TEME, LCI, LFPA, LFME, MCI, MCMF, EMBI, SSBI, EMR, SER, GSE",
                 s
             ))),
         }
@@ -941,6 +953,7 @@ fn icrf_to_frame_dcm(frame: CelestialFrame, epc: Epoch) -> Result<SMatrix3, Brah
         FrameAxes::EME2000 => Ok(rotation_gcrf_to_eme2000()),
         FrameAxes::MOD => Ok(rotation_gcrf_to_mod(epc)),
         FrameAxes::TOD => Ok(rotation_gcrf_to_tod(epc)),
+        FrameAxes::TEME => Ok(rotation_gcrf_to_teme(epc)),
         FrameAxes::LunarPA => Ok(rotation_lci_to_lfpa(epc)),
         FrameAxes::LunarME => Ok(rotation_lci_to_lfme(epc)),
         FrameAxes::MarsFixed => Ok(rotation_mci_to_mcmf(epc)),
@@ -1539,9 +1552,11 @@ mod tests {
     use crate::frames::object_registry::FnProvider;
     use crate::frames::{
         clear_object_registry, polar_motion, register_object, rotation_eme2000_to_gcrf,
-        rotation_gcrf_to_mod, rotation_gcrf_to_tod, rotation_mod_to_tod, rotation_tod_to_itrf,
-        state_eme2000_to_gcrf, state_gcrf_to_mod, state_gcrf_to_tod, state_itrf_to_gcrf,
-        state_mod_to_gcrf, state_tod_to_gcrf, state_tod_to_itrf,
+        rotation_gcrf_to_mod, rotation_gcrf_to_teme, rotation_gcrf_to_tod, rotation_mod_to_tod,
+        rotation_teme_to_gcrf, rotation_teme_to_itrf, rotation_tod_to_itrf, state_eme2000_to_gcrf,
+        state_gcrf_to_mod, state_gcrf_to_teme, state_gcrf_to_tod, state_itrf_to_gcrf,
+        state_mod_to_gcrf, state_teme_to_gcrf, state_teme_to_itrf, state_tod_to_gcrf,
+        state_tod_to_itrf,
     };
     use crate::math::vector6_from_array;
     use crate::spice::spk_state;
@@ -1791,6 +1806,87 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
+    fn test_teme_frame_parse_display_and_center() {
+        assert_eq!(
+            "TEME".parse::<CelestialFrame>().unwrap(),
+            CelestialFrame::TEME
+        );
+        assert_eq!(
+            "teme".parse::<CelestialFrame>().unwrap(),
+            CelestialFrame::TEME
+        );
+        assert_eq!(CelestialFrame::TEME.to_string(), "TEME");
+        assert_eq!(CelestialFrame::TEME.center_naif_id(), 399);
+        assert_eq!(CelestialFrame::TEME.axes(), FrameAxes::TEME);
+        assert_eq!(
+            CelestialFrame::TEME.center(),
+            FrameCenter::Body(NAIFId::Earth)
+        );
+        assert_eq!(
+            CelestialFrame::centered(NAIFId::Earth, FrameAxes::TEME),
+            CelestialFrame::TEME
+        );
+        let json = serde_json::to_string(&CelestialFrame::TEME).unwrap();
+        assert_eq!(
+            serde_json::from_str::<CelestialFrame>(&json).unwrap(),
+            CelestialFrame::TEME
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_router_teme_matches_pairwise() {
+        setup_global_test_eop();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let x = vector6_from_array([R_EARTH + 500e3, 1.0e6, -2.0e6, 100.0, 7500.0, 200.0]);
+
+        // Bit identity where the router composes the same pairwise functions.
+        assert_eq!(
+            rotation_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::TEME, epc).unwrap(),
+            rotation_gcrf_to_teme(epc)
+        );
+        assert_eq!(
+            state_frame_to_frame(CelestialFrame::TEME, CelestialFrame::GCRF, epc, x).unwrap(),
+            state_teme_to_gcrf(epc, x)
+        );
+        assert_eq!(
+            state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::TEME, epc, x).unwrap(),
+            state_gcrf_to_teme(epc, x)
+        );
+        // ITRF goes through the CIO chain in the router; the pairwise
+        // W R3(GMST82) form agrees to floating-point precision.
+        let r_router =
+            rotation_frame_to_frame(CelestialFrame::TEME, CelestialFrame::ITRF, epc).unwrap();
+        let r_pair = rotation_teme_to_itrf(epc);
+        for i in 0..3 {
+            for j in 0..3 {
+                assert_abs_diff_eq!(r_router[(i, j)], r_pair[(i, j)], epsilon = 1e-14);
+            }
+        }
+        let x_router =
+            state_frame_to_frame(CelestialFrame::TEME, CelestialFrame::ITRF, epc, x).unwrap();
+        let x_pair = state_teme_to_itrf(epc, x);
+        for i in 0..3 {
+            assert_abs_diff_eq!(x_router[i], x_pair[i], epsilon = 1e-6);
+            assert_abs_diff_eq!(x_router[i + 3], x_pair[i + 3], epsilon = 1e-9);
+        }
+        // TEME to TOD is the equinox offset R3(GMST82 - GAST).
+        let r_tod =
+            rotation_frame_to_frame(CelestialFrame::TEME, CelestialFrame::TOD, epc).unwrap();
+        let expected = rotation_gcrf_to_tod(epc) * rotation_teme_to_gcrf(epc);
+        for i in 0..3 {
+            for j in 0..3 {
+                assert_abs_diff_eq!(r_tod[(i, j)], expected[(i, j)], epsilon = 1e-15);
+            }
+        }
+        assert_eq!(
+            state_frame_to_frame(CelestialFrame::TEME, CelestialFrame::TEME, epc, x).unwrap(),
+            x
+        );
+    }
+
+    #[test]
     #[serial]
     fn test_router_roundtrip_all_pairs() {
         setup_global_test_eop();
@@ -1809,6 +1905,7 @@ mod tests {
             CelestialFrame::EMR,
             CelestialFrame::SER,
             CelestialFrame::GSE,
+            CelestialFrame::TEME,
         ];
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let x = vector6_from_array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3]);
@@ -1996,6 +2093,7 @@ mod tests {
             CelestialFrame::MCMF,
             CelestialFrame::EMBI,
             CelestialFrame::SSBI,
+            CelestialFrame::TEME,
         ];
         for f in frames {
             assert_eq!(f.to_string().parse::<CelestialFrame>().unwrap(), f);
@@ -3030,6 +3128,7 @@ mod tests {
             CelestialFrame::EME2000,
             CelestialFrame::MOD,
             CelestialFrame::TOD,
+            CelestialFrame::TEME,
             CelestialFrame::LCI,
             CelestialFrame::LFPA,
             CelestialFrame::LFME,
@@ -3087,6 +3186,7 @@ mod tests {
             FrameAxes::EME2000,
             FrameAxes::MOD,
             FrameAxes::TOD,
+            FrameAxes::TEME,
             FrameAxes::ITRF,
             FrameAxes::LunarPA,
             FrameAxes::LunarME,
@@ -3153,6 +3253,7 @@ mod tests {
             (FrameAxes::EME2000, FrameAxes::EME2000),
             (FrameAxes::MOD, FrameAxes::MOD),
             (FrameAxes::TOD, FrameAxes::TOD),
+            (FrameAxes::TEME, FrameAxes::TEME),
             (FrameAxes::ITRF, FrameAxes::ITRF),
             (FrameAxes::LunarPA, FrameAxes::LunarPA),
             (FrameAxes::LunarME, FrameAxes::LunarME),

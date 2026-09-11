@@ -1506,6 +1506,29 @@ impl PyEpoch {
         self.obj.gmst(angle_format.value)
     }
 
+    /// Get the Greenwich Mean Sidereal Time on the IAU 1982 model (GMST
+    /// 1982) for this epoch, the sidereal time convention SGP4 uses for the
+    /// TEME frame.
+    ///
+    /// Args:
+    ///     angle_format (AngleFormat): Format for the returned angle (radians or degrees)
+    ///
+    /// Returns:
+    ///     float: GMST 1982 angle
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     gmst82_rad = epc.gmst82(bh.AngleFormat.RADIANS)
+    ///     gmst82_deg = epc.gmst82(bh.AngleFormat.DEGREES)
+    ///     print(f"GMST 1982: {gmst82_rad:.6f} rad = {gmst82_deg:.6f} deg")
+    ///     ```
+    pub fn gmst82(&self, angle_format: PyRef<PyAngleFormat>) -> f64 {
+        self.obj.gmst82(angle_format.value)
+    }
+
     /// Returns the year component of the epoch in the epoch's time system.
     ///
     /// Returns:

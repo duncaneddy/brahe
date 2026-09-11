@@ -943,8 +943,8 @@ def test_opm_state_in_frame_invalid_type(eop):
 def test_opm_state_in_frame_unsupported_ref_frame(eop):
     """A REF_FRAME with no FrameAxes equivalent raises BraheError."""
     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2.txt")
-    opm.ref_frame = "TEME"
-    with pytest.raises(brahe.BraheError, match="TEME"):
+    opm.ref_frame = "TDR"
+    with pytest.raises(brahe.BraheError, match="TDR"):
         opm.state_in_frame(brahe.CelestialFrame.GCRF)
 
 
@@ -1023,3 +1023,16 @@ def test_opm_state_in_frame_frozen_tod_frame_epoch(eop):
 
     of_date = brahe.state_tod_to_gcrf(opm.epoch, opm.state)
     assert np.linalg.norm(x_gcrf[:3] - of_date[:3]) > 1.0
+
+
+def test_opm_state_in_frame_teme(eop):
+    """Mirror of test_opm_state_in_frame_teme in Rust."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2.txt")
+    opm.ref_frame = "TEME"
+
+    x_gcrf = opm.state_in_frame(brahe.CelestialFrame.GCRF)
+    expected = brahe.state_teme_to_gcrf(opm.epoch, opm.state)
+    np.testing.assert_allclose(x_gcrf, expected, atol=1e-9, rtol=0)
+
+    x_teme = opm.state_in_frame(brahe.CelestialFrame.TEME)
+    np.testing.assert_array_equal(x_teme, opm.state)

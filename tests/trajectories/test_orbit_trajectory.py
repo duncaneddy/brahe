@@ -26,6 +26,7 @@ from brahe import (
     state_gcrf_to_eme2000,
     state_gcrf_to_itrf,
     state_gcrf_to_mod,
+    state_gcrf_to_teme,
     state_gcrf_to_tod,
     state_itrf_to_gcrf,
     state_koe_to_eci,
@@ -130,7 +131,12 @@ def test_keplerian_frame_rule():
             OrbitRepresentation.KEPLERIAN,
             AngleFormat.DEGREES,
         )
-    for frame in (CelestialFrame.EME2000, CelestialFrame.MOD, CelestialFrame.TOD):
+    for frame in (
+        CelestialFrame.EME2000,
+        CelestialFrame.MOD,
+        CelestialFrame.TOD,
+        CelestialFrame.TEME,
+    ):
         OrbitTrajectory(
             6,
             frame,
@@ -186,6 +192,7 @@ def test_trajectory_keplerian_in_of_date_frames_round_trips_to_gcrf(eop):
     for frame, rotate in (
         (CelestialFrame.TOD, state_gcrf_to_tod),
         (CelestialFrame.MOD, state_gcrf_to_mod),
+        (CelestialFrame.TEME, state_gcrf_to_teme),
     ):
         x_frame = rotate(epoch, x_gcrf)
 
@@ -4264,7 +4271,7 @@ def test_keplerian_center_accepts_generic_icrf_frames(eop):
     assert elements[0] == pytest.approx(r, abs=1e-6)
 
     # The of-date axes are accepted at any center for the same reason.
-    for axes in (brahe.FrameAxes.TOD, brahe.FrameAxes.MOD):
+    for axes in (brahe.FrameAxes.TOD, brahe.FrameAxes.MOD, brahe.FrameAxes.TEME):
         of_date = CelestialFrame.Centered(brahe.NAIFId.MARS, axes)
         traj = OrbitTrajectory(6, of_date, OrbitRepresentation.CARTESIAN, None)
         traj.add(epoch, state)

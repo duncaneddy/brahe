@@ -529,6 +529,33 @@ def test_aem_from_attitude_trajectory_with_rates():
     assert seg.angvel_frame == "SC_BODY"
 
 
+@pytest.mark.parametrize(
+    "celestial_frame,token",
+    [
+        (bh.CelestialFrame.TOD, "TOD_EARTH"),
+        (bh.CelestialFrame.MOD, "MOD_EARTH"),
+        (bh.CelestialFrame.TEME, "TEMEOFDATE"),
+    ],
+)
+def test_aem_round_trip_in_tod_mod_and_teme_earth_frames(eop, celestial_frame, token):
+    """Mirror of test_aem_round_trip_in_tod_mod_and_teme_earth_frames in Rust."""
+    frame_a = bh.ReferenceFrame.celestial(celestial_frame)
+    frame_b = bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY(None))
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    traj.add(t0 + 60.0, bh.Quaternion(0.9998, 0.0, 0.0, 0.0196))
+    traj.add(t0 + 120.0, bh.Quaternion(0.9992, 0.0, 0.0, 0.0392))
+
+    aem = AEM.from_attitude_trajectory(traj, "SAT1", "2024-001A", "BRAHE", "UTC")
+
+    round_tripped = aem.segment_to_attitude_trajectory(0)
+    assert round_tripped.frame_a == frame_a
+
+    written = aem.to_string("KVN")
+    assert f"REF_FRAME_A = {token}" in written
+
+
 def test_aem_from_attitude_trajectory_empty_errors():
     """Mirror of test_aem_from_attitude_trajectory_empty_errors in Rust."""
     frame_a = bh.ReferenceFrame.celestial(bh.CelestialFrame.EME2000)

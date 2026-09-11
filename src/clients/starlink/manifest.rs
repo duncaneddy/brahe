@@ -20,7 +20,6 @@ const GPS_STOP_WINDOW_SECONDS: f64 = 30.0 * SECONDS_PER_DAY;
 /// # Returns
 /// * `Some(Epoch)`: The instant in UTC
 /// * `None`: If the value is not in the fixed-length IMF-fixdate form
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn parse_http_date(value: &str) -> Option<Epoch> {
     let parts: Vec<&str> = value.split_whitespace().collect();
     if parts.len() != 6 || !parts[0].ends_with(',') || parts[5] != "GMT" {

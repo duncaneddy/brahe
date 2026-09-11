@@ -11,10 +11,10 @@ use std::path::Path;
 use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 
-use crate::celestrak::filter::{apply_filters, apply_limit, apply_order_by};
-use crate::celestrak::query::{CelestrakQuery, LocalSelector};
-use crate::celestrak::responses::CelestrakSATCATRecord;
-use crate::celestrak::types::{CelestrakOutputFormat, SupGPSource};
+use crate::clients::celestrak::filter::{apply_filters, apply_limit, apply_order_by};
+use crate::clients::celestrak::query::{CelestrakQuery, LocalSelector};
+use crate::clients::celestrak::responses::CelestrakSATCATRecord;
+use crate::clients::celestrak::types::{CelestrakOutputFormat, SupGPSource};
 use crate::propagators::SGPPropagator;
 use crate::types::GPRecord;
 use crate::utils::network::{
@@ -1007,7 +1007,7 @@ mod tests {
     #[parallel]
     fn test_build_full_url_sup_gp() {
         let client = CelestrakClient::new();
-        let query = CelestrakQuery::sup_gp().source(crate::celestrak::SupGPSource::SpaceX);
+        let query = CelestrakQuery::sup_gp().source(crate::clients::celestrak::SupGPSource::SpaceX);
         let url = client.build_full_url(&query);
         assert_eq!(
             url,

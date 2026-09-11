@@ -4353,3 +4353,17 @@ def test_orbittrajectory_to_frame_drops_covariance_for_unsupported_targets(eop):
     )
     assert _covariance_or_none(traj.to_itrf(), epochs[0]) is None
     assert _covariance_or_none(traj.to_frame(CelestialFrame.TEME), epochs[0]) is None
+
+    kep_states = np.array(
+        [state_eci_to_koe(s, AngleFormat.DEGREES) for s in traj.states()]
+    )
+    kep = OrbitTrajectory.from_orbital_data(
+        epochs,
+        kep_states,
+        CelestialFrame.GCRF,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
+        np.stack([cov, cov, cov]),
+    )
+    np.testing.assert_array_equal(kep.covariance(epochs[0]), cov)
+    assert _covariance_or_none(kep.to_eme2000(), epochs[0]) is None

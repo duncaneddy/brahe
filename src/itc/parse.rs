@@ -55,12 +55,18 @@ fn month_day_from_day_of_year(year: u32, day_of_year: u32) -> Result<(u8, u8), B
 }
 
 /// Whether a token is a record epoch (`YYYYDDDHHMMSS` with an optional fraction).
+///
+/// The integer part must be exactly thirteen digits (`YYYYDDDHHMMSS`);
+/// covariance tokens, being in scientific notation, never match.
 fn is_epoch_token(token: &str) -> bool {
     let integer = token.split_once('.').map(|(i, _)| i).unwrap_or(token);
     integer.len() == 13 && integer.chars().all(|c| c.is_ascii_digit())
 }
 
 /// Parses a `YYYYDDDHHMMSS.sss` UTC epoch token.
+///
+/// A seconds field of `60` is accepted so leap-second records parse; it is
+/// passed through to [`Epoch::from_datetime`].
 pub(crate) fn parse_itc_epoch(token: &str) -> Result<Epoch, BraheError> {
     let (integer, fraction) = token.split_once('.').unwrap_or((token, ""));
     if !is_epoch_token(token) {
@@ -443,6 +449,12 @@ mod tests {
 
         let last = itc.states.last().unwrap();
         assert_eq!(last.epoch, utc(2026, 9, 14, 1, 42, 42.0));
+        assert_abs_diff_eq!(last.position[0], 1818.7096808241e3, epsilon = 1e-6);
+        assert_abs_diff_eq!(last.position[1], 3525.7372127755e3, epsilon = 1e-6);
+        assert_abs_diff_eq!(last.position[2], -5423.9171357013e3, epsilon = 1e-6);
+        assert_abs_diff_eq!(last.velocity[0], -6.2948457440e3, epsilon = 1e-9);
+        assert_abs_diff_eq!(last.velocity[1], -2.4380764122e3, epsilon = 1e-9);
+        assert_abs_diff_eq!(last.velocity[2], -3.6949737258e3, epsilon = 1e-9);
         for w in itc.states.windows(2) {
             assert_abs_diff_eq!(w[1].epoch - w[0].epoch, 60.0, epsilon = 1e-6);
         }

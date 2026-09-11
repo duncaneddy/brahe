@@ -128,8 +128,7 @@ impl ITC {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::clients::spacetrack::EphemerisFileCategory;
-    use crate::itc::{ITC, ITCHeader, ITCStateVector};
+    use crate::itc::{ITCHeader, ITCStateVector};
     use crate::time::TimeSystem;
     use serial_test::parallel;
 

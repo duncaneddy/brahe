@@ -255,9 +255,17 @@ impl PyITCHeader {
     }
 
     fn __repr__(&self) -> String {
+        let step_size = match self.inner.step_size {
+            Some(value) => format!("{}", value),
+            None => "None".to_string(),
+        };
+        let ephemeris_source = match &self.inner.ephemeris_source {
+            Some(value) => format!("'{}'", value),
+            None => "None".to_string(),
+        };
         format!(
-            "ITCHeader(state_frame={}, covariance_frame={}, step_size={:?}, ephemeris_source={:?})",
-            self.inner.state_frame, self.inner.covariance_frame, self.inner.step_size, self.inner.ephemeris_source
+            "ITCHeader(state_frame={}, covariance_frame={}, step_size={}, ephemeris_source={})",
+            self.inner.state_frame, self.inner.covariance_frame, step_size, ephemeris_source
         )
     }
 }
@@ -338,7 +346,8 @@ impl PyITCStateVector {
 /// Read Starlink and other Space-Track Modified ITC files, build messages
 /// record by record, and write them back in the same text layout. All
 /// values are SI: meters, meters per second, and m², m²/s, m²/s² for the
-/// covariance in the header's covariance frame.
+/// covariance in the header's covariance frame. Properties return copies;
+/// to change the header, modify a copy and assign it back.
 ///
 /// Example:
 ///     ```python
@@ -434,7 +443,7 @@ impl PyITC {
     /// Header fields.
     ///
     /// Returns:
-    ///     ITCHeader: The header.
+    ///     ITCHeader: A copy of the header; assign it back (``itc.header = h``) to apply changes.
     #[getter]
     fn header(&self) -> PyITCHeader {
         PyITCHeader { inner: self.inner.header.clone() }
@@ -571,7 +580,8 @@ impl PyITC {
     }
 
     fn __repr__(&self) -> String {
-        format!("ITC(records={}, covariance={}, state_frame={})", self.inner.len(), self.inner.has_covariance(), self.inner.header.state_frame)
+        let covariance = if self.inner.has_covariance() { "True" } else { "False" };
+        format!("ITC(records={}, covariance={}, state_frame={})", self.inner.len(), covariance, self.inner.header.state_frame)
     }
 }
 

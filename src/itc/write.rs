@@ -118,6 +118,13 @@ impl ITC {
                 "cannot write a Modified ITC message with no records".to_string(),
             ));
         }
+        if !self.covariances.is_empty() && self.covariances.len() != self.states.len() {
+            return Err(BraheError::Error(format!(
+                "Modified ITC covariance is all-or-none; {} records but {} covariance matrices",
+                self.states.len(),
+                self.covariances.len()
+            )));
+        }
         let start = self.header.ephemeris_start.or_else(|| self.start_epoch());
         let stop = self.header.ephemeris_stop.or_else(|| self.end_epoch());
         let step = self.header.step_size.or_else(|| {
@@ -273,7 +280,7 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_write_truncated_asset_is_byte_identical() {
+    fn test_write_truncated_asset_matches_source_text() {
         let original = std::fs::read_to_string(TRUNCATED).unwrap();
         let itc = ITC::from_file(TRUNCATED).unwrap();
         let written = itc.to_string().unwrap();
@@ -282,7 +289,7 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_write_full_asset_is_byte_identical() {
+    fn test_write_full_asset_matches_source_text() {
         let original = std::fs::read_to_string(FULL).unwrap();
         let itc = ITC::from_file(FULL).unwrap();
         let written = itc.to_string().unwrap();
@@ -396,5 +403,35 @@ mod tests {
 
         let missing_dir = dir.path().join("no-such-dir").join("out.txt");
         assert!(itc.to_file(&missing_dir).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_write_rejects_partial_covariance() {
+        let mut itc = ITC::new(ITCHeader::new());
+        itc.push_state_with_covariance(
+            ITCStateVector::new(
+                utc(2026, 9, 11, 1, 42, 42.0),
+                [7.0e6, 0.0, 0.0],
+                [0.0, 7.5e3, 0.0],
+            ),
+            SMatrix::<f64, 6, 6>::identity(),
+        )
+        .unwrap();
+        itc.push_state_with_covariance(
+            ITCStateVector::new(
+                utc(2026, 9, 11, 1, 43, 42.0),
+                [7.0e6, 0.0, 0.0],
+                [0.0, 7.5e3, 0.0],
+            ),
+            SMatrix::<f64, 6, 6>::identity(),
+        )
+        .unwrap();
+        itc.states.push(ITCStateVector::new(
+            utc(2026, 9, 11, 1, 44, 42.0),
+            [7.0e6, 0.0, 0.0],
+            [0.0, 7.5e3, 0.0],
+        ));
+        assert!(itc.to_string().is_err());
     }
 }

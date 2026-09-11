@@ -137,6 +137,16 @@ def test_parse_full_asset_records():
     assert c[5, 5] == pytest.approx(5.4287251909e-12 * 1e6, abs=1e-17)
     np.testing.assert_array_equal(c, c.T)
     assert states[-1].epoch == utc(2026, 9, 14, 1, 42, 42.0)
+    np.testing.assert_allclose(
+        states[-1].position,
+        np.array([1818.7096808241, 3525.7372127755, -5423.9171357013]) * 1e3,
+        atol=1e-6,
+    )
+    np.testing.assert_allclose(
+        states[-1].velocity,
+        np.array([-6.2948457440, -2.4380764122, -3.6949737258]) * 1e3,
+        atol=1e-9,
+    )
     assert states[1].epoch - states[0].epoch == pytest.approx(60.0, abs=1e-6)
 
 
@@ -214,7 +224,7 @@ def test_parse_covariance_lower_triangle_order():
 
 
 @pytest.mark.parametrize("path", [TRUNCATED, FULL])
-def test_write_is_byte_identical(path):
+def test_write_matches_source_text(path):
     with open(path) as f:
         original = f.read()
     assert ITC.from_file(path).to_string().rstrip() == original.rstrip()
@@ -349,4 +359,9 @@ def test_itc_file_name():
 def test_top_level_exports():
     assert bh.ITC is ITC
     assert bh.ITCHeader is ITCHeader
+    assert bh.ITCStateVector is ITCStateVector
+    assert bh.ITCCovarianceFrame is ITCCovarianceFrame
+    assert bh.state_frame_for_data_type is state_frame_for_data_type
+    assert bh.data_type_for_state_frame is data_type_for_state_frame
     assert bh.EphemerisFileName is bh.spacetrack.EphemerisFileName
+    assert bh.EphemerisFileCategory is bh.spacetrack.EphemerisFileCategory

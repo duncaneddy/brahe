@@ -453,6 +453,9 @@ mod tests {
             EphemerisFileName::parse("MEME_25544_ISS_1651200_planned__unclassified.txt").is_err()
         );
         assert!(EphemerisFileName::parse("MEME_25544__1651200_oper__unclassified.txt").is_err());
+        assert!(EphemerisFileName::parse("MEME_25544_ISS_1651200_oper__unclassified.").is_err());
+        assert!(EphemerisFileName::parse("_25544_ISS_1651200_oper__unclassified.txt").is_err());
+        assert!(EphemerisFileName::parse("MEME_25544_ISS_1651200_oper_meta_.txt").is_err());
     }
 
     #[test]

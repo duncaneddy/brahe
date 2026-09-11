@@ -393,5 +393,8 @@ mod tests {
         let reread = ITC::from_file(&path).unwrap();
         assert_eq!(reread.states, itc.states);
         assert!(reread.source_name.is_none());
+
+        let missing_dir = dir.path().join("no-such-dir").join("out.txt");
+        assert!(itc.to_file(&missing_dir).is_err());
     }
 }

@@ -248,7 +248,13 @@ mod tests {
                 .file_name(1, "A", EphemerisFileCategory::Operational, "")
                 .is_err()
         );
-        let gcrf = ITC::new(ITCHeader::new().with_state_frame(CelestialFrame::GCRF));
+        let mut gcrf = ITC::new(ITCHeader::new().with_state_frame(CelestialFrame::GCRF));
+        gcrf.push_state(ITCStateVector::new(
+            Epoch::from_datetime(2020, 10, 26, 12, 24, 0.0, 0.0, TimeSystem::UTC),
+            [7.0e6, 0.0, 0.0],
+            [0.0, 7.5e3, 0.0],
+        ))
+        .unwrap();
         assert!(
             gcrf.file_name(1, "A", EphemerisFileCategory::Operational, "")
                 .is_err()

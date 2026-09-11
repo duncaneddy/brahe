@@ -387,6 +387,7 @@ mod tests {
         assert!(parse_itc_epoch("2026254016042.000").is_err());
         assert!(parse_itc_epoch("2026254014299.000").is_err());
         assert!(parse_itc_epoch("4.6343390768e-07").is_err());
+        assert!(parse_itc_epoch("2026254014242.1a2").is_err());
     }
 
     #[test]
@@ -572,6 +573,10 @@ UVW\n{}",
         let bad_frame = header_and(REC0).replace("\nUVW\n", "\nTEME\n");
         assert!(ITC::from_str(&bad_frame).is_err());
         assert!(ITC::from_file("test_assets/starlink/does_not_exist.txt").is_err());
+        let bad_state_component = REC0.replace("4244.3465367594", "abc");
+        assert!(ITC::from_str(&header_and(&bad_state_component)).is_err());
+        let bad_covariance_value = COV0.replace("4.6343390768e-07", "abc");
+        assert!(ITC::from_str(&header_and(&format!("{}{}", REC0, bad_covariance_value))).is_err());
     }
 
     #[test]

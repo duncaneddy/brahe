@@ -601,6 +601,15 @@ impl PyITC {
     ///
     /// Raises:
     ///     BraheError: If the message is empty or covariance is present with an unsupported frame combination.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     itc = bh.ITC.from_file("test_assets/starlink/MEME_100002_STARLINK-37711_2540149_Operational_1473385800_UNCLASSIFIED.txt")
+    ///     traj = itc.to_trajectory()
+    ///     cov = traj.covariance(itc.start_epoch)
+    ///     ```
     #[pyo3(signature = (covariance_variant=None))]
     fn to_trajectory(&self, covariance_variant: Option<PyOrbitRelativeFrameVariant>) -> PyResult<PyOrbitalTrajectory> {
         let variant = covariance_variant.map(|v| v.variant).unwrap_or(frames::OrbitRelativeFrameVariant::Inertial);
@@ -620,6 +629,15 @@ impl PyITC {
     ///
     /// Raises:
     ///     BraheError: If the message is empty or the frame combination is unsupported.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     itc = bh.ITC.from_file("test_assets/starlink/MEME_100002_STARLINK-37711_2540149_Operational_1473385800_UNCLASSIFIED.txt")
+    ///     traj = itc.to_trajectory_with_covariance_variant(bh.OrbitRelativeFrameVariant.ROTATING)
+    ///     cov = traj.covariance(itc.start_epoch)
+    ///     ```
     fn to_trajectory_with_covariance_variant(&self, variant: PyOrbitRelativeFrameVariant) -> PyResult<PyOrbitalTrajectory> {
         self.inner
             .to_trajectory_with_covariance_variant(variant.variant)
@@ -639,6 +657,15 @@ impl PyITC {
     ///
     /// Raises:
     ///     BraheError: If the trajectory is empty, not six-dimensional Cartesian, or the frame combination is unsupported.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     itc = bh.ITC.from_file("test_assets/starlink/MEME_100002_STARLINK-37711_2540149_Operational_1473385800_UNCLASSIFIED.txt")
+    ///     traj = itc.to_trajectory()
+    ///     back = bh.ITC.from_trajectory(traj, bh.ITCHeader(ephemeris_source="brahe"))
+    ///     ```
     #[staticmethod]
     #[pyo3(signature = (trajectory, header, covariance_variant=None))]
     fn from_trajectory(trajectory: PyRef<PyOrbitalTrajectory>, header: PyITCHeader, covariance_variant: Option<PyOrbitRelativeFrameVariant>) -> PyResult<Self> {
@@ -660,6 +687,15 @@ impl PyITC {
     ///
     /// Raises:
     ///     BraheError: If the trajectory is empty, not six-dimensional Cartesian, or the frame combination is unsupported.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     itc = bh.ITC.from_file("test_assets/starlink/MEME_100002_STARLINK-37711_2540149_Operational_1473385800_UNCLASSIFIED.txt")
+    ///     traj = itc.to_trajectory_with_covariance_variant(bh.OrbitRelativeFrameVariant.ROTATING)
+    ///     back = bh.ITC.from_trajectory_with_covariance_variant(traj, bh.ITCHeader(), bh.OrbitRelativeFrameVariant.ROTATING)
+    ///     ```
     #[staticmethod]
     fn from_trajectory_with_covariance_variant(trajectory: PyRef<PyOrbitalTrajectory>, header: PyITCHeader, variant: PyOrbitRelativeFrameVariant) -> PyResult<Self> {
         itc::ITC::from_trajectory_with_covariance_variant(&trajectory.trajectory, header.inner, variant.variant)

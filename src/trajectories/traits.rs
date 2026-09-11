@@ -10,7 +10,7 @@ use crate::frames::{
     CelestialFrame, FrameAxes, ReferenceFrame, iau_rotation_model_ids, rotation_eme2000_to_gcrf,
     rotation_gcrf_to_eme2000,
 };
-use crate::math::linalg::SMatrix3;
+use crate::math::linalg::{SMatrix3, SMatrix6};
 use crate::time::Epoch;
 use crate::utils::BraheError;
 use nalgebra::{DMatrix, SMatrix};
@@ -189,6 +189,62 @@ pub(crate) fn inertial_covariance_rotation(
             _ => SMatrix3::identity(),
         },
     )
+}
+
+/// Jacobian that carries an `n x n` trajectory covariance from `from` to `to`.
+///
+/// Covariance is stored only in GCRF or EME2000 frames, whose axes differ by
+/// the constant frame bias. The Jacobian is `blockdiag(R, R, I)` with `R` the
+/// bias rotation (identity when the axes match) and `I` covering any state
+/// elements beyond the six orbital components.
+///
+/// # Arguments
+/// * `from` - Frame the covariance is expressed in
+/// * `to` - Frame to rotate it into
+/// * `dimension` - Covariance size; must be at least 6
+///
+/// # Returns
+/// * `Some(DMatrix<f64>)`: The `dimension x dimension` Jacobian when both frames may carry covariance
+/// * `None`: When either frame cannot carry covariance or `dimension < 6`
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn frame_covariance_jacobian(
+    from: &ReferenceFrame,
+    to: &ReferenceFrame,
+    dimension: usize,
+) -> Option<DMatrix<f64>> {
+    if dimension < 6 {
+        return None;
+    }
+    let r = inertial_covariance_rotation(from, to).ok()?;
+    let mut j = DMatrix::<f64>::identity(dimension, dimension);
+    for i in 0..3 {
+        for k in 0..3 {
+            j[(i, k)] = r[(i, k)];
+            j[(i + 3, k + 3)] = r[(i, k)];
+        }
+    }
+    Some(j)
+}
+
+/// Six-dimensional form of [`frame_covariance_jacobian`] for static trajectories.
+///
+/// # Arguments
+/// * `from` - Frame the covariance is expressed in
+/// * `to` - Frame to rotate it into
+///
+/// # Returns
+/// * `Some(SMatrix6)`: `blockdiag(R, R)` when both frames may carry covariance
+/// * `None`: When either frame cannot carry covariance
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn frame_covariance_jacobian_6(
+    from: &ReferenceFrame,
+    to: &ReferenceFrame,
+) -> Option<SMatrix6> {
+    let r = inertial_covariance_rotation(from, to).ok()?;
+    let mut j = SMatrix6::identity();
+    j.fixed_view_mut::<3, 3>(0, 0).copy_from(&r);
+    j.fixed_view_mut::<3, 3>(3, 3).copy_from(&r);
+    Some(j)
 }
 
 /// Enumeration of orbit state representations
@@ -1299,5 +1355,43 @@ mod tests {
         );
         assert!(inertial_covariance_rotation(&CelestialFrame::ITRF.into(), &eme).is_err());
         assert!(inertial_covariance_rotation(&eme, &CelestialFrame::TEME.into()).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_frame_covariance_jacobian() {
+        use crate::frames::rotation_gcrf_to_eme2000;
+        let gcrf: ReferenceFrame = CelestialFrame::GCRF.into();
+        let eme: ReferenceFrame = CelestialFrame::EME2000.into();
+        let itrf: ReferenceFrame = CelestialFrame::ITRF.into();
+
+        let j = frame_covariance_jacobian(&gcrf, &eme, 7).unwrap();
+        assert_eq!(j.nrows(), 7);
+        let r = rotation_gcrf_to_eme2000();
+        for i in 0..3 {
+            for k in 0..3 {
+                assert_eq!(j[(i, k)], r[(i, k)]);
+                assert_eq!(j[(i + 3, k + 3)], r[(i, k)]);
+                assert_eq!(j[(i, k + 3)], 0.0);
+                assert_eq!(j[(i + 3, k)], 0.0);
+            }
+        }
+        assert_eq!(j[(6, 6)], 1.0);
+        for i in 0..6 {
+            assert_eq!(j[(6, i)], 0.0);
+            assert_eq!(j[(i, 6)], 0.0);
+        }
+
+        let same = frame_covariance_jacobian(&gcrf, &gcrf, 6).unwrap();
+        assert_eq!(same, DMatrix::identity(6, 6));
+        assert!(frame_covariance_jacobian(&gcrf, &itrf, 6).is_none());
+        assert!(frame_covariance_jacobian(&itrf, &eme, 6).is_none());
+        assert!(frame_covariance_jacobian(&gcrf, &eme, 5).is_none());
+
+        let j6 = frame_covariance_jacobian_6(&eme, &gcrf).unwrap();
+        let r6 = crate::frames::rotation_eme2000_to_gcrf();
+        assert_eq!(j6.fixed_view::<3, 3>(0, 0).clone_owned(), r6);
+        assert_eq!(j6.fixed_view::<3, 3>(3, 3).clone_owned(), r6);
+        assert!(frame_covariance_jacobian_6(&gcrf, &itrf).is_none());
     }
 }

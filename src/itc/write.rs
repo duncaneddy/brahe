@@ -13,6 +13,12 @@ const M2_TO_KM2: f64 = 1.0e-6;
 
 /// Formats `value` like C's `%.10e`: ten fraction digits, a signed
 /// exponent of at least two digits.
+///
+/// # Arguments
+/// * `value` - Value to format
+///
+/// # Returns
+/// * `String`: The C-style scientific representation
 fn format_scientific(value: f64) -> String {
     let rust = format!("{:.10e}", value);
     let (mantissa, exponent) = rust.split_once('e').unwrap();
@@ -24,6 +30,12 @@ fn format_scientific(value: f64) -> String {
 }
 
 /// Formats an epoch as `YYYY-MM-DD HH:MM:SS UTC` for the descriptive header lines.
+///
+/// # Arguments
+/// * `epoch` - Epoch to format
+///
+/// # Returns
+/// * `String`: The descriptive header timestamp
 fn format_header_epoch(epoch: &Epoch) -> String {
     let (year, month, day, hour, minute, second, _) =
         epoch.to_datetime_as_time_system(TimeSystem::UTC);
@@ -39,10 +51,22 @@ fn format_header_epoch(epoch: &Epoch) -> String {
 }
 
 /// Formats an epoch as the record token `YYYYDDDHHMMSS.sss`.
+///
+/// The epoch is rounded to the nearest millisecond before it is split into
+/// calendar fields, so a fraction that rounds up carries into the minute,
+/// hour and day instead of printing a seconds field of `60.000`.
 fn format_record_epoch(epoch: &Epoch) -> String {
-    let (year, _, _, hour, minute, second, nanosecond) =
-        epoch.to_datetime_as_time_system(TimeSystem::UTC);
-    let day_of_year = epoch.day_of_year_as_time_system(TimeSystem::UTC).floor() as u32;
+    let (_, _, _, _, _, second, nanosecond) = epoch.to_datetime_as_time_system(TimeSystem::UTC);
+    let raw_seconds = second + nanosecond * 1.0e-9;
+    let mut rounded = *epoch + ((raw_seconds * 1.0e3).round() * 1.0e-3 - raw_seconds);
+    let (mut year, _, _, mut hour, mut minute, mut second, mut nanosecond) =
+        rounded.to_datetime_as_time_system(TimeSystem::UTC);
+    if ((second + nanosecond * 1.0e-9) * 1.0e3).round() >= 60.0e3 {
+        rounded += 1.0e-6;
+        (year, _, _, hour, minute, second, nanosecond) =
+            rounded.to_datetime_as_time_system(TimeSystem::UTC);
+    }
+    let day_of_year = rounded.day_of_year_as_time_system(TimeSystem::UTC).floor() as u32;
     format!(
         "{:04}{:03}{:02}{:02}{:06.3}",
         year,
@@ -53,7 +77,9 @@ fn format_record_epoch(epoch: &Epoch) -> String {
     )
 }
 
+/// Formats the header step size, printing whole seconds without a decimal point.
 fn format_step(step: f64) -> String {
+    let step = (step * 1.0e6).round() * 1.0e-6;
     if step.fract() == 0.0 {
         format!("{}", step as i64)
     } else {
@@ -227,6 +253,22 @@ mod tests {
             format_record_epoch(&utc(2025, 1, 1, 0, 0, 0.0)),
             "2025001000000.000"
         );
+        assert_eq!(
+            format_record_epoch(&(utc(2026, 9, 11, 1, 42, 59.0) + 0.9999996)),
+            "2026254014300.000"
+        );
+        assert_eq!(
+            format_record_epoch(&(utc(2026, 12, 31, 23, 59, 59.0) + 0.9996)),
+            "2027001000000.000"
+        );
+        assert_eq!(
+            format_record_epoch(&(utc(2026, 9, 11, 1, 42, 42.0) + 0.0004)),
+            "2026254014242.000"
+        );
+        assert_eq!(
+            format_record_epoch(&(utc(2026, 9, 11, 1, 42, 42.0) + 0.0006)),
+            "2026254014242.001"
+        );
     }
 
     #[test]
@@ -283,6 +325,27 @@ mod tests {
             "2026254014242.000 7000.0000000000 1.0000000000 -2.0000000000 0.0010000000 7.5000000000 -0.0030000000"
         );
         assert_eq!(lines.len(), 7);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_write_rounds_step_size_to_microseconds() {
+        let mut itc = ITC::new(ITCHeader::new());
+        itc.push_state(ITCStateVector::new(
+            utc(2026, 9, 11, 1, 42, 42.0),
+            [7.0e6, 0.0, 0.0],
+            [0.0, 7.5e3, 0.0],
+        ))
+        .unwrap();
+        itc.push_state(ITCStateVector::new(
+            utc(2026, 9, 11, 1, 42, 42.0) + (30.0 + 1.0e-9),
+            [7.0e6, 0.0, 0.0],
+            [0.0, 7.5e3, 0.0],
+        ))
+        .unwrap();
+        let text = itc.to_string().unwrap();
+        let lines: Vec<&str> = text.lines().collect();
+        assert!(lines[1].ends_with("step_size:30"));
     }
 
     #[test]

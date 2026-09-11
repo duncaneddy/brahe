@@ -234,7 +234,6 @@ pub(crate) fn frame_covariance_jacobian(
 /// # Returns
 /// * `Some(SMatrix6)`: `blockdiag(R, R)` when both frames may carry covariance
 /// * `None`: When either frame cannot carry covariance
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn frame_covariance_jacobian_6(
     from: &ReferenceFrame,
     to: &ReferenceFrame,
@@ -835,8 +834,12 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
         Self: Sized;
 
     /// Converts every sample to Cartesian coordinates in `frame`, routing
-    /// through the reference frame router. Covariances, state transition
-    /// matrices, sensitivities, and accelerations are dropped.
+    /// through the reference frame router. Covariance is carried through the
+    /// conversion when both frames may hold it (GCRF and EME2000) and the
+    /// trajectory is Cartesian: each matrix is rotated by the block-diagonal
+    /// frame-bias Jacobian. Any other target frame, or a Keplerian source,
+    /// drops the covariance. State transition matrices, sensitivities, and
+    /// accelerations are dropped.
     ///
     /// # Arguments
     /// * `frame` - Target frame

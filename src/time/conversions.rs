@@ -12,6 +12,7 @@ use crate::constants::{
 use crate::eop::get_global_ut1_utc;
 use crate::math::split_float;
 use crate::time::time_types::TimeSystem;
+use crate::utils::BraheError;
 
 /// Convert a Gregorian calendar date representation to the equivalent Julian Date
 /// representation of that same instant in time.
@@ -733,6 +734,54 @@ pub(crate) fn day_of_year_from_calendar(year: u32, month: u8, day: u8) -> u32 {
     days_in_month[..(month as usize - 1)].iter().sum::<u32>() + day as u32
 }
 
+/// Calendar month and day for an ordinal day of year.
+///
+/// # Arguments
+/// * `year` - Calendar year
+/// * `day_of_year` - Ordinal day, 1 for 1 January
+///
+/// # Returns
+/// * `Ok((month, day))`: Month 1 to 12 and day of month
+/// * `Err(BraheError)`: If `day_of_year` is 0 or beyond the year's length
+pub(crate) fn calendar_from_day_of_year(
+    year: u32,
+    day_of_year: u32,
+) -> Result<(u8, u8), BraheError> {
+    let leap = (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400);
+    let days_in_month: [u32; 12] = [
+        31,
+        if leap { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
+    let days_in_year: u32 = days_in_month.iter().sum();
+    if day_of_year < 1 || day_of_year > days_in_year {
+        return Err(BraheError::Error(format!(
+            "day of year {} out of range 1..={} for {}",
+            day_of_year, days_in_year, year
+        )));
+    }
+    let mut remaining = day_of_year;
+    for (index, days) in days_in_month.iter().enumerate() {
+        if remaining <= *days {
+            return Ok((index as u8 + 1, remaining as u8));
+        }
+        remaining -= days;
+    }
+    Err(BraheError::Error(format!(
+        "day of year {} out of range for {}",
+        day_of_year, year
+    )))
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
@@ -753,6 +802,22 @@ mod tests {
         assert_eq!(day_of_year_from_calendar(2025, 3, 1), 60);
         assert_eq!(day_of_year_from_calendar(2024, 12, 31), 366);
         assert_eq!(day_of_year_from_calendar(2025, 12, 31), 365);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_calendar_from_day_of_year() {
+        assert_eq!(calendar_from_day_of_year(2026, 1).unwrap(), (1, 1));
+        assert_eq!(calendar_from_day_of_year(2026, 254).unwrap(), (9, 11));
+        assert_eq!(calendar_from_day_of_year(2024, 60).unwrap(), (2, 29));
+        assert_eq!(calendar_from_day_of_year(2024, 366).unwrap(), (12, 31));
+        assert_eq!(calendar_from_day_of_year(2026, 365).unwrap(), (12, 31));
+        assert!(calendar_from_day_of_year(2026, 366).is_err());
+        assert!(calendar_from_day_of_year(2026, 0).is_err());
+        for doy in 1..=366u32 {
+            let (m, d) = calendar_from_day_of_year(2024, doy).unwrap();
+            assert_eq!(day_of_year_from_calendar(2024, m, d), doy);
+        }
     }
 
     #[test]

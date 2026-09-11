@@ -8,6 +8,7 @@ use nalgebra::SMatrix;
 
 use super::types::{ITC, ITCCovarianceFrame, ITCHeader, ITCStateVector};
 use crate::clients::spacetrack::EphemerisFileName;
+use crate::time::conversions::calendar_from_day_of_year;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
 
@@ -16,42 +17,6 @@ const KM2_TO_M2: f64 = 1.0e6;
 
 fn parse_error(detail: impl AsRef<str>) -> BraheError {
     BraheError::ParseError(format!("Modified ITC: {}", detail.as_ref()))
-}
-
-fn month_day_from_day_of_year(year: u32, day_of_year: u32) -> Result<(u8, u8), BraheError> {
-    let leap = (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400);
-    let days_in_month: [u32; 12] = [
-        31,
-        if leap { 29 } else { 28 },
-        31,
-        30,
-        31,
-        30,
-        31,
-        31,
-        30,
-        31,
-        30,
-        31,
-    ];
-    let days_in_year: u32 = days_in_month.iter().sum();
-    if day_of_year < 1 || day_of_year > days_in_year {
-        return Err(parse_error(format!(
-            "day of year {} out of range for {}",
-            day_of_year, year
-        )));
-    }
-    let mut remaining = day_of_year;
-    for (index, days) in days_in_month.iter().enumerate() {
-        if remaining <= *days {
-            return Ok((index as u8 + 1, remaining as u8));
-        }
-        remaining -= days;
-    }
-    Err(parse_error(format!(
-        "day of year {} out of range for {}",
-        day_of_year, year
-    )))
 }
 
 /// Whether a token is a record epoch (`YYYYDDDHHMMSS` with an optional fraction).
@@ -96,7 +61,8 @@ pub(crate) fn parse_itc_epoch(token: &str) -> Result<Epoch, BraheError> {
             token
         )));
     };
-    let (month, day) = month_day_from_day_of_year(year, day_of_year)?;
+    let (month, day) =
+        calendar_from_day_of_year(year, day_of_year).map_err(|e| parse_error(e.to_string()))?;
     Ok(Epoch::from_datetime(
         year,
         month,

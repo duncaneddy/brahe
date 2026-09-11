@@ -19,7 +19,7 @@ use crate::utils::BraheError;
 use super::types::{ITC, ITCCovarianceFrame, ITCHeader, ITCStateVector};
 
 /// Places `r` on both diagonal blocks of a 6x6 matrix.
-pub(crate) fn block_diagonal(r: SMatrix3) -> SMatrix6 {
+fn block_diagonal(r: SMatrix3) -> SMatrix6 {
     let mut m = SMatrix6::zeros();
     m.fixed_view_mut::<3, 3>(0, 0).copy_from(&r);
     m.fixed_view_mut::<3, 3>(3, 3).copy_from(&r);
@@ -27,7 +27,7 @@ pub(crate) fn block_diagonal(r: SMatrix3) -> SMatrix6 {
 }
 
 /// Averages a matrix with its transpose to remove floating-point asymmetry.
-pub(crate) fn symmetrize(m: SMatrix6) -> SMatrix6 {
+fn symmetrize(m: SMatrix6) -> SMatrix6 {
     (m + m.transpose()) * 0.5
 }
 
@@ -42,7 +42,7 @@ fn skew(w: nalgebra::Vector3<f64>) -> SMatrix3 {
 /// NASA CA Handbook (Appendix N eq. N-13) and CARA's `RIC2ECI`. `Rotating`
 /// gives `[[R, 0], [R·[ω×], R]]`, the transform of a truly rotating frame
 /// with ω the RTN frame rate in RTN components.
-pub(crate) fn rtn_to_frame_jacobian(x: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
+fn rtn_to_frame_jacobian(x: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
     let r = rotation_rtn_to_eci(x);
     let mut j = block_diagonal(r);
     if variant == OrbitRelativeFrameVariant::Rotating {
@@ -54,7 +54,7 @@ pub(crate) fn rtn_to_frame_jacobian(x: SVector6, variant: OrbitRelativeFrameVari
 
 /// Inverse of [`rtn_to_frame_jacobian`]: `[[Rᵀ, 0], [0, Rᵀ]]` or
 /// `[[Rᵀ, 0], [-[ω×]Rᵀ, Rᵀ]]`.
-pub(crate) fn frame_to_rtn_jacobian(x: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
+fn frame_to_rtn_jacobian(x: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
     let rt = rotation_rtn_to_eci(x).transpose();
     let mut j = block_diagonal(rt);
     if variant == OrbitRelativeFrameVariant::Rotating {
@@ -109,8 +109,8 @@ impl ITC {
     /// Converts the message to a trajectory, choosing how RTN covariance is
     /// rotated into the state frame.
     ///
-    /// Covariance is attached only when the state frame may carry it (GCRF or
-    /// EME2000). RTN covariance is rotated with the record's own state:
+    /// Covariance requires a state frame that may carry it (GCRF or EME2000);
+    /// other frames are an error. RTN covariance is rotated with the record's own state:
     /// `Inertial` uses `[[R, 0], [0, R]]` (NASA CA Handbook Appendix N eq.
     /// N-13; CARA `RIC2ECI`), `Rotating` uses `[[R, 0], [R·[ω×], R]]` with ω
     /// the RTN frame rate. A covariance frame of `EME2000` is accepted only
@@ -174,10 +174,10 @@ impl ITC {
                     self.covariances.iter().map(dmatrix_from).collect()
                 }
                 ITCCovarianceFrame::ITRF => {
-                    return Err(BraheError::Error(
-                        "Modified ITC covariance frame ITRF cannot be attached to a trajectory"
-                            .to_string(),
-                    ));
+                    return Err(BraheError::Error(format!(
+                        "Modified ITC covariance frame ITRF cannot be attached to a trajectory in {}; trajectory covariance is supported only in EME2000 or GCRF axes, so ITRF covariance must be rotated before conversion",
+                        frame
+                    )));
                 }
             };
             Some(rotated)
@@ -251,7 +251,7 @@ impl ITC {
     ///
     /// # Arguments
     /// * `trajectory` - Six-dimensional Cartesian trajectory
-    /// * `header` - Header template; start, stop and step are overwritten from the samples
+    /// * `header` - Header template; `ephemeris_start` and `ephemeris_stop` come from the trajectory's first and last samples, and `step_size` from the interval between the first two samples (`None` for a single sample)
     /// * `variant` - RTN rotation convention for the covariance
     ///
     /// # Returns
@@ -297,13 +297,13 @@ impl ITC {
         let axes_rotation = match &trajectory.covariances {
             Some(_) => {
                 if covariance_frame == ITCCovarianceFrame::ITRF {
-                    return Err(BraheError::Error(
-                        "Modified ITC covariance frame ITRF cannot be produced from a trajectory"
-                            .to_string(),
-                    ));
+                    return Err(BraheError::Error(format!(
+                        "Modified ITC covariance frame ITRF cannot be produced from a trajectory in {}; trajectory covariance is supported only in EME2000 or GCRF axes",
+                        target
+                    )));
                 }
                 if covariance_frame == ITCCovarianceFrame::EME2000
-                    && state_frame != crate::frames::CelestialFrame::EME2000
+                    && state_frame != CelestialFrame::EME2000
                 {
                     return Err(BraheError::Error(format!(
                         "Modified ITC covariance frame EME2000 requires an EME2000 state frame, found {}",
@@ -377,13 +377,10 @@ impl TryFrom<&ITC> for DOrbitTrajectory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::frames::CelestialFrame;
-    use crate::itc::ITCHeader;
-    use crate::relative_motion::{omega_rtn, rotation_rtn_to_eci};
-    use crate::trajectories::traits::InterpolatableTrajectory;
+    use crate::frames::rotation_eme2000_to_gcrf;
+    use crate::trajectories::traits::{InterpolatableTrajectory, Trajectory};
     use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
-    use nalgebra::DMatrix;
     use serial_test::parallel;
 
     fn sample_state() -> SVector6 {
@@ -535,11 +532,17 @@ mod tests {
         let b = &eci.states[0];
         let d = ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2)).sqrt();
         assert!(d > 0.1 && d < 2.0, "bias displacement {} m", d);
+
+        let r_eme = nalgebra::Vector3::new(a[0], a[1], a[2]);
+        let expected = rotation_eme2000_to_gcrf() * r_eme;
+        for i in 0..3 {
+            assert_abs_diff_eq!(b[i], expected[i], epsilon = 1e-6);
+        }
     }
 
     #[test]
     #[parallel]
-    fn test_to_trajectory_rotating_variant_changes_only_velocity_blocks() {
+    fn test_to_trajectory_rotating_variant_preserves_position_block() {
         setup_global_test_eop();
         let itc = ITC::from_file(TRUNCATED).unwrap();
         let inertial = itc.to_trajectory().unwrap();
@@ -657,6 +660,8 @@ mod tests {
                 assert_abs_diff_eq!(a.velocity[i], b.velocity[i], epsilon = 1e-9);
             }
         }
+        assert_eq!(back.covariances.len(), itc.covariances.len());
+        assert_eq!(back.covariances.len(), 50);
         for (a, b) in itc.covariances.iter().zip(&back.covariances) {
             for i in 0..6 {
                 for k in 0..6 {
@@ -749,6 +754,8 @@ mod tests {
                 assert_abs_diff_eq!(a.velocity[i], b.velocity[i], epsilon = 1e-8);
             }
         }
+        assert_eq!(back.covariances.len(), itc.covariances.len());
+        assert_eq!(back.covariances.len(), 50);
         for (a, b) in itc.covariances.iter().zip(&back.covariances) {
             for i in 0..6 {
                 for k in 0..6 {
@@ -837,13 +844,19 @@ mod tests {
         .unwrap();
         assert!(ITC::from_trajectory(&empty, ITCHeader::new()).is_err());
 
-        let seven = DOrbitTrajectory::new(
+        let mut seven = DOrbitTrajectory::new(
             7,
             CelestialFrame::EME2000,
             OrbitRepresentation::Cartesian,
             None,
         )
         .unwrap();
+        seven
+            .add(
+                itc.states[0].epoch,
+                DVector::from_column_slice(&[7.0e6, 0.0, 0.0, 0.0, 7.5e3, 0.0, 1.0]),
+            )
+            .unwrap();
         assert!(ITC::from_trajectory(&seven, ITCHeader::new()).is_err());
     }
 }

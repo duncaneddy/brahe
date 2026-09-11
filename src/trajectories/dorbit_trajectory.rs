@@ -1987,9 +1987,11 @@ impl DOrbitTrajectory {
     /// which resolves any center offset through the loaded SPK kernels.
     /// Covariance is carried through the conversion when both frames may
     /// hold it (GCRF and EME2000) and the trajectory is Cartesian: each
-    /// matrix is rotated by the block-diagonal frame-bias Jacobian, with an
-    /// identity block for state elements beyond the orbital six. Any other
-    /// target frame, or a Keplerian source, drops the covariance. State
+    /// matrix is rotated by the block-diagonal frame-bias Jacobian sized to
+    /// that matrix, with an identity block for any covariance rows beyond the
+    /// orbital six (a 6x6 covariance on an extended state rotates as 6x6).
+    /// Any other target frame, or a Keplerian source, drops the covariance;
+    /// so does a covariance that is not square or is smaller than 6x6. State
     /// transition matrices, sensitivities, and accelerations are dropped.
     ///
     /// For extended states (dimension > 6), only the first 6 elements
@@ -2046,25 +2048,15 @@ impl DOrbitTrajectory {
         }
 
         let covariances = match (&self.covariances, self.representation) {
-            (Some(covs), OrbitRepresentation::Cartesian) => {
-                match frame_covariance_jacobian(&self.frame, &frame, self.dimension) {
-                    Some(j)
-                        if covs.iter().all(|p| {
-                            p.nrows() == self.dimension && p.ncols() == self.dimension
-                        }) =>
-                    {
-                        Some(
-                            covs.iter()
-                                .map(|p| {
-                                    let rotated = &j * p * j.transpose();
-                                    (&rotated + rotated.transpose()) * 0.5
-                                })
-                                .collect(),
-                        )
-                    }
-                    _ => None,
-                }
-            }
+            (Some(covs), OrbitRepresentation::Cartesian) => covs
+                .iter()
+                .map(|p| {
+                    let j = frame_covariance_jacobian(&self.frame, &frame, p.nrows())
+                        .filter(|_| p.nrows() == p.ncols())?;
+                    let rotated = &j * p * j.transpose();
+                    Some((&rotated + rotated.transpose()) * 0.5)
+                })
+                .collect::<Option<Vec<_>>>(),
             _ => None,
         };
 
@@ -7455,6 +7447,56 @@ mod tests {
         let expected_06: f64 = (0..3).map(|a| r[(0, a)] * p[(a, 6)]).sum();
         assert_abs_diff_eq!(q[(0, 6)], expected_06, epsilon = 1e-12);
         assert_abs_diff_eq!(q[(6, 0)], expected_06, epsilon = 1e-12);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dorbittrajectory_to_frame_rotates_6x6_covariance_on_extended_state() {
+        setup_global_test_eop();
+        let base = covariance_test_trajectory(CelestialFrame::GCRF, 6);
+        let epochs: Vec<Epoch> = (0..base.len()).map(|i| base.epochs[i]).collect();
+        let states: Vec<DVector<f64>> = base
+            .states
+            .iter()
+            .map(|x| {
+                let mut v = x.as_slice().to_vec();
+                v.extend([1.5, 2.5, 3.5]);
+                DVector::from_vec(v)
+            })
+            .collect();
+        let covs = base.covariances.clone().unwrap();
+        let traj = DOrbitTrajectory::from_orbital_data(
+            epochs,
+            states,
+            CelestialFrame::GCRF,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(covs.clone()),
+        )
+        .unwrap();
+        assert_eq!(traj.dimension(), 9);
+
+        let eme = traj.to_eme2000().unwrap();
+        let q = &eme.covariances.as_ref().unwrap()[0];
+        assert_eq!(q.nrows(), 6);
+        let r = crate::frames::rotation_gcrf_to_eme2000();
+        let expected = r * covs[0].view((0, 0), (3, 3)) * r.transpose();
+        for a in 0..3 {
+            for b in 0..3 {
+                assert_abs_diff_eq!(q[(a, b)], expected[(a, b)], epsilon = 1e-12);
+            }
+        }
+        let back = eme.to_gcrf().unwrap();
+        let round_trip = &back.covariances.as_ref().unwrap()[0];
+        for a in 0..6 {
+            for b in 0..6 {
+                assert_abs_diff_eq!(round_trip[(a, b)], covs[0][(a, b)], epsilon = 1e-12);
+            }
+        }
+
+        let mut malformed = traj.clone();
+        malformed.covariances = Some(vec![DMatrix::<f64>::identity(5, 5); traj.len()]);
+        assert!(malformed.to_eme2000().unwrap().covariances.is_none());
     }
 
     #[test]

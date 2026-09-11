@@ -1362,7 +1362,6 @@ mod tests {
     #[test]
     #[parallel]
     fn test_frame_covariance_jacobian() {
-        use crate::frames::rotation_gcrf_to_eme2000;
         let gcrf: ReferenceFrame = CelestialFrame::GCRF.into();
         let eme: ReferenceFrame = CelestialFrame::EME2000.into();
         let itrf: ReferenceFrame = CelestialFrame::ITRF.into();

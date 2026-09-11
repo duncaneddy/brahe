@@ -11,7 +11,6 @@ use crate::utils::BraheError;
 
 const SECONDS_PER_DAY: f64 = 86400.0;
 const GPS_STOP_WINDOW_SECONDS: f64 = 30.0 * SECONDS_PER_DAY;
-const START_EPOCH_WINDOW_SECONDS: f64 = 30.0 * SECONDS_PER_DAY;
 
 /// Parses an RFC 7231 HTTP date such as `Fri, 11 Sep 2026 05:15:30 GMT`.
 ///
@@ -158,22 +157,20 @@ fn decode_gps_stop(metadata: &str, reference: Epoch) -> Option<Epoch> {
     ((stop - reference).abs() <= GPS_STOP_WINDOW_SECONDS).then_some(stop)
 }
 
-/// Start epoch for a day-time group, choosing between the anchor's calendar
-/// year and the year before so that the start falls strictly before `anchor`
-/// and within [`START_EPOCH_WINDOW_SECONDS`] of it. A day of year such as 60
-/// is valid in any year (as February 29 in a leap year or March 1
-/// otherwise), so the year alone cannot disambiguate; the plausibility
-/// window rejects a candidate that decodes to a date exactly at or after
-/// `anchor`, or one so far in the past that the manifest could not still be
-/// listing it.
+/// Start epoch for a day-time group, choosing the anchor's calendar year
+/// when that places the start no later than a day after `anchor`, and the
+/// year before otherwise. A day of year such as 60 is valid in any year
+/// (February 29 in a leap year, March 1 otherwise), so the choice is made on
+/// ordering alone; the one-day tolerance absorbs clock differences between
+/// the file's creation and the manifest's retrieval.
 ///
 /// # Arguments
 /// * `name` - Parsed file name carrying the day-of-year, hour and minute
-/// * `anchor` - Epoch the start must fall strictly before (the stop epoch, or the manifest reference)
+/// * `anchor` - Epoch the start should precede (the stop epoch, or the manifest reference)
 ///
 /// # Returns
 /// * `Ok(Epoch)`: The start epoch in UTC
-/// * `Err(BraheError)`: If neither candidate year places the start within the plausibility window
+/// * `Err(BraheError)`: If the day of year is invalid in both candidate years
 fn start_epoch(name: &EphemerisFileName, anchor: Epoch) -> Result<Epoch, BraheError> {
     let (anchor_year, _, _, _, _, _, _) = anchor.to_datetime_as_time_system(TimeSystem::UTC);
     let candidate = |year: u32| -> Result<Epoch, BraheError> {
@@ -189,19 +186,17 @@ fn start_epoch(name: &EphemerisFileName, anchor: Epoch) -> Result<Epoch, BraheEr
             TimeSystem::UTC,
         ))
     };
-    let plausible =
-        |start: &Epoch| *start < anchor && anchor - *start <= START_EPOCH_WINDOW_SECONDS;
-    for year in [anchor_year, anchor_year.saturating_sub(1)] {
-        if let Ok(start) = candidate(year)
-            && plausible(&start)
-        {
-            return Ok(start);
-        }
-    }
-    Err(BraheError::ParseError(format!(
-        "cannot place day-time group {:03}{:02}{:02} of '{}' within {} seconds before {}",
-        name.day_of_year, name.hour, name.minute, name, START_EPOCH_WINDOW_SECONDS, anchor
-    )))
+    let this_year = candidate(anchor_year);
+    let start = match this_year {
+        Ok(start) if start <= anchor + SECONDS_PER_DAY => Ok(start),
+        _ => candidate(anchor_year.saturating_sub(1)),
+    };
+    start.map_err(|e| {
+        BraheError::ParseError(format!(
+            "cannot place day-time group {:03}{:02}{:02} of '{}' near {}: {}",
+            name.day_of_year, name.hour, name.minute, name, anchor, e
+        ))
+    })
 }
 
 /// Starlink's manifest as a table of entries.
@@ -631,8 +626,17 @@ mod tests {
         let leap = "MEME_25544_ISS_0600000_Operational_nomnvr_UNCLASSIFIED.txt\n";
         let m = StarlinkManifest::parse(leap, utc(2024, 3, 1, 0, 0, 0.0), None).unwrap();
         assert_eq!(m.entries()[0].ephemeris_start, utc(2024, 2, 29, 0, 0, 0.0));
-        let bad_doy = StarlinkManifest::parse(leap, utc(2026, 3, 1, 0, 0, 0.0), None);
-        assert!(bad_doy.is_err());
+        let m = StarlinkManifest::parse(leap, utc(2026, 3, 1, 0, 0, 0.0), None).unwrap();
+        assert_eq!(m.entries()[0].ephemeris_start, utc(2026, 3, 1, 0, 0, 0.0));
+
+        let day_366 = "MEME_25544_ISS_3660000_Operational_nomnvr_UNCLASSIFIED.txt\n";
+        let m = StarlinkManifest::parse(day_366, utc(2025, 1, 2, 0, 0, 0.0), None).unwrap();
+        assert_eq!(m.entries()[0].ephemeris_start, utc(2024, 12, 31, 0, 0, 0.0));
+        assert!(StarlinkManifest::parse(day_366, utc(2027, 1, 2, 0, 0, 0.0), None).is_err());
+
+        let old_listing = "MEME_25544_ISS_0010000_Operational_nomnvr_UNCLASSIFIED.txt\n";
+        let m = StarlinkManifest::parse(old_listing, utc(2026, 12, 30, 0, 0, 0.0), None).unwrap();
+        assert_eq!(m.entries()[0].ephemeris_start, utc(2026, 1, 1, 0, 0, 0.0));
     }
 
     #[test]

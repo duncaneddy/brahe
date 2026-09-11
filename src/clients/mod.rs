@@ -16,6 +16,7 @@
  */
 
 pub mod celestrak;
+pub mod gcat;
 pub mod rate_limiter;
 pub mod spacetrack;
 

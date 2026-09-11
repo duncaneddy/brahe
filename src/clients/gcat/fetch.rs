@@ -45,7 +45,7 @@ fn get_gcat_cache_dir() -> Result<String, BraheError> {
 /// # Examples
 ///
 /// ```no_run
-/// use brahe::datasets::gcat::fetch::fetch_with_cache;
+/// use brahe::gcat::fetch::fetch_with_cache;
 ///
 /// let url = "https://planet4589.org/space/gcat/tsv/cat/satcat.tsv";
 /// let contents = fetch_with_cache(url, "satcat.tsv", 86400.0).unwrap();

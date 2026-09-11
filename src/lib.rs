@@ -101,7 +101,10 @@ email me at duncan.eddy (at) gmail.com.
 // Re-export commonly used types
 pub use access::*;
 pub use attitude::*;
-pub use clients::{celestrak, spacetrack};
+pub use clients::gcat::{
+    GCATPsatcat, GCATPsatcatRecord, GCATSatcat, GCATSatcatRecord, get_psatcat, get_satcat,
+};
+pub use clients::{celestrak, gcat, spacetrack};
 pub use constants::*;
 pub use coordinates::*;
 pub use datasets::*;

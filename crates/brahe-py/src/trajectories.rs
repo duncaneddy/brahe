@@ -1437,8 +1437,11 @@ impl PyOrbitalTrajectory {
     }
 
     /// Convert every sample to Cartesian coordinates in `frame` through the
-    /// reference frame router. Covariances, STMs, sensitivities, and
-    /// accelerations are dropped.
+    /// reference frame router. Covariance is carried through when both
+    /// frames may hold it (GCRF and EME2000) and the trajectory is
+    /// Cartesian, rotated by the frame-bias Jacobian; other targets and
+    /// Keplerian sources drop it. STMs, sensitivities, and accelerations
+    /// are dropped.
     ///
     /// Args:
     ///     frame (CelestialFrame or ReferenceFrame): Target frame.

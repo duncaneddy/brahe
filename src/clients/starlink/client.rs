@@ -265,14 +265,14 @@ impl StarlinkClient {
     /// Returns the manifest, serving the cached copy while it is younger than
     /// `cache_max_age` and refreshing it with a conditional GET otherwise.
     ///
-    /// A refresh that fails falls back to the cached copy when one exists,
-    /// so a stale manifest is always preferred over an error as long as
-    /// something is cached; a malformed manifest body, on the other hand, is
-    /// never used as a fallback source and always surfaces as an error.
+    /// `BRAHE_NETWORK_MODE` applies as for the other clients: `offline` serves
+    /// a cached manifest of any age, `offline-strict` serves only a fresh one
+    /// and rejects a stale or missing one, and a refresh that fails is an
+    /// error rather than a silent fall back to the stale copy.
     ///
     /// # Returns
     /// * `Ok(StarlinkManifest)`: The current listing
-    /// * `Err(BraheError)`: If no usable manifest can be obtained
+    /// * `Err(BraheError)`: If the cached copy cannot be served under the current mode and no refresh succeeds
     ///
     /// # Examples
     ///
@@ -287,20 +287,11 @@ impl StarlinkClient {
         let path = dir.join(MANIFEST_FILE);
         if path.exists() {
             let stale = self.is_cache_stale(&path)?;
-            let decision =
-                cache_policy("Starlink MANIFEST.txt", stale).unwrap_or(CacheDecision::Refresh);
-            if decision == CacheDecision::Serve {
+            if cache_policy("Starlink MANIFEST.txt", stale)? == CacheDecision::Serve {
                 return self.read_cached_manifest(&dir);
             }
         }
-        match self.refresh_manifest() {
-            Ok(manifest) => Ok(manifest),
-            Err(e) if path.exists() && !matches!(e, BraheError::ParseError(_)) => {
-                eprintln!("Warning: Starlink manifest refresh failed ({e}); serving cached copy");
-                self.read_cached_manifest(&dir)
-            }
-            Err(e) => Err(e),
-        }
+        self.refresh_manifest()
     }
 
     /// Fetches the manifest from the server regardless of cache age.
@@ -853,7 +844,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_get_manifest_offline_strict_serves_stale_cache_and_errors_when_empty() {
+    fn test_get_manifest_offline_strict_serves_fresh_cache_only() {
         let cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("offline-strict"));
         let client = StarlinkClient::with_base_url("http://127.0.0.1:1");
@@ -861,8 +852,10 @@ mod tests {
         assert!(err.to_string().contains("MANIFEST.txt"), "{err}");
         let dir = starlink_dir(&cache);
         fs::write(dir.join(MANIFEST_FILE), fixture_manifest()).unwrap();
-        age_file(&dir.join(MANIFEST_FILE), 7200);
         assert_eq!(client.get_manifest().unwrap().len(), 5);
+        age_file(&dir.join(MANIFEST_FILE), 7200);
+        let err = client.get_manifest().unwrap_err();
+        assert!(err.to_string().contains("offline-strict"), "{err}");
         assert!(client.refresh_manifest().is_err());
     }
 
@@ -881,17 +874,20 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_get_manifest_online_refresh_failure_falls_back_to_stale_cache() {
+    fn test_get_manifest_online_refresh_failure_is_an_error() {
         let cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let dir = starlink_dir(&cache);
         fs::write(dir.join(MANIFEST_FILE), fixture_manifest()).unwrap();
-        age_file(&dir.join(MANIFEST_FILE), 7200);
         let client = StarlinkClient::with_base_url("http://127.0.0.1:1").max_retries(0);
         assert_eq!(client.get_manifest().unwrap().len(), 5);
-        assert!(client.refresh_manifest().is_err());
-        fs::remove_file(dir.join(MANIFEST_FILE)).unwrap();
+        age_file(&dir.join(MANIFEST_FILE), 7200);
         assert!(client.get_manifest().is_err());
+        assert_eq!(
+            fs::read_to_string(dir.join(MANIFEST_FILE)).unwrap(),
+            fixture_manifest()
+        );
+        assert_eq!(client.cached_manifest().unwrap().unwrap().len(), 5);
     }
 
     #[test]

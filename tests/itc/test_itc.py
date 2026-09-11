@@ -427,6 +427,8 @@ def test_to_trajectory_to_eci_applies_frame_bias():
     b = eci.interpolate(eci.start_epoch())[:3]
     d = np.linalg.norm(a - b)
     assert 0.1 < d < 2.0
+    R = bh.rotation_eme2000_to_gcrf()
+    np.testing.assert_allclose(b, R @ a, rtol=0, atol=1e-6)
 
 
 def test_to_trajectory_rotating_variant_changes_only_velocity_blocks():
@@ -480,8 +482,9 @@ def test_from_trajectory_round_trip_and_errors():
     assert back.header.step_size == pytest.approx(60.0, abs=1e-9)
     for a, b in zip(itc.states, back.states):
         assert a.epoch == b.epoch
-        np.testing.assert_allclose(a.position, b.position, atol=1e-6)
-        np.testing.assert_allclose(a.velocity, b.velocity, atol=1e-9)
+        np.testing.assert_allclose(a.position, b.position, rtol=0, atol=1e-6)
+        np.testing.assert_allclose(a.velocity, b.velocity, rtol=0, atol=1e-9)
+    assert len(back.covariances) == len(itc.covariances) == 50
     for a, b in zip(itc.covariances, back.covariances):
         np.testing.assert_allclose(a, b, rtol=1e-9, atol=1e-20)
 
@@ -512,6 +515,72 @@ def test_from_trajectory_round_trip_and_errors():
     )
     with pytest.raises(bh.BraheError):
         ITC.from_trajectory(empty, ITCHeader())
+
+    kep = traj.to_keplerian(bh.AngleFormat.DEGREES)
+    with pytest.raises(bh.BraheError):
+        ITC.from_trajectory(kep, ITCHeader())
+
+    seven = bh.OrbitTrajectory(
+        7, bh.CelestialFrame.EME2000, bh.OrbitRepresentation.CARTESIAN
+    )
+    seven.add(itc.states[0].epoch, np.array([7.0e6, 0.0, 0.0, 0.0, 7.5e3, 0.0, 1.0]))
+    with pytest.raises(bh.BraheError):
+        ITC.from_trajectory(seven, ITCHeader())
+
+
+def test_from_trajectory_gcrf_covariance_rotates_through_bias():
+    itc = ITC.from_file(TRUNCATED)
+    eme = itc.to_trajectory()
+    R = bh.rotation_eme2000_to_gcrf()
+    R6 = np.block([[R, np.zeros((3, 3))], [np.zeros((3, 3)), R]])
+    epochs = eme.epochs()
+    states = eme.states()
+    covs = np.array([eme.covariance(e) for e in epochs])
+    gcrf_states = (R6 @ states.T).T
+    gcrf_covs = np.array([R6 @ p @ R6.T for p in covs])
+    gcrf = bh.OrbitTrajectory.from_orbital_data(
+        epochs,
+        gcrf_states,
+        bh.CelestialFrame.GCRF,
+        bh.OrbitRepresentation.CARTESIAN,
+        None,
+        covariances=gcrf_covs,
+    )
+    back = ITC.from_trajectory(gcrf, ITCHeader())
+    for a, b in zip(itc.states, back.states):
+        np.testing.assert_allclose(a.position, b.position, rtol=0, atol=1e-5)
+        np.testing.assert_allclose(a.velocity, b.velocity, rtol=0, atol=1e-8)
+    assert len(back.covariances) == len(itc.covariances) == 50
+    for a, b in zip(itc.covariances, back.covariances):
+        np.testing.assert_allclose(a, b, rtol=1e-8, atol=1e-20)
+
+
+def test_to_trajectory_teme_without_covariance_is_allowed():
+    with open(TRUNCATED) as f:
+        text = f.read()
+    itc = ITC.from_str(_strip_covariance(text))
+    h = itc.header
+    h.state_frame = bh.CelestialFrame.TEME
+    itc.header = h
+    traj = itc.to_trajectory()
+    assert traj.frame == bh.CelestialFrame.TEME
+
+
+def test_from_trajectory_without_covariance_and_frame_conversion():
+    with open(TRUNCATED) as f:
+        text = f.read()
+    itc = ITC.from_str(_strip_covariance(text))
+    traj = itc.to_trajectory()
+    eci = traj.to_eci()
+    back = ITC.from_trajectory(eci, ITCHeader())
+    assert not back.has_covariance
+    for a, b in zip(itc.states, back.states):
+        np.testing.assert_allclose(a.position, b.position, rtol=0, atol=1e-5)
+
+    teme = ITC.from_trajectory(eci, ITCHeader(state_frame=bh.CelestialFrame.TEME))
+    assert teme.header.state_frame == bh.CelestialFrame.TEME
+    d = abs(teme.states[0].position[0] - itc.states[0].position[0])
+    assert d > 1.0e3
 
 
 def test_to_trajectory_feeds_location_accesses():

@@ -528,6 +528,21 @@ def test_from_trajectory_round_trip_and_errors():
         ITC.from_trajectory(seven, ITCHeader())
 
 
+def test_eme2000_covariance_frame_keeps_inertial_covariance():
+    itc = ITC.from_file(TRUNCATED)
+    traj = itc.to_trajectory()
+    back = ITC.from_trajectory(
+        traj, ITCHeader(covariance_frame=ITCCovarianceFrame.EME2000)
+    )
+    assert back.header.covariance_frame == ITCCovarianceFrame.EME2000
+    expected = traj.covariance(itc.states[0].epoch)
+    np.testing.assert_allclose(back.covariances[0], expected, rtol=1e-12, atol=1e-20)
+    forward = back.to_trajectory()
+    np.testing.assert_allclose(
+        forward.covariance(itc.states[0].epoch), expected, rtol=1e-12, atol=1e-20
+    )
+
+
 def test_from_trajectory_gcrf_covariance_rotates_through_bias():
     itc = ITC.from_file(TRUNCATED)
     eme = itc.to_trajectory()

@@ -19,6 +19,18 @@ use crate::utils::BraheError;
 use super::types::{ITC, ITCCovarianceFrame, ITCHeader, ITCStateVector};
 
 /// Places `r` on both diagonal blocks of a 6x6 matrix.
+///
+/// # Arguments
+/// * `r` - 3x3 matrix to duplicate onto the position and velocity blocks
+///
+/// # Returns
+/// * `SMatrix6`: Block-diagonal matrix `[[r, 0], [0, r]]`
+///
+/// # Examples
+/// ```text
+/// block_diagonal(3 * I3) is the 6x6 matrix with 3 on the diagonal in
+/// rows/columns 0-2 and 3-5, and zero everywhere else.
+/// ```
 fn block_diagonal(r: SMatrix3) -> SMatrix6 {
     let mut m = SMatrix6::zeros();
     m.fixed_view_mut::<3, 3>(0, 0).copy_from(&r);
@@ -27,10 +39,35 @@ fn block_diagonal(r: SMatrix3) -> SMatrix6 {
 }
 
 /// Averages a matrix with its transpose to remove floating-point asymmetry.
+///
+/// # Arguments
+/// * `m` - 6x6 matrix expected to be symmetric up to floating-point error
+///
+/// # Returns
+/// * `SMatrix6`: `(m + mᵀ) / 2`
+///
+/// # Examples
+/// ```text
+/// symmetrize applied to a matrix with a 2.0 in position (0, 1) and zero
+/// in position (1, 0) produces 1.0 in both positions.
+/// ```
 fn symmetrize(m: SMatrix6) -> SMatrix6 {
     (m + m.transpose()) * 0.5
 }
 
+/// Skew-symmetric (cross-product) matrix of a 3-vector, satisfying
+/// `skew(w) * v == w.cross(&v)`.
+///
+/// # Arguments
+/// * `w` - 3-element angular velocity, rad/s
+///
+/// # Returns
+/// * `SMatrix3`: Skew-symmetric matrix of `w`
+///
+/// # Examples
+/// ```text
+/// skew([0, 0, 2]) produces [[0, -2, 0], [2, 0, 0], [0, 0, 0]]
+/// ```
 fn skew(w: nalgebra::Vector3<f64>) -> SMatrix3 {
     SMatrix3::new(0.0, -w[2], w[1], w[2], 0.0, -w[0], -w[1], w[0], 0.0)
 }
@@ -42,6 +79,21 @@ fn skew(w: nalgebra::Vector3<f64>) -> SMatrix3 {
 /// NASA CA Handbook (Appendix N eq. N-13) and CARA's `RIC2ECI`. `Rotating`
 /// gives `[[R, 0], [R·[ω×], R]]`, the transform of a truly rotating frame
 /// with ω the RTN frame rate in RTN components.
+///
+/// # Arguments
+/// * `x` - 6-element Cartesian state (position, m; velocity, m/s) in the target inertial frame
+/// * `variant` - RTN rotation convention
+///
+/// # Returns
+/// * `SMatrix6`: Jacobian `J` such that `P_inertial = J * P_rtn * Jᵀ`
+///
+/// # Examples
+/// ```text
+/// For OrbitRelativeFrameVariant::Inertial, the returned 6x6 matrix has
+/// R = rotation_rtn_to_eci(x) on both diagonal blocks and zero elsewhere.
+/// For OrbitRelativeFrameVariant::Rotating, the lower-left block also
+/// carries R * skew(omega_rtn(x)).
+/// ```
 fn rtn_to_frame_jacobian(x: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
     let r = rotation_rtn_to_eci(x);
     let mut j = block_diagonal(r);
@@ -54,6 +106,21 @@ fn rtn_to_frame_jacobian(x: SVector6, variant: OrbitRelativeFrameVariant) -> SMa
 
 /// Inverse of [`rtn_to_frame_jacobian`]: `[[Rᵀ, 0], [0, Rᵀ]]` or
 /// `[[Rᵀ, 0], [-[ω×]Rᵀ, Rᵀ]]`.
+///
+/// # Arguments
+/// * `x` - 6-element Cartesian state (position, m; velocity, m/s) in the inertial frame
+/// * `variant` - RTN rotation convention
+///
+/// # Returns
+/// * `SMatrix6`: Jacobian `J` such that `P_rtn = J * P_inertial * Jᵀ`
+///
+/// # Examples
+/// ```text
+/// For OrbitRelativeFrameVariant::Inertial, the returned 6x6 matrix has
+/// Rᵀ = rotation_rtn_to_eci(x).transpose() on both diagonal blocks and
+/// zero elsewhere. For OrbitRelativeFrameVariant::Rotating, the
+/// lower-left block also carries -skew(omega_rtn(x)) * Rᵀ.
+/// ```
 fn frame_to_rtn_jacobian(x: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
     let rt = rotation_rtn_to_eci(x).transpose();
     let mut j = block_diagonal(rt);
@@ -64,6 +131,20 @@ fn frame_to_rtn_jacobian(x: SVector6, variant: OrbitRelativeFrameVariant) -> SMa
     j
 }
 
+/// Converts an ITC record's position and velocity into a single
+/// 6-element Cartesian state.
+///
+/// # Arguments
+/// * `sv` - ITC state vector with `position` (m) and `velocity` (m/s)
+///
+/// # Returns
+/// * `SVector6`: `[x, y, z, vx, vy, vz]`
+///
+/// # Examples
+/// ```text
+/// state_vector for position [7e6, 0, 0] m and velocity [0, 7.5e3, 0] m/s
+/// produces [7e6, 0, 0, 0, 7.5e3, 0]
+/// ```
 fn state_vector(sv: &ITCStateVector) -> SVector6 {
     SVector6::new(
         sv.position[0],
@@ -75,6 +156,19 @@ fn state_vector(sv: &ITCStateVector) -> SVector6 {
     )
 }
 
+/// Copies a fixed-size 6x6 matrix into a dynamically-sized `DMatrix`.
+///
+/// # Arguments
+/// * `m` - 6x6 matrix to copy
+///
+/// # Returns
+/// * `DMatrix<f64>`: Dynamically-sized 6x6 matrix with the same entries
+///
+/// # Examples
+/// ```text
+/// dmatrix_from(&SMatrix6::identity()) produces a 6x6 DMatrix equal to
+/// the identity matrix.
+/// ```
 fn dmatrix_from(m: &SMatrix6) -> DMatrix<f64> {
     DMatrix::from_iterator(6, 6, m.iter().cloned())
 }

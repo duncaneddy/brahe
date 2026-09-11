@@ -9,8 +9,10 @@ from brahe.itc import (
     ITCCovarianceFrame,
     ITCHeader,
     ITCStateVector,
+    data_type_for_state_frame,
+    state_frame_for_data_type,
 )
-from brahe.spacetrack import SpaceTrackEphemerisFileCategory
+from brahe.spacetrack import EphemerisFileCategory
 
 FULL = "test_assets/starlink/MEME_100001_STARLINK-38128_2540142_Operational_1473385380_UNCLASSIFIED.txt"
 TRUNCATED = "test_assets/starlink/MEME_100002_STARLINK-37711_2540149_Operational_1473385800_UNCLASSIFIED.txt"
@@ -296,6 +298,20 @@ def test_write_fractional_step_and_other_frames():
     assert len(lines) == 12
 
 
+def test_state_frame_data_type_mapping():
+    for token in ["MEME", "meme", "EME2000", "J2000"]:
+        assert state_frame_for_data_type(token) == bh.CelestialFrame.EME2000
+    assert state_frame_for_data_type("TEME") == bh.CelestialFrame.TEME
+    assert state_frame_for_data_type("ITRF") == bh.CelestialFrame.ITRF
+    with pytest.raises(bh.BraheError):
+        state_frame_for_data_type("GCRF")
+    assert data_type_for_state_frame(bh.CelestialFrame.EME2000) == "MEME"
+    assert data_type_for_state_frame(bh.CelestialFrame.TEME) == "TEME"
+    assert data_type_for_state_frame(bh.CelestialFrame.ITRF) == "ITRF"
+    with pytest.raises(bh.BraheError):
+        data_type_for_state_frame(bh.CelestialFrame.GCRF)
+
+
 def test_from_file_infers_frame_from_data_type(tmp_path):
     with open(TRUNCATED) as f:
         text = f.read()
@@ -324,10 +340,7 @@ def test_from_file_infers_frame_from_data_type(tmp_path):
 def test_itc_file_name():
     itc = ITC.from_file(TRUNCATED)
     name = itc.file_name(
-        100002,
-        "STARLINK-37711",
-        SpaceTrackEphemerisFileCategory.OPERATIONAL,
-        "1473385800",
+        100002, "STARLINK-37711", EphemerisFileCategory.OPERATIONAL, "1473385800"
     )
     assert (
         str(name)
@@ -342,16 +355,14 @@ def test_itc_file_name():
         )
     )
     assert (
-        str(teme.file_name(25544, "ISS", SpaceTrackEphemerisFileCategory.SPECIAL, ""))
+        str(teme.file_name(25544, "ISS", EphemerisFileCategory.SPECIAL, ""))
         == "TEME_25544_ISS_3001224_Special__UNCLASSIFIED.txt"
     )
     with pytest.raises(bh.BraheError):
-        ITC(ITCHeader()).file_name(
-            1, "A", SpaceTrackEphemerisFileCategory.OPERATIONAL, ""
-        )
+        ITC(ITCHeader()).file_name(1, "A", EphemerisFileCategory.OPERATIONAL, "")
     with pytest.raises(bh.BraheError):
         ITC(ITCHeader(state_frame=bh.CelestialFrame.GCRF)).file_name(
-            1, "A", SpaceTrackEphemerisFileCategory.OPERATIONAL, ""
+            1, "A", EphemerisFileCategory.OPERATIONAL, ""
         )
 
 
@@ -360,8 +371,150 @@ def test_top_level_exports():
     assert bh.ITCHeader is ITCHeader
     assert bh.ITCStateVector is ITCStateVector
     assert bh.ITCCovarianceFrame is ITCCovarianceFrame
-    assert bh.SpaceTrackEphemerisFileName is bh.spacetrack.SpaceTrackEphemerisFileName
-    assert (
-        bh.SpaceTrackEphemerisFileCategory
-        is bh.spacetrack.SpaceTrackEphemerisFileCategory
+    assert bh.state_frame_for_data_type is state_frame_for_data_type
+    assert bh.data_type_for_state_frame is data_type_for_state_frame
+    assert bh.EphemerisFileName is bh.spacetrack.EphemerisFileName
+    assert bh.EphemerisFileCategory is bh.spacetrack.EphemerisFileCategory
+
+
+def _rtn_to_eme_block(x):
+    r = x[:3]
+    v = x[3:]
+    r_hat = r / np.linalg.norm(r)
+    n_hat = np.cross(r, v)
+    n_hat = n_hat / np.linalg.norm(n_hat)
+    t_hat = np.cross(n_hat, r_hat)
+    R = np.column_stack([r_hat, t_hat, n_hat])
+    J = np.zeros((6, 6))
+    J[:3, :3] = R
+    J[3:, 3:] = R
+    return J
+
+
+def _strip_covariance(text):
+    lines = text.splitlines()
+    keep = lines[:4] + [
+        l
+        for l in lines[4:]
+        if l.split()[0][:13].isdigit() and len(l.split()[0].split(".")[0]) == 13
+    ]
+    return "\n".join(keep)
+
+
+def test_to_trajectory_full_asset():
+    itc = ITC.from_file(FULL)
+    traj = itc.to_trajectory()
+    assert traj.frame == bh.CelestialFrame.EME2000
+    assert len(traj) == 4321
+    assert traj.get_name() == "STARLINK-38128"
+    states = itc.states
+    x0 = np.concatenate([states[0].position, states[0].velocity])
+    J = _rtn_to_eme_block(x0)
+    expected = J @ itc.covariances[0] @ J.T
+    cov0 = traj.covariance(states[0].epoch)
+    np.testing.assert_allclose(cov0, expected, rtol=1e-9, atol=1e-20)
+    assert np.trace(cov0[:3, :3]) == pytest.approx(
+        np.trace(itc.covariances[0][:3, :3]), rel=1e-9
     )
+    x_mid = traj.interpolate(states[0].epoch + 30.0)
+    assert 6.5e6 < np.linalg.norm(x_mid[:3]) < 7.5e6
+
+
+def test_to_trajectory_to_eci_applies_frame_bias():
+    traj = ITC.from_file(TRUNCATED).to_trajectory()
+    eci = traj.to_eci()
+    a = traj.interpolate(traj.start_epoch())[:3]
+    b = eci.interpolate(eci.start_epoch())[:3]
+    d = np.linalg.norm(a - b)
+    assert 0.1 < d < 2.0
+
+
+def test_to_trajectory_rotating_variant_changes_only_velocity_blocks():
+    itc = ITC.from_file(TRUNCATED)
+    e = itc.states[0].epoch
+    a = itc.to_trajectory().covariance(e)
+    b = itc.to_trajectory_with_covariance_variant(
+        bh.OrbitRelativeFrameVariant.ROTATING
+    ).covariance(e)
+    c = itc.to_trajectory(
+        covariance_variant=bh.OrbitRelativeFrameVariant.ROTATING
+    ).covariance(e)
+    np.testing.assert_allclose(a[:3, :3], b[:3, :3], rtol=1e-9, atol=1e-20)
+    np.testing.assert_array_equal(b, c)
+    assert not np.allclose(a[3:, :], b[3:, :], rtol=1e-12, atol=0.0)
+
+
+def test_to_trajectory_without_covariance_and_frame_errors():
+    with open(TRUNCATED) as f:
+        text = f.read()
+    itc = ITC.from_str(_strip_covariance(text))
+    assert not itc.has_covariance
+    traj = itc.to_trajectory()
+    assert len(traj) == 50
+    with pytest.raises(bh.BraheError):
+        traj.covariance(itc.states[0].epoch)
+    assert traj.get_name() is None
+
+    with_cov = ITC.from_file(TRUNCATED)
+    h = with_cov.header
+    h.state_frame = bh.CelestialFrame.TEME
+    with_cov.header = h
+    with pytest.raises(bh.BraheError):
+        with_cov.to_trajectory()
+    h.state_frame = bh.CelestialFrame.EME2000
+    h.covariance_frame = ITCCovarianceFrame.ITRF
+    with_cov.header = h
+    with pytest.raises(bh.BraheError):
+        with_cov.to_trajectory()
+    with pytest.raises(bh.BraheError):
+        ITC(ITCHeader()).to_trajectory()
+
+
+def test_from_trajectory_round_trip_and_errors():
+    itc = ITC.from_file(TRUNCATED)
+    traj = itc.to_trajectory()
+    back = ITC.from_trajectory(traj, ITCHeader(ephemeris_source="round-trip"))
+    assert len(back) == 50
+    assert back.header.ephemeris_source == "round-trip"
+    assert back.header.ephemeris_start == itc.states[0].epoch
+    assert back.header.step_size == pytest.approx(60.0, abs=1e-9)
+    for a, b in zip(itc.states, back.states):
+        assert a.epoch == b.epoch
+        np.testing.assert_allclose(a.position, b.position, atol=1e-6)
+        np.testing.assert_allclose(a.velocity, b.velocity, atol=1e-9)
+    for a, b in zip(itc.covariances, back.covariances):
+        np.testing.assert_allclose(a, b, rtol=1e-9, atol=1e-20)
+
+    rot = itc.to_trajectory_with_covariance_variant(
+        bh.OrbitRelativeFrameVariant.ROTATING
+    )
+    back_rot = ITC.from_trajectory_with_covariance_variant(
+        rot, ITCHeader(), bh.OrbitRelativeFrameVariant.ROTATING
+    )
+    np.testing.assert_allclose(
+        back_rot.covariances[0], itc.covariances[0], rtol=1e-9, atol=1e-20
+    )
+
+    with pytest.raises(bh.BraheError):
+        ITC.from_trajectory(traj, ITCHeader(covariance_frame=ITCCovarianceFrame.ITRF))
+    with pytest.raises(bh.BraheError):
+        ITC.from_trajectory(traj, ITCHeader(state_frame=bh.CelestialFrame.TEME))
+    empty = bh.OrbitTrajectory(
+        6, bh.CelestialFrame.EME2000, bh.OrbitRepresentation.CARTESIAN
+    )
+    with pytest.raises(bh.BraheError):
+        ITC.from_trajectory(empty, ITCHeader())
+
+
+def test_to_trajectory_feeds_location_accesses():
+    itc = ITC.from_file(FULL)
+    traj = itc.to_trajectory()
+    station = bh.PointLocation(-122.4194, 37.7749, 0.0)
+    start = itc.start_epoch
+    end = start + 12.0 * 3600.0
+    windows = bh.location_accesses(
+        [station], [traj], start, end, bh.ElevationConstraint(min_elevation_deg=10.0)
+    )
+    assert len(windows) > 0
+    for w in windows:
+        assert w.window_open >= start and w.window_close <= end

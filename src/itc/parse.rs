@@ -225,7 +225,6 @@ fn finish_record(
     itc: &mut ITC,
     state: ITCStateVector,
     covariance_lines: &[&str],
-    has_covariance: &mut Option<bool>,
 ) -> Result<(), BraheError> {
     let count = covariance_lines.len();
     if count != 0 && count != 3 {
@@ -234,20 +233,7 @@ fn finish_record(
             state.epoch, count
         )));
     }
-    let with_covariance = count == 3;
-    match has_covariance {
-        None => *has_covariance = Some(with_covariance),
-        Some(expected) if *expected != with_covariance => {
-            return Err(parse_error(format!(
-                "record at {} {} covariance but earlier records {}; covariance is all-or-none",
-                state.epoch,
-                if with_covariance { "has" } else { "lacks" },
-                if *expected { "have it" } else { "lack it" }
-            )));
-        }
-        Some(_) => {}
-    }
-    if with_covariance {
+    if count == 3 {
         let covariance = parse_covariance_lines(covariance_lines, state.epoch)?;
         itc.push_state_with_covariance(state, covariance)
     } else {
@@ -297,14 +283,13 @@ impl ITC {
         let header = parse_header(&lines[..4])?;
         let mut itc = ITC::new(header);
 
-        let mut has_covariance: Option<bool> = None;
         let mut pending: Option<ITCStateVector> = None;
         let mut covariance_lines: Vec<&str> = Vec::with_capacity(3);
         for line in &lines[4..] {
             let first = line.split_whitespace().next().unwrap_or("");
             if is_epoch_token(first) {
                 if let Some(state) = pending.take() {
-                    finish_record(&mut itc, state, &covariance_lines, &mut has_covariance)?;
+                    finish_record(&mut itc, state, &covariance_lines)?;
                     covariance_lines.clear();
                 }
                 pending = Some(parse_state_line(line)?);
@@ -318,7 +303,7 @@ impl ITC {
             }
         }
         if let Some(state) = pending.take() {
-            finish_record(&mut itc, state, &covariance_lines, &mut has_covariance)?;
+            finish_record(&mut itc, state, &covariance_lines)?;
         }
         if itc.is_empty() {
             return Err(parse_error("no ephemeris records"));
@@ -497,6 +482,26 @@ UVW\n\
         assert_eq!(itc.len(), 3);
         assert!(!itc.has_covariance());
         assert!(itc.header.created.is_none());
+        assert_eq!(itc.header.step_size, Some(60.0));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_parse_header_fields_in_any_order() {
+        let content = "created:2026-09-11 01:55:52 UTC\n\
+step_size:60 ephemeris_stop:2026-09-14 01:42:42 UTC ephemeris_start:2026-09-11 01:42:42 UTC\n\
+ephemeris_source:blend\n\
+UVW\n\
+2026254014242.000 4244.3465367594 1264.3254891872 5043.9826441325 3.5951547629 5.2587956583 -4.3350352914\n";
+        let itc = ITC::from_str(content).unwrap();
+        assert_eq!(
+            itc.header.ephemeris_start,
+            Some(utc(2026, 9, 11, 1, 42, 42.0))
+        );
+        assert_eq!(
+            itc.header.ephemeris_stop,
+            Some(utc(2026, 9, 14, 1, 42, 42.0))
+        );
         assert_eq!(itc.header.step_size, Some(60.0));
     }
 

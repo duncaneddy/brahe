@@ -6,7 +6,11 @@
  */
 
 use crate::constants::AngleFormat;
-use crate::frames::{CelestialFrame, FrameAxes, ReferenceFrame, iau_rotation_model_ids};
+use crate::frames::{
+    CelestialFrame, FrameAxes, ReferenceFrame, iau_rotation_model_ids, rotation_eme2000_to_gcrf,
+    rotation_gcrf_to_eme2000,
+};
+use crate::math::linalg::SMatrix3;
 use crate::time::Epoch;
 use crate::utils::BraheError;
 use nalgebra::{DMatrix, SMatrix};
@@ -153,6 +157,39 @@ pub(crate) fn is_eme2000_axes_frame(frame: &ReferenceFrame) -> bool {
 /// * `bool`: `true` for `GCRF` (equivalently `ECI`) and `EME2000`
 pub(crate) fn covariance_frame_allowed(frame: &ReferenceFrame) -> bool {
     *frame == CelestialFrame::GCRF || *frame == CelestialFrame::EME2000
+}
+
+/// Rotation of covariance axes between two frames that may carry covariance.
+///
+/// Covariance is stored only in GCRF (ICRF axes) or EME2000 frames, whose
+/// axes differ by the constant frame bias, so the rotation never depends on
+/// the epoch.
+///
+/// # Arguments
+/// * `from` - Frame the covariance is expressed in
+/// * `to` - Frame to rotate it into
+///
+/// # Returns
+/// * `Ok(SMatrix3)`: Rotation taking vectors from `from` axes to `to` axes (identity when the axes match)
+/// * `Err(BraheError)`: If either frame may not carry covariance
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn inertial_covariance_rotation(
+    from: &ReferenceFrame,
+    to: &ReferenceFrame,
+) -> Result<SMatrix3, BraheError> {
+    if !covariance_frame_allowed(from) || !covariance_frame_allowed(to) {
+        return Err(BraheError::Error(format!(
+            "covariance can only be rotated between GCRF and EME2000 frames; requested {} to {}",
+            from, to
+        )));
+    }
+    Ok(
+        match (is_eme2000_axes_frame(from), is_eme2000_axes_frame(to)) {
+            (false, true) => rotation_gcrf_to_eme2000(),
+            (true, false) => rotation_eme2000_to_gcrf(),
+            _ => SMatrix3::identity(),
+        },
+    )
 }
 
 /// Enumeration of orbit state representations
@@ -1237,5 +1274,31 @@ mod tests {
             CelestialFrame::MOD
         )));
         assert!(!is_eme2000_axes_frame(&ReferenceFrame::RTN("SC")));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_inertial_covariance_rotation() {
+        use crate::frames::{rotation_eme2000_to_gcrf, rotation_gcrf_to_eme2000};
+        let gcrf: ReferenceFrame = CelestialFrame::GCRF.into();
+        let eme: ReferenceFrame = CelestialFrame::EME2000.into();
+        assert_eq!(
+            inertial_covariance_rotation(&gcrf, &gcrf).unwrap(),
+            SMatrix3::identity()
+        );
+        assert_eq!(
+            inertial_covariance_rotation(&eme, &eme).unwrap(),
+            SMatrix3::identity()
+        );
+        assert_eq!(
+            inertial_covariance_rotation(&gcrf, &eme).unwrap(),
+            rotation_gcrf_to_eme2000()
+        );
+        assert_eq!(
+            inertial_covariance_rotation(&eme, &gcrf).unwrap(),
+            rotation_eme2000_to_gcrf()
+        );
+        assert!(inertial_covariance_rotation(&CelestialFrame::ITRF.into(), &eme).is_err());
+        assert!(inertial_covariance_rotation(&eme, &CelestialFrame::TEME.into()).is_err());
     }
 }

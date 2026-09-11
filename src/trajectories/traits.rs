@@ -172,7 +172,6 @@ pub(crate) fn covariance_frame_allowed(frame: &ReferenceFrame) -> bool {
 /// # Returns
 /// * `Ok(SMatrix3)`: Rotation taking vectors from `from` axes to `to` axes (identity when the axes match)
 /// * `Err(BraheError)`: If either frame may not carry covariance
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn inertial_covariance_rotation(
     from: &ReferenceFrame,
     to: &ReferenceFrame,

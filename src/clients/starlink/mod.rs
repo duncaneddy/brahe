@@ -8,11 +8,14 @@
  * the manifest and the files locally, re-downloads a satellite's file only
  * when the manifest names a new one, and hands back [`crate::itc::ITC`]
  * messages or trajectories. [`StarlinkManifest`] is the typed listing with
- * the start and stop epochs decoded from the file names.
+ * the start and stop epochs decoded from the file names, and [`StarlinkClient`]
+ * is the client that downloads and caches it.
  */
 
+pub mod client;
 pub mod manifest;
 
+pub use client::StarlinkClient;
 pub use manifest::{StarlinkManifest, StarlinkManifestEntry};
 
 use crate::clients::RateLimitConfig;

@@ -149,11 +149,13 @@ fn parse_header(lines: &[&str]) -> Result<ITCHeader, BraheError> {
     if let Some(value) = header_field(lines[1], keys[2], &[keys[0], keys[1]])
         && !value.is_empty()
     {
-        header.step_size = Some(
-            value
-                .parse::<f64>()
-                .map_err(|_| parse_error(format!("invalid step_size value '{}'", value)))?,
-        );
+        let step_size: f64 = value
+            .parse()
+            .map_err(|_| parse_error(format!("invalid step_size value '{}'", value)))?;
+        if !step_size.is_finite() || step_size < 0.0 {
+            return Err(parse_error(format!("invalid step_size value '{}'", value)));
+        }
+        header.step_size = Some(step_size);
     }
 
     if let Some(value) = header_field(lines[2], "ephemeris_source:", &[])
@@ -491,6 +493,18 @@ mod tests {
 
     #[test]
     #[parallel]
+    fn test_parse_tolerates_crlf_line_endings() {
+        let lf = std::fs::read_to_string(TRUNCATED).unwrap();
+        let crlf = lf.replace('\n', "\r\n");
+        let itc = ITC::from_str(&crlf).unwrap();
+        assert_eq!(itc.len(), 50);
+
+        let lf_itc = ITC::from_str(&lf).unwrap();
+        assert_eq!(itc.covariances[0][(0, 0)], lf_itc.covariances[0][(0, 0)]);
+    }
+
+    #[test]
+    #[parallel]
     fn test_parse_from_str_has_no_source_name() {
         let content = std::fs::read_to_string(TRUNCATED).unwrap();
         let itc = ITC::from_str(&content).unwrap();
@@ -597,6 +611,10 @@ UVW\n{}",
         assert!(ITC::from_str(&header_and(&format!("{}{}", COV0, REC0))).is_err());
         let bad_step = header_and(REC0).replace("step_size:60", "step_size:abc");
         assert!(ITC::from_str(&bad_step).is_err());
+        let nan_step = header_and(REC0).replace("step_size:60", "step_size:NaN");
+        assert!(ITC::from_str(&nan_step).is_err());
+        let inf_step = header_and(REC0).replace("step_size:60", "step_size:inf");
+        assert!(ITC::from_str(&inf_step).is_err());
         let bad_created =
             header_and(REC0).replace("created:2026-09-11 01:55:52 UTC", "created:yesterday");
         assert!(ITC::from_str(&bad_created).is_err());

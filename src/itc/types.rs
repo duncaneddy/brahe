@@ -12,6 +12,17 @@ use crate::frames::CelestialFrame;
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
+/// Whether a 6x6 covariance matrix is symmetric to within floating-point noise.
+pub(super) fn is_symmetric(m: &SMatrix<f64, 6, 6>) -> bool {
+    (0..6).all(|i| {
+        (0..i).all(|k| {
+            let a = m[(i, k)];
+            let b = m[(k, i)];
+            (a - b).abs() <= 1.0e-9 * a.abs().max(b.abs()).max(f64::MIN_POSITIVE)
+        })
+    })
+}
+
 /// Frame in which a Modified ITC file expresses its covariance.
 ///
 /// The fourth header line names this frame. `UVW` is Space-Track's name for
@@ -461,6 +472,12 @@ impl ITC {
             ));
         }
         Self::check_finite(&state, Some(&covariance))?;
+        if !is_symmetric(&covariance) {
+            return Err(BraheError::Error(format!(
+                "Modified ITC covariance at {} is not symmetric",
+                state.epoch
+            )));
+        }
         self.check_epoch_order(state.epoch)?;
         self.states.push(state);
         self.covariances.push(covariance);
@@ -670,5 +687,24 @@ mod tests {
                 .push_state_with_covariance(state(60.0), cov)
                 .is_err()
         );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_itc_push_state_with_covariance_rejects_asymmetric() {
+        let mut asymmetric = SMatrix::<f64, 6, 6>::identity();
+        asymmetric[(0, 1)] = 1.0;
+        asymmetric[(1, 0)] = 2.0;
+        let mut itc = ITC::new(ITCHeader::new());
+        assert!(
+            itc.push_state_with_covariance(state(0.0), asymmetric)
+                .is_err()
+        );
+
+        let mut noisy = SMatrix::<f64, 6, 6>::identity();
+        noisy[(0, 1)] = 1.0 + 1.0e-15;
+        noisy[(1, 0)] = 1.0;
+        itc.push_state_with_covariance(state(0.0), noisy).unwrap();
+        assert_eq!(itc.len(), 1);
     }
 }

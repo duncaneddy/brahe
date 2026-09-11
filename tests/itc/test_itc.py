@@ -97,6 +97,14 @@ def test_itc_covariance_all_or_none():
         ITC(ITCHeader()).push_state_with_covariance(state(0.0), np.eye(3))
 
 
+def test_itc_push_state_with_covariance_rejects_asymmetric():
+    asymmetric = np.eye(6)
+    asymmetric[0, 1] = 1.0
+    asymmetric[1, 0] = 2.0
+    with pytest.raises(bh.BraheError):
+        ITC(ITCHeader()).push_state_with_covariance(state(0.0), asymmetric)
+
+
 def test_parse_full_asset_header():
     itc = ITC.from_file(FULL)
     h = itc.header
@@ -202,6 +210,8 @@ def test_parse_without_covariance_and_unrecognized_header():
         HEADER + REC1 + REC0,
         HEADER + COV0 + REC0,
         HEADER.replace("step_size:60", "step_size:abc") + REC0,
+        HEADER.replace("step_size:60", "step_size:NaN") + REC0,
+        HEADER.replace("step_size:60", "step_size:inf") + REC0,
         HEADER.replace("created:2026-09-11 01:55:52 UTC", "created:yesterday") + REC0,
         HEADER.replace("\nUVW\n", "\nTEME\n") + REC0,
     ],

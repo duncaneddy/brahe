@@ -4,7 +4,7 @@
 
 use std::path::Path;
 
-use super::types::ITC;
+use super::types::{ITC, is_symmetric};
 use crate::time::conversions::day_of_year_from_calendar;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
@@ -138,6 +138,14 @@ impl ITC {
                 "cannot write a Modified ITC message with a non-finite position, velocity or covariance element"
                     .to_string(),
             ));
+        }
+        for (index, covariance) in self.covariances.iter().enumerate() {
+            if !is_symmetric(covariance) {
+                return Err(BraheError::Error(format!(
+                    "Modified ITC covariance at record {} is not symmetric",
+                    index
+                )));
+            }
         }
         let start = self.header.ephemeris_start.or_else(|| self.start_epoch());
         let stop = self.header.ephemeris_stop.or_else(|| self.end_epoch());
@@ -482,6 +490,24 @@ mod tests {
             [f64::INFINITY, 0.0, 0.0],
             [0.0, 7.5e3, 0.0],
         ));
+        assert!(itc.to_string().is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_write_rejects_asymmetric_covariance() {
+        let mut itc = ITC::new(ITCHeader::new());
+        itc.push_state_with_covariance(
+            ITCStateVector::new(
+                utc(2026, 9, 11, 1, 42, 42.0),
+                [7.0e6, 0.0, 0.0],
+                [0.0, 7.5e3, 0.0],
+            ),
+            SMatrix::<f64, 6, 6>::identity(),
+        )
+        .unwrap();
+        itc.covariances[0][(0, 1)] = 1.0;
+        itc.covariances[0][(1, 0)] = 2.0;
         assert!(itc.to_string().is_err());
     }
 

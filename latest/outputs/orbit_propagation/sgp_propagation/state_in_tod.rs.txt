@@ -1,0 +1,10 @@
+Epoch: 2008-09-20 12:35:40.104 UTC
+TOD state vector:
+  Position: [4549919.503, 3253273.494, 3728355.240] m
+  Velocity: [-1021.640442, 6334.578137, -4267.256174] m/s
+
+GCRF state vector:
+  Position: [4559658.424, 3244289.422, 3724283.812] m
+  Velocity: [-1012.673886, 6336.465766, -4266.590890] m/s
+
+Position difference norm: 13861.337 m

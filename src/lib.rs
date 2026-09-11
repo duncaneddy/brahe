@@ -127,6 +127,7 @@ pub use trajectories::*;
 pub mod access;
 // Note: the client modules and ccsds are not glob-re-exported since they use
 // namespaced patterns that should be accessed via brahe::ccsds::*, brahe::celestrak::*, etc.
+// The GCAT types and functions re-exported above are the one exception.
 pub mod attitude;
 pub mod ccsds;
 pub mod clients;

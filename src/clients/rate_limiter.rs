@@ -4,9 +4,10 @@
  * Tracks request timestamps in two sliding windows (one minute and one
  * hour) and reports how long a caller must wait before its next request
  * stays within both limits. Each client supplies its own default
- * [`RateLimitConfig`]; the type-level default matches Space-Track.org's
- * documented limits of 30 requests per minute and 300 requests per hour
- * at roughly 83% (25 per minute, 250 per hour).
+ * [`RateLimitConfig`]; the type-level default of 25 requests per minute
+ * and 250 per hour is roughly 83% of Space-Track.org's documented 30 per
+ * minute and 300 per hour, leaving margin for clock drift and shared
+ * accounts.
  */
 
 use std::collections::VecDeque;
@@ -64,7 +65,7 @@ impl RateLimitConfig {
     /// # Examples
     ///
     /// ```
-    /// use brahe::spacetrack::RateLimitConfig;
+    /// use brahe::clients::RateLimitConfig;
     ///
     /// let config = RateLimitConfig::disabled();
     /// assert_eq!(config.max_per_minute, u32::MAX);

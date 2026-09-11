@@ -1,8 +1,8 @@
 /*!
  * Network clients for external satellite data services.
  *
- * Each submodule wraps one service behind a blocking HTTP client with local
- * caching and `BRAHE_NETWORK_MODE` handling:
+ * Each submodule wraps one service behind cached, network-mode-aware blocking
+ * HTTP downloads:
  *
  * - [`celestrak`] - CelesTrak GP, supplemental GP and SATCAT queries
  * - [`spacetrack`] - Space-Track.org authenticated queries, CDMs and file shares

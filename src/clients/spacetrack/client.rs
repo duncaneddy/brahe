@@ -11,10 +11,10 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use crate::clients::spacetrack::query::SpaceTrackQuery;
-use crate::clients::spacetrack::rate_limiter::{RateLimitConfig, RateLimiter};
 use crate::clients::spacetrack::responses::{
     FileShareFileRecord, FolderRecord, SATCATRecord, SPEphemerisFileRecord,
 };
+use crate::clients::{RateLimitConfig, RateLimiter};
 use crate::types::GPRecord;
 use crate::utils::BraheError;
 use crate::utils::network::ensure_online;

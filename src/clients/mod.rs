@@ -16,4 +16,8 @@
  */
 
 pub mod celestrak;
+pub mod rate_limiter;
 pub mod spacetrack;
+
+pub use rate_limiter::RateLimitConfig;
+pub(crate) use rate_limiter::RateLimiter;

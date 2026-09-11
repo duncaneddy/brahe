@@ -206,7 +206,6 @@ pub(crate) fn inertial_covariance_rotation(
 /// # Returns
 /// * `Some(DMatrix<f64>)`: The `dimension x dimension` Jacobian when both frames may carry covariance
 /// * `None`: When either frame cannot carry covariance or `dimension < 6`
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn frame_covariance_jacobian(
     from: &ReferenceFrame,
     to: &ReferenceFrame,

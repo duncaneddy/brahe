@@ -142,8 +142,8 @@ fn smat66_to_dmat(sm: SMatrix<f64, 6, 6>) -> DMatrix<f64> {
 use super::traits::{
     CovarianceInterpolationMethod, InterpolatableTrajectory, InterpolationConfig,
     InterpolationMethod, OrbitRepresentation, STMStorage, SensitivityStorage, Trajectory,
-    TrajectoryEvictionPolicy, bci_fixed_frame, covariance_frame_allowed, is_eme2000_axes_frame,
-    is_icrf_axes_frame, keplerian_center,
+    TrajectoryEvictionPolicy, bci_fixed_frame, covariance_frame_allowed, frame_covariance_jacobian,
+    is_eme2000_axes_frame, is_icrf_axes_frame, keplerian_center,
 };
 
 /// Dynamic (runtime-sized) orbital trajectory container.
@@ -1985,8 +1985,12 @@ impl DOrbitTrajectory {
     /// their own frame's center, using that body's gravitational parameter.
     /// The result is then routed to `frame` by the reference frame router,
     /// which resolves any center offset through the loaded SPK kernels.
-    /// Covariances, state transition matrices, sensitivities, and
-    /// accelerations are dropped.
+    /// Covariance is carried through the conversion when both frames may
+    /// hold it (GCRF and EME2000) and the trajectory is Cartesian: each
+    /// matrix is rotated by the block-diagonal frame-bias Jacobian, with an
+    /// identity block for state elements beyond the orbital six. Any other
+    /// target frame, or a Keplerian source, drops the covariance. State
+    /// transition matrices, sensitivities, and accelerations are dropped.
     ///
     /// For extended states (dimension > 6), only the first 6 elements
     /// (orbital state) are converted. Additional elements (6+) are preserved
@@ -2041,10 +2045,33 @@ impl DOrbitTrajectory {
             states_converted.push(converted);
         }
 
+        let covariances = match (&self.covariances, self.representation) {
+            (Some(covs), OrbitRepresentation::Cartesian) => {
+                match frame_covariance_jacobian(&self.frame, &frame, self.dimension) {
+                    Some(j)
+                        if covs.iter().all(|p| {
+                            p.nrows() == self.dimension && p.ncols() == self.dimension
+                        }) =>
+                    {
+                        Some(
+                            covs.iter()
+                                .map(|p| {
+                                    let rotated = &j * p * j.transpose();
+                                    (&rotated + rotated.transpose()) * 0.5
+                                })
+                                .collect(),
+                        )
+                    }
+                    _ => None,
+                }
+            }
+            _ => None,
+        };
+
         Ok(Self {
             epochs: self.epochs.clone(),
             states: states_converted,
-            covariances: None,   // Covariances are dropped during frame conversions
+            covariances,
             stms: None,          // STMs are dropped during frame conversions
             sensitivities: None, // Sensitivities are dropped during frame conversions
             sensitivity_dimension: None,
@@ -7333,5 +7360,119 @@ mod tests {
                 assert_eq!(with_gm[k], with_eci[k]);
             }
         }
+    }
+
+    fn covariance_test_trajectory(frame: CelestialFrame, dimension: usize) -> DOrbitTrajectory {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let mut epochs = Vec::new();
+        let mut states = Vec::new();
+        let mut covs = Vec::new();
+        for i in 0..3 {
+            epochs.push(epoch + 60.0 * i as f64);
+            let mut x = vec![6.878e6, 1.0e5 * i as f64, -2.0e5, 10.0, 7.5e3, 20.0];
+            x.extend(std::iter::repeat_n(1.5, dimension - 6));
+            states.push(DVector::from_vec(x));
+            let mut p = DMatrix::<f64>::zeros(dimension, dimension);
+            for k in 0..dimension {
+                p[(k, k)] = 1.0 + k as f64;
+            }
+            p[(0, 1)] = 0.25;
+            p[(1, 0)] = 0.25;
+            p[(1, 4)] = -0.1;
+            p[(4, 1)] = -0.1;
+            if dimension > 6 {
+                p[(0, 6)] = 0.05;
+                p[(6, 0)] = 0.05;
+            }
+            covs.push(p);
+        }
+        DOrbitTrajectory::from_orbital_data(
+            epochs,
+            states,
+            frame,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(covs),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dorbittrajectory_to_frame_rotates_covariance_between_gcrf_and_eme2000() {
+        setup_global_test_eop();
+        let traj = covariance_test_trajectory(CelestialFrame::GCRF, 6);
+        let eme = traj.to_eme2000().unwrap();
+        let p0 = traj.covariances.as_ref().unwrap()[0].clone();
+        let q0 = eme.covariances.as_ref().unwrap()[0].clone();
+        let r = crate::frames::rotation_gcrf_to_eme2000();
+        for i in 0..3 {
+            for k in 0..3 {
+                let expected: f64 = (0..3)
+                    .map(|a| {
+                        (0..3)
+                            .map(|b| r[(i, a)] * p0[(a, b)] * r[(k, b)])
+                            .sum::<f64>()
+                    })
+                    .sum();
+                assert_abs_diff_eq!(q0[(i, k)], expected, epsilon = 1e-12);
+            }
+        }
+        assert_abs_diff_eq!(q0.trace(), p0.trace(), epsilon = 1e-12);
+        assert!((q0[(0, 1)] - p0[(0, 1)]).abs() > 0.0);
+
+        let back = eme.to_gcrf().unwrap();
+        let b0 = &back.covariances.as_ref().unwrap()[0];
+        for i in 0..6 {
+            for k in 0..6 {
+                assert_abs_diff_eq!(
+                    b0[(i, k)],
+                    p0[(i, k)],
+                    epsilon = 1e-12 * p0[(i, k)].abs().max(1.0)
+                );
+            }
+        }
+        assert_eq!(back.covariances.as_ref().unwrap().len(), 3);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dorbittrajectory_to_frame_keeps_covariance_for_same_frame_and_extended_state() {
+        setup_global_test_eop();
+        let traj = covariance_test_trajectory(CelestialFrame::EME2000, 7);
+        let same = traj.to_frame(CelestialFrame::EME2000).unwrap();
+        assert_eq!(
+            same.covariances.as_ref().unwrap()[1],
+            traj.covariances.as_ref().unwrap()[1]
+        );
+
+        let gcrf = traj.to_gcrf().unwrap();
+        let q = &gcrf.covariances.as_ref().unwrap()[0];
+        assert_eq!(q.nrows(), 7);
+        assert_eq!(q[(6, 6)], 7.0);
+        let p = &traj.covariances.as_ref().unwrap()[0];
+        let r = crate::frames::rotation_eme2000_to_gcrf();
+        let expected_06: f64 = (0..3).map(|a| r[(0, a)] * p[(a, 6)]).sum();
+        assert_abs_diff_eq!(q[(0, 6)], expected_06, epsilon = 1e-12);
+        assert_abs_diff_eq!(q[(6, 0)], expected_06, epsilon = 1e-12);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dorbittrajectory_to_frame_drops_covariance_for_unsupported_targets_and_keplerian() {
+        setup_global_test_eop();
+        let traj = covariance_test_trajectory(CelestialFrame::GCRF, 6);
+        assert!(traj.to_itrf().unwrap().covariances.is_none());
+        assert!(
+            traj.to_frame(CelestialFrame::TEME)
+                .unwrap()
+                .covariances
+                .is_none()
+        );
+
+        let mut kep = traj.to_keplerian(AngleFormat::Degrees).unwrap();
+        assert!(kep.covariances.is_none());
+        kep.covariances = traj.covariances.clone();
+        assert!(kep.to_eme2000().unwrap().covariances.is_none());
     }
 }

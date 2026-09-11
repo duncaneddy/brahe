@@ -597,6 +597,8 @@ mod tests {
         assert!(itc.to_trajectory().is_err());
         itc.header.covariance_frame = ITCCovarianceFrame::EME2000;
         assert!(itc.to_trajectory().is_ok());
+        itc.header.state_frame = CelestialFrame::GCRF;
+        assert!(itc.to_trajectory().is_err());
         let empty = ITC::new(ITCHeader::new());
         assert!(empty.to_trajectory().is_err());
         let via_try: Result<DOrbitTrajectory, _> = (&ITC::from_file(TRUNCATED).unwrap()).try_into();
@@ -678,6 +680,29 @@ mod tests {
                 itc.covariances[0][(3, 1)],
                 epsilon = 1e-9 * itc.covariances[0][(3, 1)].abs()
             );
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_from_trajectory_eme2000_covariance_frame_keeps_inertial_covariance() {
+        setup_global_test_eop();
+        let itc = ITC::from_file(TRUNCATED).unwrap();
+        let traj = itc.to_trajectory().unwrap();
+        let back = ITC::from_trajectory(
+            &traj,
+            ITCHeader::new().with_covariance_frame(ITCCovarianceFrame::EME2000),
+        )
+        .unwrap();
+        let cov0 = traj.covariance_at(itc.states[0].epoch).unwrap().unwrap();
+        for i in 0..6 {
+            for k in 0..6 {
+                assert_abs_diff_eq!(
+                    back.covariances[0][(i, k)],
+                    cov0[(i, k)],
+                    epsilon = 1e-9 * cov0[(i, k)].abs().max(1e-20)
+                );
+            }
         }
     }
 
